@@ -290,8 +290,11 @@ Undecided relaxation candidates are ledger decisions, not behaviour.
 
 The logo waits for the fresh first page before changing the URL, avoiding a
 table-to-grid flash. A later history change or newer search cancels it. It
-suppresses a pending `restoreAroundCursor`, the return-from-detail placement and
-the table's density save.
+suppresses the next cursor restore while detail can still be mounted, return
+focus/placement for unmarked detail compatibility, and the outgoing table's
+density save. Detail origin identity rejects unrelated marked returns, but does
+not replace the unmarked guard. Density placement ownership does not prevent
+capturing a new outgoing ratio after Home has cleared saved state.
 
 Home also resets the tab's density preference to grid, retaining
 fresh-data-before-layout timing. A later density choice wins without cancelling

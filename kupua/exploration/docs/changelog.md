@@ -24,6 +24,17 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 7 October 2026 - Preserve Home guard contracts with composed proof
+
+Add real-Home controls to the existing mounted suites for unmarked detail return
+and the first cached cursor restore during held Home completion. They assert no
+stale focus/placement and one page read with the fresh top buffer, rather than
+mocked suppression calls. The detail fixture completes its close transition so
+return suppression cannot leak into the next case. Both Home fixtures drain the
+existing safety cleanup under controlled time before teardown. Existing density and paired
+URL-sync read-budget controls remain unchanged. No production guard is removed;
+isolated deletions exposed responsibilities not covered by newer ownership.
+
 ### 6 October 2026 - Preserve long-press range ownership and chaining
 
 Long-press captures its old-anchor range with an endpoint-chaining instruction for

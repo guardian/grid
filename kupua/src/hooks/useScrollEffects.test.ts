@@ -58,6 +58,7 @@ import { buildSearchKey, getRetainedSortValues } from "@/lib/image-offset-cache"
 import { buildHistorySnapshot } from "@/lib/build-history-snapshot";
 import { StatusBar } from "@/components/StatusBar";
 import { resetToHome } from "@/lib/reset-to-home";
+import { useReturnFromDetail } from "./useReturnFromDetail";
 
 let routeParams: UrlSearchParams = { nonFree: "true" };
 let routeLocation: { search: UrlSearchParams; state: unknown } | undefined;
@@ -118,6 +119,34 @@ function frame() {
     for (const [, callback] of pending) callback(performance.now());
   });
 }
+
+it("Home from unmarked detail does not reinstate its return focus", async () => {
+  window.history.replaceState({ kupuaKey: "unmarked-detail" }, "", "/search?nonFree=true&image=image-400");
+  useUiPrefsStore.setState({ density: "grid" });
+  useSearchStore.setState({ dataSource: new MockDataSource(100), params: { nonFree: "true" }, pitId: null });
+  const setFocus = vi.spyOn(useSearchStore.getState(), "setFocusedImageId");
+  const scrollToIndex = vi.fn();
+  const view = renderHook(({ imageParam }: { imageParam: string | undefined }) => useReturnFromDetail({
+    imageParam, setFocusedImageId: setFocus, findImageIndex: () => 40,
+    flatIndexToRow: (index) => index,
+    virtualizer: { scrollToIndex } as unknown as Virtualizer<HTMLDivElement, Element>,
+  }), { initialProps: { imageParam: "image-400" as string | undefined } });
+  try {
+    await act(async () => {
+      await resetToHome(() => {
+        window.history.replaceState({ kupuaKey: "home-destination" }, "", "/search?nonFree=true");
+      });
+    });
+    setFocus.mockClear();
+    act(() => view.rerender({ imageParam: undefined }));
+    frame();
+    expect(setFocus).not.toHaveBeenCalled();
+    expect(useSearchStore.getState().focusedImageId).toBeNull();
+    expect(scrollToIndex).not.toHaveBeenCalled();
+  } finally {
+    act(() => vi.runOnlyPendingTimers());
+  }
+});
 
 function UrlSyncHarness({ children }: PropsWithChildren) {
   useEffect(() => { beforeUrlSync?.(); }, [routeParams]);

@@ -125,7 +125,9 @@ newer search, another Home, or replacement/abort of its captured discovery retir
 the continuation without necessarily cancelling useful data work.
 
 Home owns a temporary top thumb/tooltip hold and token-scoped restore, return and
-density suppressions. Completion or cancellation releases only its own tokens.
+density suppressions. Consumers can consume those tokens; cancellation and safety
+cleanup release only its own remaining tokens. Home presets URL-sync's paired
+query/diff state so its preloaded search is not dispatched again on URL commit.
 Scrubber resynchronizes when the hold releases even if numeric props are unchanged;
 near-top geometry is not completion authority. Ordinary rendering is not navigation.
 
@@ -395,9 +397,10 @@ ordering path. The origin/detail exception is not a blanket display-only bailout
 ## Other behaviours worth knowing
 
 ### `suppressNextRestore` (search-store)
-`resetToHome()` sets `suppressNextRestore=true` before navigating. Prevents stale
-buffer from overwriting the fresh "home" page-1 results if `restoreAroundCursor()`
-fires during the transition.
+`resetToHome()` owns a one-shot token before starting its search. A cached detail
+awaiting its first restore can request a deep buffer after Home publishes page one
+but before navigation closes detail. The attempted-image and pending-cursor checks
+do not reject that first request; the store consumes Home's token instead.
 
 ### sessionStorage image-offset cache
 `src/lib/image-offset-cache.ts` stores `{ offset, cursor, searchKey }` per image ID.
@@ -428,7 +431,7 @@ Query dedup is not permission to skip a distinct native destination's restoratio
 | `src/hooks/useScrollEffects.ts` | Effect #9 owned one-shot placement, current geometry/readiness and limited legacy cursor/arrow consumers |
 | `src/stores/search-store.ts` | `_loadBufferAroundImage` (column alignment), `_findAndFocusImage`, sort-around-focus |
 | `src/lib/search-params-schema.ts` | `URL_PARAM_KEYS`, `URL_DISPLAY_KEYS` |
-| `src/lib/reset-to-home.ts` | `resetToHome()`, `suppressNextRestore` |
+| `src/lib/reset-to-home.ts` | `resetToHome()`; owns reset continuation and scoped suppression releases |
 | `src/lib/image-offset-cache.ts` | `buildSearchKey`, `extractSortValues`, per-image offset cache |
 | `src/main.tsx` | `pagehide` handler, `scrollRestoration = 'manual'`, `synthesiseKupuaKeyIfAbsent`, dev globals |
 | `src/components/ImageDetail.tsx` | `closeDetail` (`history.back()`), deep-link synthesis, `_bareListSynthesized` guard |

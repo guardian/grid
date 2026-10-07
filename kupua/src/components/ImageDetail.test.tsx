@@ -92,7 +92,8 @@ vi.mock("@/components/ImageMetadata", () => ({ ImageMetadata: ({ image, overlay 
 vi.mock("@/components/UsagesSection", () => ({ UsagesSection: () => null, countDisplayUsages: () => 0 }));
 vi.mock("@/components/PanelLayout", () => ({ AccordionSection: ({ children }: { children: ReactNode }) => <section>{children}</section> }));
 vi.mock("@/lib/reset-to-home", () => ({ resetToHome: vi.fn() }));
-vi.mock("@/lib/orchestration/search", () => ({
+vi.mock("@/lib/orchestration/search", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/orchestration/search")>(),
   scrollFocusedIntoView: fixture.prepareScroll, markUserInitiatedNavigation: fixture.markNavigation,
   pushNavigateAsPopstate: vi.fn(), consumeDetailEnteredViaSpaFlag: () => fixture.spa,
 }));
@@ -404,6 +405,44 @@ describe("bounded detail return composition", () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     vi.useRealTimers();
+  });
+
+  it("Home publication cannot start the first cached restore while detail remains mounted", async () => {
+    const dataSource = new MockDataSource(5000);
+    const target = await dataSource.searchAfter({ ids: "img-2500", length: 1 }, null);
+    fixture.cached.mockReturnValue({ cursor: target.sortValues[0] as [number, string], offset: 2500 });
+    useUiPrefsStore.setState({ density: "grid", focusMode: "explicit", _pointerCoarse: false });
+    useSearchStore.setState({ ...initialState, dataSource, total: 0, results: [], bufferOffset: 200,
+      imagePositions: new Map(), focusedImageId: null, params: { nonFree: "true" }, pitId: null });
+    const read = vi.spyOn(dataSource, "searchAfter");
+    const originalSearch = useSearchStore.getState().search;
+    const published = deferred<void>();
+    const completion = deferred<void>();
+    vi.spyOn(useSearchStore.getState(), "search").mockImplementation(async (...args) => {
+      await originalSearch(...args);
+      published.resolve();
+      await completion.promise;
+    });
+    render(<List imageId="img-2500" />);
+    await act(async () => {});
+    expect(read).not.toHaveBeenCalled();
+    const { resetToHome } = await vi.importActual<typeof import("@/lib/reset-to-home")>("@/lib/reset-to-home");
+    const navigateHome = vi.fn(() => close());
+    let home!: Promise<void>;
+    try {
+      await act(async () => { home = resetToHome(navigateHome); await published.promise; });
+      expect(screen.getByTestId("metadata").textContent).toContain("img-2500");
+      expect(navigateHome).not.toHaveBeenCalled();
+      expect(fixture.cached).toHaveBeenCalled();
+      expect(read).toHaveBeenCalledOnce();
+      expect(useSearchStore.getState()).toMatchObject({ bufferOffset: 0, loading: false, _cursorRestore: null });
+    } finally {
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      await act(async () => { completion.resolve(); await home; });
+      act(() => vi.runOnlyPendingTimers());
+      await act(async () => {});
+    }
+    expect(navigateHome).toHaveBeenCalledOnce();
   });
 
   for (const mode of ["explicit", "phantom"] as const) {

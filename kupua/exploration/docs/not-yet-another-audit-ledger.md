@@ -2094,6 +2094,19 @@ test bodies and full-residency helper. No whole-app/server audit, complete adjac
 test-suite reading or runtime certification. Stop here for operator/coordinator
 review; no Stage 2, test execution or prototype authority follows.
 
+### Home Suppression Assessment (L12)
+
+**Done as an assessment at baseline `024b9fc7012c58943e860fc4826778a9ac9edec4`, 7 October 2026: no production deletion justified.** Each isolated call-removal probe failed a behavioural discriminator; restoring only that call made the same check pass. All three APIs have Home as their sole production caller and remain necessary; the dedup setters also serve URL sync. No production state, branch or call was removed, moved or renamed.
+
+| Candidate | Competing action and surviving-owner limit | Adverse sequence / proof |
+|---|---|---|
+| `suppressNextRestore` | Cached detail starts its first deep restore after Home publication. Attempted-image and pending-cursor checks cover handled/joined work, not this first request. | [Composed detail control](../../src/components/ImageDetail.test.tsx): hold Home completion after publication with a cached nonresident image; removal raises page reads from one to four and publishes buffer start 2400. |
+| `suppressReturnFromDetail` | Closing detail reinstates old focus/placement. Origin-key admission rejects unrelated marked entries only. | [Composed unmarked control](../../src/hooks/useScrollEffects.test.ts): Home to a new key from unmarked detail; removal sets the old image's focus. Settled deep-detail browser green alone was not proof because entry synthesis supplies origin metadata. |
+| `suppressDensityFocusSave` | Outgoing table captures a new ratio after Home clears saved state. L45 guards placement lifetime, not this capture. | Existing held-refusal/newer-resident-focus density control: removal changes unsaved centre scroll 30000 to saved-ratio scroll 30003. No tolerance weakening or policy change. |
+| URL-sync dedup preset | URL commit dispatches Home's already loaded search again. Publication ownership does not mark the paired query/diff state. | Existing direct-ES/media-api mounted Home read budgets, including free-only future defaults: removing the preset raises search calls from three to four. |
+
+Two missing real-producer/consumer compositions supplement existing controls; both fixtures drain Home's existing cleanup before teardown. Two fresh full-snapshot final cold reviews accept the slice with no actionable findings. Final unit passes (2,925/83 files); TypeScript/Vite and retry-free normal/forced-seek E2E pass (453, no skips). Those build/browser gates precede the last Vitest-only cleanup; production and E2E code are unchanged, and the operator explicitly ruled out further E2E repetition. Earlier interrupted browser failures recovered after a Mac restart without source/config repair; their cause is unproven. No retained deletion requires live post-change proof; no live/perf certificate or wider cancellation-policy conclusion follows.
+
 ### Density Restoration Replacement (L45)
 
 **Done, `89b19e6f2`, 4 October 2026; baseline `cef50fef9`; B4/L23 and B7/L25 close locally.**
@@ -2505,7 +2518,6 @@ their evidence records, not in this backlog.
 |---|---|---|---|---|
 | L9 | Refactor | Remaining layout anchor decisions may share policy after the relevant Q1 choices; adopted search/history/detail decisions are already consolidated within their boundaries | Identify an actual remaining duplicated decision and prove policy/invariant independence; retain off-screen selection, true-edge and geometry contracts unless explicitly revised | L15; L42 checkpoint |
 | L10 | Refactor | Layout captures may reuse placement values where that removes real duplication; one universal capture type/pair is not a predetermined outcome | Preserve header, global/local coordinates, capture timing and semantic versus compensating scroll in composed density/reflow/history controls | L9; explicit scoped proposal |
-| L12 | Delete | After L8-L11, some reset-to-home suppressions (`suppressNextRestore`, `suppressReturnFromDetail`, `suppressDensityFocusSave`, dedup preset) may no longer be needed | Disable each alone in a throwaway change; run reset-to-home unit and e2e from grid, table and detail | L8, L11 |
 | L14 | Move | `search-store.ts` mixes position logic with aggregations, sort distributions and the new-images poll; moving those out lets a session read the position core alone | Pure move; all tests unchanged | |
 | L15 | Decision | C15-C21 expose loaded/off-screen/selection layout differences; desired placement awaits Q1, not a blanket D8 rule | Record operator answers for density, column reflow and height-only resize separately from focus retention; retain B4/B7 evidence limits | Q1 |
 | L16 | Doc | Remaining L7 documentation conflicts include history selection survival and layout anchor rules; L8 reconciled ordinary first-page publication in guide 03 | After operator decisions, reconcile the remaining claims against L7 source/test evidence in a separately scoped timeless-guide update | Q1-Q7 |
