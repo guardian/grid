@@ -126,6 +126,14 @@ distinguish publication, paint, read budgets, refusal classification and cleanup
 B10 adds fifteen independent corpus pages plus one explicit zero-hit fixture read
 per case; those are test costs, not additional application requests.
 
+The bounded 7 October B10 simplification attempt was not retained: nearer seek,
+production forward extensions and shorter wheel travel failed to reliably preserve
+an observed positive-offset prepend before zero. All four original cases remain.
+Browser input and pending/published frame geometry cannot be replaced by eventual
+settlement; the mounted four-way B10 tests independently cover production eviction,
+held publication, membership/order, tuples, coordinates and focus/selection.
+Failed candidate timings establish no savings. No product fault was established.
+
 The E2E/perf compiler configs match all 86/34 inherited diagnostic identities with
 zero additions, not clean-config status. No shared helper/perf/config source changed;
 no new `test:perf-harness` gate or performance campaign follows. B19's table true-tail

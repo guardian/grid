@@ -24,6 +24,14 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 7 October 2026 - Shorten B10 preparatory backward travel
+
+After genuine forward eviction, position the resident viewport at one tenth of
+its scroll height before reference/probe preparation. Real backward wheel input
+still exercises every held prepend through zero. Keep all four transport/layout
+cases, independent corpus/DTO checks, frame windows, assertions and cleanup;
+no helper or production change.
+
 ### 7 October 2026 - Remove duplicate no-focus B17 browser executions
 
 Run indexed queued and Scrubber-wheel density interruptions once per transport

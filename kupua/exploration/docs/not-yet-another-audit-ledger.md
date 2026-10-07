@@ -1056,6 +1056,26 @@ No-read-at-zero, actual Home and deliberately unnecessary zero-hit fixture-read
 rejection controls remain. Bounded live API table/grid witnesses match. L28 closes
 with final gates and independent reviews; this is not server/performance certification.
 
+**7 October tests-only simplification outcome:** one bounded candidate and two local
+repairs failed the required positive-prepend/setup conditions. Experimental test
+edits were restored exactly; all four original cases and their proof remain. Three
+unchanged focused baselines passed; failed shorter runs are not speed evidence.
+No product repair, live/perf work or Git mutation followed.
+
+**7 October narrow travel optimisation:** retain one preparation line after genuine
+forward eviction: `scrollTop = scrollHeight / 10`, before corpus/probe setup.
+All four cases, seek 600, 3,000-image corpus, DTO checks, assertions and 12-frame
+windows remain. Traces show no backward-extension/compensation logs before native
+backward wheel; grid retains three positive prepends plus zero, table two plus zero.
+A temporary false top reset is rejected at published 3->0 geometry; production is
+restored byte-for-byte. Alternating candidate/unchanged/candidate/unchanged runs all
+pass retry-free: summed cases 45.060/59.217/44.568/60.871 s; focused runner
+48.177/62.638/47.753/64.114 s. Summed spreads are 0.492 s candidate/1.654 s unchanged;
+runner spreads 0.424/1.476 s. Final unit (2,925), build and full retry-free E2E (445)
+pass, with no skips. Existing run warnings remain; no application-performance or
+full-suite speed claim. Raw runs/traces and limits: `.vite/b10-travel-20261007/outcome.md`.
+Reviewer waiver applies only to this task; no standing review instruction changes.
+
 <a id="b11"></a>
 **B11 / C31 / L13: DONE. Cancelled Home releases thumb/tooltip presentation.**
 Recorded pre-repair witness: cancelled deep Home stranded the scrubber thumb at top.
@@ -2351,6 +2371,127 @@ populate a table. Parameterization may shorten code without reducing execution.
 Application jank/perceived performance and test wallclock are different questions.
 No speed-up claim without comparable measurements; no weaker assertions, inflated
 timeouts, global state reuse or smaller corpus that removes the tested regime.
+
+### Cross-Family E2E Overlap Assessment
+
+**7 October 2026; assessment only.** Baseline HEAD is
+`a99f29757621d1aba7d69dfecce2b7c4653ae4fa`, the B17 reduction commit.
+Initial dirty work is outside Kupua and was untouched. No tests, browser/live
+access, profiling, dependencies or Git mutations occurred. The saved
+[JSON](../../.vite/b17-20261007-6f4000dc6d/e2e.json) and
+[raw log](../../.vite/b17-20261007-6f4000dc6d/e2e.txt) agree: 445 passing cases,
+three workers, zero skips/retries, 421.987480s runner duration. JSON contains no
+revision field: compatibility rests on the saved review packet, all thirteen
+unchanged context files matching current source, its changed spec snapshot matching,
+and the baseline-to-HEAD delta changing only that spec/README among source/runner
+surfaces. This is compatible existing evidence, not a newly reproduced run.
+
+Static TypeScript AST parsing, without importing test modules, found **268 declaration
+sites**, including 48 parameterized sites, expanding to **445 execution identities**:
+429 `chromium`, 16 `forced-seek`. Current config assigns fifteen canonical specs to
+disjoint projects. File, describe path/title, project and literal parameter bindings
+reconcile with every saved entry; no unresolved expansion, duplicate identity or
+source/report discrepancy remains. Runtime skip guards remain source conditions;
+the saved corpus skipped none. The
+[temporary per-execution inventory](../../.vite/cross-family-20261007/inventory.md)
+and adjacent JSON/parser/compatibility/challenge context are ignored `.vite` evidence,
+not permanent coverage infrastructure; cleanup can delete them. The decision below
+does not depend on their survival. Titles identify cases, not semantic families.
+
+**One candidate: conditional retirement of two phantom click-entry smokes.** Remove
+only `chromium` executions "single-click opens image detail in grid" and "single-click
+opens image detail in table" at
+[phantom-focus.spec.ts:28](../../e2e/local/phantom-focus.spec.ts#L28) and
+[:48](../../e2e/local/phantom-focus.spec.ts#L48). Each loads persisted phantom mode,
+ordinary local-ES results with no chosen bookmark/selection, then clicks the first
+cell/row and requires merely a truthy URL image parameter. Neither holds a request,
+frame or navigation, checks exact identity, nor observes a deliberate negative window.
+
+Retain unchanged the `chromium` "grid phantom settled-original: reload close reuses
+pending restoration" and table counterpart at
+[ui-features.spec.ts:1544](../../e2e/local/ui-features.spec.ts#L1544), plus all their
+early/traversed variants. Before any reload/read intervention, they seed phantom mode
+before startup, seek into resident indexed data, and perform a real single mouse click;
+[openVisibleDetail:1530](../../e2e/local/ui-features.spec.ts#L1530) independently requires
+the exact clicked identity on rendered detail. Retain "B17 indexed direct-ES phantom
+grid retains pending destination" and table counterpart at
+[browse-density.spec.ts:7](../../e2e/local/browse-density.spec.ts#L7): their
+[helper:34](../../e2e/shared/browse-density.ts#L34) supplies top-of-list real single-click,
+visible detail and Backspace closure **before** its completed-client-read hold. Other
+transport/forced-seek cases remain, not substitutes for startup configuration.
+
+This is defensible cross-family proof overlap, **not execution-equivalent duplication**.
+Grid [interpretation/dispatch](../../src/lib/dispatchClickEffects.ts#L48) and table
+[mode dispatch](../../src/components/ImageTable.tsx#L648) use identity/effective mode,
+not first/deep navigation branches. Existing
+[pure interpretation](../../src/lib/interpretClick.test.ts#L37) and
+[preference hydration](../../src/stores/ui-prefs-store.test.ts#L71) support the mapping;
+neither proves actual browser dispatch, hit testing or paint. No standalone dispatch
+unit replacement was found. Browser representatives therefore remain essential.
+
+**Strongest objection:** an obstructed first table row, or startup-only click failure
+that disappears after settling/seeking, might fail only a removed smoke. B9 is deep;
+B17 waits for map/loading and changes mode at runtime; both hit-tested observers can
+skip the first target. Retained explicit first-cell clicking supplies partial grid
+geometry evidence, not the missing table/phantom combination. The smoke does not pin
+map absence or a startup deadline, but that does not erase its fixed-target probe.
+The authorised challenger fully read supplied bodies/helper/consumer mapping and
+returned **QUALIFY**, with this unresolved loss and no blocking dispatch gap.
+
+Saved removed-case work totals **2.683s** (1.329 + 1.354): two isolated context/app
+bootstraps, discovery and clicks. Retained journeys remain unchanged; proposed
+replacement work is zero. Entire-suite summed case time is 1080.534s, not removable
+wallclock. No paired measurement supports a suite speed claim; B17's older focused
+timings do not transfer. This is a small portfolio subtraction, not worthwhile grounds
+for a speed campaign or new helper framework.
+
+**Other inspected overlap is not a removal shortlist.** Home's
+[settled reset](../../e2e/local/buffer-corruption.spec.ts#L608),
+[transient monitor](../../e2e/local/buffer-corruption.spec.ts#L832) and shallow
+grid/table resets share setup but protect different publication/geometry conditions
+(four cases, 12.943s summed; avoidable work established: zero). Reloaded early/settled
+return, original/traversed placement and native Backspace/Forward are complementary:
+equal list destinations do not replace interrupted publication, native-history or
+explicit-focus-at-close assertions. Likewise missing/resident snap-back and subsequent
+normal-arrow movement have different oracles. No additional deletion is proposed.
+
+**Recommended next unit:** those two smoke removals only, conditional on the operator
+accepting loss of the exact first-target cold-start combination. Preserve all other
+phantom, B9/B12/B17, helper, corpus, transport and project proof; add no replacement
+tests. Acceptance requires unchanged persisted-mode setup, exact pre-hold identity
+assertions and retained browser inputs; an authorised later gate should contain 443
+cases (427 normal/16 forced-seek), without skips/retries. Disproof is a demonstrated
+first-item/startup-specific dependency, loss of retained pre-hold dispatch proof, or
+unwillingness to drop that combined probe. In those circumstances retain both: **no
+unconditional retirement unit is established**. This assessment grants no execution
+or implementation authority.
+
+**Coverage manifest:** inventory is comprehensive for declarations, not semantic review.
+
+| Canonical spec | Declaration sites / executions |
+|---|---:|
+| browse-density | 4 / 24 |
+| browser-history | 56 / 110 |
+| buffer-corruption | 14 / 35 |
+| collections | 7 / 7 |
+| cql-search-quoting | 4 / 4 |
+| focus-preservation | 10 / 13 |
+| forced-seek | 5 / 16 |
+| keyboard-nav | 14 / 15 |
+| phantom-focus | 7 / 7 |
+| scrubber | 71 / 88 |
+| selections-mobile | 5 / 5 |
+| selections | 27 / 30 |
+| toast | 1 / 1 |
+| ui-features | 39 / 86 |
+| visual-baseline | 4 / 4 |
+
+| Reading depth | Material actually covered |
+|---|---|
+| Inventoried | All fifteen spec ASTs and expanded cases; both shared-module function/method surfaces; all 445 report identities/durations/results; current config/project selection. |
+| Closely read | Complete phantom-focus, keyboard-nav, browse-density spec/shared composition; config/global setup; full shortlisted B9/B12 bodies and input/setup/close helpers; interpretation/dispatch and preference test files; required ledger/README/AGENTS/worklog context. |
+| Selectively inspected | UI opening/closing/navigation/return sections; history native detail/entry matrix/setup; buffer clean-top/reset/monitor/cooldown/shallow sections; scrubber settle/sort/focus/workflow/Home sections; focus-preservation query/fallback/snap-back; grid/table click owners; mounted ImageDetail identity/return composition. Challenger read supplied shortlist context, not whole suite. |
+| Unread / excluded | Remaining inventoried bodies, wider production/unit branches and renderer layout/event binding details; snapshot pixels; perf/manual/debug/archived specs and cached copies as inventory; live/physical-device behavior. Existing packet/logs are provenance, not a second active test collection. |
 
 ### Cold Review Gate
 

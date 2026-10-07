@@ -91,6 +91,7 @@ for (const transport of ["direct-ES", "media-api-fixture"] as const) {
       }
       await expect.poll(async () => (await kupua.getStoreState()).forwardEvictGeneration).toBeGreaterThan(evictions);
       await page.waitForFunction(() => !(window as any).__kupua_store__.getState()._extendForwardInFlight);
+      await container.evaluate(element => { element.scrollTop = element.scrollHeight / 10; });
       await page.evaluate(async transport => {
         const store = (window as any).__kupua_store__;
         const originalSource = store.getState().dataSource;
