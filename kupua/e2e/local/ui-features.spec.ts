@@ -1539,6 +1539,7 @@ test.describe("Detail close during list restoration", () => {
   for (const view of ["grid", "table"] as const) {
     for (const mode of ["explicit", "phantom"] as const) {
       for (const variant of ["early-traversed", "settled-traversed", "early-original", "settled-original", "early-keyboard", "early-clear"] as const) {
+        if (mode === "phantom" && variant.startsWith("settled")) continue;
         if (variant === "early-keyboard" && mode !== "explicit") continue;
         if (variant === "early-clear" && (mode !== "explicit" || view !== "grid")) continue;
         test(`${view} ${mode} ${variant}: reload close reuses pending restoration`, async ({ kupua, page }) => {

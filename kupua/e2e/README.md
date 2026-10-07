@@ -8,17 +8,16 @@ Follow the ledger's [test-impact and maintenance rules](../exploration/docs/not-
 and [inline cold-review gate](../exploration/docs/not-yet-another-audit-ledger.md#cold-review-gate).
 Each slice names existing tests to strengthen, helper/probe reuse, genuinely new
 coverage and setup cost. Map removed assertions to retained proof; preserve early
-versus settled readiness and actual-input/paint checks. L41 is a bounded tests-only
-pilot, not a suite rewrite or prerequisite for L42. Review plan adherence and coverage
-as well as correctness; test duration is not application-performance evidence.
+versus settled readiness and actual-input/paint checks. Follow the selected task's
+review scope, including explicit operator waivers for small tests-only changes.
+Test duration is not application-performance evidence.
 
 ## Continuity Input Pilot
 
 L41's bounded contract is a hit-tested result-cell point observation, not a click,
 detail/media readiness, data publication, placement or stable-frame guarantee.
 The browsing family and reload-detail family keep their own action and readiness
-semantics. Completed in the working tree against baseline `ae08e779d`; no product
-assertions or cases are removed.
+semantics. L41 is complete; reuse the observer only where this contract fits.
 
 `waitForHitTestedImagePoint({ view?, imageId?, topInset?, timeout? })` polls
 synchronously in DOM order for a nonempty identity with a hit-tested point inside
@@ -50,31 +49,34 @@ Click-focus's position-sorted, fully-visible selection is a distinct policy and
 is not substituted for DOM-order hit testing. HTTP response holds remain distinct
 from completed-client-read publication holds. Probe cleanup stays diagnostic.
 
-Cost: shared observation replaces two loops without adding app bootstrap, controlled
-delay, fixture jobs or consumer settlement waits. Existing local results retain no
-usable per-phase duration report; runtime impact is unmeasured. Focused before/after
-journeys establish equivalence, not a wallclock percentage. Perf consumers of the
-shared module keep their existing helpers and measurement boundaries; none calls
-the selected browsing/detail point loops.
-
-Verification: two fresh inline cold reviews of the actual baseline diff accept
-plan/structure and correctness/proof without actionable findings. All 61 retained
-focused consumer cases and 12 helper controls pass retry-free. Final separate gates:
-`npm --prefix kupua test` (2,836 tests), `npm --prefix kupua run build`,
-`npm --prefix kupua run test:perf-harness` (104 checks), and
-`npm --prefix kupua run test:e2e -- --retries=0` (435 cases, all 11 forced-seek).
-Affected-source compiler checks match all eight inherited diagnostic identities
-across the three changed files, with no additions; the wider E2E config is not clean
-and app build does not cover it. Existing bundle/E2E warnings remain. No live/perf
-campaign ran, and performance equivalence is not certified.
-
 Historical B9/B12 IDs now route to the descriptively named `Detail close during list
-restoration` and `Reloaded detail gesture return` suites. L42's independent
-provenance separation is complete within local limits; the point observer is reusable
-only where this input contract fits, not a prerequisite or reason to migrate more families.
-The L42 final gate retains all 435 retry-free browser cases, including 11 forced-seek,
-and passes 2,850 source unit tests plus TypeScript/Vite. No browser/perf helper or
-scenario source changed; excluded-config diagnostics and performance limits remain.
+restoration` and `Reloaded detail gesture return` suites. The observer does not
+replace their action or settlement logic. Perf consumers retain separate helpers
+and measurement boundaries; no runtime improvement is claimed for L41.
+
+## Detail Restoration Proof
+
+`Detail close during list restoration` executes 15 cases;
+`Reloaded detail gesture return` retains all eight. Four grid/table phantom
+`settled-original` and `settled-traversed` combinations were retired as mapped below.
+
+| Dropped combined proof / distinct dimension | Retained proof |
+|---|---|
+| Settled phantom original return, grid/table | Matching settled explicit cases retain genuine nonresident reload, historical entry, native signed placement, exact focus identity, request reuse and position consistency; early phantom original cases retain real single-click and no-ring browser wiring |
+| Settled phantom traversed return, grid/table | Matching settled explicit cases retain traversal/reload, exact target, <1px centring and ring identity; early phantom traversed cases retain pending close, release-after-close, hidden focus and no-ring presentation |
+| Timing versus mode | [Mounted ImageDetail B9 matrix](../src/components/ImageDetail.test.tsx#L450) retains both timings/placements/views/modes with actual close, owned restore counts and frame scheduling. Mode changes restore's setFocus argument and pulse/ring presentation, not return placement/ownership; [store controls](../src/stores/search-store.test.ts#L2828) retain both setFocus paths. This is not pairwise or helper-based equivalence |
+| Newer input and actual gesture | All three early keyboard/clear cases remain. All eight secondary cases retain A -> B -> reload B -> A, cancelled dismiss staying open, completed touch-listener dismiss, real Backspace, traversed centring, density and absent rings |
+
+The settled phantom combined browser journeys are deliberately no longer executed;
+their responsibilities are split as above. Early tests still close while the target
+lookup is held and loading remains true; none pre-resolves the restoration.
+Independent identity/geometry oracles and both layouts remain. No new tests/helper,
+shared mutable state, product change or KUP-018/native-history edit is introduced.
+
+The retained settled explicit and early phantom cases reject a wrong return
+identity. [B9's ledger record](../exploration/docs/not-yet-another-audit-ledger.md#b9)
+owns the measured reduction and verification limits; raw evidence is disposable
+under `.vite/detail-return-20261007/`. No application or full-suite speed claim follows.
 
 ## B17 Pending Browsing Proof
 
@@ -104,10 +106,8 @@ not an application-performance or comparable full-suite speed certificate.
 
 ## Reset Presentation Proof
 
-L43 is complete within recorded limits: 38 source controls, bounded live API checks
-and eighteen new local browser cases in existing owners. Final separate gates pass:
-2,888 unit tests/83 files, TypeScript/Vite and 453 retry-free E2E, including 15 forced
-seek. Two fresh final full-diff repair reviews approve source and new tests.
+L43 is complete within its [recorded limits](../exploration/docs/not-yet-another-audit-ledger.md#owned-reset-presentation-l43).
+Maintain the following contracts rather than historical case counts.
 
 | Contract | Maintained unit proof | Executed browser boundary |
 |---|---|---|
@@ -115,7 +115,7 @@ seek. Two fresh final full-diff repair reviews approve source and new tests.
 | Revocable Home feedback | Real Home lifetime, unchanged numeric props, failure/successor/hostile outcome matrices | Two [native B11](local/browser-history.spec.ts) cases: exact A logical/painted thumb/tooltip before and after deliberate obsolete success; wrong-deep DOM paint is rejected; Home and Back discovery budgets separate |
 | Destination restoration | URL-sync destination publication and placement before hostile Home success/error/abort | Native local/live Back with interior anchor geometry; existing clipping policy retained, no stronger true-tail guarantee |
 | Refresh publication | Actual badge, first/deep success/failure, query/freeze/history/density/focus/selection | Eight [B16 success cases](local/buffer-corruption.spec.ts), two supplied-503 refusals, backing-error rejection and pending-frame cleanup interruption; bounded live API populated-selection/supersession proof |
-| Preserved composition | Existing Home/navigation, density, history, detail, continuity, fallback and small-set suites retained | All 453 habitual normal/forced-seek cases pass without retries, including Q2/L42/detail and fixture-lifetime controls |
+| Preserved composition | Home/navigation, density, history, detail, continuity, fallback and small-set suites | Retain Q2/L42/detail and fixture-lifetime controls alongside the current normal/forced-seek suite |
 
 Intervention: local completed-client-read holds keep successful data unchanged;
 API fixtures execute real client JSON/Response encoding/decoding with faithful Argo
@@ -126,13 +126,10 @@ distinguish publication, paint, read budgets, refusal classification and cleanup
 B10 adds fifteen independent corpus pages plus one explicit zero-hit fixture read
 per case; those are test costs, not additional application requests.
 
-The bounded 7 October B10 simplification attempt was not retained: nearer seek,
-production forward extensions and shorter wheel travel failed to reliably preserve
-an observed positive-offset prepend before zero. All four original cases remain.
-Browser input and pending/published frame geometry cannot be replaced by eventual
-settlement; the mounted four-way B10 tests independently cover production eviction,
-held publication, membership/order, tuples, coordinates and focus/selection.
-Failed candidate timings establish no savings. No product fault was established.
+B10 preparation moves the viewport near the backward-loading boundary only after
+genuine forward eviction. Native backward wheel still produces positive prepends
+and the final zero crossing, with every pending/published frame check intact.
+The mounted four-way controls complement, not replace, browser geometry proof.
 
 The E2E/perf compiler configs match all 86/34 inherited diagnostic identities with
 zero additions, not clean-config status. No shared helper/perf/config source changed;

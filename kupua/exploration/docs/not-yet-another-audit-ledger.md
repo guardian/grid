@@ -1014,6 +1014,19 @@ restarted. Composed and rendered controls cover early/settled focus and placemen
 original/traversed targets and pending-data interleavings. The KUP-018 controls
 remain distinct and intact. See [Detail Return Unit](#detail-return-unit).
 
+**7 October tests-only outcome:** retire four settled phantom grid/table
+original/traversed executions (19 -> 15). Settled explicit browser controls,
+early phantom controls and the existing mounted full-mode matrix retain the
+distinct timing, geometry, identity, request and mode responsibilities; the
+combined settled phantom journeys are deliberately dropped. All eight B12 input
+journeys and surviving assertions remain unchanged. Wrong-return-identity fault
+is rejected by retained settled explicit and early phantom cases; production is
+restored exactly. Four alternating unchanged/candidate runs pass: mean combined
+runner reduction 5.908s (13.2%), spreads 0.776/0.886s. Final 2,925 unit tests,
+build and 441 retry-free E2Es pass without skips. [Proof mapping and observations](../../e2e/README.md#detail-restoration-proof)
+own details; no application/full-suite speed claim. Operator waived reviewers
+for this task only; no standing gate changes or broader work follows.
+
 Recorded pre-repair evidence: expected last-viewed image at the established traversed-return centre;
 actual paired grid outcomes were +79.5/-115.5/+47.5 px and table outcomes were
 +32/+34/+17 px across buffer/indexed/seek.
@@ -2407,13 +2420,18 @@ ordinary local-ES results with no chosen bookmark/selection, then clicks the fir
 cell/row and requires merely a truthy URL image parameter. Neither holds a request,
 frame or navigation, checks exact identity, nor observes a deliberate negative window.
 
-Retain unchanged the `chromium` "grid phantom settled-original: reload close reuses
+At that assessment checkpoint, the proposed retained controls were `chromium`
+"grid phantom settled-original: reload close reuses
 pending restoration" and table counterpart at
 [ui-features.spec.ts:1544](../../e2e/local/ui-features.spec.ts#L1544), plus all their
 early/traversed variants. Before any reload/read intervention, they seed phantom mode
 before startup, seek into resident indexed data, and perform a real single mouse click;
 [openVisibleDetail:1530](../../e2e/local/ui-features.spec.ts#L1530) independently requires
-the exact clicked identity on rendered detail. Retain "B17 indexed direct-ES phantom
+the exact clicked identity on rendered detail. The later bounded B9 tests-only
+reduction retires those settled phantom controls; retained early phantom original
+cases supply the same pre-reload click proof, with the current mapping in the
+[testing guide](../../e2e/README.md#detail-restoration-proof).
+Retain "B17 indexed direct-ES phantom
 grid retains pending destination" and table counterpart at
 [browse-density.spec.ts:7](../../e2e/local/browse-density.spec.ts#L7): their
 [helper:34](../../e2e/shared/browse-density.ts#L34) supplies top-of-list real single-click,

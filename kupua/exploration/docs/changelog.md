@@ -24,6 +24,14 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 7 October 2026 - Retire duplicated settled phantom detail journeys
+
+Run settled detail-restoration browser controls in explicit focus mode only.
+Retain early phantom browser input/presentation, both placement policies and
+layouts, newer keyboard/clear intent and the mounted full-mode timing matrix.
+Keep every reloaded gesture-return journey and all surviving assertions unchanged;
+no helper, production code or fixture machinery is added.
+
 ### 7 October 2026 - Shorten B10 preparatory backward travel
 
 After genuine forward eviction, position the resident viewport at one tenth of
