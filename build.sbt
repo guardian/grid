@@ -56,7 +56,6 @@ val commonSettings = Seq(
     "org.scalamock" %% "scalamock" % "5.1.0" % Test,
   ),
   dependencyOverrides ++= jacksonOverrides,
-  dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.24.0",
 
   Compile / doc / sources := Seq.empty,
   Compile / packageDoc / publishArtifact := false
@@ -111,7 +110,7 @@ lazy val commonLib = project("common-lib").settings(
     "nl.gn0s1s" %% "elastic4s-core" % elastic4sVersion,
     "nl.gn0s1s" %% "elastic4s-client-esjava" % elastic4sVersion,
     "nl.gn0s1s" %% "elastic4s-domain" % elastic4sVersion,
-    "com.gu" %% "thrift-serializer" % "5.0.2",
+    "com.gu" %% "thrift-serializer" % "5.0.8",
     "org.scalaz" %% "scalaz-core" % "7.3.8",
     "org.im4java" % "im4java" % "1.4.0",
     "com.gu" % "kinesis-logback-appender" % "2.1.3",
