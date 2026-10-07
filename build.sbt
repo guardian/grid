@@ -56,6 +56,7 @@ val commonSettings = Seq(
     "org.scalamock" %% "scalamock" % "5.1.0" % Test,
   ),
   dependencyOverrides ++= jacksonOverrides,
+  dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.24.0",
 
   Compile / doc / sources := Seq.empty,
   Compile / packageDoc / publishArtifact := false
