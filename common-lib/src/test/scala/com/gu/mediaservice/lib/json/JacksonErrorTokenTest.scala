@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.json
 
-import com.fasterxml.jackson.core.{ErrorReportConfiguration, JsonFactory, JsonParseException}
+import com.fasterxml.jackson.core.{ErrorReportConfiguration, JsonFactoryBuilder, JsonParseException}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -10,7 +10,7 @@ import java.nio.charset.StandardCharsets.UTF_8
 class JacksonErrorTokenTest extends AnyFunSuite with Matchers {
   Seq(32, ErrorReportConfiguration.DEFAULT_MAX_ERROR_TOKEN_LENGTH).foreach { maxErrorTokenLength =>
     test(s"DataInput parser bounds malformed tokens to $maxErrorTokenLength characters") {
-      val factory = JsonFactory.builder()
+      val factory = new JsonFactoryBuilder()
         .errorReportConfiguration(ErrorReportConfiguration.builder()
           .maxErrorTokenLength(maxErrorTokenLength)
           .build())
