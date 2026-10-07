@@ -108,6 +108,8 @@ class VipsImageOperations extends GridLogging with ImageOperations {
     }
   }
 
+  def hasAlpha(image: VImage)(implicit arena: Arena): Boolean = image.hasAlpha
+
   private def saveImageToFile(image: VImage, qual: Double, outputFile: File): File = {
     logger.info(s"Saving image to file: " + outputFile.getAbsolutePath)
     image.jpegsave(outputFile.getAbsolutePath,
