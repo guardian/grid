@@ -6,7 +6,7 @@ import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { E2E_COLLECTION } from '../../setup/seed-collections.ts';
 import { openUploadPage } from '../common.steps.ts';
 import { expectNoEditPermission, waitForMetadataSave } from './media-api.assertions.ts';
-import { testImages, uniqueImage, uploadPage } from './setup.ts';
+import { grouping, testImages, uniqueImage, uploadPage } from './setup.ts';
 
 /** Upload a unique image and wait for it to become the required-metadata editor. */
 async function uploadAndOpenEditor(page: Page): Promise<void> {
@@ -47,7 +47,6 @@ const BATCH_FIELDS: Record<
 };
 
 const usageRights = (job: Locator) => job.getByRole('region', { name: 'Image usage rights' });
-const grouping = (job: Locator) => job.getByRole('region', { name: 'Organisation and grouping' });
 
 /** Fields in the image-editor around the required-metadata form; `job` is one current upload. */
 const IMAGE_EDITOR_FIELDS: Record<

@@ -1,8 +1,9 @@
 import type { DataTable } from 'playwright-bdd';
+import type { Page } from '@playwright/test';
 import { Given, KAHUNA_APP_URL, Then, When, expect } from '../setup.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { expectUploadPermission } from './media-api.assertions.ts';
-import { filesToUpload, holdIngest, testImages, uploadPage } from './setup.ts';
+import { filesToUpload, grouping, holdIngest, testImages, uniqueImage, uploadPage } from './setup.ts';
 
 /**
  * Upload page shell
@@ -125,6 +126,61 @@ Then('I should see a suggested example label to apply to all uploads', async ({ 
   // The example label offered by the prompt comes from kahuna/public/js/strings.json.
   await expect(uploadPage(page).prompt).toContainText(`label e.g. culture`);
 });
+
+async function addPresetLabels(page: Page, labels: string[]): Promise<void> {
+  const upload = uploadPage(page);
+  await upload.addPresetLabelButton.click();
+  // The prompt splits on commas, so several labels can go in one entry.
+  await upload.newPresetLabelInput.fill(labels.join(', '));
+  await upload.savePresetLabelButton.click();
+  for (const label of labels) {
+    await expect(upload.presetLabel(label)).toBeVisible();
+  }
+}
+
+When(
+  'I add a preset label via the "Add label to all uploads" button',
+  async ({ page, testContext }) => {
+    testContext.presetLabels = ['e2e-preset-label'];
+    await addPresetLabels(page, testContext.presetLabels);
+  },
+);
+
+When('I upload more than one image', async ({ page }) => {
+  // Embedded descriptions skip the filename-description save, which races the preset labels.
+  await uploadPage(page).fileInput.setInputFiles([
+    uniqueImage(testImages.withMetadata).path,
+    uniqueImage(testImages.withMetadata).path,
+  ]);
+  await expect(uploadPage(page).imageEditorJob).toHaveCount(2);
+});
+
+Then('that label should be applied to all my uploads', async ({ page, testContext }) => {
+  const jobs = uploadPage(page).imageEditorJob;
+  const count = await jobs.count();
+  for (let i = 0; i < count; i++) {
+    for (const label of testContext.presetLabels!) {
+      await expect(
+        grouping(jobs.nth(i)).getByRole('link', { name: label, exact: true }),
+      ).toBeVisible();
+    }
+  }
+});
+
+When('I add preset label\\(s) in the prompt', async ({ page, testContext }) => {
+  testContext.presetLabels = ['e2e-preset-a', 'e2e-preset-b'];
+  await addPresetLabels(page, testContext.presetLabels);
+});
+
+Then(
+  'those label\\(s) should already be selected when I reload the page',
+  async ({ page, testContext }) => {
+    await page.reload();
+    for (const label of testContext.presetLabels!) {
+      await expect(uploadPage(page).presetLabel(label)).toBeVisible();
+    }
+  },
+);
 
 /**
  * Select-files uploader
