@@ -262,19 +262,19 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
         </div>
         <div className="ts-toggle-container" tabIndex={0} aria-label={SHOW_CHARGEABLE + " " + (isChargeable ? SELECTED : NOT_SELECTED)} onKeyDown={handleKeyToggle} onClick={handleToggle}>
           <div className="ts-toggle-label no-select">{SHOW_CHARGEABLE}</div>
-          <label className="ts-toggle-switch">
-            <input type="checkbox" checked={isChargeable} onClick={handleToggle}/>
+          <span className="ts-toggle-switch">
+            <input type="checkbox" checked={isChargeable} readOnly tabIndex={-1} aria-hidden="true"/>
             <span className="ts-slider"></span>
-          </label>
+          </span>
         </div>
-        <div className="ts-toggle-container-short" tabIndex={0} aria-label={SHOW_CHARGEABLE + " " + (isChargeable ? SELECTED : NOT_SELECTED)} onKeyDown={handleToggle}>
-          <label className="chargeable-checkbox">
-            <input type="checkbox" checked={isChargeable} onClick={handleToggle}/>
+        <div className="ts-toggle-container-short" tabIndex={0} aria-label={SHOW_CHARGEABLE + " " + (isChargeable ? SELECTED : NOT_SELECTED)} onKeyDown={handleKeyToggle} onClick={handleToggle}>
+          <span className="chargeable-checkbox">
+            <input type="checkbox" checked={isChargeable} readOnly tabIndex={-1} aria-hidden="true"/>
             <div className="chargeable-label-wrapper" >
               <span className="chargeable-span"></span>
               <span className="chargeable-label no-select">{SHOW_CHARGEABLE_SHORT}</span>
             </div>
-          </label>
+          </span>
         </div>
       </div>
   );
