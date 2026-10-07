@@ -1229,6 +1229,15 @@ replay; those earlier 32 checks do not certify them. Source hashes/datasource an
 foreground were checked. Held reads were unchanged completed responses, not server
 cancellation evidence. No production/device/performance equivalence is claimed.
 
+**Tests-only reduction (7 October 2026):** B17 now executes 32 rather than 40 cases.
+Eight no-focus phantom queued/wheel permutations are replaced by their unchanged
+explicit counterparts plus existing mounted mode coverage; bookmark, discovery,
+transport, geometry and forced-seek distinctions remain. The [testing contract map](../../e2e/README.md#b17-pending-browsing-proof)
+names discarded proof and retained assertions/windows. No new helper, test body
+or production change remains. [Local proof and review packet](../../.vite/b17-20261007-6f4000dc6d/review-02/README.md)
+records baseline `6f4000dc6d`, bounded negatives, timings and full local gates;
+no live/device/application-performance or comparable full-suite speed claim.
+
 <a id="c38"></a>
 <a id="b18"></a>
 **B18 / C38: DONE. Pending seek/density presentation.**

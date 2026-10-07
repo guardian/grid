@@ -184,10 +184,10 @@ to evidence-driven L1, and stronger snapshots/storage are not migration prerequi
 
 ### Testing Summary
 
-- **2911 Vitest unit/integration tests across 83 files** -- final L45 gate passed; `npm --prefix kupua test`
+- **2925 Vitest unit/integration tests across 83 files** -- final B17 tests-only gate passed; `npm --prefix kupua test`
 - **Build gate** -- `npm --prefix kupua run build` (TypeScript plus Vite; editor diagnostics alone are insufficient)
 - **1 opt-in special-sort ES oracle** -- `KUPUA_LOCAL_ES_MUTATION_OK=1 npm --prefix kupua run test:special-sort-es` (local loopback 9220 only; never habitual)
-- **453 Playwright E2E** cases (3 workers) -- `npm --prefix kupua run test:e2e`; final L45 gate passed with retries disabled, retaining pending/detail/input proof and replacing two duplicate settled density bodies; no application-performance claim
+- **445 Playwright E2E** cases (3 workers) -- `npm --prefix kupua run test:e2e`; final B17 gate passed retry-free. Eight duplicated no-focus phantom queued/wheel executions removed; pending bookmarks, discovery and transport/layout proof retained. [Current B17 contract](e2e/README.md#b17-pending-browsing-proof); no application-performance claim
 - **16 forced-seek habitual cases** — isolated port-3030 project; one B7 temporary-tail geometry case, four B10 wheel/tuple/paint cases, eight B17 density cases, two B18 no-density controls and the core journey
 - **22 jank perf tests / 33 metric IDs** + experiment infrastructure — `npm run test:perf`. P13c measures non-resident detail with warm media; P14 guards zero image-hydration reads. Both dashboards show these shared audit records; live two-mode preflight remains operator-run.
 - **104 perf-harness validation tests** — `npm run test:perf-harness` (pure Node; no browser). Session-aware density initialization, reused/blank/reload isolation, rendered-grid readiness and corpus pinning join these existing contracts:

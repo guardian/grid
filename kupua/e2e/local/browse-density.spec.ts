@@ -7,13 +7,15 @@ for (const transport of ["direct-ES", "media-api-fixture"] as const) {
       test(`B17 indexed ${transport} ${focusMode} ${sourceView} retains pending destination`, async ({ kupua }) => {
         await pendingBrowseAcrossDensity(kupua, transport, focusMode, sourceView);
       });
-      test(`B17 indexed ${transport} ${focusMode} ${sourceView} retains queued destination without focus`, async ({ kupua }) => {
-        await pendingBrowseAcrossDensity(kupua, transport, focusMode, sourceView, "queued");
-      });
-      test(`B17 indexed ${transport} ${focusMode} ${sourceView} retains scrubber wheel destination`, async ({ kupua }) => {
-        await pendingBrowseAcrossDensity(kupua, transport, focusMode, sourceView, "wheel");
-      });
     }
+  }
+  for (const sourceView of ["grid", "table"] as const) {
+    test(`B17 indexed ${transport} explicit ${sourceView} retains queued destination without focus`, async ({ kupua }) => {
+      await pendingBrowseAcrossDensity(kupua, transport, "explicit", sourceView, "queued");
+    });
+    test(`B17 indexed ${transport} explicit ${sourceView} retains scrubber wheel destination`, async ({ kupua }) => {
+      await pendingBrowseAcrossDensity(kupua, transport, "explicit", sourceView, "wheel");
+    });
   }
 }
 

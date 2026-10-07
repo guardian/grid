@@ -76,6 +76,32 @@ The L42 final gate retains all 435 retry-free browser cases, including 11 forced
 and passes 2,850 source unit tests plus TypeScript/Vite. No browser/perf helper or
 scenario source changed; excluded-config diagnostics and performance limits remain.
 
+## B17 Pending Browsing Proof
+
+B17 executes 32 cases: 16 indexed browsing, eight discovery and eight forced-seek.
+Only no-focus queued/wheel cases run in one focus mode. Their helper explicitly
+clears focus before input; indexed density capture yields to the browse owner before
+focus policy. Pending bookmark and discovery cases retain both modes: real
+click/detail setup and End focus permission are distinct behaviours.
+
+| Contract / discarded work | Surviving proof |
+|---|---|
+| Four phantom indexed queued cases: both transports and grid/table | Four matching explicit queued cases keep synchronous pre-dispatch click/remount, mapped identity, current geometry and completed-client-read hold; mounted B17 no-focus/mode matrix retains both modes |
+| Four phantom indexed wheel cases: both transports and grid/table | Four matching explicit wheel cases retain Scrubber wheel wiring and the queued phase before immediate remount; mounted list/Scrubber debounce controls retain request timing |
+| Every removed arrival assertion | Matching explicit case retains un-aborted signals, seek generation, consumed browse owner, independent map identity in viewport, destination offset, null bookmark, busy/error/status cleanup, position consistency and effective view |
+| Removed phantom setup's actual click/detail/Backspace | All eight indexed and eight forced-seek pending-bookmark cases retain both modes, transports and density directions with actual hit-tested input |
+| Discovery / temporal protection | All eight ordinary/AI cases remain: owned membership publication and finite AI exclude ordinary reads through the unchanged 250ms window; store/navigation suites retain stale-work rejection and dispatch timing matrices |
+| Forced-seek departure / geometry | All eight cases and B18 no-density controls remain; deep departure identity/thumb sampling still requires 12 frames, with original tolerances |
+
+No assertion, negative observation window, corpus, worker limit or shared helper
+changed. The dropped phantom detail/clear/pre-dispatch combination is no longer
+one browser journey; its responsibilities are covered at the layers above.
+Queued/wheel interventions use synchronous DOM events to reach the pre-dispatch
+window, not physical-device input. API completed-client-read holds do not certify
+native server cancellation. Local timing and negative-control evidence is in the
+[ignored review packet](../.vite/b17-20261007-6f4000dc6d/review-02/README.md),
+not an application-performance or comparable full-suite speed certificate.
+
 ## Reset Presentation Proof
 
 L43 is complete within recorded limits: 38 source controls, bounded live API checks
@@ -402,10 +428,10 @@ than a production event bus.
 | `local/keyboard-nav.spec.ts` | 15 | Two-mode keyboard nav (no-focus scroll vs focused movement), Home/End, search box key trapping, row-aligned snapping |
 | `local/browser-history.spec.ts` | 110 | Entry/query identity, destination focus/NONE and geometry, marked detail native transitions, session density/reload/Forward and Home/input ownership; exact native B11 destination paint before stale delivery |
 | `local/buffer-corruption.spec.ts` | 35 | Logo / metadata / query changes after deep seek, pending sort/density ownership, held-data Home layout frames and twelve B16 badge/refusal/fixture-lifetime cases |
-| `local/browse-density.spec.ts` | 32 | Pending/pre-debounce indexed browsing and Scrubber wheel across density in direct/API-adapter fixtures; rendered narrowing-query and finite-AI ownership in local memory fixtures; both click modes/views |
+| `local/browse-density.spec.ts` | 24 | Pending/pre-debounce indexed browsing and Scrubber wheel across density in direct/API-adapter fixtures; narrowing-query and finite-AI ownership in local memory fixtures; both modes for bookmarks/discovery, one mode for no-focus queued/wheel, both views |
 | `local/ui-features.spec.ts` | 86 | Detail/list restoration, reload gesture return, 12 hit-tested input controls, queued return/traversal and preview ownership, media fallback, panel/selection geometry, sort, cursor and URL controls |
 | `local/visual-baseline.spec.ts` | 4 | Screenshot comparison: grid, table, detail, search-with-query |
-| `local/forced-seek.spec.ts` | 15 | Four B10 actual-wheel/every-prepend/tuple/geometry cases, core midpoint/End/Home journey, eight pending-browse density cases and two no-density controls; runs habitually against port 3030 |
+| `local/forced-seek.spec.ts` | 16 | B7 temporary-tail geometry, four B10 actual-wheel/every-prepend/tuple/geometry cases, core midpoint/End/Home journey, eight pending-browse density cases and two no-density controls; runs habitually against port 3030 |
 | `local/focus-preservation.spec.ts` | 13 | Focus/viewport continuity, neighbour fallback, snap-back and four adapter-backed L39 AI-exit cases |
 | `local/selections.spec.ts` | 30 | Selection membership/ranges/persistence, panel coherence and two retained async-fixture GC/rejection/disposal controls |
 

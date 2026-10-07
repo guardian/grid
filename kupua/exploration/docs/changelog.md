@@ -24,6 +24,15 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 7 October 2026 - Remove duplicate no-focus B17 browser executions
+
+Run indexed queued and Scrubber-wheel density interruptions once per transport
+and direction after the existing helper clears focus. Remove their duplicate
+phantom-mode executions; retain both modes for pending bookmarks and discovery,
+where real detail setup and End focus permission differ. Existing mounted mode
+coverage retains no-focus arrivals, and browser identity, geometry, ownership and
+observation windows remain unchanged. No helper or production code changes.
+
 ### 7 October 2026 - Preserve Home guard contracts with composed proof
 
 Add real-Home controls to the existing mounted suites for unmarked detail return
