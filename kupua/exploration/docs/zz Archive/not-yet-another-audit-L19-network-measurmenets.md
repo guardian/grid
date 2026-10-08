@@ -1,5 +1,11 @@
 # L19: Network Workload Characterisation
 
+> **Archived 9 October 2026 with the closed cleanup campaign.**
+> Measurements retain their original revision, topology and interpretation limits.
+> The startup finding became [KUP-039](../bug-backlog.md#kup-039), now repaired;
+> historical-interval polling remains [KUP-040](../bug-backlog.md#kup-040), parked.
+> No new measurement, tier experiment or implementation is authorised by this record.
+
 **5 October 2026. Operator-authorised browser characterisation; no application changes.**
 This document supplements the [L19 reassessment](not-yet-another-audit-ledger.md#tier-and-startup-cost-reassessment-l19).
 It records a bounded comparison of local Kahuna and API-backed Kupua, identifies
@@ -176,9 +182,9 @@ image-data request. Thumbnails and an independent count poll still occurred.
 Request shapes identified two different aggregation consumers:
 
 - `collections.pathId`, `size=6000`: collection counts loaded with the collection
-  tree, consistent with [collection-store](../../src/stores/collection-store.ts).
+  tree, consistent with [collection-store](../../../src/stores/collection-store.ts).
 - `userMetadata.labels`, `size=50`: label suggestions, consistent with the
-  dynamic resolver in [typeahead-fields](../../src/lib/typeahead-fields.ts).
+  dynamic resolver in [typeahead-fields](../../../src/lib/typeahead-fields.ts).
   The label-entry sample included one cancelled attempt and one successful
   1767-byte decoded response.
 
@@ -197,7 +203,7 @@ a semantic bug from a failed positive control.
 
 | Candidate | Evidence and benefit sought | Discriminating check before implementation |
 |---|---|---|
-| Resolve defaults before first dispatch | A cancelled free-only page and completed free-only count precede all-rights startup | Trace [home defaults](../../src/lib/home-defaults.ts), [URL sync](../../src/hooks/useUrlSearchSync.ts), route/config readiness and the first search; retain explicit free/all-rights and standalone-mode controls |
+| Resolve defaults before first dispatch | A cancelled free-only page and completed free-only count precede all-rights startup | Trace [home defaults](../../../src/lib/home-defaults.ts), [URL sync](../../../src/hooks/useUrlSearchSync.ts), route/config readiness and the first search; retain explicit free/all-rights and standalone-mode controls |
 | Avoid obsolete count work at its producer | Both provisional counts finish even when the first page is retired | Establish count ownership and publication use; prevent known-obsolete dispatch rather than assuming browser abort stops server work |
 | Review page/count protocol together | A counted page and a separate total/ticker read occur at startup | Determine whether their totals and aggregation semantics can share work; a badge/ticker read is not redundant merely because it repeats a total |
 | Right-size initial residency/eager fill | 200 initial rows buy request-free nearby scrolling, but exceed the initial viewport | Compare whole short browsing sessions, not first paint; measure first-scroll reads, skeletons and headroom before reducing page size |
@@ -288,11 +294,11 @@ Do not use either telemetry errors or different idle scopes to claim relative ES
 
 ### Server Observability
 
-New endpoints do log. [ImageQueryController](../../../media-api/app/controllers/ImageQueryController.scala)
+New endpoints do log. [ImageQueryController](../../../../media-api/app/controllers/ImageQueryController.scala)
 supplies operation/request markers, and calls such as `search-after`, `image-window`,
 `image-keys`, `image-count` and `image-aggregations` use the shared
-[executeAndLog implementation](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/ElasticSearchExecutions.scala).
-[Stopwatch](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/logging/Stopwatch.scala)
+[executeAndLog implementation](../../../../common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/ElasticSearchExecutions.scala).
+[Stopwatch](../../../../common-lib/src/main/scala/com/gu/mediaservice/lib/logging/Stopwatch.scala)
 establishes that its `duration` marker is milliseconds.
 
 A bounded log-tail summary during the pass found search-after durations 297-486ms,
@@ -319,7 +325,7 @@ requests merely from its grouped count.
 
 ## 4. Evidence For Kupua's Tiers
 
-The [scroll architecture](00%20Architecture%20and%20philosophy/03-scroll-architecture.md)
+The [scroll architecture](../00%20Architecture%20and%20philosophy/03-scroll-architecture.md)
 separates result coordinates, drag behaviour, full-row residency and position keys.
 This pass supports that separation, not a universal winner.
 
@@ -340,7 +346,7 @@ are excessive. Conversely, showing that a map enables cursor navigation does not
 prove eager acquisition is optimal for a user who never leaves the first screen.
 
 Changing `POSITION_MAP_THRESHOLD` is not an isolated cache-cost experiment:
-[two-tier eligibility](../../src/lib/two-tier.ts) also controls coordinates and drag
+[two-tier eligibility](../../../src/lib/two-tier.ts) also controls coordinates and drag
 semantics. Test acquisition policy separately from that predicate. Existing no-map
 indexed navigation remains a relevant comparator; do not introduce a late coordinate
 flip or weaken authorisation/completeness to simplify caching.
@@ -388,7 +394,7 @@ deployed-API or direct-ES evidence; backend/index fingerprints and served source
 hashes remain uncertified. The [small-result assessment](not-yet-another-audit-ledger.md#small-result-source-assessment-5-october-2026)
 recommends retention; no tier experiment or product change was performed.
 
-Kupua's current [Home default](../../src/lib/home-defaults.ts) is hard-coded
+Kupua's current [Home default](../../../src/lib/home-defaults.ts) is hard-coded
 `nonFree=true`, not derived from the session's `showPaid` permission. Kahuna's
 permission-dependent defaults are characterised separately below. Neither these
 Kupua controls nor its hard-coded default establish permission-OFF behavior;
@@ -437,9 +443,9 @@ Both bare controls initially had all-rights store defaults, then URL sync replac
 params with free-only while the URL flag was absent. URL replacement to `nonFree=true`
 occurred at 690/599ms; all-rights dispatch followed at 696/605ms. Safe initiator
 frames identified `useUrlSearchSync` through `search-store`, not a CQL request producer.
-The [request mapper](../../src/dal/grid-api-search-adapter.ts#L148) treats anything
+The [request mapper](../../../src/dal/grid-api-search-adapter.ts#L148) treats anything
 other than `nonFree=true` as free-only.
-The [one-time default guard](../../src/hooks/useUrlSearchSync.ts#L121), together with
+The [one-time default guard](../../../src/hooks/useUrlSearchSync.ts#L121), together with
 DEV effect replay before the asynchronous replacement, supplies a concrete source
 explanation consistent with this ordering: a later effect pass can see the changed
 ref but still-empty URL. Individual React commits/ref transitions were not instrumented;
@@ -451,10 +457,10 @@ publications, captured baseline tickers matched the resolved count response; sou
 confirms that consumer. The two provisional free-only counts completed but supplied
 neither accepted rows/total nor a free-only ticker publication in these controls.
 They were obsolete for this accepted search, not evidence that every completed count
-is unused. [Discovery takeover](../../src/stores/search-store.ts#L2586) can separately
+is unused. [Discovery takeover](../../../src/stores/search-store.ts#L2586) can separately
 use count metadata; no takeover workflow was exercised here.
 
-The [Home reset](../../src/lib/reset-to-home.ts#L172) retained the document. It set all-rights params at 43ms,
+The [Home reset](../../../src/lib/reset-to-home.ts#L172) retained the document. It set all-rights params at 43ms,
 published all-rights rows/baseline tickers at 1050ms while the URL still said
 `nonFree=false`, then pushed the all-rights URL at 1217ms. Only one all-rights pair
 was dispatched. **The provisional free-to-all-rights sequence was bootstrap-specific
@@ -489,11 +495,11 @@ on these measured responses, and no backend-log subtraction was attempted.
 
 ### Historical Polling Eligibility
 
-[Kupua's arrival poll](../../src/stores/search-store.ts#L924) retains query, rights
+[Kupua's arrival poll](../../../src/stores/search-store.ts#L924) retains query, rights
 and upper bounds, choosing `since = max(params.since, newCountSince)`. The baseline
 comes from accepted search completion or a retained history freeze, not navigation
-start. [Upload URL filters](../../../media-api/app/lib/elasticsearch/QueryBuilder.scala#L153)
-use [strict `gt`/`lt` bounds](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/filters.scala#L42):
+start. [Upload URL filters](../../../../media-api/app/lib/elasticsearch/QueryBuilder.scala#L153)
+use [strict `gt`/`lt` bounds](../../../../common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/filters.scala#L42):
 both endpoints are excluded, so `since >= until` admits no upload time. Source
 scheduling is 10s visible/30s hidden, with an immediate visibility-return tick;
 only visible windows were measured here. Generation/sequence checks reject stale
@@ -606,16 +612,16 @@ all-rights; the historical total was 1244309. Retired-controller callbacks and
 sub-25ms display states were not fully traced, so completion alone is not publication.
 
 Source distinguishes this late scope selection from #4710's transient routing flag:
-[results start searching immediately](../../../kahuna/public/js/search/results.js#L312),
-while [session/default selection](../../../kahuna/public/js/search/query.js#L683)
-can subsequently navigate with a resolved rights flag. The [search builder](../../../kahuna/public/js/search/results.js#L577)
+[results start searching immediately](../../../../kahuna/public/js/search/results.js#L312),
+while [session/default selection](../../../../kahuna/public/js/search/query.js#L683)
+can subsequently navigate with a resolved rights flag. The [search builder](../../../../kahuna/public/js/search/results.js#L577)
 treats anything other than `nonFree=true` as free-only. The live sequence is consistent
 with that producer ordering; individual controller-construction initiators were not
 correlated from the compiled bundle.
 
 Explicit free-only entry also made an extra probe, despite ending with the Free-only
 checkbox checked. Its URL changed from `nonFree=false` to an absent flag at 238ms.
-[Source normalisation](../../../kahuna/public/js/search/query.js#L309) performs this
+[Source normalisation](../../../../kahuna/public/js/search/query.js#L309) performs this
 false-to-absent correction when `usePermissionsFilter=false`, without testing
 `showPaid`. Thus extra work is not restricted to all-rights destinations in this
 ON-permission session, and OFF users must not be assumed exempt without a control.
@@ -626,7 +632,7 @@ Only one final baseline and one 90-row viewport were observed. The three all-rig
 responses had matching total/ticker values, so the exact baseline supplier was not
 identified. Equality of every request field was not established: this is additional
 navigation/scope churn, not proof of four identical searches or a #4710 regression.
-[Home/default source](../../../kahuna/public/js/search/query.js#L187) explicitly
+[Home/default source](../../../../kahuna/public/js/search/query.js#L187) explicitly
 accommodates several navigation/filter passes and dropped-rights corrections.
 
 ### Response Bytes
@@ -671,18 +677,18 @@ Home's active polls used `since=2026-10-05T21:05:36.109Z` with no upper bound:
 eligible arrival detection, even though these responses were zero. The five other
 Home polls completed without a temporally matching active-controller update in the
 window. Their burst is consistent with one-shot polls from retired controllers:
-[poll scheduling](../../../kahuna/public/js/search/results.js#L434) does not test
+[poll scheduling](../../../../kahuna/public/js/search/results.js#L434) does not test
 `scopeGone` before dispatch; it checks only before scheduling the next cycle after
-the response. [Destruction cleanup](../../../kahuna/public/js/search/results.js#L923)
+the response. [Destruction cleanup](../../../../kahuna/public/js/search/results.js#L923)
 marks the scope gone but does not cancel the scheduled timeout. Precise timer-to-
 controller identity was not recorded; do not attribute usefulness by zero-value
 equality alone. Active recurrence was about 15.08s, consistent with response-following
 15-second scheduling, not seven intentional polls for the current view.
 
 The historical polls sent **equal** lower and upper bounds,
-`since=until=2026-10-05T00:00:00Z`. [Kahuna's saved boundary](../../../kahuna/public/js/search/results.js#L283)
+`since=until=2026-10-05T00:00:00Z`. [Kahuna's saved boundary](../../../../kahuna/public/js/search/results.js#L283)
 uses explicit `until` for a fresh search, unlike Kupua's later browse-freeze baseline.
-The shared [strict upload-date filter](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/filters.scala#L42)
+The shared [strict upload-date filter](../../../../common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/filters.scala#L42)
 excludes both endpoints, so this interval cannot admit an image. These reads refresh
 neither historical rows/deletions nor browse totals; a last-checked timestamp alone
 does not establish useful metadata freshness. This eligibility result depends on
@@ -788,17 +794,17 @@ separate consumers and must not be removed as generic "duplicate searches".
 
 | Surface | Kupua source path / scope | Kahuna source path / scope |
 |---|---|---|
-| Startup | [Default injection](../../src/hooks/useUrlSearchSync.ts#L121) applies only when all search params are empty. The observed provisional rights sequence belongs to that bare-entry path. A nonempty `query=trump` does not meet that condition; absent `nonFree` still means free-only. | [Results construction](../../../kahuna/public/js/search/results.js#L312) starts the counted probe independently of [session/default resolution](../../../kahuna/public/js/search/query.js#L683). Query text can be retained while rights/uploader defaults settle; this is not exclusively a Free-only checkbox callback. |
-| Settled keyword typing | [CQL changes](../../src/components/CqlSearchInput.tsx#L253) ignore unchanged effective queries, then [SearchBar](../../src/components/SearchBar.tsx#L116) debounces 300ms and updates the URL. First-edit history push preserves the same params and ordinarily hits URL-sync dedup, not another search. | [Structured query input](../../../kahuna/public/js/search/structured-query/structured-query.js#L46) uses distinct query text and a 500ms debounce, then changes the filter model. The common filter watcher handles that combined query; no per-checkbox main-query fan-out was found. |
-| Free-only / rights | [Toggle](../../src/components/SearchFilters.tsx#L44) submits one URL update, retaining other params. It does not directly call the datasource; normal URL-sync search ownership applies. | Legacy checkbox changes the watched model; permissions callbacks also call the [common navigation helper](../../../kahuna/public/js/search/query.js#L328). False-to-absent normalisation under `usePermissionsFilter=false` does not test `showPaid`, so OFF permission cannot be assumed to eliminate that path. |
-| GNM-owned / other `is:` and facet values | [Facet callbacks](../../src/components/FacetFilters.tsx#L194) add/remove a term in the current query and call the same URL updater. No separate GNM-owned search producer was found. | [GNM-owned synchronisation](../../../kahuna/public/js/search/query.js#L235) adds/removes the chip in the shared filter model. The structured-input wrapper mirrors its checkbox before debounced text publication; an intervening digest could expose an intermediate model. This is a timing candidate, not a measured extra request. |
-| My uploads / uploader | No named My uploads shortcut was found in the searched Kupua source. [Uploader URL filtering](../../src/lib/search-params-schema.ts#L34) and uploader CQL use the ordinary combined-query path; adding a shortcut is outside this fix. | [Uploader management](../../../kahuna/public/js/search/query.js#L140) combines remembered state, session identity and the selected uploader. Legacy checkbox uses the filter watcher; the permissions-mode [My uploads callback](../../../kahuna/public/js/search/query.js#L419) calls the helper and can also mutate watched filter fields. Overlapping navigation is possible, not certified for each click. |
-| Date / sort / collection transitions | [Date changes](../../src/components/DateFilter.tsx#L266) submit related bounds together; [context transitions](../../src/lib/search-params-schema.ts#L75) combine collection/AI sort adjustments before navigation. URL canonicalisation returns before dispatch while replacement is needed. | Date and sort have [separate watchers](../../../kahuna/public/js/search/query.js#L611). The sort watcher checks `lastRequestedOrderBy`; equality suppression protects many echoes. Collection corrections also use the common helper, but these are not one universal pending-target owner. |
-| Home | [Home dedup preparation](../../src/lib/reset-to-home.ts#L85) blocks URL sync from racing its direct search. It applies full defaults, awaits useful publication, then navigates; the live control made one intended pair. | [Logo handler](../../../kahuna/public/js/search/index.js#L112) resolves session defaults and navigates, then emits a logo event. [Sort reset listener](../../../kahuna/public/js/components/gr-sort-control/gr-sort-control.tsx#L58) is another callback path, alongside default reapplication and routing corrections. Exact active callback ownership of the measured four probes remains unjoined. |
+| Startup | [Default injection](../../../src/hooks/useUrlSearchSync.ts#L121) applies only when all search params are empty. The observed provisional rights sequence belongs to that bare-entry path. A nonempty `query=trump` does not meet that condition; absent `nonFree` still means free-only. | [Results construction](../../../../kahuna/public/js/search/results.js#L312) starts the counted probe independently of [session/default resolution](../../../../kahuna/public/js/search/query.js#L683). Query text can be retained while rights/uploader defaults settle; this is not exclusively a Free-only checkbox callback. |
+| Settled keyword typing | [CQL changes](../../../src/components/CqlSearchInput.tsx#L253) ignore unchanged effective queries, then [SearchBar](../../../src/components/SearchBar.tsx#L116) debounces 300ms and updates the URL. First-edit history push preserves the same params and ordinarily hits URL-sync dedup, not another search. | [Structured query input](../../../../kahuna/public/js/search/structured-query/structured-query.js#L46) uses distinct query text and a 500ms debounce, then changes the filter model. The common filter watcher handles that combined query; no per-checkbox main-query fan-out was found. |
+| Free-only / rights | [Toggle](../../../src/components/SearchFilters.tsx#L44) submits one URL update, retaining other params. It does not directly call the datasource; normal URL-sync search ownership applies. | Legacy checkbox changes the watched model; permissions callbacks also call the [common navigation helper](../../../../kahuna/public/js/search/query.js#L328). False-to-absent normalisation under `usePermissionsFilter=false` does not test `showPaid`, so OFF permission cannot be assumed to eliminate that path. |
+| GNM-owned / other `is:` and facet values | [Facet callbacks](../../../src/components/FacetFilters.tsx#L194) add/remove a term in the current query and call the same URL updater. No separate GNM-owned search producer was found. | [GNM-owned synchronisation](../../../../kahuna/public/js/search/query.js#L235) adds/removes the chip in the shared filter model. The structured-input wrapper mirrors its checkbox before debounced text publication; an intervening digest could expose an intermediate model. This is a timing candidate, not a measured extra request. |
+| My uploads / uploader | No named My uploads shortcut was found in the searched Kupua source. [Uploader URL filtering](../../../src/lib/search-params-schema.ts#L34) and uploader CQL use the ordinary combined-query path; adding a shortcut is outside this fix. | [Uploader management](../../../../kahuna/public/js/search/query.js#L140) combines remembered state, session identity and the selected uploader. Legacy checkbox uses the filter watcher; the permissions-mode [My uploads callback](../../../../kahuna/public/js/search/query.js#L419) calls the helper and can also mutate watched filter fields. Overlapping navigation is possible, not certified for each click. |
+| Date / sort / collection transitions | [Date changes](../../../src/components/DateFilter.tsx#L266) submit related bounds together; [context transitions](../../../src/lib/search-params-schema.ts#L75) combine collection/AI sort adjustments before navigation. URL canonicalisation returns before dispatch while replacement is needed. | Date and sort have [separate watchers](../../../../kahuna/public/js/search/query.js#L611). The sort watcher checks `lastRequestedOrderBy`; equality suppression protects many echoes. Collection corrections also use the common helper, but these are not one universal pending-target owner. |
+| Home | [Home dedup preparation](../../../src/lib/reset-to-home.ts#L85) blocks URL sync from racing its direct search. It applies full defaults, awaits useful publication, then navigates; the live control made one intended pair. | [Logo handler](../../../../kahuna/public/js/search/index.js#L112) resolves session defaults and navigates, then emits a logo event. [Sort reset listener](../../../../kahuna/public/js/components/gr-sort-control/gr-sort-control.tsx#L58) is another callback path, alongside default reapplication and routing corrections. Exact active callback ownership of the measured four probes remains unjoined. |
 
 ### Guards And Remaining Attribution
 
-Kupua's [URL-sync equality guard](../../src/hooks/useUrlSearchSync.ts#L167) ordinarily
+Kupua's [URL-sync equality guard](../../../src/hooks/useUrlSearchSync.ts#L167) ordinarily
 deduplicates unchanged search params, and filters do not directly invoke `search()`.
 Native history restoration is intentionally distinguished from same-query no-ops;
 focus/window discovery can legitimately require more reads. This supports a narrow
@@ -806,22 +812,22 @@ bare-default ordering repair, not a rewrite of every filter or a guarantee for e
 rapid/concurrent interaction. Kupua's hard-coded Home default is not a session-
 permission implementation and should not be changed merely to manufacture an OFF test.
 
-Kahuna has real suppression: [onValChange](../../../kahuna/public/js/util/eq.js#L5)
+Kahuna has real suppression: [onValChange](../../../../kahuna/public/js/util/eq.js#L5)
 uses deep equality, and `goParamsAlreadyCurrent` skips values already current.
 Consequently a model echo is not automatically another HTTP request. However, the
 common helper compares current state rather than a shared pending destination, and
 its filter object contains UI-only fields such as `orgOwned` and `uploadedByMe` that
-are absent from [routed params](../../../kahuna/public/js/search/index.js#L174).
+are absent from [routed params](../../../../kahuna/public/js/search/index.js#L174).
 Such comparisons can request navigation even when the semantic URL is unchanged;
 the router may still suppress it. Do not equate `$state.go` call counts with searches.
 
-The [AI-toggle watcher](../../../kahuna/public/js/search/query.js#L645) is another
+The [AI-toggle watcher](../../../../kahuna/public/js/search/query.js#L645) is another
 concrete initialisation producer: it calls `$state.go` on its first pass even when
 AI is off. Its initialisation flag gates telemetry, not navigation. Together with
 rights normalisation, session completion and Home events, this makes coordinated
 initialisation a stronger fix boundary than a checkbox-specific patch. It does not
 prove which producer caused every observed probe. GNM-owned's early model mirror
-likewise depends on Angular digest timing; the [subscription helper](../../../kahuna/public/js/util/rx.js#L30)
+likewise depends on Angular digest timing; the [subscription helper](../../../../kahuna/public/js/util/rx.js#L30)
 does not itself establish an atomic model-plus-text update or immediate navigation.
 
 **Fix scope:** first prevent the established unresolved/obsolete dispatches at their

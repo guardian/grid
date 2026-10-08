@@ -3,15 +3,15 @@
 > Quick reference for humans and agents interpreting perf audit results.
 > Tests live under `e2e-perf/`; the harness is `run-audit.mjs`.
 
-Continuity helper changes follow the ledger's [test-impact discipline](../exploration/docs/not-yet-another-audit-ledger.md#test-impact-and-maintenance)
-and [plan-aware cold review](../exploration/docs/not-yet-another-audit-ledger.md#cold-review-gate).
+Continuity helper changes follow the [test-maintenance discipline](../e2e/README.md#continuity-slice-discipline)
+and the selected task's review scope, not archived execution gates.
 L41 test-maintenance timing is not application jank/perceived evidence. Reuse must
 preserve the measured scenario, readiness and setup boundaries below; no automatic
 campaign, baseline rewrite or performance claim follows from a helper refresh.
 
 ## Session-Aware Density Setup
 
-The [completed history/density slice](../exploration/docs/not-yet-another-audit-ledger.md#history-and-density-unit)
+The [completed history/density slice](../exploration/docs/zz%20Archive/not-yet-another-audit-ledger.md#history-and-density-unit)
 migrates jank, perceived short/long journeys, experiments and shared helpers to
 explicit density initialization and rendered-grid readiness. Plain `/search`
 navigation/reload retains the current per-tab choice; URL density cannot choose

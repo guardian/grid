@@ -36,7 +36,7 @@ Vite builds the app; Vitest and Playwright provide tests.
 | Data access | [The DAL](src/dal/index.ts) selects an implementation of `ImageDataSource`: media-api or direct Elasticsearch. API mode constructs no ES datasource. Views work through the shared data boundary. |
 | Search state | [Search store](src/stores/search-store.ts) owns the result buffer and query, seek, extension and restoration work. It publishes data and placement intent rather than scrolling the DOM. |
 | View and position | [Data window](src/hooks/useDataWindow.ts) bridges the buffer and rendered list; [scroll effects](src/hooks/useScrollEffects.ts) own viewport placement. Coordinate mechanics vary by result-set size. |
-| Fields | [Field registry](src/lib/field-registry.tsx) supplies shared field definitions for columns, sorting, filters and metadata presentation. |
+| Fields | [Field registry](src/lib/field-registry.tsx) supplies shared definitions for columns, sorting, filters and metadata. Display consumers use registered accessors/formatters directly; `getFieldRawValue` supplies raw text. |
 | Selection | [Selection store](src/stores/selection-store.ts) owns multi-image membership independently of focus. |
 
 For subsystem internals, start with the relevant section of the
@@ -50,6 +50,7 @@ There is no need to read the whole documentation tree before working.
 
 | Topic | Start here |
 |---|---|
+| State ownership and lifetimes | [State management](exploration/docs/00%20Architecture%20and%20philosophy/state-management.md) for a compact engineer-facing overview of the current implementation. |
 | Product intent and interaction design | [Frontend philosophy](exploration/docs/00%20Architecture%20and%20philosophy/01-frontend-philosophy.md) for intent; distinguish proposals and older implementation notes from current behaviour. |
 | Scrolling, tiers and scrubber | [Scroll architecture](exploration/docs/00%20Architecture%20and%20philosophy/03-scroll-architecture.md) and [scrubber reference](exploration/docs/00%20Architecture%20and%20philosophy/scrubber-ticks-and-labels.md). |
 | Focus, density and position preservation | [Focus and position guide](exploration/docs/00%20Architecture%20and%20philosophy/02-focus-and-position-preservation.md). |

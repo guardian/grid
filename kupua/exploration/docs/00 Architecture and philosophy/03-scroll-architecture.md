@@ -640,7 +640,7 @@ Search, cancellation and successor seek retire obsolete descriptors. Captured
 focus intent separately guards late focus/placement while useful data may publish.
 An early close retains its return target until publication permits placement,
 without a second loading path; see [the detail-return contract](../../../src/lib/detail-return.ts)
-and [ledger unit](../not-yet-another-audit-ledger.md#detail-return-unit).
+and [ledger unit](../zz%20Archive/not-yet-another-audit-ledger.md#detail-return-unit).
 
 ---
 

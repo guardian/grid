@@ -41,7 +41,7 @@ unrelated native entries restore their own snapshot. This retains the overlay's
 position continuity rather than emulating Kahuna's route teardown. Snapshots still
 represent one anchor, not independent bookmark and viewport; broader layout policy
 and stronger storage/seek guarantees are not part of this deviation. See the
-[completed unit](not-yet-another-audit-ledger.md#history-and-density-unit).
+[completed unit](zz%20Archive/not-yet-another-audit-ledger.md#history-and-density-unit).
 
 ### Cumulative Poll Accounting (20 September 2026)
 

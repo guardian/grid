@@ -248,16 +248,6 @@ function formatSortDateAdaptive(
   }
 }
 
-/**
- * Default date format (day + month + year) — used by getSortContextLabel
- * which doesn't have visibleCount context for adaptive granularity.
- */
-function formatSortDate(dateStr: string): string {
-  // Pass spans that produce the default "d Mon yyyy" format:
-  // totalSpan ≥ 28 days (no time), localSpan ≤ 28 days (shows day)
-  return formatSortDateAdaptive(dateStr, 2 * MS_PER_MONTH, 2 * MS_PER_DAY);
-}
-
 /** The default sort when orderBy is undefined (matches buildSortClause fallback). */
 const DEFAULT_ORDER_BY = "-uploadTime";
 
@@ -267,28 +257,6 @@ function resolveSortMapping(orderBy: string | undefined) {
   const primary = effective.split(",")[0].trim();
   const bare = primary.startsWith("-") ? primary.slice(1) : primary;
   return SORT_LABEL_MAP[bare] ?? null;
-}
-
-/**
- * Get a contextual label from an image for the given orderBy.
- * Returns null if no label available (e.g. script sort, empty value).
- */
-export function getSortContextLabel(
-  orderBy: string | undefined,
-  image: Image,
-): string | null {
-  const mapping = resolveSortMapping(orderBy);
-  if (!mapping) return null;
-
-  const value = mapping.accessor(image);
-  if (!value) return null;
-
-  if (mapping.type === "date") {
-    return formatSortDate(value);
-  }
-
-  // Keyword: format + truncate
-  return formatKeywordLabel(value, mapping.format);
 }
 
 /**

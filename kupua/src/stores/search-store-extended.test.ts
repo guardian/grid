@@ -14,7 +14,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { useSearchStore } from "./search-store";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { GRID_ROW_HEIGHT, TABLE_ROW_HEIGHT } from "@/constants/layout";
-import { interpolateSortLabel, getSortContextLabel, computeTrackTicksWithNullZone } from "@/lib/sort-context";
+import { interpolateSortLabel, computeTrackTicksWithNullZone } from "@/lib/sort-context";
 import type { SortDistribution, SortValues } from "@/dal/types";
 import { buildSortClause, reverseSortClause } from "@/dal/adapters/elasticsearch/sort-builders";
 import { registerScrollGeometry } from "@/lib/scroll-geometry-ref";
@@ -114,65 +114,65 @@ afterEach(() => {
 // Sort-context label tests — exercise every orderBy value
 // ---------------------------------------------------------------------------
 
-describe("sort-context label — resolveSortMapping", () => {
+describe("sort-context label — in-buffer mapping", () => {
   it("resolves -uploadTime to date label", async () => {
     await actions().search();
-    const img = state().results[0]!;
-    const label = getSortContextLabel("-uploadTime", img);
+    const { results, bufferOffset, total } = state();
+    const label = interpolateSortLabel("-uploadTime", bufferOffset, total, bufferOffset, results);
     expect(label).not.toBeNull();
     expect(label!.replace(/<[^>]+>/g, "")).toMatch(/\d{1,2}\s\w{3}\s\d{4}/);
   });
 
   it("resolves uploadTime (asc) to date label", async () => {
     await actions().search();
-    const img = state().results[0]!;
-    const label = getSortContextLabel("uploadTime", img);
+    const { results, bufferOffset, total } = state();
+    const label = interpolateSortLabel("uploadTime", bufferOffset, total, bufferOffset, results);
     expect(label).not.toBeNull();
   });
 
   it("resolves -taken to dateTaken label", async () => {
     // "taken" is a direct SORT_LABEL_MAP key for metadata.dateTaken.
     await actions().search();
-    const img = state().results[0]!;
+    const { results, bufferOffset, total } = state();
     // Our mock images don't have dateTaken, so should be null
-    const label = getSortContextLabel("-taken", img);
+    const label = interpolateSortLabel("-taken", bufferOffset, total, bufferOffset, results);
     expect(label).toBeNull(); // mock doesn't set dateTaken
   });
 
   it("resolves -lastModified to date label", async () => {
     await actions().search();
-    const img = state().results[0]!;
-    const label = getSortContextLabel("-lastModified", img);
+    const { results, bufferOffset, total } = state();
+    const label = interpolateSortLabel("-lastModified", bufferOffset, total, bufferOffset, results);
     expect(label).not.toBeNull();
   });
 
   it("resolves -credit to keyword label", async () => {
     await actions().search();
-    const img = state().results[0]!;
-    const label = getSortContextLabel("-credit", img);
+    const { results, bufferOffset, total } = state();
+    const label = interpolateSortLabel("-credit", bufferOffset, total, bufferOffset, results);
     expect(label).not.toBeNull();
     expect(["Getty", "Reuters", "AP", "EPA", "PA"]).toContain(label);
   });
 
   it("resolves uploadedBy to keyword label", async () => {
     await actions().search();
-    const img = state().results[0]!;
-    const label = getSortContextLabel("uploadedBy", img);
+    const { results, bufferOffset, total } = state();
+    const label = interpolateSortLabel("uploadedBy", bufferOffset, total, bufferOffset, results);
     expect(label).not.toBeNull();
     expect(label).toMatch(/^user-\d+$/);
   });
 
   it("returns null for _script:dimensions", async () => {
     await actions().search();
-    const img = state().results[0]!;
-    expect(getSortContextLabel("_script:dimensions", img)).toBeNull();
+    const { results, bufferOffset, total } = state();
+    expect(interpolateSortLabel("_script:dimensions", bufferOffset, total, bufferOffset, results)).toBeNull();
   });
 
   it("returns a date for undefined orderBy (defaults to -uploadTime)", async () => {
     await actions().search();
-    const img = state().results[0]!;
+    const { results, bufferOffset, total } = state();
     // undefined orderBy means default sort = -uploadTime, so we should get a date
-    const label = getSortContextLabel(undefined, img);
+    const label = interpolateSortLabel(undefined, bufferOffset, total, bufferOffset, results);
     expect(label).not.toBeNull();
     expect(label!.replace(/<[^>]+>/g, "")).toMatch(/\d{1,2} \w{3} \d{4}/); // e.g. "1 Jan 2020"
   });

@@ -144,7 +144,7 @@ Wired via `zustand/middleware` `persist`, matching the established pattern (`col
 
 **Items disappearing from results mid-session** (background ingestion deletes a selected image): the ID stays in `selectedIds`. Reconciliation tolerates missing items in the cache. Hydration drop only fires on cold start.
 
-**Delivered:** [independent density](../not-yet-another-audit-ledger.md#history-and-density-unit)
+**Delivered:** [independent density](../zz%20Archive/not-yet-another-audit-ledger.md#history-and-density-unit)
 retains existing selection survival and Home's explicit selection clear. Its
 session-storage handling does not clear or rewrite selection/history/cursor storage.
 This is not approval to repair the separate debounced selection-persistence bug B15.

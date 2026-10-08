@@ -9,7 +9,6 @@ import {
   DEFAULT_HIDDEN_COLUMNS,
   SORT_DROPDOWN_OPTIONS,
   getFieldRawValue,
-  getFieldDisplayValue,
 } from "./field-registry";
 import type { Image } from "@/types/image";
 
@@ -165,7 +164,6 @@ describe("accessors", () => {
     const image: Image = { ...FIXTURE, aliases: { colourModel: value } };
 
     expect(getFieldRawValue("alias_colourModel", image)).toBe(display);
-    expect(getFieldDisplayValue("alias_colourModel", image)).toBe(display);
     expect(image.aliases?.colourModel).toBe(value);
   });
 
@@ -183,21 +181,23 @@ describe("accessors", () => {
 // ---------------------------------------------------------------------------
 // Formatting
 // ---------------------------------------------------------------------------
-describe("getFieldDisplayValue", () => {
+describe("registered field formatting", () => {
   it("formats dates for display", () => {
-    expect(getFieldDisplayValue("uploadTime", FIXTURE)).toContain("20 Mar 2026");
+    const field = FIELDS_BY_ID.get("uploadTime")!;
+    const value = field.accessor(FIXTURE);
+    expect(value).toBe(FIXTURE.uploadTime);
+    expect(field.formatter!(value as string)).toContain("20 Mar 2026");
   });
 
   it("strips image/ from MIME type", () => {
-    expect(getFieldDisplayValue("source_mimeType", FIXTURE)).toBe("jpeg");
+    const field = FIELDS_BY_ID.get("source_mimeType")!;
+    const value = field.accessor(FIXTURE);
+    expect(value).toBe("image/jpeg");
+    expect(field.formatter!(value as string)).toBe("jpeg");
   });
 
-  it("returns — for missing values", () => {
-    expect(getFieldDisplayValue("metadata_credit", SPARSE)).toBe("—");
-  });
-
-  it("returns — for unknown field ID", () => {
-    expect(getFieldDisplayValue("nonexistent", FIXTURE)).toBe("—");
+  it("returns undefined for missing credit", () => {
+    expect(FIELDS_BY_ID.get("metadata_credit")!.accessor(SPARSE)).toBeUndefined();
   });
 });
 
@@ -205,11 +205,17 @@ describe("getFieldDisplayValue", () => {
 // Missing-field safety
 // ---------------------------------------------------------------------------
 describe("sparse images", () => {
-  it("do not crash any accessor", () => {
+  it("do not crash any accessor or applicable scalar formatter", () => {
+    const formattedFields: string[] = [];
     for (const f of FIELD_REGISTRY) {
       expect(() => getFieldRawValue(f.id, SPARSE)).not.toThrow();
-      expect(() => getFieldDisplayValue(f.id, SPARSE)).not.toThrow();
+      const value = f.accessor(SPARSE);
+      if (typeof value === "string" && f.formatter) {
+        expect(() => f.formatter!(value)).not.toThrow();
+        formattedFields.push(f.id);
+      }
     }
+    expect(formattedFields).toContain("source_mimeType");
   });
 });
 

@@ -1113,20 +1113,3 @@ export function getFieldRawValue(fieldId: string, image: Image): string | undefi
   return value;
 }
 
-/**
- * Get the formatted display value for a field.
- * Applies formatter if defined, falls back to raw value.
- */
-export function getFieldDisplayValue(fieldId: string, image: Image): string {
-  const field = FIELDS_BY_ID.get(fieldId);
-  if (!field) return "—";
-
-  const raw = field.accessor(image);
-  if (raw == null) return "—";
-
-  if (Array.isArray(raw)) return raw.join(", ");
-
-  if (field.formatter) return field.formatter(raw);
-  return raw;
-}
-

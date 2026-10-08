@@ -2,7 +2,7 @@
 
 > **Archived 2026-10-01. Historical, not current behaviour.** Current behaviour and
 > ownership: `00 Architecture and philosophy/02-focus-and-position-preservation.md`;
-> open work: `not-yet-another-audit-ledger.md`. Line numbers and site lists below
+> later cleanup evidence: [closed ledger](not-yet-another-audit-ledger.md). Line numbers and site lists below
 > describe the April 2026 code and are not maintained.
 
 > Distilled from the April 2026 rearchitecture audit. The rearchitecture

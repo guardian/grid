@@ -4,8 +4,10 @@
 
 ## Continuity Slice Discipline
 
-Follow the ledger's [test-impact and maintenance rules](../exploration/docs/not-yet-another-audit-ledger.md#test-impact-and-maintenance)
-and [inline cold-review gate](../exploration/docs/not-yet-another-audit-ledger.md#cold-review-gate).
+Follow standing repository validation requirements and the selected task's review scope.
+The ledger's [test-maintenance rationale](../exploration/docs/zz%20Archive/not-yet-another-audit-ledger.md#test-impact-and-maintenance)
+and [review record](../exploration/docs/zz%20Archive/not-yet-another-audit-ledger.md#cold-review-gate)
+are historical context, not additional execution gates.
 Each slice names existing tests to strengthen, helper/probe reuse, genuinely new
 coverage and setup cost. Map removed assertions to retained proof; preserve early
 versus settled readiness and actual-input/paint checks. Follow the selected task's
@@ -74,7 +76,7 @@ Independent identity/geometry oracles and both layouts remain. No new tests/help
 shared mutable state, product change or KUP-018/native-history edit is introduced.
 
 The retained settled explicit and early phantom cases reject a wrong return
-identity. [B9's ledger record](../exploration/docs/not-yet-another-audit-ledger.md#b9)
+identity. [B9's ledger record](../exploration/docs/zz%20Archive/not-yet-another-audit-ledger.md#b9)
 owns the measured reduction and verification limits; raw evidence is disposable
 under `.vite/detail-return-20261007/`. No application or full-suite speed claim follows.
 
@@ -106,7 +108,7 @@ not an application-performance or comparable full-suite speed certificate.
 
 ## Reset Presentation Proof
 
-L43 is complete within its [recorded limits](../exploration/docs/not-yet-another-audit-ledger.md#owned-reset-presentation-l43).
+L43 is complete within its [recorded limits](../exploration/docs/zz%20Archive/not-yet-another-audit-ledger.md#owned-reset-presentation-l43).
 Maintain the following contracts rather than historical case counts.
 
 | Contract | Maintained unit proof | Executed browser boundary |
@@ -136,7 +138,7 @@ zero additions, not clean-config status. No shared helper/perf/config source cha
 no new `test:perf-harness` gate or performance campaign follows. B19's table true-tail
 36px placement and C31's later-density non-top limit remain parked/qualified. Eight
 unsupported new nullable mock drafts were deleted, not skipped or hidden in the
-opt-in ES oracle; [optional L44](../exploration/docs/not-yet-another-audit-ledger.md#optional-nullable-mock-coverage-l44)
+opt-in ES oracle; [optional L44](../exploration/docs/zz%20Archive/not-yet-another-audit-ledger.md#optional-nullable-mock-coverage-l44)
 is unselected, and their local composition coverage is not claimed. Existing
 nullable adapter tests and bounded live Credit/Taken on evidence remain distinct.
 Port/execution coordination is still required for future runs.

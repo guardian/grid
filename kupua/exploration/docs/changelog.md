@@ -24,6 +24,23 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 8 October 2026 - Retire unused field-display and sort-label wrappers
+
+Remove getFieldDisplayValue, getSortContextLabel and its exclusive formatSortDate
+shim without replacing them. Preserve alias/raw/fallback/immutability checks;
+exercise registered date/MIME formatters, absent credit and sparse accessor/scalar
+formatter safety directly. Retire only duplicate alias display and wrapper-only
+dash/unknown-ID policy. Reroute all eight image-backed sort-label cases through
+in-buffer interpolation with their original outputs, no distribution/visibleCount.
+The operator's bounded decision supersedes T16 wrapper retention, not its shared
+mapping/formatting coverage or archived evidence. Keep registry definitions,
+renderers, raw helper, sort maps/resolvers, adaptive formatting and distribution/tick
+algorithms unchanged. Correct only the stale Scrubber formatter-name comment.
+Validation includes focused checks before/after rerouting and deletion, four
+restored temporary output/mapping faults, full units and the production build;
+no runtime component/hook/store/scroll behavior changes or universal equivalence
+claim follow.
+
 ### 8 October 2026 - Retire the unused legacy Grid detail reader
 
 Remove the unused gridApi allocation, GridApiDataSource detail implementation/suite

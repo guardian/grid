@@ -1,5 +1,10 @@
 # L19: Small-Result Tier Experiment
 
+> **Archived 9 October 2026; the experiment remains unexecuted and unapproved.**
+> This saved prompt is historical design input, not a current task. Any future reuse
+> requires a fresh brief and current instructions; its gates and reviewer counts
+> below are not standing execution requirements.
+
 **DORMANT PROMPT, saved 6 October 2026. Not selected or authorised for execution.**
 Reading, finding or linking this file does not activate it. Wait for the operator
 to explicitly commission the experiment, then follow fresh-agent confirmation.
@@ -25,13 +30,13 @@ not a deletion quota or measured result. This is not a proposal to halve Kupua.
 
 ## Read And Resume Locally
 
-Read [AGENTS](../../AGENTS.md), [worklog](worklog-current.md), the ledger's
+Read [AGENTS](../../../AGENTS.md), [worklog](../worklog-current.md), the ledger's
 [Coordinator Brief](not-yet-another-audit-ledger.md#coordinator-brief),
 [L19](not-yet-another-audit-ledger.md#tier-and-startup-cost-reassessment-l19), Stage 1,
 test-maintenance/review requirements, and relevant sections of the
 [measurement document](not-yet-another-audit-L19-network-measurmenets.md).
-Before measurement, read the [perf harness guide](../../e2e-perf/README.md),
-[browser playbook](embedded-browser-playbook.md) and [safeguards](infra-safeguards.md).
+Before measurement, read the [perf harness guide](../../../e2e-perf/README.md),
+[browser playbook](../embedded-browser-playbook.md) and [safeguards](../infra-safeguards.md).
 
 Record current HEAD, relevant dirty work and differences from Stage 1. Preserve
 other sessions' work. Revalidate the named deletion candidates and direct callers;

@@ -1120,7 +1120,7 @@ export function Scrubber({
           {/* Sort context label — primary display, updated live via data-sort-label.
               Uses innerHTML because date labels contain a fixed-width <span> for
               the month abbreviation. Values are always generated internally
-              (formatSortDate or ES keyword values), never user input. */}
+              (adaptive date formatting or ES keyword values), never user input. */}
           <span
             data-sort-label=""
             className="block font-medium"
