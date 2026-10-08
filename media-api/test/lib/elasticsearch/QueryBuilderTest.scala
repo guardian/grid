@@ -5,7 +5,7 @@ import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.searches.queries._
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{MatchPhraseQuery, MatchQuery, MultiMatchQuery, MultiMatchQueryBuilderType}
-import lib.querysyntax.{Match, Negation, Phrase, SingleField}
+import lib.querysyntax.{Match, Negation, Phrase, SingleField, Words}
 import com.gu.mediaservice.lib.config.GridConfigResources
 import com.sksamuel.elastic4s.handlers.searches.queries.QueryBuilderFn
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
@@ -271,24 +271,25 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
   }
 
   describe("is search filter") {
-    it("should expose every persisted reason as a persisted subquery") {
+    it("should expose every persisted reason through the persisted field") {
       val reasons = ImagePersistenceReasons(
         mediaApiConfig.maybePersistOnlyTheseCollections,
         mediaApiConfig.persistenceIdentifiers
       ).allReasons
 
       reasons.foreach { reason =>
-        val filter = IsQueryFilter.apply(s"persisted@${reason.reason}", () => Nil, mediaApiConfig)
-        filter.map(_.query) shouldBe Some(reason.query)
-        filter.map(_.toString) shouldBe Some(s"persisted@${reason.reason}")
+        val query = queryBuilder.makeQuery(List(Match(SingleField("persisted"), Words(reason.reason)))).asInstanceOf[BoolQuery]
+        query.must shouldBe List(reason.query)
       }
     }
 
     it("should query persisted reasons through the persisted field") {
-      val filter = IsQueryFilter.apply("persisted@exports", () => Nil, mediaApiConfig).get
       val query = queryBuilder.makeQuery(List(Match(SingleField("persisted"), Phrase("exports")))).asInstanceOf[BoolQuery]
 
-      query.must shouldBe List(filter.query)
+      query.must shouldBe List(ImagePersistenceReasons(
+        mediaApiConfig.maybePersistOnlyTheseCollections,
+        mediaApiConfig.persistenceIdentifiers
+      ).allReasons.find(_.reason == "exports").get.query)
     }
 
     it("should correctly construct an is owned photo query") {

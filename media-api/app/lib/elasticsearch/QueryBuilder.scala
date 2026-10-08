@@ -11,7 +11,7 @@ import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{MultiMatchQuery, MultiMatchQueryBuilderType}
 import lib.querysyntax._
-import lib.MediaApiConfig
+import lib.{ImagePersistenceReasons, MediaApiConfig}
 import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
 
@@ -117,8 +117,9 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
   }
 
   private def makePersistedQuery(value: String): Query =
-    IsQueryFilter.apply(s"persisted@$value", overQuotaAgencies, config) match {
-      case Some(isQuery) => isQuery.query
+    ImagePersistenceReasons(config.maybePersistOnlyTheseCollections, config.persistenceIdentifiers)
+      .allReasons.find(_.reason.equalsIgnoreCase(value)) match {
+      case Some(reason) => reason.query
       case _ =>
         logger.info(s"Cannot perform PERSISTED query on $value")
         matchNoneQuery()
