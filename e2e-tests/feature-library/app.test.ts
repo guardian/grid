@@ -88,8 +88,9 @@ test('React viewer preserves navigation, filters, playback and responsive layout
     await expect.poll(() => page.locator('.brand img').evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth === 32)).toBe(true);
     await expect(page.locator('.intro .eyebrow')).toHaveCSS('font-size', '10px');
     await expect(page.locator('.intro h1')).toHaveCSS('font-size', '26px');
-    await expect(page.locator('.intro')).toHaveCSS('min-height', '84px');
-    await expect(page.locator('.totals')).toHaveCSS('gap', '20px');
+    await expect(page.locator('.intro')).toHaveCSS('min-height', '64px');
+    await expect(page.locator('.intro h1')).toHaveCSS('margin-top', '2px');
+    await expect(page.locator('.totals')).toHaveCSS('gap', '12px');
     await expect(page.locator('.total strong').first()).toHaveCSS('font-size', '27px');
     await expect(page.locator('.total span').first()).toHaveCSS('font-size', '11px');
     assert.deepEqual(await page.locator('main > section').evaluateAll((sections) => sections.map((section) => section.className)), ['specification', 'recording-section']);
@@ -154,10 +155,12 @@ test('React viewer preserves navigation, filters, playback and responsive layout
     for (const width of [1440, 768, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `Overflow at ${width}px`);
-      await expect(page.locator('.intro')).toHaveCSS('padding-top', '12px');
-      await expect(page.locator('.intro')).toHaveCSS('padding-bottom', '12px');
+      await expect(page.locator('.intro')).toHaveCSS('padding-top', width < 761 ? '8px' : '6px');
+      await expect(page.locator('.intro')).toHaveCSS('padding-bottom', width < 761 ? '8px' : '6px');
+      await expect(page.locator('.total').first()).toHaveCSS('gap', '0px');
       if (width < 761) {
-        await expect(page.locator('.intro')).toHaveCSS('gap', '12px');
+        await expect(page.locator('.intro')).toHaveCSS('gap', '8px');
+        await expect(page.locator('.totals')).toHaveCSS('gap', '8px');
         await expect(page.locator('.intro h1')).toHaveCSS('font-size', width < 381 ? '22px' : '24px');
         await expect(page.locator('.total strong').first()).toHaveCSS('font-size', '21px');
         await expect(page.locator('.total span').first()).toHaveCSS('font-size', '10px');

@@ -55,12 +55,13 @@ h1, h2, h3, h4, p { margin: 0; }
 .masthead-label { font-weight: 600; font-size: 18.2px; }
 .snapshot { margin-left: auto; display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 16.8px; }
 .snapshot-dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; }
-.intro { min-height: 84px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 12px 32px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.intro { min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 32px; border-bottom: 1px solid var(--line); background: var(--panel); }
 .eyebrow { display: flex; align-items: center; gap: 8px; color: var(--accent); font-size: 14px; font-weight: 700; line-height: 1.6; }
 .intro .eyebrow { font-size: 10px; }
 h1 { font-family: inherit; font-size: 26px; line-height: 1.25; font-weight: 400; margin-top: 7px; }
-.totals { display: flex; gap: 20px; }
-.total { min-width: 61px; display: flex; flex-direction: column; gap: 2px; }
+.intro h1 { margin-top: 2px; }
+.totals { display: flex; gap: 12px; }
+.total { min-width: 61px; display: flex; flex-direction: column; gap: 0; }
 .total strong { font-size: 27px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .total span { font-size: 11px; color: var(--muted); }
 .workspace { display: grid; grid-template-columns: 326px minmax(0, 1fr); align-items: start; max-width: 1800px; margin: 0 auto; }
@@ -176,7 +177,7 @@ pre { background: var(--panel); border-left: 2px solid var(--line); padding: 12p
   .scenario-heading { gap: 12px; align-items: flex-start; }
   .heading-actions { flex-wrap: wrap; justify-content: flex-end; width: 70px; }
   .scenario-heading h2 { font-size: 29.4px; }
-  .totals { gap: 16px; }
+  .totals { gap: 12px; }
   #run-duration { display: none; }
 }
 @media (max-width: 760px) {
@@ -184,10 +185,10 @@ pre { background: var(--panel); border-left: 2px solid var(--line); padding: 12p
   .masthead-label { font-size: 15.4px; }
   .snapshot { font-size: 14px; flex-basis: 100%; margin-left: 0; justify-content: flex-end; }
   .snapshot-dot { display: none; }
-  .intro { padding: 12px 20px; gap: 12px; align-items: flex-start; flex-direction: column; }
+  .intro { padding: 8px 20px; gap: 8px; align-items: flex-start; flex-direction: column; }
   h1 { font-size: 24px; }
-  .totals { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-  .total { flex-direction: column; align-items: baseline; gap: 2px; min-width: 0; }
+  .totals { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .total { flex-direction: column; align-items: baseline; gap: 0; min-width: 0; }
   .total strong { font-size: 21px; }
   .total span { font-size: 10px; }
   .workspace { display: block; }
@@ -217,5 +218,5 @@ pre { background: var(--panel); border-left: 2px solid var(--line); padding: 12p
   .no-recording { min-height: 205px; }
   .list-empty { padding: 12px; width: 100%; }
 }
-@media (max-width: 380px) { .masthead { gap: 10px; padding: 12px 14px; } .masthead-divider { display: none; } .totals { gap: 12px; } h1 { font-size: 22px; } .heading-actions { width: 32px; } }
+@media (max-width: 380px) { .masthead { gap: 10px; padding: 12px 14px; } .masthead-divider { display: none; } .totals { gap: 8px; } h1 { font-size: 22px; } .heading-actions { width: 32px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; } }
