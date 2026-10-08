@@ -124,18 +124,23 @@ search-after/window with 503 ([KUP-036](../bug-backlog.md#kup-036)); individual 
 remains possible. Composed store tests cover recovery staying on API reads even when a follow-up
 read fails; this does not introduce another runtime routing mechanism.
 
-**Standalone detail:** `apiGetImage` uses the shared image normalizer and extracts envelope actions and
-enrichment once. Missing/hidden (404) or wrong-ID entities resolve `undefined`; other request
-failures reject. ImageDetail handles these quietly as unavailable and owns request cancellation.
+**Standalone detail:** `ImageDetail → ApiDataSource.getById → apiGetImage` uses the shared image
+normalizer and extracts envelope actions/enrichment once. Missing/hidden (404) or wrong-ID entities
+resolve `undefined`; other request failures reject. ImageDetail handles these quietly as unavailable,
+owns cancellation and keeps standalone enrichment/actions in its requested-ID-bound state, not the
+shared enrichment store. Resident traversal makes no singleton request; no `include=fileMetadata`.
+Current normalization flattens nested metadata resources, dropping their resource links/actions.
+Future editing must deliberately preserve the required nested capabilities and use that same
+standalone owner. Server/permission-aware action absence is not authorization to construct writes.
 
-**Older HATEOAS adapter:** `GridApiDataSource.getImageDetail` remains unused by production callers;
-it is not the standalone-detail path. It uses `service-discovery.ts`/`argo.ts`, returns `null`
-for network/abort/404/permission-403, but throws auth/session/write-guard/other server errors.
-Do not describe it as universally nullable. `initGridApi()` initializes the module singleton
-on search-route mount. API-mode startup also awaits that same discovery promise for the root
-`ai-search` capability. Discovery is session-scoped: failure leaves links unavailable, without
-a retry loop. It does not load a runtime client-configuration catalogue. Deletion/alignment of
-the unused detail method is parked in the build plan.
+**Discovery and reserved infrastructure:** `grid-api-instance.ts` retains private session-scoped
+`ServiceDiscovery`, `initGridApi()` on search-route mount and `apiAiSearchAvailable()` for API-mode
+startup. Both await the same in-flight root read; failure leaves links unavailable without retries.
+Discovery does not load runtime client configuration. The unused `gridApi` allocation, legacy detail
+reader/suite and identity merge helper were retired; no live path was rerouted. Shared Argo helpers,
+API types and the distinct auth/session/server/write-guard vocabulary remain explicitly reserved
+(see the [DAL README](../../../src/dal/grid-api/README.md)); old throw/toast comments are not policy.
+Canonical delivery, signed-rendition renewal, downloads and editing remain separate authorized work.
 
 **Write guard:** `gridApiWriteGuard()` blocks non-GET requests unless explicitly enabled, except
 the eight read-only POST routes listed in `grid-api/read-via-post.ts`. Admission matches the exact

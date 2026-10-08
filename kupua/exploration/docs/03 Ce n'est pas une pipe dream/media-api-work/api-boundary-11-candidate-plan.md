@@ -469,8 +469,10 @@ Before S1, the [mapper](../../../../src/dal/grid-api-search-adapter.ts#L35) spre
 [labels accessor](../../../../src/lib/field-registry.tsx#L792) expect flat data.
 [Canonical edits](../../../../../common-lib/src/main/scala/com/gu/mediaservice/model/Edits.scala#L57)
 wrap archived/labels/metadata/rights/photoshoot individually. Existing
-[Argo helpers](../../../../src/dal/grid-api/argo.ts#L29) can unwrap entities, but
-`mergeReconciledFields` remains canonical `ImageData`; do not silently change its public return type.
+[Argo helpers](../../../../src/dal/grid-api/argo.ts#L28) can unwrap entities. At S1,
+`mergeReconciledFields` was a canonical `ImageData` identity helper, not this normalizer;
+it was removed by the bounded 8 October retirement in the [active build plan](../api-build/api-build-00-plan.md).
+No replacement helper or new return-type contract follows.
 
 **In scope:** one pure normalization implementation adjacent to the current mapper, using existing
 unwrap helpers where appropriate. Flatten nested edits, including per-label entities and lastModified;
@@ -492,8 +494,10 @@ Original acceptance criteria, met within S1's valid-response scope:
 1. Add a synthetic canonical nested-edits fixture to the existing
    [search-adapter tests](../../../../src/dal/grid-api-search-adapter.test.ts#L69). First demonstrate
   that labels/archived/metadata normalization fails against the pre-fix mapper for the expected
-   reason. Reuse the shape of the existing [singleton fixture](../../../../src/dal/grid-api/grid-api-adapter.test.ts#L47),
-   not live payloads or credentials; no new fixture-data collection is needed.
+   reason. Reuse the singleton resource shape retained in the [Argo fixture](../../../../src/dal/grid-api/argo.test.ts#L30)
+   and the live [standalone tests](../../../../src/dal/api-data-source.test.ts#L195)
+   (the legacy fixture suite was retired on 8 October), not live payloads or credentials;
+   no new fixture-data collection is needed.
 2. Assert flat labels, archived false, nested metadata/rights/photoshoot and lastModified; populated
    and link-only/absent file metadata; boolean/string alias preservation; unchanged complete
    usages/collections dates, leases, assets, identity and upload/soft-delete metadata.

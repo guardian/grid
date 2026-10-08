@@ -24,6 +24,23 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 8 October 2026 - Retire the unused legacy Grid detail reader
+
+Remove the unused gridApi allocation, GridApiDataSource detail implementation/suite
+and identity-only mergeReconciledFields helper/test; no replacement machinery.
+The operator's bounded decision supersedes only the archived singleton keep rule.
+Retain private discovery and its shared initialization/AI-capability promise,
+shared Argo helpers, API types and distinct auth/session/server/write-guard vocabulary.
+The live requested-ID-checked singleton read, normalization, cancellation and
+ImageDetail-owned enrichment/actions remain unchanged. Map retired assertions to
+existing live/Argo coverage or obsolete reader policy; no coverage gap warrants
+transferring the old suite. Correct current documentation and redirect the useful
+fixture reference without rewriting historical packet evidence. Preserve nested
+editing capabilities as a future requirement, not runtime scaffolding; delivery,
+renewal and downloads remain separately authorized. Validation covers retained
+contracts through focused suites before/after deletion, full units and the
+production build; no component, hook, store or scroll/focus behavior is changed.
+
 ### 8 October 2026 - Bound multi-image chip rendering with shared disclosure
 
 Mount only the first twenty frequency-ordered chips per Details field before creating

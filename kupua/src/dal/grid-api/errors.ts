@@ -1,15 +1,9 @@
 /**
- * Error classes for the Grid API adapter.
- *
- * Error handling contract (kupua "graceful API absence" directive):
- *   404 / 403 (server)  → adapter returns null → UI renders ES-only view unchanged
- *   401                 → AuthError   (re-auth toast; user action required)
- *   419                 → SessionExpiredError (distinct from 401; expired cookie)
- *   other 4xx/5xx       → ArgoError   (unexpected; surface to monitoring, not user)
- *   write-guard 403     → WriteGuardBlockedError (developer config issue; not a user error)
- *   network failure     → adapter returns null (graceful absence)
- *
- * See grid-api-contract-audit-findings.md §6.2 and §6.5 for auth and error details.
+ * Retained Grid protocol error vocabulary for separately authorized API consumers.
+ * Auth, expired-session, server and local write-guard failures remain distinct.
+ * These classes do not prescribe the live read path's failure or toast policy.
+ * See README.md for current ownership and grid-api-contract-audit-findings.md §6.2/§6.5
+ * for protocol details.
  */
 
 export class AuthError extends Error {

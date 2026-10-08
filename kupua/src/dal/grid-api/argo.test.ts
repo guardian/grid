@@ -9,7 +9,6 @@ import { describe, expect, it } from "vitest";
 import {
   findAction,
   findLink,
-  mergeReconciledFields,
   parseArgoErrorBody,
   unwrapEntity,
   unwrapResponse,
@@ -338,13 +337,6 @@ describe("findAction", () => {
     const action = findAction(metadataEntity, "set-from-usage-rights");
     expect(action).toBeDefined();
     expect(action?.method).toBe("POST");
-  });
-});
-
-describe("mergeReconciledFields", () => {
-  it("is an identity passthrough (seam for future normalization)", () => {
-    const result = mergeReconciledFields(SINGLE_IMAGE_DATA);
-    expect(result).toBe(SINGLE_IMAGE_DATA); // referential equality — not a copy
   });
 });
 

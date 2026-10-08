@@ -1670,7 +1670,15 @@ Desktop drag-to-collection works as expected.
 
 ### Two parallel data adapters (ElasticsearchDataSource + GridApiDataSource)
 
-**What:** Kupua has two coexisting data adapters:
+**Historical rationale, not current routing:** API migration is now owned by the
+[build plan](03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md).
+The unused legacy reader/allocation was retired on 8 October 2026; the live selected
+DAL is ApiDataSource or direct ES. Shared HATEOAS helpers/types/errors remain reserved.
+See the [current adapter reference](00%20Architecture%20and%20philosophy/component-detail.md#grid-api-adapter-dalgrid-api-dalgrid-api-search-adapterts).
+The original hybrid rationale below is retained as history, not a requirement to
+restore that class or a grant to implement writes/delivery.
+
+**What (at the time):** Kupua has two coexisting data adapters:
 - `dal/es-adapter.ts` — all search-shape flows (scroll, `search_after`, PIT, aggregations, position maps, scrubber, range selection)
 - `dal/grid-api/grid-api-adapter.ts` — media-api HATEOAS surface (image detail, Phase B+ satellite reads, Phase C+ writes)
 

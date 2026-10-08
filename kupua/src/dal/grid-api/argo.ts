@@ -10,7 +10,6 @@ import type {
   ArgoErrorResponse,
   EmbeddedEntity,
   EntityResponse,
-  ImageData,
   Link,
   SearchHitImageData,
   SearchResponseRaw,
@@ -56,31 +55,6 @@ export function findLink(entity: { links?: Link[] }, rel: string): Link | undefi
  */
 export function findAction(entity: { actions?: Action[] }, name: string): Action | undefined {
   return entity.actions?.find((a) => a.name === name);
-}
-
-// ─── Field normalization ──────────────────────────────────────────────────────
-
-/**
- * Normalizes an `ImageData` after unwrapping — seam for future client-side field
- * normalization or validation.
- *
- * The server (Thrall + ImageResponse.scala) already pre-computes merged fields
- * (`metadata`, `usageRights`, `cost`, `valid`, `invalidReasons`, `persisted`,
- * `syndicationStatus`) via painless scripts and request-time computation.
- * This function is currently an identity passthrough.
- *
- * Merge direction (permanent rule, not scaffolding):
- *   ES baseline → API overwrite, never the inverse.
- *   The `useEnrichment` hook (Cluster 1) will apply API values over ES-sourced fields.
- *   This function operates on the API side after unwrapping.
- *
- * Future callers (Cluster 1+) may add:
- *   - Sanity checks on required fields
- *   - Normalization of empty objects vs null
- *   - Defaults for absent optional fields
- */
-export function mergeReconciledFields(image: ImageData): ImageData {
-  return image;
 }
 
 // ─── Search response helpers ──────────────────────────────────────────────────

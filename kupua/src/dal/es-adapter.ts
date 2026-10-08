@@ -705,8 +705,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
    * Search without using the shared abort controller.
    * Range loads are additive and shouldn't cancel each other or cancel
    * search. Accepts an optional signal so the caller can abort.
-   * Delegates to searchAfter (first page, no PIT) for the ES implementation;
-   * GridApiDataSource will override this with an offset-based GET /images call.
+   * Delegates to searchAfter (first page, no PIT) for the ES implementation.
    */
   async searchRange(params: SearchParams, signal?: AbortSignal): Promise<SearchResult> {
     return this.searchAfter(params, null, null, signal);

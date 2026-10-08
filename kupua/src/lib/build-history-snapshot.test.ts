@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { SearchParams } from "@/dal/types";
 
 // ---------------------------------------------------------------------------
 // Mocks — set up before importing the module under test
 // ---------------------------------------------------------------------------
 
 const mockStoreState = {
-  params: { orderBy: undefined as string | undefined, nonFree: "true" },
+  params: { orderBy: undefined, nonFree: "true" } as SearchParams,
   focusedImageId: null as string | null,
   imagePositions: new Map<string, number>(),
   bufferOffset: 0,
@@ -43,23 +44,6 @@ vi.mock("@/lib/scroll-container-ref", () => ({
 
 vi.mock("@/lib/scroll-geometry-ref", () => ({
   getScrollGeometry: () => ({ rowHeight: 303, columns: 5 }),
-}));
-
-// buildSearchKey and extractSortValues — use real implementations
-// but we need to mock the DAL imports they use internally.
-// Simpler: mock these directly since we're testing buildHistorySnapshot's
-// anchor selection logic, not the key/cursor extraction.
-vi.mock("@/lib/image-offset-cache", () => ({
-  buildSearchKey: (params: Record<string, unknown>) => {
-    const entries = Object.entries(params)
-      .filter(([k, v]) => k !== "image" && v != null && v !== "")
-      .sort(([a], [b]) => a.localeCompare(b));
-    return JSON.stringify(entries);
-  },
-  extractSortValues: (image: { id: string }, _orderBy?: string) => {
-    // Simple stub: return [uploadTime, id] for any image
-    return ["2026-03-20T14:30:00.000Z", image.id];
-  },
 }));
 
 // Now import the module under test
@@ -108,11 +92,12 @@ describe("buildHistorySnapshot", () => {
     expect(snap.anchorOffset).toBe(0);
   });
 
-  it("builds searchKey from params", () => {
-    mockStoreState.params = { nonFree: "true", orderBy: "oldest" };
+  it("matches URL search identity when store params include pagination", () => {
+    mockStoreState.params = { query: "cats", length: 200, offset: 600, orderBy: "-uploadTime", nonFree: "true" };
     const snap = buildHistorySnapshot();
-    expect(snap.searchKey).toContain("nonFree");
-    expect(snap.searchKey).toContain("orderBy");
+    expect(snap.searchKey).toBe(JSON.stringify([
+      ["nonFree", "true"], ["orderBy", "-uploadTime"], ["query", "cats"],
+    ]));
   });
 
   describe("anchor selection", () => {

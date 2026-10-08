@@ -587,6 +587,18 @@ suite in API mode.
     shape (the `{image, enrichment?}` pattern here is precedent, not a decision). The overlay
     reaches only the detail metadata panel; any later detail consumer of server actions (for
     example editing) must take it from the same standalone state.
+- **Legacy-reader retirement (operator, 8 October 2026):** remove only the unused `gridApi`
+  allocation, `GridApiDataSource.getImageDetail` implementation/suite and identity-only
+  `mergeReconciledFields`. This narrowly supersedes finding 21 / Phase 3's keep decision in
+  the [archived audit](../../zz%20Archive/dead-code-and-over-abstraction-audit-findings.md);
+  its historical record stays unchanged. Private discovery, `initGridApi`, AI capability
+  detection, shared Argo helpers, API types and auth/session/server/write-guard vocabulary
+  remain. U6a's live path and requested-ID-owned enrichment/actions are unchanged; P25's
+  singleton GET reuse denotes the server endpoint, not the retired class. Current reads
+  retain top-level actions but flatten nested metadata resource links/actions. Future editing
+  must retain required nested capabilities, respect permission-aware availability and use
+  the same standalone owner; no new transport, write client, fan-out or failure policy is
+  introduced. U7 delivery/renewal, downloads and editing remain separately authorized work.
 - Count keeps baseline-plus-latest polling (KUP-006).
 - **U6b decisions (operator, 25 September 2026):**
   - **Tickers are Grid's:** the count endpoint returns the tickers Grid's configuration defines
@@ -1464,7 +1476,7 @@ operator in chat instead, not here.
 - 25 Sep, U5 intake, `search-store.ts:3312`: the 7 configured alias fields (e.g. Edit Status; sortable only by clicking their hidden-by-default table column header or via URL, not the sort dropdown) are not in `KEYWORD_SORT_ES_FIELDS`, so deep seek never uses the keyword walk and always takes the from/size fallback. The keyword-page endpoint could serve them. Clean-up/improvement for both modes.
 - 25 Sep, U5 intake, `search-store.ts:1597`: the phantom neighbour batch sends `length = visibleNeighbours.length`; above 200 visible images D3 refuses (422) and the fallback clears focus. Existing hybrid limit, direct ES unaffected. Risk, likely rare.
 - 25 Sep, U5 review, `_loadBufferAroundImage`: uncapped near-top backward reads could prepend null-tail images. **Resolved as [KUP-034](../../bug-backlog.md#kup-034).**
-- 25 Sep, U6a, [grid-api-adapter.ts:50](../../../../src/dal/grid-api/grid-api-adapter.ts#L50) `GridApiDataSource.getImageDetail`: still unused (only its tests call it); it drops the envelope's `actions` and mixes `null`/thrown outcomes. U6a's `apiGetImage` supersedes it for detail. Clean-up: delete or align when the satellite adapters are next touched.
+- 25 Sep, U6a, legacy `GridApiDataSource.getImageDetail`: unused outside its tests, dropped envelope actions and mixed `null`/thrown outcomes. **Resolved by bounded operator-authorized retirement, 8 October:** remove the reader/allocation/identity helper, not reserved API infrastructure; [apiGetImage](../../../../src/dal/grid-api-search-adapter.ts#L169) remains the standalone path (see U6a retirement decision above).
 - 25 Sep, U6a E2E, [browser-history.spec.ts:1163](../../../../e2e/local/browser-history.spec.ts#L1163): "metadata search pushes once; Back restores the exact rendered detail image" fails deterministically since `b1239d26d` made `waitForDecodedDetailImage` a real bounded loop (the old async `waitForFunction` passed vacuously). Local E2E has no media, so the detail shows "Image preview not available" and never decodes; identity and metadata were correct (resident image, not the U6a path). Test-harness bug; needs a decision (stub the media route as the KUP-021 tests do, or assert rendered identity only). Not weakened here. **Resolved in U6a (operator-authorized):** the test stubs `image-urls.ts` with an identity-tagged pixel, as the KUP-021 tests do; the decode check is unchanged.
 - 25 Sep, U6b intake, [types.ts](../../../../src/dal/types.ts) `ImageDataSource.count`: no production caller (only tests); every mode must still implement it. Clean-up: drop it from the interface when the DAL is next trimmed.
 - 25 Sep, U6b intake, [search-store.ts:2331](../../../../src/stores/search-store.ts#L2331): the ticker request fired with the first page computes an exact total nobody reads (the page supplies it), in both modes. Possible saving: an opt-out of the exact total for ticker-only reads. Unmeasured; filter aggregations already visit every match, so the gain may be small. Improvement.
