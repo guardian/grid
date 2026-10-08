@@ -62,6 +62,23 @@ if (window._clientConfig.useReaper === true) {
   isSearch.push("reapable");
 }
 
+const persistedSearch = window._clientConfig.useReaper === true
+  ? [
+      "persistence-identifier",
+      "exports",
+      "usages",
+      "archived",
+      "photographer-category",
+      "illustrator-category",
+      "commissioned-agency",
+      "leases",
+      "persisted-collection",
+      "photoshoot",
+      "labeled",
+      "edited"
+    ]
+  : undefined;
+
 if (window._clientConfig.agencyPicksIngredients) {
   isSearch.push("agency-pick");
 }
@@ -154,6 +171,9 @@ querySuggestions.factory("querySuggestions", [
       { fieldName: "has" },
       { fieldName: "croppedBy" },
       { fieldName: "filename" },
+      ...(persistedSearch
+        ? [{ fieldName: "persisted", resolver: persistedSearch }]
+        : []),
       {
         fieldName: "photoshoot",
         resolver: (value: string) => suggestPhotoshoot(value)
