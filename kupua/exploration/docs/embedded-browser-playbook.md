@@ -44,6 +44,36 @@ a throttled run.
 
 ## 1. Session setup
 
+**[V] 8 October, Location wrapping:** after reload in the shared tab, inline-flex
+value-plus-trailing-comma groups wrap between values; commas remain outside the
+underlined search buttons. Verified on the formerly leading-comma narrow panel.
+
+**[V] 8 October, shared-tab KUP-035 comparison:** use the authenticated shared tab,
+not stale private Playwright auth. This bridge supports prefetching a served module
+via `page.evaluate(fetch)` and temporary `route.fulfill`; `page.request` cookie lookup
+and `route.fetch` were unavailable/blocked here. Remove the intervention before final
+reload. Shared-tab persistence needs selection cleared after reload and an owned
+`seek(0)`/actual first-cell match before the P19 anchor; `bufferOffset > 0` alone
+does not prove the selected anchor is outside the target buffer. Independent chip
+counts must exclude empty/non-string values but retain raw repeated occurrences.
+Fetch-to-response-headers intervals are not complete body/backend timings; a
+start-time cutoff excludes the initiating click's long task/LoAF. Restore wrappers,
+observers, routes, cache settings, viewport and transient selection afterward.
+
+**[V] 8 October, local KUP-035 disclosure:** Chromium blurs a disabled async-loading
+button; restoring focus on completion must respect newer adjacent-field focus.
+Collapse anchoring is physically clamped: for a last/short field, assert the header
+is visible and scroll reaches `min(header content offset, max scroll)`, not absolute
+header-at-top. Await the existing position-map readiness before observing zero
+Details expansion requests, or unrelated startup map reads pollute the action window.
+
+**[V] 8 October, KUP-035 attribution:** CDP Profiler plus in-memory timeline events
+and fixed user-timing marks can distinguish a wrapped JS callback from its enclosing
+browser task: `FireIdleCallback` included subsequent React microtask rendering.
+Sanitise before returning/persisting evidence; retain no raw trace/profile or live
+values. A full resource-timing buffer can omit new requests, so an empty filtered
+resource list is not zero network work. Restore observers/wrappers and clear marks.
+
 **[V] 6 October 2026, B3 touch verification:** use the operator-shared HTTPS tab,
 not an assumed localhost page. Chromium CDP touch emulation plus a 393x852 viewport
 sets both media/app coarse-pointer detection and effective Click-to-Open despite

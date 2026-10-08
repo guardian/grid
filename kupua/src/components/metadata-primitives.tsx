@@ -123,11 +123,13 @@ export function MetadataSection({ children }: MetadataSectionProps) {
 export interface MetadataRowProps {
   label: string;
   children: React.ReactNode;
+  ref?: React.Ref<HTMLDivElement>;
+  tabIndex?: number;
 }
 
-export function MetadataRow({ label, children }: MetadataRowProps) {
+export function MetadataRow({ label, children, ref, tabIndex }: MetadataRowProps) {
   return (
-    <div className="flex gap-1 py-0.75 leading-snug">
+    <div ref={ref} tabIndex={tabIndex} className="flex gap-1 py-0.75 leading-snug">
       <dt className="text-xs font-bold text-grid-text-dim shrink-0 w-[30%]">
         {label}
       </dt>
@@ -195,8 +197,11 @@ export function FieldValue({
       <span>
         {parts.map((p, i) => (
           <span key={p.cqlKey}>
-            {i > 0 && ", "}
-            <ValueLink cqlKey={p.cqlKey} value={p.value} onSearch={onSearch} />
+            <span className="inline-flex max-w-full items-baseline">
+              <ValueLink className="min-w-0" cqlKey={p.cqlKey} value={p.value} onSearch={onSearch} />
+              {i < parts.length - 1 && <span className="shrink-0">,</span>}
+            </span>
+            {i < parts.length - 1 && " "}
           </span>
         ))}
       </span>

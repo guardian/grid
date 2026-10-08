@@ -9,9 +9,27 @@ vi.stubGlobal("matchMedia", vi.fn(() => ({
   removeEventListener: vi.fn(),
 })));
 
-const { ValueLink } = await import("./metadata-primitives");
+const { ValueLink, FieldValue } = await import("./metadata-primitives");
+const { FIELD_REGISTRY } = await import("@/lib/field-registry");
+const { MockDataSource } = await import("@/dal/mock-data-source");
 
 afterEach(cleanup);
+
+describe("Location punctuation", () => {
+  it("groups trailing commas with values, outside links, with breakable spaces between groups", async () => {
+    const [image] = await new MockDataSource(1).getByIds(["img-0"]);
+    const { container } = render(<FieldValue
+      field={FIELD_REGISTRY.find(field => field.id === "location")!}
+      image={{ ...image, metadata: { ...image.metadata, subLocation: "Venue", city: "City", state: undefined, country: "Country" } }}
+      onSearch={vi.fn()}
+    />);
+    expect(container.textContent).toBe("Venue, City, Country");
+    const groups = container.querySelectorAll(".inline-flex");
+    expect(Array.from(groups, group => group.textContent)).toEqual(["Venue,", "City,", "Country"]);
+    expect(screen.getAllByRole("button").map(button => button.textContent)).toEqual(["Venue", "City", "Country"]);
+    expect(groups[0].nextSibling?.textContent).toBe(" ");
+  });
+});
 
 describe("ValueLink", () => {
   it("exposes its exact search field and value", () => {

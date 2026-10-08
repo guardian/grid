@@ -16,19 +16,22 @@ is not a code fix; an old observation is not proof it still reproduces at HEAD.
 
 ## Current Status
 
-**Checkpoint: 4 October 2026, committed L45 `89b19e6f2` (baseline `cef50fef9`).** Ordinary/AI continuity, destination
-history, independent session density, detail return and L41-L43/L45 are complete within
-their recorded limits. Their [short completion records](#owned-reset-presentation-l43)
-name the structural result; the C/B records retain witnesses and disproof boundaries.
+**Checkpoint: 8 October 2026.** Ordinary/AI continuity, destination history,
+independent density, detail return, B3 and L41-L43/L45 are complete within their
+recorded limits. L12 found no redundant Home guard; its assessment is closed.
+B17 and detail-test reductions and B10's travel optimisation are retained.
+The C/B records preserve original witnesses separately from repaired behaviour.
+B2/L21 is closed for the original deferred empty-lookup/newer-click witness at
+`5b62477ff1d8bda0bfc88ffbbce4cab719f1a235`; matched deletion and ordinary-success
+controls pass. This is isolated fixture browser verification, not a new suite,
+live-system or wider focus-race certificate; retained pending delta is qualified below.
 
-**Latest recorded gates:** 2,911 unit tests/83 files, TypeScript/Vite and 453
-retry-free E2E, including 16 forced-seek; two final L45 repair reviews accepted.
-The 104 pure harness checks passed before the fixture-only final repair on unchanged
-source/harness; they were not rerun at resumption. Excluded
-E2E/perf configs retain 86/34 inherited diagnostic identities with zero additions;
-they are not clean. Build/E2E warnings remain. These are implementing-session
-results, not coordinator reruns, native server-cancellation proof or current
-direct/API performance equivalence. Live evidence keeps its original scope/revision.
+**Latest recorded gates:** 2,925 unit tests/83 files, TypeScript/Vite and 441
+retry-free E2Es, including 16 forced-seek, with no skips. These are the detail-test
+reduction's results, not a new run during documentation cleanup. App build does not
+certify excluded E2E/perf TypeScript surfaces; inherited diagnostics and runtime
+warnings remain. Local functional gates do not certify live/direct-API performance
+equivalence or native server cancellation. Every live record retains its revision limits.
 
 **L19 assessment:** [small-result source assessment](#small-result-source-assessment-5-october-2026)
 retains the earlier eager-preservation assessment as historical evidence.
@@ -37,16 +40,16 @@ indexed/demand-loading prototype: remove eager completion rather than relocate i
 Required demand wake-up and quiet-failure adaptations are included in the estimate.
 The [bounded network characterisation](not-yet-another-audit-L19-network-measurmenets.md)
 remains scoped evidence; no tier implementation, prototype or further measurement is approved.
-Its independent findings now live in the canonical backlog: [KUP-039](bug-backlog.md#kup-039)
-is the startup-only repair approved on 6 October for a separate implementation session;
-[KUP-040](bug-backlog.md#kup-040) is parked polling eligibility work, preserving useful tab notifications.
-Optional helper/L44 work and B19 remain separate; L45 is complete.
+L19 is parked; its saved experiment prompt is dormant, not an execution mandate.
+Its independent findings live in the canonical backlog: [KUP-039](bug-backlog.md#kup-039)
+is repaired (`89bdb6370`); [KUP-040](bug-backlog.md#kup-040) remains parked,
+preserving useful tab notifications. Optional helper/L44 work and B19 are unselected.
 
 | ID | Status | Issue / responsibility | Remaining task |
 |---|---|---|---|
 | [B1](#b1) | **Superseded** | Destination focus lost across density history | L20 closed by producer removal; supported search-entry focus/none controls remain |
-| [B2](#b2) | Recheck | Late snap-back failure clearing newer focus was observed before later ownership repairs | L21; do not presume current reproduction or closure |
-| [B3](#b3) | Done within local/live API limits | Long-press range retains endpoint chaining without self-cancellation | L22 |
+| [B2](#b2) | **Closed within exact local witness** | Original late-empty snap-back no longer clears newer clicked focus | L21 closed at `5b62477ff`; deletion and ordinary-success controls pass; retained delta and other races remain uncertified |
+| [B3](#b3) | **Done within local/live API limits** | Long-press range retains endpoint chaining without self-cancellation | L22 closed in `024b9fc70` |
 | [B4](#b4) | **Done within local limits** | Owned density placement retires on newer focus/input; genuine no-saved Home centring remains | L23 closed by L45; original evidence retained, no new live certificate |
 | [B5](#b5) | Accepted policy for query/filter and AI exit | Remembered detail identity may anchor off-screen; not a repair | Layout preference remains Q1/L15 |
 | [B6](#b6) | **Done** | Ordinary selected-sort equality no longer clears retained focus | L24 closed; L8 structural unit complete |
@@ -133,18 +136,204 @@ ownership boundaries end to end, not just changed lines, but do not require an
 all-repository read or replay the L7 audit on every restart. State what was read,
 inferred and executed. Another agent's reading manifest is not inherited verification.
 
-**Knowledge boundary:** earlier coordinator reading covered the full source/test diff
-through `ae08e779d`; later L41/L42 inspection was selective. The 4 October orientation
-read the full ledger, L43 production delta and 38 mounted controls plus current core
-ownership paths, not every browser test body or store branch. The L45 follow-up read
-the complete production/test delta and current changed lifecycle; all four code/test
-files matched final review-packet hashes. Saved unit/E2E logs were inspected, not
-rerun. This is scoped source/evidence reading, not fresh whole-app or performance
-certification. Local ignored review artifacts may be cleaned; the committed diff,
-tests and these qualified records remain the durable reference. No next continuity unit is selected;
-the independently approved startup repair is [KUP-039](bug-backlog.md#kup-039).
-Wider API migration remains owned by the
+**Knowledge boundary:** the original full-source manifest and later scoped evidence
+remain below. Neither a passing run nor this document's full reread certifies the
+whole current codebase. Ignored review artifacts may be cleaned; keep decisions,
+proof locations and material limits in tracked records. The selected independent
+repair is KUP-035's shared field disclosure; no wider continuity replacement is
+selected. Wider API migration remains owned by the
 [API build plan](03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md).
+
+## KUP-035 Reconciliation Decision Assessment
+
+**7 October source checkpoint `453efc760`; attribution completed 8 October.**
+The source assessment and one adversarial challenge are retained below. The executed
+API DEV discriminator attributes the dominant stall to post-publication value-pill
+rendering, not the full reducer. Neither proposed model is selected; KUP-035's default-collapsed disclosure repair
+passes local gates/review and one bounded API DEV comparison. Large expansion remains costly. Persistence/B15, gestures, limits, server aggregation and progressive summary
+UX remain excluded from this diagnosis.
+
+**Current model.** [Membership actions](../../src/stores/selection-store.ts#L362)
+deduplicate Set deltas. Cached additions synchronously fold summaries; uncached additions
+mark fields pending. Mixed-scalar/chip removals request a rebuild. Metadata availability
+is separate: [fetch completion](../../src/stores/selection-store.ts#L538) mutates the LRU,
+publishes changed-batch revision and coalesces reconciliation. [Hydration](../../src/stores/selection-store.ts#L591)
+refreshes all selected IDs; captured Set/anchor owns successful omission repair, never
+failed reads. Late cache data remains useful without restoring old membership.
+[Clear](../../src/stores/selection-store.ts#L513) retires the callback and presentation.
+
+Incremental and full calculations share normalization/equality, **not counting**:
+[incremental transitions](../../src/lib/reconcile.ts#L193) search/copy value arrays;
+[full recomputation](../../src/lib/reconcile.ts#L298) builds frequency maps. They exist
+for cheap cached changes versus rebuilding unknown/dirty state. Repeated chip-map
+copying and recounting unchanged members are avoidable work; initial input inspection
+is necessary. The [scheduler](../../src/stores/selection-store.ts#L199) performs it in
+one task. Its comments do not establish chunking or cardinality-independent O(F) edits.
+
+**Evidence, not attribution.** The backlog's two-run September preflight reports a
+318-319ms idle task. However, canonical four-run P19 records at `4ead0187c` report
+[direct ES](../../e2e-perf/results/audit-log.json#L15288) / [local API](../../e2e-perf/results/audit-log.json#L16022)
+max frames 338/354ms but wrapped idle callbacks **8/7ms**. [October local API](../../e2e-perf/results/audit-log.json#L22411)
+(`89b19e6f2`, dirty) retains 338ms/8ms. P18 callbacks are 1ms. These are
+scenario-revision-1, cold-except-anchor, Details-open, 100/1,000-image records,
+not today's baseline. [Deployed/local evidence](../../e2e-perf/README.md#L313)
+also exists; topology and differing dirty fingerprints prevent a pure transport comparison.
+The [wrapper](../../e2e-perf/perf.spec.ts#L203) includes synchronous publication, not
+all later rendering. Neither identical callback names nor these aggregates identify
+the blocking stack.
+
+**A: one reversible accumulator.** Initial builds and later changes use the same
+signed scalar/chip contribution operation. Per-ID applied values allow subtraction
+before replacement; coalesced dirty IDs resolve latest membership/cache inputs.
+Small settled edits drain synchronously, large work in bounded turns. Finished views
+remain immutable; materialization belongs to the same work owner.
+
+| A accounting | Remove | Retain | Replace / added charge |
+|---|---|---|---|
+| Algorithms ([engine](../../src/lib/reconcile.ts#L193)) | Separate add/remove state transitions and full counting loops | Empty/all-same/mixed accounting, ordered scalar-array equality, false/zero, raw chip occurrences | Signed frequency maps and output projection; no generic reversible summariser framework for the unused summary-only extension |
+| State ([store](../../src/stores/selection-store.ts#L269)) | Dirty-field repair and sticky pending calculation states | Membership, metadata revision, fetch dedup, immutable view/busy flag | Applied contributions, frequency counts, dirty-ID Set and drain cursor |
+| Scheduling ([callback](../../src/stores/selection-store.ts#L199)) | Full-rebuild callback | Coalescing; cheap small edits | One bounded drain including output work; synchronous/batched dispatch still exists |
+| Invalidation ([LRU](../../src/stores/selection-store.ts#L70)) | Whole recount after each relevant completion/removal | Clear ownership, late-cache reuse, omission/failure distinction | Feed insert/replacement/eviction IDs; failed zero-change reads must also settle; guard interrupted materialization |
+| Publication ([panel](../../src/routes/search.tsx#L297)) | No independent presentation owner promised removed | Completed cohort retention, initial available-data display, buffer-first usages | Atomic finished field view without mutating a previously published one; downstream scans/rendering remain |
+| Tests ([owning suite](../../src/stores/selection-store.test.ts#L812)) | Dirty-tag/exact-scan mechanics where replaced | Semantic and ownership proof | Rewrite existing deferred fixtures for deltas, eviction and interleaved materialization; independent explicit expected values |
+
+**B: bounded responsiveness fallback, not simplification.** Retain the distinctions,
+make full rebuilding resumable, and publish only a valid completed result.
+
+| B accounting | Remove | Retain | Replace / added charge |
+|---|---|---|---|
+| Algorithms ([full pass](../../src/lib/reconcile.ts#L298)) | Monolithic full-loop execution | Incremental engine and complete recount | Field/image/value cursors; field-only slicing cannot bound one large field |
+| State / scheduling ([scheduler](../../src/stores/selection-store.ts#L183)) | Single unbounded callback | Busy flag, coalescing | Accumulators, continuation cursor, budget and timeout-safe bounded progress |
+| Invalidation ([completion](../../src/stores/selection-store.ts#L562)) | Assumption of uninterrupted execution | Clear, membership and metadata correctness | Snapshot validity/restart guard; global revision can restart for irrelevant data |
+| Publication ([resolver](../../src/routes/search.tsx#L339)) | Nothing | Existing presentation semantics | Validate final view before atomic publication; no progressive summary |
+| Tests ([deferred fixture](../../src/stores/selection-store.test.ts#L803)) | One-callback assertions | Existing state/ownership outcomes | Multi-turn, stale-result and completion proof in that fixture; warm bulk-add remains unchanged |
+
+Broad **noncomment-line estimates**, including replacements rather than moved code:
+A removes 180-240 production lines, adds 180-300 (net -60 to +120); tests net -40 to
++120. B adds net 40-90 production and 40-100 test lines. These are planning ranges,
+not a deletion certificate; A's net simplification remains unproved.
+
+**Cost model.** Let N be cached selected images, F the [22 static participating fields
+plus configured aliases](../../src/lib/field-registry.tsx#L1095), E array elements,
+D distinct values, and W=NF+E. Current full work is O(W + D log D), with O(N+D)
+temporary storage, in one turn. Cached additions also search/copy growing distinct
+lists; warm bulk folds can approach quadratic cost. Removals trigger full recounts.
+A changes only affected contributions, plus O(D) materialization/ordering; bulk/reload
+still costs O(W + D log D), with O(W+D) retained normalized contributions. Sparse
+late batches avoid repeated W; B retains W per rebuild, plus discarded restarts.
+Both add scheduler wait. Longest work still includes indivisible values, output sorting,
+and [cost/lease/chip rendering](../../src/components/MultiImageMetadata.tsx#L206)
+and [usage scans](../../src/components/UsagesSection.tsx#L303), not merely slice budget.
+Small edits retain membership-copy/output costs. Requests stay unchanged:
+[API](../../src/dal/grid-api-search-adapter.ts#L183) uses 200-ID chunks/four workers,
+[direct ES](../../src/dal/es-adapter.ts#L2172) 1,000-ID parallel chunks; both deliver
+one logical result, not per-chunk reducer opportunities.
+
+**Four outcomes.** A potentially unifies calculation and avoids repeated work, but
+adds bookkeeping; cold blocking improvement and unchanged completion wait are unproved.
+Its small deltas are cheaper only before output/consumer costs. B adds machinery,
+bounds traversal but not rendering, risks longer readiness, and leaves warm bulk
+folding unchanged. Neither currently demonstrates all four outcomes.
+
+**Challenge and response.** The independent challenger identified a concrete A failure:
+materialize credit, yield, replace an image, then materialize keywords, producing a
+mixed-version view unless output ownership is guarded. B can restart on irrelevant
+late metadata. Both objections stand. Initial available-data display must not acquire
+a new all-summary gate. No disagreement remains on the next action; net subtraction,
+dominant CPU cost, cardinality and readiness remain unresolved.
+
+**Proof and decision.** Preserve [KUP-012 literal expectations](../../src/lib/reconcile.test.ts#L195),
+[KUP-001 ownership](../../src/stores/selection-store.test.ts#L526), and
+[held-panel proof](../../e2e/local/selections.spec.ts#L534). Unification makes
+`recomputeAll` comparison circular: use explicit cohort counts, arrays and repeated-chip
+expectations, not a relocated production oracle. Strengthen existing deferred cases
+for replacement/eviction and mid-materialization changes; retire dirty/exact-callback
+assertions, including [P18's one callback](../../e2e-perf/perf.spec.ts#L2162).
+
+**Executed discriminator, 8 October:** one authorised native Shift-click selected
+1,000 images in visible API-backed DEV Kupua at 1720x960/DPR1, date-capped to
+4 March, with one cached anchor and rank999 outside its original buffer. All 1,000
+metadata entries and 29 non-pending summary fields settled; the selected count and
+nonempty stable panel rendered. No independent all-field semantic audit is claimed.
+
+| Correlated observation | Result |
+|---|---:|
+| Wrapped reconciliation/notification callback | 8.8ms |
+| Enclosing browser task / `FireIdleCallback` | 316.6ms |
+| React function call immediately after summary publication | 307.5ms |
+| Next browser task, including style/layout/commit | 122.0ms |
+| Maximum observed frame / action-to-stable-panel | 375.1ms / 2344.6ms |
+| Rendered partial-value pills / distinct keyword values | 4238 / 4125 |
+
+CPU samples follow `processRootScheduleInMicrotask` through synchronous React
+rendering to [MultiSearchPill](../../src/components/SearchPill.tsx#L126) and `jsxDEV`,
+including DEV repeated rendering. The [panel](../../src/components/MultiImageMetadata.tsx#L195)
+maps every chip to a component; each pill formats its count and the same selection
+total. This reconciles the apparent 320ms idle-task/8ms callback discrepancy:
+the enclosing browser event includes subsequent rendering. Nested times must not
+be summed. Four served raw-source hashes match the checkout.
+
+**Operator decision, 8 October: shared field disclosure is the selected repair.**
+Reuse the [Filters pattern](../../src/components/FacetFilters.tsx): one **Show more…**
+action revealing all available values for that field, then **Show fewer**. The
+implementation operator confirms 20 initial Details values and explicitly retains
+Filters' existing experience: 10 default buckets, ≥10 possibly-more heuristic and
+100-bucket expanded cap. No aggregation-limit change, separate Show all, incremental
+batches or new virtualisation framework. Share control styling/interaction and
+scroll-anchored collapse, not fetching, loading or state ownership. Details already
+has complete values and fetches nothing on expansion; complete lists ≤20 need no control.
+
+Collapsed chip elements must not be created, rather than merely CSS-hidden.
+Preserve full-cohort counts, frequency order, partial/full pill meaning and CQL click
+modifiers. Expansion is per field and survives metadata refreshes; no new persistence
+is needed. Ordinary selection-summary computation and data ownership stay unchanged.
+Reconciliation A/B remains unselected; number-formatting work is not a prerequisite.
+
+Default collapsed rendering is the performance target. Deliberate expansion can
+still mount thousands of pills; measure and disclose that cost rather than quietly
+capping Show more or claiming all large-selection states are fixed. Verify both
+panels, correct-summary readiness and small selections; report actual shared-code
+cost without claiming an unrelated reconciliation simplification.
+
+**Implementation outcome, 8 October:** `FieldDisclosure` replaces Filters' two
+controls and collapse handler; the same component supplies Details' control,
+expanded/controlled-region accessibility, post-loading focus recovery and header
+anchoring within physical scroll bounds. Details chooses the visible values before
+creating pills and keeps per-field component-lifetime expansion through refreshed,
+pending and empty views. Reconciliation, datasources and request ownership are
+unchanged. Actual production diff: Filters removes 38/adds 14 lines, Details
+removes 35/adds 69, metadata row removes 2/adds 4, shared control adds 72: net +84,
+not a reconciliation subtraction. Eleven mounted cases are new; two existing browser
+cases are strengthened in place. Final 2,936 unit/85 files and build pass; retry-free
+E2E has 440 passes and one existing conditional table-eviction setup skip. One focused
+review's cancelled-field focus race is repaired with failing-first proof and accepted
+on re-review; the final changed files have no editor diagnostics.
+
+One matched foreground P19-shaped API DEV pair (1720x960/DPR1, cold except anchor,
+same 1,000-image cohort) compares the retained code with a served-module render-bound
+intervention, not historical HEAD. Independent chip counts/order/tooltips match;
+4,238 pills become 56. Maximum frame is 334.1 -> 16.7ms; detected LoAF blocking
+244 -> 0ms; publication-to-stable panel 415.5 -> 22.4ms. Total readiness is
+2,164.4/1,451.6ms with unequal fetch-to-header wait unions 1,713.4/1,393.6ms, so
+that difference is not solely a rendering gain. Intentional 4,125-keyword expansion
+is request-free but takes 378.6ms with a 316.7ms maximum frame; initiating-event
+exclusion limits task/LoAF coverage. Live panel expansion/collapse, keyboard/focus,
+adjacent fields and filter/pill actions pass; four served-source hashes match.
+[Sanitised observations](../../.vite/kup035-attribution-20261008/disclosure.json)
+retain the valid pair/expansion and invalid setup/oracle attempts without raw payloads
+or identities. Probes/routes/cache override and transient selection are removed.
+The original attribution remains intact. Default rendering is repaired within these
+local/API DEV limits; production/direct-ES performance and universal all-field
+semantic correctness are not certified, nor are expanded states stall-free.
+
+This single profiler/trace/observer capture has unquantified instrumentation overhead;
+production-build cost and direct-ES attribution are unverified. Resource timing did
+not retain the action's requests, so no exact network-time split is claimed. Only
+[sanitised aggregates](../../.vite/kup035-attribution-20261008/summary.json) were saved;
+raw traces/profiles and live identities were not. Probes/wrappers were removed,
+selection cleared, Details closed and initial search restored. The diagnostic made
+no product edit or application test run; the separate UI decision above now defines
+the approved implementation scope.
 
 ## L7 Characterisation: Observable Behaviour
 
@@ -189,17 +378,17 @@ scrolling retain it. Focus and viewport movement are stated separately.
 | Case / situation | What happens now | Confidence | Choice if needed | Operator decision |
 |---|---|---|---|---|
 | [C11](#c11) Seek or scroll away from focused A | Focus remains A even after its image leaves the loaded content. Selection remains. Some drags scroll immediately; large-result seeking moves content on release and may land approximately. No Back step is added. | Source-established; observed through paired seek/lifetime matrices | No decision needed: seeking must not silently replace focus. | Established |
-| [C12](#c12) Press arrows/Page keys after seeking away, then choose newer focus | Visible-focus mode returns to the bookmark and applies the key movement. Selection/click-to-open uses scrolling instead. The original late-clear failure needs revalidation after subsequent ownership repairs. | Original controlled store witness; not replayed here after B17 | No decision needed: obsolete work must not clear a newer choice. | B2: Recheck |
+| [C12](#c12) Press arrows/Page keys after seeking away, then choose newer focus | Visible-focus mode returns to the bookmark and applies the key movement. Selection/click-to-open uses scrolling instead. A deferred empty lookup retains newer clicked B's focus/ring; without newer focus it clears A. | Exact indexed 10,000-fixture browser witness and deletion/ordinary-success controls at `5b62477ff`; pending delta and other races uncertified | No decision needed: obsolete work must not clear a newer choice. | B2/L21 closed within exact local witness |
 | [C13](#c13) Home/End, including a later opposite-edge action | The view goes to the real result edge. Only active explicit focus moves to first/last; hidden focus and selection stay unchanged. A later owned edge action supersedes the old one. | Source-established; observed in every tier/view, mode policy and transport | No decision needed; do not confuse Home with logo reset. | Established |
 | [C14](#c14) Browse across a loaded-content boundary | The buffer moves while compensation attempts to keep current content stationary. Unloaded positions can show skeleton slots; failed extension can leave a temporary boundary. Focus/selection are not re-elected. | Source-established; paired lifetime matrices observed delayed edges, eviction and prepend | Different fetch/coordinate machinery is not itself a policy choice. | No decision needed |
 | [C15](#c15) Switch grid/table with a visible focused image | Focus stays the same; its row placement is carried across and nudged fully into view at edges. Image centres are not preserved exactly across different row heights. | Source-established; repeated paired density matrices observed current geometry | Preserve focused image placement or visible centre when they differ? | Q1 open |
 | [C16](#c16) Focus A, scroll away, switch grid/table | Current accepted baseline: retain the browsed neighbourhood B while remembering A; arrows can return to A in the other density. | Operator-confirmed 4 October; older residency-dependent L7 evidence remains in the case trace, not as a current requirement | Preserve the current outcome; no new policy correction or investigation is selected | Q1 provisionally settled for L45 |
 | [C17](#c17) Tick images, seek away, repeatedly switch density | With older loaded focus hidden by selection, density follows that focus, not the ticked anchor. Once both leave the loaded data, the viewed neighbourhood wins. Selection and the intended focus state survived the repeated switches; one original centre image became partly clipped after a round-trip. | Observed across paired repeated-density/lifetime matrices; limits below | Same layout choice as C15/C16; no need to answer it twice. | Q1 open |
-| [C18](#c18) Repeatedly switch density; approach a loaded-data boundary | Centre images can change between switches. A temporary loaded-data bottom is also treated as an end: indexed follows loaded focus while seek snaps to its local buffer bottom despite being far from actual result end. | Observed in TEST plus equal-size/map-absent mounted control; repeated-switch limits below | Exact centre placement remains a policy question. Different tier outcomes for the same preservation situation are not an operator choice. | Q1 placement details; B7 tier violation |
-| [C36](#c36) Forward-evict near the top, then prepend until the buffer reaches global zero | Ordinary backward browsing preserves the hidden bookmark but the final prepend to offset zero resets scroll to top and loses the actual viewport anchor. | Observed identically in direct and API seek grid/table with every prepend gated | No decision needed: ordinary prepend compensation must not masquerade as Home/search reset. | B10 |
+| [C18](#c18) Repeatedly switch density; approach a loaded-data boundary | Logical result edges, not temporary loaded-window extrema, now govern snapping. Existing row-height placement remains provisional. | B7 repaired by L45 with matched-window and real forced-seek geometry proof; historical TEST witness remains below | Exact centre placement remains Q1; temporary-edge disagreement is not an accepted tier policy. | B7 done; Q1 placement details remain |
+| [C36](#c36) Forward-evict near the top, then prepend until the buffer reaches global zero | Ordinary prepend compensates through zero without resetting the viewport or losing the bookmark. | B10 repaired; real wheel, held positive/zero prepends and bounded live API checks retain the contract | No new policy: compensation must not masquerade as Home/search reset. | B10 done |
 | [C19](#c19) Open/resize a panel or change browser width in grid | When columns change, loaded selection wins, then loaded focus, then visible centre. In all three tested tiers, opening Details kept an off-screen selected image stationary but moved the previously viewed image off-screen. Closing Details restored the view. Density instead followed older hidden focus. | Observed across all tiers, modes and transports for fresh/focus/selection setups | Which image should stay put for layout changes, including off-screen cases? | Q1 open; D5/older selection contract conflict |
 | [C20](#c20) Resize height only, or resize a table/panel without grid column change | No semantic centre-preservation write runs; scrollTop stays fixed. Shrinking shifts rows down relative to centre and can clip/loss lower focused or selected items; growing shifts them up. Focus/selection do not protect visibility. | Source-established; observed in 24 grid/table × position × anchor-policy cells | Should height-only keep native top, visible centre, or at least a meaningful focus/selection in view? This is separate from column reflow. | Q1 open |
-| [C21](#c21) Change density, then scroll/focus before placement finishes | Saved restoration respects newer wheel/touch/navigation-key input but places the old image after a newer focus choice. The no-saved fallback can overwrite newer wheel scroll in a mounted fixture, but has no current anchor-bearing production caller. | Saved newer-focus overwrite observed in browser; no-saved overwrite mounted-only and call-path audited | No new requirement for the saved-wheel path. Newer focus must own placement; latent fallback need not survive a rewrite. | B4 |
+| [C21](#c21) Change density, then scroll/focus before placement finishes | The common density lifecycle retires placement after newer focus/input while retaining genuine Home no-saved centring. | B4 repaired by L45; controlled focus/input and actual-click proof. The earlier no-caller inference was superseded. | Preserve latest intent without cancelling useful data. | B4 done |
 | [C34](#c34) Change sort, then switch density while the search is loading | Repaired client ownership: density still cancels buffer movement, but the current search publishes its requested membership/order and settles. Historical direct 13,210 -> 0 and API five-second loading witnesses remain below. | Maintained adapter/local checks and bounded live density checks pass; L37 follow-up has full local gates, not a new live/production/performance certification | No new anchor policy: view changes must not manufacture empty results or strand the current search. | B8 and bounded L37 follow-up resolved; other scopes remain |
 | [C37](#c37) Seek far away, then change density before arrival | Repaired: queued/in-flight navigation reaches its destination in the new view and loading settles. Historical departure-buffer and stuck-indicator failures remain below. Settled density anchor policy is unchanged. | Maintained TDD/full local gates and bounded direct/media-api live checks in both click modes/directions; indexed pre-request and deep/map paths covered | A view change carries the pending destination, not departure. No new Q1 choice or stronger seek-accuracy requirement. | B17 / L38 resolved; wider policy and performance remain separate |
 | [C38](#c38) Seek from halfway to another position, then change density while loading | The thumb follows the pending destination. The new seek-tier view keeps the departure anchor visible until the destination arrives, without changing focus or selection. | Maintained mounted and browser controls, full local gates and bounded media-api seek-tier frame checks pass in both directions; live repeat/no-density/natural controls pass | Existing start/end contract; no new settled-density anchor policy | B18 / L40 resolved; verification limits below |
@@ -218,8 +407,8 @@ scrolling retain it. Focus and viewport movement are stated separately.
 | [C28](#c28) Toggle density, change focus, then Back | Toggle creates no history entry or key change. Back reaches the previous supported entry and retains current density; Forward survives toggling. | Actual controls assert entry, query generation, Forward and rendered view | B1's density-only reproduction is removed, not migrated. Surviving destination focus/none is covered separately. | Q2 delivered; L20 closed; B1 superseded |
 | [C29](#c29) Reload the list or share its URL | Reload uses per-tab snapshot, selected IDs and synchronously initialized density. Fresh independent tab defaults grid; shared URL carries no density/viewport/focus/selection. Selection's pre-debounce loss is unchanged. | Immediate table/grid reload and first-mounted-view controls; storage failure controls; older selection evidence retained | No cross-tab sync, legacy density-link migration or B15 repair follows. | Q2 delivered; B15 remains open |
 | [C30](#c30) Back/reload without a usable snapshot, or after its image disappears | Missing/mismatched/null-anchor snapshot or genuinely absent destination target falls back to top/no focus without departing candidates. Ordinary user transitions still try neighbours. | Failing-first B13 discriminator and surviving/invalid snapshot/user-neighbour controls | Read failure is not redefined as genuine absence; existing adapter contracts remain. | B13 resolved |
-| [C31](#c31) Click logo deep in grid/table/detail; interrupt or fail its search | Focus and selection clear immediately. Fresh data normally precedes navigation to default grid. Newer history/search cancels the continuation; current failure still navigates. A cancelled deep reset can leave the position indicator waiting for top. | Source-established; deep Home held-response/Back browser sequence reproduced the stranded thumb | Reset behaviour is established. Indicator cancellation is a bug, not a new policy question. | B11/L13 |
-| [C32](#c32) Click the new-images refresh badge | Current search refreshes from top, clears selection, and clears focus on fresh publication. No new Back entry is added. With a first-page buffer it eagerly reveals old top content while the response is pending; deep buffers retain their neighbourhood until fresh publication. | Source-established; held real-response first/deep controls observed | No decision needed for top/reset. Showing old top content before fresh data is a presentation bug. | B16 |
+| [C31](#c31) Click logo deep in grid/table/detail; interrupt or fail its search | Focus/selection clear immediately; fresh data normally precedes navigation to default grid. Newer history/search cancels the continuation and releases Home's thumb hold; current failure still navigates. | B11 repaired with local and live Back/obsolete-response proof; later-density geometry limit remains in C31 | Preserve ordinary Home and newer intent; no stronger later-density placement policy is implied. | B11/L13 done |
+| [C32](#c32) Click the new-images refresh badge | Refresh retains current geometry until fresh top publication, clears selection and then focus, and adds no Back entry. | B16 repaired; first/deep pending/failure controls and bounded live API success/supersession proof | Fresh publication owns the reset; polling does not reorder the browse buffer. | B16 done |
 | [C33](#c33) Long-press a second image to select a range | Resident and successful fetched ranges select equivalent endpoints and retain the last pressed endpoint for chaining. Focus does not change; newer intent cancels unfinished publication. | Paired composed proof and bounded live API Chromium touch emulation | Existing add/remove polarity retained; unfinished gestures do not merge. | B3 |
 
 ### Operator Questions
@@ -474,9 +663,11 @@ calls `seekToFocused`. Selection/phantom mode uses scroll-only commands; table
 left/right is horizontal. [Existing E2E](../../e2e/local/focus-preservation.spec.ts#L215)
 checks bookmark retained across distant seek then changed by snap-back. B2's
 original controlled late-empty response exposed generation-only cleanup clearing
-newer focus. Later B17 work added cancellation/identity guards; L21 must replay the
-original discriminator before claiming either continued failure or verified closure.
-Successful old lookup is a separate continuation, not the original reproduced defect.
+newer focus. Later B17 work added cancellation/identity guards; the 8 October
+[B2/L21 replay](#b2) did not reproduce that defect with a newer trusted click.
+Matched deletion clears A; ordinary successful snap-back applies the arrow delta.
+The newer-click empty completion retains delta 4; its later consequences, newer-clear,
+same-ID input and late-success races remain outside this closure.
 
 <a id="c13"></a>
 **C13: Home/End.** [Capture-phase producer](../../src/hooks/useListNavigation.ts#L459)
@@ -537,7 +728,7 @@ causes. Same-condition three-tier matrices now exist in both modes/transports fo
 loaded focus/selection; eviction still changes the winner by residency.
 
 <a id="c18"></a>
-**C18: Repeated density and extrema.** [Restore](../../src/hooks/useScrollEffects.ts#L963)
+**C18: Repeated density and extrema, historical L7 witness; B7 is now repaired.** [Restore](../../src/hooks/useScrollEffects.ts#L963)
 snaps source `scrollTop === 0`, source within 303 px of DOM bottom, and destination
 within one destination row of an edge. Source DOM bottom is not checked against
 global result end. [Existing round-trip tests](../../e2e/local/scrubber.spec.ts#L2215)
@@ -574,7 +765,7 @@ tracked candidates stayed full. Restoring 886 restored exact centres. Ring/focus
 selection state survived according to mode, but no semantic anchor changed geometry.
 
 <a id="c21"></a>
-**C21: Density interruptions.** Saved branch checks saved-record identity,
+**C21: Density interruptions, historical L7 witness; B4 is now repaired.** Saved branch checks saved-record identity,
 search generation and selected input events before its second frame; cleanup
 cancels frames/listeners but leaves the record for Strict Mode/replacement mount.
 It does not watch raw scroll events or focus changes. [No-saved branch](../../src/hooks/useScrollEffects.ts#L1047)
@@ -839,16 +1030,42 @@ Repeated ordinary/AI, focused/NONE and same-query entry history controls retain
 the surviving contract. No claim of repairing or migrating obsolete density entries.
 
 <a id="b2"></a>
-**B2 / C12: RECHECK. Old snap-back failure cleared newer focus.** Original focus
-ownership violation. Reproduce with real store/MockDataSource(10,000): focus fixture rank 50,
-seek 5,000, defer snap-back ID lookup, focus a currently loaded image, resolve old
-lookup empty. Expected newer focus retained; original actual result was null.
-That cleanup formerly checked only `sortAroundFocusGeneration`. B17 subsequently
-added cancellation/identity guards, so the old source explanation is not current
-proof of failure. Revalidate this exact sequence alongside the original-deletion
-control in [snap-back tests](../../src/stores/search-store.test.ts) before closing
-L21 or proposing another repair. Trusted-key/click and late-success variants remain
-outside the original controlled witness; no new test was run during ledger cleanup.
+**B2 / C12: CLOSED within the exact local witness; L21 complete.** Original focus
+ownership violation: real store/MockDataSource(10,000), focus fixture rank 50,
+seek 5,000, defer snap-back ID lookup, choose a loaded image, resolve old lookup
+empty. Expected newer focus retained; original actual result was null. Cleanup
+formerly checked only `sortAroundFocusGeneration`; that historical explanation
+does not describe the later B17 cancellation/identity guards.
+
+**Fresh browser verification, 8 October 2026,**
+`5b62477ff1d8bda0bfc88ffbbce4cab719f1a235`: **not reproduced under this exact
+controlled witness.** Private context, backend traffic blocked before navigation,
+MockDataSource(10,000), ready indexed position map and Click-to-Focus. Five relevant
+served source hashes matched the workspace; no pre-existing dirty Kupua source.
+Trusted UI click focused A at rank 50; actual scrubber seek left A nonresident
+but bookmarked, with buffer start 5,012. Trusted ArrowDown queued delta 4 and
+started A's `searchAfter(ids=A, length=1)` lookup. Only that datasource-boundary
+lookup was held. A trusted click on loaded B at rank 5,108 established B's store
+focus and painted ring while the lookup remained pending. Release called the
+fixture's original method with A removed, delivering successful empty hits/tuples,
+not a network failure. The signal was not aborted, the failsafe did not release,
+and delivery was followed by status processing. Settled focus/ring remained B/B;
+delta remained 4, status became null and loading was false. Viewport did not move.
+
+**Controls:** the matching held deletion with no newer focus cleared A and delta,
+left no ring, status null/loading false and viewport unchanged. Unheld ordinary
+success returned A to the buffer and applied ArrowDown to rank 54, with its painted
+ring, delta null and status null/loading false. The current
+[target-identity guard](../../src/stores/search-store.ts#L2274) prevents obsolete
+deletion cleanup from clearing B; existing [snap-back tests](../../src/stores/search-store.test.ts)
+retain the deletion contract. No repair was made or campaign run.
+
+**Limits:** synthetic datasource-boundary evidence, not live transport or server
+cancellation proof; neither empty lookup was aborted. Retained delta's later
+consequences, newer-clear, same-ID input and late-success races are not certified
+or newly selected. Private context/interceptions were removed, shared tab/preferences
+were untouched and worklog reset. Closure applies to the original focus-clear defect,
+not universal deferred-focus ownership.
 
 <a id="b3"></a>
 **B3 / C33: DONE within local/live API limits (6 October 2026).** Established
@@ -1069,25 +1286,15 @@ No-read-at-zero, actual Home and deliberately unnecessary zero-hit fixture-read
 rejection controls remain. Bounded live API table/grid witnesses match. L28 closes
 with final gates and independent reviews; this is not server/performance certification.
 
-**7 October tests-only simplification outcome:** one bounded candidate and two local
-repairs failed the required positive-prepend/setup conditions. Experimental test
-edits were restored exactly; all four original cases and their proof remain. Three
-unchanged focused baselines passed; failed shorter runs are not speed evidence.
-No product repair, live/perf work or Git mutation followed.
-
 **7 October narrow travel optimisation:** retain one preparation line after genuine
 forward eviction: `scrollTop = scrollHeight / 10`, before corpus/probe setup.
 All four cases, seek 600, 3,000-image corpus, DTO checks, assertions and 12-frame
 windows remain. Traces show no backward-extension/compensation logs before native
 backward wheel; grid retains three positive prepends plus zero, table two plus zero.
-A temporary false top reset is rejected at published 3->0 geometry; production is
-restored byte-for-byte. Alternating candidate/unchanged/candidate/unchanged runs all
-pass retry-free: summed cases 45.060/59.217/44.568/60.871 s; focused runner
-48.177/62.638/47.753/64.114 s. Summed spreads are 0.492 s candidate/1.654 s unchanged;
-runner spreads 0.424/1.476 s. Final unit (2,925), build and full retry-free E2E (445)
-pass, with no skips. Existing run warnings remain; no application-performance or
-full-suite speed claim. Raw runs/traces and limits: `.vite/b10-travel-20261007/outcome.md`.
-Reviewer waiver applies only to this task; no standing review instruction changes.
+A false top reset is rejected at published 3->0 geometry. Two alternating runs per
+version give mean focused runner 63.376 -> 47.965s; all four cases pass retry-free.
+Full local gates passed with 445 E2Es and no skips. Raw runs/traces are disposable
+under `.vite/b10-travel-20261007/`; no application or full-suite speed claim follows.
 
 <a id="b11"></a>
 **B11 / C31 / L13: DONE. Cancelled Home releases thumb/tooltip presentation.**
@@ -1764,7 +1971,7 @@ intervention; delivered repairs do not certify every remaining boundary:
   L42 removes that coupling with explicit provenance, not identity-free ratio capture.
 - **Inferred intent:** L43 removed buffer-zero-as-reset (B10); L45 removed loaded
   DOM bottom as settled density result-edge authority (B7).
-- **Mismatched ownership:** long-press can cancel its own range operation (B3).
+- **Mismatched ownership:** B3's repaired long-press self-cancellation exposed this risk.
   B8/B17 separate discovery, browsing and maintenance; B18 uses that browsing owner
   for presentation. These repairs do not settle every continuity boundary.
 
@@ -1815,9 +2022,9 @@ independence does not promise identical request counts for every policy.
 
 ### Proposed Sequence
 
-1. L41-L43 and L45 are complete within their recorded limits; do not reopen their execution prompts.
-2. Retain the adopted Home compatibility and B-neighbourhood/A-bookmark/arrow controls.
-3. Stop for operator selection of the next bounded task; no next slice follows automatically.
+1. L41-L43/L45 and B3 are complete; L12 is closed with no deletion. Retain their contracts.
+2. L19's experiment is parked. The completed test-cost work is not an automatic next-family campaign.
+3. Select one remaining bug or evidenced structural opportunity; no implementation follows from this ledger alone.
 
 Keep one active unit, including across sessions. Resume the same brief/worklog;
 do not create another plan or widen scope because a session ended. The
@@ -1856,19 +2063,10 @@ read safeguards/useful limits remain until an approved change justifies replacin
 The [old scroll-audit mandate](zz%20Archive/Scrolling%20bonanza/scroll-audit.md#L30)
 forbade redesign within that audit; it is not a permanent ban on critical research.
 
-**Recommended next measurement decision:** a bounded API-first default-startup
-footprint comparison with Kahuna, not a broad behaviour tour or concurrent load test.
-Separate actual defaults from matched-scope controls (permissions, free/non-free,
-sort, corpus, viewport, build and cold/warm caches). Separate useful first render,
-post-render background work and visible/hidden idle polling. Source currently gives
-Kupua 10s/30s polling versus Kahuna's response-following 15s scheduling; these are
-schedules, not measured load. Count/classify requests, transferred/decoded bytes,
-returned rows, cancelled/wasted work and user-visible timing; distinguish JS/media/CDN
-from API and ES work. Use available server timing/queue/CPU evidence before making
-capacity claims: fewer requests or bytes need not mean less ES work. Do not compare
-Kupua Vite module requests with Kahuna production bundles as product overhead.
-Profile approval, topology and bounded sampling must be agreed first; never save
-raw HARs, cookies, signed URLs or live payloads in this public repository.
+**Measurement disposition:** the proposed startup comparison was performed in the
+[5 October report](not-yet-another-audit-L19-network-measurmenets.md); it is not a
+pending instruction. Its matched-scope, topology, caching and server-cost limits
+remain. Further measurement requires a specific unanswered question and approval.
 
 **Coverage:** full reads of the linked map report, scroll-24 plan, two-tier workplan/
 audit, nonlinear research, current scroll guide, perf README and April ES audit;
@@ -1892,91 +2090,46 @@ map acquisition/reuse and polling. The 4 October sweep above remains historical
 source reading, not the measurement manifest. No product change, tier removal,
 load test or production-capacity conclusion follows from that initial record.
 The subsequent startup/polling follow-up is tracked as [KUP-039](bug-backlog.md#kup-039)
-(startup repair approved 6 October) and [KUP-040](bug-backlog.md#kup-040)
+(startup repaired 6 October) and [KUP-040](bug-backlog.md#kup-040)
 (poll eligibility parked), not new continuity-ledger bugs. The report retains evidence;
 the backlog owns disposition. Kahuna work remains separate and unapproved here.
 
 #### Small-Result Source Assessment (5 October 2026)
 
-**Historical decision frame:** the assessment below required retaining eager
-completion and its settled request-free browsing benefit. Stage 1 below explicitly
-does not require that policy; it reassesses subtraction, not equivalent eagerness.
+**Historical recommendation at `31d5deda0`: retain the tier if eager completion
+must remain.** Demand loading cannot promise a fully resident set; deleting its
+two drivers while preserving that promise would relocate scheduling. The later
+Stage 1 assessment deliberately removes that requirement, so this earlier
+retention decision is not a veto or an active experimental acceptance gate.
 
-**Recommendation: retain the current small-result architecture.** At `31d5deda0`,
-indexed small sets are feasible without maps. However, [demand loading](../../src/hooks/useDataWindow.ts#L400)
-cannot replace eager completion. Removing both loaders while retaining their
-benefits would relocate scheduling, not eliminate it. API UX/shared work outweigh
-unproved subtraction; direct ES remains supported. No implementation is approved.
+The source pass separated coordinate space, direct drag, full-row residency and
+map acquisition. Indexed coordinates can work without maps, but early unloaded
+drag can expose placeholders/repeat windows, and existing no-map focus restoration
+serialises rank before pages. Fill/top-up also own coherent tuples/enrichment,
+alignment, cancellation and bounded progress; a replacement must preserve those
+contracts without rebuilding full-set completion. Stage 1 below owns the detailed
+deletion/retained-responsibility table and test mapping.
 
-Separate decisions: **drag** becomes direct when fully resident; **coordinates**
-remain buffer-local; **residency** progressively prefetches full rows, not all image
-bitmaps; **maps** remain absent. Indexed coordinates could be stable from first
-publication without keys. `POSITION_MAP_THRESHOLD` also controls coordinates and
-interaction: blindly tuning it is not a map-cost experiment.
+**Existing cost evidence:** ordinary API startup uses a counted 200-row page plus
+parallel count/tickers, followed by uncounted cursor pages. Stable membership and
+full intermediate pages imply ceil(N/200) image reads (five at 1000); short or
+undecodable pages invalidate that bound. Middle restoration adds lookup/rank,
+up-to-100-row directional reads, possible alignment/null-tail completion and
+discarded initial work. Upload freezing does not freeze metadata/deletions.
+API pages are [capped at 200](../../../media-api/app/lib/elasticsearch/ElasticSearchModel.scala#L816),
+window offsets below 10,000 and keys pages at 10,000; direct-ES PIT/limits differ.
 
-| Option | Subtraction and remaining responsibility |
-|---|---|
-| Retain (recommended) | Keep `_fillBufferForScrollMode`, `_topUpScrollModeBuffer` and placement retry; preserve initial display and settled request-free image-row browsing. |
-| Simplify internally | Candidate deletion: initial fill loop/duplicate append writer. One eager driver plus shared accepted-page publication must replace it, preserving immediate dispatch, capped remainder and quiet failure. Public extensions alone do not. |
-| Indexed replacement | Could remove small-set extent-growth retry and bypass compensation, not delete compensation needed by large sets. Search/restores still require eager completion; demand loading alone changes residency. Adapter loaders or extra policy flags are not deletion credit. |
+Historical 85/212-result cases transferred 60.9/182.2KB compressed and
+0.885/2.087MB decoded; 212 used 200+12 rows and neither used maps. Resident rows,
+2,000 retained tuples, enrichment and media caches are distinct costs. These
+records establish neither near-cap heap/latency nor ES CPU/capacity. Removing
+upfront reads can add later reads; browser cancellation does not prove ES stopped.
 
-[Fill/top-up](../../src/stores/search-store.ts#L1219) also own tuples, enrichment,
-positions, frozen admission, busy suppression and bounded progress. Top-up waits
-cooldowns, fills forwards then backwards with alignment, and serves focus/cursor
-restores, missing-target/timeout fallbacks and discovery takeover. Its global
-re-entry guard and total/PIT-generation checks differ from fill's captured range
-signal: successor admission, density retirement and owner-checked cleanup need
-design, not blind delegation. Empty/error/abort can leave partial residency.
-Preserve coherent publication, useful loading, true edges and B-neighbourhood/
-A-bookmark/arrow behavior through query, history and density changes.
-
-Indexed early drag can expose placeholders, cancel fill and add `/window` reads;
-[resident indexed callbacks](../../src/stores/search-store.ts#L3148) still cancel
-maintenance. No-map indexed focus restoration serializes rank before pages, unlike
-small-set overlap. These are changeable wiring costs, not inherent impossibility.
-Removing eager work saves upfront rows but adds interaction-time reads. Retaining
-eagerness preserves resident-row cost while adding any discarded/repeated windows.
-
-**Topology/bounds, unchanged by retention:** ordinary API startup uses a counted
-200-row `/images/search-after` plus parallel `/images/count`, then uncounted cursor
-pages. Stable membership/full intermediate pages yield ceil(N/200) image reads
-(five at 1000); short/undecodable pages invalidate that bound. Middle restoration
-adds lookup/rank and up-to-100-row directional pages, discarded first-page work,
-alignment rereads and possibly null-tail completion; changed cached tuples add rank.
-Metadata/deletions remain mutable despite upload freezing. Image pages are
-[capped at 200](../../../media-api/app/lib/elasticsearch/ElasticSearchModel.scala#L816),
-window offsets below 10,000, keys pages at 10,000. Preserve authorization,
-completeness, tuples and direct-ES PIT behavior; browser abort does not prove ES stopped.
-
-At default small-set limits, resident rows approach N<=1000, plus positions,
-2,000 cached tuples/anchor, enrichment and separate media caches: not a whole-app
-heap bound. Historical 85/212 cases returned 60.9/182.2KB compressed and
-0.885/2.087MB decoded; 212 used 200+12 rows, neither used maps. They establish
-neither near-cap latency/heap nor ES CPU/capacity. Map-free is not inherently cheaper.
-
-**Proof/retirement:** keep [small-set browser journeys](../../e2e/local/scrubber.spec.ts#L2550),
-density cancellation, true-edge, traversal, alignment and 1000/1001 map controls.
-The sole established dead-state candidate is `_bufferSelfCorrecting`: no production
-reader. Remove flag assertions, not the [superseding-search scenario](../../src/stores/search-store.test.ts#L1937).
-If consolidation is selected, merge duplicate cursor-restore bodies into one held
-overlap; fold cursor/position completion checks into ordinary fill. Reuse existing
-mock/DTO gates; delayed rank/cursor setup must use the installed small datasource,
-not outer `mock`. No new suite/fixture is needed.
-
-**Conditional discriminator, not selected:** rehearse origin-212 and middle-958
-old/new schedules in existing fixtures, holding failed/late pages across same-total
-successor and density cancellation beyond cooldown. This distinguishes shared
-publication from changed scheduling/ownership. Stop on extra reads, delayed fill,
-retired redispatch, stale busy cleanup, changed failure UX or relocated duplication.
-No new measurement is necessary to retain; historical evidence cannot certify an
-unwritten replacement. Q1/Q7, startup defaults, polling and large-set drag stay separate.
-
-**Limits:** loaders/callers, placement consumers, adapter/map contracts and owning
-tests/shared fixtures were read; adjacent suites/server bodies selectively, unrelated
-internals/full Scala suites/canonical perf records not re-audited. No execution/live
-work. One fresh read-only challenger received the full scoped diff/inherited edits;
-its ownership/cost/test objections changed the initial simplification recommendation
-to retention. Replacement equivalence remains unresolved, not consensus or approval.
+The source pass covered drivers/callers, placement, adapter/map contracts and
+owning tests; adjacent/server code was selective, with no execution or live work.
+Origin-212 and middle-958 remain useful candidate schedules, especially late/failed
+pages, same-total successors and density cancellation. Reuse existing fixtures;
+the detailed Stage 1 risks supersede the earlier eager-equivalence requirement.
 
 #### Stage 1 Small-Result Tier Assessment (6 October 2026)
 
@@ -1989,10 +2142,8 @@ not grounds for retaining its two schedulers. Implementation effort is not a rej
 criterion. If demand correctness needs another full-set driver or comparable new
 ownership machinery, this recommendation fails its subtraction premise.
 
-**Provenance:** HEAD `89bdb63705e2c0635eb555132b6c3420114fe5e3`; Kupua was clean at
-entry. Inherited dirty work: eight `.devcontainer/` modifications/additions plus
-`dev/nginx-mappings.yml.template` and `e2e-tests/images/Dockerfile`; untouched and
-outside this assessment. Existing L19/network findings are reused, not remeasured.
+**Provenance:** source assessment at `89bdb63705e2c0635eb555132b6c3420114fe5e3`;
+existing L19/network findings are reused, not remeasured.
 The current URL-default producer already contains KUP-039's admission ordering
 ([URL sync](../../src/hooks/useUrlSearchSync.ts#L121)); historical bare-startup waste
 is not a current tier-removal saving. No tests, browser/live access, profiling or
@@ -2147,7 +2298,11 @@ review; no Stage 2, test execution or prototype authority follows.
 | `suppressDensityFocusSave` | Outgoing table captures a new ratio after Home clears saved state. L45 guards placement lifetime, not this capture. | Existing held-refusal/newer-resident-focus density control: removal changes unsaved centre scroll 30000 to saved-ratio scroll 30003. No tolerance weakening or policy change. |
 | URL-sync dedup preset | URL commit dispatches Home's already loaded search again. Publication ownership does not mark the paired query/diff state. | Existing direct-ES/media-api mounted Home read budgets, including free-only future defaults: removing the preset raises search calls from three to four. |
 
-Two missing real-producer/consumer compositions supplement existing controls; both fixtures drain Home's existing cleanup before teardown. Two fresh full-snapshot final cold reviews accept the slice with no actionable findings. Final unit passes (2,925/83 files); TypeScript/Vite and retry-free normal/forced-seek E2E pass (453, no skips). Those build/browser gates precede the last Vitest-only cleanup; production and E2E code are unchanged, and the operator explicitly ruled out further E2E repetition. Earlier interrupted browser failures recovered after a Mac restart without source/config repair; their cause is unproven. No retained deletion requires live post-change proof; no live/perf certificate or wider cancellation-policy conclusion follows.
+Two real-producer/consumer tests now cover the previously missing compositions.
+Unit/build and 453 retry-free E2Es passed without skips; the final unit-only fixture
+cleanup did not change production or browser tests. This proves the guards necessary
+in the current arrangement, not that the arrangement is irreducible. No live/perf
+certificate or wider cancellation-policy conclusion follows.
 
 ### Density Restoration Replacement (L45)
 
@@ -2205,8 +2360,8 @@ do not run it. It was neither modified nor executed for this disposition.
 **Done, `85dae28b3` from `ae08e779d`.** One observation-only hit-tested point
 helper replaces browsing/detail duplication; callers retain action/readiness policy.
 No product assertions were removed; twelve negative/lifetime controls were added.
-The [test guide](../../e2e/README.md#continuity-input-pilot) owns the proof/reuse map
-and historical gates. Two cold reviews and full local/harness gates passed; no
+The [test guide](../../e2e/README.md#continuity-input-pilot) owns the proof/reuse map.
+Full local/harness gates passed; no
 live/perf run or runtime improvement was established. This extraction is not
 permission to migrate more callers or preserve every old test in future replacements.
 
@@ -2284,36 +2439,16 @@ matching 2 October post-B8 records, not a newly authorized campaign.
 
 ### Preventing A Bug-Fix Detour
 
-Maintain a structural milestone and a bounded repair lane, with one active
-implementation unit. Completed continuity units remain regression controls;
-L41/L42/L43/L45 are complete within their recorded limits; the next unit needs operator selection.
-A repair may interrupt an active milestone for
-observed breakage, a blocker to its proof, or a separately justified cheap benefit;
-make the displacement and return point explicit to the operator.
+Select one bounded unit: **repair now**, **absorb into a named structural slice**,
+or **defer with a revisit trigger**. Base selection on demonstrated harm, relevant
+cost and regression risk, not invented usage frequency or a desire to close rows.
+A delayed/rejected structural slice does not indefinitely block an independent fix.
 
-Before selecting a repair, give it one disposition in the existing Open Item:
-**repair now**, **absorb into a named slice**, or **defer with a revisit trigger**.
-Consider demonstrated harm, observed exposure, estimated repair/validation cost,
-regression risk and overlap. Do not invent user-frequency rankings for a prototype
-without users. "After the rewrite" alone is not a valid trigger: if the named slice
-is postponed or rejected, reconsider the bug as an independent repair.
-
-Repairs need not pretend to be architectural progress. B15, for example, can be
-worth fixing for reload reliability without helping the continuity boundary. Do
-not burden such a repair with speculative future-engine abstractions. Conversely,
-closing several bugs is not proof that the structural milestone advanced.
-
-Stop when a repair requires another ownership boundary, an unresolved UX decision
-or materially larger scope than agreed. Report the dependency and ask whether to
-expand, defer or fold it into the structural slice. Newly noticed non-blocking
-bugs go into the ledger under its normal claim/disproof rules, not into the active
-patch. Do not batch unrelated fixes merely because they touch the same file.
-
-At each unit's end, assess two results separately: **behaviour repaired** and
-**structure simplified**. Name actual decisions unified, ambiguous roles separated
-or obsolete paths removed. Then explicitly resume the named milestone or seek a
-new priority decision. If repeated repairs consume the work, pause and reconsider
-the programme rather than describing maintenance as a rewrite in progress.
+Report **behaviour repaired**, **structure simplified** and **verification cost**
+separately. A B15 reliability repair need not invent an architectural benefit;
+another module or a green suite does not establish simplification. Stop when scope
+requires a different ownership boundary or UX decision. Incidental discoveries
+do not automatically enter the patch or become another audit programme.
 
 ### Work Units And Exit Gates
 
@@ -2340,149 +2475,64 @@ and repairs if the broader approach is rejected.
 
 ### Test Impact And Maintenance
 
-Every slice records four answers before implementation: which existing assertions
-change; which helper/probe capability is reused or deliberately not extracted;
-which distinct contract/interaction justifies new cases; and which setup/runtime
-cost or fixture machinery is added. Keep this in the unit/worklog, not a new audit
-register. Small local improvements belong in the slice; cross-suite changes require
-a named pitstop such as L41. Test refresh is not permission to fix application bugs.
-
 Before adding tests, inspect the owning suite, immediate consumer suites and shared
-fixtures. For each addition, identify the distinct failure it proves and why an
-existing test cannot be strengthened at an adequate layer. Review unnecessary tests,
-repeated setup and fixture complexity as seriously as coverage gaps; recommend
-deletions/replacements where justified. Keep this accounting in the worklog/review
-packet, not another permanent report or a mandatory whole-suite excavation.
+fixtures. State which assertions change, which capabilities are reused, each new
+test's distinct failure and why existing proof cannot cover it, and the added or
+removed setup/runtime cost. Keep detailed accounting temporary. Test-only work
+does not authorise product repairs or whole-suite excavation.
 
-**Replacement is allowed and expected where justified.** Do not interpret preserving
-behaviour as preserving every historical test. Name old cases, duplicated fixtures
-and implementation-specific assertions that the stronger contract proof replaces;
-delete them in the same adopted slice. Keep the independent oracle, meaningful timing
-and browser-only proof, not obsolete implementation shape. Explain a deliberate
-net addition; do not automatically add all permutations or move complexity into a
-generic test framework. Judge maintainability, coverage and wallclock separately.
+**Replace and delete where justified; do not only append.** Map retired assertions
+and intervention timings to surviving proof, identify deliberately dropped combined
+journeys, and explain any net addition. Similar names/helpers, parameterisation or
+generic pairwise coverage do not establish redundancy. Temporary investigation
+checks do not automatically deserve permanent tests.
 
-Separate policy examples, ownership/publication invariants, rendered geometry and
-actual-input journeys. Put a matrix at the cheapest layer that really proves it,
-but retain browser-only wiring/paint proof and known multi-axis races. Fewer cases,
-pairwise selection or parameterization alone do not establish equivalent coverage.
-Every removed/merged check must map its meaningful assertions and timing conditions
-to retained tests. Keep independent oracles; do not copy production decisions into
-helper expectations and then call agreement proof.
+Separate policy examples, ownership invariants and browser input/paint proof.
+Use the cheapest adequate layer and independent oracles, not production formulas
+copied into expected values. Preserve meaningful pending/settled distinctions and
+multi-axis races; a universal readiness wait must not hide the defect.
+Controlled work must reject/settle correctly, drain held jobs and restore owned
+resources. Keep context isolation; no weakened assertions, skips, retries or
+inflated tolerances to produce green. A smaller fixture must retain its tested regime.
 
-Reuse observations and resource handling, not hidden policy. Distinguish detail
-readiness, list/target availability, committed publication, placement and stable
-frames. A universal settlement wait must not erase early-close or pending-frame
-tests. Gates must identify intervention points, propagate rejection, release/drain
-held work and restore only owned resources. Keep storage/context isolation and
-effective-view assertions; never retry bad setup into a false green.
-
-Use existing test-duration reports before selecting runtime work. Distinguish
-fixture/bootstrap cost, deliberate controlled delay and tested execution; declare
-missing or incomparable timings. Do not require a new full baseline run solely to
-populate a table. Parameterization may shorten code without reducing execution.
-Application jank/perceived performance and test wallclock are different questions.
-No speed-up claim without comparable measurements; no weaker assertions, inflated
-timeouts, global state reuse or smaller corpus that removes the tested regime.
+Use existing durations to choose work. Prove one candidate viable before a timing
+campaign; distinguish setup, required observation and actual exercise. Record all
+matched runs and their spread. Summed test time, focused wallclock, full-suite time
+and application performance are different measures. Do not run a new full baseline
+just to populate a table or claim suite savings from unrelated historical timings.
 
 ### Cross-Family E2E Overlap Assessment
 
-**7 October 2026; assessment only.** Baseline HEAD is
-`a99f29757621d1aba7d69dfecce2b7c4653ae4fa`, the B17 reduction commit.
-Initial dirty work is outside Kupua and was untouched. No tests, browser/live
-access, profiling, dependencies or Git mutations occurred. The saved
-[JSON](../../.vite/b17-20261007-6f4000dc6d/e2e.json) and
-[raw log](../../.vite/b17-20261007-6f4000dc6d/e2e.txt) agree: 445 passing cases,
-three workers, zero skips/retries, 421.987480s runner duration. JSON contains no
-revision field: compatibility rests on the saved review packet, all thirteen
-unchanged context files matching current source, its changed spec snapshot matching,
-and the baseline-to-HEAD delta changing only that spec/README among source/runner
-surfaces. This is compatible existing evidence, not a newly reproduced run.
+**7 October, `a99f29757`; complete as an assessment, no retirement selected.**
+Static AST expansion found 268 declaration sites (48 parameterised), yielding
+445 executions: 429 normal and 16 forced-seek across fifteen specs. They reconciled
+with the [saved run](../../.vite/b17-20261007-6f4000dc6d/e2e.json): 445 passes,
+no skips/retries, 421.987s runner and 1080.534s summed case time. The report has no
+revision field; compatibility was checked against the reviewed source/context.
+This was inventory plus selective semantic reading, not a whole-suite proof audit.
 
-Static TypeScript AST parsing, without importing test modules, found **268 declaration
-sites**, including 48 parameterized sites, expanding to **445 execution identities**:
-429 `chromium`, 16 `forced-seek`. Current config assigns fifteen canonical specs to
-disjoint projects. File, describe path/title, project and literal parameter bindings
-reconcile with every saved entry; no unresolved expansion, duplicate identity or
-source/report discrepancy remains. Runtime skip guards remain source conditions;
-the saved corpus skipped none. The
-[temporary per-execution inventory](../../.vite/cross-family-20261007/inventory.md)
-and adjacent JSON/parser/compatibility/challenge context are ignored `.vite` evidence,
-not permanent coverage infrastructure; cleanup can delete them. The decision below
-does not depend on their survival. Titles identify cases, not semantic families.
+The only proposed deletion was two persisted-phantom first-click smokes in
+[grid](../../e2e/local/phantom-focus.spec.ts#L28) and
+[table](../../e2e/local/phantom-focus.spec.ts#L48), costing **2.683s summed**.
+They overlap with exact-identity opening in [detail restoration](../../e2e/local/ui-features.spec.ts#L1530)
+and [B17 input setup](../../e2e/shared/browse-density.ts#L34), plus mounted
+interpretation/preference proof. However, those retained journeys either seek,
+wait longer, set mode at runtime or can choose a different hit-tested target.
+They do not fully replace a startup-only or obstructed-first-table-row failure.
+The challenger qualified the proposal; coordinator recommendation is to retain
+the two cheap smokes. No unconditional retirement or measured wallclock saving
+was established. Later B9 test retirement does not change that disposition.
 
-**One candidate: conditional retirement of two phantom click-entry smokes.** Remove
-only `chromium` executions "single-click opens image detail in grid" and "single-click
-opens image detail in table" at
-[phantom-focus.spec.ts:28](../../e2e/local/phantom-focus.spec.ts#L28) and
-[:48](../../e2e/local/phantom-focus.spec.ts#L48). Each loads persisted phantom mode,
-ordinary local-ES results with no chosen bookmark/selection, then clicks the first
-cell/row and requires merely a truthy URL image parameter. Neither holds a request,
-frame or navigation, checks exact identity, nor observes a deliberate negative window.
+Other inspected Home reset/monitor/shallow cases protect different publication
+and geometry conditions (four cases, 12.943s summed; no avoidable cost established).
+Early/settled detail, original/traversed return, native history and missing/resident
+snap-back also retain distinct intervention/oracle requirements. This does not prove
+absence of other overlap in unread bodies.
 
-At that assessment checkpoint, the proposed retained controls were `chromium`
-"grid phantom settled-original: reload close reuses
-pending restoration" and table counterpart at
-[ui-features.spec.ts:1544](../../e2e/local/ui-features.spec.ts#L1544), plus all their
-early/traversed variants. Before any reload/read intervention, they seed phantom mode
-before startup, seek into resident indexed data, and perform a real single mouse click;
-[openVisibleDetail:1530](../../e2e/local/ui-features.spec.ts#L1530) independently requires
-the exact clicked identity on rendered detail. The later bounded B9 tests-only
-reduction retires those settled phantom controls; retained early phantom original
-cases supply the same pre-reload click proof, with the current mapping in the
-[testing guide](../../e2e/README.md#detail-restoration-proof).
-Retain "B17 indexed direct-ES phantom
-grid retains pending destination" and table counterpart at
-[browse-density.spec.ts:7](../../e2e/local/browse-density.spec.ts#L7): their
-[helper:34](../../e2e/shared/browse-density.ts#L34) supplies top-of-list real single-click,
-visible detail and Backspace closure **before** its completed-client-read hold. Other
-transport/forced-seek cases remain, not substitutes for startup configuration.
-
-This is defensible cross-family proof overlap, **not execution-equivalent duplication**.
-Grid [interpretation/dispatch](../../src/lib/dispatchClickEffects.ts#L48) and table
-[mode dispatch](../../src/components/ImageTable.tsx#L648) use identity/effective mode,
-not first/deep navigation branches. Existing
-[pure interpretation](../../src/lib/interpretClick.test.ts#L37) and
-[preference hydration](../../src/stores/ui-prefs-store.test.ts#L71) support the mapping;
-neither proves actual browser dispatch, hit testing or paint. No standalone dispatch
-unit replacement was found. Browser representatives therefore remain essential.
-
-**Strongest objection:** an obstructed first table row, or startup-only click failure
-that disappears after settling/seeking, might fail only a removed smoke. B9 is deep;
-B17 waits for map/loading and changes mode at runtime; both hit-tested observers can
-skip the first target. Retained explicit first-cell clicking supplies partial grid
-geometry evidence, not the missing table/phantom combination. The smoke does not pin
-map absence or a startup deadline, but that does not erase its fixed-target probe.
-The authorised challenger fully read supplied bodies/helper/consumer mapping and
-returned **QUALIFY**, with this unresolved loss and no blocking dispatch gap.
-
-Saved removed-case work totals **2.683s** (1.329 + 1.354): two isolated context/app
-bootstraps, discovery and clicks. Retained journeys remain unchanged; proposed
-replacement work is zero. Entire-suite summed case time is 1080.534s, not removable
-wallclock. No paired measurement supports a suite speed claim; B17's older focused
-timings do not transfer. This is a small portfolio subtraction, not worthwhile grounds
-for a speed campaign or new helper framework.
-
-**Other inspected overlap is not a removal shortlist.** Home's
-[settled reset](../../e2e/local/buffer-corruption.spec.ts#L608),
-[transient monitor](../../e2e/local/buffer-corruption.spec.ts#L832) and shallow
-grid/table resets share setup but protect different publication/geometry conditions
-(four cases, 12.943s summed; avoidable work established: zero). Reloaded early/settled
-return, original/traversed placement and native Backspace/Forward are complementary:
-equal list destinations do not replace interrupted publication, native-history or
-explicit-focus-at-close assertions. Likewise missing/resident snap-back and subsequent
-normal-arrow movement have different oracles. No additional deletion is proposed.
-
-**Recommended next unit:** those two smoke removals only, conditional on the operator
-accepting loss of the exact first-target cold-start combination. Preserve all other
-phantom, B9/B12/B17, helper, corpus, transport and project proof; add no replacement
-tests. Acceptance requires unchanged persisted-mode setup, exact pre-hold identity
-assertions and retained browser inputs; an authorised later gate should contain 443
-cases (427 normal/16 forced-seek), without skips/retries. Disproof is a demonstrated
-first-item/startup-specific dependency, loss of retained pre-hold dispatch proof, or
-unwillingness to drop that combined probe. In those circumstances retain both: **no
-unconditional retirement unit is established**. This assessment grants no execution
-or implementation authority.
+The [temporary inventory](../../.vite/cross-family-20261007/inventory.md), parser,
+compatibility data and challenge context are disposable ignored evidence. The parser
+is snapshot-specific, not maintained tooling. All counts below describe that
+assessment checkpoint, not the current 441-case suite.
 
 **Coverage manifest:** inventory is comprehensive for declarations, not semantic review.
 
@@ -2513,80 +2563,48 @@ or implementation authority.
 
 ### Cold Review Gate
 
-For an approved slice, the implementing coordinator must invoke fresh read-only
-subagents inline after implementation and focused checks. Do not stop at "ready
-for review" or ask the operator to supply reviewers. Two independent reviewers see
-the full changed slice and necessary boundary context, with complementary briefs:
+**Choose review effort when selecting the task.** Substantial production ownership,
+data or architectural changes normally merit independent structure and correctness
+reviews. Two reviewers are not an automatic gate for a small tests-only/doc change
+or an abandoned probe. State any required reviewers or operator waiver in the prompt;
+recent task-specific waivers do not silently waive a future consequential change.
 
-1. **Plan and structure:** judge adherence to the approved outcome, anti-goals,
-  operator policy, actual decisions removed and justified remaining boundaries.
-2. **Correctness and proof:** judge lifecycle/data/geometry risks, old-to-new test
-  coverage, negative controls, helper/oracle independence and fixture/metric integrity.
-  Assess unnecessary added tests, repeated setup and fixture complexity as well as
-  missing proof; recommend justified deletions/replacements, not additions alone.
+When review is required, the implementing coordinator supplies the full scoped
+baseline-to-current diff, full new files, baseline SHA, dirty attribution and needed
+consumer/test context. **No reviewer Git access is assumed.** Use verified-readable,
+immutable packets outside runner-cleaned outputs until tests finish; exclude them
+from commits. Selected hunks, a diffstat or a success narrative are not substitutes.
+Each reviewer confirms receipt/read and declares gaps. Repair review receives the
+updated complete snapshot and delta, not an overwritten packet.
 
-Supply the approved plan, actual baseline/diff, affected consumers and tests, not
-only a success narrative. **Reviewers must not need Git access.** The coordinator
-captures and delivers the complete scoped baseline-to-current patch, including
-staged/unstaged edits and full added/untracked file contents. Identify the baseline
-SHA, starting dirty state, exact file manifest and pre-existing changes separately;
-do not include unrelated work or ask the reviewer to reconstruct the diff.
-Provide the full material inline or as a verified-readable, immutable review artifact
-under `kupua/test-results/`; if split, include all ordered parts and a manifest.
-Do not send only diffstat, selected hunks, final files or a completion summary.
-Each reviewer confirms receipt and complete reading; supply inaccessible/missing
-material yourself, and disclose an incomplete review if it cannot be supplied.
-Re-review gets the updated complete snapshot plus the repair delta; do not overwrite
-a snapshot while a reviewer is reading it. Exclude review artifacts from commits.
-Require file/line evidence, concrete failure/disproof
-checks, scope deviations and unread/uncertified boundaries. Both reviewers may
-raise cross-boundary findings; split briefs must not create an unreviewed gap.
-Reviewers do not mutate shared docs/code, run tests/live checks or own the worklog.
-Their questions return to the coordinator. Read applicable instructions and supply
-context through the assignment; routine review needs no new operator permission.
-
-Fix in-scope findings with focused proof and invoke cold re-review of repairs and
-affected integration. Escalate genuinely new scope/policy/safety requirements;
-do not silently implement every suggestion. Passing tests is not plan adherence,
-and self-review is not independent review. Unavailable delegation is a disclosed
-blocked gate, not permission to claim acceptance. Required startup confirmation,
-test-port coordination and live/perf permissions remain separate.
+Review scope includes actual subtraction, preserved contracts, unnecessary tests,
+independent oracles and proportional documentation. Findings need file/line evidence
+and a concrete counterexample/discriminator. Reviewers are read-only and do not
+run tests/live work, mutate shared docs or own the worklog. Fix in-scope findings;
+escalate new scope/policy/safety decisions. Required but unavailable review remains
+an explicit verification gap, not approval. Fresh-agent, port and live permissions
+are separate from reviewer authority.
 
 ### Validation And Completion
 
-For an approved implementation stage, run focused checks during meaningful edits, then full unit,
-TypeScript/Vite build and retry-free normal plus forced-seek local E2E after the
-last meaningful repair. Shared E2E/perf helper or harness changes also require
-`test:perf-harness` and applicable local fixture checks. Use repository scripts
-from root (`npm --prefix kupua ...`), foreground `set -o pipefail` and a bare
-`tee "$TMPDIR/kupua-test-output.txt"`; never hide live output or poll an active run.
-Coordinate ports 3000/3030 before unsandboxed Playwright; use runner-owned setup.
-No live systems, perf campaigns, dry runs, backend writes or Git mutations follow
-from these gates. Read the authoritative test instructions before execution.
+Run focused checks after meaningful edits, then the required full unit/build and
+retry-free normal/forced-seek gates for the final retained implementation. Shared
+E2E/perf helper changes also require applicable harness checks. Docs-only changes
+need documentation validation, not an application test campaign. Follow repository
+scripts, foreground pipefail/tee streaming, port coordination and runner-owned
+infrastructure. Never poll an active run. These gates grant no live/perf/Git authority.
 
-Application build excludes some test/perf TypeScript surfaces. Run applicable
-checks and compare inherited diagnostics by identity, not merely total count;
-zero new diagnostics is not a clean-config claim. Report unavailable checks.
-Bug/policy/protection changes need an intended failing-first discriminator; a
-helper extraction needs baseline-to-after equivalence and adversarial controls,
-not a manufactured application bug or a compiler error labelled behavioural red.
+App build excludes some test/perf TypeScript; compare relevant inherited diagnostics
+by identity and report missing checks. Bugs require a real failing-first discriminator;
+test replacement requires retained behavioural proof and useful negative controls.
+Unexpected skips are not passes. Do not manufacture a red or rerun until green.
 
-Close with separate results for behaviour, actual production/test removals,
-remaining compatibility, review and verification. Use a short completion record
-(normally at most ten lines) with outcome, revision, proof location and material
-limits, not the execution brief copied into past tense. Preserve C/B evidence;
-do not close untested residuals or weaken the core performance requirement.
-
-**Documentation is part of the subtraction review.** Architecture guides describe
-the current system, not the agent's session. Amend or replace the owning paragraph;
-do not append a slice-named success section, test totals, review rounds or debugging
-story. A bounded repair normally needs a few sentences, not half a guide. Keep only
-the changed contract/ownership and essential rationale; justify genuinely larger
-design documentation by the architecture it explains, not effort spent. Remove
-superseded prose. Test guides likewise own stable helper contracts, not every gate
-run. The changelog records concise code-change rationale, not planning-only work.
-The temporary worklog carries resumable details and is reset at completion. Do not
-copy it into permanent docs. Never commit without approval.
+Close with outcome, actual subtraction/cost, revision, proof location and material
+limits, normally within ten lines. Preserve C/B evidence and unresolved residuals.
+Architecture/test guides own current contracts, not gate counts or session stories;
+replace obsolete prose in place. Changelog is for concise implementation rationale.
+Keep detailed progress/review/timing artifacts temporary and reset the worklog.
+No commit without explicit approval.
 
 ### Session Prompt Skeleton
 
@@ -2597,42 +2615,30 @@ or rerun every experiment at session start.
 ```text
 Execute <approved unit ID, stage and ledger anchor>, and no other unit.
 Read AGENTS, worklog, ledger Coordinator Brief/Current Status, the selected unit,
-needed Q/C/B records and standing execution rules. Perform fresh-agent confirmation;
-verify HEAD/worktree and current owners. Do not inherit live/Git/test-port authority.
-State outcome, exclusions, hypothesis and cheapest discriminator. For a structural
-replacement, name obsolete decisions/branches/state and test scaffolding to DELETE,
-the smaller replacement and a concrete future UX/density change made more local.
-If that case fails, stop; do not settle for wrapper extraction or extra guards.
-For design-only stages, return the bounded decision in the existing brief and stop.
-Do not modify product/tests, run a campaign or imply implementation approval.
-For approved implementation, make small edits with immediate focused validation.
-Prove real bugs failing-first; do not manufacture reds from stale evidence. Keep
-policy revisable and useful data independent of retired presentation. Preserve
-atomic publication, coordinates, cursor/alignment and performance safeguards.
-Map contracts/timing to retained proof. Strengthen/rewrite existing tests and REMOVE
-superseded cases/fixtures where coverage survives. Justify additions and actual cost;
-no assertion weakening, hidden waits/retries or combinatorial expansion by default.
-Before adding cases, inspect owning/adjacent consumer suites and shared fixtures;
-name each distinct gap and why an existing test cannot adequately cover it. Review
-excess proof/setup complexity as well as missing proof. Keep accounting temporary.
-Invoke two fresh read-only reviewers INLINE for plan/structure and correctness/proof.
-Deliver the full scoped diff/new-file contents to BOTH, with baseline SHA, file
-manifest and pre-existing-change attribution. Use inline content or verified-readable
-immutable review artifacts, all parts if split. They must not need Git access or
-reconstruct patches. Confirm complete receipt/read; missing material blocks acceptance.
-For repair re-review, supply the updated full snapshot plus the repair delta.
-They must assess actual removals, retained bug protection, doc proportionality and
-unread limits. Fix in-scope findings and invoke repair re-review yourself.
-Run full required local gates with normal port/safety/streaming rules; qualify
-inherited diagnostics and missing evidence. No automatic live/perf run or Git mutation.
-If another session is needed, keep the same unit/stage and note current revision,
-files, completed/pending checks, blocker and next action in the temporary worklog.
-Do not create another plan or treat compaction as permission to widen the task.
-At completion, update existing architecture prose in place: current contracts only,
-no slice diary, test counts, review chronology or victory narrative. Delete obsolete
-prose. Keep the ledger completion short and evidence linked; code changelog only
-for implementation. Report behaviour, removals/cost, limits and final gates separately.
-Reset your own worklog and STOP. No next slice or commit without approval.
+needed Q/C/B records and owning code/tests. Confirm task, HEAD/dirty work and
+permissions; do not inherit live/Git/port authority or infer it from autopilot replies.
+State outcome, exclusions, hypothesis, cheapest discriminator and stop condition.
+For structural work, name competing decisions/state to DELETE, the smaller
+replacement and a future UX change made more local. Stop if the benefit disappears.
+For assessment-only stages, return the decision in the existing brief and stop.
+For implementation, make small edits with immediate focused validation; prove real
+bugs failing-first and preserve ownership/publication/position/performance contracts.
+Before adding tests, inspect owning/adjacent suites and shared fixtures. Strengthen,
+replace and DELETE superseded proof where justified; explain each distinct addition,
+old-to-new coverage, meaningful timing and actual setup/runtime cost. No automatic
+permutation growth, weaker assertions or new framework. Keep accounting temporary.
+Review plan: <none, one, or two named read-only reviewers, with reason/authority>.
+When required, deliver complete scoped diffs/new files, baseline and dirty attribution
+plus needed context in readable immutable packets; no reviewer Git access assumption.
+Required repair review gets a complete updated snapshot. Do not widen scope to
+implement incidental suggestions or claim a missing gate passed.
+Run the selected required gates once the retained change is final, using repository
+port/safety/streaming rules. Qualify unexpected skips, diagnostics and unread limits.
+No automatic live/perf campaign, next task or Git mutation.
+Keep resumable details in your worklog. Update owning guides in place with current
+contracts, not chronology. Brief ledger outcome; changelog for implementation only.
+Reset your worklog and stop. A failed probe with no retained change needs no
+permanent test collection or elaborate review campaign.
 ```
 
 ### Evidence, Tooling And Performance
@@ -2670,8 +2676,9 @@ Preserve generation counters, owned suppression releases, prepend/evict
 compensation, column alignment, the tier decision from `total`, seek estimation,
 kupuaKey and the two-frame density restore unless a named bug requires a bounded
 change. Completed ownership repairs grant no wider ownership rewrite.
-B2 requires revalidation before any new repair scope;
-B10 targets Effect 8's reset classification, not prepend compensation.
+B2/L21's exact local witness is closed; any wider focus repair needs a separately
+demonstrated defect and operator selection. B10's reset-classification
+repair is complete; retain its compensation contract.
 
 ## Open Items
 
@@ -2690,9 +2697,7 @@ their evidence records, not in this backlog.
 | L15 | Decision | C15-C21 expose loaded/off-screen/selection layout differences; desired placement awaits Q1, not a blanket D8 rule | Record operator answers for density, column reflow and height-only resize separately from focus retention; retain B4/B7 evidence limits | Q1 |
 | L16 | Doc | Remaining L7 documentation conflicts include history selection survival and layout anchor rules; L8 reconciled ordinary first-page publication in guide 03 | After operator decisions, reconcile the remaining claims against L7 source/test evidence in a separately scoped timeless-guide update | Q1-Q7 |
 | L18 | Bug | C15/C18: recorded row-top density preservation displaces image centres when row height changes. The correction depends on Q1; finite drift is not proof of guaranteed convergence or unbounded drift. Row-centre preservation is a proposal, not an approved correction | Decide the placement policy, then reuse density controls for repeated switches and usable-viewport geometry; explicitly account for affected focused-image expectations | L15 |
-| L19 | Decision | Stage 1 recommends an indexed/demand small-result prototype without eager completion or small maps; estimated production subtraction survives counted adaptations | Operator review, then separately authorised prototype must prove demand liveness, owned publication/position/traversal and actual subtraction; reject comparable replacement machinery | [Stage 1](#stage-1-small-result-tier-assessment-6-october-2026); earlier eager-preservation assessment retained; no implementation/prototype approved |
-| L21 | Characterise | B2's original late-clear witness predates subsequent cancellation/identity guards; current reproduction or verified closure is not established | Replay the exact deferred missing-target sequence with newer focus, retaining the original deletion-clear control. Close if the defect is covered/resolved; do not invent another repair from stale prose | C12/B2; B17 ownership changes |
-| L22 | Done within local/live API limits | B3: endpoint chaining belongs to the existing range owner | Paired composed failing-first proof, retained cancellation controls, full local gates and bounded live API mobile-emulation proof; physical-device/live direct-ES limits remain | C33/B3 |
+| L19 | Decision, parked | Stage 1 estimates 105-175 net production lines removable by indexed/demand small results; experiment prompt is dormant | Explicitly select the prototype first; then prove demand liveness, preserved contracts and actual subtraction. Reject comparable replacement machinery | [Stage 1](#stage-1-small-result-tier-assessment-6-october-2026); no implementation/prototype approved |
 | L31 | Decision | Q7: table horizontal scroll is preserved by sort/filter/panel changes but reset by density round-trip. Disposition: defer until a density-continuity unit; likely preference is preservation, not yet a shipped rule | Decide restore prior column versus deliberate reset for that unit; assert table -> grid -> table in both focus policies without changing existing sort/filter/panel behaviour | Q7; paired horizontal probe |
 | L34 | Bug | B15: immediate reload before selection debounce loses committed tick | Flush pending persistence on pagehide or make write ownership synchronous enough; preserve delayed control and no cross-tab promise | C29/B15 |
 | L36 | Characterise | B8 full local E2E logged a React ImageTable render-time update warning; 307 tests passed. Its origin, baseline incidence and behavioural consequence are unknown; no B8 regression is claimed | Capture the React stack in a bounded local reproduction and compare baseline incidence before proposing a fix; drop if expected/library-induced or no relevant defect is established | B8 completion evidence; separate operator scope |

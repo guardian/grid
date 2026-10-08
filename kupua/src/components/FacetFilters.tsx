@@ -11,7 +11,8 @@
  * See kupua/exploration/docs/zz Archive/panels-plan.md §Facet Filters for the full design.
  */
 
-import { useEffect, useCallback, useMemo, useRef } from "react";
+import { useEffect, useCallback, useMemo, useRef, useId } from "react";
+import { FieldDisclosure } from "./FieldDisclosure";
 import { useSearchStore } from "@/stores/search-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { useSearch } from "@tanstack/react-router";
@@ -277,6 +278,7 @@ function FacetSection({
   onShowMore, onCollapse, currentQuery, onFacetClick,
 }: FacetSectionProps) {
   const headerRef = useRef<HTMLDivElement>(null);
+  const valuesId = useId();
 
   if (buckets.length === 0) return null;
 
@@ -290,32 +292,15 @@ function FacetSection({
   // (there are likely more) and we haven't expanded yet.
   const hasMore = !isExpanded && buckets.length >= INITIAL_VISIBLE;
 
-  // Scroll-anchored collapse: after collapsing the expanded bucket list,
-  // scroll so this field's header is at the top of the panel. Without this,
-  // the user clicks "Show fewer" at the bottom of a long list and ends up
-  // staring at whatever section was below — completely lost.
-  const handleCollapse = () => {
-    const header = headerRef.current;
-    const scroller = header && findScrollParent(header);
-    onCollapse();
-    if (header && scroller) {
-      requestAnimationFrame(() => {
-        const scrollerRect = scroller.getBoundingClientRect();
-        const headerRect = header.getBoundingClientRect();
-        scroller.scrollTop += headerRect.top - scrollerRect.top;
-      });
-    }
-  };
-
   return (
     <div className="pb-2">
       {/* Field name — sub-section header, no divider */}
-      <div ref={headerRef} className="px-3 pt-2 pb-1 text-sm text-grid-text-muted">
+      <div ref={headerRef} tabIndex={-1} className="px-3 pt-2 pb-1 text-sm text-grid-text-muted">
         {field.label}
       </div>
 
       {/* Value list */}
-      <div className="flex flex-col gap-px px-3">
+      <div id={valuesId} className="flex flex-col gap-px px-3">
         {visibleBuckets.map((bucket) => {
           // Apply formatter for display (e.g. "image/jpeg" → "jpeg").
           // The formatted value is also used as the CQL click value —
@@ -353,24 +338,15 @@ function FacetSection({
           );
         })}
 
-        {/* Show more / Show less toggle */}
-        {hasMore && (
-          <button
-            className="text-2xs text-grid-text-dim hover:text-grid-accent cursor-pointer pt-0.5 text-left px-1.5"
-            onClick={onShowMore}
-            disabled={expandedLoading}
-          >
-            {expandedLoading ? "Loading…" : "Show more…"}
-          </button>
-        )}
-        {isExpanded && (
-          <button
-            className="text-2xs text-grid-text-dim hover:text-grid-accent cursor-pointer pt-0.5 text-left px-1.5"
-            onClick={handleCollapse}
-          >
-            Show fewer
-          </button>
-        )}
+        <FieldDisclosure
+          expanded={isExpanded}
+          hasMore={hasMore}
+          loading={expandedLoading}
+          controlsId={valuesId}
+          anchorRef={headerRef}
+          onExpand={onShowMore}
+          onCollapse={onCollapse}
+        />
       </div>
     </div>
   );

@@ -817,8 +817,9 @@ test.describe("S4 -- multi-image Details panel", () => {
     await expect(statusBar).toContainText("2");
   });
 
-  test("partial chips have data-partial attribute in the panel", async ({ kupua }) => {
+  test("chip disclosure bounds mounted values, preserves partial meaning and refresh, and collapses with keyboard focus", async ({ kupua }) => {
     await kupua.startSearch();
+    await kupua.waitForPositionMap();
     await clearSelection(kupua.page);
 
     // Open the Details panel (closed by default)
@@ -832,21 +833,31 @@ test.describe("S4 -- multi-image Details panel", () => {
     );
     expect(selectedIds).toHaveLength(2);
 
-    // Preserve the real getByIds path while enriching only this deterministic
-    // fixture with one shared and one partial keyword.
+    // Keep the real hydration path; synthetic values provide an independent oracle.
     await kupua.page.evaluate((electedIds) => {
       const store = (window as any).__kupua_selection_store__;
       const source = store.getState().dataSource;
+      const fixture = { source, reads: 0, refreshed: false };
+      (window as any).__kup035ChipFixture = fixture;
       store.setState({
         dataSource: {
           ...source,
           getByIds: async (requestedIds: string[], signal?: AbortSignal) => {
+            fixture.reads++;
             const images = await source.getByIds(requestedIds, signal);
             return images.map((image: any) => ({
               ...image,
               metadata: {
                 ...image.metadata,
-                keywords: image.id === electedIds[0] ? ["shared", "partial"] : ["shared"],
+                keywords: image.id === electedIds[0]
+                  ? ["shared", "partial", ...Array.from({ length: 24 }, (_, i) => `partial-${i + 1}`), ...(fixture.refreshed ? ["refreshed"] : [])]
+                  : ["shared"],
+                peopleInImage: Array.from({ length: 21 }, (_, i) => `person-${i}`),
+                subjects: Array.from({ length: 20 }, (_, i) => `subject-${i}`),
+                subLocation: "National Tennis Center",
+                city: "Beijing",
+                state: "Beijing",
+                country: "China",
               },
             }));
           },
@@ -874,10 +885,90 @@ test.describe("S4 -- multi-image Details panel", () => {
       { timeout: 8000 },
     );
 
-    const sharedChip = kupua.page.getByRole("button", { name: "shared" });
-    const partialChip = kupua.page.getByRole("button", { name: "partial" });
-    await expect(sharedChip).not.toHaveAttribute("data-partial", "true");
-    await expect(partialChip).toHaveAttribute("data-partial", "true");
+    try {
+      const keywordRow = kupua.page.locator("dt", { hasText: /^Keywords$/ }).locator("..");
+      const peopleRow = kupua.page.locator("dt", { hasText: /^People$/ }).locator("..");
+      const subjectsRow = kupua.page.locator("dt", { hasText: /^Subjects$/ }).locator("..");
+      const locationRow = kupua.page.locator("dt", { hasText: /^Location$/ }).locator("..");
+      await expect(locationRow.locator(".inline-flex")).toHaveText(["National Tennis Center,", "Beijing,", "Beijing,", "China"]);
+      await expect(locationRow.locator("button")).toHaveText(["National Tennis Center", "Beijing", "Beijing", "China"]);
+      expect(await locationRow.evaluate(row => {
+        const groups = Array.from(row.querySelectorAll<HTMLElement>(".inline-flex"));
+        const commas = groups.slice(0, -1).map(group => group.lastElementChild!);
+        return commas.every((comma, i) =>
+          getComputedStyle(groups[i]).display === "inline-flex"
+          && comma.getBoundingClientRect().left > groups[i].getBoundingClientRect().left,
+        );
+      })).toBe(true);
+      const keywordPills = keywordRow.locator("button[title]");
+      const sharedChip = keywordRow.getByRole("button", { name: "shared", exact: true });
+      const partialChip = keywordRow.getByRole("button", { name: "partial", exact: true });
+      await expect(sharedChip).not.toHaveAttribute("data-partial", "true");
+      await expect(sharedChip).toHaveAttribute("title", /2\/2/);
+      await expect(partialChip).toHaveAttribute("data-partial", "true");
+      await expect(partialChip).toHaveAttribute("title", /1\/2/);
+      await expect(keywordPills).toHaveCount(20);
+      await expect(keywordRow.getByRole("button", { name: "partial-24", exact: true })).toHaveCount(0);
+      await expect(peopleRow.locator("button[title]")).toHaveCount(20);
+      await expect(subjectsRow.locator("button[title]")).toHaveCount(20);
+      await expect(subjectsRow.getByRole("button", { name: "Show more…" })).toHaveCount(0);
+
+      const reads = await kupua.page.evaluate(() => (window as any).__kup035ChipFixture.reads);
+      const dataRequests: string[] = [];
+      const observe = (request: import("@playwright/test").Request) => {
+        if (/\/(es|api)\//.test(request.url())) dataRequests.push(request.method());
+      };
+      kupua.page.on("request", observe);
+      try {
+        const more = keywordRow.getByRole("button", { name: "Show more…" });
+        await more.focus();
+        await more.press("Enter");
+        const fewer = keywordRow.getByRole("button", { name: "Show fewer" });
+        await expect(fewer).toBeFocused();
+        await expect(fewer).toHaveAttribute("aria-expanded", "true");
+        await expect(keywordPills).toHaveText(["shared", "partial", ...Array.from({ length: 24 }, (_, i) => `partial-${i + 1}`)]);
+        await expect(peopleRow.locator("button[title]")).toHaveCount(20);
+        await fewer.press("Space");
+        await expect(keywordPills).toHaveCount(20);
+        await expect(more).toBeFocused();
+        await expect(more).toHaveAttribute("aria-expanded", "false");
+        expect(dataRequests).toEqual([]);
+        expect(await kupua.page.evaluate(() => (window as any).__kup035ChipFixture.reads)).toBe(reads);
+      } finally {
+        kupua.page.off("request", observe);
+      }
+
+      await keywordRow.getByRole("button", { name: "Show more…" }).click();
+      await kupua.page.evaluate(async () => {
+        (window as any).__kup035ChipFixture.refreshed = true;
+        await (window as any).__kupua_selection_store__.getState().hydrate();
+      });
+      await expect(keywordRow.getByRole("button", { name: "refreshed", exact: true })).toBeAttached();
+      await expect(keywordRow.getByRole("button", { name: "Show fewer" })).toHaveCount(1);
+      await expect(peopleRow.locator("button[title]")).toHaveCount(20);
+      await keywordRow.getByRole("button", { name: "Show fewer" }).click();
+      await expect(keywordPills).toHaveCount(20);
+      await expect.poll(() => keywordRow.evaluate((row) => {
+        let scroller = row.parentElement;
+        while (scroller && !["auto", "scroll"].includes(getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement;
+        if (!scroller) throw new Error("Details scroll parent missing");
+        const rowRect = row.getBoundingClientRect();
+        const scrollRect = scroller.getBoundingClientRect();
+        const headerOffset = scroller.scrollTop + rowRect.top - scrollRect.top;
+        const anchoredScroll = Math.min(headerOffset, scroller.scrollHeight - scroller.clientHeight);
+        return {
+          anchored: Math.abs(scroller.scrollTop - anchoredScroll) < 2,
+          headerVisible: rowRect.top >= scrollRect.top - 1 && rowRect.top < scrollRect.bottom,
+        };
+      })).toEqual({ anchored: true, headerVisible: true });
+    } finally {
+      await kupua.page.evaluate(() => {
+        const store = (window as any).__kupua_selection_store__;
+        store.getState().clear();
+        store.setState({ dataSource: (window as any).__kup035ChipFixture.source });
+        delete (window as any).__kup035ChipFixture;
+      });
+    }
   });
 
   test("clearing selection removes MultiImageMetadata and restores focus placeholder", async ({ kupua }) => {

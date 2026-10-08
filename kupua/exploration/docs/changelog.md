@@ -24,6 +24,21 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 8 October 2026 - Bound multi-image chip rendering with shared disclosure
+
+Mount only the first twenty frequency-ordered chips per Details field before creating
+pill elements. Reveal the complete field on Show more… and remove its remainder on
+Show fewer, retaining full-selection counts, stable ties, search modifiers and
+per-field expansion across reconciled-view refreshes. Extract FieldDisclosure from
+Filters' controls/collapse handler to share presentation, accessibility, native
+loading-focus recovery and scroll anchoring without merging data/state lifetimes.
+Keep Filters' ten default rows, bounded expanded aggregation and request ownership,
+single-image presentation and empty-section layout unchanged. Strengthen the owning
+browser cases and add mounted semantic/async proof; reconciliation and cache policy
+remain unchanged. Intentional large expansion can still stall.
+Keep Location commas attached to the preceding value, outside search links, while allowing single- and multi-image rows to wrap between values.
+Recheck active focus in the deferred collapse frame so newer control focus wins; retain header fallback when the disclosure button disappears without another focus target.
+
 ### 7 October 2026 - Retire duplicated settled phantom detail journeys
 
 Run settled detail-restoration browser controls in explicit focus mode only.

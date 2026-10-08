@@ -12,6 +12,8 @@
  * ImageMetadata verbatim). This component only renders when selectionCount >= 2.
  */
 
+import { useId, useMemo, useRef, useState } from "react";
+import { FieldDisclosure } from "./FieldDisclosure";
 import type { Image } from "@/types/image";
 import { RECONCILE_FIELDS } from "@/lib/field-registry";
 import type { FieldDefinition } from "@/lib/field-registry";
@@ -114,8 +116,11 @@ function renderLocationGroup(
       <span>
         {parts.map((part, i) => (
           <span key={i}>
-            {i > 0 && ", "}
-            {part}
+            <span className="inline-flex max-w-full items-baseline">
+              <span className="min-w-0">{part}</span>
+              {i < parts.length - 1 && <span className="shrink-0">,</span>}
+            </span>
+            {i < parts.length - 1 && " "}
           </span>
         ))}
       </span>
@@ -167,7 +172,63 @@ function renderScalarAllSame(
   return <span>{displayStr}</span>;
 }
 
-// Placeholder for pending / dirty fields (declared below renderScalarAllSame).
+const INITIAL_CHIPS = 20;
+
+function MultiChipField({ field, rec, onSearch, expanded, onToggle }: {
+  field: FieldDefinition;
+  rec: Extract<FieldReconciliation, { kind: "chip-array" }>;
+  onSearch: (cqlKey: string, v: string, e: React.MouseEvent) => void;
+  expanded: boolean;
+  onToggle: (expanded: boolean) => void;
+}) {
+  const headerRef = useRef<HTMLDivElement>(null);
+  const valuesId = useId();
+  const chips = useMemo(() => [...rec.chips].sort((a, b) => b.count - a.count), [rec.chips]);
+
+  const visibleChips = expanded ? chips : chips.slice(0, INITIAL_CHIPS);
+  return (
+    <MetadataRow ref={headerRef} tabIndex={-1} label={field.label}>
+      <div id={valuesId} className="flex flex-wrap gap-1 pt-0.5">
+        {visibleChips.map((chip) => (
+          <MultiSearchPill
+            key={chip.value}
+            value={chip.value}
+            cqlKey={field.cqlKey!}
+            count={chip.count}
+            total={rec.total}
+            partial={chip.count < rec.total}
+            accent={field.pillVariant === "accent"}
+            onSearch={onSearch}
+          />
+        ))}
+      </div>
+      <FieldDisclosure
+        expanded={expanded}
+        hasMore={chips.length > INITIAL_CHIPS}
+        controlsId={valuesId}
+        anchorRef={headerRef}
+        onExpand={() => onToggle(true)}
+        onCollapse={() => onToggle(false)}
+      />
+    </MetadataRow>
+  );
+}
+
+function renderChipField(
+  field: FieldDefinition,
+  rec: FieldReconciliation | undefined,
+  onSearch: (cqlKey: string, v: string, e: React.MouseEvent) => void,
+  expanded: boolean,
+  onToggle: (expanded: boolean) => void,
+): React.ReactNode {
+  if (field.visibleWhen?.() === false) return null;
+  if (!rec || rec.kind === "pending" || rec.kind === "dirty") {
+    return <MetadataRow key={field.id} label={field.label}><Dash /></MetadataRow>;
+  }
+  if (rec.kind !== "chip-array" || rec.chips.length === 0) return null;
+  return <MultiChipField key={field.id} field={field} rec={rec} onSearch={onSearch} expanded={expanded} onToggle={onToggle} />;
+}
+
 function renderField(
   field: FieldDefinition,
   rec: FieldReconciliation | undefined,
@@ -187,39 +248,6 @@ function renderField(
   // Use stacked layout for text fields with detailLayout=stacked, else inline row.
   const Wrapper =
     field.detailLayout === "stacked" ? MetadataBlock : MetadataRow;
-
-  // ---- chip-array fields -------------------------------------------------
-  if (field.multiSelectBehaviour === "chip-array") {
-    if (kind === "pending" || kind === "dirty") {
-      return (
-        <MetadataRow key={field.id} label={field.label}>
-          <Dash />
-        </MetadataRow>
-      );
-    }
-    if (!rec || rec.kind !== "chip-array" || rec.chips.length === 0) return null;
-    return (
-      <MetadataRow key={field.id} label={field.label}>
-        <div className="flex flex-wrap gap-1 pt-0.5">
-          {rec.chips
-            .slice()
-            .sort((a, b) => b.count - a.count)
-            .map((chip) => (
-              <MultiSearchPill
-                key={chip.value}
-                value={chip.value}
-                cqlKey={field.cqlKey!}
-                count={chip.count}
-                total={rec.total}
-                partial={chip.count < rec.total}
-                accent={field.pillVariant === "accent"}
-                onSearch={onSearch}
-              />
-            ))}
-        </div>
-      </MetadataRow>
-    );
-  }
 
   // ---- summary-only fields -----------------------------------------------
   if (field.multiSelectBehaviour === "summary-only") {
@@ -506,6 +534,13 @@ function RightsAndLeasesSection({ images, reconciledView, total }: MultiImageMet
 
 export function MultiImageMetadata({ images, reconciledView, total }: MultiImageMetadataProps) {
   const onSearch = useMetadataSearch();
+  const [expandedFields, setExpandedFields] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleField = (id: string, expanded: boolean) => setExpandedFields((current) => {
+    const next = new Set(current);
+    if (expanded) next.add(id);
+    else next.delete(id);
+    return next;
+  });
 
   return (
     <>
@@ -517,7 +552,9 @@ export function MultiImageMetadata({ images, reconciledView, total }: MultiImage
           {sectionFields.map((field) =>
             field.id === "__location__"
               ? renderLocationGroup(reconciledView, onSearch, total)
-              : renderField(field, reconciledView?.get(field.id), onSearch, total),
+              : field.multiSelectBehaviour === "chip-array"
+                ? renderChipField(field, reconciledView?.get(field.id), onSearch, expandedFields.has(field.id), (expanded) => toggleField(field.id, expanded))
+                : renderField(field, reconciledView?.get(field.id), onSearch, total),
           )}
         </MetadataSection>
       ))}

@@ -385,6 +385,23 @@ of this doc proposed `Reuters ×12` badges; dropped because (a) Kahuna doesn't d
 have no UX evidence it helps, (b) it's a perf risk at 5,000 selected with high-cardinality
 keywords that we haven't measured, (c) easy to add later if dogfooding asks for it.)
 
+**Chip disclosure (KUP-035).** Each multi-image chip field initially mounts at most
+20 values, frequency-descending with stable ties. `Show more…` mounts the complete
+field; `Show fewer` removes the remainder and scroll-anchors its header (subject to
+the panel's physical scroll limit). Complete lists of 20 or fewer have no control.
+The shared `FieldDisclosure` owns the labels, styling, expanded/controlled-region
+accessibility and focus/anchor behaviour, not fetching or expansion state. Deferred
+collapse focus recovery yields to another focused control; a removed disclosure
+button falls back to its header only when focus has fallen to the document body. Details'
+per-field expansion lasts for the `MultiImageMetadata` component lifetime and
+survives pending, empty and refreshed reconciled views; it is not persisted.
+Expansion/collapse issues no requests. Reconciliation, counts, partial/full styling
+and plain/Shift/Alt searches still use the complete selection. Filters deliberately
+keeps its existing 10 initial buckets and bounded 100-bucket expansion, loading and
+stale-result ownership. Single-image presentation and section layout are unchanged.
+This bounds default pill rendering, not reconciliation work; intentional expansion
+can still mount thousands of pills and stall. There are no batches or virtualisation.
+
 **Composite-scalar fields (location).** Location is rendered as four independent rows —
 `subLocation`, `city`, `state`, `country` — each reconciled independently. A selection can be
 "all-same" on country but "mixed" on city, and the panel shows that. Kupua mirrors this:

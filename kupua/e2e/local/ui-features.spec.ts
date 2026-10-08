@@ -729,8 +729,9 @@ test.describe("Panel toggles", () => {
     await expect(rightSeparator).not.toBeVisible();
   });
 
-  test("explicit Filters expansion requests aggregations immediately", async ({ kupua }) => {
+  test("Filters fetches immediately and field disclosure preserves bounded rows, keyboard focus and collapse anchoring", async ({ kupua }) => {
     await kupua.startSearch();
+    await kupua.waitForPositionMap();
 
     await kupua.page.evaluate(() => {
       const globalObject = window as any;
@@ -740,7 +741,6 @@ test.describe("Panel toggles", () => {
       store.setState({
         fetchAggregations: async (mode?: "debounced" | "immediate" | "force") => {
           globalObject.__aggregationFetchModes__.push(mode ?? "debounced");
-          if (mode === "immediate") return;
           return original(mode);
         },
       });
@@ -752,6 +752,70 @@ test.describe("Panel toggles", () => {
     await expect.poll(() => kupua.page.evaluate(
       () => (window as any).__aggregationFetchModes__,
     )).toEqual(["immediate"]);
+    await kupua.page.waitForFunction(() => {
+      const state = (window as any).__kupua_store__.getState();
+      return state.aggregations !== null && !state.aggLoading;
+    });
+    await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      const source = store.getState().dataSource;
+      const original = source.getAggregations;
+      const fixture = { source, original, requests: [] as number[] };
+      (window as any).__kup035FilterFixture = fixture;
+      const buckets = (prefix: string, size: number) => Array.from({ length: size }, (_, i) => ({ key: `${prefix}-${i}`, count: 100 - i }));
+      source.getAggregations = async (params: any, requests: any[], signal?: AbortSignal) => {
+        if (requests.length === 1 && requests[0].field === "metadata.credit") {
+          fixture.requests.push(requests[0].size);
+          return { fields: { "metadata.credit": { buckets: buckets("credit", 100), total: 100 } } };
+        }
+        return original.call(source, params, requests, signal);
+      };
+      store.setState({ aggregations: { fields: {
+        "metadata.credit": { buckets: buckets("credit", 10), total: 100 },
+        "metadata.source": { buckets: buckets("source", 10), total: 100 },
+      } } });
+    });
+    try {
+      const section = kupua.page.getByText("Credit", { exact: true }).locator("..");
+      const adjacent = kupua.page.getByText("Source", { exact: true }).locator("..");
+      const rows = section.locator("[data-facet-key]");
+      await expect(rows).toHaveCount(10);
+      const more = section.getByRole("button", { name: "Show more…" });
+      await more.focus();
+      await more.press("Enter");
+      const fewer = section.getByRole("button", { name: "Show fewer" });
+      await expect(fewer).toBeFocused();
+      await expect(fewer).toHaveAttribute("aria-expanded", "true");
+      await expect(rows.locator("span:first-child")).toHaveText(Array.from({ length: 100 }, (_, i) => `credit-${i}`));
+      await expect(adjacent.locator("[data-facet-key]")).toHaveCount(10);
+      await fewer.press("Space");
+      await expect(rows).toHaveCount(10);
+      await expect(more).toBeFocused();
+      await expect(more).toHaveAttribute("aria-expanded", "false");
+      await expect.poll(() => section.evaluate((field) => {
+        const header = field.firstElementChild!;
+        let scroller = field.parentElement;
+        while (scroller && !["auto", "scroll"].includes(getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement;
+        if (!scroller) throw new Error("Filters scroll parent missing");
+        const headerRect = header.getBoundingClientRect();
+        const scrollRect = scroller.getBoundingClientRect();
+        const headerOffset = scroller.scrollTop + headerRect.top - scrollRect.top;
+        const anchoredScroll = Math.min(headerOffset, scroller.scrollHeight - scroller.clientHeight);
+        return {
+          anchored: Math.abs(scroller.scrollTop - anchoredScroll) < 2,
+          headerVisible: headerRect.top >= scrollRect.top - 1 && headerRect.top < scrollRect.bottom,
+        };
+      })).toEqual({ anchored: true, headerVisible: true });
+      expect(await kupua.page.evaluate(() => (window as any).__kup035FilterFixture.requests)).toEqual([100]);
+      await rows.first().click({ modifiers: ["Alt"] });
+      await expect.poll(() => kupua.page.evaluate(() => (window as any).__kupua_store__.getState().params.query)).toBe('-credit:credit-0');
+    } finally {
+      await kupua.page.evaluate(() => {
+        const fixture = (window as any).__kup035FilterFixture;
+        fixture.source.getAggregations = fixture.original;
+        delete (window as any).__kup035FilterFixture;
+      });
+    }
   });
 
   // ---------------------------------------------------------------------

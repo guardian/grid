@@ -17,8 +17,8 @@ synthetic direct-TEST reproduction and verification passed, but natural-workflow
 
 ## At a Glance
 
-**Current recorded status: 6 October 2026.** The 20 entries below have an open defect,
-approval/integration/review task or explicit residual; 36 additional IDs have completed bounded repairs or verification.
+**Current recorded status: 8 October 2026.** The 19 entries below have an open defect,
+approval/integration/review task or explicit residual; 37 additional IDs have completed bounded repairs or verification.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
 not a fresh remote check. Update this overview when a detailed disposition changes.
@@ -51,12 +51,13 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | ID | Topic | Current status | Migration relevance |
 | --- | --- | --- | --- |
 | [KUP-011](#kup-011) | Parsed intent versus automatic defaults | Open; Grid replaced-intent subset in PR #4957, prototype alignment outstanding | Prerequisite: S2 admitted query meaning |
-| [KUP-035](#kup-035) | Full selection reconcile blocks one frame | Open; measured by P19 in both modes (about 320 ms task at 1,000 images) | Independent client performance; not caused by media-api |
 | [KUP-037](#kup-037) | Collection badges silently use the free-only default scope | Open; source and recorded API body confirm both modes agree | Independent count/label correctness; not an M2a routing gate |
 | [KUP-040](#kup-040) | Arrival polling dispatches with an impossible upload interval | Open, parked; source and local API historical-window evidence | Independent request efficiency; preserve useful tab notifications |
 
 KUP-038 is closed against the ledger's completed B8/L37/B17 repairs, not a new fix.
-KUP-011/035/037 have no closure evidence from continuity work and remain separately scoped.
+KUP-011/037 have no closure evidence from continuity work and remain separately scoped.
+KUP-035 is DONE for default-collapsed chip rendering; intentional large expansion remains
+an accepted cost, not an open repair requirement.
 
 ### Open Grid Work
 
@@ -80,7 +81,7 @@ KUP-011/035/037 have no closure evidence from continuity work and remain separat
 | [GRID-016](#grid-016) | Search results use a weaker syndication visibility rule than single-image reads | Open; source-only (U9-A cold review); private triage | Independent Grid data-exposure fix; same deployment caveat as GRID-015 |
 
 <details>
-<summary>Completed bounded repairs and verification: 36 other IDs</summary>
+<summary>Completed bounded repairs and verification: 37 other IDs</summary>
 
 | Group | Completed IDs |
 | --- | --- |
@@ -91,6 +92,7 @@ KUP-011/035/037 have no closure evidence from continuity work and remain separat
 | Restore coordinates and selected-tuple rank | [KUP-024](#kup-024), [KUP-025](#kup-025) |
 | Backward null-boundary crossing | [KUP-033](#kup-033) |
 | Near-top centred paging | [KUP-034](#kup-034) |
+| Default-collapsed multi-image chip rendering; intentional large expansion remains costly | [KUP-035](#kup-035) |
 | Explicitly incomplete API image pages | [KUP-036](#kup-036) |
 | Non-AI API recovery and fixed-mode CQL initialization, closed by U6z verification | [KUP-010](#kup-010), [KUP-026](#kup-026) |
 | Date recovery, measurement trust and latest keyboard-edge ownership | [KUP-013](#kup-013), [KUP-028](#kup-028), [KUP-031](#kup-031), [KUP-032](#kup-032) |
@@ -473,14 +475,19 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Disposition / limits:** DONE (26 September), cold review found no material issues; its formatting-only S3 is corrected. No API-mode live checks or operator preflights were run; ordinary E2E is direct/local. No broader snapshot guarantee, performance campaign, server change or AI/U6z/U7 work follows.
 
 #### KUP-035
-**A full selection reconcile runs in one idle callback and blocks a frame at large selections**
-- **Scope:** separate from [ledger B3's range-gesture ownership](not-yet-another-audit-ledger.md#b3); fixing that gesture does not address this measured reconciliation cost.
-- **Component / owner:** `requestFullReconcile` in the selection store, and `recomputeAll`; human owner-to-confirm.
+**Large-selection Details rendering stalls**
+- **Scope:** separate from [ledger B3's range-gesture ownership](not-yet-another-audit-ledger.md#b3). Selection computation and rendering are different costs; do not assume the full reducer owns the observed long task.
+- **Decision assessment and attribution, 7-8 October:** [model comparison and executed discriminator](not-yet-another-audit-ledger.md#kup-035-reconciliation-decision-assessment). The proposed reconciliation models remain unselected; the API DEV capture identifies post-publication pill rendering as the dominant blocking work.
+- **Component / owner:** selection-summary publication and its [multi-image renderer](../../src/components/MultiImageMetadata.tsx#L195), including [MultiSearchPill](../../src/components/SearchPill.tsx#L126); human owner-to-confirm.
 - **Trigger:** metadata arrives for a large selection (range select, reload hydration) while Details is open.
-- **Expected / actual:** the multi-image Details summary should settle without a visible stall. Instead, one idle callback recomputes every field over every selected image. The callback's 2 s timeout lets it run as a single long task.
-- **Evidence:** [scheduler](../../src/stores/selection-store.ts#L199), [recomputeAll](../../src/lib/reconcile.ts#L328). **26 September, perf P19 on TEST, `--use-media-api`, 2 runs, 1,000 selected:** max frame about 358-367 ms, from one `IdleRequestCallback` of about 318 ms. P18 (100 selected) peaks at about 100 ms. The archived [13 September consolidation audit](zz%20Archive/performance-first-dry-consolidation-audit-2026-09-13.md#L232) already noted that the full scan is not chunked, and scoped its repair to exclude chunking. The [interaction catalogue L08](zz%20Archive/performance-harness-1-interaction-catalogue.md#L149) records 2,000-5,000 as product-gated. **Direct ES, same day, 2 runs:** max frame about 358-363 ms, from one `IdleRequestCallback` of about 319 ms, the same as media-api mode.
-- **Smallest discriminator:** the P19 scenario (`e2e-perf/perf.spec.ts`), comparing its max frame and LoAF blocking before and after a change.
-- **Dependency / disposition:** OPEN, independent client performance in both modes. It is not introduced by API build U6d, which only changes where the metadata comes from. A fix would split the scan across idle slices, or keep an incremental view, and needs its own decision and tests.
+- **Expected / former behavior:** correct multi-image summaries should become usable without a large main-thread stall. The synchronous reducer published a view whose rendering mounted a pill for every distinct chip value; the measured dataset produced 4,238 partial-value pills, including 4,125 keywords.
+- **Historical evidence:** 26 September two-run P19 preflights reported 358-367ms max frames/API and 358-363ms/direct, with roughly 318/319ms attributed to an idle task. Canonical four-run records subsequently show 338/354ms frames with only 8/7ms wrapped idle callbacks; later API evidence is 338ms/8ms. The [scheduler](../../src/stores/selection-store.ts#L199) is unchunked, as the [13 September audit](zz%20Archive/performance-first-dry-consolidation-audit-2026-09-13.md#L232) noted, but that does not establish it as the dominant CPU cost. The [catalogue](zz%20Archive/performance-harness-1-interaction-catalogue.md#L149) keeps 2,000-5,000 selections product-gated.
+- **Executed attribution, 8 October:** one operator-authorised API-backed DEV P19-shaped action, visible 1720x960/DPR1, 1,000 selected, cold metadata except the anchor. Wrapped callback 8.8ms; enclosing browser idle task 316.6ms includes a 307.5ms post-publication React render. CPU samples lead through synchronous React work to `MultiSearchPill`/`jsxDEV`, including DEV repeated rendering. Maximum observed frame 375.1ms; action to stable nonempty panel 2,344.6ms. Four served raw-source hashes match workspace. This is one instrumented capture, not a production benchmark, direct-ES attribution or proof of every summary value; network wait was not separately recovered. Guard blocked no writes; selection, panel, wrappers and probes were cleaned up.
+- **Implemented repair / operator clarification, 8 October:** Details initially mounts 20 frequency-ordered chips per field; Show more… reveals the complete field, Show fewer unmounts the remainder and scroll-anchors the header within physical scroll limits. Lists ≤20 have no control. `FieldDisclosure` replaces Filters' duplicated controls/collapse handler and supplies shared labels, styling, expanded/controlled-region accessibility and focus recovery. The operator explicitly retains Filters' existing 10 initial rows/≥10 possibly-more heuristic and bounded 100-bucket request. Fetch/loading/cancellation/stale ownership stays unchanged; Details expansion is request-free and retained across refreshed/pending/empty reconciled views. Full counts, stable ties, partial/full meaning and search modifiers remain intact. No reconciliation, aggregation-limit or number-formatting redesign.
+- **Proof / review:** mounted renderer regression failed before repair (26 versus 20 keyword pills). Eleven new mounted cases cover exact values/counts, the 20-value boundary, independent fields, metadata/pending/empty refresh, no expansion requests, modifiers and native focus/cancellation; retained KUP-007 ownership checks pass. Two existing browser cases are strengthened in place, preserving small-chip and immediate-aggregation proof. One scoped read-only reviewer found a cancelled-field focus race; its failing-first regression and focus-retirement fix are accepted on re-review. Final gates: `npm --prefix kupua test` 2,936/85 files; `npm --prefix kupua run build` passed; `npm --prefix kupua run test:e2e -- --retries 0` 440 passed, one pre-existing conditional table-eviction setup skip, no failures/retries.
+- **Bounded live performance, 8 October:** one foreground API DEV pair at 1720x960/DPR1, cold metadata except rank-zero anchor, same 1,000-image cohort and chip frequencies. An in-memory served-module intervention removes only the render bound; it is not a historical-HEAD benchmark. Keywords/people/subjects/labels cardinalities are 4,125/97/16/0; independent raw-metadata counts, ordered visible values and partial/full tooltips match. Default mounted pills fall 4,238 -> 56; maximum observed frame 334.1 -> 16.7ms, detected LoAF blocking 244 -> 0ms, summary-publication to stable panel 415.5 -> 22.4ms. Total readiness 2,164.4 -> 1,451.6ms includes unequal request-header wait unions (1,713.4/1,393.6ms), not just rendering. Large keyword expansion mounts all 4,125, issues zero requests and takes 378.6ms to stable geometry with a 316.7ms maximum frame. Event-start exclusion undercounts expansion task/LoAF blocking; no stall-free claim follows. Both panels pass real keyboard/focus, physical collapse anchoring, adjacent-field and filter/pill actions; four served-source hashes match. Invalid setup/oracle attempts and every valid numeric observation are retained with the [ignored attribution record](../../.vite/kup035-attribution-20261008/disclosure.json); probes/routes/cache override and transient selection are cleaned up.
+- **Deferred collapse-focus follow-up, 8 October:** coordinator source review identified a distinct next-frame focus risk. Two mounted regressions reproduce theft of newer focus with retained/removed disclosure controls before the guard; both pass after rechecking active focus in that frame. Header fallback and scroll anchoring remain intact. Full unit/build gates pass (2,940 tests/85 files); the two focused Filters/Details browser cases pass retry-free. This is controlled mounted reproduction, not a live timing reproduction; no new performance claim.
+- **Dependency / disposition:** DONE within default-collapsed local/API DEV limits; deliberate expanded rendering remains unbounded and can stall. Both datasources and selection/data semantics are preserved. No reconciliation-engine simplification, production-build magnitude, direct-ES performance equivalence or universal summary-semantic audit is claimed. The shared-disclosure repair includes the deferred collapse-focus follow-up.
 
 #### KUP-036
 **New API image-page endpoints can publish incomplete Elasticsearch execution as success**

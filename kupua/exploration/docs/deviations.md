@@ -8,11 +8,22 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-10-03
+Last updated: 2026-10-08
 
 ---
 
 ## From Grid / Kahuna
+
+### Collapsed Multi-Image Chip Fields (8 October 2026)
+
+Unlike Kahuna's complete multi-image chip list, Kupua initially mounts at most 20
+frequency-ordered pills per field. Show more… reveals the complete reconciled field;
+Show fewer unmounts the remainder with scroll/focus anchoring. Counts and partial/full
+meaning still use the whole selection. This reduces default high-cardinality rendering
+without changing reconciliation or adding requests, batches or virtualisation;
+intentional large expansion can still stall. Filters shares the control but retains
+its ten default/100 expanded bounded aggregation experience. Single-image rendering
+is unchanged. See the [current contract](00%20Architecture%20and%20philosophy/05-selections.md#8-what-gets-reconciled-what-doesnt).
 
 ### Independent Per-Tab Density And Destination History (3 October 2026)
 
