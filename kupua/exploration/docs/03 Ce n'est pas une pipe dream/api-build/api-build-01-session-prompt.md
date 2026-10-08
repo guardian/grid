@@ -72,7 +72,9 @@ language and ends with your recommendation. Record my answer in the unit note st
   afterwards, and record the result in the worklog.
 - **Checks in the embedded VS Code browser**, especially in API mode: does browsing, seeking,
   focus and traversal look right, and do requests go to media-api rather than `/es`? Read
-  `kupua/exploration/docs/embedded-browser-playbook.md` first and append lessons after. Prefer
+   the short `kupua/exploration/docs/embedded-browser-playbook.md` entry point, then only relevant
+   reference sections. Update an owning topic only for a new reusable technique or correction;
+   never add session descriptions or routine outcomes. No update is required otherwise. Prefer
   page snapshots over screenshots. The browser and E2E both need port 3000, so ask me which mode
   is running. TEST data needs my permission for the session. Never copy identities or cookies
   into files.

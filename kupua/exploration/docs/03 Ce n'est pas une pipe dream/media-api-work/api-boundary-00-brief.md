@@ -115,10 +115,11 @@ evidence, not a ban on running code and not permission for a production implemen
   unbounded enumeration or load testing. PROD/CODE access requires separate explicit permission;
   ordinary TEST permission does not cover it. Specify an action/request/time bound and stop on
   an unexpected load increase, repeated failures or a result that already answers the question.
-- Before a browser session, read [the embedded browser playbook](../../embedded-browser-playbook.md)
-  and relevant [existing interaction helpers](../../../../e2e/shared/helpers.ts). Follow the
-  playbook's mode, foreground, state and cleanup rules; append only new verified operating
-  knowledge or a concise outcome entry after the session. This narrow playbook update is allowed.
+- Before a browser session, read the short [browser playbook entry point](../../embedded-browser-playbook.md),
+  only task-relevant reference sections and relevant [interaction helpers](../../../../e2e/shared/helpers.ts).
+  Follow its mode, foreground, state and cleanup rules. A narrow owning-topic update is allowed
+  only for new reusable operating knowledge or a correction, never a session description or
+  routine outcome entry. No playbook update is required otherwise.
   Prefer accessibility snapshots for interaction and screenshots only for visual evidence.
 - Before tests, read the relevant operating sections of [the E2E handbook](../../../../e2e/README.md)
   or [performance handbook](../../../../e2e-perf/README.md). Warn and confirm the required free

@@ -1,13 +1,14 @@
 # The Wandering Cookbook — Agent-Driven Exploratory Bug Hunting
 
 > **Created:** 2026-07-30
-> **Status:** Experimental. First run pending.
+> **Status:** Archived exploratory design, not current operating authority.
 > **Instrument:** The **embedded VS Code browser** (`open_browser_page`, `read_page`,
 > `click_element`, `type_in_page`, `run_playwright_code`, `screenshot_page`).
 > This is *not* about the headless Playwright suites in `e2e/` — those are the
 > existing, deterministic tests. This is a human-like agent poking a live app.
-> **Companion:** `embedded-browser-playbook.md` — accumulated technique notes.
-> **Read before wandering:** that playbook, then this file, then the mission you picked.
+> **Current operating guide:** [browser playbook](../../embedded-browser-playbook.md).
+> Read its short entry point and only task-relevant reference sections. This cookbook
+> is historical mission/oracle context, not permission to run its missions.
 
 ---
 
@@ -514,7 +515,7 @@ a refuted entry with a note attached.
 Before declaring the session over, confirm:
 
 - [ ] Traps were armed at the start and re-armed after every navigation/reload
-- [ ] Storage was cleared before the mission (except where restore was under test)
+- [ ] Relevant app baseline was established; history/cache retained when under test and authentication never cleared
 - [ ] The exact URL, bed, tier, and focus mode are recorded
 - [ ] Every finding names an oracle from §7
 - [ ] Every finding was checked against the §8 do-not-report list
@@ -524,7 +525,7 @@ Before declaring the session over, confirm:
       confidence
 - [ ] Off-scope observations are in the appendix, capped at 10 lines
 - [ ] No screenshots written to disk; no unredacted sensitive values
-- [ ] `embedded-browser-playbook.md` updated (§12) — **not optional**
+- [ ] Any new reusable technique/correction merged into the current playbook's owning topic (§12); no update required otherwise
 
 **Halt conditions.** Stop and report rather than pressing on if: the tunnel dies,
 the app fails to load, the store hooks are absent (you are on a prod build), you
@@ -535,11 +536,11 @@ A short honest report beats a long invented one.
 
 ## 12. Feed the Playbook
 
-The last action of every session is to append what you learned about *driving the
-app* — not about bugs — to `embedded-browser-playbook.md`: selectors that worked,
-selectors that lied, waits that were necessary, cheap state reads you discovered,
-techniques that wasted turns.
+The current [browser playbook](../../embedded-browser-playbook.md) supersedes this
+archived cookbook's operating guidance. Read its short entry point and only the
+reference sections needed for the task.
 
-That file is the compounding asset here. The findings are one-offs; the technique
-notes make every future session cheaper. A session that finds no bugs but adds
-three solid playbook entries was still worth running.
+Update an owning topic only for a new reusable operating technique or correction.
+Do not append session descriptions, bug findings, dated outcomes or "nothing found"
+entries. No update is required merely because a session happened. Merge duplicates
+and remove superseded advice rather than building another chronological log.

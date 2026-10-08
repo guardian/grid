@@ -1,19 +1,80 @@
 # Kupua — Component Detail Reference
 
-> This file contains detailed descriptions of every major component/subsystem.
-> It is NOT loaded at session start. Agents read it on demand when working on
-> a specific area. For the bootstrap summary, see `kupua/AGENTS.md`.
+> Implementation map for humans and agents, read by subsystem rather than at every session start.
+> [AGENTS.md](../../../AGENTS.md) provides orientation; this reference describes runtime owners,
+> their contracts and important limits. Supporting utilities are grouped with their consumers,
+> not catalogued function by function.
 >
-> **Last refreshed: 29 September 2026.** API-build U8/M2a deployed routing and measurement verified;
-> KUP-029/030 reachability and retention were bounded in the browser. This is not whole-system verification. The
-> [active build plan](../03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md)
-> owns sequencing and acceptance. U7 delivery remains separate and next.
+> **Last source review: 8 October 2026.** Refreshed against the source inventory, implementation
+> paths and relevant existing test assertions. Code takes precedence over comments and design
+> documents. This was a documentation review, not a new test run or live-system verification.
+> The [API build plan](../03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md)
+> owns migration sequencing and acceptance; this document is not an implementation workplan.
+
+## Find the Owner
+
+Unless qualified otherwise, component/module paths below are relative to `kupua/src/`.
+Start with the implementation; use the linked guide for intent and broader contracts.
+
+| Area | Implementation entry points | Companion guide |
+|---|---|---|
+| App and routes | [main.tsx](../../../src/main.tsx), [search route](../../../src/routes/search.tsx) | [Frontend philosophy](01-frontend-philosophy.md) |
+| Data access | [DAL contract](../../../src/dal/types.ts), [API datasource](../../../src/dal/api-data-source.ts), [ES datasource](../../../src/dal/es-adapter.ts) | [Runtime configuration](../runtime-configuration-and-data-sources.md) |
+| Search and scrolling | [Search store](../../../src/stores/search-store.ts), [data window](../../../src/hooks/useDataWindow.ts), [scroll effects](../../../src/hooks/useScrollEffects.ts) | [Scroll architecture](03-scroll-architecture.md) |
+| Focus and history | [Search continuity](../../../src/lib/search-continuity.ts), [URL sync](../../../src/hooks/useUrlSearchSync.ts), [detail return](../../../src/hooks/useReturnFromDetail.ts) | [Focus/position](02-focus-and-position-preservation.md), [history](04-browser-history-architecture.md) |
+| Selection | [Selection store](../../../src/stores/selection-store.ts), [range selection](../../../src/hooks/useRangeSelection.ts) | [Selections](05-selections.md) |
+| Fields and CQL | [Field registry](../../../src/lib/field-registry.tsx), [CQL input](../../../src/components/CqlSearchInput.tsx), [typeahead](../../../src/lib/typeahead-fields.ts) | [Field catalogue](field-catalogue.md) |
+| Shared presentation | [Column menu](../../../src/components/ColumnContextMenu.tsx), [field disclosure](../../../src/components/FieldDisclosure.tsx), [metadata primitives](../../../src/components/metadata-primitives.tsx) | [Selections](05-selections.md) |
+| Media and traversal | [Detail](../../../src/components/ImageDetail.tsx), [preview](../../../src/components/FullscreenPreview.tsx), [image URLs](../../../src/lib/image-urls.ts), [prefetch](../../../src/lib/image-prefetch.ts) | [Keyboard navigation](keyboard-navigation.md) |
+| Collections | [Collection store](../../../src/stores/collection-store.ts), [tree](../../../src/components/CollectionTree.tsx) | [Collections](06-collections.md) |
+| Runtime boundaries | [Vite configuration](../../../vite.config.ts), [startup script](../../../scripts/start.sh) | [Infrastructure safeguards](../infra-safeguards.md) |
 
 ---
 
+# Application Entry & Ownership
+
+## Startup and Routes (`main.tsx`, `router.ts`, `routes/`)
+
+`main.tsx` starts optional quota loading and collection tree/count loading, and probes AI
+availability once: media-api capability in API mode, Bedrock health otherwise. It disables native
+scroll restoration, ensures the current history entry has a Kupua key, and captures its snapshot
+on `pagehide` when reload persistence is enabled. React mounts under StrictMode.
+
+`router.ts` assembles the routes and uses `plain-search-serializer.ts` to preserve plain string
+query values. `/` redirects to search; `/images/:imageId` redirects to the search detail overlay
+for bookmark compatibility. `routes/search.tsx` composes the toolbar, panels, list, scrubber and
+detail overlay, mounts URL synchronization and one shared range-selection handler, initializes
+the legacy Grid API singleton and hydrates selection metadata. Panel-local consumers resolve
+focused/selected images without making the whole route subscribe to selection metadata changes.
+
+The root wraps the route outlet in `ErrorBoundary` and mounts one `ToastContainer` outside it.
+`ErrorBoundary` handles render failures with retry or a Home reload; it is not network recovery.
+
+## Preferences and Layout State (`stores/ui-prefs-store.ts`, `column-store.ts`, `panel-store.ts`)
+
+`ui-prefs-store` initializes grid/table density from sessionStorage before views mount. Every
+choice persists immediately and advances a density-intent counter, including same-value choices.
+Focus mode and graphic-image blur are localStorage preferences; coarse pointers force effective
+phantom mode without overwriting the saved choice. Callers use the effective-mode helpers.
+Column and panel stores separately persist table layout and panel settings in localStorage.
+Density is neither a URL search parameter nor a history-snapshot field.
+
+`column-store` persists hidden columns and widths using TanStack column IDs, not raw dotted
+field paths. Its pre-auto-fit widths are runtime-only so a repeated double-click can restore a
+previous size. `ColumnContextMenu` delegates visibility/fit actions to ImageTable; it owns only
+menu placement and dismissal. Field definitions and defaults still come from the registry.
+
+## Shared Styles and Geometry (`index.css`, `constants/layout.ts`)
+
+`index.css` owns Tailwind theme tokens, fonts, shared popup styling, focus/selection feedback and
+rendering containment rules. CSS-driven selection state avoids propagating mode props to every
+cell. Containment is functional, not decoration: changes can affect painting and popup clipping.
+`constants/layout.ts` supplies shared row/header/cell geometry; views measure responsive dimensions
+and pass current geometry to navigation rather than duplicating independent estimates.
+
 # Data Layer
 
-## DAL (`src/dal/`)
+## DAL (`dal/`)
 
 `ImageDataSource` (`dal/types.ts`) is selected by `createDataSource()` (`dal/index.ts`):
 `ApiDataSource` when `VITE_USE_MEDIA_API=true`, otherwise `ElasticsearchDataSource`.
@@ -25,7 +86,7 @@ standalone detail uses `GET /images/:id`; selection hydration uses `mget` (200 I
 at most four in flight). `getById(id, signal?)` returns `{image, enrichment?} | undefined`;
 `getByIds` deliberately returns `Image[]` without enrichment. `openPit` resolves `null`;
 `offsetReadLimit` is 10,000, so an estimate-less deep seek lands at 9,800 with its actual position.
-AI search uses `GET /images` with `useAISearch=true` and a separate `aiQuery` (U9-B). There is
+AI search uses `GET /images` with `useAISearch=true` and a separate `aiQuery`. There is
 no ES fallback, and the factory constructs no ES datasource in API mode.
 The shared URL resolver defaults every mode to local `/api`; only `--use-deployed-media-api`
 selects the allowlisted absolute TEST base and credentialed cross-origin reads. That temporary
@@ -42,9 +103,13 @@ ES-specific code in `dal/adapters/elasticsearch/`: CQL→ES translator, sort cla
 - **`DATE_SORT_FIELDS`** (exported set) — ES sort values are epoch ms; `_source` values are ISO strings. Callers must convert ISO→epoch before comparing.
 - **`ALLOWED_ES_PATHS`** lives in **both** `es-config.ts` and `vite.config.ts` (separate hardcoded arrays that must be kept manually in sync).
 
-## Grid API Adapter (`src/dal/grid-api/`, `src/dal/grid-api-search-adapter.ts`)
+## Grid API Adapter (`dal/grid-api/`, `dal/grid-api-search-adapter.ts`)
 
-**Search path (both media-api modes):** `grid-api-search-adapter.ts` builds the shared request body (`buildReadBody`), posts reads (`postImageRead`) and maps Argo-wrapped pages (`apiSearchAfter`, `apiImageWindow`) to `SearchAfterResult` including a per-hit enrichment map (`extractEnrichment`). Called by `ApiDataSource`; `search-store` writes the enrichment map to `enrichment-store` at commit-to-view points only (probe calls never write — F-1 guard). `countAll` is sent only when the caller sets `trackTotalHits`.
+**Search path (both media-api modes):** `grid-api-search-adapter.ts` builds the shared request body
+(`buildReadBody`), posts reads (`postImageRead`) and maps Argo-wrapped pages (`apiSearchAfter`,
+`apiImageWindow`) to `SearchAfterResult`, including per-hit enrichment (`extractEnrichment`).
+`ApiDataSource` returns that data; the store publishes enrichment only at commit-to-view points,
+not during probes. `countAll` reflects whether the caller requested `trackTotalHits`.
 
 **Failure handling:** `SearchAfterApiError` distinguishes explicit HTTP 410 with
 `search-after-pit-expired` from transport absence and refusals. A supplied PIT that expires is
@@ -54,20 +119,23 @@ maps return `null` without warning on media-api refusal, incompleteness or unrea
 Cancellation is preserved. Counts/aggregations reject failures for their callers to handle as
 absent or unchanged data. Bulk lookup rejects the whole logical read if any chunk fails, aborting
 the rest, so a partial response cannot authorize removal of selected IDs. Explicit execution
-incompleteness is rejected by rank, keys, profiles, count, aggregations and mget, and now by
+incompleteness is rejected by rank, keys, profiles, count, aggregations, mget and
 search-after/window with 503 ([KUP-036](../bug-backlog.md#kup-036)); individual decode omission
-remains unchanged. U6z verifies that current non-AI recovery stays on API reads, including when
-the follow-up read fails; it adds tests, not another runtime routing mechanism.
+remains possible. Composed store tests cover recovery staying on API reads even when a follow-up
+read fails; this does not introduce another runtime routing mechanism.
 
-**Standalone detail:** `apiGetImage` uses the S1 normalizer and extracts envelope actions and
+**Standalone detail:** `apiGetImage` uses the shared image normalizer and extracts envelope actions and
 enrichment once. Missing/hidden (404) or wrong-ID entities resolve `undefined`; other request
 failures reject. ImageDetail handles these quietly as unavailable and owns request cancellation.
 
 **Older HATEOAS adapter:** `GridApiDataSource.getImageDetail` remains unused by production callers;
 it is not the standalone-detail path. It uses `service-discovery.ts`/`argo.ts`, returns `null`
 for network/abort/404/permission-403, but throws auth/session/write-guard/other server errors.
-Do not describe it as universally nullable. `initGridApi()` still initializes the module singleton
-on search-route mount. Deletion/alignment of the unused method is parked in the build plan.
+Do not describe it as universally nullable. `initGridApi()` initializes the module singleton
+on search-route mount. API-mode startup also awaits that same discovery promise for the root
+`ai-search` capability. Discovery is session-scoped: failure leaves links unavailable, without
+a retry loop. It does not load a runtime client-configuration catalogue. Deletion/alignment of
+the unused detail method is parked in the build plan.
 
 **Write guard:** `gridApiWriteGuard()` blocks non-GET requests unless explicitly enabled, except
 the eight read-only POST routes listed in `grid-api/read-via-post.ts`. Admission matches the exact
@@ -77,52 +145,93 @@ path (query string allowed), never an image-ID prefix; this prevents admitting n
 
 Three-layer merge model:
 
-1. **ES baseline inputs** — `SOURCE_INCLUDES` in `es-config.ts` fetches rights/leases/usages/labels/syndicationRights/XMP fields. Always available in direct-ES mode.
+1. **ES baseline inputs** — `SOURCE_INCLUDES` in `es-config.ts` requests rights/leases/usages/labels/syndicationRights/XMP fields. Individual records may omit fields; no Grid service call is needed for these direct-mode inputs.
 2. **TS cost+validity calculation** — `calculateCost` (port of Scala `CostCalculator`), `buildValidityMap` + `deriveValid` (mirrors Scala's two-pass override model), `isImagePotentiallyGraphic` (TS port, replaces Painless script field not in `_source`), quota-store (`fetchQuotas()` at startup, graceful absence). `guardian-config.json` is a vendored config snapshot.
-3. **API overlay** — `enrichment-store` (Zustand, no persistence) receives committed search-after/window page enrichment. `deriveImage(image, overlay?)` merges server fields over the baseline; direct ES supplies no overlay. Ordinary API pages and standalone detail map baseline and overlay rights from the same response entity, so KUP-029's independent opposing-rights premise is refuted post-U6z. AI and selection bulk lookup intentionally supply baseline images only; same-ID AI results can retain a prior ordinary overlay (KUP-030), whose resolution belongs to U9's canonical AI response rather than a separate repair.
+3. **API overlay** — `enrichment-store` (Zustand, no persistence) receives committed ordinary and AI search enrichment. `deriveImage(image, overlay?)` merges server fields over the baseline; direct ES supplies no overlay. Ordinary pages, AI results and standalone detail map baseline images and enrichment from their response entities. Selection bulk lookup returns baseline images without publishing enrichment.
 
 **Consuming enriched data:** `useEnrichedImage(image, ownOverlay?)` subscribes per-ID to the
 enrichment store (O(1) `Map.get`); an owned standalone overlay takes precedence. Non-React
 callers use `deriveImage` directly. ImageDetail passes its owned overlay to ImageMetadata only
 while displaying that standalone image. Selection bulk lookup does not add server enrichment.
+`deriveImage` uses field-wise lazy fallback: supplied cost/status skip local calculation;
+validity is built only when `valid` or `invalidReasons` is missing. Nullish fallback preserves
+meaningful `false`, empty-object and empty-array overlay values. Local fallback remains necessary
+for direct mode, partial overlays and selection summaries; it is not a background enrichment read.
 
 Fresh API pages and committed first-page fallbacks replace the overlay map. Fill, extensions,
 focus/restore buffers and seeks merge their contributing overlays. An inserted target contributes
 only its selected probe entry; both backward seek paths include backward-page overlays. Discarded
 probes and cancelled pages do not publish, and direct-ES responses do not invent API enrichment.
-U6z's synthetic same-ID ordinary/AI/ordinary sequence confirms that an AI baseline can still use
-the previous ordinary API overlay until a new API result replaces it (KUP-030). A 27 September
-real-route browser check reproduced retention for 20/20 matching IDs but found no rights/cost
-presentation change in that sample. The residual is separate from the removed ordinary
-unavailable-to-ES fallback; selection enrichment is unchanged. Do not fix it independently:
-U9 must replace the overlay map with the current AI response's enrichment at commit time.
+Every owned AI completion replaces the map with its current enrichment, or an empty map when
+none is supplied. Empty/unavailable AI results therefore cannot retain an earlier ordinary
+overlay. Cancelled and superseded completions cannot publish. The ordinary-to-AI-to-ordinary
+contract is covered in `stores/search-store-api-mode.test.ts`; selection hydration is separate.
 
-## State (`src/stores/search-store.ts`)
+## Search State (`stores/search-store.ts`)
 
-Zustand. Windowed buffer (max 1000, cursor-based extend/evict/seek) — shared by all three scroll tiers (`03-scroll-architecture.md` §2). Scroll-mode fill (`_fillBufferForScrollMode`) loads all results when total ≤ SCROLL_MODE_THRESHOLD (1000). Background `positionMap` fetch (for SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD = 65k) enables indexed scroll tier. Above 65k, the scrubber falls back to seek-only. Bidirectional seek: deep paths add a backward `search_after` after the forward fetch, placing the user in the buffer middle. `imagePositions: Map` for O(1) lookup. Sort-around-focus ("Never Lost"). PIT lifecycle with generation counter (`_pitGeneration` — seek/extend skip stale PITs to avoid 404 round-trips, keepalive 1m). New-images ticker. Aggregation cache + circuit breaker (expanded agg requests have abort controllers). Sort distribution (`sortDistribution`) + null-zone uploadTime distribution (`nullZoneDistribution`) for scrubber labels/ticks. Separate `column-store` + `panel-store` (localStorage-persisted).
+Owns the shared result buffer, query, cursor paging, seek, sort-around-focus and restoration work.
+It publishes data and placement intent; it does not scroll the DOM. `imagePositions` maps IDs to
+global offsets. Page size is 200 and buffer capacity 1,000; tier thresholds in `constants/tuning.ts`
+are configurable. Small searches fill the buffer, intermediate searches build a `PositionMap`,
+and large searches use windowed seeking. `lib/two-tier.ts` centralizes indexed-tier eligibility.
 
-Committed response tuples are retained in `lib/image-offset-cache.ts`: at most `2 * BUFFER_CAPACITY`
-recent entries plus one active selection-anchor tuple, all in memory. Lookups check the image ID
-and search fingerprint; input/output arrays are copied. Fresh searches replace recent entries,
-and focus trimming keeps tuples aligned with images. Desktop/touch ranges and detail history
-prefer retained tuples over raw-field reconstruction, preserving API-only aliases. Selection
-owns the extra anchor entry through set, re-election, clear and hydrate. Cancelled work cannot
-publish stale extension/neighbour results, and replacing navigation clears cancelled busy flags.
+Abort ownership and generations prevent obsolete reads from publishing or leaving busy flags
+behind. Pending browse navigation survives view changes independently of window maintenance.
+`createExpiryAwareSearchAfter` records PIT invalidation before later awaits can fail and prevents
+final commits from resurrecting a cleared PIT. Direct mode opens PIT/page one in parallel; API
+mode opens no PIT, so its position maps are live, not a stronger snapshot guarantee.
 
-`createExpiryAwareSearchAfter` records explicit PIT invalidation when a still-owned paging
-response completes, including before a paired request fails. Following requests skip cleared
-IDs, and final commits cannot resurrect an ID cleared during a later await. Scroll-mode fill
-also stops reusing an expired ID. Direct ES retains parallel page-one/PIT opening; API-mode
-`openPit` returns `null`, so maps are built live. This introduces no stronger snapshots, durable
-sessions or migration support. Restore retains the session total and uses the selected full tuple
-for both rank and neighbours, with one conditional extra rank when the refreshed tuple changed.
-Polling retains the browse baseline plus the latest owned cumulative arrival contribution.
+Restore uses the selected full cursor tuple for rank and neighbours, conditionally reranking if
+the refreshed tuple changed, while preserving the session total. The store also owns new-image
+polling, aggregation caching/circuit breaking and ordinary/null-zone sort distributions. Their
+UI consumers must not create competing fetch or publication lifetimes.
+
+## Position and Cursor Caches (`dal/position-map.ts`, `lib/image-offset-cache.ts`)
+
+`PositionMap` indexes global positions to IDs and sort tuples for intermediate-size searches.
+It is built in the background through the selected datasource; indexed coordinates do not depend
+on the map already being ready.
+
+`image-offset-cache.ts` serves two different lifetimes: sessionStorage offsets/cursors for detail
+reload, and an in-memory recent response-tuple cache for navigation/ranges. The latter retains
+at most `2 * BUFFER_CAPACITY` entries plus an independently retained selection-anchor tuple.
+Lookups check image ID and search fingerprint; tuples are copied. Prefer returned tuples over
+raw-field reconstruction so API-only aliases survive. Fresh searches replace recent tuples;
+selection owns its extra anchor through re-election, clear and hydration.
+
+## Counts and Aggregations (`stores/search-store.ts`)
+
+New-image polling reads through `countWithTickers`, changes cadence with tab visibility and
+rejects obsolete/out-of-order completions. It combines the fixed browse baseline with the latest
+cumulative arrival counts, not successive deltas. `frozenParams` caps subsequent page reads at
+the browse boundary without widening an earlier user `until` filter. AI does not start this poll.
+
+`fetchAggregations` owns debounce, query-key caching, cancellation and the slow-request circuit
+breaker. Forced refresh bypasses the cache/breaker; failures leave existing data rather than
+publishing invented emptiness. Dynamic fields use `safe-aggregation.ts` to isolate failures from
+the static batch. Expanded fields have a separate request owner, cancelled on replacement or
+collapse. Sort distributions have their own sort-sensitive keys. Facets and typeahead consume
+these contracts; loaded-AI-set scoping is defined in the AI search section.
 
 ## Field Registry (`lib/field-registry.tsx`)
 
-Single source of truth for static image fields and config-driven aliases. Fields carry `multiSelectBehaviour` (`"scalar" | "chip-array" | "summary" | "always-suppress"`), `showWhenEmpty` (renders `<Dash />` placeholder), `visibleWhen` (config gate, e.g. `imageTypes?.length`), `summariser`. `RECONCILE_FIELDS` exports non-`always-suppress` fields. The registry drives table columns, sort dropdown, facet filters and single/multi-image metadata. `detailLayout`/`detailGroup`/`detailClickable` control metadata display; `pillVariant` supports accent labels. `SORT_DROPDOWN_OPTIONS` and `DESC_BY_DEFAULT` supply sort controls.
+Defines static fields and configured aliases for table columns, sorting, facets and metadata.
+Definitions own accessors, search/sort paths, visibility/empty-state rules, detail grouping and
+multi-selection behaviour. `RECONCILE_FIELDS` excludes suppressed fields; `SORT_DROPDOWN_OPTIONS`
+and `DESC_BY_DEFAULT` drive sort controls. Add cross-view field behaviour here rather than in
+individual renderers; use the field catalogue for the available definitions.
 
 ## URL Sync
+
+`search-params-schema.ts` validates URL fields and canonicalizes one primary sort. Collection
+context suppresses AI and defaults to date-added ordering; entering/leaving AI or collection
+context restores remembered sorts where applicable. AI admits relevance and upload-time sorts.
+`useUpdateSearchParams()` applies these transitions before navigation. Only `image` is a
+display-only URL field; pagination is store-owned. `home-defaults.ts` owns the Home search
+default (`nonFree: "true"`), distinct from datasource requests where absence means free-only.
+On an initially empty search URL, `useUrlSearchSync` waits for the defaults replacement before
+admitting any search, including StrictMode effect replay. Defaults are not reinjected after later
+user edits. Canonical URL replacements likewise precede store publication and search admission.
 
 URL owns search/detail params; density is independent UI state. `useUrlSearchSync`
 consumes pre-passive user continuity or builds a strict destination-snapshot handoff.
@@ -135,55 +244,65 @@ its existing search/sort/detail boundaries. `resetSearchSync` forces search sync
 
 ## CQL
 
-`@guardian/cql` supplies the `<cql-input>` Web Component; `LazyTypeahead` provides non-blocking
-suggestions. `typeahead-fields.ts` reads current aggregation/ticker/filter caches via live store
-getters, then issues scoped `getAggregations` reads through the captured app datasource: media-api
-in API mode, ES in direct mode. There is no separate `getAggregation` method after U6c.
-Native `TextSuggestionOption.count` renders the counts. `is:` uses ticker/category caches and
-named-filter aggregation reads when cold. API usage counts use Grid's root `usagesPlatform` and
-`usagesStatus` rollups, counting images per value rather than usage records.
+`@guardian/cql` supplies the editor; `LazyTypeahead` and `typeahead-fields.ts` supply non-blocking
+suggestions. Resolvers read current aggregation/ticker/filter caches through live getters, then
+issue scoped `getAggregations` calls through the captured datasource. Arbitrary dotted fields
+use isolated reads so one uncountable field cannot fail the static batch. API usage counts use
+root rollups (`usagesPlatform`, `usagesStatus`): counts represent images, not usage records.
 
-Arbitrary dotted fields use `buildDynamicFieldFallback` and isolated single-field reads;
-`isolateAggregationFailure` prevents an uncountable field from breaking the static batch.
-`liveQueryRef` carries the AST-serialized query before resolvers run, avoiding one-keystroke-old
-scope. Direct ES translates CQL locally; API bodies let Grid interpret the query. The quoting
-workaround in `lib/cql-ast-serialize.ts` is documented in deviations section 14a; check the installed
-CQL version and upstream fix before retiring it, rather than assuming historical PR status.
+Suggestion scope comes from the live AST, not the lagging committed query. AST source-span
+removal excludes only the requested field, preserving quoted literals and unrelated incomplete
+input without rewriting the editor. `getHasFieldPath` resolves configured aliases before static
+shorthands and raw paths; `has:` means indexed-leaf existence, not boolean truthiness.
 
-The registered element retains its initial typeahead and datasource; cache callbacks read current
-aggregation, ticker and filter state without wrapper-owned subscriptions. The live-AST query ref
-is separate from those caches. Registration is not a runtime datasource-switching API.
-U6z verifies cold API-mode initialization and first-resolver ownership through repeated remounts,
-including fully mounted Clear/Home checks. KUP-026's fixed-mode integration scope is closed;
-runtime rebinding is neither required nor certified.
-
-Registered and arbitrary-path typeahead use the same AST source-span removal for self-exclusion.
-Only matching field nodes are removed, including empty chips and quoted deep keys; quoted literal
-contents and unrelated incomplete input remain untouched. Deletions run right-to-left and only
-join whitespace at the removed boundaries. The visible editor is not rewritten to fetch suggestions.
-
-Direct-client `has:` and dynamic facet targets share `getHasFieldPath`: configured aliases take
-precedence, followed by static shorthand and raw-path passthrough. This is existence of the indexed
-leaf, not boolean truthiness or named-field multi-field expansion.
+Direct ES translates CQL locally; API mode lets Grid interpret it. `cql-ast-serialize.ts`
+preserves quoting that the library serializer can lose; check the installed version and
+[deviations](../deviations.md) before retiring the workaround. Custom-element registration retains
+its initial typeahead/datasource: live cache getters do not imply runtime datasource rebinding.
 
 ## Image URLs (`lib/image-urls.ts`)
 
-URL builders for thumbnails and full-size images. Thumbnails served from S3 via local proxy (`/s3/thumb/<id>`). Full-size images served via imgproxy: AVIF format by default, DPR-aware sizing (two-tier: 1× for standard displays, 1.5× for HiDPI > 1.3), EXIF orientation → explicit `rotate:N` (auto_rotate disabled), native-resolution cap to prevent upscale. `getFullImageUrl()` builds imgproxy processing URLs; `getThumbnailUrl()` returns proxied S3 paths. Both return `undefined` when the respective service is unavailable (local mode).
+URL builders for thumbnails and full-size images. Thumbnails use the local S3 proxy
+(`/s3/thumb/<id>`). Full-size images use imgproxy, defaulting to AVIF. DPR is 1 at device
+DPR ≤1.3, otherwise 1.5 for fine pointers and 2 for coarse pointers. EXIF orientation maps
+to explicit rotation with auto-rotation disabled; supplied native dimensions cap the request.
+`getFullImageUrl()` and `getThumbnailUrl()` return `undefined` when their respective proxy is
+disabled (full-size also requires a bucket). `getZoomImageUrl()` requests 2.5 times the detected
+DPR, capped at native dimensions. These are configured URL builders, not service-health checks.
 
-ImageDetail compares resolved absolute URLs before attempting its single thumbnail fallback.
-Failure and load/error callbacks belong to the current image lifetime and current DOM element;
-traversal starts with fresh media state while retaining the detail/fullscreen containers. Terminal
-failure leaves metadata, Back and traversal available. This does not provide rendition URL renewal.
-API mode still uses these local media proxies. Canonical entity-link delivery and bounded expired-URL
-renewal are U7, not completed by the migration of metadata reads.
+API mode still uses these local proxies; canonical entity-link delivery and expired-URL renewal
+are not implemented by metadata migration. Consumers own media load/failure state; these helpers
+only select URLs. The API build plan owns the replacement delivery work.
 
 ## Grid Config (`lib/grid-config.ts`)
 
 Vendored Grid configuration (image types, usage rights categories, aliases and CQL field lists),
 derived from `exploration/mock/grid-config.conf`. CQL and sort builders depend on it. Runtime
 server-authoritative configuration is not yet wired: local media-api aliases must match the client
-configuration, checked by the documented API preflights. A new config endpoint is not implicitly
-required or implemented by U6z.
+configuration, checked by the documented API preflights. Root discovery is not a runtime
+configuration endpoint.
+
+There are distinct configuration layers: compiled UI/CQL vocabulary in `grid-config.ts`, cost
+rules in `lib/cost/guardian-config.json`, Vite/start-script mode and proxy settings, and server
+configuration outside the client. `quota-store.ts` holds a one-time optional startup snapshot,
+not a subscribed or periodically refreshed store. Missing quotas leave local exceeded-supplier
+checks empty; they do not prove that quota is available. API-derived fields win where supplied.
+See the [runtime configuration guide](../runtime-configuration-and-data-sources.md) for ownership
+and limitations; do not read proposed work in that guide as implemented behaviour.
+
+## Development Services (`scripts/`, `vite.config.ts`, `docker-compose.yml`)
+
+These paths are relative to `kupua/`. `scripts/start.sh` owns startup/configuration; Vite routes
+local `/api` and `/es` reads, `/s3` to `scripts/s3-proxy.mjs`, and `/imgproxy` to the media container.
+The S3 proxy performs credentialed reads server-side; credentials do not belong in browser code.
+`scripts/bedrock-embed-proxy.mjs` supplies direct-mode embedding middleware and is not enabled
+in API mode. The deployed-API base selection in `dal/grid-api/proxy-target.ts` bypasses the local
+API proxy, not the media delivery chain.
+
+`dal/es-config.ts` and Vite enforce non-local ES request restrictions; Vite separately guards
+Grid API writes. Startup and `scripts/load-sample-data.sh` have infrastructure safeguards, not
+permission to mutate a real cluster. Use the linked setup/safety guides and runner-owned test
+infrastructure rather than treating these helpers as production ingress.
 
 ---
 
@@ -191,55 +310,74 @@ required or implemented by U6z.
 
 ## Data Window (`hooks/useDataWindow.ts`)
 
-Bridge between the search store and view components (ImageTable, ImageGrid, ImageDetail). Provides buffer-aware data access (`getImage(index)`), edge detection + extend triggers (`reportVisibleRange`), and a density-independent API. Two hook modes: **normal** (buffer-local indices, virtualiserCount = results.length) and **two-tier** (global indices 0..total-1, skeleton cells outside buffer, scrubber drag directly scrolls). Normal mode serves both the scroll tier (≤1k, full buffer) and the seek tier (>65k, windowed buffer); two-tier mode serves the indexed scroll tier (1k–65k). Viewport anchor tracking (always the centre image) for density-focus and sort-around-focus fallback. Scroll-seek debounce (200ms) for two-tier mode.
+Bridge between the search store and views. `getImage(index)` and `reportVisibleRange` use
+buffer-local indices in normal mode and global indices in two-tier mode. Normal mode covers
+the small full-buffer and large seek tiers; two-tier mode virtualizes the total with skeletons
+outside the loaded window. Eligibility depends on configured thresholds, not map readiness.
+
+Forward-extend headroom grows with EMA-smoothed scroll velocity, capped at one page; backward
+headroom stays fixed. View-owned indexed maintenance refills debounce for 200ms. User browse
+destinations are store-owned so disposing a density view does not lose the pending destination.
+`getViewportAnchorId()` elects the image nearest the usable viewport centre from rendered DOM
+geometry only when needed for a transition, accounting for table headers. Ordinary scrolling
+does not perform those anchor layout reads. `useVisibleRange` exposes the reported range.
 
 ## Scroll Effects (`hooks/useScrollEffects.ts`)
 
-Shared hook for all scroll lifecycle — parameterised by `ScrollGeometry` descriptor. Handles: scroll reset orchestration, prepend/forward-evict compensation, seek scroll-to-target (reverse-compute + lastVisibleRow buffer-shrink preservation + headroom-zone sub-row pixel preservation), sort-around-focus scroll, density-focus save/restore (with edge clamping), bufferOffset→0 guard.
+Owns DOM placement for reset, seek, sort/history continuity and density transitions, parameterized
+by `ScrollGeometry`. It compensates prepend/eviction in buffer-local views; indexed views replace
+entries at fixed global positions and need no such compensation. Seek placement preserves
+sub-row position where applicable and accounts for buffer shrinkage and viewport clamping.
 
-**Scope by tier:** Prepend compensation and eviction compensation apply only in the **scroll** (≤1k) and **seek** (>65k) tiers where the virtualizer count equals the buffer length and items are inserted/removed. In the **indexed scroll** tier (1k–65k), the virtualizer always spans `total` items — items are replaced at fixed global positions, not inserted or removed. Swimming does not exist in indexed scroll mode. The timing chain below still applies to seek cooldowns.
+Cooldowns, deferred scroll notification and generation guards prevent transient layout events
+from triggering stale or cascading extends. Density handoff distinguishes settled placement from
+a pending browse departure and checks target identity, search/publication generations and focus
+intent. New user input retires obsolete placement; destination placement waits for density readiness.
+Cancelling old-view maintenance must not cancel the store-owned browse destination.
 
-**Key invariants:**
-- **Seek cooldowns** (constants in `tuning.ts`): post-arrival extend block, deferred scroll timer (fires synthetic scroll to trigger extends without causing swimming), search-fetch cooldown (blocks extends during in-flight search/abort).
-- **Post-extend cooldown:** prevents cascading prepend compensations (swimming).
-- **`seekGeneration` ref guard:** on seek, skips one stale `handleScroll` to prevent spurious `extendBackward`.
-- **Keyboard edge ownership:** pending Home/End work owns its initiating edge independently from nullable explicit-focus permission. A later resident opposite edge aborts and clears obsolete edge/loading work before applying resident placement; no successor read is required.
-- Module-level density-focus bridge; owned ordinary/AI/history target/placement
-	handoff replaces the adopted numeric sort/history bridge. Limited cursor/arrow
-	placement consumers remain; effect 9 checks owner, phase and density readiness.
+Shared geometry primitives live in `grid-scroll-anchor.ts`, `viewport-anchor-geometry.ts`,
+`buffer-column-align.ts` and the scroll-container/geometry refs. Timing knobs belong in
+`constants/tuning.ts`; transition policy belongs in the focus/position guide.
 
 ## List Navigation (`hooks/useListNavigation.ts`)
 
-Shared keyboard navigation for all density views, parameterised by `ListNavigationConfig`. Two modes: **no focus** (Arrow Up/Down scroll one row, PageUp/Down scroll one page, Home/End go to absolute start/end — none set focus) and **has focus** (arrows move focus by ±columnsPerRow, PageUp/Down move focus by one page of rows, Home/End focus first/last image, Enter opens detail). Table passes `columnsPerRow: 1`, grid passes `columnsPerRow: N`. CQL input propagates ArrowUp/Down/PageUp/Down/Home/End; native inputs excluded via `isNativeInputTarget`. Home key: two-branch scroll-reset (eager `scrollTop=0` when `bufferOffset=0`, deferred otherwise). End key: uses `virtualizer.scrollToIndex` (not raw `scrollHeight` — that overshoots by sticky header height). In selection mode: arrow keys are scroll-only; table Left/Right scroll container horizontally. Alt+arrow combos fall through to browser defaults.
+Owns row/page/edge keyboard navigation using the current view's column count and header geometry.
+Without focus, keys scroll without inventing focus; with focus, they move the target and Enter
+opens it. Selection mode keeps arrows scroll-only; table Left/Right scroll horizontally.
+Native text/date inputs are excluded, while opted-in search inputs forward list-navigation keys.
+Alt+arrows remain browser navigation.
+
+Home/End can request non-resident edges through the store. A later resident opposite edge retires
+obsolete edge work even without a successor request; edge ownership is separate from permission
+to set focus. End placement uses the virtualizer, not raw scroll height, to account for headers.
 
 ## Image Traversal (`hooks/useImageTraversal.ts`)
 
-Shared prev/next navigation for ImageDetail and FullscreenPreview. Works uniformly across all three scroll modes (buffer, two-tier, seek). If the adjacent image is in the buffer → navigate immediately; if near buffer edge → trigger extend, store pending navigation, resolve when buffer grows; if at absolute boundary → no-op. All logic in global indices. Fires `prefetchNearbyImages` on every successful navigation (direction-aware). Traversal is disabled while `usePinchZoom` reports scale > 1×.
+Owns shared prev/next navigation for detail and preview in global coordinates. Resident neighbours
+navigate immediately; buffer-edge traversal retains a pending target while requesting extension;
+absolute boundaries are no-ops. Successful navigation feeds direction-aware prefetch. Consumers
+gate traversal while zoomed so navigation does not compete with panning.
 
 ## Return from Detail (`hooks/useReturnFromDetail.ts`)
 
-Handles detail close for ImageTable and ImageGrid. The immutable detail-entry image is retained
-in history state across traversal/reload. `lib/detail-return.ts` supplies that session identity
-and one native/centre target policy to both this hook and swipe preparation.
-Closing on that original image preserves native list
-placement; closing after traversal centres the last-viewed image with current geometry and the
-appropriate focus mode. Marked entries carry their originating list key: return acts
-only for that origin, while unrelated native destinations restore their snapshot.
-Marked present-to-present entry switches adopt stored destination entry-image
-identity; same-entry traversal does not. Unmarked old detail keeps compatibility.
-Fresh opening/Forward re-entry starts a new session at the reopened image.
-Close records last-viewed focus without waiting for list readiness, then retains
-an owned target through a store-publication subscription. Publication schedules
-a frame, not repeated reads or a polling loop; loading/target absence defers
-placement until later publication. Traversed placement uses current index and
-grid/table geometry (sticky header included); native placement is scroll-free.
-Generation, history/origin, `_focusIntent`, reopening and unmount cancel or guard
-obsolete work. Internal focus writes do not advance user intent; newer input,
-including same-ID focus or clear, wins. Home retains owned suppression.
+Owns list placement when detail closes. `detail-return.ts` supplies the session entry-image and
+origin-list identity, retained through traversal/reload and shared with swipe preparation.
+Closing on the entry image preserves native placement; closing after traversal centres the
+last-viewed image using current geometry. Unrelated history destinations restore their own
+snapshot instead. A fresh opening/Forward re-entry starts a new detail session.
+
+Close records focus immediately, then waits for suitable store publication to place the target;
+it does not poll or repeatedly fetch. Origin/generation checks, newer focus intent, reopening and
+unmount retire obsolete work. Internal focus publication must not masquerade as newer user intent.
+Home owns a separate suppression so a reset cannot be undone by detail return.
 
 ## Prefetch Pipeline (`lib/image-prefetch.ts`)
 
-Cadence-aware prefetch shared by ImageDetail, FullscreenPreview, and the swipe carousel. Organised around a **TraversalSession** — a module-level singleton that tracks the user's navigation burst (held arrow key, chain-swipe). EMA-smoothed cadence determines prefetch radius: fast bursts → narrow (i±1 + far lookahead); stable cadence → full radius. Post-burst debounce fires a full-radius fill around the resting position. Stale in-flight requests are cancelled via `img.src = ""`, except the newly visible image whose prefetch may be coalesced with the centre `<img>` request. `fetchPriority` hints keep the most-likely-next image at the front of the browser's connection queue. On mobile, thumbnails are issued before full-res within each batch. All thresholds tunable at runtime via `localStorage` keys (`kupua.prefetch.<key>`) — no rebuild needed.
+Owns a shared traversal session for detail, preview and carousel media prefetch. Smoothed cadence
+narrows the requested radius during fast navigation and fills around the resting position after
+a burst. It prioritizes likely-next images, requests thumbnails first on mobile and cancels work
+outside the desired radius while preserving a request coalesced with the newly visible image.
+Thresholds are tunable through `kupua.prefetch.*` localStorage keys.
 
 Each full-image loader captures its issuing in-flight map. Load/error/decode completion removes
 tracking only when that map still holds the same loader for the ID, including cancellation/reissue
@@ -248,51 +386,79 @@ not grant ownership of a newer loader's tracking.
 
 ## Orchestration (`lib/orchestration/search.ts`)
 
-Imperative coordination functions extracted from UI components and hooks. Holds: debounce cancellation (`cancelSearchDebounce`, `getCqlInputGeneration`), go-home preparation (`resetScrollAndFocusSearch`), URL sync reset (`resetSearchSync`), fullscreen preview registration (`registerEnterPreview` / `enterFullscreenPreview` — used by middle-click handler in ImageGrid/ImageTable, same pattern as `scrollToFocused`). Called by SearchBar, ImageTable, ImageMetadata, ImageDetail, useScrollEffects, useUrlSearchSync. Dependency direction: components → hooks → lib → dal.
+Provides imperative bridges for debounce cancellation, CQL editor generations, Home preparation,
+URL-sync reset, scrolling to focus and fullscreen-preview entry. Components register view-owned
+operations here instead of importing one another. The bridges coordinate work; they do not own
+the result buffer or replace the store's cancellation rules.
+
+`lib/search-continuity.ts` captures user target, placement and focus before navigation, or builds
+strict destination-history continuity. `OwnedSearchContinuity` carries the abort owner, search
+generation and pending/ready/placed/retired phase through the store to scroll effects. User
+continuity may retain visible neighbours as fallback; history fallback is top, never departing
+neighbours. This module bridges live store/view state and is not a pure DAL utility.
 
 ## Reset-to-Home (`lib/reset-to-home.ts`)
 
-Single `resetToHome()` function deduplicating the reset sequence from SearchBar and ImageDetail logo click handlers. Clears `focusedImageId`, density-focus saved state, and selection (`selection.clear()`) **before** navigation — prevents the table unmount from saving a stale viewport ratio and the grid mount from restoring it (which would fight the go-home scroll-to-top intent).
+Owns the full reset sequence shared by SearchBar and detail logo actions. It cancels debounced
+editing, clears focus/selection/density placement, resets URL-managed search fields to Home
+defaults, and waits for owned data settlement before navigation. Owned suppressions prevent
+cursor restore, detail return and density cleanup from restoring the departing position.
 
-After owned data settlement, Home resets/persists grid only if its captured density
-intent remains current. Later same-value or away/back choices win without cancelling
-the query reset; abandoned Home cannot overwrite density. `ui-prefs-store` initializes
-from session storage before view mount, writes each choice promptly and degrades
-quietly on unavailable storage. Local hydration owns only focus/blur fields.
+Grid density resets only if its captured density intent remains current. Later choices, including
+same-value or away/back choices, win without cancelling the query reset; abandoned Home cannot
+overwrite them. Preference persistence itself belongs to `ui-prefs-store`.
 
 ## Keyboard Shortcuts (`lib/keyboard-shortcuts.ts`)
 
-Centralised shortcut registry. Single-character shortcuts: bare key when not in an editable field, Alt+key when editing (Alt chosen to avoid Cmd/Ctrl browser conflicts). One `keydown` listener on `document` (capture phase). Components register via `registerShortcut()`/`unregisterShortcut()` or `useKeyboardShortcut` hook. `shortcutTooltip()` formats hints for button titles. `isNativeInputTarget()` guards against firing in date inputs and other native controls. Elements with `data-grid-nav-input` attribute are excluded from native-input detection (opt-in to grid navigation while remaining an `<input>`).
+Owns a shared capture-phase shortcut registry, registered directly or through `useKeyboardShortcut`.
+Single-character shortcuts use bare keys outside editable fields and Alt combinations inside them;
+`shortcutTooltip` supplies matching hints. `isNativeInputTarget` protects native editing, with
+`data-grid-nav-input` as the explicit opt-in for search inputs that forward list-navigation keys.
+The keyboard guide owns the full binding catalogue.
 
 ## Bedrock Proxy Client (`lib/bedrock-proxy-client.ts`)
 
-`getEmbedding(query): Promise<number[]>` and `checkBedrockHealth(): Promise<boolean>`. Plain `fetch()` to Vite middleware endpoints (`/bedrock/embed?q=...`, `/bedrock/health`). Called by `es-adapter.ts:searchByAi()` and `main.tsx` (startup health check). Graceful: network error → returns `false` / throws (caught by store).
+Direct-mode client for Vite's embedding and health middleware. `searchByAi` uses `getEmbedding`;
+startup uses `checkBedrockHealth` to gate the editor. Health failure resolves false; embedding
+failure rejects into the store's search handling. API-mode AI uses neither path.
 
-## AI Search Params (`lib/ai-search-params.ts`)
+## AI Search (`dal/`, `stores/search-store.ts`, `lib/ai-search-params.ts`)
 
-`decorateParamsForAggregations(params, resultIds)` scopes count/facet requests to the bounded
-loaded AI set using sorted, comma-joined IDs. It returns `null` for known-empty AI membership:
-callers publish empty counts/facets locally and invalidate obsolete work without a request.
-Inactive AI leaves params unchanged. Reads use the selected datasource, including media-api
-counts/aggregations while AI ranking itself still uses direct ES. Exploratory typeahead retains
-its separately owned scope.
+The store calls the selected datasource's `searchByAi()`: media-api `GET /images` in API mode,
+Bedrock embedding plus ES KNN in direct mode. CQL/filters constrain the pool; `aiQuery` supplies
+ranking text. The API mapper admits a finite `vecWeight` in [0,1] and preserves server ordering
+as `__aiScore` ordinals. Direct mode retains scores.
+
+Both modes publish at most 200 images, with browse `total` equal to the loaded set and a separate
+`aiPoolTotal` and pool tickers. AI uses no PIT, pagination, position map or new-images poll.
+Unavailable API AI commits an empty result without direct-mode fallback. `resortAiBuffer()`
+reorders locally, including restoring relevance order; pending completion honours the latest
+same-query sort. Enrichment follows the publication rules in the enrichment section.
+
+`decorateParamsForAggregations` scopes facets/counts to the loaded IDs, not the larger pool.
+Known-empty membership returns `null`, requiring local empty publication without a request.
+Exploratory typeahead retains its separately owned scope. URL context and continuity use the
+same navigation owners as ordinary search.
 
 ## Browser History (`lib/orchestration/history-key.ts`, `lib/history-snapshot.ts`, `lib/build-history-snapshot.ts`)
 
 `kupuaKey` is minted on push and retained on replace. Session snapshots store one
-represented anchor, offset, ratio and freeze boundary, not independent bookmark and
-viewport or density. `buildHistorySnapshot` captures current state; strict destination
+represented anchor, offset, ratio, freeze boundary and pending-arrival count, not independent
+bookmark and viewport or density. The snapshot store keeps at most 50 entries and currently
+uses sessionStorage for reload continuity. `restoreArrivalState` validates the freeze boundary
+and count against search identity; ordinary history restoration carries them back into the store.
+`buildHistorySnapshot` captures current state; strict destination
 continuity restores through existing search resolution or request-free resident AI
 ordering. Missing history targets use top/no focus, never departing neighbours.
-Phantom capture cannot independently restore a hidden bookmark. Full architecture:
-`exploration/docs/00 Architecture and philosophy/04-browser-history-architecture.md`.
+Phantom capture cannot independently restore a hidden bookmark. See the
+[history guide](04-browser-history-architecture.md) for entry and restoration policy.
 
 ## Touch Gesture Hooks
 
-- **`hooks/useSwipeCarousel.ts`** — visual slide-in carousel for prev/next on mobile touch. Velocity-aware commit, `commitStripReset`. Used by ImageDetail.
-- **`hooks/useSwipeDismiss.ts`** — pull-down-to-dismiss image detail. Spring-back, fade+scale. Mobile, non-fullscreen only.
-- **`hooks/useLongPress.ts`** — 500ms threshold, movement cancel, contextmenu suppress, Android `pointercancel` fix via committed-state guard. First long-press enters selection mode; second long-press dispatches full `add-range` (same buffer/server path as desktop shift-click). `handleLongPressStart.ts` is the shared helper extracted from grid+table.
-- **`hooks/usePinchZoom.ts`** — fullscreen-only. Touch: two-finger pinch 1×–5×, single-finger pan, double-tap 1×↔2×. Desktop: click-to-zoom 1×↔2×, wheel zoom 1×–4×, drag-to-pan with momentum (rAF decay, relaxed overflow clamp), keyboard zoom (Space toggle, arrows pan, Home/End snap to corners). Rapid second click exits fullscreen (double-click window). **Ghost-click guard:** `lastTouchTime` gate prevents mouse handlers firing after `touchend`. **`onScaleChange` callback** notifies traversal hook to disable nav while zoomed. Zoom resets on image change.
+- **`hooks/useSwipeCarousel.ts`** owns touch traversal animation and velocity-aware commit. `commitStripReset` coordinates the media-node handoff with detail rendering.
+- **`hooks/useSwipeDismiss.ts`** owns pull-down dismissal outside fullscreen, sharing the detail-return target policy.
+- **`hooks/useLongPress.ts`** detects touch holds and suppresses context menus/synthetic clicks, including committed Android cancellation. `handleLongPressStart.ts` translates the gesture into selection/range intent; tickboxes remain immediate.
+- **`hooks/usePinchZoom.ts`** owns fullscreen touch/mouse/keyboard zoom and pan. Scale gates traversal/swiping, resets on image change, and touch-to-mouse guards prevent duplicate actions. Detailed gesture bindings belong in the keyboard guide and hook.
 
 ---
 
@@ -315,7 +481,17 @@ Clear-on-navigation remains controlled by `SELECTIONS_PERSIST_ACROSS_NAVIGATION`
 
 ## Click Interpreter (`lib/interpretClick.ts`)
 
-Pure function `interpretClick(ctx) → ClickEffect[]`. Six-row rule table is the contract: plain click = focus only; tickbox/cmd+click = toggle + set anchor; shift+click = `add-range` effect (polarity computed in `useRangeSelection` from `selectedIds.has(anchorId)` — not from `targetIsSelected`). `ClickEffect` union: `focus`, `toggle`, `set-anchor`, `add-range`. `dispatchClickEffects.ts` executes `ClickEffect[]` against store + navigation.
+Pure function `interpretClick(ctx) → ClickEffect[]`. Outside selection mode, an image-body
+click emits `set-focus` and `open-detail`; a tick emits `set-anchor` and `toggle`. Inside selection
+mode, ordinary image/tick clicks anchor and toggle; Shift with an anchor emits `add-range`.
+Without an anchor, Shift anchors and toggles. The interpreter reserves Meta/Ctrl as a no-op,
+not a selection toggle. Range polarity comes from `selectedIds.has(anchorId)` in the range hook.
+
+`dispatchClickEffects.ts` executes mutations and opens detail only in phantom mode; explicit
+mode leaves opening to double-click. View handlers also own browsing gestures: grid ignores
+Alt and Shift outside selection, table uses Shift/Alt for supported metadata searches, and
+clicking an already-focused image can clear explicit focus. The pure rule table is not the
+entire grid/table event-handling contract.
 
 ## Reconciliation (`lib/reconcile.ts`)
 
@@ -323,9 +499,11 @@ Pure function `interpretClick(ctx) → ClickEffect[]`. Six-row rule table is the
 add/remove paths update already-loaded membership. Chip arrays use frequency-based accounting;
 mixed fields retain value counts for `MultiValue` tooltips. `requestFullReconcile` coalesces work
 into one `requestIdleCallback` (2 s scheduling timeout, `setTimeout` fallback). It does **not**
-chunk the full scan: the measured large-selection stall is open [KUP-035](../bug-backlog.md#kup-035)
-in both modes. Cached metadata may represent only part of the selection; do not promise that
-every selected image has loaded merely because a view is available.
+chunk the full scan. Default-collapsed chip rendering is bounded by `MultiImageMetadata`, not by
+changing reconciliation; intentional large expansion and full recomputation can still be costly.
+Cached metadata may represent only part of the selection; a reconciled view does not imply that
+every selected image has loaded. See [KUP-035](../bug-backlog.md#kup-035) for the rendering fix
+and remaining performance qualifications.
 
 ## Range Selection (`hooks/useRangeSelection.ts`)
 
@@ -336,14 +514,18 @@ including overshoot. Request ownership covers membership/anchor intent, query/or
 and unmount; obsolete success, rejection and finalization cannot affect a newer range.
 Metadata-only updates and same-search display changes do not cancel legitimate selection work.
 
+Touch effects set `reanchorToTarget`: polarity and range are based on the previous anchor, while
+the endpoint becomes the next anchor under the range hook's ownership. Desktop Shift-click
+keeps its anchor. An anchor-only touch gesture can retire pending work without toggling selection.
+
 Retained response tuples take precedence over reconstruction. `extractSortValues` converts dates
-and falls back to configured string/number alias values when raw paths are absent (U6d); boolean
+and falls back to configured string/number alias values when raw paths are absent; boolean
 alias cursors remain a parked limitation. The active anchor tuple survives recent-cache eviction.
 Existing truncation/soft-cap feedback stays; the route owns the hook and passes it to both views.
 
 ## Selection UI
 
-- **`components/Tickbox.tsx`** — absolute-positioned overlay (grid) + 32px leftmost column (table). `hooks/useIsSelected.ts` — per-id Zustand selector, prevents mass re-render on toggle. CSS-driven mode-flip via `[data-selection-mode="true"]` on container — zero React reconciliations on first tick. Blue cell overlay via CSS `:has(.tickbox[aria-checked="true"])`. Focus ring suppressed in selection mode.
+- **`components/Tickbox.tsx`** — absolute-positioned overlay (grid) and inline variant in the table's 32px selection column. `hooks/useIsSelected.ts` subscribes per ID. CSS controls tickbox visibility through `[data-selection-mode="true"]` and selected-cell overlays through `:has(.tickbox[aria-checked="true"])`; this avoids per-cell mode props, not all React work on selection changes. Focus rings are suppressed in selection mode.
 - **`components/SelectionFab.tsx`** — coarse-pointer only. Count + X button. StatusBar count/clear hidden on coarse pointer.
 
 ---
@@ -352,43 +534,62 @@ Existing truncation/soft-cap feedback stays; the route owns the hook and passes 
 
 ## SearchBar (`components/SearchBar.tsx`)
 
-Top-level header: logo (click → `resetToHome()`), `CqlSearchInput` with 300ms debounce, `AiSearchInput` (gated by Bedrock availability), clear button, `SearchFilters` (middle + right), `SettingsMenu`. Manages CQL input generation for stale-debounce detection. Reads `searchParams.aiQuery` and passes to `AiSearchInput`; AI text changes propagate to URL via `updateSearch({ aiQuery })` with 600ms debounce. Cancels pending debounce on unmount to prevent navigation bouncing.
+Top-level header: logo (click → `resetToHome()`), `CqlSearchInput` with 300ms debounce,
+`AiSearchInput` (gated by the selected mode's AI capability), Clear, split `SearchFilters` and
+`SettingsMenu`. Manages CQL input generation for stale-debounce detection. AI text changes
+propagate to the URL via `updateSearch({ aiQuery })` with 600ms debounce. Pending debounce is
+cancelled on unmount. Clear and Home remain separate operations; Home resets the whole context.
 
 ## AI Search Input (`components/AiSearchInput.tsx`)
 
-Expandable semantic search widget inside the search bar border. Gated by `aiSearchAvailable` (reactive subscription via `subscribeAiSearchAvailable()`; Bedrock health in direct mode, root `ai-search` link in API mode). Architecture:
-
-- **Toggle:** Sparkles icon. Click collapsed → expand + autofocus. Click expanded → stash text to module-level `_stashedAiText`, collapse, clear `aiQuery` from URL. Click collapsed with stash → restore.
-- **Local state decoupled from URL:** `localText` is not the URL param — prevents debounce from clobbering mid-keystroke. `selfCausedRef` guards against external changes overwriting local edits.
-- **Content-based ch sizing:** Width computed from text length (focused: up to 28ch, blurred: up to 16ch, collapsed: max-width 0). CSS `transition-all duration-200`.
-- **Auto-collapse on blur when empty:** If user opens widget but doesn't type, clicking away collapses it.
-- **Grid navigation opt-in:** `data-grid-nav-input` attribute on the `<input>` makes `isNativeInputTarget()` return false → Up/Down/PgUp/PgDown/Home/End pass through to grid nav. Left/Right stopped via `stopPropagation` to keep text editing.
-- **Escape:** Stashes text, collapses, clears AI from URL.
-- **Inner ✕ button:** Clears text without collapsing (stays expanded + re-focused). Uses `onMouseDown + preventDefault` to prevent blur-triggered collapse.
-
-URL param: `?aiQuery=<text>`. Store branch: `!!params.aiQuery` → `dal.searchByAi()` → Bedrock embed → KNN query → ≤200 results in-memory. No PIT, no pagination, no new-images poll. Sort auto-switches to `-relevance` on activation (mirrors collection auto-sort pattern). Client-side re-sort via `resortAiBuffer()` when user changes sort while AI active.
+Owns the expandable semantic-query editor, gated by the startup AI-capability result.
+Local text is separate from the debounced URL value so typing is not clobbered by publication;
+external navigation can still replace it. Collapse/Escape stashes text and removes `aiQuery`,
+reopening restores it, and the inner Clear leaves the editor open. Empty blur collapses it.
+`data-grid-nav-input` lets vertical/page/edge keys reach list navigation while Left/Right remain
+text-editing keys. Search execution and result contracts belong to the AI search section.
 
 ## Settings Menu (`components/SettingsMenu.tsx`)
 
-Three-dot menu in SearchBar. Click mode toggle (explicit ⇔ phantom focus). Coarse pointer auto-detection (`stores/ui-prefs-store.ts` — `focusMode` + `pointer: coarse` detection, localStorage-persisted) disables explicit mode on touch devices.
+Three-dot menu in SearchBar. Controls explicit/phantom focus and graphic-image blur (default on).
+Coarse-pointer detection disables explicit mode; only user preferences, not pointer detection,
+are persisted. Outside click or Escape closes the menu.
 
 ## Search Filters (`components/SearchFilters.tsx`)
 
-Split into two layout slots: **FilterControls** (middle — "Free to use only" toggle + `DateFilter`) and **SortControls** (right — one primary field from `SORT_DROPDOWN_OPTIONS` plus direction toggle). Hidden on small screens (`< sm`). Table header clicks select the same single primary; Shift+click has no distinct sort behavior.
+Publishes free-only, date and primary-sort choices through URL search navigation. Sort choices
+come from the registry and obey the active AI context; table headers select the same single
+primary field, without a separate Shift multi-sort mode. The toolbar hides these controls on
+small screens; it does not own query execution.
 
 ## Date Filter (`components/DateFilter.tsx`)
 
-Dropdown for date range filtering. Mirrors kahuna's `gu-date-range`. Field selector (Upload time / Date taken / Last modified), preset buttons (Anytime, Today, Past 24h, Past week, Past 6 months, Past year), two date inputs (From / To) for custom ranges. Preset matching uses 2-hour tolerance for relative presets (survives stale tabs). Collapsed state shows "Anytime" or a summary label with accent dot. Timezone: picker is always local time; URL is always UTC. `toDateInputValue` uses `format(parseISO(iso), "yyyy-MM-dd")` (date-fns, local-time) — not `iso.slice(0, 10)` (which returns UTC date, wrong for timezones ahead of UTC).
+Owns presets and custom ranges for upload time, date taken and last modified, publishing the
+corresponding URL fields through search navigation. Picker dates are local time; URL bounds are
+UTC. Preserve local conversion in `toDateInputValue`: slicing an ISO string selects the UTC
+date instead and can shift the displayed day. Relative preset recognition tolerates time drift.
 
 ## Status Bar (`components/StatusBar.tsx`)
 
-Thin strip between toolbar and views. Left-panel toggle (with hover-prefetch for aggregations when the Filters section is localStorage-expanded), result count, new-images ticker (click clears selection before `reSearch()` to prevent flicker of old reconciled state), sort-around-focus indicator, density toggle, right-panel toggle. Selection count + Clear button (fine-pointer only — coarse uses FAB). Container queries for responsive label display.
+Displays search/count state and provides panel, density, selection-clear and new-arrival actions.
+Panel hover can prefetch aggregations when Filters is expanded. Accepting new arrivals clears
+selection before `reSearch`; density changes go to the preference store, not the URL. Coarse
+pointers use SelectionFab instead of the inline selection controls.
 
-Ticker badges: one per `gridConfig.tickerDefinitions` entry. Hidden when count = 0 or count = total. Background colour from definition. Click appends the `searchClause` to the current query. Native `title=` tooltip shows "last updated X ago" (from `tickersLastUpdated` store state) plus a `count  SupplierName` table for agency-pick subCounts. `buildTickerTooltip()` constructs the tooltip string.
+AI results display the loaded count with a separate pool total when available; pool metadata is
+not paired with the pre-settlement cached count. Ticker badges use `gridConfig.tickerDefinitions`,
+including local colours and search clauses. They hide zero counts and counts equal to
+`aiPoolTotal ?? total`. Clicking appends the clause. `buildTickerTooltip()` includes freshness and
+agency sub-counts. These pool counts must not be confused with loaded-AI-set facet counts.
 
 ## CQL Search Input (`components/CqlSearchInput.tsx`)
 
-Wraps the `<cql-input>` Web Component from `@guardian/cql`. Bridges React ↔ Web Component lifecycle. `LazyTypeahead` provides non-blocking suggestions.
+Wraps the `<cql-input>` Web Component from `@guardian/cql`. `LazyTypeahead` supplies non-blocking
+suggestions. `cql-effective-query.ts` strips unfinished chip expressions from the query reported
+to SearchBar without erasing the richer editor state. AST serialization preserves quoting;
+self-caused updates do not echo a stripped value back into the editor. External query revisions
+allow Clear/Home/history to replace it deliberately. `cql-chip-delete.ts` distinguishes chip
+deletion events. Autofocus is skipped for touch devices and an already-open detail overlay.
 
 ---
 
@@ -399,6 +600,8 @@ Wraps the `<cql-input>` Web Component from `@guardian/cql`. Bridges React ↔ We
 TanStack Table + Virtual. Column defs come from static/configured registry fields.
 `EnrichedTableRow` uses `useEnrichedImage`; badges and photographer styling share enriched data.
 Resize uses CSS variables, with auto-fit and a visibility menu outside the contained scroll area.
+`useHeaderHeight` measures the actual sticky header through ResizeObserver for virtualizer
+padding and placement; the layout constant is a first-render fallback, not a permanent measurement.
 Header clicks select one semantic primary sort; Shift does not add a secondary sort. Field cells
 marked `data-cql-cell` keep modifier-aware click-to-search; image cells/row whitespace dispatch
 selection. Double-click opens detail; middle-click opens fullscreen preview. ARIA grid roles,
@@ -406,63 +609,129 @@ the proxy horizontal scrollbar and selection-mode Left/Right scrolling remain.
 
 ## Grid View (`components/ImageGrid.tsx`)
 
-Responsive columns (`floor(width/280)`), 303px row height, S3 thumbnails, focus ring + keyboard nav. `ResizeObserver` with `captureAnchor` mechanism for scroll anchoring on column count change. Sort-aware date label (Uploaded/Taken/Modified adapts to primary sort field). Cluster 1 overlays: cost badge, graphic blur (`isImagePotentiallyGraphic`), image border (`lib/image-borders.ts` `getImageBorderColour()` — staff/contract/commissioned photographer: `#005689`; agency-pick: `#7d006880`), print/digital/syndication/persisted usage icons (via `useEnrichedImage`). Label pills rendered in a fixed-height (`h-6`) strip between thumbnail and description (`flex-nowrap overflow-hidden`, click-to-search with `stopPropagation`). Middle-click opens FullscreenPreview.
+Owns the virtualized thumbnail layout and responsive column geometry from `constants/layout.ts`.
+A ResizeObserver captures/restores the anchor when column count changes; buffer access and scroll
+placement remain in the shared hooks. Cells use `useEnrichedImage` for cost/usage/status display,
+`image-borders.ts` for provenance styling and `graphic-image-blur.ts` for the user-controlled blur.
+Date labels follow the primary sort. Metadata pills stop propagation so searching a value does
+not also select/open its image. Browsing, selection and middle-click preview use the shared owners.
 
 ## Image Detail (`components/ImageDetail.tsx`)
 
-Overlay within search route (search page stays mounted with `opacity-0 pointer-events-none`). Counter, prev/next (`NavStrip` + `useImageTraversal`), cadence-aware prefetch pipeline (shared `image-prefetch.ts` session model). Desktop zoom/pan via `usePinchZoom` (click/wheel/drag/keyboard). Touch swipe via `useSwipeCarousel` (velocity-aware prev/next) + `useSwipeDismiss` (pull-down dismiss). Fullscreen survives between images. Position cache in sessionStorage (`image-offset-cache.ts`: offset + sort cursor + search fingerprint) for reload restoration at any depth via `restoreAroundCursor`. Full-size images via imgproxy (AVIF, DPR-aware sizing). Stacked layout on mobile (flex-col, image top, metadata below). Middle-click exits fullscreen. Bug note: auxclick effect deps include `image` — prevents null-ref on reload when placeholder renders before `containerRef` div.
+Owns the route-driven overlay while the list stays mounted. It composes metadata/usages,
+`NavStrip`, traversal, prefetch, swipe/dismiss and fullscreen-only zoom. Stable containers preserve
+fullscreen across traversal; return placement belongs to `useReturnFromDetail`, not this renderer.
 
-Restoration tracks the last handled image ID. Finding that image in the buffer or
-attempting its cached-cursor restore suppresses repeat restoration when it later
-leaves the buffer. A distinct missing cached image can still restore during the same
-mounted overlay lifetime; the cached cursor and offset are passed through unchanged.
+Resident images win. A non-resident ID uses `getById(id, signal)` with image, overlay and failure
+owned by that ID; identity change or becoming resident aborts the read. Standalone enrichment
+goes only to owned metadata, never the shared map. Cached cursor restoration joins existing
+store-owned work on remount and avoids repeatedly restoring the same handled image. Data completion
+and permission to restore focus are separate: newer focus intent must win.
 
-Remount joins the search store's `_cursorRestore` signal when that image already
-owns cursor, cursorless or fallback restoration. Cancellation, replacement search
-and direct successor seek retire stale descriptors synchronously. Loading remains
-useful independently of presentation: late data can publish, but cursor/fallback
-and destination-history focus compare captured `_focusIntent`. Each adopted
-history owner captures its own intent, including finite-AI completion.
-Swipe preparation uses the historical session entry rather than mount identity;
-returning to original A after reload on B adds no swipe-preparation displacement.
-
-For a non-resident ID, ImageDetail calls the app's `getById(id, signal)` and stores image,
-enrichment and failure together with that requested ID. Identity changes or becoming resident
-abort the read. Resident images take precedence and traversal uses the existing buffer/page
-extension, not per-image singleton hydration. Only standalone ImageMetadata receives the owned
-overlay; it is not written into the shared enrichment map.
+`StableImg.tsx` compares resolved URLs before assigning `src`, preserving loaded nodes across
+swipe commits while allowing thumbnail upgrades. Media callbacks belong to the current image
+and DOM element; one distinct thumbnail fallback is allowed. Terminal media failure leaves
+metadata and navigation available. Zoom loads a higher-resolution rendition; `useCursorAutoHide`
+coordinates fullscreen controls. None of this implements expired-URL renewal.
 
 ## Fullscreen Preview (`components/FullscreenPreview.tsx`)
 
-Lightweight fullscreen peek — press `f` or middle-click to view focused image edge-to-edge via Fullscreen API (`useFullscreen` hook). No route change, no metadata. Arrow keys traverse images via `useImageTraversal`, updating `focusedImageId`; exit (Esc/Backspace/f/middle-click) scrolls list to centered focused image. Shares prefetch pipeline and `usePinchZoom` (desktop zoom) with ImageDetail. Phantom pulse animation fires on exit when in phantom focus mode. Another density of the same ordered list.
+Fullscreen peek opened with `f` or middle-click, without a detail route or metadata. The component
+owns native Fullscreen API entry/exit directly; `useFullscreen` is the detail overlay's wrapper.
+Arrow traversal uses `useImageTraversal` and updates focus. A same-URL history entry absorbs browser
+Back. `fullscreen-exit.ts` prevents a rejected or still-active native exit from prematurely
+finalizing the preview. Entry failure rolls back the extra history entry.
+
+Exit preserves list placement when still on the entry image. After traversal, it waits for
+fullscreen/layout settlement before centring the current focus, guarded against a newer preview.
+Phantom mode adds a pulse. Prefetch, zoom and cursor hiding are shared with detail.
 
 ## Image Metadata (`components/ImageMetadata.tsx`)
 
-Single-image metadata display — used in ImageDetail sidebar and right side panel. Registry-driven field order. `showWhenEmpty: true` fields render `<Dash />` placeholder; `visibleWhen` gate applied. Section breaks on group change. Fields with `detailLayout: "stacked"` render label above value; others render inline (key 30% / value 70%). Click-to-search on values (shift = AND, alt = exclude). Location sub-parts as individual search links. List fields (keywords, subjects, people, labels) as `SearchPill` components. Rights section: cost badge, validity disclosure (red/amber/teal states), lease list with relative dates, restrictions banner. Phantom mode: single-selected image falls back to `metadataCache.get(singleSelectedId)` when buffer lookup misses.
+Renders one image in detail or the right panel using registry ordering, visibility and empty-field
+rules. `useEnrichedImage` accepts the detail owner's standalone overlay or the shared per-ID overlay.
+Rights presentation includes cost, validity, leases and restrictions. `SearchPill` and shared
+metadata search helpers turn values into queries, retaining Shift/Alt modifiers. Image resolution
+and selection precedence belong to the calling detail/panel owner, not this renderer.
 
 ## Multi-Image Metadata (`components/MultiImageMetadata.tsx`)
 
-Shown in right panel when 2+ images selected. Dispatches per `multiSelectBehaviour` from field-registry. `metadata-primitives.tsx` shares `MetadataSection`, `MetadataRow`, `FieldValue`, `groupFieldsIntoSections`, `useMetadataSearch`, `Dash` between single and multi panels. `MultiValue.tsx` renders "Multiple {noun}" with tooltip showing top 5 values + counts. `MultiSearchPill` (in `SearchPill.tsx`) — partial (hollow) vs full (solid) chip state. Location sub-fields collapsed into one composite "Location" row. Cost summary section at top (bucket counts + leased-fraction gradient pills). Denominator for counts is `selectedIds.size`. Chip fields mount the first 20 frequency-ordered values before creating pills. `FieldDisclosure.tsx` shares Filters' Show more…/Show fewer presentation, controlled-region accessibility, loading-focus recovery and scroll-anchored collapse. Details reveals the complete field locally, with independent component-lifetime expansion retained across reconciled-view updates; lists ≤20 need no control. Reconciliation and search modifiers remain complete. Deliberate large expansion is unbounded and may stall; single-image rendering is unchanged.
+Renders the supplied reconciled view according to registry `multiSelectBehaviour`, with cost
+summaries from the supplied cached images and selected membership as the count denominator.
+`metadata-primitives.tsx` shares field layout/search helpers with single-image metadata;
+`MultiValue` summarizes disagreement and `MultiSearchPill` represents partial/full membership.
+
+Chip fields create only the first 20 frequency-ordered pills until expanded through
+`FieldDisclosure`. Expansion is local and retained for the component lifetime; it neither
+fetches data nor changes reconciliation. Deliberately expanding a large field remains unbounded
+and can stall. This rendering bound does not apply to single-image metadata.
+
+## Field Disclosure (`components/FieldDisclosure.tsx`)
+
+Shared reveal/collapse control for facets and multi-image metadata. Callers own the expanded
+state, data and limits; the control owns accessible region linkage, loading focus recovery and
+scroll/focus anchoring after collapse. `dom-utils.ts` locates the relevant scroll parent.
+Recovery must not steal newer focus. Facets may fetch on expansion; metadata expands local data,
+so this shared control must not acquire either caller's fetch or reconciliation responsibilities.
 
 ## Cost Badge (`components/CostBadge.tsx`)
 
-5 cost variants (free/pay/conditional/overquota/no-rights), 3 sizes (sm/md/lg). CSS custom property colours from `index.css` cost colour tokens.
+Shared presentation of cost/no-rights states using the cost tokens in `index.css`. It consumes
+the caller's derived state; cost and validity calculation remain in the enrichment layer.
 
-## Toast System (`stores/toast-store.ts`, `hooks/useToast.ts`, `components/ToastContainer.tsx`)
+## Toast System (`stores/toast-store.ts`, `components/ToastContainer.tsx`)
 
-Queue-backed toast notifications. BBC PR #4253 vocabulary (`ToastCategory`, `ToastLifespan`). `addToast()` imperative export for non-React callers (selection-store hydration drop, range-cap warnings). Single `<ToastContainer />` mounted in `routes/__root.tsx`. `toast-store.ts` has `typeof window !== "undefined"` guard at top level (Vitest compatibility).
+Owns transient notification queuing and display. Non-React callers use `addToast`, including
+selection hydration and range-cap feedback; the root mounts one container. This is not the
+default response to optional Grid-data absence, which should remain quiet.
 
 ## Panels (`components/PanelLayout.tsx`)
 
-Left (facet filters) / right (metadata). Resize handles, `[`/`]` keyboard shortcuts, `AccordionSection` with persisted state (via `panel-store`). Right panel: "Combined metadata…" placeholder for count=0; single-image metadata for count=1; `MultiImageMetadata` for count≥2. Phantom mode: single-selection falls back to `metadataCache` (not `focusedImageId`).
+Left collections/filters and right metadata/usages are assembled by `routes/search.tsx`.
+`PanelLayout` owns layout, resize handles and `[`/`]` shortcuts; `AccordionSection` uses persisted
+open state. Resize updates DOM width during drag and commits the final width to `panel-store`.
+
+The route's panel-local resolver gives one selected image precedence over explicit focus, using
+the buffer then metadata cache. With no selection, explicit mode uses focus; phantom mode has no
+implicit focused metadata. Multiple selection uses cached images for metadata and buffer-first
+images for usage summaries. While current selection metadata is pending, the last completed
+presentation remains visible with `aria-busy`; this is not a guarantee of complete cache coverage.
+
+## Usages (`components/UsagesSection.tsx`)
+
+`UsagesSection` groups supplied usages by status, orders each group newest first, and renders
+platform icons, relative dates and supported reference links. Derivative/replaced platforms are
+excluded by the same rule used by `countDisplayUsages`. `MultiUsagesSummary` aggregates the images
+provided by the panel resolver. Detail and panels use data already loaded with images; this
+component performs no independent usage-service fetch.
+
+## Syndication (`lib/syndication/`, `components/SyndicationBadge.tsx`)
+
+`deriveImage` prefers server syndication status; `calculateSyndicationStatus` supplies the local
+display fallback: unsuitable, sent, queued, blocked or review. Local lease activity is evaluated
+from start/end dates rather than the indexed `active` flag. Display classification is distinct
+from search-filter eligibility. `syndication-reason.ts` provides tooltip reasons and
+`SyndicationBadge` renders the shared status presentation. Intentional differences from Grid
+belong in [deviations](../deviations.md), not in an implied claim of exact server parity.
 
 ## Facet Filters (`components/FacetFilters.tsx`)
 
-Left panel content. Batched aggregation fetch via store. Click → set CQL chip, alt-click → exclude. `FieldDisclosure.tsx` supplies the shared Show more…/Show fewer control and collapse anchoring/focus. Filters retains 10 initial rows and its ≥10 possibly-more heuristic; expansion fetches at most 100 buckets and renders all returned rows. Fetching, loading, cancellation and stale-result rules remain store-owned, independent of Details' request-free local expansion. Agg timing display (`AggTiming` component). `Is` section: all valid `is:` values from `buildIsOptions()` (config-gated); counts from `tickerCounts` store (ticker-backed values), category agg buckets (photo/illustration), or `isFilterCounts` store (deleted/under-quota). Zero-count entries hidden unless active or excluded. Coloured dot right of label for ticker-backed values (matching badge colour). Dynamic facet sections: one per distinct `has:` target found in the current query (`findHasFieldTargets` in `cql-query-edit.ts`, resolved through field aliases to an ES path, deduped by that path), reusing the same `FacetSection` component/click/expand wiring as static facets; buckets come from `search-store.ts`'s `dynamicFacetBuckets` (isolated per-field fetch, parallel with the static batch).
+Renders store-owned buckets and turns choices into CQL clauses, with Alt exclusion. Ordinary
+fields, usage facets and configured `is:` values draw from their corresponding aggregation/ticker
+state. Active/excluded values remain visible even with zero counts. Dynamic `has:` sections use
+`findHasFieldTargets`, resolve aliases and deduplicate by indexed path before isolated reads.
+
+Initial fields show 10 rows; expansion requests at most 100 buckets through the store and renders
+the returned set. `FieldDisclosure` owns reveal/collapse presentation, not fetching or cancellation.
+This differs from metadata's request-free expansion. Aggregation timing and circuit-breaker
+controls expose the store's existing state rather than creating a separate fetch lifecycle.
 
 ## Collection Tree (`components/CollectionTree.tsx`)
 
-Left panel, above Facet Filters. Reads tree + subtree counts from `collection-store`. Click a node → injects `collection:pathId` into CQL query (exclusive — replaces any existing collection filter). Active node click is a no-op. Depth-0 expanded nodes are `position: sticky`. Expand state is local `useState<Set>`, collapsed by default, not persisted. Row click target is the full-height div (not the text span). Colour stripe from `node.data.cssColour`. Auto-sort handled atomically by `useUpdateSearchParams()` (not by this component). See `06-collections.md` for full architecture.
+Renders the collection hierarchy and subtree counts from `collection-store`. Selecting a node
+replaces the existing collection clause; selecting the active node does nothing. Expansion is
+component-local, not persisted. Search-context sorting is applied atomically by
+`useUpdateSearchParams`, not the tree. See the collections guide for path and count semantics.
 
 ## Collection Store (`stores/collection-store.ts`)
 
@@ -479,55 +748,76 @@ leaves the tree visible without counts. Accepted ancestor/sibling overcount is u
 
 ## Scrubber (`components/Scrubber.tsx`)
 
-Vertical track, proportional thumb. Three modes, auto-selected by result count (see `03-scroll-architecture.md` §2):
+Owns the vertical navigation control, drag feedback and tick rendering. It scrolls the list in
+scroll tiers or requests store-owned seeks in the large-result tier. Default tier boundaries:
 
-| Mode | Total | Behaviour |
+| Mode | Total (default thresholds) | Behaviour |
 |---|---|---|
 | **Scroll** | ≤1k | Real scrollbar — thumb tracks container scroll directly. All data in buffer. |
 | **Indexed scroll** | 1k–65k | Real scrollbar — position map enables instant cursor lookup. Buffer slides via extends + scroll-triggered seeks. Skeleton cells fill outside the buffer. |
 | **Seek** | >65k | Seek control — dragging shows tooltip, releasing triggers `seek()`. Deep seek via percentile estimation (date/numeric) or composite aggregation (keyword). |
 
-Deep seek details: direction-aware `search_after` cursor anchors (`buildSeekCursorAnchors` in `search-store.ts` — desc fields get `MAX_SAFE_INTEGER`, asc get `0`, id gets `""`). Binary search refinement on the `id` tiebreaker when keyword bucket drift exceeds PAGE_SIZE. End key fast path: reverse `search_after` when target is within PAGE_SIZE of total, guaranteeing the buffer covers the last items. Null-zone seek uses the null-zone uploadTime distribution (fetched with `must_not:exists` filter for accuracy) for direct position→date mapping — no percentile needed, ~0.6% position accuracy. Sort-aware tooltip with adaptive date granularity. Keyword distribution binary search (O(log n), zero network during drag). Track tick marks with label decimation + hover animation; ticks are positioned by doc count (not time), so their spacing functions as a density map — dense clusters spread wide, sparse gaps compress. This is an explicit design choice: never linearise ticks by time. Null-zone UX: red boundary tick with vertical "No {field}" label (edge-clamped to track bounds), red-tinted uploadTime-based ticks in the null zone, italic "Uploaded: {date}" tooltip labels for null-zone positions. Seek cooldown (`SEEK_COOLDOWN_MS` at data arrival; deferred scroll timer `SEEK_DEFERRED_SCROLL_MS` fires after cooldown to trigger extends without causing swimming — see `tuning.ts`).
-
-Scrubber also handles the all-null-zone edge case: `getDateDistribution` returns `{ buckets: [], coveredCount: 0 }` (not `null`) when `stats.count === 0`; `computeTrackTicksWithNullZone` emits boundary tick at `position: 0`; top-edge overflow clamp renders it correctly.
+The store owns cursor estimation, rank refinement and reverse reads near the end; dragging does
+not perform those reads. Tick positions represent document counts, not elapsed time. Preserve
+that density representation rather than linearizing dates. Null-zone feedback identifies the
+missing-field boundary and uses upload-time labels, including an all-null boundary at the top.
 
 ## Sort Context (`lib/sort-context.ts`)
 
-Sort-aware label computation for the scrubber tooltip and track ticks. `SORT_LABEL_MAP` maps sort keys to image field accessors and display formatters (date, keyword, numeric). Adaptive date granularity: total span < 28 days → show time (d Mon H:mm); ≥ 28 days → d Mon yyyy; viewport > 28 days → Mon yyyy. Fixed-width `<span>` elements prevent tooltip jitter during drag. `interpolateNullZoneSortLabel` handles null-zone tooltip labels (italic "Uploaded: {date}"). `computeTrackTicksWithNullZone` builds tick arrays with null-zone boundary and red-tinted null ticks. O(log n) binary search on distributions — zero network during drag.
+Maps sort keys to accessors and formats date/keyword/numeric distributions for scrubber labels.
+It owns adaptive date granularity, tick decimation and null-zone upload-time labels. Distribution
+lookup is local, using binary search rather than network reads during drag. Rendering and edge
+clamping belong to Scrubber; fetching distributions belongs to the store.
 
 ---
 
-# Null-Zone System
+# Sparse Sorts and Paging Boundaries
 
-## Null-Zone Seek for Sparse Sort Fields
+`dal/null-zone.ts` shares cursor detection/remapping across seek, extension, fill and range paths.
+Missing-primary-field documents use upload-time fallback ordering, filtered cursor reads and
+null-aware rank calculation. Their upload-time distribution supplies an estimated seek anchor,
+not a fixed accuracy guarantee. A filtered null-zone total is not the whole search total: store
+publication must preserve the browse total. An all-null distribution has zero covered values;
+it is distinct from unavailable distribution data.
 
-When sorting by fields with many missing values (e.g. `lastModified`, `dateTaken`), scrubber seek correctly positions within the "null zone" (docs without the field). Uses filtered `search_after` (narrowed to missing-field docs, sorted by uploadTime fallback) + null-aware `countBefore`. Sort clause builder injects universal `uploadTime` fallback for meaningful null-zone ordering. Null-zone cursor detection is shared across seek, extendForward, extendBackward, scroll-mode fill, and buffer-around-image via `detectNullZoneCursor` + `remapNullZoneSortValues` helpers. **Critical invariant:** when a null-zone filter is active, `result.total` from ES is the filtered count (only null-zone docs), not the full corpus — all four write sites (`seek`, `extendForward`, `extendBackward`, `_fillBufferForScrollMode`) preserve `state.total` instead of overwriting with `result.total`.
-
-## Null-Zone Scrubber UX
-
-**Open paging limits:** [KUP-033](../bug-backlog.md#kup-033) prevents backward extension from
-crossing out of the null tail in both modes; [KUP-034](../bug-backlog.md#kup-034) concerns an
-uncapped near-top backward page in buffer-around-image. Null-zone seek support above does not
-mean those boundary cases are fixed.
-
-Visual feedback when the user enters the null zone: red boundary tick with vertical "No {field}" label (edge-clamped to track bounds), red-tinted uploadTime-based ticks, italic "Uploaded: {date}" tooltip. The boundary label uses a ref callback (`offsetHeight` measurement + pad) for overflow clamping. UX code split across `sort-context.ts` (`interpolateNullZoneSortLabel`, `computeTrackTicksWithNullZone`), `Scrubber.tsx` (rendering), `search.tsx` (wiring), `search-store.ts` (`fetchNullZoneDistribution`).
+`extendBackward` caps its request at the current buffer offset. When a
+null cursor produces fewer predecessors than requested, it fetches the remainder from the end
+of the valued zone and combines both pages and overlays before publication. A failed second
+read does not publish a partial prepend. `_loadBufferAroundImage` caps predecessors at the known
+exact rank and skips the reverse request at rank zero; estimated offsets retain the half-page
+request. These shared-store guards apply to both datasources and have composed API-mode tests.
 
 ---
 
 # Testing & Instrumentation
 
-Test counts and surfaces: see `kupua/AGENTS.md` Testing Summary (single source of truth for numbers).
+Test setup, commands and proof contracts live in the [E2E guide](../../../e2e/README.md)
+and [package scripts](../../../package.json); performance methodology lives in the
+[performance handbook](../../../e2e-perf/README.md). Test totals are not maintained here.
 
-**Notable test strategies:** null-zone seek/extend with sparse `MockDataSource` (50k images, 20% coverage), reverse-compute edge cases (cold-start, sub-row, End key, buffer-shrink), selection reconciliation (chip-array, summary, mixed frequency, inflation bugs), cost/validity/graphic-blur. E2E: scrubber flash-prevention golden table with **0px scroll-drift tolerance**, **0 items CLS** settle-window, **rAF scrollTop monotonicity**, selections (desktop + mobile Pixel 5 emulation), browser history.
+Use current package scripts and repository runner rules. Habitual E2E is direct-ES, not API-mode proof.
+API contract/composed-store tests and Scala replay of actual mapper bodies complement operator
+API browsing/preflights.
+Use committed performance histories with their revision/topology qualifications; this reference
+does not certify current timings or replace the execution rules.
 
-Full reference: `e2e/README.md` and `e2e-perf/README.md`; use the current package scripts and
-repository runner rules. Habitual E2E is direct-ES, not API-mode proof. API contract/composed-store
-tests and Scala replay of actual mapper bodies complement operator API browsing/preflights.
-M1 is accepted; use current committed perf histories with revision/topology qualifications.
+Useful behavioural entry points (existing tests, not executions performed by this refresh):
+
+| Contract | Tests to start with |
+|---|---|
+| API routing, AI overlays and paging | [Composed store](../../../src/stores/search-store-api-mode.test.ts), [adapter](../../../src/dal/grid-api-search-adapter.test.ts) |
+| Derivation and owned overlays | [Derivation](../../../src/lib/derive-enriched-image.test.ts), [enrichment hook](../../../src/hooks/useEnrichedImage.test.ts) |
+| Density, focus and history | [Scroll effects](../../../src/hooks/useScrollEffects.test.ts), [browse density](../../../e2e/local/browse-density.spec.ts), [browser history](../../../e2e/local/browser-history.spec.ts) |
+| Home and startup | [Home](../../../src/lib/reset-to-home.test.ts), [startup](../../../src/main.test.tsx), [UI flows](../../../e2e/local/ui-features.spec.ts) |
+| Selection and disclosure | [Range selection](../../../src/hooks/useRangeSelection.test.ts), [multi-image metadata](../../../src/components/MultiImageMetadata.test.tsx), [touch selection](../../../e2e/local/selections-mobile.spec.ts) |
+| Media lifetime and traversal | [Detail](../../../src/components/ImageDetail.test.tsx), [prefetch](../../../src/lib/image-prefetch.test.ts), [traversal](../../../src/hooks/useImageTraversal.test.ts) |
+| CQL and facets | [Typeahead](../../../src/lib/typeahead-fields.test.ts), [facets](../../../src/components/FacetFilters.test.tsx), [quoting](../../../e2e/local/cql-search-quoting.spec.ts) |
 
 ## Perceived-Performance Instrumentation (`lib/perceived-trace.ts`)
 
-Lightweight action-boundary tracer. **Zero production cost** — tree-shaken via `import.meta.env.DEV` guard. Off by default in dev; enabled via `localStorage.setItem("kupua_perceived_perf", "1")`. Playwright harness sets the flag before navigation.
+Action-boundary tracer, guarded by `import.meta.env.DEV` so production builds can eliminate
+instrumentation. Off by default in dev; enabled via `localStorage.setItem("kupua_perceived_perf", "1")`.
+The Playwright performance harness sets the flag before navigation.
 
 Production call sites use `beginTraceInteraction` and `traceInteraction` to correlate the start
 and owned phases. Current boundaries include `t_store_ready`, `t_first_visible_frame` and
