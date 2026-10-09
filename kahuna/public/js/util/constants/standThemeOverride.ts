@@ -18,9 +18,9 @@ const typographyThemeOverrides: Record<
 
 const linkTheme: LinkTheme = {
   shared: {
-    enabled: { color: semanticColors.border.focused },
-    hover: { color: semanticColors.border.selectedInverse },
-    pressed: { color: semanticColors.border.selectedInverse }
+    enabled: { color: semanticColors.border.selectedInverse },
+    hover: { color: semanticColors.border.focused },
+    pressed: { color: semanticColors.border.focused }
   }
 };
 

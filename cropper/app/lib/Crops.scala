@@ -117,7 +117,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     Stopwatch.async(s"making crop assets for ${apiImage.id} ${Crop.getCropId(source.bounds)}") {
       for {
         sourceFile <- tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
-        colourModel <- ImageOperations.identifyColourModel(sourceFile, mimeType)
+        colourModel <- imageOperations.identifyColourModel(sourceFile, mimeType)
         masterCrop <- createMasterCrop(apiImage, sourceFile, crop, cropType, colourModel, apiImage.source.orientationMetadata)
 
         outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions

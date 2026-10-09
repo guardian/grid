@@ -1,5 +1,4 @@
 # Uploads mutate the single shared e2e user's upload history, so scenarios must not race.
-@mode:serial
 Feature: Uploading images to the Grid
   This lets an authorised user get images into the Grid by selecting files,
   dragging and dropping files or URLs, importing Witness contributions, and
@@ -85,17 +84,17 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/prompt/prompt.html lines 5-11
   # Evidence: kahuna/public/js/upload/prompt/prompt.js lines 21
 
-  @todo
   Scenario: Preset labels are applied to all uploads
-    When I add a preset label via the 'apply label to all uploads' button
+    When I add a preset label via the "Add label to all uploads" button
+    And I upload more than one image
     Then that label should be applied to all my uploads
   # Evidence: kahuna/public/js/upload/prompt/prompt.html lines 5-11
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 43, 113-114
 
-  @todo
   Scenario: Preset labels are stored in local storage
     When I add preset label(s) in the prompt
     Then those label(s) should already be selected when I reload the page
+  # Evidence: kahuna/public/js/services/preset-label.js lines 8-28
 
   # ---------------------------------------------------------------------------
   # Select-files uploader (file-uploader.html + file-uploader.js)
@@ -272,10 +271,10 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 197-203
 
   # ---------------------------------------------------------------------------
-  # Required metadata editor (jobs/required-metadata-editor.html + .js)
+  # Required metadata editor (jobs/required-metadata-editor.html + .js,
+  # edits/image-editor.html)
   # ---------------------------------------------------------------------------
 
-  @todo
   Scenario: Editing required metadata for an uploaded image
     Given an uploaded image is shown in the metadata editor
     When I fill in the description, byline and credit
@@ -283,14 +282,12 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 1, 30-56, 61-72, 85-104
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 33, 40-65
 
-  @todo
-  Scenario: Description and credit are required
+  Scenario: Description and credit are mandatory
     Given an uploaded image is shown in the metadata editor
     When I leave the description or credit empty
-    Then those fields should be marked as required
+    Then those fields should be marked as mandatory
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 36, 96
 
-  @todo
   Scenario: The description placeholder gives guidance
     Given an uploaded image with no description
     When I view the description field
@@ -298,8 +295,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 34-40
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 157-161
 
-  # How to verify writes?
-  @todo
   Scenario: Choosing an image type when image types are configured
     Given image types are configured
     When I view the metadata editor
@@ -307,7 +302,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 5-27
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 38
 
-  @todo
   Scenario: The credit field suggests existing values
     Given an uploaded image is shown in the metadata editor
     When I type into the credit field
@@ -315,25 +309,22 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 87-104
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 67-71
 
-  # How to verify writes?
-  @todo
   Scenario: Metadata only shows when it was already present for some fields
-    Given an uploaded image that already has metadata values for the following fields:
-      | byline |
-      | credit |
-      | copyright |
-      | specialInstructions |
-      | description |
-      | domainMetadata |
-      | usageInstructions |
-      | imageType |
+    Given an uploaded image with the following embedded metadata:
+      | field               | value                                    |
+      | description         | An embedded caption describing the scene |
+      | byline              | Embedded Byline                          |
+      | credit              | Embedded Credit Agency                   |
+      | copyright           | Embedded Copyright 2020                  |
+      | specialInstructions | Embedded special instructions            |
     When I view the metadata editor
     Then I should see the metadata values in the appropriate fields
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 114-134
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 36
 
-  # This also applies to any textual fields — we should pull them from img meta
-  @todo
+  # media-api derives usageInstructions from the image's usageRights category via the
+  # `usageInstructions` config map; the AAP-credited fixture gets the `agency` category, which
+  # the e2e stack config maps to instruction text (see E2E_USAGE_INSTRUCTIONS).
   Scenario: Existing usage instructions are shown with room for more
     Given an uploaded image that already has usage instructions
     When I view the metadata editor
@@ -341,26 +332,34 @@ Feature: Uploading images to the Grid
     And I should be able to add further special instructions
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 140-167
 
-  @todo
+  # imageType/description's ⇔ hides once edited and reappears when the save has been reindexed.
   Scenario: Applying a field value to all current uploads in a batch
     Given I am uploading more than one image
     And I am permitted to edit
     When I apply the following field values to all current uploads:
-      | Leases |
-      | Image type |
-      | Description |
-      | Byline |
-      | Credit |
+      | Image type           |
+      | Description          |
+      | Byline               |
+      | Credit               |
       | Special instructions |
+    Then that value should be applied to the same field on every current upload
+  # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 21-26, 47-53, 76-80, 107-111, 156-160
+  # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 103-119
+
+  # Leases/Collections/Labels/Keywords/Photoshoot live in the image-editor, not the required
+  # metadata editor, so they need separate locators and setup.
+  Scenario: Applying an image-editor field value to all current uploads in a batch
+    Given I am uploading more than one image
+    And I am permitted to edit
+    When I apply the following field values to all current uploads:
+      | Leases |
       | Collections |
       | Labels |
       | Keywords |
       | Photoshoot |
     Then that value should be applied to the same field on every current upload
-  # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 20-27, 49-53, 76-80, 107-111, 129-133, 156-160, 179-183
-  # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 108-119
+  # Evidence: kahuna/public/js/edits/image-editor.html
 
-  @todo
   Scenario: Metadata editing is disabled without edit permission
     Given I am not permitted to edit the image, as it has been uploaded by another user and I do not have edit_metadata permission
     When I view the metadata editor for an image I did not upload
@@ -368,8 +367,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 14, 44, 71, 101, 124, 152, 173
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 27-29
 
-  # This requires configuration, which is already present in CODE
-  @todo
   Scenario: Applying a metadata template makes fields read-only
     Given an uploaded image is shown in the metadata editor
     When a metadata template is selected
@@ -377,7 +374,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 15, 45, 72, 102, 125, 153, 175
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 84-98
 
-  @todo
   Scenario: Removing a metadata template restores previously edited fields
     Given an uploaded image is shown in the metadata editor
     And a field is edited
@@ -388,14 +384,12 @@ Feature: Uploading images to the Grid
   # Recent uploads (recent/recent-uploads.html + recent-uploads.js)
   # ---------------------------------------------------------------------------
 
-  @todo
   Scenario: Past uploads are loading
     When my past uploads have not yet loaded
     Then I should see a loading message
   # Evidence: kahuna/public/js/upload/recent/recent-uploads.html lines 1-2
   # Evidence: kahuna/public/js/upload/recent/recent-uploads.js lines 34
 
-  @todo
   Scenario: I have not uploaded anything yet
     Given I have never uploaded an image
     When my past uploads load
@@ -403,7 +397,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/recent/recent-uploads.html lines 4-5
   # Evidence: kahuna/public/js/upload/recent/recent-uploads.js lines 25-34
 
-  @todo
   Scenario: My past uploads are listed
     Given I have uploaded images before
     When my past uploads load
@@ -412,6 +405,8 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/recent/recent-uploads.html lines 7-13
   # Evidence: kahuna/public/js/upload/recent/recent-uploads.js lines 25-51
 
+  # Existing bug: the `image-delete-failure` listener omits the event argument, so it throws
+  # reading `image.data.id` and never alerts.
   @todo
   Scenario: A failed deletion of a past upload is reported
     Given a past uploaded image is listed
