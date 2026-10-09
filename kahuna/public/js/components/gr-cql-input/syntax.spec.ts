@@ -1,6 +1,10 @@
 import { createParser } from "@guardian/cql";
 import { describe, it, expect } from "@jest/globals";
-import { cqlParserSettings, structureCqlQuery } from "./syntax";
+import {
+  cqlParserSettings,
+  structureCqlQuery,
+  structureCqlQueryString
+} from "./syntax";
 
 const parser = createParser(cqlParserSettings);
 
@@ -169,6 +173,20 @@ describe("cql -> structured-query translation", () => {
 
         expect(structuredQuery).toEqual(query.structuredQuery);
       });
+    });
+  });
+
+  describe("structureCqlQueryString", () => {
+    it("should not treat CQL-only dotted-key chips as text", () => {
+      const structuredQuery = structureCqlQueryString(
+        "leases.leases.access:deny-use",
+      );
+
+      expect(
+        structuredQuery.some(
+          ({ type, value }) => type === "text" && !!value.trim(),
+        ),
+      ).toBe(false);
     });
   });
 });
