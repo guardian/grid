@@ -1,9 +1,9 @@
 import * as path from 'node:path';
 import { Given, Then, When, expect } from '../setup.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
-import { openUploadPage } from '../common.steps.ts';
-import { expectInUploadHistory, holdPastUploads } from './media-api.assertions.ts';
-import { uniqueImage, uploadPage } from './setup.ts';
+import { switchAccount } from '../common.steps.ts';
+import { expectInUploadHistory } from './media-api.assertions.ts';
+import { holdPastUploads, uniqueImage, uploadPage } from './setup.ts';
 
 const LOADING_MESSAGE = 'Loading…';
 
@@ -21,15 +21,14 @@ Then('I should see a loading message', async ({ page, testContext }) => {
 
 Given('I have never uploaded an image', async ({ page }) => {
   // The full-access account's history grows as the suite runs; the restricted one never uploads.
-  await page.context().clearCookies();
-  await openUploadPage(page, TEST_ACCOUNTS.restricted);
+  await switchAccount(page, TEST_ACCOUNTS.restricted);
 });
 
 Given('I have uploaded images before', async ({ page, testContext }) => {
   const image = uniqueImage();
   testContext.uploadedImagePath = image.path;
   await uploadPage(page).fileInput.setInputFiles(image.path);
-  await expect(uploadPage(page).editableJob).toBeVisible();
+  await expect(uploadPage(page).metadataEditor).toBeVisible();
 
   await expectInUploadHistory(page, image.path, TEST_ACCOUNTS.fullAccess);
   // Past uploads are only fetched when the page loads.

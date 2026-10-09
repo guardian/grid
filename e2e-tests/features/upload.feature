@@ -1,4 +1,3 @@
-# Uploads mutate the single shared e2e user's upload history, so scenarios must not race.
 Feature: Uploading images to the Grid
   This lets an authorised user get images into the Grid by selecting files,
   dragging and dropping files or URLs, importing Witness contributions, and
@@ -297,6 +296,7 @@ Feature: Uploading images to the Grid
 
   Scenario: Choosing an image type when image types are configured
     Given image types are configured
+    And an uploaded image is shown in the metadata editor
     When I view the metadata editor
     Then I should be able to choose an image type from a dropdown
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 5-27
