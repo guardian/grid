@@ -88,6 +88,12 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   const [selectedOption, setSelection] = useState(defPerms);
   const [currentIndex, setCurrentIndex] = useState(-1);
 
+  // `chargeable` is owned by AngularJS, which drives the URL. Only push back
+  // values the user originated here, otherwise the two fight over the router.
+  const lastChargeable = useRef(props.chargeable);
+  const isMountEffect = useRef(true);
+  const changeCameFromProps = useRef(false);
+
   const autoHideListener = (event: any) => {
     if (event.type === "keydown" && event.key === "Escape") {
       setIsOpen(false);
@@ -156,8 +162,9 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   }, [props.query]);
 
   useEffect(() => {
-    if (propsRef.current.chargeable !== props.chargeable) {
-      propsRef.current.chargeable = props.chargeable;
+    if (lastChargeable.current !== props.chargeable) {
+      lastChargeable.current = props.chargeable;
+      changeCameFromProps.current = true;
       setIsChargeable(props.chargeable);
     }
   }, [props.chargeable]);
@@ -176,7 +183,15 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   };
 
   useEffect(() => {
-    propsRef.current.chargeable = isChargeable;
+    lastChargeable.current = isChargeable;
+    if (isMountEffect.current) {
+      isMountEffect.current = false;
+      return;
+    }
+    if (changeCameFromProps.current) {
+      changeCameFromProps.current = false;
+      return;
+    }
     props.onChargeable(isChargeable);
   }, [isChargeable]);
 
@@ -247,19 +262,19 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
         </div>
         <div className="ts-toggle-container" tabIndex={0} aria-label={SHOW_CHARGEABLE + " " + (isChargeable ? SELECTED : NOT_SELECTED)} onKeyDown={handleKeyToggle} onClick={handleToggle}>
           <div className="ts-toggle-label no-select">{SHOW_CHARGEABLE}</div>
-          <label className="ts-toggle-switch">
-            <input type="checkbox" checked={isChargeable} onClick={handleToggle}/>
+          <span className="ts-toggle-switch">
+            <input type="checkbox" checked={isChargeable} readOnly tabIndex={-1} aria-hidden="true"/>
             <span className="ts-slider"></span>
-          </label>
+          </span>
         </div>
-        <div className="ts-toggle-container-short" tabIndex={0} aria-label={SHOW_CHARGEABLE + " " + (isChargeable ? SELECTED : NOT_SELECTED)} onKeyDown={handleToggle}>
-          <label className="chargeable-checkbox">
-            <input type="checkbox" checked={isChargeable} onClick={handleToggle}/>
+        <div className="ts-toggle-container-short" tabIndex={0} aria-label={SHOW_CHARGEABLE + " " + (isChargeable ? SELECTED : NOT_SELECTED)} onKeyDown={handleKeyToggle} onClick={handleToggle}>
+          <span className="chargeable-checkbox">
+            <input type="checkbox" checked={isChargeable} readOnly tabIndex={-1} aria-hidden="true"/>
             <div className="chargeable-label-wrapper" >
               <span className="chargeable-span"></span>
               <span className="chargeable-label no-select">{SHOW_CHARGEABLE_SHORT}</span>
             </div>
-          </label>
+          </span>
         </div>
       </div>
   );
