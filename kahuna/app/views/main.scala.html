@@ -116,6 +116,16 @@
 
 <script src="@routes.Assets.versioned("dist/build.js")"></script>
 
+@kahunaConfig.liveReloadUri.map { liveReloadUri =>
+    <!--
+      Enables browser auto-refresh when `npm run watch` rebuilds the bundle (see webpack.config.dev.js).
+      Proxied over https via dev-nginx's `hmr.media` mapping (see dev/nginx-mappings.yml.template) so it
+      works when accessing kahuna via https://media.local.dev-gutools.co.uk.
+      The explicit `port=443` stops the livereload client defaulting to connecting to the unproxied port 35729.
+    -->
+    <script src="@liveReloadUri/livereload.js?port=443"></script>
+}
+
 @scriptsToLoad.map { scriptDetail =>
 <script async="@scriptDetail.async" src="@scriptDetail.host/@scriptDetail.path"></script>
 }

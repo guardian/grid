@@ -31,6 +31,9 @@ mappings:
     port: 9200
   - prefix: thrall.media
     port: 9002
+  - prefix: hmr.media
+    port: 35729
+    websocket: /livereload
   - prefix: localstack.media
     port: 4566
     client_max_body_size: 20m
