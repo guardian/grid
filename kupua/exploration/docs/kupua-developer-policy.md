@@ -38,7 +38,7 @@ Grid's `sbt runMinimal` (media-api + auth + kahuna) need in `--use-TEST` mode.
 | 12 | `ec2:CreateTags` | TEST ES instances (tag-scoped) | ssm-scala marks instances as "tainted" |
 | 13 | `ssm:SendCommand` | TEST ES instances (tag-scoped) + `AWS-RunShellScript` doc | ssm-scala installs temp SSH public key |
 | 14 | `ssm:GetCommandInvocation` | * | ssm-scala polls until key install completes |
-| 15 | `ssm:StartSession` | TEST ES instances (tag-scoped) + `AWS-StartSSHSession` + `AWS-StartPortForwardingRemoteHost` docs | SSH tunnel for ES access |
+| 15 | `ssm:StartSession` | TEST ES instances (tag-scoped) + `AWS-StartSSHSession` + `AWS-StartPortForwardingSessionToRemoteHost` docs | SSH tunnel for ES access |
 | 16 | `bedrock:InvokeModel` | Cohere Embed V4 inference profile | AI search embeddings |
 | 17 | `cloudwatch:PutMetricData` | * | Grid metrics + future kupua metrics |
 | 18 | `dynamodb:GetItem` | SoftDeletedMetadataTable | Media-api soft-delete status check on image GET |
@@ -48,7 +48,7 @@ Grid's `sbt runMinimal` (media-api + auth + kahuna) need in `--use-TEST` mode.
 - Policy is created only in the TEST stack (`Condition: IsTEST`)
 - SSM SendCommand/StartSession on instances scoped by tags:
   `App=elasticsearch-data`, `Stack=media-service`, `Stage=TEST`
-- SSM documents allowed: `AWS-RunShellScript` (key install), `AWS-StartSSHSession`, `AWS-StartPortForwardingRemoteHost`
+- SSM documents allowed: `AWS-RunShellScript` (key install), `AWS-StartSSHSession`, `AWS-StartPortForwardingSessionToRemoteHost`
 - EC2 CreateTags scoped to same tag set (ssm-scala tainted marker)
 
 ## Usage

@@ -386,30 +386,36 @@ if [ "$USE_TEST" = true ]; then
 
       # Use SSM port-forwarding to tunnel port 9200
       # This runs in the background (-f equivalent via &)
+      SSM_SESSION_LOG=$(mktemp "${TMPDIR:-/tmp}/kupua-ssm-session.XXXXXX")
       aws ssm start-session \
         --profile media-service \
         --region eu-west-1 \
         --target "$INSTANCE_ID" \
-        --document-name AWS-StartPortForwardingRemoteHost \
+        --document-name AWS-StartPortForwardingSessionToRemoteHost \
         --parameters "{\"host\":[\"localhost\"],\"portNumber\":[\"9200\"],\"localPortNumber\":[\"9200\"]}" \
-        > /dev/null 2>&1 &
+        > "$SSM_SESSION_LOG" 2>&1 &
       SSM_SESSION_PID=$!
 
       # Wait for the tunnel to be ready
       tunnel_wait=0
       until curl -sf --connect-timeout 2 "http://localhost:9200/_cluster/health" > /dev/null 2>&1; do
         tunnel_wait=$((tunnel_wait + 1))
-        if [ $tunnel_wait -ge 20 ]; then
-          echo -e "${red}ERROR: SSM tunnel did not become ready after 20s.${plain}"
-          echo "  Check: aws ssm start-session --target ${INSTANCE_ID} --profile media-service --region eu-west-1"
-          kill $SSM_SESSION_PID 2>/dev/null || true
-          exit 1
-        fi
         # Check the process is still alive
         if ! kill -0 $SSM_SESSION_PID 2>/dev/null; then
-          echo -e "${red}ERROR: SSM session died unexpectedly.${plain}"
-          echo "  This usually means session-manager-plugin is not working."
-          echo "  Try: brew reinstall session-manager-plugin"
+          wait "$SSM_SESSION_PID" 2>/dev/null || true
+          echo -e "${red}ERROR: AWS SSM port-forwarding session exited before the tunnel was ready.${plain}"
+          echo "  SSM output:"
+          cat "$SSM_SESSION_LOG"
+          rm -f "$SSM_SESSION_LOG"
+          exit 1
+        fi
+        if [ $tunnel_wait -ge 20 ]; then
+          echo -e "${red}ERROR: SSM tunnel did not become ready after 20s.${plain}"
+          echo "  SSM output:"
+          cat "$SSM_SESSION_LOG"
+          kill "$SSM_SESSION_PID" 2>/dev/null || true
+          wait "$SSM_SESSION_PID" 2>/dev/null || true
+          rm -f "$SSM_SESSION_LOG"
           exit 1
         fi
         printf "      Waiting for tunnel... (%d/20)\r" "$tunnel_wait"
@@ -417,6 +423,7 @@ if [ "$USE_TEST" = true ]; then
       done
 
       TUNNEL_OK=true
+      rm -f "$SSM_SESSION_LOG"
       # Clean up the SSM session when this script exits
       KUPUA_SSM_PID=$SSM_SESSION_PID
     fi
@@ -787,4 +794,3 @@ echo -e "${cyan}      → http://localhost:3000${plain}"
 echo
 cd "$KUPUA_DIR"
 exec npm run dev
-
