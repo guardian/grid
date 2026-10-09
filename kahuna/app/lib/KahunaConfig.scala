@@ -18,6 +18,10 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val mediaApiUri: String = services.apiBaseUri
   val authUri: String = services.authBaseUri
 
+  // the `webpack-livereload-plugin` server (started by `npm run watch`), proxied by dev-nginx so it
+  // can be reached over https from the `hmr.media.*` hostname alongside the app itself (see `dev/nginx-mappings.yml.template`)
+  val liveReloadUri: Option[String] = if (isDev) Some(rootUri.replaceFirst("://media\\.", "://hmr.media.")) else None
+
   val sentryDsn: Option[String] = stringOpt("sentry.dsn").filterNot(_.isEmpty)
 
   val thumbOrigin: String = string("origin.thumb")

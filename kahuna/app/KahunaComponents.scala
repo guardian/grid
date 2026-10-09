@@ -39,7 +39,8 @@ object KahunaSecurityConfig {
 
     val frameSources = s"frame-src ${config.services.authBaseUri} ${config.services.kahunaBaseUri} https://accounts.google.com https://www.youtube.com ${config.scriptsToLoad.map(_.host).mkString(" ")}"
     val frameAncestors = s"frame-ancestors ${config.frameAncestors.mkString(" ")}"
-    val connectSources = s"connect-src 'self' ${(services :+ config.imageOrigin).mkString(" ")} ${config.connectSources.mkString(" ")}"
+    val liveReloadWebSocketUri = config.liveReloadUri.map(_.replaceFirst("^https?://", "wss://"))
+    val connectSources = s"connect-src 'self' ${(services :+ config.imageOrigin).mkString(" ")} ${config.connectSources.mkString(" ")} ${liveReloadWebSocketUri.getOrElse("")}"
 
     val imageSources = s"img-src ${List(
       "data:",
@@ -57,7 +58,7 @@ object KahunaSecurityConfig {
 
     val styleSources = s"style-src 'unsafe-inline' 'self' ${config.styleSources.mkString(" ")}"
 
-    val scriptSources = s"script-src 'self' 'unsafe-inline' ${config.scriptsToLoad.map(_.host).mkString(" ")}"
+    val scriptSources = s"script-src 'self' 'unsafe-inline' ${config.scriptsToLoad.map(_.host).mkString(" ")} ${config.liveReloadUri.getOrElse("")}"
 
     base.copy(
       // covered by frame-ancestors in contentSecurityPolicy
