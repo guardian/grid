@@ -1,6 +1,7 @@
 package com.gu.mediaservice.lib.imaging
 
 import app.photofox.vipsffm.enums.{VipsIntent, VipsInterpretation}
+import app.photofox.vipsffm.jextract.VipsRaw
 import app.photofox.vipsffm.{VImage, VipsHelper, VipsOption}
 import com.gu.mediaservice.lib.BrowserViewableImage
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.ctx
@@ -159,14 +160,15 @@ class VipsImageOperations extends GridLogging with ImageOperations {
     isGraphic
   }
 
-  private def saveImageToFile(image: VImage, mimeType: MimeType, qual: Double, outputFile: File, quantise: Boolean = false): File = {
+  def saveImageToFile(image: VImage, mimeType: MimeType, qual: Double, outputFile: File, quantise: Boolean = false, keep: Option[Int] = None): File = {
     logger.info(s"Saving image as $mimeType to file: " + outputFile.getAbsolutePath)
+    val k = keep.getOrElse(VipsRaw.VIPS_FOREIGN_KEEP_NONE)
     mimeType match {
       case Jpeg =>
         image.jpegsave(outputFile.getAbsolutePath,
           VipsOption.Int("Q", qual.toInt),
           VipsOption.Boolean("optimize-coding", true),
-          VipsOption.Boolean("strip", true)
+          VipsOption.Int("keep", k)
         )
         outputFile
 
@@ -181,13 +183,12 @@ class VipsImageOperations extends GridLogging with ImageOperations {
             VipsOption.Int("Q", 70),
             //VipsOption.Int("effort", 7),
             //VipsOption.Int("compression", 6),
-            VipsOption.Int("bitdepth", 8),
-            VipsOption.Boolean("strip", true)
+            VipsOption.Int("keep", k)
           )
         } else {
           image.pngsave(outputFile.getAbsolutePath,
             //VipsOption.Int("compression", 6),
-            VipsOption.Boolean("strip", true)
+            VipsOption.Int("keep", k)
           )
         }
         outputFile
