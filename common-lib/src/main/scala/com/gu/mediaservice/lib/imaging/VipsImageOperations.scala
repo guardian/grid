@@ -163,7 +163,27 @@ class VipsImageOperations extends GridLogging with ImageOperations {
     }
   }
 
-  def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File)(implicit logMarker: LogMarker): Future[(File, MimeType)] = ???
+  def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File)(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
+    Future {
+      implicit val arena: Arena = Arena.ofConfined
+      try {
+        val outputFile = createTempFileInTempDir("transformed", optimisedMimeType, tempDir)
+        val image = VImage.newFromFile(arena, sourceFile.getAbsolutePath)
+
+        val correctedForICCProfile = correctForICCProfile(image)
+
+        saveImageToFile(correctedForICCProfile, optimisedMimeType, 85.0, outputFile, quantise = false)
+        (outputFile, optimisedMimeType)
+
+      } catch {
+        case e: Exception =>
+          logger.error("Error during createThumbnail", e)
+          throw e
+      } finally {
+        arena.close()
+      }
+    }
+  }
 
   def identifyColourModel(sourceFile: File, mimeType: MimeType)(implicit logMarker: LogMarker): Future[Option[String]] = {
     Future {
