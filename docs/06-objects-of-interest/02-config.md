@@ -87,7 +87,7 @@ Service-specific configs. These will override all other config files.
     <td>[]</td>
   </tr>
   <tr>
-    <td><b><code>persistence.identifier</code></b><br>Used by the <a href="03-reaper.md">reaper</a> to retain images which have a particular identifier.<br><b>Must be lower case</b> — identifiers round-trip through S3 user metadata, which lower-cases metadata keys, so a value containing capitals will never match and the rule will silently protect nothing.</td>
+    <td><b><code>persistence.identifier</code></b><br>Used by the <a href="03-reaper.md">reaper</a> to retain images which have a particular identifier.<br><b>Must be lower case</b></td>
     <td>True</td>
     <td>string</td>
     <td></td>
