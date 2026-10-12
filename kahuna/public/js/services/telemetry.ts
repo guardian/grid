@@ -49,6 +49,20 @@ const sendFilterTelemetryEvent = (key: string, value: string, searchUuid: string
     }, 1);
 };
 
+export const sendTelemetryForNoResults = (query: string | undefined, aiSearchOffered: boolean) => {
+    sendTelemetryEvent('GRID_SEARCH_NO_RESULTS', {
+        query: query || '',
+        aiSearchOffered
+    }, 1);
+};
+
+export const sendTelemetryForAiSearchPreviewClick = (query: string | undefined, source: 'preview' | 'fallbackLink') => {
+    sendTelemetryEvent('GRID_AI_SEARCH_PREVIEW_CLICK', {
+        query: query || '',
+        source
+    }, 1);
+};
+
 export const sendTelemetryForQuery = (query: string, nonFree?: string, uploadedByMe?: boolean, useAISearch?: boolean  ) => {
     const structuredQuery = structureQuery(query || "");
 

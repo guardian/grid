@@ -81,7 +81,7 @@
             >⇔</button>
 
         </label>
-        <div class="job-info--editor__field flex-center">
+        <label class="job-info--editor__field flex-center">
             <div class="job-info--editor__label text-small">Credit</div>
 
             <gr-datalist
@@ -110,7 +110,7 @@
                 ng-if="ctrl.withBatch && ctrl.userCanEdit && !ctrl.metadataUpdatedByTemplate.includes('credit')"
                 ng-click="ctrl.batchApplyMetadata('credit')"
             >⇔</button>
-        </div>
+        </label>
         <label ng-if="ctrl.copyrightWasInitiallyThere" class="job-info--editor__field flex-center">
             <div class="job-info--editor__label text-small">Copyright</div>
             <input

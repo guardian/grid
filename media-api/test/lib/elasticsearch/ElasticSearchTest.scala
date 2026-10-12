@@ -17,7 +17,7 @@ import com.sksamuel.elastic4s.requests.common.Shards
 import com.sksamuel.elastic4s.requests.searches.{Pit, SearchBodyBuilderFn, SearchHits, SearchRequest, SearchResponse, Total}
 import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
 import lib.querysyntax._
-import lib.{ImageResponse, MediaApiConfig, MediaApiMetrics}
+import lib.{MediaApiConfig, MediaApiMetrics, UsageStore, ImageResponse}
 import org.mockito.ArgumentMatchers.{any, anyBoolean}
 import org.mockito.Mockito.when
 import org.joda.time.DateTime
@@ -231,15 +231,14 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
   describe("quotaCountBySupplier") {
     // "quota-agency" is not in Agencies.all so Agencies.get("quota-agency").supplier falls back to "quota-agency"
     val supplier = "quota-agency"
-    val inRange  = DateTime.now.minusDays(15)
-    val numDays  = 30
+    val inRange  = DateTime.now.minusDays(UsageStore.countPeriodInDays / 2)
 
     it("counts a single composer usage as 1") {
       implicit val logMarker: LogMarker = MarkerMap()
       val images = Seq(createImage("qc-composer-1", Agency(supplier),
         usages = List(createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, inRange))))
       withQuotaImages(images) {
-        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 1
+        Await.result(ES.quotaCountBySupplier(supplier), fiveSeconds).count shouldBe 1
       }
     }
 
@@ -251,7 +250,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
           createUsage(ComposerUsageReference, DigitalUsage, UnknownUsageStatus, inRange)
         )))
       withQuotaImages(images) {
-        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 2
+        Await.result(ES.quotaCountBySupplier(supplier), fiveSeconds).count shouldBe 2
       }
     }
 
@@ -263,7 +262,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
           createUsage(FrontUsageReference, DigitalUsage, RemovedUsageStatus, inRange)
         )))
       withQuotaImages(images) {
-        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 1
+        Await.result(ES.quotaCountBySupplier(supplier), fiveSeconds).count shouldBe 1
       }
     }
 
@@ -275,7 +274,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
           createUsage(InDesignUsageReference, PrintUsage, RemovedUsageStatus, inRange)
         )))
       withQuotaImages(images) {
-        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 2
+        Await.result(ES.quotaCountBySupplier(supplier), fiveSeconds).count shouldBe 2
       }
     }
 
@@ -288,7 +287,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         )))
       withQuotaImages(images) {
         // fronts usage must not be counted — if it were, result would be 2
-        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 1
+        Await.result(ES.quotaCountBySupplier(supplier), fiveSeconds).count shouldBe 1
       }
     }
 
@@ -301,7 +300,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         )))
       withQuotaImages(images) {
         // print usage must not be counted — if it were, result would be 2
-        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 1
+        Await.result(ES.quotaCountBySupplier(supplier), fiveSeconds).count shouldBe 1
       }
     }
 
@@ -313,16 +312,16 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
           createUsage(InDesignUsageReference, PrintUsage, PublishedUsageStatus, inRange)
         )))
       withQuotaImages(images) {
-        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 2
+        Await.result(ES.quotaCountBySupplier(supplier), fiveSeconds).count shouldBe 2
       }
     }
 
     it("returns 0 when all usages are outside the date range") {
       implicit val logMarker: LogMarker = MarkerMap()
       val images = Seq(createImage("qc-out-of-range", Agency(supplier),
-        usages = List(createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, DateTime.now.minusDays(31)))))
+        usages = List(createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, DateTime.now.minusDays(UsageStore.countPeriodInDays + 1)))))
       withQuotaImages(images) {
-        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 0
+        Await.result(ES.quotaCountBySupplier(supplier), fiveSeconds).count shouldBe 0
       }
     }
 
@@ -331,7 +330,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       val images = Seq(createImage("qc-pending-status", Agency(supplier),
         usages = List(createUsage(ComposerUsageReference, DigitalUsage, PendingUsageStatus, inRange))))
       withQuotaImages(images) {
-        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 0
+        Await.result(ES.quotaCountBySupplier(supplier), fiveSeconds).count shouldBe 0
       }
     }
 
@@ -340,7 +339,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       val images = Seq(createImage("qc-syndication-platform", Agency(supplier),
         usages = List(createUsage(ComposerUsageReference, SyndicationUsage, PublishedUsageStatus, inRange))))
       withQuotaImages(images) {
-        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 0
+        Await.result(ES.quotaCountBySupplier(supplier), fiveSeconds).count shouldBe 0
       }
     }
 
@@ -349,7 +348,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       val images = Seq(createImage("qc-wrong-supplier", Agency("completely-different-agency"),
         usages = List(createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, inRange))))
       withQuotaImages(images) {
-        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 0
+        Await.result(ES.quotaCountBySupplier(supplier), fiveSeconds).count shouldBe 0
       }
     }
 
@@ -358,7 +357,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       val images = Seq(createImage("qc-composite", Composite(s"$supplier, other-supplier"),
         usages = List(createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, inRange))))
       withQuotaImages(images) {
-        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 1
+        Await.result(ES.quotaCountBySupplier(supplier), fiveSeconds).count shouldBe 1
       }
     }
 
@@ -371,7 +370,69 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
           createUsage(ComposerUsageReference, DigitalUsage, RemovedUsageStatus, inRange)
         )))
       withQuotaImages(images) {
-        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 3
+        Await.result(ES.quotaCountBySupplier(supplier), fiveSeconds).count shouldBe 3
+      }
+    }
+
+    it("uses explicit inclusive dates instead of the default period for every quota bucket") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val start = DateTime.parse("2020-06-01T00:00:00Z")
+      val end = DateTime.parse("2020-06-30T23:59:59.999Z")
+      val images = Seq(
+        createImage("qc-date-composer", Agency(supplier), usages = List(
+          createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, start),
+          createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, end),
+          createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, start.minusMillis(1)),
+          createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, end.plusMillis(1))
+        )),
+        createImage("qc-date-fronts", Agency(supplier), usages = List(
+          createUsage(FrontUsageReference, DigitalUsage, PublishedUsageStatus, start),
+          createUsage(FrontUsageReference, DigitalUsage, PublishedUsageStatus, end),
+          createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, end.plusMillis(1))
+        )),
+        createImage("qc-date-print", Agency(supplier), usages = List(
+          createUsage(InDesignUsageReference, PrintUsage, PublishedUsageStatus, start),
+          createUsage(InDesignUsageReference, PrintUsage, PublishedUsageStatus, end),
+          createUsage(InDesignUsageReference, PrintUsage, PublishedUsageStatus, end.plusMillis(1))
+        )),
+        createImage("qc-date-excluded", Agency(supplier), usages = List(
+          createUsage(FrontUsageReference, DigitalUsage, PublishedUsageStatus, end.plusMillis(1))
+        ))
+      )
+      val query = Parser.run("usages@>added:2020-06-01 usages@<added:2020-06-30")
+
+      withQuotaImages(images) {
+        Await.result(ES.quotaCountBySupplier(supplier), fiveSeconds).count shouldBe 0
+        Await.result(ES.quotaCountBySupplier(supplier, query), fiveSeconds).count shouldBe 5
+      }
+    }
+
+    it("intersects multiple date bounds on the same usage") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val images = Seq(createImage("qc-date-intersection", Agency(supplier), usages = List(
+        createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, DateTime.parse("2020-06-05")),
+        createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, DateTime.parse("2020-06-15")),
+        createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, DateTime.parse("2020-06-25"))
+      )))
+      val query = Parser.run(
+        "usages@>added:2020-06-01 usages@>added:2020-06-10 usages@<added:2020-06-30 usages@<added:2020-06-20"
+      )
+
+      withQuotaImages(images) {
+        Await.result(ES.quotaCountBySupplier(supplier, query), fiveSeconds).count shouldBe 1
+      }
+    }
+
+    it("returns zero for contradictory date bounds even when separate usages satisfy each bound") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val images = Seq(createImage("qc-date-contradictory", Agency(supplier), usages = List(
+        createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, DateTime.parse("2020-06-05")),
+        createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, DateTime.parse("2020-06-25"))
+      )))
+      val query = Parser.run("usages@>added:2020-06-20 usages@<added:2020-06-10")
+
+      withQuotaImages(images) {
+        Await.result(ES.quotaCountBySupplier(supplier, query), fiveSeconds).count shouldBe 0
       }
     }
   }

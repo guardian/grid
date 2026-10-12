@@ -5,12 +5,12 @@ import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.searches.queries._
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{MatchPhraseQuery, MatchQuery, MultiMatchQuery, MultiMatchQueryBuilderType}
-import lib.querysyntax.{Match, Negation, Phrase, SingleField}
+import lib.querysyntax.{Match, Negation, Phrase, SingleField, Words}
 import com.gu.mediaservice.lib.config.GridConfigResources
 import com.sksamuel.elastic4s.handlers.searches.queries.QueryBuilderFn
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.term.{TermQuery, TermsQuery}
-import lib.MediaApiConfig
+import lib.{ImagePersistenceReasons, MediaApiConfig}
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import play.api.Configuration
@@ -271,6 +271,27 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
   }
 
   describe("is search filter") {
+    it("should expose every persisted reason through the persisted field") {
+      val reasons = ImagePersistenceReasons(
+        mediaApiConfig.maybePersistOnlyTheseCollections,
+        mediaApiConfig.persistenceIdentifiers
+      ).allReasons
+
+      reasons.foreach { reason =>
+        val query = queryBuilder.makeQuery(List(Match(SingleField("persisted"), Words(reason.reason)))).asInstanceOf[BoolQuery]
+        query.must shouldBe List(reason.query)
+      }
+    }
+
+    it("should query persisted reasons through the persisted field") {
+      val query = queryBuilder.makeQuery(List(Match(SingleField("persisted"), Phrase("exports")))).asInstanceOf[BoolQuery]
+
+      query.must shouldBe List(ImagePersistenceReasons(
+        mediaApiConfig.maybePersistOnlyTheseCollections,
+        mediaApiConfig.persistenceIdentifiers
+      ).allReasons.find(_.reason == "exports").get.query)
+    }
+
     it("should correctly construct an is owned photo query") {
       val query = queryBuilder.makeQuery(List(isOwnedPhotoCondition)).asInstanceOf[BoolQuery]
 

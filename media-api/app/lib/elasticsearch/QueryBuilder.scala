@@ -11,7 +11,7 @@ import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{MultiMatchQuery, MultiMatchQueryBuilderType}
 import lib.querysyntax._
-import lib.MediaApiConfig
+import lib.{ImagePersistenceReasons, MediaApiConfig}
 import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
 
@@ -65,6 +65,13 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
   private def makeQueryBit(condition: Match): Query = condition.field match {
     case AnyField => makeMultiQuery(condition.value, matchFields)
     case MultipleField(fields) => makeMultiQuery(condition.value, fields)
+    case SingleField("persisted") => condition.value match {
+      case Words(value) => makePersistedQuery(value)
+      case Phrase(value) => makePersistedQuery(value)
+      case _ =>
+        logger.info(s"Cannot perform PERSISTED query on ${condition.value}")
+        matchNoneQuery()
+    }
     case SingleField(field) => condition.value match {
       // Some fields are only ever indexed when true (see FieldAlias.matchViaExistence) - for these,
       // translate a literal true/false value query into an exists/not-exists query so both values
@@ -108,6 +115,15 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
       logger.info(s"Cannot perform SIMILAR query on ${condition.value} outside AI search mode")
       matchNoneQuery()
   }
+
+  private def makePersistedQuery(value: String): Query =
+    ImagePersistenceReasons(config.maybePersistOnlyTheseCollections, config.persistenceIdentifiers)
+      .allReasons.find(_.reason.equalsIgnoreCase(value)) match {
+      case Some(reason) => reason.query
+      case _ =>
+        logger.info(s"Cannot perform PERSISTED query on $value")
+        matchNoneQuery()
+    }
 
   def makeQuery(conditions: List[Condition]) = conditions match {
     case Nil => matchAllQuery()

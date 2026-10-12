@@ -3,6 +3,7 @@ import './controller.css';
 import './prompt/prompt';
 import './recent/recent-uploads';
 import '../services/scroll-position';
+import {armedDefaultNonFreeFilter, DEFAULT_NON_FREE_FILTER_KEY} from '../util/default-non-free-filter';
 
 const toNonFreeString = (val) => (val === true || val === 'true') ? 'true' : 'false';
 
@@ -58,11 +59,8 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', 'scrollPosition', 
     ctrl.onLogoClick = () => {
       mediaApi.getSession().then(session => {
         const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
-        const defaultNonFreeFilter = {
-          isDefault: true,
-          isNonFree: toNonFreeString(showPaid)
-        };
-        storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
+        const defaultNonFreeFilter = armedDefaultNonFreeFilter(toNonFreeString(showPaid));
+        storage.setJs(DEFAULT_NON_FREE_FILTER_KEY, defaultNonFreeFilter, true);
         window.dispatchEvent(new CustomEvent("logoClick", {
           detail: {showPaid: defaultNonFreeFilter.isNonFree === 'true'},
           bubbles: true

@@ -21,7 +21,7 @@ ThisBuild / packageOptions += FixedTimestamp(Package.keepTimestamps)
 ThisBuild / libraryDependencySchemes +=
   "org.scala-lang.modules" %% "scala-java8-compat" % VersionScheme.Always
 
-lazy val jacksonVersion = "2.21.6"
+lazy val jacksonVersion = "2.21.7"
 lazy val jacksonAnnotationsVersion = "2.21"
 lazy val jacksonOverrides = Seq(
   "com.fasterxml.jackson.core" % "jackson-core",
@@ -110,7 +110,7 @@ lazy val commonLib = project("common-lib").settings(
     "nl.gn0s1s" %% "elastic4s-core" % elastic4sVersion,
     "nl.gn0s1s" %% "elastic4s-client-esjava" % elastic4sVersion,
     "nl.gn0s1s" %% "elastic4s-domain" % elastic4sVersion,
-    "com.gu" %% "thrift-serializer" % "5.0.2",
+    "com.gu" %% "thrift-serializer" % "5.0.8",
     "org.scalaz" %% "scalaz-core" % "7.3.8",
     "org.im4java" % "im4java" % "1.4.0",
     "com.gu" % "kinesis-logback-appender" % "2.1.3",

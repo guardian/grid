@@ -58,7 +58,10 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
       "supplierId" -> id,
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
-    elasticSearch.quotaCountBySupplier(id, UsageStore.countPeriodInDays)
+    // use structuredQuery for date ranges
+    val structuredQuery = request.getQueryString("q").map(Parser.run).getOrElse(List.empty)
+
+    elasticSearch.quotaCountBySupplier(id, structuredQuery)
       .map((s: SupplierQuotaCount) => respond(s))
       .recover {
         case e => respondError(InternalServerError, "unknown-error", e.toString)

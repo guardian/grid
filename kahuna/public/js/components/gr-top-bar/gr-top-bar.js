@@ -32,8 +32,13 @@ topBar.directive('grTopBarActions', [function() {
     return {
         restrict: 'E',
         transclude: true,
+        scope: {
+            canTakedown: '<',
+            imageId: '<'
+        },
         // Always have user actions at the end of actions
         template: `<ng:transclude></ng:transclude>
-                   <ui-user-actions></ui-user-actions>`
+                   <ui-user-actions can-takedown="canTakedown"
+                                    image-id="imageId"></ui-user-actions>`
     };
 }]);

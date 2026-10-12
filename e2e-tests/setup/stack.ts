@@ -5,7 +5,7 @@
  *   3. the CloudFormation core/auth stacks + seeded buckets (provisioning),
  *   4. generated per-service config (reusing dev/script/generate-config),
  *   5. the pre-built `grid-e2e-ci` / `grid-e2e-dev` image running the Grid services,
- *   6. the local OIDC provider on the shared network and host port 9014.
+ * with the local OIDC provider booting alongside steps 2-5 on the shared network and host port 9014.
  *
  * Used by Playwright's global setup/teardown and by `dev.ts`, which runs the same
  * stack interactively outside the test runner.
@@ -59,6 +59,7 @@ import {
   seedKclLeaseTable,
 } from './provision.ts';
 import type { StackProps } from './provision.ts';
+import { seedCollections } from './seed-collections.ts';
 import { seedElasticsearch } from './seed-elasticsearch.ts';
 import type { GridEnvironment } from './state.ts';
 import type { ListrTaskFn } from 'listr2';
@@ -472,13 +473,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
   const startupTimeoutMs = Number(process.env.GRID_STARTUP_TIMEOUT_MS ?? 300_000);
   const context: BootContext = { containers: [] };
 
-  const tasks: ListrTask<BootContext>[] = [
-    {
-      title: 'Create network',
-      task: async (ctx) => {
-        ctx.network = await new Network().start();
-      },
-    },
+  const gridTasks: ListrTask<BootContext>[] = [
     {
       // These three share only the network, and Elasticsearch is by far the slowest to come
       // up, so provisioning LocalStack costs nothing beyond it.
@@ -570,6 +565,15 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
                     await seedElasticsearch(ELASTICSEARCH_URL, startupTimeoutMs, reportTo(seedTask));
                   },
                 },
+                {
+                  title: 'Seed collections',
+                  skip: () => !seed && 'seeding not requested',
+                  task: async (_, seedTask) => {
+                    const report = reportTo(seedTask);
+                    await waitForHealthy(SERVICE_PORTS.collections, 'management/healthcheck', startupTimeoutMs, report);
+                    await seedCollections(report);
+                  },
+                },
               ];
 
               return services.newListr(readiness, { concurrent: true });
@@ -577,32 +581,54 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
           },
         ]),
     },
-    {
-      title: 'Start OIDC provider',
-      task: (_, oidcTask) => {
-        let image: GenericContainer;
+  ];
 
-        return oidcTask.newListr(
+  const tasks: ListrTask<BootContext>[] = [
+    {
+      title: 'Create network',
+      task: async (ctx) => {
+        ctx.network = await new Network().start();
+      },
+    },
+    {
+      // Grid only contacts the OIDC provider at login, so neither waits on the other.
+      title: 'Start services',
+      task: (_, task) =>
+        task.newListr(
           [
             {
-              title: 'Build image',
-              task: async () => {
-                image = await GenericContainer.fromDockerfile(OIDC_CONTEXT).build(OIDC_IMAGE, {
-                  deleteOnExit: false,
-                });
+              title: 'OIDC provider',
+              task: (_, oidcTask) => {
+                let image: GenericContainer;
+
+                return oidcTask.newListr(
+                  [
+                    {
+                      title: 'Build image',
+                      task: async () => {
+                        image = await GenericContainer.fromDockerfile(OIDC_CONTEXT).build(OIDC_IMAGE, {
+                          deleteOnExit: false,
+                        });
+                      },
+                    },
+                    {
+                      title: 'Start container',
+                      task: async (ctx) => {
+                        ctx.containers.push(await oidcContainer(image, ctx.network!).start());
+                      },
+                    },
+                  ],
+                  { concurrent: false },
+                );
               },
             },
             {
-              title: 'Start container',
-              task: async (ctx) => {
-                const oidc = await oidcContainer(image, ctx.network!).start();
-                ctx.containers.push(oidc);
-              },
+              title: 'Grid',
+              task: (_, gridTask) => gridTask.newListr(gridTasks, { concurrent: false }),
             },
           ],
-          { concurrent: false },
-        );
-      },
+          { concurrent: true },
+        ),
     },
     {
       title: 'Start reverse proxy',
@@ -713,10 +739,17 @@ async function attachToStack(options: StartStackOptions): Promise<GridEnvironmen
   await runTasks(
     [
       {
-        title: 'Seed Elasticsearch',
+        title: 'Re-seed Elasticsearch',
         skip: () => !reseed && 'reseeding not requested',
         task: async (_, task) => {
           await seedElasticsearch(ELASTICSEARCH_URL, 60_000, reportTo(task));
+        },
+      },
+      {
+        title: 'Re-seed collections',
+        skip: () => !reseed && 'reseeding not requested',
+        task: async (_, task) => {
+          await seedCollections(reportTo(task));
         },
       },
     ],

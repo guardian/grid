@@ -9,6 +9,10 @@
       "userId": "grid-e2e-account@guardian.co.uk",
       "active": true,
       "isCasualNotOnShift": false
+    }, {
+      "userId": "grid-e2e-restricted-account@guardian.co.uk",
+      "active": true,
+      "isCasualNotOnShift": false
     }]
   },
   {

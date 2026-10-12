@@ -42,12 +42,12 @@ const DELETE_METHOD_OPTIONS: {
   label: string;
 }[] = [
   {
-    id: "hard-delete",
-    label: "Hard Delete"
-  },
-  {
     id: "soft-delete",
     label: "Soft Delete"
+  },
+  {
+    id: "hard-delete",
+    label: "Hard Delete"
   },
   {
     id: "deny-lease",
@@ -69,13 +69,7 @@ const getDeleteFromGridStatusText = (status: DeleteFromGridStatus) => {
   }
 };
 
-const getAvailableDeleteMethods = ({
-  status,
-  hasPublishedPrintUsages
-}: {
-  status: DeleteFromGridStatus | null;
-  hasPublishedPrintUsages: boolean;
-}) => {
+const getAvailableDeleteMethods = (status: DeleteFromGridStatus | null) => {
   if (status === "hard-deleted") {
     return [];
   }
@@ -84,16 +78,8 @@ const getAvailableDeleteMethods = ({
     return ["hard-delete"];
   }
 
-  if (status === "denied-lease" && !hasPublishedPrintUsages) {
+  if (status === "denied-lease") {
     return ["hard-delete", "soft-delete"];
-  }
-
-  if (status === "denied-lease" && hasPublishedPrintUsages) {
-    return [];
-  }
-
-  if (hasPublishedPrintUsages) {
-    return ["deny-lease"];
   }
 
   return ["hard-delete", "soft-delete", "deny-lease"];
@@ -113,7 +99,6 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
 
   const [crops, setCrops] = useState<Crop[] | null>(null);
   const [cropsLoading, setCropsLoading] = useState(false);
-
   const fetchCrops = async () => {
     if (!image) {
       return;
@@ -141,18 +126,8 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
 
   const isStepLocked = getStepStatus("delete-from-grid") === "locked";
 
-  // eslint-disable-next-line new-cap
-  const [deletableUsages, publishedPrintUsages] = List<Usage>(
-    usages ?? []
-  ).partition(
-    (usage) => usage.platform === "print" && usage.status === "published"
-  );
-  const hasPublishedPrintUsages = publishedPrintUsages.size > 0;
-
-  const availableDeleteMethods = getAvailableDeleteMethods({
-    status: deleteFromGridStatus,
-    hasPublishedPrintUsages
-  });
+  const availableDeleteMethods =
+    getAvailableDeleteMethods(deleteFromGridStatus);
   const deleteMethodOptions = DELETE_METHOD_OPTIONS.filter((option) =>
     availableDeleteMethods.includes(option.id)
   );
@@ -162,11 +137,21 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (hasPublishedPrintUsages) {
-      setDeleteMethod("deny-lease");
-    }
-  }, [hasPublishedPrintUsages]);
+  // eslint-disable-next-line new-cap
+  const allUsages = List<Usage>(usages ?? []);
+  const [restUsages, downloadsOrPublishedPrintUsages] = allUsages.partition(
+    (usage) =>
+      usage.status === "downloaded" ||
+      (usage.platform === "print" && usage.status === "published")
+  );
+  // Keep published print usage records for deny-lease
+  const deletableUsages =
+    deleteMethod === "deny-lease" ? restUsages : allUsages;
+  const usagesToKeep =
+    deleteMethod === "deny-lease"
+      ? downloadsOrPublishedPrintUsages
+      : // eslint-disable-next-line new-cap
+        List<Usage>([]);
 
   const handleContinue = () => {
     if (deleteMethod) {
@@ -175,19 +160,24 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
   };
 
   const deleteUsages = async () => {
-    if (!image) {
+    if (!image || deletableUsages.size === 0) {
       return;
     }
     try {
-      if (hasPublishedPrintUsages) {
-        // Only delete deletable usages and leave published print usages
-        // @TODO: Delete usages one by one
+      if (deletableUsages.size < allUsages.size) {
+        await image.perform("delete-usages-by-ids", {
+          body: {
+            data: {
+              usageIds: deletableUsages.toArray().map((usage) => usage.id)
+            }
+          }
+        });
       } else {
         await image.perform("delete-usages");
       }
     } catch (error) {
       throw new Error(
-        `Failed to delete usages: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to delete usages: ${error instanceof Error ? error.message : (error.body.errorMessage ?? String(error))}`
       );
     }
   };
@@ -201,7 +191,7 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
       await cropsResource.perform("delete-crops");
     } catch (error) {
       throw new Error(
-        `Failed to delete crops: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to delete crops: ${error instanceof Error ? error.message : (error.body.errorMessage ?? String(error))}`
       );
     }
   };
@@ -261,16 +251,14 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
     try {
       if (crops && crops.length > 0) {
         await deleteCrops();
+        await fetchCrops();
       }
       if (usages && usages.length > 0) {
         await deleteUsages();
       }
       await performDeleteImage();
-      // Only refetch once the delete method itself has succeeded - if it
-      // fails, leave crops/usages state as-is so a retry doesn't skip
-      // re-attempting deleteCrops/deleteUsages for anything that wasn't
-      // actually removed.
-      await Promise.all([fetchCrops(), fetchUsages()]);
+      // Only refetch usages after performDeleteImage succeeds, so delete options don't re-render.
+      await fetchUsages();
     } catch (error) {
       setSubmitError(
         `Failed to perform ${deleteMethod} on image. Reason: ${error instanceof Error ? error.message : String(error)}`
@@ -278,6 +266,7 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
     } finally {
       setIsConfirming(false);
       setIsSubmitting(false);
+      setDeleteMethod(null);
     }
   };
 
@@ -318,7 +307,7 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
 
             <CropsAndUsages
               crops={crops || []}
-              publishedPrintUsages={publishedPrintUsages.toArray()}
+              usagesToKeep={usagesToKeep.toArray()}
               deletableUsages={deletableUsages.toArray()}
               deleteFromGridStatus={deleteFromGridStatus}
             />
@@ -342,6 +331,7 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
                   onChange={(key) => {
                     setDeleteMethod(key as DeleteMethod);
                     setIsConfirming(false);
+                    setSubmitError(null);
                   }}
                   theme={standThemeOverride.select}
                   formInputContainerTheme={
@@ -403,16 +393,16 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
                         Cancel
                       </Button>
                     </div>
-                    {submitError && (
-                      <Typography
-                        element="span"
-                        variant="bodySm"
-                        theme={standThemeOverride.typography.error}
-                      >
-                        {submitError}
-                      </Typography>
-                    )}
                   </>
+                )}
+                {submitError && (
+                  <Typography
+                    element="span"
+                    variant="bodySm"
+                    theme={standThemeOverride.typography.error}
+                  >
+                    {submitError}
+                  </Typography>
                 )}
               </div>
             )}
