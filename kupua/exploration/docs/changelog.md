@@ -24,6 +24,11 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 12 October 2026 - Align Kupua Node pin with repository security update
+
+Pin Kupua to Node 22.23.2 to match the repository's updated runtime. Keep the package
+engine range unchanged; this version also satisfies the locked jsdom 29.1.1 engine range.
+
 ### 8 October 2026 - Retire unused field-display and sort-label wrappers
 
 Remove getFieldDisplayValue, getSortContextLabel and its exclusive formatSortDate
