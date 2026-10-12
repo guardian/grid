@@ -25,6 +25,10 @@
                 <span ng-if="ctrl.isAiSearch">
                     <span ng-if="!ctrl.filtersOnlyAiSearch">Best {{ctrl.aiResultsShown | toLocaleString}} of {{ctrl.totalResults | toLocaleString}} matches</span>
                     <span ng-if="ctrl.filtersOnlyAiSearch">{{ctrl.filterPoolCounts.filteredPool | toLocaleString}} matches</span>
+                                        <span ng-if="ctrl.maxSemanticSimilarity !== undefined && ctrl.maxSemanticSimilarity !== null"
+                                                    data-cy="max-semantic-similarity">
+                                                &middot; Max semantic similarity: {{ctrl.maxSemanticSimilarity | number:3}}
+                                        </span>
                 </span>
                 <span ng-if="! ctrl.isAiSearch">{{ctrl.totalResults | toLocaleString}} matches</span>
                 <button ng-if="ctrl.newImagesCount > 0"

@@ -258,6 +258,7 @@ results.controller('SearchResultsCtrl', [
           ctrl.totalResults = images.total;
           // FIXME: https://github.com/argo-rest/theseus has forced us to co-opt the actions field for this
           ctrl.tickerCounts = images.$response?.$$state?.value?.actions?.tickerCounts;
+          ctrl.maxSemanticSimilarity = images.$response?.$$state?.value?.actions?.maxSemanticSimilarity;
 
           // Present only when an AI search has no text/similar-image query to
           // rank by. When set, we show how the filters have narrowed
