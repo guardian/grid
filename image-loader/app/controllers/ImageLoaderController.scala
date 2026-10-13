@@ -163,7 +163,7 @@ class ImageLoaderController(auth: Authentication,
         val approximateReceiveCount = getApproximateReceiveCount(sqsMessage)
 
         if(config.maybeUploadLimitInBytes.exists(_ < s3IngestObject.contentLength)){
-          val errorMessage = s"File size exceeds the maximum allowed size (${config.maybeUploadLimitInBytes.get / 1_000_000}MB). Moving to fail bucket."
+          val errorMessage = s"File size exceeds the maximum allowed size (${config.maybeUploadLimitInBytes.get / 1_000_000}MB). Moving to fail bucket. (${s3IngestObject.key})"
           logger.warn(logMarker, errorMessage)
           store.moveObjectToFailedBucket(s3IngestObject.key)
           s3IngestObject.maybeMediaIdFromUiUpload foreach { imageId =>
@@ -176,7 +176,7 @@ class ImageLoaderController(auth: Authentication,
         }
         else if (approximateReceiveCount > 2) {
           metrics.abandonedMessagesFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
-          val errorMessage = s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket."
+          val errorMessage = s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket. (${s3IngestObject.key})"
           logger.warn(logMarker, errorMessage)
           store.moveObjectToFailedBucket(s3IngestObject.key)
           s3IngestObject.maybeMediaIdFromUiUpload foreach { imageId =>
@@ -193,11 +193,11 @@ class ImageLoaderController(auth: Authentication,
           } recover {
             case _: UnsupportedMimeTypeException =>
               metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
-              logger.info(logMarker, s"Unsupported mime type. Moving straight to fail bucket.")
+              logger.info(logMarker, s"Unsupported mime type. Moving straight to fail bucket. (${s3IngestObject.key})")
               store.moveObjectToFailedBucket(s3IngestObject.key)
             case t: Throwable =>
               metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
-              logger.error(logMarker, s"Failed to process file. Moving to fail bucket.", t)
+              logger.error(logMarker, s"Failed to process file. Moving to fail bucket. (${s3IngestObject.key})", t)
               store.moveObjectToFailedBucket(s3IngestObject.key)
           }
         }
