@@ -33,4 +33,27 @@ object ExifTool {
     overwriteOriginal(ops)
     Future((new ExiftoolCmd).run(ops))
   }
+
+  /**
+   * Strip all embedded metadata from `file` in-place, keeping only the copyright/credit fields:
+   * Copyright, Creator, By-line, CopyrightNotice and Rights.
+   *
+   * Uses ExifTool's lossless metadata rewrite - the compressed pixel data is never decoded or
+   * re-encoded. The file is modified in-place via ExifTool's `-overwrite_original` flag.
+   */
+  def stripMetadataKeepingCopyright(file: File): Future[Unit] = {
+    val op = new ETOperation()
+    // Wipe all writable metadata, then copy the retained tags back from the original values;
+    // `@` means "this same file", which works because ExifTool reads before it writes.
+    op.addRawArgs("-all=")
+    op.addRawArgs("-TagsFromFile", "@")
+    op.addRawArgs("-Copyright")
+    op.addRawArgs("-Creator")
+    op.addRawArgs("-By-line")
+    op.addRawArgs("-CopyrightNotice")
+    op.addRawArgs("-Rights")
+    op.overwrite_original()
+    op.addImage(file.getAbsolutePath)
+    Future((new ExiftoolCmd).run(op))
+  }
 }
