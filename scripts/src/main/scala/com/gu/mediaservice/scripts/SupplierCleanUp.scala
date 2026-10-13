@@ -9,7 +9,7 @@ import java.net.http.HttpResponse.BodyHandlers
 import java.net.http.{HttpClient, HttpRequest}
 import scala.io.Source
 
-object AlamyCleanUp extends App {
+object SupplierCleanUp extends App {
   val GRIDKEY = sys.env.getOrElse("GRIDKEY", throw new RuntimeException("Must set a GRIDKEY env variable"))
   val STAGE = sys.env.getOrElse("STAGE", throw new RuntimeException("Must set a STAGE env variable"))
   val GRIDDOMAIN = if(STAGE == "PROD") "gutools.co.uk" else "test.dev-gutools.co.uk"
@@ -32,6 +32,8 @@ object AlamyCleanUp extends App {
     leaseBody
   }
 
+  val suppliersInTest = List("13300266")
+
   val supplierRefs = if (STAGE == "PROD") {
     val csvPath = args.headOption.getOrElse {
       throw new IllegalArgumentException("To run the script pass in a path to a csv file as an argument")
@@ -48,14 +50,12 @@ object AlamyCleanUp extends App {
       source.close()
     }
   } else {
-    List("13300266")
+    suppliersInTest
   }
-
   if (supplierRefs.isEmpty) {
     println("No supplier refs found in supplied csv, exiting script")
     sys.exit(1)
   }
-
   val mediaIds = {
     supplierRefs.zipWithIndex.flatMap({case (ref, index) =>
       println(s"Fetching grid ids, checking supplierRef ${index + 1} of ${supplierRefs.size}")

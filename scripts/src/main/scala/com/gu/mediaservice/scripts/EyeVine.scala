@@ -1,7 +1,7 @@
 package com.gu.mediaservice.scripts
 
 import com.gu.mediaservice.model.usage.Usage
-import com.gu.mediaservice.scripts.AlamyCleanUp.{mediaIds, outcomes}
+import com.gu.mediaservice.scripts.SupplierCleanUp.mediaIds
 import play.api.libs.json.{JsValue, Json}
 
 import java.net.URI
