@@ -1,5 +1,6 @@
 package com.gu.mediaservice.scripts
 
+import com.gu.mediaservice.model.leases.MediaLease
 import play.api.libs.json.{JsValue, Json}
 
 import java.net.URI
@@ -14,6 +15,22 @@ object AlamyCleanUp extends App {
   val GRIDDOMAIN = if(STAGE == "PROD") "gutools.co.uk" else "test.dev-gutools.co.uk"
 
   println(s"Running for stage $STAGE with domain $GRIDDOMAIN")
+
+  def denyLeaseBody(mediaId: String) = {
+    val mediaLease = MediaLease(
+      id = None,
+      leasedBy = None,
+      startDate = None,
+      endDate = None,
+      access = com.gu.mediaservice.model.leases.DenyUseLease,
+      notes = Some("No longer available from the supplier"),
+      mediaId = mediaId
+    )
+
+    val js = Json.toJson[MediaLease](mediaLease)
+    val leaseBody = BodyPublishers.ofString(s"""${js.toString()}""")
+    leaseBody
+  }
 
   val supplierRefs = if (STAGE == "PROD") {
     val csvPath = args.headOption.getOrElse {
@@ -31,7 +48,7 @@ object AlamyCleanUp extends App {
       source.close()
     }
   } else {
-    List("2BW0WK7", "AA63AP", "F208HC", "D9CNPG")
+    List("13300266")
   }
 
   if (supplierRefs.isEmpty) {
@@ -39,7 +56,7 @@ object AlamyCleanUp extends App {
     sys.exit(1)
   }
 
-  val ids = {
+  val mediaIds = {
     supplierRefs.zipWithIndex.flatMap({case (ref, index) =>
       println(s"Fetching grid ids, checking supplierRef ${index + 1} of ${supplierRefs.size}")
       val client = HttpClient.newHttpClient()
@@ -52,63 +69,64 @@ object AlamyCleanUp extends App {
     })
   }
 
-  if (ids.isEmpty) {
+  if (mediaIds.isEmpty) {
     println("No Grid ids found, exiting script")
     sys.exit(1)
   }
 
-  println(s"Found ${ids.size} ids, now running deletion")
+  println(s"Found ${mediaIds.size} ids, now running deletion")
 
   val usagesBody = BodyPublishers.ofString("""{"data":{"restrictions":"No longer available from the supplier","category":"chargeable"}}""")
-  val labelBody = BodyPublishers.ofString("""{"data":["a2g"]}""")
 
-  val outcomes = ids.zipWithIndex.map({case (id, index) =>
-    println(s"Running for id $id, ${index + 1} of ${ids.size}")
+
+  val outcomes = mediaIds.zipWithIndex.map({case (mediaId, index) =>
+    println(s"Running for id $mediaId, ${index + 1} of ${mediaIds.size}")
     // Make an api request to try to delete the image, either successful or
     val client = HttpClient.newHttpClient()
     // attempt a hard delete
-    val request = HttpRequest.newBuilder(new URI(s"https://api.media.$GRIDDOMAIN/images/$id")).headers("X-Gu-Media-Key", GRIDKEY).DELETE().build()
+    val request = HttpRequest.newBuilder(new URI(s"https://api.media.$GRIDDOMAIN/images/$mediaId")).headers("X-Gu-Media-Key", GRIDKEY).DELETE().build()
     val response = client.send(request, BodyHandlers.ofString())
     // check status response, if not 202
     // modify the usage rights
     val success: Boolean = response.statusCode() match {
       case 202 => {
-        println(s"Successfully deleted $id")
+        println(s"Successfully deleted $mediaId")
         true
       }
       case 405 => {
-        println(s"Unable to delete $id, setting usages and labels instead")
-        val request = HttpRequest.newBuilder(new URI(s"https://media-metadata.$GRIDDOMAIN/metadata/$id/usage-rights"))
+        println(s"Unable to delete $mediaId, setting usages and labels instead")
+        val request = HttpRequest.newBuilder(new URI(s"https://media-metadata.$GRIDDOMAIN/metadata/$mediaId/usage-rights"))
           .headers("X-Gu-Media-Key", GRIDKEY, "Content-Type", "application/json").PUT(usagesBody).build()
         val response = client.send(request, BodyHandlers.ofString())
         if(response.statusCode() == 200) {
-          println(s"Successfully set usage rights for $id")
-          val request = HttpRequest.newBuilder(new URI(s"https://media-metadata.$GRIDDOMAIN/metadata/$id/labels"))
-            .headers("X-Gu-Media-Key", GRIDKEY, "Content-Type", "application/json").POST(labelBody).build()
+          println(s"Successfully set usage rights for $mediaId")
+          val request = HttpRequest.newBuilder(new URI(s"https://media-leases.$GRIDDOMAIN/leases"))
+            .headers("X-Gu-Media-Key", GRIDKEY, "Content-Type", "application/json").POST(denyLeaseBody(mediaId)).build()
           val response = client.send(request, BodyHandlers.ofString())
-          if(response.statusCode() == 200) {
-            println(s"Successfully set a label for $id")
+          if(response.statusCode() == 202) {
+            println(s"Successfully set a deny-lease for $mediaId")
             true
           }
           else {
-            println(s"Unable to set label for $id, received response ${response.statusCode()}")
+            println(s"Unable to set deny-lease for $mediaId, received response ${response.statusCode()}")
+            println(s"Response body: ${response.body()}")
             false
           }
         } else {
-          println(s"Unable to set usage rights for $id, received response ${response.statusCode()}")
+          println(s"Unable to set usage rights for $mediaId, received response ${response.statusCode()}")
           false
         }
       }
       case _ => {
-        println(s"Got unexpected response ${response.statusCode()} calling delete for ${id}")
+        println(s"Got unexpected response ${response.statusCode()} calling delete for ${mediaId}")
         false
       }
     }
-    (success, id)
+    (success, mediaId)
   })
 
   val (success, fail) = outcomes.partition({case (b, _) => b})
-  println(s"Successfully processed ${success.size} of  ${ids.size}")
+  println(s"Successfully processed ${success.size} of  ${mediaIds.size}")
   if(fail.nonEmpty) {
     println(s"Unable to process ${fail.size} ids: \n${fail.map(_._2).mkString("\n")}")
   }
