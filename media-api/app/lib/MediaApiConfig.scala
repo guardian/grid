@@ -81,7 +81,7 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val restrictDownload: Boolean = boolean("restrictDownload")
   // When true, embedded metadata (EXIF/IPTC/XMP) is stripped from downloaded original images via ExifTool,
   // keeping only the copyright/credit fields. When false (the default), images are streamed unmodified.
-  val stripDownloadMetadata: Boolean = boolean("images.strip.metadata.enabled")
+  val stripDownloadMetadata: Boolean = boolean("images.downloads.stripMetadata.enabled")
   val takedownEnabled: Boolean = booleanOpt("image.takedown.enabled").getOrElse(false)
 
   val queueUrl: String = stringOpt("sqs.embedder.queue.url").getOrElse("")
