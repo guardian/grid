@@ -46,7 +46,9 @@ object AlamyCleanUp extends App {
       val request = HttpRequest.newBuilder(new URI(s"https://api.media.$GRIDDOMAIN/images?q=suppliersReference%3A$ref")).headers("X-Gu-Media-Key", GRIDKEY).build()
       val response = client.send(request, BodyHandlers.ofString())
       val json = Json.parse(response.body())
-      (json \ "data").as[Seq[JsValue]].map(imageMetadata => (imageMetadata \ "data" \ "id").as[String])
+      val gridIds = (json \ "data").as[Seq[JsValue]].map(imageMetadata => (imageMetadata \ "data" \ "id").as[String])
+      println("Found " + gridIds.size + " ids for supplierRef " + ref)
+      gridIds
     })
   }
 
@@ -57,8 +59,9 @@ object AlamyCleanUp extends App {
 
   println(s"Found ${ids.size} ids, now running deletion")
 
-  val usagesBody = BodyPublishers.ofString("""{"data":{"restrictions":"No longer available from Alamy","category":"chargeable"}}""")
+  val usagesBody = BodyPublishers.ofString("""{"data":{"restrictions":"No longer available from the supplier","category":"chargeable"}}""")
   val labelBody = BodyPublishers.ofString("""{"data":["a2g"]}""")
+
   val outcomes = ids.zipWithIndex.map({case (id, index) =>
     println(s"Running for id $id, ${index + 1} of ${ids.size}")
     // Make an api request to try to delete the image, either successful or
