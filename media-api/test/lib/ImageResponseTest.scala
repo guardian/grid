@@ -1,56 +1,70 @@
 package lib
 
-import com.gu.mediaservice.lib.config.GridConfigResources
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.{PendingUsageStatus, PrintUsage, Usage}
 import lib.elasticsearch.{Fixtures, SourceWrapper}
 import org.joda.time.DateTime.now
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
-import play.api.Configuration
-import play.api.inject.ApplicationLifecycle
 import play.api.libs.json._
-
-import scala.concurrent.Future
 
 class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
 
-  val mediaApiConfig = new MediaApiConfig(GridConfigResources(
-    Configuration.from(USED_CONFIGS_IN_TEST ++ Map(
-      "field.aliases" -> List(
-        Map(
-          "elasticsearchPath" -> "fileMetadata.xmp.org:ProgrammeMaker",
-          "alias" -> "orgProgrammeMaker",
-          "label" -> "Organization Programme Maker",
-          "displaySearchHint" -> false
-        ),
-        Map(
-          "elasticsearchPath" -> "fileMetadata.xmp.aux:Lens",
-          "alias" -> "auxLens",
-          "label" -> "Aux Lens",
-          "displaySearchHint" -> false
-        ),
-        Map(
-          "elasticsearchPath" -> "fileMetadata.iptc.Caption Writer/Editor",
-          "alias" -> "captionWriter",
-          "label" -> "Caption Writer / Editor",
-          "displaySearchHint" -> true
-        ),
-        Map(
-          "elasticsearchPath" -> "fileMetadata.c2pa.isAvailable",
-          "alias" -> "c2paMetadataAvailable",
-          "label" -> "C2PA Metadata Available",
-          "displaySearchHint" -> true,
-          "matchViaExistence" -> true
-        )
+  val mediaApiConfig: MediaApiConfig = buildMediaApiConfig(Map(
+    "field.aliases" -> List(
+      Map(
+        "elasticsearchPath" -> "fileMetadata.xmp.org:ProgrammeMaker",
+        "alias" -> "orgProgrammeMaker",
+        "label" -> "Organization Programme Maker",
+        "displaySearchHint" -> false
+      ),
+      Map(
+        "elasticsearchPath" -> "fileMetadata.xmp.aux:Lens",
+        "alias" -> "auxLens",
+        "label" -> "Aux Lens",
+        "displaySearchHint" -> false
+      ),
+      Map(
+        "elasticsearchPath" -> "fileMetadata.iptc.Caption Writer/Editor",
+        "alias" -> "captionWriter",
+        "label" -> "Caption Writer / Editor",
+        "displaySearchHint" -> true
+      ),
+      Map(
+        "elasticsearchPath" -> "fileMetadata.c2pa.isAvailable",
+        "alias" -> "c2paMetadataAvailable",
+        "label" -> "C2PA Metadata Available",
+        "displaySearchHint" -> true,
+        "matchViaExistence" -> true
       )
-    ) ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap),
-    null,
-    new ApplicationLifecycle {
-      override def addStopHook(hook: () => Future[_]): Unit = {}
-      override def stop(): Future[_] = Future.successful(())
-    }
+    )
   ))
+
+  it("should map a legacy category onto its composite replacement when that replacement is in config.applicableUsageRights") {
+    PayToUse.allCategories.list.toList should contain(Chargeable.category)
+
+    val imageResponse = new ImageResponse(
+      mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PayToUse")),
+      null, null
+    )
+    val source = Json.obj("usageRights" -> Json.obj("category" -> Chargeable.category))
+    val result = source.transform(imageResponse.updateUsageRights(source)).get
+
+    (result \ "usageRights" \ "category").as[String] shouldBe PayToUse.category
+    (result \ "usageRights" \ "legacyCategory").as[String] shouldBe Chargeable.category
+  }
+
+  it("should leave a legacy category untouched when its composite replacement is not in config.applicableUsageRights") {
+    val imageResponse = new ImageResponse(
+      mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.Chargeable")),
+      null, null
+    )
+    val source = Json.obj("usageRights" -> Json.obj("category" -> Chargeable.category))
+    val result = source.transform(imageResponse.updateUsageRights(source)).get
+
+    (result \ "usageRights" \ "category").as[String] shouldBe Chargeable.category
+    (result \ "usageRights" \ "legacyCategory").toOption shouldBe None
+  }
 
   it("should replace \\r linebreaks with \\n") {
     val text = "Here is some text\rthat spans across\rmultiple lines\r"

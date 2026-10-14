@@ -117,6 +117,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
       .flatMap(_.transform(addFromIndex(imageWrapper.fromIndex)))
       .flatMap(_.transform(updateCustomSpecialInstructions(source)))
       .flatMap(_.transform(updateCustomUsageRestrictions(source)))
+      .flatMap(_.transform(updateUsageRights(source)))
       .get
 
     val links: List[Link] = tier match {
@@ -286,6 +287,23 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
         case _ => __.json.update(__.read[JsObject])
       }
   }
+
+  private val legacyCategoryReplacements: Map[String, UsageRightsSpec] =
+    config.applicableUsageRights.collect {
+      case spec: ReplacementUsageRightsSpec => spec
+    }.flatMap(spec => spec.legacyCategories.map(_ -> spec)).toMap
+
+  private[lib] def updateUsageRights(source: JsValue): Reads[JsObject] = {
+    (source \ "usageRights" \ "category") match {
+      case JsDefined(c) if legacyCategoryReplacements.contains(c.as[String]) =>
+        val replacement = legacyCategoryReplacements(c.as[String])
+        (__ \ "usageRights").json.update(__.read[JsObject]
+          .map(_ ++ Json.obj("category" -> replacement.category, "legacyCategory" -> c.as[String])
+          ))
+      case _ => __.json.update(__.read[JsObject])
+    }
+  }
+
 
   private def updateCustomUsageRestrictions(source: JsValue): Reads[JsObject] = {
     (source \ "usageRights" \ "category") match {
