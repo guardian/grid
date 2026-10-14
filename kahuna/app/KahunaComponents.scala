@@ -33,8 +33,7 @@ object KahunaSecurityConfig {
       config.services.usageBaseUri,
       config.services.collectionsBaseUri,
       config.services.leasesBaseUri,
-      config.services.authBaseUri,
-      config.services.guardianWitnessBaseUri
+      config.services.authBaseUri
     )
 
     val frameSources = s"frame-src ${config.services.authBaseUri} ${config.services.kahunaBaseUri} https://accounts.google.com https://www.youtube.com ${config.scriptsToLoad.map(_.host).mkString(" ")}"
