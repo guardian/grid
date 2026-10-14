@@ -52,7 +52,6 @@ export default defineConfig({
     },
   ],
   expect: {
-    /* Parallel workers share one Grid stack, so assertions awaiting a reindex can be slow. */
     timeout: 30_000,
   },
 });
