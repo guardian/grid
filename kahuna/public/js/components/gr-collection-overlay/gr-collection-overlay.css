@@ -37,7 +37,8 @@
     padding: 5px 10px;
     border-bottom: 1px solid #565656;
     position: fixed;
-    width: 365px;
+    width: 400px;
+    box-sizing: border-box;
     background: #444;
     z-index: 10;
     display: flex;
