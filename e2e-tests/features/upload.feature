@@ -1,7 +1,7 @@
 # Uploads mutate the single shared e2e user's upload history, so scenarios must not race.
 Feature: Uploading images to the Grid
   This lets an authorised user get images into the Grid by selecting files,
-  dragging and dropping files or URLs, importing Witness contributions, and
+  dragging and dropping files or URLs, and
   then completing the required metadata while tracking each upload's progress.
 
   Background:
@@ -151,24 +151,6 @@ Feature: Uploading images to the Grid
     And I should be taken to the upload progress view
   # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 64-66, 219-220
   # Evidence: kahuna/public/js/upload/manager.js lines 86-96
-
-  # can remove this functionality in another PR
-  @todo
-  Scenario: Dropping a Witness contribution imports it
-    When I drop a Witness contribution URL onto the page
-    Then the importing overlay should be shown
-    And the Witness image should be imported with its metadata and usage rights
-    And I should be taken to the imported image's page
-  # Evidence: kahuna/public/js/upload/dnd-uploader.html lines 8-12
-  # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 40-62, 69-78, 206-217
-
-  # can remove this functionality in another PR
-  @todo
-  Scenario: A failed Witness import is reported
-    Given I drop a Witness contribution URL onto the page
-    When the Witness import fails
-    Then I should see an alert that importing the Witness contribution failed
-  # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 79-85
 
   # Confirmed unreachable: `drop` only calls `performDropAction` when `isGridFriendly`, which
   # needs a Files or uri-list type, and the alert is the last branch after those are ruled
