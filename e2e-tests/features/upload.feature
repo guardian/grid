@@ -21,8 +21,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/view.html lines 11-12, 19-27, 31
   # Evidence: kahuna/public/js/upload/controller.js lines 40-45
 
-  # Needs a stack booted with enforceUploadImagesPermission=true.
-  @todo
   Scenario: An unauthorised user is told they cannot upload
     Given I am not permitted to upload images
     When the upload page loads

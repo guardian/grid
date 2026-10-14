@@ -20,6 +20,7 @@ export const OIDC_IMAGE = 'grid-e2e-oidc-provider';
 export const TEST_ACCOUNTS = {
   fullAccess: `grid-e2e-account@${EMAIL_DOMAIN}`,
   restricted: `grid-e2e-restricted-account@${EMAIL_DOMAIN}`,
+  noUpload: `grid-e2e-no-upload-account@${EMAIL_DOMAIN}`,
 } as const;
 export type TestAccount = (typeof TEST_ACCOUNTS)[keyof typeof TEST_ACCOUNTS];
 
