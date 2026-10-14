@@ -35,9 +35,9 @@ if [[ " $SERVICES " == *" kahuna "* ]]; then
   echo "Starting Kahuna webpack watcher..."
   (
     cd "$REPO/kahuna"
-    # node_modules may be shadowed by the host bind-mount; install if absent.
-    if [[ ! -d node_modules ]]; then
-      npm install
+    # node_modules comes from the host bind-mount and may be missing or older than the lockfile.
+    if [[ ! -f node_modules/.package-lock.json || package-lock.json -nt node_modules/.package-lock.json ]]; then
+      npm ci
     fi
     npm run watch
   ) &
