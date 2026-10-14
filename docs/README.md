@@ -31,8 +31,8 @@
 - [How to run a migration](05-migration/02-how-to.md)
 
 ## [Objects of interest](06-objects-of-interest/)
+- [TIFF files](06-objects-of-interest/01-tiffs.md)
 - [Config](06-objects-of-interest/02-config.md)
-- [TIFF files](06-objects-of-interest/06.01-tiffs.md)
 
 ## [Extending](07-extending/)
 - [Extending the Grid using providers](07-extending/01-provider-interfaces.md)
@@ -40,6 +40,7 @@
 - [Authentication and authorisation providers](07-extending/03-authentication.md)
 - [Usage rights provider](07-extending/04-usage-rights.md)
 - [Extending image metadata](07-extending/05-domain-metadata.md)
+- [Kahuna UI tree and state tree (Angular → React migration reference)](07-extending/06-kahuna-ui-and-state-trees.md)
 
 ## [Archives](99-archives/)
 - [DEV Cloudformation Setup](99-archives/01-cloudformation.md)
