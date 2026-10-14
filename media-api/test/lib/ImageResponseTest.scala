@@ -1,20 +1,24 @@
 package lib
 
-import com.gu.mediaservice.lib.config.{CommonConfigFixtures, GridConfigResources}
+import com.gu.mediaservice.lib.auth.ReadOnly
+import com.gu.mediaservice.lib.aws.S3
+import com.gu.mediaservice.lib.config.GridConfigResources
+import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.{PendingUsageStatus, PrintUsage, Usage}
 import lib.elasticsearch.{Fixtures, SourceWrapper}
 import org.joda.time.DateTime.now
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.mockito.MockitoSugar.mock
 import play.api.Configuration
 import play.api.inject.ApplicationLifecycle
 import play.api.libs.json._
 
 import scala.concurrent.Future
 
-class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures with CommonConfigFixtures{
-  val ELASTIC_SEARCH_CONFIG = Map(
+class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
+  private val commonConfigurations = USED_CONFIGS_IN_TEST ++ Map(
     "field.aliases" -> List(
       Map(
         "elasticsearchPath" -> "fileMetadata.xmp.org:ProgrammeMaker",
@@ -40,17 +44,12 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures with Comm
         "label" -> "C2PA Metadata Available",
         "displaySearchHint" -> true,
         "matchViaExistence" -> true
-      )
-    )
-  )
-  val mediaApiConfig = new MediaApiConfig(GridConfigResources(
-    Configuration.from(commonConfigurations ++ MEDIA_API_EXTRA_CONFIG_IN_TEST ++ ELASTIC_SEARCH_CONFIG),
-    null,
-    new ApplicationLifecycle {
-      override def addStopHook(hook: () => Future[_]): Unit = {}
-      override def stop(): Future[_] = Future.successful(())
-    }
-  ))
+      ))) ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap
+
+  val mediaApiConfig = createMediaApiConfig(commonConfigurations)
+
+  val imageResponse = new ImageResponse(mediaApiConfig, mock[S3], mock[UsageQuota])
+  implicit val logMarker: LogMarker = mock[LogMarker]
 
   it("should replace \\r linebreaks with \\n") {
     val text = "Here is some text\rthat spans across\rmultiple lines\r"
@@ -171,5 +170,136 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures with Comm
     val extractedFields = ImageResponse.extractAliasFieldValues(mediaApiConfig, sourceWrapper)
 
     extractedFields.contains("c2paMetadataAvailable" -> JsBoolean(false)) shouldEqual true
+  }
+
+  describe("create") {
+    it("should not apply the updateRightsAndRestrictions transformation when showUsageRightsV2 is set to false" ) {
+      val image = createImage(
+        id = "test-image",
+        agency
+      )
+      val json = Json.toJson(image)
+      val sourceWrapper = SourceWrapper[Image](json, image, fromIndex="test_index")
+
+      val (data, _, _) = imageResponse.create("id",
+        sourceWrapper,
+        withWritePermission = false,
+        withDeleteImagePermission = false,
+        withDeleteCropsOrUsagePermission = false,
+        included = Nil,
+        tier = ReadOnly)
+
+      (data \ "usageRights" \ "category").as[String] shouldBe "agency"
+     }
+    it("should  apply the updateRightsAndRestrictions transformation when showUsageRightsV2 is set to true") {
+      val image = createImage(
+        id = "test-image",
+        agency
+      )
+      val json = Json.toJson(image)
+      val sourceWrapper = SourceWrapper[Image](json, image, fromIndex="test_index")
+      val mediaApiConfig = createMediaApiConfig(commonConfigurations, Map("usageRights" -> Map("showV2" -> true, "applicableV2" -> List())))
+
+      val imageResponse = new ImageResponse(mediaApiConfig, mock[S3], mock[UsageQuota])
+
+      val (data, _, _) = imageResponse.create("id",
+        sourceWrapper,
+        withWritePermission = false,
+        withDeleteImagePermission = false,
+        withDeleteCropsOrUsagePermission = false,
+        included = Nil,
+        tier = ReadOnly)
+
+      (data \ "usageRights" \ "category").as[String] shouldBe "pr-and-third-party"
+    }
+  }
+
+  describe("updateRightsAndRestrictions") {
+    describe("Mapping legacy categories to pr-and-third-party as defined in PRAndThirdParty") {
+      it("maps category to pr-and-third-party and retains original as legacyCategory") {
+        val inputJson = Json.obj(
+          "usageRights" -> Json.obj("category" -> "handout")
+        )
+        val result = inputJson.transform(imageResponse.updateRightsAndRestrictions(inputJson))
+
+        result shouldBe a[JsSuccess[_]]
+        result.get shouldBe Json.obj(
+          "usageRights" -> Json.obj(
+            "category" -> "pr-and-third-party",
+            "legacyCategory" -> "handout"
+          )
+        )
+      }
+
+      it("preserves additional existing fields intact") {
+        val inputJson = Json.obj(
+          "usageRights" -> Json.obj(
+            "category" -> "creative-commons",
+            "licence" -> "CC BY-4.0",
+            "creator" -> "creator",
+            "restrictions" -> "restrictions"
+          )
+        )
+        val result = inputJson.transform(imageResponse.updateRightsAndRestrictions(inputJson))
+
+        result.get shouldBe Json.obj(
+          "usageRights" -> Json.obj(
+            "category" -> "pr-and-third-party",
+            "legacyCategory" -> "creative-commons",
+            "licence" -> "CC BY-4.0",
+            "creator" -> "creator",
+            "restrictions" -> "restrictions"
+          )
+        )
+      }
+
+      it("maps single supplier field to source") {
+        val inputJson = Json.obj(
+          "usageRights" -> Json.obj(
+            "category" -> "agency",
+            "supplier" -> "Action Images"
+          )
+        )
+        val result = inputJson.transform(imageResponse.updateRightsAndRestrictions(inputJson))
+
+        result.get shouldBe Json.obj(
+          "usageRights" -> Json.obj(
+            "category" -> "pr-and-third-party",
+            "legacyCategory" -> "agency",
+            "supplier" -> "Action Images",
+            "source" -> "Action Images"
+          )
+        )
+      }
+
+      it("maps plural suppliers field to source") {
+        val inputJson = Json.obj(
+          "usageRights" -> Json.obj(
+            "category" -> "composite",
+            "suppliers" -> "supplier1 and supplier2"
+          )
+        )
+        val result = inputJson.transform(imageResponse.updateRightsAndRestrictions(inputJson))
+
+        result.get shouldBe Json.obj(
+          "usageRights" -> Json.obj(
+            "category" -> "pr-and-third-party",
+            "legacyCategory" -> "composite",
+            "suppliers" -> "supplier1 and supplier2",
+            "source" -> "supplier1 and supplier2"
+          )
+        )
+      }
+      it("does not map a category that is not in the legacyCategories list") {
+        val inputJson = Json.obj("usageRights" -> Json.obj("category" -> "chargeable"))
+        val result = inputJson.transform(imageResponse.updateRightsAndRestrictions(inputJson))
+        result.get shouldBe inputJson
+      }
+      it("leaves usageRights untouched when category field is missing") {
+        val inputJson = Json.obj("usageRights" -> Json.obj("restrictions" -> "restrictions"))
+        val result = inputJson.transform(imageResponse.updateRightsAndRestrictions(inputJson))
+        result.get shouldBe inputJson
+      }
+    }
   }
 }

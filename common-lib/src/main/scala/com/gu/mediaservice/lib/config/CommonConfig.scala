@@ -218,8 +218,6 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
     configuration.get[UsageRightsConfigProvider]("usageRightsConfigProvider")
   }
 
-  val showUsageRightsV2 = configuration.get[Option[Boolean]]("usageRights.showV2").getOrElse(false)
-
   /**
    * Load in a list of applicable usage right objects that implement [[com.gu.mediaservice.model.UsageRightsSpec]] from config. For example:
    * {{{
@@ -232,7 +230,8 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
    * Depending on the type it will be loaded differently using reflection. Companion objects will be looked up
    * and the singleton instance added to the list.
    */
-  val applicableUsageRights: Seq[UsageRightsSpec] = configuration.get[Seq[UsageRightsSpec]]("usageRights.applicable")
+  val showUsageRightsV2 = configuration.get[Option[Boolean]]("usageRights.showV2").getOrElse(false)
+  val applicableUsageRights: Seq[UsageRightsSpec] = if(showUsageRightsV2) configuration.get[Seq[UsageRightsSpec]]("usageRights.applicableV2")  else configuration.get[Seq[UsageRightsSpec]]("usageRights.applicable")
   val stdUserExcludedUsageRights = getStringSet("usageRights.stdUserExcluded")
 
   val agencyPicksIngredients: Option[Map[String, Seq[String]]] =

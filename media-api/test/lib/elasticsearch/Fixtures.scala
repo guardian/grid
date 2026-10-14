@@ -1,12 +1,18 @@
 package lib.elasticsearch
 
+import com.gu.mediaservice.lib.config.GridConfigResources
+
 import java.net.URI
 import java.util.UUID
-
 import com.gu.mediaservice.model.leases.{AllowSyndicationLease, DenySyndicationLease, LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage.{UsageStatus => Status, _}
 import com.gu.mediaservice.model.{StaffPhotographer, _}
+import lib.MediaApiConfig
 import org.joda.time.DateTime
+import play.api.Configuration
+import play.api.inject.ApplicationLifecycle
+
+import scala.concurrent.Future
 
 trait Fixtures {
 
@@ -23,6 +29,34 @@ trait Fixtures {
     "capi.preview.role" -> "not used in test",
     "capi.preview.url" -> "not used in test",
     "composer.domain" -> "not used in test"
+  )
+  val USED_CONFIGS_IN_TEST = Map(
+    "es6.shards" -> 0,
+    "es6.replicas" -> 0,
+    "field.aliases" -> Seq.empty,
+    "usageRights" -> Map(
+      "applicable" -> List(),
+      "showV2" -> false
+    ),
+    "usageRightsConfigProvider" -> "com.gu.mediaservice.lib.config.RuntimeUsageRightsConfig",
+    "domain.root" -> "domain"
+  )
+  val NOT_USED_IN_TEST = "not used in test"
+  val MOCK_CONFIG_KEYS = Seq(
+    "auth.keystore.bucket",
+    "persistence.identifier",
+    "thrall.kinesis.stream.name",
+    "thrall.kinesis.lowPriorityStream.name",
+    "s3.config.bucket",
+    "s3.usagemail.bucket",
+    "quota.store.key",
+    "es.index.aliases.current",
+    "es.index.aliases.migration",
+    "es6.url",
+    "s3.image.bucket",
+    "s3.thumb.bucket",
+    "grid.stage",
+    "grid.appName"
   )
 
   def deletionData(deletedBy: String): SoftDeletedMetadata = SoftDeletedMetadata(
@@ -147,6 +181,20 @@ trait Fixtures {
       None,
       lastModified = date
     )
+  }
+
+  def createMediaApiConfig(commonConfigurations: Map[String, Any], overrides: Map[String, Any] = Map[String, Any]()): MediaApiConfig = {
+    val config = Configuration.from(overrides)
+      .withFallback(Configuration.from(commonConfigurations))
+
+    new MediaApiConfig(GridConfigResources(
+      config,
+      null,
+      new ApplicationLifecycle {
+        override def addStopHook(hook: () => Future[_]): Unit = {}
+        override def stop(): Future[_] = Future.successful(())
+      }
+    ))
   }
 
 }
