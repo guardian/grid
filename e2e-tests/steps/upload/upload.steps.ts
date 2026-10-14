@@ -3,7 +3,16 @@ import type { Page } from '@playwright/test';
 import { Given, KAHUNA_APP_URL, Then, When, expect } from '../setup.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { expectUploadPermission } from './media-api.assertions.ts';
-import { filesToUpload, grouping, holdIngest, testImages, uniqueImage, uploadPage } from './setup.ts';
+import {
+  BATCH_SIZE,
+  batchJobs,
+  filesToUpload,
+  grouping,
+  holdIngest,
+  testImages,
+  uniqueBatch,
+  uploadPage,
+} from './setup.ts';
 
 /**
  * Upload page shell
@@ -148,21 +157,14 @@ When(
 
 When('I upload more than one image', async ({ page }) => {
   // Embedded descriptions skip the filename-description save, which races the preset labels.
-  await uploadPage(page).fileInput.setInputFiles([
-    uniqueImage(testImages.withMetadata).path,
-    uniqueImage(testImages.withMetadata).path,
-  ]);
-  await expect(uploadPage(page).imageEditorJob).toHaveCount(2);
+  await uploadPage(page).fileInput.setInputFiles(uniqueBatch(testImages.withMetadata));
+  await expect(uploadPage(page).imageEditorJob).toHaveCount(BATCH_SIZE);
 });
 
 Then('that label should be applied to all my uploads', async ({ page, testContext }) => {
-  const jobs = uploadPage(page).imageEditorJob;
-  const count = await jobs.count();
-  for (let i = 0; i < count; i++) {
+  for (const job of await batchJobs(page)) {
     for (const label of testContext.presetLabels!) {
-      await expect(
-        grouping(jobs.nth(i)).getByRole('link', { name: label, exact: true }),
-      ).toBeVisible();
+      await expect(grouping(job).getByRole('link', { name: label, exact: true })).toBeVisible();
     }
   }
 });
