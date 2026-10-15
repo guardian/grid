@@ -44,6 +44,12 @@ export async function openUploadPage(page: Page, account: TestAccount): Promise<
   await page.waitForURL('**/upload');
 }
 
+/** Clearing cookies drops both the Panda and OIDC sessions, so we sign in afresh. */
+export async function switchAccount(page: Page, account: TestAccount): Promise<void> {
+  await page.context().clearCookies();
+  await openUploadPage(page, account);
+}
+
 Given('I have opened the image upload page', async ({ page, testContext }) => {
   // An unhandled dialog blocks the page, so record every one and answer it. Dismissing a
   // confirm answers "no", which keeps us on the page under test.

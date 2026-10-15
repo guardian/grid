@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { randomBytes } from 'node:crypto';
 import * as path from 'node:path';
 import type { Locator, Page } from '@playwright/test';
+import { expect } from '@playwright/test';
 import { KAHUNA_PORT } from '../../setup/constants.ts';
 import type { TestImage } from '../setup.ts';
 
@@ -35,6 +36,9 @@ export const testImages = {
 /** The set that both the file picker and drag-and-drop scenarios upload. */
 export const filesToUpload = [testImages.smaller, testImages.larger];
 
+/** How many images the multi-upload scenarios upload at once. */
+export const BATCH_SIZE = 2;
+
 /**
  * An image to import by URL. image-loader fetches the URL itself, so it has to be reachable
  * from inside the stack: Kahuna serves this one unauthenticated, and every service shares a
@@ -53,6 +57,10 @@ export const uniqueImage = (base: TestImage = testImages.smaller): TestImage => 
   writeFileSync(filePath, Buffer.concat([readFileSync(base.path), randomBytes(16)]));
   return { fileName: path.basename(filePath), path: filePath, bytes: statSync(filePath).size };
 };
+
+/** Paths of `BATCH_SIZE` unique copies of `base`. */
+export const uniqueBatch = (base?: TestImage): string[] =>
+  Array.from({ length: BATCH_SIZE }, () => uniqueImage(base).path);
 
 /** Hold the transfer to the ingest bucket open so a job stays in progress while we assert. */
 export const holdIngest = (page: Page, ms = 5_000) =>
@@ -76,8 +84,7 @@ export const failIngest = (page: Page) =>
   );
 
 /**
- * Make the image delete fail. theseus resolves the request promise even on a 4xx/5xx, so a
- * fulfilled error status is treated as success; aborting the DELETE surfaces a real rejection
+ * Make the image delete fail. Aborting the DELETE surfaces a real rejection
  * that reaches the `image-delete-failure` handler.
  */
 export const failDelete = (page: Page) =>
@@ -89,9 +96,35 @@ export const failDelete = (page: Page) =>
     },
   );
 
+/** Hold the past-uploads search until the returned function is called. */
+export const holdPastUploads = async (page: Page) => {
+  let release!: () => void;
+  const released = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(
+    (url) => url.pathname === '/images' && url.searchParams.has('uploadedBy'),
+    async (route) => {
+      await released;
+      await route.continue();
+    },
+  );
+  return release;
+};
+
 /** The collections/labels/keywords/photoshoot section of an image-editor. */
 export const grouping = (job: Locator) =>
   job.getByRole('region', { name: 'Organisation and grouping' });
+
+/** Fields of the required-metadata editor within `scope`. */
+export const metadataFields = (scope: Locator) => ({
+  description: scope.getByRole('textbox', { name: 'Description', exact: true }),
+  byline: scope.getByRole('textbox', { name: 'Byline', exact: true }),
+  credit: scope.getByRole('textbox', { name: 'Credit', exact: true }),
+  copyright: scope.getByRole('textbox', { name: 'Copyright', exact: true }),
+  imageType: scope.getByRole('combobox', { name: 'Image type', exact: true }),
+  specialInstructions: scope.getByRole('textbox', { name: 'Special instructions', exact: true }),
+});
 
 export const uploadPage = (page: Page) => {
   const prompt = page.getByRole('region', { name: 'File upload' });
@@ -124,30 +157,19 @@ export const uploadPage = (page: Page) => {
     leaveLink: (label: string) => page.getByRole('link').filter({ hasText: label }),
     /** A queued or in-flight upload, before it becomes an editable image. */
     job: (fileName: string) => page.getByRole('region', { name: `${fileName} upload` }),
-    /** A finished upload that has become an editable image, scoped to current uploads. */
-    editableJob: metadataEditor,
-    /** The required-metadata editor form (aria-label "Image metadata") on a current upload. */
+    /** The required-metadata editor form on a finished upload, once it has become an editable image. */
     metadataEditor,
     /** A finished upload's whole image-editor (rights, metadata, grouping), one per current upload. */
     imageEditorJob: currentUploads
       .getByRole('listitem')
       .filter({ has: page.getByRole('region', { name: 'Image metadata' }) }),
-    /** Fields inside the required-metadata editor, located by their user-facing labels. */
-    metadataField: {
-      description: metadataEditor.getByLabel('Description', { exact: true }),
-      byline: metadataEditor.getByLabel('Byline', { exact: true }),
-      credit: metadataEditor.getByLabel('Credit', { exact: true }),
-      copyright: metadataEditor.getByLabel('Copyright', { exact: true }),
-      imageType: metadataEditor.getByLabel('Image type'),
-      specialInstructions: metadataEditor.getByLabel('Special Instructions'),
-    },
-    /* The read-only usage-instructions block is asserted by its visible text in the steps. */
+    /** Fields inside the required-metadata editor. */
+    metadataField: metadataFields(metadataEditor),
     /* Credit suggestions rendered by gr-datalist as options in a listbox. */
     creditSuggestions: metadataEditor.getByRole('option'),
     /* Metadata template controls live in the ui-image-editor wrapper, a sibling of the
        "Image metadata" form but still within the current-uploads region. */
-    metadataTemplateSelect: currentUploads.locator('[data-cy="it-metadatatemplate-select"]'),
-    applyMetadataTemplateButton: currentUploads.locator('[data-cy="apply-metadata-template"]'),
+    metadataTemplateSelect: currentUploads.getByRole('combobox', { name: 'Metadata template' }),
     /** The delete control on a current upload (labelled "Delete image" for both states). */
     deleteJobButton: currentUploads.getByRole('button', { name: 'Delete image' }),
     /* The per-item undelete control, an <a role="button">. The batch action bar renders a
@@ -157,3 +179,10 @@ export const uploadPage = (page: Page) => {
       .and(currentUploads.locator('a')),
   };
 };
+
+/** Each current upload's image-editor, once the whole batch has rendered. */
+export async function batchJobs(page: Page): Promise<Locator[]> {
+  const jobs = uploadPage(page).imageEditorJob;
+  await expect(jobs).toHaveCount(BATCH_SIZE);
+  return jobs.all();
+}

@@ -20,7 +20,7 @@ trait ReapableEligibility extends Provider{
   private def moreThanTwentyDaysOld =
     filters.date("uploadTime", None, Some(DateTime.now().minusDays(20))).getOrElse(matchAllQuery())
 
-  private lazy val persistedQueries = filters.or(
+  protected lazy val persistedQueries: Query = filters.or(
     PersistedQueries.hasCrops,
     PersistedQueries.usedInContent,
     PersistedQueries.addedToLibrary,
