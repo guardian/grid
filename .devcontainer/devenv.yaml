@@ -36,9 +36,10 @@ forwardPorts:
 #   - "source=${localEnv:HOME}/.gu/example,target=/home/vscode/.gu/example,readonly,type=bind,consistency=cached"
 
 # Optional: IDE plugins - shared project plugins like language support
-# plugins:
-#   vscode: []
-#   intellij: []
+plugins:
+  vscode:
+    - CucumberOpen.cucumber-official
+  intellij: []
 
 postCreateCommand:
   - cmd: "docker build --target dev -f e2e-tests/images/Dockerfile -t grid-e2e-dev ."
