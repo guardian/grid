@@ -293,6 +293,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
       case spec: ReplacementUsageRightsSpec => spec
     }.flatMap(spec => spec.legacyCategories.map(_ -> spec)).toMap
 
+  println(legacyCategoryReplacements)
+
   private[lib] def updateUsageRights(source: JsValue): Reads[JsObject] = {
     (source \ "usageRights" \ "category") match {
       case JsDefined(c) if legacyCategoryReplacements.contains(c.as[String]) =>
