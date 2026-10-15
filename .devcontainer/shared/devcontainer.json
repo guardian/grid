@@ -1,12 +1,20 @@
 {
-  "name" : "grid",
   "customizations" : {
     "vscode" : {
+      "settings" : {
+        "cucumber.features" : [
+          "e2e-tests/features/**/*.feature"
+        ],
+        "cucumber.glue" : [
+          "e2e-tests/steps/**/*.ts"
+        ]
+      },
       "extensions" : [
         "hverlin.mise-vscode",
         "scala-lang.scala",
         "scalameta.metals",
-        "GitHub.copilot"
+        "GitHub.copilot",
+        "CucumberOpen.cucumber-official"
       ]
     },
     "jetbrains" : {
@@ -17,6 +25,7 @@
       ]
     }
   },
+  "name" : "grid",
   "forwardPorts" : [
     9001,
     9002,

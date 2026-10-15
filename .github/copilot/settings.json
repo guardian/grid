@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "guardian-agent-skills": {
+      "source": {
+        "source": "github",
+        "repo": "guardian/agent-skills"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "feature-files@guardian-agent-skills": true
+  }
+}
