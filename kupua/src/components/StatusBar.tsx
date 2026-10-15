@@ -5,7 +5,7 @@
  *   - Left-panel toggle button (left edge)
  *   - Total result count
  *   - New images ticker (polls ES every 10s; click to refresh)
- *   - Right-panel toggle button + Density toggle (right edge)
+ *   - Right-panel toggle button + independent density controls (right edge)
  *
  * Styled to match Grid's `results-toolbar`:
  *   - 28px height, dark background, border bottom
@@ -16,6 +16,7 @@ import { useSearchStore } from "@/stores/search-store";
 import { usePanelStore } from "@/stores/panel-store";
 import { useSelectionStore } from "@/stores/selection-store";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
+import { JUSTIFIED_AVAILABLE } from "@/lib/resident-preview";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
@@ -99,7 +100,7 @@ export function StatusBar() {
   const newCountSince = storeSince ?? (useSavedArrivals ? cached.frozenUntil : null);
   const reSearch = useSearchStore((s) => s.search);
   const updateSearch = useUpdateSearchParams();
-  const isGrid = useUiPrefsStore((state) => state.density === "grid");
+  const density = useUiPrefsStore((state) => state.density);
   const setDensity = useUiPrefsStore((state) => state.setDensity);
   const currentQuery = searchParams.query ?? "";
 
@@ -109,10 +110,12 @@ export function StatusBar() {
   const filtersExpanded = usePanelStore((s) => s.isSectionOpen("left-filters"));
   const fetchAggregations = useSearchStore((s) => s.fetchAggregations);
 
-  const toggleDensity = useCallback(() => {
-    beginTraceInteraction("density-swap", { from: isGrid ? "grid" : "table" });
-    setDensity(isGrid ? "table" : "grid");
-  }, [isGrid, setDensity]);
+  const selectDensity = (choice: "grid" | "table" | "justified") => {
+    const next = choice === density ? "grid" : choice;
+    if (next === density) return;
+    beginTraceInteraction("density-swap", { from: density });
+    setDensity(next);
+  };
 
   // Prefetch aggregations on hover — intentionally invisible ("magic") UX.
   // Only fires if panel is closed AND the Filters section is expanded in
@@ -155,11 +158,13 @@ export function StatusBar() {
 
       <div className="w-px bg-grid-separator shrink-0" />
 
+      {/* Only the summary scrolls horizontally; layout/panel controls stay reachable. */}
+      <div className="min-w-0 flex-1 flex items-center overflow-x-auto hide-scrollbar" data-testid="result-summary">
       {/* Result count — seeded from sessionStorage across reload.
            Show when settled (storeReady) even if 0; show cached during loading
            only if > 0 (avoids blank-then-number flash on first load). */}
       {(storeReady || displayTotal > 0) && (
-        <span role="status" aria-live="polite" aria-atomic="true" className="px-2 flex items-center whitespace-nowrap select-text">
+        <span role="status" aria-live="polite" aria-atomic="true" className="px-2 flex items-center whitespace-nowrap select-text shrink-0">
           {displayPool !== null && "Best "}
           {displayTotal.toLocaleString()}
           {displayPool !== null && ` of ${displayPool.toLocaleString()}`}
@@ -228,16 +233,15 @@ export function StatusBar() {
 
       </div>
 
-      {/* Spacer */}
-      <span className="flex-1" />
+      </div>
 
       {/* Selection count + clear -- desktop (fine pointer) only.
            On coarse pointer (mobile) the SelectionFab handles this. */}
       {selectedCount > 0 && !isCoarsePointer && (
         <>
           <div className="w-px bg-grid-separator shrink-0" />
-          <span role="status" aria-live="polite" aria-atomic="true" className="flex items-center px-2 text-grid-accent text-sm whitespace-nowrap shrink-0">
-            {selectedCount.toLocaleString()} selected
+          <span role="status" aria-label={`${selectedCount.toLocaleString()} selected`} aria-live="polite" aria-atomic="true" className="flex items-center px-2 text-grid-accent text-sm whitespace-nowrap shrink-0">
+            {selectedCount.toLocaleString()}<span className="hidden @[600px]:inline">&nbsp;selected</span>
           </span>
           <div className="w-px bg-grid-separator shrink-0" />
           <button
@@ -251,44 +255,41 @@ export function StatusBar() {
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
             </svg>
-            <span>Clear selection</span>
+            <span className="hidden @[600px]:inline">Clear selection</span>
           </button>
         </>
       )}
 
       <div className="w-px bg-grid-separator shrink-0" />
 
-      {/* Density toggle */}
-      <button
-        onClick={toggleDensity}
-        className="shrink-0 flex items-center gap-1 px-2 hover:bg-grid-hover transition-colors cursor-pointer"
-        title={isGrid ? "Switch to table view" : "Switch to grid view"}
-        aria-label={isGrid ? "Switch to table view" : "Switch to grid view"}
-      >
-        {/* Table icon */}
-        <svg
-          className={`w-3.5 h-3.5 ${!isGrid ? "text-grid-accent" : "text-grid-text-muted"}`}
-          viewBox="0 0 16 16"
-          fill="currentColor"
-          aria-hidden="true"
-        >
-          <rect x="1" y="1" width="14" height="3" rx="0.5" />
-          <rect x="1" y="6" width="14" height="3" rx="0.5" />
-          <rect x="1" y="11" width="14" height="3" rx="0.5" />
-        </svg>
-        {/* Grid icon */}
-        <svg
-          className={`w-3.5 h-3.5 ${isGrid ? "text-grid-accent" : "text-grid-text-muted"}`}
-          viewBox="0 0 16 16"
-          fill="currentColor"
-          aria-hidden="true"
-        >
-          <rect x="1" y="1" width="6" height="6" rx="0.5" />
-          <rect x="9" y="1" width="6" height="6" rx="0.5" />
-          <rect x="1" y="9" width="6" height="6" rx="0.5" />
-          <rect x="9" y="9" width="6" height="6" rx="0.5" />
-        </svg>
-      </button>
+      <div role="group" aria-label="Image layout" className="flex shrink-0">
+        {(["table", "grid", "justified"] as const).filter(mode => mode !== "justified" || JUSTIFIED_AVAILABLE).map((mode) => {
+          const label = `${mode[0].toUpperCase()}${mode.slice(1)} view`;
+          return <button
+            key={mode}
+            type="button"
+            onClick={() => selectDensity(mode)}
+            className={`w-8 shrink-0 flex items-center justify-center hover:bg-grid-hover transition-colors cursor-pointer ${density === mode ? "text-grid-accent" : "text-grid-text-muted"}`}
+            title={density === mode && mode !== "grid" ? `${label} — click again for grid` : label}
+            aria-label={label}
+            aria-pressed={density === mode}
+          >
+            {/* Match the 14px painted bounds; Material's viewBox includes more padding. */}
+            <svg className={mode === "justified" ? "w-[18.6667px] h-[18.6667px]" : "w-4 h-4"} viewBox={mode === "justified" ? "0 -960 960 960" : "0 0 16 16"} fill="currentColor" aria-hidden="true">
+              {mode === "table" ? <>
+                <rect x="1" y="1" width="14" height="3" rx="0.5" />
+                <rect x="1" y="6.5" width="14" height="3" rx="0.5" />
+                <rect x="1" y="12" width="14" height="3" rx="0.5" />
+              </> : mode === "grid" ? <>
+                <rect x="1" y="1" width="6" height="6" rx="0.5" />
+                <rect x="9" y="1" width="6" height="6" rx="0.5" />
+                <rect x="1" y="9" width="6" height="6" rx="0.5" />
+                <rect x="9" y="9" width="6" height="6" rx="0.5" />
+              </> : <path d="M520-600v-240h320v240H520ZM120-440v-400h320v400H120Zm400 320v-400h320v400H520Zm-400 0v-240h320v240H120Z" />}
+            </svg>
+          </button>;
+        })}
+      </div>
 
       <div className="w-px bg-grid-separator shrink-0" />
 

@@ -59,6 +59,8 @@ import { buildHistorySnapshot } from "@/lib/build-history-snapshot";
 import { StatusBar } from "@/components/StatusBar";
 import { resetToHome } from "@/lib/reset-to-home";
 import { useReturnFromDetail } from "./useReturnFromDetail";
+import { registerScrollGeometry, getScrollGeometry, getLayoutGeometry, type FixedRowGeometry } from "@/lib/scroll-geometry-ref";
+import { scrollFocusedIntoView } from "@/lib/orchestration/search";
 
 let routeParams: UrlSearchParams = { nonFree: "true" };
 let routeLocation: { search: UrlSearchParams; state: unknown } | undefined;
@@ -68,10 +70,11 @@ const initialPreferences = useUiPrefsStore.getState();
 const initialSelection = useSelectionStore.getState();
 const frames = new Map<number, FrameRequestCallback>();
 let nextFrame = 0;
-const table: ScrollGeometry = { columns: 1, rowHeight: 32, headerOffset: 36, preserveScrollLeftOnSort: true };
-const grid: ScrollGeometry = { columns: 4, rowHeight: 303, headerOffset: 0, preserveScrollLeftOnSort: false, minCellWidth: 280 };
+const table: ScrollGeometry & FixedRowGeometry = { columns: 1, rowHeight: 32, headerOffset: 36, preserveScrollLeftOnSort: true };
+const grid: ScrollGeometry & FixedRowGeometry = { columns: 4, rowHeight: 303, headerOffset: 0, preserveScrollLeftOnSort: false, minCellWidth: 280 };
 
 beforeEach(() => {
+  registerScrollGeometry(grid);
   vi.useFakeTimers();
   routeParams = { nonFree: "true" };
   routeLocation = undefined;
@@ -100,6 +103,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  registerScrollGeometry(grid);
   clearDensityFocusRatio();
   frames.clear();
   document.body.replaceChildren();
@@ -289,6 +293,40 @@ describe("KUP-039 startup defaults", () => {
   });
 });
 
+interface FixtureRow {
+  index: number;
+  top: number;
+  height: number;
+  firstItemIndex: number;
+  lastItemIndex: number;
+}
+
+function irregularGeometry(heightAdjustment = 0): ScrollGeometry {
+  const rows: FixtureRow[] = [];
+  const items: FixtureRow[] = [];
+  let top = 0;
+  for (let index = 0; items.length < 200; index++) {
+    const count = [2, 5, 1, 4][index % 4];
+    const height = [120, 240, 180, 300][index % 4] + heightAdjustment;
+    const row = { index, top, height, firstItemIndex: items.length, lastItemIndex: items.length + count - 1 };
+    rows.push(row);
+    items.push(...Array.from({ length: count }, () => row));
+    top += height;
+  }
+  const requireRow = (row: FixtureRow | undefined) => {
+    if (!row) throw new Error("Fixture geometry is unavailable");
+    return row;
+  };
+  return { headerOffset: 0, preserveScrollLeftOnSort: false, layout: {
+    getRow: (index: number) => requireRow(rows[index]),
+    getItemRow: (index: number) => requireRow(items[index]),
+  } };
+}
+
+function fixtureLayout(geometry: ScrollGeometry) {
+  return "layout" in geometry ? geometry.layout : undefined;
+}
+
 function mountDensity(initialGeometry: ScrollGeometry, strict = false, reportViewport = false, syncUrl = false,
   chooseDensityAnchor?: Parameters<typeof useScrollEffects>[0]["chooseDensityAnchor"]) {
   const dimensions = { width: 1120, height: 600 };
@@ -301,14 +339,23 @@ function mountDensity(initialGeometry: ScrollGeometry, strict = false, reportVie
     scrollHeight: { get: () => {
       const state = useSearchStore.getState();
       const count = isTwoTierFromTotal(state.total) ? state.total : state.results.length;
+      if ("layout" in geometry) {
+        const last = count > 0 ? geometry.layout.getItemRow(count - 1) : undefined;
+        return (last ? last.top + last.height : 0) + geometry.headerOffset;
+      }
       return Math.ceil(count / geometry.columns) * geometry.rowHeight + geometry.headerOffset;
     } },
   });
   const parentRef = { current: container };
   const scrollToIndex = vi.fn((index: number, options?: { align?: string }) => {
-    container.scrollTop = options?.align === "end"
-      ? container.scrollHeight - container.clientHeight
-      : Math.max(0, index * geometry.rowHeight + geometry.headerOffset - container.clientHeight / 2);
+    if (options?.align === "end") {
+      container.scrollTop = container.scrollHeight - container.clientHeight;
+    } else if ("layout" in geometry) {
+      const row = geometry.layout.getRow(index);
+      container.scrollTop = Math.max(0, row.top + (options?.align === "center" ? row.height / 2 - container.clientHeight / 2 : 0));
+    } else {
+      container.scrollTop = Math.max(0, index * geometry.rowHeight + geometry.headerOffset - container.clientHeight / 2);
+    }
   });
   const virtualizer = { options: { count: 0 }, range: { startIndex: 0, endIndex: 1 },
     scrollToIndex, scrollToOffset: vi.fn((offset: number) => { container.scrollTop = offset; }), measure: vi.fn(), getVirtualItems: () => [] } as unknown as Virtualizer<HTMLDivElement, Element>;
@@ -323,16 +370,19 @@ function mountDensity(initialGeometry: ScrollGeometry, strict = false, reportVie
     const dataWindow = useDataWindow();
     geometry = props.geometry;
     const twoTier = isTwoTierFromTotal(state.total);
-    virtualizer.options.count = Math.ceil((twoTier ? state.total : state.results.length) / geometry.columns);
+    const count = twoTier ? state.total : state.results.length;
+    virtualizer.options.count = "layout" in geometry
+      ? count > 0 ? geometry.layout.getItemRow(count - 1).index + 1 : 0
+      : Math.ceil(count / geometry.columns);
     useScrollEffects({ virtualizer, parentRef, geometry, reportVisibleRange: reportViewport ? dataWindow.reportVisibleRange : reportVisibleRange, loadMore,
       resultsLength: state.results.length, total: state.total, bufferOffset: state.bufferOffset,
       focusedImageId: state.focusedImageId, findImageIndex, twoTier, chooseDensityAnchor });
   }, { initialProps: { geometry }, wrapper: syncUrl ? UrlSyncHarness : strict ? StrictMode : undefined });
-  return { ...view, container, dimensions, scrollToIndex, virtualizer,
+  return { ...view, container, dimensions, scrollToIndex, virtualizer, reportVisibleRange,
     changeGeometry: (next: ScrollGeometry) => view.rerender({ geometry: next }) };
 }
 
-function transition(sourceGeometry = grid, targetGeometry = table, extremum?: "top" | "bottom") {
+function transition(sourceGeometry: ScrollGeometry & FixedRowGeometry = grid, targetGeometry = table, extremum?: "top" | "bottom") {
   const source = mountDensity(sourceGeometry);
   frame();
   frame();
@@ -2140,6 +2190,23 @@ describe("KUP-017 saved density geometry and input lifetime", () => {
     expect(target.container.scrollTop).toBe(6112);
   });
 
+  it("P1 preserves interior placement through non-uniform rows without a second lifecycle", () => {
+    const results = Array.from({ length: 100 }, (_, index) => ({ id: `image-${index}` }) as Image);
+    useSearchStore.setState({ results, total: 100, bufferOffset: 0, focusedImageId: "image-26",
+      imagePositions: new Map(results.map((image, index) => [image.id, index])) });
+    const reads = vi.spyOn(useSearchStore.getState().dataSource, "searchAfter");
+    const source = mountDensity(grid);
+    frame(); frame();
+    source.container.scrollTop = 1618; // index 26: grid row top 1818, viewport Y 200
+    source.unmount();
+    const target = mountDensity(irregularGeometry(), true);
+    frame(); frame();
+    // Two complete 12-image groups (1680px), then the 120px row: item 26 starts at 1800px.
+    expect(target.container.scrollTop).toBe(1600);
+    expect(useSearchStore.getState().focusedImageId).toBe("image-26");
+    expect(reads).not.toHaveBeenCalled();
+  });
+
   it("acknowledges an empty mount without inventing or reviving a target", () => {
     useSearchStore.setState({ results: [], total: 0, focusedImageId: null, imagePositions: new Map() });
     const target = mountDensity(table, true);
@@ -2389,6 +2456,349 @@ describe("KUP-017 saved density geometry and input lifetime", () => {
       expect(target.container.scrollTop).toBe(expected);
     });
   }
+});
+
+function windowFixture(heightAdjustment = 0, origin = 200): ScrollGeometry {
+  const geo = irregularGeometry(heightAdjustment);
+  if (!("layout" in geo)) throw new Error("Expected variable fixture");
+  return { ...geo, window: { width: 1120,
+    getItemId: index => `image-${origin + index}`,
+    findItemIndex: id => Number(id.slice(6)) - origin,
+    rowAtOffset: offset => {
+      for (let index = 0; index < 60; index++) {
+        const row = geo.layout.getRow(index);
+        if (row.top + row.height > offset) return row;
+      }
+      return undefined;
+    },
+    prepareSeek: () => { throw new Error("Unused fixture operation"); },
+  } };
+}
+
+describe("P3 window geometry publication", () => {
+  it("retains the elected identity when its old row splits after publication", () => {
+    const results = Array.from({ length: 100 }, (_, index) => ({ id: `image-${index + 200}` }) as Image);
+    useSearchStore.setState({ results, total: 70000, focusedImageId: null,
+      imagePositions: new Map(results.map((image, index) => [image.id, index + 200])) });
+    const old = windowFixture();
+    if (!("layout" in old)) throw new Error("Expected variable fixture");
+    const view = mountDensity(old);
+    frame(); frame();
+    view.container.scrollTop = 2320;
+    anchor.viewportId = "image-237";
+    const row = old.layout.getItemRow(37);
+    expect(row.firstItemIndex).toBe(36);
+    const next = { ...old, layout: { ...old.layout,
+      getItemRow: (index: number) => {
+        const previous = old.layout.getItemRow(index);
+        return { ...previous, top: previous.top + (index === 37 ? 400 : 200) };
+      },
+    } };
+    view.changeGeometry(next);
+    expect(view.container.scrollTop).toBe(2720);
+  });
+
+  it("retains an admitted interior image when delayed geometry above it changes", async () => {
+    const results = Array.from({ length: 100 }, (_, index) => ({ id: `image-${index + 200}` }) as Image);
+    useSearchStore.setState({ results, total: 70000, focusedImageId: null,
+      imagePositions: new Map(results.map((image, index) => [image.id, index + 200])) });
+    const view = mountDensity(windowFixture());
+    frame(); frame();
+    view.container.scrollTop = 2320;
+    anchor.viewportId = "image-236";
+    await act(async () => { await Promise.resolve(); view.changeGeometry(windowFixture(20)); });
+    // Twelve preceding rows each gained 20px; the same image stays 200px down.
+    expect(view.container.scrollTop).toBe(2560);
+  });
+
+  it("compensates a delayed prepend once using identity rather than fixed columns", async () => {
+    const results = Array.from({ length: 100 }, (_, index) => ({ id: `image-${index + 200}` }) as Image);
+    useSearchStore.setState({ results, total: 70000, focusedImageId: null });
+    const view = mountDensity(windowFixture());
+    frame(); frame();
+    view.container.scrollTop = 2320;
+    anchor.viewportId = "image-236";
+    await act(async () => {
+      await Promise.resolve();
+      const prepended = Array.from({ length: 12 }, (_, index) => ({ id: `image-${index + 188}` }) as Image);
+      const next = [...prepended, ...results];
+      useSearchStore.setState({ results: next, bufferOffset: 188, _prependGeneration: 1, _lastPrependCount: 12,
+        imagePositions: new Map(next.map((image, index) => [image.id, index + 188])) });
+      view.changeGeometry(windowFixture(0, 188));
+    });
+    // Exactly one complete 12-image/840px block was inserted above the anchor.
+    expect(view.container.scrollTop).toBe(3160);
+    view.rerender({ geometry: windowFixture(0, 188) });
+    expect(view.container.scrollTop).toBe(3160);
+  });
+
+  it("leaves a newer seek publication to its existing placement owner", () => {
+    useSearchStore.setState({ results: Array.from({ length: 100 }, (_, index) => ({ id: `image-${index + 200}` }) as Image),
+      total: 70000, focusedImageId: null });
+    const view = mountDensity(windowFixture());
+    frame(); frame();
+    view.container.scrollTop = 2320;
+    anchor.viewportId = "image-236";
+    act(() => {
+      useSearchStore.setState({ _seekGeneration: 1, _seekTargetLocalIndex: 36 });
+      view.changeGeometry(windowFixture(20));
+    });
+    expect(view.container.scrollTop).toBe(2760);
+  });
+});
+
+describe("P1 non-uniform resident continuity", () => {
+  beforeEach(async () => {
+    const dataSource = new MockDataSource(100);
+    useSearchStore.setState({ ...initialState, dataSource, params: routeParams }, true);
+    useUiPrefsStore.setState({ focusMode: "explicit", _pointerCoarse: false });
+    await act(async () => { await useSearchStore.getState().search(); });
+    useSearchStore.getState().setFocusedImageId("img-26");
+    setPrevParamsSerialized(JSON.stringify(routeParams));
+    setPrevSearchOnly({ ...routeParams });
+  });
+
+  it("round-trips grid, non-uniform rows and table without drift or selection promotion", () => {
+    const reads = vi.spyOn(useSearchStore.getState().dataSource, "searchAfter");
+    const selectedIds = new Set(["img-40"]);
+    useSelectionStore.setState({ selectedIds, anchorId: "img-40" });
+    let view = mountDensity(grid);
+    frame(); frame();
+    view.container.scrollTop = 1618;
+    for (let cycle = 0; cycle < 3; cycle++) {
+      for (const [geometry, expected] of [[irregularGeometry(), 1600], [table, 668], [grid, 1618]] as const) {
+        view.unmount();
+        view = mountDensity(geometry, true);
+        frame(); frame();
+        expect(view.container.scrollTop).toBe(expected);
+        expect(useSearchStore.getState().focusedImageId).toBe("img-26");
+        expect(useSelectionStore.getState().selectedIds).toBe(selectedIds);
+      }
+    }
+    expect(reads).not.toHaveBeenCalled();
+  });
+
+  it("registers actual presentation geometry, reports irregular row ranges and rejects fixed window preparation", () => {
+    const geometry = irregularGeometry();
+    const view = mountDensity(geometry);
+    frame(); frame();
+    expect(getLayoutGeometry()).toBe(geometry);
+    expect(getScrollGeometry).toThrow("Window preparation requires fixed-row geometry");
+    expect(fixtureLayout(geometry)!.getItemRow.bind(null, 500)).toThrow("Fixture geometry is unavailable");
+    expect(view.reportVisibleRange).toHaveBeenCalledWith(0, 6, false);
+    act(() => { view.virtualizer.range = { startIndex: 2, endIndex: 3 };
+      fireEvent.scroll(view.container); });
+    expect(view.reportVisibleRange).toHaveBeenLastCalledWith(7, 11, false);
+    view.unmount();
+    const fixed = mountDensity(table);
+    frame(); frame();
+    expect(getScrollGeometry()).toMatchObject({ columns: 1, rowHeight: 32 });
+    fixed.unmount();
+  });
+
+  it.each([true, false])("retains the existing resident-focus chooser (resident=%s)", (resident) => {
+    useSearchStore.getState().setFocusedImageId(resident ? "img-26" : "outside-buffer");
+    anchor.viewportId = "img-50";
+    const source = mountDensity(irregularGeometry());
+    frame(); frame();
+    source.container.scrollTop = 3280;
+    source.unmount();
+    const target = mountDensity(table, true);
+    frame(); frame();
+    expect(target.container.scrollTop).toBe(resident ? 832 : 1436);
+    expect(useSearchStore.getState().focusedImageId).toBe(resident ? "img-26" : "outside-buffer");
+  });
+
+  it("a density switch retains useful pending discovery and places its resident publication once", async () => {
+    const source = mountDensity(grid, false, false, true);
+    frame(); frame();
+    source.container.scrollTop = 1618;
+    const dataSource = useSearchStore.getState().dataSource;
+    const original = dataSource.searchAfter.bind(dataSource);
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const reads = vi.spyOn(dataSource, "searchAfter").mockImplementationOnce(async (...args) => {
+      const result = await original(...args);
+      await held;
+      return result;
+    });
+    const search = vi.spyOn(useSearchStore.getState(), "search");
+    act(() => { routeParams = { ...routeParams, query: "held-resident-query" }; markUserInitiatedNavigation();
+      source.changeGeometry(grid); });
+    const pending = search.mock.results[0].value;
+    const requestSignal = reads.mock.calls[0][3];
+    try {
+      // Ordinary first-page discovery publishes the placement handoff with its result, not before it.
+      expect(useSearchStore.getState()._searchContinuity).toBeNull();
+      source.unmount();
+      const target = mountDensity(irregularGeometry(), false, false, true);
+      frame(); frame();
+      expect(requestSignal?.aborted).toBe(false);
+      expect(reads).toHaveBeenCalledOnce();
+      const placements = vi.mocked(target.virtualizer.scrollToOffset);
+      placements.mockClear();
+      await act(async () => { release(); await pending; });
+      expect(target.container.scrollTop).toBe(1600);
+      expect(useSearchStore.getState()._searchContinuity).toMatchObject({ phase: "placed", targetId: "img-26" });
+      expect(useSearchStore.getState()._searchContinuity!.owner.aborted).toBe(false);
+      expect(requestSignal?.aborted).toBe(false);
+      frame(); frame();
+      expect(placements).toHaveBeenCalledExactlyOnceWith(1600);
+      expect(reads).toHaveBeenCalledOnce();
+    } finally {
+      await act(async () => { release(); await pending; });
+    }
+  });
+
+  it("captures actual row coordinates before a real query publication", async () => {
+    const view = mountDensity(irregularGeometry(), false, false, true);
+    frame(); frame();
+    view.container.scrollTop = 1600;
+    const search = vi.spyOn(useSearchStore.getState(), "search");
+    const reads = vi.spyOn(useSearchStore.getState().dataSource, "searchAfter");
+    const capture = vi.spyOn(searchContinuity, "captureSearchContinuity");
+    beforeUrlSync = () => { view.container.scrollTop += 100; };
+    act(() => { routeParams = { ...routeParams, query: "resident-query" }; markUserInitiatedNavigation();
+      view.changeGeometry(irregularGeometry()); });
+    await act(async () => { await search.mock.results[0].value; });
+    expect(capture).toHaveBeenCalledOnce();
+    expect(reads).toHaveBeenCalledOnce();
+    expect(view.container.scrollTop).toBe(1600);
+    expect(useSearchStore.getState()._searchContinuity).toMatchObject({ targetId: "img-26", phase: "placed" });
+    expect(getScrollGeometry).toThrow("Window preparation requires fixed-row geometry");
+  });
+
+  it.each(["explicit", "phantom"] as const)("selected sort retains distinct focus in %s mode", async (focusMode) => {
+    useUiPrefsStore.setState({ focusMode });
+    useSearchStore.getState().setFocusedImageId("img-40");
+    const selectedIds = new Set(["img-26"]);
+    useSelectionStore.setState({ selectedIds, anchorId: "img-26" });
+    const view = mountDensity(irregularGeometry(), false, false, true);
+    frame(); frame();
+    view.container.scrollTop = 1600;
+    const search = vi.spyOn(useSearchStore.getState(), "search");
+    const reads = vi.spyOn(useSearchStore.getState().dataSource, "searchAfter");
+    act(() => { routeParams = { ...routeParams, orderBy: "uploadTime" }; markUserInitiatedNavigation();
+      view.changeGeometry(irregularGeometry()); });
+    await act(async () => { await search.mock.results[0].value; });
+    expect(useSearchStore.getState().imagePositions.get("img-26")).toBe(26);
+    expect(view.container.scrollTop).toBe(1600);
+    expect(useSearchStore.getState().focusedImageId).toBe("img-40");
+    expect(useSelectionStore.getState().selectedIds).toBe(selectedIds);
+    expect(reads).toHaveBeenCalledOnce();
+  });
+
+  it.each(["explicit", "phantom"] as const)("snapshot restores a same-query destination in current geometry (%s)", async (focusMode) => {
+    const oldHistory = window.history.state;
+    window.history.replaceState({ kupuaKey: "p1-source" }, "");
+    useUiPrefsStore.setState({ focusMode });
+    anchor.viewportId = "img-26";
+    const view = mountDensity(irregularGeometry(), false, false, true);
+    frame(); frame();
+    view.container.scrollTop = 1600;
+    const snapshot = buildHistorySnapshot();
+    expect(snapshot.viewportRatio).toBe(1 / 3);
+    expect(snapshot.anchorImageId).toBe("img-26");
+    const key = `p1-destination-${focusMode}`;
+    snapshotStore.set(key, snapshot);
+    const search = vi.spyOn(useSearchStore.getState(), "search");
+    try {
+      act(() => { useSearchStore.getState().setFocusedImageId("img-50"); });
+      view.container.scrollTop = 3200;
+      act(() => { window.history.replaceState({ kupuaKey: key }, ""); router.notify("BACK");
+        routeParams = { ...routeParams }; view.changeGeometry(irregularGeometry(10)); });
+      await act(async () => { await search.mock.results[0].value; });
+      expect(view.container.scrollTop).toBe(1690);
+      expect(useSearchStore.getState().focusedImageId).toBe(focusMode === "explicit" ? "img-26" : null);
+      expect(useSearchStore.getState()._searchContinuity).toMatchObject({ provenance: "history", targetId: "img-26", phase: "placed" });
+    } finally {
+      snapshotStore.delete(key); snapshotStore.delete("p1-source");
+      window.history.replaceState(oldHistory, "");
+    }
+  });
+
+  it("missing destination history resets instead of adopting the variable-layout departure", async () => {
+    const oldHistory = window.history.state;
+    window.history.replaceState({ kupuaKey: "p1-missing-source" }, "");
+    const view = mountDensity(irregularGeometry(), false, false, true);
+    frame(); frame();
+    view.container.scrollTop = 1600;
+    const snapshot = buildHistorySnapshot();
+    snapshotStore.set("p1-missing", { ...snapshot, anchorImageId: "missing-image" });
+    const search = vi.spyOn(useSearchStore.getState(), "search");
+    try {
+      act(() => { window.history.replaceState({ kupuaKey: "p1-missing" }, ""); router.notify("BACK");
+        routeParams = { ...routeParams }; view.changeGeometry(irregularGeometry()); });
+      await act(async () => { await search.mock.results[0].value; });
+      expect(view.container.scrollTop).toBe(0);
+      expect(useSearchStore.getState().focusedImageId).toBeNull();
+      expect(useSearchStore.getState()._searchContinuity?.targetId).not.toBe("img-26");
+    } finally {
+      snapshotStore.delete("p1-missing"); snapshotStore.delete("p1-missing-source");
+      window.history.replaceState(oldHistory, "");
+    }
+  });
+
+  it("uses current irregular dimensions between the queued density frames", () => {
+    const source = mountDensity(grid);
+    frame(); frame();
+    source.container.scrollTop = 1618;
+    source.unmount();
+    const target = mountDensity(irregularGeometry(), true);
+    frame();
+    target.changeGeometry(irregularGeometry(10));
+    frame();
+    expect(target.container.scrollTop).toBe(1690);
+  });
+
+  it.each(["wheel", "focus", "dispose"] as const)("obsolete variable placement yields to newer %s", (input) => {
+    const source = mountDensity(grid);
+    frame(); frame();
+    source.container.scrollTop = 1618;
+    source.unmount();
+    const target = mountDensity(irregularGeometry(), true);
+    frame();
+    const obsolete = [...frames.values()][0];
+    target.container.scrollTop = 900;
+    act(() => {
+      if (input === "wheel") fireEvent.wheel(target.container, { deltaY: 100 });
+      if (input === "focus") useSearchStore.getState().setFocusedImageId("img-40");
+    });
+    if (input === "dispose") target.unmount();
+    act(() => obsolete(performance.now()));
+    expect(target.container.scrollTop).toBe(900);
+  });
+
+  it("fullscreen return centres the actual variable row through the existing callback", () => {
+    const view = mountDensity(irregularGeometry());
+    frame(); frame();
+    view.scrollToIndex.mockClear();
+    act(() => scrollFocusedIntoView());
+    expect(view.scrollToIndex).toHaveBeenCalledExactlyOnceWith(9, { align: "center" });
+    expect(view.container.scrollTop).toBe(1620);
+  });
+
+  it.each([false, true])("detail return keeps native versus traversed placement (traversed=%s)", (traversed) => {
+    const geometry = irregularGeometry();
+    const view = mountDensity(geometry);
+    frame(); frame();
+    view.container.scrollTop = 1600;
+    view.scrollToIndex.mockClear();
+    const detail = renderHook(({ imageParam }: { imageParam?: string }) => useReturnFromDetail({
+      imageParam, setFocusedImageId: useSearchStore.getState().setFocusedImageId,
+      findImageIndex: id => useSearchStore.getState().imagePositions.get(id) ?? -1,
+      flatIndexToRow: index => fixtureLayout(geometry)!.getItemRow(index).index,
+      virtualizer: view.virtualizer,
+    }), { initialProps: { imageParam: undefined as string | undefined } });
+    act(() => detail.rerender({ imageParam: "img-26" }));
+    if (traversed) act(() => detail.rerender({ imageParam: "img-38" }));
+    act(() => detail.rerender({ imageParam: undefined }));
+    frame(); frame();
+    expect(useSearchStore.getState().focusedImageId).toBe(traversed ? "img-38" : "img-26");
+    expect(view.container.scrollTop).toBe(traversed ? 2460 : 1600);
+    if (traversed) expect(view.scrollToIndex).toHaveBeenCalledExactlyOnceWith(13, { align: "center" });
+    else expect(view.scrollToIndex).not.toHaveBeenCalled();
+  });
 });
 
 describe("B17 fully resident density", () => {

@@ -1097,7 +1097,7 @@ test.describe("KUP-017 queued density restoration", () => {
         };
       });
       try {
-        await page.getByRole("button", { name: toGrid ? "Switch to grid view" : "Switch to table view", exact: true }).click();
+        await page.getByRole("button", { name: toGrid ? "Grid view" : "Table view", exact: true }).click();
         await page.waitForFunction(() => [...(window as any).__densityFrameGate.pending.values()].some((entry: any) => entry.timestamp !== undefined));
         let clickedId: string | undefined;
         if (scenario === "real-click") {
@@ -1187,9 +1187,9 @@ test.describe("KUP-017 queued density restoration", () => {
             const cell = container.querySelector<HTMLElement>(`[data-image-id="${CSS.escape(anchor)}"]`)!;
             return { anchor, ratio: (cell.getBoundingClientRect().top - container.getBoundingClientRect().top) / container.clientHeight };
           });
-          await page.getByRole("button", { name: "Switch to grid view", exact: true }).click();
+          await page.getByRole("button", { name: "Grid view", exact: true }).click();
           await page.waitForFunction(() => [...(window as any).__densityFrameGate.pending.values()].some((entry: any) => entry.timestamp !== undefined));
-          await page.getByRole("button", { name: "Switch to table view", exact: true }).click();
+          await page.getByRole("button", { name: "Table view", exact: true }).click();
           await page.waitForFunction(() => [...(window as any).__densityFrameGate.pending.values()].some((entry: any) => entry.timestamp !== undefined));
           const successor = await page.evaluate(async (origin) => {
             const gate = (window as any).__densityFrameGate;

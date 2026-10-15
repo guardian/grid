@@ -27,15 +27,18 @@ export { buildSortClause, parseSortField, DATE_SORT_FIELDS, NESTED_SORT_FIELDS, 
 
 import { ElasticsearchDataSource } from "./es-adapter";
 import { ApiDataSource } from "./api-data-source";
+import { MockDataSource } from "./mock-data-source";
+import { ResidentSampleDataSource } from "./resident-sample-data-source";
+import { SYNTHETIC_PREVIEW_ENABLED, SAMPLED_PREVIEW_ENABLED, RESIDENT_PREVIEW_LIMIT, decoratePreviewImage } from "@/lib/resident-preview";
 
 /**
  * Factory: an ApiDataSource (every read through media-api) when VITE_USE_MEDIA_API=true,
  * otherwise a plain ElasticsearchDataSource. API mode constructs no Elasticsearch data source.
  */
 export function createDataSource() {
-  if (import.meta.env.VITE_USE_MEDIA_API === "true") {
-    return new ApiDataSource();
-  }
-  return new ElasticsearchDataSource();
+  if (SYNTHETIC_PREVIEW_ENABLED) return new MockDataSource(RESIDENT_PREVIEW_LIMIT, undefined, { transformImage: decoratePreviewImage });
+  const source = import.meta.env.VITE_USE_MEDIA_API === "true"
+    ? new ApiDataSource() : new ElasticsearchDataSource();
+  return SAMPLED_PREVIEW_ENABLED ? new ResidentSampleDataSource(source) : source;
 }
 

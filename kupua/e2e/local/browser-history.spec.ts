@@ -380,7 +380,7 @@ test.describe("KUP-014 deferred producer ownership", () => {
 
   async function prepare(page: import("@playwright/test").Page, producer: Producer) {
     if (producer === "header") {
-      await page.getByRole("button", { name: "Switch to table view", exact: true }).click();
+      await page.getByRole("button", { name: "Table view", exact: true }).click();
       await spaNavigate(page, "/search?nonFree=true");
       await expect(page.getByRole("columnheader", { name: /Uploaded/ }).first()).toBeVisible();
     } else if (producer === "ai") {
@@ -1565,7 +1565,7 @@ test.describe("Browser back/forward — density toggle", () => {
       observer.observe(document, { childList: true, subtree: true });
     });
     for (const density of ["table", "grid"] as const) {
-      await page.getByRole("button", { name: `Switch to ${density} view`, exact: true }).click();
+      await page.getByRole("button", { name: `${density[0].toUpperCase()}${density.slice(1)} view`, exact: true }).click();
       expect(await page.evaluate(() => sessionStorage.getItem("kupua-density"))).toBe(density);
       await page.reload();
       await kupua.waitForResults();

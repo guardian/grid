@@ -1146,7 +1146,7 @@ test.describe("S6 — clear-on-search navigation", () => {
 
     // Density toggle changes a display-only URL key → useUrlSearchSync deduplicates
     // (same search params) → no clear.
-    await kupua.page.locator('button[aria-label="Switch to table view"]').click();
+    await kupua.page.getByRole("button", { name: "Table view", exact: true }).click();
     await kupua.waitForResults();
 
     expect(await getSelectionCount(kupua.page)).toBe(2);

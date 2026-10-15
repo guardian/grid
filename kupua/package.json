@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:justified": "VITE_JUSTIFIED_PREVIEW=true vite --port 3040",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
@@ -46,6 +47,7 @@
     "@tanstack/react-virtual": "^3.14.13",
     "@tanstack/router-zod-adapter": "^1.81.5",
     "date-fns": "^4.1.0",
+    "@immich/justified-layout-wasm": "0.4.3",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "zod": "^4.6.5",

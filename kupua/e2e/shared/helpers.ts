@@ -333,7 +333,7 @@ export class KupuaHelpers {
     topInset = 0,
     timeout = 10_000,
   }: {
-    view?: "grid" | "table";
+    view?: "grid" | "table" | "justified";
     imageId?: string;
     topInset?: number;
     timeout?: number;
@@ -341,7 +341,7 @@ export class KupuaHelpers {
     const handle = await this.page.waitForFunction(({ view, imageId, topInset }) => {
       const container = document.querySelector(view
         ? `[aria-label="Image results ${view}"]`
-        : '[aria-label="Image results grid"], [aria-label="Image results table"]');
+        : '[aria-label="Image results grid"], [aria-label="Image results table"], [aria-label="Image results justified"]');
       if (!container) return false;
       const bounds = container.getBoundingClientRect();
       const top = container.querySelector('[data-table-header]')?.getBoundingClientRect().bottom ?? bounds.top;
@@ -968,8 +968,8 @@ export class KupuaHelpers {
 
   /** Switch to grid view. */
   async switchToGrid() {
-    const btn = this.page.locator('button[aria-label="Switch to grid view"]');
-    if (await btn.count() > 0) {
+    const btn = this.page.getByRole("button", { name: "Grid view", exact: true });
+    if (await btn.getAttribute("aria-pressed") !== "true") {
       const previousGeneration = await this.getDensityRestoreGeneration();
       await btn.click();
       await this.waitForDensityRestore(previousGeneration);
@@ -980,8 +980,8 @@ export class KupuaHelpers {
 
   /** Switch to table view. */
   async switchToTable() {
-    const btn = this.page.locator('button[aria-label="Switch to table view"]');
-    if (await btn.count() > 0) {
+    const btn = this.page.getByRole("button", { name: "Table view", exact: true });
+    if (await btn.getAttribute("aria-pressed") !== "true") {
       const previousGeneration = await this.getDensityRestoreGeneration();
       await btn.click();
       await this.waitForDensityRestore(previousGeneration);

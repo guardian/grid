@@ -1543,8 +1543,8 @@ test.describe("Perceived Performance Suite", () => {
     await clearTrace(kupua);
     await kupua.page.evaluate(() => performance.clearResourceTimings());
     const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
-    // Click the density toggle button in the StatusBar
-    await kupua.page.click('button[aria-label="Switch to table view"]');
+    // Select table directly without including setup in the measured interaction.
+    await kupua.page.click('button[aria-label="Table view"]');
     const initialEntries = await readTrace(kupua);
     const starts = initialEntries.filter((entry) =>
       entry.action === "density-swap" && entry.phase === "t_0"
@@ -2092,7 +2092,7 @@ test.describe("Perceived Performance Suite", () => {
     await clearTrace(kupua);
     await kupua.page.evaluate(() => performance.clearResourceTimings());
     const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
-    await kupua.page.click('button[aria-label="Switch to table view"]');
+    await kupua.page.click('button[aria-label="Table view"]');
     const initialEntries = await readTrace(kupua);
     const starts = initialEntries.filter((entry) =>
       entry.action === "density-swap" && entry.phase === "t_0" && entry.interactionId
@@ -2132,7 +2132,7 @@ test.describe("Perceived Performance Suite", () => {
     await clearTrace(kupua);
     await kupua.page.evaluate(() => performance.clearResourceTimings());
     const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
-    await kupua.page.click('button[aria-label="Switch to table view"]');
+    await kupua.page.click('button[aria-label="Table view"]');
     const initialEntries = await readTrace(kupua);
     const starts = initialEntries.filter((entry) =>
       entry.action === "density-swap" && entry.phase === "t_0" && entry.interactionId

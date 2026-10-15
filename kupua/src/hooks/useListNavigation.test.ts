@@ -59,7 +59,7 @@ afterEach(() => {
   useUiPrefsStore.setState(initialPreferences, true);
 });
 
-async function mountNavigation(windowed: boolean, mode: "explicit" | "selection" | "phantom" | "none", total = windowed ? 12000 : 300, orderBy = "-uploadTime") {
+async function mountNavigation(windowed: boolean, mode: "explicit" | "selection" | "phantom" | "none", total = windowed ? 12000 : 300, orderBy = "-uploadTime", spatial = false) {
   const source = new MockDataSource(total, orderBy === "-uploadTime" ? undefined : [{ field: "lastModified", ratio: 1 }]);
   const params = { nonFree: "true", orderBy, length: windowed ? 200 : total };
   const firstPage = await source.searchAfter(params, null, null);
@@ -101,7 +101,15 @@ async function mountNavigation(windowed: boolean, mode: "explicit" | "selection"
   } as unknown as Virtualizer<HTMLDivElement, Element>;
   const loadMore = vi.fn().mockResolvedValue(undefined);
   const reportVisibleRange = vi.fn();
-  const geometry = { rowHeight: 32, columns: 1, headerOffset: 0, preserveScrollLeftOnSort: true };
+  const getRow = (index: number) => ({ index, top: Math.floor(index / 2) * 300 + (index % 2) * 100,
+    height: index % 2 ? 200 : 100, firstItemIndex: index * 2, lastItemIndex: index * 2 + 1 });
+  const irregular = { getRow, getItemRow: (index: number) => getRow(Math.floor(index / 2)),
+    rowAtOffset: (offset: number) => getRow(Math.max(0, Math.floor(offset / 300) * 2 + (offset % 300 >= 100 ? 1 : 0))),
+    neighbour: (index: number, row: number) => Math.max(0, row) * 2 + index % 2 };
+  const geometry = spatial ? { layout: irregular, spatial: irregular, headerOffset: 0, preserveScrollLeftOnSort: false,
+    window: { width: 1000, getItemId: () => undefined, findItemIndex: () => undefined,
+      rowAtOffset: irregular.rowAtOffset, prepareSeek: () => { throw new Error("Unused fixture operation"); } } }
+    : { rowHeight: 32, columns: 1, headerOffset: 0, preserveScrollLeftOnSort: true };
   const findImageIndex = (imageId: string) => {
     const state = useSearchStore.getState();
     return (state.imagePositions.get(imageId) ?? -1) - (isTwoTierFromTotal(state.total) ? 0 : state.bufferOffset);
@@ -121,7 +129,8 @@ async function mountNavigation(windowed: boolean, mode: "explicit" | "selection"
     useScrollEffects({ virtualizer, parentRef, geometry, reportVisibleRange, resultsLength: state.results.length,
       total: state.total, bufferOffset: state.bufferOffset, loadMore, focusedImageId: state.focusedImageId,
       findImageIndex, twoTier });
-    useListNavigation({ virtualizer, scrollRef: parentRef, columnsPerRow: 1, rowHeight: 32, headerHeight: 0,
+    useListNavigation({ virtualizer, scrollRef: parentRef,
+      ...(spatial ? { spatial: irregular } : { columnsPerRow: 1, rowHeight: 32 }), headerHeight: 0,
       focusedImageId: state.focusedImageId, setFocusedImageId: state.setFocusedImageId, virtualizerCount,
       getImage: (index) => {
         const current = useSearchStore.getState();
@@ -226,6 +235,53 @@ function holdInitialRead(
 }
 
 describe("detail return newer keyboard intent", () => {
+  it.each([["ArrowDown", 2], ["ArrowUp", -2], ["PageDown", 8], ["PageUp", -8]] as const)(
+    "spatial %s recovers off-buffer focus before resolving destination rows", async (key, delta) => {
+      const fixture = await mountNavigation(true, "explicit", 70000, "-uploadTime", true);
+      const params = useSearchStore.getState().params;
+      const targetId = "img-60000";
+      const target = await fixture.source.searchAfter({ ...params, ids: targetId, length: 1 }, null);
+      const offset = await fixture.source.countBefore(params, target.sortValues[0]);
+      const expected = await fixture.source.searchAfter({ ...params, offset: offset + delta, length: 1 }, null);
+      act(() => useSearchStore.setState({ focusedImageId: targetId, _focusedImageKnownOffset: offset }));
+      const intent = useSearchStore.getState()._focusIntent;
+      const pending = fixture.holdRead();
+      act(() => fixture.dispatchKey(key));
+      expect(useSearchStore.getState()._focusIntent).toBeGreaterThan(intent);
+      expect(pending.read).toHaveBeenCalledOnce();
+      await act(async () => pending.release());
+      expect(useSearchStore.getState().focusedImageId).toBe(expected.hits[0].id);
+    });
+
+  it("newer horizontal intent supersedes a held spatial snap-back", async () => {
+    const fixture = await mountNavigation(true, "explicit", 70000, "-uploadTime", true);
+    const params = useSearchStore.getState().params;
+    const targetId = "img-60000";
+    const target = await fixture.source.searchAfter({ ...params, ids: targetId, length: 1 }, null);
+    const offset = await fixture.source.countBefore(params, target.sortValues[0]);
+    const expected = await fixture.source.searchAfter({ ...params, offset: offset + 1, length: 1 }, null);
+    act(() => useSearchStore.setState({ focusedImageId: targetId, _focusedImageKnownOffset: offset }));
+    const pending = fixture.holdRead();
+    act(() => fixture.dispatchKey("PageDown"));
+    const intent = useSearchStore.getState()._focusIntent;
+    await act(async () => fixture.dispatchKey("ArrowRight"));
+    expect(useSearchStore.getState()._focusIntent).toBeGreaterThan(intent);
+    expect(useSearchStore.getState().focusedImageId).toBe(expected.hits[0].id);
+    await act(async () => pending.release());
+    expect(useSearchStore.getState().focusedImageId).toBe(expected.hits[0].id);
+    expect(useSearchStore.getState()._pendingFocusDelta).toBeNull();
+  });
+
+  it.each(["ArrowDown", "PageDown"])("spatial %s records intent before initial total publication", async key => {
+    const fixture = await mountNavigation(true, "explicit", 12000, "-uploadTime", true);
+    act(() => useSearchStore.setState({ focusedImageId: "img-6000", total: 0, results: [], imagePositions: new Map() }));
+    const intent = useSearchStore.getState()._focusIntent;
+    const pending = fixture.holdRead();
+    act(() => fixture.dispatchKey(key));
+    expect(useSearchStore.getState()._focusIntent).toBeGreaterThan(intent);
+    await act(async () => pending.release());
+  });
+
   it.each(["ArrowDown", "PageDown"])("%s retains the deep bookmark hint when rank fails", async (key) => {
     const fixture = await mountNavigation(true, "explicit", 70000);
     const params = useSearchStore.getState().params;

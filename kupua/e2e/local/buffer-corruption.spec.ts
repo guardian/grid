@@ -404,7 +404,7 @@ test.describe("B8 pending sort survives saved density", () => {
             expect(pending.started).toBeGreaterThan(before.started);
             expect(pending.loading).toBe(true);
             const targetView = sourceView === "grid" ? "table" : "grid";
-            await page.getByRole("button", { name: `Switch to ${targetView} view`, exact: true }).click();
+            await page.getByRole("button", { name: `${targetView[0].toUpperCase()}${targetView.slice(1)} view`, exact: true }).click();
             await page.waitForFunction(previous =>
               (window as any).__kupua_getDensityRestoreGeneration__() > previous, before.density);
             const during = await page.evaluate(() => ({
@@ -434,7 +434,7 @@ test.describe("B8 pending sort survives saved density", () => {
               orderBy: "uploadTime", error: null, firstCursor: expectedCursors[0],
               lastCursor: expectedCursors.at(-1), emptyPublications: 0 });
             await kupua.assertPositionsConsistent();
-            await expect(page.getByRole("button", { name: `Switch to ${sourceView} view`, exact: true })).toBeVisible();
+            await expect(page.getByRole("button", { name: `${targetView[0].toUpperCase()}${targetView.slice(1)} view`, exact: true })).toHaveAttribute("aria-pressed", "true");
           } finally {
             release();
             if (called) await finished;

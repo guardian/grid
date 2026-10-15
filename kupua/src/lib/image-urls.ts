@@ -23,6 +23,7 @@
  */
 
 import type { Image } from "@/types/image";
+import { SYNTHETIC_PREVIEW_ENABLED, previewImageUrl } from "@/lib/resident-preview";
 
 /**
  * Whether the S3 proxy is available.
@@ -48,6 +49,7 @@ const IMAGE_BUCKET = import.meta.env.VITE_IMAGE_BUCKET ?? "";
  * or undefined when thumbnails aren't available (local mode).
  */
 export function getThumbnailUrl(image: Image): string | undefined {
+  if (SYNTHETIC_PREVIEW_ENABLED) return previewImageUrl(image);
   if (!S3_PROXY_ENABLED) return undefined;
   if (!image.id) return undefined;
   return `/s3/thumb/${image.id}`;
@@ -202,6 +204,7 @@ export function getFullImageUrl(
   image: Image,
   options?: FullImageOptions,
 ): string | undefined {
+  if (SYNTHETIC_PREVIEW_ENABLED) return previewImageUrl(image);
   if (!IMGPROXY_ENABLED || !IMAGE_BUCKET) return undefined;
   if (!image.id) return undefined;
 
@@ -256,7 +259,7 @@ export function getFullImageUrl(
 }
 
 /** Whether thumbnails are available in the current configuration. */
-export const thumbnailsEnabled = S3_PROXY_ENABLED;
+export const thumbnailsEnabled = S3_PROXY_ENABLED || SYNTHETIC_PREVIEW_ENABLED;
 
 /**
  * Get a zoom-enhanced image URL for fullscreen pinch/wheel zoom.

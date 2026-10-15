@@ -42,6 +42,33 @@ do not certify performance equivalence. Existing canonical paired campaigns reta
 their version/topology limits; any proposed new operator-run campaign must name an
 unanswered regression question that those records cannot answer.
 
+## Justified density: availability is not campaign coverage
+
+**The current performance campaigns do not benchmark justified density automatically.**
+The jank and perceived suites explicitly initialise **grid**, with particular scenarios
+switching between **grid and table**. Selecting justified in an interactive tab does not
+change those benchmark scenarios.
+
+There is currently **no supported density CLI flag** in `run-audit.mjs`; do not pass an
+invented `--density`/`--justified` option. `VITE_JUSTIFIED_PREVIEW=live` is no longer needed
+for normal development availability and does not select justified for a campaign.
+
+| Setting / surface | Actual meaning |
+| --- | --- |
+| `JUSTIFIED_AVAILABLE` | An internal constant equal to `import.meta.env.DEV`, not an operator/test switch. Keeps the layout available in development while retaining the production licensing exclusion. |
+| `WINDOWED_JUSTIFIED_ENABLED` | Normal windowed justified mode in development when neither resident fixture is selected; not a performance scenario selector. |
+| `VITE_JUSTIFIED_PREVIEW=true` / `sample` | Explicit synthetic/bounded-sample fixtures. Neither is a live-windowed performance workload; leave both unset for normal campaigns. |
+| Functional E2Es | Resident, indexed and forced-seek justified journeys run in the normal full E2E suite. Passing these is correctness evidence, not a performance measurement. |
+| `test:perf`, including `--perceived-only` | Existing grid/table workloads only. A label containing “justified” changes the label, not the tested density. |
+
+Before claiming a grid-versus-justified comparison, add reviewed justified scenarios (or
+an explicit supported density parameter), matching geometry-aware readiness/placement
+observers and density-tagged report/scenario identities. Preserve the existing grid/table
+workloads and historical comparability; do not mix new-density samples into their series.
+Validate the harness locally before operator-run campaigns. Static review can assess
+allocation, layout invalidation, retained memory and request bounds now, but cannot establish
+frame-time, perceived-latency or performance-parity claims. Agents must not run campaigns.
+
 ## Two measurement systems
 
 ### Network Diagnostics

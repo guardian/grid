@@ -114,7 +114,7 @@ export async function pendingBrowseAcrossDensity(
     });
     if (timing !== "pending") {
       expect(regime).toBe("indexed");
-      await expect(page.getByRole("button", { name: `Switch to ${targetView} view`, exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: `${targetView[0].toUpperCase()}${targetView.slice(1)} view`, exact: true })).toBeVisible();
       await page.evaluate(({ targetView, timing }) => {
         const slider = document.querySelector<HTMLElement>('[data-testid="scrubber-track"]')!;
         const bounds = slider.getBoundingClientRect();
@@ -131,7 +131,7 @@ export async function pendingBrowseAcrossDensity(
         const probe = (window as any).__b17;
         probe.target = state._browseNavigation.targetOffset;
         probe.expectedId = state.positionMap.ids[probe.target];
-        document.querySelector<HTMLButtonElement>(`button[aria-label="Switch to ${targetView} view"]`)!.click();
+        document.querySelector<HTMLButtonElement>(`button[aria-label="${targetView[0].toUpperCase()}${targetView.slice(1)} view"]`)!.click();
       }, { targetView, timing });
     } else {
       const bounds = await kupua.scrubber.boundingBox();
@@ -167,7 +167,7 @@ export async function pendingBrowseAcrossDensity(
         };
         probe.frame = requestAnimationFrame(sample);
       });
-      if (changeDensity) await page.getByRole("button", { name: `Switch to ${targetView} view`, exact: true }).click();
+      if (changeDensity) await page.getByRole("button", { name: `${targetView[0].toUpperCase()}${targetView.slice(1)} view`, exact: true }).click();
     }
     if (changeDensity) await page.waitForFunction(() => (window as any).__kupua_getDensityRestoreGeneration__() > (window as any).__b17.density);
     await page.waitForFunction(() => (window as any).__b17.ready > 0);
@@ -205,7 +205,7 @@ export async function pendingBrowseAcrossDensity(
     });
     expect(final).toEqual({ nearDestination: true, bookmarkRetained: true, loading: false, error: null, loadingNotice: false });
     await kupua.assertPositionsConsistent();
-    await expect(page.getByRole("button", { name: `Switch to ${targetView === "grid" ? "table" : "grid"} view`, exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: `${targetView[0].toUpperCase()}${targetView.slice(1)} view`, exact: true })).toHaveAttribute("aria-pressed", "true");
   } finally {
     await page.evaluate(async () => { await (window as any).__b17?.cleanup(); });
   }

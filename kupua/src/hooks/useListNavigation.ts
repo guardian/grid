@@ -39,23 +39,19 @@ import { isNativeInputTarget } from "@/lib/keyboard-shortcuts";
 import { useSearchStore } from "@/stores/search-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { useSelectionStore } from "@/stores/selection-store";
+import type { SpatialNavigation } from "@/lib/scroll-geometry-ref";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export interface ListNavigationConfig {
-  /** Number of columns per visual row. Table: 1, Grid: N. */
-  columnsPerRow: number;
+export type ListNavigationConfig = {
 
   /** The virtualizer instance (row-based for grid, flat for table). */
   virtualizer: Virtualizer<HTMLDivElement, Element>;
 
   /** The scroll container element ref. */
   scrollRef: React.RefObject<HTMLDivElement | null>;
-
-  /** Row height in pixels (used for page size calculation). */
-  rowHeight: number;
 
   /**
    * Height of any fixed header inside the scroll container (px).
@@ -107,7 +103,8 @@ export interface ListNavigationConfig {
 
   /** Seek to a global offset (for Home/End when buffer is windowed). */
   seek?: (globalOffset: number) => Promise<void>;
-}
+} & ({ columnsPerRow: number; rowHeight: number; spatial?: undefined }
+  | { spatial: SpatialNavigation; columnsPerRow?: never; rowHeight?: never });
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -195,10 +192,20 @@ export function useListNavigation(config: ListNavigationConfig): void {
    * Positive = down, negative = up.
    */
   const scrollByRows = useCallback((rowDelta: number) => {
-    const { scrollRef, rowHeight } = configRef.current;
-    const el = scrollRef.current;
+    const config = configRef.current;
+    const el = config.scrollRef.current;
     if (!el) return;
-
+    if (config.spatial) {
+      const row = config.spatial.rowAtOffset(el.scrollTop);
+      if (!row || config.virtualizerCount === 0) return;
+      const last = config.spatial.getItemRow(config.virtualizerCount - 1).index;
+      const nearest = row.index + (el.scrollTop - row.top > row.height / 2 ? 1 : 0);
+      const targetRow = config.spatial.getRow(Math.max(0, Math.min(last, nearest + rowDelta)));
+      el.scrollTop = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, targetRow.top));
+      el.dispatchEvent(new Event("scroll"));
+      return;
+    }
+    const { rowHeight } = config;
     const snapped = snapToRow(el.scrollTop, rowHeight);
     const target = snapped + rowDelta * rowHeight;
     const clamped = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, target));
@@ -215,12 +222,28 @@ export function useListNavigation(config: ListNavigationConfig): void {
    * re-see a fully-visible row and never skip one you haven't fully seen.
    */
   const scrollByPage = useCallback((direction: "up" | "down") => {
-    const {
-      scrollRef, rowHeight, headerHeight,
+    const config = configRef.current;
+    const el = config.scrollRef.current;
+    if (!el || config.virtualizerCount === 0) return;
+    if (config.spatial) {
+      const height = el.clientHeight - config.headerHeight;
+      const edge = direction === "down" ? el.scrollTop + height : el.scrollTop;
+      const row = config.spatial.rowAtOffset(edge);
+      if (!row) return;
+      const aligned = Math.abs(row.top - edge) < 0.001;
+      let target = direction === "down"
+        ? aligned ? config.spatial.getRow(Math.max(0, row.index - 1)).top : row.top
+        : (aligned ? row.top : row.top + row.height) - height;
+      if (direction === "down" ? target <= el.scrollTop : target >= el.scrollTop) {
+        target = el.scrollTop + (direction === "down" ? height : -height);
+      }
+      el.scrollTop = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, target));
+      el.dispatchEvent(new Event("scroll"));
+      return;
+    }
+    const { rowHeight, headerHeight,
       resultsLength, total, loadMore, virtualizerCount: count, columnsPerRow: cols,
-    } = configRef.current;
-    const el = scrollRef.current;
-    if (!el || count === 0) return;
+    } = config;
 
     const viewportHeight = el.clientHeight - headerHeight;
 
@@ -305,7 +328,30 @@ export function useListNavigation(config: ListNavigationConfig): void {
   // pageFocus — move focus by one page (only called when focus exists)
   // -------------------------------------------------------------------------
 
+  const recoverSpatialFocus = useCallback((kind: "row" | "page", direction: 1 | -1) => {
+    const config = configRef.current;
+    const id = config.focusedImageId;
+    if (!id) return;
+    config.setFocusedImageId(id);
+    useSearchStore.setState({ _pendingFocusDelta: { kind, direction, id,
+      focusIntent: useSearchStore.getState()._focusIntent } });
+    useSearchStore.getState().seekToFocused();
+  }, []);
+
   const pageFocus = useCallback((direction: "up" | "down") => {
+    const config = configRef.current;
+    if (config.spatial) {
+      const el = config.scrollRef.current;
+      const current = config.focusedImageId ? config.findImageIndex(config.focusedImageId) : -1;
+      if (!el) return;
+      if (current < 0) { recoverSpatialFocus("page", direction === "down" ? 1 : -1); return; }
+      if (config.virtualizerCount === 0) return;
+      const row = config.spatial.getItemRow(current);
+      const height = el.clientHeight - config.headerHeight;
+      const destination = config.spatial.rowAtOffset(row.top + (direction === "down" ? height : -height));
+      if (destination) moveFocus(config.spatial.neighbour(current, destination.index) - current);
+      return;
+    }
     const {
       scrollRef,
       virtualizerCount: count,
@@ -321,7 +367,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
       resultsLength,
       total,
       loadMore,
-    } = configRef.current;
+    } = config;
 
     const el = scrollRef.current;
     if (!el || !currentId) return;
@@ -375,7 +421,15 @@ export function useListNavigation(config: ListNavigationConfig): void {
     if (direction === "down" && count - targetIdx <= 5 && (configRef.current.bufferOffset ?? 0) + resultsLength < total) {
       loadMore();
     }
-  }, []);
+  }, [moveFocus, recoverSpatialFocus]);
+
+  const moveFocusByRow = useCallback((delta: number) => {
+    const config = configRef.current;
+    if (!config.spatial) { moveFocus(delta * config.columnsPerRow); return; }
+    const current = config.focusedImageId ? config.findImageIndex(config.focusedImageId) : -1;
+    if (current < 0) { recoverSpatialFocus("row", delta > 0 ? 1 : -1); return; }
+    moveFocus(config.spatial.neighbour(current, config.spatial.getItemRow(current).index + delta) - current);
+  }, [moveFocus, recoverSpatialFocus]);
 
   // -------------------------------------------------------------------------
   // Keyboard event listeners
@@ -397,7 +451,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
       if (document.fullscreenElement) return;
       if (isNativeInputTarget(e)) return;
 
-      const cols = c.columnsPerRow;
+      const isGrid = c.spatial !== undefined || c.columnsPerRow > 1;
       // In selection mode, treat as if there is no focus: arrows scroll,
       // never move focus. Read imperatively so no stale closures.
       const inSelectionMode = useSelectionStore.getState().selectedIds.size > 0;
@@ -408,7 +462,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
         case "ArrowUp":
           e.preventDefault();
           if (hasFocus) {
-            moveFocus(-cols);
+            moveFocusByRow(-1);
           } else {
             scrollByRows(-1);
           }
@@ -416,7 +470,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
         case "ArrowDown":
           e.preventDefault();
           if (hasFocus) {
-            moveFocus(cols);
+            moveFocusByRow(1);
           } else {
             scrollByRows(1);
           }
@@ -429,19 +483,19 @@ export function useListNavigation(config: ListNavigationConfig): void {
         // ArrowLeft/Right for cursor movement are not protected here — extend
         // isNativeInputTarget to detect them if that becomes necessary.
         case "ArrowLeft":
-          if (hasFocus && cols > 1) {
+          if (hasFocus && isGrid) {
             e.preventDefault();
             moveFocus(-1);
-          } else if (cols === 1 && !e.altKey && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+          } else if (!isGrid && !e.altKey && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
             e.preventDefault();
             c.scrollRef.current?.scrollBy({ left: -150 });
           }
           break;
         case "ArrowRight":
-          if (hasFocus && cols > 1) {
+          if (hasFocus && isGrid) {
             e.preventDefault();
             moveFocus(1);
-          } else if (cols === 1 && !e.altKey && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+          } else if (!isGrid && !e.altKey && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
             e.preventDefault();
             c.scrollRef.current?.scrollBy({ left: 150 });
           }
@@ -582,7 +636,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
       document.removeEventListener("keydown", handleBubble);
       document.removeEventListener("keydown", handleCapture, true);
     };
-  }, [moveFocus, pageFocus, scrollByRows, scrollByPage]);
+  }, [moveFocus, moveFocusByRow, pageFocus, scrollByRows, scrollByPage]);
 }
 
 

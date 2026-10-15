@@ -42,8 +42,9 @@ vi.mock("@/lib/scroll-container-ref", () => ({
   }),
 }));
 
-vi.mock("@/lib/scroll-geometry-ref", () => ({
-  getScrollGeometry: () => ({ rowHeight: 303, columns: 5 }),
+vi.mock("@/lib/scroll-geometry-ref", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/scroll-geometry-ref")>(),
+  getLayoutGeometry: () => ({ rowHeight: 303, columns: 5 }),
 }));
 
 // Now import the module under test

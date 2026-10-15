@@ -257,6 +257,10 @@ export interface MockDataSourceOptions {
   /** Cap getKeywordDistribution to this many buckets, simulating truncation
    *  at high cardinality (the real adapter caps at 5 pages / 50k values). */
   distributionCap?: number;
+  /** Supply varied resident fixtures without changing the datasource's ordering/read protocol. */
+  transformImage?: (image: Image, index: number) => Image;
+  /** A complete in-memory sample; query matching remains simulated. */
+  images?: readonly Image[];
 }
 
 export class MockDataSource implements ImageDataSource {
@@ -264,6 +268,8 @@ export class MockDataSource implements ImageDataSource {
   readonly sparseFields?: SparseFieldConfig[];
   private readonly skewedCredits?: boolean;
   private readonly distributionCap?: number;
+  private readonly transformImage?: MockDataSourceOptions["transformImage"];
+  private readonly suppliedImages?: readonly Image[];
   private _images: Map<number, Image> = new Map();
 
   /** IDs to treat as "removed" — searchAfter with ids= won't find them. */
@@ -273,10 +279,12 @@ export class MockDataSource implements ImageDataSource {
   requestCount = 0;
 
   constructor(totalImages = 10_000, sparseFields?: SparseFieldConfig[], options?: MockDataSourceOptions) {
-    this.totalImages = totalImages;
+    this.suppliedImages = options?.images;
+    this.totalImages = this.suppliedImages?.length ?? totalImages;
     this.sparseFields = sparseFields;
     this.skewedCredits = options?.skewedCredits;
     this.distributionCap = options?.distributionCap;
+    this.transformImage = options?.transformImage;
   }
 
   /** True when a non-default sort needs the (expensive) full-corpus ordering — sparse fields or a skewed keyword distribution. */
@@ -287,9 +295,11 @@ export class MockDataSource implements ImageDataSource {
   /** Get or create the image at a given index. */
   private getImageAt(index: number): Image | undefined {
     if (index < 0 || index >= this.totalImages) return undefined;
+    if (this.suppliedImages) return this.suppliedImages[index];
     let img = this._images.get(index);
     if (!img) {
       img = makeImage(index, this.totalImages, this.sparseFields, this.skewedCredits);
+      img = this.transformImage?.(img, index) ?? img;
       this._images.set(index, img);
     }
     return img;
@@ -298,6 +308,10 @@ export class MockDataSource implements ImageDataSource {
   /** Find an image by ID. Returns [image, globalIndex] or [undefined, -1]. */
   private findById(id: string): [Image | undefined, number] {
     if (this.removedIds.has(id)) return [undefined, -1];
+    if (this.suppliedImages) {
+      const index = this.suppliedImages.findIndex(image => image.id === id);
+      return [this.suppliedImages[index], index];
+    }
     // IDs are "img-{index}" so we can extract the index directly
     const match = id.match(/^img-(\d+)$/);
     if (!match) return [undefined, -1];
@@ -395,8 +409,8 @@ export class MockDataSource implements ImageDataSource {
     const sortClause = buildSortClause(params.orderBy);
     const isDefaultSort = !params.orderBy || params.orderBy === "-uploadTime";
 
-    // For non-default sorts with sparse fields or a skewed distribution, we need to sort properly
-    const needsCustomSort = !isDefaultSort && this._hasCustomSortSource;
+    // Supplied samples need real ordering even for the default sort.
+    const needsCustomSort = !!this.suppliedImages || (!isDefaultSort && this._hasCustomSortSource);
     const sortedIndices = needsCustomSort
       ? this.getSortedIndices(sortClause)
       : null;
@@ -463,7 +477,7 @@ export class MockDataSource implements ImageDataSource {
     const effectiveCursor = nz ? nz.strippedCursor : searchAfterValues;
     const sortClause = nz ? nz.sortOverride : buildSortClause(params.orderBy);
     const isDefaultSort = !params.orderBy || params.orderBy === "-uploadTime";
-    const needsCustomSort = (!isDefaultSort || nz) && this._hasCustomSortSource;
+    const needsCustomSort = !!this.suppliedImages || ((!isDefaultSort || nz) && this._hasCustomSortSource);
 
     // When null-zone cursor is detected, use filtered+sorted indices.
     // This simulates ES's `must_not: { exists: { field } }` narrowing.
@@ -610,7 +624,7 @@ export class MockDataSource implements ImageDataSource {
 
     const isDefaultSort = !params.orderBy || params.orderBy === "-uploadTime";
 
-    if (isDefaultSort && !this.sparseFields?.length) {
+    if (isDefaultSort && !this.sparseFields?.length && !this.suppliedImages) {
       // Simple path: use the id to find the index (original behaviour) —
       // left untouched, relied on by the large default-sort test surface.
       const id = sortValues[sortValues.length - 1] as string;
@@ -790,7 +804,7 @@ export class MockDataSource implements ImageDataSource {
 
     const sortClause = buildSortClause(params.orderBy);
     const isDefaultSort = !params.orderBy || params.orderBy === "-uploadTime";
-    const needsCustomSort = !isDefaultSort && this._hasCustomSortSource;
+    const needsCustomSort = !!this.suppliedImages || (!isDefaultSort && this._hasCustomSortSource);
 
     const sortedIndices = needsCustomSort
       ? this.getSortedIndices(sortClause)
@@ -835,7 +849,7 @@ export class MockDataSource implements ImageDataSource {
     const HARD_CAP = Number(import.meta.env.VITE_RANGE_HARD_CAP ?? 5_000);
     const sortClause = buildSortClause(params.orderBy);
     const isDefaultSort = !params.orderBy || params.orderBy === "-uploadTime";
-    const needsCustomSort = !isDefaultSort && this._hasCustomSortSource;
+    const needsCustomSort = !!this.suppliedImages || (!isDefaultSort && this._hasCustomSortSource);
     const sortedIndices = needsCustomSort
       ? this.getSortedIndices(sortClause)
       : null;

@@ -24,6 +24,117 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 15 October 2026 - Preserve justified recovery identity and committed geometry
+
+Recover off-buffer vertical/page focus through the existing seek-to-focused owner rather
+than dropping the key. Record row/page intent without invented fixed columns and resolve it
+against admitted destination geometry; newer focus intent supersedes the queued movement.
+Retain fixed-grid/table movement and density-change placement ownership.
+
+Use the elected surviving image itself for geometry-publication correction. A former-row
+neighbour is a fallback only after that identity disappears, preventing a split row from
+moving the elected image by another image's delta. Publish cross-density dimension context
+only from the committed layout boundary, so abandoned render work cannot replace it.
+
+Rename historical availability/windowed constants to JUSTIFIED_AVAILABLE and
+WINDOWED_JUSTIFIED_ENABLED without changing fixture selection or production exclusion.
+Make windowed test density selection idempotent; arrange held maintenance only after earlier
+automatic work settles. Retain exact request and placement assertions. Add failing-first
+split-row, off-buffer keyboard and Strict Mode/Suspense publication controls, plus native
+indexed/forced-seek recovery checks; existing fixed-density regression suites remain intact.
+
+### 15 October 2026 - Stabilise density controls and prevent horizontal shell scrolling
+
+Replace the combined density toggle and text-only justified control with independent
+Table, Grid and Justified icons. Grid is the default and a no-op when already active;
+active Table or Justified returns to grid. Match all three painted icon dimensions,
+including the Material Dashboard path's viewBox padding, and expose stable accessible
+names and pressed states.
+
+Remove ordinary-app prototype messaging and the redundant development live-mode opt-in.
+Retain explicit synthetic/sample fixtures with honest data disclosures and preserve the
+production licensing exclusion. Reuse existing normal/forced-seek test servers instead
+of running two otherwise duplicate live-mode servers.
+
+Bound result-summary scrolling within the toolbar, keep layout/panel/selection controls
+reachable on narrow screens and make the outer app shell non-scrollable with overflow
+clipping. This prevents native keyboard focus from shifting results and scrubber together.
+Add native-Tab, selection, toggle/no-op and painted-icon geometry proof; update maintained
+functional/performance selectors without changing their measurement boundaries.
+
+### 15 October 2026 - Integrate windowed justified browsing behind a live prototype gate
+
+Add a separate DEV-only live mode using the normal datasource and real queries while
+retaining synthetic/sample modes and production packing exclusion. Pack bounded blocks
+using exact indexed positions or overlap-derived seek identities; retain only bounded
+identity/dimension context across eviction and density remounts. Estimate unloaded
+geometry without extra data fetches or larger request/image-retention limits, and truncate
+true result edges separately from temporary window boundaries.
+
+Extend the shared geometry contract with explicit window alignment and destination-seek
+preparation instead of fabricated fixed-row scalars. Keep one scroll compensation owner
+for changing variable geometry and preserve existing navigation/query/history lifetimes.
+Retain subpixel density placement through untouched round trips to prevent cumulative
+browser scrollTop quantisation; user input and changed publication retire that precision.
+Keep existing header-offset behaviour and packing defaults unchanged.
+
+Add bounded geometry, delayed-publication and indexed/forced-seek browser proof covering
+eviction, pending density switches, selection, responsive reflow, history, viewers and
+real result edges. Preserve fixed-density controls; performance and licensing promotion
+remain separate operator decisions.
+
+### 14 October 2026 - Add a bounded real-photo justified preview
+
+Add a separate DEV-only sample mode that makes one capped read through the configured
+read-only datasource, then keeps result operations in memory. Reuse the existing
+thumbnail/detail proxies and resident interaction paths without enabling windowed
+browsing. Extend the mock datasource with supplied images, real identity lookup and
+local ordering while preserving its synthetic defaults. Explicitly label simulated
+query matching and reload resampling; failed sampling remains empty rather than
+falling back to unrestricted live reads.
+
+Add unit proof for bounded/coalesced sampling, local traversal and mode-specific media
+URLs. Retain the synthetic preview and production exclusion of experimental packing;
+leave row-filling policy and the deferred cross-density history offset unchanged.
+
+### 14 October 2026 - Add the resident justified-density preview
+
+Add a DEV-only synthetic preview using the operator-approved Immich packing engine.
+Reuse ImageGrid interactions and existing detail/fullscreen paths; image-only cells
+use actual row geometry, width-aware anchoring and shared spatial keyboard handling.
+Measure initial width before mounting the density, retain whole images and incomplete
+final rows, and keep the experimental engine import out of the ordinary build.
+The preview uses a finite MockDataSource fixture; sparse/windowed browsing is not enabled.
+
+Browser proof covers density/panel cycles, same-density and cross-density history,
+selection, spatial/page/edge keys, detail return/reload, fullscreen traversal and
+responsive image geometry. Preserve the existing table-header history offset in both
+fixed-grid and justified controls, as explicitly selected by the operator; record the
+repair question in the prototype plan. Validation includes units, build, normal and
+forced-seek regressions, preview journeys and focused follow-ups. The published engine's
+licensing review, performance comparison and P3 remain separate adoption gates.
+
+### 14 October 2026 - Prove resident continuity with non-uniform row geometry
+
+Introduce one registered presentation-geometry contract for fixed and non-uniform
+rows. Density placement, search/history capture, visible-range reporting and the
+existing fullscreen callback share logical row lookup instead of duplicated
+fixed-column arithmetic. Preserve transition-specific header/edge conventions,
+anchor choices and existing publication, cancellation and completion ownership.
+Legacy window preparation explicitly rejects non-uniform geometry rather than
+receiving stale or fabricated fixed-row scalars; seek and buffer compensation
+remain fixed-row-only.
+
+Add an irregular-row fixture to the existing mounted continuity tests, covering
+repeated density round trips, resident versus nonresident focus, distinct selection
+anchors, query/sort and destination-history composition, queued geometry changes,
+retired callbacks, pending discovery, and native/traversed detail return. An
+independent failing-first placement assertion establishes the missing capability.
+Validation includes the complete unit suite, production build, normal/forced-seek
+E2Es and a focused follow-up for one conditional buffer-fill skip. This is not a
+rendered justified density, sparse-layout proof or performance certificate; no
+viewer, datasource, dependency or selectable-density change is introduced.
+
 ### 12 October 2026 - Align Kupua Node pin with repository security update
 
 Pin Kupua to Node 22.23.2 to match the repository's updated runtime. Keep the package

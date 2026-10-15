@@ -35,6 +35,19 @@ describe("independent per-tab density", () => {
     expect(useUiPrefsStore.getState().density).toBe("grid");
   });
 
+  it.each([false, true])("justified preference respects the development-only licensing gate (%s)", async (enabled) => {
+    vi.stubEnv("DEV", enabled);
+    vi.stubEnv("VITE_JUSTIFIED_PREVIEW", "");
+    storage.setItem("kupua-density", "justified");
+    try {
+      const { useUiPrefsStore } = await import("./ui-prefs-store");
+      expect(useUiPrefsStore.getState().density).toBe(enabled ? "justified" : "grid");
+      useUiPrefsStore.getState().setDensity("justified");
+      expect(useUiPrefsStore.getState().density).toBe(enabled ? "justified" : "grid");
+      expect(storage.getItem("kupua-density")).toBe(enabled ? "justified" : "grid");
+    } finally { vi.unstubAllEnvs(); }
+  });
+
   it("persists actual choices immediately without localStorage or unrelated storage changes", async () => {
     values.set("kupua:histSnap:entry", "snapshot");
     values.set("kupua-selection", "selection");

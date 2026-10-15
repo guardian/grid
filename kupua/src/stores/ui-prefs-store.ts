@@ -17,13 +17,14 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { useSearchStore } from "@/stores/search-store";
+import { JUSTIFIED_AVAILABLE } from "@/lib/resident-preview";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 export type FocusMode = "explicit" | "phantom";
-export type Density = "grid" | "table";
+export type Density = "grid" | "table" | "justified";
 
 export const DENSITY_STORAGE_KEY = "kupua-density";
 
@@ -33,7 +34,8 @@ export function writeDensityPreference(density: Density): void {
 
 function initialDensity(): Density {
   try {
-    return sessionStorage.getItem(DENSITY_STORAGE_KEY) === "table" ? "table" : "grid";
+    const saved = sessionStorage.getItem(DENSITY_STORAGE_KEY);
+    return saved === "table" ? "table" : saved === "justified" && JUSTIFIED_AVAILABLE ? "justified" : "grid";
   } catch {
     return "grid";
   }
@@ -73,6 +75,7 @@ export const useUiPrefsStore = create<UiPrefsState>()(
       density: initialDensity(),
       _densityIntent: 0,
       setDensity: (density) => {
+        if (density === "justified" && !JUSTIFIED_AVAILABLE) density = "grid";
         writeDensityPreference(density);
         set((state) => ({ density, _densityIntent: state._densityIntent + 1 }));
       },

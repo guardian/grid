@@ -25,7 +25,7 @@ import { useSearch } from "@tanstack/react-router";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { getSearchGeneration, useSearchStore } from "@/stores/search-store";
 import { registerScrollContainer } from "@/lib/scroll-container-ref";
-import { registerScrollGeometry } from "@/lib/scroll-geometry-ref";
+import { registerScrollGeometry, getItemLayoutRow, getLayoutRow, requireFixedRowGeometry, type LayoutGeometry } from "@/lib/scroll-geometry-ref";
 import { registerVirtualizerReset, registerScrollToFocused, isUserInitiatedNavigation } from "@/lib/orchestration/search";
 import { captureSearchContinuity, saveSearchContinuity } from "@/lib/search-continuity";
 import { SCROLL_MODE_THRESHOLD, SEEK_DEFERRED_SCROLL_MS } from "@/constants/tuning";
@@ -66,6 +66,7 @@ interface DensityFocusState {
   mode: { kind: "settled"; focusIntent: number; edge: "none" | "start" | "end" }
     | { kind: "departure"; navigationSignal: AbortSignal };
   retired: boolean;
+  preserveSubpixel?: boolean;
 }
 
 let _densityFocusSaved: DensityFocusState | null = null;
@@ -111,15 +112,7 @@ export function suppressDensityFocusSave(): () => void {
 // Geometry descriptor — captures grid vs table structural differences
 // ---------------------------------------------------------------------------
 
-export interface ScrollGeometry {
-  /** Row height in pixels (303 for grid, 32 for table). */
-  rowHeight: number;
-
-  /**
-   * Number of columns per row (grid: dynamic from ResizeObserver, table: 1).
-   * Used to convert flat image indices ↔ row indices.
-   */
-  columns: number;
+export type ScrollGeometry = LayoutGeometry & {
 
   /**
    * Pixel offset of the sticky header inside the scroll container (table: ~45px, grid: 0).
@@ -197,18 +190,6 @@ export interface UseScrollEffectsConfig {
 }
 
 // ---------------------------------------------------------------------------
-// Helper: convert flat image index to pixel offset
-// ---------------------------------------------------------------------------
-
-function localIndexToPixelTop(localIdx: number, geo: ScrollGeometry): number {
-  return Math.floor(localIdx / geo.columns) * geo.rowHeight;
-}
-
-function localIndexToRowIndex(localIdx: number, geo: ScrollGeometry): number {
-  return Math.floor(localIdx / geo.columns);
-}
-
-// ---------------------------------------------------------------------------
 // The hook
 // ---------------------------------------------------------------------------
 
@@ -232,6 +213,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   const [densityReady, setDensityReady] = useState(() =>
     _densityFocusSaved === null && useSearchStore.getState()._browseNavigation === null);
   const densityMountedReadyRef = useRef(false);
+  const densitySubpixelRef = useRef<{ id: string; scrollTop: number; rowTop: number; height: number;
+    header: number; ratio: number; search: number; seek: number; sort: number; reset: number } | null>(null);
   const densityMountHadReadyPublicationRef = useRef(useSearchStore.getState()._searchContinuity?.phase === "ready");
   const densityAnchorPolicyRef = useRef(config.chooseDensityAnchor);
   densityAnchorPolicyRef.current = config.chooseDensityAnchor;
@@ -282,7 +265,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       const localIdx = toVirtualizerIdx(globalIdx, bo, isTwoTierFromTotal(t));
       if (localIdx < 0) return;
       const geo = geometryRef.current;
-      const rowIdx = Math.floor(localIdx / geo.columns);
+      const rowIdx = getItemLayoutRow(geo, localIdx).index;
       if (scrollRowToCenterRef.current) {
         scrollRowToCenterRef.current(rowIdx);
       } else {
@@ -317,7 +300,41 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   geometryRef.current = geometry;
 
   // Register geometry for external consumers (e.g. Scrubber, diagnostics)
-  registerScrollGeometry({ rowHeight: geometry.rowHeight, columns: geometry.columns });
+  registerScrollGeometry(geometry);
+
+  const publication = useSearchStore.getState();
+  const layoutPublication = { geometry, search: getSearchGeneration(), seek: publication._seekGeneration,
+    sort: publication.sortAroundFocusGeneration, reset: publication._scrollReset.gen };
+  const committedLayout = useRef(layoutPublication);
+  const beforeLayout = committedLayout.current;
+  const beforeScroll = parentRef.current?.scrollTop ?? 0;
+  const layoutAnchor = beforeLayout.geometry !== geometry && "layout" in geometry && geometry.window
+    ? getViewportAnchorId() : null;
+  useLayoutEffect(() => {
+    committedLayout.current = layoutPublication;
+    const old = beforeLayout.geometry;
+    const el = parentRef.current;
+    if (!el || !("layout" in old) || !old.window || !("layout" in geometry) || !geometry.window ||
+        old === geometry || old.window.width !== geometry.window.width ||
+        beforeLayout.search !== layoutPublication.search || beforeLayout.seek !== layoutPublication.seek ||
+        beforeLayout.sort !== layoutPublication.sort || beforeLayout.reset !== layoutPublication.reset) return;
+    const anchorIndex = layoutAnchor ? old.window.findItemIndex(layoutAnchor) : undefined;
+    const row = anchorIndex !== undefined ? getItemLayoutRow(old, anchorIndex) : old.window.rowAtOffset(beforeScroll);
+    if (!row) return;
+    const electedNext = layoutAnchor ? geometry.window.findItemIndex(layoutAnchor) : undefined;
+    if (anchorIndex !== undefined && electedNext !== undefined) {
+      el.scrollTop = beforeScroll + getItemLayoutRow(geometry, electedNext).top - row.top;
+      return;
+    }
+    // If the elected identity was evicted, retain a surviving neighbour from its old row.
+    for (let index = row.firstItemIndex; index <= row.lastItemIndex; index++) {
+      const id = old.window.getItemId(index);
+      const next = id ? geometry.window.findItemIndex(id) : undefined;
+      if (next === undefined) continue;
+      el.scrollTop = beforeScroll + getItemLayoutRow(geometry, next).top - row.top;
+      break;
+    }
+  });
 
   const scrollInputRef = useRef<{ search: number; seek: number } | null>(null);
   const handleScroll = useCallback((event?: Event) => {
@@ -330,17 +347,11 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const range = virtualizerRef.current.range;
     if (range) {
       const geo = geometryRef.current;
-      if (geo.columns > 1) {
-        // Grid: convert row indices → flat image indices
-        reportVisibleRange(
-          range.startIndex * geo.columns,
-          (range.endIndex + 1) * geo.columns - 1,
-          userInitiated,
-        );
-      } else {
-        // Table: flat indices ARE row indices
-        reportVisibleRange(range.startIndex, range.endIndex, userInitiated);
-      }
+      reportVisibleRange(
+        getLayoutRow(geo, range.startIndex).firstItemIndex,
+        getLayoutRow(geo, range.endIndex).lastItemIndex,
+        userInitiated,
+      );
     } else {
       devLog(`[handleScroll] WARNING: virtualizer.range is null — reportVisibleRange skipped`);
     }
@@ -359,6 +370,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const el = parentRef.current;
     if (!el) return;
     const captureInput = () => {
+      densitySubpixelRef.current = null;
       scrollInputRef.current = { search: getSearchGeneration(), seek: useSearchStore.getState()._seekGeneration };
     };
     const onWheel = (event: WheelEvent) => { if (!event.ctrlKey && event.deltaY !== 0) captureInput(); };
@@ -414,9 +426,9 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     if (twoTier) return;
     const el = parentRef.current;
     if (!el || lastPrependCount <= 0) return;
+    if ("layout" in geometryRef.current && geometryRef.current.window) return;
 
-
-    const geo = geometryRef.current;
+    const geo = requireFixedRowGeometry(geometryRef.current);
     // Compute the row shift of the topmost visible item, NOT the change in
     // total row count. The old formula (ceil(new/cols) - ceil(old/cols)) gives
     // the total-row-count delta, which can overshoot by 1 row when
@@ -454,7 +466,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     if (twoTier) return;
     const el = parentRef.current;
     if (!el || lastForwardEvictCount <= 0) return;
-    const geo = geometryRef.current;
+    if ("layout" in geometryRef.current && geometryRef.current.window) return;
+    const geo = requireFixedRowGeometry(geometryRef.current);
     // Viewport-aware row-delta — same principle as prepend compensation.
     // Forward eviction removes items from the START of the buffer, so all
     // remaining items shift left. The topmost visible item at index v becomes
@@ -488,6 +501,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     prevSeekGenRef.current = seekGeneration;
 
     const geo = geometryRef.current;
+    if ("layout" in geo && !geo.window) requireFixedRowGeometry(geo);
     // In two-tier mode, the virtualizer's coordinate space is global (row 0 =
     // global position 0). Use the global index for pixel computation.
     const targetIdx = twoTier && seekTargetGlobalIndex >= 0
@@ -495,7 +509,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       : seekTargetLocalIndex >= 0
         ? seekTargetLocalIndex      // buffer-local, as today
         : 0;
-    const targetPixelTop = localIndexToPixelTop(targetIdx, geo);
+    const targetRow = getItemLayoutRow(geo, targetIdx);
+    const targetPixelTop = targetRow.top;
     // When the store passes a sub-row offset (headroom pre-set couldn't apply
     // it synchronously because the old buffer's scrollHeight was too small),
     // apply it here. Effect #6 runs in useLayoutEffect AFTER the new 300-item
@@ -507,7 +522,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     if (el && browseNavigation?.targetOffset === 0) {
       el.scrollTop = 0;
       el.scrollLeft = 0;
-    } else if (el && (seekSubRowOffset > 0 || Math.abs(el.scrollTop - targetPixelTop) > geo.rowHeight)) {
+    } else if (el && (seekSubRowOffset > 0 || Math.abs(el.scrollTop - targetPixelTop) > targetRow.height)) {
       // Only adjust scrollTop if there's a large difference (> 1 row).
       // The store's seek() reverse-computes _seekTargetLocalIndex from the
       // user's current scrollTop, so the delta is typically 0–15px (sub-row
@@ -522,15 +537,15 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       devLog(
         `[effect6-seek] ADJUSTING scrollTop: ${el.scrollTop.toFixed(1)} → ${targetWithSubRow.toFixed(1)} ` +
         `(targetPixelTop=${targetPixelTop.toFixed(1)}, subRowOffset=${seekSubRowOffset.toFixed(1)}, ` +
-        `delta=${Math.abs(el.scrollTop - targetPixelTop).toFixed(1)}, threshold=${geo.rowHeight}, ` +
-        `cols=${geo.columns}, targetIdx=${targetIdx})`,
+        `delta=${Math.abs(el.scrollTop - targetPixelTop).toFixed(1)}, threshold=${targetRow.height}, ` +
+        `targetIdx=${targetIdx})`,
       );
       el.scrollTop = targetWithSubRow;
     } else if (el) {
       devLog(
         `[effect6-seek] NO-OP: scrollTop=${el.scrollTop.toFixed(1)}, targetPixelTop=${targetPixelTop.toFixed(1)}, ` +
-        `delta=${Math.abs(el.scrollTop - targetPixelTop).toFixed(1)}, threshold=${geo.rowHeight}, ` +
-        `cols=${geo.columns}, targetIdx=${targetIdx}, seekTargetLocalIndex=${seekTargetLocalIndex}`,
+        `delta=${Math.abs(el.scrollTop - targetPixelTop).toFixed(1)}, threshold=${targetRow.height}, ` +
+        `targetIdx=${targetIdx}, seekTargetLocalIndex=${seekTargetLocalIndex}`,
       );
     }
 
@@ -724,15 +739,16 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     }
     pendingSortFocusRef.current = null;
     const geo = geometryRef.current;
-    const savedRatio = pending ? pending.ratio : continuity
-      ? continuity.placement.kind === "ratio" ? continuity.placement.ratio
-        : continuity.placement.kind === "centre" && el && el.clientHeight > 0
-          ? (el.clientHeight - geo.headerOffset - geo.rowHeight) / (2 * el.clientHeight) : null
-      : null;
     const id = pending?.imageId ?? continuity?.targetId ?? store._phantomFocusImageId ?? store.focusedImageId;
     if (!id) return;
     const idx = findImageIndex(id);
     if (idx < 0) return;
+    const row = getItemLayoutRow(geo, idx);
+    const savedRatio = pending ? pending.ratio : continuity
+      ? continuity.placement.kind === "ratio" ? continuity.placement.ratio
+        : continuity.placement.kind === "centre" && el && el.clientHeight > 0
+          ? (el.clientHeight - geo.headerOffset - row.height) / (2 * el.clientHeight) : null
+      : null;
 
     // Consume phantom focus — it's a one-shot positioning aid, not persistent.
     if (store._phantomFocusImageId || continuity?.phase === "ready") {
@@ -751,17 +767,31 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       useSearchStore.setState({ _pendingFocusDelta: null });
       const state = useSearchStore.getState();
       const focusId = state.focusedImageId;
-      if (focusId) {
+      if (focusId && (typeof pendingDelta === "number" ||
+          (pendingDelta.id === focusId && pendingDelta.focusIntent === state._focusIntent))) {
         const globalIdx = state.imagePositions.get(focusId);
         if (globalIdx != null) {
-          const targetGlobalIdx = Math.max(0, Math.min(state.total - 1, globalIdx + pendingDelta));
+          let delta: number;
+          if (typeof pendingDelta === "number") delta = pendingDelta;
+          else if ("layout" in geo && geo.spatial) {
+            const current = twoTier ? globalIdx : globalIdx - state.bufferOffset;
+            const row = geo.spatial.getItemRow(current);
+            const destination = pendingDelta.kind === "row" ? row.index + pendingDelta.direction
+              : geo.spatial.rowAtOffset(row.top + pendingDelta.direction * Math.max(0, (el?.clientHeight ?? 0) - geo.headerOffset))?.index ?? row.index;
+            delta = geo.spatial.neighbour(current, destination) - current;
+          } else if (!("layout" in geo)) {
+            const rows = pendingDelta.kind === "row" ? 1
+              : Math.max(1, Math.floor(((el?.clientHeight ?? 0) - geo.headerOffset) / geo.rowHeight));
+            delta = pendingDelta.direction * rows * geo.columns;
+          } else delta = 0;
+          const targetGlobalIdx = Math.max(0, Math.min(state.total - 1, globalIdx + delta));
           const targetLocalIdx = targetGlobalIdx - state.bufferOffset;
           if (targetLocalIdx >= 0 && targetLocalIdx < state.results.length) {
             const nextImage = state.results[targetLocalIdx];
             if (nextImage) {
               useSearchStore.setState({ focusedImageId: nextImage.id, _focusedImageKnownOffset: targetGlobalIdx });
               const nextIdx = twoTier ? targetGlobalIdx : targetLocalIdx;
-              const rowIdx = localIndexToRowIndex(nextIdx, geo);
+              const rowIdx = getItemLayoutRow(geo, nextIdx).index;
               if (scrollRowToCenterRef.current) {
                 scrollRowToCenterRef.current(rowIdx);
               } else {
@@ -777,13 +807,13 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
 
     if (el && savedRatio != null) {
       // Restore the focused item at the same viewport ratio — "Never Lost".
-      const rowTop = localIndexToPixelTop(idx, geo);
+      const rowTop = row.top;
       let target = rowTop - savedRatio * el.clientHeight;
       // Edge clamping
       const itemY = rowTop - target;
       if (itemY < 0) target = rowTop;
-      else if (itemY > el.clientHeight - geo.rowHeight)
-        target = rowTop - el.clientHeight + geo.rowHeight;
+      else if (itemY > el.clientHeight - row.height)
+        target = rowTop - el.clientHeight + row.height;
       const clamped = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, target));
       virtualizer.scrollToOffset(clamped);
       if (
@@ -802,8 +832,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
         };
       }
     } else {
-      const rowIdx = localIndexToRowIndex(idx, geo);
-      virtualizer.scrollToIndex(rowIdx, { align: "start" });
+      virtualizer.scrollToIndex(row.index, { align: "start" });
     }
 
   }, [sortAroundFocusGeneration, findImageIndex, virtualizer, parentRef, resultsLength, bufferOffset, total, twoTier, focusedImageId, densityReady]);
@@ -834,8 +863,15 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const edge = (indexed || state.bufferOffset === 0) && el.scrollTop === 0 ? "start"
       : (indexed || state.bufferOffset + state.results.length >= state.total) && maxScroll > 0 &&
         maxScroll - el.scrollTop < GRID_ROW_HEIGHT ? "end" : "none";
+    const rowTop = getItemLayoutRow(geo, index).top;
+    const precise = densitySubpixelRef.current;
+    const unchangedPlacement = precise && precise.id === target.id && precise.scrollTop === el.scrollTop &&
+      precise.rowTop === rowTop && precise.height === el.clientHeight && precise.header === geo.headerOffset &&
+      precise.search === getSearchGeneration() && precise.seek === state._seekGeneration &&
+      precise.sort === state.sortAroundFocusGeneration && precise.reset === state._scrollReset.gen;
     return { target, placement: placement === "centre" ? { kind: "centre" }
-      : { kind: "ratio", ratio: (localIndexToPixelTop(index, geo) + geo.headerOffset - el.scrollTop) / el.clientHeight },
+      : { kind: "ratio", ratio: unchangedPlacement ? precise.ratio : (rowTop + geo.headerOffset - el.scrollTop) / el.clientHeight },
+      preserveSubpixel: "layout" in geo || Boolean(unchangedPlacement),
       searchGeneration: getSearchGeneration(),
       publication: { seek: state._seekGeneration, sort: state.sortAroundFocusGeneration, reset: state._scrollReset.gen },
       mode: navigation ? { kind: "departure", navigationSignal: navigation.signal }
@@ -863,28 +899,36 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       return;
     }
     const geo = geometryRef.current;
-    const columns = geo.minCellWidth ? Math.max(1, Math.floor(el.clientWidth / geo.minCellWidth)) : geo.columns;
+    const currentGeometry = !("layout" in geo) && geo.minCellWidth
+      ? { ...geo, columns: Math.max(1, Math.floor(el.clientWidth / geo.minCellWidth)) } : geo;
     const indexed = isTwoTierFromTotal(state.total);
-    const row = Math.floor(toVirtualizerIdx(saved.target.globalIndex, state.bufferOffset, indexed) / columns);
+    const row = getItemLayoutRow(currentGeometry, toVirtualizerIdx(saved.target.globalIndex, state.bufferOffset, indexed));
     const start = indexed || state.bufferOffset === 0;
     const end = indexed || state.bufferOffset + state.results.length >= state.total;
     if (saved.placement.kind === "centre") {
-      if (scrollRowToCenterRef.current) scrollRowToCenterRef.current(row);
-      else virtualizerRef.current.scrollToIndex(row, { align: "center" });
+      if (scrollRowToCenterRef.current) scrollRowToCenterRef.current(row.index);
+      else virtualizerRef.current.scrollToIndex(row.index, { align: "center" });
     } else if (saved.mode.kind === "settled" && saved.mode.edge === "end" && end) {
       virtualizerRef.current.scrollToIndex(virtualizerRef.current.options.count - 1, { align: "end" });
     } else {
-      const rowTop = row * geo.rowHeight;
+      const rowTop = row.top;
       let placement = saved.placement.ratio * el.clientHeight;
       if (placement < geo.headerOffset) placement = geo.headerOffset;
-      else if (placement + geo.rowHeight > el.clientHeight) placement = el.clientHeight - geo.rowHeight;
+      else if (placement + row.height > el.clientHeight) placement = el.clientHeight - row.height;
       const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight);
       let offset = Math.max(0, Math.min(maxScroll, rowTop + geo.headerOffset - placement));
       if (saved.mode.kind === "settled") {
-        if (start && (saved.mode.edge === "start" || offset < geo.rowHeight)) offset = 0;
-        else if (end && maxScroll - offset < geo.rowHeight) offset = maxScroll;
+        if (start && (saved.mode.edge === "start" || offset < row.height)) offset = 0;
+        else if (end && maxScroll - offset < row.height) offset = maxScroll;
       }
       el.scrollTop = offset;
+      // Browsers can quantise scrollTop to whole pixels. Do not compound that
+      // rounding on an untouched variable→fixed→variable density round trip.
+      densitySubpixelRef.current = saved.preserveSubpixel ? { id: saved.target.id, scrollTop: el.scrollTop,
+        rowTop, height: el.clientHeight, header: geo.headerOffset,
+        ratio: (rowTop + geo.headerOffset - offset) / el.clientHeight,
+        search: getSearchGeneration(), seek: state._seekGeneration, sort: state.sortAroundFocusGeneration,
+        reset: state._scrollReset.gen } : null;
     }
   };
 
@@ -913,7 +957,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const onKey = (event: KeyboardEvent) => {
       if (isNativeInputTarget(event)) return;
       if ((event.key === "ArrowLeft" || event.key === "ArrowRight") &&
-          (geometryRef.current.columns <= 1 || getEffectiveFocusMode() !== "explicit" ||
+          ((!("layout" in geometryRef.current) && geometryRef.current.columns <= 1) || getEffectiveFocusMode() !== "explicit" ||
             useSearchStore.getState().focusedImageId === null || useSelectionStore.getState().selectedIds.size > 0)) return;
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)) interrupt();
     };
@@ -942,7 +986,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       const navigation = state._browseNavigation;
       if (navigation && !navigation.signal.aborted && navigation.phase !== "ready" && isTwoTierFromTotal(state.total)) {
         const geo = geometryRef.current;
-        el.scrollTop = Math.floor(navigation.targetOffset / geo.columns) * geo.rowHeight;
+        el.scrollTop = getItemLayoutRow(geo, navigation.targetOffset).top;
       }
       densityMountedReadyRef.current = true;
       setDensityReady(true);

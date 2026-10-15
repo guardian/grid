@@ -63,12 +63,27 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      testIgnore: "**/forced-seek.spec.ts",
+      testIgnore: ["**/forced-seek.spec.ts", "**/justified-density.spec.ts", "**/justified-windowed.spec.ts"],
       use: { ...devices["Desktop Chrome"] },
     },
     {
       name: "forced-seek",
       testMatch: "**/forced-seek.spec.ts",
+      use: { ...devices["Desktop Chrome"], baseURL: "http://localhost:3030" },
+    },
+    {
+      name: "justified-preview",
+      testMatch: "**/justified-density.spec.ts",
+      use: { ...devices["Desktop Chrome"], baseURL: "http://localhost:3040" },
+    },
+    {
+      name: "justified-indexed",
+      testMatch: "**/justified-windowed.spec.ts",
+      use: { ...devices["Desktop Chrome"], baseURL: "http://localhost:3000" },
+    },
+    {
+      name: "justified-seek",
+      testMatch: "**/justified-windowed.spec.ts",
       use: { ...devices["Desktop Chrome"], baseURL: "http://localhost:3030" },
     },
   ],
@@ -84,6 +99,12 @@ export default defineConfig({
     {
       command: "VITE_POSITION_MAP_THRESHOLD=0 npm run dev -- --port 3030",
       port: 3030,
+      reuseExistingServer: false,
+      timeout: 60_000,
+    },
+    {
+      command: "npm run dev:justified",
+      port: 3040,
       reuseExistingServer: false,
       timeout: 60_000,
     },

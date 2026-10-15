@@ -4,7 +4,7 @@ import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { getViewportAnchorId, getVisibleImageIds } from "@/hooks/useDataWindow";
 import { buildSearchKey } from "@/lib/image-offset-cache";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
-import { getScrollGeometry } from "@/lib/scroll-geometry-ref";
+import { getLayoutGeometry, getItemLayoutRow } from "@/lib/scroll-geometry-ref";
 import { resolveAnchorVirtIndex } from "@/lib/grid-scroll-anchor";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
 import type { UrlSearchParams } from "@/lib/search-params-schema";
@@ -47,7 +47,7 @@ export function historySearchContinuity(snapshot: HistorySnapshot | undefined, p
 export function captureSearchContinuity(
   sortOnly: boolean,
   container = getScrollContainer(),
-  geometry = getScrollGeometry(),
+  geometry = getLayoutGeometry(),
 ): SearchContinuity {
   const state = useSearchStore.getState();
   const selection = useSelectionStore.getState();
@@ -57,7 +57,7 @@ export function captureSearchContinuity(
   const focus = selectedAnchor ? "retain" : focusTarget ? "target" : sortOnly && state.params.aiQuery ? "retain" : "none";
   const index = resolveAnchorVirtIndex(targetId, state.imagePositions, state.bufferOffset, isTwoTierFromTotal(state.total));
   const placement: SearchPlacement = index !== null && container && container.clientHeight > 0
-    ? { kind: "ratio", ratio: (Math.floor(index / geometry.columns) * geometry.rowHeight - container.scrollTop) / container.clientHeight }
+    ? { kind: "ratio", ratio: (getItemLayoutRow(geometry, index).top - container.scrollTop) / container.clientHeight }
     : { kind: "start" };
   return { provenance: "user", targetId, placement, focus,
     ...(targetId && focus !== "target" ? { neighbours: getVisibleImageIds() } : {}) };

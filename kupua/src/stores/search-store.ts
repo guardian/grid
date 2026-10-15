@@ -49,8 +49,7 @@ import { resolveKeywordSortInfo, resolveDateSortInfo, resolvePrimarySortKey } fr
 import { buildSearchKey, extractSortValues, getRetainedSortValues, retainSortValues } from "@/lib/image-offset-cache";
 import { devLog } from "@/lib/dev-log";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
-import { getScrollGeometry } from "@/lib/scroll-geometry-ref";
-import { alignBufferStart } from "@/lib/buffer-column-align";
+import { getLayoutGeometry, requireFixedRowGeometry, alignWindowStart, windowEvictionCount } from "@/lib/scroll-geometry-ref";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
 import { addToast } from "@/stores/toast-store";
 import {
@@ -424,14 +423,13 @@ interface SearchState {
   } | null;
 
   /**
-   * Pending focus delta for arrow snap-back.
-   * When the user presses an arrow key but the focused image is not in the
-   * buffer (seeked away), the snap-back seek loads the buffer around the
-   * focused image. This field records the key's delta so effect #9
-   * (sortAroundFocusGeneration) can apply it after the scroll completes.
+   * Pending movement for keyboard snap-back to off-buffer focus.
+   * Fixed layouts record an item delta; spatial layouts record a guarded
+   * row/page intent that can only be resolved against admitted geometry.
+   * Effect #9 (sortAroundFocusGeneration) consumes it before final placement.
    * Cleared by search() and consumed by the scroll effect.
    */
-  _pendingFocusDelta: number | null;
+  _pendingFocusDelta: number | { kind: "row" | "page"; direction: 1 | -1; id: string; focusIntent: number } | null;
 
   /**
    * Last known global offset of the focused image. Saved when focus is set
@@ -1565,10 +1563,9 @@ async function _loadBufferAroundImage(
   // PAGE_SIZE, not by the image's actual position. After trimming,
   // `targetLocalIndex % columns === exactOffset % columns` — the natural
   // column for the image's global position.
-  const { columns: cols } = getScrollGeometry();
   const rawBufferStart = Math.max(0, exactOffset - backwardResult.hits.length);
-  const { alignedOffset: bufferStart, trimCount: trim } = alignBufferStart(
-    rawBufferStart, backwardResult.hits.length, cols,
+  const { alignedOffset: bufferStart, trimCount: trim } = alignWindowStart(
+    rawBufferStart, backwardResult.hits.length,
   );
 
   const bwHits = trim > 0 ? backwardResult.hits.slice(trim) : backwardResult.hits;
@@ -2024,11 +2021,9 @@ async function _findAndFocusImage(
       if (exactOffset != null) {
         const excessPreceding = Math.max(0, buf.targetLocalIndex - exactOffset);
         const rawCorrectedOffset = Math.max(0, exactOffset - buf.targetLocalIndex);
-        const { columns } = getScrollGeometry();
-        const { alignedOffset, trimCount } = alignBufferStart(
+        const { alignedOffset, trimCount } = alignWindowStart(
           rawCorrectedOffset,
           finalResults.length - excessPreceding,
-          columns,
           buf.targetLocalIndex - excessPreceding,
         );
         finalBufferOffset = alignedOffset;
@@ -2896,10 +2891,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         let evictedFromStart = 0;
         if (newBuffer.length > BUFFER_CAPACITY) {
           const rawEvict = newBuffer.length - BUFFER_CAPACITY;
-          const cols = getScrollGeometry().columns;
-          evictedFromStart = cols > 1
-            ? Math.ceil(rawEvict / cols) * cols
-            : rawEvict;
+          evictedFromStart = windowEvictionCount(rawEvict);
           newPositions = evictPositions(
             newPositions, newBuffer, 0, evictedFromStart,
           );
@@ -3044,9 +3036,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // seek(), and atomic sort-around-focus alignment — this was the "future
       // fourth call site" those three's own comments warned about
       // (2026-07-31 wandering M3 follow-up).
-      const geo = getScrollGeometry();
       const rawOffset = bufferOffset - result.hits.length;
-      const { trimCount } = alignBufferStart(rawOffset, result.hits.length, geo.columns);
+      const { trimCount } = alignWindowStart(rawOffset, result.hits.length);
       // Guard: only trim when the result stays non-empty after trimming.
       // When result.hits.length <= trimCount (e.g. the 2 remaining items
       // before the start of results in a 3-column grid), trimming would
@@ -3056,7 +3047,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       if (trimCount > 0 && result.hits.length > trimCount) {
         result.hits = result.hits.slice(trimCount);
         result.sortValues = result.sortValues.slice(trimCount);
-        devLog(`[extendBackward] trimmed ${trimCount} items to align bufferOffset with ${geo.columns} columns (${result.hits.length + trimCount} → ${result.hits.length})`);
+        devLog(`[extendBackward] trimmed ${trimCount} items to align bufferOffset (${result.hits.length + trimCount} → ${result.hits.length})`);
       }
 
       if (result.hits.length === 0) {
@@ -4000,8 +3991,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // trim would consume the whole page — matches the original guard
       // here, and the audit-#9 lesson in extendBackward: an edge-case rare
       // enough to accept staying unaligned rather than risk emptying result.
-      const { columns: seekCols } = getScrollGeometry();
-      const { trimCount: seekTrim } = alignBufferStart(actualOffset, result.hits.length, seekCols);
+      const { trimCount: seekTrim } = alignWindowStart(actualOffset, result.hits.length);
       if (seekTrim > 0 && seekTrim < result.hits.length) {
         result = {
           ...result,
@@ -4076,12 +4066,20 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           // position when pendingSeekPosRef clears.
           scrollTargetIndex = targetLocalIndex;
           // No sub-row offset needed — we want to land exactly at the target.
+        } else if ("layout" in getLayoutGeometry()) {
+          const geometry = getLayoutGeometry();
+          if (!("layout" in geometry) || !geometry.window) throw new Error("Window preparation requires supported geometry");
+          const computed = geometry.window.prepareSeek({ images: result.hits, bufferOffset: actualOffset,
+            total: discovery ? total : get().total, backwardItemCount, clampedOffset,
+            scrollTop: scrollEl.scrollTop, clientHeight: scrollEl.clientHeight });
+          scrollTargetIndex = computed.scrollTargetIndex;
+          _seekSubRowOffset = computed.seekSubRowOffset;
         } else {
           // INEXACT-OFFSET PATH (deep seek with percentile estimation):
           // Reverse-compute a local index from the user's current scrollTop.
           // This prevents flash — the virtualizer renders new content at the
           // user's current scroll position, not the (drifted) target position.
-          const geo = getScrollGeometry();
+          const geo = requireFixedRowGeometry(getLayoutGeometry());
           // Total is stable within a search session (frozen params) — always
           // use the store's known total (audit F-01).
           const effectiveTotal = discovery ? total : get().total;
@@ -4103,16 +4101,18 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         }
 
         // Populate diagnostics for the devLog
-        const geo = getScrollGeometry();
+        const geo = getLayoutGeometry();
         _diagOrigScrollTop = scrollEl.scrollTop;
-        _diagCurrentRow = Math.floor(scrollEl.scrollTop / geo.rowHeight);
-        _diagCols = geo.columns;
-        let reverseIndex = _diagCurrentRow * geo.columns;
-        if (backwardItemCount > 0 && reverseIndex < backwardItemCount) {
-          _diagHeadroomFired = true;
-          reverseIndex += backwardItemCount;
+        if (!("layout" in geo)) {
+          _diagCurrentRow = Math.floor(scrollEl.scrollTop / geo.rowHeight);
+          _diagCols = geo.columns;
+          let reverseIndex = _diagCurrentRow * geo.columns;
+          if (backwardItemCount > 0 && reverseIndex < backwardItemCount) {
+            _diagHeadroomFired = true;
+            reverseIndex += backwardItemCount;
+          }
+          _diagReverseIndex = reverseIndex;
         }
-        _diagReverseIndex = reverseIndex;
       } else {
         // No scroll container (tests, SSR). For exact-offset seeks the target
         // index is known-correct; for inexact paths fall back to buffer centre.

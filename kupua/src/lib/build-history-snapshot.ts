@@ -14,7 +14,7 @@ import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { getViewportAnchorId } from "@/hooks/useDataWindow";
 import { buildSearchKey } from "@/lib/image-offset-cache";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
-import { getScrollGeometry } from "@/lib/scroll-geometry-ref";
+import { getLayoutGeometry, getItemLayoutRow } from "@/lib/scroll-geometry-ref";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
 
 /**
@@ -68,7 +68,7 @@ export function buildHistorySnapshot(): HistorySnapshot {
 
   // --- viewportRatio: where the anchor sits within the visible viewport ---
   // Must use the same coordinate system as useScrollEffects Effect #9 (the
-  // consumer): geometry-based pixel positions from localIndexToPixelTop.
+  // consumer): logical row tops from getItemLayoutRow.
   // Earlier this used DOM getBoundingClientRect which includes container
   // padding (e.g. pt-1 = 4px), causing a 4px/cycle drift when the ratio
   // round-tripped through history placement in Effect #9.
@@ -82,9 +82,7 @@ export function buildHistorySnapshot(): HistorySnapshot {
     // Read geometry from the shared ref (registered by useScrollEffects on
     // mount and whenever columns change). Replaces the previous approach of
     // sniffing the scroll container's aria-label to determine table vs grid.
-    const { rowHeight, columns } = getScrollGeometry();
-
-    const rowTop = Math.floor(virtualizerIdx / columns) * rowHeight;
+    const rowTop = getItemLayoutRow(getLayoutGeometry(), virtualizerIdx).top;
     viewportRatio =
       scrollContainer.clientHeight > 0
         ? (rowTop - scrollContainer.scrollTop) / scrollContainer.clientHeight
