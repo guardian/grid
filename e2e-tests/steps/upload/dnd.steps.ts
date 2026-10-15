@@ -4,7 +4,7 @@ import { filesToUpload, gridHostedImageUrl, uploadPage } from './setup.ts';
 
 /** From kahuna/public/js/strings.json. */
 const DROPZONE_EXPLANATION =
-  'Drop files or GuardianWitness URLs here to upload them instantly to the Grid';
+  'Drop files or URLs here to upload them instantly to the Grid';
 
 When('I drag files over the upload page', async ({ page }) => {
   await dragOver(page, { files: filesToUpload });
