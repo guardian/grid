@@ -219,19 +219,6 @@ dndUploader.directive('dndUploader', ['$window', '$rootScope', 'delay', 'safeApp
                 } else if (ctrl.isNotGridThumbnail(uri)) {
                     ctrl.loadUriImage(uri);
                 }
-                else {
-                    $window.alert('You must drop valid files or ' +
-                        'URLs to upload them');
-
-                    $rootScope.$emit(
-                      'track:event',
-                      trackEvent,
-                      'Drop',
-                      'Invalid',
-                      null,
-                      dropAction('Invalid')
-                    );
-                }
             }
 
             function clean() {
