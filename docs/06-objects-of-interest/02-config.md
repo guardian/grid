@@ -68,7 +68,7 @@ Service-specific configs. These will override all other config files.
     <td></td>
   </tr>
   <tr>
-    <td><code>useReaper</code><br>Is reaper (image deletion service) supported?</td>
+    <td><code>useReaper</code><br>Is reaper (image deletion service) supported? See <a href="03-reaper.md">Reaper</a></td>
     <td>True</td>
     <td>boolean</td>
     <td></td>
@@ -87,13 +87,13 @@ Service-specific configs. These will override all other config files.
     <td>[]</td>
   </tr>
   <tr>
-    <td><b><code>persistence.identifier</code></b><br>Used by the reaper to retain images which have a particular identifier (e.g. <code>picdarUrn</code> for Guardian)</td>
+    <td><b><code>persistence.identifier</code></b><br>Used by the <a href="03-reaper.md">reaper</a> to retain images which have a particular identifier.<br><b>Must be lower case</b></td>
     <td>True</td>
     <td>string</td>
     <td></td>
   </tr>
   <tr>
-    <td><b><code>persistence.onlyTheseCollections</code></b><br>Used by the reaper…
+    <td><b><code>persistence.onlyTheseCollections</code></b><br>Used by the <a href="03-reaper.md">reaper</a>…
       <ol>
         <li>If not specified, images in any collection are persisted</li>
         <li>If specified, but empty array, images are not* persisted based on collection at all </li>
@@ -1220,6 +1220,30 @@ Service-specific configs. These will override all other config files.
     <td>yes</td>
     <td>int</td>
     <td>1</td>
+  </tr>
+  <tr>
+    <td><code>s3.reaper.bucket</code><br>Bucket holding the <a href="03-reaper.md">reaper</a>'s audit manifests and its <code>PAUSED</code> control file. The scheduled reaper does not run unless this <i>and</i> <code>reaper.countPerRun</code> are both set</td>
+    <td>yes (but required to run the reaper)</td>
+    <td>string</td>
+    <td></td>
+  </tr>
+  <tr>
+    <td><code>reaper.countPerRun</code><br>Images processed per run, applied separately to the soft and hard stages. The scheduled reaper does not run unless this <i>and</i> <code>s3.reaper.bucket</code> are both set</td>
+    <td>yes (but required to run the reaper)</td>
+    <td>int</td>
+    <td></td>
+  </tr>
+  <tr>
+    <td><code>reaper.interval</code><br>Minutes between reaper runs</td>
+    <td>yes</td>
+    <td>int (minutes)</td>
+    <td>15</td>
+  </tr>
+  <tr>
+    <td><code>reaper.provider</code><br><b>Replaces the entire set of persistence rules</b> with a custom <code>ReapableEligibility</code> implementation. If set, the documented rules do not apply — check this before reasoning about reaper behaviour</td>
+    <td>yes</td>
+    <td>provider</td>
+    <td>None (default rules)</td>
   </tr>
 </tbody>
 </table>
