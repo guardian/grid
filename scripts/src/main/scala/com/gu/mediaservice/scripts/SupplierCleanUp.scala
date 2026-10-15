@@ -1,6 +1,7 @@
 package com.gu.mediaservice.scripts
 
 import com.gu.mediaservice.model.leases.MediaLease
+import org.joda.time.DateTime
 import play.api.libs.json.{JsValue, Json}
 
 import java.net.URI
@@ -19,7 +20,7 @@ object SupplierCleanUp extends App {
   val GRIDKEY = sys.env.getOrElse("GRIDKEY", throw new RuntimeException("Must set a GRIDKEY env variable"))
   val STAGE = sys.env.getOrElse("STAGE", throw new RuntimeException("Must set a STAGE env variable"))
   val GRIDDOMAIN = if(STAGE == "PROD") "gutools.co.uk" else "test.dev-gutools.co.uk"
-  val MaxConcurrentRequests = 8
+  val MaxConcurrentRequests = 50
   val client: HttpClient = HttpClient.newHttpClient()
 
   println(s"Running for stage $STAGE with domain $GRIDDOMAIN")
@@ -43,13 +44,14 @@ object SupplierCleanUp extends App {
   def send(request: HttpRequest) =
     client.sendAsync(request, BodyHandlers.ofString()).asScala
 
-  def traverseBatched[A, B](items: Seq[A], batchSize: Int)(f: A => Future[B]): Future[Seq[B]] =
+  def traverseBatched[A, B](items: Seq[A], batchSize: Int)(f: A => Future[B]): Future[Seq[B]] = {
     items.grouped(batchSize).foldLeft(Future.successful(Seq.empty[B])) { (completed, batch) =>
       for {
         previousResults <- completed
         batchResults <- Future.traverse(batch)(f)
       } yield previousResults ++ batchResults
     }
+  }
 
   def delay(seconds: Long): Future[Unit] =
     CompletableFuture
@@ -85,8 +87,9 @@ object SupplierCleanUp extends App {
   val supplierRefBatches = supplierRefs.grouped(1000).toList
   val mediaIds = supplierRefBatches.zipWithIndex.foldLeft(Future.successful(Seq.empty[String])) {
     case (previousBatches, (refs, index)) =>
+      println("Making API calls in batchSize " + batchSize)
       previousBatches.flatMap { previousIds =>
-        println(s"Fetching grid ids, for batch ${index + 1} of ${supplierRefBatches.size}")
+        println(s"${DateTime.now()}: Fetching grid ids, for batch ${index + 1} of ${supplierRefBatches.size}")
 
         val ids = traverseBatched(refs, MaxConcurrentRequests) { ref =>
         val request = HttpRequest.newBuilder(new URI(s"https://api.media.$GRIDDOMAIN/images?q=suppliersReference%3A$ref")).headers("X-Gu-Media-Key", GRIDKEY).build()
@@ -97,7 +100,7 @@ object SupplierCleanUp extends App {
         }.map(_.flatten)
 
         ids.flatMap { batchIds =>
-          println(s"Found ${batchIds.size} grid ids for batch ${index + 1} of ${supplierRefBatches.size}")
+          println(s"${DateTime.now()}: Found ${batchIds.size} grid ids for batch ${index + 1} of ${supplierRefBatches.size}")
           delay(2).map(_ => previousIds ++ batchIds)
         }
       }
