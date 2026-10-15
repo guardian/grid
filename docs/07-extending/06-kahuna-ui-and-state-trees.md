@@ -106,6 +106,67 @@ natural places to grow the React island:
 
 ## 2. Route / navigation state (ui-router)
 
+### What is a resolve?
+
+A **resolve** is data that ui-router loads **before** it enters a route. A state
+declares a map of named functions; each returns a value or a promise. ui-router waits
+for every promise to settle, then creates the controller and passes the results to it
+by name through dependency injection.
+
+The `image` state ([image/index.js](../../kahuna/public/js/image/index.js)), abridged:
+
+```js
+$stateProvider.state('image', {
+    url: '/images/:imageId?crop?cropType&customRatio&defaultCropType',
+    template: imageTemplate,
+    controller: 'ImageCtrl',
+    controllerAs: 'ctrl',
+    resolve: {
+        imageId: ['$stateParams', $stateParams => $stateParams.imageId],
+        image: ['$state', '$q', 'mediaApi', 'imageId', ($state, $q, mediaApi, imageId) =>
+            mediaApi.find(imageId).catch(error => {
+                if (error && error.status === 404) {
+                    $state.go('image-error', {message: 'Image not found'});
+                } else {
+                    return $q.reject(error);
+                }
+            })
+        ],
+        optimisedImageUri: ['image', 'imgops', (image, imgops) => imgops.getFullScreenUri(image)]
+    }
+});
+
+// The controller receives resolved values, not promises
+controller('ImageCtrl', ['image', 'optimisedImageUri', function(image, optimisedImageUri) { … }]);
+```
+
+What resolves give you:
+
+- **Data is loaded before navigation finishes.** The controller never sees an empty
+  or loading image, so it doesn't need loading checks.
+- **Resolves can depend on each other.** `image` uses `imageId`, and
+  `optimisedImageUri` uses `image`; ui-router works out the order.
+- **Navigation can be blocked or redirected.** If a resolve rejects, the transition is
+  cancelled. `image`, `crop` and `takedown` use this to redirect to `image-error` when
+  an image is missing, can't be cropped, or the user lacks permission.
+- **Values are scoped to the state.** A child state can inject its parent's resolves.
+  `search.results` builds `selection`, `results` and `selectedImages$` and passes them
+  to its named views (`infoPanel`, `collectionPanel`, and so on).
+
+This is why route resolves count as a **state layer**: they're where each page's data
+comes from, not just routing config.
+
+React equivalents:
+
+- React Router's route `loader` (with `useLoaderData()`) and TanStack Router's
+  `loader` / `beforeLoad` work the same way: they fetch before render and can redirect.
+- With React Query, call `queryClient.ensureQueryData(...)` inside the loader so the
+  data is also cached.
+- Permission gates like `ensureCanTakedown` become a `redirect()` thrown from the
+  loader or `beforeLoad`.
+
+### States
+
 | State | URL | Parent | Key resolves / services | Template |
 |-------|-----|--------|-------------------------|----------|
 | `upload` | `/upload` | (root) | — | `upload/view.html` |
