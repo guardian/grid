@@ -66,6 +66,47 @@ async function density(page: Page, target: "grid" | "table" | "justified") {
   await expect(page.getByRole("region", { name: `Image results ${target}`, exact: true })).toBeVisible();
 }
 
+test("technical block seams fill the row and preserve their anchor through reflow and density changes", async ({ kupua, page }, info) => {
+  await page.setViewportSize({ width: 914, height: 900 });
+  await start(kupua, page, info.project.name);
+  const id = await page.evaluate(async () => {
+    const path = "/src/dal/es-config.ts";
+    if (!(await import(path)).IS_LOCAL_ES) throw new Error("Local-only fixture");
+    const store = (window as any).__kupua_store__;
+    const results = store.getState().results.map((image: any, index: number) => {
+      const dimensions = { width: index % 48 === 42 ? 1000 : index % 48 >= 46 ? 67 : 150, height: 100 };
+      return { ...image, source: { ...image.source, dimensions, orientedDimensions: dimensions } };
+    });
+    store.setState({ results });
+    return results[47].id as string;
+  });
+  await region(page).evaluate(element => { element.scrollTop = 2000; });
+  const cell = region(page).locator(`[data-image-id="${id}"]`);
+  await expect(cell).toBeAttached();
+  await cell.scrollIntoViewIfNeeded();
+  const point = await kupua.waitForHitTestedImagePoint({ view: "justified", imageId: id });
+  await page.mouse.click(point.x, point.y);
+  expect(await kupua.getFocusedImageId()).toBe(id);
+  const before = await placement(page, id);
+  for (const width of [914, 404, 914]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect.poll(() => cell.evaluate(element => {
+      const container = element.closest('[aria-label="Image results justified"]')!;
+      return Math.abs(element.getBoundingClientRect().right - container.getBoundingClientRect().left - container.clientWidth);
+    })).toBeLessThan(1);
+    await expect.poll(async () => Math.abs((await placement(page, id)).y - before.y)).toBeLessThan(1);
+    const ratio = await cell.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      return rect.width / rect.height;
+    });
+    expect(ratio).toBeCloseTo(0.67, 2);
+  }
+  await density(page, "table");
+  await density(page, "justified");
+  await expect.poll(async () => Math.abs((await placement(page, id)).y - before.y)).toBeLessThan(1);
+  expect(await kupua.getFocusedImageId()).toBe(id);
+});
+
 test("off-buffer vertical navigation recovers focus and uses the destination's next row", async ({ kupua, page }, info) => {
   await start(kupua, page, info.project.name);
   await seek(page, 0.3);
@@ -147,6 +188,102 @@ test("windowed density, panel, history and traversed detail preserve identity an
     const rect = await placement(page, fullTarget!);
     return Math.abs(rect.y + rect.height / 2 - rect.viewport / 2);
   }).toBeLessThan(5);
+});
+
+test("append repacks a visible temporary tail while preserving the elected viewport image", async ({ kupua, page }, info) => {
+  await page.setViewportSize({ width: 914, height: 200 });
+  await kupua.startSearch();
+  await settled(page);
+  await page.evaluate(async () => {
+    const path = "/src/dal/es-config.ts";
+    if (!(await import(path)).IS_LOCAL_ES) throw new Error("Local-only fixture");
+    const source = (window as any).__kupua_store__.getState().dataSource;
+    const original = source.searchAfter;
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const probe = { calls: 0, appendedIds: [] as string[], release,
+      cleanup: () => { release(); source.searchAfter = original; delete (window as any).__justifiedTail; } };
+    source.searchAfter = async function (...args: any[]) {
+      const result = await original.apply(this, args);
+      const hits = (args[1] === null ? result.hits.slice(0, 92) : result.hits).map((image: any) => {
+        const dimensions = { width: 150, height: 100 };
+        return { ...image, source: { ...image.source, dimensions, orientedDimensions: dimensions } };
+      });
+      if (args[1] !== null && args[4] !== true) {
+        probe.calls++;
+        probe.appendedIds = hits.map((image: any) => image.id);
+        await gate;
+      }
+      return { ...result, hits, sortValues: result.sortValues.slice(0, hits.length) };
+    };
+    (window as any).__justifiedTail = probe;
+  });
+  try {
+    // Publish the partial fixture before justified can retain any of its missing dimensions.
+    await page.evaluate(() => (window as any).__kupua_store__.getState().search());
+    await settled(page);
+    expect(await page.evaluate(() => (window as any).__kupua_store__.getState().results.length)).toBe(92);
+    await density(page, "justified");
+    await expect(kupua.scrubber).toHaveAttribute("data-scrubber-mode", info.project.name.endsWith("indexed") ? "indexed" : "seek");
+    // Density disposal blocks maintenance longer than the ordinary search cooldown.
+    const cooldown = await page.evaluate(async () => {
+      const path = "/src/constants/tuning.ts";
+      return (await import(path)).SEARCH_FETCH_COOLDOWN_MS as number;
+    });
+    await page.waitForTimeout(cooldown + 50);
+    await page.evaluate(() => {
+      (window as any).__justifiedTail.work = (window as any).__kupua_store__.getState().extendForward();
+    });
+    await page.waitForFunction(() => (window as any).__justifiedTail.calls === 1);
+    const id = await page.evaluate(async () => {
+      const state = (window as any).__kupua_store__.getState();
+      const path = "/src/lib/scroll-geometry-ref.ts";
+      const row = (await import(path)).getLayoutGeometry().layout.getItemRow(91);
+      const container = document.querySelector('[aria-label="Image results justified"]')!;
+      container.scrollTop = row.top + row.height / 2 - container.clientHeight / 2;
+      return state.results[91].id as string;
+    });
+    await page.waitForFunction(id => (window as any).__kupua_getViewportAnchorId__() === id, id);
+    expect(await kupua.getFocusedImageId()).toBeNull();
+    expect(await page.evaluate(() => (window as any).__kupua_store__.getState().results.length)).toBe(92);
+    const before = await placement(page, id);
+    const beforeScroll = await region(page).evaluate(element => element.scrollTop);
+    expect(before.y).toBeLessThan(before.viewport);
+    expect(before.y + before.height).toBeGreaterThan(0);
+    await page.evaluate(() => (window as any).__justifiedTail.release());
+    await page.evaluate(() => (window as any).__justifiedTail.work);
+    await settled(page);
+    expect(await page.evaluate(() => {
+      const state = (window as any).__kupua_store__.getState();
+      const probe = (window as any).__justifiedTail;
+      return { calls: probe.calls, offset: state.bufferOffset, appended: probe.appendedIds.length,
+        exactAppend: state.results.length === 92 + probe.appendedIds.length &&
+          probe.appendedIds.every((id: string, index: number) => state.results[92 + index]?.id === id),
+        unique: new Set(state.results.map((image: any) => image.id)).size === state.results.length };
+    })).toMatchObject({ calls: 1, offset: 0, appended: 200, exactAppend: true, unique: true });
+    await expect.poll(async () => {
+      const after = await placement(page, id);
+      const scroll = await region(page).evaluate(element => element.scrollTop);
+      return Math.abs(after.y + scroll - before.y - beforeScroll);
+    }).toBeGreaterThan(1);
+    await expect.poll(async () => Math.abs((await placement(page, id)).y - before.y)).toBeLessThan(1);
+    const after = await placement(page, id);
+    const afterScroll = await region(page).evaluate(element => element.scrollTop);
+    const contentDelta = after.y + afterScroll - before.y - beforeScroll;
+    expect(Math.abs(afterScroll - beforeScroll - contentDelta)).toBeLessThan(1);
+    const drift = await page.evaluate(async ({ id, y }) => {
+      const container = document.querySelector('[aria-label="Image results justified"]')!;
+      let maximum = 0;
+      for (let frame = 0; frame < 12; frame++) {
+        await new Promise(requestAnimationFrame);
+        const cell = container.querySelector(`[data-image-id="${CSS.escape(id)}"]`)!;
+        maximum = Math.max(maximum, Math.abs(cell.getBoundingClientRect().top - container.getBoundingClientRect().top - y));
+      }
+      return maximum;
+    }, { id, y: before.y });
+    expect(drift).toBeLessThan(1);
+    expect(await kupua.getFocusedImageId()).toBeNull();
+  } finally { await page.evaluate(() => (window as any).__justifiedTail?.cleanup()); }
 });
 
 test("delayed window maintenance retains the visible image without double compensation", async ({ kupua, page }, info) => {

@@ -1,69 +1,59 @@
-# Justified density: current design, verification and next decisions
+# Justified density: refactor handoff and documentation amendments
 
-**Status: implemented and likely to be retained.** Normal development offers Table,
-Grid and Justified; grid remains the default. Latest validated baseline (15 October
-2026): **2,984 unit tests / 89 files, production build, and 464 local E2Es passed**,
-with no E2E retries or skips. Operator-run density baselines now exist for direct ES and
-local media-api (four repetitions each, seek regime); these are not historical trends or
-controlled transport comparisons. Production inclusion still requires licensing clearance.
-No further commits or pushes authorised for the current work.
+**Current state:** justified density and bounded seam balancing are implemented in development;
+Grid remains the default. Next focus is scoped refactoring, not more seam work or new controls.
+Production remains excluded pending licensing clearance. Implementation history belongs in the
+[changelog](changelog.md), not here. Late-thumbnail evidence and R7 remain intact for possible
+separate investigation.
 
-This is the current technical plan, not an execution diary. Implementation history belongs
-in [changelog](changelog.md); process ownership and temporary state belong in
-[worklog](worklog-current.md). Preserve existing uncommitted changes. Completed research
-and the archived cleanup campaign are not new work or additional implementation gates.
+## Fresh-agent handoff — refactors
 
-## Continuation boundary
+Read [AGENTS](../../AGENTS.md), [worklog](worklog-current.md), this plan and the implementation/proof
+links for the selected refactor. Verify the worktree; preserve unrelated changes outside Kupua.
+The previous app was stopped for local tests, but process ownership and live-access permission
+must be re-established, not inherited. No performance campaigns/dry runs, commits or pushes are
+authorised by this handoff.
 
-The three approved independent cold reviews have completed. Their bounded corrections
-are implemented; §8 records findings and dispositions. Do not commission the same reviews
-again or repeat completed research. Preserve all uncommitted work. Runtime ownership and
-any unfinished verification belong in [worklog](worklog-current.md).
+### Start here
 
-The operator approved the performance-harness slice (§5): additive justified/paired workloads,
-thumbnail-exposure diagnostics for Grid/Justified, Table thumbnail/layout-shift diagnostics and
-dashboards. Existing campaign definitions/defaults remain historical controls; new contracts
-get distinct report identities. Implementation status and local validation belong in the worklog.
-Licensing clearance and any later bounded seam experiment (§7) remain separate decisions.
-No campaigns/dry runs, seam/grouping work, parked +36/+37px policy change, increased resource
-limits, new infrastructure, commits or pushes are authorised by the completed review mandate.
+1. Propose one bounded slice from §4. Recommended order: **R1 destination-seek policy → R3 narrow
+   browser helpers → R6 measurement-led geometry work**, with R6 implementation conditional on
+   evidence. Confirm the slice before code changes; this order is not blanket approval.
+2. State the duplicate responsibility removed, retained owner, benefit to Grid/Table as well as
+   Justified, preserved behaviour and independent proof. Reject a wrapper around unchanged
+   branches or a speculative framework. A concrete defect outranks structural tidiness.
+3. Keep the current preservation policies, true/temporary-edge distinction, resource bounds and
+   production gate. The parked 36/37px policy, minor interior engine underfills, semantic grouping,
+   sizing UI and thumbnail delivery are **not prerequisites or incidental fixes**. If a refactor
+   genuinely depends on one, stop and seek a separate decision.
+4. Validate the smallest discriminators first, then the required unit/build/browser surfaces.
+   Shared geometry or continuity changes require the full regression surface. Do not widen
+   tolerances, merge distinct readiness conditions or change performance measurement boundaries.
 
-Keep focus/selection/viewport distinctions and existing query/history/viewer ownership.
-Documentation integration remains queued in §9; current edits are limited to this plan,
-worklog, implementation changelog and the performance README. No new audit/report files.
-Use only verified owned app processes; the Python supervisor is intentional. Its tool handle
-can finish while OS children remain alive. Never infer stopped services from that handle,
-kill arbitrary listeners, replace the tunnel/resizer or persist runtime secrets.
+### Mandatory gate after EVERY refactor
 
-## 1. Availability, fixtures and licensing
+Commission **three independent, read-only cold reviews after each completed refactor**, not one
+review round after a batch:
 
-| Mode | Configuration | Behaviour |
-| --- | --- | --- |
-| Normal development | No layout environment switch | Normal configured datasource and real queries; all three density buttons available. |
-| Synthetic fixture | `VITE_JUSTIFIED_PREVIEW=true`; `npm --prefix kupua run dev:justified` | 96 varied synthetic images; simulated matching; SVG media. Server uses port 3040. |
-| Real-photo sample fixture | `VITE_JUSTIFIED_PREVIEW=sample` | One capped read of up to 96 images, then in-memory ordering/cursor/range operations; matching simulated; reload resamples. |
-| Production build | `import.meta.env.DEV` is false | Justified preference falls back to grid; packing/windowed renderer excluded pending licensing clearance. |
+- **Correctness and test adequacy:** regressions, preservation contracts and discriminating proof.
+- **Architecture and refactor value:** ownership, actual duplication removed, UX trade-offs and
+  whether a simpler approach would suffice.
+- **Static performance and measurement readiness:** work/retention bounds, invalidation and
+  credible measurement needs; no automatic profiling or live campaigns.
 
-`JUSTIFIED_AVAILABLE` is `import.meta.env.DEV`: the licensing-qualified availability
-boundary, **not an extra live-mode switch**. `WINDOWED_JUSTIFIED_ENABLED`
-means development without either resident fixture. The old `live` environment value is
-unnecessary. Neither constant selects a performance scenario. See the naming refactor below.
+Keep reviewers independent; collect all three reports before making review-driven fixes.
+Resolve actionable findings and rerun affected validation before starting the next refactor;
+escalate scope/policy decisions to the operator. Passing tests do not replace this gate.
 
-The sample datasource coalesces its initial read, uses no PIT/exact full-index count,
-times out after 15 seconds and caches failure as an empty sample rather than falling back
-to unrestricted reads. No sample metadata is persisted. The cap does not suppress normal
-thumbnail/detail or optional enrichment traffic; these fixtures are not network-isolation
-or real-query certification. Retain their honest data notices; the ordinary app has no
-prototype banner or label.
+### Finish the refactor sequence
 
-The installed engine is exactly `@immich/justified-layout-wasm@0.4.3`. Its published
-artifact includes AGPL-3; the previously examined upstream source LICENSE is MIT but
-metadata/artifact differ. Prototype/development use was explicitly approved; release
-clearance was not. Do not relabel the installed artifact MIT or repeat licensing research
-without a concrete promotion decision. WASM follows the chosen engine, not a measured
-Kupua speed advantage. Do not incidentally upgrade unrelated transitive advisories.
+Integrate the proposed owning-document amendments in §5 **after refactor work**, reconciling them
+with the final implementation rather than copying stale wording. Do not expand the owning guides
+now. Completed snapshot-ownership and availability-name repairs are constraints to retain, not
+refactors to repeat. Use the [browser playbook](embedded-browser-playbook.md),
+[safeguards](infra-safeguards.md) and [performance README](../../e2e-perf/README.md) for execution rules.
 
-## 2. Implementation map and layout model
+## 1. Implementation map
 
 | Responsibility | Owner |
 | --- | --- |
@@ -79,129 +69,42 @@ Kupua speed advantage. Do not incidentally upgrade unrelated transitive advisori
 | Availability, fixtures and normal datasource selection | [resident-preview](../../src/lib/resident-preview.ts), [DAL factory](../../src/dal/index.ts), [sample datasource](../../src/dal/resident-sample-data-source.ts) |
 | Controls and density preference | [StatusBar](../../src/components/StatusBar.tsx), [ui-prefs-store](../../src/stores/ui-prefs-store.ts), [search route](../../src/routes/search.tsx) |
 
-### Packing and boundaries
+## 2. Boundaries to retain
 
-- Use oriented dimensions, falling back to square for invalid/missing dimensions; decoding
-  images does not determine layout. Retain whole images, ordering and all available items.
-- Current target heights: **190px at widths >=600px, 130px below**; gap 4px; height tolerance
-  0.5. No crop, hidden-final-row, default-size or always-filled-row policy change is approved.
-- Independently pack **48-image technical blocks**, unrelated to network pages or dates.
-  Indexed boundaries use exact result positions. Seek-mode ordinals follow overlapping
-  identities, not estimated global ranks. Changed query or absent overlap discards context.
-- A true first/last result block truncates unavailable exterior slots. A temporary loading
-  edge does not confer true-start/end authority. Never rechunk from the moving buffer's zero.
-- Unknown dimensions use square estimates. Filling them may repack their block; the existing
-  scroll owner compensates around an admitted resident identity. Estimates are not a claim
-  of exact global pixel positions or complete catalogue knowledge.
-- The current model retains ID/ratio entries for its buffer and intersecting boundary blocks,
-  bounded by buffer length + 94. Cross-density context holds dimensions/identities, not image
-  records. Unloaded indexed blocks share a packing template plus per-block offsets. Assess
-  aggregate retained state and work separately in performance review; these bounds alone
-  are not a frame-time or heap-performance certificate.
-- Defaults remain resident threshold 1,000, indexed threshold 65,000 and buffer capacity
-  1,000 (configurable). No larger requests, extra dimension fetches or raised limits were added.
+- One shared renderer, geometry registry and scroll-correction owner. Fixed arithmetic and
+  variable-window operations stay explicit; never invent columns or average-row geometry.
+- Preserve transition-specific identity, coordinate and placement authority. Mounted geometry
+  and commit-only cross-density dimension snapshots have different lifetimes. Detailed contracts
+  and durable proof lessons are queued in §5, not invitations to redesign these owners.
+- Packing remains ordered and uncropped, using oriented dimensions with square fallback.
+  Defaults: 48-image technical blocks; target height 190px at widths >=600px, otherwise 130px;
+  4px spacing and 0.5 height tolerance. Non-final endings balance at most three trailing rows,
+  trying shorter suffixes only when needed; natural true-final rows remain untouched.
+- Indexed boundaries are exact; seek ordinals derive from overlapping identities, not estimated
+  ranks. Query/no-overlap replacement invalidates context. Temporary buffer edges are not result
+  edges. Current dimension retention is buffer length +94; no larger reads or catalogue cache.
+- Preserve configurable defaults: resident threshold 1,000, indexed threshold 65,000 and buffer
+  capacity 1,000. These bounds do not certify frame time or aggregate heap usage.
+- Keep the separate +36px/+37px header-policy reproductions unchanged; a shared cause is unproved.
+  Minor engine-cap underfills also remain separate. Neither warrants relaxing preservation tests.
+- Normal DEV offers justified without another switch. The installed
+  `@immich/justified-layout-wasm@0.4.3` artifact includes AGPL-3; development use is approved,
+  production clearance is not. Preserve the DEV import gate and production Grid fallback.
 
-### Shared behaviour rather than a second gallery
-
-Justified supplies layout to the existing image grid: cells, selection, drag/long-press,
-image-safety treatment, detail/fullscreen and navigation owners remain shared. Image-only
-cells deliberately omit informational metadata/badges, not selection or safety indicators.
-Horizontal keys follow result order; vertical keys choose the closest horizontal centre
-in the adjacent row, with result-order tie breaking. Page movement uses actual row geometry;
-selection/phantom paging must not promote focus.
-
-A single geometry registry serves logical row lookup. Fixed layouts keep arithmetic access;
-variable windows expose explicit alignment and destination-seek preparation. Never return
-fake columns/average row height to the legacy fixed accessor to bypass unsupported paths.
-Browser anchoring and virtualizer size compensation are disabled for justified so they do
-not double-apply the scroll owner's correction.
-
-## 3. Preservation contract
-
-Position means **identity, coordinate, logical result edge and authority to place**, not
-merely a stored focus ID or scrollTop. Existing policies intentionally differ by transition.
-
-| Transition | Preserve |
-| --- | --- |
-| Settled density switch | Resolvable buffer-resident focus, otherwise viewport anchor; row-top ratio including header flow, visibility clipping and true-edge policy. Offscreen resident focus can pull the view back; nonresident focus cannot. Selection is not a separate chooser here. |
-| Pending browsing + density | Pending destination retains admission authority. Density disposal may retire placement without cancelling useful discovery. Indexed destination and buffer-local departure have different coordinate roles. |
-| Query/filter/AI | Capture before publication. Focus/remembered detail identity, otherwise viewport centre; selection is not the query anchor. Preserve ordinary neighbour/top fallback versus finite-AI top relaxation. |
-| Sort | Selection anchor can outrank focus as the placement target without replacing remembered focus. Preserve existing explicit/phantom and finite-AI distinctions. |
-| Back/Forward | Destination snapshot chooses identity, ratio and focus/NONE in the current density. No departing-neighbour adoption; missing destination keeps existing top/no-focus fallback. |
-| Width reflow | Resolvable selection, then focus, then viewport anchor; capture before reflow and retain that operation's anchor. An offscreen selected anchor is not promised to become visible. |
-| Detail/fullscreen | Native close without traversal preserves the mounted list without scrolling; traversed return centres through current geometry. Preserve entry identity, missing-target waits and supersession. |
-| Prepend/eviction/estimate correction | Retain a resident viewport identity and old/new row-top difference. One correction owner; no simultaneous fixed, browser and virtualizer compensation. |
-| Seek/Home/End | Exact index and estimated/buffer-local regimes stay distinct; preserve headroom, reverse-compute/flash avoidance, cursor mapping and separately owned keyboard focus intent. |
-| Logo Home/new-images refresh | Deliberate reset published with data. Offset zero is not reset authority; loaded-buffer bottom is not true result end. |
-
-Search/history capture uses logical row coordinates excluding header/padding flow; density
-capture includes header flow. Do not replace both with raw DOM image coordinates. Detail
-centres retain table's usable-height adjustment. Generation, publication, navigation,
-history-entry and focus-intent guards have different lifetimes: do not substitute one epoch.
-
-Variable-to-fixed density round trips can accumulate integer scrollTop rounding. The
-implementation carries the unrounded authored ratio only while target, applied scroll,
-row geometry, viewport/header and publication remain unchanged; newer input retires it.
-Review these invalidation conditions rather than removing the carry as cosmetic state.
-
-### Parked header offset
-
-[Existing B19/C27](zz%20Archive/not-yet-another-audit-ledger.md#b19) records +36px on native
-Back from a true Credit-null tail. The paired fixed-grid/justified history→table→density
-witness measures +37px in its viewport. These are distinct reproductions; a shared root
-cause is not proved. Preserve the current policy and measured-header oracle, not a widened
-tolerance. Repair requires a separately agreed all-density coordinate change. Neither
-witness excuses new drift; do not create a duplicate issue.
-
-## 4. Controls and useful lessons
-
-Table / Grid / Justified are independent icon buttons with stable names and pressed states.
-Grid selects grid and is idempotent when active; active Table/Justified toggles back to grid.
-All three icons have 14px painted bounds. Material's extra viewBox padding needs compensation;
-matching SVG element sizes alone does not match visible artwork.
-
-The toolbar's summary/tickers scroll within their own bounded strip; density, panel and
-compact selection controls stay pinned. The app shell uses `overflow: clip` on both axes.
-**Hidden overflow is still programmatically scrollable:** native Tab to an offscreen
-control reproduced whole-shell displacement, so this was not automation-only. Do not
-restore `overflow: hidden` as an equivalent clipping style or hide inaccessible controls
-without retaining a usable route to them. Native keyboard tests cover 320/393px and selection.
-
-Other lessons worth retaining:
-
-- Necessary Home and publication guards are not clutter. Name the responsibility removed
-  before deleting state; retain the existing distinct ownership proofs.
-- Engine height caps can leave underfilled rows independently of block seams. Raising the
-  cap alone can make giant portraits. Floating-point tolerances permit rounding, not crop
-  or changed aspect ratios; an earlier evaluated engine failed this distinction.
-- Very narrow portrait cells can make selection targets overhang. Real images rarely show
-  the synthetic extremes, but rarity is not native-touch usability proof.
-- Density acknowledgement/loading=false is not proof of final painted placement. Use the
-  action's actual readiness condition and independent identity/geometry oracle.
-- Controlled backward-request holds should count that operation, not unrelated concurrent
-  forward maintenance. Do not hide extra requests by relaxing budgets without attribution.
-- A hidden shared tab or driver-induced ancestor scroll can confound observations. Verify
-  foreground, runtime source and hit-tested targets before calling it a layout defect.
-
-## 5. Verification and performance coverage
+## 3. Verification and performance coverage
 
 Latest baseline (15 October 2026; commands run from repository root with foreground tee):
 
 | Command | Result |
 | --- | --- |
-| `npm --prefix kupua test` | 2,984 passed / 89 files. |
+| `npm --prefix kupua test` | 2,998 passed / 89 files. |
 | `npm --prefix kupua run build` | Passed; no production WASM assets. Existing large-chunk advisory remains. |
-| `npm --prefix kupua run test:e2e -- kupua/e2e/local/justified-windowed.spec.ts --retries=0 --max-failures=1` | 12 passed after correcting the maintenance-hold arrangement race. |
-| `npm --prefix kupua run test:e2e -- --retries=0 --max-failures=1` | Final frozen-source run: 464 passed, no skips/retries, 7.3m. |
+| `npm --prefix kupua run test:e2e -- kupua/e2e/local/justified-windowed.spec.ts --retries=0 --max-failures=1` | 16 passed after cold-review follow-ups, including both temporary-tail append witnesses; no retries. |
+| `npm --prefix kupua run test:e2e -- --retries=0 --max-failures=1` | Full seam-implementation baseline before the parameter rename/additive browser proof: 466 passed, no skips/retries, 7.6m. |
 
-An earlier full attempt was invalidated by a source-comment edit during execution: its
-trace showed Vite reconnects during the table-density handshake. The clean run above replaces
-that contaminated attempt, without tolerance changes. Freeze source/configuration during tests.
-
-After validation, the owned TEST frontend/proxy were restored without replacing the existing
-tunnel/resizer. The shared tab confirmed the read-only non-local ES adapter, 200 buffered images
-and four matching served-source hashes. It remained hidden; media was pending, not a verified
-fresh thumbnail/paint pass. Earlier foreground functional evidence remains separately qualified.
+Focused packing/window validation passes 31 tests, including 160 seeded ordinary-ratio/width
+cases. Freeze source/configuration during browser runs; even comment edits can trigger reloads.
+These results are the refactor baseline, not a reason to skip validation after ownership changes.
 
 Proof entry points:
 
@@ -212,40 +115,16 @@ Proof entry points:
 - [Density controls](../../e2e/local/density-controls.spec.ts): toggle/no-op semantics, painted icon geometry and narrow keyboard accessibility.
 - Existing [history](../../e2e/local/browser-history.spec.ts), [browse-density](../../e2e/local/browse-density.spec.ts), [forced-seek](../../e2e/local/forced-seek.spec.ts), [selection](../../e2e/local/selections.spec.ts) and store suites remain controls, not redundant history to delete casually.
 
-Functional projects use normal 3000, forced-seek 3030 and synthetic fixture 3040 servers;
-windowed justified projects reuse the first two. Local E2Es refuse real ES. Use relevant
-selectors while iterating and required regression gates after corrections; do not multiply
-all dimensions into a Cartesian suite or waive existing pixel/identity assertions.
+Local E2Es use ports 3000/3030/3040 and refuse real ES; check ownership before starting them.
+Follow the root-level npm-prefix/foreground-tee rules. Preserve independent oracles and existing
+pixel/identity assertions rather than multiplying every dimension into a Cartesian suite.
 
-Bounded foreground TEST checks have exercised real thumbnails, browsing beyond 96 images,
-deep seek, nonresident-focus fallback, density/detail return and real filter changes. They
-are not endurance, native-device, every-race or performance certification. No live metadata,
-identities, signed URLs or credentials belong in repository evidence.
-
-**Coverage distinction:** historical jank/perceived campaigns retain their Grid/Table workloads.
-The additive density suite now has explicit `--suite justified` and `--suite combined` selection,
-matched Grid controls, Table thumbnail diagnostics and separate density-tagged histories/dashboard.
 The [performance README](../../e2e-perf/README.md#density-comparisons-and-thumbnail-exposure)
-owns commands, scenario contracts, controlled profile and limitations. A campaign label alone
-still selects nothing; the earlier Grid/Table campaign cannot certify justified performance.
-
-Revision2 D1–D8 contracts cover unthrottled scroll/transition/detail/seek/reflow/eviction and
-one automatically included constrained-scroll family across all three densities. Throttling
-is confined to D8's observation window, never startup/setup; there is no new throttle flag.
-Local synthetic fixtures validate observers and reporting, while actual-app isolated indexed/seek
-fixtures validate native repeated setup, canonical identity restoration, detail/reflow and admitted
-eviction. Observer-only validation missed the first campaign's setup defects and is not sufficient.
-The suite
-records the actual indexed/seek regime; it does not silently force a backend configuration or
-claim both regimes from one run. Placement and optional media completion remain distinct;
-missing/censored media does not become a successful zero latency. No product prefetch/layout
-policy has changed. New performance conclusions still require **operator-run** campaigns,
-including any dry runs, before a seam change can be compared with a justified baseline.
-
-Existing rAF/LoAF/layout-shift/DOM metrics do not measure packing allocations or heap retention;
-fixed-duration sampling is not action-to-placement latency, and geometry stability is not
-thumbnail decoding. Resource Timing covers completed browser transfers, not outstanding reads
-or backend request counts. These measurement limits constrain any proposed comparison.
+owns scenario contracts and commands. `--suite justified` provides matched density comparisons;
+`--full` includes the maintained rendering and perceived suites too. Existing direct-ES and
+media-api baselines are pre-seam, seek-regime evidence, not a controlled transport comparison.
+No post-seam speedup/regression or aggregate-heap conclusion has been measured. Campaigns and
+dry runs remain operator-run; use matched conditions before making performance claims.
 
 ### Late thumbnail arrival: initial campaign evidence
 
@@ -285,108 +164,62 @@ rule out shifts in other actions, or separate application cost from probe overhe
 placement speed. These measurements provide a useful baseline, not permission for speculative
 prefetching, increased resource budgets or a broad helper/architecture rewrite. See R7 below.
 
-## 6. Refactors worth assessing
+## 4. Refactor candidates and order
 
-These are candidates, not a cleanup mandate. Each proposal must identify a responsibility
-or competing owner removed, the retained owner, benefit to existing densities, migration
-cost and preserved proof. Reject wrappers, speculative flexibility and work justified only
-by sunk effort. A concrete correctness fix outranks structural tidiness.
+R numbers are stable references, not mandatory phases. **R2 snapshot ownership and R4 availability
+naming are already implemented**; retain their contracts instead of reopening them. Every selected
+refactor must pass the three-review gate in the handoff before moving to the next.
 
 ### R1 — Pure destination-seek preparation
 
-**Deferred, worthwhile separately:** review found duplication, not a demonstrated landing
-defect. Fixed arithmetic permits unbounded reverse rows; variable lookup clamps to available
-rows and handles empty destinations explicitly. Merging this now adds fixed-grid regression
-risk without correcting a known failure. First specify independent empty/short/shrink/headroom
-and true-end controls, then remove the duplicate policy in one bounded slice.
+**First: highest product-maintenance value, with real regression risk.** Fixed reverse arithmetic
+and variable `prepareSeek` duplicate headroom, true-end and shrinking-buffer policy. Fixed rows
+can extend beyond known geometry; variable lookup clamps and handles empty destinations. Do not
+flatten those differences into a fake fixed-row interface.
 
+Centralise only genuinely shared policy behind a pure destination-geometry input/output boundary.
+No reads, scroll writes, focus changes or publication: the store keeps admission/data ownership,
+and the scroll hook keeps placement. Start with independent empty/short/shrink/headroom/true-end
+controls, then extract one policy at a time. Preserve null zones, exact/estimated landing,
+prepend headroom, sub-row carry, clamping and pending/newer browsing.
 
-**Problem:** fixed reverse-computation and variable `prepareSeek` both deal with headroom,
-true-end selection and buffer-shrink clamping, while store publication/diagnostics surround
-them. Review for duplicated policy or future divergence, not merely long functions.
-
-**Candidate:** a pure destination-geometry input/output boundary that centralises genuinely
-shared policy while retaining explicit fixed/variable geometry operations. It must perform
-no reads, scroll writes, focus changes or publication. The store remains the admission and
-data owner; the scroll hook remains the placement owner. Do not create a second lifecycle.
-
-**Value/proof:** simplify independent grid/table behaviour as well as justified. Preserve
-exact versus estimated landing, null zones, empty/short buffers, true End, prepend headroom,
-sub-row carry and clamping using independent expected results plus pending-browse controls.
-Do not proceed if the only result is a wrapper around two unchanged implementations.
-
-### R2 — Explicit ownership of layout snapshots
-
-**Implemented:** packing no longer publishes cross-density context during render. ImageGrid
-publishes its committed layout through one callback; JustifiedGrid retains only its bounded
-dimension snapshot. A Strict Mode/Suspense witness proved that abandoned query work formerly
-erased the committed overlap origin. The two lifetimes remain distinct; they are not duplicate
-placement owners. Query/no-overlap replacement still invalidates context.
-
-**Retained boundary:** mounted geometry belongs to ImageGrid; cross-density context belongs
-to JustifiedGrid. Do not replace these with a global full-layout cache or retain visited
-history. Existing width/overlap/eviction tests and the new publication-boundary witness cover
-different responsibilities. Aggregate heap retention remains a separate R6 proof question.
+**Promise:** fewer places for Grid/Table/Justified seek behaviour to diverge, with unchanged landing
+semantics—not faster seeks or a repaired header policy. Reject the refactor if it merely wraps two
+unchanged implementations. Keep existing test oracles independent during this work.
 
 ### R3 — Shared layout-aware browser helpers
 
-**Narrow correction implemented:** windowed tests now select idempotently and confirm the
-requested region; repeated selection must not advance restoration generation. Broader helper
-consolidation is deferred: shared grid/table helpers are also called by performance scenarios.
-Moving their waits would alter measurement boundaries; duplicated labels alone do not justify
-that churn. Resident/windowed placement oracles stay independent.
+**Second: improve proof maintenance after the product policy settles.** Map ordinary E2E and
+performance consumers before removing duplication. Share stable selectors and explicit
+selection/read operations, not a universal “settled” helper. “Select this view” must stay
+idempotent and distinct from clicking an active toggle.
 
-
-**Problem:** grid/table-specific selectors coexist with resident/windowed justified helpers
-for choosing density, locating the active viewport and reading placement. Duplication risks
-future controls or layout changes leaving one proof family stale.
-
-**Candidate:** share stable selectors and explicit selection/read APIs. Keep “select this
-view” distinct from “click its toggle again”. Preserve each caller's readiness, operation
-hold and independent oracle; do not merge native-return, centred-return and density-ratio
-checks into a generic “settled” wait. Remove redundant helpers only after mapping consumers.
-
-**Value/proof:** benefits fixed grids and future sizing too. Perf callers must not gain extra
-setup/action/wait inside measured boundaries. Retain cold/warm, blank/reused/reload and
-wrong-density rejection controls; revise scenario identities if a workload actually changes.
-
-### R4 — Availability and fixture naming
-
-**Implemented:** `JUSTIFIED_AVAILABLE` and `WINDOWED_JUSTIFIED_ENABLED` replace the misleading
-preview/live constant names. No new flag module or operator switch. Fixture selection remains
-separate from density/backend choice; production fallback, inline import tree-shaking, normal
-datasource selection and both resident fixtures remain intact.
-
-### R5 — Future discrete sizing, without speculative controls
-
-Grid may later vary columns; justified may vary target row height. Share capture/reflow
-contracts, not fabricated “justified columns”. Assess any refactor against these separate
-parameters and preserve current defaults. Do not implement controls/presets/fluid zoom now.
-Extract a shared operation only if it removes existing duplicate capture/restore work and
-retains selection/focus/viewport precedence, not because a hypothetical API looks elegant.
+**Promise:** consistent test actions across densities without weaker assertions or altered
+measurement boundaries. Preserve native-return versus centred-return versus density-ratio
+oracles, action-specific readiness, request holds, cold/warm and wrong-density controls. Do not
+move waits/setup into timed regions; revise scenario identities if a workload genuinely changes.
+Start narrow; duplicated labels alone do not justify a large helper rewrite or a new framework.
 
 ### R6 — Indexed geometry cost and representation
 
-Static review confirms construction/measurement invalidation on publication or resize, not
-packing every scroll frame. Every layout currently resets virtualizer measurement; its size
-walk starts at zero. Repacking and destination preparation may duplicate work. These are
-unmeasured cost hypotheses, not evidence for a larger cache or a prefix-tree rewrite.
+**Third, conditional: establish cost before choosing a representation change.** Inspect packing,
+shared estimates, block lookup, virtualizer measurement invalidation and destination preparation.
+Construction happens on publication/resize; ordinary scroll renders reuse layout. Rebuilding
+intersecting blocks, resetting measurement from zero and preparing temporary seek geometry may
+amplify work, but no measured regression or leak has been established.
 
-Separate cardinalities: for a buffer of N images, dimensions are at most N+94; identity maps
-hold at most N each. Known packed blocks are bounded by the intersecting buffer blocks;
-unloaded full blocks share one 48-item template. Indexed descriptors are O(ceil(total/48))
-(up to 1,355 at the default 65,000 threshold), and virtualizer storage is O(row count), with
-allocated high-water capacity. Mounted old/new layouts, temporary seek preparation and the
-cross-density dimension snapshot can coexist. The Map bound is not an aggregate heap proof;
-future heap evidence must include JS, typed arrays and WASM, plus transient reachability.
+**Promise if justified:** less repeated work or clearer bounded lifetimes without larger reads,
+retention budgets or changed placement. There is no speedup/heap promise before evidence. Prefer
+removing redundant work or narrowing invalidation to a new cache/prefix-tree architecture. Keep
+unknown geometry explicit; never retain catalogue-wide dimensions to make measurements look good.
+§5 retains the cardinality model and measurement limitations for later guide integration.
 
+### R5 — Future discrete sizing, not a current implementation step
 
-Review block construction, prefix lookup, repeated estimation, virtualizer measurement
-invalidation and retained snapshots. Distinguish work per publication/resize from per scroll
-frame. Consider compact prefix corrections, reusable immutable blocks or narrower invalidation
-only when code evidence or measurements identify a meaningful cost. Preserve explicit unknown
-geometry and bounded cache eviction; do not gain speed by retaining catalogue-wide dimensions.
-This static assessment is useful before campaigns; claims of improvement require matched runs.
+Grid may vary columns; justified may vary target row height. Retain their shared capture/reflow
+contract without fabricating justified columns. Extract sizing-related duplication only if it
+already exists and has independent selection/focus/viewport proof. No presets, controls or fluid
+zoom framework now. The promise is compatibility with later sizing, not delivering that feature.
 
 ### R7 — Thumbnail delivery headroom, not indiscriminate overscan
 
@@ -410,72 +243,165 @@ Start with a discriminating local fixture for the suspected stage, then an opera
 comparison. A larger shared-helper unification remains separately deferred; it is not a prerequisite
 for understanding thumbnail arrival or a reason to change established measurement contracts.
 
-## 7. Next seam experiment and grouping boundary
+## 5. Proposed document amendments — integrate AFTER refactors
 
-The recurring gaps are currently the last rows of 48-image blocks; extreme-ratio height caps
-can create additional gaps. **Exactly 48 and visibly underfilled seams are not requirements.**
-Stable bounded work and position preservation are the constraints to retain.
+These are durable contracts and lessons for the owning guides, not a history log or additional
+implementation work. Reconcile them with the final code after refactoring, merge into the listed
+guides and remove duplicated payload from this plan. Current contracts still constrain refactors.
 
-After review/corrections and suitable performance coverage, compare only a small number of
-concrete row-aware boundary or bounded-overlap candidates. Use varied ratios and middle-entry
-fixtures; measure seam appearance plus append/prepend, eviction, resize, history/density and
-newer-input behaviour. Define the retained boundary context, invalidation and request budget
-before coding. Do not “solve” gaps by stretching a few images into giant rows, hiding images,
-cropping, increasing resource limits or repacking the whole moving buffer.
+### Component guide and deviations: geometry, packing and ownership
 
-Semantic groups are independent: a large day can span many invisible technical blocks;
-other sorts may support credit/collection groups or no grouping at all. Variable group sizes
-are not a reason to expose arbitrary technical batches. Grouping remains deferred.
+Owners: [component reference](00%20Architecture%20and%20philosophy/component-detail.md) and
+[deviations](deviations.md). Integrate the model/defaults in §2 with these responsibilities:
 
-## 8. Cold-review findings and disposition
+- Justified supplies geometry to shared cells, selection, drag/long-press, safety treatment and
+  detail/fullscreen/navigation owners. Image-only cells omit informational metadata/badges,
+  not selection or safety indicators. No second gallery or scrolling lifecycle.
+- Mounted geometry belongs to ImageGrid; JustifiedGrid retains bounded ID/ratio snapshots only
+  after commit. Abandoned renders must not overwrite committed context. Query/no-overlap
+  replacement invalidates it; no retained image records, visited-history cache or global layout.
+- Stable blocks are technical, not dates/network pages/groups. Unknown dimensions use square
+  estimates; unloaded full indexed blocks share a template. A temporary edge does not authorise
+  true-end truncation. Estimates do not promise globally exact pixels at arbitrary entry points.
+- Trailing-row balancing minimises item-weighted squared height deviation within 0.5–1.5 times
+  the target. Prefer the widest feasible band of at most three rows, then shorter suffixes.
+  A preceding extreme panorama must not prevent a feasible smaller-tail repair. Earlier rows
+  and true-final blocks stay unchanged; infeasible suffixes retain engine output.
+- Interior engine-cap underfills can occur even with ordinary ratios (observed 4–17px at 320px).
+  They are not technical seams or missing thumbnails. No guarantee of universally filled rows;
+  do not hide results, crop or raise caps to manufacture one. Floating tolerances allow rounding,
+  not changed aspect ratios. Narrow portrait selection-target usability needs separate proof.
+- Cross-block overlap changes neighbours' invalidation/eviction responsibilities; do not add it
+  without a failing discriminator. Consider narrower-first balancing only for a concrete aesthetic
+  problem. Semantic grouping and future discrete sizing are independent of technical block size.
 
-Three independent read-only contexts reviewed correctness/test adequacy, architecture/refactor
-value and static performance/measurement readiness. All reports were collected before product
-edits. The following is the durable disposition, not a new audit campaign.
+### Position, scroll and history guides: transition-specific preservation
 
-| Finding | Classification and disposition | Independent proof |
-| --- | --- | --- |
-| Off-buffer vertical/page keys returned without recovery or newer intent | **Defect, fixed.** Queue row/page intent through the existing snap-back owner; resolve against destination geometry after admission. Fixed destination after density change uses its own geometry. No fabricated columns or second seek lifecycle. | Four keys fail before repair; mounted irregular-row destination expectations, unpublished-total and newer-horizontal-input controls; native indexed/forced-seek browser journeys. |
-| Publication correction elected B but used the first surviving identity A in B's old row | **Defect, fixed.** Preserve elected identity when it survives; only fall back to old-row neighbours when it does not. | Split-row witness originally moved by 200px rather than 400px; existing prepend/newer-seek controls retained. |
-| Cross-density snapshot mutated during speculative render | **Concern reproduced and fixed.** Commit-only snapshot publication, retaining distinct mounted-layout and cross-density lifetimes (R2). | Strict Mode/Suspense abandoned query render formerly reset origin40 to0; query/no-overlap replacement controls remain. |
-| Windowed selector always clicked an already-active non-grid button | **Latent helper defect, fixed.** Idempotent selection and requested-region assertion; no perf-helper timing changes. | Same-target selection leaves restore generation unchanged. |
-| Fixture hold sometimes installed while automatic backward work was already running | **Test arrangement race, fixed.** Wait for existing maintenance/cooldown before installing the next-read hold. No request/tolerance relaxation. | Failed trace explicitly reported backward-in-flight refusal; existing exact one-held-call and position oracles retained. |
-| Historical preview/live names | **Bounded simplification, implemented** (R4). | Existing fixture/DEV/production preference matrix and production build exclusion. |
-| Duplicate seek preparation policy / broader browser helper consolidation | **Deferred structural proposals** (R1/R3), not established user-facing failures. | Require independent edge policy controls / perf consumer boundary mapping before extraction. |
-| Publication cost, full measurement invalidation, aggregate retention | **Unmeasured hypotheses/coverage gaps** (R6). No measured slowdown or leak established. No cache/budget increase. | Future operation-count and aggregate lifetime controls; operator timing campaigns only after suitable workloads. |
-| Natural-scroll request frequency | **Coverage gap.** Page size/capacity are preserved, but maintenance holds do not prove equivalent native-scroll request frequency. No amplification demonstrated. | Future direction-attributed local scroll observation through forward eviction/reverse prepend; count starts/completions/cancellation/outstanding work separately. |
+Owners: [position](00%20Architecture%20and%20philosophy/02-focus-and-position-preservation.md),
+[scroll](00%20Architecture%20and%20philosophy/03-scroll-architecture.md) and
+[history](00%20Architecture%20and%20philosophy/04-browser-history-architecture.md).
+Position comprises identity, coordinate, logical edge and placement authority; focus, selection
+and viewport anchor are distinct. Preserve this transition table rather than promising one
+universal restoration rule:
 
-Future sizing controls/frameworks are deferred (R5); the current column versus row-geometry
-separation already accommodates discrete sizing. Reject a second navigation owner, invented
-fixed scalars, wholesale continuity rewrite, catalogue-retaining caches and optimisation claims
-without measurements. No new semantic groups, seam hiding or parked header-policy repair.
-
-## 9. Operating boundaries and documentation disposition
-
-Use only owned app/helper processes; verify ports and identities before stopping anything.
-Warm TEST setup can reuse an existing tunnel on9200 and resizer on3002, discover configuration
-in memory, and start only frontend3000/proxy3001. The normal startup script can stop local ES,
-replace infrastructure and write a temporary credential file: its existence is not permission
-for those side effects. Current process IDs/page handles belong in the worklog, not this plan.
-Read the [browser playbook](embedded-browser-playbook.md) and [safeguards](infra-safeguards.md).
-
-Read-only TEST scope is bounded; no writes, harvesting, index migration, new backend contracts,
-secret persistence or safeguard changes. Stop repeated failed remote attempts once credential
-expiry/unavailability is established and continue independent local work. Do not claim missing
-live checks passed, refresh credentials autonomously or replace authentication with a bypass.
-
-Queued owning-document integration (not yet authorised beyond the performance README):
-
-| Owner | Durable payload |
+| Transition | Contract |
 | --- | --- |
-| AGENTS/component guide | Implemented shared renderer/geometry/window contracts and current routing; no phase narrative or test-total history. |
-| Position/scroll guides | Transition-specific anchors, coordinate spaces, correction authority, subpixel carry and known header-offset exception. |
-| Runtime/setup guide | Ordinary DEV availability versus production gate; synthetic/sample commands, data limitations and normal datasource behaviour. |
-| Functional E2E handbook | Three-server topology, justified projects and independent-density/native-keyboard proof; no performance claims. |
-| Deviations guide | Image-only cells, spatial keys, independent block seams/estimates, single correction authority and licensing-qualified engine choice; what/why/trade-off. |
-| Existing B19/C27 record | Cross-reference distinct +36px/+37px reproductions without inventing a duplicate defect or asserting a shared cause. |
+| Settled density switch | Resolvable buffer-resident focus, otherwise viewport anchor; row-top ratio including header flow, visibility clipping and true-edge policy. Offscreen resident focus can pull the view back; nonresident focus cannot. Selection is not a separate chooser. |
+| Pending browsing + density | Pending destination retains admission authority. Density disposal may retire placement without cancelling useful discovery. Indexed destination and buffer-local departure have different coordinate roles. |
+| Query/filter/AI | Capture before publication. Focus/remembered detail identity, otherwise viewport centre; selection is not the query anchor. Preserve ordinary neighbour/top fallback versus finite-AI top relaxation. |
+| Sort | Selection can outrank focus as placement target without replacing remembered focus. Retain explicit/phantom and finite-AI distinctions. |
+| Back/Forward | Destination snapshot chooses identity, ratio and focus/NONE in the current density. No departing-neighbour adoption; missing destination keeps top/no-focus fallback. |
+| Width reflow | Resolvable selection, then focus, then viewport anchor; capture before reflow and retain that operation's anchor. Offscreen selection is not promised visibility. |
+| Detail/fullscreen | Native close without traversal retains the mounted list without scrolling; traversed return centres through current geometry. Retain entry identity, missing-target waits and supersession. |
+| Prepend/eviction/estimate correction | Preserve the elected surviving identity using old/new row-top delta, even when its old row splits. Only fall back to an old-row neighbour when that identity is evicted. |
+| Seek/Home/End | Exact-index and estimated/buffer-local regimes remain distinct. Retain headroom, reverse-compute/flash avoidance, cursor mapping and separately owned focus intent. |
+| Logo Home/new-images refresh | Reset is deliberate intent published with data. Offset zero alone is not reset authority; buffer bottom is not true result end. |
 
-## Research references worth retaining
+Search/history coordinates exclude header/padding flow; density coordinates include it. Do not
+replace both with raw DOM coordinates; detail centring retains Table's usable-height adjustment.
+Generation, publication, navigation, history-entry and focus-intent guards have different lifetimes.
+One correction owner means native anchoring and virtualizer size compensation stay disabled for
+justified. Fixed arithmetic and variable-window alignment/seek operations remain explicit.
+
+Preserve subpixel ratio carry only while target, applied scroll, row geometry, viewport/header and
+publication remain unchanged; newer input retires it. It prevents integer-scroll rounding drift,
+not decorative state to remove during cleanup.
+
+Cross-reference [existing B19/C27](zz%20Archive/not-yet-another-audit-ledger.md#b19): +36px on native
+Back from a true Credit-null tail and +37px in the paired history→Table→density witness are distinct
+reproductions, not a proven shared cause. Keep the measured-header oracle. Repair requires a
+separate all-density policy decision; do not duplicate the issue or conflate it with shell scroll.
+
+### Keyboard and UI guides: interactions worth preserving
+
+Owners: [keyboard](00%20Architecture%20and%20philosophy/keyboard-navigation.md) and
+[frontend philosophy](00%20Architecture%20and%20philosophy/01-frontend-philosophy.md).
+
+- Horizontal keys follow result order; vertical keys choose the nearest horizontal centre in
+  the adjacent row, breaking ties by result order. Page movement uses actual geometry.
+  Off-buffer row/page intent uses the existing snap-back lifecycle and admitted destination
+  geometry; newer input supersedes it. Selection/phantom paging must not promote focus.
+- Grid selection is idempotent; clicking active Table/Justified toggles back to Grid. Preserve
+  stable accessible names/pressed states and 14px painted icon bounds, not just equal SVG sizes.
+- Toolbar summary/tickers scroll in their strip while density/panel/selection controls stay
+  pinned. Keep `overflow: clip` on both shell axes: `hidden` still permits programmatic scrolling
+  from native Tab. Preserve narrow-width keyboard access rather than hiding unreachable controls.
+
+### Runtime/setup guide: availability and honest fixtures
+
+Owner: [Kupua README](../../README.md), runtime/setup sections. Reconcile AGENTS runtime routing
+at integration time; its former configuration guide is archived, not an active implementation plan.
+
+| Mode | Configuration and contract |
+| --- | --- |
+| Normal development | `JUSTIFIED_AVAILABLE = DEV`; normal configured datasource and real queries, no extra layout switch. |
+| Synthetic resident fixture | `VITE_JUSTIFIED_PREVIEW=true`; `npm --prefix kupua run dev:justified` on 3040; 96 varied images, simulated matching and SVG media. |
+| Real-photo resident sample | `VITE_JUSTIFIED_PREVIEW=sample`; one capped read of 96 images, then in-memory ordering/cursors/ranges; matching simulated, reload resamples. |
+| Production | Grid fallback; inline DEV import gate excludes packing/windowed code and WASM pending licensing clearance. |
+
+`WINDOWED_JUSTIFIED_ENABLED` means DEV without either resident fixture; neither availability
+constant selects a performance scenario. The sample coalesces its initial read, uses no PIT or
+exact full-index count, times out after 15s and caches failure as empty without unrestricted
+fallback. No metadata is persisted. Thumbnail/detail/enrichment traffic can still occur: a capped
+sample is not network isolation or real-query certification. Preserve fixture notices.
+
+Retain the exact installed engine version and published-artifact AGPL-3 qualification from §2;
+an upstream MIT source file does not override the installed artifact. WASM is the engine choice,
+not a measured Kupua speed advantage. Do not reopen licensing without a production decision.
+Link the safeguards/playbook: startup scripts are not implicit permission to replace tunnels,
+stop another process or create credential files. No live identities or signed URLs in evidence.
+
+### Functional E2E handbook: independent proof and fixture discipline
+
+Owner: [E2E handbook](../../e2e/README.md); proof entry points remain in §3.
+
+- Document the 3000 normal, 3030 forced-seek and 3040 resident-fixture projects; windowed justified
+  shares the first two. Preserve fixed-density controls, native keyboard and newer-input tests.
+- An acknowledged density or `loading=false` is not final placement/media readiness. Keep native
+  detail return, centred return, history restoration and density ratios as distinct oracles.
+- Preserve abandoned-render/commit-only snapshot, split-row elected identity, off-buffer spatial
+  intent and query/no-overlap invalidation witnesses; unit geometry and browser wiring prove
+  different responsibilities.
+- Temporary-tail publication proof must start with genuinely unknown dimensions before the first
+  justified commit. Hold the real append, observe the real elected viewport identity without
+  focus, require nontrivial content-coordinate change and <1px viewport drift, matching scroll
+  delta and stable subsequent frames. Keep exact appended IDs/offset/uniqueness checks.
+- Install direction-specific holds before maintenance starts; distinguish the longer density-
+  disposal cooldown from ordinary search cooldown. Count the operation under test, not unrelated
+  forward work; release holds/restore descriptors on failure. Never inflate request budgets to
+  disguise arrangement errors.
+- Freeze source/configuration during runs. For visual evidence, verify foreground, served source
+  and hit-tested targets. Native zoom has host-mediated readiness: use the existing
+  [browser controls playbook](browser-playbook/controls-and-selectors.md#native-browser-zoom),
+  not immediate keypress samples or CSS zoom as a substitute.
+
+### Scroll/performance guides: cost model and limits of evidence
+
+Owners: [scroll architecture](00%20Architecture%20and%20philosophy/03-scroll-architecture.md) and
+[performance README](../../e2e-perf/README.md). Keep detailed cost reasoning in the architecture
+guide; the README needs actionable commands, prerequisites and measurement caveats, not narrative.
+
+- Dimensions are at most N+94; each ID map is bounded by N. Up to 22 known blocks intersect a
+  default 1,000-image buffer; unknown full blocks share one estimate. Indexed descriptors are
+  O(ceil(total/48)), up to 1,355 at 65,000 results; virtualizer storage is O(row count), with
+  high-water capacity. Mounted old/new layouts, seek preparation and dimension snapshots can
+  coexist. The dimension bound is not aggregate heap proof: include JS, typed arrays and WASM.
+- At most three suffix searches each evaluate m(m+1)/2 intervals; conservative bounds are 3,528
+  per affected block and 81,144 per default-capacity construction. Full endings exit early.
+  Existing block rebuilds, measurement resets from zero and temporary seek preparation can
+  amplify publication/reflow cost. These are static bounds/hypotheses, not measured jank/leaks.
+- Existing campaigns cover seek-mode outcomes, not near-threshold indexed work, continuous resize,
+  the <600px target-height transition or aggregate heap. Fixed-duration frame sampling is not
+  action latency; geometry readiness is not decode readiness; completed Resource Timing entries
+  are not outstanding/backend request counts. Observer fixtures alone do not prove app setup.
+- Page size/capacity and held maintenance checks do not certify natural-scroll request frequency.
+  If this matters to a refactor, attribute starts/completions/cancellations/outstanding work by
+  direction through forward eviction and reverse prepend; do not infer amplification without it.
+- A matched four-repetition density campaign is the smallest useful performance comparison when
+  warranted. Keep corpus, backend, regime, width and cache/network profile comparable, with Grid
+  controls. Packing changes which images occur per pixel; media differences are not DP timings.
+
+### Research references worth retaining
 
 - [Immich timeline source at the examined revision](https://github.com/immich-app/immich/tree/cace887201cb4f9bce960676c2816bfd7948e4f6/web/src/lib/managers/timeline-manager): lazy aspect ratios, estimates and day packing. Its retained months, date navigation and compensation are not Kupua's bounded arbitrary-sort contract.
 - [Google Photos design article](https://medium.com/google-design/google-photos-45b714dfbed1): segmented geometry and bounded rendering; historical timing is not a Kupua budget.

@@ -75,7 +75,7 @@ export function buildWindowedJustifiedLayout(
   const blocks: Block[] = [];
   const begin = context.indexed ? 0 : firstBlock;
   const end = context.indexed ? context.total : origin + images.length;
-  const estimated = buildRatioLayout(Array(size).fill(1), width);
+  const estimated = buildRatioLayout(Array(size).fill(1), width, true);
   let rowCount = 0;
   let height = 0;
   for (let blockStart = begin; blockStart < end; blockStart += size) {
@@ -84,8 +84,9 @@ export function buildWindowedJustifiedLayout(
       ? Math.min(blockStart + size, end) : blockStart + size;
     const count = blockEnd - start;
     const known = blockStart >= firstBlock && blockStart <= lastBlock;
-    const packed = !known && count === size ? estimated
-      : buildRatioLayout(Array.from({ length: count }, (_, index) => dimensions.get(start + index)?.ratio ?? 1), width);
+    const trueEnd = blockEnd === end && (context.indexed || context.bufferOffset + images.length >= context.total);
+    const packed = !known && count === size && !trueEnd ? estimated
+      : buildRatioLayout(Array.from({ length: count }, (_, index) => dimensions.get(start + index)?.ratio ?? 1), width, !trueEnd);
     const first = context.indexed ? 0 : Math.max(0, origin - start);
     const last = context.indexed ? count - 1 : Math.min(count - 1, end - start - 1);
     const fromRow = packed.getItemRow(first).index;

@@ -30,12 +30,59 @@ export function buildJustifiedLayout(images: readonly Image[], width: number): J
   return buildRatioLayout(images.map(imageRatio), width);
 }
 
-export function buildRatioLayout(ratios: number[], width: number): JustifiedLayout {
+function balanceBlockEnd(boxes: ImageBox[], width: number, targetHeight: number): number | undefined {
+  const last = boxes.at(-1);
+  if (!last || width - last.left - last.width < 0.001) return;
+  const rowStarts = boxes.flatMap((box, index) => index === 0 || box.top !== boxes[index - 1].top ? [index] : []);
+  for (const start of rowStarts.slice(-3)) {
+    const count = boxes.length - start;
+    const costs = Array<number>(count + 1).fill(Infinity);
+    const previous = Array<number>(count + 1).fill(-1);
+    const heights = Array<number>(count + 1).fill(0);
+    costs[0] = 0;
+    for (let end = 1; end <= count; end++) {
+      let sum = 0;
+      for (let begin = end - 1; begin >= 0; begin--) {
+        sum += boxes[start + begin].aspectRatio;
+        const height = (width - 4 * (end - begin - 1)) / sum;
+        if (height < targetHeight * 0.5 || height > targetHeight * 1.5) continue;
+        const cost = costs[begin] + (end - begin) * ((height - targetHeight) / targetHeight) ** 2;
+        if (cost >= costs[end]) continue;
+        costs[end] = cost;
+        previous[end] = begin;
+        heights[end] = height;
+      }
+    }
+    // An extreme earlier row must not prevent repairing a feasible shorter tail.
+    if (previous[count] === -1) continue;
+    const ends: number[] = [];
+    for (let end = count; end > 0; end = previous[end]) ends.push(end);
+    let top = boxes[start].top;
+    for (const end of ends.reverse()) {
+      const height = heights[end];
+      let left = 0;
+      for (let index = previous[end]; index < end; index++) {
+        const box = boxes[start + index];
+        box.top = top;
+        box.left = left;
+        box.height = height;
+        box.width = height * box.aspectRatio;
+        left += box.width + 4;
+      }
+      top += height + 4;
+    }
+    return top - 4;
+  }
+}
+
+export function buildRatioLayout(ratios: number[], width: number, balanceTrailingRows = false): JustifiedLayout {
+  const rowWidth = Math.max(1, width);
+  const rowHeight = width < 600 ? 130 : 190;
   const packed = new ImmichLayout(new Float32Array(ratios), {
-    rowWidth: Math.max(1, width), spacing: 4,
-    rowHeight: width < 600 ? 130 : 190, heightTolerance: 0.5,
+    rowWidth, spacing: 4, rowHeight, heightTolerance: 0.5,
   });
   const boxes = ratios.map((aspectRatio, index) => ({ ...packed.getPosition(index), aspectRatio }));
+  const height = (balanceTrailingRows ? balanceBlockEnd(boxes, rowWidth, rowHeight) : undefined) ?? packed.containerHeight;
   const rows: LayoutRow[] = [];
   const itemRows: LayoutRow[] = [];
   for (const [index, box] of boxes.entries()) {
@@ -49,7 +96,7 @@ export function buildRatioLayout(ratios: number[], width: number): JustifiedLayo
     itemRows.push(row);
   }
   for (let index = 0; index < rows.length; index++) {
-    rows[index].height = (rows[index + 1]?.top ?? packed.containerHeight) - rows[index].top;
+    rows[index].height = (rows[index + 1]?.top ?? height) - rows[index].top;
   }
   const requireRow = (row: LayoutRow | undefined) => {
     if (!row) throw new Error("Justified geometry is not ready for this image");
@@ -67,7 +114,7 @@ export function buildRatioLayout(ratios: number[], width: number): JustifiedLayo
     return rows[low];
   };
   return {
-    boxes, rows, rowCount: rows.length, getBox: index => boxes[index], height: packed.containerHeight,
+    boxes, rows, rowCount: rows.length, getBox: index => boxes[index], height,
     getRow: index => requireRow(rows[index]),
     getItemRow: index => requireRow(itemRows[index]),
     rowAtOffset,

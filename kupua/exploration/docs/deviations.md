@@ -8,7 +8,7 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-10-08
+Last updated: 2026-10-15
 
 ---
 
@@ -689,6 +689,26 @@ assumption for when permissions are wired up.
 ---
 
 ## From library defaults / conventions
+
+### Balanced Technical Justified-Block Endings (15 October 2026)
+
+The Immich engine may leave an incomplete final row. That is appropriate at a true
+result end, but Kupua's independent 48-image blocks are implementation boundaries,
+not semantic groups. Their gaps misleadingly suggest a break in the results.
+
+For non-final blocks only, [the packing adapter](../../src/lib/justified-layout.ts)
+repartitions at most the engine's final three rows when the last row is underfilled.
+It chooses ordered full-width rows within 50–150% of the existing target height,
+minimising item-weighted squared deviation from that target. If the three-row band
+is infeasible, it tries shorter suffix bands: a very wide preceding panorama must
+not block a feasible ordinary tail repair. Earlier rows, aspect ratios, spacing and
+true-final blocks retain engine output. If no band has a feasible partition, it
+retains engine output rather than cropping, hiding images or raising the height cap.
+
+Trade-off: a bounded quadratic search during layout publication/resize and potentially
+shorter or taller trailing rows, without cross-block dependencies, additional reads,
+retained dimensions or a second placement owner. This is not a guarantee that every
+engine-cap gap disappears; small interior underfills can occur with ordinary ratios too. See the [seam contract and proof](justified-density-prototype-plan.md#2-boundaries-to-retain).
 
 > **Browser & CSS workarounds index** — fights with browsers, the web
 > platform, and CSS that required overrides, hacks, or non-obvious

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Image } from "@/types/image";
-import { buildJustifiedLayout } from "./justified-layout";
+import { buildJustifiedLayout, buildRatioLayout } from "./justified-layout";
 
 function image(width: number, height: number, index = 0): Image {
   return { id: `fixture-${index}`, source: { dimensions: { width, height } } } as Image;
@@ -35,6 +35,69 @@ describe("resident justified geometry", () => {
       if (row.index > 0) {
         const previous = layout.getRow(row.index - 1);
         expect(row.top).toBeCloseTo(previous.top + previous.height, 6);
+      }
+    }
+  });
+
+  it("rebalances only the final three rows of a technical block", () => {
+    const ratios = Array.from({ length: 48 }, (_, index) => index < 46 ? 1.5 : 0.67);
+    const original = buildRatioLayout(ratios, 900);
+    const layout = buildRatioLayout(ratios, 900, true);
+    const start = original.rows.at(-3)!.firstItemIndex;
+    expect(original.boxes.at(-1)!.left + original.boxes.at(-1)!.width).toBeLessThan(899);
+    expect(layout.boxes.slice(0, start)).toEqual(original.boxes.slice(0, start));
+    for (const row of layout.rows) {
+      const last = layout.boxes[row.lastItemIndex];
+      expect(last.left + last.width).toBeCloseTo(900, 3);
+      expect(layout.getItemRow(row.firstItemIndex)).toEqual(row);
+      expect(layout.rowAtOffset(row.top + row.height / 2)).toEqual(row);
+    }
+    expect(layout.rows.at(-1)!.top + layout.rows.at(-1)!.height).toBe(layout.height);
+    expect(layout.boxes.map(box => box.aspectRatio)).toEqual(ratios);
+  });
+
+  it.each([10, 20])("balances a shorter tail when a %s:1 panorama makes the three-row band infeasible", panorama => {
+    const ratios = [...Array<number>(42).fill(1.5), panorama, 1.5, 1.5, 1.5, 0.67, 0.67];
+    const original = buildRatioLayout(ratios, 900);
+    const layout = buildRatioLayout(ratios, 900, true);
+    expect(original.boxes.at(-1)!.left + original.boxes.at(-1)!.width).toBeLessThan(300);
+    expect(layout.boxes.slice(0, 43)).toEqual(original.boxes.slice(0, 43));
+    const row = layout.getItemRow(47);
+    expect([row.firstItemIndex, row.lastItemIndex]).toEqual([43, 47]);
+    expect(layout.boxes.at(-1)!.left + layout.boxes.at(-1)!.width).toBeCloseTo(900, 3);
+    for (let index = 43; index < 48; index++) {
+      expect(layout.boxes[index].width / layout.boxes[index].height).toBeCloseTo(ratios[index], 5);
+      expect(layout.boxes[index].height).toBeGreaterThanOrEqual(95);
+      expect(layout.boxes[index].height).toBeLessThanOrEqual(285);
+    }
+  });
+
+  it("leaves already-full blocks and infeasible extreme-ratio endings unchanged", () => {
+    for (const ratios of [Array(48).fill(1.5), Array(48).fill(0.01), Array(48).fill(20)]) {
+      const original = buildRatioLayout(ratios, 900);
+      const layout = buildRatioLayout(ratios, 900, true);
+      expect(layout.boxes).toEqual(original.boxes);
+      expect(layout.rows).toEqual(original.rows);
+      expect(layout.height).toBe(original.height);
+    }
+  });
+
+  it("fills representative varied-ratio block ends at narrow and wide widths", () => {
+    for (let seed = 1; seed <= 40; seed++) {
+      let value = seed;
+      const ratios = Array.from({ length: 48 }, () => {
+        value = (Math.imul(value, 1664525) + 1013904223) >>> 0;
+        return 0.5 + (value % 151) / 100;
+      });
+      for (const width of [320, 390, 900, 1720]) {
+        const layout = buildRatioLayout(ratios, width, true);
+        const last = layout.boxes.at(-1)!;
+        expect(last.left + last.width, `seed ${seed}, width ${width}`).toBeCloseTo(width, 3);
+        for (const [index, box] of layout.boxes.entries()) {
+          expect(box.width / box.height).toBeCloseTo(ratios[index], 5);
+          expect(box.left + box.width).toBeLessThanOrEqual(width + 0.001);
+          expect(box.height).toBeGreaterThan(0);
+        }
       }
     }
   });

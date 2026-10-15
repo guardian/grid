@@ -24,6 +24,31 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 15 October 2026 - Balance artificial justified block endings
+
+Remove representative technical seams without changing stable 48-image block ownership.
+When a non-final block ends with an underfilled row, repartition only its final three rows
+into ordered full-width rows within the existing target-height limits, minimising
+item-weighted size deviation. Try shorter suffix bands when a wider band is infeasible, so a
+preceding extreme panorama cannot block a solvable ordinary tail. Preserve earlier rows,
+whole-image proportions and natural true-final rows, including unloaded indexed final blocks.
+Retain engine output when no bounded suffix solution exists; do not stretch beyond the cap
+or hide results. Small interior engine-cap underfills remain a separate, explicitly deferred issue.
+
+Keep dimension retention, data requests, query/history provenance and scroll-correction
+ownership unchanged. The parked 36/37px header policies remain separate. Failing-first seam
+witnesses and seeded packing controls cover geometry and bounded work; window tests cover
+middle entry, both eviction directions, partial edges and resize. Rendered indexed/seek
+controls cover seam width, proportions and anchor preservation through reflow and density
+switches, alongside the existing full preservation regression surface.
+
+Close the cold-review proof gap with a held production append into an already-visible partial
+block in both indexed and seek modes. Publish the partial dimensions before justified first
+mounts, respect density-disposal cooldown and observe the real viewport election without
+explicit focus. Require changed content geometry, unchanged viewport placement, exact appended
+identities and stable subsequent frames. Rename the internal option to `balanceTrailingRows`
+to describe an attempted operation rather than imply guaranteed block completion.
+
 ### 15 October 2026 - Add density performance campaigns, thumbnail diagnostics and usable dashboards
 
 Add paired Grid/Justified measurements for scrolling, density transitions, detail return, seek,

@@ -30,6 +30,24 @@ return page.evaluate(() => ({
 }));
 ```
 
+### Native browser zoom
+
+In the macOS integrated browser, `page.keyboard.press('Meta+-')` and
+`page.keyboard.press('Meta+=')` can change real browser zoom. Verify this using
+`devicePixelRatio` **and** `innerWidth`; viewport resizing or CSS zoom alone is not
+equivalent evidence. Save the original zoom indicators and viewport before testing.
+
+Zoom shortcuts are host-mediated and asynchronous: awaiting the keypress and two
+animation frames can still observe the previous zoom. After **each** keypress, wait
+for a changed DPR with a bounded synchronous predicate, then await layout frames or
+the action's own placement readiness. Do not batch zoom commands and label their
+immediate samples as settled zoom levels or preservation failures.
+
+Do not assume `Meta+0` resets zoom in this host. Restore with acknowledged inverse
+steps until the original DPR is reached, verify the original CSS viewport dimensions,
+and then restore any viewport override. If no DPR change occurs, stop rather than
+accumulating queued shortcuts. These checks concern zoom/layout, not performance.
+
 ## Locator Reference
 
 Check current DOM/source when a selector stops resolving. Prefer accessible roles
