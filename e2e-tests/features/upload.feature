@@ -375,9 +375,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/recent/recent-uploads.html lines 7-13
   # Evidence: kahuna/public/js/upload/recent/recent-uploads.js lines 25-51
 
-  # Existing bug: the `image-delete-failure` listener omits the event argument, so it throws
-  # reading `image.data.id` and never alerts.
-  @todo
   Scenario: A failed deletion of a past upload is reported
     Given a past uploaded image is listed
     When deleting the image fails

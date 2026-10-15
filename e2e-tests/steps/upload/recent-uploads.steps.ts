@@ -59,3 +59,17 @@ Then('I should be able to delete an image I am permitted to delete', async ({ pa
   await remove.click(); // confirms
   await expect(pastUpload).toBeHidden();
 });
+
+Given('a past uploaded image is listed', async ({ page, testContext }) => {
+  const image = uniqueImage();
+  testContext.uploadedImagePath = image.path;
+  await uploadPage(page).fileInput.setInputFiles(image.path);
+  await expect(uploadPage(page).editableJob).toBeVisible();
+
+  await expectInUploadHistory(page, image.path, TEST_ACCOUNTS.fullAccess);
+  // Past uploads are only fetched when the page loads.
+  await page.reload();
+  const pastUpload = uploadPage(page).pastUpload(path.basename(image.path));
+  await expect(pastUpload).toBeVisible();
+  testContext.deleteButton = pastUpload.getByRole('button', { name: 'Delete image' });
+});
