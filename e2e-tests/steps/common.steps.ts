@@ -23,8 +23,8 @@ Given('the application stack is running', async ({ request }) => {
   expect(response.ok()).toBeTruthy();
 });
 
-/** Sign in as `account` and land on the upload page, arriving from search. */
-export async function openUploadPage(page: Page, account: TestAccount): Promise<void> {
+/** Sign in as `account`, landing on the search page. */
+export async function signIn(page: Page, account: TestAccount): Promise<void> {
   // Accept the default of blurring graphic images up front. Kahuna otherwise shows a
   // first-run explainer overlay that covers the top bar (see services/graphic-image-blur.js).
   await page.context().addCookies([
@@ -36,12 +36,23 @@ export async function openUploadPage(page: Page, account: TestAccount): Promise<
     },
   ]);
 
-  // Arrive from search rather than deep-linking, so the upload page has a same-document
-  // history entry behind it and back-navigation behaves as it does for a real user.
   await page.goto(KAHUNA_APP_URL);
   await authenticate(page, account);
+}
+
+/** Sign in as `account` and land on the upload page, arriving from search. */
+export async function openUploadPage(page: Page, account: TestAccount): Promise<void> {
+  await signIn(page, account);
+  // Arrive from search rather than deep-linking, so the upload page has a same-document
+  // history entry behind it and back-navigation behaves as it does for a real user.
   await page.getByRole('banner').getByRole('link', { name: 'My recent uploads' }).click();
   await page.waitForURL('**/upload');
+}
+
+/** Clearing cookies drops both the Panda and OIDC sessions, so we sign in afresh. */
+export async function switchAccount(page: Page, account: TestAccount): Promise<void> {
+  await page.context().clearCookies();
+  await openUploadPage(page, account);
 }
 
 Given('I have opened the image upload page', async ({ page, testContext }) => {

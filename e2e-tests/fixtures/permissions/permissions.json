@@ -13,6 +13,26 @@
       "userId": "grid-e2e-restricted-account@guardian.co.uk",
       "active": true,
       "isCasualNotOnShift": false
+    }, {
+      "userId": "grid-e2e-no-upload-account@guardian.co.uk",
+      "active": true,
+      "isCasualNotOnShift": false
+    }]
+  },
+  {
+    "permission": {
+      "name": "upload_images",
+      "app": "grid",
+      "defaultValue": false
+    },
+    "overrides": [{
+      "userId": "grid-e2e-account@guardian.co.uk",
+      "active": true,
+      "isCasualNotOnShift": false
+    }, {
+      "userId": "grid-e2e-restricted-account@guardian.co.uk",
+      "active": true,
+      "isCasualNotOnShift": false
     }]
   },
   {
