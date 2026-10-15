@@ -87,7 +87,7 @@ object SupplierCleanUp extends App {
   val supplierRefBatches = supplierRefs.grouped(1000).toList
   val mediaIds = supplierRefBatches.zipWithIndex.foldLeft(Future.successful(Seq.empty[String])) {
     case (previousBatches, (refs, index)) =>
-      println("Making API calls in batchSize " + batchSize)
+      println("Making API calls in batchSize " + MaxConcurrentRequests)
       previousBatches.flatMap { previousIds =>
         println(s"${DateTime.now()}: Fetching grid ids, for batch ${index + 1} of ${supplierRefBatches.size}")
 
