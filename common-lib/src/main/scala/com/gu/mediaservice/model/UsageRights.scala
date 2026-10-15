@@ -109,6 +109,7 @@ object UsageRights {
     case o: ProgrammesAcquisitions => ProgrammesAcquisitions.formats.writes(o)
     case o: ProgrammesIndependents => ProgrammesIndependents.formats.writes(o)
     case o: PayToUse => PayToUse.formats.writes(o)
+    case o: PRAndThirdParty => PRAndThirdParty.formats.writes(o)
     case o: NoRights.type => NoRights.jsonWrites.writes(o)
   }
 
@@ -148,6 +149,7 @@ object UsageRights {
         case ProgrammesAcquisitions.category => json.asOpt[ProgrammesAcquisitions]
         case ProgrammesIndependents.category => json.asOpt[ProgrammesIndependents]
         case PayToUse.category => json.asOpt[PayToUse]
+        case PRAndThirdParty.category => json.asOpt[PRAndThirdParty]
         case _ => None
       })
         .orElse(supplier.flatMap(_ => json.asOpt[Agency]))
@@ -212,6 +214,37 @@ object PayToUse extends ReplacementUsageRightsSpec {
 
   implicit val formats: Format[PayToUse] =
     UsageRights.subtypeFormat(PayToUse.category)(Json.format[PayToUse])
+}
+
+final case class PRAndThirdParty(restrictions: Option[String] = None, source: String) extends UsageRights {
+  val defaultCost = PRAndThirdParty.defaultCost
+}
+object PRAndThirdParty extends ReplacementUsageRightsSpec {
+  val category = "pr-and-third-party"
+  val defaultCost = Some(Conditional) // TODO check 
+
+  val legacyCategories: List[String] = List(
+    Handout.category,
+    PrImage.category,
+    Screengrab.category,
+    SocialMedia.category,
+    CreativeCommons.category,
+    Pool.category,
+    CrownCopyright.category,
+    Obituary.category,
+    CommissionedAgency.category,
+    GuardianWitness.category,
+    Composite.category,
+    PublicDomain.category
+  )
+
+  val allCategories: NonEmptyList[String] = NonEmptyList.fromSeq(category, legacyCategories)
+
+  def name(commonConfig: CommonConfig) = "PR & Third Party"
+  def description(commonConfig: CommonConfig) = "Images received from PRs or as handouts. Also use this category for social media posts, screen grabs, agency commissions and obituaries. \\n You must explain what restrictions apply to the image as you upload. Where images have been submitted for inclusion in obituaries only please indicate this in the restrictions."
+
+  implicit val formats: Format[PRAndThirdParty] =
+    UsageRights.subtypeFormat(PRAndThirdParty.category)(Json.format[PRAndThirdParty])
 }
 
 object Agencies {
