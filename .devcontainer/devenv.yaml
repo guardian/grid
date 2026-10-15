@@ -49,5 +49,5 @@ postCreateCommand:
   - cmd: 'PATH="$HOME/.local/share/mise/shims:$PATH" ./node_modules/.bin/playwright install chromium --with-deps'
     workingDirectory: "./e2e-tests"
   # VS Code picks up plugins installed by the Copilot CLI from ~/.copilot/installed-plugins.
-  - cmd: 'mise exec -- copilot plugin marketplace add git@github.com:guardian/agent-skills.git && mise exec -- copilot plugin install feature-files@guardian-agent-skills || echo "Skipping feature-files plugin install"'
+  - cmd: 'PATH="$HOME/.local/share/mise/shims:$PATH"; copilot plugin marketplace add git@github.com:guardian/agent-skills.git && copilot plugin install feature-files@guardian-agent-skills || echo "Skipping feature-files plugin install"'
     workingDirectory: "."
