@@ -39,6 +39,10 @@ e2e-perf/.panda-auth.json
 e2e-perf/results/.metrics-tmp.jsonl
 e2e-perf/results/.perceived-short-tmp.jsonl
 e2e-perf/results/.perceived-long-tmp.jsonl
+e2e-perf/results/.density-tmp.jsonl
+e2e-perf/results/.density-playwright-report.json
+e2e-perf/results/.environment-tmp.json
+e2e-perf/results/.latest-report-path
 
 # Experiment result JSON files — machine-local, not for git
 # (README.md and experiments-log.md ARE tracked)

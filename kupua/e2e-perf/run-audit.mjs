@@ -24,6 +24,10 @@
  *   --long-perceived-only      —      —                   ✓
  *
  * Other flags:
+ *   --full          Shorthand for --suite combined --perceived (all maintained suites).
+ *   --suite existing|justified|combined  Existing is unchanged/default; justified
+ *                   selects the new paired density suite (including Grid controls
+ *                   and Table diagnostics), combined adds it to existing flags.
  *   --label "..."   Required-ish. Tags this run in the log. Defaults to
  *                   "Quick check" / "Unnamed run".
  *   --runs N        Repeat each suite N times; metrics are aggregated as
@@ -32,8 +36,8 @@
  *   --headed        Show the browser window (otherwise headless).
  *   --use-media-api Route ordered reads through the local media-api server.
  *                   Requires kupua started with: ./scripts/start.sh --use-media-api
- *                   Also requires a panda auth file (one-time setup — see
- *                   enforceClusterGate() for the generation command).
+ *                   Also requires private external auth state; see
+ *                   README.md#authentication-state for setup.
  *   --use-deployed-media-api
  *                   Route reads directly to deployed TEST media-api.
  *   <P-id list>     Positional jank-test filter (e.g. "P3,P8").
@@ -43,6 +47,8 @@
  *   perceived-log.{json,js,md}  — perceived suite results (short + long
  *                                  share this file; each entry has a
  *                                  kind: "short"|"long" field).
+ *   density-log.{json,js,md}    — independent additive density comparisons.
+ *   density-graphs.html         — density contracts, availability and paired deltas.
  *   audit-graphs.html           — dashboard for jank suite.
  *   perceived-graphs.html       — dashboard for perceived suite (filters
  *                                  by kind).
@@ -82,6 +88,10 @@ import {
 } from "./harness-validation.mjs";
 import { commitFileTransaction, pruneAuditHistory, readHistoryLog } from "./history-files.mjs";
 import { comparisonEvidenceClass, metricsAreComparable, severeRateIsReportable } from "./p14-metrics.mjs";
+import {
+  aggregateDensityRuns, buildDensityMarkdown, densityEnvironmentKey,
+  pairedDensityComparisons, parseDensitySuiteArgs, resolveSuiteSelection,
+} from "./density-reporting.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -117,6 +127,8 @@ const PERCEIVED_MD = resolve(__dirname, "results/perceived-log.md");
 const PERCEIVED_SHORT_TMP = resolve(__dirname, "results/.perceived-short-tmp.jsonl");
 const PERCEIVED_LONG_TMP = resolve(__dirname, "results/.perceived-long-tmp.jsonl");
 const ENVIRONMENT_TMP = resolve(__dirname, "results/.environment-tmp.json");
+const DENSITY_TMP = resolve(__dirname, "results/.density-tmp.jsonl");
+const DENSITY_JSON = resolve(__dirname, "results/density-log.json");
 
 // Per-kind config + temp + spec metadata, indexed by kind.
 const PERCEIVED_KINDS = {
@@ -136,7 +148,13 @@ const PERCEIVED_KINDS = {
 // Parse CLI args
 // ---------------------------------------------------------------------------
 
-const args = process.argv.slice(2);
+let suiteArgs;
+try {
+  suiteArgs = parseDensitySuiteArgs(process.argv.slice(2));
+} catch (error) {
+  failCli(`Error: ${error.message}`, 2);
+}
+const { suite, args } = suiteArgs;
 let label = "";
 let runs = 1;
 let grepArg = "";
@@ -206,10 +224,19 @@ if (perceivedModeCount > 1) {
   );
 }
 
-// Resolve to three booleans.
-const runJank  = !perceivedOnly && !shortOnly && !longOnly;
-const runShort = perceivedFull || perceivedOnly || shortOnly;
-const runLong  = perceivedFull || perceivedOnly || longOnly;
+// The new suite is additive: combined retains the legacy flags/filter semantics.
+// Justified-only rejects those flags instead of silently applying or ignoring them.
+let suiteSelection;
+try {
+  suiteSelection = resolveSuiteSelection({ suite, grepArg, perceivedFull, perceivedOnly,
+    shortOnly, longOnly, pruneHistory, rebuildHistory });
+  if (suite !== "existing" && (!Number.isInteger(runs) || runs < 1)) {
+    throw new Error("Density campaigns require a positive integer --runs count");
+  }
+} catch (error) {
+  failCli(`Error: ${error.message}`, 2);
+}
+const { runJank, runShort, runLong, runDensity } = suiteSelection;
 
 try {
   assertBalancedLongRuns({ runLong, runs, dryRun });
@@ -333,12 +360,8 @@ async function probeRtt() {
   return sorted[Math.floor(sorted.length / 2)];
 }
 
-// Path to the Playwright storageState file for --use-media-api mode.
-// Must contain a valid panda session cookie. Not committed — add to
-// .git/info/exclude. Generate once with:
-//   npx --prefix kupua playwright codegen \
-//     --save-storage=kupua/e2e-perf/.panda-auth.json \
-//     https://kupua.media.local.dev-gutools.co.uk
+// Ignored symlink to a private storageState file outside the repository.
+// Never generate credential-bearing JSON here; see README.md#authentication-state.
 const PANDA_AUTH_FILE = resolve(__dirname, ".panda-auth.json");
 
 function enforceClusterGate() {
@@ -346,13 +369,11 @@ function enforceClusterGate() {
   // contexts can authenticate to media-api.
   if (useMediaApi) {
     if (!existsSync(PANDA_AUTH_FILE)) {
-      console.error(`  ERROR: --use-media-api requires a panda auth file at:`);
+      console.error(`  ERROR: media-api mode requires an ignored auth symlink at:`);
       console.error(`         ${PANDA_AUTH_FILE}`);
-      console.error(`  Generate it once (while logged in to kupua) with:`);
-      console.error(`    npx --prefix kupua playwright codegen \\`);
-      console.error(`      --save-storage=kupua/e2e-perf/.panda-auth.json \\`);
-      console.error(`      https://kupua.media.local.dev-gutools.co.uk`);
-      console.error(`  Then add kupua/e2e-perf/.panda-auth.json to .git/info/exclude.`);
+      console.error(`  Save Playwright storageState in a private location outside the repository.`);
+      console.error(`  Link that external file here; never copy credential-bearing JSON into this public repo.`);
+      console.error(`  Follow kupua/e2e-perf/README.md#authentication-state for setup and permissions.`);
       process.exit(2);
     }
     console.log(`  Auth:         using storageState from ${PANDA_AUTH_FILE}`);
@@ -1227,6 +1248,83 @@ function rebuildHistoricalAuditFiles() {
 }
 
 // ---------------------------------------------------------------------------
+// Additive density comparison suite. Never reuses legacy scenario/history IDs.
+// ---------------------------------------------------------------------------
+
+function runDensityPlaywright(runIndex) {
+  return new Promise((resolveRun, reject) => {
+    // Keep the density config's list/teardown/JSON reporters, including its
+    // isolated .density-playwright-report.json rather than overriding them.
+    const pwArgs = ["playwright", "test", "--config=e2e-perf/playwright.density.config.ts"];
+    if (headed) pwArgs.push("--headed");
+    console.log(`\n  Running density comparisons: npx ${pwArgs.join(" ")}`);
+    const child = spawn("npx", pwArgs, {
+      cwd: ROOT,
+      env: {
+        ...process.env,
+        FORCE_COLOR: "0",
+        PERF_STABLE_UNTIL: STABLE_UNTIL,
+        KUPUA_PERF_ENV_FILE: ENVIRONMENT_TMP,
+        KUPUA_PERF_RUN_INDEX: String(runIndex),
+        KUPUA_DENSITY_RUN_INDEX: String(runIndex),
+        KUPUA_DENSITY_METRICS_FILE: DENSITY_TMP,
+        ...(useMediaApi && {
+          KUPUA_PERF_AUTH_FILE: PANDA_AUTH_FILE,
+          KUPUA_PERF_BASE_URL: "https://kupua.media.local.dev-gutools.co.uk",
+        }),
+      },
+    });
+    child.stdout.on("data", (chunk) => { process.stdout.write(chunk); appendRunReport(chunk); });
+    child.stderr.on("data", (chunk) => { process.stderr.write(chunk); appendRunReport(chunk); });
+    child.on("error", reject);
+    child.on("close", (code) => resolveRun(code ?? 1));
+  });
+}
+
+async function runDensitySuite(git, historyWrites, historyState) {
+  const repetitions = [];
+  let environment;
+  for (let run = 1; run <= runs; run++) {
+    if (existsSync(DENSITY_TMP)) unlinkSync(DENSITY_TMP);
+    clearEnvironmentFile();
+    try {
+      const exitCode = await runDensityPlaywright(run);
+      const observed = readEnvironment(exitCode, "density", git);
+      environment = environment ? assertSameEnvironment(environment, observed, `density run ${run}`) : observed;
+      const contents = existsSync(DENSITY_TMP) ? readFileSync(DENSITY_TMP, "utf8") : "";
+      repetitions.push(parseSuccessfulRun({ exitCode, suiteLabel: "density", contents, sourcePath: DENSITY_TMP }));
+      aggregateDensityRuns(repetitions);
+      console.log(`  Density run ${run}: captured ${repetitions.at(-1).length} records`);
+    } finally {
+      if (existsSync(DENSITY_TMP)) unlinkSync(DENSITY_TMP);
+    }
+  }
+  const metrics = aggregateDensityRuns(repetitions);
+  const environmentCompatibilityKey = densityEnvironmentKey(environment);
+  if (!environmentCompatibilityKey) throw new Error("Density environment fingerprint is incomplete");
+  const entry = {
+    label, timestamp: new Date().toISOString(), gitSha: git.sha, gitDirty: git.dirty,
+    stableUntil: STABLE_UNTIL, runs, environment, environmentCompatibilityKey, metrics,
+    pairs: pairedDensityComparisons(metrics, environment),
+  };
+  console.log(buildDensityMarkdown({ entries: [entry] }));
+  if (dryRun) {
+    console.log("  Dry run: skipping density-log.{json,js,md}");
+    return;
+  }
+  // Share the existing deferred/atomic campaign transaction: a later failure in
+  // any selected suite cannot leave only part of a combined campaign appended.
+  historyWrites.defer(() => {
+    const history = readHistoryLog(DENSITY_JSON);
+    history.entries.push(entry);
+    historyState.files.set(DENSITY_JSON, JSON.stringify(history, null, 2) + "\n");
+    historyState.files.set(DENSITY_JSON.replace(/\.json$/, ".js"),
+      `window.__DENSITY_LOG__ = ${JSON.stringify(history)};\n`);
+    historyState.files.set(DENSITY_JSON.replace(/\.json$/, ".md"), buildDensityMarkdown(history));
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -1258,7 +1356,7 @@ async function main() {
   if (headed) console.log(`  Headed:       browser will be visible`);
   if (useLocalMediaApi) console.log(`  Mode:         --use-media-api (reads via local media-api)`);
   if (useDeployedMediaApi) console.log(`  Mode:         --use-deployed-media-api (direct reads via TEST media-api)`);
-  console.log(`  Suites:       jank=${runJank} short=${runShort} long=${runLong}`);
+  console.log(`  Suites:       jank=${runJank} short=${runShort} long=${runLong}${runDensity ? " density=true" : ""}`);
   console.log();
 
   // Pre-flight checks: auth file (--use-media-api) and STABLE_UNTIL guard.
@@ -1270,7 +1368,7 @@ async function main() {
   console.log();
 
   const allRunMetrics = [];
-  const expectedJankIds = expectedJankMetricIds(grepArg);
+  const expectedJankIds = runJank ? expectedJankMetricIds(grepArg) : [];
   let jankEnvironment = null;
 
   if (runJank) for (let run = 1; run <= runs; run++) {
@@ -1392,6 +1490,7 @@ async function main() {
 
   if (runShort) await runPerceivedKind("short", git, baselineRttMs, historyWrites, historyState);
   if (runLong)  await runPerceivedKind("long", git, baselineRttMs, historyWrites, historyState);
+  if (runDensity) await runDensitySuite(git, historyWrites, historyState);
 
   historyWrites.commit();
   if (!dryRun && historyState.files.size > 0) {

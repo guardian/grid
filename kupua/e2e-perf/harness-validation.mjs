@@ -11,8 +11,11 @@ export function assertBalancedLongRuns({ runLong, runs, dryRun }) {
 }
 
 export function generatedHistoryExclusions() {
-  return ["audit-log.json", "audit-log.js", "audit-log.md", "perceived-log.json", "perceived-log.js", "perceived-log.md"]
-    .map((name) => `:(exclude)e2e-perf/results/${name}`);
+  return ["audit-log.json", "audit-log.js", "audit-log.md", "perceived-log.json", "perceived-log.js", "perceived-log.md",
+    "density-log.json", "density-log.js", "density-log.md", ".density-tmp.jsonl",
+    ".density-playwright-report.json", ".environment-tmp.json", ".latest-report-path"]
+    .map((name) => `:(exclude)e2e-perf/results/${name}`)
+    .concat([":(exclude)e2e-perf/kupua-perf-*.log", ":(exclude)e2e-perf/results/kupua-perf-*.log"]);
 }
 
 export const JANK_SCENARIO_AGGREGATION = {

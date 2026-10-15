@@ -23,6 +23,12 @@
   select, input, button { background: var(--panel); color: var(--fg); border: 1px solid #30363d; border-radius: 4px; padding: 4px 8px; font: inherit; }
   button { cursor: pointer; }
   button:hover { border-color: var(--accent); }
+  button:disabled { cursor: default; opacity: 0.45; }
+  :is(button, select, input):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+  .metric-navigation { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; }
+  .metric-guide { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+  .metric-guide strong { color: var(--fg); }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 12px; padding: 16px 24px; }
   @media (max-width: 520px) {
     header, .controls, .legend { padding-left: 12px; padding-right: 12px; }
@@ -61,6 +67,7 @@
 <body>
 <header>
   <h1>Kupua rendering perf — all audited runs</h1>
+  <nav aria-label="Performance dashboards"><a href="perceived-graphs.html">Perceived responsiveness</a> · <a href="density-graphs.html">Density comparisons and thumbnails</a></nav>
   <div class="sub" id="sub">Loading…</div>
   <div style="margin-top:6px;font-size:11px;color:var(--muted);">Tip: use ← → arrow keys to cycle metrics</div>
 </header>
@@ -81,9 +88,14 @@
 <div id="warnings"></div>
 
 <div class="controls" id="controls" hidden>
-  <label>Metric
-    <select id="metric"></select>
-  </label>
+  <div class="metric-navigation">
+    <label>Metric
+      <select id="metric" aria-describedby="metricGuide"></select>
+    </label>
+    <button id="previousMetric" type="button">Previous metric</button>
+    <button id="nextMetric" type="button">Next metric</button>
+    <p id="metricGuide" class="metric-guide" role="status" aria-label="Metric guide" aria-live="polite" aria-atomic="true"></p>
+  </div>
   <label>Y-axis
     <select id="yscale">
       <option value="linear" selected>linear</option>
@@ -125,14 +137,14 @@ const KNOWN_METRICS = {
   // metric key:        { label,                                lowerIsBetter, defaultShow, quietThreshold }
   // quietThreshold: "Hide quiet" filter hides tests whose max value is below this. Default 1 (suits ms/count metrics).
   // Ratio-style metrics (CLS, focusDriftRatio) need a much smaller threshold or they get hidden entirely.
-  severeRate:        { label: "severeRate (severe/1k frames)",  lowerIsBetter: true,  defaultShow: true  },
-  severe:            { label: "severe count",                   lowerIsBetter: true,  defaultShow: true  },
-  maxFrame:          { label: "maxFrame (ms)",                  lowerIsBetter: true,  defaultShow: true  },
-  p95Frame:          { label: "p95Frame (ms)",                  lowerIsBetter: true,  defaultShow: true  },
-  loafBlocking:      { label: "LoAF blocking (ms)",             lowerIsBetter: true,  defaultShow: true  },
-  domChurn:          { label: "DOM churn",                      lowerIsBetter: true,  defaultShow: true  },
-  cls:               { label: "CLS",                            lowerIsBetter: true,  defaultShow: true,  quietThreshold: 0.001 },
-  clsMax:            { label: "CLS (max single shift)",         lowerIsBetter: true,  defaultShow: true,  quietThreshold: 0.001 },
+  severeRate:        { label: "Severe frames per 1,000 frames",  lowerIsBetter: true,  defaultShow: true  },
+  severe:            { label: "Severe frames (count)",         lowerIsBetter: true,  defaultShow: true  },
+  maxFrame:          { label: "Longest frame (ms)",            lowerIsBetter: true,  defaultShow: true  },
+  p95Frame:          { label: "95th-percentile frame (ms)",     lowerIsBetter: true,  defaultShow: true  },
+  loafBlocking:      { label: "Long animation frame blocking (ms)", lowerIsBetter: true, defaultShow: true },
+  domChurn:          { label: "DOM mutations (count)",         lowerIsBetter: true,  defaultShow: true  },
+  cls:              { label: "Cumulative layout shift (score)", lowerIsBetter: true, defaultShow: true, quietThreshold: 0.001 },
+  clsMax:           { label: "Largest single layout shift (score)", lowerIsBetter: true, defaultShow: true, quietThreshold: 0.001 },
   frameCount:        { label: "frame count (context only)",     lowerIsBetter: null,  defaultShow: false },
   sampleCount:       { label: "samples across repetitions",     lowerIsBetter: null,  defaultShow: false },
   imageLookupCount:  { label: "Image metadata lookups (resident traversal: 0)", lowerIsBetter: true, defaultShow: true, quietThreshold: 0 },
@@ -140,9 +152,9 @@ const KNOWN_METRICS = {
   detailMetadataReadyMs: { label: "Standalone metadata ready (ms)", lowerIsBetter: true, defaultShow: true },
   detailImageReadyMs: { label: "Standalone decoded image ready (ms; warm media)", lowerIsBetter: true, defaultShow: true },
   // Focus position tracking (P4a/b, P6 — see README § Focus Position Tracking).
-  focusDriftPx:      { label: "focusDriftPx (px, signed; 0 = perfect)", lowerIsBetter: null, defaultShow: true },
-  focusDriftRatio:   { label: "focusDriftRatio (frac of viewport; 0 = perfect)", lowerIsBetter: null, defaultShow: true, quietThreshold: 0.001 },
-  focusVisible:      { label: "focusVisible (1 = on screen)",   lowerIsBetter: false, defaultShow: true  },
+  focusDriftPx:      { label: "Focus drift (px, signed; 0 = perfect)", lowerIsBetter: null, defaultShow: true },
+  focusDriftRatio:   { label: "Focus drift (viewport ratio; 0 = perfect)", lowerIsBetter: null, defaultShow: true, quietThreshold: 0.001 },
+  focusVisible:      { label: "Focus visible (1 = on screen)", lowerIsBetter: false, defaultShow: true },
   focusHorizontalDriftPx: { label: "focus horizontal drift (px, signed)", lowerIsBetter: null, defaultShow: false },
   widthDeltaPx:      { label: "column width delta (px, signed)", lowerIsBetter: null, defaultShow: false },
   resultsWidthDeltaPx: { label: "results width delta (px, signed)", lowerIsBetter: null, defaultShow: false },
@@ -171,6 +183,45 @@ const KNOWN_METRICS = {
   networkAvgBytes: { label: "Network average bytes/request", lowerIsBetter: null, defaultShow: true, quietThreshold: 0, group: "Network", unit: " bytes/request" },
   networkAvgDurationMs: { label: "Network average request duration (ms)", lowerIsBetter: null, defaultShow: true, quietThreshold: 0, group: "Network", unit: "ms" },
   networkZeroTransferRequests: { label: "Network zero-transfer requests (restricted/ambiguous coverage)", lowerIsBetter: null, defaultShow: true, quietThreshold: 0, group: "Network", unit: " requests" },
+};
+const METRIC_HELP = {
+  severeRate: "Frames longer than 50 ms per 1,000 observed frames; suppressed with fewer than 30 frames.",
+  severe: "Number of frames longer than 50 ms during the measurement window.",
+  maxFrame: "Worst single frame duration, measured between animation-frame callbacks.",
+  p95Frame: "95th-percentile frame duration: the slower end of observed frames, not the worst frame.",
+  loafBlocking: "Total blocking time reported by Long Animation Frame entries.",
+  domChurn: "DOM additions, removals and attribute changes during the measurement window.",
+  cls: "Cumulative Layout Shift score for unexpected layout changes.",
+  clsMax: "Largest individual unexpected layout-shift score.",
+  imageLookupCount: "Metadata lookup count; resident traversal expects zero lookups.",
+  detailLookupMs: "Standalone detail lookup response time; metadata is not resident.",
+  detailMetadataReadyMs: "Time until standalone detail metadata is ready.",
+  detailImageReadyMs: "Time until the standalone detail image is decoded and stable; media is warm.",
+  focusDriftPx: "Signed change in focus position across the transition. Closer to zero is better.",
+  focusDriftRatio: "Signed focus displacement as a fraction of viewport height. Closer to zero is better.",
+  focusVisible: "Whether the focused image is on screen: 1 = yes, 0 = no.",
+  landingRenderMs: "Time from traversal stop until the landing image renders; zero indicates a prefetch hit.",
+  renderedCount: "Count of images rendered before moving on; interpret against traversal count and cadence.",
+  swappedNotRendered: "Count of images whose source changed but did not decode in time; interpret against traversal cadence.",
+  landingAlreadyRendered: "Whether the landing image was already rendered: 1 = yes, 0 = no.",
+  landingCacheHit: "Whether the landing image hit the browser cache: 1 = yes, 0 = no.",
+  clsOccurrenceRate: "Fraction of repetitions with layout-shift events, from 0 to 1.",
+  clsConditionalMagnitude: "Layout-shift magnitude among repetitions where shifts occurred.",
+  selectionPublishMs: "Time until the range selection is published.",
+  rangeWalkMs: "Time spent walking the selection range.",
+  metadataSettleMs: "Time until selection metadata settles.",
+  reconcileSettleMs: "Time until selection reconciliation settles.",
+  selectionVisualSettledMs: "Time until the selection Details view visually settles.",
+  idleCallbackMaxMs: "Longest selection idle callback duration.",
+  directionViolations: "Count of movement-direction violations during reverse scrolling.",
+  inputEvents: "Input-event count before the backward prepend; context, not a speed score.",
+  prependGenerationDelta: "Backward prepend count during the observation window.",
+  bufferOffsetDelta: "Change in the result buffer's starting index, in result positions.",
+  networkRequests: "Browser-observed request count; capture coverage affects interpretation.",
+  networkBytes: "Browser-observed transfer bytes; totals depend on capture coverage.",
+  networkAvgBytes: "Mean browser-observed transfer bytes per request.",
+  networkAvgDurationMs: "Mean browser-observed request duration; diagnostic, not action completion latency.",
+  networkZeroTransferRequests: "Requests with zero reported transfer bytes; restricted or ambiguous coverage, not proof of cache hits.",
 };
 const KNOWN_ENTRY_KEYS = new Set([
   "label", "gitSha", "gitDirty", "timestamp", "stableUntil", "runs", "metrics",
@@ -295,7 +346,7 @@ function buildMetricDropdown(unknownMetricKeys) {
     if (!meta.defaultShow) continue;
     const o = document.createElement("option");
     o.value = key;
-    o.textContent = meta.label + (meta.lowerIsBetter ? " — lower better" : "");
+    o.textContent = meta.label;
     if (key === "severeRate") o.selected = true;
     (meta.group === "Network" ? networkGroup : metricSel).appendChild(o);
   }
@@ -447,6 +498,7 @@ function collectTests(entries) {
 }
 
 function buildCharts() {
+  updateMetricGuide();
   const metric = metricSel.value;
   const yscale = document.getElementById("yscale").value;
   const hideQuiet = document.getElementById("hideQuiet").checked;
@@ -620,18 +672,37 @@ document.getElementById("hideQuiet").addEventListener("change", buildCharts);
 document.getElementById("comparableOnly").addEventListener("change", buildCharts);
 document.getElementById("showLabels").addEventListener("change", buildCharts);
 
-// Arrow key navigation: left/right cycles through metrics without touching the dropdown.
-// Charts update in-place (same card positions) so scroll position stays stable.
+function updateMetricGuide() {
+  const metric = metricSel.value;
+  const meta = KNOWN_METRICS[metric];
+  const direction = metric.startsWith("focusDrift") ? ""
+    : meta?.lowerIsBetter === true ? " Lower is better."
+    : meta?.lowerIsBetter === false ? " Higher is better." : " Context only; no better/worse direction.";
+  document.getElementById("metricGuide").textContent =
+    `${metricLabel(metric)} — ${METRIC_HELP[metric] ?? "No description or units are registered for this metric."}${direction}`;
+  document.getElementById("previousMetric").disabled = metricSel.selectedIndex <= 0;
+  document.getElementById("nextMetric").disabled = metricSel.selectedIndex >= metricSel.options.length - 1;
+}
+
+function moveMetric(direction) {
+  if (controls.hidden || !metricSel.options.length) return;
+  const index = Math.max(0, Math.min(metricSel.options.length - 1, metricSel.selectedIndex + direction));
+  if (index === metricSel.selectedIndex) return;
+  const scrollY = window.scrollY;
+  metricSel.selectedIndex = index;
+  metricSel.dispatchEvent(new Event("change"));
+  window.scrollTo(0, scrollY);
+}
+document.getElementById("previousMetric").addEventListener("click", () => moveMetric(-1));
+document.getElementById("nextMetric").addEventListener("click", () => moveMetric(1));
+
+// Keep native editing/navigation keys inside controls and editable content.
 document.addEventListener("keydown", (e) => {
-  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA") return;
+  if (e.defaultPrevented || e.isComposing || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || controls.hidden) return;
+  if (e.target instanceof Element && (e.target.closest("input, select, textarea") || e.target.isContentEditable)) return;
   if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
     e.preventDefault();
-    const dir = e.key === "ArrowLeft" ? -1 : 1;
-    metricSel.selectedIndex = Math.max(0, Math.min(metricSel.options.length - 1, metricSel.selectedIndex + dir));
-    // Preserve scroll position across rebuild (hide-quiet may change card count)
-    const scrollY = window.scrollY;
-    buildCharts();
-    window.scrollTo(0, scrollY);
+    moveMetric(e.key === "ArrowLeft" ? -1 : 1);
   }
 });
 

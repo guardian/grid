@@ -94,15 +94,16 @@ function element() {
 }
 
 function dashboardFixture(metric = "networkRequests", entries = []) {
-  const controls = { yscale: { value: "linear" }, hideQuiet: { checked: true }, comparableOnly: { checked: false }, showLabels: { checked: false } };
+  const controls = { yscale: { value: "linear" }, hideQuiet: { checked: true }, comparableOnly: { checked: false }, showLabels: { checked: false },
+    metricGuide: {}, previousMetric: {}, nextMetric: {} };
   const grid = element();
-  const metricSel = { ...element(), value: metric };
+  const metricSel = { ...element(), value: metric, selectedIndex: 0, options: [{ value: metric }] };
   const configs = [];
   const context = { ENTRIES: entries, TESTS: ["P2"], metricSel, grid, charts: new Map(),
     document: { createElement: element, getElementById: (key) => controls[key],
       querySelectorAll: () => [{ value: "direct-es" }, { value: "media-api" }] },
     Chart: function Chart(_context, config) { configs.push(config); this.destroy = () => {}; } };
-  const names = ["KNOWN_METRICS", "MODE_STYLES", "isNetworkMetric", "pickValue", "metricUnit", "metricLabel", "formatMetricValue",
+  const names = ["KNOWN_METRICS", "METRIC_HELP", "updateMetricGuide", "MODE_STYLES", "isNetworkMetric", "pickValue", "metricUnit", "metricLabel", "formatMetricValue",
     "environmentKey", "metricsComparable", "networkSeriesKey", "entryMode", "sourceMatchLabel", "pairedModeSummary",
     "visibleModeSet", "buildCharts", "buildMetricDropdown"];
   const functions = runInNewContext(`${declarations(dashboard, names)}\n({${names.join(",")}})`, context);

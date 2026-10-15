@@ -24,6 +24,41 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 15 October 2026 - Add density performance campaigns, thumbnail diagnostics and usable dashboards
+
+Add paired Grid/Justified measurements for scrolling, density transitions, detail return, seek,
+reflow and bounded eviction, plus Table thumbnail diagnostics. Preserve existing campaign defaults
+and contracts; provide separate comparison and combined suites, with --full as the compatible
+shorthand for all maintained suites. Reject contradictory selections and write separate histories
+through the existing all-or-nothing transaction.
+
+Keep startup, setup and normal workloads unthrottled. Automatically include a separately labelled
+constrained-scroll scenario across all three densities, applying network/cache policy only during
+observation and restoring it on failure. Warm renderers outside transition measurements, rotate
+density order and restore one canonical paired identity through existing owners. Use native thumb
+dragging, respect maintenance cooldown and row-aligned capacity, and observe the admission-triggering
+tail jump inside measurement. Derive its destination from the actual minimum extension threshold;
+require real eviction without increasing timeouts or product resource limits.
+
+Measure thumbnail load/decode lead distance and time-weighted visible pending area separately from
+missing result data, absent media and failures. Bound sampling and retention, guard recycled image
+sources, and retain unavailable/censored observations rather than inventing zero latency. Distinguish
+layout-shift attribution, element reuse and logical ordering without claiming thumbnail causality.
+Keep identities/URLs out of records and disable live screenshot/trace/video and fallback snapshots.
+
+Provide a density dashboard with latest comparison cards, compatible history, explained metrics,
+human units, meaningful scales and hover/focus/tap details. Collapse advanced diagnostics; preserve
+single-point, missing-data and zero-value distinctions. Add Previous/Next controls and metric guides
+across all three dashboards without changing existing comparison logic or hijacking form-control
+arrows. Cover contracts, observers and dashboards with pure/synthetic checks, and campaign setup
+with isolated actual-app tests across both layouts and indexed/seek regimes.
+
+Replace the performance README's historical narrative with an operator guide to flags, prerequisites,
+authentication, reports and validation. Require preflights for new/changed setup or measurement paths,
+not every unchanged run; correct auth guidance to use private external state and an ignored symlink.
+Record campaign evidence and bounded thumbnail-headroom investigation criteria in the justified plan.
+Campaigns remain operator-run; no product prefetch, rendering or scrolling policy changes.
+
 ### 15 October 2026 - Preserve justified recovery identity and committed geometry
 
 Recover off-buffer vertical/page focus through the existing seek-to-focused owner rather

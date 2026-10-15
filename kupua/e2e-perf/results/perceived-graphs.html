@@ -24,6 +24,11 @@
   select, input, button { background: var(--panel); color: var(--fg); border: 1px solid #30363d; border-radius: 4px; padding: 4px 8px; font: inherit; }
   button { cursor: pointer; }
   button:hover { border-color: var(--accent); }
+  button:disabled { cursor: default; opacity: 0.45; }
+  :is(button, select, input):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .metric-navigation { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; }
+  .metric-guide { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+  .metric-guide strong { color: var(--fg); }
   [hidden] { display: none !important; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 12px; padding: 16px 24px; }
   .card { background: var(--panel); border: 1px solid #30363d; border-radius: 6px; padding: 10px 12px; }
@@ -65,6 +70,8 @@
   @media (max-width: 520px) {
     header, .controls, .legend, .targets { padding-left: 12px; padding-right: 12px; }
     .grid { grid-template-columns: minmax(0, 1fr); padding: 12px; }
+    .metric-navigation label { width: 100%; min-width: 0; }
+    .metric-navigation select { min-width: 0; width: 100%; }
     .card-header { align-items: flex-start; flex-wrap: wrap; gap: 6px; }
     .card .action-tag { max-width: 100%; overflow-wrap: anywhere; }
   }
@@ -73,6 +80,7 @@
 <body>
 <header>
   <h1>Kupua perceived-perf — all audited runs</h1>
+  <nav aria-label="Performance dashboards"><a href="audit-graphs.html">Rendering performance</a> · <a href="density-graphs.html">Density comparisons and thumbnails</a></nav>
   <div class="sub" id="sub">Loading…</div>
   <div id="metricBanner" hidden style="margin-top:8px;padding:8px 12px;border-radius:6px;background:rgba(248,81,73,0.12);border:1px solid rgba(248,81,73,0.4);color:#f85149;font-size:13px;"></div>
   <div style="margin-top:6px;font-size:11px;color:var(--muted);">Tip: use ← → arrow keys to cycle metrics</div>
@@ -102,25 +110,33 @@
 <div id="warnings"></div>
 
 <div class="controls" id="controls" hidden>
+  <div class="metric-navigation">
   <label>Metric
-    <select id="metric">
-      <option value="dt_ack_ms" selected>Ack (ms)</option>
+    <select id="metric" aria-describedby="metricGuide">
+      <optgroup label="Action response">
+      <option value="dt_ack_ms" selected>Action acknowledgement (ms)</option>
       <option value="dt_store_ready_ms">Store ready (ms)</option>
       <option value="dt_first_visible_frame_ms">First visible frame (ms)</option>
       <option value="dt_visual_settled_ms">Visual settled (ms)</option>
       <option value="status_total_ms">Banner total (ms)</option>
-      <option value="dt_ack_p95_ms">Ack p95 (ms)</option>
+      </optgroup>
+      <optgroup label="Action response — 95th percentile">
+      <option value="dt_ack_p95_ms">Action acknowledgement p95 (ms)</option>
       <option value="dt_status_p95_ms">Status p95 (ms)</option>
       <option value="dt_store_ready_p95_ms">Store ready p95 (ms)</option>
       <option value="dt_first_visible_frame_p95_ms">First visible frame p95 (ms)</option>
       <option value="dt_visual_settled_p95_ms">Visual settled p95 (ms)</option>
       <option value="status_total_p95_ms">Banner total p95 (ms)</option>
+      </optgroup>
+      <optgroup label="Fullscreen, samples and detail readiness">
       <option value="dt_native_exit_ms">Native fullscreen exit (ms)</option>
       <option value="sampleCount">Samples across repetitions</option>
       <option value="imageLookupCount">Image metadata lookups (resident traversal: 0)</option>
       <option value="detailLookupMs">Standalone lookup response (ms)</option>
       <option value="detailMetadataReadyMs">Standalone metadata ready (ms)</option>
       <option value="detailImageReadyMs">Standalone decoded image ready (ms; warm media)</option>
+      </optgroup>
+      <optgroup label="Position preservation and matched controls">
       <option value="requestedRatio">Requested result ratio</option>
       <option value="achievedRatio">Achieved result ratio</option>
       <option value="anchorDriftPx">Anchor drift (px)</option>
@@ -128,6 +144,7 @@
       <option value="mapEntryCount">Position-map entries</option>
       <option value="matched_control_first_visible_ms">Matched control first visible (ms)</option>
       <option value="matched_control_settled_ms">Matched control settled (ms)</option>
+      </optgroup>
       <optgroup label="Legacy evidence (pre-revision-2 only)">
         <option value="dt_first_pixel_ms">Legacy first pixel (ms)</option>
         <option value="dt_settled_ms">Legacy settled (ms)</option>
@@ -143,6 +160,10 @@
       </optgroup>
     </select>
   </label>
+    <button id="previousMetric" type="button">Previous metric</button>
+    <button id="nextMetric" type="button">Next metric</button>
+    <p id="metricGuide" class="metric-guide" role="status" aria-label="Metric guide" aria-live="polite" aria-atomic="true"></p>
+  </div>
   <label><input type="checkbox" id="showShort" checked /> short (single-action)</label>
   <label><input type="checkbox" id="showLong" checked /> long (journeys)</label>
   <label><input type="checkbox" id="showImageProbes" checked /> jank-suite image probes</label>
@@ -208,11 +229,11 @@ function visibleEntries(entries) {
   });
 }
 const METRIC_LABELS = {
-  dt_ack_ms: "Ack (ms)",
+  dt_ack_ms: "Action acknowledgement (ms)",
   dt_first_pixel_ms: "Legacy first pixel (ms)",
   dt_settled_ms: "Legacy settled (ms)",
   status_total_ms: "Banner total (ms)",
-  dt_ack_p95_ms: "Ack p95 (ms)",
+  dt_ack_p95_ms: "Action acknowledgement p95 (ms)",
   dt_status_p95_ms: "Status p95 (ms)",
   dt_first_pixel_p95_ms: "Legacy first pixel p95 (ms)",
   dt_settled_p95_ms: "Legacy settled p95 (ms)",
@@ -222,6 +243,9 @@ const METRIC_LABELS = {
   dt_native_exit_p95_ms: "Native fullscreen exit p95 (ms)",
   dt_first_visible_frame_ms: "First visible frame (ms)",
   dt_visual_settled_ms: "Visual settled (ms)",
+  dt_store_ready_p95_ms: "Store ready p95 (ms)",
+  dt_first_visible_frame_p95_ms: "First visible frame p95 (ms)",
+  dt_visual_settled_p95_ms: "Visual settled p95 (ms)",
   took: "ES took (ms)",
   fetchDuration: "Fetch duration (ms)",
   seekTime: "Seek time (ms)",
@@ -241,6 +265,35 @@ const METRIC_LABELS = {
   matched_control_settled_ms: "Matched control settled (ms)",
   matched_control_first_visible_p95_ms: "Matched control first visible p95 (ms)",
   matched_control_settled_p95_ms: "Matched control settled p95 (ms)",
+};
+
+const METRIC_HELP = {
+  dt_ack_ms: "Time from user action to synchronous acknowledgement; this is not a painted frame.",
+  dt_status_ms: "Time from user action until a status banner or spinner is shown.",
+  dt_store_ready_ms: "Time from user action until the store is ready; this is not visual completion.",
+  dt_first_visible_frame_ms: "Time from user action to the first browser frame with target content.",
+  dt_visual_settled_ms: "Time from user action until target content is stable over the scenario window.",
+  status_total_ms: "Total time spent showing status banners.",
+  dt_native_exit_ms: "Time from user action to native fullscreen exit.",
+  sampleCount: "Number of samples across repetitions. Context only; more samples is not faster performance.",
+  imageLookupCount: "Metadata lookup count; resident traversal expects zero lookups.",
+  detailLookupMs: "Standalone detail lookup response time; metadata is not resident.",
+  detailMetadataReadyMs: "Time until standalone detail metadata is ready.",
+  detailImageReadyMs: "Time until the standalone detail image is decoded and stable; media is warm.",
+  requestedRatio: "Requested position as a fraction of the result set. Context only; compare with achieved ratio.",
+  achievedRatio: "Achieved position as a fraction of the result set. Context only; compare with requested ratio.",
+  anchorDriftPx: "Signed anchor displacement in pixels. Closer to zero is better.",
+  anchorDriftRatio: "Signed anchor displacement as a fraction of viewport height. Closer to zero is better.",
+  mapEntryCount: "Number of position-map entries. Context only; not a speed score.",
+  matched_control_first_visible_ms: "First-visible-frame timing for the matched control action.",
+  matched_control_settled_ms: "Visual-settlement timing for the matched control action.",
+  dt_first_pixel_ms: "Legacy first-pixel evidence from before scenario revision 2; not interchangeable with first visible frame.",
+  dt_settled_ms: "Legacy settled evidence from before scenario revision 2; not interchangeable with visual settlement.",
+  took: "Elasticsearch-reported query time, captured after settlement; not total user-action latency.",
+  fetchDuration: "Store fetch duration, captured after settlement; not total user-action latency.",
+  seekTime: "Store seek time, captured after settlement; not total user-action latency.",
+  aggTook: "Elasticsearch-reported aggregation time, captured after settlement.",
+  aggFetchDuration: "Aggregation fetch duration, captured after settlement.",
 };
 
 function metricUnit(metric) {
@@ -467,19 +520,37 @@ document.querySelectorAll(".mode-filter").forEach((input) => input.addEventListe
 
 document.getElementById("reload").addEventListener("click", () => location.reload());
 
-// Arrow key navigation: left/right cycles through metrics without touching the dropdown.
-// Preserves scroll position so you can compare metrics for the same test card.
+function updateMetricGuide() {
+  const sel = document.getElementById("metric");
+  const baseMetric = currentMetric.replace("_p95_ms", "_ms");
+  const isContextOrDrift = ["sampleCount", "requestedRatio", "achievedRatio", "anchorDriftPx", "anchorDriftRatio", "mapEntryCount"].includes(baseMetric);
+  const percentile = currentMetric.includes("_p95_") ? " 95th percentile across repetitions, not the worst sample." : "";
+  document.getElementById("metricGuide").textContent =
+    `${METRIC_LABELS[currentMetric]} — ${METRIC_HELP[baseMetric]}${percentile}${isContextOrDrift ? "" : " Lower is better."}`;
+  document.getElementById("previousMetric").disabled = sel.selectedIndex <= 0;
+  document.getElementById("nextMetric").disabled = sel.selectedIndex >= sel.options.length - 1;
+}
+
+function moveMetric(direction) {
+  if (document.getElementById("controls").hidden) return;
+  const sel = document.getElementById("metric");
+  const index = Math.max(0, Math.min(sel.options.length - 1, sel.selectedIndex + direction));
+  if (index === sel.selectedIndex) return;
+  const scrollY = window.scrollY;
+  sel.selectedIndex = index;
+  sel.dispatchEvent(new Event("change"));
+  window.scrollTo(0, scrollY);
+}
+document.getElementById("previousMetric").addEventListener("click", () => moveMetric(-1));
+document.getElementById("nextMetric").addEventListener("click", () => moveMetric(1));
+
+// Keep native editing/navigation keys inside controls and editable content.
 document.addEventListener("keydown", (e) => {
-  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA") return;
+  if (e.defaultPrevented || e.isComposing || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || document.getElementById("controls").hidden) return;
+  if (e.target instanceof Element && (e.target.closest("input, select, textarea") || e.target.isContentEditable)) return;
   if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
     e.preventDefault();
-    const sel = document.getElementById("metric");
-    const dir = e.key === "ArrowLeft" ? -1 : 1;
-    sel.selectedIndex = Math.max(0, Math.min(sel.options.length - 1, sel.selectedIndex + dir));
-    currentMetric = sel.value;
-    const scrollY = window.scrollY;
-    render();
-    window.scrollTo(0, scrollY);
+    moveMetric(e.key === "ArrowLeft" ? -1 : 1);
   }
 });
 
@@ -511,6 +582,7 @@ function chipClass(value, target) {
 }
 
 function render() {
+  updateMetricGuide();
   if (!LOG) return;
   const allEntries = LOG.entries ?? [];
   if (allEntries.length === 0) {

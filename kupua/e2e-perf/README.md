@@ -1,389 +1,129 @@
-# Perf Test Suite — Reference
+# Performance campaigns
 
-> Quick reference for humans and agents interpreting perf audit results.
-> Tests live under `e2e-perf/`; the harness is `run-audit.mjs`.
+Manual, operator-run measurements against a configured Grid development environment.
+Agents may run the local validation commands below, **not campaigns or dry runs**.
+Run all commands from the **repository root**. The `--` after `run test:perf` forwards
+subsequent arguments to the campaign runner.
 
-Continuity helper changes follow the [test-maintenance discipline](../e2e/README.md#continuity-slice-discipline)
-and the selected task's review scope, not archived execution gates.
-L41 test-maintenance timing is not application jank/perceived evidence. Reuse must
-preserve the measured scenario, readiness and setup boundaries below; no automatic
-campaign, baseline rewrite or performance claim follows from a helper refresh.
+## Quick start
 
-## Session-Aware Density Setup
+With Kupua already running in the matching backend mode:
 
-The [completed history/density slice](../exploration/docs/zz%20Archive/not-yet-another-audit-ledger.md#history-and-density-unit)
-migrates jank, perceived short/long journeys, experiments and shared helpers to
-explicit density initialization and rendered-grid readiness. Plain `/search`
-navigation/reload retains the current per-tab choice; URL density cannot choose
-a view. Independent starts use `startSearch` or `initializeDensity` before the
-existing navigation, without clearing unrelated storage. One removable blank-page
-seed is consumed once per origin; later reload choices survive, and the next
-independent case retires the old seed. Corpus pinning and explicit `until` precedence
-remain those of `gotoPerfStable`.
+```bash
+# Everything: rendering, short/long responsiveness, density and thumbnail comparisons
+npm --prefix kupua run test:perf -- --full --use-media-api --runs 4 --label "full baseline"
 
-P1 initializes before bootstrap probes and checks grid inside existing readiness;
-JA/JB initialize before their start epoch and retain grid in their existing observer.
-Short-suite setup covers plain starts; PP7c/PP10 require grid inside their original
-wait. Original source depth, focus/selection, cache, action direction, measured
-boundaries and scenario revisions remain; no extra measured Home/toggle/read/wait
-was added. Pure harness and actual local fixture checks cover reused/blank/reload
-isolation and wrong-table rejection. All 104 pure checks pass.
+# Only density/thumbnail comparisons, including Grid controls and Table diagnostics
+npm --prefix kupua run test:perf -- --suite justified --use-media-api --runs 4 --label "density baseline"
+```
 
-Keep initialization outside measurement unless it is the measured action. Do not
-silently insert a density transition, Home reset, reload, wait or extra read into
-a benchmark. Preserve its starting depth, cache/readiness assumptions, direction
-and measured boundary; if the workload changes, follow scenario revision rules
-and declare incompatible comparisons. Do not rewrite old results, baselines or
-thresholds. Run applicable pure harness checks and local fixture validation;
-formal perf, dry runs and live-system replay still require operator authorization.
-No live perf, experiment or dry run was performed for this slice, and no historical
-logs, dashboards, thresholds or baselines were rewritten. Functional/harness gates
-do not certify performance equivalence. Existing canonical paired campaigns retain
-their version/topology limits; any proposed new operator-run campaign must name an
-unanswered regression question that those records cannot answer.
+Omit `--use-media-api` for direct ES, or replace it with `--use-deployed-media-api`
+for deployed TEST. The runner does not start or reconfigure your app.
 
-## Justified density: availability is not campaign coverage
+## What runs and where results go
 
-**The current performance campaigns do not benchmark justified density automatically.**
-The jank and perceived suites explicitly initialise **grid**, with particular scenarios
-switching between **grid and table**. Selecting justified in an interactive tab does not
-change those benchmark scenarios.
+<a id="two-measurement-systems"></a>
 
-There is currently **no supported density CLI flag** in `run-audit.mjs`; do not pass an
-invented `--density`/`--justified` option. `VITE_JUSTIFIED_PREVIEW=live` is no longer needed
-for normal development availability and does not select justified for a campaign.
+| Selection | Rendering/jank | Short responsiveness | Long journeys | Density/thumbnail comparisons |
+| --- | --- | --- | --- | --- |
+| No suite flags | Yes | — | — | — |
+| `--perceived` | Yes | Yes | Yes | — |
+| `--perceived-only` | — | Yes | Yes | — |
+| `--short-perceived-only` | — | Yes | — | — |
+| `--long-perceived-only` | — | — | Yes | — |
+| `--suite justified` | — | — | — | Yes |
+| `--suite combined` | Yes | — | — | Yes |
+| **`--full`** | **Yes** | **Yes** | **Yes** | **Yes** |
 
-| Setting / surface | Actual meaning |
+`--full` is shorthand for `--suite combined --perceived`. Both spellings work.
+It cannot be combined with partial-suite flags, a different suite or scenario filters.
+Other perceived flags can be combined with `--suite combined` to select a smaller mix.
+
+| Results | Written by | Dashboard |
+| --- | --- | --- |
+| `results/audit-log.{json,js,md}` | Rendering/jank suite | [Rendering](results/audit-graphs.html) |
+| `results/perceived-log.{json,js,md}` | Short/long responsiveness suites | [Perceived responsiveness](results/perceived-graphs.html) |
+| `results/density-log.{json,js,md}` | Density comparison suite | [Density comparisons](results/density-graphs.html) |
+
+Dashboards retain earlier results: running one suite does not clear the others, but it
+also does not add new points to their histories. The perceived dashboard additionally
+reads detail/image-read diagnostics from the jank history; it does not duplicate them.
+
+**The rendering/responsiveness suites already test Grid↔Table transitions, but not
+Justified.** The density suite compares Grid/Justified and adds Table thumbnail diagnostics;
+its name does not mean every case runs only in Justified.
+
+## Flags
+
+| Flag | Meaning |
 | --- | --- |
-| `JUSTIFIED_AVAILABLE` | An internal constant equal to `import.meta.env.DEV`, not an operator/test switch. Keeps the layout available in development while retaining the production licensing exclusion. |
-| `WINDOWED_JUSTIFIED_ENABLED` | Normal windowed justified mode in development when neither resident fixture is selected; not a performance scenario selector. |
-| `VITE_JUSTIFIED_PREVIEW=true` / `sample` | Explicit synthetic/bounded-sample fixtures. Neither is a live-windowed performance workload; leave both unset for normal campaigns. |
-| Functional E2Es | Resident, indexed and forced-seek justified journeys run in the normal full E2E suite. Passing these is correctness evidence, not a performance measurement. |
-| `test:perf`, including `--perceived-only` | Existing grid/table workloads only. A label containing “justified” changes the label, not the tested density. |
+| `--full` | All maintained suites. Does not run archived experiments. |
+| `--suite existing\|justified\|combined` | Choose the suite family; `existing` is the default. |
+| `--perceived`, `--perceived-only`, `--short-perceived-only`, `--long-perceived-only` | Choose rendering/responsiveness coverage as shown above. Mutually exclusive. |
+| `--runs N` | Repetitions; default 1. Use 4 for baselines. Recorded runs including long journeys require an **even** count; a one-run dry diagnostic is allowed. |
+| `--label "..."` | A useful description of the tested change/environment; otherwise “Unnamed run”. A label does not select a workload. |
+| `--use-media-api` | Local media-api over the TEST tunnel; requires the matching app mode and authentication. |
+| `--use-deployed-media-api` | Deployed TEST media-api; requires the matching app mode and authentication. Cannot combine with the local API flag. |
+| `--dry-run` / `--no-log` | Executes tests without appending campaign history. **Still performs reads and writes diagnostic reports.** |
+| `--headed` | Explicitly requests a visible browser. Maintained campaign configurations already run headed. |
+| Positional scenario-ID list | Advanced filtering, not density selection. Obtain current identifiers from the relevant spec; runner matching is regex-based, not exact-title matching. Not accepted with `--full` or justified-only. |
+| `--rebuild-history` | No-browser maintenance: regenerate jank JS/Markdown from canonical JSON. |
+| `--prune-history` | Destructive jank-history maintenance using the current replacement manifest. Review before use; not a normal campaign step. |
 
-Before claiming a grid-versus-justified comparison, add reviewed justified scenarios (or
-an explicit supported density parameter), matching geometry-aware readiness/placement
-observers and density-tagged report/scenario identities. Preserve the existing grid/table
-workloads and historical comparability; do not mix new-density samples into their series.
-Validate the harness locally before operator-run campaigns. Static review can assess
-allocation, layout invalidation, retained memory and request bounds now, but cannot establish
-frame-time, perceived-latency or performance-parity claims. Agents must not run campaigns.
+History-maintenance flags require the existing suite. Prefer suite-level selection over
+ad-hoc filters; perceived filtering has limitations. For exact single-test diagnostics,
+preview the relevant Playwright config with `--grep` and `--list` before execution.
+Direct Playwright invocation bypasses runner setup/validation and is not a recorded campaign.
 
-## Two measurement systems
+## Preconditions and backend setup
 
-### Network Diagnostics
+- Use normal **development** Kupua, with a windowed corpus. Leave
+  `VITE_JUSTIFIED_PREVIEW` unset; synthetic/resident sample modes are not campaign backends.
+- Keep the browser visible and unobscured. Freeze application/configuration files while
+  measuring: Vite reloads invalidate a run, including reloads caused by documentation saves.
+- Use matching app and runner modes. The runtime fingerprint checks mode/topology, browser,
+  viewport, DPR and other environment fields. A descriptive label is not proof of topology.
+- Keep the pinned date cutoff, viewport, media/cache conditions and workload consistent when
+  comparing. The cutoff does not freeze edits or deletions in the live corpus.
+- Do not change resource limits, safeguards, authentication or server configuration just to
+  make a failing measurement pass. No non-local ES writes.
 
-The jank audit's Network group reports browser Resource Timing observations for
-the active transport (ES or media-api), not backend ES calls. Existing buffered/reset
-windows are unchanged; pending requests and POST bodies are not counted. Zero-size
-entries make transfer bytes unavailable (cache or timing restrictions). New history
-retains these diagnostics; older history stays missing. Charts separate transport,
-API topology and capture revision, with no API-minus-ES network delta or added waits.
-
-This directory contains **two independent measurement systems** that run from
-the same harness but answer different questions:
-
-| System | Asks | Spec files | Output |
-|---|---|---|---|
-| **Jank** | "Is the browser drawing smoothly while the action runs?" (frame drops, CLS, DOM churn) | `perf.spec.ts` | `audit-log.{json,js,md}` + `audit-graphs.html` |
-| **Perceived** | "How long between the user's click and them seeing the result?" (`t_0`, `t_ack`, `t_store_ready`, `t_first_visible_frame`, `t_visual_settled`) | `perceived-short.spec.ts` (single-action) + `perceived-long.spec.ts` (multi-step journeys) | `perceived-log.{json,js,md}` + `perceived-graphs.html` |
-
-Jank reads what the browser reports; no app cooperation needed. Perceived
-reads what the app reports via `trace()` calls — see "Perceived
-instrumentation" below.
-
-The perceived suite has two flavours, **short** and **long**, that share
-one trace API (`src/lib/perceived-trace.ts`), one correlated calculator
-(`e2e-perf/perceived-metrics.mjs`),
-one log file, and one dashboard. The only difference is test length:
-short tests are one user action each; long tests chain several to simulate
-realistic workflows. They're tagged `kind: "short" | "long"` per log entry.
-PP11 is the browser-owned deep Back restoration action: it reports readiness,
-exact-anchor paint, stable geometry and aggregate drift without letting image
-identity leave the page. It has no target until its first reviewed baseline.
-
-PP1 waits up to 30 seconds of elapsed time for unpinned Home data and two matching
-visible frames at absolute position zero. The deadline is independent of refresh
-rate; it is not a performance target. URL, store, buffer, scrubber and geometry
-checks remain mandatory. Timeout diagnostics contain readiness flags and numeric
-positions only, not image identities or metadata.
-
-JA3, JB2 (facet and matched control), and JB3 likewise allow 30 seconds of elapsed
-time for exact-query search settlement and two matching geometry samples. The old
-300-frame cutoff allowed only about 2.5 seconds at 120 Hz or 1.25 seconds at 240 Hz.
-This is a readiness deadline, not a latency target or added delay: successful metrics
-still record the actual observed frames. URL/lifecycle equality, completed loading,
-absence of errors/detail, rendered content and stable geometry remain mandatory.
-Failures identify the actual step (including `JB2-control`) and report only readiness
-flags, lifecycle counters, elapsed time and sampled-frame count. No queries, image
-identities, URLs or server error payloads are included. Existing success boundaries and
-scenario revisions are unchanged; other visual observers are not certified by this fix.
-
-Operator verification on 3 October 2026: a two-repetition long-only media-api dry run
-passed JA and JB in both repetitions, covering both JB2 control orders. No performance
-history changed. This verifies the observer replay, not the later application ownership
-follow-up or performance equivalence.
-
-## Flag matrix
-
-| Flag | Jank | Perceived (short) | Perceived (long) |
-|---|---|---|---|
-| `(no flag)` | ✓ | — | — |
-| `--perceived` | ✓ | ✓ | ✓ |
-| `--perceived-only` | — | ✓ | ✓ |
-| `--short-perceived-only` | — | ✓ | — |
-| `--long-perceived-only` | — | — | ✓ |
-
-The two `-only` variants exist for fast iteration when editing one half: they
-skip the half you're not touching.
-
-Other flags:
-
-| Flag | Effect |
-|---|---|
-| `--label "..."` | Tags this run in the log. Defaults to `"Quick check"` / `"Unnamed run"`. |
-| `--runs N` | Repeat each suite N times; metrics aggregated as median + p95. Long/combined audits require an even count for balanced JB2 AB/BA order. |
-| `--dry-run` | Run everything, print summaries, write nothing. |
-| `--headed` | Show the browser window (otherwise headless). |
-| `--use-media-api` | Route ordered reads through the local media-api (instead of direct ES). Requires one-time auth setup — see below. |
-| `--use-deployed-media-api` | Route all image reads directly to deployed TEST media-api; runner/app topology must match. Requires auth setup below. |
-| `--prune-history` | No-browser maintenance mode: atomically removes retired and pre-revision-2 replaced jank rows, rebuilds JSON/JS/Markdown, and removes campaigns left empty. |
-| `--rebuild-history` | No-browser maintenance mode: atomically regenerates jank JS/Markdown from canonical JSON without adding a campaign. |
-| `<P-id list>` | Positional jank-test filter (e.g. `P3,P8`). |
-
-## How to run
-
-Run these commands from the `kupua/` directory. App and runner modes are configured separately:
-use `--use-media-api` in both terminals for local media-api, or
-`--use-deployed-media-api` in both for deployed TEST. The environment fingerprint records
-`apiTopology` (`none`, `local`, `deployed-test`) and rejects a mismatch.
-
-### Direct-ES campaign
+Start the appropriate app, in a separate terminal:
 
 ```bash
-# Terminal 1
-./scripts/start.sh --use-TEST
-
-# Terminal 2
-node e2e-perf/run-audit.mjs --label "Baseline" --runs 3
-node e2e-perf/run-audit.mjs P4a,P4b,P6 --label "Quick jank check"
-node e2e-perf/run-audit.mjs P8 --dry-run                         # no log writes
-node e2e-perf/run-audit.mjs --short-perceived-only --dry-run     # iterate on PP1-PP11
-node e2e-perf/run-audit.mjs --long-perceived-only --runs 4       # journey baseline
-node e2e-perf/run-audit.mjs --perceived --label "Full audit" --runs 4
+./kupua/scripts/start.sh --use-TEST
+# OR, with local Grid/media-api already running:
+./kupua/scripts/start.sh --use-media-api
+# OR, using deployed TEST media-api:
+./kupua/scripts/start.sh --use-deployed-media-api
 ```
 
-### Local media-api campaign
+Local API means browser → local Vite/proxy → local media-api → TEST ES tunnel, **not**
+deployed TEST media-api. Deployed API mode still uses local thumbnail/image delivery.
+Both API campaign flags select the authenticated HTTPS Kupua origin; direct ES normally
+uses localhost. Origin/proxy differences prevent treating every timing delta as API overhead.
+The [application setup guide](../README.md#quick-start) owns broader infrastructure instructions.
+
+For a **new/changed API setup or changed measured paths**, validate before recording:
 
 ```bash
-# Terminal 1
-./scripts/start.sh --use-media-api
-
-# Terminal 2 — required fast preflight before any recorded campaign
-node e2e-perf/run-audit.mjs P14d,P17,P18,P19 --use-media-api --dry-run --runs 2 --label "media-api jank invariant preflight"
-node e2e-perf/run-audit.mjs --use-media-api --long-perceived-only --dry-run --runs 2 --label "media-api long invariant preflight"
-
-# Record only after both preflights pass
-node e2e-perf/run-audit.mjs --use-media-api --perceived --label "local-media-api baseline" --runs 4
+npm --prefix kupua run test:perf -- --use-media-api --long-perceived-only --dry-run --runs 2 --label "API setup check"
 ```
 
-### Deployed TEST media-api campaign
+Use the deployed flag instead when appropriate. Local media-api must have the reviewed TEST
+`field.aliases` configuration: otherwise alias-backed metadata and filters can silently differ.
+Where local setup uses `~/.grid/common.conf`, copy only the reviewed alias block, not an entire
+TEST configuration, then restart media-api. For traversal, buffering or selection changes, also run the relevant focused jank dry checks
+from [the rendering spec](perf.spec.ts). Preflights are **not** required before every repeat
+campaign on an unchanged, already-validated setup.
+
+### Authentication state
+
+Playwright storage state contains live credentials. **Create and retain the real JSON outside
+the repository**, with private permissions. Do not print it, paste it into chat, copy it into
+Kupua or commit it. Interactive login is performed by the operator, not an agent.
 
 ```bash
-# Terminal 1: local image delivery, direct browser reads to deployed TEST media-api
-./scripts/start.sh --use-deployed-media-api
-
-# Terminal 2: required dry preflights
-node e2e-perf/run-audit.mjs P14d,P17,P18,P19 --use-deployed-media-api --dry-run --runs 2 --label "TEST-media-api API preflight"
-node e2e-perf/run-audit.mjs --use-deployed-media-api --long-perceived-only --dry-run --runs 2 --label "TEST-media-api long preflight"
-
-# Recorded baseline
-node e2e-perf/run-audit.mjs --use-deployed-media-api --perceived --runs 4 --label "TEST-media-api api-mode local-media-delivery"
-```
-
-Deployed mode uses an allowlisted absolute API base with `credentials: include`, so the browser
-sends the TEST-domain Panda cookie. It bypasses Vite's Grid API write guard; current Kupua code is
-read-only, but this temporary measurement transport is not a permanent read-only security boundary.
-Local `/s3` and `/imgproxy` delivery remains until U7.
-
-The two preflights write no history and exercise
-the rapid-traversal landing plus cross-repetition contracts that previously failed
-only after a full run.
-The runner also aggregates after every repetition, so a future mismatch stops
-at the first failing pair rather than after all four repetitions.
-
-A transient proxy error for `/usage/quotas` is optional quota enrichment and
-degrades to absent data; it does not invalidate search/perceived scenarios that
-do not own quota behavior. Search-after, authentication, alias, or scenario-
-owned route failures still invalidate the campaign.
-
-`--dry-run` is the recommended first step whenever running the perceived suite
-on a new setup or after changing traced paths. It still runs Playwright; it
-just doesn't write the log.
-
-Every invocation writes a uniquely named `$TMPDIR/kupua-perf-<timestamp>-<pid>.log` with the full
-jank/perceived Playwright output and any runner-level fatal stack. The harness
-prints the resolved path and writes that path only to the ignored
-`results/.latest-report-path`, so agents can discover reports created under a
-different terminal's TMPDIR without putting TEST output in the public repo.
-Later diagnostics never overwrite an earlier campaign report.
-Metric JSONL files under `results/` remain structured per-suite evidence.
-
-Cleanup diagnostics are enabled by default in all perf configs, campaign launches
-and convenience scripts. `teardown-reporter.mjs` observes Playwright's cleanup
-steps without taking over teardown. After the test body it logs `[perf cleanup]`
-records for overall cleanup, probe shutdown where applicable, environment capture
-and browser-context closure. Each stage has a start record and a completed/failed
-record with elapsed milliseconds. A hung stage retains its start record in the
-campaign report even if no completion arrives. Context closure includes Playwright's
-own artifact finalization; the reporter does not split or reorder that operation.
-Only fixed stage labels and scenario IDs are printed, not raw test titles, error
-payloads, image data or credentials. Cleanup completion is not proof of unattended
-test success when the operator intervened.
-
-History writes are deferred until every requested suite and repetition succeeds.
-A later failure therefore leaves both canonical histories unchanged, even when
-the jank repetitions completed. The unique report survives; it is not a resumable
-campaign checkpoint. This all-or-nothing policy is deliberate: no checkpoints,
-partial history, automatic retries or failure suppression.
-
-### Harness reliability invariants
-
-The pure `test:perf-harness` gate statically inspects every maintained perf spec and the
-shared E2E helper. `waitForFunction` predicates must be synchronous, and timeout/polling
-options must occupy Playwright's third parameter rather than the unused predicate-argument
-slot. Multi-frame decode/geometry conditions use explicit bounded async loops with negative
-controls for delayed, missing, moving and wrong-identity states.
-
-Aggregation requires optional evidence to be present in every repetition or none. A missing
-phase, route, store timing, traversal diagnostic or seek-measure set therefore fails instead
-of silently shrinking the sample. Metric-ID manifests reject missing, duplicate and unexpected
-rows; environment and route ownership must remain stable across repetitions; history sibling
-writes remain transactional. Dashboard schemas warn on unknown fields.
-
-Store timings are published only when the measured action owns a successful direct-ES or
-media-api route; dashboards also suppress stale timings in older `client-only` records. Each
-dashboard shows the latest API-minus-direct delta when both modes are visible, qualified as
-app-source matched/different/unverified (or a different commit). New environment fingerprints
-retain both the complete dirty-state hash and an app-source hash excluding only generated
-audit/perceived history siblings, so recording one half of a pair does not invalidate the other.
-
-Threshold crossings from a single current repetition remain visible in the diff table but are
-reported as **single-sample watchpoints**, not regression verdicts. “Possible regression” is
-reserved for current and previous aggregates that each contain at least two repetitions. This
-does not make two runs a performance proof; it prevents quick dry-runs from overstating evidence.
-
-P5c and P13b use revision 3 after correcting their stable-geometry boundaries. P13a and
-P15a/b/c are also revision 3 after correcting decoded-detail readiness. Earlier history is
-retained but excluded by comparable-only views. Fixed waits that deliberately define input
-cadence or observation windows are not completion proofs and were not removed by this audit.
-
-For a strictly isolated diagnostic, use an exact title filter and preview it with
-`--list` through the direct Playwright config. Runner filters differ: jank's `P1`
-also matches P11-P19, while the perceived selector does not accept `PP1:`. An
-unrecognized perceived selection currently constructs an empty alternation that
-runs the full suite before metric validation rejects it. Do not use that path for
-bounded diagnostics. From repo root:
-
-```bash
-PERF_STABLE_UNTIL=2026-02-15T00:00:00.000Z npm --prefix kupua run test:e2e -- \
-  --config=e2e-perf/playwright.perf.config.ts --grep=' P1:' --list
-```
-
-After confirming one test, omit `--list`. Cleanup records need no extra flag;
-`DEBUG=pw:test` adds verbose fixture diagnostics when required. Do not override
-reporters with `--reporter=list` alone, which disables the cleanup reporter.
-`--trace=on --output=test-results/perf-p1-diagnostic`
-retains traces even when operator intervention releases a hang and Playwright
-reports a pass. Such a result is not unattended success. Diagnostic timings are
-not benchmark comparisons. Freeze all Vite-watched files while a campaign runs,
-including root-level `AGENTS.md`; a documentation save can reload the app.
-
-Run `node e2e-perf/run-audit.mjs --prune-history` only after the replacement
-manifest and its pure tests are reviewed. It does not connect to TEST or launch
-Playwright. The operation is idempotent and commits all three audit-log siblings
-through the same rollback-capable file transaction as normal history writes.
-
-### Running against local media-api (`--use-media-api`)
-
-This routes Kupua's ordered reads through the local media-api instead of going
-directly to ES. Useful for measuring the media-api code path end-to-end.
-
-All image reads now use `ApiDataSource`: pages/window, rank, profiles, keys/maps/ranges,
-counts/tickers, aggregations, detail, mget and AI. There is no ES fallback or ES datasource in API
-mode. The fingerprint records `dataMode: media-api` and `apiTopology: local`.
-
-**Topology warning:** in this harness, `Mode: media-api` currently means:
-
-```text
-Playwright
-  → https://kupua.media.local.dev-gutools.co.uk
-  → local Vite
-  → local media-api
-  → SSH tunnel
-  → TEST Elasticsearch
-```
-
-It does **not** mean Kupua is calling deployed TEST media-api. Results include
-local JVM, local proxy, authentication, and tunnel effects that a deployed
-media-api does not share. The fingerprint records the topology; retain a descriptive label too.
-
-The 12 September 2026 campaign labelled `Matched media-api baseline 2026-09-12`
-used this local-media-api topology. Its comparison direct-ES campaign used
-`http://localhost:3000`, whereas media-api authentication required the HTTPS
-Kupua origin. The application code was the same, but the browser origins were
-not, so the pair is suitable for broad local-path characterization rather than
-isolating only the `searchAfter` implementation. A future controlled pair should
-run direct ES through the same HTTPS Kupua origin using `KUPUA_PERF_BASE_URL`, or
-record origin/proxy overhead separately.
-
-### M2a deployed-TEST evidence (29 September 2026)
-
-Temporary media-api build `15470` was measured with client `afa49dfdf`, local media delivery and
-four repetitions, then compared with a matched-home local-media-api campaign using the same code,
-corpus, origin, browser, viewport and DPR. No direct-ES route appeared. Deployed TEST made PP1-5
-8-18% faster, PP11 restore 17% faster, JB2/JB3 filters 17%/34% faster, P18 100-item selection 19%
-faster and singleton lookup 29% faster. JA1/JB1 fresh navigation was 18%/12% slower, PP7 click
-seek 13% slower (p95 6% better), and P19's 1,000-item range/selection was 25%/19% slower. P8/P9
-jank matched locally once physical network location was controlled. Likely costs are cold
-cross-origin TLS/CORS/preflight and repeated browser-to-TEST round trips; warmed heavy filters
-benefit from server/ES co-location. A deployed AI check proved scored hits, pool/tickers,
-no-vector projection, result-owned enrichment and no browser ES/Bedrock. No hard perceived ceiling
-was breached; no endpoint redesign, PIT work or additional general campaign was selected.
-
-**Prerequisites (every session):**
-
-1. The full Grid dev stack must be running — media-api needs to be up.
-2. Start kupua with the matching flag:
-   ```bash
-   ./scripts/start.sh --use-media-api
-   ```
-   This implies `--use-TEST` (ES tunnel on port 9200) plus
-   `VITE_USE_MEDIA_API=true`.
-3. Pass `--use-media-api` to the audit runner too. The runner then uses
-  `https://kupua.media.local.dev-gutools.co.uk` as Playwright's origin. This is
-  required because the authenticated Grid cookies are domain-scoped and are not
-  sent by a page on `http://localhost:3000`. If the environment fingerprint says
-  `Base URL: http://localhost:3000`, the media-api runner flag was omitted or the
-  Playwright config was invoked directly.
-4. Local media-api must have the same `field.aliases` configuration as TEST. See
-  the alias preflight below.
-
-For deployed mode, local Grid/media-api is not required. `start.sh` still establishes the TEST ES
-tunnel only to discover buckets for local S3/imgproxy delivery. Sign in to TEST in the Playwright
-storage state; the browser calls deployed media-api directly.
-
-#### Authentication state
-
-Playwright `storageState` is the appropriate mechanism for this manual harness,
-but the file contains live session credentials. **Never place the real JSON file
-under `kupua/`, inspect it, print it, paste it into chat or a report, or commit it.**
-
-Generate it at a private location outside the repository. The example path is
-deliberately generic; choose any user-private directory outside a Git worktree:
-
-```bash
-# Run from the grid repository root.
 mkdir -p "$HOME/.config/kupua-playwright"
 chmod 700 "$HOME/.config/kupua-playwright"
 kupua/node_modules/.bin/playwright codegen \
@@ -391,467 +131,115 @@ kupua/node_modules/.bin/playwright codegen \
   https://kupua.media.local.dev-gutools.co.uk
 ```
 
-In the browser that opens, sign in to **both**:
-- `https://media.test.dev-gutools.co.uk/` — captures the `.test.dev-gutools.co.uk` cookie (used by Collections tree etc.)
-- `https://media.local.dev-gutools.co.uk/` — captures the `.local.dev-gutools.co.uk` cookie (used by local media-api)
-
-The local cookie authenticates `--use-media-api`; the TEST cookie authenticates
-`--use-deployed-media-api` and TEST satellite services. Browser cookie scoping means Vite cannot
-forward the TEST cookie from a local-origin `/api` request, which is why deployed mode uses the
-absolute TEST API origin.
-
-Then **close the browser** — the file is written on exit, not during the session.
-Restrict access to the result:
+Sign in to [local Grid](https://media.local.dev-gutools.co.uk/) for local API mode, and to
+[TEST Grid](https://media.test.dev-gutools.co.uk/) for deployed API/satellite services.
+Cookies are domain-scoped; localhost cannot supply the authenticated local/TEST domains.
+Close the codegen browser to write the state, then create the ignored symlink the runner expects:
 
 ```bash
 chmod 600 "$HOME/.config/kupua-playwright/panda-auth.json"
-```
-
-The current runner expects `e2e-perf/.panda-auth.json`. Bridge that expected name
-to the external file with a symlink; do not copy the JSON into the repository:
-
-```bash
-# Run from the grid repository root.
-ln -s "$HOME/.config/kupua-playwright/panda-auth.json" \
-  kupua/e2e-perf/.panda-auth.json
-
-# Must succeed silently before running the harness.
+ln -s "$HOME/.config/kupua-playwright/panda-auth.json" kupua/e2e-perf/.panda-auth.json
 git check-ignore -q kupua/e2e-perf/.panda-auth.json
 ```
 
-That bridge path is tracked in `kupua/.gitignore` as defense in depth. Ignoring it
-does not make an in-repository credential safe: the symlink target remains the
-only acceptable arrangement. Remove only the bridge after the campaign; retain
-or delete the external state according to local policy:
+Do not overwrite an existing path blindly. An ignored regular credential file inside the repo
+is **not** an acceptable substitute for the external file. Authentication failures/redirects and
+empty authenticated responses invalidate the campaign; renew the private state rather than
+interpreting them as latency. Remove only the symlink when finished if it is no longer needed.
 
-```bash
-rm kupua/e2e-perf/.panda-auth.json
-```
+## Density comparisons and thumbnail exposure
 
-The harness exits if the bridge is missing. Auth failures, redirects, HTTP
-401/419, empty authenticated responses, or API errors invalidate the campaign;
-refresh the external state rather than treating them as performance evidence.
-Never route passwords, MFA prompts, cookie values, or the state file through an
-agent. Complete interactive sign-in directly in the opened browser.
+The comparison suite covers scrolling with browser-cache bypass and repeat-path setup,
+Table→image-layout switching, detail return, scrubber seek, width reflow and window eviction.
+It retains one paired source identity and rotates density order between repetitions.
 
-**Future hardening:** the runner should accept an explicit external auth-file
-path, reject regular credential files inside the repository, and remove the
-symlink bridge entirely. The Playwright configs already consume
-`KUPUA_PERF_AUTH_FILE`; the runner is the remaining hardcoded layer.
+Normal workloads and all startup/setup are **unthrottled**. One automatically included
+constrained-scroll family runs across Grid, Justified and Table: 80ms latency, 4Mibit/s download,
+1Mibit/s upload, only during its four-second observation window. It constrains page requests,
+including possible data refills—not just thumbnail bytes. There is no separate throttle flag.
 
-#### Field-alias preflight
+Scroll observations use a time-based animation-frame loop at 1,200px/s, with achieved movement
+recorded. This is not physical wheel-device certification. The normal viewport is 1720×960,
+DPR2; width-reflow cases temporarily narrow it. Eviction is an event-bound workload, not a
+constant-speed comparison. Browser-cache bypass does not clear already-loaded images or reset
+proxy/CDN/server caches. Repeat-path setup does not guarantee every resource is warm.
 
-D3's media-api `searchAfter` response intentionally omits bulk `fileMetadata`.
-It adds back only the small leaf paths listed by media-api's runtime
-`field.aliases`, then exposes their values under `image.aliases`. The same config
-also resolves CQL aliases such as `colourModel` and `colourProfile` to their real
-Elasticsearch paths.
+### Reading the measurements
 
-Kupua currently carries its own alias list in `src/lib/grid-config.ts`. If local
-media-api starts with `field.aliases=[]`, the two sides silently diverge:
-
-- alias-backed metadata disappears from every media-api search hit;
-- alias CQL can query a literal unmapped field and return misleading results;
-- the long perceived journey fails, but shorter scenarios may still pass.
-
-This commonly occurs with `dev/script/start.sh --use-TEST`: deployed TEST reads
-aliases from its common configuration, while the script downloads only the
-per-app media-api and kahuna files. Ordinary local setup also usually embeds
-shared settings into each service-specific file, so `~/.grid/common.conf` may
-legitimately be absent.
-
-For a representative media-api perf run, place **only the reviewed TEST
-`field.aliases` block** in `~/.grid/common.conf`, never an unreviewed complete TEST
-configuration, then restart media-api. The larger product fix is to establish one
-server-authoritative runtime-config path and fail loudly on alias-contract drift;
-the perf harness must not conceal that architecture gap.
-
-The required two-run long preflight above also validates field aliases after a
-media-api restart. JA exercises returned alias metadata; JB exercises an alias-
-backed filter and indexed scrolling:
-
-```bash
-node e2e-perf/run-audit.mjs \
-  --use-media-api \
-  --long-perceived-only \
-  --dry-run \
-  --runs 2 \
-  --label "media-api auth and alias preflight"
-```
-
-Do not start a recorded campaign unless the preflight is green and its environment
-fingerprint reports both `Mode: media-api` and the HTTPS Kupua base URL.
-
-## Dashboards
-
-Both dashboards are static HTML pages opened directly from disk
-(`open results/audit-graphs.html`) — no server needed. Each loads a sibling
-`.js` file (`audit-log.js` / `perceived-log.js`) written by the harness, which
-sidesteps the browser's `file://` fetch ban. After each new run, refresh.
-
-`audit-graphs.html` shows one sparkline per jank test across every
-`audit-log.json` entry. **If new metric or entry keys appear that the page
-doesn't recognise, it shows a red banner** asking you to update
-`KNOWN_METRICS` / `KNOWN_ENTRY_KEYS` near the top of the file. That banner is
-the contract — when adding a new metric to `perf.spec.ts` / `run-audit.mjs`,
-also add it to `KNOWN_METRICS`.
-
-Both dashboards plot every checked data mode on the same chart: direct ES is
-blue, media-api is amber, and legacy/unknown is gray. "Comparable within each
-mode" filters each line against that mode's own latest environment and scenario
-contract, rather than allowing the globally latest mode to hide the others.
-Latest values and deltas are likewise mode-local; they are not claims that two
-different deployment topologies are equivalent.
-
-`perceived-graphs.html` shows one sparkline per scenario across
-every `perceived-log.json` entry, with checkboxes to filter by kind
-(short / long), an opt-in background-diagnostics section, and a metric selector
-for explicit boundaries (`dt_ack_ms`, `dt_store_ready_ms`,
-`dt_first_visible_frame_ms`, `dt_visual_settled_ms`, status and store timing).
-Pre-revision-2 aliases remain separately selectable under **Legacy evidence**.
-
-Each run entry includes `baseline_rtt_ms`: median of 5 pings to ES before
-the suite. Useful for attributing slow runs to network vs. app code.
-
----
-
-## Jank suite — test inventory
-
-### Network/ES Dependency
-
-Tests fall into three categories. This matters for result stability:
-
-| Category | Tests | Single-run noise | Notes |
-|----------|-------|-------------------|-------|
-| **Client-only** | P4a, P4b, P5a/b/c, P7, P13a/b, P14a/b/c/d, P15a/b/c, P16a/b | **Low** (±5%) | No ES requests inside the measured action. P7 preloads lazy distribution setup and excludes pointer release/seek. |
-| **Mixed** (client work triggered by data response) | P2, P8, P17, P18, P19 | **Medium** (±15%) | Scroll can trigger buffer requests. P18 hydrates 99 selected images through direct-ES `_mget`, or media-api `POST /images/mget` in `--use-media-api` mode; P19 adds a server range walk and 999 hydrated images on the same routes. Their route attribution deliberately ignores unrelated `/api` responses. Jank spikes may correlate with response timing. |
-| **ES-dominated** | P1, P3, P3b, P6, P9, P11, P11b | **High** (±20%+) | Test measures the full round-trip: ES query → response processing → render. SSH tunnel latency and cluster load dominate. |
-
-**Practical guidance:**
-- Use `--runs 1` during development for all tests. Don't panic about ±15% on ES-dominated tests.
-- Use `--runs 2` for dry preflights and `--runs 4` for recorded baselines or decisions. In the
-  M2a matched pair, first-two medians differed from four-run medians by >5% in 13/22 perceived
-  scenarios, >10% in 5, and reversed two local/deployed conclusions. Four runs also give JB2 two
-  observations of each AB/BA order.
-- When evaluating a coupling-fix phase that targets client-side performance (e.g. handleScroll stabilisation), focus on the client-only tests (P4, P5, P14, P15, P16). These give reliable signal from a single run.
-- When an ES-dominated test shows a big change, re-run with `--runs 3` before concluding it's a real regression.
-
-### Focus Position Tracking
-
-Tests P4a, P4b, P6, and P13b emit focus-placement diagnostics in their
-structured metrics. These measure how accurately the focused image's viewport
-position is preserved across transitions:
-
-| Test | Transition | What drift means |
-|------|-----------|------------------|
-| **P4a** | Grid → Table | Focused image moved N pixels from where it was in grid view |
-| **P4b** | Table → Grid | Same, reverse direction |
-| **P6** | Sort direction toggle | Focused image moved N pixels despite sort-around-focus |
-| **P13b** | Detail close to list | Signed vertical/horizontal return-placement drift |
-
-`focusDriftPx = 0` is perfection. Anything within ±ROW_HEIGHT (~32px table, ~303px grid) is acceptable — the image is on screen. Drift beyond viewport height means the image scrolled out of view: a "Never Lost" violation.
-
-**Note:** P4a, P4b, and P6 emit `focusDriftPx` / `focusDriftRatio`; P13b emits
-signed vertical and horizontal pixel drift plus final visibility.
-
-### Per-Test Reference
-
-| ID | What it measures | Duration | Key metrics to watch |
-|----|-----------------|----------|---------------------|
-| **P1** | Cold navigation through visible results plus two frames | ~3s | CLS, maxFrame, LoAF, DOM churn, FP/FCP and navigation milestones. |
-| **P2** | Grid mousewheel scroll (30 events) | ~4s | severe, p95Frame, domChurn. Scroll smoothness. |
-| **P3** | Scrubber seek to 50% (date sort) | ~5s | maxFrame, LoAF. Buffer replacement cost. |
-| **P3b** | Scrubber seek to 50% (keyword sort) | ~8s | Same. Exercises composite-agg + binary-search path. |
-| **P4a** | Grid→Table density switch | ~2s | maxFrame, domChurn, **focusDriftPx**. Mount/unmount cost. |
-| **P4b** | Table→Grid density switch | ~2s | Same. Typically lighter than P4a. |
-| **P5a/b/c** | Panel open/close; P5c measures left close only | ~3s | CLS, maxFrame, P5c results-width delta. |
-| **P6** | Sort direction toggle | ~6s | maxFrame, LoAF, **focusDriftPx**. "Never Lost" accuracy. |
-| **P7** | Continuous scrubber thumb drag before release | ~2s | domChurn, maxFrame. Client-only direct-DOM tracking; PP7b owns release-to-settle. |
-| **P8** | Table fast scroll (80 wheel events) | ~6s | severe, p95Frame, CLS, domChurn. **Known worst case.** |
-| **P9** | Sort field change | ~3s | maxFrame, CLS. Full result set replacement. |
-| **P11** | Thumbnail CLS after seek (3 positions) | ~15s | CLS per seek position. Image loading stability. |
-| **P11b** | Same, keyword sort variant | ~15s | CLS comparison across sort types. |
-| **P13a/b** | Image detail enter/exit | ~5s | CLS, maxFrame. Overlay transition quality. Scroll restoration. |
-| **P13c** | Standalone detail after P13a/b; non-resident metadata, warm media | additional seconds, not yet measured | Lookup response, metadata-ready and decoded/stable-image timings; actual lookup route and count. |
-| **P14a** | Image traversal, normal (10 fwd @ 2/s) | ~6s | maxFrame, severe, **landingRenderMs**, **renderedCount**. Browsing-pace image swap smoothness. |
-| **P14b** | Image traversal, fast burst (15 fwd @ 5/s + 3s settle) | ~7s | severe during burst, CLS/LoAF during settle, **landingRenderMs**, **swappedNotRendered**. Does the app load only the final image? |
-| **P14c** | Image traversal, fast backward (10 back @ 5/s + 3s settle) | ~6s | Same as P14b, reverse direction. Prefetch-behind effectiveness. |
-| **P14d** | Image traversal, rapid discrete burst (20 fwd @ 12/s) | ~5s | Cancellation stress test. Most images should not render; landing latency and CLS occurrence are primary. |
-| **P15a/b/c** | Fullscreen enter/traverse/exit | ~4s | maxFrame. Should be near-zero (Fullscreen API is cheap). |
-| **P16a/b** | Column drag-resize + double-click fit | ~3s | maxFrame, domChurn. CSS-variable path. Should be near-zero. |
-| **P17** | Reverse grid scroll from first backward-prepend trigger through 200ms quiescence | ~5s | severe, p95Frame, LoAF, DOM churn, route class, prepend count, direction violations. Includes any natural causally-following prepend cascade rather than suppressing it. |
-| **P18** | Shift-click result 99 from a settled result-0 anchor with Details open | ~2s | maxFrame, LoAF, selection publication, metadata/reconcile/visual settlement. Cold-except-anchor, exactly 100 selected. |
-| **P19** | Tick result 0 with Details open, seek to 999 (anchor leaves the buffer), shift-click result 999 | ~5s | As P18 plus range-walk time. Cold-except-anchor, exactly 1,000 selected. |
-
-### Image-read probes (P13c and P14)
-
-**Readiness correction (25 September):** the shared detail-ready helper now awaits an
-explicit frame/decode loop. Its former async `waitForFunction` predicate could resolve false
-without being retried, letting P13 reach the warm-source capture before the image loaded.
-P13a/b and P15a/b/c therefore use scenario revision 3; revision-2 history is retained but is
-not automatically comparable. P13c keeps its strict warm-rendition assertion. Other async
-polling call sites were not audited by this repair. Rerun P13/P15 in the current app mode
-before recording a new campaign.
-
-P14a-d count image-hydration requests during the existing traversal and landing window and
-require zero. Both direct-ES `_mget` and media-api singleton/bulk reads are counted; ordered
-pages and image-byte requests are not. The listener adds no navigation or extra wait.
-
-P13c runs once per repetition after P13a/b have emitted their unchanged metrics. It uses a
-normal query change to a different resident ID, verifies that the original target is absent,
-then opens that target as standalone detail without restarting the browser. P13c revision 2
-accepts one lookup or two from development Strict Mode mount-effect replay; every request
-must target that single ID, use the expected route and succeed, except that, since U6a, the
-first of two may be the replay's own aborted read (`net::ERR_ABORTED`, no response). Zero,
-three or more, or unrelated reads fail. Both requests remain visible in `imageLookupCount`; the probe does not
-deduplicate them or change the application. Direct mode expects ES; hybrid API mode derives
-the route from the declared development-fallback list, so since U6a it expects media-api's
-`GET /api/images/:id`.
-The result records the actual route; an unexpected route fails rather than masquerading as
-API evidence. The final decoded rendition must match the one warmed by P13a.
-
-`detailLookupMs` ends at the last-issued lookup's response body (the replay-owned read when
-there are two); `detailMetadataReadyMs` ends at the first
-observed requested-ID detail frame; `detailImageReadyMs` additionally requires a visible image,
-stable geometry over two frames and successful decode. All start at standalone navigation.
-These are not cold-media or compositor-paint measurements. Setup and readiness use bounded
-condition waits, not extra fixed sleeps. The additional runtime has not been measured live.
-
-Both dashboards offer these three timings and `imageLookupCount` in their metric menus.
-The perceived dashboard reads the same audit history under **jank-suite image probes**;
-it does not duplicate samples into perceived history or rerun the probes. Jank-only and
-combined campaigns refresh them; perceived-only campaigns do not. Old records remain gaps,
-not invented zero counts. Comparable-history filtering separates actual lookup routes as
-well as app modes, so pre-U6 API-mode ES fallback is not silently compared as API singleton
-work; uncheck that filter deliberately to inspect the migration transition.
-
-Operator preflight: run `P13,P14 --dry-run --runs 2` through the audit runner in each app mode,
-with `--use-media-api` on both app and runner for API mode. No recorded campaign or live
-preflight was run by the implementing agent; pure helper tests and synthetic browser dashboard
-checks cover both transports, ownership refusals, aggregation and display contracts.
-
-### Jank metrics glossary
-
-| Metric | Unit | What it means | Good | Bad |
-|--------|------|---------------|------|-----|
-| CLS | ratio | Cumulative Layout Shift (unexpected shifts only) | < 0.01 | > 0.1 |
-| maxFrame | ms | Worst single frame duration (rAF delta) | < 50 | > 200 |
-| severe | count | Frames > 50ms | 0 | > 10 |
-| p95Frame | ms | 95th percentile frame duration | < 20 | > 50 |
-| domChurn | count | DOM mutations (add + remove + attribute changes) | < 500 | > 10k |
-| loafBlocking | ms | Total Long Animation Frame blocking time | < 50 | > 500 |
-| focusDriftPx | px | Focus position change across transition | 0 | > viewportHeight |
-| focusDriftRatio | ratio | Focus position change as fraction of viewport | 0.0 | > 0.5 |
-| landingRenderMs | ms | Time from traversal-stop until landed image renders (0 = prefetch hit) | 0 | > 2000 |
-| landingNetworkMs | ms | imgproxy network time for the landing image | < 200 | > 1000 |
-| renderedCount | count | Images that rendered before user moved on (P14 traversal) | N at slow | — |
-| swappedNotRendered | count | Images where src changed but never decoded in time | 0 | > N/2 |
-
----
-
-## Measurement discipline for later work
-
-Apply these rules before adding a metric or using one to justify an optimization:
-
-1. **One row, one owned action.** Setup, the measured interaction, and cleanup
-  must be explicit. Split compound workflows; never sum unrelated windows.
-2. **Start at the real trigger.** Install navigation probes before navigation;
-  mark clicks and keys in their owning handler before state mutation.
-3. **End at an observable outcome.** Prefer exact identity, decoded content,
-  visible target context, native state, or stable geometry over fixed sleeps.
-4. **Correlate asynchronous phases.** An interaction ID must own every phase.
-  Temporal adjacency is not causality, especially with background fetches.
-5. **Preload lazy setup when measuring client work.** Clear probe/resource state
-  afterward and assert zero measured requests when the contract is client-only.
-6. **Fail closed.** Missing controls, wrong regimes, incomplete commits, absent
-  phases, changed environments, or malformed logs invalidate the row.
-7. **Persist the explanation.** Retain revision, boundary, regime, routes,
-  environment, sample count, and scenario-specific diagnostics needed to
-  explain a value. Sanitize identity, URLs, bodies, and credentials.
-8. **Do not compare changed contracts.** Scenario revision, cache class, corpus,
-  environment, and measurement boundary are comparability gates, not footnotes.
-9. **Use the right owner.** Jank measures drawing smoothness; perceived traces
-  measure action-to-outcome latency; habitual E2E owns correctness. A single
-  row should not impersonate all three.
-10. **Prefer deletion to ceremonial coverage.** If TEST falsifies a scenario's
-   distinct premise, remove it rather than manufacturing a weaker substitute.
-
-**Playwright spec import trap:** a perf spec is transformed in Node before the
-browser starts. Do not import a browser/Vite module that evaluates
-`import.meta.env` at module scope (for example `src/constants/tuning.ts`), or
-test discovery fails with `import.meta.env` undefined. Prefer an environment-
-independent module; if a fixed setup assumption is unavoidable, define it next
-to the scenario, link it to the source constant, and add a fail-closed runtime
-guard that invalidates the scenario when the assumption no longer holds.
-
-For optimization work, write down before editing: the user-visible hypothesis,
-the metric expected to move, a metric expected not to regress, and the cheapest
-check that could disprove the hypothesis. Treat a green but non-discriminating
-measurement as no evidence.
-
----
-
-## Perceived suite — instrumentation
-
-The owning module is **`src/lib/perceived-trace.ts`**. The whole feature is
-removable by deleting that file and reverting its ~10 call sites.
-
-### When marks are collected
-
-| Environment | Default | How to enable |
-|---|---|---|
-| Production build | **Never.** Tree-shaken via `import.meta.env.DEV` gate. Zero runtime cost. | n/a — by design |
-| Dev (`npm run dev`) | Off — keeps console clean | `localStorage.setItem("kupua_perceived_perf", "1")` then refresh |
-| Playwright (any perf run) | Always on — Playwright sets the flag before navigation | n/a — automatic |
-
-Real users see nothing, ever. Devs opt in. Tests are unconditional.
-
-The two gates are independent and serve different audiences: `import.meta.env.DEV`
-is the production-safety gate (tree-shakes the code path out of real users'
-bundles); the `localStorage` flag is the dev-noise gate (so a fresh `npm run dev`
-isn't accumulating `performance.mark()` entries and a 500-item ring buffer in
-every dev's browser by default).
-
-### How marks are stored
-
-Each `trace()` call has two side-effects:
-
-1. `performance.mark("perceived:<action>:<phase>", { detail: payload })` —
-   visible in DevTools → Performance panel.
-2. Push onto `window.__perceivedTrace__` ring buffer (capped at 500
-   entries, oldest evicted). Carries the rich `payload`.
-
-Helpers exposed on window when enabled:
-- `window.__perceivedTrace__` — the buffer; read directly.
-- `window.__perceivedTraceClear__()` — wipe buffer (Playwright calls
-  before each scenario).
-
-### Canonical API contract
-
-`src/lib/perceived-trace.ts` MUST export exactly this signature. Call sites
-depend on it; do not bikeshed.
-
-```ts
-export interface TraceEntry {
-  action: string;       // e.g. "sort-around-focus", "home-logo", "scrubber-seek"
-  phase: string;        // e.g. "t_0", "t_ack", "t_store_ready", "t_visual_settled"
-  t: number;            // performance.now() at emission
-  payload?: unknown;    // optional per-action context
-}
-
-export function trace(action: string, phase: string, payload?: unknown): void;
-```
-
-Phase markers (each measured from `t_0` where applicable; only declared causal intervals are ordered):
-- `t_0` — user-initiated event (click, key, navigation commit). The audit
-  doc's "Trigger boundaries" table prescribes the exact site for each action.
 - `t_ack` — synchronous action acknowledgement by its current producer; not a DOM-visible boundary.
-- `t_status_visible` — a status affordance (spinner, banner) became visible.
-- `t_seeking` — a sub-phase of multi-stage actions (e.g. sort-around-focus
-  reaches the seek step).
-- `t_store_ready` — the exact interaction's target state is atomically published.
-- `t_first_visible_frame` — the target context has real visible content in a browser frame.
-- `t_visual_settled` — the target content and required geometry are stable over the scenario's browser-observed window.
+- `t_first_visible_frame` — the target context has real visible content in a browser frame;
+  this is not necessarily decoded media or final settled geometry.
+- **Placement and visible-media completion share a start clock.** Do not add them together.
+  Stable geometry is not decoded media, and decode readiness is not exact compositor paint.
+- **Positive lead distance:** ready before entering the viewport. **Negative:** already inside.
+  Initially ready images do not invent readiness events; missing samples are not zero latency.
+- Pending-thumbnail area is a **viewport-area estimate**, not a per-image speed ranking.
+  Justified shows more imagery; Table has a narrow thumbnail column. Keep missing result data,
+  failed media and still-pending thumbnails separate.
+- Layout-shift sums/attributed source nodes are not automatically official CLS or proof of
+  thumbnail causality. Repainting and virtualized element reuse are not logical reordering.
+- Four repetitions give four samples per scenario, not four historical campaigns. Their p95
+  is the slowest repetition, not a reliable population-tail estimate. One campaign is a baseline,
+  not a trend; compare matched contracts within an environment before drawing wider conclusions.
+- Resource Timing reports completed browser transfers, not pending requests or backend ES work.
+  RTT is a separate probe to `KUPUA_ES_URL` (default localhost:9220), **not API latency**; verify
+  its target/reachability before interpreting it. `KUPUA_PERF_BASE_URL` overrides the direct-mode
+  browser origin; API flags select their authenticated origin. `CPU_THROTTLE` is an explicit
+  diagnostic setting and must match for comparisons.
 
-`computeCorrelatedMetrics()` requires exactly one interaction ID and calculates
-only phases carrying that ID. Temporal adjacency is not ownership. Revision-2
-rows emit only explicit boundary names. Historical `dt_first_pixel_ms` and
-`dt_settled_ms` values remain readable in the dashboard's **Legacy evidence**
-group, but are not relabeled or compared as revision-2 browser boundaries.
+## Dashboards and reports
 
-### Call-site shape
+Open the dashboard links above directly from disk; no server is required. They load local JS
+sidecars beside the HTML. Refresh after a campaign. All three provide Previous/Next controls,
+arrow-key metric navigation and metric explanations; arrows stay native in editing controls.
 
-Always one line, never wrapped in conditionals — the `ENABLED` gate inside
-`trace()` is the only check:
+The density dashboard defaults to latest comparison cards. History connects compatible samples
+only, and explicitly distinguishes single points, gaps and zeros. Hover/focus/tap provides values
+and sample counts; Escape dismisses. Advanced filters/raw diagnostics are collapsed. Scales are
+shared within each workload; unrelated workloads can use different scales. The older dashboards
+retain their own comparable-history filters. Do not ignore unknown-field/schema warnings.
 
-```ts
-import { beginTraceInteraction, traceInteraction } from "@/lib/perceived-trace";
+The runner prints a unique `$TMPDIR/kupua-perf-<timestamp>-<pid>.log` path and stores its location
+in ignored `results/.latest-report-path`. Cleanup progress helps distinguish a running teardown
+from a stalled test. Requested histories are committed **only after every selected repetition
+and suite succeeds**. Failures retain diagnostics, not partial benchmark history or resumable
+checkpoints. The density suite fails fast; do not fix failures by relaxing assertions/timeouts.
 
-const interactionId = beginTraceInteraction("sort-around-focus", { sort, focusedId });
-traceInteraction("sort-around-focus", "t_store_ready", interactionId);
-```
+## Local validation
 
-### When to run the perceived suite
+These are safe local checks, not live campaigns:
 
-Same manual-only / TEST-cluster discipline as the jank suite. Re-run after
-touching:
-
-- `src/stores/search-store.ts` — search / seek / extend / sort-around-focus
-- `src/hooks/useDataWindow.ts`, `src/hooks/useScrollEffects.ts`
-- `src/lib/orchestration/`, `src/lib/reset-to-home.ts`
-- Position-map / phantom-focus / sort-around-focus paths
-- Status banners (`StatusBar.tsx`; anywhere `sortAroundFocusStatus` is set/read)
-- Any `trace()` call site or the `perceived-trace.ts` module itself
-
-The agent should **suggest** running the suite to the user — never run it
-autonomously (real ES required, per-session permission).
-
-### Perceived-suite diagnostic fields (store timing)
-
-Every perceived scenario (short + long) also harvests these fields from the
-store after settle and writes them into the per-scenario JSON. They appear in
-the `perceived-graphs.html` metric selector under "Store timing (post-settle)".
-
-| Field | Unit | Source | What it means |
-|-------|------|--------|---------------|
-| `took` | ms | `SearchResult.took` (ES response) | ES self-reported query time for the last primary search. Excludes network. |
-| `fetchDuration` | ms | `Date.now()` wrapper around `search()` | Full wall-clock from store calling `search()` to result return. `fetchDuration - took` = network + proxy + JSON.parse overhead. |
-| `seekTime` | ms | `search-store.ts` seek path | Wall-clock of the most recent scrubber seek (all ES round-trips combined). |
-| `aggTook` | ms | `AggregationsResult.took` (ES response) | ES self-reported time for the filter-aggregation query. |
-| `aggFetchDuration` | ms | `Date.now()` wrapper around `getAggregations()` | Full wall-clock for the agg query. `aggFetchDuration - aggTook` = network overhead for aggs. |
-
-PP7/PP7b/PP7c also capture `seekMeasures`: the `seek:*` `performance.measure`
-entries the app emits during a seek, giving sub-seek breakdown (forward fetch /
-backward fetch / compute+set / render+paint). Not plottable as a sparkline
-(array-valued); inspect `perceived-log.json` directly.
-
-`baseline_rtt_ms` is written at the entry level (not per-scenario): it's the
-median of 5 `GET /_cat/aliases` pings fired directly against ES (bypassing
-the Vite proxy) before any test runs.
-
-### Targets (Phase 1, from `exploration/docs/perceived-perf-audit.md`)
-
-| Action | Target median | Hard ceiling p95 |
-|---|---|---|
-| Logo / home / reset / panel toggle | <100 ms ack, <200 ms settle | 300 ms settle |
-| Density swap | <100 ms ack, <400 ms settle | 800 ms settle |
-| Filter / sort toggle | <100 ms ack, <1 s settle | 2 s settle |
-| Search (warm) | <100 ms ack, <1.5 s first useful pixel | 3 s |
-| Search (cold) | <100 ms ack, <2.5 s first useful pixel | 4 s |
-| Sort-around-focus | <100 ms ack, <2 s settle | 4 s; status banner ≤2 s |
-| Scrubber seek | <100 ms ack on click, <1 s first useful pixel | 2 s |
-
-Calibration anchors:
-- Home logo at ~200 ms is **felt** — lower discomfort bar.
-- Removed scripted sort at ~14 s was **unacceptable** — upper bar.
-
-### Debugging a single complaint without a full suite run
-
-1. `npm run dev`.
-2. DevTools console: `localStorage.setItem("kupua_perceived_perf", "1")` then refresh.
-3. Reproduce the slow action.
-4. `copy(JSON.stringify(window.__perceivedTrace__, null, 2))`. Paste into a file.
-
-Or read historical results directly:
 ```bash
-cat e2e-perf/results/perceived-log.md   # human-readable, both kinds
-cat e2e-perf/results/perceived-log.json # machine-readable
+npm --prefix kupua run test:perf-harness
+npm --prefix kupua run test:perf-fixtures
+npm --prefix kupua run test:perf-app
 ```
 
----
+They cover pure parsing/reporting contracts, synthetic browser/dashboard behaviour, and the
+actual app with in-memory data in indexed/seek modes. The app-backed check requires **port3041
+free**, starts its own isolated frontend and blocks external/service HTTP. It uses no live API
+or ES and writes no benchmark history. Synthetic observer tests alone do not prove app setup.
 
-## Experiments suite (archived, not routinely run)
+## Maintaining measurements
 
-`experiments.spec.ts` + `playwright.experiments.config.ts` is an agent-driven
-A/B testing harness for tuning knob experiments (overscan, PAGE_SIZE, scroll
-speeds, image format comparisons). It requires a headed browser and manual
-supervision.
+<a id="measurement-discipline-for-later-work"></a>
 
-**Not part of the regular test surface.** Useful reference for:
-- Per-image render timing methodology (now migrated into P14)
-- Smooth autoscroll (rAF-loop scroll, not wheel events)
-- Named scroll/traversal speed tier calibration values
-- Knob experiment workflow (modify source → run → revert → compare JSON)
+Keep setup, measured action and cleanup separate. Require the correct identity/state and an
+observable completion boundary; fixed sleeps are not proof. Missing phases/records or changed
+conditions must not silently shrink a sample. Version changed workloads and preserve history.
+Never persist credentials, raw live identities/URLs, request bodies or unredacted traces.
+Do not import Vite-only modules into Node-executed specs; use browser-side access where needed.
 
-Results live in `results/experiments/`. See `results/experiments/README.md`
-for the full signals glossary and JSON schema.
+| Need | Owning reference |
+| --- | --- |
+| Current cases and readiness contracts | [Rendering](perf.spec.ts), [short responsiveness](perceived-short.spec.ts), [journeys](perceived-long.spec.ts), [density](density.spec.ts) |
+| Metric/schema/aggregation rules | [Harness validation](harness-validation.mjs), [density reporting](density-reporting.mjs), [perceived metrics](perceived-metrics.mjs) |
+| Trace producers and developer opt-in | [Perceived trace module](../src/lib/perceived-trace.ts) |
+| Thumbnail observer definitions/limits | [Thumbnail probe](thumbnail-probe.mjs) |
+| Functional proof discipline | [E2E guide](../e2e/README.md#continuity-slice-discipline) |
+| Justified decisions and campaign evidence | [Justified plan](../exploration/docs/justified-density-prototype-plan.md) |
+| Optional experimental probes | [Experiments spec](experiments.spec.ts), [experiment results guide](results/experiments/README.md) |
+
+Experiments are separate, manually supervised diagnostics—not included in `--full`. Reuse their
+methods selectively; do not turn experimental private hooks or weak readiness checks into
+benchmark guarantees. Larger helper consolidation is a separate task.

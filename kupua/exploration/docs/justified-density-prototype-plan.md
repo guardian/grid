@@ -3,8 +3,10 @@
 **Status: implemented and likely to be retained.** Normal development offers Table,
 Grid and Justified; grid remains the default. Latest validated baseline (15 October
 2026): **2,984 unit tests / 89 files, production build, and 464 local E2Es passed**,
-with no E2E retries or skips. No performance campaign has measured justified yet.
-Production inclusion still requires licensing clearance. No commits or pushes authorised.
+with no E2E retries or skips. Operator-run density baselines now exist for direct ES and
+local media-api (four repetitions each, seek regime); these are not historical trends or
+controlled transport comparisons. Production inclusion still requires licensing clearance.
+No further commits or pushes authorised for the current work.
 
 This is the current technical plan, not an execution diary. Implementation history belongs
 in [changelog](changelog.md); process ownership and temporary state belong in
@@ -18,9 +20,11 @@ are implemented; §8 records findings and dispositions. Do not commission the sa
 again or repeat completed research. Preserve all uncommitted work. Runtime ownership and
 any unfinished verification belong in [worklog](worklog-current.md).
 
-Next decisions are a separately scoped justified performance-harness slice (§5), licensing
-clearance before production inclusion, and only later a bounded seam experiment (§7).
-Existing campaigns do **not** cover justified and have **no density-selection CLI switch**.
+The operator approved the performance-harness slice (§5): additive justified/paired workloads,
+thumbnail-exposure diagnostics for Grid/Justified, Table thumbnail/layout-shift diagnostics and
+dashboards. Existing campaign definitions/defaults remain historical controls; new contracts
+get distinct report identities. Implementation status and local validation belong in the worklog.
+Licensing clearance and any later bounded seam experiment (§7) remain separate decisions.
 No campaigns/dry runs, seam/grouping work, parked +36/+37px policy change, increased resource
 limits, new infrastructure, commits or pushes are authorised by the completed review mandate.
 
@@ -218,34 +222,68 @@ deep seek, nonresident-focus fallback, density/detail return and real filter cha
 are not endurance, native-device, every-race or performance certification. No live metadata,
 identities, signed URLs or credentials belong in repository evidence.
 
-**Performance coverage gap:** existing jank/perceived campaigns initialise grid and include
-specific table transitions. They do not automatically exercise justified, and the runner has
-no density-selection switch. Naming a campaign “justified” or choosing the view in another
-tab changes neither workload. The [performance README](../../e2e-perf/README.md#justified-density-availability-is-not-campaign-coverage)
-now makes this explicit. Earlier generic campaign recommendations were insufficient for a
-justified comparison; no justified performance result should be inferred from them.
+**Coverage distinction:** historical jank/perceived campaigns retain their Grid/Table workloads.
+The additive density suite now has explicit `--suite justified` and `--suite combined` selection,
+matched Grid controls, Table thumbnail diagnostics and separate density-tagged histories/dashboard.
+The [performance README](../../e2e-perf/README.md#density-comparisons-and-thumbnail-exposure)
+owns commands, scenario contracts, controlled profile and limitations. A campaign label alone
+still selects nothing; the earlier Grid/Table campaign cannot certify justified performance.
 
-Before campaigns: add explicit justified workloads or a reviewed density parameter, adapt
-readiness/geometry observers, and distinguish report identities from historical grid/table
-series. Validate locally without running live/perf campaigns. Keep setup outside measurement,
-compare matched corpus/width/media state/actions, and preserve old scenario definitions.
-Actual jank/perceived campaigns remain **operator-run**, including any dry runs.
-
-**Proposed next slice (separate approval):** a small set of explicit justified scenarios:
-warm interior scroll, one publication/eviction, one seek, and width/density reflow. Select
-indexed/forced-seek cases rather than multiplying all dimensions. Setup must verify actual
-density/regime, source position, placement ownership, viewport and media/cache class outside
-the timed boundary. Keep cold lazy-load cost separate. Geometry observers retain anchor
-identity in browser memory and distinguish data-ready, geometry-settled and decoded-media
-completion. New scenario IDs/revisions and density-tagged series preserve historical reports.
-Local adversarial harness fixtures must reject wrong density, stale identity, missing phases,
-pending requests and mixed report identities before any campaign. This is substantive harness
-work, not a label/selector patch; no performance benefit is promised in advance.
+Revision2 D1–D8 contracts cover unthrottled scroll/transition/detail/seek/reflow/eviction and
+one automatically included constrained-scroll family across all three densities. Throttling
+is confined to D8's observation window, never startup/setup; there is no new throttle flag.
+Local synthetic fixtures validate observers and reporting, while actual-app isolated indexed/seek
+fixtures validate native repeated setup, canonical identity restoration, detail/reflow and admitted
+eviction. Observer-only validation missed the first campaign's setup defects and is not sufficient.
+The suite
+records the actual indexed/seek regime; it does not silently force a backend configuration or
+claim both regimes from one run. Placement and optional media completion remain distinct;
+missing/censored media does not become a successful zero latency. No product prefetch/layout
+policy has changed. New performance conclusions still require **operator-run** campaigns,
+including any dry runs, before a seam change can be compared with a justified baseline.
 
 Existing rAF/LoAF/layout-shift/DOM metrics do not measure packing allocations or heap retention;
 fixed-duration sampling is not action-to-placement latency, and geometry stability is not
 thumbnail decoding. Resource Timing covers completed browser transfers, not outstanding reads
 or backend request counts. These measurement limits constrain any proposed comparison.
+
+### Late thumbnail arrival: initial campaign evidence
+
+The [density history](../../e2e-perf/results/density-log.json) contains the operator's
+15 October campaigns `density baseline` (local media-api) and `density baseline, direct`
+(direct ES): four repetitions each, all in the seek regime. Application-source fingerprints
+match; whole-worktree fingerprints and corpus totals differ. These are within-environment
+layout comparisons, not a historical trend, an API-only overhead measurement, or evidence
+that this feature regressed Grid relative to its previous implementation.
+
+Medians of per-run observations; pending area is a percentage of the **whole results viewport**.
+Decode lead is positive outside the entering edge and negative after entering it. Already-ready
+images are excluded from new-readiness events; unavailable lead is not zero latency.
+
+| Environment / scroll condition | Grid pending area | Justified pending area | Grid decode lead | Justified decode lead |
+| --- | ---: | ---: | ---: | ---: |
+| Direct ES / cache bypass | 1.72% | 1.41% | −132px | −41px |
+| Local API / cache bypass | 1.64% | 2.13% | −125px | −75px |
+| Direct ES / repeat path | 1.05% | 0.35% | −121px | Unavailable: 3/4 samples |
+| Local API / repeat path | 1.15% | 0.23% | −118px | −11px |
+| Direct ES / constrained scroll | 15.59% | 26.08% | −408px | −359px |
+| Local API / constrained scroll | 15.56% | 31.74% | −413px | −459px |
+
+The constrained window uses 80ms latency and 4Mibit/s download, including possible data refills.
+It produces later spatial readiness in **both** densities. Justified does not consistently decode
+later than Grid: it displays roughly 35–38 visible slots versus Grid's 24 and devotes more of the
+viewport to imagery. Higher pending viewport area therefore does not establish worse per-image
+loading efficiency. Decode lead is an observed position, not decode duration or exact paint time.
+
+Table recorded zero layout-shift sums and zero surviving-identity order changes in these scroll
+observations, alongside heavy element reuse and much poorer frame-p95 summaries (126–154ms).
+Its roughly 2.6% pending viewport area persisted for almost the whole observation: a narrow image
+column makes that percentage deceptively small. This does not establish thumbnail-caused CLS,
+rule out shifts in other actions, or separate application cost from probe overhead.
+
+**Implication:** investigate image-delivery headroom separately from packing, seam appearance and
+placement speed. These measurements provide a useful baseline, not permission for speculative
+prefetching, increased resource budgets or a broad helper/architecture rewrite. See R7 below.
 
 ## 6. Refactors worth assessing
 
@@ -349,6 +387,28 @@ frame. Consider compact prefix corrections, reusable immutable blocks or narrowe
 only when code evidence or measurements identify a meaningful cost. Preserve explicit unknown
 geometry and bounded cache eviction; do not gain speed by retaining catalogue-wide dimensions.
 This static assessment is useful before campaigns; claims of improvement require matched runs.
+
+### R7 — Thumbnail delivery headroom, not indiscriminate overscan
+
+**Evidence-driven candidate, not implementation approval.** First distinguish result-data arrival,
+cell mounting, request start, load completion and decode observation. Current exposure/lead metrics
+alone cannot say which stage loses headroom; frame stalls can delay readiness observation too.
+Keep identities and media URLs browser-local, and distinguish initial-ready/cached observations.
+
+- Test a small, bounded image-loading lookahead separately from increasing virtualizer overscan.
+  More mounted rows also increase rendering/enrichment work; they are not free prefetching.
+- Compare the same controlled scroll action, corpus, width and cache/network class. Preserve
+  viewport-exposure outcomes while reporting image coverage/counts; do not turn medians of counts
+  into per-image success ratios or compare differently defined observation windows.
+- Require less late readiness/exposure without regressions in request/byte counts, concurrency,
+  cancellation, frame timing, memory retention, selection/history or position preservation.
+  Do not raise image-retention, API page or result-buffer limits as an incidental optimisation.
+- Investigate Table repaint/reuse and layout-shift attribution separately. Preserve the distinction
+  between identity changes in recycled elements, logical ordering and image-caused geometry shifts.
+
+Start with a discriminating local fixture for the suspected stage, then an operator-run matched
+comparison. A larger shared-helper unification remains separately deferred; it is not a prerequisite
+for understanding thumbnail arrival or a reason to change established measurement contracts.
 
 ## 7. Next seam experiment and grouping boundary
 

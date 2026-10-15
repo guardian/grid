@@ -76,7 +76,7 @@ For task-specific details:
 |---|---|
 | Test setup and commands | [Test modes](e2e/README.md#test-modes), [command selection](e2e/README.md#which-command-do-i-run) and [npm scripts](package.json). |
 | Test changes | [Testing guide](e2e/README.md), including applicable fixture and proof contracts. |
-| Performance measurements | [Performance handbook](e2e-perf/README.md), including existing results and measurement limits. |
+| Performance measurements | [Performance handbook](e2e-perf/README.md): historical campaigns, additive density/thumbnail comparisons, dashboards and local harness validation. |
 | Live infrastructure | [Infrastructure safeguards](exploration/docs/infra-safeguards.md). |
 | Embedded browser | Read the [browser playbook](exploration/docs/embedded-browser-playbook.md) first, then task-relevant references. Record reusable lessons only, not routine outcomes or session narratives. |
 

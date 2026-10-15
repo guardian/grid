@@ -274,6 +274,15 @@ test("application-source fingerprint excludes only generated perf histories", ()
     ":(exclude)e2e-perf/results/perceived-log.json",
     ":(exclude)e2e-perf/results/perceived-log.js",
     ":(exclude)e2e-perf/results/perceived-log.md",
+    ":(exclude)e2e-perf/results/density-log.json",
+    ":(exclude)e2e-perf/results/density-log.js",
+    ":(exclude)e2e-perf/results/density-log.md",
+    ":(exclude)e2e-perf/results/.density-tmp.jsonl",
+    ":(exclude)e2e-perf/results/.density-playwright-report.json",
+    ":(exclude)e2e-perf/results/.environment-tmp.json",
+    ":(exclude)e2e-perf/results/.latest-report-path",
+    ":(exclude)e2e-perf/kupua-perf-*.log",
+    ":(exclude)e2e-perf/results/kupua-perf-*.log",
   ]);
   const runner = readFileSync(join(import.meta.dirname, "run-audit.mjs"), "utf8");
   assert.match(runner, /appSourceDirtyStateHash/);
