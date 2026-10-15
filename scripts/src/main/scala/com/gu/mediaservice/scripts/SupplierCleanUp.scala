@@ -52,21 +52,27 @@ object SupplierCleanUp extends App {
   } else {
     suppliersInTest
   }
+  println(s"Found ${supplierRefs.size} supplier refs to process")
   if (supplierRefs.isEmpty) {
     println("No supplier refs found in supplied csv, exiting script")
     sys.exit(1)
   }
   val mediaIds = {
-    supplierRefs.zipWithIndex.flatMap({case (ref, index) =>
-      println(s"Fetching grid ids, checking supplierRef ${index + 1} of ${supplierRefs.size}")
-      val client = HttpClient.newHttpClient()
-      val request = HttpRequest.newBuilder(new URI(s"https://api.media.$GRIDDOMAIN/images?q=suppliersReference%3A$ref")).headers("X-Gu-Media-Key", GRIDKEY).build()
-      val response = client.send(request, BodyHandlers.ofString())
-      val json = Json.parse(response.body())
-      val gridIds = (json \ "data").as[Seq[JsValue]].map(imageMetadata => (imageMetadata \ "data" \ "id").as[String])
-      println("Found " + gridIds.size + " ids for supplierRef " + ref)
-      gridIds
-    })
+    supplierRefs.grouped(1000).toList.zipWithIndex.flatMap{case (refs, index)=>
+      println(s"Fetching grid ids, for batch ${index + 1} of ${supplierRefs.grouped(1000).size}")
+
+      val ids = refs.flatMap(ref => {
+        val client = HttpClient.newHttpClient()
+        val request = HttpRequest.newBuilder(new URI(s"https://api.media.$GRIDDOMAIN/images?q=suppliersReference%3A$ref")).headers("X-Gu-Media-Key", GRIDKEY).build()
+        val response = client.send(request, BodyHandlers.ofString())
+        val json = Json.parse(response.body())
+        val gridIds = (json \ "data").as[Seq[JsValue]].map(imageMetadata => (imageMetadata \ "data" \ "id").as[String])
+        gridIds
+      })
+      println(s"Found ${ids.size} grid ids for batch ${index + 1} of ${supplierRefs.grouped(1000).size}")
+      Thread.sleep(2000)
+      ids
+    }
   }
 
   if (mediaIds.isEmpty) {
@@ -77,7 +83,6 @@ object SupplierCleanUp extends App {
   println(s"Found ${mediaIds.size} ids, now running deletion")
 
   val usagesBody = BodyPublishers.ofString("""{"data":{"restrictions":"No longer available from the supplier","category":"chargeable"}}""")
-
 
   val outcomes = mediaIds.zipWithIndex.map({case (mediaId, index) =>
     println(s"Running for id $mediaId, ${index + 1} of ${mediaIds.size}")
