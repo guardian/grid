@@ -1,22 +1,20 @@
 package lib
 
-import java.io.InputStream
-import java.util.Properties
+import java.util.concurrent.atomic.AtomicReference
 
+import org.apache.pekko.actor.{Cancellable, Scheduler}
 import com.gu.mediaservice.lib.BaseStore
-import com.gu.mediaservice.lib.logging.GridLogging
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
 import com.gu.mediaservice.model.{Agencies, Agency, UsageRights}
 import com.gu.mediaservice.model.usage.{DigitalUsage, PrintUsage, PublishedUsageStatus, RemovedUsageStatus, UnknownUsageStatus, Usage, UsageStatus, UsageType}
-import javax.mail.Session
-import javax.mail.internet.{MimeBodyPart, MimeMultipart}
-import org.apache.commons.mail.util.MimeMessageUtils
-import org.joda.time.DateTime
+import org.joda.time.{DateTime, Duration}
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
-import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.io.Source
+import scala.concurrent.duration._
+import scala.util.control.NonFatal
+import scala.util.{Failure, Success}
 
 case class SupplierUsageQuota(agency: Agency, count: Int)
 object SupplierUsageQuota {
@@ -65,143 +63,75 @@ object UsageStore extends GridLogging {
   val countQualifyingStatuses: Set[UsageStatus] = Set(PublishedUsageStatus, UnknownUsageStatus, RemovedUsageStatus)
   val countQualifyingPlatforms: Set[UsageType] = Set(PrintUsage, DigitalUsage)
   val countPeriodInDays: Int = 30
+  val refreshInterval: FiniteDuration = 10.minutes
 
-  def extractEmail(stream: InputStream): List[String] = {
-    val s = Session.getDefaultInstance(new Properties())
-    val message = MimeMessageUtils.createMimeMessage(s, stream)
-
-    message.getContent match {
-      case content: MimeMultipart =>
-        val parts = for(n <- 0 until content.getCount) yield content.getBodyPart(n)
-
-        val part = parts
-          .collectFirst { case part: MimeBodyPart if part.getEncoding == "base64" => part }
-          .map(_.getContent)
-
-        part match {
-          case Some(c: InputStream) =>
-            Source.fromInputStream(c).getLines().toList
-
-          case _ =>
-            logger.error("Usage email is missing base64 encoded attachment")
-            List.empty
-        }
-
-      case other =>
-        logger.error(s"Unexpected message content type ${other.getClass}")
-        List.empty
-    }
-  }
-
-  def csvParser(list: List[String]): List[SupplierQuotaCount] = {
-    def stripQuotes(s: String): String = s
-      .stripSuffix("\"")
-      .stripPrefix("\"")
-      .replaceAll("\\P{ASCII}", "") // strip all non-ascii chars from the CSV
-
-    val lines = list
-      .map(_.split(","))
-      .map(_.map(stripQuotes))
-      .map(_.toList)
-
-    if(lines.exists(_.length != 2)) {
-      logger.error("CSV header error. Expected 2 columns")
-      throw new IllegalArgumentException("CSV header error. Expected 2 columns")
-    }
-
-    lines.headOption match {
-      case Some("Cpro Name" :: "Id" :: Nil) =>
-        lines.tail.map {
-          case supplier :: count :: Nil =>
-            SupplierQuotaCount(Agency(supplier), count.toInt)
-
-          case _ =>
-            logger.error("CSV body error. Expected 2 columns")
-            throw new IllegalArgumentException("CSV body error. Expected 2 columns")
-        }
-
-      case Some(other) =>
-        val message = s"Unexpected CSV headers [${other.mkString(",")}]. Expected [Cpro Name, Id]"
-        logger.error(message)
-        throw new IllegalArgumentException(message)
-
-      case None =>
-        val message = "CSV has no lines"
-        logger.error(message)
-        throw new IllegalArgumentException(message)
-    }
+  def getSupplierUsageStatus(quotaCount: SupplierQuotaCount, quota: Option[SupplierUsageQuota]): SupplierUsageStatus = {
+    val exceeded = quota.exists(q => quotaCount.count >= q.count) // Hitting quota counts as exceeding quota
+    val fractionOfQuota = quota.map(q => quotaCount.count.toFloat / q.count).getOrElse(0F)
+    SupplierUsageStatus(exceeded, fractionOfQuota, quotaCount, quota)
   }
 }
 
 class UsageStore(
-  bucket: String,
-  config: MediaApiConfig,
+  getSupplierQuotaCount: (String, Int) => Future[SupplierQuotaCount],
   quotaStore: QuotaStore
-)(implicit val ec: ExecutionContext) extends BaseStore[String, SupplierUsageStatus](bucket, config) with GridLogging {
-  import UsageStore._
+)(implicit val ec: ExecutionContext) extends GridLogging {
 
-  def getUsageStatusForUsageRights(usageRights: UsageRights): Future[SupplierUsageStatus] = {
+  private val store: AtomicReference[Map[String, SupplierUsageStatus]] = new AtomicReference(Map.empty)
+  private val lastUpdated: AtomicReference[DateTime] = new AtomicReference(DateTime.now())
+  private var cancellable: Option[Cancellable] = None
+
+  def getUsageStatusForUsageRights(usageRights: UsageRights): Future[SupplierUsageStatus] =
     usageRights match {
-      case agency: Agency => Future.successful(store.get().getOrElse(agency.supplier, { throw NoUsageQuota() }))
-      case _ => Future.failed(new Exception("Image is not supplied by Agency"))
+      case agency: Agency =>
+        store.get().get(agency.supplier) match {
+          case Some(status) => Future.successful(status)
+          case None         => Future.failed(NoUsageQuota())
+        }
+      case _ =>
+        Future.failed(new Exception("Image is not supplied by Agency"))
     }
-  }
 
-  def getUsageStatus(): Future[StoreAccess] = {
+  def getUsageStatus(): Future[StoreAccess] =
     Future.successful(StoreAccess(store.get(), lastUpdated.get()))
-  }
 
-  def overQuotaAgencies: List[Agency] = store.get.collect {
+  def overQuotaAgencies: List[Agency] = store.get().collect {
     case (_, status) if status.exceeded => status.usage.agency
   }.toList
 
   def update(): Unit = {
-    store.set(fetchUsage)
+    implicit val logMarker: LogMarker = MarkerMap()
+    logger.info("Updating UsageStore from ElasticSearch")
+    fetchQuotaCount.onComplete {
+      case Success(newStore) =>
+        store.set(newStore)
+        lastUpdated.set(DateTime.now())
+        logger.info(s"UsageStore updated: ${newStore.size} suppliers")
+      case Failure(e) =>
+        val staleForMinutes = new Duration(lastUpdated.get(), DateTime.now()).getStandardMinutes
+        logger.error(s"Failed to update UsageStore. Data is now $staleForMinutes minute(s) stale; last updated at: ${lastUpdated.get()}", e)
+    }
   }
 
-  private def fetchUsage: Map[String, SupplierUsageStatus] = {
-    logger.info("Updating usage store")
+  def scheduleUpdates(scheduler: Scheduler): Unit = {
+    cancellable = Some(scheduler.scheduleAtFixedRate(0.seconds, UsageStore.refreshInterval)(() =>
+      try update()
+      catch { case NonFatal(e) => logger.error("UsageStore update failed", e) }
+    ))
+  }
 
-    val maybeLines: Option[List[String]] = getLatestS3Stream.map(extractEmail)
+  def stopUpdates(): Unit = cancellable.foreach(_.cancel())
 
-    maybeLines match {
-      case None => Map.empty
-      case Some(lines) =>
-        logger.info(s"Last usage file has ${lines.length} lines")
-        val summary: List[SupplierQuotaCount] = csvParser(lines)
-
-        def copyAgency(supplier: SupplierQuotaCount, id: String) = Agencies.all.get(id)
-          .map(a => supplier.copy(agency = a))
-          .getOrElse(supplier)
-
-        val cleanedSummary = summary
-          .map {
-            case s if s.agency.supplier.contains("Rex Features") => copyAgency(s, "rex")
-            case s if s.agency.supplier.contains("Getty Images") => copyAgency(s, "getty")
-            case s if s.agency.supplier.contains("Australian Associated Press") => copyAgency(s, "aap")
-            case s if s.agency.supplier.contains("Alamy") => copyAgency(s, "alamy")
-            case s => s
-          }
-
-        val supplierQuota = quotaStore.getQuota
-
-        cleanedSummary
-          .groupBy(_.agency.supplier)
-          .view
-          .mapValues(_.head)
-          .mapValues((summary: SupplierQuotaCount) => {
-            val quota = summary.agency.id.flatMap(id => supplierQuota.get(id))
-            val exceeded = quota.exists(q => summary.count > q.count)
-            val fractionOfQuota: Float = quota.map(q => summary.count.toFloat / q.count).getOrElse(0F)
-
-            SupplierUsageStatus(
-              exceeded,
-              fractionOfQuota,
-              summary,
-              quota
-            )
-          }).toMap
-    }
+  private def fetchQuotaCount(implicit logMarker: LogMarker): Future[Map[String, SupplierUsageStatus]] = {
+    val supplierQuota = quotaStore.getQuota
+    Future.sequence(
+      Agencies.all.map { case (id, agency) =>
+        getSupplierQuotaCount(id, UsageStore.countPeriodInDays).map { quotaCount =>
+          val quota = supplierQuota.get(id)
+          agency.supplier -> UsageStore.getSupplierUsageStatus(quotaCount, quota)
+        }
+      }.toList
+    ).map(_.toMap)
   }
 }
 
