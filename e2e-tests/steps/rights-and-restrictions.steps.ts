@@ -44,15 +44,27 @@ async function uploadImageForCurrentUser(
   await uploadPage(page).fileInput.setInputFiles(uploadedImage.path);
   await expect(uploadPage(page).metadataEditor).toBeVisible();
 
+  const job = uploadPage(page).imageEditorJob;
+  const saving = job.getByText('Saving…', { exact: false });
+  // Upload completion auto-saves the filename as the description. Its refresh can overwrite edits.
+  await expect(uploadPage(page).metadataField.description).toHaveValue(
+    uploadedImage.fileName.slice(0, -4).replace(/_/g, ' '),
+  );
+  await expect(saving).toBeHidden();
+
   const descriptionSaved = waitForMetadataSave(page);
   await uploadPage(page).metadataField.description.fill('Rights and restrictions e2e image');
   await uploadPage(page).metadataField.description.blur();
-  await descriptionSaved;
+  expect((await descriptionSaved).ok()).toBeTruthy();
+  await expect(saving).toBeHidden();
+  await expect(uploadPage(page).metadataField.description).toHaveValue('Rights and restrictions e2e image');
 
   const creditSaved = waitForMetadataSave(page);
   await uploadPage(page).metadataField.credit.fill('E2E Test');
   await uploadPage(page).metadataField.credit.blur();
-  await creditSaved;
+  expect((await creditSaved).ok()).toBeTruthy();
+  await expect(saving).toBeHidden();
+  await expect(uploadPage(page).metadataField.credit).toHaveValue('E2E Test');
 
   testContext.rightsImageOwner = owner;
   testContext.rightsCurrentAccount = owner;
