@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import type { Page } from '@playwright/test';
+import type { APIResponse, Page, Route } from '@playwright/test';
 import { Given, Then, When, expect } from './setup.ts';
 import { E2E_RIGHTS_TEMPLATE } from '../setup/config.ts';
 import { ELASTICSEARCH_PORT, TEST_ACCOUNTS } from '../setup/constants.ts';
@@ -14,9 +14,12 @@ const imageUrl = (id: string) => `${KAHUNA_APP_URL}/images/${id}`;
 const rightsRegion = (page: Page) =>
   page.getByRole('region', { name: 'Rights and restrictions' });
 const rightsEditor = (page: Page) =>
-  rightsRegion(page).getByRole('region', { name: 'Image usage rights' });
+  rightsRegion(page).getByRole('form', { name: 'Image usage rights' });
 const rightsEditorButton = (page: Page) =>
   rightsRegion(page).locator('[data-cy="it-edit-usage-rights-button"]');
+// The edit button is only displayed while the usage rights row is hovered.
+const hoverRightsRow = (page: Page) =>
+  rightsRegion(page).locator('.image-info__usage-rights').hover();
 const templateSelect = (page: Page) =>
   page.getByRole('region', { name: 'Metadata templates' }).getByRole('combobox', {
     name: 'Metadata template',
@@ -77,6 +80,14 @@ async function ensureAccount(
   testContext.rightsCurrentAccount = account;
 }
 
+async function fulfillDecoded(route: Route, response: APIResponse, body: string): Promise<void> {
+  // route.fetch() decodes the body, so the upstream encoding and length headers must not be replayed.
+  const headers = { ...response.headers() };
+  delete headers['content-encoding'];
+  delete headers['content-length'];
+  await route.fulfill({ status: response.status(), headers, body });
+}
+
 async function setSummaryEnabled(page: Page, enabled: boolean): Promise<void> {
   await page.route(
     (url) => url.origin === new URL(page.url()).origin && url.pathname.startsWith('/images/'),
@@ -86,13 +97,14 @@ async function setSummaryEnabled(page: Page, enabled: boolean): Promise<void> {
       if (!/usageRightsSummary:\s*(?:true|false),/.test(html)) {
         throw new Error('The Kahuna page did not include its usageRightsSummary configuration');
       }
-      await route.fulfill({
+      await fulfillDecoded(
+        route,
         response,
-        body: html.replace(
+        html.replace(
           /usageRightsSummary:\s*(?:true|false),/,
           `usageRightsSummary: ${enabled},`,
         ),
-      });
+      );
     },
   );
   await page.reload();
@@ -101,6 +113,8 @@ async function setSummaryEnabled(page: Page, enabled: boolean): Promise<void> {
 
 async function chooseCategory(page: Page, categoryName: string, supplier?: string): Promise<void> {
   const display = rightsRegion(page).locator('.image-info__title');
+  await hoverRightsRow(page);
+  await expect(rightsEditorButton(page).or(rightsEditor(page)).filter({ visible: true }).first()).toBeVisible();
   if (await rightsEditorButton(page).isVisible()) {
     await rightsEditorButton(page).click();
   } else if (!(await rightsEditor(page).isVisible())) {
@@ -196,6 +210,7 @@ Given('the image has no usage rights category', async ({ page }) => {
 
 Given('the configuration contains pay-to-use and not chargeable', async ({ page }) => {
   if (!(await rightsEditor(page).isVisible())) {
+    await hoverRightsRow(page);
     await rightsEditorButton(page).click();
   }
   const categories = rightsEditor(page).locator('[data-cy="it-rights-select"] option');
@@ -212,6 +227,8 @@ Given(
     } else if (descriptor === 'unrestricted, free and credited to the BBC') {
       await chooseCategory(page, 'Public Domain');
       const credit = page.locator('[data-cy="metadata-credit"]');
+      // The credit edit button is only displayed while the credit row is hovered.
+      await credit.hover();
       await credit.locator('[data-cy="it-edit-credit-button"]').click();
       const creditInput = credit.getByRole('textbox');
       const creditSaved = waitForMetadataSave(page);
@@ -245,10 +262,18 @@ Given('the image was uploaded by {string}', async ({ page, testContext }, upload
   await page.route(
     (url) => url.pathname.endsWith(`/images/${testContext.rightsImageId}`),
     async (route) => {
+      if (route.request().resourceType() === 'document') {
+        return route.fallback();
+      }
       const response = await route.fetch();
-      const body = (await response.json()) as { data: Record<string, unknown> };
+      const body = await response.json().catch(() => undefined) as { data: Record<string, unknown> } | undefined;
+      // Kahuna cancels some duplicate image requests; a cancelled response can no longer be read.
+      if (!body) {
+        await route.abort().catch(() => undefined);
+        return;
+      }
       body.data.uploadedBy = uploadedBy;
-      await route.fulfill({ response, json: body });
+      await fulfillDecoded(route, response, JSON.stringify(body));
     },
   );
   await page.reload();
@@ -295,6 +320,7 @@ Given('metadata templates are configured', async ({ page }) => {
 });
 
 Given('I have opened the rights editor', async ({ page }) => {
+  await hoverRightsRow(page);
   await rightsEditorButton(page).click();
   await expect(rightsEditor(page)).toBeVisible();
 });
@@ -305,6 +331,7 @@ Given("a metadata template's usage rights are being previewed on the image", asy
 });
 
 When('I choose to edit the rights and restrictions', async ({ page }) => {
+  await hoverRightsRow(page);
   await rightsEditorButton(page).click();
 });
 
@@ -381,14 +408,17 @@ Then('the usage rights summary lists no usage', async ({ page }) => {
 });
 
 Then('the usage rights summary shows an agency marker titled {string}', async ({ page }, title: string) => {
-  await expect(rightsRegion(page).locator(`[title="${title}"]`)).toBeVisible();
+  // The agency marker is a zero-size icon element with no visible box, so check it is attached.
+  await expect(rightsRegion(page).locator(`[title="${title}"]`)).toBeAttached();
 });
 
 Then('the edit rights and restrictions button is shown', async ({ page }) => {
+  await hoverRightsRow(page);
   await expect(rightsEditorButton(page)).toBeVisible();
 });
 
 Then('the edit rights and restrictions button is not shown', async ({ page }) => {
+  await hoverRightsRow(page);
   await expect(rightsEditorButton(page)).toBeHidden();
 });
 
@@ -409,6 +439,7 @@ Then('the current usage rights category display is hidden', async ({ page }) => 
 });
 
 Then('the edit rights and restrictions button is hidden', async ({ page }) => {
+  await hoverRightsRow(page);
   await expect(rightsEditorButton(page)).toBeHidden();
 });
 
@@ -418,7 +449,7 @@ Then('the rights editor closes', async ({ page }) => {
 
 Then("the rights editor shows the template's usage rights as a locked preview", async ({ page }) => {
   await expect(rightsEditor(page)).toBeVisible();
-  await expect(rightsEditor(page).locator('.ure__category-preview')).toBeVisible();
+  await expect(rightsEditor(page)).toHaveClass(/ure__category-preview/);
   await expect(rightsEditor(page).locator('[data-cy="it-rights-select"]')).toBeDisabled();
 });
 
