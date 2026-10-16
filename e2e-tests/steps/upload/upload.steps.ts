@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import { Given, KAHUNA_APP_URL, Then, When, expect } from '../setup.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { E2E_UPLOAD_SUPPORT_EMAIL } from '../../setup/config.ts';
-import { signIn } from '../common.steps.ts';
+import { switchAccount } from '../utils/auth.ts';
 import { expectNoUploadPermission, expectUploadPermission } from './media-api.assertions.ts';
 import {
   BATCH_SIZE,
@@ -48,8 +48,7 @@ Then('I should not see the current uploads section', async ({ page }) => {
 });
 
 Given('I am not permitted to upload images', async ({ page }) => {
-  await page.context().clearCookies();
-  await signIn(page, TEST_ACCOUNTS.noUpload);
+  await switchAccount(page, TEST_ACCOUNTS.noUpload);
   await expectNoUploadPermission(page);
   // Search hides its "My recent uploads" link from this account, so deep-link instead.
   await page.goto(`${KAHUNA_APP_URL}/upload`);

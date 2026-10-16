@@ -23,6 +23,8 @@ export const TEST_ACCOUNTS = {
   noUpload: `grid-e2e-no-upload-account@${EMAIL_DOMAIN}`,
 } as const;
 export type TestAccount = (typeof TEST_ACCOUNTS)[keyof typeof TEST_ACCOUNTS];
+/** Saved browser session for TEST_ACCOUNTS.fullAccess, written by setup/auth.setup.ts. */
+export const AUTH_STATE_PATH = path.join(REPO_ROOT, 'e2e-tests', 'playwright', '.auth', 'full-access.json');
 
 /** Pre-built application image (see e2e-tests/images/Dockerfile). Assumed to exist. */
 export const GRID_IMAGE = process.env.CI ? 'grid-e2e-ci' : 'grid-e2e-dev';
