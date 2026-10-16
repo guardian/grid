@@ -34,6 +34,7 @@ object TemplateLeases {
 }
 
 case class MetadataTemplateUsageRights(category: String,
+                                       supplier: Option[String] = None,
                                        creator: Option[String] = None,
                                        photographer: Option[String] = None,
                                        publication: Option[String] = None,
@@ -101,6 +102,8 @@ object MetadataTemplate {
 
           Some(MetadataTemplateUsageRights(
             category = usageRightConfig.getString("category"),
+            supplier = if (usageRightConfig.hasPath("supplier"))
+              Some(usageRightConfig.getString("supplier")) else None,
             creator = if (usageRightConfig.hasPath("creator"))
               Some(usageRightConfig.getString("creator")) else None,
             photographer = if (usageRightConfig.hasPath("photographer"))

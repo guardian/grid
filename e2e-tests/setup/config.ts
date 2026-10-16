@@ -44,6 +44,11 @@ export const E2E_METADATA_TEMPLATE = {
   ],
 };
 
+export const E2E_RIGHTS_TEMPLATE = {
+  templateName: 'E2E Rights',
+  usageRights: { category: 'agency', supplier: 'PA' },
+};
+
 /**
  * media-api derives `usageInstructions` from an image's usageRights category via this map, so
  * an image whose category is `agency` (see the AAP-credited fixture) shows this text.
@@ -73,6 +78,13 @@ function kahunaE2eConfig(): string {
     '    metadataFields = [',
     metadataFields,
     '    ]',
+    '  }',
+    '  {',
+    `    templateName = "${E2E_RIGHTS_TEMPLATE.templateName}"`,
+    '    usageRights {',
+    `      category = "${E2E_RIGHTS_TEMPLATE.usageRights.category}"`,
+    `      supplier = "${E2E_RIGHTS_TEMPLATE.usageRights.supplier}"`,
+    '    }',
     '  }',
     ']',
     '',

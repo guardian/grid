@@ -2,6 +2,7 @@ import { expect } from '@playwright/test';
 import type { APIResponse, FileChooser, Locator, Response } from '@playwright/test';
 import { test as base, createBdd } from 'playwright-bdd';
 import { DOMAIN } from '../setup/constants.ts';
+import type { TestAccount } from '../setup/constants.ts';
 
 export const KAHUNA_APP_URL = `https://media.${DOMAIN}`;
 
@@ -31,6 +32,12 @@ interface TestContext {
   presetLabels?: string[];
   /** Lets a held past-uploads search through (see holdPastUploads). */
   releasePastUploads?: () => void;
+  /** The account that owns the image currently under test. */
+  rightsImageOwner?: TestAccount;
+  /** The account currently signed in while testing image rights. */
+  rightsCurrentAccount?: TestAccount;
+  /** Current image ID used by the rights-and-restrictions feature. */
+  rightsImageId?: string;
 }
 
 export interface TestImage {
@@ -52,4 +59,3 @@ export const test = base.extend<{ testContext: TestContext }>({
 
 export const { Given, When, Then, Before, After } = createBdd(test);
 export { expect };
-
