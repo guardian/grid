@@ -35,6 +35,10 @@ settings and permissions from [`fixtures/`](fixtures), and builds the local prov
 [`dev/oidc-provider`](../dev/oidc-provider). Browser scenarios sign in through Panda and
 OIDC as `grid-e2e-account@guardian.co.uk`; authentication is not bypassed.
 
+The shared e2e config uses the default usage-rights categories with `PayToUse` replacing
+`Chargeable`. This enables the payable-image scenarios and the legacy `chargeable` to
+`pay-to-use` mapping in the rights feature. It applies to all e2e scenarios, not production.
+
 Sign-in happens once per run, in the `auth` setup project
 ([`setup/auth.setup.ts`](setup/auth.setup.ts)), which saves the session to
 `playwright/.auth/`. Every `chromium` scenario starts from that session. Scenarios that
