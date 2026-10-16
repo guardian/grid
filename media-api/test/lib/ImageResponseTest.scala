@@ -40,30 +40,77 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
     )
   ))
 
-  it("should map a legacy category onto its composite replacement when that replacement is in config.applicableUsageRights") {
-    PayToUse.allCategories.list.toList should contain(Chargeable.category)
+  describe("updateUsageRights (legacy category mapping)") {
+    it("should map a legacy category onto its composite replacement when that replacement is in config.applicableUsageRights") {
+      PayToUse.allCategories.list.toList should contain(Chargeable.category)
 
-    val imageResponse = new ImageResponse(
-      mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PayToUse")),
-      null, null
-    )
-    val source = Json.obj("usageRights" -> Json.obj("category" -> Chargeable.category))
-    val result = source.transform(imageResponse.updateUsageRights(source)).get
+      val imageResponse = new ImageResponse(
+        mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PayToUse")),
+        null, null
+      )
+      val source = Json.obj("usageRights" -> Json.obj("category" -> Chargeable.category))
+      val result = source.transform(imageResponse.updateUsageRights(source)).get
 
-    (result \ "usageRights" \ "category").as[String] shouldBe PayToUse.category
-    (result \ "usageRights" \ "legacyCategory").as[String] shouldBe Chargeable.category
-  }
+      (result \ "usageRights" \ "category").as[String] shouldBe PayToUse.category
+      (result \ "usageRights" \ "legacyCategory").as[String] shouldBe Chargeable.category
+    }
 
-  it("should leave a legacy category untouched when its composite replacement is not in config.applicableUsageRights") {
-    val imageResponse = new ImageResponse(
-      mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.Chargeable")),
-      null, null
-    )
-    val source = Json.obj("usageRights" -> Json.obj("category" -> Chargeable.category))
-    val result = source.transform(imageResponse.updateUsageRights(source)).get
+    it("should leave a legacy category untouched when its composite replacement is not in config.applicableUsageRights") {
+      val imageResponse = new ImageResponse(
+        mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.Chargeable")),
+        null, null
+      )
+      val source = Json.obj("usageRights" -> Json.obj("category" -> Chargeable.category))
+      val result = source.transform(imageResponse.updateUsageRights(source)).get
 
-    (result \ "usageRights" \ "category").as[String] shouldBe Chargeable.category
-    (result \ "usageRights" \ "legacyCategory").toOption shouldBe None
+      (result \ "usageRights" \ "category").as[String] shouldBe Chargeable.category
+      (result \ "usageRights" \ "legacyCategory").toOption shouldBe None
+    }
+
+    it("should map a legacy category's supplier field onto source when replaced by PRAndThirdParty") {
+      PRAndThirdParty.legacyCategories should contain(CommissionedAgency.category)
+
+      val imageResponse = new ImageResponse(
+        mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PRAndThirdParty")),
+        null, null
+      )
+      val source = Json.obj("usageRights" -> Json.obj("category" -> CommissionedAgency.category, "supplier" -> "Corbis"))
+      val result = source.transform(imageResponse.updateUsageRights(source)).get
+
+      (result \ "usageRights" \ "category").as[String] shouldBe PRAndThirdParty.category
+      (result \ "usageRights" \ "legacyCategory").as[String] shouldBe CommissionedAgency.category
+      (result \ "usageRights" \ "source").as[String] shouldBe "Corbis"
+    }
+
+    it("should map a legacy category's suppliers field onto source when replaced by PRAndThirdParty") {
+      PRAndThirdParty.legacyCategories should contain(Composite.category)
+
+      val imageResponse = new ImageResponse(
+        mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PRAndThirdParty")),
+        null, null
+      )
+      val source = Json.obj("usageRights" -> Json.obj("category" -> Composite.category, "suppliers" -> "REX/Getty Images"))
+      val result = source.transform(imageResponse.updateUsageRights(source)).get
+
+      (result \ "usageRights" \ "category").as[String] shouldBe PRAndThirdParty.category
+      (result \ "usageRights" \ "legacyCategory").as[String] shouldBe Composite.category
+      (result \ "usageRights" \ "source").as[String] shouldBe "REX/Getty Images"
+    }
+
+    it("should pass a legacy category's own source field through untouched when replaced by PRAndThirdParty") {
+      PRAndThirdParty.legacyCategories should contain(Screengrab.category)
+
+      val imageResponse = new ImageResponse(
+        mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PRAndThirdParty")),
+        null, null
+      )
+      val source = Json.obj("usageRights" -> Json.obj("category" -> Screengrab.category, "source" -> "BBC News"))
+      val result = source.transform(imageResponse.updateUsageRights(source)).get
+
+      (result \ "usageRights" \ "category").as[String] shouldBe PRAndThirdParty.category
+      (result \ "usageRights" \ "legacyCategory").as[String] shouldBe Screengrab.category
+      (result \ "usageRights" \ "source").as[String] shouldBe "BBC News"
+    }
   }
 
   it("should replace \\r linebreaks with \\n") {

@@ -221,7 +221,7 @@ final case class PRAndThirdParty(restrictions: Option[String] = None, source: St
 }
 object PRAndThirdParty extends ReplacementUsageRightsSpec {
   val category = "pr-and-third-party"
-  val defaultCost = Some(Conditional) // TODO check 
+  val defaultCost = Some(Conditional)
 
   val legacyCategories: List[String] = List(
     Handout.category,
@@ -241,7 +241,7 @@ object PRAndThirdParty extends ReplacementUsageRightsSpec {
   val allCategories: NonEmptyList[String] = NonEmptyList.fromSeq(category, legacyCategories)
 
   def name(commonConfig: CommonConfig) = "PR & Third Party"
-  def description(commonConfig: CommonConfig) = "Images received from PRs or as handouts. Also use this category for social media posts, screen grabs, agency commissions and obituaries. \\n You must explain what restrictions apply to the image as you upload. Where images have been submitted for inclusion in obituaries only please indicate this in the restrictions."
+  def description(commonConfig: CommonConfig) = "Images received from PRs or as handouts. Also use this category for social media posts, screen grabs, agency commissions and obituaries.\nYou must explain what restrictions apply to the image as you upload. Where images have been submitted for inclusion in obituaries only please indicate this in the restrictions."
 
   implicit val formats: Format[PRAndThirdParty] =
     UsageRights.subtypeFormat(PRAndThirdParty.category)(Json.format[PRAndThirdParty])
