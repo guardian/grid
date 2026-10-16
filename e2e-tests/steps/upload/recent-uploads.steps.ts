@@ -64,7 +64,7 @@ Given('a past uploaded image is listed', async ({ page, testContext }) => {
   const image = uniqueImage();
   testContext.uploadedImagePath = image.path;
   await uploadPage(page).fileInput.setInputFiles(image.path);
-  await expect(uploadPage(page).editableJob).toBeVisible();
+  await expect(uploadPage(page).metadataEditor).toBeVisible();
 
   await expectInUploadHistory(page, image.path, TEST_ACCOUNTS.fullAccess);
   // Past uploads are only fetched when the page loads.
