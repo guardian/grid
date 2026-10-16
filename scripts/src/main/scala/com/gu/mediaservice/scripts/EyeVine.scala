@@ -20,6 +20,9 @@ object EyeVine extends App {
 
   println(s"Running for stage $STAGE with domain $GRIDDOMAIN")
 
+  // To create INPUT_FILE manually, search Gmail for "GNM Syndication Report", select the messages,
+  // forward them to yourself as attachments, and download the ZIP. Extract it and run:
+  // cat *.eml | grep 'Grid id:' | cut -w -f 3 > complete.txt
   val source = Source.fromFile(required("INPUT_FILE"))
   val gridIds = try source.getLines().toList finally source.close()
 
