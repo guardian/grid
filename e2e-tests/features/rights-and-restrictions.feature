@@ -34,6 +34,16 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/app/views/main.scala.html lines 93
   # Evidence: kahuna/app/lib/KahunaConfig.scala lines 50
 
+  Scenario: The mapped category name is shown for an image with a legacy usage right
+    Given the usage rights summary is switched off
+    And the image has the "chargeable" usage rights category
+    And the configuration contains pay-to-use and not chargeable
+    Then the rights and restrictions section shows "Pay to use"
+  # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 29-32
+  # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 63, 69-73, 446-472
+  # Evidence: kahuna/app/views/main.scala.html lines 93
+  # Evidence: kahuna/app/lib/KahunaConfig.scala lines 50
+
   Scenario: An image without a usage rights category is shown as Unknown
     Given the usage rights summary is switched off
     And the image has no usage rights category
