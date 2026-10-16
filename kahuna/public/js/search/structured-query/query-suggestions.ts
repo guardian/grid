@@ -224,7 +224,9 @@ querySuggestions.factory("querySuggestions", [
       // TODO: would be nice to use user friendly labels and map
       // them to the key internally
       return editsApi.getUsageRightsCategories().then((results) => {
-        return results.map((res) => res.value).filter((key) => key !== ""); // no empty category
+        return results
+          .map((res) => res.searchAlias || res.value)
+          .filter((key) => key !== "");
       });
     }
 
