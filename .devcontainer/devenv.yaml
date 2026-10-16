@@ -45,3 +45,5 @@ postCreateCommand:
     workingDirectory: "."
   - cmd: 'PATH="$HOME/.local/share/mise/shims:$PATH" npm ci'
     workingDirectory: "./e2e-tests"
+  - cmd: 'PATH="$HOME/.local/share/mise/shims:$PATH" npx playwright install chromium --with-deps'
+    workingDirectory: "."
