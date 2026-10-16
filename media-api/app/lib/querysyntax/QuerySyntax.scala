@@ -1,6 +1,7 @@
 package lib.querysyntax
 
 import com.gu.mediaservice.lib.ImageFields
+import com.gu.mediaservice.lib.formatting.parseDateFromQuery
 import com.gu.mediaservice.model.{Jpeg, MimeType, Png, Tiff}
 import org.joda.time.DateTime
 import org.parboiled2._
@@ -209,7 +210,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   def AllowedDateFieldName = rule { "date" | "uploaded" | "taken" | "added" }
 
   def MatchDateValue = rule {
-    (QuotedString | String) ~> normaliseDateExpr _ ~> parseDate _ ~> (d => {
+    (QuotedString | String) ~> parseDate _ ~> (d => {
       test(d.isDefined) ~ push(d.get)
     })
   }
@@ -259,9 +260,10 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   )
 
   def parseDate(expr: String): Option[DateTime] = {
+    val normalised = normaliseDateExpr(expr)
     dateParsers.foldLeft[Option[DateTime]](None) { case (res, parser) =>
-      res orElse parser.parseDate(expr)
-    }
+      res orElse parser.parseDate(normalised)
+    }.orElse(parseDateFromQuery(expr))
   }
 
   def parseDateRange(expr: String): Option[DateRange] = {
