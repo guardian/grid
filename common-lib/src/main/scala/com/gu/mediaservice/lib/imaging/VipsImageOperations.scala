@@ -81,7 +81,7 @@ class VipsImageOperations extends GridLogging with ImageOperations {
         val outputFile = createTempFileInTempDir("resize", fileType, tempDir)
         logger.info("Saving resized crop as JPEG tmp file to: " + outputFile.getAbsolutePath)
 
-        saveImageToFile(resized, fileType, qual, outputFile, quantise = false)  // TODO quantise false because it is still optimiseOps's decision
+        saveImageToFile(resized, fileType, qual, outputFile, quantise = false, keep = Some(VipsRaw.VIPS_FOREIGN_KEEP_ALL()))  // TODO quantise false because it is still optimiseOps's decision
         outputFile
 
       } catch {
@@ -245,7 +245,7 @@ class VipsImageOperations extends GridLogging with ImageOperations {
   }
 
   def saveImageToFile(image: VImage, mimeType: MimeType, qual: Double, outputFile: File, quantise: Boolean = false, keep: Option[Int] = None): File = {
-    logger.info(s"Saving image as $mimeType to file: " + outputFile.getAbsolutePath)
+    logger.info(s"Saving image as $mimeType to file: " + outputFile.getAbsolutePath + s" as ${mimeType.name}")
     val k = keep.getOrElse(VipsRaw.VIPS_FOREIGN_KEEP_NONE)
     mimeType match {
       case Jpeg =>
