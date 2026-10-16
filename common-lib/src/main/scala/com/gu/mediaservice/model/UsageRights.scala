@@ -31,6 +31,10 @@ sealed trait UsageRightsSpec {
   val defaultRestrictions: Option[String] = None
   val caution: Option[String] = None
 }
+sealed trait ReplacementUsageRightsSpec extends UsageRightsSpec {
+  val legacyCategories: List[String]
+  val allCategories: NonEmptyList[String]
+}
 
 object UsageRightsSpec extends StrictLogging {
   val runtimeMirror: universe.Mirror = universe.runtimeMirror(getClass.getClassLoader)
@@ -104,6 +108,7 @@ object UsageRights {
     case o: ProgrammesOrganisationOwned => ProgrammesOrganisationOwned.formats.writes(o)
     case o: ProgrammesAcquisitions => ProgrammesAcquisitions.formats.writes(o)
     case o: ProgrammesIndependents => ProgrammesIndependents.formats.writes(o)
+    case o: PayToUse => PayToUse.formats.writes(o)
     case o: NoRights.type => NoRights.jsonWrites.writes(o)
   }
 
@@ -142,6 +147,7 @@ object UsageRights {
         case ProgrammesOrganisationOwned.category => json.asOpt[ProgrammesOrganisationOwned]
         case ProgrammesAcquisitions.category => json.asOpt[ProgrammesAcquisitions]
         case ProgrammesIndependents.category => json.asOpt[ProgrammesIndependents]
+        case PayToUse.category => json.asOpt[PayToUse]
         case _ => None
       })
         .orElse(supplier.flatMap(_ => json.asOpt[Agency]))
@@ -188,6 +194,24 @@ object Chargeable extends UsageRightsSpec {
 
   implicit val formats: Format[Chargeable] =
     UsageRights.subtypeFormat(Chargeable.category)(Json.format[Chargeable])
+}
+
+final case class PayToUse(restrictions: Option[String] = None) extends UsageRights {
+  val defaultCost = PayToUse.defaultCost
+}
+object PayToUse extends ReplacementUsageRightsSpec {
+  val category = "pay-to-use"
+  val defaultCost = Some(Pay)
+
+  val legacyCategories: List[String] = List(Chargeable.category)
+
+  val allCategories: NonEmptyList[String] = NonEmptyList.fromSeq(category, legacyCategories)
+
+  def name(commonConfig: CommonConfig) = "Pay to use"
+  def description(commonConfig: CommonConfig) = "Any image for which we have to pay to publish the image. Do not use for agencies with whom we have a contract."
+
+  implicit val formats: Format[PayToUse] =
+    UsageRights.subtypeFormat(PayToUse.category)(Json.format[PayToUse])
 }
 
 object Agencies {

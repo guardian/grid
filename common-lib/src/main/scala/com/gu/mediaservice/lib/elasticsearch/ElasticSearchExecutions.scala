@@ -47,12 +47,14 @@ trait ElasticSearchExecutions extends GridLogging {
           combineMarkers(logMarkers, elapsed, MarkerMap(Map("reason" -> "ElasticNotFoundException"))),
           s"$message - query failed: Document not Found"
         )
+        case ElasticSearchException(error, marker) if error.reason == "502" =>
+           logger.error(combineMarkers(logMarkers, elapsed, marker), s"$message - query failed: 502, node unhealthy (likely rotating)", e)
         case ElasticSearchException(error, marker) =>
           logger.error(combineMarkers(logMarkers, elapsed, marker), s"$message - query failed", e)
         case _ =>
           logger.error(
             combineMarkers(logMarkers, elapsed, MarkerMap(Map("reason" -> "unknown es error"))),
-          s"$message - query failed",
+          s"$message - query failed: unknown type",
             e
           )
       }

@@ -21,11 +21,18 @@ export function waitForMetadataSave(page: Page): Promise<Response> {
   );
 }
 
-export async function expectUploadPermission(page: Page): Promise<void> {
+async function mediaApiRootLinks(page: Page): Promise<string[]> {
   const response = await page.request.get(await getMediaApiUrl(page));
   const { links } = (await response.json()) as { links: { rel: string }[] };
+  return links.map((link) => link.rel);
+}
 
-  expect(links.map((link) => link.rel)).toContain('loader');
+export async function expectUploadPermission(page: Page): Promise<void> {
+  expect(await mediaApiRootLinks(page)).toContain('loader');
+}
+
+export async function expectNoUploadPermission(page: Page): Promise<void> {
+  expect(await mediaApiRootLinks(page)).not.toContain('loader');
 }
 
 export async function expectNoEditPermission(
