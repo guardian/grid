@@ -1256,8 +1256,8 @@ journeys and surviving assertions remain unchanged. Wrong-return-identity fault
 is rejected by retained settled explicit and early phantom cases; production is
 restored exactly. Four alternating unchanged/candidate runs pass: mean combined
 runner reduction 5.908s (13.2%), spreads 0.776/0.886s. Final 2,925 unit tests,
-build and 441 retry-free E2Es pass without skips. [Proof mapping and observations](../../../e2e/README.md#detail-restoration-proof)
-own details; no application/full-suite speed claim. Operator waived reviewers
+build and 441 retry-free E2Es pass without skips. [Coverage rationale](../test-maintenance-assessment.md#detail-restoration-proof)
+retains the proof mapping; no application/full-suite speed claim. Operator waived reviewers
 for this task only; no standing gate changes or broader work follows.
 
 Recorded pre-repair evidence: expected last-viewed image at the established traversed-return centre;
@@ -1309,8 +1309,8 @@ windows remain. Traces show no backward-extension/compensation logs before nativ
 backward wheel; grid retains three positive prepends plus zero, table two plus zero.
 A false top reset is rejected at published 3->0 geometry. Two alternating runs per
 version give mean focused runner 63.376 -> 47.965s; all four cases pass retry-free.
-Full local gates passed with 445 E2Es and no skips. Raw runs/traces are disposable
-under `.vite/b10-travel-20261007/`; no application or full-suite speed claim follows.
+Full local gates passed with 445 E2Es and no skips. Disposable raw runs/traces were
+removed after closure; the comparison above remains, not an application or full-suite speed claim.
 
 <a id="b11"></a>
 **B11 / C31 / L13: DONE. Cancelled Home releases thumb/tooltip presentation.**
@@ -1488,10 +1488,10 @@ cancellation evidence. No production/device/performance equivalence is claimed.
 **Tests-only reduction (7 October 2026):** B17 now executes 32 rather than 40 cases.
 Eight no-focus phantom queued/wheel permutations are replaced by their unchanged
 explicit counterparts plus existing mounted mode coverage; bookmark, discovery,
-transport, geometry and forced-seek distinctions remain. The [testing contract map](../../../e2e/README.md#b17-pending-browsing-proof)
+transport, geometry and forced-seek distinctions remain. The [testing contract map](../test-maintenance-assessment.md#b17-pending-browsing-proof)
 names discarded proof and retained assertions/windows. No new helper, test body
-or production change remains. [Local proof and review packet](../../../.vite/b17-20261007-6f4000dc6d/review-02/README.md)
-records baseline `6f4000dc6d`, bounded negatives, timings and full local gates;
+or production change remains. The completed local proof/review used baseline
+`6f4000dc6d`, bounded negatives, timings and full local gates; its disposable packet was removed after closure;
 no live/device/application-performance or comparable full-suite speed claim.
 
 <a id="c38"></a>
@@ -1559,10 +1559,24 @@ limitation; the operator confirmed normal Chrome works. These limits do not
 authorize repairs or imply comprehensive runtime/performance certification.
 
 <a id="b19"></a>
-**B19 / C27: OPEN, PARKED. Table native Back from a true Credit-null tail restores
-the correct anchor one header-height below its departure.**
+**B19 / C27: DONE within local/live DirectES limits in a separately authorised
+follow-up, 16 October 2026.** The table spacer now includes measured header flow
+before its final virtual rows mount, preventing premature physical clamping.
+Failing-first indexed/forced-seek browser cases retain exact Back/reload geometry
+and full last-row visibility after End. Snapshot ratios and the separate cross-density
+header policy are unchanged; see the [changelog](../changelog.md) and
+[testing guidance](../../../e2e/README.md#history-and-result-edges).
 
-**Observed contract/result:** destination identity, rank, membership and tuples
+Both new local cases failed first with +36px on every sampled frame and unchanged
+rank, then passed with the one-line spacer fix. Full validation passed: 3,021 units,
+build and 470 retry-free E2Es without skips. Patched-source live DirectES checks
+retained exact Back/reload geometry and full final-row End visibility in indexed
+and natural seek sets, including focused/selected End. One independent cold review
+approved with no blocking findings; explicitly asserting the initial seek-generation
+bump was optional hardening, not a defect. No new API/performance/device certificate.
+The ignored review packet was removed after review; no commit is implied.
+
+**Historical observed contract/result:** destination identity, rank, membership and tuples
 restore correctly, but the represented viewport does not return to its departure
 geometry. In the repeated witness the anchor moves **+36px** and scrollTop changes
 **-36px**, equal to the measured sticky-header height. Cause and the precise
@@ -1591,7 +1605,7 @@ temporary buffer end [B7](#b7), and the data-prefix defects
 [KUP-033/034](../bug-backlog.md#kup-033). No source repair or clean-baseline browser
 comparison was performed.
 
-**Owning surfaces / next discriminator:** inspect the
+**Original proposed discriminator (4 October):** inspect the
 [snapshot ratio](../../../src/lib/build-history-snapshot.ts#L87),
 [table virtualizer/header geometry](../../../src/components/ImageTable.tsx#L747)
 and [history ratio placement/clamp](../../../src/hooks/useScrollEffects.ts#L791).
@@ -1604,7 +1618,7 @@ header/coordinate calculations would discriminate the cause. Direct ES, grid,
 Taken on, reload and broader incidence remain unverified. Confidence is high for
 the repeated live displacement, not its root cause or null-specificity.
 
-**Kind/disposition:** separate observed geometry bug with qualified cause; parked,
+**Original disposition (4 October):** separate observed geometry bug with qualified cause; parked,
 unselected and not an additional L43 acceptance gate. Operator instruction is to
 record it, not repair it here. Preserve exact geometry tolerances; no product,
 backend, snapshot-policy or performance change is authorized. Identities, raw
@@ -2046,7 +2060,7 @@ independence does not promise identical request counts for every policy.
 
 Keep one active unit, including across sessions. Resume the same brief/worklog;
 do not create another plan or widen scope because a session ended. The
-[helper shortlist](../../../e2e/README.md#strong-candidates) remains an optional alternative,
+[helper shortlist](../test-maintenance-assessment.md#candidate-improvements) remains an optional alternative,
 not the recommended next step or evidence of a runtime bottleneck. A separately
 selected bug repair may interrupt the programme without being called consolidation.
 
@@ -2340,8 +2354,8 @@ the thumb-generation/near-zero completion proxy and unowned thumb DOM writes.
 Existing publication/navigation now authorizes placement; Home owns a revocable
 feedback token and refresh defers movement to fresh data. No new request owner.
 [B10](#b10), [B11](#b11) and [B16](#b16) retain witnesses, controls and closure limits;
-[test guide](../../../e2e/README.md#reset-presentation-proof) owns the 38-unit/18-browser
-proof map. Final gates/reviews are in Current Status. B19, later-density geometry
+[test guide](../../../e2e/README.md#history-and-result-edges) owns current edge/history
+testing guidance. Final gates/reviews are in Current Status. B19, later-density geometry
 and L44 remain separate. Client DTO proof is not native server cancellation or
 live direct/API performance parity. Retired execution instructions are not new scope.
 
@@ -2378,7 +2392,7 @@ do not run it. It was neither modified nor executed for this disposition.
 **Done, `85dae28b3` from `ae08e779d`.** One observation-only hit-tested point
 helper replaces browsing/detail duplication; callers retain action/readiness policy.
 No product assertions were removed; twelve negative/lifetime controls were added.
-The [test guide](../../../e2e/README.md#continuity-input-pilot) owns the proof/reuse map.
+The [test guide](../../../e2e/README.md#hit-tested-input) describes the shared observer contract.
 Full local/harness gates passed; no
 live/perf run or runtime improvement was established. This extraction is not
 permission to migrate more callers or preserve every old test in future replacements.
@@ -2524,7 +2538,7 @@ just to populate a table or claim suite savings from unrelated historical timing
 **7 October, `a99f29757`; complete as an assessment, no retirement selected.**
 Static AST expansion found 268 declaration sites (48 parameterised), yielding
 445 executions: 429 normal and 16 forced-seek across fifteen specs. They reconciled
-with the [saved run](../../../.vite/b17-20261007-6f4000dc6d/e2e.json): 445 passes,
+with the recorded run: 445 passes,
 no skips/retries, 421.987s runner and 1080.534s summed case time. The report has no
 revision field; compatibility was checked against the reviewed source/context.
 This was inventory plus selective semantic reading, not a whole-suite proof audit.
@@ -2547,9 +2561,9 @@ Early/settled detail, original/traversed return, native history and missing/resi
 snap-back also retain distinct intervention/oracle requirements. This does not prove
 absence of other overlap in unread bodies.
 
-The [temporary inventory](../../../.vite/cross-family-20261007/inventory.md), parser,
-compatibility data and challenge context are disposable ignored evidence. The parser
-is snapshot-specific, not maintained tooling. All counts below describe that
+The temporary inventory, parser, compatibility data and challenge context were
+disposable ignored evidence and were removed after closure. The parser was
+snapshot-specific, not maintained tooling. All counts below describe that
 assessment checkpoint, not the current 441-case suite.
 
 **Coverage manifest:** inventory is comprehensive for declarations, not semantic review.

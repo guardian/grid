@@ -19,6 +19,96 @@ import { test, expect, waitForFixtureSetup } from "../shared/helpers";
 
 const PHANTOM_HISTORY_DESCRIBE = "Snapshot restore — phantom mode departure update";
 
+for (const coordinates of ["indexed", "seek"] as const) {
+  test.describe(`B19 ${coordinates} table tail`, () => {
+    test.use({ baseURL: coordinates === "seek" ? "http://localhost:3030" : "http://localhost:3000" });
+
+    test("End reveals the last row and Back/reload preserve its viewport", async ({ kupua, page }) => {
+      await kupua.ensureExplicitMode();
+      await kupua.startSearch("", "table");
+      const indexed = await page.evaluate(async () => {
+        const configPath = "/src/dal/es-config.ts";
+        if (!(await import(configPath)).IS_LOCAL_ES) throw new Error("B19 requires local ES");
+        const tierPath = "/src/lib/two-tier.ts";
+        return (await import(tierPath)).isTwoTierFromTotal((window as any).__kupua_store__.getState().total);
+      });
+      expect(indexed).toBe(coordinates === "indexed");
+
+      const tail = () => page.evaluate(() => {
+        const state = (window as any).__kupua_store__.getState();
+        const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+        const image = state.results.at(-1);
+        const cell = image && container.querySelector(`[data-image-id="${CSS.escape(image.id)}"]`);
+        const bounds = container.getBoundingClientRect();
+        const header = container.querySelector("[data-table-header]")!.getBoundingClientRect();
+        const rect = cell?.getBoundingClientRect();
+        return {
+          id: image?.id,
+          final: image && state.imagePositions.get(image.id) === state.total - 1,
+          fullyVisible: !!rect && rect.top >= header.bottom && rect.bottom <= bounds.top + container.clientHeight + 0.5,
+          bottomGap: rect ? bounds.top + container.clientHeight - rect.bottom : null,
+          focus: state.focusedImageId,
+          selected: (window as any).__kupua_selection_store__.getState().selectedIds.size,
+          seekGeneration: state._seekGeneration,
+        };
+      });
+      await page.evaluate(() => { (document.activeElement as HTMLElement | null)?.blur(); });
+      await page.keyboard.press("End");
+      await expect.poll(async () => {
+        const current = await tail();
+        return current.final && current.fullyVisible;
+      }).toBe(true);
+      const initialTail = await tail();
+      expect(initialTail).toMatchObject({ focus: null, selected: 0 });
+      expect(Math.abs(initialTail.bottomGap!)).toBeLessThan(1);
+      const departure = await page.evaluate(() => {
+        const state = (window as any).__kupua_store__.getState();
+        const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+        const id = (window as any).__kupua_getViewportAnchorId__();
+        const cell = container.querySelector(`[data-image-id="${CSS.escape(id)}"]`)!;
+        return { id, key: (window as any).__kupua_getKupuaKey__(), rank: state.imagePositions.get(id),
+          top: cell.getBoundingClientRect().top - container.getBoundingClientRect().top };
+      });
+      expect(departure.key).toBeTruthy();
+      await kupua.toggleSortDirection();
+      expect(await page.evaluate(key => (window as any).__kupua_inspectSnapshot__(key)?.anchorImageId, departure.key)).toBe(departure.id);
+      await page.goBack();
+
+      for (const reload of [false, true]) {
+        if (reload) await page.reload();
+        await page.waitForFunction(({ key, id }) => {
+          const state = (window as any).__kupua_store__?.getState();
+          return state && (window as any).__kupua_getKupuaKey__() === key && !state.loading &&
+            state._searchContinuity?.phase === "placed" && state._searchContinuity.targetId === id;
+        }, departure);
+        const placement = await page.evaluate(async ({ id, rank, top }) => {
+          const frames = [];
+          for (let frame = 0; frame < 12; frame++) {
+            await new Promise(requestAnimationFrame);
+            const state = (window as any).__kupua_store__.getState();
+            const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+            const cell = container.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
+            frames.push({ delta: cell ? cell.getBoundingClientRect().top - container.getBoundingClientRect().top - top : null,
+              sameRank: state.imagePositions.get(id) === rank });
+          }
+          return frames;
+        }, departure);
+        expect(placement.every(frame => frame.sameRank)).toBe(true);
+        expect(placement.every(frame => frame.delta !== null && Math.abs(frame.delta) < 1), JSON.stringify(placement)).toBe(true);
+        expect(await tail()).toMatchObject({ id: initialTail.id, final: true, fullyVisible: true, focus: null, selected: 0 });
+      }
+
+      const residentGeneration = (await tail()).seekGeneration;
+      await page.getByRole("region", { name: "Image results table", exact: true }).evaluate(element => { element.scrollTop -= 128; });
+      await page.evaluate(() => { (document.activeElement as HTMLElement | null)?.blur(); });
+      await page.keyboard.press("End");
+      await expect.poll(async () => (await tail()).fullyVisible).toBe(true);
+      expect(await tail()).toMatchObject({ id: initialTail.id, final: true, seekGeneration: residentGeneration, focus: null, selected: 0 });
+      expect(Math.abs((await tail()).bottomGap!)).toBeLessThan(1);
+    });
+  });
+}
+
 test.describe("B11 native Back retires Home presentation", () => {
   for (const view of ["grid", "table"] as const) {
     test(`${view} restores painted destination before obsolete Home delivery`, async ({ kupua, page }) => {

@@ -128,8 +128,11 @@ A placement is an anchor plus a viewport ratio. Four captures exist:
 
 Search/history coordinates exclude header/padding flow; density coordinates include it.
 Neither can be replaced wholesale with raw DOM coordinates; Table detail centring retains
-its usable-height adjustment. Subpixel ratio carry survives only while target, applied
-scroll, row geometry, viewport/header and publication remain unchanged. Newer input retires
+its usable-height adjustment. The table's physical spacer includes the measured header
+height so its scroll extent is complete before the last virtual rows mount. This does
+not add header flow to logical row coordinates or snapshot ratios. Subpixel ratio carry
+survives only while target, applied scroll, row geometry, viewport/header and publication
+remain unchanged. Newer input retires
 it; its purpose is preventing integer-scroll rounding drift, not another placement owner.
 
 Edge rules: header/full-row visibility clipping and physical DOM clamping are

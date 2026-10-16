@@ -48,6 +48,12 @@ and `kupua-ui-prefs`; density is a per-tab session preference. Check current key
 before changing relevant state. Operator preference restoration is unnecessary,
 but matched experiments require the same relevant configuration.
 
+Before a history reproduction, verify that the departure has a `kupuaKey` and that
+the real push captured its snapshot. Bare `router.navigate()` setup can create an
+unkeyed entry; successful query loading does not make it a valid history baseline.
+Use an actual app navigation to establish the departure, or the existing keyed
+test helper. A missing snapshot tests fallback, not saved-position restoration.
+
 Storage clearing does not clear native `history.state`; reload can restore a deep
 viewport. Use real Home when appropriate and assert the first visible cell against
 the first buffer item. `bufferOffset > 0` alone does not prove a target is outside
@@ -123,6 +129,12 @@ Re-read dimensions/columns after panel activation or resize.
 - Check physical bounds before demanding centring/header-at-top. End-field scroll
   can be clamped while the header remains visible. Distinguish initially partial
   from full visibility.
+- For a suspected clamp, record requested/applied scroll offsets and the DOM maximum
+  at the write, then compare the settled maximum and spacer extent. Virtualized
+  children can add overflow only when mounted; a later correct `scrollHeight` does
+  not prove the earlier placement had that space. Use a bounded pass-through
+  observer, preserve method descriptors, and remove it afterward. Keep any temporary
+  extent intervention separate from the unmodified reproduction.
 - Nonzero rectangles do not establish paint. Inspect ancestor opacity/overflow,
   pointer state and tab order; screenshot for visual questions. Driver-induced
   ancestor scrolling is a separate confound.

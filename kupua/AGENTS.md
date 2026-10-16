@@ -35,7 +35,7 @@ Vite builds the app; Vitest and Playwright provide tests.
 | Search and navigation | The URL represents search/detail state. [URL sync](src/hooks/useUrlSearchSync.ts) coordinates it with the search store; density is a separate per-tab preference. |
 | Data access | [The DAL](src/dal/index.ts) selects an implementation of `ImageDataSource`: media-api or direct Elasticsearch. API mode constructs no ES datasource. Views work through the shared data boundary. |
 | Search state | [Search store](src/stores/search-store.ts) owns the result buffer and query, seek, extension and restoration work. It publishes data and placement intent rather than scrolling the DOM. |
-| View and position | [Data window](src/hooks/useDataWindow.ts) bridges the buffer and rendered list; [scroll effects](src/hooks/useScrollEffects.ts) own viewport placement. Coordinate mechanics vary by result-set size. |
+| View and position | [Data window](src/hooks/useDataWindow.ts) bridges the buffer and rendered list; [scroll effects](src/hooks/useScrollEffects.ts) own viewport placement. Views own physical scroll extents; coordinate mechanics vary by result-set size. |
 | Fields | [Field registry](src/lib/field-registry.tsx) supplies shared definitions for columns, sorting, filters and metadata. Display consumers use registered accessors/formatters directly; `getFieldRawValue` supplies raw text. |
 | Selection | [Selection store](src/stores/selection-store.ts) owns multi-image membership independently of focus. |
 
@@ -75,7 +75,7 @@ For task-specific details:
 | Need | Reference |
 |---|---|
 | Test setup and commands | [Test modes](e2e/README.md#test-modes), [command selection](e2e/README.md#which-command-do-i-run) and [npm scripts](package.json). |
-| Test changes | [Testing guide](e2e/README.md), including fixture/proof contracts and the [readiness-free density selection guard](e2e/README.md#density-selection-guard). |
+| Test changes | [Testing guide](e2e/README.md) for commands and fixture contracts; [maintenance assessment](exploration/docs/test-maintenance-assessment.md) for unselected improvements and coverage rationale. |
 | Performance measurements | [Performance handbook](e2e-perf/README.md): historical campaigns, additive density/thumbnail comparisons, dashboards and local harness validation. |
 | Live infrastructure | [Infrastructure safeguards](exploration/docs/infra-safeguards.md). |
 | Embedded browser | Read the [browser playbook](exploration/docs/embedded-browser-playbook.md) first, then task-relevant references. Record reusable lessons only, not routine outcomes or session narratives. |

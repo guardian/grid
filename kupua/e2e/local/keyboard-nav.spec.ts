@@ -54,7 +54,9 @@ test.describe("KUP-013 End with retained hidden focus", () => {
         const rectangle = cell.getBoundingClientRect();
         const header = container.querySelector("[data-table-header]")?.getBoundingClientRect();
         return state.bufferOffset + state.results.length === state.total &&
-          rectangle.bottom > (header?.bottom ?? bounds.top) && rectangle.top < bounds.bottom;
+          (header
+            ? rectangle.top >= header.bottom && rectangle.bottom <= bounds.top + container.clientHeight + 0.5
+            : rectangle.bottom > bounds.top && rectangle.top < bounds.bottom);
       })).toBe(true);
       expect(await kupua.getFocusedImageId()).toBe(origin);
       const selection = await page.evaluate(() => {

@@ -1,540 +1,264 @@
-# Kupua Test Suite — Quick Reference
+# Kupua E2E Tests
 
-> Agent: read this before touching any test file.
-
-## Continuity Slice Discipline
-
-Follow standing repository validation requirements and the selected task's review scope.
-The ledger's [test-maintenance rationale](../exploration/docs/zz%20Archive/not-yet-another-audit-ledger.md#test-impact-and-maintenance)
-and [review record](../exploration/docs/zz%20Archive/not-yet-another-audit-ledger.md#cold-review-gate)
-are historical context, not additional execution gates.
-Each slice names existing tests to strengthen, helper/probe reuse, genuinely new
-coverage and setup cost. Map removed assertions to retained proof; preserve early
-versus settled readiness and actual-input/paint checks. Follow the selected task's
-review scope, including explicit operator waivers for small tests-only changes.
-Test duration is not application-performance evidence.
-
-## Justified Proof Contracts
-
-Local E2E owns normal port 3000, forced-seek port 3030 and resident-fixture port 3040;
-windowed Justified runs against the first two. Re-establish process ownership before runs,
-refuse real ES and freeze source/configuration throughout: even comments can trigger reloads.
-For visual evidence, verify foreground, served source and hit-tested targets. Native browser
-zoom has host-mediated readiness; use the [browser controls playbook](../exploration/docs/browser-playbook/controls-and-selectors.md#native-browser-zoom),
-not immediate keypress samples or CSS zoom as a substitute.
-
-Density acknowledgement and `loading=false` do not establish final placement or decoded media.
-Keep idempotent view selection distinct from clicking an active toggle. Native detail return,
-centred traversed return, history restoration and density ratios need distinct oracles;
-preserve action-specific readiness, cold/warm and wrong-density controls. Shared selectors
-must not move setup/waits into measured regions or turn these contracts into one settled helper.
-
-Retain fixed-density controls and witnesses for abandoned-render/commit-only snapshots,
-split-row elected identity, off-buffer spatial intent, newer input and query/no-overlap
-invalidation. Unit geometry and rendered browser wiring prove different responsibilities.
-Seek-policy characterisation stays in the existing fixed reverse-compute and windowed-layout
-suites, with independent expected indices/row geometry rather than helper-derived answers.
-
-Temporary-tail append proof starts with genuinely unknown dimensions before the first
-Justified commit. Hold the real append; observe the elected viewport identity without focus;
-require nontrivial content-coordinate change, <1px viewport drift, matching scroll delta,
-stable subsequent frames and exact appended IDs/offset/uniqueness. Install direction-specific
-holds before maintenance starts. Density-disposal cooldown is longer than ordinary search
-cooldown; count the operation under test, not unrelated forward work. Release holds/restore
-descriptors on failure; do not inflate request budgets or relax pixel/identity assertions.
-
-## Density Selection Guard
-
-[getDensityChangeButton](shared/density-selection.ts) shares exact accessible-button lookup
-and the `aria-pressed="true"` guard across ordinary fixed switches, the windowed Justified
-wrapper and the performance selector. It returns `Locator | null`; null means already
-pressed, not rendered, placed or decoded. Normal locator-read timeout/failure behaviour
-remains. It does not click, capture generations, wait for restoration or cache a locator.
-The read and subsequent click are not atomic.
-
-| Caller | Retained contract |
-| --- | --- |
-| Shared Grid/Table switches | Active selection is a no-op; otherwise capture generation, click, await restoration, then results and extend readiness |
-| Windowed Justified wrapper | Capture/click/restoration only when inactive; always check requested-region visibility |
-| Performance selector | Zero/one click, then exactly one requested region; placement and media readiness remain separate |
-
-Keep resident rendered-region no-op semantics, synchronous pending-browse interventions,
-intentional active-toggle clicks, session initialization and placement readers separate.
-Do not add callbacks/options to turn this guard into a universal action/settlement helper.
-It accepts only density identity: Grid columns and Justified target row height remain
-distinct future parameters, not browser-helper arithmetic.
-
-The [local synthetic controls](../e2e-perf/density-fixtures.spec.ts) check exact lookup,
-read-only guard results, caller ordering, faithful three-density toggles, missing controls,
-wrong/multiple regions and delayed acknowledgement. Existing ordinary and isolated app
-journeys retain their independent geometry/history/maintenance oracles. E2E/perf compiler
-configs are separate from the main build; compare their diagnostic identities and counts
-with a fresh baseline instead of claiming that a passing app build typechecks these files.
-
-## Continuity Input Pilot
-
-L41's bounded contract is a hit-tested result-cell point observation, not a click,
-detail/media readiness, data publication, placement or stable-frame guarantee.
-The browsing family and reload-detail family keep their own action and readiness
-semantics. L41 is complete; reuse the observer only where this contract fits.
-
-`waitForHitTestedImagePoint({ view?, imageId?, topInset?, timeout? })` polls
-synchronously in DOM order for a nonempty identity with a hit-tested point inside
-the requested/active results container, below its table header. It preserves the
-48px horizontal and 80px grid / 16px row offsets; explicit `view` selects the
-vertical offset, otherwise row role does. Default inset is zero; detail passes
-20px. It returns one identity/coordinate snapshot without scrolling, clicking,
-waiting for images or promising stability until a later action. Exact-ID filtering
-is optional. Timeout/rejection propagates; serialization always disposes its handle.
-
-| Contract class | Dimensions / timing | Independent oracle / current proof | Retained destination / gap |
-|---|---|---|---|
-| Actual input | Grid/table; explicit/phantom browsing | B17/B18 bookmark point is hit-tested, then real mouse single-click | Shared point observer; caller keeps single-click and phantom close |
-| Actual input | Grid/table; detail entry | B9/B12 `openVisibleDetail` uses real one/two-click and exact detail identity | Same observer with 20px top inset; caller keeps click count and identity assertion |
-| Rendered geometry | Header exclusion, horizontal bounds, overscan | Both point loops require point inside usable container and hit belonging to cell | Shared synchronous predicate; negative controls reject hidden, covered and header-clipped cells |
-| Identity / readiness | Wrong/missing identity, delayed availability | Existing loops observe rendered cells, not list settlement or decoded media | Observer exact-ID option and bounded polling controls; no settlement wait |
-| Ownership / publication | Indexed pending/queued/wheel; both adapter fixtures | B17 seek owner, un-aborted signals, generation and publication checks | All existing assertions and client-read hold stay in `pendingBrowseAcrossDensity` |
-| Pending rendered frames | Forced seek, deep departure, density/no-density | B18 12-frame departure identity and thumb rollback samples | Existing samples/tolerance unchanged; no shared stable-frame wait |
-| Chosen placement policy | Original/traversed; early/settled grid/table | B9 native signed distance versus centred target, <1px tolerance | Existing placement helper and assertions unchanged |
-| Ownership / interruption | Early keyboard/clear, one held target lookup | B9 focus/queued delta, ring, lookup budget and late-publication checks | Existing variant composition and lookup gates unchanged |
-| Session identity / actual gesture | A -> B -> reload B -> A; cancel/complete/Backspace/traversed | B12 entry metadata, touch listeners, native scroll or centred placement | Existing journeys, session density and phantom rings unchanged |
-| Resource lifetime | Success, rejected observation, timeout | Point handle is disposed after serialization; no routes/storage/jobs owned | Focused helper controls exercise disposal and propagate failures |
-
-Reuse rationale: existing stable-nth identity, usable-placement and decoded-detail
-helpers intentionally answer different questions. The retained click-open probe's
-usable geometry and separate identity/list readiness inform this boundary; its
-anchor/neighbor selection, read gate and private mutation are not extracted.
-Click-focus's position-sorted, fully-visible selection is a distinct policy and
-is not substituted for DOM-order hit testing. HTTP response holds remain distinct
-from completed-client-read publication holds. Probe cleanup stays diagnostic.
-
-Historical B9/B12 IDs now route to the descriptively named `Detail close during list
-restoration` and `Reloaded detail gesture return` suites. The observer does not
-replace their action or settlement logic. Perf consumers retain separate helpers
-and measurement boundaries; no runtime improvement is claimed for L41.
-
-## Detail Restoration Proof
-
-`Detail close during list restoration` executes 15 cases;
-`Reloaded detail gesture return` retains all eight. Four grid/table phantom
-`settled-original` and `settled-traversed` combinations were retired as mapped below.
-
-| Dropped combined proof / distinct dimension | Retained proof |
-|---|---|
-| Settled phantom original return, grid/table | Matching settled explicit cases retain genuine nonresident reload, historical entry, native signed placement, exact focus identity, request reuse and position consistency; early phantom original cases retain real single-click and no-ring browser wiring |
-| Settled phantom traversed return, grid/table | Matching settled explicit cases retain traversal/reload, exact target, <1px centring and ring identity; early phantom traversed cases retain pending close, release-after-close, hidden focus and no-ring presentation |
-| Timing versus mode | [Mounted ImageDetail B9 matrix](../src/components/ImageDetail.test.tsx#L450) retains both timings/placements/views/modes with actual close, owned restore counts and frame scheduling. Mode changes restore's setFocus argument and pulse/ring presentation, not return placement/ownership; [store controls](../src/stores/search-store.test.ts#L2828) retain both setFocus paths. This is not pairwise or helper-based equivalence |
-| Newer input and actual gesture | All three early keyboard/clear cases remain. All eight secondary cases retain A -> B -> reload B -> A, cancelled dismiss staying open, completed touch-listener dismiss, real Backspace, traversed centring, density and absent rings |
-
-The settled phantom combined browser journeys are deliberately no longer executed;
-their responsibilities are split as above. Early tests still close while the target
-lookup is held and loading remains true; none pre-resolves the restoration.
-Independent identity/geometry oracles and both layouts remain. No new tests/helper,
-shared mutable state, product change or KUP-018/native-history edit is introduced.
-
-The retained settled explicit and early phantom cases reject a wrong return
-identity. [B9's ledger record](../exploration/docs/zz%20Archive/not-yet-another-audit-ledger.md#b9)
-owns the measured reduction and verification limits; raw evidence is disposable
-under `.vite/detail-return-20261007/`. No application or full-suite speed claim follows.
-
-## B17 Pending Browsing Proof
-
-B17 executes 32 cases: 16 indexed browsing, eight discovery and eight forced-seek.
-Only no-focus queued/wheel cases run in one focus mode. Their helper explicitly
-clears focus before input; indexed density capture yields to the browse owner before
-focus policy. Pending bookmark and discovery cases retain both modes: real
-click/detail setup and End focus permission are distinct behaviours.
-
-| Contract / discarded work | Surviving proof |
-|---|---|
-| Four phantom indexed queued cases: both transports and grid/table | Four matching explicit queued cases keep synchronous pre-dispatch click/remount, mapped identity, current geometry and completed-client-read hold; mounted B17 no-focus/mode matrix retains both modes |
-| Four phantom indexed wheel cases: both transports and grid/table | Four matching explicit wheel cases retain Scrubber wheel wiring and the queued phase before immediate remount; mounted list/Scrubber debounce controls retain request timing |
-| Every removed arrival assertion | Matching explicit case retains un-aborted signals, seek generation, consumed browse owner, independent map identity in viewport, destination offset, null bookmark, busy/error/status cleanup, position consistency and effective view |
-| Removed phantom setup's actual click/detail/Backspace | All eight indexed and eight forced-seek pending-bookmark cases retain both modes, transports and density directions with actual hit-tested input |
-| Discovery / temporal protection | All eight ordinary/AI cases remain: owned membership publication and finite AI exclude ordinary reads through the unchanged 250ms window; store/navigation suites retain stale-work rejection and dispatch timing matrices |
-| Forced-seek departure / geometry | All eight cases and B18 no-density controls remain; deep departure identity/thumb sampling still requires 12 frames, with original tolerances |
-
-No assertion, negative observation window, corpus, worker limit or shared helper
-changed. The dropped phantom detail/clear/pre-dispatch combination is no longer
-one browser journey; its responsibilities are covered at the layers above.
-Queued/wheel interventions use synchronous DOM events to reach the pre-dispatch
-window, not physical-device input. API completed-client-read holds do not certify
-native server cancellation. Local timing and negative-control evidence is in the
-[ignored review packet](../.vite/b17-20261007-6f4000dc6d/review-02/README.md),
-not an application-performance or comparable full-suite speed certificate.
-
-## Reset Presentation Proof
-
-L43 is complete within its [recorded limits](../exploration/docs/zz%20Archive/not-yet-another-audit-ledger.md#owned-reset-presentation-l43).
-Maintain the following contracts rather than historical case counts.
-
-| Contract | Maintained unit proof | Executed browser boundary |
-|---|---|---|
-| Prepend versus reset | Production low seek, forward eviction and held positive/final prepends; independent order/positions/all tuples and bookmark | Four [forced-seek B10](local/forced-seek.spec.ts) cases: actual wheel, measured three-column grid/table, every held page through zero, no-read-at-zero and real Home; bounded live API counterpart |
-| Revocable Home feedback | Real Home lifetime, unchanged numeric props, failure/successor/hostile outcome matrices | Two [native B11](local/browser-history.spec.ts) cases: exact A logical/painted thumb/tooltip before and after deliberate obsolete success; wrong-deep DOM paint is rejected; Home and Back discovery budgets separate |
-| Destination restoration | URL-sync destination publication and placement before hostile Home success/error/abort | Native local/live Back with interior anchor geometry; existing clipping policy retained, no stronger true-tail guarantee |
-| Refresh publication | Actual badge, first/deep success/failure, query/freeze/history/density/focus/selection | Eight [B16 success cases](local/buffer-corruption.spec.ts), two supplied-503 refusals, backing-error rejection and pending-frame cleanup interruption; bounded live API populated-selection/supersession proof |
-| Preserved composition | Home/navigation, density, history, detail, continuity, fallback and small-set suites | Retain Q2/L42/detail and fixture-lifetime controls alongside the current normal/forced-seek suite |
-
-Intervention: local completed-client-read holds keep successful data unchanged;
-API fixtures execute real client JSON/Response encoding/decoding with faithful Argo
-fields backed by local ES. They replace `window.fetch`, not a native local media-api
-server, and do not certify network/server cancellation. Live API success uses real
-HTTP reads. Exact source and browser oracles plus deliberate fixture negatives
-distinguish publication, paint, read budgets, refusal classification and cleanup.
-B10 adds fifteen independent corpus pages plus one explicit zero-hit fixture read
-per case; those are test costs, not additional application requests.
-
-B10 preparation moves the viewport near the backward-loading boundary only after
-genuine forward eviction. Native backward wheel still produces positive prepends
-and the final zero crossing, with every pending/published frame check intact.
-The mounted four-way controls complement, not replace, browser geometry proof.
-
-The E2E/perf compiler configs match all 86/34 inherited diagnostic identities with
-zero additions, not clean-config status. No shared helper/perf/config source changed;
-no new `test:perf-harness` gate or performance campaign follows. B19's table true-tail
-36px placement and C31's later-density non-top limit remain parked/qualified. Eight
-unsupported new nullable mock drafts were deleted, not skipped or hidden in the
-opt-in ES oracle; [optional L44](../exploration/docs/zz%20Archive/not-yet-another-audit-ledger.md#optional-nullable-mock-coverage-l44)
-is unselected, and their local composition coverage is not claimed. Existing
-nullable adapter tests and bounded live Credit/Taken on evidence remain distinct.
-Port/execution coordination is still required for future runs.
-
-## Further Helper Reuse Assessment
-
-Report-only assessment, 4 October 2026: `ae08e779d` plus the completed, uncommitted
-L41 source changes. Nothing below is implemented or adds approval to L41/L42.
-L42 is now complete within its recorded local limits. The operator may select one
-candidate as a separate test-only unit; no candidate is selected by this checkpoint.
-This is an optional maintenance queue, not a prerequisite or automatic follow-on.
-Do not batch every candidate into one refresh.
-
-Use the [one-candidate execution prompt](../exploration/docs/continuity-test-refresh-prompt.md)
-only with an operator-named selection. It replaces the completed L41 prompt;
-it does not reopen L41 or authorize the whole shortlist.
-
-A strong candidate has the same explicit contract in at least two real consumers,
-meaningful shared proof/resource mechanics rather than merely similar titles,
-caller-owned policy/timing, and concrete failure controls. Each implementation
-pilot keeps L41's limit of two helpers/two consumer families, baseline equivalence,
-unchanged assertions and actual-input/pending-frame proof, owned cleanup, cold
-reviews and final local gates. These are source findings, not a runtime forecast.
-
-### Strong Candidates
-
-| Candidate / assessment | Evidence / payoff | Narrow boundary and required discriminators |
-|---|---|---|
-| Browser queued-frame gates: strongest next substantial test-only pilot | [Density](local/scrubber.spec.ts#L1072), [preview exit](local/ui-features.spec.ts#L1286) and [detail return](local/ui-features.spec.ts#L1746) repeat important capture/release/cancellation/cleanup mechanics. Meaningful maintenance payoff, but a faulty helper could hide the race under test. | Pilot density plus detail only; preview is a later consumer. Share the owned rAF resource, not callback-selection policy or native exit. Prove unrelated callbacks pass through, release runs once, nested callbacks stay deferred and failure restores only owned methods. Hostile replay must prove the cancelled callback actually executed before asserting that production rejected its effect; unchanged scroll alone is insufficient. |
-| Unit buffer-position invariant: best low-risk extraction | [Main](../src/stores/search-store.test.ts#L93) and [extended](../src/stores/search-store-extended.test.ts#L48) duplicate one independent assertion. Their 39 and 22 call sites show importance, not 61 duplicated implementations. Worth a small separately selected maintenance change. | Accept a snapshot and label; check resident identity positions against buffer origin plus local index. Preserve hole handling, useful failure messages and all assertion sites. No implicit singleton, production-derived oracle or map-size-equals-buffer rule: indexed maps may include nonresident entries. Controls: nonzero origin, wrong/missing position and legitimate extra map entries. Leave browser proof separate. |
-| Unit animation-frame queue: useful when these owners next need attention | [Scroll effects](../src/hooks/useScrollEffects.test.ts#L74), [detail return](../src/hooks/useReturnFromDetail.test.ts#L436), [fullscreen settlement](../src/lib/fullscreen-exit.test.ts#L113) and [composed detail](../src/components/ImageDetail.test.tsx#L387) repeat deterministic request/cancel and snapshot-flush queues. Do not turn this into a scheduler framework. | Pilot two files only, separate from the browser gate. Keep React `act`, fake timers, mounting, fullscreen and clock choice outside: scroll effects uses `performance.now()`, others zero. One flush means one frame; nested callbacks wait, cancelled callbacks do not flush, reset isolates cases, and deliberate obsolete delivery remains possible. Preserve [hostile replay](../src/components/ImageDetail.test.tsx#L509). |
-| Perf successful-route observation: valid, lower scheduling priority | [Short](../e2e-perf/perceived-short.spec.ts#L238) and [long](../e2e-perf/perceived-long.spec.ts#L109) have identical collectors; [jank](../e2e-perf/perf.spec.ts#L83) adds a predicate and idempotent finish. Suitable when perf-harness maintenance is selected, but measurement trust makes this more consequential than ordinary deduplication. | Start with short/long collection only; jank adoption and timing projection stay outside that first extraction. Preserve successful-response/data-route classification, client-only absence and caller start/stop epochs. Test failed/non-data/late responses, both transports, repeat finish and failure cleanup. No added setup/actions/waits or unified settlement observer; retain jank's selection-metadata predicate if later adopted. |
-
-These candidates address maintainability, not demonstrated wallclock bottlenecks.
-L41 added 12 helper controls (423 -> 435 browser cases) with runtime impact unmeasured.
-That is legitimate proof cost, not evidence of faster tests. Use timing evidence
-before commissioning speed work; neither fewer helper bodies nor fewer lines is a
-runtime result. Every selected extraction still needs its own brief and cold review.
-
-Existing pure harness checks guard [route-qualified store timings](../e2e-perf/harness-validation.test.mjs#L249)
-and [selection-only route attribution](../e2e-perf/harness-validation.test.mjs#L1056).
-Moving a helper must preserve these checks rather than removing source assertions;
-if timing projection is later extracted, its current call scan skips a local
-declaration with `slice(1)` and must be adapted without losing its first caller.
-No perf campaign is recommended by this audit. A future workload change needs a
-separate scope/revision decision; local/harness success cannot certify latency parity.
-
-Guardrail: similar names/bodies do not establish identical contracts. Keep HTTP
-response holds distinct from completed-client-read holds; preserve navigation
-snapshot/key semantics, caller clocks/readiness, perf action cadence and mobile
-geometry. Do not expand a selected helper into a generic fixture or settlement API.
-
-### Coverage And Limits
-
-| Surface | Scan and inspection coverage |
-|---|---|
-| Browser: 19 TS files | All 15 local specs, both shared modules, global setup and the diagnostic spec were syntax-scanned. Resource/helper regions were inspected in history, buffer, focus, scrubber, selection/mobile and detail; browsing/forced-seek wiring was already inspected during L41. Remaining feature specs received helper/setup searches, not complete assertion review. |
-| Perf/harness: 16 TS/MJS files | All four scenario specs, shared environment fixture, configs, runner, reporter and pure harness/metric modules were syntax-scanned. Route/trace/traversal boundaries in all four specs, the environment fixture and applicable static harness assertions were inspected; remaining tooling was scan-only. |
-| Unit: 83 test files | All were syntax-scanned. Targeted inspection covered the four frame owners, both store invariant owners, API-mode polling, traversal/anchor builders and enrichment-builder contrast. Remaining unit cases/mocks were scan-only; not a full semantic review of 2,836 assertions. |
-| Existing abstractions / references | Checked shared identity, hit-tested point, placement, decoded-media, retained-setup, position and frame-sampling boundaries; perf environment/route helpers and harness guards. Retained click-open/focus probe capabilities were read during L41; no wider probe/framework promotion. |
-| Excluded | Archived/retired tests, integration mutation oracle, raw fixtures/images, stored campaigns/dashboards, wider production algorithms and physical/live replay. No code changes, test execution, perf run, dependency change or Git mutation occurred for this assessment. |
-
-The syntax scan covered 118 files and compared exact function bodies plus repeated
-helper names; candidate inspection also followed differing wrappers and consumers.
-It does not establish exhaustive semantic duplication coverage, behavior equivalence
-or the absence of every other strong candidate. No test-speed percentage follows.
-Candidate implementation still needs its own bounded brief, failure controls,
-baseline equivalence, inline cold reviews and relevant final gates.
-
-## Session-Aware Density Setup
-
-Density is per-tab UI state, not a URL parameter. Use
-`kupua.startSearch(extraParams, "grid" | "table")` for an independent case (grid
-default); it initializes density, delegates to the corpus-pinned navigation helper
-and asserts the rendered view. `initializeDensity` writes through production
-preference handling on an existing document without a throwaway mount/toggle/read.
-For a blank document it owns one removable CDP seed, consumed once per origin;
-the next initialization retires the prior registration. This is Chromium setup,
-not a cross-browser storage guarantee. No global session-storage clear is used.
-
-`goto`, `gotoWithParams`, `gotoPerfStable`, SPA navigation and reload retain the
-case's choice. Do not reinitialize within persistence/history controls. An obsolete
-`density=table` URL does not select table, and URL absence does not prove grid:
-use `assertDensity` or layout-specific `waitForResults` readiness. Maintained
-local, forced-seek and diagnostic setups follow this distinction.
-
-Density-history controls prove no entry/key/query-generation change or Forward
-loss, immediate reload/first-mounted view, fresh/reused initialization and current
-layout destination restoration. Both-logo Home races and held-data frame controls
-retain pending-content, focus, geometry and request assertions. KUP-018 proves
-queued return cancellation and rejects a deliberately delivered obsolete callback.
-The history/density checkpoint passed 423 retry-free habitual cases, including 11
-forced-seek cases; the current gate is recorded under the continuity input pilot.
-Local fixtures do not authorize or certify live/perf execution.
-
-## Async Fixture Setup
-
-Controlled Home-density, selection-panel and L39 AI setup returns a job object
-from a synchronous `page.evaluateHandle` callback, not an async evaluation promise.
-The handle retains the job and its pending promise while imports/setup run. The
-job exposes `complete` and nullable `error`; success sets completion and rejection
-stores the error. `waitForFixtureSetup(page, handle)` polls these fields with a
-synchronous predicate, throws setup failures and disposes the handle in `finally`.
-The runner's wait timeout bounds unfinished setup; it never retries the setup or
-relaxes workflow assertions. Do not use an async `waitForFunction` predicate.
-
-Two selection-spec controls hold a module response while forcing browser GC and
-check rejection plus handle disposal. They establish this retained-job contract,
-not the original intermittent GC trigger or every async evaluation in the suite.
-Home intent reads reuse the imported preference store rather than repeating imports.
-The four touched E2E files have no added TypeScript diagnostics against HEAD;
-their 16 inherited diagnostics remain. The app build does not cover E2E/perf.
-
-## Detail Return Coverage
-
-B9 controls close as soon as detail identity is ready while existing list
-restoration is held, rather than replacing early close with a readiness wait.
-Early/settled original return preserves native geometry; genuine traversal centres
-the returned image with the correct focus/ring or phantom policy. Grid/table
-keyboard and background-clear controls defeat obsolete return presentation while
-retaining restoration request budgets and session-persisted density/selection.
-B12 drives the actual touch listeners after A -> B -> reload B -> A: cancelled
-and completed dismiss leave original placement alone, matching Backspace;
-traversed return still centres. Existing KUP-018 queued-frame controls remain.
-The composed unit surface covers all three coordinate regimes, late restoration
-outcomes, history/AI owner adoption and policy substitution. Browser/API response
-fixtures are local evidence, not live-service or physical-device certification.
+> Read this before changing browser tests.
+> Keep execution reports, completed-work narratives and future-work queues out of this operating guide.
 
 ## Directory Structure
 
-```
-e2e/
-  local/                          ← npx playwright test (habitual)
-    scrubber.spec.ts
-    keyboard-nav.spec.ts
-    buffer-corruption.spec.ts
-    ui-features.spec.ts
-    forced-seek.spec.ts           ← habitual, isolated port-3030 project
-    visual-baseline.spec.ts
-    visual-baseline.spec.ts-snapshots/
-  shared/                         ← imported by local, tier, perf, and diag
-    helpers.ts
-  scrubber-debug.spec.ts          ← diagnostic (own config)
-  global-setup.ts                 ← local E2E infra (Docker ES health check)
-  tsconfig.json                   ← covers all subdirectories
-  README.md
-
-e2e-perf/                         ← separate (own configs, own results)
-  perf.spec.ts
-  experiments.spec.ts
+```text
+kupua/
+  e2e/
+    local/                         Browser specs selected by playwright.config.ts
+    shared/
+      helpers.ts                   KupuaHelpers and fixture readiness
+      browse-density.ts            Pending browsing/density scenarios
+      density-selection.ts         Readiness-free density button lookup
+    global-setup.ts                 Local ES startup and safety checks
+    scrubber-debug.spec.ts          Headed diagnostic, separate configuration
+    tsconfig.json                  E2E TypeScript surface
+    README.md
+  e2e-perf/                        Performance suites, configs and results
+  playwright.config.ts             Local E2E projects and server ownership
+  playwright.debug.config.ts       Diagnostic configuration
+  playwright.experiments.config.ts Experiment configuration
 ```
 
 ## Test Modes
 
-| Mode | Command | Data | When to use |
-|------|---------|------|-------------|
-| **Unit/Integration** | `npm test` | In-memory mock | After any `src/` change. ~5s. Non-negotiable. |
-| **Local E2E** | `npm run test:e2e` | Docker ES, 10k docs | After changing components, hooks, store, scroll effects. ~5min. |
-| **Local E2E (full)** | `npm run test:e2e:full` | Docker ES, 10k docs | Same as above but orchestrates Docker + data loading first. |
-| **Perf** | `npm run test:perf` | Real ES, 1.3M docs | Manual, purpose-driven. Never habitual. |
-| **Experiment** | `npm run test:experiment` | Local or real ES | Agent-driven A/B tuning. Requires user consent for TEST. |
-| **Diagnostic** | `npm run test:diag` | Local or real ES | Scrubber coordinate-space investigation. Headed only. |
+Run commands from the repository root. Use the npm scripts rather than bare
+`npx playwright` or `npm exec`, which can put outputs outside `kupua/`.
 
-## Environment Variables
+| Mode | Command | Data and purpose |
+| --- | --- | --- |
+| Unit | `npm --prefix kupua test` | In-memory fixtures; required after any `src/` change |
+| Local E2E | `npm --prefix kupua run test:e2e -- --retries=0` | Local Docker ES and isolated fixtures; browser regression gate |
+| Local E2E with data setup | `npm --prefix kupua run test:e2e:full` | Runner-owned Docker and sample-data setup, then browser tests |
+| Performance | `npm --prefix kupua run test:perf` | Operator-run measurement for a specific question, not routine validation |
+| Experiment | `npm --prefix kupua run test:experiment` | Separately approved A/B investigation |
+| Diagnostic | `npm --prefix kupua run test:diag` | Headed scrubber coordinate-space investigation, not a regression gate |
 
-All env vars are optional. Pass them as prefixes to any command, e.g.
-`CPU_THROTTLE=4 npm run test:e2e`.
+Keep output live and preserve the command's exit status:
 
-### Test runner env vars (affect Playwright test execution)
-
-| Variable | Type | Default | Used by | Purpose |
-|----------|------|---------|---------|---------|
-| `CPU_THROTTLE` | number | 0 (off) | All modes via shared fixture | CDP `Emulation.setCPUThrottlingRate`. Rate=4 simulates 4× slower CPU. Used for slow-hardware experiments. |
-| `PERF_STABLE_UNTIL` | ISO date string | — | Perf, experiments | Pins the result corpus at a fixed date (`&until=` URL param) to prevent metric drift from new images. Auto-set by `run-audit.mjs`. |
-| `EXP_OVERSCAN_TABLE` | number or `"current"` | `"current"` | Experiments (E1) | Override TanStack Virtual overscan for table scroll experiments. |
-| `EXP_OVERSCAN_GRID` | number or `"current"` | `"current"` | Experiments (E2) | Override TanStack Virtual overscan for grid scroll experiments. |
-
-### App-level env vars (affect kupua's runtime behaviour via Vite)
-
-These are set in `.env` / `.env.development` for local mode, and overridden
-by `start.sh --use-TEST` for real clusters. They're **not** test runner flags,
-but they determine how the app behaves during tests.
-
-| Variable | Default | Local dev | `--use-TEST` | Purpose |
-|----------|---------|-----------|--------------|---------|
-| `VITE_MAX_RESULT_WINDOW` | 100,000 | 500 | 100,000 | Must match ES index `max_result_window` |
-| `VITE_DEEP_SEEK_THRESHOLD` | 10,000 | 200 | 10,000 | Offset above which seek uses the deep path |
-| `VITE_SCROLL_MODE_THRESHOLD` | 1,000 | 1,000 | 1,000 | Max total for scroll mode (vs seek mode) |
-| `VITE_ES_BASE` | `/es` | — | — | ES proxy base URL |
-| `VITE_ES_INDEX` | `images` | — | Auto-discovered | ES index name |
-| `VITE_ES_IS_LOCAL` | `true` | `true` | `false` | Write-protection flag |
-| `VITE_S3_PROXY_ENABLED` | `false` | — | `true` | Enable S3 thumbnail proxy |
-| `VITE_IMGPROXY_ENABLED` | `false` | — | `true` | Enable imgproxy for full images |
-| `VITE_IMAGE_BUCKET` | — | — | Auto-discovered | S3 bucket for full images |
-| `VITE_KEYWORD_SEEK_BUCKET_SIZE` | 10,000 | — | — | Composite agg page size for keyword seek |
-
-### Perf audit CLI flags (`run-audit.mjs`)
-
-| Flag | Example | Purpose |
-|------|---------|---------|
-| `--label "..."` | `--label "Phase 1: baseline"` | Human-readable label for the audit log entry |
-| `--runs N` | `--runs 3` | Repeat the test suite N times; metrics are median-aggregated |
-| Positional | `P8`, `PP1`, `JB3`, or comma-separated IDs | Run only matching jank or perceived metric IDs; completeness is checked against the selected subset |
-
-Perceived filters match complete metric IDs, so `PP1` selects PP1 without also
-selecting PP10. The runner translates IDs to Playwright title prefixes; callers
-do not need to construct title regexes. Examples from the repository root:
-
-```bash
-node kupua/e2e-perf/run-audit.mjs --short-perceived-only --dry-run PP1
-node kupua/e2e-perf/run-audit.mjs --long-perceived-only --dry-run --runs 2 JB3,JB4
+```sh
+set -o pipefail; npm --prefix kupua run test:e2e -- --retries=0 2>&1 | tee "$TMPDIR/kupua-test-output.txt"
 ```
 
-PP10 is a background position-map diagnostic, not a user-action latency row.
-It runs through the same short-perceived command and history, but CLI/Markdown
-report it separately and the dashboard hides it by default with no target:
+Use the same foreground/pipefail/tee pattern for other test and build commands.
+Do not pipe the live stream through `head`, `tail` or `grep`, poll an active run,
+or start another command in its terminal before completion.
 
-```bash
-node kupua/e2e-perf/run-audit.mjs --short-perceived-only --dry-run PP10
-```
+### Local Projects and Ports
 
-### Playwright built-in flags (useful combinations)
+[playwright.config.ts](../playwright.config.ts) starts the required servers.
+Coordinate with the operator before running: ports **3000, 3030 and 3040** must
+be free. Do not stop or reconfigure a live app or tunnel yourself.
 
-| Flag | Example | Purpose |
-|------|---------|---------|
-| `--headed` | `npm run test:e2e:headed` | Visible browser |
-| `--debug` | `npm run test:e2e:debug` | Step-through debugger |
-| `--ui` | `npm run test:e2e:ui` | Playwright UI mode |
-| `--grep "pattern"` | `npm --prefix kupua run test:e2e -- --grep "scroll up"` | Run habitual tests matching a Playwright title regex |
-| `--update-snapshots` | `npx playwright test --update-snapshots` | Update visual baselines |
+| Project | Port | Scope |
+| --- | --- | --- |
+| `chromium` | 3000 | Main local specs; the table-tail history cases also use the runner-owned 3030 origin |
+| `forced-seek` | 3030 | Fixed-density seek tests with position maps disabled by the runner |
+| `justified-preview` | 3040 | Resident Justified fixtures |
+| `justified-indexed` | 3000 | Windowed Justified with normal coordinate thresholds |
+| `justified-seek` | 3030 | Windowed Justified with forced-seek coordinates |
+
+[global-setup.ts](global-setup.ts) checks local ES/sample data, starts local Docker
+ES when needed and refuses a server connected to a real cluster. Never bypass
+that gate or change thresholds to make a test pass. Freeze source/configuration
+throughout a run: even comment edits can trigger a browser reload.
+
+### Focused and Interactive Runs
+
+| Need | Command |
+| --- | --- |
+| One spec | `npm --prefix kupua run test:e2e -- --project=chromium browser-history.spec.ts --retries=0` |
+| Title filter | `npm --prefix kupua run test:e2e -- --grep "table tail" --retries=0` |
+| Visible browser | `npm --prefix kupua run test:e2e:headed` |
+| Step-through debugger | `npm --prefix kupua run test:e2e:debug` |
+| Playwright UI | `npm --prefix kupua run test:e2e:ui` |
+| Approved visual-baseline update | `npm --prefix kupua run test:e2e -- --project=chromium visual-baseline.spec.ts --update-snapshots` |
 
 ## Which Command Do I Run?
 
-Not every suite needs to run every time. The suites are designed at different
-cadences — running the wrong one wastes minutes (or requires a live cluster).
+| Changed surface | Required verification |
+| --- | --- |
+| Anything in `src/` | Full unit suite |
+| Components, hooks, stores, scroll/focus or layout behaviour | Full unit suite and local E2E; preserve applicable normal, forced-seek and Justified coverage |
+| Browser tests or shared fixtures | Focused affected cases, then the relevant full surface; harness changes also need their owning harness checks |
+| Documentation only | Documentation/link validation, not an application test campaign |
+| Performance workloads or tuning | Follow the separately approved scope and [performance handbook](../e2e-perf/README.md); functional success is not a speed measurement |
 
-| Changed… | Run | Why | Skip |
-|----------|-----|-----|------|
-| Anything in `src/` | `npm test` (~36s) | Unit/integration. **Always.** Non-negotiable. | Never skip. |
-| Components, hooks, store, scroll effects | + `npm run test:e2e` (~5min) | Tests real browser behaviour: scroll races, focus drift, buffer corruption. | Skip for doc-only, pure-util, or test-only changes. |
-| Scroll thresholds, seek logic, Home/End handlers, scrubber | + `npm run test:e2e` | Natural buffer/indexed owners plus the isolated forced-seek case run habitually. | — |
-| Tuning overscan, buffer capacity, etc. | `npm run test:perf` or `test:experiment` | Measures actual metrics. Never habitual — purpose-driven only. | Don't run "just in case". |
-| Scrubber coordinate-space investigation | `npm run test:diag` | Headed diagnostic scan. Not pass/fail. | Only when debugging scrubber mapping. |
+Start with a failing or behaviour-scoped check, then run the required full gates
+on the retained implementation. Do not weaken assertions, add retries or treat
+skips as passes. The application build does not typecheck every E2E/performance
+file; use the relevant compiler configuration when those surfaces change and
+distinguish new diagnostics from inherited ones.
 
-**Rule of thumb:** `npm test` is always the first thing you run. `npx playwright test`
-is the second (for rendering-related changes). Everything else is purpose-driven —
-you should have a specific reason to run it.
+## Environment Variables
 
-P14 traversal rows are isolated jank scenarios rather than one shared journey.
-Each fresh context validates an exact in-memory sequence from a fixed pinned
-rank, measures landing from final identity commit, and emits only sanitized CLS
-roles/geometry. Run one cadence with a positional metric ID such as `P14b`;
-image identities must never be written to reports or artifacts.
+Use normal runner configuration for routine tests. These optional variables are
+for an explicitly selected experiment or measurement, not a way around safeguards.
 
-## Common Mistakes
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `CPU_THROTTLE` | `0` | CDP CPU slowdown through the shared fixture |
+| `PERF_STABLE_UNTIL` | Unset | Date cap supplied by the performance runner to bound admission; does not freeze metadata/deletions |
+| `EXP_OVERSCAN_TABLE` | `current` | Table overscan experiment |
+| `EXP_OVERSCAN_GRID` | `current` | Grid overscan experiment |
 
-- **Port 3000 conflict:** Local E2E starts its own Vite. Stop any running `npm run dev` or `start.sh` first.
-- **Running E2E when TEST is connected:** The safety gate (global-setup + per-test check) will refuse. Stop `--use-TEST` first.
-- **Piping test output through tail/head:** Don't. The list reporter streams results live.
-- **Confusing runner filters:** `run-audit.mjs` positional values are metric IDs;
-  habitual E2E uses Playwright's title-based `--grep` after the npm `--` separator.
+App-level Vite configuration and backend selection are described in the
+[application README](../README.md) and [infrastructure safeguards](../exploration/docs/infra-safeguards.md).
+Performance CLI filters are metric IDs; habitual E2E `--grep` is a Playwright
+title regex. See the [performance handbook](../e2e-perf/README.md) for its commands,
+measurement boundaries and result formats.
 
-## Asynchronous Observability
+## Shared Helpers
 
-Tests should wait for the state an operation promises, not an estimated elapsed
-time. Capture the relevant value before the action, then wait for a changed
-generation, expected store/URL value, cleared in-flight status, or rendered DOM
-identity. Completion and rendering are separate when layout matters.
+### Session-Aware Density Setup
 
-Fixed-duration waits are reserved for behavior where elapsed time is itself the
-oracle: settle-window sampling, delayed-runaway detection, debounce boundaries,
-CSS transitions, and long-press thresholds. Required readiness timeouts must not
-be swallowed. Prefer existing state before adding observability; when no reliable
-signal exists, add a narrow development-only started/completed generation rather
-than a production event bus.
+Use `kupua.startSearch(extraParams, "grid" | "table")` for an independent case;
+grid is the default. It initializes the per-tab density, navigates with any corpus
+cap and asserts the rendered view. `initializeDensity` uses production preference
+handling on an existing document or a removable, one-use CDP seed on a blank one.
+This is Chromium setup, not a cross-browser storage guarantee.
 
-## Where Results Live
+`goto`, `gotoWithParams`, `gotoPerfStable`, SPA navigation and reload retain the
+case's density. Do not reinitialize during history/persistence controls or clear
+all session storage. Density is not a URL parameter; check the rendered region
+with `assertDensity` or layout-specific `waitForResults`.
 
-| Artefact | Location |
-|----------|----------|
-| Experiment results | `e2e-perf/results/experiments/` |
-| Perf audit results | `e2e-perf/results/` |
-| Playwright HTML report | `playwright-report/` |
-| Visual baseline snapshots | `e2e/local/visual-baseline.spec.ts-snapshots/` |
-| Scrubber diagnostic JSON | `test-results/scrubber-diag-all.json` |
+### Density Selection Guard
+
+[getDensityChangeButton](shared/density-selection.ts) returns the exact density
+button or `null` when it is already pressed. It does not click, wait for rendering
+or cache a locator. Pressed does not mean placed or decoded; the read and click
+are not atomic. Callers own generation capture, action-specific readiness and
+any performance measurement boundary. Preserve intentional active-toggle tests.
+
+### Hit-Tested Input
+
+`waitForHitTestedImagePoint({ view?, imageId?, topInset?, timeout? })` observes a
+visible, hit-tested result-cell point below the table header. It returns an
+identity/coordinate snapshot, not a click or a promise that layout will remain
+unchanged. It does not scroll, wait for media or replace action-specific readiness.
+Use exact-ID filtering when identity matters; do not carry an ordinal locator
+across virtualization. Stable-nth identity, usable-placement and decoded-media
+helpers answer different questions and are not interchangeable.
+
+### Async Fixture Setup
+
+For asynchronous controlled setup, return a retained job from synchronous
+`page.evaluateHandle`, with `complete`, nullable `error` and its pending promise.
+`waitForFixtureSetup(page, handle)` polls synchronously, throws setup failures and
+disposes the handle in `finally`. The timeout bounds setup; it does not retry it.
+Do not use an async `waitForFunction` predicate or swallow readiness failures.
+
+## Writing Tests
+
+### Continuity Slice Discipline
+
+Inspect the owning suite and shared helpers before adding coverage. Name the
+behaviour or timing distinction a new case proves. Replace redundant proof only
+with an explicit mapping of retained assertions and intentionally dropped journeys.
+Keep policy choices separate from publication/ownership invariants. Follow standing
+validation rules and the review scope selected for the task, not an old campaign's
+execution instructions. Test duration is not application-performance evidence.
+
+### Asynchronous Observability
+
+Capture the relevant generation/state before input, then wait for the operation's
+promised outcome: destination key/query, expected identity, accepted publication or
+rendered placement. `loading=false` and density acknowledgement are not universal
+settlement signals. Keep setup and waits outside measured regions.
+
+Use elapsed deadlines for readiness. Fixed observation windows are appropriate
+when they are the oracle: painted-frame stability, debounce boundaries, long-press
+thresholds or delayed-runaway detection. They must not substitute for readiness.
+
+### History and Result Edges
+
+Verify the departure's history key and captured snapshot before testing restoration.
+Assert destination identity/rank and DOM placement separately from query completion.
+For End, identify the actual global final row and require full visibility within
+the usable viewport, excluding the sticky header and horizontal scrollbar. Preserve
+focus/selection independently; reaching a DOM maximum alone proves neither contract.
+
+Distinguish real result edges from temporary buffer limits, physical clamping from
+anchor policy, and compensating scroll changes from visible displacement. Snapshot,
+density and detail-return placement conventions need separate oracles.
+
+### Detail Return Coverage
+
+Keep original-image native return separate from traversed-image centring. Early-close
+tests must close while list restoration is pending, not wait away the race. Check
+returned identity, geometry and focus/ring policy. Reload/gesture tests must preserve
+the session-entry identity and distinguish cancelled from completed dismissals.
+Newer input should retire obsolete presentation without discarding useful data work.
+
+### Justified Proof Contracts
+
+Retain fixed-density controls and independent geometry oracles. For temporary-tail
+append tests, start with genuinely unknown dimensions, hold the real append and
+observe the elected viewport identity without focus. Require meaningful content
+repacking, exact accepted IDs/offsets and preserved viewport position across frames.
+Install holds before maintenance starts and account for density-disposal cooldown.
+Do not derive expected geometry from the production helper under test.
+
+### Controlled Work and Cleanup
+
+Release held work and restore only owned descriptors/listeners/routes in `finally`.
+Keep HTTP response holds distinct from completed-client-read holds. A hostile replay
+must prove the obsolete callback actually ran before claiming its effect was rejected.
+Local API DTO fixtures are not live-server cancellation or physical-device evidence.
+
+For manual browser work, use the [browser playbook](../exploration/docs/embedded-browser-playbook.md),
+including foreground/source verification, native zoom and sensitive-data handling.
 
 ## File Map
 
-### Local E2E (`npm run test:e2e` — `playwright.config.ts` → `e2e/local/`)
+| Spec | Coverage |
+| --- | --- |
+| [scrubber](local/scrubber.spec.ts) | Seek, scrolling, density/sort placement, extension and coordinate regimes |
+| [keyboard navigation](local/keyboard-nav.spec.ts) | Focused versus scroll-only keys, Home/End, selection and input handling |
+| [browser history](local/browser-history.spec.ts) | Destination identity/placement, Back/Forward, reload, density persistence and Home ownership |
+| [buffer integrity](local/buffer-corruption.spec.ts) | Search/reset publication, pending density changes, refresh and failure paths |
+| [pending browsing](local/browse-density.spec.ts) | Queued/in-flight navigation across density and query changes |
+| [forced seek](local/forced-seek.spec.ts) | Temporary/result edges, prepend compensation and pending seek presentation |
+| [focus preservation](local/focus-preservation.spec.ts) | Surviving/missing targets, neighbour fallback, snap-back and AI exit |
+| [UI features](local/ui-features.spec.ts) | Detail/gesture/preview return, panels, media fallback, input and URL controls |
+| [resident Justified](local/justified-density.spec.ts) | Density/reflow, history, detail, spatial keys and responsive geometry |
+| [windowed Justified](local/justified-windowed.spec.ts) | Indexed/seek packing, append, pending navigation, history and true edges |
+| [density controls](local/density-controls.spec.ts) | Density control selection and readiness boundaries |
+| [selections](local/selections.spec.ts) | Membership, ranges, persistence, metadata panels and async fixture lifetimes |
+| [mobile selections](local/selections-mobile.spec.ts) | Touch selection and mobile interactions |
+| [phantom focus](local/phantom-focus.spec.ts) | Click-to-open and hidden-focus behaviour |
+| [collections](local/collections.spec.ts) | Collection navigation and context |
+| [CQL quoting](local/cql-search-quoting.spec.ts) | Query construction and quoting |
+| [toast](local/toast.spec.ts) | Toast presentation and lifetime |
+| [visual baselines](local/visual-baseline.spec.ts) | Screenshot comparisons |
 
-| File | Tests | What it covers |
-|------|-------|----------------|
-| `local/scrubber.spec.ts` | 89 | Seek accuracy, scroll preservation, settle-window stability, density switch, sort change, buffer extension, scroll-up after seek, scroll mode, two-tier, and retained bug regressions |
-| `local/keyboard-nav.spec.ts` | 15 | Two-mode keyboard nav (no-focus scroll vs focused movement), Home/End, search box key trapping, row-aligned snapping |
-| `local/browser-history.spec.ts` | 110 | Entry/query identity, destination focus/NONE and geometry, marked detail native transitions, session density/reload/Forward and Home/input ownership; exact native B11 destination paint before stale delivery |
-| `local/buffer-corruption.spec.ts` | 35 | Logo / metadata / query changes after deep seek, pending sort/density ownership, held-data Home layout frames and twelve B16 badge/refusal/fixture-lifetime cases |
-| `local/browse-density.spec.ts` | 24 | Pending/pre-debounce indexed browsing and Scrubber wheel across density in direct/API-adapter fixtures; narrowing-query and finite-AI ownership in local memory fixtures; both modes for bookmarks/discovery, one mode for no-focus queued/wheel, both views |
-| `local/ui-features.spec.ts` | 86 | Detail/list restoration, reload gesture return, 12 hit-tested input controls, queued return/traversal and preview ownership, media fallback, panel/selection geometry, sort, cursor and URL controls |
-| `local/visual-baseline.spec.ts` | 4 | Screenshot comparison: grid, table, detail, search-with-query |
-| `local/forced-seek.spec.ts` | 16 | B7 temporary-tail geometry, four B10 actual-wheel/every-prepend/tuple/geometry cases, core midpoint/End/Home journey, eight pending-browse density cases and two no-density controls; runs habitually against port 3030 |
-| `local/focus-preservation.spec.ts` | 13 | Focus/viewport continuity, neighbour fallback, snap-back and four adapter-backed L39 AI-exit cases |
-| `local/selections.spec.ts` | 30 | Selection membership/ranges/persistence, panel coherence and two retained async-fixture GC/rejection/disposal controls |
+## Where Results Live
 
-### Shared (`e2e/shared/` — imported by maintained test modes)
+| Artifact | Repository-relative location |
+| --- | --- |
+| Playwright HTML report | `kupua/playwright-report/` |
+| Playwright failures and traces | `kupua/test-results/` |
+| Visual baselines | `kupua/e2e/local/visual-baseline.spec.ts-snapshots/` |
+| Scrubber diagnostic output | `kupua/test-results/scrubber-diag-all.json` |
+| Performance results | `kupua/e2e-perf/results/` |
+| Experiment results | `kupua/e2e-perf/results/experiments/` |
 
-| File | What it provides |
-|------|------------------|
-| `shared/helpers.ts` | `KupuaHelpers` fixture class with `waitForHitTestedImagePoint()` (observation only), `sampleScrollTopAtFrameRate()`, `waitForFixtureSetup()` (synchronous readiness/error check and handle disposal) |
-| `shared/browse-density.ts` | Real-control pending destination/density checks, including wheel before dispatch; local-ES safety gate, pass-through response hold and API response-shape fixture. Seek-tier cases start deep and sample pending departure identity and thumb position across rendered frames. Clicks result cells, including No thumbnail placeholders. |
-
-### Infrastructure (`e2e/` root)
-
-| File | What it does |
-|------|--------------|
-| `global-setup.ts` | Docker ES auto-start + safety gate (used by `playwright.config.ts` only) |
-| `scrubber-debug.spec.ts` | NOT pass/fail. Diagnostic scan of scrubber coordinate spaces. Own config (`playwright.debug.config.ts`). |
-
-### Perf / Experiments (separate `e2e-perf/` directory)
-
-| File | Config | What it covers |
-|------|--------|----------------|
-| `e2e-perf/perf.spec.ts` | `e2e-perf/playwright.perf.config.ts` | 16 perf scenarios (P1–P16): CLS, jank, DOM churn, LoAF |
-| `e2e-perf/experiments.spec.ts` | `playwright.experiments.config.ts` | A/B tuning experiments (E1–E6): overscan, buffer capacity, etc. |
+Playwright clears its test-results directory at run start. Keep immutable review
+packets outside it, under ignored `kupua/.vite/`, and exclude them from commits.
+Never retain live identities, raw payloads, credentials or signed URLs in artifacts.
 
 ## Position Diagnostics
 
-Habitual position, focus and transition coverage lives in `e2e/local/`, with
-the compact forced-seek owner isolated on port 3030 by `playwright.config.ts`.
-Use `e2e/scrubber-debug.spec.ts` only for headed coordinate-space diagnosis and
-the `e2e-perf/` suites only for a named performance question.
+Use [scrubber-debug.spec.ts](scrubber-debug.spec.ts) for a separately selected headed
+coordinate investigation. The development-only `window.__kupua_store__` supports
+focused assertions. Overscan cells can have valid identities while off-screen:
+measure usable viewport rectangles or use the hit-tested point helper.
 
-When selecting a rendered image, remember that virtualizer overscan cells have
-valid `data-image-id` attributes but may be outside the viewport. Check the cell
-and scroll-container rectangles before interacting, or use the shared helper
-that owns the intended operation. Tests should wait on store/DOM completion
-signals described above rather than fixed delays.
-
-The development-only `window.__kupua_store__` remains available for focused
-diagnostics and assertions. Keep any new browser coverage on maintained local,
-diagnostic or perf roots; do not recreate the retired smoke, tier-matrix or
-drift/flash-probe harnesses.
+Deferred maintainability proposals and supporting coverage rationale belong in the
+[test-maintenance assessment](../exploration/docs/test-maintenance-assessment.md),
+not this operating guide. They are not a test mandate or a list of demonstrated bugs.
 

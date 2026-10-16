@@ -24,6 +24,19 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 16 October 2026 - Include table header flow in the physical scroll extent
+
+Fix B19 by adding the existing measured header height to the table spacer. Previously,
+the final virtual rows supplied that height only through overflow after mounting;
+history, reload and sort placement could clamp against an extent one header too short.
+Keep logical row/snapshot coordinates, End's scroll-to-index path, detail centring,
+request ownership and cross-density header policy unchanged.
+
+Add failing-first indexed and forced-seek browser coverage for true-tail Back and
+reload with independent DOM position/rank checks. Retain full final-row visibility
+through seeking and resident End, and strengthen the existing selected-End table
+assertion without changing its focus/selection contract or adding fixture machinery.
+
 ### 16 October 2026 - Remove remaining frame-count performance readiness deadlines
 
 Replace counted-frame readiness budgets in PP2/5/6/7c/8/9, PP6b/c setup,

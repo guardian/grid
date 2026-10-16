@@ -199,6 +199,20 @@ rule out shifts in other actions, or separate application cost from probe overhe
 placement speed. These measurements provide a useful baseline, not permission for speculative
 prefetching, increased resource budgets or a broad helper/architecture rewrite. See R7 below.
 
+### Scoll blocking
+
+- Slower continuous wheel input: no blocking.
+- Faster input: a measured ~190 ms stop at the buffer boundary, despite continued wheel events.
+- Scrolling resumed when result data arrived, with zero loaded thumbnails in the rendered cells. Thumbnail loading isn’t the release condition.  
+
+**Why:** with this 1.33-million-result search, scrollable space covers only the loaded buffer. Reaching its edge means physically running out of scrollable content.
+
+The [prefetch logic](file:///Users/mkarpow/code/grid/kupua/src/hooks/useDataWindow.ts#L385) anticipates downward motion using a fixed 400 ms lookahead; upward fetching starts only 50 items before the boundary. Observed fetches took roughly 740–820 ms—enough to outrun that headroom.
+
+**Recommendation:** fetch earlier in both directions, using scroll speed and measured fetch latency, with bounded headroom. Preserve existing prepend/eviction position compensation. This should reduce stalls without rebuilding scrolling.
+
+If uninterrupted movement is required even when data is late, bounded placeholder space could allow it—but trades stopping for empty tiles and adds position-preservation complexity. I wouldn’t start there. Nor would I simply enlarge the entire buffer: that doesn’t fix late fetch triggers.
+
 ## 4. Refactor candidates and order
 
 R numbers are stable references, not mandatory phases. **R2 snapshot ownership and R4 availability

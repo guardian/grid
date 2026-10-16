@@ -1335,7 +1335,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
         role="grid"
         aria-label="Image search results"
         aria-rowcount={total}
-        style={{ height: virtualizer.getTotalSize() }}
+        style={{ height: virtualizer.getTotalSize() + headerHeight }}
         className="relative inline-block min-w-full leading-[0]"
       >
         {/* Header: inline-flex so the browser sizes it from its children
