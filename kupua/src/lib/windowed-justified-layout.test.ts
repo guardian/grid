@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Image } from "@/types/image";
 import { buildWindowedJustifiedLayout as build, JUSTIFIED_BLOCK_SIZE as blockSize, type LayoutWindow } from "./windowed-justified-layout";
 import { alignWindowStart, windowEvictionCount, registerScrollGeometry, requireFixedRowGeometry } from "./scroll-geometry-ref";
 import { buildJustifiedLayout } from "./justified-layout";
+import * as packing from "./justified-layout";
 
 const corpus = Array.from({ length: 6000 }, (_, index) => ({ id: `photo-${index}`,
   source: { dimensions: { width: [150, 100, 75, 180][index % 4], height: 100 } } }) as Image);
@@ -10,6 +11,87 @@ const context = (indexed: boolean, bufferOffset: number, total = 6000): LayoutWi
 
 const seamCorpus = Array.from({ length: 6000 }, (_, index) => ({ id: `seam-${index}`,
   source: { dimensions: { width: index % blockSize === 42 ? 1000 : index % blockSize >= 46 ? 67 : [150, 100, 75, 180, 150][index % 5], height: 100 } } }) as Image);
+
+describe("construction-local justified estimates", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    { name: "empty resident", indexed: false, count: 0, offset: 0, total: 0, packs: 0 },
+    { name: "empty indexed", indexed: true, count: 0, offset: 0, total: 0, packs: 0 },
+    { name: "resident true end", indexed: false, count: 17, offset: 0, total: 17, packs: 1 },
+    { name: "temporary seek edge", indexed: false, count: 17, offset: 3000, total: 100000, packs: 1 },
+    { name: "fully known indexed", indexed: true, count: 96, offset: 0, total: 96, packs: 2 },
+    { name: "unloaded full final block", indexed: true, count: 48, offset: 0, total: 96, packs: 2 },
+    { name: "unloaded partial final block", indexed: true, count: 48, offset: 0, total: 65, packs: 2 },
+  ])("does not pack an unused estimate for $name", ({ indexed, count, offset, total, packs }) => {
+    const pack = vi.spyOn(packing, "buildRatioLayout");
+    for (const width of [599, 600]) {
+      pack.mockClear();
+      const model = build(corpus.slice(offset, offset + count), width, context(indexed, offset, total));
+      expect(pack).toHaveBeenCalledTimes(packs);
+      expect(pack.mock.calls.some(([ratios, , balanced]) =>
+        balanced && ratios.length === 48 && ratios.every(ratio => ratio === 1))).toBe(false);
+      expect(model.window.getItemId(indexed ? offset : 0)).toBe(count ? `photo-${offset}` : undefined);
+      if (count === 0) expect(model).toMatchObject({ rowCount: 0, height: 0 });
+    }
+  });
+
+  it("shares one estimate within each build, not across publication or the 600px transition", () => {
+    const pack = vi.spyOn(packing, "buildRatioLayout");
+    const images = corpus.slice(0, 48);
+    let previous: ReturnType<typeof build> | undefined;
+    for (const width of [599, 599, 600, 599, 1120]) {
+      const known = packing.buildRatioLayout(images.map(packing.imageRatio), width, true);
+      const estimate = packing.buildRatioLayout(Array(48).fill(1), width, true);
+      const final = packing.buildRatioLayout(Array(48).fill(1), width, false);
+      pack.mockClear();
+      const model = build(images, width, context(true, 0, 240), previous);
+      expect(pack.mock.calls).toEqual([
+        [images.map(packing.imageRatio), width, true],
+        [Array(48).fill(1), width, true],
+        [Array(48).fill(1), width, false],
+      ]);
+      let top = 0;
+      let firstRow = 0;
+      for (const [block, expected] of [known, estimate, estimate, estimate, final].entries()) {
+        const start = block * 48;
+        for (let index = 0; index < 48; index++) {
+          const box = expected.getBox(index)!;
+          expect(model.getBox(start + index)).toEqual({ ...box, top: top + box.top });
+        }
+        const row = model.getRow(firstRow);
+        expect(row).toMatchObject({ top, firstItemIndex: start,
+          lastItemIndex: start + expected.getRow(0).lastItemIndex });
+        expect(model.rowAtOffset(top)?.index).toBe(firstRow);
+        top += expected.height + 4;
+        firstRow += expected.rowCount;
+      }
+      expect(model.height).toBe(top - 4);
+      expect(model.rowCount).toBe(firstRow);
+      expect(model.window.getItemId(48)).toBeUndefined();
+      previous = model;
+    }
+  });
+
+  it.each([false, true])("does not pack an unused estimate in temporary seek preparation (indexed=%s)", indexed => {
+    const pack = vi.spyOn(packing, "buildRatioLayout");
+    for (const width of [599, 600]) {
+      const model = build(corpus.slice(200, 500), width, context(indexed, 200));
+      pack.mockClear();
+      expect(model.window.prepareSeek({ images: corpus.slice(3000, 3300), bufferOffset: 3000,
+        total: 100000, backwardItemCount: 100, clampedOffset: 3100, scrollTop: 15.25, clientHeight: 600 }))
+        .toEqual({ scrollTargetIndex: 100, seekSubRowOffset: 15.25 });
+      expect(pack).toHaveBeenCalledTimes(7);
+      expect(pack.mock.calls.every(([ratios, packedWidth, balanced]) =>
+        ratios.length === 48 && ratios.some(ratio => ratio !== 1) && packedWidth === width && balanced)).toBe(true);
+      pack.mockClear();
+      expect(model.window.prepareSeek({ images: [], bufferOffset: 3000, total: 100000,
+        backwardItemCount: 0, clampedOffset: 3000, scrollTop: 15.25, clientHeight: 600 }))
+        .toEqual({ scrollTargetIndex: 0, seekSubRowOffset: 0 });
+      expect(pack).not.toHaveBeenCalled();
+    }
+  });
+});
 
 describe("bounded windowed justified geometry", () => {
   it.each([true, false])("fills artificial block-ending rows without cropping or changing order (indexed=%s)", indexed => {
@@ -162,6 +244,58 @@ describe("bounded windowed justified geometry", () => {
       expect(windowEvictionCount(137)).toBe(137);
       expect(() => requireFixedRowGeometry({ layout: model, window: model.window })).toThrow();
     } finally { registerScrollGeometry({ columns: 1, rowHeight: 32 }); }
+  });
+
+  it.each([0, 1, 3])("prepares empty/short variable destinations (%i items)", count => {
+    const model = build(corpus.slice(200, 500), 900, context(false, 200, 100000));
+    for (const total of [100000, 3000 + count]) {
+      expect(model.window.prepareSeek({ images: corpus.slice(3000, 3000 + count), bufferOffset: 3000,
+        total, backwardItemCount: 0, clampedOffset: 3000, scrollTop: 15000, clientHeight: 600 }))
+        .toEqual({ scrollTargetIndex: total === 100000 ? 0 : Math.max(0, count - 1), seekSubRowOffset: 0 });
+    }
+  });
+
+  it("preserves variable-row headroom boundaries and fractional carry", () => {
+    const images = corpus.slice(3000, 3300);
+    const model = build(corpus.slice(200, 500), 900, context(false, 200, 100000));
+    const destination = build(images, 900, context(false, 3000, 100000));
+    const rows = Array.from({ length: destination.rowCount }, (_, index) => destination.getRow(index));
+    const before = rows.filter(row => row.firstItemIndex < 100).at(-1)!;
+    const after = rows.find(row => row.firstItemIndex >= 100)!;
+    for (const row of [before, after]) {
+      const carry = row.height / 2 + 0.25;
+      expect(model.window.prepareSeek({ images, bufferOffset: 3000, total: 100000,
+        backwardItemCount: 100, clampedOffset: 3100, scrollTop: row.top + carry, clientHeight: 600 }))
+        .toEqual({ scrollTargetIndex: row.firstItemIndex + (row === before ? 100 : 0),
+          seekSubRowOffset: row === before ? carry : 0 });
+    }
+  });
+
+  it("distinguishes requested and incidental true ends while retaining headroom carry", () => {
+    const model = build(corpus.slice(200, 500), 900, context(false, 200));
+    for (const clampedOffset of [5700, 5000]) {
+      expect(model.window.prepareSeek({ images: corpus.slice(5700), bufferOffset: 5700, total: 6000,
+        backwardItemCount: 100, clampedOffset, scrollTop: 15.25, clientHeight: 600 }))
+        .toEqual({ scrollTargetIndex: clampedOffset === 5700 ? 299 : 100, seekSubRowOffset: 15.25 });
+    }
+  });
+
+  it("does not treat a near-end request as proof that the variable buffer reached the end", () => {
+    const model = build(corpus.slice(200, 500), 900, context(false, 200));
+    expect(model.window.prepareSeek({ images: corpus.slice(5000, 5300), bufferOffset: 5000, total: 6000,
+      backwardItemCount: 100, clampedOffset: 5700, scrollTop: 15.25, clientHeight: 600 }))
+      .toEqual({ scrollTargetIndex: 100, seekSubRowOffset: 15.25 });
+  });
+
+  it.each([0, 100])("clamps temporary destinations using their own bottom row (headroom=%i)", backwardItemCount => {
+    const images = corpus.slice(3000, 3048);
+    const model = build(corpus.slice(200, 500), 900, context(false, 200, 100000));
+    const destination = build(images, 900, context(false, 3000, 100000));
+    const bottomRow = Array.from({ length: destination.rowCount }, (_, index) => destination.getRow(index))
+      .filter(row => row.top <= Math.max(0, destination.height - 600)).at(-1)!;
+    expect(model.window.prepareSeek({ images, bufferOffset: 3000, total: 100000, backwardItemCount,
+      clampedOffset: 3100, scrollTop: backwardItemCount ? 15.25 : 15000, clientHeight: 600 }))
+      .toEqual({ scrollTargetIndex: bottomRow.firstItemIndex, seekSubRowOffset: backwardItemCount ? 15.25 : 0 });
   });
 
   it("truncates a true starting block without inventing preceding images", () => {

@@ -24,6 +24,50 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 16 October 2026 - Construct justified square estimates only when consumed
+
+Lazily create the existing construction-local square estimate for the first unknown,
+full, non-final indexed block. Preserve its sharing within that construction and the
+independent packing of known and true-final blocks. Resident/seek layouts, temporary
+seek preparation and indexed builds without an eligible consumer avoid an unused
+48-image pack. No cross-publication cache, geometry ownership, invalidation, resource
+budget, sizing parameter or placement policy changes; no runtime speedup is claimed.
+
+Add real-packing call-through controls for absent consumers, shared indexed estimates,
+repeated publications, the 599/600px target-height boundary and temporary seek preparation.
+Compare boxes and block/row offsets against independently packed references; retain all
+existing true-edge, overlap, retention, seek and browser preservation assertions.
+
+### 16 October 2026 - Share the readiness-free density selection guard
+
+Centralise exact accessible-button lookup and the pressed-state guard in
+`e2e/shared/density-selection.ts`. Return the change button or null, leaving generation
+capture, real clicks and each caller's readiness sequence in the shared Grid/Table
+helpers, windowed Justified wrapper and performance selector. Preserve the performance
+Density type export and avoid importing application state or sizing arithmetic.
+
+Retain resident-region no-op semantics, intentional toggles, synchronous pending-browse
+input and independent placement/media observers. Add caller-order and read-only controls,
+faithful three-density toggles, exact missing-control rejection, wrong/multiple-region
+rejection and delayed acknowledgement proof in the existing synthetic fixture suite.
+Measurement epochs, waits and workload definitions remain unchanged; the extra Promise
+continuation is not a claim of zero timing overhead.
+
+### 16 October 2026 - Share destination-seek headroom and true-end policy
+
+Extract numeric headroom adjustment, sub-row carry selection and requested true-end
+targeting into `prepareDestinationSeek`, shared by fixed Grid/Table reverse computation
+and Justified destination preparation. Keep fixed extrapolation and variable row lookup,
+empty handling and shrink/clamping with their geometry owners. Exact-offset targeting,
+null-zone-aware totals, admission, publication and scroll placement remain unchanged.
+The helper takes no image records or sizing parameters: future Grid columns and Justified
+target row height remain distinct rather than imposing fixed arithmetic on variable rows.
+
+Add independent caller-level controls for empty/short destinations, fractional headroom,
+shrink and requested/incidental true ends, including near-end requests whose buffers have
+not reached the end. Retain the existing oracles and distinct empty calculator results.
+This reduces policy divergence without promising faster seeks or changing header policy.
+
 ### 15 October 2026 - Balance artificial justified block endings
 
 Remove representative technical seams without changing stable 48-image block ownership.

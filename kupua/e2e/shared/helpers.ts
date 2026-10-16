@@ -11,6 +11,7 @@
  */
 
 import { test as base, expect, type Page, type Locator, type CDPSession, type JSHandle } from "@playwright/test";
+import { getDensityChangeButton } from "./density-selection";
 
 // ---------------------------------------------------------------------------
 // Extended test fixture — adds `kupua` helper object to every test
@@ -968,8 +969,8 @@ export class KupuaHelpers {
 
   /** Switch to grid view. */
   async switchToGrid() {
-    const btn = this.page.getByRole("button", { name: "Grid view", exact: true });
-    if (await btn.getAttribute("aria-pressed") !== "true") {
+    const btn = await getDensityChangeButton(this.page, "grid");
+    if (btn) {
       const previousGeneration = await this.getDensityRestoreGeneration();
       await btn.click();
       await this.waitForDensityRestore(previousGeneration);
@@ -980,8 +981,8 @@ export class KupuaHelpers {
 
   /** Switch to table view. */
   async switchToTable() {
-    const btn = this.page.getByRole("button", { name: "Table view", exact: true });
-    if (await btn.getAttribute("aria-pressed") !== "true") {
+    const btn = await getDensityChangeButton(this.page, "table");
+    if (btn) {
       const previousGeneration = await this.getDensityRestoreGeneration();
       await btn.click();
       await this.waitForDensityRestore(previousGeneration);

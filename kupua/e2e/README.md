@@ -14,6 +14,63 @@ versus settled readiness and actual-input/paint checks. Follow the selected task
 review scope, including explicit operator waivers for small tests-only changes.
 Test duration is not application-performance evidence.
 
+## Justified Proof Contracts
+
+Local E2E owns normal port 3000, forced-seek port 3030 and resident-fixture port 3040;
+windowed Justified runs against the first two. Re-establish process ownership before runs,
+refuse real ES and freeze source/configuration throughout: even comments can trigger reloads.
+For visual evidence, verify foreground, served source and hit-tested targets. Native browser
+zoom has host-mediated readiness; use the [browser controls playbook](../exploration/docs/browser-playbook/controls-and-selectors.md#native-browser-zoom),
+not immediate keypress samples or CSS zoom as a substitute.
+
+Density acknowledgement and `loading=false` do not establish final placement or decoded media.
+Keep idempotent view selection distinct from clicking an active toggle. Native detail return,
+centred traversed return, history restoration and density ratios need distinct oracles;
+preserve action-specific readiness, cold/warm and wrong-density controls. Shared selectors
+must not move setup/waits into measured regions or turn these contracts into one settled helper.
+
+Retain fixed-density controls and witnesses for abandoned-render/commit-only snapshots,
+split-row elected identity, off-buffer spatial intent, newer input and query/no-overlap
+invalidation. Unit geometry and rendered browser wiring prove different responsibilities.
+Seek-policy characterisation stays in the existing fixed reverse-compute and windowed-layout
+suites, with independent expected indices/row geometry rather than helper-derived answers.
+
+Temporary-tail append proof starts with genuinely unknown dimensions before the first
+Justified commit. Hold the real append; observe the elected viewport identity without focus;
+require nontrivial content-coordinate change, <1px viewport drift, matching scroll delta,
+stable subsequent frames and exact appended IDs/offset/uniqueness. Install direction-specific
+holds before maintenance starts. Density-disposal cooldown is longer than ordinary search
+cooldown; count the operation under test, not unrelated forward work. Release holds/restore
+descriptors on failure; do not inflate request budgets or relax pixel/identity assertions.
+
+## Density Selection Guard
+
+[getDensityChangeButton](shared/density-selection.ts) shares exact accessible-button lookup
+and the `aria-pressed="true"` guard across ordinary fixed switches, the windowed Justified
+wrapper and the performance selector. It returns `Locator | null`; null means already
+pressed, not rendered, placed or decoded. Normal locator-read timeout/failure behaviour
+remains. It does not click, capture generations, wait for restoration or cache a locator.
+The read and subsequent click are not atomic.
+
+| Caller | Retained contract |
+| --- | --- |
+| Shared Grid/Table switches | Active selection is a no-op; otherwise capture generation, click, await restoration, then results and extend readiness |
+| Windowed Justified wrapper | Capture/click/restoration only when inactive; always check requested-region visibility |
+| Performance selector | Zero/one click, then exactly one requested region; placement and media readiness remain separate |
+
+Keep resident rendered-region no-op semantics, synchronous pending-browse interventions,
+intentional active-toggle clicks, session initialization and placement readers separate.
+Do not add callbacks/options to turn this guard into a universal action/settlement helper.
+It accepts only density identity: Grid columns and Justified target row height remain
+distinct future parameters, not browser-helper arithmetic.
+
+The [local synthetic controls](../e2e-perf/density-fixtures.spec.ts) check exact lookup,
+read-only guard results, caller ordering, faithful three-density toggles, missing controls,
+wrong/multiple regions and delayed acknowledgement. Existing ordinary and isolated app
+journeys retain their independent geometry/history/maintenance oracles. E2E/perf compiler
+configs are separate from the main build; compare their diagnostic identities and counts
+with a fresh baseline instead of claiming that a passing app build typechecks these files.
+
 ## Continuity Input Pilot
 
 L41's bounded contract is a hit-tested result-cell point observation, not a click,

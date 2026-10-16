@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { test, expect, type KupuaHelpers } from "../shared/helpers";
+import { getDensityChangeButton, type Density } from "../shared/density-selection";
 
 const region = (page: Page) => page.getByRole("region", { name: "Image results justified", exact: true });
 
@@ -56,9 +57,9 @@ async function focus(kupua: KupuaHelpers, page: Page) {
   return id!;
 }
 
-async function density(page: Page, target: "grid" | "table" | "justified") {
-  const button = page.getByRole("button", { name: `${target[0].toUpperCase()}${target.slice(1)} view`, exact: true });
-  if (await button.getAttribute("aria-pressed") !== "true") {
+async function density(page: Page, target: Density) {
+  const button = await getDensityChangeButton(page, target);
+  if (button) {
     const generation = await page.evaluate(() => (window as any).__kupua_getDensityRestoreGeneration__());
     await button.click();
     await page.waitForFunction(generation => (window as any).__kupua_getDensityRestoreGeneration__() > generation, generation);

@@ -53,7 +53,7 @@ There is no need to read the whole documentation tree before working.
 | State ownership and lifetimes | [State management](exploration/docs/00%20Architecture%20and%20philosophy/state-management.md) for a compact engineer-facing overview of the current implementation. |
 | Product intent and interaction design | [Frontend philosophy](exploration/docs/00%20Architecture%20and%20philosophy/01-frontend-philosophy.md) for intent; distinguish proposals and older implementation notes from current behaviour. |
 | Scrolling, tiers and scrubber | [Scroll architecture](exploration/docs/00%20Architecture%20and%20philosophy/03-scroll-architecture.md) and [scrubber reference](exploration/docs/00%20Architecture%20and%20philosophy/scrubber-ticks-and-labels.md). |
-| Focus, density and position preservation | [Focus and position guide](exploration/docs/00%20Architecture%20and%20philosophy/02-focus-and-position-preservation.md). Justified density uses bounded technical blocks with locally balanced endings: [current contracts and refactor handoff](exploration/docs/justified-density-prototype-plan.md). Follow-up proposals require separate approval. |
+| Focus, density and position preservation | [Focus and position guide](exploration/docs/00%20Architecture%20and%20philosophy/02-focus-and-position-preservation.md), [Justified geometry ownership](exploration/docs/00%20Architecture%20and%20philosophy/component-detail.md#justified-density-componentsjustifiedgridtsx-libwindowed-justified-layoutts) and [shared destination-seek policy](exploration/docs/00%20Architecture%20and%20philosophy/03-scroll-architecture.md#destination-seek-preparation). [Research and refactor candidates](exploration/docs/justified-density-prototype-plan.md) require separate approval. |
 | URL and browser history | [History architecture](exploration/docs/00%20Architecture%20and%20philosophy/04-browser-history-architecture.md). |
 | Selection and shared metadata | [Selections guide](exploration/docs/00%20Architecture%20and%20philosophy/05-selections.md) and [field catalogue](exploration/docs/00%20Architecture%20and%20philosophy/field-catalogue.md). |
 | Detail, fullscreen, gestures, panels, CQL or data adapters | The relevant subsystem in the [component reference](exploration/docs/00%20Architecture%20and%20philosophy/component-detail.md). |
@@ -61,7 +61,7 @@ There is no need to read the whole documentation tree before working.
 | Collections | [Collections guide](exploration/docs/00%20Architecture%20and%20philosophy/06-collections.md). |
 | AI search | [AI compatibility workplan](exploration/docs/ai-search-catching-up-workplan.md) for contracts and [component reference](exploration/docs/00%20Architecture%20and%20philosophy/component-detail.md) for implementation entry points. |
 | API integration | [API build plan](exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md) for sequence and decisions; [Scala conventions](exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/media-api-91-instructions-for-agents.md) for media-api work. |
-| Runtime configuration | [Configuration and data sources](exploration/docs/runtime-configuration-and-data-sources.md). |
+| Runtime configuration | [README setup](README.md#quick-start), [Justified availability and fixtures](README.md#justified-development-and-fixtures), and the README's API-mode sections. |
 | Known defects or intentional departures | [Bug backlog](exploration/docs/bug-backlog.md) and [deviations](exploration/docs/deviations.md). |
 
 ## Running and Validation
@@ -75,7 +75,7 @@ For task-specific details:
 | Need | Reference |
 |---|---|
 | Test setup and commands | [Test modes](e2e/README.md#test-modes), [command selection](e2e/README.md#which-command-do-i-run) and [npm scripts](package.json). |
-| Test changes | [Testing guide](e2e/README.md), including applicable fixture and proof contracts. |
+| Test changes | [Testing guide](e2e/README.md), including fixture/proof contracts and the [readiness-free density selection guard](e2e/README.md#density-selection-guard). |
 | Performance measurements | [Performance handbook](e2e-perf/README.md): historical campaigns, additive density/thumbnail comparisons, dashboards and local harness validation. |
 | Live infrastructure | [Infrastructure safeguards](exploration/docs/infra-safeguards.md). |
 | Embedded browser | Read the [browser playbook](exploration/docs/embedded-browser-playbook.md) first, then task-relevant references. Record reusable lessons only, not routine outcomes or session narratives. |

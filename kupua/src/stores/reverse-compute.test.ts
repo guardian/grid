@@ -66,6 +66,30 @@ function tableInput(overrides: Partial<ComputeScrollTargetInput> = {}): ComputeS
 // ---------------------------------------------------------------------------
 
 describe("computeScrollTarget", () => {
+  it.each([0, 1, 3])("preserves fixed-row empty/short destination behaviour (%i items)", bufferLength => {
+    for (const makeInput of [gridInput, tableInput]) {
+      expect(computeScrollTarget(makeInput({
+        bufferLength, currentScrollTop: 15000, backwardItemCount: 0,
+      }))).toEqual({ scrollTargetIndex: bufferLength === 0 ? -1 : 0, seekSubRowOffset: 0 });
+      expect(computeScrollTarget(makeInput({
+        bufferLength, actualOffset: 10000 - bufferLength, clampedOffset: 10000,
+        currentScrollTop: 0, backwardItemCount: 0,
+      }))).toEqual({ scrollTargetIndex: bufferLength - 1, seekSubRowOffset: 0 });
+    }
+  });
+
+  it("keeps headroom carry when a requested true end replaces the reverse index", () => {
+    expect(computeScrollTarget(gridInput({
+      currentScrollTop: 15.25, actualOffset: 9700, clampedOffset: 9800,
+    }))).toEqual({ scrollTargetIndex: 299, seekSubRowOffset: 15.25 });
+  });
+
+  it("does not treat a near-end request as proof that the buffer reached the end", () => {
+    expect(computeScrollTarget(gridInput({
+      currentScrollTop: 15.25, actualOffset: 5000, clampedOffset: 9700,
+    }))).toEqual({ scrollTargetIndex: 100, seekSubRowOffset: 15.25 });
+  });
+
   // -------------------------------------------------------------------------
   // Case 1: scrollTop=0 with backward headroom (the cold-start bug)
   //

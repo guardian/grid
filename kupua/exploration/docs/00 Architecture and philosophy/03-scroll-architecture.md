@@ -292,10 +292,11 @@ reused, not restarted. Pending or settled AI queries never issue ordinary window
    user's viewport in the middle (~100 items of headroom above).
 5. `countBefore` query returns the exact global offset we landed at.
    `bufferOffset` adjusted for backward items: `actualOffset - backwardHits`.
-6. Buffer is replaced. `_seekGeneration` increments.
-7. `useScrollEffects` effect #6 fires: reverse-computes the local index
-   that corresponds to the user's current `scrollTop` → typically delta
-   <1 row → **no-op**. Zero visible flash.
+6. The store prepares the destination target from current `scrollTop` and destination
+   geometry, then publishes it with the replacement buffer and `_seekGeneration`.
+7. `useScrollEffects` effect #6 applies that target through current geometry;
+   the existing row-delta guard avoids unnecessary movement, with sub-row carry
+   applied separately when required.
 8. At 150ms (`SEEK_DEFERRED_SCROLL_MS`), a synthetic scroll event triggers
    `reportVisibleRange`. With ~100 items of headroom, `startIndex > 50`
    (EXTEND_THRESHOLD) — **no immediate backward extend**. Forward extend
@@ -307,6 +308,23 @@ reused, not restarted. Pending or settled AI queries never issue ordinary window
 Total time: ~250–600ms on real ES (one extra backward fetch, ~50-100ms).
 Settle-window content shift: **0 items** (bidirectional seek ensures all prepends
 happen off-screen).
+
+### Destination seek preparation
+
+[prepareDestinationSeek](../../../src/lib/destination-seek.ts) owns the shared numeric
+headroom adjustment, sub-row carry selection and requested true-end target. Reaching the
+end requires the destination buffer to cover the effective total, not merely a near-end
+request. The store retains null-zone-aware totals, exact-versus-estimated admission, cursor
+mapping, publication and separately owned focus intent. Exact offsets bypass reverse
+preparation; the helper performs no reads, scroll writes or state changes.
+
+Fixed-row `computeScrollTarget` retains extrapolation and arithmetic shrink handling.
+Variable `prepareSeek` constructs destination geometry, clamps lookup and handles empty
+destinations before applying shared policy, then retains its own shrink/final clamping.
+Do not replace either with invented columns or average-row geometry. The empty fixed
+calculator can return -1; variable preparation returns 0. These are retained calculator
+contracts, not permission to publish a nonexistent image. Caller-level tests remain
+independent of the helper. This policy extraction is a maintenance change, not a speedup.
 
 ### Sort-around-focus ("Never Lost")
 
@@ -548,6 +566,36 @@ Deep keyword seeks bypass raw-primary percentile estimation. A cached keyword
 bucket still uses a valid uploadTime percentile scoped to that bucket; absent or
 incomplete bucket coverage uses the composite fallback. Width and height also have
 distribution descriptors, but remain numeric primary-estimation paths, as do dates.
+
+### Bounded justified geometry costs
+
+For a buffer of N images, dimensions are bounded by N+94 and each ID map by N. At default
+capacity 1,000, up to 22 known technical blocks intersect the buffer. Unknown full, non-final
+indexed blocks share one square estimate, created only on first use within that construction.
+Builds without eligible blocks do not create it; subsequent constructions never reuse it.
+Known and true-final blocks are packed independently. Indexed block descriptors are O(ceil(total/48)), up to 1,355 at
+the default 65,000 threshold. Virtualizer storage is O(row count), with high-water capacity.
+Mounted old/new layouts, temporary seek geometry and committed dimension snapshots can
+coexist: the dimension bound is not an aggregate heap bound on JS, typed arrays and WASM.
+Resident/indexed thresholds (1,000/65,000) and buffer capacity (1,000) remain configurable.
+
+At most three trailing suffix searches each evaluate m(m+1)/2 intervals: conservative
+bounds are 3,528 per affected block and 81,144 per default-capacity construction. Full
+endings exit early. Construction occurs on publication/reflow; ordinary scroll renders
+reuse layout. Rebuilding intersecting blocks, measuring from zero and preparing temporary
+seek geometry can amplify that work, but these are static bounds and hypotheses, not
+measured jank or leaks. Prefer removing demonstrated redundant work or narrowing
+invalidation before introducing caches or prefix-tree representations.
+
+Existing density campaigns are seek-regime evidence, not near-threshold indexed,
+continuous-resize, <600px target-height-transition or aggregate-heap coverage. Fixed-duration
+frame sampling is not action latency; geometry readiness is not decode readiness. Page
+size/capacity and held maintenance checks do not prove natural-scroll request frequency.
+If a selected refactor needs that evidence, attribute starts/completions/cancellations and
+outstanding work by direction through forward eviction and reverse prepend. Do not infer
+amplification from buffer bounds alone or enlarge reads/retention to improve measurements.
+See the [performance handbook](../../../e2e-perf/README.md#density-comparisons-and-thumbnail-exposure)
+for matched-condition requirements; campaigns remain operator-approved work.
 
 ### When this architecture breaks
 

@@ -75,6 +75,10 @@ Traditional DAMs treat "list view" and "grid view" as discrete modes with a togg
 
 That said, the first implementation will likely have discrete stops (table, grid, image). The slider is aspirational. The architecture should not prevent it.
 
+Current development has Grid, Table and Justified buttons. Grid selection is idempotent;
+clicking active Table or Justified returns to Grid. The spectrum above expresses design intent; current preservation rules and
+deliberate relaxations belong in the [position guide](02-focus-and-position-preservation.md).
+
 ---
 
 ## Interaction Principles

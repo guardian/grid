@@ -52,7 +52,7 @@ The root wraps the route outlet in `ErrorBoundary` and mounts one `ToastContaine
 
 ## Preferences and Layout State (`stores/ui-prefs-store.ts`, `column-store.ts`, `panel-store.ts`)
 
-`ui-prefs-store` initializes grid/table density from sessionStorage before views mount. Every
+`ui-prefs-store` initializes the available density from sessionStorage before views mount. Every
 choice persists immediately and advances a density-intent counter, including same-value choices.
 Focus mode and graphic-image blur are localStorage preferences; coarse pointers force effective
 phantom mode without overwriting the saved choice. Callers use the effective-mode helpers.
@@ -620,6 +620,39 @@ placement remain in the shared hooks. Cells use `useEnrichedImage` for cost/usag
 `image-borders.ts` for provenance styling and `graphic-image-blur.ts` for the user-controlled blur.
 Date labels follow the primary sort. Metadata pills stop propagation so searching a value does
 not also select/open its image. Browsing, selection and middle-click preview use the shared owners.
+
+## Justified Density (`components/JustifiedGrid.tsx`, `lib/windowed-justified-layout.ts`)
+
+Justified supplies ordered, uncropped geometry to ImageGrid's shared cells and interaction
+owners, not a second gallery or scrolling lifecycle. Image-only cells omit informational
+metadata/badges, not selection or safety indicators. Mounted geometry belongs to ImageGrid;
+JustifiedGrid keeps bounded ID/ratio snapshots only after commit, so abandoned renders cannot
+replace committed context. Query/no-overlap replacement invalidates that context. No image
+records, visited-history cache or catalogue-wide layout are retained by the snapshot.
+
+Packing uses oriented dimensions with square fallback, 48-image technical blocks, 4px spacing
+and target row height 190px at widths >=600px or 130px below that boundary, with 0.5 tolerance.
+Blocks are not dates, network pages or semantic groups. Unknown full, non-final indexed blocks
+share a square estimate created on first use per construction, never cached across publications
+or widths. Known and true-final blocks retain independent packing. Indexed boundaries are exact;
+seek ordinals come from overlapping identities,
+not estimated ranks. Temporary buffer edges do not authorise true-end truncation or imply
+globally exact pixels at arbitrary entry points.
+
+Non-final endings balance at most three trailing rows, preferring the widest feasible suffix
+and trying shorter suffixes when necessary. Earlier rows and natural true-final endings stay
+unchanged; infeasible suffixes retain engine output. The objective and trade-off belong in
+[deviations](../deviations.md#balanced-technical-justified-block-endings-15-october-2026).
+Small interior engine-cap underfills are separate from technical seams or missing thumbnails;
+rounding tolerance never permits changed aspect ratios. Narrow portrait selection-target
+usability needs separate proof. Cross-block dependencies require a concrete failing case,
+not a speculative improvement to these technical boundaries.
+
+Fixed Grid columns and Justified target row height are distinct sizing parameters. They share
+capture/reflow ownership, not column arithmetic; no sizing controls are implemented. See
+[position contracts](02-focus-and-position-preservation.md#4-transitions-and-relaxations),
+[seek policy and costs](03-scroll-architecture.md#destination-seek-preparation), and
+[availability/licensing](../../../README.md#justified-development-and-fixtures).
 
 ## Image Detail (`components/ImageDetail.tsx`)
 

@@ -1,5 +1,7 @@
 import { test, expect, type Page, type CDPSession } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { KupuaHelpers } from "../e2e/shared/helpers";
+import { getDensityChangeButton } from "../e2e/shared/density-selection";
 import { installThumbnailProbe } from "./thumbnail-probe.mjs";
 import { selectDensity, electAnchor, waitForPlacement, visibleMediaReadiness, scrollAtSpeed, withDensityScrollNetwork } from "./density-browser";
 
@@ -209,6 +211,100 @@ test("offscreen readiness has positive lead; no-data placeholders are not thumbn
   }
 });
 
+for (const active of [false, true]) {
+  for (const density of ["grid", "table", "justified"] as const) {
+    test(`density selection preserves caller operation order (${density}, active=${active})`, async () => {
+      const operations: string[] = [];
+      const button = {
+        getAttribute: async (attribute: string) => {
+          expect(attribute).toBe("aria-pressed");
+          operations.push("read-pressed");
+          return String(active);
+        },
+        click: async () => { operations.push("click"); },
+      };
+      const page = {
+        getByRole: (role: string, options: { name: string; exact: boolean }) => {
+          expect(role).toBe("button");
+          expect(options).toEqual({ name: `${density[0].toUpperCase()}${density.slice(1)} view`, exact: true });
+          operations.push("lookup");
+          return button;
+        },
+        evaluate: async () => { operations.push("capture-generation"); return 7; },
+        waitForFunction: async () => { operations.push("wait"); },
+      } as unknown as Page;
+      expect(await getDensityChangeButton(page, density)).toBe(active ? null : button);
+      expect(operations).toEqual(["lookup", "read-pressed"]);
+      operations.length = 0;
+      await selectDensity(page, density);
+      expect(operations).toEqual(["lookup", "read-pressed", ...(active ? [] : ["click"]), "wait"]);
+      if (density === "justified") return;
+      operations.length = 0;
+      const helpers = new KupuaHelpers(page);
+      helpers.waitForResults = async () => { operations.push("results"); };
+      helpers.waitForExtendReady = async () => { operations.push("extend-ready"); };
+      await (density === "grid" ? helpers.switchToGrid() : helpers.switchToTable());
+      expect(operations).toEqual(["lookup", "read-pressed", ...(active ? []
+        : ["capture-generation", "click", "wait", "results", "extend-ready"])]);
+    });
+  }
+}
+
+test("density selection guard rejects a missing exact control", async ({ page }) => {
+  await fixture(page);
+  await page.evaluate(() => {
+    const button = document.createElement("button");
+    button.setAttribute("aria-label", "Justified view extra");
+    button.setAttribute("aria-pressed", "true");
+    document.body.append(button);
+  });
+  page.setDefaultTimeout(150);
+  await expect(getDensityChangeButton(page, "justified")).rejects.toThrow(/Timeout/);
+});
+
+for (const multiple of [false, true]) {
+  test(`density selection retains region rejection (multiple=${multiple})`, async ({ page }) => {
+    await fixture(page, "table");
+    await page.evaluate(multiple => {
+      const button = document.createElement("button");
+      button.setAttribute("aria-label", "Justified view");
+      button.setAttribute("aria-pressed", "true");
+      document.body.append(button);
+      if (multiple) {
+        const region = document.createElement("div");
+        region.setAttribute("role", "region");
+        region.setAttribute("aria-label", "Image results justified");
+        document.body.append(region);
+      }
+    }, multiple);
+    page.setDefaultTimeout(150);
+    expect(await getDensityChangeButton(page, "justified")).toBeNull();
+    await expect(selectDensity(page, "justified")).rejects.toThrow(/Timeout/);
+  });
+}
+
+test("density selection awaits caller-owned region acknowledgement", async () => {
+  let release!: () => void;
+  let notifyWaiting!: () => void;
+  const acknowledgement = new Promise<void>(resolve => { release = resolve; });
+  const waiting = new Promise<void>(resolve => { notifyWaiting = resolve; });
+  const page = {
+    getByRole: () => ({ getAttribute: async () => "true" }),
+    waitForFunction: async () => { notifyWaiting(); await acknowledgement; },
+  } as unknown as Page;
+  let completed = false;
+  const selection = selectDensity(page, "justified").then(() => { completed = true; });
+  try {
+    await waiting;
+    await new Promise<void>(resolve => setImmediate(resolve));
+    expect(completed).toBe(false);
+  } finally {
+    release();
+    await selection;
+  }
+  expect(completed).toBe(true);
+});
+
 test("density selection is idempotent and detail setup retains the paired identity", async ({ page }) => {
   await fixture(page);
   await page.evaluate(() => {
@@ -216,22 +312,29 @@ test("density selection is idempotent and detail setup retains the paired identi
     const old = region.innerHTML;
     region.innerHTML = '<div style="height:70px"></div>' + old;
     const toolbar = document.createElement("div");
-    for (const density of ["grid", "justified"]) {
+    for (const density of ["grid", "table", "justified"]) {
       const button = document.createElement("button");
       button.setAttribute("aria-label", `${density[0].toUpperCase()}${density.slice(1)} view`);
       button.setAttribute("aria-pressed", String(density === "grid"));
       button.onclick = () => {
         (window as any).__clicks = ((window as any).__clicks ?? 0) + 1;
-        region.setAttribute("aria-label", `Image results ${density}`);
-        for (const sibling of toolbar.children) sibling.setAttribute("aria-pressed", String(sibling === button));
+        const chosen = density !== "grid" && button.getAttribute("aria-pressed") === "true" ? "grid" : density;
+        region.setAttribute("aria-label", `Image results ${chosen}`);
+        for (const sibling of toolbar.children) {
+          sibling.setAttribute("aria-pressed", String(sibling.getAttribute("aria-label") ===
+            `${chosen[0].toUpperCase()}${chosen.slice(1)} view`));
+        }
       };
       toolbar.append(button);
     }
     document.body.append(toolbar);
   });
-  await selectDensity(page, "justified");
-  await selectDensity(page, "justified");
-  expect(await page.evaluate(() => (window as any).__clicks)).toBe(1);
+  for (const density of ["table", "grid", "justified"] as const) {
+    await selectDensity(page, density);
+    await selectDensity(page, density);
+    await expect(page.getByRole("region", { name: `Image results ${density}`, exact: true })).toBeVisible();
+  }
+  expect(await page.evaluate(() => (window as any).__clicks)).toBe(3);
   await electAnchor(page, "justified", true);
   expect(await page.evaluate(() => (window as any).__densityAnchor)).toBe("fixture-a");
   await page.evaluate(() => { (window as any).__densityAnchor = "not-present"; });

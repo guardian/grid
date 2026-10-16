@@ -1,6 +1,7 @@
 import type { CDPSession, Page } from "@playwright/test";
+import { getDensityChangeButton, type Density } from "../e2e/shared/density-selection";
 
-export type Density = "grid" | "justified" | "table";
+export type { Density } from "../e2e/shared/density-selection";
 
 /** Only D8 constrains transport; no bootstrap, navigation or paired-source setup runs inside. */
 export async function withDensityScrollNetwork<T>(cdp: CDPSession, workload: string, observe: () => Promise<T>): Promise<T> {
@@ -179,8 +180,8 @@ export async function waitForDensityEviction(page: Page, density: Density, previ
 }
 
 export async function selectDensity(page: Page, density: Density) {
-  const button = page.getByRole("button", { name: `${density[0].toUpperCase()}${density.slice(1)} view`, exact: true });
-  if (await button.getAttribute("aria-pressed") !== "true") await button.click();
+  const button = await getDensityChangeButton(page, density);
+  if (button) await button.click();
   await page.waitForFunction(density => {
     const regions = document.querySelectorAll('[role="region"][aria-label^="Image results "]');
     return regions.length === 1 && regions[0].getAttribute("aria-label") === `Image results ${density}`;

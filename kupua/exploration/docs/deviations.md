@@ -708,7 +708,14 @@ retains engine output rather than cropping, hiding images or raising the height 
 Trade-off: a bounded quadratic search during layout publication/resize and potentially
 shorter or taller trailing rows, without cross-block dependencies, additional reads,
 retained dimensions or a second placement owner. This is not a guarantee that every
-engine-cap gap disappears; small interior underfills can occur with ordinary ratios too. See the [seam contract and proof](justified-density-prototype-plan.md#2-boundaries-to-retain).
+engine-cap gap disappears; ordinary ratios have exhibited 4-17px interior underfills at
+320px. These are not technical seams or missing thumbnails. Floating tolerances allow
+rounding, not changed aspect ratios; no hiding results or raising caps to manufacture
+universally filled rows. Cross-block overlap would change neighbouring invalidation and
+eviction responsibilities and needs a concrete failing discriminator. Narrower-first
+balancing, semantic grouping and discrete sizing remain separate decisions. See the
+[geometry contract](00%20Architecture%20and%20philosophy/component-detail.md#justified-density-componentsjustifiedgridtsx-libwindowed-justified-layoutts)
+and [cost model](00%20Architecture%20and%20philosophy/03-scroll-architecture.md#bounded-justified-geometry-costs).
 
 > **Browser & CSS workarounds index** — fights with browsers, the web
 > platform, and CSS that required overrides, hacks, or non-obvious

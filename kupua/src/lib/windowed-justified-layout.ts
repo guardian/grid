@@ -1,6 +1,7 @@
 import type { Image } from "@/types/image";
 import type { LayoutRow, WindowGeometry, WindowSeekInput } from "@/lib/scroll-geometry-ref";
 import { buildRatioLayout, imageRatio, type ImageLayout, type JustifiedLayout } from "@/lib/justified-layout";
+import { prepareDestinationSeek } from "@/lib/destination-seek";
 
 export const JUSTIFIED_BLOCK_SIZE = 48;
 
@@ -75,7 +76,7 @@ export function buildWindowedJustifiedLayout(
   const blocks: Block[] = [];
   const begin = context.indexed ? 0 : firstBlock;
   const end = context.indexed ? context.total : origin + images.length;
-  const estimated = buildRatioLayout(Array(size).fill(1), width, true);
+  let estimated: JustifiedLayout | undefined;
   let rowCount = 0;
   let height = 0;
   for (let blockStart = begin; blockStart < end; blockStart += size) {
@@ -85,7 +86,7 @@ export function buildWindowedJustifiedLayout(
     const count = blockEnd - start;
     const known = blockStart >= firstBlock && blockStart <= lastBlock;
     const trueEnd = blockEnd === end && (context.indexed || context.bufferOffset + images.length >= context.total);
-    const packed = !known && count === size && !trueEnd ? estimated
+    const packed = !known && count === size && !trueEnd ? (estimated ??= buildRatioLayout(Array(size).fill(1), width, true))
       : buildRatioLayout(Array.from({ length: count }, (_, index) => dimensions.get(start + index)?.ratio ?? 1), width, !trueEnd);
     const first = context.indexed ? 0 : Math.max(0, origin - start);
     const last = context.indexed ? count - 1 : Math.min(count - 1, end - start - 1);
@@ -168,18 +169,18 @@ export function buildWindowedJustifiedLayout(
           context.indexed ? undefined : layout);
         const row = next.rowAtOffset(input.scrollTop);
         if (!row) return { scrollTargetIndex: 0, seekSubRowOffset: 0 };
-        let index = row.firstItemIndex;
-        let seekSubRowOffset = 0;
-        if (input.backwardItemCount > 0 && index < input.backwardItemCount) {
-          index += input.backwardItemCount;
-          seekSubRowOffset = Math.max(0, input.scrollTop - row.top);
-        }
-        if (input.bufferOffset + input.images.length >= input.total) {
-          if (input.clampedOffset >= input.total - input.images.length) index = input.images.length - 1;
-        } else if (index >= input.images.length || next.getItemRow(index).top >= next.height - input.clientHeight) {
+        const prepared = prepareDestinationSeek({
+          reverseIndex: row.firstItemIndex, subRowOffset: Math.max(0, input.scrollTop - row.top),
+          backwardItemCount: input.backwardItemCount, bufferLength: input.images.length,
+          actualOffset: input.bufferOffset, total: input.total, clampedOffset: input.clampedOffset,
+        });
+        let index = prepared.endTargetIndex ?? prepared.reverseIndex;
+        if (!prepared.atRealEnd &&
+            (index >= input.images.length || next.getItemRow(index).top >= next.height - input.clientHeight)) {
           index = next.rowAtOffset(Math.max(0, next.height - input.clientHeight))!.firstItemIndex;
         }
-        return { scrollTargetIndex: Math.max(0, Math.min(input.images.length - 1, index)), seekSubRowOffset };
+        return { scrollTargetIndex: Math.max(0, Math.min(input.images.length - 1, index)),
+          seekSubRowOffset: prepared.seekSubRowOffset };
       },
     },
   };

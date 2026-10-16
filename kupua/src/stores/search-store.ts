@@ -50,6 +50,7 @@ import { buildSearchKey, extractSortValues, getRetainedSortValues, retainSortVal
 import { devLog } from "@/lib/dev-log";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
 import { getLayoutGeometry, requireFixedRowGeometry, alignWindowStart, windowEvictionCount } from "@/lib/scroll-geometry-ref";
+import { prepareDestinationSeek } from "@/lib/destination-seek";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
 import { addToast } from "@/stores/toast-store";
 import {
@@ -177,28 +178,16 @@ export function computeScrollTarget(input: ComputeScrollTargetInput): ComputeScr
   // adjustment — and (b) produces negative seekSubRowOffset values that
   // bypass the `seekSubRowOffset > 0` guard in effect #6.
   const currentRow = Math.floor(currentScrollTop / rowH);
-  let reverseIndex = currentRow * cols;
-  let seekSubRowOffset = 0;
-
-  // Bidirectional seek offset: shift reverseIndex past the headroom zone.
-  if (backwardItemCount > 0 && reverseIndex < backwardItemCount) {
-    const subRowOffset = currentScrollTop - (currentRow * rowH);
-    reverseIndex += backwardItemCount;
-    seekSubRowOffset = subRowOffset;
-  }
-
-  // At-real-end detection
-  const atRealEnd = actualOffset + bufferLength >= total;
+  const { reverseIndex, seekSubRowOffset, atRealEnd, endTargetIndex } = prepareDestinationSeek({
+    reverseIndex: currentRow * cols,
+    subRowOffset: currentScrollTop - currentRow * rowH,
+    backwardItemCount, bufferLength, actualOffset, total, clampedOffset,
+  });
 
   let scrollTargetIndex: number;
 
   if (atRealEnd) {
-    const soughtNearEnd = clampedOffset >= total - bufferLength;
-    if (soughtNearEnd) {
-      scrollTargetIndex = bufferLength - 1;
-    } else {
-      scrollTargetIndex = Math.max(0, Math.min(reverseIndex, bufferLength - 1));
-    }
+    scrollTargetIndex = endTargetIndex ?? Math.max(0, Math.min(reverseIndex, bufferLength - 1));
   } else {
     const totalRows = Math.ceil(bufferLength / cols);
     const newScrollHeight = totalRows * rowH;

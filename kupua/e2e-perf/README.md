@@ -187,6 +187,21 @@ proxy/CDN/server caches. Repeat-path setup does not guarantee every resource is 
   browser origin; API flags select their authenticated origin. `CPU_THROTTLE` is an explicit
   diagnostic setting and must match for comparisons.
 
+### Coverage limits
+
+The recorded pre-seam direct-ES and media-api campaigns cover seek-regime outcomes, not
+controlled transport overhead, near-threshold indexed construction, continuous resize,
+the <600px target-height transition or aggregate heap. Dimension/cardinality bounds do not
+certify frame time or total JS/typed-array/WASM retention; see the
+[geometry cost model](../exploration/docs/00%20Architecture%20and%20philosophy/03-scroll-architecture.md#bounded-justified-geometry-costs).
+Held maintenance and page-size checks do not establish natural-scroll request frequency.
+
+When a comparison is warranted, a matched four-repetition density campaign is the smallest
+useful comparison: hold corpus, backend, regime, width and cache/network profile comparable,
+with Grid controls. Packing changes which images occur per pixel; media differences are not
+packing-algorithm timings. A scalar seek-policy extraction does not itself justify a new
+campaign or a performance claim. Campaigns and dry runs remain separately approved work.
+
 ## Dashboards and reports
 
 Open the dashboard links above directly from disk; no server is required. They load local JS
@@ -229,6 +244,13 @@ observable completion boundary; fixed sleeps are not proof. Missing phases/recor
 conditions must not silently shrink a sample. Version changed workloads and preserve history.
 Never persist credentials, raw live identities/URLs, request bodies or unredacted traces.
 Do not import Vite-only modules into Node-executed specs; use browser-side access where needed.
+
+Density selection shares only the [exact-button/pressed-state guard](../e2e/README.md#density-selection-guard).
+Keep its caller-owned clicks and waits inside their existing observation windows: the density
+Table-transition epoch precedes selection, and P4 includes the ordinary helper's existing
+restoration/results/cooldown waits. The extraction adds a Node Promise continuation but no
+browser command or shifted boundary; unchanged operation order is not measured latency parity.
+No workload revision or campaign follows from this extraction alone.
 
 | Need | Owning reference |
 | --- | --- |

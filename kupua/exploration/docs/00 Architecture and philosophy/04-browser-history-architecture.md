@@ -31,6 +31,13 @@ Back after Home does not restore an old density.
 Missing/invalid/unavailable storage defaults quietly to grid; runtime choices stay
 usable. Local preference hydration cannot overwrite this session-owned state.
 
+These rules also apply to Justified. A destination snapshot supplies identity,
+ratio and focus/NONE in the current density; a missing destination keeps top/no-focus
+fallback, never departing-neighbour adoption. Search/history coordinates exclude header
+and padding flow, unlike density-switch coordinates. Native detail/fullscreen close without
+traversal retains mounted placement; traversed return centres through current geometry,
+including Table's usable-height adjustment and missing-target/supersession guards.
+
 ### Startup Default Admission
 
 `useUrlSearchSync` resolves a bare initial entry from `home-defaults` before

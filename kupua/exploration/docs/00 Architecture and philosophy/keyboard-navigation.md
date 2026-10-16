@@ -1,6 +1,6 @@
 # Keyboard Navigation
 
-> How kupua handles keyboard scrolling and focus in grid/table views.
+> How kupua handles keyboard scrolling and focus in Grid, Table and Justified views.
 > Includes the page-scroll math and how it differs from kahuna.
 
 ## The Two Modes
@@ -36,6 +36,15 @@ cell). In table view, focus clearing is not yet implemented.
 | **Home** | Scroll to top (seek if windowed) | Scroll to top + focus first image |
 | **End** | Scroll to bottom (seek if windowed) | Scroll to bottom + focus last image |
 | **Enter** | *(nothing)* | Open focused image detail |
+
+### Justified spatial navigation
+
+Horizontal keys follow result order. Vertical movement chooses the nearest horizontal
+centre in the adjacent row, with result order breaking ties; page movement uses actual
+row geometry. Off-buffer row/page intent uses the existing snap-back lifecycle and admitted
+destination geometry. Newer input supersedes it; selection/phantom paging cannot promote
+hidden focus. The fixed-row arithmetic below applies to Grid/Table, not synthetic columns
+or an average row height for Justified.
 
 ### Deferred End
 
