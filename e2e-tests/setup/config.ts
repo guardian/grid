@@ -27,6 +27,32 @@ const GENERATE_CONFIG_DIR = path.join(REPO_ROOT, 'dev', 'script', 'generate-conf
 
 const GRID_SERVICES = Object.keys(SERVICE_PORTS);
 
+// Keep the default categories, replacing Chargeable so legacy rights map to PayToUse.
+const E2E_APPLICABLE_USAGE_RIGHTS = [
+  'NoRights',
+  'Handout',
+  'PrImage',
+  'Screengrab',
+  'SocialMedia',
+  'Agency',
+  'CommissionedAgency',
+  'PayToUse',
+  'Bylines',
+  'StaffPhotographer',
+  'ContractPhotographer',
+  'CommissionedPhotographer',
+  'CreativeCommons',
+  'GuardianWitness',
+  'Pool',
+  'CrownCopyright',
+  'Obituary',
+  'ContractIllustrator',
+  'CommissionedIllustrator',
+  'StaffIllustrator',
+  'Composite',
+  'PublicDomain',
+].map((category) => `com.gu.mediaservice.model.${category}`);
+
 type StackProps = Record<string, string>;
 
 /**
@@ -175,6 +201,7 @@ export function generateServiceConfig(
     [
       'play.http.secret.key = "testcontainers-e2e-application-secret-0123456789"',
       'enforceUploadImagesPermission = true',
+      `usageRights.applicable = ${JSON.stringify(E2E_APPLICABLE_USAGE_RIGHTS)}`,
       '',
     ].join('\n'),
   );
