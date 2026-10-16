@@ -9,7 +9,10 @@ import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import scala.io.Source
 
 object EyeVine extends App {
-  val options = args.flatMap(_.split("=", 2) match { case Array(name, value) => Some(name -> value); case _ => None }).toMap
+  val options = args.flatMap(_.split("=", 2) match {
+    case Array(name, value) => Some(name -> value)
+    case _ => None
+  }).toMap
   def required(name: String) = options.getOrElse(name, throw new IllegalArgumentException(s"Missing $name argument"))
   val GRIDKEY = required("GRIDKEY")
   val STAGE = required("STAGE")
