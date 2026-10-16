@@ -55,7 +55,14 @@ export default defineConfig({
     {
       name: 'chromium',
       dependencies: ['auth'],
-      use: { ...devices['Desktop Chrome'], storageState: AUTH_STATE_PATH },
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: AUTH_STATE_PATH,
+        /* Documents served through page.route (used to switch config flags in the rights steps)
+           are treated as public origins, so Chrome's local-network check blocks their calls to the
+           loopback Grid API. Disable that check for this project only. */
+        launchOptions: { args: ['--disable-features=LocalNetworkAccessChecks'] },
+      },
     },
   ],
   expect: {
