@@ -51,10 +51,11 @@ Then('the description should default to the file name without its extension', as
   await expect(uploadPage(page).metadataField.description).toHaveValue(expected);
 });
 
-Given('an uploaded image is shown in my current uploads', async ({ page }) => {
+Given('an uploaded image is shown in my current uploads', async ({ page, testContext }) => {
   // A unique image so deleting it can't affect other scenarios or re-runs.
   await uploadPage(page).fileInput.setInputFiles(uniqueImage().path);
   await expect(uploadPage(page).deleteJobButton).toBeVisible();
+  testContext.deleteButton = uploadPage(page).deleteJobButton;
 });
 
 When('I view my current uploads', async ({ page }) => {
@@ -140,9 +141,10 @@ Then('I should be able to undelete it', async ({ page }) => {
   await expect(undelete).toBeHidden();
 });
 
-When('deleting the image fails', async ({ page }) => {
+When('deleting the image fails', async ({ page, testContext }) => {
   await failDelete(page);
-  const remove = uploadPage(page).deleteJobButton;
+  // The delete control is chosen by whichever Given set up the image under test.
+  const remove = testContext.deleteButton!;
   await remove.click(); // arms the confirm
   await remove.click(); // confirms
 });
