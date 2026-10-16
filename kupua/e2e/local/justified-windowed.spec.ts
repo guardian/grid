@@ -167,6 +167,30 @@ test("windowed density, panel, history and traversed detail preserve identity an
   await page.waitForFunction(key => (window as any).__kupua_getKupuaKey__() === key &&
     (window as any).__kupua_store__.getState()._searchContinuity?.phase === "placed", key);
   await expect.poll(async () => Math.abs((await placement(page, id))!.y - before.y)).toBeLessThan(1);
+  for (const source of ["grid", "justified", "table"] as const) {
+    await density(page, source);
+    const departure = await placement(page, id);
+    expect(departure.y).toBeGreaterThan(0);
+    expect(departure.y + departure.height).toBeLessThan(departure.viewport);
+    await page.getByRole("button", { name: "Sort descending, click to sort ascending", exact: true }).click();
+    await page.waitForFunction(() => {
+      const state = (window as any).__kupua_store__.getState();
+      return state.params.orderBy === "uploadTime" && !state.loading && state._searchContinuity?.phase === "placed";
+    });
+    expect(await page.evaluate(key => (window as any).__kupua_inspectSnapshot__(key)?.anchorImageId, key)).toBe(id);
+    await density(page, source === "table" ? "justified" : "table");
+    await page.goBack();
+    await page.waitForFunction(key => {
+      const state = (window as any).__kupua_store__.getState();
+      return (window as any).__kupua_getKupuaKey__() === key && !state.loading
+        && state._searchContinuity?.provenance === "history" && state._searchContinuity.phase === "placed";
+    }, key);
+    await density(page, source);
+    await expect.poll(async () => Math.abs((await placement(page, id)).y - departure.y)).toBeLessThan(1);
+    expect(await kupua.getFocusedImageId()).toBe(id);
+    expect(await page.evaluate(() => (window as any).__kupua_selection_store__.getState().selectedIds.size)).toBe(0);
+  }
+  await density(page, "justified");
   const point = await kupua.waitForHitTestedImagePoint({ view: "justified", imageId: id });
   await page.mouse.dblclick(point.x, point.y);
   await expect(page.locator("[data-detail-image-id]")).toBeVisible();

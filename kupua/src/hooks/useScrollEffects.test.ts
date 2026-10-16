@@ -34,7 +34,7 @@ vi.mock("@/hooks/useDataWindow", async (importOriginal) => {
     getVisibleImageIds: () => anchor.visibleIds ?? actual.getVisibleImageIds() };
 });
 
-import { useSearchStore } from "@/stores/search-store";
+import { getSearchGeneration, useSearchStore } from "@/stores/search-store";
 import { ApiDataSource } from "@/dal/api-data-source";
 import { ElasticsearchDataSource } from "@/dal/es-adapter";
 import { MockDataSource } from "@/dal/mock-data-source";
@@ -430,6 +430,57 @@ async function aiContinuityFixture(transport: "direct-ES" | "media-api", total =
     } };
 }
 
+it("retries header-inclusive history after a partial resident buffer grows", () => {
+  const images = useSearchStore.getState().results.slice(0, 100);
+  const targetId = images[29]!.id;
+  const selectedIds = new Set([images[5]!.id]);
+  const owner = new AbortController().signal;
+  const continuity = searchContinuity.historySearchContinuity({
+    searchKey: buildSearchKey(routeParams), anchorImageId: targetId,
+    anchorIsPhantom: false, anchorOffset: 29, viewportRatio: 0.32,
+    viewportHeaderRatio: 0.08, newCountSince: null,
+  }, routeParams);
+  const publish = (length: number) => {
+    const results = images.slice(0, length);
+    useSearchStore.setState({ results, imagePositions: new Map(results.map((image, index) => [image!.id, index])) });
+  };
+  useSearchStore.setState({ ...initialState, dataSource: new MockDataSource(100), params: routeParams,
+    total: 100, bufferOffset: 0, focusedImageId: targetId, sortAroundFocusGeneration: 1,
+    _searchContinuity: { ...continuity, owner, searchGeneration: getSearchGeneration(), phase: "ready" } }, true);
+  publish(30);
+  useSelectionStore.setState({ selectedIds, anchorId: images[5]!.id });
+  const view = mountDensity({ ...table, headerOffset: 48 });
+  const placements = vi.mocked(view.virtualizer.scrollToOffset);
+  const targetViewportTop = () => 976 - view.container.scrollTop;
+
+  expect(placements).toHaveBeenCalledExactlyOnceWith(408);
+  expect(view.container.scrollTop).toBe(view.container.scrollHeight - view.container.clientHeight);
+  expect(targetViewportTop()).toBe(568);
+  expect(targetViewportTop() + 32).toBe(view.container.clientHeight);
+  const placed = useSearchStore.getState()._searchContinuity;
+  expect(placed).toMatchObject({ owner, phase: "placed", targetId,
+    placement: { kind: "ratio", ratio: 0.4, includesHeader: true } });
+
+  act(() => { publish(35); });
+  expect(placements).toHaveBeenNthCalledWith(2, 568);
+  expect(view.container.scrollTop).toBe(view.container.scrollHeight - view.container.clientHeight);
+  expect(targetViewportTop()).toBe(408);
+
+  act(() => { publish(60); });
+  expect(placements).toHaveBeenNthCalledWith(3, 736);
+  expect(targetViewportTop()).toBe(240);
+  expect(view.container.scrollTop).toBeLessThan(view.container.scrollHeight - view.container.clientHeight);
+  act(() => { publish(100); });
+  view.rerender({ geometry: { ...table, headerOffset: 48 } });
+  expect(placements).toHaveBeenCalledTimes(3);
+  expect(targetViewportTop()).toBe(240);
+  expect(useSearchStore.getState()._searchContinuity).toBe(placed);
+  expect(useSearchStore.getState().imagePositions.get(targetId)).toBe(29);
+  expect(useSearchStore.getState().focusedImageId).toBe(targetId);
+  expect(useSelectionStore.getState()).toMatchObject({ selectedIds, anchorId: images[5]!.id });
+  expect(owner.aborted).toBe(false);
+});
+
 describe.each(["direct-ES", "media-api"] as const)("destination history %s through publication and placement", (transport) => {
   it.each([{ total: 100, intent: "clear" }, { total: 12000, intent: "same-id" }] as const)(
     "L42 history with neighbour fallback retains $intent retirement through $total-result discovery", async ({ total, intent }) => {
@@ -599,10 +650,13 @@ describe.each(["direct-ES", "media-api"] as const)("destination history %s throu
     const sourceState = useSearchStore.getState();
     const sourceIndex = sourceState.imagePositions.get(targetId)! - (isTwoTierFromTotal(total) ? 0 : sourceState.bufferOffset);
     view.container.scrollTop = Math.floor(sourceIndex / sourceGeometry.columns) * sourceGeometry.rowHeight - 180;
+    const sourceViewportTop = Math.floor(sourceIndex / sourceGeometry.columns) * sourceGeometry.rowHeight
+      + sourceGeometry.headerOffset - view.container.scrollTop;
     useSearchStore.setState({ newCount: 134 });
     const snapshot = buildHistorySnapshot();
     expect(snapshot.anchorImageId).toBe(targetId);
     expect(snapshot.viewportRatio).toBe(0.3);
+    expect(snapshot.viewportHeaderRatio).toBe(sourceGeometry.headerOffset / view.container.clientHeight);
     expect(snapshot.newCount).toBe(134);
     const key = `layout-history-${total}-${focusMode}-${layout}-${policy}`;
     const oldState = window.history.state;
@@ -631,8 +685,10 @@ describe.each(["direct-ES", "media-api"] as const)("destination history %s throu
       expect(state._searchContinuity).toMatchObject({ targetId, focus: focusMode === "explicit" ? "target" : "none", phase: "placed" });
       expect([...state.imagePositions]).toEqual(state.results.map((image, index) => [image!.id, state.bufferOffset + index]));
       const index = state.imagePositions.get(targetId)! - (isTwoTierFromTotal(total) ? 0 : state.bufferOffset);
-      expect(Math.floor(index / currentGeometry.columns) * currentGeometry.rowHeight - view.container.scrollTop)
-        .toBe(policy === "ratio" ? 180 : (600 - currentGeometry.headerOffset - currentGeometry.rowHeight) / 2);
+      const destinationViewportTop = Math.floor(index / currentGeometry.columns) * currentGeometry.rowHeight
+        + currentGeometry.headerOffset - view.container.scrollTop;
+      expect(destinationViewportTop).toBe(policy === "ratio" ? sourceViewportTop
+        : currentGeometry.headerOffset + (600 - currentGeometry.headerOffset - currentGeometry.rowHeight) / 2);
       expect(state.total).toBe(total);
       expect(state.error).toBeNull();
       expect(state.newCountSince! > snapshot.newCountSince!).toBe(true);

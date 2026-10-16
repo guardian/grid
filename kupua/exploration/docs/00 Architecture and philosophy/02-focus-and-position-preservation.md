@@ -124,9 +124,14 @@ A placement is an anchor plus a viewport ratio. Four captures exist:
   ready view unmount. An unsaved anchor-bearing Home mount supplies centre placement
   through the same chooser and readiness lifecycle, without edge snapping.
 - **Grid column change**: `captureAnchorAtIndex` / `restoreAnchorScrollTop`.
-- **History snapshot** `viewportRatio`, same formula as the search ratio.
+- **History snapshot** `viewportRatio`, same logical formula as the search ratio,
+  plus `viewportHeaderRatio` from the measured header divided by source client height.
+  History adds these fractions and restores with current header flow; legacy snapshots
+  without the header fraction retain their logical-only interpretation.
 
-Search/history coordinates exclude header/padding flow; density coordinates include it.
+Search coordinates exclude header/padding flow; new history and density placement
+include header flow but exclude container padding. This keeps an unclamped interior
+anchor at its original position after cross-density history and a return to its layout.
 Neither can be replaced wholesale with raw DOM coordinates; Table detail centring retains
 its usable-height adjustment. The table's physical spacer includes the measured header
 height so its scroll extent is complete before the last virtual rows mount. This does

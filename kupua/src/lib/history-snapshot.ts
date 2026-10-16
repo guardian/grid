@@ -29,6 +29,7 @@ export interface HistorySnapshot {
    * Null when the anchor couldn't be located in the DOM at capture time.
    */
   viewportRatio: number | null;
+  viewportHeaderRatio?: number;
   /**
    * The `newCountSince` timestamp at capture time — the freeze boundary
    * that separates "results the user has seen" from "new images".

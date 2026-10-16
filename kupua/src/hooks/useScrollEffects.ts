@@ -692,6 +692,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     imageId: string;
     focusedImageId: string | null;
     ratio: number;
+    includesHeader: boolean;
     scrollTop: number;
     resultsLength: number;
     pitGeneration: number;
@@ -749,6 +750,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
         : continuity.placement.kind === "centre" && el && el.clientHeight > 0
           ? (el.clientHeight - geo.headerOffset - row.height) / (2 * el.clientHeight) : null
       : null;
+    const includesHeader = pending?.includesHeader ??
+      (continuity?.placement.kind === "ratio" && continuity.placement.includesHeader === true);
 
     // Consume phantom focus — it's a one-shot positioning aid, not persistent.
     if (store._phantomFocusImageId || continuity?.phase === "ready") {
@@ -807,11 +810,12 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
 
     if (el && savedRatio != null) {
       // Restore the focused item at the same viewport ratio — "Never Lost".
-      const rowTop = row.top;
+      const headerOffset = includesHeader ? geo.headerOffset : 0;
+      const rowTop = row.top + headerOffset;
       let target = rowTop - savedRatio * el.clientHeight;
       // Edge clamping
       const itemY = rowTop - target;
-      if (itemY < 0) target = rowTop;
+      if (itemY < headerOffset) target = rowTop - headerOffset;
       else if (itemY > el.clientHeight - row.height)
         target = rowTop - el.clientHeight + row.height;
       const clamped = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, target));
@@ -824,6 +828,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
           imageId: id,
           focusedImageId: store.focusedImageId,
           ratio: savedRatio,
+          includesHeader,
           scrollTop: el.scrollTop,
           resultsLength,
           pitGeneration: store._pitGeneration,

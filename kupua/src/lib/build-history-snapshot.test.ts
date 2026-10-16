@@ -42,9 +42,10 @@ vi.mock("@/lib/scroll-container-ref", () => ({
   }),
 }));
 
+let mockHeaderOffset = 0;
 vi.mock("@/lib/scroll-geometry-ref", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/scroll-geometry-ref")>(),
-  getLayoutGeometry: () => ({ rowHeight: 303, columns: 5 }),
+  getLayoutGeometry: () => ({ rowHeight: 303, columns: 5, headerOffset: mockHeaderOffset }),
 }));
 
 // Now import the module under test
@@ -85,6 +86,16 @@ describe("buildHistorySnapshot", () => {
     mockStoreState.newCount = 0;
     mockFocusMode = "explicit";
     mockViewportAnchorId = null;
+    mockHeaderOffset = 0;
+  });
+
+  it.each([0, 47.25])("captures measured header flow separately from logical rows (%s px)", (headerOffset) => {
+    mockHeaderOffset = headerOffset;
+    mockStoreState.focusedImageId = "img-a";
+    mockStoreState.imagePositions = new Map([["img-a", 10]]);
+    const snapshot = buildHistorySnapshot();
+    expect(snapshot.viewportRatio).toBe(606 / 1038);
+    expect(snapshot.viewportHeaderRatio).toBe(headerOffset / 1038);
   });
 
   it("returns null anchor when no images exist", () => {

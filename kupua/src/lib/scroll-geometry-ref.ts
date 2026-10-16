@@ -41,7 +41,7 @@ export interface LayoutRow {
 }
 
 /** Logical coordinates exclude header flow and container padding. */
-export type LayoutGeometry = FixedRowGeometry | {
+export type LayoutGeometry = (FixedRowGeometry | {
   window?: WindowGeometry;
   spatial?: SpatialNavigation;
   layout: {
@@ -49,7 +49,7 @@ export type LayoutGeometry = FixedRowGeometry | {
     getRow: (rowIndex: number) => LayoutRow;
     getItemRow: (itemIndex: number) => LayoutRow;
   };
-};
+}) & { headerOffset?: number };
 
 let geometry: LayoutGeometry = { rowHeight: GRID_ROW_HEIGHT, columns: 1 };
 

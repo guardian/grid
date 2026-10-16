@@ -105,6 +105,34 @@ for (const coordinates of ["indexed", "seek"] as const) {
       await expect.poll(async () => (await tail()).fullyVisible).toBe(true);
       expect(await tail()).toMatchObject({ id: initialTail.id, final: true, seekGeneration: residentGeneration, focus: null, selected: 0 });
       expect(Math.abs((await tail()).bottomGap!)).toBeLessThan(1);
+
+      for (const selected of [false, true]) {
+        await kupua.seekTo(0.4, undefined, { waitForPositionMap: coordinates === "indexed" });
+        const point = await kupua.waitForHitTestedImagePoint({ view: "table", topInset: 100 });
+        await page.mouse.click(point.x, point.y);
+        const focus = await kupua.getFocusedImageId();
+        expect(focus).toBeTruthy();
+        if (selected) {
+          const cell = page.locator(`[data-image-id="${focus}"]`);
+          await cell.hover();
+          await cell.getByRole("button", { name: "Select image", exact: true }).click();
+        }
+        for (const resident of [false, true]) {
+          const generation = (await tail()).seekGeneration;
+          if (resident) await page.getByRole("region", { name: "Image results table", exact: true })
+            .evaluate(element => { element.scrollTop -= 128; });
+          await page.evaluate(() => { (document.activeElement as HTMLElement | null)?.blur(); });
+          await page.keyboard.press("End");
+          await expect.poll(async () => {
+            const current = await tail();
+            return current.final && current.fullyVisible && current.focus === (selected ? focus : current.id);
+          }).toBe(true);
+          expect(await tail()).toMatchObject({ id: initialTail.id, selected: selected ? 1 : 0 });
+          expect(Math.abs((await tail()).bottomGap!)).toBeLessThan(1);
+          if (resident) expect((await tail()).seekGeneration).toBe(generation);
+          expect(await page.evaluate(id => (window as any).__kupua_selection_store__.getState().selectedIds.has(id), focus)).toBe(selected);
+        }
+      }
     });
   });
 }
@@ -1599,6 +1627,14 @@ test.describe("Marked detail entry destination geometry", () => {
         && (window as any).__kupua_store__.getState()._searchContinuity?.phase === "placed", anchorId);
       const snapshot = await page.evaluate(key => (window as any).__kupua_inspectSnapshot__(key), entryKey);
       expect(snapshot.anchorImageId).toBe(anchorId);
+      const readPose = () => page.evaluate(imageId => {
+        const container = document.querySelector<HTMLElement>('[aria-label^="Image results "]')!;
+        const item = container.querySelector<HTMLElement>(`[data-image-id="${CSS.escape(imageId)}"]`)!;
+        const padding = parseFloat(getComputedStyle(container).paddingTop);
+        const y = item.getBoundingClientRect().top - container.getBoundingClientRect().top - padding;
+        return { top: container.scrollTop, height: container.clientHeight, ratio: y / container.clientHeight };
+      }, anchorId);
+      const sourcePose = await readPose();
 
       await page.locator('a[title="Grid — clear all filters"]').last().click();
       await expect.poll(() => new URL(page.url()).searchParams.has("image")).toBe(false);
@@ -1613,19 +1649,8 @@ test.describe("Marked detail entry destination geometry", () => {
       await page.waitForFunction(({ key, imageId }) => history.state.kupuaKey === key
         && (window as any).__kupua_store__.getState().focusedImageId === imageId
         && (window as any).__kupua_store__.getState()._searchContinuity?.phase === "placed", { key: entryKey, imageId: anchorId });
-      const readPose = () => page.evaluate(async () => {
-        const geometryPath = "/src/lib/scroll-geometry-ref.ts";
-        const tierPath = "/src/lib/two-tier.ts";
-        const geometry = (await import(geometryPath)).getScrollGeometry();
-        const state = (window as any).__kupua_store__.getState();
-        const index = state.imagePositions.get(state.focusedImageId)
-          - ((await import(tierPath)).isTwoTierFromTotal(state.total) ? 0 : state.bufferOffset);
-        const container = document.querySelector<HTMLElement>('[aria-label="Image results grid"]')!;
-        return { top: container.scrollTop, height: container.clientHeight,
-          ratio: (Math.floor(index / geometry.columns) * geometry.rowHeight - container.scrollTop) / container.clientHeight };
-      });
       const restored = await readPose();
-      expect(Math.abs(restored.ratio - snapshot.viewportRatio) * restored.height).toBeLessThanOrEqual(2);
+      expect(Math.abs(restored.ratio - sourcePose.ratio) * restored.height).toBeLessThanOrEqual(2);
       const generation = await getSearchGeneration(page);
       await page.goBack();
       await expect.poll(() => new URL(page.url()).searchParams.has("image")).toBe(false);

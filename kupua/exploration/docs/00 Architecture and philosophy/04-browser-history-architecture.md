@@ -33,8 +33,10 @@ usable. Local preference hydration cannot overwrite this session-owned state.
 
 These rules also apply to Justified. A destination snapshot supplies identity,
 ratio and focus/NONE in the current density; a missing destination keeps top/no-focus
-fallback, never departing-neighbour adoption. Search/history coordinates exclude header
-and padding flow, unlike density-switch coordinates. Native detail/fullscreen close without
+fallback, never departing-neighbour adoption. History snapshots retain logical row ratios
+and separately capture the source header fraction; new history placement includes header
+flow, matching density switches while excluding container padding. Ordinary search ratios
+remain logical-only. Native detail/fullscreen close without
 traversal retains mounted placement; traversed return centres through current geometry,
 including Table's usable-height adjustment and missing-target/supersession guards.
 
@@ -229,6 +231,7 @@ interface HistorySnapshot {
   anchorIsPhantom: boolean;             // true if anchor is viewport-centre, not explicit focus
   anchorOffset: number;                 // global offset at capture time
   viewportRatio: number | null;         // (rowTop - scrollTop) / clientHeight
+  viewportHeaderRatio?: number;         // measured source header / clientHeight
   newCountSince: string | null;         // absorbed-new-images freeze boundary
   newCount?: number;
 }
@@ -237,6 +240,13 @@ interface HistorySnapshot {
 `newCount` is the last-known unadmitted count for the snapshot's search key and
 boundary. It is optional for older snapshots. It is not the total result count or
 a category aggregate, and it is not reusable with another query/boundary.
+
+New snapshots carry `viewportHeaderRatio`, including zero for headerless layouts.
+Their ratio placement includes header flow in the current layout, preventing a
+header-sized shift when history restores in another density before returning to
+the original one. Legacy snapshots without this field retain logical-only placement;
+there is no storage migration. Padding, anchor choice, edge clamps, entry keys and
+independent density persistence are unchanged.
 
 ### Anchor selection
 
@@ -310,7 +320,10 @@ In `useUrlSearchSync`, when `consumeUserInitiatedFlag()` returns `false`:
 2. Require `snapshot.searchKey === buildSearchKey(currentParams)`.
 3. `historySearchContinuity(snapshot, params)` produces destination target,
   ratio-or-start placement, represented target-focus or NONE, top fallback and
-  offset hint. It does not call the live user anchor chooser or capture departing
+  offset hint. When a source header fraction exists, it adds that fraction to the
+  logical ratio and marks placement as header-inclusive; effect 9 uses the measured
+  destination header, including during existing small-result refill retries.
+  It does not call the live user anchor chooser or capture departing
   neighbours. Missing/mismatched/null-anchor snapshot means start/no focus.
 4. Pass that handoff to `search`, or `resortAiBuffer` for resident AI sort/entry-only
   history. Existing generation/focus ownership carries resolution and coherent

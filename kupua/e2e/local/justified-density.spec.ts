@@ -89,7 +89,7 @@ test("resident justified density and panel round trips preserve the same interio
 });
 
 for (const sourceDensity of ["grid", "justified"] as const) {
- test(`resident detail and cross-density history preserve current policy (${sourceDensity})`, async ({ kupua, page }) => {
+ test(`resident detail and cross-density history preserve the original position (${sourceDensity})`, async ({ kupua, page }) => {
   await start(kupua, page);
   await switchDensity(page, sourceDensity);
   const id = await focusInterior(kupua, page, sourceDensity);
@@ -124,13 +124,30 @@ for (const sourceDensity of ["grid", "justified"] as const) {
     const s = (window as any).__kupua_store__.getState();
     return (window as any).__kupua_getKupuaKey__() === key && !s.loading && s._searchContinuity?.phase === "placed";
   }, historyKey);
-  const headerHeight = await page.locator("[data-table-header]").evaluate(element => element.getBoundingClientRect().height);
-  const tableHeight = (await placement(page, id))!.clientHeight;
   await switchDensity(page, sourceDensity);
-  // Existing policy: history excludes header flow; the next density capture includes it.
-  // Keep the same measured-header offset in the fixed-grid control and the new density.
-  const expectedDelta = headerHeight * before.clientHeight / tableHeight;
-  await expect.poll(async () => Math.abs((await placement(page, id))!.y - before.y - expectedDelta)).toBeLessThan(1);
+  await expect.poll(async () => Math.abs((await placement(page, id))!.y - before.y)).toBeLessThan(1);
+  expect((await placement(page, id))!.focused).toBe(true);
+
+  await switchDensity(page, "table");
+  const tableBefore = (await placement(page, id))!;
+  await page.getByRole("button", { name: "Sort descending, click to sort ascending", exact: true }).click();
+  await page.waitForFunction(() => {
+    const state = (window as any).__kupua_store__.getState();
+    return state.params.orderBy === "uploadTime" && !state.loading && state._searchContinuity?.phase === "placed";
+  });
+  expect(await page.evaluate(key => (window as any).__kupua_inspectSnapshot__(key)?.anchorImageId, historyKey)).toBe(id);
+  await switchDensity(page, sourceDensity);
+  await page.goBack();
+  await page.waitForFunction(key => {
+    const state = (window as any).__kupua_store__.getState();
+    return (window as any).__kupua_getKupuaKey__() === key && !state.loading
+      && state._searchContinuity?.provenance === "history" && state._searchContinuity.phase === "placed";
+  }, historyKey);
+  await switchDensity(page, "table");
+  await expect.poll(async () => Math.abs((await placement(page, id))!.y - tableBefore.y)).toBeLessThan(1);
+  expect((await placement(page, id))!.focused).toBe(true);
+  expect(await page.evaluate(() => (window as any).__kupua_selection_store__.getState().selectedIds.size)).toBe(0);
+  await switchDensity(page, sourceDensity);
 
   const again = await kupua.waitForHitTestedImagePoint({ view: sourceDensity, imageId: id });
   await page.mouse.dblclick(again.x, again.y);

@@ -73,6 +73,7 @@ export function buildHistorySnapshot(): HistorySnapshot {
   // padding (e.g. pt-1 = 4px), causing a 4px/cycle drift when the ratio
   // round-tripped through history placement in Effect #9.
   let viewportRatio: number | null = null;
+  let viewportHeaderRatio: number | undefined;
   const scrollContainer = getScrollContainer();
   if (anchorImageId && scrollContainer && imagePositions.has(anchorImageId)) {
     const { total } = useSearchStore.getState();
@@ -82,11 +83,15 @@ export function buildHistorySnapshot(): HistorySnapshot {
     // Read geometry from the shared ref (registered by useScrollEffects on
     // mount and whenever columns change). Replaces the previous approach of
     // sniffing the scroll container's aria-label to determine table vs grid.
-    const rowTop = getItemLayoutRow(getLayoutGeometry(), virtualizerIdx).top;
+    const geometry = getLayoutGeometry();
+    const rowTop = getItemLayoutRow(geometry, virtualizerIdx).top;
     viewportRatio =
       scrollContainer.clientHeight > 0
         ? (rowTop - scrollContainer.scrollTop) / scrollContainer.clientHeight
         : null;
+    if (scrollContainer.clientHeight > 0) {
+      viewportHeaderRatio = (geometry.headerOffset ?? 0) / scrollContainer.clientHeight;
+    }
   }
 
   return {
@@ -95,6 +100,7 @@ export function buildHistorySnapshot(): HistorySnapshot {
     anchorIsPhantom,
     anchorOffset,
     viewportRatio,
+    ...(viewportHeaderRatio !== undefined && { viewportHeaderRatio }),
     newCountSince,
     newCount,
   };

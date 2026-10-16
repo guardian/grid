@@ -24,6 +24,25 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 16 October 2026 - Preserve position through cross-density history header flow
+
+Capture the measured source header fraction separately from the logical history
+ratio and restore new snapshots in current-layout header coordinates. Carry that
+coordinate marker through existing small-result refill retries. Legacy snapshots
+retain logical-only interpretation; ordinary search, density anchor policy, history
+keys, request ownership, End handlers and B19's measured-header spacer stay unchanged.
+
+Replace the resident test's explicit header-offset allowance with a failing-first
+same-image DOM-position oracle. Cover both directions, indexed and seek layouts,
+and retain original/traversed detail controls. Strengthen table-tail preservation
+checks for explicit focus and selection through seeking and resident End; keep
+no-focus Back/reload proof and the existing subpixel tolerances.
+
+Cover header-inclusive history placement through repeated partial-buffer clamps
+and resident refill, preserving target, focus and selection without replay after
+completion. A test-only retry-flag mutation confirms the regression detects the
+header-sized displacement; no additional application change is needed.
+
 ### 16 October 2026 - Include table header flow in the physical scroll extent
 
 Fix B19 by adding the existing measured header height to the table spacer. Previously,

@@ -10,7 +10,7 @@ import { isTwoTierFromTotal } from "@/lib/two-tier";
 import type { UrlSearchParams } from "@/lib/search-params-schema";
 import type { HistorySnapshot } from "@/lib/history-snapshot";
 
-export type SearchPlacement = { kind: "ratio"; ratio: number } | { kind: "start" } | { kind: "centre" };
+export type SearchPlacement = { kind: "ratio"; ratio: number; includesHeader?: boolean } | { kind: "start" } | { kind: "centre" };
 
 export interface SearchContinuity {
   provenance: "user" | "history";
@@ -37,7 +37,8 @@ export function historySearchContinuity(snapshot: HistorySnapshot | undefined, p
     provenance: "history",
     targetId: matching?.anchorImageId ?? null,
     placement: matching?.viewportRatio != null
-      ? { kind: "ratio", ratio: matching.viewportRatio } : { kind: "start" },
+      ? { kind: "ratio", ratio: matching.viewportRatio + (matching.viewportHeaderRatio ?? 0),
+        ...(matching.viewportHeaderRatio !== undefined && { includesHeader: true }) } : { kind: "start" },
     focus: matching?.anchorImageId && !matching.anchorIsPhantom ? "target" : "none",
     fallback: "top",
     ...(matching?.anchorImageId ? { anchorOffset: matching.anchorOffset } : {}),
