@@ -43,10 +43,12 @@ async function uploadImageForCurrentUser(
 
   const descriptionSaved = waitForMetadataSave(page);
   await uploadPage(page).metadataField.description.fill('Rights and restrictions e2e image');
+  await uploadPage(page).metadataField.description.blur();
   await descriptionSaved;
 
   const creditSaved = waitForMetadataSave(page);
   await uploadPage(page).metadataField.credit.fill('E2E Test');
+  await uploadPage(page).metadataField.credit.blur();
   await creditSaved;
 
   testContext.rightsImageOwner = owner;
@@ -336,7 +338,7 @@ When('I cancel the metadata template', async ({ page }) => {
 });
 
 Then('the Metadata tab is selected', async ({ page }) => {
-  await expect(page.getByRole('radio', { name: 'Metadata' })).toBeChecked();
+  await expect(page.locator('#tabs-metadata')).toBeChecked();
 });
 
 Then('I see a {string} region', async ({ page }, name: string) => {
