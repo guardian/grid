@@ -6,7 +6,7 @@ import { E2E_RIGHTS_TEMPLATE } from '../setup/config.ts';
 import { ELASTICSEARCH_PORT, TEST_ACCOUNTS } from '../setup/constants.ts';
 import type { TestAccount } from '../setup/constants.ts';
 import { KAHUNA_APP_URL } from './setup.ts';
-import { signIn, switchAccount } from './common.steps.ts';
+import { switchAccount } from './utils/auth.ts';
 import { testImages, uniqueImage, uploadPage } from './upload/setup.ts';
 import { waitForMetadataSave } from './upload/media-api.assertions.ts';
 
@@ -137,7 +137,7 @@ async function setOwnerForScenario(
 }
 
 Given('I am signed in through pan-domain auth', async ({ page, testContext }) => {
-  await signIn(page, TEST_ACCOUNTS.restricted);
+  await switchAccount(page, TEST_ACCOUNTS.restricted);
   testContext.rightsCurrentAccount = TEST_ACCOUNTS.restricted;
 });
 
