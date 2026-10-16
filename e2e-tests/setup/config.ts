@@ -63,6 +63,8 @@ function kahunaE2eConfig(): string {
     .join('\n');
 
   return [
+    // The e2e stack has no Bedrock access, so AI search requests would 500.
+    'ai.search.enabled = false',
     `links.uploadImagesPermissionSupportEmail = "${E2E_UPLOAD_SUPPORT_EMAIL}"`,
     `imageTypes = ${JSON.stringify(E2E_IMAGE_TYPES)}`,
     'metadata.templates = [',
