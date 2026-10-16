@@ -6,6 +6,8 @@ import com.gu.mediaservice.model.{Jpeg, MimeType, Png, Tiff}
 import org.joda.time.DateTime
 import org.parboiled2._
 
+import scala.util.Try
+
 case class InvalidQuery(message: String) extends Exception(message)
 
 class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
@@ -255,7 +257,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     val normalised = normaliseDateExpr(expr)
     dateParsers.foldLeft[Option[DateTime]](None) { case (res, parser) =>
       res orElse parser.parseDate(normalised)
-    }.orElse(parseDateFromQuery(expr))
+    }.orElse(Try(parseDateFromQuery(expr)).toOption.flatten)
   }
 
   def parseDateRange(expr: String): Option[DateRange] = {

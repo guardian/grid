@@ -44,6 +44,8 @@ usages@>added:2.hours
 The dot in `2.hours` is literal duration notation, typed by the user. The date picker does not
 produce it: picker presets produce absolute timestamps. Duration chip cutoffs are recalculated
 on each request, including later pagination requests. Prefix a comparison chip with `-` to negate it.
+Invalid comparison values, including non-finite durations such as `Inf`, retain the existing
+text-filter fallback rather than discarding the rest of the query or its default exclusions.
 
 Unlike the top-level bounds, comparison chips include equality (`gte`/`lte`: greater/less than
 or equal). Their existing opposite bounds remain: `>` ends at tomorrow's midnight in the backend's

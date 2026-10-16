@@ -360,6 +360,17 @@ class ParserTest extends AnyFunSpec with Matchers with BeforeAndAfter with Image
         }
       }
 
+      Seq("Inf", "MinusInf", "Duration.Undefined").foreach { value =>
+        Seq("usages@>added", "usages@<added", ">taken", "<date").foreach { key =>
+          it(s"should preserve other terms and default exclusions for $key:$value") {
+            Parser.run(s"cats $key:$value") shouldBe List(
+              Match(AnyField, Words("cats")),
+              Match(SingleField(key), Words(value))
+            ) ++ standardNegations
+          }
+        }
+      }
+
       it("should preserve local midnight for legacy dates in a non-UTC timezone") {
         val originalZone = DateTimeZone.getDefault
         try {
