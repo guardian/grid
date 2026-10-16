@@ -9,13 +9,16 @@ import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import scala.io.Source
 
 object EyeVine extends App {
-  val GRIDKEY = sys.env.getOrElse("GRIDKEY", throw new RuntimeException("Must set a GRIDKEY env variable"))
-  val STAGE = sys.env.getOrElse("STAGE", throw new RuntimeException("Must set a STAGE env variable"))
+  val options = args.flatMap(_.split("=", 2) match { case Array(name, value) => Some(name -> value); case _ => None }).toMap
+  def required(name: String) = options.getOrElse(name, throw new IllegalArgumentException(s"Missing $name argument"))
+  val GRIDKEY = required("GRIDKEY")
+  val STAGE = required("STAGE")
   val GRIDDOMAIN = if(STAGE == "PROD") "gutools.co.uk" else "test.dev-gutools.co.uk"
 
   println(s"Running for stage $STAGE with domain $GRIDDOMAIN")
 
-  val gridIds = Source.fromResource("eyevineids.txt").getLines().toList
+  val source = Source.fromFile(required("INPUT_FILE"))
+  val gridIds = try source.getLines().toList finally source.close()
 
   private def parseUsages(responseBody: String): List[Usage] =
     (Json.parse(responseBody) \ "data")
