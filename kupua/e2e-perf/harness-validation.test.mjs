@@ -929,6 +929,339 @@ test("cleanup records stay scoped to their step and sanitize unknown scenario ti
   ]);
 });
 
+const shortVisualObservers = [
+  ["PP2", "appendNoFocusSortVisualPhases", "sort-no-focus"],
+  ["PP5", "appendFilterVisualPhases", "filter-toggle"],
+  ["PP6", "appendDensityVisualPhases", "density-swap"],
+  ["PP7c", "appendBufferScrollVisualPhases", "scrubber-scroll"],
+  ["PP8", "appendQueryVisualPhases", "search"],
+  ["PP9", "appendChipRemovalVisualPhases", "chip-remove"],
+  ["JA1", "navigateAndMeasure", "navigation-search"],
+  ["JA2", "appendDetailVisualPhases", "open-detail"],
+  ["JB4", "appendIndexedScrollVisualPhases", "scrubber-scroll"],
+  ["JB5", "appendFullscreenExitVisualPhases", "fullscreen-exit"],
+];
+
+function createShortVisualHarness(name, {
+  refreshRate = 120,
+  readyAt = 1_500,
+  movingUntil = 0,
+  missingContainer = false,
+  missingItem = false,
+  stateMissing = false,
+  stateError = false,
+  sorting = false,
+  wrongContext = false,
+} = {}) {
+  const isJourney = ["navigateAndMeasure", "appendDetailVisualPhases", "appendIndexedScrollVisualPhases", "appendFullscreenExitVisualPhases"].includes(name);
+  const filename = join(import.meta.dirname, isJourney ? "perceived-long.spec.ts" : "perceived-short.spec.ts");
+  const parsed = ts.createSourceFile(filename, readFileSync(filename, "utf8"), ts.ScriptTarget.ES2022, true);
+  const declaration = parsed.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name);
+  assert.ok(declaration);
+  const { outputText } = ts.transpileModule(declaration.getText(parsed), {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  });
+  let now = 0;
+  const entries = [];
+  const stableUntil = "2026-02-15";
+  const isDensity = name === "appendDensityVisualPhases";
+  const isFilter = name === "appendFilterVisualPhases";
+  const isQuery = name === "appendQueryVisualPhases";
+  const isChip = name === "appendChipRemovalVisualPhases";
+  const isDetail = name === "appendDetailVisualPhases";
+  const isNavigation = name === "navigateAndMeasure";
+  const isIndexed = name === "appendIndexedScrollVisualPhases";
+  const total = isIndexed ? 10_001 : 101;
+  let evictGeneration = 0;
+  const rect = { top: 0, left: 0, width: 600, height: 400, bottom: 400 };
+  const item = {
+    getBoundingClientRect: () => ({ ...rect, left: now < movingUntil ? now : 0 }),
+    getAttribute: () => "private-fixture-id",
+    get complete() { return now >= readyAt; },
+    naturalWidth: 600,
+    naturalHeight: 400,
+  };
+  const container = {
+    scrollTop: 0,
+    scrollHeight: 1_400,
+    clientHeight: 400,
+    dispatchEvent: () => {},
+    getBoundingClientRect: () => rect,
+    getAttribute: () => "private-fixture-id",
+    querySelector: () => missingItem ? null : item,
+    querySelectorAll: () => missingItem ? [] : [item],
+  };
+  const observe = runInNewContext(`${outputText}\n${name}`, {
+    URL,
+    Event,
+    Date: { now: () => now },
+    CSS: { escape: value => value },
+    STABLE_UNTIL: stableUntil,
+    captureSuccessfulDataRoutes: () => () => ["client-only"],
+    location: { origin: "https://fixture.invalid", href: `https://fixture.invalid/search?nonFree=true&until=${stableUntil}${isDetail ? "&image=private-fixture-id" : ""}` },
+    performance: { now: () => now, timeOrigin: 0, getEntriesByType: () => [] },
+    requestAnimationFrame: callback => {
+      now += 1_000 / refreshRate;
+      queueMicrotask(() => callback(now));
+    },
+    document: {
+      fullscreenElement: null,
+      querySelector: selector => {
+        if (selector === '[data-fullscreen-preview]') return { getAttribute: () => wrongContext ? "active" : "inactive" };
+        if (selector === '[data-detail-image-id]') return missingContainer ? null : container;
+        if (selector === 'label input[type="checkbox"]') return { checked: !wrongContext };
+        if (selector === "cql-input") return { shadowRoot: { querySelectorAll: () => wrongContext ? [{}] : [] } };
+        if (selector === '[data-testid="scrubber-track"]') {
+          return { getAttribute: attribute => attribute === "data-scrubber-mode"
+            ? (wrongContext ? "seek" : isIndexed ? "indexed" : "buffer")
+            : now < movingUntil ? String(now) : "50" };
+        }
+        if (missingContainer) return null;
+        if (isDensity) {
+          if (selector === '[aria-label="Image results grid"]') return now < readyAt || wrongContext ? container : null;
+          return now >= readyAt ? container : null;
+        }
+        return selector === '[aria-label="Image results grid"]' ? container : null;
+      },
+    },
+    window: {
+      __perceivedTrace__: entries,
+      __kupua_getSearchLifecycle__: () => ({ started: 1, settled: now >= readyAt ? 1 : 0, query: wrongContext ? "private query" : "fixture-query" }),
+      __kupua_store__: {
+        getState: () => stateMissing ? null : ({
+          loading: now < readyAt,
+          error: stateError ? new Error("private fixture error") : null,
+          sortAroundFocusStatus: sorting ? "pending" : null,
+          params: {
+            orderBy: wrongContext ? "height" : "width",
+            nonFree: isFilter ? (wrongContext ? "true" : undefined) : "true",
+            query: isQuery ? (wrongContext ? "private query" : "sport") : undefined,
+            until: stableUntil,
+          },
+          total,
+          focusedImageId: "private-fixture-id",
+          results: [item],
+          bufferOffset: 10,
+          _forwardEvictGeneration: evictGeneration,
+          _lastForwardEvictCount: 10,
+          _extendForwardInFlight: false,
+          _extendBackwardInFlight: false,
+          extendForward: async () => { evictGeneration++; },
+        }),
+      },
+    },
+  });
+  const kupua = {
+    initializeDensity: async () => {},
+    getStoreState: async () => ({ forwardEvictGeneration: 0 }),
+    page: {
+      goto: async () => {},
+      evaluate: (callback, args) => callback(args),
+      waitForFunction: async () => {},
+    },
+  };
+  return {
+    run: async () => {
+      if (isNavigation) {
+        const result = await observe(kupua, "fixture-query", "buffer", "JA1");
+        entries.push(...result.entries.filter(entry => entry.phase.startsWith("t_first") || entry.phase === "t_visual_settled")
+          .map(entry => ({ ...entry, t: entry.epochMs })));
+        return result;
+      }
+      return observe(kupua, "fixture-interaction",
+        isChip ? { imageId: "private-fixture-id", top: 0, viewportHeight: 400 } : 50);
+    },
+    entries,
+    elapsed: () => now,
+  };
+}
+
+for (const [scenario, name, action] of shortVisualObservers) {
+  for (const refreshRate of [60, 120, 240]) {
+    test(`${scenario} short observer waits for delayed readiness at ${refreshRate} Hz`, async () => {
+      const fixture = createShortVisualHarness(name, { refreshRate });
+      const result = await fixture.run();
+      assert.equal(result.settledTotal, scenario === "JB4" ? 10_001 : 101);
+      assert.equal(result.resultRegime, scenario === "JB4" ? "indexed" : "buffer");
+      assert.deepEqual(fixture.entries.map(entry => entry.phase), ["t_first_visible_frame", "t_visual_settled"]);
+      assert.ok(fixture.entries.every(entry => entry.action === action && entry.interactionId === (scenario === "JA1" ? "ja1-navigation" : "fixture-interaction")));
+      assert.ok(fixture.entries[0].t >= 1_500);
+      assert.ok(fixture.entries[1].t > fixture.entries[0].t);
+      assert.ok(fixture.elapsed() < 1_500 + 3_000 / refreshRate);
+    });
+  }
+
+  test(`${scenario} short observer adds no wait after two ready frames`, async () => {
+    const fixture = createShortVisualHarness(name, { readyAt: 0 });
+    await fixture.run();
+    assert.ok(fixture.elapsed() < 20);
+  });
+
+  test(`${scenario} short observer waits for geometry to stop moving`, async () => {
+    const fixture = createShortVisualHarness(name, { readyAt: 0, movingUntil: 2_000 });
+    await fixture.run();
+    assert.ok(fixture.entries[0].t >= 2_000);
+  });
+
+  for (const [condition, options, diagnostic] of [
+    ["late readiness", { readyAt: 31_000 }, scenario === "PP6" ? /"tablePresent":false/ : scenario === "JA2" ? /"imageReady":false/ : /"loading":true/],
+    ["missing container", { missingContainer: true }, /"(?:container|table|detail)Present":false/],
+    ["missing item", { missingItem: true }, /"(?:item|row|image|focused)Present":false/],
+    ...(scenario === "JA2" ? [] : [["wrong context", { wrongContext: true }, /"contextMatches":false/]]),
+    ["moving geometry", { movingUntil: Infinity }, /"geometryStable":false/],
+    ...(["PP6", "JA1", "JA2"].includes(scenario) ? [] : [
+      ["missing store", { stateMissing: true }, /"storePresent":false/],
+      ["store error", { stateError: true }, /"error":true/],
+    ]),
+    ...(["PP2", "PP5", "PP8", "PP9"].includes(scenario) ? [
+      ["pending sort", { sorting: true }, /"sorting":true/],
+    ] : []),
+  ]) {
+    test(`${scenario} short observer rejects ${condition} with sanitized diagnostics`, async () => {
+      const fixture = createShortVisualHarness(name, { readyAt: 0, ...options });
+      await assert.rejects(fixture.run(), error => {
+        assert.ok(error.message.startsWith(scenario));
+        assert.match(error.message, /within 30000ms:/);
+        assert.match(error.message, diagnostic);
+        assert.doesNotMatch(error.message, /private fixture error|private query|private-fixture-id|fixture\.invalid/);
+        return true;
+      });
+      assert.equal(fixture.entries.length, 0);
+      assert.ok(fixture.elapsed() >= 30_000 && fixture.elapsed() < 30_010);
+    });
+  }
+}
+
+for (const name of ["settleMidBufferSetup", "settlePostEvictionSetup"]) {
+  for (const refreshRate of [60, 120, 240]) {
+    test(`${name} waits for delayed setup readiness at ${refreshRate} Hz`, async () => {
+      const fixture = createShortVisualHarness(name, { refreshRate });
+      const result = await fixture.run();
+      assert.equal(result.setupGlobalPosition, 50);
+      assert.equal(result.setupBufferOffset, 10);
+      assert.ok(fixture.elapsed() >= 1_500);
+      assert.ok(fixture.elapsed() < 1_500 + 3_000 / refreshRate);
+    });
+  }
+  for (const [condition, options, diagnostic] of [
+    ["unfinished loading", { readyAt: 31_000 }, /"loading":true/],
+    ["moving position", { movingUntil: Infinity }, /"positionStable":false/],
+  ]) {
+    test(`${name} rejects ${condition} at its elapsed deadline`, async () => {
+      const fixture = createShortVisualHarness(name, options);
+      await assert.rejects(fixture.run(), error => {
+        assert.match(error.message, /within 30000ms:/);
+        assert.match(error.message, diagnostic);
+        return true;
+      });
+      assert.ok(fixture.elapsed() >= 30_000 && fixture.elapsed() < 30_010);
+    });
+  }
+}
+
+function createSelectionPanelHarness({ refreshRate = 120, readyAt = 1_500, moving = false, missingPanel = false } = {}) {
+  const filename = join(import.meta.dirname, "perf.spec.ts");
+  const source = readFileSync(filename, "utf8");
+  const parsed = ts.createSourceFile(filename, source, ts.ScriptTarget.ES2022, true);
+  let callback;
+  const findObserver = node => {
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
+      && node.expression.name.text === "evaluate"
+      && node.arguments[0]?.getText(parsed).includes("let previousGeometry")) {
+      callback = node.arguments[0];
+    }
+    ts.forEachChild(node, findObserver);
+  };
+  findObserver(parsed);
+  assert.ok(callback);
+  const { outputText } = ts.transpileModule(`const observe = ${callback.getText(parsed)};`, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  });
+  let now = 0;
+  let unsubscribed = false;
+  const selectedIds = new Set(["private-first", "private-second"]);
+  const globalObject = {
+    __selectionRangeProbe__: {
+      timings: { actionStart: 0, selectionPublished: 0, metadataSettled: 0, reconcileSettled: 0, idleCallbacks: [] },
+      unsubscribe: () => { unsubscribed = true; },
+    },
+    __kupua_selection_store__: {
+      getState: () => ({
+        selectedIds,
+        pendingFetchIds: now < readyAt ? selectedIds : new Set(),
+        isReconciling: false,
+        reconciledView: {},
+        metadataCache: selectedIds,
+        rangeWalkTime: null,
+      }),
+    },
+  };
+  const observe = runInNewContext(`${outputText}\nobserve`, {
+    window: globalObject,
+    performance: { now: () => now },
+    requestAnimationFrame: next => {
+      now += 1_000 / refreshRate;
+      queueMicrotask(() => next(now));
+    },
+    document: { querySelector: () => missingPanel ? null : {
+      nextElementSibling: {
+        scrollHeight: 400,
+        getBoundingClientRect: () => ({ width: moving ? now : 300, height: 400 }),
+      },
+    } },
+  });
+  return {
+    run: () => observe({ label: "selection-fixture", expectedCount: 2 }),
+    elapsed: () => now,
+    cleanedUp: () => unsubscribed && !globalObject.__selectionRangeProbe__,
+  };
+}
+
+for (const refreshRate of [60, 120, 240]) {
+  test(`selection panel waits for delayed readiness at ${refreshRate} Hz`, async () => {
+    const fixture = createSelectionPanelHarness({ refreshRate });
+    const result = await fixture.run();
+    assert.equal(result.selectedCount, 2);
+    assert.ok(result.selectionVisualSettledMs >= 1_500);
+    assert.ok(result.selectionVisualSettledMs < 1_500 + 3_000 / refreshRate);
+    assert.equal(fixture.cleanedUp(), true);
+  });
+}
+
+for (const options of [{ readyAt: 31_000 }, { moving: true }, { missingPanel: true }]) {
+  test(`selection panel rejects unsettled state ${JSON.stringify(options)}`, async () => {
+    const fixture = createSelectionPanelHarness(options);
+    await assert.rejects(fixture.run(), error => {
+      assert.match(error.message, /selection-fixture Details panel did not become visibly stable within 30000ms:/);
+      assert.doesNotMatch(error.message, /private-first|private-second/);
+      return true;
+    });
+    assert.ok(fixture.elapsed() >= 30_000 && fixture.elapsed() < 30_010);
+  });
+}
+
+test("performance readiness loops cannot use frame-count deadlines", () => {
+  for (const filename of ["perceived-short.spec.ts", "perceived-long.spec.ts", "perf.spec.ts"]) {
+    const source = readFileSync(join(import.meta.dirname, filename), "utf8");
+    const parsed = ts.createSourceFile(filename, source, ts.ScriptTarget.ES2022, true);
+    const inspectBrowserCallback = node => {
+      if (ts.isForStatement(node) && node.statement.getText(parsed).includes("requestAnimationFrame")) {
+        assert.fail(`${filename}: frame-count readiness loop: ${node.condition?.getText(parsed)}`);
+      }
+      ts.forEachChild(node, inspectBrowserCallback);
+    };
+    const inspect = node => {
+      if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
+        && ["evaluate", "evaluateHandle"].includes(node.expression.name.text)
+        && node.arguments[0]) {
+        inspectBrowserCallback(node.arguments[0]);
+      }
+      ts.forEachChild(node, inspect);
+    };
+    inspect(parsed);
+  }
+});
+
 function createHomeVisualHarness({
   refreshRate = 120,
   readyAt = 1_500,

@@ -9933,6 +9933,4974 @@
           }
         }
       ]
+    },
+    {
+      "label": "after density refactors media-api",
+      "timestamp": "2026-10-16T02:03:25.573Z",
+      "gitSha": "43f6df618",
+      "gitDirty": true,
+      "stableUntil": "2026-02-15T00:00:00.000Z",
+      "runs": 4,
+      "environment": {
+        "dataMode": "media-api",
+        "apiTopology": "local",
+        "browserName": "chromium",
+        "browserVersion": "151.0.7922.34",
+        "viewport": {
+          "width": 1720,
+          "height": 960
+        },
+        "screen": {
+          "width": 1720,
+          "height": 960
+        },
+        "deviceScaleFactor": 2,
+        "appBaseUrl": "https://kupua.media.local.dev-gutools.co.uk",
+        "os": {
+          "platform": "darwin",
+          "release": "25.6.0",
+          "architecture": "arm64"
+        },
+        "headed": true,
+        "cpuThrottle": 0,
+        "cacheClass": "uncontrolled-browser-cache",
+        "workers": 1,
+        "stableUntil": "2026-02-15T00:00:00.000Z",
+        "gitSha": "43f6df618",
+        "gitDirty": true,
+        "gitDirtyStateHash": "2cfd7878342a9877",
+        "appSourceDirtyStateHash": "2cfd7878342a9877"
+      },
+      "environmentCompatibilityKey": "{\"apiTopology\":\"local\",\"appBaseUrl\":\"https://kupua.media.local.dev-gutools.co.uk\",\"browserName\":\"chromium\",\"browserVersion\":\"151.0.7922.34\",\"cacheClass\":\"uncontrolled-browser-cache\",\"cpuThrottle\":0,\"dataMode\":\"media-api\",\"deviceScaleFactor\":2,\"headed\":true,\"os\":{\"architecture\":\"arm64\",\"platform\":\"darwin\",\"release\":\"25.6.0\"},\"screen\":{\"height\":960,\"width\":1720},\"stableUntil\":\"2026-02-15T00:00:00.000Z\",\"viewport\":{\"height\":960,\"width\":1720},\"workers\":1}",
+      "metrics": {
+        "D1-grid": {
+          "id": "D1-grid",
+          "scenarioRevision": 2,
+          "density": "grid",
+          "workload": "scroll-cold",
+          "profile": "density-v2-1200pxs-unthrottled",
+          "cacheClass": "browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled",
+          "completionBoundary": "four-second-controlled-scroll",
+          "resultRegime": "seek",
+          "contractKey": "{\"cacheClass\":\"browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"four-second-controlled-scroll\",\"density\":\"grid\",\"id\":\"D1-grid\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"scroll-cold\"}",
+          "pairedContractKey": "{\"cacheClass\":\"browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"four-second-controlled-scroll\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"scroll-cold\"}",
+          "sampleCount": 4,
+          "metrics": {
+            "pendingAreaRatioMean": {
+              "median": 0.015238650950451522,
+              "p95": 0.01717671882667327,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "pendingAreaRatioMax": {
+              "median": 0.5979492094673806,
+              "p95": 0.5979492094673806,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "blankViewportMs": {
+              "median": 965.8499999940377,
+              "p95": 1076.8000000000002,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureAreaMs": {
+              "median": 92726163.74412468,
+              "p95": 104710485.00978567,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "elapsedMs": {
+              "median": 4016.699999988079,
+              "p95": 4024,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureObservedMs": {
+              "median": 4016.699999988079,
+              "p95": 4024,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureStartDelayMs": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailPendingAreaRatioMean": {
+              "median": 0.015238650950451522,
+              "p95": 0.01717671882667327,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailPendingAreaRatioMax": {
+              "median": 0.5979492094673806,
+              "p95": 0.5979492094673806,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailBlankViewportMs": {
+              "median": 965.8499999940377,
+              "p95": 1076.8000000000002,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailExposureAreaMs": {
+              "median": 92726163.74412468,
+              "p95": 104710485.00978567,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailCaptureRevision": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessLeadPxMedian": {
+              "median": -118.25,
+              "p95": -112,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessLeadPxMedian": {
+              "median": -120.5,
+              "p95": -116.5,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "lateReadyCount": {
+              "median": 73.5,
+              "p95": 83,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "lateDecodedCount": {
+              "median": 73.5,
+              "p95": 83,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "loadedCount": {
+              "median": 125,
+              "p95": 125,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedCount": {
+              "median": 125,
+              "p95": 125,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "pendingAtEnd": {
+              "median": 6,
+              "p95": 6,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mountedPendingAtEnd": {
+              "median": 36,
+              "p95": 36,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "visibleSlotsAtEnd": {
+              "median": 24,
+              "p95": 24,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodeFailedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "alreadyLoadedCount": {
+              "median": 51.5,
+              "p95": 58,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "directionlessReadyCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftRawValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftRawValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftRecentInputValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftRecentInputValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftSupported": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "imageIdentityChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "imageSourceChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "elementGenerationChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "logicalOrderChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "scrollDistancePx": {
+              "median": 4760.75,
+              "p95": 4764.5,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "actualSpeedPxPerSec": {
+              "median": 1185.239834300954,
+              "p95": 1187.047666583479,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameP95Ms": {
+              "median": 41.75000000000182,
+              "p95": 42.29999999999927,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameCount": {
+              "median": 336,
+              "p95": 340,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameSampleCount": {
+              "median": 336,
+              "p95": 340,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessObservedCount": {
+              "median": 73.5,
+              "p95": 83,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessSampleCount": {
+              "median": 73.5,
+              "p95": 83,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessObservedCount": {
+              "median": 73.5,
+              "p95": 83,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessSampleCount": {
+              "median": 73.5,
+              "p95": 83,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sampleLimit": {
+              "median": 2048,
+              "p95": 2048,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "regionDetached": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "maxTrackedEntries": {
+              "median": 10000,
+              "p95": 10000,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "trackedEntriesMax": {
+              "median": 84,
+              "p95": 84,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "trackingOverflow": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "placeholderAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "missingThumbnailAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "commandedSpeedPxPerSec": {
+              "median": 1200,
+              "p95": 1200,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenDistancePx": {
+              "median": 4760.75,
+              "p95": 4764.5,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenDurationMs": {
+              "median": 3964.899999994039,
+              "p95": 3979.2999999880794,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenFrames": {
+              "median": 335.5,
+              "p95": 339,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "evictionCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "prependCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "initialMediaCensored": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sourceTotal": {
+              "median": 1213256,
+              "p95": 1213256,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            }
+          }
+        },
+        "D1-justified": {
+          "id": "D1-justified",
+          "scenarioRevision": 2,
+          "density": "justified",
+          "workload": "scroll-cold",
+          "profile": "density-v2-1200pxs-unthrottled",
+          "cacheClass": "browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled",
+          "completionBoundary": "four-second-controlled-scroll",
+          "resultRegime": "seek",
+          "contractKey": "{\"cacheClass\":\"browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"four-second-controlled-scroll\",\"density\":\"justified\",\"id\":\"D1-justified\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"scroll-cold\"}",
+          "pairedContractKey": "{\"cacheClass\":\"browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"four-second-controlled-scroll\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"scroll-cold\"}",
+          "sampleCount": 4,
+          "metrics": {
+            "pendingAreaRatioMean": {
+              "median": 0.005090389738535847,
+              "p95": 0.044103011488381215,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "pendingAreaRatioMax": {
+              "median": 0.9659950570844734,
+              "p95": 0.9659950570844734,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "blankViewportMs": {
+              "median": 535.5999999821215,
+              "p95": 2725.2999999999975,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureAreaMs": {
+              "median": 30958355.95817425,
+              "p95": 268320554.14568347,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "elapsedMs": {
+              "median": 4017.600000023842,
+              "p95": 4018,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureObservedMs": {
+              "median": 4016.900000017881,
+              "p95": 4018,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureStartDelayMs": {
+              "median": 0,
+              "p95": 1.4000000119212928,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailPendingAreaRatioMean": {
+              "median": 0.005090389738535847,
+              "p95": 0.044103011488381215,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailPendingAreaRatioMax": {
+              "median": 0.9659950570844734,
+              "p95": 0.9659950570844734,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailBlankViewportMs": {
+              "median": 535.5999999821215,
+              "p95": 2725.2999999999975,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailExposureAreaMs": {
+              "median": 30958355.95817425,
+              "p95": 268320554.14568347,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailCaptureRevision": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessLeadPxMedian": {
+              "median": -15.7265625,
+              "p95": -13.7734375,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessLeadPxMedian": {
+              "median": -40.30859375,
+              "p95": -28.0625,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "lateReadyCount": {
+              "median": 129,
+              "p95": 144,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "lateDecodedCount": {
+              "median": 126,
+              "p95": 144,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "loadedCount": {
+              "median": 185,
+              "p95": 191,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedCount": {
+              "median": 185,
+              "p95": 185,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "pendingAtEnd": {
+              "median": 0,
+              "p95": 6,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mountedPendingAtEnd": {
+              "median": 31,
+              "p95": 36,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "visibleSlotsAtEnd": {
+              "median": 30,
+              "p95": 36,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodeFailedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "alreadyLoadedCount": {
+              "median": 59,
+              "p95": 71,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "directionlessReadyCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftRawValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftRawValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftRecentInputValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftRecentInputValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftSupported": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "imageIdentityChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "imageSourceChanges": {
+              "median": 0,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "elementGenerationChanges": {
+              "median": 0,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "logicalOrderChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "scrollDistancePx": {
+              "median": 4803.5,
+              "p95": 4806.5,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "actualSpeedPxPerSec": {
+              "median": 1195.614275267159,
+              "p95": 1196.2419113987057,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameP95Ms": {
+              "median": 17.100000000000364,
+              "p95": 17.5,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameCount": {
+              "median": 433,
+              "p95": 439,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameSampleCount": {
+              "median": 433,
+              "p95": 439,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessObservedCount": {
+              "median": 129,
+              "p95": 144,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessSampleCount": {
+              "median": 129,
+              "p95": 144,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessObservedCount": {
+              "median": 126,
+              "p95": 144,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessSampleCount": {
+              "median": 126,
+              "p95": 144,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sampleLimit": {
+              "median": 2048,
+              "p95": 2048,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "regionDetached": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "maxTrackedEntries": {
+              "median": 10000,
+              "p95": 10000,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "trackedEntriesMax": {
+              "median": 98,
+              "p95": 110,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "trackingOverflow": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "placeholderAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "missingThumbnailAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "commandedSpeedPxPerSec": {
+              "median": 1200,
+              "p95": 1200,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenDistancePx": {
+              "median": 4803.5,
+              "p95": 4806.5,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenDurationMs": {
+              "median": 4004.099999976158,
+              "p95": 4005.700000023842,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenFrames": {
+              "median": 432.5,
+              "p95": 439,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "evictionCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "prependCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "initialMediaCensored": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sourceTotal": {
+              "median": 1213256,
+              "p95": 1213256,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            }
+          }
+        },
+        "D1-table": {
+          "id": "D1-table",
+          "scenarioRevision": 2,
+          "density": "table",
+          "workload": "scroll-cold",
+          "profile": "density-v2-1200pxs-unthrottled",
+          "cacheClass": "browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled",
+          "completionBoundary": "four-second-controlled-scroll",
+          "resultRegime": "seek",
+          "contractKey": "{\"cacheClass\":\"browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"four-second-controlled-scroll\",\"density\":\"table\",\"id\":\"D1-table\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"scroll-cold\"}",
+          "pairedContractKey": "{\"cacheClass\":\"browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"four-second-controlled-scroll\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"scroll-cold\"}",
+          "sampleCount": 4,
+          "metrics": {
+            "pendingAreaRatioMean": {
+              "median": 0.02635939577880897,
+              "p95": 0.02636614097214568,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "pendingAreaRatioMax": {
+              "median": 0.027265114721152235,
+              "p95": 0.027265114721152235,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "blankViewportMs": {
+              "median": 3911.5000000059604,
+              "p95": 3939.3000000238408,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureAreaMs": {
+              "median": 152785255.20023286,
+              "p95": 153873626.40093026,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "elapsedMs": {
+              "median": 4044.6500000059605,
+              "p95": 4072.600000023842,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureObservedMs": {
+              "median": 4044.6500000059605,
+              "p95": 4072.600000023842,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureStartDelayMs": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailPendingAreaRatioMean": {
+              "median": 0.02635939577880897,
+              "p95": 0.02636614097214568,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailPendingAreaRatioMax": {
+              "median": 0.027265114721152235,
+              "p95": 0.027265114721152235,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailBlankViewportMs": {
+              "median": 3911.5000000059604,
+              "p95": 3939.3000000238408,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailExposureAreaMs": {
+              "median": 152785255.20023286,
+              "p95": 153873626.40093026,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailCaptureRevision": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessLeadPxMedian": {
+              "median": 265.5,
+              "p95": 366.5,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessLeadPxMedian": {
+              "median": null,
+              "p95": null,
+              "sampleCount": 1,
+              "unavailableCount": 3
+            },
+            "lateReadyCount": {
+              "median": 41,
+              "p95": 65,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "lateDecodedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "loadedCount": {
+              "median": 2989,
+              "p95": 3180,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedCount": {
+              "median": 2805.5,
+              "p95": 2997,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "pendingAtEnd": {
+              "median": 0.5,
+              "p95": 7,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mountedPendingAtEnd": {
+              "median": 9.5,
+              "p95": 21,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "visibleSlotsAtEnd": {
+              "median": 27,
+              "p95": 28,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodeFailedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "alreadyLoadedCount": {
+              "median": 2805.5,
+              "p95": 2997,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "directionlessReadyCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftRawValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftRawValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftRecentInputValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftRecentInputValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftSupported": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "imageIdentityChanges": {
+              "median": 3194.5,
+              "p95": 3255,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "imageSourceChanges": {
+              "median": 3194.5,
+              "p95": 3255,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "elementGenerationChanges": {
+              "median": 3194.5,
+              "p95": 3255,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "logicalOrderChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "scrollDistancePx": {
+              "median": 4759.25,
+              "p95": 4791,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "actualSpeedPxPerSec": {
+              "median": 1176.295606263683,
+              "p95": 1177.230451260773,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameP95Ms": {
+              "median": 140.64999999999964,
+              "p95": 142,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameCount": {
+              "median": 58,
+              "p95": 59,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameSampleCount": {
+              "median": 58,
+              "p95": 59,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessObservedCount": {
+              "median": 186,
+              "p95": 193,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessSampleCount": {
+              "median": 186,
+              "p95": 193,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessObservedCount": {
+              "median": 0,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessSampleCount": {
+              "median": 0,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sampleLimit": {
+              "median": 2048,
+              "p95": 2048,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "regionDetached": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "maxTrackedEntries": {
+              "median": 10000,
+              "p95": 10000,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "trackedEntriesMax": {
+              "median": 59,
+              "p95": 59,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "trackingOverflow": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "placeholderAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "missingThumbnailAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "commandedSpeedPxPerSec": {
+              "median": 1200,
+              "p95": 1200,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenDistancePx": {
+              "median": 4759.25,
+              "p95": 4791,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenDurationMs": {
+              "median": 3964.949999994039,
+              "p95": 3991.5000000119217,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenFrames": {
+              "median": 58,
+              "p95": 59,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "evictionCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "prependCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "initialMediaCensored": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sourceTotal": {
+              "median": 1213256,
+              "p95": 1213256,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            }
+          }
+        },
+        "D2-grid": {
+          "id": "D2-grid",
+          "scenarioRevision": 2,
+          "density": "grid",
+          "workload": "scroll-warm",
+          "profile": "density-v2-1200pxs-unthrottled",
+          "cacheClass": "browser-repeat-path",
+          "completionBoundary": "four-second-controlled-scroll",
+          "resultRegime": "seek",
+          "contractKey": "{\"cacheClass\":\"browser-repeat-path\",\"completionBoundary\":\"four-second-controlled-scroll\",\"density\":\"grid\",\"id\":\"D2-grid\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"scroll-warm\"}",
+          "pairedContractKey": "{\"cacheClass\":\"browser-repeat-path\",\"completionBoundary\":\"four-second-controlled-scroll\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"scroll-warm\"}",
+          "sampleCount": 4,
+          "metrics": {
+            "pendingAreaRatioMean": {
+              "median": 0.010809322544488334,
+              "p95": 0.011539533243259006,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "pendingAreaRatioMax": {
+              "median": 0.5979492094673806,
+              "p95": 0.5979492094673806,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "blankViewportMs": {
+              "median": 822.7000000059561,
+              "p95": 842.6920000357532,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureAreaMs": {
+              "median": 65549281.880398124,
+              "p95": 70415591.95318463,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "elapsedMs": {
+              "median": 4008,
+              "p95": 4028.800000011921,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureObservedMs": {
+              "median": 4008,
+              "p95": 4027.9920000357633,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureStartDelayMs": {
+              "median": 0.40399998807879456,
+              "p95": 5.700000011922384,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailPendingAreaRatioMean": {
+              "median": 0.010809322544488334,
+              "p95": 0.011539533243259006,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailPendingAreaRatioMax": {
+              "median": 0.5979492094673806,
+              "p95": 0.5979492094673806,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailBlankViewportMs": {
+              "median": 822.7000000059561,
+              "p95": 842.6920000357532,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailExposureAreaMs": {
+              "median": 65549281.880398124,
+              "p95": 70415591.95318463,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailCaptureRevision": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessLeadPxMedian": {
+              "median": -103.75,
+              "p95": -101,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessLeadPxMedian": {
+              "median": -105,
+              "p95": -101.5,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "lateReadyCount": {
+              "median": 70,
+              "p95": 70,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "lateDecodedCount": {
+              "median": 70,
+              "p95": 70,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "loadedCount": {
+              "median": 125,
+              "p95": 125,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedCount": {
+              "median": 125,
+              "p95": 125,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "pendingAtEnd": {
+              "median": 6,
+              "p95": 6,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mountedPendingAtEnd": {
+              "median": 36,
+              "p95": 36,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "visibleSlotsAtEnd": {
+              "median": 24,
+              "p95": 24,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodeFailedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "alreadyLoadedCount": {
+              "median": 55,
+              "p95": 65,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "directionlessReadyCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftRawValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftRawValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftRecentInputValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftRecentInputValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftSupported": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "imageIdentityChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "imageSourceChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "elementGenerationChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "logicalOrderChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "scrollDistancePx": {
+              "median": 4763.25,
+              "p95": 4791.5,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "actualSpeedPxPerSec": {
+              "median": 1186.6266246992568,
+              "p95": 1196.1405961320438,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameP95Ms": {
+              "median": 37.79999999999927,
+              "p95": 41.70000000000073,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameCount": {
+              "median": 355,
+              "p95": 360,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameSampleCount": {
+              "median": 355,
+              "p95": 360,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessObservedCount": {
+              "median": 70,
+              "p95": 70,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessSampleCount": {
+              "median": 70,
+              "p95": 70,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessObservedCount": {
+              "median": 70,
+              "p95": 70,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessSampleCount": {
+              "median": 70,
+              "p95": 70,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sampleLimit": {
+              "median": 2048,
+              "p95": 2048,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "regionDetached": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "maxTrackedEntries": {
+              "median": 10000,
+              "p95": 10000,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "trackedEntriesMax": {
+              "median": 84,
+              "p95": 84,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "trackingOverflow": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "placeholderAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "missingThumbnailAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "commandedSpeedPxPerSec": {
+              "median": 1200,
+              "p95": 1200,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenDistancePx": {
+              "median": 4763.25,
+              "p95": 4791.5,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenDurationMs": {
+              "median": 3969.94999999404,
+              "p95": 3993.7999999880776,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenFrames": {
+              "median": 355,
+              "p95": 360,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "evictionCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "prependCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "initialMediaCensored": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sourceTotal": {
+              "median": 1213256,
+              "p95": 1213256,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            }
+          }
+        },
+        "D2-justified": {
+          "id": "D2-justified",
+          "scenarioRevision": 2,
+          "density": "justified",
+          "workload": "scroll-warm",
+          "profile": "density-v2-1200pxs-unthrottled",
+          "cacheClass": "browser-repeat-path",
+          "completionBoundary": "four-second-controlled-scroll",
+          "resultRegime": "seek",
+          "contractKey": "{\"cacheClass\":\"browser-repeat-path\",\"completionBoundary\":\"four-second-controlled-scroll\",\"density\":\"justified\",\"id\":\"D2-justified\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"scroll-warm\"}",
+          "pairedContractKey": "{\"cacheClass\":\"browser-repeat-path\",\"completionBoundary\":\"four-second-controlled-scroll\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"scroll-warm\"}",
+          "sampleCount": 4,
+          "metrics": {
+            "pendingAreaRatioMean": {
+              "median": 0.0027412603708306714,
+              "p95": 0.0036691107343558684,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "pendingAreaRatioMax": {
+              "median": 0.9659950570844734,
+              "p95": 0.9659950570844734,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "blankViewportMs": {
+              "median": 125.8349999940383,
+              "p95": 171.59999999999854,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureAreaMs": {
+              "median": 16658858.934041942,
+              "p95": 22344367.27404542,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "elapsedMs": {
+              "median": 4016.9000000059605,
+              "p95": 4019.899999976158,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureObservedMs": {
+              "median": 4016.2350000119213,
+              "p95": 4019.899999976158,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureStartDelayMs": {
+              "median": 0,
+              "p95": 1.3299999880782707,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailPendingAreaRatioMean": {
+              "median": 0.0027412603708306714,
+              "p95": 0.0036691107343558684,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailPendingAreaRatioMax": {
+              "median": 0.9659950570844734,
+              "p95": 0.9659950570844734,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailBlankViewportMs": {
+              "median": 125.8349999940383,
+              "p95": 171.59999999999854,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailExposureAreaMs": {
+              "median": 16658858.934041942,
+              "p95": 22344367.27404542,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailCaptureRevision": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessLeadPxMedian": {
+              "median": -10.53515625,
+              "p95": -3.859375,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessLeadPxMedian": {
+              "median": -10.78515625,
+              "p95": -4.3125,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "lateReadyCount": {
+              "median": 122,
+              "p95": 133,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "lateDecodedCount": {
+              "median": 120.5,
+              "p95": 130,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "loadedCount": {
+              "median": 185,
+              "p95": 191,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedCount": {
+              "median": 185,
+              "p95": 185,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "pendingAtEnd": {
+              "median": 0,
+              "p95": 6,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mountedPendingAtEnd": {
+              "median": 31,
+              "p95": 36,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "visibleSlotsAtEnd": {
+              "median": 30,
+              "p95": 36,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodeFailedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "alreadyLoadedCount": {
+              "median": 64.5,
+              "p95": 71,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "directionlessReadyCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftRawValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftRawValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftRecentInputValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftRecentInputValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftSupported": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "imageIdentityChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "imageSourceChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "elementGenerationChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "logicalOrderChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "scrollDistancePx": {
+              "median": 4803.75,
+              "p95": 4805.5,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "actualSpeedPxPerSec": {
+              "median": 1195.947144959171,
+              "p95": 1196.8615906489365,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameP95Ms": {
+              "median": 16.69999999999891,
+              "p95": 16.700000000000728,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameCount": {
+              "median": 438.5,
+              "p95": 448,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameSampleCount": {
+              "median": 438.5,
+              "p95": 448,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessObservedCount": {
+              "median": 122,
+              "p95": 133,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessSampleCount": {
+              "median": 122,
+              "p95": 133,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessObservedCount": {
+              "median": 120.5,
+              "p95": 130,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessSampleCount": {
+              "median": 120.5,
+              "p95": 130,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sampleLimit": {
+              "median": 2048,
+              "p95": 2048,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "regionDetached": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "maxTrackedEntries": {
+              "median": 10000,
+              "p95": 10000,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "trackedEntriesMax": {
+              "median": 98,
+              "p95": 110,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "trackingOverflow": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "placeholderAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "missingThumbnailAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "commandedSpeedPxPerSec": {
+              "median": 1200,
+              "p95": 1200,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenDistancePx": {
+              "median": 4803.75,
+              "p95": 4805.5,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenDurationMs": {
+              "median": 4005.4999999821175,
+              "p95": 4007.0000000357613,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenFrames": {
+              "median": 438,
+              "p95": 448,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "evictionCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "prependCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "initialMediaCensored": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sourceTotal": {
+              "median": 1213256,
+              "p95": 1213256,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            }
+          }
+        },
+        "D2-table": {
+          "id": "D2-table",
+          "scenarioRevision": 2,
+          "density": "table",
+          "workload": "scroll-warm",
+          "profile": "density-v2-1200pxs-unthrottled",
+          "cacheClass": "browser-repeat-path",
+          "completionBoundary": "four-second-controlled-scroll",
+          "resultRegime": "seek",
+          "contractKey": "{\"cacheClass\":\"browser-repeat-path\",\"completionBoundary\":\"four-second-controlled-scroll\",\"density\":\"table\",\"id\":\"D2-table\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"scroll-warm\"}",
+          "pairedContractKey": "{\"cacheClass\":\"browser-repeat-path\",\"completionBoundary\":\"four-second-controlled-scroll\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"scroll-warm\"}",
+          "sampleCount": 4,
+          "metrics": {
+            "pendingAreaRatioMean": {
+              "median": 0.02646594744528293,
+              "p95": 0.026530842286595455,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "pendingAreaRatioMax": {
+              "median": 0.027265114721152235,
+              "p95": 0.027265114721152235,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "blankViewportMs": {
+              "median": 3980.2999999701988,
+              "p95": 4055.100000023842,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureAreaMs": {
+              "median": 153185782.79883617,
+              "p95": 154173921.60093158,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "elapsedMs": {
+              "median": 4038.9999999701977,
+              "p95": 4055.100000023842,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureObservedMs": {
+              "median": 4038.9999999701977,
+              "p95": 4055.100000023842,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureStartDelayMs": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailPendingAreaRatioMean": {
+              "median": 0.02646594744528293,
+              "p95": 0.026530842286595455,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailPendingAreaRatioMax": {
+              "median": 0.027265114721152235,
+              "p95": 0.027265114721152235,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailBlankViewportMs": {
+              "median": 3980.2999999701988,
+              "p95": 4055.100000023842,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailExposureAreaMs": {
+              "median": 153185782.79883617,
+              "p95": 154173921.60093158,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailCaptureRevision": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessLeadPxMedian": {
+              "median": 385.75,
+              "p95": 386,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessLeadPxMedian": {
+              "median": null,
+              "p95": null,
+              "sampleCount": 0,
+              "unavailableCount": 4
+            },
+            "lateReadyCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "lateDecodedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "loadedCount": {
+              "median": 3393,
+              "p95": 3422,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedCount": {
+              "median": 3247,
+              "p95": 3277,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "pendingAtEnd": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mountedPendingAtEnd": {
+              "median": 3,
+              "p95": 3,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "visibleSlotsAtEnd": {
+              "median": 27,
+              "p95": 27,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodeFailedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "alreadyLoadedCount": {
+              "median": 3247,
+              "p95": 3277,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "directionlessReadyCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftRawValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftRawValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftRecentInputValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftRecentInputValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftSupported": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "imageIdentityChanges": {
+              "median": 3340.5,
+              "p95": 3370,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "imageSourceChanges": {
+              "median": 3340.5,
+              "p95": 3370,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "elementGenerationChanges": {
+              "median": 3340.5,
+              "p95": 3370,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "logicalOrderChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "scrollDistancePx": {
+              "median": 4745.25,
+              "p95": 4770,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "actualSpeedPxPerSec": {
+              "median": 1174.857299212535,
+              "p95": 1176.2965154920853,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameP95Ms": {
+              "median": 125.05000000000018,
+              "p95": 125.59999999999854,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameCount": {
+              "median": 60,
+              "p95": 61,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameSampleCount": {
+              "median": 60,
+              "p95": 61,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessObservedCount": {
+              "median": 145.5,
+              "p95": 146,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessSampleCount": {
+              "median": 145.5,
+              "p95": 146,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessObservedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessSampleCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sampleLimit": {
+              "median": 2048,
+              "p95": 2048,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "regionDetached": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "maxTrackedEntries": {
+              "median": 10000,
+              "p95": 10000,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "trackedEntriesMax": {
+              "median": 59,
+              "p95": 59,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "trackingOverflow": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "placeholderAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "missingThumbnailAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "commandedSpeedPxPerSec": {
+              "median": 1200,
+              "p95": 1200,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenDistancePx": {
+              "median": 4745.25,
+              "p95": 4770,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenDurationMs": {
+              "median": 3953.250000005959,
+              "p95": 3975.5000000357613,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenFrames": {
+              "median": 60,
+              "p95": 61,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "evictionCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "prependCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "initialMediaCensored": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sourceTotal": {
+              "median": 1213256,
+              "p95": 1213256,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            }
+          }
+        },
+        "D3-grid": {
+          "id": "D3-grid",
+          "scenarioRevision": 2,
+          "density": "grid",
+          "workload": "table-transition",
+          "profile": "density-v2-1200pxs-unthrottled",
+          "cacheClass": "browser-session-setup-renderer-warm-proxy-uncontrolled",
+          "completionBoundary": "driver-dispatch-to-observed-placement-and-visible-decode",
+          "resultRegime": "seek",
+          "contractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"driver-dispatch-to-observed-placement-and-visible-decode\",\"density\":\"grid\",\"id\":\"D3-grid\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"table-transition\"}",
+          "pairedContractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"driver-dispatch-to-observed-placement-and-visible-decode\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"table-transition\"}",
+          "sampleCount": 4,
+          "metrics": {
+            "placementMs": {
+              "median": 203.64999997615814,
+              "p95": 239.69999998807907,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "visibleMediaCount": {
+              "median": 24,
+              "p95": 24,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedMediaCount": {
+              "median": 24,
+              "p95": 24,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedMediaCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mediaReadyMs": {
+              "median": 216.14999997615814,
+              "p95": 247.89999997615814,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mediaCensored": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sourceTotal": {
+              "median": 1213253.5,
+              "p95": 1213256,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            }
+          }
+        },
+        "D3-justified": {
+          "id": "D3-justified",
+          "scenarioRevision": 2,
+          "density": "justified",
+          "workload": "table-transition",
+          "profile": "density-v2-1200pxs-unthrottled",
+          "cacheClass": "browser-session-setup-renderer-warm-proxy-uncontrolled",
+          "completionBoundary": "driver-dispatch-to-observed-placement-and-visible-decode",
+          "resultRegime": "seek",
+          "contractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"driver-dispatch-to-observed-placement-and-visible-decode\",\"density\":\"justified\",\"id\":\"D3-justified\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"table-transition\"}",
+          "pairedContractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"driver-dispatch-to-observed-placement-and-visible-decode\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"table-transition\"}",
+          "sampleCount": 4,
+          "metrics": {
+            "placementMs": {
+              "median": 161.94999998807907,
+              "p95": 197.79999995231628,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "visibleMediaCount": {
+              "median": 40,
+              "p95": 44,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedMediaCount": {
+              "median": 40,
+              "p95": 44,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedMediaCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mediaReadyMs": {
+              "median": 190.74999997019768,
+              "p95": 1127.199999988079,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mediaCensored": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sourceTotal": {
+              "median": 1213253.5,
+              "p95": 1213256,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            }
+          }
+        },
+        "D4-grid": {
+          "id": "D4-grid",
+          "scenarioRevision": 2,
+          "density": "grid",
+          "workload": "detail-return",
+          "profile": "density-v2-1200pxs-unthrottled",
+          "cacheClass": "browser-session-setup-renderer-warm-proxy-uncontrolled",
+          "completionBoundary": "driver-dispatch-to-observed-placement-and-visible-decode",
+          "resultRegime": "seek",
+          "contractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"driver-dispatch-to-observed-placement-and-visible-decode\",\"density\":\"grid\",\"id\":\"D4-grid\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"detail-return\"}",
+          "pairedContractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"driver-dispatch-to-observed-placement-and-visible-decode\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"detail-return\"}",
+          "sampleCount": 4,
+          "metrics": {
+            "placementMs": {
+              "median": 105.94999998807907,
+              "p95": 155.69999998807907,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "visibleMediaCount": {
+              "median": 24,
+              "p95": 24,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedMediaCount": {
+              "median": 24,
+              "p95": 24,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedMediaCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mediaReadyMs": {
+              "median": 114.85000002384186,
+              "p95": 163.89999997615814,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mediaCensored": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sourceTotal": {
+              "median": 1213253.5,
+              "p95": 1213256,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            }
+          }
+        },
+        "D4-justified": {
+          "id": "D4-justified",
+          "scenarioRevision": 2,
+          "density": "justified",
+          "workload": "detail-return",
+          "profile": "density-v2-1200pxs-unthrottled",
+          "cacheClass": "browser-session-setup-renderer-warm-proxy-uncontrolled",
+          "completionBoundary": "driver-dispatch-to-observed-placement-and-visible-decode",
+          "resultRegime": "seek",
+          "contractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"driver-dispatch-to-observed-placement-and-visible-decode\",\"density\":\"justified\",\"id\":\"D4-justified\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"detail-return\"}",
+          "pairedContractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"driver-dispatch-to-observed-placement-and-visible-decode\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"detail-return\"}",
+          "sampleCount": 4,
+          "metrics": {
+            "placementMs": {
+              "median": 86.80000001192093,
+              "p95": 99.5,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "visibleMediaCount": {
+              "median": 40,
+              "p95": 44,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedMediaCount": {
+              "median": 40,
+              "p95": 44,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedMediaCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mediaReadyMs": {
+              "median": 95.55000001192093,
+              "p95": 108.39999997615814,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mediaCensored": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sourceTotal": {
+              "median": 1213253.5,
+              "p95": 1213256,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            }
+          }
+        },
+        "D5-grid": {
+          "id": "D5-grid",
+          "scenarioRevision": 2,
+          "density": "grid",
+          "workload": "seek",
+          "profile": "density-v2-1200pxs-unthrottled",
+          "cacheClass": "browser-session-setup-renderer-warm-proxy-uncontrolled",
+          "completionBoundary": "driver-dispatch-to-observed-placement-and-visible-decode",
+          "resultRegime": "seek",
+          "contractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"driver-dispatch-to-observed-placement-and-visible-decode\",\"density\":\"grid\",\"id\":\"D5-grid\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"seek\"}",
+          "pairedContractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"driver-dispatch-to-observed-placement-and-visible-decode\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"seek\"}",
+          "sampleCount": 4,
+          "metrics": {
+            "placementMs": {
+              "median": 1286.2000000178814,
+              "p95": 1663.1000000238419,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "visibleMediaCount": {
+              "median": 24,
+              "p95": 24,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedMediaCount": {
+              "median": 24,
+              "p95": 24,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedMediaCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mediaReadyMs": {
+              "median": 1444.0999999940395,
+              "p95": 2082.699999988079,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mediaCensored": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sourceTotal": {
+              "median": 1213253.5,
+              "p95": 1213256,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            }
+          }
+        },
+        "D5-justified": {
+          "id": "D5-justified",
+          "scenarioRevision": 2,
+          "density": "justified",
+          "workload": "seek",
+          "profile": "density-v2-1200pxs-unthrottled",
+          "cacheClass": "browser-session-setup-renderer-warm-proxy-uncontrolled",
+          "completionBoundary": "driver-dispatch-to-observed-placement-and-visible-decode",
+          "resultRegime": "seek",
+          "contractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"driver-dispatch-to-observed-placement-and-visible-decode\",\"density\":\"justified\",\"id\":\"D5-justified\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"seek\"}",
+          "pairedContractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"driver-dispatch-to-observed-placement-and-visible-decode\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"seek\"}",
+          "sampleCount": 4,
+          "metrics": {
+            "placementMs": {
+              "median": 1448,
+              "p95": 1531.199999988079,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "visibleMediaCount": {
+              "median": 38.5,
+              "p95": 43,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedMediaCount": {
+              "median": 38.5,
+              "p95": 43,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedMediaCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mediaReadyMs": {
+              "median": 1937.1500000059605,
+              "p95": 2565.099999964237,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mediaCensored": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sourceTotal": {
+              "median": 1213253.5,
+              "p95": 1213256,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            }
+          }
+        },
+        "D6-grid": {
+          "id": "D6-grid",
+          "scenarioRevision": 2,
+          "density": "grid",
+          "workload": "reflow",
+          "profile": "density-v2-1200pxs-unthrottled",
+          "cacheClass": "browser-session-setup-renderer-warm-proxy-uncontrolled",
+          "completionBoundary": "driver-dispatch-to-observed-placement-and-visible-decode",
+          "resultRegime": "seek",
+          "contractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"driver-dispatch-to-observed-placement-and-visible-decode\",\"density\":\"grid\",\"id\":\"D6-grid\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"reflow\"}",
+          "pairedContractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"driver-dispatch-to-observed-placement-and-visible-decode\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"reflow\"}",
+          "sampleCount": 4,
+          "metrics": {
+            "placementMs": {
+              "median": 94.59999999403954,
+              "p95": 121.19999998807907,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "visibleMediaCount": {
+              "median": 12,
+              "p95": 12,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedMediaCount": {
+              "median": 12,
+              "p95": 12,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedMediaCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mediaReadyMs": {
+              "median": 103.0499999821186,
+              "p95": 131.9000000357628,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mediaCensored": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sourceTotal": {
+              "median": 1213253.5,
+              "p95": 1213256,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            }
+          }
+        },
+        "D6-justified": {
+          "id": "D6-justified",
+          "scenarioRevision": 2,
+          "density": "justified",
+          "workload": "reflow",
+          "profile": "density-v2-1200pxs-unthrottled",
+          "cacheClass": "browser-session-setup-renderer-warm-proxy-uncontrolled",
+          "completionBoundary": "driver-dispatch-to-observed-placement-and-visible-decode",
+          "resultRegime": "seek",
+          "contractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"driver-dispatch-to-observed-placement-and-visible-decode\",\"density\":\"justified\",\"id\":\"D6-justified\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"reflow\"}",
+          "pairedContractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"driver-dispatch-to-observed-placement-and-visible-decode\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"reflow\"}",
+          "sampleCount": 4,
+          "metrics": {
+            "placementMs": {
+              "median": 86.69999998807907,
+              "p95": 94.39999997615814,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "visibleMediaCount": {
+              "median": 27,
+              "p95": 30,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedMediaCount": {
+              "median": 27,
+              "p95": 30,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedMediaCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mediaReadyMs": {
+              "median": 92.90000000596046,
+              "p95": 105.69999998807907,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mediaCensored": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sourceTotal": {
+              "median": 1213253.5,
+              "p95": 1213256,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            }
+          }
+        },
+        "D7-grid": {
+          "id": "D7-grid",
+          "scenarioRevision": 3,
+          "density": "grid",
+          "workload": "window-maintenance",
+          "profile": "density-v2-1200pxs-unthrottled",
+          "cacheClass": "browser-session-setup-renderer-warm-proxy-uncontrolled",
+          "completionBoundary": "tail-admission-first-forward-eviction-visible-anchor",
+          "resultRegime": "seek",
+          "geometryScope": "loaded-window",
+          "contractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"tail-admission-first-forward-eviction-visible-anchor\",\"density\":\"grid\",\"geometryScope\":\"loaded-window\",\"id\":\"D7-grid\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":3,\"workload\":\"window-maintenance\"}",
+          "pairedContractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"tail-admission-first-forward-eviction-visible-anchor\",\"geometryScope\":\"loaded-window\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":3,\"workload\":\"window-maintenance\"}",
+          "sampleCount": 4,
+          "metrics": {
+            "pendingAreaRatioMean": {
+              "median": 0.2764858918128591,
+              "p95": 0.4249353280153182,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "pendingAreaRatioMax": {
+              "median": 0.6208215836000127,
+              "p95": 0.6208215836000127,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "blankViewportMs": {
+              "median": 471.10000000000036,
+              "p95": 808.8000000000011,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureAreaMs": {
+              "median": 342746937.50000024,
+              "p95": 585487375.0000014,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "elapsedMs": {
+              "median": 870.0000000298023,
+              "p95": 909.6999999880791,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureObservedMs": {
+              "median": 866.0500000178808,
+              "p95": 909.5000000119217,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureStartDelayMs": {
+              "median": 2.9500000059606464,
+              "p95": 4.600000000000364,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailPendingAreaRatioMean": {
+              "median": 0.2764858918128591,
+              "p95": 0.4249353280153182,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailPendingAreaRatioMax": {
+              "median": 0.6208215836000127,
+              "p95": 0.6208215836000127,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailBlankViewportMs": {
+              "median": 471.10000000000036,
+              "p95": 808.8000000000011,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailExposureAreaMs": {
+              "median": 342746937.50000024,
+              "p95": 585487375.0000014,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailCaptureRevision": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessLeadPxMedian": {
+              "median": -581,
+              "p95": -581,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessLeadPxMedian": {
+              "median": -581,
+              "p95": -581,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "lateReadyCount": {
+              "median": 18,
+              "p95": 18,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "lateDecodedCount": {
+              "median": 18,
+              "p95": 18,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "loadedCount": {
+              "median": 78,
+              "p95": 84,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedCount": {
+              "median": 75.5,
+              "p95": 84,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "pendingAtEnd": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mountedPendingAtEnd": {
+              "median": 58,
+              "p95": 60,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "visibleSlotsAtEnd": {
+              "median": 18,
+              "p95": 18,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodeFailedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "alreadyLoadedCount": {
+              "median": 60,
+              "p95": 66,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "directionlessReadyCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftRawValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftRawValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftRecentInputValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftRecentInputValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftSupported": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "imageIdentityChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "imageSourceChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "elementGenerationChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "logicalOrderChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "scrollDistancePx": {
+              "median": 54308.5,
+              "p95": 59228,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "actualSpeedPxPerSec": {
+              "median": 62800.65294378983,
+              "p95": 72806.39213275968,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameP95Ms": {
+              "median": 10.100000000000364,
+              "p95": 10.299999999999272,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameCount": {
+              "median": 75.5,
+              "p95": 84,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameSampleCount": {
+              "median": 75.5,
+              "p95": 84,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessObservedCount": {
+              "median": 18,
+              "p95": 18,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessSampleCount": {
+              "median": 18,
+              "p95": 18,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessObservedCount": {
+              "median": 18,
+              "p95": 18,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessSampleCount": {
+              "median": 18,
+              "p95": 18,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sampleLimit": {
+              "median": 2048,
+              "p95": 2048,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "regionDetached": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "maxTrackedEntries": {
+              "median": 10000,
+              "p95": 10000,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "trackedEntriesMax": {
+              "median": 78,
+              "p95": 78,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "trackingOverflow": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "placeholderAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "missingThumbnailAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "evictionCount": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "prependCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "initialMediaCensored": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sourceTotal": {
+              "median": 1213253.5,
+              "p95": 1213256,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            }
+          }
+        },
+        "D7-justified": {
+          "id": "D7-justified",
+          "scenarioRevision": 3,
+          "density": "justified",
+          "workload": "window-maintenance",
+          "profile": "density-v2-1200pxs-unthrottled",
+          "cacheClass": "browser-session-setup-renderer-warm-proxy-uncontrolled",
+          "completionBoundary": "tail-admission-first-forward-eviction-visible-anchor",
+          "resultRegime": "seek",
+          "geometryScope": "loaded-window",
+          "contractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"tail-admission-first-forward-eviction-visible-anchor\",\"density\":\"justified\",\"geometryScope\":\"loaded-window\",\"id\":\"D7-justified\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":3,\"workload\":\"window-maintenance\"}",
+          "pairedContractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"tail-admission-first-forward-eviction-visible-anchor\",\"geometryScope\":\"loaded-window\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":3,\"workload\":\"window-maintenance\"}",
+          "sampleCount": 4,
+          "metrics": {
+            "pendingAreaRatioMean": {
+              "median": 0.55842776292371,
+              "p95": 0.8668406986999536,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "pendingAreaRatioMax": {
+              "median": 0.9645154973006491,
+              "p95": 0.9650157633429376,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "blankViewportMs": {
+              "median": 559.7999999821186,
+              "p95": 677.9999999642368,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureAreaMs": {
+              "median": 574130585.6552548,
+              "p95": 890350444.7411195,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "elapsedMs": {
+              "median": 692.8499999940395,
+              "p95": 735.7999999523163,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureObservedMs": {
+              "median": 689.3499999999995,
+              "p95": 731.7999999642379,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureStartDelayMs": {
+              "median": 3.850000000000364,
+              "p95": 3.9999999880783434,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailPendingAreaRatioMean": {
+              "median": 0.55842776292371,
+              "p95": 0.8668406986999536,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailPendingAreaRatioMax": {
+              "median": 0.9645154973006491,
+              "p95": 0.9650157633429376,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailBlankViewportMs": {
+              "median": 559.7999999821186,
+              "p95": 677.9999999642368,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailExposureAreaMs": {
+              "median": 574130585.6552548,
+              "p95": 890350444.7411195,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailCaptureRevision": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessLeadPxMedian": {
+              "median": -691.71484375,
+              "p95": -553.8984375,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessLeadPxMedian": {
+              "median": -691.71484375,
+              "p95": -553.8984375,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "lateReadyCount": {
+              "median": 31.5,
+              "p95": 36,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "lateDecodedCount": {
+              "median": 31.5,
+              "p95": 36,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "loadedCount": {
+              "median": 103.5,
+              "p95": 127,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedCount": {
+              "median": 103.5,
+              "p95": 127,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "pendingAtEnd": {
+              "median": 8.5,
+              "p95": 26,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mountedPendingAtEnd": {
+              "median": 74.5,
+              "p95": 90,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "visibleSlotsAtEnd": {
+              "median": 33.5,
+              "p95": 36,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodeFailedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "alreadyLoadedCount": {
+              "median": 71.5,
+              "p95": 91,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "directionlessReadyCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftRawValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftRawValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftRecentInputValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftRecentInputValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftSupported": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "imageIdentityChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "imageSourceChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "elementGenerationChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "logicalOrderChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "scrollDistancePx": {
+              "median": 30742.25,
+              "p95": 30971,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "actualSpeedPxPerSec": {
+              "median": 44068.71027997159,
+              "p95": 46482.065134993085,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameP95Ms": {
+              "median": 10.200000000000728,
+              "p95": 10.300000000001091,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameCount": {
+              "median": 63,
+              "p95": 69,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameSampleCount": {
+              "median": 63,
+              "p95": 69,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessObservedCount": {
+              "median": 32,
+              "p95": 36,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessSampleCount": {
+              "median": 32,
+              "p95": 36,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessObservedCount": {
+              "median": 32,
+              "p95": 36,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessSampleCount": {
+              "median": 32,
+              "p95": 36,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sampleLimit": {
+              "median": 2048,
+              "p95": 2048,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "regionDetached": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "maxTrackedEntries": {
+              "median": 10000,
+              "p95": 10000,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "trackedEntriesMax": {
+              "median": 104.5,
+              "p95": 111,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "trackingOverflow": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "placeholderAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "missingThumbnailAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "evictionCount": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "prependCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "initialMediaCensored": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sourceTotal": {
+              "median": 1213253.5,
+              "p95": 1213256,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            }
+          }
+        },
+        "D8-grid": {
+          "id": "D8-grid",
+          "scenarioRevision": 2,
+          "density": "grid",
+          "workload": "scroll-constrained",
+          "profile": "density-v2-1200pxs-80ms-4mbps-scroll-only",
+          "cacheClass": "browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled",
+          "completionBoundary": "four-second-controlled-scroll",
+          "resultRegime": "seek",
+          "contractKey": "{\"cacheClass\":\"browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"four-second-controlled-scroll\",\"density\":\"grid\",\"id\":\"D8-grid\",\"profile\":\"density-v2-1200pxs-80ms-4mbps-scroll-only\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"scroll-constrained\"}",
+          "pairedContractKey": "{\"cacheClass\":\"browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"four-second-controlled-scroll\",\"profile\":\"density-v2-1200pxs-80ms-4mbps-scroll-only\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"scroll-constrained\"}",
+          "sampleCount": 4,
+          "metrics": {
+            "pendingAreaRatioMean": {
+              "median": 0.1597384798341553,
+              "p95": 0.19830908185165877,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "pendingAreaRatioMax": {
+              "median": 0.5979492094673806,
+              "p95": 0.5979492094673806,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "blankViewportMs": {
+              "median": 3222.850000011921,
+              "p95": 3585.600000011921,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureAreaMs": {
+              "median": 974108368.7420928,
+              "p95": 1204790290.010799,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "elapsedMs": {
+              "median": 4024.650000035763,
+              "p95": 4027.699999988079,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureObservedMs": {
+              "median": 4024.650000035763,
+              "p95": 4027.699999988079,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureStartDelayMs": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailPendingAreaRatioMean": {
+              "median": 0.1597384798341553,
+              "p95": 0.19830908185165877,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailPendingAreaRatioMax": {
+              "median": 0.5979492094673806,
+              "p95": 0.5979492094673806,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailBlankViewportMs": {
+              "median": 3222.850000011921,
+              "p95": 3585.600000011921,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailExposureAreaMs": {
+              "median": 974108368.7420928,
+              "p95": 1204790290.010799,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailCaptureRevision": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessLeadPxMedian": {
+              "median": -355.5,
+              "p95": -350.5,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessLeadPxMedian": {
+              "median": -416,
+              "p95": -409,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "lateReadyCount": {
+              "median": 70,
+              "p95": 81,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "lateDecodedCount": {
+              "median": 67.5,
+              "p95": 77,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "loadedCount": {
+              "median": 122,
+              "p95": 124,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedCount": {
+              "median": 119,
+              "p95": 120,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "pendingAtEnd": {
+              "median": 12,
+              "p95": 12,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mountedPendingAtEnd": {
+              "median": 42,
+              "p95": 42,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "visibleSlotsAtEnd": {
+              "median": 24,
+              "p95": 24,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodeFailedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "alreadyLoadedCount": {
+              "median": 52,
+              "p95": 56,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "directionlessReadyCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftRawValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftRawValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftRecentInputValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftRecentInputValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftSupported": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "imageIdentityChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "imageSourceChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "elementGenerationChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "logicalOrderChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "scrollDistancePx": {
+              "median": 4762.25,
+              "p95": 4765.5,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "actualSpeedPxPerSec": {
+              "median": 1183.270629598811,
+              "p95": 1186.5695833194163,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameP95Ms": {
+              "median": 41.60000000000127,
+              "p95": 41.80000000000291,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameCount": {
+              "median": 339.5,
+              "p95": 343,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameSampleCount": {
+              "median": 339.5,
+              "p95": 343,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessObservedCount": {
+              "median": 70,
+              "p95": 81,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessSampleCount": {
+              "median": 70,
+              "p95": 81,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessObservedCount": {
+              "median": 67.5,
+              "p95": 77,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessSampleCount": {
+              "median": 67.5,
+              "p95": 77,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sampleLimit": {
+              "median": 2048,
+              "p95": 2048,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "regionDetached": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "maxTrackedEntries": {
+              "median": 10000,
+              "p95": 10000,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "trackedEntriesMax": {
+              "median": 84,
+              "p95": 84,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "trackingOverflow": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "placeholderAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "missingThumbnailAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "commandedSpeedPxPerSec": {
+              "median": 1200,
+              "p95": 1200,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenDistancePx": {
+              "median": 4762.25,
+              "p95": 4765.5,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenDurationMs": {
+              "median": 3970.69999999404,
+              "p95": 3971.7000000000007,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenFrames": {
+              "median": 339.5,
+              "p95": 342,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "evictionCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "prependCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "initialMediaCensored": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sourceTotal": {
+              "median": 1213253.5,
+              "p95": 1213256,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            }
+          }
+        },
+        "D8-justified": {
+          "id": "D8-justified",
+          "scenarioRevision": 2,
+          "density": "justified",
+          "workload": "scroll-constrained",
+          "profile": "density-v2-1200pxs-80ms-4mbps-scroll-only",
+          "cacheClass": "browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled",
+          "completionBoundary": "four-second-controlled-scroll",
+          "resultRegime": "seek",
+          "contractKey": "{\"cacheClass\":\"browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"four-second-controlled-scroll\",\"density\":\"justified\",\"id\":\"D8-justified\",\"profile\":\"density-v2-1200pxs-80ms-4mbps-scroll-only\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"scroll-constrained\"}",
+          "pairedContractKey": "{\"cacheClass\":\"browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"four-second-controlled-scroll\",\"profile\":\"density-v2-1200pxs-80ms-4mbps-scroll-only\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"scroll-constrained\"}",
+          "sampleCount": 4,
+          "metrics": {
+            "pendingAreaRatioMean": {
+              "median": 0.5297805829430628,
+              "p95": 0.7227159842886212,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "pendingAreaRatioMax": {
+              "median": 0.9713136820774366,
+              "p95": 0.9766626444351723,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "blankViewportMs": {
+              "median": 3576.56699999404,
+              "p95": 3899.3339999761574,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureAreaMs": {
+              "median": 3223441190.468489,
+              "p95": 4390438764.461587,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "elapsedMs": {
+              "median": 4014.8499999940395,
+              "p95": 4018.099999964237,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureObservedMs": {
+              "median": 4013.8669999940394,
+              "p95": 4016.7979999761574,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureStartDelayMs": {
+              "median": 0.782999994039983,
+              "p95": 1.9660000000003492,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailPendingAreaRatioMean": {
+              "median": 0.5297805829430628,
+              "p95": 0.7227159842886212,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailPendingAreaRatioMax": {
+              "median": 0.9713136820774366,
+              "p95": 0.9766626444351723,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailBlankViewportMs": {
+              "median": 3576.56699999404,
+              "p95": 3899.3339999761574,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailExposureAreaMs": {
+              "median": 3223441190.468489,
+              "p95": 4390438764.461587,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailCaptureRevision": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessLeadPxMedian": {
+              "median": -618.0390625,
+              "p95": -474.28125,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessLeadPxMedian": {
+              "median": -618.55078125,
+              "p95": -481.53125,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "lateReadyCount": {
+              "median": 99,
+              "p95": 110,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "lateDecodedCount": {
+              "median": 99,
+              "p95": 110,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "loadedCount": {
+              "median": 152,
+              "p95": 164,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedCount": {
+              "median": 152,
+              "p95": 164,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "pendingAtEnd": {
+              "median": 33,
+              "p95": 36,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mountedPendingAtEnd": {
+              "median": 66.5,
+              "p95": 71,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "visibleSlotsAtEnd": {
+              "median": 33,
+              "p95": 36,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodeFailedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "alreadyLoadedCount": {
+              "median": 59,
+              "p95": 71,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "directionlessReadyCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftRawValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftRawValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftRecentInputValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftRecentInputValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftSupported": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "imageIdentityChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "imageSourceChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "elementGenerationChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "logicalOrderChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "scrollDistancePx": {
+              "median": 4804.75,
+              "p95": 4815,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "actualSpeedPxPerSec": {
+              "median": 1196.7444722101623,
+              "p95": 1200.6583048614036,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameP95Ms": {
+              "median": 17,
+              "p95": 18.100000000000364,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameCount": {
+              "median": 429,
+              "p95": 436,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameSampleCount": {
+              "median": 429,
+              "p95": 436,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessObservedCount": {
+              "median": 99,
+              "p95": 110,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessSampleCount": {
+              "median": 99,
+              "p95": 110,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessObservedCount": {
+              "median": 99,
+              "p95": 110,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessSampleCount": {
+              "median": 99,
+              "p95": 110,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sampleLimit": {
+              "median": 2048,
+              "p95": 2048,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "regionDetached": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "maxTrackedEntries": {
+              "median": 10000,
+              "p95": 10000,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "trackedEntriesMax": {
+              "median": 104,
+              "p95": 110,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "trackingOverflow": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "placeholderAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "missingThumbnailAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "commandedSpeedPxPerSec": {
+              "median": 1200,
+              "p95": 1200,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenDistancePx": {
+              "median": 4803.75,
+              "p95": 4809,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenDurationMs": {
+              "median": 4004.099999970198,
+              "p95": 4006.6000000357635,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenFrames": {
+              "median": 429,
+              "p95": 436,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "evictionCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "prependCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "initialMediaCensored": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sourceTotal": {
+              "median": 1213253.5,
+              "p95": 1213256,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            }
+          }
+        },
+        "D8-table": {
+          "id": "D8-table",
+          "scenarioRevision": 2,
+          "density": "table",
+          "workload": "scroll-constrained",
+          "profile": "density-v2-1200pxs-80ms-4mbps-scroll-only",
+          "cacheClass": "browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled",
+          "completionBoundary": "four-second-controlled-scroll",
+          "resultRegime": "seek",
+          "contractKey": "{\"cacheClass\":\"browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"four-second-controlled-scroll\",\"density\":\"table\",\"id\":\"D8-table\",\"profile\":\"density-v2-1200pxs-80ms-4mbps-scroll-only\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"scroll-constrained\"}",
+          "pairedContractKey": "{\"cacheClass\":\"browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"four-second-controlled-scroll\",\"profile\":\"density-v2-1200pxs-80ms-4mbps-scroll-only\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"scroll-constrained\"}",
+          "sampleCount": 4,
+          "metrics": {
+            "pendingAreaRatioMean": {
+              "median": 0.02632528248345408,
+              "p95": 0.02635683370151033,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "pendingAreaRatioMax": {
+              "median": 0.027265114721152235,
+              "p95": 0.027265114721152235,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "blankViewportMs": {
+              "median": 3971.6499999761577,
+              "p95": 4045.100000011924,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureAreaMs": {
+              "median": 152533408.79906845,
+              "p95": 153453568.80046582,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "elapsedMs": {
+              "median": 4048.399999976158,
+              "p95": 4062.800000011921,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureObservedMs": {
+              "median": 4043.6999999761583,
+              "p95": 4062.800000011921,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "exposureStartDelayMs": {
+              "median": 0,
+              "p95": 9.399999999999636,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailPendingAreaRatioMean": {
+              "median": 0.02632528248345408,
+              "p95": 0.02635683370151033,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailPendingAreaRatioMax": {
+              "median": 0.027265114721152235,
+              "p95": 0.027265114721152235,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailBlankViewportMs": {
+              "median": 3971.6499999761577,
+              "p95": 4045.100000011924,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailExposureAreaMs": {
+              "median": 152533408.79906845,
+              "p95": 153453568.80046582,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailCaptureRevision": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessLeadPxMedian": {
+              "median": -1380.75,
+              "p95": -1333.5,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessLeadPxMedian": {
+              "median": null,
+              "p95": null,
+              "sampleCount": 0,
+              "unavailableCount": 4
+            },
+            "lateReadyCount": {
+              "median": 21,
+              "p95": 73,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "lateDecodedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "loadedCount": {
+              "median": 97,
+              "p95": 185,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedCount": {
+              "median": 76,
+              "p95": 112,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "pendingAtEnd": {
+              "median": 27,
+              "p95": 27,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "mountedPendingAtEnd": {
+              "median": 58,
+              "p95": 59,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "visibleSlotsAtEnd": {
+              "median": 27,
+              "p95": 27,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodeFailedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "alreadyLoadedCount": {
+              "median": 76,
+              "p95": 112,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "directionlessReadyCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftRawValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftRawValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftRecentInputValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "thumbnailShiftRecentInputValue": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "layoutShiftSupported": {
+              "median": 1,
+              "p95": 1,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "imageIdentityChanges": {
+              "median": 3782.5,
+              "p95": 3834,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "imageSourceChanges": {
+              "median": 3783,
+              "p95": 3834,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "elementGenerationChanges": {
+              "median": 3783,
+              "p95": 3834,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "logicalOrderChanges": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "scrollDistancePx": {
+              "median": 4760.75,
+              "p95": 4798,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "actualSpeedPxPerSec": {
+              "median": 1178.7408928675422,
+              "p95": 1180.958944566782,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameP95Ms": {
+              "median": 127.39999999999964,
+              "p95": 133,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameCount": {
+              "median": 67.5,
+              "p95": 68,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "frameSampleCount": {
+              "median": 67.5,
+              "p95": 68,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessObservedCount": {
+              "median": 21,
+              "p95": 73,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "readinessSampleCount": {
+              "median": 21,
+              "p95": 73,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessObservedCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "decodedReadinessSampleCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sampleLimit": {
+              "median": 2048,
+              "p95": 2048,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "regionDetached": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "maxTrackedEntries": {
+              "median": 10000,
+              "p95": 10000,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "trackedEntriesMax": {
+              "median": 59,
+              "p95": 59,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "trackingOverflow": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "placeholderAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "failedAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "missingThumbnailAreaRatioMean": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "commandedSpeedPxPerSec": {
+              "median": 1200,
+              "p95": 1200,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenDistancePx": {
+              "median": 4760.75,
+              "p95": 4798,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenDurationMs": {
+              "median": 3966.2499999821184,
+              "p95": 3997.5999999999985,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "drivenFrames": {
+              "median": 67.5,
+              "p95": 69,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "evictionCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "prependCount": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "initialMediaCensored": {
+              "median": 0,
+              "p95": 0,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            },
+            "sourceTotal": {
+              "median": 1213253.5,
+              "p95": 1213256,
+              "sampleCount": 4,
+              "unavailableCount": 0
+            }
+          }
+        }
+      },
+      "pairs": [
+        {
+          "controlId": "D1-grid",
+          "candidateId": "D1-justified",
+          "contractKey": "{\"cacheClass\":\"browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"four-second-controlled-scroll\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"scroll-cold\"}",
+          "deltas": {
+            "pendingAreaRatioMean": -0.010148261211915675,
+            "pendingAreaRatioMax": 0.3680458476170928,
+            "blankViewportMs": -430.2500000119162,
+            "exposureAreaMs": -61767807.78595043,
+            "elapsedMs": 0.9000000357627869,
+            "exposureObservedMs": 0.2000000298021405,
+            "exposureStartDelayMs": 0,
+            "thumbnailPendingAreaRatioMean": -0.010148261211915675,
+            "thumbnailPendingAreaRatioMax": 0.3680458476170928,
+            "thumbnailBlankViewportMs": -430.2500000119162,
+            "thumbnailExposureAreaMs": -61767807.78595043,
+            "thumbnailCaptureRevision": 0,
+            "readinessLeadPxMedian": 102.5234375,
+            "decodedReadinessLeadPxMedian": 80.19140625,
+            "lateReadyCount": 55.5,
+            "lateDecodedCount": 52.5,
+            "loadedCount": 60,
+            "decodedCount": 60,
+            "pendingAtEnd": -6,
+            "mountedPendingAtEnd": -5,
+            "visibleSlotsAtEnd": 6,
+            "failedCount": 0,
+            "decodeFailedCount": 0,
+            "alreadyLoadedCount": 7.5,
+            "directionlessReadyCount": 0,
+            "layoutShiftValue": 0,
+            "thumbnailShiftValue": 0,
+            "layoutShiftRawValue": 0,
+            "thumbnailShiftRawValue": 0,
+            "layoutShiftRecentInputValue": 0,
+            "thumbnailShiftRecentInputValue": 0,
+            "layoutShiftSupported": 0,
+            "imageIdentityChanges": 0,
+            "imageSourceChanges": 0,
+            "elementGenerationChanges": 0,
+            "logicalOrderChanges": 0,
+            "scrollDistancePx": 42.75,
+            "actualSpeedPxPerSec": 10.37444096620493,
+            "frameP95Ms": -24.650000000001455,
+            "frameCount": 97,
+            "frameSampleCount": 97,
+            "readinessObservedCount": 55.5,
+            "readinessSampleCount": 55.5,
+            "decodedReadinessObservedCount": 52.5,
+            "decodedReadinessSampleCount": 52.5,
+            "sampleLimit": 0,
+            "regionDetached": 0,
+            "maxTrackedEntries": 0,
+            "trackedEntriesMax": 14,
+            "trackingOverflow": 0,
+            "placeholderAreaRatioMean": 0,
+            "failedAreaRatioMean": 0,
+            "missingThumbnailAreaRatioMean": 0,
+            "commandedSpeedPxPerSec": 0,
+            "drivenDistancePx": 42.75,
+            "drivenDurationMs": 39.19999998211915,
+            "drivenFrames": 97,
+            "evictionCount": 0,
+            "prependCount": 0,
+            "initialMediaCensored": 0,
+            "sourceTotal": 0
+          }
+        },
+        {
+          "controlId": "D2-grid",
+          "candidateId": "D2-justified",
+          "contractKey": "{\"cacheClass\":\"browser-repeat-path\",\"completionBoundary\":\"four-second-controlled-scroll\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"scroll-warm\"}",
+          "deltas": {
+            "pendingAreaRatioMean": -0.008068062173657662,
+            "pendingAreaRatioMax": 0.3680458476170928,
+            "blankViewportMs": -696.8650000119178,
+            "exposureAreaMs": -48890422.946356185,
+            "elapsedMs": 8.900000005960464,
+            "exposureObservedMs": 8.23500001192133,
+            "exposureStartDelayMs": -0.40399998807879456,
+            "thumbnailPendingAreaRatioMean": -0.008068062173657662,
+            "thumbnailPendingAreaRatioMax": 0.3680458476170928,
+            "thumbnailBlankViewportMs": -696.8650000119178,
+            "thumbnailExposureAreaMs": -48890422.946356185,
+            "thumbnailCaptureRevision": 0,
+            "readinessLeadPxMedian": 93.21484375,
+            "decodedReadinessLeadPxMedian": 94.21484375,
+            "lateReadyCount": 52,
+            "lateDecodedCount": 50.5,
+            "loadedCount": 60,
+            "decodedCount": 60,
+            "pendingAtEnd": -6,
+            "mountedPendingAtEnd": -5,
+            "visibleSlotsAtEnd": 6,
+            "failedCount": 0,
+            "decodeFailedCount": 0,
+            "alreadyLoadedCount": 9.5,
+            "directionlessReadyCount": 0,
+            "layoutShiftValue": 0,
+            "thumbnailShiftValue": 0,
+            "layoutShiftRawValue": 0,
+            "thumbnailShiftRawValue": 0,
+            "layoutShiftRecentInputValue": 0,
+            "thumbnailShiftRecentInputValue": 0,
+            "layoutShiftSupported": 0,
+            "imageIdentityChanges": 0,
+            "imageSourceChanges": 0,
+            "elementGenerationChanges": 0,
+            "logicalOrderChanges": 0,
+            "scrollDistancePx": 40.5,
+            "actualSpeedPxPerSec": 9.320520259914247,
+            "frameP95Ms": -21.100000000000364,
+            "frameCount": 83.5,
+            "frameSampleCount": 83.5,
+            "readinessObservedCount": 52,
+            "readinessSampleCount": 52,
+            "decodedReadinessObservedCount": 50.5,
+            "decodedReadinessSampleCount": 50.5,
+            "sampleLimit": 0,
+            "regionDetached": 0,
+            "maxTrackedEntries": 0,
+            "trackedEntriesMax": 14,
+            "trackingOverflow": 0,
+            "placeholderAreaRatioMean": 0,
+            "failedAreaRatioMean": 0,
+            "missingThumbnailAreaRatioMean": 0,
+            "commandedSpeedPxPerSec": 0,
+            "drivenDistancePx": 40.5,
+            "drivenDurationMs": 35.549999988077616,
+            "drivenFrames": 83,
+            "evictionCount": 0,
+            "prependCount": 0,
+            "initialMediaCensored": 0,
+            "sourceTotal": 0
+          }
+        },
+        {
+          "controlId": "D3-grid",
+          "candidateId": "D3-justified",
+          "contractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"driver-dispatch-to-observed-placement-and-visible-decode\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"table-transition\"}",
+          "deltas": {
+            "placementMs": -41.69999998807907,
+            "visibleMediaCount": 16,
+            "decodedMediaCount": 16,
+            "failedMediaCount": 0,
+            "mediaReadyMs": -25.400000005960464,
+            "mediaCensored": 0,
+            "sourceTotal": 0
+          }
+        },
+        {
+          "controlId": "D4-grid",
+          "candidateId": "D4-justified",
+          "contractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"driver-dispatch-to-observed-placement-and-visible-decode\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"detail-return\"}",
+          "deltas": {
+            "placementMs": -19.149999976158142,
+            "visibleMediaCount": 16,
+            "decodedMediaCount": 16,
+            "failedMediaCount": 0,
+            "mediaReadyMs": -19.30000001192093,
+            "mediaCensored": 0,
+            "sourceTotal": 0
+          }
+        },
+        {
+          "controlId": "D5-grid",
+          "candidateId": "D5-justified",
+          "contractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"driver-dispatch-to-observed-placement-and-visible-decode\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"seek\"}",
+          "deltas": {
+            "placementMs": 161.7999999821186,
+            "visibleMediaCount": 14.5,
+            "decodedMediaCount": 14.5,
+            "failedMediaCount": 0,
+            "mediaReadyMs": 493.05000001192093,
+            "mediaCensored": 0,
+            "sourceTotal": 0
+          }
+        },
+        {
+          "controlId": "D6-grid",
+          "candidateId": "D6-justified",
+          "contractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"driver-dispatch-to-observed-placement-and-visible-decode\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"reflow\"}",
+          "deltas": {
+            "placementMs": -7.9000000059604645,
+            "visibleMediaCount": 15,
+            "decodedMediaCount": 15,
+            "failedMediaCount": 0,
+            "mediaReadyMs": -10.149999976158142,
+            "mediaCensored": 0,
+            "sourceTotal": 0
+          }
+        },
+        {
+          "controlId": "D7-grid",
+          "candidateId": "D7-justified",
+          "contractKey": "{\"cacheClass\":\"browser-session-setup-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"tail-admission-first-forward-eviction-visible-anchor\",\"geometryScope\":\"loaded-window\",\"profile\":\"density-v2-1200pxs-unthrottled\",\"resultRegime\":\"seek\",\"scenarioRevision\":3,\"workload\":\"window-maintenance\"}",
+          "deltas": {
+            "pendingAreaRatioMean": 0.2819418711108509,
+            "pendingAreaRatioMax": 0.3436939137006364,
+            "blankViewportMs": 88.69999998211824,
+            "exposureAreaMs": 231383648.1552546,
+            "elapsedMs": -177.1500000357628,
+            "exposureObservedMs": -176.7000000178814,
+            "exposureStartDelayMs": 0.8999999940397174,
+            "thumbnailPendingAreaRatioMean": 0.2819418711108509,
+            "thumbnailPendingAreaRatioMax": 0.3436939137006364,
+            "thumbnailBlankViewportMs": 88.69999998211824,
+            "thumbnailExposureAreaMs": 231383648.1552546,
+            "thumbnailCaptureRevision": 0,
+            "readinessLeadPxMedian": -110.71484375,
+            "decodedReadinessLeadPxMedian": -110.71484375,
+            "lateReadyCount": 13.5,
+            "lateDecodedCount": 13.5,
+            "loadedCount": 25.5,
+            "decodedCount": 28,
+            "pendingAtEnd": 8.5,
+            "mountedPendingAtEnd": 16.5,
+            "visibleSlotsAtEnd": 15.5,
+            "failedCount": 0,
+            "decodeFailedCount": 0,
+            "alreadyLoadedCount": 11.5,
+            "directionlessReadyCount": 0,
+            "layoutShiftValue": 0,
+            "thumbnailShiftValue": 0,
+            "layoutShiftRawValue": 0,
+            "thumbnailShiftRawValue": 0,
+            "layoutShiftRecentInputValue": 0,
+            "thumbnailShiftRecentInputValue": 0,
+            "layoutShiftSupported": 0,
+            "imageIdentityChanges": 0,
+            "imageSourceChanges": 0,
+            "elementGenerationChanges": 0,
+            "logicalOrderChanges": 0,
+            "scrollDistancePx": -23566.25,
+            "actualSpeedPxPerSec": -18731.94266381824,
+            "frameP95Ms": 0.1000000000003638,
+            "frameCount": -12.5,
+            "frameSampleCount": -12.5,
+            "readinessObservedCount": 14,
+            "readinessSampleCount": 14,
+            "decodedReadinessObservedCount": 14,
+            "decodedReadinessSampleCount": 14,
+            "sampleLimit": 0,
+            "regionDetached": 0,
+            "maxTrackedEntries": 0,
+            "trackedEntriesMax": 26.5,
+            "trackingOverflow": 0,
+            "placeholderAreaRatioMean": 0,
+            "failedAreaRatioMean": 0,
+            "missingThumbnailAreaRatioMean": 0,
+            "evictionCount": 0,
+            "prependCount": 0,
+            "initialMediaCensored": 0,
+            "sourceTotal": 0
+          }
+        },
+        {
+          "controlId": "D8-grid",
+          "candidateId": "D8-justified",
+          "contractKey": "{\"cacheClass\":\"browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled\",\"completionBoundary\":\"four-second-controlled-scroll\",\"profile\":\"density-v2-1200pxs-80ms-4mbps-scroll-only\",\"resultRegime\":\"seek\",\"scenarioRevision\":2,\"workload\":\"scroll-constrained\"}",
+          "deltas": {
+            "pendingAreaRatioMean": 0.37004210310890756,
+            "pendingAreaRatioMax": 0.373364472610056,
+            "blankViewportMs": 353.716999982119,
+            "exposureAreaMs": 2249332821.7263966,
+            "elapsedMs": -9.800000041723251,
+            "exposureObservedMs": -10.783000041723426,
+            "exposureStartDelayMs": 0.782999994039983,
+            "thumbnailPendingAreaRatioMean": 0.37004210310890756,
+            "thumbnailPendingAreaRatioMax": 0.373364472610056,
+            "thumbnailBlankViewportMs": 353.716999982119,
+            "thumbnailExposureAreaMs": 2249332821.7263966,
+            "thumbnailCaptureRevision": 0,
+            "readinessLeadPxMedian": -262.5390625,
+            "decodedReadinessLeadPxMedian": -202.55078125,
+            "lateReadyCount": 29,
+            "lateDecodedCount": 31.5,
+            "loadedCount": 30,
+            "decodedCount": 33,
+            "pendingAtEnd": 21,
+            "mountedPendingAtEnd": 24.5,
+            "visibleSlotsAtEnd": 9,
+            "failedCount": 0,
+            "decodeFailedCount": 0,
+            "alreadyLoadedCount": 7,
+            "directionlessReadyCount": 0,
+            "layoutShiftValue": 0,
+            "thumbnailShiftValue": 0,
+            "layoutShiftRawValue": 0,
+            "thumbnailShiftRawValue": 0,
+            "layoutShiftRecentInputValue": 0,
+            "thumbnailShiftRecentInputValue": 0,
+            "layoutShiftSupported": 0,
+            "imageIdentityChanges": 0,
+            "imageSourceChanges": 0,
+            "elementGenerationChanges": 0,
+            "logicalOrderChanges": 0,
+            "scrollDistancePx": 42.5,
+            "actualSpeedPxPerSec": 13.473842611351301,
+            "frameP95Ms": -24.600000000001273,
+            "frameCount": 89.5,
+            "frameSampleCount": 89.5,
+            "readinessObservedCount": 29,
+            "readinessSampleCount": 29,
+            "decodedReadinessObservedCount": 31.5,
+            "decodedReadinessSampleCount": 31.5,
+            "sampleLimit": 0,
+            "regionDetached": 0,
+            "maxTrackedEntries": 0,
+            "trackedEntriesMax": 20,
+            "trackingOverflow": 0,
+            "placeholderAreaRatioMean": 0,
+            "failedAreaRatioMean": 0,
+            "missingThumbnailAreaRatioMean": 0,
+            "commandedSpeedPxPerSec": 0,
+            "drivenDistancePx": 41.5,
+            "drivenDurationMs": 33.39999997615814,
+            "drivenFrames": 89.5,
+            "evictionCount": 0,
+            "prependCount": 0,
+            "initialMediaCensored": 0,
+            "sourceTotal": 0
+          }
+        }
+      ]
     }
   ]
 }

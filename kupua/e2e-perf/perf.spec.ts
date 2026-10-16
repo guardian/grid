@@ -235,15 +235,28 @@ async function measureRangeSelection(kupua: any, label: string, expectedCount: n
       const probe = globalObject.__selectionRangeProbe__;
       if (!probe) throw new Error(`${label} selection probe unavailable`);
 
+      const timeoutMs = 30_000;
+      const deadline = performance.now() + timeoutMs;
+      let lastReadiness = null;
       let previousGeometry: { width: number; height: number; scrollHeight: number } | null = null;
       let visualSettled = 0;
-      for (let attempt = 0; attempt < 120; attempt++) {
+      while (performance.now() < deadline) {
         await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        if (performance.now() >= deadline) break;
         const state = globalObject.__kupua_selection_store__?.getState?.();
         const separator = document.querySelector<HTMLElement>(
           '[role="separator"][aria-label="Resize right panel (double-click to close)"]',
         );
         const panel = separator?.nextElementSibling as HTMLElement | null;
+        lastReadiness = {
+          storePresent: Boolean(state),
+          selectionMatches: state?.selectedIds.size === expectedCount,
+          metadataReady: state?.pendingFetchIds.size === 0,
+          reconciling: Boolean(state?.isReconciling),
+          viewReady: state?.reconciledView != null,
+          panelPresent: Boolean(panel),
+          geometryStable: false,
+        };
         if (
           !state || state.selectedIds.size !== expectedCount || state.pendingFetchIds.size !== 0
           || state.isReconciling || state.reconciledView === null || !panel
@@ -257,18 +270,18 @@ async function measureRangeSelection(kupua: any, label: string, expectedCount: n
           height: rect.height,
           scrollHeight: panel.scrollHeight,
         };
-        if (
-          previousGeometry
+        lastReadiness.geometryStable = Boolean(previousGeometry
           && Math.abs(previousGeometry.width - currentGeometry.width) <= 1
           && Math.abs(previousGeometry.height - currentGeometry.height) <= 1
           && Math.abs(previousGeometry.scrollHeight - currentGeometry.scrollHeight) <= 1
-        ) {
+        );
+        if (lastReadiness.geometryStable) {
           visualSettled = performance.now();
           break;
         }
         previousGeometry = currentGeometry;
       }
-      if (!visualSettled) throw new Error(`${label} Details panel did not become visibly stable`);
+      if (!visualSettled) throw new Error(`${label} Details panel did not become visibly stable within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
 
       const state = globalObject.__kupua_selection_store__.getState();
       const metadataCacheWarmAfter = [...state.selectedIds].filter(

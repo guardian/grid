@@ -148,9 +148,12 @@ async function navigateAndMeasure(
     const close = (left: Record<string, number>, right: Record<string, number>) =>
       Object.keys(left).every((key) => Math.abs(left[key] - right[key]) <= 1);
 
+    const timeoutMs = 30_000;
+    const deadline = performance.now() + timeoutMs;
+    let lastReadiness = null;
     let storeReadyEpochMs = null;
     let first = null;
-    for (let attempt = 0; attempt < 300; attempt++) {
+    while (performance.now() < deadline) {
       await new Promise<void>((resolve) => requestAnimationFrame((t) => {
         const state = store.getState();
         const life = lifecycle();
@@ -159,10 +162,21 @@ async function navigateAndMeasure(
         if (settled && storeReadyEpochMs == null) storeReadyEpochMs = toEpoch(t);
         resolve();
       }));
+      if (performance.now() >= deadline) break;
       const state = store.getState();
       const regime = state.total <= 1_000 ? "buffer" : state.total <= 65_000 ? "indexed" : "seek";
       const container = document.querySelector('[aria-label="Image results grid"]');
       const item = container?.querySelector('[data-image-id]');
+      lastReadiness = {
+        loading: Boolean(state.loading),
+        error: Boolean(state.error),
+        storeReady: storeReadyEpochMs != null,
+        regimeMatches: regime === targetRegime,
+        contextMatches: storeReadyEpochMs != null && regime === targetRegime,
+        containerPresent: Boolean(container),
+        itemPresent: Boolean(item),
+        geometryStable: false,
+      };
       if (storeReadyEpochMs == null || regime !== targetRegime || !container || !item) {
         first = null;
         continue;
@@ -176,7 +190,8 @@ async function navigateAndMeasure(
         first = current;
         continue;
       }
-      if (close(first.container, current.container) && close(first.item, current.item)) {
+      lastReadiness.geometryStable = close(first.container, current.container) && close(first.item, current.item);
+      if (lastReadiness.geometryStable) {
         return {
           entries: [
             { action: "navigation-search", phase: "t_0", epochMs: start, interactionId: correlationId },
@@ -190,7 +205,7 @@ async function navigateAndMeasure(
       }
       first = current;
     }
-    throw new Error(`${targetId} ${targetRegime} navigation did not visibly settle`);
+    throw new Error(`${targetId} ${targetRegime} navigation did not visibly settle within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
   }, {
     targetQuery: query,
     targetRegime: expectedRegime,
@@ -210,11 +225,21 @@ async function appendDetailVisualPhases(kupua: any, interactionId: string) {
     const close = (left: Record<string, number>, right: Record<string, number>) =>
       Object.keys(left).every((key) => Math.abs(left[key] - right[key]) <= 1);
 
+    const timeoutMs = 30_000;
+    const deadline = performance.now() + timeoutMs;
+    let lastReadiness = null;
     let first = null;
-    for (let attempt = 0; attempt < 300; attempt++) {
+    while (performance.now() < deadline) {
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (performance.now() >= deadline) break;
       const detail = document.querySelector('[data-detail-image-id]');
       const image = detail?.querySelector('img[fetchpriority="high"]') as HTMLImageElement | null;
+      lastReadiness = {
+        detailPresent: Boolean(detail),
+        imagePresent: Boolean(image),
+        imageReady: Boolean(image?.complete && image.naturalWidth > 0 && image.naturalHeight > 0),
+        geometryStable: false,
+      };
       if (!image || !detail || !image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
         first = null;
         continue;
@@ -228,7 +253,8 @@ async function appendDetailVisualPhases(kupua: any, interactionId: string) {
         first = current;
         continue;
       }
-      if (close(first.image, current.image) && close(first.detail, current.detail)) {
+      lastReadiness.geometryStable = close(first.image, current.image) && close(first.detail, current.detail);
+      if (lastReadiness.geometryStable) {
         const entries = (window as any).__perceivedTrace__ as TraceEntry[];
         const state = (window as any).__kupua_store__.getState();
         const resultRegime = state.total <= 1_000 ? "buffer" : state.total <= 65_000 ? "indexed" : "seek";
@@ -238,7 +264,7 @@ async function appendDetailVisualPhases(kupua: any, interactionId: string) {
       }
       first = current;
     }
-    throw new Error("JA2 decoded detail image did not visibly settle");
+    throw new Error(`JA2 decoded detail image did not visibly settle within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
   }, interactionId);
 }
 
@@ -325,9 +351,13 @@ async function appendIndexedScrollVisualPhases(kupua: any, interactionId: string
     const close = (left: Record<string, number>, right: Record<string, number>) =>
       Object.keys(left).every((key) => Math.abs(left[key] - right[key]) <= 1);
 
+    const timeoutMs = 30_000;
+    const deadline = performance.now() + timeoutMs;
+    let lastReadiness = null;
     let first = null;
-    for (let attempt = 0; attempt < 180; attempt++) {
+    while (performance.now() < deadline) {
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (performance.now() >= deadline) break;
       const state = (window as any).__kupua_store__?.getState();
       const track = document.querySelector('[data-testid="scrubber-track"]');
       const container = document.querySelector('[aria-label="Image results grid"]')
@@ -339,6 +369,15 @@ async function appendIndexedScrollVisualPhases(kupua: any, interactionId: string
             return itemRect.bottom > containerRect.top && itemRect.top < containerRect.bottom;
           })
         : [];
+      lastReadiness = {
+        storePresent: Boolean(state),
+        loading: Boolean(state?.loading),
+        error: Boolean(state?.error),
+        contextMatches: track?.getAttribute("data-scrubber-mode") === "indexed",
+        containerPresent: Boolean(container),
+        itemPresent: visibleItems.length > 0,
+        geometryStable: false,
+      };
       if (!state || state.loading || state.error || track?.getAttribute("data-scrubber-mode") !== "indexed" || !container || visibleItems.length === 0) {
         first = null;
         continue;
@@ -349,7 +388,8 @@ async function appendIndexedScrollVisualPhases(kupua: any, interactionId: string
         first = current;
         continue;
       }
-      if (close(first.container, current.container) && close(first.item, current.item)) {
+      lastReadiness.geometryStable = close(first.container, current.container) && close(first.item, current.item);
+      if (lastReadiness.geometryStable) {
         const entries = (window as any).__perceivedTrace__ as TraceEntry[];
         const achievedPosition = Number(track.getAttribute("aria-valuenow"));
         const requestedRatio = targetPosition / Math.max(1, state.total - 1);
@@ -363,7 +403,7 @@ async function appendIndexedScrollVisualPhases(kupua: any, interactionId: string
       }
       first = current;
     }
-    throw new Error("JB4 indexed scrubber content did not become visibly stable");
+    throw new Error(`JB4 indexed scrubber content did not become visibly stable within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
   }, { targetInteractionId: interactionId, targetPosition: requestedPosition });
 }
 
@@ -376,9 +416,13 @@ async function appendFullscreenExitVisualPhases(kupua: any, interactionId: strin
     const close = (left: Record<string, number>, right: Record<string, number>) =>
       Object.keys(left).every((key) => Math.abs(left[key] - right[key]) <= 1);
 
+    const timeoutMs = 30_000;
+    const deadline = performance.now() + timeoutMs;
+    let lastReadiness = null;
     let first = null;
-    for (let attempt = 0; attempt < 180; attempt++) {
+    while (performance.now() < deadline) {
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (performance.now() >= deadline) break;
       const state = (window as any).__kupua_store__?.getState();
       const preview = document.querySelector('[data-fullscreen-preview]');
       const container = document.querySelector('[aria-label="Image results grid"]')
@@ -387,6 +431,18 @@ async function appendFullscreenExitVisualPhases(kupua: any, interactionId: strin
       const focused = focusedId && container
         ? [...container.querySelectorAll('[data-image-id]')].find((item) => item.getAttribute("data-image-id") === focusedId)
         : null;
+      lastReadiness = {
+        storePresent: Boolean(state),
+        loading: Boolean(state?.loading),
+        error: Boolean(state?.error),
+        fullscreenActive: Boolean(document.fullscreenElement),
+        previewInactive: preview?.getAttribute("data-fullscreen-preview") === "inactive",
+        contextMatches: !document.fullscreenElement && preview?.getAttribute("data-fullscreen-preview") === "inactive",
+        containerPresent: Boolean(container),
+        focusedPresent: Boolean(focused),
+        focusedVisible: false,
+        geometryStable: false,
+      };
       if (!state || state.loading || state.error || document.fullscreenElement || preview?.getAttribute("data-fullscreen-preview") !== "inactive" || !container || !focused) {
         first = null;
         continue;
@@ -397,12 +453,14 @@ async function appendFullscreenExitVisualPhases(kupua: any, interactionId: strin
         first = null;
         continue;
       }
+      lastReadiness.focusedVisible = true;
       const current = { container: readRect(container), focused: readRect(focused), t: performance.now() };
       if (!first) {
         first = current;
         continue;
       }
-      if (close(first.container, current.container) && close(first.focused, current.focused)) {
+      lastReadiness.geometryStable = close(first.container, current.container) && close(first.focused, current.focused);
+      if (lastReadiness.geometryStable) {
         const entries = (window as any).__perceivedTrace__ as TraceEntry[];
         const resultRegime = state.total <= 1_000 ? "buffer" : state.total <= 65_000 ? "indexed" : "seek";
         entries.push({ action: "fullscreen-exit", phase: "t_first_visible_frame", t: first.t, interactionId: targetInteractionId });
@@ -411,7 +469,7 @@ async function appendFullscreenExitVisualPhases(kupua: any, interactionId: strin
       }
       first = current;
     }
-    throw new Error("JB5 fullscreen exit did not restore a stable focused list destination");
+    throw new Error(`JB5 fullscreen exit did not restore a stable focused list destination within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
   }, interactionId);
 }
 

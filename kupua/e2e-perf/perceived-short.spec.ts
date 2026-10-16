@@ -352,12 +352,22 @@ async function appendDensityVisualPhases(kupua: any, interactionId: string) {
     const close = (left: Record<string, number>, right: Record<string, number>) =>
       Object.keys(left).every((key) => Math.abs(left[key] - right[key]) <= 1);
 
+    const timeoutMs = 30_000;
+    const deadline = performance.now() + timeoutMs;
+    let lastReadiness = null;
     let first = null;
-    for (let attempt = 0; attempt < 120; attempt++) {
+    while (performance.now() < deadline) {
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (performance.now() >= deadline) break;
       const table = document.querySelector('[aria-label="Image results table"]');
       const grid = document.querySelector('[aria-label="Image results grid"]');
       const row = table?.querySelector('[data-image-id]');
+      lastReadiness = {
+        tablePresent: Boolean(table),
+        rowPresent: Boolean(row),
+        contextMatches: !grid,
+        geometryStable: false,
+      };
       if (!table || !row || grid) {
         first = null;
         continue;
@@ -367,7 +377,8 @@ async function appendDensityVisualPhases(kupua: any, interactionId: string) {
         first = current;
         continue;
       }
-      if (close(first.table, current.table) && close(first.row, current.row)) {
+      lastReadiness.geometryStable = close(first.table, current.table) && close(first.row, current.row);
+      if (lastReadiness.geometryStable) {
         const entries = (window as any).__perceivedTrace__ as TraceEntry[];
         entries.push({
           action: "density-swap",
@@ -398,7 +409,7 @@ async function appendDensityVisualPhases(kupua: any, interactionId: string) {
       }
       first = current;
     }
-    throw new Error("PP6 table did not become visibly stable within 120 frames");
+    throw new Error(`PP6 table did not become visibly stable within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
   }, interactionId);
 }
 
@@ -416,11 +427,22 @@ async function settleMidBufferSetup(kupua: any) {
     const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
     container.scrollTop = maxScrollTop * 0.5;
     container.dispatchEvent(new Event("scroll"));
+    const timeoutMs = 30_000;
+    const deadline = performance.now() + timeoutMs;
+    let lastReadiness = null;
     let stablePosition = null;
-    for (let attempt = 0; attempt < 120; attempt++) {
+    while (performance.now() < deadline) {
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (performance.now() >= deadline) break;
       const state = store.getState();
       const position = Number(track.getAttribute("aria-valuenow"));
+      lastReadiness = {
+        loading: Boolean(state.loading),
+        error: Boolean(state.error),
+        extending: Boolean(state._extendForwardInFlight),
+        positionFinite: Number.isFinite(position),
+        positionStable: stablePosition === position,
+      };
       if (state.loading || state.error || state._extendForwardInFlight || !Number.isFinite(position)) {
         stablePosition = null;
         continue;
@@ -442,7 +464,7 @@ async function settleMidBufferSetup(kupua: any) {
       }
       stablePosition = position;
     }
-    throw new Error("PP6b mid-buffer position did not settle");
+    throw new Error(`PP6b mid-buffer position did not settle within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
   });
 }
 
@@ -497,11 +519,24 @@ async function settlePostEvictionSetup(kupua: any) {
   return kupua.page.evaluate(async () => {
     const store = (window as any).__kupua_store__;
     const track = document.querySelector('[data-testid="scrubber-track"]');
+    const timeoutMs = 30_000;
+    const deadline = performance.now() + timeoutMs;
+    let lastReadiness = null;
     let previousPosition = null;
-    for (let attempt = 0; attempt < 120; attempt++) {
+    while (performance.now() < deadline) {
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (performance.now() >= deadline) break;
       const state = store?.getState();
       const position = Number(track?.getAttribute("aria-valuenow"));
+      lastReadiness = {
+        storePresent: Boolean(state),
+        loading: Boolean(state?.loading),
+        error: Boolean(state?.error),
+        extendingForward: Boolean(state?._extendForwardInFlight),
+        extendingBackward: Boolean(state?._extendBackwardInFlight),
+        positionFinite: Number.isFinite(position),
+        positionStable: previousPosition === position,
+      };
       if (
         !state || state.loading || state.error
         || state._extendForwardInFlight || state._extendBackwardInFlight
@@ -522,7 +557,7 @@ async function settlePostEvictionSetup(kupua: any) {
       }
       previousPosition = position;
     }
-    throw new Error("PP6c post-eviction position did not settle");
+    throw new Error(`PP6c post-eviction position did not settle within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
   });
 }
 
@@ -535,14 +570,28 @@ async function appendNoFocusSortVisualPhases(kupua: any, interactionId: string) 
     const close = (left: Record<string, number>, right: Record<string, number>) =>
       Object.keys(left).every((key) => Math.abs(left[key] - right[key]) <= 1);
 
+    const timeoutMs = 30_000;
+    const deadline = performance.now() + timeoutMs;
+    let lastReadiness = null;
     let first = null;
-    for (let attempt = 0; attempt < 120; attempt++) {
+    while (performance.now() < deadline) {
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (performance.now() >= deadline) break;
       const state = (window as any).__kupua_store__?.getState();
       const primarySort = state?.params?.orderBy?.split(",")[0]?.replace(/^-/, "");
       const container = document.querySelector('[aria-label="Image results grid"]')
         ?? document.querySelector('[aria-label="Image results table"]');
       const item = container?.querySelector('[data-image-id]');
+      lastReadiness = {
+        storePresent: Boolean(state),
+        loading: Boolean(state?.loading),
+        error: Boolean(state?.error),
+        sorting: Boolean(state?.sortAroundFocusStatus),
+        contextMatches: primarySort === "width",
+        containerPresent: Boolean(container),
+        itemPresent: Boolean(item),
+        geometryStable: false,
+      };
       if (!state || state.loading || state.error || state.sortAroundFocusStatus || primarySort !== "width" || !container || !item) {
         first = null;
         continue;
@@ -552,7 +601,8 @@ async function appendNoFocusSortVisualPhases(kupua: any, interactionId: string) 
         first = current;
         continue;
       }
-      if (close(first.container, current.container) && close(first.item, current.item)) {
+      lastReadiness.geometryStable = close(first.container, current.container) && close(first.item, current.item);
+      if (lastReadiness.geometryStable) {
         const entries = (window as any).__perceivedTrace__ as TraceEntry[];
         entries.push({
           action: "sort-no-focus",
@@ -582,7 +632,7 @@ async function appendNoFocusSortVisualPhases(kupua: any, interactionId: string) 
       }
       first = current;
     }
-    throw new Error("PP2 Width context did not become visibly stable within 120 frames");
+    throw new Error(`PP2 Width context did not become visibly stable within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
   }, interactionId);
 }
 
@@ -595,14 +645,30 @@ async function appendFilterVisualPhases(kupua: any, interactionId: string) {
     const close = (left: Record<string, number>, right: Record<string, number>) =>
       Object.keys(left).every((key) => Math.abs(left[key] - right[key]) <= 1);
 
+    const timeoutMs = 30_000;
+    const deadline = performance.now() + timeoutMs;
+    let lastReadiness = null;
     let first = null;
-    for (let attempt = 0; attempt < 120; attempt++) {
+    while (performance.now() < deadline) {
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (performance.now() >= deadline) break;
       const state = (window as any).__kupua_store__?.getState();
       const checkbox = document.querySelector('label input[type="checkbox"]') as HTMLInputElement | null;
       const container = document.querySelector('[aria-label="Image results grid"]')
         ?? document.querySelector('[aria-label="Image results table"]');
       const item = container?.querySelector('[data-image-id]');
+      lastReadiness = {
+        storePresent: Boolean(state),
+        loading: Boolean(state?.loading),
+        error: Boolean(state?.error),
+        sorting: Boolean(state?.sortAroundFocusStatus),
+        freeOnly: state?.params?.nonFree == null,
+        checkboxChecked: Boolean(checkbox?.checked),
+        contextMatches: state?.params?.nonFree == null && Boolean(checkbox?.checked),
+        containerPresent: Boolean(container),
+        itemPresent: Boolean(item),
+        geometryStable: false,
+      };
       if (!state || state.loading || state.error || state.sortAroundFocusStatus || state.params.nonFree != null || !checkbox?.checked || !container || !item) {
         first = null;
         continue;
@@ -612,7 +678,8 @@ async function appendFilterVisualPhases(kupua: any, interactionId: string) {
         first = current;
         continue;
       }
-      if (close(first.container, current.container) && close(first.item, current.item)) {
+      lastReadiness.geometryStable = close(first.container, current.container) && close(first.item, current.item);
+      if (lastReadiness.geometryStable) {
         const entries = (window as any).__perceivedTrace__ as TraceEntry[];
         entries.push({
           action: "filter-toggle",
@@ -642,7 +709,7 @@ async function appendFilterVisualPhases(kupua: any, interactionId: string) {
       }
       first = current;
     }
-    throw new Error("PP5 free-only context did not become visibly stable within 120 frames");
+    throw new Error(`PP5 free-only context did not become visibly stable within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
   }, interactionId);
 }
 
@@ -655,13 +722,27 @@ async function appendQueryVisualPhases(kupua: any, interactionId: string) {
     const close = (left: Record<string, number>, right: Record<string, number>) =>
       Object.keys(left).every((key) => Math.abs(left[key] - right[key]) <= 1);
 
+    const timeoutMs = 30_000;
+    const deadline = performance.now() + timeoutMs;
+    let lastReadiness = null;
     let first = null;
-    for (let attempt = 0; attempt < 120; attempt++) {
+    while (performance.now() < deadline) {
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (performance.now() >= deadline) break;
       const state = (window as any).__kupua_store__?.getState();
       const container = document.querySelector('[aria-label="Image results grid"]')
         ?? document.querySelector('[aria-label="Image results table"]');
       const item = container?.querySelector('[data-image-id]');
+      lastReadiness = {
+        storePresent: Boolean(state),
+        loading: Boolean(state?.loading),
+        error: Boolean(state?.error),
+        sorting: Boolean(state?.sortAroundFocusStatus),
+        contextMatches: state?.params?.query === "sport",
+        containerPresent: Boolean(container),
+        itemPresent: Boolean(item),
+        geometryStable: false,
+      };
       if (!state || state.loading || state.error || state.sortAroundFocusStatus || state.params.query !== "sport" || !container || !item) {
         first = null;
         continue;
@@ -671,7 +752,8 @@ async function appendQueryVisualPhases(kupua: any, interactionId: string) {
         first = current;
         continue;
       }
-      if (close(first.container, current.container) && close(first.item, current.item)) {
+      lastReadiness.geometryStable = close(first.container, current.container) && close(first.item, current.item);
+      if (lastReadiness.geometryStable) {
         const entries = (window as any).__perceivedTrace__ as TraceEntry[];
         entries.push({ action: "search", phase: "t_first_visible_frame", t: first.t, interactionId: targetInteractionId });
         entries.push({ action: "search", phase: "t_visual_settled", t: current.t, interactionId: targetInteractionId });
@@ -691,7 +773,7 @@ async function appendQueryVisualPhases(kupua: any, interactionId: string) {
       }
       first = current;
     }
-    throw new Error("PP8 sport context did not become visibly stable within 120 frames");
+    throw new Error(`PP8 sport context did not become visibly stable within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
   }, interactionId);
 }
 
@@ -809,15 +891,36 @@ async function appendChipRemovalVisualPhases(
     const close = (left: Record<string, number>, right: Record<string, number>) =>
       Object.keys(left).every((key) => Math.abs(left[key] - right[key]) <= 1);
 
+    const timeoutMs = 30_000;
+    const deadline = performance.now() + timeoutMs;
+    let lastReadiness = null;
     let first = null;
-    for (let attempt = 0; attempt < 180; attempt++) {
+    while (performance.now() < deadline) {
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (performance.now() >= deadline) break;
       const state = (window as any).__kupua_store__?.getState();
       const url = new URL(location.href);
       const container = document.querySelector('[aria-label="Image results grid"]');
       const item = container?.querySelector(`[data-image-id="${CSS.escape(targetAnchor.imageId)}"]`);
       const deleteHandles = document.querySelector("cql-input")?.shadowRoot
         ?.querySelectorAll(".Cql__ChipWrapperDeleteHandle");
+      const storeMatches = Boolean(state) && state.params.query == null && state.params.until === stableUntil;
+      const urlMatches = url.pathname === "/search" && !url.searchParams.has("query")
+        && url.searchParams.get("nonFree") === "true" && url.searchParams.get("until") === stableUntil;
+      lastReadiness = {
+        storePresent: Boolean(state),
+        loading: Boolean(state?.loading),
+        error: Boolean(state?.error),
+        sorting: Boolean(state?.sortAroundFocusStatus),
+        storeMatches,
+        urlMatches,
+        chipsRemoved: deleteHandles?.length === 0,
+        contextMatches: storeMatches && urlMatches && deleteHandles?.length === 0,
+        containerPresent: Boolean(container),
+        itemPresent: Boolean(item),
+        itemVisible: false,
+        geometryStable: false,
+      };
       if (
         !state || state.loading || state.error || state.sortAroundFocusStatus
         || state.params.query != null || state.params.until !== stableUntil
@@ -836,12 +939,14 @@ async function appendChipRemovalVisualPhases(
         first = null;
         continue;
       }
+      lastReadiness.itemVisible = true;
       const current = { container: readRect(container), item: readRect(item), t: performance.now() };
       if (!first) {
         first = current;
         continue;
       }
-      if (close(first.container, current.container) && close(first.item, current.item)) {
+      lastReadiness.geometryStable = close(first.container, current.container) && close(first.item, current.item);
+      if (lastReadiness.geometryStable) {
         const entries = (window as any).__perceivedTrace__ as TraceEntry[];
         entries.push({ action: "chip-remove", phase: "t_first_visible_frame", t: first.t, interactionId: targetInteractionId });
         entries.push({ action: "chip-remove", phase: "t_visual_settled", t: current.t, interactionId: targetInteractionId });
@@ -856,7 +961,7 @@ async function appendChipRemovalVisualPhases(
       }
       first = current;
     }
-    throw new Error("PP9 removed-chip context did not keep the app-owned viewport anchor visibly stable within 180 frames");
+    throw new Error(`PP9 removed-chip context did not keep the app-owned viewport anchor visibly stable within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
   }, { targetInteractionId: interactionId, targetAnchor: anchor, stableUntil: STABLE_UNTIL });
 }
 
@@ -1152,9 +1257,13 @@ async function appendBufferScrollVisualPhases(kupua: any, interactionId: string,
     const close = (left: Record<string, number>, right: Record<string, number>) =>
       Object.keys(left).every((key) => Math.abs(left[key] - right[key]) <= 1);
 
+    const timeoutMs = 30_000;
+    const deadline = performance.now() + timeoutMs;
+    let lastReadiness = null;
     let first = null;
-    for (let attempt = 0; attempt < 120; attempt++) {
+    while (performance.now() < deadline) {
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (performance.now() >= deadline) break;
       const state = (window as any).__kupua_store__?.getState();
       const track = document.querySelector('[data-testid="scrubber-track"]');
       const container = document.querySelector('[aria-label="Image results grid"]')
@@ -1166,6 +1275,15 @@ async function appendBufferScrollVisualPhases(kupua: any, interactionId: string,
             return itemRect.bottom > containerRect.top && itemRect.top < containerRect.bottom;
           })
         : [];
+      lastReadiness = {
+        storePresent: Boolean(state),
+        loading: Boolean(state?.loading),
+        error: Boolean(state?.error),
+        contextMatches: track?.getAttribute("data-scrubber-mode") === "buffer",
+        containerPresent: Boolean(container),
+        itemPresent: visibleItems.length > 0,
+        geometryStable: false,
+      };
       if (!state || state.loading || state.error || track?.getAttribute("data-scrubber-mode") !== "buffer" || !container || visibleItems.length === 0) {
         first = null;
         continue;
@@ -1176,7 +1294,8 @@ async function appendBufferScrollVisualPhases(kupua: any, interactionId: string,
         first = current;
         continue;
       }
-      if (close(first.container, current.container) && close(first.item, current.item)) {
+      lastReadiness.geometryStable = close(first.container, current.container) && close(first.item, current.item);
+      if (lastReadiness.geometryStable) {
         const entries = (window as any).__perceivedTrace__ as TraceEntry[];
         entries.push({ action: "scrubber-scroll", phase: "t_first_visible_frame", t: first.t, interactionId: targetInteractionId });
         entries.push({ action: "scrubber-scroll", phase: "t_visual_settled", t: current.t, interactionId: targetInteractionId });
@@ -1194,7 +1313,7 @@ async function appendBufferScrollVisualPhases(kupua: any, interactionId: string,
       }
       first = current;
     }
-    throw new Error("PP7c buffer-scroll content did not become visibly stable within 120 frames");
+    throw new Error(`PP7c buffer-scroll content did not become visibly stable within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
   }, { targetInteractionId: interactionId, targetPosition: requestedPosition });
 }
 

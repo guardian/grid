@@ -245,6 +245,17 @@ conditions must not silently shrink a sample. Version changed workloads and pres
 Never persist credentials, raw live identities/URLs, request bodies or unredacted traces.
 Do not import Vite-only modules into Node-executed specs; use browser-side access where needed.
 
+Readiness waits use elapsed-time deadlines, never animation-frame counts: 120 frames allow
+two seconds at 60 Hz but only half a second at 240 Hz. Frames establish consecutive visual
+stability, not a network or rendering timeout. The remaining short/journey/setup and selection
+panel waits use a 30-second budget, matching the Home and metadata-search policy; existing
+seek deadlines remain unchanged. This is an observer safety bound, not a performance target
+or a fixed delay: successful samples retain their actual timestamps and readiness predicates.
+Timeout diagnostics expose readiness flags, not raw queries, identities, URLs or errors.
+The local harness suite executes the actual observers at simulated 60/120/240 Hz, covers
+delayed success and unsettled states, and guards against counted-frame loops inside browser
+callbacks. Outer execution-context retries and bounded data-extension attempts are separate.
+
 Density selection shares only the [exact-button/pressed-state guard](../e2e/README.md#density-selection-guard).
 Keep its caller-owned clicks and waits inside their existing observation windows: the density
 Table-transition epoch precedes selection, and P4 includes the ordinary helper's existing

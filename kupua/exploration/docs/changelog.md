@@ -24,6 +24,22 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 16 October 2026 - Remove remaining frame-count performance readiness deadlines
+
+Replace counted-frame readiness budgets in PP2/5/6/7c/8/9, PP6b/c setup,
+JA1/JB1 navigation, JA2 detail, JB4 indexed scrolling, JB5 fullscreen exit and
+selection-panel settlement with 30-second elapsed-time deadlines. High-refresh
+displays previously shortened the available loading and stabilization time. Retain
+the existing success predicates, consecutive-frame geometry tolerances, observed
+timestamps, scenario revisions and prior seek deadlines. Timeout messages report
+sanitized readiness flags rather than raw queries, identities or service errors.
+
+Extend the existing actual-observer harness with simulated 60/120/240 Hz delayed
+readiness, immediate success, invalid/missing state and moving-geometry controls.
+Add a structural guard against counted-frame readiness loops in browser callbacks,
+excluding outer execution-context retries and bounded extension operations. No
+application behavior, benchmark history or live-system configuration is changed.
+
 ### 16 October 2026 - Construct justified square estimates only when consumed
 
 Lazily create the existing construction-local square estimate for the first unknown,
