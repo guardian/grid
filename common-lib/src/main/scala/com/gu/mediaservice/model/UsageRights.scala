@@ -57,8 +57,8 @@ object UsageRightsSpec extends StrictLogging {
 
 object UsageRights {
 
-  val photographer: NonEmptyList[UsageRightsSpec] = NonEmptyList(StaffPhotographer, ContractPhotographer, CommissionedPhotographer)
-  val illustrator: NonEmptyList[UsageRightsSpec] = NonEmptyList(StaffIllustrator, ContractIllustrator, CommissionedIllustrator)
+  val photographer: NonEmptyList[UsageRightsSpec] = NonEmptyList(StaffPhotographer, ContractPhotographer, CommissionedPhotographer, PublisherOwnedPhotograph)
+  val illustrator: NonEmptyList[UsageRightsSpec] = NonEmptyList(StaffIllustrator, ContractIllustrator, CommissionedIllustrator, PublisherOwnedIllustration)
   val whollyOwned: NonEmptyList[UsageRightsSpec] = photographer append illustrator
 
   // this is a convenience method so that we use the same formatting for all subtypes
@@ -110,6 +110,8 @@ object UsageRights {
     case o: ProgrammesIndependents => ProgrammesIndependents.formats.writes(o)
     case o: PayToUse => PayToUse.formats.writes(o)
     case o: PRAndThirdParty => PRAndThirdParty.formats.writes(o)
+    case o: PublisherOwnedPhotograph => PublisherOwnedPhotograph.formats.writes(o)
+    case o: PublisherOwnedIllustration => PublisherOwnedIllustration.formats.writes(o)
     case o: NoRights.type => NoRights.jsonWrites.writes(o)
   }
 
@@ -150,6 +152,8 @@ object UsageRights {
         case ProgrammesIndependents.category => json.asOpt[ProgrammesIndependents]
         case PayToUse.category => json.asOpt[PayToUse]
         case PRAndThirdParty.category => json.asOpt[PRAndThirdParty]
+        case PublisherOwnedPhotograph.category => json.asOpt[PublisherOwnedPhotograph]
+        case PublisherOwnedIllustration.category => json.asOpt[PublisherOwnedIllustration]
         case _ => None
       })
         .orElse(supplier.flatMap(_ => json.asOpt[Agency]))
@@ -673,4 +677,58 @@ object ProgrammesAcquisitions extends UsageRightsSpec {
 
   implicit val formats: Format[ProgrammesAcquisitions] =
     UsageRights.subtypeFormat(ProgrammesAcquisitions.category)(Json.format[ProgrammesAcquisitions])
+}
+
+final case class PublisherOwnedPhotograph(creator: String, publication: Option[String] = None, restrictions: Option[String] = None, legacyCategory: Option[String] = None) extends UsageRights {
+
+  override val defaultCost: Option[Cost] = PublisherOwnedPhotograph.defaultCost
+}
+
+object PublisherOwnedPhotograph extends ReplacementUsageRightsSpec {
+  override val category: String = "publisher-owned-photograph"
+  
+  val legacyCategories: List[String] = List(
+    StaffPhotographer.category,
+    ContractPhotographer.category,
+    CommissionedPhotographer.category,
+    Bylines.category
+  )
+
+  val allCategories: NonEmptyList[String] = NonEmptyList.fromSeq(category, legacyCategories)
+
+  override def name(config: CommonConfig): String = s"${config.staffPhotographerOrganisation}-Owned Photograph"
+
+  override def description(config: CommonConfig): String = s"A photograph commissioned by ${config.staffPhotographerOrganisation}, regardless of whether the contributor was staff, contract or freelance."
+
+  override val defaultCost: Option[Cost] = Some(Free)
+
+  implicit val formats: Format[PublisherOwnedPhotograph] =
+    UsageRights.subtypeFormat(PublisherOwnedPhotograph.category)(Json.format[PublisherOwnedPhotograph])
+}
+
+
+final case class PublisherOwnedIllustration(creator: String, publication: Option[String] = None, restrictions: Option[String] = None, legacyCategory: Option[String] = None) extends UsageRights {
+
+  override val defaultCost: Option[Cost] = PublisherOwnedIllustration.defaultCost
+}
+
+object PublisherOwnedIllustration extends ReplacementUsageRightsSpec {
+  override val category: String = "publisher-owned-illustration"
+  
+  val legacyCategories: List[String] = List(
+    StaffIllustrator.category,
+    ContractIllustrator.category,
+    CommissionedIllustrator.category,
+  )
+
+  val allCategories: NonEmptyList[String] = NonEmptyList.fromSeq(category, legacyCategories)
+
+  override def name(config: CommonConfig): String = s"${config.staffPhotographerOrganisation}-Owned Illustration"
+
+  override def description(config: CommonConfig): String = s"An illustration commissioned by ${config.staffPhotographerOrganisation}, regardless of whether the contributor was staff, contract or freelance."
+
+  override val defaultCost: Option[Cost] = Some(Free)
+
+  implicit val formats: Format[PublisherOwnedIllustration] =
+    UsageRights.subtypeFormat(PublisherOwnedIllustration.category)(Json.format[PublisherOwnedIllustration])
 }
