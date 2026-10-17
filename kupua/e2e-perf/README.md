@@ -256,6 +256,22 @@ The local harness suite executes the actual observers at simulated 60/120/240 Hz
 delayed success and unsettled states, and guards against counted-frame loops inside browser
 callbacks. Outer execution-context retries and bounded data-extension attempts are separate.
 
+Idle state alone is not proof that an action completed: it may belong to the previous search.
+Require a persistent action witness (changed destination, matching interaction completion or
+operation generation) before accepting settlement. Do not require polling to catch a transient
+`loading=true` pulse; fast operations may finish between polls. Keep raw actions where a test
+intentionally observes or interrupts pending work rather than waiting for completion.
+
+PP3, PP4 and PP8 use scenario revision 3 for repaired observation boundaries. PP4 uses the
+shared action-aware direction helper. PP3/PP4 require their correlated `t_store_ready`, an idle
+error-free store, the original focused image and stable visible geometry; geometry resampling
+retains its timestamp. PP8 waits for its correlated debounced search completion and expected
+query, not a loading pulse. These remain the same campaign scenarios and user actions, but
+visual timings may shift. Preserve revision-2 histories; the dashboard's default comparable
+filter separates revisions rather than treating a boundary correction as an app regression.
+Offline harness regressions exercise delayed startup with old content, unrelated/missing
+completion, fast completion and focus/geometry guards. They add no campaign samples or workloads.
+
 Density selection shares only the [exact-button/pressed-state guard](../e2e/README.md#density-selection-guard).
 Keep its caller-owned clicks and waits inside their existing observation windows: the density
 Table-transition epoch precedes selection, and P4 includes the ordinary helper's existing

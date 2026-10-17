@@ -254,15 +254,15 @@ async function appendFocusedSortVisualPhases(
   kupua: any,
   interactionId: string,
   scenarioId: "PP3" | "PP4",
+  focusedImageId: string,
 ) {
-  return kupua.page.evaluate(async ({ targetInteractionId, targetScenarioId }) => {
+  return kupua.page.evaluate(async ({ targetInteractionId, targetScenarioId, targetFocusedImageId }) => {
     const store = (window as any).__kupua_store__;
     if (!store) throw new Error("Search store unavailable");
 
-    const snapshot = () => {
-      const state = store.getState();
-      const id = state.focusedImageId;
-      const cell = id ? document.querySelector(`[data-image-id="${CSS.escape(id)}"]`) : null;
+    const snapshot = (state: any) => {
+      const id = state?.focusedImageId;
+      const cell = id === targetFocusedImageId ? document.querySelector(`[data-image-id="${CSS.escape(id)}"]`) : null;
       const container = document.querySelector('[aria-label="Image results grid"]')
         ?? document.querySelector('[aria-label="Image results table"]');
       if (!cell || !container) return null;
@@ -285,23 +285,34 @@ async function appendFocusedSortVisualPhases(
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
       sampledFrames += 1;
       if (performance.now() >= deadline) break;
-      const current = snapshot();
+      const state = store.getState();
+      const entries = ((window as any).__perceivedTrace__ ?? []) as TraceEntry[];
+      const storeReady = entries.some((entry) => entry.action === "sort-around-focus"
+        && entry.interactionId === targetInteractionId && entry.phase === "t_store_ready");
+      const position = snapshot(state);
       lastReadiness = {
-        focusedCellVisible: current !== null,
-        resultsContainerPresent: Boolean(document.querySelector('[aria-label="Image results grid"]')
+        storePresent: Boolean(state),
+        loading: Boolean(state?.loading),
+        error: Boolean(state?.error),
+        sorting: Boolean(state?.sortAroundFocusStatus),
+        storeReady,
+        contextMatches: state?.focusedImageId === targetFocusedImageId,
+        itemPresent: position !== null,
+        containerPresent: Boolean(document.querySelector('[aria-label="Image results grid"]')
           ?? document.querySelector('[aria-label="Image results table"]')),
+        geometryStable: false,
       };
-      if (!current) {
+      if (!state || state.loading || state.error || state.sortAroundFocusStatus || !storeReady || !position) {
         first = null;
         continue;
       }
+      const current = { ...position, t: performance.now() };
       if (!first) {
-        first = { ...current, t: performance.now() };
+        first = current;
         continue;
       }
-      if (Math.abs(current.top - first.top) <= 1 && Math.abs(current.left - first.left) <= 1) {
-        const entries = (window as any).__perceivedTrace__ as TraceEntry[];
-        const now = performance.now();
+      lastReadiness.geometryStable = Math.abs(current.top - first.top) <= 1 && Math.abs(current.left - first.left) <= 1;
+      if (lastReadiness.geometryStable) {
         entries.push({
           action: "sort-around-focus",
           phase: "t_first_visible_frame",
@@ -340,7 +351,7 @@ async function appendFocusedSortVisualPhases(
       if (!Number.isFinite(state.total)) throw new Error(`${targetScenarioId} settled total is unavailable`);
       return state.total;
     }
-  }, { targetInteractionId: interactionId, targetScenarioId: scenarioId });
+  }, { targetInteractionId: interactionId, targetScenarioId: scenarioId, targetFocusedImageId: focusedImageId });
 }
 
 async function appendDensityVisualPhases(kupua: any, interactionId: string) {
@@ -1369,28 +1380,6 @@ async function readSeekMeasures(kupua: any): Promise<Array<{ name: string; durat
   );
 }
 
-/**
- * Wait until the store is fully settled:
- * - loading === false
- * - sortAroundFocusStatus === null
- *
- * Polls up to `maxWait` ms.
- */
-async function waitForStoreSettled(kupua: any, maxWait = 12_000) {
-  await kupua.page.waitForFunction(
-    () => {
-      const store = (window as any).__kupua_store__;
-      if (!store) return false;
-      const s = store.getState();
-      return !s.loading && s.sortAroundFocusStatus === null && !s.aggLoading;
-    },
-    null,
-    { timeout: maxWait },
-  );
-  // One rAF to ensure paint completed
-  await kupua.page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => r())));
-}
-
 /** Emit one metrics line to the perceived temp file. */
 function emitMetrics(metrics: PerceivedMetrics) {
   // Omit raw from file output (can be huge); keep for debug if needed.
@@ -1536,7 +1525,7 @@ test.describe("Perceived Performance Suite", () => {
     );
     expect(starts).toHaveLength(1);
     expect(starts[0].interactionId).toBeTruthy();
-    const context = await appendFocusedSortVisualPhases(kupua, starts[0].interactionId!, "PP3");
+    const context = await appendFocusedSortVisualPhases(kupua, starts[0].interactionId!, "PP3", focusedId!);
     context.routes = finishRouteCapture();
     const entries = await readTrace(kupua);
     const correlated = computeCorrelatedMetrics({
@@ -1548,7 +1537,7 @@ test.describe("Perceived Performance Suite", () => {
     });
     const metrics: PerceivedMetrics = {
       ...correlated,
-      scenarioRevision: 2,
+      scenarioRevision: 3,
       ...context,
     };
     console.log(
@@ -1576,9 +1565,7 @@ test.describe("Perceived Performance Suite", () => {
     await clearTrace(kupua);
     await kupua.page.evaluate(() => performance.clearResourceTimings());
     const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
-    // Click the sort direction toggle button
-    await kupua.page.click('button[aria-label*="click to sort"]');
-    await waitForStoreSettled(kupua, 15_000);
+    await kupua.toggleSortDirection();
 
     const storeEntries = await readTrace(kupua);
     const starts = storeEntries.filter((entry) =>
@@ -1586,7 +1573,7 @@ test.describe("Perceived Performance Suite", () => {
     );
     expect(starts).toHaveLength(1);
     expect(starts[0].interactionId).toBeTruthy();
-    const context = await appendFocusedSortVisualPhases(kupua, starts[0].interactionId!, "PP4");
+    const context = await appendFocusedSortVisualPhases(kupua, starts[0].interactionId!, "PP4", focusedId!);
     context.routes = finishRouteCapture();
     const entries = await readTrace(kupua);
     const correlated = computeCorrelatedMetrics({
@@ -1598,7 +1585,7 @@ test.describe("Perceived Performance Suite", () => {
     });
     const metrics: PerceivedMetrics = {
       ...correlated,
-      scenarioRevision: 2,
+      scenarioRevision: 3,
       ...context,
     };
     console.log(
@@ -1929,15 +1916,21 @@ test.describe("Perceived Performance Suite", () => {
       if (!cql) throw new Error("cql-input not found");
       cql.dispatchEvent(new CustomEvent("queryChange", { detail: { queryStr: "sport" } }));
     });
-    // SearchBar debounces 300ms before firing trace + navigate. waitForStoreSettled
-    // would return instantly here (store is still settled from the initial load),
-    // so first wait for loading to flip on, *then* wait for it to settle again.
+    // Completion persists even when the debounced search starts and finishes between polls.
     await kupua.page.waitForFunction(
-      () => (window as any).__kupua_store__?.getState().loading === true,
+      () => {
+        const state = (window as any).__kupua_store__?.getState();
+        const entries = ((window as any).__perceivedTrace__ ?? []) as TraceEntry[];
+        const starts = entries.filter((entry) => entry.action === "search" && entry.phase === "t_0" && entry.interactionId);
+        return starts.length === 1
+          && entries.some((entry) => entry.action === "search" && entry.phase === "t_store_ready"
+            && entry.interactionId === starts[0].interactionId)
+          && state?.params.query === "sport" && !state.loading && !state.error
+          && state.sortAroundFocusStatus === null && !state.aggLoading;
+      },
       null,
-      { timeout: 5_000 },
+      { timeout: 30_000 },
     );
-    await waitForStoreSettled(kupua, 15_000);
 
     const storeEntries = await readTrace(kupua);
     const starts = storeEntries.filter((entry) =>
@@ -1957,7 +1950,7 @@ test.describe("Perceived Performance Suite", () => {
     });
     const metrics: PerceivedMetrics = {
       ...correlated,
-      scenarioRevision: 2,
+      scenarioRevision: 3,
       ...context,
     };
     console.log(

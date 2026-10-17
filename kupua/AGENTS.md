@@ -76,7 +76,7 @@ For task-specific details:
 |---|---|
 | Test setup and commands | [Test modes](e2e/README.md#test-modes), [command selection](e2e/README.md#which-command-do-i-run) and [npm scripts](package.json). |
 | Test changes | [Testing guide](e2e/README.md) for commands and fixture contracts; [maintenance assessment](exploration/docs/test-maintenance-assessment.md) for unselected improvements and coverage rationale. |
-| Performance measurements | [Performance handbook](e2e-perf/README.md): historical campaigns, additive density/thumbnail comparisons, dashboards and local harness validation. |
+| Performance measurements | [Performance handbook](e2e-perf/README.md): campaigns, comparisons, dashboards, action-owned readiness and revision compatibility. Offline harness regressions validate observers without adding campaign measurements. |
 | Live infrastructure | [Infrastructure safeguards](exploration/docs/infra-safeguards.md). |
 | Embedded browser | Read the [browser playbook](exploration/docs/embedded-browser-playbook.md) first, then task-relevant references. Record reusable lessons only, not routine outcomes or session narratives. |
 

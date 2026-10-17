@@ -24,6 +24,22 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 17 October 2026 - Require action-owned completion in focused-sort and search measurements
+
+Use the shared action-aware direction helper for PP4 rather than accepting the previous
+search's idle state. Require PP3/PP4's correlated store completion, original focused image
+and idle error-free state before visual settlement. Preserve timestamps when geometry
+moves and observation restarts, avoiding undefined first-visible timestamps.
+
+Replace PP8's transient loading-pulse wait with persistent correlated completion and
+expected-query checks. Version PP3, PP4 and PP8 observation boundaries as revision 3;
+preserve prior histories and existing campaign actions, scenario counts and required phases.
+
+Add offline regressions executing actual helpers and observers with delayed startup,
+old content, unrelated or missing completion, instant/between-poll completion, focus
+mismatch and moving geometry at multiple refresh rates. Validate revision separation
+through the existing dashboard comparator; no benchmark campaign is part of validation.
+
 ### 16 October 2026 - Preserve position through cross-density history header flow
 
 Capture the measured source header fraction separately from the logical history

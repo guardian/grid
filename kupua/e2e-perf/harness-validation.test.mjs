@@ -929,8 +929,150 @@ test("cleanup records stay scoped to their step and sanitize unknown scenario ti
   ]);
 });
 
+function shortScenario(id) {
+  const filename = join(import.meta.dirname, "perceived-short.spec.ts");
+  const parsed = ts.createSourceFile(filename, readFileSync(filename, "utf8"), ts.ScriptTarget.ES2022, true);
+  let callback;
+  function visit(node) {
+    if (ts.isCallExpression(node) && node.expression.getText(parsed) === "test"
+      && ts.isStringLiteral(node.arguments[0]) && node.arguments[0].text.startsWith(`${id}:`)) {
+      callback = node.arguments[1];
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(parsed);
+  assert.ok(callback, `${id} scenario must exist`);
+  return { parsed, callback };
+}
+
+function queryCompletionWait({ startAt = 300, readyAt = 1_500, unrelatedReadyAt = Infinity, expectedQuery = true } = {}) {
+  const { parsed, callback } = shortScenario("PP8");
+  let waitCall;
+  function visit(node) {
+    if (!waitCall && ts.isCallExpression(node)
+      && node.expression.getText(parsed) === "kupua.page.waitForFunction") waitCall = node;
+    ts.forEachChild(node, visit);
+  }
+  visit(callback);
+  assert.ok(waitCall);
+  const { outputText } = ts.transpileModule(`(async () => { await ${waitCall.getText(parsed)}; })()`, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  });
+  let now = 0;
+  const entries = [];
+  const add = (phase, interactionId, time) => {
+    if (now >= time && !entries.some(entry => entry.phase === phase && entry.interactionId === interactionId)) {
+      entries.push({ action: "search", phase, interactionId, t: time });
+    }
+  };
+  const state = () => ({
+    loading: now >= startAt && now < readyAt,
+    error: null, sortAroundFocusStatus: null, aggLoading: false,
+    params: { query: now >= startAt && expectedQuery ? "sport" : undefined },
+  });
+  return {
+    run: () => runInNewContext(outputText, {
+      window: { __perceivedTrace__: entries, __kupua_store__: { getState: state } },
+      kupua: { page: { waitForFunction: async (predicate, arg, { timeout }) => {
+        while (now < timeout) {
+          add("t_0", "fixture-search", startAt);
+          add("t_store_ready", "fixture-search", readyAt);
+          add("t_store_ready", "unrelated-search", unrelatedReadyAt);
+          if (predicate(arg)) return;
+          now += 16;
+        }
+        throw new Error("synthetic readiness deadline");
+      } } },
+    }),
+    elapsed: () => now,
+  };
+}
+
+for (const [condition, options] of [
+  ["delayed startup", {}],
+  ["completion between polls", { startAt: 5, readyAt: 8 }],
+  ["already-completed search", { startAt: 0, readyAt: 0 }],
+  ["unrelated completion", { unrelatedReadyAt: 0 }],
+]) {
+  test(`PP8 waits for correlated search completion with ${condition}`, async () => {
+    const fixture = queryCompletionWait(options);
+    await fixture.run();
+    const readyAt = options.readyAt ?? 1_500;
+    assert.ok(fixture.elapsed() >= readyAt);
+    assert.ok(fixture.elapsed() < readyAt + 16);
+  });
+}
+
+for (const [condition, options] of [
+  ["missing completion", { readyAt: Infinity, unrelatedReadyAt: 0 }],
+  ["missing start", { startAt: Infinity, readyAt: 0 }],
+  ["wrong query", { expectedQuery: false }],
+]) {
+  test(`PP8 rejects ${condition} instead of accepting old idle state`, async () => {
+    await assert.rejects(queryCompletionWait(options).run(), /synthetic readiness deadline/);
+  });
+}
+
+test("PP4 uses the action-aware shared direction helper", () => {
+  const { parsed, callback } = shortScenario("PP4");
+  assert.match(callback.getText(parsed), /await kupua\.toggleSortDirection\(\)/);
+});
+
+for (const [condition, startAt, readyAt] of [
+  ["delayed startup", 500, 1_500],
+  ["completion between polls", 5, 8],
+  ["immediate completion", 0, 0],
+]) {
+  test(`shared direction helper handles ${condition} without requiring a loading pulse`, async () => {
+    const filename = join(import.meta.dirname, "../e2e/shared/helpers.ts");
+    const parsed = ts.createSourceFile(filename, readFileSync(filename, "utf8"), ts.ScriptTarget.ES2022, true);
+    const declaration = parsed.statements.find(node => ts.isClassDeclaration(node)
+      && node.members.some(member => member.name?.getText(parsed) === "toggleSortDirection"));
+    assert.ok(declaration);
+    const method = declaration.members.find(member => member.name?.getText(parsed) === "toggleSortDirection");
+    const { outputText } = ts.transpileModule(`(class { ${method.getText(parsed)} })`, {
+      compilerOptions: { target: ts.ScriptTarget.ES2022 },
+    });
+    let now = 0;
+    let clicked = false;
+    const state = () => ({
+      params: { orderBy: clicked && now >= startAt ? "uploadTime" : "-uploadTime" },
+      loading: clicked && now >= startAt && now < readyAt,
+      sortAroundFocusStatus: null, results: [{}],
+    });
+    const Helper = runInNewContext(outputText, { window: { __kupua_store__: { getState: state } } });
+    const helper = new Helper();
+    helper.page = {
+      evaluate: async callback => callback(),
+      locator: () => ({ click: async () => { clicked = true; } }),
+      waitForFunction: async (predicate, arg) => {
+        while (!predicate(arg)) {
+          now += 16;
+          assert.ok(now < 30_000, "direction helper must complete");
+        }
+      },
+    };
+    await helper.toggleSortDirection();
+    assert.ok(now >= readyAt && now < readyAt + 16);
+  });
+}
+
+test("repaired short scenarios version their observation boundary without comparing old samples", () => {
+  const comparable = runInNewContext(`${dashboardFunction("perceived-graphs.html", "metricsComparable")}\nmetricsComparable`, {
+    environmentKey: () => "fixture-environment",
+  });
+  for (const id of ["PP3", "PP4", "PP8"]) {
+    const { parsed, callback } = shortScenario(id);
+    assert.match(callback.getText(parsed), /scenarioRevision: 3/);
+    const revised = { scenarioRevision: 3 };
+    assert.equal(comparable({}, revised, {}, revised), true);
+    assert.equal(comparable({}, revised, {}, { scenarioRevision: 2 }), false);
+  }
+});
+
 const shortVisualObservers = [
   ["PP2", "appendNoFocusSortVisualPhases", "sort-no-focus"],
+  ["PP4", "appendFocusedSortVisualPhases", "sort-around-focus"],
   ["PP5", "appendFilterVisualPhases", "filter-toggle"],
   ["PP6", "appendDensityVisualPhases", "density-swap"],
   ["PP7c", "appendBufferScrollVisualPhases", "scrubber-scroll"],
@@ -945,6 +1087,9 @@ const shortVisualObservers = [
 function createShortVisualHarness(name, {
   refreshRate = 120,
   readyAt = 1_500,
+  startsAt = 0,
+  storeReadyAt = readyAt,
+  unrelatedCompletion = false,
   movingUntil = 0,
   missingContainer = false,
   missingItem = false,
@@ -964,6 +1109,11 @@ function createShortVisualHarness(name, {
   let now = 0;
   const entries = [];
   const stableUntil = "2026-02-15";
+  const isFocused = name === "appendFocusedSortVisualPhases";
+  let completionEmitted = false;
+  if (isFocused && unrelatedCompletion) entries.push({
+    action: "sort-around-focus", phase: "t_store_ready", t: 0, interactionId: "unrelated-interaction",
+  });
   const isDensity = name === "appendDensityVisualPhases";
   const isFilter = name === "appendFilterVisualPhases";
   const isQuery = name === "appendQueryVisualPhases";
@@ -1002,6 +1152,10 @@ function createShortVisualHarness(name, {
     performance: { now: () => now, timeOrigin: 0, getEntriesByType: () => [] },
     requestAnimationFrame: callback => {
       now += 1_000 / refreshRate;
+      if (isFocused && !completionEmitted && now >= storeReadyAt) {
+        completionEmitted = true;
+        entries.push({ action: "sort-around-focus", phase: "t_store_ready", t: now, interactionId: "fixture-interaction" });
+      }
       queueMicrotask(() => callback(now));
     },
     document: {
@@ -1016,6 +1170,7 @@ function createShortVisualHarness(name, {
             ? (wrongContext ? "seek" : isIndexed ? "indexed" : "buffer")
             : now < movingUntil ? String(now) : "50" };
         }
+        if (selector.startsWith('[data-image-id=')) return missingItem ? null : item;
         if (missingContainer) return null;
         if (isDensity) {
           if (selector === '[aria-label="Image results grid"]') return now < readyAt || wrongContext ? container : null;
@@ -1029,7 +1184,7 @@ function createShortVisualHarness(name, {
       __kupua_getSearchLifecycle__: () => ({ started: 1, settled: now >= readyAt ? 1 : 0, query: wrongContext ? "private query" : "fixture-query" }),
       __kupua_store__: {
         getState: () => stateMissing ? null : ({
-          loading: now < readyAt,
+          loading: now >= startsAt && now < readyAt,
           error: stateError ? new Error("private fixture error") : null,
           sortAroundFocusStatus: sorting ? "pending" : null,
           params: {
@@ -1039,7 +1194,7 @@ function createShortVisualHarness(name, {
             until: stableUntil,
           },
           total,
-          focusedImageId: "private-fixture-id",
+          focusedImageId: isFocused && wrongContext ? "wrong-fixture-id" : "private-fixture-id",
           results: [item],
           bufferOffset: 10,
           _forwardEvictGeneration: evictGeneration,
@@ -1068,13 +1223,37 @@ function createShortVisualHarness(name, {
           .map(entry => ({ ...entry, t: entry.epochMs })));
         return result;
       }
+      if (isFocused) return observe(kupua, "fixture-interaction", "PP4", "private-fixture-id");
       return observe(kupua, "fixture-interaction",
         isChip ? { imageId: "private-fixture-id", top: 0, viewportHeight: 400 } : 50);
     },
-    entries,
+    get entries() { return entries.filter(entry => entry.phase !== "t_store_ready"); },
     elapsed: () => now,
   };
 }
+
+for (const refreshRate of [60, 120, 240]) {
+  for (const [condition, options] of [
+    ["old idle state before search starts", { startsAt: 500 }],
+    ["an unrelated interaction completing first", { startsAt: 500, unrelatedCompletion: true }],
+    ["store idle before correlated completion", { readyAt: 0, storeReadyAt: 1_500 }],
+  ]) {
+    test(`focused-sort observer rejects ${condition} at ${refreshRate} Hz`, async () => {
+      const fixture = createShortVisualHarness("appendFocusedSortVisualPhases", { refreshRate, ...options });
+      await fixture.run();
+      assert.ok(fixture.entries[0].t >= 1_500);
+      assert.ok(fixture.elapsed() < 1_500 + 3_000 / refreshRate);
+    });
+  }
+}
+
+test("focused-sort observer never emits visual phases without its correlated completion", async () => {
+  const fixture = createShortVisualHarness("appendFocusedSortVisualPhases", {
+    readyAt: 0, storeReadyAt: Infinity, unrelatedCompletion: true,
+  });
+  await assert.rejects(fixture.run(), /PP4.*within 30000ms:.*"storeReady":false/);
+  assert.equal(fixture.entries.length, 0);
+});
 
 for (const [scenario, name, action] of shortVisualObservers) {
   for (const refreshRate of [60, 120, 240]) {
@@ -1113,7 +1292,7 @@ for (const [scenario, name, action] of shortVisualObservers) {
       ["missing store", { stateMissing: true }, /"storePresent":false/],
       ["store error", { stateError: true }, /"error":true/],
     ]),
-    ...(["PP2", "PP5", "PP8", "PP9"].includes(scenario) ? [
+    ...(["PP2", "PP4", "PP5", "PP8", "PP9"].includes(scenario) ? [
       ["pending sort", { sorting: true }, /"sorting":true/],
     ] : []),
   ]) {
