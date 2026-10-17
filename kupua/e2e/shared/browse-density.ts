@@ -1,4 +1,62 @@
 import { expect, type KupuaHelpers } from "./helpers";
+import { getDensityChangeButton } from "./density-selection";
+
+export async function unfocusedDensityRoundTrips(kupua: KupuaHelpers) {
+  const page = kupua.page;
+  const region = page.getByRole("region", { name: "Image results justified", exact: true });
+  for (let journey = 0; journey < 2; journey++) {
+    await page.waitForFunction(() => {
+      const state = (window as any).__kupua_store__.getState();
+      return !state.loading && !state._browseNavigation && !state._extendForwardInFlight && !state._extendBackwardInFlight;
+    });
+    const baseline = await page.evaluate(async () => {
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      const id = (window as any).__kupua_getViewportAnchorId__() as string;
+      const container = document.querySelector('[aria-label="Image results justified"]')!;
+      const cell = container.querySelector(`[data-image-id="${CSS.escape(id)}"]`)!;
+      return { id, top: cell.getBoundingClientRect().top - container.getBoundingClientRect().top };
+    });
+    expect(await kupua.getFocusedImageId()).toBeNull();
+    for (let cycle = 0; cycle < 5; cycle++) {
+      for (const mode of ["table", "grid", "justified"] as const) {
+        const generation = await page.evaluate(() => (window as any).__kupua_getDensityRestoreGeneration__());
+        const button = (await getDensityChangeButton(page, mode))!;
+        if (cycle % 2 === 0) await button.click();
+        else await button.press("Space");
+        await page.waitForFunction(generation => (window as any).__kupua_getDensityRestoreGeneration__() > generation, generation);
+        await expect.poll(() => page.evaluate(id => {
+          const container = document.querySelector('[aria-label^="Image results "]');
+          const cell = container?.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
+          const bounds = container?.getBoundingClientRect();
+          const rect = cell?.getBoundingClientRect();
+          const header = container?.querySelector("[data-table-header]")?.getBoundingClientRect();
+          return {
+            visible: Boolean(bounds && rect && rect.top >= Math.max(bounds.top, header?.bottom ?? bounds.top) - 1 &&
+              rect.bottom <= bounds.bottom + 1),
+            focused: (window as any).__kupua_store__.getState().focusedImageId !== null,
+            selected: (window as any).__kupua_selection_store__.getState().selectedIds.size,
+          };
+        }, baseline.id), { message: `Retained image remains usable in ${mode}` })
+          .toEqual({ visible: true, focused: false, selected: 0 });
+      }
+      await expect.poll(() => page.evaluate(({ id, top }) => {
+        const container = document.querySelector('[aria-label="Image results justified"]')!;
+        const cell = container.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
+        return cell ? Math.abs(cell.getBoundingClientRect().top - container.getBoundingClientRect().top - top) : Infinity;
+      }, baseline)).toBeLessThan(1);
+      expect(await kupua.getFocusedImageId()).toBeNull();
+      expect(await page.evaluate(() => (window as any).__kupua_selection_store__.getState().selectedIds.size)).toBe(0);
+    }
+    if (journey === 0) {
+      const before = await region.evaluate(element => element.scrollTop);
+      const bounds = (await region.boundingBox())!;
+      await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+      await page.mouse.wheel(0, 600);
+      await expect.poll(() => region.evaluate(element => element.scrollTop)).toBeGreaterThan(before + 200);
+      await page.waitForFunction(id => (window as any).__kupua_getViewportAnchorId__() !== id, baseline.id);
+    }
+  }
+}
 
 export async function pendingBrowseAcrossDensity(
   kupua: KupuaHelpers,

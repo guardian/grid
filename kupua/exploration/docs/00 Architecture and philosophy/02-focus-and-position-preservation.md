@@ -37,7 +37,8 @@ Scroll tiers (ยง3.1) select coordinate mechanics, not anchor policy.
 | Positioning id | One-shot `_phantomFocusImageId`: search asks the view to place an image without focusing it | `search-store.ts`, consumed by effect 9 |
 
 Anchor precedence depends on the transition; there is no settled universal rule.
-Settled density currently prefers a buffer-resident resolvable focus, then viewport centre; grid reflow
+Settled density reuses its valid last placement while browsing is unchanged; a fresh capture
+prefers a buffer-resident resolvable focus, then viewport centre. Grid reflow
 prefers selection, then focus, then viewport centre. History capture prefers
 explicit focus in explicit mode, otherwise viewport centre.
 
@@ -135,10 +136,20 @@ anchor at its original position after cross-density history and a return to its 
 Neither can be replaced wholesale with raw DOM coordinates; Table detail centring retains
 its usable-height adjustment. The table's physical spacer includes the measured header
 height so its scroll extent is complete before the last virtual rows mount. This does
-not add header flow to logical row coordinates or snapshot ratios. Subpixel ratio carry
-survives only while target, applied scroll, row geometry, viewport/header and publication
-remain unchanged. Newer input retires
-it; its purpose is preventing integer-scroll rounding drift, not another placement owner.
+not add header flow to logical row coordinates or snapshot ratios. Density retains the intended
+identity, ratio and source-edge intent separately from the applied scroll outcome. This replaces
+the former subpixel-only carry: repacking does not re-elect a different centre image, and a
+temporary destination clamp does not overwrite the intended ratio for a later return.
+Reuse requires unchanged focus intent/value, search/publication ownership, applied scroll and
+viewport/header geometry. Wheel, touch, list keys and scrubber input retire it; control activation
+does not. An observed external scroll retires it permanently rather than allowing revival after
+movement away and back. Scrubber retirement does not change data-window scroll provenance.
+Owned prepend, eviction and variable-window
+compensation refresh applied coordinates when the target survives. The retained record cannot
+initiate scrolling or fetch a missing target; it only supplies the next density handoff.
+History capture and panel/resize anchoring retain their separate policies. The record contains
+no density name or thumbnail-size preset; future sizing controls can reuse its placement model
+but still require integration with the mounted reflow owner.
 
 Edge rules: header/full-row visibility clipping and physical DOM clamping are
 independent of semantic result edges. Density's source/destination snapping requires
@@ -189,7 +200,7 @@ their separate rules; detail-return identity and cancellation are described in ย
 | Scrubber seek | Viewport goes where asked; explicit focus stays a bookmark | none |
 | Home / End | Viewport at the edge; explicit focus moves to first/last only if it existed | none |
 | Buffer extend / evict / estimate correction | Old/new row-top delta preserves the elected surviving identity, even when its old row splits | Use an old-row neighbour only when the elected identity is evicted |
-| Density switch | Pending browsing destination wins. Once settled: buffer-resident resolvable focus, otherwise viewport centre; preserve row-top ratio with header flow, visibility clipping and true-edge policy | Resident offscreen focus can pull the view back; nonresident focus cannot. Selection is not a separate chooser |
+| Density switch | Pending browsing destination wins. Once settled: retain valid density placement; otherwise capture resident focus or viewport centre. Preserve intended row-top ratio with header flow, destination visibility clipping and true-edge policy | New browsing supersedes retained placement. Resident offscreen focus can pull the view back; nonresident focus cannot. Selection is not a separate chooser |
 | Browser resize / panel toggle | Capture resolvable selection, then focus, then viewport anchor before reflow; retain that operation's anchor | Current fixed/variable geometry determines placement; offscreen selection is not promised visibility |
 | Detail / preview close | Entry image: native placement. After traversal: last viewed image centred | Click-to-Open pulses without a ring; remembered detail identity remains eligible for later query/filter and AI-exit anchoring |
 | Browser Back / Forward | Destination snapshot supplies represented anchor, placement and focus/NONE in CURRENT density; distinct same-query native entries restore too | Missing/mismatched/null snapshot or genuine missing anchor: top/no focus, no departing neighbour. Marked origin/detail transition retains native list |

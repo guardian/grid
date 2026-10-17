@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { test, expect, type KupuaHelpers } from "../shared/helpers";
 import { getDensityChangeButton, type Density } from "../shared/density-selection";
+import { unfocusedDensityRoundTrips } from "../shared/browse-density";
 
 const region = (page: Page) => page.getByRole("region", { name: "Image results justified", exact: true });
 
@@ -67,6 +68,12 @@ async function density(page: Page, target: Density) {
   await expect(page.getByRole("region", { name: `Image results ${target}`, exact: true })).toBeVisible();
 }
 
+test("windowed unfocused density cycles retain placement until new browsing", async ({ kupua, page }, info) => {
+  await start(kupua, page, info.project.name);
+  await seek(page, 0.4);
+  await unfocusedDensityRoundTrips(kupua);
+});
+
 test("technical block seams fill the row and preserve their anchor through reflow and density changes", async ({ kupua, page }, info) => {
   await page.setViewportSize({ width: 914, height: 900 });
   await start(kupua, page, info.project.name);
@@ -91,10 +98,13 @@ test("technical block seams fill the row and preserve their anchor through reflo
   const before = await placement(page, id);
   for (const width of [914, 404, 914]) {
     await page.setViewportSize({ width, height: 900 });
-    await expect.poll(() => cell.evaluate(element => {
-      const container = element.closest('[aria-label="Image results justified"]')!;
-      return Math.abs(element.getBoundingClientRect().right - container.getBoundingClientRect().left - container.clientWidth);
-    })).toBeLessThan(1);
+    await expect.poll(() => page.evaluate(id => {
+      const container = document.querySelector('[aria-label="Image results justified"]');
+      const element = container?.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
+      return container && element
+        ? Math.abs(element.getBoundingClientRect().right - container.getBoundingClientRect().left - container.clientWidth)
+        : Infinity;
+    }, id)).toBeLessThan(1);
     await expect.poll(async () => Math.abs((await placement(page, id)).y - before.y)).toBeLessThan(1);
     const ratio = await cell.evaluate(element => {
       const rect = element.getBoundingClientRect();

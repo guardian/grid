@@ -161,6 +161,218 @@ media-api baselines are pre-seam, seek-regime evidence, not a controlled transpo
 No post-seam speedup/regression or aggregate-heap conclusion has been measured. Campaigns and
 dry runs remain operator-run; use matched conditions before making performance claims.
 
+### Reload and density preservation diagnosis (17 October 2026)
+
+Bounded, operator-authorised read-only checks used the shared TEST media-api browser at
+1163 x 887 CSS pixels, DPR 2. Measured image identity and viewport-relative row top after
+settlement; identities stayed in browser memory. No product changes, automated suite runs
+or performance measurements. These are sampled functional observations, not exhaustive proof.
+
+| Tier and result count | Repeated reloads | Density round trips |
+| --- | --- | --- |
+| Resident, 109 | Three unfocused reloads per layout and three focused Justified reloads: exactly stable. | Focused cycles exact. Unfocused Justified/Grid exact; Justified/Table and three-layout cycles displaced the original image by -118, -355.5, -542px cumulatively. Grid/Table control also wandered. |
+| Indexed, 11,435 | Justified first adjustment -0.203px unfocused / -0.078px focused, then two exact repeats in each case. Three Grid/Table reloads each exact. | Focused cycles exact. Unfocused Justified/Grid shifted -80px once then stabilised; Justified/Table shifted -76, -86.5, -97px cumulatively. Grid/Table shifted once; the later three-layout sample was stable. |
+| Seek, 1,331,249 | Focused Justified stabilised after a +0.133px first adjustment. Unfocused Justified showed changing anchors and fractional shifts, including +0.039, +0.063, +0.039px on successive reloads; other samples shifted upward. Grid/Table reload controls exact. | Focused cycles stable. Unfocused Justified/Grid pair exact at sampled positions. Table-containing cycles wandered, including the Grid/Table control. |
+
+Negative displacement is upward. Density comparisons tracked the original image through three
+cycles; unfocused reload comparisons tracked each departure's elected anchor. Table-containing
+density witnesses had unchanged buffers and were away from physical/result-set edges. They
+must not be described as a uniquely Justified defect or a constant downward reload offset.
+
+The larger density displacement is attributable to anchor re-election: `captureDensity` in
+`useScrollEffects.ts` chooses resident focus or a fresh viewport-centre image on every departure.
+`getViewportAnchorId`/`electViewportAnchor` choose by rendered centre distance, with vertical-only
+distance in Table. Measured Grid->Table and Table->Justified transitions elected different images;
+preserving each chosen image's row-top ratio does not preserve one identity across a round trip.
+Focused controls avoid this change of target and stayed stable across all three tiers.
+
+Fractional reload movement is consistent with browser scroll quantisation: `buildHistorySnapshot`
+recaptures `(rowTop - scrollTop) / clientHeight`, whereas density restoration has guarded subpixel
+ratio carry. Seek-mode Justified also rebuilds its local packing origin after reload and can change
+row grouping and the next elected centre image. This is a code-supported diagnosis, not an
+intervention-proven rounding repair. No consistent multi-pixel downward reload drift was reproduced.
+
+Any repair needs separate failing witnesses for reload rounding and unfocused density continuity,
+retaining focused and fixed-layout controls in all tiers. Do not compensate with a Justified-only
+pixel offset or change shared anchor policy without an explicit behaviour decision.
+
+### Proposed density repair (design only, 17 October 2026)
+
+Status: operator approved implementation after this design, including compatibility with future
+thumbnail granularity controls. The working-tree repair has completed local verification, cold
+review and bounded read-only live TEST verification. The owning focus/position guide describes
+its contract. Target meaningful accumulated density drift, not subpixel perfection. Unrelated
+refactor candidates remain unapproved.
+
+**Recommended contract:** changing density changes presentation, not the user's chosen browsing
+position. Elect an image when a density sequence starts, retain its intended viewport placement
+across subsequent density changes, and elect afresh after actual navigation or supersession.
+Explicit/remembered resident focus keeps its existing priority; this does not create focus,
+selection, a durable bookmark, or a new query/search anchor policy.
+
+Centre re-election is appropriate after browsing but is not mathematically reversible after
+repacking. In a simplified example, a 200px-high image whose top is at 300px is centred at 400px;
+the same image in a 32px table row, with its top preserved, is centred at 316px. The next centre
+election chooses another image. No rounding adjustment can make these two choices equivalent.
+Remembering one placement is continuity state, not a special case for an unusual image shape.
+Always re-centring instead would sacrifice existing offset preservation and still would not
+guarantee the same horizontally elected image in multi-column layouts.
+
+#### Implementation boundary
+
+Use the existing `useScrollEffects` density owner and its pending handoff. Replace
+`densitySubpixelRef` with a last-applied density-placement record rather than adding a second
+global store or a new scrolling lifecycle. Generalise its purpose; remove the variable-layout-only
+`preserveSubpixel` gate. All three layouts use the same contract and existing geometry lookup.
+Do not change the public density preference, store publication signals, two-frame readiness,
+retirement tombstones, Home suppression, or pending-browse ownership.
+
+The mounted record has three responsibilities, kept distinct:
+
+- Intended placement: image identity, viewport ratio and the original logical edge intent.
+- Validity: existing search/publication/focus context, including focus changes and clears.
+- Applied placement: the current geometry and scroll outcome, used to detect movement that
+  this placement did not own. This is evidence of validity, not a replacement desired ratio.
+
+On departure, reuse a valid settled record before electing a new viewport-centre fallback.
+An authoritative current focus or a pending browsing destination still wins. Resolve indices
+from identity using current `imagePositions`; never reuse a buffer-local index across mutations.
+On arrival, project the intended placement into destination geometry, apply existing visibility
+and edge constraints, and record the applied outcome without overwriting the intended ratio.
+The pending handoff is still consumed once. The retained record cannot autonomously scroll.
+
+This separation matters beyond fractions: a short viewport or taller destination row may require
+temporary clipping. Returning to an unconstrained layout should recover the intended position,
+not treat that temporary adjustment as new browsing. True source start/end intent remains
+authoritative. A temporary buffer limit or destination clamp must not become a new source edge.
+Immediate destination visibility and true-edge policy remain; this proposal changes what is
+remembered for the next density switch, not those constraints themselves.
+
+Reuse existing input handling and generation checks. Wheel/touch/list-key browsing, scrubber
+intent, focus changes (including same-image input and clearing), seek, search, sort, Home and
+history supersession invalidate or replace the record. Do not invalidate on every `scroll` event:
+restoration and buffer compensation also emit scroll events. Check applied state on capture as
+a fallback for native-scrollbar or other external repositioning; do not add per-frame DOM scans,
+timers or a permanent observer solely to maintain this record.
+
+Ordinary buffer maintenance is not new browsing. In the existing window-compensation owner,
+prefer the still-valid retained identity and refresh its applied geometry after compensation;
+keep the intended placement unchanged. If that image is genuinely unavailable, discard the
+record and use the existing fallback. No fetch, position-map wait or seek may be added to rescue
+it. Fixed-row compensation stays fixed-row compensation; its integration must also preserve
+valid continuity across maintenance rather than silently dropping it on coordinate changes.
+
+#### Scope and alternatives
+
+Include settled density switches in Grid, Table and Justified in all three scroll tiers, plus
+the existing input/publication/maintenance boundaries needed to keep those switches correct.
+This is a shared density repair, not a Justified-specific workaround. Expect changes primarily
+in `useScrollEffects.ts` and existing tests, not in layout engines or the search store.
+
+Exclude reload/history snapshot changes, persisted packing origins, new anchor session storage,
+universal focus/selection precedence, panel/resize unification and performance campaigns.
+No human-sized repeated reload failure was established; fractional reload work is not justified
+as a separate project. Keeping an unrounded intended ratio naturally preserves the protection
+already supplied by the old density carry; it is not a reason to expand into history machinery.
+
+Panel/width reflow in `ImageGrid` is a related but separate capture owner, with selection-before-
+focus precedence. Its comments already acknowledge unfocused re-election limitations. A density-
+only repair must not claim to solve panel round trips: unrelated reflow supersedes its retained
+placement unless an existing owner explicitly maintains it. Retain panel/history/detail tests
+as regressions; integrating their policies requires a separately approved scope change. Do not
+add an abstraction spanning all those transitions merely because they all use the word anchor.
+
+The trade-off is one ephemeral record with explicit invalidation. Avoiding that state requires
+either accepting wandering or changing the UX to discard placement on every switch. Neither
+satisfies the requested continuity. This proposal replaces existing carry machinery, but does
+not promise fewer lines: correctness tests and broader validity handling may add code.
+
+#### Evidence and acceptance
+
+Reviewed owners: `useScrollEffects` capture/placement, subpixel carry, input lifetime and window
+compensation; `ImageGrid` reflow and variable geometry; `ImageTable` header/centering; `useDataWindow`
+and `viewport-anchor-geometry` election; `buildHistorySnapshot`/`historySearchContinuity`; Home
+reset; density preferences and view unmounting. Existing hook tests cover cancellation, pending
+navigation, semantic edges, irregular geometry and focused round trips. The nearby Justified
+browser round-trip tests pin focus; they do not establish unfocused multi-cycle identity stability.
+
+Before implementation, add failing controls in the existing hook and browser test homes:
+
+1. Unfocused pairwise and three-layout cycles where the natural centre election demonstrably
+  changes. Track the original image, not whichever image is central afterward. Check every
+  return against the first baseline over repeated cycles, not a per-step tolerance that can grow.
+2. A temporary destination clamp followed by return to the original unconstrained layout;
+  recover the original placement while preserving actual start/end behaviour.
+3. New browsing/focus/search/history intent retires the retained placement; obsolete callbacks
+  and rapid remounts cannot revive it. Include a moved-away-and-back input witness.
+4. Same-context prepend/eviction/estimate correction retains continuity when the target survives,
+  and falls back without additional reads when it does not. Exercise resident/indexed/seek
+  coordinates with real DOM geometry and include pending-seek regression controls.
+
+Keep the existing focused, selection, true-edge, history/header, Home and panel assertions.
+Review existing expected ratios for clipping transitions before changing them: immediate
+placement should remain compatible, while later recapture now intentionally retains the original
+request. Do not weaken a failing assertion to accommodate an unexplained movement.
+
+Use a bounded one-CSS-pixel browser tolerance against the original baseline for unclamped returns;
+this tolerates rasterisation, not a tolerance multiplied by cycle count. Tests must independently
+check identity, no unintended focus/selection, bounded read counts and invalidation. Run the full
+unit, build and E2E gates after any approved implementation; suggest operator-run performance
+checks for shared scroll/render-path changes. Treat the acceptance criteria as gates, not as
+evidence that any particular implementation or review has passed.
+
+#### Implementation verification
+
+Final retained implementation (17 October 2026): full unit suite 3,047 passed; production build
+passed with the existing large-chunk advisory; full local E2E 473 passed with retries disabled
+and no skips. Structured E2E compiler comparison against an in-memory pre-change overlay found
+the same 93 diagnostic identities/multiplicities and no additions, not a clean E2E type surface.
+
+Failing-first controls cover identity re-election, intended placement through clipping, control
+keyboard activation, fractional maintenance, external-scroll retirement and input provenance.
+Real-DOM journeys cover resident/indexed/seek tiers, mouse/Space activation, intermediate-layout
+visibility without focus/selection promotion, repeated returns to the original baseline and a
+fresh baseline after browsing. Existing history, focused, edge, maintenance and panel controls
+remain intact. The resize witness now samples its current container/image atomically without
+loosening the geometry oracle.
+
+Two independent read-only cold review remits covered correctness/lifetime and clarity/reuse/
+simplicity. Follow-up reviewers received the complete diff and current files. Confirmed keyboard
+retirement and fractional-coordinate findings were repaired with regression witnesses; observed
+scroll-away/back revival was also covered. Follow-up found no remaining confirmed product defect;
+the requested stronger intermediate-layout checks were added before the final full gate.
+
+The earlier indexed-maintenance failure was not a proven arithmetic-order defect. A matched
+comparison used an exactly pre-change hook: baseline passed 3/3, the repair failed 3/3, and limiting
+the new Scrubber listener to density retirement (without marking data-window user-scroll input)
+passed 3/3. A negative programmatic-scroll/positive wheel control protects that distinction, and
+the final full suite passed the original strict maintenance witness. Original scroll arithmetic
+order remains unchanged. An initial full-unit bootstrap timeout passed unchanged in isolation
+and in subsequent full runs; its original cause was not established.
+
+Live TEST media-api verification used the shared foreground browser after reload and an exact
+served-source hash match to the tested hook. Each tier exercised three Table/Grid/Justified
+round trips, real wheel browsing to elect a new anchor, then three more round trips. Mouse and
+native Space activation were included; the original image was measured in every intermediate
+layout and on every return. No focus or selection was created.
+
+| Live tier | Observed result count | Round trips | Maximum accumulated return displacement |
+| --- | --- | --- | --- |
+| Resident | 109 | 6 | 0 CSS px |
+| Indexed | 11,435 | 6 | 0 CSS px |
+| Seek | 1,331,261 | 6 | 0 CSS px |
+
+All intermediate placements were visible; browsing established and preserved a new anchor.
+The seek case required a newly published seek generation, not merely an already-restored deep
+position. Temporary browser instrumentation was removed. These bounded observations establish
+the sampled functional behaviour, not a performance certificate or exhaustive live coverage.
+
+Operator-run performance campaigns remain separate and were not run here.
+Inherited capture-phase control-key scroll classification is an unverified adjacent
+risk, not a demonstrated defect introduced by this patch. Future fractional fixed-row sizing
+must derive old/new coordinates from row indices; mounted sizing/reflow integration remains
+future work, not a claimed capability of the current density repair.
+
 ### Late thumbnail arrival: initial campaign evidence
 
 The [density history](../../e2e-perf/results/density-log.json) contains the operator's

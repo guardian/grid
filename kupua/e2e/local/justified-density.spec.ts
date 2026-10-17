@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { test, expect, type KupuaHelpers } from "../shared/helpers";
+import { unfocusedDensityRoundTrips } from "../shared/browse-density";
 
 type Density = "grid" | "table" | "justified";
 
@@ -70,6 +71,13 @@ async function settleWidth(page: Page) {
     throw new Error("Preview width did not settle");
   });
 }
+
+test("resident unfocused density cycles retain placement until new browsing", async ({ kupua, page }) => {
+  await start(kupua, page);
+  await page.getByRole("region", { name: "Image results justified", exact: true })
+    .evaluate(element => { element.scrollTop = 1800; });
+  await unfocusedDensityRoundTrips(kupua);
+});
 
 test("resident justified density and panel round trips preserve the same interior image", async ({ kupua, page }) => {
   await start(kupua, page);

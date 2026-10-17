@@ -24,6 +24,34 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 17 October 2026 - Retain intended placement across density changes
+
+Replace subpixel-only density carry with a guarded retained image and intended viewport
+placement shared by Grid, Table and Justified. Repeated density changes no longer elect
+successive centre images, and temporary destination clipping does not become permanent
+position loss. Keep focus, selection, pending browsing and the existing restoration lifecycle
+separate; the record contains no density names or thumbnail-size presets.
+
+Retire retained placement on browsing input or superseding focus/publication state. Refresh
+its applied coordinates during owned prepend, eviction and variable-window compensation
+without changing the intended placement or adding data reads. Keep the original window
+compensation arithmetic order unchanged.
+
+Share keyboard retirement rules between pending and completed placement so button Space
+activation and control-consumed arrows do not discard layout intent. Record variable-window
+compensation with explicit old/new row coordinates rather than floating-point reconstruction.
+Observed external scrolling retires placement permanently, including movement away and back.
+Scrubber retirement changes density intent only, leaving data-window scroll provenance intact.
+
+Add failing-first all-tier anchor/clipping controls, completed-input and compensation
+regressions, and shared unfocused browser journeys that return to the original baseline
+before and after new browsing. Exercise mouse and keyboard density activation and check
+same-image visibility, focus and selection in intermediate layouts too. Leave reload snapshots
+and panel-reflow policy unchanged.
+Make the existing block-seam resize poll resolve its container and image atomically so a
+detached virtual cell is a not-ready sample rather than an exception; retain its strict
+geometry and identity assertions.
+
 ### 17 October 2026 - Require action-owned completion in focused-sort and search measurements
 
 Use the shared action-aware direction helper for PP4 rather than accepting the previous

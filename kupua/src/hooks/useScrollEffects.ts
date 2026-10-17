@@ -48,11 +48,11 @@ function toVirtualizerIdx(globalIdx: number, bufferOffset: number, isTwoTier: bo
 }
 
 // ---------------------------------------------------------------------------
-// Density-focus bridge
+// Density-placement bridge
 //
-// Module-level state for preserving the focused item's viewport-relative
-// position across density switches (table ↔ grid). Written by the
-// unmounting density, consumed once by the mounting density.
+// The unmounting view hands off an image and its intended viewport placement.
+// The mounting view consumes that handoff once, then retains the intention
+// separately from the applied scroll until browsing or ownership changes.
 //
 // Stores globalIndex (stable across buffer extends) rather than localIndex
 // (shifts when bufferOffset changes due to prepends between unmount/mount).
@@ -66,7 +66,6 @@ interface DensityFocusState {
   mode: { kind: "settled"; focusIntent: number; edge: "none" | "start" | "end" }
     | { kind: "departure"; navigationSignal: AbortSignal };
   retired: boolean;
-  preserveSubpixel?: boolean;
 }
 
 let _densityFocusSaved: DensityFocusState | null = null;
@@ -213,8 +212,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   const [densityReady, setDensityReady] = useState(() =>
     _densityFocusSaved === null && useSearchStore.getState()._browseNavigation === null);
   const densityMountedReadyRef = useRef(false);
-  const densitySubpixelRef = useRef<{ id: string; scrollTop: number; rowTop: number; height: number;
-    header: number; ratio: number; search: number; seek: number; sort: number; reset: number } | null>(null);
+  const densityPlacementRef = useRef<{ saved: DensityFocusState; focusId: string | null;
+    scrollTop: number; rowTop: number; height: number; header: number } | null>(null);
   const densityMountHadReadyPublicationRef = useRef(useSearchStore.getState()._searchContinuity?.phase === "ready");
   const densityAnchorPolicyRef = useRef(config.chooseDensityAnchor);
   densityAnchorPolicyRef.current = config.chooseDensityAnchor;
@@ -302,6 +301,53 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   // Register geometry for external consumers (e.g. Scrubber, diagnostics)
   registerScrollGeometry(geometry);
 
+  function retainedDensityPlacement(geo: ScrollGeometry, scrollTop = parentRef.current?.scrollTop) {
+    const retained = densityPlacementRef.current;
+    const el = parentRef.current;
+    if (!retained || !el) return null;
+    const state = useSearchStore.getState();
+    const saved = retained.saved;
+    const index = "layout" in geo && geo.window ? geo.window.findItemIndex(saved.target.id)
+      : state.imagePositions.has(saved.target.id)
+        ? toVirtualizerIdx(state.imagePositions.get(saved.target.id)!, state.bufferOffset, isTwoTierFromTotal(state.total)) : undefined;
+    return saved.mode.kind === "settled" && !saved.retired && state._browseNavigation === null &&
+      saved.mode.focusIntent === state._focusIntent && retained.focusId === state.focusedImageId &&
+      saved.searchGeneration === getSearchGeneration() && saved.publication.seek === state._seekGeneration &&
+      saved.publication.sort === state.sortAroundFocusGeneration && saved.publication.reset === state._scrollReset.gen &&
+      retained.scrollTop === scrollTop && retained.height === el.clientHeight && retained.header === geo.headerOffset &&
+      index !== undefined && index >= 0 && retained.rowTop === getItemLayoutRow(geo, index).top ? retained : null;
+  }
+
+  function recordDensityCompensation(beforeScroll: number, id: string, beforeRowTop: number, rowTop: number) {
+    const retained = densityPlacementRef.current;
+    const el = parentRef.current;
+    if (!retained || !el || retained.scrollTop !== beforeScroll) return;
+    densityPlacementRef.current = retained.saved.target.id === id && retained.rowTop === beforeRowTop
+      ? { ...retained, rowTop, scrollTop: el.scrollTop } : null;
+  }
+
+  function recordFixedDensityCompensation(beforeScroll: number, delta: number) {
+    const retained = densityPlacementRef.current;
+    if (!retained) return;
+    const state = useSearchStore.getState();
+    const globalIndex = state.imagePositions.get(retained.saved.target.id);
+    if (globalIndex === undefined) { densityPlacementRef.current = null; return; }
+    const rowTop = getItemLayoutRow(geometryRef.current,
+      toVirtualizerIdx(globalIndex, state.bufferOffset, isTwoTierFromTotal(state.total))).top;
+    recordDensityCompensation(beforeScroll, retained.saved.target.id, rowTop - delta, rowTop);
+  }
+
+  function isDensityNavigationKey(event: KeyboardEvent): boolean {
+    if (isNativeInputTarget(event)) return false;
+    if (event.key === " " && event.target instanceof Element && event.target.closest("button, [role='button']")) return false;
+    const geo = geometryRef.current;
+    const state = useSearchStore.getState();
+    if ((event.key === "ArrowLeft" || event.key === "ArrowRight") &&
+        ((!("layout" in geo) && geo.columns <= 1) || getEffectiveFocusMode() !== "explicit" ||
+          state.focusedImageId === null || useSelectionStore.getState().selectedIds.size > 0)) return false;
+    return ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown", "Home", "End", " "].includes(event.key);
+  }
+
   const publication = useSearchStore.getState();
   const layoutPublication = { geometry, search: getSearchGeneration(), seek: publication._seekGeneration,
     sort: publication.sortAroundFocusGeneration, reset: publication._scrollReset.gen };
@@ -309,7 +355,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   const beforeLayout = committedLayout.current;
   const beforeScroll = parentRef.current?.scrollTop ?? 0;
   const layoutAnchor = beforeLayout.geometry !== geometry && "layout" in geometry && geometry.window
-    ? getViewportAnchorId() : null;
+    ? retainedDensityPlacement(beforeLayout.geometry, beforeScroll)?.saved.target.id ?? getViewportAnchorId() : null;
   useLayoutEffect(() => {
     committedLayout.current = layoutPublication;
     const old = beforeLayout.geometry;
@@ -323,7 +369,9 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     if (!row) return;
     const electedNext = layoutAnchor ? geometry.window.findItemIndex(layoutAnchor) : undefined;
     if (anchorIndex !== undefined && electedNext !== undefined) {
-      el.scrollTop = beforeScroll + getItemLayoutRow(geometry, electedNext).top - row.top;
+      const nextRowTop = getItemLayoutRow(geometry, electedNext).top;
+      el.scrollTop = beforeScroll + nextRowTop - row.top;
+      recordDensityCompensation(beforeScroll, layoutAnchor!, row.top, nextRowTop);
       return;
     }
     // If the elected identity was evicted, retain a surviving neighbour from its old row.
@@ -331,7 +379,9 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       const id = old.window.getItemId(index);
       const next = id ? geometry.window.findItemIndex(id) : undefined;
       if (next === undefined) continue;
-      el.scrollTop = beforeScroll + getItemLayoutRow(geometry, next).top - row.top;
+      const nextRowTop = getItemLayoutRow(geometry, next).top;
+      el.scrollTop = beforeScroll + nextRowTop - row.top;
+      recordDensityCompensation(beforeScroll, id!, row.top, nextRowTop);
       break;
     }
   });
@@ -340,6 +390,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   const handleScroll = useCallback((event?: Event) => {
     const el = parentRef.current;
     if (!el) return;
+    if (event && densityPlacementRef.current?.scrollTop !== el.scrollTop) densityPlacementRef.current = null;
     const input = scrollInputRef.current;
     const userInitiated = event !== undefined && input !== null &&
       input.search === getSearchGeneration() && input.seek === useSearchStore.getState()._seekGeneration;
@@ -369,19 +420,30 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   useEffect(() => {
     const el = parentRef.current;
     if (!el) return;
-    const captureInput = () => {
-      densitySubpixelRef.current = null;
+    const markInput = () => {
       scrollInputRef.current = { search: getSearchGeneration(), seek: useSearchStore.getState()._seekGeneration };
     };
+    const captureInput = () => { densityPlacementRef.current = null; markInput(); };
     const onWheel = (event: WheelEvent) => { if (!event.ctrlKey && event.deltaY !== 0) captureInput(); };
     const onKey = (event: KeyboardEvent) => {
-      if (!isNativeInputTarget(event) && ["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)) captureInput();
+      if (!isNativeInputTarget(event) && ["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)) markInput();
+      if ((event.key === "Home" || event.key === "End") && isDensityNavigationKey(event)) densityPlacementRef.current = null;
+    };
+    const onDensityKey = (event: KeyboardEvent) => { if (isDensityNavigationKey(event)) densityPlacementRef.current = null; };
+    const onScrubber = (event: Event) => {
+      if (!(event.target instanceof Element) || !event.target.closest("[data-testid='scrubber-track']")) return;
+      if (event instanceof WheelEvent && (event.ctrlKey || event.deltaY === 0)) return;
+      densityPlacementRef.current = null;
     };
     const stopInput = () => { scrollInputRef.current = null; };
     el.addEventListener("wheel", onWheel, { passive: true });
     el.addEventListener("touchmove", captureInput, { passive: true });
     el.addEventListener("scrollend", stopInput);
     document.addEventListener("keydown", onKey, true);
+    document.addEventListener("keydown", onDensityKey);
+    document.addEventListener("pointerdown", onScrubber, true);
+    document.addEventListener("click", onScrubber, true);
+    document.addEventListener("wheel", onScrubber, { capture: true, passive: true });
     el.addEventListener("scroll", handleScroll, { passive: true });
 
     return () => {
@@ -390,6 +452,10 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       el.removeEventListener("touchmove", captureInput);
       el.removeEventListener("scrollend", stopInput);
       document.removeEventListener("keydown", onKey, true);
+      document.removeEventListener("keydown", onDensityKey);
+      document.removeEventListener("pointerdown", onScrubber, true);
+      document.removeEventListener("click", onScrubber, true);
+      document.removeEventListener("wheel", onScrubber, true);
     };
   }, [handleScroll, parentRef]);
 
@@ -448,6 +514,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     );
     const rowDelta = shiftedRow - firstVisibleRow;
     el.scrollTop += rowDelta * geo.rowHeight;
+    recordFixedDensityCompensation(scrollBefore, rowDelta * geo.rowHeight);
     // DIAG: prepend compensation
     devLog(`[prepend-comp] prepended=${lastPrependCount} cols=${geo.columns} firstVisibleRow=${firstVisibleRow} firstVisibleIndex=${firstVisibleIndex} shiftedRow=${shiftedRow} rowDelta=${rowDelta} scrollBefore=${scrollBefore.toFixed(1)} scrollAfter=${el.scrollTop.toFixed(1)} delta=${(el.scrollTop - scrollBefore).toFixed(1)}`);
   }, [prependGeneration, lastPrependCount, parentRef, twoTier]);
@@ -481,6 +548,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     );
     const rowDelta = firstVisibleRow - shiftedRow;
     el.scrollTop -= rowDelta * geo.rowHeight;
+    recordFixedDensityCompensation(scrollBefore, -rowDelta * geo.rowHeight);
   }, [forwardEvictGeneration, lastForwardEvictCount, parentRef, twoTier]);
 
   // -------------------------------------------------------------------------
@@ -858,6 +926,11 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
         ? { id, globalIndex } : null;
     };
     const focus = resolve(state.focusedImageId);
+    const retained = placement === "ratio" ? retainedDensityPlacement(geometryRef.current) : null;
+    if (retained) {
+      const target = resolve(retained.saved.target.id);
+      if (target) return { ...retained.saved, target };
+    }
     const target = resolve(navigation ? getViewportAnchorId() : densityAnchorPolicyRef.current
       ? densityAnchorPolicyRef.current(focus?.id ?? null, getViewportAnchorId)
       : focus?.id ?? getViewportAnchorId());
@@ -869,14 +942,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       : (indexed || state.bufferOffset + state.results.length >= state.total) && maxScroll > 0 &&
         maxScroll - el.scrollTop < GRID_ROW_HEIGHT ? "end" : "none";
     const rowTop = getItemLayoutRow(geo, index).top;
-    const precise = densitySubpixelRef.current;
-    const unchangedPlacement = precise && precise.id === target.id && precise.scrollTop === el.scrollTop &&
-      precise.rowTop === rowTop && precise.height === el.clientHeight && precise.header === geo.headerOffset &&
-      precise.search === getSearchGeneration() && precise.seek === state._seekGeneration &&
-      precise.sort === state.sortAroundFocusGeneration && precise.reset === state._scrollReset.gen;
     return { target, placement: placement === "centre" ? { kind: "centre" }
-      : { kind: "ratio", ratio: unchangedPlacement ? precise.ratio : (rowTop + geo.headerOffset - el.scrollTop) / el.clientHeight },
-      preserveSubpixel: "layout" in geo || Boolean(unchangedPlacement),
+      : { kind: "ratio", ratio: (rowTop + geo.headerOffset - el.scrollTop) / el.clientHeight },
       searchGeneration: getSearchGeneration(),
       publication: { seek: state._seekGeneration, sort: state.sortAroundFocusGeneration, reset: state._scrollReset.gen },
       mode: navigation ? { kind: "departure", navigationSignal: navigation.signal }
@@ -927,14 +994,10 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
         else if (end && maxScroll - offset < row.height) offset = maxScroll;
       }
       el.scrollTop = offset;
-      // Browsers can quantise scrollTop to whole pixels. Do not compound that
-      // rounding on an untouched variable→fixed→variable density round trip.
-      densitySubpixelRef.current = saved.preserveSubpixel ? { id: saved.target.id, scrollTop: el.scrollTop,
-        rowTop, height: el.clientHeight, header: geo.headerOffset,
-        ratio: (rowTop + geo.headerOffset - offset) / el.clientHeight,
-        search: getSearchGeneration(), seek: state._seekGeneration, sort: state.sortAroundFocusGeneration,
-        reset: state._scrollReset.gen } : null;
     }
+    densityPlacementRef.current = saved.mode.kind === "settled" && saved.placement.kind === "ratio"
+      ? { saved, focusId: state.focusedImageId, scrollTop: el.scrollTop, rowTop: row.top,
+        height: el.clientHeight, header: geo.headerOffset } : null;
   };
 
   useLayoutEffect(() => {
@@ -960,11 +1023,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     };
     const onWheel = (event: WheelEvent) => { if (!event.ctrlKey && event.deltaY !== 0) interrupt(); };
     const onKey = (event: KeyboardEvent) => {
-      if (isNativeInputTarget(event)) return;
-      if ((event.key === "ArrowLeft" || event.key === "ArrowRight") &&
-          ((!("layout" in geometryRef.current) && geometryRef.current.columns <= 1) || getEffectiveFocusMode() !== "explicit" ||
-            useSearchStore.getState().focusedImageId === null || useSelectionStore.getState().selectedIds.size > 0)) return;
-      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)) interrupt();
+      if (isDensityNavigationKey(event)) interrupt();
     };
     const onBoundaryKey = (event: KeyboardEvent) => { if (event.key === "Home" || event.key === "End") onKey(event); };
     const onScrubber = (event: Event) => {
