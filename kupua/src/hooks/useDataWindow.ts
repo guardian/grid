@@ -75,6 +75,20 @@ let _lastReportTime = 0;
 let _lastEndIndex = 0;
 /** EMA-smoothed velocity in items/ms. Signed; negative = scrolling up. */
 let _velocityEma = 0;
+export interface ViewportVelocitySample {
+  scrollTop: number;
+  viewportHeight: number;
+  layout: object;
+}
+
+let _velocityContext: {
+  owner: object;
+  results: readonly (Image | undefined)[];
+  generation: number;
+  total: number;
+  offset: number;
+  sample: ViewportVelocitySample;
+} | null = null;
 
 /**
  * Compute the EMA-smoothed forward velocity (items/ms) given the current
@@ -115,6 +129,7 @@ export function _resetForwardVelocity(): void {
   _lastReportTime = 0;
   _lastEndIndex = 0;
   _velocityEma = 0;
+  _velocityContext = null;
 }
 
 /**
@@ -268,7 +283,8 @@ interface DataWindow {
    * buffer-local. In two-tier mode, indices are global (0..total-1).
    * The hook detects proximity to buffer edges and triggers extend/seek.
    */
-  reportVisibleRange: (startIndex: number, endIndex: number, userInitiated?: boolean) => void;
+  reportVisibleRange: (startIndex: number, endIndex: number, userInitiated?: boolean,
+    velocitySample?: ViewportVelocitySample) => void;
   /**
    * Get the image at an index, or undefined if not loaded.
    * In normal mode: buffer-local index. In two-tier mode: global index
@@ -312,6 +328,7 @@ export function useDataWindow(): DataWindow {
     return () => {
       owner.mounted = false;
       if (_scrollSeek?.owner === owner) _scrollSeek.cancel();
+      if (_velocityContext?.owner === owner) _resetForwardVelocity();
     };
   }, []);
   const results = useSearchStore((s) => s.results);
@@ -369,7 +386,7 @@ export function useDataWindow(): DataWindow {
   seekRef.current = seek;
 
   const reportVisibleRange = useCallback(
-    (startIndex: number, endIndex: number, userInitiated = false) => {
+    (startIndex: number, endIndex: number, userInitiated = false, velocitySample?: ViewportVelocitySample) => {
       if (!ownerRef.current.mounted) return;
       const offset = bufferOffsetRef.current;
       const len = resultsLenRef.current;
@@ -390,11 +407,24 @@ export function useDataWindow(): DataWindow {
       // buffer's bottom. Forward-only — backward extend keeps the static
       // EXTEND_THRESHOLD because prepend compensation is the swimming risk.
       const now = performance.now();
-      _velocityEma = _updateForwardVelocity(
-        endIndex, now, _lastReportTime, _lastEndIndex, _velocityEma,
-      );
-      _lastReportTime = now;
-      _lastEndIndex = endIndex;
+      if (velocitySample) {
+        const state = useSearchStore.getState();
+        const generation = getSearchGeneration();
+        const previous = _velocityContext;
+        const continuous = previous?.owner === ownerRef.current && previous.results === state.results &&
+          previous.generation === generation && previous.total === t && previous.offset === offset &&
+          previous.sample.viewportHeight === velocitySample.viewportHeight &&
+          previous.sample.layout === velocitySample.layout;
+        _velocityEma = continuous ? _updateForwardVelocity(
+          previous.sample.scrollTop === velocitySample.scrollTop ? _lastEndIndex : endIndex,
+          now, _lastReportTime, _lastEndIndex, _velocityEma,
+        ) : 0;
+        _lastReportTime = now;
+        _lastEndIndex = endIndex;
+        _velocityContext = { owner: ownerRef.current, results: state.results, generation, total: t, offset, sample: velocitySample };
+      } else {
+        _resetForwardVelocity();
+      }
       const fwdThreshold = forwardExtendThreshold(_velocityEma);
 
       if (isTwoTier) {

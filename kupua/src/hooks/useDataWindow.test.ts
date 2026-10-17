@@ -151,6 +151,140 @@ describe("KUP-016 indexed seek ownership", () => {
   });
 });
 
+describe("maintenance-safe forward velocity", () => {
+  const initial = useSearchStore.getState();
+  const extendForward = vi.fn().mockResolvedValue(undefined);
+  const extendBackward = vi.fn().mockResolvedValue(undefined);
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["performance"] });
+    vi.clearAllMocks();
+    resetVisibleRange();
+    _resetForwardVelocity();
+    const results = Array.from({ length: 201 }, (_, index) => ({ id: `image-${index + 200}` }) as Image);
+    useSearchStore.setState({ ...initial, results, total: 70000, bufferOffset: 41924,
+      extendForward, extendBackward }, true);
+  });
+
+  afterEach(() => {
+    cleanup();
+    resetVisibleRange();
+    vi.useRealTimers();
+    useSearchStore.setState(initial, true);
+  });
+
+  it("does not turn a stopped prepend's stale and converged reports into forward demand", () => {
+    const view = renderHook(() => ({ data: useDataWindow(), visible: useVisibleRange() }));
+    const layout = {};
+    act(() => vi.advanceTimersByTime(1000));
+    act(() => view.result.current.data.reportVisibleRange(8, 48, true, { scrollTop: 472, viewportHeight: 888, layout }));
+    const previous = useSearchStore.getState();
+    const prepended = Array.from({ length: 200 }, (_, index) => ({ id: `image-${index}` }) as Image);
+    act(() => useSearchStore.setState({ results: [...prepended, ...previous.results],
+      bufferOffset: previous.bufferOffset - 200, _lastPrependCount: 200,
+      _prependGeneration: previous._prependGeneration + 1 }));
+    act(() => vi.advanceTimersByTime(50));
+    act(() => view.result.current.data.reportVisibleRange(10, 42, false));
+    act(() => vi.advanceTimersByTime(60));
+    act(() => view.result.current.data.reportVisibleRange(208, 248, false, { scrollTop: 5985, viewportHeight: 888, layout }));
+    expect(view.result.current.visible).toEqual({ start: 208, end: 248 });
+    expect(extendForward).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(40));
+    act(() => view.result.current.data.reportVisibleRange(222, 255, true, { scrollTop: 6285, viewportHeight: 888, layout }));
+    expect(extendForward).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])("preserves physical-scroll prediction with navigation intent=%s", userInitiated => {
+    const view = renderHook(() => useDataWindow());
+    const layout = {};
+    act(() => vi.advanceTimersByTime(1000));
+    act(() => view.result.current.reportVisibleRange(40, 80, userInitiated, { scrollTop: 1000, viewportHeight: 600, layout }));
+    expect(extendForward).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(50));
+    act(() => view.result.current.reportVisibleRange(90, 130, userInitiated, { scrollTop: 2000, viewportHeight: 600, layout }));
+    expect(extendForward).toHaveBeenCalledOnce();
+  });
+
+  it("rebases a stationary range correction without manufacturing velocity", () => {
+    const view = renderHook(() => useDataWindow());
+    const layout = {};
+    act(() => vi.advanceTimersByTime(1000));
+    act(() => view.result.current.reportVisibleRange(10, 40, true, { scrollTop: 500, viewportHeight: 600, layout }));
+    act(() => vi.advanceTimersByTime(50));
+    act(() => view.result.current.reportVisibleRange(100, 140, true, { scrollTop: 500, viewportHeight: 600, layout }));
+    expect(extendForward).not.toHaveBeenCalled();
+  });
+
+  it("resets prediction when layout changes while input remains active", () => {
+    const view = renderHook(() => useDataWindow());
+    act(() => vi.advanceTimersByTime(1000));
+    act(() => view.result.current.reportVisibleRange(10, 40, true, { scrollTop: 500, viewportHeight: 600, layout: {} }));
+    act(() => vi.advanceTimersByTime(50));
+    act(() => view.result.current.reportVisibleRange(100, 140, true, { scrollTop: 1500, viewportHeight: 600, layout: {} }));
+    expect(extendForward).not.toHaveBeenCalled();
+  });
+
+  it("keeps base edge admission without a velocity sample", () => {
+    const view = renderHook(() => useDataWindow());
+    act(() => view.result.current.reportVisibleRange(160, 195));
+    expect(extendForward).toHaveBeenCalledOnce();
+  });
+
+  it("does not count a taller viewport as forward travel on the next scroll", () => {
+    const view = renderHook(() => useDataWindow());
+    const layout = {};
+    act(() => vi.advanceTimersByTime(1000));
+    act(() => view.result.current.reportVisibleRange(90, 108, true,
+      { scrollTop: 2880, layout, viewportHeight: 600 }));
+    act(() => vi.advanceTimersByTime(50));
+    act(() => view.result.current.reportVisibleRange(91, 119, true,
+      { scrollTop: 2912, layout, viewportHeight: 920 }));
+    expect(extendForward).not.toHaveBeenCalled();
+  });
+
+  it.each(["results", "offset"] as const)("resets an active sample across a %s publication", publication => {
+    const view = renderHook(() => useDataWindow());
+    const layout = {};
+    act(() => vi.advanceTimersByTime(1000));
+    act(() => view.result.current.reportVisibleRange(10, 40, true, { scrollTop: 500, viewportHeight: 600, layout }));
+    act(() => {
+      const state = useSearchStore.getState();
+      useSearchStore.setState(publication === "results" ? { results: [...state.results] }
+        : { bufferOffset: state.bufferOffset + 200 });
+      vi.advanceTimersByTime(50);
+    });
+    act(() => view.result.current.reportVisibleRange(100, 140, true, { scrollTop: 1500, viewportHeight: 600, layout }));
+    expect(extendForward).not.toHaveBeenCalled();
+  });
+
+  it("preserves prediction in indexed coordinates without navigation intent", () => {
+    useSearchStore.setState({ total: 5000, bufferOffset: 1000 });
+    const view = renderHook(() => useDataWindow());
+    const layout = {};
+    act(() => vi.advanceTimersByTime(1000));
+    act(() => view.result.current.reportVisibleRange(1040, 1080, false, { scrollTop: 30000, viewportHeight: 600, layout }));
+    expect(extendForward).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(50));
+    act(() => view.result.current.reportVisibleRange(1090, 1130, false, { scrollTop: 31000, viewportHeight: 600, layout }));
+    expect(extendForward).toHaveBeenCalledOnce();
+  });
+
+  it("does not share velocity across owners or let old disposal reset the current owner", () => {
+    const previous = renderHook(() => useDataWindow());
+    const current = renderHook(() => useDataWindow());
+    const layout = {};
+    act(() => vi.advanceTimersByTime(1000));
+    act(() => previous.result.current.reportVisibleRange(10, 40, true, { scrollTop: 500, viewportHeight: 600, layout }));
+    act(() => vi.advanceTimersByTime(50));
+    act(() => current.result.current.reportVisibleRange(100, 140, true, { scrollTop: 1500, viewportHeight: 600, layout }));
+    expect(extendForward).not.toHaveBeenCalled();
+    previous.unmount();
+    act(() => vi.advanceTimersByTime(50));
+    act(() => current.result.current.reportVisibleRange(110, 150, true, { scrollTop: 1700, viewportHeight: 600, layout }));
+    expect(extendForward).toHaveBeenCalledOnce();
+  });
+});
+
 describe("forwardExtendThreshold (velocity-aware)", () => {
   it("returns base threshold (50) at zero velocity", () => {
     expect(forwardExtendThreshold(0)).toBe(50);

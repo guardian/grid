@@ -24,6 +24,20 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 17 October 2026 - Exclude maintenance geometry from refill velocity
+
+Separate viewport-validated velocity samples from navigation intent. Reject stale
+virtualizer ranges and reset prediction across buffer, layout, viewport-height,
+search and reporting-owner changes. Stationary range corrections no longer count
+as motion. Preserve visible reporting, base edge refills, existing thresholds and
+position compensation, including movement without wheel provenance.
+
+Add failing-first stopped-prepend and height-resize regressions, scope/owner and
+input-path controls, and normal-suite Grid/Justified stopped-prepend cases. Browser
+controls constrain setup size and remaining headroom so a larger buffer cannot mask
+false predictive admission. Cold review identified the height-reset and masking
+fixture gaps; both were corrected and independently re-reviewed.
+
 ### 17 October 2026 - Retain intended placement across density changes
 
 Replace subpixel-only density carry with a guarded retained image and intended viewport

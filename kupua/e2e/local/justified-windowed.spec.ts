@@ -68,6 +68,121 @@ async function density(page: Page, target: Density) {
   await expect(page.getByRole("region", { name: `Image results ${target}`, exact: true })).toBeVisible();
 }
 
+for (const layout of ["grid", "justified"] as const) {
+  test(`stopped prepend does not predict forward travel (${layout})`, async ({ kupua, page }) => {
+    await kupua.startSearch();
+    await page.setViewportSize({ width: 1720, height: 960 });
+    await density(page, layout);
+    const origin = new URL(page.url()).origin;
+    await page.route("**/*", route => {
+      const url = new URL(route.request().url());
+      return url.origin === origin && !/^\/(es|api|grid-|s3|imgproxy|bedrock)/.test(url.pathname)
+        ? route.fallback() : route.fulfill({ status: 404, body: "isolated fixture" });
+    });
+    await page.evaluate(async () => {
+      const path = "/src/dal/mock-data-source.ts";
+      const { MockDataSource } = await import(path);
+      const store = (window as any).__kupua_store__;
+      store.setState({ dataSource: new MockDataSource(70000) });
+      await store.getState().search();
+      await store.getState().seek(28000);
+    });
+    await settled(page);
+    await page.evaluate(async () => {
+      const path = "/src/lib/image-offset-cache.ts";
+      const { getRetainedSortValues, buildSearchKey } = await import(path);
+      const state = (window as any).__kupua_store__.getState();
+      const image = state.results[Math.floor(state.results.length / 2)];
+      const cursor = getRetainedSortValues(image.id, buildSearchKey(state.params));
+      if (!cursor) throw new Error("Synthetic source cursor missing");
+      await state.restoreAroundCursor(image.id, cursor, state.imagePositions.get(image.id), true);
+    });
+    await settled(page);
+    const results = page.getByRole("region", { name: `Image results ${layout}`, exact: true });
+    await expect(results.locator("[data-image-id]").first()).toBeAttached();
+    await page.evaluate(async () => {
+      const path = "/src/lib/orchestration/search.ts";
+      (await import(path)).scrollFocusedIntoView();
+    });
+    await page.waitForTimeout(300);
+    await settled(page);
+    await page.evaluate(layout => {
+      const store = (window as any).__kupua_store__;
+      const state = store.getState();
+      state.setFocusedImageId(null);
+      const source = state.dataSource;
+      const original = source.searchAfter;
+      let release!: () => void;
+      const gate = new Promise<void>(resolve => { release = resolve; });
+      const probe = { reads: [] as boolean[], release, held: false, lastRead: performance.now(),
+        generation: state._prependGeneration, initialLength: state.results.length,
+        anchor: "", top: 0, layout, restore: () => { source.searchAfter = original; } };
+      (window as any).__velocityRegression = probe;
+      source.searchAfter = async (...args: unknown[]) => {
+        const backward = Boolean(args[4]);
+        probe.reads.push(backward);
+        probe.lastRead = performance.now();
+        if (probe.reads.length > 4) throw new Error("Synthetic refill budget exceeded");
+        if (backward && !probe.held) { probe.held = true; await gate; }
+        return original.apply(source, args);
+      };
+    }, layout);
+    try {
+      const initialLength = await page.evaluate(() => (window as any).__velocityRegression.initialLength);
+      expect(initialLength).toBeGreaterThanOrEqual(190);
+      expect(initialLength).toBeLessThanOrEqual(201);
+      await results.hover();
+      const scrollTop = await results.evaluate(element => element.scrollTop);
+      expect(scrollTop).toBeGreaterThan(0);
+      await page.mouse.wheel(0, -scrollTop);
+      await page.waitForFunction(() => (window as any).__velocityRegression.held);
+      await page.evaluate(() => {
+        const probe = (window as any).__velocityRegression;
+        const container = document.querySelector(`[aria-label="Image results ${probe.layout}"]`)!;
+        probe.anchor = (window as any).__kupua_getViewportAnchorId__();
+        const cell = container.querySelector(`[data-image-id="${CSS.escape(probe.anchor)}"]`)!;
+        probe.top = cell.getBoundingClientRect().top - container.getBoundingClientRect().top;
+        probe.release();
+      });
+      await page.waitForFunction(() => {
+        const probe = (window as any).__velocityRegression;
+        const state = (window as any).__kupua_store__.getState();
+        return state._prependGeneration > probe.generation && !state._extendForwardInFlight &&
+          !state._extendBackwardInFlight && performance.now() - probe.lastRead > 500;
+      });
+      await expect.poll(() => page.evaluate(() => {
+        const probe = (window as any).__velocityRegression;
+        const container = document.querySelector(`[aria-label="Image results ${probe.layout}"]`)!;
+        const cell = container.querySelector(`[data-image-id="${CSS.escape(probe.anchor)}"]`);
+        return cell ? Math.abs(cell.getBoundingClientRect().top - container.getBoundingClientRect().top - probe.top) : Infinity;
+      })).toBeLessThanOrEqual(1);
+      expect(await page.evaluate(() => (window as any).__velocityRegression.reads)).toEqual([true]);
+      expect(await page.evaluate(() => Boolean((window as any).__kupua_store__.getState().error))).toBe(false);
+      const headroom = await page.evaluate(async () => {
+        const path = "/src/lib/scroll-geometry-ref.ts";
+        const { getLayoutGeometry, getLayoutRow } = await import(path);
+        const geometry = getLayoutGeometry();
+        const probe = (window as any).__velocityRegression;
+        const container = document.querySelector<HTMLElement>(`[aria-label="Image results ${probe.layout}"]`)!;
+        const bottom = container.scrollTop + container.clientHeight - 0.01;
+        const lastRow = "layout" in geometry ? geometry.window?.rowAtOffset(bottom)
+          : getLayoutRow(geometry, Math.floor(bottom / geometry.rowHeight));
+        if (!lastRow) throw new Error("Synthetic viewport geometry missing");
+        return (window as any).__kupua_store__.getState().results.length - lastRow.lastItemIndex;
+      });
+      expect(headroom).toBeGreaterThan(50);
+      expect(headroom).toBeLessThanOrEqual(200);
+    } finally {
+      await page.evaluate(() => {
+        const probe = (window as any).__velocityRegression;
+        probe?.release();
+        probe?.restore();
+        delete (window as any).__velocityRegression;
+      });
+    }
+  });
+}
+
 test("windowed unfocused density cycles retain placement until new browsing", async ({ kupua, page }, info) => {
   await start(kupua, page, info.project.name);
   await seek(page, 0.4);

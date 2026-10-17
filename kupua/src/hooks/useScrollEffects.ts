@@ -32,7 +32,7 @@ import { SCROLL_MODE_THRESHOLD, SEEK_DEFERRED_SCROLL_MS } from "@/constants/tuni
 import { GRID_ROW_HEIGHT } from "@/constants/layout";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
-import { getViewportAnchorId } from "@/hooks/useDataWindow";
+import { getViewportAnchorId, type ViewportVelocitySample } from "@/hooks/useDataWindow";
 import { useSelectionStore } from "@/stores/selection-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { isNativeInputTarget } from "@/lib/dom-utils";
@@ -151,7 +151,8 @@ export interface UseScrollEffectsConfig {
   geometry: ScrollGeometry;
 
   /** From useDataWindow: report visible range for gap detection + extends. */
-  reportVisibleRange: (startIndex: number, endIndex: number, userInitiated?: boolean) => void;
+  reportVisibleRange: (startIndex: number, endIndex: number, userInitiated?: boolean,
+    velocitySample?: ViewportVelocitySample) => void;
 
   /** From useDataWindow: results array length. */
   resultsLength: number;
@@ -398,10 +399,18 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const range = virtualizerRef.current.range;
     if (range) {
       const geo = geometryRef.current;
+      const firstRow = getLayoutRow(geo, range.startIndex);
+      const lastRow = getLayoutRow(geo, range.endIndex);
+      const viewportBottom = el.scrollTop + el.clientHeight;
+      const rangeMatchesViewport = el.clientHeight > 0 &&
+        firstRow.top <= el.scrollTop + 1 && firstRow.top + firstRow.height > el.scrollTop - 1 &&
+        lastRow.top < viewportBottom + 1 &&
+        (lastRow.top + lastRow.height >= viewportBottom - 1 || range.endIndex === virtualizerRef.current.options.count - 1);
       reportVisibleRange(
-        getLayoutRow(geo, range.startIndex).firstItemIndex,
-        getLayoutRow(geo, range.endIndex).lastItemIndex,
+        firstRow.firstItemIndex,
+        lastRow.lastItemIndex,
         userInitiated,
+        rangeMatchesViewport ? { scrollTop: el.scrollTop, viewportHeight: el.clientHeight, layout: geo } : undefined,
       );
     } else {
       devLog(`[handleScroll] WARNING: virtualizer.range is null — reportVisibleRange skipped`);
