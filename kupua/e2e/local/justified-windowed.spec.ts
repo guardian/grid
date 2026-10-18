@@ -114,16 +114,23 @@ for (const layout of ["grid", "justified"] as const) {
       const original = source.searchAfter;
       let release!: () => void;
       const gate = new Promise<void>(resolve => { release = resolve; });
-      const probe = { reads: [] as boolean[], release, held: false, lastRead: performance.now(),
+      let releaseSecond!: () => void;
+      const secondGate = new Promise<void>(resolve => { releaseSecond = resolve; });
+      const probe = { reads: [] as boolean[], release, releaseSecond, held: false, lastRead: performance.now(),
         generation: state._prependGeneration, initialLength: state.results.length,
-        anchor: "", top: 0, layout, restore: () => { source.searchAfter = original; } };
+        anchor: "", top: 0, rowTop: 0, translateY: 0, layout, restore: () => { source.searchAfter = original; } };
       (window as any).__velocityRegression = probe;
       source.searchAfter = async (...args: unknown[]) => {
         const backward = Boolean(args[4]);
         probe.reads.push(backward);
+        const readNumber = probe.reads.length;
         probe.lastRead = performance.now();
         if (probe.reads.length > 4) throw new Error("Synthetic refill budget exceeded");
         if (backward && !probe.held) { probe.held = true; await gate; }
+        else if (backward) {
+          await new Promise(resolve => setTimeout(resolve, 900));
+          if (readNumber === 2) await secondGate;
+        }
         return original.apply(source, args);
       };
     }, layout);
@@ -148,7 +155,7 @@ for (const layout of ["grid", "justified"] as const) {
         const probe = (window as any).__velocityRegression;
         const state = (window as any).__kupua_store__.getState();
         return state._prependGeneration > probe.generation && !state._extendForwardInFlight &&
-          !state._extendBackwardInFlight && performance.now() - probe.lastRead > 500;
+          !state._extendBackwardInFlight && performance.now() - probe.lastRead > 1200;
       });
       await expect.poll(() => page.evaluate(() => {
         const probe = (window as any).__velocityRegression;
@@ -172,10 +179,54 @@ for (const layout of ["grid", "justified"] as const) {
       });
       expect(headroom).toBeGreaterThan(50);
       expect(headroom).toBeLessThanOrEqual(200);
+      const generation = await page.evaluate(() => (window as any).__kupua_store__.getState()._prependGeneration);
+      await results.evaluate(element => { element.scrollTop = 0; });
+      await page.waitForFunction(() => (window as any).__velocityRegression.reads.length === 2);
+      await page.evaluate(async generation => {
+        await new Promise(requestAnimationFrame);
+        await new Promise(requestAnimationFrame);
+        const probe = (window as any).__velocityRegression;
+        const state = (window as any).__kupua_store__.getState();
+        if (state._prependGeneration !== generation || !state._extendBackwardInFlight) {
+          throw new Error("Second prepend published before anchor capture");
+        }
+        const container = document.querySelector(`[aria-label="Image results ${probe.layout}"]`)!;
+        probe.anchor = (window as any).__kupua_getViewportAnchorId__();
+        const cell = container.querySelector(`[data-image-id="${CSS.escape(probe.anchor)}"]`)!;
+        probe.top = cell.getBoundingClientRect().top - container.getBoundingClientRect().top;
+        probe.rowTop = cell.parentElement!.getBoundingClientRect().top - container.getBoundingClientRect().top;
+        const style = getComputedStyle(cell);
+        probe.translateY = style.animationName.includes("kupua-arrive") ? Number.parseFloat(style.translate.split(" ")[1] ?? "0") : 0;
+        probe.releaseSecond();
+      }, generation);
+      await page.waitForFunction(generation => {
+        const probe = (window as any).__velocityRegression;
+        const state = (window as any).__kupua_store__.getState();
+        return state._prependGeneration > generation && !state._extendForwardInFlight &&
+          !state._extendBackwardInFlight && performance.now() - probe.lastRead > 1200;
+      }, generation);
+      expect(await page.evaluate(() => (window as any).__velocityRegression.reads)).toEqual([true, true]);
+      const finalPlacement = await page.evaluate(() => {
+        const probe = (window as any).__velocityRegression;
+        const container = document.querySelector(`[aria-label="Image results ${probe.layout}"]`)!;
+        const cell = container.querySelector(`[data-image-id="${CSS.escape(probe.anchor)}"]`);
+        if (!cell) return { rowDrift: Infinity, unexplainedCellDrift: Infinity, initialTranslation: probe.translateY };
+        const style = getComputedStyle(cell);
+        const translateY = style.animationName.includes("kupua-arrive") ? Number.parseFloat(style.translate.split(" ")[1] ?? "0") : 0;
+        const bounds = container.getBoundingClientRect();
+        return { rowDrift: Math.abs(cell.parentElement!.getBoundingClientRect().top - bounds.top - probe.rowTop),
+          unexplainedCellDrift: Math.abs(cell.getBoundingClientRect().top - bounds.top - probe.top - (translateY - probe.translateY)),
+          initialTranslation: probe.translateY };
+      });
+      expect(finalPlacement.rowDrift).toBeLessThanOrEqual(1);
+      expect(finalPlacement.unexplainedCellDrift).toBeLessThanOrEqual(1);
+      expect(Math.abs(finalPlacement.initialTranslation)).toBeLessThanOrEqual(8);
+      expect(await page.evaluate(() => Boolean((window as any).__kupua_store__.getState().error))).toBe(false);
     } finally {
       await page.evaluate(() => {
         const probe = (window as any).__velocityRegression;
         probe?.release();
+        probe?.releaseSecond();
         probe?.restore();
         delete (window as any).__velocityRegression;
       });

@@ -152,7 +152,7 @@ export interface UseScrollEffectsConfig {
 
   /** From useDataWindow: report visible range for gap detection + extends. */
   reportVisibleRange: (startIndex: number, endIndex: number, userInitiated?: boolean,
-    velocitySample?: ViewportVelocitySample) => void;
+    velocitySample?: ViewportVelocitySample, rangeStartMatchesViewport?: boolean) => void;
 
   /** From useDataWindow: results array length. */
   resultsLength: number;
@@ -402,8 +402,9 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       const firstRow = getLayoutRow(geo, range.startIndex);
       const lastRow = getLayoutRow(geo, range.endIndex);
       const viewportBottom = el.scrollTop + el.clientHeight;
-      const rangeMatchesViewport = el.clientHeight > 0 &&
-        firstRow.top <= el.scrollTop + 1 && firstRow.top + firstRow.height > el.scrollTop - 1 &&
+      const rangeStartMatchesViewport = el.clientHeight > 0 &&
+        firstRow.top <= el.scrollTop + 1 && firstRow.top + firstRow.height > el.scrollTop - 1;
+      const rangeMatchesViewport = rangeStartMatchesViewport &&
         lastRow.top < viewportBottom + 1 &&
         (lastRow.top + lastRow.height >= viewportBottom - 1 || range.endIndex === virtualizerRef.current.options.count - 1);
       reportVisibleRange(
@@ -411,6 +412,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
         lastRow.lastItemIndex,
         userInitiated,
         rangeMatchesViewport ? { scrollTop: el.scrollTop, viewportHeight: el.clientHeight, layout: geo } : undefined,
+        rangeStartMatchesViewport,
       );
     } else {
       devLog(`[handleScroll] WARNING: virtualizer.range is null — reportVisibleRange skipped`);

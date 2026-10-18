@@ -284,7 +284,7 @@ interface DataWindow {
    * The hook detects proximity to buffer edges and triggers extend/seek.
    */
   reportVisibleRange: (startIndex: number, endIndex: number, userInitiated?: boolean,
-    velocitySample?: ViewportVelocitySample) => void;
+    velocitySample?: ViewportVelocitySample, rangeStartMatchesViewport?: boolean) => void;
   /**
    * Get the image at an index, or undefined if not loaded.
    * In normal mode: buffer-local index. In two-tier mode: global index
@@ -386,7 +386,8 @@ export function useDataWindow(): DataWindow {
   seekRef.current = seek;
 
   const reportVisibleRange = useCallback(
-    (startIndex: number, endIndex: number, userInitiated = false, velocitySample?: ViewportVelocitySample) => {
+    (startIndex: number, endIndex: number, userInitiated = false, velocitySample?: ViewportVelocitySample,
+      rangeStartMatchesViewport = true) => {
       if (!ownerRef.current.mounted) return;
       const offset = bufferOffsetRef.current;
       const len = resultsLenRef.current;
@@ -503,7 +504,7 @@ export function useDataWindow(): DataWindow {
         }
 
         // Near the start of the buffer → extend backward
-        if (startIndex <= EXTEND_THRESHOLD && offset > 0) {
+        if (rangeStartMatchesViewport && startIndex <= EXTEND_THRESHOLD && offset > 0) {
           extendBackward();
         }
       }

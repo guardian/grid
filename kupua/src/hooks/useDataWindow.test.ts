@@ -230,6 +230,43 @@ describe("maintenance-safe forward velocity", () => {
     expect(extendForward).toHaveBeenCalledOnce();
   });
 
+  it.each([false, true])("rejects stale-start backward admission after publication with navigation intent=%s", userInitiated => {
+    const view = renderHook(() => ({ data: useDataWindow(), visible: useVisibleRange() }));
+    act(() => view.result.current.data.reportVisibleRange(0, 23, userInitiated, undefined, true));
+    expect(extendBackward).toHaveBeenCalledOnce();
+    const previous = useSearchStore.getState();
+    const prepended = Array.from({ length: 198 }, (_, index) => ({ id: `prepended-${index}` }) as Image);
+    act(() => useSearchStore.setState({ results: [...prepended, ...previous.results],
+      bufferOffset: previous.bufferOffset - 198, _lastPrependCount: 198,
+      _prependGeneration: previous._prependGeneration + 1 }));
+    act(() => view.result.current.data.reportVisibleRange(30, 53, userInitiated, undefined, false));
+    expect(view.result.current.visible).toEqual({ start: 30, end: 53 });
+    expect(extendBackward).toHaveBeenCalledOnce();
+    act(() => view.result.current.data.reportVisibleRange(228, 251, false, undefined, true));
+    expect(extendBackward).toHaveBeenCalledOnce();
+    act(() => view.result.current.data.reportVisibleRange(48, 71, false, undefined, true));
+    expect(extendBackward).toHaveBeenCalledTimes(2);
+  });
+
+  it("retains backward admission for callers without explicit range evidence", () => {
+    const view = renderHook(() => useDataWindow());
+    act(() => view.result.current.reportVisibleRange(0, 23));
+    expect(extendBackward).toHaveBeenCalledOnce();
+  });
+
+  it("does not apply backward start validity to forward admission", () => {
+    const view = renderHook(() => useDataWindow());
+    act(() => view.result.current.reportVisibleRange(160, 195, false, undefined, false));
+    expect(extendForward).toHaveBeenCalledOnce();
+  });
+
+  it("retains indexed backward policy when start validity is false", () => {
+    useSearchStore.setState({ total: 5000, bufferOffset: 1000 });
+    const view = renderHook(() => useDataWindow());
+    act(() => view.result.current.reportVisibleRange(1000, 1023, false, undefined, false));
+    expect(extendBackward).toHaveBeenCalledOnce();
+  });
+
   it("does not count a taller viewport as forward travel on the next scroll", () => {
     const view = renderHook(() => useDataWindow());
     const layout = {};

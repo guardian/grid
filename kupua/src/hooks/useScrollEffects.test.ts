@@ -383,6 +383,23 @@ function mountDensity(initialGeometry: ScrollGeometry, strict = false, reportVie
 }
 
 describe("viewport-valid velocity reports", () => {
+  it("separates backward admission validity from trailing-range velocity validity", () => {
+    useSearchStore.setState({ focusedImageId: null });
+    const view = mountDensity(table);
+    frame(); frame();
+    act(() => {
+      view.container.scrollTop = 320;
+      view.virtualizer.range = { startIndex: 10, endIndex: 12 };
+      fireEvent.scroll(view.container);
+    });
+    expect(view.reportVisibleRange).toHaveBeenLastCalledWith(10, 12, false, undefined, true);
+    act(() => {
+      view.virtualizer.range = { startIndex: 0, endIndex: 28 };
+      fireEvent.scroll(view.container);
+    });
+    expect(view.reportVisibleRange).toHaveBeenLastCalledWith(0, 28, false, undefined, false);
+  });
+
   it.each(["unmarked", "wheel", "touch", "keyboard"] as const)("admits current geometry for %s scrolling", input => {
     useSearchStore.setState({ focusedImageId: null });
     const view = mountDensity(table);
@@ -397,7 +414,7 @@ describe("viewport-valid velocity reports", () => {
       fireEvent.scroll(view.container);
     });
     expect(view.reportVisibleRange).toHaveBeenLastCalledWith(10, 28, input !== "unmarked",
-      { scrollTop: 320, viewportHeight: 600, layout: table });
+      { scrollTop: 320, viewportHeight: 600, layout: table }, true);
   });
 
   it("rejects stale geometry even during an active wheel session and admits convergence", () => {
@@ -410,13 +427,13 @@ describe("viewport-valid velocity reports", () => {
       view.virtualizer.range = { startIndex: 0, endIndex: 1 };
       fireEvent.scroll(view.container);
     });
-    expect(view.reportVisibleRange).toHaveBeenLastCalledWith(0, 1, true, undefined);
+    expect(view.reportVisibleRange).toHaveBeenLastCalledWith(0, 1, true, undefined, false);
     act(() => {
       view.virtualizer.range = { startIndex: 10, endIndex: 28 };
       fireEvent.scroll(view.container);
     });
     expect(view.reportVisibleRange).toHaveBeenLastCalledWith(10, 28, true,
-      { scrollTop: 320, viewportHeight: 600, layout: table });
+      { scrollTop: 320, viewportHeight: 600, layout: table }, true);
   });
 });
 
@@ -2190,12 +2207,12 @@ describe("KUP-017 saved density geometry and input lifetime", () => {
       track.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       fireEvent.scroll(target.container);
     });
-    expect(target.reportVisibleRange).toHaveBeenLastCalledWith(0, 1, false, undefined);
+    expect(target.reportVisibleRange).toHaveBeenLastCalledWith(0, 1, false, undefined, false);
     act(() => {
       target.container.dispatchEvent(new WheelEvent("wheel", { deltaY: 40 }));
       fireEvent.scroll(target.container);
     });
-    expect(target.reportVisibleRange).toHaveBeenLastCalledWith(0, 1, true, undefined);
+    expect(target.reportVisibleRange).toHaveBeenLastCalledWith(0, 1, true, undefined, false);
   });
 
   it.each(["prepend", "evict"] as const)("retains completed density placement through fixed-row %s compensation", (operation) => {
@@ -2890,10 +2907,10 @@ describe("P1 non-uniform resident continuity", () => {
     expect(getLayoutGeometry()).toBe(geometry);
     expect(getScrollGeometry).toThrow("Window preparation requires fixed-row geometry");
     expect(fixtureLayout(geometry)!.getItemRow.bind(null, 500)).toThrow("Fixture geometry is unavailable");
-    expect(view.reportVisibleRange).toHaveBeenCalledWith(0, 6, false, undefined);
+    expect(view.reportVisibleRange).toHaveBeenCalledWith(0, 6, false, undefined, true);
     act(() => { view.virtualizer.range = { startIndex: 2, endIndex: 3 };
       fireEvent.scroll(view.container); });
-    expect(view.reportVisibleRange).toHaveBeenLastCalledWith(7, 11, false, undefined);
+    expect(view.reportVisibleRange).toHaveBeenLastCalledWith(7, 11, false, undefined, false);
     view.unmount();
     const fixed = mountDensity(table);
     frame(); frame();

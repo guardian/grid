@@ -24,6 +24,19 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 17 October 2026 - Reject stale-start backward refill demand
+
+Pass explicit first-row viewport validity from the scroll owner to the data window.
+Reject seek-mode backward admission from a stale pre-compensation range while
+preserving visible reporting, velocity maintenance and legitimate unmarked demand.
+Callers without validity evidence, indexed admission, forward prediction/fallback,
+thresholds, capacity and compensation retain their existing behavior.
+
+Add failing-first publication/admission and independent start-versus-velocity
+controls. Extend the normal Grid/Justified browser regression with a held second
+refill, unmarked edge demand and exact read counts. Capture placement before releasing
+the response and distinguish existing arrival translation from row displacement.
+
 ### 17 October 2026 - Exclude maintenance geometry from refill velocity
 
 Separate viewport-validated velocity samples from navigation intent. Reject stale
