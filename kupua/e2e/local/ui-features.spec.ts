@@ -12,6 +12,8 @@
  */
 
 import { test, expect } from "../shared/helpers";
+import { Buffer as ThumbnailBuffer } from "node:buffer";
+import { getDensityChangeButton } from "../shared/density-selection";
 import { GRID_MIN_CELL_WIDTH } from "@/constants/layout";
 
 test.describe.configure({ mode: "parallel" });
@@ -1053,6 +1055,237 @@ test.describe("URL state", () => {
 // ===========================================================================
 // Fullscreen preview — arrow navigation (Bug: skip-one-image)
 // ===========================================================================
+
+test.describe("Viewport thumbnail admission", () => {
+  for (const density of ["grid", "justified"] as const) {
+    for (const separateOrigin of [false, true]) {
+      test(`${density}: visible re-entry admits thumbnails with ${separateOrigin ? "separate" : "same"}-origin media and lazy overscan`, async ({ kupua, page }) => {
+        const mediaOrigin = separateOrigin ? "https://thumbnail-fixture.invalid" : "";
+        const held: import("@playwright/test").Route[] = [];
+        const requested = new Set<string>();
+        let requestCount = 0;
+        let released = false;
+        let payload = ThumbnailBuffer.alloc(0);
+        await page.route("**/src/lib/image-urls.ts*", route => route.fulfill({
+          contentType: "application/javascript",
+          body: `export const thumbnailsEnabled = true;
+            export const getThumbnailUrl = image => window.__thumbnailAdmission?.enabled
+              ? (image.thumbnail?.file || "${mediaOrigin}/__thumbnail_admission/" + image.id + ".png") : undefined;
+            export const getFullImageUrl = getThumbnailUrl;
+            export const getZoomImageUrl = getThumbnailUrl;`,
+        }));
+        await page.route("**/src/components/ImageGrid.tsx*", async route => {
+          const response = await route.fetch();
+          const body = await response.text();
+          const anchor = "const enriched = useEnrichedImage(";
+          expect(body.split(anchor)).toHaveLength(2);
+          await route.fulfill({ response, contentType: "application/javascript",
+            body: body.replace(anchor, "window.__thumbnailAdmission?.countCell(image); " + anchor) });
+        });
+        await page.setViewportSize({ width: 1720, height: 960 });
+        await kupua.startSearch();
+        const appOrigin = new URL(page.url()).origin;
+        payload = ThumbnailBuffer.from(await page.evaluate(() => {
+          const canvas = document.createElement("canvas");
+          canvas.width = 320;
+          canvas.height = 240;
+          const context = canvas.getContext("2d")!;
+          context.fillStyle = "#187568";
+          context.fillRect(0, 0, 320, 240);
+          context.fillStyle = "#e7b634";
+          context.fillRect(40, 40, 240, 160);
+          return canvas.toDataURL("image/png").split(",")[1];
+        }), "base64");
+        await page.route("**/*", async route => {
+          const url = new URL(route.request().url());
+          if (url.pathname.startsWith("/__thumbnail_admission/")) {
+            requestCount++;
+            requested.add(url.pathname);
+            if (!released) { held.push(route); return; }
+            return route.fulfill({ contentType: "image/png", body: payload });
+          }
+          return url.origin === appOrigin && !/^\/(es|api|grid-|s3|imgproxy|bedrock)/.test(url.pathname)
+            ? route.fallback() : route.fulfill({ status: 404, body: "isolated thumbnail fixture" });
+        });
+        await page.evaluate(async () => {
+          const path = "/src/dal/mock-data-source.ts";
+          const { MockDataSource } = await import(path);
+          const store = (window as any).__kupua_store__;
+          store.setState({ dataSource: new MockDataSource(800) });
+          await store.getState().search();
+        });
+        await page.waitForFunction(() => {
+          const state = (window as any).__kupua_store__.getState();
+          return state.results.length === 800 && !state.loading && !state._extendForwardInFlight && !state._extendBackwardInFlight;
+        });
+        await page.evaluate(() => {
+          const store = (window as any).__kupua_store__;
+          store.setState({ results: store.getState().results.map((image: any, index: number) => {
+            const dimensions = { width: index % 7 === 0 ? 1000 : 150, height: 100 };
+            return { ...image, source: { ...image.source, dimensions, orientedDimensions: dimensions } };
+          }) });
+        });
+        const button = await getDensityChangeButton(page, density);
+        if (button) await button.click();
+        const region = page.getByRole("region", { name: `Image results ${density}`, exact: true });
+        await expect(region).toBeVisible();
+        const initialFirst = await region.locator("[data-grid-cell]").first().getAttribute("data-image-id");
+        await region.evaluate(element => { element.scrollTop = 3000; });
+        await expect.poll(() => region.locator("[data-grid-cell]").first().getAttribute("data-image-id")).not.toBe(initialFirst);
+        const stop = await page.evaluate(density => {
+          const region = document.querySelector<HTMLElement>(`[aria-label="Image results ${density}"]`)!;
+          const bounds = region.getBoundingClientRect();
+          const cell = [...region.querySelectorAll<HTMLElement>("[data-grid-cell]")].find(cell => cell.getBoundingClientRect().top > bounds.bottom);
+          if (!cell) throw new Error("Partial-row fixture requires overscan");
+          region.scrollTop += cell.getBoundingClientRect().top - bounds.bottom + 60;
+          const renderCounts = new Map<string, number>();
+          const probe = { enabled: true, refills: 0, initial: new Set<Element>(), unsubscribe: () => {}, renderCounts,
+            countCell(image: { id: string } | undefined) {
+              if (image) renderCounts.set(image.id, (renderCounts.get(image.id) ?? 0) + 1);
+            } };
+          const store = (window as any).__kupua_store__;
+          probe.unsubscribe = store.subscribe((state: any, previous: any) => {
+            if (state._extendForwardInFlight && !previous._extendForwardInFlight) probe.refills++;
+            if (state._extendBackwardInFlight && !previous._extendBackwardInFlight) probe.refills++;
+          });
+          (window as any).__thumbnailAdmission = probe;
+          store.setState({ results: store.getState().results.map((image: any) => ({ ...image })) });
+          return region.scrollTop;
+        }, density);
+        try {
+          await expect(region.locator("img").first()).toBeAttached();
+          if (density === "justified") {
+            const pendingThumbnail = region.locator("img").first();
+            const description = await pendingThumbnail.getAttribute("alt");
+            expect(description).toBeTruthy();
+            await expect(region.getByRole("img", { name: description!, exact: true })).toBeAttached();
+            expect(await pendingThumbnail.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(0);
+            await expect(pendingThumbnail).toHaveCSS("color", "rgba(0, 0, 0, 0)");
+          }
+          await page.evaluate(density => {
+            (window as any).__thumbnailAdmission.initial = new Set(document.querySelectorAll(`[aria-label="Image results ${density}"] img`));
+          }, density);
+          for (const displacement of [4000, 8000, 0]) {
+            await region.evaluate((element, top) => { element.scrollTop = top; }, stop + displacement);
+            await page.waitForTimeout(150);
+          }
+          released = true;
+          await Promise.all(held.splice(0).map(route => route.fulfill({ contentType: "image/png", body: payload })));
+          await expect.poll(() => page.evaluate(density => {
+            const region = document.querySelector(`[aria-label="Image results ${density}"]`)!;
+            const bounds = region.getBoundingClientRect();
+            const visible = [...region.querySelectorAll<HTMLImageElement>("img")].filter(image => {
+              const cell = image.closest("[data-grid-cell]")!.getBoundingClientRect();
+              return cell.bottom > bounds.top && cell.top < bounds.bottom;
+            });
+            return visible.length ? visible.filter(image => !image.complete || image.naturalWidth === 0).length : -1;
+          }, density), { timeout: 4000 }).toBe(0);
+          const result = await page.evaluate(async density => {
+            const region = document.querySelector(`[aria-label="Image results ${density}"]`)!;
+            const bounds = region.getBoundingClientRect();
+            const images = [...region.querySelectorAll<HTMLImageElement>("img")];
+            const visible = images.filter(image => {
+              const cell = image.closest("[data-grid-cell]")!.getBoundingClientRect();
+              return cell.bottom > bounds.top && cell.top < bounds.bottom;
+            });
+            const sources = visible.map(image => image.currentSrc);
+            await Promise.all(visible.map(image => image.decode()));
+            if (!region.isConnected || document.querySelector(`[aria-label="Image results ${density}"]`) !== region ||
+                visible.some((image, index) => !image.isConnected || !region.contains(image) || image.currentSrc !== sources[index])) {
+              throw new Error("Visible media changed during decode observation");
+            }
+            const probe = (window as any).__thumbnailAdmission;
+            return { count: visible.length, eagerVisible: visible.filter(image => image.loading === "eager").length,
+              overscan: images.length - visible.length,
+              eagerOverscan: images.filter(image => !visible.includes(image) && image.loading === "eager").length,
+              remounted: visible.filter(image => !probe.initial.has(image)).length,
+              partial: visible.filter(image => {
+                const slot = image.parentElement!.getBoundingClientRect();
+                return slot.top < bounds.bottom && slot.bottom > bounds.bottom;
+              }).length,
+              rowHeights: new Set(visible.map(image => image.closest("[data-grid-cell]")!.parentElement!.getBoundingClientRect().height)).size,
+              refills: probe.refills, sources: visible.map(image => new URL(image.src).pathname) };
+          }, density);
+          expect(result.count).toBeGreaterThan(0);
+          expect(result.eagerVisible).toBe(result.count);
+          expect(result.overscan).toBeGreaterThan(0);
+          expect(result.eagerOverscan).toBe(0);
+          expect(result.remounted).toBe(result.count);
+          expect(result.partial).toBeGreaterThan(0);
+          if (density === "justified") expect(result.rowHeights).toBeGreaterThan(1);
+          expect(result.refills).toBe(0);
+          expect(result.sources.every(source => requested.has(source))).toBe(true);
+          await page.evaluate(density => {
+            const region = document.querySelector<HTMLElement>(`[aria-label="Image results ${density}"]`)!;
+            const bounds = region.getBoundingClientRect();
+            const image = [...region.querySelectorAll<HTMLImageElement>("img")].find(image =>
+              image.loading === "lazy" && image.closest("[data-grid-cell]")!.getBoundingClientRect().top > bounds.bottom);
+            if (!image) throw new Error("Retained-node control requires lazy overscan");
+            const probe = (window as any).__thumbnailAdmission;
+            probe.retained = image;
+            probe.retainedId = image.closest<HTMLElement>("[data-grid-cell]")!.dataset.imageId;
+            probe.retainedRenderCount = probe.renderCounts.get(probe.retainedId);
+            region.scrollTop += image.closest("[data-grid-cell]")!.getBoundingClientRect().top - bounds.top - 40;
+          }, density);
+          await page.waitForFunction(density => {
+            const probe = (window as any).__thumbnailAdmission;
+            const image = probe.retained as HTMLImageElement;
+            const region = document.querySelector(`[aria-label="Image results ${density}"]`)!;
+            const viewport = region.getBoundingClientRect();
+            const cell = image.closest<HTMLElement>("[data-grid-cell]")!;
+            const bounds = cell.getBoundingClientRect();
+            return region.contains(image) && image.isConnected && cell.dataset.imageId === probe.retainedId &&
+              image.loading === "eager" && bounds.bottom > viewport.top && bounds.top < viewport.bottom;
+          }, density);
+          expect(await page.evaluate(() => {
+            const probe = (window as any).__thumbnailAdmission;
+            return probe.renderCounts.get(probe.retainedId) - probe.retainedRenderCount;
+          })).toBe(0);
+          const replacement = await page.evaluate(() => {
+            const probe = (window as any).__thumbnailAdmission;
+            const url = new URL(probe.retained.src);
+            url.pathname = url.pathname.replace(/\.png$/, "-replacement.png");
+            probe.replacement = url.href;
+            const store = (window as any).__kupua_store__;
+            store.setState({ results: store.getState().results.map((image: any) => image.id === probe.retainedId
+              ? { ...image, thumbnail: { file: url.href } } : image) });
+            return url.pathname;
+          });
+          await page.waitForFunction(() => {
+            const probe = (window as any).__thumbnailAdmission;
+            const image = probe.retained as HTMLImageElement;
+            return image.isConnected && image.src === probe.replacement && image.complete && image.naturalWidth > 0;
+          });
+          await page.evaluate(async density => {
+            const probe = (window as any).__thumbnailAdmission;
+            await probe.retained.decode();
+            const region = document.querySelector(`[aria-label="Image results ${density}"]`)!;
+            const viewport = region.getBoundingClientRect();
+            const bounds = probe.retained.closest("[data-grid-cell]").getBoundingClientRect();
+            if (!region.contains(probe.retained) || !probe.retained.isConnected ||
+                bounds.bottom <= viewport.top || bounds.top >= viewport.bottom ||
+                probe.retained.currentSrc !== probe.replacement || probe.refills !== 0) {
+              throw new Error("Retained thumbnail lost its current source or triggered a refill");
+            }
+          }, density);
+          expect(requested.has(replacement)).toBe(true);
+          expect(await page.evaluate(() => {
+            const probe = (window as any).__thumbnailAdmission;
+            return probe.renderCounts.get(probe.retainedId) - probe.retainedRenderCount;
+          })).toBeGreaterThan(0);
+          expect(requestCount).toBeLessThan(300);
+        } finally {
+          released = true;
+          await Promise.all(held.splice(0).map(route => route.fulfill({ contentType: "image/png", body: payload })));
+          await page.evaluate(() => {
+            (window as any).__thumbnailAdmission?.unsubscribe();
+            delete (window as any).__thumbnailAdmission;
+          });
+        }
+      });
+    }
+  }
+});
 
 test.describe("KUP-021 media fallback", () => {
   const pixel = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";

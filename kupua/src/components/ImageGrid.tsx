@@ -12,13 +12,16 @@
  */
 
 import {
+  createContext,
   memo,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  type ImgHTMLAttributes,
 } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -176,6 +179,13 @@ import { getImageBorderColour } from "@/lib/image-borders";
 // GridCell — memoised individual cell
 // ---------------------------------------------------------------------------
 
+const ThumbnailLoadingContext = createContext<"eager" | "lazy">("lazy");
+
+function GridThumbnail(props: Omit<ImgHTMLAttributes<HTMLImageElement>, "loading">) {
+  const loading = useContext(ThumbnailLoadingContext);
+  return <img {...props} loading={loading} />;
+}
+
 interface GridCellProps {
   image: Image | undefined;
   isFocused: boolean;
@@ -292,12 +302,11 @@ const GridCell = memo(function GridCell({
         title={descTooltip}
       >
         {thumbUrl ? (
-          <img
+          <GridThumbnail
             key={animationClass ? image.id : undefined}
             src={thumbUrl}
             alt={imageOnlyHeight !== undefined ? description : ""}
-            loading="lazy"
-            className={`${imageOnlyHeight !== undefined ? "w-full h-full object-contain" : "max-w-full max-h-[186px]"} pointer-events-none${isPotentiallyGraphic ? " blur-lg group-hover:blur-none transition-[filter] duration-500" : ""}`}
+            className={`${imageOnlyHeight !== undefined ? "w-full h-full object-contain text-transparent" : "max-w-full max-h-[186px]"} pointer-events-none${isPotentiallyGraphic ? " blur-lg group-hover:blur-none transition-[filter] duration-500" : ""}`}
             style={imageOnlyHeight === undefined && imageBorderColor ? { border: `10px solid ${imageBorderColor}` } : undefined}
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";
@@ -922,6 +931,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
   // -------------------------------------------------------------------------
 
   const virtualItems = virtualizer.getVirtualItems();
+  const visibleRange = virtualizer.range;
 
   // A.2: Memoize the column index array. Without this, Array.from allocates a
   // new array on every virtual row during every render pass — at 6 cols × 15
@@ -950,59 +960,62 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
           if (justifiedLayout && !row) return null;
           const startIdx = row?.firstItemIndex ?? virtualRow.index * columns;
           const indices = row ? Array.from({ length: row.lastItemIndex - row.firstItemIndex + 1 }, (_, index) => index) : columnIndices;
+          const thumbnailLoading = visibleRange && virtualRow.index >= visibleRange.startIndex && virtualRow.index <= visibleRange.endIndex
+            ? "eager" : "lazy";
           return (
-            <div
-              key={virtualRow.key}
-              className="absolute left-0 right-0 flex"
-              style={{
-                top: row?.top ?? virtualRow.start,
-                height: row?.height ?? ROW_HEIGHT,
-                gap: justified ? 4 : CELL_GAP,
-                padding: justified ? `0 0 0 ${justifiedLayout?.getBox(startIdx)?.left ?? 0}px` : `0 ${CELL_GAP}px`,
-              }}
-            >
-              {indices.map((colIdx) => {
-                const imageIdx = startIdx + colIdx;
-                if (imageIdx >= virtualizerCount) return null;
-                const image = getImage(imageIdx);
-                // Positional key: TanStack Virtual uses positional rendering
-                // (row N at top: N * estimateSize). Content-based keys
-                // (image.id) cause visible reordering during seeks/searches
-                // because React reuses component instances from old virtual
-                // positions, fighting the virtualizer's layout. Positional
-                // keys match the virtualizer's model. (A.4 tried content
-                // keys for -14% domChurn on extends, but the visual
-                // reordering on seeks was a worse regression — reverted.)
-                // ── Animation: arriving images + phantom focus pulse ──
-                const animClass = image
-                  ? arrivingImageIds.has(image.id)
-                    ? "anim-arriving"
-                    : (phantomPulseImageId && image.id === phantomPulseImageId)
-                      ? "anim-focus-here-unfocused"
-                      : undefined
-                  : undefined;
+            <ThumbnailLoadingContext.Provider key={virtualRow.key} value={thumbnailLoading}>
+              <div
+                className="absolute left-0 right-0 flex"
+                style={{
+                  top: row?.top ?? virtualRow.start,
+                  height: row?.height ?? ROW_HEIGHT,
+                  gap: justified ? 4 : CELL_GAP,
+                  padding: justified ? `0 0 0 ${justifiedLayout?.getBox(startIdx)?.left ?? 0}px` : `0 ${CELL_GAP}px`,
+                }}
+              >
+                {indices.map((colIdx) => {
+                  const imageIdx = startIdx + colIdx;
+                  if (imageIdx >= virtualizerCount) return null;
+                  const image = getImage(imageIdx);
+                  // Positional key: TanStack Virtual uses positional rendering
+                  // (row N at top: N * estimateSize). Content-based keys
+                  // (image.id) cause visible reordering during seeks/searches
+                  // because React reuses component instances from old virtual
+                  // positions, fighting the virtualizer's layout. Positional
+                  // keys match the virtualizer's model. (A.4 tried content
+                  // keys for -14% domChurn on extends, but the visual
+                  // reordering on seeks was a worse regression — reverted.)
+                  // ── Animation: arriving images + phantom focus pulse ──
+                  const animClass = image
+                    ? arrivingImageIds.has(image.id)
+                      ? "anim-arriving"
+                      : (phantomPulseImageId && image.id === phantomPulseImageId)
+                        ? "anim-focus-here-unfocused"
+                        : undefined
+                    : undefined;
 
-                return (
-                  <GridCell
-                    key={imageIdx}
-                    image={image}
-                    isFocused={!!image && image.id === focusedImageId && getEffectiveFocusMode() === "explicit" && !inSelectionMode}
-                    cellWidth={justifiedLayout?.getBox(imageIdx)?.width ?? cellWidth}
-                    imageOnlyHeight={justifiedLayout?.getBox(imageIdx)?.height}
-                    dateLine={image && !justified ? getCellDateLine(image, searchParams.orderBy) : undefined}
-                    animationClass={animClass}
-                    onCellClick={handleCellClick}
-                    onCellDoubleClick={handleCellDoubleClick}
-                    onTickClick={handleTickClick}
-                    onLabelSearch={handleLabelSearch}
-                    collectionColours={collectionColours}
-                    draggable={IS_COARSE_POINTER ? undefined : true}
-                    onDragStart={IS_COARSE_POINTER ? undefined : handleDragStart}
-                    blurGraphicImages={blurGraphicImages}
-                  />
-                );
-              })}
-            </div>
+                  return (
+                    <GridCell
+                      key={imageIdx}
+                      image={image}
+                      isFocused={!!image && image.id === focusedImageId && getEffectiveFocusMode() === "explicit" && !inSelectionMode}
+                      cellWidth={justifiedLayout?.getBox(imageIdx)?.width ?? cellWidth}
+                      imageOnlyHeight={justifiedLayout?.getBox(imageIdx)?.height}
+                      dateLine={image && !justified ? getCellDateLine(image, searchParams.orderBy) : undefined}
+                      animationClass={animClass}
+                      onCellClick={handleCellClick}
+                      onCellDoubleClick={handleCellDoubleClick}
+                      onTickClick={handleTickClick}
+                      onLabelSearch={handleLabelSearch}
+                      collectionColours={collectionColours}
+                      draggable={IS_COARSE_POINTER ? undefined : true}
+                      onDragStart={IS_COARSE_POINTER ? undefined : handleDragStart}
+                      blurGraphicImages={blurGraphicImages}
+                    />
+                  );
+                })}
+              </div>
+            </ThumbnailLoadingContext.Provider>
           );
         })}
       </div>

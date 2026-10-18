@@ -24,6 +24,36 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 18 October 2026 - Isolate thumbnail loading updates from metadata cells
+
+Carry the virtualizer's existing visible-row loading policy through row-local React context.
+Only the thumbnail consumes it, so lazy/eager transitions no longer rerender the surrounding
+memoized metadata cell. Preserve row and image keys, DOM geometry, sources, lazy overscan,
+enrichment, animation and error behavior without adding a visibility observer or scheduler.
+
+Extend the existing retained-node admission regressions to require no full-cell calls on
+viewport entry, while source replacement still rerenders and decodes the current image.
+Check current-region membership and viewport intersection before and after replacement.
+
+### 18 October 2026 - Hide Justified thumbnail fallback text without removing accessibility
+
+Make image-only thumbnail fallback text transparent so pending images do not paint their
+descriptions in Firefox. Keep alt descriptions available to assistive technology and leave
+loaded images, geometry and admission policy unchanged. Extend the existing held-thumbnail
+regressions with transparent-text and accessible-image-name assertions.
+
+### 17 October 2026 - Admit visible Grid and Justified thumbnails
+
+Use the virtualizer's current visible row range to select eager thumbnail loading,
+including partially visible rows, while keeping overscan lazy. Pass the policy into
+memoized cells so retained nodes update on viewport entry. Preserve asset URLs,
+quality, dimensions, clipping and overscan without adding observers or a scheduler.
+
+Add failing-first actual-renderer coverage for partial-row virtualization and re-entry
+with same-origin and separate-origin synthetic media. Cover mixed Justified row heights,
+retained-node admission and source replacement. Require current connected elements to
+decode, lazy overscan, bounded request attempts and no incidental result refills.
+
 ### 17 October 2026 - Reject stale-start backward refill demand
 
 Pass explicit first-row viewport validity from the scroll owner to the data window.
