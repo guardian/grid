@@ -35,7 +35,8 @@ Vite builds the app; Vitest and Playwright provide tests.
 | Search and navigation | The URL represents search/detail state. [URL sync](src/hooks/useUrlSearchSync.ts) coordinates it with the search store; density is a separate per-tab preference. |
 | Data access | [The DAL](src/dal/index.ts) selects an implementation of `ImageDataSource`: media-api or direct Elasticsearch. API mode constructs no ES datasource. Views work through the shared data boundary. |
 | Search state | [Search store](src/stores/search-store.ts) owns the result buffer and query, seek, extension and restoration work. It publishes data and placement intent rather than scrolling the DOM. |
-| View and position | [Data window](src/hooks/useDataWindow.ts) bridges the buffer and rendered list; [scroll effects](src/hooks/useScrollEffects.ts) own viewport placement. Views own physical scroll extents; coordinate mechanics vary by result-set size. |
+| View and position | [Data window](src/hooks/useDataWindow.ts) bridges the buffer and rendered list; [scroll effects](src/hooks/useScrollEffects.ts) own viewport placement, validate velocity samples and supply first-row validity for seek-mode backward admission. Navigation intent is separate from geometry validity. Views own physical scroll extents; coordinate mechanics vary by result-set size. |
+| Thumbnail admission | [ImageGrid](src/components/ImageGrid.tsx) uses the virtualizer's visible row range for eager thumbnails, with lazy overscan. Row-local context updates the thumbnail without rerendering its metadata cell. URL/quality and geometry ownership are unchanged; no separate observer or scheduler. Justified hides visual fallback text without removing alt accessibility. |
 | Fields | [Field registry](src/lib/field-registry.tsx) supplies shared definitions for columns, sorting, filters and metadata. Display consumers use registered accessors/formatters directly; `getFieldRawValue` supplies raw text. |
 | Selection | [Selection store](src/stores/selection-store.ts) owns multi-image membership independently of focus. |
 
@@ -53,6 +54,7 @@ There is no need to read the whole documentation tree before working.
 | State ownership and lifetimes | [State management](exploration/docs/00%20Architecture%20and%20philosophy/state-management.md) for a compact engineer-facing overview of the current implementation. |
 | Product intent and interaction design | [Frontend philosophy](exploration/docs/00%20Architecture%20and%20philosophy/01-frontend-philosophy.md) for intent; distinguish proposals and older implementation notes from current behaviour. |
 | Scrolling, tiers and scrubber | [Scroll architecture](exploration/docs/00%20Architecture%20and%20philosophy/03-scroll-architecture.md) and [scrubber reference](exploration/docs/00%20Architecture%20and%20philosophy/scrubber-ticks-and-labels.md). |
+| Thumbnail arrival and buffer-edge blocking | [Scroll horizons](exploration/docs/scroll-horizons-thumbs-and-blocking.md) owns the research/work plan, evidence ledger and decision gates. Implementation requires separate approval. |
 | Focus, density and position preservation | [Focus and position guide](exploration/docs/00%20Architecture%20and%20philosophy/02-focus-and-position-preservation.md), [Justified geometry ownership](exploration/docs/00%20Architecture%20and%20philosophy/component-detail.md#justified-density-componentsjustifiedgridtsx-libwindowed-justified-layoutts) and [shared destination-seek policy](exploration/docs/00%20Architecture%20and%20philosophy/03-scroll-architecture.md#destination-seek-preparation). [Research and refactor candidates](exploration/docs/justified-density-prototype-plan.md) require separate approval. |
 | URL and browser history | [History architecture](exploration/docs/00%20Architecture%20and%20philosophy/04-browser-history-architecture.md). |
 | Selection and shared metadata | [Selections guide](exploration/docs/00%20Architecture%20and%20philosophy/05-selections.md) and [field catalogue](exploration/docs/00%20Architecture%20and%20philosophy/field-catalogue.md). |
@@ -76,7 +78,7 @@ For task-specific details:
 |---|---|
 | Test setup and commands | [Test modes](e2e/README.md#test-modes), [command selection](e2e/README.md#which-command-do-i-run) and [npm scripts](package.json). |
 | Test changes | [Testing guide](e2e/README.md) for commands and fixture contracts; [maintenance assessment](exploration/docs/test-maintenance-assessment.md) for unselected improvements and coverage rationale. |
-| Performance measurements | [Performance handbook](e2e-perf/README.md): campaigns, comparisons, dashboards, action-owned readiness and revision compatibility. Offline harness regressions validate observers without adding campaign measurements. |
+| Performance measurements | [Performance handbook](e2e-perf/README.md): campaigns, comparisons, dashboards, buffer-edge and stopped-viewport recovery, action-owned readiness and revision compatibility. Offline harness and isolated browser/app fixtures validate observers without adding campaign measurements. |
 | Live infrastructure | [Infrastructure safeguards](exploration/docs/infra-safeguards.md). |
 | Embedded browser | Read the [browser playbook](exploration/docs/embedded-browser-playbook.md) first, then task-relevant references. Record reusable lessons only, not routine outcomes or session narratives. |
 

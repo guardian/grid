@@ -201,7 +201,33 @@ export class KupuaHelpers {
       },
       density,
       { timeout },
-    );
+    ).catch(async (error: unknown) => {
+      const diagnostic = await this.page.evaluate(() => {
+        const state = (window as any).__kupua_store__?.getState();
+        const lifecycle = (window as any).__kupua_getSearchLifecycle__?.();
+        const regions = ["grid", "table", "justified"].flatMap(density => {
+          const region = document.querySelector(`[aria-label="Image results ${density}"]`);
+          if (!region) return [];
+          const bounds = region.getBoundingClientRect();
+          const items = [...region.querySelectorAll("[data-image-id]")];
+          return [{ density, width: bounds.width, height: bounds.height, renderedItems: items.length,
+            visibleItems: items.filter(item => {
+              const rect = item.getBoundingClientRect();
+              return rect.bottom > bounds.top && rect.top < bounds.bottom;
+            }).length }];
+        });
+        return { storePresent: Boolean(state), initialLoad: state ? Boolean(state._isInitialLoad) : null,
+          searchStarted: typeof lifecycle?.started === "number" ? lifecycle.started : null,
+          searchSettled: typeof lifecycle?.settled === "number" ? lifecycle.settled : null,
+          loading: state ? Boolean(state.loading) : null, hasError: Boolean(state?.error),
+          resultsLength: state?.results?.length ?? null, total: state?.total ?? null,
+          forwardInFlight: Boolean(state?._extendForwardInFlight), backwardInFlight: Boolean(state?._extendBackwardInFlight),
+          browsePending: Boolean(state?._browseNavigation), visibility: document.visibilityState,
+          documentState: document.readyState, regions };
+      }).catch(() => ({ pageUnavailable: true }));
+      if (error instanceof Error) error.message += `\nResults readiness state: ${JSON.stringify(diagnostic)}`;
+      throw error;
+    });
   }
 
   // -------------------------------------------------------------------------

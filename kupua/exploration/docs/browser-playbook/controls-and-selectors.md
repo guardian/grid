@@ -48,6 +48,21 @@ steps until the original DPR is reached, verify the original CSS viewport dimens
 and then restore any viewport override. If no DPR change occurs, stop rather than
 accumulating queued shortcuts. These checks concern zoom/layout, not performance.
 
+### Wheel pacing under viewport emulation
+
+After resizing or applying device metrics, verify actual `innerWidth`, `innerHeight`
+and DPR again. A requested viewport can also change DPR in the integrated browser.
+For scroll-speed comparisons, record delivered trusted wheel deltas and timestamps;
+do not infer speed from `mouse.wheel()` arguments or the number of awaited frames.
+Emulation can change event scaling, and direct CDP input is not by itself a guarantee
+of one requested unit per CSS pixel of content movement. Measure surviving-image
+movement across buffer compensation separately from raw `scrollTop` changes.
+
+Use elapsed-time pacing when cadence matters, report actual delivery, and allow the
+last event to settle before closing observation. Keep the observer active through
+pending refill completion when measuring the whole stall; an earlier cutoff gives
+only a lower bound. Restore emulation and verify both viewport and DPR afterward.
+
 ## Locator Reference
 
 Check current DOM/source when a selector stops resolving. Prefer accessible roles
@@ -156,6 +171,11 @@ physical-device proof. Use native CDP touch for touch evidence; restore emulatio
 viewport afterward. If a click times out after applying, inspect before retrying.
 Off-screen scroll-into-view can displace outer overflow containers: inspect ancestor
 scroll offsets before alleging app reflow.
+
+Track whether a native touch sequence is still active: Chromium can reject
+`touchCancel` after `touchEnd`. Do not let a redundant cancel exception skip device
+metric/touch resets or CDP detachment; use nested cleanup where needed. Verify the
+restored pointer media query and dimensions even if the gesture or cleanup failed.
 
 ### Scrubber and Scroll
 

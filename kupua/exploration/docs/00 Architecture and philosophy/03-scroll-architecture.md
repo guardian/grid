@@ -230,9 +230,9 @@ triggers `extendForward` or `extendBackward`. The extend fetches
 `PAGE_SIZE = 200` items via `search_after`, appends/prepends them, and
 evicts from the opposite end if the buffer exceeds `BUFFER_CAPACITY = 1000`.
 
-The user never sees loading states during normal scrolling. The 50-item
-threshold means extends fire ~3–5 screenfuls before the viewport runs out
-of data.
+Headroom aims to hide refill latency, but its physical size depends on density.
+A finite buffer can still stop scrolling when a refill misses the edge; earlier
+admission cannot overcome sustained consumption above delivery throughput.
 
 **Velocity-aware forward trigger.** At sustained fast wheel velocity (e.g.
 the table fast-scroll perf test eats ~1700 items/s) the user can chew
@@ -245,8 +245,27 @@ velocity and widening the forward threshold to
 fast burst the extend fires up to ~150 items earlier, and the fetch
 overlaps with the user still consuming buffered content.
 
-Forward-only by design: backward extends pair with prepend compensation,
-which is the central swimming risk (§4), and are left strictly alone.
+Velocity samples are separate from navigation intent. `useScrollEffects` admits a
+sample only when the reported first/last rows match the current scroll viewport
+(with a one-pixel boundary tolerance and an explicit last-row allowance).
+`useDataWindow` resets the baseline across reporting-owner, result-publication,
+buffer-offset, search-generation, total, layout or viewport-height changes. Invalid
+samples also reset it. A stationary range correction rebases the end index without
+counting it as movement. No buffer scan or additional scroll owner is introduced.
+
+Visible-range reporting and base edge admission still run without a velocity sample.
+Prediction therefore does not depend on wheel/touch/key provenance: valid scrollbar
+and programmatic movement use the same sampling path. The separate navigation flag
+continues to own indexed destination intent. Thresholds and compensation are unchanged.
+
+Seek-mode backward admission separately requires the reported first row to contain
+the current viewport top when the scroll owner supplies that validity evidence.
+An explicitly stale start cannot trigger a backward refill after compensation, but
+visible-range reporting and velocity maintenance continue. Callers without this
+evidence retain base admission; indexed and forward policies are unchanged. A valid
+first row can admit backward demand even when the trailing range is not yet valid
+for velocity sampling. Prediction remains forward-only and the backward threshold
+remains 50; this guard changes neither headroom nor prepend compensation.
 
 ### Scrolling past the buffer (indexed scroll mode)
 

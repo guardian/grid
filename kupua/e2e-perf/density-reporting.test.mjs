@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  DENSITY_METRIC_IDS, DENSITY_PROFILE, DENSITY_CONSTRAINED_PROFILE, DENSITY_SCENARIOS, REQUIRED_DENSITY_METRICS,
+  DENSITY_METRIC_IDS, DENSITY_PROFILE, DENSITY_CONSTRAINED_PROFILE, DENSITY_RECOVERY_PROFILE, DENSITY_SCENARIOS, REQUIRED_DENSITY_METRICS,
   aggregateDensityRuns, buildDensityMarkdown, densityContractKey, densityEnvironmentKey,
   densityRecordsComparable, pairedDensityComparisons, parseDensitySuiteArgs,
   resolveSuiteSelection, validateDensityRecord, validateDensityRun,
@@ -13,6 +13,12 @@ function record(scenario = DENSITY_SCENARIOS[0], value = 10) {
   const metrics = Object.fromEntries(REQUIRED_DENSITY_METRICS[scenario.workload].map(name => [name, /Ratio/.test(name) ? 0.25 : value]));
   if ("mediaCensored" in metrics) Object.assign(metrics, {
     mediaCensored: 0, mediaReadyMs: value, visibleMediaCount: 2, decodedMediaCount: 2, failedMediaCount: 0,
+  });
+  if (scenario.workload === "burst-recovery") Object.assign(metrics, {
+    stopDataCensored: 0, stopDataReadyMs: value, stopMediaCensored: 0, stopMediaReadyMs: value,
+    stopVisibleMediaCount: 2, stopDecodedMediaCount: 2, stopFailedMediaCount: 0,
+    peakRefillsInFlight: 1, refillsPendingAtEnd: 0,
+    forwardReadStarts: 1, backwardReadStarts: 1, readStartsAfterStop: 0,
   });
   return { ...scenario, resultRegime: "seek", metrics };
 }
@@ -26,13 +32,13 @@ const environment = () => ({
 });
 
 test("manifest is additive, directly spreadable and has only the approved Table diagnostics", () => {
-  assert.equal(DENSITY_SCENARIOS.length, 19);
-  assert.equal(new Set(DENSITY_METRIC_IDS).size, 19);
+  assert.equal(DENSITY_SCENARIOS.length, 21);
+  assert.equal(new Set(DENSITY_METRIC_IDS).size, 21);
   assert.deepEqual(DENSITY_SCENARIOS.filter(s => s.density === "table").map(s => s.id), ["D1-table", "D2-table", "D8-table"]);
-  assert.ok(DENSITY_SCENARIOS.every(s => s.scenarioRevision === (s.workload === "window-maintenance" ? 3 : 2)));
-  assert.ok(DENSITY_SCENARIOS.every(s => s.profile === (s.workload === "scroll-constrained" ? DENSITY_CONSTRAINED_PROFILE : DENSITY_PROFILE)));
+  assert.ok(DENSITY_SCENARIOS.every(s => s.scenarioRevision === (s.workload === "burst-recovery" ? 1 : s.workload === "window-maintenance" ? 3 : 2)));
+  assert.ok(DENSITY_SCENARIOS.every(s => s.profile === (s.workload === "burst-recovery" ? DENSITY_RECOVERY_PROFILE : s.workload === "scroll-constrained" ? DENSITY_CONSTRAINED_PROFILE : DENSITY_PROFILE)));
   assert.ok(DENSITY_SCENARIOS.every(s => !Object.hasOwn(s, "requiredMetrics")));
-  assert.equal(validateDensityRun(run()).length, 19);
+  assert.equal(validateDensityRun(run()).length, 21);
 });
 
 test("revision 2 separates normal workloads from automatically included constrained scroll", () => {
@@ -45,7 +51,7 @@ test("revision 2 separates normal workloads from automatically included constrai
   assert.ok(DENSITY_SCENARIOS.filter(s => s.workload === "scroll-cold").every(s =>
     s.cacheClass === constrained[0].cacheClass && s.profile === DENSITY_PROFILE));
   assert.ok(DENSITY_SCENARIOS.filter(s => s.workload === "scroll-warm").every(s => s.cacheClass === "browser-repeat-path"));
-  const sessionWarm = DENSITY_SCENARIOS.filter(s => !s.workload.startsWith("scroll-"));
+  const sessionWarm = DENSITY_SCENARIOS.filter(s => !s.workload.startsWith("scroll-") && s.workload !== "burst-recovery");
   assert.equal(sessionWarm.length, 10);
   assert.ok(sessionWarm.every(s => s.cacheClass === "browser-session-setup-renderer-warm-proxy-uncontrolled"));
   const maintenance = sessionWarm.filter(s => s.workload === "window-maintenance");
@@ -271,6 +277,27 @@ test("window-maintenance needs observed eviction and explicit geometry scope", (
   assert.throws(() => validateDensityRecord({ ...sample, metrics: { ...sample.metrics, evictionCount: 0 } }), /window-maintenance/);
 });
 
+test("D9 recovery is automatic, separately versioned and rejects fabricated readiness", () => {
+  const scenarios = DENSITY_SCENARIOS.filter(scenario => scenario.workload === "burst-recovery");
+  assert.deepEqual(scenarios.map(scenario => scenario.id), ["D9-grid", "D9-justified"]);
+  assert.ok(scenarios.every(scenario => scenario.scenarioRevision === 1));
+  const sample = record(scenarios[0]);
+  Object.assign(sample.metrics, { stopDataCensored: 0, stopDataReadyMs: 25,
+    stopMediaCensored: 0, stopMediaReadyMs: 100, stopVisibleMediaCount: 2,
+    stopDecodedMediaCount: 2, stopFailedMediaCount: 0, peakRefillsInFlight: 1, refillsPendingAtEnd: 0,
+    forwardReadStarts: 1, backwardReadStarts: 1, readStartsAfterStop: 0 });
+  assert.equal(validateDensityRecord(sample), sample);
+  for (const fields of [
+    { stopDataCensored: 1 }, { stopMediaCensored: 1 }, { stopDecodedMediaCount: 1 },
+    { stopMediaReadyMs: 10 }, { peakRefillsInFlight: 3 }, { readStartsAfterStop: 3 },
+  ]) {
+    assert.throws(() => validateDensityRecord({ ...sample, metrics: { ...sample.metrics, ...fields } }), /recovery/);
+  }
+  const censored = { ...sample, metrics: { ...sample.metrics, stopDataCensored: 1, stopDataReadyMs: null,
+    stopMediaCensored: 1, stopMediaReadyMs: null, stopVisibleMediaCount: 0, stopDecodedMediaCount: 0 } };
+  assert.equal(validateDensityRecord(censored), censored);
+});
+
 test("environment compatibility rejects absent/mixed fingerprints but permits explicit source revisions", () => {
   const env = environment();
   assert.equal(densityEnvironmentKey(null), null);
@@ -311,11 +338,11 @@ test("paired deltas use only jointly available medians and never synthesize unav
   records[1].metrics.readinessLeadPxMedian = null;
   const metrics = aggregateDensityRuns([records]);
   const pairs = pairedDensityComparisons(metrics, environment());
-  assert.equal(pairs.length, 8);
+  assert.equal(pairs.length, 9);
   assert.equal(pairs[0].deltas.elapsedMs, 7);
   assert.equal(pairs[0].deltas.readinessLeadPxMedian, undefined);
   metrics[records[1].id].cacheClass = "other";
-  assert.equal(pairedDensityComparisons(metrics, environment()).length, 7);
+  assert.equal(pairedDensityComparisons(metrics, environment()).length, pairs.length - 1);
   assert.deepEqual(pairedDensityComparisons(metrics, null), []);
 });
 

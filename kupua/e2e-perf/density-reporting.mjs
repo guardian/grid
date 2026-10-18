@@ -1,6 +1,6 @@
 // Pure campaign contracts: importing this module never starts a browser or writes history.
 export const DENSITY_WORKLOADS = Object.freeze([
-  "scroll-cold", "scroll-warm", "table-transition", "detail-return", "seek", "reflow", "window-maintenance", "scroll-constrained",
+  "scroll-cold", "scroll-warm", "table-transition", "detail-return", "seek", "reflow", "window-maintenance", "scroll-constrained", "burst-recovery",
 ]);
 export const REQUIRED_SCROLL_METRICS = Object.freeze([
   "pendingAreaRatioMean", "pendingAreaRatioMax", "blankViewportMs", "exposureAreaMs",
@@ -9,8 +9,13 @@ export const REQUIRED_SCROLL_METRICS = Object.freeze([
 ]);
 export const DENSITY_PROFILE = "density-v2-1200pxs-unthrottled";
 export const DENSITY_CONSTRAINED_PROFILE = "density-v2-1200pxs-80ms-4mbps-scroll-only";
+export const DENSITY_RECOVERY_PROFILE = "density-v1-4000pxs-3s-back-1.5s-forward-10s-recovery";
 export const REQUIRED_DENSITY_METRICS = Object.freeze(Object.fromEntries(DENSITY_WORKLOADS.map((workload) => [
-  workload, workload === "window-maintenance"
+  workload, workload === "burst-recovery" ? Object.freeze([...REQUIRED_SCROLL_METRICS,
+    "physicalClampMs", "bufferEdgeBlockedMs", "clampedDistancePx", "drivenDurationMs", "drivenDistancePx",
+    "forwardReadStarts", "backwardReadStarts", "readStartsAfterStop", "peakRefillsInFlight", "refillsPendingAtEnd",
+    "stopDataCensored", "stopMediaCensored", "stopVisibleMediaCount", "stopDecodedMediaCount", "stopFailedMediaCount",
+  ]) : workload === "window-maintenance"
     ? Object.freeze([...REQUIRED_SCROLL_METRICS, "evictionCount", "prependCount"])
     : workload.startsWith("scroll-") ? REQUIRED_SCROLL_METRICS : Object.freeze([
       "placementMs", "mediaCensored", "visibleMediaCount", "decodedMediaCount", "failedMediaCount",
@@ -22,15 +27,18 @@ export const DENSITY_SCENARIOS = Object.freeze(DENSITY_WORKLOADS.flatMap((worklo
   (workload.startsWith("scroll-")
     ? ["grid", "justified", "table"] : ["grid", "justified"]).map((density) => Object.freeze({
     id: `D${index + 1}-${density}`,
-    scenarioRevision: workload === "window-maintenance" ? 3 : 2,
+    scenarioRevision: workload === "burst-recovery" ? 1 : workload === "window-maintenance" ? 3 : 2,
     density,
     workload,
-    profile: workload === "scroll-constrained" ? DENSITY_CONSTRAINED_PROFILE : DENSITY_PROFILE,
+    profile: workload === "burst-recovery" ? DENSITY_RECOVERY_PROFILE
+      : workload === "scroll-constrained" ? DENSITY_CONSTRAINED_PROFILE : DENSITY_PROFILE,
     // Cold media requests are an observation-window condition, never cold startup.
-    cacheClass: workload === "scroll-cold" || workload === "scroll-constrained"
+    cacheClass: workload === "burst-recovery" ? "browser-cache-disabled-during-burst-and-recovery-renderer-warm-proxy-uncontrolled"
+      : workload === "scroll-cold" || workload === "scroll-constrained"
       ? "browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled"
       : workload === "scroll-warm" ? "browser-repeat-path" : "browser-session-setup-renderer-warm-proxy-uncontrolled",
-    completionBoundary: workload.startsWith("scroll-") ? "four-second-controlled-scroll"
+    completionBoundary: workload === "burst-recovery" ? "burst-dispatch-to-motion-end-and-stopped-viewport-recovery"
+      : workload.startsWith("scroll-") ? "four-second-controlled-scroll"
       : workload === "window-maintenance" ? "tail-admission-first-forward-eviction-visible-anchor" : "driver-dispatch-to-observed-placement-and-visible-decode",
     ...(workload === "window-maintenance" ? { geometryScope: "loaded-window" } : {}),
   })),
@@ -169,7 +177,25 @@ export function validateDensityRecord(record) {
   }
   // Placement and media readiness are distinct: optional media can remain absent,
   // but a timeout must be explicitly censored, never a deadline-valued success.
-  if (record.workload === "window-maintenance") {
+  if (record.workload === "burst-recovery") {
+    const metrics = record.metrics;
+    const counts = ["forwardReadStarts", "backwardReadStarts", "readStartsAfterStop", "peakRefillsInFlight",
+      "refillsPendingAtEnd", "stopVisibleMediaCount", "stopDecodedMediaCount", "stopFailedMediaCount"];
+    if (!counts.every(name => Number.isInteger(metrics[name]) && metrics[name] >= 0)
+      || metrics.peakRefillsInFlight > 2 || metrics.refillsPendingAtEnd > metrics.peakRefillsInFlight
+      || metrics.readStartsAfterStop > metrics.forwardReadStarts + metrics.backwardReadStarts
+      || metrics.bufferEdgeBlockedMs > metrics.physicalClampMs || metrics.physicalClampMs > metrics.drivenDurationMs + 1
+      || ![0, 1].includes(metrics.stopDataCensored) || ![0, 1].includes(metrics.stopMediaCensored)
+      || (metrics.stopDataCensored ? metrics.stopDataReadyMs !== null
+        : !Number.isFinite(metrics.stopDataReadyMs) || metrics.stopDataReadyMs < 0)
+      || metrics.stopDecodedMediaCount + metrics.stopFailedMediaCount > metrics.stopVisibleMediaCount
+      || (metrics.stopMediaCensored ? metrics.stopMediaReadyMs !== null
+        : metrics.stopDataCensored !== 0 || !Number.isFinite(metrics.stopMediaReadyMs)
+          || metrics.stopMediaReadyMs < metrics.stopDataReadyMs || metrics.stopVisibleMediaCount === 0
+          || metrics.stopDecodedMediaCount !== metrics.stopVisibleMediaCount)) {
+      throw new Error(`${record.id}: invalid recovery readiness or request accounting`);
+    }
+  } else if (record.workload === "window-maintenance") {
     if (!token(record.geometryScope) || record.metrics.evictionCount < 1 || record.metrics.prependCount < 0
       || !Number.isInteger(record.metrics.evictionCount) || !Number.isInteger(record.metrics.prependCount)) {
       throw new Error(`${record.id}: missing window-maintenance evidence/geometryScope`);

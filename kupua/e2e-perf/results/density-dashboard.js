@@ -15,9 +15,21 @@
     reflow: ["D6 · Width change", "The viewport narrows from 1720px to 1100px around the same image."],
     "window-maintenance": ["D7 · Window eviction", "A jump into the admission band triggers real eviction. Not a constant-speed or necessarily equal-read-count comparison."],
     "scroll-constrained": ["D8 · Scroll / constrained network", "80ms latency and 4Mibit/s download during the four-second scroll only, including any data refills."],
+    "burst-recovery": ["D9 · Burst, reverse and recover", "Fresh paired window; 3 seconds backward then 1.5 seconds forward at 4,000px/s. Browser-cache bypass continues through stopped-viewport recovery."],
   };
   // Value scale converts stored fractions into human percentages; histories remain untouched.
   const metricInfo = {
+    bufferEdgeBlockedMs: ["Input blocked at buffer edges", "ms", 1, "lower", "Equivalent commanded scrolling time clipped at temporary seek-mode buffer limits during D9.", "Not frame jank or native wheel latency. Zero alone is not edge-coverage proof; inspect movement and refill counts. True result ends are excluded."],
+    stopDataReadyMs: ["Stopped viewport data ready", "ms", 1, "lower", "Last commanded scroll to stable visible identities with no missing result slots.", "Shares the stop clock with decoded-media readiness; do not add the times. Unrelated speculative refills need not finish."],
+    stopMediaReadyMs: ["Stopped viewport thumbnails decoded", "ms", 1, "lower", "Last commanded scroll to decoded media in the final visible viewport, after data readiness.", "A timeout, missing media or changed destination is unavailable, never a deadline-valued success. This is not exact compositor paint."],
+    stopDataCensored: ["Stopped data recovery censored", "count", 1, "lower", "Per repetition: one if final data readiness was not established, zero if observed.", "Shown beside recovery time so unavailable results cannot look like instant success."],
+    stopMediaCensored: ["Stopped media recovery censored", "count", 1, "lower", "Per repetition: one if final decoded-media readiness was not established.", "Failure, intentional media absence, timeout and changed destination do not produce successful latency samples."],
+    forwardReadStarts: ["Forward refills admitted", "count", 1, "diagnostic", "Forward refill starts during D9 movement and recovery.", "These are store admissions, not HTTP transfers or backend work. Compare with movement, recovery and backward reads."],
+    backwardReadStarts: ["Backward refills admitted", "count", 1, "diagnostic", "Backward refill starts during D9 movement and recovery.", "Earlier fetching may reduce stalls while increasing speculative work; lower is not automatically better."],
+    readStartsAfterStop: ["Refills admitted after stopping", "count", 1, "diagnostic", "Refill starts after the last commanded movement, until recovery observation ends.", "Some may be needed for visible data; this is not automatically wasted traffic."],
+    peakRefillsInFlight: ["Peak simultaneous refills", "count", 1, "diagnostic", "Maximum simultaneous forward and backward refills during D9.", "The store allows one per direction. This does not measure thumbnail concurrency."],
+    refillsPendingAtEnd: ["Refills still pending at recovery end", "count", 1, "diagnostic", "Outstanding result refills when D9 finishes observing recovery.", "Visible readiness does not wait for unrelated speculation. Pending work has not been measured as completed or cancelled."],
+    drivenDistancePx: ["Commanded movement achieved", "px", 1, "diagnostic", "Sum of movement directly applied by the controlled driver, excluding between-frame buffer compensation.", "D9 includes both directions. Compare only identical workload profiles; more movement is not by itself better responsiveness."],
     thumbnailPendingAreaRatioMean: ["Average blank thumbnail area", "%", 100, "lower", "Time-weighted area awaiting thumbnail load/decode, as a percentage of the results viewport.", "Slot-based estimate, not exact paint; excludes missing data and failures. Table's narrow thumbnail column can conceal persistent blanks behind a small percentage."],
     thumbnailPendingAreaRatioMax: ["Worst sampled blank thumbnail area", "%", 100, "lower", "Largest sampled portion of the results viewport awaiting thumbnail load/decode.", "This is one frame sample, not the average and not bitmap-only area."],
     thumbnailBlankViewportMs: ["Time with any blank thumbnail", "ms", 1, "lower", "Time during which at least some visible thumbnail area was pending.", "4,000ms does not mean the entire viewport was blank for four seconds."],
@@ -46,7 +58,7 @@
     });
     return `${label}${same.length > 1 ? ` · configuration ${same.indexOf(key) + 1}` : ""}`;
   };
-  const profileName = p => p?.includes("scroll-only") ? "Constrained scroll" : p?.includes("unthrottled") ? "Unthrottled" : "Other / historical profile";
+  const profileName = p => p?.includes("recovery") ? "Burst / reversal recovery" : p?.includes("scroll-only") ? "Constrained scroll" : p?.includes("unthrottled") ? "Unthrottled" : "Other / historical profile";
   const infoFor = key => {
     if (metricInfo[key]) return metricInfo[key];
     const unit = /AreaMs$/.test(key) ? "px²·ms" : /Ratio/.test(key) ? "%" : /PxPerSec/.test(key) ? "px/s"

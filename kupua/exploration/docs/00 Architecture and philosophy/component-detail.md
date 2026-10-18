@@ -621,11 +621,21 @@ placement remain in the shared hooks. Cells use `useEnrichedImage` for cost/usag
 Date labels follow the primary sort. Metadata pills stop propagation so searching a value does
 not also select/open its image. Browsing, selection and middle-click preview use the shared owners.
 
+Thumbnail admission follows the virtualizer's current visible row range, read after obtaining
+virtual items. A row-local React context carries eager loading for visible rows, including
+partial rows, and lazy loading for overscan. Only the small thumbnail component consumes it;
+the memoized metadata cell does not rerender for loading-only transitions. Ordinary image,
+enrichment and animation updates still reach the cell. Provider keys retain virtual-row identity
+without adding DOM wrappers. This adds no observer, scroll state, queue or geometry scan. URLs, quality,
+dimensions and the five-row overscan are unchanged. Native lazy loading may still prefetch;
+changing the attribute does not cancel already-admitted work or discard completed media.
+
 ## Justified Density (`components/JustifiedGrid.tsx`, `lib/windowed-justified-layout.ts`)
 
 Justified supplies ordered, uncropped geometry to ImageGrid's shared cells and interaction
 owners, not a second gallery or scrolling lifecycle. Image-only cells omit informational
 metadata/badges, not selection or safety indicators. Mounted geometry belongs to ImageGrid;
+pending thumbnail fallback text is transparent while the alt description remains accessible.
 JustifiedGrid keeps bounded ID/ratio snapshots only after commit, so abandoned renders cannot
 replace committed context. Query/no-overlap replacement invalidates that context. No image
 records, visited-history cache or catalogue-wide layout are retained by the snapshot.

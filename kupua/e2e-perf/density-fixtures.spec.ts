@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import { KupuaHelpers } from "../e2e/shared/helpers";
 import { getDensityChangeButton } from "../e2e/shared/density-selection";
 import { installThumbnailProbe } from "./thumbnail-probe.mjs";
-import { selectDensity, electAnchor, waitForPlacement, visibleMediaReadiness, scrollAtSpeed, withDensityScrollNetwork } from "./density-browser";
+import { selectDensity, electAnchor, waitForPlacement, visibleMediaReadiness, scrollAtSpeed, withDensityScrollNetwork, measureDensityRecovery } from "./density-browser";
+import { DENSITY_SCENARIOS, validateDensityRecord } from "./density-reporting.mjs";
 
 const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="blue"/></svg>';
 
@@ -29,6 +30,88 @@ async function mountDensityDashboard(page: Page, entries: unknown[]) {
 async function sampleFrames(page: Page, count = 4) {
   await page.evaluate(async count => { for (let i = 0; i < count; i++) await new Promise(requestAnimationFrame); }, count);
 }
+
+for (const searchStarted of [null, 0, 1]) {
+  test(`results readiness timeout exposes sanitized bootstrap state (${searchStarted ?? "unavailable"})`, async ({ page }) => {
+    await fixture(page);
+    await page.getByRole("region").evaluate(element => { element.replaceChildren(); });
+    await page.evaluate(started => {
+      (window as any).__kupua_store__ = { getState: () => ({
+        loading: false, _isInitialLoad: true, total: 0, results: [], error: "fixture-private-error",
+        params: { query: "fixture-private-query" }, focusedImageId: "fixture-private-identity",
+      }) };
+      (window as any).__kupua_getSearchLifecycle__ = started === null ? undefined : () => ({
+        started, settled: 0, query: "fixture-private-query", orderBy: "fixture-private-sort",
+      });
+    }, searchStarted);
+    const error = await new KupuaHelpers(page).waitForResults(100, "grid").catch(error => error as Error);
+    expect(error).toBeInstanceOf(Error);
+    if (!(error instanceof Error)) throw new Error("Expected readiness timeout");
+    expect(error.message).toContain("Results readiness state:");
+    expect(error.message).toContain('"initialLoad":true');
+    expect(error.message).toContain('"loading":false');
+    expect(error.message).toContain('"hasError":true');
+    expect(error.message).toContain('"resultsLength":0');
+    expect(error.message).toContain(`"searchStarted":${searchStarted}`);
+    expect(error.message).toContain(`"searchSettled":${searchStarted === null ? null : 0}`);
+    expect(error.message).not.toContain("fixture-private");
+  });
+}
+
+test("D9 observes decoded stopped content without waiting for unrelated refills", async ({ page }) => {
+  await page.route("**/*", route => route.fulfill({ status: 404, body: "fixture only" }));
+  const source = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+  const cells = Array.from({ length: 200 }, (_, index) =>
+    `<div data-grid-cell data-image-id="fixture-${index}"><div><img src="${source}"></div></div>`).join("");
+  await page.setContent(`<style>body{margin:0}[role=region]{height:300px;width:400px;overflow:auto}[data-grid-cell],img{height:100px;width:100px}</style>
+    <div role="region" aria-label="Image results grid" data-scrubber-mode="seek">${cells}</div>`);
+  await page.evaluate(() => {
+    const region = document.querySelector<HTMLElement>('[role="region"]')!;
+    region.scrollTop = 10000;
+    let state = { params: {}, total: 70000, bufferOffset: 1000, results: Array(1000).fill(null),
+      imagePositions: new Map(Array.from({ length: 200 }, (_, index) => [`fixture-${index}`, index])),
+      loading: false, _browseNavigation: null, _extendForwardInFlight: false, _extendBackwardInFlight: false };
+    (window as any).__kupua_store__ = { getState: () => state, subscribe: (callback: (next: unknown, previous: unknown) => void) => {
+      const start = () => {
+        const previous = state;
+        state = { ...state, _extendForwardInFlight: true };
+        callback(state, previous);
+      };
+      region.addEventListener("scroll", start, { once: true });
+      return () => { region.removeEventListener("scroll", start); (window as any).__recoveryUnsubscribed = true; };
+    } };
+  });
+  await sampleFrames(page);
+  const metrics = await measureDensityRecovery(page, "grid");
+  const scenario = DENSITY_SCENARIOS.find(item => item.id === "D9-grid")!;
+  validateDensityRecord({ ...scenario, resultRegime: "seek", metrics });
+  expect(metrics.stopDataCensored).toBe(0);
+  expect(metrics.stopMediaCensored).toBe(0);
+  expect(metrics.stopMediaReadyMs).toBeGreaterThanOrEqual(metrics.stopDataReadyMs!);
+  expect(metrics.refillsPendingAtEnd).toBe(1);
+  expect(metrics.forwardReadStarts).toBe(1);
+  expect(await page.evaluate(() => (window as any).__recoveryUnsubscribed && !(window as any).__densityRecovery)).toBe(true);
+});
+
+test("D9 recovery and request cost are first-class dashboard metrics", async ({ page }) => {
+  const value = (median: number) => ({ median, p95: median, sampleCount: 4 });
+  await mountDensityDashboard(page, [{ label: "Recovery fixture", timestamp: "2026-10-17", environmentCompatibilityKey: "fixture",
+    metrics: { "D9-grid": { id: "D9-grid", scenarioRevision: 1, density: "grid", workload: "burst-recovery",
+      profile: "density-v1-4000pxs-3s-back-1.5s-forward-10s-recovery", cacheClass: "fixture", resultRegime: "seek",
+      completionBoundary: "fixture", contractKey: "fixture-grid", sampleCount: 4,
+      metrics: { bufferEdgeBlockedMs: value(250), stopDataReadyMs: value(20), stopMediaReadyMs: value(125),
+        stopMediaCensored: value(0), backwardReadStarts: value(3), readStartsAfterStop: value(1) } } } }]);
+  await page.getByLabel("Metric", { exact: true }).selectOption("bufferEdgeBlockedMs");
+  await expect(page.locator("#metric-title")).toContainText("Input blocked at buffer edges");
+  await expect(page.locator("#cards")).toContainText("D9");
+  await expect(page.locator("#cards")).toContainText("250 ms");
+  await page.getByLabel("Metric", { exact: true }).selectOption("stopMediaReadyMs");
+  await expect(page.locator("#metric-explanation")).toContainText("Last commanded scroll");
+  await expect(page.locator("#cards")).toContainText("125 ms");
+  await page.getByLabel("Metric", { exact: true }).selectOption("readStartsAfterStop");
+  await expect(page.locator("#metric-caution")).toContainText("not automatically wasted");
+  await expect(page.locator("#all-metrics")).not.toBeChecked();
+});
 
 for (const density of ["grid", "justified", "table"] as const) {
   test(`${density}: delayed thumbnails create blank exposure and late-readiness evidence`, async ({ page }) => {
@@ -132,6 +215,133 @@ test("Table shift attribution separates movement from image-node recycling", asy
   expect(metrics.logicalOrderChanges).toBe(0);
   await page.evaluate(() => (window as any).__kupua_thumbnailProbe.dispose());
 });
+
+for (const scenario of [
+  { name: "temporary forward edge", mode: "seek", speed: 1000, offset: 10000, blocked: true },
+  { name: "temporary backward edge", mode: "seek", speed: -1000, offset: 10000, blocked: true },
+  { name: "true result end", mode: "seek", speed: 1000, offset: 69000, blocked: false },
+  { name: "true result start", mode: "seek", speed: -1000, offset: 0, blocked: false },
+  { name: "indexed physical edge", mode: "indexed", speed: 1000, offset: 10000, blocked: false },
+]) {
+  test(`controlled scroll bounds distinguish ${scenario.name}`, async ({ page }) => {
+    await fixture(page);
+    await page.evaluate(({ mode, speed, offset }) => {
+      const region = document.querySelector<HTMLElement>('[role="region"]')!;
+      region.dataset.scrubberMode = mode;
+      region.scrollTop = speed > 0 ? region.scrollHeight - region.clientHeight : 0;
+      (window as any).__kupua_store__ = { getState: () => ({
+        bufferOffset: offset, results: Array(1000).fill(null), total: 70000,
+      }) };
+    }, scenario);
+    const movement = await scrollAtSpeed(page, "grid", scenario.speed, 150, { measureBounds: true });
+    expect(movement.physicalClampMs).toBeGreaterThanOrEqual(100);
+    expect(movement.clampedDistancePx).toBeGreaterThanOrEqual(100);
+    expect(movement.drivenDistancePx).toBe(0);
+    if (scenario.blocked) expect(movement.bufferEdgeBlockedMs).toBeGreaterThanOrEqual(100);
+    else expect(movement.bufferEdgeBlockedMs).toBe(0);
+  });
+}
+
+test("controlled scroll bounds exclude free movement and idle input; default contract stays unchanged", async ({ page }) => {
+  await fixture(page);
+  await page.getByRole("region").evaluate(element => { element.dataset.scrubberMode = "indexed"; });
+  const moving = await scrollAtSpeed(page, "grid", 500, 150, { measureBounds: true });
+  expect(moving.physicalClampMs).toBe(0);
+  expect(moving.bufferEdgeBlockedMs).toBe(0);
+  expect(moving.drivenDistancePx).toBeGreaterThan(0);
+  await page.getByRole("region").evaluate(element => { element.scrollTop = element.scrollHeight; });
+  const idle = await scrollAtSpeed(page, "grid", 0, 150, { measureBounds: true });
+  expect(idle.physicalClampMs).toBe(0);
+  expect(idle.bufferEdgeBlockedMs).toBe(0);
+  const existing = await scrollAtSpeed(page, "grid", 500, 50);
+  expect(Object.keys(existing).sort()).toEqual([
+    "commandedSpeedPxPerSec", "drivenDistancePx", "drivenDurationMs", "drivenFrames",
+  ]);
+});
+
+test("controlled scroll bounds count only clipped travel and reject missing context", async ({ page }) => {
+  await fixture(page);
+  await expect(scrollAtSpeed(page, "grid", 1000, 150, { measureBounds: true })).rejects.toThrow("scroll regime");
+  await page.getByRole("region").evaluate(element => {
+    element.dataset.scrubberMode = "indexed";
+    element.scrollTop = element.scrollHeight - element.clientHeight - 50;
+    const descriptor = Object.getOwnPropertyDescriptor(Element.prototype, "scrollTop")!;
+    let clipped = 0;
+    Object.defineProperty(element, "scrollTop", { configurable: true,
+      get() { return descriptor.get!.call(element); },
+      set(value: number) {
+        clipped += Math.max(0, value - (element.scrollHeight - element.clientHeight));
+        element.dataset.clippedInput = String(clipped);
+        descriptor.set!.call(element, value);
+      },
+    });
+  });
+  const partial = await scrollAtSpeed(page, "grid", 1000, 150, { measureBounds: true });
+  expect(partial.drivenDistancePx).toBeCloseTo(50, 0);
+  const clipped = await page.getByRole("region").evaluate(element => {
+    const value = Number(element.dataset.clippedInput);
+    Reflect.deleteProperty(element, "scrollTop");
+    return value;
+  });
+  expect(partial.clampedDistancePx).toBeCloseTo(clipped, 5);
+  expect(partial.physicalClampMs).toBeCloseTo(clipped, 5);
+  expect(partial.bufferEdgeBlockedMs).toBe(0);
+  await page.getByRole("region").evaluate(element => { element.dataset.scrubberMode = "seek"; });
+  await expect(scrollAtSpeed(page, "grid", 1000, 150, { measureBounds: true })).rejects.toThrow("buffer coverage");
+});
+
+for (const density of ["grid", "justified"] as const) {
+  for (const mediaOrigin of ["https://fixture.invalid", "https://media.fixture.invalid"]) {
+    test(`${density}: stopped viewport readiness ignores obsolete media at ${mediaOrigin}`, async ({ page }) => {
+      await page.route("https://fixture.invalid/app", route => route.fulfill({ contentType: "text/html", body: "<!doctype html><html></html>" }));
+      await page.goto("https://fixture.invalid/app");
+      await fixture(page, density);
+      let releaseOld!: () => void;
+      let releaseDestination!: () => void;
+      const oldGate = new Promise<void>(resolve => { releaseOld = resolve; });
+      const destinationGate = new Promise<void>(resolve => { releaseDestination = resolve; });
+      let oldRequests = 0;
+      let destinationRequests = 0;
+      await page.route("https://fixture.invalid/obsolete.svg", async route => {
+        oldRequests++;
+        await oldGate;
+        await route.fulfill({ contentType: "image/svg+xml", body: svg });
+      });
+      await page.route(`${mediaOrigin}/destination.svg`, async route => {
+        destinationRequests++;
+        await destinationGate;
+        await route.fulfill({ contentType: "image/svg+xml", body: svg });
+      });
+      try {
+        const stoppedAt = await page.evaluate(mediaOrigin => {
+          const images = document.querySelectorAll("img");
+          images[0].src = "https://fixture.invalid/obsolete.svg";
+          images[1].src = `${mediaOrigin}/destination.svg`;
+          document.querySelector('[role="region"]')!.scrollTop = 400;
+          return performance.now();
+        }, mediaOrigin);
+        await expect.poll(() => oldRequests).toBe(1);
+        await expect.poll(() => destinationRequests).toBe(1);
+        const held = await visibleMediaReadiness(page, density, stoppedAt, 100);
+        expect(held.mediaCensored).toBe(1);
+        expect(held.mediaReadyMs).toBeNull();
+        expect(held.failedMediaCount).toBe(0);
+        expect(held.visibleMediaCount).toBe(1);
+        releaseDestination();
+        const ready = await visibleMediaReadiness(page, density, stoppedAt, 2000);
+        expect(ready.mediaCensored).toBe(0);
+        expect(ready.decodedMediaCount).toBe(1);
+        expect(ready.mediaReadyMs).toBeGreaterThanOrEqual(100);
+        expect(await page.locator("img").first().evaluate((image: HTMLImageElement) => image.complete)).toBe(false);
+        expect(await page.locator("img").last().evaluate(image => image.closest("[data-image-id]")?.getAttribute("data-image-id"))).toBe("fixture-b");
+        expect(destinationRequests).toBe(1);
+      } finally {
+        releaseDestination();
+        releaseOld();
+      }
+    });
+  }
+}
 
 test("dashboard distinguishes incompatible environments, sparse metrics and matched pairs", async ({ page }) => {
   const record = (density: string, value: number | null) => ({

@@ -152,17 +152,50 @@ interpreting them as latency. Remove only the symlink when finished if it is no 
 The comparison suite covers scrolling with browser-cache bypass and repeat-path setup,
 Table→image-layout switching, detail return, scrubber seek, width reflow and window eviction.
 It retains one paired source identity and rotates density order between repetitions.
+It also includes D9 burst/reversal recovery for Grid and Justified: nine workloads produce
+21 density records per repetition. D9 is automatic with `--suite justified`, `--suite combined`
+and `--full`; there is no extra flag. D1-D8 retain their existing contracts and history.
 
 Normal workloads and all startup/setup are **unthrottled**. One automatically included
 constrained-scroll family runs across Grid, Justified and Table: 80ms latency, 4Mibit/s download,
 1Mibit/s upload, only during its four-second observation window. It constrains page requests,
 including possible data refills—not just thumbnail bytes. There is no separate throttle flag.
 
-Scroll observations use a time-based animation-frame loop at 1,200px/s, with achieved movement
+D1/D2/D8 scroll observations use a time-based animation-frame loop at 1,200px/s, with achieved movement
 recorded. This is not physical wheel-device certification. The normal viewport is 1720×960,
 DPR2; width-reflow cases temporarily narrow it. Eviction is an event-bound workload, not a
 constant-speed comparison. Browser-cache bypass does not clear already-loaded images or reset
 proxy/CDN/server caches. Repeat-path setup does not guarantee every resource is warm.
+
+### Burst, Reverse and Recover
+
+D9 restores a fresh window around the paired source identity before each layout, waits for
+setup and maintenance cooldowns, and clears focus without selecting another image. It drives
+three seconds backward followed immediately by 1.5 seconds forward at a commanded 4,000px/s.
+Browser-cache bypass applies during movement and recovery, not setup; network and CPU are
+unthrottled. This is synthetic constant-speed scrolling, not trackpad certification.
+
+The thumbnail exposure/frame observer ends with movement. Separate recovery clocks start at
+the final applied scroll command, with a shared ten-second observation deadline:
+
+- `bufferEdgeBlockedMs`: commanded time clipped by temporary seek-mode buffer bounds.
+- `stopDataReadyMs`: stable visible identities, with no visible missing-data placeholders.
+- `stopMediaReadyMs`: decoded media in that stopped viewport. It shares the stop clock with
+  data readiness; do not add the two. A changed visible identity set censors recovery.
+- `forwardReadStarts`, `backwardReadStarts`, `readStartsAfterStop`, `peakRefillsInFlight` and
+  `refillsPendingAtEnd`: store-level refill admission during movement and recovery.
+
+Unrelated speculative refills do not delay current-viewport readiness. They remain counted,
+including pending work at observation end. These are not HTTP counts, transferred/wasted
+bytes or proof that cancellation saves backend work. Missing/failed media and timeouts retain
+explicit censor fields and null latency, not invented zero or deadline-valued success.
+Setup reads are outside the measured window. The observer rejects scope changes and overflow
+instead of silently truncating a sample. Physical clamping at a true result end is not a
+temporary buffer stall; indexed modes may expose missing data without a physical wall.
+
+The dashboard includes the new outcomes and cost fields in its ordinary metric selector,
+with units and interpretation cautions. D9 uses a separate revision/profile; older campaigns
+have no D9 points. Do not manufacture historical values or compare different workload clocks.
 
 ### Reading the measurements
 
@@ -235,6 +268,36 @@ actual app with in-memory data in indexed/seek modes. The app-backed check requi
 free**, starts its own isolated frontend and blocks external/service HTTP. It uses no live API
 or ES and writes no benchmark history. Synthetic observer tests alone do not prove app setup.
 
+### Buffer Bounds and Final-Viewport Controls
+
+`scrollAtSpeed(page, density, speed, duration, { measureBounds: true })` optionally returns
+`physicalClampMs`, `bufferEdgeBlockedMs` and `clampedDistancePx`. These account for the
+portion of commanded constant-speed travel clipped by the physical scroll extent. The time
+is clipped distance divided by commanded speed, not native wheel latency or frame-jank time.
+`bufferEdgeBlockedMs` counts only seek-mode limits with more results beyond the relevant
+buffer edge; true result ends and indexed physical limits are not temporary buffer walls.
+Missing regime or required coverage evidence is rejected rather than reported as zero.
+Per-frame rounding is distinct from boundary clipping. Raw scroll-origin compensation is
+not counted as commanded movement. Use this only with a stable query/density/regime.
+
+The default driver result and D1-D8 callers are unchanged. D9 enables bounds observation
+internally and emits the aggregate fields into normal histories/dashboard series. Its internal
+`stoppedAtPerformanceMs` timestamp establishes the recovery clock and is not persisted.
+
+Synthetic controls cover both directions, true edges, indexed limits, idle/free movement,
+partial clipping and missing context. App-backed Grid/Justified controls hold a single
+in-memory refill, measure blocked input, release it and verify resumed travel, one admitted
+read and unchanged stopped-image placement. They are observer/ownership controls, not a
+comparison of prefetch policies or real network timings.
+
+`visibleMediaReadiness` also has local stopped-viewport controls: a held destination stays
+censored, and releasing it permits decoded readiness without waiting for obsolete off-screen
+media. Same-origin and separate-origin URLs are intercepted locally; this proves observer
+compatibility, not HTTP scheduling, cancellation, bandwidth savings or CDN performance.
+The media observer alone does not establish missing-result-data readiness or a pinned
+destination. D9 separately establishes stable visible identities/data, rejects scope changes,
+and censors recovery if the visible identity set changes during media observation.
+
 ## Maintaining measurements
 
 <a id="measurement-discipline-for-later-work"></a>
@@ -286,7 +349,8 @@ No workload revision or campaign follows from this extraction alone.
 | Trace producers and developer opt-in | [Perceived trace module](../src/lib/perceived-trace.ts) |
 | Thumbnail observer definitions/limits | [Thumbnail probe](thumbnail-probe.mjs) |
 | Functional proof discipline | [E2E guide](../e2e/README.md#continuity-slice-discipline) |
-| Justified decisions and campaign evidence | [Justified plan](../exploration/docs/justified-density-prototype-plan.md) |
+| Justified geometry and refactor decisions | [Justified plan](../exploration/docs/justified-density-prototype-plan.md) |
+| Thumbnail arrival, buffer blocking and campaign evidence | [Scroll horizons plan and evidence ledger](../exploration/docs/scroll-horizons-thumbs-and-blocking.md) |
 | Optional experimental probes | [Experiments spec](experiments.spec.ts), [experiment results guide](results/experiments/README.md) |
 
 Experiments are separate, manually supervised diagnostics—not included in `--full`. Reuse their

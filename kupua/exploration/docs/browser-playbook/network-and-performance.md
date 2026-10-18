@@ -24,6 +24,19 @@ reuse. A buffered observer installed after navigation commit captures earlier st
 only if retained; assert the intended boundary. Init scripts observe pre-initialization
 but persist across navigation and require owned disposal.
 
+For virtualized media, a successful transfer for a URL can belong to an earlier image
+element. Record the current element/source generation and its first-observed time, which
+is not an exact React mount timestamp. Correlate request starts/completions with that
+lifetime and with `currentSrc`, `complete` and natural dimensions; do not credit an old
+URL-matched completion to an unloaded replacement. Validate collector delivery before
+interpreting absent requests, and account separately for cached reuse and redirects.
+
+Distinguish the visible thumbnail slot from the actual `img` rectangle. A visible slot can
+contain an image whose own box lies outside the viewport. A priority hint is not proof of
+request admission. Keep any scoped loading/geometry intervention separate from the baseline,
+restore attributes/styles afterward, and qualify browser/version/lifecycle differences.
+Do not call `decode()` on incomplete lazy images during passive diagnosis: it can start work.
+
 Classify by route plus operation flags, not path alone. One endpoint can serve first,
 cursor, reverse, null, End or multiple profile operations. Retain only necessary safe
 flags: operation, size, reverse, count intent and cursor/null presence. Never emit

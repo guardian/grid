@@ -5,8 +5,9 @@ Grid remains the default. R1's bounded shared seek policy and R3's narrow browse
 are implemented and reviewed. **R6's bounded unused-estimate removal is implemented, validated
 and accepted by all three independent cold reviews. No broader indexed rewrite is justified.**
 Production remains excluded pending licensing clearance. Implementation history belongs in the
-[changelog](changelog.md), not here. Late-thumbnail evidence and R7 remain intact for possible
-separate investigation.
+[changelog](changelog.md), not here. Thumbnail arrival and buffer-edge blocking have a separate
+[research/work plan and evidence ledger](scroll-horizons-thumbs-and-blocking.md). That document
+owns their next steps, completed experiments and decision gates; they are not Justified refactors.
 
 ## Fresh-agent handoff — refactors
 
@@ -94,7 +95,7 @@ refactors to repeat. Use the [browser playbook](embedded-browser-playbook.md),
   Minor engine-cap underfills also remain separate. Neither warrants relaxing preservation tests.
 - Normal DEV offers justified without another switch. The installed
   `@immich/justified-layout-wasm@0.4.3` artifact includes AGPL-3; development use is approved,
-  production clearance is not. Preserve the DEV import gate and production Grid fallback.
+  maintainers confirmed move to MIT. Preserve the DEV import gate and production Grid fallback.
 
 ## 3. Verification and performance coverage
 
@@ -373,58 +374,6 @@ risk, not a demonstrated defect introduced by this patch. Future fractional fixe
 must derive old/new coordinates from row indices; mounted sizing/reflow integration remains
 future work, not a claimed capability of the current density repair.
 
-### Late thumbnail arrival: initial campaign evidence
-
-The [density history](../../e2e-perf/results/density-log.json) contains the operator's
-15 October campaigns `density baseline` (local media-api) and `density baseline, direct`
-(direct ES): four repetitions each, all in the seek regime. Application-source fingerprints
-match; whole-worktree fingerprints and corpus totals differ. These are within-environment
-layout comparisons, not a historical trend, an API-only overhead measurement, or evidence
-that this feature regressed Grid relative to its previous implementation.
-
-Medians of per-run observations; pending area is a percentage of the **whole results viewport**.
-Decode lead is positive outside the entering edge and negative after entering it. Already-ready
-images are excluded from new-readiness events; unavailable lead is not zero latency.
-
-| Environment / scroll condition | Grid pending area | Justified pending area | Grid decode lead | Justified decode lead |
-| --- | ---: | ---: | ---: | ---: |
-| Direct ES / cache bypass | 1.72% | 1.41% | −132px | −41px |
-| Local API / cache bypass | 1.64% | 2.13% | −125px | −75px |
-| Direct ES / repeat path | 1.05% | 0.35% | −121px | Unavailable: 3/4 samples |
-| Local API / repeat path | 1.15% | 0.23% | −118px | −11px |
-| Direct ES / constrained scroll | 15.59% | 26.08% | −408px | −359px |
-| Local API / constrained scroll | 15.56% | 31.74% | −413px | −459px |
-
-The constrained window uses 80ms latency and 4Mibit/s download, including possible data refills.
-It produces later spatial readiness in **both** densities. Justified does not consistently decode
-later than Grid: it displays roughly 35–38 visible slots versus Grid's 24 and devotes more of the
-viewport to imagery. Higher pending viewport area therefore does not establish worse per-image
-loading efficiency. Decode lead is an observed position, not decode duration or exact paint time.
-
-Table recorded zero layout-shift sums and zero surviving-identity order changes in these scroll
-observations, alongside heavy element reuse and much poorer frame-p95 summaries (126–154ms).
-Its roughly 2.6% pending viewport area persisted for almost the whole observation: a narrow image
-column makes that percentage deceptively small. This does not establish thumbnail-caused CLS,
-rule out shifts in other actions, or separate application cost from probe overhead.
-
-**Implication:** investigate image-delivery headroom separately from packing, seam appearance and
-placement speed. These measurements provide a useful baseline, not permission for speculative
-prefetching, increased resource budgets or a broad helper/architecture rewrite. See R7 below.
-
-### Scoll blocking
-
-- Slower continuous wheel input: no blocking.
-- Faster input: a measured ~190 ms stop at the buffer boundary, despite continued wheel events.
-- Scrolling resumed when result data arrived, with zero loaded thumbnails in the rendered cells. Thumbnail loading isn’t the release condition.  
-
-**Why:** with this 1.33-million-result search, scrollable space covers only the loaded buffer. Reaching its edge means physically running out of scrollable content.
-
-The [prefetch logic](file:///Users/mkarpow/code/grid/kupua/src/hooks/useDataWindow.ts#L385) anticipates downward motion using a fixed 400 ms lookahead; upward fetching starts only 50 items before the boundary. Observed fetches took roughly 740–820 ms—enough to outrun that headroom.
-
-**Recommendation:** fetch earlier in both directions, using scroll speed and measured fetch latency, with bounded headroom. Preserve existing prepend/eviction position compensation. This should reduce stalls without rebuilding scrolling.
-
-If uninterrupted movement is required even when data is late, bounded placeholder space could allow it—but trades stopping for empty tiles and adds position-preservation complexity. I wouldn’t start there. Nor would I simply enlarge the entire buffer: that doesn’t fix late fetch triggers.
-
 ## 4. Refactor candidates and order
 
 R numbers are stable references, not mandatory phases. **R2 snapshot ownership and R4 availability
@@ -530,27 +479,11 @@ contract without fabricating justified columns. Extract sizing-related duplicati
 already exists and has independent selection/focus/viewport proof. No presets, controls or fluid
 zoom framework now. The promise is compatibility with later sizing, not delivering that feature.
 
-### R7 — Thumbnail delivery headroom, not indiscriminate overscan
+### R7 — Thumbnail delivery: separate workstream
 
-**Evidence-driven candidate, not implementation approval.** First distinguish result-data arrival,
-cell mounting, request start, load completion and decode observation. Current exposure/lead metrics
-alone cannot say which stage loses headroom; frame stalls can delay readiness observation too.
-Keep identities and media URLs browser-local, and distinguish initial-ready/cached observations.
-
-- Test a small, bounded image-loading lookahead separately from increasing virtualizer overscan.
-  More mounted rows also increase rendering/enrichment work; they are not free prefetching.
-- Compare the same controlled scroll action, corpus, width and cache/network class. Preserve
-  viewport-exposure outcomes while reporting image coverage/counts; do not turn medians of counts
-  into per-image success ratios or compare differently defined observation windows.
-- Require less late readiness/exposure without regressions in request/byte counts, concurrency,
-  cancellation, frame timing, memory retention, selection/history or position preservation.
-  Do not raise image-retention, API page or result-buffer limits as an incidental optimisation.
-- Investigate Table repaint/reuse and layout-shift attribution separately. Preserve the distinction
-  between identity changes in recycled elements, logical ordering and image-caused geometry shifts.
-
-Start with a discriminating local fixture for the suspected stage, then an operator-run matched
-comparison. A larger shared-helper unification remains separately deferred; it is not a prerequisite
-for understanding thumbnail arrival or a reason to change established measurement contracts.
+Moved to [Scroll horizons: thumbnails and buffer-edge blocking](scroll-horizons-thumbs-and-blocking.md).
+Use that plan's current next steps and retained evidence. No thumbnail policy or broader overscan change
+is authorised by this refactor plan.
 
 ## 5. Owning contracts
 

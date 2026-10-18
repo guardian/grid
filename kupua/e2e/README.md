@@ -126,6 +126,14 @@ case's density. Do not reinitialize during history/persistence controls or clear
 all session storage. Density is not a URL parameter; check the rendered region
 with `assertDensity` or layout-specific `waitForResults`.
 
+Readiness timeouts append sanitized store/lifecycle counts and region geometry without
+changing the predicate, timeout or navigation. On a fresh document, `searchStarted: 0`
+means the store has not recorded search admission; `null` means the lifecycle hook is
+unavailable. `searchSettled` records idle completion, not successful publication: inspect
+`hasError`, `resultsLength`, `total` and visible-item counts alongside it. A started,
+loading search can still be awaiting PIT or ticker work after its page read completes.
+These snapshots do not identify the pending request or establish a historical failure's cause.
+
 ### Density Selection Guard
 
 [getDensityChangeButton](shared/density-selection.ts) returns the exact density

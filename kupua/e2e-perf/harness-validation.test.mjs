@@ -795,10 +795,15 @@ test("perf grid readiness rejects a rendered table, including PP7c and PP10 star
     const Helper = runInNewContext(`${outputText}\nReadyHelper`, { document: {
       querySelector: selector => selector.includes(rendered) ? container : null,
     } });
-    const page = { waitForFunction: async (callback, density) => { assert.equal(callback(density), true, "wrong rendered density"); } };
+    let diagnosticReads = 0;
+    const page = {
+      waitForFunction: async (callback, density) => { assert.equal(callback(density), true, "wrong rendered density"); },
+      evaluate: async () => { diagnosticReads++; throw new Error("fixture page unavailable"); },
+    };
     const operation = new Helper(page).waitForResults(15_000, "grid");
     if (rendered === "table") await assert.rejects(operation, /wrong rendered density/);
     else await operation;
+    assert.equal(diagnosticReads, rendered === "table" ? 1 : 0);
   }
   const short = readFileSync(join(import.meta.dirname, "perceived-short.spec.ts"), "utf8");
   for (const id of ["PP7c", "PP10"]) {

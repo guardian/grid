@@ -1,5 +1,6 @@
 import type { CDPSession, Page } from "@playwright/test";
 import { getDensityChangeButton, type Density } from "../e2e/shared/density-selection";
+import { installThumbnailProbe } from "./thumbnail-probe.mjs";
 
 export type { Density } from "../e2e/shared/density-selection";
 
@@ -285,23 +286,181 @@ export async function visibleMediaReadiness(page: Page, density: Density, starte
 }
 
 /** Fixed pixels/second, not pixels/frame; browser buffering may limit achieved speed. */
-export async function scrollAtSpeed(page: Page, density: Density, speed: number, duration: number) {
-  return page.evaluate(async ({ density, speed, duration }) => {
+export async function scrollAtSpeed(page: Page, density: Density, speed: number, duration: number,
+  options: { measureBounds?: boolean } = {}) {
+  return page.evaluate(async ({ density, speed, duration, measureBounds }) => {
     const region = document.querySelector(`[aria-label="Image results ${density}"]`) as HTMLElement;
     if (!region) throw new Error("Wrong density for controlled scrolling");
+    const mode = measureBounds ? document.querySelector<HTMLElement>("[data-scrubber-mode]")?.dataset.scrubberMode : undefined;
+    if (measureBounds && !["seek", "indexed", "buffer"].includes(mode ?? "")) {
+      throw new Error("Bounds measurement requires the scroll regime");
+    }
+    let physicalClampMs = 0;
+    let bufferEdgeBlockedMs = 0;
+    let clampedDistancePx = 0;
     const start = performance.now();
     let last = start;
+    let stoppedAtPerformanceMs = start;
     let actual = 0;
     let frames = 0;
     while (performance.now() - start < duration) {
       const now = await new Promise<number>(resolve => requestAnimationFrame(resolve));
       if (document.visibilityState !== "visible") throw new Error("Controlled scrolling requires a foreground page");
       const before = region.scrollTop;
-      region.scrollTop += speed * (now - last) / 1000;
+      const maximum = measureBounds ? Math.max(0, region.scrollHeight - region.clientHeight) : 0;
+      const requested = speed * (now - last) / 1000;
+      region.scrollTop += requested;
       actual += region.scrollTop - before;
+      if (measureBounds) stoppedAtPerformanceMs = performance.now();
+      if (measureBounds && requested !== 0) {
+        const available = Math.max(0, speed > 0 ? maximum - before : before);
+        const lost = Math.max(0, Math.abs(requested) - available);
+        const atEdge = speed > 0 ? Math.abs(region.scrollTop - maximum) < 1 : Math.abs(region.scrollTop) < 1;
+        if (lost > 0 && atEdge) {
+          const blockedMs = lost / Math.abs(speed) * 1000;
+          clampedDistancePx += lost;
+          physicalClampMs += blockedMs;
+          if (mode === "seek") {
+            const state = (window as any).__kupua_store__?.getState();
+            if (!state || !Array.isArray(state.results) || !Number.isFinite(state.bufferOffset) || !Number.isFinite(state.total)) {
+              throw new Error("Bounds measurement requires buffer coverage");
+            }
+            if (speed > 0 ? state.bufferOffset + state.results.length < state.total : state.bufferOffset > 0) {
+              bufferEdgeBlockedMs += blockedMs;
+            }
+          }
+        }
+      }
       frames++;
       last = now;
     }
-    return { commandedSpeedPxPerSec: speed, drivenDistancePx: actual, drivenDurationMs: last - start, drivenFrames: frames };
-  }, { density, speed, duration });
+    return { commandedSpeedPxPerSec: speed, drivenDistancePx: actual, drivenDurationMs: last - start, drivenFrames: frames,
+      ...(measureBounds ? { physicalClampMs, bufferEdgeBlockedMs, clampedDistancePx, stoppedAtPerformanceMs } : {}) };
+  }, { density, speed, duration, measureBounds: options.measureBounds === true });
+}
+
+export async function prepareDensityRecovery(page: Page, density: Density) {
+  await waitForWindowIdle(page);
+  await page.evaluate(async () => {
+    const path = "/src/lib/image-offset-cache.ts";
+    const { getRetainedSortValues, buildSearchKey } = await import(path);
+    const state = (window as any).__kupua_store__.getState();
+    const source = (window as any).__densitySource;
+    if (!source || source.total !== state.total || source.params !== JSON.stringify(state.params)) {
+      throw new Error("Recovery setup lost the paired source");
+    }
+    const cursor = getRetainedSortValues(source.id, buildSearchKey(state.params));
+    if (!cursor) throw new Error("Recovery setup requires the retained source cursor");
+    await state.restoreAroundCursor(source.id, cursor, source.offset, true);
+  });
+  await waitForWindowIdle(page);
+  await page.evaluate(async () => {
+    const path = "/src/lib/orchestration/search.ts";
+    (await import(path)).scrollFocusedIntoView();
+  });
+  await waitForPlacement(page, density, true);
+  await waitForDensityMaintenanceCooldown(page);
+  await page.evaluate(() => (window as any).__kupua_store__.getState().setFocusedImageId(null));
+}
+
+export async function measureDensityRecovery(page: Page, density: "grid" | "justified") {
+  await page.evaluate(() => {
+    const store = (window as any).__kupua_store__;
+    const initial = store.getState();
+    const probe = { params: JSON.stringify(initial.params), total: initial.total,
+      starts: [] as { time: number; backward: boolean }[], peak: 0, overflow: false,
+      destination: "", unsubscribe: () => {} };
+    probe.unsubscribe = store.subscribe((state: any, previous: any) => {
+      for (const [field, backward] of [["_extendForwardInFlight", false], ["_extendBackwardInFlight", true]] as const) {
+        if (state[field] && !previous[field]) {
+          if (probe.starts.length >= 16) probe.overflow = true;
+          else probe.starts.push({ time: performance.now(), backward });
+        }
+      }
+      probe.peak = Math.max(probe.peak, Number(state._extendForwardInFlight) + Number(state._extendBackwardInFlight));
+    });
+    (window as any).__densityRecovery = probe;
+  });
+  try {
+    await page.evaluate(installThumbnailProbe, { density });
+    const backward = await scrollAtSpeed(page, density, -4000, 3000, { measureBounds: true });
+    const forward = await scrollAtSpeed(page, density, 4000, 1500, { measureBounds: true });
+    const stoppedAt = forward.stoppedAtPerformanceMs!;
+    const motion = await page.evaluate(() => (window as any).__kupua_thumbnailProbe.stop());
+    const data = await page.evaluate(async ({ density, stoppedAt }) => {
+      const probe = (window as any).__densityRecovery;
+      let previous = "";
+      let stable = 0;
+      while (performance.now() - stoppedAt < 10000) {
+        await new Promise(requestAnimationFrame);
+        if (document.visibilityState !== "visible") throw new Error("Recovery requires a foreground page");
+        const state = (window as any).__kupua_store__.getState();
+        if (state.error || state.total !== probe.total || JSON.stringify(state.params) !== probe.params) {
+          throw new Error("Recovery data operation failed or changed scope");
+        }
+        const region = document.querySelector<HTMLElement>(`[aria-label="Image results ${density}"]`);
+        if (!region) throw new Error("Recovery density disappeared");
+        const bounds = region.getBoundingClientRect();
+        const visible = (element: Element) => {
+          const rect = element.getBoundingClientRect();
+          return rect.bottom > bounds.top && rect.top < bounds.bottom && rect.right > bounds.left && rect.left < bounds.right;
+        };
+        const cells = [...region.querySelectorAll<HTMLElement>("[data-grid-cell]")].filter(visible);
+        const missing = [...region.querySelectorAll(":scope > div > div > div:not([data-grid-cell])")].some(visible);
+        const ids = cells.map(cell => cell.dataset.imageId!);
+        const key = JSON.stringify(ids);
+        const ready = !state.loading && !state._browseNavigation && !missing && ids.length > 0 &&
+          ids.every(id => state.imagePositions.has(id));
+        stable = ready && key === previous ? stable + 1 : 0;
+        previous = key;
+        if (stable >= 2) {
+          probe.destination = key;
+          return { stopDataCensored: 0, stopDataReadyMs: performance.now() - stoppedAt };
+        }
+      }
+      return { stopDataCensored: 1, stopDataReadyMs: null };
+    }, { density, stoppedAt });
+    const remaining = await page.evaluate(stoppedAt => Math.max(0, 10000 - (performance.now() - stoppedAt)), stoppedAt);
+    const media = data.stopDataCensored ? { mediaCensored: 1, mediaReadyMs: null,
+      visibleMediaCount: 0, decodedMediaCount: 0, failedMediaCount: 0 }
+      : await visibleMediaReadiness(page, density, stoppedAt, remaining);
+    const cost = await page.evaluate(({ density, stoppedAt }) => {
+      const probe = (window as any).__densityRecovery;
+      const state = (window as any).__kupua_store__.getState();
+      if (probe.overflow || state.error || state.total !== probe.total || JSON.stringify(state.params) !== probe.params) {
+        throw new Error("Recovery observation invalidated");
+      }
+      const region = document.querySelector(`[aria-label="Image results ${density}"]`)!;
+      const bounds = region.getBoundingClientRect();
+      const ids = [...region.querySelectorAll<HTMLElement>("[data-grid-cell]")].filter(cell => {
+        const rect = cell.getBoundingClientRect();
+        return rect.bottom > bounds.top && rect.top < bounds.bottom && rect.right > bounds.left && rect.left < bounds.right;
+      }).map(cell => cell.dataset.imageId);
+      return { forwardReadStarts: probe.starts.filter((entry: any) => !entry.backward).length,
+        backwardReadStarts: probe.starts.filter((entry: any) => entry.backward).length,
+        readStartsAfterStop: probe.starts.filter((entry: any) => entry.time >= stoppedAt).length,
+        peakRefillsInFlight: probe.peak,
+        refillsPendingAtEnd: Number(state._extendForwardInFlight) + Number(state._extendBackwardInFlight),
+        destinationChanged: probe.destination !== JSON.stringify(ids) };
+    }, { density, stoppedAt });
+    const { destinationChanged, ...counts } = cost;
+    return { ...motion, ...counts, ...data,
+      stopDataCensored: destinationChanged ? 1 : data.stopDataCensored,
+      stopDataReadyMs: destinationChanged ? null : data.stopDataReadyMs,
+      stopMediaCensored: destinationChanged ? 1 : media.mediaCensored,
+      stopMediaReadyMs: destinationChanged ? null : media.mediaReadyMs,
+      stopVisibleMediaCount: media.visibleMediaCount, stopDecodedMediaCount: media.decodedMediaCount,
+      stopFailedMediaCount: media.failedMediaCount,
+      physicalClampMs: backward.physicalClampMs! + forward.physicalClampMs!,
+      bufferEdgeBlockedMs: backward.bufferEdgeBlockedMs! + forward.bufferEdgeBlockedMs!,
+      clampedDistancePx: backward.clampedDistancePx! + forward.clampedDistancePx!,
+      drivenDurationMs: backward.drivenDurationMs + forward.drivenDurationMs,
+      drivenDistancePx: Math.abs(backward.drivenDistancePx) + Math.abs(forward.drivenDistancePx) };
+  } finally {
+    await page.evaluate(() => {
+      (window as any).__densityRecovery?.unsubscribe();
+      delete (window as any).__densityRecovery;
+      (window as any).__kupua_thumbnailProbe?.dispose();
+    });
+  }
 }

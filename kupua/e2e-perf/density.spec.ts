@@ -3,13 +3,12 @@ import { appendFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { test, expect } from "./helpers";
 import type { KupuaHelpers } from "../e2e/shared/helpers";
-import { selectDensity, electAnchor, establishDensitySource, restoreDensitySource, prepareDensityMaintenance, waitForDensityMaintenanceCooldown, withDensityScrollNetwork, scrollToDensityTail, waitForDensityEviction, scrubDensityTo, waitForPlacement, visibleMediaReadiness, scrollAtSpeed, type Density } from "./density-browser";
+import { selectDensity, electAnchor, establishDensitySource, restoreDensitySource, prepareDensityMaintenance, waitForDensityMaintenanceCooldown, withDensityScrollNetwork, scrollToDensityTail, waitForDensityEviction, scrubDensityTo, waitForPlacement, visibleMediaReadiness, scrollAtSpeed, prepareDensityRecovery, measureDensityRecovery, type Density } from "./density-browser";
 import { installThumbnailProbe } from "./thumbnail-probe.mjs";
-import { DENSITY_SCENARIOS, validateDensityRecord } from "./density-reporting.mjs";
+import { DENSITY_SCENARIOS, DENSITY_WORKLOADS, validateDensityRecord } from "./density-reporting.mjs";
 
 const runIndex = Number(process.env.KUPUA_DENSITY_RUN_INDEX ?? 0);
 const output = resolve(import.meta.dirname, "results/.density-tmp.jsonl");
-const workloads = ["scroll-cold", "scroll-warm", "table-transition", "detail-return", "seek", "reflow", "window-maintenance", "scroll-constrained"] as const;
 
 async function prepare(kupua: KupuaHelpers) {
   await kupua.ensureExplicitMode();
@@ -27,7 +26,7 @@ async function prepare(kupua: KupuaHelpers) {
   return establishDensitySource(page);
 }
 
-for (const workload of workloads) {
+for (const workload of DENSITY_WORKLOADS) {
   test(`density ${workload}: matched layouts with explicit media boundary`, async ({ kupua, page }) => {
     const cdp = await page.context().newCDPSession(page);
     await cdp.send("Network.enable");
@@ -43,7 +42,14 @@ for (const workload of workloads) {
         const scenario = DENSITY_SCENARIOS.find(item => item.density === density && item.workload === workload);
         if (!scenario) throw new Error("Missing density scenario contract");
         let metrics: Record<string, number | null>;
-        if (workload.startsWith("scroll") || workload === "window-maintenance") {
+        if (workload === "burst-recovery") {
+          if (density === "table") throw new Error("D9 requires an image layout");
+          await selectDensity(page, density);
+          await prepareDensityRecovery(page, density);
+          await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
+          try { metrics = await measureDensityRecovery(page, density); }
+          finally { await cdp.send("Network.setCacheDisabled", { cacheDisabled: false }); }
+        } else if (workload.startsWith("scroll") || workload === "window-maintenance") {
           await selectDensity(page, density);
           await waitForPlacement(page, density, true);
           if (workload === "window-maintenance") {

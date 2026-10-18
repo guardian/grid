@@ -24,6 +24,19 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 18 October 2026 - Measure buffer-edge blocking and stopped-thumbnail recovery
+
+Add D9 burst/reversal and stopped-viewport recovery to normal density campaigns without
+another operator flag. Distinguish temporary-buffer clipping from true result boundaries,
+record achieved movement, and measure stopped data and decoded-media readiness on a shared
+clock. Track directional and post-stop refill starts, peak concurrency and outstanding work
+without treating store admissions as HTTP transfers. Preserve explicit censoring and D1-D8 contracts.
+
+Expose the revisioned measurements in the standard dashboard with units and interpretation
+caveats. Add schema validation, synthetic-browser and isolated-app controls for bounds,
+current-element media readiness and held refills. Add sanitized readiness-timeout diagnostics
+without changing predicates or retries. No production fetch policy changes.
+
 ### 18 October 2026 - Isolate thumbnail loading updates from metadata cells
 
 Carry the virtualizer's existing visible-row loading policy through row-local React context.
