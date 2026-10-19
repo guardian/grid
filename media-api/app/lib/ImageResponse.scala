@@ -288,13 +288,21 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
       }
   }
 
-  private val legacyCategoryReplacements: Map[String, UsageRightsSpec] =
+  private val legacyCategoryReplacements: Map[String, ReplacementUsageRightsSpec] =
     config.applicableUsageRights.collect {
       case spec: ReplacementUsageRightsSpec => spec
     }.flatMap(spec => spec.legacyCategories.map(_ -> spec)).toMap
 
   private[lib] def updateUsageRights(source: JsValue): Reads[JsObject] = {
     (source \ "usageRights" \ "category") match {
+      case JsDefined(c) if legacyCategoryReplacements.get(c.as[String]).contains(PRAndThirdParty) =>
+        val supplier = (source \ "usageRights" \ "supplier").asOpt[String]
+        val suppliers = (source \ "usageRights" \ "suppliers").asOpt[String]
+        (__ \ "usageRights").json.update(__.read[JsObject]
+          .map(_ ++ Json.obj("category" -> PRAndThirdParty.category, "legacyCategory" -> c.as[String])
+            ++ supplier.fold(Json.obj())(s => Json.obj("source" -> s))
+            ++ suppliers.fold(Json.obj())(s => Json.obj("source" -> s))
+          ))
       case JsDefined(c) if legacyCategoryReplacements.contains(c.as[String]) =>
         val replacement = legacyCategoryReplacements(c.as[String])
         (__ \ "usageRights").json.update(__.read[JsObject]
