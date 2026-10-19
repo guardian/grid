@@ -10,6 +10,7 @@ import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws._
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.formatting.printDateTime
+import com.gu.mediaservice.lib.imgproxy.ImgProxyUrlBuilder
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
@@ -529,6 +530,51 @@ class MediaApi(
       }
       case _ => Future.successful(ImageNotFound(id))
     }
+  }
+
+  private def resolvedImageUrl(
+    id: String,
+    assetType: ImageFileType,
+    width: Int,
+    height: Int,
+    quality: Int,
+    request: AuthenticatedRequest[AnyContent, Principal]
+  ): Future[Result] = {
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "resolved-image-url",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "imageId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
+    elasticSearch.getImageById(id) map {
+      case Some(image) if isVisibleToAccessor(request.user, image) =>
+        val asset = assetType match {
+          case OptimisedPng => image.optimisedPng.getOrElse(image.source)
+          case _ => image.source
+        }
+        val sourceImageUri = new URI(s3Client.signUrl(config.imageBucket, asset.file, image, imageType = assetType))
+        val orientationCorrectionRotation = -image.source.orientationMetadata.map(_.orientationCorrection()).getOrElse(0)
+        val imgproxyUrl = ImgProxyUrlBuilder.fixedUri(
+          config.imgproxyUri,
+          sourceImageUri,
+          width,
+          height,
+          Some(quality),
+          config.awsLocalEndpoint,
+          rotationDegrees = orientationCorrectionRotation,
+          signing = config.imgproxySigning
+        )
+        respond(Json.obj("url" -> imgproxyUrl))
+      case _ => ImageNotFound(id)
+    }
+  }
+
+  def getOptimisedImageUrl(id: String, width: Int, height: Int, quality: Int) = auth.async { request =>
+    resolvedImageUrl(id, Source, width, height, quality, request)
+  }
+
+  def getOptimisedPngImageUrl(id: String, width: Int, height: Int, quality: Int) = auth.async { request =>
+    resolvedImageUrl(id, OptimisedPng, width, height, quality, request)
   }
 
   def postToUsages(
