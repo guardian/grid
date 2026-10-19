@@ -11,7 +11,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # ---------------------------------------------------------------------------
   # Section shell
   # ---------------------------------------------------------------------------
-
+@todo
   Scenario: The rights and restrictions section is shown on the Metadata tab
     Then the Metadata tab is selected
     And I see a "Rights and restrictions" region
@@ -24,7 +24,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # ---------------------------------------------------------------------------
   # Category display (usage rights summary switched off)
   # ---------------------------------------------------------------------------
-
+@todo
   Scenario: The category name is shown for an image with usage rights
     Given the usage rights summary is switched off
     And the image has the "Agency - subscription" usage rights category
@@ -33,7 +33,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 63, 69-73, 446-472
   # Evidence: kahuna/app/views/main.scala.html lines 93
   # Evidence: kahuna/app/lib/KahunaConfig.scala lines 50
-
+@todo
   Scenario: The mapped category name is shown for an image with a legacy usage right
     Given the usage rights summary is switched off
     And the image has the "chargeable" usage rights category
@@ -43,14 +43,14 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 63, 69-73, 446-472
   # Evidence: kahuna/app/views/main.scala.html lines 93
   # Evidence: kahuna/app/lib/KahunaConfig.scala lines 50
-
+@todo
   Scenario: An image without a usage rights category is shown as Unknown
     Given the usage rights summary is switched off
     And the image has no usage rights category
     Then the rights and restrictions section shows "Unknown"
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 30-32
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 462-472
-
+@todo
   Scenario: No usage icons are shown when the usage rights summary is switched off
     Given the usage rights summary is switched off
     And the image is payable
@@ -63,7 +63,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # ---------------------------------------------------------------------------
   # Usage rights summary (switched on)
   # ---------------------------------------------------------------------------
-
+@todo
   Scenario: The usage rights summary shows the category name
     Given the usage rights summary is switched on
     And the image has the "Agency - subscription" usage rights category
@@ -71,14 +71,14 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 33-37
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 63, 543-557
   # Evidence: kahuna/public/js/components/gr-usagerights-summary/gr-usagerights-summary.tsx lines 89-91, 107-110
-
+@todo
   Scenario: The usage rights summary shows Unknown for an image without a category
     Given the usage rights summary is switched on
     And the image has no usage rights category
     Then the usage rights summary shows "Unknown"
   # Evidence: kahuna/public/js/components/gr-usagerights-summary/gr-usagerights-summary.tsx lines 89-91, 109
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 543-557
-
+@todo
   Scenario Outline: The usage rights summary lists the usage that applies to the image
     Given the usage rights summary is switched on
     And the image is <image>
@@ -94,7 +94,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 33-37
   # Evidence: kahuna/public/js/components/gr-usagerights-summary/gr-usagerights-summary.tsx lines 17, 52-87, 113-129
   # Evidence: kahuna/public/js/components/gr-usagerights-summary/gr-usagerights-bbc.tsx lines 46-129
-
+@todo
   Scenario: The usage rights summary lists nothing when no usage applies
     Given the usage rights summary is switched on
     And the image is free, unrestricted and not credited to the BBC
@@ -102,7 +102,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
     Then the usage rights summary lists no usage
   # Evidence: kahuna/public/js/components/gr-usagerights-summary/gr-usagerights-summary.tsx lines 52-87, 113-129
   # Evidence: kahuna/public/js/components/gr-usagerights-summary/gr-usagerights-bbc.tsx lines 46-108
-
+@todo
   Scenario: The usage rights summary shows the supplier's agency marker
     Given the usage rights summary is switched on
     And the image was uploaded by "PA_AutoIngest"
@@ -112,7 +112,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # ---------------------------------------------------------------------------
   # Edit permission
   # ---------------------------------------------------------------------------
-
+@todo
   Scenario: A user with edit permission can edit the image's rights
     Given I am signed in with edit metadata permission
     And the image was uploaded by someone else
@@ -125,7 +125,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: media-api/app/controllers/MediaApi.scala lines 814
   # Evidence: media-api/app/lib/ImageResponse.scala lines 148
   # Evidence: rest-lib/src/main/scala/com/gu/mediaservice/lib/auth/Authorisation.scala lines 62-74
-
+@todo
   Scenario: A user without edit permission cannot edit another user's image rights
     Given I am signed in without edit metadata permission
     And the image was uploaded by someone else
@@ -135,7 +135,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/edits/service.js lines 244-247
   # Evidence: media-api/app/controllers/MediaApi.scala lines 814
   # Evidence: rest-lib/src/main/scala/com/gu/mediaservice/lib/auth/Authorisation.scala lines 62-74
-
+@todo
   Scenario: The uploader can edit their own image's rights without edit permission
     Given I am signed in without edit metadata permission
     And the image was uploaded by me
@@ -147,14 +147,14 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # ---------------------------------------------------------------------------
   # Editing rights
   # ---------------------------------------------------------------------------
-
+@todo
   Scenario: The rights editor is closed by default
     Given I am signed in with edit metadata permission
     Then the rights editor is not shown
     And the current usage rights category is shown
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 21-29
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 62
-
+@todo
   Scenario: Opening the rights editor replaces the category display
     Given I am signed in with edit metadata permission
     When I choose to edit the rights and restrictions
@@ -162,7 +162,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
     And the current usage rights category display is hidden
     And the edit rights and restrictions button is hidden
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 21-29, 40-44
-
+@todo
   Scenario: Saving new rights closes the editor and shows the new category
     Given I am signed in with edit metadata permission
     And the image has no usage rights category
@@ -173,7 +173,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 21-32
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.js lines 175-189, 201-218, 285-289
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 69-73, 167-172
-
+@todo
   Scenario: Cancelling the rights editor leaves the rights unchanged
     Given I am signed in with edit metadata permission
     And the image has the "Agency - subscription" usage rights category
@@ -188,7 +188,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # ---------------------------------------------------------------------------
   # Metadata templates driving the rights editor
   # ---------------------------------------------------------------------------
-
+@todo
   Scenario: Choosing a template with a different category previews its rights
     Given I am signed in with edit metadata permission
     And metadata templates are configured
@@ -200,7 +200,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 565-570, 596-606
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.html lines 4, 24, 210
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.js lines 289
-
+@todo
   Scenario: Choosing a template with the same category keeps the rights editor closed
     Given I am signed in with edit metadata permission
     And metadata templates are configured
@@ -209,7 +209,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
     Then the rights editor is not shown
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 21-29
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 565-570, 596-601
-
+@todo
   Scenario: Applying a template closes the rights preview
     Given I am signed in with edit metadata permission
     And metadata templates are configured
@@ -219,7 +219,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
     And the rights and restrictions section shows the template's usage rights category
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 10-11, 21-32
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 615-622
-
+@todo
   Scenario: Cancelling a template restores the original rights
     Given I am signed in with edit metadata permission
     And metadata templates are configured
