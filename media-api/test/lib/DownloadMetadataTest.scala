@@ -16,15 +16,23 @@ class DownloadMetadataTest extends AnyFunSpec with Matchers {
     TestUtils.img.copy(id = id, metadata = metadata)
 
   describe("retainedTags") {
-    it("records the Grid id in XMP-xmpMM:OriginalDocumentID") {
+    it("records the Grid id in XMP-xmpMM:OriginalDocumentID, namespaced with a grid:docid: prefix") {
       DownloadMetadata.retainedTags(imageWith(fullMetadata, id = "deadbeef")) should contain(
-        "XMP-xmpMM:OriginalDocumentID" -> "deadbeef"
+        "XMP-xmpMM:OriginalDocumentID" -> "grid:docid:deadbeef"
       )
+    }
+
+    it("writes an id a reader can recover by stripping the prefix") {
+      val id = "dd1b8b30c9e34c7f9c1f0a4e5b6d7e8f90123456"
+      val value = DownloadMetadata.retainedTags(imageWith(fullMetadata, id = id))("XMP-xmpMM:OriginalDocumentID")
+
+      value should startWith("grid:docid:")
+      value.stripPrefix("grid:docid:") shouldBe id
     }
 
     it("records the Grid id even when there is no metadata to retain") {
       DownloadMetadata.retainedTags(imageWith(ImageMetadata())) shouldBe Map(
-        "XMP-xmpMM:OriginalDocumentID" -> "abc123"
+        "XMP-xmpMM:OriginalDocumentID" -> "grid:docid:abc123"
       )
     }
 

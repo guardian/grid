@@ -4,6 +4,10 @@ import com.gu.mediaservice.model.Image
 
 object DownloadMetadata {
 
+  /** Namespaces the id so a Grid-originated value is recognisable, and won't be confused with an
+    * `xmp.did:`/`uuid:` identifier written by Adobe tooling earlier in the image's life. */
+  private val DocumentIdPrefix = "grid:docid:"
+
   /**
    * The tags retained on a stripped download, written from Grid's reconciled metadata (so edits made
    * in Grid are reflected, not the values the file was uploaded with).
@@ -13,10 +17,11 @@ object DownloadMetadata {
    * IPTC:CopyrightNotice and XMP-dc:Rights in one go; Credit and TransmissionReference have no MWG
    * composite, so their IPTC and XMP homes are written explicitly.
    *
-   * The Grid id is additionally recorded in `XMP-xmpMM:OriginalDocumentID` so a downloaded file can
-   * still be traced back to the image it came from. Stripping changes the bytes, and a Grid id is a
-   * hash of those bytes, so a re-upload would otherwise be indistinguishable from a brand new image.
-   * Nothing reads this tag yet - acting on it at upload is a separate piece of work.
+   * The Grid id is additionally recorded in `XMP-xmpMM:OriginalDocumentID`, prefixed with
+   * `grid:docid:`, so a downloaded file can still be traced back to the image it came from.
+   * Stripping changes the bytes, and a Grid id is a hash of those bytes, so a re-upload would
+   * otherwise be indistinguishable from a brand new image. Nothing reads this tag yet - acting on it
+   * at upload is a separate piece of work, and will need to strip the prefix back off.
    */
   def retainedTags(image: Image): Map[String, String] = {
     val metadata = image.metadata
@@ -25,6 +30,6 @@ object DownloadMetadata {
       List("IPTC:Credit", "XMP-photoshop:Credit") -> metadata.credit,
       List("IPTC:OriginalTransmissionReference", "XMP-photoshop:TransmissionReference") -> metadata.suppliersReference
     ).collect { case (tags, Some(value)) if value.trim.nonEmpty => tags.map(_ -> value) }
-      .flatten.toMap + ("XMP-xmpMM:OriginalDocumentID" -> image.id)
+      .flatten.toMap + ("XMP-xmpMM:OriginalDocumentID" -> s"$DocumentIdPrefix${image.id}")
   }
 }

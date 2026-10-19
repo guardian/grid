@@ -38,13 +38,16 @@ class ExifToolTest extends AnyFunSpec with Matchers with ScalaFutures with Befor
   private val copyright = "© ACME 2026"
   private val credit = "ACME Picture Desk"
   private val imageId = "dd1b8b30c9e34c7f9c1f0a4e5b6d7e8f90123456"
+  // Mirrors the `grid:docid:` prefix DownloadMetadata applies - the colons make this worth
+  // exercising against the real binary, as they also separate a tag name from its value.
+  private val documentId = s"grid:docid:$imageId"
 
   /** The tags a download retains - mirrors `DownloadMetadata.retainedTags`. */
   private val retainedTags = Map(
     "MWG:Copyright" -> copyright,
     "IPTC:Credit" -> credit,
     "XMP-photoshop:Credit" -> credit,
-    "XMP-xmpMM:OriginalDocumentID" -> imageId
+    "XMP-xmpMM:OriginalDocumentID" -> documentId
   )
 
   /** A small JPEG carrying an ICC profile, an EXIF orientation and a spread of personal data. */
@@ -136,7 +139,8 @@ class ExifToolTest extends AnyFunSpec with Matchers with ScalaFutures with Befor
 
       tag(file, "EXIF:Copyright") shouldBe Some(copyright)
       tag(file, "IPTC:Credit") shouldBe Some(credit)
-      tag(file, "XMP-xmpMM:OriginalDocumentID") shouldBe Some(imageId)
+      // Colons in the value must survive intact, not be parsed as part of the tag name.
+      tag(file, "XMP-xmpMM:OriginalDocumentID") shouldBe Some(documentId)
     }
 
     it("fans MWG:Copyright out across the EXIF, IPTC and XMP copyright tags") {
