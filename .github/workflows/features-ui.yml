@@ -5,7 +5,9 @@ on:
   pull_request:
   workflow_dispatch:
 permissions:
+  id-token: write
   contents: read
+  pull-requests: write
   # Required to read/write the buildx layer cache stored as a GHCR package.
   packages: write
 jobs:
