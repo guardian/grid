@@ -14,6 +14,20 @@ services:
       - "9008:80"
     volumes:
       - "./dev/imgops/nginx.conf:/etc/nginx/nginx.conf"
+  imgproxy:
+    image: darthsim/imgproxy:latest
+    ports:
+      - "9016:8080"
+    environment:
+      IMGPROXY_ALLOW_INSECURE: "true"
+      IMGPROXY_HEALTH_CHECK_PATH: /health
+      IMGPROXY_ENABLE_WEBP_DETECTION: "true"
+      IMGPROXY_STRIP_METADATA: "true"
+      IMGPROXY_KEEP_COPYRIGHT: "true"
+      IMGPROXY_ALLOW_ORIGIN: "*"
+      IMGPROXY_ALLOWED_SOURCES: "http://localstack:4566/"
+    depends_on:
+      - localstack
   cerebro:
     image: lmenezes/cerebro
     ports:

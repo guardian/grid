@@ -8,6 +8,7 @@ case class ServiceHosts(
   cropperPrefix: String,
   metadataPrefix: String,
   imgopsPrefix: String,
+  imgproxyPrefix: String,
   usagePrefix: String,
   collectionsPrefix: String,
   leasesPrefix: String,
@@ -29,6 +30,7 @@ object ServiceHosts {
       cropperPrefix = s"cropper.$rootAppName.",
       metadataPrefix = s"$rootAppName-metadata.",
       imgopsPrefix = s"$rootAppName-imgops.",
+      imgproxyPrefix = s"$rootAppName-imgproxy.",
       usagePrefix = s"$rootAppName-usage.",
       collectionsPrefix = s"$rootAppName-collections.",
       leasesPrefix = s"$rootAppName-leases.",
@@ -38,13 +40,21 @@ object ServiceHosts {
   }
 }
 
-class Services(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: Set[String], domainRootOverride: Option[String] = None) {
+class Services(
+  val domainRoot: String,
+  hosts: ServiceHosts,
+  corsAllowedOrigins: Set[String],
+  domainRootOverride: Option[String] = None,
+  imgopsBaseUriOverride: Option[String] = None,
+  imgproxyBaseUriOverride: Option[String] = None
+) {
   val kahunaHost: String      = s"${hosts.kahunaPrefix}$domainRoot"
   val apiHost: String         = s"${hosts.apiPrefix}$domainRoot"
   val loaderHost: String      = s"${hosts.loaderPrefix}${domainRootOverride.getOrElse(domainRoot)}"
   val cropperHost: String     = s"${hosts.cropperPrefix}${domainRootOverride.getOrElse(domainRoot)}"
   val metadataHost: String    = s"${hosts.metadataPrefix}${domainRootOverride.getOrElse(domainRoot)}"
   val imgopsHost: String      = s"${hosts.imgopsPrefix}${domainRootOverride.getOrElse(domainRoot)}"
+  val imgproxyHost: String    = s"${hosts.imgproxyPrefix}${domainRootOverride.getOrElse(domainRoot)}"
   val usageHost: String       = s"${hosts.usagePrefix}${domainRootOverride.getOrElse(domainRoot)}"
   val collectionsHost: String = s"${hosts.collectionsPrefix}${domainRootOverride.getOrElse(domainRoot)}"
   val leasesHost: String      = s"${hosts.leasesPrefix}${domainRootOverride.getOrElse(domainRoot)}"
@@ -59,7 +69,8 @@ class Services(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: 
   val projectionBaseUri  = baseUri(projectionHost)
   val cropperBaseUri     = baseUri(cropperHost)
   val metadataBaseUri    = baseUri(metadataHost)
-  val imgopsBaseUri      = baseUri(imgopsHost)
+  val imgopsBaseUri      = imgopsBaseUriOverride.getOrElse(baseUri(imgopsHost))
+  val imgproxyBaseUri    = imgproxyBaseUriOverride.getOrElse(baseUri(imgproxyHost))
   val usageBaseUri       = baseUri(usageHost)
   val collectionsBaseUri = baseUri(collectionsHost)
   val leasesBaseUri      = baseUri(leasesHost)
