@@ -63,6 +63,9 @@ clears previous test results on the next run, so move recordings elsewhere to ar
 
 ### Feature library
 
+For architecture, source ownership, extension recipes and troubleshooting, see the
+[feature library developer guide](feature-library/README.md).
+
 Browse the Gherkin specifications alongside their recorded scenarios:
 
 ```bash
