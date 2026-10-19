@@ -220,6 +220,57 @@ function browserStub({ cached = false, top = 120, shiftsSupported = false, place
 }
 const flushPromises = () => new Promise((resolve) => setImmediate(resolve));
 
+test('visible thumbnail waits finish at decoded readiness, not at load', async () => {
+  const browser = browserStub({ top: 0 });
+  browser.frame(10);
+  browser.frame(50);
+  browser.load();
+  await flushPromises();
+  browser.frame(70);
+  browser.resolve();
+  await flushPromises();
+  browser.frame(90);
+  const result = browser.probe.stop();
+  assert.equal(result.thumbnailWaitCaptureRevision, 1);
+  assert.equal(result.thumbnailVisibleWaitCount, 1);
+  assert.equal(result.thumbnailVisibleWaitMaxMs, 80);
+  assert.equal(result.thumbnailVisibleWaitCompletedMaxMs, 80);
+  assert.equal(result.thumbnailVisibleWaitCompletedCount, 1);
+  assert.equal(result.thumbnailVisibleWaitCensoredCount, 0);
+});
+
+test('visible waits censor departure, source replacement and observation end separately', () => {
+  const browser = browserStub({ top: 0 });
+  browser.frame(10);
+  browser.frame(40);
+  browser.scrollTo(50, 120);
+  browser.frame(50);
+  browser.scrollTo(60, 20);
+  browser.frame(70);
+  browser.reuse();
+  browser.frame(100);
+  browser.frame(140);
+  const result = browser.probe.stop();
+  assert.equal(result.thumbnailVisibleWaitCount, 3);
+  assert.equal(result.thumbnailVisibleWaitMaxMs, 40);
+  assert.equal(result.thumbnailVisibleWaitCompletedMaxMs, null);
+  assert.equal(result.thumbnailVisibleWaitCompletedCount, 0);
+  assert.equal(result.thumbnailVisibleWaitCensoredCount, 3);
+});
+
+test('offscreen images and unobserved startup do not invent visible waits', () => {
+  for (const firstFrame of [false, true]) {
+    const browser = browserStub({ top: 120 });
+    if (firstFrame) browser.frame(20);
+    browser.elapse(40);
+    const result = browser.probe.stop();
+    assert.equal(result.thumbnailVisibleWaitCount, 0);
+    assert.equal(result.thumbnailVisibleWaitMaxMs, 0);
+    assert.equal(result.thumbnailVisibleWaitCompletedMaxMs, null);
+    assert.equal(result.thumbnailVisibleWaitCensoredCount, 0);
+  }
+});
+
 test('serialized observer separates missing-data placeholder exposure from thumbnail pending exposure', () => {
   for (const placeholder of [true, false]) {
     const browser = browserStub({ placeholder, top: 0 });

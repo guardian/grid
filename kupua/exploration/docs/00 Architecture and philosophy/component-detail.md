@@ -623,12 +623,17 @@ not also select/open its image. Browsing, selection and middle-click preview use
 
 Thumbnail admission follows the virtualizer's current visible row range, read after obtaining
 virtual items. A row-local React context carries eager loading for visible rows, including
-partial rows, and lazy loading for overscan. Only the small thumbnail component consumes it;
+partial rows, plus the next two available mounted rows below in both Grid and Justified.
+Rows above the range and remaining overscan stay lazy, as does the no-range fallback. This
+lower spatial band does not change with scroll direction and mounts no additional rows at
+the result end. Only the small thumbnail component consumes the context;
 the memoized metadata cell does not rerender for loading-only transitions. Ordinary image,
 enrichment and animation updates still reach the cell. Provider keys retain virtual-row identity
 without adding DOM wrappers. This adds no observer, scroll state, queue or geometry scan. URLs, quality,
 dimensions and the five-row overscan are unchanged. Native lazy loading may still prefetch;
 changing the attribute does not cancel already-admitted work or discard completed media.
+The [admission policy and trade-offs](../scroll-horizons-thumbs-and-blocking.md#current-decision)
+remain separate from data-window refill prediction and Justified packing.
 
 ## Justified Density (`components/JustifiedGrid.tsx`, `lib/windowed-justified-layout.ts`)
 

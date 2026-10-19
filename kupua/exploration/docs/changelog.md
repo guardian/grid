@@ -24,6 +24,29 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 19 October 2026 - Improve thumbnail readiness with measured two-row lookahead
+
+Extend eager thumbnail loading from the visible virtualizer range to the next two mounted
+rows below. Keep upper and remaining overscan lazy, five-row mounting, the no-range fallback
+and row-local thumbnail-only context updates. The band stays spatial during reversals; image
+sources, decoding, packing and data admission are unchanged. This selects a bounded forward
+readiness improvement while retaining the measured late-Justified and reversal/refresh trade-offs.
+
+Replace the obsolete all-lazy-overscan assertion with failing-first actual-virtualizer and DOM
+loading checks. Cover row geometry, retained offscreen entry without metadata-cell renders,
+zero/one-row result tails and the existing origin, remount, source/decode and request safeguards.
+Keep the media-fallback fixture's elected identity in its route closure so pending return-to-grid
+requests do not depend on a browser probe already removed during cleanup.
+
+Support the policy decision and future buffer/delivery work with generation-scoped visible
+waits, bounded CDP request cohorts and automatic D10 endurance/D11 refresh-under-media-load
+workloads. Preserve D1-D9 contracts and legacy API/ES byte semantics. Distinguish completed,
+pending, censored and unavailable observations; compute refresh deltas within repetitions.
+Expose the measurements in the density dashboard, backed by offline, browser and actual-app
+fixtures. Retain campaign and bounded-experiment evidence without private identities, signed URLs or payloads;
+do not add a permanent eager-row comparison matrix. B2 data prediction and F2 residual image
+delivery remain separate follow-up work.
+
 ### 18 October 2026 - Measure buffer-edge blocking and stopped-thumbnail recovery
 
 Add D9 burst/reversal and stopped-viewport recovery to normal density campaigns without

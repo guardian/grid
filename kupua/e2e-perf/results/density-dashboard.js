@@ -16,6 +16,8 @@
     "window-maintenance": ["D7 · Window eviction", "A jump into the admission band triggers real eviction. Not a constant-speed or necessarily equal-read-count comparison."],
     "scroll-constrained": ["D8 · Scroll / constrained network", "80ms latency and 4Mibit/s download during the four-second scroll only, including any data refills."],
     "burst-recovery": ["D9 · Burst, reverse and recover", "Fresh paired window; 3 seconds backward then 1.5 seconds forward at 4,000px/s. Browser-cache bypass continues through stopped-viewport recovery."],
+    "scroll-endurance": ["D10 · Sustained scroll", "Three consecutive eight-second segments at 1,200px/s. Early/middle/late measurements retain in-flight requests across boundaries; dispatch gaps are recorded."],
+    "refresh-contention": ["D11 · Search refresh / media overlap", "Matched same-query refreshes after drained versus active image traffic. Both use 80ms latency and 4Mibit/s download; check overlap evidence before interpreting a difference."],
   };
   // Value scale converts stored fractions into human percentages; histories remain untouched.
   const metricInfo = {
@@ -33,6 +35,22 @@
     thumbnailPendingAreaRatioMean: ["Average blank thumbnail area", "%", 100, "lower", "Time-weighted area awaiting thumbnail load/decode, as a percentage of the results viewport.", "Slot-based estimate, not exact paint; excludes missing data and failures. Table's narrow thumbnail column can conceal persistent blanks behind a small percentage."],
     thumbnailPendingAreaRatioMax: ["Worst sampled blank thumbnail area", "%", 100, "lower", "Largest sampled portion of the results viewport awaiting thumbnail load/decode.", "This is one frame sample, not the average and not bitmap-only area."],
     thumbnailBlankViewportMs: ["Time with any blank thumbnail", "ms", 1, "lower", "Time during which at least some visible thumbnail area was pending.", "4,000ms does not mean the entire viewport was blank for four seconds."],
+    thumbnailVisibleWaitMaxMs: ["Longest observed visible thumbnail wait", "ms", 1, "lower", "Longest observed continuous interval with a visible thumbnail awaiting load/decode.", "Includes lower bounds from censored waits. Departure, replacement, failure or observation end need not mean the image became ready."],
+    thumbnailVisibleWaitCompletedMaxMs: ["Longest completed visible thumbnail wait", "ms", 1, "lower", "Longest continuous visible wait observed to end in successful decode.", "Unavailable when no wait completed; compare censored waits too, not just successful images."],
+    thumbnailVisibleWaitCensoredCount: ["Visible thumbnail waits censored", "count", 1, "diagnostic", "Waits whose successful visible decode was not observed before departure, replacement, failure or observation end.", "These are visibility episodes, not unique images or permanent failures."],
+    mediaRequestStarts: ["Image requests started", "count", 1, "diagnostic", "Browser Image requests first observed during this measurement phase.", "Includes speculative work; fewer requests is not automatically better. Pre-existing requests outside the collector are not claimed."],
+    mediaRequestsPending: ["Image requests still in flight", "count", 1, "diagnostic", "Observed image requests still outstanding at the measurement boundary, including carry-in.", "This is network completion, not decode or paint; it can include off-screen work."],
+    mediaRequestsPeak: ["Peak image requests in flight", "count", 1, "diagnostic", "Peak outstanding observed image requests within the phase, including carry-in.", "Request concurrency is not active connection count or backend load."],
+    mediaCompletedBytes: ["Completed image transfer bytes", "kB", 0.001, "diagnostic", "CDP encoded transfer bytes for requests completed in the phase.", "Unavailable if redirect or missing-byte evidence prevents a complete total. Excludes pending/failed transfers; not backend work or decoded memory."],
+    mediaRequestDurationMaxMs: ["Slowest completed image request", "ms", 1, "lower", "Longest browser request-start to completion interval among timed completed image requests.", "Incomplete requests are excluded; inspect pending work and visible waits too."],
+    dataRequestStarts: ["Data requests started", "count", 1, "diagnostic", "Observed API/ES request starts during the phase.", "Can include counts or other overlapping data calls; this is not an exclusively action-owned request count."],
+    dataRequestsPending: ["Data requests still in flight", "count", 1, "diagnostic", "Observed API/ES requests outstanding at the measurement boundary.", "Data publication and visible placement may occur later than network completion."],
+    dataRequestDurationMaxMs: ["Slowest completed data request", "ms", 1, "lower", "Longest timed API/ES request interval completed during the phase.", "Browser-facing duration is not server CPU time and excludes unfinished requests."],
+    enduranceMaxGapMs: ["Largest endurance dispatch gap", "ms", 1, "lower", "Largest gap between consecutive controlled-scroll segments.", "A gap of 250ms or more invalidates the endurance capture; this is not a native-wheel measurement."],
+    refreshComparisonCensored: ["Refresh overlap comparison censored", "count", 1, "diagnostic", "One when required drained/active media and data-request conditions were not established; paired deltas remain unavailable.", "Inspect p95 and sample counts: a median zero alone does not prove every repetition was usable."],
+    refreshDataDeltaMs: ["Paired search publication delta", "ms", 1, "lower", "Media-active minus media-drained publication time, paired within each repetition; positive means slower.", "Unavailable without overlap evidence. This is not a difference of campaign medians or a server-only measurement."],
+    refreshPlacementDeltaMs: ["Paired search placement delta", "ms", 1, "lower", "Media-active minus media-drained placement time within the same repetition.", "Shares the action clocks with publication and media readiness; do not add these deltas."],
+    refreshMediaDeltaMs: ["Paired search decode delta", "ms", 1, "lower", "Media-active minus media-drained visible decode time within the same repetition.", "Unavailable when overlap or either decoded endpoint is censored. Do not add it to the publication delta."],
     decodedReadinessLeadPxMedian: ["Decoded before / after the screen edge", "px", 1, "lead", "Positive: decoded before entering the viewport. Negative: already inside when decoding completed.", "Initially ready pictures do not create a crossing event. Unavailable means insufficient observed events, not immediate readiness."],
     placementMs: ["Position settled", "ms", 1, "lower", "Action dispatch to observed stable placement of the intended image or destination.", "Placement does not imply thumbnail readiness. Includes driver dispatch; compare matching workload contracts."],
     mediaReadyMs: ["Visible thumbnails decoded", "ms", 1, "lower", "Action dispatch to successful decoding of the visible thumbnail set.", "Shares the placement clock's start: do not add these times. Layouts may show different numbers of pictures; censored results stay unavailable."],
@@ -46,6 +64,28 @@
     actualSpeedPxPerSec: ["Achieved scroll speed", "px/s", 1, "diagnostic", "Observed scroll distance divided by elapsed observation time.", "D1/D2/D8 target 1,200px/s. D7 is a tail-admission jump, not a constant-speed comparison; corrections can also affect scroll distance."],
     pendingAreaRatioMean: ["Average pending content area", "%", 100, "lower", "Time-weighted viewport area awaiting thumbnails OR missing result data.", "Combined diagnostic. Prefer thumbnail-only exposure when available; keep placeholder exposure separate."],
   };
+  for (const [prefix, label] of [["early", "Early"], ["middle", "Middle"], ["late", "Late"]]) {
+    for (const key of ["thumbnailPendingAreaRatioMean", "thumbnailVisibleWaitMaxMs", "thumbnailVisibleWaitCensoredCount",
+      "frameP95Ms", "drivenDistancePx", "mediaRequestStarts", "mediaRequestsPending", "mediaRequestsPeak",
+      "mediaCompletedBytes", "dataRequestStarts", "dataRequestsPending", "dataRequestDurationMaxMs"]) {
+      const [title, unit, scale, direction, description, caution] = metricInfo[key];
+      metricInfo[prefix + key[0].toUpperCase() + key.slice(1)] = [`${label} · ${title}`, unit, scale, direction,
+        `${label} eight-second endurance segment. ${description}`, caution];
+    }
+  }
+  for (const [prefix, label] of [["quiet", "Media-drained"], ["busy", "Media-active"]]) {
+    for (const [key, title, caution] of [
+      ["DataReadyMs", "search data published", "Action-owned store publication, not a latest-store timing snapshot or server-only duration."],
+      ["PlacementMs", "search position settled", "Shares the action start with publication and media readiness; do not add the times."],
+      ["MediaReadyMs", "visible search images decoded", "Unavailable recovery remains censored, not a deadline-valued success. This is not exact paint."],
+    ]) metricInfo[prefix + key] = [`${label} · ${title}`, "ms", 1, "lower", "Measured from this same-query refresh dispatch.", caution];
+    metricInfo[prefix + "MediaPendingAtDispatch"] = [`${label} · image requests at dispatch`, "count", 1, "diagnostic",
+      "Observed image requests active at the action timestamp.", "Unknown clocks remain unavailable. A completed off-screen image is not by itself a priority violation."];
+    metricInfo[prefix + "DataPendingAtDispatch"] = [`${label} · data requests at dispatch`, "count", 1, "diagnostic",
+      "Observed pre-existing API/ES requests active at refresh dispatch.", "Existing data traffic can confound a media-only contention comparison."];
+    metricInfo[prefix + "MediaCensored"] = [`${label} · visible decode censored`, "count", 1, "diagnostic",
+      "One when visible decoded readiness was not established.", "Inspect censoring alongside readiness times."];
+  }
   const allMetrics = [...new Set(rows.flatMap(row => Object.keys(row.record.metrics ?? {})))].sort();
   const environments = [...new Set(entries.map(e => e.environmentCompatibilityKey).filter(Boolean))];
   const friendlyEnv = key => {
@@ -58,7 +98,8 @@
     });
     return `${label}${same.length > 1 ? ` · configuration ${same.indexOf(key) + 1}` : ""}`;
   };
-  const profileName = p => p?.includes("recovery") ? "Burst / reversal recovery" : p?.includes("scroll-only") ? "Constrained scroll" : p?.includes("unthrottled") ? "Unthrottled" : "Other / historical profile";
+  const profileName = p => p?.includes("endurance") ? "Sustained scroll" : p?.includes("refresh-media-overlap") ? "Search / media overlap"
+    : p?.includes("recovery") ? "Burst / reversal recovery" : p?.includes("scroll-only") ? "Constrained scroll" : p?.includes("unthrottled") ? "Unthrottled" : "Other / historical profile";
   const infoFor = key => {
     if (metricInfo[key]) return metricInfo[key];
     const unit = /AreaMs$/.test(key) ? "px²·ms" : /Ratio/.test(key) ? "%" : /PxPerSec/.test(key) ? "px/s"

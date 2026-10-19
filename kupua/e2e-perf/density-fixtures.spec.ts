@@ -5,6 +5,8 @@ import { getDensityChangeButton } from "../e2e/shared/density-selection";
 import { installThumbnailProbe } from "./thumbnail-probe.mjs";
 import { selectDensity, electAnchor, waitForPlacement, visibleMediaReadiness, scrollAtSpeed, withDensityScrollNetwork, measureDensityRecovery } from "./density-browser";
 import { DENSITY_SCENARIOS, validateDensityRecord } from "./density-reporting.mjs";
+import { createRequestProbe } from "./network-probe.mjs";
+import * as densityDrivers from "./density-browser";
 
 const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="blue"/></svg>';
 
@@ -30,6 +32,126 @@ async function mountDensityDashboard(page: Page, entries: unknown[]) {
 async function sampleFrames(page: Page, count = 4) {
   await page.evaluate(async count => { for (let i = 0; i < count; i++) await new Promise(requestAnimationFrame); }, count);
 }
+
+test("request collector observes real CDP starts and carries an unfinished image across a phase", async ({ page }) => {
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/*", route => route.fulfill({ status: 404, body: "fixture only" }));
+  await page.route("https://fixture.invalid/blank", route => route.fulfill({ contentType: "text/html", body: "<body></body>" }));
+  await page.route("https://fixture.invalid/held.svg", async route => {
+    await gate;
+    await route.fulfill({ contentType: "image/svg+xml", body: svg });
+  });
+  await page.goto("https://fixture.invalid/blank");
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Network.enable");
+  const requests = createRequestProbe(cdp);
+  try {
+    await page.evaluate(() => { const image = new Image(); image.src = "/held.svg"; document.body.append(image); });
+    await expect.poll(() => requests.snapshot().mediaRequestStarts).toBe(1);
+    const actionEpoch = await page.evaluate(() => performance.timeOrigin + performance.now());
+    requests.beginPhase();
+    release();
+    await expect.poll(() => requests.snapshot().mediaRequestsPending).toBe(0);
+    const metrics = requests.snapshot();
+    expect(metrics.mediaRequestsCarryIn).toBe(1);
+    expect(metrics.mediaRequestStarts).toBe(0);
+    expect(metrics.mediaRequestsCompleted).toBe(1);
+    expect(requests.pendingAt("media", actionEpoch)).toBe(1);
+    expect(JSON.stringify(metrics)).not.toContain("fixture.invalid");
+  } finally { release(); requests.dispose(); await cdp.detach(); }
+});
+
+test("D10 records consecutive phase metrics and disposes its observers", async ({ page }) => {
+  await fixture(page);
+  const source = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+  await page.getByRole("region").evaluate((region, source) => {
+    region.setAttribute("data-scrubber-mode", "seek");
+    region.innerHTML = Array.from({ length: 200 }, (_, index) =>
+      `<div data-grid-cell data-image-id="fixture-${index}" style="height:100px"><div class="slot"><img src="${source}"></div></div>`).join("");
+    region.scrollTop = 1000;
+    const state = { loading: false, _browseNavigation: null, results: Array(1000), bufferOffset: 1000,
+      total: 70000, _extendForwardInFlight: false, _extendBackwardInFlight: false };
+    (window as any).__kupua_store__ = { getState: () => state };
+  }, source);
+  await sampleFrames(page);
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Network.enable");
+  const requests = createRequestProbe(cdp);
+  try {
+    const metrics = await densityDrivers.measureDensityEndurance(page, "grid", requests, { phaseDurationMs: 120 });
+    expect(metrics.endurancePhaseCount).toBe(3);
+    expect(metrics.enduranceInterrupted).toBe(0);
+    for (const prefix of ["early", "middle", "late"]) {
+      expect(metrics[`${prefix}DrivenDistancePx`]).toBeGreaterThan(100);
+      expect(metrics[`${prefix}RequestCaptureRevision`]).toBe(1);
+      expect(metrics[`${prefix}MediaRequestsPending`]).toBe(0);
+      expect(metrics[`${prefix}FrameP95Ms`]).toBeGreaterThan(0);
+    }
+    expect(await page.evaluate(() => Boolean((window as any).__kupua_thumbnailProbe))).toBe(false);
+  } finally { requests.dispose(); await cdp.detach(); }
+});
+
+test("D11 clocks its own publication, placement and visible decode", async ({ page }) => {
+  await fixture(page);
+  await page.locator("img").evaluateAll((images, source) => {
+    for (const image of images) image.setAttribute("src", source);
+  }, `data:image/svg+xml,${encodeURIComponent(svg)}`);
+  await page.evaluate(() => {
+    const listeners = new Set<(next: any, previous: any) => void>();
+    let state: any;
+    const update = (next: any) => { const previous = state; state = next; for (const callback of listeners) callback(state, previous); };
+    state = { loading: false, _browseNavigation: null, results: [{ id: "fixture-a" }], search: async () => {
+      update({ ...state, loading: true });
+      await new Promise(resolve => setTimeout(resolve, 40));
+      update({ ...state, loading: false, results: [{ id: "fixture-a" }] });
+    } };
+    (window as any).__kupua_store__ = { getState: () => state, subscribe: (callback: (next: any, previous: any) => void) => {
+      listeners.add(callback);
+      return () => { listeners.delete(callback); (window as any).__refreshUnsubscribed = true; };
+    } };
+  });
+  const result = await densityDrivers.measureSearchRefresh(page, "grid");
+  expect(result.dataReadyMs).toBeGreaterThanOrEqual(30);
+  expect(result.placementMs).toBeGreaterThanOrEqual(result.dataReadyMs);
+  expect(result.mediaReadyMs).toBeGreaterThanOrEqual(result.placementMs);
+  expect(result.mediaCensored).toBe(0);
+  expect(await page.evaluate(() => (window as any).__refreshUnsubscribed && !(window as any).__densityRefresh)).toBe(true);
+});
+
+test("D11 rejects a refresh without publication and still releases its subscription", async ({ page }) => {
+  await fixture(page);
+  await page.evaluate(() => {
+    const state = { loading: false, results: ["old"], search: async () => {} };
+    (window as any).__kupua_store__ = { getState: () => state,
+      subscribe: () => () => { (window as any).__refreshUnsubscribed = true; } };
+  });
+  await expect(densityDrivers.measureSearchRefresh(page, "grid")).rejects.toThrow("Refresh did not publish");
+  expect(await page.evaluate(() => (window as any).__refreshUnsubscribed && !(window as any).__densityRefresh)).toBe(true);
+});
+
+test("visible-wait dashboard supports phase/action metrics and unavailable historical values", async ({ page }) => {
+  const value = (median: number | null) => ({ median, p95: median, sampleCount: median === null ? 0 : 4 });
+  await mountDensityDashboard(page, [{ label: "Measurement fixture", timestamp: "2026-10-18", environmentCompatibilityKey: "fixture",
+    metrics: { "D10-grid": { id: "D10-grid", scenarioRevision: 1, density: "grid", workload: "scroll-endurance",
+      profile: "density-v1-1200pxs-3x8s-endurance", cacheClass: "fixture", resultRegime: "seek", completionBoundary: "fixture",
+      contractKey: "fixture-endurance", sampleCount: 4, metrics: { lateMediaRequestsPending: value(3),
+        thumbnailVisibleWaitCompletedMaxMs: value(null), thumbnailVisibleWaitCensoredCount: value(2), busyDataReadyMs: value(125),
+        refreshDataDeltaMs: value(-25), refreshComparisonCensored: value(0) } } } }]);
+  await page.getByLabel("Metric", { exact: true }).selectOption("lateMediaRequestsPending");
+  await expect(page.locator("#metric-title")).toContainText("Late");
+  await expect(page.locator("#metric-title")).toContainText("Image requests still in flight");
+  await page.getByLabel("Metric", { exact: true }).selectOption("thumbnailVisibleWaitCompletedMaxMs");
+  await expect(page.locator("#metric-caution")).toContainText("censored");
+  await expect(page.locator("#cards")).toContainText("unavailable");
+  await page.getByLabel("Metric", { exact: true }).selectOption("busyDataReadyMs");
+  await expect(page.locator("#metric-title")).toContainText("Media-active");
+  await expect(page.locator("#cards")).toContainText("125 ms");
+  await page.getByLabel("Metric", { exact: true }).selectOption("refreshDataDeltaMs");
+  await expect(page.locator("#cards")).toContainText("-25 ms");
+  await expect(page.locator("#metric-caution")).toContainText("not a difference of campaign medians");
+  await expect(page.locator("#all-metrics")).not.toBeChecked();
+});
 
 for (const searchStarted of [null, 0, 1]) {
   test(`results readiness timeout exposes sanitized bootstrap state (${searchStarted ?? "unavailable"})`, async ({ page }) => {

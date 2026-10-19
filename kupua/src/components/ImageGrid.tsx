@@ -960,7 +960,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
           if (justifiedLayout && !row) return null;
           const startIdx = row?.firstItemIndex ?? virtualRow.index * columns;
           const indices = row ? Array.from({ length: row.lastItemIndex - row.firstItemIndex + 1 }, (_, index) => index) : columnIndices;
-          const thumbnailLoading = visibleRange && virtualRow.index >= visibleRange.startIndex && virtualRow.index <= visibleRange.endIndex
+          const thumbnailLoading = visibleRange && virtualRow.index >= visibleRange.startIndex && virtualRow.index <= visibleRange.endIndex + 2
             ? "eager" : "lazy";
           return (
             <ThumbnailLoadingContext.Provider key={virtualRow.key} value={thumbnailLoading}>

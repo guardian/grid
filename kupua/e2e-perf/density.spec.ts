@@ -3,8 +3,9 @@ import { appendFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { test, expect } from "./helpers";
 import type { KupuaHelpers } from "../e2e/shared/helpers";
-import { selectDensity, electAnchor, establishDensitySource, restoreDensitySource, prepareDensityMaintenance, waitForDensityMaintenanceCooldown, withDensityScrollNetwork, scrollToDensityTail, waitForDensityEviction, scrubDensityTo, waitForPlacement, visibleMediaReadiness, scrollAtSpeed, prepareDensityRecovery, measureDensityRecovery, type Density } from "./density-browser";
+import { selectDensity, electAnchor, establishDensitySource, restoreDensitySource, prepareDensityMaintenance, waitForDensityMaintenanceCooldown, withDensityScrollNetwork, scrollToDensityTail, waitForDensityEviction, scrubDensityTo, waitForPlacement, visibleMediaReadiness, scrollAtSpeed, prepareDensityRecovery, measureDensityRecovery, measureDensityEndurance, measureDensityRefreshContention, type Density } from "./density-browser";
 import { installThumbnailProbe } from "./thumbnail-probe.mjs";
+import { createRequestProbe } from "./network-probe.mjs";
 import { DENSITY_SCENARIOS, DENSITY_WORKLOADS, validateDensityRecord } from "./density-reporting.mjs";
 
 const runIndex = Number(process.env.KUPUA_DENSITY_RUN_INDEX ?? 0);
@@ -28,9 +29,11 @@ async function prepare(kupua: KupuaHelpers) {
 
 for (const workload of DENSITY_WORKLOADS) {
   test(`density ${workload}: matched layouts with explicit media boundary`, async ({ kupua, page }) => {
+    if (["scroll-endurance", "refresh-contention"].includes(workload)) test.setTimeout(180000);
     const cdp = await page.context().newCDPSession(page);
     await cdp.send("Network.enable");
-    const options: Density[] = workload.startsWith("scroll") ? ["grid", "justified", "table"] : ["grid", "justified"];
+    const requests = ["burst-recovery", "scroll-endurance", "refresh-contention"].includes(workload) ? createRequestProbe(cdp) : null;
+    const options: Density[] = DENSITY_SCENARIOS.filter(scenario => scenario.workload === workload).map(scenario => scenario.density);
     const order = runIndex % options.length;
     const densities = [...options.slice(order), ...options.slice(0, order)];
     try {
@@ -42,12 +45,23 @@ for (const workload of DENSITY_WORKLOADS) {
         const scenario = DENSITY_SCENARIOS.find(item => item.density === density && item.workload === workload);
         if (!scenario) throw new Error("Missing density scenario contract");
         let metrics: Record<string, number | null>;
-        if (workload === "burst-recovery") {
+        if (workload === "refresh-contention") {
+          if (density === "table") throw new Error("D11 requires an image layout");
+          metrics = await measureDensityRefreshContention(page, density, cdp, requests!, runIndex);
+        } else if (workload === "scroll-endurance") {
+          if (density === "table") throw new Error("D10 requires an image layout");
+          await selectDensity(page, density);
+          await prepareDensityRecovery(page, density);
+          await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
+          try { metrics = await measureDensityEndurance(page, density, requests!); }
+          finally { await cdp.send("Network.setCacheDisabled", { cacheDisabled: false }); }
+        } else if (workload === "burst-recovery") {
           if (density === "table") throw new Error("D9 requires an image layout");
           await selectDensity(page, density);
           await prepareDensityRecovery(page, density);
           await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
-          try { metrics = await measureDensityRecovery(page, density); }
+          requests!.beginPhase();
+          try { metrics = { ...await measureDensityRecovery(page, density), ...requests!.snapshot() }; }
           finally { await cdp.send("Network.setCacheDisabled", { cacheDisabled: false }); }
         } else if (workload.startsWith("scroll") || workload === "window-maintenance") {
           await selectDensity(page, density);
@@ -125,6 +139,7 @@ for (const workload of DENSITY_WORKLOADS) {
         });
       }
     } finally {
+      requests?.dispose();
       await page.evaluate(() => {
         (window as any).__kupua_thumbnailProbe?.dispose();
         delete (window as any).__kupua_thumbnailProbe;

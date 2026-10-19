@@ -8,6 +8,12 @@ import {
   resolveSuiteSelection, validateDensityRecord, validateDensityRun,
 } from "./density-reporting.mjs";
 import { assertSameEnvironment, parseSuccessfulRun } from "./harness-validation.mjs";
+import { createRequestProbe } from "./network-probe.mjs";
+import * as densityReporting from "./density-reporting.mjs";
+
+const emptyRequestProbe = createRequestProbe({ on() {}, off() {} });
+const emptyRequestMetrics = emptyRequestProbe.snapshot();
+emptyRequestProbe.dispose();
 
 function record(scenario = DENSITY_SCENARIOS[0], value = 10) {
   const metrics = Object.fromEntries(REQUIRED_DENSITY_METRICS[scenario.workload].map(name => [name, /Ratio/.test(name) ? 0.25 : value]));
@@ -20,6 +26,23 @@ function record(scenario = DENSITY_SCENARIOS[0], value = 10) {
     peakRefillsInFlight: 1, refillsPendingAtEnd: 0,
     forwardReadStarts: 1, backwardReadStarts: 1, readStartsAfterStop: 0,
   });
+  if (scenario.workload === "scroll-endurance") {
+    Object.assign(metrics, { endurancePhaseCount: 3, enduranceMaxGapMs: 2, enduranceInterrupted: 0 });
+    for (const prefix of ["early", "middle", "late"]) {
+      for (const [name, value] of Object.entries(emptyRequestMetrics)) metrics[prefix + name[0].toUpperCase() + name.slice(1)] = value;
+    }
+  }
+  if (scenario.workload === "refresh-contention") {
+    Object.assign(metrics, { refreshComparisonCensored: 1, refreshDataDeltaMs: null,
+      refreshPlacementDeltaMs: null, refreshMediaDeltaMs: null });
+    for (const prefix of ["quiet", "busy"]) Object.assign(metrics, {
+      [`${prefix}DataReadyMs`]: value, [`${prefix}PlacementMs`]: value,
+      [`${prefix}MediaReadyMs`]: value, [`${prefix}MediaCensored`]: 0,
+      [`${prefix}VisibleMediaCount`]: 2, [`${prefix}DecodedMediaCount`]: 2,
+      [`${prefix}FailedMediaCount`]: 0, [`${prefix}MediaPendingAtDispatch`]: 0,
+      [`${prefix}DataPendingAtDispatch`]: 0,
+    });
+  }
   return { ...scenario, resultRegime: "seek", metrics };
 }
 const run = (value = 10) => DENSITY_SCENARIOS.map(scenario => record(scenario, value));
@@ -31,14 +54,77 @@ const environment = () => ({
   workers: 1, stableUntil: "2026-02-15T00:00:00.000Z", gitSha: "one",
 });
 
+test("visible-wait metrics preserve old records and validate completed/censored episodes", () => {
+  assert.equal(validateDensityRecord(record()).metrics.thumbnailWaitCaptureRevision, undefined);
+  const sample = record();
+  Object.assign(sample.metrics, {
+    thumbnailWaitCaptureRevision: 1, thumbnailVisibleWaitCount: 2,
+    thumbnailVisibleWaitMaxMs: 150, thumbnailVisibleWaitCompletedMaxMs: 100,
+    thumbnailVisibleWaitCompletedCount: 1, thumbnailVisibleWaitCensoredCount: 1,
+  });
+  validateDensityRecord(sample);
+  for (const change of [
+    { thumbnailWaitCaptureRevision: 2 }, { thumbnailVisibleWaitCensoredCount: 0.5 },
+    { thumbnailVisibleWaitCount: 3 }, { thumbnailVisibleWaitMaxMs: 50 },
+    { thumbnailVisibleWaitCompletedMaxMs: null },
+  ]) assert.throws(() => validateDensityRecord({ ...sample, metrics: { ...sample.metrics, ...change } }), /visible thumbnail wait/);
+});
+
 test("manifest is additive, directly spreadable and has only the approved Table diagnostics", () => {
-  assert.equal(DENSITY_SCENARIOS.length, 21);
-  assert.equal(new Set(DENSITY_METRIC_IDS).size, 21);
+  assert.equal(DENSITY_SCENARIOS.length, 25);
+  assert.equal(new Set(DENSITY_METRIC_IDS).size, 25);
   assert.deepEqual(DENSITY_SCENARIOS.filter(s => s.density === "table").map(s => s.id), ["D1-table", "D2-table", "D8-table"]);
-  assert.ok(DENSITY_SCENARIOS.every(s => s.scenarioRevision === (s.workload === "burst-recovery" ? 1 : s.workload === "window-maintenance" ? 3 : 2)));
-  assert.ok(DENSITY_SCENARIOS.every(s => s.profile === (s.workload === "burst-recovery" ? DENSITY_RECOVERY_PROFILE : s.workload === "scroll-constrained" ? DENSITY_CONSTRAINED_PROFILE : DENSITY_PROFILE)));
+  assert.ok(DENSITY_SCENARIOS.slice(0, 21).every(s => s.scenarioRevision === (s.workload === "burst-recovery" ? 1 : s.workload === "window-maintenance" ? 3 : 2)));
+  assert.ok(DENSITY_SCENARIOS.slice(0, 21).every(s => s.profile === (s.workload === "burst-recovery" ? DENSITY_RECOVERY_PROFILE : s.workload === "scroll-constrained" ? DENSITY_CONSTRAINED_PROFILE : DENSITY_PROFILE)));
   assert.ok(DENSITY_SCENARIOS.every(s => !Object.hasOwn(s, "requiredMetrics")));
-  assert.equal(validateDensityRun(run()).length, 21);
+  assert.equal(validateDensityRun(run()).length, 25);
+});
+
+test("endurance and refresh overlap have separate contracts without extra Table workloads", () => {
+  const endurance = DENSITY_SCENARIOS.filter(scenario => scenario.workload === "scroll-endurance");
+  const refresh = DENSITY_SCENARIOS.filter(scenario => scenario.workload === "refresh-contention");
+  assert.deepEqual(endurance.map(scenario => scenario.id), ["D10-grid", "D10-justified"]);
+  assert.deepEqual(refresh.map(scenario => scenario.id), ["D11-grid", "D11-justified"]);
+  assert.ok([...endurance, ...refresh].every(scenario => scenario.scenarioRevision === 1));
+  assert.ok(endurance.every(scenario => scenario.profile === "density-v1-1200pxs-3x8s-endurance"));
+  assert.ok(refresh.every(scenario => scenario.profile === "density-v1-refresh-media-overlap-80ms-4mbps"));
+  const sample = record(endurance[0]);
+  assert.throws(() => validateDensityRecord({ ...sample, metrics: { ...sample.metrics, enduranceInterrupted: 1 } }), /endurance/);
+  const overlap = record(refresh[0]);
+  validateDensityRecord(overlap);
+  assert.throws(() => validateDensityRecord({ ...overlap, metrics: { ...overlap.metrics,
+    refreshComparisonCensored: 0 } }), /refresh/);
+});
+
+test("phase readiness leads stay signed while invalid request balances are rejected", () => {
+  const sample = record(DENSITY_SCENARIOS.find(scenario => scenario.id === "D10-grid"));
+  sample.metrics.earlyDecodedReadinessLeadPxMedian = -100;
+  validateDensityRecord(sample);
+  assert.throws(() => validateDensityRecord({ ...sample, metrics: { ...sample.metrics,
+    earlyMediaRequestsPending: 1 } }), /request cohort/);
+});
+
+test("refresh deltas are paired per repetition and unsupported overlap is explicitly censored", () => {
+  const metrics = {
+    quietMediaPendingAtDispatch: 0, busyMediaPendingAtDispatch: 2,
+    quietDataPendingAtDispatch: 0, busyDataPendingAtDispatch: 0, quietPrimingMediaCensored: 0,
+    quietDataRequestStarts: 1, busyDataRequestStarts: 1, quietDataHttpErrors: 0, busyDataHttpErrors: 0,
+    quietDataRequestFailures: 0, busyDataRequestFailures: 0,
+    quietDataReadyMs: 40, busyDataReadyMs: 80, quietPlacementMs: 50, busyPlacementMs: 90,
+    quietMediaReadyMs: 100, busyMediaReadyMs: 120, quietMediaCensored: 0, busyMediaCensored: 0,
+  };
+  assert.deepEqual(densityReporting.refreshComparisonMetrics(metrics), {
+    refreshComparisonCensored: 0, refreshDataDeltaMs: 40, refreshPlacementDeltaMs: 40, refreshMediaDeltaMs: 20,
+  });
+  const faster = densityReporting.refreshComparisonMetrics({ ...metrics, busyDataReadyMs: 30, busyPlacementMs: 40, busyMediaReadyMs: 90 });
+  assert.equal(faster.refreshDataDeltaMs, -10);
+  for (const change of [{ busyMediaPendingAtDispatch: 0 }, { quietMediaPendingAtDispatch: null },
+    { quietPrimingMediaCensored: 1 }, { quietDataHttpErrors: 1 }, { quietDataRequestStarts: 0 }]) {
+    assert.deepEqual(densityReporting.refreshComparisonMetrics({ ...metrics, ...change }), {
+      refreshComparisonCensored: 1, refreshDataDeltaMs: null, refreshPlacementDeltaMs: null, refreshMediaDeltaMs: null,
+    });
+  }
+  assert.equal(densityReporting.refreshComparisonMetrics({ ...metrics, busyMediaCensored: 1, busyMediaReadyMs: null }).refreshMediaDeltaMs, null);
 });
 
 test("revision 2 separates normal workloads from automatically included constrained scroll", () => {
@@ -51,7 +137,7 @@ test("revision 2 separates normal workloads from automatically included constrai
   assert.ok(DENSITY_SCENARIOS.filter(s => s.workload === "scroll-cold").every(s =>
     s.cacheClass === constrained[0].cacheClass && s.profile === DENSITY_PROFILE));
   assert.ok(DENSITY_SCENARIOS.filter(s => s.workload === "scroll-warm").every(s => s.cacheClass === "browser-repeat-path"));
-  const sessionWarm = DENSITY_SCENARIOS.filter(s => !s.workload.startsWith("scroll-") && s.workload !== "burst-recovery");
+  const sessionWarm = DENSITY_SCENARIOS.slice(0, 21).filter(s => !s.workload.startsWith("scroll-") && s.workload !== "burst-recovery");
   assert.equal(sessionWarm.length, 10);
   assert.ok(sessionWarm.every(s => s.cacheClass === "browser-session-setup-renderer-warm-proxy-uncontrolled"));
   const maintenance = sessionWarm.filter(s => s.workload === "window-maintenance");
@@ -338,7 +424,7 @@ test("paired deltas use only jointly available medians and never synthesize unav
   records[1].metrics.readinessLeadPxMedian = null;
   const metrics = aggregateDensityRuns([records]);
   const pairs = pairedDensityComparisons(metrics, environment());
-  assert.equal(pairs.length, 9);
+  assert.equal(pairs.length, 11);
   assert.equal(pairs[0].deltas.elapsedMs, 7);
   assert.equal(pairs[0].deltas.readinessLeadPxMedian, undefined);
   metrics[records[1].id].cacheClass = "other";

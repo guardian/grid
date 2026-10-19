@@ -152,14 +152,15 @@ interpreting them as latency. Remove only the symlink when finished if it is no 
 The comparison suite covers scrolling with browser-cache bypass and repeat-path setup,
 Table→image-layout switching, detail return, scrubber seek, width reflow and window eviction.
 It retains one paired source identity and rotates density order between repetitions.
-It also includes D9 burst/reversal recovery for Grid and Justified: nine workloads produce
-21 density records per repetition. D9 is automatic with `--suite justified`, `--suite combined`
-and `--full`; there is no extra flag. D1-D8 retain their existing contracts and history.
+It also includes D9 burst/reversal recovery, D10 sustained scrolling and D11 media-overlap
+refresh comparisons for Grid and Justified: eleven workloads produce 25 density records per
+repetition. These are automatic with `--suite justified`, `--suite combined` and `--full`;
+there is no extra flag or eager-row matrix. D1-D9 retain their existing workload contracts.
 
-Normal workloads and all startup/setup are **unthrottled**. One automatically included
-constrained-scroll family runs across Grid, Justified and Table: 80ms latency, 4Mibit/s download,
-1Mibit/s upload, only during its four-second observation window. It constrains page requests,
-including possible data refills—not just thumbnail bytes. There is no separate throttle flag.
+Startup and source restoration are **unthrottled**. D8 constrains its four-second scroll;
+D11 constrains both priming movement and refresh arms. Both use 80ms latency, 4Mibit/s download
+and 1Mibit/s upload, affecting data requests as well as images. Other observations are
+unthrottled. There is no separate throttle flag.
 
 D1/D2/D8 scroll observations use a time-based animation-frame loop at 1,200px/s, with achieved movement
 recorded. This is not physical wheel-device certification. The normal viewport is 1720×960,
@@ -196,6 +197,65 @@ temporary buffer stall; indexed modes may expose missing data without a physical
 The dashboard includes the new outcomes and cost fields in its ordinary metric selector,
 with units and interpretation cautions. D9 uses a separate revision/profile; older campaigns
 have no D9 points. Do not manufacture historical values or compare different workload clocks.
+
+### Visible waits and request cohorts
+
+The thumbnail observer adds `thumbnailWaitCaptureRevision: 1` without changing older exposure
+fields. `thumbnailVisibleWaitMaxMs` is the longest observed continuous visible load/decode
+wait; unfinished episodes are censored on departure, replacement, failure or observation end.
+`thumbnailVisibleWaitCompletedMaxMs` is unavailable if no episode completed. Inspect
+`thumbnailVisibleWaitCensoredCount` alongside it. These are frame-sampled episodes, not unique
+images or exact painted latency; historical missing values remain unavailable.
+
+D9-D11 also use `requestCaptureRevision: 1`, a bounded CDP collector. `media*` counts browser
+HTTP Image requests, not every possible media-fetch mechanism; `data*` counts API/ES traffic.
+Starts, completions, failures/cancellations, carry-in, pending/peak counts and completed-request
+durations are separate. A phase retains earlier requests still in flight. Byte totals use CDP
+encoded transfer evidence and remain unavailable for incomplete redirect/byte evidence; known
+partial totals stay separately labelled. Pending/failed transfers are not completed bytes.
+These are browser-boundary observations, not backend work, visibility-priority classifications
+or proof that cancellation saves server work. Existing Resource Timing `networkBytes` semantics
+are unchanged. No request URLs, identities, bodies or headers enter campaign records.
+
+### Sustained scrolling
+
+D10 uses three consecutive eight-second segments at 1,200px/s, with no deliberate pause.
+`early*`, `middle*` and `late*` fields expose blank area, visible waits, frames, achieved movement,
+buffer blocking and request cohorts separately. `enduranceMaxGapMs` records dispatch gaps;
+250ms or more invalidates the capture. Observer wait episodes are censored at segment
+boundaries, while network requests carry across them. Compare pending work and actual movement,
+not just average blank area: a growing queue or stalled viewport must not look like improvement.
+Browser-cache bypass spans the observation; proxy/CDN caches remain uncontrolled.
+
+### Search refresh under media load
+
+D11 alternates drained/active arm order between repetitions. Both arms restore the same source,
+load an extra page for runway and make the same 1,500ms priming scroll under constrained
+transport. A refill/window change during priming invalidates setup. The drained arm waits for
+observed traffic and visible media; the active arm dispatches immediately. The action reissues
+the same query, not a typing or different-query cancellation workflow.
+
+`quiet*`/`busy*` publication, placement and visible-decode times belong to that action and share
+its start clock. CDP lifetimes establish pending media/data at dispatch. `refreshComparisonCensored`
+is one when the intended drained/active conditions or usable data-request evidence are absent;
+this is not evidence that contention is harmless. `refreshDataDeltaMs`, `refreshPlacementDeltaMs`
+and `refreshMediaDeltaMs` are active-minus-drained differences **within each repetition**, not
+differences of campaign medians. Unsupported pairs remain null; decoded endpoints can be
+separately censored. Inspect censor p95 and sample counts, not just median timings. Valid overlap
+does not prove that all of a timing difference came from images; backend/cache variation remains.
+
+### Recorded measurement baseline
+
+The local media-api instrumentation baseline is `thumbnail measurement baseline - current policy`
+(18 October 2026); its historical "current" policy is visible-only eager loading. The completed
+`2 eager thumbnail rows at bottom` full campaign (19 October) measures the implemented lower
+band. Both have four repetitions; see the [assessment and remaining B2/F2 work](../exploration/docs/scroll-horizons-thumbs-and-blocking.md#post-lookahead-campaign).
+Do not repeat the initial setup campaign merely because a new session starts.
+
+For a separately selected comparison, keep contracts, backend mode, viewport and cache conditions
+comparable and freeze files/configuration during runs. Shared-tab previews do not affect fresh
+campaign browsers. Temporary policy variants require verified treatment provenance, not a
+permanent eager-row matrix; preserve historical fingerprints and unavailable metrics.
 
 ### Reading the measurements
 

@@ -17,11 +17,12 @@ synthetic direct-TEST reproduction and verification passed, but natural-workflow
 
 ## At a Glance
 
-**Current recorded status: 12 October 2026.** The 20 entries below have an open defect,
+**Current recorded status: 19 October 2026.** The 21 entries below have an open defect,
 approval/integration/review task or explicit residual; 37 additional IDs have completed bounded repairs or verification.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
-not a fresh remote check. The 12 October update adds GRID-017; other dispositions have not been revalidated.
+not a fresh remote check. The 12 October update added GRID-017; the 19 October update adds
+KUP-041's API cancellation/resource-lifetime gap. Other dispositions have not been revalidated.
 Update this overview when a detailed disposition changes.
 
 **Operator scheduling decision, 23 September:** KUP-029/030 were deferred until after a working
@@ -54,6 +55,7 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [KUP-011](#kup-011) | Parsed intent versus automatic defaults | Open; Grid replaced-intent subset in PR #4957, prototype alignment outstanding | Prerequisite: S2 admitted query meaning |
 | [KUP-037](#kup-037) | Collection badges silently use the free-only default scope | Open; source and recorded API body confirm both modes agree | Independent count/label correctness; not an M2a routing gate |
 | [KUP-040](#kup-040) | Arrival polling dispatches with an impossible upload interval | Open, parked; source and local API historical-window evidence | Independent request efficiency; preserve useful tab notifications |
+| [KUP-041](#kup-041) | API cancellation does not reach outgoing Elasticsearch reads | Open; cancellation handle is not retained, backend work observed after browser cancellation | Independent resource-lifetime follow-up; not a proven PP3 cause or migration gate |
 
 KUP-038 is closed against the ledger's completed B8/L37/B17 repairs, not a new fix.
 KUP-011/037 have no closure evidence from continuity work and remain separately scoped.
@@ -537,6 +539,16 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **User contract:** preserve foreground/background polling for searches that can receive arrivals, the tab title/icon and badge notifications, useful baseline/cumulative tickers, and already-known arrivals restored with their matching browse boundary. Do not disable polling merely because a tab is hidden, has an upper date bound or returned zero. A future upper bound, or a restored freeze earlier than the upper bound, can still leave an eligible interval. These upload-arrival polls do not promise detection of later metadata edits to older pictures.
 - **Smallest discriminator:** use existing fake-timer/store fixtures to compare lower-before-upper, equal and lower-after-upper instants; only impossible intervals should issue no datasource count. Retain open-ended/future-bound positive arrivals, visibility transitions, restored count/boundary, query replacement and stale-publication controls. Compare date instants, including supported timezone representations; do not weaken invalid-date handling.
 - **Dependency / disposition:** OPEN, independently parked on 6 October; recording is not implementation approval. This is request-efficiency work, not removal or redesign of background notifications, a new refresh guarantee or a tier/migration gate.
+
+#### KUP-041
+**API cancellation does not reach outgoing Elasticsearch reads**
+- **Component / responsibility:** Kupua's API-backed read lifecycle across [browser signals](../../src/dal/grid-api-search-adapter.ts), [ordered-read controllers](../../../media-api/app/controllers/ImageQueryController.scala), and the [shared ES execution/client](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/ElasticSearchExecutions.scala). API integration ownership, with shared-client changes requiring explicit permission and review of other Grid consumers.
+- **Trigger / actual:** a search, focus operation or aggregation is superseded, times out or loses its browser context after media-api has started an ES read. The browser request is aborted, but the Play action returns a Scala Future and the installed elastic4s `JavaClient.send(...): Unit` discards the Java REST client's `Cancellable` handle. No examined incoming-disconnect path cancels that upstream read. Independent frontend controllers and generation guards still protect current UI state; they do not establish backend resource release.
+- **Expected direction, not a stronger guarantee:** explicitly own the lifetime of supported read-only API work and provide best-effort cancellation or a justified bounded-work alternative when its consumer disappears. Direct-to-ES mode has no intervening Play/Future boundary, but closing its browser request is not proof that every ES task immediately stops. Do not promise universal server cancellation or change accepted presentation semantics.
+- **Evidence / limits:** [transport investigation and cancellation trace](../experiments/es-transport/README.md#cancellation-and-test-lifecycle-investigation--19-october-2026), 19 October. Captured focus reads continued until a roughly 30-second backend socket timeout after browser cancellation at about eight seconds. This demonstrates continued upstream request lifetime, not 22 seconds of proven ES computation. Aggregation cancellation was also present in passing campaigns, and no direct path from one aggregation abort to a different Java request was found. The facet-specific backend savings and production incidence are unmeasured. **This is not an established cause of PP3's incomplete-request failures.**
+- **Smallest discriminator:** isolate the actual API/Future/client boundary with a held synthetic ES response, cancel the incoming consumer, and observe the outgoing handle/connection lifetime. Cover cancellation before dispatch, during send, while awaiting response, and after completion, plus an unrelated concurrent read and a successor using the same client. Mocked browser `signal.aborted` alone is insufficient. Preserve noncancelled success, refusal/error behavior, response compression, routing/authentication and stale-publication guards; verify callback cleanup and no shared-pool shutdown or cross-request cancellation.
+- **Scope decision before implementation:** identify an appropriate Play disconnect/cancellation hook and the narrow set of owned read operations; assess whether retaining client handles or a bounded alternative is worth the complexity. Exclude writes and unrelated legacy consumers by default. Do not add a global cancellation manager, retries, new failure UI or longer timeouts as substitutes. If upstream cancellation is supported, describe its actual boundary rather than infer ES task termination from a closed socket.
+- **Dependency / disposition:** OPEN as an independent performance/resource-lifetime follow-up, recorded at operator request on 19 October. Not an initial API migration gate, a production incident claim, or permission to change shared/server code. Investigate and fix this scope separately from the unresolved transport failure.
 
 ### Dependency Unresolved
 

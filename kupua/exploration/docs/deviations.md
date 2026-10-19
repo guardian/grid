@@ -8,7 +8,7 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-10-15
+Last updated: 2026-10-18
 
 ---
 
@@ -689,6 +689,22 @@ assumption for when permissions are wired up.
 ---
 
 ## From library defaults / conventions
+
+### Explicit Two-Row Thumbnail Lookahead (18 October 2026)
+
+[ImageGrid](../../src/components/ImageGrid.tsx) explicitly requests eager loading for the
+virtualizer's visible rows and the next two mounted rows below, shared by Grid and Justified.
+It does not leave those lower overscan rows to the browser's lazy-loading distance heuristic.
+Above-range and remaining overscan stay lazy; five-row mounting, no-range fallback and
+thumbnail-only context updates remain unchanged. The band is spatial even during upward
+scrolling, with no direction state, scheduler, decoding hint or additional data admission.
+
+This favors ordinary forward readiness at the cost of earlier media work. Bounded screening
+improved Grid and early Justified exposure, but not late Justified exposure; Grid reversal
+frame p95 increased by 2.4-2.9ms, and drained-refresh latency showed an approximately 62ms
+median paired increase with unresolved causality. These are retained trade-offs, not a claim
+of universal improvement. Browser-managed lazy images may still prefetch outside the band;
+changing loading does not cancel prior work. See the [decision and evidence](scroll-horizons-thumbs-and-blocking.md#current-decision).
 
 ### Balanced Technical Justified-Block Endings (15 October 2026)
 

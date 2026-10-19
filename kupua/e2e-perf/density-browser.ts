@@ -1,6 +1,8 @@
 import type { CDPSession, Page } from "@playwright/test";
 import { getDensityChangeButton, type Density } from "../e2e/shared/density-selection";
 import { installThumbnailProbe } from "./thumbnail-probe.mjs";
+import type { RequestProbe } from "./network-probe.mjs";
+import { refreshComparisonMetrics } from "./density-reporting.mjs";
 
 export type { Density } from "../e2e/shared/density-selection";
 
@@ -335,7 +337,7 @@ export async function scrollAtSpeed(page: Page, density: Density, speed: number,
       last = now;
     }
     return { commandedSpeedPxPerSec: speed, drivenDistancePx: actual, drivenDurationMs: last - start, drivenFrames: frames,
-      ...(measureBounds ? { physicalClampMs, bufferEdgeBlockedMs, clampedDistancePx, stoppedAtPerformanceMs } : {}) };
+      ...(measureBounds ? { physicalClampMs, bufferEdgeBlockedMs, clampedDistancePx, startedAtPerformanceMs: start, stoppedAtPerformanceMs } : {}) };
   }, { density, speed, duration, measureBounds: options.measureBounds === true });
 }
 
@@ -462,5 +464,149 @@ export async function measureDensityRecovery(page: Page, density: "grid" | "just
       delete (window as any).__densityRecovery;
       (window as any).__kupua_thumbnailProbe?.dispose();
     });
+  }
+}
+
+function prefixedMetrics(prefix: string, metrics: Record<string, number | null>) {
+  return Object.fromEntries(Object.entries(metrics).map(([name, value]) => [prefix + name[0].toUpperCase() + name.slice(1), value]));
+}
+
+export async function measureDensityEndurance(page: Page, density: "grid" | "justified", requests: RequestProbe,
+  { phaseDurationMs = 8000 }: { phaseDurationMs?: number } = {}) {
+  const metrics: Record<string, number | null> = { endurancePhaseCount: 0, enduranceMaxGapMs: 0, enduranceInterrupted: 0 };
+  let previousStop: number | null = null;
+  try {
+    for (const prefix of ["early", "middle", "late"]) {
+      requests.beginPhase();
+      await page.evaluate(installThumbnailProbe, { density });
+      const movement = await scrollAtSpeed(page, density, 1200, phaseDurationMs, { measureBounds: true });
+      const exposure = await page.evaluate(() => (window as any).__kupua_thumbnailProbe.stop());
+      const { startedAtPerformanceMs, stoppedAtPerformanceMs, ...motion } = movement;
+      if (previousStop !== null) metrics.enduranceMaxGapMs = Math.max(metrics.enduranceMaxGapMs!, startedAtPerformanceMs! - previousStop);
+      previousStop = stoppedAtPerformanceMs!;
+      Object.assign(metrics, prefixedMetrics(prefix, { ...exposure, ...motion, ...requests.snapshot() }));
+      metrics.endurancePhaseCount!++;
+    }
+    metrics.enduranceInterrupted = metrics.enduranceMaxGapMs! >= 250 ? 1 : 0;
+    return metrics;
+  } finally {
+    await page.evaluate(() => (window as any).__kupua_thumbnailProbe?.dispose());
+  }
+}
+
+export async function measureSearchRefresh(page: Page, density: "grid" | "justified") {
+  try {
+    const action = await page.evaluate(async () => {
+      const store = (window as any).__kupua_store__;
+      const initial = store.getState();
+      const startedAt = performance.now();
+      const probe = { startedAt, actionEpochMs: performance.timeOrigin + startedAt,
+        dataReadyMs: null as number | null, ids: new Set<string>(), unsubscribe: () => {} };
+      (window as any).__densityRefresh = probe;
+      probe.unsubscribe = store.subscribe((state: any, previous: any) => {
+        if (probe.dataReadyMs === null && !state.loading && state.results.length > 0
+          && (state.results !== initial.results || previous.loading)) {
+          probe.dataReadyMs = performance.now() - startedAt;
+          probe.ids = new Set(state.results.map((image: any) => image.id));
+        }
+      });
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([store.getState().search(), new Promise((_resolve, reject) => {
+          timer = setTimeout(() => reject(new Error("Refresh action timed out")), 10000);
+        })]);
+      } catch { throw new Error("Density refresh action failed"); }
+      finally { clearTimeout(timer); }
+      if (store.getState().error || probe.dataReadyMs === null) throw new Error("Refresh did not publish results");
+      return { startedAt, actionEpochMs: probe.actionEpochMs, dataReadyMs: probe.dataReadyMs };
+    });
+    await page.evaluate(async density => {
+      const probe = (window as any).__densityRefresh;
+      while (performance.now() - probe.startedAt < 10000) {
+        await new Promise(requestAnimationFrame);
+        if (document.visibilityState !== "visible") throw new Error("Refresh requires a foreground page");
+        const region = document.querySelector(`[aria-label="Image results ${density}"]`);
+        if (!region) continue;
+        const bounds = region.getBoundingClientRect();
+        const cells = [...region.querySelectorAll<HTMLElement>("[data-grid-cell]")].filter(cell => {
+          const rect = cell.getBoundingClientRect();
+          return rect.bottom > bounds.top && rect.top < bounds.bottom;
+        });
+        if (cells.length > 0 && cells.every(cell => probe.ids.has(cell.dataset.imageId))) return;
+      }
+      throw new Error("Refresh published results did not become visible");
+    }, density);
+    const remaining = () => page.evaluate(start => Math.max(0, 10000 - (performance.now() - start)), action.startedAt);
+    const placementMs = await waitForPlacement(page, density, false, action.startedAt, await remaining());
+    const media = await visibleMediaReadiness(page, density, action.startedAt, await remaining());
+    return { actionEpochMs: action.actionEpochMs, dataReadyMs: action.dataReadyMs, placementMs, ...media };
+  } finally {
+    await page.evaluate(() => {
+      (window as any).__densityRefresh?.unsubscribe();
+      delete (window as any).__densityRefresh;
+    });
+  }
+}
+
+export async function measureDensityRefreshContention(page: Page, density: "grid" | "justified",
+  cdp: CDPSession, requests: RequestProbe, runIndex = 0) {
+  const metrics: Record<string, number | null> = {};
+  const order = runIndex % 2 ? ["busy", "quiet"] : ["quiet", "busy"];
+  try {
+    for (const prefix of order) {
+      await cdp.send("Network.emulateNetworkConditions", { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+      await cdp.send("Network.setCacheDisabled", { cacheDisabled: false });
+      await restoreDensitySource(page);
+      await selectDensity(page, density);
+      await prepareDensityRecovery(page, density);
+      await page.evaluate(async () => {
+        const store = (window as any).__kupua_store__;
+        const before = store.getState().results.length;
+        await store.getState().extendForward();
+        if (store.getState().results.length <= before) throw new Error("Refresh setup could not establish runway");
+        (window as any).__densityRefreshPrimingResults = store.getState().results;
+      });
+      await waitForWindowIdle(page);
+      await waitForPlacement(page, density, true);
+      await visibleMediaReadiness(page, density, await page.evaluate(() => performance.now()));
+      await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
+      await cdp.send("Network.emulateNetworkConditions", { offline: false, latency: 80,
+        downloadThroughput: 4 * 1024 * 1024 / 8, uploadThroughput: 1024 * 1024 / 8 });
+      const priming = await scrollAtSpeed(page, density, 1200, 1500, { measureBounds: true });
+      const stable = await page.evaluate(() => {
+        const state = (window as any).__kupua_store__.getState();
+        return state.results === (window as any).__densityRefreshPrimingResults
+          && !state._extendForwardInFlight && !state._extendBackwardInFlight;
+      });
+      if (!stable || priming.bufferEdgeBlockedMs! > 0 || priming.drivenDistancePx < 1200) {
+        throw new Error("Refresh priming changed the data window or failed to move");
+      }
+      let primingMediaCensored: number | null = null;
+      if (prefix === "quiet") {
+        const deadline = Date.now() + 5000;
+        while (Date.now() < deadline) {
+          const snapshot = requests.snapshot();
+          if (snapshot.mediaRequestsPending === 0 && snapshot.dataRequestsPending === 0) {
+            const ready = await visibleMediaReadiness(page, density, await page.evaluate(() => performance.now()), Math.max(0, deadline - Date.now()));
+            primingMediaCensored = ready.mediaCensored;
+            await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+            if (requests.snapshot().mediaRequestsPending === 0 && requests.snapshot().dataRequestsPending === 0) break;
+          }
+          await page.waitForTimeout(25);
+        }
+      }
+      requests.beginPhase();
+      const { actionEpochMs, ...action } = await measureSearchRefresh(page, density);
+      Object.assign(metrics, prefixedMetrics(prefix, { ...action, ...requests.snapshot(),
+        mediaPendingAtDispatch: requests.pendingAt("media", actionEpochMs),
+        dataPendingAtDispatch: requests.pendingAt("data", actionEpochMs), primingMediaCensored,
+        primingDistancePx: priming.drivenDistancePx }));
+    }
+    Object.assign(metrics, refreshComparisonMetrics(metrics));
+    return metrics;
+  } finally {
+    await page.evaluate(() => { delete (window as any).__densityRefreshPrimingResults; });
+    await cdp.send("Network.emulateNetworkConditions", { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+    await cdp.send("Network.setCacheDisabled", { cacheDisabled: false });
   }
 }

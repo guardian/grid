@@ -1,6 +1,6 @@
 // Pure campaign contracts: importing this module never starts a browser or writes history.
 export const DENSITY_WORKLOADS = Object.freeze([
-  "scroll-cold", "scroll-warm", "table-transition", "detail-return", "seek", "reflow", "window-maintenance", "scroll-constrained", "burst-recovery",
+  "scroll-cold", "scroll-warm", "table-transition", "detail-return", "seek", "reflow", "window-maintenance", "scroll-constrained", "burst-recovery", "scroll-endurance", "refresh-contention",
 ]);
 export const REQUIRED_SCROLL_METRICS = Object.freeze([
   "pendingAreaRatioMean", "pendingAreaRatioMax", "blankViewportMs", "exposureAreaMs",
@@ -10,8 +10,18 @@ export const REQUIRED_SCROLL_METRICS = Object.freeze([
 export const DENSITY_PROFILE = "density-v2-1200pxs-unthrottled";
 export const DENSITY_CONSTRAINED_PROFILE = "density-v2-1200pxs-80ms-4mbps-scroll-only";
 export const DENSITY_RECOVERY_PROFILE = "density-v1-4000pxs-3s-back-1.5s-forward-10s-recovery";
+export const DENSITY_ENDURANCE_PROFILE = "density-v1-1200pxs-3x8s-endurance";
+export const DENSITY_CONTENTION_PROFILE = "density-v1-refresh-media-overlap-80ms-4mbps";
 export const REQUIRED_DENSITY_METRICS = Object.freeze(Object.fromEntries(DENSITY_WORKLOADS.map((workload) => [
-  workload, workload === "burst-recovery" ? Object.freeze([...REQUIRED_SCROLL_METRICS,
+  workload, workload === "scroll-endurance" ? Object.freeze([
+    "endurancePhaseCount", "enduranceMaxGapMs", "enduranceInterrupted",
+    ...["early", "middle", "late"].flatMap(prefix => ["ThumbnailPendingAreaRatioMean", "FrameP95Ms",
+      "DrivenDistancePx", "DrivenDurationMs", "RequestCaptureRevision", "MediaRequestStarts",
+      "MediaRequestsPending", "MediaRequestsCarryIn", "DataRequestStarts"].map(name => prefix + name)),
+  ]) : workload === "refresh-contention" ? Object.freeze([
+    "refreshComparisonCensored", ...["quiet", "busy"].flatMap(prefix => ["DataReadyMs", "PlacementMs",
+      "MediaCensored", "VisibleMediaCount", "DecodedMediaCount", "FailedMediaCount"].map(name => prefix + name)),
+  ]) : workload === "burst-recovery" ? Object.freeze([...REQUIRED_SCROLL_METRICS,
     "physicalClampMs", "bufferEdgeBlockedMs", "clampedDistancePx", "drivenDurationMs", "drivenDistancePx",
     "forwardReadStarts", "backwardReadStarts", "readStartsAfterStop", "peakRefillsInFlight", "refillsPendingAtEnd",
     "stopDataCensored", "stopMediaCensored", "stopVisibleMediaCount", "stopDecodedMediaCount", "stopFailedMediaCount",
@@ -24,20 +34,26 @@ export const REQUIRED_DENSITY_METRICS = Object.freeze(Object.fromEntries(DENSITY
 // Entries are directly spreadable into JSONL records. Required-metric metadata is
 // separate so the manifest never introduces non-contract record fields.
 export const DENSITY_SCENARIOS = Object.freeze(DENSITY_WORKLOADS.flatMap((workload, index) =>
-  (workload.startsWith("scroll-")
+  (["scroll-cold", "scroll-warm", "scroll-constrained"].includes(workload)
     ? ["grid", "justified", "table"] : ["grid", "justified"]).map((density) => Object.freeze({
     id: `D${index + 1}-${density}`,
-    scenarioRevision: workload === "burst-recovery" ? 1 : workload === "window-maintenance" ? 3 : 2,
+    scenarioRevision: ["burst-recovery", "scroll-endurance", "refresh-contention"].includes(workload) ? 1 : workload === "window-maintenance" ? 3 : 2,
     density,
     workload,
-    profile: workload === "burst-recovery" ? DENSITY_RECOVERY_PROFILE
+    profile: workload === "scroll-endurance" ? DENSITY_ENDURANCE_PROFILE
+      : workload === "refresh-contention" ? DENSITY_CONTENTION_PROFILE
+      : workload === "burst-recovery" ? DENSITY_RECOVERY_PROFILE
       : workload === "scroll-constrained" ? DENSITY_CONSTRAINED_PROFILE : DENSITY_PROFILE,
     // Cold media requests are an observation-window condition, never cold startup.
-    cacheClass: workload === "burst-recovery" ? "browser-cache-disabled-during-burst-and-recovery-renderer-warm-proxy-uncontrolled"
+    cacheClass: workload === "scroll-endurance" ? "browser-cache-disabled-during-endurance-renderer-warm-proxy-uncontrolled"
+      : workload === "refresh-contention" ? "browser-cache-disabled-during-prime-and-refresh-renderer-warm-proxy-uncontrolled"
+      : workload === "burst-recovery" ? "browser-cache-disabled-during-burst-and-recovery-renderer-warm-proxy-uncontrolled"
       : workload === "scroll-cold" || workload === "scroll-constrained"
       ? "browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled"
       : workload === "scroll-warm" ? "browser-repeat-path" : "browser-session-setup-renderer-warm-proxy-uncontrolled",
-    completionBoundary: workload === "burst-recovery" ? "burst-dispatch-to-motion-end-and-stopped-viewport-recovery"
+    completionBoundary: workload === "scroll-endurance" ? "three-consecutive-eight-second-controlled-scroll-segments"
+      : workload === "refresh-contention" ? "same-query-refresh-dispatch-to-publication-placement-and-visible-decode"
+      : workload === "burst-recovery" ? "burst-dispatch-to-motion-end-and-stopped-viewport-recovery"
       : workload.startsWith("scroll-") ? "four-second-controlled-scroll"
       : workload === "window-maintenance" ? "tail-admission-first-forward-eviction-visible-anchor" : "driver-dispatch-to-observed-placement-and-visible-decode",
     ...(workload === "window-maintenance" ? { geometryScope: "loaded-window" } : {}),
@@ -132,6 +148,23 @@ function stable(value) {
 }
 const keyFor = (value) => JSON.stringify(stable(value));
 
+export function refreshComparisonMetrics(metrics) {
+  const usable = metrics.quietMediaPendingAtDispatch === 0 && metrics.busyMediaPendingAtDispatch > 0
+    && metrics.quietDataPendingAtDispatch === 0 && metrics.busyDataPendingAtDispatch === 0
+    && metrics.quietPrimingMediaCensored === 0 && metrics.quietDataRequestStarts > 0 && metrics.busyDataRequestStarts > 0
+    && metrics.quietDataHttpErrors === 0 && metrics.busyDataHttpErrors === 0
+    && metrics.quietDataRequestFailures === 0 && metrics.busyDataRequestFailures === 0
+    && [metrics.quietDataReadyMs, metrics.busyDataReadyMs, metrics.quietPlacementMs, metrics.busyPlacementMs].every(Number.isFinite);
+  const mediaUsable = usable && metrics.quietMediaCensored === 0 && metrics.busyMediaCensored === 0
+    && Number.isFinite(metrics.quietMediaReadyMs) && Number.isFinite(metrics.busyMediaReadyMs);
+  return {
+    refreshComparisonCensored: usable ? 0 : 1,
+    refreshDataDeltaMs: usable ? metrics.busyDataReadyMs - metrics.quietDataReadyMs : null,
+    refreshPlacementDeltaMs: usable ? metrics.busyPlacementMs - metrics.quietPlacementMs : null,
+    refreshMediaDeltaMs: mediaUsable ? metrics.busyMediaReadyMs - metrics.quietMediaReadyMs : null,
+  };
+}
+
 export function validateDensityRecord(record) {
   if (!isObject(record)) throw new Error("Density record must be an object");
   const scenario = DENSITY_SCENARIOS.find(({ id }) => id === record.id);
@@ -153,20 +186,65 @@ export function validateDensityRecord(record) {
     // Leads are signed: negative means readiness arrived after viewport entry.
     // The remaining capture metrics are nonnegative counts, durations, distances
     // or exposure/shift magnitudes; normalized ratios additionally have an upper bound.
-    if (value !== null && value < 0 && !/^(?:decoded)?readinessLeadPx/i.test(name)) {
+    if (value !== null && value < 0 && !/^(?:early|middle|late|quiet|busy)?(?:decoded)?readinessLeadPx/i.test(name)
+      && !/^refresh(?:Data|Placement|Media)DeltaMs$/.test(name)) {
       throw new Error(`${record.id}: negative metric ${name}`);
     }
     if (value !== null && /Ratio/.test(name) && (value < 0 || value > 1)) {
       throw new Error(`${record.id}: ratio outside 0..1: ${name}`);
     }
   }
-  for (const name of ["trackingOverflow", "regionDetached"]) {
-    if (Object.hasOwn(record.metrics, name) && record.metrics[name] !== 0) {
+  for (const name of Object.keys(record.metrics)) {
+    if (/(trackingOverflow|regionDetached|requestCaptureOverflow)$/i.test(name) && record.metrics[name] !== 0) {
       throw new Error(`${record.id}: observer invalidated capture (${name})`);
     }
   }
   for (const name of REQUIRED_DENSITY_METRICS[scenario.workload]) {
     if (!Number.isFinite(record.metrics[name])) throw new Error(`${record.id}: missing finite ${name}`);
+  }
+  for (const prefix of ["", "early", "middle", "late", "quiet", "busy"]) {
+    const metrics = prefix ? Object.fromEntries(Object.entries(record.metrics)
+      .filter(([name]) => name.startsWith(prefix) && /^[A-Z]/.test(name.slice(prefix.length)))
+      .map(([name, value]) => [name[prefix.length].toLowerCase() + name.slice(prefix.length + 1), value])) : record.metrics;
+    if (metrics.thumbnailWaitCaptureRevision !== undefined) {
+    const counts = [metrics.thumbnailVisibleWaitCount, metrics.thumbnailVisibleWaitCompletedCount,
+      metrics.thumbnailVisibleWaitCensoredCount];
+    if (metrics.thumbnailWaitCaptureRevision !== 1 || !counts.every(value => Number.isInteger(value) && value >= 0)
+      || counts[0] !== counts[1] + counts[2] || !Number.isFinite(metrics.thumbnailVisibleWaitMaxMs)
+      || (counts[0] === 0 && metrics.thumbnailVisibleWaitMaxMs !== 0)
+      || (counts[1] === 0 ? metrics.thumbnailVisibleWaitCompletedMaxMs !== null
+        : !Number.isFinite(metrics.thumbnailVisibleWaitCompletedMaxMs)
+          || metrics.thumbnailVisibleWaitCompletedMaxMs > metrics.thumbnailVisibleWaitMaxMs)) {
+      throw new Error(`${record.id}: invalid visible thumbnail wait accounting`);
+    }
+    }
+    if (metrics.requestCaptureRevision !== undefined) {
+      if (metrics.requestCaptureRevision !== 1 || metrics.requestCaptureOverflow !== 0
+        || !Number.isInteger(metrics.requestCaptureTracked) || metrics.requestCaptureTracked < 0
+        || metrics.requestCaptureTracked > 10000) throw new Error(`${record.id}: invalid request capture`);
+      for (const kind of ["media", "data"]) {
+        const counts = ["RequestsCarryIn", "RequestStarts", "RequestsCompleted", "RequestFailures",
+          "RequestCancellations", "RequestsPending", "RequestsPeak", "UnknownByteRequests",
+          "RequestRedirects", "CacheResponses", "HttpErrors", "TimedCompletions"];
+        const value = name => metrics[kind + name];
+        if (!counts.every(name => Number.isInteger(value(name)) && value(name) >= 0)
+          || value("RequestsCarryIn") + value("RequestStarts") !== value("RequestsCompleted") + value("RequestFailures") + value("RequestsPending")
+          || value("RequestsPeak") < Math.max(value("RequestsCarryIn"), value("RequestsPending"))
+          || value("RequestsPeak") > value("RequestsCarryIn") + value("RequestStarts")
+          || value("RequestCancellations") > value("RequestFailures")
+          || value("UnknownByteRequests") > value("RequestsCompleted")
+          || value("CacheResponses") > value("RequestsCompleted")
+          || value("TimedCompletions") > value("RequestsCompleted")
+          || !Number.isFinite(value("KnownCompletedBytes"))
+          || (value("UnknownByteRequests") > 0 ? value("CompletedBytes") !== null : value("CompletedBytes") !== value("KnownCompletedBytes"))
+          || (value("TimedCompletions") === 0
+            ? value("RequestDurationMaxMs") !== null || value("RequestDurationMeanMs") !== null
+            : !Number.isFinite(value("RequestDurationMaxMs")) || !Number.isFinite(value("RequestDurationMeanMs"))
+              || value("RequestDurationMeanMs") > value("RequestDurationMaxMs") + 0.000001)) {
+          throw new Error(`${record.id}: invalid request cohort accounting`);
+        }
+      }
+    }
   }
   if (record.metrics.layoutShiftSupported !== undefined) {
     if (![0, 1].includes(record.metrics.layoutShiftSupported)
@@ -177,7 +255,26 @@ export function validateDensityRecord(record) {
   }
   // Placement and media readiness are distinct: optional media can remain absent,
   // but a timeout must be explicitly censored, never a deadline-valued success.
-  if (record.workload === "burst-recovery") {
+  if (record.workload === "scroll-endurance") {
+    if (record.metrics.endurancePhaseCount !== 3 || record.metrics.enduranceInterrupted !== 0
+      || record.metrics.enduranceMaxGapMs >= 250) throw new Error(`${record.id}: interrupted endurance observation`);
+  } else if (record.workload === "refresh-contention") {
+    const metrics = record.metrics;
+    for (const prefix of ["quiet", "busy"]) {
+      const value = name => metrics[prefix + name];
+      if (![0, 1].includes(value("MediaCensored")) || value("PlacementMs") < value("DataReadyMs")
+        || !["VisibleMediaCount", "DecodedMediaCount", "FailedMediaCount"].every(name => Number.isInteger(value(name)) && value(name) >= 0)
+        || value("DecodedMediaCount") + value("FailedMediaCount") > value("VisibleMediaCount")
+        || (value("MediaCensored") ? value("MediaReadyMs") !== null
+          : !Number.isFinite(value("MediaReadyMs")) || value("MediaReadyMs") < value("PlacementMs")
+            || value("VisibleMediaCount") === 0 || value("DecodedMediaCount") !== value("VisibleMediaCount"))) {
+        throw new Error(`${record.id}: invalid refresh readiness`);
+      }
+    }
+    if (Object.entries(refreshComparisonMetrics(metrics)).some(([name, value]) => metrics[name] !== value)) {
+      throw new Error(`${record.id}: invalid refresh overlap evidence`);
+    }
+  } else if (record.workload === "burst-recovery") {
     const metrics = record.metrics;
     const counts = ["forwardReadStarts", "backwardReadStarts", "readStartsAfterStop", "peakRefillsInFlight",
       "refillsPendingAtEnd", "stopVisibleMediaCount", "stopDecodedMediaCount", "stopFailedMediaCount"];

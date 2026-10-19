@@ -174,6 +174,11 @@ export function installThumbnailProbe(options, helpersOnly = false) {
   const maxTrackedEntries = 10000;
   let trackedEntriesMax = 0;
   let trackingOverflow = 0;
+  let thumbnailVisibleWaitCount = 0;
+  let thumbnailVisibleWaitMaxMs = 0;
+  let thumbnailVisibleWaitCompletedMaxMs = null;
+  let thumbnailVisibleWaitCompletedCount = 0;
+  let thumbnailVisibleWaitCensoredCount = 0;
   const started = performance.now();
   let lastTime = started;
   let exposureStartedAt = null;
@@ -251,6 +256,16 @@ export function installThumbnailProbe(options, helpersOnly = false) {
       if (!record.alreadyLoaded && lead(record, decodes) < 0) lateDecodedCount++;
     }).catch(() => fail(record, true));
   }
+  function finishVisibleWait(record, now, completed) {
+    if (record?.visibleWaitStartedAt == null) return;
+    const duration = Math.max(0, now - record.visibleWaitStartedAt);
+    thumbnailVisibleWaitMaxMs = Math.max(thumbnailVisibleWaitMaxMs, duration);
+    if (completed) {
+      thumbnailVisibleWaitCompletedCount++;
+      thumbnailVisibleWaitCompletedMaxMs = Math.max(thumbnailVisibleWaitCompletedMaxMs ?? 0, duration);
+    } else thumbnailVisibleWaitCensoredCount++;
+    record.visibleWaitStartedAt = null;
+  }
   function refresh(observedLoadImage = null) {
     if (!dirty) return;
     dirty = false;
@@ -273,7 +288,12 @@ export function installThumbnailProbe(options, helpersOnly = false) {
     if (cells.length > maxTrackedEntries) trackingOverflow = 1;
     const boundedCells = cells.slice(0, maxTrackedEntries);
     const boundedSet = new Set(boundedCells);
-    for (const element of records.keys()) if (!boundedSet.has(element)) records.delete(element);
+    for (const element of records.keys()) {
+      if (!boundedSet.has(element)) {
+        finishVisibleWait(records.get(element), performance.now(), false);
+        records.delete(element);
+      }
+    }
     for (const element of boundedCells) {
       const identity = element.getAttribute('data-image-id') || '';
       if (identity) order.push(identity);
@@ -292,6 +312,7 @@ export function installThumbnailProbe(options, helpersOnly = false) {
       retained.add(element);
       const old = records.get(element);
       if (old && sameGeneration(old, state) && old.slot === slot) { ready(old); continue; }
+      finishVisibleWait(old, performance.now(), false);
       const previous = old || history.get(element);
       if (previous) {
         if (previous.identity !== identity) imageIdentityChanges++;
@@ -301,13 +322,18 @@ export function installThumbnailProbe(options, helpersOnly = false) {
       history.set(element, state);
       const alreadyLoaded = Boolean(image && image !== observedLoadImage && source && image.complete && image.naturalWidth > 0);
       const record = { ...state, slot, thumbnailHeader, alreadyLoaded, loaded: false, decoded: false,
-        failed: false, decodeStarted: false };
+        failed: false, decodeStarted: false, visibleWaitStartedAt: null };
       records.set(element, record);
       if (alreadyLoaded) alreadyLoadedCount++;
       if (image && source && image.complete && image.naturalWidth === 0) fail(record);
       else ready(record);
     }
-    for (const element of records.keys()) if (!retained.has(element)) records.delete(element);
+    for (const element of records.keys()) {
+      if (!retained.has(element)) {
+        finishVisibleWait(records.get(element), performance.now(), false);
+        records.delete(element);
+      }
+    }
     trackedEntriesMax = Math.max(trackedEntriesMax, records.size);
     if (orderChanged(previousOrder, order)) logicalOrderChanges++;
     previousOrder = order;
@@ -322,7 +348,7 @@ export function installThumbnailProbe(options, helpersOnly = false) {
       break;
     }
   }
-  function measure() {
+  function measure(now = performance.now()) {
     scroll();
     for (const record of records.values()) {
       if (!sameGeneration(record, current(record))) { dirty = true; break; }
@@ -353,6 +379,15 @@ export function installThumbnailProbe(options, helpersOnly = false) {
         failed: record.failed, loaded: record.loaded, decoded: record.decoded });
       const thumbnailPending = state === 'loading' || state === 'decoding';
       const pending = thumbnailPending || state === 'placeholder';
+      if (exposureStartedAt !== null) {
+        if (clippedArea > 0 && thumbnailPending) {
+          if (record.visibleWaitStartedAt === null) {
+            record.visibleWaitStartedAt = now;
+            thumbnailVisibleWaitCount++;
+          }
+          thumbnailVisibleWaitMaxMs = Math.max(thumbnailVisibleWaitMaxMs, Math.max(0, now - record.visibleWaitStartedAt));
+        } else finishVisibleWait(record, now, clippedArea > 0 && state === 'ready');
+      }
       if (pending) mountedPendingCount++;
       if (clippedArea <= 0) continue;
       visibleCount++;
@@ -395,7 +430,7 @@ export function installThumbnailProbe(options, helpersOnly = false) {
     if (exposureStartedAt === null) {
       lastTime = Math.max(started, now);
       if (frame) exposureStartedAt = lastTime;
-      previous = measure();
+      previous = measure(now);
       return;
     }
     const dt = Math.max(0, now - lastTime);
@@ -406,7 +441,7 @@ export function installThumbnailProbe(options, helpersOnly = false) {
     missingExposure.add(dt, previous.missingArea, previous.viewportArea);
     if (frame) frames.add(dt);
     lastTime = now;
-    previous = measure();
+    previous = measure(now);
   }
   function tick(now) {
     if (stopped) return;
@@ -431,6 +466,7 @@ export function installThumbnailProbe(options, helpersOnly = false) {
       const stoppedAt = performance.now();
       advance(stoppedAt, false);
       shifts(shiftObserver?.takeRecords() || []);
+      for (const record of records.values()) finishVisibleWait(record, stoppedAt, false);
       stopped = true;
       const metrics = exposure.snapshot();
       const thumbnails = thumbnailExposure.snapshot();
@@ -445,6 +481,9 @@ export function installThumbnailProbe(options, helpersOnly = false) {
         thumbnailBlankViewportMs: thumbnails.blankViewportMs,
         thumbnailExposureAreaMs: thumbnails.exposureAreaMs,
         thumbnailCaptureRevision: 1,
+        thumbnailWaitCaptureRevision: 1,
+        thumbnailVisibleWaitCount, thumbnailVisibleWaitMaxMs, thumbnailVisibleWaitCompletedMaxMs,
+        thumbnailVisibleWaitCompletedCount, thumbnailVisibleWaitCensoredCount,
         readinessLeadPxMedian: loads.percentile(0.5),
         decodedReadinessLeadPxMedian: decodes.percentile(0.5),
         lateReadyCount, lateDecodedCount, loadedCount, decodedCount,

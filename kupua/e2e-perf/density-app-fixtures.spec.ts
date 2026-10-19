@@ -4,6 +4,46 @@ import { electAnchor, establishDensitySource, restoreDensitySource, selectDensit
   waitForDensityMaintenanceCooldown, scrollAtSpeed,
   prepareDensityRecovery, measureDensityRecovery } from "./density-browser";
 import { DENSITY_SCENARIOS, validateDensityRecord } from "./density-reporting.mjs";
+import { createRequestProbe } from "./network-probe.mjs";
+import * as densityDrivers from "./density-browser";
+
+for (const density of ["grid", "justified"] as const) {
+  test(`${density}: endurance and refresh workload orchestration stays isolated`, async ({ page }) => {
+    await page.route("**/*", route => {
+      const url = new URL(route.request().url());
+      const asset = url.origin === "http://127.0.0.1:3041" && !/^\/(es|api|grid-|s3|imgproxy|bedrock)/.test(url.pathname);
+      return asset ? route.continue() : route.fulfill({ status: 404, body: "isolated fixture" });
+    });
+    await page.goto("/search?nonFree=true");
+    await page.waitForFunction(() => Boolean((window as any).__kupua_store__));
+    await page.evaluate(async () => {
+      const path = "/src/dal/mock-data-source.ts";
+      const { MockDataSource } = await import(path);
+      const store = (window as any).__kupua_store__;
+      store.setState({ dataSource: new MockDataSource(70000) });
+      await store.getState().search();
+    });
+    await establishDensitySource(page);
+    await selectDensity(page, density);
+    await prepareDensityRecovery(page, density);
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Network.enable");
+    const requests = createRequestProbe(cdp);
+    try {
+      const endurance = await densityDrivers.measureDensityEndurance(page, density, requests, { phaseDurationMs: 120 });
+      expect(endurance.endurancePhaseCount).toBe(3);
+      expect(endurance.enduranceInterrupted).toBe(0);
+      const refresh = await densityDrivers.measureDensityRefreshContention(page, density, cdp, requests, 0);
+      const scenario = DENSITY_SCENARIOS.find(item => item.id === `D11-${density}`)!;
+      validateDensityRecord({ ...scenario, resultRegime: "seek", metrics: refresh });
+      expect(refresh.quietDataReadyMs).toBeGreaterThanOrEqual(0);
+      expect(refresh.busyDataReadyMs).toBeGreaterThanOrEqual(0);
+      expect(refresh.refreshComparisonCensored).toBe(1);
+      expect(refresh.refreshDataDeltaMs).toBe(null);
+      expect(await page.evaluate(() => !(window as any).__densityRefresh && !(window as any).__kupua_thumbnailProbe)).toBe(true);
+    } finally { requests.dispose(); await cdp.detach(); }
+  });
+}
 
 for (const [regime, total] of [["indexed", 12000], ["seek", 70000]] as const) {
   test(`${regime}: repeated native setup, paired recovery and cooldown-aware maintenance`, async ({ page }) => {
