@@ -1,4 +1,7 @@
 {
+  "remoteEnv": {
+    "PATH": "/home/vscode/.local/share/mise/shims:/home/vscode/.local/bin:${containerEnv:PATH}"
+  },
   "customizations": {
     "vscode": {
       "settings": {

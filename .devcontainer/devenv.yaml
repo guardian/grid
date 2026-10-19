@@ -44,10 +44,10 @@ plugins:
 postCreateCommand:
   - cmd: "docker build --target dev -f e2e-tests/images/Dockerfile -t grid-e2e-dev ."
     workingDirectory: "."
-  - cmd: 'PATH="$HOME/.local/share/mise/shims:$PATH" npm ci'
+  - cmd: "npm ci"
     workingDirectory: "./e2e-tests"
   - cmd: 'PATH="$HOME/.local/share/mise/shims:$PATH" ./node_modules/.bin/playwright install chromium --with-deps'
     workingDirectory: "./e2e-tests"
   # VS Code picks up plugins installed by the Copilot CLI from ~/.copilot/installed-plugins.
-  - cmd: 'PATH="$HOME/.local/share/mise/shims:$PATH"; copilot plugin marketplace add git@github.com:guardian/agent-skills.git && copilot plugin install feature-files@guardian-agent-skills || echo "Skipping feature-files plugin install"'
+  - cmd: 'copilot plugin marketplace add guardian/agent-skills && copilot plugin install feature-files@guardian-agent-skills || echo "Skipping feature-files plugin install"'
     workingDirectory: "."
