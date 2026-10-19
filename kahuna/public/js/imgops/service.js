@@ -39,16 +39,17 @@ imgops.factory('imgops', ['$window', function($window) {
     }
 
     function getOptimisedUri(image, options) {
+        const rel = image.data.optimisedPng ? 'optimisedPng' : 'optimised';
+        const link = image.follow(rel, options);
 
-        if (image.data.optimisedPng) {
-            return image.follow('optimisedPng', options).getUri().catch(() => {
-                return image.optimisedPng.secureUrl || image.optimisedPng.file;
-            });
-        } else {
-            return image.follow('optimised', options).getUri().catch(() => {
-                return image.source.secureUrl || image.source.file;
-            });
-        }
+        const uri = image.data.optimisedUrlsRequireResolution ?
+            link.get().then(resolved => resolved.data.url) :
+            link.getUri();
+
+        return uri.catch(() => {
+            const asset = image.data.optimisedPng ? image.optimisedPng : image.source;
+            return asset.secureUrl || asset.file;
+        });
     }
 
     function getOptimisedDownloadUri(image, options) {
