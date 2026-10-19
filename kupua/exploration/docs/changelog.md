@@ -24,6 +24,27 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 19 October 2026 - Add reusable Elasticsearch transport diagnostics and reversible instrumentation
+
+Add cached-dependency loopback fixtures for the Java REST/Apache stack: compression and framing,
+concurrent connection reuse, delayed consumption, incomplete bodies, buffered terminal chunks,
+timeouts and cancellation. Compare observer-disabled/enabled behavior and validate the actual
+Scala/elastic4s integration, operation ownership, failures and cleanup. Drain chained fixture
+callbacks before executor shutdown to avoid masking late callback failures.
+
+Provide bounded metadata-only observation with generated operation/connection identities, cached
+local socket ports, separate encoder/channel byte counters and explicit unsupported ownership.
+The opt-in loopback-only writer has no elapsed-time limit, an 8 MiB cap, bounded queues and
+no-overwrite safeguards; it does not record request payloads or change application timeouts,
+compression, pooling or cancellation. Cover port identity, schema, storage and shutdown contracts
+with local controls; these establish measurement boundaries, not a natural fault reproduction.
+
+Retain both temporary Scala hooks and both Java helpers in one forward/reverse-validated patch,
+with fixtures, sanitized evidence and exact operator commands colocated under
+[es-transport](../experiments/es-transport/README.md). Remove the installed shared copies and restore
+the original shared source. This is optional diagnostic tooling, not a production facility or a
+proven transport fix; live observation requires fresh approval and private capture handling.
+
 ### 19 October 2026 - Improve thumbnail readiness with measured two-row lookahead
 
 Extend eager thumbnail loading from the visible virtualizer range to the next two mounted

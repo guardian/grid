@@ -40,7 +40,8 @@
     "test:experiment": "npx playwright test --config playwright.experiments.config.ts",
     "test:diag": "npx playwright test --config=playwright.debug.config.ts --headed",
     "review:api-boundary": "node exploration/experiments/api-boundary/api-boundary-review.mjs",
-    "test:api-boundary": "node --test exploration/experiments/api-boundary/api-boundary-review.test.mjs"
+    "test:api-boundary": "node --test exploration/experiments/api-boundary/api-boundary-review.test.mjs",
+    "test:es-transport": "node exploration/experiments/es-transport/run.mjs"
   },
   "dependencies": {
     "@guardian/cql": "^1.8.6",
