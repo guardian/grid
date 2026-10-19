@@ -52,6 +52,11 @@ export interface TestImage {
  * use `baseURL` from the Playwright config, which points at Kahuna's fixed host port.
  */
 export const test = base.extend<{ testContext: TestContext }>({
+  page: async ({ page }, use) => {
+    await use(page);
+    // Outstanding requests may be cancelled during teardown; stop their handlers before page closure.
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+  },
   testContext: async ({}, use) => {
     await use({ dialogs: [] });
   },

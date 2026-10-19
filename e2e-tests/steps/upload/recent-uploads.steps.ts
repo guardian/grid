@@ -20,8 +20,8 @@ Then('I should see a loading message', async ({ page, testContext }) => {
 });
 
 Given('I have never uploaded an image', async ({ page }) => {
-  // The full-access account's history grows as the suite runs; the restricted one never uploads.
-  await openUploadPageAs(page, TEST_ACCOUNTS.restricted);
+  // Reserved for this scenario: other accounts upload in the rights and upload suites.
+  await openUploadPageAs(page, TEST_ACCOUNTS.emptyHistory);
 });
 
 Given('I have uploaded images before', async ({ page, testContext }) => {

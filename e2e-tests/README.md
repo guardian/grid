@@ -46,6 +46,14 @@ need a different user's permissions call `switchAccount()` (or `openUploadPageAs
 which clears cookies and signs in again. In `npm run test:ui`, select the `auth` project
 as well, or the saved session won't exist.
 
+Rights scenarios prepare images with the full-access account. Permission scenarios switch
+accounts explicitly and use an embedded-metadata image for restricted-user uploads, avoiding
+metadata saves during that setup while preserving the real uploader identity. Saving rights
+still requires metadata-editor to reach media-api server-to-server.
+
+The empty-upload-history scenario has a dedicated account that no other scenario uploads
+as, so it remains independent of test order and reused-stack history.
+
 ### 2. Dev (live recompilation)
 
 For iterating on failing tests you can run the services from source with live reload using
@@ -73,6 +81,11 @@ holds it open until you press Ctrl-C, which tears it all down.
 npm run dev:e2e                  # uses your local dev-nginx for the https://*.media.<domain> domains
 GRID_PROXY=true npm run dev:e2e  # no dev-nginx? start the bundled Caddy proxy on :443 instead
 ```
+
+With the bundled proxy, the harness maps the Grid container's API hostname to Caddy and
+imports Caddy's local CA into the JVM truststore before starting services. This makes
+server-to-server calls work after a fresh boot or container restart without manual
+hosts-file or certificate changes. The dev-nginx path is unchanged.
 
 The stack binds fixed host ports, so two stacks cannot run
 at once. Starting a second one fails immediately rather than timing out.

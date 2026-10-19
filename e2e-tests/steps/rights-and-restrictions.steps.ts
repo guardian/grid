@@ -37,34 +37,40 @@ async function uploadImageForCurrentUser(
   },
   owner: TestAccount,
 ): Promise<void> {
-  const uploadedImage = uniqueImage(testImages.smaller);
+  // Restricted-user scenarios test ownership, not saves; embedded metadata avoids upload auto-save.
+  const prepareMetadata = owner === TEST_ACCOUNTS.fullAccess;
+  const uploadedImage = uniqueImage(prepareMetadata ? testImages.smaller : testImages.withMetadata);
   const id = imageIdOf(uploadedImage.path);
 
   await page.goto(`${KAHUNA_APP_URL}/upload`);
   await uploadPage(page).fileInput.setInputFiles(uploadedImage.path);
   await expect(uploadPage(page).metadataEditor).toBeVisible();
 
-  const job = uploadPage(page).imageEditorJob;
-  const saving = job.getByText('Saving…', { exact: false });
-  // Upload completion auto-saves the filename as the description. Its refresh can overwrite edits.
-  await expect(uploadPage(page).metadataField.description).toHaveValue(
-    uploadedImage.fileName.slice(0, -4).replace(/_/g, ' '),
-  );
-  await expect(saving).toBeHidden();
+  if (prepareMetadata) {
+    const job = uploadPage(page).imageEditorJob;
+    const saving = job.getByText('Saving…', { exact: false });
+    // Upload completion auto-saves the filename as the description. Its refresh can overwrite edits.
+    await expect(uploadPage(page).metadataField.description).toHaveValue(
+      uploadedImage.fileName.slice(0, -4).replace(/_/g, ' '),
+    );
+    await expect(saving).toBeHidden();
 
-  const descriptionSaved = waitForMetadataSave(page);
-  await uploadPage(page).metadataField.description.fill('Rights and restrictions e2e image');
-  await uploadPage(page).metadataField.description.blur();
-  expect((await descriptionSaved).ok()).toBeTruthy();
-  await expect(saving).toBeHidden();
-  await expect(uploadPage(page).metadataField.description).toHaveValue('Rights and restrictions e2e image');
+    const descriptionSaved = waitForMetadataSave(page);
+    await uploadPage(page).metadataField.description.fill('Rights and restrictions e2e image');
+    await uploadPage(page).metadataField.description.blur();
+    expect((await descriptionSaved).ok()).toBeTruthy();
+    await expect(saving).toBeHidden();
+    await expect(uploadPage(page).metadataField.description).toHaveValue('Rights and restrictions e2e image');
 
-  const creditSaved = waitForMetadataSave(page);
-  await uploadPage(page).metadataField.credit.fill('E2E Test');
-  await uploadPage(page).metadataField.credit.blur();
-  expect((await creditSaved).ok()).toBeTruthy();
-  await expect(saving).toBeHidden();
-  await expect(uploadPage(page).metadataField.credit).toHaveValue('E2E Test');
+    const creditSaved = waitForMetadataSave(page);
+    await uploadPage(page).metadataField.credit.fill('E2E Test');
+    await uploadPage(page).metadataField.credit.blur();
+    expect((await creditSaved).ok()).toBeTruthy();
+    await expect(saving).toBeHidden();
+    await expect(uploadPage(page).metadataField.credit).toHaveValue('E2E Test');
+  } else {
+    await expect(uploadPage(page).metadataField.description).not.toBeEmpty();
+  }
 
   testContext.rightsImageOwner = owner;
   testContext.rightsCurrentAccount = owner;
@@ -125,13 +131,7 @@ async function setSummaryEnabled(page: Page, enabled: boolean): Promise<void> {
 
 async function chooseCategory(page: Page, categoryName: string, supplier?: string): Promise<void> {
   const display = rightsRegion(page).locator('.image-info__title');
-  await hoverRightsRow(page);
-  await expect(rightsEditorButton(page).or(rightsEditor(page)).filter({ visible: true }).first()).toBeVisible();
-  if (await rightsEditorButton(page).isVisible()) {
-    await rightsEditorButton(page).click();
-  } else if (!(await rightsEditor(page).isVisible())) {
-    throw new Error("The current user cannot edit this image's rights");
-  }
+  await openRightsEditor(page);
 
   const category = rightsEditor(page).locator('[data-cy="it-rights-select"]');
   await category.selectOption({ label: categoryName });
@@ -140,6 +140,17 @@ async function chooseCategory(page: Page, categoryName: string, supplier?: strin
   }
   await rightsEditor(page).getByRole('button', { name: 'Save usage rights' }).click();
   await expect(display).toContainText(categoryName === 'Unknown Rights' ? 'Unknown' : categoryName);
+}
+
+async function openRightsEditor(page: Page): Promise<void> {
+  // Image refreshes can move the row out from under the pointer between hover and click.
+  await expect(async () => {
+    if (!(await rightsEditor(page).isVisible())) {
+      await hoverRightsRow(page);
+      await rightsEditorButton(page).click({ timeout: 1_000 });
+    }
+    await expect(rightsEditor(page)).toBeVisible();
+  }).toPass({ timeout: 10_000 });
 }
 
 async function setOwnerForScenario(
@@ -163,12 +174,12 @@ async function setOwnerForScenario(
 }
 
 Given('I am signed in through pan-domain auth', async ({ page, testContext }) => {
-  await switchAccount(page, TEST_ACCOUNTS.restricted);
-  testContext.rightsCurrentAccount = TEST_ACCOUNTS.restricted;
+  await switchAccount(page, TEST_ACCOUNTS.fullAccess);
+  testContext.rightsCurrentAccount = TEST_ACCOUNTS.fullAccess;
 });
 
 Given('I have opened the single image view of an image', async ({ page, testContext }) => {
-  await uploadImageForCurrentUser(page, testContext, TEST_ACCOUNTS.restricted);
+  await uploadImageForCurrentUser(page, testContext, TEST_ACCOUNTS.fullAccess);
 });
 
 Given('the usage rights summary is switched off', async ({ page }) => {
@@ -221,10 +232,7 @@ Given('the image has no usage rights category', async ({ page }) => {
 });
 
 Given('the configuration contains pay-to-use and not chargeable', async ({ page }) => {
-  if (!(await rightsEditor(page).isVisible())) {
-    await hoverRightsRow(page);
-    await rightsEditorButton(page).click();
-  }
+  await openRightsEditor(page);
   const categories = rightsEditor(page).locator('[data-cy="it-rights-select"] option');
   await expect(categories.filter({ hasText: 'Pay to use' })).toHaveCount(1);
   await expect(categories.filter({ hasText: 'Chargeable supplied / on spec' })).toHaveCount(0);
@@ -332,9 +340,7 @@ Given('metadata templates are configured', async ({ page }) => {
 });
 
 Given('I have opened the rights editor', async ({ page }) => {
-  await hoverRightsRow(page);
-  await rightsEditorButton(page).click();
-  await expect(rightsEditor(page)).toBeVisible();
+  await openRightsEditor(page);
 });
 
 Given("a metadata template's usage rights are being previewed on the image", async ({ page }) => {
@@ -343,8 +349,7 @@ Given("a metadata template's usage rights are being previewed on the image", asy
 });
 
 When('I choose to edit the rights and restrictions', async ({ page }) => {
-  await hoverRightsRow(page);
-  await rightsEditorButton(page).click();
+  await openRightsEditor(page);
 });
 
 When('I save the {string} usage rights category', async ({ page }, category: string) => {

@@ -21,6 +21,7 @@ export const TEST_ACCOUNTS = {
   fullAccess: `grid-e2e-account@${EMAIL_DOMAIN}`,
   restricted: `grid-e2e-restricted-account@${EMAIL_DOMAIN}`,
   noUpload: `grid-e2e-no-upload-account@${EMAIL_DOMAIN}`,
+  emptyHistory: `grid-e2e-empty-history-account@${EMAIL_DOMAIN}`,
 } as const;
 export type TestAccount = (typeof TEST_ACCOUNTS)[keyof typeof TEST_ACCOUNTS];
 /** Saved browser session for TEST_ACCOUNTS.fullAccess, written by setup/auth.setup.ts. */

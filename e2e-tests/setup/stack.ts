@@ -313,6 +313,7 @@ function gridContainer(
   network: StartedNetwork,
   configDir: string,
   startupTimeoutMs: number,
+  proxyAddress?: string,
 ): GenericContainer {
   const container = new GenericContainer(GRID_IMAGE)
     .withNetwork(network)
@@ -342,6 +343,20 @@ function gridContainer(
     // the first line of output is enough to hand over to the per-service checks below.
     .withWaitStrategy(Wait.forLogMessage(/./))
     .withStartupTimeout(10_000);
+
+  if (proxyAddress) {
+    container.withExtraHosts([{ host: `api.media.${DOMAIN}`, ipAddress: proxyAddress }]);
+    container.withEntrypoint([
+      'bash',
+      '-c',
+      'set -e; ' +
+      'if keytool -list -cacerts -storepass changeit -alias grid-e2e-caddy >/dev/null 2>&1; then ' +
+      'keytool -delete -cacerts -storepass changeit -alias grid-e2e-caddy; fi; ' +
+      'keytool -importcert -noprompt -cacerts -storepass changeit ' +
+      '-alias grid-e2e-caddy -file /etc/grid/caddy-root.crt && ' +
+      `exec /usr/local/bin/entrypoint.${process.env.CI ? 'ci' : 'dev'}.sh`,
+    ]);
+  }
 
   if (!process.env.GRID_DEBUG) {
     return container;
@@ -472,6 +487,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
 
   const startupTimeoutMs = Number(process.env.GRID_STARTUP_TIMEOUT_MS ?? 300_000);
   const context: BootContext = { containers: [] };
+  let proxyAddress: string | undefined;
 
   const gridTasks: ListrTask<BootContext>[] = [
     {
@@ -536,6 +552,22 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
       },
     },
     {
+      title: 'Start reverse proxy',
+      skip: () => !proxy && 'using developer reverse proxy',
+      task: async (ctx) => {
+        const caddy = await proxyContainer(ctx.network!, buildCaddyfile(ctx.coreStackProps!)).start();
+        ctx.containers.push(caddy);
+        proxyAddress = caddy.getIpAddress(ctx.network!.getName());
+        const certificate = await caddy.exec([
+          'cat', '/data/caddy/pki/authorities/local/root.crt',
+        ]);
+        if (certificate.exitCode !== 0) {
+          throw new Error(`Could not read Caddy root CA: ${certificate.output}`);
+        }
+        fs.writeFileSync(path.join(ctx.configDir!, 'caddy-root.crt'), certificate.output);
+      },
+    },
+    {
       title: 'Start Grid services',
       task: (_, task) =>
         task.newListr([
@@ -543,7 +575,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
             title: 'Start container',
             task: async (ctx) => {
               ctx.containers.push(
-                await gridContainer(ctx.network!, ctx.configDir!, startupTimeoutMs).start(),
+                await gridContainer(ctx.network!, ctx.configDir!, startupTimeoutMs, proxyAddress).start(),
               );
             },
           },
@@ -629,13 +661,6 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
           ],
           { concurrent: true },
         ),
-    },
-    {
-      title: 'Start reverse proxy',
-      task: async (ctx) => {
-        const caddy = await proxyContainer(ctx.network!, buildCaddyfile(ctx.coreStackProps!)).start();
-        ctx.containers.push(caddy);
-      },
     },
   ];
 

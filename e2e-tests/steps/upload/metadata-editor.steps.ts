@@ -334,12 +334,14 @@ When(
     // Let the filename-derived description land first, or its reindex resets our edits.
     for (const job of jobs) {
       await expect(metadataFields(metadataEditorOf(job)).description).not.toHaveValue('');
+      await expect(job.getByText('Saving…', { exact: false })).toBeHidden();
     }
     testContext.batchApplied = {};
     const [first] = jobs;
     for (const [label] of table.raw()) {
       const field = BATCH_FIELDS[label];
       await field.set(first, field.value);
+      await expect(first.getByText('Saving…', { exact: false })).toBeHidden();
       await field.expectOn(first, field.value);
       // imageType/description's ⇔ only returns once the saved edit is reindexed.
       const apply = field.applyButton(first);
@@ -347,6 +349,9 @@ When(
       await apply.click();
       testContext.batchApplied[label] = field.value;
       await expectOnEveryJob(page, field, field.value);
+      for (const job of jobs) {
+        await expect(job.getByText('Saving…', { exact: false })).toBeHidden();
+      }
     }
   },
 );
