@@ -16,6 +16,10 @@ These domain metadata specifications in configuration are loaded during start ti
 to render domain metadata sections and input fields in the image metadata panel. This configuration is also used by the
 `metadata-editor` service to validate domain metadata updates via the metadata edit API.
 
+Domain metadata fields behave like the standard metadata fields (title, description, etc.) when more than one image is
+selected: a field shows its shared value when all selected images agree, or `Multiple values` when they differ, and
+saving an edit applies the new value to every selected image (one metadata edit request per image).
+
 For example, the configuration below specifies two specifications `specificationa` and `specificationb`, each with their respective fields.
 
 ```hocon

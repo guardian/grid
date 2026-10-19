@@ -781,7 +781,7 @@
         </div>
     </div>
 
-    <div ng-if="(ctrl.singleImage && ctrl.userCanEdit) || (ctrl.singleImage && !ctrl.userCanEdit && !ctrl.isDomainMetadataEmpty(spec.name))" ng-repeat="spec in ctrl.domainMetadata" class="image-info__group image-info__group--full-domain-metadata"
+    <div ng-if="(ctrl.hasSelectedImages() && ctrl.userCanEdit) || (ctrl.hasSelectedImages() && !ctrl.userCanEdit && !ctrl.isDomainMetadataEmpty(spec.name))" ng-repeat="spec in ctrl.domainMetadata" class="image-info__group image-info__group--full-domain-metadata"
          role="region" aria-label="Domain metadata">
         <button class="metadata-reveal" ng-click="ctrl.showMetadataSection(spec.name)"
                 aria-label="{{ctrl.isMetadataSectionHidden(spec.name) ? 'Show' : 'Hide'}} {{spec.label}} domain metadata section">
@@ -794,8 +794,8 @@
             <span class="metadata__description" ng-if="spec.description">{{spec.description}}</span>
 
             <dl ng-repeat="specField in spec.fields" class="metadata__body image-info__group--dl">
-                <dt class="image-info__{{specField.name}} image-info__wrap metadata-line image-info__group--dl__key metadata-line__key" ng-if="specField.value || ctrl.userCanEdit">{{specField.label}}</dt>
-                <dd data-cy="metadata-{{specField.name}}" class="image-info__wrap image-info__group--dl__value metadata-line__info" ng-if="specField.value || ctrl.userCanEdit">
+                <dt class="image-info__{{specField.name}} image-info__wrap metadata-line image-info__group--dl__key metadata-line__key" ng-if="specField.value || specField.hasMultipleValues || ctrl.userCanEdit">{{specField.label}}</dt>
+                <dd data-cy="metadata-{{specField.name}}" class="image-info__wrap image-info__group--dl__value metadata-line__info" ng-if="specField.value || specField.hasMultipleValues || ctrl.userCanEdit">
 
                     <div ng-switch="specField.fieldType">
                         <span ng-switch-when="string">
@@ -806,6 +806,7 @@
                                     ng-hide="domainMetadataEditForm.$visible"
                             >✎</button>
                             <span class="image-info__{{specField.name}}"
+                                  ng-class="{'image-info--multiple': specField.hasMultipleValues}"
                                   editable-text="specField.value"
                                   ng-hide="domainMetadataEditForm.$visible"
                                   onbeforesave="ctrl.updateDomainMetadataField(spec.name, specField.name, $data)"
@@ -814,10 +815,16 @@
                                'text-input': true}"
                                   e:form="domainMetadataEditForm">
 
-                                <span ng-if="specField.value">
+                                <span ng-if="specField.hasMultipleValues && ctrl.userCanEdit">
+                                    Multiple values (click ✎ to edit <strong>all</strong>)
+                                </span>
+                                <span ng-if="specField.hasMultipleValues && !ctrl.userCanEdit">
+                                    Multiple values
+                                </span>
+                                <span ng-if="!specField.hasMultipleValues && specField.value">
                                     {{specField.value}}
                                 </span>
-                                <span class="editable-empty" ng-if="! specField.value && ctrl.userCanEdit">
+                                <span class="editable-empty" ng-if="!specField.hasMultipleValues && ! specField.value && ctrl.userCanEdit">
                                     Unknown (click ✎ to add)
                                 </span>
                             </span>
@@ -831,6 +838,7 @@
                                     ng-hide="domainMetadataEditForm.$visible"
                             >✎</button>
                             <span class="image-info__{{specField.name}}"
+                                  ng-class="{'image-info--multiple': specField.hasMultipleValues}"
                                   editable-datetime-local="specField.value"
                                   ng-hide="domainMetadataEditForm.$visible"
                                   onbeforesave="ctrl.updateDomainMetadataField(spec.name, specField.name, $data)"
@@ -839,10 +847,16 @@
                                'text-input': true}"
                                   e:form="domainMetadataEditForm">
 
-                                <span ng-if="specField.value">
+                                <span ng-if="specField.hasMultipleValues && ctrl.userCanEdit">
+                                    Multiple values (click ✎ to edit <strong>all</strong>)
+                                </span>
+                                <span ng-if="specField.hasMultipleValues && !ctrl.userCanEdit">
+                                    Multiple values
+                                </span>
+                                <span ng-if="!specField.hasMultipleValues && specField.value">
                                     {{specField.value | date:'d MMM yyyy, HH:mm'}}
                                 </span>
-                                <span class="editable-empty" ng-if="! specField.value && ctrl.userCanEdit">
+                                <span class="editable-empty" ng-if="!specField.hasMultipleValues && ! specField.value && ctrl.userCanEdit">
                                     Unknown (click ✎ to add)
                                 </span>
                             </span>
@@ -856,6 +870,7 @@
                                     ng-hide="domainMetadataEditForm.$visible"
                             >✎</button>
                             <span class="image-info__{{specField.name}}"
+                                  ng-class="{'image-info--multiple': specField.hasMultipleValues}"
                                   editable-number="specField.value"
                                   e-min="0"
                                   ng-hide="domainMetadataEditForm.$visible"
@@ -865,10 +880,16 @@
                                'text-input': true}"
                                   e:form="domainMetadataEditForm">
 
-                                <span ng-if="specField.value">
+                                <span ng-if="specField.hasMultipleValues && ctrl.userCanEdit">
+                                    Multiple values (click ✎ to edit <strong>all</strong>)
+                                </span>
+                                <span ng-if="specField.hasMultipleValues && !ctrl.userCanEdit">
+                                    Multiple values
+                                </span>
+                                <span ng-if="!specField.hasMultipleValues && specField.value">
                                     {{specField.value}}
                                 </span>
-                                <span class="editable-empty" ng-if="! specField.value && ctrl.userCanEdit">
+                                <span class="editable-empty" ng-if="!specField.hasMultipleValues && ! specField.value && ctrl.userCanEdit">
                                     Unknown (click ✎ to add)
                                 </span>
                             </span>
@@ -882,6 +903,7 @@
                                     ng-hide="domainMetadataEditForm.$visible"
                             >✎</button>
                             <span class="image-info__{{specField.name}}"
+                                  ng-class="{'image-info--multiple': specField.hasMultipleValues}"
                                   editable-select="specField.value"
                                   e-ng-options="option.value as option.text for option in specField.selectOptions"
                                   ng-hide="domainMetadataEditForm.$visible"
@@ -891,10 +913,16 @@
                                'text-input': true}"
                                   e:form="domainMetadataEditForm">
 
-                                <span ng-if="specField.value">
+                                <span ng-if="specField.hasMultipleValues && ctrl.userCanEdit">
+                                    Multiple values (click ✎ to edit <strong>all</strong>)
+                                </span>
+                                <span ng-if="specField.hasMultipleValues && !ctrl.userCanEdit">
+                                    Multiple values
+                                </span>
+                                <span ng-if="!specField.hasMultipleValues && specField.value">
                                     {{specField.value}}
                                 </span>
-                                <span class="editable-empty" ng-if="! specField.value && ctrl.userCanEdit">
+                                <span class="editable-empty" ng-if="!specField.hasMultipleValues && ! specField.value && ctrl.userCanEdit">
                                     Unknown (click ✎ to add)
                                 </span>
                             </span>
@@ -908,6 +936,7 @@
                                     ng-hide="domainMetadataEditForm.$visible"
                             >✎</button>
                             <span class="image-info__{{specField.name}}"
+                                  ng-class="{'image-info--multiple': specField.hasMultipleValues}"
                                   editable-text="specField.value"
                                   ng-hide="domainMetadataEditForm.$visible"
                                   onbeforesave="ctrl.updateDomainMetadataField(spec.name, specField.name, $data)"
@@ -916,10 +945,16 @@
                                'text-input': true}"
                                   e:form="domainMetadataEditForm">
 
-                                <span ng-if="specField.value">
+                                <span ng-if="specField.hasMultipleValues && ctrl.userCanEdit">
+                                    Multiple values (click ✎ to edit <strong>all</strong>)
+                                </span>
+                                <span ng-if="specField.hasMultipleValues && !ctrl.userCanEdit">
+                                    Multiple values
+                                </span>
+                                <span ng-if="!specField.hasMultipleValues && specField.value">
                                     {{specField.value}}
                                 </span>
-                                <span class="editable-empty" ng-if="! specField.value && ctrl.userCanEdit">
+                                <span class="editable-empty" ng-if="!specField.hasMultipleValues && ! specField.value && ctrl.userCanEdit">
                                     Unknown (click ✎ to add)
                                 </span>
                             </span>

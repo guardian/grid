@@ -77,6 +77,7 @@ module.controller('grImageMetadataCtrl', [
         ctrl.newPeopleInImage = "";
         ctrl.newKeywords = "";
         ctrl.extraInfo = extraInfo();
+        updateDomainMetadata();
         if (ctrl.singleImage) {
           updateSingleImage();
         }
@@ -240,10 +241,10 @@ module.controller('grImageMetadataCtrl', [
       };
 
       ctrl.updateDomainMetadataField = function (name, field, value) {
-        return editsService.updateDomainMetadataField(ctrl.singleImage, name, field, value)
-          .then((updatedImage) => {
-            if (updatedImage) {
-              ctrl.singleImage = updatedImage;
+        const imageArray = Array.from(ctrl.selectedImages);
+        return editsService.batchUpdateDomainMetadataField(imageArray, name, field, value)
+          .then((updatedImages) => {
+            if (updatedImages && updatedImages.length > 0) {
               $rootScope.$emit(
                 'track:event',
                 'Metadata',
@@ -347,16 +348,18 @@ module.controller('grImageMetadataCtrl', [
             .filter(_ => _ !== undefined));
 
         registerSectionStore('additionalMetadata');
+      }
+
+      function updateDomainMetadata() {
+        const selectedImages = ctrl.selectedImages ? Array.from(ctrl.selectedImages) : [];
 
         ctrl.domainMetadata = ctrl.domainMetadataSpecs
           .filter(domainMetadataSpec => domainMetadataSpec.fields.length > 0)
           .reduce((acc, domainMetadataSpec) => {
             let domainMetadata = {...domainMetadataSpec};
 
-            if (ctrl.singleImage.data.metadata) {
-              const imageDomainMetadata = ctrl.singleImage.data.metadata.domainMetadata ? ctrl.singleImage.data.metadata.domainMetadata : {};
-              domainMetadata.fields = domainMetadataSpec.fields.map(field => setDomainMetadataFieldValueOrDefault(imageDomainMetadata, field, domainMetadataSpec));
-            }
+            domainMetadata.fields = domainMetadataSpec.fields
+              .map(field => setDomainMetadataFieldValueOrDefault(selectedImages, field, domainMetadataSpec));
 
             acc.push(domainMetadata);
 
@@ -374,12 +377,28 @@ module.controller('grImageMetadataCtrl', [
 
       const generateStoreName = (key) => `${key}MetadataSection`;
 
-      function setDomainMetadataFieldValueOrDefault(domainMetadata, field, spec) {
-        let fieldValue = undefined;
+      function domainMetadataFieldValues(images, field, spec) {
+        return images
+          .map(image => {
+            const imageDomainMetadata = (image.data.metadata && image.data.metadata.domainMetadata) || {};
+            const imageDomainMetadataModel = imageDomainMetadata[spec.name];
+            const value = imageDomainMetadataModel ? imageDomainMetadataModel[field.name] : undefined;
+            // normalise 'no value' so that an image without a value is comparable
+            // against the values held by the other selected images
+            return (value === null || value === '') ? undefined : value;
+          })
+          .reduce((distinctValues, value) => {
+            if (!distinctValues.some(distinctValue => angular.equals(distinctValue, value))) {
+              distinctValues.push(value);
+            }
+            return distinctValues;
+          }, []);
+      }
 
-        if (field.fieldType === 'datetime' && fieldValue) {
-          fieldValue = new Date(fieldValue);
-        }
+      function setDomainMetadataFieldValueOrDefault(images, field, spec) {
+        const distinctValues = domainMetadataFieldValues(images, field, spec);
+        const hasMultipleValues = distinctValues.length > 1;
+        const fieldValue = hasMultipleValues ? undefined : distinctValues[0];
 
         if (field.fieldType === 'select' && field.options.length > 0) {
           field.selectOptions = field.options
@@ -387,19 +406,16 @@ module.controller('grImageMetadataCtrl', [
             .map(option => {
               return {value: option, text: option};
             });
-        }
 
-        if (domainMetadata.hasOwnProperty(spec.name)) {
-          fieldValue = domainMetadata[spec.name][field.name];
-
-          if (field.fieldType === 'select' && fieldValue) {
+          if (distinctValues.some(distinctValue => distinctValue !== undefined)) {
             field.selectOptions = [{value: "", text: ""}].concat(field.selectOptions);
           }
         }
 
         return {
           ...field,
-          value: fieldValue
+          value: fieldValue,
+          hasMultipleValues
         };
       }
 
@@ -437,6 +453,8 @@ module.controller('grImageMetadataCtrl', [
           return ctrl.selectedImages.first();
         }
       }
+
+      ctrl.hasSelectedImages = () => Boolean(ctrl.selectedImages) && ctrl.selectedImages.size > 0;
 
       function selectedLabels() {
         const labels = imageList.getLabels(ctrl.selectedImages);
@@ -632,7 +650,8 @@ module.controller('grImageMetadataCtrl', [
       };
 
       ctrl.isDomainMetadataEmpty = (key) => {
-        return ctrl.domainMetadata.find(obj => obj.name === key).fields.every(field => field.value === undefined);
+        return ctrl.domainMetadata.find(obj => obj.name === key)
+          .fields.every(field => field.value === undefined && !field.hasMultipleValues);
       };
 
       ctrl.isAdditionalMetadataEmpty = () => {
