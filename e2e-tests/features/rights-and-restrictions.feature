@@ -21,13 +21,8 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/image/controller.js lines 154-159, 178
   # Evidence: kahuna/public/js/image/index.js lines 25-28
 
-  # ---------------------------------------------------------------------------
-  # Category display (usage rights summary switched off)
-  # ---------------------------------------------------------------------------
-
   Scenario: The category name is shown for an image with usage rights
-    Given the usage rights summary is switched off
-    And the image has the "Agency - subscription" usage rights category
+    Given the image has the "Agency - subscription" usage rights category
     Then the rights and restrictions section shows "Agency - subscription"
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 29-32
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 63, 69-73, 446-472
@@ -35,8 +30,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/app/lib/KahunaConfig.scala lines 50
 
   Scenario: The mapped category name is shown for an image with a legacy usage right
-    Given the usage rights summary is switched off
-    And the image has the "chargeable" usage rights category
+    Given the image has the "chargeable" usage rights category
     And the configuration contains pay-to-use and not chargeable
     Then the rights and restrictions section shows "Pay to use"
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 29-32
@@ -45,11 +39,14 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/app/lib/KahunaConfig.scala lines 50
 
   Scenario: An image without a usage rights category is shown as Unknown
-    Given the usage rights summary is switched off
-    And the image has no usage rights category
+    Given the image has no usage rights category
     Then the rights and restrictions section shows "Unknown"
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 30-32
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 462-472
+  
+  # ---------------------------------------------------------------------------
+  # Category display (usage rights summary switched off)
+  # ---------------------------------------------------------------------------
 
   Scenario: No usage icons are shown when the usage rights summary is switched off
     Given the usage rights summary is switched off
@@ -63,21 +60,6 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # ---------------------------------------------------------------------------
   # Usage rights summary (switched on)
   # ---------------------------------------------------------------------------
-
-  Scenario: The usage rights summary shows the category name
-    Given the usage rights summary is switched on
-    And the image has the "Agency - subscription" usage rights category
-    Then the usage rights summary shows "Agency - subscription"
-  # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 33-37
-  # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 63, 543-557
-  # Evidence: kahuna/public/js/components/gr-usagerights-summary/gr-usagerights-summary.tsx lines 89-91, 107-110
-
-  Scenario: The usage rights summary shows Unknown for an image without a category
-    Given the usage rights summary is switched on
-    And the image has no usage rights category
-    Then the usage rights summary shows "Unknown"
-  # Evidence: kahuna/public/js/components/gr-usagerights-summary/gr-usagerights-summary.tsx lines 89-91, 109
-  # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 543-557
 
   Scenario Outline: The usage rights summary lists the usage that applies to the image
     Given the usage rights summary is switched on
