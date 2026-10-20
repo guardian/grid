@@ -101,9 +101,16 @@ test('React viewer preserves navigation, filters, playback and responsive layout
     await expect(page.locator('main')).toHaveCSS('color', 'rgb(204, 204, 204)');
     await expect(page.locator('.step-keyword').first()).toHaveCSS('color', 'rgb(0, 173, 238)');
     await expect(page.locator('h2')).toHaveCSS('font-family', '"Open Sans", sans-serif');
-    await expect(page.locator('.badge')).toHaveCSS('font-size', '14px');
-    await expect(page.locator('.scenario-name').first()).toHaveCSS('font-size', '16.8px');
-    await expect(page.locator('.subtle').first()).toHaveCSS('font-size', '15.4px');
+    await expect(page.locator('h2')).toHaveCSS('font-size', '24px');
+    await expect(page.locator('.badge')).toHaveCSS('font-size', '11px');
+    await expect(page.locator('.scenario-name').first()).toHaveCSS('font-size', '14px');
+    await expect(page.locator('.steps li').first()).toHaveCSS('font-size', '14px');
+    await expect(page.locator('.subtle').first()).toHaveCSS('font-size', '12px');
+    await expect(page.locator('.catalogue-tools')).toHaveCSS('border-bottom-width', '1px');
+    for (const section of ['.specification', '.recording-section']) {
+      await expect(page.locator(section)).toHaveCSS('padding-top', '24px');
+      await expect(page.locator(section)).toHaveCSS('border-top-width', '1px');
+    }
     assert.ok(await page.evaluate(async () => {
       const faces = await document.fonts.load('400 14px "Open Sans"');
       const semibold = await document.fonts.load('600 14px "Open Sans"');
