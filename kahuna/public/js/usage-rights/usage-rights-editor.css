@@ -49,3 +49,13 @@
 .ure__category-preview {
     border: 1px solid #ffbc01;
 }
+
+.ure__combobox {
+    display: block;
+    width: 100%;
+}
+
+.ure__combobox-input {
+    box-sizing: border-box;
+    padding-right: 28px; /* room for the toggle button */
+}
