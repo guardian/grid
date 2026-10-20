@@ -7,6 +7,7 @@ import '../util/rx';
 import {List} from 'immutable';
 
 import '../services/image-list';
+import '../forms/datalist';
 
 import { createCategoryLeases, removeCategoryLeases } from '../common/usageRightsUtils.js';
 
@@ -20,7 +21,8 @@ export var usageRightsEditor = angular.module('kahuna.edits.usageRightsEditor', 
     'monospaced.elastic',
     'gr.confirmDelete',
     'util.rx',
-    'kahuna.services.image-list'
+    'kahuna.services.image-list',
+    'kahuna.forms.datalist'
 ]);
 
 usageRightsEditor.controller(
@@ -202,8 +204,11 @@ usageRightsEditor.controller(
 
       ctrl.cancel = () => ctrl.onCancel();
 
-      ctrl.isOtherValue = (property) =>
-        angular.isDefined(ctrl.model[property.name]) ? !(ctrl.getOptionsMapFor(property).includes(ctrl.model[property.name])) : undefined;
+      ctrl.optionsMapSearch = (property, q) => {
+        const query = (q || '').toLowerCase();
+        return ctrl.getOptionsMapFor(property)
+          .filter(o => o.toLowerCase().includes(query));
+      };
 
       function save(data) {
         return trackAll($q, $rootScope, "rights", ctrl.usageRights, [
