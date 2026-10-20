@@ -24,6 +24,8 @@ GET     /images/:imageId/export/:exportId/asset/:width/download     controllers.
 GET     /images/:imageId/export                                     controllers.MediaApi.getImageExports(imageId: String)
 GET     /images/:imageId/download                                   controllers.MediaApi.downloadOriginalImage(imageId: String)
 GET     /images/:imageId/downloadOptimised                          controllers.MediaApi.downloadOptimisedImage(imageId: String, width: Int, height: Int, quality: Int)
+GET     /images/:id/optimised/resized                               controllers.MediaApi.getOptimisedImageUrl(id: String, w: Int, h: Int, q: Int)
+GET     /images/:id/optimisedPng/resized                            controllers.MediaApi.getOptimisedPngImageUrl(id: String, w: Int, h: Int, q: Int)
 POST    /images/:id/:partnerName/:startPending/syndicateImage       controllers.MediaApi.syndicateImage(id: String, partnerName: String, startPending:String)
 DELETE  /images/:id                                                 controllers.MediaApi.deleteImage(id: String)
 DELETE  /images/:id/hard-delete                                     controllers.MediaApi.hardDeleteImage(id: String)
