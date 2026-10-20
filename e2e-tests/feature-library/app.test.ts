@@ -16,7 +16,7 @@ import type { LibraryManifest, Run, ScenarioDefinition } from './types.ts';
  */
 function fixtureManifest(): LibraryManifest {
   const definition: ScenarioDefinition = {
-    id: 'recorded', name: 'An authorised user sees the upload tools',
+    id: 'upload/an-authorised-user-sees-the-upload-tools', name: 'An authorised user sees the upload tools',
     description: 'Images & rights <script> stay readable.', line: 10, rule: '', tags: [],
     background: [{ keyword: 'Given', text: 'the application stack is running' }],
     steps: [
@@ -37,7 +37,7 @@ function fixtureManifest(): LibraryManifest {
         id: 'uploads', name: 'Uploading images', description: 'Images for the newsroom.', file: 'features/upload.feature',
         scenarios: [
           { ...definition, status: 'flaky', runs: [run, { ...run, id: 'attempt-1', project: 'firefox', retry: 1, status: 'passed' }] },
-          { ...definition, id: 'failed', name: 'A failed upload', status: 'failed', runs: [{ ...run, id: 'failed-0', outcome: 'unexpected' }] },
+          { ...definition, id: 'upload/validation/a-failed-upload', name: 'A failed upload', status: 'failed', runs: [{ ...run, id: 'failed-0', outcome: 'unexpected' }] },
           { ...definition, id: 'planned', name: 'A planned upload', tags: ['@todo'], status: 'planned', runs: [] },
         ],
       },
@@ -81,6 +81,9 @@ test('React viewer preserves navigation, filters, playback and responsive layout
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
+    await page.goto(`${base}/#upload/validation/a-failed-upload`);
+    await expect(page.locator('.badge')).toHaveText('Failed');
+    await expect(page.locator('.scenario-item[aria-current="true"]')).toHaveAttribute('href', '#upload/validation/a-failed-upload');
     await page.goto(base);
     await expect(page.locator('.scenario-item')).toHaveCount(4);
     await expect(page.locator('.brand')).toHaveText('');
@@ -119,6 +122,7 @@ test('React viewer preserves navigation, filters, playback and responsive layout
     await expect(page.locator('.badge')).toHaveText('Flaky');
     await expect(page.locator('.scenario-description')).toHaveText('Images & rights <script> stay readable.');
     const originalUrl = page.url();
+    assert.equal(new URL(originalUrl).hash, '#upload/an-authorised-user-sees-the-upload-tools');
     const player = page.locator('video');
     await player.evaluate((element: HTMLVideoElement) => element.play());
     await expect.poll(() => player.evaluate((element: HTMLVideoElement) => element.currentTime)).toBeGreaterThan(0.1);
@@ -150,8 +154,10 @@ test('React viewer preserves navigation, filters, playback and responsive layout
     await expect(page.locator('.badge')).toHaveText('Flaky');
     await page.getByRole('button', { name: 'Next scenario' }).click();
     await expect(page.locator('.badge')).toHaveText('Failed');
+    assert.equal(new URL(page.url()).hash, '#upload/validation/a-failed-upload');
     await page.goBack();
     await expect(page.locator('.badge')).toHaveText('Flaky');
+    assert.equal(page.url(), originalUrl);
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
     await page.getByRole('button', { name: 'Copy scenario link' }).click();
     assert.equal(await page.evaluate(() => navigator.clipboard.readText()), page.url());

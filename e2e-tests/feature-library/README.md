@@ -151,8 +151,16 @@ LibraryManifest
 - `retry` is zero-based. The UI displays attempt numbers starting at one.
 - `Recording.path` is temporary importer state and is removed before serialization.
   Available recordings have an export-relative `src`; unavailable ones are not playable.
-- Scenario IDs hash the feature path, source line and name. They are stable for
-  unchanged inputs, but renaming or moving a scenario can invalidate old deep links.
+- Scenario IDs use slugs of the feature-relative path (without `.feature`), optional
+   rule name and scenario name, separated by `/`: `upload/select-a-file` or
+   `search/image-search/find-term`. Nested feature directories are preserved.
+   Slugs are lowercased, accents removed and punctuation/whitespace replaced with
+   hyphens; remaining non-ASCII letters and numbers are URL-encoded. Names must
+   contain letters or numbers. Duplicate IDs fail the build with both source locations,
+   including collisions caused by slug normalization or different feature files.
+- IDs survive line shifts and scenario reordering. Renaming a file, rule or scenario,
+   or moving a scenario to another file/rule, can change its ID and invalidate links.
+   Rebuilding replaces the previous hashed IDs; legacy hash links have no aliases.
 - The browser trusts the generated manifest's shape; TypeScript annotations do not
   perform runtime JSON validation. Ship the bundle and manifest together when changing
   the contract, and supply defaults if supporting older snapshots.

@@ -62,6 +62,20 @@ interface ReportArchive {
  * @returns A deterministic 16-character hexadecimal ID; changing the input changes the ID.
  */
 const idFor = (value: string): string => createHash('sha256').update(value).digest('hex').slice(0, 16);
+
+function slugFor(value: string): string {
+  const slug = value.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '');
+  if (!slug) throw new Error(`Cannot create a scenario ID from ${JSON.stringify(value)}: use a name containing letters or numbers`);
+  return encodeURIComponent(slug);
+}
+
+function registerScenarioId(locations: Map<string, string>, id: string, location: string): void {
+  const previous = locations.get(id);
+  if (previous) throw new Error(`Duplicate scenario ID "${id}" at ${previous} and ${location}: rename the file, rule or scenario to make its slug unique`);
+  locations.set(id, location);
+}
+
 /**
  * @param steps - Readonly Cucumber AST steps from a background or scenario.
  * @returns Display-ready steps with trimmed keywords, cell values and doc-string content.
@@ -104,6 +118,8 @@ export function parseFeature(source: string, file: string): ParsedFeature {
   if (!feature) throw new Error(`${file}: no Feature found`);
   const pickles = messages.flatMap((message) => message.pickle ? [message.pickle] : []);
   const scenarios: ParsedScenario[] = [];
+  const featureSlug = file.replace(/^features\//, '').replace(/\.feature$/, '').split('/').map(slugFor).join('/');
+  const scenarioLocations = new Map<string, string>();
   /**
    * Walks one feature/rule scope and appends its scenarios to the outer collection.
    * @param children - AST children in source order.
@@ -120,8 +136,10 @@ export function parseFeature(source: string, file: string): ParsedFeature {
       }
       if (!child.scenario) continue;
       const scenario = child.scenario;
+      const id = [featureSlug, ...(rule ? [slugFor(rule)] : []), slugFor(scenario.name)].join('/');
+      registerScenarioId(scenarioLocations, id, `${file}:${scenario.location.line}`);
       scenarios.push({
-        id: idFor(`${file}:${scenario.location.line}:${scenario.name}`),
+        id,
         name: scenario.name,
         description: scenario.description.trim(),
         line: scenario.location.line,
@@ -268,6 +286,7 @@ export async function createLibrary({ featuresDir, reportDir }: { featuresDir: s
     if (errorDetail(error) !== 'ENOENT') throw error;
   }
   const features: Feature[] = [];
+  const scenarioLocations = new Map<string, string>();
   const media = new Map<string, string>();
   const warnings: string[] = [];
   const reportRoot = report ? await realpath(reportDir) : path.resolve(reportDir);
@@ -275,6 +294,7 @@ export async function createLibrary({ featuresDir, reportDir }: { featuresDir: s
     const relativeFile = `features/${path.relative(featuresDir, file).split(path.sep).join('/')}`;
     const feature = attachResults(parseFeature(await readFile(file, 'utf8'), relativeFile), report?.tests ?? []);
     for (const scenario of feature.scenarios) {
+      registerScenarioId(scenarioLocations, scenario.id, `${relativeFile}:${scenario.line}`);
       for (const run of scenario.runs) {
         for (const recording of run.recordings) {
           const attachmentPath = recording.path;

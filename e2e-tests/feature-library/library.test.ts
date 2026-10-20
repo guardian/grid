@@ -52,6 +52,33 @@ test('parses feature descriptions, inherited backgrounds and planned scenarios',
   assert.equal(attachResults(parsed, []).scenarios[1].status, 'planned');
 });
 
+test('uses readable scenario IDs that survive source line changes and preserve nested paths', () => {
+  assert.equal(feature().scenarios[0].id, 'upload/select-a-file');
+  assert.deepEqual(parseFeature(`\n\n${source}`, 'features/upload.feature').scenarios.map((scenario) => scenario.id),
+    feature().scenarios.map((scenario) => scenario.id));
+  assert.equal(parseFeature(source, 'features/Nested Folder/upload.feature').scenarios[0].id, 'nested-folder/upload/select-a-file');
+  assert.equal(parseFeature(source.replace('Select a file', 'Select: a FILE!'), 'features/upload.feature').scenarios[0].id, 'upload/select-a-file');
+  assert.equal(parseFeature(source.replace('Select a file', 'Caf\u00e9 \u56fe\u7247'), 'features/upload.feature').scenarios[0].id, `upload/cafe-${encodeURIComponent('\u56fe\u7247')}`);
+  assert.throws(() => parseFeature(source.replace('Select a file', '!!!'), 'features/upload.feature'), /Cannot create a scenario ID/);
+});
+
+test('uses rule names to distinguish scenarios with identical names', () => {
+  const parsed = parseFeature(`Feature: Uploads
+  Rule: First workflow
+    Scenario: Select a file
+      Then it works
+  Rule: Second workflow
+    Scenario: Select a file
+      Then it works
+`, 'features/upload.feature');
+  assert.deepEqual(parsed.scenarios.map((scenario) => scenario.id), [
+    'upload/first-workflow/select-a-file', 'upload/second-workflow/select-a-file',
+  ]);
+  const matched = attachResults(parsed, [reportTest({ path: ['Uploads', 'First workflow'] })]);
+  assert.equal(matched.scenarios[0].status, 'passed');
+  assert.equal(matched.scenarios[1].status, 'not-run');
+});
+
 test('parses rules, outlines, tables and doc strings with the Gherkin parser', () => {
   const parsed = parseFeature(`@catalogue
 Feature: Search
@@ -76,6 +103,7 @@ Feature: Search
         | dogs |
 `, 'features/search.feature');
   const scenario = parsed.scenarios[0];
+  assert.equal(scenario.id, 'search/image-search/find-term');
   assert.deepEqual(scenario.tags, ['@catalogue', '@rule']);
   assert.equal(scenario.background.length, 2);
   assert.deepEqual(scenario.expandedNames, ['Find cats', 'Find dogs']);
@@ -99,10 +127,25 @@ test('uses exact feature paths and keeps retries and browser projects', () => {
   assert.equal(scenario.runs[2].project, 'firefox');
 });
 
-test('does not guess recordings for duplicate scenario names', () => {
-  const parsed = parseFeature(`${source}\n  Scenario: Select a file\n    Then another thing happens\n`, 'features/upload.feature');
-  assert.equal(attachResults(parsed, [reportTest()]).scenarios[0].status, 'unmatched');
-  assert.deepEqual(attachResults(parsed, [reportTest()]).scenarios[0].runs, []);
+test('rejects duplicate scenario IDs including punctuation and case collisions', () => {
+  for (const name of ['Select a file', 'SELECT a file!']) {
+    assert.throws(() => parseFeature(`${source}\n  Scenario: ${name}\n    Then another thing happens\n`, 'features/upload.feature'),
+      /Duplicate scenario ID "upload\/select-a-file" at features\/upload.feature:5 and features\/upload.feature:12/);
+  }
+});
+
+test('rejects scenario ID collisions across feature files', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'grid-feature-ids-'));
+  try {
+    const featuresDir = path.join(root, 'features');
+    await mkdir(featuresDir);
+    await writeFile(path.join(featuresDir, 'upload.feature'), source);
+    await writeFile(path.join(featuresDir, 'Upload.feature'), source);
+    await assert.rejects(createLibrary({ featuresDir, reportDir: path.join(root, 'report') }),
+      /Duplicate scenario ID "upload\/select-a-file" at features\/Upload.feature:5 and features\/upload.feature:5/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test('decodes the Playwright archive and rejects corrupt or unsupported reports', () => {
