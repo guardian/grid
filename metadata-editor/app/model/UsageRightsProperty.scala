@@ -36,8 +36,8 @@ object UsageRightsProperty {
   val props: List[(UsageRightsSpec, UsageRightsConfigProvider) => List[UsageRightsProperty]] =
     List(categoryUsageRightsProperties, restrictionProperties)
 
-  def publicationListToMap(publications: List[PublicationPhotographers]): OptionsMap = Map(publications
-    .map(p => p.name -> p.photographers.map(_.name)): _*)
+  def publicationListToMap(publications: List[PublicationPhotographers]): OptionsMap = publications
+    .map(p => p.name -> p.photographers.map(_.name).distinct).toMap
 
   def independentTypeListToMap(independentTypes: List[IndependentType]): OptionsMap = Map(independentTypes
     .map(s => s.name -> s.productionsCompanies): _*)

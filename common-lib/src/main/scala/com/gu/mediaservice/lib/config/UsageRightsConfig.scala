@@ -145,9 +145,13 @@ trait UsageRightsConfigProvider extends Provider {
     internalStaffPhotographers ++ externalStaffPhotographers ++ contractedPhotographers)
 
   lazy val allIllustrators: List[PublicationPhotographers] = {
+    val staffIllustratorsAsPublicationPhotographers = staffIllustrators.map(PublicationPhotographer(_))
+    // staff illustrators join every contract illustrator publication, unless one publication is configured
     val staffIllustratorsByPublication = contractIllustrators
-      .filter(p => staffIllustratorsPublication.forall(_ == p.name))
-      .map(_.copy(photographers = staffIllustrators.map(PublicationPhotographer(_))))
+      .map(_.name)
+      .distinct
+      .filter(name => staffIllustratorsPublication.forall(_ == name))
+      .map(PublicationPhotographers(_, staffIllustratorsAsPublicationPhotographers))
     UsageRightsConfigProvider.flattenPublicationList(contractIllustrators ++ staffIllustratorsByPublication)
   }
 

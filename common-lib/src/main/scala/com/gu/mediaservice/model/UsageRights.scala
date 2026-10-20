@@ -701,7 +701,7 @@ object PublisherOwnedPhotograph extends ReplacementUsageRightsSpec {
 
   val allCategories: NonEmptyList[String] = NonEmptyList.fromSeq(category, legacyCategories)
 
-  override def name(config: CommonConfig): String = s"${config.staffPhotographerOrganisation}-Owned Photograph"
+  override def name(config: CommonConfig): String = s"${config.staffPhotographerOrganisation}-owned Photograph"
 
   override def description(config: CommonConfig): String = s"A photograph commissioned by ${config.staffPhotographerOrganisation}, regardless of whether the contributor was staff, contract or freelance."
 
@@ -730,7 +730,7 @@ object PublisherOwnedIllustration extends ReplacementUsageRightsSpec {
 
   val allCategories: NonEmptyList[String] = NonEmptyList.fromSeq(category, legacyCategories)
 
-  override def name(config: CommonConfig): String = s"${config.staffPhotographerOrganisation}-Owned Illustration"
+  override def name(config: CommonConfig): String = s"${config.staffPhotographerOrganisation}-owned Illustration"
 
   override def description(config: CommonConfig): String = s"An illustration commissioned by ${config.staffPhotographerOrganisation}, regardless of whether the contributor was staff, contract or freelance."
 
