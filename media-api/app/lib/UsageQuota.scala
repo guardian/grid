@@ -12,7 +12,7 @@ import scala.util.Try
 case class ImageNotFound() extends Exception("Image not found")
 case class NoUsageQuota() extends Exception("No usage found for this image")
 
-class UsageQuota(config: MediaApiConfig, scheduler: Scheduler, getSupplierQuotaCount: (String, Int) => Future[SupplierQuotaCount]) {
+class UsageQuota(config: MediaApiConfig, scheduler: Scheduler, getSupplierQuotaCount: String => Future[SupplierQuotaCount]) {
   val quotaStore = new QuotaStore(
     config.quotaStoreConfig.storeKey,
     config.quotaStoreConfig.storeBucket,
