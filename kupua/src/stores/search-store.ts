@@ -805,6 +805,9 @@ let _aggDebouncedResolve: ((shouldRun: boolean) => void) | null = null;
 /** Abort controller for the current aggregation request. */
 let _aggAbortController: AbortController | null = null;
 
+/** Dispatched base batch shared by equivalent hover/open callers, not debounce timers. */
+let _aggPending: { key: string; promise: Promise<void> } | null = null;
+
 /** Monotonic guard preventing stale aggregation requests from publishing. */
 let _aggRequestGeneration = 0;
 
@@ -890,6 +893,7 @@ function cancelAggregationFetch(): number {
     _aggAbortController.abort();
     _aggAbortController = null;
   }
+  _aggPending = null;
   _aggRequestGeneration += 1;
   return _aggRequestGeneration;
 }
@@ -4484,11 +4488,13 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     const { dataSource } = get();
     const force = mode === "force";
     if (!force && (get().loading || get().error)) return;
+    let callParams = aggregationParams(get);
+    let key = aggCacheKey(callParams);
+    if (!force && _aggPending?.key === key) return _aggPending.promise;
+
     const requestGeneration = cancelAggregationFetch();
     if (get().aggLoading) set({ aggLoading: false });
 
-    let callParams = aggregationParams(get);
-    let key = aggCacheKey(callParams);
     if (!force && key === get()._aggCacheKey) return;
     if (callParams !== null && !force && get().aggCircuitOpen) return;
 
@@ -4519,6 +4525,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
     const controller = new AbortController();
     _aggAbortController = controller;
+    let resolvePending!: () => void;
+    _aggPending = {
+      key,
+      promise: new Promise<void>((resolve) => { resolvePending = resolve; }),
+    };
     set({ aggLoading: true });
 
     const startTime = performance.now();
@@ -4595,7 +4606,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     } finally {
       if (requestGeneration === _aggRequestGeneration) {
         _aggAbortController = null;
+        _aggPending = null;
       }
+      resolvePending();
     }
   },
 

@@ -3410,6 +3410,81 @@ describe("KUP-007 expanded aggregation ownership", () => {
 });
 
 describe("fetchAggregations", () => {
+  it.each([
+    ["force refresh", {}, "force"],
+    ["changed query", { query: "successor" }, "immediate"],
+    ["changed rights", { nonFree: undefined }, "immediate"],
+    ["changed upload boundary", { until: "2026-10-01T12:00:00Z" }, "immediate"],
+  ] as const)("%s supersedes a pending batch without letting its cleanup clear the successor", async (_label, params, mode) => {
+    let releaseFirst!: (result: AggregationsResult) => void;
+    let releaseSecond!: (result: AggregationsResult) => void;
+    const firstResult = new Promise<AggregationsResult>((resolve) => { releaseFirst = resolve; });
+    const secondResult = new Promise<AggregationsResult>((resolve) => { releaseSecond = resolve; });
+    const getAggregations = vi.spyOn(mock, "getAggregations")
+      .mockImplementationOnce(() => firstResult)
+      .mockImplementationOnce(() => secondResult);
+    const first = actions().fetchAggregations("immediate");
+    const firstJoined = actions().fetchAggregations("immediate");
+    actions().setParams(params);
+    const second = actions().fetchAggregations(mode);
+    let joined: Promise<void> | undefined;
+    const accepted = { fields: {}, filters: { deleted: 3 }, usageFilters: { digital: 5 } };
+    try {
+      expect(getAggregations).toHaveBeenCalledTimes(2);
+      expect(getAggregations.mock.calls[0][2]?.aborted).toBe(true);
+      expect(getAggregations.mock.calls[1][2]?.aborted).toBe(false);
+      releaseFirst({ fields: {}, filters: { deleted: 99 } }); // Deliberately ignores abort.
+      await Promise.all([first, firstJoined]);
+      expect(state().aggregations).toBeNull();
+      expect(state().aggLoading).toBe(true);
+      joined = actions().fetchAggregations("immediate");
+      expect(getAggregations).toHaveBeenCalledTimes(2);
+      expect(getAggregations.mock.calls[1][2]?.aborted).toBe(false);
+    } finally {
+      releaseFirst({ fields: {} });
+      releaseSecond(accepted);
+      await Promise.all([first, firstJoined, second, joined]);
+    }
+    expect(state().aggregations).toBe(accepted);
+    expect(state().isFilterCounts).toEqual({ deleted: 3 });
+    expect(state().usageFilterCounts).toEqual({ digital: 5 });
+    expect(state().aggLoading).toBe(false);
+  });
+
+  it("immediate activation promotes an undispatched hover debounce", async () => {
+    vi.useFakeTimers();
+    try {
+      const getAggregations = vi.spyOn(mock, "getAggregations");
+      const hover = actions().fetchAggregations();
+      await vi.advanceTimersByTimeAsync(250);
+      expect(getAggregations).not.toHaveBeenCalled();
+      const open = actions().fetchAggregations("immediate");
+      expect(getAggregations).toHaveBeenCalledTimes(1);
+      await Promise.all([hover, open]);
+      await vi.advanceTimersByTimeAsync(500);
+      expect(getAggregations).toHaveBeenCalledTimes(1);
+    } finally {
+      await vi.runOnlyPendingTimersAsync();
+      vi.useRealTimers();
+    }
+  });
+
+  it("releases shared failed work so an ordinary call can retry", async () => {
+    let reject!: (error: Error) => void;
+    const failed = new Promise<AggregationsResult>((_resolve, fail) => { reject = fail; });
+    const getAggregations = vi.spyOn(mock, "getAggregations").mockImplementationOnce(() => failed);
+    const first = actions().fetchAggregations("immediate");
+    const joined = actions().fetchAggregations("immediate");
+    reject(new Error("fixture unavailable"));
+    await Promise.all([first, joined]);
+    expect(getAggregations).toHaveBeenCalledTimes(1);
+    expect(state().aggLoading).toBe(false);
+    expect(state()._aggCacheKey).toBeNull();
+    await actions().fetchAggregations("immediate");
+    expect(getAggregations).toHaveBeenCalledTimes(2);
+    expect(state().aggregations).not.toBeNull();
+  });
+
   it("immediate skips only the debounce and still honours the circuit breaker and cache", async () => {
     mock = new MockDataSource(500);
     const getAggregations = vi.spyOn(mock, "getAggregations");

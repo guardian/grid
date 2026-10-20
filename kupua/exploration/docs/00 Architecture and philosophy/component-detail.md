@@ -778,6 +778,10 @@ Initial fields show 10 rows; expansion requests at most 100 buckets through the 
 the returned set. `FieldDisclosure` owns reveal/collapse presentation, not fetching or cancellation.
 This differs from metadata's request-free expansion. Aggregation timing and circuit-breaker
 controls expose the store's existing state rather than creating a separate fetch lifecycle.
+Equivalent non-forced callers share an already-dispatched base facet batch, so Browse activation
+keeps useful hover work. Undispatched calls retain trailing-edge debounce (activation skips it);
+force refresh or a different effective scope still supersedes pending work. Completed base and
+expanded caches retain their existing reuse rules.
 
 ## Collection Tree (`components/CollectionTree.tsx`)
 

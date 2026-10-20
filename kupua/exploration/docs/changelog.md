@@ -24,6 +24,16 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 20 October 2026 - Share pending Browse facets (S4a)
+
+Equivalent non-forced facet calls now await the store's dispatched batch rather than
+aborting and reissuing hover work when Browse opens. A single pending key/completion
+slot follows the existing cancellation and generation owners; force refresh and changed
+scope still supersede it. Undispatched debounce, completed/expanded cache reuse, counted
+facets and stale-publication guards are unchanged. Failing-first API-composed regressions
+cover pending handoff and preserved counts/cache reuse; owner controls cover promotion,
+replacement, late cleanup and failure/retry. No datasource, endpoint or server change.
+
 ### 20 October 2026 - Upgrade Justified Layout
 
 Justified is now available alongside Table and Grid, using

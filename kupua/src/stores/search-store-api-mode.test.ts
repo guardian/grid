@@ -935,6 +935,57 @@ describe("API mode: selection hydration", () => {
 });
 
 describe("API mode: facet aggregations", () => {
+  it.each(["immediate", "debounced"] as const)("shares dispatched hover facets with an equivalent %s call", async (mode) => {
+    vi.useFakeTimers();
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    useApiMode(500, { routes: {
+      "/images/aggregations": async () => {
+        await held;
+        return {
+          fields: {
+            "metadata.credit": { buckets: [{ key: "Fixture", count: 3 }] },
+            usagesPlatform: { buckets: [{ key: "digital", count: 9 }] },
+          },
+          isFilterCounts: { deleted: 0, "under-quota": 11 },
+        };
+      },
+    } });
+    useSearchStore.setState({ aggregations: null, _aggCacheKey: null, aggCircuitOpen: false });
+
+    const hover = state().fetchAggregations();
+    await vi.advanceTimersByTimeAsync(500);
+    expect(bodiesFor("/images/aggregations")).toHaveLength(1);
+    const firstSignal = calls[0].signal;
+    let joinedSettled = false;
+    const joined = state().fetchAggregations(mode).then(() => { joinedSettled = true; });
+    try {
+      await vi.advanceTimersByTimeAsync(500);
+      expect(firstSignal?.aborted).toBe(false);
+      expect(bodiesFor("/images/aggregations")).toHaveLength(1);
+      expect(joinedSettled).toBe(false);
+      expect(state().aggLoading).toBe(true);
+    } finally {
+      release();
+      await Promise.all([hover, joined]);
+    }
+
+    expect(joinedSettled).toBe(true);
+    expect(state().aggLoading).toBe(false);
+    expect(state().aggregations?.fields["metadata.credit"]?.buckets).toEqual([{ key: "Fixture", count: 3 }]);
+    expect(state().isFilterCounts).toEqual({ deleted: 0, "under-quota": 11 });
+    expect(state().usageFilterCounts?.digital).toBe(9);
+    const completed = state().aggregations;
+    await state().fetchExpandedAgg("metadata.credit");
+    const expanded = state().expandedAggs["metadata.credit"];
+    expect((bodiesFor("/images/aggregations")[1].fields as Array<{ size: number }>)[0].size).toBe(100);
+    await state().fetchAggregations("immediate");
+    await state().fetchExpandedAgg("metadata.credit");
+    expect(bodiesFor("/images/aggregations")).toHaveLength(2);
+    expect(state().aggregations).toBe(completed);
+    expect(state().expandedAggs["metadata.credit"]).toBe(expanded);
+  });
+
   it("publishes field, is: and usage counts from one media-api read", async () => {
     useApiMode(5_000);
     await state().search();
