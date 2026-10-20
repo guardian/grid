@@ -191,6 +191,37 @@ describe("KUP-006 cumulative poll accounting", () => {
     vi.restoreAllMocks();
   });
 
+  it.each([
+    [undefined, "2026-09-20T12:00:00Z", false],
+    [undefined, "2026-09-20T11:00:00Z", false],
+    ["2026-09-21T12:00:00Z", "2026-09-21T11:00:00Z", false],
+    [undefined, "2026-09-20T14:00:00+02:00", false],
+    ["2026-09-20T09:00:00-04:00", "2026-09-20T12:30:00Z", false],
+    [undefined, "2026-09-20T08:30:00-04:00", true],
+    [undefined, undefined, true],
+    ["invalid", "2026-09-20T11:00:00Z", true],
+    [undefined, "invalid", true],
+  ] as const)("KUP-040 admits since=%s until=%s only when not provably impossible (%s)", async (since, until, eligible) => {
+    actions().setParams({ since, until });
+    await actions().search(undefined, { frozenUntil: "2026-09-20T12:00:00Z", frozenNewCount: 2 });
+    const restored = state();
+    vi.mocked(mock.countWithTickers).mockResolvedValue(arrival(3));
+    await tick();
+    visibility = "hidden";
+    documentEvents.dispatchEvent(new Event("visibilitychange"));
+    await vi.advanceTimersByTimeAsync(NEW_IMAGES_POLL_INTERVAL_BG);
+    visibility = "visible";
+    documentEvents.dispatchEvent(new Event("visibilitychange"));
+    await settle();
+    expect(mock.countWithTickers).toHaveBeenCalledTimes(eligible ? 4 : 1);
+    expect(state().newCountSince).toBe(restored.newCountSince);
+    expect(state().newCount).toBe(eligible ? 3 : 2);
+    expect(state().tickerCounts).toEqual(eligible
+      ? { agency: { value: 103, subCounts: { alpha: 73, beta: 20, other: 10 } }, staff: { value: 5 } }
+      : restored.tickerCounts);
+    if (!eligible) expect(state().tickersLastUpdated).toBe(restored.tickersLastUpdated);
+  });
+
   it("adds an identical cumulative interval only once and preserves browse membership/boundary", async () => {
     await actions().search();
     const frozen = state();

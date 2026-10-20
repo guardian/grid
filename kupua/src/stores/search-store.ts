@@ -922,6 +922,10 @@ function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState
     if (gen !== _newImagesPollGeneration) return; // stale poll
     const { dataSource, params, newCountSince } = get();
     if (!newCountSince) return;
+    const effectiveSinceTime = Math.max(
+      Date.parse(newCountSince), Date.parse(params.since ?? newCountSince),
+    );
+    if (params.until && effectiveSinceTime >= Date.parse(params.until)) return;
     const sequence = ++requestSequence;
     try {
       const since =

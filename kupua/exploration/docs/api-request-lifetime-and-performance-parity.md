@@ -5,7 +5,7 @@ optimisations that might have been left behind when Kupua moved to media-api.
 The original investigation made no product changes and ran no Scala tests or performance
 campaign. A later, separately authorized bounded browser observation used local media-api
 with operator-identified TEST. The separately authorized S4a and S4b repairs and their
-validation are recorded below; KUP-040 and the server-side candidates remain unimplemented here.
+validation are recorded below; KUP-040 is also repaired locally below. Server-side candidates remain unimplemented here.
 **Assessment target: local media-api mode.** Direct ES is a retiring source reference,
 not a performance baseline or repair target. The single deployed media-api campaign is a
 separate checkpoint, not a repeated deployed baseline or a substitute for local evidence.
@@ -31,7 +31,7 @@ at `c27bdae84` establish source applicability, not the binary/configuration depl
 | --- | --- | --- | --- | --- |
 | S4a: reuse an equivalent pending facet batch when Browse opens — **repaired** | Original hover/open sent two equivalent requests, cancelling the first after about 71 ms. Equivalent dispatched work is now shared; warm reopen remains cached. | No GET contract or Kahuna behaviour change. | API-composed held-response regression proves one dispatch rather than replacement, with counts and expanded reuse preserved. No post-fix live-browser or backend CPU/latency measurement. | Kupua search-store admission only; no Scala. See repair validation below. |
 | S4b: reuse scope-bound suggestion buckets and stop reset-time suggestion work — **repaired** | Original fresh credit prefixes repeated identical 50-bucket reads; Home sent five obsolete option reads. Equivalent pending and completed option work is now reused, and retired/resetting editors cannot admit reads. | No Kahuna behaviour change; this is Kupua's CQL ownership/resolver path, not a shared-server cache. | Owner/API-composed tests prove avoided repeated reads, rights restoration and 50/100 separation; mounted Clear/Home controls retain counted suggestions and suppress obsolete work. No post-fix live-API or backend-cost measurement. | Kupua typeahead/resolver/lifecycle code; no Scala or global cancellation manager. See repair validation below. |
-| S2 / KUP-040: do not poll an impossible arrival interval | Deterministically remove reads that cannot find arrivals: about six scheduled reads/minute foreground or two/minute hidden, plus visibility ticks, while the interval is impossible. Small hygiene fix, not a claimed browsing speedup. | No change to Kahuna's polling or existing GET semantics. | Avoid unnecessary POST count reads; retain notifications for eligible intervals. Already supported by KUP-040's source and recorded API evidence. | Kupua polling admission; no Scala. |
+| S2 / KUP-040: do not poll an impossible arrival interval — **repaired** | Deterministically remove reads that cannot find arrivals: about six scheduled reads/minute foreground or two/minute hidden, plus visibility ticks, while the interval is impossible. Small hygiene fix, not a claimed browsing speedup. | No change to Kahuna's polling or existing GET semantics. | Avoid unnecessary POST count reads; retain notifications for eligible intervals. Local owner regression validates admission; no post-fix live measurement. | Kupua polling admission; no Scala. |
 
 ### Maybe Worth Fixing
 
@@ -225,7 +225,7 @@ a secondary candidate rather than a general browsing-performance fix.
 | ID | Evidence and exact consequence | Decision and Scala relevance |
 | --- | --- | --- |
 | S1a Counts cannot be cancelled | `count`/`countWithTickers` accept no signal in the [interface](../../src/dal/types.ts#L293), [direct](../../src/dal/es-adapter.ts#L714) or [API implementation](../../src/dal/api-data-source.ts#L122). The [initial ticker read](../../src/stores/search-store.ts#L2554) and [poll](../../src/stores/search-store.ts#L928) outlive query replacement; generations stop publication, not work. | Add optional signal and real count ownership in Kupua if selected. Server cancellation still needs F1; this does not require a new count endpoint/body. |
-| S2 Impossible interval polls | [KUP-040](bug-backlog.md#kup-040) already covers lower bound at/after upper bound. Both adapters receive the same impossible intent. | Cheap shared admission repair, no necessary Scala change. Preserve supported timezone/invalid-date handling and future/open intervals. |
+| S2 Impossible interval polls — repaired | [KUP-040](bug-backlog.md#kup-040) covered lower bound at/after upper bound. Both adapters received the same impossible intent. | Shared admission now skips only provably impossible date-instant intervals. Timezone/invalid-date handling and future/open intervals are preserved; no Scala change. |
 | S4a Pending base facets restart — repaired | At assessment baseline, the [base action](../../src/stores/search-store.ts) cancelled before checking its completed cache. [Browse hover](../../src/components/StatusBar.tsx#L119) followed by [Filters activation](../../src/routes/search.tsx#L103) reproduced equivalent pending cancellation/reissue. Warm and expanded reopen controls sent no reads. | The store now shares equivalent dispatched work before cancellation. Completed caches and the POST contract are unchanged. |
 | S4b Suggestions repeat or outlive reset — repaired | At assessment baseline, [cold suggestion resolvers](../../src/lib/typeahead-fields.ts) repeated equivalent reads after successful completion; Home/Clear also emitted obsolete credit reads. Settled rights roundtrip and 50/100-bucket controls establish different scope/request-size boundaries. | Resolver-local pending/completed reuse and editor-lifecycle admission now preserve counted/latest-prefix options, own-chip exclusion and last-consumer cancellation. No Scala change. |
 
@@ -563,6 +563,21 @@ gates. New reuse coverage concentrates on credit/keyword/dynamic paths; existing
 controls and the shared reader additionally cover static/alias/filter-backed wiring. No live
 system access, Scala change or performance campaign was used for this repair.
 
+### KUP-040 Repair Validation (20 October)
+
+A four-line shared poll-admission guard compares the maximum upload lower bound with
+the upper bound as instants. Invalid dates fall through; existing outbound parameters,
+restored boundaries/counts, scheduling, notifications and stale guards remain unchanged.
+Five impossible-interval cases failed first; four eligible/invalid-date controls passed.
+All 21 polling controls, 3,113 unit tests and the TypeScript/Vite build pass.
+
+E2E coverage is split: reviewer terminal reads mistakenly interrupted the initial full
+run after 467 completed passes. The operator approved running only the remaining 18,
+including interrupted work; those passed without retries. Together these cover all 485
+configured cases on unchanged code, not an uninterrupted full-suite pass. Two independent
+cold reviews of the identical code/test snapshot found no issues. No live-system access,
+Scala work, endpoint/auth change or performance campaign was performed.
+
 ## 7. Recommended Scope Decisions
 
 **The browser-verifiable selection questions are closed.** Warm/expanded reopen, resident
@@ -571,10 +586,10 @@ Home/Clear behaviour have witnesses above. Acceptance tests written during a rep
 implementation gates, not another open-ended app-driving assignment.
 
 1. **Keep the three small Kupua fixes separate:** pending facet handoff (S4a) and scope-bound
-  suggestions/reset admission (S4b) are repaired and validated above. Impossible arrival polling
-  (KUP-040) remains next, in its own session/commit. Their owners, avoided reads and
-  preservation controls are known. Write failing owner tests and run the required gates;
-  no endpoint/Scala change or general cache manager is needed.
+  suggestions/reset admission (S4b) and impossible arrival polling (KUP-040) are repaired
+  and validated above in separate sessions. Keep KUP-040's commit separate. Their owners,
+  avoided reads and preservation controls are known; no endpoint/Scala change or general
+  cache manager is needed.
 2. **Do not start a Scala performance refactor on this evidence.** F1's backend resource
   benefit requires server-correlated residual-work evidence the browser cannot supply;
   F2/F3/F5/F6 remain conditional opportunities in the table. More ordinary browsing will not

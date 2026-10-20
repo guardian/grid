@@ -24,6 +24,14 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 20 October 2026 - Suppress impossible arrival intervals (KUP-040)
+
+Skip arrival-count dispatch only when the maximum upload lower bound reaches the upper
+bound, comparing date instants rather than timezone-dependent strings. Invalid dates
+fall through unchanged. Preserve outbound parameters, restored arrival state, hidden/visible
+scheduling, cumulative notifications and stale-publication guards. Add a compact failing-first
+interval table to the existing polling suite; no adapter, endpoint or Scala changes.
+
 ### 20 October 2026 - Reuse scoped CQL option buckets and retire reset work (S4b)
 
 Share pending and completed suggestion buckets by own-chip-excluded search parameters
