@@ -474,3 +474,11 @@ Then('the rights editor offers no save or cancel buttons', async ({ page }) => {
   await expect(rightsEditor(page).getByRole('button', { name: 'Save usage rights' })).toHaveCount(0);
   await expect(rightsEditor(page).getByRole('button', { name: 'Close usage rights form' })).toHaveCount(0);
 });
+
+Given('the usage rights suppliers is {string}', (s: string) => {
+  // Write code here that turns the phrase above into concrete actions
+})
+
+Then('Source field is {string}', (s: string) => {
+  // Write code here that turns the phrase above into concrete actions
+})

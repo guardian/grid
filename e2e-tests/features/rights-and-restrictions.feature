@@ -38,6 +38,17 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/app/views/main.scala.html lines 93
   # Evidence: kahuna/app/lib/KahunaConfig.scala lines 50
 
+  Scenario: The mapped category name and fields are shown for an image with a legacy usage rights and a suppliers field
+    Given the image has the "composite" usage rights category
+    And the usage rights suppliers is "Alamy, Getty Images"
+    And the configuration contains pay-to-use and not chargeable
+    Then the rights and restrictions section shows "PR & Third Party"
+    And Source field is "Alamy, Getty Images"
+  # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 29-32
+  # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 63, 69-73, 446-472
+  # Evidence: kahuna/app/views/main.scala.html lines 93
+  # Evidence: kahuna/app/lib/KahunaConfig.scala lines 50
+
   Scenario: An image without a usage rights category is shown as Unknown
     Given the image has no usage rights category
     Then the rights and restrictions section shows "Unknown"
@@ -89,6 +100,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
     Given the usage rights summary is switched on
     And the image was uploaded by "PA_AutoIngest"
     Then the usage rights summary shows an agency marker titled "PA_AutoIngest"
+  # It's ok to target a css class here because non-Guardian orgs supply stylesheets that provide the appropriate imagary  
   # Evidence: kahuna/public/js/components/gr-usagerights-summary/gr-usagerights-summary.tsx lines 93-105, 110-112
 
   # ---------------------------------------------------------------------------
