@@ -73,7 +73,7 @@ object UsageStore extends GridLogging {
 }
 
 class UsageStore(
-  getSupplierQuotaCount: (String, Int) => Future[SupplierQuotaCount],
+  getSupplierQuotaCount: String => Future[SupplierQuotaCount],
   quotaStore: QuotaStore
 )(implicit val ec: ExecutionContext) extends GridLogging {
 
@@ -126,7 +126,7 @@ class UsageStore(
     val supplierQuota = quotaStore.getQuota
     Future.sequence(
       Agencies.all.map { case (id, agency) =>
-        getSupplierQuotaCount(id, UsageStore.countPeriodInDays).map { quotaCount =>
+        getSupplierQuotaCount(id).map { quotaCount =>
           val quota = supplierQuota.get(id)
           agency.supplier -> UsageStore.getSupplierUsageStatus(quotaCount, quota)
         }

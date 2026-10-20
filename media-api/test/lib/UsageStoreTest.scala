@@ -33,7 +33,7 @@ class UsageStoreTest extends AnyFunSpec with Matchers with ScalaFutures with Moc
     }
     when(mockQuotaStore.getQuota).thenReturn(quotaMap)
 
-    val getSupplierQuotaCount: (String, Int) => Future[SupplierQuotaCount] = (id, _) =>
+    val getSupplierQuotaCount: String => Future[SupplierQuotaCount] = id =>
       Future.successful(SupplierQuotaCount(Agencies.get(id), quotaCounts.getOrElse(id, 0L)))
 
     new UsageStore(getSupplierQuotaCount, mockQuotaStore)
@@ -43,7 +43,7 @@ class UsageStoreTest extends AnyFunSpec with Matchers with ScalaFutures with Moc
     val mockQuotaStore = mock[QuotaStore]
     when(mockQuotaStore.getQuota).thenReturn(Map.empty[String, SupplierUsageQuota])
 
-    val getSupplierQuotaCount: (String, Int) => Future[SupplierQuotaCount] = (_, _) =>
+    val getSupplierQuotaCount: String => Future[SupplierQuotaCount] = _ =>
       Future.failed(new Exception("ElasticSearch is unavailable"))
 
     new UsageStore(getSupplierQuotaCount, mockQuotaStore)
@@ -133,7 +133,7 @@ class UsageStoreTest extends AnyFunSpec with Matchers with ScalaFutures with Moc
         val mockQuotaStore = mock[QuotaStore]
         when(mockQuotaStore.getQuota).thenReturn(Map.empty[String, SupplierUsageQuota])
 
-        val getSupplierQuotaCount: (String, Int) => Future[SupplierQuotaCount] = (id, _) =>
+        val getSupplierQuotaCount: String => Future[SupplierQuotaCount] = id =>
           if (shouldFail) Future.failed(new Exception("ElasticSearch is unavailable"))
           else Future.successful(SupplierQuotaCount(Agencies.get(id), 42L))
 
