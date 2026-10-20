@@ -35,16 +35,16 @@ describe("independent per-tab density", () => {
     expect(useUiPrefsStore.getState().density).toBe("grid");
   });
 
-  it.each([false, true])("justified preference respects the development-only licensing gate (%s)", async (enabled) => {
-    vi.stubEnv("DEV", enabled);
+  it.each([false, true])("restores and selects justified in either build mode (DEV=%s)", async (development) => {
+    vi.stubEnv("DEV", development);
     vi.stubEnv("VITE_JUSTIFIED_PREVIEW", "");
     storage.setItem("kupua-density", "justified");
     try {
       const { useUiPrefsStore } = await import("./ui-prefs-store");
-      expect(useUiPrefsStore.getState().density).toBe(enabled ? "justified" : "grid");
+      expect(useUiPrefsStore.getState().density).toBe("justified");
       useUiPrefsStore.getState().setDensity("justified");
-      expect(useUiPrefsStore.getState().density).toBe(enabled ? "justified" : "grid");
-      expect(storage.getItem("kupua-density")).toBe(enabled ? "justified" : "grid");
+      expect(useUiPrefsStore.getState().density).toBe("justified");
+      expect(storage.getItem("kupua-density")).toBe("justified");
     } finally { vi.unstubAllEnvs(); }
   });
 

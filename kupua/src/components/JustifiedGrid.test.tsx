@@ -25,7 +25,7 @@ vi.mock("./ImageGrid", () => ({ ImageGrid: (props: ImageGridProps) => {
   return null;
 } }));
 
-import { JustifiedGrid } from "./JustifiedGrid";
+let JustifiedGrid: typeof import("./JustifiedGrid").JustifiedGrid;
 
 beforeEach(() => {
   vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(390);
@@ -35,11 +35,18 @@ beforeEach(() => {
   fixture.committed = undefined;
   fixture.attempts = 0;
 });
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 
 const tree = () => <StrictMode><Suspense fallback={null}><JustifiedGrid /></Suspense></StrictMode>;
 
-describe("committed cross-density dimension context", () => {
+describe.each([false, true])("committed cross-density dimension context (DEV=%s)", development => {
+  beforeEach(async () => {
+    vi.stubEnv("DEV", development);
+    vi.stubEnv("VITE_JUSTIFIED_PREVIEW", "");
+    vi.resetModules();
+    JustifiedGrid = (await import("./JustifiedGrid")).JustifiedGrid;
+  });
+
   it("does not publish abandoned query geometry over committed overlap context", () => {
     const view = render(tree());
     fixture.start = 440;

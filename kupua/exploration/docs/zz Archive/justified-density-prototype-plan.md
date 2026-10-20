@@ -1,10 +1,11 @@
 # Justified density: refactor handoff and owning contracts
 
-**Current state:** justified density and bounded seam balancing are implemented in development;
+**Archived snapshot:** justified density and bounded seam balancing were implemented in development;
 Grid remains the default. R1's bounded shared seek policy and R3's narrow browser selection guard
 are implemented and reviewed. **R6's bounded unused-estimate removal is implemented, validated
 and accepted by all three independent cold reviews. No broader indexed rewrite is justified.**
-Production remains excluded pending licensing clearance. Implementation history belongs in the
+**Superseded 20 October 2026:** Justified is now a normal feature in all builds with the
+MIT-licensed 0.4.5 package. Production exclusions below are historical. Implementation history belongs in the
 [changelog](changelog.md), not here. Thumbnail arrival and buffer-edge blocking have a separate
 [research/work plan and evidence ledger](scroll-horizons-thumbs-and-blocking.md). That document
 owns their next steps, completed experiments and decision gates; they are not Justified refactors.
@@ -500,7 +501,7 @@ new controls, stronger preservation policies, larger resource budgets or perform
 | Current-density destination restoration and native/traversed return | [History guide](00%20Architecture%20and%20philosophy/04-browser-history-architecture.md#independent-density) |
 | Spatial keys, off-buffer intent and focus permission | [Keyboard guide](00%20Architecture%20and%20philosophy/keyboard-navigation.md#justified-spatial-navigation) |
 | Density selection/toggling, pinned controls and future granularity | [Frontend philosophy](00%20Architecture%20and%20philosophy/01-frontend-philosophy.md#density-is-not-view-mode) |
-| DEV availability, fixtures, installed-artifact licensing and safety | [README](../../README.md#justified-development-and-fixtures) |
+| Current Justified feature and geometry | [Component reference](<../00 Architecture and philosophy/component-detail.md#justified-density-componentsjustifiedgridtsx-libwindowed-justified-layoutts>) |
 | Independent browser oracles, holds and temporary-tail proof | [E2E handbook](../../e2e/README.md#justified-proof-contracts) |
 | Matched-condition comparisons and measurement limits | [Performance handbook](../../e2e-perf/README.md#coverage-limits) |
 

@@ -2,18 +2,18 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { ImageGrid, type ImageGridProps } from "./ImageGrid";
 import { buildJustifiedLayout } from "@/lib/justified-layout";
 import { buildWindowedJustifiedLayout, type WindowedJustifiedLayout, type JustifiedWindowSnapshot } from "@/lib/windowed-justified-layout";
-import { WINDOWED_JUSTIFIED_ENABLED } from "@/lib/resident-preview";
+import { RESIDENT_PREVIEW_ENABLED } from "@/lib/resident-preview";
 import type { Image } from "@/types/image";
 
 // Keep only bounded identity/dimension context across density unmounts, never image records.
 let windowSnapshot: JustifiedWindowSnapshot | undefined;
 const layoutFactory: NonNullable<ImageGridProps["layoutFactory"]> = (images, width, context, previous) => {
-  if (!WINDOWED_JUSTIFIED_ENABLED) return buildJustifiedLayout(images as Image[], width);
+  if (RESIDENT_PREVIEW_ENABLED) return buildJustifiedLayout(images as Image[], width);
   return buildWindowedJustifiedLayout(images, width, context,
     previous as WindowedJustifiedLayout | undefined ?? windowSnapshot);
 };
 const commitLayout: NonNullable<ImageGridProps["onLayoutCommit"]> = layout => {
-  if (!WINDOWED_JUSTIFIED_ENABLED) return;
+  if (RESIDENT_PREVIEW_ENABLED) return;
   const snapshot = layout as WindowedJustifiedLayout;
   windowSnapshot = { origin: snapshot.origin, searchKey: snapshot.searchKey,
     indexed: snapshot.indexed, dimensions: snapshot.dimensions };

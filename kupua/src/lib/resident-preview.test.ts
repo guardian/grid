@@ -40,13 +40,11 @@ describe("resident preview modes", () => {
     expect(urls.thumbnailsEnabled).toBe(false);
   });
 
-  it.each(["", "live"])("enables normal development presentation without resident data (%s)", async mode => {
+  it.each(["", "live"])("keeps normal development browsing outside resident fixtures (%s)", async mode => {
     vi.stubEnv("DEV", true);
     vi.stubEnv("VITE_JUSTIFIED_PREVIEW", mode);
     vi.resetModules();
     const flags = await import("./resident-preview");
-    expect(flags.WINDOWED_JUSTIFIED_ENABLED).toBe(true);
-    expect(flags.JUSTIFIED_AVAILABLE).toBe(true);
     expect(flags.RESIDENT_PREVIEW_ENABLED).toBe(false);
     expect(flags.SAMPLED_PREVIEW_ENABLED).toBe(false);
     expect(flags.SYNTHETIC_PREVIEW_ENABLED).toBe(false);
@@ -58,7 +56,7 @@ describe("resident preview modes", () => {
     vi.resetModules();
     const flags = await import("./resident-preview");
     expect(flags.RESIDENT_PREVIEW_ENABLED).toBe(false);
-    expect(flags.JUSTIFIED_AVAILABLE).toBe(false);
-    expect(flags.WINDOWED_JUSTIFIED_ENABLED).toBe(false);
+    expect(flags.SYNTHETIC_PREVIEW_ENABLED).toBe(false);
+    expect(flags.SAMPLED_PREVIEW_ENABLED).toBe(false);
   });
 });

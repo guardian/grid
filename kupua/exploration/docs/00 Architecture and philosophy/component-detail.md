@@ -667,7 +667,7 @@ Fixed Grid columns and Justified target row height are distinct sizing parameter
 capture/reflow ownership, not column arithmetic; no sizing controls are implemented. See
 [position contracts](02-focus-and-position-preservation.md#4-transitions-and-relaxations),
 [seek policy and costs](03-scroll-architecture.md#destination-seek-preparation), and
-[availability/licensing](../../../README.md#justified-development-and-fixtures).
+[Justified feature comparison](00-kupua-vs-kahuna-feature-inventory.md#42-whole-image-justified-rows).
 
 ## Image Detail (`components/ImageDetail.tsx`)
 

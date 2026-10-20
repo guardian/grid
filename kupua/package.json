@@ -45,12 +45,12 @@
   },
   "dependencies": {
     "@guardian/cql": "^1.8.6",
+    "@immich/justified-layout-wasm": "0.4.5",
     "@tanstack/react-router": "^1.170.41",
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "^3.14.13",
     "@tanstack/router-zod-adapter": "^1.81.5",
     "date-fns": "^4.1.0",
-    "@immich/justified-layout-wasm": "0.4.3",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "zod": "^4.6.5",

@@ -47,9 +47,8 @@ data-protection and performance safeguards still apply.
 - Do not import eelpie's imgproxy infrastructure, redesign service discovery, add
   durable sessions/PIT/index-migration support, or make deferred metadata fixes
   new deployment prerequisites.
-- Justified's production-build/licensing restriction is acknowledged. Resolve any
-  desired availability change separately before shipping it. Do not bypass the
-  gate by deploying a development-mode bundle.
+- Justified is a normal feature in production builds with the MIT-licensed packing
+  dependency. Deploy a production build; resident development fixtures remain excluded.
 
 ## 3. Evidence and Limits
 

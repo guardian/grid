@@ -3,8 +3,6 @@ import type { Image } from "@/types/image";
 export const SYNTHETIC_PREVIEW_ENABLED = import.meta.env.DEV && import.meta.env.VITE_JUSTIFIED_PREVIEW === "true";
 export const SAMPLED_PREVIEW_ENABLED = import.meta.env.DEV && import.meta.env.VITE_JUSTIFIED_PREVIEW === "sample";
 export const RESIDENT_PREVIEW_ENABLED = SYNTHETIC_PREVIEW_ENABLED || SAMPLED_PREVIEW_ENABLED;
-export const WINDOWED_JUSTIFIED_ENABLED = import.meta.env.DEV && !RESIDENT_PREVIEW_ENABLED;
-export const JUSTIFIED_AVAILABLE = import.meta.env.DEV;
 export const RESIDENT_PREVIEW_LIMIT = 96;
 
 export function decoratePreviewImage(image: Image, index: number): Image {

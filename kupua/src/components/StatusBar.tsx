@@ -16,7 +16,6 @@ import { useSearchStore } from "@/stores/search-store";
 import { usePanelStore } from "@/stores/panel-store";
 import { useSelectionStore } from "@/stores/selection-store";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
-import { JUSTIFIED_AVAILABLE } from "@/lib/resident-preview";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
@@ -263,7 +262,7 @@ export function StatusBar() {
       <div className="w-px bg-grid-separator shrink-0" />
 
       <div role="group" aria-label="Image layout" className="flex shrink-0">
-        {(["table", "grid", "justified"] as const).filter(mode => mode !== "justified" || JUSTIFIED_AVAILABLE).map((mode) => {
+        {(["table", "grid", "justified"] as const).map((mode) => {
           const label = `${mode[0].toUpperCase()}${mode.slice(1)} view`;
           return <button
             key={mode}

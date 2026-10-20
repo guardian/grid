@@ -32,7 +32,7 @@ import { useScrollEffects, type ScrollGeometry } from "@/hooks/useScrollEffects"
 import type { ImageLayout } from "@/lib/justified-layout";
 import type { LayoutWindow } from "@/lib/windowed-justified-layout";
 import type { WindowGeometry } from "@/lib/scroll-geometry-ref";
-import { RESIDENT_PREVIEW_ENABLED, WINDOWED_JUSTIFIED_ENABLED } from "@/lib/resident-preview";
+import { RESIDENT_PREVIEW_ENABLED } from "@/lib/resident-preview";
 import { useSearchStore } from "@/stores/search-store";
 import { useSelectionStore } from "@/stores/selection-store";
 import { useCollectionStore, buildColourMap } from "@/stores/collection-store";
@@ -487,7 +487,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
   const layoutSearchKey = buildSearchKey(searchParams);
   const justifiedLayout = useMemo(() => {
     if (!layoutFactory) return undefined;
-    if (!WINDOWED_JUSTIFIED_ENABLED && (!RESIDENT_PREVIEW_ENABLED || bufferOffset !== 0 || twoTier || results.some(image => !image) ||
+    if (RESIDENT_PREVIEW_ENABLED && (bufferOffset !== 0 || twoTier || results.some(image => !image) ||
         (results.length > 0 && results.length !== total))) {
       throw new Error("Justified preview requires the complete resident fixture");
     }

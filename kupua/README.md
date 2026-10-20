@@ -57,34 +57,6 @@ All image access is read-only and uses your existing developer AWS credentials. 
 ./kupua/scripts/start.sh --skip-install    # Skip npm install check
 ```
 
-## Justified Development and Fixtures
-
-Grid remains the default. Normal development offers Justified with the configured datasource
-and real queries, without another enable switch (`JUSTIFIED_AVAILABLE = DEV`). These optional
-resident fixtures are not normal-query or network-isolation certifications:
-
-| Mode | Configuration | Contract |
-| --- | --- | --- |
-| Synthetic resident | `VITE_JUSTIFIED_PREVIEW=true`; `npm --prefix kupua run dev:justified` on 3040 | 96 varied images, simulated matching and SVG media |
-| Real-photo resident sample | `VITE_JUSTIFIED_PREVIEW=sample` | One capped 96-image read, then in-memory ordering/cursors/ranges and simulated matching; reload resamples |
-| Production | Grid fallback | Inline DEV import gate excludes packing/windowed code and WASM pending licensing clearance |
-
-`WINDOWED_JUSTIFIED_ENABLED` means DEV without either resident fixture. Neither availability
-constant selects a performance scenario. Keep fixture notices visible. The sample coalesces
-its initial read, uses no PIT or exact full-index count, times out after 15 seconds and caches
-failure as empty without unrestricted fallback. It persists no metadata; thumbnail, detail
-and enrichment traffic can still occur.
-
-The installed `@immich/justified-layout-wasm@0.4.3` artifact includes AGPL-3. Development use is
-approved; production clearance is not. An upstream MIT source file does not override the
-installed artifact. WASM is an engine choice, not a measured Kupua speed advantage.
-
-Follow the [safeguards](exploration/docs/infra-safeguards.md) and
-[browser playbook](exploration/docs/embedded-browser-playbook.md). Startup scripts do not
-implicitly authorise replacing tunnels, stopping another process or creating credential
-files. Live access needs explicit permission and stays read-only; never persist live
-identities, signed URLs or secrets in evidence.
-
 ## Prerequisites
 
 ### Local mode (everyone)

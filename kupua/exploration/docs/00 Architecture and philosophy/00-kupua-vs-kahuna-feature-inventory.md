@@ -1,6 +1,6 @@
 # Kupua vs Kahuna — Feature Inventory
 
-**Current implementation, 13 October 2026.** A product-facing comparison of
+**Current implementation, 20 October 2026.** A product-facing comparison of
 API-backed Kupua with Kahuna. Sections and entries put the larger editorial
 workflow improvements before supporting controls and polish. Shared capabilities
 are identified as such; the final section lists the remaining gaps. Selected
@@ -553,7 +553,7 @@ Sources: [image URL builders](../../../src/lib/image-urls.ts),
 
 ---
 
-## 4. Table view and adaptable workspace
+## 4. Table, Justified and adaptable workspace
 
 ### 4.1 A real metadata table, not only an image grid
 
@@ -572,12 +572,31 @@ Sources: [ImageTable](../../../src/components/ImageTable.tsx),
 [field registry](../../../src/lib/field-registry.tsx),
 [Kahuna grid template](../../../../kahuna/public/js/search/results.html).
 
-### 4.2 Switch between table and grid without abandoning the working position
+### 4.2 Whole-image Justified rows
 
-**Kahuna:** provides a fixed image-grid presentation, without a table/grid density
+**Kahuna:** presents fixed-size image-grid cells, without an equivalent justified
+density.
+
+**Kupua:** offers image-only Justified rows that preserve each image's aspect ratio
+and adjust thumbnail sizes to the available width. Portrait, landscape and panoramic
+images remain uncropped, making composition easier to inspect while browsing.
+The layout uses the same windowed results, selection, keyboard navigation and
+detail/fullscreen viewers as the other densities, rather than a separate gallery.
+
+**New endpoints:** none specific to packing or rendering the layout. It shares
+the existing browsing and seek infrastructure (§1.4).
+
+Sources: [JustifiedGrid](../../../src/components/JustifiedGrid.tsx),
+[shared image rendering](../../../src/components/ImageGrid.tsx),
+[geometry contracts](component-detail.md#justified-density-componentsjustifiedgridtsx-libwindowed-justified-layoutts),
+[Kahuna grid template](../../../../kahuna/public/js/search/results.html).
+
+### 4.3 Switch between table, grid and Justified without abandoning the working position
+
+**Kahuna:** provides a fixed image-grid presentation, without a table/grid/Justified density
 preference.
 
-**Kupua:** switches between table and grid using the shared result buffer and
+**Kupua:** switches between table, grid and Justified using the shared result buffer and
 transition-specific anchoring. The density choice persists across reload in the
 same tab but is not part of the URL or a history destination. Detail and fullscreen
 provide closer inspection without becoming additional persisted density values.
@@ -589,7 +608,7 @@ Sources: [UI preferences](../../../src/stores/ui-prefs-store.ts),
 [scroll effects](../../../src/hooks/useScrollEffects.ts),
 [Kahuna grid template](../../../../kahuna/public/js/search/results.html).
 
-### 4.3 Configurable, resizable and auto-fit table columns
+### 4.4 Configurable, resizable and auto-fit table columns
 
 **Kahuna:** has no equivalent metadata table to configure.
 
@@ -606,7 +625,7 @@ Sources: [ImageTable](../../../src/components/ImageTable.tsx),
 [column menu](../../../src/components/ColumnContextMenu.tsx),
 [column store](../../../src/stores/column-store.ts).
 
-### 4.4 Resizable panels that stay open while browsing
+### 4.5 Resizable panels that stay open while browsing
 
 **Kahuna:** uses fixed-width panels. Visible unlocked panels hide on scroll; locked
 panels can participate in layout.
@@ -626,7 +645,7 @@ Sources: [PanelLayout](../../../src/components/PanelLayout.tsx),
 [Kahuna panels](../../../../kahuna/public/js/components/gr-panels/gr-panels.js),
 [Kahuna panel styles](../../../../kahuna/public/js/components/gr-panels/gr-panels.css).
 
-### 4.5 Choose Click-to-Open or explicit Click-to-Focus
+### 4.6 Choose Click-to-Open or explicit Click-to-Focus
 
 **Kahuna:** ordinary image clicks open detail outside selection mode.
 
@@ -642,7 +661,7 @@ Sources: [SettingsMenu](../../../src/components/SettingsMenu.tsx),
 [UI preferences](../../../src/stores/ui-prefs-store.ts),
 [Kahuna image preview](../../../../kahuna/public/js/preview/image.html).
 
-### 4.6 Change the image-blur preference without reloading
+### 4.7 Change the image-blur preference without reloading
 
 **Both:** support blurring potentially graphic images.
 

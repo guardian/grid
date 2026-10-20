@@ -32,7 +32,7 @@ Vite builds the app; Vitest and Playwright provide tests.
 
 | Area | Responsibility and entry point |
 |---|---|
-| Search and navigation | The URL represents search/detail state. [URL sync](src/hooks/useUrlSearchSync.ts) coordinates it with the search store; density is a separate per-tab preference. |
+| Search and navigation | The URL represents search/detail state. [URL sync](src/hooks/useUrlSearchSync.ts) coordinates it with the search store; density is a separate per-tab preference. Table, Grid and Justified code loads upfront with the search route. |
 | Data access | [The DAL](src/dal/index.ts) selects an implementation of `ImageDataSource`: media-api or direct Elasticsearch. API mode constructs no ES datasource. Views work through the shared data boundary. |
 | Search state | [Search store](src/stores/search-store.ts) owns the result buffer and query, seek, extension and restoration work. It publishes data and placement intent rather than scrolling the DOM. |
 | View and position | [Data window](src/hooks/useDataWindow.ts) bridges the buffer and rendered list; [scroll effects](src/hooks/useScrollEffects.ts) own viewport placement, validate velocity samples and supply first-row validity for seek-mode backward admission. Navigation intent is separate from geometry validity. Views own physical scroll extents; coordinate mechanics vary by result-set size. |
@@ -63,7 +63,7 @@ There is no need to read the whole documentation tree before working.
 | Collections | [Collections guide](exploration/docs/00%20Architecture%20and%20philosophy/06-collections.md). |
 | AI search | [AI compatibility workplan](exploration/docs/ai-search-catching-up-workplan.md) for contracts and [component reference](exploration/docs/00%20Architecture%20and%20philosophy/component-detail.md) for implementation entry points. |
 | API integration | [API build plan](exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md) for sequence and decisions; [Scala conventions](exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/media-api-91-instructions-for-agents.md) for media-api work. |
-| Runtime configuration | [README setup](README.md#quick-start), [Justified availability and fixtures](README.md#justified-development-and-fixtures), and the README's API-mode sections. |
+| Runtime configuration | [README setup](README.md#quick-start) and the README's API-mode sections. |
 | Known defects or intentional departures | [Bug backlog](exploration/docs/bug-backlog.md) and [deviations](exploration/docs/deviations.md). |
 
 ## Running and Validation

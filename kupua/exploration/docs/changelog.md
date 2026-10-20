@@ -24,6 +24,13 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 20 October 2026 - Upgrade Justified Layout
+
+Justified is now available alongside Table and Grid, using
+MIT-licensed `@immich/justified-layout-wasm@0.4.5` (thank you!). It shares the existing
+windowed browsing and position-preservation infrastructure, and retains the per-tab density
+preference. Grid remains the default. The feature inventory describes Justified alongside Table.
+
 ### 19 October 2026 - Add reusable Elasticsearch transport diagnostics and reversible instrumentation
 
 Add cached-dependency loopback fixtures for the Java REST/Apache stack: compression and framing,

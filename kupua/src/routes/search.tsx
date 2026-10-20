@@ -24,6 +24,7 @@ import { StatusBar } from "@/components/StatusBar";
 import { SelectionFab } from "@/components/SelectionFab";
 import { ImageTable } from "@/components/ImageTable";
 import { ImageGrid } from "@/components/ImageGrid";
+import { JustifiedGrid } from "@/components/JustifiedGrid";
 import { RESIDENT_PREVIEW_ENABLED, SAMPLED_PREVIEW_ENABLED, RESIDENT_PREVIEW_LIMIT } from "@/lib/resident-preview";
 import { ImageDetail } from "@/components/ImageDetail";
 import { PanelLayout, AccordionSection } from "@/components/PanelLayout";
@@ -41,17 +42,13 @@ import { usePanelStore } from "@/stores/panel-store";
 import { useEffectiveFocusMode, useUiPrefsStore } from "@/stores/ui-prefs-store";
 import { useVisibleRange } from "@/hooks/useDataWindow";
 import { useSearch } from "@tanstack/react-router";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRangeSelection } from "@/hooks/useRangeSelection";
 import { interpolateNullZoneSortLabel, resolveKeywordSortInfo, resolveDateSortInfo, computeTrackTicksWithNullZone } from "@/lib/sort-context";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { initGridApi } from "@/lib/grid-api-instance";
 import type { Image } from "@/types/image";
-
-// Keep the import behind an inline build-time gate, not just a hidden UI control.
-const JustifiedGrid = import.meta.env.DEV
-  ? lazy(() => import("@/components/JustifiedGrid").then(module => ({ default: module.JustifiedGrid }))) : null;
 
 export const searchRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -283,7 +280,7 @@ function SearchPage() {
           }
           scrubber={scrubberElement}
         >
-          {density === "justified" && JustifiedGrid ? <Suspense fallback={<div className="flex-1" />}><JustifiedGrid handleRange={handleRange} /></Suspense>
+          {density === "justified" ? <JustifiedGrid handleRange={handleRange} />
             : isGrid ? <ImageGrid handleRange={handleRange} /> : <ImageTable handleRange={handleRange} />}
         </PanelLayout>
       </div>

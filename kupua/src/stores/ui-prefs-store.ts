@@ -17,7 +17,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { useSearchStore } from "@/stores/search-store";
-import { JUSTIFIED_AVAILABLE } from "@/lib/resident-preview";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -35,7 +34,7 @@ export function writeDensityPreference(density: Density): void {
 function initialDensity(): Density {
   try {
     const saved = sessionStorage.getItem(DENSITY_STORAGE_KEY);
-    return saved === "table" ? "table" : saved === "justified" && JUSTIFIED_AVAILABLE ? "justified" : "grid";
+    return saved === "table" || saved === "justified" ? saved : "grid";
   } catch {
     return "grid";
   }
@@ -75,7 +74,6 @@ export const useUiPrefsStore = create<UiPrefsState>()(
       density: initialDensity(),
       _densityIntent: 0,
       setDensity: (density) => {
-        if (density === "justified" && !JUSTIFIED_AVAILABLE) density = "grid";
         writeDensityPreference(density);
         set((state) => ({ density, _densityIntent: state._densityIntent + 1 }));
       },
