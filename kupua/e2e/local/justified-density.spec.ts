@@ -1,10 +1,11 @@
 import type { Page } from "@playwright/test";
 import { test, expect, type KupuaHelpers } from "../shared/helpers";
 import { unfocusedDensityRoundTrips } from "../shared/browse-density";
+import { waitForDensityRow } from "../shared/density-selection";
 
 type Density = "grid" | "table" | "justified";
 
-async function switchDensity(page: Page, density: Density) {
+async function switchDensity(page: Page, density: Density, imageId?: string) {
   const current = await page.evaluate(() => document.querySelector('[aria-label^="Image results "]')?.getAttribute("aria-label")?.split(" ").at(-1));
   if (current === density) return;
   const generation = await page.evaluate(() => (window as any).__kupua_getDensityRestoreGeneration__());
@@ -12,6 +13,7 @@ async function switchDensity(page: Page, density: Density) {
   await page.getByRole("button", { name: label, exact: true }).click();
   await expect(page.getByRole("region", { name: `Image results ${density}`, exact: true })).toBeVisible();
   await page.waitForFunction(generation => (window as any).__kupua_getDensityRestoreGeneration__() > generation, generation);
+  if (imageId) await waitForDensityRow(page, density, imageId);
 }
 
 async function placement(page: Page, id: string) {
@@ -84,7 +86,7 @@ test("resident justified density and panel round trips preserve the same interio
   const id = await focusInterior(kupua, page);
   const before = (await placement(page, id))!;
   for (let cycle = 0; cycle < 3; cycle++) {
-    for (const density of ["table", "grid", "justified"] as const) await switchDensity(page, density);
+    for (const density of ["table", "grid", "justified"] as const) await switchDensity(page, density, id);
     await expect.poll(async () => Math.abs((await placement(page, id))!.y - before.y)).toBeLessThan(1);
   }
   await page.getByRole("button", { name: "Show Details panel", exact: true }).click();
@@ -94,6 +96,39 @@ test("resident justified density and panel round trips preserve the same interio
   await settleWidth(page);
   expect(Math.abs((await placement(page, id))!.y - before.y)).toBeLessThan(1);
   expect((await placement(page, id))!.focused).toBe(true);
+});
+
+test("density row readiness waits for the requested identity, density and nonzero geometry", async ({ page }) => {
+  await page.setContent(`
+    <section role="region" aria-label="Image results grid">
+      <div data-image-id="synthetic-density-target" style="height:20px"></div>
+    </section>
+    <section role="region" aria-label="Image results justified">
+      <div data-image-id="synthetic-other-target" style="height:20px"></div>
+    </section>
+  `);
+  let ready = false;
+  const waiting = waitForDensityRow(page, "justified", "synthetic-density-target").then(() => { ready = true; });
+  await page.evaluate(async () => {
+    await new Promise(requestAnimationFrame);
+    await new Promise(requestAnimationFrame);
+  });
+  expect(ready).toBe(false);
+  await page.getByRole("region", { name: "Image results justified", exact: true }).evaluate(container => {
+    const cell = document.createElement("div");
+    cell.dataset.imageId = "synthetic-density-target";
+    cell.style.height = "0px";
+    container.appendChild(cell);
+  });
+  await page.evaluate(async () => {
+    await new Promise(requestAnimationFrame);
+    await new Promise(requestAnimationFrame);
+  });
+  expect(ready).toBe(false);
+  await page.getByRole("region", { name: "Image results justified", exact: true })
+    .locator('[data-image-id="synthetic-density-target"]').evaluate(cell => { (cell as HTMLElement).style.height = "20px"; });
+  await waiting;
+  expect(ready).toBe(true);
 });
 
 for (const sourceDensity of ["grid", "justified"] as const) {

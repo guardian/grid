@@ -18,6 +18,7 @@ import type {
   AggregationBucket,
   AggregationResult,
   AggregationsResult,
+  AggregationRequest,
   FilterAggRequest,
   SearchParams,
 } from "@/dal/types";
@@ -174,6 +175,64 @@ function storeBuckets(
 // so it works against any ES — mock or real.
 // ---------------------------------------------------------------------------
 
+function createOptionReader(dataSource: ImageDataSource) {
+  const completed = new Map<string, AggregationsResult>();
+  const pending = new Map<string, {
+    controller: AbortController;
+    users: number;
+    promise: Promise<AggregationsResult>;
+  }>();
+
+  return (params: SearchParams, fields: AggregationRequest[], signal?: AbortSignal, filters?: FilterAggRequest[]): Promise<AggregationsResult> => {
+    if (signal?.aborted) return Promise.reject(new DOMException("Aborted", "AbortError"));
+    const key = JSON.stringify([
+      Object.entries(params).filter(([, value]) => value !== undefined).sort(([left], [right]) => left.localeCompare(right)),
+      fields, filters,
+    ]);
+    const cached = completed.get(key);
+    if (cached) return Promise.resolve(cached);
+    let request = pending.get(key);
+    if (!request) {
+      const controller = new AbortController();
+      const owned = {
+        controller, users: 0,
+        promise: dataSource.getAggregations(params, fields, controller.signal, filters).then((result) => {
+          if (!controller.signal.aborted) {
+            completed.set(key, result);
+            if (completed.size > 32) completed.delete(completed.keys().next().value!);
+          }
+          return result;
+        }).finally(() => {
+          if (pending.get(key) === owned) pending.delete(key);
+        }),
+      };
+      request = owned;
+      pending.set(key, request);
+    }
+    const owned = request;
+    owned.users++;
+    return new Promise((resolve, reject) => {
+      let finished = false;
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        signal?.removeEventListener("abort", abort);
+        owned.users--;
+        if (owned.users === 0 && pending.get(key) === owned) {
+          pending.delete(key);
+          owned.controller.abort();
+        }
+      };
+      const abort = () => {
+        finish();
+        reject(new DOMException("Aborted", "AbortError"));
+      };
+      signal?.addEventListener("abort", abort, { once: true });
+      owned.promise.then((result) => { finish(); resolve(result); }, (error) => { finish(); reject(error); });
+    });
+  };
+}
+
 export function buildTypeaheadFields(
   dataSource: ImageDataSource,
   getAggregations?: () => AggregationsResult | null,
@@ -181,6 +240,8 @@ export function buildTypeaheadFields(
   getTickerCounts?: () => Record<string, TickerCountResult> | null,
   getIsFilterCounts?: () => Record<string, number> | null,
 ): TypeaheadFieldDef[] {
+  const readOptions = createOptionReader(dataSource);
+
   /** Fetch a single field's agg scoped to the current query, excluding the
    *  field's own filter to avoid self-referential results. When `cqlKey` is
    *  provided and the query contains that field, the field's chip expression
@@ -199,7 +260,7 @@ export function buildTypeaheadFields(
         const stripped = stripFieldFromQuery(cqlKey, params.query);
         if (stripped !== params.query) adjustedParams = { ...params, query: stripped || undefined };
       }
-      const result = await dataSource.getAggregations(adjustedParams, [{ field, size }], signal);
+      const result = await readOptions(adjustedParams, [{ field, size }], signal);
       return result.fields[field] ?? { buckets: [], total: 0 };
     }, { buckets: [], total: 0 });
   }
@@ -370,7 +431,7 @@ export function buildTypeaheadFields(
                 { name: `${org}-owned-photo`, isFilter: `${org}-owned-photo` },
                 { name: `${org}-owned-illustration`, isFilter: `${org}-owned-illustration` },
               ];
-              const aggResult = await dataSource.getAggregations(params, [], signal, filterRequests);
+              const aggResult = await readOptions(params, [], signal, filterRequests);
               for (const [k, v] of Object.entries(aggResult.filters ?? {})) countMap.set(k, v);
             }
           } catch { /* non-critical — counts just absent */ }
@@ -548,6 +609,7 @@ export function buildDynamicFieldFallback(
   dataSource: ImageDataSource,
   getParams?: () => SearchParams,
 ): (fieldId: string, value: string, signal?: AbortSignal) => Promise<LabelledSuggestion[] | undefined> {
+  const readOptions = createOptionReader(dataSource);
   return async (fieldId, value, signal) => {
     const params = getParams?.();
     if (!params) return undefined;
@@ -561,7 +623,7 @@ export function buildDynamicFieldFallback(
     const scopedQuery = params.query ? removeAllFieldTerms(params.query, fieldId) : params.query;
     const adjustedParams = scopedQuery !== params.query ? { ...params, query: scopedQuery || undefined } : params;
     const buckets = await isolateAggregationFailure(
-      async () => (await dataSource.getAggregations(adjustedParams, [{ field: fieldId, size: 50 }], signal)).fields[fieldId]?.buckets,
+      async () => (await readOptions(adjustedParams, [{ field: fieldId, size: 50 }], signal)).fields[fieldId]?.buckets,
       undefined,
     );
     if (!buckets?.length) return undefined;

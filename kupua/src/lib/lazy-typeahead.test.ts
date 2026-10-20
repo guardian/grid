@@ -1,7 +1,7 @@
 import { createParser, TypeaheadField } from "@guardian/cql";
 import type { AggregationRequest, AggregationsResult, SearchParams } from "@/dal";
 import { MockDataSource } from "@/dal/mock-data-source";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { LazyTypeahead } from "./lazy-typeahead";
 import { buildTypeaheadFields } from "./typeahead-fields";
 
@@ -20,6 +20,26 @@ function parseOrThrow(query: string) {
 }
 
 describe("LazyTypeahead — live query ref", () => {
+  it("cancels its pending pass and suppresses resolvers while disabled, then admits the next owner", async () => {
+    let finish: (value: Array<{ label: undefined; value: string }>) => void = () => {};
+    const resolver = vi.fn(() => new Promise<Array<{ label: undefined; value: string }>>((resolve) => { finish = resolve; }));
+    const liveQueryRef = { current: undefined as string | undefined };
+    const typeahead = new LazyTypeahead([new TypeaheadField("credit", "credit", "", resolver, "TEXT")], undefined, undefined, liveQueryRef);
+    const pending = typeahead.getSuggestions(parseOrThrow("credit:A"));
+    const rejected = expect(pending).rejects.toMatchObject({ name: "AbortError" });
+    typeahead.setEnabled(false);
+    await rejected;
+    expect(liveQueryRef.current).toBeUndefined();
+    expect(await typeahead.getSuggestions(parseOrThrow("credit:B"))).toEqual([]);
+    expect(resolver).toHaveBeenCalledTimes(1);
+    finish([{ label: undefined, value: "Abandoned" }]);
+    typeahead.setEnabled(true);
+    const next = typeahead.getSuggestions(parseOrThrow("credit:B"));
+    finish([{ label: undefined, value: "Beta" }]);
+    expect((await next).find((entry) => entry.position === "chipValue")?.suggestions).toEqual([{ label: undefined, value: "Beta" }]);
+    expect(resolver).toHaveBeenCalledTimes(2);
+  });
+
   it("updates the ref with the up-to-date query string before resolving, for a field key that was just a quoted phrase a moment ago", async () => {
     const liveQueryRef: { current: string | undefined } = { current: undefined };
     const typeahead = new LazyTypeahead([], undefined, undefined, liveQueryRef);
@@ -93,7 +113,7 @@ describe("LazyTypeahead — live query ref", () => {
     expect(suggestions.some((s) => s.suggestions.some((opt) => opt.value === "Reuters"))).toBe(true);
   });
 
-  it("aborts a superseded registered-field aggregation and cannot publish its stale options", async () => {
+  it("shares equivalent pending buckets without publishing the superseded prefix", async () => {
     type PendingRequest = {
       signal: AbortSignal | undefined;
       resolve: (result: AggregationsResult) => void;
@@ -115,7 +135,9 @@ describe("LazyTypeahead — live query ref", () => {
       }
     }
 
-    const fieldDefs = buildTypeaheadFields(new ControlledDataSource(10), undefined, () => ({}));
+    const liveQueryRef = { current: undefined as string | undefined };
+    let params: SearchParams = { nonFree: "true" };
+    const fieldDefs = buildTypeaheadFields(new ControlledDataSource(10), undefined, () => ({ ...params, query: liveQueryRef.current }));
     const keywordDef = fieldDefs.find((field) => field.fieldName === "keyword");
     if (!keywordDef || !keywordDef.resolver || Array.isArray(keywordDef.resolver)) {
       throw new Error("Expected registered keyword resolver");
@@ -128,24 +150,25 @@ describe("LazyTypeahead — live query ref", () => {
       async (value, signal) => (await keywordResolver(value, signal)).map((suggestion) => ({
         label: suggestion.label,
         value: suggestion.value,
+        count: suggestion.count,
       })),
       "TEXT",
     );
-    const typeahead = new LazyTypeahead([field]);
+    const typeahead = new LazyTypeahead([field], undefined, undefined, liveQueryRef);
 
     const staleSuggestions = typeahead.getSuggestions(parseOrThrow("keyword:f"));
     const staleRejection = expect(staleSuggestions).rejects.toMatchObject({ name: "AbortError" });
     expect(requests).toHaveLength(1);
 
     const currentSuggestions = typeahead.getSuggestions(parseOrThrow("keyword:fo"));
-    expect(requests).toHaveLength(2);
-    expect(requests[0].signal?.aborted).toBe(true);
+    expect(requests).toHaveLength(1);
+    expect(requests[0].signal?.aborted).toBe(false);
 
-    requests[1].resolve({
+    requests[0].resolve({
       fields: {
         "metadata.keywords": {
-          buckets: [{ key: "football", count: 10 }],
-          total: 10,
+          buckets: [{ key: "football", count: 10 }, { key: "fern", count: 7 }],
+          total: 17,
         },
       },
     });
@@ -158,8 +181,25 @@ describe("LazyTypeahead — live query ref", () => {
       }),
       expect.objectContaining({
         position: "chipValue",
-        suggestions: [expect.objectContaining({ value: "football" })],
+        suggestions: [expect.objectContaining({ value: "football", count: 10 })],
       }),
     ]));
+    const completed = await typeahead.getSuggestions(parseOrThrow("keyword:fe"));
+    expect(completed.find((entry) => entry.position === "chipValue")?.suggestions)
+      .toEqual([{ label: undefined, value: "fern", count: 7 }]);
+    expect(requests).toHaveLength(1);
+    expect(requests[0].signal?.aborted).toBe(false);
+    params = { nonFree: "false" };
+    const changedScope = typeahead.getSuggestions(parseOrThrow("keyword:f"));
+    const changedRejection = expect(changedScope).rejects.toMatchObject({ name: "AbortError" });
+    expect(requests).toHaveLength(2);
+    params = { nonFree: "true" };
+    const restored = await typeahead.getSuggestions(parseOrThrow("keyword:fo"));
+    await changedRejection;
+    expect(requests[1].signal?.aborted).toBe(true);
+    requests[1].resolve({ fields: { "metadata.keywords": { buckets: [{ key: "forbidden stale", count: 99 }], total: 99 } } });
+    expect(restored.find((entry) => entry.position === "chipValue")?.suggestions)
+      .toEqual([{ label: undefined, value: "football", count: 10 }]);
+    expect(requests).toHaveLength(2);
   });
 });

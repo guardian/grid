@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { test, expect, type KupuaHelpers } from "../shared/helpers";
-import { getDensityChangeButton, type Density } from "../shared/density-selection";
+import { getDensityChangeButton, waitForDensityRow, type Density } from "../shared/density-selection";
 import { unfocusedDensityRoundTrips } from "../shared/browse-density";
 
 const region = (page: Page) => page.getByRole("region", { name: "Image results justified", exact: true });
@@ -58,7 +58,7 @@ async function focus(kupua: KupuaHelpers, page: Page) {
   return id!;
 }
 
-async function density(page: Page, target: Density) {
+async function density(page: Page, target: Density, imageId?: string) {
   const button = await getDensityChangeButton(page, target);
   if (button) {
     const generation = await page.evaluate(() => (window as any).__kupua_getDensityRestoreGeneration__());
@@ -66,6 +66,7 @@ async function density(page: Page, target: Density) {
     await page.waitForFunction(generation => (window as any).__kupua_getDensityRestoreGeneration__() > generation, generation);
   }
   await expect(page.getByRole("region", { name: `Image results ${target}`, exact: true })).toBeVisible();
+  if (imageId) await waitForDensityRow(page, target, imageId);
 }
 
 for (const layout of ["grid", "justified"] as const) {
@@ -344,7 +345,7 @@ test("windowed density, panel, history and traversed detail preserve identity an
     (window as any).__kupua_store__.getState()._searchContinuity?.phase === "placed", key);
   await expect.poll(async () => Math.abs((await placement(page, id))!.y - before.y)).toBeLessThan(1);
   for (const source of ["grid", "justified", "table"] as const) {
-    await density(page, source);
+    await density(page, source, id);
     const departure = await placement(page, id);
     expect(departure.y).toBeGreaterThan(0);
     expect(departure.y + departure.height).toBeLessThan(departure.viewport);

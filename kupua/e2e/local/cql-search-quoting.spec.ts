@@ -67,7 +67,8 @@ test.describe("CQL resolver ownership", () => {
       const originalSuggestions = LazyTypeahead.prototype.getSuggestions;
       const probe = {
         registered: customElements.get("cql-input"), element: document.querySelector("cql-input"),
-        suggestions: [] as any[], requests: [] as any[], pending: [] as any[], hold: false,
+        suggestions: [] as any[], requests: [] as any[], pending: [] as any[], owners: [] as any[], hold: false,
+        lastProgram: null as any, retiredProgram: null as any,
         restore: () => {
           LazyTypeahead.prototype.getSuggestions = originalSuggestions;
           if (ownedAggregation) source.getAggregations = originalAggregation;
@@ -83,6 +84,8 @@ test.describe("CQL resolver ownership", () => {
         };
       };
       LazyTypeahead.prototype.getSuggestions = function (program: any, signal?: AbortSignal) {
+        if (!probe.owners.includes(this)) probe.owners.push(this);
+        probe.lastProgram = program;
         const query = queryStrFromAst(program);
         return originalSuggestions.call(this, program, signal).then((result: any[]) => {
           probe.suggestions.push({ query, values: result.filter(entry => entry.position === "chipValue").flatMap(entry => entry.suggestions) });
@@ -169,5 +172,49 @@ test.describe("CQL resolver ownership", () => {
     const values = await page.evaluate(() => (window as any).__cqlLifetimeProbe.suggestions.at(-1).values);
     expect(values).toContainEqual(expect.objectContaining({ value: "Fresh synthetic", count: 8 }));
     expect(values).not.toContainEqual(expect.objectContaining({ value: "Obsolete" }));
+  });
+
+  for (const mode of ["clear", "home"] as const) {
+    test(`${mode} admits no obsolete credit option reads during reset`, async ({ page }) => {
+      await page.evaluate(() => { (window as any).__cqlLifetimeProbe.hold = true; });
+      await page.locator(".ProseMirror.Cql__ContentEditable").fill("city:London credit:");
+      await page.waitForFunction(() => (window as any).__cqlLifetimeProbe.pending.length > 0);
+      await page.evaluate(() => { (window as any).__cqlLifetimeProbe.requests = []; });
+      await remount(page, mode);
+      const observed = await page.evaluate(() => {
+        const probe = (window as any).__cqlLifetimeProbe;
+        probe.hold = false;
+        const aborted = probe.pending.every((request: any) => request.signal.aborted);
+        for (const pending of probe.pending) pending.resolve({ fields: {} });
+        return {
+          aborted,
+          reads: probe.requests.filter((request: any) => request.fields.length === 1 && request.fields[0].field === "metadata.credit").length,
+        };
+      });
+      expect(observed).toEqual({ aborted: true, reads: 0 });
+      await typeQuery(page, "credit:");
+      const values = await page.evaluate(() => (window as any).__cqlLifetimeProbe.suggestions.at(-1).values);
+      expect(values).toContainEqual(expect.objectContaining({ value: "Fresh synthetic", count: 8 }));
+    });
+  }
+
+  test("a retired editor owner cannot dispatch or publish suggestions after Home", async ({ page }) => {
+    await typeQuery(page, "credit:");
+    await page.evaluate(() => {
+      const probe = (window as any).__cqlLifetimeProbe;
+      probe.retiredProgram = probe.lastProgram;
+    });
+    await remount(page, "home");
+    const observed = await page.evaluate(async () => {
+      const probe = (window as any).__cqlLifetimeProbe;
+      probe.requests = [];
+      const store = (window as any).__kupua_store__;
+      store.setState({ params: { ...store.getState().params, since: "2001-01-01" } });
+      const suggestions = await probe.owners[0].getSuggestions(probe.retiredProgram);
+      return { requests: probe.requests.length, suggestions };
+    });
+    expect(observed).toEqual({ requests: 0, suggestions: [] });
+    await typeQuery(page, "credit:");
+    expect(await page.evaluate(() => (window as any).__cqlLifetimeProbe.owners.length)).toBe(2);
   });
 });

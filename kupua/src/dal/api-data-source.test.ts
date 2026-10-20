@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiDataSource } from "./api-data-source";
 import type { ImageDataSource, SortValues } from "./types";
+import { buildTypeaheadFields } from "@/lib/typeahead-fields";
 
 type Body = Record<string, unknown>;
 type Route = (body: Body) => unknown;
@@ -31,6 +32,41 @@ const everyMethod: Record<Exclude<keyof ImageDataSource, "offsetReadLimit">, tru
 const entity = (id: string) => ({ data: { id, uploadTime: "2026-01-01T00:00:00Z" } });
 const failure = (status: number, errorKey = "fixture") => new Response(JSON.stringify({ errorKey }), { status });
 const params = { orderBy: "-uploadTime", nonFree: "true", length: 200 };
+
+describe("API suggestion bucket reuse", () => {
+  it("restores all-rights suggestions without substituting 50 buckets for a 100-bucket expansion", async () => {
+    const calls = stubMediaApi({ "/images/aggregations": (body) => ({
+      fields: Object.fromEntries((body.fields as Array<{ field: string; size: number }>).map(({ field, size }) => [field, {
+        buckets: [{ key: "Alpha", count: body.free ? 2 : size }],
+      }])),
+    }) });
+    const dataSource = new ApiDataSource();
+    let scope = { query: "city:London credit:A", nonFree: "true" };
+    const resolver = buildTypeaheadFields(dataSource, undefined, () => scope)
+      .find((field) => field.fieldName === "credit")!.resolver;
+    if (typeof resolver !== "function") throw new Error("Expected credit resolver");
+    expect(await resolver("A")).toEqual([{ value: "Alpha", count: 50 }]);
+    scope = { ...scope, nonFree: "false" };
+    expect(await resolver("A")).toEqual([{ value: "Alpha", count: 2 }]);
+    scope = { query: "city:London credit:Al", nonFree: "true" };
+    expect(await resolver("Al")).toEqual([{ value: "Alpha", count: 50 }]);
+    expect(calls).toHaveLength(2);
+    expect(calls.map(({ body }) => body.free)).toEqual([undefined, true]);
+    expect(calls.map(({ body }) => body.q)).toEqual([
+      "city:London -is:deleted -usages@status:replaced",
+      "city:London -is:deleted -usages@status:replaced",
+    ]);
+    const expanded = await dataSource.getAggregations({ ...scope, query: "city:London" }, [{ field: "metadata.credit", size: 100 }]);
+    expect(expanded.fields["metadata.credit"].buckets).toEqual([{ key: "Alpha", count: 100 }]);
+    expect(calls.map(({ body }) => body.fields)).toEqual([
+      [{ field: "metadata.credit", size: 50 }],
+      [{ field: "metadata.credit", size: 50 }],
+      [{ field: "metadata.credit", size: 100 }],
+    ]);
+    expect(await resolver("A")).toEqual([{ value: "Alpha", count: 50 }]);
+    expect(calls).toHaveLength(3);
+  });
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();

@@ -24,6 +24,24 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 20 October 2026 - Reuse scoped CQL option buckets and retire reset work (S4b)
+
+Share pending and completed suggestion buckets by own-chip-excluded search parameters
+and requested fields/sizes/filter requests, retaining at most 32 successful scopes per
+builder. Filter the latest prefix locally with counts intact; failures and aborted reads
+remain retryable. Successors attach before predecessor publication is cancelled, and only
+last-consumer departure aborts a shared read. Base/expanded facet ownership is unchanged.
+
+Keep custom-element registration stable while forwarding to the mounted typeahead owner.
+Disable retired owners before editor teardown and suppress intermediate resolver admission
+during programmatic value sync. Cover reuse, scope restoration, cancellation, stale completion,
+Clear/Home and request-size isolation in existing unit/API-composed/browser test homes.
+
+Repair the two authorized Justified test sampling points with a captured-ID/density row
+readiness barrier after generation completion. Preserve their placement tolerances and
+identity/viewport assertions; negative controls reject wrong or zero-height rows. No product
+density, endpoint, Scala or arrival-polling change.
+
 ### 20 October 2026 - Share pending Browse facets (S4a)
 
 Equivalent non-forced facet calls now await the store's dispatched batch rather than

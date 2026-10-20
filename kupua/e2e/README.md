@@ -142,6 +142,11 @@ or cache a locator. Pressed does not mean placed or decoded; the read and click
 are not atomic. Callers own generation capture, action-specific readiness and
 any performance measurement boundary. Preserve intentional active-toggle tests.
 
+`waitForDensityRow(page, density, imageId)` is a separate captured-identity DOM barrier
+for placement samples after generation completion. It waits for that density's row to have
+nonzero geometry, without scrolling or waiting for desired coordinates. Callers must still
+assert identity, viewport placement and their original tolerances afterward.
+
 ### Hit-Tested Input
 
 `waitForHitTestedImagePoint({ view?, imageId?, topInset?, timeout? })` observes a

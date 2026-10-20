@@ -832,27 +832,26 @@ sync hook must stay in agreement.  There is no single source of truth for
 "what is the default state" — it's split between the store initialiser and
 the hook.
 
-### 6. `<cql-input>` Web Component registered once with baked-in typeahead
+### 6. `<cql-input>` registered once with mounted-owner forwarding
 
 **What:** `CqlSearchInput.tsx` calls `createCqlInput(typeahead, …)` and
 `customElements.define("cql-input", …)` once, guarded by a module-level
-`let registered` flag.  The `useEffect` that creates the DOM element has
-`[]` deps, so it runs only on mount.
+`let registered` flag. The registered typeahead forwards to the currently
+mounted `LazyTypeahead`, rather than retaining the first wrapper's owner.
+Element teardown disables that owner before removal; programmatic value
+sync temporarily disables suggestion admission. The element effect follows
+the memoized typeahead when its datasource identity changes.
 
 **Why:** `customElements.define()` is a one-shot browser API — you cannot
 re-register an element name.  The `@guardian/cql` library bakes the
-typeahead configuration into the class at creation time.
+typeahead configuration into the class at creation time. Keeping the first
+wrapper's owner alive across Clear/Home allows obsolete option work; forwarding
+retains stable registration while giving each mounted editor a real lifetime.
 
-**Trade-off:** If the `dataSource` changes (e.g. a future DAL swap from
-ES adapter to Grid API), the typeahead resolvers that were captured at
-registration time become stale.  A page reload is required to pick up a
-new DAL.  The `useMemo` in the component recalculates the `typeahead`
-object when `dataSource` changes, but the registered custom element class
-doesn't see it.
-
-Possible fix: instead of re-registering the element, create a new
-element instance with a different tag name, or use Shadow DOM scoping.
-This can be addressed if/when the DAL actually swaps.
+**Trade-off:** The module-level forwarder assumes one active search editor,
+not an arbitrary multi-editor registry. Runtime datasource switching is still
+not a supported user workflow. No tag proliferation or re-registration is needed;
+the small bridge and disable guards are Kupua-owned library integration.
 
 ### 7. Two-phase keyboard handling for Home/End vs arrows
 
@@ -1000,6 +999,16 @@ immediately but can't render until the value promise resolves.
 
 This matches Grid/kahuna's sequential UX: pick a field, *then* see value
 suggestions — without the popover stalling.
+
+Suggestion publication and bucket-read ownership are separate. A successor
+subscribes before its predecessor is cancelled, so equivalent pending reads
+survive prefix edits; only last-consumer departure aborts their transport.
+Successful own-chip-excluded buckets are also reused across prefixes, with
+up to 32 scope/request entries per builder. Fields/sizes and all defined
+search parameters participate in identity. This deliberately replaces the
+library's unconditional per-pass work replacement with local bounded reuse,
+without a global cache manager or weaker stale-result guards. The trade-off
+is bounded retained bucket memory and explicit consumer bookkeeping.
 
 **Trade-off:** We duplicate ~80 lines of suggestion-assembly logic that
 already exists in the parent class's private methods (`suggestCqlField`,

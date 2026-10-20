@@ -4,8 +4,8 @@
 optimisations that might have been left behind when Kupua moved to media-api.
 The original investigation made no product changes and ran no Scala tests or performance
 campaign. A later, separately authorized bounded browser observation used local media-api
-with operator-identified TEST. The separately authorized S4a repair and its validation are
-recorded below; S4b, KUP-040 and the server-side candidates remain unimplemented here.
+with operator-identified TEST. The separately authorized S4a and S4b repairs and their
+validation are recorded below; KUP-040 and the server-side candidates remain unimplemented here.
 **Assessment target: local media-api mode.** Direct ES is a retiring source reference,
 not a performance baseline or repair target. The single deployed media-api campaign is a
 separate checkpoint, not a repeated deployed baseline or a substitute for local evidence.
@@ -16,7 +16,7 @@ separate checkpoint, not a repeated deployed baseline or a substitute for local 
 the definitely-worth-fixing category on the available impact evidence.** The browser controls
 below are completed observations, not a list of experiments left for the next agent.
 "Worth fixing" means a small, justified request-efficiency repair, not an emergency or a
-promise of a measured frame-time/ES-CPU improvement. S4a is now repaired under separate
+promise of a measured frame-time/ES-CPU improvement. S4a and S4b are now repaired under separate
 operator approval; the remaining implementation choices are not authorized by this assessment.
 
 **Which API?** Kupua's facets/counts use new POST endpoints; its AI and singleton detail use
@@ -30,7 +30,7 @@ at `c27bdae84` establish source applicability, not the binary/configuration depl
 | Fix | Concrete Benefit | Existing media-api / Kahuna | New Endpoints / Kupua | Change Location |
 | --- | --- | --- | --- | --- |
 | S4a: reuse an equivalent pending facet batch when Browse opens — **repaired** | Original hover/open sent two equivalent requests, cancelling the first after about 71 ms. Equivalent dispatched work is now shared; warm reopen remains cached. | No GET contract or Kahuna behaviour change. | API-composed held-response regression proves one dispatch rather than replacement, with counts and expanded reuse preserved. No post-fix live-browser or backend CPU/latency measurement. | Kupua search-store admission only; no Scala. See repair validation below. |
-| S4b: reuse scope-bound suggestion buckets and stop reset-time suggestion work | Fresh credit prefixes repeatedly fetched identical 50-bucket data; Home also sent five obsolete option reads, including one completed response. Scope roundtrip and 50/100-bucket controls now define safe reuse boundaries. | No Kahuna behaviour change; this is Kupua's CQL ownership/resolver path, not a shared-server cache. | Fewer POST aggregation reads while retaining counted suggestions, own-chip exclusion and latest-prefix display. Pending-only coalescing is insufficient. | Kupua typeahead/resolver/lifecycle code; no Scala or global cancellation manager. |
+| S4b: reuse scope-bound suggestion buckets and stop reset-time suggestion work — **repaired** | Original fresh credit prefixes repeated identical 50-bucket reads; Home sent five obsolete option reads. Equivalent pending and completed option work is now reused, and retired/resetting editors cannot admit reads. | No Kahuna behaviour change; this is Kupua's CQL ownership/resolver path, not a shared-server cache. | Owner/API-composed tests prove avoided repeated reads, rights restoration and 50/100 separation; mounted Clear/Home controls retain counted suggestions and suppress obsolete work. No post-fix live-API or backend-cost measurement. | Kupua typeahead/resolver/lifecycle code; no Scala or global cancellation manager. See repair validation below. |
 | S2 / KUP-040: do not poll an impossible arrival interval | Deterministically remove reads that cannot find arrivals: about six scheduled reads/minute foreground or two/minute hidden, plus visibility ticks, while the interval is impossible. Small hygiene fix, not a claimed browsing speedup. | No change to Kahuna's polling or existing GET semantics. | Avoid unnecessary POST count reads; retain notifications for eligible intervals. Already supported by KUP-040's source and recorded API evidence. | Kupua polling admission; no Scala. |
 
 ### Maybe Worth Fixing
@@ -227,7 +227,7 @@ a secondary candidate rather than a general browsing-performance fix.
 | S1a Counts cannot be cancelled | `count`/`countWithTickers` accept no signal in the [interface](../../src/dal/types.ts#L293), [direct](../../src/dal/es-adapter.ts#L714) or [API implementation](../../src/dal/api-data-source.ts#L122). The [initial ticker read](../../src/stores/search-store.ts#L2554) and [poll](../../src/stores/search-store.ts#L928) outlive query replacement; generations stop publication, not work. | Add optional signal and real count ownership in Kupua if selected. Server cancellation still needs F1; this does not require a new count endpoint/body. |
 | S2 Impossible interval polls | [KUP-040](bug-backlog.md#kup-040) already covers lower bound at/after upper bound. Both adapters receive the same impossible intent. | Cheap shared admission repair, no necessary Scala change. Preserve supported timezone/invalid-date handling and future/open intervals. |
 | S4a Pending base facets restart — repaired | At assessment baseline, the [base action](../../src/stores/search-store.ts) cancelled before checking its completed cache. [Browse hover](../../src/components/StatusBar.tsx#L119) followed by [Filters activation](../../src/routes/search.tsx#L103) reproduced equivalent pending cancellation/reissue. Warm and expanded reopen controls sent no reads. | The store now shares equivalent dispatched work before cancellation. Completed caches and the POST contract are unchanged. |
-| S4b Suggestions repeat or outlive reset | [Cold suggestion resolvers](../../src/lib/typeahead-fields.ts#L189) repeated equivalent reads after successful completion; Home/Clear also emitted obsolete credit reads. Settled rights roundtrip and 50/100-bucket controls establish different scope/request-size boundaries. | Scope-bound bucket reuse plus editor-lifecycle admission in Kupua. Preserve counted/latest-prefix options and own-chip exclusion. No Scala required. |
+| S4b Suggestions repeat or outlive reset — repaired | At assessment baseline, [cold suggestion resolvers](../../src/lib/typeahead-fields.ts) repeated equivalent reads after successful completion; Home/Clear also emitted obsolete credit reads. Settled rights roundtrip and 50/100-bucket controls establish different scope/request-size boundaries. | Resolver-local pending/completed reuse and editor-lifecycle admission now preserve counted/latest-prefix options, own-chip exclusion and last-consumer cancellation. No Scala change. |
 
 An isolated 20 October probe extracted the actual `fetchAggregations`, `cancelAggregationFetch`
 and `aggCacheKey` through TypeScript's AST and executed them with a fixed ordinary-query scope,
@@ -371,7 +371,7 @@ Do not restore unbounded direct-mode concurrency as a presumed optimisation.
 | Focus rank avoidance | [position map lookup](../../src/stores/search-store.ts#L1856) | Map hit skips rank; otherwise retained exact rank/centred work. |
 | Facet admission/cache | [facet owner](../../src/stores/search-store.ts#L4483) | 500 ms debounce, completed-query cache, slow-success circuit breaker, generation/signal guards; expanded-facet cache/collapse cancellation retained. Warm reopen reused the completed batch in local API UI; S4a now also coalesces equivalent dispatched base work (validated below). |
 | Distribution request sharing | [distribution owners](../../src/stores/search-store.ts#L4652) | Same-key pending promise and completed cache; replacement abort and stale guards for primary/null distributions. |
-| Lazy suggestions/cache reuse | [typeahead](../../src/lib/lazy-typeahead.ts#L157), [resolvers](../../src/lib/typeahead-fields.ts#L181) | No speculative value lookup before field intent, own-chip scoping, cached facets/tickers and superseding suggestion signals remain. |
+| Lazy suggestions/cache reuse | [typeahead](../../src/lib/lazy-typeahead.ts), [resolvers](../../src/lib/typeahead-fields.ts) | Field intent, own-chip scoping and cached facets/tickers remain. S4b adds bounded scope-bound pending/completed option reuse, successor-before-predecessor handoff and reset/retired-owner admission guards. |
 | Selection metadata reuse | [selection owner](../../src/stores/selection-store.ts#L538), [range owner](../../src/hooks/useRangeSelection.ts#L223) | Cache/pending-ID dedup; local/resident range paths and context-bound server walk remain. |
 | API fallback derivation | [derivation](../../src/lib/derive-enriched-image.ts#L92) | U10-B skips local cost/validity/status calculation when overlay values exist; not still the old eager duplicate work. |
 | Media admission/prefetch | [thumbnail admission](../../src/components/ImageGrid.tsx#L963), [prefetch pipeline](../../src/lib/image-prefetch.ts#L269), [traversal](../../src/hooks/useImageTraversal.ts#L156) | Visible plus two rows eager; shared cadence-aware neighbour prefetch/priority/radius cancellation, warm-cache tracking and proactive extends remain independent of datasource mode. |
@@ -495,6 +495,74 @@ request efficiency/bounded work/cancellation/maintainability. Neither independen
 validation. No live system, app-driving instrumentation, Scala change or performance campaign
 was used for the repair; no measured ES CPU, latency or frame-time saving is claimed.
 
+### S4b Repair Validation (20 October)
+
+The [resolver](../../src/lib/typeahead-fields.ts) retains up to 32 successful option-read
+results per builder, keyed by the defined search parameters after own-chip removal plus
+requested fields, sizes and filter requests. Static/alias/filter-backed options and arbitrary
+dynamic fields use local readers; no datasource-global cache or facet/store owner was changed.
+Failed or aborted reads are not retained. Prefix filtering runs on the accepted buckets, so
+counts and options belong to the latest prefix, not the first consumer.
+
+[LazyTypeahead](../../src/lib/lazy-typeahead.ts) attaches successor consumers before retiring
+the previous suggestion pass. Obsolete publication rejects immediately; a shared transport is
+aborted only when its last consumer leaves. Changed scopes, empty input and explicit disable
+still retire obsolete work. [The wrapper](../../src/components/CqlSearchInput.tsx) keeps one
+registered custom element but forwards to the mounted owner, disabling its predecessor before
+teardown and suppressing intermediate suggestion passes during programmatic value replacement.
+
+Failing-first owner tests observed two reads rather than one for both completed and pending
+equivalent buckets. A mounted retired-owner test explicitly invoked its captured callback after
+Home with an uncached scope: before repair it dispatched and returned counted suggestions;
+after repair it returns no suggestions or reads. This injected callback is a lifecycle control,
+not a new claim about the cause of the original five-read live-browser reset burst. Ordinary
+mounted Clear/Home controls also prove cancellation, no reset-time replacement option reads,
+and useful counted suggestions from the successor editor.
+
+Preservation controls cover literal-safe self-exclusion, latest-prefix counts, scope changes,
+all-rights/free-only/restored-all-rights, field separation, bounded eviction, failure/retry,
+empty success and late aborted responses. An API-composed control asserts exact POST bodies
+and distinct 50-bucket suggestions/100-bucket expansion. These are synthetic transport and
+mounted local-fixture proofs, not post-fix live-API or backend CPU/latency measurements.
+
+Final gates (foreground, pipefail/tee; no automatic retries):
+
+- `npm --prefix kupua run test -- src/lib/typeahead-fields.test.ts src/lib/lazy-typeahead.test.ts src/dal/api-data-source.test.ts` — 162 passed.
+- `npm --prefix kupua run test` — 3,104 passed in 89 files.
+- `npm --prefix kupua run build` — passed; existing WASM URL/chunk-size warnings remain.
+- `npm --prefix kupua run test:e2e -- --project=chromium cql-search-quoting.spec.ts --retries=0` — seven passed.
+- The two affected Justified cases and the new readiness negative control, repeated four times
+  through `test:e2e` — 12 passed without instrumentation.
+- `npm --prefix kupua run test:e2e -- --retries=0` — final full gate: 485 passed.
+- Separate E2E compiler comparison: HEAD and candidate each report 91 diagnostics, with none
+  added. The comparison used in-memory HEAD source overrides; the application build passed.
+
+Two earlier full gates each passed 483 cases and failed one Justified sample: an absent row
+represented as Infinity after density replacement, then a resident nullable-placement read.
+These failures were investigated rather than classified from their filenames. In the latest
+80-case matched source control, resident HEAD/candidate each passed 20; windowed HEAD passed
+18/20 and candidate 19/20. Exact HEAD versions of all three changed product modules were
+served in memory under the same interception mechanism as candidate, with per-run hashes
+verified. The identical windowed assertion failed in HEAD. Synchronous observations found the
+generation advanced while the target had no mounted cell, followed by correct placement on
+the next frame; CQL did not remount. The same readiness gap appeared once in resident HEAD,
+but its original TypeError was not reproduced in these bounded controls. This is not an
+untouched full HEAD run or an estimate of relative failure rates.
+
+The operator-approved test-only repair waits for the captured image in the destination density
+with nonzero row geometry before the affected sample. It neither scrolls nor waits for desired
+coordinates; all original identity, viewport and one-pixel assertions remain. Negative controls
+reject wrong-density/wrong-ID and zero-height rows. A preceding throwaway wait trial passed
+40/40 matched cases. All temporary loaders, observers and trials were removed before the final
+uninstrumented gates; no production density/scroll implementation was changed.
+
+Two independent cold reviews found no significant issues, then two fresh independent reviews
+of the expanded ten-file candidate also found no significant issues or assertion weakening.
+Both rounds verified identical candidate hashes; reviewers did not implement changes or rerun
+gates. New reuse coverage concentrates on credit/keyword/dynamic paths; existing startup/remount
+controls and the shared reader additionally cover static/alias/filter-backed wiring. No live
+system access, Scala change or performance campaign was used for this repair.
+
 ## 7. Recommended Scope Decisions
 
 **The browser-verifiable selection questions are closed.** Warm/expanded reopen, resident
@@ -502,9 +570,9 @@ density, existing-chip editing, synchronized rights changes, requested bucket si
 Home/Clear behaviour have witnesses above. Acceptance tests written during a repair are
 implementation gates, not another open-ended app-driving assignment.
 
-1. **Keep the three small Kupua fixes separate:** pending facet handoff (S4a) is repaired and
-  validated above. Next are scope-bound suggestions/reset admission (S4b), then impossible
-  arrival polling (KUP-040), each in its own session/commit. Their owners, avoided reads and
+1. **Keep the three small Kupua fixes separate:** pending facet handoff (S4a) and scope-bound
+  suggestions/reset admission (S4b) are repaired and validated above. Impossible arrival polling
+  (KUP-040) remains next, in its own session/commit. Their owners, avoided reads and
   preservation controls are known. Write failing owner tests and run the required gates;
   no endpoint/Scala change or general cache manager is needed.
 2. **Do not start a Scala performance refactor on this evidence.** F1's backend resource

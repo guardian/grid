@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import {
   createCqlInput,
+  Typeahead,
   TypeaheadField,
 } from "@guardian/cql";
 import { LazyTypeahead } from "@/lib/lazy-typeahead";
@@ -87,9 +88,12 @@ const cqlParserSettings = {
 // ---------------------------------------------------------------------------
 
 let registered = false;
+let activeTypeahead: LazyTypeahead | undefined;
 
-function ensureRegistered(typeahead: LazyTypeahead) {
+function ensureRegistered() {
   if (registered) return;
+  const typeahead = new Typeahead([]);
+  typeahead.getSuggestions = (...args) => activeTypeahead?.getSuggestions(...args) ?? Promise.resolve([]);
   const CqlInput = createCqlInput(typeahead, {
     theme,
     lang: cqlParserSettings,
@@ -201,7 +205,7 @@ export function CqlSearchInput({
 
   // Register custom element + create instance
   useEffect(() => {
-    ensureRegistered(typeahead);
+    ensureRegistered();
 
     const container = containerRef.current;
     if (!container) return;
@@ -305,8 +309,10 @@ export function CqlSearchInput({
       el.addEventListener(type, stopUnhandled);
     }
 
-    container.appendChild(el);
     cqlInputRef.current = el;
+    activeTypeahead = typeahead;
+    typeahead.setEnabled(true);
+    container.appendChild(el);
 
     // Inject custom styles into the open shadow DOM for elements that
     // CQL doesn't expose via theme or ::part.
@@ -489,6 +495,9 @@ export function CqlSearchInput({
     window.addEventListener("focus", handleShow);
 
     return () => {
+      typeahead.setEnabled(false);
+      if (activeTypeahead === typeahead) activeTypeahead = undefined;
+      cqlInputRef.current = null;
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("blur", handleHide);
       window.removeEventListener("focus", handleShow);
@@ -499,11 +508,10 @@ export function CqlSearchInput({
         el.removeEventListener(type, stopUnhandled);
       }
       container.removeChild(el);
-      cqlInputRef.current = null;
     };
     // Only run on mount — value sync is handled separately below
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [typeahead]);
 
   // Sync value attribute when prop changes (e.g. back/forward navigation).
   // Update lastEffectiveQueryRef BEFORE setAttribute so the synchronous
@@ -525,10 +533,15 @@ export function CqlSearchInput({
         selfCausedChangeRef.current = false;
       } else {
         selfCausedChangeRef.current = false;
-        cqlInputRef.current.setAttribute("value", value);
+        typeahead.setEnabled(false);
+        try {
+          cqlInputRef.current.setAttribute("value", value);
+        } finally {
+          typeahead.setEnabled(true);
+        }
       }
     }
-  }, [value, externalRevision]);
+  }, [value, externalRevision, typeahead]);
 
   return (
     <div

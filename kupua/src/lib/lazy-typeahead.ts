@@ -103,6 +103,7 @@ export class LazyTypeahead extends Typeahead {
   private _abortController: AbortController | undefined;
   private _dynamicFieldFallback?: DynamicFieldFallback;
   private _liveQueryRef?: { current: string | undefined };
+  private _enabled = true;
 
   /**
    * @param fields          All typeahead fields (key + value resolvers).
@@ -148,6 +149,15 @@ export class LazyTypeahead extends Typeahead {
   // Override: decouple key suggestions from value resolution
   // -----------------------------------------------------------------------
 
+  public setEnabled(enabled: boolean): void {
+    this._enabled = enabled;
+    if (!enabled) {
+      this._abortController?.abort();
+      this._abortController = undefined;
+      if (this._liveQueryRef) this._liveQueryRef.current = undefined;
+    }
+  }
+
   public override getSuggestions(
     program: CqlQuery,
     // Accepted to match the parent's override signature, but deliberately
@@ -155,9 +165,9 @@ export class LazyTypeahead extends Typeahead {
     // abortController.signal for why.
     _signal?: AbortSignal
   ): Promise<TypeaheadSuggestion[]> {
+    if (!this._enabled) return Promise.resolve([]);
     return new Promise((resolve, reject) => {
-      // Abort any in-flight request (matches parent behaviour)
-      this._abortController?.abort();
+      const previous = this._abortController;
 
       if (this._liveQueryRef) {
         this._liveQueryRef.current = program.content
@@ -166,6 +176,8 @@ export class LazyTypeahead extends Typeahead {
       }
 
       if (!program.content) {
+        previous?.abort();
+        this._abortController = undefined;
         return resolve([]);
       }
 
@@ -181,16 +193,17 @@ export class LazyTypeahead extends Typeahead {
       // schedule (opaque to us), which can race ahead of and cancel a
       // still-relevant, still-current fetch even though nothing newer has
       // actually superseded it from our own bookkeeping's point of view.
-      // Our own controller already gets aborted above whenever a NEWER
-      // getSuggestions call truly supersedes this one.
+      // Each pass owns its publication signal. The successor attaches its
+      // consumers before the previous pass is cancelled below.
       //
       // Both registered-field resolvers and the dynamic-field fallback
       // thread this signal through to dataSource.getAggregations, so a
-      // newer suggestion pass cancels the obsolete request as well as
-      // rejecting its result below.
+      // newer suggestion pass rejects obsolete results; the resolver only
+      // cancels a read after its last consumer leaves.
       const promises = cqlFields.map((field) =>
         this.suggestField(field, abortController.signal)
       );
+      previous?.abort();
 
       Promise.all(promises)
         .then((results) => resolve(results.flat()))

@@ -251,7 +251,11 @@ its existing search/sort/detail boundaries. `resetSearchSync` forces search sync
 
 `@guardian/cql` supplies the editor; `LazyTypeahead` and `typeahead-fields.ts` supply non-blocking
 suggestions. Resolvers read current aggregation/ticker/filter caches through live getters, then
-issue scoped `getAggregations` calls through the captured datasource. Arbitrary dotted fields
+issue scoped `getAggregations` calls through the mounted owner's datasource. Equivalent pending
+reads share consumer-owned work; each builder retains at most 32 successful scope/request
+results, excluding failures and aborts. Prefix filtering preserves counts without another read.
+Keys include the own-chip-excluded parameters and requested fields/sizes/filter requests;
+suggestion buckets do not replace expanded facets. Arbitrary dotted fields
 use isolated reads so one uncountable field cannot fail the static batch. API usage counts use
 root rollups (`usagesPlatform`, `usagesStatus`): counts represent images, not usage records.
 
@@ -262,8 +266,10 @@ shorthands and raw paths; `has:` means indexed-leaf existence, not boolean truth
 
 Direct ES translates CQL locally; API mode lets Grid interpret it. `cql-ast-serialize.ts`
 preserves quoting that the library serializer can lose; check the installed version and
-[deviations](../deviations.md) before retiring the workaround. Custom-element registration retains
-its initial typeahead/datasource: live cache getters do not imply runtime datasource rebinding.
+[deviations](../deviations.md) before retiring the workaround. The custom element stays registered
+once but forwards to the mounted typeahead owner. Retired owners and intermediate programmatic
+value replacements cannot admit suggestions; cancelling a pass aborts only reads with no remaining
+consumers. This does not introduce a user-facing runtime datasource-switching workflow.
 
 ## Image URLs (`lib/image-urls.ts`)
 
@@ -595,6 +601,9 @@ to SearchBar without erasing the richer editor state. AST serialization preserve
 self-caused updates do not echo a stripped value back into the editor. External query revisions
 allow Clear/Home/history to replace it deliberately. `cql-chip-delete.ts` distinguishes chip
 deletion events. Autofocus is skipped for touch devices and an already-open detail overlay.
+Registration forwards to the current mounted owner; teardown disables its suggestion passes
+before destroying the editor. External value sync suppresses intermediate resolver admission,
+while self-caused edits retain the live AST and latest-prefix counts.
 
 ---
 
