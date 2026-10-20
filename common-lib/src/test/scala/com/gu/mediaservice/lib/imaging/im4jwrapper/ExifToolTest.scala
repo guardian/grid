@@ -13,14 +13,6 @@ import java.nio.file.{Files, Path}
 import javax.imageio.ImageIO
 import scala.sys.process._
 
-/**
- * Exercises the real `exiftool` binary, which CI installs (see `.github/workflows/ci.yml`).
- *
- * Fixtures are built at test time rather than committed, so the inputs are visible in the test
- * itself - several of the behaviours here fail silently if the ExifTool arguments are wrong (the
- * group form `-icc_profile:all`, for instance, copies nothing at all and reports no error), so it
- * matters that the assertions are read against inputs you can see.
- */
 class ExifToolTest extends AnyFunSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
 
   // Each assertion shells out to exiftool, which is a Perl script and slow to start.

@@ -12,16 +12,8 @@ object DownloadMetadata {
    * The tags retained on a stripped download, written from Grid's reconciled metadata (so edits made
    * in Grid are reflected, not the values the file was uploaded with).
    *
-   * Deliberately the same three fields the cropper retains on every export, including a full-frame
-   * one - see `ImageOperations.tagFilter`. `MWG:Copyright` fans out to EXIF:Copyright,
-   * IPTC:CopyrightNotice and XMP-dc:Rights in one go; Credit and TransmissionReference have no MWG
-   * composite, so their IPTC and XMP homes are written explicitly.
-   *
    * The Grid id is additionally recorded in `XMP-xmpMM:OriginalDocumentID`, prefixed with
    * `grid:docid:`, so a downloaded file can still be traced back to the image it came from.
-   * Stripping changes the bytes, and a Grid id is a hash of those bytes, so a re-upload would
-   * otherwise be indistinguishable from a brand new image. Nothing reads this tag yet - acting on it
-   * at upload is a separate piece of work, and will need to strip the prefix back off.
    */
   def retainedTags(image: Image): Map[String, String] = {
     val metadata = image.metadata
