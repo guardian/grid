@@ -81,15 +81,15 @@ class UsageRightsMetadataMapperTest extends AnyFunSpec with Matchers {
       usageRightsToMetadata(ur, metadataWithoutCopyright) should be(None)
     }
 
-    it ("should convert PublisherOwnedPhotographs") {
-      val ur = PublisherOwnedPhotograph("Alicia Canter", Some("The Guardian"))
+    it ("should convert PublisherPhotographers") {
+      val ur = PublisherPhotographer("Alicia Canter", Some("The Guardian"))
       usageRightsToMetadata(ur, metadataWithoutCopyright) should be (
         Some(ImageMetadata(byline = Some("Alicia Canter"), credit = Some("The Guardian"), imageType = Some("Photograph")))
       )
     }
 
-    it ("should convert PublisherOwnedIllustrations") {
-      val ur = PublisherOwnedIllustration("First Dog on the Moon Institute", Some("The Guardian"))
+    it ("should convert PublisherIllustrators") {
+      val ur = PublisherIllustrator("First Dog on the Moon Institute", Some("The Guardian"))
       usageRightsToMetadata(ur, metadataWithoutCopyright) should be (
         Some(ImageMetadata(byline = Some("First Dog on the Moon Institute"), credit = Some("The Guardian"), imageType = Some("Illustration")))
       )
