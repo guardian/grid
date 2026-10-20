@@ -4,7 +4,7 @@ import type { Locator, Page } from '@playwright/test';
 import { E2E_IMAGE_TYPES, E2E_METADATA_TEMPLATE, E2E_USAGE_INSTRUCTIONS } from '../../setup/config.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { E2E_COLLECTION } from '../../setup/seed-collections.ts';
-import { switchAccount } from '../common.steps.ts';
+import { openUploadPageAs } from '../common.steps.ts';
 import { expectNoEditPermission, waitForMetadataSave } from './media-api.assertions.ts';
 import {
   BATCH_SIZE,
@@ -298,7 +298,7 @@ Given(
     testContext.uploadedImagePath = imagePath;
     await uploadAndOpenEditor(page, imagePath);
 
-    await switchAccount(page, TEST_ACCOUNTS.restricted);
+    await openUploadPageAs(page, TEST_ACCOUNTS.restricted);
 
     // The fields start disabled until canUserEdit resolves, so prove the API really denies edits.
     await expectNoEditPermission(page, imagePath, TEST_ACCOUNTS.fullAccess);

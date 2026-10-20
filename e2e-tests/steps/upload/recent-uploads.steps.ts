@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import { Given, Then, When, expect } from '../setup.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
-import { switchAccount } from '../common.steps.ts';
+import { openUploadPageAs } from '../common.steps.ts';
 import { expectInUploadHistory } from './media-api.assertions.ts';
 import { holdPastUploads, uniqueImage, uploadPage } from './setup.ts';
 
@@ -21,7 +21,7 @@ Then('I should see a loading message', async ({ page, testContext }) => {
 
 Given('I have never uploaded an image', async ({ page }) => {
   // The full-access account's history grows as the suite runs; the restricted one never uploads.
-  await switchAccount(page, TEST_ACCOUNTS.restricted);
+  await openUploadPageAs(page, TEST_ACCOUNTS.restricted);
 });
 
 Given('I have uploaded images before', async ({ page, testContext }) => {
@@ -58,4 +58,18 @@ Then('I should be able to delete an image I am permitted to delete', async ({ pa
   await remove.click(); // arms the confirm
   await remove.click(); // confirms
   await expect(pastUpload).toBeHidden();
+});
+
+Given('a past uploaded image is listed', async ({ page, testContext }) => {
+  const image = uniqueImage();
+  testContext.uploadedImagePath = image.path;
+  await uploadPage(page).fileInput.setInputFiles(image.path);
+  await expect(uploadPage(page).metadataEditor).toBeVisible();
+
+  await expectInUploadHistory(page, image.path, TEST_ACCOUNTS.fullAccess);
+  // Past uploads are only fetched when the page loads.
+  await page.reload();
+  const pastUpload = uploadPage(page).pastUpload(path.basename(image.path));
+  await expect(pastUpload).toBeVisible();
+  testContext.deleteButton = pastUpload.getByRole('button', { name: 'Delete image' });
 });

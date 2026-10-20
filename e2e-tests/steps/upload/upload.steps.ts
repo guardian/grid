@@ -2,7 +2,9 @@ import type { DataTable } from 'playwright-bdd';
 import type { Page } from '@playwright/test';
 import { Given, KAHUNA_APP_URL, Then, When, expect } from '../setup.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
-import { expectUploadPermission } from './media-api.assertions.ts';
+import { E2E_UPLOAD_SUPPORT_EMAIL } from '../../setup/config.ts';
+import { switchAccount } from '../utils/auth.ts';
+import { expectNoUploadPermission, expectUploadPermission } from './media-api.assertions.ts';
 import {
   BATCH_SIZE,
   batchJobs,
@@ -43,6 +45,31 @@ Then('the drag-and-drop uploader should be active', async ({ page }) => {
 
 Then('I should not see the current uploads section', async ({ page }) => {
   await expect(uploadPage(page).currentUploads).not.toBeVisible();
+});
+
+Given('I am not permitted to upload images', async ({ page }) => {
+  await switchAccount(page, TEST_ACCOUNTS.noUpload);
+  await expectNoUploadPermission(page);
+  // Search hides its "My recent uploads" link from this account, so deep-link instead.
+  await page.goto(`${KAHUNA_APP_URL}/upload`);
+});
+
+Then('I should see a message that I am not authorised to upload images', async ({ page }) => {
+  await expect(uploadPage(page).main).toContainText('You are not authorised to upload images.');
+});
+
+Then('I should see a link to email support', async ({ page }) => {
+  await expect(
+    uploadPage(page).main.getByRole('link', { name: 'Send an email to support' }),
+  ).toHaveAttribute('href', E2E_UPLOAD_SUPPORT_EMAIL);
+});
+
+Then('I should not see the file upload prompt', async ({ page }) => {
+  await expect(uploadPage(page).prompt).not.toBeVisible();
+});
+
+Then('I should not see the drag-and-drop uploader', async ({ page }) => {
+  await expect(uploadPage(page).dragAndDropUploader).not.toBeAttached();
 });
 
 Given(

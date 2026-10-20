@@ -563,17 +563,18 @@ class ImageLoaderController(auth: Authentication,
   }
 
   lazy val replicaS3: S3Client = S3Ops.buildS3Client(config, maybeRegionOverride = Some(Region.US_WEST_1))
-  def doesObjectExist(bucket: String, key: String) = {
-    try {
-      replicaS3.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build())
-      true
-    } catch {
-      case _: NoSuchKeyException => false
-    }
-  }
 
   private case class RestoreFromReplicaForm(imageId: String)
   def restoreFromReplica: Action[AnyContent] = AuthenticatedAndAuthorised.async { implicit request =>
+
+    def doesReplicaExist(bucket: String, key: String) = {
+      try {
+        replicaS3.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build())
+        true
+      } catch {
+        case _: NoSuchKeyException => false
+      }
+    }
 
     val imageId = Form(
       mapping(
@@ -587,15 +588,15 @@ class ImageLoaderController(auth: Authentication,
       "requestId" -> RequestLoggingFilter.getRequestId(request)
     )
 
+    val s3Key = fileKeyFromId(imageId)
+
     Future {
       config.maybeImageReplicaBucket match {
         case _ if store.doesOriginalExist(imageId) =>
           Future.successful(Conflict("Image already exists in main bucket"))
         case None =>
           Future.successful(NotImplemented("No replica bucket configured"))
-        case Some(replicaBucket) if doesObjectExist(replicaBucket, fileKeyFromId(imageId)) =>
-          val s3Key = fileKeyFromId(imageId)
-
+        case Some(replicaBucket) if doesReplicaExist(replicaBucket, s3Key) =>
           logger.info(logMarker, s"Restoring image $imageId from replica bucket $replicaBucket (key: $s3Key)")
 
           val replicaObject = replicaS3.getObject(
