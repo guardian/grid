@@ -4,14 +4,14 @@ import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.Agency
+import com.gu.mediaservice.model.{Agency, ReplacementUsageRightsSpec}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{MultiMatchQuery, MultiMatchQueryBuilderType}
 import lib.querysyntax._
-import lib.MediaApiConfig
+import lib.{ImagePersistenceReasons, MediaApiConfig}
 import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
 
@@ -37,6 +37,16 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
     case Phrase(v) => v
     case _ => ""
   }
+
+  // Searching for one of these categories should also surface images still stored under the legacy
+  // categories it replaced (agency, handout, staff-photographer, etc.) - those images haven't been
+  // rewritten in the index, so we expand the search into a terms query across all of them rather
+  // than relying on an exact match against the new category alone. Only categories actually present
+  // in config.applicableUsageRights are expanded, so this has no effect for orgs that haven't opted in.
+  private val legacyCategoryExpansions: Map[String, NonEmptyList[String]] =
+    config.applicableUsageRights.collect {
+      case spec: ReplacementUsageRightsSpec => spec.category -> spec.allCategories
+    }.toMap
 
   // For some sad reason, there was no helpful alias for this in the ES library
   private def multiMatchPhraseQuery(value: String, fields: Seq[String]): MultiMatchQuery =
@@ -65,6 +75,13 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
   private def makeQueryBit(condition: Match): Query = condition.field match {
     case AnyField => makeMultiQuery(condition.value, matchFields)
     case MultipleField(fields) => makeMultiQuery(condition.value, fields)
+    case SingleField("persisted") => condition.value match {
+      case Words(value) => makePersistedQuery(value)
+      case Phrase(value) => makePersistedQuery(value)
+      case _ =>
+        logger.info(s"Cannot perform PERSISTED query on ${condition.value}")
+        matchNoneQuery()
+    }
     case SingleField(field) => condition.value match {
       // Some fields are only ever indexed when true (see FieldAlias.matchViaExistence) - for these,
       // translate a literal true/false value query into an exists/not-exists query so both values
@@ -72,6 +89,8 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
       case v @ (Words(_) | Phrase(_)) if isMatchViaExistence(field) && isBooleanPhrase(booleanValueOf(v)) =>
         val existsQ = boolQuery().filter(existsQuery(resolveFieldPath(field)))
         if (booleanValueOf(v).equalsIgnoreCase("true")) existsQ else boolQuery().not(existsQ)
+      case Words(value) if field == usageRightsField("category") && legacyCategoryExpansions.contains(value) =>
+        filters.terms(resolveFieldPath(field), legacyCategoryExpansions(value))
       // Force AND operator else it will only require *any* of the words, not *all*
       case Words(value) =>
         matchQuery(resolveFieldPath(field), value).operator(Operator.AND)
@@ -108,6 +127,15 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
       logger.info(s"Cannot perform SIMILAR query on ${condition.value} outside AI search mode")
       matchNoneQuery()
   }
+
+  private def makePersistedQuery(value: String): Query =
+    ImagePersistenceReasons(config.maybePersistOnlyTheseCollections, config.persistenceIdentifiers)
+      .allReasons.find(_.reason.equalsIgnoreCase(value)) match {
+      case Some(reason) => reason.query
+      case _ =>
+        logger.info(s"Cannot perform PERSISTED query on $value")
+        matchNoneQuery()
+    }
 
   def makeQuery(conditions: List[Condition]) = conditions match {
     case Nil => matchAllQuery()

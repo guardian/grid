@@ -53,6 +53,9 @@ export const E2E_USAGE_INSTRUCTIONS = {
   text: 'These images are supplied under agency terms; check the licence before use.',
 };
 
+/** Linked from the upload page for users without the upload_images permission. */
+export const E2E_UPLOAD_SUPPORT_EMAIL = `mailto:grid-e2e-upload-support@${EMAIL_DOMAIN}`;
+
 /** Render the e2e-only Kahuna settings as HOCON to append to the generated `kahuna.conf`. */
 function kahunaE2eConfig(): string {
   const metadataFields = E2E_METADATA_TEMPLATE.fields
@@ -60,6 +63,9 @@ function kahunaE2eConfig(): string {
     .join('\n');
 
   return [
+    // The e2e stack has no Bedrock access, so AI search requests would 500.
+    'ai.search.enabled = false',
+    `links.uploadImagesPermissionSupportEmail = "${E2E_UPLOAD_SUPPORT_EMAIL}"`,
     `imageTypes = ${JSON.stringify(E2E_IMAGE_TYPES)}`,
     'metadata.templates = [',
     '  {',
@@ -154,7 +160,11 @@ export function generateServiceConfig(
   // rather than injecting it as a JVM option in the container.
   fs.writeFileSync(
     path.join(configDir, 'common.conf'),
-    'play.http.secret.key = "testcontainers-e2e-application-secret-0123456789"\n',
+    [
+      'play.http.secret.key = "testcontainers-e2e-application-secret-0123456789"',
+      'enforceUploadImagesPermission = true',
+      '',
+    ].join('\n'),
   );
 
   for (const service of GRID_SERVICES) {

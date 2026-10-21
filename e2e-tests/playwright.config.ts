@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 import { defineBddConfig } from 'playwright-bdd';
-import { KAHUNA_PORT } from './setup/constants.ts';
+import { AUTH_STATE_PATH, KAHUNA_PORT } from './setup/constants.ts';
 
 /* Generate Playwright test files from the Gherkin feature files and step definitions.
    Run via `bddgen` (see package.json scripts) before `playwright test`. */
@@ -47,8 +47,15 @@ export default defineConfig({
   /* Configure projects for major browsers */
   projects: [
     {
-      name: 'chromium',
+      name: 'auth',
+      testDir: './setup',
+      testMatch: /auth\.setup\.ts/,
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'chromium',
+      dependencies: ['auth'],
+      use: { ...devices['Desktop Chrome'], storageState: AUTH_STATE_PATH },
     },
   ],
   expect: {

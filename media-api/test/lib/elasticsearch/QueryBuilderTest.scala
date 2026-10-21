@@ -1,38 +1,25 @@
 package lib.elasticsearch
 
-import com.gu.mediaservice.model.{Agency, UsageRights}
+import com.gu.mediaservice.model.{Agency, Chargeable, PayToUse, UsageRights}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.searches.queries._
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{MatchPhraseQuery, MatchQuery, MultiMatchQuery, MultiMatchQueryBuilderType}
-import lib.querysyntax.{Match, Negation, Phrase, SingleField}
-import com.gu.mediaservice.lib.config.GridConfigResources
+import lib.querysyntax.{Match, Negation, Phrase, SingleField, Words}
 import com.sksamuel.elastic4s.handlers.searches.queries.QueryBuilderFn
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.term.{TermQuery, TermsQuery}
-import lib.MediaApiConfig
+import lib.{ImagePersistenceReasons, MediaApiConfig}
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
-import play.api.Configuration
-import play.api.inject.ApplicationLifecycle
 
 import scala.annotation.nowarn
-import scala.concurrent.Future
 
 class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures with Fixtures {
 
   val matchFields: Seq[String] = Seq("afield", "anothermatchfield")
 
-  private val commonConfigurations = USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap
-
-  private val mediaApiConfig = new MediaApiConfig(GridConfigResources(
-    Configuration.from(commonConfigurations),
-    null,
-    new ApplicationLifecycle {
-      override def addStopHook(hook: () => Future[_]): Unit = {}
-      override def stop(): Future[_] = Future.successful(())
-    }
-  ))
+  private val mediaApiConfig: MediaApiConfig = buildMediaApiConfig()
 
   val queryBuilder = new QueryBuilder(matchFields, () => Nil, mediaApiConfig)
 
@@ -135,14 +122,7 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
     }
 
     it("any field words queries should be applied to all of the match fields with best fields type and fuzziness, operator and analyzers set") {
-      val mediaApiConfigWithFuzzySearch = new MediaApiConfig(GridConfigResources(
-        Configuration.from(commonConfigurations ++ Map("search.fuzziness.enabled" -> true)),
-        null,
-        new ApplicationLifecycle {
-          override def addStopHook(hook: () => Future[_]): Unit = {}
-          override def stop(): Future[_] = Future.successful(())
-        }
-      ))
+      val mediaApiConfigWithFuzzySearch = buildMediaApiConfig(Map("search.fuzziness.enabled" -> true))
       val queryBuilder = new QueryBuilder(matchFields, () => Nil, mediaApiConfigWithFuzzySearch)
       val query = queryBuilder.makeQuery(List(anyFieldWordsCondition)).asInstanceOf[BoolQuery]
 
@@ -192,14 +172,7 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
       "label" -> "C2PA Metadata Available",
       "matchViaExistence" -> true
     )
-    val configWithC2paAlias = new MediaApiConfig(GridConfigResources(
-      Configuration.from(commonConfigurations ++ Map("field.aliases" -> Seq(c2paFieldAliasConfig))),
-      null,
-      new ApplicationLifecycle {
-        override def addStopHook(hook: () => Future[_]): Unit = {}
-        override def stop(): Future[_] = Future.successful(())
-      }
-    ))
+    val configWithC2paAlias = buildMediaApiConfig(Map("field.aliases" -> Seq(c2paFieldAliasConfig)))
     val queryBuilderWithC2paAlias = new QueryBuilder(matchFields, () => Nil, configWithC2paAlias)
 
     def existsClauseOf(query: Query): ExistsQuery =
@@ -271,6 +244,27 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
   }
 
   describe("is search filter") {
+    it("should expose every persisted reason through the persisted field") {
+      val reasons = ImagePersistenceReasons(
+        mediaApiConfig.maybePersistOnlyTheseCollections,
+        mediaApiConfig.persistenceIdentifiers
+      ).allReasons
+
+      reasons.foreach { reason =>
+        val query = queryBuilder.makeQuery(List(Match(SingleField("persisted"), Words(reason.reason)))).asInstanceOf[BoolQuery]
+        query.must shouldBe List(reason.query)
+      }
+    }
+
+    it("should query persisted reasons through the persisted field") {
+      val query = queryBuilder.makeQuery(List(Match(SingleField("persisted"), Phrase("exports")))).asInstanceOf[BoolQuery]
+
+      query.must shouldBe List(ImagePersistenceReasons(
+        mediaApiConfig.maybePersistOnlyTheseCollections,
+        mediaApiConfig.persistenceIdentifiers
+      ).allReasons.find(_.reason == "exports").get.query)
+    }
+
     it("should correctly construct an is owned photo query") {
       val query = queryBuilder.makeQuery(List(isOwnedPhotoCondition)).asInstanceOf[BoolQuery]
 
@@ -317,6 +311,24 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
       val expected = UsageRights.whollyOwned.map(_.category)
 
       termQuery.values shouldEqual expected.list.toList
+    }
+
+    it("should expand a search for a replacement category into a terms query across all the legacy categories it replaces, when that replacement is in config.applicableUsageRights") {
+      val qBuilder = new QueryBuilder(matchFields, () => Nil, mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PayToUse")))
+      val query = qBuilder.makeQuery(List(Match(SingleField("usageRights.category"), Words(PayToUse.category)))).asInstanceOf[BoolQuery]
+
+      val termsQuery = query.must.head.asInstanceOf[TermsQuery[String]]
+      termsQuery.field shouldBe "usageRights.category"
+      termsQuery.values shouldEqual PayToUse.allCategories.list.toList
+    }
+
+    it("should not expand a search for a replacement category when that replacement is not in config.applicableUsageRights") {
+      val qBuilder = new QueryBuilder(matchFields, () => Nil, mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.Chargeable")))
+      val query = qBuilder.makeQuery(List(Match(SingleField("usageRights.category"), Words(PayToUse.category)))).asInstanceOf[BoolQuery]
+
+      val termQuery = query.must.head.asInstanceOf[MatchQuery]
+      termQuery.field shouldBe "usageRights.category"
+      termQuery.value shouldBe PayToUse.category
     }
 
     it("should return the match none query on an invalid is query") {

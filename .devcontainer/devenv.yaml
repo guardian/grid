@@ -36,12 +36,18 @@ forwardPorts:
 #   - "source=${localEnv:HOME}/.gu/example,target=/home/vscode/.gu/example,readonly,type=bind,consistency=cached"
 
 # Optional: IDE plugins - shared project plugins like language support
-# plugins:
-#   vscode: []
-#   intellij: []
+plugins:
+  vscode:
+    - CucumberOpen.cucumber-official
+  intellij: []
 
 postCreateCommand:
   - cmd: "docker build --target dev -f e2e-tests/images/Dockerfile -t grid-e2e-dev ."
     workingDirectory: "."
-  - cmd: 'PATH="$HOME/.local/share/mise/shims:$PATH" npm ci'
+  - cmd: "npm ci"
     workingDirectory: "./e2e-tests"
+  - cmd: "./node_modules/.bin/playwright install chromium --with-deps"
+    workingDirectory: "./e2e-tests"
+  # VS Code picks up plugins installed by the Copilot CLI from ~/.copilot/installed-plugins.
+  - cmd: "copilot plugin marketplace add guardian/agentsy && copilot plugin install feature-files@agentsy || echo \"Skipping feature-files plugin install\""
+    workingDirectory: "."
