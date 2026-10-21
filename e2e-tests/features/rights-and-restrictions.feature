@@ -184,7 +184,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 21-32
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.js lines 196, 287
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.html lines 210-215
-@todo
+@todo # TODO - Add in GNM owned photograph when merged
   Scenario Outline: Editing a rights category shows its configured properties
     Given I am signed in with edit metadata permission
     And I have opened the rights editor
@@ -199,17 +199,6 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
       | Agency - subscription       | Supplier      | required | unticked          |
       | Agency - subscription       | Collection    | optional | unticked          |
       | PR & Third Party            | Source        | required | ticked and locked |
-      | Photographer - staff        | Publication   | required | unticked          |
-      | Photographer - staff        | Photographer  | required | unticked          |
-      | Photographer - contract     | Publication   | required | unticked          |
-      | Photographer - contract     | Photographer  | required | unticked          |
-      | Photographer - commissioned | Publication   | optional | unticked          |
-      | Photographer - commissioned | Photographer  | required | unticked          |
-      | Illustrator - contract      | Publication   | required | unticked          |
-      | Illustrator - contract      | Illustrator   | required | unticked          |
-      | Illustrator - commissioned  | Publication   | optional | unticked          |
-      | Illustrator - commissioned  | Illustrator   | required | unticked          |
-      | Illustrator - staff         | Illustrator   | required | unticked          |
   # Evidence: metadata-editor/app/model/UsageRightsProperty.scala lines 74-77 (restrictions required when defaultCost is Conditional)
   # Evidence: common-lib/src/main/scala/com/gu/mediaservice/model/UsageRights.scala (defaultCost per category)
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.html lines 73-84
@@ -229,7 +218,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
       | Bylines        |
   # Evidence: metadata-editor/app/model/UsageRightsProperty.scala
   # Evidence: e2e-tests/setup/config.ts (usageRights.applicable)
-@todo
+@todo # TODO - Add in GNM owned photograph when merged
   Scenario Outline: Saving a rights category with its properties filled in
     Given I am signed in with edit metadata permission
     And the image has no usage rights category
@@ -252,11 +241,6 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
     Examples:
       | category                    | first property | first value         | second property | second value                      | restrictions                                  |
       | Agency - subscription       | Supplier       | Getty Images        | Collection      | News                              | Use in relation to the Windsor Triathlon only |
-      | Photographer - staff        | Publication    | Example publication | Photographer    | Example Internal Photographer     | Not to be used online                         |
-      | Photographer - contract     | Publication    | Example publication | Photographer    | Example Contracted Photographer   | Not to be used online                         |
-      | Photographer - commissioned | Publication    | Example publication | Photographer    | Example Commissioned Photographer | Not to be used online                         |
-      | Illustrator - contract      | Publication    | Example publication | Illustrator     | Example Contracted Illustrator    | Not to be used online                         |
-      | Illustrator - commissioned  | Publication    | Example publication | Illustrator     | Example Commissioned Illustrator  | Not to be used online                         |
   # Evidence: metadata-editor/app/model/UsageRightsProperty.scala lines 74-77 (restrictions offered for every category except NoRights)
   # Evidence: dev/script/generate-config/service-config.js lines 54-83 (usageRightsConfigProvider options)
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.html lines 5, 38-226 (restrictions checkbox and textarea lines 73-107)
