@@ -224,6 +224,35 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
       | Bylines        |
   # Evidence: metadata-editor/app/model/UsageRightsProperty.scala
   # Evidence: e2e-tests/setup/config.ts (usageRights.applicable)
+@todo
+  Scenario Outline: Saving a rights category with its properties filled in
+    Given I am signed in with edit metadata permission
+    And the image has no usage rights category
+    And I have opened the rights editor
+    When I select the "<category>" usage rights category
+    And I set the "<first property>" property to "<first value>"
+    And I set the "<second property>" property to "<second value>"
+    And I save the rights
+    Then the rights editor closes
+    And the rights and restrictions section shows "<category>"
+    When I choose to edit the rights and restrictions
+    Then the rights editor shows the "<first property>" property set to "<first value>"
+    And the rights editor shows the "<second property>" property set to "<second value>"
+
+    Examples:
+      | category                    | first property | first value         | second property | second value                      |
+      | Agency - subscription       | Supplier       | Getty Images        | Collection      | News                              |
+      | PR & Third Party            | Source         | Getty Images        | Restrictions    | Not to be used online             |
+      | Photographer - staff        | Publication    | Example publication | Photographer    | Example Internal Photographer     |
+      | Photographer - contract     | Publication    | Example publication | Photographer    | Example Contracted Photographer   |
+      | Photographer - commissioned | Publication    | Example publication | Photographer    | Example Commissioned Photographer |
+      | Illustrator - contract      | Publication    | Example publication | Illustrator     | Example Contracted Illustrator    |
+      | Illustrator - commissioned  | Publication    | Example publication | Illustrator     | Example Commissioned Illustrator  |
+  # Evidence: metadata-editor/app/model/UsageRightsProperty.scala
+  # Evidence: dev/script/generate-config/service-config.js lines 54-83 (usageRightsConfigProvider options)
+  # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.html lines 5, 38-208, 210-226
+  # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.js lines 109-137, 160-189, 201-218
+  # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 21-32
 
   # ---------------------------------------------------------------------------
   # Metadata templates driving the rights editor
