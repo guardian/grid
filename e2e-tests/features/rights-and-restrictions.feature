@@ -237,27 +237,48 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
     When I select the "<category>" usage rights category
     And I set the "<first property>" property to "<first value>"
     And I set the "<second property>" property to "<second value>"
+    And I add the restriction "<restrictions>"
     And I save the rights
     Then the rights editor closes
     And the rights and restrictions section shows "<category>"
     When I choose to edit the rights and restrictions
     Then the rights editor shows the "<first property>" property set to "<first value>"
     And the rights editor shows the "<second property>" property set to "<second value>"
+    And the rights editor shows the restriction "<restrictions>"
 
+    # Every category except "No Rights" accepts restrictions, as long as the
+    # category has no default restrictions. Adding a restriction ticks the
+    # "Restricted" checkbox first if it is not already ticked.
     Examples:
-      | category                    | first property | first value         | second property | second value                      |
-      | Agency - subscription       | Supplier       | Getty Images        | Collection      | News                              |
-      | PR & Third Party            | Source         | Getty Images        | Restrictions    | Not to be used online             |
-      | Photographer - staff        | Publication    | Example publication | Photographer    | Example Internal Photographer     |
-      | Photographer - contract     | Publication    | Example publication | Photographer    | Example Contracted Photographer   |
-      | Photographer - commissioned | Publication    | Example publication | Photographer    | Example Commissioned Photographer |
-      | Illustrator - contract      | Publication    | Example publication | Illustrator     | Example Contracted Illustrator    |
-      | Illustrator - commissioned  | Publication    | Example publication | Illustrator     | Example Commissioned Illustrator  |
-  # Evidence: metadata-editor/app/model/UsageRightsProperty.scala
+      | category                    | first property | first value         | second property | second value                      | restrictions                                  |
+      | Agency - subscription       | Supplier       | Getty Images        | Collection      | News                              | Use in relation to the Windsor Triathlon only |
+      | Photographer - staff        | Publication    | Example publication | Photographer    | Example Internal Photographer     | Not to be used online                         |
+      | Photographer - contract     | Publication    | Example publication | Photographer    | Example Contracted Photographer   | Not to be used online                         |
+      | Photographer - commissioned | Publication    | Example publication | Photographer    | Example Commissioned Photographer | Not to be used online                         |
+      | Illustrator - contract      | Publication    | Example publication | Illustrator     | Example Contracted Illustrator    | Not to be used online                         |
+      | Illustrator - commissioned  | Publication    | Example publication | Illustrator     | Example Commissioned Illustrator  | Not to be used online                         |
+  # Evidence: metadata-editor/app/model/UsageRightsProperty.scala lines 74-77 (restrictions offered for every category except NoRights)
   # Evidence: dev/script/generate-config/service-config.js lines 54-83 (usageRightsConfigProvider options)
-  # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.html lines 5, 38-208, 210-226
+  # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.html lines 5, 38-226 (restrictions checkbox and textarea lines 73-107)
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.js lines 109-137, 160-189, 201-218
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 21-32
+@todo
+  Scenario: Saving a rights category that requires restrictions
+    Given I am signed in with edit metadata permission
+    And the image has no usage rights category
+    And I have opened the rights editor
+    When I select the "PR & Third Party" usage rights category
+    And I set the "Source" property to "Getty Images"
+    And I add the restriction "Not to be used online"
+    And I save the rights
+    Then the rights editor closes
+    And the rights and restrictions section shows "PR & Third Party"
+    When I choose to edit the rights and restrictions
+    Then the rights editor shows the "Source" property set to "Getty Images"
+    And the rights editor shows the restriction "Not to be used online"
+  # Evidence: metadata-editor/app/model/UsageRightsProperty.scala lines 74-77, 147-149
+  # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.html lines 73-107
+  # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.js lines 109-130
 
   # ---------------------------------------------------------------------------
   # Metadata templates driving the rights editor
