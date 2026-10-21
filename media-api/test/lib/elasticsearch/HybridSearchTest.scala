@@ -102,6 +102,7 @@ class HybridSearchTest extends AnyFunSpec
         fiveSeconds
       )
       semanticOnlyResults.hits.map(_._1) shouldBe List("a", "b", "c", "d")
+      semanticOnlyResults.extraCounts.flatMap(_.maxSemanticSimilarity).get shouldBe (1.0 +- 1e-6)
     }
 
     it("runs only the lexical query when vecWeight = 0.0") {
@@ -112,6 +113,7 @@ class HybridSearchTest extends AnyFunSpec
       // Because we asked for k = 4 but only got 2 back, this confirms
       // the short-circuiting behaviour at vecWeight 0.0, i.e. only the lexical query ran.
       lexicalOnlyResults.hits.map(_._1) shouldBe List("d", "c")
+      lexicalOnlyResults.extraCounts.flatMap(_.maxSemanticSimilarity).get shouldBe (0.8 +- 1e-6)
     }
 
     it("includes all results once vecWeight > 0") {
@@ -121,6 +123,7 @@ class HybridSearchTest extends AnyFunSpec
       )
       // We should now get all 4 because vecWeight > 0
       weightedHeavilyLexicallyResults.hits.map(_._1) shouldBe List("d", "c", "a", "b")
+      weightedHeavilyLexicallyResults.extraCounts.flatMap(_.maxSemanticSimilarity).get shouldBe (1.0 +- 1e-6)
     }
 
     it("promotes a score-filled result into the top 2 with equal weighting") {
@@ -135,6 +138,17 @@ class HybridSearchTest extends AnyFunSpec
         fiveSeconds
       )
       equalWeightingResults.hits.map(_._1) shouldBe List("d", "c")
+      equalWeightingResults.extraCounts.flatMap(_.maxSemanticSimilarity).get shouldBe (0.8 +- 1e-6)
+    }
+
+    it("omits the maximum when filters exclude every result") {
+      val results = Await.result(
+        ES.hybridSearch("good", queryEmbedding, k = 4, numCandidates = 10, vecWeight = 0.5, filterOpt = Some(termQuery("id", "absent"))),
+        fiveSeconds
+      )
+
+      results.hits shouldBe empty
+      results.extraCounts.flatMap(_.maxSemanticSimilarity) shouldBe None
     }
   }
 

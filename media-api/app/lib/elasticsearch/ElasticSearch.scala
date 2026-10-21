@@ -351,7 +351,9 @@ class ElasticSearch(
       (for {
         results <- searchResults
         (total, extraCounts) <- filterTotalAndCounts
-      } yield results.copy(total = total, extraCounts = Some(extraCounts))).andThen { case _ =>
+      } yield results.copy(total = total, extraCounts = Some(extraCounts.copy(
+        maxSemanticSimilarity = HybridResult.maxSemanticSimilarity(results.hits.map(_._2.instance), queryEmbedding)
+      )))).andThen { case _ =>
         val elapsed = stopwatch.elapsed
         logger.info(
           combineMarkers(logMarker, elapsed),

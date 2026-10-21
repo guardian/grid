@@ -19,6 +19,7 @@
 ## [Apis](03-apis/)
 - [Authentication](03-apis/01-authentication.md)
 - [Collections](03-apis/02-collections.md)
+- [Comparing relevance across hybrid searches](03-apis/03-hybrid-search-relevance.md)
 
 ## [Troubleshooting](04-troubleshooting/)
 - [NGINX](04-troubleshooting/01-nginx.md)
@@ -31,8 +32,8 @@
 - [How to run a migration](05-migration/02-how-to.md)
 
 ## [Objects of interest](06-objects-of-interest/)
+- [TIFF files](06-objects-of-interest/01-tiffs.md)
 - [Config](06-objects-of-interest/02-config.md)
-- [TIFF files](06-objects-of-interest/06.01-tiffs.md)
 
 ## [Extending](07-extending/)
 - [Extending the Grid using providers](07-extending/01-provider-interfaces.md)

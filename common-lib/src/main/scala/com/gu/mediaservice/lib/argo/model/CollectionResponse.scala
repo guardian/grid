@@ -28,7 +28,8 @@ case class FilterPoolCounts(
 
 case class ExtraCounts(
   tickerCounts: Map[String, ExtraCount],
-  filterPoolCounts: Option[FilterPoolCounts] = None
+  filterPoolCounts: Option[FilterPoolCounts] = None,
+  maxSemanticSimilarity: Option[Double] = None
 )
 
 case class CollectionResponse[T](
