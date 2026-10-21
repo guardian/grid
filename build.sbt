@@ -132,6 +132,8 @@ lazy val commonLib = project("common-lib").settings(
     "software.amazon.awssdk" % "bedrockruntime" % awsSdkV2Version,
     "software.amazon.awssdk" % "s3vectors" % awsSdkV2Version,
     ws,
+    // A transient dependency added to evict vulnerable versions
+    "at.yawk.lz4" % "lz4-java" % "1.11.4",
     "org.testcontainers" % "elasticsearch" % "1.21.4" % Test,
   ),
   dependencyOverrides += "ch.qos.logback" % "logback-classic" % "1.2.13" % Test
