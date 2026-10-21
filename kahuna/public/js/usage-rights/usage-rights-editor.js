@@ -191,6 +191,13 @@ usageRightsEditor.controller(
       ctrl.reset = () => {
           ctrl.model = {restrictions: ctrl.model.restrictions};
           ctrl.showRestrictions = undefined;
+
+          // Preselect the first publication so dependent lists (e.g. photographers) are populated
+          const publicationProp = (ctrl.category.properties || [])
+              .find(prop => prop.name === 'publication' && prop.required && prop.options && prop.options.length > 0);
+          if (publicationProp) {
+              ctrl.model.publication = publicationProp.options[0];
+          }
       };
 
       ctrl.cancel = () => ctrl.onCancel();
