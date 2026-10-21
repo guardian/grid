@@ -5,13 +5,11 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
 
   Background:
     Given the application stack is running
-    And I am signed in through pan-domain auth
     And I have opened the single image view of an image
 
   # ---------------------------------------------------------------------------
   # Section shell
   # ---------------------------------------------------------------------------
-@todo
   Scenario: The rights and restrictions section is shown on the Metadata tab
     Then the Metadata tab is selected
     And I see a "Rights and restrictions" region
@@ -218,29 +216,18 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
       | Bylines        |
   # Evidence: metadata-editor/app/model/UsageRightsProperty.scala
   # Evidence: e2e-tests/setup/config.ts (usageRights.applicable)
-@todo # TODO - Add in GNM owned photograph when merged
+@todo # TODO - Add in GNM owned photograph when merged  
   Scenario Outline: Saving a rights category with its properties filled in
     Given I am signed in with edit metadata permission
     And the image has no usage rights category
     And I have opened the rights editor
-    When I select the "<category>" usage rights category
-    And I set the "<first property>" property to "<first value>"
-    And I set the "<second property>" property to "<second value>"
-    And I add the restriction "<restrictions>"
+    When I select the "Agency - subscription" usage rights category and set configured fields
     And I save the rights
     Then the rights editor closes
     And the rights and restrictions section shows "<category>"
     When I choose to edit the rights and restrictions
-    Then the rights editor shows the "<first property>" property set to "<first value>"
-    And the rights editor shows the "<second property>" property set to "<second value>"
-    And the rights editor shows the restriction "<restrictions>"
+    Then the rights editor shows the configured fields
 
-    # Every category except "No Rights" accepts restrictions, as long as the
-    # category has no default restrictions. Adding a restriction ticks the
-    # "Restricted" checkbox first if it is not already ticked.
-    Examples:
-      | category                    | first property | first value         | second property | second value                      | restrictions                                  |
-      | Agency - subscription       | Supplier       | Getty Images        | Collection      | News                              | Use in relation to the Windsor Triathlon only |
   # Evidence: metadata-editor/app/model/UsageRightsProperty.scala lines 74-77 (restrictions offered for every category except NoRights)
   # Evidence: dev/script/generate-config/service-config.js lines 54-83 (usageRightsConfigProvider options)
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.html lines 5, 38-226 (restrictions checkbox and textarea lines 73-107)
