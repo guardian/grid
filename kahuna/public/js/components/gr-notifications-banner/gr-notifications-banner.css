@@ -44,12 +44,12 @@
 .notification-url {
   color: black;
   border-bottom: 1px solid black;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .notification-url:hover {
   color: black;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .notification-button {

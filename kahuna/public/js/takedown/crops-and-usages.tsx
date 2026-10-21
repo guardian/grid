@@ -99,8 +99,8 @@ export const CropsAndUsages = ({
                       >
                         <Typography
                           element="span"
-                          variant="bodyItalicSm"
-                          theme={standThemeOverride.typography.default}
+                          variant="bodyItalicBoldSm"
+                          theme={standThemeOverride.typography.secondary}
                         >
                           Crops
                         </Typography>
@@ -108,7 +108,7 @@ export const CropsAndUsages = ({
                           <Typography
                             element="span"
                             variant="bodySm"
-                            theme={standThemeOverride.typography.secondary}
+                            theme={standThemeOverride.typography.default}
                           >
                             None
                           </Typography>
@@ -123,10 +123,8 @@ export const CropsAndUsages = ({
                               >
                                 <Typography
                                   element="span"
-                                  variant="bodyBoldSm"
-                                  theme={
-                                    standThemeOverride.typography.secondary
-                                  }
+                                  variant="bodySm"
+                                  theme={standThemeOverride.typography.default}
                                 >
                                   {cropLabel(crop)}
                                 </Typography>
@@ -147,16 +145,16 @@ export const CropsAndUsages = ({
                       >
                         <Typography
                           element="span"
-                          variant="bodyItalicSm"
-                          theme={standThemeOverride.typography.default}
+                          variant="bodyItalicBoldSm"
+                          theme={standThemeOverride.typography.secondary}
                         >
                           Usages
                         </Typography>
                         {deletableUsages.length === 0 ? (
                           <Typography
                             element="span"
-                            variant="bodyBoldSm"
-                            theme={standThemeOverride.typography.secondary}
+                            variant="bodySm"
+                            theme={standThemeOverride.typography.default}
                           >
                             None
                           </Typography>
@@ -171,10 +169,8 @@ export const CropsAndUsages = ({
                               >
                                 <Typography
                                   element="span"
-                                  variant="bodyBoldSm"
-                                  theme={
-                                    standThemeOverride.typography.secondary
-                                  }
+                                  variant="bodySm"
+                                  theme={standThemeOverride.typography.default}
                                 >
                                   {getUsageTitle(usage)}
                                   <Typography
