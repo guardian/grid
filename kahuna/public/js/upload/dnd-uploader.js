@@ -1,23 +1,17 @@
 import angular from 'angular';
 import template from './dnd-uploader.html';
 
-import {witnessApi} from '../services/api/witness';
-
 import strings from '../strings.json';
 
 export var dndUploader = angular.module('kahuna.upload.dndUploader', [
     'kahuna.upload.manager',
-    witnessApi.name,
-    'kahuna.edits.service',
     'util.async'
 ]);
 
 
 dndUploader.controller('DndUploaderCtrl',
-                  ['$state', '$window', '$q', 'uploadManager', 'loaderApi', 'editsService',
-                   'apiPoll', 'witnessApi',
-                   function($state, $window, $q, uploadManager, loaderApi, editsService,
-                            apiPoll, witnessApi) {
+                  ['$state', 'uploadManager',
+                   function($state, uploadManager) {
 
     var ctrl = this;
     //hack to prevent grid thumbnails being re-added to the grid for now
@@ -25,8 +19,6 @@ dndUploader.controller('DndUploaderCtrl',
     const gridThumbnailPattern = /https:\/\/media-service([0-9-a-z]+)thumbbucket([0-9-a-z]+)/;
 
     ctrl.uploadFiles = uploadFiles;
-    ctrl.importWitnessImage = importWitnessImage;
-    ctrl.isWitnessUri = witnessApi.isWitnessUri;
     ctrl.isNotGridThumbnail = (uri)  => !gridThumbnailPattern.test(uri);
     ctrl.loadUriImage = loadUriImage;
 
@@ -38,52 +30,9 @@ dndUploader.controller('DndUploaderCtrl',
         });
     }
 
-
-    function loadAndUpdateWitnessImage(fileUri, metadata, identifiers) {
-        return loaderApi.import(fileUri, identifiers).then(mediaResp => {
-            // Wait until image indexed
-            return apiPoll(() => mediaResp.get());
-        }).then(fullImage => {
-            // Override with Witness metadata
-            const userMetadata = fullImage.data.userMetadata.data.metadata;
-            const metadataUpdate = editsService.
-                      update(userMetadata, metadata, fullImage);
-
-            const rights = {
-                category: 'guardian-witness'
-            };
-            const userRights = fullImage.data.userMetadata.data.usageRights;
-            const rightsUpdate = editsService.
-                      update(userRights, rights, fullImage);
-
-            return $q.all([metadataUpdate, rightsUpdate]).
-                then(() => fullImage.data.id);
-        });
-    }
-
    function loadUriImage(fileUri) {
         uploadManager.uploadUri(fileUri);
         $state.go('upload', {}, { reload: true });
-    }
-
-    function importWitnessImage(uri) {
-        const witnessReportId = witnessApi.extractReportId(uri);
-        if (witnessReportId) {
-            return witnessApi.getReport(witnessReportId).
-                then(({fileUri, metadata, identifiers}) => {
-                    return loadAndUpdateWitnessImage(fileUri, metadata, identifiers);
-                }).then(imageId => {
-                    // Go to image preview page
-                    $state.go('image', {imageId});
-                }).catch(() => {
-                    $window.alert('An error occurred while importing the ' +
-                                  'Witness contribution, please try again');
-                });
-        } else {
-            // Should not get to here
-            $window.alert('Failed to identify the Witness contribution, please try again');
-            return $q.reject();
-        }
     }
 }]);
 
@@ -203,34 +152,8 @@ dndUploader.directive('dndUploader', ['$window', '$rootScope', 'delay', 'safeApp
                       null,
                       dropAction('Files')
                     );
-                } else if (ctrl.isWitnessUri(uri)) {
-                    ctrl.importing = true;
-                    ctrl.importWitnessImage(uri).finally(() => {
-                        ctrl.importing = false;
-                    });
-                    $rootScope.$emit(
-                      'track:event',
-                      trackEvent,
-                      'Drop',
-                      'Witness',
-                      null,
-                      dropAction('Witness')
-                    );
                 } else if (ctrl.isNotGridThumbnail(uri)) {
                     ctrl.loadUriImage(uri);
-                }
-                else {
-                    $window.alert('You must drop valid files or ' +
-                        'URLs to upload them');
-
-                    $rootScope.$emit(
-                      'track:event',
-                      trackEvent,
-                      'Drop',
-                      'Invalid',
-                      null,
-                      dropAction('Invalid')
-                    );
                 }
             }
 

@@ -2,8 +2,19 @@ import type { DataTable } from 'playwright-bdd';
 import type { Page } from '@playwright/test';
 import { Given, KAHUNA_APP_URL, Then, When, expect } from '../setup.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
-import { expectUploadPermission } from './media-api.assertions.ts';
-import { filesToUpload, grouping, holdIngest, testImages, uniqueImage, uploadPage } from './setup.ts';
+import { E2E_UPLOAD_SUPPORT_EMAIL } from '../../setup/config.ts';
+import { switchAccount } from '../utils/auth.ts';
+import { expectNoUploadPermission, expectUploadPermission } from './media-api.assertions.ts';
+import {
+  BATCH_SIZE,
+  batchJobs,
+  filesToUpload,
+  grouping,
+  holdIngest,
+  testImages,
+  uniqueBatch,
+  uploadPage,
+} from './setup.ts';
 
 /**
  * Upload page shell
@@ -34,6 +45,31 @@ Then('the drag-and-drop uploader should be active', async ({ page }) => {
 
 Then('I should not see the current uploads section', async ({ page }) => {
   await expect(uploadPage(page).currentUploads).not.toBeVisible();
+});
+
+Given('I am not permitted to upload images', async ({ page }) => {
+  await switchAccount(page, TEST_ACCOUNTS.noUpload);
+  await expectNoUploadPermission(page);
+  // Search hides its "My recent uploads" link from this account, so deep-link instead.
+  await page.goto(`${KAHUNA_APP_URL}/upload`);
+});
+
+Then('I should see a message that I am not authorised to upload images', async ({ page }) => {
+  await expect(uploadPage(page).main).toContainText('You are not authorised to upload images.');
+});
+
+Then('I should see a link to email support', async ({ page }) => {
+  await expect(
+    uploadPage(page).main.getByRole('link', { name: 'Send an email to support' }),
+  ).toHaveAttribute('href', E2E_UPLOAD_SUPPORT_EMAIL);
+});
+
+Then('I should not see the file upload prompt', async ({ page }) => {
+  await expect(uploadPage(page).prompt).not.toBeVisible();
+});
+
+Then('I should not see the drag-and-drop uploader', async ({ page }) => {
+  await expect(uploadPage(page).dragAndDropUploader).not.toBeAttached();
 });
 
 Given(
@@ -148,21 +184,14 @@ When(
 
 When('I upload more than one image', async ({ page }) => {
   // Embedded descriptions skip the filename-description save, which races the preset labels.
-  await uploadPage(page).fileInput.setInputFiles([
-    uniqueImage(testImages.withMetadata).path,
-    uniqueImage(testImages.withMetadata).path,
-  ]);
-  await expect(uploadPage(page).imageEditorJob).toHaveCount(2);
+  await uploadPage(page).fileInput.setInputFiles(uniqueBatch(testImages.withMetadata));
+  await expect(uploadPage(page).imageEditorJob).toHaveCount(BATCH_SIZE);
 });
 
 Then('that label should be applied to all my uploads', async ({ page, testContext }) => {
-  const jobs = uploadPage(page).imageEditorJob;
-  const count = await jobs.count();
-  for (let i = 0; i < count; i++) {
+  for (const job of await batchJobs(page)) {
     for (const label of testContext.presetLabels!) {
-      await expect(
-        grouping(jobs.nth(i)).getByRole('link', { name: label, exact: true }),
-      ).toBeVisible();
+      await expect(grouping(job).getByRole('link', { name: label, exact: true })).toBeVisible();
     }
   }
 });

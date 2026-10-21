@@ -1,7 +1,6 @@
-# Uploads mutate the single shared e2e user's upload history, so scenarios must not race.
 Feature: Uploading images to the Grid
   This lets an authorised user get images into the Grid by selecting files,
-  dragging and dropping files or URLs, importing Witness contributions, and
+  dragging and dropping files or URLs, and
   then completing the required metadata while tracking each upload's progress.
 
   Background:
@@ -22,8 +21,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/view.html lines 11-12, 19-27, 31
   # Evidence: kahuna/public/js/upload/controller.js lines 40-45
 
-  # Needs a stack booted with enforceUploadImagesPermission=true.
-  @todo
   Scenario: An unauthorised user is told they cannot upload
     Given I am not permitted to upload images
     When the upload page loads
@@ -129,61 +126,33 @@ Feature: Uploading images to the Grid
     When I drag files over the upload page
     Then the dropzone overlay should appear with an explanation
   # Evidence: kahuna/public/js/upload/dnd-uploader.html lines 1-6
-  # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 113, 116, 158-171
+  # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 62, 65, 107-120
 
   Scenario: The dropzone hides when I stop dragging
     Given the dropzone overlay is showing
     When I drag away from the upload page
     Then the dropzone overlay should disappear
   # Evidence: kahuna/public/js/upload/dnd-uploader.html lines 1
-  # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 117, 173-180
+  # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 66, 122-129
 
   Scenario: Dropping files uploads them
     When I drop one or more image files onto the page
     Then those files should be queued for upload
     And I should be taken to the upload progress view
-  # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 33-37, 182-205
+  # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 25-29, 131-154
   # Evidence: kahuna/public/js/upload/manager.js lines 68-83
 
   Scenario: Dropping a URL loads the image from that URL
     When I drop an image URL onto the page
     Then the image at that URL should be loaded for upload
     And I should be taken to the upload progress view
-  # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 64-66, 219-220
+  # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 33-35, 155-156
   # Evidence: kahuna/public/js/upload/manager.js lines 86-96
-
-  # can remove this functionality in another PR
-  @todo
-  Scenario: Dropping a Witness contribution imports it
-    When I drop a Witness contribution URL onto the page
-    Then the importing overlay should be shown
-    And the Witness image should be imported with its metadata and usage rights
-    And I should be taken to the imported image's page
-  # Evidence: kahuna/public/js/upload/dnd-uploader.html lines 8-12
-  # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 40-62, 69-78, 206-217
-
-  # can remove this functionality in another PR
-  @todo
-  Scenario: A failed Witness import is reported
-    Given I drop a Witness contribution URL onto the page
-    When the Witness import fails
-    Then I should see an alert that importing the Witness contribution failed
-  # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 79-85
-
-  # Confirmed unreachable: `drop` only calls `performDropAction` when `isGridFriendly`, which
-  # needs a Files or uri-list type, and the alert is the last branch after those are ruled
-  # out. Dropping genuinely invalid content is ignored silently; only a Grid thumbnail URL
-  # reaches the alert.
-  @todo
-  Scenario: Dropping invalid content is rejected
-    When I drop something that is not a valid file or URL
-    Then I should see an alert that I must drop valid files or URLs
-  # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 222-231
 
   Scenario: Dragging a Grid image back onto the page is ignored
     When I drag an image that is already in the Grid over the page
     Then the dropzone overlay should not appear
-  # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 135-150, 158-160
+  # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 84-99, 107-109
 
   # ---------------------------------------------------------------------------
   # Current uploads list (jobs/upload-jobs.html + upload-jobs.js)
@@ -297,6 +266,7 @@ Feature: Uploading images to the Grid
 
   Scenario: Choosing an image type when image types are configured
     Given image types are configured
+    And an uploaded image is shown in the metadata editor
     When I view the metadata editor
     Then I should be able to choose an image type from a dropdown
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 5-27
@@ -405,9 +375,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/recent/recent-uploads.html lines 7-13
   # Evidence: kahuna/public/js/upload/recent/recent-uploads.js lines 25-51
 
-  # Existing bug: the `image-delete-failure` listener omits the event argument, so it throws
-  # reading `image.data.id` and never alerts.
-  @todo
   Scenario: A failed deletion of a past upload is reported
     Given a past uploaded image is listed
     When deleting the image fails

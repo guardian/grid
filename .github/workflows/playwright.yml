@@ -16,8 +16,8 @@ jobs:
       run:
         working-directory: e2e-tests
     steps:
-    - uses: actions/checkout@e8d4307400f9427dba7cb98e488d6ab85f1cec5f # v7.0.0
-    - uses: actions/setup-node@v6
+    - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v7.0.0
+    - uses: actions/setup-node@v7
       with:
         node-version: lts/*
         # Cache downloads for both the host-side e2e install and the Kahuna install
@@ -36,7 +36,7 @@ jobs:
     # build files, with a prefix restore-key so an unrelated build change only
     # fetches the delta rather than everything.
     - name: Cache sbt dependencies (ivy/coursier)
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: |
           ~/.cache/coursier/v1
@@ -57,7 +57,7 @@ jobs:
     # recompile, and the prefix restore-key seeds an incremental build from the
     # most recent cache when sources have changed.
     - name: Cache sbt compile output (incremental)
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: |
           **/target
@@ -69,7 +69,7 @@ jobs:
     # the resolved Playwright version in the lockfile, so a version bump busts it.
     - name: Cache Playwright browsers
       id: playwright-cache
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ~/.cache/ms-playwright
         key: ${{ runner.os }}-playwright-${{ hashFiles('e2e-tests/package-lock.json') }}

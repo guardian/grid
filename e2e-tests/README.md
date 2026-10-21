@@ -35,6 +35,13 @@ settings and permissions from [`fixtures/`](fixtures), and builds the local prov
 [`dev/oidc-provider`](../dev/oidc-provider). Browser scenarios sign in through Panda and
 OIDC as `grid-e2e-account@guardian.co.uk`; authentication is not bypassed.
 
+Sign-in happens once per run, in the `auth` setup project
+([`setup/auth.setup.ts`](setup/auth.setup.ts)), which saves the session to
+`playwright/.auth/`. Every `chromium` scenario starts from that session. Scenarios that
+need a different user's permissions call `switchAccount()` (or `openUploadPageAs()`),
+which clears cookies and signs in again. In `npm run test:ui`, select the `auth` project
+as well, or the saved session won't exist.
+
 ### 2. Dev (live recompilation)
 
 For iterating on failing tests you can run the services from source with live reload using

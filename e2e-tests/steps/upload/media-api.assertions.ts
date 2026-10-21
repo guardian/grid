@@ -4,12 +4,14 @@ import type { Page, Response } from '@playwright/test';
 import { expect } from '../setup.ts';
 
 async function getMediaApiUrl(page: Page): Promise<string> {
-  const mediaApiUrl = await page.locator('link[rel="media-api-uri"]').getAttribute('href');
-  if (!mediaApiUrl) {
-    throw new Error('Media API URL is missing');
-  }
-  return mediaApiUrl;
+  const href = await page.locator('link[rel="media-api-uri"]').getAttribute('href');
+  if (!href) throw new Error('Kahuna page has no media-api-uri link');
+  return href;
 }
+
+/** The Grid identifies an image by the SHA-1 of its bytes. */
+const mediaIdOf = (imagePath: string) =>
+  createHash('sha1').update(readFileSync(imagePath)).digest('hex');
 
 export function waitForMetadataSave(page: Page): Promise<Response> {
   return page.waitForResponse(
@@ -19,12 +21,18 @@ export function waitForMetadataSave(page: Page): Promise<Response> {
   );
 }
 
-export async function expectUploadPermission(page: Page): Promise<void> {
-  const mediaApiUrl = await getMediaApiUrl(page);
-  const response = await page.request.get(mediaApiUrl);
+async function mediaApiRootLinks(page: Page): Promise<string[]> {
+  const response = await page.request.get(await getMediaApiUrl(page));
   const { links } = (await response.json()) as { links: { rel: string }[] };
+  return links.map((link) => link.rel);
+}
 
-  expect(links.map((link) => link.rel)).toContain('loader');
+export async function expectUploadPermission(page: Page): Promise<void> {
+  expect(await mediaApiRootLinks(page)).toContain('loader');
+}
+
+export async function expectNoUploadPermission(page: Page): Promise<void> {
+  expect(await mediaApiRootLinks(page)).not.toContain('loader');
 }
 
 export async function expectNoEditPermission(
@@ -32,9 +40,9 @@ export async function expectNoEditPermission(
   imagePath: string,
   expectedUploader: string,
 ): Promise<void> {
-  const mediaApiUrl = await getMediaApiUrl(page);
-  const mediaId = createHash('sha1').update(readFileSync(imagePath)).digest('hex');
-  const response = await page.request.get(`${mediaApiUrl}/images/${mediaId}`);
+  const response = await page.request.get(
+    `${await getMediaApiUrl(page)}/images/${mediaIdOf(imagePath)}`,
+  );
   expect(response.ok()).toBeTruthy();
   const { data, links } = (await response.json()) as {
     data: { uploadedBy: string };
@@ -51,8 +59,8 @@ export async function expectInUploadHistory(
   imagePath: string,
   uploadedBy: string,
 ): Promise<void> {
-  const mediaApiUrl = await page.locator('link[rel="media-api-uri"]').getAttribute('href');
-  const mediaId = createHash('sha1').update(readFileSync(imagePath)).digest('hex');
+  const mediaApiUrl = await getMediaApiUrl(page);
+  const mediaId = mediaIdOf(imagePath);
   await expect
     .poll(async () => {
       const response = await page.request.get(`${mediaApiUrl}/images`, {

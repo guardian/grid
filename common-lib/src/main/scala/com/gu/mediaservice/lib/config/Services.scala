@@ -90,8 +90,6 @@ class Services(
     thrallBaseUri
   )
 
-  val guardianWitnessBaseUri: String = "https://n0ticeapis.com"
-
   val corsAllowedDomains: Set[String] = corsAllowedOrigins.map(baseUri) + kahunaBaseUri + apiBaseUri + thrallBaseUri
 
   val redirectUriParam = "redirectUri"
