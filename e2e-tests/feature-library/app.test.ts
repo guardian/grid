@@ -45,6 +45,7 @@ function fixtureManifest(): LibraryManifest {
         id: 'availability', name: 'Service availability', description: '', file: 'features/availability.feature',
         scenarios: [{ ...definition, id: 'healthcheck', name: 'Healthcheck responds OK', status: 'not-run', runs: [] }],
       },
+      { id: 'empty', name: 'An empty feature', description: 'No scenarios defined yet.', file: 'features/empty.feature', scenarios: [] },
     ],
   };
 }
@@ -85,6 +86,39 @@ test('React viewer preserves navigation, filters, playback and responsive layout
     await expect(page.locator('.badge')).toHaveText('Failed');
     await expect(page.locator('.scenario-item[aria-current="true"]')).toHaveAttribute('href', '#upload/validation/a-failed-upload');
     await page.goto(base);
+    await expect(page.locator('.feature-file')).toHaveCount(3);
+    await expect(page.locator('.feature-overview')).toContainText('Images for the newsroom.');
+    await expect(page.locator('.feature-overview')).toContainText('features/upload.feature');
+    await expect(page.locator('a.feature-file')).toHaveCount(2);
+    await expect(page.locator('.feature-overview')).toContainText('0 scenarios');
+    await expect(page.locator('.catalogue')).toHaveCount(0);
+    await page.getByRole('link', { name: /features\/availability.feature/ }).click();
+    await expect(page.getByLabel('Filter by feature')).toHaveValue('availability');
+    await expect(page.locator('.scenario-item')).toHaveCount(1);
+    await expect(page.getByRole('heading', { name: 'Healthcheck responds OK' })).toBeVisible();
+    await page.goBack();
+    await expect(page.locator('.feature-overview')).toBeVisible();
+    await page.goForward();
+    await expect(page.getByLabel('Filter by feature')).toHaveValue('availability');
+    await page.getByLabel('Filter by status').selectOption('failed');
+    await page.getByLabel('Search scenarios').fill('old search');
+    await page.getByRole('link', { name: 'All features', exact: true }).click();
+    await expect(page.locator('.feature-overview')).toBeVisible();
+    for (const width of [1440, 768, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `Overview overflow at ${width}px`);
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.getByRole('link', { name: /features\/upload.feature/ }).click();
+    await expect(page.getByLabel('Filter by feature')).toHaveValue('uploads');
+    await expect(page.getByLabel('Filter by status')).toHaveValue('all');
+    await expect(page.getByLabel('Search scenarios')).toHaveValue('');
+    await expect(page.locator('.scenario-item')).toHaveCount(3);
+    await expect(page.getByRole('heading', { name: 'An authorised user sees the upload tools' })).toBeVisible();
+    await page.reload();
+    await expect(page.getByLabel('Filter by feature')).toHaveValue('uploads');
+    await expect(page.locator('.scenario-item')).toHaveCount(3);
+    await page.getByLabel('Filter by feature').selectOption('all');
     await expect(page.locator('.scenario-item')).toHaveCount(4);
     await expect(page.locator('.brand')).toHaveText('');
     await expect(page.locator('.brand img')).toHaveAttribute('src', 'grid-logo.svg');
@@ -191,7 +225,18 @@ test('React viewer preserves navigation, filters, playback and responsive layout
     await expect(page.getByRole('heading', { name: 'The library is unavailable' })).toBeVisible();
     await page.unroute('**/library.json');
     await page.getByRole('button', { name: 'Retry' }).click();
-    await expect(page.locator('.scenario-item')).toHaveCount(4);
+    await expect(page.locator('.scenario-item')).toHaveCount(3);
+    await page.getByRole('link', { name: 'All features', exact: true }).click();
+    await page.getByRole('link', { name: /features\/availability.feature/ }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByLabel('Filter by feature')).toHaveValue('availability');
+    await expect(page.getByRole('heading', { name: 'Healthcheck responds OK' })).toBeVisible();
+    await page.getByRole('link', { name: 'Grid feature library', exact: true }).click();
+    await expect(page.locator('.feature-overview')).toBeVisible();
+    await page.route('**/library.json', (route) => route.fulfill({ json: { ...manifest, features: [] } }));
+    await page.goto(base);
+    await expect(page.getByRole('heading', { name: 'No features yet' })).toBeVisible();
+    await expect(page.locator('.feature-file')).toHaveCount(0);
     assert.deepEqual(errors, []);
   } finally {
     if (server) {

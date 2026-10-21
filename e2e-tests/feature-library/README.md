@@ -230,9 +230,10 @@ framework or global state library.
 | Component | Owns or renders |
 | --- | --- |
 | `App` | Fetches the adjacent manifest; loading, error and retry states. Aborts obsolete requests. |
-| `FeatureLibrary` | Builds searchable entries; owns filters, selected scenario and toast state. |
+| `FeatureLibrary` | Builds searchable entries; owns overview/detail navigation, filters, selected scenario and toast state. |
 | `PageHeader` | Grid logo, report date and whole-library totals. "With video" counts scenarios, not clips. |
-| `Catalogue` | Controlled filter inputs and scenario links; keeps the selection visible while scrolling. |
+| `FeatureOverview` | Main page listing feature file paths, titles, descriptions and scenario counts. Populated files link to their first scenario; empty files remain visible without a link. |
+| `Catalogue` | Controlled filter inputs, scenario links and the "All features" return link; keeps the selection visible while scrolling. |
 | `ScenarioDetail` | Context, navigation, copy link, specification and then recordings. |
 | `RecordingPlayer` | Local attempt selection, playback speed and media-error state; native video controls and download. |
 | `Steps`, `DataTable`, `StatusBadge` | Presentation of typed data, with no data fetching. |
@@ -242,12 +243,18 @@ Important behaviours to preserve:
 - `filterEntries` combines feature/status filters with case-insensitive search.
   Every query word must occur in `Entry.searchText`; the searchable text is assembled
   in `FeatureLibrary`, not in the input component.
-- Initial selection prefers a valid URL fragment, then a recorded scenario, then
-  the first definition. Explicit selection pushes history; filter changes replace
-  the current entry and retain the selection if it is still visible.
+- The base URL opens `FeatureOverview`. Selecting a file clears search/status filters,
+   sets the sidebar's feature filter and selects its first scenario in source order,
+   regardless of recording availability. A valid scenario fragment opens that scenario
+   with its owning feature selected, including after a reload.
+- "All features" returns to the overview and clears filters. Explicit navigation
+   pushes history; filter changes replace the current entry and retain the selection
+   if it is still visible. The Grid logo also links to the base URL.
 - `pushState` and `replaceState` do not emit `hashchange`. Callers must also update
-  React state. Browser history can clear filters to reveal its target scenario;
-  unknown fragments are ignored, including the accessibility skip-link target.
+   React state. An empty fragment returns to the overview; browser history restores
+   a scenario's feature when arriving from the overview or when filters hide the target.
+   Unknown fragments are ignored by the history listener, including the accessibility
+   skip-link target; an unknown fragment on initial load shows the overview.
 - `ScenarioDetail` is keyed by scenario ID. This resets player state and expanded
   details when selecting another scenario. The last supplied playable recording
   is initially selected; recordings are not sorted by timestamp in the UI.

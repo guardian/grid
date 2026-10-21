@@ -130,16 +130,17 @@ function PageHeader({ library, loading = false }: { library?: LibraryManifest; l
 /**
  * Renders controlled filters and the already-filtered scenario list.
  * Inputs: all features for the selector, visible entries, filter values, selected ID,
- * and callbacks receiving replacement filters or the chosen Entry.
+ * and callbacks receiving replacement filters, the chosen Entry, or an overview request.
  * @returns Sidebar JSX; selection stays visible by scrolling the list, not the page.
  */
-function Catalogue({ features, visible, filters, selectedId, onFiltersChange, onSelect }: {
+function Catalogue({ features, visible, filters, selectedId, onFiltersChange, onSelect, onOverview }: {
   features: Feature[];
   visible: Entry[];
   filters: Filters;
   selectedId?: string;
   onFiltersChange: (filters: Filters) => void;
   onSelect: (entry: Entry) => void;
+  onOverview: () => void;
 }) {
   const listRef = useRef<HTMLElement>(null);
   /**
@@ -170,6 +171,11 @@ function Catalogue({ features, visible, filters, selectedId, onFiltersChange, on
 
   return <aside className="catalogue" aria-label="Scenario catalogue">
     <div className="catalogue-tools">
+      <a href="#" className="overview-link" onClick={(event) => {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        onOverview();
+      }}><ArrowLeft aria-hidden="true" />All features</a>
       <label className="search"><Search aria-hidden="true" /><input id="search" type="search" placeholder="Search scenarios..." aria-label="Search scenarios" autoComplete="off" value={filters.query} onChange={(event) => onFiltersChange({ ...filters, query: event.target.value })} /></label>
       <label className="field-label" htmlFor="feature-filter">FEATURE</label>
       <select id="feature-filter" aria-label="Filter by feature" value={filters.feature} onChange={(event) => onFiltersChange({ ...filters, feature: event.target.value })}>
@@ -341,20 +347,46 @@ function ScenarioDetail({ entry, index, count, onPrevious, onNext, onNotify }: {
 }
 
 /**
+ * Lists feature files and descriptions, linking populated files to their first scenario.
+ * Empty files remain visible without a link. onSelect opens the file's filtered catalogue.
+ */
+function FeatureOverview({ features, onSelect }: { features: Feature[]; onSelect: (feature: Feature) => void }) {
+  return <main id="detail" className="feature-overview" tabIndex={-1}>
+    <div className="section-heading"><h2>Feature files</h2><span className="subtle">{features.length} files</span></div>
+    {features.length > 0 ? <ul className="feature-list">{features.map((feature) => {
+      const firstScenario = feature.scenarios[0];
+      const content = <>
+        <FileCode2 aria-hidden="true" />
+        <div className="feature-file-copy"><span className="feature-file-path">{feature.file}</span><h3>{feature.name}</h3>
+          {feature.description && <p>{feature.description}</p>}
+        </div>
+        <span className="feature-file-count">{feature.scenarios.length} {feature.scenarios.length === 1 ? 'scenario' : 'scenarios'}</span>
+        {firstScenario && <ArrowRight className="feature-file-arrow" aria-hidden="true" />}
+      </>;
+      return <li key={feature.id}>{firstScenario ? <a className="feature-file" href={`#${firstScenario.id}`} onClick={(event) => {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        onSelect(feature);
+      }}>{content}</a> : <div className="feature-file">{content}</div>}</li>;
+    })}</ul> : <div className="empty-state"><FolderOpen aria-hidden="true" /><h2>No features yet</h2></div>}
+  </main>;
+}
+
+/**
  * Input is a loaded manifest; the snapshot is not modified by the viewer.
  * @returns The interactive catalogue/detail layout and notification region.
- * Owns filter and selection state, preferring a valid deep link, then a recorded
- * scenario, then the first definition. Effects synchronize title, history and toasts.
+ * Opens the feature overview unless the URL identifies a scenario. Feature selection
+ * filters the catalogue and opens its first scenario. Effects synchronize browser state.
  */
 function FeatureLibrary({ library }: { library: LibraryManifest }) {
   const entries: Entry[] = library.features.flatMap((feature) => feature.scenarios.map((scenario) => ({
     feature, scenario,
     searchText: [feature.name, feature.description, scenario.name, scenario.description, scenario.rule, ...scenario.tags, ...scenario.background.map((step) => step.text), ...scenario.steps.map((step) => step.text)].join(' ').toLocaleLowerCase(),
   })));
-  const [filters, setFilters] = useState(defaultFilters);
-  const [selectedId, setSelectedId] = useState<string | undefined>(() =>
-    entries.find(({ scenario }) => scenario.id === location.hash.slice(1))?.scenario.id
-    ?? entries.find(({ scenario }) => recordingsFor(scenario).length > 0)?.scenario.id ?? entries[0]?.scenario.id);
+  const initialEntry = entries.find(({ scenario }) => scenario.id === location.hash.slice(1));
+  const [filters, setFilters] = useState(() => ({ ...defaultFilters, feature: initialEntry?.feature.id ?? 'all' }));
+  const [selectedId, setSelectedId] = useState<string | undefined>(initialEntry?.scenario.id);
+  const [showOverview, setShowOverview] = useState(!initialEntry);
   const [toast, setToast] = useState('');
   const detailRef = useRef<HTMLElement>(null);
   const visible = filterEntries(entries, filters);
@@ -368,9 +400,27 @@ function FeatureLibrary({ library }: { library: LibraryManifest }) {
    */
   const selectEntry = (next?: Entry, push = true) => {
     if (!next) return;
+    setShowOverview(false);
     setSelectedId(next.scenario.id);
     if (push) setHash(next.scenario.id);
     if (matchMedia('(max-width: 760px)').matches) detailRef.current?.scrollIntoView({ block: 'start' });
+  };
+  /** Returns to the overview, clearing filters and optionally adding a history entry. */
+  const openOverview = (push = true) => {
+    setShowOverview(true);
+    setFilters(defaultFilters);
+    setSelectedId(undefined);
+    setToast('');
+    if (push) setHash('');
+    window.scrollTo(0, 0);
+  };
+  /** Opens a file's first source-order scenario with only that feature filter active. */
+  const openFeature = (feature: Feature) => {
+    const first = entries.find((candidate) => candidate.feature.id === feature.id);
+    if (!first) return;
+    setFilters({ ...defaultFilters, feature: feature.id });
+    selectEntry(first);
+    window.scrollTo(0, 0);
   };
   /**
    * @param next - Complete replacement filter state from the controlled form.
@@ -386,13 +436,20 @@ function FeatureLibrary({ library }: { library: LibraryManifest }) {
   };
   /**
    * Takes no arguments and reads the latest location fragment and filter state.
-   * Returns nothing; valid history/deep-link targets become selected, clearing filters
-   * only when necessary. Unknown fragments, including the skip-link target, are ignored.
+  * Returns nothing; empty fragments open the overview. Scenario links reveal their
+  * owning feature when arriving from the overview or excluded by current filters.
+  * Unknown fragments, including the skip-link target, are ignored.
    */
   const onHashChange = useEffectEvent(() => {
+    if (!location.hash.slice(1)) {
+      openOverview(false);
+      return;
+    }
     const next = entries.find(({ scenario }) => scenario.id === location.hash.slice(1));
     if (!next) return;
-    if (!visible.some(({ scenario }) => scenario.id === next.scenario.id)) setFilters(defaultFilters);
+    if (showOverview || !visible.some(({ scenario }) => scenario.id === next.scenario.id)) {
+      setFilters({ ...defaultFilters, feature: next.feature.id });
+    }
     selectEntry(next, false);
   });
   useEffect(() => {
@@ -401,9 +458,9 @@ function FeatureLibrary({ library }: { library: LibraryManifest }) {
     return () => window.removeEventListener('hashchange', listener);
   }, []);
   useEffect(() => {
-    document.title = entry ? `${entry.scenario.name} | Grid feature library` : 'Grid | Feature library';
-    if (entry) setHash(entry.scenario.id, true);
-  }, [entry?.scenario.id, entry?.scenario.name]);
+    document.title = !showOverview && entry ? `${entry.scenario.name} | Grid feature library` : 'Grid | Feature library';
+    if (!showOverview && entry) setHash(entry.scenario.id, true);
+  }, [showOverview, entry?.scenario.id, entry?.scenario.name]);
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(''), 2600);
@@ -412,13 +469,13 @@ function FeatureLibrary({ library }: { library: LibraryManifest }) {
 
   return <>
     <PageHeader library={library} />
-    <div className="workspace">
-      <Catalogue features={library.features} visible={visible} filters={filters} selectedId={entry?.scenario.id} onFiltersChange={changeFilters} onSelect={selectEntry} />
+    {showOverview ? <FeatureOverview features={library.features} onSelect={openFeature} /> : <div className="workspace">
+      <Catalogue features={library.features} visible={visible} filters={filters} selectedId={entry?.scenario.id} onFiltersChange={changeFilters} onSelect={selectEntry} onOverview={() => openOverview()} />
       <main id="detail" tabIndex={-1} ref={detailRef}>
         {entry ? <ScenarioDetail key={entry.scenario.id} entry={entry} index={index} count={visible.length} onPrevious={() => selectEntry(visible[index - 1])} onNext={() => selectEntry(visible[index + 1])} onNotify={setToast} />
           : <div className="empty-state"><ListFilter aria-hidden="true" /><h2>{entries.length ? 'No matching scenarios' : 'No features yet'}</h2></div>}
       </main>
-    </div>
+    </div>}
     <div id="toast" className={toast ? 'visible' : ''} role="status" aria-live="polite">{toast}</div>
   </>;
 }

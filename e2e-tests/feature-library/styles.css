@@ -64,6 +64,22 @@ h1 { font-family: inherit; font-size: 26px; line-height: 1.25; font-weight: 400;
 .total { min-width: 61px; display: flex; flex-direction: column; gap: 0; }
 .total strong { font-size: 27px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .total span { font-size: 11px; color: var(--muted); }
+.feature-overview { max-width: 1200px; margin: 0 auto; }
+.feature-overview > .section-heading { margin-bottom: 20px; }
+.feature-overview h2 { font-size: 20px; margin-top: 0; }
+.feature-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.feature-list > li { border-bottom: 1px solid var(--line); }
+.feature-file { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto 18px; align-items: start; gap: 20px; padding: 24px 12px; }
+a.feature-file:hover { background: var(--panel); }
+.feature-file > svg { color: var(--accent); margin-top: 3px; }
+.feature-file-copy { min-width: 0; overflow-wrap: anywhere; }
+.feature-file-path { font-size: 12px; color: var(--accent); }
+.feature-file h3 { font-size: 18px; line-height: 1.5; margin-top: 6px; }
+.feature-file p { font-size: 14px; line-height: 1.65; color: var(--muted); margin-top: 8px; white-space: pre-line; }
+.feature-file-count { font-size: 12px; color: var(--muted); white-space: nowrap; padding-top: 3px; }
+.overview-link { display: inline-flex; align-items: center; gap: 8px; color: var(--accent); font-size: 13px; margin-bottom: 18px; }
+.overview-link:hover { color: white; }
+.overview-link svg { width: 16px; height: 16px; }
 .workspace { display: grid; grid-template-columns: 326px minmax(0, 1fr); align-items: start; max-width: 1800px; margin: 0 auto; }
 .catalogue { position: sticky; top: 0; height: 100dvh; display: flex; flex-direction: column; border-right: 1px solid var(--line); background: var(--canvas); }
 .catalogue-tools { padding: 24px 22px 12px; margin-bottom: 12px; border-bottom: 1px solid var(--line); }
@@ -193,6 +209,11 @@ pre { background: var(--panel); border-left: 2px solid var(--line); padding: 12p
   .total strong { font-size: 21px; }
   .total span { font-size: 10px; }
   .workspace { display: block; }
+  .feature-file { grid-template-columns: 20px minmax(0, 1fr) 18px; gap: 10px; padding: 20px 0; }
+  .feature-file h3 { font-size: 16px; }
+  .feature-file-count { grid-column: 2; grid-row: 2; }
+  .feature-file-arrow { grid-column: 3; grid-row: 1; }
+  .overview-link { grid-column: 1 / -1; }
   .catalogue { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
   .catalogue-tools { padding: 18px 20px 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 12px; }
   .search { grid-column: 1 / -1; margin-bottom: 13px; }
