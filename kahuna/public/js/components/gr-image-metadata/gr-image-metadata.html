@@ -799,6 +799,7 @@
 
                     <div ng-switch="specField.fieldType">
                         <span ng-switch-when="string">
+                            <span ng-if="!specField.allowEditOptions">
                             <button data-cy="it-edit-{{specField.name}}-button"
                                     class="image-info__edit"
                                     ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
@@ -816,17 +817,80 @@
                                   e:form="domainMetadataEditForm">
 
                                 <span ng-if="specField.hasMultipleValues && ctrl.userCanEdit">
-                                    Multiple values (click ✎ to edit <strong>all</strong>)
+                                    {{specField.valueCount}} values (click ✎ to edit <strong>all</strong>)
                                 </span>
                                 <span ng-if="specField.hasMultipleValues && !ctrl.userCanEdit">
-                                    Multiple values
+                                    {{specField.valueCount}} values
                                 </span>
                                 <span ng-if="!specField.hasMultipleValues && specField.value">
-                                    {{specField.value}}
+                                    <a ng-if="specField.alias"
+                                       ui-sref="search.results({query: (specField.value | queryFilter:specField.alias), nonFree: ctrl.srefNonfree()})"
+                                       ng-click="ctrl.searchWithModifiers($event, specField.alias, specField.value)"
+                                       aria-label="Search images with {{specField.label}} '{{specField.value}}'">{{specField.value}}</a>
+                                    <span ng-if="!specField.alias">{{specField.value}}</span>
                                 </span>
                                 <span class="editable-empty" ng-if="!specField.hasMultipleValues && ! specField.value && ctrl.userCanEdit">
                                     Unknown (click ✎ to add)
                                 </span>
+                            </span>
+                            </span>
+
+                            <span ng-if="specField.allowEditOptions">
+                            <button data-cy="it-edit-{{specField.name}}-button"
+                                    class="image-info__edit"
+                                    ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
+                                    ng-click="domainMetadataOptionsEditForm.$show()"
+                                    ng-hide="domainMetadataOptionsEditForm.$visible"
+                            >✎</button>
+                            <form editable-form name="domainMetadataOptionsEditForm">
+                                <span class="image-info__{{specField.name}}"
+                                      ng-class="{'image-info--multiple': specField.hasMultipleValues}"
+                                      ng-hide="domainMetadataOptionsEditForm.$visible">
+
+                                <span ng-if="specField.hasMultipleValues && ctrl.userCanEdit">
+                                    {{specField.valueCount}} values (click ✎ to edit <strong>all</strong>)
+                                </span>
+                                <span ng-if="specField.hasMultipleValues && !ctrl.userCanEdit">
+                                    {{specField.valueCount}} values
+                                </span>
+                                <span ng-if="!specField.hasMultipleValues && specField.value">
+                                    <a ng-if="specField.alias"
+                                       ui-sref="search.results({query: (specField.value | queryFilter:specField.alias), nonFree: ctrl.srefNonfree()})"
+                                       ng-click="ctrl.searchWithModifiers($event, specField.alias, specField.value)"
+                                       aria-label="Search images with {{specField.label}} '{{specField.value}}'">{{specField.value}}</a>
+                                    <span ng-if="!specField.alias">{{specField.value}}</span>
+                                </span>
+                                <span class="editable-empty" ng-if="!specField.hasMultipleValues && ! specField.value && ctrl.userCanEdit">
+                                    Unknown (click ✎ to add)
+                                </span>
+                                </span>
+
+                                <div class="metadata-line__info"
+                                     editable-text="specField.value"
+                                     ng-hide="domainMetadataOptionsEditForm.$visible"
+                                     onbeforesave="ctrl.updateDomainMetadataField(spec.name, specField.name, $data, specField.editOption)"
+                                     e:ng-class="{'image-info__editor--error': $error,
+                                  'image-info__editor--saving': domainMetadataOptionsEditForm.$waiting,
+                                  'text-input': true}">
+                                </div>
+
+                                <div ng-if="specField.hasMultipleValues && ctrl.userCanEdit && domainMetadataOptionsEditForm.$visible"
+                                     class="image-info__description--options">
+                                    <gr-radio-list gr-for="{{spec.name}}-{{specField.name}}"
+                                                   gr-options="ctrl.domainMetadataEditOptions"
+                                                   gr-selected-option="specField.editOption"></gr-radio-list>
+                                </div>
+
+                                <div ng-if="ctrl.userCanEdit && domainMetadataOptionsEditForm.$visible" class="editable-buttons">
+                                    <button class="button-cancel" type="button" ng-click="domainMetadataOptionsEditForm.$cancel()">
+                                        <gr-icon-label gr-icon="close">Cancel</gr-icon-label>
+                                    </button>
+
+                                    <button class="button-save" type="submit">
+                                        <gr-icon-label gr-icon="check">Save</gr-icon-label>
+                                    </button>
+                                </div>
+                            </form>
                             </span>
                         </span>
 
@@ -848,13 +912,17 @@
                                   e:form="domainMetadataEditForm">
 
                                 <span ng-if="specField.hasMultipleValues && ctrl.userCanEdit">
-                                    Multiple values (click ✎ to edit <strong>all</strong>)
+                                    {{specField.valueCount}} values (click ✎ to edit <strong>all</strong>)
                                 </span>
                                 <span ng-if="specField.hasMultipleValues && !ctrl.userCanEdit">
-                                    Multiple values
+                                    {{specField.valueCount}} values
                                 </span>
                                 <span ng-if="!specField.hasMultipleValues && specField.value">
-                                    {{specField.value | date:'d MMM yyyy, HH:mm'}}
+                                    <a ng-if="specField.alias"
+                                       ui-sref="search.results({query: (specField.value | queryFilter:specField.alias), nonFree: ctrl.srefNonfree()})"
+                                       ng-click="ctrl.searchWithModifiers($event, specField.alias, specField.value)"
+                                       aria-label="Search images with {{specField.label}} '{{specField.value}}'">{{specField.value | date:'d MMM yyyy, HH:mm'}}</a>
+                                    <span ng-if="!specField.alias">{{specField.value | date:'d MMM yyyy, HH:mm'}}</span>
                                 </span>
                                 <span class="editable-empty" ng-if="!specField.hasMultipleValues && ! specField.value && ctrl.userCanEdit">
                                     Unknown (click ✎ to add)
@@ -881,13 +949,17 @@
                                   e:form="domainMetadataEditForm">
 
                                 <span ng-if="specField.hasMultipleValues && ctrl.userCanEdit">
-                                    Multiple values (click ✎ to edit <strong>all</strong>)
+                                    {{specField.valueCount}} values (click ✎ to edit <strong>all</strong>)
                                 </span>
                                 <span ng-if="specField.hasMultipleValues && !ctrl.userCanEdit">
-                                    Multiple values
+                                    {{specField.valueCount}} values
                                 </span>
                                 <span ng-if="!specField.hasMultipleValues && specField.value">
-                                    {{specField.value}}
+                                    <a ng-if="specField.alias"
+                                       ui-sref="search.results({query: (specField.value | queryFilter:specField.alias), nonFree: ctrl.srefNonfree()})"
+                                       ng-click="ctrl.searchWithModifiers($event, specField.alias, specField.value)"
+                                       aria-label="Search images with {{specField.label}} '{{specField.value}}'">{{specField.value}}</a>
+                                    <span ng-if="!specField.alias">{{specField.value}}</span>
                                 </span>
                                 <span class="editable-empty" ng-if="!specField.hasMultipleValues && ! specField.value && ctrl.userCanEdit">
                                     Unknown (click ✎ to add)
@@ -914,13 +986,17 @@
                                   e:form="domainMetadataEditForm">
 
                                 <span ng-if="specField.hasMultipleValues && ctrl.userCanEdit">
-                                    Multiple values (click ✎ to edit <strong>all</strong>)
+                                    {{specField.valueCount}} values (click ✎ to edit <strong>all</strong>)
                                 </span>
                                 <span ng-if="specField.hasMultipleValues && !ctrl.userCanEdit">
-                                    Multiple values
+                                    {{specField.valueCount}} values
                                 </span>
                                 <span ng-if="!specField.hasMultipleValues && specField.value">
-                                    {{specField.value}}
+                                    <a ng-if="specField.alias"
+                                       ui-sref="search.results({query: (specField.value | queryFilter:specField.alias), nonFree: ctrl.srefNonfree()})"
+                                       ng-click="ctrl.searchWithModifiers($event, specField.alias, specField.value)"
+                                       aria-label="Search images with {{specField.label}} '{{specField.value}}'">{{specField.value}}</a>
+                                    <span ng-if="!specField.alias">{{specField.value}}</span>
                                 </span>
                                 <span class="editable-empty" ng-if="!specField.hasMultipleValues && ! specField.value && ctrl.userCanEdit">
                                     Unknown (click ✎ to add)
@@ -946,13 +1022,17 @@
                                   e:form="domainMetadataEditForm">
 
                                 <span ng-if="specField.hasMultipleValues && ctrl.userCanEdit">
-                                    Multiple values (click ✎ to edit <strong>all</strong>)
+                                    {{specField.valueCount}} values (click ✎ to edit <strong>all</strong>)
                                 </span>
                                 <span ng-if="specField.hasMultipleValues && !ctrl.userCanEdit">
-                                    Multiple values
+                                    {{specField.valueCount}} values
                                 </span>
                                 <span ng-if="!specField.hasMultipleValues && specField.value">
-                                    {{specField.value}}
+                                    <a ng-if="specField.alias"
+                                       ui-sref="search.results({query: (specField.value | queryFilter:specField.alias), nonFree: ctrl.srefNonfree()})"
+                                       ng-click="ctrl.searchWithModifiers($event, specField.alias, specField.value)"
+                                       aria-label="Search images with {{specField.label}} '{{specField.value}}'">{{specField.value}}</a>
+                                    <span ng-if="!specField.alias">{{specField.value}}</span>
                                 </span>
                                 <span class="editable-empty" ng-if="!specField.hasMultipleValues && ! specField.value && ctrl.userCanEdit">
                                     Unknown (click ✎ to add)

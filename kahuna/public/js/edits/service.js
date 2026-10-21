@@ -6,6 +6,7 @@ import {mediaApi} from '../services/api/media-api';
 import { overwrite, prepend, append } from '../util/constants/editOptions';
 import { trackAll } from '../util/batch-tracking';
 import { getMetadataDiff } from './metadataDiff';
+import { getNewDomainMetadataFieldValue, readDomainMetadataFieldValue } from './domainMetadata';
 
 export var service = angular.module('kahuna.edits.service', [
     editsApi.name,
@@ -319,9 +320,11 @@ service.factory('editsService',
           .then(() => image.get());
     }
 
-    function batchUpdateDomainMetadataField(images, domainMetadataName, field, value) {
+    function batchUpdateDomainMetadataField(images, domainMetadataName, field, value, editOption = overwrite.key) {
         return trackAll($q, $rootScope, `${domainMetadataName}.${field}`, images, (image) => {
-            return updateDomainMetadataField(image, domainMetadataName, field, value, true).then(
+            const currentValue = readDomainMetadataFieldValue(image, domainMetadataName, field);
+            const newFieldValue = getNewDomainMetadataFieldValue(currentValue, value, editOption);
+            return updateDomainMetadataField(image, domainMetadataName, field, newFieldValue, true).then(
                 updated => updated || image // updateDomainMetadataField returns false if no change
             );
         }, 'images-updated');

@@ -9,6 +9,11 @@ import '../../edits/service';
 import '../gr-description-warning/gr-description-warning';
 import '../../util/storage';
 import { editOptions, overwrite } from '../../util/constants/editOptions';
+import {
+  findDomainMetadataFieldAlias,
+  getDistinctDomainMetadataValues,
+  supportsEditOptions
+} from '../../edits/domainMetadata';
 import '../../services/image-accessor';
 import '../../services/image-list';
 import '../../services/label';
@@ -202,6 +207,8 @@ module.controller('grImageMetadataCtrl', [
 
       ctrl.descriptionOptions = editOptions;
 
+      ctrl.domainMetadataEditOptions = editOptions;
+
       ctrl.updateDescriptionField = function () {
         ctrl.updateMetadataField('description', ctrl.metadata.description);
       };
@@ -240,9 +247,15 @@ module.controller('grImageMetadataCtrl', [
         );
       };
 
-      ctrl.updateDomainMetadataField = function (name, field, value) {
+      ctrl.updateDomainMetadataField = function (name, field, value, editOption) {
         const imageArray = Array.from(ctrl.selectedImages);
-        return editsService.batchUpdateDomainMetadataField(imageArray, name, field, value)
+        return editsService.batchUpdateDomainMetadataField(
+          imageArray,
+          name,
+          field,
+          value,
+          editOption || overwrite.key
+        )
           .then((updatedImages) => {
             if (updatedImages && updatedImages.length > 0) {
               $rootScope.$emit(
@@ -378,21 +391,7 @@ module.controller('grImageMetadataCtrl', [
       const generateStoreName = (key) => `${key}MetadataSection`;
 
       function domainMetadataFieldValues(images, field, spec) {
-        return images
-          .map(image => {
-            const imageDomainMetadata = (image.data.metadata && image.data.metadata.domainMetadata) || {};
-            const imageDomainMetadataModel = imageDomainMetadata[spec.name];
-            const value = imageDomainMetadataModel ? imageDomainMetadataModel[field.name] : undefined;
-            // normalise 'no value' so that an image without a value is comparable
-            // against the values held by the other selected images
-            return (value === null || value === '') ? undefined : value;
-          })
-          .reduce((distinctValues, value) => {
-            if (!distinctValues.some(distinctValue => angular.equals(distinctValue, value))) {
-              distinctValues.push(value);
-            }
-            return distinctValues;
-          }, []);
+        return getDistinctDomainMetadataValues(images, spec.name, field.name);
       }
 
       function setDomainMetadataFieldValueOrDefault(images, field, spec) {
@@ -415,7 +414,13 @@ module.controller('grImageMetadataCtrl', [
         return {
           ...field,
           value: fieldValue,
-          hasMultipleValues
+          hasMultipleValues,
+          // the number of distinct states held across the selection; an image holding
+          // no value contributes one such state (see getDistinctDomainMetadataValues)
+          valueCount: distinctValues.length,
+          alias: findDomainMetadataFieldAlias(ctrl.fieldAliases, spec.name, field.name),
+          allowEditOptions: supportsEditOptions(field),
+          editOption: overwrite.key
         };
       }
 

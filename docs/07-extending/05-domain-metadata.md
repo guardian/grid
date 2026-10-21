@@ -20,6 +20,20 @@ Domain metadata fields behave like the standard metadata fields (title, descript
 selected: a field shows its shared value when all selected images agree, or `Multiple values` when they differ, and
 saving an edit applies the new value to every selected image (one metadata edit request per image).
 
+Where a field alias is configured against a field's elasticsearch path (`metadata.domainMetadata.<specification>.<field>`),
+the field's value is rendered as a link that runs the equivalent chip search using the alias.
+
+**Choosing an alias name.** The alias is what users type in the search box, so it must not collide with the query
+syntax. An alias will be silently ignored (or resolve to the wrong field) if it:
+
+  * matches a built-in field name — e.g. `archived` resolves to the core boolean `userMetadata.archived`, not your field; or
+  * begins with a search keyword from `AllowedFieldName` in `QuerySyntax.scala` (`in`, `title`, `source`, `by`, `credit`,
+    `label`, `person`, `subject`, `supplier`, ...) — e.g. `inArchive` is shadowed by `in`, and `titleCase` by `title`.
+
+Prefixing the alias with the specification name (e.g. `programmeTitle`, `programmeArchive`) reliably avoids both.
+
+String fields can opt in to the `Overwrite` / `Add before` / `Add after` edit options via `allowEditOptions` (see below).
+
 For example, the configuration below specifies two specifications `specificationa` and `specificationb`, each with their respective fields.
 
 ```hocon
@@ -52,6 +66,13 @@ domainMetadata.specifications = [
         #  - datetime - Represents date and time values and renders a date and time input field
         #  - select - Represents text based values from controlled vocabularies and renders options as a drop-down list / select field.
         type = "string"
+
+        # Optional boolean, only honoured for 'string' fields, defaulting to false.
+        # When true, editing the field across a selection whose images hold differing values offers the
+        # same 'Overwrite' / 'Add before' / 'Add after' choices as the core metadata fields (e.g. description).
+        # 'Add before' and 'Add after' combine the entered text with each image's existing value; images with
+        # no existing value simply receive the entered text.
+        # allowEditOptions = true
 
         # List of options rendered in the drop-down list / select field.
         # Mandatory for 'select' type.
