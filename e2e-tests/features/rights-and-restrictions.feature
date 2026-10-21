@@ -184,6 +184,46 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 21-32
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.js lines 196, 287
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.html lines 210-215
+@todo
+  Scenario Outline: Editing a rights category shows its configured properties
+    Given I am signed in with edit metadata permission
+    And I have opened the rights editor
+    When I select the "<category>" usage rights category
+    Then the rights editor shows the "<property>" property as <required>
+
+    Examples:
+      | category                    | property      | required |
+      | Agency - subscription       | Supplier      | required |
+      | Agency - subscription       | Collection    | optional |
+      | PR & Third Party            | Source        | required |
+      | PR & Third Party            | Restrictions  | required |
+      | Photographer - staff        | Publication   | required |
+      | Photographer - staff        | Photographer  | required |
+      | Photographer - contract     | Publication   | required |
+      | Photographer - contract     | Photographer  | required |
+      | Photographer - commissioned | Publication   | optional |
+      | Photographer - commissioned | Photographer  | required |
+      | Illustrator - contract      | Publication   | required |
+      | Illustrator - contract      | Illustrator   | required |
+      | Illustrator - commissioned  | Publication   | optional |
+      | Illustrator - commissioned  | Illustrator   | required |
+      | Illustrator - staff          | Illustrator   | required |
+  # Evidence: metadata-editor/app/model/UsageRightsProperty.scala
+  # Evidence: e2e-tests/setup/config.ts (usageRights.applicable)
+@todo
+  Scenario Outline: Editing a rights category without properties shows no category fields
+    Given I am signed in with edit metadata permission
+    And I have opened the rights editor
+    When I select the "<category>" usage rights category
+    Then the rights editor shows no category properties
+
+    Examples:
+      | category      |
+      | Unknown Rights |
+      | Pay to use     |
+      | Bylines        |
+  # Evidence: metadata-editor/app/model/UsageRightsProperty.scala
+  # Evidence: e2e-tests/setup/config.ts (usageRights.applicable)
 
   # ---------------------------------------------------------------------------
   # Metadata templates driving the rights editor
