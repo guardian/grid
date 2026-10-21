@@ -190,25 +190,30 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
     And I have opened the rights editor
     When I select the "<category>" usage rights category
     Then the rights editor shows the "<property>" property as <required>
+    And the rights editor shows the "Restricted" checkbox <restricted>
 
+    # A category whose default cost is conditional requires restrictions, so the
+    # "Restricted" checkbox is ticked automatically and cannot be unticked.
     Examples:
-      | category                    | property      | required |
-      | Agency - subscription       | Supplier      | required |
-      | Agency - subscription       | Collection    | optional |
-      | PR & Third Party            | Source        | required |
-      | PR & Third Party            | Restrictions  | required |
-      | Photographer - staff        | Publication   | required |
-      | Photographer - staff        | Photographer  | required |
-      | Photographer - contract     | Publication   | required |
-      | Photographer - contract     | Photographer  | required |
-      | Photographer - commissioned | Publication   | optional |
-      | Photographer - commissioned | Photographer  | required |
-      | Illustrator - contract      | Publication   | required |
-      | Illustrator - contract      | Illustrator   | required |
-      | Illustrator - commissioned  | Publication   | optional |
-      | Illustrator - commissioned  | Illustrator   | required |
-      | Illustrator - staff          | Illustrator   | required |
-  # Evidence: metadata-editor/app/model/UsageRightsProperty.scala
+      | category                    | property      | required | restricted        |
+      | Agency - subscription       | Supplier      | required | unticked          |
+      | Agency - subscription       | Collection    | optional | unticked          |
+      | PR & Third Party            | Source        | required | ticked and locked |
+      | Photographer - staff        | Publication   | required | unticked          |
+      | Photographer - staff        | Photographer  | required | unticked          |
+      | Photographer - contract     | Publication   | required | unticked          |
+      | Photographer - contract     | Photographer  | required | unticked          |
+      | Photographer - commissioned | Publication   | optional | unticked          |
+      | Photographer - commissioned | Photographer  | required | unticked          |
+      | Illustrator - contract      | Publication   | required | unticked          |
+      | Illustrator - contract      | Illustrator   | required | unticked          |
+      | Illustrator - commissioned  | Publication   | optional | unticked          |
+      | Illustrator - commissioned  | Illustrator   | required | unticked          |
+      | Illustrator - staff         | Illustrator   | required | unticked          |
+  # Evidence: metadata-editor/app/model/UsageRightsProperty.scala lines 74-77 (restrictions required when defaultCost is Conditional)
+  # Evidence: common-lib/src/main/scala/com/gu/mediaservice/model/UsageRights.scala (defaultCost per category)
+  # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.html lines 73-84
+  # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.js lines 109-137
   # Evidence: e2e-tests/setup/config.ts (usageRights.applicable)
 @todo
   Scenario Outline: Editing a rights category without properties shows no category fields
