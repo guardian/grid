@@ -20,7 +20,7 @@ import com.gu.mediaservice.{GridClient, JsonDiff}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib._
 import lib.elasticsearch._
-import lib.querysyntax.Condition
+import lib.querysyntax.{Condition, Parser}
 import models.UsagesInContent
 import org.apache.http.entity.ContentType
 import org.apache.pekko.stream.scaladsl.{FileIO, StreamConverters}
@@ -44,6 +44,14 @@ object MediaApi {
   def shouldSkipUsageRecording(uri: String, user: String): Boolean =
     // We don't want to record usages for InDesign downloads for now
     uri.contains("download") && user == InDesignIdentity
+
+  def deletedImageUploaderScope(
+    conditions: List[Condition],
+    hasGlobalDeletePermission: Boolean,
+    identity: String
+  ): Option[String] =
+    if (!hasGlobalDeletePermission && Parser.explicitlyIncludesDeleted(conditions)) Some(identity)
+    else None
 }
 
 class MediaApi(
@@ -659,7 +667,13 @@ class MediaApi(
 
     val _searchParams = SearchParams(request)
     val hasDeletePermission = authorisation.isUploaderOrHasPermission(request.user, "", DeleteImagePermission)
-    val canViewDeletedImages = _searchParams.query.contains("is:deleted") && !hasDeletePermission
+    val searchParams = MediaApi.deletedImageUploaderScope(
+      _searchParams.structuredQuery,
+      hasDeletePermission,
+      Authentication.getIdentity(request.user)
+    ).fold(_searchParams) { uploader =>
+      _searchParams.copy(uploadedBy = Some(uploader))
+    }
 
     sealed trait AiSearchMode
     case object TextSearch extends AiSearchMode
@@ -832,18 +846,13 @@ class MediaApi(
       }
     }
 
-    if (_searchParams.useAISearch.contains(true) && config.aiSearchEnabled) {
+    if (searchParams.useAISearch.contains(true) && config.aiSearchEnabled) {
       // Short-circuit polling requests (length=0) to avoid unnecessary Bedrock/KNN calls.
       // Everything else is handled by performAiSearchAndRespond, which falls back to
       // filter-pool counts when there's no query to rank by.
-      if (_searchParams.length == 0) emptyAiSearchResponse
-      else performAiSearchAndRespond(_searchParams)
+      if (searchParams.length == 0) emptyAiSearchResponse
+      else performAiSearchAndRespond(searchParams)
     } else {
-      val searchParams = if (canViewDeletedImages) {
-        _searchParams.copy(uploadedBy = Some(Authentication.getIdentity(request.user)))
-      } else {
-        _searchParams
-      }
       SearchParams.validate(searchParams).fold(
         // TODO: respondErrorCollection?
         errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,

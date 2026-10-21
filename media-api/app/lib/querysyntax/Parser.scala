@@ -10,14 +10,17 @@ object Parser {
   private val replacedUsage = Nested(SingleField("usages"), SingleField("usages.status"), Phrase("replaced"))
 
   def run(input: String): List[Condition] = {
-    val mentionsReplaced = parse(input).exists {
+    val parsedInput = parse(input)
+    val mentionsReplaced = parsedInput.exists {
       case `replacedUsage` | NegationNested(`replacedUsage`) => true
       case _ => false
     }
+    val mentionsDeleted = hasExplicitDeletedCondition(parsedInput)
 
     val defaultsToAdd = thingsToHideByDefault.filterNot {
+      case "is:deleted" => mentionsDeleted
       case "usages@status:replaced" => mentionsReplaced
-      case condition => input.contains(condition)
+      case _ => false
     }
     val inputWithDefaults = defaultsToAdd.foldLeft(input) { (query, condition) =>
       query.concat(s" -$condition").trim
@@ -29,6 +32,22 @@ object Parser {
 
   def parse(input: String): List[Condition] =
     new QuerySyntax(input.trim).Query.run().map(_.toList) getOrElse List()
+
+  def explicitlyIncludesDeleted(conditions: List[Condition]): Boolean =
+    conditions.exists {
+      case Match(IsField, IsValue(value)) => isDeletedValue(value)
+      case _ => false
+    }
+
+  private def hasExplicitDeletedCondition(conditions: List[Condition]): Boolean =
+    conditions.exists {
+      case Match(IsField, IsValue(value)) => isDeletedValue(value)
+      case Negation(Match(IsField, IsValue(value))) => isDeletedValue(value)
+      case _ => false
+    }
+
+  private def isDeletedValue(value: String): Boolean =
+    value.equalsIgnoreCase("deleted")
 
   // Post-hoc normalisation that are harder to do via the PEG grammar
   def normalise(conditions: List[Condition]): List[Condition] = conditions match {

@@ -59,9 +59,21 @@ class ParserTest extends AnyFunSpec with Matchers with BeforeAndAfter with Image
     }
 
     it("preserves explicit deleted inclusion and exclusion") {
-      Seq("is:deleted", "-is:deleted").foreach { queryText =>
+      Seq("is:deleted", "-is:deleted", "is:\"deleted\"", "-is:\"deleted\"").foreach { queryText =>
         Parser.run(queryText) shouldBe Parser.parse(queryText) ++ List(standardNegations(1))
       }
+    }
+
+    it("retains deleted suppression when is:deleted appears only as literal text") {
+      Seq("cats \"is:deleted\"", "description:\"is:deleted\"").foreach { queryText =>
+        Parser.run(queryText) shouldBe Parser.parse(queryText) ++ standardNegations
+      }
+    }
+
+    it("detects only a positive deleted filter for uploader scoping") {
+      Parser.explicitlyIncludesDeleted(Parser.run("is:deleted")) shouldBe true
+      Parser.explicitlyIncludesDeleted(Parser.run("-is:deleted")) shouldBe false
+      Parser.explicitlyIncludesDeleted(Parser.run("cats \"is:deleted\"")) shouldBe false
     }
 
     it("preserves the empty-condition fallback for an unparseable query") {
