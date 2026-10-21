@@ -1,4 +1,4 @@
 java corretto-11.0.24.8.1
 nodejs 22.23.2
-github:guardian/devenv 20260721-123412
+github:guardian/devenv 20260930-111347
 sbt 1
