@@ -5,7 +5,6 @@ import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.searches.queries._
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{MatchPhraseQuery, MatchQuery, MultiMatchQuery, MultiMatchQueryBuilderType}
-import com.gu.mediaservice.lib.config.GridConfigResources
 import lib.querysyntax.{Match, Negation, Parser, Phrase, SingleField, Words}
 import com.sksamuel.elastic4s.handlers.searches.queries.QueryBuilderFn
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
@@ -259,18 +258,11 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
     }
 
     Seq("usages.printUsageMetadata.orderedBy", "usages.digitalUsageMetadata.sectionId").foreach { path =>
-      val aliasConfig = new MediaApiConfig(GridConfigResources(
-        Configuration.from(commonConfigurations ++ Map("field.aliases" -> Seq(Map(
+      val aliasConfig = buildMediaApiConfig(Map("field.aliases" -> Seq(Map(
           "alias" -> "orderedBy",
           "elasticsearchPath" -> path,
           "label" -> "Ordered by"
-        )))),
-        null,
-        new ApplicationLifecycle {
-          override def addStopHook(hook: () => Future[_]): Unit = {}
-          override def stop(): Future[_] = Future.successful(())
-        }
-      ))
+        ))))
       val aliasedBuilder = new QueryBuilder(matchFields, () => Nil, aliasConfig)
 
       Seq("", "-").foreach { prefix =>
