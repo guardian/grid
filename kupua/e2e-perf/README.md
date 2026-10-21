@@ -328,6 +328,17 @@ actual app with in-memory data in indexed/seek modes. The app-backed check requi
 free**, starts its own isolated frontend and blocks external/service HTTP. It uses no live API
 or ES and writes no benchmark history. Synthetic observer tests alone do not prove app setup.
 
+Fixed-grid probes account for KUP-042's partial first rows: a seek window's row origin
+is `floor(bufferOffset / columns)`, not `bufferOffset / columns`. P17 derives columns
+from container width (a rendered row may be partial), positions setup outside the
+backward threshold using the buffer phase, and excludes origin compensation from
+logical direction. Focus-position diagnostics use the same global-row convention.
+Offline serialized-callback regressions cover the captured 200-image prepend, every
+row phase across narrow/wide grids, historical aligned prepends and genuine forward
+movement. Local density fixtures require complete pages and exact buffer capacity;
+maintenance positioning uses the published layout geometry. These repairs do not
+relax direction assertions, change product behavior or rewrite benchmark history.
+
 ### Buffer Bounds and Final-Viewport Controls
 
 `scrollAtSpeed(page, density, speed, duration, { measureBounds: true })` optionally returns

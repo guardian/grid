@@ -1,10 +1,55 @@
 import { describe, it, expect } from "vitest";
+import { getFixedRowCount, getItemColumn, getItemLayoutRow, getLayoutRow } from "./scroll-geometry-ref";
 import {
   resolveAnchorVirtIndex,
   captureAnchorAtIndex,
   computeFallbackAnchor,
   restoreAnchorScrollTop,
 } from "./grid-scroll-anchor";
+
+describe("fixed-row window coordinates", () => {
+  it.each([1, 3, 4, 5, 6, 7])("preserves every surviving row through arbitrary prepends and evictions with %i columns", columns => {
+    for (const offset of [1, 2, 201, 533568]) {
+      const geometry = { columns, rowHeight: 303, itemOffset: offset, itemCount: 300 };
+      const prepend = Math.min(offset, 199);
+      const nextOffset = offset - prepend;
+      const prepended = { ...geometry, itemOffset: nextOffset, itemCount: 300 + prepend };
+      const prependDelta = (Math.floor(offset / columns) - Math.floor(nextOffset / columns)) * 303;
+      for (let index = 0; index < 24; index++) {
+        const expectedTop = (Math.floor((offset + index) / columns) - Math.floor(offset / columns)) * 303;
+        expect(getItemLayoutRow(geometry, index).top).toBe(expectedTop);
+        expect(getItemLayoutRow(prepended, index + prepend).top - prependDelta).toBe(expectedTop);
+      }
+      const evicted = { ...geometry, itemOffset: offset + 137, itemCount: 163 };
+      const evictionDelta = (Math.floor(offset / columns) - Math.floor((offset + 137) / columns)) * 303;
+      for (let index = 137; index < 161; index++) {
+        expect(getItemLayoutRow(evicted, index - 137).top - evictionDelta)
+          .toBe(getItemLayoutRow(geometry, index).top);
+      }
+    }
+  });
+
+  it("reports only real items in partial first and last rows", () => {
+    const geometry = { columns: 5, rowHeight: 303, itemOffset: 103, itemCount: 8 };
+    expect(getLayoutRow(geometry, 0)).toEqual({ index: 0, top: 0, height: 303, firstItemIndex: 0, lastItemIndex: 1 });
+    expect(getLayoutRow(geometry, 1)).toEqual({ index: 1, top: 303, height: 303, firstItemIndex: 2, lastItemIndex: 6 });
+    expect(getLayoutRow(geometry, 2)).toEqual({ index: 2, top: 606, height: 303, firstItemIndex: 7, lastItemIndex: 7 });
+    expect(getFixedRowCount(geometry, 8)).toBe(3);
+    expect(getFixedRowCount(geometry, 0)).toBe(0);
+    expect(Array.from({ length: 8 }, (_, index) => getItemColumn(geometry, index))).toEqual([3, 4, 0, 1, 2, 3, 4, 0]);
+  });
+
+  it.each([3, 4, 6])("restores the same image after resize and a changed window origin from %i columns", columns => {
+    const globalIndex = 517;
+    const offset = 501;
+    const rowTop = (Math.floor(globalIndex / columns) - Math.floor(offset / columns)) * 303;
+    const anchor = captureAnchorAtIndex(globalIndex - offset, columns, 303, rowTop - 123, 900, offset);
+    expect(anchor.imageIndex).toBe(globalIndex);
+    const nextOffset = 302;
+    const expectedTop = (Math.floor(globalIndex / 5) - Math.floor(nextOffset / 5)) * 303;
+    expect(restoreAnchorScrollTop(anchor, 5, 303, 900, 20000, nextOffset)).toBe(expectedTop - 123);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // resolveAnchorVirtIndex

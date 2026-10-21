@@ -175,7 +175,7 @@ describe("authoritative alias cursors", () => {
 });
 
 describe("committed cursor publication", () => {
-  it("preserves the authoritative boundary through nonzero focus trim", async () => {
+  it("preserves the authoritative boundary of an unaligned complete focus window", async () => {
     mock = new MockDataSource(70_000);
     useSearchStore.setState({ dataSource: mock });
     registerScrollGeometry({ rowHeight: 303, columns: 3 });
@@ -188,11 +188,11 @@ describe("committed cursor publication", () => {
       expect(state().sortAroundFocusStatus).toBeNull();
     });
 
-    expect(state().bufferOffset).toBe(4902);
+    expect(state().bufferOffset).toBe(4900);
     expect(state().imagePositions.get("img-5000")).toBe(5000);
-    expect(state().results[0]?.id).toBe("img-4902");
-    expect(state().startCursor).toEqual(responseCursors.get("img-4902"));
-    expect(getRetainedSortValues("img-4902", buildSearchKey(state().params)))
+    expect(state().results[0]?.id).toBe("img-4900");
+    expect(state().startCursor).toEqual(responseCursors.get("img-4900"));
+    expect(getRetainedSortValues("img-4900", buildSearchKey(state().params)))
       .toEqual(state().startCursor);
   });
 

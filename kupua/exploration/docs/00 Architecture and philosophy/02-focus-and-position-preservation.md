@@ -89,7 +89,7 @@ and one layout effect in `useScrollEffects.ts` places the viewport before paint.
 
 | Signal | Published by | Placement |
 |---|---|---|
-| `_prependGeneration`, `_forwardEvictGeneration` | `extendBackward`, `extendForward` | Effects 4/5: shift `scrollTop` by the exact row shift of the top visible item (not in two-tier) |
+| `_prependGeneration`, `_forwardEvictGeneration` | `extendBackward`, `extendForward` | Fixed rows: one guarded layout effect applies the net window-row-origin delta to the pre-publication scroll position; indexed rows need no compensation |
 | `_seekGeneration` with target index and sub-row offset | `seek`, `restoreAroundCursor` | Effect 6: ready zero-destination browsing lands exactly at top; other seeks move only if off by more than a row, then apply Home/End intent |
 | `_scrollReset` | `search` without a surviving anchor, find-focus fallbacks, AI re-sort | Effect 7b: top (table keeps horizontal scroll on sort) |
 | `sortAroundFocusGeneration` with resolved continuity or legacy positioning id | `search`, `_findAndFocusImage`, `resortAiBuffer` | Effect 9: owned ordinary/AI/history placement once; limited cursor/arrow consumers remain |
@@ -98,6 +98,14 @@ Offset zero is coordinate state, not reset authority. Ordinary backward prepend,
 including its final page to zero, retains local compensation; indexed publication
 keeps global coordinates. Small-set top-up remains maintenance. Only explicit
 publication or current navigation authorizes a top reset.
+
+For fixed Grid at unchanged query/order and width, this maintains every surviving
+visible box, not only the anchor. Row membership stays global even when the buffer
+starts partway across a row; empty leading positions are intentional. Resize and
+density changes retain their separate anchor policies, and Justified repacking is
+not covered by this fixed-row guarantee. See the
+[fixed-row window policy](03-scroll-architecture.md#fixed-row-window-policy) for
+coordinates, physical-boundary limits and the accepted UX trade-off.
 
 Placement completion records a scroll write, not ongoing geometry stabilization.
 Density has one capture slot, geometry calculation and two-frame readiness lifecycle.
@@ -124,21 +132,24 @@ A placement is an anchor plus a viewport ratio. Four captures exist:
 - **Density** ratio including header offset and a logical source edge; saved on
   ready view unmount. An unsaved anchor-bearing Home mount supplies centre placement
   through the same chooser and readiness lifecycle, without edge snapping.
-- **Grid column change**: `captureAnchorAtIndex` / `restoreAnchorScrollTop`.
+- **Grid column change**: `captureAnchorAtIndex` / `restoreAnchorScrollTop` use
+  the committed source geometry and resolve the captured identity in the current
+  destination window. Combined resize/publication uses one resize placement rather
+  than also applying fixed-row maintenance compensation.
 - **History snapshot** `viewportRatio`, same logical formula as the search ratio,
   plus `viewportHeaderRatio` from the measured header divided by source client height.
   History adds these fractions and restores with current header flow; legacy snapshots
   without the header fraction retain their logical-only interpretation.
 
-Search coordinates exclude header/padding flow; new history and density placement
+Search coordinates exclude header/padding flow; history and density placement
 include header flow but exclude container padding. This keeps an unclamped interior
 anchor at its original position after cross-density history and a return to its layout.
 Neither can be replaced wholesale with raw DOM coordinates; Table detail centring retains
 its usable-height adjustment. The table's physical spacer includes the measured header
 height so its scroll extent is complete before the last virtual rows mount. This does
 not add header flow to logical row coordinates or snapshot ratios. Density retains the intended
-identity, ratio and source-edge intent separately from the applied scroll outcome. This replaces
-the former subpixel-only carry: repacking does not re-elect a different centre image, and a
+identity, ratio and source-edge intent separately from the applied scroll outcome.
+Repacking does not re-elect a different centre image, and a
 temporary destination clamp does not overwrite the intended ratio for a later return.
 Reuse requires unchanged focus intent/value, search/publication ownership, applied scroll and
 viewport/header geometry. Wheel, touch, list keys and scrubber input retire it; control activation
@@ -157,7 +168,7 @@ the actual start/end: indexed geometry spans the result set; local geometry reac
 start only at offset zero and end only when the buffer covers the total. Temporary
 buffer limits cannot elect an unrelated tail. Target choices and row-top placement
 remain provisional; density retains the browsed neighbourhood and offscreen bookmark
-for later arrow snap-back. Horizontal behaviour is unchanged.
+for later arrow snap-back. These placement rules govern vertical position.
 
 ### 3.4 Ownership and Cancellation
 

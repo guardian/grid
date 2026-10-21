@@ -700,28 +700,64 @@ test("maintenance tail enters the base admission band without velocity lookahead
   await page.route("**/*", route => route.abort());
   await page.route("https://fixture.invalid/src/constants/tuning.ts", route => route.fulfill({ contentType: "text/javascript", body: "export const EXTEND_THRESHOLD = 50;" }));
   await page.route("https://fixture.invalid/src/lib/scroll-geometry-ref.ts", route => route.fulfill({ contentType: "text/javascript",
-    body: "export function getLayoutGeometry(){return window.fixtureDensity === 'justified' ? {layout:{getItemRow:index=>({top:index*100})}} : {rowHeight:100,columns:1};}" }));
+    body: `export function getLayoutGeometry(){return window.fixtureDensity === 'justified'
+      ? {layout:{getItemRow:index=>({top:index*100})}}
+      : {rowHeight:100,columns:4,itemOffset:window.fixtureRegime === 'indexed' ? 0 : window.fixtureOffset};}
+      export function getItemLayoutRow(geometry,index){return 'layout' in geometry ? geometry.layout.getItemRow(index)
+        : {top:Math.floor((index + geometry.itemOffset % geometry.columns) / geometry.columns) * geometry.rowHeight};}` }));
   await page.route("https://fixture.invalid/admission", route => route.fulfill({ contentType: "text/html",
     body: '<div data-scrubber-mode="seek"></div><div role="region" aria-label="Image results grid" style="height:300px;overflow:auto"><div style="height:500000px"></div></div>' }));
-  for (const regime of ["indexed", "seek"]) for (const density of ["grid", "justified"] as const) {
+  for (const regime of ["indexed", "seek"]) for (const density of ["grid", "justified"] as const) for (const phase of [0, 1, 2, 3]) {
+    const offset = 2000 + phase;
     await page.goto("https://fixture.invalid/admission");
-    await page.evaluate(({ regime, density }) => {
+    await page.evaluate(({ regime, density, offset }) => {
       (window as any).fixtureDensity = density;
+      (window as any).fixtureRegime = regime;
+      (window as any).fixtureOffset = offset;
       document.querySelector("[data-scrubber-mode]")!.setAttribute("data-scrubber-mode", regime);
       const el = document.querySelector('[role="region"]')!;
       el.setAttribute("aria-label", `Image results ${density}`);
-      const state = { results: Array(1000), bufferOffset: 2000, _forwardEvictGeneration: 0 };
+      const state = { results: Array(1000), bufferOffset: offset, _forwardEvictGeneration: 0 };
       (window as any).__kupua_store__ = { getState: () => state };
       el.addEventListener("scroll", () => {
-        const lastVisible = Math.ceil((el.scrollTop + el.clientHeight) / 100) - 1;
-        const end = (regime === "indexed" ? 2000 : 0) + 1000;
-        if (lastVisible >= end - 50) state._forwardEvictGeneration++;
+        const columns = density === "grid" ? 4 : 1;
+        const origin = regime === "indexed" ? 0 : Math.floor(offset / columns) * columns;
+        const lastVisible = Math.ceil((el.scrollTop + el.clientHeight) / 100) * columns - 1 + origin;
+        if (lastVisible >= offset + 1000 - 50) state._forwardEvictGeneration++;
       });
-    }, { regime, density });
+    }, { regime, density, offset });
     await scrollToDensityTail(page, density);
+    const columns = density === "grid" ? 4 : 1;
+    const expectedRow = Math.floor((offset + 975) / columns) - (regime === "indexed" ? 0 : Math.floor(offset / columns));
+    expect(await page.locator('[role="region"]').evaluate(el => el.scrollTop), `${regime}/${density}/phase ${phase}`).toBe(expectedRow * 100);
     await expect.poll(() => page.evaluate(() => (window as any).__kupua_store__.getState()._forwardEvictGeneration),
-      { timeout: 1000, message: `${regime}/${density}: tail must enter minimum admission band` }).toBeGreaterThan(0);
+      { timeout: 1000, message: `${regime}/${density}/phase ${phase}: tail must enter minimum admission band` }).toBeGreaterThan(0);
   }
+});
+
+test("maintenance setup fills the exact capacity instead of accepting a column-short window", async ({ page }) => {
+  const { prepareDensityMaintenance } = await import("./density-browser");
+  await page.route("**/*", route => route.abort());
+  await page.route("https://fixture.invalid/src/constants/tuning.ts", route => route.fulfill({ contentType: "text/javascript",
+    body: "export const BUFFER_CAPACITY = 1000, PAGE_SIZE = 200, SEARCH_FETCH_COOLDOWN_MS = 0;" }));
+  await page.route("https://fixture.invalid/src/lib/scroll-geometry-ref.ts", route => route.fulfill({ contentType: "text/javascript",
+    body: "export function getLayoutGeometry(){return {rowHeight:100,columns:4,itemOffset:2001};}" }));
+  await page.route("https://fixture.invalid/capacity", route => route.fulfill({ contentType: "text/html",
+    body: '<div role="region" aria-label="Image results grid" style="height:300px"><div data-image-id="fixture" style="height:100px;width:100px"></div></div>' }));
+  await page.goto("https://fixture.invalid/capacity");
+  await page.evaluate(() => {
+    const state = { results: Array(998), bufferOffset: 2001, reads: 0, extendForward: async () => {
+      state.reads++;
+      state.results = Array(1000);
+      state.bufferOffset += 198;
+    } };
+    (window as any).__kupua_store__ = { getState: () => state };
+  });
+  await prepareDensityMaintenance(page, "grid");
+  expect(await page.evaluate(() => {
+    const state = (window as any).__kupua_store__.getState();
+    return { count: state.results.length, reads: state.reads };
+  })).toEqual({ count: 1000, reads: 1 });
 });
 
 test("dashboard handles empty history and exposes curated keyboard navigation with units", async ({ page }) => {

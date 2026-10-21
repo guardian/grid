@@ -31,7 +31,7 @@ import { useReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { useScrollEffects, type ScrollGeometry } from "@/hooks/useScrollEffects";
 import type { ImageLayout } from "@/lib/justified-layout";
 import type { LayoutWindow } from "@/lib/windowed-justified-layout";
-import type { WindowGeometry } from "@/lib/scroll-geometry-ref";
+import { getFixedRowCount, getItemColumn, getItemLayoutRow, getLayoutRow, type WindowGeometry } from "@/lib/scroll-geometry-ref";
 import { RESIDENT_PREVIEW_ENABLED } from "@/lib/resident-preview";
 import { useSearchStore } from "@/stores/search-store";
 import { useSelectionStore } from "@/stores/selection-store";
@@ -564,38 +564,47 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
    * `wandering-findings/W-2026-08-01-panel-toggle-progressive-shift.md`.
    */
   function captureAnchor(el: HTMLElement, cols: number): CapturedAnchor | null {
-    const { imagePositions, bufferOffset, total } = useSearchStore.getState();
+    const { imagePositions, bufferOffset, total, results } = useSearchStore.getState();
     const { selectedIds, anchorId } = useSelectionStore.getState();
     const selectionAnchorId = selectedIds.size > 0 ? anchorId : null;
     // Derive twoTier from current store state — NOT from the hook scope,
     // which is stale inside the ResizeObserver closure (useEffect deps=[]).
     const isTwoTier = isTwoTierFromTotal(total);
+    const itemOffset = justified ? (isTwoTier ? 0 : bufferOffset) : committedFixedGeometry.current.itemOffset;
     // An active selection outranks older focus; unresolved identities fall
     // through to the next candidate, including after buffer eviction.
     const virtIdx =
-      resolveAnchorVirtIndex(selectionAnchorId, imagePositions, bufferOffset, isTwoTier) ??
-      resolveAnchorVirtIndex(focusedImageIdRef.current, imagePositions, bufferOffset, isTwoTier) ??
-      resolveAnchorVirtIndex(getViewportAnchorId(), imagePositions, bufferOffset, isTwoTier);
+      resolveAnchorVirtIndex(selectionAnchorId, imagePositions, itemOffset, isTwoTier) ??
+      resolveAnchorVirtIndex(focusedImageIdRef.current, imagePositions, itemOffset, isTwoTier) ??
+      resolveAnchorVirtIndex(getViewportAnchorId(), imagePositions, itemOffset, isTwoTier);
+    const imageId = virtIdx == null ? undefined : results[virtIdx + itemOffset - bufferOffset]?.id;
     if (layoutRef.current) {
       const row = virtIdx != null ? layoutRef.current.getItemRow(virtIdx)
         : layoutRef.current.rowAtOffset(el.scrollTop + el.clientHeight / 2);
-      return row ? { imageIndex: virtIdx ?? row.firstItemIndex,
+      return row ? { imageIndex: virtIdx ?? row.firstItemIndex, imageId,
         viewportRatio: el.clientHeight > 0 ? (row.top - el.scrollTop) / el.clientHeight : 0 } : null;
     }
     if (virtIdx != null) {
-      return captureAnchorAtIndex(virtIdx, cols, ROW_HEIGHT, el.scrollTop, el.clientHeight);
+      return { ...captureAnchorAtIndex(virtIdx, cols, ROW_HEIGHT, el.scrollTop, el.clientHeight,
+        itemOffset), imageId };
     }
 
     // Last-resort fallback: no known anchor image yet (e.g. before the first
     // reportVisibleRange call).
-    return computeFallbackAnchor(cols, ROW_HEIGHT, el.scrollTop, el.clientHeight);
+    return computeFallbackAnchor(cols, ROW_HEIGHT, el.scrollTop, el.clientHeight, itemOffset);
   }
 
   // -------------------------------------------------------------------------
   // Derived layout values
   // -------------------------------------------------------------------------
 
-  const rowCount = justifiedLayout ? justifiedLayout.rowCount : Math.ceil(virtualizerCount / columns);
+  const fixedGeometry = useMemo(() => ({ rowHeight: ROW_HEIGHT, columns,
+    itemOffset: twoTier ? 0 : bufferOffset, itemCount: virtualizerCount,
+    headerOffset: 0, preserveScrollLeftOnSort: false, minCellWidth: MIN_CELL_WIDTH }),
+  [columns, twoTier, bufferOffset, virtualizerCount]);
+  const committedFixedGeometry = useRef(fixedGeometry);
+  useLayoutEffect(() => { committedFixedGeometry.current = fixedGeometry; }, [fixedGeometry]);
+  const rowCount = justifiedLayout ? justifiedLayout.rowCount : getFixedRowCount(fixedGeometry, virtualizerCount);
 
   // -------------------------------------------------------------------------
   // Virtualizer — virtualises rows, not individual cells.
@@ -624,8 +633,8 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     parentRef,
     geometry: useMemo<ScrollGeometry>(
       () => justifiedLayout ? { layout: justifiedLayout, spatial: justifiedLayout, window: justifiedLayout.window, headerOffset: 0, preserveScrollLeftOnSort: false }
-        : { rowHeight: ROW_HEIGHT, columns, headerOffset: 0, preserveScrollLeftOnSort: false, minCellWidth: MIN_CELL_WIDTH },
-      [columns, justifiedLayout],
+        : fixedGeometry,
+      [fixedGeometry, justifiedLayout],
     ),
     reportVisibleRange,
     resultsLength: results.length,
@@ -651,12 +660,16 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     const el = parentRef.current;
     if (!el) return;
 
+    const resolved = anchor.imageId ? findImageIndex(anchor.imageId) : undefined;
+    if (resolved !== undefined && resolved < 0) return;
     const clamped = justifiedLayout
       ? Math.max(0, Math.min(el.scrollHeight - el.clientHeight,
-        justifiedLayout.getItemRow(anchor.imageIndex).top - anchor.viewportRatio * el.clientHeight))
-      : restoreAnchorScrollTop(anchor, columns, ROW_HEIGHT, el.clientHeight, el.scrollHeight);
+        justifiedLayout.getItemRow(resolved ?? anchor.imageIndex).top - anchor.viewportRatio * el.clientHeight))
+      : restoreAnchorScrollTop(resolved === undefined ? anchor
+        : { ...anchor, imageIndex: resolved + fixedGeometry.itemOffset }, columns, ROW_HEIGHT,
+      el.clientHeight, el.scrollHeight, fixedGeometry.itemOffset);
     virtualizer.scrollToOffset(clamped);
-  }, [columns, justifiedLayout, virtualizer]);
+  }, [columns, justifiedLayout, virtualizer, fixedGeometry, findImageIndex]);
 
   // -------------------------------------------------------------------------
   // Selection mode — subscribe once at container level.
@@ -892,7 +905,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     setFocusedImageId,
     findImageIndex,
     virtualizer,
-    flatIndexToRow: (idx) => justifiedLayout?.getItemRow(idx).index ?? Math.floor(idx / columns),
+    flatIndexToRow: (idx) => justifiedLayout?.getItemRow(idx).index ?? getItemLayoutRow(fixedGeometry, idx).index,
   });
 
   // -------------------------------------------------------------------------
@@ -900,7 +913,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
   // -------------------------------------------------------------------------
 
   useListNavigation({
-    ...(justifiedLayout ? { spatial: justifiedLayout } : { columnsPerRow: columns, rowHeight: ROW_HEIGHT }),
+    ...(justifiedLayout ? { spatial: justifiedLayout } : { columnsPerRow: columns, rowHeight: ROW_HEIGHT, itemOffset: fixedGeometry.itemOffset }),
     virtualizer,
     scrollRef: parentRef,
     headerHeight: 0, // grid has no header inside the scroll container
@@ -914,7 +927,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     loadMore,
     onEnter: handleCellDoubleClick,
     imageParam: searchParams.image,
-    flatIndexToRow: (idx) => justifiedLayout?.getItemRow(idx).index ?? Math.floor(idx / columns),
+    flatIndexToRow: (idx) => justifiedLayout?.getItemRow(idx).index ?? getItemLayoutRow(fixedGeometry, idx).index,
     bufferOffset,
     seek,
   });
@@ -956,10 +969,11 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
         className="relative w-full"
       >
         {virtualItems.map((virtualRow) => {
-          const row = justifiedLayout?.getRow(virtualRow.index);
-          if (justifiedLayout && !row) return null;
-          const startIdx = row?.firstItemIndex ?? virtualRow.index * columns;
-          const indices = row ? Array.from({ length: row.lastItemIndex - row.firstItemIndex + 1 }, (_, index) => index) : columnIndices;
+          const row = justifiedLayout?.getRow(virtualRow.index) ?? getLayoutRow(fixedGeometry, virtualRow.index);
+          const startIdx = row.firstItemIndex;
+          const itemCount = Math.max(0, row.lastItemIndex - startIdx + 1);
+          const indices = justifiedLayout ? Array.from({ length: itemCount }, (_, index) => index)
+            : itemCount === columns ? columnIndices : columnIndices.slice(0, itemCount);
           const thumbnailLoading = visibleRange && virtualRow.index >= visibleRange.startIndex && virtualRow.index <= visibleRange.endIndex + 2
             ? "eager" : "lazy";
           return (
@@ -970,7 +984,8 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
                   top: row?.top ?? virtualRow.start,
                   height: row?.height ?? ROW_HEIGHT,
                   gap: justified ? 4 : CELL_GAP,
-                  padding: justified ? `0 0 0 ${justifiedLayout?.getBox(startIdx)?.left ?? 0}px` : `0 ${CELL_GAP}px`,
+                  padding: justified ? `0 0 0 ${justifiedLayout?.getBox(startIdx)?.left ?? 0}px`
+                    : `0 ${CELL_GAP}px 0 ${CELL_GAP + getItemColumn(fixedGeometry, startIdx) * (cellWidth + CELL_GAP)}px`,
                 }}
               >
                 {indices.map((colIdx) => {

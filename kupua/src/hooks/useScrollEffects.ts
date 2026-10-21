@@ -152,7 +152,7 @@ export interface UseScrollEffectsConfig {
 
   /** From useDataWindow: report visible range for gap detection + extends. */
   reportVisibleRange: (startIndex: number, endIndex: number, userInitiated?: boolean,
-    velocitySample?: ViewportVelocitySample, rangeStartMatchesViewport?: boolean) => void;
+    velocitySample?: ViewportVelocitySample, rangeStartMatchesViewport?: boolean, rangeEndMatchesViewport?: boolean) => void;
 
   /** From useDataWindow: results array length. */
   resultsLength: number;
@@ -351,7 +351,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
 
   const publication = useSearchStore.getState();
   const layoutPublication = { geometry, search: getSearchGeneration(), seek: publication._seekGeneration,
-    sort: publication.sortAroundFocusGeneration, reset: publication._scrollReset.gen };
+    sort: publication.sortAroundFocusGeneration, reset: publication._scrollReset.gen, bufferOffset,
+    prepend: publication._prependGeneration, evict: publication._forwardEvictGeneration };
   const committedLayout = useRef(layoutPublication);
   const beforeLayout = committedLayout.current;
   const beforeScroll = parentRef.current?.scrollTop ?? 0;
@@ -404,15 +405,17 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       const viewportBottom = el.scrollTop + el.clientHeight;
       const rangeStartMatchesViewport = el.clientHeight > 0 &&
         firstRow.top <= el.scrollTop + 1 && firstRow.top + firstRow.height > el.scrollTop - 1;
-      const rangeMatchesViewport = rangeStartMatchesViewport &&
+      const rangeEndMatchesViewport = el.clientHeight > 0 &&
         lastRow.top < viewportBottom + 1 &&
         (lastRow.top + lastRow.height >= viewportBottom - 1 || range.endIndex === virtualizerRef.current.options.count - 1);
+      const rangeMatchesViewport = rangeStartMatchesViewport && rangeEndMatchesViewport;
       reportVisibleRange(
         firstRow.firstItemIndex,
         lastRow.lastItemIndex,
         userInitiated,
         rangeMatchesViewport ? { scrollTop: el.scrollTop, viewportHeight: el.clientHeight, layout: geo } : undefined,
         rangeStartMatchesViewport,
+        rangeEndMatchesViewport,
       );
     } else {
       devLog(`[handleScroll] WARNING: virtualizer.range is null — reportVisibleRange skipped`);
@@ -493,74 +496,20 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   const seekGeneration = useSearchStore((s) => s._seekGeneration);
 
   const prependGeneration = useSearchStore((s) => s._prependGeneration);
-  const lastPrependCount = useSearchStore((s) => s._lastPrependCount);
-  const prevPrependGenRef = useRef(prependGeneration);
-  useLayoutEffect(() => {
-    if (prependGeneration === prevPrependGenRef.current) return;
-    prevPrependGenRef.current = prependGeneration;
-    // In two-tier mode, virtualizerCount is constant (total). Items are
-    // replaced at fixed global positions, not inserted. No compensation needed.
-    if (twoTier) return;
-    const el = parentRef.current;
-    if (!el || lastPrependCount <= 0) return;
-    if ("layout" in geometryRef.current && geometryRef.current.window) return;
-
-    const geo = requireFixedRowGeometry(geometryRef.current);
-    // Compute the row shift of the topmost visible item, NOT the change in
-    // total row count. The old formula (ceil(new/cols) - ceil(old/cols)) gives
-    // the total-row-count delta, which can overshoot by 1 row when
-    // prependCount % columns ≠ 0. The overshoot is exactly 1 row (= `columns`
-    // items), which would produce a +3 item jump in a 3-column grid.
-    //
-    // Correct formula: the topmost visible item was at local index v (row
-    // floor(v/cols)). After prepend it's at index v + prependCount (row
-    // floor((v + prependCount)/cols)). The pixel compensation is the row
-    // difference × rowHeight. This is exact regardless of partial-row
-    // alignment, buffer eviction, or total count.
-    const scrollBefore = el.scrollTop;
-    const firstVisibleRow = Math.floor(scrollBefore / geo.rowHeight);
-    const firstVisibleIndex = firstVisibleRow * geo.columns;
-    const shiftedRow = Math.floor(
-      (firstVisibleIndex + lastPrependCount) / geo.columns,
-    );
-    const rowDelta = shiftedRow - firstVisibleRow;
-    el.scrollTop += rowDelta * geo.rowHeight;
-    recordFixedDensityCompensation(scrollBefore, rowDelta * geo.rowHeight);
-    // DIAG: prepend compensation
-    devLog(`[prepend-comp] prepended=${lastPrependCount} cols=${geo.columns} firstVisibleRow=${firstVisibleRow} firstVisibleIndex=${firstVisibleIndex} shiftedRow=${shiftedRow} rowDelta=${rowDelta} scrollBefore=${scrollBefore.toFixed(1)} scrollAfter=${el.scrollTop.toFixed(1)} delta=${(el.scrollTop - scrollBefore).toFixed(1)}`);
-  }, [prependGeneration, lastPrependCount, parentRef, twoTier]);
-
-  // -------------------------------------------------------------------------
-  // 5. Forward evict scroll compensation
-  // -------------------------------------------------------------------------
-
   const forwardEvictGeneration = useSearchStore((s) => s._forwardEvictGeneration);
-  const lastForwardEvictCount = useSearchStore((s) => s._lastForwardEvictCount);
-  const prevForwardEvictGenRef = useRef(forwardEvictGeneration);
   useLayoutEffect(() => {
-    if (forwardEvictGeneration === prevForwardEvictGenRef.current) return;
-    prevForwardEvictGenRef.current = forwardEvictGeneration;
-    // In two-tier mode, no scroll compensation — items replaced at fixed positions.
-    if (twoTier) return;
+    const old = beforeLayout.geometry;
     const el = parentRef.current;
-    if (!el || lastForwardEvictCount <= 0) return;
-    if ("layout" in geometryRef.current && geometryRef.current.window) return;
-    const geo = requireFixedRowGeometry(geometryRef.current);
-    // Viewport-aware row-delta — same principle as prepend compensation.
-    // Forward eviction removes items from the START of the buffer, so all
-    // remaining items shift left. The topmost visible item at index v becomes
-    // index v - evictCount. Its row shifts from floor(v/cols) to
-    // floor((v - evictCount)/cols). The compensation is the difference.
-    const scrollBefore = el.scrollTop;
-    const firstVisibleRow = Math.floor(scrollBefore / geo.rowHeight);
-    const firstVisibleIndex = firstVisibleRow * geo.columns;
-    const shiftedRow = Math.floor(
-      (firstVisibleIndex - lastForwardEvictCount) / geo.columns,
-    );
-    const rowDelta = firstVisibleRow - shiftedRow;
-    el.scrollTop -= rowDelta * geo.rowHeight;
-    recordFixedDensityCompensation(scrollBefore, -rowDelta * geo.rowHeight);
-  }, [forwardEvictGeneration, lastForwardEvictCount, parentRef, twoTier]);
+    if (!el || twoTier || "layout" in old || "layout" in geometry || old.columns !== geometry.columns ||
+        old.rowHeight !== geometry.rowHeight || beforeLayout.search !== layoutPublication.search ||
+        beforeLayout.seek !== layoutPublication.seek || beforeLayout.sort !== layoutPublication.sort ||
+        beforeLayout.reset !== layoutPublication.reset ||
+        (beforeLayout.prepend === prependGeneration && beforeLayout.evict === forwardEvictGeneration)) return;
+    const delta = (Math.floor(beforeLayout.bufferOffset / geometry.columns) -
+      Math.floor(bufferOffset / geometry.columns)) * geometry.rowHeight;
+    el.scrollTop = beforeScroll + delta;
+    recordFixedDensityCompensation(beforeScroll, delta);
+  });
 
   // -------------------------------------------------------------------------
   // 6. Seek scroll-to-target

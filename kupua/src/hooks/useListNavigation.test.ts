@@ -18,6 +18,7 @@ import { ElasticsearchDataSource } from "@/dal/es-adapter";
 import { parseSortField } from "@/dal/adapters/elasticsearch/sort-builders";
 import type { SearchParams, SortValues } from "@/dal/types";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
+import { getFixedRowCount, getItemLayoutRow } from "@/lib/scroll-geometry-ref";
 import { useSearchStore } from "@/stores/search-store";
 import { useSelectionStore } from "@/stores/selection-store";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
@@ -59,7 +60,7 @@ afterEach(() => {
   useUiPrefsStore.setState(initialPreferences, true);
 });
 
-async function mountNavigation(windowed: boolean, mode: "explicit" | "selection" | "phantom" | "none", total = windowed ? 12000 : 300, orderBy = "-uploadTime", spatial = false) {
+async function mountNavigation(windowed: boolean, mode: "explicit" | "selection" | "phantom" | "none", total = windowed ? 12000 : 300, orderBy = "-uploadTime", spatial = false, columns = 1) {
   const source = new MockDataSource(total, orderBy === "-uploadTime" ? undefined : [{ field: "lastModified", ratio: 1 }]);
   const params = { nonFree: "true", orderBy, length: windowed ? 200 : total };
   const firstPage = await source.searchAfter(params, null, null);
@@ -86,7 +87,8 @@ async function mountNavigation(windowed: boolean, mode: "explicit" | "selection"
     clientWidth: { value: 1000 },
     scrollHeight: { get: () => {
       const state = useSearchStore.getState();
-      return (isTwoTierFromTotal(state.total) ? state.total : state.results.length) * 32;
+      return getFixedRowCount({ columns, rowHeight: 32, itemOffset: isTwoTierFromTotal(state.total) ? 0 : state.bufferOffset },
+        isTwoTierFromTotal(state.total) ? state.total : state.results.length) * 32;
     } },
   });
   const parentRef = { current: container };
@@ -106,10 +108,10 @@ async function mountNavigation(windowed: boolean, mode: "explicit" | "selection"
   const irregular = { getRow, getItemRow: (index: number) => getRow(Math.floor(index / 2)),
     rowAtOffset: (offset: number) => getRow(Math.max(0, Math.floor(offset / 300) * 2 + (offset % 300 >= 100 ? 1 : 0))),
     neighbour: (index: number, row: number) => Math.max(0, row) * 2 + index % 2 };
-  const geometry = spatial ? { layout: irregular, spatial: irregular, headerOffset: 0, preserveScrollLeftOnSort: false,
+  let geometry = spatial ? { layout: irregular, spatial: irregular, headerOffset: 0, preserveScrollLeftOnSort: false,
     window: { width: 1000, getItemId: () => undefined, findItemIndex: () => undefined,
       rowAtOffset: irregular.rowAtOffset, prepareSeek: () => { throw new Error("Unused fixture operation"); } } }
-    : { rowHeight: 32, columns: 1, headerOffset: 0, preserveScrollLeftOnSort: true };
+    : { rowHeight: 32, columns, itemOffset: 0, headerOffset: 0, preserveScrollLeftOnSort: true };
   const findImageIndex = (imageId: string) => {
     const state = useSearchStore.getState();
     return (state.imagePositions.get(imageId) ?? -1) - (isTwoTierFromTotal(state.total) ? 0 : state.bufferOffset);
@@ -125,18 +127,20 @@ async function mountNavigation(windowed: boolean, mode: "explicit" | "selection"
     const state = useSearchStore();
     const twoTier = isTwoTierFromTotal(state.total);
     const virtualizerCount = twoTier ? state.total : state.results.length;
+    if (!spatial) geometry = { rowHeight: 32, columns, itemOffset: twoTier ? 0 : state.bufferOffset,
+      headerOffset: 0, preserveScrollLeftOnSort: true };
     virtualizer.options.count = virtualizerCount;
     useScrollEffects({ virtualizer, parentRef, geometry, reportVisibleRange, resultsLength: state.results.length,
       total: state.total, bufferOffset: state.bufferOffset, loadMore, focusedImageId: state.focusedImageId,
       findImageIndex, twoTier });
     useListNavigation({ virtualizer, scrollRef: parentRef,
-      ...(spatial ? { spatial: irregular } : { columnsPerRow: 1, rowHeight: 32 }), headerHeight: 0,
+      ...(spatial ? { spatial: irregular } : { columnsPerRow: columns, rowHeight: 32, itemOffset: twoTier ? 0 : state.bufferOffset }), headerHeight: 0,
       focusedImageId: state.focusedImageId, setFocusedImageId: state.setFocusedImageId, virtualizerCount,
       getImage: (index) => {
         const current = useSearchStore.getState();
         return current.results[index - (twoTier ? current.bufferOffset : 0)];
       }, findImageIndex, resultsLength: state.results.length, total: state.total, loadMore,
-      onEnter: vi.fn(), imageParam: undefined, flatIndexToRow: (index) => index, bufferOffset: state.bufferOffset, seek });
+      onEnter: vi.fn(), imageParam: undefined, flatIndexToRow: (index) => getItemLayoutRow(geometry, index).index, bufferOffset: state.bufferOffset, seek });
   });
   scrollToIndex.mockClear();
   return {
@@ -166,6 +170,16 @@ async function mountNavigation(windowed: boolean, mode: "explicit" | "selection"
     },
   };
 }
+
+it("Page Down reaches the partial last row of an unaligned fixed-row window", async () => {
+  const fixture = await mountNavigation(true, "explicit", 70000, "-uploadTime", false, 5);
+  const results = useSearchStore.getState().results;
+  act(() => useSearchStore.setState({ bufferOffset: 3,
+    imagePositions: new Map(results.map((image, index) => [image!.id, index + 3])), focusedImageId: results[175]!.id }));
+  act(() => { fixture.dispatchKey("PageDown"); });
+  expect(useSearchStore.getState().focusedImageId).toBe(results[199]!.id);
+  expect(fixture.scrollToIndex).toHaveBeenLastCalledWith(40, { align: "auto" });
+});
 
 function holdInitialRead(
   fixture: Awaited<ReturnType<typeof mountNavigation>>,

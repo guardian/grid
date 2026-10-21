@@ -66,6 +66,18 @@ function tableInput(overrides: Partial<ComputeScrollTargetInput> = {}): ComputeS
 // ---------------------------------------------------------------------------
 
 describe("computeScrollTarget", () => {
+  it("reverse-computes the actual first item of a globally aligned partial-row window", () => {
+    expect(computeScrollTarget(gridInput({ columns: 6, actualOffset: 1001, backwardItemCount: 0,
+      currentScrollTop: 1515.25, clientHeight: 300 })))
+      .toEqual({ scrollTargetIndex: 25, seekSubRowOffset: 0 });
+  });
+
+  it("clamps a short destination using its partial first row", () => {
+    expect(computeScrollTarget(gridInput({ columns: 6, actualOffset: 1001, backwardItemCount: 0,
+      bufferLength: 7, currentScrollTop: 15000, clientHeight: 300 })))
+      .toEqual({ scrollTargetIndex: 1, seekSubRowOffset: 0 });
+  });
+
   it.each([0, 1, 3])("preserves fixed-row empty/short destination behaviour (%i items)", bufferLength => {
     for (const makeInput of [gridInput, tableInput]) {
       expect(computeScrollTarget(makeInput({
@@ -161,14 +173,14 @@ describe("computeScrollTarget", () => {
   // reverseIndex = 60 + 100 = 160.
   // -------------------------------------------------------------------------
 
-  it("scrollTop=3030 (10 rows deep, 6 cols) → index 160", () => {
+  it("scrollTop=3030 (10 rows deep, 6 cols, phase 2) → index 158", () => {
     const result = computeScrollTarget(gridInput({
       currentScrollTop: 3030,
       columns: GRID_COLS_6,
       backwardItemCount: 100,
     }));
 
-    expect(result.scrollTargetIndex).toBe(160);
+    expect(result.scrollTargetIndex).toBe(158);
     expect(result.seekSubRowOffset).toBe(0);
   });
 
@@ -251,12 +263,12 @@ describe("computeScrollTarget", () => {
   // Case 6: Fractional boundary row (100/cols not integer)
   //
   // 6 cols, 100 backward items. 100/6 = 16.67.
-  // Row 16: reverseIndex = 16*6 = 96. 96 < 100 → headroom fires.
-  // Row 17: reverseIndex = 17*6 = 102. 102 ≥ 100 → no headroom.
+  // Offset 5000 has phase 2: row 16 starts at 94, row 17 at 100.
+  // Row 16 admits headroom; row 17 is exactly its boundary.
   // Both should produce correct positions.
   // -------------------------------------------------------------------------
 
-  it("fractional boundary: row 16 (96 < 100) → headroom fires", () => {
+  it("fractional boundary: row 16 (94 < 100) → headroom fires", () => {
     // scrollTop for row 16 = 16 * 303 = 4848
     const result = computeScrollTarget(gridInput({
       currentScrollTop: 4848,
@@ -264,13 +276,11 @@ describe("computeScrollTarget", () => {
       backwardItemCount: 100,
     }));
 
-    // round(4848/303) = round(16.0) = 16. reverseIndex = 16*6 = 96.
-    // 96 < 100 → headroom. reverseIndex = 96 + 100 = 196.
-    expect(result.scrollTargetIndex).toBe(196);
+    expect(result.scrollTargetIndex).toBe(194);
     expect(result.seekSubRowOffset).toBe(0); // exactly on row boundary
   });
 
-  it("fractional boundary: row 17 (102 ≥ 100) → no headroom", () => {
+  it("fractional boundary: row 17 (100 >= 100) → no headroom", () => {
     // scrollTop for row 17 = 17 * 303 = 5151
     const result = computeScrollTarget(gridInput({
       currentScrollTop: 5151,
@@ -278,24 +288,18 @@ describe("computeScrollTarget", () => {
       backwardItemCount: 100,
     }));
 
-    // round(5151/303) = round(17.0) = 17 (same as floor). reverseIndex = 17*6 = 102.
-    // 102 ≥ 100 → no headroom. reverseIndex stays 102.
-    expect(result.scrollTargetIndex).toBe(102);
+    expect(result.scrollTargetIndex).toBe(100);
     expect(result.seekSubRowOffset).toBe(0);
   });
 
   it("fractional boundary: row 16 with sub-row offset (sub-row preserved)", () => {
-    // 6 cols, 100 backward items. 100/6 = 16.67 rows.
-    // scrollTop=4948 → 4948/303 = 16.33, floor=16. reverseIndex=16*6=96.
-    // 96 < 100 → headroom fires. reverseIndex = 96 + 100 = 196.
-    // subRow = 4948 - 16*303 = 4948 - 4848 = 100.
     const result = computeScrollTarget(gridInput({
       currentScrollTop: 4948,
       columns: GRID_COLS_6,
       backwardItemCount: 100,
     }));
 
-    expect(result.scrollTargetIndex).toBe(196);
+    expect(result.scrollTargetIndex).toBe(194);
     expect(result.seekSubRowOffset).toBe(100);
   });
 
@@ -382,14 +386,7 @@ describe("computeScrollTarget", () => {
   // Regression guard: the exact values from the E2E test
   // -------------------------------------------------------------------------
 
-  it("matches E2E observed values: scrollTop=7725, offset=5057, len=300", () => {
-    // From Phase 1 test output: scrollTop=7725, offset=5057, len=300, visiblePos=5157.
-    // 4-col grid. floor(7725/303) = 25.
-    // reverseIndex = 25*4 = 100. With backwardItemCount=100: 100 ≥ 100 → no headroom.
-    // reversePixelTop = floor(100/4)*303 = 25*303 = 7575.
-    // totalRows = ceil(300/4) = 75. scrollHeight = 75*303 = 22725.
-    // maxScroll = 22725 - 800 = 21925.
-    // 7575 < 21925 → fits. scrollTargetIndex = 100.
+  it("retains headroom carry when the historical offset begins mid-row", () => {
     const result = computeScrollTarget(gridInput({
       currentScrollTop: 7725,
       backwardItemCount: 100,
@@ -398,8 +395,8 @@ describe("computeScrollTarget", () => {
       clampedOffset: 5157,
     }));
 
-    expect(result.scrollTargetIndex).toBe(100);
-    expect(result.seekSubRowOffset).toBe(0);
+    expect(result.scrollTargetIndex).toBe(199);
+    expect(result.seekSubRowOffset).toBe(150);
   });
 
   // -------------------------------------------------------------------------
@@ -427,9 +424,7 @@ describe("computeScrollTarget", () => {
       clampedOffset: 5100,
     });
 
-    // floor(5000/303) = 16. reverseIndex = 16*6 = 96. 96 < 100 → headroom fires.
-    // reverseIndex = 96 + 100 = 196. subRow = 5000 - 16*303 = 152.
-    expect(result.scrollTargetIndex).toBe(196);
+    expect(result.scrollTargetIndex).toBe(194);
     expect(result.seekSubRowOffset).toBe(152);
   });
 });

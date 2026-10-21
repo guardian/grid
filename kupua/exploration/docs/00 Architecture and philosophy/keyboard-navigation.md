@@ -1,7 +1,7 @@
 # Keyboard Navigation
 
 > How kupua handles keyboard scrolling and focus in Grid, Table and Justified views.
-> Includes the page-scroll math and how it differs from kahuna.
+> Describes input ownership, row/page movement and destination placement.
 
 ## The Two Modes
 
@@ -46,6 +46,16 @@ destination geometry. Newer input supersedes it; selection/phantom paging cannot
 hidden focus. The fixed-row arithmetic below applies to Grid/Table, not synthetic columns
 or an average row height for Justified.
 
+### Fixed-Grid Partial Rows
+
+Grid uses the shared origin-aware row mapping, not `floor(localIndex / columns)`
+with an assumed full first row. A buffer can begin partway across a global row;
+leading layout space has no image index and cannot receive focus or selection.
+Focused Page Up/Down uses the actual row count, preserves the column where possible
+and clamps to real images, including a partial final row. Arrow movement still follows
+result order or one fixed row, and scroll-only paging retains its viewport-edge rules.
+See the [fixed-row window policy](03-scroll-architecture.md#fixed-row-window-policy).
+
 ### Deferred End
 
 An End that needs data always retains its tail-scroll obligation, independently
@@ -58,8 +68,8 @@ effective explicit focus remains enabled without selection.
 A newer seek does not inherit End's edge intent. Home can cancel a pending End and
 reuse an already-loaded first page without fetching it again. An uncommitted
 failed/aborted request releases only its own intent; successful publication leaves
-one-shot consumption to the scroll hook. This is not a general symmetric Home/End
-cancellation guarantee; remaining boundaries are recorded in the bug backlog.
+one-shot consumption to the scroll hook. These ownership rules do not establish a
+general symmetric Home/End cancellation guarantee.
 
 ## Key Propagation from the Search Box
 
@@ -107,154 +117,12 @@ positions. The result is always row-aligned.
 > **Never re-see a row you've fully seen. Never skip a row you haven't
 > fully seen.**
 
-Getting this right required three iterations. Each fixed the previous
-iteration's failure but introduced a new one.
+### Scroll-Only Paging
 
-### Iteration 1: Kahuna's Naive Approach
-
-```
-pageRows = floor(viewportHeight / rowHeight)
-currentRow = round(scrollTop / rowHeight)
-newScrollTop = (currentRow ± pageRows) × rowHeight
-```
-
-Snap to the nearest row, then jump by exactly `pageRows` rows.
-
-The `round()` is the root problem. It doesn't look at the viewport at
-all — it looks at `scrollTop` and snaps to whichever row boundary is
-closest. When `scrollTop` is past the halfway point of a row, `round()`
-snaps **forward** to the next row — skipping the one you were on. When
-it's before the halfway point, `round()` snaps **backward** — and the
-page jump is measured from that earlier row, re-showing content you've
-already scrolled past.
-
-Concrete example of the re-show bug:
-
-```
-          Kahuna PgDown — re-shows Row B
-          ────────────────────────────────
-
-rowHeight = 303, viewportHeight = 950, pageRows = 3
-
-BEFORE: scrollTop = 100 (Row 0 is 67% scrolled past)
-┌─────────────────────┐
-│░░░ Row A  (33% vis) │  ← top 100px scrolled off
-│ Row B  (full)       │
-│ Row C  (full)       │
-│ Row D ▄▄ (15% vis)  │
-└─────────────────────┘
-
-round(100 / 303) = round(0.33) = 0  ← snaps BACKWARD to row 0
-newScrollTop = (0 + 3) × 303 = 909
-
-AFTER: scrollTop = 909
-┌─────────────────────┐
-│ Row C  (full)       │  ← Row C was FULLY visible before!
-│ Row D  (full)       │
-│ Row E  (full)       │
-│ Row F ▄▄ (15% vis)  │
-└─────────────────────┘
-
-Row B: fully visible before, now gone — OK.
-Row C: FULLY VISIBLE BEFORE, FULLY VISIBLE AGAIN — wasted.
-Row D: only 15% was visible, now full — that's the only useful new row.
-```
-
-The `round()` snapped backward to row 0, so the jump was measured from
-row 0 instead of where the viewport actually was. This puts row C (which
-was fully visible, nowhere near the edge) right at the top of the new
-page. A full row of re-shown content, not at an edge — in the middle of
-what you'd already seen.
-
-The skip bug is the mirror image. If `scrollTop = 200` (66% past row 0),
-`round(200/303) = 1`, and the jump starts from row 1 instead of row 0.
-The partial row at the bottom disappears without ever being fully shown.
-
-**Verdict:** Simple, always row-aligned. Systematically re-shows or skips
-rows depending on whether `round()` snaps backward or forward. The
-re-show case is especially jarring because the repeated row isn't at the
-viewport edge — it's a row you saw in full, now occupying prime screen
-real estate again.
-
-### Iteration 2: Viewport-Edge Formula (first attempt)
-
-```
-PgDown: floor((scrollTop + viewportHeight) / rowHeight) × rowHeight
-PgUp:   ceil(scrollTop / rowHeight) × rowHeight − viewportHeight
-```
-
-Instead of snapping `scrollTop` and offsetting, look at the viewport
-*edge* in the direction of travel. The partial row at that edge becomes
-the anchor for the new page.
-
-```
-          Viewport-edge PgDown — non-aligned bottom
-          ───────────────────────────────────────────
-
-BEFORE                          AFTER
-┌─────────────────────┐         ┌─────────────────────┐
-│ Row A  (full)       │         │ Row D  (top, full)  │
-│ Row B  (full)       │         │ Row E  (full)       │
-│ Row C  (full)       │         │ Row F  (full)       │
-│ Row D ▄▄▄ (40% vis) │         │ Row G ▄▄▄ (40% vis) │
-└─────────────────────┘         └─────────────────────┘
-
-floor(bottom / rowHeight) = row D (partial) → becomes new top. ✓
-Rows A–C (fully seen) gone. ✓  Row D's unseen 60% now visible. ✓
-```
-
-Works correctly when the bottom falls mid-row. Fails on **direction
-reversal** when the bottom is exactly row-aligned.
-
-PgUp always leaves the viewport bottom exactly on a row boundary (the
-formula `ceil(top/rowHeight) × rowHeight` guarantees it). So PgUp → PgDown
-always hits this failure:
-
-```
-          Bug: PgUp → PgDown re-shows the bottom row
-          ────────────────────────────────────────────
-
-rowHeight = 303, viewportHeight = 950
-
-AFTER PgUp: scrollTop = 262, bottom = 1212 (exactly 4 × 303)
-┌─────────────────────┐
-│▄ Row 0  (13% vis)   │
-│ Row 1  (full)       │
-│ Row 2  (full)       │
-│ Row 3  (full) ──────│← bottom = 1212, exactly on row boundary
-└─────────────────────┘
-
-Row 3 occupies 909–1212. It ends exactly at the bottom. Fully visible.
-Row 4 starts at 1212. It has 0px visible.
-
-floor(1212 / 303) = 4.  target = 4 × 303 = 1212.
-
-AFTER: scrollTop = 1212
-┌─────────────────────┐
-│ Row 4  (full)       │
-│ Row 5  (full)       │
-│ Row 6  (full)       │
-│ Row 7 ▄▄▄ (partial) │
-└─────────────────────┘
-```
-
-In this specific trace, Row 4 had 0px visible, so the result is
-technically correct. But the problem manifests with different viewport
-sizes where the aligned boundary falls such that `floor()` of an exact
-integer selects a row that WAS fully visible. The `floor()` of an exact
-multiple is itself — it doesn't distinguish between "this row is fully
-visible and ends here" and "this row starts here with 0px showing." The
-formula treats both cases identically, and in the former case, it
-re-shows a fully-visible row.
-
-Confirmed by hands-on testing: PgUp then PgDown showed the same bottom
-row reappearing at the top.
-
-**Verdict:** Correct for the common case (non-aligned viewport edges).
-Breaks on direction reversal when the viewport edge sits exactly on a
-row boundary.
-
-### Iteration 3: Boundary-Aware Formula (final, current)
+Fixed-row paging uses the viewport edge in the direction of travel. A partial
+edge row becomes fully visible on the next page; an aligned edge advances to
+unseen rows. Table uses the viewport height excluding its header. The resulting
+target is clamped to the scroll container's available extent.
 
 ```
 PgDown:
@@ -303,9 +171,8 @@ Case 1: Row D was partial → now full at top. ✓
 Case 2: Row D was full → gone. Row E (unseen) at top. ✓
 ```
 
-**Round-trip guarantee:** PgDown → PgUp returns to exactly the same
-scrollTop (clamped at 0 or scrollMax). This is because the two formulas
-are mathematical inverses of each other for the aligned/non-aligned cases.
+Directional reversal applies the same edge rules and clamping. Row-boundary
+rounding means it need not restore an arbitrary fractional starting offset.
 
 **Row alignment trade-off:** PgDown always produces a row-aligned scrollTop.
 PgUp does NOT when the viewport height isn't a multiple of the row height
@@ -338,45 +205,5 @@ picks it up after the buffer is replaced.
 | Native input guard | `lib/keyboard-shortcuts.ts` | `isNativeInputTarget()` |
 | Post-seek focus | `stores/search-store.ts` | `_pendingFocusAfterSeek` |
 | Post-seek focus effect | `hooks/useScrollEffects.ts` | Effect #6 |
-
-## Full Comparison: Kupua vs Kahuna
-
-| Aspect | Kahuna | Kupua |
-|---|---|---|
-| **Focus concept** | None. Keys only scroll. | Two modes: scroll-only and focus-move. |
-| **Arrow keys** | Scroll by 1 row | Scroll (no focus) or move focus (has focus) |
-| **←/→ in grid** | Not handled | Move focus within row (only when focused) |
-| **←/→ from search box** | N/A (not propagated) | Trapped — stay in search box for cursor movement |
-| **Page scroll math** | `round(scrollTop/rowHeight) ± pageRows` | Viewport-edge formula with boundary detection |
-| **Page re-show/skip** | Can re-show or skip rows | Never re-shows, never skips |
-| **Home/End from search box** | Not propagated (`allowIn` absent) | Propagated (capture phase intercept) |
-| **Home/End + focus** | N/A (no focus) | Focus first/last image when focus exists |
-| **Home/End + deep buffer** | N/A (no windowed buffer) | Triggers seek to offset 0 or total-1 |
-| **Row alignment** | Always (round→multiply) | PgDown: always. PgUp: only if viewport divides evenly by row height. |
-| **Scroll container** | `window` (page-level scroll) | Scroll div within the app (`.hide-scrollbar`) |
-| **Event system** | angular-hotkeys (`allowIn: ['INPUT']`) | `document` listeners (bubble + capture phase) |
-
-### If You Want to Revert to Kahuna's Math
-
-Replace `pageScrollTarget()` in `useListNavigation.ts` with:
-
-```typescript
-function pageScrollTarget(
-  scrollTop: number,
-  rowHeight: number,
-  viewportHeight: number,
-  direction: "up" | "down",
-): number {
-  const pageRows = Math.max(1, Math.floor(viewportHeight / rowHeight));
-  const snapped = Math.round(scrollTop / rowHeight) * rowHeight;
-  return direction === "down"
-    ? snapped + pageRows * rowHeight
-    : snapped - pageRows * rowHeight;
-}
-```
-
-This is simpler, always row-aligned, but will re-show fully-visible rows
-and skip partially-visible ones at viewport-edge boundaries. The original
-kahuna code is in `gu-lazy-table.js` lines 159–188.
 
 

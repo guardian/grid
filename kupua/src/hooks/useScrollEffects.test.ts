@@ -59,7 +59,7 @@ import { buildHistorySnapshot } from "@/lib/build-history-snapshot";
 import { StatusBar } from "@/components/StatusBar";
 import { resetToHome } from "@/lib/reset-to-home";
 import { useReturnFromDetail } from "./useReturnFromDetail";
-import { registerScrollGeometry, getScrollGeometry, getLayoutGeometry, type FixedRowGeometry } from "@/lib/scroll-geometry-ref";
+import { registerScrollGeometry, getScrollGeometry, getLayoutGeometry, getFixedRowCount, type FixedRowGeometry } from "@/lib/scroll-geometry-ref";
 import { scrollFocusedIntoView } from "@/lib/orchestration/search";
 
 let routeParams: UrlSearchParams = { nonFree: "true" };
@@ -328,7 +328,7 @@ function fixtureLayout(geometry: ScrollGeometry) {
 }
 
 function mountDensity(initialGeometry: ScrollGeometry, strict = false, reportViewport = false, syncUrl = false,
-  chooseDensityAnchor?: Parameters<typeof useScrollEffects>[0]["chooseDensityAnchor"]) {
+  chooseDensityAnchor?: Parameters<typeof useScrollEffects>[0]["chooseDensityAnchor"], windowCoordinates = false) {
   const dimensions = { width: 1120, height: 600 };
   let geometry = initialGeometry;
   const container = document.createElement("div");
@@ -343,7 +343,7 @@ function mountDensity(initialGeometry: ScrollGeometry, strict = false, reportVie
         const last = count > 0 ? geometry.layout.getItemRow(count - 1) : undefined;
         return (last ? last.top + last.height : 0) + geometry.headerOffset;
       }
-      return Math.ceil(count / geometry.columns) * geometry.rowHeight + geometry.headerOffset;
+      return getFixedRowCount(geometry, count) * geometry.rowHeight + geometry.headerOffset;
     } },
   });
   const parentRef = { current: container };
@@ -368,12 +368,13 @@ function mountDensity(initialGeometry: ScrollGeometry, strict = false, reportVie
   const view = renderHook((props: { geometry: ScrollGeometry }) => {
     const state = useSearchStore();
     const dataWindow = useDataWindow();
-    geometry = props.geometry;
     const twoTier = isTwoTierFromTotal(state.total);
     const count = twoTier ? state.total : state.results.length;
+    geometry = windowCoordinates && !("layout" in props.geometry)
+      ? { ...props.geometry, itemOffset: twoTier ? 0 : state.bufferOffset, itemCount: count } : props.geometry;
     virtualizer.options.count = "layout" in geometry
       ? count > 0 ? geometry.layout.getItemRow(count - 1).index + 1 : 0
-      : Math.ceil(count / geometry.columns);
+      : getFixedRowCount(geometry, count);
     useScrollEffects({ virtualizer, parentRef, geometry, reportVisibleRange: reportViewport ? dataWindow.reportVisibleRange : reportVisibleRange, loadMore,
       resultsLength: state.results.length, total: state.total, bufferOffset: state.bufferOffset,
       focusedImageId: state.focusedImageId, findImageIndex, twoTier, chooseDensityAnchor });
@@ -392,12 +393,12 @@ describe("viewport-valid velocity reports", () => {
       view.virtualizer.range = { startIndex: 10, endIndex: 12 };
       fireEvent.scroll(view.container);
     });
-    expect(view.reportVisibleRange).toHaveBeenLastCalledWith(10, 12, false, undefined, true);
+    expect(view.reportVisibleRange).toHaveBeenLastCalledWith(10, 12, false, undefined, true, false);
     act(() => {
       view.virtualizer.range = { startIndex: 0, endIndex: 28 };
       fireEvent.scroll(view.container);
     });
-    expect(view.reportVisibleRange).toHaveBeenLastCalledWith(0, 28, false, undefined, false);
+    expect(view.reportVisibleRange).toHaveBeenLastCalledWith(0, 28, false, undefined, false, true);
   });
 
   it.each(["unmarked", "wheel", "touch", "keyboard"] as const)("admits current geometry for %s scrolling", input => {
@@ -414,7 +415,7 @@ describe("viewport-valid velocity reports", () => {
       fireEvent.scroll(view.container);
     });
     expect(view.reportVisibleRange).toHaveBeenLastCalledWith(10, 28, input !== "unmarked",
-      { scrollTop: 320, viewportHeight: 600, layout: table }, true);
+      { scrollTop: 320, viewportHeight: 600, layout: table }, true, true);
   });
 
   it("rejects stale geometry even during an active wheel session and admits convergence", () => {
@@ -427,13 +428,13 @@ describe("viewport-valid velocity reports", () => {
       view.virtualizer.range = { startIndex: 0, endIndex: 1 };
       fireEvent.scroll(view.container);
     });
-    expect(view.reportVisibleRange).toHaveBeenLastCalledWith(0, 1, true, undefined, false);
+    expect(view.reportVisibleRange).toHaveBeenLastCalledWith(0, 1, true, undefined, false, false);
     act(() => {
       view.virtualizer.range = { startIndex: 10, endIndex: 28 };
       fireEvent.scroll(view.container);
     });
     expect(view.reportVisibleRange).toHaveBeenLastCalledWith(10, 28, true,
-      { scrollTop: 320, viewportHeight: 600, layout: table }, true);
+      { scrollTop: 320, viewportHeight: 600, layout: table }, true, true);
   });
 });
 
@@ -1727,6 +1728,37 @@ describe.each(["direct-ES", "media-api"] as const)("ordinary continuity %s resol
 });
 
 describe("L43 reset publication versus buffer bookkeeping", () => {
+  it.each(["prepend", "evict", "coalesced"] as const)("preserves the whole fixed-row cohort through %s origin movement", operation => {
+    const offset = 601;
+    const columns = 6;
+    const images = (start: number) => Array.from({ length: 1000 }, (_, index) => ({ id: `image-${start + index}` }) as Image);
+    const initial = images(offset);
+    useSearchStore.setState({ results: initial, bufferOffset: offset, total: 70000, focusedImageId: null,
+      imagePositions: new Map(initial.map((image, index) => [image.id, offset + index])) });
+    const geometry = { ...grid, columns };
+    const view = mountDensity(geometry, false, false, false, undefined, true);
+    frame(); frame();
+    const scrollTop = 30 * geometry.rowHeight + 17.25;
+    view.container.scrollTop = scrollTop;
+    const nextOffset = operation === "evict" ? offset + 137 : offset - (operation === "coalesced" ? 399 : 199);
+    act(() => {
+      const results = images(nextOffset);
+      useSearchStore.setState({ results, bufferOffset: nextOffset,
+        imagePositions: new Map(results.map((image, index) => [image.id, nextOffset + index])),
+        ...(operation === "evict" ? { _forwardEvictGeneration: 1, _lastForwardEvictCount: 137 }
+          : { _prependGeneration: operation === "coalesced" ? 2 : 1, _lastPrependCount: 199 }) });
+    });
+    for (let index = 180; index < 204; index++) {
+      const globalIndex = offset + index;
+      const before = (Math.floor(globalIndex / columns) - Math.floor(offset / columns)) * geometry.rowHeight - scrollTop;
+      const after = (Math.floor(globalIndex / columns) - Math.floor(nextOffset / columns)) * geometry.rowHeight - view.container.scrollTop;
+      expect(after).toBe(before);
+    }
+    const placed = view.container.scrollTop;
+    act(() => useSearchStore.setState({ _arrivingImageIds: new Set() }));
+    expect(view.container.scrollTop).toBe(placed);
+  });
+
   it.each([table, grid])("B10 final prepend to zero retains the viewed anchor ($columns columns)", (geometry) => {
     const view = mountDensity(geometry);
     frame();
@@ -2207,12 +2239,12 @@ describe("KUP-017 saved density geometry and input lifetime", () => {
       track.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       fireEvent.scroll(target.container);
     });
-    expect(target.reportVisibleRange).toHaveBeenLastCalledWith(0, 1, false, undefined, false);
+    expect(target.reportVisibleRange).toHaveBeenLastCalledWith(0, 1, false, undefined, false, false);
     act(() => {
       target.container.dispatchEvent(new WheelEvent("wheel", { deltaY: 40 }));
       fireEvent.scroll(target.container);
     });
-    expect(target.reportVisibleRange).toHaveBeenLastCalledWith(0, 1, true, undefined, false);
+    expect(target.reportVisibleRange).toHaveBeenLastCalledWith(0, 1, true, undefined, false, false);
   });
 
   it.each(["prepend", "evict"] as const)("retains completed density placement through fixed-row %s compensation", (operation) => {
@@ -2907,10 +2939,10 @@ describe("P1 non-uniform resident continuity", () => {
     expect(getLayoutGeometry()).toBe(geometry);
     expect(getScrollGeometry).toThrow("Window preparation requires fixed-row geometry");
     expect(fixtureLayout(geometry)!.getItemRow.bind(null, 500)).toThrow("Fixture geometry is unavailable");
-    expect(view.reportVisibleRange).toHaveBeenCalledWith(0, 6, false, undefined, true);
+    expect(view.reportVisibleRange).toHaveBeenCalledWith(0, 6, false, undefined, true, false);
     act(() => { view.virtualizer.range = { startIndex: 2, endIndex: 3 };
       fireEvent.scroll(view.container); });
-    expect(view.reportVisibleRange).toHaveBeenLastCalledWith(7, 11, false, undefined, false);
+    expect(view.reportVisibleRange).toHaveBeenLastCalledWith(7, 11, false, undefined, false, false);
     view.unmount();
     const fixed = mountDensity(table);
     frame(); frame();

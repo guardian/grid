@@ -34,7 +34,7 @@ usable. Local preference hydration cannot overwrite this session-owned state.
 These rules also apply to Justified. A destination snapshot supplies identity,
 ratio and focus/NONE in the current density; a missing destination keeps top/no-focus
 fallback, never departing-neighbour adoption. History snapshots retain logical row ratios
-and separately capture the source header fraction; new history placement includes header
+and separately capture the source header fraction; header-inclusive placement includes header
 flow, matching density switches while excluding container padding. Ordinary search ratios
 remain logical-only. Native detail/fullscreen close without
 traversal retains mounted placement; traversed return centres through current geometry,
@@ -241,12 +241,12 @@ interface HistorySnapshot {
 boundary. It is optional for older snapshots. It is not the total result count or
 a category aggregate, and it is not reusable with another query/boundary.
 
-New snapshots carry `viewportHeaderRatio`, including zero for headerless layouts.
-Their ratio placement includes header flow in the current layout, preventing a
+Snapshot capture writes `viewportHeaderRatio`, including zero for headerless layouts.
+When present, ratio placement includes header flow in the current layout, preventing a
 header-sized shift when history restores in another density before returning to
-the original one. Legacy snapshots without this field retain logical-only placement;
-there is no storage migration. Padding, anchor choice, edge clamps, entry keys and
-independent density persistence are unchanged.
+the original one. Snapshots without this field use logical-only placement.
+Padding, anchor choice and edge clamps follow the destination layout's placement
+rules; entry keys and per-tab density have independent owners.
 
 ### Anchor selection
 
@@ -354,19 +354,25 @@ The snapshot also supplies the initial StatusBar badge; search hydrates the coun
 and boundary synchronously before requests begin, and the badge uses live state
 as soon as the store has a boundary. First-search settlement therefore cannot
 erase the retained count. The document title reads that same store count.
-The independent `kupua-sb-new` cache is no longer read or written; total-count
-presentation remains unchanged. Ordinary polling replaces the last-known count
+Ordinary polling replaces the last-known count
 (including a successful zero), and failure retains it. Query/filter/sort changes,
 Home and ticker admission keep their existing reset semantics; AI does not restore
-an ordinary arrivals badge. Poll cadence and request budgets are unchanged across
+an ordinary arrivals badge. Poll cadence and request budgets are shared across
 direct ES with/without PIT and media-api without PIT.
 
-### Column alignment
+### Fixed-Row Membership
 
-`_loadBufferAroundImage` in `search-store.ts` trims 0–(columns-1) items from
-backward results so `bufferStart % columns === 0`. This preserves the anchor
-image's natural column position. Without this, the column was determined by
-`PAGE_SIZE/2 % columns` — an arbitrary position.
+History restoration keeps complete around-image pages; it does not trim backward
+results to make `bufferStart` divisible by the current column count. Fixed Grid
+derives row membership from global positions and rebases only its bounded vertical
+origin. A partial leading row is intentional. See the
+[fixed-row window policy](03-scroll-architecture.md#fixed-row-window-policy).
+
+Snapshot capture and placement share `getItemLayoutRow`, so the anchor ratio remains
+meaningful when the restored buffer starts at a different row phase. Density and
+width can deliberately reflow the destination; history still restores one represented
+anchor, not every departing image's box. Snapshots store anchor identity and placement
+ratios rather than buffer row membership.
 
 ### Scroll teleport prevention
 
@@ -377,7 +383,7 @@ consumed. Ordinary rerenders or a later density mount cannot replay a placed or
 retired owner. Small-result fill retries retain the existing geometry/input guards.
 
 No-position-map sort landings run the cursor-buffer fetch and `countBefore`
-concurrently, align before publication, and bump `sortAroundFocusGeneration`
+concurrently, resolve final coordinates before publication, and bump `sortAroundFocusGeneration`
 in the same atomic store commit as final results and coordinates. Effect #9
 applies the resolved handoff once. Legacy cursor/arrow work keeps its generation
 guard; neither path treats ordinary buffer growth as new placement authority.
@@ -449,7 +455,7 @@ Query dedup is not permission to skip a distinct native destination's restoratio
 | `src/lib/build-history-snapshot.ts` | `buildHistorySnapshot()` — reads store + DOM to build snapshot |
 | `src/lib/search-continuity.ts` | Strict destination snapshot handoff; separate pre-passive user continuity capture |
 | `src/hooks/useScrollEffects.ts` | Effect #9 owned one-shot placement, current geometry/readiness and limited legacy cursor/arrow consumers |
-| `src/stores/search-store.ts` | `_loadBufferAroundImage` (column alignment), `_findAndFocusImage`, sort-around-focus |
+| `src/stores/search-store.ts` | `_loadBufferAroundImage` (complete around-image pages), `_findAndFocusImage`, sort-around-focus |
 | `src/lib/search-params-schema.ts` | `URL_PARAM_KEYS`, `URL_DISPLAY_KEYS` |
 | `src/lib/reset-to-home.ts` | `resetToHome()`; owns reset continuation and scoped suppression releases |
 | `src/lib/image-offset-cache.ts` | `buildSearchKey`, `extractSortValues`, per-image offset cache |
@@ -457,27 +463,3 @@ Query dedup is not permission to skip a distinct native destination's restoratio
 | `src/components/ImageDetail.tsx` | `closeDetail` (`history.back()`), deep-link synthesis, `_bareListSynthesized` guard |
 | `src/stores/ui-prefs-store.ts` | Synchronous per-tab density initialization, prompt persistence and intent ownership |
 | `src/routes/search.tsx` | Reads preference density to swap grid/table; URL image controls detail |
-
----
-
-## Appendix: How kahuna handles browser history
-
-**Routing:** AngularJS `ui-router` (v0.4.3) with `ui-router-extras` Deep State
-Redirect. Image detail is a **separate top-level route** (`/images/:imageId`),
-not an overlay.
-
-**History entries — kahuna pushes everything:**
-- Every filter change (`$state.go('search.results', {...})`) creates a new
-  history entry — no `location: 'replace'` is used.
-- Clicking an image pushes `/images/:imageId`.
-- Result: Back undoes filter changes one by one. Technically correct but noisy.
-
-**Back from image to search:** Re-triggers the search API call. The search
-controller is destroyed and re-instantiated. DSR restores URL params, so query/filters
-match — but the DOM is torn down and rebuilt, so scroll position is lost.
-
-**What kupua does better:**
-- Scroll position survives image detail (overlay architecture — search stays mounted)
-- No DOM teardown on back
-- History entries only for meaningful state changes, not every keystroke
-- Position restoration on back/forward/reload via snapshot system

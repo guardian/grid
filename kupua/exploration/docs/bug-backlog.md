@@ -17,12 +17,14 @@ synthetic direct-TEST reproduction and verification passed, but natural-workflow
 
 ## At a Glance
 
-**Current recorded status: 19 October 2026.** The 21 entries below have an open defect,
-approval/integration/review task or explicit residual; 37 additional IDs have completed bounded repairs or verification.
+**Current recorded status: 21 October 2026.** The 20 entries below have an open defect,
+approval/integration/review task or explicit residual; 39 additional IDs have completed bounded repairs or verification.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
 not a fresh remote check. The 12 October update added GRID-017; the 19 October update adds
-KUP-041's API cancellation/resource-lifetime gap. Other dispositions have not been revalidated.
+KUP-041's API cancellation/resource-lifetime gap. The 21 October update records KUP-042's
+fixed-grid row-membership repair and reconciles the totals with the listed dispositions.
+Other dispositions have not been revalidated.
 Update this overview when a detailed disposition changes.
 
 **Operator scheduling decision, 23 September:** KUP-029/030 were deferred until after a working
@@ -57,6 +59,8 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [KUP-041](#kup-041) | API cancellation does not reach outgoing Elasticsearch reads | Open; cancellation handle is not retained, backend work observed after browser cancellation | Independent resource-lifetime follow-up; not a proven PP3 cause or migration gate |
 
 KUP-038 is closed against the ledger's completed B8/L37/B17 repairs, not a new fix.
+KUP-042 is repaired locally with globally stable fixed-grid rows; Justified packing,
+thumbnail arrival and B2 prediction remain separate work.
 KUP-011/037 have no closure evidence from continuity work and remain separately scoped.
 KUP-035 is DONE for default-collapsed chip rendering; intentional large expansion remains
 an accepted cost, not an open repair requirement.
@@ -551,6 +555,23 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **20 October S4a repair:** equivalent dispatched base-facet reads now survive hover/open handoff in Kupua; force refresh and changed-scope cancellation remain. See the [assessment's repair validation](api-request-lifetime-and-performance-parity.md#s4a-repair-validation-20-october). This removes the reproduced redundant client dispatch, not KUP-041's server-lifetime gap; S4b and KUP-040 remain separate work.
 - **Scope decision before implementation:** identify an appropriate Play disconnect/cancellation hook and the narrow set of owned read operations; assess whether retaining client handles or a bounded alternative is worth the complexity. Exclude writes and unrelated legacy consumers by default. Do not add a global cancellation manager, retries, new failure UI or longer timeouts as substitutes. If upstream cancellation is supported, describe its actual boundary rather than infer ES task termination from a closed socket.
 - **Dependency / disposition:** OPEN as an independent performance/resource-lifetime follow-up, recorded at operator request on 19 October. Not an initial API migration gate, a production incident claim, or permission to change shared/server code. Investigate and fix this scope separately from the unresolved transport failure.
+
+#### KUP-042
+**Fixed-grid buffer realignment moved retained visible images**
+- **Component / responsibility:** fixed-row Grid presentation and its shared data-window boundary. Owners: [row geometry](../../src/lib/scroll-geometry-ref.ts), [ImageGrid](../../src/components/ImageGrid.tsx), [resize anchors](../../src/lib/grid-scroll-anchor.ts), [scroll effects](../../src/hooks/useScrollEffects.ts) and [search-store publication](../../src/stores/search-store.ts). Not a Kahuna or backend ordering defect.
+- **Original evidence:** the 21 October isolated seek-mode fixture used 70,000 in-memory results at 1720x960. A six-column, 300-image window with remainder one received a 199-image aligned prepend: the 18-image cohort moved by up to 303 px vertically while its elected anchor stayed still. These observations describe the pre-repair code, not the new policy. [Research scope and campaign interpretation](scroll-horizons-thumbs-and-blocking.md#fixed-grid-continuity) remain separate from the geometry contract.
+- **Ordinary trigger confirmed:** shared TEST browsing reproduced the defect after a deep-position landing followed by a panel or width change and backward refill, with width fixed during publication. An aligned four-column control stayed still. The three-column panel case moved six of nine visible images by a 303 px row; an unheld five-column refill moved nine of fifteen by a row. All retained IDs, global positions and sources remained correct. The elected anchor also moved in those live variants, so its stability in the original fixture was not universal.
+- **Selected contract:** at unchanged query/order and width, maintenance preserves every surviving visible fixed-grid box. Rows keep global membership while their bounded vertical origin moves. Partial leading layout space is accepted instead of packing the window left and later regrouping it. Resize/density/history retain their existing anchor policies. See the [owning policy](00%20Architecture%20and%20philosophy/03-scroll-architecture.md#fixed-row-window-policy).
+- **Repair:** shared origin-aware rendering/navigation/seek arithmetic; net-origin prepend/eviction compensation; complete pages and exact-capacity eviction instead of column trimming. Resize captures the last committed fixed geometry and resolves the surviving identity in the destination, including same-commit publication. Explicit stale-end evidence blocks the forward-refill chain exposed by capacity controls, without changing horizons, indexed admission or valid programmatic demand. True-start correction, cursors, selection and cancellation remain.
+- **Regression coverage:** [existing browser suite](../../e2e/local/density-controls.spec.ts) asserts retained boxes from publication onward across aligned/density/panel setups, capacity in both directions, shrinking extent, true start, indexed coordinates and in-flight resize. Controlled same-commit delivery verifies committed columns/offset and twelve actual anchor samples. Existing unit suites cover row phases, coalesced origins, partial-row paging/seek, full pages, exact capacity and authoritative tuples. Obsolete modulo-alignment assertions were replaced, not relaxed to tolerate displacement.
+- **Validation / limits:** final 21 October local gates passed: 3,134 unit tests, application build and 495 retry-free E2E tests. Three complete-patch reviews found no material correctness, performance/design or test-adequacy findings. Geometry observations are bounded and animation-adjusted, not every-frame compositor or media-readiness proof; this is not a measured speed claim or a fix for Justified boundary repacking.
+- **Dependency / disposition:** DONE (21 October 2026), fixed-grid geometry scope. Independent repair, not a migration gate or adoption of a B2 predictor, larger buffer, global key rewrite or Justified freeze.
+
+To rerun the focused contract, follow the [local E2E setup/port rules](../../e2e/README.md#local-projects-and-ports), then from the repository root:
+
+```sh
+set -o pipefail; npm --prefix kupua run test:e2e -- --project=chromium density-controls.spec.ts --grep 'fixed-row publication' --retries=0 2>&1 | tee "$TMPDIR/kupua-test-output.txt"
+```
 
 ### Dependency Unresolved
 

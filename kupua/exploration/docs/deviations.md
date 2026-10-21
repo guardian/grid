@@ -8,7 +8,7 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-10-18
+Last updated: 2026-10-21
 
 ---
 
@@ -689,6 +689,25 @@ assumption for when permissions are wired up.
 ---
 
 ## From library defaults / conventions
+
+### Stable Fixed-Grid Rows at Window Boundaries (21 October 2026)
+
+Kupua deliberately does not pack the first item of every fetched window into column
+zero. Fixed Grid keeps row membership tied to global result positions and rebases
+only the bounded vertical origin. This is an application-owned mapping over TanStack
+Virtual, not a requirement that the library or datasource return aligned pages.
+
+The trade-off is up to `columns - 1` empty leading positions at a temporary buffer
+boundary. They are layout space, not placeholder records or selectable items. In
+return, prepend/eviction at unchanged width and ordering preserves every surviving
+visible image's box instead of filling the row and later shuffling its contents.
+The true result start has no leading gap. Resize still deliberately reflows around
+its existing anchor, and Justified retains separate packing semantics.
+
+Complete pages and exact-capacity eviction replace column-dependent trimming; no
+larger buffer, extra rank query, new key strategy or loading scheduler is introduced.
+This uses existing position estimates and does not promise universal paint continuity
+or faster delivery. See the [fixed-row window policy](00%20Architecture%20and%20philosophy/03-scroll-architecture.md#fixed-row-window-policy).
 
 ### Explicit Two-Row Thumbnail Lookahead (18 October 2026)
 

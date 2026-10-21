@@ -1,5 +1,273 @@
 import { test, expect } from "../shared/helpers";
 
+for (const { setup, capacity, direction, target, indexed } of [
+  { setup: "aligned", target: 706 },
+  { setup: "density", target: 707 },
+  { setup: "panel", target: 706 },
+  { setup: "density", target: 707, capacity: true },
+  { setup: "density", target: 707, capacity: true, direction: "forward" },
+  { setup: "shrinking extent", target: 709, capacity: true, direction: "forward" },
+  { setup: "true start", target: 102 },
+  { setup: "indexed", target: 707, indexed: true },
+  { setup: "in-flight resize", target: 707 },
+  { setup: "same-commit resize", target: 707 },
+] satisfies { setup: string; target: number; capacity?: boolean; direction?: string; indexed?: boolean }[]) {
+  test(`fixed-row publication preserves ${setup === "same-commit resize" ? "the resize anchor" : "every visible image"} after ${setup} setup${capacity ? " at capacity" : ""}${direction === "forward" ? " forward" : ""}`, async ({ kupua, page }) => {
+    if (setup === "same-commit resize") {
+      await page.addInitScript(() => {
+        const descriptor = Object.getOwnPropertyDescriptor(window, "ResizeObserver")!;
+        const NativeObserver = window.ResizeObserver;
+        const probe = { hold: false, observe: false, delivered: false, pending: [] as (() => void)[],
+          commits: [] as { columns: number; offset: number }[], cleanup: () => {} };
+        window.ResizeObserver = class extends NativeObserver {
+          constructor(callback: ResizeObserverCallback) {
+            super((entries, observer) => {
+              if (probe.hold && entries.some(entry => entry.target.getAttribute("aria-label") === "Image results grid")) {
+                probe.pending.push(() => callback(entries, observer));
+              } else callback(entries, observer);
+            });
+          }
+        };
+        probe.cleanup = () => {
+          probe.hold = false;
+          probe.pending.splice(0).forEach(deliver => deliver());
+          Object.defineProperty(window, "ResizeObserver", descriptor);
+        };
+        (window as any).__fixedRowResize = probe;
+      });
+      await page.route("**/src/components/ImageGrid.tsx*", async route => {
+        const response = await route.fetch();
+        const source = await response.text();
+        const marker = "const [columns, setColumns] = useState(4);";
+        expect(source.split(marker)).toHaveLength(2);
+        await route.fulfill({ response, body: source.replace(marker, `${marker}\nuseLayoutEffect(() => {
+          const probe = window.__fixedRowResize;
+          if (probe?.observe && probe.commits.length < 16) probe.commits.push({ columns, offset: bufferOffset });
+        });`) });
+      });
+    }
+    await page.setViewportSize({ width: 1720, height: 960 });
+    await kupua.startSearch("", "table");
+    await page.evaluate(async indexed => {
+      const configPath = "/src/dal/es-config.ts";
+      if (!(await import(configPath)).IS_LOCAL_ES) throw new Error("Fixed-row fixture requires local ES");
+      const path = "/src/dal/mock-data-source.ts";
+      const { MockDataSource } = await import(path);
+      const store = (window as any).__kupua_store__;
+      store.setState({ dataSource: new MockDataSource(indexed ? 12000 : 70000) });
+      await store.getState().search();
+    }, indexed ?? false);
+    const table = page.getByRole("button", { name: "Table view", exact: true });
+    if (await table.getAttribute("aria-pressed") !== "true") await table.click();
+    await page.getByRole("region", { name: "Image results table", exact: true }).waitFor();
+    await page.evaluate(async target => {
+      await new Promise(requestAnimationFrame);
+      await new Promise(requestAnimationFrame);
+      const state = (window as any).__kupua_store__.getState();
+      const id = `img-${target}`;
+      const page = await state.dataSource.searchAfter({ ...state.params, ids: id, length: 1 }, null);
+      await state.restoreAroundCursor(id, page.sortValues[0], target, true);
+    }, target);
+    await page.waitForFunction(() => {
+      const state = (window as any).__kupua_store__.getState();
+      return !state.loading && !state._browseNavigation;
+    });
+    await page.evaluate(() => {
+      const state = (window as any).__kupua_store__.getState();
+      state.setFocusedImageId(state.results[100].id);
+    });
+    const generation = await page.evaluate(() => (window as any).__kupua_getDensityRestoreGeneration__());
+    await page.getByRole("button", { name: "Grid view", exact: true }).click();
+    await page.waitForFunction(generation => (window as any).__kupua_getDensityRestoreGeneration__() > generation, generation);
+    if (setup === "panel") await page.getByRole("button", { name: "Show Browse panel", exact: true }).click();
+    const cooldown = await page.evaluate(async () => {
+      const path = "/src/constants/tuning.ts";
+      return (await import(path)).SEARCH_FETCH_COOLDOWN_MS;
+    });
+    await page.waitForTimeout(cooldown + 50);
+    if (capacity) {
+      await page.evaluate(async () => {
+        const store = (window as any).__kupua_store__;
+        for (let count = 0; count < 4; count++) await store.getState().extendForward();
+      });
+      await page.waitForFunction(() => (window as any).__kupua_store__.getState().results.length === 1000);
+    }
+    const before = await page.evaluate(async ({ forward, indexed, sameCommit }) => {
+      const reactDomPath = "/node_modules/.vite/deps/react-dom.js";
+      const reactDom = sameCommit ? await import(reactDomPath) : null;
+      const flushSync = reactDom?.flushSync ?? reactDom?.default?.flushSync;
+      const store = (window as any).__kupua_store__;
+      const state = store.getState();
+      const region = document.querySelector<HTMLElement>('[aria-label="Image results grid"]')!;
+      const columns = Math.floor(region.clientWidth / 280);
+      const source = state.dataSource;
+      const original = source.searchAfter;
+      const own = Object.getOwnPropertyDescriptor(source, "searchAfter");
+      let release!: () => void;
+      const gate = new Promise<void>(resolve => { release = resolve; });
+      const probe = { held: false, closed: false, reads: 0, release, cleanup: () => {}, startObservation: () => {}, cohort: [] as any[], columns,
+        publications: [] as { offset: number; count: number; seek: number; prepend: number; evict: number; top: number }[],
+        generationField: forward ? "_forwardEvictGeneration" : "_prependGeneration",
+        generation: forward ? state._forwardEvictGeneration : state._prependGeneration, initialOffset: state.bufferOffset,
+        initialIds: state.results.map((image: any) => image.id), width: region.clientWidth };
+      source.searchAfter = async function (...args: any[]) {
+        probe.reads += 1;
+        const result = await original.apply(this, args);
+        if (Boolean(args[4]) !== forward) { probe.held = true; await gate; }
+        return result;
+      };
+      const unsubscribe = store.subscribe((next: any, previous: any) => {
+        if (next.results !== previous.results && probe.publications.length < 16) {
+          probe.publications.push({ offset: next.bufferOffset, count: next.results.length,
+            seek: next._seekGeneration, prepend: next._prependGeneration, evict: next._forwardEvictGeneration, top: region.scrollTop });
+        }
+        if (next[probe.generationField] > probe.generation) {
+          const resize = (window as any).__fixedRowResize;
+          if (sameCommit && !resize.delivered) {
+            resize.delivered = true;
+            resize.observe = true;
+            flushSync(() => {
+              resize.hold = false;
+              resize.pending.splice(0).forEach((deliver: () => void) => deliver());
+            });
+          }
+          probe.startObservation();
+        }
+      });
+      probe.cleanup = () => {
+        probe.closed = true;
+        unsubscribe();
+        release();
+        if (own) Object.defineProperty(source, "searchAfter", own);
+        else delete source.searchAfter;
+      };
+      (window as any).__fixedRowPublication = probe;
+      region.scrollTop = forward ? region.scrollHeight - region.clientHeight
+        : indexed ? Math.floor(state.bufferOffset / columns) * 303 : 0;
+      region.dispatchEvent(new Event("scroll"));
+      return { columns, remainder: state.bufferOffset % columns, count: state.results.length, offset: state.bufferOffset };
+    }, { forward: direction === "forward", indexed: indexed ?? false, sameCommit: setup === "same-commit resize" });
+    try {
+      expect(before.columns).toBe(setup === "panel" ? 5 : 6);
+      expect(before.offset, JSON.stringify(before)).toBe(target - 100 + (capacity ? 1 : 0));
+      if (setup === "aligned") expect(before.remainder).toBe(0);
+      else expect(before.remainder).toBeGreaterThan(0);
+      expect(before.count).toBeGreaterThanOrEqual(200);
+      await page.waitForFunction(() => (window as any).__fixedRowPublication.held);
+      if (setup === "same-commit resize") {
+        await page.evaluate(() => {
+          const id = (window as any).__kupua_getViewportAnchorId__();
+          if (!id) throw new Error("No resize anchor");
+          (window as any).__fixedRowPublication.anchorId = id;
+          (window as any).__kupua_store__.getState().setFocusedImageId(id);
+          (window as any).__fixedRowResize.hold = true;
+        });
+        await page.getByRole("button", { name: "Show Browse panel", exact: true }).click();
+        await page.waitForFunction(() => (window as any).__fixedRowResize.pending.length > 0);
+      }
+      if (setup === "in-flight resize") {
+        await page.getByRole("button", { name: "Show Browse panel", exact: true }).click();
+        await page.waitForFunction(() => Math.floor(document.querySelector<HTMLElement>('[aria-label="Image results grid"]')!.clientWidth / 280) === 5);
+      }
+      await page.evaluate(async () => {
+        await new Promise(requestAnimationFrame);
+        await new Promise(requestAnimationFrame);
+        const probe = (window as any).__fixedRowPublication;
+        const region = document.querySelector<HTMLElement>('[aria-label="Image results grid"]')!;
+        const bounds = region.getBoundingClientRect();
+        probe.columns = Math.floor(region.clientWidth / 280);
+        probe.width = region.clientWidth;
+        probe.scrollHeight = region.scrollHeight;
+        const position = (cell: HTMLElement) => {
+          const rect = cell.getBoundingClientRect();
+          const style = getComputedStyle(cell);
+          const translate = style.translate === "none" ? [0, 0] : style.translate.split(/\s+/).map(parseFloat);
+          const transform = style.transform === "none" ? new DOMMatrixReadOnly() : new DOMMatrixReadOnly(style.transform);
+          return { left: rect.left - bounds.left - (translate[0] || 0) - transform.m41,
+            top: rect.top - bounds.top - (translate[1] || 0) - transform.m42, width: rect.width, height: rect.height };
+        };
+        probe.position = position;
+        probe.cohort = [...region.querySelectorAll<HTMLElement>("[data-image-id]")].filter(cell => {
+          const rect = cell.getBoundingClientRect();
+          return rect.bottom > bounds.top && rect.top < bounds.bottom;
+        }).map(cell => ({ id: cell.dataset.imageId, box: position(cell) }));
+        if (probe.anchorId && !probe.cohort.some((item: { id: string }) => item.id === probe.anchorId)) {
+          throw new Error("Resize anchor is outside the measured cohort");
+        }
+        probe.startObservation = () => {
+          if (probe.observation) return;
+          probe.observation = (async () => {
+            let maxDisplacement = 0;
+            let missing = 0;
+            let anchorSamples = 0;
+            for (let frame = 0; frame < 12; frame++) {
+              await new Promise(requestAnimationFrame);
+              if (probe.closed) return;
+              if (document.visibilityState !== "visible") throw new Error("Fixed-row observation backgrounded");
+              for (const item of probe.cohort) {
+                const cell = document.querySelector<HTMLElement>(`[data-image-id="${CSS.escape(item.id)}"]`);
+                if (!cell) { missing++; continue; }
+                const box = probe.position(cell);
+                if (item.id === probe.anchorId) anchorSamples++;
+                for (const key of probe.anchorId ? (item.id === probe.anchorId ? ["top"] : []) : ["left", "top", "width", "height"]) {
+                  maxDisplacement = Math.max(maxDisplacement, Math.abs(box[key] - item.box[key]));
+                }
+              }
+            }
+            const state = (window as any).__kupua_store__.getState();
+            const prepend = probe.initialOffset - state.bufferOffset;
+            const region = document.querySelector<HTMLElement>('[aria-label="Image results grid"]')!;
+            probe.result = { maxDisplacement, missing, anchorSamples, cohort: probe.cohort.length, reads: probe.reads, prepend, publications: probe.publications,
+              retainedOrder: probe.initialIds.every((id: string, index: number) => {
+                const next = index + prepend;
+                return next < 0 || next >= state.results.length ||
+                  (state.results[next]?.id === id && state.imagePositions.get(id) === probe.initialOffset + index);
+              }), count: state.results.length, offset: state.bufferOffset,
+              extentDelta: region.scrollHeight - probe.scrollHeight,
+              widthUnchanged: region.clientWidth === probe.width,
+              columns: Math.floor(region.clientWidth / 280), measuredColumns: probe.columns,
+              resizeCommits: (window as any).__fixedRowResize?.commits,
+              anchorRetained: !probe.anchorId || state.focusedImageId === probe.anchorId };
+          })().catch(error => { probe.error = String(error); }).finally(() => { probe.done = true; });
+        };
+        probe.release();
+      });
+      await page.waitForFunction(() => (window as any).__fixedRowPublication.done);
+      const result = await page.evaluate(() => {
+        const probe = (window as any).__fixedRowPublication;
+        if (probe.error) throw new Error(probe.error);
+        return probe.result;
+      });
+      if (direction === "forward") expect(result.prepend, JSON.stringify(result)).toBe(-200);
+      else expect(result.prepend).toBe(Math.min(200, before.offset));
+      if (capacity) expect(result.count).toBe(1000);
+      if (setup === "true start") expect(result.offset).toBe(0);
+      if (setup === "shrinking extent") expect(result.extentDelta).toBe(-303);
+      expect(result.reads).toBe(1);
+      expect(result.cohort).toBeGreaterThan(before.columns);
+      expect(result.missing).toBe(0);
+      expect(result.retainedOrder).toBe(true);
+      expect(result.widthUnchanged).toBe(true);
+      expect(result.columns).toBe(result.measuredColumns);
+      if (setup === "same-commit resize") {
+        expect(result.anchorSamples).toBe(12);
+        expect(result.resizeCommits.length).toBeGreaterThan(0);
+        expect(result.resizeCommits.every((commit: { columns: number; offset: number }) =>
+          commit.columns === 5 && commit.offset === before.offset - 200), JSON.stringify(result.resizeCommits)).toBe(true);
+        expect(result.anchorRetained).toBe(true);
+      }
+      expect(result.maxDisplacement).toBeLessThan(1);
+    } finally {
+      await page.evaluate(() => {
+        (window as any).__fixedRowPublication?.cleanup();
+        delete (window as any).__fixedRowPublication;
+        (window as any).__fixedRowResize?.cleanup();
+        delete (window as any).__fixedRowResize;
+      });
+    }
+  });
+}
+
 test("independent density icons select views, toggle back to grid and keep grid idempotent", async ({ kupua, page }) => {
   await kupua.startSearch();
   const controls = page.getByRole("group", { name: "Image layout" });

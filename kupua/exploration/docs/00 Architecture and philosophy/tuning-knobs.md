@@ -34,9 +34,8 @@ visible jumps.
 
 **Performance impact:** Higher = more memory, fewer evictions, larger
 virtualizer DOM. Lower = more frequent evictions (each triggers scroll
-compensation → potential jank), tighter scroll range (the density-focus
-drift bug was caused by compensation exceeding maxScroll — tighter buffers
-make this worse).
+compensation → potential jank) and a tighter scroll range. A shorter extent leaves
+less space for anchor placement before `maxScroll` clamps it.
 
 **Coupled to:**
 - `PAGE_SIZE` — must be smaller (currently 200 < 1000). If PAGE_SIZE ≥
@@ -64,17 +63,20 @@ and per initial search. Also the chunk size for scroll-mode buffer fill.
 
 **Performance impact:** Higher = fewer network round-trips but larger
 per-request payload and more DOM churn per extend. Lower = more frequent
-extends (more network, more scroll compensation events). Experiment D
-(200→100) showed: severe jank +6%, janky frames +50%, DOM churn +5%,
-LoAF count +33%. **200 is the sweet spot.**
+extends, increasing network and scroll-compensation frequency. The configured page
+size is 200; evaluating another size requires measuring delivery, rendering and
+continuity together rather than optimizing request count alone.
 
 **Coupled to:**
 - `BUFFER_CAPACITY` — 5 pages fill the buffer.
 - Binary search convergence — the bisect loop breaks when
   `|count - target| <= PAGE_SIZE`. Larger PAGE_SIZE = coarser landing.
 - Scroll-mode fill — fetches `ceil((total - 200) / PAGE_SIZE)` chunks.
-- Prepend compensation — each backward extend prepends PAGE_SIZE items.
-  Compensation = `ceil(PAGE_SIZE / columns) × rowHeight` pixels.
+- Prepend compensation — each backward extend requests up to PAGE_SIZE items and
+  retains the returned page. Fixed-row compensation is
+  `(floor(oldOffset / columns) - floor(newOffset / columns)) * rowHeight`, not
+  a rounded page-size quotient; partial-row phase matters. The same mapping owns
+  eviction. See the [fixed-row policy](03-scroll-architecture.md#fixed-row-window-policy).
 
 **Corpus scaling:** Not corpus-dependent. Network payload scales with
 PAGE_SIZE × per-doc size, not with total docs.
@@ -88,6 +90,11 @@ start), triggers `extendBackward`. When end index ≥ bufferLength - 50
 For forward extends this is the *minimum* threshold — the actual trigger
 point widens with recent scroll velocity (see `VELOCITY_*` knobs below).
 Backward extends use the static value.
+
+For buffer-local views, explicit viewport-validity evidence must also admit the
+relevant edge: a stale start cannot request backward data and a stale end cannot
+request forward data. This avoids maintenance feedback from old virtualizer ranges;
+it does not change these thresholds or exclude valid programmatic scrolling.
 
 **Performance impact:** Higher = extends trigger earlier (more headroom
 before user sees placeholder gaps). Lower = extends trigger later (less
@@ -116,18 +123,17 @@ overlaps with the user still chewing through buffered items.
 round-trip on real ES (200–500ms). `VELOCITY_IDLE_RESET_MS` drops stale
 velocity from an unrelated earlier burst once a scroll has paused.
 
-**Performance impact:** Pure win on fast-scroll metrics. P8 (table fast
-scroll, 80 wheel events) measured −33% maxFrame, −25% LoAF blocking,
-−21% DOM churn vs the static-threshold baseline (median of 3 runs).
-Slow-scroll behaviour is unchanged because velocity stays near zero and
-the threshold collapses back to 50.
+**Performance impact:** Fast scrolling admits the next page sooner, increasing
+available delivery time at the cost of earlier work. At low velocity the threshold
+approaches 50. The actual effect depends on delivery latency, rendering cost and
+whether the user continues in the predicted direction.
 
 **Coupled to:**
 - `EXTEND_THRESHOLD` — the floor of the widened threshold.
 - `PAGE_SIZE` — the cap. There's no benefit to a threshold larger than
   one in-flight fetch's worth of items.
 - Forward extends only. Backward extends pair with prepend compensation
-  (the central swimming risk) and are deliberately untouched.
+  and use the fixed backward threshold.
 
 **Corpus scaling:** Not corpus-dependent.
 
@@ -268,15 +274,10 @@ accuracy degrades gracefully for very high-cardinality fields.
 each direction. Table renders ~15 extra rows (15 items); grid renders
 ~5 extra rows (5 × columns items).
 
-**Performance history:** The original reduction from 20→5 was the single
-biggest rendering win: severe jank −61% (36→14), P95 −49% (67→34ms), DOM
-churn −44% (76k→42k). At overscan 20, React reconciled ~40 off-screen
-rows per scroll frame — in grid that's 240 extra DOM elements. The table
-was subsequently bumped from 5→15 because table rows are cheap (32px,
-minimal DOM per row) and the extra headroom significantly reduces blank
-flashes during fast scroll. The grid stays at 5 because grid rows are
-heavy (303px, thumbnail + metadata) and 5 already provides ~1,515px of
-headroom.
+Table rows are compact (32px with little DOM per row), so a 15-row overscan
+provides additional preparation distance at a relatively small rendering cost.
+Grid rows include thumbnails and metadata at 303px per row; five rows provide
+about 1,515px of preparation distance while bounding off-screen rendering work.
 
 **The trade-off (jank vs flashes):** Lower overscan = less work per
 frame = smoother scrolling, but new rows enter the viewport before React
@@ -503,17 +504,17 @@ Seek cooldowns ──────── extend suppression window
 
 ---
 
-## Dynamic Changeability
+## Configuration Boundaries
 
-| Category | Can change at runtime? | Should we? |
+| Category | Configuration | Boundary |
 |---|---|---|
-| Buffer/page sizes | No (constants, need rebuild) | Could make env-var-driven. Low value — these are stable. |
-| Seek thresholds | Yes (env vars, need restart) | Already done for local vs real. |
-| Scroll/position-map thresholds | Yes (env vars, need restart) | Already done — `VITE_SCROLL_MODE_THRESHOLD`, `VITE_POSITION_MAP_THRESHOLD`. |
-| Overscan | No (constant, need rebuild) | Table was tuned to 15 empirically. Grid at 5 is optimal. Stable. |
-| Timing/cooldowns | No (constants) | No reason to. These are UI-feel values. |
-| Layout constants | No (tied to CSS) | No. Design decisions. |
-| Source excludes | No (constant) | Could be env-driven. Low value. |
+| Buffer/page sizes | Constants | Build-time configuration |
+| Seek thresholds | Environment variables | App startup/build configuration |
+| Scroll/position-map thresholds | `VITE_SCROLL_MODE_THRESHOLD`, `VITE_POSITION_MAP_THRESHOLD` | App startup/build configuration |
+| Overscan | View component options | Build-time configuration: Table 15, Grid 5 |
+| Timing/cooldowns | Constants | Build-time configuration |
+| Layout constants | Constants and corresponding CSS | Coordinated layout configuration |
+| Source excludes | Constant | Build-time configuration |
 
 ---
 
@@ -535,72 +536,20 @@ Seek cooldowns ──────── extend suppression window
    High-cardinality fields may show "?" beyond that. Increase MAX_PAGES
    if needed.
 
-5. **The overscan/flash trade-off is view-specific.** Table overscan
-   was bumped from 5→15 because table rows are cheap (32px, minimal
-   DOM). Grid stays at 5 (303px rows with thumbnails are expensive).
-   The grid's 5 × 303px = 1,515px headroom is already generous.
+5. **The overscan/flash trade-off is view-specific.** Table uses 15 compact
+  32px rows; Grid uses five 303px rows containing thumbnails and metadata.
+  Compare preparation distance and rendering cost rather than row count alone.
 
 ---
 
-## Experiments Infrastructure
+## Measurement Boundaries
 
-Automated A/B testing of tuning knobs. Agent-driven, human-supervised.
+The [performance handbook](../../../e2e-perf/README.md) owns workloads, instrumentation,
+execution rules and comparison methodology. Campaigns are operator-run; live reads
+require explicit scope and permission. Functional tests establish behaviour, not speed.
 
-### Files
-
-| File | Purpose |
-|---|---|
-| `playwright.experiments.config.ts` | Playwright config — headed browser, no safety gate, long timeouts |
-| `e2e-perf/experiments.spec.ts` | Experiment scenarios (E1–E6) with full probe collection |
-| `e2e-perf/results/experiments/` | JSON result files, one per run |
-| `e2e-perf/results/experiments/experiments-log.md` | Human-readable comparison tables |
-
-### How to run (agent workflow)
-
-```bash
-# 1. Human starts the app (local or TEST)
-./scripts/start.sh                # local, 10k docs
-./scripts/start.sh --use-TEST    # real, 1.3M docs
-
-# 2. Agent runs baseline
-npx playwright test --config playwright.experiments.config.ts --reporter=list
-
-# 3. Agent modifies a knob (e.g. overscan in ImageTable.tsx)
-# 4. Vite HMR reloads
-# 5. Agent sets env var and runs again
-EXP_OVERSCAN_TABLE=8 npx playwright test --config playwright.experiments.config.ts -g "E1" --reporter=list
-
-# 6. Agent reverts the source change
-# 7. Agent compares JSON files and writes to experiments-log.md
-```
-
-### What each experiment measures
-
-| Experiment | Scenario | Key metrics |
-|---|---|---|
-| **E1** | Table scroll — slow/fast/turbo | flashes, severe jank, maxFrame, domChurn, scroll velocity |
-| **E2** | Grid scroll — slow/fast/turbo | flashes, severe jank, maxFrame, domChurn, scroll velocity |
-| **E3** | Density switch baseline (seek + toggle 4×) | CLS, flashes, severe jank, extend counts |
-| **E4** | Image detail traversal — slow/moderate/fast/rapid | traversal latency, prefetch timing, extend counts |
-| **E5** | Fullscreen traversal — slow/moderate/fast/rapid | traversal latency, prefetch timing |
-| **E6** | Smooth autoscroll — brisk/fast/turbo | flashes, jank, CLS, scroll velocity |
-
-### Every result records
-
-- Git commit hash + dirty flag (what code was running)
-- ES source + total (local 10k vs TEST 1.3M)
-- Knob values under test
-- Full perf snapshot (CLS, LoAF, jank, DOM, scroll velocity, flashes, network)
-- Store state (buffer offset, extend/evict counts)
-
-### Experiment catalogue
-
-| ID | Scenario | Status |
-|---|---|---|
-| E1 | Table scroll — slow/fast/turbo | Implemented |
-| E2 | Grid scroll — slow/fast/turbo | Implemented |
-| E3 | Density switch baseline | Implemented |
-| E4 | Image detail traversal — slow/moderate/fast/rapid | Implemented |
-| E5 | Fullscreen traversal — slow/moderate/fast/rapid | Implemented |
-| E6 | Smooth autoscroll — brisk/fast/turbo | Implemented |
+Tuning comparisons need matched datasource, corpus, viewport, cache/delivery conditions
+and achieved movement. Record the running revision and effective knob values. Evaluate
+rendering, delivery, resource work and position continuity together; a better request
+count or frame percentile alone does not establish a better browsing experience.
 

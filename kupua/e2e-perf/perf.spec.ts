@@ -42,6 +42,7 @@ import {
 } from "@/constants/layout";
 import { classifyImageLookup, deriveNavigationTiming, landingElapsedMs, sanitizeLayoutShift } from "./p14-metrics.mjs";
 import { installNetworkProbe } from "./network-probe.mjs";
+import { prepareReverseGridScroll, installReverseGridDirectionProbe, readFocusedViewportPosition } from "./fixed-grid-probes.mjs";
 
 // Pin to explicit focus mode — P4a/b, P6, P12–P15 use focusNthItem.
 test.beforeEach(async ({ kupua }) => {
@@ -544,48 +545,9 @@ interface FocusPos {
  * visibility flag, and buffer/scroll metadata.
  */
 async function getFocusedViewportPos(kupua: any): Promise<FocusPos | null> {
-  return kupua.page.evaluate(
-    ({ GRID_ROW, GRID_COLS, TABLE_ROW }: { GRID_ROW: number; GRID_COLS: number; TABLE_ROW: number }) => {
-      const store = (window as any).__kupua_store__;
-      if (!store) return null;
-      const s = store.getState();
-      const fid = s.focusedImageId;
-      if (!fid) return null;
-      const gIdx = s.imagePositions.get(fid);
-      if (gIdx == null) return null;
-      const localIdx = gIdx - s.bufferOffset;
-      if (localIdx < 0 || localIdx >= s.results.length) return null;
-
-      const grid = document.querySelector('[aria-label="Image results grid"]');
-      const table = document.querySelector('[aria-label="Image results table"]');
-      const el = (grid ?? table) as HTMLElement;
-      if (!el) return null;
-
-      const isGrid = !!grid;
-      let rowTop: number;
-      if (isGrid) {
-        const cols = Math.max(1, Math.floor(el.clientWidth / GRID_COLS));
-        rowTop = Math.floor(localIdx / cols) * GRID_ROW;
-      } else {
-        rowTop = localIdx * TABLE_ROW;
-      }
-
-      const viewportY = rowTop - el.scrollTop;
-      return {
-        viewportY: Math.round(viewportY),
-        viewportRatio: Math.round((viewportY / el.clientHeight) * 1000) / 1000,
-        visible: viewportY >= -GRID_ROW && viewportY <= el.clientHeight + GRID_ROW,
-        view: isGrid ? "grid" : "table",
-        scrollTop: Math.round(el.scrollTop),
-        scrollHeight: Math.round(el.scrollHeight),
-        clientHeight: Math.round(el.clientHeight),
-        localIdx,
-        bufferOffset: s.bufferOffset,
-        resultsLength: s.results.length,
-      };
-    },
-    { GRID_ROW: GRID_ROW_HEIGHT, GRID_COLS: GRID_MIN_CELL_WIDTH, TABLE_ROW: TABLE_ROW_HEIGHT },
-  );
+  return kupua.page.evaluate(readFocusedViewportPosition, {
+    GRID_ROW: GRID_ROW_HEIGHT, GRID_COLS: GRID_MIN_CELL_WIDTH, TABLE_ROW: TABLE_ROW_HEIGHT,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1933,14 +1895,12 @@ test.describe("Rendering Performance Smoke", () => {
     // extend threshold. Assert that setup itself neither starts nor commits a
     // prepend, then arm probes against the quiescent generation.
     const beforeSetup = await kupua.getStoreState();
-    const setup = await grid.evaluate((element, { threshold, rowHeight }) => {
-      const firstRow = element.querySelector(":scope > div > div");
-      const columns = firstRow?.children.length ?? 0;
-      if (columns < 1) throw new Error("P17 grid columns are unavailable");
-      const targetFlatStart = threshold + columns * 8;
-      element.scrollTop = Math.ceil(targetFlatStart / columns) * rowHeight;
-      return { columns };
-    }, { threshold: P17_BACKWARD_EXTEND_THRESHOLD, rowHeight: GRID_ROW_HEIGHT });
+    const setup = await grid.evaluate(prepareReverseGridScroll, {
+      threshold: P17_BACKWARD_EXTEND_THRESHOLD,
+      rowHeight: GRID_ROW_HEIGHT,
+      minCellWidth: GRID_MIN_CELL_WIDTH,
+      bufferOffset: beforeSetup.bufferOffset,
+    });
     await kupua.page.waitForTimeout(300);
     await kupua.page.evaluate(() => new Promise<void>((resolve) =>
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
@@ -1958,38 +1918,9 @@ test.describe("Rendering Performance Smoke", () => {
 
     const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
     try {
-      await kupua.page.evaluate(({ columns, rowHeight }) => {
-      const globalObject = window as any;
-      const store = globalObject.__kupua_store__;
-      const container = document.querySelector<HTMLElement>('[aria-label="Image results grid"]');
-      if (!store || !container) {
-        throw new Error("P17 direction-probe prerequisites are unavailable");
-      }
-      const samples: Array<{ globalPosition: number; prependGeneration: number }> = [];
-      const sample = () => {
-        const state = store.getState();
-        const localPosition = Math.floor(container.scrollTop / rowHeight) * columns;
-        const globalPosition = state.bufferOffset + localPosition;
-        const prependGeneration = state._prependGeneration;
-        const previous = samples.at(-1);
-        if (
-          previous?.globalPosition !== globalPosition
-          || previous?.prependGeneration !== prependGeneration
-        ) {
-          samples.push({ globalPosition, prependGeneration });
-        }
-      };
-      const onScroll = () => sample();
-      container.addEventListener("scroll", onScroll, { passive: true });
-      sample();
-      globalObject.__p17DirectionProbe__ = {
-        samples,
-        sample,
-        cleanup: () => {
-          container.removeEventListener("scroll", onScroll);
-        },
-      };
-      }, { columns: setup.columns, rowHeight: GRID_ROW_HEIGHT });
+      await kupua.page.evaluate(installReverseGridDirectionProbe, {
+        columns: setup.columns, rowHeight: GRID_ROW_HEIGHT,
+      });
 
       await resetPerfProbes(kupua);
 

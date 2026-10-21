@@ -173,6 +173,17 @@ describe("maintenance-safe forward velocity", () => {
     useSearchStore.setState(initial, true);
   });
 
+  it.each([false, true])("rejects stale-end forward admission after eviction with navigation intent=%s", userInitiated => {
+    const view = renderHook(() => ({ data: useDataWindow(), visible: useVisibleRange() }));
+    act(() => view.result.current.data.reportVisibleRange(160, 200, userInitiated, undefined, false, false));
+    expect(view.result.current.visible).toEqual({ start: 160, end: 200 });
+    expect(extendForward).not.toHaveBeenCalled();
+    act(() => view.result.current.data.reportVisibleRange(10, 40, false, undefined, true, true));
+    expect(extendBackward).toHaveBeenCalledOnce();
+    act(() => view.result.current.data.reportVisibleRange(160, 200, false, undefined, true, true));
+    expect(extendForward).toHaveBeenCalledOnce();
+  });
+
   it("does not turn a stopped prepend's stale and converged reports into forward demand", () => {
     const view = renderHook(() => ({ data: useDataWindow(), visible: useVisibleRange() }));
     const layout = {};

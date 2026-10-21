@@ -49,7 +49,7 @@ import { resolveKeywordSortInfo, resolveDateSortInfo, resolvePrimarySortKey } fr
 import { buildSearchKey, extractSortValues, getRetainedSortValues, retainSortValues } from "@/lib/image-offset-cache";
 import { devLog } from "@/lib/dev-log";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
-import { getLayoutGeometry, requireFixedRowGeometry, alignWindowStart, windowEvictionCount } from "@/lib/scroll-geometry-ref";
+import { getLayoutGeometry, requireFixedRowGeometry, getFixedRowCount, getItemLayoutRow, getLayoutRow } from "@/lib/scroll-geometry-ref";
 import { prepareDestinationSeek } from "@/lib/destination-seek";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
 import { addToast } from "@/stores/toast-store";
@@ -170,6 +170,7 @@ export function computeScrollTarget(input: ComputeScrollTargetInput): ComputeScr
 
   const rowH = rowHeight;
   const cols = columns;
+  const geometry = { columns: cols, rowHeight: rowH, itemOffset: actualOffset };
 
   // Math.floor, not Math.round: you're "on" a row until you've fully scrolled
   // past it. Math.round snaps to the NEXT row at 50%, which (a) causes the
@@ -179,7 +180,7 @@ export function computeScrollTarget(input: ComputeScrollTargetInput): ComputeScr
   // bypass the `seekSubRowOffset > 0` guard in effect #6.
   const currentRow = Math.floor(currentScrollTop / rowH);
   const { reverseIndex, seekSubRowOffset, atRealEnd, endTargetIndex } = prepareDestinationSeek({
-    reverseIndex: currentRow * cols,
+    reverseIndex: getLayoutRow(geometry, currentRow).firstItemIndex,
     subRowOffset: currentScrollTop - currentRow * rowH,
     backwardItemCount, bufferLength, actualOffset, total, clampedOffset,
   });
@@ -189,17 +190,17 @@ export function computeScrollTarget(input: ComputeScrollTargetInput): ComputeScr
   if (atRealEnd) {
     scrollTargetIndex = endTargetIndex ?? Math.max(0, Math.min(reverseIndex, bufferLength - 1));
   } else {
-    const totalRows = Math.ceil(bufferLength / cols);
+    const totalRows = getFixedRowCount(geometry, bufferLength);
     const newScrollHeight = totalRows * rowH;
     const maxScroll = newScrollHeight - clientHeight;
-    const reversePixelTop = Math.floor(reverseIndex / cols) * rowH;
+    const reversePixelTop = getItemLayoutRow(geometry, reverseIndex).top;
 
     if (reversePixelTop < maxScroll) {
       scrollTargetIndex = reverseIndex;
     } else {
       // Buffer-shrink: last visible row whose top pixel ≤ maxScroll.
       const lastVisibleRow = Math.max(0, Math.floor(maxScroll / rowH));
-      scrollTargetIndex = Math.min(lastVisibleRow * cols, bufferLength - 1);
+      scrollTargetIndex = Math.min(getLayoutRow(geometry, lastVisibleRow).firstItemIndex, bufferLength - 1);
     }
   }
 
@@ -1322,10 +1323,8 @@ async function _fillBufferForScrollMode(
 
 /**
  * Drives the existing extendForward()/extendBackward() actions to fill the
- * buffer to [0, total) rather than reimplementing fetch/prepend/eviction —
- * they already handle prepend compensation and column alignment correctly
- * (reimplementing that here would risk reintroducing the "swimming" bug
- * those functions were hardened against).
+ * buffer to [0, total) rather than reimplementing fetch/prepend/eviction.
+ * Their publications retain the existing view-owned compensation path.
  *
  * Stops if `total` or `_pitGeneration` change (either means a genuinely new
  * search superseded this landing — a sort-direction toggle keeps `total`
@@ -1554,19 +1553,9 @@ async function _loadBufferAroundImage(
   ]);
   if (signal.aborted) return null;
 
-  // Column-align: trim backward hits so bufferStart is a multiple of
-  // columns. Without this, the target image lands at column
-  // `backwardHits.length % columns` — an arbitrary column determined by
-  // PAGE_SIZE, not by the image's actual position. After trimming,
-  // `targetLocalIndex % columns === exactOffset % columns` — the natural
-  // column for the image's global position.
-  const rawBufferStart = Math.max(0, exactOffset - backwardResult.hits.length);
-  const { alignedOffset: bufferStart, trimCount: trim } = alignWindowStart(
-    rawBufferStart, backwardResult.hits.length,
-  );
-
-  const bwHits = trim > 0 ? backwardResult.hits.slice(trim) : backwardResult.hits;
-  const bwSortValues = trim > 0 ? backwardResult.sortValues.slice(trim) : backwardResult.sortValues;
+  const bufferStart = Math.max(0, exactOffset - backwardResult.hits.length);
+  const bwHits = backwardResult.hits;
+  const bwSortValues = backwardResult.sortValues;
 
   // Combine: backward hits + target image + forward hits
   // The target image itself is NOT in either result (search_after is exclusive).
@@ -2018,13 +2007,8 @@ async function _findAndFocusImage(
       if (exactOffset != null) {
         const excessPreceding = Math.max(0, buf.targetLocalIndex - exactOffset);
         const rawCorrectedOffset = Math.max(0, exactOffset - buf.targetLocalIndex);
-        const { alignedOffset, trimCount } = alignWindowStart(
-          rawCorrectedOffset,
-          finalResults.length - excessPreceding,
-          buf.targetLocalIndex - excessPreceding,
-        );
-        finalBufferOffset = alignedOffset;
-        const totalTrim = excessPreceding + trimCount;
+        finalBufferOffset = rawCorrectedOffset;
+        const totalTrim = excessPreceding;
         if (totalTrim > 0) {
           finalResults = finalResults.slice(totalTrim);
           finalSortValues = finalSortValues.slice(totalTrim);
@@ -2881,14 +2865,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           state.imagePositions,
         );
 
-        // Eviction: if buffer exceeds capacity, evict from start.
-        // Round eviction count UP to the nearest multiple of columns so
-        // remaining items keep their column positions — same principle as
-        // the prepend trimming in extendBackward.
         let evictedFromStart = 0;
         if (newBuffer.length > BUFFER_CAPACITY) {
-          const rawEvict = newBuffer.length - BUFFER_CAPACITY;
-          evictedFromStart = windowEvictionCount(rawEvict);
+          evictedFromStart = newBuffer.length - BUFFER_CAPACITY;
           newPositions = evictPositions(
             newPositions, newBuffer, 0, evictedFromStart,
           );
@@ -3017,36 +2996,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             : undefined,
         };
       }
-      if (result.hits.length === 0) {
-        set({ _extendBackwardInFlight: false });
-        return;
-      }
-
-      // Column-align the prepend so the resulting bufferOffset is a
-      // multiple of the CURRENT column count — not just so the prepend
-      // COUNT is a multiple of columns. Those are only the same thing if
-      // bufferOffset was already aligned to the current columns; a resize
-      // (panel toggle, window resize) that changes columns while
-      // bufferOffset > 0 breaks that precondition, and trimming to
-      // `hits.length % columns === 0` alone still leaves the resulting
-      // offset misaligned. Same trim primitive as _loadBufferAroundImage,
-      // seek(), and atomic sort-around-focus alignment — this was the "future
-      // fourth call site" those three's own comments warned about
-      // (2026-07-31 wandering M3 follow-up).
-      const rawOffset = bufferOffset - result.hits.length;
-      const { trimCount } = alignWindowStart(rawOffset, result.hits.length);
-      // Guard: only trim when the result stays non-empty after trimming.
-      // When result.hits.length <= trimCount (e.g. the 2 remaining items
-      // before the start of results in a 3-column grid), trimming would
-      // produce []. That leaves startCursor unadvanced, so every subsequent
-      // extendBackward fetches the same items and discards them — a
-      // permanent block (audit #9).
-      if (trimCount > 0 && result.hits.length > trimCount) {
-        result.hits = result.hits.slice(trimCount);
-        result.sortValues = result.sortValues.slice(trimCount);
-        devLog(`[extendBackward] trimmed ${trimCount} items to align bufferOffset (${result.hits.length + trimCount} → ${result.hits.length})`);
-      }
-
       if (result.hits.length === 0) {
         set({ _extendBackwardInFlight: false });
         return;
@@ -3977,28 +3926,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         }
         set({ loading: hasPendingSearch(get()) });
         return;
-      }
-
-      // Column-align the buffer start so images land in their natural column
-      // (globalIdx % columns). Without this, seek produces an arbitrary
-      // bufferOffset → localIdx % columns differs from the image's true
-      // column position, causing visible column shifts on history restore
-      // (which uses the column-aligned _loadBufferAroundImage path).
-      // Same trim logic as _loadBufferAroundImage. Skip (not cap) when the
-      // trim would consume the whole page — matches the original guard
-      // here, and the audit-#9 lesson in extendBackward: an edge-case rare
-      // enough to accept staying unaligned rather than risk emptying result.
-      const { trimCount: seekTrim } = alignWindowStart(actualOffset, result.hits.length);
-      if (seekTrim > 0 && seekTrim < result.hits.length) {
-        result = {
-          ...result,
-          hits: result.hits.slice(seekTrim),
-          sortValues: result.sortValues.slice(seekTrim),
-        };
-        actualOffset += seekTrim;
-        // Adjust backward item count so computeScrollTarget's headroom
-        // detection remains correct.
-        backwardItemCount = Math.max(0, backwardItemCount - seekTrim);
       }
 
       const startCursor = result.sortValues.length > 0 ? result.sortValues[0] : null;

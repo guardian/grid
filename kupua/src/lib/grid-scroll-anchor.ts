@@ -26,9 +26,12 @@
  * NOT structurally guaranteed to be identity-stable.
  */
 
+import { getItemLayoutRow, getLayoutRow } from "./scroll-geometry-ref";
+
 export interface CapturedAnchor {
-  /** Virtualizer index of the anchor image (buffer-local in normal mode, global in two-tier mode). */
+  /** Fixed-row global ordinal, or variable-layout item index. */
   imageIndex: number;
+  imageId?: string;
   /** Fraction of `clientHeight` between `scrollTop` and the anchor row's top. */
   viewportRatio: number;
 }
@@ -65,13 +68,14 @@ export function captureAnchorAtIndex(
   rowHeight: number,
   scrollTop: number,
   clientHeight: number,
+  itemOffset = 0,
 ): CapturedAnchor {
-  const rowTop = Math.floor(virtIdx / cols) * rowHeight;
+  const rowTop = getItemLayoutRow({ columns: cols, rowHeight, itemOffset }, virtIdx).top;
   // Guard against a momentarily zero-height container (e.g. mid panel-
   // transition) — division would otherwise produce a NaN/Infinity ratio
   // that later corrupts restoreAnchorScrollTop's result.
   const viewportRatio = clientHeight > 0 ? (rowTop - scrollTop) / clientHeight : 0;
-  return { imageIndex: virtIdx, viewportRatio };
+  return { imageIndex: virtIdx + itemOffset, viewportRatio };
 }
 
 /**
@@ -86,11 +90,12 @@ export function computeFallbackAnchor(
   rowHeight: number,
   scrollTop: number,
   clientHeight: number,
+  itemOffset = 0,
 ): CapturedAnchor {
   const centreScroll = scrollTop + clientHeight / 2;
   const centreRow = Math.floor(centreScroll / rowHeight);
   const viewportRatio = clientHeight > 0 ? (centreRow * rowHeight - scrollTop) / clientHeight : 0;
-  return { imageIndex: centreRow * cols, viewportRatio };
+  return { imageIndex: itemOffset + getLayoutRow({ columns: cols, rowHeight, itemOffset }, centreRow).firstItemIndex, viewportRatio };
 }
 
 /** Compute the scrollTop that restores a captured anchor after a column-count change. */
@@ -100,8 +105,9 @@ export function restoreAnchorScrollTop(
   rowHeight: number,
   clientHeight: number,
   scrollHeight: number,
+  itemOffset = 0,
 ): number {
-  const newRowTop = Math.floor(anchor.imageIndex / cols) * rowHeight;
+  const newRowTop = getItemLayoutRow({ columns: cols, rowHeight, itemOffset }, anchor.imageIndex - itemOffset).top;
   const target = newRowTop - anchor.viewportRatio * clientHeight;
   return Math.max(0, Math.min(scrollHeight - clientHeight, target));
 }

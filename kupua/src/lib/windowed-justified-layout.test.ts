@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Image } from "@/types/image";
 import { buildWindowedJustifiedLayout as build, JUSTIFIED_BLOCK_SIZE as blockSize, type LayoutWindow } from "./windowed-justified-layout";
-import { alignWindowStart, windowEvictionCount, registerScrollGeometry, requireFixedRowGeometry } from "./scroll-geometry-ref";
+import { registerScrollGeometry, requireFixedRowGeometry } from "./scroll-geometry-ref";
 import { buildJustifiedLayout } from "./justified-layout";
 import * as packing from "./justified-layout";
 
@@ -240,8 +240,6 @@ describe("bounded windowed justified geometry", () => {
     expect(prepared).toEqual({ scrollTargetIndex: 100, seekSubRowOffset: 15 });
     registerScrollGeometry({ layout: model, window: model.window });
     try {
-      expect(alignWindowStart(403, 200)).toEqual({ alignedOffset: 403, trimCount: 0 });
-      expect(windowEvictionCount(137)).toBe(137);
       expect(() => requireFixedRowGeometry({ layout: model, window: model.window })).toThrow();
     } finally { registerScrollGeometry({ columns: 1, rowHeight: 32 }); }
   });

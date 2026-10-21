@@ -1,5 +1,4 @@
 import { GRID_ROW_HEIGHT } from "@/constants/layout";
-import { alignBufferStart } from "@/lib/buffer-column-align";
 import type { Image } from "@/types/image";
 
 export interface WindowSeekInput {
@@ -30,6 +29,8 @@ export interface SpatialNavigation {
 export interface FixedRowGeometry {
   rowHeight: number;
   columns: number;
+  itemOffset?: number;
+  itemCount?: number;
 }
 
 export interface LayoutRow {
@@ -71,26 +72,25 @@ export function getScrollGeometry(): FixedRowGeometry {
   return requireFixedRowGeometry(geometry);
 }
 
-export function alignWindowStart(rawOffset: number, availableCount: number, protectUpTo = availableCount) {
-  if ("layout" in geometry && geometry.window) return { alignedOffset: rawOffset, trimCount: 0 };
-  return alignBufferStart(rawOffset, availableCount, requireFixedRowGeometry(geometry).columns, protectUpTo);
-}
-
-export function windowEvictionCount(required: number): number {
-  if ("layout" in geometry && geometry.window) return required;
-  const { columns } = requireFixedRowGeometry(geometry);
-  return Math.ceil(required / columns) * columns;
-}
-
 export function getLayoutRow(value: LayoutGeometry, rowIndex: number): LayoutRow {
   if ("layout" in value) return value.layout.getRow(rowIndex);
+  const firstItemIndex = rowIndex * value.columns - (value.itemOffset ?? 0) % value.columns;
   return { index: rowIndex, top: rowIndex * value.rowHeight, height: value.rowHeight,
-    firstItemIndex: rowIndex * value.columns, lastItemIndex: (rowIndex + 1) * value.columns - 1 };
+    firstItemIndex: Math.max(0, firstItemIndex),
+    lastItemIndex: Math.min((value.itemCount ?? Infinity) - 1, firstItemIndex + value.columns - 1) };
 }
 
 export function getItemLayoutRow(value: LayoutGeometry, itemIndex: number): LayoutRow {
   return "layout" in value ? value.layout.getItemRow(itemIndex)
-    : getLayoutRow(value, Math.floor(itemIndex / value.columns));
+    : getLayoutRow(value, Math.floor((itemIndex + (value.itemOffset ?? 0) % value.columns) / value.columns));
+}
+
+export function getFixedRowCount(value: FixedRowGeometry, itemCount: number): number {
+  return itemCount > 0 ? Math.ceil((itemCount + (value.itemOffset ?? 0) % value.columns) / value.columns) : 0;
+}
+
+export function getItemColumn(value: FixedRowGeometry, itemIndex: number): number {
+  return (itemIndex + (value.itemOffset ?? 0) % value.columns) % value.columns;
 }
 
 

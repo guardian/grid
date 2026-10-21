@@ -24,6 +24,44 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 21 October 2026 - Preserve fixed Grid rows across buffer movement (KUP-042)
+
+Anchor fixed-grid row membership to global result positions while keeping the scroll
+window bounded. A window may begin partway across a row: unloaded leading positions
+remain empty instead of shifting retained images left and later wrapping them onto
+another row. Share origin-aware row arithmetic across rendering, resize anchoring,
+keyboard navigation and destination-seek preparation; retain existing indexed and
+one-column Table coordinates without changing Justified packing.
+
+Compensate prepend and eviction by the net change in window row origin, including
+coalesced publications and shrinking extents. Capture resize anchors against the last
+committed fixed geometry and resolve their identities in the destination, so a resize
+and publication in one commit do not mix old rows with a new buffer offset. Remove
+column-driven page trimming and rounded eviction while preserving complete ordered
+pages, authoritative cursors, true-start correction and the existing capacity limit.
+
+Reject explicitly stale trailing-range reports for buffer-local forward admission,
+matching the existing backward-start validity safeguard. Keep valid programmatic
+demand, thresholds, concurrency, positional keys and thumbnail admission unchanged.
+Extend existing geometry, placement, pagination and browser tests with all-visible
+cohorts, partial rows, capacity boundaries and controlled same-commit resize delivery.
+
+### 21 October 2026 - Align performance probes with fixed-row buffer origins
+
+Correct P17's reverse-scroll direction probe and focus-position diagnostics for
+KUP-042's globally anchored rows and partial first rows. Derive P17 setup columns
+from container width and include the buffer phase in its threshold positioning.
+Retain strict direction checks: a full-page prepend must not fabricate forward
+motion, while a genuine forward row movement still fails. Extract self-contained
+browser callbacks and cover the captured failure, aligned historical behavior,
+all row phases across several column counts, cleanup and unavailable focus with
+offline serialization regressions.
+
+Update density maintenance positioning to use published layout geometry, replace
+trimmed-prepend expectations with complete fetched pages, and require exact capacity
+rather than obsolete column-rounding tolerance. Product code, workloads' completion
+boundaries and stored benchmark history remain unchanged.
+
 ### 20 October 2026 - Suppress impossible arrival intervals (KUP-040)
 
 Skip arrival-count dispatch only when the maximum upload lower bound reaches the upper

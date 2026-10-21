@@ -5,9 +5,7 @@
 > their contracts and important limits. Supporting utilities are grouped with their consumers,
 > not catalogued function by function.
 >
-> **Last source review: 8 October 2026.** Refreshed against the source inventory, implementation
-> paths and relevant existing test assertions. Code takes precedence over comments and design
-> documents. This was a documentation review, not a new test run or live-system verification.
+> Implementation and current tests are authoritative when descriptions disagree.
 > The [API build plan](../03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md)
 > owns migration sequencing and acceptance; this document is not an implementation workplan.
 
@@ -94,7 +92,7 @@ measurement mode bypasses Vite's Grid API write guard and is not the permanent i
 
 **Direct/local mode:** `ElasticsearchDataSource` retains cursor paging/PIT recovery, aggregations,
 rank/profiles, `getByIds` (1,000-ID parallel chunks), and `getIdRange` (cursor walk, cap 5,000).
-Write protection on non-local ES is unchanged. `MockDataSource` supports sparse-field/null-zone
+Non-local ES writes are blocked. `MockDataSource` supports sparse-field/null-zone
 tests; `PositionMap` (`position-map.ts`) is the lightweight cursor index for indexed seeking.
 
 ES-specific code in `dal/adapters/elasticsearch/`: CQL→ES translator, sort clause builders (universal `uploadTime` fallback). Null-zone helpers in `dal/null-zone.ts` (`detectNullZoneCursor`, `remapNullZoneSortValues`) — shared across seek, extend, fill, and getIdRange paths.
@@ -120,7 +118,7 @@ Cancellation is preserved. Counts/aggregations reject failures for their callers
 absent or unchanged data. Bulk lookup rejects the whole logical read if any chunk fails, aborting
 the rest, so a partial response cannot authorize removal of selected IDs. Explicit execution
 incompleteness is rejected by rank, keys, profiles, count, aggregations, mget and
-search-after/window with 503 ([KUP-036](../bug-backlog.md#kup-036)); individual decode omission
+search-after/window with 503; individual decode omission
 remains possible. Composed store tests cover recovery staying on API reads even when a follow-up
 read fails; this does not introduce another runtime routing mechanism.
 
@@ -136,10 +134,9 @@ standalone owner. Server/permission-aware action absence is not authorization to
 **Discovery and reserved infrastructure:** `grid-api-instance.ts` retains private session-scoped
 `ServiceDiscovery`, `initGridApi()` on search-route mount and `apiAiSearchAvailable()` for API-mode
 startup. Both await the same in-flight root read; failure leaves links unavailable without retries.
-Discovery does not load runtime client configuration. The unused `gridApi` allocation, legacy detail
-reader/suite and identity merge helper were retired; no live path was rerouted. Shared Argo helpers,
+Discovery does not load runtime client configuration. Shared Argo helpers,
 API types and the distinct auth/session/server/write-guard vocabulary remain explicitly reserved
-(see the [DAL README](../../../src/dal/grid-api/README.md)); old throw/toast comments are not policy.
+(see the [DAL README](../../../src/dal/grid-api/README.md)).
 Canonical delivery, signed-rendition renewal, downloads and editing remain separate authorized work.
 
 **Write guard:** `gridApiWriteGuard()` blocks non-GET requests unless explicitly enabled, except
@@ -151,7 +148,7 @@ path (query string allowed), never an image-ID prefix; this prevents admitting n
 Three-layer merge model:
 
 1. **ES baseline inputs** — `SOURCE_INCLUDES` in `es-config.ts` requests rights/leases/usages/labels/syndicationRights/XMP fields. Individual records may omit fields; no Grid service call is needed for these direct-mode inputs.
-2. **TS cost+validity calculation** — `calculateCost` (port of Scala `CostCalculator`), `buildValidityMap` + `deriveValid` (mirrors Scala's two-pass override model), `isImagePotentiallyGraphic` (TS port, replaces Painless script field not in `_source`), quota-store (`fetchQuotas()` at startup, graceful absence). `guardian-config.json` is a vendored config snapshot.
+2. **TS cost+validity calculation** — `calculateCost` (port of Scala `CostCalculator`), `buildValidityMap` + `deriveValid` (mirrors Scala's two-pass override model), `isImagePotentiallyGraphic`, quota-store (`fetchQuotas()` at startup, graceful absence). `guardian-config.json` is a vendored config snapshot.
 3. **API overlay** — `enrichment-store` (Zustand, no persistence) receives committed ordinary and AI search enrichment. `deriveImage(image, overlay?)` merges server fields over the baseline; direct ES supplies no overlay. Ordinary pages, AI results and standalone detail map baseline images and enrichment from their response entities. Selection bulk lookup returns baseline images without publishing enrichment.
 
 **Consuming enriched data:** `useEnrichedImage(image, ownOverlay?)` subscribes per-ID to the
@@ -327,7 +324,10 @@ the small full-buffer and large seek tiers; two-tier mode virtualizes the total 
 outside the loaded window. Eligibility depends on configured thresholds, not map readiness.
 
 Forward-extend headroom grows with EMA-smoothed scroll velocity, capped at one page; backward
-headroom stays fixed. View-owned indexed maintenance refills debounce for 200ms. User browse
+headroom stays fixed. Buffer-local admission rejects an explicitly stale trailing range for
+forward demand and an explicitly stale first row for backward demand; each edge is independent
+of navigation intent and of full-range velocity validity. Callers without that evidence retain
+base admission; indexed views use global-range admission. View-owned indexed maintenance refills debounce for 200ms. User browse
 destinations are store-owned so disposing a density view does not lose the pending destination.
 `getViewportAnchorId()` elects the image nearest the usable viewport centre from rendered DOM
 geometry only when needed for a transition, accounting for table headers. Ordinary scrolling
@@ -336,8 +336,10 @@ does not perform those anchor layout reads. `useVisibleRange` exposes the report
 ## Scroll Effects (`hooks/useScrollEffects.ts`)
 
 Owns DOM placement for reset, seek, sort/history continuity and density transitions, parameterized
-by `ScrollGeometry`. It compensates prepend/eviction in buffer-local views; indexed views replace
-entries at fixed global positions and need no such compensation. Seek placement preserves
+by `ScrollGeometry`. Fixed-row prepend/eviction shares a net row-origin delta applied to the
+pre-publication scroll position, including coalesced publications and shrinking extents.
+Indexed fixed rows replace entries at global positions and need no such compensation;
+Justified retains its separate geometry/identity compensation. Seek placement preserves
 sub-row position where applicable and accounts for buffer shrinkage and viewport clamping.
 
 Cooldowns, deferred scroll notification and generation guards prevent transient layout events
@@ -346,13 +348,17 @@ a pending browse departure and checks target identity, search/publication genera
 intent. New user input retires obsolete placement; destination placement waits for density readiness.
 Cancelling old-view maintenance must not cancel the store-owned browse destination.
 
-Shared geometry primitives live in `grid-scroll-anchor.ts`, `viewport-anchor-geometry.ts`,
-`buffer-column-align.ts` and the scroll-container/geometry refs. Timing knobs belong in
+Shared geometry primitives live in `grid-scroll-anchor.ts`, `viewport-anchor-geometry.ts`
+and the scroll-container/geometry refs. `scroll-geometry-ref.ts` supplies origin-aware fixed
+row bounds, count and item/column mapping. Data-window buffering is independent of column count.
+Timing knobs belong in
 `constants/tuning.ts`; transition policy belongs in the focus/position guide.
 
 ## List Navigation (`hooks/useListNavigation.ts`)
 
-Owns row/page/edge keyboard navigation using the current view's column count and header geometry.
+Owns row/page/edge keyboard navigation using the current view's row mapping and header geometry.
+Fixed-row paging includes partial leading and trailing rows rather than assuming local index zero
+starts a complete row. Justified continues to provide its spatial-navigation implementation.
 Without focus, keys scroll without inventing focus; with focus, they move the target and Enter
 opens it. Selection mode keeps arrows scroll-only; table Left/Right scroll horizontally.
 Native text/date inputs are excluded, while opted-in search inputs forward list-navigation keys.
@@ -513,8 +519,8 @@ into one `requestIdleCallback` (2 s scheduling timeout, `setTimeout` fallback). 
 chunk the full scan. Default-collapsed chip rendering is bounded by `MultiImageMetadata`, not by
 changing reconciliation; intentional large expansion and full recomputation can still be costly.
 Cached metadata may represent only part of the selection; a reconciled view does not imply that
-every selected image has loaded. See [KUP-035](../bug-backlog.md#kup-035) for the rendering fix
-and remaining performance qualifications.
+every selected image has loaded. Expanding all values mounts the complete chip set;
+its rendering cost grows with distinct values even when the collapsed view is bounded.
 
 ## Range Selection (`hooks/useRangeSelection.ts`)
 
@@ -624,11 +630,20 @@ the proxy horizontal scrollbar and selection-mode Left/Right scrolling remain.
 ## Grid View (`components/ImageGrid.tsx`)
 
 Owns the virtualized thumbnail layout and responsive column geometry from `constants/layout.ts`.
-A ResizeObserver captures/restores the anchor when column count changes; buffer access and scroll
-placement remain in the shared hooks. Cells use `useEnrichedImage` for cost/usage/status display,
+A ResizeObserver captures/restores the anchor when column count changes. Fixed Grid captures
+against its last committed geometry, then resolves the identity in the destination window;
+combined resize/publication has one resize placement rather than a second maintenance shift.
+Buffer access and scroll placement remain in the shared hooks. Cells use `useEnrichedImage` for cost/usage/status display,
 `image-borders.ts` for provenance styling and `graphic-image-blur.ts` for the user-controlled blur.
 Date labels follow the primary sort. Metadata pills stop propagation so searching a value does
 not also select/open its image. Browsing, selection and middle-click preview use the shared owners.
+
+Fixed row membership follows global result positions, with a bounded vertical origin in local
+windows. A partial first row uses leading layout space, not fake records or selectable cells.
+Full fetched pages and exact-capacity eviction therefore do not regroup retained images.
+Rendering and navigation use the same row/column helpers; positional React keys remain.
+The [fixed-row policy](03-scroll-architecture.md#fixed-row-window-policy) owns the all-visible
+maintenance contract, physical limits and accepted trade-off. It does not change Justified packing.
 
 Thumbnail admission follows the virtualizer's current visible row range, read after obtaining
 virtual items. A row-local React context carries eager loading for visible rows, including
@@ -638,8 +653,8 @@ lower spatial band does not change with scroll direction and mounts no additiona
 the result end. Only the small thumbnail component consumes the context;
 the memoized metadata cell does not rerender for loading-only transitions. Ordinary image,
 enrichment and animation updates still reach the cell. Provider keys retain virtual-row identity
-without adding DOM wrappers. This adds no observer, scroll state, queue or geometry scan. URLs, quality,
-dimensions and the five-row overscan are unchanged. Native lazy loading may still prefetch;
+without adding DOM wrappers. Loading hints require no observer, scroll state, queue or geometry scan.
+URL, quality and dimension selection have separate owners; overscan is five rows. Native lazy loading may still prefetch;
 changing the attribute does not cancel already-admitted work or discard completed media.
 The [admission policy and trade-offs](../scroll-horizons-thumbs-and-blocking.md#current-decision)
 remain separate from data-window refill prediction and Justified packing.
@@ -806,7 +821,7 @@ Zustand + sessionStorage persistence. `main.tsx` passes the search store's datas
 in parallel. Counts use media-api in API mode and retain the default free/deleted/replaced scope,
 not the current search or an unfiltered whole-library count. `buildSubtreeCounts` uses path-ID
 splitting; `buildColourMap` supplies badge colours. Tree absence hides the section; count failure
-leaves the tree visible without counts. Accepted ancestor/sibling overcount is unchanged.
+leaves the tree visible without counts. Counts can overcount ancestor/sibling scopes.
 
 ---
 
@@ -887,7 +902,7 @@ The Playwright performance harness sets the flag before navigation.
 
 Production call sites use `beginTraceInteraction` and `traceInteraction` to correlate the start
 and owned phases. Current boundaries include `t_store_ready`, `t_first_visible_frame` and
-`t_visual_settled`; historical `t_settled` metrics are not interchangeable with them. Read
+`t_visual_settled`; stored `t_settled` metrics have a different definition and are not interchangeable with them. Read
 `window.__perceivedTrace__` in the browser. The perf handbook owns phase meanings and measurement
 rules: `t_ack` is synchronous producer acknowledgement, while first-visible and settled are the
 browser-observed boundaries.

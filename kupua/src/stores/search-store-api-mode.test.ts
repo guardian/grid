@@ -251,7 +251,7 @@ describe.each(["direct-ES", "media-api"] as const)("KUP-034 %s centred prefix", 
   }
 
   async function expectLanding(offset: number, targetId: string) {
-    const expectedStart = Math.ceil(Math.max(0, offset - 100) / 3) * 3;
+    const expectedStart = Math.max(0, offset - 100);
     const expected = await corpus.searchAfter({ ...state().params, offset: expectedStart, length: offset - expectedStart + 101 }, null);
     expect(state().bufferOffset).toBe(expectedStart);
     expect(state().results.map(image => image?.id)).toEqual(expected.hits.map(image => image.id));
@@ -445,13 +445,13 @@ describe.each(["direct-ES", "media-api"] as const)("KUP-033 %s backward boundary
     expect(requests).toHaveLength(1);
   });
 
-  it("keeps full-buffer eviction, column alignment and focus coherent across the boundary", async () => {
+  it("keeps complete pages, full-buffer eviction and focus coherent across the boundary", async () => {
     const { initial } = await setup("-lastModified", defaultBoundary + 40, 0.2, 1000, 3);
     await state().extendBackward();
-    const expected = await expectBuffer(defaultBoundary - 159, 1000);
+    const expected = await expectBuffer(defaultBoundary - 160, 1000);
     expect(state().focusedImageId).toBe(initial.hits[50].id);
-    expect(state()._lastPrependCount).toBe(199);
-    for (const image of initial.hits.slice(-199)) expect(state().imagePositions.has(image.id)).toBe(false);
+    expect(state()._lastPrependCount).toBe(200);
+    for (const image of initial.hits.slice(-200)) expect(state().imagePositions.has(image.id)).toBe(false);
     expect(state().endCursor).toEqual(expected.sortValues.at(-1));
   });
 

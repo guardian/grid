@@ -39,7 +39,7 @@ import { isNativeInputTarget } from "@/lib/keyboard-shortcuts";
 import { useSearchStore } from "@/stores/search-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { useSelectionStore } from "@/stores/selection-store";
-import type { SpatialNavigation } from "@/lib/scroll-geometry-ref";
+import { getFixedRowCount, getLayoutRow, type SpatialNavigation } from "@/lib/scroll-geometry-ref";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -91,7 +91,7 @@ export type ListNavigationConfig = {
 
   /**
    * Convert a flat image index to the virtualizer row index for scrolling.
-   * Table: identity (flat index IS the row). Grid: Math.floor(idx / columns).
+  * Uses the view's row mapping, including partial fixed-grid rows.
    */
   flatIndexToRow: (flatIndex: number) => number;
 
@@ -103,7 +103,7 @@ export type ListNavigationConfig = {
 
   /** Seek to a global offset (for Home/End when buffer is windowed). */
   seek?: (globalOffset: number) => Promise<void>;
-} & ({ columnsPerRow: number; rowHeight: number; spatial?: undefined }
+} & ({ columnsPerRow: number; rowHeight: number; itemOffset?: number; spatial?: undefined }
   | { spatial: SpatialNavigation; columnsPerRow?: never; rowHeight?: never });
 
 // ---------------------------------------------------------------------------
@@ -257,7 +257,8 @@ export function useListNavigation(config: ListNavigationConfig): void {
     // Load more when approaching the end
     if (direction === "down") {
       const lastVisibleRow = Math.floor((el.scrollTop + el.clientHeight - headerHeight) / rowHeight) - 1;
-      const lastVisibleIdx = Math.min(count - 1, lastVisibleRow * cols);
+      const lastVisibleIdx = Math.min(count - 1, getLayoutRow({ columns: cols, rowHeight,
+        itemOffset: config.itemOffset }, lastVisibleRow).firstItemIndex);
       const bufOff = configRef.current.bufferOffset ?? 0;
       if (count - lastVisibleIdx <= 5 && bufOff + resultsLength < total) loadMore();
     }
@@ -390,11 +391,10 @@ export function useListNavigation(config: ListNavigationConfig): void {
 
     // Move focus by pageRows worth of visual rows
     const currentRow = flatIndexToRow(currentIdx);
-    const colWithinRow = currentIdx - currentRow * cols;
     const targetRow = direction === "down"
-      ? Math.min(Math.ceil(count / cols) - 1, currentRow + pageRows)
+      ? Math.min(getFixedRowCount({ columns: cols, rowHeight, itemOffset: config.itemOffset }, count) - 1, currentRow + pageRows)
       : Math.max(0, currentRow - pageRows);
-    let targetIdx = targetRow * cols + colWithinRow;
+    let targetIdx = currentIdx + (targetRow - currentRow) * cols;
     // Clamp to valid range
     targetIdx = Math.max(0, Math.min(count - 1, targetIdx));
 

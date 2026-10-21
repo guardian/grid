@@ -63,7 +63,7 @@ access to any position:
 | immich | Full ID list in memory, client-side virtual scroll | Self-hosted; typical libraries are <1M items |
 
 At 9M docs × ~40 bytes per sort key = **360MB** just for the position map.
-At the historical peak of 57M, that's 2.3GB. A position map for the full
+At 57M documents, that's 2.3GB. A position map for the full
 set is impossible. We can't random-access by offset past 100k.
 
 But most user interactions don't involve the full 9M. Filtered views, date
@@ -183,9 +183,9 @@ const twoTier =
   total <= POSITION_MAP_THRESHOLD;
 ```
 
-When `false`: every code path uses buffer-local indices. The virtualizer
-spans `results.length`. The scrubber is either a scrollbar (scroll mode)
-or a seek control (seek mode). Zero regression from the simplest case.
+When `false`: data-window indices are buffer-local and span `results.length`.
+The fixed-grid virtualizer groups these items into origin-aware rows, described
+below. The scrubber is either a scrollbar (scroll mode) or a seek control (seek mode).
 
 When `true`: indices become global, the scroll container spans all `total`
 items, and the scrubber drag directly scrolls the container.
@@ -216,6 +216,69 @@ directly), even before the position map reloads — skeletons appear at the
 correct position, and a scroll-triggered seek fills them within ~1-2s.
 `seek()` does not invalidate the position map — the data is still valid
 (same PIT, same sort order).
+
+### Fixed-Row Window Policy
+
+**Buffer boundaries do not determine Grid row membership.** At unchanged
+query/order and viewport width, maintenance preserves the positions and sizes of all
+surviving visible fixed-grid images, not just an elected anchor. Each image keeps
+the row and column implied by its global result position; moving the loaded window
+only changes the local vertical origin. Positions come from the store, including
+estimated seek landings. Geometry consumes them without performing rank lookups;
+the mapping makes no backend snapshot-consistency guarantee.
+
+For a buffer-local window, the mapping is:
+
+```text
+rowOrigin = floor(bufferOffset / columns)
+column = globalIndex % columns
+rowIndex = floor(globalIndex / columns) - rowOrigin
+rowTop = rowIndex * rowHeight
+rowCount = count === 0 ? 0 : ceil((bufferOffset % columns + count) / columns)
+```
+
+The item API remains buffer-local; the geometry descriptor supplies `itemOffset`
+and `itemCount`. Indexed Grid uses global item indices with origin zero and count
+`total`. Table is the one-column case. The shared mapping in
+[scroll-geometry-ref.ts](../../../src/lib/scroll-geometry-ref.ts) owns row bounds,
+item-to-row conversion, row count and column placement. Rendering, visible-range
+reporting, keyboard navigation, history/return placement and destination-seek
+preparation must use the same mapping.
+
+**Accepted UX trade-off:** at a temporary buffer boundary, the first loaded image
+may start partway across a row. Up to `columns - 1` leading positions remain empty;
+they are layout space, not synthetic image records, focus targets or selected items.
+Earlier arrivals fill those positions without regrouping retained images. The true
+result start has no leading gap. This exposes a loading boundary rather than hiding
+it behind a later sideways jump; it does not remove the wait for missing data.
+
+The search store retains complete fetched pages and evicts only the capacity excess.
+Seek and around-image restoration keep complete pages regardless of current columns.
+True-start correction, ordered IDs, authoritative cursor tuples and capacity limits
+apply. Offsets may have any remainder under the current column count.
+
+For unchanged fixed geometry, prepend and eviction share one compensation:
+
+```text
+delta = (floor(oldBufferOffset / columns) - floor(newBufferOffset / columns)) * rowHeight
+newScrollTop = prePublicationScrollTop + delta
+```
+
+This uses the net origin movement, not the last page count, and therefore covers
+coalesced publications and a shrinking scroll extent. Indexed views need no such
+translation. Search/seek/sort/reset ownership guards remain; physical clamping and
+eviction of the observed image are not promises of recoverable viewport space.
+
+Resize is an intentional reflow with selection, focus, then viewport anchor
+precedence. Capture uses the last committed fixed geometry, then resolves the
+surviving identity in the destination. If columns and buffer offset change in one
+commit, resize restoration owns placement instead of also applying maintenance
+compensation. Do not combine an old rendered row with a newly published origin.
+
+Justified owns dimension-dependent packing and identity-based compensation. Fixed-row
+geometry does not determine those boxes or media readiness. React keys are positional;
+page/concurrency limits, overscan, thumbnail admission and fetch horizons have separate
+owners and configuration.
 
 ---
 
@@ -251,21 +314,22 @@ sample only when the reported first/last rows match the current scroll viewport
 `useDataWindow` resets the baseline across reporting-owner, result-publication,
 buffer-offset, search-generation, total, layout or viewport-height changes. Invalid
 samples also reset it. A stationary range correction rebases the end index without
-counting it as movement. No buffer scan or additional scroll owner is introduced.
+counting it as movement. Sampling does not scan the buffer or own viewport placement.
 
 Visible-range reporting and base edge admission still run without a velocity sample.
 Prediction therefore does not depend on wheel/touch/key provenance: valid scrollbar
 and programmatic movement use the same sampling path. The separate navigation flag
-continues to own indexed destination intent. Thresholds and compensation are unchanged.
+continues to own indexed destination intent.
 
-Seek-mode backward admission separately requires the reported first row to contain
-the current viewport top when the scroll owner supplies that validity evidence.
-An explicitly stale start cannot trigger a backward refill after compensation, but
-visible-range reporting and velocity maintenance continue. Callers without this
-evidence retain base admission; indexed and forward policies are unchanged. A valid
-first row can admit backward demand even when the trailing range is not yet valid
-for velocity sampling. Prediction remains forward-only and the backward threshold
-remains 50; this guard changes neither headroom nor prepend compensation.
+Buffer-local maintenance checks each edge separately when the scroll owner supplies
+viewport-validity evidence. An explicitly stale first row cannot admit a backward
+refill; an explicitly stale last row cannot admit a forward refill. The latter avoids
+a refill chain while the virtualizer still reports the old tail after eviction
+compensation. Visible-range reporting continues, and one valid edge can admit demand
+without both edges qualifying for a velocity sample. Callers omitting this evidence
+retain base admission; indexed admission uses its global-range rules. Valid programmatic movement
+remains eligible. Prediction is still forward-only, the backward threshold remains
+50, and neither guard changes the configured fetch horizons.
 
 ### Scrolling past the buffer (indexed scroll mode)
 
@@ -419,8 +483,8 @@ cancels prior search, browsing and range work; density cancels maintenance only,
 search still publishes its requested query/order and settles its own lifecycle.
 Explicit browsing, including scrubber and keyboard-edge intent, may supersede an
 ordinary initial read; automatic viewport refill does not. If navigation invalidated the resident
-page, Home rebuilds the current-order first page before reusing it. Valid resident
-Home shortcuts and finite AI ownership remain unchanged.
+page, Home rebuilds the current-order first page before reusing it. Home can reuse
+a valid resident first page; AI searches own their finite result pool.
 Small-result fill captures the current range signal when it starts and remains
 cancellable during density restoration. Adapter cancellation outcomes are not
 normalized into successful core-list absence.
@@ -448,56 +512,37 @@ its separate fallback path; it is not covered by this saved-record ownership rul
 
 ## §4 Swimming, Timing, and Limits
 
-### The swimming problem (seek mode only)
+### Buffer Movement and Visible Stability
 
-"Swimming" is when visible images shift position during buffer prepend
-operations. It's the central engineering challenge of prepend-then-compensate
-virtual scrolling, and it only arises in **scroll mode** and **seek mode**
-where the virtualizer count equals the buffer length and items are
-inserted/removed.
-
-In **indexed scroll mode**, swimming does not exist. The virtualizer always
-spans `total` items. Prepend compensation and eviction are gated off — items
-are replaced at fixed global positions, not inserted or removed. There is no
-`scrollTop` adjustment to race against the paint.
+Fixed-grid buffer movement and variable-layout repacking are different sources of
+visible displacement. Under the [fixed-row policy](#fixed-row-window-policy),
+buffer-local Grid maintenance translates rows without regrouping images. Indexed fixed rows use global
+slots and do not need origin compensation; the data buffer still evicts normally.
+This does not rule out Justified boundary repacking or media-arrival effects in
+indexed mode. See the [separate evidence](../scroll-horizons-thumbs-and-blocking.md).
 
 When `extendBackward` prepends 200 items to the buffer (in seek or scroll mode):
 
 1. React re-renders with 400 items (200 new + 200 existing).
 2. The virtualiser grows — new rows appear above the viewport.
-3. `useLayoutEffect` adjusts `scrollTop += prependedRows × rowHeight`
-   (e.g. +8,787px for 29 grid rows × 303px).
+3. `useLayoutEffect` adjusts `scrollTop` by the change in global row origin,
+   using the pre-publication scroll position.
 4. **The contract of `useLayoutEffect`:** runs after DOM mutation, before
    browser paint. So the compensation should be invisible.
 
-**But it's not always invisible.** TanStack Virtual may need its own
-internal re-render before the correct row count is established. On fast
-GPUs with high refresh rates, the browser may composite an intermediate
-frame between React's DOM mutation and the `scrollTop` adjustment. This
-is a **fundamental tension** in prepend-then-compensate strategies. Every
-virtual scroll library that supports prepending has this problem.
+Layout compensation is not a universal paint guarantee. The virtualizer can require
+additional rendering work, and a stable DOM box does not establish decoded media or
+every compositor frame. Retained-box geometry and current-image readiness are
+separate contracts.
 
-### The fix: bidirectional seek
+### Initial Headroom: Bidirectional Seek
 
-The problem was geometric, not temporal. After seek, the user sat at the
-top of a 200-item buffer. The first `extendBackward` prepended directly
-above visible content — the compensation was *almost* invisible but not
-quite (~3 images shifting for one frame).
-
-The fix changes **where the user sits in the buffer**, not when extends
-fire. Deep seek paths now fetch backward items (halfBuffer ≈ 100) in
-addition to the forward fetch (PAGE_SIZE = 200). Combined buffer ≈ 300
-items. The user's viewport lands in the middle, with ~100 items of
-headroom above. Both `extendBackward` and `extendForward` now operate on
-off-screen content — swimming is eliminated by construction, not timing.
-
-**Settle-window content shift: 0 items** (measured on both local and real
-1.3M-doc data).
-
-This is the insight that matters: no amount of cooldown tuning can make a
-prepend-directly-above-the-viewport invisible on all hardware. But if the
-prepend happens 100 items above the viewport, it doesn't need to be
-invisible — it's literally off-screen.
+Deep seek paths fetch backward items (halfBuffer ≈ 100) in addition to the
+forward fetch (PAGE_SIZE = 200). The combined buffer contains about 300
+items. The user's viewport lands in the middle, with about 100 items of
+headroom above. This reduces immediate boundary pressure after landing; subsequent
+maintenance still needs stable geometry and compensation. Finite headroom cannot
+guarantee that delayed arrivals always occur outside the viewport.
 
 ### The timing chain (seek and scroll modes)
 
@@ -540,36 +585,25 @@ seek() called
 | `POST_EXTEND_COOLDOWN_MS` | 50ms | Spaces out consecutive backward extends |
 | `SEARCH_FETCH_COOLDOWN_MS` | 2000ms | Blocks extends during in-flight search/abort |
 
-### What didn't work (historical)
-
-| Approach | Outcome |
-|---|---|
-| Increased cooldown 700→1500ms | Still not long enough; possibly caused freezes |
-| Suppress prepend compensation | Catastrophic — visible images changed on every scroll |
-| `_postSeekBackwardSuppress` flag | Prevented swimming but also prevented scrolling up |
-| Flag + 200ms cooldown | Swimming returned at 200ms |
-| `requestAnimationFrame` instead of `useLayoutEffect` | Worse |
-| `overflow-anchor: none` | No effect |
-| Remove flag + cooldowns only (no bidirectional seek) | 99% invisible, ~1% cosmetic swim remained |
-
 ### Cost model
 
 Each seek path makes a different number of ES round-trips:
 
-| Path | Round-trips | Typical latency | When |
-|---|---|---|---|
-| Shallow from/size | 1 | 20–50ms | offset < 10k |
-| End key fast path | 1 | 50–100ms | offset + PAGE_SIZE ≥ total |
-| Position-map seek | 1–2 | 250–450ms (PROD) | 1k < total ≤ 65k, position map loaded |
-| Percentile (deep date/numeric) | 3–4 | 250–600ms | percentile + search_after + backward + countBefore |
-| Keyword composite (deep keyword) | 4–15 | 200–800ms | composite pages + search_after + countBefore ± binary search |
-| Null-zone seek | 3–4 | 250–600ms | distribution lookup + filtered search_after + backward + countBefore |
+| Path | Request shape | When |
+|---|---|---|
+| Shallow from/size | One offset page | Fetch start below `DEEP_SEEK_THRESHOLD` |
+| End key fast path | One reverse page | Requested position near the result end |
+| Position-map seek | Exact cursor lookup; forward/backward pages in parallel | Eligible total with a loaded position map |
+| Percentile (deep date/numeric) | Profile lookup, cursor page, backward context and rank | Estimated deep landing |
+| Keyword composite (deep keyword) | Composite pages, cursor page and rank; possible binary refinement | Keyword landing without an indexed cursor |
+| Null-zone seek | Distribution lookup, filtered cursor pages and rank | Landing in the missing-value tail |
 
-Position-map seek is the fastest deep-seek path: exact cursor lookup from
-the map, parallel forward+backward `search_after` via `Promise.all`, no
-`countBefore` (offset is exact from the map). Saves ~250-350ms vs sequential.
+Position-map seek uses exact cursor lookup, parallel forward/backward
+`search_after` via `Promise.all`, and no `countBefore` because the map supplies
+the offset. Delivery time depends on topology, cache state and server work.
 
-Normal scrolling (extend forward/backward) is always 1 round-trip, 10–50ms.
+Ordinary extension uses a cursor-page request; crossing a null/value boundary or
+recovering an expired PIT can require additional reads.
 Sort-around-focus is 2–4 round-trips (getById + countBefore + optional
 bidirectional search_after). When the position map is loaded, sort-around-focus
 skips `countBefore` (the map already knows the image's global offset).
@@ -578,8 +612,8 @@ query/sort share pending work and reuse the completed cache. A different request
 scope or new search cancels the old request; superseded results cannot publish or
 clear newer work. Null-zone requests have their own pending slot and include the
 missing primary field and uploadTime direction in their identity. Rejected or
-aborted work can be retried; existing primary-null caching and retryable null-zone
-absence behavior are unchanged.
+aborted work can be retried. Primary-null responses can be cached; null-zone absence
+is retryable.
 
 Deep keyword seeks bypass raw-primary percentile estimation. A cached keyword
 bucket still uses a valid uploadTime percentile scoped to that bucket; absent or
@@ -606,8 +640,7 @@ seek geometry can amplify that work, but these are static bounds and hypotheses,
 measured jank or leaks. Prefer removing demonstrated redundant work or narrowing
 invalidation before introducing caches or prefix-tree representations.
 
-Existing density campaigns are seek-regime evidence, not near-threshold indexed,
-continuous-resize, <600px target-height-transition or aggregate-heap coverage. Fixed-duration
+Seek, indexed and resident regimes have different geometry costs. Fixed-duration
 frame sampling is not action latency; geometry readiness is not decode readiness. Page
 size/capacity and held maintenance checks do not prove natural-scroll request frequency.
 If a selected refactor needs that evidence, attribute starts/completions/cancellations and
@@ -618,32 +651,29 @@ for matched-condition requirements; campaigns remain operator-approved work.
 
 ### When this architecture breaks
 
-The approach has known limits. None are hit at current scale (1.3M–9M),
-but they exist:
+The approach has limits determined by data distribution, backend capabilities and
+the selected coordinate regime:
 
-**TDigest percentile error at extremes.** ES's TDigest sketch has ~1–5%
-error, worse at the 0th and 100th percentile tails. At 9M docs, 5%
-error = 450k positions. This doesn't affect the user (we correct with
-`countBefore`), but it means the initial buffer window might be far from
-the target — requiring the backward fetch to cover more ground. If error
-exceeds halfBuffer (100 items as headroom), the user sees content from the
-wrong neighbourhood for one frame before the correction. Not observed in
-practice, but the mechanism exists. (Only applies to seek mode — indexed
-scroll mode uses exact position-map lookup, not percentile estimation.)
+**Percentile estimates at extremes.** A percentile estimate can land far from the
+requested rank, particularly with skewed distributions or near the tails.
+`countBefore` locates the returned window; it does not turn an approximate seek
+into a guarantee of the requested exact rank. Backward context provides finite
+headroom around the landing. Indexed position-map lookup uses exact stored cursors
+instead of percentile estimation.
 
 **`countBefore` on heavily skewed data.** `countBefore` is a single
 `_count` query — fast regardless of depth. But the compound boolean query
 it constructs (multi-clause range + term) can be slow if ES needs to
 evaluate it against a very large number of tied values. With 400k docs
 sharing the same credit "PA", the tiebreaker clause (`id < "abc..."`) is
-doing work. Observed: ~5–10ms per query at 1.3M. Not profiled at 9M.
+doing work. Latency depends on the distribution and backend execution, not depth alone.
 
 **Keyword composite walk at extreme cardinality.** `findKeywordSortValue`
 pages through a composite aggregation (1000 buckets per page). At 100k+
 unique values this is 100+ pages × ~50ms = 5 seconds. Current fields peak
 at ~50k unique values (credit). A field with 1M+ unique values would need
 a different strategy (e.g. terms aggregation with min_doc_count, or
-percentile on the keyword's hash). Filename sort was removed as it took ~15s.
+percentile on the keyword's hash).
 (Only applies to seek mode — indexed scroll mode bypasses composite walks
 entirely via position-map cursor lookup.)
 
@@ -674,15 +704,15 @@ Five layers protect against stale data from racing extends:
 4. Abort check before PIT-404 retry in `es-adapter.ts`.
 5. `abortExtends()` exposed on the store for imperative callers.
 
-All nine buffer-corruption regression tests (`buffer-corruption.spec.ts`)
-must pass on every change.
+The [buffer-corruption suite](../../../e2e/local/buffer-corruption.spec.ts)
+checks publication ownership across resets, query changes and pending reads.
 
 ### PIT lifecycle
 
 Point In Time (PIT) provides consistent pagination on non-local ES:
 
 - Opened on first search, reused for extends and seeks.
-- 1-minute keepalive (reduced from 5m — see `es-audit.md`).
+- 1-minute keepalive.
 - Generation counter (`_pitGeneration`): seek/extend capture the
   generation at call start; if `search()` opened a new PIT mid-flight,
   they skip the stale PIT (avoids 404 round-trip).
@@ -869,8 +899,8 @@ pixel  = round(ratio × maxThumbTop)
 
 Where `maxPosition = total − visibleCount` (native scrollbar semantics)
 and `maxThumbTop = trackHeight − thumbHeight`. The reverse mapping
-(`positionFromY`) uses the same denominator. This unification was the fix
-for the original coordinate bug.
+(`positionFromY`) uses the same denominator so pointer and displayed positions
+share one coordinate system.
 
 ### Three modes
 
@@ -1014,5 +1044,5 @@ past the last doc with a value is the **null zone**:
 | **Scroll mode** | The simplest tier (≤1,000 results). All data in buffer. Scrubber is a plain scrollbar. |
 | **Seek** | Clear buffer, refill at target global offset. Triggered by scrubber (seek mode) or scroll-triggered reposition (indexed scroll mode). |
 | **Seek mode** | The fallback tier (>65k results). Scrubber drag previews position; release triggers seek. |
-| **Swimming** | Visible content shift during prepend compensation. Only affects scroll and seek modes. |
+| **Swimming** | Unsolicited visible content displacement during maintenance or repacking. Fixed-row origin compensation applies to buffer-local windows; variable-row boundary changes are a separate mechanism. |
 | **`twoTier`** | Boolean derived from total range (`SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD`). When true, indexed scroll mode is active — indices are global, virtualizer spans `total`. Stable from frame 1 (not dependent on position map loading). |

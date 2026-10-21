@@ -2661,8 +2661,8 @@ describe("restoreAroundCursor", () => {
         const restored = state();
         expect(pages).toHaveBeenCalledTimes(ordinal === 0 ? 2 : 3);
         expect(restored.results[restored._seekTargetLocalIndex]?.id).toBe(targetId);
-        expect(restored.bufferOffset % columns).toBe(0);
-        expect(restored._seekTargetLocalIndex % columns).toBe(ordinal % columns);
+        expect(restored.bufferOffset).toBe(Math.max(0, ordinal - 100));
+        expect(restored._seekTargetLocalIndex).toBe(Math.min(100, ordinal));
         expect(restored._seekTargetGlobalIndex).toBe(ordinal);
         expect(restored._focusedImageKnownOffset).toBe(ordinal);
         expect(restored.bufferOffset + restored._seekTargetLocalIndex).toBe(ordinal);
@@ -3115,7 +3115,7 @@ describe("KUP-025 restore tuple ownership", () => {
     }
   });
 
-  it.each([3, 4, 7])("aligns a corrected target with %s columns", async (columns) => {
+  it.each([3, 4, 7])("retains the complete corrected target window with %s columns", async (columns) => {
     const geometry = getScrollGeometry();
     registerScrollGeometry({ ...geometry, columns });
     try {
@@ -3123,8 +3123,8 @@ describe("KUP-025 restore tuple ownership", () => {
       test.release();
       await actions().restoreAroundCursor("img-6100", test.saved, 123, true);
       assertLanding(test, 2);
-      expect(state().bufferOffset % columns).toBe(0);
-      expect(state()._seekTargetLocalIndex % columns).toBe(6_100 % columns);
+      expect(state().bufferOffset).toBe(6000);
+      expect(state()._seekTargetLocalIndex).toBe(100);
     } finally {
       registerScrollGeometry(geometry);
     }

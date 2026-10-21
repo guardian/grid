@@ -87,7 +87,7 @@ pending refills. The physical wall remains; this does not isolate a thumbnail-ca
    sustained-motion and reversal cases with matched initial identities, complete buffer,
    offset, visible range, viewport and headroom.
 2. Add the missing **capacity-bound prepend/eviction** case. Reach actual retention limits,
-   allowing Grid column alignment, and verify compensation through continued motion/reversal.
+   using complete pages and exact capacity, and verify compensation through continued motion/reversal.
 3. Retain indexed/fixed-layout and legitimate unmarked/programmatic-demand controls. Missing
    velocity eligibility or `userInitiated=false` is not a blanket admission veto.
 4. Decide from blocking, achieved travel, unexposed pages, post-stop starts, concurrency,
@@ -397,3 +397,33 @@ histories/evidence record; implementation history stays in the changelog.
 [im-worker]: https://github.com/immich-app/immich/blob/53618ff7496ee313d1cff7b3bcdf19c82b765cdf/web/src/service-worker/request.ts#L12
 [im-preload]: https://github.com/immich-app/immich/blob/53618ff7496ee313d1cff7b3bcdf19c82b765cdf/web/src/lib/components/asset-viewer/PreloadManager.svelte.ts#L12
 [im-loader]: https://github.com/immich-app/immich/blob/53618ff7496ee313d1cff7b3bcdf19c82b765cdf/web/src/lib/utils/adaptive-image-loader.svelte.ts#L82
+
+## Fixed-Grid Continuity
+
+KUP-042 is an independent fixed-grid repair, not selection of a B2 predictor or an
+F2 delivery policy. Grid keeps global row membership with a bounded local origin;
+partial leading layout space is accepted. Complete pages, exact-capacity eviction,
+net-origin compensation and committed-source resize capture preserve retained
+geometry. The [scroll guide](00%20Architecture%20and%20philosophy/03-scroll-architecture.md#fixed-row-window-policy)
+owns the current contract; [the backlog entry](bug-backlog.md#kup-042) records the
+reproduction and bounded validation. Justified packing and media readiness remain
+separate concerns.
+
+The four-repetition **after KUP-042 (office network)** campaign is retained in the
+[rendering](../../e2e-perf/results/audit-log.json),
+[responsiveness](../../e2e-perf/results/perceived-log.json) and
+[density](../../e2e-perf/results/density-log.json) histories. Its comparison is the
+19 October **2 eager thumbnail rows at bottom** campaign, not the earlier visible-only
+thumbnail baseline. The intervening product changes also include Justified library/
+loading changes, Browse/CQL request reuse and impossible-arrival-poll suppression.
+The fixed-grid probe correction adapts measurement coordinates; it is not a runtime
+speed improvement.
+
+The office/home network difference can affect delivery, thumbnail exposure, decode
+batching and frames, not just request duration. The date cutoff does not freeze live
+corpus edits; recorded totals differ slightly. These records support the geometry fix
+without establishing a general speedup or clean causal comparison. Fixed Grid's reverse
+and sustained frame timings and client-only density swaps are generally encouraging,
+with mixed severe-frame/blocking outcomes. Justified constrained/reversal exposure,
+Grid refresh-under-media-load penalty, the isolated Credit-seek stall and background
+position-map latency remain watch items, not attributed KUP-042 regressions.

@@ -118,15 +118,11 @@ export async function prepareDensityMaintenance(page: Page, density: Density) {
   await page.evaluate(async () => {
     const path = "/src/constants/tuning.ts";
     const { BUFFER_CAPACITY, PAGE_SIZE } = await import(path);
-    const geometryPath = "/src/lib/scroll-geometry-ref.ts";
-    const geometry = (await import(geometryPath)).getLayoutGeometry();
-    // Fixed grids evict complete rows, so a full window can be up to columns−1 below the cap.
-    const minimumFullWindow = BUFFER_CAPACITY - ("layout" in geometry ? 0 : geometry.columns - 1);
     const store = (window as any).__kupua_store__;
     const maxReads = Math.ceil(BUFFER_CAPACITY / PAGE_SIZE) + 1;
     for (let reads = 0; reads < maxReads; reads++) {
       const before = store.getState();
-      if (before.results.length >= minimumFullWindow) return;
+      if (before.results.length === BUFFER_CAPACITY) return;
       if (before._extendForwardInFlight || before._extendBackwardInFlight) {
         throw new Error("Maintenance setup overlaps an existing read");
       }
@@ -136,7 +132,7 @@ export async function prepareDensityMaintenance(page: Page, density: Density) {
         throw new Error("Maintenance setup made no admitted progress");
       }
     }
-    if (store.getState().results.length < minimumFullWindow) throw new Error("Maintenance setup did not reach aligned configured capacity");
+    if (store.getState().results.length !== BUFFER_CAPACITY) throw new Error("Maintenance setup did not reach configured capacity");
   });
   await waitForWindowIdle(page);
   await waitForPlacement(page, density, false);
@@ -146,14 +142,15 @@ export async function prepareDensityMaintenance(page: Page, density: Density) {
 export async function scrollToDensityTail(page: Page, density: Density) {
   await page.evaluate(async density => {
     const path = "/src/lib/scroll-geometry-ref.ts";
-    const geometry = (await import(path)).getLayoutGeometry();
+    const { getLayoutGeometry, getItemLayoutRow } = await import(path);
+    const geometry = getLayoutGeometry();
     const state = (window as any).__kupua_store__.getState();
     const tuningPath = "/src/constants/tuning.ts";
     const { EXTEND_THRESHOLD } = await import(tuningPath);
     const indexed = document.querySelector('[data-scrubber-mode]')?.getAttribute("data-scrubber-mode") === "indexed";
     // Enter the minimum admission band; viewport size and velocity lookahead are not guarantees.
     const index = Math.max(0, state.results.length - Math.max(1, Math.floor(EXTEND_THRESHOLD / 2))) + (indexed ? state.bufferOffset : 0);
-    const top = "layout" in geometry ? geometry.layout.getItemRow(index).top : Math.floor(index / geometry.columns) * geometry.rowHeight;
+    const top = getItemLayoutRow(geometry, index).top;
     document.querySelector(`[aria-label="Image results ${density}"]`)!.scrollTop = top;
   }, density);
 }
