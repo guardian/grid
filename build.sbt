@@ -40,7 +40,7 @@ val commonSettings = Seq(
   description := "grid",
   organization := "com.gu",
   version := "0.1",
-  scalacOptions ++= Seq("-feature", "-deprecation", "-language:higherKinds", "-Xfatal-warnings", "-release:11"),
+  scalacOptions ++= Seq("-feature", "-deprecation", "-language:higherKinds", "-Xfatal-warnings", "-release:25"),
 
   // The Java SDK uses CBOR protocol
   // We use localstack in TEST. Kinesis in localstack uses kinesislite which requires CBOR to be disabled
@@ -281,7 +281,7 @@ def playProject(projectName: String, port: Int, path: Option[String] = None): Pr
     .dependsOn(restLib)
     .settings(commonSettings ++ buildInfo ++ Seq(
       playDefaultPort := port,
-      debianPackageDependencies := Seq("java11-runtime-headless"),
+      debianPackageDependencies := Seq("java25-runtime-headless"),
       Linux / maintainer := "Guardian Developers <dig.dev.software@theguardian.com>",
       Linux / packageSummary := description.value,
       packageDescription := description.value,
