@@ -1,12 +1,10 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import { Given, Then, KAHUNA_APP_URL, expect } from '../setup.ts';
 import { findSeededImageId, hasNoUsageRights } from '../../setup/image-fixtures.ts';
-import { API_KEY, SERVICE_PORTS } from '../../setup/constants.ts';
+import { usageRightsCategories } from '../utils/api/metadata-editor.queries.ts';
 
 /** An image seeded into Elasticsearch from fixtures/elasticsearch/images.json. */
 const SEEDED_IMAGE_ID = findSeededImageId('with no usage rights category', hasNoUsageRights);
-
-const METADATA_EDITOR_URL = `http://localhost:${SERVICE_PORTS['metadata-editor']}`;
 
 const imageInformation = (page: Page) => page.getByRole('complementary', { name: 'Image information' });
 const rightsAndRestrictions = (page: Page) =>
@@ -15,19 +13,6 @@ const rightsAndRestrictions = (page: Page) =>
 async function openImage(page: Page, imageId: string): Promise<void> {
   await page.goto(`${KAHUNA_APP_URL}/images/${imageId}`);
   await expect(imageInformation(page)).toBeVisible();
-}
-
-interface UsageRightsCategory {
-  name: string;
-  value: string;
-}
-
-async function usageRightsCategories(request: APIRequestContext): Promise<UsageRightsCategory[]> {
-  const response = await request.get(`${METADATA_EDITOR_URL}/usage-rights/categories`, {
-    headers: { 'X-Gu-Media-Key': API_KEY },
-  });
-  expect(response.ok(), 'fetching the usage rights categories').toBeTruthy();
-  return ((await response.json()) as { data: UsageRightsCategory[] }).data;
 }
 
 /**

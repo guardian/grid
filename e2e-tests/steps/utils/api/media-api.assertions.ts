@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { Page, Response } from '@playwright/test';
-import { expect } from '../setup.ts';
+import { expect } from '../../setup.ts';
 
 async function getMediaApiUrl(page: Page): Promise<string> {
   const href = await page.locator('link[rel="media-api-uri"]').getAttribute('href');
