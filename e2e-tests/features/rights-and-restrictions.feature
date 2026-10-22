@@ -29,7 +29,6 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 63, 69-73, 446-472
   # Evidence: kahuna/app/views/main.scala.html lines 93
   # Evidence: kahuna/app/lib/KahunaConfig.scala lines 50
-@todo
   Scenario: The mapped category name is shown for an image with a legacy usage right
     Given the image has the "chargeable" usage rights category
     And the configuration contains pay-to-use and not chargeable
@@ -38,7 +37,6 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 63, 69-73, 446-472
   # Evidence: kahuna/app/views/main.scala.html lines 93
   # Evidence: kahuna/app/lib/KahunaConfig.scala lines 50
-@todo
   Scenario: The mapped category name and fields are shown for an image with a legacy usage rights and a suppliers field
     Given the image has the "composite" usage rights category
     And the usage rights suppliers is "Alamy, Getty Images"
@@ -49,7 +47,6 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 63, 69-73, 446-472
   # Evidence: kahuna/app/views/main.scala.html lines 93
   # Evidence: kahuna/app/lib/KahunaConfig.scala lines 50
-@todo
   Scenario: An image without a usage rights category is shown as Unknown
     Given the image has no usage rights category
     Then the rights and restrictions section shows "Unknown"
