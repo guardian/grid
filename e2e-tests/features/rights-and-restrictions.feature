@@ -24,8 +24,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # ---------------------------------------------------------------------------
 @todo
   Scenario: The category name is shown for an image with usage rights
-    Given the usage rights summary is switched off
-    And the image has the "Agency - subscription" usage rights category
+    Given the image has the "Agency - subscription" usage rights category
     Then the rights and restrictions section shows "Agency - subscription"
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 29-32
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 63, 69-73, 446-472
@@ -33,8 +32,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/app/lib/KahunaConfig.scala lines 50
 @todo
   Scenario: The mapped category name is shown for an image with a legacy usage right
-    Given the usage rights summary is switched off
-    And the image has the "chargeable" usage rights category
+    Given the image has the "chargeable" usage rights category
     And the configuration contains pay-to-use and not chargeable
     Then the rights and restrictions section shows "Pay to use"
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 29-32
@@ -54,24 +52,26 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/app/lib/KahunaConfig.scala lines 50
 @todo
   Scenario: An image without a usage rights category is shown as Unknown
-    Given the usage rights summary is switched off
-    And the image has no usage rights category
+    Given the image has no usage rights category
     Then the rights and restrictions section shows "Unknown"
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 30-32
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 462-472
 @todo
   Scenario: No usage icons are shown when the usage rights summary is switched off
-    Given the usage rights summary is switched off
-    And the image is payable
+    Given the image is payable
     Then the rights and restrictions section shows only the category
-    And no usage rights summary is shown
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 30-37
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 63
   # Evidence: kahuna/app/views/main.scala.html lines 93
 
   # ---------------------------------------------------------------------------
-  # Usage rights summary (switched on)
+  # Usage rights summary
   # ---------------------------------------------------------------------------
+@todo
+  Scenario: The usage rights summary is not shown
+  Given the usage rights summary is switched on
+  Then the usage rights summary is not shown
+  
 @todo
   Scenario: The usage rights summary shows the category name
     Given the usage rights summary is switched on
