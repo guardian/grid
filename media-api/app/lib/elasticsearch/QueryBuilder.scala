@@ -158,10 +158,13 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
         .groupBy(_.parentField)
         .map {
           case (parent: SingleField, n: List[Nested]) => {
+            val nestedPrefix = s"${parent.name}."
 
             val nested = n.foldLeft(boolQuery()) {
+              // Resolve usages@orderedBy to printUsageMetadata.orderedBy unless a field.aliases entry
+              // redirects orderedBy onto another field inside the nested usages object (e.g. sectionId).
               case (query, Nested(_, SingleField("orderedBy"), value))
-                if parent.name == "usages" && findFieldAliasConfig("orderedBy").isEmpty =>
+                if parent.name == "usages" && !findFieldAliasConfig("orderedBy").exists(_.elasticsearchPath.startsWith(nestedPrefix)) =>
                 query.withMust(makeQueryBit(Match(SingleField(usagesField("printUsageMetadata.orderedBy")), value)))
               case (query, Nested(_, f, v)) => query.withMust(makeQueryBit(Match(f, v)))
               case (query, _) => query

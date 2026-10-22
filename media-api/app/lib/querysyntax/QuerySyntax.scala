@@ -139,6 +139,8 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     "imageType"
   }
 
+  // Note: usages@orderedBy is left as SingleField("orderedBy") here and resolved in
+  // QueryBuilder.makeQuery so it can honour runtime field.aliases overrides within usages.*.
   def resolveNestedField(name: String): Field = name match {
     case "section" => MultipleField(List("printUsageMetadata.sectionCode", "printUsageMetadata.sectionName").map(usagesField))
     case "publication" => MultipleField(List("printUsageMetadata.publicationName", "printUsageMetadata.publicationCode").map(usagesField))

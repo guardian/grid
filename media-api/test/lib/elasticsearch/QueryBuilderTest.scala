@@ -259,10 +259,10 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
 
     Seq("usages.printUsageMetadata.orderedBy", "usages.digitalUsageMetadata.sectionId").foreach { path =>
       val aliasConfig = buildMediaApiConfig(Map("field.aliases" -> Seq(Map(
-          "alias" -> "orderedBy",
-          "elasticsearchPath" -> path,
-          "label" -> "Ordered by"
-        ))))
+        "alias" -> "orderedBy",
+        "elasticsearchPath" -> path,
+        "label" -> "Ordered by"
+      ))))
       val aliasedBuilder = new QueryBuilder(matchFields, () => Nil, aliasConfig)
 
       Seq("", "-").foreach { prefix =>
@@ -273,6 +273,25 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
           clauses shouldBe Seq(orderedByClause(path))
         }
       }
+    }
+
+    it("falls back to printUsageMetadata.orderedBy for usages@orderedBy when an orderedBy alias points outside usages") {
+      val rootAliasConfig = buildMediaApiConfig(Map("field.aliases" -> Seq(Map(
+        "alias" -> "orderedBy",
+        "elasticsearchPath" -> "metadata.credit",
+        "label" -> "Ordered by"
+      ))))
+      val aliasedBuilder = new QueryBuilder(matchFields, () => Nil, rootAliasConfig)
+
+      Seq("", "-").foreach { prefix =>
+        val query = aliasedBuilder.makeQuery(Parser.parse(s"${prefix}usages@orderedBy:DESK1")).asInstanceOf[BoolQuery]
+        val clauses = if (prefix.isEmpty) query.must else query.not
+
+        clauses shouldBe Seq(orderedByClause("usages.printUsageMetadata.orderedBy"))
+      }
+
+      val rootQuery = aliasedBuilder.makeQuery(Parser.parse("orderedBy:DESK1")).asInstanceOf[BoolQuery]
+      rootQuery.must shouldBe Seq(ElasticDsl.matchQuery("metadata.credit", "DESK1").operator(Operator.AND))
     }
 
     it("does not change ordinary orderedBy field resolution") {

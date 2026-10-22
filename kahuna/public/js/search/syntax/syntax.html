@@ -97,6 +97,7 @@
             </dd>
         </dl>
         <h3 class="advanced-search-help__section__sub-heading">How to filter by Usage history</h3>
+        <p>Positive usage filters match on the same usage record, while negative usage filters (<span class="advanced-search-example__input">-usages@...</span>) exclude images with any matching usage.</p>
         <dl class="advanced-search-example">
             <dt class="advanced-search-example__field">
                 <gr-chip-example gr-filter-field="usages@&gt;added" gr-example-search="2016-01-10"></gr-chip-example>
@@ -124,6 +125,30 @@
             </dt>
             <dd class="advanced-search-example__explanation">
                 Filter by print, digital or other usage.
+            </dd>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr-filter-field="usages@section" gr-example-search="G2"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Filter by print section code or name.
+            </dd>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr-filter-field="usages@publication" gr-example-search="The Guardian"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Filter by print publication code or name.
+            </dd>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr-filter-field="usages@orderedBy" gr-example-search="{{exampleEmail}}"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Filter by print usage ordered by.
             </dd>
         </dl>
          <dl class="advanced-search-example">
