@@ -10,7 +10,7 @@ permissions:
   # Required to read/write the buildx layer cache stored as a GHCR package.
   packages: write
 jobs:
-  test:
+  features-ui:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     defaults:
@@ -103,12 +103,6 @@ jobs:
         tags: grid-e2e-ci
         push: false
         load: true
-        # Share layers across branches via a single stable cache ref. Every run
-        # reads from :main; only pushes to main write it back (mode=max caches
-        # intermediate layers too, so the mise toolchain layer is reused).
-        cache-from: type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main
-        cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main,mode=max' || '' }}
-                
         # Share layers across branches via a single stable cache ref. Every run
         # reads from :main; only pushes to main write it back (mode=max caches
         # intermediate layers too, so the mise toolchain layer is reused).
