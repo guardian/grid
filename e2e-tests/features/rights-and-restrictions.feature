@@ -20,9 +20,8 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/image/index.js lines 25-28
 
   # ---------------------------------------------------------------------------
-  # Category display (usage rights summary switched off)
+  # Category display 
   # ---------------------------------------------------------------------------
-@todo
   Scenario: The category name is shown for an image with usage rights
     Given the image has the "Agency - subscription" usage rights category
     Then the rights and restrictions section shows "Agency - subscription"
@@ -71,22 +70,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   Scenario: The usage rights summary is not shown
   Given the usage rights summary is switched on
   Then the usage rights summary is not shown
-  
-@todo
-  Scenario: The usage rights summary shows the category name
-    Given the usage rights summary is switched on
-    And the image has the "Agency - subscription" usage rights category
-    Then the usage rights summary shows "Agency - subscription"
-  # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 33-37
-  # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 63, 543-557
-  # Evidence: kahuna/public/js/components/gr-usagerights-summary/gr-usagerights-summary.tsx lines 89-91, 107-110
-@todo
-  Scenario: The usage rights summary shows Unknown for an image without a category
-    Given the usage rights summary is switched on
-    And the image has no usage rights category
-    Then the usage rights summary shows "Unknown"
-  # Evidence: kahuna/public/js/components/gr-usagerights-summary/gr-usagerights-summary.tsx lines 89-91, 109
-  # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 543-557
+
 @todo
   Scenario Outline: The usage rights summary lists the usage that applies to the image
     Given the usage rights summary is switched on
