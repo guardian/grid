@@ -24,6 +24,19 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 22 October 2026 - Release unfinished thumbnails after genuine unmount
+
+Give Grid/Justified thumbnails an element-owned passive cleanup that removes the
+source only after detachment while loading remains incomplete. Leave connected
+Strict Mode replay, completed sources, eager admission, URLs and geometry unchanged.
+Keep native resource sharing and re-admission rather than introducing a request broker
+or temporary-proxy-specific policy. Table and detail retain their existing owners.
+
+Cover production lifecycle ownership in ordinary E2E journeys: reversal, shared consumers,
+completed sources, same-node source replacement and density/panel/narrow-layout reveals.
+Use mock metadata and a shared synthetic held-image server; assert requests, cancellation
+and visible recovery without importing performance probes or benchmark thresholds.
+
 ### 22 October 2026 - Preserve Table row identity while scrolling
 
 Give TanStack Table an explicit image-based row ID. Its data is a bounded sliding

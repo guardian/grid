@@ -183,7 +183,16 @@ const ThumbnailLoadingContext = createContext<"eager" | "lazy">("lazy");
 
 function GridThumbnail(props: Omit<ImgHTMLAttributes<HTMLImageElement>, "loading">) {
   const loading = useContext(ThumbnailLoadingContext);
-  return <img {...props} loading={loading} />;
+  const thumbnailRef = useRef<HTMLImageElement>(null);
+  useEffect(() => {
+    const image = thumbnailRef.current;
+    return () => {
+      if (image && !image.isConnected && !image.complete) {
+        image.removeAttribute("src");
+      }
+    };
+  }, []);
+  return <img {...props} ref={thumbnailRef} loading={loading} />;
 }
 
 interface GridCellProps {
