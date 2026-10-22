@@ -57,7 +57,7 @@ Feature: Uploading images to the Grid
       | Home |
       | View all your uploads |
     Then I should be warned that uploads are in progress and asked to confirm
-  # Evidence: kahuna/public/js/upload/controller.js lines 18-34, 47-54
+  # Evidence: kahuna/public/js/upload/controller.js lines 21-33, 52-59
 
   # ---------------------------------------------------------------------------
   # File upload prompt (prompt/prompt.html + prompt.js)
