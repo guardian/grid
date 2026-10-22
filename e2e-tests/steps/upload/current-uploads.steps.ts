@@ -4,10 +4,12 @@ import {
   failDelete,
   failIngest,
   filesToUpload,
+  gifImage,
   holdIngest,
   testImages,
   uniqueImage,
   uploadPage,
+  useDirectLoad,
 } from './setup.ts';
 const { fileName: uploadingFile } = testImages.smaller;
 
@@ -74,14 +76,33 @@ Then('I should see a preview thumbnail with the file name and size', async ({ pa
 });
 
 Then("I should see the job's status", async ({ page }) => {
-  await expect(uploadPage(page).job(uploadingFile).locator('.job-status')).toBeVisible();
+  await expect(uploadPage(page).jobStatus(uploadingFile)).toBeVisible();
 });
 
 Then('the job should be marked as an upload error with the error message', async ({ page }) => {
-  await expect(uploadPage(page).job(uploadingFile).locator('.job-status')).toContainText(
-    'upload error',
-  );
+  await expect(uploadPage(page).jobStatus(uploadingFile)).toContainText('upload error');
 });
+
+When('I upload a file that is not a JPG, PNG or TIFF', async ({ page, testContext }) => {
+  const gif = gifImage();
+  testContext.uploadedImagePath = gif.path;
+  await useDirectLoad(page);
+  await uploadPage(page).fileInput.setInputFiles(gif.path);
+});
+
+Then(
+  'the job should show an error explaining only JPG, PNG and TIFF are supported',
+  async ({ page, testContext }) => {
+    const systemName = await page.evaluate(() => window._clientConfig.systemName);
+    const capitalised = systemName.charAt(0).toUpperCase() + systemName.slice(1);
+    const status = uploadPage(page).jobStatus(path.basename(testContext.uploadedImagePath!));
+
+    await expect(status).toContainText('upload error');
+    await expect(status).toContainText(
+      `${capitalised} only supports JPG, PNG and TIFF images. Please convert the image and try again.`,
+    );
+  },
+);
 
 Then('I should be able to remove the failed job after confirming', async ({ page }) => {
   const job = uploadPage(page).job(uploadingFile);
