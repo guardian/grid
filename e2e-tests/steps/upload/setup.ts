@@ -12,6 +12,7 @@ declare global {
     _clientConfig: {
       systemName: string;
       maybeUploadLimitInBytes: number;
+      usageRightsSummary: boolean;
     };
   }
 }
