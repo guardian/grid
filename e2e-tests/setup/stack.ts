@@ -14,7 +14,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { LocalstackContainer } from '@testcontainers/localstack';
-import { GenericContainer, Network, Wait } from 'testcontainers';
+import { GenericContainer, Network, Wait, getContainerRuntimeClient } from 'testcontainers';
 import type { StartedNetwork, StartedTestContainer } from 'testcontainers';
 import {
   CONFIG_DIR,
@@ -116,6 +116,8 @@ interface StoppableStack {
 interface BootContext extends StoppableStack {
   coreStackProps?: StackProps;
   authStackProps?: StackProps;
+  /** Rejects as soon as the Grid services container dies, so readiness waits fail fast. */
+  gridCrashed?: Promise<never>;
 }
 
 /**
@@ -354,6 +356,24 @@ function gridContainer(
   });
 }
 
+/**
+ * Reject as soon as the container exits, the Docker-native equivalent of `docker wait`.
+ * The readiness tasks race this, so a dead container aborts the boot at once instead of
+ * polling healthchecks until the startup timeout elapses.
+ */
+async function rejectWhenExited(container: StartedTestContainer): Promise<never> {
+  const client = await getContainerRuntimeClient();
+  const { StatusCode } = await client.container.getById(container.getId()).wait();
+  throw new Error(
+    `Grid services container exited with status ${StatusCode} before its services became healthy.`,
+  );
+}
+
+/** Resolve with `work`, or reject early if the Grid container dies first. */
+function failFastOnCrash<T>(work: Promise<T>, crashed: Promise<never>): Promise<T> {
+  return Promise.race([work, crashed]);
+}
+
 function oidcContainer(image: GenericContainer, network: StartedNetwork): GenericContainer {
   return image
     .withNetwork(network)
@@ -542,36 +562,48 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
           {
             title: 'Start container',
             task: async (ctx) => {
-              ctx.containers.push(
-                await gridContainer(ctx.network!, ctx.configDir!, startupTimeoutMs).start(),
-              );
+              const started = await gridContainer(ctx.network!, ctx.configDir!, startupTimeoutMs).start();
+              ctx.containers.push(started);
+              // A clean boot never awaits this, so sink it to avoid an unhandled rejection
+              // when the container finally stops during teardown.
+              ctx.gridCrashed = rejectWhenExited(started);
+              ctx.gridCrashed.catch(() => {});
             },
           },
           {
             title: 'Wait for services',
-            task: (_, services) => {
+            task: (ctx, services) => {
+              const crashed = ctx.gridCrashed!;
               const readiness: ListrTask<BootContext>[] = [
                 ...Object.entries(SERVICE_PORTS).map(([service, port]): { title: string, task: ListrTaskFn<BootContext, any, any> } => ({
                   title: service,
                   task: (_, serviceTask) =>
-                    waitForHealthy(port, 'management/healthcheck', startupTimeoutMs, reportTo(serviceTask)),
+                    failFastOnCrash(
+                      waitForHealthy(port, 'management/healthcheck', startupTimeoutMs, reportTo(serviceTask)),
+                      crashed,
+                    ),
                 })),
                 {
                   // Waits for the `Images_Current` alias the app assigns on startup, so this
                   // only needs the container running, not every service healthy.
                   title: 'Seed Elasticsearch',
                   skip: () => !seed && 'seeding not requested',
-                  task: async (_, seedTask) => {
-                    await seedElasticsearch(ELASTICSEARCH_URL, startupTimeoutMs, reportTo(seedTask));
-                  },
+                  task: (_, seedTask) =>
+                    failFastOnCrash(
+                      seedElasticsearch(ELASTICSEARCH_URL, startupTimeoutMs, reportTo(seedTask)),
+                      crashed,
+                    ),
                 },
                 {
                   title: 'Seed collections',
                   skip: () => !seed && 'seeding not requested',
-                  task: async (_, seedTask) => {
+                  task: (_, seedTask) => {
                     const report = reportTo(seedTask);
-                    await waitForHealthy(SERVICE_PORTS.collections, 'management/healthcheck', startupTimeoutMs, report);
-                    await seedCollections(report);
+                    return failFastOnCrash(
+                      waitForHealthy(SERVICE_PORTS.collections, 'management/healthcheck', startupTimeoutMs, report)
+                        .then(() => seedCollections(report)),
+                      crashed,
+                    );
                   },
                 },
               ];
