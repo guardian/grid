@@ -31,6 +31,8 @@ interface TestContext {
   presetLabels?: string[];
   /** Lets a held past-uploads search through (see holdPastUploads). */
   releasePastUploads?: () => void;
+  /** The page region a `Then` found, for later steps to assert on its contents. */
+  region?: Locator;
 }
 
 export interface TestImage {
