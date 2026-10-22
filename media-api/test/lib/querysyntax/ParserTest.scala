@@ -76,10 +76,12 @@ class ParserTest extends AnyFunSpec with Matchers with BeforeAndAfter with Image
       Parser.explicitlyIncludesDeleted(Parser.run("cats \"is:deleted\"")) shouldBe false
     }
 
-    it("preserves the empty-condition fallback for an unparseable query") {
-      Parser.parse("first\tsecond") shouldBe Nil
-      Parser.run("first\tsecond") shouldBe Nil
-      Parser.run("-is:deleted\t") shouldBe Nil
+    it("distinguishes malformed input from valid empty queries") {
+      Parser.parseResult("first\tsecond") shouldBe Left("Invalid query syntax")
+      Parser.runResult("first\tsecond") shouldBe Left("Invalid query syntax")
+      Parser.runResult("-is:deleted\t") shouldBe Left("Invalid query syntax")
+      Parser.runResult("   ") shouldBe Right(standardNegations)
+      intercept[InvalidQuery](Parser.run("first\tsecond"))
     }
   }
 

@@ -846,21 +846,28 @@ class MediaApi(
       }
     }
 
-    if (searchParams.useAISearch.contains(true) && config.aiSearchEnabled) {
-      // Short-circuit polling requests (length=0) to avoid unnecessary Bedrock/KNN calls.
-      // Everything else is handled by performAiSearchAndRespond, which falls back to
-      // filter-pool counts when there's no query to rank by.
-      if (searchParams.length == 0) emptyAiSearchResponse
-      else performAiSearchAndRespond(searchParams)
-    } else {
-      SearchParams.validate(searchParams).fold(
-        // TODO: respondErrorCollection?
-        errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
-          errors.map(_.message).mkString(", "))
-        ),
-        params => performSearchAndRespond(params)
-      )
-    }
+    SearchParams.validateQuerySyntax(searchParams).fold(
+      errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
+        errors.map(_.message).mkString(", "))
+      ),
+      validQueryParams => {
+        if (validQueryParams.useAISearch.contains(true) && config.aiSearchEnabled) {
+          // Short-circuit polling requests (length=0) to avoid unnecessary Bedrock/KNN calls.
+          // Everything else is handled by performAiSearchAndRespond, which falls back to
+          // filter-pool counts when there's no query to rank by.
+          if (validQueryParams.length == 0) emptyAiSearchResponse
+          else performAiSearchAndRespond(validQueryParams)
+        } else {
+          SearchParams.validate(validQueryParams).fold(
+            // TODO: respondErrorCollection?
+            errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
+              errors.map(_.message).mkString(", "))
+            ),
+            params => performSearchAndRespond(params)
+          )
+        }
+      }
+    )
   }
 
   private def getImageResponseFromES(
