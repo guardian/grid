@@ -10,7 +10,6 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # ---------------------------------------------------------------------------
   # Section shell
   # ---------------------------------------------------------------------------
-  @todo
   Scenario: The rights and restrictions section is shown on the Metadata tab
     Then the Metadata tab is selected
     And I see a "Rights and restrictions" region
