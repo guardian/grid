@@ -1,5 +1,83 @@
 import { test, expect } from "../shared/helpers";
 
+for (const direction of [1, -1]) {
+  test(`Table retains row and thumbnail identity when scrolling ${direction > 0 ? "forward" : "backward"}`, async ({ kupua, page }) => {
+    await page.route("**/src/lib/image-urls.ts*", async route => {
+      const response = await route.fetch();
+      const source = await response.text();
+      const marker = "if (!S3_PROXY_ENABLED) return undefined;";
+      expect(source.split(marker)).toHaveLength(2);
+      await route.fulfill({ response, body: source.replace(marker,
+        'return "data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'30\'%3E%3Cpath fill=\'blue\' d=\'M0 0h40v30H0z\'/%3E%3C/svg%3E#" + image.id;')
+        .replace("S3_PROXY_ENABLED || SYNTHETIC_PREVIEW_ENABLED", "true") });
+    });
+    await kupua.startSearch("", "table");
+    await page.evaluate(async () => {
+      const configPath = "/src/dal/es-config.ts";
+      if (!(await import(configPath)).IS_LOCAL_ES) throw new Error("Table identity fixture requires local ES");
+      const path = "/src/dal/mock-data-source.ts";
+      const { MockDataSource } = await import(path);
+      const store = (window as any).__kupua_store__;
+      store.setState({ dataSource: new MockDataSource(343) });
+      await store.getState().search();
+      await store.getState().extendForward();
+      store.getState().setFocusedImageId(null);
+    });
+    await page.waitForFunction(() => {
+      const state = (window as any).__kupua_store__.getState();
+      return state.results.length === 343 && !state.loading && !state._extendForwardInFlight;
+    });
+    const region = page.getByRole("region", { name: "Image results table", exact: true });
+    await region.evaluate(element => { element.scrollTop = 1600; });
+    await page.waitForFunction(() => {
+      const region = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+      const first = region.querySelector<HTMLElement>('[role="row"][data-image-id]');
+      return Number(first?.getAttribute("aria-rowindex")) > 20;
+    });
+    const snapshot = await region.evaluateHandle(region => {
+      const bounds = region.getBoundingClientRect();
+      const rows = [...region.querySelectorAll<HTMLElement>('[role="row"][data-image-id]')];
+      const state = (window as any).__kupua_store__.getState();
+      return { region, results: state.results, offset: state.bufferOffset, scrollTop: region.scrollTop,
+        firstMountedId: rows[0].dataset.imageId,
+        cells: rows.filter(row => {
+          const rect = row.getBoundingClientRect();
+          return rect.top > bounds.top + 64 && rect.bottom < bounds.bottom - 64;
+        }).map(row => ({ row, id: row.dataset.imageId!, image: row.querySelector("img"),
+          source: row.querySelector("img")?.getAttribute("src"), index: row.getAttribute("aria-rowindex") })) };
+    });
+    try {
+      expect(await snapshot.evaluate(snapshot => snapshot.cells.length)).toBeGreaterThan(10);
+      expect(await snapshot.evaluate(snapshot => snapshot.cells.every(cell => cell.image && cell.source))).toBe(true);
+      await snapshot.evaluate((snapshot, direction) => { snapshot.region.scrollTop += direction * 32; }, direction);
+      await page.waitForFunction(snapshot => snapshot.region.querySelector<HTMLElement>('[role="row"][data-image-id]')
+        ?.dataset.imageId !== snapshot.firstMountedId, snapshot);
+      const result = await snapshot.evaluate(snapshot => {
+        const state = (window as any).__kupua_store__.getState();
+        return { sameBuffer: state.results === snapshot.results && state.bufferOffset === snapshot.offset,
+          distance: snapshot.region.scrollTop - snapshot.scrollTop,
+          cells: snapshot.cells.map(cell => {
+            const row = snapshot.region.querySelector<HTMLElement>(`[data-image-id="${CSS.escape(cell.id)}"]`);
+            const image = row?.querySelector("img");
+            return { present: Boolean(row), sameRow: row === cell.row, sameImage: image === cell.image,
+              sameSource: image?.getAttribute("src") === cell.source, sameIndex: row?.getAttribute("aria-rowindex") === cell.index };
+          }) };
+      });
+      expect(result.sameBuffer).toBe(true);
+      expect(result.distance).toBe(direction * 32);
+      for (const cell of result.cells) {
+        expect(cell.present).toBe(true);
+        expect(cell.sameSource).toBe(true);
+        expect(cell.sameIndex).toBe(true);
+        expect(cell.sameRow, "Retained image must keep its row when the visible slice shifts").toBe(true);
+        expect(cell.sameImage, "Retained image must keep its thumbnail element").toBe(true);
+      }
+    } finally {
+      await snapshot.dispose();
+    }
+  });
+}
+
 for (const { setup, capacity, direction, target, indexed } of [
   { setup: "aligned", target: 706 },
   { setup: "density", target: 707 },

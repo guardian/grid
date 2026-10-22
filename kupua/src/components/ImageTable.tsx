@@ -845,6 +845,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   const table = useReactTable({
     data: visibleImages,
     columns: visibleColumns,
+    getRowId: image => image.id,
     getCoreRowModel: getCoreRowModel(),
     columnResizeMode: "onChange",
     initialState: {

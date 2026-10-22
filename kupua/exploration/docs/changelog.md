@@ -24,6 +24,15 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 22 October 2026 - Preserve Table row identity while scrolling
+
+Give TanStack Table an explicit image-based row ID. Its data is a bounded sliding
+slice, so default slice-index IDs reassigned React row and cell keys on ordinary
+scrolling, replacing retained thumbnails and restarting their element lifetimes.
+Keep the same visible data window, overscan, image sources and navigation policy.
+Regression coverage checks forward and backward one-row shifts without publication,
+requiring retained row/thumbnail nodes, sources and logical indices to stay unchanged.
+
 ### 21 October 2026 - Preserve fixed Grid rows across buffer movement (KUP-042)
 
 Anchor fixed-grid row membership to global result positions while keeping the scroll
