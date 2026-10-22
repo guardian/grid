@@ -125,19 +125,24 @@ Then('I should be taken to a search filtered to images I uploaded', async ({ pag
 
 When(
   'I try to navigate away from the upload page via the following buttons:',
-  async ({ page }, buttons: DataTable) => {
+  async ({ page, testContext }, buttons: DataTable) => {
     for (const [label] of buttons.raw()) {
+      const dialogsBefore = testContext.dialogs.length;
       await uploadPage(page).leaveLink(label).click();
+      await expect
+        .poll(() => testContext.dialogs.length, { message: label, timeout: 5_000 })
+        .toBe(dialogsBefore + 1);
       // Dismissing the confirm answers "no", so each button leaves us here for the next one.
-      await expect(page).toHaveURL(/\/upload/);
+      await expect(page, label).toHaveURL(/\/upload/);
     }
   },
 );
 
 Then('I should be warned that uploads are in progress and asked to confirm', async ({ testContext }) => {
-  await expect
-    .poll(() => testContext.dialogs)
-    .toContain('You have uploads in progress. Are you sure you want to leave this page?');
+  expect(testContext.dialogs.length).toBeGreaterThan(0);
+  for (const message of testContext.dialogs) {
+    expect(message).toBe('You have uploads in progress. Are you sure you want to leave this page?');
+  }
 });
 
 /**

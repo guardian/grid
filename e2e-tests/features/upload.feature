@@ -50,11 +50,6 @@ Feature: Uploading images to the Grid
     Then I should be taken to a search filtered to images I uploaded
   # Evidence: kahuna/public/js/upload/view.html lines 22-23
 
-  # Currently unreachable: none of these controls reach the controller's own confirm.
-  # "Back to search" is a ui-sref, and ui-router destroys the UploadCtrl scope before
-  # broadcasting $locationChangeStart; "Home" and "View all your uploads" are plain hrefs,
-  # so the browser shows its own generic beforeunload prompt instead.
-  @todo
   Scenario: Warning before leaving the page with uploads in progress
     Given I have an upload in progress
     When I try to navigate away from the upload page via the following buttons:

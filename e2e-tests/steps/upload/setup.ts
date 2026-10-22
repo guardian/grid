@@ -154,7 +154,8 @@ export const uploadPage = (page: Page) => {
     uploadButton: (label: string) => prompt.getByRole('button').filter({ hasText: label }),
     topBarLink: (label: string) => page.getByRole('banner').getByRole('link').filter({ hasText: label }),
     /** Any control that takes you off the upload page, wherever it sits on it. */
-    leaveLink: (label: string) => page.getByRole('link').filter({ hasText: label }),
+    // "View all your uploads" is repeated in the current-uploads section while uploads run.
+    leaveLink: (label: string) => page.getByRole('link').filter({ hasText: label }).first(),
     /** A queued or in-flight upload, before it becomes an editable image. */
     job: (fileName: string) => page.getByRole('region', { name: `${fileName} upload` }),
     /** The required-metadata editor form on a finished upload, once it has become an editable image. */
