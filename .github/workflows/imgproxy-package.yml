@@ -38,54 +38,10 @@ jobs:
           else
             bash ./imgproxy/build-package.sh --unpatched
           fi
-          package=imgproxy/dist/imgproxy.deb
-          test "$(dpkg-deb --field "$package" Package)" = imgproxy
-          test "$(dpkg-deb --field "$package" Architecture)" = arm64
-          test -n "$(dpkg-deb --field "$package" Depends)"
-          dpkg-deb --field "$package" Depends | grep -Eq '(^|, )libc6(,|$)'
-          dpkg-deb --field "$package" Depends | grep -Eq '(^|, )libstdc\+\+6(,|$)'
-          control=$(mktemp -d)
-          root=$(mktemp -d)
-          dpkg-deb --control "$package" "$control"
-          dpkg-deb --extract "$package" "$root"
-          test -x "$control/postinst"
-          cmp imgproxy/imgproxy.service "$root/lib/systemd/system/imgproxy.service"
-          python3 - "$root/opt/imgproxy/share/sbom" <<'PY'
-          import json
-          import pathlib
-          import sys
-
-          sboms = sorted(pathlib.Path(sys.argv[1]).glob("*.json"))
-          if not sboms:
-              raise SystemExit("imgproxy package has no SBOMs")
-          for sbom in sboms:
-              if json.loads(sbom.read_text()).get("bomFormat") != "CycloneDX":
-                  raise SystemExit(f"invalid CycloneDX SBOM: {sbom}")
-          PY
-          test -s "$root/opt/imgproxy/share/doc/NOTICE"
+      - name: Verify package metadata, SBOM, and notices
+        run: bash ./imgproxy/verify-package.sh
       - name: Install and run on Ubuntu 26.04 arm64
-        run: |
-          docker run --rm --platform linux/arm64 \
-            --volume "$GITHUB_WORKSPACE/imgproxy/dist/imgproxy.deb:/tmp/imgproxy.deb:ro" \
-            --entrypoint bash public.ecr.aws/ubuntu/ubuntu:26.04 -ec '
-              apt-get update -qq
-              DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends /tmp/imgproxy.deb curl
-              mkdir -p /etc/grid
-              touch /etc/grid/imgproxy.env
-              su -s /bin/bash imgproxy -c "VIPS_VECTOR=167772160 /usr/bin/imgproxy" >/tmp/imgproxy.log 2>&1 &
-              server_pid=$!
-              trap "kill $server_pid 2>/dev/null || true; wait $server_pid 2>/dev/null || true" EXIT
-              ready=false
-              for attempt in $(seq 1 30); do
-                if curl --silent --fail http://127.0.0.1:8080/health >/dev/null; then
-                  ready=true
-                  break
-                fi
-                sleep 1
-              done
-              test "$ready" = true
-              curl --silent --show-error --fail http://127.0.0.1:8080/health
-            '
+        run: bash ./imgproxy/test-package-runtime.sh
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: imgproxy-deb

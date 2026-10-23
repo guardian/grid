@@ -96,28 +96,7 @@ sed -i -E "s/^Version:.*/Version: $version-$revision/" "$package_root/DEBIAN/con
 
 mkdir -p "$package_root/lib/systemd/system"
 install -m 0644 "$script_dir/imgproxy.service" "$package_root/lib/systemd/system/imgproxy.service"
-
-cat > "$package_root/DEBIAN/postinst" <<'POSTINST'
-#!/bin/bash
-set -e
-
-if ! getent group imgproxy >/dev/null; then
-  groupadd --system imgproxy
-fi
-if ! getent passwd imgproxy >/dev/null; then
-  useradd --system --gid imgproxy --no-create-home --shell /usr/sbin/nologin imgproxy
-fi
-
-if [ ! -e /etc/imgproxy.rc ] && [ ! -L /etc/imgproxy.rc ]; then
-  ln -s /opt/imgproxy/etc/imgproxy.rc /etc/imgproxy.rc
-fi
-
-if [ -d /run/systemd/system ]; then
-  systemctl daemon-reload
-  systemctl enable --now imgproxy.service
-fi
-POSTINST
-chmod 0755 "$package_root/DEBIAN/postinst"
+install -m 0755 "$script_dir/postinst" "$package_root/DEBIAN/postinst"
 
 sed -i 's/^Depends: \(.*\)$/Depends: \1, passwd, systemd/' "$package_root/DEBIAN/control"
 dpkg-deb --build --root-owner-group "$package_root" "$output_dir/imgproxy.deb" >/dev/null
@@ -130,14 +109,4 @@ if [[ "$architecture" != arm64 || "$package_version" != "$expected_version" ]]; 
   exit 1
 fi
 
-inspection="$work_dir/inspection"
-mkdir -p "$inspection/control" "$inspection/root"
-dpkg-deb --control "$output_dir/imgproxy.deb" "$inspection/control"
-dpkg-deb --extract "$output_dir/imgproxy.deb" "$inspection/root"
-test -x "$inspection/control/postinst"
-test -f "$inspection/root/lib/systemd/system/imgproxy.service"
-cmp "$script_dir/imgproxy.service" "$inspection/root/lib/systemd/system/imgproxy.service"
-test -n "$(find "$inspection/root/opt/imgproxy/share/sbom" -type f -print -quit)"
-test -s "$inspection/root/opt/imgproxy/share/doc/NOTICE"
-
-echo "Created $output_dir/imgproxy.deb ($architecture, $package_version)"
+bash "$script_dir/verify-package.sh" "$output_dir/imgproxy.deb" "$expected_version"
