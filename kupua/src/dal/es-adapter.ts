@@ -30,7 +30,7 @@ import type {
   CountWithTickersResult,
   ImageByIdResult,
 } from "./types";
-import { parseCql } from "./adapters/elasticsearch/cql";
+import { parseCql, parseCqlWithDefaults } from "./adapters/elasticsearch/cql";
 import type { PositionMap } from "./position-map";
 import { POSITION_MAP_CHUNK_SIZE } from "./position-map";
 import { MAX_RESULT_WINDOW, RANGE_CHUNK_SIZE } from "@/constants/tuning";
@@ -472,36 +472,12 @@ function normalizeDateBound(value: string): string {
 }
 
 function buildQuery(params: SearchParams): Record<string, unknown> {
-  const must: Record<string, unknown>[] = [];
-  const mustNot: Record<string, unknown>[] = [];
+  const { must, mustNot } = parseCqlWithDefaults(params.query ?? "");
   const filter: Record<string, unknown>[] = [];
 
-  const queryStr = params.query ?? "";
-
-  // Parse CQL query string into structured ES clauses
-  if (queryStr) {
-    const cql = parseCql(queryStr);
-    must.push(...cql.must);
-    mustNot.push(...cql.mustNot);
-  }
-
-  // Suppress soft-deleted images by default — mirrors Kahuna's Parser.scala behaviour
-  // (appends -is:deleted to every query string). Applied at query-assembly here rather
-  // than as string injection so the user's raw CQL flows into parseCql unmodified.
-  // Exception: query contains "is:deleted" — user opted in to see deleted images.
   // Note: Kahuna gates `is:deleted` results behind a per-user `canViewDeletedImages`
   // permission check (uploadedBy match). Kupua has no auth context — all authenticated
   // users can see all deleted images. See deviations.md §26.
-  if (!queryStr.includes("is:deleted")) {
-    mustNot.push({ exists: { field: "softDeletedMetadata" } });
-  }
-
-  // Suppress images with "replaced" usages by default — mirrors Kahuna's
-  // Parser.scala thingsToHideByDefault: "-usages@status:replaced".
-  // User can opt in to see replaced images by typing usages@status:replaced explicitly.
-  if (!queryStr.includes("usages@status:replaced")) {
-    mustNot.push({ nested: { path: "usages", query: { term: { "usages.status": "replaced" } } } });
-  }
 
   // IDs filter (comma-separated)
   if (params.ids) {

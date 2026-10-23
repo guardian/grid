@@ -24,6 +24,26 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 23 October 2026 - Align client query composition with upstream admission
+
+API reads now forward original CQL instead of appending substring-selected defaults.
+Missing client queries are explicitly sent as empty q across POST reads and explicit
+AI GET, retaining server default ownership without changing legacy omitted-q behavior.
+Update existing recorded request bodies and exact suggestion, startup, store and scroll
+assertions; retain filter, sort, cancellation and failure contracts.
+
+Direct Elasticsearch derives default intent while parsing the original query once.
+Keep predicate-only parsing default-free for tickers, preserve positive same-record
+usage correlation, and make every negative usage condition an independent exclusion.
+Resolve print sections through code/name leaves and honor orderedBy aliases inside
+usages while retaining the canonical fallback for unrelated aliases.
+
+Regression coverage distinguishes literal text from intent, retains positive predicates,
+checks combined positive/negative usages and pins alias precedence. Local Elasticsearch
+fixture replays cover membership, totals and API positional composition. Single-quoted
+values remain a documented direct-parser divergence; no grammar rewrite, server
+authorization change or rights/category/cost correction is included.
+
 ### 23 October 2026 - Align additional backend admission with upstream query semantics
 
 Use media-api's shared `Parser.runResult` in the POST search-parameter decoder instead

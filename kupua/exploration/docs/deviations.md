@@ -633,17 +633,17 @@ with the proper metadata flag set at ingest time.
 ### 26. Direct-ES `is:deleted` searches lack per-user uploader scoping
 
 **What:** Direct-ES requests have no current-user permission context, so deleted searches
-are not restricted to the current uploader. This also matters for the remaining direct-ES
-companions in hybrid mode; it is not resolved merely by fixing the D3 page endpoint.
+are not restricted to the current uploader. API mode constructs no direct-ES datasource;
+this limitation belongs to the separately selected direct mode.
 
-**Server behavior:** Legacy GET's existing exact-query authorization is unchanged.
-D3 now recognizes positive parsed deleted intent, including compound, case-insensitive and
-quoted forms, and applies the existing permission/uploader rule before both hits and totals.
+**Server behavior:** Main's ordinary/AI GET and the additional POST reads share parsed
+deleted-intent admission, including compound, case-insensitive and
+quoted forms, and apply the existing permission/uploader rule before both hits and totals.
 Ordinary users are scoped to images they uploaded, not images they personally deleted.
 
 **Trade-off:** Transitional direct-ES development remains an accepted prototype mode,
 not a production authorization guarantee. Eventual API-only deployment must cover the
-remaining companion operations; this amendment does not claim whole-hybrid permission parity.
+authenticated operations; direct-mode query alignment does not provide permission parity.
 
 ### 27. `auth.async(parse.json)` body-parser combinator in `MediaApi.scala`
 
@@ -2017,23 +2017,22 @@ from library defaults. The latch bug is unfixed; we accept it.
 Reference: `ImageGrid.tsx` (scroll container className), commit
 `a4fa028e6`-amends lineage.
 
-### 31. `usages@status:replaced` hidden by default — mirrors Kahuna `Parser.scala`
+### 31. Parsed default hiding and direct-mode grammar limits
 
-Kahuna's `Parser.scala` appends `-usages@status:replaced` to every search
-query in `thingsToHideByDefault`, hiding images whose usage status is
-`"replaced"` (they were superseded by a newer version).  Kupua replicates
-this in `buildQuery` (`es-adapter.ts`) by unconditionally pushing a
-`mustNot` nested clause unless the query already contains
-`usages@status:replaced` explicitly.
+API mode forwards original q and lets media-api's parser add deleted/replaced
+defaults. Direct mode parses once, derives intent from actual fields before grouping,
+and adds only unmentioned defaults. Deleted intent is case-insensitive; replaced status
+retains the server's case-sensitive check. Negative usage clauses independently exclude
+images, while positive usage clauses retain same-record correlation.
 
-The opt-in check uses a substring match on the raw query string, identical
-to how Kahuna's `-is:deleted` suppression works and how kupua implements
-the deleted-image suppression.
+**Intentional retained difference:** direct mode uses the editor's `@guardian/cql`
+grammar, which treats single quotes literally. Main's parser accepts them as quoting.
+The operator defers a parser compatibility rewrite; KUP-011 in the backlog owns that
+residual. This is not a claim of malformed-input or whole-grammar parity.
 
-**Trade-off:** every search carries one extra nested `must_not` clause.
-The cost is negligible (a fast keyword term query on a small nested array);
-no performance regression has been observed.  If the Guardian's data model
-for "replaced" images changes, this default should be revisited.
+**Trade-off:** no second parser or raw-string quote repair is introduced. Main-search
+defaults are separate from predicate-only ticker parsing, and default exclusions retain
+their existing Elasticsearch cost shape.
 
 ### 32. `searchAfter` strips dropped fields before `Image` validation (media-api)
 
@@ -2104,20 +2103,16 @@ in `ElasticSearchTest.scala`.
 Reference: `media-api/app/lib/elasticsearch/ElasticSearch.scala` (`searchAfter`),
 `kupua/src/dal/es-adapter.ts` (`_searchAfterImpl`).
 
-### 34. D3 default hiding is based on parsed intent, unlike legacy GET
+### 34. POST and legacy GET retain different omitted-query contracts
 
-**What:** `SearchParamsBody` parses and normalizes the submitted query before adding default
-deleted/replaced exclusions. Positive or negative parsed conditions suppress only their own
-default; deleted intent is case-insensitive. Absent/wrong-typed queries, parse failures and
-literal text containing a hidden token cannot remove the defaults. Quoted positive intent no
-longer receives a contradictory implicit exclusion.
+**What:** `SearchParamsBody` reuses main's `Parser.runResult` for parsed defaults and
+structured malformed-query rejection. There is no longer a POST-only composition
+algorithm. POST absent q is parsed as empty; legacy GET omitted q retains its existing
+distinct behavior. Kupua sends explicit empty q when its query is absent, including AI.
 
-**Why:** The shared parser's raw-substring default injection is not a safe authorization
-boundary. The correction is local to D3 body parsing, preserving legacy GET/parser behavior
-and the existing permissive treatment of unrelated body fields.
-
-**Trade-off:** D3 intentionally has safer query defaults than legacy GET. This is not a global
-CQL rewrite or broad request-validation policy; controller/ES fixtures pin the selected behavior.
+**Trade-off:** shared parsing does not mean identical omitted-input contracts. Existing
+GET callers keep their behavior; query-default alignment does not broaden request-field
+validation or replace server authorization.
 
 ### 35. Media-api AI search sends its text as a separate `aiQuery` (U9-A/B, 27 September 2026)
 

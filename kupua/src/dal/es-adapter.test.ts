@@ -97,6 +97,57 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("parsed automatic-default intent", () => {
+  const deleted = { exists: { field: "softDeletedMetadata" } };
+  const replaced = { nested: { path: "usages", query: { term: { "usages.status": "replaced" } } } };
+  it.each([
+    { query: undefined, deletedExclusions: 1, replacedExclusions: 1 },
+    { query: "", deletedExclusions: 1, replacedExclusions: 1 },
+    { query: '"is:deleted"', deletedExclusions: 1, replacedExclusions: 1 },
+    { query: 'description:"is:deleted"', deletedExclusions: 1, replacedExclusions: 1 },
+    { query: '-description:"usages@status:replaced"', deletedExclusions: 1, replacedExclusions: 1 },
+    { query: "is:DELETED", deletedExclusions: 0, replacedExclusions: 1 },
+    { query: 'is:"deleted"', deletedExclusions: 0, replacedExclusions: 1 },
+    { query: '-is:"DELETED"', deletedExclusions: 1, replacedExclusions: 1 },
+    { query: 'usages@status:"replaced"', deletedExclusions: 1, replacedExclusions: 0 },
+    { query: '-usages@status:"replaced"', deletedExclusions: 1, replacedExclusions: 1 },
+    { query: "usages@status:REPLACED", deletedExclusions: 1, replacedExclusions: 1 },
+    { query: "-is:deletedx -usages@status:replacedx", deletedExclusions: 1, replacedExclusions: 1 },
+    { query: "-is:deleted -usages@status:replaced", deletedExclusions: 1, replacedExclusions: 1 },
+  ])("uses parsed fields rather than substrings for $query", async ({ query, deletedExclusions, replacedExclusions }) => {
+    vi.mocked(global.fetch).mockResolvedValue(okResponse(esSearchHits()));
+    await ds.count({ query, nonFree: "true", until: "2026-01-01" });
+    const body = JSON.parse(vi.mocked(global.fetch).mock.calls[0][1]?.body as string);
+    const exclusions = body.query.bool.must_not ?? [];
+    expect(exclusions.filter((clause: unknown) => JSON.stringify(clause) === JSON.stringify(deleted))).toHaveLength(deletedExclusions);
+    expect(exclusions.filter((clause: unknown) => JSON.stringify(clause) === JSON.stringify(replaced))).toHaveLength(replacedExclusions);
+    expect(body.query.bool.filter).toContainEqual({ range: { uploadTime: { lt: "2026-01-01T00:00:00.000Z" } } });
+  });
+
+  it.each([
+    { query: 'is:"deleted"', expected: deleted },
+    { query: 'usages@status:"replaced"', expected: replaced },
+  ])("retains the positive predicate while admitting $query", async ({ query, expected }) => {
+    vi.mocked(global.fetch).mockResolvedValue(okResponse(esSearchHits()));
+    await ds.count({ query, nonFree: "true" });
+    const body = JSON.parse(vi.mocked(global.fetch).mock.calls[0][1]?.body as string);
+    expect(body.query.bool.must).toEqual([expected]);
+  });
+
+  it.each([
+    { query: "is:'deleted'", expected: { match_none: {} } },
+    { query: "usages@status:'replaced'", expected: {
+      nested: { path: "usages", query: { term: { "usages.status": "'replaced'" } } },
+    } },
+  ])("retains the documented single-quote parser divergence for $query", async ({ query, expected }) => {
+    vi.mocked(global.fetch).mockResolvedValue(okResponse(esSearchHits()));
+    await ds.count({ query, nonFree: "true" });
+    const body = JSON.parse(vi.mocked(global.fetch).mock.calls[0][1]?.body as string);
+    expect(body.query.bool.must).toEqual([expected]);
+    expect(body.query.bool.must_not).toEqual([deleted, replaced]);
+  });
+});
+
 describe("configured has-field count queries", () => {
   const originalAliases = [...gridConfig.fieldAliases];
 

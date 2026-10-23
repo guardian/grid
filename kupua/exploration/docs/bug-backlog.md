@@ -1,6 +1,6 @@
 # Bug Backlog: Kupua and Grid
 
-Documentation consolidated 20 September 2026; usage-search status updated 22 September for [Grid PR #4957](https://github.com/guardian/grid/pull/4957), awaiting human review/merge. P30 remains historical design evidence; P31's separately completed current-client restore repairs retain their existing scope.
+Documentation consolidated 20 September 2026; query status updated 23 October after merged [Grid PR #4957](https://github.com/guardian/grid/pull/4957) and local client alignment. P30 remains historical design evidence; P31's separately completed current-client restore repairs retain their existing scope.
 Derived from P01-P33, [evidence 07][evidence] and [candidate 11][candidate]. Dated browser observations
 below distinguish controlled live checks from source-only findings; later client fixes are explicitly scoped per ID. This is the
 canonical bug index, not another migration plan or an assignment of work. P28 remains the technical
@@ -17,13 +17,15 @@ synthetic direct-TEST reproduction and verification passed, but natural-workflow
 
 ## At a Glance
 
-**Current recorded status: 21 October 2026.** The 20 entries below have an open defect,
-approval/integration/review task or explicit residual; 39 additional IDs have completed bounded repairs or verification.
+**Current recorded status: 23 October 2026.** The 16 entries below have an open defect,
+approval/integration/review task or explicit residual; 43 additional IDs have completed bounded repairs or verification.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
 not a fresh remote check. The 12 October update added GRID-017; the 19 October update adds
 KUP-041's API cancellation/resource-lifetime gap. The 21 October update records KUP-042's
 fixed-grid row-membership repair and reconciles the totals with the listed dispositions.
+The 23 October update closes GRID-001/002/008/015 for merged Grid repairs; remaining
+direct-to-ES parser divergence belongs to KUP-011 and does not reopen Grid work.
 Other dispositions have not been revalidated.
 Update this overview when a detailed disposition changes.
 
@@ -54,7 +56,7 @@ The detailed entries below remain authoritative for evidence, permissions and li
 
 | ID | Topic | Current status | Migration relevance |
 | --- | --- | --- | --- |
-| [KUP-011](#kup-011) | Parsed intent versus automatic defaults | Open; PR #4957 merged, backend admission integrated locally; client mapper/direct-ES alignment outstanding | Composed query-meaning alignment |
+| [KUP-011](#kup-011) | Parsed intent versus automatic defaults | Defaults aligned locally in both modes; open direct-to-ES grammar divergence | Remaining cross-mode syntax scope |
 | [KUP-037](#kup-037) | Collection badges silently use the free-only default scope | Open; source and recorded API body confirm both modes agree | Independent count/label correctness; not an M2a routing gate |
 | [KUP-041](#kup-041) | API cancellation does not reach outgoing Elasticsearch reads | Open; cancellation handle is not retained, backend work observed after browser cancellation | Independent resource-lifetime follow-up; not a proven PP3 cause or migration gate |
 
@@ -65,13 +67,15 @@ KUP-011/037 have no closure evidence from continuity work and remain separately 
 KUP-035 is DONE for default-collapsed chip rendering; intentional large expansion remains
 an accepted cost, not an open repair requirement.
 
+Separate main-compatibility follow-ups remain: configured `pay-to-use` / `pr-and-third-party`
+labels and legacy-category expansion in Kupua, plus its vendored Getty chargeable-source
+configuration. These are not query-alignment gates or permission to reopen deferred
+rights/display work; broader implementation and deployment validation require separate scope.
+
 ### Open Grid Work
 
 | ID | Topic | Current status | Migration relevance |
 | --- | --- | --- | --- |
-| [GRID-001](#grid-001) | Usage exclusions weaken one another | PR #4957 locally validated; human review/merge and prototype integration pending | Prerequisite: S2 shared membership |
-| [GRID-008](#grid-008) | Print usage field resolution | PR #4957 locally validated; human review/merge and prototype integration pending | Prerequisite: S2 mapped-field support |
-| [GRID-002](#grid-002) | Legacy deleted-read admission | Human/private assessment pending; source-only | Independent legacy GET issue; reassess if that admission is reused |
 | [GRID-003](#grid-003) | Unknown syndication-status decoding | Parked; source-only | Independent; unsafe decoding must not be inherited by a new slice |
 | [GRID-004](#grid-004) | Failed SQS entries counted as sent | Parked; source-only | Independent producer reliability |
 | [GRID-005](#grid-005) | Zero-width narrow-image resize | Parked; source-only | Independent image-processing robustness |
@@ -83,12 +87,11 @@ an accepted cost, not an open repair requirement.
 | [GRID-012](#grid-012) | Premature soft-delete acknowledgement | Open; source-only | Independent Grid handoff; useful future-editing contract |
 | [GRID-013](#grid-013) | Unawaited Thrall syndication updates | Open; source-only | Independent Grid consumer reliability |
 | [GRID-014](#grid-014) | `GET /images` ignores the rights-acquired filter | Open; legacy GET confirmed, U9-A explicit AI deliberately inherits it | Independent Grid fix; new POST endpoints already honor the filter |
-| [GRID-015](#grid-015) | AI search skips deleted-search admission | Open; source-only, confirmed by two U9-A reviews; private triage | Independent Grid authorization fix; blocks no local unit, must be assessed before deployment beyond TEST |
 | [GRID-016](#grid-016) | Search results use a weaker syndication visibility rule than single-image reads | Open; source-only (U9-A cold review); private triage | Independent Grid data-exposure fix; same deployment caveat as GRID-015 |
 | [GRID-017](#grid-017) | Kahuna startup probes before the effective default scope settles | Open; recorded local browser evidence and source assessment | Independent frontend request efficiency; not a Kupua migration gate |
 
 <details>
-<summary>Completed bounded repairs and verification: 38 other IDs</summary>
+<summary>Completed bounded repairs and verification: 42 other IDs</summary>
 
 | Group | Completed IDs |
 | --- | --- |
@@ -108,6 +111,8 @@ an accepted cost, not an open repair requirement.
 | Search discovery versus density/keyboard browsing, covered by ledger B8/L37/B17 | [KUP-038](#kup-038) |
 | Startup defaults resolved before search admission | [KUP-039](#kup-039) |
 | Impossible upload-arrival intervals suppressed | [KUP-040](#kup-040) |
+| Grid independent usage exclusions and print-field resolution | [GRID-001](#grid-001), [GRID-008](#grid-008) |
+| Grid ordinary/AI deleted-search admission | [GRID-002](#grid-002), [GRID-015](#grid-015) |
 
 DONE refers to the repaired or verified scope, not every adjacent behavior or future API acceptance.
 In particular, no-saved density fallback and wider native-fullscreen timing remain uncertified,
@@ -165,7 +170,7 @@ not automatically known bugs. S1 normalization is complete and is not one of the
 
 | Slice / claimed behavior | Canonical prerequisite | Resolution boundary |
 | --- | --- | --- |
-| S2 admitted query/default composition | [KUP-011](#kup-011), [GRID-001](#grid-001), [GRID-008](#grid-008) | Before consumer activation, join D3 and new reads on the same admitted meaning and known mapped code fields; inactive server work is distinct. |
+| S2 admitted query/default composition | [KUP-011](#kup-011); completed [GRID-001](#grid-001), [GRID-008](#grid-008) | Grid repairs and supported client-query alignment are implemented locally; preserve common read scope and mapped fields. Remaining direct-parser syntax scope belongs to KUP-011, not an open Grid gate. |
 | Migrated restore consumer using S3a/S5, and S10 restore acceptance | [KUP-024](#kup-024), [KUP-025](#kup-025) | Current-client repairs DONE; preserve retained-total placement and selected-tuple composition when connecting new APIs. Migrated acceptance remains open, not a gate on standalone rank/window methods. |
 | S3b live range selection | [KUP-002](#kup-002), [KUP-003](#kup-003) | Current-client ownership and bounded unknown-order retry are DONE; migrated collector acceptance remains open. |
 | S4 complete-or-absent map | [KUP-009](#kup-009) | Current-client explicit-incompleteness discard is DONE; migrated execution contract and acceptance remain open, not universal snapshots. |
@@ -285,15 +290,16 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Commit:** `0efb6e225ea62a5bc33c7fdf9cd92726ccda7196` (KUP-009 only).
 
 #### KUP-011
-**Raw substring defaults do not follow parsed query intent**
+**Parsed query defaults and remaining direct-to-ES grammar divergence**
 - **Component / responsibility:** direct Kupua query defaults, D3 request mapper and analogous legacy Grid Parser default construction; one cross-component entry. Human owner-to-confirm. Visibility-sensitive forms warrant private maintainer/security triage before expanded public detail.
 - **Trigger:** supported quoted/case-varied positive intent, or ordinary literal text containing a special query substring.
-- **Expected / actual:** automatic defaults should follow actual parsed intent. Raw substring checks can add contradictory exclusions or omit an intended default. This affects both current Kupua paths; bare POST decoder tests do not establish the composed mapper path.
+- **Expected / historical defect:** automatic defaults should follow actual parsed intent. Raw substring checks added contradictory exclusions or omitted intended defaults. API mode now forwards original q (absent becomes empty); direct mode derives intent from its parsed fields before grouping, without reparsing. Predicate-only ticker parsing remains default-free.
 - **Evidence / reproduction:** [direct defaults](../../src/dal/es-adapter.ts#L470), [mapper](../../src/dal/grid-api-search-adapter.ts#L115), [P28 Q2/Q4][p28], E047. **20 September synthetic direct-builder reproduction in Kupua:** non-sensitive replaced-intent and literal-text cases produced wrong predicates at a capturing transport boundary. [Evidence](bug-reproduction-evidence.md#kup-011). A later one-hit live D3 read found no replaced witness, leaving that comparison inconclusive; no deleted/visibility probe or mounted result claim.
-- **Current status, 23 October:** [PR #4957](https://github.com/guardian/grid/pull/4957) is merged, including parsed deleted/replaced intent and malformed-query rejection. Local backend POST admission now reuses upstream parsing and deleted-scope helpers. Kupua's mapper/direct defaults remain unchanged; backend acceptance does not close the composed-client issue. [Earlier investigation](grid-usage-search-investigation.md) records the narrower pre-review scope, not the final merged contract.
+- **Current status, 23 October:** [PR #4957](https://github.com/guardian/grid/pull/4957) is merged. API mapper and direct-default repairs are implemented locally, with failing-first transport regressions and synthetic local-ES membership checks. Actual API bodies were replayed across search/window/rank/profile/keys/count/aggregation reads. [Earlier investigation](grid-usage-search-investigation.md) records pre-merge evidence, not the current contract.
+- **Remaining direct-to-ES divergence (operator accepted):** `@guardian/cql` treats single quotes as literal value characters, unlike media-api's parser. For example, `usages@status:'replaced'` differs from its double-quoted form in direct mode. Preserve the existing parser/editor grammar for now; [adapter regressions](../../src/dal/es-adapter.test.ts) pin this limitation. API forwarding is not a promise of whole-editor or whole-grammar parity, and direct malformed-input handling has not been aligned with the server's structured 422 rejection.
 - **Smallest test:** after the Grid merge, pair actual mapper bodies with the accepted D3 intent/membership/total contract, retaining separate authorization controls. The Grid-only tests are not execution credit for this composed prototype path; do not expand visibility-sensitive examples here.
-- **Dependency / resolution:** before **S2's shared browse consumer activates**, D3 first page/continuations and selected new reads need the same agreed admitted meaning (P29 C1). A correct new helper alone is insufficient. Mapper-only removal does not fix direct mode; grouping is the distinct [GRID-001](#grid-001) issue. Inactive server work and unrelated direct/legacy repairs remain separate; no blanket repair approval.
-- **Disposition: OPEN.** Main's shared parser replaces the local POST default-composition logic; malformed POST q now receives a controlled 422 before ES work. The next scope is actual API-mapper composition and positional consumers; direct-ES alignment comes last. Do not credit backend-only fixtures as client-path acceptance or restore the superseded browse-only composition design.
+- **Dependency / resolution:** preserve shared admitted meaning across API first pages, continuations and positional reads. Grid's parser/admission, exclusion and field repairs are complete under GRID-001/002/008/015. This Kupua item owns the remaining direct-parser divergence; it does not reopen those Grid fixes or grant broader parser-work approval.
+- **Disposition: OPEN for remaining cross-mode syntax scope.** Substring-default insertion is removed from both adapters. Single-quote compatibility and wider grammar parity require a separate decision; direct mode's lack of per-user server authorization remains the existing prototype compromise, not a query-default guarantee.
 
 #### KUP-024
 **Restore placement uses a page total while publishing the session total (E013)**
@@ -587,31 +593,29 @@ set -o pipefail; npm --prefix kupua run test:e2e -- --project=chromium density-c
 
 ## Grid
 
-### Migration Prerequisites
+### Completed Query Repairs
 
 #### GRID-001
 **Usage exclusions can weaken one another**
 - **Component / responsibility:** media-api QueryBuilder and default insertion, with Kupua request-mapper participation; human owner-to-confirm. One canonical cross-component entry, distinct from raw intent detection in [KUP-011](#kup-011).
 - **Trigger:** negative usage conditions are combined with other user exclusions or automatic replaced suppression. The 20 September direct-Kupua comparison worked for the single print exclusion; that is not proof that its deliberate multiple-negative grouping already matches the selected contract.
-- **Expected / actual:** every negative usage condition independently excludes an image if any usage matches it; positive conditions must still match the same usage record. The integrated upstream builder follows that rule. Direct ES keeps its automatic default separate but still groups user negatives and needs alignment.
+- **Expected / actual:** every negative usage condition independently excludes an image if any usage matches it; positive conditions must still match the same usage record. Both the integrated upstream builder and direct-ES builder now follow that rule for supported syntax.
 - **Evidence / reproduction:** **20 September controlled live-data reproduction on Kahuna -> media-api GET -> TEST and Kupua -> local media-api D3 -> TEST:** a known positive witness survived platform and published-status exclusions. GET rendered one match; D3 also rendered the witness cell. [GET evidence](bug-reproduction-evidence.md#grid-001-kahuna-get), [D3 evidence](bug-reproduction-evidence.md#grid-001-and-grid-008-kupua-d3). [Grouping source](../../../media-api/app/lib/elasticsearch/QueryBuilder.scala#L120) and [P28 Q3][p28] support the proposed cause, not the deployed revision. The earlier direct-Kupua check was comparison only; not every usage field or production deployment was tested.
-- **Current status, 23 October:** [PR #4957](https://github.com/guardian/grid/pull/4957) is merged and its independent-exclusion builder is integrated locally. Backend GET/POST tests cover exact membership/totals and positive correlation; actual Kupua API-mapper and direct-ES alignment remain separate. [Earlier evidence](grid-usage-search-investigation.md) describes the pre-merge characterization.
+- **Current status, 23 October:** [PR #4957](https://github.com/guardian/grid/pull/4957) is merged. API requests preserve original q and direct ES emits independent negative nested queries. Local fixture replays of both clients distinguish independent exclusions from grouped negatives and retain positive same-record controls. [Earlier evidence](grid-usage-search-investigation.md) describes the pre-merge characterization.
 - **Smallest test:** after merge, verify the accepted contract through actual mapper/D3 bodies, exact IDs and totals, then the affected positional consumers. Preserve positive correlation and intentionally replace grouped-negative expectations with independent image-level exclusions. The standalone Grid regressions do not establish this prototype join.
-- **Dependency / resolution:** before **S2's shared ordered consumer activates**, resolve this meaning across D3 first page/continuations and its new window/key/rank reads (P29 C1). A correct new boundary plus unchanged divergent D3 does not resolve the join. An inactive capability may land first. Merge, prototype integration and consumer validation remain separate gates.
-- **Disposition: OPEN for client alignment.** D3 inherits the accepted upstream builder without another grouping implementation. Verify the actual mapper and affected positional consumers next, then align direct-ES multiple negatives last. No whole-ID closure follows from backend tests alone.
+- **Dependency / resolution:** preserve independent exclusion and positive same-record correlation in Grid's shared builder and callers. Kupua composition and parser compatibility are client responsibilities, tracked separately under KUP-011.
+- **Disposition: DONE (Grid repair).** PR #4957 supplies the merged exclusion rule, covered by local server regressions. The client paths are also aligned locally for supported syntax; their residual grammar differences do not reopen this Grid item. No deployed or universal grammar-parity claim follows.
 
 #### GRID-008
 **Supported nested print-usage keys resolve to different leaves**
 - **Component / responsibility:** media-api CQL field resolution/QueryBuilder and mapped usage vocabulary; human owner-to-confirm.
 - **Trigger:** currently supported code-valued section/publication input against the populated print-usage leaf; include the selected orderedBy path in the discriminator.
-- **Expected / historical defect:** preserve the admitted mapped attribute. Client paths used absolute print-usage leaves, while server MultipleField resolution omitted that prefix and nested construction did not repair it. The integrated upstream resolver corrects this; client field vocabulary still requires alignment.
+- **Expected / historical defect:** preserve the admitted mapped attribute. The integrated upstream resolver and direct client now use print section code/name and publication name/code leaves. Direct nested orderedBy honors configured usages paths, falling back to the canonical print leaf for absent or unrelated aliases; ordinary top-level alias resolution is unchanged.
 - **Evidence / reproduction:** [client fields](../../src/dal/adapters/elasticsearch/cql.ts#L250), [nested fields](../../../media-api/app/lib/querysyntax/QuerySyntax.scala#L142), [P28 Q10][p28], [P29 C2][p29]. **20 September controlled live-data reproduction on Kahuna/GET/TEST and Kupua/local-D3/TEST:** populated section/publication-code witnesses returned zero; positive platform/status controls returned them. [GET](bug-reproduction-evidence.md#grid-008-kahuna-get), [D3](bug-reproduction-evidence.md#grid-001-and-grid-008-kupua-d3). This tests positive resolution, not exclusion or production incidence. Per [P30][p30], orderedBy still depends on its SingleField alias path; no universal orderedBy failure or effective-alias conclusion.
-- **Current status, 23 October:** merged [PR #4957](https://github.com/guardian/grid/pull/4957) supplies print section code/name, publication code/name and alias-preserving orderedBy fallback; those shared changes are integrated locally without a POST-specific field rewrite. Section-name support is intentional; digital section IDs are not added. Client composition and direct-ES alignment still need their own acceptance.
+- **Current status, 23 October:** merged [PR #4957](https://github.com/guardian/grid/pull/4957) supplies the accepted field resolution. API mode forwards those queries unchanged; direct mode aligns section leaves and nested orderedBy alias precedence. Local fixture replays check code/name membership and unit controls distinguish absent, canonical, nested and unrelated aliases. Section-name support is intentional; digital section IDs are not added.
 - **Smallest test:** after merge, verify the accepted mapped fields through actual mapper/admission/D3 and the selected new path, asserting emitted fields and exact IDs/totals. Retain independent code-only/name-only witnesses, positive/negative controls, same-record correlation and absent/canonical/conflicting orderedBy aliases.
-- **Dependency / resolution:** **known S2 activation gate for mapped code-valued cases**, including C1's D3 join and dependent reads. Candidate preservation of current filters already includes these cases; they are not optional future functionality. An isolated inactive endpoint can be developed separately, but enabled admission cannot silently drop the syntax or delegate the wrong path unchanged.
-- **Disposition: OPEN.** The selected shared Grid repair supersedes P30's browse-only normalization and deferred section vocabulary. Ordinary top-level fields and configured orderedBy redirects stay unchanged. The accepted upstream implementation must still be integrated and validated across the prototype's API/direct paths; the S2 mapped-field gate remains open. No further implementation is authorized by this status update.
-
-### Independent Backlog: Parked
+- **Dependency / resolution:** preserve the accepted mapped leaves and alias precedence in Grid; client grammar compatibility belongs to KUP-011 rather than this completed server repair.
+- **Disposition: DONE (Grid repair).** PR #4957 supplies the merged field-resolution fix, covered by code/name and alias controls. API/direct clients are aligned locally for supported syntax. This supersedes P30's browse-only normalization; no deployed or whole-grammar parity is claimed.
 
 #### GRID-002
 **Equivalent deleted-read intent is not consistently admitted by legacy GET**
@@ -620,7 +624,17 @@ set -o pipefail; npm --prefix kupua run test:e2e -- --project=chromium density-c
 - **Expected / historical defect:** the same query-dependent authorization scope should apply before hits/totals. The old legacy condition recognized a narrower formulation than the parsed D3 path. Main now supplies parsed admission for both ordinary and AI search; this was not a missing-authentication defect.
 - **Evidence / reproduction:** [legacy admission](../../../media-api/app/controllers/MediaApi.scala#L584), [P28 Q5 and complementary guards][p28]; **qualified production-source inference only**. The browser campaign did not have private principal/security-test scope and made no probe. [Blocker](bug-reproduction-evidence.md#permission-blocked-routes). No deployed revision, disclosure or live reproduction established; details are not expanded here.
 - **Smallest test:** private/isolated controller and ES authorization contract for equivalent intent and principal classes, checking hits/totals and no unauthorized dispatch; no live probing.
-- **Upstream disposition, 23 October:** accepted [PR #4957](https://github.com/guardian/grid/pull/4957) now includes parsed deleted-intent admission for ordinary and AI searches. The local integration retains that implementation and reuses its scope helper for POST reads, with isolated ordinary/privileged-principal and explicit-AI controls. No live probe or deployed validation is claimed. KUP-011's client-side composition remains open; do not conflate it with the upstream authorization repair.
+- **Upstream disposition, 23 October:** accepted [PR #4957](https://github.com/guardian/grid/pull/4957) now includes parsed deleted-intent admission for ordinary and AI searches. The local integration retains that implementation and reuses its scope helper for POST reads, with isolated ordinary/privileged-principal and explicit-AI controls. No live probe or deployed validation is claimed. KUP-011's remaining direct-parser syntax scope is separate from the upstream authorization repair.
+- **Disposition: DONE (Grid repair).** The merged parsed admission and local authorization controls close the server defect. Direct mode's missing user-permission context remains its existing prototype limitation, not an open Grid defect.
+
+#### GRID-015
+**AI search did not apply the deleted-search admission that ordinary GET applied**
+- **Component / owner:** media-api `MediaApi.imageSearch` AI branch, including legacy and explicit `aiQuery` requests. Historical authorization finding; no deployed incident was established.
+- **Historical defect:** AI ranking and pool counting bypassed the uploader restriction applied to ordinary deleted-image searches. This is distinct from GRID-002's recognition of equivalent query forms.
+- **Repair / evidence:** merged [PR #4957](https://github.com/guardian/grid/pull/4957) applies parsed uploader scoping before ordinary/AI dispatch. [AI controller/ES controls](../../../media-api/test/controllers/MediaApiAiSearchTest.scala) cover ordinary/privileged principals, legacy/explicit ranking, pool responses and malformed input including zero-length requests. These passed against disposable local Elasticsearch; no live probe or deployment claim follows.
+- **Disposition: DONE (Grid deleted-search admission).** Server authorization and query-syntax validation are applied before AI work. This does not claim that every ordinary-search parameter-validation rule applies to AI, or that direct ES has Grid's permission context.
+
+### Independent Backlog: Parked
 
 #### GRID-003
 **Unknown syndication status escapes fallible parameter decoding**
@@ -716,21 +730,13 @@ set -o pipefail; npm --prefix kupua run test:e2e -- --project=chromium density-c
 - **Smallest fix:** read the parameter once in shared `SearchParams.apply`, so ordinary GET, legacy AI and explicit-`aiQuery` AI receive the same value; avoid a U9-only branch. Flip the GET assertions and add explicit-AI omitted/true/false coverage while retaining the POST endpoints as controls. This needs its own Grid PR stating the Kahuna/Kupua URL-visible change.
 - **Dependency / disposition:** OPEN, independent Grid-only fix. U9-A deliberately does not repair it, and U9-B accepts the media-api/direct-mode discrepancy for manually supplied URLs. It is not a migration or M2a prerequisite; if selected later, fix all shared GET modes together.
 
-#### GRID-015
-**AI search does not apply the deleted-search admission that ordinary GET applies**
-- **Component / owner:** media-api `MediaApi.imageSearch` AI branch (legacy and U9-A explicit `aiQuery`); human owner-to-confirm. **Private maintainer/security triage** before additional reproduction detail or public issue.
-- **Trigger / expected / actual:** an ordinary principal without delete permission sends a deleted-image AI search. Ordinary GET narrows such a search to the caller's own uploads before querying; the AI branch dispatches to ranking and pool counting without that narrowing, so hits, totals and tickers are not restricted. It also skips `SearchParams.validate`. Distinct from [GRID-002](#grid-002), which concerns which query forms the ordinary admission recognizes.
-- **Evidence:** [ordinary admission](../../../media-api/app/controllers/MediaApi.scala#L789) versus [AI dispatch](../../../media-api/app/controllers/MediaApi.scala#L782). Source reading by the U9-A intake and independently by both U9-A and U9-B cold reviews; not executed and no deployed incident claimed. Pre-existing for legacy AI; U9-A's explicit branch inherits it unchanged by operator decision. Related discussion on [PR #4957](https://github.com/guardian/grid/pull/4957).
-- **Smallest test:** controller ES test with an unprivileged principal, another user's deleted image and an owned deleted image, for legacy and explicit AI, asserting hits and pool counts; privileged and ordinary-GET controls. Proposed, not run.
-- **Dependency / disposition:** OPEN, independent Grid authorization fix, deliberately deferred (operator, 27 September). Apply the same admission before AI ranking and pool counting. Not a local U9/U10/U8 gate; assess it before any deployment that serves users beyond TEST.
-
 #### GRID-016
 **Search results admit syndication images that single-image reads reject**
 - **Component / owner:** media-api tier search filter and `MediaApi` search responses (AI and apparently ordinary GET); human owner-to-confirm. **Private maintainer/security triage** before additional reproduction detail or public issue.
 - **Trigger / expected / actual:** a syndication-tier caller searches while an image has acquired rights and an allow lease but no syndication publication date. Single-image reads reject it (`isVisibleToAccessor` requires a past publication date); the search-side filter treats a missing date as allowed, and search responses apply no per-image check, so the image and its signed URLs can be returned.
 - **Evidence:** [tier filter](../../../media-api/app/lib/elasticsearch/SyndicationFilter.scala#L75), [single-image rule](../../../media-api/app/controllers/MediaApi.scala#L172), [AI response](../../../media-api/app/controllers/MediaApi.scala#L659). U9-A cold-review source reading, repeated by the U9-B review; not executed, no deployed incident claimed. Whether a missing date is intended to mean "published" needs maintainer confirmation.
 - **Smallest test:** syndication-tier search fixture with acquired rights, an allow lease and no publication date, for ordinary and AI search, plus past/future-date controls. Proposed, not run.
-- **Dependency / disposition:** OPEN, independent Grid data-exposure fix, deliberately deferred (operator, 27 September). Make search and single-image visibility agree. Same deployment caveat as GRID-015.
+- **Dependency / disposition:** OPEN, independent Grid data-exposure fix, deliberately deferred (operator, 27 September). Make search and single-image visibility agree; assess before deployment serving users beyond TEST. GRID-015's separate repair does not resolve this rule mismatch.
 
 #### GRID-017
 **Kahuna startup dispatches a superseded probe before the effective default scope settles**
@@ -784,7 +790,7 @@ Cross-layer recovery is canonical at [KUP-010](#kup-010), distinct from the lega
   IDs remain open until their actual alignment/acceptance; no new ID or whole-ID refutation follows.
   KUP-024/025 are now repaired within current-client scope, including selected-work ownership and the
   specifically accepted measured trade-off. Original reports remain unchanged. No runtime restore loop
-  or separate speculative-error defect is inferred; KUP-010 and GRID-002 retain their open scopes.
+  or separate speculative-error defect is inferred; completed bounded repairs do not establish wider guarantees.
 - **Unimplemented capabilities are not bugs:** new endpoints/PIT admission, pre-import bootstrap,
   deployed health, rendition renewal and API-only datasource wiring remain candidate work. Missing
   tests alone, current vector coverage, no declared periodic backfill rule and unselected hosting

@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { parseCql } from "./cql";
+import { parseCql, parseCqlWithDefaults } from "./cql";
 import { gridConfig } from "@/lib/grid-config";
 
 describe("configured has-field aliases", () => {
@@ -215,23 +215,42 @@ describe("parseCql — usages@ nested queries", () => {
     });
   });
 
-  it("multiple negative usages@ chips combined into single nested mustNot query", () => {
+  it("retains replaced intent through positive grouping and independent negatives", () => {
+    const result = parseCqlWithDefaults('usages@platform:print usages@status:"replaced" -usages@platform:digital -usages@status:removed');
+    expect(result.must).toEqual([{
+      nested: { path: "usages", query: { bool: { must: [
+        { term: { "usages.platform": "print" } }, { term: { "usages.status": "replaced" } },
+      ] } } },
+    }]);
+    expect(result.mustNot).toEqual([
+      { nested: { path: "usages", query: { term: { "usages.platform": "digital" } } } },
+      { nested: { path: "usages", query: { term: { "usages.status": "removed" } } } },
+      { exists: { field: "softDeletedMetadata" } },
+    ]);
+    expect(parseCql('usages@status:"replaced"').mustNot).toEqual([]);
+  });
+
+  it("multiple negative usages@ chips independently exclude any matching usage", () => {
     const { must, mustNot } = parseCql("-usages@platform:print -usages@status:removed");
     expect(must).toHaveLength(0);
-    expect(mustNot).toHaveLength(1);
-    expect(mustNot[0]).toEqual({
-      nested: {
-        path: "usages",
-        query: {
-          bool: {
-            must: [
-              { term: { "usages.platform": "print" } },
-              { term: { "usages.status": "removed" } },
-            ],
-          },
-        },
-      },
-    });
+    expect(mustNot).toEqual([
+      { nested: { path: "usages", query: { term: { "usages.platform": "print" } } } },
+      { nested: { path: "usages", query: { term: { "usages.status": "removed" } } } },
+    ]);
+  });
+
+  it.each([
+    ["section", ["usages.printUsageMetadata.sectionCode", "usages.printUsageMetadata.sectionName"]],
+    ["publication", ["usages.printUsageMetadata.publicationName", "usages.printUsageMetadata.publicationCode"]],
+  ] as const)("resolves usages@%s through the accepted code/name leaves", (field, fields) => {
+    for (const sign of ["", "-"]) {
+      const parsed = parseCql(`${sign}usages@${field}:"Morning Edition"`);
+      expect(sign ? parsed.mustNot : parsed.must).toEqual([{
+        nested: { path: "usages", query: { multi_match: {
+          query: "Morning Edition", fields: [...fields], type: "best_fields", operator: "and",
+        } } },
+      }]);
+    }
   });
 
   it("usages@unknown:value → nested match_none (safe fallback)", () => {
@@ -239,5 +258,31 @@ describe("parseCql — usages@ nested queries", () => {
     expect(must[0]).toEqual({
       nested: { path: "usages", query: { match_none: {} } },
     });
+  });
+});
+
+describe("nested orderedBy alias preservation", () => {
+  const originalAliases = [...gridConfig.fieldAliases];
+  afterEach(() => { gridConfig.fieldAliases.splice(0, gridConfig.fieldAliases.length, ...originalAliases); });
+
+  it.each([
+    [undefined, "usages.printUsageMetadata.orderedBy"],
+    ["usages.printUsageMetadata.orderedBy", "usages.printUsageMetadata.orderedBy"],
+    ["usages.printUsageMetadata.sectionId", "usages.printUsageMetadata.sectionId"],
+    ["metadata.byline", "usages.printUsageMetadata.orderedBy"],
+  ])("uses alias %j only when it stays inside usages", (aliasPath, expectedPath) => {
+    gridConfig.fieldAliases.splice(0, gridConfig.fieldAliases.length, ...(aliasPath ? [{
+      alias: "orderedBy", elasticsearchPath: aliasPath, label: "Ordered by",
+      displaySearchHint: false, displayInAdditionalMetadata: false,
+    }] : []));
+    for (const sign of ["", "-"]) {
+      const parsed = parseCql(`${sign}usages@orderedBy:DESK1`);
+      expect(sign ? parsed.mustNot : parsed.must).toEqual([{
+        nested: { path: "usages", query: { match: { [expectedPath!]: { query: "DESK1", operator: "and" } } } },
+      }]);
+    }
+    if (aliasPath) expect(parseCql("orderedBy:DESK1").must).toEqual([
+      { match: { [aliasPath]: { query: "DESK1", operator: "and" } } },
+    ]);
   });
 });

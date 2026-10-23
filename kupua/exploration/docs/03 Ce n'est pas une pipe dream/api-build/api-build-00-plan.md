@@ -25,10 +25,10 @@ experiment. The active sequence is now U7 -> M2b; permanent hosting/ingress rema
    not under review. Reshape it as needed; it becomes one of the split PRs. Link #4849's review
    history from the eventual PR. **Update 24 September:** #4849 will be closed, never merged; its
    amendments to Kahuna's `GET /images` path are removed, not ported (section 7).
-3. **Do not wait for Grid PR #4957** (usage-search fix). Every server read uses the shared helper
-   (section 3), so all endpoints agree with one another before or after #4957. When #4957 merges,
-   import it as a parallel unit (P1). Until then, usage-negative/print-code queries carry
-   GRID-001/008 behavior in API mode. That is a known limitation, not a blocker.
+3. **Grid PR #4957 is merged.** Server reads reuse main's parser/defaults and admission helper.
+  P1 aligns the API mapper by forwarding original q and separately aligns direct-ES defaults,
+  negative usages and print fields. KUP-011 retains the direct parser's single-quote grammar
+  divergence; do not turn that into a new API-path gate or infer whole-mode parity.
 4. **Build without PIT; add PIT later, after measurement.** Kupua already browses correctly
    without a PIT: local mode, PIT-open failure and expiry all take that path. New uploads are
    excluded by the frozen-until cap. PIT open/close endpoints are unit L1, added only if
@@ -148,7 +148,7 @@ maintained here by the executing agent at completion (section 8).
 | M2a | TEST API measurement, retaining current local image delivery | Both | U8 | done; deployed + matched-home local campaigns |
 | U7 | Media from canonical entity links (no `/s3`, `/imgproxy`) | Kupua | M2a | not started |
 | M2b | Canonical media delivery checks and targeted measurement | Both | U7 | not started |
-| P1 | Import #4957 when merged; mapper default cleanup (KUP-011) | Both | merge | parallel |
+| P1 | Import #4957; API mapper and bounded direct-ES query alignment | Both | merge | implemented locally; residual grammar scope in KUP-011 |
 | L1 | PIT open/close (only if M1/M2a/M2b justify) | Both | M1 | deferred |
 | S | Split into reviewable PRs (section 7) | Both | M2b | later |
 

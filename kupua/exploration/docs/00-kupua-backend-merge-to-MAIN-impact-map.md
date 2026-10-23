@@ -34,7 +34,8 @@ tests before making any claim; old branch commits are not the review boundary.
   `invalid-uri-parameters`. Disclose the replacement of the POST-only composition
   logic and prior malformed-query fallback. Absent POST q still applies defaults;
   unchanged legacy GET absent-q behaviour is not a promise of whole-path parity.
-  Kupua's client mapper still needs separate alignment.
+  Kupua's mapper forwards original q, explicitly using empty q when absent; do not
+  describe that client contract as changing legacy GET's omitted-q behaviour.
 - **New read contracts and cost:** for the included [POST routes](../../../media-api/conf/routes),
   state access controls, input/work bounds, response omissions, incomplete-execution
   handling and PIT lifetime where applicable. Explain extra Elasticsearch work and
