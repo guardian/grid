@@ -14,15 +14,14 @@ const imageCount = {
 
 const credentials = { baseUrl: "someUrl", "X-Gu-Media-Key": "someKey" };
 
-const promiseMock = jest.fn();
+const mockSend = jest.fn();
 
-jest.mock("aws-sdk/clients/cloudwatch", () => {
-  return class CloudWatch {
-    putMetricData() {
-      return {
-        promise: promiseMock
-      };
-    }
+jest.mock("@aws-sdk/client-cloudwatch", () => {
+  return {
+    CloudWatchClient: jest.fn().mockImplementation(() => ({
+      send: mockSend
+    })),
+    PutMetricDataCommand: jest.fn().mockImplementation((params) => params)
   };
 });
 
@@ -63,7 +62,7 @@ describe("handler", () => {
         body: `Metrics sent for metrics: ${JSON.stringify(imageCount)}`
       });
       expect(getCredentials).toHaveBeenCalledTimes(1);
-      expect(promiseMock).toHaveBeenCalledTimes(Object.keys(imageCount).length);
+      expect(mockSend).toHaveBeenCalledTimes(Object.keys(imageCount).length);
     });
 
     it("should log out image counts", async () => {
