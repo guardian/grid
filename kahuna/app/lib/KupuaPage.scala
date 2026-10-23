@@ -18,6 +18,17 @@ object KupuaPage {
   def shouldServe(stage: String, switchOn: Boolean, isIFramed: Boolean): Boolean =
     isAllowedStage(stage) && switchOn && !isIFramed
 
+  /**
+   * Kahuna's policy plus 'wasm-unsafe-eval' in script-src, for Kupua's page only: its Justified
+   * layout compiles WebAssembly. This permits WebAssembly compilation, not JavaScript eval.
+   */
+  def contentSecurityPolicy(kahunaPolicy: String): String =
+    kahunaPolicy.split(";").map(_.trim).filter(_.nonEmpty).map { directive =>
+      if (directive.split("\\s+").headOption.contains("script-src") && !directive.contains("'wasm-unsafe-eval'"))
+        s"$directive 'wasm-unsafe-eval'"
+      else directive
+    }.mkString("; ")
+
   /** Kupua's built page with its runtime config injected first in <head>; None if it has no <head>. */
   def render(indexHtml: String, config: JsObject): Option[String] = {
     val headTag = "<head>"

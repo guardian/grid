@@ -21,7 +21,8 @@ class KahunaController(
   val config: KahunaConfig,
   override val controllerComponents: ControllerComponents,
   authorisation: Authorisation,
-  environment: Environment
+  environment: Environment,
+  contentSecurityPolicy: String
 )(
   implicit val ec: ExecutionContext
 ) extends BaseControllerWithLoginRedirects with ArgoHelpers {
@@ -75,7 +76,10 @@ class KahunaController(
     val imageTypes = Json.toJson(config.imageTypes).toString()
     val agencyPicksIngredients = Json.toJson(config.agencyPicksIngredients).toString()
 
-    kupuaPage.map(page => Ok(Html(page)).withHeaders(CACHE_CONTROL -> "no-store")).getOrElse(Ok(views.html.main(
+    kupuaPage.map(page => Ok(Html(page)).withHeaders(
+      CACHE_CONTROL -> "no-store",
+      CONTENT_SECURITY_POLICY -> KupuaPage.contentSecurityPolicy(contentSecurityPolicy)
+    )).getOrElse(Ok(views.html.main(
       s"${config.authUri}/login?redirectUri=$returnUri",
       fieldAliases,
       scriptsToLoad,

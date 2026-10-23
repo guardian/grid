@@ -38,6 +38,25 @@ class KupuaPageTest extends AnyFreeSpec with Matchers {
     }
   }
 
+  "contentSecurityPolicy" - {
+    val kahunaPolicy = "frame-src https://auth.example; connect-src 'self' https://api.example; default-src 'unsafe-inline' 'self'; script-src 'self' 'unsafe-inline' https://pinboard.example "
+
+    "adds WebAssembly compilation to script-src only, leaving every other directive unchanged" in {
+      KupuaPage.contentSecurityPolicy(kahunaPolicy) shouldBe
+        "frame-src https://auth.example; connect-src 'self' https://api.example; default-src 'unsafe-inline' 'self'; script-src 'self' 'unsafe-inline' https://pinboard.example 'wasm-unsafe-eval'"
+    }
+
+    "never grants JavaScript eval and does not duplicate the token" in {
+      val once = KupuaPage.contentSecurityPolicy(kahunaPolicy)
+      KupuaPage.contentSecurityPolicy(once) shouldBe once
+      once should not include "'unsafe-eval'"
+    }
+
+    "leaves a policy without script-src unchanged" in {
+      KupuaPage.contentSecurityPolicy("default-src 'self'") shouldBe "default-src 'self'"
+    }
+  }
+
   "the switch cookie matches Kahuna's feature-switch convention" in {
     KupuaPage.SwitchCookie shouldBe "feature-switch-use-kupua"
   }
