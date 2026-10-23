@@ -30,6 +30,66 @@ const GRID_SERVICES = Object.keys(SERVICE_PORTS);
 type StackProps = Record<string, string>;
 
 /**
+ * Image types and a metadata template baked into the e2e Kahuna server so the
+ * metadata-editor scenarios exercise real server config end-to-end rather than a
+ * client-side stub. Applied at stack boot, so they are present for every scenario.
+ */
+export const E2E_IMAGE_TYPES = ['Photograph', 'Illustration', 'Composite'];
+
+export const E2E_METADATA_TEMPLATE = {
+  templateName: 'E2E Agency',
+  fields: [
+    { name: 'byline', value: 'E2E Byline' },
+    { name: 'credit', value: 'E2E Agency' },
+  ],
+};
+
+/**
+ * media-api derives `usageInstructions` from an image's usageRights category via this map, so
+ * an image whose category is `agency` (see the AAP-credited fixture) shows this text.
+ */
+export const E2E_USAGE_INSTRUCTIONS = {
+  category: 'agency',
+  text: 'These images are supplied under agency terms; check the licence before use.',
+};
+
+/** Linked from the upload page for users without the upload_images permission. */
+export const E2E_UPLOAD_SUPPORT_EMAIL = `mailto:grid-e2e-upload-support@${EMAIL_DOMAIN}`;
+
+/** Render the e2e-only Kahuna settings as HOCON to append to the generated `kahuna.conf`. */
+function kahunaE2eConfig(): string {
+  const metadataFields = E2E_METADATA_TEMPLATE.fields
+    .map((f) => `      { name = "${f.name}", value = "${f.value}", resolveStrategy = "replace" }`)
+    .join('\n');
+
+  return [
+    // The e2e stack has no Bedrock access, so AI search requests would 500.
+    'ai.search.enabled = false',
+    `links.uploadImagesPermissionSupportEmail = "${E2E_UPLOAD_SUPPORT_EMAIL}"`,
+    `imageTypes = ${JSON.stringify(E2E_IMAGE_TYPES)}`,
+    'metadata.templates = [',
+    '  {',
+    `    templateName = "${E2E_METADATA_TEMPLATE.templateName}"`,
+    '    metadataFields = [',
+    metadataFields,
+    '    ]',
+    '  }',
+    ']',
+    '',
+  ].join('\n');
+}
+
+/** Render the e2e-only media-api settings as HOCON to append to the generated `media-api.conf`. */
+function mediaApiE2eConfig(): string {
+  return [
+    'usageInstructions {',
+    `  ${E2E_USAGE_INSTRUCTIONS.category} = "${E2E_USAGE_INSTRUCTIONS.text}"`,
+    '}',
+    '',
+  ].join('\n');
+}
+
+/**
  * Rewrite the Guardian dev endpoints baked in by `service-config.js` so that the
  * app container reaches the infrastructure containers over the shared network.
  */
@@ -84,6 +144,12 @@ export function generateServiceConfig(
   const serviceConfigs: Record<string, string> = ServiceConfig.getCoreConfigs(config);
   const localAuthConfig: string = ServiceConfig.getUseLocalAuthConfig(config);
 
+  // e2e-only config appended per service on top of the generated base config.
+  const extraConfig: Record<string, string> = {
+    kahuna: kahunaE2eConfig(),
+    'media-api': mediaApiE2eConfig(),
+  };
+
   fs.mkdirSync(configDir, { recursive: true });
 
   // Mark the stage as DEV so services load `~/.grid/<app>.conf` (see GridConfigLoader).
@@ -94,7 +160,24 @@ export function generateServiceConfig(
   // rather than injecting it as a JVM option in the container.
   fs.writeFileSync(
     path.join(configDir, 'common.conf'),
-    'play.http.secret.key = "testcontainers-e2e-application-secret-0123456789"\n',
+    [
+      'play.http.secret.key = "testcontainers-e2e-application-secret-0123456789"',
+      'enforceUploadImagesPermission = true',
+      `usageRights.applicable' = ${JSON.stringify([
+        "com.gu.mediaservice.model.NoRights",
+        "com.gu.mediaservice.model.PayToUse",
+        "com.gu.mediaservice.model.PRAndThirdParty",
+        "com.gu.mediaservice.model.Agency",
+        "com.gu.mediaservice.model.Bylines",
+        "com.gu.mediaservice.model.StaffPhotographer",
+        "com.gu.mediaservice.model.ContractPhotographer",
+        "com.gu.mediaservice.model.CommissionedPhotographer",
+        "com.gu.mediaservice.model.ContractIllustrator",
+        "com.gu.mediaservice.model.CommissionedIllustrator",
+        "com.gu.mediaservice.model.StaffIllustrator",
+      ])}`,
+      '',
+    ].join('\n'),
   );
 
   for (const service of GRID_SERVICES) {
@@ -103,9 +186,9 @@ export function generateServiceConfig(
       throw new Error(`service-config.js did not produce config for '${service}'`);
     }
 
-    fs.writeFileSync(
-      path.join(configDir, `${service}.conf`),
-      rewriteEndpoints(`${conf}\n${localAuthConfig}`),
-    );
+    const rewritten = rewriteEndpoints(`${conf}\n${localAuthConfig}`);
+    const extras = extraConfig[service];
+    const withExtras = extras ? `${rewritten}\n${extras}` : rewritten;
+    fs.writeFileSync(path.join(configDir, `${service}.conf`), withExtras);
   }
 }

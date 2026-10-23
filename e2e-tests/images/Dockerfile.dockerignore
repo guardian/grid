@@ -8,3 +8,5 @@
 .git
 **/.DS_Store
 dev/.localstack
+# The corporate CA is supplied separately as a BuildKit secret.
+.devcontainer/.host-certs

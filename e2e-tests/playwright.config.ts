@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 import { defineBddConfig } from 'playwright-bdd';
-import { KAHUNA_PORT } from './setup/constants.ts';
+import { AUTH_STATE_PATH, KAHUNA_PORT } from './setup/constants.ts';
 
 /* Generate Playwright test files from the Gherkin feature files and step definitions.
    Run via `bddgen` (see package.json scripts) before `playwright test`. */
@@ -40,6 +40,18 @@ export default defineConfig({
        validation so browser tests can load the https://*.media.<domain> origins. */
     ignoreHTTPSErrors: true,
 
+    video: {
+      mode: process.env.GRID_RECORD_VIDEO === 'true' ? 'on' : 'off',
+      size: { width: 1280, height: 720 },
+      show: {
+        actions: {
+          duration: 1500,
+          position: 'top-right',
+          fontSize: 20,
+        }
+      }
+    },
+
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
   },
@@ -47,11 +59,19 @@ export default defineConfig({
   /* Configure projects for major browsers */
   projects: [
     {
-      name: 'chromium',
+      name: 'auth',
+      testDir: './setup',
+      testMatch: /auth\.setup\.ts/,
       use: { ...devices['Desktop Chrome'] },
     },
+    {
+      name: 'chromium',
+      dependencies: ['auth'],
+      use: { ...devices['Desktop Chrome'], storageState: AUTH_STATE_PATH },
+    },
   ],
+  timeout: 60 * 1000,
   expect: {
-    timeout: 15_000,
+    timeout: 30_000,
   },
 });

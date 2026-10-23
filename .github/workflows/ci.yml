@@ -42,7 +42,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@e8d4307400f9427dba7cb98e488d6ab85f1cec5f # v7.0.0
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v7.0.0
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -63,7 +63,7 @@ jobs:
           sudo apt-get -y install graphicsmagick-imagemagick-compat
           sudo apt-get -y install exiftool
       - name: Setup Java
-        uses: guardian/setup-scala@v1
+        uses: guardian/setup-scala@v2
       - name: SBT
         env:
           USE_DOCKER_FOR_TESTS: false # i.e. don't initialise the DockerContainer within tests, instead rely on the ones defined in the 'services' section of this file
@@ -83,7 +83,7 @@ jobs:
           npm test
       - name: Image Embedder bundling
         run: ./scripts/embedder-deploy/build.sh
-      - uses: guardian/actions-riff-raff@v4.3.3
+      - uses: guardian/actions-riff-raff@v4.3.7
         if: "! github.event.pull_request.head.repo.fork"
         with:
           githubToken: ${{ secrets.GITHUB_TOKEN }}

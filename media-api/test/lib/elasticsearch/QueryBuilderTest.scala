@@ -1,38 +1,25 @@
 package lib.elasticsearch
 
-import com.gu.mediaservice.model.{Agency, UsageRights}
+import com.gu.mediaservice.model.{Agency, Chargeable, PayToUse, UsageRights}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.searches.queries._
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{MatchPhraseQuery, MatchQuery, MultiMatchQuery, MultiMatchQueryBuilderType}
-import lib.querysyntax.{Match, Negation, Phrase, SingleField}
-import com.gu.mediaservice.lib.config.GridConfigResources
+import lib.querysyntax.{Match, Negation, Parser, Phrase, SingleField, Words}
 import com.sksamuel.elastic4s.handlers.searches.queries.QueryBuilderFn
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.term.{TermQuery, TermsQuery}
-import lib.MediaApiConfig
+import lib.{ImagePersistenceReasons, MediaApiConfig}
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
-import play.api.Configuration
-import play.api.inject.ApplicationLifecycle
 
 import scala.annotation.nowarn
-import scala.concurrent.Future
 
 class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures with Fixtures {
 
   val matchFields: Seq[String] = Seq("afield", "anothermatchfield")
 
-  private val commonConfigurations = USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap
-
-  private val mediaApiConfig = new MediaApiConfig(GridConfigResources(
-    Configuration.from(commonConfigurations),
-    null,
-    new ApplicationLifecycle {
-      override def addStopHook(hook: () => Future[_]): Unit = {}
-      override def stop(): Future[_] = Future.successful(())
-    }
-  ))
+  private val mediaApiConfig: MediaApiConfig = buildMediaApiConfig()
 
   val queryBuilder = new QueryBuilder(matchFields, () => Nil, mediaApiConfig)
 
@@ -135,14 +122,7 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
     }
 
     it("any field words queries should be applied to all of the match fields with best fields type and fuzziness, operator and analyzers set") {
-      val mediaApiConfigWithFuzzySearch = new MediaApiConfig(GridConfigResources(
-        Configuration.from(commonConfigurations ++ Map("search.fuzziness.enabled" -> true)),
-        null,
-        new ApplicationLifecycle {
-          override def addStopHook(hook: () => Future[_]): Unit = {}
-          override def stop(): Future[_] = Future.successful(())
-        }
-      ))
+      val mediaApiConfigWithFuzzySearch = buildMediaApiConfig(Map("search.fuzziness.enabled" -> true))
       val queryBuilder = new QueryBuilder(matchFields, () => Nil, mediaApiConfigWithFuzzySearch)
       val query = queryBuilder.makeQuery(List(anyFieldWordsCondition)).asInstanceOf[BoolQuery]
 
@@ -183,6 +163,144 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
     }
   }
 
+  describe("usage exclusions") {
+    def usageClause(field: String, value: String): NestedQuery =
+      ElasticDsl.nestedQuery("usages", ElasticDsl.boolQuery().must(
+        ElasticDsl.matchPhraseQuery(s"usages.$field", value)
+      ))
+
+    it("keeps positive usage conditions in the same nested query") {
+      val query = queryBuilder.makeQuery(Parser.parse(
+        "usages@platform:print usages@status:published"
+      )).asInstanceOf[BoolQuery]
+
+      query.must shouldBe Seq(ElasticDsl.nestedQuery("usages", ElasticDsl.boolQuery().must(
+        ElasticDsl.matchPhraseQuery("usages.platform", "print"),
+        ElasticDsl.matchPhraseQuery("usages.status", "published")
+      )))
+      query.not shouldBe empty
+    }
+
+    it("applies a single negative usage condition outside the nested query") {
+      val query = queryBuilder.makeQuery(Parser.parse(
+        "usages@status:replaced -usages@platform:print"
+      )).asInstanceOf[BoolQuery]
+
+      query.must shouldBe Seq(usageClause("status", "replaced"))
+      query.not shouldBe Seq(usageClause("platform", "print"))
+    }
+
+    it("excludes each negative usage condition independently in either order") {
+      Seq(
+        "-usages@platform:print -usages@status:replaced",
+        "-usages@status:replaced -usages@platform:print"
+      ).foreach { queryText =>
+        val query = queryBuilder.makeQuery(Parser.parse(queryText)).asInstanceOf[BoolQuery]
+
+        withClue(queryText) {
+          query.not should contain theSameElementsAs Seq(
+            usageClause("platform", "print"),
+            usageClause("status", "replaced")
+          )
+          query.must shouldBe empty
+        }
+      }
+    }
+
+    it("keeps automatic replaced suppression separate from a usage exclusion") {
+      val query = queryBuilder.makeQuery(Parser.run("-usages@platform:print")).asInstanceOf[BoolQuery]
+
+      query.not.collect { case clause: NestedQuery => clause } should contain theSameElementsAs Seq(
+        usageClause("platform", "print"),
+        usageClause("status", "replaced")
+      )
+    }
+
+    it("keeps each exclusion image-wide when positive usage conditions are present") {
+      val query = queryBuilder.makeQuery(Parser.parse(
+        "usages@platform:print -usages@status:published -usages@status:replaced"
+      )).asInstanceOf[BoolQuery]
+
+      query.must shouldBe Seq(usageClause("platform", "print"))
+      query.not should contain theSameElementsAs Seq(
+        usageClause("status", "published"),
+        usageClause("status", "replaced")
+      )
+    }
+
+    it("preserves independent ordinary exclusions") {
+      val query = queryBuilder.makeQuery(List(
+        Negation(fieldPhraseMatchCondition),
+        Negation(anotherFieldPhraseMatchCondition)
+      )).asInstanceOf[BoolQuery]
+
+      query.not shouldBe Seq(
+        ElasticDsl.matchPhraseQuery("afield", "avalue"),
+        ElasticDsl.matchPhraseQuery("anotherfield", anotherFieldPhraseMatchCondition.value.asInstanceOf[Phrase].string)
+      )
+      query.must shouldBe empty
+    }
+  }
+
+  describe("usage orderedBy field resolution") {
+    def orderedByClause(path: String): NestedQuery =
+      ElasticDsl.nestedQuery("usages", ElasticDsl.boolQuery().must(
+        ElasticDsl.matchPhraseQuery(path, "DESK1")
+      ))
+
+    Seq("", "-").foreach { prefix =>
+      it(s"resolves ${prefix}usages@orderedBy to print metadata without an alias") {
+        val query = queryBuilder.makeQuery(Parser.parse(s"${prefix}usages@orderedBy:DESK1")).asInstanceOf[BoolQuery]
+        val clauses = if (prefix.isEmpty) query.must else query.not
+
+        clauses shouldBe Seq(orderedByClause("usages.printUsageMetadata.orderedBy"))
+      }
+    }
+
+    Seq("usages.printUsageMetadata.orderedBy", "usages.digitalUsageMetadata.sectionId").foreach { path =>
+      val aliasConfig = buildMediaApiConfig(Map("field.aliases" -> Seq(Map(
+        "alias" -> "orderedBy",
+        "elasticsearchPath" -> path,
+        "label" -> "Ordered by"
+      ))))
+      val aliasedBuilder = new QueryBuilder(matchFields, () => Nil, aliasConfig)
+
+      Seq("", "-").foreach { prefix =>
+        it(s"preserves the configured $path redirect for ${prefix}usages@orderedBy") {
+          val query = aliasedBuilder.makeQuery(Parser.parse(s"${prefix}usages@orderedBy:DESK1")).asInstanceOf[BoolQuery]
+          val clauses = if (prefix.isEmpty) query.must else query.not
+
+          clauses shouldBe Seq(orderedByClause(path))
+        }
+      }
+    }
+
+    it("falls back to printUsageMetadata.orderedBy for usages@orderedBy when an orderedBy alias points outside usages") {
+      val rootAliasConfig = buildMediaApiConfig(Map("field.aliases" -> Seq(Map(
+        "alias" -> "orderedBy",
+        "elasticsearchPath" -> "metadata.credit",
+        "label" -> "Ordered by"
+      ))))
+      val aliasedBuilder = new QueryBuilder(matchFields, () => Nil, rootAliasConfig)
+
+      Seq("", "-").foreach { prefix =>
+        val query = aliasedBuilder.makeQuery(Parser.parse(s"${prefix}usages@orderedBy:DESK1")).asInstanceOf[BoolQuery]
+        val clauses = if (prefix.isEmpty) query.must else query.not
+
+        clauses shouldBe Seq(orderedByClause("usages.printUsageMetadata.orderedBy"))
+      }
+
+      val rootQuery = aliasedBuilder.makeQuery(Parser.parse("orderedBy:DESK1")).asInstanceOf[BoolQuery]
+      rootQuery.must shouldBe Seq(ElasticDsl.matchQuery("metadata.credit", "DESK1").operator(Operator.AND))
+    }
+
+    it("does not change ordinary orderedBy field resolution") {
+      val query = queryBuilder.makeQuery(Parser.parse("orderedBy:DESK1")).asInstanceOf[BoolQuery]
+
+      query.must shouldBe Seq(ElasticDsl.matchQuery("orderedBy", "DESK1").operator(Operator.AND))
+    }
+  }
+
   describe("field alias matchViaExistence queries") {
     // e.g. `fileMetadata.c2pa.isAvailable` is only ever indexed as `true`, so `:true`/`:false` are
     // translated into exists/not-exists queries rather than literal term matches (see FieldAlias.matchViaExistence).
@@ -192,14 +310,7 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
       "label" -> "C2PA Metadata Available",
       "matchViaExistence" -> true
     )
-    val configWithC2paAlias = new MediaApiConfig(GridConfigResources(
-      Configuration.from(commonConfigurations ++ Map("field.aliases" -> Seq(c2paFieldAliasConfig))),
-      null,
-      new ApplicationLifecycle {
-        override def addStopHook(hook: () => Future[_]): Unit = {}
-        override def stop(): Future[_] = Future.successful(())
-      }
-    ))
+    val configWithC2paAlias = buildMediaApiConfig(Map("field.aliases" -> Seq(c2paFieldAliasConfig)))
     val queryBuilderWithC2paAlias = new QueryBuilder(matchFields, () => Nil, configWithC2paAlias)
 
     def existsClauseOf(query: Query): ExistsQuery =
@@ -271,6 +382,27 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
   }
 
   describe("is search filter") {
+    it("should expose every persisted reason through the persisted field") {
+      val reasons = ImagePersistenceReasons(
+        mediaApiConfig.maybePersistOnlyTheseCollections,
+        mediaApiConfig.persistenceIdentifiers
+      ).allReasons
+
+      reasons.foreach { reason =>
+        val query = queryBuilder.makeQuery(List(Match(SingleField("persisted"), Words(reason.reason)))).asInstanceOf[BoolQuery]
+        query.must shouldBe List(reason.query)
+      }
+    }
+
+    it("should query persisted reasons through the persisted field") {
+      val query = queryBuilder.makeQuery(List(Match(SingleField("persisted"), Phrase("exports")))).asInstanceOf[BoolQuery]
+
+      query.must shouldBe List(ImagePersistenceReasons(
+        mediaApiConfig.maybePersistOnlyTheseCollections,
+        mediaApiConfig.persistenceIdentifiers
+      ).allReasons.find(_.reason == "exports").get.query)
+    }
+
     it("should correctly construct an is owned photo query") {
       val query = queryBuilder.makeQuery(List(isOwnedPhotoCondition)).asInstanceOf[BoolQuery]
 
@@ -317,6 +449,24 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
       val expected = UsageRights.whollyOwned.map(_.category)
 
       termQuery.values shouldEqual expected.list.toList
+    }
+
+    it("should expand a search for a replacement category into a terms query across all the legacy categories it replaces, when that replacement is in config.applicableUsageRights") {
+      val qBuilder = new QueryBuilder(matchFields, () => Nil, mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PayToUse")))
+      val query = qBuilder.makeQuery(List(Match(SingleField("usageRights.category"), Words(PayToUse.category)))).asInstanceOf[BoolQuery]
+
+      val termsQuery = query.must.head.asInstanceOf[TermsQuery[String]]
+      termsQuery.field shouldBe "usageRights.category"
+      termsQuery.values shouldEqual PayToUse.allCategories.list.toList
+    }
+
+    it("should not expand a search for a replacement category when that replacement is not in config.applicableUsageRights") {
+      val qBuilder = new QueryBuilder(matchFields, () => Nil, mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.Chargeable")))
+      val query = qBuilder.makeQuery(List(Match(SingleField("usageRights.category"), Words(PayToUse.category)))).asInstanceOf[BoolQuery]
+
+      val termQuery = query.must.head.asInstanceOf[MatchQuery]
+      termQuery.field shouldBe "usageRights.category"
+      termQuery.value shouldBe PayToUse.category
     }
 
     it("should return the match none query on an invalid is query") {

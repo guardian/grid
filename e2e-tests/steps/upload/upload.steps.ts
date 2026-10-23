@@ -1,7 +1,20 @@
 import type { DataTable } from 'playwright-bdd';
+import type { Page } from '@playwright/test';
 import { Given, KAHUNA_APP_URL, Then, When, expect } from '../setup.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
-import { filesToUpload, holdIngest, testImages, uploadPage } from './setup.ts';
+import { E2E_UPLOAD_SUPPORT_EMAIL } from '../../setup/config.ts';
+import { switchAccount } from '../utils/auth.ts';
+import { expectNoUploadPermission, expectUploadPermission } from './media-api.assertions.ts';
+import {
+  BATCH_SIZE,
+  batchJobs,
+  filesToUpload,
+  grouping,
+  holdIngest,
+  testImages,
+  uniqueBatch,
+  uploadPage,
+} from './setup.ts';
 
 /**
  * Upload page shell
@@ -10,13 +23,7 @@ import { filesToUpload, holdIngest, testImages, uploadPage } from './setup.ts';
 Given('I am permitted to upload images', async ({ page }) => {
   // Kahuna decides whether to show the upload tools by looking for a `loader` link on the
   // media API root, which the API only emits for users holding the upload permission.
-  const mediaApiUri = await page.evaluate(
-    () => document.querySelector('link[rel="media-api-uri"]')?.getAttribute('href'),
-  );
-  const response = await page.request.get(mediaApiUri!);
-  const { links } = (await response.json()) as { links: { rel: string }[] };
-
-  expect(links.map((link) => link.rel)).toContain('loader');
+  await expectUploadPermission(page);
 });
 
 When('the upload page loads', async ({ page }) => {
@@ -38,6 +45,31 @@ Then('the drag-and-drop uploader should be active', async ({ page }) => {
 
 Then('I should not see the current uploads section', async ({ page }) => {
   await expect(uploadPage(page).currentUploads).not.toBeVisible();
+});
+
+Given('I am not permitted to upload images', async ({ page }) => {
+  await switchAccount(page, TEST_ACCOUNTS.noUpload);
+  await expectNoUploadPermission(page);
+  // Search hides its "My recent uploads" link from this account, so deep-link instead.
+  await page.goto(`${KAHUNA_APP_URL}/upload`);
+});
+
+Then('I should see a message that I am not authorised to upload images', async ({ page }) => {
+  await expect(uploadPage(page).main).toContainText('You are not authorised to upload images.');
+});
+
+Then('I should see a link to email support', async ({ page }) => {
+  await expect(
+    uploadPage(page).main.getByRole('link', { name: 'Send an email to support' }),
+  ).toHaveAttribute('href', E2E_UPLOAD_SUPPORT_EMAIL);
+});
+
+Then('I should not see the file upload prompt', async ({ page }) => {
+  await expect(uploadPage(page).prompt).not.toBeVisible();
+});
+
+Then('I should not see the drag-and-drop uploader', async ({ page }) => {
+  await expect(uploadPage(page).dragAndDropUploader).not.toBeAttached();
 });
 
 Given(
@@ -93,19 +125,24 @@ Then('I should be taken to a search filtered to images I uploaded', async ({ pag
 
 When(
   'I try to navigate away from the upload page via the following buttons:',
-  async ({ page }, buttons: DataTable) => {
+  async ({ page, testContext }, buttons: DataTable) => {
     for (const [label] of buttons.raw()) {
+      const dialogsBefore = testContext.dialogs.length;
       await uploadPage(page).leaveLink(label).click();
+      await expect
+        .poll(() => testContext.dialogs.length, { message: label, timeout: 5_000 })
+        .toBe(dialogsBefore + 1);
       // Dismissing the confirm answers "no", so each button leaves us here for the next one.
-      await expect(page).toHaveURL(/\/upload/);
+      await expect(page, label).toHaveURL(/\/upload/);
     }
   },
 );
 
 Then('I should be warned that uploads are in progress and asked to confirm', async ({ testContext }) => {
-  await expect
-    .poll(() => testContext.dialogs)
-    .toContain('You have uploads in progress. Are you sure you want to leave this page?');
+  expect(testContext.dialogs.length).toBeGreaterThan(0);
+  for (const message of testContext.dialogs) {
+    expect(message).toBe('You have uploads in progress. Are you sure you want to leave this page?');
+  }
 });
 
 /**
@@ -130,6 +167,54 @@ Then('I should see a suggested example label to apply to all uploads', async ({ 
   // The example label offered by the prompt comes from kahuna/public/js/strings.json.
   await expect(uploadPage(page).prompt).toContainText(`label e.g. culture`);
 });
+
+async function addPresetLabels(page: Page, labels: string[]): Promise<void> {
+  const upload = uploadPage(page);
+  await upload.addPresetLabelButton.click();
+  // The prompt splits on commas, so several labels can go in one entry.
+  await upload.newPresetLabelInput.fill(labels.join(', '));
+  await upload.savePresetLabelButton.click();
+  for (const label of labels) {
+    await expect(upload.presetLabel(label)).toBeVisible();
+  }
+}
+
+When(
+  'I add a preset label via the "Add label to all uploads" button',
+  async ({ page, testContext }) => {
+    testContext.presetLabels = ['e2e-preset-label'];
+    await addPresetLabels(page, testContext.presetLabels);
+  },
+);
+
+When('I upload more than one image', async ({ page }) => {
+  // Embedded descriptions skip the filename-description save, which races the preset labels.
+  await uploadPage(page).fileInput.setInputFiles(uniqueBatch(testImages.withMetadata));
+  await expect(uploadPage(page).imageEditorJob).toHaveCount(BATCH_SIZE);
+});
+
+Then('that label should be applied to all my uploads', async ({ page, testContext }) => {
+  for (const job of await batchJobs(page)) {
+    for (const label of testContext.presetLabels!) {
+      await expect(grouping(job).getByRole('link', { name: label, exact: true })).toBeVisible();
+    }
+  }
+});
+
+When('I add preset label\\(s) in the prompt', async ({ page, testContext }) => {
+  testContext.presetLabels = ['e2e-preset-a', 'e2e-preset-b'];
+  await addPresetLabels(page, testContext.presetLabels);
+});
+
+Then(
+  'those label\\(s) should already be selected when I reload the page',
+  async ({ page, testContext }) => {
+    await page.reload();
+    for (const label of testContext.presetLabels!) {
+      await expect(uploadPage(page).presetLabel(label)).toBeVisible();
+    }
+  },
+);
 
 /**
  * Select-files uploader

@@ -1,7 +1,8 @@
 <div class="datalist">
     <ng-transclude></ng-transclude>
-    <div class="datalist__options" ng-if="ctrl.active && ctrl.results.length > 0">
+    <div class="datalist__options" role="listbox" ng-if="ctrl.active && ctrl.results.length > 0">
         <div class="datalist__option"
+             role="option"
              ng-repeat="(key, result) in ctrl.results"
              ng-click="ctrl.setValueTo(result)"
              ng-mouseover="ctrl.setIndex(key)"

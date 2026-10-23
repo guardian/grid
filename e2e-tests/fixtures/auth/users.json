@@ -8,5 +8,10 @@
     "id": "grid-e2e-restricted-account",
     "firstName": "Restricted E2E",
     "lastName": "Account"
+  },
+  {
+    "id": "grid-e2e-no-upload-account",
+    "firstName": "No Upload E2E",
+    "lastName": "Account"
   }
 ]

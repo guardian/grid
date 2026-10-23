@@ -5,7 +5,7 @@
  *   3. the CloudFormation core/auth stacks + seeded buckets (provisioning),
  *   4. generated per-service config (reusing dev/script/generate-config),
  *   5. the pre-built `grid-e2e-ci` / `grid-e2e-dev` image running the Grid services,
- *   6. the local OIDC provider on the shared network and host port 9014.
+ * with the local OIDC provider booting alongside steps 2-5 on the shared network and host port 9014.
  *
  * Used by Playwright's global setup/teardown and by `dev.ts`, which runs the same
  * stack interactively outside the test runner.
@@ -14,7 +14,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { LocalstackContainer } from '@testcontainers/localstack';
-import { GenericContainer, Network, Wait } from 'testcontainers';
+import { GenericContainer, Network, Wait, getContainerRuntimeClient } from 'testcontainers';
 import type { StartedNetwork, StartedTestContainer } from 'testcontainers';
 import {
   CONFIG_DIR,
@@ -59,6 +59,7 @@ import {
   seedKclLeaseTable,
 } from './provision.ts';
 import type { StackProps } from './provision.ts';
+import { seedCollections } from './seed-collections.ts';
 import { seedElasticsearch } from './seed-elasticsearch.ts';
 import type { GridEnvironment } from './state.ts';
 import type { ListrTaskFn } from 'listr2';
@@ -115,6 +116,8 @@ interface StoppableStack {
 interface BootContext extends StoppableStack {
   coreStackProps?: StackProps;
   authStackProps?: StackProps;
+  /** Rejects as soon as the Grid services container dies, so readiness waits fail fast. */
+  gridCrashed?: Promise<never>;
 }
 
 /**
@@ -353,6 +356,24 @@ function gridContainer(
   });
 }
 
+/**
+ * Reject as soon as the container exits, the Docker-native equivalent of `docker wait`.
+ * The readiness tasks race this, so a dead container aborts the boot at once instead of
+ * polling healthchecks until the startup timeout elapses.
+ */
+async function rejectWhenExited(container: StartedTestContainer): Promise<never> {
+  const client = await getContainerRuntimeClient();
+  const { StatusCode } = await client.container.getById(container.getId()).wait();
+  throw new Error(
+    `Grid services container exited with status ${StatusCode} before its services became healthy.`,
+  );
+}
+
+/** Resolve with `work`, or reject early if the Grid container dies first. */
+function failFastOnCrash<T>(work: Promise<T>, crashed: Promise<never>): Promise<T> {
+  return Promise.race([work, crashed]);
+}
+
 function oidcContainer(image: GenericContainer, network: StartedNetwork): GenericContainer {
   return image
     .withNetwork(network)
@@ -472,13 +493,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
   const startupTimeoutMs = Number(process.env.GRID_STARTUP_TIMEOUT_MS ?? 300_000);
   const context: BootContext = { containers: [] };
 
-  const tasks: ListrTask<BootContext>[] = [
-    {
-      title: 'Create network',
-      task: async (ctx) => {
-        ctx.network = await new Network().start();
-      },
-    },
+  const gridTasks: ListrTask<BootContext>[] = [
     {
       // These three share only the network, and Elasticsearch is by far the slowest to come
       // up, so provisioning LocalStack costs nothing beyond it.
@@ -547,27 +562,48 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
           {
             title: 'Start container',
             task: async (ctx) => {
-              ctx.containers.push(
-                await gridContainer(ctx.network!, ctx.configDir!, startupTimeoutMs).start(),
-              );
+              const started = await gridContainer(ctx.network!, ctx.configDir!, startupTimeoutMs).start();
+              ctx.containers.push(started);
+              // A clean boot never awaits this, so sink it to avoid an unhandled rejection
+              // when the container finally stops during teardown.
+              ctx.gridCrashed = rejectWhenExited(started);
+              ctx.gridCrashed.catch(() => {});
             },
           },
           {
             title: 'Wait for services',
-            task: (_, services) => {
+            task: (ctx, services) => {
+              const crashed = ctx.gridCrashed!;
               const readiness: ListrTask<BootContext>[] = [
                 ...Object.entries(SERVICE_PORTS).map(([service, port]): { title: string, task: ListrTaskFn<BootContext, any, any> } => ({
                   title: service,
                   task: (_, serviceTask) =>
-                    waitForHealthy(port, 'management/healthcheck', startupTimeoutMs, reportTo(serviceTask)),
+                    failFastOnCrash(
+                      waitForHealthy(port, 'management/healthcheck', startupTimeoutMs, reportTo(serviceTask)),
+                      crashed,
+                    ),
                 })),
                 {
                   // Waits for the `Images_Current` alias the app assigns on startup, so this
                   // only needs the container running, not every service healthy.
                   title: 'Seed Elasticsearch',
                   skip: () => !seed && 'seeding not requested',
-                  task: async (_, seedTask) => {
-                    await seedElasticsearch(ELASTICSEARCH_URL, startupTimeoutMs, reportTo(seedTask));
+                  task: (_, seedTask) =>
+                    failFastOnCrash(
+                      seedElasticsearch(ELASTICSEARCH_URL, startupTimeoutMs, reportTo(seedTask)),
+                      crashed,
+                    ),
+                },
+                {
+                  title: 'Seed collections',
+                  skip: () => !seed && 'seeding not requested',
+                  task: (_, seedTask) => {
+                    const report = reportTo(seedTask);
+                    return failFastOnCrash(
+                      waitForHealthy(SERVICE_PORTS.collections, 'management/healthcheck', startupTimeoutMs, report)
+                        .then(() => seedCollections(report)),
+                      crashed,
+                    );
                   },
                 },
               ];
@@ -577,32 +613,54 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
           },
         ]),
     },
-    {
-      title: 'Start OIDC provider',
-      task: (_, oidcTask) => {
-        let image: GenericContainer;
+  ];
 
-        return oidcTask.newListr(
+  const tasks: ListrTask<BootContext>[] = [
+    {
+      title: 'Create network',
+      task: async (ctx) => {
+        ctx.network = await new Network().start();
+      },
+    },
+    {
+      // Grid only contacts the OIDC provider at login, so neither waits on the other.
+      title: 'Start services',
+      task: (_, task) =>
+        task.newListr(
           [
             {
-              title: 'Build image',
-              task: async () => {
-                image = await GenericContainer.fromDockerfile(OIDC_CONTEXT).build(OIDC_IMAGE, {
-                  deleteOnExit: false,
-                });
+              title: 'OIDC provider',
+              task: (_, oidcTask) => {
+                let image: GenericContainer;
+
+                return oidcTask.newListr(
+                  [
+                    {
+                      title: 'Build image',
+                      task: async () => {
+                        image = await GenericContainer.fromDockerfile(OIDC_CONTEXT).build(OIDC_IMAGE, {
+                          deleteOnExit: false,
+                        });
+                      },
+                    },
+                    {
+                      title: 'Start container',
+                      task: async (ctx) => {
+                        ctx.containers.push(await oidcContainer(image, ctx.network!).start());
+                      },
+                    },
+                  ],
+                  { concurrent: false },
+                );
               },
             },
             {
-              title: 'Start container',
-              task: async (ctx) => {
-                const oidc = await oidcContainer(image, ctx.network!).start();
-                ctx.containers.push(oidc);
-              },
+              title: 'Grid',
+              task: (_, gridTask) => gridTask.newListr(gridTasks, { concurrent: false }),
             },
           ],
-          { concurrent: false },
-        );
-      },
+          { concurrent: true },
+        ),
     },
     {
       title: 'Start reverse proxy',
@@ -713,10 +771,17 @@ async function attachToStack(options: StartStackOptions): Promise<GridEnvironmen
   await runTasks(
     [
       {
-        title: 'Seed Elasticsearch',
+        title: 'Re-seed Elasticsearch',
         skip: () => !reseed && 'reseeding not requested',
         task: async (_, task) => {
           await seedElasticsearch(ELASTICSEARCH_URL, 60_000, reportTo(task));
+        },
+      },
+      {
+        title: 'Re-seed collections',
+        skip: () => !reseed && 'reseeding not requested',
+        task: async (_, task) => {
+          await seedCollections(reportTo(task));
         },
       },
     ],
