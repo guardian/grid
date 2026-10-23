@@ -24,6 +24,23 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 23 October 2026 - Preserve fixed-grid thumbnail slots during seeks
+
+Key fixed Grid cells by their actual column within each virtual row, including partial
+leading rows. Buffer-local keys changed physical columns when a seek changed the window
+remainder, carrying Chromium's retained old thumbnail pixels sideways until replacement
+media arrived. Keep virtual-row keys, global row geometry, complete fetched pages, scroll
+compensation, thumbnail admission and detached-incomplete cleanup unchanged; Justified
+retains its existing cell-key policy. No blanking, readiness barrier or scheduler is added.
+
+Clear only the error-owned inline display property on successful thumbnail load so reused
+image elements recover from failed sources without losing their borders. Regression coverage
+checks pending raster pixels in their original slots and decoded destination pixels through
+real seek publication, partial-row identity in both directions, failed and superseded sources,
+and existing cancellation/reflow behavior. Hold synthetic response headers to exercise native
+pending bitmap retention; reacquire the image element after intentional column-count reflow
+before testing genuine unmount cleanup.
+
 ### 23 October 2026 - Unify scrolling measurement, research and comparison
 
 Build a shared evidence path for useful progress, smoothness and picture stability

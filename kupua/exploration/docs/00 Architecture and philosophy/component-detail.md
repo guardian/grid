@@ -641,7 +641,12 @@ not also select/open its image. Browsing, selection and middle-click preview use
 Fixed row membership follows global result positions, with a bounded vertical origin in local
 windows. A partial first row uses leading layout space, not fake records or selectable cells.
 Full fetched pages and exact-capacity eviction therefore do not regroup retained images.
-Rendering and navigation use the same row/column helpers; positional React keys remain.
+Rendering and navigation use the same row/column helpers. Within each retained virtual row,
+fixed Grid keys cells by their actual column, including partial leading rows, not buffer-local
+index. Reused thumbnails therefore cannot move sideways merely because a seek changes the
+buffer-offset remainder; native pending replacement pixels stay in the original slots.
+Justified keeps its existing cell keys. Successful thumbnail loads remove only the inline
+hiding left by a prior error, allowing same-node source replacement to recover.
 The [fixed-row policy](03-scroll-architecture.md#fixed-row-window-policy) owns the all-visible
 maintenance contract, physical limits and accepted trade-off. It does not change Justified packing.
 

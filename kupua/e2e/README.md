@@ -241,7 +241,7 @@ including foreground/source verification, native zoom and sensitive-data handlin
 | [resident Justified](local/justified-density.spec.ts) | Density/reflow, history, detail, spatial keys and responsive geometry |
 | [windowed Justified](local/justified-windowed.spec.ts) | Indexed/seek packing, append, pending navigation, history and true edges |
 | [density controls](local/density-controls.spec.ts) | Density control selection and readiness boundaries |
-| [thumbnail lifetime](local/thumbnail-lifecycle.spec.ts) | Functional cancellation/reversal, shared/completed media, source replacement and density/reflow reveals; mock data/local images, no performance assertions |
+| [thumbnail lifetime](local/thumbnail-lifecycle.spec.ts) | Cancellation/reversal, shared/completed media, failed/superseded source recovery and density/reflow reveals; fixed-grid seek pixel/slot continuity with held raster responses and partial leading rows. Mock data/local images, no performance assertions |
 | [selections](local/selections.spec.ts) | Membership, ranges, persistence, metadata panels and async fixture lifetimes |
 | [mobile selections](local/selections-mobile.spec.ts) | Touch selection and mobile interactions |
 | [phantom focus](local/phantom-focus.spec.ts) | Click-to-open and hidden-focus behaviour |

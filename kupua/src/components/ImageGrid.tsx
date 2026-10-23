@@ -317,6 +317,7 @@ const GridCell = memo(function GridCell({
             alt={imageOnlyHeight !== undefined ? description : ""}
             className={`${imageOnlyHeight !== undefined ? "w-full h-full object-contain text-transparent" : "max-w-full max-h-[186px]"} pointer-events-none${isPotentiallyGraphic ? " blur-lg group-hover:blur-none transition-[filter] duration-500" : ""}`}
             style={imageOnlyHeight === undefined && imageBorderColor ? { border: `10px solid ${imageBorderColor}` } : undefined}
+            onLoad={(e) => e.currentTarget.style.removeProperty("display")}
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";
             }}
@@ -1001,14 +1002,10 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
                   const imageIdx = startIdx + colIdx;
                   if (imageIdx >= virtualizerCount) return null;
                   const image = getImage(imageIdx);
-                  // Positional key: TanStack Virtual uses positional rendering
-                  // (row N at top: N * estimateSize). Content-based keys
-                  // (image.id) cause visible reordering during seeks/searches
-                  // because React reuses component instances from old virtual
-                  // positions, fighting the virtualizer's layout. Positional
-                  // keys match the virtualizer's model. (A.4 tried content
-                  // keys for -14% domChurn on extends, but the visual
-                  // reordering on seeks was a worse regression — reverted.)
+                  // Fixed-grid keys identify physical columns within the virtual row,
+                  // including leading partial rows. Buffer-local indices can change
+                  // columns on seek, moving a reused thumbnail's old painted bitmap
+                  // before its replacement loads. Keep Justified's existing keys.
                   // ── Animation: arriving images + phantom focus pulse ──
                   const animClass = image
                     ? arrivingImageIds.has(image.id)
@@ -1020,7 +1017,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
 
                   return (
                     <GridCell
-                      key={imageIdx}
+                      key={justified ? imageIdx : getItemColumn(fixedGeometry, imageIdx)}
                       image={image}
                       isFocused={!!image && image.id === focusedImageId && getEffectiveFocusMode() === "explicit" && !inSelectionMode}
                       cellWidth={justifiedLayout?.getBox(imageIdx)?.width ?? cellWidth}

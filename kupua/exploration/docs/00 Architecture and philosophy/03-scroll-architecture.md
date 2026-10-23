@@ -276,9 +276,12 @@ commit, resize restoration owns placement instead of also applying maintenance
 compensation. Do not combine an old rendered row with a newly published origin.
 
 Justified owns dimension-dependent packing and identity-based compensation. Fixed-row
-geometry does not determine those boxes or media readiness. React keys are positional;
-page/concurrency limits, overscan, thumbnail admission and fetch horizons have separate
-owners and configuration.
+geometry does not determine those boxes or media readiness. Fixed Grid cell keys identify
+physical columns within each virtual row, not buffer-local indices whose column changes
+with the window remainder. This keeps reused old thumbnail pixels in their original slots
+during seek replacement, without changing virtual-row keys or adding a media-readiness barrier.
+Justified retains its existing cell-key policy. Page/concurrency limits, overscan, thumbnail
+admission and fetch horizons have separate owners and configuration.
 
 ---
 
