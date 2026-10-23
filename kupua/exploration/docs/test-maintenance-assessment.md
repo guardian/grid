@@ -102,7 +102,7 @@ reviewed or executed; current end-to-end probe compatibility remains unverified.
   Similar names or bodies do not establish interchangeable contracts.
 - Keep navigation snapshots/keys, caller clocks, mobile geometry and measurement epochs
   outside a shared resource helper unless the selected responsibility genuinely owns them.
-- Preserve [timing/route attribution controls](../../e2e-perf/harness-validation.test.mjs).
+- Preserve [timing/route attribution controls](../../e2e-perf/validation/harness-validation.test.mjs).
   The original timing-projection assessment noted a source scan using `slice(1)` to
   skip a local declaration; moving that declaration must not silently skip a real caller.
 - Agree review and validation appropriate to the selected change. A maintained passing

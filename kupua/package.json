@@ -20,8 +20,10 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:ui": "playwright test --ui",
+    "pretest:perf": "npm run typecheck:perf",
     "test:perf": "node e2e-perf/run-audit.mjs",
-    "test:perf-harness": "node --test e2e-perf/harness-validation.test.mjs e2e-perf/p14-metrics.test.mjs e2e-perf/network-probe.test.mjs e2e-perf/network-reporting.test.mjs e2e-perf/density-reporting.test.mjs e2e-perf/thumbnail-probe.test.mjs e2e-perf/fixed-grid-probes.test.mjs",
+    "test:perf-harness": "node --test e2e-perf/validation/harness-validation.test.mjs e2e-perf/validation/p14-metrics.test.mjs e2e-perf/validation/network-probe.test.mjs e2e-perf/validation/network-reporting.test.mjs e2e-perf/validation/density-reporting.test.mjs e2e-perf/validation/thumbnail-probe.test.mjs e2e-perf/validation/fixed-grid-probes.test.mjs",
+    "typecheck:perf": "tsc --noEmit --project e2e-perf/tsconfig.json",
     "test:perf-fixtures": "playwright test --config=e2e-perf/playwright.density-fixtures.config.ts",
     "test:perf-app": "playwright test --config=e2e-perf/playwright.density-app.config.ts",
     "test:perf:pp2": "playwright test --config=e2e-perf/playwright.perceived-short.config.ts --grep=PP2:",
@@ -41,7 +43,8 @@
     "test:diag": "npx playwright test --config=playwright.debug.config.ts --headed",
     "review:api-boundary": "node exploration/experiments/api-boundary/api-boundary-review.mjs",
     "test:api-boundary": "node --test exploration/experiments/api-boundary/api-boundary-review.test.mjs",
-    "test:es-transport": "node exploration/experiments/es-transport/run.mjs"
+    "test:es-transport": "node exploration/experiments/es-transport/run.mjs",
+    "test:perf-research": "playwright test --config=e2e-perf/research/playwright.config.ts"
   },
   "dependencies": {
     "@guardian/cql": "^1.8.6",

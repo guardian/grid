@@ -128,7 +128,7 @@ described above.
 | P10 | Historical `report:false` composite only | Removed; constituent actions remain independently measured |
 | P12 density cycles | Removed with P12 | Habitual E2E remains the correctness owner |
 | SS0-SS4 | Deleted in D-Zero; never entered audit-log/dashboard manifests | Not coverage. The prototype directly mutated selection state, contained a placeholder out-of-buffer case and disconnected observers before asynchronous delivery. Reconsider only for a real bulk-selection decision. |
-| E1-E6 | Separate tuning experiments and JSON files | Keep separate from regression portfolio; run only for a named experiment ([experiments](../../../e2e-perf/experiments.spec.ts#L1206-L1625)) |
+| E1-E6 | Separate tuning experiments and JSON files | Keep separate from regression portfolio; run only for a named experiment ([experiments](../../../e2e-perf/research/experiments.spec.ts#L1206-L1625)) |
 
 ## Runner And Environment Findings
 

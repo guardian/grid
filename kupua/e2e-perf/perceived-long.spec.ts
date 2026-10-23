@@ -44,6 +44,7 @@ import { appendFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test, expect, isMediaApiUrl } from "./helpers";
+import type { KupuaHelpers } from "../e2e/shared/helpers";
 import type { TraceEntry } from "@/lib/perceived-trace";
 import { computeCorrelatedMetrics, ownsDataRoute } from "./perceived-metrics.mjs";
 
@@ -122,7 +123,7 @@ function captureSuccessfulDataRoutes(kupua: any) {
 }
 
 async function navigateAndMeasure(
-  kupua: any,
+  kupua: KupuaHelpers,
   query: string,
   expectedRegime: "buffer" | "indexed",
   id: "JA1" | "JB1",
@@ -151,7 +152,7 @@ async function navigateAndMeasure(
     const timeoutMs = 30_000;
     const deadline = performance.now() + timeoutMs;
     let lastReadiness = null;
-    let storeReadyEpochMs = null;
+    let storeReadyEpochMs: number | null = null;
     let first = null;
     while (performance.now() < deadline) {
       await new Promise<void>((resolve) => requestAnimationFrame((t) => {
@@ -164,7 +165,8 @@ async function navigateAndMeasure(
       }));
       if (performance.now() >= deadline) break;
       const state = store.getState();
-      const regime = state.total <= 1_000 ? "buffer" : state.total <= 65_000 ? "indexed" : "seek";
+      const regime: NonNullable<PerceivedMetrics["resultRegime"]> =
+        state.total <= 1_000 ? "buffer" : state.total <= 65_000 ? "indexed" : "seek";
       const container = document.querySelector('[aria-label="Image results grid"]');
       const item = container?.querySelector('[data-image-id]');
       lastReadiness = {
@@ -269,7 +271,7 @@ async function appendDetailVisualPhases(kupua: any, interactionId: string) {
 }
 
 async function appendMetadataSearchVisualPhases(
-  kupua: any,
+  kupua: KupuaHelpers,
   interactionId: string,
   targetQuery: string,
   action: "metadata-click" | "facet-click" | "search",
@@ -329,7 +331,8 @@ async function appendMetadataSearchVisualPhases(
       }
       if (close(first.container, current.container) && close(first.item, current.item)) {
         const entries = (window as any).__perceivedTrace__ as TraceEntry[];
-        const resultRegime = state.total <= 1_000 ? "buffer" : state.total <= 65_000 ? "indexed" : "seek";
+        const resultRegime: NonNullable<PerceivedMetrics["resultRegime"]> =
+          state.total <= 1_000 ? "buffer" : state.total <= 65_000 ? "indexed" : "seek";
         entries.push({ action: targetAction, phase: "t_first_visible_frame", t: first.t, interactionId: targetInteractionId });
         entries.push({ action: targetAction, phase: "t_visual_settled", t: current.t, interactionId: targetInteractionId });
         return { routes: [] as string[], settledTotal: state.total, resultRegime };
@@ -342,7 +345,7 @@ async function appendMetadataSearchVisualPhases(
   }, { targetInteractionId: interactionId, expectedQuery: targetQuery, targetAction: action, scenarioId: step });
 }
 
-async function appendIndexedScrollVisualPhases(kupua: any, interactionId: string, requestedPosition: number) {
+async function appendIndexedScrollVisualPhases(kupua: KupuaHelpers, interactionId: string, requestedPosition: number) {
   return kupua.page.evaluate(async ({ targetInteractionId, targetPosition }) => {
     const readRect = (element: Element) => {
       const rect = element.getBoundingClientRect();

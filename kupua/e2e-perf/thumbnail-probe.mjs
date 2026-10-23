@@ -140,6 +140,7 @@ export function installThumbnailProbe(options, helpersOnly = false) {
   const placeholderExposure = createExposure();
   const failedExposure = createExposure();
   const missingExposure = createExposure();
+  const pendingSlots = createExposure();
   const records = new Map();
   let history = new WeakMap();
   let previousOrder = [];
@@ -179,6 +180,11 @@ export function installThumbnailProbe(options, helpersOnly = false) {
   let thumbnailVisibleWaitCompletedMaxMs = null;
   let thumbnailVisibleWaitCompletedCount = 0;
   let thumbnailVisibleWaitCensoredCount = 0;
+  let observerSampleCount = 0;
+  let observerSampleTotalMs = 0;
+  let observerSampleMaxMs = 0;
+  let severeFrameCount = 0;
+  let frameMaxMs = 0;
   const started = performance.now();
   let lastTime = started;
   let exposureStartedAt = null;
@@ -349,6 +355,7 @@ export function installThumbnailProbe(options, helpersOnly = false) {
     }
   }
   function measure(now = performance.now()) {
+    const sampleStarted = performance.now();
     scroll();
     for (const record of records.values()) {
       if (!sameGeneration(record, current(record))) { dirty = true; break; }
@@ -401,6 +408,10 @@ export function installThumbnailProbe(options, helpersOnly = false) {
       exposure.observe(pendingArea, viewportArea);
       thumbnailExposure.observe(thumbnailPendingArea, viewportArea);
     }
+    const sampleMs = Math.max(0, performance.now() - sampleStarted);
+    observerSampleCount++;
+    observerSampleTotalMs += sampleMs;
+    observerSampleMaxMs = Math.max(observerSampleMaxMs, sampleMs);
     return { pendingArea, thumbnailPendingArea, viewportArea, placeholderArea, failedArea, missingArea, pendingCount, mountedPendingCount, visibleCount };
   }
   function shifts(entries) {
@@ -439,7 +450,12 @@ export function installThumbnailProbe(options, helpersOnly = false) {
     placeholderExposure.add(dt, previous.placeholderArea, previous.viewportArea);
     failedExposure.add(dt, previous.failedArea, previous.viewportArea);
     missingExposure.add(dt, previous.missingArea, previous.viewportArea);
-    if (frame) frames.add(dt);
+    pendingSlots.add(dt, previous.pendingCount, previous.visibleCount);
+    if (frame) {
+      frames.add(dt);
+      frameMaxMs = Math.max(frameMaxMs, dt);
+      if (dt > 50) severeFrameCount++;
+    }
     lastTime = now;
     previous = measure(now);
   }
@@ -482,6 +498,10 @@ export function installThumbnailProbe(options, helpersOnly = false) {
         thumbnailExposureAreaMs: thumbnails.exposureAreaMs,
         thumbnailCaptureRevision: 1,
         thumbnailWaitCaptureRevision: 1,
+        observerCostCaptureRevision: 1,
+        observerSampleCount, observerSampleTotalMs, observerSampleMaxMs,
+        pendingVisibleRatioMean: pendingSlots.snapshot().pendingAreaRatioMean,
+        severeFrameCount, frameMaxMs,
         thumbnailVisibleWaitCount, thumbnailVisibleWaitMaxMs, thumbnailVisibleWaitCompletedMaxMs,
         thumbnailVisibleWaitCompletedCount, thumbnailVisibleWaitCensoredCount,
         readinessLeadPxMedian: loads.percentile(0.5),

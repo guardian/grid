@@ -1,14 +1,15 @@
+import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
-import * as validation from "./harness-validation.mjs";
-import { severeRateIsReportable } from "./p14-metrics.mjs";
+import * as validation from "../harness-validation.mjs";
+import { severeRateIsReportable } from "../p14-metrics.mjs";
 
-const runner = readFileSync(join(import.meta.dirname, "run-audit.mjs"), "utf8");
-const html = readFileSync(join(import.meta.dirname, "results/audit-graphs.html"), "utf8");
+const runner = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "run-audit.mjs"), "utf8");
+const html = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "results/audit-graphs.html"), "utf8");
 const dashboard = html.slice(html.indexOf("const KNOWN_METRICS"), html.lastIndexOf("</script>"));
 
 function declarations(source, names) {

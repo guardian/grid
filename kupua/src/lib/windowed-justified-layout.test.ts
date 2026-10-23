@@ -93,6 +93,146 @@ describe("construction-local justified estimates", () => {
   });
 });
 
+describe("boundary geometry lifetime research", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    { direction: "backward", width: 390 }, { direction: "backward", width: 1120 },
+    { direction: "forward", width: 390 }, { direction: "forward", width: 1120 },
+  ])("characterizes true-ratio fragment feasibility without new provisional slots ($direction, $width)", ({ direction, width }) => {
+    const knownStart = direction === "backward" ? 44 : 0;
+    const knownEnd = knownStart + 4;
+    const ratios = seamCorpus.slice(0, blockSize).map(packing.imageRatio);
+    const before = packing.buildRatioLayout(ratios.map((ratio, index) =>
+      index >= knownStart && index < knownEnd ? ratio : 1), width, true);
+    const retained = before.boxes.slice(knownStart, knownEnd);
+    const retainedTop = retained[0].top;
+    const retainedHeight = retained.at(-1)!.top + retained.at(-1)!.height - retainedTop;
+    const incomingRatios = direction === "backward" ? ratios.slice(0, knownStart) : ratios.slice(knownEnd);
+    const incoming = packing.buildRatioLayout(incomingRatios, width, true);
+    const retainedOffset = direction === "backward" ? incoming.height + 4 : 0;
+    const incomingOffset = direction === "forward" ? retainedHeight + 4 : 0;
+    const retainedBoxes = retained.map(box => ({ ...box, top: box.top - retainedTop + retainedOffset }));
+    const incomingBoxes = incoming.boxes.map(box => ({ ...box, top: box.top + incomingOffset }));
+    const boxes = direction === "backward" ? [...incomingBoxes, ...retainedBoxes] : [...retainedBoxes, ...incomingBoxes];
+
+    expect(boxes).toHaveLength(blockSize);
+    for (const [index, box] of boxes.entries()) {
+      expect(box.width / box.height).toBeCloseTo(ratios[index], 5);
+      expect(box.left).toBeGreaterThanOrEqual(0);
+      expect(box.left + box.width).toBeLessThanOrEqual(width + 0.001);
+      if (index === 0) continue;
+      const previous = boxes[index - 1];
+      if (box.top === previous.top) expect(box.left).toBeCloseTo(previous.left + previous.width + 4, 3);
+      else expect(box.top).toBeCloseTo(previous.top + previous.height + 4, 3);
+    }
+    for (let index = knownStart; index < knownEnd; index++) {
+      const original = before.getBox(index)!;
+      expect(boxes[index]).toEqual({ ...original, top: original.top - retainedTop + retainedOffset });
+    }
+    expect(Math.max(...boxes.map(box => box.top + box.height)))
+      .toBeCloseTo(incoming.height + retainedHeight + 4, 3);
+  });
+
+  it.each([
+    { indexed: false, width: 390 }, { indexed: false, width: 1120 },
+    { indexed: true, width: 390 }, { indexed: true, width: 1120 },
+  ])("distinguishes a whole-block hold from truthful dimensions and safe release ($indexed, $width)", ({ indexed, width }) => {
+    const seed = build(seamCorpus.slice(48, 192), width, context(indexed, 48));
+    const partial = build(seamCorpus.slice(44, 192), width, context(indexed, 44), seed);
+    const firstOrdinal = indexed ? 0 : -48;
+    const originalRatios = Array.from({ length: blockSize }, (_, index) =>
+      partial.dimensions.get(firstOrdinal + index)?.ratio ?? 1);
+    expect(originalRatios.slice(0, 44)).toEqual(Array(44).fill(1));
+    expect([...partial.dimensions.keys()].filter(ordinal =>
+      ordinal >= firstOrdinal && ordinal < firstOrdinal + blockSize)).toHaveLength(4);
+
+    const pack = packing.buildRatioLayout;
+    const intercept = vi.spyOn(packing, "buildRatioLayout").mockImplementationOnce((_, packedWidth, balanced) =>
+      pack(originalRatios, packedWidth, balanced));
+    const held = build(seamCorpus.slice(0, 192), width, context(indexed, 0), partial);
+    intercept.mockRestore();
+    const released = build(seamCorpus.slice(0, 192), width, context(indexed, 0), held);
+    const shape = (model: ReturnType<typeof build>, index: number) => {
+      const box = model.getBox(index)!;
+      return [box.left, box.width, box.height];
+    };
+    for (let index = 44; index < 48; index++) {
+      expect(shape(held, index)).toEqual(shape(partial, indexed ? index : index - 44));
+      expect(held.window.getItemId(index)).toBe(`seam-${index}`);
+    }
+    expect(held.dimensions.get(firstOrdinal)?.ratio).toBe(1.5);
+    expect(held.getBox(0)!.width / held.getBox(0)!.height).toBeCloseTo(1, 5);
+    expect(released.getBox(0)!.width / released.getBox(0)!.height).toBeCloseTo(1.5, 5);
+    expect(shape(released, 44)).not.toEqual(shape(held, 44));
+
+    const newImageRow = held.getItemRow(0);
+    expect(newImageRow.lastItemIndex).toBeLessThan(44);
+    expect(held.getBox(44)!.top).toBeGreaterThanOrEqual(newImageRow.top + newImageRow.height);
+    expect(shape(released, 0)).not.toEqual(shape(held, 0));
+
+    const translation = released.getBox(48)!.top - held.getBox(48)!.top;
+    for (let index = 48; index < 192; index++) {
+      expect(shape(released, index)).toEqual(shape(held, index));
+      expect(released.getBox(index)!.top - held.getBox(index)!.top).toBeCloseTo(translation, 6);
+    }
+    expect(Math.abs(translation)).toBeGreaterThan(1);
+    expect(released.dimensions.size).toBeLessThanOrEqual(192 + 2 * (blockSize - 1));
+  });
+
+  it.each([390, 1120])("does not infer movement of a forward row merely from new boundary dimensions (%i)", width => {
+    const partial = build(seamCorpus.slice(0, 52), width, context(false, 0));
+    const originalRatios = Array.from({ length: blockSize }, (_, index) =>
+      partial.dimensions.get(48 + index)?.ratio ?? 1);
+    const pack = packing.buildRatioLayout;
+    const intercept = vi.spyOn(packing, "buildRatioLayout")
+      .mockImplementationOnce(pack)
+      .mockImplementationOnce((_, packedWidth, balanced) => pack(originalRatios, packedWidth, balanced));
+    const held = build(seamCorpus.slice(0, 144), width, context(false, 0), partial);
+    intercept.mockRestore();
+    const released = build(seamCorpus.slice(0, 144), width, context(false, 0), held);
+    for (let index = 0; index < 48; index++) expect(released.getBox(index)).toEqual(held.getBox(index));
+    for (let index = 48; index < 52; index++) expect(held.getBox(index)).toEqual(partial.getBox(index));
+    expect(released.origin).toBe(held.origin);
+    expect(released.getBox(48)).toEqual(held.getBox(48));
+    expect(held.dimensions.get(52)?.ratio).toBe(packing.imageRatio(seamCorpus[52]));
+    expect(held.getBox(52)!.aspectRatio).toBe(1);
+    expect(released.getBox(52)!.aspectRatio).toBe(packing.imageRatio(seamCorpus[52]));
+  });
+
+  it("retains truthful dimensions through resize and eviction but discards incompatible overlap", () => {
+    const complete = build(seamCorpus.slice(0, 192), 1120, context(false, 0));
+    const boundary = build(seamCorpus.slice(44, 192), 1120, context(false, 44), complete);
+    expect(boundary.dimensions.get(0)?.id).toBe("seam-0");
+    const resized = build(seamCorpus.slice(44, 192), 390, context(false, 44), boundary);
+    expect(resized.dimensions).toEqual(boundary.dimensions);
+    expect(resized.origin).toBe(boundary.origin);
+    expect(resized.getBox(0)).not.toEqual(boundary.getBox(0));
+    const reentered = build(seamCorpus.slice(0, 192), 390, context(false, 0), resized);
+    for (let index = 0; index < 192; index++) {
+      expect(reentered.getBox(index)!.aspectRatio).toBe(packing.imageRatio(seamCorpus[index]));
+    }
+    const evicted = build(seamCorpus.slice(96, 240), 390, context(false, 96), reentered);
+    expect(evicted.dimensions.has(0)).toBe(false);
+    const returned = build(seamCorpus.slice(44, 192), 390, context(false, 44), evicted);
+    expect(returned.dimensions.has(0)).toBe(false);
+    expect(returned.window.getItemId(0)).toBe("seam-44");
+    const replaced = build(seamCorpus.slice(44, 192), 390,
+      { ...context(false, 44), searchKey: "different-query" }, boundary);
+    expect(replaced.origin).toBe(0);
+    expect(replaced.dimensions.get(0)?.id).toBe("seam-44");
+    const disjoint = build(seamCorpus.slice(1000, 1200), 390, context(false, 1000), boundary);
+    expect(disjoint.origin).toBe(0);
+    expect(disjoint.dimensions.size).toBe(200);
+    const changedRegime = build(seamCorpus.slice(44, 192), 390, context(true, 44), boundary);
+    expect(changedRegime.origin).toBe(44);
+    expect(changedRegime.dimensions.has(0)).toBe(false);
+    const reordered = build(seamCorpus.slice(44, 192).reverse(), 390, context(false, 44), boundary);
+    expect(reordered.origin).toBe(0);
+    expect(reordered.dimensions.get(0)?.id).toBe("seam-191");
+  });
+});
+
 describe("bounded windowed justified geometry", () => {
   it.each([true, false])("fills artificial block-ending rows without cropping or changing order (indexed=%s)", indexed => {
     for (const width of [320, 390, 900, 1120, 1720]) {

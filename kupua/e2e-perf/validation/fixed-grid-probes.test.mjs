@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { prepareReverseGridScroll, installReverseGridDirectionProbe, readFocusedViewportPosition } from "./fixed-grid-probes.mjs";
+import { prepareReverseGridScroll, installReverseGridDirectionProbe, readFocusedViewportPosition } from "../fixed-grid-probes.mjs";
 
 const ROW = 303;
 const MIN_WIDTH = 250;

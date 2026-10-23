@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: ".",
-  testMatch: "density-app-fixtures.spec.ts",
+  testMatch: "validation/density-app-fixtures.spec.ts",
   outputDir: "../test-results/density-app-fixtures",
   timeout: 60000,
   retries: 0,

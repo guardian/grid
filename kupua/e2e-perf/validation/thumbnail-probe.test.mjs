@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import {
   installThumbnailProbe, clipRect, area, readinessLeadPx, classifyThumbnail,
   sameGeneration, orderChanged, createSample, createExposure,
-} from './thumbnail-probe.mjs';
+} from "../thumbnail-probe.mjs";
 
 const viewport = { left: 0, top: 100, right: 100, bottom: 200 };
 
@@ -150,7 +150,7 @@ test('logical reorder uses surviving identities, independent of recycling and wi
   assert.equal(orderChanged([], ['a', 'b']), false);
 });
 
-function browserStub({ cached = false, top = 120, shiftsSupported = false, placeholder = false } = {}) {
+function browserStub({ cached = false, top = 120, shiftsSupported = false, placeholder = false, density = 'grid' } = {}) {
   let shiftCallback;
   let now = 0;
   let tick;
@@ -172,7 +172,8 @@ function browserStub({ cached = false, top = 120, shiftsSupported = false, place
   };
   const cell = {
     getAttribute: () => identity,
-    querySelector: () => placeholder ? null : slot,
+    querySelector: (selector) => selector === '[role="columnheader"]' ? null : selector === 'img' ? image : placeholder ? null : slot,
+    querySelectorAll: () => [slot],
     getBoundingClientRect: rect,
   };
   const events = new Map();
@@ -181,7 +182,9 @@ function browserStub({ cached = false, top = 120, shiftsSupported = false, place
     getBoundingClientRect: () => ({ left: 0, top: 0, right: 100, bottom: 100 }),
     contains: (node) => [cell, slot, image].includes(node),
     querySelector: () => null,
-    querySelectorAll: (selector) => (placeholder ? selector.startsWith(':scope > div') : selector === '[data-grid-cell]') ? [cell] : [],
+    querySelectorAll: (selector) => selector === '[role="columnheader"]'
+      ? [{ style: { width: '' }, textContent: 'Pic' }]
+      : (density === 'table' ? selector.startsWith('[role="row"]') : placeholder ? selector.startsWith(':scope > div') : selector === '[data-grid-cell]') ? [cell] : [],
     addEventListener: (name, callback) => events.set(name, callback),
     removeEventListener: (name) => events.delete(name),
   };
@@ -203,7 +206,7 @@ function browserStub({ cached = false, top = 120, shiftsSupported = false, place
       disconnect() {}
     },
   };
-  vm.runInNewContext(`(${installThumbnailProbe.toString()})`, context)({ density: 'grid', sampleLimit: 4 });
+  vm.runInNewContext(`(${installThumbnailProbe.toString()})`, context)({ density, sampleLimit: 4 });
   return {
     window, image, cell, slot, region, events, attributes,
     shifts(entries) { shiftCallback({ getEntries: () => entries }); },
@@ -212,6 +215,7 @@ function browserStub({ cached = false, top = 120, shiftsSupported = false, place
     get stopped() { return tick === null && mutation === null && events.size === 0; },
     frame(time) { now = time; tick(time); },
     elapse(time) { now = time; },
+    mutate() { mutation(); },
     load() { image.complete = true; image.naturalWidth = 10; image.currentSrc = attributes.get('src'); events.get('load')({ type: 'load', target: image }); },
     reuse() { identity = 'fixture-b'; attributes.set('src', 'fixture-next'); image.complete = false; image.naturalWidth = 0; image.currentSrc = ''; mutation(); },
     scrollTo(value, nextTop) { region.scrollTop = value; top = nextTop; events.get('scroll')(); },
@@ -219,6 +223,24 @@ function browserStub({ cached = false, top = 120, shiftsSupported = false, place
   };
 }
 const flushPromises = () => new Promise((resolve) => setImmediate(resolve));
+
+test('Table mutation churn does not fabricate generations or restart a continuous wait', () => {
+  const browser = browserStub({ density: 'table', top: 0 });
+  for (let frame = 1; frame <= 60; frame++) {
+    browser.mutate();
+    browser.frame(frame * 16);
+  }
+  browser.reuse();
+  browser.frame(976);
+  const result = browser.probe.stop();
+  assert.equal(result.imageIdentityChanges, 1);
+  assert.equal(result.imageSourceChanges, 1);
+  assert.equal(result.elementGenerationChanges, 1);
+  assert.equal(result.thumbnailVisibleWaitCount, 2);
+  assert.equal(result.thumbnailVisibleWaitCensoredCount, 2);
+  assert.equal(result.thumbnailVisibleWaitMaxMs, 960);
+  assert.equal(browser.stopped, true);
+});
 
 test('visible thumbnail waits finish at decoded readiness, not at load', async () => {
   const browser = browserStub({ top: 0 });

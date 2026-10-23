@@ -56,7 +56,7 @@ import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { test, expect } from "../e2e/shared/helpers";
+import { test, expect } from "../../e2e/shared/helpers";
 import {
   GRID_ROW_HEIGHT,
   GRID_MIN_CELL_WIDTH,
@@ -69,7 +69,7 @@ test.beforeEach(async ({ kupua }) => {
 });
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const EXPERIMENTS_DIR = resolve(__dirname, "results/experiments");
+const EXPERIMENTS_DIR = resolve(__dirname, "../results/experiments");
 
 // ---------------------------------------------------------------------------
 // Corpus pinning — same fixed cutoff as perf tests so results are stable
@@ -205,9 +205,9 @@ if (!existsSync(EXPERIMENTS_DIR)) mkdirSync(EXPERIMENTS_DIR, { recursive: true }
 
 function getGitState(): { commitHash: string; commitMessage: string; dirty: boolean } {
   try {
-    const commitHash = execSync("git rev-parse --short HEAD", { cwd: resolve(__dirname, ".."), encoding: "utf-8" }).trim();
-    const commitMessage = execSync("git log -1 --pretty=%s", { cwd: resolve(__dirname, ".."), encoding: "utf-8" }).trim();
-    const diffStat = execSync("git diff --stat", { cwd: resolve(__dirname, ".."), encoding: "utf-8" }).trim();
+    const commitHash = execSync("git rev-parse --short HEAD", { cwd: resolve(__dirname, "../.."), encoding: "utf-8" }).trim();
+    const commitMessage = execSync("git log -1 --pretty=%s", { cwd: resolve(__dirname, "../.."), encoding: "utf-8" }).trim();
+    const diffStat = execSync("git diff --stat", { cwd: resolve(__dirname, "../.."), encoding: "utf-8" }).trim();
     return { commitHash, commitMessage, dirty: diffStat.length > 0 };
   } catch {
     return { commitHash: "unknown", commitMessage: "unknown", dirty: true };

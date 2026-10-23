@@ -1,9 +1,9 @@
-/** Operator-only measurements. Local observer validation lives in density-fixtures.spec.ts. */
+/** Operator-only measurements. Local observer validation lives in validation/density-fixtures.spec.ts. */
 import { appendFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { test, expect } from "./helpers";
 import type { KupuaHelpers } from "../e2e/shared/helpers";
-import { selectDensity, electAnchor, establishDensitySource, restoreDensitySource, prepareDensityMaintenance, waitForDensityMaintenanceCooldown, withDensityScrollNetwork, scrollToDensityTail, waitForDensityEviction, scrubDensityTo, waitForPlacement, visibleMediaReadiness, scrollAtSpeed, prepareDensityRecovery, measureDensityRecovery, measureDensityEndurance, measureDensityRefreshContention, type Density } from "./density-browser";
+import { selectDensity, electAnchor, establishDensitySource, restoreDensitySource, prepareDensityMaintenance, waitForDensityMaintenanceCooldown, withDensityScrollNetwork, scrollToDensityTail, waitForDensityEviction, scrubDensityTo, waitForPlacement, visibleMediaReadiness, scrollAtSpeed, prepareDensityRecovery, measureDensityJourney, measureDensityRefreshContention, type Density } from "./density-browser";
 import { installThumbnailProbe } from "./thumbnail-probe.mjs";
 import { createRequestProbe } from "./network-probe.mjs";
 import { DENSITY_SCENARIOS, DENSITY_WORKLOADS, validateDensityRecord } from "./density-reporting.mjs";
@@ -28,16 +28,18 @@ async function prepare(kupua: KupuaHelpers) {
 }
 
 for (const workload of DENSITY_WORKLOADS) {
-  test(`density ${workload}: matched layouts with explicit media boundary`, async ({ kupua, page }) => {
-    if (["scroll-endurance", "refresh-contention"].includes(workload)) test.setTimeout(180000);
+  test(`density ${workload}: matched layouts with explicit media boundary`, async ({ kupua, page, baseURL }) => {
+    if (workload === "refresh-contention") test.setTimeout(180000);
     const cdp = await page.context().newCDPSession(page);
     await cdp.send("Network.enable");
-    const requests = ["burst-recovery", "scroll-endurance", "refresh-contention"].includes(workload) ? createRequestProbe(cdp) : null;
+    const requests = ["scroll-constrained", "scroll-forward", "scroll-backward", "refresh-contention"].includes(workload)
+      ? createRequestProbe(cdp, { localProxyOrigins: baseURL ? [new URL(baseURL).origin] : [] }) : null;
     const options: Density[] = DENSITY_SCENARIOS.filter(scenario => scenario.workload === workload).map(scenario => scenario.density);
     const order = runIndex % options.length;
     const densities = [...options.slice(order), ...options.slice(0, order)];
     try {
       await prepare(kupua);
+      await page.evaluate(() => { (window as any).__densityJourneyHistory = new Set<string>(); });
       for (const density of densities) {
         await cdp.send("Network.setCacheDisabled", { cacheDisabled: false });
         await page.setViewportSize({ width: 1720, height: 960 });
@@ -48,20 +50,22 @@ for (const workload of DENSITY_WORKLOADS) {
         if (workload === "refresh-contention") {
           if (density === "table") throw new Error("D11 requires an image layout");
           metrics = await measureDensityRefreshContention(page, density, cdp, requests!, runIndex);
-        } else if (workload === "scroll-endurance") {
-          if (density === "table") throw new Error("D10 requires an image layout");
+        } else if (["scroll-forward", "scroll-backward", "scroll-constrained"].includes(workload)) {
           await selectDensity(page, density);
           await prepareDensityRecovery(page, density);
+          const constrained = workload === "scroll-constrained";
+          const initial = constrained ? await visibleMediaReadiness(page, density, await page.evaluate(() => performance.now())) : null;
           await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
-          try { metrics = await measureDensityEndurance(page, density, requests!); }
-          finally { await cdp.send("Network.setCacheDisabled", { cacheDisabled: false }); }
-        } else if (workload === "burst-recovery") {
-          if (density === "table") throw new Error("D9 requires an image layout");
-          await selectDensity(page, density);
-          await prepareDensityRecovery(page, density);
-          await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
-          requests!.beginPhase();
-          try { metrics = { ...await measureDensityRecovery(page, density), ...requests!.snapshot() }; }
+          try {
+            const observe = () => measureDensityJourney(page, density, workload === "scroll-backward" ? -1 : 1, requests!, {
+              durationMs: constrained ? 6000 : 9000, reverseDurationMs: workload === "scroll-backward" ? 1500 : 0,
+              networkConstrained: constrained,
+            });
+            metrics = constrained ? await withDensityScrollNetwork(cdp, "scroll-constrained", observe) : await observe();
+            if (initial) metrics.initialMediaCensored = initial.mediaCensored;
+            if (metrics.requestCaptureTracked! < 1) throw new Error("Journey requires positive request capture in the campaign document");
+            expect(metrics.pressureCaptureRevision, "All fixed load steps must be observed, including adverse low-progress runs").toBe(1);
+          }
           finally { await cdp.send("Network.setCacheDisabled", { cacheDisabled: false }); }
         } else if (workload.startsWith("scroll") || workload === "window-maintenance") {
           await selectDensity(page, density);
@@ -70,22 +74,13 @@ for (const workload of DENSITY_WORKLOADS) {
             await prepareDensityMaintenance(page, density);
           }
           const initial = await visibleMediaReadiness(page, density, await page.evaluate(() => performance.now()));
-          if (workload === "scroll-warm") {
-            // Warm the same browser path; proxy/backend cache state remains uncontrolled.
-            await waitForDensityMaintenanceCooldown(page);
-            await scrollAtSpeed(page, density, 1200, 4000);
-            await visibleMediaReadiness(page, density, await page.evaluate(() => performance.now()));
-            await restoreDensitySource(page);
-            await selectDensity(page, density);
-            await waitForPlacement(page, density, true);
-          }
           if (workload !== "window-maintenance") await waitForDensityMaintenanceCooldown(page);
           const publication = await page.evaluate(() => {
             const state = (window as any).__kupua_store__.getState();
             return { eviction: state._forwardEvictGeneration, prepend: state._prependGeneration };
           });
           const maintenance = workload === "window-maintenance";
-          let movement: Record<string, number> = {};
+          let movement: Partial<Awaited<ReturnType<typeof scrollAtSpeed>>> = {};
           metrics = await withDensityScrollNetwork(cdp, workload, async () => {
             await page.evaluate(installThumbnailProbe, { density });
             if (maintenance) {
@@ -104,7 +99,7 @@ for (const workload of DENSITY_WORKLOADS) {
           if (workload === "window-maintenance" && changes.evictionCount < 1) {
             throw new Error("Maintenance workload observed no eviction; reject incomplete coverage");
           }
-          if (!maintenance && movement.drivenDistancePx < 1200) throw new Error("Controlled scroll did not traverse a meaningful distance");
+          if (!maintenance && (movement.drivenDistancePx ?? 0) < 1200) throw new Error("Controlled scroll did not traverse a meaningful distance");
         } else {
           await selectDensity(page, density);
           await waitForPlacement(page, density, true);
@@ -142,9 +137,11 @@ for (const workload of DENSITY_WORKLOADS) {
       requests?.dispose();
       await page.evaluate(() => {
         (window as any).__kupua_thumbnailProbe?.dispose();
+        (window as any).__densityJourney?.dispose();
         delete (window as any).__kupua_thumbnailProbe;
         delete (window as any).__densityAnchor;
         delete (window as any).__densitySource;
+        delete (window as any).__densityJourneyHistory;
       }).catch(() => {});
       await cdp.send("Network.emulateNetworkConditions", { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
       await cdp.send("Network.setCacheDisabled", { cacheDisabled: false });

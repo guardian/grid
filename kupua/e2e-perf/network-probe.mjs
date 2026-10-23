@@ -51,8 +51,15 @@ export function installNetworkProbe() {
   };
 }
 
-export function createRequestProbe(session, { limit = 10000, dataOrigins = [] } = {}) {
+export function createRequestProbe(session, { limit = 10000, dataOrigins = [], localProxyOrigins = [] } = {}) {
   if (!Number.isInteger(limit) || limit < 1 || limit > 10000) throw new Error("Invalid request tracking limit");
+  const proxyOrigins = new Set(localProxyOrigins);
+  const isLocalProxy = value => {
+    try {
+      const url = new URL(value);
+      return ["http:", "https:"].includes(url.protocol) && proxyOrigins.has(url.origin) && url.pathname.startsWith("/s3/");
+    } catch { return false; }
+  };
   const records = new Map();
   let phase = 0;
   let overflow = 0;
@@ -84,13 +91,21 @@ export function createRequestProbe(session, { limit = 10000, dataOrigins = [] } 
       ? (event.timestamp - record.started) * 1000 : null;
     record.endedEpoch = record.startedEpoch !== null && record.duration !== null
       ? record.startedEpoch + record.duration : null;
+    if (!failed && record.timing && record.started !== null && Number.isFinite(event.timestamp)) {
+      const phases = [record.timing.sendAt - record.started * 1000,
+        record.timing.headersAt - record.timing.sendAt, event.timestamp * 1000 - record.timing.headersAt];
+      if (phases.every(value => Number.isFinite(value) && value >= 0)) record.timingPhases = phases;
+    }
   };
   const listeners = {
     requestWillBeSent(event) {
       if (disposed) return;
       const existing = records.get(event.requestId);
       if (existing) {
-        if (event.redirectResponse) existing.redirects++;
+        if (event.redirectResponse) {
+          existing.redirects++;
+          existing.proxyCache = null;
+        }
         return;
       }
       const kind = classify(event);
@@ -100,6 +115,7 @@ export function createRequestProbe(session, { limit = 10000, dataOrigins = [] } 
         started: Number.isFinite(event.timestamp) ? event.timestamp : null,
         startedEpoch: Number.isFinite(event.wallTime) ? event.wallTime * 1000 : null, endedEpoch: null,
         bytes: null, duration: null, redirects: 0, cached: false, httpError: false,
+        timing: null, timingPhases: null, proxyCache: null, localProxy: kind === "media" && isLocalProxy(event.request.url),
         failed: false, cancelled: false });
       inFlight[kind]++;
       peak[kind] = Math.max(peak[kind], pending(kind));
@@ -109,6 +125,15 @@ export function createRequestProbe(session, { limit = 10000, dataOrigins = [] } 
       if (!record || disposed) return;
       record.cached ||= Boolean(event.response.fromDiskCache || event.response.fromServiceWorker || event.response.fromPrefetchCache);
       record.httpError ||= event.response.status >= 400;
+      const cache = Object.entries(event.response.headers ?? {}).find(([name]) => name.toLowerCase() === "x-cache")?.[1];
+      record.proxyCache = record.localProxy && record.redirects === 0 && isLocalProxy(event.response.url)
+        && ["HIT", "MISS"].includes(cache) ? cache : null;
+      const timing = event.response.timing;
+      if (record.kind === "data" && timing && [timing.requestTime, timing.sendStart, timing.receiveHeadersStart]
+        .every(value => Number.isFinite(value) && value >= 0) && timing.receiveHeadersStart >= timing.sendStart) {
+        record.timing = { sendAt: timing.requestTime * 1000 + timing.sendStart,
+          headersAt: timing.requestTime * 1000 + timing.receiveHeadersStart };
+      }
     },
     requestServedFromCache(event) {
       const record = records.get(event.requestId);
@@ -118,7 +143,7 @@ export function createRequestProbe(session, { limit = 10000, dataOrigins = [] } 
     loadingFailed(event) { finish(event, true); },
   };
   for (const [name, callback] of Object.entries(listeners)) session.on(`Network.${name}`, callback);
-  return {
+  const probe = {
     pendingAt(kind, epoch) {
       if (disposed) throw new Error("Request probe disposed");
       if (!["media", "data"].includes(kind) || !Number.isFinite(epoch)) return null;
@@ -139,27 +164,48 @@ export function createRequestProbe(session, { limit = 10000, dataOrigins = [] } 
       carry = { media: pending("media"), data: pending("data") };
       peak = { ...carry };
     },
-    snapshot() {
+    snapshot(bounds) {
       if (disposed) throw new Error("Request probe disposed");
-      const result = { requestCaptureRevision: 1, requestCaptureOverflow: overflow, requestCaptureTracked: records.size,
+      const result = { requestCaptureRevision: 1, requestTimingCaptureRevision: 1,
+        requestCaptureOverflow: overflow, requestCaptureTracked: records.size,
         requestClockMissingCount: [...records.values()].filter(record => record.startedEpoch === null
           || (record.endPhase !== null && record.endedEpoch === null)).length };
+      if (bounds) result.requestWindowCaptureRevision = 1;
       for (const kind of ["media", "data"]) {
-        const selected = [...records.values()].filter(record => record.kind === kind);
-        const ended = selected.filter(record => record.endPhase === phase);
+        const selected = [...records.values()].filter(record => record.kind === kind
+          && (!bounds || record.startedEpoch !== null && record.startedEpoch < bounds.end));
+        const ended = selected.filter(record => bounds ? record.endPhase !== null && record.endedEpoch !== null
+          && record.endedEpoch >= bounds.start && record.endedEpoch < bounds.end : record.endPhase === phase);
+        const starts = selected.filter(record => bounds ? record.startedEpoch >= bounds.start : record.startPhase === phase).length;
+        const carryCount = bounds ? selected.filter(record => record.startedEpoch < bounds.start
+          && (record.endPhase === null || record.endedEpoch === null || record.endedEpoch >= bounds.start)).length : carry[kind];
+        const pendingCount = bounds ? selected.filter(record => record.endPhase === null
+          || record.endedEpoch === null || record.endedEpoch >= bounds.end).length : pending(kind);
+        let peakCount = peak[kind];
+        if (bounds) {
+          const changes = selected.filter(record => record.startedEpoch >= bounds.start)
+            .map(record => ({ time: record.startedEpoch, delta: 1 }));
+          changes.push(...ended.map(record => ({ time: record.endedEpoch, delta: -1 })));
+          let count = carryCount;
+          peakCount = count;
+          for (const change of changes.sort((left, right) => left.time - right.time || right.delta - left.delta)) {
+            count += change.delta;
+            peakCount = Math.max(peakCount, count);
+          }
+        }
         const completed = ended.filter(record => !record.failed);
         const knownBytes = completed.filter(record => record.bytes !== null && record.redirects === 0);
         const unknownBytes = completed.length - knownBytes.length;
         const bytes = knownBytes.reduce((sum, record) => sum + record.bytes, 0);
         const durations = completed.map(record => record.duration).filter(Number.isFinite);
         Object.assign(result, {
-          [`${kind}RequestsCarryIn`]: carry[kind],
-          [`${kind}RequestStarts`]: selected.filter(record => record.startPhase === phase).length,
+          [`${kind}RequestsCarryIn`]: carryCount,
+          [`${kind}RequestStarts`]: starts,
           [`${kind}RequestsCompleted`]: completed.length,
           [`${kind}RequestFailures`]: ended.filter(record => record.failed).length,
           [`${kind}RequestCancellations`]: ended.filter(record => record.cancelled).length,
-          [`${kind}RequestsPending`]: pending(kind),
-          [`${kind}RequestsPeak`]: peak[kind],
+          [`${kind}RequestsPending`]: pendingCount,
+          [`${kind}RequestsPeak`]: peakCount,
           [`${kind}CompletedBytes`]: unknownBytes ? null : bytes,
           [`${kind}KnownCompletedBytes`]: bytes,
           [`${kind}UnknownByteRequests`]: unknownBytes,
@@ -170,8 +216,32 @@ export function createRequestProbe(session, { limit = 10000, dataOrigins = [] } 
           [`${kind}RequestDurationMaxMs`]: durations.length ? Math.max(...durations) : null,
           [`${kind}RequestDurationMeanMs`]: durations.length ? durations.reduce((sum, value) => sum + value, 0) / durations.length : null,
         });
+        if (kind === "media") Object.assign(result, {
+          mediaProxyCacheHits: ended.filter(record => record.proxyCache === "HIT").length,
+          mediaProxyCacheMisses: ended.filter(record => record.proxyCache === "MISS").length,
+          mediaProxyCacheUnknown: ended.filter(record => record.proxyCache === null).length,
+        });
+        if (kind === "data") {
+          const timings = completed.filter(record => record.timingPhases !== null && record.redirects === 0 && !record.cached);
+          result.dataTimingCompletions = timings.length;
+          result.dataTimingUnavailableCompletions = completed.length - timings.length;
+          for (const [index, name] of ["BeforeSend", "SendToHeaders", "HeadersToComplete"].entries()) {
+            const values = timings.map(record => record.timingPhases[index]);
+            result[`data${name}MaxMs`] = values.length ? Math.max(...values) : null;
+            result[`data${name}MeanMs`] = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+          }
+        }
       }
       return result;
+    },
+    snapshotBetween(start, end) {
+      if (disposed) throw new Error("Request probe disposed");
+      if (![start, end].every(Number.isFinite) || end <= start) throw new Error("Invalid request window");
+      return probe.snapshot({ start, end });
+    },
+    async flush() {
+      if (disposed) throw new Error("Request probe disposed");
+      if (typeof session.send === "function") await session.send("Runtime.evaluate", { expression: "0", returnByValue: true });
     },
     dispose() {
       if (disposed) return;
@@ -180,4 +250,5 @@ export function createRequestProbe(session, { limit = 10000, dataOrigins = [] } 
       records.clear();
     },
   };
+  return probe;
 }

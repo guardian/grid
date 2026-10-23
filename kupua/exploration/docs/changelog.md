@@ -24,6 +24,54 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 23 October 2026 - Unify scrolling measurement, research and comparison
+
+Build a shared evidence path for useful progress, smoothness and picture stability
+across Grid, Justified and Table. Revisioned fresh-window journeys calibrate demand
+from visible rows, retain initial runway and achieved progress, and exercise fixed
+30/100/200-results-per-second steps with ordinary and constrained delivery. Integrate
+reversal and atomic stopped-data/current-image recovery; retire overlapping standalone
+D9/D10 execution while retaining historical contracts and records. Keep low-progress
+and censored outcomes as adverse evidence rather than dropping them.
+
+Extend bounded observers with temporary-wall episodes, count-based pending slots,
+retained-identity cell/image geometry, applied-input and compensation accounting,
+sampling cost and explicit unavailable paint. Slice request lifetimes by browser
+epochs; retain data-request phases, local proxy cache evidence and cancellation
+without treating them as server CPU or upstream savings. Require configured local
+request/response origins and proxy paths for HIT/MISS attribution; redirected or
+unconfigured traffic remains unknown, with negative-origin regression coverage.
+Separate controller delay
+from readiness and reject invalid clocks, overflow and interrupted visibility.
+
+Reuse local app fixtures for matched backward-prediction, short-stop, capacity/reversal
+and initial-runway comparisons. Keep policy substitutions in intercepted responses,
+activate them only after matched baseline setup, and retain exact-distance controls.
+Add calibrated wrong/blank/displaced-image compositor evidence, publication/decode
+attribution and mixed-ratio geometry-lifetime/true-ratio-fragment controls. These are
+research mechanisms, not production prediction or presentation-lifetime policies.
+
+Exercise native cancellation, shared consumers, cache reuse, stale ownership and
+current-demand capacity with bounded loopback fixtures. Contrast fetch/body abort
+and opaque blobs, retain the mounted-source-removal negative control, and test the
+actual proxy handler with fake S3 streams. Delayed-media comparisons match initial
+state, applied travel and the final visible cohort without live-service dependencies.
+
+Separate habitual campaigns, deterministic validation and exploratory research while
+keeping campaign entry points and history locations stable. Remove obsolete root
+fixture copies after checking retained declarations and parameter matrices. Add strict performance
+typechecking/preflight and helper declarations, correct immutable-publication test
+doubles, and validate base/phase-prefixed device pixel ratios as positive scales
+without weakening normalized-ratio bounds. Keep performance checks out of ordinary E2E.
+
+Lead the dashboard with independent weakest-component north-star ranks, compatible
+baseline comparisons and exact workload/phase evidence links. Group phase metrics,
+show constrained landing failures and compact load bands, and move request costs to
+expandable detail. Omit unmeasured graphs while preserving censored outcomes, zero
+values and historical gaps. Reuse bundled Open Sans and Kupua's grey/cyan palette;
+cover compatibility, navigation and responsive presentation in synthetic regressions.
+No product policy or stored campaign result is rewritten by this measurement work.
+
 ### 22 October 2026 - Release unfinished thumbnails after genuine unmount
 
 Give Grid/Justified thumbnails an element-owned passive cleanup that removes the

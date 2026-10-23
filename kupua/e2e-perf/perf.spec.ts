@@ -35,6 +35,7 @@ import { appendFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test, expect, isMediaApiUrl } from "./helpers";
+import type { KupuaHelpers } from "../e2e/shared/helpers";
 import {
   GRID_ROW_HEIGHT,
   GRID_MIN_CELL_WIDTH,
@@ -1376,7 +1377,7 @@ async function waitForLandingImage(
   return { alreadyRendered: false, renderMs: maxWaitMs, networkMs: 0, rendered: false, cacheHit: false };
 }
 
-async function prepareP14Scenario(kupua: any, direction: "forward" | "backward", steps: number) {
+async function prepareP14Scenario(kupua: KupuaHelpers, direction: "forward" | "backward", steps: number) {
   await gotoPerfSearch(kupua);
   const startRank = direction === "forward" ? 3 : steps + 3;
   await kupua.openDetailForNthItem(startRank);

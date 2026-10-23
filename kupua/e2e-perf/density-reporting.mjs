@@ -1,20 +1,41 @@
 // Pure campaign contracts: importing this module never starts a browser or writes history.
-export const DENSITY_WORKLOADS = Object.freeze([
-  "scroll-cold", "scroll-warm", "table-transition", "detail-return", "seek", "reflow", "window-maintenance", "scroll-constrained", "burst-recovery", "scroll-endurance", "refresh-contention",
+import { DENSITY_PRESSURE_STEPS, summarizeDensityPressure } from "./density-pressure.mjs";
+
+const pressureWorkloads = ["scroll-forward", "scroll-backward", "scroll-constrained"];
+const CONTRACT_WORKLOADS = Object.freeze([
+  "scroll-forward", "scroll-backward", "table-transition", "detail-return", "seek", "reflow", "window-maintenance", "scroll-constrained", "burst-recovery", "scroll-endurance", "refresh-contention",
 ]);
+export const DENSITY_WORKLOADS = Object.freeze(CONTRACT_WORKLOADS.filter(workload => !["scroll-endurance", "burst-recovery"].includes(workload)));
 export const REQUIRED_SCROLL_METRICS = Object.freeze([
   "pendingAreaRatioMean", "pendingAreaRatioMax", "blankViewportMs", "exposureAreaMs",
   "decodedCount", "pendingAtEnd", "failedCount",
   "imageIdentityChanges", "scrollDistancePx", "actualSpeedPxPerSec", "frameP95Ms", "elapsedMs",
 ]);
 export const DENSITY_PROFILE = "density-v2-1200pxs-unthrottled";
-export const DENSITY_CONSTRAINED_PROFILE = "density-v2-1200pxs-80ms-4mbps-scroll-only";
+export const DENSITY_CONSTRAINED_PROFILE = "density-v4-30-100-200resultsps-3x2s-80ms-4mbps-4s-recovery";
 export const DENSITY_RECOVERY_PROFILE = "density-v1-4000pxs-3s-back-1.5s-forward-10s-recovery";
 export const DENSITY_ENDURANCE_PROFILE = "density-v1-1200pxs-3x8s-endurance";
 export const DENSITY_CONTENTION_PROFILE = "density-v1-refresh-media-overlap-80ms-4mbps";
-export const REQUIRED_DENSITY_METRICS = Object.freeze(Object.fromEntries(DENSITY_WORKLOADS.map((workload) => [
-  workload, workload === "scroll-endurance" ? Object.freeze([
+export const REQUIRED_DENSITY_METRICS = Object.freeze(Object.fromEntries(CONTRACT_WORKLOADS.map((workload) => [
+  workload, ["scroll-endurance", ...pressureWorkloads].includes(workload) ? Object.freeze([
     "endurancePhaseCount", "enduranceMaxGapMs", "enduranceInterrupted",
+    ...(pressureWorkloads.includes(workload) ? ["journeyCaptureRevision", "stabilityCaptureRevision",
+      "requestedResultsPerSecond", "achievedResultsPerSecond", "resultsPerPixel", "initialRunwayResults", "initialRunwayMs",
+      "forwardReadStarts", "backwardReadStarts", "appendPublications", "prependPublications", "evictionPublications",
+      "retainedComparisons", "refillCoverageComplete", "journeyOverflow", "appliedInputDistancePx", "compensationDistancePx",
+      "retainedSourceChanges", "retainedNodeReplacements", "retainedUnreadySamples", "retainedComparisonCensoredCount",
+      "stabilitySampleCount", "stabilitySampleTotalMs", "stabilitySampleMaxMs", "stabilityObservationGapMaxMs", "paintCaptureAvailable",
+      "pressureCaptureRevision", "struggleReferenceRevision", "firstProgressStruggleStep", "firstFrameStruggleStep", "maximumTestedResultsPerSecond",
+      "timingCaptureRevision", "observerStopLagMs", "recoveryStartLagMs", "controllerReturnLagMs", "requestWindowCaptureRevision", "requestClockMissingCount",
+      "plannedMotionDurationMs", "referenceResultsPerSecond", "networkConstrained", "stopDataCensored", "stopMediaCensored",
+      "mediaProxyCacheHits", "mediaProxyCacheMisses", "mediaProxyCacheUnknown",
+      "stopVisibleMediaCount", "stopDecodedMediaCount", "stopFailedMediaCount", "stopCohortChanged", "postReadyCohortStable",
+      "recoveryObservationMs", "recoveryLimitMs", "readStartsAfterStop", "peakRefillsInFlight", "refillsPendingAtEnd",
+      ...["early", "middle", "late"].flatMap(prefix => ["RequestedResultsPerSecond", "AchievedResultsPerSecond",
+        "PendingVisibleRatioMean", "RequestWindowCaptureRevision", "RequestClockMissingCount", "ProgressStruggle", "FrameStruggle",
+        "MediaProxyCacheHits", "MediaProxyCacheMisses", "MediaProxyCacheUnknown"].map(name => prefix + name)),
+      ...(workload === "scroll-backward" ? ["reversalDrivenDurationMs", "reversalDrivenDistancePx", "reversalFrameP95Ms",
+        "reversalRequestedResultsPerSecond", "reversalRequestWindowCaptureRevision", "reversalRequestClockMissingCount"] : [])] : []),
     ...["early", "middle", "late"].flatMap(prefix => ["ThumbnailPendingAreaRatioMean", "FrameP95Ms",
       "DrivenDistancePx", "DrivenDurationMs", "RequestCaptureRevision", "MediaRequestStarts",
       "MediaRequestsPending", "MediaRequestsCarryIn", "DataRequestStarts"].map(name => prefix + name)),
@@ -33,25 +54,30 @@ export const REQUIRED_DENSITY_METRICS = Object.freeze(Object.fromEntries(DENSITY
 ])));
 // Entries are directly spreadable into JSONL records. Required-metric metadata is
 // separate so the manifest never introduces non-contract record fields.
-export const DENSITY_SCENARIOS = Object.freeze(DENSITY_WORKLOADS.flatMap((workload, index) =>
-  (["scroll-cold", "scroll-warm", "scroll-constrained"].includes(workload)
+export const DENSITY_SCENARIOS = Object.freeze(CONTRACT_WORKLOADS.flatMap((workload, index) =>
+  (["scroll-forward", "scroll-backward", "scroll-constrained"].includes(workload)
     ? ["grid", "justified", "table"] : ["grid", "justified"]).map((density) => Object.freeze({
     id: `D${index + 1}-${density}`,
-    scenarioRevision: ["burst-recovery", "scroll-endurance", "refresh-contention"].includes(workload) ? 1 : workload === "window-maintenance" ? 3 : 2,
+    scenarioRevision: pressureWorkloads.includes(workload) ? 4 : workload === "window-maintenance" ? 3
+      : ["burst-recovery", "scroll-endurance", "refresh-contention"].includes(workload) ? 1 : 2,
     density,
     workload,
-    profile: workload === "scroll-endurance" ? DENSITY_ENDURANCE_PROFILE
+    profile: workload === "scroll-forward" ? "density-v4-30-100-200resultsps-3x3s-4s-recovery"
+      : workload === "scroll-backward" ? "density-v4-30-100-200resultsps-3x3s-1.5s-reversal-4s-recovery"
+      : workload === "scroll-endurance" ? DENSITY_ENDURANCE_PROFILE
       : workload === "refresh-contention" ? DENSITY_CONTENTION_PROFILE
       : workload === "burst-recovery" ? DENSITY_RECOVERY_PROFILE
       : workload === "scroll-constrained" ? DENSITY_CONSTRAINED_PROFILE : DENSITY_PROFILE,
     // Cold media requests are an observation-window condition, never cold startup.
-    cacheClass: workload === "scroll-endurance" ? "browser-cache-disabled-during-endurance-renderer-warm-proxy-uncontrolled"
+    cacheClass: pressureWorkloads.includes(workload) ? "browser-cache-disabled-during-motion-recovery-renderer-warm-proxy-uncontrolled"
+      : workload === "scroll-endurance" ? "browser-cache-disabled-during-endurance-renderer-warm-proxy-uncontrolled"
       : workload === "refresh-contention" ? "browser-cache-disabled-during-prime-and-refresh-renderer-warm-proxy-uncontrolled"
       : workload === "burst-recovery" ? "browser-cache-disabled-during-burst-and-recovery-renderer-warm-proxy-uncontrolled"
-      : workload === "scroll-cold" || workload === "scroll-constrained"
+      : workload === "scroll-constrained"
       ? "browser-cache-disabled-during-scroll-renderer-warm-proxy-uncontrolled"
-      : workload === "scroll-warm" ? "browser-repeat-path" : "browser-session-setup-renderer-warm-proxy-uncontrolled",
-    completionBoundary: workload === "scroll-endurance" ? "three-consecutive-eight-second-controlled-scroll-segments"
+      : "browser-session-setup-renderer-warm-proxy-uncontrolled",
+    completionBoundary: pressureWorkloads.includes(workload) ? "load-ladder-motion-reversal-if-backward-and-current-cohort-decode"
+      : workload === "scroll-endurance" ? "three-consecutive-eight-second-controlled-scroll-segments"
       : workload === "refresh-contention" ? "same-query-refresh-dispatch-to-publication-placement-and-visible-decode"
       : workload === "burst-recovery" ? "burst-dispatch-to-motion-end-and-stopped-viewport-recovery"
       : workload.startsWith("scroll-") ? "four-second-controlled-scroll"
@@ -59,7 +85,7 @@ export const DENSITY_SCENARIOS = Object.freeze(DENSITY_WORKLOADS.flatMap((worklo
     ...(workload === "window-maintenance" ? { geometryScope: "loaded-window" } : {}),
   })),
 ));
-export const DENSITY_METRIC_IDS = Object.freeze(DENSITY_SCENARIOS.map(({ id }) => id));
+export const DENSITY_METRIC_IDS = Object.freeze(DENSITY_SCENARIOS.filter(({ workload }) => DENSITY_WORKLOADS.includes(workload)).map(({ id }) => id));
 
 export function parseDensitySuiteArgs(args) {
   const remainingArgs = [];
@@ -186,26 +212,65 @@ export function validateDensityRecord(record) {
     // Leads are signed: negative means readiness arrived after viewport entry.
     // The remaining capture metrics are nonnegative counts, durations, distances
     // or exposure/shift magnitudes; normalized ratios additionally have an upper bound.
-    if (value !== null && value < 0 && !/^(?:early|middle|late|quiet|busy)?(?:decoded)?readinessLeadPx/i.test(name)
+    if (value !== null && value < 0 && !/^(?:early|middle|late|quiet|busy|reversal|recovery)?(?:decoded)?readinessLeadPx/i.test(name)
       && !/^refresh(?:Data|Placement|Media)DeltaMs$/.test(name)) {
       throw new Error(`${record.id}: negative metric ${name}`);
     }
-    if (value !== null && /Ratio/.test(name) && (value < 0 || value > 1)) {
+    if (value !== null && /^(?:devicePixelRatio|(?:early|middle|late|quiet|busy|reversal|recovery)DevicePixelRatio)$/.test(name)) {
+      if (value <= 0) throw new Error(`${record.id}: devicePixelRatio must be positive`);
+    } else if (value !== null && /Ratio/.test(name) && (value < 0 || value > 1)) {
       throw new Error(`${record.id}: ratio outside 0..1: ${name}`);
     }
   }
   for (const name of Object.keys(record.metrics)) {
-    if (/(trackingOverflow|regionDetached|requestCaptureOverflow)$/i.test(name) && record.metrics[name] !== 0) {
+    if (/(trackingOverflow|regionDetached|requestCaptureOverflow|journeyOverflow)$/i.test(name) && record.metrics[name] !== 0) {
       throw new Error(`${record.id}: observer invalidated capture (${name})`);
     }
   }
   for (const name of REQUIRED_DENSITY_METRICS[scenario.workload]) {
     if (!Number.isFinite(record.metrics[name])) throw new Error(`${record.id}: missing finite ${name}`);
   }
-  for (const prefix of ["", "early", "middle", "late", "quiet", "busy"]) {
+  for (const prefix of ["", "early", "middle", "late", "quiet", "busy", "reversal", "recovery"]) {
     const metrics = prefix ? Object.fromEntries(Object.entries(record.metrics)
       .filter(([name]) => name.startsWith(prefix) && /^[A-Z]/.test(name.slice(prefix.length)))
       .map(([name, value]) => [name[prefix.length].toLowerCase() + name.slice(prefix.length + 1), value])) : record.metrics;
+    if (metrics.observerCostCaptureRevision !== undefined) {
+      if (metrics.observerCostCaptureRevision !== 1 || !Number.isInteger(metrics.observerSampleCount) || metrics.observerSampleCount < 1
+        || !Number.isFinite(metrics.observerSampleTotalMs) || !Number.isFinite(metrics.observerSampleMaxMs)
+        || metrics.observerSampleMaxMs > metrics.observerSampleTotalMs) throw new Error(`${record.id}: invalid observer cost`);
+    }
+    if (metrics.requestTimingCaptureRevision !== undefined) {
+      const timed = metrics.dataTimingCompletions;
+      const unavailable = metrics.dataTimingUnavailableCompletions;
+      if (metrics.requestTimingCaptureRevision !== 1 || metrics.requestCaptureRevision !== 1
+        || ![timed, unavailable].every(value => Number.isInteger(value) && value >= 0)
+        || timed + unavailable !== metrics.dataRequestsCompleted || timed > metrics.dataTimedCompletions) {
+        throw new Error(`${record.id}: invalid data request timing coverage`);
+      }
+      for (const phase of ["BeforeSend", "SendToHeaders", "HeadersToComplete"]) {
+        const maximum = metrics[`data${phase}MaxMs`];
+        const mean = metrics[`data${phase}MeanMs`];
+        if (timed === 0 ? maximum !== null || mean !== null
+          : !Number.isFinite(maximum) || !Number.isFinite(mean) || mean > maximum + 0.000001
+            || maximum > metrics.dataRequestDurationMaxMs + 0.000001) {
+          throw new Error(`${record.id}: invalid data request timing phases`);
+        }
+      }
+    }
+    if (metrics.boundsCaptureRevision !== undefined) {
+      const counts = [metrics.bufferEdgeEpisodeCount, metrics.bufferEdgeEpisodeCompletedCount,
+        metrics.bufferEdgeEpisodeCensoredCount];
+      if (metrics.boundsCaptureRevision !== 1 || !counts.every(value => Number.isInteger(value) && value >= 0)
+        || counts[0] !== counts[1] + counts[2] || !Number.isFinite(metrics.bufferEdgeEpisodeMaxMs)
+        || !Number.isFinite(metrics.drivenDurationMs)
+        || metrics.bufferEdgeEpisodeMaxMs > metrics.drivenDurationMs + 1
+        || (counts[0] === 0 && metrics.bufferEdgeEpisodeMaxMs !== 0)
+        || (counts[1] === 0 ? metrics.bufferEdgeEpisodeCompletedMaxMs !== null
+          : !Number.isFinite(metrics.bufferEdgeEpisodeCompletedMaxMs)
+            || metrics.bufferEdgeEpisodeCompletedMaxMs > metrics.bufferEdgeEpisodeMaxMs)) {
+        throw new Error(`${record.id}: invalid buffer edge episode accounting`);
+      }
+    }
     if (metrics.thumbnailWaitCaptureRevision !== undefined) {
     const counts = [metrics.thumbnailVisibleWaitCount, metrics.thumbnailVisibleWaitCompletedCount,
       metrics.thumbnailVisibleWaitCensoredCount];
@@ -244,6 +309,11 @@ export function validateDensityRecord(record) {
           throw new Error(`${record.id}: invalid request cohort accounting`);
         }
       }
+      const cacheFields = ["mediaProxyCacheHits", "mediaProxyCacheMisses", "mediaProxyCacheUnknown"];
+      if (cacheFields.some(name => metrics[name] !== undefined) && (!cacheFields.every(name => Number.isInteger(metrics[name]) && metrics[name] >= 0)
+        || cacheFields.reduce((sum, name) => sum + metrics[name], 0) !== metrics.mediaRequestsCompleted + metrics.mediaRequestFailures)) {
+        throw new Error(`${record.id}: invalid proxy cache accounting`);
+      }
     }
   }
   if (record.metrics.layoutShiftSupported !== undefined) {
@@ -255,7 +325,7 @@ export function validateDensityRecord(record) {
   }
   // Placement and media readiness are distinct: optional media can remain absent,
   // but a timeout must be explicitly censored, never a deadline-valued success.
-  if (record.workload === "scroll-endurance") {
+  if (["scroll-endurance", ...pressureWorkloads].includes(record.workload)) {
     if (record.metrics.endurancePhaseCount !== 3 || record.metrics.enduranceInterrupted !== 0
       || record.metrics.enduranceMaxGapMs >= 250) throw new Error(`${record.id}: interrupted endurance observation`);
   } else if (record.workload === "refresh-contention") {
@@ -307,6 +377,47 @@ export function validateDensityRecord(record) {
       throw new Error(`${record.id}: invalid media readiness/censor contract`);
     }
   }
+  if (pressureWorkloads.includes(record.workload)) {
+    const metrics = record.metrics;
+    const publications = record.workload === "scroll-backward" ? metrics.prependPublications : metrics.appendPublications;
+    if (metrics.journeyCaptureRevision !== 1 || metrics.stabilityCaptureRevision !== 1
+      || metrics.requestedResultsPerSecond !== 100 || metrics.resultsPerPixel <= 0
+      || metrics.refillCoverageComplete !== Number(publications >= 2)
+      || metrics.paintCaptureAvailable !== 0 || metrics.paintMismatchCount !== null
+      || metrics.stabilitySampleCount < 1 || metrics.stabilitySampleMaxMs > metrics.stabilitySampleTotalMs
+      || !["forwardReadStarts", "backwardReadStarts", "appendPublications", "prependPublications", "evictionPublications", "retainedComparisons",
+        "retainedSourceChanges", "retainedNodeReplacements", "retainedUnreadySamples", "retainedComparisonCensoredCount", "stabilitySampleCount"]
+        .every(name => Number.isInteger(metrics[name]) && metrics[name] >= 0)
+      || ["retainedDisplacementMaxPx", "retainedResizeMaxPx"].some(name => metrics.retainedComparisons === 0
+        ? metrics[name] !== null : !Number.isFinite(metrics[name]))) throw new Error(`${record.id}: invalid journey coverage/stability`);
+    if (metrics.timingCaptureRevision !== 2 || metrics.pressureCaptureRevision !== 1
+      || metrics.requestWindowCaptureRevision !== 1 || metrics.requestClockMissingCount !== 0
+      || metrics.observerStopLagMs > 25 || metrics.recoveryStartLagMs > 25
+      || metrics.referenceResultsPerSecond !== 100 || metrics.recoveryLimitMs !== 4000
+      || metrics.plannedMotionDurationMs !== (record.workload === "scroll-constrained" ? 6000 : 9000)
+      || metrics.networkConstrained !== Number(record.workload === "scroll-constrained")
+      || ["early", "middle", "late"].some((prefix, index) => metrics[prefix + "RequestedResultsPerSecond"] !== DENSITY_PRESSURE_STEPS[index]
+        || metrics[prefix + "RequestWindowCaptureRevision"] !== 1 || metrics[prefix + "RequestClockMissingCount"] !== 0)
+      || (record.workload === "scroll-backward" && (metrics.reversalRequestedResultsPerSecond !== 100
+        || metrics.reversalRequestWindowCaptureRevision !== 1 || metrics.reversalRequestClockMissingCount !== 0))
+      || Object.entries(summarizeDensityPressure(metrics)).some(([name, value]) => metrics[name] !== value)) {
+      throw new Error(`${record.id}: invalid pressure journey clocks or load steps`);
+    }
+    if (!["stopDataCensored", "stopMediaCensored", "stopCohortChanged", "postReadyCohortStable"].every(name => [0, 1].includes(metrics[name]))
+      || !["stopVisibleMediaCount", "stopDecodedMediaCount", "stopFailedMediaCount", "readStartsAfterStop", "peakRefillsInFlight", "refillsPendingAtEnd"]
+        .every(name => Number.isInteger(metrics[name]) && metrics[name] >= 0)
+      || metrics.peakRefillsInFlight > 2 || metrics.refillsPendingAtEnd > metrics.peakRefillsInFlight
+      || metrics.stopDecodedMediaCount + metrics.stopFailedMediaCount > metrics.stopVisibleMediaCount
+      || (metrics.stopDataCensored ? metrics.stopDataReadyMs !== null : !Number.isFinite(metrics.stopDataReadyMs)
+        || metrics.stopDataReadyMs > metrics.recoveryLimitMs)
+      || (metrics.stopMediaCensored ? metrics.stopMediaReadyMs !== null : metrics.stopDataCensored !== 0
+        || !Number.isFinite(metrics.stopMediaReadyMs) || metrics.stopMediaReadyMs < metrics.stopDataReadyMs
+        || metrics.stopMediaReadyMs > metrics.recoveryLimitMs || metrics.stopVisibleMediaCount < 1
+        || metrics.stopDecodedMediaCount !== metrics.stopVisibleMediaCount || metrics.postReadyCohortStable !== 1)
+      || metrics.stopCohortChanged && (!metrics.stopDataCensored || !metrics.stopMediaCensored)) {
+      throw new Error(`${record.id}: invalid pressure recovery readiness`);
+    }
+  }
   return record;
 }
 
@@ -315,6 +426,7 @@ export function validateDensityRun(records) {
   const seen = new Set();
   for (const record of records) {
     validateDensityRecord(record);
+    if (!DENSITY_METRIC_IDS.includes(record.id)) throw new Error(`Retired density scenario in active run: ${record.id}`);
     if (seen.has(record.id)) throw new Error(`Duplicate density scenario: ${record.id}`);
     seen.add(record.id);
   }

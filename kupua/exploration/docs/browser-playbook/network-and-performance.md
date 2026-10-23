@@ -87,6 +87,13 @@ memory before readback/persistence.
    observation. Compare a single action or authorised representative build before
    making production claims.
 
+For short browser timings, capture action end, observer stop and the first readiness
+check in the same in-page job. A controller round trip can return long after the
+browser action finished; starting observation then measures handoff delay as well
+as application work. Record that delay separately and calibrate with an already-ready
+fixture plus deliberate controller delay. Replay buffered network events against
+their original timestamps, not the time the controller processes the batch.
+
 CDP profiling plus in-memory timing/timeline marks can distinguish a wrapped callback
 from its enclosing browser task, including subsequent React microtasks. This is
 ownership attribution, not a lightweight benchmark. Clear marks/disconnect observers

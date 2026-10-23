@@ -39,7 +39,7 @@ async function loadDashboard(page: Page, dashboard: Dashboard) {
       destroy() { window.__chartConfigs.delete(this.id); }
     };
   </script>`;
-  const html = readFileSync(new URL(`./results/${dashboard}-graphs.html`, import.meta.url), "utf8")
+  const html = readFileSync(new URL(`../results/${dashboard}-graphs.html`, import.meta.url), "utf8")
     .replace(/<script\b[^>]*\bsrc=[^>]*>[\s\S]*?<\/script>/gi, "")
     .replace("<head>", `<head>${bootstrap}`);
   await page.setContent(html);

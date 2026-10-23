@@ -1,8 +1,8 @@
 import { defineConfig } from "@playwright/test";
 
-/** Deterministic in-memory observer validation, not a performance campaign. No app/server/ES. */
+/** Isolated observer/mechanism validation, not a campaign. No app/ES; some fixtures own loopback HTTP servers. */
 export default defineConfig({
-  testDir: ".",
+  testDir: "./validation",
   testMatch: ["density-fixtures.spec.ts", "dashboard-navigation.spec.ts"],
   outputDir: "../test-results/density-fixtures",
   timeout: 15000,

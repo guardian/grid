@@ -582,7 +582,7 @@ No function or section comprehension is claimed from these size-based boundaries
 
 | Input | Primary scopes |
 |---|---|
-| [experiments.spec.ts](../../../../e2e-perf/experiments.spec.ts#L1) | METHOD-1:1-600; METHOD-2:601-1200,1201-1642 |
+| [experiments.spec.ts](../../../../e2e-perf/research/experiments.spec.ts#L1) | METHOD-1:1-600; METHOD-2:601-1200,1201-1642 |
 | [perceived-short.spec.ts](../../../../e2e-perf/perceived-short.spec.ts#L1) | METHOD-7:1-600; METHOD-9:601-1200; METHOD-10:1201-1800; METHOD-11:1801-2023 |
 | [perf.spec.ts](../../../../e2e-perf/perf.spec.ts#L1) | METHOD-12:1-600; METHOD-13:601-1200; METHOD-14:1201-1800; METHOD-16:1801-2376 |
 | [audit-log.md](../../../../e2e-perf/results/audit-log.md#L1) | VIEWS-1:1-495; VIEWS-2:496-944; VIEWS-3:945-1340,1341-1441 |

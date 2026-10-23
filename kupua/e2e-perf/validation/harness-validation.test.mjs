@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -27,23 +28,23 @@ import {
   generatedHistoryExclusions,
   requireSingleEnvironment,
   requireConsistentPresence,
-} from "./harness-validation.mjs";
+} from "../harness-validation.mjs";
 import {
   commitFileTransaction,
   parseHistoryLog,
   pruneAuditHistory,
-} from "./history-files.mjs";
-import { computeCorrelatedMetrics, ownsDataRoute } from "./perceived-metrics.mjs";
-import TeardownReporter from "./teardown-reporter.mjs";
+} from "../history-files.mjs";
+import { computeCorrelatedMetrics, ownsDataRoute } from "../perceived-metrics.mjs";
+import TeardownReporter from "../teardown-reporter.mjs";
 import {
   classifyImageLookup,
   comparisonEvidenceClass,
   metricsAreComparable,
   severeRateIsReportable,
-} from "./p14-metrics.mjs";
+} from "../p14-metrics.mjs";
 
 function dashboardFunction(filename, name) {
-  const html = readFileSync(join(import.meta.dirname, "results", filename), "utf8");
+  const html = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "results", filename), "utf8");
   const source = html.slice(html.indexOf(`function ${name}(`));
   const parsed = ts.createSourceFile("dashboard.js", source, ts.ScriptTarget.ES2022, true, ts.ScriptKind.JS);
   const declaration = parsed.statements[0];
@@ -52,7 +53,7 @@ function dashboardFunction(filename, name) {
 }
 
 function runnerFunction(name) {
-  const source = readFileSync(join(import.meta.dirname, "run-audit.mjs"), "utf8");
+  const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "run-audit.mjs"), "utf8");
   const tail = source.slice(source.indexOf(`function ${name}(`));
   const parsed = ts.createSourceFile("runner.js", tail, ts.ScriptTarget.ES2022, true, ts.ScriptKind.JS);
   const declaration = parsed.statements[0];
@@ -61,7 +62,7 @@ function runnerFunction(name) {
 }
 
 function metadataSearchObserverFixture(refreshRate, readyAt = 4_000, options = {}) {
-  const filename = join(import.meta.dirname, "perceived-long.spec.ts");
+  const filename = join(fileURLToPath(new URL("..", import.meta.url)), "perceived-long.spec.ts");
   const parsed = ts.createSourceFile(filename, readFileSync(filename, "utf8"), ts.ScriptTarget.ES2022, true);
   const declaration = parsed.statements.find(node => ts.isFunctionDeclaration(node)
     && node.name?.text === "appendMetadataSearchVisualPhases");
@@ -191,8 +192,8 @@ test("long-journey search observer rejects data arriving after its elapsed deadl
 });
 
 test("acknowledgement documentation stays distinct from visible-frame latency", () => {
-  const shortSpec = readFileSync(join(import.meta.dirname, "perceived-short.spec.ts"), "utf8");
-  const handbook = readFileSync(join(import.meta.dirname, "README.md"), "utf8");
+  const shortSpec = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "perceived-short.spec.ts"), "utf8");
+  const handbook = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "README.md"), "utf8");
   const shortAckDescription = shortSpec.match(/^ \*   - dt_ack_ms:.*$/m)?.[0];
   const handbookAckDescription = handbook.match(/^- `t_ack` —.*$/m)?.[0];
 
@@ -208,7 +209,7 @@ function waitForFunctionDefects() {
   ];
   const defects = [];
   for (const relativePath of files) {
-    const file = join(import.meta.dirname, relativePath);
+    const file = join(fileURLToPath(new URL("..", import.meta.url)), relativePath);
     const text = readFileSync(file, "utf8");
     const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
     const visit = (node) => {
@@ -253,7 +254,7 @@ test("store timings belong only to actions that own a data route", () => {
   assert.equal(ownsDataRoute(["client-only"]), false);
   assert.equal(ownsDataRoute(undefined), false);
   for (const filename of ["perceived-short.spec.ts", "perceived-long.spec.ts"]) {
-    const source = readFileSync(join(import.meta.dirname, filename), "utf8");
+    const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), filename), "utf8");
     const calls = [...source.matchAll(/readStoreTiming\(([^)]*)\)/g)].slice(1);
     assert.ok(calls.length > 0, filename);
     for (const call of calls) assert.match(call[1], /,\s*(?:metrics|m)\.routes$/, filename);
@@ -284,7 +285,7 @@ test("application-source fingerprint excludes only generated perf histories", ()
     ":(exclude)e2e-perf/kupua-perf-*.log",
     ":(exclude)e2e-perf/results/kupua-perf-*.log",
   ]);
-  const runner = readFileSync(join(import.meta.dirname, "run-audit.mjs"), "utf8");
+  const runner = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "run-audit.mjs"), "utf8");
   assert.match(runner, /appSourceDirtyStateHash/);
   assert.match(runner, /generatedHistoryExclusions\(\)/);
 });
@@ -299,7 +300,7 @@ test("both dashboards qualify paired mode deltas by application-source identity"
     assert.equal(sourceMatchLabel(base, { ...base, environment: { appSourceDirtyStateHash: "other" } }), "app source differs");
     assert.equal(sourceMatchLabel(base, { ...base, environment: {} }), "app source unverified");
     assert.equal(sourceMatchLabel(base, { ...base, gitSha: "def" }), "commit differs");
-    const source = readFileSync(join(import.meta.dirname, "results", filename), "utf8");
+    const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "results", filename), "utf8");
     assert.match(source, /API − direct/);
   }
 });
@@ -369,7 +370,7 @@ test("totals, regimes, and seek-measure names cannot be partial across repetitio
 });
 
 test("audit verdict reports one-off threshold crossings as watchpoints", () => {
-  const source = readFileSync(join(import.meta.dirname, "run-audit.mjs"), "utf8");
+  const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "run-audit.mjs"), "utf8");
   const reporting = source.slice(
     source.indexOf("const METRIC_COLS ="),
     source.indexOf("function buildAuditMarkdown("),
@@ -421,7 +422,7 @@ test("perceived dashboard imports only real image-read evidence from audit histo
 
 test("both dashboards expose lookup metrics without conflating fallback and API transport", () => {
   for (const filename of ["audit-graphs.html", "perceived-graphs.html"]) {
-    const source = readFileSync(join(import.meta.dirname, "results", filename), "utf8");
+    const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "results", filename), "utf8");
     for (const field of ["imageLookupCount", "detailLookupMs", "detailMetadataReadyMs", "detailImageReadyMs"]) {
       assert.ok(source.includes(field), `${filename}: ${field}`);
       if (filename === "perceived-graphs.html") assert.ok(source.includes(`value="${field}"`));
@@ -440,9 +441,9 @@ test("both dashboards expose lookup metrics without conflating fallback and API 
     assert.equal(comparable(entry, metric, entry, { ...metric, completionBoundary: "fixed-wait" }), false);
     assert.equal(comparable(entry, {}, entry, metric), false);
   }
-  const audit = readFileSync(join(import.meta.dirname, "results/audit-graphs.html"), "utf8");
+  const audit = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "results/audit-graphs.html"), "utf8");
   assert.match(audit, /imageLookupCount:[^\n]+quietThreshold: 0/);
-  const perceived = readFileSync(join(import.meta.dirname, "results/perceived-graphs.html"), "utf8");
+  const perceived = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "results/perceived-graphs.html"), "utf8");
   assert.match(perceived, /script src="audit-log.js"/);
   assert.match(perceived, /auditImageReadEntries\(window\.__AUDIT_LOG__\)/);
   const unit = runInNewContext(`${dashboardFunction("perceived-graphs.html", "metricUnit")}\nmetricUnit`);
@@ -473,7 +474,7 @@ test("replacing perceived history removes stale charts before rendering shared p
 });
 
 function standaloneProbeHarness({ route = "direct-es", expectedRoute = route, resident = false, becomesResident = false, requestCount = 1, changedMedia = false, wrongTarget = false, wrongTargetIndex = -1, mixedRoute = false, failedIndex = -1, failureText = "net::ERR_ABORTED" } = {}) {
-  const source = readFileSync(join(import.meta.dirname, "perf.spec.ts"), "utf8");
+  const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "perf.spec.ts"), "utf8");
   const helper = source.slice(source.indexOf("function captureImageLookups("), source.indexOf("// Guard: per-test cluster checks"));
   const { outputText } = ts.transpileModule(helper, { compilerOptions: { target: ts.ScriptTarget.ES2022 } });
   let now = 0;
@@ -529,7 +530,7 @@ function standaloneProbeHarness({ route = "direct-es", expectedRoute = route, re
 }
 
 function geometryWaitFunctions(context) {
-  const source = readFileSync(join(import.meta.dirname, "perf.spec.ts"), "utf8");
+  const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "perf.spec.ts"), "utf8");
   const helpers = source.slice(
     source.indexOf("async function waitForResultsWidthGrowth("),
     source.indexOf("// Guard: per-test cluster checks"),
@@ -644,7 +645,7 @@ test("actual standalone probe rejects a cancelled only, last or non-abort failed
 });
 
 function decodedDetailHarness({ readyAt = 64, wrongIdentity = false, moving = false, decodeFails = false } = {}) {
-  const source = readFileSync(join(import.meta.dirname, "../e2e/shared/helpers.ts"), "utf8");
+  const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "../e2e/shared/helpers.ts"), "utf8");
   const method = source.slice(source.indexOf("  async waitForDecodedDetailImage("), source.indexOf("  /** Wait for native fullscreen state"));
   const { outputText } = ts.transpileModule(`class DetailHelper { constructor(public page: any) {} ${method} }`, {
     compilerOptions: { target: ts.ScriptTarget.ES2022 },
@@ -678,7 +679,7 @@ function decodedDetailHarness({ readyAt = 64, wrongIdentity = false, moving = fa
 }
 
 function densityInitializationHarness() {
-  const source = readFileSync(join(import.meta.dirname, "../e2e/shared/helpers.ts"), "utf8");
+  const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "../e2e/shared/helpers.ts"), "utf8");
   const start = source.indexOf("  async initializeDensity(");
   assert.ok(start >= 0, "shared helpers must expose independent-case density initialization");
   const method = source.slice(start, source.indexOf("  /** Navigate to the search page", start));
@@ -769,7 +770,7 @@ for (const reverse of [false, true]) {
 }
 
 test("independent case starts retain the existing corpus-pinned navigation path", async () => {
-  const source = readFileSync(join(import.meta.dirname, "../e2e/shared/helpers.ts"), "utf8");
+  const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "../e2e/shared/helpers.ts"), "utf8");
   const method = source.slice(source.indexOf("  async startSearch("), source.indexOf("  async assertDensity("));
   const { outputText } = ts.transpileModule(`class StartHelper { ${method} }`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } });
   const Helper = runInNewContext(`${outputText}\nStartHelper`);
@@ -784,7 +785,7 @@ test("independent case starts retain the existing corpus-pinned navigation path"
 });
 
 test("perf grid readiness rejects a rendered table, including PP7c and PP10 starts", async () => {
-  const source = readFileSync(join(import.meta.dirname, "../e2e/shared/helpers.ts"), "utf8");
+  const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "../e2e/shared/helpers.ts"), "utf8");
   const method = source.slice(source.indexOf("  async waitForResults("), source.indexOf("  // Store state", source.indexOf("  async waitForResults(")));
   const { outputText } = ts.transpileModule(`class ReadyHelper { constructor(public page: any) {} ${method} }`, {
     compilerOptions: { target: ts.ScriptTarget.ES2022 },
@@ -805,7 +806,7 @@ test("perf grid readiness rejects a rendered table, including PP7c and PP10 star
     else await operation;
     assert.equal(diagnosticReads, rendered === "table" ? 1 : 0);
   }
-  const short = readFileSync(join(import.meta.dirname, "perceived-short.spec.ts"), "utf8");
+  const short = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "perceived-short.spec.ts"), "utf8");
   for (const id of ["PP7c", "PP10"]) {
     const start = short.indexOf(`test("${id}:`);
     const scenario = short.slice(start, short.indexOf("\n  test(", start + 1));
@@ -829,17 +830,17 @@ test("detail readiness rejects missing, undecodable and unstable images at its d
 });
 
 test("perf campaigns and direct configs retain teardown diagnostics", () => {
-  const runner = readFileSync(join(import.meta.dirname, "run-audit.mjs"), "utf8");
+  const runner = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "run-audit.mjs"), "utf8");
   const overrides = [...runner.matchAll(/"--reporter=([^"]+)"/g)];
   assert.equal(overrides.length, 2);
   for (const [, reporters] of overrides) {
     assert.ok(reporters.split(",").includes("./e2e-perf/teardown-reporter.mjs"));
   }
   for (const config of ["playwright.perf.config.ts", "playwright.perceived-short.config.ts", "playwright.perceived-long.config.ts"]) {
-    const source = readFileSync(join(import.meta.dirname, config), "utf8");
+    const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), config), "utf8");
     assert.ok(source.includes('["./teardown-reporter.mjs"]'), config);
   }
-  const { scripts } = JSON.parse(readFileSync(join(import.meta.dirname, "..", "package.json"), "utf8"));
+  const { scripts } = JSON.parse(readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "..", "package.json"), "utf8"));
   for (const [name, command] of Object.entries(scripts)) {
     if (name.startsWith("test:perf:")) assert.doesNotMatch(command, /--reporter=list(?:\s|$)/, name);
   }
@@ -935,7 +936,7 @@ test("cleanup records stay scoped to their step and sanitize unknown scenario ti
 });
 
 function shortScenario(id) {
-  const filename = join(import.meta.dirname, "perceived-short.spec.ts");
+  const filename = join(fileURLToPath(new URL("..", import.meta.url)), "perceived-short.spec.ts");
   const parsed = ts.createSourceFile(filename, readFileSync(filename, "utf8"), ts.ScriptTarget.ES2022, true);
   let callback;
   function visit(node) {
@@ -1029,7 +1030,7 @@ for (const [condition, startAt, readyAt] of [
   ["immediate completion", 0, 0],
 ]) {
   test(`shared direction helper handles ${condition} without requiring a loading pulse`, async () => {
-    const filename = join(import.meta.dirname, "../e2e/shared/helpers.ts");
+    const filename = join(fileURLToPath(new URL("..", import.meta.url)), "../e2e/shared/helpers.ts");
     const parsed = ts.createSourceFile(filename, readFileSync(filename, "utf8"), ts.ScriptTarget.ES2022, true);
     const declaration = parsed.statements.find(node => ts.isClassDeclaration(node)
       && node.members.some(member => member.name?.getText(parsed) === "toggleSortDirection"));
@@ -1104,7 +1105,7 @@ function createShortVisualHarness(name, {
   wrongContext = false,
 } = {}) {
   const isJourney = ["navigateAndMeasure", "appendDetailVisualPhases", "appendIndexedScrollVisualPhases", "appendFullscreenExitVisualPhases"].includes(name);
-  const filename = join(import.meta.dirname, isJourney ? "perceived-long.spec.ts" : "perceived-short.spec.ts");
+  const filename = join(fileURLToPath(new URL("..", import.meta.url)), isJourney ? "perceived-long.spec.ts" : "perceived-short.spec.ts");
   const parsed = ts.createSourceFile(filename, readFileSync(filename, "utf8"), ts.ScriptTarget.ES2022, true);
   const declaration = parsed.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name);
   assert.ok(declaration);
@@ -1344,7 +1345,7 @@ for (const name of ["settleMidBufferSetup", "settlePostEvictionSetup"]) {
 }
 
 function createSelectionPanelHarness({ refreshRate = 120, readyAt = 1_500, moving = false, missingPanel = false } = {}) {
-  const filename = join(import.meta.dirname, "perf.spec.ts");
+  const filename = join(fileURLToPath(new URL("..", import.meta.url)), "perf.spec.ts");
   const source = readFileSync(filename, "utf8");
   const parsed = ts.createSourceFile(filename, source, ts.ScriptTarget.ES2022, true);
   let callback;
@@ -1426,7 +1427,7 @@ for (const options of [{ readyAt: 31_000 }, { moving: true }, { missingPanel: tr
 
 test("performance readiness loops cannot use frame-count deadlines", () => {
   for (const filename of ["perceived-short.spec.ts", "perceived-long.spec.ts", "perf.spec.ts"]) {
-    const source = readFileSync(join(import.meta.dirname, filename), "utf8");
+    const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), filename), "utf8");
     const parsed = ts.createSourceFile(filename, source, ts.ScriptTarget.ES2022, true);
     const inspectBrowserCallback = node => {
       if (ts.isForStatement(node) && node.statement.getText(parsed).includes("requestAnimationFrame")) {
@@ -1456,7 +1457,7 @@ function createHomeVisualHarness({
   moving = false,
   visible = true,
 } = {}) {
-  const source = readFileSync(join(import.meta.dirname, "perceived-short.spec.ts"), "utf8");
+  const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "perceived-short.spec.ts"), "utf8");
   const helper = source.slice(
     source.indexOf("async function appendHomeVisualPhases("),
     source.indexOf("async function captureChipRemovalAnchor("),
@@ -1553,7 +1554,7 @@ for (const [label, options, diagnostic] of [
 
 test("dashboards compare checked data modes as separate series", () => {
   for (const filename of ["audit-graphs.html", "perceived-graphs.html"]) {
-    const source = readFileSync(join(import.meta.dirname, "results", filename), "utf8");
+    const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "results", filename), "utf8");
 
     assert.match(source, /"direct-es": \{ label: "direct ES", color: "#58a6ff"/);
     assert.match(source, /"media-api": \{ label: "media-api", color: "#f2a65a"/);
@@ -1580,7 +1581,7 @@ test("rejects unbalanced long audits before suite execution", () => {
 });
 
 test("P18/P19 route ownership includes only the selection metadata request in either mode", () => {
-  const source = readFileSync(join(import.meta.dirname, "perf.spec.ts"), "utf8");
+  const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "perf.spec.ts"), "utf8");
   assert.match(source, /const isSelectionMetadataPath = \(path: string\) =>/);
   assert.match(source, /\(path\.startsWith\("\/es\/"\) && path\.endsWith\("\/_mget"\)\)[\s\S]*path === "\/api\/images\/mget"[\s\S]*path === "\/images\/mget"/);
   assert.match(source, /captureSuccessfulDataRoutes\(\s*kupua,\s*isSelectionMetadataPath/);
@@ -1917,7 +1918,7 @@ test("rejects a media-api topology that differs from the requested topology", ()
 });
 
 test("perf environment fingerprint preserves the app API topology", () => {
-  const source = readFileSync(join(import.meta.dirname, "helpers.ts"), "utf8");
+  const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "helpers.ts"), "utf8");
   assert.match(source, /apiTopology: appEnvironment\.apiTopology/);
 });
 

@@ -1141,7 +1141,7 @@ export class KupuaHelpers {
       await this.page.evaluate(
         ({ containerSel, rowSel }) => {
           const container = document.querySelector(containerSel);
-          const row = document.querySelector(rowSel);
+          const row = document.querySelector<HTMLElement>(rowSel);
           if (!container || !row) return;
           const match = /translateY\(([\d.]+)px\)/.exec(row.style.transform || "");
           if (!match) return;

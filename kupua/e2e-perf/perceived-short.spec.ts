@@ -34,6 +34,7 @@ import { appendFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test, expect, isMediaApiUrl } from "./helpers";
+import type { KupuaHelpers } from "../e2e/shared/helpers";
 import type { TraceEntry } from "@/lib/perceived-trace";
 import { computeCorrelatedMetrics, ownsDataRoute } from "./perceived-metrics.mjs";
 
@@ -251,7 +252,7 @@ function captureSuccessfulDataRoutes(kupua: any) {
 }
 
 async function appendFocusedSortVisualPhases(
-  kupua: any,
+  kupua: KupuaHelpers,
   interactionId: string,
   scenarioId: "PP3" | "PP4",
   focusedImageId: string,
@@ -336,9 +337,11 @@ async function appendFocusedSortVisualPhases(
           }
           if (url.pathname.startsWith("/es/")) routes.add("direct-es");
         }
+        const resultRegime: NonNullable<PerceivedMetrics["resultRegime"]> =
+          total <= 1_000 ? "buffer" : total <= 65_000 ? "indexed" : "seek";
         return {
           settledTotal: total,
-          resultRegime: total <= 1_000 ? "buffer" : total <= 65_000 ? "indexed" : "seek",
+          resultRegime,
           routes: routes.size > 0 ? [...routes].sort() : ["client-only"],
         };
       }
@@ -890,7 +893,7 @@ async function captureChipRemovalAnchor(kupua: any) {
 }
 
 async function appendChipRemovalVisualPhases(
-  kupua: any,
+  kupua: KupuaHelpers,
   interactionId: string,
   anchor: { imageId: string; top: number; viewportHeight: number },
 ) {
@@ -963,9 +966,11 @@ async function appendChipRemovalVisualPhases(
         entries.push({ action: "chip-remove", phase: "t_visual_settled", t: current.t, interactionId: targetInteractionId });
         if (!Number.isFinite(state.total)) throw new Error("PP9 settled total is unavailable");
         const settledRelativeTop = settledItemRect.top - settledContainerRect.top;
+        const resultRegime: NonNullable<PerceivedMetrics["resultRegime"]> =
+          state.total <= 1_000 ? "buffer" : state.total <= 65_000 ? "indexed" : "seek";
         return {
           settledTotal: state.total,
-          resultRegime: state.total <= 1_000 ? "buffer" : state.total <= 65_000 ? "indexed" : "seek",
+          resultRegime,
           anchorDriftPx: Math.round(settledRelativeTop - targetAnchor.top),
           anchorDriftRatio: (settledRelativeTop - targetAnchor.top) / targetAnchor.viewportHeight,
         };
@@ -1185,7 +1190,15 @@ async function appendDeepHistoryBackVisualPhases(
   });
 }
 
-async function appendSeekVisualPhases(kupua: any, interactionId: string, requestedPosition: number) {
+interface ScrollVisualContext {
+  settledTotal: number;
+  resultRegime: NonNullable<PerceivedMetrics["resultRegime"]>;
+  requestedRatio: number;
+  achievedRatio: number;
+  routes?: string[];
+}
+
+async function appendSeekVisualPhases(kupua: KupuaHelpers, interactionId: string, requestedPosition: number): Promise<ScrollVisualContext> {
   return kupua.page.evaluate(async ({ targetInteractionId, targetPosition }) => {
     const deadline = performance.now() + 15_000;
     const readRect = (element: Element) => {
@@ -1228,12 +1241,13 @@ async function appendSeekVisualPhases(kupua: any, interactionId: string, request
         first = { imageId, container: readRect(container), item: readRect(item), t: performance.now() };
         continue;
       }
-      const item = container.querySelector(`[data-image-id="${CSS.escape(first.imageId)}"]`);
+      const item: Element | null = container.querySelector(`[data-image-id="${CSS.escape(first.imageId)}"]`);
       if (!item) {
         first = null;
         continue;
       }
-      const current = { container: readRect(container), item: readRect(item), t: performance.now() };
+      const current: { container: Record<string, number>; item: Record<string, number>; t: number } =
+        { container: readRect(container), item: readRect(item), t: performance.now() };
       if (close(first.container, current.container) && close(first.item, current.item)) {
         const entries = (window as any).__perceivedTrace__ as TraceEntry[];
         entries.push({ action: "scrubber-seek", phase: "t_first_visible_frame", t: first.t, interactionId: targetInteractionId });
@@ -1248,7 +1262,7 @@ async function appendSeekVisualPhases(kupua: any, interactionId: string, request
         }
         return {
           settledTotal: total,
-          resultRegime: "seek",
+          resultRegime: "seek" as const,
           requestedRatio,
           achievedRatio,
         };
@@ -1259,7 +1273,7 @@ async function appendSeekVisualPhases(kupua: any, interactionId: string, request
   }, { targetInteractionId: interactionId, targetPosition: requestedPosition });
 }
 
-async function appendBufferScrollVisualPhases(kupua: any, interactionId: string, requestedPosition: number) {
+async function appendBufferScrollVisualPhases(kupua: KupuaHelpers, interactionId: string, requestedPosition: number): Promise<ScrollVisualContext> {
   return kupua.page.evaluate(async ({ targetInteractionId, targetPosition }) => {
     const readRect = (element: Element) => {
       const rect = element.getBoundingClientRect();
@@ -1320,7 +1334,7 @@ async function appendBufferScrollVisualPhases(kupua: any, interactionId: string,
         if (Math.abs(achievedRatio - requestedRatio) > 0.05) {
           throw new Error(`PP7c achieved ratio ${achievedRatio} too far from requested ${requestedRatio}`);
         }
-        return { settledTotal: total, resultRegime: "buffer", requestedRatio, achievedRatio };
+        return { settledTotal: total, resultRegime: "buffer" as const, requestedRatio, achievedRatio };
       }
       first = current;
     }

@@ -9,7 +9,7 @@ import {
   sanitizeLayoutShift,
   classifyImageLookup,
   comparisonEvidenceClass,
-} from "./p14-metrics.mjs";
+} from "../p14-metrics.mjs";
 
 test("reserves regression verdicts for repeated current evidence", () => {
   assert.equal(comparisonEvidenceClass({ sampleCount: 1 }, { sampleCount: 4 }), "watchpoint");

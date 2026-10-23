@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { installNetworkProbe } from "./network-probe.mjs";
-import * as networkProbe from "./network-probe.mjs";
+import { installNetworkProbe } from "../network-probe.mjs";
+import * as networkProbe from "../network-probe.mjs";
 
 function fixture(unsupported = false) {
   let deliver;
@@ -94,6 +94,105 @@ function requestFixture(options) {
   };
 }
 
+test("timestamp windows recover carry-in completion cancellation and pending work after controller delay", () => {
+  const fixture = requestFixture();
+  const start = (requestId, timestamp, wallTime) => fixture.emit("requestWillBeSent", {
+    requestId, type: "Image", timestamp, wallTime,
+    request: { url: "https://fixture.invalid/image" },
+  });
+  start("carry", 0.9, 999.9);
+  fixture.probe.beginPhase();
+  start("cancelled", 1.1, 1000.1);
+  fixture.emit("loadingFinished", { requestId: "carry", timestamp: 1.2, encodedDataLength: 40 });
+  start("pending-at-cutoff", 1.25, 1000.25);
+  fixture.emit("loadingFailed", { requestId: "cancelled", timestamp: 1.3, canceled: true });
+  fixture.probe.beginPhase();
+  start("later", 1.6, 1000.6);
+  fixture.emit("loadingFinished", { requestId: "pending-at-cutoff", timestamp: 1.7, encodedDataLength: 80 });
+  const result = fixture.probe.snapshotBetween(1000000, 1000400);
+  assert.equal(result.requestWindowCaptureRevision, 1);
+  assert.equal(result.requestClockMissingCount, 0);
+  assert.equal(result.mediaRequestsCarryIn, 1);
+  assert.equal(result.mediaRequestStarts, 2);
+  assert.equal(result.mediaRequestsCompleted, 1);
+  assert.equal(result.mediaRequestCancellations, 1);
+  assert.equal(result.mediaRequestFailures, 1);
+  assert.equal(result.mediaRequestsPending, 1);
+  assert.equal(result.mediaRequestsPeak, 2);
+  assert.equal(result.mediaCompletedBytes, 40);
+  assert.doesNotMatch(JSON.stringify(result), /fixture|requestId|https/);
+  const recovery = fixture.probe.snapshotBetween(1000400, 1000800);
+  assert.equal(recovery.mediaRequestsCarryIn, 1);
+  assert.equal(recovery.mediaRequestStarts, 1);
+  assert.equal(recovery.mediaRequestsCompleted, 1);
+  assert.equal(recovery.mediaRequestsPending, 1);
+  assert.equal(recovery.mediaCompletedBytes, 80);
+});
+
+test("timestamp windows use half-open boundaries and retain missing-clock diagnostics", () => {
+  const fixture = requestFixture();
+  fixture.emit("requestWillBeSent", { requestId: "edge", type: "Image", timestamp: 1, wallTime: 1000,
+    request: { url: "https://fixture.invalid/image" } });
+  fixture.emit("loadingFinished", { requestId: "edge", timestamp: 1.1, encodedDataLength: 10 });
+  assert.equal(fixture.probe.snapshotBetween(1000000, 1000100).mediaRequestsPending, 1);
+  assert.equal(fixture.probe.snapshotBetween(1000100, 1000200).mediaRequestsCompleted, 1);
+  fixture.emit("requestWillBeSent", { requestId: "missing", type: "Image", timestamp: 2,
+    request: { url: "https://fixture.invalid/image" } });
+  assert.equal(fixture.probe.snapshotBetween(1000000, 1000200).requestClockMissingCount, 1);
+  assert.throws(() => fixture.probe.snapshotBetween(2, 1), /window/i);
+  fixture.probe.dispose();
+  assert.throws(() => fixture.probe.snapshotBetween(1000000, 1000200), /disposed/i);
+});
+
+test("request windows separate allowlisted proxy HIT MISS and unknown from browser cache", () => {
+  const fixture = requestFixture({ localProxyOrigins: ["https://fixture.invalid"] });
+  for (const [index, cache] of ["HIT", "MISS", "unrecognized-private-value"].entries()) {
+    fixture.emit("requestWillBeSent", { requestId: String(index), type: "Image", timestamp: 1, wallTime: 1000,
+      request: { url: "https://fixture.invalid/s3/thumb/image" } });
+    fixture.emit("responseReceived", { requestId: String(index), response: { status: 200, url: "https://fixture.invalid/s3/thumb/image",
+      headers: { "X-Cache": cache }, fromDiskCache: false } });
+    fixture.emit("loadingFinished", { requestId: String(index), timestamp: 1.1, encodedDataLength: 10 });
+  }
+  const result = fixture.probe.snapshotBetween(1000000, 1000200);
+  assert.equal(result.mediaProxyCacheHits, 1);
+  assert.equal(result.mediaProxyCacheMisses, 1);
+  assert.equal(result.mediaProxyCacheUnknown, 1);
+  assert.equal(result.mediaCacheResponses, 0);
+  assert.doesNotMatch(JSON.stringify(result), /private|X-Cache|fixture/);
+});
+
+test("proxy cache attribution requires configured origin and path through redirects", () => {
+  const origin = "https://fixture.invalid";
+  const local = `${origin}/s3/thumb/image`;
+  const remote = "https://cdn.invalid/s3/thumb/image";
+  for (const [name, requestUrl, responseUrl, redirectUrl, configured] of [
+    ["remote", remote, remote, null, true],
+    ["wrong-path", `${origin}/images/image`, `${origin}/images/image`, null, true],
+    ["origin-lookalike", "https://fixture.invalid.cdn.invalid/s3/thumb/image", local, null, true],
+    ["response-origin", local, remote, null, true],
+    ["response-path", local, `${origin}/images/image`, null, true],
+    ["redirect-away", local, remote, remote, true],
+    ["redirect-roundtrip", local, local, remote, true],
+    ["unconfigured", local, local, null, false],
+  ]) {
+    const fixture = requestFixture({ localProxyOrigins: configured ? [origin] : [] });
+    fixture.emit("requestWillBeSent", { requestId: name, type: "Image", timestamp: 1, wallTime: 1000,
+      request: { url: requestUrl } });
+    if (redirectUrl) fixture.emit("requestWillBeSent", { requestId: name, type: "Image", timestamp: 1.02,
+      redirectResponse: { status: 302 }, request: { url: redirectUrl } });
+    fixture.emit("responseReceived", { requestId: name, response: { status: 200, url: responseUrl,
+      headers: { "X-Cache": "HIT" } } });
+    fixture.emit("loadingFinished", { requestId: name, timestamp: 1.1, encodedDataLength: 10 });
+    const result = fixture.probe.snapshotBetween(1000000, 1000200);
+    assert.equal(result.mediaProxyCacheHits, 0, name);
+    assert.equal(result.mediaProxyCacheMisses, 0, name);
+    assert.equal(result.mediaProxyCacheUnknown, 1, name);
+    assert.equal(result.mediaRequestsCompleted, 1, name);
+    assert.doesNotMatch(JSON.stringify(result), /https|fixture|cdn|X-Cache/);
+    fixture.probe.dispose();
+  }
+});
+
 test("request accounting observes starts, completions and numeric-only API/media summaries", () => {
   const fixture = requestFixture();
   fixture.emit("requestWillBeSent", { requestId: "image-private", type: "Image", timestamp: 1,
@@ -116,6 +215,50 @@ test("request accounting observes starts, completions and numeric-only API/media
   assert.equal(result.dataRequestsPending, 1);
   assert.doesNotMatch(JSON.stringify(result), /private|secret|Signature|https/);
   assert.ok(Object.values(result).every(value => value === null || Number.isFinite(value)));
+});
+
+test("data timing separates browser send and response phases without inventing missing timings", () => {
+  const fixture = requestFixture();
+  fixture.emit("requestWillBeSent", { requestId: "timed", type: "Fetch", timestamp: 10,
+    request: { url: "https://fixture.invalid/api/images/search-after?private=secret" } });
+  fixture.emit("responseReceived", { requestId: "timed", response: { status: 200,
+    timing: { requestTime: 10.1, sendStart: 200, receiveHeadersStart: 700 } } });
+  assert.equal(fixture.probe.snapshot().dataTimingCompletions, 0);
+  fixture.probe.beginPhase();
+  fixture.emit("loadingFinished", { requestId: "timed", timestamp: 10.85, encodedDataLength: 100 });
+  const result = fixture.probe.snapshot();
+  assert.equal(result.requestTimingCaptureRevision, 1);
+  assert.equal(result.dataTimingCompletions, 1);
+  assert.equal(result.dataTimingUnavailableCompletions, 0);
+  assert.equal(result.dataBeforeSendMaxMs, 300);
+  assert.equal(result.dataSendToHeadersMaxMs, 500);
+  assert.equal(result.dataHeadersToCompleteMaxMs, 50);
+  assert.equal(result.dataBeforeSendMeanMs, 300);
+  assert.doesNotMatch(JSON.stringify(result), /private|secret|https/);
+  fixture.probe.dispose();
+});
+
+test("data timing excludes redirects, cached responses and invalid or absent clocks", () => {
+  for (const variation of ["missing", "negative", "late-send", "late-headers", "redirect", "cached"]) {
+    const fixture = requestFixture();
+    const request = { requestId: "data", type: "Fetch", timestamp: 10,
+      request: { url: "https://fixture.invalid/api/images/search-after" } };
+    fixture.emit("requestWillBeSent", request);
+    if (variation === "redirect") fixture.emit("requestWillBeSent", { ...request, redirectResponse: { status: 302 } });
+    fixture.emit("responseReceived", { requestId: "data", response: { status: 200,
+      fromDiskCache: variation === "cached",
+      ...(variation === "missing" ? {} : { timing: { requestTime: 10,
+        sendStart: variation === "negative" ? -1 : variation === "late-send" ? 600 : 100,
+        receiveHeadersStart: variation === "late-headers" ? 1000 : 500 } }) } });
+    fixture.emit("loadingFinished", { requestId: "data", timestamp: 10.8, encodedDataLength: 100 });
+    const result = fixture.probe.snapshot();
+    assert.equal(result.dataTimingCompletions, 0, variation);
+    assert.equal(result.dataTimingUnavailableCompletions, 1, variation);
+    assert.equal(result.dataBeforeSendMaxMs, null, variation);
+    assert.equal(result.dataSendToHeadersMeanMs, null, variation);
+    assert.equal(result.dataHeadersToCompleteMaxMs, null, variation);
+    fixture.probe.dispose();
+  }
 });
 
 test("phase checkpoints retain carry-in work and account for failures without claiming completed bytes", () => {

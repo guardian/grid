@@ -12,8 +12,8 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-(No active task.)
+No active task.
 
 ## Session Log
 
-(No entries.)
+<!-- Append session-only notes here while a task is active. Reset to this scaffold before staging. -->

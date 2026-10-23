@@ -3,6 +3,7 @@ import { getDensityChangeButton, type Density } from "../e2e/shared/density-sele
 import { installThumbnailProbe } from "./thumbnail-probe.mjs";
 import type { RequestProbe } from "./network-probe.mjs";
 import { refreshComparisonMetrics } from "./density-reporting.mjs";
+import { DENSITY_PRESSURE_STEPS, summarizeDensityPressure } from "./density-pressure.mjs";
 
 export type { Density } from "../e2e/shared/density-selection";
 
@@ -284,10 +285,82 @@ export async function visibleMediaReadiness(page: Page, density: Density, starte
   }, { density, startedAt, timeoutMs });
 }
 
+export async function analyzeIdentityFrames(page: Page, frames: { data: string; epochMs: number }[], reference: {
+  width: number; height: number; palette: number[][];
+  targets: { x: number; checkX: number; y: number; paletteIndex: number }[];
+  anchor: { centerX: number; centerY: number; sampleX: number; sampleY: number };
+}) {
+  if (frames.length === 0 || frames.length > 128 || frames.reduce((sum, frame) => sum + frame.data.length, 0) > 16 * 1024 * 1024 ||
+      reference.targets.length === 0 || reference.targets.length > 128 || reference.palette.length > 512) {
+    throw new Error("Identity frame capture outside its bounds");
+  }
+  return page.evaluate(async ({ frames, reference }) => {
+    const results: { epochMs: number; wrongIdentities: number; unknownPixels: number;
+      wrongTargets: { index: number; observedPaletteIndex: number }[]; unknownTargets: number[];
+      anchorDx: number | null; anchorDy: number | null }[] = [];
+    let baseline: { horizontal: number; vertical: number } | null = null;
+    for (const frame of frames) {
+      if (!Number.isFinite(frame.epochMs)) throw new Error("Identity frame timestamp unavailable");
+      const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${frame.data}`)).blob());
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const scale = canvas.width / reference.width;
+      if (Math.abs(scale - canvas.height / reference.height) > 0.01) throw new Error("Identity frame viewport changed");
+      const context = canvas.getContext("2d")!;
+      context.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      const pixel = (horizontal: number, vertical: number) => {
+        const column = Math.round(horizontal * scale);
+        const row = Math.round(vertical * scale);
+        if (column < 0 || row < 0 || column >= canvas.width || row >= canvas.height) throw new Error("Identity target outside frame");
+        const offset = (row * canvas.width + column) * 4;
+        return [pixels[offset], pixels[offset + 1], pixels[offset + 2]];
+      };
+      let wrongIdentities = 0;
+      let unknownPixels = 0;
+      const wrongTargets: { index: number; observedPaletteIndex: number }[] = [];
+      const unknownTargets: number[] = [];
+      for (const [index, target] of reference.targets.entries()) {
+        const color = pixel(target.x, target.y);
+        const complement = pixel(target.checkX, target.y);
+        const matched = reference.palette.findIndex(candidate => candidate.reduce((sum, channel, index) =>
+          sum + (channel - color[index]) ** 2, 0) <= 144 && candidate.reduce((sum, channel, index) =>
+          sum + (255 - channel - complement[index]) ** 2, 0) <= 144);
+        if (matched < 0) { unknownPixels++; unknownTargets.push(index); }
+        else if (matched !== target.paletteIndex) { wrongIdentities++; wrongTargets.push({ index, observedPaletteIndex: matched }); }
+      }
+      const marker = (horizontal: boolean) => {
+        const { centerX, centerY, sampleX, sampleY } = reference.anchor;
+        const positions: number[] = [];
+        for (let offset = -24; offset <= 24; offset++) {
+          const coordinate = (horizontal ? centerX : centerY) + offset;
+          if (pixel(horizontal ? coordinate : sampleX, horizontal ? sampleY : coordinate).every(channel => channel < 16)) positions.push(coordinate);
+        }
+        return positions.length ? (positions[0] + positions.at(-1)!) / 2 : null;
+      };
+      const horizontal = marker(true);
+      const vertical = marker(false);
+      if (baseline === null) {
+        if (horizontal === null || vertical === null || wrongIdentities || unknownPixels) throw new Error("Identity baseline is not visible and correct");
+        baseline = { horizontal, vertical };
+      }
+      results.push({ epochMs: frame.epochMs, wrongIdentities, unknownPixels, wrongTargets, unknownTargets,
+        anchorDx: horizontal === null ? null : horizontal - baseline.horizontal,
+        anchorDy: vertical === null ? null : vertical - baseline.vertical });
+    }
+    return results;
+  }, { frames, reference });
+}
+
 /** Fixed pixels/second, not pixels/frame; browser buffering may limit achieved speed. */
 export async function scrollAtSpeed(page: Page, density: Density, speed: number, duration: number,
-  options: { measureBounds?: boolean } = {}) {
-  return page.evaluate(async ({ density, speed, duration, measureBounds }) => {
+  options: { measureBounds?: boolean; maxDistancePx?: number; captureSteps?: boolean } = {}) {
+  if (options.maxDistancePx !== undefined && (!Number.isFinite(options.maxDistancePx) || options.maxDistancePx <= 0)) {
+    throw new Error("Scroll distance endpoint must be finite and positive");
+  }
+  return page.evaluate(async ({ density, speed, duration, measureBounds, maxDistancePx, captureSteps }) => {
     const region = document.querySelector(`[aria-label="Image results ${density}"]`) as HTMLElement;
     if (!region) throw new Error("Wrong density for controlled scrolling");
     const mode = measureBounds ? document.querySelector<HTMLElement>("[data-scrubber-mode]")?.dataset.scrubberMode : undefined;
@@ -297,22 +370,47 @@ export async function scrollAtSpeed(page: Page, density: Density, speed: number,
     let physicalClampMs = 0;
     let bufferEdgeBlockedMs = 0;
     let clampedDistancePx = 0;
+    let bufferEdgeEpisodeCount = 0;
+    let bufferEdgeEpisodeMaxMs = 0;
+    let bufferEdgeEpisodeCompletedCount = 0;
+    let bufferEdgeEpisodeCompletedMaxMs: number | null = null;
+    let bufferEdgeEpisodeCensoredCount = 0;
+    let episodeStart: number | null = null;
+    const finishEpisode = (at: number, censored: boolean) => {
+      if (episodeStart === null) return;
+      const elapsed = Math.max(0, at - episodeStart);
+      bufferEdgeEpisodeMaxMs = Math.max(bufferEdgeEpisodeMaxMs, elapsed);
+      if (censored) bufferEdgeEpisodeCensoredCount++;
+      else {
+        bufferEdgeEpisodeCompletedCount++;
+        bufferEdgeEpisodeCompletedMaxMs = Math.max(bufferEdgeEpisodeCompletedMaxMs ?? 0, elapsed);
+      }
+      episodeStart = null;
+    };
     const start = performance.now();
     let last = start;
     let stoppedAtPerformanceMs = start;
     let actual = 0;
     let frames = 0;
-    while (performance.now() - start < duration) {
+    const steps: { at: number; drivenDistancePx: number }[] = [];
+    while (performance.now() - start < duration && (maxDistancePx === undefined || Math.abs(actual) < maxDistancePx)) {
+      if (captureSteps && steps.length >= 2048) throw new Error("Scroll step capture exceeded its bound");
       const now = await new Promise<number>(resolve => requestAnimationFrame(resolve));
       if (document.visibilityState !== "visible") throw new Error("Controlled scrolling requires a foreground page");
       const before = region.scrollTop;
       const maximum = measureBounds ? Math.max(0, region.scrollHeight - region.clientHeight) : 0;
-      const requested = speed * (now - last) / 1000;
+      const available = measureBounds ? Math.max(0, speed > 0 ? maximum - before : before) : 0;
+      if (episodeStart !== null && available > 1) finishEpisode(now, false);
+      const requested = maxDistancePx === undefined ? speed * (now - last) / 1000 :
+        Math.sign(speed) * Math.min(Math.abs(speed) * Math.max(0, now - last) / 1000, maxDistancePx - Math.abs(actual));
       region.scrollTop += requested;
-      actual += region.scrollTop - before;
+      const applied = region.scrollTop - before;
+      actual += applied;
+      (window as any).__densityJourney?.input(applied);
+      if (captureSteps) steps.push({ at: performance.now(), drivenDistancePx: actual });
       if (measureBounds) stoppedAtPerformanceMs = performance.now();
+      let temporaryBlocked = false;
       if (measureBounds && requested !== 0) {
-        const available = Math.max(0, speed > 0 ? maximum - before : before);
         const lost = Math.max(0, Math.abs(requested) - available);
         const atEdge = speed > 0 ? Math.abs(region.scrollTop - maximum) < 1 : Math.abs(region.scrollTop) < 1;
         if (lost > 0 && atEdge) {
@@ -326,16 +424,29 @@ export async function scrollAtSpeed(page: Page, density: Density, speed: number,
             }
             if (speed > 0 ? state.bufferOffset + state.results.length < state.total : state.bufferOffset > 0) {
               bufferEdgeBlockedMs += blockedMs;
+              temporaryBlocked = true;
+              if (episodeStart === null) {
+                episodeStart = Math.max(start, now - blockedMs);
+                bufferEdgeEpisodeCount++;
+              }
             }
           }
         }
       }
+      if (!temporaryBlocked) finishEpisode(now, false);
       frames++;
       last = now;
     }
+    finishEpisode(last, true);
     return { commandedSpeedPxPerSec: speed, drivenDistancePx: actual, drivenDurationMs: last - start, drivenFrames: frames,
-      ...(measureBounds ? { physicalClampMs, bufferEdgeBlockedMs, clampedDistancePx, startedAtPerformanceMs: start, stoppedAtPerformanceMs } : {}) };
-  }, { density, speed, duration, measureBounds: options.measureBounds === true });
+      ...(captureSteps ? { steps } : {}),
+      ...(measureBounds ? { physicalClampMs, bufferEdgeBlockedMs, clampedDistancePx,
+        boundsCaptureRevision: 1, bufferEdgeEpisodeCount, bufferEdgeEpisodeMaxMs,
+        bufferEdgeEpisodeCompletedCount, bufferEdgeEpisodeCompletedMaxMs: bufferEdgeEpisodeCompletedMaxMs as number | null,
+        bufferEdgeEpisodeCensoredCount,
+        startedAtPerformanceMs: start, stoppedAtPerformanceMs } : {}) };
+  }, { density, speed, duration, measureBounds: options.measureBounds === true, maxDistancePx: options.maxDistancePx,
+    captureSteps: options.captureSteps === true });
 }
 
 export async function prepareDensityRecovery(page: Page, density: Density) {
@@ -362,7 +473,9 @@ export async function prepareDensityRecovery(page: Page, density: Density) {
   await page.evaluate(() => (window as any).__kupua_store__.getState().setFocusedImageId(null));
 }
 
-export async function measureDensityRecovery(page: Page, density: "grid" | "justified") {
+export async function measureDensityRecovery(page: Page, density: "grid" | "justified",
+  { backwardDurationMs = 3000, forwardDurationMs = 1500, postStopObservationMs = 0, backwardDistancePx }:
+  { backwardDurationMs?: number; forwardDurationMs?: number; postStopObservationMs?: number; backwardDistancePx?: number } = {}) {
   await page.evaluate(() => {
     const store = (window as any).__kupua_store__;
     const initial = store.getState();
@@ -382,9 +495,11 @@ export async function measureDensityRecovery(page: Page, density: "grid" | "just
   });
   try {
     await page.evaluate(installThumbnailProbe, { density });
-    const backward = await scrollAtSpeed(page, density, -4000, 3000, { measureBounds: true });
-    const forward = await scrollAtSpeed(page, density, 4000, 1500, { measureBounds: true });
-    const stoppedAt = forward.stoppedAtPerformanceMs!;
+    const backward = await scrollAtSpeed(page, density, -4000, backwardDurationMs,
+      { measureBounds: true, maxDistancePx: backwardDistancePx });
+    const forward = forwardDurationMs > 0
+      ? await scrollAtSpeed(page, density, 4000, forwardDurationMs, { measureBounds: true }) : null;
+    const stoppedAt = (forward ?? backward).stoppedAtPerformanceMs!;
     const motion = await page.evaluate(() => (window as any).__kupua_thumbnailProbe.stop());
     const data = await page.evaluate(async ({ density, stoppedAt }) => {
       const probe = (window as any).__densityRecovery;
@@ -423,6 +538,12 @@ export async function measureDensityRecovery(page: Page, density: "grid" | "just
     const media = data.stopDataCensored ? { mediaCensored: 1, mediaReadyMs: null,
       visibleMediaCount: 0, decodedMediaCount: 0, failedMediaCount: 0 }
       : await visibleMediaReadiness(page, density, stoppedAt, remaining);
+    if (postStopObservationMs > 0) {
+      await page.evaluate(async ({ stoppedAt, postStopObservationMs }) => {
+        const remaining = postStopObservationMs - (performance.now() - stoppedAt);
+        if (remaining > 0) await new Promise(resolve => setTimeout(resolve, remaining));
+      }, { stoppedAt, postStopObservationMs });
+    }
     const cost = await page.evaluate(({ density, stoppedAt }) => {
       const probe = (window as any).__densityRecovery;
       const state = (window as any).__kupua_store__.getState();
@@ -443,6 +564,8 @@ export async function measureDensityRecovery(page: Page, density: "grid" | "just
         destinationChanged: probe.destination !== JSON.stringify(ids) };
     }, { density, stoppedAt });
     const { destinationChanged, ...counts } = cost;
+    const completedEpisodes = [backward.bufferEdgeEpisodeCompletedMaxMs, forward?.bufferEdgeEpisodeCompletedMaxMs]
+      .filter((value): value is number => typeof value === "number");
     return { ...motion, ...counts, ...data,
       stopDataCensored: destinationChanged ? 1 : data.stopDataCensored,
       stopDataReadyMs: destinationChanged ? null : data.stopDataReadyMs,
@@ -450,11 +573,17 @@ export async function measureDensityRecovery(page: Page, density: "grid" | "just
       stopMediaReadyMs: destinationChanged ? null : media.mediaReadyMs,
       stopVisibleMediaCount: media.visibleMediaCount, stopDecodedMediaCount: media.decodedMediaCount,
       stopFailedMediaCount: media.failedMediaCount,
-      physicalClampMs: backward.physicalClampMs! + forward.physicalClampMs!,
-      bufferEdgeBlockedMs: backward.bufferEdgeBlockedMs! + forward.bufferEdgeBlockedMs!,
-      clampedDistancePx: backward.clampedDistancePx! + forward.clampedDistancePx!,
-      drivenDurationMs: backward.drivenDurationMs + forward.drivenDurationMs,
-      drivenDistancePx: Math.abs(backward.drivenDistancePx) + Math.abs(forward.drivenDistancePx) };
+      physicalClampMs: backward.physicalClampMs! + (forward?.physicalClampMs ?? 0),
+      bufferEdgeBlockedMs: backward.bufferEdgeBlockedMs! + (forward?.bufferEdgeBlockedMs ?? 0),
+      boundsCaptureRevision: 1,
+      bufferEdgeEpisodeCount: backward.bufferEdgeEpisodeCount! + (forward?.bufferEdgeEpisodeCount ?? 0),
+      bufferEdgeEpisodeMaxMs: Math.max(backward.bufferEdgeEpisodeMaxMs!, forward?.bufferEdgeEpisodeMaxMs ?? 0),
+      bufferEdgeEpisodeCompletedCount: backward.bufferEdgeEpisodeCompletedCount! + (forward?.bufferEdgeEpisodeCompletedCount ?? 0),
+      bufferEdgeEpisodeCompletedMaxMs: completedEpisodes.length ? Math.max(...completedEpisodes) : null,
+      bufferEdgeEpisodeCensoredCount: backward.bufferEdgeEpisodeCensoredCount! + (forward?.bufferEdgeEpisodeCensoredCount ?? 0),
+      clampedDistancePx: backward.clampedDistancePx! + (forward?.clampedDistancePx ?? 0),
+      drivenDurationMs: backward.drivenDurationMs + (forward?.drivenDurationMs ?? 0),
+      drivenDistancePx: Math.abs(backward.drivenDistancePx) + Math.abs(forward?.drivenDistancePx ?? 0) };
   } finally {
     await page.evaluate(() => {
       (window as any).__densityRecovery?.unsubscribe();
@@ -466,6 +595,339 @@ export async function measureDensityRecovery(page: Page, density: "grid" | "just
 
 function prefixedMetrics(prefix: string, metrics: Record<string, number | null>) {
   return Object.fromEntries(Object.entries(metrics).map(([name, value]) => [prefix + name[0].toUpperCase() + name.slice(1), value]));
+}
+
+export function installDensityJourney({ density, direction, resultsPerSecond = 100, calibrationResultsPerPixel }:
+  { density: Density; direction: 1 | -1; resultsPerSecond?: number; calibrationResultsPerPixel?: number }) {
+  const region = document.querySelector<HTMLElement>(`[aria-label="Image results ${density}"]`);
+  const store = (window as any).__kupua_store__;
+  if (!region || !store) throw new Error("Journey requires the mounted density and store");
+  if (calibrationResultsPerPixel !== undefined && (!Number.isFinite(calibrationResultsPerPixel) || calibrationResultsPerPixel <= 0)) {
+    throw new Error("Invalid inherited journey calibration");
+  }
+  (window as any).__densityJourney?.dispose();
+  const initial = store.getState();
+  const params = JSON.stringify(initial.params);
+  const priorSeen: Set<string> | undefined = (window as any).__densityJourneyHistory;
+  const metrics: Record<string, number | null> = {
+    journeyCaptureRevision: 1, stabilityCaptureRevision: 1, requestedResultsPerSecond: resultsPerSecond,
+    forwardReadStarts: 0, backwardReadStarts: 0, appendPublications: 0, prependPublications: 0,
+    evictionPublications: 0, peakRefillsInFlight: 0, retainedComparisons: 0,
+    retainedDisplacementMaxPx: null, retainedResizeMaxPx: null, retainedSourceChanges: 0,
+    retainedNodeReplacements: 0, retainedUnreadySamples: 0, visibleImageSamples: 0,
+    freshVisibleImages: 0, revisitedVisibleImages: 0, journeyOverflow: 0,
+    priorJourneyVisibleRevisits: priorSeen ? 0 : null,
+    positionMapPresent: Number(Boolean(initial.positionMap)), initialBufferCount: initial.results.length,
+    appliedInputDistancePx: 0, compensationDistancePx: 0, stabilitySampleCount: 0,
+    stabilitySampleTotalMs: 0, stabilitySampleMaxMs: 0,
+    stabilityObservationGapMaxMs: 0, retainedComparisonCensoredCount: 0,
+    paintCaptureAvailable: 0, paintMismatchCount: null,
+  };
+  type Witness = { left: number; top: number; width: number; height: number; rank: number;
+    image: HTMLImageElement | null; imageBox: DOMRect | null; source: string };
+  let previous = new Map<string, Witness>();
+  const seen = new Set<string>();
+  let cumulativeInput = 0;
+  let previousInput = 0;
+  let previousScroll = region.scrollTop;
+  let firstFrontier: number | null = null;
+  let furthestFrontier: number | null = null;
+  let raf = 0;
+  let disposed = false;
+  let invalid = false;
+  const started = performance.now();
+  let lastSampleAt = started;
+  const sample = () => {
+    const sampleStarted = performance.now();
+    metrics.stabilityObservationGapMaxMs = Math.max(metrics.stabilityObservationGapMaxMs!, sampleStarted - lastSampleAt);
+    lastSampleAt = sampleStarted;
+    const state = store.getState();
+    if (state.total !== initial.total || JSON.stringify(state.params) !== params || !region.isConnected || state.error) invalid = true;
+    const bounds = region.getBoundingClientRect();
+    const header = density === "table" ? region.querySelector('[data-table-header]')?.getBoundingClientRect().bottom : undefined;
+    const top = Math.max(bounds.top, header ?? bounds.top);
+    const cells = region.querySelectorAll<HTMLElement>(density === "table" ? '[role="row"][data-image-id]' : '[data-grid-cell][data-image-id]');
+    const current = new Map<string, Witness>();
+    if (cells.length > 256) metrics.journeyOverflow = 1;
+    const input = cumulativeInput - previousInput;
+    metrics.compensationDistancePx! += Math.abs(region.scrollTop - previousScroll - input);
+    for (const cell of [...cells].slice(0, 256)) {
+      const box = cell.getBoundingClientRect();
+      if (box.bottom <= top || box.top >= bounds.bottom || box.right <= bounds.left || box.left >= bounds.right) continue;
+      const id = cell.dataset.imageId!;
+      const rank = state.imagePositions.get(id);
+      if (!Number.isFinite(rank)) { invalid = true; continue; }
+      const image = cell.querySelector<HTMLImageElement>("img");
+      const source = image ? JSON.stringify([image.getAttribute("src"), image.getAttribute("srcset"), image.getAttribute("sizes")]) : "";
+      const imageBox = image?.getBoundingClientRect() ?? null;
+      const witness = { left: box.left, top: box.top, width: box.width, height: box.height, rank, image, imageBox, source };
+      current.set(id, witness);
+      metrics.visibleImageSamples!++;
+      const old = previous.get(id);
+      if (old) {
+        metrics.retainedComparisons!++;
+        metrics.retainedDisplacementMaxPx = Math.max(metrics.retainedDisplacementMaxPx ?? 0,
+          Math.hypot(box.left - old.left, box.top - old.top + input));
+        metrics.retainedResizeMaxPx = Math.max(metrics.retainedResizeMaxPx ?? 0,
+          Math.abs(box.width - old.width), Math.abs(box.height - old.height));
+        if (imageBox && old.imageBox) {
+          metrics.retainedDisplacementMaxPx = Math.max(metrics.retainedDisplacementMaxPx!,
+            Math.hypot(imageBox.left - old.imageBox.left, imageBox.top - old.imageBox.top + input));
+          metrics.retainedResizeMaxPx = Math.max(metrics.retainedResizeMaxPx!,
+            Math.abs(imageBox.width - old.imageBox.width), Math.abs(imageBox.height - old.imageBox.height));
+        }
+        if (source !== old.source) metrics.retainedSourceChanges!++;
+        if (image !== old.image) metrics.retainedNodeReplacements!++;
+        if (image && (!image.complete || image.naturalWidth === 0 || getComputedStyle(image).visibility === "hidden"
+          || getComputedStyle(image).display === "none")) metrics.retainedUnreadySamples!++;
+      } else if (seen.has(id)) metrics.revisitedVisibleImages!++;
+      else {
+        metrics.freshVisibleImages!++;
+        if (priorSeen?.has(id)) metrics.priorJourneyVisibleRevisits!++;
+        if (priorSeen && !priorSeen.has(id)) {
+          if (priorSeen.size >= 8192) metrics.journeyOverflow = 1;
+          else priorSeen.add(id);
+        }
+        if (seen.size >= 4096) metrics.journeyOverflow = 1;
+        else seen.add(id);
+      }
+    }
+    const ranks = [...current.values()].map(value => value.rank);
+    if (ranks.length) {
+      const frontier = direction > 0 ? Math.max(...ranks) : Math.min(...ranks);
+      firstFrontier ??= frontier;
+      furthestFrontier = furthestFrontier === null ? frontier : direction > 0
+        ? Math.max(furthestFrontier, frontier) : Math.min(furthestFrontier, frontier);
+    }
+    if (metrics.initialRunwayResults === undefined) {
+      const ordered = [...current.values()].sort((left, right) => left.top - right.top || left.rank - right.rank);
+      const first = ordered[0];
+      const lastTop = ordered.at(-1)?.top;
+      const last = ordered.find(value => lastTop !== undefined && Math.abs(value.top - lastTop) < 1
+        && value.top > (first?.top ?? Infinity) + 1 && value.rank > first.rank);
+      if (calibrationResultsPerPixel === undefined && (!first || !last)) throw new Error("Journey demand calibration requires two visible rows");
+      const resultsPerPixel = calibrationResultsPerPixel ?? (last!.rank - first!.rank) / (last!.top - first!.top);
+      metrics.resultsPerPixel = resultsPerPixel;
+      metrics.calibrationInherited = Number(calibrationResultsPerPixel !== undefined);
+      metrics.commandedSpeedPxPerSec = resultsPerSecond / resultsPerPixel;
+      metrics.initialRunwayResults = ranks.length ? direction > 0 ? initial.bufferOffset + initial.results.length - 1 - Math.max(...ranks)
+        : Math.min(...ranks) - initial.bufferOffset : null;
+      metrics.initialRunwayMs = metrics.initialRunwayResults === null ? null : metrics.initialRunwayResults / resultsPerSecond * 1000;
+      metrics.containerWidth = bounds.width;
+      metrics.containerHeight = bounds.height;
+      metrics.devicePixelRatio = devicePixelRatio;
+      metrics.initialVisibleImages = current.size;
+    }
+    for (const id of previous.keys()) if (!current.has(id)) metrics.retainedComparisonCensoredCount!++;
+    previous = current;
+    previousInput = cumulativeInput;
+    previousScroll = region.scrollTop;
+    const cost = performance.now() - sampleStarted;
+    metrics.stabilitySampleCount!++;
+    metrics.stabilitySampleTotalMs! += cost;
+    metrics.stabilitySampleMaxMs = Math.max(metrics.stabilitySampleMaxMs!, cost);
+  };
+  const unsubscribe = store.subscribe((state: any, before: any) => {
+    if (state._extendForwardInFlight && !before._extendForwardInFlight) metrics.forwardReadStarts!++;
+    if (state._extendBackwardInFlight && !before._extendBackwardInFlight) metrics.backwardReadStarts!++;
+    metrics.peakRefillsInFlight = Math.max(metrics.peakRefillsInFlight!, Number(state._extendForwardInFlight) + Number(state._extendBackwardInFlight));
+    if (state.results !== before.results) {
+      const previousEnd = before.bufferOffset + before.results.length;
+      if (state.bufferOffset < before.bufferOffset) metrics.prependPublications!++;
+      if (state.bufferOffset + state.results.length > previousEnd) metrics.appendPublications!++;
+      if (state.bufferOffset > before.bufferOffset || state.bufferOffset + state.results.length < previousEnd) metrics.evictionPublications!++;
+    }
+  });
+  const probe = {
+    input(delta: number) { cumulativeInput += delta; metrics.appliedInputDistancePx! += Math.abs(delta); },
+    snapshot() {
+      sample();
+      if (invalid || metrics.journeyOverflow) throw new Error("Journey observation invalidated");
+      const state = store.getState();
+      const elapsed = performance.now() - started;
+      const progressed = Math.abs((furthestFrontier ?? 0) - (firstFrontier ?? 0));
+      const publications = direction > 0 ? metrics.appendPublications! : metrics.prependPublications!;
+      return { ...metrics, journeyDurationMs: elapsed, progressedResults: progressed,
+        achievedResultsPerSecond: elapsed > 0 ? progressed * 1000 / elapsed : 0,
+        refillCoverageComplete: Number(publications >= 2),
+        refillsPendingAtEnd: Number(state._extendForwardInFlight) + Number(state._extendBackwardInFlight) };
+    },
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      cancelAnimationFrame(raf);
+      unsubscribe();
+      previous.clear(); seen.clear();
+      if ((window as any).__densityJourney === probe) delete (window as any).__densityJourney;
+    },
+  };
+  (window as any).__densityJourney = probe;
+  try {
+    sample();
+    const tick = () => { if (!disposed) { sample(); raf = requestAnimationFrame(tick); } };
+    raf = requestAnimationFrame(tick);
+  } catch (error) { probe.dispose(); throw error; }
+}
+
+export async function captureDensityJourney({ density, direction, durationMs, resultsPerSecond, loadSteps, recoveryTimeoutMs, reverseDurationMs, networkConstrained }:
+  { density: Density; direction: 1 | -1; durationMs: number; resultsPerSecond: number; loadSteps: readonly number[];
+    recoveryTimeoutMs: number; reverseDurationMs: number; networkConstrained: boolean }) {
+  if (document.visibilityState !== "visible" || loadSteps.length !== 3 || loadSteps.some(rate => !Number.isFinite(rate) || rate <= 0)
+    || durationMs <= 0 || recoveryTimeoutMs <= 0 || reverseDurationMs < 0) throw new Error("Invalid pressure journey configuration");
+  const localPage = { evaluate: (callback: (argument: any) => any, argument: any) => callback(argument) } as unknown as Page;
+  const store = (window as any).__kupua_store__;
+  const initialState = store.getState();
+  const params = JSON.stringify(initialState.params);
+  let visibilityInterrupted = false;
+  const checkVisibility = () => { if (document.visibilityState !== "visible") visibilityInterrupted = true; };
+  const requireForeground = () => {
+    if (visibilityInterrupted || document.visibilityState !== "visible") throw new Error("Journey requires uninterrupted foreground visibility");
+  };
+  document.addEventListener("visibilitychange", checkVisibility);
+  const starts: { time: number; backward: boolean }[] = [];
+  let admissionOverflow = false;
+  let peakRefills = 0;
+  const unsubscribe = store.subscribe((state: any, before: any) => {
+    for (const [field, backward] of [["_extendForwardInFlight", false], ["_extendBackwardInFlight", true]] as const) if (state[field] && !before[field]) {
+      if (starts.length >= 64) admissionOverflow = true;
+      else starts.push({ time: performance.now(), backward });
+    }
+    peakRefills = Math.max(peakRefills, Number(state._extendForwardInFlight) + Number(state._extendBackwardInFlight));
+  });
+  const metrics: Record<string, number | null> = { endurancePhaseCount: 0, enduranceMaxGapMs: 0,
+    enduranceInterrupted: 0, timingCaptureRevision: 2, observerStopLagMs: 0, referenceResultsPerSecond: resultsPerSecond,
+    plannedMotionDurationMs: durationMs, networkConstrained: Number(networkConstrained) };
+  const windows: { prefix: string; start: number; end: number }[] = [];
+  let stoppedAt = 0;
+  let firstStartedAt = 0;
+  try {
+    installDensityJourney({ density, direction, resultsPerSecond });
+    const initial = (window as any).__densityJourney.snapshot();
+    for (const [index, prefix] of ["early", "middle", "late"].entries()) {
+      requireForeground();
+      const before = (window as any).__densityJourney.snapshot();
+      installThumbnailProbe({ density });
+      const movement = await scrollAtSpeed(localPage, density,
+        direction * initial.commandedSpeedPxPerSec * loadSteps[index] / resultsPerSecond,
+        durationMs / 3, { measureBounds: true });
+      const exposure = window.__kupua_thumbnailProbe!.stop();
+      metrics.observerStopLagMs = Math.max(metrics.observerStopLagMs!, performance.now() - movement.stoppedAtPerformanceMs!);
+      const after = (window as any).__densityJourney.snapshot();
+      const { startedAtPerformanceMs, stoppedAtPerformanceMs, steps: _steps, ...motion } = movement;
+      if (stoppedAt) metrics.enduranceMaxGapMs = Math.max(metrics.enduranceMaxGapMs!, startedAtPerformanceMs! - stoppedAt);
+      firstStartedAt ||= startedAtPerformanceMs!;
+      stoppedAt = stoppedAtPerformanceMs!;
+      const elapsed = stoppedAt - startedAtPerformanceMs!;
+      Object.assign(metrics, prefixedMetrics(prefix, { ...exposure, ...motion,
+        drivenDistancePx: Math.abs(motion.drivenDistancePx), commandedSpeedPxPerSec: Math.abs(motion.commandedSpeedPxPerSec),
+        requestedResultsPerSecond: loadSteps[index], progressedResults: after.progressedResults - before.progressedResults,
+        achievedResultsPerSecond: (after.progressedResults - before.progressedResults) * 1000 / elapsed }));
+      windows.push({ prefix, start: performance.timeOrigin + startedAtPerformanceMs!, end: performance.timeOrigin + stoppedAt });
+      metrics.endurancePhaseCount!++;
+    }
+    Object.assign(metrics, (window as any).__densityJourney.snapshot());
+    (window as any).__densityJourney.dispose();
+    if (reverseDurationMs > 0) {
+      requireForeground();
+      installDensityJourney({ density, direction: direction === 1 ? -1 : 1, resultsPerSecond,
+        calibrationResultsPerPixel: initial.resultsPerPixel });
+      const reverse = (window as any).__densityJourney.snapshot();
+      installThumbnailProbe({ density });
+      const movement = await scrollAtSpeed(localPage, density, -direction * reverse.commandedSpeedPxPerSec,
+        reverseDurationMs, { measureBounds: true });
+      const exposure = window.__kupua_thumbnailProbe!.stop();
+      metrics.observerStopLagMs = Math.max(metrics.observerStopLagMs!, performance.now() - movement.stoppedAtPerformanceMs!);
+      const { startedAtPerformanceMs, stoppedAtPerformanceMs, steps: _steps, ...motion } = movement;
+      Object.assign(metrics, prefixedMetrics("reversal", { ...exposure, ...(window as any).__densityJourney.snapshot(), ...motion,
+        drivenDistancePx: Math.abs(motion.drivenDistancePx), commandedSpeedPxPerSec: Math.abs(motion.commandedSpeedPxPerSec) }));
+      windows.push({ prefix: "reversal", start: performance.timeOrigin + startedAtPerformanceMs!, end: performance.timeOrigin + stoppedAtPerformanceMs! });
+      stoppedAt = stoppedAtPerformanceMs!;
+      (window as any).__densityJourney.dispose();
+    }
+    window.__kupua_thumbnailProbe!.dispose();
+    metrics.recoveryStartLagMs = performance.now() - stoppedAt;
+    if (metrics.observerStopLagMs! > 25 || metrics.recoveryStartLagMs! > 25) throw new Error("Journey observation boundary too late");
+    const snapshot = () => {
+      requireForeground();
+      const state = store.getState();
+      if (state.error || state.total !== initialState.total || JSON.stringify(state.params) !== params
+        || document.visibilityState !== "visible") throw new Error("Journey recovery changed scope");
+      const region = document.querySelector<HTMLElement>(`[aria-label="Image results ${density}"]`);
+      if (!region) throw new Error("Journey recovery density disappeared");
+      const bounds = region.getBoundingClientRect();
+      const top = Math.max(bounds.top, density === "table" ? region.querySelector("[data-table-header]")?.getBoundingClientRect().bottom ?? bounds.top : bounds.top);
+      const visible = (element: Element) => { const rect = element.getBoundingClientRect();
+        return rect.bottom > top && rect.top < bounds.bottom && rect.right > bounds.left && rect.left < bounds.right; };
+      const cells = [...region.querySelectorAll<HTMLElement>(density === "table" ? '[role="row"][data-image-id]' : "[data-grid-cell]")].filter(visible);
+      const missing = [...region.querySelectorAll(density === "table" ? '[role="row"]:not([data-image-id]):not([data-table-header])'
+        : ":scope > div > div > div:not([data-grid-cell])")].some(visible);
+      const ids = cells.map(cell => cell.dataset.imageId!);
+      return { key: JSON.stringify(ids), ready: !state.loading && !state._browseNavigation && !missing && ids.length > 0
+        && ids.every(id => state.imagePositions.has(id)) };
+    };
+    let previous = "";
+    let stable = 0;
+    let destination = "";
+    while (performance.now() - stoppedAt < recoveryTimeoutMs) {
+      const view = snapshot();
+      stable = view.ready && view.key === previous ? stable + 1 : 0;
+      previous = view.key;
+      if (stable >= 2) { destination = view.key; break; }
+      await new Promise(requestAnimationFrame);
+    }
+    let dataReadyMs = destination ? performance.now() - stoppedAt : null;
+    if (dataReadyMs !== null && dataReadyMs > recoveryTimeoutMs) { destination = ""; dataReadyMs = null; }
+    const media = destination ? await visibleMediaReadiness(localPage, density, stoppedAt,
+      Math.max(0, recoveryTimeoutMs - (performance.now() - stoppedAt)))
+      : { mediaCensored: 1, mediaReadyMs: null, visibleMediaCount: 0, decodedMediaCount: 0, failedMediaCount: 0 };
+    const readyAt = media.mediaReadyMs === null ? performance.now() : stoppedAt + media.mediaReadyMs;
+    const lateMedia = media.mediaReadyMs !== null && media.mediaReadyMs > recoveryTimeoutMs;
+    const stateAtReady = store.getState();
+    const peakAtReady = peakRefills;
+    await new Promise(requestAnimationFrame);
+    await new Promise(requestAnimationFrame);
+    const finalView = snapshot();
+    const changed = Boolean(destination) && finalView.key !== destination;
+    if (admissionOverflow) throw new Error("Journey admission observation overflow");
+    Object.assign(metrics, { stopDataCensored: Number(!destination || changed), stopDataReadyMs: changed ? null : dataReadyMs,
+      stopMediaCensored: changed || lateMedia ? 1 : media.mediaCensored, stopMediaReadyMs: changed || lateMedia ? null : media.mediaReadyMs,
+      stopVisibleMediaCount: media.visibleMediaCount, stopDecodedMediaCount: media.decodedMediaCount, stopFailedMediaCount: media.failedMediaCount,
+      stopCohortChanged: Number(changed), postReadyCohortStable: Number(Boolean(destination) && !changed),
+      recoveryObservationMs: readyAt - stoppedAt, recoveryLimitMs: recoveryTimeoutMs,
+      recoveryDeadlineOverrunMs: Math.max(0, readyAt - stoppedAt - recoveryTimeoutMs),
+      forwardReadStarts: starts.filter(entry => entry.time >= firstStartedAt && entry.time < readyAt && !entry.backward).length,
+      backwardReadStarts: starts.filter(entry => entry.time >= firstStartedAt && entry.time < readyAt && entry.backward).length,
+      readStartsAfterStop: starts.filter(entry => entry.time >= stoppedAt && entry.time < readyAt).length,
+      peakRefillsInFlight: Math.max(metrics.peakRefillsInFlight!, peakAtReady),
+      refillsPendingAtEnd: Number(stateAtReady._extendForwardInFlight) + Number(stateAtReady._extendBackwardInFlight) });
+    metrics.enduranceInterrupted = Number(metrics.enduranceMaxGapMs! >= 250);
+    Object.assign(metrics, summarizeDensityPressure(metrics));
+    return { timingCaptureRevision: 2, metrics, windows, startedEpoch: performance.timeOrigin + firstStartedAt,
+      stoppedEpoch: performance.timeOrigin + stoppedAt, readyEpoch: performance.timeOrigin + readyAt, finishedAt: performance.now() };
+  } finally {
+    document.removeEventListener("visibilitychange", checkVisibility);
+    unsubscribe();
+    (window as any).__densityJourney?.dispose();
+    window.__kupua_thumbnailProbe?.dispose();
+  }
+}
+
+export async function measureDensityJourney(page: Page, density: Density, direction: 1 | -1, requests: RequestProbe,
+  { durationMs = 9000, resultsPerSecond = 100, loadSteps = DENSITY_PRESSURE_STEPS, recoveryTimeoutMs = 4000, reverseDurationMs = 0, networkConstrained = false }:
+  { durationMs?: number; resultsPerSecond?: number; loadSteps?: readonly number[]; recoveryTimeoutMs?: number; reverseDurationMs?: number; networkConstrained?: boolean } = {}) {
+  const observed = await page.evaluate(async config => {
+    const path = "/e2e-perf/density-browser.ts";
+    return (await import(path)).captureDensityJourney(config) as Awaited<ReturnType<typeof captureDensityJourney>>;
+  }, { density, direction, durationMs, resultsPerSecond, loadSteps: [...loadSteps], recoveryTimeoutMs, reverseDurationMs, networkConstrained });
+  const metrics = observed.metrics;
+  metrics.controllerReturnLagMs = await page.evaluate(finishedAt => performance.now() - finishedAt, observed.finishedAt);
+  await requests.flush();
+  for (const window of observed.windows) Object.assign(metrics,
+    prefixedMetrics(window.prefix, requests.snapshotBetween(window.start, window.end)));
+  Object.assign(metrics, requests.snapshotBetween(observed.startedEpoch, observed.stoppedEpoch),
+    prefixedMetrics("recovery", requests.snapshotBetween(observed.stoppedEpoch, observed.readyEpoch)));
+  if (metrics.requestCaptureOverflow || metrics.requestClockMissingCount) throw new Error("Journey request capture invalidated");
+  return metrics;
 }
 
 export async function measureDensityEndurance(page: Page, density: "grid" | "justified", requests: RequestProbe,

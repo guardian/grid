@@ -22,6 +22,15 @@ Read the sections for the controls being exercised, not this entire reference.
 - Do not execute an imported helper's `.toString()` in a different realm: Vite can
   inject module-local dependencies. Adapt the helper or deliberately use its served
   `?raw` source. A missing driver is setup failure, not app failure.
+- A method being present on a bridged Playwright object does not prove its backing
+  protocol is supported. Check required capabilities with a bounded, non-sensitive
+  local control before building a live experiment. An automation-context failure
+  does not establish that the working tab's authentication failed; verify an
+  equivalent fresh read there before asking the operator to repair the session.
+- Redact payloads, not diagnostic structure. Retain bounded setup-stage and helper
+  names, error classes, known protocol operations and allowlisted failure categories.
+  Do not replace every failure with one generic message or expose arbitrary exception
+  text, request bodies or URLs to recover the lost detail.
 
 ```js
 return page.evaluate(() => ({
