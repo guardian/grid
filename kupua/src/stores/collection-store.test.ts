@@ -25,6 +25,26 @@ describe("loadCollections", () => {
     expect(useCollectionStore.getState().counts).toEqual({ sport: 5, "sport/football": 3 });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it("hosted builds fetch collections only from Kahuna's injected address, never a laptop default", async () => {
+    vi.stubEnv("VITE_HOSTED", "true");
+    vi.stubGlobal("window", { __KUPUA_CONFIG__: undefined } as unknown as Window);
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: { basename: "root", children: [] } })));
+    vi.stubGlobal("fetch", fetchMock);
+    const getAggregations = vi.fn(async () => ({ fields: {} }));
+    const source = { getAggregations } as unknown as Pick<ImageDataSource, "getAggregations">;
+
+    try {
+      await useCollectionStore.getState().loadCollections(source);
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      globalThis.window.__KUPUA_CONFIG__ = { collectionsUri: "https://media-collections.example.test/" };
+      await useCollectionStore.getState().loadCollections(source);
+      expect(fetchMock).toHaveBeenCalledWith("https://media-collections.example.test/collections", { credentials: "include" });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });
 
 describe("buildSubtreeCounts", () => {

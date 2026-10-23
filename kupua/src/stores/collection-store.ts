@@ -17,6 +17,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { ImageDataSource } from "@/dal";
+import { hostedServiceUri, isHostedBuild } from "@/lib/hosted-config";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -179,7 +180,12 @@ interface CollectionsApiResponse {
  */
 async function fetchCollectionTree(): Promise<CollectionNode | null> {
   try {
-    const base = (import.meta.env.VITE_COLLECTIONS_URL ?? "http://localhost:9010").replace(/\/$/, "");
+    // Hosted builds use only Kahuna's injected address, never a laptop default.
+    const configured = isHostedBuild()
+      ? hostedServiceUri("collectionsUri")
+      : import.meta.env.VITE_COLLECTIONS_URL ?? "http://localhost:9010";
+    if (!configured) return null;
+    const base = configured.replace(/\/$/, "");
     const res = await fetch(`${base}/collections`, { credentials: "include" });
     if (!res.ok) return null;
     const json: CollectionsApiResponse = await res.json();

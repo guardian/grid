@@ -11,6 +11,7 @@
     "dev": "vite",
     "dev:justified": "VITE_JUSTIFIED_PREVIEW=true vite --port 3040",
     "build": "tsc -b && vite build",
+    "build:hosted": "tsc -b && vite build --mode hosted",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",

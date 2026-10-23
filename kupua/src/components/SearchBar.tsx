@@ -209,7 +209,7 @@ export function SearchBar() {
           );
         }}
       >
-        <img src="/images/grid-logo.svg" alt="Grid" className="w-8 h-8" />
+        <img src={`${import.meta.env.BASE_URL}images/grid-logo.svg`} alt="Grid" className="w-8 h-8" />
       </a>
 
       {/* CQL search input with chips — grows to fill available space.

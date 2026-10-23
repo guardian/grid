@@ -65,6 +65,7 @@ There is no need to read the whole documentation tree before working.
 | Backend merges and future PRs | [Living impact checklist](exploration/docs/00-kupua-backend-merge-to-MAIN-impact-map.md): recheck and update relevant disclosure bullets for non-trivial shared-backend changes; no merge history. |
 | API integration | [API build plan](exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md) for sequence and decisions; [Scala conventions](exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/media-api-91-instructions-for-agents.md) for media-api work; [request lifetime and optimisation parity](exploration/docs/api-request-lifetime-and-performance-parity.md) for KUP-041 and client/server repair boundaries. |
 | Runtime configuration | [README setup](README.md#quick-start) and the README's API-mode sections. |
+| Hosting by Kahuna and canonical media | [TEST hosting plan and architecture](exploration/docs/kupua-TEST-deployment-plan.md): delivery modes, hosted build, injected config contract, Kahuna serving and switch. |
 | Known defects or intentional departures | [Bug backlog](exploration/docs/bug-backlog.md) and [deviations](exploration/docs/deviations.md). |
 
 ## Running and Validation

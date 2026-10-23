@@ -115,10 +115,21 @@ function perfEnvironment(): Plugin {
   };
 }
 
+/**
+ * `vite build --mode hosted` (npm run build:hosted) builds the page Kahuna serves:
+ * assets under /assets/kupua/, written into Kahuna's public folder, with settings
+ * only from hosted/.env.hosted — never the laptop's .env/.env.local.
+ * See exploration/docs/kupua-TEST-deployment-plan.md.
+ */
+const HOSTED_MODE = "hosted";
+
+export default defineConfig(({ mode }) => {
+const hosted = mode === HOSTED_MODE;
+
 // Load .env.local into process.env so proxy targets can read it.
 // Vite does not inject .env files into process.env automatically for vite.config.ts.
 // Gated: vitest re-uses this config and the side-effect leaks real env vars into tests.
-if (!process.env.VITEST) {
+if (!process.env.VITEST && !hosted) {
   Object.assign(process.env, loadEnv("development", process.cwd(), ""));
 }
 
@@ -127,7 +138,12 @@ const directBedrockPlugins = shouldEnableDirectBedrockProxy(
   Boolean(process.env.VITEST),
 ) ? [bedrockEmbedProxy()] : [];
 
-export default defineConfig({
+return {
+  ...(hosted && {
+    base: "/assets/kupua/",
+    envDir: path.resolve(import.meta.dirname, "hosted"),
+    build: { outDir: path.resolve(import.meta.dirname, "../kahuna/public/kupua"), emptyOutDir: true },
+  }),
   plugins: [react(), tailwindcss(), esProxyGuard(), gridApiWriteGuard(), perfEnvironment(), ...directBedrockPlugins],
   resolve: {
     alias: {
@@ -184,5 +200,5 @@ export default defineConfig({
       },
     },
   },
+};
 });
-

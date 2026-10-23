@@ -24,6 +24,23 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 23 October 2026 - Hosted build served by Kahuna
+
+`npm run build:hosted` (`vite build --mode hosted`) builds the page Kahuna serves: base
+`/assets/kupua/`, output in Kahuna's gitignored `public/kupua/`, and settings only from
+`hosted/.env.hosted` (hosted flag, API mode, canonical media, TEST-scale thresholds). The config
+no longer loads `.env.local` into the process in hosted mode, so laptop values cannot leak into the
+package. Hosted builds take media-api and collections addresses from Kahuna's injected
+`window.__KUPUA_CONFIG__` (https only, no query); a missing media-api address refuses reads rather
+than falling back, and a missing collections address is quiet absence instead of the
+`localhost:9010` default. Local modes never read the injected object. Settings gains "Back to
+Kahuna", a plain link to Kahuna's `/kupua/off` so escape works even when app state is broken.
+The logo's literal `/images/` path now uses Vite's `BASE_URL`, since only HTML/CSS paths are
+rebased.
+`allowImportingTsExtensions` lets the config-imported proxy target import its helper with an
+explicit extension. Kahuna's side (switch, page serving, routes) is separate Grid work; see the
+TEST hosting plan, step 2.
+
 ### 23 October 2026 - Opt-in canonical media delivery in API modes
 
 `start.sh --canonical-media`, valid only with `--use-media-api` or `--use-deployed-media-api`,

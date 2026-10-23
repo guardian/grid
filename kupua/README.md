@@ -244,6 +244,23 @@ The imgops links embed signed source URLs that expire after roughly 15-25 minute
 recover. Without the flag every mode keeps its existing delivery. Hosted Kupua will always use returned URLs; see
 the [TEST hosting plan](exploration/docs/kupua-TEST-deployment-plan.md).
 
+### Hosted build (Kupua served by Kahuna)
+
+Temporary experiment, DEV/TEST stages only. Build Kupua into Kahuna's public folder (gitignored):
+
+```bash
+npm --prefix kupua run build:hosted
+```
+
+Then, with local Grid running (`dev/script/start.sh`, optionally `--use-TEST`), open
+`https://media.local.dev-gutools.co.uk/kupua/on` to opt in, or toggle "Use the Kupua prototype
+frontend" in Kahuna's feature-switch panel and reload. Kahuna then serves Kupua's page for `/`,
+`/search` and `/images/:id`; crop, upload and other routes stay Kahuna's, and iframe requests always
+get Kahuna. Settings → "Back to Kahuna" (or `/kupua/off`) opts out. The page uses media-api and
+collections at the addresses Kahuna injects as `window.__KUPUA_CONFIG__` and canonical media.
+Settings come only from [hosted/.env.hosted](hosted/.env.hosted), never `.env`/`.env.local`. Rebuild
+and reload to see Kupua changes; Kahuna re-reads the page per request.
+
 ## Key Documentation
 
 - **[AGENTS.md](AGENTS.md)** – agent context: system summary, architecture decisions, context routing, current phase

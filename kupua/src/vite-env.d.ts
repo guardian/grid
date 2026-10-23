@@ -11,6 +11,8 @@ interface ImportMetaEnv {
   readonly VITE_S3_PROXY_ENABLED?: string;
   /** Whether imgproxy is available for full-size images (set in --use-TEST mode) */
   readonly VITE_IMGPROXY_ENABLED?: string;
+  /** "true" in hosted builds served by Kahuna (vite --mode hosted) */
+  readonly VITE_HOSTED?: string;
   /** "canonical" uses media URLs returned by media-api (start.sh --canonical-media, API modes only) */
   readonly VITE_MEDIA_DELIVERY?: string;
   /** S3 bucket name for full-size images (needed for imgproxy URL generation) */

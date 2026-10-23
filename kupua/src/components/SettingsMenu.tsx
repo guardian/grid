@@ -11,6 +11,7 @@ import {
   useEffectiveFocusMode,
   type FocusMode,
 } from "@/stores/ui-prefs-store";
+import { isHostedBuild, KAHUNA_RETURN_PATH } from "@/lib/hosted-config";
 
 export function SettingsMenu() {
   const [open, setOpen] = useState(false);
@@ -163,6 +164,20 @@ export function SettingsMenu() {
               </span>
             </span>
           </label>
+
+          {isHostedBuild() && (
+            <>
+              <div className="my-1 border-t border-grid-border" />
+              {/* Server route: works even if this app's state is broken. */}
+              <a
+                role="menuitem"
+                href={KAHUNA_RETURN_PATH}
+                className="block w-full px-3 py-1.5 text-sm text-grid-text hover:bg-grid-hover/15"
+              >
+                Back to Kahuna
+              </a>
+            </>
+          )}
         </div>
       )}
     </div>

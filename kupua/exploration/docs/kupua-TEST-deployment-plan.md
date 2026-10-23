@@ -1,7 +1,9 @@
-# Kupua: TEST Hosting Plan
+# Kupua: TEST Hosting — Plan and Architecture
 
-**Status: agreed direction, 23 October 2026; implementation not started.** Replaces the
-17 October version (branch-extraction recipe, deferred runtime config, manifest integration).
+**Status, 23 October 2026: steps 1-2 built and verified locally; step 3 (TEST) next.** This is
+both the plan and the architecture record for Kupua served by Kahuna; section 5 describes what
+is built. Replaces the 17 October version (branch-extraction recipe, deferred runtime config,
+manifest integration).
 
 ## 1. Purpose and Authority
 
@@ -128,16 +130,16 @@ deployed server revision.
 Each step is separately scoped, reviewed and approved. Kupua unit/E2E gates follow the standing
 directives; Kahuna/Scala changes add relevant tests.
 
-1. **Canonical media on the laptop (U7).** `--canonical-media`, thumbnails then JPEG detail,
-   in Kupua only. *Done:* grid/table/justified, selection, detail, traversal and history
+1. **Canonical media on the laptop (U7). DONE locally, 23 October.** `--canonical-media`,
+   thumbnails then JPEG detail, in Kupua only. *Done:* grid/table/justified, selection, detail, traversal and history
    restoration show thumbnails and JPEG detail from returned URLs against deployed TEST
    media-api; all existing modes unchanged; failures degrade cleanly.
-2. **Hosted page on local Grid.** Kahuna switch, routes, iframe/stage/asset guards, page
+2. **Hosted page on local Grid. DONE locally, 23 October.** Kahuna switch, routes, iframe/stage/asset guards, page
    serving with first-slice config, Kupua's "Back to Kahuna" link and Vite base. Verified on
    local Grid (Grid root `start.sh`). *Done:* opt in/out via panel and routes; direct loads and
    reloads of `/`, `/search`, `/images/:id`; correct MIME/CSP/fonts/chunks; iframe and
-   missing-asset requests get Kahuna; no development proxy or laptop dependency. Local Grid's
-   few images prove the page, not realistic media.
+   missing-asset requests get Kahuna; no development proxy or laptop dependency. With Grid's
+   `--use-TEST`, local Kahuna/media-api run with TEST config and data, so media was realistic.
 3. **TEST.** CI build step; operator opens the draft PR and deploys Kahuna + media-api. Let the
    API become ready before opting in. *Done:* operator browsing, arbitrary-position access,
    density changes, position preservation and traversal with thumbnails and JPEG detail, no
@@ -147,7 +149,84 @@ directives; Kahuna/Scala changes add relevant tests.
 
 M2b's canonical-delivery checks and any targeted measurements remain owned by the API build plan.
 
-## 5. Deployment and Removal
+## 5. As Built
+
+### Delivery modes (Kupua)
+
+- `start.sh --canonical-media` (API modes only) sets `VITE_MEDIA_DELIVERY=canonical`; every other
+  mode exports `proxy`. [image-urls](../../src/lib/image-urls.ts) owns the branch.
+- Thumbnails: `thumbnail.secureUrl`. No returned URL means no thumbnail, never the proxy.
+- Full images: the [API mapper](../../src/dal/grid-api-search-adapter.ts) keeps each entity's
+  `optimised`/`optimisedPng` hrefs as Kupua-internal `Image.__mediaLinks` (page, singleton, mget,
+  AI). `getFullImageUrl` prefers PNG, fills imgops' `{&w,h,q}` with a ~10-line expander (no
+  library: imgops is being replaced by imgproxy), quality 85, no added rotation (the link carries
+  `r=`), both sides capped at the longer native side. Detail, carousel prefetch and zoom share it.
+  Unsupported templates are absence; detail falls back to its thumbnail.
+- Signed source URLs inside imgops links expire (~15-25 minutes); reload recovers.
+
+### Hosted build (Kupua)
+
+- `npm run build:hosted` = `tsc -b && vite build --mode hosted`. In that mode
+  [vite.config](../../vite.config.ts) sets base `/assets/kupua/`, writes to Kahuna's gitignored
+  `public/kupua/`, and reads env only from [hosted/.env.hosted](../../hosted/.env.hosted)
+  (hosted flag, API mode, canonical media, TEST-scale thresholds). It skips loading `.env.local`
+  into the process, so laptop settings cannot enter the package.
+- Vite rebases paths in HTML/CSS only; literal asset paths in code must use
+  `import.meta.env.BASE_URL` (the logo did not, and 404'd until fixed).
+- The justified-layout WASM is inlined (base64) by its module build; Vite's "doesn't exist at
+  build time" warning concerns an unused fallback.
+- The bundle still contains unreachable laptop strings (`localhost:9010`, the TEST API constant);
+  hosted code paths never use them.
+
+### Runtime configuration (contract)
+
+Kahuna inserts `<script>window.__KUPUA_CONFIG__={...};</script>` immediately after `<head>`,
+before Kupua's module script, from its own server configuration:
+
+| Field | Source | Kupua use |
+| --- | --- | --- |
+| `mediaApiUri` | `services.apiBaseUri` | all media-api reads; missing/invalid refuses reads (no fallback) |
+| `collectionsUri` | `services.collectionsBaseUri` | collection tree; missing is quiet absence |
+
+JSON is serialized with `<` escaped. [hosted-config](../../src/lib/hosted-config.ts) reads it
+only in hosted builds and accepts only https URLs without query/fragment. Local modes never read
+it. The second configuration slice adds fields here.
+
+### Kahuna
+
+- [UseKupua](../../../kahuna/app/lib/FeatureSwitch.scala) (`use-kupua`, default off) joins the
+  feature-switch list only on DEV/TEST, so it appears in Kahuna's panel there.
+- [KupuaPage](../../../kahuna/app/lib/KupuaPage.scala) holds the decision (DEV/TEST, switch on,
+  not iframe) and the config injection, with [unit tests](../../../kahuna/test/lib/KupuaPageTest.scala).
+- [KahunaController.index](../../../kahuna/app/controllers/KahunaController.scala), still inside
+  the existing login redirect, reads `public/kupua/index.html` per opted-in request (so a rebuild
+  appears without restart). Present and renderable: Kupua with `Cache-Control: no-store`.
+  Otherwise Kahuna's ordinary page. Covers `/`, `/search`, `/images/:id`; crop, takedown, upload,
+  quotas keep Kahuna.
+- `/kupua/on` (DEV/TEST only, else 404) sets `feature-switch-use-kupua=true` with `Path=/`,
+  `Secure`, `SameSite=Lax`, 30 days; `/kupua/off` clears it. Both redirect to `/search`. Not
+  HttpOnly, because Kahuna's panel reads switch cookies client-side.
+- Kupua's Settings menu has "Back to Kahuna", a plain link to `/kupua/off`.
+- No CSP change was needed: Kahuna's policy already allows `'self'` scripts/styles/fonts,
+  connections to Grid services and images from thumbnail/imgops origins.
+- Assets are served by Kahuna's existing `/assets/*file` route; Play's digest/gzip stages keep
+  Vite's hashed names servable. Kahuna dev mode picks up a rebuilt `public/kupua/` without restart.
+
+### Commits and main candidates
+
+Outside-kupua code is kept in code+tests-only commits. The feature-switch panel fix
+(`path=/` on switch cookies) is an independent Kahuna bug fix and a **candidate for main** as its
+own small PR: without it, toggling a switch while on `/images/...` scopes the cookie to that path
+and the switch silently does not apply elsewhere. The Kahuna serving change is experiment-only
+unless Kupua hosting is later adopted. The CI step (step 3) likewise.
+
+### Verification so far
+
+Kupua unit/E2E and hosted build pass; Kahuna `KupuaPageTest`/`FeatureSwitchesTest` pass. On local
+Grid (`--use-TEST`): routes and cookie attributes, asset MIME types, login before Kupua, and the
+operator's browser check (opt in/out, panel switch, browsing with canonical media) passed.
+
+## 6. Deployment and Removal
 
 Chain: PR push -> `Grid CI` -> Riff-Raff artifacts and PR comment -> operator-selected TEST
 deployment of the needed apps (not blindly `media-service::grid::all`). A matching build is not
@@ -157,7 +236,7 @@ Recovery: `/kupua/off` (or clearing the cookie) returns to Kahuna on the experim
 deploying an ordinary build removes the experiment, after which the old cookie is ignored.
 Restore media-api too when intentionally removing branch endpoints.
 
-## 6. Stop Conditions and Limits
+## 7. Stop Conditions and Limits
 
 Stop for unexpected infrastructure scope, serious performance risk, licence uncertainty,
 conflicting settings or secret exposure. Never weaken server authorization or real-system write

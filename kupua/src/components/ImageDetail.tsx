@@ -678,7 +678,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
               }}
             >
               <img
-                src="/images/grid-logo.svg"
+                src={`${import.meta.env.BASE_URL}images/grid-logo.svg`}
                 alt="Grid"
                 className="w-8 h-8"
               />
