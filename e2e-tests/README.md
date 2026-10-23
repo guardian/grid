@@ -145,7 +145,7 @@ straight away and names the ports it is waiting on.
 
 | Variable | Effect |
 | --- | --- |
-| `GRID_RESEED=true` | Reload the Elasticsearch fixtures and seeded collections into the reused stack. |
+| `GRID_RESEED=true` | Reload the Elasticsearch fixtures (and their image files in S3) and seeded collections into the reused stack. |
 
 **Watch out for stale provisioning.** A reused stack picks up Scala changes (the repo is
 bind-mounted and services run under `sbt run`), but *not* changes to anything applied at

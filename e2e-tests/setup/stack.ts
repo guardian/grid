@@ -53,6 +53,7 @@ import type { ListrTask } from './progress.ts';
 import {
   createAuthStack,
   createCoreStack,
+  describeCoreStack,
   provisioningClients,
   seedAuthBuckets,
   seedBuckets,
@@ -61,6 +62,7 @@ import {
 import type { StackProps } from './provision.ts';
 import { seedCollections } from './seed-collections.ts';
 import { seedElasticsearch } from './seed-elasticsearch.ts';
+import { seedImageFiles } from './seed-image-files.ts';
 import type { GridEnvironment } from './state.ts';
 import type { ListrTaskFn } from 'listr2';
 
@@ -81,7 +83,7 @@ export interface StartStackOptions {
    * dev-nginx. Defaults to true under CI, which has no dev-nginx.
    */
   proxy?: boolean;
-  /** Seed Elasticsearch with the image fixtures. Defaults to true. */
+  /** Seed Elasticsearch with the image fixtures (and S3 with their files). Defaults to true. */
   seed?: boolean;
 }
 
@@ -90,6 +92,7 @@ export interface StartStackOptions {
 const KAHUNA_URL = `http://localhost:${KAHUNA_PORT}`;
 const MEDIA_API_URL = `http://localhost:${MEDIA_API_PORT}`;
 const ELASTICSEARCH_URL = `http://localhost:${ELASTICSEARCH_PORT}`;
+const LOCALSTACK_URL = `http://localhost:${LOCALSTACK_PORT}`;
 
 /** How much of the stack is already listening on the fixed host ports. */
 type StackProbe = 'none' | 'healthy' | 'partial';
@@ -440,7 +443,7 @@ async function waitForHealthy(
  * Start LocalStack and provision everything held in it. Sequential: each step needs the
  * resources the one before it created.
  */
-function localstackTasks(): ListrTask<BootContext>[] {
+function localstackTasks(seed: boolean): ListrTask<BootContext>[] {
   let clients: ReturnType<typeof provisioningClients>;
 
   return [
@@ -471,6 +474,11 @@ function localstackTasks(): ListrTask<BootContext>[] {
     {
       title: 'Seed auth buckets',
       task: (ctx) => seedAuthBuckets(clients.s3, ctx.authStackProps!),
+    },
+    {
+      title: 'Seed image files',
+      skip: () => !seed && 'seeding not requested',
+      task: (ctx, task) => seedImageFiles(clients.s3, ctx.coreStackProps!, reportTo(task)),
     },
     {
       title: 'Seed KCL lease tables',
@@ -537,7 +545,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
             },
             {
               title: 'LocalStack',
-              task: (_, task) => task.newListr(localstackTasks(), { concurrent: false }),
+              task: (_, task) => task.newListr(localstackTasks(seed), { concurrent: false }),
             },
           ],
           { concurrent: true },
@@ -775,6 +783,14 @@ async function attachToStack(options: StartStackOptions): Promise<GridEnvironmen
         skip: () => !reseed && 'reseeding not requested',
         task: async (_, task) => {
           await seedElasticsearch(ELASTICSEARCH_URL, 60_000, reportTo(task));
+        },
+      },
+      {
+        title: 'Re-seed image files',
+        skip: () => !reseed && 'reseeding not requested',
+        task: async (_, task) => {
+          const { cfn, s3 } = provisioningClients(LOCALSTACK_URL);
+          await seedImageFiles(s3, await describeCoreStack(cfn), reportTo(task));
         },
       },
       {

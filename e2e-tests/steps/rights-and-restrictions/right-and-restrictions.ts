@@ -1,8 +1,9 @@
 import type { Page } from '@playwright/test';
 import { Given, Then, KAHUNA_APP_URL, expect } from '../setup.ts';
+import { findSeededImageId, hasNoUsageRights } from '../../setup/image-fixtures.ts';
 
 /** An image seeded into Elasticsearch from fixtures/elasticsearch/images.json. */
-const SEEDED_IMAGE_ID = 'f6bfd2f0e54c232fd642237dfe773bb14275b3b3';
+const SEEDED_IMAGE_ID = findSeededImageId('with no usage rights category', hasNoUsageRights);
 
 const imageInformation = (page: Page) => page.getByRole('complementary', { name: 'Image information' });
 
