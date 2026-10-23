@@ -2955,11 +2955,22 @@ FIXME: what to do with touch devices
     background: #444;
     color: #ccc;
     padding: 5px;
-    padding-right: 15px; /* hack to reserve some space for the scrollbar */
     font-size: 1.2rem;
     box-sizing: border-box;
     max-height: 400px;
     overflow-y: auto;
+}
+
+.datalist__toggle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    padding: 0 4px 0 8px;
+    background: transparent;
+    border: 0;
+    color: #ccc;
+    cursor: pointer;
 }
 
 .datalist__input {

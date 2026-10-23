@@ -1,9 +1,20 @@
 <div class="datalist">
     <ng-transclude></ng-transclude>
-    <div class="datalist__options" role="listbox" ng-if="ctrl.active && ctrl.results.length > 0">
+    <button class="datalist__toggle"
+            type="button"
+            aria-label="Show all options"
+            ng-if="ctrl.showToggle"
+            ng-mousedown="$event.preventDefault()"
+            aria-haspopup="listbox"
+            aria-expanded="{{ !!ctrl.active }}"
+            ng-click="ctrl.toggle($event)">
+        <gr-icon>expand_more</gr-icon>
+    </button>
+    <div class="datalist__options" role="listbox" ng-if="ctrl.active && ctrl.results.length > 0"
+         ng-mousedown="$event.preventDefault()">
         <div class="datalist__option"
              role="option"
-             ng-repeat="(key, result) in ctrl.results"
+             ng-repeat="(key, result) in ctrl.results track by $index"
              ng-click="ctrl.setValueTo(result)"
              ng-mouseover="ctrl.setIndex(key)"
              ng-class="{ 'datalist__option--selected': ctrl.isSelected(key) }">
