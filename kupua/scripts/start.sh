@@ -14,6 +14,7 @@
 #   ./kupua/scripts/start.sh --use-TEST          # connect to TEST ES via SSH tunnel
 #   ./kupua/scripts/start.sh --use-media-api     # all image reads through local media-api
 #   ./kupua/scripts/start.sh --use-deployed-media-api # all image reads through deployed TEST media-api
+#   ./kupua/scripts/start.sh --use-deployed-media-api --canonical-media # plus media URLs returned by media-api
 #
 # Options:
 #   --use-TEST      Connect to real TEST ES cluster via SSH tunnel (port 9200).
@@ -26,6 +27,10 @@
 #   --use-deployed-media-api
 #                   Routes all image reads through media-api deployed in TEST. Retains the TEST
 #                   ES tunnel only for local image-delivery setup. Implies --use-TEST.
+#   --canonical-media
+#                   With --use-media-api or --use-deployed-media-api only: thumbnails and full
+#                   images use the URLs/imgops links media-api returns instead of the local S3
+#                   proxy and imgproxy.
 #   --skip-es       Skip starting / waiting for Elasticsearch
 #   --skip-data     Skip checking / loading sample data
 #   --skip-install  Skip npm install check
@@ -105,6 +110,7 @@ KUPUA_DIR="${SCRIPT_DIR}/.."
 USE_TEST=false
 USE_MEDIA_API=false
 USE_DEPLOYED_MEDIA_API=false
+CANONICAL_MEDIA=false
 SKIP_ES=false
 SKIP_DATA=false
 SKIP_INSTALL=false
@@ -114,12 +120,13 @@ for arg in "$@"; do
     --use-TEST)     USE_TEST=true ;;
     --use-media-api) USE_MEDIA_API=true; USE_TEST=true ;;
     --use-deployed-media-api) USE_DEPLOYED_MEDIA_API=true; USE_TEST=true ;;
+    --canonical-media) CANONICAL_MEDIA=true ;;
     --skip-es)      SKIP_ES=true ;;
     --skip-data)    SKIP_DATA=true ;;
     --skip-install) SKIP_INSTALL=true ;;
     *)
       echo -e "${red}Unknown option: $arg${plain}"
-      echo "Usage: $0 [--use-TEST] [--use-media-api | --use-deployed-media-api] [--skip-es] [--skip-data] [--skip-install]"
+      echo "Usage: $0 [--use-TEST] [--use-media-api | --use-deployed-media-api [--canonical-media]] [--skip-es] [--skip-data] [--skip-install]"
       exit 1
       ;;
   esac
@@ -128,6 +135,18 @@ done
 if [ "$USE_MEDIA_API" = true ] && [ "$USE_DEPLOYED_MEDIA_API" = true ]; then
   echo -e "${red}ERROR: --use-media-api and --use-deployed-media-api are mutually exclusive.${plain}"
   exit 1
+fi
+
+if [ "$CANONICAL_MEDIA" = true ] && [ "$USE_MEDIA_API" = false ] && [ "$USE_DEPLOYED_MEDIA_API" = false ]; then
+  echo -e "${red}ERROR: --canonical-media requires --use-media-api or --use-deployed-media-api.${plain}"
+  echo "  Direct Elasticsearch modes have no media URLs returned by media-api."
+  exit 1
+fi
+
+if [ "$CANONICAL_MEDIA" = true ]; then
+  export VITE_MEDIA_DELIVERY="canonical"
+else
+  export VITE_MEDIA_DELIVERY="proxy"
 fi
 
 # Every ordinary mode is pinned to the local same-origin proxy. Only the explicit
@@ -667,12 +686,16 @@ print('')
     echo -e "${cyan}      → media-api: LOCAL (all image reads via /api)${plain}"
     echo -e "${cyan}        Requires media-api running: ./dev/script/start.sh media-api${plain}"
   fi
-  if [ "$VITE_S3_PROXY_ENABLED" = "true" ]; then
+  if [ "$CANONICAL_MEDIA" = true ]; then
+    echo -e "${cyan}      → Thumbnails: ON (URLs returned by media-api)${plain}"
+  elif [ "$VITE_S3_PROXY_ENABLED" = "true" ]; then
     echo -e "${yellow}      → Thumbnails: ON (S3 proxy on port ${S3_PROXY_PORT})${plain}"
   else
     echo -e "${yellow}      → Thumbnails: OFF${plain}"
   fi
-  if [ "$VITE_IMGPROXY_ENABLED" = "true" ]; then
+  if [ "$CANONICAL_MEDIA" = true ]; then
+    echo -e "${cyan}      → Full images: ON (imgops links returned by media-api)${plain}"
+  elif [ "$VITE_IMGPROXY_ENABLED" = "true" ]; then
     echo -e "${yellow}      → Full images: ON (imgproxy on port 3002)${plain}"
   else
     echo -e "${yellow}      → Full images: OFF${plain}"

@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { extractEnrichment, apiSearchAfter } from "./grid-api-search-adapter";
+import { extractEnrichment, apiSearchAfter, apiGetImage, apiGetByIds } from "./grid-api-search-adapter";
 import { deriveImage } from "@/lib/derive-enriched-image";
 import { getFieldRawValue } from "@/lib/field-registry";
 import { useEnrichmentStore } from "@/stores/enrichment-store";
@@ -577,6 +577,47 @@ describe("apiSearchAfter canonical image normalization", () => {
     expect(result.total).toBe(response.total);
     expect(result.pitId).toBe(response.pitId);
     expect([...result.enrichment!.keys()]).toEqual(result.hits.map((image) => image.id));
+  });
+});
+
+describe("returned media links", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const optimised = "https://imgops.example.test/a/abc123?sig=1{&w,h,q}&r=0";
+  const optimisedPng = "https://imgops.example.test/png/abc123?sig=2{&w,h,q}&r=0";
+  const links = [
+    { rel: "optimised", href: optimised },
+    { rel: "optimisedPng", href: optimisedPng },
+    { rel: "usages", href: "https://usages.example.test/usages/media/abc123" },
+  ];
+  const respond = (body: unknown) => vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => body }));
+
+  it("retains optimised links from page, singleton and mget entities", async () => {
+    const data = makeCanonicalImage();
+
+    respond({ ...makeApiResponse(data.id), data: [{ data, links }] });
+    const { hits: [pageImage] } = await apiSearchAfter(probeParams, null, null, undefined, false, false);
+
+    respond({ data, links });
+    const single = await apiGetImage(data.id);
+
+    respond({ data: [{ data, links }] });
+    const [mgetImage] = await apiGetByIds([data.id]);
+
+    for (const image of [pageImage, single?.image, mgetImage]) {
+      expect(image?.__mediaLinks).toEqual({ optimised, optimisedPng });
+    }
+  });
+
+  it("leaves media links absent when an entity has none", async () => {
+    const data = makeCanonicalImage();
+    respond({ ...makeApiResponse(data.id), data: [{ data, links: [{ rel: "usages", href: "https://usages.example.test/x" }] }] });
+    const { hits: [withoutMedia] } = await apiSearchAfter(probeParams, null, null, undefined, false, false);
+    respond({ ...makeApiResponse(data.id), data: [{ data }] });
+    const { hits: [withoutLinks] } = await apiSearchAfter(probeParams, null, null, undefined, false, false);
+
+    expect(withoutMedia.__mediaLinks).toBeUndefined();
+    expect(withoutLinks.__mediaLinks).toBeUndefined();
   });
 });
 

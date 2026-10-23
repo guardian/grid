@@ -8,14 +8,12 @@
  *   on the fly. This avoids sending 50MB originals to the browser.
  *   See kupua/exploration/docs/01 Research/imgproxy-research.md for background.
  *
- * HOW TO REPLACE THIS (Phase 3):
- *   When kupua connects to the Grid media-api, thumbnails will be served
- *   via signed URLs from the API response. Replace `getThumbnailUrl()`
- *   with a function that reads the signed URL from the API response
- *   (e.g. `image.data.thumbnail.secureUrl`). The S3 proxy and this
- *   module's proxy logic can then be deleted.
+ * Canonical delivery (VITE_MEDIA_DELIVERY=canonical, API modes only): thumbnails
+ *   use the URL media-api returns (`thumbnail.secureUrl`: CloudFront or signed S3);
+ *   full images expand the returned imgops `optimisedPng`/`optimised` link.
+ *   See exploration/docs/kupua-TEST-deployment-plan.md.
  *
- * The current implementation:
+ * Default delivery:
  *   - In TEST mode (S3 proxy running): returns `/s3/thumb/<imageId>`
  *     which Vite proxies to the local s3-proxy.mjs server
  *   - In local mode (no S3 proxy): returns undefined (no thumbnails
@@ -42,14 +40,18 @@ const IMGPROXY_ENABLED =
 /** S3 bucket name for full-size images (set by start.sh). */
 const IMAGE_BUCKET = import.meta.env.VITE_IMAGE_BUCKET ?? "";
 
+/** Whether media uses the URLs media-api returns (set by start.sh --canonical-media). */
+const CANONICAL_MEDIA = import.meta.env.VITE_MEDIA_DELIVERY === "canonical";
+
 /**
  * Get the thumbnail URL for an image.
  *
- * Returns a proxied URL when the S3 proxy is running (TEST mode),
- * or undefined when thumbnails aren't available (local mode).
+ * Returns media-api's returned URL in canonical delivery, a proxied URL when
+ * the S3 proxy is running (TEST mode), or undefined when unavailable.
  */
 export function getThumbnailUrl(image: Image): string | undefined {
   if (SYNTHETIC_PREVIEW_ENABLED) return previewImageUrl(image);
+  if (CANONICAL_MEDIA) return image.thumbnail?.secureUrl;
   if (!S3_PROXY_ENABLED) return undefined;
   if (!image.id) return undefined;
   return `/s3/thumb/${image.id}`;
@@ -192,11 +194,51 @@ export interface FullImageOptions {
 }
 
 /**
+ * Fill imgops' `{&w,h,q}` / `{?w,h,q}` expression in a returned link template.
+ * Deliberately minimal (imgops is being replaced): any other template form
+ * returns undefined, which callers treat as absent media.
+ */
+function expandImgopsTemplate(template: string, values: Record<string, number>): string | undefined {
+  let unsupported = false;
+  const expanded = template.replace(/\{([^}]*)\}/g, (_match, expression: string) => {
+    const operator = expression[0];
+    if (operator !== "&" && operator !== "?") { unsupported = true; return ""; }
+    const pairs = expression.slice(1).split(",")
+      .filter((name) => values[name] != null)
+      .map((name) => `${name}=${encodeURIComponent(values[name])}`);
+    return pairs.length ? operator + pairs.join("&") : "";
+  });
+  return unsupported ? undefined : expanded;
+}
+
+/** Kahuna's imgops quality for detail and fullscreen. */
+const CANONICAL_QUALITY = 85;
+
+/**
+ * Canonical full image: media-api's returned imgops link, preferring the PNG
+ * rendition as Kahuna does. The link already carries the server's rotation.
+ * Both sides are capped at the longer native side, which never under-requests
+ * a rotated image; imgops itself does not enlarge.
+ */
+function getCanonicalFullImageUrl(image: Image, options?: FullImageOptions): string | undefined {
+  const template = image.__mediaLinks?.optimisedPng ?? image.__mediaLinks?.optimised;
+  if (!template) return undefined;
+  const dpr = options?.dpr ?? IMGPROXY_DEFAULTS.dpr;
+  const nativeMax = Math.max(options?.nativeWidth ?? 0, options?.nativeHeight ?? 0) || Infinity;
+  const w = Math.min(Math.round((options?.width ?? IMGPROXY_DEFAULTS.width) * dpr), nativeMax);
+  const h = Math.min(Math.round((options?.height ?? IMGPROXY_DEFAULTS.height) * dpr), nativeMax);
+  return expandImgopsTemplate(template, { w, h, q: options?.quality ?? CANONICAL_QUALITY });
+}
+
+/**
  * Get a full-size image URL via imgproxy.
  *
  * Builds an imgproxy URL that resizes the original S3 image on the fly
  * and converts to WebP (or another format). Follows eelpie fork's approach:
  * auto_rotate:false, strip_metadata:true, strip_color_profile:true.
+ *
+ * In canonical delivery, uses media-api's returned imgops link instead
+ * (JPEG/PNG; `format` does not apply).
  *
  * Returns undefined when imgproxy isn't available (local mode).
  */
@@ -205,6 +247,7 @@ export function getFullImageUrl(
   options?: FullImageOptions,
 ): string | undefined {
   if (SYNTHETIC_PREVIEW_ENABLED) return previewImageUrl(image);
+  if (CANONICAL_MEDIA) return getCanonicalFullImageUrl(image, options);
   if (!IMGPROXY_ENABLED || !IMAGE_BUCKET) return undefined;
   if (!image.id) return undefined;
 
@@ -259,7 +302,7 @@ export function getFullImageUrl(
 }
 
 /** Whether thumbnails are available in the current configuration. */
-export const thumbnailsEnabled = S3_PROXY_ENABLED || SYNTHETIC_PREVIEW_ENABLED;
+export const thumbnailsEnabled = CANONICAL_MEDIA || S3_PROXY_ENABLED || SYNTHETIC_PREVIEW_ENABLED;
 
 /**
  * Get a zoom-enhanced image URL for fullscreen pinch/wheel zoom.

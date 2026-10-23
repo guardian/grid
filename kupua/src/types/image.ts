@@ -227,5 +227,11 @@ export interface Image {
    * Value is (1 + cosine_similarity) / 2, normalised to [0, 1].
    */
   __aiScore?: number;
+  /**
+   * Media-api's returned imgops link templates (`optimised`, `optimisedPng`). Kupua-internal —
+   * kept from API entity links, absent for direct-ES images. Contain signed source URLs that
+   * expire; reload recovers. Used only in canonical media delivery.
+   */
+  __mediaLinks?: { optimised?: string; optimisedPng?: string };
 }
 

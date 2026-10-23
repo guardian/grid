@@ -24,6 +24,27 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 23 October 2026 - Opt-in canonical media delivery in API modes
+
+`start.sh --canonical-media`, valid only with `--use-media-api` or `--use-deployed-media-api`,
+sets `VITE_MEDIA_DELIVERY=canonical`. Thumbnails then use media-api's returned
+`thumbnail.secureUrl` (CloudFront or signed S3) instead of the local S3 proxy, and thumbnail
+gating treats canonical delivery as available. A missing returned URL is quiet absence, not a
+fallback to the proxy. Every other mode exports `proxy` explicitly, so existing delivery is
+unchanged and a stale local setting cannot leak in.
+
+Full images follow media-api's returned imgops links. The API mapper now keeps each entity's
+`optimised`/`optimisedPng` hrefs as Kupua-internal `__mediaLinks` on page, singleton, mget and AI
+reads. Canonical `getFullImageUrl` prefers the PNG template as Kahuna does, fills imgops'
+`{&w,h,q}` expression with a deliberately minimal expander (imgops is being replaced, so no
+URI-template dependency) and uses Kahuna's quality 85. The server link already carries rotation,
+so none is added. Both requested sides are capped at the longer native side, which stays correct
+for rotated images. A missing link or unsupported template is quiet absence; detail falls back to
+its thumbnail. Detail, carousel prefetch and zoom all follow because they share
+`getFullImageUrl`. Signed source URLs inside the links expire; reload is the accepted recovery.
+This is U7 and step 1 of the rewritten TEST hosting plan; hosted Kupua will always use
+returned URLs.
+
 ### 23 October 2026 - Align client query composition with upstream admission
 
 API reads now forward original CQL instead of appending substring-selected defaults.

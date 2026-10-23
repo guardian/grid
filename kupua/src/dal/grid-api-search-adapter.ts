@@ -11,12 +11,12 @@ import type { AiSearchResult, ImageByIdResult, SearchAfterResult, SearchParams, 
 import { buildSortClause } from "./adapters/elasticsearch/sort-builders";
 import { type EnrichmentFields } from "@/stores/enrichment-store";
 import { unwrapEntity } from "./grid-api/argo";
-import type { ImageData } from "./grid-api/types";
+import type { ImageData, Link } from "./grid-api/types";
 import { MGET_CHUNK_SIZE, MGET_CONCURRENCY } from "@/constants/tuning";
 import { mediaApiUrl } from "./grid-api/proxy-target";
 
 type ImagePageResponse = {
-  data: Array<{ data?: unknown; actions?: unknown }>;
+  data: Array<{ data?: unknown; actions?: unknown; links?: Link[] }>;
   sortValues: SortValues[];
   pitId?: string | null;
 };
@@ -43,7 +43,13 @@ const AI_RESULT_LIMIT = 200;
  *   API leases: EmbeddedEntity<LeasesByMedia>            →  Image leases: { leases? }
  *   API collections: EmbeddedEntity<CollectionResponse>[] → Image collections: Collection[]
  */
-function mapApiImageToImage(raw: unknown): Image {
+function mediaLinksOf(links: Link[] | undefined): Image["__mediaLinks"] {
+  const optimised = links?.find((link) => link.rel === "optimised")?.href;
+  const optimisedPng = links?.find((link) => link.rel === "optimisedPng")?.href;
+  return optimised || optimisedPng ? { optimised, optimisedPng } : undefined;
+}
+
+function mapApiImageToImage(raw: unknown, links?: Link[]): Image {
   const d = raw as ImageData;
   const edits = d.userMetadata && unwrapEntity(d.userMetadata);
   const userMetadata = edits ? {
@@ -68,7 +74,8 @@ function mapApiImageToImage(raw: unknown): Image {
   const collectionsRaw = d.collections as Array<{ data?: unknown }> | undefined;
   const collections = collectionsRaw?.map((c) => c.data).filter(Boolean) ?? [];
 
-  return { ...d, userMetadata, fileMetadata, usages, leases, collections } as unknown as Image;
+  const __mediaLinks = mediaLinksOf(links);
+  return { ...d, userMetadata, fileMetadata, usages, leases, collections, ...(__mediaLinks && { __mediaLinks }) } as unknown as Image;
 }
 
 /**
@@ -162,9 +169,9 @@ export async function apiGetImage(id: string, signal?: AbortSignal): Promise<Ima
   const res = await fetchImageRead(`/images/${encodeURIComponent(id)}`, {}, signal);
   if (res.status === 404) return undefined;
   if (!res.ok) throw await readFailure(res, signal);
-  const json = await readJson(res, signal) as { data?: { id?: unknown }; actions?: unknown };
+  const json = await readJson(res, signal) as { data?: { id?: unknown }; actions?: unknown; links?: Link[] };
   if (json.data?.id !== id) return undefined;
-  return { image: mapApiImageToImage(json.data), enrichment: extractEnrichment(json)?.[1] };
+  return { image: mapApiImageToImage(json.data, json.links), enrichment: extractEnrichment(json)?.[1] };
 }
 
 /**
@@ -184,8 +191,8 @@ export async function apiGetByIds(ids: string[], signal?: AbortSignal): Promise<
   let next = 0;
   const worker = async () => {
     while (next < chunks.length && !controller.signal.aborted) {
-      const json = await postImageRead("/images/mget", { ids: chunks[next++] }, controller.signal) as { data: Array<{ data?: unknown }> };
-      for (const entity of json.data) if (entity.data != null) images.push(mapApiImageToImage(entity.data));
+      const json = await postImageRead("/images/mget", { ids: chunks[next++] }, controller.signal) as { data: Array<{ data?: unknown; links?: Link[] }> };
+      for (const entity of json.data) if (entity.data != null) images.push(mapApiImageToImage(entity.data, entity.links));
     }
   };
   try {
@@ -240,7 +247,7 @@ function decodeImagePage(data: ImagePageResponse["data"]): { hits: Image[]; enri
   for (const entity of data) {
     const entry = extractEnrichment(entity);
     if (entry) enrichment.set(entry[0], entry[1]);
-    if (entity.data != null) hits.push(mapApiImageToImage(entity.data));
+    if (entity.data != null) hits.push(mapApiImageToImage(entity.data, entity.links));
   }
   return { hits, enrichment };
 }

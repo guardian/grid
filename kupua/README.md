@@ -230,6 +230,20 @@ permanent hosting/ingress design. The TEST ES tunnel remains startup-only bucket
 local image proxies. For automated authentication and performance commands, see
 [the performance handbook](e2e-perf/README.md#authentication-state).
 
+### `--canonical-media` flag
+
+Valid only with `--use-media-api` or `--use-deployed-media-api`. Media uses what media-api returns
+instead of the local S3 proxy and imgproxy: thumbnails from `thumbnail.secureUrl` (CloudFront or
+signed S3), full images from the imgops `optimisedPng`/`optimised` link templates:
+
+```bash
+./kupua/scripts/start.sh --use-deployed-media-api --canonical-media
+```
+
+The imgops links embed signed source URLs that expire after roughly 15-25 minutes; reload to
+recover. Without the flag every mode keeps its existing delivery. Hosted Kupua will always use returned URLs; see
+the [TEST hosting plan](exploration/docs/kupua-TEST-deployment-plan.md).
+
 ## Key Documentation
 
 - **[AGENTS.md](AGENTS.md)** – agent context: system summary, architecture decisions, context routing, current phase

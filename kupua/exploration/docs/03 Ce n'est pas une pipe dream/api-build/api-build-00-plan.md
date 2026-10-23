@@ -146,7 +146,7 @@ maintained here by the executing agent at completion (section 8).
 | U10-B | Skip unused cost/validity/syndication fallback derivation | Kupua | U9-B, U10-A | done locally; cold review accepted with fixes |
 | U8 | Deploy to TEST; `start.sh` switch for TEST media-api (cookie routing as in e2e-perf) | Both | U9-B, selected U10-B | done; temporary TEST build `15470` |
 | M2a | TEST API measurement, retaining current local image delivery | Both | U8 | done; deployed + matched-home local campaigns |
-| U7 | Media from canonical entity links (no `/s3`, `/imgproxy`) | Kupua | M2a | not started |
+| U7 | Media from canonical entity links (no `/s3`, `/imgproxy`) | Kupua | M2a | done locally behind `--canonical-media` (23 Oct); renewal deferred, reload recovers |
 | M2b | Canonical media delivery checks and targeted measurement | Both | U7 | not started |
 | P1 | Import #4957; API mapper and bounded direct-ES query alignment | Both | merge | implemented locally; residual grammar scope in KUP-011 |
 | L1 | PIT open/close (only if M1/M2a/M2b justify) | Both | M1 | deferred |
@@ -1193,6 +1193,9 @@ and external CORS config persist.
 **U7.** After M2a, thumbnails and full images come from entity links (signed URLs, imgops),
 replacing `/s3` and `/imgproxy` in API mode. Check the details that local imgproxy handles today:
 rotation, format, DPR, transparency. Renew by re-fetching the singleton when a signed URL has expired.
+Laptop API modes opt in with `--canonical-media` (default delivery unchanged); hosted Kupua always
+uses entity links. Delivery order, initial reload-based expiry recovery and hosting are detailed in
+the [TEST hosting plan](../../kupua-TEST-deployment-plan.md).
 
 **M2b: canonical media delivery checks.** After U7, the operator verifies returned URLs, bounded
 expiry renewal, visual/transform correctness and affected image-loading/traversal performance
