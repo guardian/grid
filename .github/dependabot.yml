@@ -2,6 +2,13 @@
 
 version: 2
 updates:
+  - package-ecosystem: 'docker'
+    directory: '/imgproxy'
+    schedule:
+      interval: 'weekly'
+    commit-message:
+      prefix: "chore(deps): "
+
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:

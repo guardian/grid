@@ -1,0 +1,18 @@
+#!/bin/bash
+set -e
+
+if ! getent group imgproxy >/dev/null; then
+  groupadd --system imgproxy
+fi
+if ! getent passwd imgproxy >/dev/null; then
+  useradd --system --gid imgproxy --no-create-home --shell /usr/sbin/nologin imgproxy
+fi
+
+if [ ! -e /etc/imgproxy.rc ] && [ ! -L /etc/imgproxy.rc ]; then
+  ln -s /opt/imgproxy/etc/imgproxy.rc /etc/imgproxy.rc
+fi
+
+if [ -d /run/systemd/system ]; then
+  systemctl daemon-reload
+  systemctl enable --now imgproxy.service
+fi

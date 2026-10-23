@@ -1,0 +1,22 @@
+stacks:
+  - media-service
+
+regions:
+  - eu-west-1
+
+allowedStages:
+  - TEST
+  - PROD
+
+templates:
+  imgproxy-autoscaling:
+    type: autoscaling
+    app: imgproxy
+    contentDirectory: imgproxy
+    parameters:
+
+deployments:
+  imgproxy:
+    template: imgproxy-autoscaling
+    actions:
+      - deploy

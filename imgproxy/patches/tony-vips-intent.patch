@@ -1,0 +1,14 @@
+diff --git a/vips/vips.c b/vips/vips.c
+--- a/vips/vips.c
++++ b/vips/vips.c
+@@ -593,3 +593,3 @@
+-  if (vips_icc_import(in, out, "embedded", TRUE, "pcs", vips_icc_get_pcs(in), NULL)) {
++  if (vips_icc_import(in, out, "embedded", TRUE, "intent", 0, "pcs", vips_icc_get_pcs(in), NULL)) {
+     VIPS_UNREF(base);
+     return 1;
+@@ -739,4 +739,5 @@
+       profile,
+       "embedded", TRUE,
++      "intent", 0,
+       "pcs", vips_icc_get_pcs(in),
+       "depth", image_depth(in),
