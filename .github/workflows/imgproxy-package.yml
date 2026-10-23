@@ -21,11 +21,12 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   build:
     runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v7.0.0
       - name: Build and validate arm64 Debian package
@@ -62,18 +63,53 @@ jobs:
                   raise SystemExit(f"invalid CycloneDX SBOM: {sbom}")
           PY
           test -s "$root/opt/imgproxy/share/doc/NOTICE"
+      - name: Install and run on Ubuntu 26.04 arm64
+        run: |
+          docker run --rm --platform linux/arm64 \
+            --volume "$GITHUB_WORKSPACE/imgproxy/dist/imgproxy.deb:/tmp/imgproxy.deb:ro" \
+            --entrypoint bash public.ecr.aws/ubuntu/ubuntu:26.04 -ec '
+              apt-get update -qq
+              DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends /tmp/imgproxy.deb curl
+              mkdir -p /etc/grid
+              touch /etc/grid/imgproxy.env
+              su -s /bin/bash imgproxy -c "VIPS_VECTOR=167772160 /usr/bin/imgproxy" >/tmp/imgproxy.log 2>&1 &
+              server_pid=$!
+              trap "kill $server_pid 2>/dev/null || true; wait $server_pid 2>/dev/null || true" EXIT
+              ready=false
+              for attempt in $(seq 1 30); do
+                if curl --silent --fail http://127.0.0.1:8080/health >/dev/null; then
+                  ready=true
+                  break
+                fi
+                sleep 1
+              done
+              test "$ready" = true
+              curl --silent --show-error --fail http://127.0.0.1:8080/health
+            '
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: imgproxy-deb
           path: imgproxy/dist/imgproxy.deb
           if-no-files-found: error
+          retention-days: 7
+  publish:
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v7.0.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: imgproxy-deb
+          path: imgproxy/dist
       - name: Upload package to Riff-Raff
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: guardian/actions-riff-raff@v4.3.7
         with:
           githubToken: ${{ secrets.GITHUB_TOKEN }}
           roleArn: ${{ secrets.GU_RIFF_RAFF_ROLE_ARN }}
-          commentingStage: TEST
           projectName: media-service::imgproxy
           configPath: imgproxy/riff-raff.yaml
           contentDirectories: |
