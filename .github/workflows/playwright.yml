@@ -84,7 +84,7 @@ jobs:
       if: steps.playwright-cache.outputs.cache-hit != 'true'
       run: npx playwright install chromium
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@v4
     # Authenticate so buildx can pull (and, on main, push) the registry layer
     # cache. GITHUB_TOKEN is read-only on fork PRs, which is fine: those runs
     # only read the cache (see cache-to condition below).

@@ -85,7 +85,7 @@ jobs:
       if: steps.playwright-cache.outputs.cache-hit != 'true'
       run: npx playwright install chromium
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@v4
     # Authenticate so buildx can pull the registry layer cache. Only pushes to
     # main write it back; manual runs only read the cache.
     - name: Log in to GHCR
