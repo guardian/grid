@@ -110,7 +110,7 @@ jobs:
         cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main,mode=max' || '' }}
     - name: Capture screen recordings
       run: npm run test:video
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       if: ${{ !cancelled() }}
       with:
         name: playwright-report
@@ -118,7 +118,7 @@ jobs:
         retention-days: 30
     - name: Build features UI
       run: npm run features:build
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       with:
         name: stats-site
         path: e2e-tests/dist/feature-library
