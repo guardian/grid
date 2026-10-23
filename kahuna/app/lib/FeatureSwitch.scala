@@ -16,6 +16,12 @@ object UseCqlChips extends FeatureSwitch(
   default = true
 )
 
+object UseKupua extends FeatureSwitch(
+  key = "use-kupua",
+  title = "Use the Kupua prototype frontend (temporary experiment; reload after switching)",
+  default = false
+)
+
 class FeatureSwitches(featureSwitches: List[FeatureSwitch]){
   // Feature switches are defined here, but updated by setting a cookie following the pattern e.g. "feature-switch-my-key"
   // for a switch called "my-key".

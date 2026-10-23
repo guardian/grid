@@ -13,7 +13,7 @@ class KahunaComponents(context: Context) extends GridComponents(context, new Kah
 
   final override val buildInfo = utils.buildinfo.BuildInfo
 
-  val controller = new KahunaController(auth, config, controllerComponents, authorisation)
+  val controller = new KahunaController(auth, config, controllerComponents, authorisation, environment)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
   final override val router = new Routes(httpErrorHandler, controller, assets, management, InnerServiceStatusCheckController)
