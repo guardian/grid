@@ -1,0 +1,86 @@
+name: imgproxy package
+
+on:
+  pull_request:
+    paths:
+      - "imgproxy/**"
+      - ".github/workflows/imgproxy-package.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "imgproxy/**"
+      - ".github/workflows/imgproxy-package.yml"
+  workflow_dispatch:
+    inputs:
+      patched:
+        description: "Apply Tony's optional ICC intent patch"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v7.0.0
+      - name: Build and validate arm64 Debian package
+        env:
+          PATCHED: ${{ inputs.patched || false }}
+        run: |
+          if [ "$PATCHED" = "true" ]; then
+            bash ./imgproxy/build-package.sh --patched
+          else
+            bash ./imgproxy/build-package.sh
+          fi
+          package=imgproxy/dist/imgproxy.deb
+          test "$(dpkg-deb --field "$package" Package)" = imgproxy
+          test "$(dpkg-deb --field "$package" Architecture)" = arm64
+          test -n "$(dpkg-deb --field "$package" Depends)"
+          dpkg-deb --field "$package" Depends | grep -Eq '(^|, )libc6(,|$)'
+          dpkg-deb --field "$package" Depends | grep -Eq '(^|, )libstdc\+\+6(,|$)'
+          control=$(mktemp -d)
+          root=$(mktemp -d)
+          dpkg-deb --control "$package" "$control"
+          dpkg-deb --extract "$package" "$root"
+          test -x "$control/postinst"
+          grep -q '^EnvironmentFile=/etc/grid/imgproxy.env$' "$root/lib/systemd/system/imgproxy.service"
+          grep -q '^Environment=VIPS_VECTOR=167772160$' "$root/lib/systemd/system/imgproxy.service"
+          grep -q '^Restart=always$' "$root/lib/systemd/system/imgproxy.service"
+          grep -q '^MemoryMax=3G$' "$root/lib/systemd/system/imgproxy.service"
+          grep -q '^OOMPolicy=continue$' "$root/lib/systemd/system/imgproxy.service"
+          grep -q '^MemoryAccounting=yes$' "$root/lib/systemd/system/imgproxy.service"
+          python3 - "$root/opt/imgproxy/share/sbom" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          sboms = sorted(pathlib.Path(sys.argv[1]).glob("*.json"))
+          if not sboms:
+              raise SystemExit("imgproxy package has no SBOMs")
+          for sbom in sboms:
+              if json.loads(sbom.read_text()).get("bomFormat") != "CycloneDX":
+                  raise SystemExit(f"invalid CycloneDX SBOM: {sbom}")
+          PY
+          test -s "$root/opt/imgproxy/share/doc/NOTICE"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: imgproxy-deb
+          path: imgproxy/dist/imgproxy.deb
+          if-no-files-found: error
+      - name: Upload package to Riff-Raff
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: guardian/actions-riff-raff@v4.3.7
+        with:
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          roleArn: ${{ secrets.GU_RIFF_RAFF_ROLE_ARN }}
+          commentingStage: TEST
+          projectName: media-service::imgproxy
+          configPath: imgproxy/riff-raff.yaml
+          contentDirectories: |
+            imgproxy:
+              - imgproxy/dist/imgproxy.deb
