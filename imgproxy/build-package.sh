@@ -95,29 +95,7 @@ fi
 sed -i -E "s/^Version:.*/Version: $version-$revision/" "$package_root/DEBIAN/control"
 
 mkdir -p "$package_root/lib/systemd/system"
-cat > "$package_root/lib/systemd/system/imgproxy.service" <<'UNIT'
-[Unit]
-Description=imgproxy image processing service
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=imgproxy
-Group=imgproxy
-EnvironmentFile=/etc/grid/imgproxy.env
-Environment=VIPS_VECTOR=167772160
-ExecStart=/usr/bin/imgproxy
-Restart=always
-RestartSec=5s
-OOMPolicy=continue
-MemoryAccounting=yes
-MemoryMax=3G
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-chmod 0644 "$package_root/lib/systemd/system/imgproxy.service"
+install -m 0644 "$script_dir/imgproxy.service" "$package_root/lib/systemd/system/imgproxy.service"
 
 cat > "$package_root/DEBIAN/postinst" <<'POSTINST'
 #!/bin/bash
@@ -158,12 +136,7 @@ dpkg-deb --control "$output_dir/imgproxy.deb" "$inspection/control"
 dpkg-deb --extract "$output_dir/imgproxy.deb" "$inspection/root"
 test -x "$inspection/control/postinst"
 test -f "$inspection/root/lib/systemd/system/imgproxy.service"
-grep -q '^EnvironmentFile=/etc/grid/imgproxy.env$' "$inspection/root/lib/systemd/system/imgproxy.service"
-grep -q '^Environment=VIPS_VECTOR=167772160$' "$inspection/root/lib/systemd/system/imgproxy.service"
-grep -q '^Restart=always$' "$inspection/root/lib/systemd/system/imgproxy.service"
-grep -q '^OOMPolicy=continue$' "$inspection/root/lib/systemd/system/imgproxy.service"
-grep -q '^MemoryAccounting=yes$' "$inspection/root/lib/systemd/system/imgproxy.service"
-grep -q '^MemoryMax=3G$' "$inspection/root/lib/systemd/system/imgproxy.service"
+cmp "$script_dir/imgproxy.service" "$inspection/root/lib/systemd/system/imgproxy.service"
 test -n "$(find "$inspection/root/opt/imgproxy/share/sbom" -type f -print -quit)"
 test -s "$inspection/root/opt/imgproxy/share/doc/NOTICE"
 

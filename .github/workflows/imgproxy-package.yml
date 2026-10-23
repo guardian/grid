@@ -48,12 +48,7 @@ jobs:
           dpkg-deb --control "$package" "$control"
           dpkg-deb --extract "$package" "$root"
           test -x "$control/postinst"
-          grep -q '^EnvironmentFile=/etc/grid/imgproxy.env$' "$root/lib/systemd/system/imgproxy.service"
-          grep -q '^Environment=VIPS_VECTOR=167772160$' "$root/lib/systemd/system/imgproxy.service"
-          grep -q '^Restart=always$' "$root/lib/systemd/system/imgproxy.service"
-          grep -q '^MemoryMax=3G$' "$root/lib/systemd/system/imgproxy.service"
-          grep -q '^OOMPolicy=continue$' "$root/lib/systemd/system/imgproxy.service"
-          grep -q '^MemoryAccounting=yes$' "$root/lib/systemd/system/imgproxy.service"
+          cmp imgproxy/imgproxy.service "$root/lib/systemd/system/imgproxy.service"
           python3 - "$root/opt/imgproxy/share/sbom" <<'PY'
           import json
           import pathlib

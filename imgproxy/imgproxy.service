@@ -1,0 +1,20 @@
+[Unit]
+Description=imgproxy image processing service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=imgproxy
+Group=imgproxy
+EnvironmentFile=/etc/grid/imgproxy.env
+Environment=VIPS_VECTOR=167772160
+ExecStart=/usr/bin/imgproxy
+Restart=always
+RestartSec=5s
+OOMPolicy=continue
+MemoryAccounting=yes
+MemoryMax=3G
+
+[Install]
+WantedBy=multi-user.target
