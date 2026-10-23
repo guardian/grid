@@ -14,23 +14,9 @@ templates:
     app: imgproxy
     contentDirectory: imgproxy
     parameters:
-    dependencies:
-      - imgproxy-ami-update
 
 deployments:
   imgproxy:
     template: imgproxy-autoscaling
     actions:
       - deploy
-
-  imgproxy-ami-update:
-    type: ami-cloudformation-parameter
-    parameters:
-      cloudFormationStackByTags: false
-      cloudFormationStackName: media-service
-      prependStackToCloudFormationStackName: false
-      amiParametersToTags:
-        ImgProxyAmiId:
-          BuiltBy: amigo
-          AmigoStage: PROD
-          Recipe: grid-imgproxy-resolute
