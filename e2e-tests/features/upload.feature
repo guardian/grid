@@ -177,15 +177,11 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.html lines 24-38
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 77-78, 179-185
 
-  # Unreachable in this stack's straight-to-bucket mode: the file uploads to S3 fine, then
-  # processing fails and the status carries a raw UnsupportedMimeTypeException. The friendly
-  # "only supports JPG, PNG and TIFF" copy is keyed off errorKey 'unsupported-type', which is
-  # only returned on the direct-load path.
-  @todo
   Scenario: An unsupported file type gives a helpful error
     When I upload a file that is not a JPG, PNG or TIFF
     Then the job should show an error explaining only JPG, PNG and TIFF are supported
-  # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 155-163
+  # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 153-161
+  # Evidence: image-loader/app/controllers/ImageLoaderController.scala lines 324
 
   Scenario: A completed upload becomes an editable image
     Given an upload has completed
