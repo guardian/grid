@@ -58,7 +58,9 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
   val elasticConfig = ElasticSearchConfig(
     aliases = ElasticSearchAliases(
       current = "Images_Current",
-      migration = "Images_Migration"
+      // Private to this suite: thrall's MigrationStatusProviderTest leaves Images_Migration assigned on
+      // the shared CI cluster, which would put these reads into a running-migration state.
+      migration = "Images_Migration_MediaApiElasticSearchTest"
     ),
     url = esTestUrl,
     shards = 1,
