@@ -499,7 +499,6 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
     "LOOK",
     "LuckyPix RR",
     "Luxy",
-    "Manchester City FC",
     "Map Resources",
     "Mary Evans Picture Library RM",
     "Masterfile",

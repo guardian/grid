@@ -85,7 +85,7 @@ jobs:
       if: steps.playwright-cache.outputs.cache-hit != 'true'
       run: npx playwright install chromium
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@v4
     # Authenticate so buildx can pull the registry layer cache. Only pushes to
     # main write it back; manual runs only read the cache.
     - name: Log in to GHCR
@@ -95,7 +95,7 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     - name: Build CI image
-      uses: docker/build-push-action@v6
+      uses: docker/build-push-action@v7
       with:
         context: .
         file: e2e-tests/images/Dockerfile
@@ -110,7 +110,7 @@ jobs:
         cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main,mode=max' || '' }}
     - name: Capture screen recordings
       run: npm run test:video
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       if: ${{ !cancelled() }}
       with:
         name: playwright-report
@@ -118,7 +118,7 @@ jobs:
         retention-days: 30
     - name: Build features UI
       run: npm run features:build
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       with:
         name: stats-site
         path: e2e-tests/dist/feature-library

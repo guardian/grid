@@ -3018,6 +3018,10 @@ FIXME: what to do with touch devices
 .radio-list {
     display: flex;
     overflow: hidden;
+    border: 1px solid #565656;
+}
+.radio-list > * + * {
+  border-left: 1px solid #565656;
 }
 .radio-list--invalid {
     border: 1px solid #ed5935;
@@ -3035,7 +3039,6 @@ FIXME: what to do with touch devices
     background-color: #444;
     text-align: center;
     cursor: pointer;
-    border: 1px solid #565656
 }
 
 .radio-list__label:hover {
