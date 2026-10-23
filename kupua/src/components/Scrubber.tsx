@@ -135,6 +135,7 @@ function applyThumbPosition(
 // ---------------------------------------------------------------------------
 
 import type { TrackTick } from "@/lib/sort-context";
+import { sortLabelText } from "@/lib/sort-context";
 
 // ---------------------------------------------------------------------------
 // Scrubber mode — tristate describing the scrubber's interaction model.
@@ -1032,7 +1033,7 @@ export function Scrubber({
 
   const positionLabel = `${Math.min(effectivePosition + 1, total).toLocaleString()} of ${total.toLocaleString()}`;
   const sortLabel = getSortLabel?.(effectivePosition) ?? null;
-  const accessibleSortLabel = sortLabel?.replace(/<[^>]*>/g, "") ?? null;
+  const accessibleSortLabel = sortLabel ? sortLabelText(sortLabel) : null;
 
   // Thumb color — three states: dragging > hover > idle
   const thumbColor = isDragging

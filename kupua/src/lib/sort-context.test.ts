@@ -20,6 +20,7 @@ import {
   resolvePrimarySortKey,
   resolveDateSortInfo,
   resolveKeywordSortInfo,
+  sortLabelText,
 } from "@/lib/sort-context";
 import type { Image } from "@/types/image";
 import type { SortDistribution } from "@/dal/types";
@@ -193,6 +194,24 @@ describe("interpolateSortLabel — binary search property (Part B)", () => {
     expect(interpolateSortLabel("credit", 5, 25, 1_000_000, [img], dist)).toBe("k1");
     expect(interpolateSortLabel("credit", 14, 25, 1_000_000, [img], dist)).toBe("k2");
     expect(interpolateSortLabel("credit", 15, 25, 1_000_000, [img], dist)).toBe(null);
+  });
+
+  it("escapes metadata in keyword labels, which the scrubber renders as HTML", () => {
+    const hostile = { id: "x", metadata: { credit: `<img src=x onerror=alert(1)>` } } as unknown as Image;
+    expect(interpolateSortLabel("credit", 0, 1, 0, [hostile])).toBe("&lt;img src=x onerror=alert(1)&gt;");
+
+    const dist: SortDistribution = { coveredCount: 1, buckets: [{ key: `a&"b'<`, count: 1, startPosition: 0 }] };
+    expect(interpolateSortLabel("credit", 0, 5, 1_000_000, [hostile], dist)).toBe("a&amp;&quot;b&#39;&lt;");
+  });
+
+  it("reads escaped keyword and date labels back as plain text for assistive technology", () => {
+    expect(sortLabelText("&lt;img src=x&gt; A&amp;B &quot;q&quot; &#39;s")).toBe(`<img src=x> A&B "q" 's`);
+    expect(sortLabelText('<span style="x">3</span> Mar <span>2024</span>')).toBe("3 Mar 2024");
+  });
+
+  it("truncates long keyword labels before escaping, so entities are never cut", () => {
+    const long = { id: "x", metadata: { credit: "&".repeat(40) } } as unknown as Image;
+    expect(interpolateSortLabel("credit", 0, 1, 0, [long])).toBe("&amp;".repeat(27) + "…");
   });
 
   it("does not repeat the final keyword across an unrepresented valued tail", () => {

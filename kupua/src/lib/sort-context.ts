@@ -141,10 +141,23 @@ export function resolvePrimarySortKey(orderBy: string | undefined): string | nul
   return bare || null;
 }
 
-/** Format + truncate a keyword value for tooltip display. */
+const HTML_ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+
+const LABEL_ENTITIES: Record<string, string> = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'" };
+
+/** Plain text of a sort label (HTML: date spans, escaped keyword values) for aria-valuetext. */
+export function sortLabelText(label: string): string {
+  return label.replace(/<[^>]*>/g, "").replace(/&(amp|lt|gt|quot|#39);/g, (entity) => LABEL_ENTITIES[entity]);
+}
+
+/**
+ * Format + truncate a keyword value for tooltip display, HTML-escaped: the scrubber renders
+ * sort labels as HTML (date labels need their spans) and keyword values are image metadata.
+ */
 function formatKeywordLabel(value: string, format?: (v: string) => string): string {
   const formatted = format ? format(value) : value;
-  return formatted.length > 30 ? formatted.slice(0, 27) + "…" : formatted;
+  const truncated = formatted.length > 30 ? formatted.slice(0, 27) + "…" : formatted;
+  return truncated.replace(/[&<>"']/g, (char) => HTML_ESCAPES[char]);
 }
 
 /**

@@ -24,6 +24,15 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 23 October 2026 - Escape keyword values in scrubber sort labels
+
+The scrubber renders sort labels as HTML so date labels keep their fixed-width spans, but keyword
+sorts (credit, source and similar) inserted image metadata unescaped, so a crafted value could
+inject markup into the tooltip. `formatKeywordLabel` now truncates and then HTML-escapes, so an
+entity is never cut. `aria-valuetext` uses the new `sortLabelText`, which strips tags and decodes
+the escapes so assistive technology reads the original text. Found while triaging CodeQL on the
+hosting PR; it mattered once Kupua is served on Kahuna's origin.
+
 ### 23 October 2026 - Hosted build served by Kahuna
 
 `npm run build:hosted` (`vite build --mode hosted`) builds the page Kahuna serves: base

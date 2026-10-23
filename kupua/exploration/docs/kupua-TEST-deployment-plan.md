@@ -224,6 +224,15 @@ it. The second configuration slice adds fields here.
   `public/kupua/` (index, JS/CSS with digest and gzip copies, images, fonts) into
   `kahuna-0.1-assets.jar`, with no env or sample files.
 
+### Security scan triage (PR #5103, CodeQL)
+
+CodeQL reported 13 "new" alerts because the PR diff is large. Twelve are in tests, perf
+tooling or research HTML and are not served. The one in shipped code (`Scrubber.tsx`, tag
+stripping for `aria-valuetext`) was harmless itself but pointed at a real issue: keyword sort
+labels carried unescaped image metadata into the tooltip's `innerHTML`. Fixed by escaping at
+the label source (changelog, 23 October). Re-check CodeQL for new shipped-code alerts after
+each push; hosting on Kahuna's origin makes client-side injection a real concern.
+
 ### Commits and main candidates
 
 Outside-kupua code is kept in code+tests-only commits. The feature-switch panel fix
