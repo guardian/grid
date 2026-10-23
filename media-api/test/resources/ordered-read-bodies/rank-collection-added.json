@@ -2,7 +2,7 @@
   {
     "path": "/images/rank",
     "body": {
-      "q": "-is:deleted -usages@status:replaced",
+      "q": "",
       "orderBy": "-dateAddedToCollection",
       "sort": [
         {

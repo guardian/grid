@@ -2,7 +2,7 @@
   {
     "path": "/images/count",
     "body": {
-      "q": "-is:deleted -usages@status:replaced",
+      "q": "",
       "until": "2030-01-01T00:00:00.000Z"
     }
   }

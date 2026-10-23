@@ -2,7 +2,7 @@
   {
     "path": "/images/sort-profile",
     "body": {
-      "q": "-is:deleted -usages@status:replaced",
+      "q": "",
       "orderBy": "credit",
       "sort": [
         {

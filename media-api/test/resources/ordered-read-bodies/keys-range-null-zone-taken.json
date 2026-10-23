@@ -2,7 +2,7 @@
   {
     "path": "/images/keys",
     "body": {
-      "q": "-is:deleted -usages@status:replaced",
+      "q": "",
       "orderBy": "-taken",
       "sort": [
         {
