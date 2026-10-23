@@ -88,6 +88,7 @@ import {
 } from "./harness-validation.mjs";
 import { commitFileTransaction, pruneAuditHistory, readHistoryLog } from "./history-files.mjs";
 import { comparisonEvidenceClass, metricsAreComparable, severeRateIsReportable } from "./p14-metrics.mjs";
+import { formatFocusedSortDegradation, partitionDegradedSamples } from "./focused-sort-degradation.mjs";
 import {
   aggregateDensityRuns, buildDensityMarkdown, densityEnvironmentKey,
   pairedDensityComparisons, parseDensitySuiteArgs, resolveSuiteSelection,
@@ -105,6 +106,33 @@ writeFileSync(resolve(__dirname, "results/.latest-report-path"), `${LATEST_RUN_R
 
 function appendRunReport(chunk) {
   appendFileSync(LATEST_RUN_REPORT, chunk);
+}
+
+// Degraded samples (store fallback instead of the measured outcome) collected
+// across every perceived run, reported once after the campaign.
+const degradedSamples = [];
+
+function collectDegradedSamples(metrics, runLabel) {
+  for (const metric of metrics) {
+    if (metric.degraded) degradedSamples.push({ ...metric.degraded, id: metric.id, label: metric.label, runLabel });
+  }
+}
+
+function reportDegradedSamples() {
+  if (degradedSamples.length === 0) return;
+  const lines = [
+    "",
+    "+" + "=".repeat(66) + "+",
+    `  DEGRADED SAMPLES: ${degradedSamples.length} (excluded from medians; campaign continued)`,
+    "+" + "=".repeat(66) + "+",
+    "  The store abandoned the focused image instead of restoring it. Times are from the",
+    "  action's t_0; a request is STALLED when it waited 1s or more without response headers.",
+    "",
+  ];
+  for (const sample of degradedSamples) lines.push(...formatFocusedSortDegradation(sample), "");
+  const text = lines.join("\n");
+  console.log(text);
+  appendRunReport(`${text}\n`);
 }
 
 function failCli(message, exitCode) {
@@ -477,12 +505,14 @@ function aggregatePerceivedMetrics(allRunMetrics) {
     "matched_control_settled_ms",
   ];
 
-  for (const [id, entries] of byId) {
+  for (const [id, allEntries] of byId) {
+    const { healthy: entries, summary: degradedSummary } = partitionDegradedSamples(allEntries, id);
     const agg = {
       id,
-      label: entries[0].label,
-      action: entries[0].action,
+      label: allEntries[0].label,
+      action: allEntries[0].action,
       sampleCount: entries.length,
+      ...degradedSummary,
     };
     for (const f of FIELDS) {
       const values = requireConsistentPresence(entries, f, id);
@@ -512,7 +542,8 @@ function aggregatePerceivedMetrics(allRunMetrics) {
       "setupVisibleRangeRatio", "setupExtended", "setupEvictGeneration",
       "setupEvictedCount",
     ]) {
-      const values = requireConsistentPresence(entries, field, id);
+      // Degraded samples keep the scenario contract even though they add no timings.
+      const values = requireConsistentPresence(field === "scenarioRevision" ? allEntries : entries, field, id);
       if (values.length > 0) {
         if (field !== "interactionId" && new Set(values.map((value) => JSON.stringify(value))).size !== 1) {
           throw new Error(`${id} changed ${field} across repetitions`);
@@ -561,6 +592,17 @@ function aggregatePerceivedMetrics(allRunMetrics) {
   return result;
 }
 
+function degradedSampleNote(perceived) {
+  const parts = Object.values(perceived)
+    .filter((metric) => metric.degradedCount > 0)
+    .map((metric) => {
+      const reasons = Object.entries(metric.degradedReasons ?? {})
+        .map(([reason, count]) => `${reason}: ${count}`).join(", ");
+      return `${metric.id} ${metric.degradedCount} of ${metric.degradedCount + metric.sampleCount} (${reasons})`;
+    });
+  return parts.length > 0 ? `Degraded samples excluded from medians: ${parts.join("; ")}.` : null;
+}
+
 function buildPerceivedMarkdown(existing, entry) {
   const date = new Date(entry.timestamp).toISOString().split("T")[0];
   const dirty = entry.gitDirty ? " (dirty)" : "";
@@ -586,6 +628,7 @@ function buildPerceivedMarkdown(existing, entry) {
   });
 
   const table = [header, sep, ...rows].join("\n");
+  const degradedNote = degradedSampleNote(entry.perceived);
   const diagnosticRows = diagnosticIds.map((id) => {
     const metric = entry.perceived[id];
     return `| ${id} | ${metric.action} | ${metric.sampleCount} | ${metric.dt_store_ready_ms ?? "—"} | ${metric.mapEntryCount ?? "—"} |`;
@@ -607,6 +650,7 @@ function buildPerceivedMarkdown(existing, entry) {
     : null;
   const section = [
     heading, "", meta, "", table,
+    ...(degradedNote ? ["", degradedNote] : []),
     ...(matchedControl ? ["", matchedControl] : []),
     ...(diagnosticTable ? ["", diagnosticTable] : []),
   ].join("\n");
@@ -651,6 +695,7 @@ async function runPerceivedKind(kind, git, baselineRttMs, historyWrites, history
       : runEnvironment;
     const m = readPerceivedTmp(kind, exitCode);
     assertCompleteMetricIds(m, expectedPerceivedMetricIds(kind, grepArg), `${kindLabel} run ${run}`);
+    collectDegradedSamples(m, `${kindLabel} run ${run} of ${runs}`);
     allRunMetrics.push(m);
     aggregatePerceivedMetrics(allRunMetrics);
 
@@ -719,6 +764,8 @@ async function runPerceivedKind(kind, git, baselineRttMs, historyWrites, history
     const cells = COLS.map((c) => m[c] != null ? `${m[c]}ms`.padEnd(12) : "—".padEnd(12));
     console.log(`  ${id.padEnd(8)} ${(m.action ?? "?").padEnd(actionWidth)} ${cells.join(" ")}`);
   }
+  const degradedNote = degradedSampleNote(aggregated);
+  if (degradedNote) console.log(`\n  ${degradedNote} Diagnostics follow the campaign.`);
   const diagnostics = Object.keys(aggregated).filter(
     (id) => aggregated[id].metricClass === "background-diagnostic",
   );
@@ -1501,9 +1548,13 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  appendRunReport(`\n${err?.stack ?? err}\n`);
-  console.error(err);
-  process.exit(1);
-});
+main().then(
+  () => reportDegradedSamples(),
+  (err) => {
+    reportDegradedSamples();
+    appendRunReport(`\n${err?.stack ?? err}\n`);
+    console.error(err);
+    process.exit(1);
+  },
+);
 

@@ -117,9 +117,12 @@ reported gzip error. **No SSM, gzip, residential-network or ES ownership claim f
   crosses that boundary successfully. The [earlier failure note](earlier-e2e-perf-failures.md)
   owns the DNS evidence and reversal instructions. Its old “PP3 parked” disposition is historical.
 - **PP3's visible failure:** focus preservation falls back after about eight seconds; the backend
-  can continue until its 30-second socket timeout. The test then rejects missing original focus,
-  explaining roughly 41-second failures. Idle store state / `t_store_ready` can describe fallback,
-  not preservation. Keep the original-focus assertion and deadlines; this is not merely probe flakiness.
+  can continue until its 30-second socket timeout. The test used to reject missing original focus
+  after a further 30-second wait, explaining roughly 41-second failures. Idle store state /
+  `t_store_ready` can describe fallback, not preservation; this is not merely probe flakiness.
+  Since 23 October, campaigns record the fallback as a [degraded PP3/PP4 sample](../../../e2e-perf/measurement-reference.md#degraded-focused-sort-samples)
+  excluded from medians. Its end-of-campaign diagnostics give the focused media ID, UTC `t_0` and
+  per-request sent/response-header/outcome timings for correlation with backend captures.
 - **Cancellation / [KUP-041](../../docs/bug-backlog.md#kup-041):** browser abort is not wired through
   Play/Scala Futures to outgoing ES cancellation; elastic4s discards the REST `Cancellable`.
   Separate controllers do not directly cancel another Java request. Aggregation cancellations

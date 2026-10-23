@@ -33,10 +33,21 @@
 import { appendFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { ConsoleMessage } from "@playwright/test";
 import { test, expect, isMediaApiUrl } from "./helpers";
 import type { KupuaHelpers } from "../e2e/shared/helpers";
 import type { TraceEntry } from "@/lib/perceived-trace";
 import { computeCorrelatedMetrics, ownsDataRoute } from "./perceived-metrics.mjs";
+import {
+  classifySortAroundFocusWarning,
+  createDataRequestRecorder,
+  formatFocusedSortDegradation,
+  summarizeFocusedSortDegradation,
+  type DataRequestSnapshot,
+  type DataRoute,
+  type FocusedSortDegradation,
+  type FocusedSortWarning,
+} from "./focused-sort-degradation.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const METRICS_FILE = resolve(__dirname, "results/.perceived-short-tmp.jsonl");
@@ -251,12 +262,120 @@ function captureSuccessfulDataRoutes(kupua: any) {
   };
 }
 
+type FocusedSortObservation =
+  | {
+    degraded?: undefined;
+    settledTotal: number;
+    resultRegime: NonNullable<PerceivedMetrics["resultRegime"]>;
+    routes: string[];
+  }
+  | { degraded: { focus: "cleared" } };
+
+interface DegradedFocusedSortMetrics {
+  id: "PP3" | "PP4";
+  label: string;
+  action: "sort-around-focus";
+  interactionId: string;
+  scenarioRevision: 3;
+  routes: string[];
+  degraded: FocusedSortDegradation;
+}
+
+interface FocusedSortDiagnostics {
+  warnings: FocusedSortWarning[];
+  snapshot: (originEpochMs: number) => DataRequestSnapshot;
+}
+
+function classifyDataRoute(rawUrl: string): DataRoute | null {
+  if (isMediaApiUrl(rawUrl)) return "media-api";
+  return new URL(rawUrl).pathname.startsWith("/es/") ? "direct-es" : null;
+}
+
+/** Observe sort-around-focus warnings and data-request lifetimes; start before the action. */
+async function startFocusedSortDiagnostics(kupua: KupuaHelpers) {
+  const warnings: FocusedSortWarning[] = [];
+  const onConsole = (message: ConsoleMessage) => {
+    const category = classifySortAroundFocusWarning(message.text());
+    if (category) warnings.push({ category, epochMs: Date.now() });
+  };
+  kupua.page.on("console", onConsole);
+  const session = await kupua.page.context().newCDPSession(kupua.page);
+  await session.send("Network.enable");
+  const recorder = createDataRequestRecorder(session, { classifyUrl: classifyDataRoute });
+  return {
+    async finish(): Promise<FocusedSortDiagnostics> {
+      const captureEpochMs = Date.now();
+      kupua.page.off("console", onConsole);
+      recorder.stop();
+      await session.detach().catch(() => {});
+      return {
+        warnings,
+        snapshot: (originEpochMs) => recorder.snapshot({ originEpochMs, captureEpochMs }),
+      };
+    },
+  };
+}
+
+/**
+ * Record the store's sort-around-focus fallback as a degraded sample. It is
+ * excluded from medians by the runner and its sanitized diagnostics are
+ * printed again at the end of the campaign.
+ */
+async function emitDegradedFocusedSort(kupua: KupuaHelpers, {
+  id,
+  label,
+  focusedImageId,
+  entries,
+  observation,
+  diagnostics,
+  routes,
+}: {
+  id: "PP3" | "PP4";
+  label: string;
+  focusedImageId: string;
+  entries: TraceEntry[];
+  observation: { focus: "cleared" };
+  diagnostics: FocusedSortDiagnostics;
+  routes: string[];
+}) {
+  const correlated = computeCorrelatedMetrics({
+    id,
+    label,
+    action: "sort-around-focus",
+    requiredPhases: ["t_ack", "t_store_ready"],
+    entries,
+  });
+  const interactionEntries = entries.filter((entry) => entry.interactionId === correlated.interactionId);
+  const start = interactionEntries.find((entry) => entry.phase === "t_0")!;
+  const originEpochMs = await kupua.page.evaluate(() => performance.timeOrigin) + start.t;
+  const degraded = summarizeFocusedSortDegradation({
+    focusedImageId,
+    focus: observation.focus,
+    fallbackMs: correlated.dt_store_ready_ms,
+    phases: interactionEntries.map((entry) => entry.phase),
+    originEpochMs,
+    warnings: diagnostics.warnings,
+    network: diagnostics.snapshot(originEpochMs),
+  });
+  console.log(`${id} sort-around-focus: DEGRADED (${degraded.reason}) — excluded from medians; repeated at campaign end`);
+  for (const line of formatFocusedSortDegradation({ id, label, ...degraded })) console.log(line);
+  emitMetrics({
+    id,
+    label,
+    action: "sort-around-focus",
+    interactionId: correlated.interactionId,
+    scenarioRevision: 3,
+    routes,
+    degraded,
+  });
+}
+
 async function appendFocusedSortVisualPhases(
   kupua: KupuaHelpers,
   interactionId: string,
   scenarioId: "PP3" | "PP4",
   focusedImageId: string,
-) {
+): Promise<FocusedSortObservation> {
   return kupua.page.evaluate(async ({ targetInteractionId, targetScenarioId, targetFocusedImageId }) => {
     const store = (window as any).__kupua_store__;
     if (!store) throw new Error("Search store unavailable");
@@ -303,6 +422,13 @@ async function appendFocusedSortVisualPhases(
           ?? document.querySelector('[aria-label="Image results table"]')),
         geometryStable: false,
       };
+      // The correlated completion with an idle store and no focus is the
+      // store's terminal fallback (timeout or failed lookup): it will never
+      // restore the original image, so report it instead of waiting out the deadline.
+      if (state && storeReady && !state.loading && !state.error && !state.sortAroundFocusStatus
+        && state.focusedImageId == null) {
+        return { degraded: { focus: "cleared" as const } };
+      }
       if (!state || state.loading || state.error || state.sortAroundFocusStatus || !storeReady || !position) {
         first = null;
         continue;
@@ -1395,10 +1521,9 @@ async function readSeekMeasures(kupua: any): Promise<Array<{ name: string; durat
 }
 
 /** Emit one metrics line to the perceived temp file. */
-function emitMetrics(metrics: PerceivedMetrics) {
+function emitMetrics(metrics: PerceivedMetrics | DegradedFocusedSortMetrics) {
   // Omit raw from file output (can be huge); keep for debug if needed.
-  const { raw: _raw, ...rest } = metrics;
-  const line = JSON.stringify(rest) + "\n";
+  const line = JSON.stringify({ ...metrics, raw: undefined }) + "\n";
   try {
     appendFileSync(METRICS_FILE, line);
   } catch {
@@ -1531,6 +1656,7 @@ test.describe("Perceived Performance Suite", () => {
     await clearTrace(kupua);
     await kupua.page.evaluate(() => performance.clearResourceTimings());
     const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
+    const focusedSortDiagnostics = await startFocusedSortDiagnostics(kupua);
     await kupua.selectSort("Credit");
 
     const storeEntries = await readTrace(kupua);
@@ -1540,8 +1666,17 @@ test.describe("Perceived Performance Suite", () => {
     expect(starts).toHaveLength(1);
     expect(starts[0].interactionId).toBeTruthy();
     const context = await appendFocusedSortVisualPhases(kupua, starts[0].interactionId!, "PP3", focusedId!);
-    context.routes = finishRouteCapture();
+    const diagnostics = await focusedSortDiagnostics.finish();
+    const routes = finishRouteCapture();
     const entries = await readTrace(kupua);
+    if (context.degraded) {
+      await emitDegradedFocusedSort(kupua, {
+        id: "PP3", label: "sort-around-focus (Credit)", focusedImageId: focusedId!,
+        entries, observation: context.degraded, diagnostics, routes,
+      });
+      return;
+    }
+    context.routes = routes;
     const correlated = computeCorrelatedMetrics({
       id: "PP3",
       label: "sort-around-focus (Credit)",
@@ -1579,6 +1714,7 @@ test.describe("Perceived Performance Suite", () => {
     await clearTrace(kupua);
     await kupua.page.evaluate(() => performance.clearResourceTimings());
     const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
+    const focusedSortDiagnostics = await startFocusedSortDiagnostics(kupua);
     await kupua.toggleSortDirection();
 
     const storeEntries = await readTrace(kupua);
@@ -1588,8 +1724,17 @@ test.describe("Perceived Performance Suite", () => {
     expect(starts).toHaveLength(1);
     expect(starts[0].interactionId).toBeTruthy();
     const context = await appendFocusedSortVisualPhases(kupua, starts[0].interactionId!, "PP4", focusedId!);
-    context.routes = finishRouteCapture();
+    const diagnostics = await focusedSortDiagnostics.finish();
+    const routes = finishRouteCapture();
     const entries = await readTrace(kupua);
+    if (context.degraded) {
+      await emitDegradedFocusedSort(kupua, {
+        id: "PP4", label: "sort-direction-toggle (focused)", focusedImageId: focusedId!,
+        entries, observation: context.degraded, diagnostics, routes,
+      });
+      return;
+    }
+    context.routes = routes;
     const correlated = computeCorrelatedMetrics({
       id: "PP4",
       label: "sort-direction-toggle (focused)",

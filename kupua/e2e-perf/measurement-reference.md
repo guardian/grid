@@ -350,7 +350,8 @@ own comparable-history filters. Do not ignore unknown-field/schema warnings.
 The runner prints a unique `$TMPDIR/kupua-perf-<timestamp>-<pid>.log` path and stores its location
 in ignored `results/.latest-report-path`. Cleanup progress helps distinguish a running teardown
 from a stalled test. Requested histories are committed **only after every selected repetition
-and suite succeeds**. Failures retain diagnostics, not partial benchmark history or resumable
+and suite succeeds**; a [degraded PP3/PP4 sample](#degraded-focused-sort-samples) completes its
+repetition. Failures retain diagnostics, not partial benchmark history or resumable
 checkpoints. The density suite fails fast; do not fix failures by relaxing assertions/timeouts.
 
 ## Maintaining measurements
@@ -389,6 +390,20 @@ visual timings may shift. Preserve revision-2 histories; the dashboard's default
 filter separates revisions rather than treating a boundary correction as an app regression.
 Offline harness regressions exercise delayed startup with old content, unrelated/missing
 completion, fast completion and focus/geometry guards. They add no campaign samples or workloads.
+
+<a id="degraded-focused-sort-samples"></a>
+PP3/PP4 record the store's sort-around-focus fallback as a **degraded** sample instead of a
+failed campaign. A correlated `t_store_ready` with an idle, error-free store and no focused image
+is terminal: the original image cannot return, so the observer stops without waiting out its
+deadline. Fallback is never accepted as preservation. A degraded sample adds no timings; medians use
+healthy samples only, and history records `degradedCount`/`degradedReasons` beside the reduced
+`sampleCount`. Focus moved to another image, pending sorts and store errors still fail; other
+scenarios cannot record degraded samples. After the campaign, including a failed one, the runner
+prints each degraded sample: store warning category (timeout, find error or none), phase reached,
+focused media ID, UTC `t_0` and every media-api/direct-ES request's start, duration, outcome,
+whether Chromium reported headers sent and when response headers arrived. A request waiting at
+least one second without response headers is marked stalled. Paths keep media IDs but omit queries
+and index names. These details reach only the console and run report; history keeps counts only.
 
 Density selection shares only the [exact-button/pressed-state guard](../e2e/README.md#density-selection-guard).
 Keep its caller-owned clicks and waits inside their existing observation windows: the density

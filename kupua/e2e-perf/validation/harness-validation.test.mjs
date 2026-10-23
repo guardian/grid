@@ -35,6 +35,7 @@ import {
   pruneAuditHistory,
 } from "../history-files.mjs";
 import { computeCorrelatedMetrics, ownsDataRoute } from "../perceived-metrics.mjs";
+import { formatFocusedSortDegradation, partitionDegradedSamples } from "../focused-sort-degradation.mjs";
 import TeardownReporter from "../teardown-reporter.mjs";
 import {
   classifyImageLookup,
@@ -335,7 +336,7 @@ test("actual perceived aggregation does not require jank fields", () => {
   const aggregatePerceivedMetrics = runInNewContext(
     `${runnerFunction("aggregatePerceivedMetrics")}\naggregatePerceivedMetrics`,
     {
-      requireConsistentPresence, aggregateSettledTotal, assertConsistentNames,
+      requireConsistentPresence, aggregateSettledTotal, assertConsistentNames, partitionDegradedSamples,
       median: (values) => values[0],
     },
   );
@@ -346,6 +347,109 @@ test("actual perceived aggregation does not require jank fields", () => {
   const result = aggregatePerceivedMetrics([[metric], [{ ...metric, dt_ack_ms: 30 }]]);
   assert.equal(result.PP2.sampleCount, 2);
   assert.equal(result.PP2.dt_ack_ms, 25);
+  assert.equal(result.PP2.degradedCount, undefined);
+});
+
+test("actual perceived aggregation excludes degraded focused-sort samples explicitly", () => {
+  const aggregatePerceivedMetrics = runInNewContext(
+    `${runnerFunction("aggregatePerceivedMetrics")}\naggregatePerceivedMetrics`,
+    {
+      requireConsistentPresence, aggregateSettledTotal, assertConsistentNames, partitionDegradedSamples,
+      median: (values) => values[0],
+    },
+  );
+  const healthy = {
+    id: "PP3", label: "fixture", action: "sort-around-focus", scenarioRevision: 3, interactionId: "a",
+    dt_ack_ms: 20, dt_store_ready_ms: 1_000, dt_visual_settled_ms: 1_200,
+    settledTotal: 1_000_000, resultRegime: "seek", routes: ["media-api"],
+  };
+  const degraded = {
+    id: "PP3", label: "fixture", action: "sort-around-focus", scenarioRevision: 3, interactionId: "b",
+    routes: ["media-api"],
+    degraded: {
+      reason: "timeout", focusedImageId: "history-must-not-keep-this-id",
+      requests: [{ operation: "GET /api/images/history-must-not-keep-this-id" }],
+    },
+  };
+  const result = aggregatePerceivedMetrics([[healthy], [degraded], [{ ...healthy, dt_visual_settled_ms: 1_400 }]]);
+  assert.equal(result.PP3.sampleCount, 2);
+  assert.equal(result.PP3.degradedCount, 1);
+  assert.deepEqual({ ...result.PP3.degradedReasons }, { timeout: 1 });
+  assert.equal(JSON.stringify(result).includes("history-must-not-keep-this-id"), false);
+  assert.equal(result.PP3.dt_visual_settled_ms, 1_300);
+  assert.equal(result.PP3.dt_store_ready_ms, 1_000);
+  assert.equal(result.PP3.scenarioRevision, 3);
+
+  const allDegraded = aggregatePerceivedMetrics([[degraded], [degraded]]);
+  assert.equal(allDegraded.PP3.sampleCount, 0);
+  assert.equal(allDegraded.PP3.degradedCount, 2);
+  assert.equal(allDegraded.PP3.dt_visual_settled_ms, null);
+  assert.equal(allDegraded.PP3.scenarioRevision, 3);
+  assert.throws(
+    () => aggregatePerceivedMetrics([[healthy], [{ ...degraded, scenarioRevision: 2 }]]),
+    /PP3 changed scenarioRevision across repetitions/,
+  );
+  assert.throws(
+    () => aggregatePerceivedMetrics([[{ ...degraded, id: "PP8" }]]),
+    /PP8 cannot record degraded samples/,
+  );
+});
+
+test("perceived history notes degraded exclusions and the campaign reports diagnostics last", () => {
+  const degradedSampleNote = runInNewContext(`${runnerFunction("degradedSampleNote")}\ndegradedSampleNote`);
+  const note = degradedSampleNote({
+    PP2: { id: "PP2", sampleCount: 4 },
+    PP3: { id: "PP3", sampleCount: 3, degradedCount: 1, degradedReasons: { timeout: 1 } },
+  });
+  assert.equal(note, "Degraded samples excluded from medians: PP3 1 of 4 (timeout: 1).");
+  assert.equal(degradedSampleNote({ PP2: { id: "PP2", sampleCount: 4 } }), null);
+
+  const buildPerceivedMarkdown = runInNewContext(`${runnerFunction("buildPerceivedMarkdown")}\nbuildPerceivedMarkdown`, {
+    degradedSampleNote, formatEnvironment: () => "environment",
+  });
+  const markdown = buildPerceivedMarkdown("", {
+    kind: "short", label: "fixture", gitSha: "abc", gitDirty: false, timestamp: "2026-10-23T00:00:00.000Z",
+    stableUntil: "2026-02-15", runs: 4,
+    perceived: { PP3: { id: "PP3", action: "sort-around-focus", sampleCount: 3, degradedCount: 1, degradedReasons: { timeout: 1 } } },
+  });
+  assert.match(markdown, /\| PP3 \| sort-around-focus \| 3 \|/);
+  assert.match(markdown, /Degraded samples excluded from medians: PP3 1 of 4 \(timeout: 1\)\./);
+
+  const printed = [];
+  const reported = [];
+  const degradedSamples = [];
+  const context = {
+    degradedSamples,
+    formatFocusedSortDegradation,
+    console: { log: (text) => printed.push(text) },
+    appendRunReport: (text) => reported.push(text),
+  };
+  const collect = runInNewContext(`${runnerFunction("collectDegradedSamples")}\ncollectDegradedSamples`, context);
+  const report = runInNewContext(`${runnerFunction("reportDegradedSamples")}\nreportDegradedSamples`, context);
+  report();
+  assert.deepEqual(printed, []);
+  collect([
+    { id: "PP2", label: "healthy" },
+    {
+      id: "PP3", label: "sort-around-focus (Credit)",
+      degraded: {
+        reason: "timeout", focusedImageId: "fixture-media-id", focus: "cleared", fallbackMs: 8_012, phaseReached: "seeking",
+        actionStartedAt: "2026-10-23T02:13:40.000Z", warnings: [{ category: "timeout", atMs: 8_004 }],
+        requests: [], requestCaptureOverflow: 0,
+      },
+    },
+  ], "perceived (short) run 4 of 4");
+  report();
+  assert.equal(degradedSamples.length, 1);
+  assert.match(printed[0], /DEGRADED SAMPLES: 1 \(excluded from medians; campaign continued\)/);
+  assert.match(printed[0], /PP3 sort-around-focus \(Credit\) — perceived \(short\) run 4 of 4/);
+  assert.match(printed[0], /action t_0 \(UTC\): 2026-10-23T02:13:40\.000Z/);
+  assert.match(printed[0], /focused image \(media ID\): fixture-media-id/);
+  assert.equal(reported[0], `${printed[0]}\n`);
+
+  const runner = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "run-audit.mjs"), "utf8");
+  assert.match(runner, /main\(\)\.then\(\s*\(\) => reportDegradedSamples\(\),\s*\(err\) => \{\s*reportDegradedSamples\(\);/);
+  assert.match(runner, /collectDegradedSamples\(m, `\$\{kindLabel\} run \$\{run\} of \$\{runs\}`\);/);
 });
 
 test("totals, regimes, and seek-measure names cannot be partial across repetitions", () => {
@@ -1103,6 +1207,7 @@ function createShortVisualHarness(name, {
   stateError = false,
   sorting = false,
   wrongContext = false,
+  focusCleared = false,
 } = {}) {
   const isJourney = ["navigateAndMeasure", "appendDetailVisualPhases", "appendIndexedScrollVisualPhases", "appendFullscreenExitVisualPhases"].includes(name);
   const filename = join(fileURLToPath(new URL("..", import.meta.url)), isJourney ? "perceived-long.spec.ts" : "perceived-short.spec.ts");
@@ -1200,7 +1305,8 @@ function createShortVisualHarness(name, {
             until: stableUntil,
           },
           total,
-          focusedImageId: isFocused && wrongContext ? "wrong-fixture-id" : "private-fixture-id",
+          focusedImageId: isFocused && focusCleared ? null
+            : isFocused && wrongContext ? "wrong-fixture-id" : "private-fixture-id",
           results: [item],
           bufferOffset: 10,
           _forwardEvictGeneration: evictGeneration,
@@ -1260,6 +1366,33 @@ test("focused-sort observer never emits visual phases without its correlated com
   await assert.rejects(fixture.run(), /PP4.*within 30000ms:.*"storeReady":false/);
   assert.equal(fixture.entries.length, 0);
 });
+
+for (const refreshRate of [60, 120, 240]) {
+  test(`focused-sort observer reports the store's focus fallback as degraded without waiting at ${refreshRate} Hz`, async () => {
+    const fixture = createShortVisualHarness("appendFocusedSortVisualPhases", { refreshRate, focusCleared: true });
+    const result = await fixture.run();
+    assert.deepEqual(JSON.parse(JSON.stringify(result)), { degraded: { focus: "cleared" } });
+    assert.equal(fixture.entries.length, 0);
+    assert.ok(fixture.elapsed() >= 1_500);
+    assert.ok(fixture.elapsed() < 1_500 + 3_000 / refreshRate);
+  });
+}
+
+for (const [condition, options, diagnostic] of [
+  ["before its correlated completion", { readyAt: 0, storeReadyAt: Infinity, unrelatedCompletion: true }, /"storeReady":false/],
+  ["while the sort is still pending", { readyAt: 0, sorting: true }, /"sorting":true/],
+  ["with a store error", { readyAt: 0, stateError: true }, /"error":true/],
+]) {
+  test(`focused-sort observer does not report cleared focus as degraded ${condition}`, async () => {
+    const fixture = createShortVisualHarness("appendFocusedSortVisualPhases", { ...options, focusCleared: true });
+    await assert.rejects(fixture.run(), error => {
+      assert.match(error.message, /PP4 focused cell did not become visibly stable within 30000ms:/);
+      assert.match(error.message, diagnostic);
+      return true;
+    });
+    assert.equal(fixture.entries.length, 0);
+  });
+}
 
 for (const [scenario, name, action] of shortVisualObservers) {
   for (const refreshRate of [60, 120, 240]) {

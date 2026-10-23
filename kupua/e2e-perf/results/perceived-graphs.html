@@ -415,6 +415,7 @@ const NON_METRIC_FIELDS = new Set([
   "cacheClass", "lookupGuardRevision",
   "resultRegime", "routes", "matchedControlRoutes", "matchedControlDesign", "setupGlobalPosition", "setupBufferOffset", "setupBufferLength",
   "setupVisibleRangeRatio", "setupExtended", "setupEvictGeneration", "setupEvictedCount",
+  "degradedCount", "degradedReasons",
 ]);
 
 // ---------------------------------------------------------------------------
@@ -735,7 +736,7 @@ function render() {
     card.innerHTML = `
       <div class="card-header">
         <h3>${id}: ${latestMetrics?.label ?? id}</h3>
-        <span class="action-tag">${action} · ${entryKind(latestScenarioEntry)} · ${entryMode(latestScenarioEntry)}${latestMetrics?.routes ? ` · ${latestMetrics.routes.join("+")}` : ""}</span>
+        <span class="action-tag">${action} · ${entryKind(latestScenarioEntry)} · ${entryMode(latestScenarioEntry)}${latestMetrics?.routes ? ` · ${latestMetrics.routes.join("+")}` : ""}${latestMetrics?.degradedCount ? ` · ${latestMetrics.degradedCount} degraded excluded` : ""}</span>
       </div>
       <div class="metric-summary">${METRIC_LABELS[currentMetric]} — ${summaries}</div>
       <div class="metrics-row">${chipsHtml}</div>

@@ -25,7 +25,7 @@ export async function withDensityScrollNetwork<T>(cdp: CDPSession, workload: str
 export async function waitForDensityMaintenanceCooldown(page: Page) {
   const cooldown = await page.evaluate(async () => {
     const path = "/src/constants/tuning.ts";
-    return (await import(path)).SEARCH_FETCH_COOLDOWN_MS as number;
+    return (await import(/* @vite-ignore */ path)).SEARCH_FETCH_COOLDOWN_MS as number;
   });
   await page.waitForTimeout(cooldown + 50);
   await waitForWindowIdle(page);
@@ -106,7 +106,7 @@ export async function restoreDensitySource(page: Page) {
   await waitForWindowIdle(page);
   await page.evaluate(async () => {
     const path = "/src/lib/orchestration/search.ts";
-    (await import(path)).scrollFocusedIntoView();
+    (await import(/* @vite-ignore */ path)).scrollFocusedIntoView();
   });
   await waitForPlacement(page, "table", true);
   return page.evaluate(() => ({ total: (window as any).__kupua_store__.getState().total as number }));
@@ -118,7 +118,7 @@ export async function prepareDensityMaintenance(page: Page, density: Density) {
   await waitForDensityMaintenanceCooldown(page);
   await page.evaluate(async () => {
     const path = "/src/constants/tuning.ts";
-    const { BUFFER_CAPACITY, PAGE_SIZE } = await import(path);
+    const { BUFFER_CAPACITY, PAGE_SIZE } = await import(/* @vite-ignore */ path);
     const store = (window as any).__kupua_store__;
     const maxReads = Math.ceil(BUFFER_CAPACITY / PAGE_SIZE) + 1;
     for (let reads = 0; reads < maxReads; reads++) {
@@ -143,11 +143,11 @@ export async function prepareDensityMaintenance(page: Page, density: Density) {
 export async function scrollToDensityTail(page: Page, density: Density) {
   await page.evaluate(async density => {
     const path = "/src/lib/scroll-geometry-ref.ts";
-    const { getLayoutGeometry, getItemLayoutRow } = await import(path);
+    const { getLayoutGeometry, getItemLayoutRow } = await import(/* @vite-ignore */ path);
     const geometry = getLayoutGeometry();
     const state = (window as any).__kupua_store__.getState();
     const tuningPath = "/src/constants/tuning.ts";
-    const { EXTEND_THRESHOLD } = await import(tuningPath);
+    const { EXTEND_THRESHOLD } = await import(/* @vite-ignore */ tuningPath);
     const indexed = document.querySelector('[data-scrubber-mode]')?.getAttribute("data-scrubber-mode") === "indexed";
     // Enter the minimum admission band; viewport size and velocity lookahead are not guarantees.
     const index = Math.max(0, state.results.length - Math.max(1, Math.floor(EXTEND_THRESHOLD / 2))) + (indexed ? state.bufferOffset : 0);
@@ -453,7 +453,7 @@ export async function prepareDensityRecovery(page: Page, density: Density) {
   await waitForWindowIdle(page);
   await page.evaluate(async () => {
     const path = "/src/lib/image-offset-cache.ts";
-    const { getRetainedSortValues, buildSearchKey } = await import(path);
+    const { getRetainedSortValues, buildSearchKey } = await import(/* @vite-ignore */ path);
     const state = (window as any).__kupua_store__.getState();
     const source = (window as any).__densitySource;
     if (!source || source.total !== state.total || source.params !== JSON.stringify(state.params)) {
@@ -466,7 +466,7 @@ export async function prepareDensityRecovery(page: Page, density: Density) {
   await waitForWindowIdle(page);
   await page.evaluate(async () => {
     const path = "/src/lib/orchestration/search.ts";
-    (await import(path)).scrollFocusedIntoView();
+    (await import(/* @vite-ignore */ path)).scrollFocusedIntoView();
   });
   await waitForPlacement(page, density, true);
   await waitForDensityMaintenanceCooldown(page);
@@ -917,7 +917,7 @@ export async function measureDensityJourney(page: Page, density: Density, direct
   { durationMs?: number; resultsPerSecond?: number; loadSteps?: readonly number[]; recoveryTimeoutMs?: number; reverseDurationMs?: number; networkConstrained?: boolean } = {}) {
   const observed = await page.evaluate(async config => {
     const path = "/e2e-perf/density-browser.ts";
-    return (await import(path)).captureDensityJourney(config) as Awaited<ReturnType<typeof captureDensityJourney>>;
+    return (await import(/* @vite-ignore */ path)).captureDensityJourney(config) as Awaited<ReturnType<typeof captureDensityJourney>>;
   }, { density, direction, durationMs, resultsPerSecond, loadSteps: [...loadSteps], recoveryTimeoutMs, reverseDurationMs, networkConstrained });
   const metrics = observed.metrics;
   metrics.controllerReturnLagMs = await page.evaluate(finishedAt => performance.now() - finishedAt, observed.finishedAt);

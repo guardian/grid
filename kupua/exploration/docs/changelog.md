@@ -24,6 +24,35 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 23 October 2026 - Silence Vite warnings for density probe imports
+
+The density journey imports `density-browser.ts` into the page through the dev server, so Vite
+analyzed its Node-side `page.evaluate` callbacks and warned about each variable-path dynamic import.
+Mark those eight imports `@vite-ignore`. Vite still applies its usual dev rewrite; only the
+terminal warning is suppressed, with no change to probe behaviour or measured boundaries.
+
+### 23 October 2026 - Record focused-sort store fallback as a degraded sample
+
+PP3/PP4 previously failed the whole campaign when sort-around-focus hit its eight-second
+fallback: the store published the first page without focus and traced `t_store_ready`, and
+the observer then waited 30 seconds for an image that could never return. The shared observer
+now reports that terminal state (correlated completion, idle error-free store, no focus) at once.
+Focus moved to another image, pending sorts and store errors still fail at the deadline.
+
+The degraded sample adds no timings. The runner keeps it out of medians, permits it only for
+PP3/PP4, retains the scenario revision and records `degradedCount`/`degradedReasons` beside
+the healthy `sampleCount` in history, Markdown and the dashboard card. Sanitized diagnostics are
+printed when the sample occurs and again after the campaign, including a failed campaign: store
+warning category, phase reached, focused media ID, UTC `t_0` and each media-api/direct-ES request's
+start, duration, outcome, Chromium headers-sent report and response-header time. Requests waiting
+a second without headers are marked stalled, to correlate with the paused transport investigation's
+backend captures. Paths keep media IDs but omit queries and index names; no error text or host is
+retained, and these details reach only the console and run report, never history.
+
+Offline regressions cover warning classification, path sanitization, request lifetimes with early
+headers-sent events, bounded records, summary/format, degraded-only aggregation, fail-closed
+allowlist/revision checks, Markdown notes, end-of-campaign reporting and observer timing at
+60/120/240 Hz. No application code, campaign workload or recorded history changes.
 ### 23 October 2026 - Preserve fixed-grid thumbnail slots during seeks
 
 Key fixed Grid cells by their actual column within each virtual row, including partial
