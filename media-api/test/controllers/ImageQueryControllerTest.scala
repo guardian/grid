@@ -14,7 +14,7 @@ import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import play.api.http.HttpEntity
 import play.api.libs.json.{JsNull, JsNumber, JsObject, JsString, JsValue, Json}
-import play.api.mvc.Result
+import play.api.mvc.{Action, Result}
 import play.api.test.FakeRequest
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -36,6 +36,34 @@ class ImageQueryControllerTest extends AnyFunSpec with Matchers with ScalaFuture
     val controller = imageQueryControllerFor(principal, search, mock[ImageResponse], privileged)
 
     SearchAfterHarness(controller, search, captured.future)
+  }
+
+  describe("shared POST query rejection") {
+    val endpoints: Seq[(String, ImageQueryController => Action[JsValue])] = Seq(
+      "search-after" -> (_.searchAfterImages()),
+      "window" -> (_.windowImages()),
+      "rank" -> (_.rankImages()),
+      "sort-profile" -> (_.sortProfile()),
+      "keys" -> (_.imageKeys()),
+      "count" -> (_.countImages()),
+      "aggregations" -> (_.aggregateImages())
+    )
+
+    endpoints.foreach { case (path, action) =>
+      Seq("cats\tdogs", "is:deleted\t").foreach { query =>
+        it(s"rejects malformed q on /images/$path before any Elasticsearch work: ${query.replace("\t", "<tab>")}") {
+          val search = mock[ElasticSearch]
+          val controller = imageQueryControllerFor(ordinaryUser, search, mock[ImageResponse])
+          val request = FakeRequest("POST", s"/images/$path").withBody(Json.obj("q" -> query))
+
+          val result = action(controller).apply(request).futureValue
+          result.header.status shouldBe 422
+          (jsonOf(result) \ "errorKey").as[String] shouldBe "invalid-uri-parameters"
+          (jsonOf(result) \ "errorMessage").as[String] should include("Invalid query syntax")
+          verifyNoInteractions(search)
+        }
+      }
+    }
   }
 
   describe("D3 deleted search authorization") {

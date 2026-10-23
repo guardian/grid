@@ -95,7 +95,7 @@ class MediaApiAiSearchTest extends AnyFunSpec
   )
   private val hiddenByDefault = Seq(
     fixture("e", "deleted semantic", "AFP", 0.95, Handout(), acquired = false)
-      .copy(softDeletedMetadata = Some(deletionData("someone@example.test"))),
+      .copy(uploadedBy = principal.email, softDeletedMetadata = Some(deletionData("someone@example.test"))),
     fixture("f", "replaced semantic", "AFP", 0.85, Handout(), acquired = false)
       .copy(usages = List(createUsage(ComposerUsageReference, DigitalUsage, ReplacedUsageStatus, DateTime.parse("2020-06-15T00:00:00Z")))),
   )
@@ -313,6 +313,45 @@ class MediaApiAiSearchTest extends AnyFunSpec
       searched.ids.toSet shouldBe Set("c", "d")
       searched.entitiesHaveEmbedding.distinct shouldBe Seq(true)
       neverEmbedded(searched)
+    }
+  }
+
+  describe("upstream admission with the AI extension") {
+    Seq(Seq.empty[(String, String)], Seq("aiQuery" -> "wildlife"), Seq("aiQuery" -> "")).foreach { ranking =>
+      Seq("is:deleted", "is:DELETED", "is:\"deleted\"").foreach { query =>
+        it(s"preserves deleted scope for $query with ranking parameters $ranking") {
+          val other = UserPrincipal("Test", "Other", "other@example.test")
+          Seq((principal, false, 1L), (other, false, 0L), (other, true, 1L)).foreach {
+            case (user, privileged, expected) =>
+              val embedder = recordingEmbedder()
+              val controller = mediaApiFor(user, ES, imageResponse, privileged, embedder, aiEnabled)
+              val (status, json) = statusAndJson(controller.imageSearch().apply(get(
+                Seq(ai, "q" -> query, "uploadedBy" -> principal.email) ++ ranking: _*
+              )))
+              status shouldBe 200
+              if (ranking.contains("aiQuery" -> "wildlife")) {
+                val result = Searched(status, json, embedder)
+                result.ids shouldBe (if (expected == 1L) Seq("e") else Seq.empty)
+                result.total shouldBe expected
+              } else {
+                (json \ "actions" \ "filterPoolCounts" \ "filteredPool").as[Long] shouldBe expected
+                verifyNoInteractions(embedder)
+              }
+          }
+        }
+      }
+    }
+
+    Seq(Seq.empty[(String, String)], Seq("aiQuery" -> "wildlife"), Seq("aiQuery" -> "")).foreach { ranking =>
+      Seq("cats\tdogs", "is:deleted\t").foreach { query =>
+        Seq("0", "4").foreach { length =>
+          it(s"rejects malformed AI filters before work, including length=$length and ranking=$ranking: ${query.replace("\t", "<tab>")}") {
+            val (status, json) = refusedBeforeWork(Seq(ai, "q" -> query, "length" -> length) ++ ranking: _*)
+            status shouldBe 422
+            (json \ "errorKey").as[String] shouldBe "invalid-uri-parameters"
+          }
+        }
+      }
     }
   }
 

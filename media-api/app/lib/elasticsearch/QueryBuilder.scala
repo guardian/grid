@@ -4,11 +4,12 @@ import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.Agency
+import com.gu.mediaservice.model.{Agency, ReplacementUsageRightsSpec}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.searches.queries.Query
+import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{MultiMatchQuery, MultiMatchQueryBuilderType}
 import lib.querysyntax._
 import lib.{ImagePersistenceReasons, MediaApiConfig}
@@ -37,6 +38,16 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
     case Phrase(v) => v
     case _ => ""
   }
+
+  // Searching for one of these categories should also surface images still stored under the legacy
+  // categories it replaced (agency, handout, staff-photographer, etc.) - those images haven't been
+  // rewritten in the index, so we expand the search into a terms query across all of them rather
+  // than relying on an exact match against the new category alone. Only categories actually present
+  // in config.applicableUsageRights are expanded, so this has no effect for orgs that haven't opted in.
+  private val legacyCategoryExpansions: Map[String, NonEmptyList[String]] =
+    config.applicableUsageRights.collect {
+      case spec: ReplacementUsageRightsSpec => spec.category -> spec.allCategories
+    }.toMap
 
   // For some sad reason, there was no helpful alias for this in the ES library
   private def multiMatchPhraseQuery(value: String, fields: Seq[String]): MultiMatchQuery =
@@ -79,6 +90,8 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
       case v @ (Words(_) | Phrase(_)) if isMatchViaExistence(field) && isBooleanPhrase(booleanValueOf(v)) =>
         val existsQ = boolQuery().filter(existsQuery(resolveFieldPath(field)))
         if (booleanValueOf(v).equalsIgnoreCase("true")) existsQ else boolQuery().not(existsQ)
+      case Words(value) if field == usageRightsField("category") && legacyCategoryExpansions.contains(value) =>
+        filters.terms(resolveFieldPath(field), legacyCategoryExpansions(value))
       // Force AND operator else it will only require *any* of the words, not *all*
       case Words(value) =>
         matchQuery(resolveFieldPath(field), value).operator(Operator.AND)
@@ -125,6 +138,12 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
         matchNoneQuery()
     }
 
+  private def addMustQueries(query: BoolQuery, queries: Seq[Query]): BoolQuery =
+    queries.foldLeft(query) { (combinedQuery, requiredQuery) => combinedQuery.withMust(requiredQuery) }
+
+  private def addMustNotQueries(query: BoolQuery, queries: Seq[Query]): BoolQuery =
+    queries.foldLeft(query) { (combinedQuery, excludedQuery) => combinedQuery.withNot(excludedQuery) }
+
   def makeQuery(conditions: List[Condition]) = conditions match {
     case Nil => matchAllQuery()
     case condList => {
@@ -139,8 +158,14 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
         .groupBy(_.parentField)
         .map {
           case (parent: SingleField, n: List[Nested]) => {
+            val nestedPrefix = s"${parent.name}."
 
             val nested = n.foldLeft(boolQuery()) {
+              // Resolve usages@orderedBy to printUsageMetadata.orderedBy unless a field.aliases entry
+              // redirects orderedBy onto another field inside the nested usages object (e.g. sectionId).
+              case (query, Nested(_, SingleField("orderedBy"), value))
+                if parent.name == "usages" && !findFieldAliasConfig("orderedBy").exists(_.elasticsearchPath.startsWith(nestedPrefix)) =>
+                query.withMust(makeQueryBit(Match(SingleField(usagesField("printUsageMetadata.orderedBy")), value)))
               case (query, Nested(_, f, v)) => query.withMust(makeQueryBit(Match(f, v)))
               case (query, _) => query
             }
@@ -158,9 +183,10 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
         case (query, _) => query
       }
 
-      val queryWithNestedAndNormal = listOfNestedToQueries(nested).foldLeft(queryWithNormal) { case (q, nestedQ) => q.withMust(nestedQ) }
+      val queryWithNestedAndNormal = addMustQueries(queryWithNormal, listOfNestedToQueries(nested))
 
-      listOfNestedToQueries(negationNested).foldLeft(queryWithNestedAndNormal) { case (q, negNestedQ) => q.withNot(negNestedQ) }
+      val negativeQueries = negationNested.flatMap(condition => listOfNestedToQueries(List(condition)))
+      addMustNotQueries(queryWithNestedAndNormal, negativeQueries)
     }
   }
 

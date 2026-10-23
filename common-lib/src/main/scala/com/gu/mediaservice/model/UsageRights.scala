@@ -31,6 +31,10 @@ sealed trait UsageRightsSpec {
   val defaultRestrictions: Option[String] = None
   val caution: Option[String] = None
 }
+sealed trait ReplacementUsageRightsSpec extends UsageRightsSpec {
+  val legacyCategories: List[String]
+  val allCategories: NonEmptyList[String]
+}
 
 object UsageRightsSpec extends StrictLogging {
   val runtimeMirror: universe.Mirror = universe.runtimeMirror(getClass.getClassLoader)
@@ -104,6 +108,8 @@ object UsageRights {
     case o: ProgrammesOrganisationOwned => ProgrammesOrganisationOwned.formats.writes(o)
     case o: ProgrammesAcquisitions => ProgrammesAcquisitions.formats.writes(o)
     case o: ProgrammesIndependents => ProgrammesIndependents.formats.writes(o)
+    case o: PayToUse => PayToUse.formats.writes(o)
+    case o: PRAndThirdParty => PRAndThirdParty.formats.writes(o)
     case o: NoRights.type => NoRights.jsonWrites.writes(o)
   }
 
@@ -142,6 +148,8 @@ object UsageRights {
         case ProgrammesOrganisationOwned.category => json.asOpt[ProgrammesOrganisationOwned]
         case ProgrammesAcquisitions.category => json.asOpt[ProgrammesAcquisitions]
         case ProgrammesIndependents.category => json.asOpt[ProgrammesIndependents]
+        case PayToUse.category => json.asOpt[PayToUse]
+        case PRAndThirdParty.category => json.asOpt[PRAndThirdParty]
         case _ => None
       })
         .orElse(supplier.flatMap(_ => json.asOpt[Agency]))
@@ -188,6 +196,55 @@ object Chargeable extends UsageRightsSpec {
 
   implicit val formats: Format[Chargeable] =
     UsageRights.subtypeFormat(Chargeable.category)(Json.format[Chargeable])
+}
+
+final case class PayToUse(restrictions: Option[String] = None) extends UsageRights {
+  val defaultCost = PayToUse.defaultCost
+}
+object PayToUse extends ReplacementUsageRightsSpec {
+  val category = "pay-to-use"
+  val defaultCost = Some(Pay)
+
+  val legacyCategories: List[String] = List(Chargeable.category)
+
+  val allCategories: NonEmptyList[String] = NonEmptyList.fromSeq(category, legacyCategories)
+
+  def name(commonConfig: CommonConfig) = "Pay to use"
+  def description(commonConfig: CommonConfig) = "Any image for which we have to pay to publish the image. Do not use for agencies with whom we have a contract."
+
+  implicit val formats: Format[PayToUse] =
+    UsageRights.subtypeFormat(PayToUse.category)(Json.format[PayToUse])
+}
+
+final case class PRAndThirdParty(restrictions: Option[String] = None, source: String) extends UsageRights {
+  val defaultCost = PRAndThirdParty.defaultCost
+}
+object PRAndThirdParty extends ReplacementUsageRightsSpec {
+  val category = "pr-and-third-party"
+  val defaultCost = Some(Conditional)
+
+  val legacyCategories: List[String] = List(
+    Handout.category,
+    PrImage.category,
+    Screengrab.category,
+    SocialMedia.category,
+    CreativeCommons.category,
+    Pool.category,
+    CrownCopyright.category,
+    Obituary.category,
+    CommissionedAgency.category,
+    GuardianWitness.category,
+    Composite.category,
+    PublicDomain.category
+  )
+
+  val allCategories: NonEmptyList[String] = NonEmptyList.fromSeq(category, legacyCategories)
+
+  def name(commonConfig: CommonConfig) = "PR & Third Party"
+  def description(commonConfig: CommonConfig) = "Images received from PRs or as handouts. Also use this category for social media posts, screen grabs, agency commissions and obituaries.\nYou must explain what restrictions apply to the image as you upload. Where images have been submitted for inclusion in obituaries only please indicate this in the restrictions."
+
+  implicit val formats: Format[PRAndThirdParty] =
+    UsageRights.subtypeFormat(PRAndThirdParty.category)(Json.format[PRAndThirdParty])
 }
 
 object Agencies {

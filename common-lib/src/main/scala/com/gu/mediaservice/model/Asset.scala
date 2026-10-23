@@ -63,7 +63,7 @@ object Asset {
       (__ \ "size").readNullable[Long] ~
       (__ \ "mimeType").readNullable[MimeType] ~
       (__ \ "dimensions").readNullable[Dimensions] ~
-      (__ \ "secureUrl").readNullable[String].map(_.map(new URL(_)))  ~
+      (__ \ "secureUrl").readNullable[String].map(_.map(value => URI.create(value).toURL))  ~
       (__ \ "orientationMetadata").readNullable[OrientationMetadata] ~
       (__ \ "orientedDimensions").readNullable[Dimensions] ~
       (__ \ "orientation").readNullable[String]

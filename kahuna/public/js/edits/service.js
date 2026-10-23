@@ -6,6 +6,7 @@ import {mediaApi} from '../services/api/media-api';
 import { overwrite, prepend, append } from '../util/constants/editOptions';
 import { trackAll } from '../util/batch-tracking';
 import { getMetadataDiff } from './metadataDiff';
+import { getNewDomainMetadataFieldValue, readDomainMetadataFieldValue } from './domainMetadata';
 
 export var service = angular.module('kahuna.edits.service', [
     editsApi.name,
@@ -290,7 +291,10 @@ service.factory('editsService',
           .then(() => image.get());
     }
 
-    function updateDomainMetadataField (image, domainMetadataName, field, value) {
+    // inBatch determines whether the function chain should eventually emit an angular message
+    // as emitting multiple times is very performance heavy
+    // ideally this should be refactored out.
+    function updateDomainMetadataField (image, domainMetadataName, field, value, inBatch = false) {
         const domainMetadata = image.data.metadata.domainMetadata;
 
         if (domainMetadata && domainMetadata[domainMetadataName] && domainMetadata[domainMetadataName][field] && domainMetadata[domainMetadataName][field] === value) {
@@ -312,7 +316,18 @@ service.factory('editsService',
 
         const changed = getMetadataDiff(image, { ...image.data.metadata, domainMetadata: proposedDomainMetadata });
 
-        return update(image.data.userMetadata.data.metadata, changed, image).then(() => image.get());
+        return update(image.data.userMetadata.data.metadata, changed, image, inBatch)
+          .then(() => image.get());
+    }
+
+    function batchUpdateDomainMetadataField(images, domainMetadataName, field, value, editOption = overwrite.key) {
+        return trackAll($q, $rootScope, `${domainMetadataName}.${field}`, images, (image) => {
+            const currentValue = readDomainMetadataFieldValue(image, domainMetadataName, field);
+            const newFieldValue = getNewDomainMetadataFieldValue(currentValue, value, editOption);
+            return updateDomainMetadataField(image, domainMetadataName, field, newFieldValue, true).then(
+                updated => updated || image // updateDomainMetadataField returns false if no change
+            );
+        }, 'images-updated');
     }
 
     function getNewFieldValue(image, field, value, editOption) {
@@ -338,7 +353,8 @@ service.factory('editsService',
 
     return {
         update, add, on, canUserEdit, updateMetadataFromUsageRights,
-        updateMetadataField, batchUpdateMetadataField, updateDomainMetadataField
+        updateMetadataField, batchUpdateMetadataField, updateDomainMetadataField,
+        batchUpdateDomainMetadataField
     };
 
 }]);

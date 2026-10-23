@@ -12,7 +12,6 @@ import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import com.gu.mediaservice.model.Image
 import lib.{ImageResponse, MediaApiConfig}
 import lib.elasticsearch._
-import lib.querysyntax.{IsField, IsValue, Match}
 import play.api.libs.json._
 import play.api.mvc._
 
@@ -231,23 +230,21 @@ class ImageQueryController(
     SearchParamsBody.fromJson(request.body, request.user.accessor.tier)
       .map(restrictDeletedSearch(request.user))
       .fold(
-        err => Future.successful(InvalidParamsResponse(err)),
+        err => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey, err)),
         searchParams => SearchParams.validate(searchParams).fold(
           errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey, errors.map(_.message).mkString("; "))),
           read
         )
       )
 
-  // Mirrors imageSearch's is:deleted rule: without delete permission, deleted images are the caller's own.
-  private def restrictDeletedSearch(user: Principal)(params: SearchParams): SearchParams = {
-    val searchesDeleted = params.structuredQuery.exists {
-      case Match(IsField, IsValue(value)) => value.equalsIgnoreCase("deleted")
-      case _ => false
+  private def restrictDeletedSearch(user: Principal)(params: SearchParams): SearchParams =
+    MediaApi.deletedImageUploaderScope(
+      params.structuredQuery,
+      authorisation.isUploaderOrHasPermission(user, "", DeleteImagePermission),
+      Authentication.getIdentity(user)
+    ).fold(params) { uploader =>
+      params.copy(uploadedBy = Some(uploader))
     }
-    if (searchesDeleted && !authorisation.isUploaderOrHasPermission(user, "", DeleteImagePermission))
-      params.copy(uploadedBy = Some(Authentication.getIdentity(user)))
-    else params
-  }
 
   private def includedFrom(request: RequestHeader): List[String] =
     request.getQueryString("include").map(_.split(",").map(_.trim).toList).getOrElse(List())

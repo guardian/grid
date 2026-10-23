@@ -14,7 +14,7 @@ object CountryCode extends ImageProcessor with GridLogging {
   private val codes = {
     case class CountryWithCodes(twoCode: String, threeCode: String, displayName: String)
     val localeCodesAndNames = Locale.getISOCountries.map(twoCode => {
-      val locale = new Locale("", twoCode)
+      val locale = new Locale.Builder().setRegion(twoCode).build()
       CountryWithCodes(twoCode, locale.getISO3Country, locale.getDisplayName)
     }).toList
 

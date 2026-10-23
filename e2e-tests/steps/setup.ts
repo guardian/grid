@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import type { APIResponse, FileChooser, Response } from '@playwright/test';
+import type { APIResponse, FileChooser, Locator, Response } from '@playwright/test';
 import { test as base, createBdd } from 'playwright-bdd';
 import { DOMAIN } from '../setup/constants.ts';
 
@@ -19,6 +19,8 @@ interface TestContext {
   previousSearchQuery?: string;
   /** Path of the image uploaded earlier in a scenario, to re-upload the same bytes. */
   uploadedImagePath?: string;
+  /** The delete control a `Given` set up, for a later `When` to act on. */
+  deleteButton?: Locator;
   /** A field value edited before applying a metadata template, to assert its restoration. */
   editedByline?: string;
   /** Embedded metadata values expected to appear in the editor, keyed by field name. */
@@ -43,6 +45,12 @@ export interface TestImage {
  * use `baseURL` from the Playwright config, which points at Kahuna's fixed host port.
  */
 export const test = base.extend<{ testContext: TestContext }>({
+  page: async ({ page }, use) => {
+    await use(page);
+    if (page.video() && !page.isClosed()) {
+      await page.waitForTimeout(1_500);
+    }
+  },
   testContext: async ({}, use) => {
     await use({ dialogs: [] });
   },

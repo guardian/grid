@@ -89,11 +89,11 @@ deployments:
         AmiId:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: editorial-tools-jammy-java11
+          Recipe: editorial-tools-jammy-java25
         ImagingAmiId:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: grid-imaging-jammy-java11
+          Recipe: grid-imaging-jammy-java25
         ImgOpsAmiId:
           BuiltBy: amigo
           AmigoStage: PROD

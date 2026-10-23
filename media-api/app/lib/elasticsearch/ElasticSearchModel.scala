@@ -560,54 +560,45 @@ object SearchParamsBody {
       else ob
     }
 
-    def intent(condition: Condition): Condition = condition match {
-      case Negation(inner) => intent(inner)
-      case NegationNested(inner) => inner
-      case Match(IsField, IsValue(value)) => Match(IsField, IsValue(value.toLowerCase(java.util.Locale.ROOT)))
-      case other => other
-    }
-
     val query = str("q")
-    val parsedQuery = Parser.normalise(Parser.parse(query.getOrElse("")))
-    val mentionedConditions = parsedQuery.map(intent)
-    val structuredQuery = parsedQuery ++ Parser.run("").filterNot(condition => mentionedConditions.contains(intent(condition)))
-
-    Right(SearchParams(
-      query             = query,
-      structuredQuery   = structuredQuery,
-      ids               = str("ids").map(_.split(",").toList),
-      offset            = (body \ "offset").asOpt[Int].getOrElse(0),
-      length            = (body \ "length").asOpt[Int].getOrElse(10),
-      orderBy           = orderBy,
-      since             = str("since").flatMap(parseDateFromQuery),
-      until             = str("until").flatMap(parseDateFromQuery),
-      modifiedSince     = str("modifiedSince").flatMap(parseDateFromQuery),
-      modifiedUntil     = str("modifiedUntil").flatMap(parseDateFromQuery),
-      takenSince        = str("takenSince").flatMap(parseDateFromQuery),
-      takenUntil        = str("takenUntil").flatMap(parseDateFromQuery),
-      archived          = bool("archived"),
-      hasExports        = bool("hasExports"),
-      hasIdentifier     = str("hasIdentifier"),
-      missingIdentifier = str("missingIdentifier"),
-      valid             = bool("valid"),
-      free              = bool("free"),
-      payType           = None, // not sent by kupua (disabled in Kahuna; live cost filter is nonFree/free boolean)
-      hasRightsCategory = bool("hasRightsCategory"),
-      hasRightsAcquired = bool("hasRightsAcquired"),
-      uploadedBy        = str("uploadedBy"),
-      labels            = strs("labels"),
-      hasMetadata       = strs("hasMetadata"),
-      persisted         = bool("persisted"),
-      usageStatus       = strs("usageStatus").map(UsageStatus(_)),
-      usagePlatform     = strs("usagePlatform"),
-      tier              = tier,
-      syndicationStatus = str("syndicationStatus").flatMap(SearchParams.parseSyndicationStatus),
-      countAll          = bool("countAll"),
-      printUsageFilters = None,
-      shouldFlagGraphicImages = false,
-      useAISearch       = None,
-      vecWeight         = str("vecWeight").flatMap(SearchParams.parseBoundedDoubleFromQuery),
-    ))
+    Parser.runResult(query.getOrElse("")).map { structuredQuery =>
+      SearchParams(
+        query             = query,
+        structuredQuery   = structuredQuery,
+        ids               = str("ids").map(_.split(",").toList),
+        offset            = (body \ "offset").asOpt[Int].getOrElse(0),
+        length            = (body \ "length").asOpt[Int].getOrElse(10),
+        orderBy           = orderBy,
+        since             = str("since").flatMap(parseDateFromQuery),
+        until             = str("until").flatMap(parseDateFromQuery),
+        modifiedSince     = str("modifiedSince").flatMap(parseDateFromQuery),
+        modifiedUntil     = str("modifiedUntil").flatMap(parseDateFromQuery),
+        takenSince        = str("takenSince").flatMap(parseDateFromQuery),
+        takenUntil        = str("takenUntil").flatMap(parseDateFromQuery),
+        archived          = bool("archived"),
+        hasExports        = bool("hasExports"),
+        hasIdentifier     = str("hasIdentifier"),
+        missingIdentifier = str("missingIdentifier"),
+        valid             = bool("valid"),
+        free              = bool("free"),
+        payType           = None, // not sent by kupua (disabled in Kahuna; live cost filter is nonFree/free boolean)
+        hasRightsCategory = bool("hasRightsCategory"),
+        hasRightsAcquired = bool("hasRightsAcquired"),
+        uploadedBy        = str("uploadedBy"),
+        labels            = strs("labels"),
+        hasMetadata       = strs("hasMetadata"),
+        persisted         = bool("persisted"),
+        usageStatus       = strs("usageStatus").map(UsageStatus(_)),
+        usagePlatform     = strs("usagePlatform"),
+        tier              = tier,
+        syndicationStatus = str("syndicationStatus").flatMap(SearchParams.parseSyndicationStatus),
+        countAll          = bool("countAll"),
+        printUsageFilters = None,
+        shouldFlagGraphicImages = false,
+        useAISearch       = None,
+        vecWeight         = str("vecWeight").flatMap(SearchParams.parseBoundedDoubleFromQuery),
+      )
+    }
   }
 }
 
@@ -631,20 +622,34 @@ object BucketResult {
 
 case class AggregateSearchParams(field: String,
                                  q: Option[String],
-                                 structuredQuery: List[Condition])
+                                 structuredQuery: List[Condition],
+                                 queryParseError: Option[String] = None)
 
 object AggregateSearchParams {
   def parseIntFromQuery(s: String): Option[Int] = Try(s.toInt).toOption
 
   def apply(field: String, request: Request[AnyContent]): AggregateSearchParams = {
     val query = request.getQueryString("q")
-    val structuredQuery = query.map(Parser.run) getOrElse List[Condition]()
+    val (structuredQuery, queryParseError) = query match {
+      case Some(value) => Parser.runResult(value) match {
+        case Right(conditions) => (conditions, None)
+        case Left(error) => (List.empty[Condition], Some(error))
+      }
+      case None => (List.empty[Condition], None)
+    }
     new AggregateSearchParams(
       field,
       query,
-      structuredQuery
+      structuredQuery,
+      queryParseError
     )
   }
+
+  def validate(params: AggregateSearchParams): Either[InvalidUriParams, AggregateSearchParams] =
+    params.queryParseError match {
+      case Some(error) => Left(InvalidUriParams(error))
+      case None => Right(params)
+    }
 }
 
 case class SearchParams(
@@ -681,7 +686,8 @@ case class SearchParams(
   printUsageFilters: Option[PrintUsageFilters] = None,
   shouldFlagGraphicImages: Boolean = false,
   useAISearch: Option[Boolean] = None,
-  vecWeight: Option[Double] = None
+  vecWeight: Option[Double] = None,
+  queryParseError: Option[String] = None
 ) {
   lazy val aiQueryParts: Either[AiQueryError, AiQueryParts] = AiQueryParts.from(structuredQuery)
 }
@@ -730,7 +736,13 @@ object SearchParams {
     def commaSep(key: String): List[String] = request.getQueryString(key).toList.flatMap(commasToList)
 
     val query = request.getQueryString("q")
-    val structuredQuery = query.map(Parser.run) getOrElse List()
+    val (structuredQuery, queryParseError) = query match {
+      case Some(value) => Parser.runResult(value) match {
+        case Right(conditions) => (conditions, None)
+        case Left(error) => (List.empty[Condition], Some(error))
+      }
+      case None => (List.empty[Condition], None)
+    }
 
     val printUsageFilters = request.getQueryString("printUsageIssueDate").flatMap(parseDateFromQuery).map { issueDate =>
       PrintUsageFilters(
@@ -777,6 +789,7 @@ object SearchParams {
       shouldFlagGraphicImages = false,
       request.getQueryString("useAISearch") flatMap parseBooleanFromQuery,
       request.getQueryString("vecWeight") flatMap parseBoundedDoubleFromQuery,
+      queryParseError = queryParseError
     )
   }
 
@@ -815,14 +828,20 @@ object SearchParams {
   val maxSize = 200
 
   def validate(searchParams: SearchParams): Either[List[InvalidUriParams], SearchParams] = {
-    // we just need to return the first `searchParams` as we don't need to manipulate them
-    (validateLength(searchParams), validateOffset(searchParams)) match {
-      case (Right(_), Right(_)) => Right(searchParams)
-      case (Left(invalidLength), Left(invalidOffset)) => Left(List(invalidLength, invalidOffset))
-      case (Left(invalidLength), _) => Left(List(invalidLength))
-      case (_, Left(invalidOffset)) => Left(List(invalidOffset))
+    val queryErrors = searchParams.queryParseError.map(InvalidUriParams.apply).toList
+    val parameterErrors = List(validateLength(searchParams), validateOffset(searchParams)).flatMap {
+      case Left(error) => List(error)
+      case Right(_) => Nil
     }
+    val errors = queryErrors ++ parameterErrors
+    if (errors.isEmpty) Right(searchParams) else Left(errors)
   }
+
+  def validateQuerySyntax(searchParams: SearchParams): Either[List[InvalidUriParams], SearchParams] =
+    searchParams.queryParseError match {
+      case Some(error) => Left(List(InvalidUriParams(error)))
+      case None => Right(searchParams)
+    }
 
   def validateOffset(searchParams: SearchParams): Either[InvalidUriParams, SearchParams] = {
     if (searchParams.offset < 0) Left(InvalidUriParams("offset cannot be less than 0")) else Right(searchParams)

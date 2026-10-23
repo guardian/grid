@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "agentsy": {
+      "source": {
+        "source": "github",
+        "repo": "guardian/agentsy"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "feature-files@agentsy": true
+  }
+}

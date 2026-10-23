@@ -24,6 +24,26 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 23 October 2026 - Align additional backend admission with upstream query semantics
+
+Use media-api's shared `Parser.runResult` in the POST search-parameter decoder instead
+of maintaining separate default-composition logic. Return malformed queries through
+the existing structured 422 response before Elasticsearch dispatch, and reuse main's
+permission-aware deleted-search scope across the additional query endpoints. Preserve
+the explicit `aiQuery` extension alongside upstream ordinary/AI search admission;
+legacy requests retain main's behaviour, including its absent-query distinction.
+
+Add parser-contract and all-query-endpoint rejection regressions, plus local GET/POST
+membership/total controls for usage exclusions and positive same-record matching.
+Cover AI deleted scope for ordinary and privileged callers, ranking and filter-pool
+responses, and malformed-query rejection even for zero-length requests. Keep legacy
+embedding serialization coverage after upstream test-fixture changes.
+
+This is backend integration only: Kupua's API request mapper and direct-ES adapter are
+unchanged and still require separate alignment. The living backend impact checklist
+records current PR disclosure obligations rather than merge history.
+
+
 ### 23 October 2026 - Silence Vite warnings for density probe imports
 
 The density journey imports `density-browser.ts` into the page through the dev server, so Vite
