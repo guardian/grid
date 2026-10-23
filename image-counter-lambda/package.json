@@ -16,10 +16,11 @@
     "@vercel/ncc": "^0.45.0",
     "jest": "^30.5.2",
     "ts-jest": "^29.4.15",
-    "typescript": "^6.0.3"
+    "typescript": "^5.9.3"
   },
   "dependencies": {
-    "aws-sdk": "^2.1693.0",
+    "@aws-sdk/client-cloudwatch": "^3.1156.0",
+    "@aws-sdk/client-s3": "^3.1156.0",
     "node-fetch": "^3.3.2"
   }
 }
