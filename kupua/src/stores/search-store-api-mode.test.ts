@@ -1155,7 +1155,7 @@ describe("U9-B media-api AI search", () => {
     await flush();
     expect(paths()).toEqual(["/images"]);
     expect(calls[0].body).toEqual({
-      useAISearch: "true", q: "credit:Fixture -is:deleted -usages@status:replaced", aiQuery: "fixture sky", length: "200",
+      useAISearch: "true", q: "credit:Fixture", aiQuery: "fixture sky", length: "200",
     });
     expect(state()).toMatchObject({ total: 2, aiPoolTotal: 5000, tickerCounts: { "GNM-owned": { value: 42 } }, pitId: null, error: null, loading: false });
     expect(state().results.map(image => image?.id)).toEqual(["img-1", "img-0"]);

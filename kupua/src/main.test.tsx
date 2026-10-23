@@ -142,7 +142,7 @@ it("U6z keeps the first API resolver through remounts with cold registered, alia
       ]) {
         expect(await suggestions(query)).toContainEqual(expect.objectContaining({ value, count }));
         expect(requests.at(-1)?.body).toMatchObject({
-          q: "city:Fixture -is:deleted -usages@status:replaced", fields: [{ field }],
+          q: "city:Fixture", fields: [{ field }],
         });
       }
       expect(await suggestions("is:")).toContainEqual(expect.objectContaining({ value: "agency-pick", count: 101 + generation }));

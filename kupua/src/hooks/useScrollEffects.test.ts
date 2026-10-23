@@ -3778,7 +3778,7 @@ describe.each(["direct-ES", "media-api"] as const)("B8 %s pending search and sav
           expect(requestSignal?.aborted).toBe(false);
           expect(useSearchStore.getState().loading).toBe(true);
           expect(requests[0]).toMatchObject(mode === "media-api"
-            ? { q: 'keyword:"B8 pending" -is:deleted -usages@status:replaced', orderBy: "uploadTime" }
+            ? { q: 'keyword:"B8 pending"', orderBy: "uploadTime" }
             : { sort: [{ uploadTime: "asc" }, { id: "asc" }] });
           if (changeDensity) {
             source.unmount();

@@ -118,16 +118,8 @@ export class SearchAfterApiError extends Error {
  * and the client-resolved sort clause. Paging, cursor and operation fields are added per endpoint.
  */
 export function buildReadBody(params: SearchParams): Record<string, unknown> {
-  // Restore the two default-hide clauses that Kahuna applies to every query
-  // (via Parser.scala thingsToHideByDefault). The server's Parser.run only
-  // fires these when the query explicitly contains the terms, so we must
-  // inject them client-side unless the user has opted in.
-  let effectiveQ = params.query ?? "";
-  if (!effectiveQ.includes("is:deleted")) effectiveQ = effectiveQ ? `${effectiveQ} -is:deleted` : "-is:deleted";
-  if (!effectiveQ.includes("usages@status:replaced")) effectiveQ = effectiveQ ? `${effectiveQ} -usages@status:replaced` : "-usages@status:replaced";
-
   const body: Record<string, unknown> = {
-    q: effectiveQ,
+    q: params.query ?? "",
     orderBy: params.orderBy,
     sort: buildSortClause(params.orderBy),
   };
@@ -314,7 +306,7 @@ function canonicalVecWeight(raw: string | undefined): string | undefined {
   return Number.isFinite(weight) && weight >= 0 && weight <= 1 ? String(weight) : undefined;
 }
 
-/** GET /images AI query: `q` (with the default-hide clauses) and the request filters filter; `aiQuery` ranks. */
+/** GET /images AI query: original `q` and request filters filter; media-api owns defaults; `aiQuery` ranks. */
 function aiSearchQuery(params: SearchParams): URLSearchParams {
   const { q, orderBy: _orderBy, sort: _sort, ...filters } = buildReadBody(params);
   const query = new URLSearchParams({

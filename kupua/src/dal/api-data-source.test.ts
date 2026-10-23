@@ -33,6 +33,51 @@ const entity = (id: string) => ({ data: { id, uploadTime: "2026-01-01T00:00:00Z"
 const failure = (status: number, errorKey = "fixture") => new Response(JSON.stringify({ errorKey }), { status });
 const params = { orderBy: "-uploadTime", nonFree: "true", length: 200 };
 
+const queryCases = [
+  undefined, "", "city:London", 'description:"is:deleted"',
+  'description:"usages@status:replaced"', "is:DELETED", 'is:"deleted"',
+  'usages@status:"replaced"', "-is:deleted -usages@status:replaced",
+  "-usages@platform:print -usages@status:published",
+  "usages@platform:print usages@status:published",
+  "usages@section:news usages@publication:guardian usages@orderedBy:editor",
+  'credit:"unfinished', "cats\tdogs", "is:deleted\t",
+];
+
+describe("API query forwarding", () => {
+  it.each(queryCases)("leaves server admission in charge of q=%j across all query-bearing POST routes", async (query) => {
+    const page = { data: [], total: 0, sortValues: [], offset: 1, rawHitCount: 0 };
+    const calls = stubMediaApi({
+      "/images/search-after": () => page,
+      "/images/window": () => page,
+      "/images/rank": () => ({ rank: 0 }),
+      "/images/sort-profile": () => ({ value: 5 }),
+      "/images/keys": () => ({ keys: [], after: null }),
+      "/images/count": () => ({ total: 0, tickerCounts: {} }),
+      "/images/aggregations": () => ({ fields: {}, isFilterCounts: {} }),
+    });
+    const dataSource = new ApiDataSource();
+    const scope = { ...params, query, until: "2026-01-01T00:00:00.000Z", hasCrops: "false" };
+    await dataSource.searchAfter(scope, null);
+    await dataSource.searchRange({ ...scope, offset: 1 });
+    await dataSource.countBefore(scope, [1, "fixture"]);
+    await dataSource.estimateSortValue(scope, "uploadTime", 50);
+    await dataSource.fetchPositionIndex(scope, new AbortController().signal);
+    await dataSource.countWithTickers(scope);
+    await dataSource.getAggregations(scope, [{ field: "metadata.credit" }]);
+
+    expect(calls.map(({ path }) => path)).toEqual([
+      "/images/search-after", "/images/window", "/images/rank", "/images/sort-profile",
+      "/images/keys", "/images/count", "/images/aggregations",
+    ]);
+    for (const { path, body } of calls) {
+      expect(body, path).toMatchObject({
+        q: query ?? "", until: scope.until, hasExports: false, orderBy: params.orderBy,
+      });
+      expect(body, path).not.toHaveProperty("free");
+    }
+  });
+});
+
 describe("API suggestion bucket reuse", () => {
   it("restores all-rights suggestions without substituting 50 buckets for a 100-bucket expansion", async () => {
     const calls = stubMediaApi({ "/images/aggregations": (body) => ({
@@ -53,8 +98,8 @@ describe("API suggestion bucket reuse", () => {
     expect(calls).toHaveLength(2);
     expect(calls.map(({ body }) => body.free)).toEqual([undefined, true]);
     expect(calls.map(({ body }) => body.q)).toEqual([
-      "city:London -is:deleted -usages@status:replaced",
-      "city:London -is:deleted -usages@status:replaced",
+      "city:London",
+      "city:London",
     ]);
     const expanded = await dataSource.getAggregations({ ...scope, query: "city:London" }, [{ field: "metadata.credit", size: 100 }]);
     expect(expanded.fields["metadata.credit"].buckets).toEqual([{ key: "Alpha", count: 100 }]);
@@ -798,7 +843,18 @@ describe("ApiDataSource AI search", () => {
     return { fetchMock, request };
   }
 
-  it("sends the effective q, separate aiQuery, fixed length and the admitted filters as one GET", async () => {
+  it.each(queryCases)("query forwarding keeps original q=%j separate from AI ranking", async (query) => {
+    const { fetchMock, request } = stubAi(() => Response.json(aiResponse([])));
+    await apiSource().searchByAi({ query, aiQuery: "wildlife at dusk", nonFree: "true" });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(request().path).toBe("/api/images");
+    expect(request().query.get("q")).toBe(query ?? "");
+    expect(request().query.get("aiQuery")).toBe("wildlife at dusk");
+    expect(request().query.get("useAISearch")).toBe("true");
+  });
+
+  it("sends the original q, separate aiQuery, fixed length and the admitted filters as one GET", async () => {
     const { fetchMock, request } = stubAi(() => Response.json(aiResponse([])));
     await apiSource().searchByAi!({
       query: 'credit:"Getty Images" storm -by:"A. N. Other"', aiQuery: "wildlife at dusk", orderBy: "-relevance",
@@ -812,7 +868,7 @@ describe("ApiDataSource AI search", () => {
     expect(init?.method ?? "GET").toBe("GET");
     expect(Object.fromEntries(query)).toEqual({
       useAISearch: "true",
-      q: 'credit:"Getty Images" storm -by:"A. N. Other" -is:deleted -usages@status:replaced',
+      q: 'credit:"Getty Images" storm -by:"A. N. Other"',
       aiQuery: "wildlife at dusk",
       length: "200",
       since: "2026-01-01T00:00:00.000Z",
