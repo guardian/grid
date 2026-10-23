@@ -2,12 +2,15 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 [--patched] [output-directory]" >&2
+  echo "Usage: $0 [--patched|--unpatched] [output-directory]" >&2
 }
 
-patched=false
+patched=true
 if [[ "${1:-}" == "--patched" ]]; then
   patched=true
+  shift
+elif [[ "${1:-}" == "--unpatched" ]]; then
+  patched=false
   shift
 fi
 

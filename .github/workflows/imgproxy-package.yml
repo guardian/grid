@@ -14,10 +14,10 @@ on:
   workflow_dispatch:
     inputs:
       patched:
-        description: "Apply Tony's optional ICC intent patch"
+        description: "Apply Tony's ICC intent patch"
         type: boolean
         required: false
-        default: false
+        default: true
 
 permissions:
   contents: read
@@ -30,12 +30,12 @@ jobs:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v7.0.0
       - name: Build and validate arm64 Debian package
         env:
-          PATCHED: ${{ inputs.patched || false }}
+          PATCHED: ${{ github.event_name != 'workflow_dispatch' || inputs.patched }}
         run: |
           if [ "$PATCHED" = "true" ]; then
             bash ./imgproxy/build-package.sh --patched
           else
-            bash ./imgproxy/build-package.sh
+            bash ./imgproxy/build-package.sh --unpatched
           fi
           package=imgproxy/dist/imgproxy.deb
           test "$(dpkg-deb --field "$package" Package)" = imgproxy
