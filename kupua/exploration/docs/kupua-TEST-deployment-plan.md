@@ -212,6 +212,18 @@ it. The second configuration slice adds fields here.
 - Assets are served by Kahuna's existing `/assets/*file` route; Play's digest/gzip stages keep
   Vite's hashed names servable. Kahuna dev mode picks up a rebuilt `public/kupua/` without restart.
 
+### CI and packaging
+
+- [Grid CI](../../../.github/workflows/ci.yml) has a "Kupua (hosted build)" step after Kahuna's
+  client build and before sbt: `npm install-clean` then `npm run build:hosted` in `kupua/`. Build
+  only, no Kupua tests (they run locally and take minutes). The npm cache keys include Kupua's
+  lockfile. No Riff-Raff, CloudFormation or GitHub settings change: the files ride inside
+  `kahuna.deb`.
+- Verified 23 October: a clean `git archive` of `kupua/` installs from the lockfile and builds
+  the same hashed bundle as the working tree; a local `sbt kahuna/Debian/packageBin` puts
+  `public/kupua/` (index, JS/CSS with digest and gzip copies, images, fonts) into
+  `kahuna-0.1-assets.jar`, with no env or sample files.
+
 ### Commits and main candidates
 
 Outside-kupua code is kept in code+tests-only commits. The feature-switch panel fix
