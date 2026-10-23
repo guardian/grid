@@ -32,7 +32,7 @@ const metric = (key: string, value: number) => ({
   MetricData: [
     {
       MetricName: "ImageCount-" + key,
-      Unit: "Count",
+      Unit: "Count" as const,
       Value: value
     }
   ],
