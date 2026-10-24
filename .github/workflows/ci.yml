@@ -48,7 +48,9 @@ jobs:
         with:
           node-version-file: ".nvmrc"
           cache: npm
-          cache-dependency-path: "cdk/package-lock.json"
+          cache-dependency-path: |
+            cdk/package-lock.json
+            kupua/package-lock.json
       - name: Kahuna (client-side)
         working-directory: ./kahuna
         run: |
@@ -56,6 +58,14 @@ jobs:
           npm run undist
           npm test
           npm run dist
+      # Temporary Kupua prototype experiment: build the page Kahuna serves on opt-in
+      # into kahuna/public/kupua before Scala packaging. Build only; Kupua's tests run locally.
+      # See kupua/exploration/docs/kupua-TEST-deployment-plan.md.
+      - name: Kupua (hosted build)
+        working-directory: ./kupua
+        run: |
+          npm install-clean
+          npm run build:hosted
       - name: install image libs needed for tests
         run: |
           sudo apt-get -y update

@@ -1,0 +1,405 @@
+import { devLog } from "@/lib/dev-log";
+import { useSearchStore } from "@/stores/search-store";
+import { getScrollContainer } from "@/lib/scroll-container-ref";
+import { resetVisibleRange } from "@/hooks/useDataWindow";
+import { isMobile } from "@/lib/is-mobile";
+import { withFreshKupuaKey, getCurrentKupuaKey } from "@/lib/orchestration/history-key";
+import { buildHistorySnapshot } from "@/lib/build-history-snapshot";
+import { snapshotStore } from "@/lib/history-snapshot";
+import { useSyncExternalStore } from "react";
+
+// ===========================================================================
+// Debounce cancellation (from SearchBar.tsx)
+// ===========================================================================
+
+// Module-level debounce cancellation
+//
+// handleCellClick in ImageTable updates the query directly (bypassing the
+// CQL editor's debounced flow).  Any pending debounce from a prior editor
+// queryChange must be invalidated so it doesn't revert the query.
+//
+// We track the last query that was set externally (via cancelSearchDebounce).
+// The debounce callback checks this and skips if the URL has already moved on.
+
+export let _debounceTimerId: ReturnType<typeof setTimeout> | null = null;
+export function setDebounceTimer(id: ReturnType<typeof setTimeout> | null) {
+  _debounceTimerId = id;
+}
+
+export let _externalQuery: string | null = null;
+export function setExternalQuery(q: string | null) {
+  _externalQuery = q;
+}
+
+let _cqlInputGeneration = 0;
+
+/**
+ * Cancel any pending debounced query update from the CQL search input.
+ * Call this before programmatically updating the query from outside the
+ * CQL editor (e.g. shift/alt-click on a table cell).
+ *
+ * Since @guardian/cql 1.8.6 (PR #121), `setAttribute("value", ...)` on
+ * `<cql-input>` correctly re-renders polarity-only changes — no remount
+ * needed here. See `resetCqlInputComponents()` below for the (unrelated)
+ * case that still needs a remount.
+ *
+ * @param newQuery — optional. When provided, stored as `_externalQuery` so
+ *   the debounce callback can detect it already ran and skip. Use this only
+ *   when the caller is about to set a specific query value (e.g. polarity
+ *   flip from cell click). Omit the argument (latch = null) for reset paths
+ *   like Home — a null latch never blocks future debounce callbacks.
+ */
+export function cancelSearchDebounce(newQuery?: string) {
+  if (_debounceTimerId) {
+    clearTimeout(_debounceTimerId);
+    _debounceTimerId = null;
+  }
+  _externalQuery = newQuery ?? null;
+}
+
+/** Current generation counter — used as a React key on CqlSearchInput. */
+export function getCqlInputGeneration() {
+  return _cqlInputGeneration;
+}
+
+/**
+ * Cancel the debounce (as above) AND force CqlSearchInput/AiSearchInput to
+ * remount by bumping the generation counter used as their React `key`.
+ *
+ * This remains necessary for full-reset flows (Home logo, Clear button):
+ * `setAttribute("value", "")` alone doesn't reliably clear partial/ghost
+ * chip state that lives only in ProseMirror's internal document (e.g. an
+ * in-progress `colourModel:` chip with no value yet). A fresh mount
+ * guarantees a clean slate. This is unrelated to the polarity-diff bug
+ * fixed in @guardian/cql 1.8.6 — do not conflate the two.
+ */
+export function resetCqlInputComponents() {
+  cancelSearchDebounce();
+  _cqlInputGeneration++;
+}
+
+// ===========================================================================
+// Scroll-reset orchestration (from useScrollEffects.ts)
+// ===========================================================================
+
+let _virtualizerReset: (() => void) | null = null;
+
+let homeThumbReset: symbol | null = null;
+const thumbResetListeners = new Set<() => void>();
+const subscribeThumbReset = (listener: () => void) => {
+  thumbResetListeners.add(listener);
+  return () => { thumbResetListeners.delete(listener); };
+};
+const getHomeThumbReset = () => homeThumbReset;
+
+export function useHomeThumbReset(): symbol | null {
+  return useSyncExternalStore(subscribeThumbReset, getHomeThumbReset, getHomeThumbReset);
+}
+
+export function holdHomeThumbAtTop(): () => void {
+  const owner = Symbol();
+  homeThumbReset = owner;
+  thumbResetListeners.forEach(listener => listener());
+  return () => {
+    if (homeThumbReset !== owner) return;
+    homeThumbReset = null;
+    thumbResetListeners.forEach(listener => listener());
+  };
+}
+
+/**
+ * Register the virtualizer's scrollToOffset(0) callback.
+ * Called by useScrollEffects on mount; cleared on unmount.
+ */
+export function registerVirtualizerReset(fn: (() => void) | null) {
+  _virtualizerReset = fn;
+}
+
+// ---------------------------------------------------------------------------
+// Scroll-to-focused orchestration (FullscreenPreview exit)
+// ---------------------------------------------------------------------------
+
+let _scrollToFocused: (() => void) | null = null;
+
+/**
+ * Register a callback that scrolls the virtualizer to bring the currently
+ * focused image into view. Called by useScrollEffects on mount; cleared on
+ * unmount.
+ *
+ * Used by FullscreenPreview on exit — after traversing images in fullscreen,
+ * the focused image may have moved outside the table/grid viewport.
+ */
+export function registerScrollToFocused(fn: (() => void) | null) {
+  _scrollToFocused = fn;
+}
+
+/**
+ * Scroll the active grid/table virtualizer to bring the focused image into
+ * view. No-op if no virtualizer is registered or no image is focused.
+ *
+ * Uses `align: "center"` — same as useReturnFromDetail — because the user
+ * has been in a focused view (fullscreen preview) and needs reorientation
+ * with equal context above and below.
+ */
+export function scrollFocusedIntoView(): void {
+  _scrollToFocused?.();
+}
+
+// ---------------------------------------------------------------------------
+// Fullscreen preview orchestration (middle-click from grid/table)
+// ---------------------------------------------------------------------------
+
+let _enterPreview: (() => void) | null = null;
+
+/**
+ * Register the FullscreenPreview's enterPreview callback.
+ * Called by FullscreenPreview on mount; cleared on unmount.
+ */
+export function registerEnterPreview(fn: (() => void) | null) {
+  _enterPreview = fn;
+}
+
+/**
+ * Enter fullscreen preview for the currently focused image.
+ * No-op if FullscreenPreview is not mounted or no image is focused.
+ */
+export function enterFullscreenPreview(): void {
+  _enterPreview?.();
+}
+
+/**
+ * Prepare Home or refresh without authorizing the later data placement.
+ * Home owns its temporary thumb hold separately; refresh defers movement.
+ * Orchestrates:
+ * 1. Abort in-flight extends (buffer corruption prevention)
+ * 2. Optional eager resident-content scroll and visible-range reset
+ * 3. Focus CQL input (next frame)
+ *
+ * Scroll-reset strategy (same logic as the Home key handler in
+ * useListNavigation.ts):
+ *
+ * - **bufferOffset === 0:** The buffer already contains the correct first-page
+ *   data. Eager `scrollTop = 0` is safe — it just scrolls within correct
+ *   content. No flash possible.
+ *
+ * - **bufferOffset > 0:** The buffer has stale deep-offset data. Eager
+ *   `scrollTop = 0` would briefly show wrong images (the "flash"). Leave
+ *   the explicit publication reset in useScrollEffects, in the same layout
+ *   frame as the accepted fresh data swap.
+ *
+ * - **skipEagerScroll:** When called from `resetToHome()`, the current view
+ *   is about to be unmounted by a programmatic navigation. Resetting its
+ *   scrollTop eagerly just creates a visible flash (table jumps to top
+ *   before the grid replaces it). Skip the eager reset entirely — the grid
+ *   mounts at scrollTop=0 naturally.
+ */
+export function resetScrollAndFocusSearch(opts?: { skipEagerScroll?: boolean; isCurrent?: () => boolean }): void {
+  // Abort in-flight extends and set cooldown — prevents stale
+  // extendBackward from corrupting the buffer during the transition.
+  useSearchStore.getState().abortExtends();
+
+  // Scroll reset — only when the buffer is at the start (bufferOffset 0)
+  // and the caller hasn't asked to skip (resetToHome skips because the
+  // view is about to be replaced by navigation).
+  // Accepted search publication handles the deferred reset.
+  if (!opts?.skipEagerScroll && useSearchStore.getState().bufferOffset === 0) {
+    const scrollContainer = getScrollContainer();
+    if (scrollContainer) {
+      scrollContainer.scrollTop = 0;
+      scrollContainer.scrollLeft = 0;
+    }
+    _virtualizerReset?.();
+    resetVisibleRange();
+  }
+
+  // Focus CQL input — but only if we're in search/results view, not image
+  // detail view. The CQL input exists in the DOM even when image detail is
+  // open (it's part of the layout) — focusing it there steals keyboard
+  // shortcuts (the 'f' fullscreen shortcut sees an editable target and
+  // requires Alt, while bare 'f' types into the hidden search box).
+  // Also skip on touch devices: focus would pop the on-screen keyboard.
+  requestAnimationFrame(() => {
+    if (opts?.isCurrent && !opts.isCurrent()) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("image")) return;
+    if (isMobile()) return;
+    const cqlInput = document.querySelector("cql-input");
+    if (cqlInput instanceof HTMLElement) cqlInput.focus();
+  });
+}
+
+// ===========================================================================
+// URL search sync reset (from useUrlSearchSync.ts)
+// ===========================================================================
+
+/** Module-level ref for the dedup comparison string. Shared between
+ *  useUrlSearchSync and reset-to-home orchestration. */
+export let _prevParamsSerialized = "";
+export function setPrevParamsSerialized(s: string) {
+  devLog("[setPrevParams]", s);
+  _prevParamsSerialized = s;
+}
+
+/** Previous search-only params (not serialized) for sort-only change detection. */
+export let _prevSearchOnly: Record<string, unknown> = {};
+export function setPrevSearchOnly(obj: Record<string, unknown>) {
+  _prevSearchOnly = obj;
+}
+
+
+// ===========================================================================
+// User-initiated navigation detection
+// ===========================================================================
+
+/**
+ * Module-level flag set by `useUpdateSearchParams()` BEFORE calling
+ * `navigate()`. When true, `useUrlSearchSync` knows the param change was
+ * caused by user interaction (filter toggle, sort change, query commit)
+ * and should preserve focus/position ("Never Lost").
+ *
+ * When false (the default), the param change came from somewhere else —
+ * most likely browser back/forward (popstate). In that case, focus
+ * preservation is skipped and the view resets to the top of the restored
+ * search context.
+ *
+ * Why invert the flag (mark user-initiated instead of popstate)?
+ * TanStack Router's popstate handler is async — by the time the React
+ * effect runs, a simple popstate flag may have been consumed by an
+ * intermediate no-op effect run (the dedup guard bails early, but the
+ * flag is already cleared). Marking user-initiated navigations is
+ * synchronous and happens immediately before navigate(), so the flag
+ * is guaranteed to be set when the effect processes the resulting
+ * param change.
+ */
+let _isUserInitiatedNavigation = false;
+
+/** Call immediately before navigate() in useUpdateSearchParams(). */
+export function markUserInitiatedNavigation() {
+  _isUserInitiatedNavigation = true;
+}
+
+export function isUserInitiatedNavigation(): boolean {
+  return _isUserInitiatedNavigation;
+}
+
+/**
+ * Read and clear the user-initiated flag.
+ */
+export function consumeUserInitiatedFlag(): boolean {
+  const was = _isUserInitiatedNavigation;
+  _isUserInitiatedNavigation = false;
+  return was;
+}
+
+// ===========================================================================
+// Snapshot capture — per-entry position data for back/forward restoration
+// ===========================================================================
+
+/**
+ * Capture a snapshot of the current scroll/focus position, keyed by the
+ * **predecessor** entry's kupuaKey.
+ *
+ * Called inside push helpers BEFORE navigate(). At this point the store
+ * still shows pre-edit state — the URL being committed as a back target.
+ * This is load-bearing for debounced typing: the first-keystroke push
+ * captures the predecessor context, not the keystroke just typed.
+ *
+ * Reads the predecessor kupuaKey internally — callers don't pass it.
+ */
+export function markPushSnapshot(): void {
+  const predecessorKey = getCurrentKupuaKey();
+  if (!predecessorKey) {
+    devLog("[markPushSnapshot] no predecessor kupuaKey — skipping");
+    return;
+  }
+  const snap = buildHistorySnapshot();
+  snapshotStore.set(predecessorKey, snap);
+  devLog("[markPushSnapshot] captured for", predecessorKey, snap);
+}
+
+// ===========================================================================
+// Navigation helpers — explicit intent for every push navigate() call
+// ===========================================================================
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type NavigateFn = (opts: any) => any;
+
+/**
+ * Module-level flag: true when the current detail was entered via SPA
+ * navigation (pushNavigate from grid/table), false when cold-loaded
+ * (paste, bookmark, reload). Consumed once by ImageDetail's deep-link
+ * synthesis effect to decide whether to synthesise a bare-list entry.
+ *
+ * SPA entry: the list entry already exists in history — no synthesis needed.
+ * Cold load: no prior kupua entry exists — synthesis is required so
+ * closeDetail's history.back() stays inside kupua.
+ */
+let _detailEnteredViaSpa = false;
+
+function markDetailEnteredViaSpa(): void {
+  _detailEnteredViaSpa = true;
+}
+
+/** Consume (read-and-clear) the SPA-entry flag. */
+export function consumeDetailEnteredViaSpaFlag(): boolean {
+  const was = _detailEnteredViaSpa;
+  _detailEnteredViaSpa = false;
+  return was;
+}
+
+/**
+ * Push-navigate with user-initiated semantics (the default for most sites).
+ *
+ * Calls `markUserInitiatedNavigation()` immediately before `navigate()` so
+ * the resulting `useUrlSearchSync` effect knows this was a user action and
+ * preserves focus/position ("Never Lost").
+ *
+ * Also marks the navigation as SPA-initiated so that ImageDetail's
+ * deep-link synthesis knows not to insert a redundant bare-list entry
+ * (the list entry already exists from the pre-detail page).
+ *
+ * Use this for every raw `navigate()` push call **except** logo-reset
+ * (which deliberately opts out — see `pushNavigateAsPopstate`).
+ *
+ * Today, sites that touch only display-only `image` state hit
+ * the dedup guard before reading the flag, so marking is a no-op — but it
+ * removes a footgun: any future change that makes one of these sites touch
+ * a search-affecting key would silently trigger popstate (reset-to-top)
+ * semantics without the mark.
+ */
+export function pushNavigate(navigate: NavigateFn, opts: Parameters<NavigateFn>[0]): string {
+  // Capture snapshot for the predecessor entry BEFORE navigate fires.
+  // The store is still showing pre-navigate state at this point.
+  markPushSnapshot();
+  markUserInitiatedNavigation();
+  markDetailEnteredViaSpa();
+  // Mint a fresh kupuaKey for the new history entry. Shallow-merge with
+  // any caller-supplied state so both survive.
+  const state = withFreshKupuaKey({ ...opts.state,
+    ...(opts.state?._detailEntryImageId ? { _detailOriginKupuaKey: getCurrentKupuaKey() } : {}) });
+  navigate({ ...opts, state });
+  return state.kupuaKey as string;
+}
+
+export function pushTypingSearchEntry(navigate: NavigateFn, search: Record<string, unknown>): string {
+  return pushNavigate(navigate, { to: "/search", search, replace: false });
+}
+
+/**
+ * Push-navigate with popstate semantics (deliberately skips marking).
+ *
+ * The resulting `useUrlSearchSync` effect sees `consumeUserInitiatedFlag() === false`
+ * and treats the navigation as a popstate — resetting to offset 0 with no
+ * focus carry. This is the correct behaviour for logo-reset ("start over").
+ *
+ * Only logo-reset should use this. All other push sites use `pushNavigate`.
+ */
+export function pushNavigateAsPopstate(navigate: NavigateFn, opts: Parameters<NavigateFn>[0]): string {
+  // Mint a fresh kupuaKey even though logo-reset skips snapshot capture.
+  // The *next* push from this entry needs a predecessor key to capture
+  // a snapshot against.
+  const state = withFreshKupuaKey(opts.state);
+  navigate({ ...opts, state });
+  return state.kupuaKey as string;
+}
+

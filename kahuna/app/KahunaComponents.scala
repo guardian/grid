@@ -13,7 +13,7 @@ class KahunaComponents(context: Context) extends GridComponents(context, new Kah
 
   final override val buildInfo = utils.buildinfo.BuildInfo
 
-  val controller = new KahunaController(auth, config, controllerComponents, authorisation)
+  val controller = new KahunaController(auth, config, controllerComponents, authorisation, environment, KahunaSecurityConfig.contentSecurityPolicy(config))
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
   final override val router = new Routes(httpErrorHandler, controller, assets, management, InnerServiceStatusCheckController)
@@ -24,6 +24,17 @@ object KahunaSecurityConfig {
   def apply(config: KahunaConfig, playConfig: Configuration): SecurityHeadersConfig = {
     val base = SecurityHeadersConfig.fromConfiguration(playConfig)
 
+    base.copy(
+      // covered by frame-ancestors in contentSecurityPolicy
+      frameOptions = None,
+      // Lets the Kupua experiment page add 'wasm-unsafe-eval'; no other Kahuna action sets security headers.
+      allowActionSpecificHeaders = true,
+      // We use inline styles and script tags <sad face>
+      contentSecurityPolicy = Some(contentSecurityPolicy(config))
+    )
+  }
+
+  def contentSecurityPolicy(config: KahunaConfig): String = {
     val services = List(
       config.services.apiBaseUri,
       config.services.loaderBaseUri,
@@ -59,22 +70,15 @@ object KahunaSecurityConfig {
 
     val scriptSources = s"script-src 'self' 'unsafe-inline' ${config.scriptsToLoad.map(_.host).mkString(" ")} ${config.liveReloadUri.getOrElse("")}"
 
-    base.copy(
-      // covered by frame-ancestors in contentSecurityPolicy
-      frameOptions = None,
-      // We use inline styles and script tags <sad face>
-      contentSecurityPolicy = Some(
-        List(
-          frameSources,
-          frameAncestors,
-          connectSources,
-          fontSources,
-          styleSources,
-          imageSources,
-          "default-src 'unsafe-inline' 'self'",
-          scriptSources
-        ).mkString("; ")
-      )
-    )
+    List(
+      frameSources,
+      frameAncestors,
+      connectSources,
+      fontSources,
+      styleSources,
+      imageSources,
+      "default-src 'unsafe-inline' 'self'",
+      scriptSources
+    ).mkString("; ")
   }
 }

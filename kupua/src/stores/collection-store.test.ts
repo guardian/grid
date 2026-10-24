@@ -1,0 +1,126 @@
+import { afterEach, describe, it, expect, vi } from "vitest";
+import { buildSubtreeCounts, useCollectionStore } from "./collection-store";
+import type { ImageDataSource } from "@/dal";
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe("loadCollections", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    useCollectionStore.setState({ tree: null, counts: {}, status: "idle" });
+  });
+
+  it("counts collection images through the data source it is given, in the unfiltered default scope", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: { basename: "root", children: [] } })));
+    vi.stubGlobal("fetch", fetchMock);
+    const getAggregations = vi.fn(async () => ({
+      fields: { "collections.pathId": { buckets: [{ key: "sport", count: 2 }, { key: "sport/football", count: 3 }] } },
+    }));
+
+    await useCollectionStore.getState().loadCollections({ getAggregations } as unknown as Pick<ImageDataSource, "getAggregations">);
+
+    expect(getAggregations).toHaveBeenCalledWith({}, [{ field: "collections.pathId", size: 6000 }]);
+    expect(useCollectionStore.getState().counts).toEqual({ sport: 5, "sport/football": 3 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("hosted builds fetch collections only from Kahuna's injected address, never a laptop default", async () => {
+    vi.stubEnv("VITE_HOSTED", "true");
+    vi.stubGlobal("window", { __KUPUA_CONFIG__: undefined } as unknown as Window);
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: { basename: "root", children: [] } })));
+    vi.stubGlobal("fetch", fetchMock);
+    const getAggregations = vi.fn(async () => ({ fields: {} }));
+    const source = { getAggregations } as unknown as Pick<ImageDataSource, "getAggregations">;
+
+    try {
+      await useCollectionStore.getState().loadCollections(source);
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      globalThis.window.__KUPUA_CONFIG__ = { collectionsUri: "https://media-collections.example.test/" };
+      await useCollectionStore.getState().loadCollections(source);
+      expect(fetchMock).toHaveBeenCalledWith("https://media-collections.example.test/collections", { credentials: "include" });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+});
+
+describe("buildSubtreeCounts", () => {
+  it("returns empty map for empty input", () => {
+    const result = buildSubtreeCounts(new Map());
+    expect(result.size).toBe(0);
+  });
+
+  it("returns own count for a leaf node", () => {
+    const result = buildSubtreeCounts(new Map([["sport", 42]]));
+    expect(result.get("sport")).toBe(42);
+  });
+
+  it("sums own count + children counts for a parent", () => {
+    const direct = new Map([
+      ["sport", 5],
+      ["sport/football", 30],
+      ["sport/tennis", 10],
+    ]);
+
+    const result = buildSubtreeCounts(direct);
+    expect(result.get("sport/football")).toBe(30);
+    expect(result.get("sport/tennis")).toBe(10);
+    expect(result.get("sport")).toBe(45); // 5 + 30 + 10
+  });
+
+  it("handles missing intermediate counts (treats as zero)", () => {
+    // Only the leaf has a count; parent has no direct count
+    const result = buildSubtreeCounts(new Map([["sport/football", 8]]));
+    expect(result.get("sport/football")).toBe(8);
+    expect(result.get("sport")).toBe(8); // inherited from child
+  });
+
+  it("accumulates correctly across three levels of nesting", () => {
+    const direct = new Map([
+      ["sport", 1],
+      ["sport/football", 2],
+      ["sport/football/premier-league", 4],
+    ]);
+    const result = buildSubtreeCounts(direct);
+    expect(result.get("sport/football/premier-league")).toBe(4);
+    expect(result.get("sport/football")).toBe(6); // 2 + 4
+    expect(result.get("sport")).toBe(7); // 1 + 2 + 4
+  });
+
+  it("handles multiple root-level children independently", () => {
+    const direct = new Map([
+      ["sport", 10],
+      ["travel", 20],
+    ]);
+    const result = buildSubtreeCounts(direct);
+    expect(result.get("sport")).toBe(10);
+    expect(result.get("travel")).toBe(20);
+  });
+
+  it("skips empty pathId keys", () => {
+    const direct = new Map([
+      ["", 9],
+      ["sport", 5],
+    ]);
+    const result = buildSubtreeCounts(direct);
+    expect(result.get("sport")).toBe(5);
+    expect(result.has("")).toBe(false);
+  });
+
+  it("counts orphaned subcollections into ancestors", () => {
+    // culture/test/orphan exists in ES but might not be in the tree —
+    // its count should still roll up to culture and culture/test
+    const direct = new Map([
+      ["culture", 1],
+      ["culture/test", 2],
+      ["culture/test/orphan", 12],
+    ]);
+    const result = buildSubtreeCounts(direct);
+    expect(result.get("culture/test/orphan")).toBe(12);
+    expect(result.get("culture/test")).toBe(14); // 2 + 12
+    expect(result.get("culture")).toBe(15); // 1 + 2 + 12
+  });
+});

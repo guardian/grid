@@ -1,0 +1,1529 @@
+/**
+ * Shared helpers and fixtures for kupua Playwright E2E tests.
+ *
+ * These helpers encapsulate:
+ * - Waiting for data to load (ES results visible)
+ * - Scrubber interaction (drag, click, keyboard)
+ * - Sort changes (dropdown + direction toggle)
+ * - Density switch
+ * - Reading store state from the browser context
+ * - Viewport/scroll position assertions
+ */
+
+import { test as base, expect, type Page, type Locator, type CDPSession, type JSHandle } from "@playwright/test";
+import { getDensityChangeButton } from "./density-selection";
+
+// ---------------------------------------------------------------------------
+// Extended test fixture — adds `kupua` helper object to every test
+// ---------------------------------------------------------------------------
+
+export const test = base.extend<{ kupua: KupuaHelpers }>({
+  kupua: async ({ page }, use) => {
+    // Optional CPU throttle for slow-hardware experiments (e.g. CPU_THROTTLE=4)
+    const throttle = Number(process.env["CPU_THROTTLE"] || 0);
+    if (throttle > 0) {
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: throttle });
+    }
+    // Block Grid API (media-api) requests at the browser level.
+    // Intercepts before the Vite proxy, so: no terminal noise, no media-api
+    // calls even if it happens to be running. API calls handle 5xx
+    // gracefully (null fallback per graceful-API-absence directive) — tests
+    // are unaffected.
+    // Skip the block when KUPUA_PERF_AUTH_FILE is set — that signals the
+    // perf harness is running in --use-media-api mode and media-api calls
+    // must flow through for real results.
+    if (!process.env["KUPUA_PERF_AUTH_FILE"]) {
+      await page.route("/api/**", (route) => route.fulfill({ status: 503, body: "" }));
+    }
+    const helpers = new KupuaHelpers(page);
+    await use(helpers);
+  },
+});
+
+export { expect };
+
+export async function waitForFixtureSetup(
+  page: Page,
+  setup: JSHandle<{ complete: boolean; error: string | null }>,
+): Promise<void> {
+  try {
+    const ready = await page.waitForFunction((job) => {
+      if (job.error !== null) throw new Error(job.error);
+      return job.complete;
+    }, setup);
+    await ready.dispose();
+  } finally {
+    await setup.dispose();
+  }
+}
+
+/**
+ * Poll the nth match of `selector` until the same `data-image-id` occupies
+ * that position for 3 consecutive checks, then return it.
+ *
+ * During table cold-load+seek, rows transition skeleton → pending →
+ * enriched at different rates, and `selector` (which requires the
+ * `cursor-pointer` class) only matches enriched rows — so its nth match
+ * can be a *different physical row* on every check until enrichment
+ * catches up past position n. Returning a stable id lets callers click by
+ * identity (`[data-image-id="..."]`) instead of re-querying `.nth(n)`,
+ * which would be racing the same churn again.
+ */
+export async function waitForStableNthImageId(
+  page: Page,
+  selector: string,
+  n: number,
+  timeout = 10_000,
+): Promise<string> {
+  const locator = page.locator(selector).nth(n);
+  const start = Date.now();
+  let lastId: string | null = null;
+  let stableCount = 0;
+  while (Date.now() - start < timeout) {
+    const id = await locator.getAttribute("data-image-id").catch(() => null);
+    if (id && id === lastId) {
+      if (++stableCount >= 3) return id;
+    } else {
+      stableCount = 0;
+    }
+    lastId = id;
+    await page.waitForTimeout(50);
+  }
+  throw new Error(`waitForStableNthImageId: no stable element at position ${n} within ${timeout}ms`);
+}
+
+// ---------------------------------------------------------------------------
+// Helper class
+// ---------------------------------------------------------------------------
+
+export class KupuaHelpers {
+  readonly page: Page;
+  private densitySeed: { session: CDPSession; identifier: string } | undefined;
+
+  constructor(page: Page) {
+    this.page = page;
+  }
+
+  // -------------------------------------------------------------------------
+  // Navigation & waiting
+  // -------------------------------------------------------------------------
+
+  async initializeDensity(density: "grid" | "table") {
+    if (this.densitySeed) {
+      await this.densitySeed.session.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: this.densitySeed.identifier });
+      await this.densitySeed.session.detach();
+      this.densitySeed = undefined;
+    }
+    if (this.page.url().startsWith("http")) {
+      await this.page.evaluate(async (choice) => {
+        const path = "/src/stores/ui-prefs-store.ts";
+        const { writeDensityPreference } = await import(path);
+        writeDensityPreference(choice);
+      }, density);
+    } else {
+      const initializationKey = `kupua:e2e-density-init:${crypto.randomUUID()}`;
+      const seed = ({ choice, initializationKey }: { choice: "grid" | "table"; initializationKey: string }) => {
+        if (sessionStorage.getItem(initializationKey) !== "done") {
+          sessionStorage.setItem("kupua-density", choice);
+          sessionStorage.setItem(initializationKey, "done");
+        }
+      };
+      const session = await this.page.context().newCDPSession(this.page);
+      await session.send("Page.enable");
+      const { identifier } = await session.send("Page.addScriptToEvaluateOnNewDocument", {
+        source: `(${seed.toString()})(${JSON.stringify({ choice: density, initializationKey })});`,
+      });
+      this.densitySeed = { session, identifier };
+    }
+  }
+
+  /** Navigate to the search page and wait for initial data to load.
+   *  Respects PERF_STABLE_UNTIL when set (perf audit runs) so the corpus
+   *  is pinned even when called mid-test (e.g. P12 reset before Credit sort).
+   */
+  async goto() {
+    const stableUntil = process.env["PERF_STABLE_UNTIL"];
+    const untilParam = stableUntil ? `&until=${stableUntil}` : "";
+    await this.page.goto(`/search?nonFree=true${untilParam}`);
+    await this.waitForResults();
+  }
+
+  /** Navigate with custom search params (merged with nonFree=true). */
+  async gotoWithParams(extraParams: string) {
+    await this.page.goto(`/search?nonFree=true&${extraParams}`);
+    await this.waitForResults();
+  }
+
+  async startSearch(extraParams = "", density: "grid" | "table" = "grid") {
+    await this.initializeDensity(density);
+    await this.gotoPerfStable(extraParams);
+    await this.assertDensity(density);
+  }
+
+  async assertDensity(density: "grid" | "table") {
+    await expect(this.page.getByLabel(`Image results ${density}`, { exact: true })).toBeAttached();
+    await expect(this.page.getByLabel(`Image results ${density === "grid" ? "table" : "grid"}`, { exact: true })).toHaveCount(0);
+  }
+
+  /**
+   * Navigate to the perf-stable result set.
+   * Uses until=PERF_STABLE_UNTIL from env (set by run-audit.mjs harness)
+   * to freeze the corpus at a known date — prevents metric drift from
+   * new images being ingested between runs on a live cluster.
+   *
+   * Falls back to plain /search if the env var is not set
+   * (local data is static — no until= filter needed).
+   */
+  async gotoPerfStable(extraParams?: string) {
+    const stableUntil = process.env["PERF_STABLE_UNTIL"];
+    const untilParam = stableUntil ? `&until=${stableUntil}` : "";
+    const extra = extraParams ? `&${extraParams}` : "";
+    await this.page.goto(`/search?nonFree=true${untilParam}${extra}`);
+    await this.waitForResults();
+  }
+
+  /** Wait until at least one real image is visibly rendered in the results viewport. */
+  async waitForResults(timeout = 15_000, density?: "grid" | "table") {
+    await this.page.waitForFunction(
+      (density) => {
+        const grid = document.querySelector('[aria-label="Image results grid"]');
+        const table = document.querySelector('[aria-label="Image results table"]');
+        const container = density === "grid" ? grid : density === "table" ? table : grid ?? table;
+        if (!container) return false;
+        const containerRect = container.getBoundingClientRect();
+        return Array.from(container.querySelectorAll("[data-image-id]"))
+          .some((item) => {
+            const itemRect = item.getBoundingClientRect();
+            return itemRect.bottom > containerRect.top
+              && itemRect.top < containerRect.bottom;
+          });
+      },
+      density,
+      { timeout },
+    ).catch(async (error: unknown) => {
+      const diagnostic = await this.page.evaluate(() => {
+        const state = (window as any).__kupua_store__?.getState();
+        const lifecycle = (window as any).__kupua_getSearchLifecycle__?.();
+        const regions = ["grid", "table", "justified"].flatMap(density => {
+          const region = document.querySelector(`[aria-label="Image results ${density}"]`);
+          if (!region) return [];
+          const bounds = region.getBoundingClientRect();
+          const items = [...region.querySelectorAll("[data-image-id]")];
+          return [{ density, width: bounds.width, height: bounds.height, renderedItems: items.length,
+            visibleItems: items.filter(item => {
+              const rect = item.getBoundingClientRect();
+              return rect.bottom > bounds.top && rect.top < bounds.bottom;
+            }).length }];
+        });
+        return { storePresent: Boolean(state), initialLoad: state ? Boolean(state._isInitialLoad) : null,
+          searchStarted: typeof lifecycle?.started === "number" ? lifecycle.started : null,
+          searchSettled: typeof lifecycle?.settled === "number" ? lifecycle.settled : null,
+          loading: state ? Boolean(state.loading) : null, hasError: Boolean(state?.error),
+          resultsLength: state?.results?.length ?? null, total: state?.total ?? null,
+          forwardInFlight: Boolean(state?._extendForwardInFlight), backwardInFlight: Boolean(state?._extendBackwardInFlight),
+          browsePending: Boolean(state?._browseNavigation), visibility: document.visibilityState,
+          documentState: document.readyState, regions };
+      }).catch(() => ({ pageUnavailable: true }));
+      if (error instanceof Error) error.message += `\nResults readiness state: ${JSON.stringify(diagnostic)}`;
+      throw error;
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Store state — read Zustand state from the browser
+  // -------------------------------------------------------------------------
+
+  /** Read the full search store state. */
+  async getStoreState(): Promise<{
+    bufferOffset: number;
+    total: number;
+    resultsLength: number;
+    focusedImageId: string | null;
+    loading: boolean;
+    sortAroundFocusStatus: string | null;
+    orderBy: string | undefined;
+    seekGeneration: number;
+    seekTargetLocalIndex: number;
+    error: string | null;
+    firstImageId: string | null;
+    lastImageId: string | null;
+    // Buffer mutation counters — for asserting extend/evict behaviour
+    prependGeneration: number;
+    forwardEvictGeneration: number;
+    lastPrependCount: number;
+    lastForwardEvictCount: number;
+  }> {
+    return this.page.evaluate(() => {
+      // Access the Zustand store via the window — we'll expose it
+      const store = (window as any).__kupua_store__;
+      if (!store) throw new Error("Store not exposed on window");
+      const s = store.getState();
+      return {
+        bufferOffset: s.bufferOffset,
+        total: s.total,
+        resultsLength: s.results.length,
+        focusedImageId: s.focusedImageId,
+        loading: s.loading,
+        sortAroundFocusStatus: s.sortAroundFocusStatus,
+        orderBy: s.params.orderBy,
+        seekGeneration: s._seekGeneration,
+        seekTargetLocalIndex: s._seekTargetLocalIndex,
+        error: s.error,
+        firstImageId: s.results[0]?.id ?? null,
+        lastImageId: s.results[s.results.length - 1]?.id ?? null,
+        prependGeneration: s._prependGeneration,
+        forwardEvictGeneration: s._forwardEvictGeneration,
+        lastPrependCount: s._lastPrependCount,
+        lastForwardEvictCount: s._lastForwardEvictCount,
+      };
+    });
+  }
+
+  /** Get the global position of the focused image (or -1). */
+  async getFocusedGlobalPosition(): Promise<number> {
+    return this.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      if (!store) return -1;
+      const s = store.getState();
+      if (!s.focusedImageId) return -1;
+      return s.imagePositions.get(s.focusedImageId) ?? -1;
+    });
+  }
+
+  /**
+   * Whether the currently focused image's grid/table cell is actually
+   * scrolled into view within the results container (not just correct in
+   * store state, and not just present in the DOM via virtualizer overscan).
+   * Distinguishes "focus resolved to the right target" from "the viewport
+   * was scrolled to show it" — a cell can be store-correct yet fully
+   * off-screen if the scroll-to-focus effect didn't fire. Falls back to
+   * `_phantomFocusImageId` when there's no explicit focus (phantom mode).
+   */
+  async isFocusedCellVisible(): Promise<boolean> {
+    return this.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      const s = store?.getState();
+      const id = s?.focusedImageId ?? s?._phantomFocusImageId;
+      if (!id) return false;
+      const cell = document.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
+      if (!cell) return false;
+      const container = document.querySelector('[aria-label="Image results grid"]')
+        ?? document.querySelector('[aria-label="Image results table"]');
+      if (!container) return false;
+      const cellRect = cell.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      return cellRect.bottom > containerRect.top && cellRect.top < containerRect.bottom;
+    });
+  }
+
+  /** Wait for an exact image to be painted near the active usable viewport centre. */
+  async waitForUsableViewportPlacement(imageId: string, timeout = 10_000) {
+    const handle = await this.page.waitForFunction(
+      (targetId) => {
+        const container = document.querySelector<HTMLElement>(
+          '[aria-label="Image results grid"], [aria-label="Image results table"]',
+        );
+        const cell = container?.querySelector<HTMLElement>(
+          `[data-image-id="${CSS.escape(targetId)}"]`,
+        );
+        if (!container || !cell) return false;
+
+        const containerRect = container.getBoundingClientRect();
+        const cellRect = cell.getBoundingClientRect();
+        const stickyHeader = container.querySelector<HTMLElement>("[data-table-header]");
+        const usableTop = stickyHeader?.getBoundingClientRect().bottom ?? containerRect.top;
+        const usableBottom = containerRect.bottom;
+        const visible = cellRect.bottom > usableTop && cellRect.top < usableBottom;
+        if (!visible) return false;
+
+        return {
+          imageId: targetId,
+          visible,
+          signedCenterDistance:
+            (cellRect.top + cellRect.bottom - usableTop - usableBottom) / 2,
+        };
+      },
+      imageId,
+      { timeout },
+    );
+    return handle.jsonValue() as Promise<{
+      imageId: string;
+      visible: true;
+      signedCenterDistance: number;
+    }>;
+  }
+
+  async waitForHitTestedImagePoint({
+    view,
+    imageId,
+    topInset = 0,
+    timeout = 10_000,
+  }: {
+    view?: "grid" | "table" | "justified";
+    imageId?: string;
+    topInset?: number;
+    timeout?: number;
+  } = {}): Promise<{ imageId: string; x: number; y: number }> {
+    const handle = await this.page.waitForFunction(({ view, imageId, topInset }) => {
+      const container = document.querySelector(view
+        ? `[aria-label="Image results ${view}"]`
+        : '[aria-label="Image results grid"], [aria-label="Image results table"], [aria-label="Image results justified"]');
+      if (!container) return false;
+      const bounds = container.getBoundingClientRect();
+      const top = container.querySelector('[data-table-header]')?.getBoundingClientRect().bottom ?? bounds.top;
+      for (const cell of container.querySelectorAll<HTMLElement>('[data-image-id]')) {
+        const identity = cell.dataset.imageId;
+        if (!identity || (imageId !== undefined && identity !== imageId)) continue;
+        const rect = cell.getBoundingClientRect();
+        const x = rect.left + 48;
+        const isTableRow = view === undefined ? cell.getAttribute('role') === 'row' : view === 'table';
+        const y = rect.top + (isTableRow ? 16 : 80);
+        if (x > bounds.left && x < bounds.right && y > top + topInset && y < bounds.bottom
+          && document.elementFromPoint(x, y)?.closest('[data-image-id]') === cell) {
+          return { imageId: identity, x, y };
+        }
+      }
+      return false;
+    }, { view, imageId, topInset }, { timeout });
+    try {
+      return await handle.jsonValue() as { imageId: string; x: number; y: number };
+    } finally {
+      await handle.dispose();
+    }
+  }
+
+  /**
+   * Pixel top of the focused cell relative to the results container, or
+   * null if there's no focus or the cell isn't in the DOM. Used to assert
+   * the focused cell stays at the same row across an operation (e.g. a
+   * sort toggle) rather than just "somewhere visible" — a silent one-row
+   * shift still passes `isFocusedCellVisible()`.
+   */
+  async getFocusedCellTop(): Promise<number | null> {
+    return this.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      const s = store?.getState();
+      const id = s?.focusedImageId ?? s?._phantomFocusImageId;
+      if (!id) return null;
+      const cell = document.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
+      const container = document.querySelector('[aria-label="Image results grid"]')
+        ?? document.querySelector('[aria-label="Image results table"]');
+      if (!cell || !container) return null;
+      return cell.getBoundingClientRect().top - container.getBoundingClientRect().top;
+    });
+  }
+
+  /**
+   * Pixel left of the focused cell relative to the results container, or
+   * null if there's no focus or the cell isn't in the DOM. Companion to
+   * `getFocusedCellTop()` — a partial (sub-row) trim can shift a cell to a
+   * different column without crossing a row boundary, which the top check
+   * alone wouldn't catch.
+   */
+  async getFocusedCellLeft(): Promise<number | null> {
+    return this.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      const s = store?.getState();
+      const id = s?.focusedImageId ?? s?._phantomFocusImageId;
+      if (!id) return null;
+      const cell = document.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
+      const container = document.querySelector('[aria-label="Image results grid"]')
+        ?? document.querySelector('[aria-label="Image results table"]');
+      if (!cell || !container) return null;
+      return cell.getBoundingClientRect().left - container.getBoundingClientRect().left;
+    });
+  }
+
+
+
+  /** Get the first visible image ID from the current view. */
+  async getFirstVisibleImageId(): Promise<string | null> {
+    return this.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      if (!store) return null;
+      const s = store.getState();
+      if (s.results.length === 0) return null;
+      return s.results[0]?.id ?? null;
+    });
+  }
+
+  /**
+   * Verify imagePositions map integrity: every image in the buffer must
+   * have a globalPos === bufferOffset + localIndex.
+   */
+  async assertPositionsConsistent(): Promise<void> {
+    const result = await this.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      if (!store) return { ok: false, msg: "store not found" };
+      const s = store.getState();
+      for (let i = 0; i < s.results.length; i++) {
+        const img = s.results[i];
+        if (!img) continue;
+        const gp = s.imagePositions.get(img.id);
+        if (gp !== s.bufferOffset + i) {
+          return {
+            ok: false,
+            msg: `imagePositions[${img.id}] = ${gp}, expected ${s.bufferOffset + i} (local ${i})`,
+          };
+        }
+      }
+      return { ok: true, msg: "" };
+    });
+    if (!result.ok) throw new Error(`Position consistency check failed: ${result.msg}`);
+  }
+
+  /**
+   * Count the number of visible placeholder (skeleton) cells in the viewport.
+   * Grid placeholders: div with bg-grid-cell/30, no data-grid-cell attribute.
+   * Table placeholders: div with key starting with "placeholder-".
+   * Only counts cells whose bounding rect overlaps the scroll container viewport.
+   */
+  async countVisiblePlaceholders(): Promise<number> {
+    return this.page.evaluate(() => {
+      const grid = document.querySelector('[aria-label="Image results grid"]');
+      const table = document.querySelector('[aria-label="Image results table"]');
+      const container = (grid ?? table) as HTMLElement | null;
+      if (!container) return 0;
+
+      const rect = container.getBoundingClientRect();
+      let count = 0;
+
+      if (grid) {
+        // Grid: real cells have [data-grid-cell]. Placeholders don't.
+        // All direct children of virtualised rows that lack data-grid-cell
+        // and are visible in the viewport.
+        const allCells = container.querySelectorAll('[style*="position"]  > div');
+        for (const cell of allCells) {
+          if ((cell as HTMLElement).dataset.gridCell !== undefined) continue;
+          // Check it's actually a placeholder (has the skeleton bg class)
+          if (!cell.className.includes('bg-grid-cell')) continue;
+          const cr = cell.getBoundingClientRect();
+          if (cr.bottom > rect.top && cr.top < rect.bottom) count++;
+        }
+      } else if (table) {
+        // Table: placeholder rows have no cursor-pointer cells
+        const rows = container.querySelectorAll('[role="row"]');
+        for (const row of rows) {
+          if (row.querySelector('[class*="cursor-pointer"]')) continue;
+          // Check it's a placeholder (has the skeleton bar)
+          if (!row.querySelector('[class*="bg-grid-separator"]')) continue;
+          const cr = row.getBoundingClientRect();
+          if (cr.bottom > rect.top && cr.top < rect.bottom) count++;
+        }
+      }
+      return count;
+    });
+  }
+
+  /**
+   * Assert that no placeholder skeletons are visible in the viewport.
+   * Use after seeks/scrolls to verify the buffer covers the viewport.
+   * Waits up to `timeout` ms for placeholders to fill in before failing.
+   */
+  async assertNoVisiblePlaceholders(timeout = 5_000) {
+    try {
+      await this.page.waitForFunction(
+        () => {
+          const grid = document.querySelector('[aria-label="Image results grid"]');
+          const table = document.querySelector('[aria-label="Image results table"]');
+          const container = (grid ?? table) as HTMLElement | null;
+          if (!container) return false;
+
+          const rect = container.getBoundingClientRect();
+
+          if (grid) {
+            const allCells = container.querySelectorAll('[style*="position"]  > div');
+            for (const cell of allCells) {
+              if ((cell as HTMLElement).dataset.gridCell !== undefined) continue;
+              if (!cell.className.includes('bg-grid-cell')) continue;
+              const cr = cell.getBoundingClientRect();
+              if (cr.bottom > rect.top && cr.top < rect.bottom) return false;
+            }
+          } else if (table) {
+            const rows = container.querySelectorAll('[role="row"]');
+            for (const row of rows) {
+              if (row.querySelector('[class*="cursor-pointer"]')) continue;
+              if (!row.querySelector('[class*="bg-grid-separator"]')) continue;
+              const cr = row.getBoundingClientRect();
+              if (cr.bottom > rect.top && cr.top < rect.bottom) return false;
+            }
+          }
+          return true;
+        },
+        null,
+        { timeout },
+      );
+    } catch {
+      const count = await this.countVisiblePlaceholders();
+      throw new Error(
+        `Expected no visible placeholders, but found ${count} after ${timeout}ms. ` +
+        `The buffer likely doesn't cover the viewport position.`,
+      );
+    }
+  }
+
+  /**
+   * Wait for a seek to complete (loading=false, error=null).
+   * Stricter than waitForResults — also checks store state.
+   */
+  async waitForSeekComplete(timeout = 15_000) {
+    await this.page.waitForFunction(
+      () => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const s = store.getState();
+        // Resolve when loading is done — whether success or error.
+        // Callers check s.error themselves for pass/fail assertions.
+        return !s.loading && s.results.length > 0;
+      },
+      null,
+      { timeout },
+    );
+  }
+
+  /**
+   * Wait for a seek to complete by watching _seekGeneration bump.
+   * Use this in two-tier mode where the old check (loading=false)
+   * resolves immediately from stale buffer state.
+   * @param prevGen The _seekGeneration value captured BEFORE the seek trigger.
+   */
+  async waitForSeekGenerationBump(prevGen: number, timeout = 15_000) {
+    await this.page.waitForFunction(
+      (prev: number) => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const s = store.getState();
+        return s._seekGeneration > prev && !s.loading && s.results.length > 0;
+      },
+      prevGen,
+      { timeout },
+    );
+  }
+
+  /**
+   * Snapshot store state needed to interpret a scrubber interaction:
+   * whether two-tier virtualisation is active (matches useDataWindow.ts's
+   * derivation — based on `total` alone, NOT positionMap, since the
+   * coordinate-space decision doesn't depend on whether the map has
+   * loaded) and whether the position map has already settled.
+   */
+  private async snapshotScrubberState() {
+    const SCROLL_MODE_THRESHOLD = 1000;
+    const POSITION_MAP_THRESHOLD = 65_000;
+    return this.page.evaluate(
+      ({ smThresh, pmThresh }: { smThresh: number; pmThresh: number }) => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return { twoTier: false, seekGen: 0, positionMapReady: false };
+        const s = store.getState();
+        return {
+          twoTier: pmThresh > 0 && s.total > smThresh && s.total <= pmThresh,
+          seekGen: s._seekGeneration,
+          positionMapReady: s.positionMap !== null,
+        };
+      },
+      { smThresh: SCROLL_MODE_THRESHOLD, pmThresh: POSITION_MAP_THRESHOLD },
+    );
+  }
+
+  /**
+   * H2: in two-tier mode, a seek issued before the position map has loaded
+   * silently takes a different code path in search-store.ts (percentile
+   * estimation instead of the exact position-map lookup) — not an error,
+   * but a race that makes seek landing nondeterministic depending on
+   * timing. Waiting here (bounded, non-fatal on timeout — a two-tier
+   * corpus always fetches a map by design, but we never hang a test on it)
+   * removes that race for every caller. Callers that deliberately want to
+   * measure the race itself opt out via `waitForPositionMap: false`.
+   */
+  private async ensurePositionMapIfTwoTier(
+    before: { twoTier: boolean; positionMapReady: boolean },
+    waitForPositionMap: boolean,
+  ) {
+    if (before.twoTier && waitForPositionMap && !before.positionMapReady) {
+      await this.waitForPositionMap().catch(() => {
+        // Timed out — proceed anyway. The seek-settle wait below still
+        // waits for the seek itself to complete, whichever code path it took.
+      });
+    }
+  }
+
+  /**
+   * Wait for a two-tier scroll-seek (or plain seek) triggered by a scrubber
+   * interaction to settle. Shared by seekTo and dragScrubberTo (H5) so both
+   * wait identically instead of one using a bare timeout.
+   */
+  private async waitForScrubberSeekSettle(
+    before: { twoTier: boolean; seekGen: number },
+    timeout?: number,
+  ) {
+    if (before.twoTier) {
+      // In two-tier mode, the interaction sets scrollTop directly. A
+      // debounced scroll-seek (200ms) will fire if the target is outside
+      // the buffer. We always wait for _seekGeneration to bump. If the
+      // target was actually in the buffer (no scroll-seek needed), we time
+      // out after 3s and carry on — correctness > speed.
+      const seekTimeout = Math.min(timeout ?? 15_000, 3000);
+      try {
+        await this.page.waitForFunction(
+          (prevGen: number) => {
+            const store = (window as any).__kupua_store__;
+            if (!store) return false;
+            const s = store.getState();
+            return s._seekGeneration > prevGen && !s.loading && s.results.length > 0;
+          },
+          before.seekGen,
+          { timeout: seekTimeout },
+        );
+      } catch {
+        // Timeout = target was in buffer, no scroll-seek fired. That's OK.
+      }
+      // Wait for the virtualizer to render real interactive content at the
+      // new scroll position. After the scroll-seek completes, the buffer
+      // is repositioned but React + virtualizer need time to swap skeletons
+      // for real items. We poll until cursor-pointer elements appear in the
+      // visible viewport (not leftover from a previous position).
+      try {
+        await this.page.waitForFunction(
+          () => {
+            const grid = document.querySelector('[aria-label="Image results grid"]');
+            const table = document.querySelector('[aria-label="Image results table"]');
+            const container = grid ?? table;
+            if (!container) return false;
+            const items = container.querySelectorAll('[class*="cursor-pointer"]');
+            if (items.length === 0) return false;
+            const rect = container.getBoundingClientRect();
+            for (const item of items) {
+              const ir = item.getBoundingClientRect();
+              if (ir.bottom > rect.top && ir.top < rect.bottom) return true;
+            }
+            return false;
+          },
+          null,
+          { timeout: 5000 },
+        );
+      } catch {
+        // If no interactive content appeared within 5s, carry on —
+        // the caller may still succeed (e.g. for tests that don't
+        // need to click items).
+      }
+      await this.page.waitForTimeout(200);
+    } else {
+      await this.waitForSeekComplete(timeout);
+      // Extra settle time for React re-render
+      await this.page.waitForTimeout(200);
+    }
+  }
+
+  /**
+   * Click scrubber and wait for seek to fully complete (no loading, no error,
+   * positions consistent). Stricter version of clickScrubberAt.
+   *
+   * Two-tier aware: in indexed mode, clicking the scrubber sets scrollTop
+   * directly (no ES call). A debounced scroll-seek fires ~200ms later to
+   * reposition the buffer. We wait for _seekGeneration to bump (meaning the
+   * scroll-seek actually completed), unless the target is already in the
+   * buffer (no seek needed).
+   *
+   * `opts.waitForPositionMap` (default true): wait for the two-tier position
+   * map to settle before seeking, if not yet loaded (H2 — see
+   * ensurePositionMapIfTwoTier). Set to false only to deliberately measure
+   * the pre-map race.
+   */
+  async seekTo(ratio: number, timeout?: number, opts?: { waitForPositionMap?: boolean }) {
+    const trackBox = await this.scrubber.boundingBox();
+    if (!trackBox) throw new Error("Scrubber track not visible");
+
+    const before = await this.snapshotScrubberState();
+    await this.ensurePositionMapIfTwoTier(before, opts?.waitForPositionMap ?? true);
+
+    const x = trackBox.x + trackBox.width / 2;
+    const y = trackBox.y + ratio * trackBox.height;
+    await this.page.mouse.click(x, y);
+
+    await this.waitForScrubberSeekSettle(before, timeout);
+  }
+
+  /**
+   * Get the aria-valuetext from the scrubber (contains position + date label).
+   */
+  async getScrubberValueText(): Promise<string | null> {
+    return this.scrubber.getAttribute("aria-valuetext");
+  }
+
+  // -------------------------------------------------------------------------
+  // Scrubber
+  // -------------------------------------------------------------------------
+
+  /** Get the scrubber slider element. */
+  get scrubber(): Locator {
+    return this.page.locator('[role="slider"][aria-label="Result set position"]');
+  }
+
+  /** Get the scrubber thumb element. */
+  get scrubberThumb(): Locator {
+    return this.page.locator('[data-scrubber-thumb="true"]');
+  }
+
+  /** Get the scrubber aria-valuenow (current position). */
+  async getScrubberPosition(): Promise<number> {
+    const val = await this.scrubber.getAttribute("aria-valuenow");
+    return val ? parseInt(val, 10) : 0;
+  }
+
+  /** Get the scrubber aria-valuemax (total - 1). */
+  async getScrubberMax(): Promise<number> {
+    const val = await this.scrubber.getAttribute("aria-valuemax");
+    return val ? parseInt(val, 10) : 0;
+  }
+
+  /** Get the scrubber thumb's top offset in pixels (from the track top). */
+  async getScrubberThumbTop(): Promise<number> {
+    return this.page.evaluate(() => {
+      const thumb = document.querySelector('[data-scrubber-thumb="true"]') as HTMLElement;
+      if (!thumb) return 0;
+      return parseFloat(thumb.style.top) || 0;
+    });
+  }
+
+  /** Get the scroll container's scroll ratio: scrollTop / (scrollHeight - clientHeight). */
+  async getScrollRatio(): Promise<number> {
+    return this.page.evaluate(() => {
+      const grid = document.querySelector('[aria-label="Image results grid"]');
+      const table = document.querySelector('[aria-label="Image results table"]');
+      const el = grid ?? table;
+      if (!el) return 0;
+      const maxScroll = el.scrollHeight - el.clientHeight;
+      return maxScroll > 0 ? el.scrollTop / maxScroll : 0;
+    });
+  }
+
+  /** Wait until the buffer is fully filled (scroll mode activates). */
+  async waitForScrollMode(timeout = 10_000) {
+    await this.page.waitForFunction(
+      () => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const s = store.getState();
+        return s.total > 0 && s.results.length >= s.total;
+      },
+        null,
+        { timeout },
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Two-tier virtualisation helpers
+  // -------------------------------------------------------------------------
+
+  /**
+   * Wait until the position map is loaded (background fetch completed).
+   * The position map loads after the initial search for result sets with
+   * SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD.
+   */
+  async waitForPositionMap(timeout = 30_000) {
+    await this.page.waitForFunction(
+      () => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const s = store.getState();
+        return s.positionMap !== null && !s.positionMapLoading;
+      },
+      undefined,
+      { timeout },
+    );
+  }
+
+  /**
+   * Check if two-tier virtualisation is active.
+   * Derived from total range (matching app logic), NOT positionMap.
+   */
+  async isTwoTierMode(): Promise<boolean> {
+    return this.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      if (!store) return false;
+      const s = store.getState();
+      // Must match the derivation in useDataWindow.ts
+      const SCROLL_MODE_THRESHOLD = 1000;
+      const POSITION_MAP_THRESHOLD = 65_000;
+      return POSITION_MAP_THRESHOLD > 0 && s.total > SCROLL_MODE_THRESHOLD && s.total <= POSITION_MAP_THRESHOLD;
+    });
+  }
+
+  /**
+   * Drag the scrubber thumb to a target ratio (0 = top, 1 = bottom).
+   * This simulates a real pointer drag on the thumb element.
+   *
+   * Two-tier and position-map aware, mirroring seekTo (H2/H5): waits for the
+   * position map before dragging if not yet loaded, and waits for the
+   * resulting seek to settle properly afterward instead of a bare
+   * `waitForTimeout` (which could return while pre-seek content was still
+   * displayed).
+   */
+  async dragScrubberTo(ratio: number, opts?: { waitForPositionMap?: boolean }) {
+    const track = this.scrubber;
+    const thumb = this.scrubberThumb;
+
+    const trackBox = await track.boundingBox();
+    if (!trackBox) throw new Error("Scrubber track not visible");
+
+    const thumbBox = await thumb.boundingBox();
+    if (!thumbBox) throw new Error("Scrubber thumb not visible");
+
+    const before = await this.snapshotScrubberState();
+    await this.ensurePositionMapIfTwoTier(before, opts?.waitForPositionMap ?? true);
+
+    // Start from thumb center
+    const startX = thumbBox.x + thumbBox.width / 2;
+    const startY = thumbBox.y + thumbBox.height / 2;
+
+    // Target Y within the track
+    const targetY = trackBox.y + ratio * trackBox.height;
+
+    // Perform drag: pointerdown on thumb, move to target, pointerup
+    await this.page.mouse.move(startX, startY);
+    await this.page.mouse.down();
+    // Move in steps for realistic drag
+    const steps = 10;
+    for (let i = 1; i <= steps; i++) {
+      const y = startY + (targetY - startY) * (i / steps);
+      await this.page.mouse.move(startX, y);
+    }
+    await this.page.mouse.up();
+
+    await this.waitForScrubberSeekSettle(before);
+  }
+
+  /** Click on the scrubber track at a given ratio (0 = top, 1 = bottom). */
+  async clickScrubberAt(ratio: number) {
+    const trackBox = await this.scrubber.boundingBox();
+    if (!trackBox) throw new Error("Scrubber track not visible");
+
+    const before = await this.snapshotScrubberState();
+    const x = trackBox.x + trackBox.width / 2;
+    const y = trackBox.y + ratio * trackBox.height;
+    await this.page.mouse.click(x, y);
+
+    await this.waitForScrubberSeekSettle(before);
+  }
+
+  // -------------------------------------------------------------------------
+  // Sort
+  // -------------------------------------------------------------------------
+
+  /** Open sort dropdown and select a sort field by label. */
+  async selectSort(label: string) {
+    const previousOrderBy = await this.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      return store?.getState().params.orderBy;
+    });
+
+    // Click the sort button to open dropdown
+    const sortButton = this.page.locator('button[aria-haspopup="listbox"]');
+    await sortButton.click();
+
+    // Wait for dropdown to appear
+    const dropdown = this.page.locator('[role="listbox"][aria-label="Sort field"]');
+    await dropdown.waitFor({ state: "visible" });
+
+    // Click the option
+    const option = dropdown.locator(`[role="option"]`).filter({ hasText: label });
+    const expectedSortKey = await option.getAttribute("data-sort-key");
+    if (!expectedSortKey) throw new Error(`Sort option "${label}" has no data-sort-key`);
+    await option.click();
+
+    await this.page.waitForFunction(
+      ({ expected, previous }) => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const state = store.getState();
+        const primarySort = state.params.orderBy?.split(",")[0]?.replace(/^-/, "");
+        return state.params.orderBy !== previous
+          && primarySort === expected
+          && !state.loading
+          && state.sortAroundFocusStatus === null
+          && state.results.length > 0;
+      },
+      { expected: expectedSortKey, previous: previousOrderBy },
+    );
+  }
+
+  /** Toggle sort direction (ascending ↔ descending). */
+  async toggleSortDirection() {
+    const previousOrderBy = await this.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      return store?.getState().params.orderBy;
+    });
+    const btn = this.page.locator('button[aria-label*="Sort"][aria-label*="click to sort"]');
+    await btn.click();
+    await this.page.waitForFunction(
+      (previous) => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const state = store.getState();
+        return state.params.orderBy !== previous
+          && !state.loading
+          && state.sortAroundFocusStatus === null
+          && state.results.length > 0;
+      },
+      previousOrderBy,
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Density switch
+  // -------------------------------------------------------------------------
+
+  private async getDensityRestoreGeneration(): Promise<number | null> {
+    return this.page.evaluate(() => {
+      const getGeneration = (window as any).__kupua_getDensityRestoreGeneration__ as (() => number) | undefined;
+      return getGeneration?.() ?? null;
+    });
+  }
+
+  private async waitForDensityRestore(previousGeneration: number | null) {
+    if (previousGeneration === null) return;
+    await this.page.waitForFunction(
+      (previous) => {
+        const getGeneration = (window as any).__kupua_getDensityRestoreGeneration__ as (() => number) | undefined;
+        return getGeneration !== undefined && getGeneration() > previous;
+      },
+      previousGeneration,
+      { timeout: 5_000 },
+    );
+  }
+
+  /** Switch to grid view. */
+  async switchToGrid() {
+    const btn = await getDensityChangeButton(this.page, "grid");
+    if (btn) {
+      const previousGeneration = await this.getDensityRestoreGeneration();
+      await btn.click();
+      await this.waitForDensityRestore(previousGeneration);
+      await this.waitForResults();
+      await this.waitForExtendReady();
+    }
+  }
+
+  /** Switch to table view. */
+  async switchToTable() {
+    const btn = await getDensityChangeButton(this.page, "table");
+    if (btn) {
+      const previousGeneration = await this.getDensityRestoreGeneration();
+      await btn.click();
+      await this.waitForDensityRestore(previousGeneration);
+      await this.waitForResults();
+      await this.waitForExtendReady();
+    }
+  }
+
+  /**
+   * Wait until the store's extend cooldown has expired after a density switch.
+   *
+  * A query may still be completing around a density switch. Its existing
+  * cooldown blocks extendForward/extendBackward
+   * are blocked — so wheel events can only scroll within the initial buffer.
+   * Once scrollTop hits the buffer's max, further wheel events are no-ops.
+   *
+   * This polls the store's `loading` state until it clears (search response
+   * arrived), then waits 200ms for the post-search SEEK_COOLDOWN_MS (100ms)
+   * to expire with margin. Total added wait: ~200-500ms (vs 2500ms before).
+   */
+  async waitForExtendReady(timeout = 5_000) {
+    // Wait for loading to clear — search response has arrived
+    await this.page.waitForFunction(
+      () => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return true; // no store = local tests without store exposure
+        return !store.getState().loading;
+      },
+      null,
+      { timeout },
+    );
+    // Wait for SEEK_COOLDOWN_MS (100ms) + margin to expire.
+    // The search() completion sets _seekCooldownUntil = Date.now() + 100.
+    // 200ms gives a comfortable margin without being wasteful.
+    await this.page.waitForTimeout(200);
+  }
+
+  /** Check if currently in grid view. */
+  async isGridView(): Promise<boolean> {
+    return (await this.page.locator('[aria-label="Image results grid"]').count()) > 0;
+  }
+
+  /** Check if currently in table view. */
+  async isTableView(): Promise<boolean> {
+    return (await this.page.locator('[aria-label="Image results table"]').count()) > 0;
+  }
+
+  // -------------------------------------------------------------------------
+  // Focus mode pinning
+  // -------------------------------------------------------------------------
+
+  /**
+   * Pin focus mode to "explicit" via localStorage before any navigation.
+   * Must be called BEFORE goto() / page.goto(). Uses addInitScript so the
+   * value is set on every subsequent navigation within the test.
+   */
+  async ensureExplicitMode() {
+    await this.page.addInitScript(() => {
+      localStorage.setItem(
+        "kupua-ui-prefs",
+        JSON.stringify({ state: { focusMode: "explicit" }, version: 0 }),
+      );
+    });
+  }
+
+  /**
+   * Pin focus mode to "phantom" via localStorage before any navigation.
+   * Must be called BEFORE goto() / page.goto().
+   */
+  async ensurePhantomMode() {
+    await this.page.addInitScript(() => {
+      localStorage.setItem(
+        "kupua-ui-prefs",
+        JSON.stringify({ state: { focusMode: "phantom" }, version: 0 }),
+      );
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Focus
+  // -------------------------------------------------------------------------
+
+  /**
+   * Click the Nth visible row/cell to focus it (0-based).
+   *
+   * F3: a plain `.click()` here can enter a runaway ~10s failure loop in
+   * two-tier mode — Playwright's own actionability check calls
+   * `scrollIntoViewIfNeeded()`, which can nudge the virtualized container's
+   * scrollTop, causing the virtualizer to re-render a different row range,
+   * which moves/unmounts the target, which fails the hit-test, which
+   * retries, diverging instead of converging. `force: true` skips that
+   * retry path entirely — safe here because `waitForStableNthImageId`
+   * already confirmed the target id is genuinely stable immediately before
+   * this call.
+   *
+   * `force: true` alone can still fail fast with "outside of the viewport"
+   * — Playwright's own scrollIntoView doesn't always fully clear the row
+   * (e.g. left partly behind the sticky table header). One deterministic
+   * correction using the row's own `translateY` (rather than the browser's
+   * scrollIntoView heuristic) resolves this in practice; retried once.
+   */
+  async focusNthItem(n: number) {
+    const focusMode = await this.page.evaluate(() => {
+      const stored = localStorage.getItem("kupua-ui-prefs");
+      if (!stored) return "explicit";
+      try {
+        return JSON.parse(stored)?.state?.focusMode ?? "explicit";
+      } catch {
+        return "explicit";
+      }
+    });
+    if (focusMode !== "explicit") {
+      throw new Error(`focusNthItem requires explicit focus mode, got "${focusMode}"`);
+    }
+
+    const isGrid = await this.isGridView();
+    const containerSelector = isGrid
+      ? '[aria-label="Image results grid"]'
+      : '[aria-label="Image results table"]';
+    const selector = isGrid
+      ? `${containerSelector} [class*="cursor-pointer"]`
+      : `${containerSelector} [role="row"][class*="cursor-pointer"]`;
+    const id = await waitForStableNthImageId(this.page, selector, n);
+    const rowSelector = `${selector}[data-image-id="${id}"]`;
+    const target = this.page.locator(rowSelector);
+    try {
+      await target.click({ force: true });
+    } catch (e) {
+      if (!(e instanceof Error) || !e.message.includes("outside of the viewport")) throw e;
+      await this.page.evaluate(
+        ({ containerSel, rowSel }) => {
+          const container = document.querySelector(containerSel);
+          const row = document.querySelector<HTMLElement>(rowSel);
+          if (!container || !row) return;
+          const match = /translateY\(([\d.]+)px\)/.exec(row.style.transform || "");
+          if (!match) return;
+          const rowTop = parseFloat(match[1]);
+          const rowHeight = row.getBoundingClientRect().height;
+          container.scrollTop = rowTop - container.clientHeight / 2 + rowHeight / 2;
+        },
+        { containerSel: containerSelector, rowSel: rowSelector },
+      );
+      await target.click({ force: true });
+    }
+    await this.page.waitForFunction(
+      (expectedId) => {
+        const store = (window as any).__kupua_store__;
+        return store?.getState().focusedImageId === expectedId;
+      },
+      id,
+    );
+  }
+
+  /** Get the currently focused image ID from the store. */
+  async getFocusedImageId(): Promise<string | null> {
+    return this.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      return store?.getState().focusedImageId ?? null;
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Scroll position
+  // -------------------------------------------------------------------------
+
+  /** Get the scroll container's scrollTop. */
+  async getScrollTop(): Promise<number> {
+    return this.page.evaluate(() => {
+      const grid = document.querySelector('[aria-label="Image results grid"]');
+      const table = document.querySelector('[aria-label="Image results table"]');
+      return (grid ?? table)?.scrollTop ?? 0;
+    });
+  }
+
+  /** Wait for a completed backward prepend that makes real buffer progress. */
+  async waitForBackwardPrepend(
+    baseline: { prependGeneration: number; bufferOffset: number },
+    timeout = 5000,
+  ) {
+    await this.page.waitForFunction(
+      ({ generation, offset }) => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const state = store.getState();
+        return state._prependGeneration > generation
+          && state.bufferOffset < offset
+          && !state._extendBackwardInFlight
+          && !state.loading;
+      },
+      {
+        generation: baseline.prependGeneration,
+        offset: baseline.bufferOffset,
+      },
+      { timeout },
+    );
+  }
+
+  /** Scroll the content container by a given number of pixels. */
+  async scrollBy(deltaY: number) {
+    await this.page.evaluate((dy) => {
+      const grid = document.querySelector('[aria-label="Image results grid"]');
+      const table = document.querySelector('[aria-label="Image results table"]');
+      const el = grid ?? table;
+      if (el) el.scrollTop += dy;
+    }, deltaY);
+    await this.page.waitForTimeout(100);
+  }
+
+  /** Press Page Down in the content area. */
+  async pageDown() {
+    await this.page.keyboard.press("PageDown");
+    await this.page.waitForTimeout(300);
+  }
+
+  /**
+   * Wait for sort-around-focus to complete (status null, loading false).
+   */
+  async waitForSortAroundFocus(timeout = 15_000) {
+    await this.page.waitForFunction(
+      () => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const s = store.getState();
+        return s.sortAroundFocusStatus === null && !s.loading;
+      },
+      null,
+      { timeout },
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Console log capture — for telemetry assertions
+  // -------------------------------------------------------------------------
+
+  private _consoleLogs: string[] = [];
+  private _consoleListenerAttached = false;
+
+  /**
+   * Start capturing browser console messages.
+   * Call before the action whose logs you want to capture.
+   * Subsequent calls clear previous captures.
+   */
+  startConsoleCapture() {
+    this._consoleLogs = [];
+    if (!this._consoleListenerAttached) {
+      this.page.on("console", (msg) => {
+        this._consoleLogs.push(msg.text());
+      });
+      this._consoleListenerAttached = true;
+    }
+  }
+
+  /**
+   * Return captured console messages matching `pattern`.
+   * Useful for checking telemetry logs from findKeywordSortValue etc.
+   */
+  getConsoleLogs(pattern?: RegExp): string[] {
+    if (!pattern) return [...this._consoleLogs];
+    return this._consoleLogs.filter((line) => pattern.test(line));
+  }
+
+  // -------------------------------------------------------------------------
+  // Buffer capacity helpers — shared by Bug #16, #17, and image-detail tests
+  // -------------------------------------------------------------------------
+
+  /**
+   * Scroll the current view to near-bottom repeatedly to trigger
+   * extend+evict cycles until the buffer reaches capacity or we give up.
+   * Seeks to `seekRatio` first to ensure there is data ahead.
+   *
+   * Returns the store state after scrolling settles.
+   */
+  async scrollToBufferCapacity(seekRatio = 0.15) {
+    await this.seekTo(seekRatio);
+    // Grid rows are tall (303px) so we may need more iterations than table
+    // (32px) to scroll far enough to trigger extend+evict cycles.
+    // We also dispatch a synthetic scroll event because headless Chromium
+    // doesn't reliably fire native scroll events for programmatic scrollTop
+    // changes.
+    for (let i = 0; i < 15; i++) {
+      await this.page.evaluate(() => {
+        const grid = document.querySelector('[aria-label="Image results grid"]');
+        const table = document.querySelector('[aria-label="Image results table"]');
+        const el = grid ?? table;
+        if (el) {
+          el.scrollTop = el.scrollHeight;
+          el.dispatchEvent(new Event("scroll"));
+        }
+      });
+      await this.page.waitForTimeout(400);
+    }
+    await this.page.waitForTimeout(1000);
+    return this.getStoreState();
+  }
+
+  // -------------------------------------------------------------------------
+  // Image detail helpers
+  // -------------------------------------------------------------------------
+
+  /**
+   * Open image detail for the Nth visible item. Returns the image ID.
+   * Mode-independent: uses dblclick which works in both explicit and phantom.
+   * Resolves and clicks one stable DOM identity so virtualizer coordinates
+   * cannot diverge from the returned image ID.
+   */
+  async openDetailForNthItem(n: number): Promise<string> {
+    const selector = await this.isGridView()
+      ? '[aria-label="Image results grid"] [class*="cursor-pointer"]'
+      : '[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]';
+    const id = await waitForStableNthImageId(this.page, selector, n);
+    await this.page.locator(`${selector}[data-image-id="${id}"]`).dblclick();
+
+    await this.page.waitForFunction(
+      (expectedId) => new URL(window.location.href).searchParams.get("image") === expectedId,
+      id,
+      { timeout: 5000 },
+    );
+    await expect(
+      this.page.locator(`[data-detail-image-id="${id}"]`),
+    ).toBeVisible({ timeout: 5000 });
+    return id;
+  }
+
+  /** Wait for both route state and the rendered detail overlay to be gone. */
+  async waitForDetailClosed(timeout = 5000) {
+    await this.page.waitForFunction(
+      () => !new URL(window.location.href).searchParams.has("image")
+        && document.querySelector("[data-detail-image-id]") === null,
+      null,
+      { timeout },
+    );
+  }
+
+  /** Close image detail via Backspace key. */
+  async closeDetailViaBackspace() {
+    await this.page.keyboard.press("Backspace");
+    await this.waitForDetailClosed();
+  }
+
+  /** Close image detail via the "Back to search" button. */
+  async closeDetailViaButton() {
+    await this.page.locator("button", { hasText: "Back to search" }).click();
+    await this.waitForDetailClosed();
+  }
+
+  /** Get the image ID currently shown in the detail overlay from the URL. */
+  async getDetailImageId(): Promise<string | null> {
+    return this.page.evaluate(
+      () => new URL(window.location.href).searchParams.get("image"),
+    );
+  }
+
+  /**
+   * Get the image ID actually rendered by the ImageDetail component.
+   * Reads the data-detail-image-id attribute set on ImageDetail's root element,
+   * which reflects what the component resolved from the buffer — not just the URL.
+   * Returns null if no detail overlay is present.
+   */
+  async getRenderedDetailImageId(): Promise<string | null> {
+    return this.page.evaluate(
+      () =>
+        document
+          .querySelector("[data-detail-image-id]")
+          ?.getAttribute("data-detail-image-id") ?? null,
+    );
+  }
+
+  /**
+   * Wait until the expected detail identity owns a visible decoded image and
+   * both image/surface geometry remain stable over the next animation frame.
+   * This proves decode/readiness and stable layout, not compositor paint.
+   */
+  async waitForDecodedDetailImage(expectedId: string, timeout = 10_000) {
+    await this.page.evaluate(
+      async ({ targetId, timeoutMs }) => {
+        const deadline = performance.now() + timeoutMs;
+        const selector = `[data-detail-image-id="${CSS.escape(targetId)}"]`;
+        const stable = (left: DOMRect, right: DOMRect) =>
+          Math.abs(left.top - right.top) <= 1
+          && Math.abs(left.left - right.left) <= 1
+          && Math.abs(left.width - right.width) <= 1
+          && Math.abs(left.height - right.height) <= 1;
+        while (performance.now() < deadline) {
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+          const detail = document.querySelector(selector);
+          const image = detail?.querySelector('img[fetchpriority="high"]') as HTMLImageElement | null;
+          if (!detail || !image || new URL(location.href).searchParams.get("image") !== targetId) continue;
+          if (!image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0) continue;
+          const source = image.currentSrc;
+          const firstImage = image.getBoundingClientRect();
+          const firstDetail = detail.getBoundingClientRect();
+          if (firstImage.width <= 0 || firstImage.height <= 0
+            || firstImage.bottom <= 0 || firstImage.top >= innerHeight
+            || firstImage.right <= 0 || firstImage.left >= innerWidth) continue;
+          try { await image.decode(); } catch { continue; }
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+          if (!image.isConnected || document.querySelector(selector) !== detail
+            || detail.querySelector('img[fetchpriority="high"]') !== image
+            || new URL(location.href).searchParams.get("image") !== targetId
+            || image.currentSrc !== source || !image.complete) continue;
+          if (stable(firstImage, image.getBoundingClientRect())
+            && stable(firstDetail, detail.getBoundingClientRect())) return;
+        }
+        throw new Error("Expected detail image did not become decoded and visibly stable before the deadline");
+      },
+      { targetId: expectedId, timeoutMs: timeout },
+    );
+  }
+
+  /** Wait for native fullscreen state while the expected ImageDetail remains rendered. */
+  async waitForImageDetailFullscreenState(
+    expectedId: string,
+    active: boolean,
+    timeout = 10_000,
+  ) {
+    try {
+      await this.page.waitForFunction(
+        ({ targetId, targetActive }) => {
+          const detail = document.querySelector(`[data-detail-image-id="${CSS.escape(targetId)}"]`);
+          const preview = document.querySelector('[data-fullscreen-preview="active"]');
+          const fullscreenActive = document.fullscreenElement !== null;
+          return !!detail && !preview && fullscreenActive === targetActive;
+        },
+        { targetId: expectedId, targetActive: active },
+        { timeout },
+      );
+    } catch (error) {
+      const diagnostic = await this.page.evaluate((targetId) => ({
+        detailPresent: !!document.querySelector(`[data-detail-image-id="${CSS.escape(targetId)}"]`),
+        nativeFullscreenActive: document.fullscreenElement !== null,
+        previewActive: !!document.querySelector('[data-fullscreen-preview="active"]'),
+        routeMatchesDetail: new URL(location.href).searchParams.get("image")
+          === document.querySelector("[data-detail-image-id]")?.getAttribute("data-detail-image-id"),
+      }), expectedId);
+      throw new Error(`ImageDetail fullscreen state did not reach ${active ? "active" : "inactive"}: ${JSON.stringify(diagnostic)}`, { cause: error });
+    }
+  }
+
+  /**
+   * Navigate to next image and wait for the URL ?image= param to change.
+   * Use for normal-speed traversal where you want to confirm each step.
+   */
+  async detailNextAndWait(timeout = 5000) {
+    const before = await this.getDetailImageId();
+    await this.page.keyboard.press("ArrowRight");
+    const nextId = await this.page.waitForFunction(
+      (prev) => {
+        const next = new URL(window.location.href).searchParams.get("image");
+        return next !== prev ? next : false;
+      },
+      before,
+      { timeout },
+    );
+    await expect(
+      this.page.locator(`[data-detail-image-id="${await nextId.jsonValue()}"]`),
+    ).toBeVisible({ timeout });
+  }
+
+  /**
+   * Navigate to previous image and wait for the URL ?image= param to change.
+   */
+  async detailPrevAndWait(timeout = 5000) {
+    const before = await this.getDetailImageId();
+    await this.page.keyboard.press("ArrowLeft");
+    const previousId = await this.page.waitForFunction(
+      (prev) => {
+        const previous = new URL(window.location.href).searchParams.get("image");
+        return previous !== prev ? previous : false;
+      },
+      before,
+      { timeout },
+    );
+    await expect(
+      this.page.locator(`[data-detail-image-id="${await previousId.jsonValue()}"]`),
+    ).toBeVisible({ timeout });
+  }
+
+  // -------------------------------------------------------------------------
+  // Frame-accurate measurement primitives
+  // -------------------------------------------------------------------------
+
+  /**
+   * Sample scrollTop at requestAnimationFrame rate for `durationMs` milliseconds.
+   *
+   * Runs a rAF loop inside `page.evaluate` and returns one scrollTop sample per
+   * animation frame (~60fps → ~60 samples per second). This is the foundational
+   * measurement primitive for swimming detection: a 50ms setTimeout poll has ~50%
+   * chance of missing a 16-32ms event, while rAF captures every painted frame.
+   *
+  * Used by maintained browser tests and diagnostics.
+   */
+  async sampleScrollTopAtFrameRate(durationMs: number): Promise<number[]> {
+    return this.page.evaluate((duration) => {
+      return new Promise<number[]>((resolve) => {
+        const samples: number[] = [];
+        const grid = document.querySelector('[aria-label="Image results grid"]');
+        const table = document.querySelector('[aria-label="Image results table"]');
+        const el = grid ?? table;
+        if (!el) {
+          resolve([]);
+          return;
+        }
+
+        const start = performance.now();
+        function sample() {
+          samples.push(el!.scrollTop);
+          if (performance.now() - start < duration) {
+            requestAnimationFrame(sample);
+          } else {
+            resolve(samples);
+          }
+        }
+        requestAnimationFrame(sample);
+      });
+    }, durationMs);
+  }
+
+}

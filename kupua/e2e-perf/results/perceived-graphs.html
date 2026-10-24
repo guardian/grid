@@ -1,0 +1,838 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Kupua perceived-perf — all runs</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #161b22;
+    --fg: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --warn: #f85149;
+    --warn-bg: #3d1a1a;
+    --ok: #3fb950;
+  }
+  html, body { background: var(--bg); color: var(--fg); margin: 0; font-family: -apple-system, system-ui, sans-serif; }
+  header { padding: 16px 24px; border-bottom: 1px solid #30363d; }
+  h1 { margin: 0 0 4px; font-size: 18px; }
+  .sub { color: var(--muted); font-size: 12px; }
+  .controls { padding: 12px 24px; border-bottom: 1px solid #30363d; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .controls label { font-size: 13px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+  select, input, button { background: var(--panel); color: var(--fg); border: 1px solid #30363d; border-radius: 4px; padding: 4px 8px; font: inherit; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button:disabled { cursor: default; opacity: 0.45; }
+  :is(button, select, input):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .metric-navigation { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; }
+  .metric-guide { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+  .metric-guide strong { color: var(--fg); }
+  [hidden] { display: none !important; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 12px; padding: 16px 24px; }
+  .card { background: var(--panel); border: 1px solid #30363d; border-radius: 6px; padding: 10px 12px; }
+  .card-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .card h3 { margin: 0; font-size: 13px; font-weight: 600; }
+  .card .action-tag { font-size: 10px; color: var(--muted); background: rgba(255,255,255,0.05); padding: 1px 6px; border-radius: 10px; }
+  .metric-summary { color: var(--muted); font-size: 11px; margin-bottom: 6px; }
+  .mode-summary { display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; white-space: nowrap; }
+  .mode-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+  .metrics-row { display: flex; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+  .metric-chip { font-size: 11px; padding: 2px 8px; border-radius: 12px; border: 1px solid; }
+  .metric-chip.ok { color: var(--ok); border-color: rgba(63,185,80,0.3); background: rgba(63,185,80,0.08); }
+  .metric-chip.warn { color: var(--warn); border-color: rgba(248,81,73,0.3); background: rgba(248,81,73,0.08); }
+  .metric-chip.null { color: var(--muted); border-color: #30363d; }
+  canvas { display: block; width: 100% !important; height: 120px !important; }
+
+  .warn-banner {
+    margin: 12px 24px; padding: 10px 14px;
+    background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 6px;
+    font-size: 13px; color: var(--fg);
+  }
+  .warn-banner strong { color: var(--warn); }
+  .warn-banner code { background: rgba(0,0,0,0.4); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+
+  .picker {
+    margin: 24px; padding: 36px; border: 2px dashed #30363d; border-radius: 8px;
+    text-align: center; color: var(--muted);
+  }
+  .picker h2 { color: var(--fg); margin: 0 0 12px; font-size: 16px; }
+  .picker code { background: var(--panel); padding: 2px 6px; border-radius: 3px; font-size: 12px; color: var(--fg); }
+  .legend { padding: 0 24px 12px; font-size: 11px; color: var(--muted); }
+
+  /* Targets reference — shown at page top */
+  .targets { padding: 10px 24px; background: var(--panel); border-bottom: 1px solid #30363d; font-size: 11px; color: var(--muted); }
+  .targets strong { color: var(--fg); }
+  .targets table { border-collapse: collapse; }
+  .targets td, .targets th { padding: 2px 10px; text-align: left; }
+  .targets th { color: var(--muted); font-weight: normal; }
+  @media (max-width: 520px) {
+    header, .controls, .legend, .targets { padding-left: 12px; padding-right: 12px; }
+    .grid { grid-template-columns: minmax(0, 1fr); padding: 12px; }
+    .metric-navigation label { width: 100%; min-width: 0; }
+    .metric-navigation select { min-width: 0; width: 100%; }
+    .card-header { align-items: flex-start; flex-wrap: wrap; gap: 6px; }
+    .card .action-tag { max-width: 100%; overflow-wrap: anywhere; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Kupua perceived-perf — all audited runs</h1>
+  <nav aria-label="Performance dashboards"><a href="audit-graphs.html">Rendering performance</a> · <a href="density-graphs.html">Density comparisons and thumbnails</a></nav>
+  <div class="sub" id="sub">Loading…</div>
+  <div id="metricBanner" hidden style="margin-top:8px;padding:8px 12px;border-radius:6px;background:rgba(248,81,73,0.12);border:1px solid rgba(248,81,73,0.4);color:#f85149;font-size:13px;"></div>
+  <div style="margin-top:6px;font-size:11px;color:var(--muted);">Tip: use ← → arrow keys to cycle metrics</div>
+</header>
+
+<!-- Phase 1 targets (from perceived-perf-audit.md) -->
+<details class="targets">
+  <summary><strong>Phase 1 targets</strong> (from perceived-perf-audit.md) — click to expand</summary>
+  <table>
+    <tr><th>Action class</th><th>Target ack</th><th>Target settle (median)</th><th>Ceiling (p95)</th></tr>
+    <tr><td>Logo / home / reset / panel toggle</td><td>&lt;100 ms</td><td>&lt;200 ms</td><td>300 ms</td></tr>
+    <tr><td>Density swap</td><td>&lt;100 ms</td><td>&lt;400 ms</td><td>800 ms</td></tr>
+    <tr><td>Filter / sort toggle</td><td>&lt;100 ms</td><td>&lt;1 s</td><td>2 s</td></tr>
+    <tr><td>Search (warm)</td><td>&lt;100 ms</td><td>&lt;1.5 s first pixel</td><td>3 s</td></tr>
+    <tr><td>Search (cold)</td><td>&lt;100 ms</td><td>&lt;2.5 s first pixel</td><td>4 s</td></tr>
+    <tr><td>Sort-around-focus</td><td>&lt;100 ms</td><td>&lt;2 s</td><td>4 s; banner ≤2 s</td></tr>
+    <tr><td>Scrubber seek</td><td>&lt;100 ms click</td><td>&lt;1 s first pixel</td><td>2 s</td></tr>
+  </table>
+</details>
+
+<div id="picker" class="picker" hidden>
+  <h2>Couldn't auto-load <code>perceived-log.json</code></h2>
+  <p>Pick or drop the file:</p>
+  <p><input type="file" id="filepick" accept="application/json,.json" /></p>
+</div>
+
+<div id="warnings"></div>
+
+<div class="controls" id="controls" hidden>
+  <div class="metric-navigation">
+  <label>Metric
+    <select id="metric" aria-describedby="metricGuide">
+      <optgroup label="Action response">
+      <option value="dt_ack_ms" selected>Action acknowledgement (ms)</option>
+      <option value="dt_store_ready_ms">Store ready (ms)</option>
+      <option value="dt_first_visible_frame_ms">First visible frame (ms)</option>
+      <option value="dt_visual_settled_ms">Visual settled (ms)</option>
+      <option value="status_total_ms">Banner total (ms)</option>
+      </optgroup>
+      <optgroup label="Action response — 95th percentile">
+      <option value="dt_ack_p95_ms">Action acknowledgement p95 (ms)</option>
+      <option value="dt_status_p95_ms">Status p95 (ms)</option>
+      <option value="dt_store_ready_p95_ms">Store ready p95 (ms)</option>
+      <option value="dt_first_visible_frame_p95_ms">First visible frame p95 (ms)</option>
+      <option value="dt_visual_settled_p95_ms">Visual settled p95 (ms)</option>
+      <option value="status_total_p95_ms">Banner total p95 (ms)</option>
+      </optgroup>
+      <optgroup label="Fullscreen, samples and detail readiness">
+      <option value="dt_native_exit_ms">Native fullscreen exit (ms)</option>
+      <option value="sampleCount">Samples across repetitions</option>
+      <option value="imageLookupCount">Image metadata lookups (resident traversal: 0)</option>
+      <option value="detailLookupMs">Standalone lookup response (ms)</option>
+      <option value="detailMetadataReadyMs">Standalone metadata ready (ms)</option>
+      <option value="detailImageReadyMs">Standalone decoded image ready (ms; warm media)</option>
+      </optgroup>
+      <optgroup label="Position preservation and matched controls">
+      <option value="requestedRatio">Requested result ratio</option>
+      <option value="achievedRatio">Achieved result ratio</option>
+      <option value="anchorDriftPx">Anchor drift (px)</option>
+      <option value="anchorDriftRatio">Anchor drift (viewport ratio)</option>
+      <option value="mapEntryCount">Position-map entries</option>
+      <option value="matched_control_first_visible_ms">Matched control first visible (ms)</option>
+      <option value="matched_control_settled_ms">Matched control settled (ms)</option>
+      </optgroup>
+      <optgroup label="Legacy evidence (pre-revision-2 only)">
+        <option value="dt_first_pixel_ms">Legacy first pixel (ms)</option>
+        <option value="dt_settled_ms">Legacy settled (ms)</option>
+        <option value="dt_first_pixel_p95_ms">Legacy first pixel p95 (ms)</option>
+        <option value="dt_settled_p95_ms">Legacy settled p95 (ms)</option>
+      </optgroup>
+      <optgroup label="Store timing (post-settle)">
+        <option value="took">ES took (ms)</option>
+        <option value="fetchDuration">Fetch duration (ms)</option>
+        <option value="seekTime">Seek time (ms)</option>
+        <option value="aggTook">Agg took (ms)</option>
+        <option value="aggFetchDuration">Agg fetch duration (ms)</option>
+      </optgroup>
+    </select>
+  </label>
+    <button id="previousMetric" type="button">Previous metric</button>
+    <button id="nextMetric" type="button">Next metric</button>
+    <p id="metricGuide" class="metric-guide" role="status" aria-label="Metric guide" aria-live="polite" aria-atomic="true"></p>
+  </div>
+  <label><input type="checkbox" id="showShort" checked /> short (single-action)</label>
+  <label><input type="checkbox" id="showLong" checked /> long (journeys)</label>
+  <label><input type="checkbox" id="showImageProbes" checked /> jank-suite image probes</label>
+  <label><input type="checkbox" id="showDiagnostics" /> background diagnostics</label>
+  <label><input type="checkbox" id="comparableOnly" checked /> comparable within each mode</label>
+  <label><input type="checkbox" class="mode-filter" value="direct-es" checked /> direct ES</label>
+  <label><input type="checkbox" class="mode-filter" value="media-api" checked /> media-api</label>
+  <label><input type="checkbox" class="mode-filter" value="unknown" checked /> legacy/unknown</label>
+  <button id="reload">↺ Reload</button>
+</div>
+
+<div id="grid" class="grid" hidden></div>
+<h2 id="diagnosticHeading" hidden style="padding:0 24px;">Background diagnostics <span style="font-size:12px;color:var(--muted);font-weight:normal;">not ranked against user-action targets</span></h2>
+<div id="diagnosticGrid" class="grid" hidden></div>
+<div class="legend" id="legend" hidden>Each checked mode is a separate line: direct ES is blue, media-api is amber, and legacy/unknown is gray. Larger outlined points are the latest value in each mode. Cards show each mode's delta from its own preceding comparable run. Uncheck "comparable within each mode" to inspect legacy evidence across changed corpus, environment or scenario contracts. The green dashed line is the target. <strong>"—" chips are by-design gaps</strong>: actions emit only the explicit phases they own.</div>
+
+<!-- Load sibling .js sidecar BEFORE the inline script so window.__PERCEIVED_LOG__ is set when the check runs (mirrors audit-graphs.html pattern). -->
+<script src="perceived-log.js" onerror="window.__PERCEIVED_LOG_LOAD_FAILED__=true"></script>
+<script src="audit-log.js" onerror="window.__AUDIT_LOG_LOAD_FAILED__=true"></script>
+
+<script>
+// ---------------------------------------------------------------------------
+// Targets (action → {ack, settle, ceiling} in ms)
+// ---------------------------------------------------------------------------
+const TARGETS = {
+  "home-logo":          { ack: 100, settle: 200,  ceiling: 300  },
+  "density-swap":       { ack: 100, settle: 400,  ceiling: 800  },
+  "filter-toggle":      { ack: 100, settle: 1000, ceiling: 2000 },
+  "sort-no-focus":      { ack: 100, settle: 1000, ceiling: 2000 },
+  "sort-around-focus":  { ack: 100, settle: 2000, ceiling: 4000, bannerCeiling: 2000 },
+  "scrubber-seek":      { ack: 100, settle: 2000, ceiling: 2000 },
+  "search":             { ack: 100, settle: 1500, ceiling: 3000 },
+};
+
+// Which metric to show in the sparkline (driven by the <select>)
+let currentMetric = "dt_ack_ms";
+// Which kinds to include (driven by checkboxes). Entries written before
+// the kind field existed are treated as "short" for back-compat.
+let showShort = true;
+let showLong = true;
+let showImageProbes = true;
+let showDiagnostics = false;
+let comparableOnly = true;
+function entryKind(e) { return e.kind ?? "short"; }
+function entryMode(e) {
+  const mode = e.environment?.dataMode;
+  return mode === "direct-es" || mode === "media-api" ? mode : "unknown";
+}
+const MODE_STYLES = {
+  "direct-es": { label: "direct ES", color: "#58a6ff", fill: "rgba(88,166,255,0.12)" },
+  "media-api": { label: "media-api", color: "#f2a65a", fill: "rgba(242,166,90,0.12)" },
+  unknown: { label: "legacy/unknown", color: "#8b949e", fill: "rgba(139,148,158,0.10)" },
+};
+function visibleModeSet() {
+  return new Set([...document.querySelectorAll(".mode-filter:checked")].map((input) => input.value));
+}
+function visibleEntries(entries) {
+  const modes = visibleModeSet();
+  return entries.filter((e) => {
+    const k = entryKind(e);
+    return modes.has(entryMode(e)) && ((k === "short" && showShort) || (k === "long" && showLong)
+      || (k === "jank-probes" && showImageProbes));
+  });
+}
+const METRIC_LABELS = {
+  dt_ack_ms: "Action acknowledgement (ms)",
+  dt_first_pixel_ms: "Legacy first pixel (ms)",
+  dt_settled_ms: "Legacy settled (ms)",
+  status_total_ms: "Banner total (ms)",
+  dt_ack_p95_ms: "Action acknowledgement p95 (ms)",
+  dt_status_p95_ms: "Status p95 (ms)",
+  dt_first_pixel_p95_ms: "Legacy first pixel p95 (ms)",
+  dt_settled_p95_ms: "Legacy settled p95 (ms)",
+  status_total_p95_ms: "Banner total p95 (ms)",
+  dt_store_ready_ms: "Store ready (ms)",
+  dt_native_exit_ms: "Native fullscreen exit (ms)",
+  dt_native_exit_p95_ms: "Native fullscreen exit p95 (ms)",
+  dt_first_visible_frame_ms: "First visible frame (ms)",
+  dt_visual_settled_ms: "Visual settled (ms)",
+  dt_store_ready_p95_ms: "Store ready p95 (ms)",
+  dt_first_visible_frame_p95_ms: "First visible frame p95 (ms)",
+  dt_visual_settled_p95_ms: "Visual settled p95 (ms)",
+  took: "ES took (ms)",
+  fetchDuration: "Fetch duration (ms)",
+  seekTime: "Seek time (ms)",
+  aggTook: "Agg took (ms)",
+  aggFetchDuration: "Agg fetch duration (ms)",
+  sampleCount: "Samples across repetitions",
+  imageLookupCount: "Image metadata lookups (resident traversal: 0)",
+  detailLookupMs: "Standalone lookup response (ms)",
+  detailMetadataReadyMs: "Standalone metadata ready (ms)",
+  detailImageReadyMs: "Standalone decoded image ready (ms; warm media)",
+  requestedRatio: "Requested result ratio",
+  achievedRatio: "Achieved result ratio",
+  anchorDriftPx: "Anchor drift (px)",
+  anchorDriftRatio: "Anchor drift (viewport ratio)",
+  mapEntryCount: "Position-map entries",
+  matched_control_first_visible_ms: "Matched control first visible (ms)",
+  matched_control_settled_ms: "Matched control settled (ms)",
+  matched_control_first_visible_p95_ms: "Matched control first visible p95 (ms)",
+  matched_control_settled_p95_ms: "Matched control settled p95 (ms)",
+};
+
+const METRIC_HELP = {
+  dt_ack_ms: "Time from user action to synchronous acknowledgement; this is not a painted frame.",
+  dt_status_ms: "Time from user action until a status banner or spinner is shown.",
+  dt_store_ready_ms: "Time from user action until the store is ready; this is not visual completion.",
+  dt_first_visible_frame_ms: "Time from user action to the first browser frame with target content.",
+  dt_visual_settled_ms: "Time from user action until target content is stable over the scenario window.",
+  status_total_ms: "Total time spent showing status banners.",
+  dt_native_exit_ms: "Time from user action to native fullscreen exit.",
+  sampleCount: "Number of samples across repetitions. Context only; more samples is not faster performance.",
+  imageLookupCount: "Metadata lookup count; resident traversal expects zero lookups.",
+  detailLookupMs: "Standalone detail lookup response time; metadata is not resident.",
+  detailMetadataReadyMs: "Time until standalone detail metadata is ready.",
+  detailImageReadyMs: "Time until the standalone detail image is decoded and stable; media is warm.",
+  requestedRatio: "Requested position as a fraction of the result set. Context only; compare with achieved ratio.",
+  achievedRatio: "Achieved position as a fraction of the result set. Context only; compare with requested ratio.",
+  anchorDriftPx: "Signed anchor displacement in pixels. Closer to zero is better.",
+  anchorDriftRatio: "Signed anchor displacement as a fraction of viewport height. Closer to zero is better.",
+  mapEntryCount: "Number of position-map entries. Context only; not a speed score.",
+  matched_control_first_visible_ms: "First-visible-frame timing for the matched control action.",
+  matched_control_settled_ms: "Visual-settlement timing for the matched control action.",
+  dt_first_pixel_ms: "Legacy first-pixel evidence from before scenario revision 2; not interchangeable with first visible frame.",
+  dt_settled_ms: "Legacy settled evidence from before scenario revision 2; not interchangeable with visual settlement.",
+  took: "Elasticsearch-reported query time, captured after settlement; not total user-action latency.",
+  fetchDuration: "Store fetch duration, captured after settlement; not total user-action latency.",
+  seekTime: "Store seek time, captured after settlement; not total user-action latency.",
+  aggTook: "Elasticsearch-reported aggregation time, captured after settlement.",
+  aggFetchDuration: "Aggregation fetch duration, captured after settlement.",
+};
+
+function metricUnit(metric) {
+  if (["requestedRatio", "achievedRatio", "anchorDriftRatio"].includes(metric)) return "";
+  if (metric === "anchorDriftPx") return "px";
+  if (["sampleCount", "mapEntryCount", "imageLookupCount"].includes(metric)) return "";
+  return "ms";
+}
+
+function formatMetricValue(metric, value) {
+  if (value == null || !Number.isFinite(value)) return "—";
+  const maximumFractionDigits = Math.abs(value) < 1 && value !== 0 ? 4 : 1;
+  return `${value.toLocaleString(undefined, { maximumFractionDigits })}${metricUnit(metric)}`;
+}
+
+function environmentKey(entry) {
+  const environment = entry.environment;
+  if (!environment) return "legacy";
+  return JSON.stringify({
+    dataMode: environment.dataMode,
+    browserName: environment.browserName,
+    browserVersion: environment.browserVersion,
+    viewport: environment.viewport,
+    screen: environment.screen,
+    deviceScaleFactor: environment.deviceScaleFactor,
+    appBaseUrl: environment.appBaseUrl,
+    os: environment.os,
+    headed: environment.headed,
+    cpuThrottle: environment.cpuThrottle,
+    cacheClass: environment.cacheClass,
+    workers: environment.workers,
+    stableUntil: entry.stableUntil,
+  });
+}
+
+function metricsComparable(entry, metric, referenceEntry, referenceMetric) {
+  if (environmentKey(entry) !== environmentKey(referenceEntry)) return false;
+  if ((referenceMetric.scenarioRevision ?? null) !== (metric.scenarioRevision ?? null)) return false;
+  if ((referenceMetric.cacheClass ?? null) !== (metric.cacheClass ?? null)) return false;
+  if ((referenceMetric.completionBoundary ?? null) !== (metric.completionBoundary ?? null)) return false;
+  if ((referenceMetric.resultRegime ?? null) !== (metric.resultRegime ?? null)) return false;
+  if (JSON.stringify(referenceMetric.routes ?? null) !== JSON.stringify(metric.routes ?? null)) return false;
+  return true;
+}
+
+function sourceMatchLabel(directEntry, apiEntry) {
+  if (directEntry.gitSha !== apiEntry.gitSha) return "commit differs";
+  const directHash = directEntry.environment?.appSourceDirtyStateHash;
+  const apiHash = apiEntry.environment?.appSourceDirtyStateHash;
+  if (!directHash || !apiHash) return "app source unverified";
+  return directHash === apiHash ? "app source matched" : "app source differs";
+}
+
+const STORE_TIMING_METRICS = new Set(["took", "fetchDuration", "seekTime", "aggTook", "aggFetchDuration"]);
+
+function perceivedMetricValue(record, metric) {
+  if (!record) return null;
+  if (STORE_TIMING_METRICS.has(metric)
+    && !record.routes?.some((route) => route === "direct-es" || route === "media-api")) return null;
+  return Number.isFinite(record[metric]) ? record[metric] : null;
+}
+
+function pairedModeSummary(modeSeries, metric) {
+  const direct = modeSeries.find((series) => series.mode === "direct-es");
+  const api = modeSeries.find((series) => series.mode === "media-api");
+  if (!direct || !api) return "";
+  const delta = api.latestValue - direct.latestValue;
+  const deltaText = `${delta > 0 ? "+" : ""}${formatMetricValue(metric, delta)}`;
+  return `<span class="mode-summary"><strong>API − direct</strong> ${deltaText} · ${sourceMatchLabel(direct.latestEntry, api.latestEntry)}</span>`;
+}
+
+// Contract: every numeric field on PerceivedMetrics that the dashboard
+// is allowed to render. If perceived-short.spec.ts (or anything else
+// writing the log) starts emitting a metric not in this list, the
+// dashboard will silently drop it — so we surface a red banner instead.
+// Update this set + METRIC_LABELS + the <select id="metric"> options
+// + getTargetForAction() when adding a new metric.
+const KNOWN_METRICS = new Set([
+  "dt_ack_ms",
+  "dt_status_ms",
+  "dt_first_pixel_ms",
+  "dt_settled_ms",
+  "status_total_ms",
+  "dt_ack_p95_ms",
+  "dt_status_p95_ms",
+  "dt_first_pixel_p95_ms",
+  "dt_settled_p95_ms",
+  "status_total_p95_ms",
+  "dt_store_ready_ms",
+  "dt_native_exit_ms",
+  "dt_native_exit_p95_ms",
+  "dt_store_ready_p95_ms",
+  "dt_first_visible_frame_ms",
+  "dt_first_visible_frame_p95_ms",
+  "dt_visual_settled_ms",
+  "dt_visual_settled_p95_ms",
+  // Store-reported ES timing (harvested post-settle)
+  "took",
+  "fetchDuration",
+  "seekTime",
+  "aggTook",
+  "aggFetchDuration",
+  "sampleCount",
+  "imageLookupCount", "detailLookupMs", "detailMetadataReadyMs", "detailImageReadyMs",
+  "requestedRatio",
+  "achievedRatio",
+  "anchorDriftPx",
+  "anchorDriftRatio",
+  "matched_control_first_visible_ms",
+  "matched_control_first_visible_p95_ms",
+  "matched_control_settled_ms",
+  "matched_control_settled_p95_ms",
+  "mapEntryCount",
+]);
+// Non-numeric fields on each per-scenario record. Listed so the
+// unknown-metric scan can ignore them rather than warning.
+const NON_METRIC_FIELDS = new Set([
+  "id", "label", "action", "seekMeasures", "scenarioRevision", "settledTotal", "settledTotalMin", "settledTotalMax", "metricClass",
+  "cacheClass", "lookupGuardRevision",
+  "resultRegime", "routes", "matchedControlRoutes", "matchedControlDesign", "setupGlobalPosition", "setupBufferOffset", "setupBufferLength",
+  "setupVisibleRangeRatio", "setupExtended", "setupEvictGeneration", "setupEvictedCount",
+  "degradedCount", "degradedReasons",
+]);
+
+// ---------------------------------------------------------------------------
+// Load data
+// ---------------------------------------------------------------------------
+
+let LOG = null;
+
+function auditImageReadEntries(audit) {
+  return (audit?.entries ?? []).flatMap((entry) => {
+    const perceived = {};
+    for (const id of ["P13c", "P14a", "P14b", "P14c", "P14d"]) {
+      const metric = entry.metrics?.[id];
+      if (!Number.isFinite(metric?.imageLookupCount)) continue;
+      const record = {
+        label: id === "P13c" ? "Standalone detail, non-resident metadata / warm media" : "Resident traversal lookup guard",
+        action: id === "P13c" ? "standalone-detail" : "resident-traversal",
+      };
+      for (const field of ["imageLookupCount", "detailLookupMs", "detailMetadataReadyMs", "detailImageReadyMs", "sampleCount",
+        "scenarioRevision", "cacheClass", "lookupGuardRevision", "routes"]) {
+        if (metric[field] != null) record[field] = metric[field];
+      }
+      perceived[id] = record;
+    }
+    if (Object.keys(perceived).length === 0) return [];
+    const { metrics, ...context } = entry;
+    return [{ ...context, kind: "jank-probes", perceived }];
+  });
+}
+
+function ingestLog(data) {
+  const parsed = typeof data === "string" ? JSON.parse(data) : data;
+  const isAudit = (parsed.entries ?? []).some((entry) => entry.metrics);
+  const entries = isAudit ? auditImageReadEntries(parsed)
+    : [...(parsed.entries ?? []), ...auditImageReadEntries(window.__AUDIT_LOG__)];
+  LOG = { entries: entries.sort((first, second) => first.timestamp.localeCompare(second.timestamp)) };
+  for (const chart of charts.values()) chart.destroy();
+  charts.clear();
+  document.getElementById("grid").innerHTML = "";
+  document.getElementById("diagnosticGrid").innerHTML = "";
+  render();
+}
+
+// Autoload trigger — moved to bottom of script (after all declarations).
+// See IIFE at end of this <script> block.
+
+// File picker fallback
+document.getElementById("filepick").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => ingestLog(ev.target.result);
+  reader.readAsText(file);
+});
+
+document.getElementById("metric").addEventListener("change", (e) => {
+  currentMetric = e.target.value;
+  render();
+});
+document.getElementById("showShort").addEventListener("change", (e) => {
+  showShort = e.target.checked;
+  // Wipe cards — the visible set may shrink.
+  document.getElementById("grid").innerHTML = "";
+  for (const c of charts.values()) c.destroy();
+  charts.clear();
+  render();
+});
+document.getElementById("showLong").addEventListener("change", (e) => {
+  showLong = e.target.checked;
+  document.getElementById("grid").innerHTML = "";
+  for (const c of charts.values()) c.destroy();
+  charts.clear();
+  render();
+});
+document.getElementById("showDiagnostics").addEventListener("change", (e) => {
+  showDiagnostics = e.target.checked;
+  document.getElementById("diagnosticGrid").innerHTML = "";
+  for (const c of charts.values()) c.destroy();
+  charts.clear();
+  render();
+});
+document.getElementById("showImageProbes").addEventListener("change", (e) => {
+  showImageProbes = e.target.checked;
+  document.getElementById("grid").innerHTML = "";
+  for (const chart of charts.values()) chart.destroy();
+  charts.clear();
+  render();
+});
+document.getElementById("comparableOnly").addEventListener("change", (e) => {
+  comparableOnly = e.target.checked;
+  document.getElementById("grid").innerHTML = "";
+  document.getElementById("diagnosticGrid").innerHTML = "";
+  for (const c of charts.values()) c.destroy();
+  charts.clear();
+  render();
+});
+document.querySelectorAll(".mode-filter").forEach((input) => input.addEventListener("change", () => {
+  document.getElementById("grid").innerHTML = "";
+  for (const c of charts.values()) c.destroy();
+  charts.clear();
+  render();
+}));
+
+document.getElementById("reload").addEventListener("click", () => location.reload());
+
+function updateMetricGuide() {
+  const sel = document.getElementById("metric");
+  const baseMetric = currentMetric.replace("_p95_ms", "_ms");
+  const isContextOrDrift = ["sampleCount", "requestedRatio", "achievedRatio", "anchorDriftPx", "anchorDriftRatio", "mapEntryCount"].includes(baseMetric);
+  const percentile = currentMetric.includes("_p95_") ? " 95th percentile across repetitions, not the worst sample." : "";
+  document.getElementById("metricGuide").textContent =
+    `${METRIC_LABELS[currentMetric]} — ${METRIC_HELP[baseMetric]}${percentile}${isContextOrDrift ? "" : " Lower is better."}`;
+  document.getElementById("previousMetric").disabled = sel.selectedIndex <= 0;
+  document.getElementById("nextMetric").disabled = sel.selectedIndex >= sel.options.length - 1;
+}
+
+function moveMetric(direction) {
+  if (document.getElementById("controls").hidden) return;
+  const sel = document.getElementById("metric");
+  const index = Math.max(0, Math.min(sel.options.length - 1, sel.selectedIndex + direction));
+  if (index === sel.selectedIndex) return;
+  const scrollY = window.scrollY;
+  sel.selectedIndex = index;
+  sel.dispatchEvent(new Event("change"));
+  window.scrollTo(0, scrollY);
+}
+document.getElementById("previousMetric").addEventListener("click", () => moveMetric(-1));
+document.getElementById("nextMetric").addEventListener("click", () => moveMetric(1));
+
+// Keep native editing/navigation keys inside controls and editable content.
+document.addEventListener("keydown", (e) => {
+  if (e.defaultPrevented || e.isComposing || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || document.getElementById("controls").hidden) return;
+  if (e.target instanceof Element && (e.target.closest("input, select, textarea") || e.target.isContentEditable)) return;
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    e.preventDefault();
+    moveMetric(e.key === "ArrowLeft" ? -1 : 1);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Render
+// ---------------------------------------------------------------------------
+
+const charts = new Map(); // id → Chart instance
+
+function getTargetForAction(action, metric) {
+  const t = TARGETS[action] || {};
+  if (metric === "dt_ack_ms") return t.ack ?? null;
+  if (metric === "dt_visual_settled_ms") return t.settle ?? null;
+  if (metric === "dt_first_visible_frame_ms") return t.settle ?? null;
+  if (metric === "status_total_ms") return t.bannerCeiling ?? null;
+  // p95 variants — use ceiling as the target (p95 should stay under ceiling)
+  if (metric === "dt_ack_p95_ms") return t.ack ? t.ack * 2 : null;
+  if (metric === "dt_visual_settled_p95_ms") return t.ceiling ?? null;
+  if (metric === "dt_first_visible_frame_p95_ms") return t.ceiling ?? null;
+  if (metric === "status_total_p95_ms") return t.bannerCeiling ?? null;
+  if (metric === "dt_status_p95_ms") return null;
+  return null;
+}
+
+function chipClass(value, target) {
+  if (value == null) return "null";
+  if (target == null) return "";
+  return value <= target ? "ok" : "warn";
+}
+
+function render() {
+  updateMetricGuide();
+  if (!LOG) return;
+  const allEntries = LOG.entries ?? [];
+  if (allEntries.length === 0) {
+    document.getElementById("sub").textContent = "No entries in log.";
+    return;
+  }
+  // Contract check: warn loudly if the log contains metric fields the
+  // dashboard doesn't know how to render. Silent drop = bad data ergonomics.
+  const unknown = new Set();
+  for (const entry of allEntries) {
+    for (const rec of Object.values(entry.perceived ?? {})) {
+      if (!rec || typeof rec !== "object") continue;
+      for (const k of Object.keys(rec)) {
+        if (NON_METRIC_FIELDS.has(k)) continue;
+        if (!KNOWN_METRICS.has(k)) unknown.add(k);
+      }
+    }
+  }
+  const banner = document.getElementById("metricBanner");
+  if (unknown.size > 0) {
+    banner.hidden = false;
+    banner.innerHTML =
+      `<strong>Unknown metrics in log — dashboard not rendering:</strong> ${[...unknown].join(", ")}` +
+      `. Add to <code>KNOWN_METRICS</code>, <code>METRIC_LABELS</code>, the metric &lt;select&gt; options, ` +
+      `and <code>getTargetForAction()</code> in this file.`;
+  } else {
+    banner.hidden = true;
+  }
+  const entries = visibleEntries(allEntries);
+  if (entries.length === 0) {
+    document.getElementById("sub").textContent =
+      `${allEntries.length} entries in log, 0 visible (toggle short/long above).`;
+    document.getElementById("grid").innerHTML = "";
+    document.getElementById("diagnosticGrid").innerHTML = "";
+    document.getElementById("diagnosticGrid").hidden = true;
+    document.getElementById("diagnosticHeading").hidden = true;
+    document.getElementById("controls").hidden = false;
+    return;
+  }
+
+  document.getElementById("picker").hidden = true;
+  document.getElementById("controls").hidden = false;
+  document.getElementById("grid").hidden = false;
+  document.getElementById("legend").hidden = false;
+
+  const latest = entries[entries.length - 1];
+  const shortCount = allEntries.filter((e) => entryKind(e) === "short").length;
+  const longCount  = allEntries.filter((e) => entryKind(e) === "long").length;
+  const probeCount = allEntries.filter((e) => entryKind(e) === "jank-probes").length;
+  document.getElementById("sub").textContent =
+    `${allEntries.length} entries (${shortCount} short, ${longCount} long, ${probeCount} jank-probe), ${entries.length} visible — latest: [${entryKind(latest)} · ${entryMode(latest)}] ${latest.label} (${latest.gitSha}${latest.gitDirty ? " dirty" : ""}, ${new Date(latest.timestamp).toLocaleDateString()})`;
+
+  // Collect all scenario IDs across all entries
+  const allIds = new Set();
+  for (const entry of entries) {
+    for (const id of Object.keys(entry.perceived ?? {})) {
+      allIds.add(id);
+    }
+  }
+
+  const gridEl = document.getElementById("grid");
+  const diagnosticGridEl = document.getElementById("diagnosticGrid");
+  const diagnosticHeading = document.getElementById("diagnosticHeading");
+  const selectedModes = [...visibleModeSet()];
+  diagnosticGridEl.hidden = !showDiagnostics;
+  diagnosticHeading.hidden = !showDiagnostics;
+  // Create or update cards
+  for (const id of allIds) {
+    const modeSeries = selectedModes.flatMap((mode) => {
+      const referenceIndex = entries.findLastIndex((entry) =>
+        entryMode(entry) === mode && perceivedMetricValue(entry.perceived?.[id], currentMetric) != null
+      );
+      if (referenceIndex < 0) return [];
+      const referenceEntry = entries[referenceIndex];
+      const referenceMetric = referenceEntry.perceived[id];
+      const points = entries.map((entry) => {
+        if (entryMode(entry) !== mode) return null;
+        const metric = entry.perceived?.[id];
+        if (!metric) return null;
+        if (comparableOnly && !metricsComparable(entry, metric, referenceEntry, referenceMetric)) return null;
+        return perceivedMetricValue(metric, currentMetric);
+      });
+      const latestIndex = points.findLastIndex((point) => point != null);
+      if (latestIndex < 0) return [];
+      const previousIndex = points.findLastIndex((point, index) => index < latestIndex && point != null);
+      return [{
+        mode,
+        points,
+        latestIndex,
+        latestValue: points[latestIndex],
+        previousValue: previousIndex >= 0 ? points[previousIndex] : null,
+        latestEntry: entries[latestIndex],
+        latestMetrics: entries[latestIndex].perceived[id],
+      }];
+    });
+    if (modeSeries.length === 0) {
+      if (charts.has(id)) {
+        charts.get(id).destroy();
+        charts.delete(id);
+      }
+      document.getElementById(`card-${id}`)?.remove();
+      continue;
+    }
+    const latestSeries = modeSeries.reduce((latest, series) =>
+      series.latestIndex > latest.latestIndex ? series : latest
+    );
+    const latestScenarioEntry = latestSeries.latestEntry;
+    const latestMetrics = latestSeries.latestMetrics;
+    const action = latestMetrics?.action ?? id;
+    const metricClass = latestMetrics?.metricClass
+      ?? (id === "PP10" ? "background-diagnostic" : "user-action");
+    if (metricClass === "background-diagnostic" && !showDiagnostics) {
+      document.getElementById(`card-${id}`)?.remove();
+      continue;
+    }
+
+    const summaries = modeSeries.map((series) => {
+      const style = MODE_STYLES[series.mode];
+      const delta = series.previousValue == null ? null : series.latestValue - series.previousValue;
+      const deltaText = delta == null
+        ? "no predecessor"
+        : `Δ ${delta > 0 ? "+" : ""}${formatMetricValue(currentMetric, delta)}`;
+      return `<span class="mode-summary"><span class="mode-dot" style="background:${style.color}"></span><strong style="color:${style.color}">${style.label}</strong> ${formatMetricValue(currentMetric, series.latestValue)} · ${deltaText}</span>`;
+    }).join("") + pairedModeSummary(modeSeries, currentMetric);
+
+    // Get or create card
+    let card = document.getElementById(`card-${id}`);
+    if (!card) {
+      card = document.createElement("div");
+      card.className = "card";
+      card.id = `card-${id}`;
+    }
+    (metricClass === "background-diagnostic" ? diagnosticGridEl : gridEl).appendChild(card);
+
+    const target = metricClass === "background-diagnostic" ? null : getTargetForAction(action, currentMetric);
+
+    // Chips for latest values
+    const CHIP_METRICS = entryKind(latestScenarioEntry) === "jank-probes"
+      ? ["imageLookupCount", "detailLookupMs", "detailMetadataReadyMs", "detailImageReadyMs"]
+      : ["dt_ack_ms", "dt_store_ready_ms", "dt_first_visible_frame_ms", "dt_visual_settled_ms", "status_total_ms"];
+    const chipsHtml = CHIP_METRICS.map((m) => {
+      const v = latestMetrics ? latestMetrics[m] : null;
+      const t = metricClass === "background-diagnostic" ? null : getTargetForAction(action, m);
+      const cls = chipClass(v, t);
+      const lbl = { dt_ack_ms: "ack", dt_store_ready_ms: "store", dt_first_visible_frame_ms: "visible", dt_visual_settled_ms: "settle", status_total_ms: "banner",
+        imageLookupCount: "lookups", detailLookupMs: "response", detailMetadataReadyMs: "metadata", detailImageReadyMs: "decoded" }[m];
+      return `<span class="metric-chip ${cls}">${lbl}: ${formatMetricValue(m, v)}</span>`;
+    }).join("");
+
+    card.innerHTML = `
+      <div class="card-header">
+        <h3>${id}: ${latestMetrics?.label ?? id}</h3>
+        <span class="action-tag">${action} · ${entryKind(latestScenarioEntry)} · ${entryMode(latestScenarioEntry)}${latestMetrics?.routes ? ` · ${latestMetrics.routes.join("+")}` : ""}${latestMetrics?.degradedCount ? ` · ${latestMetrics.degradedCount} degraded excluded` : ""}</span>
+      </div>
+      <div class="metric-summary">${METRIC_LABELS[currentMetric]} — ${summaries}</div>
+      <div class="metrics-row">${chipsHtml}</div>
+      <canvas id="canvas-${id}"></canvas>
+    `;
+
+    // Render sparkline
+    if (charts.has(id)) charts.get(id).destroy();
+    const ctx = document.getElementById(`canvas-${id}`).getContext("2d");
+    const labels = entries.map((e) => {
+      const d = new Date(e.timestamp);
+      return `${e.gitSha}${e.gitDirty ? "*" : ""} (${d.toLocaleDateString()})`;
+    });
+
+    const datasets = modeSeries.map((series) => {
+      const style = MODE_STYLES[series.mode];
+      return {
+        label: style.label,
+        data: series.points,
+        borderColor: style.color,
+        backgroundColor: style.fill,
+        pointRadius: entries.map((_, index) => index === series.latestIndex ? 5 : 3),
+        pointBackgroundColor: style.color,
+        pointBorderColor: entries.map((_, index) => index === series.latestIndex ? "#f0f6fc" : style.color),
+        pointBorderWidth: entries.map((_, index) => index === series.latestIndex ? 2 : 0),
+        pointHoverRadius: 5,
+        tension: 0.2,
+        spanGaps: true,
+      };
+    });
+
+    // Target line
+    if (target != null) {
+      datasets.push({
+        label: `Target (${target}ms)`,
+        data: entries.map(() => target),
+        borderColor: "rgba(63,185,80,0.4)",
+        borderDash: [4, 4],
+        pointRadius: 0,
+        tension: 0,
+      });
+    }
+
+    const chart = new Chart(ctx, {
+      type: "line",
+      data: { labels, datasets },
+      options: {
+        animation: false,
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: datasets.length > 1, labels: { color: "#8b949e", font: { size: 10 }, boxWidth: 20 } },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const v = ctx.parsed.y;
+                return `${ctx.dataset.label}: ${formatMetricValue(currentMetric, v)}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ticks: { color: "#8b949e", font: { size: 9 }, maxRotation: 0 }, grid: { color: "#21262d" } },
+          y: {
+            ticks: { color: "#8b949e", font: { size: 9 }, callback: (v) => formatMetricValue(currentMetric, v) },
+            grid: { color: "#21262d" },
+            min: 0,
+          },
+        },
+      },
+    });
+    charts.set(id, chart);
+  }
+}
+
+(async () => {
+  if (!window.__AUDIT_LOG__) {
+    try {
+      const response = await fetch("./audit-log.json", { cache: "no-store" });
+      if (response.ok) window.__AUDIT_LOG__ = await response.json();
+    } catch (error) {}
+  }
+  // 1) Sibling JS file set window.__PERCEIVED_LOG__ — works on file:// too.
+  if (window.__PERCEIVED_LOG__) {
+    ingestLog(window.__PERCEIVED_LOG__);
+    return;
+  }
+  // 2) Fetch (works when served over http://).
+  try {
+    const res = await fetch("./perceived-log.json", { cache: "no-store" });
+    if (res.ok) { ingestLog(await res.json()); return; }
+  } catch (e) { /* blocked on file://, fall through */ }
+  if (window.__AUDIT_LOG__) { ingestLog({ entries: [] }); return; }
+  // 3) Show file picker fallback.
+  document.getElementById("picker").hidden = false;
+})();
+</script>
+</body>
+</html>

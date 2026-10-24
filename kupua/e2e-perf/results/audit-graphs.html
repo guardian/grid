@@ -1,0 +1,725 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Kupua perf audit — all runs</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #161b22;
+    --fg: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --warn: #f85149;
+    --warn-bg: #3d1a1a;
+  }
+  html, body { background: var(--bg); color: var(--fg); margin: 0; font-family: -apple-system, system-ui, sans-serif; }
+  header { padding: 16px 24px; border-bottom: 1px solid #30363d; }
+  h1 { margin: 0 0 4px; font-size: 18px; }
+  .sub { color: var(--muted); font-size: 12px; }
+  .controls { padding: 12px 24px; border-bottom: 1px solid #30363d; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .controls label { font-size: 13px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+  select, input, button { background: var(--panel); color: var(--fg); border: 1px solid #30363d; border-radius: 4px; padding: 4px 8px; font: inherit; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button:disabled { cursor: default; opacity: 0.45; }
+  :is(button, select, input):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+  .metric-navigation { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; }
+  .metric-guide { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+  .metric-guide strong { color: var(--fg); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 12px; padding: 16px 24px; }
+  @media (max-width: 520px) {
+    header, .controls, .legend { padding-left: 12px; padding-right: 12px; }
+    .grid { grid-template-columns: minmax(0, 1fr); padding: 12px; }
+    .controls label:first-child { width: 100%; min-width: 0; }
+    .controls label:first-child select { min-width: 0; max-width: 100%; width: 100%; }
+  }
+  .card { background: var(--panel); border: 1px solid #30363d; border-radius: 6px; padding: 8px 10px; }
+  .card h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+  .card .meta { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .mode-summary { display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; white-space: nowrap; }
+  .mode-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+  canvas { display: block; width: 100% !important; height: 180px !important; }
+  .legend { padding: 0 24px 12px; font-size: 11px; color: var(--muted); }
+  details { margin: 4px 24px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+
+  .warn-banner {
+    margin: 12px 24px; padding: 10px 14px;
+    background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 6px;
+    font-size: 13px; color: var(--fg);
+  }
+  .warn-banner strong { color: var(--warn); }
+  .warn-banner code { background: rgba(0,0,0,0.4); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+  .warn-banner .hint { color: var(--muted); margin-top: 6px; font-size: 12px; display: block; }
+
+  .picker {
+    margin: 24px; padding: 36px; border: 2px dashed #30363d; border-radius: 8px;
+    text-align: center; color: var(--muted);
+  }
+  .picker.hover { border-color: var(--accent); background: rgba(88,166,255,0.05); }
+  .picker h2 { color: var(--fg); margin: 0 0 12px; font-size: 16px; }
+  .picker code { background: var(--panel); padding: 2px 6px; border-radius: 3px; font-size: 12px; color: var(--fg); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Kupua rendering perf — all audited runs</h1>
+  <nav aria-label="Performance dashboards"><a href="perceived-graphs.html">Perceived responsiveness</a> · <a href="density-graphs.html">Density comparisons and thumbnails</a></nav>
+  <div class="sub" id="sub">Loading…</div>
+  <div style="margin-top:6px;font-size:11px;color:var(--muted);">Tip: use ← → arrow keys to cycle metrics</div>
+</header>
+
+<div id="picker" class="picker" hidden>
+  <h2>Couldn't auto-load <code>audit-log.json</code></h2>
+  <p>The page tried to <code>fetch('./audit-log.json')</code> but the browser blocked it
+     (typical for <code>file://</code> URLs). Pick or drop the file to continue:</p>
+  <p>
+    <input type="file" id="filepick" accept="application/json,.json" />
+    or drag <code>audit-log.json</code> onto this box.
+  </p>
+  <p class="hint">Tip: serve the dir with <code>python3 -m http.server</code> from
+     <code>e2e-perf/results/</code> then open <code>http://localhost:8000/audit-graphs.html</code>
+     to skip this step and get auto-reload via the button below.</p>
+</div>
+
+<div id="warnings"></div>
+
+<div class="controls" id="controls" hidden>
+  <div class="metric-navigation">
+    <label>Metric
+      <select id="metric" aria-describedby="metricGuide"></select>
+    </label>
+    <button id="previousMetric" type="button">Previous metric</button>
+    <button id="nextMetric" type="button">Next metric</button>
+    <p id="metricGuide" class="metric-guide" role="status" aria-label="Metric guide" aria-live="polite" aria-atomic="true"></p>
+  </div>
+  <label>Y-axis
+    <select id="yscale">
+      <option value="linear" selected>linear</option>
+      <option value="log">log</option>
+    </select>
+  </label>
+  <label><input type="checkbox" id="hideQuiet" checked /> hide quiet tests (max value &lt; 1)</label>
+  <label><input type="checkbox" id="comparableOnly" checked /> comparable within each mode</label>
+  <label><input type="checkbox" id="showLabels" /> show run labels on x-axis</label>
+  <label><input type="checkbox" class="mode-filter" value="direct-es" checked /> direct ES</label>
+  <label><input type="checkbox" class="mode-filter" value="media-api" checked /> media-api</label>
+  <label><input type="checkbox" class="mode-filter" value="unknown" checked /> legacy/unknown</label>
+  <button id="reload" title="Re-fetch audit-log.json">↻ Reload data</button>
+</div>
+
+<details id="legend-details" hidden>
+  <summary>Run legend (chronological)</summary>
+  <ol id="runlist" style="font-size:12px; color: var(--muted); line-height:1.5;"></ol>
+</details>
+<div class="legend" id="legend-text" hidden>
+  Each card = one perf test. X-axis = audit runs in chronological order.
+  Each checked mode is a separate line: direct ES is blue, media-api is amber,
+  and legacy/unknown is gray. Larger outlined points are the latest value in
+  each mode. Cards show each mode's delta from its own preceding comparable
+  run. Tests that never emit the selected metric are hidden. Uncheck
+  "comparable within each mode" to inspect legacy evidence across changed
+  corpus, methodology, environment or scenario contracts.
+</div>
+<div class="grid" id="grid"></div>
+
+<script src="./audit-log.js" onerror="window.__AUDIT_LOG_LOAD_FAILED__=true"></script>
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// Known schema — keep in sync with run-audit.mjs / perf.spec.ts.
+// If audit-log.json contains keys not listed here, the page warns the user
+// and asks them to update this map. See ../README.md § "Audit graphs page".
+// ─────────────────────────────────────────────────────────────────────────────
+const KNOWN_METRICS = {
+  // metric key:        { label,                                lowerIsBetter, defaultShow, quietThreshold }
+  // quietThreshold: "Hide quiet" filter hides tests whose max value is below this. Default 1 (suits ms/count metrics).
+  // Ratio-style metrics (CLS, focusDriftRatio) need a much smaller threshold or they get hidden entirely.
+  severeRate:        { label: "Severe frames per 1,000 frames",  lowerIsBetter: true,  defaultShow: true  },
+  severe:            { label: "Severe frames (count)",         lowerIsBetter: true,  defaultShow: true  },
+  maxFrame:          { label: "Longest frame (ms)",            lowerIsBetter: true,  defaultShow: true  },
+  p95Frame:          { label: "95th-percentile frame (ms)",     lowerIsBetter: true,  defaultShow: true  },
+  loafBlocking:      { label: "Long animation frame blocking (ms)", lowerIsBetter: true, defaultShow: true },
+  domChurn:          { label: "DOM mutations (count)",         lowerIsBetter: true,  defaultShow: true  },
+  cls:              { label: "Cumulative layout shift (score)", lowerIsBetter: true, defaultShow: true, quietThreshold: 0.001 },
+  clsMax:           { label: "Largest single layout shift (score)", lowerIsBetter: true, defaultShow: true, quietThreshold: 0.001 },
+  frameCount:        { label: "frame count (context only)",     lowerIsBetter: null,  defaultShow: false },
+  sampleCount:       { label: "samples across repetitions",     lowerIsBetter: null,  defaultShow: false },
+  imageLookupCount:  { label: "Image metadata lookups (resident traversal: 0)", lowerIsBetter: true, defaultShow: true, quietThreshold: 0 },
+  detailLookupMs:    { label: "Standalone lookup response (ms)", lowerIsBetter: true, defaultShow: true },
+  detailMetadataReadyMs: { label: "Standalone metadata ready (ms)", lowerIsBetter: true, defaultShow: true },
+  detailImageReadyMs: { label: "Standalone decoded image ready (ms; warm media)", lowerIsBetter: true, defaultShow: true },
+  // Focus position tracking (P4a/b, P6 — see README § Focus Position Tracking).
+  focusDriftPx:      { label: "Focus drift (px, signed; 0 = perfect)", lowerIsBetter: null, defaultShow: true },
+  focusDriftRatio:   { label: "Focus drift (viewport ratio; 0 = perfect)", lowerIsBetter: null, defaultShow: true, quietThreshold: 0.001 },
+  focusVisible:      { label: "Focus visible (1 = on screen)", lowerIsBetter: false, defaultShow: true },
+  focusHorizontalDriftPx: { label: "focus horizontal drift (px, signed)", lowerIsBetter: null, defaultShow: false },
+  widthDeltaPx:      { label: "column width delta (px, signed)", lowerIsBetter: null, defaultShow: false },
+  resultsWidthDeltaPx: { label: "results width delta (px, signed)", lowerIsBetter: null, defaultShow: false },
+  // Traversal image-render metrics (P14a–d — per-image load timing).
+  landingRenderMs:   { label: "Landing image render (ms; 0 = prefetch hit)", lowerIsBetter: true, defaultShow: true },
+  landingNetworkMs:  { label: "Landing image network (ms)",     lowerIsBetter: true,  defaultShow: false },
+  renderedCount:     { label: "Images rendered in time",        lowerIsBetter: false, defaultShow: true  },
+  renderedTotal:     { label: "Images total (denominator for renderedCount)", lowerIsBetter: null, defaultShow: false },
+  swappedNotRendered:{ label: "Images swapped but not rendered",lowerIsBetter: true,  defaultShow: true  },
+  landingAlreadyRendered: { label: "Landing already rendered (1 = yes; prefetch hit)", lowerIsBetter: false, defaultShow: true, quietThreshold: 0.001 },
+  landingCacheHit:   { label: "Landing cache hit (1 = yes; browser cache)",    lowerIsBetter: false, defaultShow: true, quietThreshold: 0.001 },
+  clsOccurrenceRate: { label: "CLS occurrence rate across runs", lowerIsBetter: true, defaultShow: true, quietThreshold: 0.001 },
+  clsConditionalMagnitude: { label: "CLS magnitude when shifts occur", lowerIsBetter: true, defaultShow: true, quietThreshold: 0.001 },
+  selectionPublishMs: { label: "Selection publication (ms)", lowerIsBetter: true, defaultShow: true },
+  rangeWalkMs:        { label: "Selection range walk (ms)", lowerIsBetter: true, defaultShow: true },
+  metadataSettleMs: { label: "Selection metadata settled (ms)", lowerIsBetter: true, defaultShow: true },
+  reconcileSettleMs: { label: "Selection reconciliation settled (ms)", lowerIsBetter: true, defaultShow: true },
+  selectionVisualSettledMs: { label: "Selection Details visually settled (ms)", lowerIsBetter: true, defaultShow: true },
+  idleCallbackMaxMs: { label: "Selection idle callback max (ms)", lowerIsBetter: true, defaultShow: true },
+  directionViolations: { label: "Reverse direction violations", lowerIsBetter: true, defaultShow: true },
+  inputEvents: { label: "Reverse input events before prepend", lowerIsBetter: null, defaultShow: true },
+  prependGenerationDelta: { label: "Backward prepend count", lowerIsBetter: null, defaultShow: true },
+  bufferOffsetDelta: { label: "Buffer offset delta", lowerIsBetter: null, defaultShow: true },
+  networkRequests: { label: "Network requests (browser diagnostic)", lowerIsBetter: null, defaultShow: true, quietThreshold: 0, group: "Network", unit: " requests" },
+  networkBytes: { label: "Network transfer bytes (capture-dependent)", lowerIsBetter: null, defaultShow: true, quietThreshold: 0, group: "Network", unit: " bytes" },
+  networkAvgBytes: { label: "Network average bytes/request", lowerIsBetter: null, defaultShow: true, quietThreshold: 0, group: "Network", unit: " bytes/request" },
+  networkAvgDurationMs: { label: "Network average request duration (ms)", lowerIsBetter: null, defaultShow: true, quietThreshold: 0, group: "Network", unit: "ms" },
+  networkZeroTransferRequests: { label: "Network zero-transfer requests (restricted/ambiguous coverage)", lowerIsBetter: null, defaultShow: true, quietThreshold: 0, group: "Network", unit: " requests" },
+};
+const METRIC_HELP = {
+  severeRate: "Frames longer than 50 ms per 1,000 observed frames; suppressed with fewer than 30 frames.",
+  severe: "Number of frames longer than 50 ms during the measurement window.",
+  maxFrame: "Worst single frame duration, measured between animation-frame callbacks.",
+  p95Frame: "95th-percentile frame duration: the slower end of observed frames, not the worst frame.",
+  loafBlocking: "Total blocking time reported by Long Animation Frame entries.",
+  domChurn: "DOM additions, removals and attribute changes during the measurement window.",
+  cls: "Cumulative Layout Shift score for unexpected layout changes.",
+  clsMax: "Largest individual unexpected layout-shift score.",
+  imageLookupCount: "Metadata lookup count; resident traversal expects zero lookups.",
+  detailLookupMs: "Standalone detail lookup response time; metadata is not resident.",
+  detailMetadataReadyMs: "Time until standalone detail metadata is ready.",
+  detailImageReadyMs: "Time until the standalone detail image is decoded and stable; media is warm.",
+  focusDriftPx: "Signed change in focus position across the transition. Closer to zero is better.",
+  focusDriftRatio: "Signed focus displacement as a fraction of viewport height. Closer to zero is better.",
+  focusVisible: "Whether the focused image is on screen: 1 = yes, 0 = no.",
+  landingRenderMs: "Time from traversal stop until the landing image renders; zero indicates a prefetch hit.",
+  renderedCount: "Count of images rendered before moving on; interpret against traversal count and cadence.",
+  swappedNotRendered: "Count of images whose source changed but did not decode in time; interpret against traversal cadence.",
+  landingAlreadyRendered: "Whether the landing image was already rendered: 1 = yes, 0 = no.",
+  landingCacheHit: "Whether the landing image hit the browser cache: 1 = yes, 0 = no.",
+  clsOccurrenceRate: "Fraction of repetitions with layout-shift events, from 0 to 1.",
+  clsConditionalMagnitude: "Layout-shift magnitude among repetitions where shifts occurred.",
+  selectionPublishMs: "Time until the range selection is published.",
+  rangeWalkMs: "Time spent walking the selection range.",
+  metadataSettleMs: "Time until selection metadata settles.",
+  reconcileSettleMs: "Time until selection reconciliation settles.",
+  selectionVisualSettledMs: "Time until the selection Details view visually settles.",
+  idleCallbackMaxMs: "Longest selection idle callback duration.",
+  directionViolations: "Count of movement-direction violations during reverse scrolling.",
+  inputEvents: "Input-event count before the backward prepend; context, not a speed score.",
+  prependGenerationDelta: "Backward prepend count during the observation window.",
+  bufferOffsetDelta: "Change in the result buffer's starting index, in result positions.",
+  networkRequests: "Browser-observed request count; capture coverage affects interpretation.",
+  networkBytes: "Browser-observed transfer bytes; totals depend on capture coverage.",
+  networkAvgBytes: "Mean browser-observed transfer bytes per request.",
+  networkAvgDurationMs: "Mean browser-observed request duration; diagnostic, not action completion latency.",
+  networkZeroTransferRequests: "Requests with zero reported transfer bytes; restricted or ambiguous coverage, not proof of cache hits.",
+};
+const KNOWN_ENTRY_KEYS = new Set([
+  "label", "gitSha", "gitDirty", "timestamp", "stableUntil", "runs", "metrics",
+  "baseline_rtt_ms", "environment",
+]);
+const KNOWN_METRIC_META_KEYS = new Set([
+  "report", "scenarioRevision", "cacheClass", "startRank", "committedSteps",
+  "networkCaptureRevision", "networkTransport",
+  "lookupGuardRevision",
+  "traversals", "cadenceMs", "speed", "direction", "clsEvents",
+  "completionBoundary", "detailDecoded",
+  "dragSteps", "stepIntervalMs", "releaseExcluded",
+  "probeStart", "responseEndMs", "domContentLoadedMs", "loadEventMs",
+  "firstPaintMs", "firstContentfulPaintMs", "resultsWidthDeltaPx",
+  "focusHorizontalDriftPx", "widthDeltaPx",
+  "routes", "maxInputEvents", "settleQuietMs",
+  "targetIndex", "selectedAdded", "selectedCount", "metadataCacheWarmBefore",
+  "metadataCacheWarmAfter", "rangeWalked", "idleCallbackCount",
+]);
+
+// ─────────────────────────────────────────────────────────────────────────────
+const sub = document.getElementById("sub");
+const picker = document.getElementById("picker");
+const filepick = document.getElementById("filepick");
+const warnings = document.getElementById("warnings");
+const controls = document.getElementById("controls");
+const grid = document.getElementById("grid");
+const legendDetails = document.getElementById("legend-details");
+const legendText = document.getElementById("legend-text");
+const runlist = document.getElementById("runlist");
+const metricSel = document.getElementById("metric");
+const reloadBtn = document.getElementById("reload");
+
+let ENTRIES = [];
+let TESTS = [];
+const charts = new Map();
+
+async function tryFetch() {
+  try {
+    const res = await fetch("./audit-log.json", { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const json = await res.json();
+    return json.entries ?? json;
+  } catch (e) {
+    console.warn("fetch failed:", e);
+    return null;
+  }
+}
+
+function loadFromFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const json = JSON.parse(reader.result);
+      onData(json.entries ?? json);
+    } catch (e) {
+      alert("Failed to parse JSON: " + e.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+filepick.addEventListener("change", (e) => { if (e.target.files[0]) loadFromFile(e.target.files[0]); });
+picker.addEventListener("dragover", (e) => { e.preventDefault(); picker.classList.add("hover"); });
+picker.addEventListener("dragleave", () => picker.classList.remove("hover"));
+picker.addEventListener("drop", (e) => {
+  e.preventDefault(); picker.classList.remove("hover");
+  if (e.dataTransfer.files[0]) loadFromFile(e.dataTransfer.files[0]);
+});
+reloadBtn.addEventListener("click", async () => {
+  const data = await tryFetch();
+  if (data) onData(data);
+  else alert("Reload failed — fetch is blocked on file:// URLs. Use the picker, or serve the directory with `python3 -m http.server`.");
+});
+
+function detectUnknowns(entries) {
+  const unknownEntryKeys = new Set();
+  const unknownMetricKeys = new Set();
+  for (const e of entries) {
+    for (const k of Object.keys(e)) if (!KNOWN_ENTRY_KEYS.has(k)) unknownEntryKeys.add(k);
+    if (!e.metrics) continue;
+    for (const test of Object.keys(e.metrics)) {
+      const m = e.metrics[test];
+      if (!m || typeof m !== "object") continue;
+      for (const k of Object.keys(m)) {
+        if (KNOWN_METRICS[k] || KNOWN_METRIC_META_KEYS.has(k)) continue;
+        unknownMetricKeys.add(k);
+      }
+    }
+  }
+  return { unknownEntryKeys, unknownMetricKeys };
+}
+
+function renderWarnings({ unknownEntryKeys, unknownMetricKeys }) {
+  warnings.innerHTML = "";
+  if (unknownEntryKeys.size === 0 && unknownMetricKeys.size === 0) return;
+
+  const div = document.createElement("div");
+  div.className = "warn-banner";
+  const parts = ["<strong>⚠ Unknown fields in audit-log.json</strong> "];
+  parts.push("— this page may not be displaying everything correctly.<br>");
+  if (unknownMetricKeys.size) {
+    parts.push("Unknown <em>metric</em> keys (per-test): ");
+    parts.push([...unknownMetricKeys].map(k => `<code>${k}</code>`).join(", "));
+    parts.push(". They've been added to the dropdown and graphed naively, but lack labels/units.<br>");
+  }
+  if (unknownEntryKeys.size) {
+    parts.push("Unknown <em>entry-level</em> keys: ");
+    parts.push([...unknownEntryKeys].map(k => `<code>${k}</code>`).join(", "));
+    parts.push(".<br>");
+  }
+  parts.push(`<span class="hint">→ Ask an agent to update <code>KNOWN_METRICS</code> / <code>KNOWN_ENTRY_KEYS</code> in <code>audit-graphs.html</code> (see <code>e2e-perf/README.md</code> § "Audit graphs page").</span>`);
+  div.innerHTML = parts.join("");
+  warnings.appendChild(div);
+}
+
+function buildMetricDropdown(unknownMetricKeys) {
+  metricSel.innerHTML = "";
+  const networkGroup = document.createElement("optgroup");
+  networkGroup.label = "Network";
+  for (const [key, meta] of Object.entries(KNOWN_METRICS)) {
+    if (!meta.defaultShow) continue;
+    const o = document.createElement("option");
+    o.value = key;
+    o.textContent = meta.label;
+    if (key === "severeRate") o.selected = true;
+    (meta.group === "Network" ? networkGroup : metricSel).appendChild(o);
+  }
+  metricSel.appendChild(networkGroup);
+  if (unknownMetricKeys.size) {
+    const grp = document.createElement("optgroup");
+    grp.label = "Unknown (no labels — please update page)";
+    for (const k of unknownMetricKeys) {
+      const o = document.createElement("option");
+      o.value = k;
+      o.textContent = k + " (?)";
+      grp.appendChild(o);
+    }
+    metricSel.appendChild(grp);
+  }
+}
+
+function pickValue(metric, m) {
+  if (!m) return null;
+  if (isNetworkMetric(metric)) {
+    return m.networkCaptureRevision === 1 && ["direct-es", "media-api"].includes(m.networkTransport)
+      && typeof m[metric] === "number" && Number.isFinite(m[metric]) && m[metric] >= 0 ? m[metric] : null;
+  }
+  if (metric === "severeRate") {
+    if (!Number.isFinite(m.frameCount) || m.frameCount < 30) return null;
+    if (typeof m.severeRate === "number") return m.severeRate;
+    if (m.severe != null && m.frameCount) return (m.severe / m.frameCount) * 1000;
+    return null;
+  }
+  const v = m[metric];
+  if (typeof v === "number") return v;
+  if (typeof v === "boolean") return v ? 1 : 0;
+  return null;
+}
+
+function metricLabel(metric) {
+  return KNOWN_METRICS[metric]?.label ?? `${metric} (unknown)`;
+}
+
+function metricUnit(metric) {
+  if (isNetworkMetric(metric)) return KNOWN_METRICS[metric].unit;
+  if (["cls", "clsMax", "focusDriftRatio", "clsOccurrenceRate", "clsConditionalMagnitude"].includes(metric)) return "";
+  if (["focusVisible", "landingAlreadyRendered", "landingCacheHit"].includes(metric)) return "";
+  if (metric === "severeRate") return "‰";
+  if (metric.endsWith("Px")) return "px";
+  if (metric.toLowerCase().includes("frame") || metric.endsWith("Ms") || metric === "loafBlocking") return "ms";
+  return "";
+}
+
+function formatMetricValue(metric, value) {
+  if (value == null || !Number.isFinite(value)) return "—";
+  const maximumFractionDigits = Math.abs(value) < 1 && value !== 0 ? 4 : 1;
+  return `${value.toLocaleString(undefined, { maximumFractionDigits })}${metricUnit(metric)}`;
+}
+
+function environmentKey(entry) {
+  const environment = entry.environment;
+  if (!environment) return "legacy";
+  return JSON.stringify({
+    dataMode: environment.dataMode,
+    browserName: environment.browserName,
+    browserVersion: environment.browserVersion,
+    viewport: environment.viewport,
+    screen: environment.screen,
+    deviceScaleFactor: environment.deviceScaleFactor,
+    appBaseUrl: environment.appBaseUrl,
+    os: environment.os,
+    headed: environment.headed,
+    cpuThrottle: environment.cpuThrottle,
+    cacheClass: environment.cacheClass,
+    workers: environment.workers,
+    stableUntil: entry.stableUntil,
+  });
+}
+
+function metricsComparable(entry, metric, referenceEntry, referenceMetric, metricName) {
+  if (environmentKey(entry) !== environmentKey(referenceEntry)) return false;
+  if (metricName?.startsWith("network") && (metric.networkCaptureRevision !== referenceMetric.networkCaptureRevision
+    || metric.networkTransport !== referenceMetric.networkTransport
+    || entry.environment?.apiTopology !== referenceEntry.environment?.apiTopology)) return false;
+  if ((referenceMetric.scenarioRevision ?? null) !== (metric.scenarioRevision ?? null)) return false;
+  if ((referenceMetric.cacheClass ?? null) !== (metric.cacheClass ?? null)) return false;
+  if ((referenceMetric.completionBoundary ?? null) !== (metric.completionBoundary ?? null)) return false;
+  if ((referenceMetric.resultRegime ?? null) !== (metric.resultRegime ?? null)) return false;
+  if (JSON.stringify(referenceMetric.routes ?? null) !== JSON.stringify(metric.routes ?? null)) return false;
+  return true;
+}
+
+function sourceMatchLabel(directEntry, apiEntry) {
+  if (directEntry.gitSha !== apiEntry.gitSha) return "commit differs";
+  const directHash = directEntry.environment?.appSourceDirtyStateHash;
+  const apiHash = apiEntry.environment?.appSourceDirtyStateHash;
+  if (!directHash || !apiHash) return "app source unverified";
+  return directHash === apiHash ? "app source matched" : "app source differs";
+}
+
+function pairedModeSummary(modeSeries, metric) {
+  if (isNetworkMetric(metric)) return "";
+  const direct = modeSeries.find((series) => series.mode === "direct-es");
+  const api = modeSeries.find((series) => series.mode === "media-api");
+  if (!direct || !api) return "";
+  const delta = api.latestValue - direct.latestValue;
+  const deltaText = `${delta > 0 ? "+" : ""}${formatMetricValue(metric, delta)}`;
+  return `<span class="mode-summary"><strong>API − direct</strong> ${deltaText} · ${sourceMatchLabel(direct.latestEntry, api.latestEntry)}</span>`;
+}
+
+function entryMode(entry) {
+  const mode = entry.environment?.dataMode;
+  return mode === "direct-es" || mode === "media-api" ? mode : "unknown";
+}
+
+function isNetworkMetric(metric) {
+  return KNOWN_METRICS[metric]?.group === "Network";
+}
+
+function networkSeriesKey(entry, metric) {
+  return JSON.stringify([entryMode(entry), entry.environment?.apiTopology ?? "unknown",
+    metric?.networkTransport ?? "unknown", metric?.networkCaptureRevision ?? null]);
+}
+
+const MODE_STYLES = {
+  "direct-es": { label: "direct ES", color: "#58a6ff", fill: "rgba(88,166,255,0.12)" },
+  "media-api": { label: "media-api", color: "#f2a65a", fill: "rgba(242,166,90,0.12)" },
+  unknown: { label: "legacy/unknown", color: "#8b949e", fill: "rgba(139,148,158,0.10)" },
+};
+
+function visibleModeSet() {
+  return new Set([...document.querySelectorAll(".mode-filter:checked")].map((input) => input.value));
+}
+
+function collectTests(entries) {
+  const seen = new Set();
+  const out = [];
+  for (let i = entries.length - 1; i >= 0; i--) {
+    for (const k of Object.keys(entries[i].metrics || {})) {
+      if (!seen.has(k)) { seen.add(k); out.push(k); }
+    }
+  }
+  out.sort((a, b) => {
+    const re = /^P(\d+)([a-z]?)(?:@(\d+))?(?:[-_].*)?$/;
+    const pa = a.match(re); const pb = b.match(re);
+    if (!pa || !pb) return a.localeCompare(b);
+    return (+pa[1]) - (+pb[1])
+        || (pa[2] || "").localeCompare(pb[2] || "")
+        || (+(pa[3] || 0)) - (+(pb[3] || 0))
+        || a.localeCompare(b);
+  });
+  return out;
+}
+
+function buildCharts() {
+  updateMetricGuide();
+  const metric = metricSel.value;
+  const yscale = document.getElementById("yscale").value;
+  const hideQuiet = document.getElementById("hideQuiet").checked;
+  const comparableOnly = document.getElementById("comparableOnly").checked;
+  const showLabels = document.getElementById("showLabels").checked;
+
+  for (const c of charts.values()) c.destroy();
+  charts.clear();
+  grid.innerHTML = "";
+
+  const selectedModes = [...visibleModeSet()];
+  const entries = ENTRIES.filter((entry) => selectedModes.includes(entryMode(entry)));
+  const xLabels = entries.map((e, i) => showLabels ? `${e.label} [${entryMode(e)}]` : String(i + 1));
+
+  for (const t of TESTS) {
+    const seriesKeys = isNetworkMetric(metric)
+      ? [...new Set(entries.map((entry) => networkSeriesKey(entry, entry.metrics?.[t])))]
+      : selectedModes;
+    const modeSeries = seriesKeys.flatMap((seriesKey) => {
+      const mode = isNetworkMetric(metric) ? JSON.parse(seriesKey)[0] : seriesKey;
+      const matchesSeries = (entry) => isNetworkMetric(metric)
+        ? networkSeriesKey(entry, entry.metrics?.[t]) === seriesKey : entryMode(entry) === mode;
+      const referenceIndex = entries.findLastIndex((entry) =>
+        matchesSeries(entry) && pickValue(metric, entry.metrics?.[t]) != null
+      );
+      if (referenceIndex < 0) return [];
+      const referenceEntry = entries[referenceIndex];
+      const referenceMetric = referenceEntry.metrics[t];
+      const data = entries.map((entry) => {
+        if (!matchesSeries(entry)) return null;
+        const current = entry.metrics?.[t];
+        if (!current) return null;
+        if (comparableOnly && !metricsComparable(entry, current, referenceEntry, referenceMetric, metric)) return null;
+        return pickValue(metric, current);
+      });
+      const latestIndex = data.findLastIndex((value) => value != null && Number.isFinite(value));
+      if (latestIndex < 0) return [];
+      const previousIndex = data.findLastIndex(
+        (value, index) => index < latestIndex && value != null && Number.isFinite(value)
+          && (!isNetworkMetric(metric) || metricsComparable(entries[index], entries[index].metrics[t], entries[latestIndex], entries[latestIndex].metrics[t], metric)),
+      );
+      return [{
+        mode,
+        label: isNetworkMetric(metric) ? `${referenceMetric.networkTransport}/${referenceEntry.environment?.apiTopology ?? "unknown"} (capture r${referenceMetric.networkCaptureRevision})` : MODE_STYLES[mode].label,
+        data,
+        latestIndex,
+        latestValue: data[latestIndex],
+        previousValue: previousIndex >= 0 ? data[previousIndex] : null,
+        latestEntry: entries[latestIndex],
+      }];
+    });
+    const finite = modeSeries.flatMap((series) =>
+      series.data.filter((value) => value != null && Number.isFinite(value))
+    );
+    if (finite.length === 0) continue;
+    const max = finite.length ? Math.max(...finite) : 0;
+    const quietThreshold = KNOWN_METRICS[metric]?.quietThreshold ?? 1;
+    if (hideQuiet && max < quietThreshold) continue;
+
+    const summaries = modeSeries.map((series) => {
+      const style = MODE_STYLES[series.mode];
+      const delta = series.previousValue == null ? null : series.latestValue - series.previousValue;
+      const deltaText = delta == null
+        ? "no predecessor"
+        : `Δ ${delta > 0 ? "+" : ""}${formatMetricValue(metric, delta)}`;
+      const actualRoute = entries[series.latestIndex].metrics[t]?.routes?.join("+");
+      const routeLabel = actualRoute ? ` · route: ${actualRoute}` : "";
+      return `<span class="mode-summary"><span class="mode-dot" style="background:${style.color}"></span><strong style="color:${style.color}">${series.label}</strong> ${formatMetricValue(metric, series.latestValue)} · ${deltaText}${routeLabel}</span>`;
+    }).join("") + pairedModeSummary(modeSeries, metric);
+
+    const card = document.createElement("div");
+    card.className = "card";
+    const diagnosticContext = isNetworkMetric(metric) ? " · Browser diagnostic; lower is not necessarily better across differing capture/topology." : "";
+    card.innerHTML = `<h3>${t}</h3><div class="meta">${metricLabel(metric)} — ${summaries}${diagnosticContext}</div><canvas></canvas>`;
+    grid.appendChild(card);
+    const ctx = card.querySelector("canvas").getContext("2d");
+
+    const datasets = modeSeries.map((series) => {
+      const style = MODE_STYLES[series.mode];
+      return {
+        label: series.label,
+        data: series.data,
+        borderColor: style.color,
+        backgroundColor: style.fill,
+        pointBackgroundColor: style.color,
+        pointBorderColor: entries.map((_, index) => index === series.latestIndex ? "#f0f6fc" : style.color),
+        pointBorderWidth: entries.map((_, index) => index === series.latestIndex ? 2 : 0),
+        pointRadius: entries.map((_, index) => index === series.latestIndex ? 5 : 2.5),
+        tension: 0.2,
+        spanGaps: !isNetworkMetric(metric),
+      };
+    });
+
+    const chart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: xLabels,
+        datasets,
+      },
+      options: {
+        animation: false,
+        plugins: {
+          legend: { display: datasets.length > 1, labels: { color: "#8b949e", font: { size: 10 }, boxWidth: 20 } },
+          tooltip: {
+            callbacks: {
+              title: (items) => {
+                const i = items[0].dataIndex;
+                const e = entries[i];
+                return `#${i + 1} ${e.label} [${entryMode(e)}]`;
+              },
+              label: (item) => `${item.dataset.label}: ${formatMetricValue(metric, item.raw)}`,
+              afterLabel: (item) => {
+                const e = entries[item.dataIndex];
+                return `${(e.timestamp || "").slice(0, 10)} · ${e.gitSha || "?"} · runs:${e.runs ?? "?"}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            ticks: { color: "#8b949e", font: { size: 9 }, maxRotation: showLabels ? 60 : 0, autoSkip: true },
+            grid: { color: "#21262d" },
+          },
+          y: {
+            type: yscale,
+            ticks: { color: "#8b949e", font: { size: 10 } },
+            grid: { color: "#21262d" },
+            beginAtZero: yscale === "linear",
+          },
+        },
+      },
+    });
+    charts.set(t, chart);
+  }
+}
+
+function onData(entries) {
+  if (!Array.isArray(entries) || !entries.length) {
+    alert("audit-log.json is empty or not an array of entries.");
+    return;
+  }
+  ENTRIES = entries;
+  TESTS = collectTests(entries);
+
+  picker.hidden = true;
+  controls.hidden = false;
+  legendDetails.hidden = false;
+  legendText.hidden = false;
+
+  const distinctTests = new Set(entries.flatMap(e => Object.keys(e.metrics || {}))).size;
+  sub.textContent = `${entries.length} runs · ${distinctTests} distinct tests · loaded ${new Date().toLocaleTimeString()}`;
+
+  runlist.innerHTML = "";
+  entries.forEach((e) => {
+    const li = document.createElement("li");
+    const rtt = e.baseline_rtt_ms != null ? `  · RTT ${e.baseline_rtt_ms}ms` : "";
+    li.textContent = `${e.label} [${entryMode(e)}]  —  ${(e.timestamp || "").slice(0, 10)}  ·  ${e.gitSha || "?"}${e.gitDirty ? " (dirty)" : ""}  ·  ${e.runs ?? "?"} run(s)${rtt}`;
+    runlist.appendChild(li);
+  });
+
+  const unknowns = detectUnknowns(entries);
+  renderWarnings(unknowns);
+  buildMetricDropdown(unknowns.unknownMetricKeys);
+  buildCharts();
+}
+
+metricSel.addEventListener("change", buildCharts);
+document.querySelectorAll(".mode-filter").forEach((input) => input.addEventListener("change", buildCharts));
+document.getElementById("yscale").addEventListener("change", buildCharts);
+document.getElementById("hideQuiet").addEventListener("change", buildCharts);
+document.getElementById("comparableOnly").addEventListener("change", buildCharts);
+document.getElementById("showLabels").addEventListener("change", buildCharts);
+
+function updateMetricGuide() {
+  const metric = metricSel.value;
+  const meta = KNOWN_METRICS[metric];
+  const direction = metric.startsWith("focusDrift") ? ""
+    : meta?.lowerIsBetter === true ? " Lower is better."
+    : meta?.lowerIsBetter === false ? " Higher is better." : " Context only; no better/worse direction.";
+  document.getElementById("metricGuide").textContent =
+    `${metricLabel(metric)} — ${METRIC_HELP[metric] ?? "No description or units are registered for this metric."}${direction}`;
+  document.getElementById("previousMetric").disabled = metricSel.selectedIndex <= 0;
+  document.getElementById("nextMetric").disabled = metricSel.selectedIndex >= metricSel.options.length - 1;
+}
+
+function moveMetric(direction) {
+  if (controls.hidden || !metricSel.options.length) return;
+  const index = Math.max(0, Math.min(metricSel.options.length - 1, metricSel.selectedIndex + direction));
+  if (index === metricSel.selectedIndex) return;
+  const scrollY = window.scrollY;
+  metricSel.selectedIndex = index;
+  metricSel.dispatchEvent(new Event("change"));
+  window.scrollTo(0, scrollY);
+}
+document.getElementById("previousMetric").addEventListener("click", () => moveMetric(-1));
+document.getElementById("nextMetric").addEventListener("click", () => moveMetric(1));
+
+// Keep native editing/navigation keys inside controls and editable content.
+document.addEventListener("keydown", (e) => {
+  if (e.defaultPrevented || e.isComposing || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || controls.hidden) return;
+  if (e.target instanceof Element && (e.target.closest("input, select, textarea") || e.target.isContentEditable)) return;
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    e.preventDefault();
+    moveMetric(e.key === "ArrowLeft" ? -1 : 1);
+  }
+});
+
+(async () => {
+  // 1) Sibling JS file injected a global — works on file:// too. This is the
+  //    happy path; run-audit.mjs writes audit-log.js next to audit-log.json.
+  if (window.__AUDIT_LOG__) {
+    onData(window.__AUDIT_LOG__.entries ?? window.__AUDIT_LOG__);
+    return;
+  }
+  // 2) Fall back to fetch (works when served over http://).
+  const data = await tryFetch();
+  if (data) { onData(data); return; }
+  // 3) Last resort: ask the user to drop the file.
+  sub.textContent = "Couldn't auto-load (no audit-log.js sibling, and fetch is blocked). Pick or drop audit-log.json below.";
+  picker.hidden = false;
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1265 @@
+# Media-api capability inventory
+
+**Date:** 2026-05-31
+**Capability reference, not an execution plan.** Last capability-summary update: 17 September 2026.
+The [index](media-api-00-index.md) routes current work and [candidate 11](api-boundary-11-candidate-plan.md)
+owns the current provisional direction under operator decisions. Its completed-work dispositions
+and sequencing supersede conflicting ownership, snapshot and acceptance prescriptions here.
+The dated material below remains useful reference, not implementation authority.
+**Historical derivation:** Sections 1-9 are the May assessment with later corrections, not current
+build instructions. The summary below supersedes their readiness, sizing, endpoint and migration
+policy claims. Current source decides what exists; the operator decides new guarantees.
+**Primary inputs read in full:**
+- `phase-1-media-api-capability-inventory-findings.md` (558 lines)
+- `phase-2-kupua-dal-needs-findings.md` (1179 lines)
+- `b2-hunt-findings.md` (604 lines)
+- `media-api-gap-01-searchAfter-findings-4.md` (474 lines)
+- `media-api-gap-closure-feasibility.md` (418 lines)
+
+---
+
+## Current capability checklist
+
+Continue incremental API adoption without dropping current read-only workflows or silently
+strengthening accepted approximations into exactness requirements. Index migrations are unsupported.
+No Dynamo/session transport or Thrall interlock is selected. The September replacement assessment
+is useful coverage evidence, not a mandatory architecture or endpoint list.
+
+| Capability | Current status | Next bounded decision or correction |
+|---|---|---|
+| B1/B2 DAL cleanup | Implemented; later cleanup removed the unused `search()` wrapper. | Do not recreate removed methods to match the historical inventory. |
+| D3 cursor search | Code-complete for the agreed amendment scope; integrated PR branch pushed as `95a45f4ee`. | Human review; draft/ready status is the operator's choice, not a hold for known pending amendments. |
+| D7 live counts/tickers | Still direct ES. | Prepare polling/count route; decide initial-count ownership and preserve exact totals/ticker names. |
+| D9 detail/selection image reads | Still direct ES for these owners. | Visibility, bounded batches, ordering, aliases/enrichment and selection datasource injection. |
+| D8 PIT lifecycle | Browser opens/closes PITs today. | Decide ordinary-operation opening, continuation, renewal, expiry and cleanup; not migration transparency. |
+| D1 position map | Direct implementation exists, including special sorts. | Preserve exact maps up to 65k; agree their relationship to the ordinary browse snapshot. |
+| D2 range selection | Direct implementation exists. | Preserve complete/truncated-at-5k behavior; resolve tuple ownership and selection-store routing. |
+| D4 exact rank/locate | Direct selected-maximum algorithm exists. | Port supported behavior, with cost and snapshot relationship explicit. |
+| D5 deep seek | Direct scalar/composite mechanisms exist. | Preserve deep navigation; disclose existing approximation/work bounds rather than invent exact completion. |
+| D6/C3 distributions | Direct keyword/date distributions exist. | Preserve coverage/completion and accepted approximate special-date presentation. |
+| C1/C2 facets/typeahead | Direct contextual terms/named/nested aggregations. | Fully qualified allowed paths, parent usage counts, cancellation and existing limits. |
+| Collection counts | Separate direct ES constructor. | Route that owner too; collection service absence stays optional. |
+| AI health/search | Browser embedding proxy plus direct ES. | Existing media-api AI is not proven equivalent: compare filters, blend, cap, total and health before reuse. |
+| Media delivery | Development S3/imgproxy paths still used. | No-browser-ES is distinct from replacing media delivery; production reachability/auth needs its own decision. |
+| `searchRange`, standalone `count`, corpus aggregation fallback | Reserved or unused application surfaces. | Confirm callers before building endpoints; do not mirror unused methods. |
+
+The [agreed D3 amendment batch](d3-search-after-01-readiness-findings.md) is complete.
+Scala commit `e6485be4b` was ported onto `mk-api-1of9-searchAfter` after merging `main`;
+the reconciled commit `95a45f4ee` is pushed to PR #4849. All 305 media-api tests passed
+on that integrated PR tree. The client amendments remain on the prototype branch.
+There are no known pending amendments within the agreed batch. Human review, merge and
+deployment are separate from this code-completion status; deferred questions below are not
+an instruction to keep the PR in draft.
+
+The earlier D7-then-D9 preparation order is superseded. Use candidate 11 and its
+[post-merge alignment workplan](api-boundary-11-candidate-plan.md#15-post-merge-prototype-query-alignment-workplan)
+for current sequencing. The [D7/D8/D9 sketches](media-api-02-next-endpoints-d7-d8-d9-workplan.md)
+retain bounded technical questions as historical input; they do not own the active work queue.
+
+### Evidence retained from the completed D3 amendments
+
+- Safe query defaults, parsed deleted-image authorization and all six top-level client date
+  bounds are implemented and tested. CQL dates remain inclusive. Partial-result policy and
+  broader malformed-input strictness remain explicitly deferred questions.
+- Authoritative response tuples survive paging, eviction, focus, ranges and history. Fallback,
+  inserted-target and backward-page enrichment publishes only at guarded commit points.
+- Option B and deliberate `_shard_doc` truncation are retained. A semantic server builder is
+  not selected; do not change Kahuna's `createSort` to reproduce Kupua behavior.
+- Bounded hybrid availability/expiry recovery is implemented. Page-one/PIT timing, initial-count
+  ownership and wider snapshot/lifecycle questions remain separate; completion of this batch
+  neither resolves them nor authorizes stronger infrastructure.
+
+### Accepted behavior and safety
+
+- Preserve all browsing tiers, both page directions, deep seek, focus/history/traversal,
+  filters/typeahead, counts, collections, selection hydration/range and health-gated AI.
+- Special-date parent coverage/null boundaries are exact; populated child-date histograms remain
+  explicitly approximate. PROD rejected the expensive exact filter-bank alternative. Scalar dates
+  and exact map/rank operations must not be weakened under this exception.
+- Image-returning API routes retain enrichment and configured alias leaves. Reuse the lean
+  projection and strip-before-validate pattern; publish at the caller's commit boundary.
+- Keep authorization, bounded work, cancellation and Kahuna behavior intact. POST-body read
+  conventions have D3 precedent but still require team review. New routes still share load.
+- The one-pass writer was prototyped and reverted; it is not a prerequisite to measure or review
+  D3. Compression merged separately. Reuse dated measurements with their topology limits.
+
+## Historical status and derivation
+
+> Sections 1–9 below are the original derivation (2026-05-31). Later correction banners are
+> retained as dated evidence only. Their execution gates and design mandates are superseded by
+> the current summary and active index. Do not run archived prompts from these sections.
+
+### Special-date position contract correction (7 September 2026)
+
+Do not implement C3/D1/D4 or the percentile endpoint for Last used / Added to
+collection from the original text below without reading **Materialized scalars
+for Last used and Added to collection** and the **Obscure sorting implementation
+workplan**. PROD evidence found 4,142,917 parents with dated usages but a monthly
+histogram sum of 5,034,659 (+21.5%). An exact current-schema filter bank took
+2,993ms for only 24 half-year buckets, so that workaround is rejected.
+
+The leading interim contract is:
+
+- special-date `coveredCount` is an exact root-parent exists count;
+- populated special-date histogram buckets/percentiles are explicitly
+  approximate child-date evidence, never exact parent ranks;
+- exact `startPosition` is valid only for scalar dates, null-zone `uploadTime`,
+  or future materialized latest-date fields;
+- position maps remain exact and must follow the canonical `mode:max` ordering;
+- `countBefore` must return exact rank or explicitly reject unsupported special
+  sorts; do not port the current child-value approximation as the API contract.
+
+D3 `searchAfter` is unaffected: Elasticsearch can already page the canonical
+`mode:max` result order. D2 `getIdRange` is likewise a cursor-walk concern, not a
+distribution contract. At the time of this correction D1, D4 and C3 were waiting
+for H/I/G acceptance; the 13 September correction below records the now-live
+algorithms and remaining performance/contract gates.
+
+### Historical migration concerns (13 September 2026; not execution guidance)
+
+The D3/D8 routing document
+[`../../zz Archive/media-api-work/2026-09-migration-assessments/grid-index-migration-00-routing.md`](../../zz%20Archive/media-api-work/2026-09-migration-assessments/grid-index-migration-00-routing.md)
+records the former research sequence, not current readiness or implementation authority.
+
+These items preserve concerns raised then. Their proposed remedies are not automatically
+approved. Use the current capability summary for their present disposition.
+
+- **Earlier D3 review hold (agreed amendments now complete).** Initial research 02 recommended
+  coordinated D3/D8 and semantic `orderBy`. The completed bounded assessment retained Option B;
+  the archived programme was not a prerequisite. POST/JSON, cursor/null-zone behavior and lean
+  projection remain evidence, not an immutable future contract.
+- **Earlier configured-alias cursor blocker (resolved by D3 amendment C1).** The endpoint returned
+  authoritative tuples, but Kupua reconstructed eviction/range cursors from lean images lacking
+  raw `fileMetadata.*` fields. Response tuples are now retained by image ID/search identity and
+  preferred through paging, eviction, ranges and history. No D3 wire change was needed.
+- **Earlier focus/fallback enrichment gaps (resolved by D3 amendment C2).** Fallback pages and
+  inserted probe targets previously lost their overlays. Committed fallback, target and backward
+  pages now carry enrichment without making discarded probes mutate the store. No endpoint
+  change was needed.
+- **Initial search must not retain two exact-count owners.** D7 remains required for polling.
+  The eventual workplan must compare D3 ticker fusion with D7-owned initial total/tickers,
+  map count intent explicitly and decide whether to consolidate the initial count. This is a
+  D7/D3 choice, not a prerequisite for unrelated capabilities.
+- **D8's documented multi-index/no-dedup PIT is blocked.** During migration, Thrall retains
+  both copies and marks the current-index copy `migratedTo`; a PIT over both indexes without
+  a frozen dedup predicate can return duplicate IDs. Do not revive the multi-index design.
+  D8's ordinary-operation boundary still needs deciding for dependent capabilities, without
+  requiring the archived architecture programme.
+- **D9 and D2 need a Kupua wiring change.** `selection-store.ts` constructs the direct ES
+  adapter, so a `StranglerAdapter` override alone migrates neither `getByIds` nor
+  `getIdRange`. Route or inject that owner before endpoint acceptance.
+- **C1 needs the same wiring review.** `collection-store.ts` also constructs direct ES, so
+  a Strangler `getAggregations` override alone does not migrate collection counts.
+- **Reconsider D2's cursor-bound request.** An ID-bound endpoint can resolve authoritative
+  endpoint tuples under one snapshot; this avoids reconstructing configured-alias cursors
+  from lean images that expose `aliases` but not the raw `fileMetadata.*` path.
+- **Sort ownership is a D3 contract decision.** Option B is implemented evidence;
+  Option A is the principal server-owned candidate and Q5 supplies its parity inventory.
+  Readiness reassessment must classify the choice without presupposing either outcome. This work must not
+  call or modify Kahuna-serving `createSort`.
+- **D1 and D4 are no longer blocked on missing TypeScript algorithms.** Live Kupua now has
+  exact special-sort position-map clauses and selected-maximum rank predicates. D1 remains
+  blocked on D8/contract work; D4 remains measurement-gated for production cost and must rank
+  a PIT cursor inside the same snapshot. C3's
+  populated special-date buckets remain approximate evidence.
+- **D8 preserves, but must name, the current page-one timing trade-off.** Kupua opens PIT
+  and fetches page one without it in parallel. Strict single-snapshot membership would need
+  a separate combined open-and-search design; it is not a property of current D3.
+- **D3 needs client follow-up, not a wire redesign.** Map `countAll` from explicit count
+  intent and put API-absence fallback at the Strangler while direct ES remains available.
+- **Historical D9 migration concern.** Existing media-api ID reads prefer the migration
+  index and fall back to current. This matters during unsupported migration, but does not
+  mandate dual-index lookup for the ordinary-operation prototype.
+- **C1 should not migrate unused exact hit counting.** Use `prepareSearch`, verbatim field paths,
+  named filters and nested usage/reverse-nested counts. Production consumers do not read each
+  field result's `total`; return a documented neutral value or remove it in a separate DAL change.
+
+**Build status**
+
+> **Contract correction (12 September 2026):** B2's fused `search()` wrapper
+> has now been removed from `ImageDataSource` and all adapters because the store
+> bootstraps exclusively through first-page `searchAfter`. Historical row 1 and
+> the `search` detail section below are superseded where they prescribe keeping
+> a thin wrapper. The distinct `searchRange()` offset contract remains reserved
+> and unimplemented on media-api exactly as stated.
+>
+> The same cleanup removed client-only `SearchParams.countAll`, legacy
+> `SearchResult.tickerCounts`, and `IdRangeResult.fetchDuration`. This does not
+> remove the D3 media-api request body's independently derived `countAll`, the
+> live `CountWithTickersResult`, or D2's IDs/truncation/walked contract. Range
+> timing remains measured by the calling hook.
+
+| Bucket / item | Status |
+|---|---|
+| B1 — shape-leak elimination (Section 4a) | ✅ DONE — `bcde65a58` |
+| B2 — method fusions (Section 4b) | ✅ DONE |
+| D3 — `searchAfter` cursor endpoint (Section 5) | DONE for agreed scope; amendments integrated and pushed as `95a45f4ee`. No known pending amendment hold; human review remains. |
+| D1 | ⬜ not started — blocked on D8 + finalized D3 sort/snapshot contract; special-sort algorithm exists in live TS |
+| D2 | ⬜ not started — blocked on D8 + finalized D3/D2 boundary + selection-owner wiring |
+| D4 | ⬜ not started — exact TS algorithm exists; blocked on finalized snapshot/sort contract and production cost |
+| D5, D6 | ⬜ not started — value-gated; any shared continuation is opaque/server-owned |
+| D7 + initial-count ownership | ⬜ not started — D7 polling endpoint required; initial D3-vs-D7 ownership deferred to workplan |
+| D8 | ⛔ design blocked — snapshot membership/dedup and close transport must be corrected |
+| D9 | ⬜ not started — focused review plus selection-owner wiring required |
+| A items (`searchRange`, `getAggregation`, `getById`, `searchByAi`) | ⬜ not started (client wiring only — no server work) |
+| C items (C1–C3) | ⬜ not started |
+
+**Current next order:** use the capability checklist above and the active index. The former
+numbered architecture sequence is not an implementation gate.
+
+**Standing constraints established by D3** (every new gap workplan must honour these):
+
+1. **The completed D3 amendments retain Option B.** Option A remains an unselected
+  alternative requiring explicit approval. Any server semantic builder must be parallel
+  to legacy `createSort`; never call or modify Kahuna's builder to satisfy Kupua.
+2. **PIT consumers and snapshot opening must be designed together.** Existing D3 consumes
+  raw single-index PITs opened by Kupua; do not alter that branch opportunistically. D8's
+  ordinary-operation boundary remains a scoped decision, not an archived-programme dependency.
+  A later D8 decision may require separately approved D3 changes; it does not reopen the
+  completed amendment batch. A live migration-status lookup is not frozen context.
+3. **Enrichment flows through the overlay, written at commit-to-view points only.** Server-authoritative
+   `cost`/`valid`/`persisted`/`actions` ride in each hit; the store writes them at fresh-search /
+   extend / seek, never inside the adapter fetch (the F-1 clobber lesson). D9 and any future
+   image-returning endpoint use the same channel.
+4. **Image-returning endpoints reuse the lean schema-derived projection + strip-before-validate**
+   (`Image` fields − `{embedding, originalMetadata, fileMetadata}` + alias paths; strip the dropped
+   fields from a *copy* before `validate[Image]`). D9 inherits this.
+5. **POST + `auth.async(parse.json)` is the adopted pattern** for cursor/body-heavy endpoints — this
+   resolves the old "GET-vs-POST" open question (`media-api-90-conventions.md` §15.1). **Pending team
+   sign-off (N-3)** — see `d3-search-after-02-pr.md`.
+
+**Performance — the one prod lever still unbuilt.** The dominant prod cost is the Argo **envelope
+build** (~55 ms/page). A lean one-pass writer (`createForBrowse`) was prototyped and **reverted** —
+it is *not* in the shipped code (`searchAfterImages` uses `hitToImageEntity` → `imageResponse.create`).
+It is a possible optimization, not a prerequisite. Compression is now merged; historical
+uncompressed transport costs are not current behavior. Evidence:
+`d3-search-after-04-performance.md` (kept active for engineer discussion).
+
+**Executing a future gap?** The authoritative algorithm source is the **live kupua TS**
+(`es-adapter.ts`, `null-zone.ts`, `sort-builders.ts`) — more current than the archived Phase-2
+snapshot (which predates `usagesDateAdded` and the usages nested-agg). The archived
+`ref--media-api-gap-closure-feasibility.md` and `ref--media-api-gap-01-searchAfter-findings-2.md`
+(in `zz Archive/media-api-work/`) hold the elastic4s / PIT Scala notes worth consulting for
+D8/D2/D4/D5/D6.
+
+---
+
+## Section 1 — Classification Matrix
+
+| # | DAL method | Bucket | Phase 2 ref | Phase 1 ref | One-line rationale |
+|---|------------|--------|-------------|-------------|---------------------|
+| 1 | `search` | B2 (F3) | §2.1 | Phase 1 §2 GET /images | F3: merges into first-page `searchAfter`; 0 production call sites |
+| 2 | `searchRange` | A | §2.2 | Phase 1 §2 GET /images | Media-api `GET /images?offset=N&length=M` satisfies offset-based page fills exactly |
+| 3 | `count` | B2 (F2) | §2.3 | Phase 1 §2 GET /images | F2: `countWithTickers(...).count`; 0 production call sites; dead code elimination |
+| 4 | `countWithTickers` | D | §2.4 | Phase 1 §4 ticker aggs | Tickers exist server-side but no dedicated `count+tickers` endpoint; needs new route |
+| 5 | `getById` | A (via B2 F4) | §2.5 | Phase 1 §2 GET /images/:id | F4 → thin wrapper on `getByIds`; and `getByIds` maps to new `POST /images/mget` (Gap 12) |
+| 6 | `getAggregation` | A | §2.6 | Phase 1 §2 GET /images/metadata/:field | Existing corpus-wide terms-agg endpoint covers this exactly |
+| 7 | `getAggregations` | C | §2.7 | Phase 1 §4 aggregations | Capability exists per-field but no multi-field + full-SearchParams endpoint; trivial extension |
+| 8 | `getFilterAggregations` | B1+C | §2.8 | Phase 1 §3 `is:` registry | Client eliminates raw ES filter DSL (B1); server needs to accept named `is:` strings (small C) |
+| 9 | `openPit` | D | §2.9 | Phase 1 §6.7 (no PIT code) | No PIT support in media-api; new routes needed |
+| 10 | `closePit` | D | §2.10 | Phase 1 §6.7 | Same as openPit — PIT lifecycle pair |
+| 11 | `searchAfter` | B1+D | §2.11 | Phase 1 §2 GET /images | B1: eliminate `sortOverride`/`extraFilter`/`noSource` params; D: cursor pagination endpoint needed |
+| 12 | `countBefore` | B1+D | §2.12 | Phase 1 §2 (no count-before) | New exact position-count endpoint; special max-date support is blocked on I and must not port the current approximation |
+| 13 | `estimateSortValue` | B1+D | §2.13 | Phase 1 §2 (no percentile agg endpoint) | New percentile endpoint with explicit field/scope; special max-date percentiles are approximate child-value anchors |
+| 14 | `findKeywordSortValue?` | B1+D | §2.14 | Phase 1 §2 (no composite walk) | B1: eliminate `field`+`direction` params; D: new composite-walk endpoint |
+| 15 | `getKeywordDistribution?` | B1+D | §2.15 | Phase 1 §2 (no composite distribution) | B1: eliminate `field`+`direction`; D: new composite-distribution endpoint |
+| 16 | `getDateDistribution?` | B1+C | §2.16 | Phase 1 §2 GET /images/aggregations/date/:field | Redesign response: exact parent coverage separate from buckets with explicit exact/approximate provenance; special-date `startPosition` is not exact |
+| 17 | `fetchPositionIndex?` | D | §2.17 | Phase 1 §6.3 lookupIds (not routed) | Exact paginated ID-cursor stream, capped by Kupua at 65k; blocked on D8 and the sort-contract gate |
+| 18 | `getByIds` | D | §2.18 | Phase 1 §6.3 lookupIds (not routed) | lookupIds exists but uses wrong API (`pinned_query`+200 cap); needs new `POST /images/mget` |
+| 19 | `getIdRange` | D | §2.19 | Phase 1 §2 (no range walk) | No cursor-walk-with-overshoot-detection endpoint; new route |
+| 20 | `searchByAi?` | A | §2.20 | Phase 1 §5 KNN/hybrid search | Media-api `GET /images?useAISearch=true` is identical algorithm; client change only |
+
+**Bucket tally:** A: 4 (rows 2, 6, 20, and 5-via-F4), B1: 5 (8, 11, 12, 13, 14, 15, 16 — some combined with D or C), B2: 2 (rows 1, 3), C: 2 (7, 16-partial), D: 7 (4, 9, 10, 11-partial, 12-partial, 13-partial, 14-partial, 17, 18, 19). Within expectations (no premise failure).
+
+---
+
+## Section 2 — Per-Method Detail
+
+### `search` — bucket B2 (F3)
+
+**Abstract need (restated):** Execute a primary text/filter image search and return the first page of results with total count and per-hit sort cursors. The store uses this as the named "first search" entry point; subsequent pages use `searchAfter`.
+
+**Method signature:**
+```typescript
+search(params: SearchParams): Promise<SearchResult>;
+```
+
+**Current call sites:** 0 production calls on `dataSource`. Called only from `dal-contract.test.ts`. The store always uses `searchAfter(params, null, pitId)` for first-page fetches (`search-store.ts:1987`). Source: Phase 2 §2.1.
+
+**Current ES adapter behaviour:** `_doSearch` with `from=0, size=params.length`, `track_total_hits=true`, and optional `TICKER_AGGS` (when `includeTickers=true`). The ticker path in `_doSearch` is functionally dead — the store uses `countWithTickers` in parallel (`search-store.ts:1997`) rather than bundling tickers into `search`. Source: b2-hunt Section 2, Cluster 2 (F3 dive).
+
+**Media-api capability (relevant subset):** Media-api `GET /images` already supports offset+length pagination via `offset` and `length` params, full `SearchParams` vocabulary (`q`, filters, `orderBy`). For a first-page call, `offset=0` is equivalent to a from=0 search. The ticker bundle is not needed here since tickers are a separate `countWithTickers` call. Source: Phase 1 §2.
+
+**Classification rationale:** `search` is a degenerate first-page `searchAfter`. The b2-hunt audit confirmed F3: `search(params) ≡ searchAfter(params, null, null)`. Since `search` has zero production call sites and the ticker agg path in it is dead, the fusion is clean — no store migration needed for tickers. After `GridApiDataSource` is in place, `search` either delegates to the first-page `searchAfter` path or is removed from the interface.
+
+**Action (B2 — F3):** `search` becomes a thin wrapper: `return this.searchAfter(params, null, null, undefined, false, false, false)` (no sortOverride, no extraFilter). The `SearchResult` type differs from `SearchAfterResult` only in the presence of `tickerCounts?` — since `tickerCounts` is dead in the `search` path, the wrapper can safely return the `SearchAfterResult` as a `SearchResult` with `tickerCounts: undefined`. Net surface: 2 → 1. Verify with `npm --prefix kupua test` after the change. No E2E risk (0 production call sites).
+
+**Pagination/cursor implication:** First-page call — no cursor. `searchAfter(params, null, null)` maps to `GET /images?offset=0&length=N` on media-api, which is offset-based. The cursor returned by media-api for the first page will be a synthetic cursor derived from the response (position 0 + sort values). This is compatible with the store's first-page bootstrap.
+
+**Provenance:** Phase 2 §2.1, b2-hunt F3, findings-4 Part 4 (0 call sites).
+
+---
+
+### `searchRange` — bucket A
+
+**Abstract need (restated):** Fetch a page of images using the current filter/sort context, without cancelling any in-flight primary search. Used for non-coalescing background range fills when the caller wants additive loads at a specific offset rather than cursor-driven pagination.
+
+**Method signature:**
+```typescript
+searchRange(params: SearchParams, signal?: AbortSignal): Promise<SearchResult>;
+```
+
+**Current call sites:** 0 production calls on `dataSource`. Only in mock and tests. Exists for `GridApiDataSource` planning — explicitly reserved for offset-based range fills where cursor pagination would be overly complex. Source: Phase 2 §2.2, findings-4 Part 4.
+
+**Current ES adapter behaviour:** Not actively used in production. The intent is: `_search` with `from=params.offset, size=params.length` — same as `search` but without the cancellation token and without tickers. The non-cancelling contract is the key distinction from `search`.
+
+**Media-api capability (relevant subset):** `GET /images?offset=N&length=M` with full `SearchParams` filters. This is the canonical offset-based search endpoint. It supports the exact pagination model that `searchRange` is designed to map to. Source: Phase 1 §2 (offset, length params in SearchParams table).
+
+**Classification rationale:** `searchRange` maps directly to `GET /images` with an explicit `offset` and `length` from `params`. No new capability needed. For `GridApiDataSource`, `searchRange` calls `GET /images?offset=${params.offset}&length=${params.length}&...filters`. The non-cancelling contract is a client-side concern (no AbortSignal propagation), not a server concern.
+
+**Action (A):** `GridApiDataSource.searchRange` calls `GET /images` with `params.offset` and `params.length` and all standard SearchParams filters. Response is consumed as-is (`total`, `data` as `hits`, fabricated sort cursors if needed for compatibility). No server work.
+
+**Pagination/cursor implication:** Offset-based. Media-api's offset model is exactly what `searchRange` was designed for. No cursor pagination needed for this method.
+
+**Provenance:** Phase 2 §2.2, Phase 1 §2, b2-hunt Section 2 Cluster 2 (searchRange preserved as distinct).
+
+---
+
+### `count` — bucket B2 (F2)
+
+**Abstract need (restated):** Return the total number of images matching the current filter and query context, without fetching any image data.
+
+**Method signature:**
+```typescript
+count(params: SearchParams): Promise<number>;
+```
+
+**Current call sites:** 0 production calls on `dataSource`. Only in `dal-contract.test.ts`. Source: Phase 2 §2.3, findings-4 Part 4.
+
+**Current ES adapter behaviour:** Uses `_count` endpoint — lighter than `_search` with `size:0`. Returns `CountResponse.count`. Source: b2-hunt Section 2, Cluster 7 (F2 dive at es-adapter.ts:774–778).
+
+**Media-api capability (relevant subset):** `GET /images?length=0&countAll=true` returns `total` in the Argo envelope, which is a valid workaround. Gap 17 in the feasibility study proposes a dedicated `GET /images/count` endpoint (~15 LOC). Source: Phase 1 §2, feasibility §Gap17.
+
+**Classification rationale:** F2: `count(params)` ≡ `countWithTickers(params).then(r => r.count)`. Since `count` has zero production call sites, no caller is regressed. For `GridApiDataSource`, `count` is simply a wrapper on `countWithTickers`. The server needs a `countWithTickers` endpoint for other reasons (see `countWithTickers` — bucket D); once that exists, `count` is free.
+
+**Action (B2 — F2):** `GridApiDataSource.count(params)` ≡ `this.countWithTickers(params).then(r => r.count)`. No separate endpoint needed. Alternatively, once Gap 17 (dedicated count endpoint) exists, `count` can call it directly — but either way no new work is needed beyond what `countWithTickers` requires. Net surface: 2 → 1. Independent value: No — interface tidying only.
+
+**Pagination/cursor implication:** None. Count only.
+
+**Provenance:** Phase 2 §2.3, b2-hunt F2, findings-4 Part 4.
+
+---
+
+### `countWithTickers` — bucket D
+
+**Abstract need (restated):** In a single request, determine (a) how many images arrive in the search result matching the current context (or since a time boundary), and (b) the current counts for each named saved-filter group (ticker). Powers the new-images poll banner and per-ticker badge counts.
+
+**Method signature:**
+```typescript
+countWithTickers(params: SearchParams): Promise<CountWithTickersResult>;
+```
+
+**Current call sites:**
+- `search-store.ts:616` — new-images poll tick (called every N seconds; `params.since` = last-seen boundary)
+- `search-store.ts:1943` — ticker refresh after user saves metadata to an image
+- `search-store.ts:1997` — initial search ticker parallel fetch (runs alongside first-page `searchAfter`)
+
+Source: Phase 2 §2.4, findings-4 Part 5 Note 3.
+
+**Current ES adapter behaviour:** `_search` with `size:0`, `track_total_hits:true`, and `TICKER_AGGS` — a module-level constant of filter aggregations compiled from `gridConfig.tickerDefinitions` (CQL strings). Returns `{ count: total, tickerCounts: Record<string, TickerCountResult> }`. The ticker definitions are the same CQL clauses the server already knows (`ElasticSearch.scala`'s `aggregationsNameToSearchClauseMap`). Source: b2-hunt Section 2 Cluster 7 (F2 dive); Phase 2 §2.4; Phase 2 §3.2.
+
+**Media-api capability (relevant subset):** Media-api's `imageSearch()` already fires ticker aggregations on every search response via `extraCounts` in the Argo envelope (Phase 1 §2 and §4). However, `extraCounts` is bundled with search hits — there is no standalone `GET /images/count` variant that also returns `extraCounts`. The ticker definitions live server-side in `aggregationsNameToSearchClauseMap`. Per Phase 1 §4: ticker aggs are always-on (config-gated) but only returned as part of `GET /images`. No dedicated count+tickers endpoint exists.
+
+**Classification rationale:** This is a genuine new capability (bucket D). The server has all the ingredients — it can count, and it fires ticker aggs on search. What it lacks is a lightweight endpoint that returns count+tickers without fetching hits. The feasibility study missed this entirely (not in Gaps 1–18). Findings-4 Note 3 flags it as `GAP MISSING` with 3 call sites, one on every poll tick. This cannot be absent in media-api mode.
+
+**Action (D):** New endpoint needed. Capability gap description: "A `size=0` search endpoint that returns (a) the total hit count (`track_total_hits:true`) and (b) the per-ticker filter-aggregation counts, without fetching any image documents." This reuses existing server infrastructure — `ElasticSearch.scala`'s `aggregationsNameToSearchClauseMap` already holds the ticker queries; the count is already computed via `trackTotalHits`. Size estimate: **S** (small). All primitives exist; this is wiring a `size=0, track_total_hits=true` search with ticker aggs to a new route. Closest existing thing: `GET /images?length=0` returns `total` + `extraCounts`, but the `extraCounts` are always-on ticker aggs that already exist in the response. The new endpoint is effectively an alias of `GET /images?length=0&countAll=true` that explicitly guarantees the `extraCounts` field is present and returned by name.
+
+**Pagination/cursor implication:** None. Count-only endpoint.
+
+**Provenance:** Phase 2 §2.4, Phase 2 §3.2, Phase 1 §4, feasibility §Gap17 (count endpoint — needs extension), findings-4 Part 5 Note 3.
+
+---
+
+### `getById` — bucket A (via B2 F4)
+
+**Abstract need (restated):** Retrieve the complete image document for a single known identifier. Returns `undefined` if the image does not exist.
+
+**Method signature:**
+```typescript
+getById(id: string): Promise<Image | undefined>;
+```
+
+**Current call sites:**
+- `kupua/src/components/ImageDetail.tsx:235` — load full image data when the user opens an image
+
+Source: Phase 2 §2.5, findings-4 Part 4.
+
+**Current ES adapter behaviour:** `_search` with `{query:{terms:{id:[id]}}, size:1}`. Source: b2-hunt Section 3, dive #5 (es-adapter.ts:800–817).
+
+**Media-api capability (relevant subset):** `GET /images/:id` — single image fetch, returns full transformed `Image` JSON with all computed fields (`secureUrl`, `valid`, `cost`, `persisted`, `syndicationStatus`, etc.). Source: Phase 1 §2 GET /images/:id.
+
+**Classification rationale:** F4 (b2-hunt): `getById(id)` becomes `getByIds([id]).then(r => r[0])`. The `GridApiDataSource` implementation of `getByIds` calls the new `POST /images/mget` endpoint (Gap 12). `getById` is a thin wrapper. Technically, a `GridApiDataSource.getById` could also call `GET /images/:id` directly for single-doc efficiency — that would be bucket A outright, not requiring Gap 12 at all. For the abstract interface, either path works; the direct `GET /images/:id` mapping is cleanest.
+
+**Action (A):** `GridApiDataSource.getById(id)` calls `GET /images/:id`; returns the full enriched `Image` on 200, or `undefined` on 404. This is the simplest possible implementation and requires no new server work. F4 fusion (having `getById` call `getByIds`) is valuable for the ES adapter but not required for `GridApiDataSource` — the direct-to-endpoint path is cleaner.
+
+**Pagination/cursor implication:** None. Single document.
+
+**Provenance:** Phase 2 §2.5, Phase 1 §2 GET /images/:id, b2-hunt F4.
+
+---
+
+### `getAggregation` — bucket A
+
+**Abstract need (restated):** Return the N most common values for a metadata field across the entire image corpus (no current-search-context filter), optionally scoped by a typeahead prefix string. Populates filter-value dropdowns.
+
+**Method signature:**
+```typescript
+getAggregation(field: string, query?: string, size?: number): Promise<AggregationResult>;
+```
+
+**Current call sites:**
+- `kupua/src/lib/typeahead-fields.ts:207` — typeahead for metadata fields (no search context)
+
+Source: Phase 2 §2.6, findings-4 Part 4.
+
+**Current ES adapter behaviour:** `match_all: {}` when `query` is absent; `multi_match` on `metadata.englishAnalysedCatchAll` when `query` is present. Terms agg on the requested field. No `SearchParams` filter applied. Source: b2-hunt Section 3, dive #1 (es-adapter.ts:817–857).
+
+**Media-api capability (relevant subset):** `GET /images/metadata/:field?q=...` — terms aggregation on `metadata.{field}`, optionally filtered by a CQL query string. The `q` param can pass a `multi_match`-compatible text filter. This exactly matches the corpus-wide terms-agg + optional text-filter pattern. Source: Phase 1 §2 GET /images/metadata/:field.
+
+**Classification rationale:** The existing `GET /images/metadata/:field` route is a direct match. No new capability needed. The `query` parameter maps to `q` on the media-api endpoint; `size` is not currently a parameter on that endpoint (hardcoded in `ElasticSearch.scala:469`), but the field-path and corpus-wide scope are already supported.
+
+**Action (A):** `GridApiDataSource.getAggregation(field, query, size)` calls `GET /images/metadata/${field}?q=${query}`. The `size` parameter is not currently supported by the server endpoint — if needed, a trivial server extension (add `size` param to `AggregateSearchParams`) would be warranted, but the current hardcoded size may be acceptable for typeahead use cases.
+
+**⚠️ fieldAlias path gap (discovered 2026-06-27):** `GET /images/metadata/:field` applies `metadataField(field)` server-side — prepending `"metadata."` — so `getAggregation("fileMetadata.iptc.Edit Status")` silently queries `"metadata.fileMetadata.iptc.Edit Status"` (non-existent field, returns empty buckets). The affected code path is `typeahead-fields.ts:206`: `scopedAgg` falls back to `dataSource.getAggregation(fa.elasticsearchPath, ...)` when `getParams` is `undefined` — i.e. before any search context exists. **Fix:** `GridApiDataSource.getAggregation` must NOT route fieldAlias ES paths through `GET /images/metadata/:field`. When the field path's first component is not `"metadata"` (e.g. `fileMetadata.*`, `usageRights.*`), delegate to `getAggregations({}, [{field, size}])` — the C-gap `POST /images/aggregations` endpoint — with empty SearchParams. This preserves `GET /images/metadata/:field` only for bare `metadata.*` leaf names (current typeahead callers: `credit`, `source`, `imageType`, etc.) and routes all other paths through the universal verbatim-path endpoint. No server change required — this is a pure client routing decision in `GridApiDataSource`.
+
+**Pagination/cursor implication:** None. Aggregation only.
+
+**Provenance:** Phase 2 §2.6, Phase 1 §2 GET /images/metadata/:field.
+
+---
+
+### `getAggregations` — bucket C
+
+**Abstract need (restated):** Return document-count distributions for multiple metadata fields simultaneously, restricted to images matching the current search context (same filters and query as the main search). Single round-trip for N field distributions.
+
+**Method signature:**
+```typescript
+getAggregations(
+  params: SearchParams,
+  fields: AggregationRequest[],
+  signal?: AbortSignal,
+): Promise<AggregationsResult>;
+```
+
+**Current call sites:**
+- `collection-store.ts:140` — `({}, [{field:"collections.pathId", size:6000}])` — all collections (no filter)
+- `search-store.ts:3868` — facet panel counts with current search context
+- `search-store.ts:3908` — expanded facet bucket load
+- `kupua/src/lib/typeahead-fields.ts:203` — context-aware typeahead
+
+Source: Phase 2 §2.7, findings-4 Part 4.
+
+**Current ES adapter behaviour:** `size:0` search with `buildQuery(params)` filter + N terms aggregations — one per requested field. Returns `{fields: Record<fieldPath, {buckets, total}>, took, fetchDuration}`. Source: b2-hunt Section 3, dive #2 (es-adapter.ts:857–910).
+
+**Media-api capability (relevant subset):** The existing `GET /images/metadata/:field` endpoint only supports a single field and uses `AggregateSearchParams` (only `q`, not full `SearchParams`). Gap 18 in the feasibility study addresses this: a new `POST /images/aggregations` endpoint accepting full `SearchParams` plus `fields: [{field, size}]`. This is a trivial extension — all primitives exist (`ElasticSearch.scala`'s `aggregateSearch` private method at line ~409 shows the pattern). Source: Phase 1 §4, feasibility §Gap18.
+
+**Classification rationale:** The capability (multi-field terms aggs with full SearchParams) doesn't exist as a single endpoint but all the ES primitives do. The existing single-field endpoint confirms the aggregation works; extending to N fields in one request is minimal server work. This is a textbook bucket-C item.
+
+**Action (C):** Smallest possible extension: new `POST /images/aggregations` endpoint accepting `{q, ...filters, fields: [{field, size}]}` and returning `{fields: {[fieldPath]: {buckets, total}}}`. Reuses `buildQuery(params)` (already in `ElasticSearch.scala`) and `termsAgg(field, size)` (already used in `metadataSearch`). ~100 LOC total. Empty `SearchParams` (collection-store call) is a valid case — `buildQuery({})` returns match-all-ish.
+
+**⚠️ Field paths must be passed verbatim — do NOT apply `metadataField()` prefix (discovered 2026-06-27).** The existing `metadataSearch` (ElasticSearch.scala:472) calls `termsAgg(field = metadataField(params.field))` which prepends `"metadata."`; the new endpoint must NOT do this. The client sends fully-qualified ES paths: `"fileMetadata.iptc.Edit Status"` (fieldAlias), `"usageRights.category"`, `"collections.pathId"`, `"source.mimeType"`, `"userMetadata.labels"`, `"uploadedBy"`. All of these are in the current `AGG_FIELDS` and would be silently misdirected by any prefix. The `termsAgg` call must use the field path exactly as received from the request body — opaque to the server. This verbatim-path design also enables ad hoc aggregation on any keyword-mapped `fileMetadata.*` path that a `has:fileMetadata.X` search surfaces (client-side knowledge of which paths are keyword vs object/nested is required — see Section 7 note 13).
+
+**Pagination/cursor implication:** None. Aggregation only.
+
+**Provenance:** Phase 2 §2.7, Phase 1 §2 and §4, feasibility §Gap18.
+
+---
+
+### `getFilterAggregations` — bucket B1+C
+
+**Abstract need (restated):** For each of a set of named IS-filter conditions, count how many images in the current search context satisfy that condition. Returns a map of condition name to count. Powers the `is:` value badges in the facet panel and typeahead suggestions.
+
+**Method signature:**
+```typescript
+getFilterAggregations(
+  params: SearchParams,
+  filters: FilterAggRequest[],
+  signal?: AbortSignal,
+): Promise<Record<string, number>>;
+```
+
+**Current call sites:**
+- `search-store.ts:3869` — `is:deleted`, `is:under-quota` counts in the facet panel
+- `kupua/src/lib/typeahead-fields.ts:376` — `is:` counts in typeahead suggestions
+
+Source: Phase 2 §2.8, findings-4 Part 5 Note 4.
+
+**Current ES adapter behaviour:** `size:0` search with `buildQuery(params)` + N filter aggregations where each filter is a raw ES DSL object from `FilterAggRequest.query`. In production, the DSL objects are always `parseCql("is:deleted").must[0]`, `parseCql("is:under-quota").must[0]`, etc. — the client-side CQL parser's translation of `is:` strings. Returns `Record<name, count>`. Source: b2-hunt Section 3, dive #3 (es-adapter.ts:910–940); Phase 2 §2.8 (⚠ ES-SHAPE LEAK section).
+
+**Media-api capability (relevant subset):** Media-api's CQL parser already handles `is:deleted`, `is:under-quota`, `is:{org}-owned-photo`, etc. via `IsQueryFilter.scala`. These are named filters the server already knows. The `is:` registry is at `IsQueryFilter.scala:26`. Source: Phase 1 §3 `is:` filter registry. The server has no endpoint that returns named filter-agg counts directly, but the capability is trivially available via the CQL parser.
+
+**Classification rationale:** Two parts. (B1) The ES-shape leak in `FilterAggRequest.query` must be eliminated: the client should send `isFilter: string` (e.g. `"deleted"`, `"under-quota"`) and the server should compile it via its own `IsQueryFilter`. This is a pure client refactor — remove raw ES DSL, send CQL names. (C) The server needs a small extension: the `POST /images/aggregations` endpoint (Gap 18, already C-classified for `getAggregations`) should also accept `isFilters: string[]` and return per-name counts alongside field-term counts. This is a small addition to the same endpoint body (~20 LOC). The B1 change has independent value today: it eliminates an ES query injection surface from the current client.
+
+**Action (B1 + C):**
+- **(B1 — eliminate `FilterAggRequest.query`):** Change `FilterAggRequest` from `{name: string, query: Record<string, unknown>}` to `{name: string, isFilter: string}`. Update all callers (`search-store.ts:3869`, `typeahead-fields.ts:376`) to pass the IS-filter string names directly. Update `es-adapter.ts` to compile `parseCql("is:${req.isFilter}")` internally instead of accepting raw DSL. This closes the ES injection surface. Independent value: Yes — eliminates the most dangerous ES leak in the current codebase today.
+- **(C — server extension):** Extend `POST /images/aggregations` to accept an optional `isFilters: string[]` field. The server runs each string through the `IsQueryFilter` registry and returns filter-agg counts alongside field-term counts. Trivial addition to the same ES request body (filter aggs coexist with terms aggs under the `aggs` key). Note: `is:{org}-owned-photo` is dynamic (org-prefixed); server must handle this via the existing `IsQueryFilter` registry.
+
+**Pagination/cursor implication:** None. Aggregation only.
+
+**Provenance:** Phase 2 §2.8 (⚠ ES-SHAPE LEAK), Phase 1 §3 `is:` registry, b2-hunt dive #3, findings-4 Part 5 Note 4, feasibility §Gap18.
+
+---
+
+### `openPit` — bucket D
+
+**Abstract need (restated):** Open an immutable snapshot of the index state at the current moment, returning an opaque handle. All paginated queries using the handle see a consistent view of the data — images added or deleted after snapshot creation do not appear in subsequent pages.
+
+**Method signature:**
+```typescript
+openPit(keepAlive?: string): Promise<string>;
+```
+
+**Current call sites:**
+- `search-store.ts:1983` — open PIT before issuing the first-page `searchAfter` for a new search
+
+Source: Phase 2 §2.9, findings-4 Part 4.
+
+**Current ES adapter behaviour:** POST to `{index}/_pit?keep_alive=1m`, returns opaque ES PIT ID string. Source: b2-hunt Cluster 6.
+
+**Media-api capability (relevant subset):** Per Phase 1 §6.7: "ElasticSearch.scala has no PIT code at all — the feature gap is absolute, not a partial implementation." No PIT routes in `conf/routes`. No PIT calls anywhere in media-api source. Source: Phase 1 §6.7, feasibility §Gap2.
+
+**Classification rationale:** This is a genuine gap. The capability is completely absent from media-api — not partially wired, not behind a flag. elastic4s 8.18.2 supports PIT (feasibility §Gap2 notes the dependency risk of verifying elastic4s PIT API surface). PIT is required for consistent multi-page browsing in the store.
+
+**Action (D):** New endpoint needed. Capability gap: open and idempotently close an opaque
+snapshot. The elastic4s calls are S-sized after the membership contract is chosen, but D8 is not
+currently S-risk work. Preferred routes are `POST /images/pit` and `DELETE /images/pit`,
+both with JSON bodies; this preserves lifecycle semantics without putting an opaque PIT ID in a path.
+
+**⚠️ Migration correction (13 September): snapshot opening and consumption are one
+contract.** Thrall retains both index copies while migration runs and marks the old copy
+`migratedTo`. A PIT opened across both indexes without a frozen dedup predicate therefore
+admits duplicate IDs. Existing D3 consumes Kupua's raw single-current-index PIT with
+`search(Nil).pit(...)`; that branch remains valid and must not start calling `prepareSearch`.
+
+Before D8 is implemented, use the numbered D3/D8 track. Documents 01–04 now contain the research
+and strongest-end-state architecture, including the held D3 review posture. Its production-scale
+scope is not accepted: run `../../zz Archive/media-api-work/2026-09-migration-assessments/production-impact-00-prompt.md`
+next, then choose the full programme or a contained/reduced boundary before transport planning.
+
+**Summary:** D8 is design-blocked. Do not implement multi-index PIT plus no dedup. Existing
+non-PIT `prepareSearch` and D3's current raw-PIT branch are unchanged.
+
+**Pagination/cursor implication:** PIT IS the pagination model. Without it, `searchAfter` cannot guarantee consistent pages. The entire cursor-pagination model depends on this gap being filled first.
+
+**Provenance:** Phase 2 §2.9, Phase 1 §6.7, feasibility §Gap2.
+
+---
+
+### `closePit` — bucket D
+
+**Abstract need (restated):** Release server-side resources held by a previously opened snapshot. Fire-and-forget — the snapshot expires automatically after its keepAlive period regardless.
+
+**Method signature:**
+```typescript
+closePit(pitId: string): Promise<void>;
+```
+
+**Current call sites:**
+- `search-store.ts:1861` — release old PIT when a new search supersedes it
+
+Source: Phase 2 §2.10, findings-4 Part 4.
+
+**Current ES adapter behaviour:** DELETE to `_pit` with `{id: pitId}` in the body, ignoring the response. Source: b2-hunt Cluster 6.
+
+**Media-api capability (relevant subset):** Same as `openPit` — no PIT code anywhere in media-api. Source: Phase 1 §6.7.
+
+**Classification rationale:** Part of the same PIT lifecycle pair as `openPit`. Both are absent, both needed.
+
+**Action (D):** New `DELETE /images/pit` with `{pitId}` JSON, proxying to ES
+`DELETE /_pit`. Unknown, expired and already-closed IDs are successful no-ops. Implement with
+`openPit` only after the D8 membership contract is approved.
+
+**Pagination/cursor implication:** PIT cleanup. Without `closePit`, PITs accumulate until keepAlive expires — memory leak risk on busy clusters.
+
+**Provenance:** Phase 2 §2.10, Phase 1 §6.7, feasibility §Gap2.
+
+---
+
+### `searchAfter` — bucket B1+D
+
+**Abstract need (restated):** Fetch one page of images in the current search context, starting strictly after (or before, when reversed) a given sort cursor. Cursor `null` means start from the beginning (or end when reversed). The snapshot handle ensures consistent results across pages.
+
+**Method signature:**
+```typescript
+searchAfter(
+  params: SearchParams,
+  searchAfterValues: SortValues | null,
+  pitId?: string | null,
+  signal?: AbortSignal,
+  reverse?: boolean,
+  noSource?: boolean,
+  missingFirst?: boolean,
+  sortOverride?: Record<string, unknown>[],
+  extraFilter?: Record<string, unknown>,
+): Promise<SearchAfterResult>;
+```
+
+**Current call sites:** 23 call sites in `search-store.ts` (groups A–E1) plus 1 internal call in `es-adapter.ts` (INT for `getIdRange`). See findings-4 Part 1 for full table.
+
+**Current ES adapter behaviour:** ES `_search` with `search_after: sortValues`, `pit: {id: pitId}`, optional `_source: false` (noSource), sort from `sortOverride ?? buildSortClause(params.orderBy)`, optional `post_filter` from `extraFilter`. Groups B and D4/E1 pass raw ES DSL via `sortOverride` and `extraFilter`. Source: Phase 2 §2.11 (ES-shape leaks section), findings-4 Parts 1–3.
+
+**Media-api capability (relevant subset):** `GET /images` supports only offset+length pagination. There is no `search_after` parameter on any existing route. The cursor-pagination pattern is entirely absent. Source: Phase 1 §2 (pagination model: offset-based only; no search_after, no PIT).
+
+**Classification rationale:** Two parts. **(B1)** Three parameters must be eliminated from the interface before a server endpoint can be designed: (a) `sortOverride` — always `buildSortClause(params.orderBy)`, 100% server-derivable; (b) `extraFilter` — always `{bool:{must_not:{exists:{field:primaryField}}}}`, should be a server-side null-zone detection (Gap 10 in feasibility); (c) `noSource` — an internal optimisation leaked from `getIdRange`'s implementation, never passed by client code. The B1 client refactor also requires changing ~7 call sites in `search-store.ts` that currently strip null-prefixed cursors and pass explicit overrides — these should instead send the full null-prefixed cursor and let the server detect the null-zone transparently (findings-4 Note 1). The E1 case (ss:2950) requires prepending `null` to the cursor (findings-4 Note 2 Option A). **(D)** After B1, the interface is clean enough to design: a new cursor-pagination endpoint. This is the central gap — everything else in the pagination system depends on it.
+
+**Action:**
+- **(B1 — eliminate `sortOverride`, `extraFilter`, `noSource`):**
+  - Remove `sortOverride`, `extraFilter`, `noSource` from the `searchAfter` signature.
+  - Rename `missingFirst` to `seekToEnd` (abstract intent, not ES option name).
+  - Update all B-group call sites in `search-store.ts` to send the full null-prefixed cursor `[null, uploadTimeVal, idVal]` instead of stripping null and passing explicit overrides.
+  - Update E1 (ss:2950) to prepend `null`: `[null, uploadTimeEstimate, ""]`.
+  - Update `es-adapter.ts` `getIdRange` internal call (INT) to not pass `noSource` in the public signature — use an internal-only wrapper instead.
+  - Independent value: Yes — eliminates the two most dangerous ES-DSL injection parameters from the current codebase.
+  - Test surfaces: `npm --prefix kupua test` (unit) + `npm --prefix kupua run test:e2e` (E2E) after this refactor — it touches scroll behaviour.
+- **(D — new cursor-pagination endpoint):** New `POST /images/search-after` endpoint accepting `{q, filters, orderBy, sortValues, pitId, length, reverse, seekToEnd, trackTotalHits}` and returning `{hits, total, sortValues: [perHit], pitId}`. Reuses `buildQuery(params)`, `sorts.createSort(orderBy)`, and `hitToImageEntity`. Gap 10 (null-zone detection) is baked in: if `sortValues[0] === null`, server detects null-zone and applies `must_not:exists` phase transparently. Size estimate: **M** (medium). The infrastructure (query building, sorts, null-zone detection) all exists; wiring a new route with PIT support and `search_after` ES param is the new work.
+
+**Pagination/cursor implication:** This IS the cursor pagination gap. It is the elephant. See Section 3 for full discussion.
+
+**Provenance:** Phase 2 §2.11, Phase 2 §4 (ES-shape leaks #1–3), Phase 1 §2 (pagination model), findings-4 Parts 1–3, feasibility §Gap1, §Gap9, §Gap10.
+
+---
+
+### `countBefore` — bucket B1+D
+
+**Abstract need (restated):** Determine the 0-based position of a document in the current search result set, given its sort cursor. Position = number of documents that sort strictly before the target document.
+
+**Method signature:**
+```typescript
+countBefore(
+  params: SearchParams,
+  sortValues: SortValues,
+  sortClause: Record<string, unknown>[],
+  signal?: AbortSignal,
+): Promise<number>;
+```
+
+**Current call sites:**
+- `search-store.ts:1414, 1434` — sort-around-focus position lookup
+- `search-store.ts:1592` — SAF async correction
+- `search-store.ts:2985` — deep null-zone seek landing
+- `search-store.ts:3061, 3114, 3169` — percentile/keyword seek landing and refinement
+- `search-store.ts:3701` — restoreAroundCursor position
+
+Source: Phase 2 §2.12, findings-4 Part 4 (countBefore section).
+
+**Current ES adapter behaviour:** `_count` with a complex range-query that enumerates `should` clauses: for each sort field at position `i`, "fields 0..i-1 are equal to sortValues AND field `i` is strictly before sortValues[i]". Includes null handling for missing primary sort field. ~70 LOC of range-query logic. This is exact for scalar fields but not established for special max-of-many dates: ascending `any child < cursor` is not equivalent to `max(child) < cursor`. Source: Phase 2 §2.12, feasibility §Gap3, Obscure sorting finding O12.
+
+**Media-api capability (relevant subset):** No `countBefore` or `count-before` endpoint exists. No range-query count endpoint of any kind. Source: Phase 1 §1 (routes table — no match).
+
+**Classification rationale:** **(B1)** `sortClause: Record<string, unknown>[]` is always `buildSortClause(params.orderBy)` — fully server-derivable from `params.orderBy`. This is Phase 2 §4 leak #5: "the most gratuitous ES leak in the interface." Eliminating it requires no server change. **(D)** The server still needs a `count-before` endpoint. Live TypeScript now has exact selected-maximum predicates for special max-date sorts; the remaining gates are D3's pre-review semantic sort owner, a faithful Scala port, snapshot binding and production-cost measurement.
+
+**Action:**
+- **(B1 — eliminate `sortClause`):** Remove `sortClause` from the `countBefore` signature. Update all 8 call sites in `search-store.ts` to remove the `buildSortClause(params.orderBy)` argument — it was always computed there immediately before the call. The ES adapter computes `buildSortClause(params.orderBy)` internally. Independent value: Yes — eliminates a prominent ES leak and simplifies 8 call sites.
+- **(D — new count-before endpoint):** New `POST /images/count-before` returning an exact count or an explicit unsupported result. Build it on D3's pre-review semantic sort owner. Accept the current snapshot handle when available and rank the cursor inside that PIT using `search(Nil).pit(...).size(0).trackTotalHits(true)`; Elasticsearch's `_count` request cannot bind to the PIT. Without a snapshot, "exact" is only relative to a moving live view. Port the live scalar/null/special-max predicates and measure special-date production cost before accepting support.
+
+**Pagination/cursor implication:** `countBefore` implements "find position of document in result set" — the seek-and-land mechanism. Without it, sort-around-focus, deep seek, and restore-position all break.
+
+**Provenance:** Phase 2 §2.12, Phase 2 §4 leak #5, findings-4 Part 4 (countBefore — all 7 call sites), feasibility §Gap3.
+
+---
+
+### `estimateSortValue` — bucket B1+D
+
+**Abstract need (restated):** Find an approximate value of the primary sort field at a given percentile position in the result set — e.g. "what upload-date is at roughly the 60% mark?" Used as a coarse anchor for deep seek beyond the direct-offset window.
+
+**Method signature:**
+```typescript
+estimateSortValue(
+  params: SearchParams,
+  field: string,
+  percentile: number,
+  signal?: AbortSignal,
+): Promise<number | null>;
+```
+
+**Current call sites:**
+- `search-store.ts:2909` — deep null-zone seek (uploadTime percentile)
+- `search-store.ts:3033` — deep seek percentile estimation
+
+Source: Phase 2 §2.13, findings-4 Part 4.
+
+**Current ES adapter behaviour:** `size:0` search with `percentilesAggregation` (tdigest, compression=200) on the explicit field. Returns the estimated epoch-millisecond value at the requested percentile, or `null` on abort/absence. For special dates this is a percentile of every child/object date, not of each parent's selected maximum; it is only a coarse anchor. Source: Phase 2 §2.13 and Obscure sorting finding O5.
+
+**Media-api capability (relevant subset):** No percentile-aggregation endpoint exists. Source: Phase 1 §1 (no matching route). The `AggregationController` only has `dateHistogram`. Source: Phase 1 §2 GET /images/aggregations/date/:field.
+
+**Classification rationale:** A new percentile endpoint is still needed, but `field` must remain explicit: null-zone seek estimates `uploadTime`, and keyword-bucket refinement supplies an explicit scope. For special dates, the response contract must label the value approximate rather than implying a parent-rank percentile. All ES primitives exist (elastic4s `percentilesAggregation`).
+
+**Action:**
+- **(B1 correction — retain explicit field/scope):** Keep the explicit aggregation field and optional exact scope. Validate allowed fields server-side rather than deriving every request from `orderBy`.
+- **(D — new percentile endpoint):** New `POST /images/sort-percentile` accepting `{q, filters, field, percentile, scope?}` and returning `{value: number | null, exactness: "scalar" | "child-value-approximate"}`. Scalar and null-zone `uploadTime` values use `scalar`; special max-date fields use `child-value-approximate` until materialized scalars exist.
+
+**Pagination/cursor implication:** `estimateSortValue` is the coarse-seek anchor for result sets > ~10k docs. Without it, deep seek falls back to capped offset-based navigation.
+
+**Provenance:** Phase 2 §2.13, Phase 2 §4 (field derivable from orderBy), findings-4 Part 4, feasibility §Gap4.
+
+---
+
+### `findKeywordSortValue?` — bucket B1+D
+
+**Abstract need (restated):** Resolve which ordered keyword-value bucket contains a requested document rank, subject to an explicit traversal budget. This is a generic ordered-facet capability: the endpoint reports what it established, while callers decide whether to seek, display, retry, or degrade.
+
+**Method signature:**
+```typescript
+findKeywordSortValue?(
+  params: SearchParams,
+  field: string,
+  targetPosition: number,
+  direction: "asc" | "desc",
+  signal?: AbortSignal,
+): Promise<string | null>;
+```
+
+**Current call sites:**
+- `search-store.ts:3081` — deep seek for keyword-sorted fields (guarded: only called when method exists)
+
+Source: Phase 2 §2.14, findings-4 Part 4.
+
+**Current ES adapter behaviour:** Composite aggregation walk — paginate through unique values accumulating `doc_count` until cumulative count exceeds `targetPosition`. MAX_PAGES=50 (500k unique values), TIME_CAP_MS=8000. Source: b2-hunt Section 3, dive #6 (es-adapter.ts:1466–1634).
+
+**Media-api capability (relevant subset):** No composite-walk endpoint exists. Source: Phase 1 §1 (no matching route).
+
+**Classification rationale:** **(B1)** Both `field` and `direction` are derivable from `params.orderBy`. Phase 2 §2.14 flags this. **(D)** After B1, a new composite-walk endpoint is needed.
+
+**Action:**
+- **(B1 — eliminate `field` and `direction`):** Remove both params; compute from `params.orderBy` internally. Both are produced by `parseSortField(buildSortClause(params.orderBy)[0])`. Independent value: Yes.
+- **(D — new keyword-seek endpoint):** New `POST /images/keyword-seek` accepting `{q, filters, orderBy, targetPosition}` plus a server-owned bounded-work policy. The server derives the sortable field and direction from `orderBy`, walks ordered composite buckets with early exit, and returns a generic result descriptor such as `{status: "found" | "partial" | "exhausted", value, startPosition, documentCount}`. `found` means the returned bucket is proven to contain `targetPosition`; `partial` reports the last fully represented bucket when the work budget expires; `exhausted` means natural exhaustion occurred before the target, normally because remaining documents lack the field. Nullable fields and multi-valued sortable fields require explicit semantics and validation. Size estimate: **M** (medium). Feasibility §Gap5 confirms no hard blockers.
+
+The endpoint must not encode Kupua's scrubber policy, construct a pagination cursor, invoke percentile refinement, or decide whether an approximate result is acceptable. Those are caller concerns. The result must expose enough provenance that any caller can distinguish a proven target bucket from bounded progress; returning only `{value}` would erase that distinction and is not an acceptable generic contract.
+
+**Performance requirement shared with D6:** D5 should optionally resume from a
+server-owned opaque continuation emitted by an incomplete D6 response, while
+remaining independently callable. The token must integrity-bind the composite
+continuation, represented document count, query/filter/order identity, and a
+consistent index snapshot. The client must not inspect or amend it. D5 and D6
+must route atomically to the same producer/version while a token is live; do not
+migrate one endpoint and pass its token to the other implementation. Without
+those guarantees, reusing D6's cumulative count can fabricate a rank when the
+index changes between requests. A raw Elasticsearch `after_key` plus a separate
+client count is therefore not an acceptable API contract.
+
+**Pagination/cursor implication:** Optional method (`?`). Graceful absence: store falls back to capped offset navigation for keyword sorts. No scroll breakage without it, but deep seek on non-numeric sorts degrades.
+
+**Provenance:** Phase 2 §2.14, Phase 2 §4 (field+direction derivable), findings-4 Part 4, feasibility §Gap5.
+
+---
+
+### `getKeywordDistribution?` — bucket B1+D
+
+**Abstract need (restated):** Fetch a bounded ordered prefix of keyword-value buckets with document counts, cumulative positions, and explicit coverage provenance. This is a generic ordered-distribution capability; it must not imply that a bounded response enumerated the full vocabulary.
+
+**Method signature:**
+```typescript
+getKeywordDistribution?(
+  params: SearchParams,
+  field: string,
+  direction: "asc" | "desc",
+  signal?: AbortSignal,
+): Promise<SortDistribution | null>;
+```
+
+**Current call sites:**
+- `search-store.ts:3972` — scrubber tooltip for keyword-sorted fields
+
+Source: Phase 2 §2.15, findings-4 Part 4.
+
+**Current ES adapter behaviour:** Composite agg walk fetching all unique values up to MAX_PAGES=5 × BUCKET_SIZE=10,000 = 50,000 unique values with `startPosition` accumulation. Returns `SortDistribution` with `.buckets` and `.coveredCount`. Source: b2-hunt Section 3, dive #6 (es-adapter.ts:1634–1700).
+
+**Media-api capability (relevant subset):** No composite-distribution endpoint exists. Source: Phase 1 §1 (no matching route).
+
+**Classification rationale:** **(B1)** `field` and `direction` are derivable from `params.orderBy`. **(D)** New composite-distribution endpoint needed. Note: b2-hunt confirmed `findKeywordSortValue?` and `getKeywordDistribution?` are NOT fusible (two independent blockers: early-exit vs full-walk performance divergence; coverage cap difference at >50k unique values). They require separate endpoints.
+
+**Action:**
+- **(B1 — eliminate `field` and `direction`):** Same as `findKeywordSortValue?` — compute from `params.orderBy`.
+- **(D — new keyword-distribution endpoint):** New `POST /images/keyword-distribution` accepting `{q, filters, orderBy}` and returning a generic bounded result: `{buckets: [{key, documentCount, startPosition}], valuedDocumentCount, representedDocumentCount, complete}`. `valuedDocumentCount` is an exact count of matching documents with at least one value for the selected sortable field. `representedDocumentCount` is the sum represented by returned buckets. `complete` is true only when composite enumeration naturally exhausts; reaching a page, time, response-size, or server-work cap returns `complete:false`. Server policy owns those caps. Size estimate: **M** (medium). Same composite infrastructure as D5 but a different traversal lifecycle. Feasibility §Gap6 confirms no hard blockers; response size remains a concern.
+
+The endpoint does not define a UI null zone, label interpolation, seek fallback, or acceptable positional error. A caller may use the exact valued count as a missing-value boundary and may use bucket positions only within the represented range, but that policy is outside the media-api contract. The endpoint should reject or explicitly define multi-valued field semantics rather than silently presenting summed bucket counts as document ranks.
+
+When `complete:false`, D6 should also return the opaque resumable continuation
+described under D5. Its snapshot lifetime and expiry must be explicit, and an
+expired or mismatched token must produce a deliberate restartable response, not
+silently resume against a different coordinate space. This avoids repeating up
+to the entire D6 prefix when a caller subsequently asks D5 for an uncovered
+rank, without exposing Elasticsearch-specific continuation state.
+
+**Pagination/cursor implication:** Optional method (`?`). Graceful absence: scrubber shows position numbers only (no keyword value labels). No scroll breakage.
+
+**Provenance:** Phase 2 §2.15, Phase 2 §4 (field+direction derivable), findings-4 Part 4, feasibility §Gap6, b2-hunt Cluster 4 (NOT fusible verdict).
+
+---
+
+### `getDateDistribution?` — bucket B1+C
+
+**Abstract need (restated):** Fetch an exact populated-parent count plus date evidence for scrubber labels. Scalar date fields and null-zone `uploadTime` can return exact cumulative rank buckets. Multi-valued special dates can return only approximate child-date buckets unless materialized latest-date scalars exist.
+
+**Method signature:**
+```typescript
+getDateDistribution?(
+  params: SearchParams,
+  field: string,
+  direction: "asc" | "desc",
+  signal?: AbortSignal,
+  extraFilter?: Record<string, unknown>,
+): Promise<SortDistribution | null>;
+```
+
+**Current call sites:**
+- `search-store.ts:3977` — scrubber tooltip for date-sorted fields (no `extraFilter`)
+- `search-store.ts:4030` — null-zone uploadTime distribution (`extraFilter` = `{bool:{must_not:{exists:{field:primaryField}}}}`)
+
+Source: Phase 2 §2.16, findings-4 Part 5 Note 5.
+
+**Current ES adapter behaviour:** Two ES requests: (1) stats aggregation on `field` to determine span; (2) date_histogram with adaptive interval (month/day/hour/sub-hour based on span). `extraFilter` is added as an additional `must` clause when present. Source: Phase 2 §2.16, b2-hunt Cluster 4.
+
+**Media-api capability (relevant subset):** `GET /images/aggregations/date/:field` — monthly date histogram on a requested field, filtered by optional `q`. It uses `calendarInterval(Month)` hardcoded with no direction, no adaptive granularity, no `startPosition`, and no null-zone support. Source: Phase 1 §2 GET /images/aggregations/date/:field, Phase 1 §4.
+
+**Classification rationale:** The endpoint exists but its original additive-extension contract is unsafe for special dates. `extraFilter` should still become semantic `missingField`, but the response must separate exact root-parent `coveredCount` from bucket evidence and include exactness provenance. `startPosition` is exact only for scalar dates/null-zone `uploadTime`; special child-date buckets must not claim parent ranks. This is a contract redesign, not a trivial additive extension.
+
+**Action:**
+- **(B1 — eliminate `extraFilter`):** Change `extraFilter?: Record<string, unknown>` to `missingField?: string` in the interface. The ES adapter derives the `must_not:exists` filter internally. Also eliminate `field` and `direction` (derivable from `params.orderBy`). Independent value: Yes — eliminates the `extraFilter` ES injection surface.
+- **(C — redesigned server extension):** Extend or replace the route with `direction`, adaptive interval and semantic `missingField`, returning exact root-parent coverage separately from `{buckets, exactness}`. Emit exact `startPosition` only when `exactness:"parent-rank"`; special child-date buckets use explicit approximate provenance and no exact-rank claim. Materialized latest-date fields may later restore the conventional exact response.
+
+**Pagination/cursor implication:** Optional method (`?`). Graceful absence: scrubber shows position numbers only. `missingField` variant absence means null-zone scrubber ticks are inaccurate on non-upload-time sorts.
+
+**Provenance:** Phase 2 §2.16, Phase 2 §4 leak #7, findings-4 Part 5 Note 5, Phase 1 §2 GET /images/aggregations/date/:field, Phase 1 §4, feasibility §Gap7.
+
+---
+
+### `fetchPositionIndex?` — bucket D
+
+**Abstract need (restated):** Fetch the ordered list of IDs and sort cursors for every document in the current result set, without image content. Enables O(1) seek to any position during scrubber drag after the one-time background fetch completes.
+
+**Method signature:**
+```typescript
+fetchPositionIndex?(
+  params: SearchParams,
+  signal: AbortSignal,
+): Promise<PositionMap | null>;
+```
+
+**Current call sites:**
+- `search-store.ts:1015` — background position map fetch after search stabilises
+
+Source: Phase 2 §2.17, findings-4 Part 4.
+
+**Current ES adapter behaviour:** Opens a dedicated PIT, runs a multi-phase `searchAfter` loop with `_source:false` collecting all IDs and sort cursors. Two-phase for null-zone correctness (phase 1: normal docs; phase 2: null-zone docs with `must_not:exists` filter). Chunked with thread yields. Hard-capped at all docs. Source: Phase 2 §2.17.
+
+**Media-api capability (relevant subset):** `ElasticSearch.lookupIds` (Phase 1 §6.3) exists internally but is not wired to any route, uses `pinned_query`, and has the 200-ID cap. It is not applicable here. There is no streaming or chunked ID-cursor export endpoint. Source: Phase 1 §6.3.
+
+**Classification rationale:** Genuine new capability. The full-position-map need (all IDs + cursors, no content, chunked, two-phase null-zone) does not map to any existing or easily-extended endpoint. Kupua currently builds maps only up to 65,000 results; larger sets use deep seek. Response sizing still matters, but the original 100k+/500k premise is stale. Live TypeScript now supplies exact special-sort `mode:max`/nested/missing behavior; D1 must port it and prove complete identity-order parity.
+
+**Action (D):** New endpoint or paginated protocol. Return ordered `(id, sortValues)` pairs without image content for result sets up to the client cap, using D3's pre-review semantic sort owner and two-phase null-zone handling. Set `track_total_hits:false` on every chunk. D8 and finalized D3 come first; the server acceptance test must compare complete identity order with ordinary `search_after` in both directions, including both special sorts.
+
+**Pagination/cursor implication:** This method IS a position-map builder that internally uses cursor pagination. It depends on PIT (Gap 2) and the cursor-pagination infrastructure (Gap 1 / `searchAfter`) being available server-side.
+
+**Provenance:** Phase 2 §2.17, Phase 2 §6.2, Phase 1 §6.3, feasibility §Gap8.
+
+---
+
+### `getByIds` — bucket D
+
+**Abstract need (restated):** Retrieve complete image documents for a set of known IDs, treating the batch as a single logical request. Missing IDs are silently absent. Used for multi-selection loads and post-metadata-update refreshes.
+
+**Method signature:**
+```typescript
+getByIds(ids: string[], signal?: AbortSignal): Promise<Image[]>;
+```
+
+**Current call sites:**
+- `kupua/src/stores/selection-store.ts:673` — load full data for all selected images
+- `kupua/src/stores/selection-store.ts:635` — reload images after metadata update
+
+Source: Phase 2 §2.18, findings-4 Part 4.
+
+**Current ES adapter behaviour:** Chunks `ids` into 1000-ID batches, runs `_mget` in parallel per chunk, merges results. Applies `_source_includes` via URL param. Source: b2-hunt Section 3, dive #5 (es-adapter.ts:1947–2010); Phase 2 §2.18.
+
+**Media-api capability (relevant subset):** `GET /images?ids=CSV` — uses `pinned_query` + `SearchParams.maxSize=200` cap. Not viable for thousands of IDs. Phase 1 §6.3 notes `lookupIds` method exists in `ElasticSearch.scala` but is not routed. Feasibility §Gap12 proposes `POST /images/mget` as a new endpoint. Source: Phase 1 §6.3, feasibility §Gap12.
+
+**Classification rationale:** The existing `GET /images?ids=` is fundamentally unsuitable (200-ID cap, wrong API, order not preserved — feasibility §Gap15). `lookupIds` is the right internal method but is unrouted. A new `POST /images/mget` endpoint is needed.
+
+**Action (D):** New `POST /images/mget` endpoint accepting bounded `{ids: string[]}` and
+returning enriched visible images, with missing/unauthorized IDs silently absent. During migration,
+prefer migration-index results and fall back to current-index misses, matching media-api's existing
+single-image getter; do not blindly `_mget` only the current alias. Server query plumbing is S-sized,
+but the end-to-end item is **M/measurement-gated**: client chunking, one enrichment owner, selection
+datasource routing, visibility, complete special-date arrays, and envelope/signing cost all need
+acceptance. D3 measures about 137ms of enriched Argo envelope work per 200 hits, so no 1,000-ID cap
+is accepted without 200/500/1,000 measurements.
+
+**Pagination/cursor implication:** None. Batch ID fetch.
+
+**Provenance:** Phase 2 §2.18, Phase 1 §6.3, feasibility §Gap12.
+
+---
+
+### `getIdRange` — bucket D
+
+**Abstract need (restated):** Return the ordered list of image IDs for all images between two cursor positions (exclusive lower, inclusive upper) in the current sort order. Hard-capped at 5,000 IDs. Used for shift-click range selection.
+
+**Method signature:**
+```typescript
+getIdRange(
+  params: SearchParams,
+  fromCursor: SortValues,
+  toCursor: SortValues,
+  signal?: AbortSignal,
+): Promise<IdRangeResult>;
+```
+
+**Current call sites:**
+- `kupua/src/hooks/useRangeSelection.ts:225` — shift-click range selection walk
+- `kupua/src/hooks/useRangeSelection.ts:252` — swap-and-retry on direction mismatch
+
+Source: Phase 2 §2.19, findings-4 Part 4.
+
+**Current ES adapter behaviour:** `searchAfter` loop with `_source:false`, extracting IDs from sort-value arrays. Stops when the last hit's sort values exceed `toCursor` (overshoot detection). Hard cap at 5,000 IDs. Two-phase null-zone walk when cursor crosses the null-zone boundary. Source: Phase 2 §2.19, feasibility §Gap13.
+
+**Media-api capability (relevant subset):** No cursor-range-walk endpoint exists. Source: Phase 1 §1 (no matching route). Feasibility §Gap13 identifies this as Hard/Mixed due to the null-zone walk complexity.
+
+**Classification rationale:** Genuine new capability. No existing endpoint covers cursor-walk with overshoot detection. The null-zone crossing detection (`null-zone.ts:42–80`) must be replicated server-side in Scala.
+
+**Action (D) — contract decision before algorithm spec:** prefer a `POST /images/id-range`
+request carrying `anchorId` and `targetId`, with the server opening one operation-owned PIT,
+resolving both authoritative sort tuples, ordering the endpoints and walking the filtered result
+set inside that snapshot. Endpoint tuple resolution may need an ID-only query outside the current
+result filter so an anchor selected under an earlier query remains a usable boundary; apply the
+same authorization/tier restrictions and return an explicit unavailable-anchor outcome.
+
+If that semantic review rejects ID inputs, the fallback is not unrestricted image reconstruction:
+Kupua must preserve D3's authoritative per-hit tuple keyed by ID through selection/eviction, and
+the API contract may accept those tuples only with matching query/sort/snapshot identity. Lean
+media-api images put configured alias values in `aliases` while `extractSortValues` follows the
+dropped `fileMetadata.*` path, so reconstructed alias cursors are not reliable.
+
+The response remains `{ids: string[], truncated: boolean, walked: number}`. The server runs an
+`_source:false`, `track_total_hits:false` `search_after` loop, detects overshoot, stops at 5,000,
+and handles null-zone phase changes with full tuple remapping. Size remains **L**. D8 and the
+pre-review D3 semantic-sort revision come first. Feasibility §Gap13 cites `c1998394b` as evidence that this needs a
+dedicated algorithm specification and adversarial tests.
+
+**Pagination/cursor implication:** Depends on cursor pagination infrastructure (Gap 1 / `searchAfter`). The server-side range walk requires `search_after` + `_source:false` + null-zone detection — all overlapping with `fetchPositionIndex?` implementation.
+
+**Provenance:** Phase 2 §2.19, findings-4 Part 4, Phase 1 §6.3, feasibility §Gap13.
+
+---
+
+### `searchByAi?` — bucket A
+
+**Abstract need (restated):** Search for images using a natural-language description, returning results ranked by semantic relevance. Result set is ≤200 images. Other active filters narrow the semantic search space. Optional (graceful absence).
+
+**Method signature:**
+```typescript
+searchByAi?(params: SearchParams, signal?: AbortSignal): Promise<SearchAfterResult>;
+```
+
+**Current call sites:**
+- `search-store.ts:1881` — AI/semantic search (guarded: only called when method exists on `dataSource`)
+
+Source: Phase 2 §2.20, findings-4 Part 5 Note 6.
+
+**Current ES adapter behaviour:** Fetches a Bedrock query embedding via `bedrock-proxy-client.ts` (a Vite-proxied dev-mode shortcut), then calls the ES `hybridSearch()` path directly. This is a standalone dev-mode implementation of the same algorithm that media-api already runs server-side. Source: Phase 2 §2.20.
+
+**Media-api capability (relevant subset):** `GET /images?useAISearch=true&q=...&vecWeight=0.7` — calls `hybridSearch()` in `ElasticSearch.scala`. Same Cohere Embed V4 model (`cohere.embed-v4:0`), same ES field (`embedding.cohereEmbedV4.image`), same BM25+KNN blend with max-score probe. Also supports `q=similar:<imageId>` for image-to-image KNN (kupua doesn't use this yet). Source: Phase 1 §5, findings-4 Part 5 Note 6.
+
+**Classification rationale:** This was reclassified from "gap" to "not a gap" in findings-4 Note 6. Media-api already has the identical capability. Kupua's current implementation is a dev-mode shortcut that bypasses media-api entirely. `GridApiDataSource.searchByAi` simply calls `GET /images?useAISearch=true&q=${params.aiQuery}&vecWeight=${params.vecWeight ?? 1.0}`. No server work required.
+
+**Note on Phase 1 §6.1 interaction:** Phase 1 §6.1 documents that `useAISearch=true` currently ignores all standard filters (date, cost, validity, etc.) because the AI search path bypasses the normal filter assembly. For the bucket-A classification to hold fully, this limitation must be documented as an accepted trade-off or the server-side §6.1 issue must be fixed. For now, this is classified A with the caveat that AI search filters are not applied on media-api. See Section 7, item 1.
+
+**Action (A):** `GridApiDataSource.searchByAi(params, signal)` calls `GET /images?useAISearch=true&q=${encodeURIComponent(params.aiQuery!)}&vecWeight=${params.vecWeight ?? 1.0}`. Response `data` array becomes `hits`; `total` is `data.length` (since media-api KNN returns `total = hit count`, not corpus total — Phase 1 §6.6). No server work needed.
+
+**Pagination/cursor implication:** No pagination. AI search returns a flat ≤200-image result set with `total === hits.length`. This is the key invariant that prevents scroll-mode and position-map activation.
+
+**Provenance:** Phase 2 §2.20, Phase 1 §5, Phase 1 §6.1, Phase 1 §6.6, findings-4 Part 5 Note 6.
+
+---
+
+## Section 3 — The Pagination Model Gap
+
+### The core issue
+
+Phase 1 §2 documents unambiguously: media-api uses **offset-based pagination only** — `offset` (Int, default 0) and `length` (Int, default 10, max 200) via `SearchParams`. There is no `search_after` parameter on any route. There is no PIT API. The `links.next` pagination in the Argo response envelope is generated from `DateTime.now`-frozen `until` bounds — a point-in-time snapshot of the query, not a cursor.
+
+Phase 2 §2.11 documents kupua's `searchAfter` as the single most-used DAL method with 23 production call sites in `search-store.ts` alone. The store uses cursor pagination for every page of every search.
+
+### Methods affected
+
+Every method that touches consistent multi-page navigation depends on cursor pagination:
+
+| Method | Why cursor pagination matters |
+|--------|-------------------------------|
+| `searchAfter` | IS cursor pagination — 23 call sites |
+| `openPit` | Required for snapshot consistency across pages |
+| `closePit` | Lifecycle pair with `openPit` |
+| `countBefore` | Counts position using sort cursors |
+| `getIdRange` | Range walk using `search_after` loop internally |
+| `fetchPositionIndex?` | Full position map via `search_after` loop |
+| `findKeywordSortValue?` | Composite agg walk (not `search_after` but requires consistent index view) |
+| `getKeywordDistribution?` | Same as above |
+
+Additionally, the null-zone handling (Phase 2 §3.1) is a second layer on top of cursor pagination — documents missing their primary sort field require a two-phase query approach that is entirely absent from media-api.
+
+### Is offset pagination sufficient?
+
+No. For the following reasons:
+
+1. **Offset limit:** ES's `from` parameter is capped at the `index.max_result_window` setting, typically 10,000 documents. The Guardian's corpus is 3M+ images. A user scrolling past image 10,000 would receive an ES error or empty results with offset pagination alone.
+
+2. **Consistency:** Offset pagination is not stable — if new images are indexed during a user's session, page N+1 may overlap with page N (an image that was at position K moves to K+1 because a new image was inserted before it). PIT + `search_after` solves this; offset does not.
+
+3. **Reverse navigation:** Kupua supports backward pagination (B-group call sites in findings-4). Offset supports this by computing `max(0, position - pageSize)`, but only within the 10,000-doc window. The store's reverse-from-end paths (D-group) require seeking to position `total - pageSize`, which may be well beyond 10,000.
+
+4. **Sort-around-focus:** After the user changes sort order, the store must find where the previously-selected image now sits and navigate to it. `countBefore` does this — it uses cursor-based range counting, not offset. There is no offset-based equivalent.
+
+### Is this one gap or multiple?
+
+Two distinct capabilities are needed, which happen to be packaged together in ES's PIT+search_after feature:
+
+1. **Cursor pagination** (Gap 1 in feasibility): `search_after` parameter on a search endpoint, returning per-hit sort cursors. This enables deep pagination without the 10,000-doc offset limit.
+
+2. **Snapshot consistency** (Gap 2 in feasibility — PIT): An open consistent view of the index that persists across pages. Without this, cursor pagination still works but pages may be slightly inconsistent if new images arrive during a session. Kupua uses PIT to prevent the "new image jumps into your scroll session" problem.
+
+These are separable: cursor pagination without PIT gives deep navigation but not perfect consistency. PIT without cursor pagination gives consistency but only within the offset window. Together they give deep + consistent navigation.
+
+### DO NOT design the endpoint here
+
+The capability gap is stated. Endpoint design (request/response schema, parameter names, PIT integration strategy) belongs in a per-gap workplan session.
+
+---
+
+## Section 4a — Bucket-B1 Catalogue (Shape-leak Elimination)
+
+**✅ All 7 items DONE — 2026-06-01 — commit `bcde65a58`**
+
+All items are fixable client-side alone unless noted. Sources: Phase 2 §4.
+
+| # | Leak | Methods affected | ES shape eliminated | Fixable client-side only? |
+|---|------|-----------------|---------------------|--------------------------|
+| 1 | `sortOverride: Record<string, unknown>[]` | `searchAfter` (B+D4+E1 groups) | ES sort clause array — always `buildSortClause(params.orderBy)` | Yes — server derives from `orderBy` |
+| 2 | `extraFilter: Record<string, unknown>` | `searchAfter` (B+D4+E1), `getDateDistribution?` | ES filter DSL — always `{bool:{must_not:{exists:{field:primaryField}}}}` | Partially: client removes the param; server must handle null-zone detection (Gap 10 = C) |
+| 3 | `noSource: boolean` | `searchAfter` (INT only — `getIdRange` internal) | ES `_source: false` flag | Yes — remove from public interface; internal to `getIdRange` ES adapter implementation |
+| 4 | `missingFirst: boolean` | `searchAfter` (D-group) | ES `missing: "_first"` sort option | Yes — rename to `seekToEnd: boolean` (abstract intent). Same server behaviour. |
+| 5 | `sortClause: Record<string, unknown>[]` | `countBefore` | ES sort clause array — always `buildSortClause(params.orderBy)` | Yes — server derives from `orderBy` |
+| 6 | `FilterAggRequest.query: Record<string, unknown>` | `getFilterAggregations` | ES filter DSL — always `parseCql("is:X").must[0]` | Partially: client changes to `isFilter: string`; server needs to accept named IS-filter strings (small C addition to Gap 18) |
+| 7 | `getDateDistribution? extraFilter` | `getDateDistribution?` | ES filter DSL — always `{bool:{must_not:{exists:{field:primaryField}}}}` | Partially: rename to `missingField?: string`; server adds `must_not:exists` constraint (already covered in the C extension above) |
+
+**Note on items 2 and 6:** The client refactor removes the ES DSL, but the server must understand the abstract intent. Item 2's null-zone detection maps to Gap 10 (already in feasibility plan as a transparent server behaviour). Item 6 maps to the `isFilters: string[]` extension of Gap 18. Neither requires a new server endpoint — both are additive extensions to existing or planned endpoints.
+
+---
+
+## Section 4b — Bucket-B2 Catalogue (Consolidation / Fusion) ✅ DONE — 2026-06-01
+
+The four confirmed fusions from b2-hunt-findings.md §1 (F1–F4), restated inline. Source: b2-hunt Sections 1–2.
+
+---
+
+**F1 — Facet panel one-shot: `getAggregations` + `getFilterAggregations` → `getFacetData`**
+
+- **Methods fused:** `getAggregations` + `getFilterAggregations`
+- **Abstract shared need:** Both issue a `size:0` search with `buildQuery(params)` and return aggregation counts scoped to the current search context. They are called on adjacent lines (`search-store.ts:3868` and `3869`), fire as parallel ES requests, and together constitute the complete facet panel data load.
+- **Surface reduction:** 2 → 1
+- **Regression risk:** None. ES processes both `terms` aggs (for field distributions) and `filter` aggs (for IS-filter counts) in a single `_search` body. The `aggs` key accepts both types simultaneously. Field path keys (`metadata.credit`) and IS-filter name keys (`deleted`) cannot collide.
+- **Rough fused signature:** `getFacetData(params, {fields: AggregationRequest[], isFilters: FilterAggRequest[]}, signal?): Promise<{fields: Record<string, AggregationResult>, filters: Record<string, number>, took?, fetchDuration?}>`
+- **Independent value:** Yes — eliminates one parallel ES round-trip on every facet panel load, today, before any media-api migration. This is the most immediately actionable B2 fusion.
+- Source: b2-hunt Cluster 1, Section 1, Section 3 dives #2+3.
+
+---
+
+**F2 — Count supersession: `count` → degenerate case of `countWithTickers`**
+
+- **Methods fused:** `count` → wrapper on `countWithTickers`
+- **Abstract shared need:** Both return a document count for the current search context. `countWithTickers` is a superset.
+- **Surface reduction:** 2 → 1
+- **Regression risk:** None. `count` has 0 production call sites. Interface tidying only.
+- **Rough fused signature:** `count(params) ≡ this.countWithTickers(params).then(r => r.count)`
+- **Independent value:** No — pure dead-code cleanup. No ES behaviour changes.
+- Source: b2-hunt Cluster 7, Section 1.
+
+---
+
+**F3 — First-page unification: `search` → specialised `searchAfter` (first page)**
+
+- **Methods fused:** `search` → first-page `searchAfter`
+- **Abstract shared need:** Both fetch the first page of results for a given search context.
+- **Surface reduction:** 2 → 1
+- **Regression risk:** Low. `search` has 0 production call sites. The ticker agg path in `_doSearch(includeTickers=true)` is dead — the store uses `countWithTickers` for tickers in parallel. No ticker migration needed.
+- **Rough fused signature:** `search(params) ≡ this.searchAfter(params, null, null, undefined, false, false, false)`
+- **Independent value:** Yes — removes the unused `_doSearch`/`from`+`size` path for the first page, ensuring a single consistent first-page implementation.
+- **Caveat:** Before removing `search` from the interface, grep `search-store.ts` for `.tickerCounts` on a `SearchResult` shape to confirm no reads. b2-hunt §6.2 flags this as low risk (0 call sites) but worth confirming.
+- Source: b2-hunt Cluster 2, Section 1, Section 4 §Entry1.
+
+---
+
+**F4 — Single-doc fetch simplification: `getById` → thin wrapper on `getByIds`**
+
+- **Methods fused:** `getById` → wrapper on `getByIds`
+- **Abstract shared need:** Both retrieve image documents by known ID(s).
+- **Surface reduction:** 2 → 1
+- **Regression risk:** None. `_mget` for a single document is more efficient than `_search` with `{terms:{id:[id]},size:1}` — bypasses the query parser entirely.
+- **Rough fused signature:** `getById(id) ≡ this.getByIds([id]).then(r => r[0])`
+- **Independent value:** Yes — removes a redundant ES `_search` path for single-doc fetch; `_mget` is the correct API for doc-by-ID retrieval.
+- Source: b2-hunt Cluster 3, Section 1, Section 3 dive #5.
+
+---
+
+## Section 4c — Bucket-C Catalogue (Trivial Server Extensions)
+
+| # | Extension | Affects DAL methods | Maps to Phase 1 §6 (internal capability) |
+|---|-----------|---------------------|-------------------------------------------|
+| C1 | New `POST /images/aggregations`: multi-field terms aggs + full SearchParams | `getAggregations` | No internal capability — but `aggregateSearch` private method (~30 LOC) is the model |
+| C2 | Extend `POST /images/aggregations` with `isFilters: string[]` (named IS-filter counts) | `getFilterAggregations` | Phase 1 §3 `is:` registry in `IsQueryFilter.scala` — all named filters already handled |
+| C3 | Redesign date distribution with exact parent coverage plus bucket exactness provenance | `getDateDistribution?` | Existing histogram route is a base, but special-date `startPosition` is not exact |
+| C4 | Gap 10: transparent null-zone detection on new `POST /images/search-after` endpoint | `searchAfter` (B+E1 groups after B1 refactor) | `filters.missing` in `common-lib/.../filters.scala:40` is the relevant primitive |
+
+C4 is noted here because it is a C-sized addition to the D-sized `searchAfter` endpoint: the null-zone detection logic is ~70 LOC but reuses existing ES primitives and is part of the same `search-after` route implementation rather than a new route.
+
+---
+
+## Section 5 — Bucket-D Catalogue (The Real Server Work)
+
+Sorted by size descending.
+
+> **D3 status (17 September 2026):** agreed amendments are code-complete, validated and
+> pushed to PR #4849 as `95a45f4ee`; there is no known pending amendment hold. Option B
+> is retained, not awaiting a semantic-sort rewrite. Other rows retain historical sizing
+> and dependencies; use the current capability checklist for their disposition.
+
+| # | New capability | Size (S/M/L) | DAL methods served | Phase 1 closest existing thing |
+|---|----------------|--------------|--------------------|---------------------------------|
+| D1 | `fetchPositionIndex?` — paginated ID+cursor stream, no content, two-phase null-zone; blocked on D8/sort contract | **L** | `fetchPositionIndex?` | Phase 1 §6.3 `lookupIds` (not routed, wrong API, 200-ID cap) |
+| D2 | `getIdRange` — range walk with endpoint tuple resolution, overshoot and null-zone crossing | **L** | `getIdRange` | None. Range-walk logic entirely absent; ID-versus-cursor contract review required. |
+| D3 | `searchAfter` — cursor pagination endpoint with PIT binding, reverse sort, null-zone detection | **M** | `searchAfter`, `search` (via F3) | Phase 1 §2 `GET /images` (query+filter infrastructure exists; cursor param and PIT binding absent) |
+| D4 | `countBefore` — exact position count; special algorithm exists, cost/sort contract gated | **M+unknown special** | `countBefore`, `count` (indirectly via F2) | None. Live client has the selected-max predicate to port and measure. |
+| D5 | `findKeywordSortValue?` — bounded target-rank bucket resolution with explicit outcome provenance | **M** | `findKeywordSortValue?` | None. Composite agg infrastructure exists in elastic4s; no walk endpoint. |
+| D6 | `getKeywordDistribution?` — bounded ordered distribution with exact valued count and coverage provenance | **M** | `getKeywordDistribution?` | None. Same infrastructure as D5 but different walk pattern. |
+| D7 | `countWithTickers` — size=0 count+ticker-aggs endpoint | **S** | `countWithTickers`, `count` (via F2) | Phase 1 §4 ticker aggs always-on in `GET /images extraCounts` — same aggs, just needs a count-only route |
+| D8 | PIT lifecycle — JSON `POST /images/pit` + `DELETE /images/pit`; membership design blocked | **S code / high contract risk** | `openPit`, `closePit` | None. Phase 1 §6.7: no PIT code. |
+| D9 | `getByIds` / `POST /images/mget` — bounded migration-aware multi-doc fetch | **M / measurement-gated** | `getByIds`, `getById` (if retained as wrapper) | Phase 1 §6.3 `lookupIds` (exists, not routed, wrong API) |
+
+**Totals:** 9 D-items. D1/D2 remain large; D4–D6 medium or value-gated; D7 has small
+plumbing after count ownership is chosen; D8 has small code but high contract risk; D9 is now
+medium/measurement-gated. D1–D6 cluster around the pagination model; D7–D9 are operationally
+separate but no longer safe to batch as three routine small endpoints.
+
+---
+
+## Section 6 — Reclassifications vs the Original 15-Gap Feasibility Plan
+
+The original plan numbered gaps 1–18 (with skips). For each:
+
+| Original gap | Verdict | Reason |
+|---|---|---|
+| **Gap 1** — `searchAfter` cursor pagination | **CODE-COMPLETE FOR AGREED SCOPE - D3** (`95a45f4ee` on PR branch) | Agreed amendments validated and pushed; Option B retained. Human review remains, not a known pending code-amendment hold. |
+| **Gap 2** — PIT (openPit/closePit) | **CONFIRMED D8** (D) — still needed | Absolutely absent. Phase 1 §6.7 confirms no PIT code anywhere. |
+| **Gap 3** — `countBefore` (position lookup) | **CONFIRMED D4** (D) — exact live algorithm exists; Scala port/cost/sort contract remain | Port selected-maximum predicates, never the child-value histogram approximation. |
+| **Gap 4** — `estimateSortValue` (percentile seek) | **CONFIRMED D** (small) — still needed | B1 removes `field` param first. Still needs new endpoint. **⚠️ DO NOT build to the §2 contract — `field` must stay explicit, not derived from `orderBy` (null-zone seek already passes a non-sort field today). Also missing from the §5 D-catalogue. See `zz Archive/scroll-and-position-preservation-testing-4.1-keyword-sorts-workplan.md` §5.** **✅ CONFIRMED (2026-08-29):** the client-side `scope` param (compiled to a `term` filter, never spliced into query text) is now implemented, unit-tested, and proven on live TEST (workplan §9 Phase 4) — scoping `estimateSortValue` to a bucket's keyword value is the mechanism that made keyword-sort deep seek fast and accurate. `scope: [{ field, value }]` is no longer speculative; it's the shape the client already depends on. |
+| **Gap 5** — `findKeywordSortValue` (composite walk) | **CONFIRMED D5** (D/M) — still needed, contract corrected | B1 removes `field`+`direction` params first. The endpoint is a generic bounded target-rank bucket resolver, not a Kupua seek operation. It must distinguish `found`, bounded `partial`, and natural `exhausted` outcomes and return the bucket's position/count facts; `{value}` alone is insufficient. It should optionally resume an incomplete D6 walk through one opaque server-owned token that binds continuation, cumulative rank, request identity and snapshot; D5/D6 must migrate atomically for token use. **⚠️ VALUE IN DOUBT (2026-08-28): PROD `metadata.credit` has 310,185 distinct values and `metadata.source` 63,776 — the composite walk needs ~16 pages to reach mid-corpus and hits its 8s cap. Enumeration does not scale on PROD; an oracle-driven approach over D4 (`count-before`) may replace this entirely. Do not build before reading the archived keyword-sorts evidence.** Live TEST confirmed D5 is fallback-only when D6 is complete. |
+| **Gap 6** — `getKeywordDistribution` (bounded composite distribution) | **CONFIRMED D6** (D/M) — still needed, contract corrected | B1 removes `field`+`direction`. The generic response must separate exact `valuedDocumentCount` from `representedDocumentCount` and report `complete` only on natural exhaustion. Page/time/payload caps must never masquerade as a complete vocabulary. An incomplete response should carry the opaque snapshot-bound continuation described under D5 so target lookup need not repeat the represented prefix. Callers, not media-api, decide how those facts affect missing-value boundaries, labels, or seeking. PROD Credit/Source prove bounded responses are normal rather than exceptional. Live TEST confirmed complete D6 data supports the fast path; it did not validate high-cardinality completion. |
+| **Gap 7** — `getDateDistribution` improvements | **CONFIRMED C3 redesign** — still needed | Exact parent coverage and bucket provenance required; special-date rank buckets are approximate without materialized scalars. |
+| **Gap 8** — `fetchPositionIndex` (full position map) | **CONFIRMED D1** (D/L) — blocked on D8 + sort contract, not special-sort discovery | Exact canonical-order parity is required up to Kupua's 65k map cap. |
+| **Gap 9** — Reverse sort / `missingFirst` | **CONFIRMED** — baked into D3 | `reverse` and `seekToEnd` (renamed from `missingFirst`) are params on the Gap 1 / D3 endpoint. Not a standalone gap. |
+| **Gap 10** — Two-phase null-zone seek | **CONFIRMED** — baked into D3 as C4 | Transparent server behaviour on the D3 endpoint. ~70 LOC addition, not a standalone route. |
+| **Gap 11** — `_source` response field filtering | **REMOVED** — not a real gap for kupua | No kupua DAL method requests partial fields from the server. `getIdRange` uses `noSource` internally — this is eliminated by B1 (Gap 13 server side handles it). The `_source` filtering in Gap 11 was a bandwidth concern; for cursor pagination the hits endpoint returns full images. |
+| **Gap 12** — `getByIds` improvements | **CONFIRMED D9** (D/S) — still needed | lookupIds not routed, 200-ID cap makes existing `GET /images?ids=` unsuitable. |
+| **Gap 13** — `getIdRange` (range walk) | **CONFIRMED D2** (D/L) — ID/cursor ownership review required | Prefer authoritative ID resolution under one operation snapshot; no range-walk endpoint exists. |
+| **Gap 15** — DEFECT: `?ids=` order not preserved | **REMOVED** — not relevant for kupua | Kupua doesn't use `GET /images?ids=` in production (getByIds needs `POST /images/mget` — D9). The ordering fix is a Kahuna concern, not kupua. |
+| **Gap 17** — Dedicated `count` endpoint | **SUPERSEDED by D7** | `count` (F2) becomes a wrapper on `countWithTickers`. D7 (`countWithTickers` endpoint) covers the count need. A standalone `GET /images/count` route is optional polish if `countWithTickers` endpoint exists. |
+| **Gap 18** — `getAggregations` (batched multi-field) | **CONFIRMED C1+C2** (C) — still needed | C1 = terms aggs with full SearchParams; C2 = IS-filter extension. Both trivial. |
+| **ADDED: Gap 19** | `countWithTickers` — D7 | Not in original plan. Flagged in findings-4 Note 3 as `GAP MISSING`. 3 call sites including every poll tick. S-sized. |
+| **Gap 20 (AI)** | **REMOVED** — not a gap | `searchByAi?` maps to existing `GET /images?useAISearch=true`. A = no server work needed. Findings-4 Note 6 already called this out. |
+
+---
+
+## Section 7 — Cross-cutting Observations
+
+1. **Phase 1 §6.1 is a prerequisite for full bucket-A on `searchByAi?`.** Currently `useAISearch=true` ignores all standard filters (date, cost, validity, labels, etc.) because the AI code path bypasses filter assembly entirely. Kupua's `searchByAi` receives the full `SearchParams` including filters. If users combine AI search with cost filters or date filters, those filters are silently ignored in media-api mode. This is classified A only because the **core semantic search capability** exists server-side. The missing filter behaviour should be documented in kupua's `GridApiDataSource` as a known limitation — and Phase 1 §6.1 should be in the backlog for the media-api team.
+
+2. **B1 refactors have independent value today, unrelated to migration.** The seven ES-shape leaks in Section 4a are security and coupling concerns in the current codebase. Eliminating them reduces the risk of ES query injection and simplifies the DAL interface. The B2 fusions (especially F1) also have independent performance value — F1 eliminates a parallel ES round-trip on every facet panel load. These should be framed as "kupua improvements" not "migration prerequisites."
+
+3. **The `orderBy` vocabulary is load-bearing.** It must cover `{-uploadTime, uploadTime,
+   -taken, taken, dateAddedToCollection, -dateAddedToCollection, usagesDateAdded,
+   -usagesDateAdded}` plus configured aliases. `usagesDateAdded` needs nested `mode:max` and
+   cannot use legacy `createSort`. Option B proved the required clause shapes; before review,
+   port those semantics to a new media-api-only Option-A builder with exhaustive parity fixtures.
+   Phase 1's legacy token names differ and must not leak into the Kupua contract.
+
+4. **`countWithTickers` ticker definition parity.** Phase 2 §6.3 flags: client's `gridConfig.tickerDefinitions` and server's `aggregationsNameToSearchClauseMap` must agree on names. Before D7's endpoint is designed, ticker name parity between client config and server config must be verified. If names differ, the server must accept ticker names as input rather than hard-coding them.
+
+5. **D8 is a prerequisite and a research gate for D1/D2.** Existing D3 consumes raw
+  single-index PITs opened by Kupua. During migration, both index copies coexist, so the rejected
+  raw multi-index/no-dedup plan is unsafe. The dedicated D8 research chooses the replacement and
+  D3 verdict; do not infer one from this historical derivation.
+
+6. **D1 (`fetchPositionIndex?`) and D2 (`getIdRange`) share implementation infrastructure.** Both require: `search_after` loop, `_source:false`, two-phase null-zone detection, cursor extraction from sort values. D3 (the `searchAfter` endpoint) must exist before either D1 or D2 can be implemented on the server. The dependency chain is: D8 → D3 → D1, D2.
+
+7. **`getDateDistribution?` (C3) requires a response-contract redesign before implementation.** The existing route can supply histogram mechanics, but special max-date sorts need exact root-parent coverage separated from approximate child-date buckets. Do not emit exact `startPosition` for those buckets unless materialized latest-date fields exist.
+
+8. **`getAggregation` corpus-wide scope must not be conflated with `getAggregations` search-context scope.** Both return terms aggs, but `getAggregation` uses `match_all: {}` (no filter), while `getAggregations` uses `buildQuery(params)`. The server endpoints are different (`GET /images/metadata/:field` vs new `POST /images/aggregations`). Any attempt to unify them would regress typeahead quality (b2-hunt Cluster 1 confirmed this). This routing split also happens to keep all of kupua's non-bare-metadata aggregation traffic off Kahuna's shared `GET /images/metadata/:field` route — relevant if CQL grammar work (e.g. OR support) is ever scoped kupua-only.
+
+9. **`searchRange` (bucket A) is important for `GridApiDataSource` range fills.** The store currently never calls `searchRange` in production, but for `GridApiDataSource` it will be the method for filling non-adjacent viewport sections via offset+length pagination. Its 0 production call sites today don't imply it's unimportant — it's the bridge between media-api's offset model and the store's additive load pattern.
+
+10. **The original 15-gap plan was substantially correct but missed 2 critical gaps.** `countWithTickers` (3 call sites, every poll tick) and `getFilterAggregations` (2 call sites, every facet panel open) are both high-frequency, must-have capabilities that were absent from Gaps 1–18. Both are now classified (D7 and B1+C2 respectively). The reclassifications (Gap 11, 15, 20 removed; Gap 7 downgraded to C) more than compensate — the net D-item count is lower than originally estimated.
+
+11. **`getAggregations` (C1/C2) is now more complex than "trivial".** As of 2026-06-09, kupua's `getAggregations` accepts a `usageFilters?: UsageFilterAggRequest[]` param and emits a consolidated `_usages` nested agg with `by_platform` + `by_status` terms sub-aggs, each with a `reverse_nested` sub-agg to count parent images rather than usage records. The planned `POST /images/aggregations` server endpoint (C1) must support this nested structure to serve the Usages facet panel — a plain terms-agg proxy will not suffice. The `UsageFilterAggRequest` type and the `usageFilters` response field (`usageFilters?: Record<string, number>`) are part of the current `AggregationsResult` interface in `dal/types.ts`. Note: `platform:front` is NOT a real ES value — fronts are stored as `platform:digital`, `status:unknown` with `frontUsageMetadata`; confirmed from production data 2026-06-09.
+
+12. **`must_not: nested(usages.status:replaced)` is now a default filter in `buildQuery`.** Added 2026-06-09 to mirror Kahuna's `Parser.scala` `thingsToHideByDefault`. This fires on every ES search, agg, and count query — not just cursor pagination. When the server eventually owns filter construction (D3 end-state, Option A), this rule must be explicitly carried over as part of `buildFilteredQuery`. It is a nested query, not a flat `exists` check — the server must emit `{nested: {path: "usages", query: {term: {"usages.status": "replaced"}}}}` in `must_not`. Missing this silently shows "replaced" images to users.
+
+13. **`POST /images/aggregations` (C1) must treat field paths as opaque verbatim ES paths; fieldAlias fields and `fileMetadata.*` aggregations both depend on this (discovered 2026-06-27).** Three converging requirements: (a) **fieldAlias fields** — `ALIAS_FIELDS` in `field-registry.tsx` carry `esSearchPath: a.elasticsearchPath` (e.g. `"fileMetadata.iptc.Edit Status"`); `AGG_FIELDS` includes all aggregatable alias fields; `getAggregations` is therefore called with raw `fileMetadata.*` paths today. Any server-side `metadata.` prefix silently breaks all alias aggregations. (b) **Non-metadata aggregatable fields already in `AGG_FIELDS`** — `"usageRights.category"`, `"collections.pathId"`, `"source.mimeType"`, `"userMetadata.labels"`, `"uploadedBy"` — all must be accepted verbatim. (c) **Hypothetical dynamic `fileMetadata` aggregation** — all `fileMetadata.*` string fields are `keyword`-mapped via the dynamic template, so a terms-agg on any such path returns real buckets; when a user searches `has:fileMetadata.xmp.SomeKey`, the client can pass `{field: "fileMetadata.xmp.SomeKey", size: N}` to this endpoint and receive a meaningful distribution. Client-side awareness of which `has:` paths yield aggregatable fields is required: leaf keyword fields work (`leases.leases.leasedBy`, `exports.author`); object roots do not (`leases`, `exports`); nested types need special handling — `usages.platform` is inside a `NestedField` and requires a `nested`+`reverse_nested` wrapper for correct image-level counts (note 11); use the `usagesPlatform` copy-to rollup instead. The `GET /images/metadata/:field` endpoint (Gap A) is a false model for C1 — its `metadataField()` prefix was intentional for bare metadata leaf names only. The correct C1 implementation is `termsAgg(name = "field_agg", field = rawPathFromRequest)`.
+
+---
+
+## Section 8 — Coverage Gaps and Uncertainties
+
+1. **`countWithTickers` ticker name parity (medium confidence).** The client's `gridConfig.tickerDefinitions` names and the server's `aggregationsNameToSearchClauseMap` names must match for D7 to work without bespoke ticker-name translation. This cannot be verified from the findings docs alone (neither Phase 1 nor Phase 2 reproduces the actual name values). *Resolution:* Read `gridConfig.tickerDefinitions` in `kupua/src/config/` and `ElasticSearch.scala:49–66` to compare names before designing D7's endpoint. *Provisional bucket:* D — confirmed. Name parity is a design detail, not a bucket-change question.
+
+2. **`getAggregation` `size` parameter support (low-confidence gap).** Phase 1 §2 notes `GET /images/metadata/:field` uses a hardcoded aggregation size in `ElasticSearch.scala:469`. If kupua's typeahead callers pass `size=25` or similar and the server always returns 50 buckets, this may be acceptable. But it may need a trivial C addition (`size` query param) if bucket counts diverge. *Resolution:* Low priority; the existing default size may be sufficient for typeahead. *Provisional bucket:* A → A with possible trivial C addition.
+
+3. **elastic4s PIT API surface.** Feasibility §Gap2 notes the PIT API surface in `nl.gn0s1s/elastic4s-core:8.18.2` was not verified from source. If `createPitRequest`/`deletePitRequest` are absent from the jar, D8 requires either a raw ES HTTP call or a library upgrade. *Resolution:* A quick grep of the elastic4s jar or build.sbt dependency tree resolves this before D8 is started. *Provisional bucket:* D — confirmed; this is a hard prerequisite check, not a bucket question.
+
+4. **`getDateDistribution?` correctness precedes its two-request cost.** Stats + histogram cost remains a profiling question, but C3 must first separate exact parent coverage from approximate special-date buckets. *Resolution:* redesign the response before optimizing request count.
+
+5. **E1 null-prefixed cursor change (low regression risk but needs E2E validation).** Changing `search-store.ts:2950` to prepend `null` to the cursor (findings-4 Note 2 Option A) is a behavioral change to the deep null-zone seek path. While the logic is mechanical and correct, this code path is exercised in Playwright E2E tests. *Resolution:* Run `npm --prefix kupua run test:e2e` after the B1 refactor. Per AGENTS test directive table: E2E is mandatory after any change touching scroll/focus behaviour.
+
+---
+
+## Section 9 — Anti-Goals Appendix (≤30 items, one line each)
+
+1. `orderBy` naming inconsistency between kupua (`-uploadTime`) and media-api (`newest`) should be resolved in the adapter layer, not by changing either codebase's naming.
+2. `SearchAfterResult.pitId` field should be renamed to `snapshotId` in the abstract interface (Phase 2 §4 item 9) — the ES PIT ID naming should not leak into the domain contract.
+3. `SearchParams.trackTotalHits` should be renamed to `exactCount` or made implicit for `search()` — it's an ES execution-cost knob masquerading as a business parameter.
+4. `openPit`/`closePit` asymmetry (openPit uses `esRequest`; closePit uses `esRequestRaw`) is a latent bug risk in the ES adapter — noted in b2-hunt §7.12.
+5. `hybridSearch` in media-api makes two sequential ES requests (max BM25 score probe + hybrid query) — doubles ES load per uncached AI query; relevant if AI search adoption grows.
+6. Phase 1 §6.2: `GET /images/edits/:field` silently ignores the `field` path param (always aggregates on `labels`) — a silent API contract violation unrelated to kupua but worth flagging to the media-api team.
+7. `fetchPositionIndex?` gap (D1) is capped by Kupua at 65,000 results, not the full multi-million corpus; it still needs paginated transport and exact live-clause parity.
+8. `getIdRange` (D2) and `fetchPositionIndex?` (D1) share enough null-zone detection infrastructure that they should ideally share a Scala library function — coupling their implementation is a refactor opportunity.
+9. `countBefore` (D4) now has exact selected-maximum predicates in live TypeScript; Scala parity and production cost, not child-value histogram approximation, gate support.
+10. The `searchByAi?` filter-bypass issue (Phase 1 §6.1) should be filed as a tracked issue in the media-api backlog — it's a quiet feature degradation when filters are combined with AI search.
+11. `SortValues = (string | number | null)[]` should be branded to prevent accidental construction — noted in Phase 2 §7.1.
+12. The `dateAddedToCollection` sort order (Phase 2 §3.3) is only meaningful with a collection filter active — the new `searchAfter` endpoint should document this constraint explicitly.
+13. `SearchParams.offset` vs `searchAfterValues` co-existence in `searchAfter` is confusing — the two pagination models should be mutually exclusive and the interface should enforce this.
+14. `getByIds` parallel-chunk strategy (D9) produces partial results on abort without signalling completeness — callers assume completeness per the current contract.
+15. `estimateSortValue` (D) returns `null` for three distinct reasons (abort, empty result, tdigest unavailable) — the server endpoint should distinguish these in the response.
+
+---
+
+## Self-check
+
+- [x] Section 1 has exactly 20 rows, each with a bucket assignment
+- [x] Every Section 2 subsection inlines: abstract need, call sites, current adapter behaviour, media-api capability, classification rationale, and a concrete action. Provenance citations present.
+- [x] Every classification in Section 2 has provenance citations (Phase 1 + Phase 2 + b2-hunt if applicable)
+- [x] Section 3 explicitly addresses the pagination gap as two distinct capabilities (cursor pagination + snapshot consistency), lists all affected methods, explains why offset is insufficient, and stops without designing an endpoint
+- [x] Section 4b has exactly 4 b2-hunt fusions (F1–F4), each restated inline with all required fields
+- [x] Section 5 has size estimates (S/M/L) with one-line justifications, sorted descending
+- [x] Section 6 covers every gap in the original 15-gap plan with a verdict
+- [x] No endpoint shapes / param names / response schemas designed (descriptions say "capability gap: X" only)
+- [x] No source code (kupua/ or media-api/) was read — all facts from three findings docs
+- [x] No commits, no test runs, no file modifications outside this findings doc
+- [x] Acid test: a downstream agent reading any Section 2 subsection can identify the action, the call sites, the current behaviour, and the server capability without opening Phase 1, Phase 2, or b2-hunt-findings

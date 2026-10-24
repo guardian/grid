@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kupua — Dashboard Density Prototype</title>
+<style>
+  /* ── Kupua colour theme (from index.css --grid-* variables) ── */
+  :root {
+    --bg: #1a1a2e;
+    --bg-panel: #222240;
+    --bg-widget: #2a2a4a;
+    --bg-hover: rgba(255,255,255,0.05);
+    --text: #e0e0e0;
+    --text-muted: #9090b0;
+    --text-dim: #6060a0;
+    --accent: #4ea8de;
+    --accent-hover: #68b8ee;
+    --accent-bg: rgba(78,168,222,0.15);
+    --border: #3a3a5e;
+    --bar-credit: #4ea8de;
+    --bar-rights: #e07850;
+    --bar-type: #50c878;
+    --bar-keyword: #c084fc;
+    --danger: #ef4444;
+    --success: #22c55e;
+    --warning: #eab308;
+    --radius: 6px;
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-y: auto;
+  }
+
+  /* ── Top bar (simulates kupua's toolbar) ── */
+  .top-bar {
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .top-bar .logo {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 1px;
+  }
+  .search-box {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 6px 12px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--font);
+    outline: none;
+  }
+  .search-box:focus { border-color: var(--accent); }
+  .search-box::placeholder { color: var(--text-dim); }
+
+  .density-switcher {
+    display: flex;
+    gap: 2px;
+    background: var(--bg);
+    border-radius: var(--radius);
+    padding: 2px;
+  }
+  .density-btn {
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    cursor: pointer;
+    font-family: var(--font);
+    transition: all 0.15s;
+  }
+  .density-btn:hover { color: var(--text); background: var(--bg-hover); }
+  .density-btn.active {
+    background: var(--accent-bg);
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* ── Status bar ── */
+  .status-bar {
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    padding: 4px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .status-bar .chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: var(--accent-bg);
+    color: var(--accent);
+    border-radius: 3px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .chip:hover { background: rgba(78,168,222,0.25); }
+  .chip .remove { font-size: 13px; opacity: 0.6; }
+  .chip .remove:hover { opacity: 1; }
+  .chip.excluded {
+    background: rgba(239,68,68,0.15);
+    color: var(--danger);
+    text-decoration: line-through;
+  }
+
+  /* ── Dashboard grid ── */
+  .dashboard {
+    padding: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto;
+    gap: 12px;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+
+  /* ── Headline metrics row (spans full width) ── */
+  .metrics-row {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 12px;
+  }
+  .metric-card {
+    flex: 1;
+    background: var(--bg-widget);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .metric-card:hover {
+    border-color: var(--accent);
+    background: rgba(42,42,74,0.8);
+  }
+  .metric-card .value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+  }
+  .metric-card .label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .metric-card .subtext {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  /* ── Widget (chart container) ── */
+  .widget {
+    background: var(--bg-widget);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .widget-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .widget-header .took {
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--text-dim);
+  }
+  .widget-body {
+    flex: 1;
+    padding: 4px 14px 14px;
+    position: relative;
+  }
+
+  /* Timeline spans full width */
+  .widget.timeline {
+    grid-column: 1 / -1;
+  }
+
+  /* ── Bar chart (horizontal) ── */
+  .bar-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: background 0.1s;
+  }
+  .bar-row:hover { background: var(--bg-hover); }
+  .bar-row.active { background: var(--accent-bg); }
+  .bar-label {
+    width: 110px;
+    font-size: 11px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 0;
+    text-align: right;
+  }
+  .bar-track {
+    flex: 1;
+    height: 16px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    min-width: 2px;
+  }
+  .bar-count {
+    width: 50px;
+    font-size: 10px;
+    color: var(--text-dim);
+    text-align: right;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Donut chart ── */
+  .donut-container {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .donut-svg { flex-shrink: 0; }
+  .donut-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: background 0.1s;
+  }
+  .legend-item:hover { background: var(--bg-hover); }
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .legend-name { color: var(--text); }
+  .legend-count { color: var(--text-dim); margin-left: auto; font-variant-numeric: tabular-nums; }
+
+  /* ── Timeline histogram (SVG) ── */
+  .timeline-chart {
+    width: 100%;
+    position: relative;
+  }
+  .timeline-chart svg { display: block; }
+  .timeline-chart .bar-rect {
+    fill: var(--accent);
+    opacity: 0.7;
+    cursor: pointer;
+    transition: opacity 0.1s;
+  }
+  .timeline-chart .bar-rect:hover { opacity: 1; }
+  .timeline-chart .axis-label {
+    fill: var(--text-dim);
+    font-size: 10px;
+    font-family: var(--font);
+  }
+  .timeline-chart .brush-overlay {
+    fill: var(--accent);
+    opacity: 0.15;
+    cursor: crosshair;
+  }
+  .brush-hint {
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  /* ── Keyword cloud ── */
+  .keyword-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 0;
+  }
+  .keyword-tag {
+    padding: 3px 8px;
+    border-radius: 3px;
+    background: rgba(192,132,252,0.1);
+    color: var(--bar-keyword);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .keyword-tag:hover {
+    background: rgba(192,132,252,0.25);
+    transform: scale(1.05);
+  }
+
+  /* ── Boolean metric pills ── */
+  .bool-metrics {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 8px;
+  }
+  .bool-pill {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-widget);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .bool-pill:hover { border-color: var(--accent); }
+  .bool-pill .pill-label { font-size: 11px; color: var(--text-muted); }
+  .bool-pill .pill-value { font-size: 16px; font-weight: 600; }
+  .bool-pill .pill-pct { font-size: 10px; color: var(--text-dim); margin-left: 4px; }
+  .bool-pill.has-value .pill-value { color: var(--success); }
+  .bool-pill.no-value .pill-value { color: var(--text-dim); }
+
+  /* ── Dimension buckets ── */
+  .dim-buckets {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .dim-bucket {
+    flex: 1;
+    min-width: 70px;
+    background: rgba(80,200,120,0.08);
+    border: 1px solid rgba(80,200,120,0.2);
+    border-radius: var(--radius);
+    padding: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .dim-bucket:hover {
+    border-color: var(--bar-type);
+    background: rgba(80,200,120,0.15);
+  }
+  .dim-bucket .bucket-label { font-size: 10px; color: var(--text-muted); }
+  .dim-bucket .bucket-value { font-size: 18px; font-weight: 600; color: var(--bar-type); }
+  .dim-bucket .bucket-range { font-size: 9px; color: var(--text-dim); margin-top: 2px; }
+
+  /* ── Tooltip ── */
+  .tooltip {
+    position: fixed;
+    background: #111;
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    pointer-events: none;
+    z-index: 100;
+    display: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    max-width: 250px;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 1100px) {
+    .dashboard { grid-template-columns: 1fr 1fr; }
+    .widget.timeline { grid-column: 1 / -1; }
+    .metrics-row { flex-wrap: wrap; }
+    .bool-metrics { flex-wrap: wrap; }
+  }
+  @media (max-width: 700px) {
+    .dashboard { grid-template-columns: 1fr; }
+    .widget.timeline { grid-column: 1; }
+    .donut-container { flex-direction: column; }
+  }
+
+  /* ── Call to action overlay (explains what clicking does) ── */
+  .click-hint {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    font-size: 9px;
+    color: var(--text-dim);
+    background: rgba(0,0,0,0.4);
+    padding: 2px 6px;
+    border-radius: 3px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    pointer-events: none;
+  }
+  .widget:hover .click-hint { opacity: 1; }
+
+  /* ── Simulated interaction feedback ── */
+  .flash {
+    animation: flash-anim 0.3s ease;
+  }
+  @keyframes flash-anim {
+    0% { background: var(--accent-bg); }
+    100% { background: transparent; }
+  }
+
+  /* Page title */
+  .page-title {
+    text-align: center;
+    padding: 20px 16px 8px;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .page-title em {
+    font-style: normal;
+    color: var(--accent);
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Top bar ── -->
+<div class="top-bar">
+  <span class="logo">KUPUA</span>
+  <input class="search-box" type="text" placeholder="Search images… (CQL)" id="searchBox" value="">
+  <div class="density-switcher">
+    <button class="density-btn">Table</button>
+    <button class="density-btn">Grid</button>
+    <button class="density-btn active">Dashboard</button>
+  </div>
+</div>
+
+<!-- ── Status bar ── -->
+<div class="status-bar">
+  <div class="chips" id="chipBar">
+    <span style="color: var(--text-dim)">10,000 images</span>
+  </div>
+  <div>
+    <span id="aggTiming">Aggs: 47ms</span>
+  </div>
+</div>
+
+<div class="page-title">
+  <em>Dashboard density</em> — static prototype · click anything to simulate filter interaction
+</div>
+
+<!-- ── Dashboard ── -->
+<div class="dashboard">
+
+  <!-- ── Row 1: Headline metrics ── -->
+  <div class="metrics-row">
+    <div class="metric-card" onclick="simulateFilter('Total images')">
+      <div class="value">10,000</div>
+      <div class="label">Total images</div>
+      <div class="subtext">In current result set</div>
+    </div>
+    <div class="metric-card" onclick="simulateFilter('Unique credits')">
+      <div class="value">~842</div>
+      <div class="label">Unique credits</div>
+      <div class="subtext">cardinality agg</div>
+    </div>
+    <div class="metric-card" onclick="simulateFilter('Date range')">
+      <div class="value">2008–2025</div>
+      <div class="label">Date range</div>
+      <div class="subtext">Oldest → newest upload</div>
+    </div>
+    <div class="metric-card" onclick="simulateFilter('Avg file size')">
+      <div class="value">4.2 MB</div>
+      <div class="label">Avg file size</div>
+      <div class="subtext">extended_stats agg</div>
+    </div>
+  </div>
+
+  <!-- ── Row 2: Upload timeline (full width) ── -->
+  <div class="widget timeline">
+    <div class="widget-header">
+      Upload Timeline
+      <span class="took">date_histogram · 23ms</span>
+    </div>
+    <div class="widget-body">
+      <span class="click-hint">Drag to select range → sets since/until</span>
+      <div class="timeline-chart" id="timelineChart"></div>
+      <div class="brush-hint">↔ drag to brush-select a time range</div>
+    </div>
+  </div>
+
+  <!-- ── Row 3: Boolean metrics (full width) ── -->
+  <div class="bool-metrics">
+    <div class="bool-pill has-value" onclick="simulateFilter('hasCrops:true')">
+      <span class="pill-label">Has crops</span>
+      <span><span class="pill-value">3,421</span><span class="pill-pct">34%</span></span>
+    </div>
+    <div class="bool-pill has-value" onclick="simulateFilter('has usages')">
+      <span class="pill-label">Has usages</span>
+      <span><span class="pill-value">2,847</span><span class="pill-pct">28%</span></span>
+    </div>
+    <div class="bool-pill has-value" onclick="simulateFilter('has rights')">
+      <span class="pill-label">Rights acquired</span>
+      <span><span class="pill-value">1,204</span><span class="pill-pct">12%</span></span>
+    </div>
+    <div class="bool-pill has-value" onclick="simulateFilter('archived')">
+      <span class="pill-label">Archived</span>
+      <span><span class="pill-value">6,312</span><span class="pill-pct">63%</span></span>
+    </div>
+    <div class="bool-pill no-value" onclick="simulateFilter('no usages')">
+      <span class="pill-label">Unused</span>
+      <span><span class="pill-value">7,153</span><span class="pill-pct">72%</span></span>
+    </div>
+  </div>
+
+  <!-- ── Credit bar chart ── -->
+  <div class="widget">
+    <div class="widget-header">
+      Credit
+      <span class="took">terms · 31ms</span>
+    </div>
+    <div class="widget-body">
+      <span class="click-hint">Click → +credit:"value"</span>
+      <div class="bar-chart" id="creditChart"></div>
+    </div>
+  </div>
+
+  <!-- ── Rights category donut ── -->
+  <div class="widget">
+    <div class="widget-header">
+      Rights Category
+      <span class="took">terms · 8ms</span>
+    </div>
+    <div class="widget-body">
+      <span class="click-hint">Click → filter by rights</span>
+      <div class="donut-container" id="rightsChart"></div>
+    </div>
+  </div>
+
+  <!-- ── Source bar chart ── -->
+  <div class="widget">
+    <div class="widget-header">
+      Source
+      <span class="took">terms · 19ms</span>
+    </div>
+    <div class="widget-body">
+      <span class="click-hint">Click → +source:"value"</span>
+      <div class="bar-chart" id="sourceChart"></div>
+    </div>
+  </div>
+
+  <!-- ── Keyword cloud ── -->
+  <div class="widget">
+    <div class="widget-header">
+      Keywords
+      <span class="took">terms · 44ms</span>
+    </div>
+    <div class="widget-body">
+      <span class="click-hint">Click → add keyword to query</span>
+      <div class="keyword-cloud" id="keywordCloud"></div>
+    </div>
+  </div>
+
+  <!-- ── File type ── -->
+  <div class="widget">
+    <div class="widget-header">
+      File Type
+      <span class="took">terms · 3ms</span>
+    </div>
+    <div class="widget-body">
+      <span class="click-hint">Click → filter by type</span>
+      <div class="bar-chart" id="fileTypeChart"></div>
+    </div>
+  </div>
+
+  <!-- ── Image dimensions ── -->
+  <div class="widget">
+    <div class="widget-header">
+      Image Size
+      <span class="took">range · 11ms</span>
+    </div>
+    <div class="widget-body">
+      <span class="click-hint">Click → filter by megapixels</span>
+      <div class="dim-buckets" id="dimChart"></div>
+    </div>
+  </div>
+
+  <!-- ── Top uploaders ── -->
+  <div class="widget">
+    <div class="widget-header">
+      Top Uploaders
+      <span class="took">terms · 15ms</span>
+    </div>
+    <div class="widget-body">
+      <span class="click-hint">Click → +uploadedBy:"value"</span>
+      <div class="bar-chart" id="uploaderChart"></div>
+    </div>
+  </div>
+
+  <!-- ── Image type ── -->
+  <div class="widget">
+    <div class="widget-header">
+      Image Type
+      <span class="took">terms · 5ms</span>
+    </div>
+    <div class="widget-body">
+      <span class="click-hint">Click → +imageType:"value"</span>
+      <div class="bar-chart" id="imageTypeChart"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Tooltip -->
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// Mock data — realistic distributions based on 10k sample dataset
+// ═══════════════════════════════════════════════════════════════════════
+
+const creditData = [
+  { key: 'AFP/Getty Images', count: 1842 },
+  { key: 'Getty Images', count: 1256 },
+  { key: 'Reuters', count: 987 },
+  { key: 'AP', count: 734 },
+  { key: 'PA', count: 623 },
+  { key: 'The Guardian', count: 589 },
+  { key: 'Rex/Shutterstock', count: 421 },
+  { key: 'EPA', count: 387 },
+  { key: 'Alamy', count: 312 },
+  { key: 'Getty Images Sport', count: 298 },
+];
+
+const sourceData = [
+  { key: 'AFP', count: 2145 },
+  { key: 'Getty Images', count: 1834 },
+  { key: 'Reuters', count: 1122 },
+  { key: 'PA Wire', count: 856 },
+  { key: 'AP', count: 734 },
+  { key: 'Rex Features', count: 612 },
+  { key: 'Guardian', count: 489 },
+  { key: 'Shutterstock', count: 378 },
+];
+
+const rightsData = [
+  { key: 'Agency', count: 4231, color: '#4ea8de' },
+  { key: 'Screengrab', count: 2156, color: '#e07850' },
+  { key: 'Staff Photographer', count: 1289, color: '#50c878' },
+  { key: 'Handout', count: 987, color: '#c084fc' },
+  { key: 'Contract Photographer', count: 654, color: '#eab308' },
+  { key: 'Social Media', count: 423, color: '#ef4444' },
+  { key: 'Other', count: 260, color: '#6060a0' },
+];
+
+const fileTypeData = [
+  { key: 'image/jpeg', display: 'JPEG', count: 9234 },
+  { key: 'image/png', display: 'PNG', count: 512 },
+  { key: 'image/tiff', display: 'TIFF', count: 187 },
+  { key: 'image/gif', display: 'GIF', count: 67 },
+];
+
+const keywordData = [
+  { key: 'politics', count: 1823, size: 28 },
+  { key: 'sport', count: 1456, size: 24 },
+  { key: 'football', count: 1234, size: 22 },
+  { key: 'UK news', count: 1189, size: 21 },
+  { key: 'world news', count: 987, size: 19 },
+  { key: 'London', count: 856, size: 18 },
+  { key: 'arts', count: 734, size: 16 },
+  { key: 'cricket', count: 623, size: 15 },
+  { key: 'environment', count: 589, size: 14 },
+  { key: 'technology', count: 512, size: 14 },
+  { key: 'music', count: 478, size: 13 },
+  { key: 'film', count: 445, size: 13 },
+  { key: 'business', count: 423, size: 12 },
+  { key: 'travel', count: 389, size: 12 },
+  { key: 'food', count: 356, size: 12 },
+  { key: 'fashion', count: 334, size: 11 },
+  { key: 'health', count: 312, size: 11 },
+  { key: 'science', count: 289, size: 11 },
+  { key: 'tennis', count: 267, size: 10 },
+  { key: 'rugby', count: 245, size: 10 },
+  { key: 'education', count: 223, size: 10 },
+  { key: 'books', count: 201, size: 10 },
+  { key: 'climate', count: 189, size: 10 },
+  { key: 'architecture', count: 167, size: 9 },
+];
+
+const dimData = [
+  { label: '< 1 MP', range: '< 1000×1000', count: 412 },
+  { label: '1–5 MP', range: '1–5 megapixels', count: 2345 },
+  { label: '5–12 MP', range: '5–12 megapixels', count: 4123 },
+  { label: '12–24 MP', range: '12–24 megapixels', count: 2456 },
+  { label: '24+ MP', range: '24+ megapixels', count: 664 },
+];
+
+const uploaderData = [
+  { key: 'jane.doe@guardian.co.uk', count: 342 },
+  { key: 'john.smith@guardian.co.uk', count: 287 },
+  { key: 'picture.desk@guardian.co.uk', count: 1456 },
+  { key: 'wire-import@guardian.co.uk', count: 4231 },
+  { key: 'sport.desk@guardian.co.uk', count: 867 },
+  { key: 'arts@guardian.co.uk', count: 534 },
+  { key: 'features@guardian.co.uk', count: 423 },
+  { key: 'news.desk@guardian.co.uk', count: 1860 },
+];
+
+const imageTypeData = [
+  { key: 'Photograph', count: 8234 },
+  { key: 'Illustration', count: 987 },
+  { key: 'Composite', count: 456 },
+  { key: 'Graphic', count: 323 },
+];
+
+// Monthly upload counts for timeline (2020-2025)
+const timelineData = [];
+const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+for (let year = 2020; year <= 2025; year++) {
+  const endMonth = year === 2025 ? 3 : 12;
+  for (let m = 0; m < endMonth; m++) {
+    const base = 100 + Math.floor(Math.random() * 120);
+    // More uploads in recent years, spike around elections/events
+    const yearBoost = (year - 2020) * 15;
+    const eventSpike = (year === 2024 && (m === 6 || m === 10)) ? 80 : 0;
+    const summerDip = (m >= 6 && m <= 8) ? -20 : 0;
+    timelineData.push({
+      date: `${months[m]} ${year}`,
+      year, month: m,
+      count: Math.max(20, base + yearBoost + eventSpike + summerDip)
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Rendering functions
+// ═══════════════════════════════════════════════════════════════════════
+
+function formatCount(n) {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (n >= 10_000) return `${Math.round(n / 1000)}k`;
+  return n.toLocaleString();
+}
+
+function renderBarChart(containerId, data, color, maxCount) {
+  const container = document.getElementById(containerId);
+  if (!maxCount) maxCount = Math.max(...data.map(d => d.count));
+  container.innerHTML = data.map(d => {
+    const pct = (d.count / maxCount) * 100;
+    const display = d.display || d.key;
+    // Truncate email-like values
+    const label = display.length > 18 ? display.slice(0, 16) + '…' : display;
+    return `<div class="bar-row" onclick="simulateFilter('${d.key}')" title="${display}: ${d.count.toLocaleString()}">
+      <span class="bar-label">${label}</span>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${pct}%;background:${color}"></div>
+      </div>
+      <span class="bar-count">${formatCount(d.count)}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderDonut(containerId, data) {
+  const container = document.getElementById(containerId);
+  const total = data.reduce((s, d) => s + d.count, 0);
+  const size = 140;
+  const cx = size / 2, cy = size / 2, r = 50, stroke = 18;
+
+  let cumAngle = -Math.PI / 2;
+  const arcs = data.map(d => {
+    const angle = (d.count / total) * Math.PI * 2;
+    const startAngle = cumAngle;
+    cumAngle += angle;
+    const endAngle = cumAngle;
+    // SVG arc path
+    const x1 = cx + r * Math.cos(startAngle);
+    const y1 = cy + r * Math.sin(startAngle);
+    const x2 = cx + r * Math.cos(endAngle);
+    const y2 = cy + r * Math.sin(endAngle);
+    const large = angle > Math.PI ? 1 : 0;
+    return `<path d="M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}"
+      fill="none" stroke="${d.color}" stroke-width="${stroke}"
+      style="cursor:pointer;transition:opacity 0.15s"
+      onmouseover="this.style.opacity='0.8'"
+      onmouseout="this.style.opacity='1'"
+      onclick="simulateFilter('${d.key}')" />`;
+  });
+
+  const svgHtml = `<svg class="donut-svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+    ${arcs.join('')}
+    <text x="${cx}" y="${cy - 4}" text-anchor="middle" fill="var(--text)" font-size="16" font-weight="700">${formatCount(total)}</text>
+    <text x="${cx}" y="${cy + 12}" text-anchor="middle" fill="var(--text-dim)" font-size="10">total</text>
+  </svg>`;
+
+  const legendHtml = data.map(d => {
+    const pct = ((d.count / total) * 100).toFixed(0);
+    return `<div class="legend-item" onclick="simulateFilter('${d.key}')">
+      <span class="legend-dot" style="background:${d.color}"></span>
+      <span class="legend-name">${d.key}</span>
+      <span class="legend-count">${formatCount(d.count)} (${pct}%)</span>
+    </div>`;
+  }).join('');
+
+  container.innerHTML = svgHtml + `<div class="donut-legend">${legendHtml}</div>`;
+}
+
+function renderTimeline(containerId, data) {
+  const container = document.getElementById(containerId);
+  const width = container.clientWidth || 1000;
+  const height = 120;
+  const margin = { top: 8, right: 8, bottom: 24, left: 8 };
+  const chartW = width - margin.left - margin.right;
+  const chartH = height - margin.top - margin.bottom;
+
+  const maxCount = Math.max(...data.map(d => d.count));
+  const barW = Math.max(2, (chartW / data.length) - 1);
+  const gap = 1;
+
+  let barsHtml = '';
+  data.forEach((d, i) => {
+    const x = margin.left + i * (barW + gap);
+    const h = (d.count / maxCount) * chartH;
+    const y = margin.top + chartH - h;
+    barsHtml += `<rect class="bar-rect" x="${x}" y="${y}" width="${barW}" height="${h}" rx="1"
+      onclick="simulateFilter('${d.date}')"
+      onmouseover="showTooltip(event, '${d.date}: ${d.count.toLocaleString()} images')"
+      onmouseout="hideTooltip()" />`;
+  });
+
+  // X-axis labels (show every January)
+  let labelsHtml = '';
+  data.forEach((d, i) => {
+    if (d.month === 0) {
+      const x = margin.left + i * (barW + gap);
+      labelsHtml += `<text class="axis-label" x="${x}" y="${height - 4}" text-anchor="start">${d.year}</text>`;
+    }
+  });
+
+  container.innerHTML = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+    ${barsHtml}
+    ${labelsHtml}
+  </svg>`;
+}
+
+function renderKeywordCloud(containerId, data) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = data.map(d =>
+    `<span class="keyword-tag" style="font-size:${d.size}px"
+      onclick="simulateFilter('${d.key}')"
+      title="${d.key}: ${d.count.toLocaleString()} images">${d.key}</span>`
+  ).join('');
+}
+
+function renderDimBuckets(containerId, data) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = data.map(d =>
+    `<div class="dim-bucket" onclick="simulateFilter('${d.label}')">
+      <div class="bucket-label">${d.label}</div>
+      <div class="bucket-value">${formatCount(d.count)}</div>
+      <div class="bucket-range">${d.range}</div>
+    </div>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Interaction simulation
+// ═══════════════════════════════════════════════════════════════════════
+
+const activeFilters = new Set();
+
+function simulateFilter(value) {
+  const chipBar = document.getElementById('chipBar');
+
+  if (activeFilters.has(value)) {
+    activeFilters.delete(value);
+  } else {
+    activeFilters.add(value);
+  }
+
+  // Rebuild chip bar
+  const countHtml = `<span style="color:var(--text-dim)">${activeFilters.size > 0 ? '~' : ''}${activeFilters.size > 0 ? Math.floor(10000 / (activeFilters.size + 1)).toLocaleString() : '10,000'} images</span>`;
+  const chipHtml = [...activeFilters].map(f =>
+    `<span class="chip" onclick="simulateFilter('${f.replace(/'/g, "\\'")}')">
+      +${f}
+      <span class="remove">×</span>
+    </span>`
+  ).join('');
+
+  chipBar.innerHTML = countHtml + chipHtml;
+
+  // Flash the search box to show the query would update
+  const searchBox = document.getElementById('searchBox');
+  searchBox.value = [...activeFilters].map(f => `+${f}`).join(' ');
+  searchBox.classList.add('flash');
+  setTimeout(() => searchBox.classList.remove('flash'), 300);
+
+  // Simulate "aggs refreshing"
+  const timing = document.getElementById('aggTiming');
+  timing.textContent = 'Aggs: …';
+  setTimeout(() => {
+    timing.textContent = `Aggs: ${Math.floor(30 + Math.random() * 80)}ms`;
+  }, 200 + Math.random() * 300);
+}
+
+function showTooltip(event, text) {
+  const tt = document.getElementById('tooltip');
+  tt.textContent = text;
+  tt.style.display = 'block';
+  tt.style.left = (event.clientX + 12) + 'px';
+  tt.style.top = (event.clientY - 8) + 'px';
+}
+
+function hideTooltip() {
+  document.getElementById('tooltip').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════════════════════════════════
+
+function init() {
+  renderBarChart('creditChart', creditData, 'var(--bar-credit)');
+  renderBarChart('sourceChart', sourceData, '#e07850');
+  renderBarChart('fileTypeChart', fileTypeData.map(d => ({...d, key: d.display})), 'var(--bar-type)');
+  renderBarChart('uploaderChart',
+    uploaderData.sort((a,b) => b.count - a.count).map(d => ({
+      ...d,
+      display: d.key.split('@')[0]
+    })),
+    '#eab308'
+  );
+  renderBarChart('imageTypeChart', imageTypeData, '#c084fc');
+  renderDonut('rightsChart', rightsData);
+  renderTimeline('timelineChart', timelineData);
+  renderKeywordCloud('keywordCloud', keywordData);
+  renderDimBuckets('dimChart', dimData);
+
+  // Re-render timeline on resize
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => renderTimeline('timelineChart', timelineData), 150);
+  });
+}
+
+init();
+</script>
+
+</body>
+</html>
+

@@ -1,0 +1,188 @@
+# media-api Instructions for Implementing Agents
+
+> **Tracked source:** `kupua/exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/media-api-91-instructions-for-agents.md`.
+> **Deployed copy:** `.github/instructions/media-api.instructions.md` (local-only, in `.git/info/exclude`, never committed).
+> That file has `applyTo: media-api/**` frontmatter so Copilot loads it automatically.
+> When you update this doc, copy changes there too.
+> Current scope and reading order: `kupua/exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/media-api-00-index.md`.
+> Open convention questions are in item 22.
+
+Kupua is a working read-only prototype adopting additive APIs incrementally. Preserve accepted
+behavior, including explicitly approximate presentation. Index migrations are unsupported;
+Dynamo sessions, Thrall hooks and the archived architecture are not prerequisites.
+Authorization and existing Grid behavior stay protected.
+
+See `kupua/exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/media-api-90-conventions.md`
+for full detail and file:line cites.
+
+The reference draws heavily on Tom's and Andrew's code and reviews. Lindsey's work
+supplements that foundation; section 16 records the evidence and its limits.
+
+1. **Class declaration.** Image/resource controllers use `BaseController` with
+    `ArgoHelpers`. Constructor injection only — no `@Inject`; wire the class in
+    `MediaApiComponents.scala`. An existing public static-configuration exception
+    is not permission to weaken image API auth/response contracts. See §16.
+
+2. **Route ordering.** Specific paths before generic. `POST /images/search-after`
+   must appear *before* `GET /images/:id` in `conf/routes`. Cite: §2 of conventions.
+
+3. **POST + `auth.async(parse.json)` for cursor/body-heavy reads (adopted by D3).** Simple
+   reads still use GET + URL query strings via `SearchParams.apply(request)` + `getQueryString()`.
+   But cursor/filter-heavy endpoints (compound `sortValues`, large ID lists) use POST with a JSON
+   body parsed via `auth.async(parse.json)` — established by `POST /images/search-after` (deviations
+   §27), in line with 6 other Grid services. **Team sign-off still pending (N-3).** Model
+   implementations: `leases/MediaLeaseController.scala:97`; `MediaApi.searchAfterImages`.
+
+4. **Every handler opens with a logMarker.** Pattern:
+   `MarkerMap("requestType" -> "...", "requestId" -> ..., "imageId" -> ...) ++ RequestLoggingFilter.loggablePrincipal(request.user)`.
+   Declare as `implicit val logMarker`. Cite: `MediaApi.scala:160-163`.
+
+5. **All authenticated routes use `auth.async { request => ... }`.** Cite: `MediaApi.scala:157`.
+
+6. **Always check `isVisibleToAccessor` before returning image data.** Syndication
+   tier → 404, not 403. `case Some(image) if isVisibleToAccessor(request.user, image)`.
+   Cite: `MediaApi.scala:210-214`.
+
+7. **Argo responses.** Single item → `respond(data, links)`. List →
+   `respondCollection(data, offset, total, ...)`. Error → `respondError(status,
+   "kebab-key", "message")`. Define error responses as private defs near class top.
+   Cite: `ArgoHelpers.scala:17,28,58`, `MediaApi.scala:134-138`.
+
+8. **Never construct image JSON manually.** Call `imageResponse.create(id, source,
+   writePermission, deletePermission, deleteCropsOrUsagePermission, include, tier)`.
+   Handles S3 URLs, thumb URLs, validity, aliases. Cite: `ImageResponse.scala:52`.
+
+9. **Search results: wrap each hit in `EmbeddedEntity`.** Mirror `hitToImageEntity`
+   in `imageSearch()`. Cite: `MediaApi.scala:556-565`.
+
+10. **ES operation result/param case classes go in `ElasticSearchModel.scala`.**
+    Keep `*Params`/`*Results` naming there. Other domain/response models belong with
+    their owning feature, not automatically in the ES model file. See §12/§16.
+
+11. **Preserve existing live-query routing.** Existing live search uses `prepareSearch(query)`;
+    do not change its migration-aware behavior for Kupua. D3's PIT branch bypasses it (item 24).
+    A new target-specific ordinary method needs an explicit contract, not a blanket copy of the
+    live multi-index routing or the PIT branch.
+
+12. **Always use `executeAndLog(request, "description")`.** Wraps execution with
+    logging and metrics. Cite: `ElasticSearch.scala:332`.
+
+13. **Timeout.** `withSearchQueryTimeout` is applied inside `prepareSearch`. Apply
+    manually to any `SearchRequest` built outside it. Cite: `ElasticSearch.scala:437`.
+
+14. **elastic4s style: fluent DSL.** `boolQuery() must ... filter ...`. Wildcard-import
+    `ElasticDsl._`. Cite: `ElasticSearch.scala:9-13`.
+
+15. **Logging.** Always `logger.info(logMarker, s"...")` — never bare form without
+    marker. `info` for business events, `error` for failures. Cite: `MediaApi.scala:460`.
+
+16. **No `var`.** Immutable data structures throughout. Cite: PR #4201 review.
+
+17. **Tests.** `AnyFunSpec` with `Matchers`. ES integration tests extend
+    `ElasticSearchDockerBase`. Mocking via `MockitoSugar`. File naming `XyzTest.scala`.
+    New ES query logic needs an integration test. Cite: `ElasticSearchTestBase.scala:16`.
+
+18. **Comments explain non-obvious reasons, not obvious steps.** The old ~2-per-100
+    measurement is not a quota. Prefer clear names/control flow; explain invariants,
+    ordering dependencies and intentional exceptions briefly. See §9/§16.
+
+19. **Never use `Await.result`.** All Future composition via `.map`/`.flatMap`. No `EitherT`. Cite: §5 of conventions.
+
+20. **Play JSON for new result case classes.** Derive the directions the consumers
+    need in the companion object: `OWrites` for response-only types, `Reads` when
+    parsing is required. Follow established `Json.format` patterns where appropriate;
+    do not add unused codecs or rewrite existing ones by rote. Response-only pattern:
+    ```scala
+    case class MyResults(hits: Seq[...], total: Long)
+    object MyResults {
+      implicit val jsonWrites: OWrites[MyResults] = Json.writes[MyResults]
+    }
+    ```
+    Place alongside existing types in `ElasticSearchModel.scala`. Cite: `ElasticSearchModel.scala:23,29,35`.
+
+21. **`resolveHit` turns a raw `SearchHit` into `Option[SourceWrapper[Image]]`.** Never parse `hit.sourceAsString` manually. Use `resolveHit` (private to `ElasticSearch`) or mirror its pattern exactly. Cite: `ElasticSearch.scala:153`.
+
+22. **Before writing any code,** read §14-16 of `media-api-90-conventions.md`. **§15.1 (GET vs POST)
+    is RESOLVED** — D3 adopted POST + `auth.async(parse.json)` (pending team sign-off, N-3). Argo
+    format (§15.4) and PIT availability (§15.5) are also resolved. Remaining open questions for
+    team input: testing bar (§15.2), sort-value serialisation (§15.3), cluster PIT overhead (§15.6),
+    `_source` filtering (§15.7).
+
+---
+
+## D3 standing constraints (Scala mechanics for cursor/image endpoints)
+
+> The index routes current work; candidate 11 owns provisional migration direction under explicit
+> operator decisions. The active build sequence is `kupua/exploration/docs/03 Ce n'est pas une pipe dream/api-build/api-build-00-plan.md`
+> (local-first, PIT-less with PIT-ready choices, shared admission helper); it wins where candidate 11 conflicts. Inventory 01 is capability reference and workplan 02 is historical design input.
+> These instructions govern implementation mechanics and safeguards, not authorization. Prioritize
+> the working API-backed search/scroll/position/traversal path; KUP-029/030 corrections are deferred
+> until afterward, not initial-path gates. Authorization and performance safeguards remain mandatory.
+
+23. **Preserve existing sort ownership unless a change is explicitly approved.**
+    Any new server-side semantic builder must be separate from legacy
+    `sorts.createSort` and backed by fixtures for every supported static,
+    configured and special sort. Never call or modify Kahuna's
+    `sorts.createSort` to implement Kupua behavior.
+
+24. **State the PIT guarantee actually provided.** Existing D3 consumes the
+    raw single-index PIT that Kupua opens today with `ElasticDsl.search(Nil).query(q).pit(...)`
+    (still apply `withSearchQueryTimeout`); do not add `prepareSearch` to that branch. A multi-index
+    PIT cannot assume unique logical IDs during migration. D8 needs an ordinary-operation decision
+    about opening, refreshed IDs, expiry and cleanup, not canonical migration machinery.
+    Distinguish current limitations from regressions. Shared state or a stronger guarantee needs
+    justification and approval. A live status lookup is not frozen context.
+    **Do NOT "fix" the `_shard_doc` truncation in `searchAfter`** — ES appends an
+    implicit tiebreaker under a PIT and the code drops it on purpose, because cursors outlive the PIT
+    and client-synthesised cursors cannot contain one. It has already been measured, "fixed" and
+    reverted once; read `zz Archive/media-api-work/phase-3-d3-searchafter-post-pr-review.md` §D-6
+    before touching it. Cite: `ElasticSearch.searchAfter` PIT branch;
+    `media-api-01-capability-inventory.md` (13 September correction).
+
+25. **Image-returning endpoints reuse the lean projection + strip-before-validate.** `_source` is the
+    schema-derived `Image` field set minus `{embedding, originalMetadata, fileMetadata}` plus
+    `fieldAliasConfigs` paths. Because that yields a *partial* `fileMetadata` that `Image`'s reader
+    rejects, strip the dropped fields from a copy of `_source` before `validate[Image]` while keeping
+    the full source for alias extraction (`resolveSearchAfterHit`). Keep this separate from the
+    production `resolveHit`/`mapImageFrom`. Cite: deviations §32.
+
+26. **Shared building blocks from D3.** `SearchParamsBody.fromJson(body, tier)` (POST body →
+    `SearchParams`) and the lifted private `hitToImageEntity(request, include)` (hit → enriched
+    `EmbeddedEntity`) are reused by all new POST/image endpoints (D7/D9). New `*Params`/`*Results`
+    case classes go in `ElasticSearchModel.scala` with `OWrites`.
+
+27. **Branch/PR discipline.** No commit or branch without permission; never push from an agent
+    session. Approved commits keep Scala/Kupua work separable for focused endpoint PRs. An isolated
+    cherry-pick can conflict even when the full feature branch merges cleanly, as happened to D3.
+    With permission, check using `git merge-tree --write-tree --merge-base=<commit>^ <main> <commit>`.
+    If it conflicts, extract endpoint-only reconciled changes from a branch already verified
+    against that main and inspect the complete diff. Never blindly copy shared files containing
+    unrelated changes. `../../zz Archive/media-api-work/media-api-worknotes.md` preserves the historical recipe, not permission
+    to run its commit/push commands. Do not perform PR extraction during a read-only assessment.
+
+---
+
+## Reviewable Scala (evidence and limits in conventions §16)
+
+28. **Expose decisions and fallback.** Use meaningful predicates, pattern guards,
+    Option/Future composition or for-comprehensions where they make prerequisites
+    and transformation order clearer. Keep one clear fallback when appropriate;
+    do not minimize line count or require one syntax everywhere.
+
+29. **Give helpers and types a real job.** Name domain operations and use cohesive
+    existing models rather than argument bags. Prefer established parser/client
+    libraries to ad hoc parsing or control loops. Preserve missingness and the
+    owning failure contract; do not create a framework for a narrow change.
+
+30. **Tests must discriminate.** Vary the property named by the test; cover each
+    alternative independently, with nonmatching/preservation controls. A fixture
+    that also passes a plausible wrong implementation does not prove the claim.
+
+31. **Refactoring does not prove equivalence.** Check transformation order, fallback,
+    accepted inputs and boundaries. Keep intentional behavior changes explicit;
+    verify them rather than inferring safety from a refactor title or library use.
+
+32. **Use evidence, not a reviewer persona.** §16 distinguishes Lindsey-authored
+    changes, inherited code and accepted reviewer requests. #4893/#4930 were open
+    when inspected, not merged policy. Preserve API/security/logging contracts;
+    examples do not authorize weaker safeguards or guarantee reviewer approval.

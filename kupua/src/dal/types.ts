@@ -1,0 +1,544 @@
+/**
+ * Data Access Layer — abstract interface.
+ *
+ * Phase 1-2: implemented by ElasticsearchDataSource (direct ES queries via Vite proxy)
+ * Phase 3: ApiDataSource (media-api ordered reads, with a development fallback for the rest)
+ *
+ * UI code depends only on this interface, never on the concrete implementation.
+ */
+
+import type { Image } from "@/types/image";
+import type { PositionMap } from "./position-map";
+import type { EnrichmentFields } from "@/stores/enrichment-store";
+
+// ---------------------------------------------------------------------------
+// Sort values — opaque cursor for search_after pagination
+// ---------------------------------------------------------------------------
+
+/**
+ * Sort values returned by ES for each hit — used as a cursor for `search_after`.
+ * The array matches the sort clause structure (e.g. [uploadTime, id] for
+ * two-field sort, or [uploadTime, id, _shard_doc] when PIT is active).
+ *
+ * Treat as opaque — store and pass back to ES, never parse.
+ */
+export type SortValues = (string | number | null)[];
+
+export interface SearchParams {
+  // --- Params that appear in kahuna's URL (search.results state) ---
+
+  /** Free-text / CQL query — named 'query' to match kahuna URL param */
+  query?: string;
+  /** AI / semantic search query (separate from CQL) */
+  aiQuery?: string;
+  /** Comma-separated image IDs (from Share button) */
+  ids?: string;
+  /** Upload time range — ISO date strings */
+  since?: string;
+  until?: string;
+  /** When "true", include paid/non-free images (default is free only) */
+  nonFree?: string;
+  /** Pay type filter: free | maybe-free | pay | all */
+  payType?: string;
+  /** Filter by uploader email */
+  uploadedBy?: string;
+  /** Sort order: -uploadTime (newest), uploadTime (oldest), -taken, taken, dateAddedToCollection */
+  orderBy?: string;
+  /** Enable AI/semantic search */
+  useAISearch?: string;
+  /** Hybrid search blend: 0.0 = pure BM25, 1.0 = pure KNN (default). URL-only, no UI. */
+  vecWeight?: string;
+  /** Which date field the date range applies to */
+  dateField?: string;
+  /** Date taken range — ISO date strings */
+  takenSince?: string;
+  takenUntil?: string;
+  /** Last modified range — ISO date strings */
+  modifiedSince?: string;
+  modifiedUntil?: string;
+  /** Has acquired syndication rights */
+  hasRightsAcquired?: string;
+  /** Has crops/exports */
+  hasCrops?: string;
+  /** Syndication status filter */
+  syndicationStatus?: string;
+  /** Is persisted (archived or has usages) */
+  persisted?: string;
+
+  // --- Pinboard integration params (passed through, not used by Grid directly) ---
+  expandPinboard?: string;
+  pinboardId?: string;
+  pinboardItemId?: string;
+
+  // --- Pagination (not in URL, managed internally) ---
+  offset?: number;
+  length?: number;
+  /**
+   * Fetch hint: when true, forces ES to return an exact total hit count
+   * (track_total_hits: true). Should only be passed by the initial search()
+   * call — all extend/seek/fill calls omit this to avoid the expensive full-
+   * index count scan on every request.
+   */
+  trackTotalHits?: boolean;
+}
+
+export interface SearchResult {
+  hits: Image[];
+  total: number;
+  /** ES query time in milliseconds (from the `took` field in ES response). */
+  took?: number;
+  /** Wall-clock ms from the start of the public search() call to result return.
+   *  Equals `took` + network latency + proxy + JSON.parse + scheduler.yield() overhead.
+   *  Subtract `took` to isolate non-ES overhead. */
+  fetchDuration?: number;
+  /**
+   * Per-hit sort values from ES — parallel array to `hits`.
+   * Present when the search included a sort clause (always, in practice).
+   * Used for `search_after` cursor management.
+   */
+  sortValues?: SortValues[];
+}
+
+/**
+ * Result of a single ticker filter aggregation.
+ * Mirrors Scala's ExtraCount (CollectionResponse.scala).
+ */
+export interface TickerCountResult {
+  /** Number of matching documents. */
+  value: number;
+  /**
+   * Sub-aggregation buckets (e.g. by supplier for agency picks).
+   * Keyed by bucket value; includes an "other" key for ES sum_other_doc_count
+   * if > 0. Omitted when the ticker has no subAggField or all counts are 0.
+   */
+  subCounts?: Record<string, number>;
+}
+
+/**
+ * Counts for the requested interval. Poll responses are cumulative since the
+ * frozen browse boundary, not incremental deltas between polls.
+ */
+export interface CountWithTickersResult {
+  count: number;
+  tickerCounts: Record<string, TickerCountResult>;
+}
+
+/**
+ * Result of a `searchAfter` call — same as SearchResult but always includes
+ * sort values and the PIT ID that was used (may have been updated by ES).
+ */
+export interface SearchAfterResult {
+  hits: Image[];
+  total: number;
+  took?: number;
+  /** Wall-clock ms from the start of searchAfter() to result return. */
+  fetchDuration?: number;
+  /** Per-hit sort values — always present. */
+  sortValues: SortValues[];
+  /** The PIT ID returned by ES (may differ from the one sent if ES refreshed it).
+   *  Explicit `null` means the PIT expired and was not renewed (audit #21). */
+  pitId?: string | null;
+  /**
+   * Server-authoritative enrichment entries keyed by image ID.
+   * Present only on the media-api path (`apiSearchAfter`). Absent (`undefined`)
+   * on the direct-ES path. Callers write this to `useEnrichmentStore` at
+   * commit-to-view points ONLY — never inside the adapter itself.
+   * Gated on presence: `if (result.enrichment) { store.upsertEnrichment(...) }`
+   */
+  enrichment?: Map<string, EnrichmentFields>;
+}
+
+/** One image looked up by ID. `enrichment` is present only on the media-api path; callers own its publication. */
+export interface ImageByIdResult {
+  image: Image;
+  enrichment?: EnrichmentFields;
+}
+
+/**
+ * A fixed, fully loaded AI result (`total === hits.length`, never paged). Every hit carries its
+ * relevance ordinal in `__aiScore`. `aiPoolTotal` and `tickerCounts` describe the whole filtered
+ * pool the hits were ranked from; they are absent when the pool could not be counted.
+ */
+export interface AiSearchResult extends SearchAfterResult {
+  aiPoolTotal?: number;
+  tickerCounts?: Record<string, TickerCountResult>;
+}
+
+export interface AggregationBucket {
+  key: string;
+  count: number;
+}
+
+export interface AggregationResult {
+  buckets: AggregationBucket[];
+  /** Documents matching the query. Direct ES only; media-api reports buckets alone. */
+  total?: number;
+}
+
+/** Request for a single field aggregation within a batch. */
+export interface AggregationRequest {
+  /** ES field path (e.g. "metadata.credit", "usageRights.category"). */
+  field: string;
+  /** Max number of buckets to return. Default: 10. */
+  size?: number;
+}
+
+/**
+ * A named filter aggregation — returns a doc count for a named `is:` filter.
+ * The adapter compiles the filter from the name internally.
+ */
+export interface FilterAggRequest {
+  /** Agg name used as the key in the response map. */
+  name: string;
+  /** The `is:` filter value (e.g. "deleted", "under-quota"). Adapter compiles internally. */
+  isFilter: string;
+}
+
+/**
+ * A named nested-filter aggregation for usages — returns a parent image count
+ * (via reverse_nested) for a given platform or status value.
+ */
+export interface UsageFilterAggRequest {
+  /** Key in the response map (e.g. "digital", "published"). */
+  name: string;
+  /** The usages sub-field to filter on: "platform" or "status". */
+  subField: "platform" | "status";
+  /** The value to match (e.g. "digital", "published"). */
+  value: string;
+}
+
+/** Result of a batched aggregation — keyed by field path, with timing. */
+export interface AggregationsResult {
+  /** Per-field aggregation results, keyed by ES field path. */
+  fields: Record<string, AggregationResult>;
+  /** IS-filter doc counts — only present when isFilters was passed to getAggregations. Keyed by filter name. */
+  filters?: Record<string, number>;
+  /** Usage nested-filter doc counts — only present when usageFilters was passed. Keyed by name. */
+  usageFilters?: Record<string, number>;
+  /** ES query time in milliseconds. */
+  took?: number;
+  /** Wall-clock ms from the start of getAggregations() to result return. */
+  fetchDuration?: number;
+}
+
+/**
+ * Sort field distribution — all unique values (or time buckets) with
+ * cumulative position ranges. Used by the scrubber to map any global
+ * position to a sort value via binary search (no network during drag).
+ *
+ * Works for both keyword sorts (composite agg → one bucket per unique value)
+ * and date sorts (date_histogram agg → one bucket per time interval).
+ */
+export interface SortDistribution {
+  /** Buckets in sort order, with cumulative start positions. */
+  buckets: SortDistBucket[];
+  /** Total docs covered by the distribution (may be < total if nulls exist). */
+  coveredCount: number;
+  /** Docs represented by returned buckets. Omitted when every bucket is represented. */
+  representedCount?: number;
+  /** Whether bounded bucket enumeration naturally exhausted. */
+  complete?: boolean;
+  /** Coordinate system used by bucket startPosition values. Defaults to exact rank. */
+  bucketPositionKind?: "exact-rank" | "approximate-evidence";
+  /** Total repeated evidence represented by approximate bucket coordinates. */
+  evidenceCount?: number;
+}
+
+export interface SortDistBucket {
+  /** The bucket key — keyword value (e.g. "Getty") or ISO date string (e.g. "2024-03-01T00:00:00.000Z"). */
+  key: string;
+  /** Number of docs in this bucket. */
+  count: number;
+  /** Cumulative start position (0-based) — first doc in this bucket. */
+  startPosition: number;
+}
+
+/**
+ * Result of a `getIdRange` call — the IDs of all documents that sort
+ * between `fromCursor` (exclusive) and `toCursor` (inclusive), in sort order.
+ */
+export interface IdRangeResult {
+  /** IDs in sort order. Capped at RANGE_HARD_CAP. */
+  ids: string[];
+  /**
+   * True if and only if the walk hit RANGE_HARD_CAP and there is at least
+   * one more in-range document beyond the cap. False when the natural range
+   * size ≤ RANGE_HARD_CAP.
+   */
+  truncated: boolean;
+  /**
+   * Number of documents examined, including overshoot and cap lookahead.
+   * Progress telemetry, not a statement about endpoint order.
+   */
+  walked: number;
+}
+
+export interface ImageDataSource {
+  /**
+   * Search without cancelling in-flight requests.
+   * Range loads are additive and shouldn't abort each other or other
+   * searches. Accepts an optional AbortSignal so the caller can cancel.
+   */
+  searchRange(params: SearchParams, signal?: AbortSignal): Promise<SearchResult>;
+
+  /** Count documents matching params (lightweight — no hits returned). */
+  count(params: SearchParams): Promise<number>;
+
+  /**
+   * Count new documents (size: 0 _search with ticker filter aggs).
+   * Used by the new-images poll in place of count() so ticker deltas arrive
+   * in the same request as the new-images count.
+   * Returns both the raw count (for newCount) and per-ticker deltas (for
+   * additive merge into tickerCounts).
+   */
+  countWithTickers(params: SearchParams): Promise<CountWithTickersResult>;
+
+  /** Fetch a single image by ID. Returns undefined if not found. */
+  getById(id: string, signal?: AbortSignal): Promise<ImageByIdResult | undefined>;
+
+  /**
+   * Batched aggregations — terms aggs per field and optional IS-filter aggs,
+   * all in a single ES request. Returns field buckets keyed by field path.
+   * When `isFilters` is provided, also returns IS-filter doc counts in
+   * `result.filters` (keyed by filter name).
+   *
+   * Callers that only need field aggs omit `isFilters` — no change required.
+   */
+  getAggregations(
+    params: SearchParams,
+    fields: AggregationRequest[],
+    signal?: AbortSignal,
+    isFilters?: FilterAggRequest[],
+    usageFilters?: UsageFilterAggRequest[],
+  ): Promise<AggregationsResult>;
+
+  // ---------------------------------------------------------------------------
+  // search_after + PIT methods (added for windowed scroll)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Open a Point In Time snapshot for consistent pagination.
+   * Returns the PIT ID, or `null` when this data source reads without a PIT.
+   * The caller is responsible for closing a returned PIT.
+   * @param keepAlive — PIT keepalive duration (default: "5m").
+   */
+  openPit(keepAlive?: string): Promise<string | null>;
+
+  /**
+   * Exclusive upper bound on cursor-less offset (from/size) reads, when lower than
+   * `MAX_RESULT_WINDOW`. Deep seek's no-estimate fallback lands below it.
+   */
+  readonly offsetReadLimit?: number;
+
+  /**
+   * Semantic ranking by the separate `aiQuery` text, with the CQL query and URL filters as a hard
+   * pre-filter. Returns at most 200 ranked hits (total === hits.length) plus pool metadata.
+   * Direct ES embeds through the Bedrock proxy and resolves a result or throws. media-api mode
+   * resolves `null` when media-api refuses or is unreachable, so the caller publishes absence.
+   */
+  searchByAi?(params: SearchParams, signal?: AbortSignal): Promise<AiSearchResult | null>;
+
+  /**
+   * Close a PIT. Fire-and-forget — errors are logged but not thrown.
+   */
+  closePit(pitId: string): Promise<void>;
+
+  /**
+   * Fetch a page using search_after cursor.
+   * If pitId is provided, uses PIT for consistency (requests go to /_search
+   * without index prefix — PIT already binds to the index).
+   *
+   * @param params — search params (query, filters, sort).
+   * @param searchAfterValues — sort values from the last hit of the previous page.
+   *   Pass null for the first page.
+   * @param pitId — optional PIT ID for consistent pagination.
+   * @param signal — optional AbortSignal for cancellation.
+   * @param reverse — if true, reverses the sort clause and reverses the
+   *   returned hits/sortValues. Used for backward `search_after` pagination.
+   * @param seekToEnd — if true (typically with reverse), sets `missing: "_first"`
+   *   on the primary sort field. Needed when seeking to the end of a keyword-sorted
+   *   result set where null-value docs sit at the tail — without this, ES default
+   *   `missing: "_last"` puts nulls last in BOTH asc and desc, so a naive reverse
+   *   search returns high-value docs instead of the true last docs.
+   *
+   *   Null-zone cursors (`searchAfterValues[0] === null`) are handled transparently
+   *   by the adapter: it detects the null prefix, strips it, applies the necessary
+   *   sort/filter overrides internally, and remaps returned sort values to full shape
+   *   before returning. Callers pass and receive full null-prefixed cursors unchanged.
+   */
+  searchAfter(
+    params: SearchParams,
+    searchAfterValues: SortValues | null,
+    pitId?: string | null,
+    signal?: AbortSignal,
+    reverse?: boolean,
+    seekToEnd?: boolean,
+  ): Promise<SearchAfterResult>;
+
+  /**
+   * Count documents before a given sort position.
+   * Used for sort-around-focus ("where is image X now?").
+   *
+   * Returns the number of documents that sort before the given values,
+   * which equals the 0-based global offset of the document at that position.
+   *
+   * @param params — search params (query, filters — same as current search).
+   * @param sortValues — the target document's sort values.
+   */
+  countBefore(
+    params: SearchParams,
+    sortValues: SortValues,
+    signal?: AbortSignal,
+  ): Promise<number>;
+
+  /**
+   * Estimate the sort field value at a given percentile of the result set.
+   * Used for deep seek (>100k) — maps a global position to an approximate
+   * sort value for use with search_after.
+   *
+   * @param params — search params (query, filters — same as current search).
+   * @param field — the primary sort field (e.g. "uploadTime").
+   * @param percentile — the target percentile (0–100).
+   * @param signal — optional AbortSignal for cancellation.
+   * @param scope — optional equality constraints (compiled to `term` filters),
+   *   e.g. narrowing a percentile to docs where `metadata.credit === "AAP"`.
+   *   Structured data, never spliced into `params.query` — see keyword-sorts
+   *   workplan §5 (query-text scoping silently drops results containing `"`).
+   * @returns The estimated field value at that percentile, or null if unavailable.
+   */
+  estimateSortValue(
+    params: SearchParams,
+    field: string,
+    percentile: number,
+    signal?: AbortSignal,
+    scope?: Array<{ field: string; value: string }>,
+  ): Promise<number | null>;
+
+  /**
+   * Find the keyword sort value at a given global position using composite
+   * aggregation. Used for deep seek on keyword-sorted fields where
+   * percentile estimation is unavailable.
+   *
+   * Walks through unique values of the sort field via composite aggregation,
+   * accumulating doc_counts until the cumulative count reaches the target
+   * position. Returns the keyword value at that position (for use as a
+   * search_after cursor anchor).
+   *
+   * @param params — search params (query, filters — same as current search).
+   * @param field — the primary sort field (e.g. "metadata.credit").
+   * @param targetPosition — the 0-based global position to seek to.
+   * @param direction — sort direction ("asc" or "desc").
+   * @param signal — optional AbortSignal for cancellation.
+   * @returns The keyword value at the target position, or null if not found.
+   */
+  findKeywordSortValue?(
+    params: SearchParams,
+    field: string,
+    targetPosition: number,
+    direction: "asc" | "desc",
+    signal?: AbortSignal,
+  ): Promise<string | null>;
+
+  /**
+   * Fetch a bounded keyword distribution for a sort field. Exact valued
+   * coverage is separate from the ordered bucket prefix represented in the
+   * response; callers must observe its completion provenance.
+   *
+   * Uses composite aggregation and stops at an implementation-owned work cap.
+   *
+   * @param params — search params (query, filters — same as current search).
+   * @param field — the ES field path (e.g. "metadata.credit").
+   * @param direction — sort direction ("asc" or "desc").
+   * @param signal — optional AbortSignal for cancellation.
+   */
+  getKeywordDistribution?(
+    params: SearchParams,
+    field: string,
+    direction: "asc" | "desc",
+    signal?: AbortSignal,
+  ): Promise<SortDistribution | null>;
+
+  /**
+   * Fetch a date histogram distribution for a date sort field.
+   * Returns time-interval buckets with doc counts in sort order, plus
+   * cumulative start positions for O(log n) position→date lookup.
+   *
+   * Uses ES `date_histogram` aggregation — single request, ~10–30ms on 1M+
+   * docs. Bucket interval adapts to the time span (month for multi-year,
+   * day for sub-year, hour for sub-week).
+   *
+   * @param params — search params (query, filters — same as current search).
+   * @param field — the ES date field (e.g. "uploadTime").
+   * @param direction — sort direction ("asc" or "desc").
+   * @param signal — optional AbortSignal for cancellation.
+   */
+  getDateDistribution?(
+    params: SearchParams,
+    field: string,
+    direction: "asc" | "desc",
+    signal?: AbortSignal,
+    /** Field name whose absence defines the null zone (builds must_not:exists filter internally). */
+    missingField?: string,
+  ): Promise<SortDistribution | null>;
+
+  /**
+   * Fetch a lightweight position index for all results — `[id, sortValues]`
+   * per document, fetched with `_source: false` in chunked `search_after`
+   * calls. Used by the scrubber to map any global position to exact sort
+   * values for O(1) seek.
+   *
+   * Opens and closes its own dedicated PIT (decoupled from the main search
+   * PIT lifecycle). Yields between chunks to avoid blocking the main thread.
+   *
+   * @param params — search params (query, filters — same as current search).
+   * @param signal — AbortSignal for cancellation. Aborted fetches discard
+   *   partial results and return `null`.
+   * @returns The complete position map, or `null` if aborted or failed.
+   */
+  fetchPositionIndex?(
+    params: SearchParams,
+    signal: AbortSignal,
+  ): Promise<PositionMap | null>;
+
+  // ---------------------------------------------------------------------------
+  // Multi-selection DAL methods (Phase S0)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Fetch multiple images by ID (multi-get).
+   *
+   * Batches internally (direct ES: 1,000-ID chunks all in parallel; media-api: 200-ID chunks, four
+   * at a time) — do NOT call sequentially. A failed chunk rejects the whole call.
+   * Missing IDs (deleted or never existed) are silently absent from the
+   * returned array. Result order is not guaranteed to match `ids` order.
+   *
+   * @param ids — image IDs to fetch.
+   * @param signal — optional AbortSignal for cancellation.
+   */
+  getByIds(ids: string[], signal?: AbortSignal): Promise<Image[]>;
+
+  /**
+   * Walk documents between two sort cursors and return their IDs.
+   *
+   * Uses `search_after` with `_source: false`, so only IDs are returned
+   * (no image data). Hard-capped at RANGE_HARD_CAP (5,000 IDs).
+   *
+   * **Caller contract:** `fromCursor` MUST sort earlier than `toCursor` in
+   * the direction implied by `params.orderBy`. The DAL does not swap or
+   * auto-detect order. If ordering is unknown (seek mode), call once; if
+   * `ids.length === 0`, swap cursors and retry once. `walked` can include
+   * an overshooting hit and does not determine whether reversal is needed.
+   *
+   * @param params — search params (query, filters, orderBy — same as current search).
+   * @param fromCursor — exclusive lower bound (the doc AT this cursor is not included).
+   * @param toCursor — inclusive upper bound (the doc AT this cursor IS included).
+   * @param signal — optional AbortSignal for cancellation.
+   */
+  getIdRange(
+    params: SearchParams,
+    fromCursor: SortValues,
+    toCursor: SortValues,
+    signal?: AbortSignal,
+  ): Promise<IdRangeResult>;
+}
+

@@ -1,0 +1,2434 @@
+/**
+ * Perceived-Performance Smoke Tests — measures latency from user action to
+ * first visible response and to fully settled state.
+ *
+ * ╔══════════════════════════════════════════════════════════════════════╗
+ * ║  MANUAL INVOCATION ONLY — DO NOT RUN IN CI, SCRIPTS, OR AGENTS.   ║
+ * ║                                                                    ║
+ * ║  Same rules as perf.spec.ts. Human-only. Real ES required.        ║
+ * ║                                                                    ║
+ * ║  How to run:                                                       ║
+ * ║    Terminal 1: ./scripts/start.sh --use-TEST                       ║
+ * ║    Terminal 2: node e2e-perf/run-audit.mjs --label "..." --perceived║
+ * ║                                                                    ║
+ * ║  Cluster gate enforced by run-audit.mjs (probes total ≥ 100k once     ║
+ * ║  at startup and refuses to run otherwise). Direct `npx playwright   ║
+ * ║  test` invocations bypass the gate — by design, for debugging.       ║
+ * ╚══════════════════════════════════════════════════════════════════════╝
+ *
+ * What this measures (different from perf.spec.ts):
+ *   - dt_ack_ms:        time from user action (t_0) to synchronous action acknowledgement
+ *   - dt_status_ms:     time from t_0 to "Finding image…" / "Seeking…" / spinner
+ *   - dt_first_visible_frame_ms: first browser frame with target content
+ *   - dt_visual_settled_ms: target content stable over the scenario window
+ *   - status_total_ms:  total wall time spent showing status banners
+ *
+ * Instrumentation: src/lib/perceived-trace.ts (gated on kupua_perceived_perf
+ * localStorage flag — harness sets it via addInitScript before navigation).
+ *
+ * See e2e-perf/README.md → "Perceived-Performance Suite" for full contract.
+ * See exploration/docs/perceived-perf-audit.md for full mandate.
+ */
+
+import { appendFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import type { ConsoleMessage } from "@playwright/test";
+import { test, expect, isMediaApiUrl } from "./helpers";
+import type { KupuaHelpers } from "../e2e/shared/helpers";
+import type { TraceEntry } from "@/lib/perceived-trace";
+import { computeCorrelatedMetrics, ownsDataRoute } from "./perceived-metrics.mjs";
+import {
+  classifySortAroundFocusWarning,
+  createDataRequestRecorder,
+  formatFocusedSortDegradation,
+  summarizeFocusedSortDegradation,
+  type DataRequestSnapshot,
+  type DataRoute,
+  type FocusedSortDegradation,
+  type FocusedSortWarning,
+} from "./focused-sort-degradation.mjs";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const METRICS_FILE = resolve(__dirname, "results/.perceived-short-tmp.jsonl");
+
+// ---------------------------------------------------------------------------
+// Stable result set pinning (same as perf.spec.ts)
+// ---------------------------------------------------------------------------
+
+const STABLE_UNTIL = process.env["PERF_STABLE_UNTIL"] ?? "";
+
+for (const changedTuple of [false, true]) {
+  test(`Restore diagnostic: ${changedTuple ? "changed" : "unchanged"} tuple`, async ({ kupua }) => {
+    test.skip(process.env.KUPUA_RESTORE_DIAGNOSTIC !== "1", "Explicit bounded diagnostic only");
+    expect(STABLE_UNTIL).toBe("2026-02-15T00:00:00.000Z");
+    const pixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
+    await kupua.page.route(/\/(?:imgproxy|s3)\//, route => route.fulfill({ contentType: "image/png", body: pixel }));
+    await kupua.page.addInitScript(() => {
+      localStorage.setItem("kupua_perceived_perf", "0");
+    });
+    await gotoPerfSearch(kupua);
+    await kupua.page.bringToFront();
+    await kupua.page.evaluate(async () => {
+      const store = (window as any).__kupua_store__;
+      await store.getState().seek(800, "restore-diagnostic-setup");
+    });
+    await kupua.page.waitForFunction(() => {
+      const state = (window as any).__kupua_store__?.getState();
+      return state && !state.loading && !state._extendForwardInFlight && !state._extendBackwardInFlight
+        && state.bufferOffset > 500 && state.results.length > 120;
+    });
+    const metrics = await kupua.page.evaluate(async (changed) => {
+      const store = (window as any).__kupua_store__;
+      const configPath = "/src/dal/es-config.ts";
+      const cachePath = "/src/lib/image-offset-cache.ts";
+      const { IS_LOCAL_ES } = await import(configPath);
+      const { buildSearchKey, getRetainedSortValues } = await import(cachePath);
+      const initial = store.getState();
+      if (IS_LOCAL_ES || initial.dataSource.constructor.name !== "ElasticsearchDataSource"
+        || initial.total <= 65_000 || initial.params.until !== "2026-02-15T00:00:00.000Z") {
+        throw new Error("Restore diagnostic requires the approved direct non-local seek-tier setup");
+      }
+      const target = initial.results[100];
+      const prior = initial.results[80];
+      const searchKey = buildSearchKey(initial.params);
+      const effectiveTuple = getRetainedSortValues(target.id, searchKey);
+      const savedTuple = changed ? getRetainedSortValues(prior.id, searchKey) : [...effectiveTuple];
+      if (!effectiveTuple || !savedTuple) throw new Error("Restore diagnostic tuples unavailable");
+      if (changed) savedTuple[savedTuple.length - 1] = target.id;
+      const source = initial.dataSource;
+      const originalRank = source.countBefore;
+      const originalPage = source.searchAfter;
+      const expectedOrdinal = await originalRank.call(source, initial.params, effectiveTuple);
+      let rankCalls = 0;
+      let lookupCalls = 0;
+      let neighbourCalls = 0;
+      let publishedOrdinal: number | null = null;
+      let landingCount = 0;
+      const rankDurations: number[] = [];
+      const started = performance.now();
+      source.countBefore = async (...args: any[]) => {
+        rankCalls++;
+        const at = performance.now();
+        try { return await originalRank.apply(source, args); }
+        finally { rankDurations.push(performance.now() - at); }
+      };
+      source.searchAfter = async (...args: any[]) => {
+        if (args[0].ids === target.id) lookupCalls++;
+        else neighbourCalls++;
+        return originalPage.apply(source, args);
+      };
+      const unsubscribe = store.subscribe((state: any, previous: any) => {
+        if (state._seekGeneration !== previous._seekGeneration) {
+          landingCount++;
+          publishedOrdinal = state.imagePositions.get(target.id) ?? null;
+        }
+      });
+      try {
+        await store.getState().restoreAroundCursor(target.id, savedTuple, expectedOrdinal, true);
+        const completionMs = performance.now() - started;
+        const primaryCalls = { rankCalls, lookupCalls, neighbourCalls };
+        let previousRect: { top: number; left: number } | null = null;
+        let visibleSettlementMs: number | null = null;
+        const deadline = performance.now() + 5_000;
+        while (performance.now() < deadline) {
+          await new Promise<void>(resolveFrame => requestAnimationFrame(() => resolveFrame()));
+          const container = document.querySelector('[aria-label="Image results grid"]');
+          const cell = container?.querySelector(`[data-image-id="${CSS.escape(target.id)}"]`);
+          const bounds = container?.getBoundingClientRect();
+          const rect = cell?.getBoundingClientRect();
+          if (!bounds || !rect || rect.bottom <= bounds.top || rect.top >= bounds.bottom) {
+            previousRect = null;
+            continue;
+          }
+          const current = { top: rect.top - bounds.top, left: rect.left - bounds.left };
+          if (previousRect && Math.abs(current.top - previousRect.top) <= 1
+            && Math.abs(current.left - previousRect.left) <= 1) {
+            visibleSettlementMs = performance.now() - started;
+            break;
+          }
+          previousRect = current;
+        }
+        return {
+          changedTuple: changed, total: initial.total, expectedOrdinal, publishedOrdinal,
+          correctOrdinal: publishedOrdinal === expectedOrdinal, landingCount,
+          completionMs, visibleSettlementMs, ...primaryCalls, rankDurations,
+          targetRetained: store.getState().results.some((image: any) => image?.id === target.id),
+          viewport: { width: innerWidth, height: innerHeight, dpr: devicePixelRatio },
+        };
+      } finally {
+        source.countBefore = originalRank;
+        source.searchAfter = originalPage;
+        unsubscribe();
+      }
+    }, changedTuple);
+    console.log(`RESTORE_DIAGNOSTIC ${JSON.stringify(metrics)}`);
+    expect(metrics.lookupCalls).toBe(1);
+    expect(metrics.neighbourCalls).toBe(2);
+    expect(metrics.landingCount).toBe(1);
+    expect(metrics.targetRetained).toBe(true);
+    expect(metrics.visibleSettlementMs).not.toBeNull();
+  });
+}
+
+async function gotoPerfSearch(kupua: any, extraParams?: string) {
+  await kupua.initializeDensity("grid");
+  const untilParam = STABLE_UNTIL ? `&until=${STABLE_UNTIL}` : "";
+  const extra = extraParams ? `&${extraParams}` : "";
+  await kupua.page.goto(`/search?nonFree=true${untilParam}${extra}`);
+  await kupua.waitForResults();
+  await kupua.assertDensity("grid");
+}
+
+// ---------------------------------------------------------------------------
+// Guard: per-test cluster checks live in the harness (run-audit.mjs probes
+// once at startup and refuses to run if total < 100k or PERF_STABLE_UNTIL is
+// missing). Tests assume real data and a pinned corpus. Direct invocations
+// via `npx playwright test --config=…` bypass that probe — by design, for
+// debugging — and produce meaningless metrics on local ES.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Perceived metrics computation
+// ---------------------------------------------------------------------------
+
+interface PerceivedMetrics {
+  /** ID of the test scenario (e.g. "PP1") */
+  id: string;
+  /** Human-readable description */
+  label: string;
+  /** Action name (from t_0 entry) */
+  action: string;
+  /** ms from t_0 to first t_ack (first visible store change) */
+  dt_ack_ms: number | null;
+  /** ms from t_0 to t_status_visible (status banner / spinner appeared) */
+  dt_status_ms: number | null;
+  /** Time from the first correlated status phase to the honest terminal boundary. */
+  status_total_ms: number | null;
+  /** raw trace entries for debugging */
+  raw: TraceEntry[];
+  /** Store-reported ES timing — harvested after settle via page.evaluate(). */
+  took?: number | null;
+  fetchDuration?: number | null;
+  seekTime?: number | null;
+  aggTook?: number | null;
+  aggFetchDuration?: number | null;
+  /** seek:* performance.measure entries — only present for PP7/PP7b/PP7c. */
+  seekMeasures?: Array<{ name: string; duration: number }>;
+  interactionId?: string;
+  scenarioRevision?: number;
+  settledTotal?: number;
+  resultRegime?: "buffer" | "indexed" | "seek";
+  routes?: string[];
+  dt_store_ready_ms?: number | null;
+  dt_first_visible_frame_ms?: number | null;
+  dt_visual_settled_ms?: number | null;
+  requestedRatio?: number;
+  achievedRatio?: number;
+  setupGlobalPosition?: number;
+  setupBufferOffset?: number;
+  setupBufferLength?: number;
+  setupVisibleRangeRatio?: number;
+  setupExtended?: boolean;
+  setupEvictGeneration?: number;
+  setupEvictedCount?: number;
+  anchorDriftPx?: number;
+  anchorDriftRatio?: number;
+  metricClass?: "user-action" | "background-diagnostic";
+  mapEntryCount?: number;
+}
+
+interface DeepHistorySetup {
+  anchorImageId: string;
+  globalPosition: number;
+  bufferOffset: number;
+  bufferLength: number;
+  relativeTop: number;
+  viewportHeight: number;
+}
+
+function captureSuccessfulDataRoutes(kupua: any) {
+  const routes = new Set<string>();
+  const onResponse = (response: any) => {
+    if (!response.ok()) return;
+    const path = new URL(response.url()).pathname;
+    if (isMediaApiUrl(response.url())) routes.add("media-api");
+    if (path.startsWith("/es/")) routes.add("direct-es");
+  };
+  kupua.page.on("response", onResponse);
+  return () => {
+    kupua.page.off("response", onResponse);
+    return routes.size > 0 ? [...routes].sort() : ["client-only"];
+  };
+}
+
+type FocusedSortObservation =
+  | {
+    degraded?: undefined;
+    settledTotal: number;
+    resultRegime: NonNullable<PerceivedMetrics["resultRegime"]>;
+    routes: string[];
+  }
+  | { degraded: { focus: "cleared" } };
+
+interface DegradedFocusedSortMetrics {
+  id: "PP3" | "PP4";
+  label: string;
+  action: "sort-around-focus";
+  interactionId: string;
+  scenarioRevision: 3;
+  routes: string[];
+  degraded: FocusedSortDegradation;
+}
+
+interface FocusedSortDiagnostics {
+  warnings: FocusedSortWarning[];
+  snapshot: (originEpochMs: number) => DataRequestSnapshot;
+}
+
+function classifyDataRoute(rawUrl: string): DataRoute | null {
+  if (isMediaApiUrl(rawUrl)) return "media-api";
+  return new URL(rawUrl).pathname.startsWith("/es/") ? "direct-es" : null;
+}
+
+/** Observe sort-around-focus warnings and data-request lifetimes; start before the action. */
+async function startFocusedSortDiagnostics(kupua: KupuaHelpers) {
+  const warnings: FocusedSortWarning[] = [];
+  const onConsole = (message: ConsoleMessage) => {
+    const category = classifySortAroundFocusWarning(message.text());
+    if (category) warnings.push({ category, epochMs: Date.now() });
+  };
+  kupua.page.on("console", onConsole);
+  const session = await kupua.page.context().newCDPSession(kupua.page);
+  await session.send("Network.enable");
+  const recorder = createDataRequestRecorder(session, { classifyUrl: classifyDataRoute });
+  return {
+    async finish(): Promise<FocusedSortDiagnostics> {
+      const captureEpochMs = Date.now();
+      kupua.page.off("console", onConsole);
+      recorder.stop();
+      await session.detach().catch(() => {});
+      return {
+        warnings,
+        snapshot: (originEpochMs) => recorder.snapshot({ originEpochMs, captureEpochMs }),
+      };
+    },
+  };
+}
+
+/**
+ * Record the store's sort-around-focus fallback as a degraded sample. It is
+ * excluded from medians by the runner and its sanitized diagnostics are
+ * printed again at the end of the campaign.
+ */
+async function emitDegradedFocusedSort(kupua: KupuaHelpers, {
+  id,
+  label,
+  focusedImageId,
+  entries,
+  observation,
+  diagnostics,
+  routes,
+}: {
+  id: "PP3" | "PP4";
+  label: string;
+  focusedImageId: string;
+  entries: TraceEntry[];
+  observation: { focus: "cleared" };
+  diagnostics: FocusedSortDiagnostics;
+  routes: string[];
+}) {
+  const correlated = computeCorrelatedMetrics({
+    id,
+    label,
+    action: "sort-around-focus",
+    requiredPhases: ["t_ack", "t_store_ready"],
+    entries,
+  });
+  const interactionEntries = entries.filter((entry) => entry.interactionId === correlated.interactionId);
+  const start = interactionEntries.find((entry) => entry.phase === "t_0")!;
+  const originEpochMs = await kupua.page.evaluate(() => performance.timeOrigin) + start.t;
+  const degraded = summarizeFocusedSortDegradation({
+    focusedImageId,
+    focus: observation.focus,
+    fallbackMs: correlated.dt_store_ready_ms,
+    phases: interactionEntries.map((entry) => entry.phase),
+    originEpochMs,
+    warnings: diagnostics.warnings,
+    network: diagnostics.snapshot(originEpochMs),
+  });
+  console.log(`${id} sort-around-focus: DEGRADED (${degraded.reason}) — excluded from medians; repeated at campaign end`);
+  for (const line of formatFocusedSortDegradation({ id, label, ...degraded })) console.log(line);
+  emitMetrics({
+    id,
+    label,
+    action: "sort-around-focus",
+    interactionId: correlated.interactionId,
+    scenarioRevision: 3,
+    routes,
+    degraded,
+  });
+}
+
+async function appendFocusedSortVisualPhases(
+  kupua: KupuaHelpers,
+  interactionId: string,
+  scenarioId: "PP3" | "PP4",
+  focusedImageId: string,
+): Promise<FocusedSortObservation> {
+  return kupua.page.evaluate(async ({ targetInteractionId, targetScenarioId, targetFocusedImageId }) => {
+    const store = (window as any).__kupua_store__;
+    if (!store) throw new Error("Search store unavailable");
+
+    const snapshot = (state: any) => {
+      const id = state?.focusedImageId;
+      const cell = id === targetFocusedImageId ? document.querySelector(`[data-image-id="${CSS.escape(id)}"]`) : null;
+      const container = document.querySelector('[aria-label="Image results grid"]')
+        ?? document.querySelector('[aria-label="Image results table"]');
+      if (!cell || !container) return null;
+      const cellRect = cell.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      if (cellRect.bottom <= containerRect.top || cellRect.top >= containerRect.bottom) return null;
+      return {
+        top: cellRect.top - containerRect.top,
+        left: cellRect.left - containerRect.left,
+      };
+    };
+
+    const timeoutMs = 30_000;
+    const startedAt = performance.now();
+    const deadline = startedAt + timeoutMs;
+    let sampledFrames = 0;
+    let lastReadiness: Record<string, boolean> | null = null;
+    let first = null;
+    while (performance.now() < deadline) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      sampledFrames += 1;
+      if (performance.now() >= deadline) break;
+      const state = store.getState();
+      const entries = ((window as any).__perceivedTrace__ ?? []) as TraceEntry[];
+      const storeReady = entries.some((entry) => entry.action === "sort-around-focus"
+        && entry.interactionId === targetInteractionId && entry.phase === "t_store_ready");
+      const position = snapshot(state);
+      lastReadiness = {
+        storePresent: Boolean(state),
+        loading: Boolean(state?.loading),
+        error: Boolean(state?.error),
+        sorting: Boolean(state?.sortAroundFocusStatus),
+        storeReady,
+        contextMatches: state?.focusedImageId === targetFocusedImageId,
+        itemPresent: position !== null,
+        containerPresent: Boolean(document.querySelector('[aria-label="Image results grid"]')
+          ?? document.querySelector('[aria-label="Image results table"]')),
+        geometryStable: false,
+      };
+      // The correlated completion with an idle store and no focus is the
+      // store's terminal fallback (timeout or failed lookup): it will never
+      // restore the original image, so report it instead of waiting out the deadline.
+      if (state && storeReady && !state.loading && !state.error && !state.sortAroundFocusStatus
+        && state.focusedImageId == null) {
+        return { degraded: { focus: "cleared" as const } };
+      }
+      if (!state || state.loading || state.error || state.sortAroundFocusStatus || !storeReady || !position) {
+        first = null;
+        continue;
+      }
+      const current = { ...position, t: performance.now() };
+      if (!first) {
+        first = current;
+        continue;
+      }
+      lastReadiness.geometryStable = Math.abs(current.top - first.top) <= 1 && Math.abs(current.left - first.left) <= 1;
+      if (lastReadiness.geometryStable) {
+        entries.push({
+          action: "sort-around-focus",
+          phase: "t_first_visible_frame",
+          t: first.t,
+          interactionId: targetInteractionId,
+        });
+        entries.push({
+          action: "sort-around-focus",
+          phase: "t_visual_settled",
+          t: performance.now(),
+          interactionId: targetInteractionId,
+        });
+
+        const total = stateTotal(store.getState());
+        const resources = performance.getEntriesByType("resource") as PerformanceResourceTiming[];
+        const routes = new Set<string>();
+        for (const resource of resources) {
+          const url = new URL(resource.name, location.origin);
+          if (url.pathname.startsWith("/api/") || url.origin === "https://api.media.test.dev-gutools.co.uk") {
+            routes.add("media-api");
+          }
+          if (url.pathname.startsWith("/es/")) routes.add("direct-es");
+        }
+        const resultRegime: NonNullable<PerceivedMetrics["resultRegime"]> =
+          total <= 1_000 ? "buffer" : total <= 65_000 ? "indexed" : "seek";
+        return {
+          settledTotal: total,
+          resultRegime,
+          routes: routes.size > 0 ? [...routes].sort() : ["client-only"],
+        };
+      }
+      first = current;
+    }
+    throw new Error(`${targetScenarioId} focused cell did not become visibly stable within ${timeoutMs}ms: ` +
+      JSON.stringify({ elapsedMs: Math.round(performance.now() - startedAt), sampledFrames, ...lastReadiness }));
+
+    function stateTotal(state: any): number {
+      if (!Number.isFinite(state.total)) throw new Error(`${targetScenarioId} settled total is unavailable`);
+      return state.total;
+    }
+  }, { targetInteractionId: interactionId, targetScenarioId: scenarioId, targetFocusedImageId: focusedImageId });
+}
+
+async function appendDensityVisualPhases(kupua: any, interactionId: string) {
+  return kupua.page.evaluate(async (targetInteractionId: string) => {
+    const readRect = (element: Element) => {
+      const rect = element.getBoundingClientRect();
+      return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+    };
+    const close = (left: Record<string, number>, right: Record<string, number>) =>
+      Object.keys(left).every((key) => Math.abs(left[key] - right[key]) <= 1);
+
+    const timeoutMs = 30_000;
+    const deadline = performance.now() + timeoutMs;
+    let lastReadiness = null;
+    let first = null;
+    while (performance.now() < deadline) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (performance.now() >= deadline) break;
+      const table = document.querySelector('[aria-label="Image results table"]');
+      const grid = document.querySelector('[aria-label="Image results grid"]');
+      const row = table?.querySelector('[data-image-id]');
+      lastReadiness = {
+        tablePresent: Boolean(table),
+        rowPresent: Boolean(row),
+        contextMatches: !grid,
+        geometryStable: false,
+      };
+      if (!table || !row || grid) {
+        first = null;
+        continue;
+      }
+      const current = { table: readRect(table), row: readRect(row), t: performance.now() };
+      if (!first) {
+        first = current;
+        continue;
+      }
+      lastReadiness.geometryStable = close(first.table, current.table) && close(first.row, current.row);
+      if (lastReadiness.geometryStable) {
+        const entries = (window as any).__perceivedTrace__ as TraceEntry[];
+        entries.push({
+          action: "density-swap",
+          phase: "t_first_visible_frame",
+          t: first.t,
+          interactionId: targetInteractionId,
+        });
+        entries.push({
+          action: "density-swap",
+          phase: "t_visual_settled",
+          t: current.t,
+          interactionId: targetInteractionId,
+        });
+        const state = (window as any).__kupua_store__?.getState();
+        if (!state || !Number.isFinite(state.total)) throw new Error("PP6 settled total is unavailable");
+        const resources = performance.getEntriesByType("resource") as PerformanceResourceTiming[];
+        const networkRoutes = resources
+          .map((resource) => new URL(resource.name, location.origin))
+          .filter((url) => url.pathname.startsWith("/api/")
+            || url.pathname.startsWith("/es/")
+            || url.origin === "https://api.media.test.dev-gutools.co.uk");
+        if (networkRoutes.length > 0) throw new Error("PP6 unexpectedly issued a data request");
+        return {
+          settledTotal: state.total,
+          resultRegime: state.total <= 1_000 ? "buffer" : state.total <= 65_000 ? "indexed" : "seek",
+          routes: ["client-only"],
+        };
+      }
+      first = current;
+    }
+    throw new Error(`PP6 table did not become visibly stable within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
+  }, interactionId);
+}
+
+async function settleMidBufferSetup(kupua: any) {
+  return kupua.page.evaluate(async () => {
+    const store = (window as any).__kupua_store__;
+    const container = document.querySelector('[aria-label="Image results grid"]') as HTMLElement | null;
+    const track = document.querySelector('[data-testid="scrubber-track"]');
+    if (!store || !container || !track) throw new Error("PP6b setup controls unavailable");
+
+    const before = store.getState();
+    const beforeMutation = {
+      evictGeneration: before._forwardEvictGeneration,
+    };
+    const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+    container.scrollTop = maxScrollTop * 0.5;
+    container.dispatchEvent(new Event("scroll"));
+    const timeoutMs = 30_000;
+    const deadline = performance.now() + timeoutMs;
+    let lastReadiness = null;
+    let stablePosition = null;
+    while (performance.now() < deadline) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (performance.now() >= deadline) break;
+      const state = store.getState();
+      const position = Number(track.getAttribute("aria-valuenow"));
+      lastReadiness = {
+        loading: Boolean(state.loading),
+        error: Boolean(state.error),
+        extending: Boolean(state._extendForwardInFlight),
+        positionFinite: Number.isFinite(position),
+        positionStable: stablePosition === position,
+      };
+      if (state.loading || state.error || state._extendForwardInFlight || !Number.isFinite(position)) {
+        stablePosition = null;
+        continue;
+      }
+      if (stablePosition === position) {
+        const rangeRatio = container.scrollTop / Math.max(1, maxScrollTop);
+        if (rangeRatio < 0.4 || rangeRatio > 0.6) {
+          throw new Error(`PP6b achieved visible-range ratio ${rangeRatio}, expected 0.4-0.6`);
+        }
+        return {
+          setupGlobalPosition: position,
+          setupBufferOffset: state.bufferOffset,
+          setupBufferLength: state.results.length,
+          setupVisibleRangeRatio: rangeRatio,
+          setupExtended: state.results.length !== before.results.length
+            || state.bufferOffset !== before.bufferOffset
+            || state._forwardEvictGeneration !== beforeMutation.evictGeneration,
+        };
+      }
+      stablePosition = position;
+    }
+    throw new Error(`PP6b mid-buffer position did not settle within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
+  });
+}
+
+async function settlePostEvictionSetup(kupua: any) {
+  const before = await kupua.getStoreState();
+  await kupua.page.evaluate(async (previousGeneration: number) => {
+    const store = (window as any).__kupua_store__;
+    if (!store) throw new Error("PP6c search store unavailable");
+
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const beforeExtend = store.getState();
+      await beforeExtend.extendForward();
+      const afterExtend = store.getState();
+      if (afterExtend._forwardEvictGeneration > previousGeneration) return;
+
+      const changed = afterExtend.bufferOffset !== beforeExtend.bufferOffset
+        || afterExtend.results.length !== beforeExtend.results.length;
+      await new Promise((resolve) => setTimeout(resolve, changed ? 120 : 250));
+    }
+    throw new Error("PP6c could not produce a forward eviction after 20 sequential extensions");
+  }, before.forwardEvictGeneration);
+
+  await kupua.page.waitForFunction(
+    (previousGeneration: number) => {
+      const state = (window as any).__kupua_store__?.getState();
+      return state
+        && state._forwardEvictGeneration > previousGeneration
+        && state.bufferOffset > 0
+        && !state._extendForwardInFlight
+        && !state.loading
+        && !state.error;
+    },
+    before.forwardEvictGeneration,
+    { timeout: 20_000 },
+  );
+
+  await kupua.page.evaluate(() => {
+    const container = document.querySelector('[aria-label="Image results grid"]') as HTMLElement | null;
+    if (!container) throw new Error("PP6c grid unavailable after eviction");
+    container.scrollTop = Math.max(0, container.scrollHeight - container.clientHeight) * 0.5;
+    container.dispatchEvent(new Event("scroll"));
+  });
+  await kupua.page.waitForFunction(
+    () => {
+      const state = (window as any).__kupua_store__?.getState();
+      return state && !state._extendForwardInFlight && !state._extendBackwardInFlight && !state.loading && !state.error;
+    },
+    null,
+    { timeout: 20_000 },
+  );
+
+  return kupua.page.evaluate(async () => {
+    const store = (window as any).__kupua_store__;
+    const track = document.querySelector('[data-testid="scrubber-track"]');
+    const timeoutMs = 30_000;
+    const deadline = performance.now() + timeoutMs;
+    let lastReadiness = null;
+    let previousPosition = null;
+    while (performance.now() < deadline) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (performance.now() >= deadline) break;
+      const state = store?.getState();
+      const position = Number(track?.getAttribute("aria-valuenow"));
+      lastReadiness = {
+        storePresent: Boolean(state),
+        loading: Boolean(state?.loading),
+        error: Boolean(state?.error),
+        extendingForward: Boolean(state?._extendForwardInFlight),
+        extendingBackward: Boolean(state?._extendBackwardInFlight),
+        positionFinite: Number.isFinite(position),
+        positionStable: previousPosition === position,
+      };
+      if (
+        !state || state.loading || state.error
+        || state._extendForwardInFlight || state._extendBackwardInFlight
+        || !Number.isFinite(position)
+      ) {
+        previousPosition = null;
+        continue;
+      }
+      if (previousPosition === position) {
+        return {
+          setupGlobalPosition: position,
+          setupBufferOffset: state.bufferOffset,
+          setupBufferLength: state.results.length,
+          setupExtended: true,
+          setupEvictGeneration: state._forwardEvictGeneration,
+          setupEvictedCount: state._lastForwardEvictCount,
+        };
+      }
+      previousPosition = position;
+    }
+    throw new Error(`PP6c post-eviction position did not settle within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
+  });
+}
+
+async function appendNoFocusSortVisualPhases(kupua: any, interactionId: string) {
+  return kupua.page.evaluate(async (targetInteractionId: string) => {
+    const readRect = (element: Element) => {
+      const rect = element.getBoundingClientRect();
+      return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+    };
+    const close = (left: Record<string, number>, right: Record<string, number>) =>
+      Object.keys(left).every((key) => Math.abs(left[key] - right[key]) <= 1);
+
+    const timeoutMs = 30_000;
+    const deadline = performance.now() + timeoutMs;
+    let lastReadiness = null;
+    let first = null;
+    while (performance.now() < deadline) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (performance.now() >= deadline) break;
+      const state = (window as any).__kupua_store__?.getState();
+      const primarySort = state?.params?.orderBy?.split(",")[0]?.replace(/^-/, "");
+      const container = document.querySelector('[aria-label="Image results grid"]')
+        ?? document.querySelector('[aria-label="Image results table"]');
+      const item = container?.querySelector('[data-image-id]');
+      lastReadiness = {
+        storePresent: Boolean(state),
+        loading: Boolean(state?.loading),
+        error: Boolean(state?.error),
+        sorting: Boolean(state?.sortAroundFocusStatus),
+        contextMatches: primarySort === "width",
+        containerPresent: Boolean(container),
+        itemPresent: Boolean(item),
+        geometryStable: false,
+      };
+      if (!state || state.loading || state.error || state.sortAroundFocusStatus || primarySort !== "width" || !container || !item) {
+        first = null;
+        continue;
+      }
+      const current = { container: readRect(container), item: readRect(item), t: performance.now() };
+      if (!first) {
+        first = current;
+        continue;
+      }
+      lastReadiness.geometryStable = close(first.container, current.container) && close(first.item, current.item);
+      if (lastReadiness.geometryStable) {
+        const entries = (window as any).__perceivedTrace__ as TraceEntry[];
+        entries.push({
+          action: "sort-no-focus",
+          phase: "t_first_visible_frame",
+          t: first.t,
+          interactionId: targetInteractionId,
+        });
+        entries.push({
+          action: "sort-no-focus",
+          phase: "t_visual_settled",
+          t: current.t,
+          interactionId: targetInteractionId,
+        });
+        const resources = performance.getEntriesByType("resource") as PerformanceResourceTiming[];
+        const routes = new Set<string>();
+        for (const resource of resources) {
+          const url = new URL(resource.name, location.origin);
+          if (url.pathname.startsWith("/api/") || url.origin === "https://api.media.test.dev-gutools.co.uk") routes.add("media-api");
+          if (url.pathname.startsWith("/es/")) routes.add("direct-es");
+        }
+        if (!Number.isFinite(state.total)) throw new Error("PP2 settled total is unavailable");
+        return {
+          settledTotal: state.total,
+          resultRegime: state.total <= 1_000 ? "buffer" : state.total <= 65_000 ? "indexed" : "seek",
+          routes: routes.size > 0 ? [...routes].sort() : ["client-only"],
+        };
+      }
+      first = current;
+    }
+    throw new Error(`PP2 Width context did not become visibly stable within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
+  }, interactionId);
+}
+
+async function appendFilterVisualPhases(kupua: any, interactionId: string) {
+  return kupua.page.evaluate(async (targetInteractionId: string) => {
+    const readRect = (element: Element) => {
+      const rect = element.getBoundingClientRect();
+      return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+    };
+    const close = (left: Record<string, number>, right: Record<string, number>) =>
+      Object.keys(left).every((key) => Math.abs(left[key] - right[key]) <= 1);
+
+    const timeoutMs = 30_000;
+    const deadline = performance.now() + timeoutMs;
+    let lastReadiness = null;
+    let first = null;
+    while (performance.now() < deadline) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (performance.now() >= deadline) break;
+      const state = (window as any).__kupua_store__?.getState();
+      const checkbox = document.querySelector('label input[type="checkbox"]') as HTMLInputElement | null;
+      const container = document.querySelector('[aria-label="Image results grid"]')
+        ?? document.querySelector('[aria-label="Image results table"]');
+      const item = container?.querySelector('[data-image-id]');
+      lastReadiness = {
+        storePresent: Boolean(state),
+        loading: Boolean(state?.loading),
+        error: Boolean(state?.error),
+        sorting: Boolean(state?.sortAroundFocusStatus),
+        freeOnly: state?.params?.nonFree == null,
+        checkboxChecked: Boolean(checkbox?.checked),
+        contextMatches: state?.params?.nonFree == null && Boolean(checkbox?.checked),
+        containerPresent: Boolean(container),
+        itemPresent: Boolean(item),
+        geometryStable: false,
+      };
+      if (!state || state.loading || state.error || state.sortAroundFocusStatus || state.params.nonFree != null || !checkbox?.checked || !container || !item) {
+        first = null;
+        continue;
+      }
+      const current = { container: readRect(container), item: readRect(item), t: performance.now() };
+      if (!first) {
+        first = current;
+        continue;
+      }
+      lastReadiness.geometryStable = close(first.container, current.container) && close(first.item, current.item);
+      if (lastReadiness.geometryStable) {
+        const entries = (window as any).__perceivedTrace__ as TraceEntry[];
+        entries.push({
+          action: "filter-toggle",
+          phase: "t_first_visible_frame",
+          t: first.t,
+          interactionId: targetInteractionId,
+        });
+        entries.push({
+          action: "filter-toggle",
+          phase: "t_visual_settled",
+          t: current.t,
+          interactionId: targetInteractionId,
+        });
+        const resources = performance.getEntriesByType("resource") as PerformanceResourceTiming[];
+        const routes = new Set<string>();
+        for (const resource of resources) {
+          const url = new URL(resource.name, location.origin);
+          if (url.pathname.startsWith("/api/") || url.origin === "https://api.media.test.dev-gutools.co.uk") routes.add("media-api");
+          if (url.pathname.startsWith("/es/")) routes.add("direct-es");
+        }
+        if (!Number.isFinite(state.total)) throw new Error("PP5 settled total is unavailable");
+        return {
+          settledTotal: state.total,
+          resultRegime: state.total <= 1_000 ? "buffer" : state.total <= 65_000 ? "indexed" : "seek",
+          routes: routes.size > 0 ? [...routes].sort() : ["client-only"],
+        };
+      }
+      first = current;
+    }
+    throw new Error(`PP5 free-only context did not become visibly stable within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
+  }, interactionId);
+}
+
+async function appendQueryVisualPhases(kupua: any, interactionId: string) {
+  return kupua.page.evaluate(async (targetInteractionId: string) => {
+    const readRect = (element: Element) => {
+      const rect = element.getBoundingClientRect();
+      return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+    };
+    const close = (left: Record<string, number>, right: Record<string, number>) =>
+      Object.keys(left).every((key) => Math.abs(left[key] - right[key]) <= 1);
+
+    const timeoutMs = 30_000;
+    const deadline = performance.now() + timeoutMs;
+    let lastReadiness = null;
+    let first = null;
+    while (performance.now() < deadline) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (performance.now() >= deadline) break;
+      const state = (window as any).__kupua_store__?.getState();
+      const container = document.querySelector('[aria-label="Image results grid"]')
+        ?? document.querySelector('[aria-label="Image results table"]');
+      const item = container?.querySelector('[data-image-id]');
+      lastReadiness = {
+        storePresent: Boolean(state),
+        loading: Boolean(state?.loading),
+        error: Boolean(state?.error),
+        sorting: Boolean(state?.sortAroundFocusStatus),
+        contextMatches: state?.params?.query === "sport",
+        containerPresent: Boolean(container),
+        itemPresent: Boolean(item),
+        geometryStable: false,
+      };
+      if (!state || state.loading || state.error || state.sortAroundFocusStatus || state.params.query !== "sport" || !container || !item) {
+        first = null;
+        continue;
+      }
+      const current = { container: readRect(container), item: readRect(item), t: performance.now() };
+      if (!first) {
+        first = current;
+        continue;
+      }
+      lastReadiness.geometryStable = close(first.container, current.container) && close(first.item, current.item);
+      if (lastReadiness.geometryStable) {
+        const entries = (window as any).__perceivedTrace__ as TraceEntry[];
+        entries.push({ action: "search", phase: "t_first_visible_frame", t: first.t, interactionId: targetInteractionId });
+        entries.push({ action: "search", phase: "t_visual_settled", t: current.t, interactionId: targetInteractionId });
+        const routes = new Set<string>();
+        const resources = performance.getEntriesByType("resource") as PerformanceResourceTiming[];
+        for (const resource of resources) {
+          const url = new URL(resource.name, location.origin);
+          if (url.pathname.startsWith("/api/") || url.origin === "https://api.media.test.dev-gutools.co.uk") routes.add("media-api");
+          if (url.pathname.startsWith("/es/")) routes.add("direct-es");
+        }
+        if (!Number.isFinite(state.total)) throw new Error("PP8 settled total is unavailable");
+        return {
+          settledTotal: state.total,
+          resultRegime: state.total <= 1_000 ? "buffer" : state.total <= 65_000 ? "indexed" : "seek",
+          routes: routes.size > 0 ? [...routes].sort() : ["client-only"],
+        };
+      }
+      first = current;
+    }
+    throw new Error(`PP8 sport context did not become visibly stable within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
+  }, interactionId);
+}
+
+async function appendHomeVisualPhases(kupua: any, interactionId: string) {
+  return kupua.page.evaluate(async (targetInteractionId: string) => {
+    const readRect = (element: Element) => {
+      const rect = element.getBoundingClientRect();
+      return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+    };
+    const close = (left: Record<string, number>, right: Record<string, number>) =>
+      Object.keys(left).every((key) => Math.abs(left[key] - right[key]) <= 1);
+
+    const timeoutMs = 30_000;
+    const deadline = performance.now() + timeoutMs;
+    let lastReadiness = null;
+    let first = null;
+    while (performance.now() < deadline) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      const state = (window as any).__kupua_store__?.getState();
+      const url = new URL(location.href);
+      const container = document.querySelector('[aria-label="Image results grid"]');
+      const firstResultId = state?.results?.[0]?.id;
+      const item = firstResultId
+        ? container?.querySelector(`[data-image-id="${CSS.escape(firstResultId)}"]`)
+        : null;
+      const scrubber = document.querySelector('[role="slider"][data-scrubber-mode="seek"]');
+      const scrubberPosition = Number(scrubber?.getAttribute("aria-valuenow"));
+      const homeUrl = url.pathname === "/search"
+        && url.searchParams.size === 1
+        && url.searchParams.get("nonFree") === "true";
+      const homeStore = state?.params?.nonFree === "true"
+        && state.params.query == null
+        && state.params.until == null;
+      lastReadiness = {
+        loading: Boolean(state?.loading),
+        error: Boolean(state?.error),
+        sorting: Boolean(state?.sortAroundFocusStatus),
+        homeUrl,
+        homeStore,
+        bufferOffset: state?.bufferOffset ?? null,
+        scrollTop: container?.scrollTop ?? null,
+        firstResultRendered: Boolean(item),
+        firstResultVisible: false,
+        scrubberPresent: Boolean(scrubber),
+        scrubberPosition,
+      };
+      if (
+        !state || state.loading || state.error || state.sortAroundFocusStatus
+        || !homeUrl || !homeStore || state.bufferOffset !== 0
+        || !container || container.scrollTop > 1 || !item
+        || !scrubber || scrubberPosition !== 0
+      ) {
+        first = null;
+        continue;
+      }
+      const containerRect = container.getBoundingClientRect();
+      const itemRect = item.getBoundingClientRect();
+      if (itemRect.bottom <= containerRect.top || itemRect.top >= containerRect.bottom) {
+        first = null;
+        continue;
+      }
+      lastReadiness.firstResultVisible = true;
+      const current = { container: readRect(container), item: readRect(item), t: performance.now() };
+      if (!first) {
+        first = current;
+        continue;
+      }
+      if (close(first.container, current.container) && close(first.item, current.item)) {
+        const entries = (window as any).__perceivedTrace__ as TraceEntry[];
+        entries.push({ action: "home-logo", phase: "t_first_visible_frame", t: first.t, interactionId: targetInteractionId });
+        entries.push({ action: "home-logo", phase: "t_visual_settled", t: current.t, interactionId: targetInteractionId });
+        if (!Number.isFinite(state.total) || state.total <= 65_000) {
+          throw new Error(`PP1 unpinned home total ${state.total} is not in the seek regime`);
+        }
+        return { settledTotal: state.total, resultRegime: "seek" as const };
+      }
+      first = current;
+    }
+    throw new Error(`PP1 unpinned home did not become visibly stable at absolute position zero within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
+  }, interactionId);
+}
+
+async function captureChipRemovalAnchor(kupua: any) {
+  return kupua.page.evaluate(() => {
+    const container = document.querySelector('[aria-label="Image results grid"]');
+    if (!(container instanceof HTMLElement)) throw new Error("PP9 grid container unavailable");
+    const containerRect = container.getBoundingClientRect();
+    const getViewportAnchor = (window as any).__kupua_getViewportAnchorId__;
+    const imageId = typeof getViewportAnchor === "function" ? getViewportAnchor() : null;
+    const item = imageId
+      ? container.querySelector(`[data-image-id="${CSS.escape(imageId)}"]`)
+      : null;
+    const itemRect = item?.getBoundingClientRect();
+    if (!imageId || !itemRect || itemRect.bottom <= containerRect.top || itemRect.top >= containerRect.bottom) {
+      throw new Error("PP9 app-owned viewport anchor is not visibly rendered before chip removal");
+    }
+    return {
+      imageId,
+      top: itemRect.top - containerRect.top,
+      viewportHeight: containerRect.height,
+    };
+  });
+}
+
+async function appendChipRemovalVisualPhases(
+  kupua: KupuaHelpers,
+  interactionId: string,
+  anchor: { imageId: string; top: number; viewportHeight: number },
+) {
+  return kupua.page.evaluate(async ({ targetInteractionId, targetAnchor, stableUntil }) => {
+    const readRect = (element: Element) => {
+      const rect = element.getBoundingClientRect();
+      return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+    };
+    const close = (left: Record<string, number>, right: Record<string, number>) =>
+      Object.keys(left).every((key) => Math.abs(left[key] - right[key]) <= 1);
+
+    const timeoutMs = 30_000;
+    const deadline = performance.now() + timeoutMs;
+    let lastReadiness = null;
+    let first = null;
+    while (performance.now() < deadline) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (performance.now() >= deadline) break;
+      const state = (window as any).__kupua_store__?.getState();
+      const url = new URL(location.href);
+      const container = document.querySelector('[aria-label="Image results grid"]');
+      const item = container?.querySelector(`[data-image-id="${CSS.escape(targetAnchor.imageId)}"]`);
+      const deleteHandles = document.querySelector("cql-input")?.shadowRoot
+        ?.querySelectorAll(".Cql__ChipWrapperDeleteHandle");
+      const storeMatches = Boolean(state) && state.params.query == null && state.params.until === stableUntil;
+      const urlMatches = url.pathname === "/search" && !url.searchParams.has("query")
+        && url.searchParams.get("nonFree") === "true" && url.searchParams.get("until") === stableUntil;
+      lastReadiness = {
+        storePresent: Boolean(state),
+        loading: Boolean(state?.loading),
+        error: Boolean(state?.error),
+        sorting: Boolean(state?.sortAroundFocusStatus),
+        storeMatches,
+        urlMatches,
+        chipsRemoved: deleteHandles?.length === 0,
+        contextMatches: storeMatches && urlMatches && deleteHandles?.length === 0,
+        containerPresent: Boolean(container),
+        itemPresent: Boolean(item),
+        itemVisible: false,
+        geometryStable: false,
+      };
+      if (
+        !state || state.loading || state.error || state.sortAroundFocusStatus
+        || state.params.query != null || state.params.until !== stableUntil
+        || url.pathname !== "/search" || url.searchParams.has("query")
+        || url.searchParams.get("nonFree") !== "true" || url.searchParams.get("until") !== stableUntil
+        || !container || !item || deleteHandles?.length !== 0
+      ) {
+        first = null;
+        continue;
+      }
+      const settledContainerRect = container.getBoundingClientRect();
+      const settledItemRect = item.getBoundingClientRect();
+      if (
+        settledItemRect.bottom <= settledContainerRect.top || settledItemRect.top >= settledContainerRect.bottom
+      ) {
+        first = null;
+        continue;
+      }
+      lastReadiness.itemVisible = true;
+      const current = { container: readRect(container), item: readRect(item), t: performance.now() };
+      if (!first) {
+        first = current;
+        continue;
+      }
+      lastReadiness.geometryStable = close(first.container, current.container) && close(first.item, current.item);
+      if (lastReadiness.geometryStable) {
+        const entries = (window as any).__perceivedTrace__ as TraceEntry[];
+        entries.push({ action: "chip-remove", phase: "t_first_visible_frame", t: first.t, interactionId: targetInteractionId });
+        entries.push({ action: "chip-remove", phase: "t_visual_settled", t: current.t, interactionId: targetInteractionId });
+        if (!Number.isFinite(state.total)) throw new Error("PP9 settled total is unavailable");
+        const settledRelativeTop = settledItemRect.top - settledContainerRect.top;
+        const resultRegime: NonNullable<PerceivedMetrics["resultRegime"]> =
+          state.total <= 1_000 ? "buffer" : state.total <= 65_000 ? "indexed" : "seek";
+        return {
+          settledTotal: state.total,
+          resultRegime,
+          anchorDriftPx: Math.round(settledRelativeTop - targetAnchor.top),
+          anchorDriftRatio: (settledRelativeTop - targetAnchor.top) / targetAnchor.viewportHeight,
+        };
+      }
+      first = current;
+    }
+    throw new Error(`PP9 removed-chip context did not keep the app-owned viewport anchor visibly stable within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
+  }, { targetInteractionId: interactionId, targetAnchor: anchor, stableUntil: STABLE_UNTIL });
+}
+
+async function beginDeepHistoryBack(
+  kupua: any,
+): Promise<{ interactionId: string; previousGeneration: number }> {
+  return kupua.page.evaluate(() => {
+    const globalObject = window as any;
+    const store = globalObject.__kupua_store__;
+    const getLifecycle = globalObject.__kupua_getSearchLifecycle__;
+    const entries = globalObject.__perceivedTrace__ as TraceEntry[] | undefined;
+    if (!store || typeof getLifecycle !== "function" || !entries) {
+      throw new Error("PP11 trace prerequisites are unavailable");
+    }
+
+    const previousGeneration = getLifecycle().started;
+    const interactionId = `history-back:${Math.round(performance.now())}:browser`;
+    entries.push({
+      action: "history-back",
+      phase: "t_0",
+      t: performance.now(),
+      interactionId,
+    });
+
+    let acknowledged = false;
+    let storeReady = false;
+    const unsubscribe = store.subscribe((state: any) => {
+      if (!acknowledged && state.loading) {
+        acknowledged = true;
+        entries.push({
+          action: "history-back",
+          phase: "t_ack",
+          t: performance.now(),
+          interactionId,
+        });
+      }
+      const lifecycle = getLifecycle();
+      if (
+        !storeReady
+        && lifecycle.started > previousGeneration
+        && lifecycle.settled === lifecycle.started
+        && !state.loading
+        && state.sortAroundFocusStatus === null
+      ) {
+        storeReady = true;
+        entries.push({
+          action: "history-back",
+          phase: "t_store_ready",
+          t: performance.now(),
+          interactionId,
+        });
+      }
+    });
+    globalObject.__pp11HistoryProbe__ = { interactionId, unsubscribe };
+    history.back();
+    return { interactionId, previousGeneration };
+  });
+}
+
+async function appendDeepHistoryBackVisualPhases(
+  kupua: any,
+  interactionId: string,
+  previousGeneration: number,
+) {
+  return kupua.page.evaluate(async ({
+    targetInteractionId,
+    priorGeneration,
+    stableUntil,
+  }: {
+    targetInteractionId: string;
+    priorGeneration: number;
+    stableUntil: string;
+  }) => {
+    const globalObject = window as any;
+    const entries = globalObject.__perceivedTrace__ as TraceEntry[];
+    const getLifecycle = globalObject.__kupua_getSearchLifecycle__;
+    const probe = globalObject.__pp11HistoryProbe__;
+    const targetSetup = globalObject.__pp11HistorySetup__ as DeepHistorySetup | undefined;
+    if (!targetSetup) throw new Error("PP11 browser-local history setup is unavailable");
+    const deadline = performance.now() + 15_000;
+    let firstVisibleTime: number | null = null;
+    let previousRect: { top: number; left: number; width: number; height: number } | null = null;
+
+    const cleanup = () => {
+      probe?.unsubscribe?.();
+      delete globalObject.__pp11HistoryProbe__;
+      delete globalObject.__pp11HistorySetup__;
+    };
+
+    try {
+      while (performance.now() < deadline) {
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        const state = globalObject.__kupua_store__?.getState?.();
+        const lifecycle = typeof getLifecycle === "function" ? getLifecycle() : null;
+        const url = new URL(location.href);
+        const container = document.querySelector<HTMLElement>('[aria-label="Image results grid"]');
+        const item = container?.querySelector<HTMLElement>(
+          `[data-image-id="${CSS.escape(targetSetup.anchorImageId)}"]`,
+        );
+        const correctContext = state?.params?.query == null
+          && state?.params?.until === (stableUntil || undefined)
+          && url.pathname === "/search"
+          && !url.searchParams.has("query")
+          && url.searchParams.get("nonFree") === "true"
+          && (stableUntil ? url.searchParams.get("until") === stableUntil : !url.searchParams.has("until"));
+        const lifecycleSettled = lifecycle
+          && lifecycle.started > priorGeneration
+          && lifecycle.settled === lifecycle.started;
+        const stateReady = state
+          && !state.loading
+          && !state.error
+          && !state.sortAroundFocusStatus
+          && correctContext
+          && lifecycleSettled;
+
+        if (
+          stateReady
+          && !entries.some((entry) =>
+            entry.interactionId === targetInteractionId && entry.phase === "t_store_ready"
+          )
+        ) {
+          entries.push({
+            action: "history-back",
+            phase: "t_store_ready",
+            t: performance.now(),
+            interactionId: targetInteractionId,
+          });
+        }
+
+        if (
+          !stateReady
+          || state.focusedImageId !== targetSetup.anchorImageId
+          || state.bufferOffset <= 500 || !container || !item
+        ) {
+          previousRect = null;
+          continue;
+        }
+
+        const containerRect = container.getBoundingClientRect();
+        const itemRect = item.getBoundingClientRect();
+        if (itemRect.bottom <= containerRect.top || itemRect.top >= containerRect.bottom) {
+          previousRect = null;
+          continue;
+        }
+
+        const now = performance.now();
+        if (firstVisibleTime === null) {
+          firstVisibleTime = now;
+          entries.push({
+            action: "history-back",
+            phase: "t_first_visible_frame",
+            t: now,
+            interactionId: targetInteractionId,
+          });
+        }
+
+        const currentRect = {
+          top: itemRect.top - containerRect.top,
+          left: itemRect.left - containerRect.left,
+          width: itemRect.width,
+          height: itemRect.height,
+        };
+        if (
+          previousRect
+          && Object.keys(currentRect).every((key) =>
+            Math.abs(
+              currentRect[key as keyof typeof currentRect]
+              - previousRect![key as keyof typeof previousRect],
+            ) <= 1
+          )
+        ) {
+          entries.push({
+            action: "history-back",
+            phase: "t_visual_settled",
+            t: now,
+            interactionId: targetInteractionId,
+          });
+          const restoredPosition = state.imagePositions.get(targetSetup.anchorImageId);
+          if (restoredPosition !== targetSetup.globalPosition) {
+            throw new Error(
+              `PP11 restored global position ${restoredPosition}; expected ${targetSetup.globalPosition}`,
+            );
+          }
+          const anchorDriftPx = currentRect.top - targetSetup.relativeTop;
+          cleanup();
+          return {
+            settledTotal: state.total,
+            resultRegime: state.total <= 1_000
+              ? "buffer" as const
+              : state.total <= 65_000
+                ? "indexed" as const
+                : "seek" as const,
+            setupGlobalPosition: targetSetup.globalPosition,
+            setupBufferOffset: targetSetup.bufferOffset,
+            setupBufferLength: targetSetup.bufferLength,
+            anchorDriftPx: Math.round(anchorDriftPx),
+            anchorDriftRatio: anchorDriftPx / targetSetup.viewportHeight,
+          };
+        }
+        previousRect = currentRect;
+      }
+      throw new Error("PP11 deep history anchor did not become visibly stable within 15 seconds");
+    } finally {
+      cleanup();
+    }
+  }, {
+    targetInteractionId: interactionId,
+    priorGeneration: previousGeneration,
+    stableUntil: STABLE_UNTIL,
+  });
+}
+
+interface ScrollVisualContext {
+  settledTotal: number;
+  resultRegime: NonNullable<PerceivedMetrics["resultRegime"]>;
+  requestedRatio: number;
+  achievedRatio: number;
+  routes?: string[];
+}
+
+async function appendSeekVisualPhases(kupua: KupuaHelpers, interactionId: string, requestedPosition: number): Promise<ScrollVisualContext> {
+  return kupua.page.evaluate(async ({ targetInteractionId, targetPosition }) => {
+    const deadline = performance.now() + 15_000;
+    const readRect = (element: Element) => {
+      const rect = element.getBoundingClientRect();
+      return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+    };
+    const close = (left: Record<string, number>, right: Record<string, number>) =>
+      Object.keys(left).every((key) => Math.abs(left[key] - right[key]) <= 1);
+
+    let first: { imageId: string; container: Record<string, number>; item: Record<string, number>; t: number } | null = null;
+    while (performance.now() < deadline) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      const state = (window as any).__kupua_store__?.getState();
+      const track = document.querySelector('[data-testid="scrubber-track"]');
+      const container = document.querySelector('[aria-label="Image results grid"]')
+        ?? document.querySelector('[aria-label="Image results table"]');
+      const visibleItems = container
+        ? [...container.querySelectorAll('[data-image-id]')].filter((item) => {
+            const itemRect = item.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            return itemRect.bottom > containerRect.top && itemRect.top < containerRect.bottom;
+          })
+        : [];
+      if (!state || state.loading || state.error || track?.getAttribute("data-scrubber-mode") !== "seek" || !container || visibleItems.length === 0) {
+        first = null;
+        continue;
+      }
+      if (!first) {
+        const containerRect = container.getBoundingClientRect();
+        const centreY = containerRect.top + containerRect.height / 2;
+        const item = visibleItems.reduce((nearest, candidate) => {
+          const nearestRect = nearest.getBoundingClientRect();
+          const candidateRect = candidate.getBoundingClientRect();
+          const nearestDistance = Math.abs(nearestRect.top + nearestRect.height / 2 - centreY);
+          const candidateDistance = Math.abs(candidateRect.top + candidateRect.height / 2 - centreY);
+          return candidateDistance < nearestDistance ? candidate : nearest;
+        });
+        const imageId = item.getAttribute("data-image-id");
+        if (!imageId) continue;
+        first = { imageId, container: readRect(container), item: readRect(item), t: performance.now() };
+        continue;
+      }
+      const item: Element | null = container.querySelector(`[data-image-id="${CSS.escape(first.imageId)}"]`);
+      if (!item) {
+        first = null;
+        continue;
+      }
+      const current: { container: Record<string, number>; item: Record<string, number>; t: number } =
+        { container: readRect(container), item: readRect(item), t: performance.now() };
+      if (close(first.container, current.container) && close(first.item, current.item)) {
+        const entries = (window as any).__perceivedTrace__ as TraceEntry[];
+        entries.push({ action: "scrubber-seek", phase: "t_first_visible_frame", t: first.t, interactionId: targetInteractionId });
+        entries.push({ action: "scrubber-seek", phase: "t_visual_settled", t: current.t, interactionId: targetInteractionId });
+        const total = state.total;
+        if (!Number.isFinite(total) || total <= 1) throw new Error("PP7 settled total is unavailable");
+        const achievedPosition = state.bufferOffset;
+        const requestedRatio = targetPosition / (total - 1);
+        const achievedRatio = achievedPosition / (total - 1);
+        if (Math.abs(achievedRatio - requestedRatio) > 0.15) {
+          throw new Error(`PP7 achieved ratio ${achievedRatio} too far from requested ${requestedRatio}`);
+        }
+        return {
+          settledTotal: total,
+          resultRegime: "seek" as const,
+          requestedRatio,
+          achievedRatio,
+        };
+      }
+      first = { ...current, imageId: first.imageId };
+    }
+    throw new Error("PP7 seek content did not become visibly stable within 15 seconds");
+  }, { targetInteractionId: interactionId, targetPosition: requestedPosition });
+}
+
+async function appendBufferScrollVisualPhases(kupua: KupuaHelpers, interactionId: string, requestedPosition: number): Promise<ScrollVisualContext> {
+  return kupua.page.evaluate(async ({ targetInteractionId, targetPosition }) => {
+    const readRect = (element: Element) => {
+      const rect = element.getBoundingClientRect();
+      return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+    };
+    const close = (left: Record<string, number>, right: Record<string, number>) =>
+      Object.keys(left).every((key) => Math.abs(left[key] - right[key]) <= 1);
+
+    const timeoutMs = 30_000;
+    const deadline = performance.now() + timeoutMs;
+    let lastReadiness = null;
+    let first = null;
+    while (performance.now() < deadline) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (performance.now() >= deadline) break;
+      const state = (window as any).__kupua_store__?.getState();
+      const track = document.querySelector('[data-testid="scrubber-track"]');
+      const container = document.querySelector('[aria-label="Image results grid"]')
+        ?? document.querySelector('[aria-label="Image results table"]');
+      const visibleItems = container
+        ? [...container.querySelectorAll('[data-image-id]')].filter((item) => {
+            const itemRect = item.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            return itemRect.bottom > containerRect.top && itemRect.top < containerRect.bottom;
+          })
+        : [];
+      lastReadiness = {
+        storePresent: Boolean(state),
+        loading: Boolean(state?.loading),
+        error: Boolean(state?.error),
+        contextMatches: track?.getAttribute("data-scrubber-mode") === "buffer",
+        containerPresent: Boolean(container),
+        itemPresent: visibleItems.length > 0,
+        geometryStable: false,
+      };
+      if (!state || state.loading || state.error || track?.getAttribute("data-scrubber-mode") !== "buffer" || !container || visibleItems.length === 0) {
+        first = null;
+        continue;
+      }
+      const item = visibleItems[0];
+      const current = { container: readRect(container), item: readRect(item), t: performance.now() };
+      if (!first) {
+        first = current;
+        continue;
+      }
+      lastReadiness.geometryStable = close(first.container, current.container) && close(first.item, current.item);
+      if (lastReadiness.geometryStable) {
+        const entries = (window as any).__perceivedTrace__ as TraceEntry[];
+        entries.push({ action: "scrubber-scroll", phase: "t_first_visible_frame", t: first.t, interactionId: targetInteractionId });
+        entries.push({ action: "scrubber-scroll", phase: "t_visual_settled", t: current.t, interactionId: targetInteractionId });
+        const total = state.total;
+        const achievedPosition = Number(track.getAttribute("aria-valuenow"));
+        if (!Number.isFinite(total) || total <= 1 || !Number.isFinite(achievedPosition)) {
+          throw new Error("PP7c position context is unavailable");
+        }
+        const requestedRatio = targetPosition / (total - 1);
+        const achievedRatio = achievedPosition / (total - 1);
+        if (Math.abs(achievedRatio - requestedRatio) > 0.05) {
+          throw new Error(`PP7c achieved ratio ${achievedRatio} too far from requested ${requestedRatio}`);
+        }
+        return { settledTotal: total, resultRegime: "buffer" as const, requestedRatio, achievedRatio };
+      }
+      first = current;
+    }
+    throw new Error(`PP7c buffer-scroll content did not become visibly stable within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
+  }, { targetInteractionId: interactionId, targetPosition: requestedPosition });
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Enable the perceived trace flag before navigation. Call in beforeEach. */
+async function enablePerceivedTrace(kupua: any) {
+  await kupua.page.addInitScript(() => {
+    localStorage.setItem("kupua_perceived_perf", "1");
+  });
+}
+
+/** Clear the in-page trace buffer right before triggering an action. */
+async function clearTrace(kupua: any) {
+  await kupua.page.evaluate(() => {
+    if (typeof (window as any).__perceivedTraceClear__ === "function") {
+      (window as any).__perceivedTraceClear__();
+    }
+  });
+}
+
+/** Read all trace entries from the in-page buffer. */
+async function readTrace(kupua: any): Promise<TraceEntry[]> {
+  return kupua.page.evaluate(() => {
+    return (window as any).__perceivedTrace__ ?? [];
+  });
+}
+
+/** Read timing fields from the search store for diagnostic enrichment. */
+async function readStoreTiming(kupua: any, routes: string[] | undefined) {
+  if (!ownsDataRoute(routes)) return null;
+  return kupua.page.evaluate(() => {
+    const s = (window as any).__kupua_store__?.getState?.();
+    if (!s) return null;
+    return {
+      took: s.took ?? null,
+      fetchDuration: s.fetchDuration ?? null,
+      seekTime: s.seekTime ?? null,
+      aggTook: s.aggTook ?? null,
+      aggFetchDuration: s.aggFetchDuration ?? null,
+    };
+  });
+}
+
+/** Read seek:* performance.measure entries — only present after a seek. */
+async function readSeekMeasures(kupua: any): Promise<Array<{ name: string; duration: number }>> {
+  return kupua.page.evaluate(() =>
+    performance.getEntriesByType("measure")
+      .filter((m: PerformanceEntry) => m.name.startsWith("seek:"))
+      .map((m: PerformanceEntry) => ({ name: m.name, duration: Math.round(m.duration) })),
+  );
+}
+
+/** Emit one metrics line to the perceived temp file. */
+function emitMetrics(metrics: PerceivedMetrics | DegradedFocusedSortMetrics) {
+  // Omit raw from file output (can be huge); keep for debug if needed.
+  const line = JSON.stringify({ ...metrics, raw: undefined }) + "\n";
+  try {
+    appendFileSync(METRICS_FILE, line);
+  } catch {
+    // File not writable outside the harness — fine for direct Playwright runs.
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Test suite
+// ---------------------------------------------------------------------------
+
+// Enable explicit focus mode for all tests (same as perf.spec.ts).
+test.beforeEach(async ({ kupua }) => {
+  await kupua.initializeDensity("grid");
+  await kupua.ensureExplicitMode();
+  await enablePerceivedTrace(kupua);
+});
+
+test.describe("Perceived Performance Suite", () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  // ── PP1: Home logo click ─────────────────────────────────────────────────
+  test("PP1: home-logo — pinned indexed query to unpinned home top", async ({ kupua }) => {
+    await gotoPerfSearch(kupua, "query=city%3ADublin");
+    expect((await kupua.getStoreState()).total).toBeGreaterThan(1_000);
+    expect((await kupua.getStoreState()).total).toBeLessThanOrEqual(65_000);
+
+    const setupScrollTop = await kupua.page.evaluate(() => {
+      const el = document.querySelector('[aria-label="Image results grid"]') ??
+                 document.querySelector('[aria-label="Image results table"]');
+      if (!el) throw new Error("PP1 setup results container unavailable");
+      el.scrollTop = 2000;
+      return el.scrollTop;
+    });
+    expect(setupScrollTop).toBeGreaterThan(0);
+
+    await clearTrace(kupua);
+    await kupua.page.evaluate(() => performance.clearResourceTimings());
+    const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
+    const logo = kupua.page.locator('a[title="Grid — clear all filters"]');
+    await logo.click();
+
+    const storeEntries = await readTrace(kupua);
+    const starts = storeEntries.filter((entry) =>
+      entry.action === "home-logo" && entry.phase === "t_0"
+    );
+    expect(starts).toHaveLength(1);
+    expect(starts[0].interactionId).toBeTruthy();
+    const context = await appendHomeVisualPhases(kupua, starts[0].interactionId!);
+    const routes = finishRouteCapture();
+    const entries = await readTrace(kupua);
+    const correlated = computeCorrelatedMetrics({
+      id: "PP1",
+      label: "home-logo (pinned indexed query→unpinned home top)",
+      action: "home-logo",
+      requiredPhases: ["t_ack", "t_store_ready", "t_first_visible_frame", "t_visual_settled"],
+      entries,
+    });
+    const metrics: PerceivedMetrics = {
+      ...correlated,
+      scenarioRevision: 2,
+      ...context,
+      routes,
+    };
+    console.log(`PP1 home-logo: store=${metrics.dt_store_ready_ms}ms visible=${metrics.dt_first_visible_frame_ms}ms settled=${metrics.dt_visual_settled_ms}ms`);
+    const timing1 = await readStoreTiming(kupua, metrics.routes);
+    if (timing1) Object.assign(metrics, timing1);
+    emitMetrics(metrics);
+  });
+
+  // ── PP2: Sort field change — no focused image ────────────────────────────
+  // Expected: <100 ms ack, <1.5 s first pixel, <2 s settle.
+  test("PP2: sort-no-focus — sort field change (Uploaded → Width)", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
+    const total = (await kupua.getStoreState()).total;
+    void total;
+
+    // Ensure no focused image
+    await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      store?.getState().setFocusedImageId?.(null);
+    });
+
+    await clearTrace(kupua);
+    await kupua.page.evaluate(() => performance.clearResourceTimings());
+    const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
+    await kupua.selectSort("Width");
+
+    const storeEntries = await readTrace(kupua);
+    const starts = storeEntries.filter((entry) =>
+      entry.action === "sort-no-focus" && entry.phase === "t_0"
+    );
+    expect(starts).toHaveLength(1);
+    expect(starts[0].interactionId).toBeTruthy();
+    const context = await appendNoFocusSortVisualPhases(kupua, starts[0].interactionId!);
+    context.routes = finishRouteCapture();
+    const entries = await readTrace(kupua);
+    const correlated = computeCorrelatedMetrics({
+      id: "PP2",
+      label: "sort-no-focus (Uploaded→Width)",
+      action: "sort-no-focus",
+      requiredPhases: ["t_ack", "t_store_ready", "t_first_visible_frame", "t_visual_settled"],
+      entries,
+    });
+    const metrics: PerceivedMetrics = {
+      ...correlated,
+      scenarioRevision: 2,
+      ...context,
+    };
+    console.log(`PP2 sort-no-focus Width: ack=${metrics.dt_ack_ms}ms settled=${metrics.dt_visual_settled_ms}ms`);
+    const timing2 = await readStoreTiming(kupua, metrics.routes);
+    if (timing2) Object.assign(metrics, timing2);
+    emitMetrics(metrics);
+    expect(entries.some((e) => e.phase === "t_0")).toBe(true);
+  });
+
+  // ── PP3: Sort field change — with focused image (sort-around-focus) ───────
+  // Expected: <100 ms ack, <2 s settle. Shows "Finding image…" → "Seeking…".
+  // This is the suspected worst case after scripted-sort removal.
+  test("PP3: sort-around-focus — sort change with focused image", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
+    const total = (await kupua.getStoreState()).total;
+    void total;
+
+    // Focus the 5th item — likely not in first page of a different sort
+    await kupua.focusNthItem(4);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    await clearTrace(kupua);
+    await kupua.page.evaluate(() => performance.clearResourceTimings());
+    const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
+    const focusedSortDiagnostics = await startFocusedSortDiagnostics(kupua);
+    await kupua.selectSort("Credit");
+
+    const storeEntries = await readTrace(kupua);
+    const starts = storeEntries.filter((entry) =>
+      entry.action === "sort-around-focus" && entry.phase === "t_0"
+    );
+    expect(starts).toHaveLength(1);
+    expect(starts[0].interactionId).toBeTruthy();
+    const context = await appendFocusedSortVisualPhases(kupua, starts[0].interactionId!, "PP3", focusedId!);
+    const diagnostics = await focusedSortDiagnostics.finish();
+    const routes = finishRouteCapture();
+    const entries = await readTrace(kupua);
+    if (context.degraded) {
+      await emitDegradedFocusedSort(kupua, {
+        id: "PP3", label: "sort-around-focus (Credit)", focusedImageId: focusedId!,
+        entries, observation: context.degraded, diagnostics, routes,
+      });
+      return;
+    }
+    context.routes = routes;
+    const correlated = computeCorrelatedMetrics({
+      id: "PP3",
+      label: "sort-around-focus (Credit)",
+      action: "sort-around-focus",
+      requiredPhases: ["t_ack", "t_store_ready", "t_first_visible_frame", "t_visual_settled"],
+      entries,
+    });
+    const metrics: PerceivedMetrics = {
+      ...correlated,
+      scenarioRevision: 3,
+      ...context,
+    };
+    console.log(
+      `PP3 sort-around-focus: ack=${metrics.dt_ack_ms}ms status=${metrics.dt_status_ms}ms ` +
+      `settled=${metrics.dt_visual_settled_ms}ms banner=${metrics.status_total_ms}ms`,
+    );
+    const timing3 = await readStoreTiming(kupua, metrics.routes);
+    if (timing3) Object.assign(metrics, timing3);
+    emitMetrics(metrics);
+    expect(entries.some((e) => e.phase === "t_0")).toBe(true);
+  });
+
+  // ── PP4: Sort direction toggle — with focused image ───────────────────────
+  // Expected: same as PP3 (same code path, different trigger).
+  test("PP4: sort-direction-focused — direction toggle with focused image", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
+    const total = (await kupua.getStoreState()).total;
+    void total;
+
+    // Focus an item
+    await kupua.focusNthItem(4);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    await clearTrace(kupua);
+    await kupua.page.evaluate(() => performance.clearResourceTimings());
+    const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
+    const focusedSortDiagnostics = await startFocusedSortDiagnostics(kupua);
+    await kupua.toggleSortDirection();
+
+    const storeEntries = await readTrace(kupua);
+    const starts = storeEntries.filter((entry) =>
+      entry.action === "sort-around-focus" && entry.phase === "t_0"
+    );
+    expect(starts).toHaveLength(1);
+    expect(starts[0].interactionId).toBeTruthy();
+    const context = await appendFocusedSortVisualPhases(kupua, starts[0].interactionId!, "PP4", focusedId!);
+    const diagnostics = await focusedSortDiagnostics.finish();
+    const routes = finishRouteCapture();
+    const entries = await readTrace(kupua);
+    if (context.degraded) {
+      await emitDegradedFocusedSort(kupua, {
+        id: "PP4", label: "sort-direction-toggle (focused)", focusedImageId: focusedId!,
+        entries, observation: context.degraded, diagnostics, routes,
+      });
+      return;
+    }
+    context.routes = routes;
+    const correlated = computeCorrelatedMetrics({
+      id: "PP4",
+      label: "sort-direction-toggle (focused)",
+      action: "sort-around-focus",
+      requiredPhases: ["t_ack", "t_store_ready", "t_first_visible_frame", "t_visual_settled"],
+      entries,
+    });
+    const metrics: PerceivedMetrics = {
+      ...correlated,
+      scenarioRevision: 3,
+      ...context,
+    };
+    console.log(
+      `PP4 sort-dir-focused: ack=${metrics.dt_ack_ms}ms settled=${metrics.dt_visual_settled_ms}ms banner=${metrics.status_total_ms}ms`,
+    );
+    const timing4 = await readStoreTiming(kupua, metrics.routes);
+    if (timing4) Object.assign(metrics, timing4);
+    emitMetrics(metrics);
+    expect(entries.some((e) => e.phase === "t_0")).toBe(true);
+  });
+
+  // ── PP5: Filter toggle (search submit via checkbox) ───────────────────────
+  // Expected: <100 ms ack, <1.5 s first pixel.
+  test("PP5: filter-toggle — 'Free to use only' checkbox toggle", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
+    const total = (await kupua.getStoreState()).total;
+    void total;
+
+    await clearTrace(kupua);
+    await kupua.page.evaluate(() => performance.clearResourceTimings());
+    const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
+    const freeOnly = kupua.page.getByRole("checkbox", { name: "Free to use only" });
+    await expect(freeOnly).not.toBeChecked();
+    await freeOnly.click();
+
+    const storeEntries = await readTrace(kupua);
+    const starts = storeEntries.filter((entry) =>
+      entry.action === "filter-toggle" && entry.phase === "t_0"
+    );
+    expect(starts).toHaveLength(1);
+    expect(starts[0].interactionId).toBeTruthy();
+    const context = await appendFilterVisualPhases(kupua, starts[0].interactionId!);
+    context.routes = finishRouteCapture();
+    const entries = await readTrace(kupua);
+    const correlated = computeCorrelatedMetrics({
+      id: "PP5",
+      label: "filter-toggle (free-to-use checkbox)",
+      action: "filter-toggle",
+      requiredPhases: ["t_ack", "t_store_ready", "t_first_visible_frame", "t_visual_settled"],
+      entries,
+    });
+    const metrics: PerceivedMetrics = {
+      ...correlated,
+      scenarioRevision: 2,
+      ...context,
+    };
+    console.log(`PP5 filter-toggle: ack=${metrics.dt_ack_ms}ms settled=${metrics.dt_visual_settled_ms}ms`);
+    const timing5 = await readStoreTiming(kupua, metrics.routes);
+    if (timing5) Object.assign(metrics, timing5);
+    emitMetrics(metrics);
+    expect(entries.some((e) => e.phase === "t_0")).toBe(true);
+  });
+
+  // ── PP6: Density swap ─────────────────────────────────────────────────────
+  // Expected: <100 ms ack, <400 ms settle. Owner reports this feels fine.
+  test("PP6: density-swap — grid ↔ table toggle", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
+    const total = (await kupua.getStoreState()).total;
+    void total;
+
+    await clearTrace(kupua);
+    await kupua.page.evaluate(() => performance.clearResourceTimings());
+    const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
+    // Select table directly without including setup in the measured interaction.
+    await kupua.page.click('button[aria-label="Table view"]');
+    const initialEntries = await readTrace(kupua);
+    const starts = initialEntries.filter((entry) =>
+      entry.action === "density-swap" && entry.phase === "t_0"
+    );
+    expect(starts).toHaveLength(1);
+    expect(starts[0].interactionId).toBeTruthy();
+    const context = await appendDensityVisualPhases(kupua, starts[0].interactionId!);
+    context.routes = finishRouteCapture();
+    if (context.routes.length !== 1 || context.routes[0] !== "client-only") {
+      throw new Error(`PP6 unexpectedly used data routes: ${context.routes.join(", ")}`);
+    }
+    const entries = await readTrace(kupua);
+    const correlated = computeCorrelatedMetrics({
+      id: "PP6",
+      label: "density-swap (grid→table)",
+      action: "density-swap",
+      requiredPhases: ["t_first_visible_frame", "t_visual_settled"],
+      entries,
+    });
+    const metrics: PerceivedMetrics = {
+      ...correlated,
+      scenarioRevision: 2,
+      ...context,
+    };
+    console.log(`PP6 density-swap: ack=${metrics.dt_ack_ms}ms settled=${metrics.dt_visual_settled_ms}ms`);
+    const timing6 = await readStoreTiming(kupua, metrics.routes);
+    if (timing6) Object.assign(metrics, timing6);
+    emitMetrics(metrics);
+    expect(entries.some((e) => e.phase === "t_0")).toBe(true);
+  });
+
+  // ── PP7: Scrubber seek (click on track) ───────────────────────────────────
+  // Expected: <100 ms ack on click, <1 s first pixel.
+  // Only fires the seek path when total > SCROLL_MODE_THRESHOLD (~65k).
+  test("PP7: scrubber-seek — click track at ~50%", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
+    await expect(kupua.scrubber).toHaveAttribute("data-scrubber-mode", "seek");
+
+    // Click the scrubber track at ~50% position
+    const trackBox = await kupua.scrubber.boundingBox();
+    if (!trackBox) {
+      test.skip(true, "Scrubber track not visible");
+    }
+
+    await clearTrace(kupua);
+    await kupua.page.evaluate(() => performance.clearResourceTimings());
+    const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
+    await kupua.page.mouse.click(
+      trackBox!.x + trackBox!.width / 2,
+      trackBox!.y + trackBox!.height * 0.5,
+    );
+    const storeEntries = await readTrace(kupua);
+    const starts = storeEntries.filter((entry) =>
+      entry.action === "scrubber-seek" && entry.phase === "t_0" && entry.interactionId
+    );
+    expect(starts).toHaveLength(1);
+    const requestedPosition = (starts[0].payload as { pos?: number } | undefined)?.pos;
+    expect(requestedPosition).toEqual(expect.any(Number));
+    const context = await appendSeekVisualPhases(kupua, starts[0].interactionId!, requestedPosition!);
+    context.routes = finishRouteCapture();
+    const entries = await readTrace(kupua);
+    const correlated = computeCorrelatedMetrics({
+      id: "PP7",
+      label: "scrubber-seek (click 50%)",
+      action: "scrubber-seek",
+      requiredPhases: ["t_ack", "t_store_ready", "t_first_visible_frame", "t_visual_settled"],
+      entries,
+    });
+    const metrics: PerceivedMetrics = {
+      ...correlated,
+      scenarioRevision: 2,
+      ...context,
+    };
+    console.log(`PP7 scrubber-seek: ack=${metrics.dt_ack_ms}ms first_visible=${metrics.dt_first_visible_frame_ms}ms settled=${metrics.dt_visual_settled_ms}ms`);
+    const timing7 = await readStoreTiming(kupua, metrics.routes);
+    if (timing7) Object.assign(metrics, timing7);
+    const seekMeasures7 = await readSeekMeasures(kupua);
+    if (seekMeasures7.length > 0) metrics.seekMeasures = seekMeasures7;
+    emitMetrics(metrics);
+    expect(entries.some((e) => e.phase === "t_0")).toBe(true);
+  });
+
+  // ── PP7b: Scrubber drag-release (seek mode) ───────────────────────────────
+  // Same code path as PP7 but triggered by drag-release, not a point click.
+  // trace("scrubber-seek", "t_0") fires on pointerup only when hasMoved=true
+  // AND the result set is large enough to be in seek mode (>POSITION_MAP_THRESHOLD).
+  // Expected: same as PP7.
+  test("PP7b: scrubber-drag — drag-release in seek mode", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
+    await expect(kupua.scrubber).toHaveAttribute("data-scrubber-mode", "seek");
+
+    const trackLocator = kupua.page.locator('[data-testid="scrubber-track"]');
+    const thumbLocator = kupua.page.locator('[data-scrubber-thumb="true"]');
+    const trackBox = await trackLocator.boundingBox();
+    const thumbBox = await thumbLocator.boundingBox();
+    if (!trackBox || !thumbBox) {
+      test.skip(true, "Scrubber not visible");
+    }
+
+    // Grab the thumb centre and drag downward ~30% of the track height
+    const startX = thumbBox!.x + thumbBox!.width / 2;
+    const startY = thumbBox!.y + thumbBox!.height / 2;
+    const endY = trackBox!.y + trackBox!.height * 0.7;
+
+    await clearTrace(kupua);
+    await kupua.page.evaluate(() => performance.clearResourceTimings());
+    const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
+    await kupua.page.mouse.move(startX, startY);
+    await kupua.page.mouse.down();
+    // Move in small steps to ensure hasMoved=true
+    for (let y = startY; y < endY; y += 20) {
+      await kupua.page.mouse.move(startX, y);
+    }
+    await kupua.page.mouse.move(startX, endY);
+    await kupua.page.mouse.up();
+
+    const storeEntries = await readTrace(kupua);
+    const starts = storeEntries.filter((entry) =>
+      entry.action === "scrubber-seek" && entry.phase === "t_0" && entry.interactionId
+    );
+    expect(starts).toHaveLength(1);
+    const requestedPosition = (starts[0].payload as { pos?: number } | undefined)?.pos;
+    expect(requestedPosition).toEqual(expect.any(Number));
+    const context = await appendSeekVisualPhases(kupua, starts[0].interactionId!, requestedPosition!);
+    context.routes = finishRouteCapture();
+    const entries = await readTrace(kupua);
+    const correlated = computeCorrelatedMetrics({
+      id: "PP7b",
+      label: "scrubber-drag release (seek mode)",
+      action: "scrubber-seek",
+      requiredPhases: ["t_ack", "t_store_ready", "t_first_visible_frame", "t_visual_settled"],
+      entries,
+    });
+    const metrics: PerceivedMetrics = {
+      ...correlated,
+      scenarioRevision: 2,
+      ...context,
+    };
+    console.log(`PP7b scrubber-drag: ack=${metrics.dt_ack_ms}ms first_visible=${metrics.dt_first_visible_frame_ms}ms settled=${metrics.dt_visual_settled_ms}ms`);
+    const timing7b = await readStoreTiming(kupua, metrics.routes);
+    if (timing7b) Object.assign(metrics, timing7b);
+    const seekMeasures7b = await readSeekMeasures(kupua);
+    if (seekMeasures7b.length > 0) metrics.seekMeasures = seekMeasures7b;
+    emitMetrics(metrics);
+    expect(entries.some((e) => e.phase === "t_0" && e.action === "scrubber-seek")).toBe(true);
+  });
+
+  // ── PP7c: Scrubber click in buffer mode (small result set) ────────────────
+  // When total ≤ SCROLL_MODE_THRESHOLD (~1000), the scrubber click scrolls the
+  // DOM container directly — no ES round-trip. The browser oracle owns the
+  // correlated first-visible and visual-settled phases.
+  test("PP7c: scrubber-buffer — click track with small result set", async ({ kupua }) => {
+    // Use a CQL query known to return a small result set (buffer mode).
+    // `by:"David Young"` ~538 matches — same query as perceived-long QUERY_SCROLL.
+    const untilParam = STABLE_UNTIL ? `&until=${STABLE_UNTIL}` : "";
+    await kupua.page.goto(
+      `/search?nonFree=true&query=${encodeURIComponent('by:"David Young"')}${untilParam}`,
+    );
+    await kupua.waitForResults(15_000, "grid");
+
+    const filteredTotal = (await kupua.getStoreState()).total;
+    expect(filteredTotal).toBeGreaterThan(1);
+
+    // Wait for the full buffer fetch — when total ≤ SCROLL_MODE_THRESHOLD the
+    // store fetches ALL hits in a follow-up call. Until that completes,
+    // results.length < total and Scrubber.scrubberMode falls back to "seek"
+    // (the Scrubber's `bufferLength` prop is derived from `results.length`,
+    // not stored), which would make handleTrackClick emit "scrubber-seek".
+    await kupua.page.waitForFunction(
+      () => {
+        const s = (window as any).__kupua_store__?.getState();
+        return s && s.results && s.results.length >= s.total;
+      },
+      null,
+      { timeout: 10_000 },
+    );
+    await expect(kupua.scrubber).toHaveAttribute("data-scrubber-mode", "buffer");
+
+    const trackLocator = kupua.page.locator('[data-testid="scrubber-track"]');
+    const trackBox = await trackLocator.boundingBox();
+    if (!trackBox) {
+      test.skip(true, "Scrubber not visible");
+    }
+
+    // First scrubber interaction lazily fetches the sort distribution. Preload
+    // that setup before the measured client-only click so its ES request is not
+    // attributed to DOM scrolling.
+    await kupua.scrubber.hover();
+    await kupua.page.mouse.move(trackBox!.x + trackBox!.width / 2, trackBox!.y + 20);
+    await kupua.page.waitForFunction(
+      () => {
+        const state = (window as any).__kupua_store__?.getState();
+        return state?.sortDistribution !== null;
+      },
+      null,
+      { timeout: 15_000 },
+    );
+
+    await clearTrace(kupua);
+    await kupua.page.evaluate(() => performance.clearResourceTimings());
+    const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
+    await kupua.page.mouse.click(
+      trackBox!.x + trackBox!.width / 2,
+      trackBox!.y + trackBox!.height * 0.8,
+    );
+    const initialEntries = await readTrace(kupua);
+    const starts = initialEntries.filter((entry) =>
+      entry.action === "scrubber-scroll" && entry.phase === "t_0" && entry.interactionId
+    );
+    expect(starts).toHaveLength(1);
+    const requestedPosition = (starts[0].payload as { pos?: number } | undefined)?.pos;
+    expect(requestedPosition).toEqual(expect.any(Number));
+    const context = await appendBufferScrollVisualPhases(kupua, starts[0].interactionId!, requestedPosition!);
+    context.routes = finishRouteCapture();
+    if (context.routes.length !== 1 || context.routes[0] !== "client-only") {
+      throw new Error(`PP7c unexpectedly used data routes: ${context.routes.join(", ")}`);
+    }
+    const entries = await readTrace(kupua);
+    const correlated = computeCorrelatedMetrics({
+      id: "PP7c",
+      label: "scrubber-buffer (click, DOM scroll)",
+      action: "scrubber-scroll",
+      requiredPhases: ["t_first_visible_frame", "t_visual_settled"],
+      entries,
+    });
+    const metrics: PerceivedMetrics = {
+      ...correlated,
+      scenarioRevision: 2,
+      ...context,
+    };
+    console.log(`PP7c scrubber-buffer: ack=${metrics.dt_ack_ms}ms settled=${metrics.dt_visual_settled_ms}ms`);
+    const timing7c = await readStoreTiming(kupua, metrics.routes);
+    if (timing7c) Object.assign(metrics, timing7c);
+    const seekMeasures7c = await readSeekMeasures(kupua);
+    if (seekMeasures7c.length > 0) metrics.seekMeasures = seekMeasures7c;
+    emitMetrics(metrics);
+    expect(entries.some((e) => e.phase === "t_0" && e.action === "scrubber-scroll")).toBe(true);
+  });
+
+  // ── PP8: Search submit (warm — new text query from running session) ────────
+  // Measures the warm path: user is already on a results page, types a new
+  // query in the existing CqlSearchInput. The CQL web component dispatches
+  // a `queryChange` CustomEvent on debounce; SearchBar.handleQueryChange
+  // catches it, fires trace("search", "t_0", { source: "debounced-input" }),
+  // then calls updateSearch() → URL → store.search().
+  //
+  // We simulate the keystroke by dispatching the same `queryChange` event
+  // the cql-input would emit. This is faithful to the warm path because:
+  //   - the listener is the same (SearchBar's handleQueryChange wrapper)
+  //   - the trace t_0 fires from the same call site
+  //   - the navigate → useUrlSearchSync → store.search() chain runs identically
+  // What it skips: ProseMirror keystroke handling and CQL's own debounce.
+  // Those happen *before* our t_0, so omitting them doesn't bias the metric.
+  // Expected: <100ms ack, <1.5s first pixel, <3s settle.
+  test("PP8: search-submit — warm query (sport) from existing session", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
+
+    await clearTrace(kupua);
+    await kupua.page.evaluate(() => performance.clearResourceTimings());
+    const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
+    await kupua.page.evaluate(() => {
+      const cql = document.querySelector("cql-input");
+      if (!cql) throw new Error("cql-input not found");
+      cql.dispatchEvent(new CustomEvent("queryChange", { detail: { queryStr: "sport" } }));
+    });
+    // Completion persists even when the debounced search starts and finishes between polls.
+    await kupua.page.waitForFunction(
+      () => {
+        const state = (window as any).__kupua_store__?.getState();
+        const entries = ((window as any).__perceivedTrace__ ?? []) as TraceEntry[];
+        const starts = entries.filter((entry) => entry.action === "search" && entry.phase === "t_0" && entry.interactionId);
+        return starts.length === 1
+          && entries.some((entry) => entry.action === "search" && entry.phase === "t_store_ready"
+            && entry.interactionId === starts[0].interactionId)
+          && state?.params.query === "sport" && !state.loading && !state.error
+          && state.sortAroundFocusStatus === null && !state.aggLoading;
+      },
+      null,
+      { timeout: 30_000 },
+    );
+
+    const storeEntries = await readTrace(kupua);
+    const starts = storeEntries.filter((entry) =>
+      entry.action === "search" && entry.phase === "t_0" && entry.interactionId
+    );
+    expect(starts).toHaveLength(1);
+    expect(starts[0].interactionId).toBeTruthy();
+    const context = await appendQueryVisualPhases(kupua, starts[0].interactionId!);
+    context.routes = finishRouteCapture();
+    const entries = await readTrace(kupua);
+    const correlated = computeCorrelatedMetrics({
+      id: "PP8",
+      label: "post-CQL warm search (sport)",
+      action: "search",
+      requiredPhases: ["t_ack", "t_store_ready", "t_first_visible_frame", "t_visual_settled"],
+      entries,
+    });
+    const metrics: PerceivedMetrics = {
+      ...correlated,
+      scenarioRevision: 3,
+      ...context,
+    };
+    console.log(
+      `PP8 search-submit: ack=${metrics.dt_ack_ms}ms first_visible=${metrics.dt_first_visible_frame_ms}ms settled=${metrics.dt_visual_settled_ms}ms`,
+    );
+    const timing8 = await readStoreTiming(kupua, metrics.routes);
+    if (timing8) Object.assign(metrics, timing8);
+    emitMetrics(metrics);
+    expect(entries.some((e) => e.phase === "t_0" && e.action === "search")).toBe(true);
+  });
+
+  // ── PP9: CQL chip remove ───────────────────────────────────────────────────
+  test("PP9: cql-chip-remove — real last-chip delete preserves viewport anchor", async ({ kupua }) => {
+    const untilParam = STABLE_UNTIL ? `&until=${STABLE_UNTIL}` : "";
+    await kupua.page.goto(`/search?nonFree=true&query=${encodeURIComponent("subject:sport")}${untilParam}`);
+    await kupua.waitForResults();
+
+    const container = kupua.page.locator('[aria-label="Image results grid"]');
+    await container.evaluate((element) => { element.scrollTop = 1200; });
+    await kupua.page.waitForTimeout(800);
+    const anchor = await captureChipRemovalAnchor(kupua);
+
+    await clearTrace(kupua);
+    await kupua.page.evaluate(() => performance.clearResourceTimings());
+    const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
+    const deleteHandle = kupua.page.locator(".Cql__ChipWrapperDeleteHandle");
+    await expect(deleteHandle).toHaveCount(1);
+    await deleteHandle.click();
+
+    const storeEntries = await readTrace(kupua);
+    const starts = storeEntries.filter((entry) =>
+      entry.action === "chip-remove" && entry.phase === "t_0"
+    );
+    expect(starts).toHaveLength(1);
+    expect(starts[0].interactionId).toBeTruthy();
+    const context = await appendChipRemovalVisualPhases(kupua, starts[0].interactionId!, anchor);
+    const routes = finishRouteCapture();
+    const entries = await readTrace(kupua);
+    const correlated = computeCorrelatedMetrics({
+      id: "PP9",
+      label: "cql-chip-remove (subject:sport→empty, anchor preserved)",
+      action: "chip-remove",
+      requiredPhases: ["t_ack", "t_store_ready", "t_first_visible_frame", "t_visual_settled"],
+      entries,
+    });
+    const metrics: PerceivedMetrics = {
+      ...correlated,
+      scenarioRevision: 2,
+      ...context,
+      routes,
+    };
+    console.log(
+      `PP9 cql-chip-remove: ack=${metrics.dt_ack_ms}ms first_visible=${metrics.dt_first_visible_frame_ms}ms settled=${metrics.dt_visual_settled_ms}ms`,
+    );
+    const timing9 = await readStoreTiming(kupua, metrics.routes);
+    if (timing9) Object.assign(metrics, timing9);
+    emitMetrics(metrics);
+  });
+
+  // ── PP10: Position-map background fetch ────────────────────────────────────
+  test("PP10: position-map — background fetch after medium-size search", async ({ kupua }) => {
+    const untilParam = STABLE_UNTIL ? `&until=${STABLE_UNTIL}` : "";
+    await clearTrace(kupua);
+    await kupua.page.evaluate(() => performance.clearResourceTimings());
+    const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
+    await kupua.page.goto(
+      `/search?nonFree=true&query=${encodeURIComponent("uploader:avalonred")}${untilParam}`,
+    );
+    await kupua.waitForResults(15_000, "grid");
+    await kupua.page.waitForFunction(
+      () => {
+        const s = (window as any).__kupua_store__?.getState();
+        return s && !s.positionMapLoading && s.positionMap !== null;
+      },
+      null,
+      { timeout: 30_000 },
+    );
+
+    const entries = await readTrace(kupua);
+    const correlated = computeCorrelatedMetrics({
+      id: "PP10",
+      label: "position-map background publication (fixed indexed context)",
+      action: "position-map",
+      requiredPhases: ["t_store_ready"],
+      entries,
+    });
+    const context = await kupua.page.evaluate((stableUntil: string) => {
+      const state = (window as any).__kupua_store__?.getState();
+      if (!state || state.loading || state.error || state.positionMapLoading || !state.positionMap) {
+        throw new Error("PP10 position map is not published in settled store state");
+      }
+      if (state.params.query !== "uploader:avalonred" || state.params.until !== stableUntil) {
+        throw new Error("PP10 position map belongs to the wrong search context");
+      }
+      if (state.total <= 1_000 || state.total > 65_000 || state.positionMap.length !== state.total) {
+        throw new Error("PP10 position map does not exactly cover an indexed result context");
+      }
+      return {
+        settledTotal: state.total,
+        resultRegime: "indexed" as const,
+        mapEntryCount: state.positionMap.length,
+      };
+    }, STABLE_UNTIL);
+    const metrics: PerceivedMetrics = {
+      ...correlated,
+      scenarioRevision: 2,
+      metricClass: "background-diagnostic",
+      ...context,
+      routes: finishRouteCapture(),
+    };
+    console.log(
+      `PP10 position-map diagnostic: store_ready=${metrics.dt_store_ready_ms}ms entries=${metrics.mapEntryCount}`,
+    );
+    const timing10 = await readStoreTiming(kupua, metrics.routes);
+    if (timing10) Object.assign(metrics, timing10);
+    emitMetrics(metrics);
+  });
+
+  // ── PP11: Deep browser Back restoration ──────────────────────────────────
+  test("PP11: history-back — restore exact deep focused anchor", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
+    await kupua.page.evaluate(async () => {
+      const store = (window as any).__kupua_store__;
+      await store.getState().seek(800, "perf-history-setup");
+    });
+    await kupua.page.waitForFunction(() => {
+      const state = (window as any).__kupua_store__?.getState?.();
+      return state && !state.loading && state.bufferOffset > 500 && state.results.length > 0;
+    }, null, { timeout: 15_000 });
+
+    await kupua.focusNthItem(0);
+    const setup = await kupua.page.evaluate(() => {
+      const globalObject = window as any;
+      const state = (window as any).__kupua_store__?.getState?.();
+      const container = document.querySelector<HTMLElement>('[aria-label="Image results grid"]');
+      const anchorImageId = state?.focusedImageId;
+      const item = anchorImageId
+        ? container?.querySelector<HTMLElement>(`[data-image-id="${CSS.escape(anchorImageId)}"]`)
+        : null;
+      if (!state || !container || !anchorImageId || !item) {
+        throw new Error("PP11 deep focused setup is unavailable");
+      }
+      const containerRect = container.getBoundingClientRect();
+      const itemRect = item.getBoundingClientRect();
+      const globalPosition = state.imagePositions.get(anchorImageId);
+      if (
+        globalPosition === undefined
+        || itemRect.bottom <= containerRect.top
+        || itemRect.top >= containerRect.bottom
+      ) {
+        throw new Error("PP11 deep focused setup is not visibly positioned");
+      }
+      const browserLocalSetup: DeepHistorySetup = {
+        anchorImageId,
+        globalPosition,
+        bufferOffset: state.bufferOffset,
+        bufferLength: state.results.length,
+        relativeTop: itemRect.top - containerRect.top,
+        viewportHeight: containerRect.height,
+      };
+      globalObject.__pp11HistorySetup__ = browserLocalSetup;
+      return {
+        globalPosition,
+        bufferOffset: state.bufferOffset,
+        bufferLength: state.results.length,
+      };
+    });
+    expect(setup.bufferOffset).toBeGreaterThan(500);
+
+    const alternateGeneration = await kupua.page.evaluate(({ stableUntil }) => {
+      const globalObject = window as any;
+      const getLifecycle = globalObject.__kupua_getSearchLifecycle__;
+      const previousGeneration = getLifecycle().started;
+      globalObject.__kupua_markPushSnapshot__?.();
+      globalObject.__kupua_markUserNav__?.();
+      globalObject.__kupua_router__.navigate({
+        to: "/search",
+        search: {
+          nonFree: "true",
+          query: "credit:Reuters",
+          ...(stableUntil ? { until: stableUntil } : {}),
+        },
+        state: { kupuaKey: crypto.randomUUID() },
+      });
+      return previousGeneration;
+    }, { stableUntil: STABLE_UNTIL });
+    await kupua.page.waitForFunction((previousGeneration: number) => {
+      const lifecycle = (window as any).__kupua_getSearchLifecycle__?.();
+      const state = (window as any).__kupua_store__?.getState?.();
+      return lifecycle?.started > previousGeneration
+        && lifecycle.settled === lifecycle.started
+        && !state?.loading
+        && state?.params?.query === "credit:Reuters";
+    }, alternateGeneration, { timeout: 15_000 });
+    expect((await kupua.getStoreState()).bufferOffset).toBe(0);
+
+    await clearTrace(kupua);
+    await kupua.page.evaluate(() => performance.clearResourceTimings());
+    const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
+    let context;
+    let routes: string[] = ["client-only"];
+    try {
+      const armed = await beginDeepHistoryBack(kupua);
+      context = await appendDeepHistoryBackVisualPhases(
+        kupua,
+        armed.interactionId,
+        armed.previousGeneration,
+      );
+      routes = finishRouteCapture();
+    } finally {
+      routes = finishRouteCapture();
+      await kupua.page.evaluate(() => {
+        const globalObject = window as any;
+        globalObject.__pp11HistoryProbe__?.unsubscribe?.();
+        delete globalObject.__pp11HistoryProbe__;
+        delete globalObject.__pp11HistorySetup__;
+      });
+    }
+    const entries = await readTrace(kupua);
+    const correlated = computeCorrelatedMetrics({
+      id: "PP11",
+      label: "history-back (exact deep focused anchor)",
+      action: "history-back",
+      requiredPhases: ["t_ack", "t_store_ready", "t_first_visible_frame", "t_visual_settled"],
+      entries,
+    });
+    const metrics: PerceivedMetrics = {
+      ...correlated,
+      scenarioRevision: 1,
+      ...context,
+      routes,
+    };
+    console.log(
+      `PP11 history-back: ack=${metrics.dt_ack_ms}ms store=${metrics.dt_store_ready_ms}ms `
+      + `visible=${metrics.dt_first_visible_frame_ms}ms settled=${metrics.dt_visual_settled_ms}ms `
+      + `drift=${metrics.anchorDriftPx}px`,
+    );
+    const timing11 = await readStoreTiming(kupua, metrics.routes);
+    if (timing11) Object.assign(metrics, timing11);
+    emitMetrics(metrics);
+  });
+
+  // ── PP6b: Density swap — mid-buffer depth ────────────────────────────────
+  // Same action as PP6 but the buffer is loaded and the viewport is scrolled
+  // to the middle of the loaded results. Owner reports density swap "feels
+  // fine" — this variant confirms that's also true mid-buffer.
+  test("PP6b: density-swap-mid — grid ↔ table at mid-buffer scroll", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
+    const setup = await settleMidBufferSetup(kupua);
+
+    await clearTrace(kupua);
+    await kupua.page.evaluate(() => performance.clearResourceTimings());
+    const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
+    await kupua.page.click('button[aria-label="Table view"]');
+    const initialEntries = await readTrace(kupua);
+    const starts = initialEntries.filter((entry) =>
+      entry.action === "density-swap" && entry.phase === "t_0" && entry.interactionId
+    );
+    expect(starts).toHaveLength(1);
+    const context = await appendDensityVisualPhases(kupua, starts[0].interactionId!);
+    context.routes = finishRouteCapture();
+    const entries = await readTrace(kupua);
+    const correlated = computeCorrelatedMetrics({
+      id: "PP6b",
+      label: "density-swap-mid (grid→table, mid-buffer)",
+      action: "density-swap",
+      requiredPhases: ["t_first_visible_frame", "t_visual_settled"],
+      entries,
+    });
+    const metrics: PerceivedMetrics = {
+      ...correlated,
+      scenarioRevision: 2,
+      ...setup,
+      ...context,
+    };
+    console.log(`PP6b density-swap-mid: ack=${metrics.dt_ack_ms}ms settled=${metrics.dt_visual_settled_ms}ms`);
+    const timing6b = await readStoreTiming(kupua, metrics.routes);
+    if (timing6b) Object.assign(metrics, timing6b);
+    emitMetrics(metrics);
+    expect(entries.some((e) => e.phase === "t_0")).toBe(true);
+  });
+
+  // ── PP6c: Density swap — deep-buffer depth ────────────────────────────────
+  // Same as PP6b but scrolled to near the end of the loaded buffer.
+  // The density change at deep scroll is the worst case for DOM churn and
+  // any abortExtends cooldown that may be in progress.
+  test("PP6c: density-swap-deep — grid ↔ table at deep-buffer scroll", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
+    const setup = await settlePostEvictionSetup(kupua);
+
+    await clearTrace(kupua);
+    await kupua.page.evaluate(() => performance.clearResourceTimings());
+    const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
+    await kupua.page.click('button[aria-label="Table view"]');
+    const initialEntries = await readTrace(kupua);
+    const starts = initialEntries.filter((entry) =>
+      entry.action === "density-swap" && entry.phase === "t_0" && entry.interactionId
+    );
+    expect(starts).toHaveLength(1);
+    const context = await appendDensityVisualPhases(kupua, starts[0].interactionId!);
+    context.routes = finishRouteCapture();
+    const entries = await readTrace(kupua);
+    const correlated = computeCorrelatedMetrics({
+      id: "PP6c",
+      label: "density-swap-post-eviction (grid→table)",
+      action: "density-swap",
+      requiredPhases: ["t_first_visible_frame", "t_visual_settled"],
+      entries,
+    });
+    const metrics: PerceivedMetrics = {
+      ...correlated,
+      scenarioRevision: 2,
+      ...setup,
+      ...context,
+    };
+    console.log(`PP6c density-swap-deep: ack=${metrics.dt_ack_ms}ms settled=${metrics.dt_visual_settled_ms}ms`);
+    const timing6c = await readStoreTiming(kupua, metrics.routes);
+    if (timing6c) Object.assign(metrics, timing6c);
+    emitMetrics(metrics);
+    expect(entries.some((e) => e.phase === "t_0")).toBe(true);
+  });
+});

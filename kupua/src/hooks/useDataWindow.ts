@@ -1,0 +1,578 @@
+/**
+ * Data window hook — the shared interface between the search store and view
+ * components (ImageTable, ImageGrid, ImageDetail).
+ *
+ * ## Why this exists
+ *
+ * This hook mediates between the search store (which manages a windowed buffer
+ * of ES results) and view components (which render them). It provides:
+ *
+ * 1. **Buffer-aware data access** — `getImage(index)` accepts an index and
+ *    returns the image, or undefined if that slot hasn't been loaded.
+ *    In normal mode, indices are buffer-local. In two-tier mode, indices
+ *    are global (the virtualizer spans all `total` items).
+ *
+ * 2. **Edge detection + extend triggers** — `reportVisibleRange(start, end)`
+ *    tells the hook which indices are on screen. When the viewport
+ *    approaches the buffer boundaries, the hook triggers `extendForward` or
+ *    `extendBackward` to fetch more data.
+ *
+ * 3. **Density-independent API** — table, grid, and image detail all consume
+ *    the same hook. Switching density swaps the render component; the data
+ *    window, focus, and buffer state persist.
+ *
+ * ## Buffer model
+ *
+ * The store holds a fixed-capacity buffer (`results[]`, max ~1000 entries)
+ * with `bufferOffset` mapping buffer[0] to a global position.
+ *
+ * ### Normal mode (`twoTier = false`)
+ * Views work with buffer-local indices (0 to results.length). When they need
+ * global positions (e.g. for the image counter "X of Y"), they add `bufferOffset`.
+ *
+ * ### Two-tier mode (`twoTier = true`, when total is in the position-map-eligible range)
+ * `virtualizerCount = total`, so the scroll container spans all items.
+ * Indices from the virtualizer are global (0..total-1). `getImage()` maps
+ * global→buffer-local internally. Cells outside the buffer show skeletons.
+ * The scrubber drag directly scrolls the container (like a real scrollbar).
+ */
+
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { getSearchGeneration, useSearchStore } from "@/stores/search-store";
+import { buildSearchKey } from "@/lib/image-offset-cache";
+import { getScrollContainer } from "@/lib/scroll-container-ref";
+import { electViewportAnchor } from "@/lib/viewport-anchor-geometry";
+import { isTwoTierFromTotal } from "@/lib/two-tier";
+import {
+  PAGE_SIZE,
+  EXTEND_THRESHOLD,
+  VELOCITY_EMA_ALPHA,
+  VELOCITY_LOOKAHEAD_MS,
+  VELOCITY_IDLE_RESET_MS,
+} from "@/constants/tuning";
+import type { Image } from "@/types/image";
+
+// ---------------------------------------------------------------------------
+// Velocity-aware forward-extend trigger
+//
+// Today the forward extend fires when the viewport's endIndex is within
+// EXTEND_THRESHOLD items of the buffer end. At sustained fast wheel velocity
+// the user eats that headroom in less than the ES round-trip (~100-500ms),
+// so the browser pins scrollTop at the bottom of the buffer until the
+// extend completes. To mitigate this, we track an EMA-smoothed velocity
+// (items/ms) and predict where the viewport will be in LOOKAHEAD_MS. The
+// effective forward threshold widens with velocity, capped at PAGE_SIZE
+// (no benefit beyond "one fetch in flight").
+//
+// Forward-only by design. Backward extends pair with prepend compensation
+// — the central swimming risk — and we leave them strictly alone.
+//
+// Constants live in constants/tuning.ts.
+// ---------------------------------------------------------------------------
+
+/** Module-level velocity state. Reset on idle gap > VELOCITY_IDLE_RESET_MS. */
+let _lastReportTime = 0;
+let _lastEndIndex = 0;
+/** EMA-smoothed velocity in items/ms. Signed; negative = scrolling up. */
+let _velocityEma = 0;
+export interface ViewportVelocitySample {
+  scrollTop: number;
+  viewportHeight: number;
+  layout: object;
+}
+
+let _velocityContext: {
+  owner: object;
+  results: readonly (Image | undefined)[];
+  generation: number;
+  total: number;
+  offset: number;
+  sample: ViewportVelocitySample;
+} | null = null;
+
+/**
+ * Compute the EMA-smoothed forward velocity (items/ms) given the current
+ * viewport endIndex and timestamp. Pure — separated for testability.
+ */
+export function _updateForwardVelocity(
+  endIndex: number,
+  now: number,
+  prevTime: number,
+  prevEndIndex: number,
+  prevEma: number,
+): number {
+  const dt = now - prevTime;
+  if (prevTime === 0 || dt <= 0 || dt > VELOCITY_IDLE_RESET_MS) {
+    // Fresh start, idle reset, or non-monotonic clock — drop the sample.
+    return 0;
+  }
+  const instant = (endIndex - prevEndIndex) / dt;
+  return VELOCITY_EMA_ALPHA * instant + (1 - VELOCITY_EMA_ALPHA) * prevEma;
+}
+
+/**
+ * Compute the effective forward-extend threshold given current EMA velocity.
+ * Returns at least EXTEND_THRESHOLD; widens proportionally to predicted
+ * forward travel during one extend round-trip; caps at PAGE_SIZE.
+ *
+ * Pure — separated for testability.
+ */
+export function forwardExtendThreshold(velocityEma: number): number {
+  // Only widen on positive (downward) velocity. Negative (scrolling up)
+  // gets the base threshold — the forward extend isn't the relevant trigger.
+  const lookaheadItems = Math.max(0, velocityEma) * VELOCITY_LOOKAHEAD_MS;
+  return Math.min(PAGE_SIZE, EXTEND_THRESHOLD + lookaheadItems);
+}
+
+/** Test-only: reset velocity state. */
+export function _resetForwardVelocity(): void {
+  _lastReportTime = 0;
+  _lastEndIndex = 0;
+  _velocityEma = 0;
+  _velocityContext = null;
+}
+
+/**
+ * Debounce delay for view-owned indexed refills (ms). User browsing instead
+ * queues a store-owned destination, so disposing the old view cancels its
+ * maintenance timer without losing the user's requested position.
+ */
+const SCROLL_SEEK_DEBOUNCE_MS = 200;
+
+/** Module-level debounce timer for the reporting view's maintenance refill. */
+let _scrollSeek: { owner: object; cancel: () => void } | null = null;
+
+// ---------------------------------------------------------------------------
+// Viewport anchor — image nearest the usable viewport centre.
+//
+// Used by density-focus and sort-around-focus as a fallback when
+// focusedImageId is null. Elected lazily from rendered DOM geometry only
+// when a semantic transition asks for it; ordinary scrolling does no layout
+// reads. NOT a React subscription.
+// ---------------------------------------------------------------------------
+
+/**
+ * Get the current viewport-centre image ID. Returns null if no images
+ * have been rendered yet. Used as a fallback scroll anchor when the
+ * user hasn't explicitly focused an image.
+ */
+export function getViewportAnchorId(): string | null {
+  const container = getScrollContainer();
+  if (!container) return null;
+
+  const containerRect = container.getBoundingClientRect();
+  const tableHeader = container.querySelector<HTMLElement>("[data-table-header]");
+  const headerRect = tableHeader?.getBoundingClientRect();
+  const candidates = Array.from(
+    container.querySelectorAll<HTMLElement>("[data-image-id]"),
+    (element) => ({
+      id: element.dataset.imageId ?? "",
+      rect: element.getBoundingClientRect(),
+    }),
+  ).filter((candidate) => candidate.id !== "");
+
+  return electViewportAnchor(containerRect, candidates, {
+    usableTop: headerRect ? Math.max(containerRect.top, headerRect.bottom) : containerRect.top,
+    verticalOnly: !!tableHeader,
+  });
+}
+
+/**
+ * Get the IDs of images currently visible in the viewport, ordered by
+ * distance from the viewport centre (nearest first). Excludes the
+ * viewport anchor itself (it's already the primary search target).
+ * Used by phantom focus promotion to restrict neighbour fallback to
+ * images the user actually saw.
+ */
+export function getVisibleImageIds(): string[] {
+  const { results, bufferOffset, total } = useSearchStore.getState();
+  const twoTier = isTwoTierFromTotal(total);
+  const ids: string[] = [];
+  const anchorId = getViewportAnchorId();
+  const centre = Math.round((_visibleStart + _visibleEnd) / 2);
+  const half = Math.ceil((_visibleEnd - _visibleStart) / 2) + 1;
+
+  for (let distance = 0; distance <= half; distance++) {
+    const indices = distance === 0
+      ? [centre]
+      : [centre + distance, centre - distance];
+    for (const i of indices) {
+      if (i < _visibleStart || i > _visibleEnd) continue;
+      // In two-tier mode indices are global; in normal mode buffer-local.
+      const localIdx = twoTier ? i - bufferOffset : i;
+      if (localIdx < 0 || localIdx >= results.length) continue;
+      const img = results[localIdx];
+      if (img?.id && img.id !== anchorId) ids.push(img.id);
+    }
+  }
+  return ids;
+}
+
+// ---------------------------------------------------------------------------
+// Visible-range external store (module-level, no React re-renders on write)
+// ---------------------------------------------------------------------------
+
+/** Current buffer-local visible start index (set by reportVisibleRange). */
+let _visibleStart = 0;
+/** Current buffer-local visible end index. */
+let _visibleEnd = 0;
+/** Cached snapshot object — replaced only when values change. */
+let _visibleSnapshot = { start: 0, end: 0 };
+/** Listeners for useSyncExternalStore. */
+const _visibleListeners = new Set<() => void>();
+
+function _notifyVisibleListeners() {
+  _visibleSnapshot = { start: _visibleStart, end: _visibleEnd };
+  for (const fn of _visibleListeners) fn();
+}
+
+function _subscribeVisible(listener: () => void) {
+  _visibleListeners.add(listener);
+  return () => { _visibleListeners.delete(listener); };
+}
+
+function _getVisibleSnapshot(): { start: number; end: number } {
+  return _visibleSnapshot;
+}
+
+/**
+ * React hook that returns the current buffer-local visible range.
+ * Re-renders only when the range actually changes (i.e. on scroll).
+ * Used by the Scrubber to track thumb position without polling.
+ */
+export function useVisibleRange(): { start: number; end: number } {
+  return useSyncExternalStore(_subscribeVisible, _getVisibleSnapshot, _getVisibleSnapshot);
+}
+
+/**
+ * Imperatively reset the visible range to 0. Call this alongside
+ * programmatic scroll resets (e.g. logo click) to ensure the
+ * Scrubber thumb immediately reflects position 0 without waiting
+ * for a scroll event.
+ */
+export function resetVisibleRange(): void {
+  _scrollSeek?.cancel();
+  if (_visibleStart !== 0 || _visibleEnd !== 0) {
+    _visibleStart = 0;
+    _visibleEnd = 0;
+    _notifyVisibleListeners();
+  }
+}
+
+interface DataWindow {
+  /** Windowed buffer of loaded images (may have undefined gaps during loading). */
+  results: (Image | undefined)[];
+  /** Global offset of buffer[0] in the full result set. */
+  bufferOffset: number;
+  /** Total number of matching images in ES (may be >> buffer size). */
+  total: number;
+  /** Number of items the virtualizer should render. In two-tier mode = total; otherwise = buffer length. */
+  virtualizerCount: number;
+  /** Whether a search or seek is currently in flight. */
+  loading: boolean;
+  /** Seek to a global offset — clear buffer and refill at that position. */
+  seek: (globalOffset: number) => Promise<void>;
+  /** @deprecated Alias for extendForward — kept for view compatibility. */
+  loadMore: () => Promise<void>;
+  /** The currently focused image ID (single, ephemeral). */
+  focusedImageId: string | null;
+  /** Set the focused image ID. */
+  setFocusedImageId: (id: string | null) => void;
+  /**
+   * Report the currently visible index range. In normal mode, indices are
+   * buffer-local. In two-tier mode, indices are global (0..total-1).
+   * The hook detects proximity to buffer edges and triggers extend/seek.
+   */
+  reportVisibleRange: (startIndex: number, endIndex: number, userInitiated?: boolean,
+    velocitySample?: ViewportVelocitySample, rangeStartMatchesViewport?: boolean, rangeEndMatchesViewport?: boolean) => void;
+  /**
+   * Get the image at an index, or undefined if not loaded.
+   * In normal mode: buffer-local index. In two-tier mode: global index
+   * (returns undefined for positions outside the buffer window).
+   */
+  getImage: (index: number) => Image | undefined;
+  /**
+   * Find the index of an image by ID.
+   * In normal mode: buffer-local index, or -1 if not in the buffer.
+   * In two-tier mode: global index, or -1 if not in the position map.
+   */
+  findImageIndex: (imageId: string) => number;
+  /**
+   * Whether two-tier virtualisation is active. When true, the virtualizer
+   * spans all `total` items (not just the buffer), indices are global,
+   * and the scrubber drag directly scrolls the container.
+   * Derived from total range (`SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD`).
+   */
+  twoTier: boolean;
+}
+
+/**
+ * Provides the data window for view components.
+ *
+ * Usage:
+ * ```ts
+ * const {
+ *   results, total, bufferOffset, virtualizerCount, loading,
+ *   loadMore,
+ *   focusedImageId, setFocusedImageId,
+ *   reportVisibleRange, getImage, findImageIndex,
+ * } = useDataWindow();
+ * ```
+ */
+export function useDataWindow(): DataWindow {
+  const ownerRef = useRef({ mounted: true });
+  const scopeRef = useRef<{ params: object; key: string } | null>(null);
+  useEffect(() => {
+    const owner = ownerRef.current;
+    owner.mounted = true;
+    return () => {
+      owner.mounted = false;
+      if (_scrollSeek?.owner === owner) _scrollSeek.cancel();
+      if (_velocityContext?.owner === owner) _resetForwardVelocity();
+    };
+  }, []);
+  const results = useSearchStore((s) => s.results);
+  const bufferOffset = useSearchStore((s) => s.bufferOffset);
+  const total = useSearchStore((s) => s.total);
+  const loading = useSearchStore((s) => s.loading);
+  const extendForward = useSearchStore((s) => s.extendForward);
+  const extendBackward = useSearchStore((s) => s.extendBackward);
+  const seek = useSearchStore((s) => s.seek);
+  const loadMore = useSearchStore((s) => s.loadMore);
+  const focusedImageId = useSearchStore((s) => s.focusedImageId);
+  const setFocusedImageId = useSearchStore((s) => s.setFocusedImageId);
+  // imagePositions is NOT subscribed reactively here — findImageIndex reads
+  // it imperatively via getState() so that findImageIndex stays stable ([] deps).
+  // A stable findImageIndex prevents the sort-around-focus useLayoutEffect in
+  // useScrollEffects from re-firing on every extend (audit F-05 C5, G-01).
+
+  // ---------------------------------------------------------------------------
+  // Two-tier virtualisation
+  //
+  // Two-tier mode is active when total is in the position-map-eligible range
+  // (SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD). The virtualizer
+  // spans all `total` items from the very first render — indices are global,
+  // cells outside the buffer show skeletons, the buffer slides via extends
+  // and seeks.
+  //
+  // IMPORTANT: twoTier is derived from total, NOT from positionMap being
+  // loaded. The position map is a performance optimization (faster seeks);
+  // twoTier is the coordinate-space decision. Deriving from positionMap
+  // caused a late coordinate-space flip when the map arrived after a seek
+  // (scrollHeight jumped from ~13k to ~2.6M, scrollTop stayed put → all
+  // cells showed skeletons forever). By basing on total, the coordinate
+  // space is stable from frame 1.
+  //
+  // When twoTier is false (total ≤ SCROLL_MODE_THRESHOLD or > threshold),
+  // everything is identical to the pre-two-tier behaviour — buffer-local
+  // indices, buffer-length virtualizer count, buffer-mode scrubber.
+  // ---------------------------------------------------------------------------
+  const twoTier = useSearchStore((s) => isTwoTierFromTotal(s.total));
+
+  // In two-tier mode, the virtualizer spans all items. In normal mode, just
+  // the buffer length.
+  const virtualizerCount = twoTier ? total : results.length;
+
+  // Use refs for values needed in the callback to keep it stable
+  const bufferOffsetRef = useRef(bufferOffset);
+  bufferOffsetRef.current = bufferOffset;
+  const resultsLenRef = useRef(results.length);
+  resultsLenRef.current = results.length;
+  const totalRef = useRef(total);
+  totalRef.current = total;
+  const twoTierRef = useRef(twoTier);
+  twoTierRef.current = twoTier;
+  const seekRef = useRef(seek);
+  seekRef.current = seek;
+
+  const reportVisibleRange = useCallback(
+    (startIndex: number, endIndex: number, userInitiated = false, velocitySample?: ViewportVelocitySample,
+      rangeStartMatchesViewport = true, rangeEndMatchesViewport = true) => {
+      if (!ownerRef.current.mounted) return;
+      const offset = bufferOffsetRef.current;
+      const len = resultsLenRef.current;
+      const t = totalRef.current;
+      const isTwoTier = twoTierRef.current;
+
+      // Update module-level visible range for Scrubber (useSyncExternalStore)
+      if (startIndex !== _visibleStart || endIndex !== _visibleEnd) {
+        _visibleStart = startIndex;
+        _visibleEnd = endIndex;
+        _notifyVisibleListeners();
+      }
+
+      // Velocity-aware adaptive forward-extend threshold.
+      // Tracks EMA of items/ms (forward velocity) and widens the trigger
+      // threshold so a fast wheel/trackpad burst fires extendForward early
+      // enough that the round-trip completes before the viewport hits the
+      // buffer's bottom. Forward-only — backward extend keeps the static
+      // EXTEND_THRESHOLD because prepend compensation is the swimming risk.
+      const now = performance.now();
+      if (velocitySample) {
+        const state = useSearchStore.getState();
+        const generation = getSearchGeneration();
+        const previous = _velocityContext;
+        const continuous = previous?.owner === ownerRef.current && previous.results === state.results &&
+          previous.generation === generation && previous.total === t && previous.offset === offset &&
+          previous.sample.viewportHeight === velocitySample.viewportHeight &&
+          previous.sample.layout === velocitySample.layout;
+        _velocityEma = continuous ? _updateForwardVelocity(
+          previous.sample.scrollTop === velocitySample.scrollTop ? _lastEndIndex : endIndex,
+          now, _lastReportTime, _lastEndIndex, _velocityEma,
+        ) : 0;
+        _lastReportTime = now;
+        _lastEndIndex = endIndex;
+        _velocityContext = { owner: ownerRef.current, results: state.results, generation, total: t, offset, sample: velocitySample };
+      } else {
+        _resetForwardVelocity();
+      }
+      const fwdThreshold = forwardExtendThreshold(_velocityEma);
+
+      if (isTwoTier) {
+        // --- Two-tier mode: indices are global (0..total-1) ---
+        // Extend triggers use buffer-relative thresholds:
+        // fire only when the viewport overlaps or is near the buffer.
+        // When viewport is entirely outside the buffer, fire a debounced
+        // seek to reposition the buffer — extends can't bridge the gap.
+        const globalStart = startIndex;
+        const globalEnd = endIndex;
+
+        const viewportOverlapsOrNearBuffer =
+          globalEnd > offset - EXTEND_THRESHOLD &&
+          globalStart < offset + len + EXTEND_THRESHOLD;
+
+        const navigation = useSearchStore.getState()._browseNavigation;
+        if (userInitiated && (!viewportOverlapsOrNearBuffer || navigation)) {
+          _scrollSeek?.cancel();
+          useSearchStore.getState().queueBrowsePosition(globalStart);
+          return;
+        }
+        if (navigation) return;
+
+        if (viewportOverlapsOrNearBuffer) {
+          // Cancel any pending scroll-triggered seek — the viewport is
+          // back near the buffer, extends can handle it.
+          _scrollSeek?.cancel();
+          // Near the end of the buffer → extend forward
+          if (globalEnd > offset + len - fwdThreshold && offset + len < t) {
+            extendForward();
+          }
+          // Near the start of the buffer → extend backward
+          if (globalStart < offset + EXTEND_THRESHOLD && offset > 0) {
+            extendBackward();
+          }
+        } else {
+          // Viewport entirely outside buffer — debounced seek to reposition.
+          // Skip extends — they work in PAGE_SIZE increments from buffer
+          // edges and can't bridge a gap of thousands of positions.
+          _scrollSeek?.cancel();
+          const params = useSearchStore.getState().params;
+          if (scopeRef.current?.params !== params) scopeRef.current = { params, key: buildSearchKey(params) };
+          const scope = scopeRef.current.key;
+          const generation = getSearchGeneration();
+          let unsubscribe = () => {};
+          const pending = {
+            owner: ownerRef.current,
+            cancel: () => {
+              clearTimeout(timer);
+              unsubscribe();
+              if (_scrollSeek === pending) _scrollSeek = null;
+            },
+          };
+          const isCurrent = () => {
+            const state = useSearchStore.getState();
+            if (!pending.owner.mounted || generation !== getSearchGeneration() || !isTwoTierFromTotal(state.total)) return false;
+            if (scopeRef.current?.params !== state.params) scopeRef.current = { params: state.params, key: buildSearchKey(state.params) };
+            return scopeRef.current.key === scope;
+          };
+          const timer = setTimeout(() => {
+            if (_scrollSeek !== pending) return;
+            pending.cancel();
+            if (!isCurrent()) return;
+            seekRef.current(globalStart, "seek", undefined, "refill");
+          }, SCROLL_SEEK_DEBOUNCE_MS);
+          _scrollSeek = pending;
+          unsubscribe = useSearchStore.subscribe(() => { if (!isCurrent()) pending.cancel(); });
+          return;
+        }
+      } else {
+        _scrollSeek?.cancel();
+        // --- Normal mode: indices are buffer-local ---
+        // Near the end of the buffer → extend forward (velocity-widened)
+        if (rangeEndMatchesViewport && endIndex >= len - fwdThreshold && offset + len < t) {
+          extendForward();
+        }
+
+        // Near the start of the buffer → extend backward
+        if (rangeStartMatchesViewport && startIndex <= EXTEND_THRESHOLD && offset > 0) {
+          extendBackward();
+        }
+      }
+
+    },
+    [extendForward, extendBackward],
+  );
+
+  const getImage = useCallback(
+    (index: number): Image | undefined => {
+      if (twoTier) {
+        // Two-tier: index is global. Map to buffer-local.
+        const localIdx = index - bufferOffset;
+        if (localIdx < 0 || localIdx >= results.length) return undefined;
+        return results[localIdx];
+      }
+      // Normal: index is buffer-local
+      if (index < 0 || index >= results.length) return undefined;
+      return results[index];
+    },
+    [results, twoTier, bufferOffset],
+  );
+
+  /**
+   * Find the index of an image by ID.
+   * Normal mode: returns buffer-local index, or -1 if not in the buffer.
+   * Two-tier mode: returns global index, or -1 if not in imagePositions.
+   */
+  const findImageIndex = useCallback(
+    (imageId: string): number => {
+      // Read all store values imperatively — keeps this callback stable ([] deps)
+      // so the sort-around-focus useLayoutEffect doesn't re-fire on every extend.
+      const globalIdx = useSearchStore.getState().imagePositions.get(imageId);
+      if (globalIdx == null) return -1;
+      if (twoTierRef.current) {
+        // Two-tier: return global index directly (the virtualizer uses global)
+        return globalIdx;
+      }
+      // Normal: return buffer-local index
+      const localIdx = globalIdx - bufferOffsetRef.current;
+      if (localIdx < 0 || localIdx >= resultsLenRef.current) return -1;
+      return localIdx;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  return {
+    results,
+    bufferOffset,
+    total,
+    virtualizerCount,
+    loading,
+    seek,
+    loadMore,
+    focusedImageId,
+    setFocusedImageId,
+    reportVisibleRange,
+    getImage,
+    findImageIndex,
+    twoTier,
+  };
+}
+
+// Expose viewport-anchor helpers on window in dev mode for E2E inspection.
+// Browser diagnostics need the real anchor ID (set by the virtualizer) rather
+// than re-deriving it from pixel math, which diverges in two-tier mode.
+if (import.meta.env.DEV && typeof window !== "undefined") {
+  (window as unknown as Record<string, unknown>).__kupua_getViewportAnchorId__ = getViewportAnchorId;
+  (window as unknown as Record<string, unknown>).__kupua_getVisibleImageIds__ = getVisibleImageIds;
+}

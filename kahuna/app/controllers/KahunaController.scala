@@ -3,11 +3,14 @@ package controllers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, BaseControllerWithLoginRedirects}
-import lib.{ExampleSwitch, FeatureSwitches, KahunaConfig, UseCqlChips}
-import play.api.mvc.ControllerComponents
+import lib.{ExampleSwitch, FeatureSwitches, KahunaConfig, KupuaPage, UseCqlChips, UseKupua}
+import play.api.Environment
+import play.api.mvc.{Action, AnyContent, ControllerComponents, Cookie, DiscardingCookie}
 import play.api.libs.json._
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
+import scala.io.Source
 import com.gu.mediaservice.lib.config.FieldAlias._
 import com.gu.mediaservice.lib.config.Services
 import play.api.mvc.Security.AuthenticatedRequest
@@ -17,7 +20,9 @@ class KahunaController(
   authentication: Authentication,
   val config: KahunaConfig,
   override val controllerComponents: ControllerComponents,
-  authorisation: Authorisation
+  authorisation: Authorisation,
+  environment: Environment,
+  contentSecurityPolicy: String
 )(
   implicit val ec: ExecutionContext
 ) extends BaseControllerWithLoginRedirects with ArgoHelpers {
@@ -37,10 +42,15 @@ class KahunaController(
     }
 
     val isIFramed = request.headers.get("Sec-Fetch-Dest").contains("iframe")
+    val kupuaSwitches = if (KupuaPage.isAllowedStage(config.stage)) List(UseKupua) else Nil
     val featureSwitches = new FeatureSwitches(
-      List(ExampleSwitch, UseCqlChips)
+      List(ExampleSwitch, UseCqlChips) ++ kupuaSwitches
     )
     val featureSwitchesWithClientValues = featureSwitches.getClientSwitchValues(featureSwitches.getFeatureSwitchCookies(request.cookies.get))
+    val serveKupua = KupuaPage.shouldServe(
+      config.stage, featureSwitches.getFeatureSwitchValue(featureSwitchesWithClientValues, UseKupua.key), isIFramed
+    )
+    val kupuaPage = if (serveKupua) loadKupuaPage() else None
     val featureSwitchesJson = Json.stringify(Json.toJson(featureSwitches.getFeatureSwitchesToStringify(featureSwitchesWithClientValues)))
 
     val scriptsToLoad = config.scriptsToLoad
@@ -66,7 +76,10 @@ class KahunaController(
     val imageTypes = Json.toJson(config.imageTypes).toString()
     val agencyPicksIngredients = Json.toJson(config.agencyPicksIngredients).toString()
 
-    Ok(views.html.main(
+    kupuaPage.map(page => Ok(Html(page)).withHeaders(
+      CACHE_CONTROL -> "no-store",
+      CONTENT_SECURITY_POLICY -> KupuaPage.contentSecurityPolicy(contentSecurityPolicy)
+    )).getOrElse(Ok(views.html.main(
       s"${config.authUri}/login?redirectUri=$returnUri",
       fieldAliases,
       scriptsToLoad,
@@ -82,7 +95,29 @@ class KahunaController(
       featureSwitchesJson,
       imageTypes,
       agencyPicksIngredients
+    )))
+  }
+
+  /** Re-read per opted-in request (small file) so a rebuilt Kupua appears without a restart. */
+  private def loadKupuaPage(): Option[String] =
+    environment.resourceAsStream(KupuaPage.IndexResource).flatMap { stream =>
+      val html = try Source.fromInputStream(stream, "UTF-8").mkString finally stream.close()
+      KupuaPage.render(html, Json.obj(
+        "mediaApiUri" -> config.services.apiBaseUri,
+        "collectionsUri" -> config.services.collectionsBaseUri
+      ))
+    }
+
+  def kupuaOn: Action[AnyContent] = Action {
+    if (!KupuaPage.isAllowedStage(config.stage)) NotFound
+    else Redirect("/search").withCookies(Cookie(
+      KupuaPage.SwitchCookie, "true", maxAge = Some(30.days.toSeconds.toInt), path = "/",
+      secure = true, httpOnly = false, sameSite = Some(Cookie.SameSite.Lax)
     ))
+  }
+
+  def kupuaOff: Action[AnyContent] = Action {
+    Redirect("/search").discardingCookies(DiscardingCookie(KupuaPage.SwitchCookie, path = "/", secure = true))
   }
 
   def quotas = authentication { req =>

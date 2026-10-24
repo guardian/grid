@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Chromium cross-axis scroll-latch repro</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+  body {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Left: stage with the nested scrollers under test */
+  #stage {
+    height: 100vh;
+    overflow-y: auto;
+    background: #f0f0f0;
+    padding: 20px;
+  }
+  /* Make the stage tall so it has room to scroll vertically as the "outer" scroller */
+  #stage-spacer-top, #stage-spacer-bottom { height: 600px; background: repeating-linear-gradient(45deg, #e0e0e0, #e0e0e0 10px, #d0d0d0 10px, #d0d0d0 20px); display: grid; place-items: center; color: #666; }
+
+  #inner {
+    /* The inner scroller under test. Variant CSS is applied here via JS. */
+    height: 400px;
+    background: #fff;
+    border: 2px solid #444;
+    overflow-y: auto;
+    /* overflow-x is set dynamically: hidden | clip | auto */
+  }
+  #inner-content {
+    /* Tall enough to scroll vertically. Wide-or-not depends on variant. */
+    padding: 20px;
+  }
+  #inner-content.wide {
+    /* For the "auto-with-no-overflow" variant, content is exactly inner width.
+       For the "auto-with-overflow" variant, content is wider. */
+    width: 1200px;
+  }
+  .row { padding: 8px 12px; border-bottom: 1px solid #eee; font-family: monospace; font-size: 13px; }
+
+  /* Right: diagnostics panel */
+  #panel {
+    height: 100vh;
+    overflow-y: auto;
+    background: #1e1e1e;
+    color: #eee;
+    padding: 16px;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13px;
+    border-left: 2px solid #444;
+  }
+  #panel h1 { font-size: 14px; margin: 0 0 8px 0; }
+  #panel p { margin: 4px 0; color: #aaa; }
+  #panel select, #panel button { font-size: 13px; padding: 6px 8px; margin: 4px 4px 4px 0; background: #333; color: #eee; border: 1px solid #555; border-radius: 3px; }
+  #panel .label { color: #aaa; margin-top: 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  #panel .stat { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; color: #fff; }
+  #log { margin-top: 12px; height: 50vh; overflow-y: auto; background: #111; padding: 8px; border-radius: 3px; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; line-height: 1.4; }
+  .log-row { padding: 2px 0; border-bottom: 1px solid #222; white-space: nowrap; }
+  .log-row.escape { background: #4a1a1a; color: #ff6b6b; padding: 2px 4px; }
+  .log-row.ok     { color: #6bff8e; }
+  .log-row.meta   { color: #888; font-style: italic; }
+  .legend { color: #666; font-size: 11px; margin-top: 4px; }
+  .escape-banner {
+    background: #4a1a1a;
+    color: #ff6b6b;
+    padding: 6px 8px;
+    border-radius: 3px;
+    margin: 6px 0;
+    font-weight: bold;
+    display: none;
+  }
+  .escape-banner.visible { display: block; }
+</style>
+</head>
+<body>
+
+<aside id="panel">
+  <h1>Chromium cross-axis scroll-latch repro</h1>
+  <p>
+    <strong>Repro condition:</strong> open this page in a <em>fresh tab</em>
+    (so forward-history is unavailable). macOS consumes horizontal NSEvent
+    delta for swipe-nav when nav IS available; when it isn't, the horizontal
+    component reaches Chromium's cc layer and triggers the latch escape.
+  </p>
+  <p>
+    Hover the cursor over the inner (white) scroller.
+    With a Magic Mouse or trackpad, scroll
+    <strong>diagonally toward the right</strong> (the unavailable forward
+    direction) or start <strong>horizontally then switch
+    to vertical</strong>. The log records, per wheel event, which scroller
+    the deltas were actually applied to.
+  </p>
+  <p style="color:#ff9">
+    Latch escape = vertical delta arrived while cursor was over the inner
+    scroller, but only the outer (gray) scroller moved.
+  </p>
+
+  <div class="label">Inner scroller variant</div>
+  <select id="variant">
+    <option value="hidden">overflow-x: hidden &nbsp;(content fits, can't scroll horizontally — triggers latch escape)</option>
+    <option value="clip">overflow-x: clip &nbsp;(content fits — no-op in stock Chromium, rewritten to hidden when SingleAxisScrollContainers is off)</option>
+    <option value="auto-no-overflow">overflow-x: auto, no horizontal content (zero scroll range)</option>
+    <option value="auto-with-overflow">overflow-x: auto, with horizontal content (can scroll horizontally)</option>
+    <option value="visible-on-x">overflow-x: visible (computes to auto when overflow-y is set)</option>
+  </select>
+
+  <div>
+    <button id="reset">Reset positions</button>
+    <button id="clear-log">Clear log</button>
+  </div>
+
+  <div class="escape-banner" id="banner">LATCH ESCAPE DETECTED — see red rows below</div>
+
+  <div class="label">Live counters</div>
+  <div class="stat" id="counters">events: 0 · escapes: 0 · ok: 0</div>
+
+  <div class="label">Event log (newest at top)</div>
+  <div id="log"></div>
+  <div class="legend">
+    Each row: deltaX, deltaY, element under cursor, then which scrollers moved.
+    Green = vertical event went to the inner scroller (correct).
+    Red = vertical event went to outer instead (latch escape).
+  </div>
+</aside>
+
+<main id="stage">
+  <div id="stage-spacer-top">↑ outer scroll-top spacer ↑</div>
+
+  <div id="inner">
+    <div id="inner-content">
+      <!-- Filled by JS so we control the height -->
+    </div>
+  </div>
+
+  <div id="stage-spacer-bottom">↓ outer scroll-bottom spacer ↓</div>
+</main>
+
+<script>
+(() => {
+  const stage  = document.getElementById('stage');
+  const inner  = document.getElementById('inner');
+  const innerContent = document.getElementById('inner-content');
+  const log    = document.getElementById('log');
+  const banner = document.getElementById('banner');
+  const counters = document.getElementById('counters');
+  const variantSelect = document.getElementById('variant');
+
+  // Fill the inner scroller with rows so it can scroll vertically.
+  for (let i = 0; i < 200; i++) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.textContent = `inner row ${String(i).padStart(3, '0')}`;
+    innerContent.appendChild(row);
+  }
+
+  function applyVariant(v) {
+    inner.style.overflowY = 'auto';
+    innerContent.classList.remove('wide');
+    switch (v) {
+      case 'hidden':            inner.style.overflowX = 'hidden'; break;
+      case 'clip':              inner.style.overflowX = 'clip';   break;
+      case 'auto-no-overflow':  inner.style.overflowX = 'auto';   break;
+      case 'auto-with-overflow':inner.style.overflowX = 'auto';   innerContent.classList.add('wide'); break;
+      case 'visible-on-x':      inner.style.overflowX = 'visible'; break;
+    }
+    addMeta(`variant set: ${v} · inner.overflowX computed = ${getComputedStyle(inner).overflowX}`);
+  }
+  variantSelect.addEventListener('change', e => applyVariant(e.target.value));
+  applyVariant(variantSelect.value);
+
+  let events = 0, escapes = 0, oks = 0;
+  function updateCounters() {
+    counters.textContent = `events: ${events} · escapes: ${escapes} · ok: ${oks}`;
+  }
+
+  function addRow(text, cls) {
+    const r = document.createElement('div');
+    r.className = 'log-row ' + (cls || '');
+    r.textContent = text;
+    log.insertBefore(r, log.firstChild);
+    // Cap log length so it doesn't grow forever.
+    while (log.childNodes.length > 200) log.removeChild(log.lastChild);
+  }
+  function addMeta(text) { addRow(text, 'meta'); }
+
+  document.getElementById('clear-log').addEventListener('click', () => {
+    log.innerHTML = '';
+    events = escapes = oks = 0;
+    updateCounters();
+    banner.classList.remove('visible');
+  });
+  document.getElementById('reset').addEventListener('click', () => {
+    stage.scrollTop = 600;
+    inner.scrollTop = 1000;
+    inner.scrollLeft = 0;
+    addMeta('positions reset');
+  });
+
+  // Set sensible starting positions so both scrollers have room to move
+  // in both directions.
+  requestAnimationFrame(() => {
+    stage.scrollTop = 600;
+    inner.scrollTop = 1000;
+  });
+
+  // Track scroll deltas per axis to detect what actually moved during the
+  // wheel event we are currently processing.
+  let pre = null;
+  function snapshot() {
+    return {
+      stageTop: stage.scrollTop,
+      innerTop: inner.scrollTop,
+      innerLeft: inner.scrollLeft,
+    };
+  }
+
+  // Listen on the inner scroller in capture phase so we see events before
+  // they're applied, snapshot positions, then read again in a microtask
+  // / next frame to compare. Actually wheel events trigger sync scroll on
+  // the same frame, so reading right after the listener returns will
+  // see the new scrollTop. We use requestAnimationFrame to be safe.
+  inner.addEventListener('wheel', (e) => {
+    const tgt = document.elementFromPoint(e.clientX, e.clientY);
+    const tgtDesc = tgt ? tgt.tagName.toLowerCase() + (tgt.id ? '#' + tgt.id : '') + (tgt.className ? '.' + (typeof tgt.className === 'string' ? tgt.className.split(' ').join('.') : '') : '') : 'null';
+    pre = snapshot();
+    const dx = Math.round(e.deltaX), dy = Math.round(e.deltaY);
+
+    requestAnimationFrame(() => {
+      const post = snapshot();
+      const stageDelta = post.stageTop - pre.stageTop;
+      const innerDeltaY = post.innerTop - pre.innerTop;
+      const innerDeltaX = post.innerLeft - pre.innerLeft;
+      events++;
+      // The interesting case: vertical event over inner, but inner didn't move vertically and stage did.
+      const isVerticalIntent = Math.abs(dy) > Math.abs(dx);
+      const escaped = isVerticalIntent && innerDeltaY === 0 && stageDelta !== 0;
+      const ok      = isVerticalIntent && innerDeltaY !== 0;
+      let summary = `dx=${dx.toString().padStart(4)} dy=${dy.toString().padStart(4)} → inner Δy=${innerDeltaY.toString().padStart(4)} Δx=${innerDeltaX.toString().padStart(4)} · outer Δy=${stageDelta.toString().padStart(4)} · over=${tgtDesc}`;
+      if (escaped) {
+        escapes++;
+        banner.classList.add('visible');
+        addRow('LATCH ESCAPE ' + summary, 'escape');
+      } else if (ok) {
+        oks++;
+        addRow('ok           ' + summary, 'ok');
+      } else {
+        addRow('             ' + summary);
+      }
+      updateCounters();
+    });
+  }, { capture: true, passive: true });
+
+  // Also listen at the stage / window level for events that never reach inner.
+  // These are particularly diagnostic: if the cursor is over the inner scroller
+  // but the wheel event was dispatched only to the stage, the latch already
+  // diverted the gesture.
+  stage.addEventListener('wheel', (e) => {
+    const tgt = document.elementFromPoint(e.clientX, e.clientY);
+    if (tgt && (tgt === inner || inner.contains(tgt))) {
+      // We'll have already logged this via the inner listener.
+      return;
+    }
+    addMeta(`wheel on stage (outside inner): dy=${Math.round(e.deltaY)} dx=${Math.round(e.deltaX)}`);
+  }, { capture: true, passive: true });
+
+  addMeta('repro ready. Variant: ' + variantSelect.value);
+  addMeta('cursor must be over the WHITE inner scroller for the test.');
+})();
+</script>
+
+</body>
+</html>
