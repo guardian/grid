@@ -519,6 +519,9 @@ export function useListNavigation(config: ListNavigationConfig): void {
         case "Enter": {
           // In phantom mode, Enter doesn't open detail (no visible focus to act on).
           if (!hasFocus) break;
+          // Inputs opted in via data-grid-nav-input (AI search) want arrows/paging,
+          // but Enter there means "commit my text", not "open the focused image".
+          if ((e.target as HTMLElement | null)?.tagName === "INPUT") break;
           const id = c.focusedImageId;
           if (id) {
             e.preventDefault();

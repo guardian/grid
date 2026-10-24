@@ -24,6 +24,14 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 24 October 2026 - Enter in AI search no longer opens the focused image
+
+The AI search input opts into grid navigation (`data-grid-nav-input`) so arrows and
+paging still move focus while typing, but that also let Enter reach the list-navigation
+handler, which opened image detail for the previously focused image instead of leaving
+the query in place. Enter now does nothing in the list-navigation handler when the
+event target is an input; Enter on the grid itself still opens the focused image.
+
 ### 23 October 2026 - Escape keyword values in scrubber sort labels
 
 The scrubber renders sort labels as HTML so date labels keep their fixed-width spans, but keyword

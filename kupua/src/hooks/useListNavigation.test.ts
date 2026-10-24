@@ -123,6 +123,7 @@ async function mountNavigation(windowed: boolean, mode: "explicit" | "selection"
     seekRequests.push(seekWork);
     return seekWork;
   });
+  const onEnter = vi.fn();
   renderHook(() => {
     const state = useSearchStore();
     const twoTier = isTwoTierFromTotal(state.total);
@@ -140,11 +141,11 @@ async function mountNavigation(windowed: boolean, mode: "explicit" | "selection"
         const current = useSearchStore.getState();
         return current.results[index - (twoTier ? current.bufferOffset : 0)];
       }, findImageIndex, resultsLength: state.results.length, total: state.total, loadMore,
-      onEnter: vi.fn(), imageParam: undefined, flatIndexToRow: (index) => getItemLayoutRow(geometry, index).index, bufferOffset: state.bufferOffset, seek });
+      onEnter, imageParam: undefined, flatIndexToRow: (index) => getItemLayoutRow(geometry, index).index, bufferOffset: state.bufferOffset, seek });
   });
   scrollToIndex.mockClear();
   return {
-    origin, source, scrollToIndex, seek, container,
+    origin, source, scrollToIndex, seek, container, onEnter,
     dispatchKey: (key: string, target: HTMLElement = container) => {
       const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
       target.dispatchEvent(event);
@@ -1027,4 +1028,16 @@ describe("KUP-013 End producer and post-seek consumer", () => {
       expect(fixture.scrollToIndex).not.toHaveBeenCalled();
     });
   }
+});
+describe("Enter key", () => {
+  it("opens the focused image from the grid but not from a grid-nav text input", async () => {
+    const fixture = await mountNavigation(false, "explicit");
+    const input = document.createElement("input");
+    input.setAttribute("data-grid-nav-input", "");
+    fixture.container.appendChild(input);
+    act(() => { fixture.dispatchKey("Enter", input); });
+    expect(fixture.onEnter).not.toHaveBeenCalled();
+    act(() => { fixture.dispatchKey("Enter"); });
+    expect(fixture.onEnter).toHaveBeenCalledWith(fixture.origin);
+  });
 });
