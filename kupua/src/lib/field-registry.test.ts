@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   FIELD_REGISTRY,
   RECONCILE_FIELDS,
@@ -55,6 +55,31 @@ const SPARSE: Image = {
   source: { mimeType: "image/png", dimensions: { width: 100, height: 100 } },
   metadata: {},
 };
+
+describe("numeric field formatting", () => {
+  it.each([0, 1, 1234, 1234567, 1.25, -1234, Number.NaN, Number.POSITIVE_INFINITY])(
+    "preserves native default-locale output for %s", value => {
+      const image = { ...SPARSE, source: { ...SPARSE.source, dimensions: { width: value, height: value } } };
+      const expected = value.toLocaleString();
+      expect(FIELDS_BY_ID.get("source_width")!.accessor(image)).toBe(expected);
+      expect(FIELDS_BY_ID.get("source_height")!.accessor(image)).toBe(expected);
+      expect(FIELDS_BY_ID.get("dimensions")!.accessor(image)).toBe(`${expected} \u00d7 ${expected}`);
+      expect(getFieldRawValue("source_width", image)).toBe(String(value));
+    },
+  );
+
+  it("reuses number formatting rather than native locale formatting per field read", () => {
+    const native = vi.spyOn(Number.prototype, "toLocaleString");
+    const constructor = vi.spyOn(Intl, "NumberFormat");
+    try {
+      for (let index = 0; index < 20; index++) {
+        for (const id of ["dimensions", "source_width", "source_height"]) FIELDS_BY_ID.get(id)!.accessor(FIXTURE);
+      }
+      expect(native).not.toHaveBeenCalled();
+      expect(constructor).not.toHaveBeenCalled();
+    } finally { native.mockRestore(); constructor.mockRestore(); }
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Structural invariants

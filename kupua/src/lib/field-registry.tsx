@@ -30,6 +30,7 @@ import type { Image } from "@/types/image";
 import type { EnrichedImage } from "@/lib/derive-enriched-image";
 import type { ReactNode } from "react";
 import { format } from "date-fns";
+import { formatNumber } from "./format-count";
 import { gridConfig } from "./grid-config";
 import { CostBadgeFromCost } from "@/components/CostBadge";
 import { SyndicationBadge } from "@/components/SyndicationBadge";
@@ -836,7 +837,7 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
       const w = getWidth(img);
       const h = getHeight(img);
       if (w === undefined || h === undefined) return undefined;
-      return `${w.toLocaleString()} × ${h.toLocaleString()}`;
+      return `${formatNumber(w)} × ${formatNumber(h)}`;
     },
     // Display-only -- not sortable. Use Width / Height columns instead.
     defaultWidth: 120,
@@ -850,7 +851,7 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     group: "technical",
     accessor: (img) => {
       const w = getWidth(img);
-      return w != null ? w.toLocaleString() : undefined;
+      return w != null ? formatNumber(w) : undefined;
     },
     rawValue: (img) => {
       const w = getWidth(img);
@@ -869,7 +870,7 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     group: "technical",
     accessor: (img) => {
       const h = getHeight(img);
-      return h != null ? h.toLocaleString() : undefined;
+      return h != null ? formatNumber(h) : undefined;
     },
     rawValue: (img) => {
       const h = getHeight(img);

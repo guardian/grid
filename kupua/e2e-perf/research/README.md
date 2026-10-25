@@ -31,6 +31,17 @@ native delayed-media cleanup comparisons and held-publication investigations.
 These are evidence and reusable techniques, not selected production policies.
 Detailed retained methods live in the [local control reference](controls.md).
 
+The focused `--grep 'Table retained-row reference churn|Grid date work stays'`
+controls reuse the shared journey/thumbnail probes, media readiness and driver
+with mock data and synthetic media. Table guards entering-row-scaled rendering
+and field access with ordinary memoization; its diagnostic semantic comparator
+must offer no additional reference-churn reuse after the production repair.
+Grid guards cell-local date work and its absence in image-only Justified cells.
+The same control directly counts GridCell renders and retained-prop comparisons;
+unchanged retained inputs must skip, with rendering scaled to entering images.
+These are not live/hosted frame-speed claims. They own their browser/contexts;
+the operator-shared app and server are not used or reconfigured.
+
 ## Legacy Experiments
 
 `npm --prefix kupua run test:experiment` retains the separately supervised tuning

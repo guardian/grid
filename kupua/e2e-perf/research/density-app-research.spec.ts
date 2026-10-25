@@ -1,4 +1,4 @@
-import { test, expect, type CDPSession, type BrowserContext } from "@playwright/test";
+import { test, expect, type CDPSession, type BrowserContext, type Page } from "@playwright/test";
 import { fileURLToPath } from "node:url";
 import { electAnchor, establishDensitySource, restoreDensitySource, selectDensity, scrubDensityTo,
   prepareDensityMaintenance, scrollToDensityTail, waitForDensityEviction, waitForPlacement,
@@ -68,6 +68,33 @@ function retainKnownBoundaryRows(packed: JustifiedLayout, start: number, count: 
       return best;
     },
   };
+}
+
+function installGridCellCounter() {
+  const counter: any = { active: false, stats: null,
+    wrapMemo(memo: any, component: any) {
+      function CountedGridCell(props: any) {
+        if (counter.active && props.image) {
+          counter.stats.renders++;
+          counter.stats.unique.add(props.image.id);
+        }
+        return component(props);
+      }
+      return memo(CountedGridCell, (previous: any, next: any) => {
+        const keys = Object.keys(previous);
+        const same = keys.length === Object.keys(next).length && keys.every(key => Object.is(previous[key], next[key]));
+        if (counter.active && previous.image && previous.image === next.image) {
+          counter.stats.retainedComparisons++;
+          if (same) counter.stats.retainedSkipped++;
+          for (const key of keys) {
+            if (!Object.is(previous[key], next[key])) counter.stats.changes[key] = (counter.stats.changes[key] ?? 0) + 1;
+          }
+        }
+        return same;
+      });
+    },
+  };
+  (window as any).__gridCellCounter = counter;
 }
 
 for (const density of ["grid", "justified"] as const) {
@@ -422,6 +449,291 @@ async function installJourneyFixtureRoutes(context: BrowserContext) {
 }
 
 const f2DeliveryMatches = new Map<number, unknown>();
+
+async function prepareRenderWorkWindow(page: Page, density: "grid" | "table" | "justified") {
+  await page.goto("/search?nonFree=true");
+  await page.waitForFunction(() => Boolean((window as any).__kupua_store__));
+  await page.evaluate(async () => {
+    const path = "/src/dal/mock-data-source.ts";
+    const { MockDataSource } = await import(path);
+    const store = (window as any).__kupua_store__;
+    store.setState({ dataSource: new MockDataSource(70000) });
+    await store.getState().search();
+  });
+  await selectDensity(page, density);
+  await waitForDensityMaintenanceCooldown(page);
+  await page.evaluate(async () => {
+    await (window as any).__kupua_store__.getState().extendForward();
+    const path = "/src/lib/image-urls.ts";
+    const { getThumbnailUrl } = await import(path);
+    const images = (window as any).__kupua_store__.getState().results.slice(0, 200);
+    const retained: HTMLImageElement[] = [];
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        Promise.all(images.map(async (image: any) => {
+          const element = new Image();
+          retained.push(element);
+          element.src = getThumbnailUrl(image);
+          await element.decode();
+        })),
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("Warm media cap")), 10000); }),
+      ]);
+    } finally { clearTimeout(timer); }
+    (window as any).__renderWorkWarm = retained;
+  });
+  await page.bringToFront();
+  const ready = await densityDrivers.visibleMediaReadiness(page, density, await page.evaluate(() => performance.now()));
+  expect(ready.mediaCensored).toBe(0);
+}
+
+function installTableRowCounter() {
+  const shallow = (left: Record<string, unknown>, right: Record<string, unknown>) => {
+    if (Object.is(left, right)) return true;
+    const keys = Object.keys(left);
+    return keys.length === Object.keys(right).length
+      && keys.every(key => Object.prototype.hasOwnProperty.call(right, key) && Object.is(left[key], right[key]));
+  };
+  const probe: any = {
+    mode: "native", active: false, stats: null, endpoint: null,
+    reset() {
+      probe.stats = { renders: 0, titleReads: 0, comparisons: 0, semanticEligible: 0,
+        skips: 0, sameImageNewRow: 0, changes: {}, unique: new Set<string>() };
+    },
+    wrapMemo(memo: any, component: any) {
+      function CountedTableRow(props: any) {
+        if (probe.active) {
+          probe.stats.renders++;
+          probe.stats.unique.add(props.image.id);
+        }
+        return component(props);
+      }
+      return memo(CountedTableRow, (previous: any, next: any) => {
+        const native = shallow(previous, next);
+        const keys = Object.keys(previous);
+        const semantic = keys.length === Object.keys(next).length && keys.every(key =>
+          key === "row" ? previous.row.original === next.row.original
+            : key === "virtualRow" ? shallow(previous.virtualRow, next.virtualRow)
+              : Object.is(previous[key], next[key]));
+        const reuse = probe.mode === "semantic" ? semantic : native;
+        if (probe.active) {
+          const stats = probe.stats;
+          stats.comparisons++;
+          if (semantic && !native) stats.semanticEligible++;
+          if (previous.image === next.image && previous.row !== next.row) stats.sameImageNewRow++;
+          if (reuse) stats.skips++;
+          for (const key of keys) {
+            if (!Object.is(previous[key], next[key])) stats.changes[key] = (stats.changes[key] ?? 0) + 1;
+          }
+        }
+        return reuse;
+      });
+    },
+  };
+  (window as any).__tableRowCounter = probe;
+}
+
+test("Table retained-row reference churn: bounded semantic reuse control", async ({ browser }) => {
+  const context = await browser.newContext({ baseURL: "http://127.0.0.1:3041",
+    viewport: { width: 1720, height: 960 }, deviceScaleFactor: 2 });
+  try {
+    await installJourneyFixtureRoutes(context);
+    let intercepted = 0;
+    await context.route("**/src/components/ImageTable.tsx*", async route => {
+      const response = await route.fetch();
+      const source = await response.text();
+      const marker = "const EnrichedTableRow = _s(memo(";
+      expect(source.split(marker)).toHaveLength(2);
+      intercepted++;
+      return route.fulfill({ response, body: `(${installTableRowCounter.toString()})();\n`
+        + source.replace(marker, "const EnrichedTableRow = _s(globalThis.__tableRowCounter.wrapMemo(memo,") });
+    });
+    const page = await context.newPage();
+    await prepareRenderWorkWindow(page, "table");
+    expect(intercepted).toBe(1);
+    const records = [];
+    for (const mode of ["native", "semantic", "semantic", "native", "native", "semantic"] as const) {
+      const record = await page.evaluate(async mode => {
+        const path = "/e2e-perf/density-browser.ts";
+        const driver = await import(path);
+        const mediaPath = "/e2e-perf/thumbnail-probe.mjs";
+        const { installThumbnailProbe } = await import(mediaPath);
+        const store = (window as any).__kupua_store__;
+        const counter = (window as any).__tableRowCounter;
+        const region = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+        const fieldsPath = "/src/lib/field-registry.tsx";
+        const { FIELDS_BY_ID } = await import(fieldsPath);
+        const titleField = FIELDS_BY_ID.get("metadata_title");
+        const titleAccessor = titleField.accessor;
+        titleField.accessor = (image: any) => {
+          if (counter.active) counter.stats.titleReads++;
+          return titleAccessor(image);
+        };
+        counter.mode = mode;
+        region.scrollTop = 0;
+        region.scrollLeft = 0;
+        for (let index = 0; index < 3; index++) await new Promise(resolve => requestAnimationFrame(resolve));
+        driver.installDensityJourney({ density: "table", direction: 1, resultsPerSecond: 100 });
+        const calibration = (window as any).__densityJourney.snapshot();
+        const before = store.getState();
+        if (before.loading || before._extendForwardInFlight || before._extendBackwardInFlight) {
+          throw new Error("Overlapping metadata work");
+        }
+        counter.reset();
+        counter.active = true;
+        installThumbnailProbe({ density: "table" });
+        let movement;
+        let exposure;
+        let journey;
+        try {
+          movement = await driver.scrollAtSpeed({ evaluate: (callback: any, argument: any) => callback(argument) },
+            "table", calibration.commandedSpeedPxPerSec, 1000, { measureBounds: true, maxDistancePx: 2560 });
+          exposure = (window as any).__kupua_thumbnailProbe.stop();
+          journey = (window as any).__densityJourney.snapshot();
+        } finally {
+          counter.active = false;
+          titleField.accessor = titleAccessor;
+          (window as any).__kupua_thumbnailProbe?.dispose();
+          (window as any).__densityJourney?.dispose();
+        }
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        const endpoint = JSON.stringify(Array.from(region.querySelectorAll<HTMLElement>('[role="row"][data-image-id]'))
+          .map(row => ({ id: row.dataset.imageId, text: row.textContent, style: row.getAttribute("style"),
+            titles: Array.from(row.querySelectorAll("[title]")).map(cell => cell.getAttribute("title")) })));
+        counter.endpoint ??= endpoint;
+        return { mode, viewport: [innerWidth, innerHeight, devicePixelRatio],
+          container: [region.clientWidth, region.clientHeight],
+          resident: before.results.length, runway: calibration.initialRunwayResults,
+          initialVisible: calibration.initialVisibleImages, appliedPx: movement.drivenDistancePx,
+          durationMs: movement.drivenDurationMs,
+          appliedResultsPerSecond: movement.drivenDistancePx * calibration.resultsPerPixel * 1000 / movement.drivenDurationMs,
+          frameP95Ms: exposure.frameP95Ms, maxFrameMs: exposure.frameMaxMs, frames: exposure.frameCount,
+          observerTotalMs: exposure.observerSampleTotalMs, observerMaxMs: exposure.observerSampleMaxMs,
+          journeyObserverMaxMs: journey.stabilitySampleMaxMs, mediaPending: exposure.pendingAtEnd,
+          publications: journey.appendPublications + journey.prependPublications,
+          sameData: before.results === store.getState().results, sameEndpoint: endpoint === counter.endpoint,
+          foreground: document.visibilityState === "visible", renders: counter.stats.renders,
+          uniqueRows: counter.stats.unique.size, titleReads: counter.stats.titleReads, comparisons: counter.stats.comparisons,
+          semanticEligible: counter.stats.semanticEligible, skips: counter.stats.skips,
+          sameImageNewRow: counter.stats.sameImageNewRow, changes: counter.stats.changes };
+      }, mode);
+      console.log(JSON.stringify({ fixture: "table-retained-row-control", ...record }));
+      records.push(record);
+      expect(record.foreground).toBe(true);
+      expect(record.publications).toBe(0);
+      expect(record.sameData).toBe(true);
+      expect(record.resident).toBe(400);
+      expect(record.appliedPx).toBe(2560);
+      expect(record.sameEndpoint).toBe(true);
+      expect(record.mediaPending).toBe(0);
+      expect(record.viewport).toEqual([1720, 960, 2]);
+      expect(record.titleReads).toBeLessThanOrEqual(record.uniqueRows * 3);
+      expect(record.renders).toBeLessThanOrEqual(record.uniqueRows * 3);
+    }
+    const native = records.filter(record => record.mode === "native");
+    const semantic = records.filter(record => record.mode === "semantic");
+    expect(native.every(record => record.sameImageNewRow === 0 && record.semanticEligible === 0)).toBe(true);
+    expect(semantic.every(record => record.sameImageNewRow === 0)).toBe(true);
+  } finally {
+    await context.close();
+  }
+});
+
+for (const density of ["grid", "justified"] as const) {
+  test(`Grid date work stays behind the cell memo boundary: ${density}`, async ({ browser }) => {
+    const context = await browser.newContext({ baseURL: "http://127.0.0.1:3041",
+      viewport: { width: 1720, height: 960 }, deviceScaleFactor: 2 });
+    try {
+      await installJourneyFixtureRoutes(context);
+      await context.route("**/src/components/ImageGrid.tsx*", async route => {
+        const response = await route.fetch();
+        const source = await response.text();
+        const marker = /const GridCell = (_s\d*)\(memo\(/;
+        expect(Array.from(source.matchAll(/const GridCell = (_s\d*)\(memo\(/g)).length).toBe(1);
+        return route.fulfill({ response, body: `(${installGridCellCounter.toString()})();\n`
+          + source.replace(marker, "const GridCell = $1(globalThis.__gridCellCounter.wrapMemo(memo,") });
+      });
+      await context.route("**/src/lib/format-grid-date.ts*", async route => {
+        const response = await route.fetch();
+        const source = await response.text();
+        expect(source).toContain("function formatGridDate(iso)");
+        return route.fulfill({ response, body: source + `\n
+const originalRenderWorkDate = formatGridDate;
+globalThis.__gridDateCounter = { active: false, calls: 0, ms: 0 };
+formatGridDate = function(iso) {
+  const counter = globalThis.__gridDateCounter;
+  if (!counter.active) return originalRenderWorkDate(iso);
+  const started = performance.now();
+  counter.calls++;
+  try { return originalRenderWorkDate(iso); }
+  finally { counter.ms += performance.now() - started; }
+};` });
+      });
+      const page = await context.newPage();
+      await prepareRenderWorkWindow(page, density);
+      for (let repetition = 0; repetition < 2; repetition++) {
+        const record = await page.evaluate(async density => {
+          const path = "/e2e-perf/density-browser.ts";
+          const driver = await import(path);
+          const mediaPath = "/e2e-perf/thumbnail-probe.mjs";
+          const { installThumbnailProbe } = await import(mediaPath);
+          const store = (window as any).__kupua_store__;
+          const counter = (window as any).__gridDateCounter;
+          const cells = (window as any).__gridCellCounter;
+          const region = document.querySelector<HTMLElement>(`[aria-label="Image results ${density}"]`)!;
+          region.scrollTop = 0;
+          for (let index = 0; index < 3; index++) await new Promise(resolve => requestAnimationFrame(resolve));
+          driver.installDensityJourney({ density, direction: 1, resultsPerSecond: 100 });
+          const calibration = (window as any).__densityJourney.snapshot();
+          const before = store.getState();
+          counter.calls = 0;
+          counter.ms = 0;
+          counter.active = true;
+          cells.stats = { renders: 0, unique: new Set(), retainedComparisons: 0, retainedSkipped: 0, changes: {} };
+          cells.active = true;
+          installThumbnailProbe({ density });
+          let movement;
+          let exposure;
+          let journey;
+          const distance = Math.round(80 / calibration.resultsPerPixel);
+          try {
+            movement = await driver.scrollAtSpeed({ evaluate: (callback: any, argument: any) => callback(argument) },
+              density, calibration.commandedSpeedPxPerSec, 1000, { measureBounds: true, maxDistancePx: distance });
+            exposure = (window as any).__kupua_thumbnailProbe.stop();
+            journey = (window as any).__densityJourney.snapshot();
+          } finally {
+            counter.active = false;
+            cells.active = false;
+            (window as any).__kupua_thumbnailProbe?.dispose();
+            (window as any).__densityJourney?.dispose();
+          }
+          return { density, dateCalls: counter.calls, dateMs: counter.ms, frameP95Ms: exposure.frameP95Ms,
+            cellRenders: cells.stats.renders, uniqueCells: cells.stats.unique.size,
+            retainedComparisons: cells.stats.retainedComparisons, retainedSkipped: cells.stats.retainedSkipped,
+            retainedPropChanges: cells.stats.changes,
+            maxFrameMs: exposure.frameMaxMs, mediaPending: exposure.pendingAtEnd,
+            appliedPx: movement.drivenDistancePx, requestedDistance: distance, durationMs: movement.drivenDurationMs,
+            appliedResultsPerSecond: movement.drivenDistancePx * calibration.resultsPerPixel * 1000 / movement.drivenDurationMs,
+            publications: journey.appendPublications + journey.prependPublications,
+            sameData: before.results === store.getState().results, resident: before.results.length,
+            foreground: document.visibilityState === "visible", viewport: [innerWidth, innerHeight, devicePixelRatio] };
+        }, density);
+        console.log(JSON.stringify({ fixture: "grid-date-work", repetition, ...record }));
+        expect(record.foreground).toBe(true);
+        expect(record.viewport).toEqual([1720, 960, 2]);
+        expect(record.resident).toBe(400);
+        expect(record.publications).toBe(0);
+        expect(record.sameData).toBe(true);
+        expect(record.appliedPx).toBe(record.requestedDistance);
+        expect(record.mediaPending).toBe(0);
+        expect(record.dateCalls).toBeLessThanOrEqual(density === "grid" ? 550 : 0);
+        expect(record.cellRenders).toBeLessThanOrEqual(record.uniqueCells * 2);
+        expect(record.retainedComparisons).toBeGreaterThan(0);
+        expect(record.retainedSkipped).toBe(record.retainedComparisons);
+      }
+    } finally { await context.close(); }
+  });
+}
 
 function withoutThumbnailCleanup(source: string): string {
   const start = source.indexOf("function GridThumbnail(props)");

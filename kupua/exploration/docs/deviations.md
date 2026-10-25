@@ -8,7 +8,7 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-10-22
+Last updated: 2026-10-25
 
 ---
 
@@ -705,6 +705,22 @@ assumption for when permissions are wired up.
 ---
 
 ## From library defaults / conventions
+
+### Registry-Rendered Table Body Cells (25 October 2026)
+
+Table headers and the bounded row model still use TanStack, but body cells render
+through the field registry rather than receiving native Cell/Row contexts via
+`flexRender`. New model objects otherwise invalidate retained-row memoization
+despite unchanged image data. Memoized rows/content instead take stable image,
+column definitions, enrichment and interaction inputs; placement remains separate.
+
+The trade-off is that future custom body columns must have an explicit registry
+renderer or thumbnail path, rather than assuming arbitrary ColumnDef cell contexts
+will work automatically. Keep same-count column swaps, metadata replacement,
+enrichment and modifier interactions covered; do not ignore model-reference changes
+with a blanket comparator. There is no whole-buffer model or per-image output cache.
+Reusable locale formatters retain the page's initial locale/timezone defaults;
+reload after changing OS/browser locale or timezone during a session.
 
 ### Stable Fixed-Grid Rows at Window Boundaries (21 October 2026)
 

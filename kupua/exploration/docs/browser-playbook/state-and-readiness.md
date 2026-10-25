@@ -24,6 +24,13 @@ characterised. Prefer existing runtime globals. If import is necessary, preserve
 the runtime reference first and verify membership against the rendered app.
 Comparing references only after import may be circular.
 
+When an authorised diagnostic genuinely needs a stateful module with no runtime
+global, resolve the exact import specifier from its served owning module, including
+any Vite timestamp query. A bare-path import can create a parallel store even when
+its initial values match the UI. Verify an intended change against rendered state
+before measuring, restore the original state in `finally`, and never treat a
+disconnected-instance intervention as product evidence.
+
 DEV hooks include search/selection stores, viewport anchor, visible-image IDs,
 history key and router. Check existence; production builds can remove them. Read
 only needed fields: total, loading, results length, offset, focus and action-specific

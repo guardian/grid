@@ -24,6 +24,25 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 25 October 2026 - Remove repeated Grid and Table render/formatting work
+
+Fixed-grid captions and date tooltips now share two reusable Intl date/time
+formatters rather than invoking native locale formatting for every rendered date.
+This removes repeated formatter setup from the scrolling render path without
+changing labels, local-time formatting, missing dates or invalid-date output.
+Date presentation now runs inside the cell memo boundary, shares caption/tooltip
+values and skips image-only cells. No per-image cache or media/buffer policy is added.
+
+Table cell content now takes stable image/column/enrichment inputs rather than
+TanStack Row objects; outer rows likewise no longer receive model identity churn.
+Registry accessors share display/tooltip work, and numeric dimensions reuse one
+default-locale formatter. Native headers, bounded model input, placement, selection,
+focus, enrichment and metadata interactions retain their existing owners.
+Regression coverage checks formatting parity, same-ID metadata updates, same-count
+column changes, enrichment and modifier clicks. Bounded research controls reuse
+existing fixtures/probes to guard retained work; evidence and limitations live in
+the scroll-continuity guide. Table date-fns formatting is unchanged.
+
 ### 25 October 2026 - Unify performance reporting and harden campaign tooling
 
 Unified saved-history dashboards in `e2e-perf/results/` with workflow summaries,

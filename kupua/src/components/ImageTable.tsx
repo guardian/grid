@@ -32,7 +32,7 @@ import type { Image } from "@/types/image";
 import { upsertFieldTerm } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { cancelSearchDebounce, pushNavigate, enterFullscreenPreview, getCqlInputGeneration } from "@/lib/orchestration/search";
 import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
-import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
+import { thumbnailsEnabled } from "@/lib/image-urls";
 import { storeImageOffset, buildSearchKey, extractSortValues, getRetainedSortValues } from "@/lib/image-offset-cache";
 import { interpretClick, type Modifier } from "@/lib/interpretClick";
 import { dispatchClickEffects, type AddRangeEffect } from "@/lib/dispatchClickEffects";
@@ -40,7 +40,7 @@ import { handleLongPressStart } from "@/lib/handleLongPressStart";
 import { useLongPress } from "@/hooks/useLongPress";
 import { useEnrichedImage } from "@/hooks/useEnrichedImage";
 import { getImageBorderColour } from "@/lib/image-borders";
-import { DataSearchPill } from "./SearchPill";
+import { renderTableField, TableRowCells, TableThumbnail } from "./TableRowCells";
 import {
   FIELD_REGISTRY,
   FIELDS_BY_ID,
@@ -62,70 +62,14 @@ const columnHelper = createColumnHelper<Image>();
 // ---------------------------------------------------------------------------
 
 /**
- * Build a cell renderer for a list field (subjects, people).
- * Each item is a pill — individually clickable for search via
- * data-cql-key/data-cql-value (delegated click handling in the table).
- */
-function listCellRenderer(field: FieldDefinition) {
-  const accent = field.pillVariant === "accent";
-  return (image: Image) => {
-    const values = field.accessor(image);
-    if (!Array.isArray(values) || values.length === 0) return "—";
-    return (
-      <span className="inline-flex flex-nowrap gap-0.5 overflow-hidden" style={{ contain: "layout" }}>
-        {values.map((v, i) => (
-          <DataSearchPill key={i} cqlKey={field.cqlKey!} value={v} accent={accent} />
-        ))}
-      </span>
-    );
-  };
-}
-
-/**
- * Build a cell renderer for a composite field (location).
- * Each sub-field gets its own data-cql-key for click-to-search.
- */
-function compositeCellRenderer(field: FieldDefinition) {
-  return (image: Image) => {
-    const parts = (field.subFields ?? [])
-      .map((sf) => ({ cqlKey: sf.cqlKey, value: sf.accessor(image) }))
-      .filter((p): p is { cqlKey: string; value: string } => p.value != null);
-    if (parts.length === 0) return "—";
-    return (
-      <>
-        {parts.map((p, i) => (
-          <span key={p.cqlKey}>
-            {i > 0 && <span className="text-grid-text-dim">, </span>}
-            <span
-              data-cql-key={p.cqlKey}
-              data-cql-value={p.value}
-              className="hover:underline hover:text-grid-accent cursor-pointer"
-            >
-              {p.value}
-            </span>
-          </span>
-        ))}
-      </>
-    );
-  };
-}
-
-/**
  * Generate a TanStack column def from a FieldDefinition.
  *
  * NOTE: `field.cellRenderer` (enrichment-aware) is NOT baked into the column def.
- * It is called by `EnrichedTableRow` at the row level, which has access to the
- * enriched image via `useEnrichedImage`. Only list/composite renderers
- * (which don't need enrichment) are embedded in the column def.
+ * Body cells receive the row's enriched image through `TableRowCells`.
+ * Column definitions retain the native model/header contracts.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function fieldToColumnDef(field: FieldDefinition): ColumnDef<Image, any> {
-  // Only embed non-enrichment renderers in the column def.
-  // field.cellRenderer is handled by EnrichedTableRow at the row level.
-  const renderer =
-    (field.isList ? listCellRenderer(field) : undefined)
-    ?? (field.isComposite ? compositeCellRenderer(field) : undefined);
-
   return columnHelper.accessor(
     (row) => {
       const val = field.accessor(row);
@@ -136,14 +80,8 @@ function fieldToColumnDef(field: FieldDefinition): ColumnDef<Image, any> {
       id: field.id,
       header: field.label,
       size: field.defaultWidth,
-      cell: renderer
-        ? (info) => renderer(info.row.original)
-        : field.formatter
-          ? (info) => {
-              const raw = info.getValue();
-              return raw ? field.formatter!(raw) : "—";
-            }
-          : (info) => info.getValue() || "—",
+      cell: info => renderTableField(field, info.row.original,
+        field.isList ? field.accessor(info.row.original) : info.getValue()),
     }
   );
 }
@@ -162,22 +100,7 @@ const allColumns: ColumnDef<Image, any>[] = [
           header: "Pic",
           size: 48,
           enableResizing: false,
-          cell: (info) => {
-            const url = getThumbnailUrl(info.row.original);
-            if (!url) return null;
-            return (
-              <img
-                src={url}
-                alt=""
-                loading="lazy"
-                className="h-7 w-auto object-contain"
-                onError={(e) => {
-                  // Hide broken images silently
-                  (e.target as HTMLImageElement).style.display = "none";
-                }}
-              />
-            );
-          },
+          cell: info => <TableThumbnail image={info.row.original} />,
         }),
       ]
     : []),
@@ -242,12 +165,11 @@ function buildColumnSizeVars(
 // Wraps the per-row rendering so that each row calls useEnrichedImage(id)
 // exactly once. Fields with a cellRenderer receive the EnrichedImage
 // (with computed cost, validity, etc.) rather than the raw ES Image.
-// Fields without cellRenderers fall through to TanStack's flexRender
-// (accessor / formatter based — only needs the raw Image).
+// TableRowCells memoizes registry-based content independently of row placement.
 // ---------------------------------------------------------------------------
 
 interface EnrichedTableRowProps {
-  row: Row<Image>;
+  columns: readonly ColumnDef<Image, any>[];
   image: Image;
   virtualRow: VirtualItem;
   isFocused: boolean;
@@ -263,7 +185,7 @@ interface EnrichedTableRowProps {
 }
 
 const EnrichedTableRow = memo(function EnrichedTableRow({
-  row,
+  columns,
   image,
   virtualRow,
   isFocused,
@@ -285,7 +207,7 @@ const EnrichedTableRow = memo(function EnrichedTableRow({
 
   return (
     <div
-      key={row.id}
+      key={image.id}
       role="row"
       data-image-id={image.id}
       data-cell-id={image.id}
@@ -314,44 +236,7 @@ const EnrichedTableRow = memo(function EnrichedTableRow({
           onTickClick={handleTickBound}
         />
       </div>
-      {row.getVisibleCells().map((cell) => {
-        const field = FIELDS_BY_ID.get(cell.column.id);
-        const rawValue = getFieldRawValue(cell.column.id, cell.row.original);
-        const isClickable =
-          cell.column.id in COLUMN_CQL_KEYS ||
-          cell.column.id === "location" ||
-          cell.column.id === "subjects" ||
-          cell.column.id === "people";
-
-        // If the field has an enrichment-aware cellRenderer, call it with
-        // the enriched image instead of using TanStack's flexRender.
-        const content = field?.cellRenderer && enriched
-          ? field.cellRenderer(enriched)
-          : flexRender(cell.column.columnDef.cell, cell.getContext());
-
-        return (
-          <div
-            key={cell.id}
-            role="gridcell"
-            data-cql-cell={isClickable ? "" : undefined}
-            className="flex items-center shrink-0 px-2 text-xs text-grid-text truncate border-r border-grid-separator/20 overflow-hidden"
-            style={{ width: `var(--col-${cell.column.id})`, contain: 'layout' }}
-            title={rawValue ?? undefined}
-            onMouseDown={
-              isClickable
-                ? (e) => { if (e.shiftKey || e.altKey) e.preventDefault(); }
-                : undefined
-            }
-            onClick={
-              isClickable
-                ? (e) => handleCellClick(cell.column.id, cell.row.original, e)
-                : undefined
-            }
-          >
-            {content}
-          </div>
-        );
-      })}
+      <TableRowCells image={image} columns={columns} enriched={enriched} handleCellClick={handleCellClick} />
     </div>
   );
 });
@@ -374,6 +259,7 @@ const EnrichedTableRow = memo(function EnrichedTableRow({
 interface TableBodyProps {
   virtualItems: VirtualItem[];
   rows: Row<Image>[];
+  columns: readonly ColumnDef<Image, any>[];
   handleCellClick: (columnId: string, image: Image, e: React.MouseEvent) => void;
   handleRowDoubleClick: (imageId: string) => void;
   handleRowClick: (imageId: string, e: React.MouseEvent) => void;
@@ -391,6 +277,7 @@ interface TableBodyProps {
 const TableBody = memo(function TableBody({
   virtualItems,
   rows,
+  columns,
   handleCellClick,
   handleRowDoubleClick,
   handleRowClick,
@@ -484,7 +371,7 @@ const TableBody = memo(function TableBody({
         return (
           <EnrichedTableRow
             key={row.id}
-            row={row}
+            columns={columns}
             image={image}
             virtualRow={virtualRow}
             isFocused={isFocused}
@@ -1538,6 +1425,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
             tag above without any React involvement.  Rows and virtualItems
             are cached in refs during resize so props stay stable. */}
         <TableBody
+          columns={visibleColumns}
           virtualItems={cachedVirtualItemsRef.current}
           rows={cachedRowsRef.current}
           handleCellClick={handleCellClick}

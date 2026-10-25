@@ -10,3 +10,9 @@ export function formatCount(n: number): string {
   if (n >= 10_000) return `${Math.round(n / 1_000)}k`;
   return n.toLocaleString();
 }
+
+const numberFormatter = new Intl.NumberFormat();
+
+export function formatNumber(value: number): string {
+  return numberFormatter.format(value);
+}

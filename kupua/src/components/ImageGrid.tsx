@@ -53,6 +53,7 @@ import { SyndicationBadge } from "@/components/SyndicationBadge";
 import { useEnrichedImage } from "@/hooks/useEnrichedImage";
 import { isImagePotentiallyGraphic } from "@/lib/graphic-image-blur";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
+import { getGridDatePresentation } from "@/lib/format-grid-date";
 import {
   resolveAnchorVirtIndex,
   captureAnchorAtIndex,
@@ -87,32 +88,11 @@ const IS_COARSE_POINTER =
 // Tooltip helpers
 // ---------------------------------------------------------------------------
 
-function formatDate(iso: string | undefined): string {
-  if (!iso) return "[none]";
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    }) + ", " + d.toLocaleTimeString("en-GB", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
-}
-
 function buildDescriptionTooltip(image: Image): string {
   const desc = image.metadata?.description || image.metadata?.title || "";
   const by = image.metadata?.byline || "[none]";
   const credit = image.metadata?.credit || "[none]";
   return `${desc}\n      By: ${by}\nCredit: ${credit}`;
-}
-
-function buildDateTooltip(image: Image): string {
-  return `Uploaded: ${formatDate(image.uploadTime)}\n      Taken: ${formatDate(image.metadata?.dateTaken)}\n  Modified: ${formatDate(image.lastModified)}`;
 }
 
 /** Convert raw persisted reason keys to human-readable past-participle phrases (Kahuna parity). */
@@ -133,38 +113,6 @@ function humanisePersistedReasons(reasons: string[]): string {
   if (labels.length === 0) return "";
   if (labels.length === 1) return labels[0];
   return labels.slice(0, -1).join(", ") + " and " + labels[labels.length - 1];
-}
-
-/**
- * Pick the date label + value to show on the grid cell based on the primary
- * sort field. Matches kahuna behaviour: when sorting by date taken, show
- * "Taken: …"; when sorting by last modified, show "Modified: …"; otherwise
- * default to "Uploaded: …".
- */
-function getCellDateLine(image: Image, orderBy: string | undefined): string {
-  const primary = (orderBy ?? "-uploadTime").split(",")[0].replace(/^-/, "");
-  if (primary === "taken") {
-    return `Taken: ${formatDate(image.metadata?.dateTaken)}`;
-  }
-  if (primary === "lastModified") {
-    return `Modified: ${formatDate(image.lastModified)}`;
-  }
-  if (primary === "dateAddedToCollection") {
-    // ES sorts by max actionData.date across all memberships — mirror that here.
-    const dates = image.collections
-      ?.map((c) => c.actionData?.date)
-      .filter((d): d is string => !!d)
-      .sort();
-    return `Added: ${formatDate(dates?.at(-1))}`;
-  }
-  if (primary === "usagesDateAdded") {
-    const dates = image.usages
-      ?.map((u) => u.dateAdded)
-      .filter((d): d is string => !!d)
-      .sort();
-    return `Used: ${formatDate(dates?.at(-1))}`;
-  }
-  return `Uploaded: ${formatDate(image.uploadTime)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -200,7 +148,7 @@ interface GridCellProps {
   isFocused: boolean;
   cellWidth: number;
   imageOnlyHeight?: number;
-  dateLine?: string;
+  dateOrderBy?: string;
   animationClass?: string;
   onCellClick: (imageId: string, e: React.MouseEvent) => void;
   onCellDoubleClick: (imageId: string) => void;
@@ -224,7 +172,7 @@ const GridCell = memo(function GridCell({
   isFocused,
   cellWidth,
   imageOnlyHeight,
-  dateLine,
+  dateOrderBy,
   animationClass,
   onCellClick,
   onCellDoubleClick,
@@ -255,7 +203,7 @@ const GridCell = memo(function GridCell({
 
   const thumbUrl = thumbnailsEnabled ? getThumbnailUrl(image) : undefined;
   const descTooltip = buildDescriptionTooltip(image);
-  const dateTooltip = buildDateTooltip(image);
+  const dates = imageOnlyHeight === undefined ? getGridDatePresentation(image, dateOrderBy) : undefined;
   const description = image.metadata?.description || image.metadata?.title || "";
   const labels = image.userMetadata?.labels;
 
@@ -393,9 +341,9 @@ const GridCell = memo(function GridCell({
         </p>
         <p
           className="text-2xs text-grid-text-dim truncate"
-          title={dateTooltip}
+          title={dates?.dateTooltip}
         >
-          {dateLine}
+          {dates?.dateLine}
         </p>
       </div>
 
@@ -1022,7 +970,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
                       isFocused={!!image && image.id === focusedImageId && getEffectiveFocusMode() === "explicit" && !inSelectionMode}
                       cellWidth={justifiedLayout?.getBox(imageIdx)?.width ?? cellWidth}
                       imageOnlyHeight={justifiedLayout?.getBox(imageIdx)?.height}
-                      dateLine={image && !justified ? getCellDateLine(image, searchParams.orderBy) : undefined}
+                      dateOrderBy={justified ? undefined : searchParams.orderBy}
                       animationClass={animClass}
                       onCellClick={handleCellClick}
                       onCellDoubleClick={handleCellDoubleClick}

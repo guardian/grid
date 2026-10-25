@@ -201,6 +201,324 @@ Four-sample p95 is the worst repetition, not a population tail. Count-based pend
 slots must not be confused with historical whole-viewport pending area, especially
 for Table's narrow thumbnail column.
 
+### Bounded Grid/Table Frame Attribution (25 October 2026)
+
+Question: does the ordinary-rate frame gap require media arrival, metadata
+publication or campaign observers? Earlier warm-media attribution covered
+Justified only; historical campaign comparisons did not isolate these causes.
+Hypothesis: costly Grid/Table frames persist with resident data and predecoded
+media. Control: reuse `scrollAtSpeed` and journey calibration, dispose the journey
+observer before motion, retain only rAF timing and a store publication counter.
+Each forward pass was bounded to 800ms at calibrated 100 results/s; 12 passes
+total (9.6s planned motion), including one excluded pass. No campaign was run.
+
+Shared foreground-visible Vite DEV app, verified ApiDataSource / deployed TEST /
+canonical media, seek tier, 1720x960/DPR2. Served raw sources for ImageGrid,
+ImageTable, JustifiedGrid, useDataWindow and useScrollEffects matched disk SHA256.
+One 200-image cohort was predecoded and retained outside motion: 200/200 succeeded
+in 618ms under a 10s cap. Caches were uncontrolled. The window grew from 200 to
+400 during the excluded pass; valid cross-density and formatter comparisons used
+the same 400-result array. Workloads differ by density: Grid/Table/Justified
+initial visible slots 18/27/39, runway 382/373/361 results and calibrated speed
+5050/3200/2622.5px/s. This is not equal pixel or DOM work, or hosted-build evidence.
+
+| Pass | rAF intervals | Frame-p95 ms | Progressed results | Qualification |
+| --- | --- | --- | --- | --- |
+| Grid ordinary, minimal | 34 | 58.4 | 84 | 200 resident; 6/24 endpoint images loaded |
+| Grid warm, minimal 1 | 31 | 58.3 | 84 | 200 resident; 24/24 endpoint images loaded |
+| Grid warm, minimal 2 | 24 | 58.4 | 78 | EXCLUDED: one publication, window grew to 400 |
+| Table warm, minimal | 18 | 133.1 | 76 | 27/27 endpoint images loaded |
+| Justified warm, minimal | 78 | 25.0 | 72 | 39/39 endpoint images loaded |
+| Grid warm, minimal | 35 | 58.4 | 78 | 24/24 endpoint images loaded |
+| Grid warm, CPU-profiled | 31 | 50.9 | 84 | Profile overhead; not a benchmark pair |
+| Table warm, CPU-profiled | 16 | 141.7 | 77 | Profile overhead; not a benchmark pair |
+| Grid native before | 41 | 50.0 | 84 | Formatter control, 799ms motion |
+| Grid formatter reuse 1 | 84 | 16.7 | 84 | 794ms; 14,208 intercepted calls including setup |
+| Grid formatter reuse 2 | 94 | 9.3 | 84 | 790ms; 14,736 intercepted calls including setup |
+| Grid native after | 41 | 41.7 | 78 | 756ms; retain shorter achieved motion |
+
+All valid passes stayed visible and had zero result publications/read starts during
+motion. Script duration was 745ms Grid / 756ms Table in approximately 1s profiled
+windows **including setup**, versus layout plus style 23/44ms. Grid self-samples
+included 383ms in getCellDateLine and 56ms in buildDateTooltip; Table included 89ms
+in a field accessor plus substantial React DEV work. No paint/raster attribution
+or production-build extrapolation follows from these CPU samples.
+
+For Grid only, a temporary exact-option Date locale-method wrapper reused two
+Intl.DateTimeFormat instances. Forty output comparisons against native methods
+matched. Native/reuse/reuse/native ordering retained identical initial geometry,
+data and media, with about 101 results/s calibrated applied motion; restored native
+frames worsened again. This supports **repeated Grid locale formatting as a causal
+app CPU defect in this DEV reproduction**, not the entire historical frame gap.
+Table uses a different date formatter: no shared-date-cause claim is retained.
+Campaign observers and result-buffer publication are not necessary for the valid
+warm reproductions. Prewarming did not remove the gap; residual decode/first-display,
+enrichment publication, paint and additional live observer costs remain unquantified.
+
+Smallest justified next step: separately approve a targeted Grid formatter-reuse
+fix with output-equivalence tests and full required product gates. Do not redesign
+the renderer or enlarge buffers. Table's rendering root cause and historical
+stopped-media censoring remain independent unresolved questions. Short sparse
+passes are not population tails; predecoded references/loaded DOM do not establish
+every-frame painted output. All wrappers, retained images, observers and diagnostic
+globals were released; the owned CDP profiler/session and viewport override were
+removed. No raw profiles, identities, URLs, credentials or canonical histories saved.
+
+### Grid Fix Remeasurement and Table Columns (25 October 2026)
+
+The approved Grid change extracts `formatGridDate` and reuses two Intl formatters.
+The regression first failed on 20 native locale-date calls, then passed with reuse;
+output checks include missing, empty, invalid, offset and DST-boundary dates.
+The implemented source, not a prototype wrapper, was reloaded and verified against
+disk hashes alongside unchanged Table/field-registry sources. TEST/canonical DEV,
+foreground, 1720x960/DPR2, uncontrolled caches and the same 800ms driver contract
+were retained. One read-only forward extension prepared 400 resident results at
+offset zero before timing; 200 retained thumbnails decoded in 101ms under a 10s cap.
+
+Grid's two implemented-reuse passes recorded frame-p95 **16.8/9.4ms**, no intervals
+over 33.4ms, 84 frontier results each, and approximately 100.2 calibrated applied
+results/s. Both had 18 initial/24 final loaded slots, 382 results of initial runway,
+1706x888 containers, unchanged data and no read starts/publications. These agree
+with the earlier temporary reuse control; earlier native 50.0/41.7ms observations
+are contextual evidence, not a newly randomized before/after campaign.
+
+Table question: are enabled metadata cells necessary for the large ordinary-rate
+frame cost, and are date/number formatters its sole explanation? Earlier profiles
+could not separate enabled-column cost from row machinery. The falsifiable control
+hid columns using the existing store, verified actual rendered header counts and
+restored preferences in `finally`. Short passes ran in both treatment orders,
+with original columns bracketing thumbnail-only, selection-only and dates-only;
+a second reversed pair separated numeric-only from original-minus-numeric.
+All Table passes used the same 400-result array, 1706x876 container, 27 initial
+visible rows, 373-result runway, approximately 100 applied results/s and zero
+result publications/read starts. Hiding media intentionally removes image work;
+thumbnail-only retains it as the independent warm-media control.
+
+| Table configuration | Columns including selection | Two frame-p95 observations (ms) |
+| --- | --- | --- |
+| Original saved configuration | 23 | 50.0, 58.3 |
+| Thumbnail only | 2 | 16.7, 25.0 |
+| Selection only | 1 | 16.7, 16.7 |
+| Taken/uploaded dates only | 3 | 25.0, 25.0 |
+| Dimensions/width/height only | 4 | 17.5, 25.0 |
+| Original minus dimensions/width/height | 20 | 41.6, 66.7 |
+
+Retain the original configuration's 117ms worst interval; do not average it away.
+These results support enabled-cell work as the major differentiator in this warm
+reproduction, not zero fixed row/virtualizer cost or a universal columns-only cause.
+Neither dates nor numeric formatting alone explains the full enabled-column gap.
+
+One additional instrumented original-column pass (frame-p95 50.1ms) wrapped registry
+accessors, raw-value functions and renderers, plus native number formatting. Including
+setup, it observed 9,944 locale-number calls / 80.6ms; dimensions accessor 3,531 calls /
+62.1ms; width/height accessors 1,177 calls each / 7.2/9.6ms. The two date-fns formatters
+each ran 2,354 times, totaling 12.2ms. Nested timings overlap and wrapper overhead
+precludes adding these into a frame budget. Dimensions has no raw-value override;
+tooltip extraction repeats its formatted accessor alongside display/core-row work.
+All enabled columns render even outside the horizontal viewport, and changing
+virtual windows replaces TanStack row objects, defeating otherwise stable row memo.
+
+Potential Table improvements, not implemented: share a default-locale number
+formatter with output-parity coverage; avoid repeated dimension/raw-display
+derivation; characterize row/cell reuse before considering a wider rendering change.
+Do not replace date-fns or remove useful columns merely because a date-only arm is
+cheaper. Grid still computes date-line props across virtual rows; formatter reuse
+addresses demonstrated setup cost without adding per-image caches or changing
+renderer, buffer or media policy. Table recovery under constrained delivery, paint
+and enrichment-publication costs remain unmeasured here.
+
+Fifteen passes were bounded to 800ms each (12s planned motion), including the one
+instrumented pass; no campaign or live writes. All native wrappers, field mutations,
+retained images, globals, observers and the owned CDP viewport override/session were
+removed. Original column configuration was verified restored. No Table product code,
+raw profiles, identities, URLs or canonical histories were written.
+
+### Isolated Retained-Row Control (25 October 2026)
+
+The next question was whether new TanStack Row references, rather than changed
+image data or geometry, defeat EnrichedTableRow memoization. Existing column-off
+and formatting probes could not answer that. The bounded research control reuses
+fixture routes, MockDataSource, visibleMediaReadiness, journey/thumbnail probes
+and scrollAtSpeed; only the memo/reference counter is new. It runs in the separate
+Playwright research browser on runner-owned port3041, with service access blocked.
+The shared app/server is untouched. Two embedded interception setups failed before
+motion; an outer-realm URL error was identified, but the subsequent fetch/response
+failure remained unresolved. No performance conclusion uses those failed setups.
+
+The first isolated setup also failed: its immediate extension remained at 200
+results and four media slots were pending at stop. That observation is excluded
+from the comparison. The repaired setup uses the existing maintenance cooldown
+and predecodes/retains 200 synthetic thumbnails under a 10s cap.
+
+The successful control used synthetic metadata/media, 400 resident results, seek
+mode, 1720x960/DPR2, 1706x876 container, 27 initial visible rows and 373-result runway.
+Native/semantic/semantic/native/native/semantic passes each applied exactly 2560px
+(80 calibrated results) with a 1s cap. All stayed visible, retained the same data,
+had zero result publications and zero endpoint pending slots, and matched endpoint
+text, tooltips and declared row-placement styles. No pixel/paint witness was taken.
+
+| Mode in execution order | Row-body render calls | Frame-p95 ms | Applied results/s |
+| --- | --- | --- | --- |
+| Native | 2,376 | 75.0 | 91.36 |
+| Semantic | 156 | 17.5 | 99.07 |
+| Semantic | 156 | 16.7 | 99.66 |
+| Native | 2,840 | 34.3 | 97.13 |
+| Native | 3,026 | 33.4 | 96.65 |
+| Semantic | 158 | 16.7 | 100.57 |
+
+Every counted changed prop was `row`; images and other row props were unchanged.
+Native passes counted 1,111/1,341/1,434 retained-image/new-Row comparisons. Semantic
+reuse ignored Row identity only when original image and every other prop matched
+(virtual geometry was compared by value), reducing row-body calls by roughly 94%.
+Both modes carried the same counters and probes. Thumbnail observer sample maxima
+were 0.6-0.9ms, journey maxima 0.4-0.5ms; faster semantic arms actually accumulated
+more thumbnail observer time (36-40ms versus 12-14ms). These are diagnostic costs,
+not proof that observers have no asynchronous/layout effects.
+
+This confirms an avoidable retained-row render mechanism in the synthetic control.
+It is not a measured live improvement, production-build result or exact matched-rate
+benchmark: fixed work matched, achieved rates did not, and the adverse 75ms native
+observation remains. The next justified product change is a stable cell-content
+boundary that avoids propagating unchanged model-object churn, while retaining
+bounded virtual-window input. Do not ship the diagnostic comparator: reference
+equality of image data alone does not cover column/model changes, enrichment,
+selection/focus, sorting or metadata replacement outside this steady-window test.
+
+Grid still computes date-line props in the parent virtual-row loop and repeats some
+date work in tooltips. Those are remaining opportunities, not demonstrated post-fix
+bottlenecks. Actual fixed Grid frame-p95 16.8/9.4ms versus earlier native 50.0/41.7ms
+is descriptive context, not randomized paired observations or a throughput speedup.
+The focused research test and perf TypeScript check passed; the owned browser/context
+and its routes/counters were disposed. Full product E2E for the Grid fix is still
+pending operator release of port 3000; this local control does not replace that gate.
+
+### Implemented Render-Work Follow-Up (25 October 2026)
+
+The operator approved the narrow Table repair and further Grid work after reviewing
+the evidence/fix summary. No diagnostic comparator is shipped. TableRowCells now
+receives stable image, columns, enrichment and click-handler inputs. Outer rows
+also no longer receive native TanStack Row objects. Accessor output is shared by
+display and tooltip; one default-locale Intl.NumberFormat serves dimensions/width/
+height. Table's date-fns formatting, bounded model input, headers, placeholder paths,
+placement, focus/selection, media delivery and native thumbnail lifetime are retained.
+
+Grid computes date presentation inside the existing cell memo boundary. Caption and
+tooltip share the three formatted date values; primary sort and collection/usage
+maximum-date semantics are retained. Image-only Justified cells skip date work.
+The two existing locale formatters remain; no per-image cache or buffer change.
+
+Failing-first checks exposed 3,915 title reads for 122 row identities, then 6,172 cheap
+outer-row renders after the first content extraction. The completed repair removes
+both sources of churn. A separate Grid check counted 6,552 date calls in one roughly
+800ms pass; the numeric regression detected 80 native locale calls over 20 repeated
+three-field reads. Output equivalence was retained rather than weakening assertions.
+The old diagnostic expectation that semantic memo must outperform native memo was
+replaced deliberately: production now must have no Row-reference churn to ignore.
+
+Final combined isolated run reused the same research browser, fixtures and probes:
+400 resident results, retained/predecoded 200-image synthetic cohort, 1720x960/DPR2,
+fixed 80-result calibrated work per pass, at most 1s each. Three Table native passes
+recorded frame-p95 17.7/17.2/16.7ms, 160/160/158 row-body calls and matching title reads.
+Native/semantic rows had no differing props or extra semantic-reuse opportunities;
+all endpoint text/tooltips/declared placement witnesses matched. Semantic frame-p95
+was 17.2/16.8/16.8ms. Retain the 25.1ms worst interval and 2.7ms thumbnail-observer maximum;
+one journey-observer maximum was 1.7ms. These remain observer-present synthetic data.
+
+Grid's two final passes made 504 date calls each, measured formatter work 1.2/0.8ms,
+frame-p95 16.6/16.6ms, worst intervals 17.0/16.7ms. The corresponding pre-change work
+check had 6,552 calls / 11.1ms but already 16.7ms frame-p95: this follow-up saves CPU,
+not an established further frame-cadence improvement. Justified made zero date calls,
+with 9.2/9.2ms frame-p95 and 17.5ms worst intervals. The last numeric-formatter change
+has output/allocation coverage, not a separately isolated frame-speed attribution.
+
+Every final pass completed its fixed distance with unchanged data, no publications
+and zero pending endpoint media. Achieved rates were 98.1-100.3 results/s Table and
+about 99.3 Grid; Justified 99.3-100.0. No population tails, live/hosted improvement,
+paint proof or resolution of constrained Table recovery follows. All owned contexts,
+routes and counters were disposed; canonical histories and shared server unchanged.
+
+This exhausts the demonstrated retained-render/locale-setup/duplicate-derivation
+opportunities selected here. Remaining Grid formatting is around 1ms over the motion
+window; extra caches or a wider renderer refactor have no established payoff from
+these controls. Further work needs a new measured bottleneck. Unit coverage includes
+same-ID metadata replacement, same-count column swaps, enrichment, modifiers, dates,
+list/composite rendering and numeric/missing/invalid output. Full units and perf
+TypeScript passed; full product E2E remains pending operator release of port 3000.
+
+### Direct Grid Memo and Live DEV Recheck (25 October 2026)
+
+The direct GridCell counter reuses the isolated date-work control and native shallow
+prop comparison. Fixed Grid rendered 168 times for 84 entering image identities in
+each pass; 3,144/2,940 retained comparisons all skipped, with no changed retained
+props. Justified rendered 150 times for 75 entering identities, skipping all
+4,338/4,269 retained comparisons. Date calls remained 504 Grid / zero Justified.
+Frame-p95 was 16.6/16.6ms Grid and 15.8/9.3ms Justified; retain the adverse first
+Justified value. A numbered refresh-signature marker mismatch failed before motion
+and was repaired; it is not app performance evidence. No callback/collection-colour
+churn was observed in this synthetic steady-window control.
+
+Before E2E, the actual shared app was reloaded because HMR was unavailable. Raw served
+hashes for ImageGrid, ImageTable, TableRowCells, date formatting, field registry and
+number formatting matched disk. Runtime ApiDataSource, configured deployed TEST /
+canonical media, foreground visibility and 1720x960/DPR2 were verified. Retained
+Resource Timing entries corroborated image-API traffic; an earlier legacy-/api
+classifier was inapplicable and its zeros were discarded, not called zero requests.
+No independent backend-binary or production-build identity claim follows.
+
+One read-only extension prepared 400 resident results at offset zero. Every pass
+applied about 80 calibrated results with a 1s cap; a separate decoded-media observer
+had a 1s stop cap. Ordinary means before explicit prewarming, not cold caches. A
+200-image prewarm completed in 75ms with no failures. Cache state and live enrichment
+were not independently controlled; result-buffer publications were measured.
+
+| Live DEV pass | Frame-p95 ms | Worst interval ms | Applied results/s |
+| --- | --- | --- | --- |
+| Grid ordinary | 24.9 | 25.1 | 99.16 |
+| Table ordinary, 23 columns including selection | 17.6 | 25.3 | 99.10 |
+| Justified ordinary | 9.4 | 16.8 | 100.19 |
+| Grid explicitly prewarmed | 9.1 | 16.6 | 100.16 |
+| Table explicitly prewarmed | 16.7 | 25.5 | 97.12 |
+| Justified explicitly prewarmed | 9.2 | 16.7 | 99.13 |
+| Table original columns, bracket start | 17.4 | 25.1 | 97.09 |
+| Table thumbnail only, repetition 1 | 8.7 | 16.7 | 99.06 |
+| Table thumbnail only, repetition 2 | 9.1 | 9.4 | 99.08 |
+| Table original columns, bracket end | 16.8 | 25.0 | 99.11 |
+
+The column intervention initially imported a disconnected bare-path store while the
+live Table used a timestamp-qualified dependency. The rendered-header guard stopped
+it and `finally` restored that instance; the completed bracket-start pass was retained.
+Resolving the exact dependency from the served owner module made the remaining three
+passes observable. Rendered header counts verified 23 versus 2; preferences were restored.
+No completed pass was rerun and total motion stayed within ten 1s-capped passes.
+
+All ten passes stayed visible, kept the same result array, completed fixed distance,
+had zero read starts/result publications during motion and no intervals over 33.4ms.
+All decoded endpoints completed within their separate cap. Grid/Justified usable
+slot counts were 24/33 at stop. Table's slot witness counted 27 usable rows while
+the shared media helper counted 29 intersecting images including the header band;
+do not merge those populations or call either paint proof. No constrained delivery,
+long churn, backward geometry or historical Table-recovery claim was remeasured.
+
+The former large warm Grid/Table frame penalty was not reproduced in this bounded
+live DEV check. Full Table retains a smaller metadata-cell cost versus thumbnail-only;
+these data do not identify its exact browser subsystem or justify another renderer
+change. Historical and current observations are not randomized paired speedup data.
+All owned globals, listeners, observers, warm references and CDP overrides/session
+were removed, with cleanup readback; shared server/configuration and canonical
+histories were unchanged. Full E2E was still outstanding at this checkpoint;
+the completed product gate is recorded below.
+
+### Completed Product Validation (25 October 2026)
+
+Full local-only E2E completed with 505/505 passing, retries disabled, covering
+Chromium, forced-seek, Justified preview, indexed and seek projects. Full units
+passed 3,256 tests across 92 files; perf TypeScript and the focused research controls
+also passed. The first E2E attempt was agent-interrupted and does not count toward
+this gate; only the completed rerun is used. No assertions were weakened or failures
+retried away. The operator's shared app was stopped by the operator before testing;
+runner-owned servers used explicit local ES settings, not TEST. This validates
+workflows/regressions, not hosted performance or the unresolved media/paint questions.
+
 Nine D1/D2/D8 records changed workload contracts in revision 4. D3–D7/D11 retain
 twelve comparable records; even the new 100-results/s step is not the old continuous
 journey. Do not compute a cumulative scroll speedup across that revision boundary.

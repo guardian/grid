@@ -619,6 +619,12 @@ while self-caused edits retain the live AST and latest-prefix counts.
 
 TanStack Table + Virtual. Column defs come from static/configured registry fields.
 `EnrichedTableRow` uses `useEnrichedImage`; badges and photographer styling share enriched data.
+`TableRowCells` consumes stable image, column definitions, enrichment and interaction inputs;
+native TanStack Row identities are not passed to memoized rows or content. Column arrays
+invalidate content even for same-count visibility swaps; new image/overlay references retain
+metadata freshness. Shared registry rendering evaluates each accessor once for display/tooltips,
+and dimensions/width/height reuse a default-locale number formatter. The bounded TanStack model,
+placeholder/pending-row paths and native header behavior remain in ImageTable.
 Resize uses CSS variables, with auto-fit and a visibility menu outside the contained scroll area.
 `useHeaderHeight` measures the actual sticky header through ResizeObserver for virtualizer
 padding and placement; the layout constant is a first-render fallback, not a permanent measurement.
@@ -637,6 +643,9 @@ Buffer access and scroll placement remain in the shared hooks. Cells use `useEnr
 `image-borders.ts` for provenance styling and `graphic-image-blur.ts` for the user-controlled blur.
 Date labels follow the primary sort. Metadata pills stop propagation so searching a value does
 not also select/open its image. Browsing, selection and middle-click preview use the shared owners.
+Date presentation is computed inside the memoized cell, not the parent's virtual-row loop.
+Caption and tooltip share formatted upload/taken/modified values and two Intl formatters;
+image-only Justified cells perform no date presentation work. No per-image date cache is retained.
 
 Fixed row membership follows global result positions, with a bounded vertical origin in local
 windows. A partial first row uses leading layout space, not fake records or selectable cells.
