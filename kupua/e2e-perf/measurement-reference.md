@@ -2,6 +2,44 @@
 
 [Operator entry point](README.md). Workload contracts, interpretation and maintenance; research recipes live separately.
 
+## Detail Traversal Landing
+
+P14 revision 3 observes the expected landing image for up to 15 seconds from the
+final committed navigation. Completion retains its actual observed load time;
+incomplete media is an adverse measurement, not a fatal campaign assertion.
+Changed image ownership, missing commits and unexpected metadata lookups still
+invalidate the measurement. This is load readiness, not a compositor-paint clock.
+
+Raw incomplete samples retain `landingRendered=false` and a deadline marker in
+`landingRenderMs`; that marker is not a measured load time. Aggregation excludes
+incomplete samples from landing/network medians and reports `landingRenderedCount`
+and `landingCensoredCount`. No completions means null latency. Read every
+completed-only latency alongside those counts; it is not the median for all trials.
+Revision 2's five-second contract remains separate, without rewriting history.
+
+This change does not make every media-dependent setup nonfatal. P14 still requires
+its starting image to load. P13c revision 3 measures returned media, with separate
+singleton-response, metadata-ready and decoded/stable-image clocks. It records exact
+warmed-URL reuse as evidence, not a prerequisite or proof of cache warmth. Changed
+signatures can change the browser resource without changing rendition.
+
+P13c observes image readiness for fifteen seconds; incomplete images retain null
+latency. Completed-only image medians must be read with `detailImageReadyCount` and
+`detailImageCensoredCount`. `detailImageFailedCount` records observed image errors
+and is a subset of incomplete outcomes; a loaded thumbnail fallback cannot satisfy
+full-media readiness. URL reuse, non-reuse and unavailable-evidence counts are
+separate from HTTP/CDN cache hits. Nonresident ownership, successful singleton
+response and metadata availability remain validity requirements. Older warm-only
+P13c revisions are not comparable to this returned-media condition.
+
+Delivery comparisons must separate browser DPR, effective request multiplier,
+requested processing bounds, returned image dimensions and encoded bytes. The
+desktop high-DPR multiplier is 1.5: a 1720x960 screen requests up to 2580x1440,
+with native caps and aspect-fit output. Set campaign screen/viewport/DPR before
+loading app modules; the prefetcher captures screen dimensions at module load.
+Match ordered image identities, cadence, source state and cache conditions across
+delivery arms; reused-context probes are diagnostics, not fresh-context baselines.
+
 ## Density comparisons and thumbnail exposure
 
 The comparison suite covers scrolling with browser-cache bypass and repeat-path setup,
@@ -280,6 +318,41 @@ campaign or a performance claim. Campaigns and dry runs remain separately approv
 
 ## Dashboards and reports
 
+The [graph-led saved-history dashboard](results/index.html) adds the
+approved Overview -> Search & Navigation / Scrolling & Layout / Image Workflows -> exact-record slices; legacy dashboards below
+remain available. Its [shared adapter](results/dashboard-data.js) names the four exact
+24 October entry timestamps and expected scenario sets explicitly. Labels and independently
+latest entries never establish cross-family checkpoint membership. Missing members remain
+visible. No history/schema migration or additional baseline grouping is implied.
+
+The adapter retains complete raw records and entry provenance. Charts use qualified
+measurements separately from raw evidence: unsupported/invalid captures, incomplete
+density field populations and changed capture gates cannot earn healthy assessments.
+Healthy-only responsiveness `sampleCount` plus `degradedCount` gives the outcome total;
+P13c/P14 completed-only fields and density metric counts retain their own populations.
+Null, zero, absent, partial and unsupported are not interchangeable. p95 is called an
+observed maximum only for a qualifying nearest-rank population where that is true.
+
+Selected-pair eligibility uses the existing environment guard, then family/kind/scenario,
+revision, routes and field/record contracts, including density contract keys and capture
+gates. Raw field availability does not certify measurement validity or a numeric delta.
+All workflows keep checkpoint/baseline and C−B direction fixed when `side=baseline`
+selects the evidence owner; stable record/field URLs round-trip through reload and Back.
+All three workflows have summaries. Search preserves action-phase/regime selection,
+healthy-only PP3/PP4 timing with degradation counts, background-only PP10 and D11's
+saved within-repetition signed deltas. Isolation/media censor gates and contributor
+counts apply independently; no paired delta is reconstructed from arm medians. Status
+correlation and diagnostic attribution remain unresolved. Count/acknowledgement fields
+are not settlement grades. Scrolling local density,
+direction, workload, phase and statistic choices survive exact-field inspection; absent
+selected phases never fall back to a successful primary field. Existing density v1
+indices use complete ordinary-journey inputs/gates, separately from the selected phase.
+Provisional action grades are not accepted thresholds; P14 U1/U2, D7 foreground and
+JA2 loaded-not-decoded limits remain. The only registered comparison is the confirmed
+three-entry proxy assembly (70 records, long absent) against the four-entry canonical
+checkpoint (78); no latest-family substitution or other grouping follows. Legacy history
+stays accessible.
+
 Open the dashboard links above directly from disk; no server is required. They load local JS
 sidecars beside the HTML. Refresh after a campaign. All three provide Previous/Next controls,
 arrow-key metric navigation and metric explanations; arrows stay native in editing controls.
@@ -354,6 +427,37 @@ and suite succeeds**; a [degraded PP3/PP4 sample](#degraded-focused-sort-samples
 repetition. Failures retain diagnostics, not partial benchmark history or resumable
 checkpoints. The density suite fails fast; do not fix failures by relaxing assertions/timeouts.
 
+### Delivery comparisons
+
+The runtime fingerprint includes `mediaDelivery: proxy|canonical` independently of
+`dataMode` and `apiTopology`. All three dashboards label and separate those combinations.
+Rendering/responsiveness now include topology in general history compatibility, not
+only network metrics. Their Campaign / Compare with controls select exact entries;
+History only restores their normal multi-series history.
+
+An explicit baseline comparison may change API topology and/or delivery. All other
+recorded environment dimensions must match, including browser version, origin, OS,
+viewport/screen, DPR, throttling and cutoff; the individual workload/metric contracts
+must also match. Missing environment evidence refuses cross-environment deltas.
+Source differences or unverified source are disclosed, not mistaken for a controlled
+intervention. Changing both topology and delivery does not isolate either one's cost.
+Density retains separate history lines and exposes selected-pair metric deltas without
+joining those lines. Its source-comparison rankings retain their measurement gates.
+
+**Historical correction, operator-confirmed 23 October 2026:** all existing records
+with a known data mode used proxy delivery. API records predating topology capture
+used local media-api; direct-ES records have topology `none`. The one deployed campaign
+on 28 September has one rendering and two responsiveness entries, all with proxy
+delivery. These fields are annotated in canonical JSON and JS sidecars with
+`operator-confirmed-2026-10-23` provenance; density keys/Markdown were regenerated.
+No measurements, counts, timestamps, source revisions or workload contracts changed.
+Records lacking a data-mode fingerprint remain unknown. This is a bounded correction,
+not a default inferred for future missing fingerprints.
+
+Revision-4 forward journeys cover nine seconds of increasing demand. They are not
+the retired D10's longer steady-scroll observation. A hosted sustained-scroll symptom
+needs separately scoped reproduction; this delivery comparison does not certify it.
+
 ## Maintaining measurements
 
 <a id="measurement-discipline-for-later-work"></a>
@@ -400,10 +504,30 @@ healthy samples only, and history records `degradedCount`/`degradedReasons` besi
 `sampleCount`. Focus moved to another image, pending sorts and store errors still fail; other
 scenarios cannot record degraded samples. After the campaign, including a failed one, the runner
 prints each degraded sample: store warning category (timeout, find error or none), phase reached,
-focused media ID, UTC `t_0` and every media-api/direct-ES request's start, duration, outcome,
+UTC `t_0` and every media-api/direct-ES request's operation category, start, duration, outcome,
 whether Chromium reported headers sent and when response headers arrived. A request waiting at
-least one second without response headers is marked stalled. Paths keep media IDs but omit queries
-and index names. These details reach only the console and run report; history keeps counts only.
+least one second without response headers is marked stalled. Diagnostic revision 2 retains
+`focusedImageId: null` and only known structural path/operation names; identity-bearing and
+unknown segments become placeholders. Queries, index names and hosts are omitted. Legacy
+operation strings and failure text are re-sanitized when formatted, with malformed operations
+reported as unparseable rather than breaking reporting. Redacted details reach the console and
+run report; history keeps counts/reasons only. UTC, request ordering/lifetimes and stall evidence
+support correlation, but ordinary artifacts cannot reproduce the exact focused image.
+
+The operator-approved **PP3-only private exception** retains the focused media ID and UTC
+action start through an external private handoff, never metrics JSONL or history. After the
+short-suite child exits, the runner collects the handoff and removes its file/directory, even
+on child failure. At campaign end, on success or failure, a separate `PP3 PRIVATE DEBUG`
+section prints those IDs to the console and private temporary run report. PP4 has no exception.
+No ID is collected for a failure before the existing degraded diagnostic is emitted; auth and
+harness failures are not relabelled as degradation. Direct spec runs without a runner-created
+handoff retain ordinary redaction. Temporary files are bounded and private (directory 0700,
+file/report 0600) and rejected inside the repository. The terminal's `tee` output must also
+remain private and outside the repository. Retain identity-bearing logs only until debugging
+is complete, then delete them. Abrupt parent termination can leave a private handoff and can
+prevent the final summary; cleanup is guaranteed for handled child completion/errors, not
+force-kill. No historical artifacts are inspected or rewritten by this change;
+it does not change workload revisions, timing clocks or PP3/PP4 degradation acceptance.
 
 Density selection shares only the [exact-button/pressed-state guard](../e2e/README.md#density-selection-guard).
 Keep its caller-owned clicks and waits inside their existing observation windows: the density

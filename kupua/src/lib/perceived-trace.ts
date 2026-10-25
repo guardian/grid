@@ -2,12 +2,14 @@
  * perceived-trace — lightweight action-boundary tracer for perceived-performance measurement.
  *
  * Gating:
- *   - Production builds: tree-shaken out entirely (import.meta.env.DEV guard).
- *     Zero bundle bytes, zero runtime cost.
- *   - Dev (`npm run dev`): off by default (keeps console clean).
- *     Enable: localStorage.setItem("kupua_perceived_perf", "1"), then refresh.
- *   - Playwright perf runs: always on (harness sets the localStorage flag before
- *     navigation).
+ *   - DEV: enabled regardless of the localStorage flag.
+ *   - Non-DEV: enabled only when localStorage.getItem("kupua_perceived_perf")
+ *     is "1" in a browser. Set the flag before loading the module; refresh after
+ *     changing it. The gate is evaluated once at module initialization.
+ *   - Playwright perf runs set the flag before navigation.
+ *   - This is a runtime gate, not a guarantee of production bundle elimination
+ *     or zero runtime cost. Trace opt-in does not supply the dev-only controls
+ *     required by the current campaign harness or establish hosted-build parity.
  *
  * Usage:
  *   const interactionId = beginTraceInteraction("sort-around-focus", { sort, focusedId });

@@ -121,8 +121,17 @@ reported gzip error. **No SSM, gzip, residential-network or ES ownership claim f
   after a further 30-second wait, explaining roughly 41-second failures. Idle store state /
   `t_store_ready` can describe fallback, not preservation; this is not merely probe flakiness.
   Since 23 October, campaigns record the fallback as a [degraded PP3/PP4 sample](../../../e2e-perf/measurement-reference.md#degraded-focused-sort-samples)
-  excluded from medians. Its end-of-campaign diagnostics give the focused media ID, UTC `t_0` and
-  per-request sent/response-header/outcome timings for correlation with backend captures.
+  excluded from medians. Its end-of-campaign diagnostics retain UTC `t_0`, operation categories
+  and per-request sent/response-header/outcome timings for correlation. Diagnostic revision 2
+  redacts focused media identities and identity-bearing paths in ordinary output; exact-image
+  reproduction is no longer available from ordinary artifacts. The operator subsequently
+  approved a PP3-only end-of-campaign private debug section with the focused media ID and UTC
+  start, retained only in private temporary logs until debugging is complete. Its separate
+  handoff never enters metrics/history or repository artifacts; PP4 stays redacted. IDs already
+  emitted survive a later handled child failure; failures before emission provide no ID.
+  Delete private debug logs after investigation; abrupt parent termination can leave a handoff.
+  This does not resume captures,
+  fix the stall or change PP3/PP4 fallback acceptance.
 - **Cancellation / [KUP-041](../../docs/bug-backlog.md#kup-041):** browser abort is not wired through
   Play/Scala Futures to outgoing ES cancellation; elastic4s discards the REST `Cancellable`.
   Separate controllers do not directly cancel another Java request. Aggregation cancellations

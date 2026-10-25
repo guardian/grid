@@ -4,6 +4,21 @@ Exploratory controls, counterfactual policies and diagnostics, separate from hab
 campaigns and maintained [measurement validation](../validation/README.md).
 Research is not selected by `test:perf`, `--full`, `test:perf-app` or ordinary E2E.
 
+The deployment [workplan](../../exploration/docs/zz%20Archive/deployment-probe-audit-workplan.md),
+[audit matrix](../../exploration/docs/zz%20Archive/deployment-probe-audit-matrix.md) and
+[measurement evidence](../../exploration/docs/zz%20Archive/deployment-probe-audit-workplan-evidence.md) are archived
+historical references, not an active work queue. Use the [operator guide](../README.md)
+and [measurement contracts](../measurement-reference.md) for current operation.
+
+The [canonical delivery/signing assessment](../../exploration/docs/01%20Research/imgproxy-research.md#24-october-2026-canonical-delivery-and-pr-5075)
+retains bounded browser evidence, comparison limits and explicit recommendations
+for imgproxy PR #5075, with the later bounded configured-delivery comparison.
+The [24 October fast/slow data](traversal-delivery-2026-10-24.json) contains the
+completed `imgops`, `imgproxy-docker 3.31.1` and appended `imgproxy 4.0.19` arms:
+three fast repetitions and one completion-paced pass each. The original two arms
+are unchanged; `threeArmComparison` holds the expanded summary. HTTP-cache bypass, uncontrolled decoded/
+upstream caches, different codecs/quality and per-image sample counts are explicit.
+
 ## Local Comparisons
 
 `npm --prefix kupua run test:perf-research` runs the app-backed research controls

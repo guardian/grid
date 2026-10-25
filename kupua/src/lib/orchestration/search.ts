@@ -130,7 +130,13 @@ let _scrollToFocused: (() => void) | null = null;
  * the focused image may have moved outside the table/grid viewport.
  */
 export function registerScrollToFocused(fn: (() => void) | null) {
+  const previous = _scrollToFocused;
   _scrollToFocused = fn;
+  if (import.meta.env.DEV && typeof window !== "undefined") {
+    const bridge = window as unknown as Record<string, unknown>;
+    if (fn) bridge.__kupua_scrollFocusedIntoView__ = fn;
+    else if (bridge.__kupua_scrollFocusedIntoView__ === previous) delete bridge.__kupua_scrollFocusedIntoView__;
+  }
 }
 
 /**

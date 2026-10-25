@@ -42,6 +42,7 @@ import {
   classifySortAroundFocusWarning,
   createDataRequestRecorder,
   formatFocusedSortDegradation,
+  recordPrivatePp3Diagnostic,
   summarizeFocusedSortDegradation,
   type DataRequestSnapshot,
   type DataRoute,
@@ -356,6 +357,9 @@ async function emitDegradedFocusedSort(kupua: KupuaHelpers, {
     originEpochMs,
     warnings: diagnostics.warnings,
     network: diagnostics.snapshot(originEpochMs),
+  });
+  recordPrivatePp3Diagnostic(process.env.KUPUA_PERF_PP3_DEBUG_FILE, {
+    id, focusedImageId, actionStartedAt: degraded.actionStartedAt,
   });
   console.log(`${id} sort-around-focus: DEGRADED (${degraded.reason}) — excluded from medians; repeated at campaign end`);
   for (const line of formatFocusedSortDegradation({ id, label, ...degraded })) console.log(line);

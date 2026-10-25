@@ -101,10 +101,23 @@ for (const layout of ["grid", "justified"] as const) {
     await settled(page);
     const results = page.getByRole("region", { name: `Image results ${layout}`, exact: true });
     await expect(results.locator("[data-image-id]").first()).toBeAttached();
-    await page.evaluate(async () => {
-      const path = "/src/lib/orchestration/search.ts";
-      (await import(path)).scrollFocusedIntoView();
+    const centeringCalls = await page.evaluate(async () => {
+      const bridge = (window as any).__kupua_scrollFocusedIntoView__;
+      if (typeof bridge !== "function") throw new Error("Mounted scroll-to-focus callback unavailable");
+      let calls = 0;
+      const observed = () => { calls++; bridge(); };
+      (window as any).__kupua_scrollFocusedIntoView__ = observed;
+      try {
+        const scroll = (window as any).__kupua_scrollFocusedIntoView__;
+        scroll();
+        return calls;
+      } finally {
+        if ((window as any).__kupua_scrollFocusedIntoView__ === observed) {
+          (window as any).__kupua_scrollFocusedIntoView__ = bridge;
+        }
+      }
     });
+    expect(centeringCalls).toBe(1);
     await page.waitForTimeout(300);
     await settled(page);
     await page.evaluate(layout => {

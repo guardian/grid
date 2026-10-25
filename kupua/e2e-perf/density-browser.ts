@@ -2,10 +2,19 @@ import type { CDPSession, Page } from "@playwright/test";
 import { getDensityChangeButton, type Density } from "../e2e/shared/density-selection";
 import { installThumbnailProbe } from "./thumbnail-probe.mjs";
 import type { RequestProbe } from "./network-probe.mjs";
-import { refreshComparisonMetrics } from "./density-reporting.mjs";
+import { DENSITY_WORKLOADS, refreshComparisonMetrics, type DensityWorkload } from "./density-reporting.mjs";
 import { DENSITY_PRESSURE_STEPS, summarizeDensityPressure } from "./density-pressure.mjs";
 
 export type { Density } from "../e2e/shared/density-selection";
+
+export interface DensityPlacementContext {
+  workload?: DensityWorkload;
+  repetition?: number;
+  destination?: Density;
+  stage?: "establish-source" | "restore-source";
+  seekRequested?: boolean;
+  scrollRequested?: boolean;
+}
 
 /** Only D8 constrains transport; no bootstrap, navigation or paired-source setup runs inside. */
 export async function withDensityScrollNetwork<T>(cdp: CDPSession, workload: string, observe: () => Promise<T>): Promise<T> {
@@ -70,7 +79,7 @@ export async function scrubDensityTo(page: Page, density: Density, ratio: number
 }
 
 /** Elect once per paired workload, then restore this identity instead of repeating approximate seeks. */
-export async function establishDensitySource(page: Page) {
+export async function establishDensitySource(page: Page, context?: DensityPlacementContext) {
   await selectDensity(page, "table");
   await waitForWindowIdle(page);
   await scrubDensityTo(page, "table", 0.4);
@@ -83,13 +92,13 @@ export async function establishDensitySource(page: Page) {
     (window as any).__densitySource = { id, total: state.total, offset: state.imagePositions.get(id),
       params: JSON.stringify(state.params) };
   });
-  return restoreDensitySource(page);
+  return restoreDensitySource(page, { ...context, stage: "establish-source" });
 }
 
-export async function restoreDensitySource(page: Page) {
+export async function restoreDensitySource(page: Page, context?: DensityPlacementContext) {
   await selectDensity(page, "table");
   await waitForWindowIdle(page);
-  await page.evaluate(async () => {
+  const seekRequested = await page.evaluate(async () => {
     const store = (window as any).__kupua_store__;
     const source = (window as any).__densitySource;
     const state = store.getState();
@@ -98,17 +107,22 @@ export async function restoreDensitySource(page: Page) {
     }
     (window as any).__densityAnchor = source.id;
     state.setFocusedImageId(source.id);
-    if (!state.imagePositions.has(source.id)) {
+    const seekRequested = !state.imagePositions.has(source.id);
+    if (seekRequested) {
       store.setState({ _focusedImageKnownOffset: source.offset });
       await store.getState().seekToFocused();
     }
+    return seekRequested;
   });
   await waitForWindowIdle(page);
-  await page.evaluate(async () => {
-    const path = "/src/lib/orchestration/search.ts";
-    (await import(/* @vite-ignore */ path)).scrollFocusedIntoView();
+  await page.evaluate(() => {
+    const scroll = (window as any).__kupua_scrollFocusedIntoView__;
+    if (typeof scroll !== "function") throw new Error("Density scroll-to-focus callback unavailable");
+    scroll();
   });
-  await waitForPlacement(page, "table", true);
+  await waitForPlacement(page, "table", true, undefined, undefined, {
+    ...context, stage: context?.stage ?? "restore-source", seekRequested, scrollRequested: true,
+  });
   return page.evaluate(() => ({ total: (window as any).__kupua_store__.getState().total as number }));
 }
 
@@ -211,8 +225,16 @@ export async function electAnchor(page: Page, density: Density, retainExisting =
 }
 
 /** This is placement readiness, not a paint or media readiness claim. */
-export async function waitForPlacement(page: Page, density: Density, requireAnchor: boolean, startedAt?: number, timeoutMs = 30000) {
-  return page.evaluate(async ({ density, requireAnchor, startedAt, timeoutMs }) => {
+export async function waitForPlacement(page: Page, density: Density, requireAnchor: boolean, startedAt?: number, timeoutMs = 30000, context?: DensityPlacementContext) {
+  const diagnosticContext = context ? {
+    workload: DENSITY_WORKLOADS.includes(context.workload!) ? context.workload : null,
+    repetition: Number.isInteger(context.repetition) && context.repetition! > 0 && context.repetition! <= 1000 ? context.repetition : null,
+    destination: ["grid", "justified", "table"].includes(context.destination!) ? context.destination : null,
+    stage: ["establish-source", "restore-source"].includes(context.stage!) ? context.stage : null,
+    seekRequested: typeof context.seekRequested === "boolean" ? context.seekRequested : null,
+    scrollRequested: typeof context.scrollRequested === "boolean" ? context.scrollRequested : null,
+  } : null;
+  return page.evaluate(async ({ density, requireAnchor, startedAt, timeoutMs, diagnosticContext }) => {
     const start = startedAt ?? performance.now();
     const deadline = performance.now() + timeoutMs;
     let last: { id: string; top: number; left: number; width: number; height: number } | null = null;
@@ -237,8 +259,37 @@ export async function waitForPlacement(page: Page, density: Density, requireAnch
       last = current;
       if (stable >= 2) return performance.now() - start;
     }
-    throw new Error("Density placement did not settle on the required identity before deadline");
-  }, { density, requireAnchor, startedAt, timeoutMs });
+    const state = (window as any).__kupua_store__?.getState();
+    const anchor = (window as any).__densityAnchor;
+    const source = (window as any).__densitySource;
+    const container = document.querySelector<HTMLElement>(`[aria-label="Image results ${density}"]`);
+    const bounds = container?.getBoundingClientRect();
+    const anchorCell = [...container?.querySelectorAll<HTMLElement>("[data-image-id]") ?? []]
+      .find(cell => Boolean(anchor) && cell.dataset.imageId === anchor);
+    const rect = anchorCell?.getBoundingClientRect();
+    const finite = (value: unknown) => typeof value === "number" && Number.isFinite(value)
+      ? Math.round(Math.max(-1e9, Math.min(1e9, value)) * 100) / 100 : null;
+    const witness = {
+      revision: 1, context: diagnosticContext, density, requireAnchor,
+      statePresent: Boolean(state), sourcePresent: Boolean(source), anchorPresent: Boolean(anchor),
+      sourceMatchesAnchor: Boolean(anchor) && source?.id === anchor,
+      focusMatchesAnchor: Boolean(anchor) && state?.focusedImageId === anchor,
+      anchorInBuffer: Boolean(anchor) && Boolean(state?.imagePositions?.has(anchor)),
+      containerPresent: Boolean(container), anchorInDom: Boolean(anchorCell),
+      anchorIntersects: Boolean(rect && bounds && rect.bottom > bounds.top + (density === "table" ? 36 : 0)
+        && rect.top < bounds.bottom && rect.width > 0),
+      loading: Boolean(state?.loading), navigationPending: Boolean(state?._browseNavigation),
+      focusDeltaPending: state?._pendingFocusDelta != null,
+      detailRoute: new URL(location.href).searchParams.has("image"), dataError: Boolean(state?.error),
+      stableObservations: stable,
+      scrollTop: finite(container?.scrollTop), scrollHeight: finite(container?.scrollHeight),
+      viewportHeight: finite(container?.clientHeight),
+      anchorTop: finite(rect && bounds ? rect.top - bounds.top : null),
+      anchorBottom: finite(rect && bounds ? rect.bottom - bounds.top : null),
+      anchorWidth: finite(rect?.width), anchorHeight: finite(rect?.height),
+    };
+    throw new Error(`Density placement did not settle on the required identity before deadline; witness=${JSON.stringify(witness)}`);
+  }, { density, requireAnchor, startedAt, timeoutMs, diagnosticContext });
 }
 
 export async function visibleMediaReadiness(page: Page, density: Density, startedAt: number, timeoutMs = 10000) {
@@ -464,9 +515,10 @@ export async function prepareDensityRecovery(page: Page, density: Density) {
     await state.restoreAroundCursor(source.id, cursor, source.offset, true);
   });
   await waitForWindowIdle(page);
-  await page.evaluate(async () => {
-    const path = "/src/lib/orchestration/search.ts";
-    (await import(/* @vite-ignore */ path)).scrollFocusedIntoView();
+  await page.evaluate(() => {
+    const scroll = (window as any).__kupua_scrollFocusedIntoView__;
+    if (typeof scroll !== "function") throw new Error("Density scroll-to-focus callback unavailable");
+    scroll();
   });
   await waitForPlacement(page, density, true);
   await waitForDensityMaintenanceCooldown(page);

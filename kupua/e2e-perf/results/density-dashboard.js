@@ -190,10 +190,10 @@
   const friendlyEnv = key => {
     const e = entries.find(entry => entry.environmentCompatibilityKey === key)?.environment;
     if (!e) return "Unverified environment";
-    const label = e.dataMode === "direct-es" ? "Direct ES" : e.dataMode === "media-api" ? (e.apiTopology === "local" ? "Local media-api" : `${e.apiTopology} media-api`) : e.dataMode;
+    const label = KupuaPerfComparison.label({ environment: e });
     const same = environments.filter(other => {
       const v = entries.find(entry => entry.environmentCompatibilityKey === other)?.environment;
-      return v?.dataMode === e.dataMode && v?.apiTopology === e.apiTopology;
+      return v?.dataMode === e.dataMode && v?.apiTopology === e.apiTopology && v?.mediaDelivery === e.mediaDelivery;
     });
     return `${label}${same.length > 1 ? ` · configuration ${same.indexOf(key) + 1}` : ""}`;
   };
@@ -214,12 +214,12 @@
   };
   const option = (value, label) => { const el = make("option", label); el.value = value; return el; };
   $("campaign").append(option("", "All campaigns (measurements)"), ...entries.map((entry, index) =>
-    option(String(index), `${entry.label || "Unnamed campaign"} · ${date(entry.timestamp)}`)).reverse());
+    option(String(index), `${entry.label || "Unnamed campaign"} · ${KupuaPerfComparison.label(entry)} · ${date(entry.timestamp)}`)).reverse());
   $("campaign").value = entries.length ? String(entries.length - 1) : "";
   function populateBaselines() {
     const selected = $("campaign").value === "" ? entries.length - 1 : Number($("campaign").value);
-    $("baseline").replaceChildren(option("", "No comparison"), ...entries.slice(0, selected).map((entry, index) =>
-      option(String(index), `${entry.label} · ${date(entry.timestamp)}`)).reverse());
+    $("baseline").replaceChildren(option("", "No comparison"), ...entries.flatMap((entry, index) => index === selected ? [] :
+      [option(String(index), `${entry.label} · ${KupuaPerfComparison.label(entry)} · ${date(entry.timestamp)}`)]).reverse());
     $("baseline").value = selected > 0 ? String(selected - 1) : "";
   }
   populateBaselines();
@@ -504,16 +504,20 @@
     return "Censored; completion not established";
   }
   function recordsComparable(entry, record, baseline, before) {
-    return Boolean(entry?.environmentCompatibilityKey && entry.environmentCompatibilityKey === baseline?.environmentCompatibilityKey
+    return Boolean(environmentsComparable(entry, baseline)
       && record?.contractKey && record.contractKey === before?.contractKey
       && ["id", "scenarioRevision", "profile", "cacheClass", "completionBoundary", "resultRegime"].every(key => record[key] === before[key]));
+  }
+  function environmentsComparable(entry, baseline) {
+    return Boolean(entry?.environmentCompatibilityKey && baseline?.environmentCompatibilityKey
+      && (entry.environmentCompatibilityKey === baseline.environmentCompatibilityKey || KupuaPerfComparison.compare(entry, baseline).compatible));
   }
   function renderComparison(entry) {
     const baseline = $("baseline").value === "" ? null : entries[Number($("baseline").value)];
     const records = Object.values(entry?.metrics ?? {});
     const compatible = records.filter(record => recordsComparable(entry, record, baseline, baseline?.metrics?.[record.id]));
     $("comparison-status").textContent = baseline
-      ? `${baseline.label} → ${entry.label} · ${compatible.length}/${records.length} comparable records · ${records.length - compatible.length} new or changed baselines. Same contracts do not control content or cache warmth.`
+      ? `${baseline.label} → ${entry.label} · ${compatible.length}/${records.length} comparable records · ${records.length - compatible.length} new or changed baselines. ${KupuaPerfComparison.compare(entry, baseline).reason}. Same contracts do not control content or cache warmth.`
       : "No earlier campaign selected. Current observations are a baseline, not a trend.";
     $("comparison-rows").replaceChildren();
     for (const record of compatible) {
@@ -654,7 +658,7 @@
           make("p", summary.reasons[star] ?? `${weakest?.name ?? "No complete evidence"}${star === "stability" ? " · paint unmeasured" : ""}`, "score-note"));
         const before = earlierSummaries.find(other => other.density === summary.density);
         const matched = before && summary.compatibility && before.compatibility === summary.compatibility
-          && entry.environmentCompatibilityKey === baseline.environmentCompatibilityKey;
+          && environmentsComparable(entry, baseline);
         const delta = matched && Number.isFinite(score) && Number.isFinite(before.scores[star]) ? score - before.scores[star] : null;
         const earlierPeers = before ? earlierSummaries.filter(other => other.compatibility === before.compatibility && Number.isFinite(other.scores[star])) : [];
         const earlierRank = delta !== null && earlierPeers.length > 1 ? 1 + earlierPeers.filter(other => other.scores[star] > before.scores[star]).length : null;
@@ -734,6 +738,16 @@
       card.append(context, make("h3", workload[r.workload]?.[0] ?? r.workload), make("p", workload[r.workload]?.[1] ?? r.workload, "small muted"), make("p", `${date(first.entry.timestamp)} · ${r.sampleCount} repetitions · ${r.resultRegime} · r${r.scenarioRevision}`, "small muted"));
       const scale = scales.get(r.workload);
       const observations = view === "latest" ? latest : group;
+      const baseline = $("baseline").value === "" ? null : entries[Number($("baseline").value)];
+      if (baseline) for (const row of latest.filter(row => row.entry === campaign)) {
+        const before = baseline.metrics?.[row.record.id];
+        const comparable = recordsComparable(campaign, row.record, baseline, before);
+        const currentValue = completeValue(row.record, key) === null ? null : row.record.metrics[key][controls.Statistic.value];
+        const beforeValue = !comparable || completeValue(before, key) === null ? null : before.metrics[key][controls.Statistic.value];
+        card.append(make("p", `${names[row.record.density]} vs ${baseline.label}: ${!comparable ? "no comparable evidence"
+          : currentValue === null || beforeValue === null ? "measurement incomplete"
+          : `${fmt(beforeValue)} → ${fmt(currentValue)} · ${fmt(currentValue - beforeValue, key, true)}`}`, "selected-comparison"));
+      }
       if (observations.some(row => Number.isFinite(valueOf(row)))) {
         if (view === "latest") drawLatest(card, latest, scale); else drawHistory(card, group, scale);
       }

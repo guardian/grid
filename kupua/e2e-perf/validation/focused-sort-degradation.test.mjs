@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { dirname } from "node:path";
 import test from "node:test";
+import * as focusedSortDiagnostics from "../focused-sort-degradation.mjs";
 
 import {
   DEGRADABLE_PERCEIVED_IDS,
@@ -41,11 +44,14 @@ test("sort-around-focus warnings map to fixed categories", () => {
   assert.equal(classifySortAroundFocusWarning(undefined), null);
 });
 
-test("data operations keep route words and media IDs but drop queries and index names", () => {
+test("data operations retain known operation categories but redact identities and URL details", () => {
   assert.equal(sanitizeDataOperation("POST", "https://fixture.invalid/api/images/rank?q=private", "media-api"), "POST /api/images/rank");
-  assert.equal(sanitizeDataOperation("GET", `https://fixture.invalid/api/images/${HEX_ID}`, "media-api"), `GET /api/images/${HEX_ID}`);
+  assert.equal(sanitizeDataOperation("GET", `https://fixture.invalid/api/images/${HEX_ID}`, "media-api"), "GET /api/images/:id");
+  assert.equal(sanitizeDataOperation("GET", "https://fixture.invalid/api/images/private-marker", "media-api"), "GET /api/images/:id");
+  assert.equal(sanitizeDataOperation("GET", "https://fixture.invalid/api/images/%70rivate-marker/metadata", "media-api"), "GET /api/images/:id/:id");
   assert.equal(sanitizeDataOperation("GET", "https://fixture.invalid/api/images/private%20segment", "media-api"), "GET /api/images/:id");
   assert.equal(sanitizeDataOperation("POST", "https://fixture.invalid/es/private-index/_search?x=1", "direct-es"), "POST /es/:index/_search");
+  assert.equal(sanitizeDataOperation("POST", "https://fixture.invalid/es/_private/_search", "direct-es"), "POST /es/:index/_search");
   assert.equal(sanitizeDataOperation("post", "not a url", "media-api"), "? :unparseable");
 });
 
@@ -76,9 +82,9 @@ test("recorder separates sent, answered, cancelled and pending data requests", (
     { route: "media-api", operation: "POST /api/images/search-after", startedMs: 100, durationMs: 250, sent: true, headersMs: 200, outcome: "ok", status: 200 },
     { route: "media-api", operation: "POST /api/images/rank", startedMs: 400, durationMs: 8_000, sent: true, headersMs: null, outcome: "cancelled", failure: "net::ERR_ABORTED" },
     { route: "media-api", operation: "POST /api/images/search-after", startedMs: 500, durationMs: 100, sent: false, headersMs: 100, outcome: "http-error", status: 502 },
-    { route: "media-api", operation: `GET /api/images/${HEX_ID}`, startedMs: 1_100, durationMs: 8_000, sent: false, headersMs: null, outcome: "pending" },
+    { route: "media-api", operation: "GET /api/images/:id", startedMs: 1_100, durationMs: 8_000, sent: false, headersMs: null, outcome: "pending" },
   ]);
-  assert.doesNotMatch(JSON.stringify(snapshot), /fixture\.invalid|private/);
+  assert.doesNotMatch(JSON.stringify(snapshot), new RegExp(`fixture\\.invalid|private|${HEX_ID}`));
 });
 
 test("recorder sanitizes failure text, bounds records and removes its listeners", () => {
@@ -118,7 +124,9 @@ test("degradation summary prefers the store's own timeout witness and records th
     warnings: [{ category: "offset-lookup-error", epochMs: base.originEpochMs + 300 }, { category: "timeout", epochMs: base.originEpochMs + 8_004 }],
   });
   assert.equal(timeout.reason, "timeout");
-  assert.equal(timeout.focusedImageId, HEX_ID);
+  assert.equal(timeout.focusedImageId, null);
+  assert.equal(timeout.degradationRevision, 2);
+  assert.doesNotMatch(JSON.stringify(timeout), new RegExp(HEX_ID));
   assert.equal(timeout.phaseReached, "seeking");
   assert.equal(timeout.actionStartedAt, "2026-10-23T02:13:40.000Z");
   assert.deepEqual(timeout.warnings.map((warning) => warning.atMs), [300, 8_004]);
@@ -153,11 +161,84 @@ test("formatted diagnostics flag stalled requests and count work that completed 
   const text = lines.join("\n");
   assert.match(lines[0], /PP3 sort-around-focus \(Credit\) — perceived \(short\) run 4 of 4/);
   assert.match(text, /DEGRADED: timeout .* after 8012ms; reached seeking/);
-  assert.match(text, new RegExp(`focused image \\(media ID\\): ${HEX_ID}`));
+  assert.match(text, /focused image: redacted \(identity not retained\)/);
+  assert.doesNotMatch(text, new RegExp(HEX_ID));
   assert.match(text, /timeout @8004ms/);
   assert.match(text, /POST \/api\/images\/rank\s+cancelled net::ERR_ABORTED after 7690ms · no response headers · sent {2}<-- STALLED/);
   assert.equal((text.match(/STALLED$/gm) ?? []).length, 1);
   assert.match(text, /1 stalled without response headers; 1 other data request\(s\) started and finished meanwhile/);
+});
+
+test("summaries and formatted legacy diagnostics cannot re-emit identity-bearing operations", () => {
+  const sample = summarizeFocusedSortDegradation({
+    focusedImageId: HEX_ID, focus: "cleared", fallbackMs: 8_012,
+    phases: ["t_seeking"], originEpochMs: 0, warnings: [],
+    network: { requestCaptureOverflow: 2, requests: [{
+      route: "media-api", operation: `GET /api/images/${HEX_ID}?private-marker=1`,
+      startedMs: 100, durationMs: 8_000, sent: true, headersMs: null, outcome: "pending",
+    }] },
+  });
+  assert.doesNotMatch(JSON.stringify(sample), new RegExp(`${HEX_ID}|private-marker`));
+  const text = formatFocusedSortDegradation({
+    ...sample, id: "PP3", focusedImageId: HEX_ID,
+    requests: [{ ...sample.requests[0], operation: "GET /api/images/private-marker" }],
+  }).join("\n");
+  assert.doesNotMatch(text, new RegExp(`${HEX_ID}|private-marker`));
+  assert.match(text, /action t_0 \(UTC\): 1970-01-01T00:00:00\.000Z/);
+  assert.match(text, /GET \/api\/images\/:id/);
+  assert.match(text, /still pending after 8000ms/);
+  assert.match(text, /2 not recorded/);
+  assert.match(text, /1 stalled without response headers/);
+});
+
+test("legacy failure text and malformed operation URLs stay redacted without breaking reports", () => {
+  const base = {
+    focusedImageId: HEX_ID, focus: "cleared", fallbackMs: 8_012,
+    phases: ["t_seeking"], originEpochMs: 0, warnings: [],
+  };
+  for (const operation of ["GET /api/images/private-marker", "GET //%ZZ/api/images/private-marker", "GET //%25ZZ/api/images/private-marker"]) {
+    const request = {
+      route: "media-api", operation, startedMs: 100, durationMs: 8_000,
+      sent: true, headersMs: null, outcome: "failed", failure: "private-marker /api/images/private-marker",
+    };
+    const sample = summarizeFocusedSortDegradation({
+      ...base, network: { requestCaptureOverflow: 0, requests: [request] },
+    });
+    assert.doesNotMatch(JSON.stringify(sample), /private-marker|%ZZ|%25ZZ/);
+    const text = formatFocusedSortDegradation({ ...sample, id: "PP3", requests: [request] }).join("\n");
+    assert.doesNotMatch(text, /private-marker|%ZZ|%25ZZ/);
+    assert.match(text, /failed other after 8000ms/);
+    assert.match(text, /1 stalled without response headers/);
+  }
+});
+
+test("PP3 debug identities use a private external handoff that is removed after collection", () => {
+  assert.equal(typeof focusedSortDiagnostics.createPrivatePp3Diagnostics, "function");
+  const handoff = focusedSortDiagnostics.createPrivatePp3Diagnostics();
+  try {
+    assert.equal(statSync(dirname(handoff.file)).mode & 0o777, 0o700);
+    assert.equal(statSync(handoff.file).mode & 0o777, 0o600);
+    assert.equal(focusedSortDiagnostics.recordPrivatePp3Diagnostic(undefined, { id: "PP3", focusedImageId: HEX_ID, actionStartedAt: "1970-01-01T00:00:00.000Z" }), false);
+    assert.equal(focusedSortDiagnostics.recordPrivatePp3Diagnostic(handoff.file, { id: "PP4", focusedImageId: "private-pp4-marker", actionStartedAt: "1970-01-01T00:00:00.000Z" }), false);
+    assert.equal(readFileSync(handoff.file, "utf8"), "");
+    assert.equal(focusedSortDiagnostics.recordPrivatePp3Diagnostic(handoff.file, { id: "PP3", focusedImageId: HEX_ID, actionStartedAt: "1970-01-01T00:00:00.000Z" }), true);
+    assert.deepEqual(handoff.readAndRemove(), [{ id: "PP3", focusedImageId: HEX_ID, actionStartedAt: "1970-01-01T00:00:00.000Z" }]);
+    assert.equal(existsSync(dirname(handoff.file)), false);
+  } finally {
+    handoff.readAndRemove();
+  }
+});
+
+test("private PP3 handoffs reject repository locations and malformed identity records", () => {
+  assert.equal(typeof focusedSortDiagnostics.createPrivatePp3Diagnostics, "function");
+  assert.throws(() => focusedSortDiagnostics.createPrivatePp3Diagnostics(new URL("..", import.meta.url)), /outside the repository/);
+  const handoff = focusedSortDiagnostics.createPrivatePp3Diagnostics();
+  try {
+    assert.throws(() => focusedSortDiagnostics.recordPrivatePp3Diagnostic(handoff.file, { id: "PP3", focusedImageId: "private-marker\nextra-line", actionStartedAt: "1970-01-01T00:00:00.000Z" }), /Invalid private PP3 diagnostic/);
+    assert.equal(readFileSync(handoff.file, "utf8"), "");
+  } finally {
+    handoff.readAndRemove();
+  }
 });
 
 test("only focused-sort scenarios may exclude degraded samples, each with a reason", () => {

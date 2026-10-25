@@ -104,6 +104,7 @@ function perfEnvironment(): Plugin {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
           dataMode,
+          mediaDelivery: process.env.VITE_MEDIA_DELIVERY === "canonical" ? "canonical" : "proxy",
           apiTopology: dataMode === "direct-es"
             ? "none"
             : process.env.VITE_MEDIA_API_BASE_URL === DEPLOYED_TEST_MEDIA_API_BASE_URL

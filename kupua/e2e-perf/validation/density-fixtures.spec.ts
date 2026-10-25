@@ -10,6 +10,59 @@ import { DENSITY_SCENARIOS, validateDensityRecord } from "../density-reporting.m
 import { createRequestProbe } from "../network-probe.mjs";
 import * as densityDrivers from "../density-browser";
 import { DENSITY_PRESSURE_STEPS, summarizeDensityPressure } from "../density-pressure.mjs";
+import { AUTH_REQUIRED_MARKER, createPerfAuthGuard } from "../auth-failure.mjs";
+
+for (const failure of [401, 419, "login"] as const) {
+  test(`perf authentication guard recognizes routed browser ${failure}`, async ({ page }) => {
+    let apiStatus = 502;
+    let redirectToLogin = false;
+    const server = createServer((request, response) => {
+      const path = new URL(request.url ?? "/", "http://fixture.invalid").pathname;
+      if (path === "/api/images") {
+        response.writeHead(apiStatus, { "Content-Type": "application/json" });
+        response.end("{}");
+      } else if (path === "/search" && redirectToLogin) {
+        response.writeHead(302, { location: "/login?private-marker=1" });
+        response.end();
+      } else {
+        response.writeHead(200, { "Content-Type": "text/html" });
+        response.end("<!doctype html><title>Auth fixture</title>");
+      }
+    });
+    await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("Auth fixture did not bind loopback");
+    const origin = `http://127.0.0.1:${address.port}`;
+    await page.route("**/*", route => {
+      const url = new URL(route.request().url());
+      return url.origin === origin ? route.continue() : route.abort();
+    });
+    const notices: string[] = [];
+    const guard = createPerfAuthGuard(page, {
+      appBaseUrl: origin, mediaApiBaseUrl: "https://api.fixture.invalid",
+    }, marker => notices.push(marker));
+    try {
+      await page.goto(`${origin}/search`);
+      await page.evaluate(() => fetch("/api/images").then(response => response.status));
+      guard.assertAuthenticated();
+      expect(notices).toEqual([]);
+      if (failure === "login") {
+        redirectToLogin = true;
+        await page.goto(`${origin}/search`);
+      } else {
+        apiStatus = failure;
+        await page.evaluate(() => fetch("/api/images").then(response => response.status));
+      }
+      await expect.poll(() => notices.length).toBe(1);
+      expect(notices).toEqual([AUTH_REQUIRED_MARKER]);
+      expect(() => guard.assertAuthenticated()).toThrow("Perf authentication required");
+    } finally {
+      guard.dispose();
+      server.closeAllConnections();
+      await new Promise<void>(resolve => server.close(() => resolve()));
+    }
+  });
+}
 
 const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="blue"/></svg>';
 
@@ -360,6 +413,7 @@ async function fixture(page: Page, density = "grid") {
 
 async function mountDensityDashboard(page: Page, entries: unknown[], measurements = true) {
   await page.route("**/*", route => route.abort());
+  await page.route("https://fixture.invalid/campaign-comparison.js", route => route.fulfill({ contentType: "text/javascript", body: readFileSync(new URL("../results/campaign-comparison.js", import.meta.url), "utf8") }));
   await page.route("https://fixture.invalid/density-log.js", route => route.fulfill({ contentType: "text/javascript", body: `window.__DENSITY_LOG__=${JSON.stringify({ entries })}` }));
   await page.route("https://fixture.invalid/density-dashboard.js", route => route.fulfill({ contentType: "text/javascript", body: readFileSync(new URL("../results/density-dashboard.js", import.meta.url), "utf8") }));
   await page.route("https://fixture.invalid/dashboard", route => route.fulfill({ contentType: "text/html", body: readFileSync(new URL("../results/density-graphs.html", import.meta.url), "utf8") }));
@@ -752,6 +806,78 @@ test("wrong density fails, observer cleanup is repeatable and cached media is no
   expect(metrics.thumbnailPendingAreaRatioMean).toBe(0);
   expect(metrics.thumbnailBlankViewportMs).toBe(0);
   await page.evaluate(() => { const probe = (window as any).__kupua_thumbnailProbe; probe.dispose(); probe.dispose(); });
+});
+
+for (const failure of ["container", "anchor", "focus", "loading", "navigation", "pending-focus", "offscreen", "geometry"] as const) {
+  test(`placement timeout witness distinguishes ${failure} without private data`, async ({ page }) => {
+    await fixture(page);
+    await page.evaluate(failure => {
+      const anchor = "private-media-identity";
+      (window as any).__densityAnchor = anchor;
+      (window as any).__densitySource = { id: anchor, params: "private-query" };
+      const state = { loading: failure === "loading", _browseNavigation: failure === "navigation" ? "private-navigation" : null,
+        _pendingFocusDelta: failure === "pending-focus" ? 1 : null,
+        focusedImageId: failure === "focus" ? "other-private-identity" : anchor,
+        imagePositions: new Map([[anchor, 123]]), error: "https://private.invalid/signed?Signature=secret" };
+      (window as any).__kupua_store__ = { getState: () => state };
+      const container = document.querySelector('[aria-label="Image results grid"]')!;
+      const cell = container.querySelector<HTMLElement>('[data-image-id="fixture-a"]')!;
+      cell.dataset.imageId = anchor;
+      if (failure === "container") container.remove();
+      if (failure === "anchor" || failure === "focus") cell.remove();
+      if (failure === "offscreen") cell.style.transform = "translateY(10000px)";
+      if (failure === "geometry") {
+        const original = cell.getBoundingClientRect.bind(cell);
+        let reads = 0;
+        cell.getBoundingClientRect = () => {
+          const rect = original();
+          const shift = Math.floor(++reads / 2) % 2 * 8;
+          return new DOMRect(rect.x, rect.y + shift, rect.width, rect.height);
+        };
+      }
+    }, failure);
+    const message = await waitForPlacement(page, "grid", true, undefined, 150, {
+      workload: "scroll-backward", repetition: 2, destination: "justified", seekRequested: true,
+    }).then(() => "unexpected success", error => String(error.message));
+    expect(message).toContain("required identity before deadline");
+    expect(message).toContain("; witness=");
+    const witness = JSON.parse(message.split("; witness=")[1].split("\n")[0]);
+    expect(witness.context).toMatchObject({ workload: "scroll-backward", repetition: 2, destination: "justified", seekRequested: true });
+    expect(witness.sourceMatchesAnchor).toBe(true);
+    expect(witness.focusMatchesAnchor).toBe(failure !== "focus");
+    expect(witness.anchorInBuffer).toBe(true);
+    expect(witness.containerPresent).toBe(failure !== "container");
+    expect(witness.anchorInDom).toBe(!["container", "anchor", "focus"].includes(failure));
+    expect(witness.loading).toBe(failure === "loading");
+    expect(witness.navigationPending).toBe(failure === "navigation");
+    expect(witness.focusDeltaPending).toBe(failure === "pending-focus");
+    expect(witness.anchorIntersects).toBe(!["container", "anchor", "focus", "offscreen"].includes(failure));
+    expect(witness.stableObservations).toBeLessThan(2);
+    if (failure === "offscreen") expect(witness.anchorTop).toBeGreaterThan(witness.viewportHeight);
+    expect(message).not.toMatch(/private|secret|Signature|https:|123/);
+  });
+}
+
+test("placement timeout witness rejects unbounded context and success skips witness reads", async ({ page }) => {
+  await fixture(page);
+  await page.evaluate(() => {
+    const state = { loading: false, _browseNavigation: null };
+    Object.defineProperty(state, "focusedImageId", { get() { throw new Error("timeout-only field read during success"); } });
+    (window as any).__kupua_store__ = { getState: () => state };
+  });
+  expect(await waitForPlacement(page, "grid", true, undefined, 1000)).toBeGreaterThanOrEqual(0);
+  await page.evaluate(() => {
+    (window as any).__kupua_store__ = { getState: () => ({ loading: false }) };
+    (window as any).__densityAnchor = "missing-private-identity";
+  });
+  const message = await waitForPlacement(page, "grid", true, undefined, 150, {
+    workload: "private-query", repetition: Infinity, destination: "https://private.invalid",
+    stage: "private-stage", seekRequested: "private-identity", scrollRequested: "private-url",
+  } as any).then(() => "unexpected success", error => String(error.message));
+  const witness = JSON.parse(message.split("; witness=")[1].split("\n")[0]);
+  expect(witness.context).toEqual({ workload: null, repetition: null, destination: null, stage: null,
+    seekRequested: null, scrollRequested: null });
+  expect(message).not.toMatch(/private|https:|Infinity/);
 });
 
 test("placement requires elected identity; media failure is censored, never ready", async ({ page }) => {
@@ -1412,6 +1538,37 @@ test("overview compares only matching contracts and retains exact historical con
   await page.getByLabel("Campaign", { exact: true }).selectOption("0");
   await expect(page.locator("#comparison-status")).toContainText("No earlier campaign selected");
   await expect(page.getByLabel("Compare with", { exact: true })).toHaveValue("");
+});
+
+test("density dashboard compares explicit delivery treatments without joining their histories", async ({ page }) => {
+  const baseline = { ...pressureEntry(), gitSha: "fixture", environmentCompatibilityKey: "proxy", environment: {
+    dataMode: "media-api", apiTopology: "deployed-test", mediaDelivery: "proxy", appBaseUrl: "https://fixture.invalid",
+    browserName: "chromium", browserVersion: "fixture", os: { platform: "fixture", release: "fixture", architecture: "fixture" },
+    viewport: { width: 1720, height: 960 }, screen: { width: 1720, height: 960 }, deviceScaleFactor: 2,
+    headed: true, cpuThrottle: 0, cacheClass: "fixture", workers: 1, stableUntil: "2026-02-15", appSourceDirtyStateHash: "fixture",
+  } };
+  baseline.label = "Proxy baseline";
+  const current = structuredClone(baseline);
+  current.label = "Canonical candidate";
+  current.environment.mediaDelivery = "canonical";
+  current.environmentCompatibilityKey = "canonical";
+  current.metrics["D1-grid"].metrics.stopMediaReadyMs = { median: 400, p95: 500, sampleCount: 4 };
+  const incompatible = structuredClone(baseline);
+  incompatible.label = "Different viewport";
+  incompatible.environment.deviceScaleFactor = 1;
+  incompatible.environmentCompatibilityKey = "different";
+  await mountDensityDashboard(page, [incompatible, baseline, current], false);
+  await expect(page.locator("#campaign-context")).toContainText("TEST API / canonical");
+  await expect(page.locator("#comparison-status")).toContainText("9/9 comparable records");
+  await expect(page.locator("#comparison-status")).toContainText("Changed mediaDelivery; recorded source fingerprints match; identical source not verified (untracked file contents not covered)");
+  await expect(page.locator("#comparison-rows")).toContainText("-400 ms");
+  await page.locator("#comparison-rows button").first().click();
+  await expect(page.locator("#cards .selected-comparison").first()).toContainText("-400 ms");
+  await expect(page.locator("#cards .series-line")).toHaveCount(0);
+  await page.getByRole("button", { name: "Overview", exact: true }).click();
+  await page.getByLabel("Compare with", { exact: true }).selectOption("0");
+  await expect(page.locator("#comparison-status")).toContainText("0/9 comparable records");
+  await expect(page.locator("#comparison-status")).toContainText("Different deviceScaleFactor");
 });
 
 test("dashboard excludes unmeasured probes but retains censored landing outcomes", async ({ page }) => {

@@ -20,6 +20,8 @@
 
 import { defineConfig } from "@playwright/test";
 
+process.env.PLAYWRIGHT_NO_COPY_PROMPT = "1";
+
 export default defineConfig({
   testDir: ".",
   testMatch: ["**/perf.spec.ts"],
@@ -47,8 +49,9 @@ export default defineConfig({
     headless: false,
     actionTimeout: 30_000,
     navigationTimeout: 30_000,
-    screenshot: "only-on-failure",
-    trace: "retain-on-failure",
+    screenshot: "off",
+    trace: "off",
+    video: "off",
      /* Laptop-fitting maintained perf profile. Shared with perceived suites so
        headed runs remain fully visible on the machine used for measurements.
        This intentionally invalidates the legacy 1987×1110 jank baseline. */

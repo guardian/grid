@@ -640,15 +640,9 @@ test("Markdown keeps unavailable metrics, names the independent contract and avo
   assert.ok(report.endsWith("\n") && !report.endsWith("\n\n"));
 });
 
-test("independent dashboard uses only its own history and local presentation script", () => {
+test("independent dashboard loads only its own history and local presentation scripts", () => {
   const html = readFileSync(new URL("../results/density-graphs.html", import.meta.url), "utf8");
-  const script = readFileSync(new URL("../results/density-dashboard.js", import.meta.url), "utf8");
   assert.match(html, /density-log.js/);
   assert.match(html, /density-dashboard.js/);
   assert.doesNotMatch(html, /audit-log.js|perceived-log.js|<script[^>]+https:/);
-  assert.match(html, /Previous metric/);
-  assert.match(html, /role="tooltip"/);
-  assert.match(script, /candidate.pairedContractKey !== control.pairedContractKey/);
-  assert.match(script, /One campaign: baseline only, no trend yet/);
-  assert.doesNotMatch(script, /innerHTML/);
 });

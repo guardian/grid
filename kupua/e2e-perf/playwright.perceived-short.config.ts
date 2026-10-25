@@ -13,6 +13,8 @@
 
 import { defineConfig } from "@playwright/test";
 
+process.env.PLAYWRIGHT_NO_COPY_PROMPT = "1";
+
 export default defineConfig({
   testDir: ".",
   testMatch: ["**/perceived-short.spec.ts"],
@@ -33,7 +35,7 @@ export default defineConfig({
     headless: false,
     actionTimeout: 30_000,
     navigationTimeout: 30_000,
-    screenshot: "only-on-failure",
+    screenshot: "off",
     video: "off",
     trace: "off",
     /* MacBook Pro 14" — 1720×960 CSS px gives comfortable viewing room.

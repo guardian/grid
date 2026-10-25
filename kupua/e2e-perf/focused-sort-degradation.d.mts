@@ -1,4 +1,4 @@
-export const FOCUSED_SORT_DEGRADATION_REVISION: 1;
+export const FOCUSED_SORT_DEGRADATION_REVISION: 2;
 export const DEGRADABLE_PERCEIVED_IDS: readonly string[];
 
 export type SortAroundFocusWarningCategory =
@@ -8,6 +8,23 @@ export type SortAroundFocusWarningCategory =
   | "neighbour-check-error";
 
 export type DataRoute = "media-api" | "direct-es";
+
+export interface PrivatePp3Diagnostic {
+  id: "PP3";
+  focusedImageId: string;
+  actionStartedAt: string;
+}
+
+export function assertPrivatePp3OutputFile(file: string): void;
+export function createPrivatePp3Diagnostics(directory?: string | URL): {
+  file: string;
+  readAndRemove(): PrivatePp3Diagnostic[];
+};
+export function recordPrivatePp3Diagnostic(file: string | undefined, sample: {
+  id: "PP3" | "PP4";
+  focusedImageId: string;
+  actionStartedAt: string | null;
+}): boolean;
 
 export interface DataRequestDiagnostic {
   route: DataRoute;
@@ -42,9 +59,9 @@ export interface FocusedSortWarning {
 }
 
 export interface FocusedSortDegradation {
-  degradationRevision: 1;
+  degradationRevision: 2;
   reason: "timeout" | "find-error" | "focus-cleared-without-warning";
-  focusedImageId: string | null;
+  focusedImageId: null;
   focus: "cleared";
   actionStartedAt: string | null;
   fallbackMs: number | null;

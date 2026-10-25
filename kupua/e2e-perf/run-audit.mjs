@@ -40,6 +40,7 @@
  *                   README.md#authentication-state for setup.
  *   --use-deployed-media-api
  *                   Route reads directly to deployed TEST media-api.
+ *   --canonical-media Require canonical image delivery in either API mode.
  *   <P-id list>     Positional jank-test filter (e.g. "P3,P8").
  *
  * Output files (under e2e-perf/results/):
@@ -47,7 +48,7 @@
  *   perceived-log.{json,js,md}  — perceived suite results (short + long
  *                                  share this file; each entry has a
  *                                  kind: "short"|"long" field).
- *   density-log.{json,js,md}    — independent additive density comparisons.
+ *   density-log.{json,js}       — independent additive density comparisons.
  *   density-graphs.html         — density contracts, availability and paired deltas.
  *   audit-graphs.html           — dashboard for jank suite.
  *   perceived-graphs.html       — dashboard for perceived suite (filters
@@ -60,7 +61,7 @@
 
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { arch, platform, release } from "node:os";
+import { arch, platform, release, tmpdir } from "node:os";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { appendFileSync, existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
@@ -86,9 +87,11 @@ import {
   requireConsistentPresence,
   generatedHistoryExclusions,
 } from "./harness-validation.mjs";
-import { commitFileTransaction, pruneAuditHistory, readHistoryLog } from "./history-files.mjs";
+import { appendCampaignManifest, buildCampaignManifest, commitFileTransaction, pruneAuditHistory, readHistoryLog } from "./history-files.mjs";
+import { randomUUID } from "node:crypto";
 import { comparisonEvidenceClass, metricsAreComparable, severeRateIsReportable } from "./p14-metrics.mjs";
-import { formatFocusedSortDegradation, partitionDegradedSamples } from "./focused-sort-degradation.mjs";
+import { assertPrivatePp3OutputFile, createPrivatePp3Diagnostics, formatFocusedSortDegradation, partitionDegradedSamples } from "./focused-sort-degradation.mjs";
+import { AUTH_RENEWAL_COMMAND, createPerfAuthOutputFilter } from "./auth-failure.mjs";
 import {
   aggregateDensityRuns, buildDensityMarkdown, densityEnvironmentKey,
   pairedDensityComparisons, parseDensitySuiteArgs, resolveSuiteSelection,
@@ -96,21 +99,64 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
+const campaignOutput = createPerfAuthOutputFilter();
 const reportTimestamp = new Date().toISOString().replace(/[:.]/g, "-");
 const LATEST_RUN_REPORT = resolve(
-  process.env.TMPDIR ?? __dirname,
+  tmpdir(),
   `kupua-perf-${reportTimestamp}-${process.pid}.log`,
 );
-writeFileSync(LATEST_RUN_REPORT, "");
+writeFileSync(LATEST_RUN_REPORT, "", { flag: "wx", mode: 0o600 });
 writeFileSync(resolve(__dirname, "results/.latest-report-path"), `${LATEST_RUN_REPORT}\n`);
 
 function appendRunReport(chunk) {
   appendFileSync(LATEST_RUN_REPORT, chunk);
 }
 
+function forwardCampaignOutput(chunk, channel) {
+  const text = campaignOutput.push(chunk, channel);
+  if (!text) return;
+  process[channel].write(text);
+  appendRunReport(text);
+}
+
+function finishCampaignOutput() {
+  for (const channel of ["stdout", "stderr"]) {
+    const text = campaignOutput.flush(channel);
+    if (!text) continue;
+    process[channel].write(text);
+    appendRunReport(text);
+  }
+}
+
+function reportCampaignError(error) {
+  finishCampaignOutput();
+  if (campaignOutput.authRequired) {
+    const text = `\nAuthentication required. Campaign stopped; no benchmark history was committed.\nReplace the placeholder with your external cookie-file path, sign in, close codegen, then rerun the campaign:\n${AUTH_RENEWAL_COMMAND}`;
+    appendRunReport(`${text}\n`);
+    console.error(text);
+    process.exit(2);
+    return;
+  }
+  appendRunReport(`\n${error?.stack ?? error}\n`);
+  console.error(error);
+  process.exit(1);
+}
+
 // Degraded samples (store fallback instead of the measured outcome) collected
 // across every perceived run, reported once after the campaign.
 const degradedSamples = [];
+const privatePp3Diagnostics = [];
+
+function reportPrivatePp3Diagnostics() {
+  if (privatePp3Diagnostics.length === 0) return;
+  const lines = ["", "  PP3 PRIVATE DEBUG (delete temporary logs when debugging is complete)"];
+  for (const sample of privatePp3Diagnostics) {
+    lines.push(`    PP3 ${sample.runLabel}: focused media ID ${sample.focusedImageId}; action t_0 (UTC) ${sample.actionStartedAt}`);
+  }
+  const text = lines.join("\n");
+  console.log(text);
+  appendRunReport(`${text}\n`);
+}
 
 function collectDegradedSamples(metrics, runLabel) {
   for (const metric of metrics) {
@@ -157,6 +203,7 @@ const PERCEIVED_LONG_TMP = resolve(__dirname, "results/.perceived-long-tmp.jsonl
 const ENVIRONMENT_TMP = resolve(__dirname, "results/.environment-tmp.json");
 const DENSITY_TMP = resolve(__dirname, "results/.density-tmp.jsonl");
 const DENSITY_JSON = resolve(__dirname, "results/density-log.json");
+const CAMPAIGN_JSON = resolve(__dirname, "results/campaign-log.json");
 
 // Per-kind config + temp + spec metadata, indexed by kind.
 const PERCEIVED_KINDS = {
@@ -199,6 +246,7 @@ let longOnly = false;          // --long-perceived-only   long
 let useMediaApi = false;       // either media-api mode
 let useLocalMediaApi = false;  // --use-media-api          local media-api proxy
 let useDeployedMediaApi = false; // --use-deployed-media-api direct TEST media-api
+let canonicalMedia = false;
 
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
@@ -226,6 +274,8 @@ for (let i = 0; i < args.length; i++) {
     useLocalMediaApi = true;
   } else if (a === "--use-deployed-media-api") {
     useDeployedMediaApi = true;
+  } else if (a === "--canonical-media") {
+    canonicalMedia = true;
   } else if (!a.startsWith("--")) {
     // Positional arg: jank test filter (e.g. "P8" or "P3,P8")
     const parts = a.split(",").map((s) => s.trim()).filter(Boolean);
@@ -240,6 +290,10 @@ if (useLocalMediaApi && useDeployedMediaApi) {
 }
 useMediaApi = useLocalMediaApi || useDeployedMediaApi;
 const apiTopology = useDeployedMediaApi ? "deployed-test" : useLocalMediaApi ? "local" : "none";
+if (canonicalMedia && !useMediaApi) {
+  failCli("Error: --canonical-media requires --use-media-api or --use-deployed-media-api.", 2);
+}
+const mediaDelivery = canonicalMedia ? "canonical" : "proxy";
 
 // Validate: at most one of the four perceived modes.
 const perceivedModeCount = [perceivedFull, perceivedOnly, shortOnly, longOnly]
@@ -333,6 +387,7 @@ function readEnvironment(exitCode, suiteLabel, git) {
   const observed = assertEnvironmentMatches(requireSingleEnvironment(rows, suiteLabel), {
     dataMode: useMediaApi ? "media-api" : "direct-es",
     apiTopology,
+    mediaDelivery,
   });
   return {
     ...observed,
@@ -354,6 +409,7 @@ function formatEnvironment(environment) {
   return [
     `Mode: ${environment.dataMode}`,
     `API topology: ${environment.apiTopology}`,
+    `Media delivery: ${environment.mediaDelivery ?? "unknown"}`,
     `Base URL: ${environment.appBaseUrl}`,
     `Browser: ${environment.browserName} ${environment.browserVersion}`,
     `OS: ${environment.os.platform}/${environment.os.architecture} ${environment.os.release}`,
@@ -402,6 +458,8 @@ function enforceClusterGate() {
       console.error(`  Save Playwright storageState in a private location outside the repository.`);
       console.error(`  Link that external file here; never copy credential-bearing JSON into this public repo.`);
       console.error(`  Follow kupua/e2e-perf/README.md#authentication-state for setup and permissions.`);
+      console.error("Replace the placeholder with your external cookie-file path, sign in, then close the codegen browser:");
+      console.error(AUTH_RENEWAL_COMMAND);
       process.exit(2);
     }
     console.log(`  Auth:         using storageState from ${PANDA_AUTH_FILE}`);
@@ -426,7 +484,9 @@ function clearPerceivedTmp(kind) {
 function runPerceivedPlaywright(kind, runIndex) {
   const { config, label: kindLabel } = PERCEIVED_KINDS[kind];
   const expectedIds = expectedPerceivedMetricIds(kind, grepArg);
-  return new Promise((resolve) => {
+  if (kind === "short") assertPrivatePp3OutputFile(LATEST_RUN_REPORT);
+  const pp3Debug = kind === "short" ? createPrivatePp3Diagnostics() : null;
+  return new Promise((resolve, reject) => {
     const pwArgs = [
       "playwright", "test",
       `--config=${config}`,
@@ -447,7 +507,9 @@ function runPerceivedPlaywright(kind, runIndex) {
         FORCE_COLOR: "0",
         PERF_STABLE_UNTIL: STABLE_UNTIL,
         KUPUA_PERF_ENV_FILE: ENVIRONMENT_TMP,
+        KUPUA_PERF_MEDIA_DELIVERY: mediaDelivery,
         KUPUA_PERF_RUN_INDEX: String(runIndex),
+        KUPUA_PERF_PP3_DEBUG_FILE: pp3Debug?.file ?? "",
         ...(useMediaApi && {
           KUPUA_PERF_AUTH_FILE: PANDA_AUTH_FILE,
           KUPUA_PERF_BASE_URL: "https://kupua.media.local.dev-gutools.co.uk",
@@ -456,18 +518,22 @@ function runPerceivedPlaywright(kind, runIndex) {
     });
 
     child.stdout.on("data", (chunk) => {
-      process.stdout.write(chunk);
-      appendRunReport(chunk);
+      forwardCampaignOutput(chunk, "stdout");
     });
     child.stderr.on("data", (chunk) => {
-      process.stderr.write(chunk);
-      appendRunReport(chunk);
+      forwardCampaignOutput(chunk, "stderr");
     });
 
+    child.on("error", reject);
     child.on("close", (code) => {
-      console.log(`\n  ${kindLabel} Playwright exited with code ${code}`);
+      finishCampaignOutput();
+      if (!campaignOutput.authRequired) console.log(`\n  ${kindLabel} Playwright exited with code ${code}`);
       resolve(code ?? 1);
     });
+  }).finally(() => {
+    for (const sample of pp3Debug?.readAndRemove() ?? []) {
+      privatePp3Diagnostics.push({ ...sample, runLabel: `${kindLabel} run ${runIndex} of ${runs}` });
+    }
   });
 }
 
@@ -716,6 +782,7 @@ async function runPerceivedKind(kind, git, baselineRttMs, historyWrites, history
   const entry = {
     kind,
     label,
+    campaignId: historyState.campaignId,
     gitSha: git.sha,
     gitDirty: git.dirty,
     timestamp: new Date().toISOString(),
@@ -733,6 +800,7 @@ async function runPerceivedKind(kind, git, baselineRttMs, historyWrites, history
         ? readFileSync(PERCEIVED_MD, "utf8")
         : "";
       historyState.perceivedLog.entries.push(entry);
+      historyState.campaignEntries.push({ family: "perceived", kind, timestamp: entry.timestamp, runs: entry.runs, scenarios: Object.keys(entry.perceived) });
       historyState.perceivedMarkdown = buildPerceivedMarkdown(historyState.perceivedMarkdown, entry);
       historyState.files.set(PERCEIVED_JSON, JSON.stringify(historyState.perceivedLog, null, 2) + "\n");
       historyState.files.set(
@@ -815,6 +883,7 @@ function runPlaywright(grepPattern) {
         FORCE_COLOR: "0",
         PERF_STABLE_UNTIL: STABLE_UNTIL,
         KUPUA_PERF_ENV_FILE: ENVIRONMENT_TMP,
+        KUPUA_PERF_MEDIA_DELIVERY: mediaDelivery,
         ...(useMediaApi && {
           KUPUA_PERF_AUTH_FILE: PANDA_AUTH_FILE,
           KUPUA_PERF_BASE_URL: "https://kupua.media.local.dev-gutools.co.uk",
@@ -823,16 +892,15 @@ function runPlaywright(grepPattern) {
     });
 
     child.stdout.on("data", (chunk) => {
-      process.stdout.write(chunk);
-      appendRunReport(chunk);
+      forwardCampaignOutput(chunk, "stdout");
     });
     child.stderr.on("data", (chunk) => {
-      process.stderr.write(chunk);
-      appendRunReport(chunk);
+      forwardCampaignOutput(chunk, "stderr");
     });
 
     child.on("close", (code) => {
-      console.log(`\n  Playwright exited with code ${code}`);
+      finishCampaignOutput();
+      if (!campaignOutput.authRequired) console.log(`\n  Playwright exited with code ${code}`);
       resolve(code ?? 1);
     });
   });
@@ -995,6 +1063,22 @@ function aggregateMetrics(allRunMetrics) {
     if (scenarioAggregation) {
       Object.assign(agg, aggregateScenarioFields(entries, id, scenarioAggregation));
     }
+    if (id === "P13c" && agg.scenarioRevision === 3) {
+      if (entries.some((entry) => typeof entry.detailImageReady !== "boolean"
+        || typeof entry.detailImageFailed !== "boolean"
+        || entry.detailImageReady !== (entry.detailImageReadyMs !== null)
+        || entry.detailObservationLimitMs !== 15_000
+        || ![true, false, null].includes(entry.mediaResourceReused))) {
+        throw new Error("P13c invalid returned-media outcome evidence");
+      }
+      agg.detailObservationLimitMs = 15_000;
+      agg.detailImageReadyCount = entries.filter((entry) => entry.detailImageReady).length;
+      agg.detailImageCensoredCount = entries.length - agg.detailImageReadyCount;
+      agg.detailImageFailedCount = entries.filter((entry) => entry.detailImageFailed).length;
+      agg.mediaResourceReusedCount = entries.filter((entry) => entry.mediaResourceReused === true).length;
+      agg.mediaResourceNotReusedCount = entries.filter((entry) => entry.mediaResourceReused === false).length;
+      agg.mediaResourceReuseUnknownCount = entries.filter((entry) => entry.mediaResourceReused === null).length;
+    }
     // Traversal image-render fields (P14a–d) — only aggregate when present.
     const landingRenderValues = requireConsistentPresence(entries, "landingRenderMs", id);
     if (landingRenderValues.length > 0) agg.landingRenderMs = Math.round(median(landingRenderValues));
@@ -1010,7 +1094,7 @@ function aggregateMetrics(allRunMetrics) {
     if (landingAlreadyValues.length > 0) agg.landingAlreadyRendered = landingAlreadyValues.filter(Boolean).length >= landingAlreadyValues.length / 2;
     const landingCacheValues = requireConsistentPresence(entries, "landingCacheHit", id);
     if (landingCacheValues.length > 0) agg.landingCacheHit = landingCacheValues.filter(Boolean).length >= landingCacheValues.length / 2;
-    const p14Entries = entries.filter((entry) => entry.scenarioRevision === 2 && entry.id?.startsWith("P14"));
+    const p14Entries = entries.filter((entry) => [2, 3].includes(entry.scenarioRevision) && entry.id?.startsWith("P14"));
     if (p14Entries.length > 0) {
       if (p14Entries.length !== entries.length) {
         throw new Error(`${id} changed P14 scenario identity across repetitions`);
@@ -1024,6 +1108,17 @@ function aggregateMetrics(allRunMetrics) {
       }
       if (agg.committedSteps !== agg.traversals) {
         throw new Error(`${id} committed ${agg.committedSteps}/${agg.traversals} traversal steps`);
+      }
+      if (agg.scenarioRevision === 3) {
+        if (entries.some((entry) => typeof entry.landingRendered !== "boolean")) {
+          throw new Error(`${id} missing landing completion evidence`);
+        }
+        const completed = entries.filter((entry) => entry.landingRendered);
+        agg.landingRenderedCount = completed.length;
+        agg.landingCensoredCount = entries.length - completed.length;
+        agg.landingRendered = completed.length === entries.length;
+        agg.landingRenderMs = completed.length > 0 ? Math.round(median(completed.map((entry) => entry.landingRenderMs))) : null;
+        agg.landingNetworkMs = completed.length > 0 ? Math.round(median(completed.map((entry) => entry.landingNetworkMs))) : null;
       }
       agg.clsOccurrenceRate = p14Entries.filter((entry) => (entry.clsEvents?.length ?? 0) > 0).length / p14Entries.length;
       const clsEventValues = p14Entries
@@ -1120,21 +1215,24 @@ function buildBaselineTable(entry, networkOnly = false) {
   });
 
   const p14Rows = ids
-    .filter((id) => entry.metrics[id].scenarioRevision === 2 && id.startsWith("P14"))
+    .filter((id) => [2, 3].includes(entry.metrics[id].scenarioRevision) && id.startsWith("P14"))
     .map((id) => {
       const metric = entry.metrics[id];
       const occurrence = `${Math.round((metric.clsOccurrenceRate ?? 0) * 100)}%`;
       const magnitude = metric.clsConditionalMagnitude == null
         ? "—"
         : metric.clsConditionalMagnitude.toFixed(4);
-      return `| ${id} | ${metric.cadenceMs}ms ${metric.direction} | ${metric.cacheClass} | ${metric.renderedCount}/${metric.renderedTotal} | ${metric.landingRenderMs}ms | ${metric.landingNetworkMs}ms | ${occurrence} | ${magnitude} |`;
+      const landing = metric.landingRenderMs == null ? "Not ready within 15s" : `${metric.landingRenderMs}ms`;
+      const completed = `${metric.landingRenderedCount ?? metric.sampleCount}/${metric.sampleCount}`;
+      const network = metric.landingNetworkMs == null ? "Unavailable" : `${metric.landingNetworkMs}ms`;
+      return `| ${id} | ${metric.cadenceMs}ms ${metric.direction} | ${metric.cacheClass} | ${metric.renderedCount}/${metric.renderedTotal} | ${completed} | ${landing} | ${network} | ${occurrence} | ${magnitude} |`;
     });
   const p14Table = p14Rows.length > 0
     ? [
         "### P14 traversal interpretation",
         "",
-        "| Test | Cadence | Cache class | Rendered | Landing | Network | CLS occurrence | Conditional CLS |",
-        "|------|---|---|---|---|---|---|---|",
+        "| Test | Cadence | Cache class | Rendered | Landings completed | Landing (completed only) | Network | CLS occurrence | Conditional CLS |",
+        "|------|---|---|---|---|---|---|---|---|",
         ...p14Rows,
       ].join("\n")
     : null;
@@ -1312,6 +1410,7 @@ function runDensityPlaywright(runIndex) {
         FORCE_COLOR: "0",
         PERF_STABLE_UNTIL: STABLE_UNTIL,
         KUPUA_PERF_ENV_FILE: ENVIRONMENT_TMP,
+        KUPUA_PERF_MEDIA_DELIVERY: mediaDelivery,
         KUPUA_PERF_RUN_INDEX: String(runIndex),
         KUPUA_DENSITY_RUN_INDEX: String(runIndex),
         KUPUA_DENSITY_METRICS_FILE: DENSITY_TMP,
@@ -1321,10 +1420,13 @@ function runDensityPlaywright(runIndex) {
         }),
       },
     });
-    child.stdout.on("data", (chunk) => { process.stdout.write(chunk); appendRunReport(chunk); });
-    child.stderr.on("data", (chunk) => { process.stderr.write(chunk); appendRunReport(chunk); });
+    child.stdout.on("data", (chunk) => forwardCampaignOutput(chunk, "stdout"));
+    child.stderr.on("data", (chunk) => forwardCampaignOutput(chunk, "stderr"));
     child.on("error", reject);
-    child.on("close", (code) => resolveRun(code ?? 1));
+    child.on("close", (code) => {
+      finishCampaignOutput();
+      resolveRun(code ?? 1);
+    });
   });
 }
 
@@ -1350,13 +1452,13 @@ async function runDensitySuite(git, historyWrites, historyState) {
   const environmentCompatibilityKey = densityEnvironmentKey(environment);
   if (!environmentCompatibilityKey) throw new Error("Density environment fingerprint is incomplete");
   const entry = {
-    label, timestamp: new Date().toISOString(), gitSha: git.sha, gitDirty: git.dirty,
+    label, campaignId: historyState.campaignId, timestamp: new Date().toISOString(), gitSha: git.sha, gitDirty: git.dirty,
     stableUntil: STABLE_UNTIL, runs, environment, environmentCompatibilityKey, metrics,
     pairs: pairedDensityComparisons(metrics, environment),
   };
   console.log(buildDensityMarkdown({ entries: [entry] }));
   if (dryRun) {
-    console.log("  Dry run: skipping density-log.{json,js,md}");
+    console.log("  Dry run: skipping density-log.{json,js}");
     return;
   }
   // Share the existing deferred/atomic campaign transaction: a later failure in
@@ -1364,10 +1466,10 @@ async function runDensitySuite(git, historyWrites, historyState) {
   historyWrites.defer(() => {
     const history = readHistoryLog(DENSITY_JSON);
     history.entries.push(entry);
+    historyState.campaignEntries.push({ family: "density", kind: "density", timestamp: entry.timestamp, runs: entry.runs, scenarios: Object.keys(entry.metrics) });
     historyState.files.set(DENSITY_JSON, JSON.stringify(history, null, 2) + "\n");
     historyState.files.set(DENSITY_JSON.replace(/\.json$/, ".js"),
       `window.__DENSITY_LOG__ = ${JSON.stringify(history)};\n`);
-    historyState.files.set(DENSITY_JSON.replace(/\.json$/, ".md"), buildDensityMarkdown(history));
   });
 }
 
@@ -1387,7 +1489,7 @@ async function main() {
   const git = getGitInfo();
   console.log(`  Durable run report: ${LATEST_RUN_REPORT}`);
   const historyWrites = createDeferredWrites();
-  const historyState = { files: new Map() };
+  const historyState = { files: new Map(), campaignId: randomUUID(), campaignEntries: [] };
 
   console.log();
   console.log("+" + "=".repeat(66) + "+");
@@ -1456,6 +1558,7 @@ async function main() {
   // Build audit entry
   const entry = {
     label,
+    campaignId: historyState.campaignId,
     gitSha: git.sha,
     gitDirty: git.dirty,
     timestamp: new Date().toISOString(),
@@ -1491,6 +1594,7 @@ async function main() {
         : null;
       const existingMarkdown = existsSync(AUDIT_MD) ? readFileSync(AUDIT_MD, "utf8") : "";
       auditLog.entries.push(entry);
+      historyState.campaignEntries.push({ family: "audit", kind: "rendering", timestamp: entry.timestamp, runs: entry.runs, scenarios: Object.keys(entry.metrics) });
       historyState.files.set(AUDIT_JSON, JSON.stringify(auditLog, null, 2) + "\n");
       historyState.files.set(
         AUDIT_JSON.replace(/\.json$/, ".js"),
@@ -1515,7 +1619,7 @@ async function main() {
     console.log(line);
   }
   const p14Ids = ids.filter(
-    (id) => aggregated[id].scenarioRevision === 2 && id.startsWith("P14"),
+    (id) => [2, 3].includes(aggregated[id].scenarioRevision) && id.startsWith("P14"),
   );
   if (p14Ids.length > 0) {
     console.log("\n  P14 traversal interpretation:");
@@ -1525,7 +1629,9 @@ async function main() {
       const magnitude = metric.clsConditionalMagnitude == null
         ? "—"
         : metric.clsConditionalMagnitude.toFixed(4);
-      console.log(`  ${id}: ${metric.cadenceMs}ms ${metric.direction}, rendered ${metric.renderedCount}/${metric.renderedTotal}, landing ${metric.landingRenderMs}ms (network ${metric.landingNetworkMs}ms), CLS ${occurrence}% / ${magnitude} conditional`);
+      const landing = metric.landingRenderMs == null ? "not ready within 15s" : `${metric.landingRenderMs}ms`;
+      const completed = `${metric.landingRenderedCount ?? metric.sampleCount}/${metric.sampleCount}`;
+      console.log(`  ${id}: ${metric.cadenceMs}ms ${metric.direction}, rendered ${metric.renderedCount}/${metric.renderedTotal}, landing ${landing} (${completed} completed), CLS ${occurrence}% / ${magnitude} conditional`);
     }
   }
   console.log();
@@ -1541,6 +1647,14 @@ async function main() {
 
   historyWrites.commit();
   if (!dryRun && historyState.files.size > 0) {
+    const manifest = buildCampaignManifest({
+      campaignId: historyState.campaignId, label, runs, grep: grepArg,
+      requested: { jank: runJank, short: runShort, long: runLong, density: runDensity },
+      apiTopology, mediaDelivery, completedAt: new Date().toISOString(), entries: historyState.campaignEntries,
+    });
+    const campaigns = appendCampaignManifest(readHistoryLog(CAMPAIGN_JSON), manifest);
+    historyState.files.set(CAMPAIGN_JSON, JSON.stringify(campaigns, null, 2) + "\n");
+    historyState.files.set(CAMPAIGN_JSON.replace(/\.json$/, ".js"), `window.__CAMPAIGN_LOG__ = ${JSON.stringify(campaigns)};\n`);
     commitFileTransaction(
       [...historyState.files].map(([file, contents]) => ({ file, contents })),
     );
@@ -1549,12 +1663,14 @@ async function main() {
 }
 
 main().then(
-  () => reportDegradedSamples(),
+  () => {
+    reportDegradedSamples();
+    reportPrivatePp3Diagnostics();
+  },
   (err) => {
     reportDegradedSamples();
-    appendRunReport(`\n${err?.stack ?? err}\n`);
-    console.error(err);
-    process.exit(1);
+    reportPrivatePp3Diagnostics();
+    reportCampaignError(err);
   },
 );
 

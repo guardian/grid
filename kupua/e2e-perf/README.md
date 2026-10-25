@@ -17,15 +17,38 @@ not Justified-only. `--full` includes rendering, short/long responsiveness and
 density. No suite flag selects rendering only. The runner does not start the app.
 
 Use `--use-deployed-media-api` instead for deployed TEST, or omit the API flag for
-direct ES. Backend flags, authentication and running app must agree. The strict
+direct ES. Add `--canonical-media` to both app startup and the campaign command to
+measure returned media URLs; without it the campaign requires proxy delivery.
+Backend/delivery flags, authentication and running app must agree. The strict
 `typecheck:perf` preflight runs automatically; do not bypass it.
 
 Keep output live with `set -o pipefail` and `2>&1 | tee "$TMPDIR/kupua-test-output.txt"`.
 Do not poll, edit source/docs, drive the app or start competing work during a run.
 
+<a id="authentication-state"></a>
+## Renew Authentication
+
+Replace the placeholder with the path to your existing cookie file outside the repository:
+
+```sh
+kupua/node_modules/.bin/playwright codegen --save-storage="[enter path to your cookie file]" https://kupua.media.local.dev-gutools.co.uk
+```
+
+Sign in within that codegen browser: TEST Grid for deployed API mode, local Grid for
+local API mode. Close the browser to save the refreshed state, then rerun the original
+campaign from the beginning. Keep the existing ignored symlink pointing to that file.
+See [first-time setup and domain details](campaign-setup.md#authentication-state).
+
+The runner stops for a missing auth file, required app/API HTTP 401/419 or a confirmed
+`/login` redirect, and prints the command above as a plain copyable line. It does not
+launch login automatically, add a reauth option or resume a partial campaign. Detection
+uses existing requests, not a new live auth probe. Timeouts, PP3 degradation, unrelated
+image failures and generic server errors are not treated as expired authentication.
+For an auth stop, the runner suppresses the follow-on interruption stack cascade and
+prints the renewal command last. Other failures retain their normal diagnostic output.
+
 <a id="flags"></a>
 <a id="preconditions-and-backend-setup"></a>
-<a id="authentication-state"></a>
 ## Before Running
 
 - Use normal development Kupua and its intended windowed datasource, not resident fixtures.
@@ -40,16 +63,31 @@ remain operator-run even when the command does not append history.
 
 ## Results
 
+Start with the [unified dashboard](results/index.html). All dashboards are colocated
+in `results/`; the individual family pages below remain available.
+
 | Family | Canonical history | Dashboard |
 | --- | --- | --- |
 | Rendering | [audit-log.json](results/audit-log.json) | [Rendering](results/audit-graphs.html) |
 | Short/long responsiveness | [perceived-log.json](results/perceived-log.json) | [Responsiveness](results/perceived-graphs.html) |
 | Density | [density-log.json](results/density-log.json) | [Density](results/density-graphs.html) |
+| Campaign membership | [campaign-log.json](results/campaign-log.json) | Selectable checkpoints in the [unified dashboard](results/index.html) |
+
+Every entry from one runner invocation carries the same `campaignId`; the manifest
+(requested suites, runs, filter, topology/delivery, entry refs) is published in the same
+all-or-nothing transaction. Only manifests with every requested suite, full repetitions
+and no test filter are `complete` and become dashboard checkpoints. Older entries have no
+ID and are never back-filled.
 
 Open dashboards from disk; no server is needed. Successful selected suites append
-history and regenerate sidecars. Failed attempts retain diagnostics, not partial
+history and regenerate sidecars. Density history is retained as JSON and browser JS;
+the redundant full-history Markdown export is no longer generated. Failed attempts retain diagnostics, not partial
 benchmark history. The runner prints its unique log path and records it in ignored
 `results/.latest-report-path`. Refresh dashboards after completion.
+
+All three distinguish API topology and media delivery. Campaign / Compare with
+selects an explicit pair; ordinary history lines never mix proxy and canonical
+delivery. See [comparison limits and historical corrections](measurement-reference.md#delivery-comparisons).
 
 <a id="density-comparisons-and-thumbnail-exposure"></a>
 <a id="normalized-directional-journeys"></a>

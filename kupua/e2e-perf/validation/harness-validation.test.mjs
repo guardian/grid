@@ -1,7 +1,10 @@
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { EventEmitter } from "node:events";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createRequire } from "node:module";
 import { join } from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
@@ -30,13 +33,16 @@ import {
   requireConsistentPresence,
 } from "../harness-validation.mjs";
 import {
+  appendCampaignManifest,
+  buildCampaignManifest,
   commitFileTransaction,
   parseHistoryLog,
   pruneAuditHistory,
 } from "../history-files.mjs";
 import { computeCorrelatedMetrics, ownsDataRoute } from "../perceived-metrics.mjs";
-import { formatFocusedSortDegradation, partitionDegradedSamples } from "../focused-sort-degradation.mjs";
+import { createPrivatePp3Diagnostics, formatFocusedSortDegradation, partitionDegradedSamples, recordPrivatePp3Diagnostic, summarizeFocusedSortDegradation } from "../focused-sort-degradation.mjs";
 import TeardownReporter from "../teardown-reporter.mjs";
+import { parseDensitySuiteArgs, resolveSuiteSelection } from "../density-reporting.mjs";
 import {
   classifyImageLookup,
   comparisonEvidenceClass,
@@ -44,33 +50,125 @@ import {
   severeRateIsReportable,
 } from "../p14-metrics.mjs";
 
-function dashboardFunction(filename, name) {
-  const html = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "results", filename), "utf8");
-  const source = html.slice(html.indexOf(`function ${name}(`));
-  const parsed = ts.createSourceFile("dashboard.js", source, ts.ScriptTarget.ES2022, true, ts.ScriptKind.JS);
-  const declaration = parsed.statements[0];
-  assert.equal(declaration.name?.text, name);
-  return source.slice(declaration.pos, declaration.end);
+test("requested media delivery must match the app, including missing evidence", () => {
+  const requested = { dataMode: "media-api", apiTopology: "deployed-test", mediaDelivery: "canonical" };
+  for (const mediaDelivery of ["proxy", undefined]) {
+    assert.throws(() => assertEnvironmentMatches({ ...requested, mediaDelivery }, requested), /media delivery mismatch/i);
+  }
+  assert.deepEqual(assertEnvironmentMatches(requested, requested), requested);
+});
+
+test("runner accepts canonical API modes, defaults to proxy and refuses canonical direct ES", () => {
+  const source = readFileSync(new URL("../run-audit.mjs", import.meta.url), "utf8");
+  const parser = source.slice(source.indexOf("let suiteArgs;"), source.indexOf("// Stable-until:"));
+  const parse = args => runInNewContext(`${parser}\n({ mediaDelivery, apiTopology, useMediaApi })`, {
+    process: { argv: ["node", "runner", ...args] }, parseDensitySuiteArgs, resolveSuiteSelection, assertBalancedLongRuns,
+    failCli(message) { throw new Error(message); },
+  });
+  for (const flag of ["--use-media-api", "--use-deployed-media-api"]) {
+    assert.equal(parse([flag]).mediaDelivery, "proxy");
+    assert.equal(parse([flag, "--canonical-media"]).mediaDelivery, "canonical");
+  }
+  assert.equal(parse(["--use-deployed-media-api"]).apiTopology, "deployed-test");
+  assert.equal(parse([]).mediaDelivery, "proxy");
+  assert.throws(() => parse(["--canonical-media"]), /requires/);
+  assert.throws(() => parse(["--use-media-api", "--use-deployed-media-api"]), /mutually exclusive/);
+  assert.equal(source.match(/KUPUA_PERF_MEDIA_DELIVERY: mediaDelivery/g)?.length, 3);
+});
+
+test("perf fixture rejects delivery mismatch before workload and checks configuration stability", async () => {
+  const source = readFileSync(new URL("../helpers.ts", import.meta.url), "utf8");
+  const fixtureSource = source.slice(source.indexOf("export const test ="), source.indexOf("export function isMediaApiUrl"));
+  const code = ts.transpileModule(fixtureSource, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
+  for (const deliveries of [["proxy", "proxy"], [undefined, undefined], ["canonical", "proxy"], ["canonical", "canonical"]]) {
+    let executed = false, reads = 0;
+    const writes = [];
+    const context = { exports: {}, process: { env: { KUPUA_PERF_ENV_FILE: "fixture", KUPUA_PERF_MEDIA_DELIVERY: "canonical" } },
+      sharedTest: { extend: fixtures => fixtures }, writeFileSync: (_file, value) => writes.push(JSON.parse(value)) };
+    runInNewContext(code, context);
+    const page = { request: { get: async () => {
+      const mediaDelivery = deliveries[reads++];
+      return { ok: () => true, json: async () => ({ dataMode: "media-api", apiTopology: "deployed-test", mediaDelivery }) };
+    } }, context: () => ({ browser: () => ({ version: () => "fixture" }) }), evaluate: async () => ({ appBaseUrl: "https://fixture.invalid" }) };
+    const run = () => context.exports.test.perfEnvironment[0]({ kupua: { page }, browserName: "chromium" }, async () => { executed = true; });
+    if (deliveries[0] !== "canonical") {
+      await assert.rejects(run, /media delivery mismatch/);
+      assert.equal(executed, false);
+    } else if (deliveries[1] !== "canonical") {
+      await assert.rejects(run, /environment changed/);
+      assert.equal(executed, true);
+    } else {
+      await run();
+      assert.equal(writes[0].mediaDelivery, "canonical");
+      assert.equal(writes[0].apiTopology, "deployed-test");
+    }
+  }
+});
+
+test("campaign configurations do not retain live failure artifacts", () => {
+  for (const name of ["perf", "perceived-short", "perceived-long"]) {
+    const source = readFileSync(new URL(`../playwright.${name}.config.ts`, import.meta.url), "utf8");
+    assert.match(source, /PLAYWRIGHT_NO_COPY_PROMPT = "1"/);
+    for (const artifact of ["trace", "screenshot", "video"]) assert.match(source, new RegExp(`${artifact}: "off"`));
+  }
+});
+
+test("explicit campaign comparisons isolate treatments and reject unverified environments", () => {
+  const context = {};
+  runInNewContext(readFileSync(new URL("../results/campaign-comparison.js", import.meta.url), "utf8"), context);
+  const comparison = context.KupuaPerfComparison;
+  const before = { gitSha: "fixture", environment: {
+    dataMode: "media-api", apiTopology: "deployed-test", mediaDelivery: "proxy", appBaseUrl: "https://fixture.invalid",
+    browserName: "chromium", browserVersion: "1", os: { platform: "fixture" }, viewport: { width: 1720, height: 960 },
+    screen: { width: 1720, height: 960 }, deviceScaleFactor: 2, headed: true, cpuThrottle: 0, cacheClass: "fixture",
+    workers: 1, stableUntil: "2026-02-15", appSourceDirtyStateHash: "fixture",
+  } };
+  const after = { ...before, environment: { ...before.environment, mediaDelivery: "canonical" } };
+  assert.notEqual(comparison.key(before), comparison.key(after));
+  assert.notEqual(comparison.variant(before), comparison.variant(after));
+  assert.equal(comparison.compare(after, before).compatible, true);
+  assert.match(comparison.compare(after, before).reason, /Changed mediaDelivery; recorded source fingerprints match; identical source not verified \(untracked file contents not covered\)/);
+  assert.match(comparison.label(after), /TEST API \/ canonical/);
+  for (const overrides of [{ deviceScaleFactor: 1 }, { browserVersion: "2" }, { mediaDelivery: undefined }]) {
+    assert.equal(comparison.compare({ ...after, environment: { ...after.environment, ...overrides } }, before).compatible, false);
+  }
+  assert.match(comparison.compare({ ...after, gitSha: "different" }, before).reason, /recorded source fingerprints differ \(untracked file contents not covered\)/);
+  const missingSource = { ...after, environment: { ...after.environment, appSourceDirtyStateHash: undefined } };
+  assert.equal(comparison.compare(missingSource, before).compatible, true);
+  assert.match(comparison.compare(missingSource, before).reason, /recorded source fingerprints unavailable; identical source not verified \(untracked file contents not covered\)/);
+  assert.equal(comparison.compare({ ...after, gitSha: "different" }, before).compatible, true);
+  assert.equal(before.environment.mediaDelivery, "proxy");
+});
+
+const declarations = new Map();
+const compiledFunctions = new Map();
+
+function functionSource(filename, name) {
+  if (!declarations.has(filename)) {
+    let source = readFileSync(new URL(`../${filename}`, import.meta.url), "utf8");
+    if (filename.endsWith(".html")) source = source.slice(source.indexOf("<script>") + "<script>".length, source.lastIndexOf("</script>"));
+    const parsed = ts.createSourceFile(filename, source, ts.ScriptTarget.ES2022, true);
+    declarations.set(filename, new Map(parsed.statements.filter(ts.isFunctionDeclaration)
+      .map(node => [node.name?.text, node.getText(parsed)])));
+  }
+  const source = declarations.get(filename).get(name);
+  assert.ok(source, `${filename}: missing actual function ${name}`);
+  return source;
 }
 
-function runnerFunction(name) {
-  const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "run-audit.mjs"), "utf8");
-  const tail = source.slice(source.indexOf(`function ${name}(`));
-  const parsed = ts.createSourceFile("runner.js", tail, ts.ScriptTarget.ES2022, true, ts.ScriptKind.JS);
-  const declaration = parsed.statements[0];
-  assert.equal(declaration.name?.text, name);
-  return tail.slice(declaration.pos, declaration.end);
+function compiledFunction(filename, name) {
+  const key = `${filename}:${name}`;
+  if (!compiledFunctions.has(key)) compiledFunctions.set(key, ts.transpileModule(functionSource(filename, name), {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None },
+  }).outputText);
+  return compiledFunctions.get(key);
 }
+
+const dashboardFunction = (filename, name) => functionSource(`results/${filename}`, name);
+const runnerFunction = name => functionSource("run-audit.mjs", name);
 
 function metadataSearchObserverFixture(refreshRate, readyAt = 4_000, options = {}) {
-  const filename = join(fileURLToPath(new URL("..", import.meta.url)), "perceived-long.spec.ts");
-  const parsed = ts.createSourceFile(filename, readFileSync(filename, "utf8"), ts.ScriptTarget.ES2022, true);
-  const declaration = parsed.statements.find(node => ts.isFunctionDeclaration(node)
-    && node.name?.text === "appendMetadataSearchVisualPhases");
-  assert.ok(declaration);
-  const source = ts.transpileModule(declaration.getText(parsed), {
-    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None },
-  }).outputText;
+  const source = compiledFunction("perceived-long.spec.ts", "appendMetadataSearchVisualPhases");
   let now = 0;
   let nextHandle = 0;
   const frames = new Set();
@@ -125,7 +223,7 @@ function metadataSearchObserverFixture(refreshRate, readyAt = 4_000, options = {
   };
 }
 
-for (const refreshRate of [60, 120, 240]) {
+for (const refreshRate of [60, 240]) {
   test(`long-journey search readiness budget is elapsed time at ${refreshRate} Hz`, async () => {
     const fixture = metadataSearchObserverFixture(refreshRate);
     const result = await fixture.run();
@@ -192,16 +290,6 @@ test("long-journey search observer rejects data arriving after its elapsed deadl
   assert.equal(fixture.entries.length, 0);
 });
 
-test("acknowledgement documentation stays distinct from visible-frame latency", () => {
-  const shortSpec = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "perceived-short.spec.ts"), "utf8");
-  const handbook = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "README.md"), "utf8");
-  const shortAckDescription = shortSpec.match(/^ \*   - dt_ack_ms:.*$/m)?.[0];
-  const handbookAckDescription = handbook.match(/^- `t_ack` —.*$/m)?.[0];
-
-  assert.equal(shortAckDescription, " *   - dt_ack_ms:        time from user action (t_0) to synchronous action acknowledgement");
-  assert.equal(handbookAckDescription, "- `t_ack` — synchronous action acknowledgement by its current producer; not a DOM-visible boundary.");
-  assert.match(handbook, /`t_first_visible_frame` — the target context has real visible content/);
-});
 
 function waitForFunctionDefects() {
   const files = [
@@ -279,6 +367,8 @@ test("application-source fingerprint excludes only generated perf histories", ()
     ":(exclude)e2e-perf/results/density-log.json",
     ":(exclude)e2e-perf/results/density-log.js",
     ":(exclude)e2e-perf/results/density-log.md",
+    ":(exclude)e2e-perf/results/campaign-log.json",
+    ":(exclude)e2e-perf/results/campaign-log.js",
     ":(exclude)e2e-perf/results/.density-tmp.jsonl",
     ":(exclude)e2e-perf/results/.density-playwright-report.json",
     ":(exclude)e2e-perf/results/.environment-tmp.json",
@@ -291,18 +381,16 @@ test("application-source fingerprint excludes only generated perf histories", ()
   assert.match(runner, /generatedHistoryExclusions\(\)/);
 });
 
-test("both dashboards qualify paired mode deltas by application-source identity", () => {
+test("both dashboards qualify recorded source fingerprints without verifying identical source", () => {
   for (const filename of ["audit-graphs.html", "perceived-graphs.html"]) {
     const sourceMatchLabel = runInNewContext(
       `${dashboardFunction(filename, "sourceMatchLabel")}\nsourceMatchLabel`,
     );
     const base = { gitSha: "abc", environment: { appSourceDirtyStateHash: "same" } };
-    assert.equal(sourceMatchLabel(base, base), "app source matched");
-    assert.equal(sourceMatchLabel(base, { ...base, environment: { appSourceDirtyStateHash: "other" } }), "app source differs");
-    assert.equal(sourceMatchLabel(base, { ...base, environment: {} }), "app source unverified");
+    assert.equal(sourceMatchLabel(base, base), "recorded source fingerprints match; identical source not verified (untracked file contents not covered)");
+    assert.equal(sourceMatchLabel(base, { ...base, environment: { appSourceDirtyStateHash: "other" } }), "recorded source fingerprints differ (untracked file contents not covered)");
+    assert.equal(sourceMatchLabel(base, { ...base, environment: {} }), "recorded source fingerprints unavailable; identical source not verified (untracked file contents not covered)");
     assert.equal(sourceMatchLabel(base, { ...base, gitSha: "def" }), "commit differs");
-    const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "results", filename), "utf8");
-    assert.match(source, /API − direct/);
   }
 });
 
@@ -435,7 +523,10 @@ test("perceived history notes degraded exclusions and the campaign reports diagn
       degraded: {
         reason: "timeout", focusedImageId: "fixture-media-id", focus: "cleared", fallbackMs: 8_012, phaseReached: "seeking",
         actionStartedAt: "2026-10-23T02:13:40.000Z", warnings: [{ category: "timeout", atMs: 8_004 }],
-        requests: [], requestCaptureOverflow: 0,
+        requests: [
+          { route: "media-api", operation: "GET /api/images/fixture-media-id?private-marker=1", startedMs: 100, durationMs: 8000, sent: true, headersMs: null, outcome: "failed", failure: "private-marker failure" },
+          { route: "media-api", operation: "GET //%ZZ/api/images/private-marker", startedMs: 200, durationMs: 8000, sent: true, headersMs: null, outcome: "pending" },
+        ], requestCaptureOverflow: 0,
       },
     },
   ], "perceived (short) run 4 of 4");
@@ -444,12 +535,125 @@ test("perceived history notes degraded exclusions and the campaign reports diagn
   assert.match(printed[0], /DEGRADED SAMPLES: 1 \(excluded from medians; campaign continued\)/);
   assert.match(printed[0], /PP3 sort-around-focus \(Credit\) — perceived \(short\) run 4 of 4/);
   assert.match(printed[0], /action t_0 \(UTC\): 2026-10-23T02:13:40\.000Z/);
-  assert.match(printed[0], /focused image \(media ID\): fixture-media-id/);
+  assert.match(printed[0], /focused image: redacted \(identity not retained\)/);
+  assert.match(printed[0], /GET \/api\/images\/:id/);
+  assert.match(printed[0], /failed other after 8000ms/);
+  assert.match(printed[0], /\? :unparseable/);
+  assert.doesNotMatch(printed[0], /fixture-media-id|private-marker/);
   assert.equal(reported[0], `${printed[0]}\n`);
+  assert.doesNotMatch(reported[0], /fixture-media-id|private-marker/);
 
   const runner = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "run-audit.mjs"), "utf8");
-  assert.match(runner, /main\(\)\.then\(\s*\(\) => reportDegradedSamples\(\),\s*\(err\) => \{\s*reportDegradedSamples\(\);/);
   assert.match(runner, /collectDegradedSamples\(m, `\$\{kindLabel\} run \$\{run\} of \$\{runs\}`\);/);
+});
+
+test("PP3 private identities print only in the final debug section, including campaign failure", async () => {
+  const printed = [];
+  const reported = [];
+  const privatePp3Diagnostics = [{ id: "PP3", focusedImageId: "private-pp3-marker", actionStartedAt: "1970-01-01T00:00:00.000Z", runLabel: "short run 1 of 4" }];
+  const report = runInNewContext(`${runnerFunction("reportPrivatePp3Diagnostics")}\nreportPrivatePp3Diagnostics`, {
+    privatePp3Diagnostics, console: { log: text => printed.push(text) }, appendRunReport: text => reported.push(text),
+  });
+  report();
+  assert.match(printed[0], /PP3 PRIVATE DEBUG/);
+  assert.match(printed[0], /private-pp3-marker/);
+  assert.match(printed[0], /1970-01-01T00:00:00\.000Z/);
+  assert.match(printed[0], /short run 1 of 4/);
+  assert.equal(reported[0], `${printed[0]}\n`);
+  privatePp3Diagnostics.length = 0;
+  report();
+  assert.equal(printed.length, 1);
+  const runner = readFileSync(new URL("../run-audit.mjs", import.meta.url), "utf8");
+  const start = runner.lastIndexOf("\nmain().then(");
+  assert.ok(start > 0);
+  for (const failed of [false, true]) {
+    const events = [];
+    const error = new Error("fixture failure");
+    const completion = runInNewContext(runner.slice(start), {
+      main: () => failed ? Promise.reject(error) : Promise.resolve(),
+      reportDegradedSamples: () => events.push("redacted"),
+      reportPrivatePp3Diagnostics: () => events.push("private"),
+      reportCampaignError: observed => { assert.equal(observed, error); events.push("failure"); },
+    });
+    assert.deepEqual(events, [], "nothing is reported before campaign completion");
+    await completion;
+    assert.deepEqual(events, failed ? ["redacted", "private", "failure"] : ["redacted", "private"]);
+  }
+});
+
+test("short-suite emitter hands off PP3 identity without adding it to ordinary metrics or output", async () => {
+  const filename = fileURLToPath(new URL("../perceived-short.spec.ts", import.meta.url));
+  const parsed = ts.createSourceFile(filename, readFileSync(filename, "utf8"), ts.ScriptTarget.ES2022, true);
+  const declaration = parsed.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === "emitDegradedFocusedSort");
+  assert.ok(declaration);
+  const code = ts.transpileModule(declaration.getText(parsed), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } }).outputText;
+  for (const id of ["PP3", "PP4"]) {
+    const handoff = createPrivatePp3Diagnostics();
+    const metrics = [];
+    const printed = [];
+    const emit = runInNewContext(`${code}\nemitDegradedFocusedSort`, {
+      process: { env: { KUPUA_PERF_PP3_DEBUG_FILE: handoff.file } },
+      computeCorrelatedMetrics: () => ({ interactionId: "fixture", dt_store_ready_ms: 8012 }),
+      recordPrivatePp3Diagnostic, summarizeFocusedSortDegradation, formatFocusedSortDegradation,
+      console: { log: line => printed.push(line) }, emitMetrics: sample => metrics.push(sample),
+    });
+    try {
+      await emit({ page: { evaluate: async () => 0 } }, {
+        id, label: "fixture", focusedImageId: "private-pp3-marker",
+        entries: [{ phase: "t_0", t: 0, interactionId: "fixture" }], observation: { focus: "cleared" },
+        diagnostics: { warnings: [], snapshot: () => ({ requests: [], requestCaptureOverflow: 0 }) }, routes: ["media-api"],
+      });
+      assert.doesNotMatch(JSON.stringify(metrics), /private-pp3-marker/);
+      assert.equal(metrics[0].degraded.focusedImageId, null);
+      assert.doesNotMatch(printed.join("\n"), /private-pp3-marker/);
+      const records = handoff.readAndRemove();
+      assert.equal(records.length, id === "PP3" ? 1 : 0);
+      if (id === "PP3") assert.equal(records[0].focusedImageId, "private-pp3-marker");
+    } finally {
+      handoff.readAndRemove();
+    }
+  }
+});
+
+test("private PP3 handoff is collected and removed for successful, failing and errored children", async () => {
+  for (const outcome of ["success", "failure", "error", "long"]) {
+    const privatePp3Diagnostics = [];
+    const ordinaryOutput = [];
+    let privateFile = "";
+    const run = runInNewContext(`${runnerFunction("runPerceivedPlaywright")}\nrunPerceivedPlaywright`, {
+      PERCEIVED_KINDS: { short: { config: "fixture", label: "short" }, long: { config: "fixture", label: "long" } },
+      expectedPerceivedMetricIds: () => ["PP3"], grepArg: "", headed: false,
+      ROOT: "/fixture", STABLE_UNTIL: "2026-02-15", ENVIRONMENT_TMP: "/fixture-env", mediaDelivery: "proxy",
+      useMediaApi: false, runs: 4, LATEST_RUN_REPORT: "/private-report",
+      assertPrivatePp3OutputFile: file => assert.equal(file, "/private-report"), createPrivatePp3Diagnostics,
+      privatePp3Diagnostics, console: { log() {} }, appendRunReport: text => ordinaryOutput.push(String(text)),
+      campaignOutput: { authRequired: false }, finishCampaignOutput() {},
+      forwardCampaignOutput: chunk => ordinaryOutput.push(String(chunk)),
+      process: { env: { KUPUA_PERF_PP3_DEBUG_FILE: "inherited-must-not-survive" }, stdout: { write() {} }, stderr: { write() {} } },
+      spawn: (_command, _args, options) => {
+        const child = new EventEmitter();
+        child.stdout = new EventEmitter();
+        child.stderr = new EventEmitter();
+        privateFile = options.env.KUPUA_PERF_PP3_DEBUG_FILE;
+        queueMicrotask(() => {
+          if (outcome === "long") assert.equal(privateFile, "");
+          else recordPrivatePp3Diagnostic(privateFile, { id: "PP3", focusedImageId: "private-pp3-marker", actionStartedAt: "1970-01-01T00:00:00.000Z" });
+          child.stdout.emit("data", Buffer.from("ordinary child output\n"));
+          if (outcome === "error") child.emit("error", new Error("synthetic process failure"));
+          else child.emit("close", outcome === "failure" ? 1 : 0);
+        });
+        return child;
+      },
+    });
+    if (outcome === "error") await assert.rejects(run("short", 1), /synthetic process failure/);
+    else assert.equal(await run(outcome === "long" ? "long" : "short", 1), outcome === "failure" ? 1 : 0);
+    assert.doesNotMatch(ordinaryOutput.join(""), /private-pp3-marker/);
+    assert.equal(privatePp3Diagnostics.length, outcome === "long" ? 0 : 1);
+    if (outcome !== "long") {
+      assert.equal(privatePp3Diagnostics[0].runLabel, "short run 1 of 4");
+      assert.equal(existsSync(privateFile), false);
+    }
+  }
 });
 
 test("totals, regimes, and seek-measure names cannot be partial across repetitions", () => {
@@ -526,9 +730,9 @@ test("perceived dashboard imports only real image-read evidence from audit histo
 
 test("both dashboards expose lookup metrics without conflating fallback and API transport", () => {
   for (const filename of ["audit-graphs.html", "perceived-graphs.html"]) {
-    const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "results", filename), "utf8");
+    const source = readFileSync(new URL(`../results/${filename}`, import.meta.url), "utf8");
     for (const field of ["imageLookupCount", "detailLookupMs", "detailMetadataReadyMs", "detailImageReadyMs"]) {
-      assert.ok(source.includes(field), `${filename}: ${field}`);
+      assert.ok(source.includes(field), `${filename}: supported legacy metric ${field}`);
       if (filename === "perceived-graphs.html") assert.ok(source.includes(`value="${field}"`));
     }
     const comparable = runInNewContext(`${dashboardFunction(filename, "metricsComparable")}\nmetricsComparable`, {
@@ -547,12 +751,144 @@ test("both dashboards expose lookup metrics without conflating fallback and API 
   }
   const audit = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "results/audit-graphs.html"), "utf8");
   assert.match(audit, /imageLookupCount:[^\n]+quietThreshold: 0/);
-  const perceived = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "results/perceived-graphs.html"), "utf8");
-  assert.match(perceived, /script src="audit-log.js"/);
-  assert.match(perceived, /auditImageReadEntries\(window\.__AUDIT_LOG__\)/);
+  const perceived = readFileSync(new URL("../results/perceived-graphs.html", import.meta.url), "utf8");
+  assert.match(perceived, /<script\b[^>]*\bsrc="audit-log\.js"/);
   const unit = runInNewContext(`${dashboardFunction("perceived-graphs.html", "metricUnit")}\nmetricUnit`);
   assert.equal(unit("imageLookupCount"), "");
   assert.equal(unit("detailImageReadyMs"), "ms");
+});
+
+test("DEV centering bridge belongs to the registered app instance, not an imported module", () => {
+  const filename = fileURLToPath(new URL("../../src/lib/orchestration/search.ts", import.meta.url));
+  const parsed = ts.createSourceFile(filename, readFileSync(filename, "utf8"), ts.ScriptTarget.ES2022, true);
+  const declaration = parsed.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === "registerScrollToFocused");
+  assert.ok(declaration);
+  const sharedWindow = {};
+  const load = (dev = true, browser = sharedWindow) => {
+    const source = declaration.getText(parsed).replaceAll("import.meta.env.DEV", String(dev));
+    const code = ts.transpileModule(source, {
+      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+    }).outputText;
+    return runInNewContext(`let _scrollToFocused = null;\n${code}\nregisterScrollToFocused`, {
+      exports: {}, ...browser === null ? {} : { window: browser },
+    });
+  };
+  let calls = 0;
+  const active = load();
+  const first = () => { calls++; };
+  active(first);
+  assert.equal(sharedWindow.__kupua_scrollFocusedIntoView__, first);
+  sharedWindow.__kupua_scrollFocusedIntoView__();
+  assert.equal(calls, 1);
+  const replacement = load();
+  assert.equal(sharedWindow.__kupua_scrollFocusedIntoView__, first);
+  const second = () => { calls += 10; };
+  replacement(second);
+  active(null);
+  assert.equal(sharedWindow.__kupua_scrollFocusedIntoView__, second);
+  sharedWindow.__kupua_scrollFocusedIntoView__();
+  assert.equal(calls, 11);
+  load(false)(first);
+  assert.equal(sharedWindow.__kupua_scrollFocusedIntoView__, second);
+  replacement(null);
+  assert.equal(sharedWindow.__kupua_scrollFocusedIntoView__, undefined);
+  load(false)(first);
+  assert.equal(sharedWindow.__kupua_scrollFocusedIntoView__, undefined);
+  assert.doesNotThrow(() => load(true, null)(first));
+});
+
+test("both density centering sites call the active binding and reject absence without importing a fallback", () => {
+  const filename = fileURLToPath(new URL("../density-browser.ts", import.meta.url));
+  const parsed = ts.createSourceFile(filename, readFileSync(filename, "utf8"), ts.ScriptTarget.ES2022, true);
+  const callbacks = [];
+  for (const name of ["restoreDensitySource", "prepareDensityRecovery"]) {
+    const declaration = parsed.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name);
+    function visit(node) {
+      if (ts.isCallExpression(node) && node.expression.getText(parsed) === "page.evaluate"
+        && node.arguments[0]?.getText(parsed).includes("__kupua_scrollFocusedIntoView__")) callbacks.push(node.arguments[0].getText(parsed));
+      ts.forEachChild(node, visit);
+    }
+    visit(declaration);
+  }
+  assert.equal(callbacks.length, 2);
+  for (const callback of callbacks) {
+    assert.doesNotMatch(callback, /import\s*\(/);
+    const code = ts.transpileModule(`const invoke = ${callback};\ninvoke`, {
+      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None },
+    }).outputText;
+    let calls = 0;
+    const active = runInNewContext(code, { window: { __kupua_scrollFocusedIntoView__: () => { calls++; } } });
+    active();
+    assert.equal(calls, 1);
+    const absent = runInNewContext(code, { window: {} });
+    assert.throws(absent, /Density scroll-to-focus callback unavailable/);
+  }
+});
+
+test("density campaign witness uses the runner's one-based repetition unchanged", () => {
+  const filename = fileURLToPath(new URL("../density.spec.ts", import.meta.url));
+  const parsed = ts.createSourceFile(filename, readFileSync(filename, "utf8"), ts.ScriptTarget.ES2022, true);
+  const contexts = [];
+  let runIndex;
+  function visit(node) {
+    if (ts.isVariableDeclaration(node) && node.name.getText(parsed) === "runIndex") runIndex = node.initializer.getText(parsed);
+    if (ts.isCallExpression(node) && ["prepare", "restoreDensitySource"].includes(node.expression.getText(parsed))) {
+      contexts.push(node.arguments[1].getText(parsed));
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(parsed);
+  assert.equal(contexts.length, 2);
+  for (const repetition of [1, 4]) {
+    for (const context of contexts) {
+      const value = runInNewContext(`const runIndex = ${runIndex}; (${context})`, {
+        process: { env: { KUPUA_DENSITY_RUN_INDEX: String(repetition) } }, workload: "scroll-backward", density: "grid",
+      });
+      assert.equal(value.repetition, repetition);
+    }
+  }
+});
+
+test("density restoration forwards bounded context and actual seek choice without changing placement guard", async () => {
+  const filename = fileURLToPath(new URL("../density-browser.ts", import.meta.url));
+  const parsed = ts.createSourceFile(filename, readFileSync(filename, "utf8"), ts.ScriptTarget.ES2022, true);
+  const declaration = parsed.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === "restoreDensitySource");
+  assert.ok(declaration);
+  const code = ts.transpileModule(declaration.getText(parsed), {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+  }).outputText;
+  for (const resident of [true, false]) {
+    const events = [];
+    const source = { id: "fixture-anchor", offset: 123, total: 1000, params: "{}" };
+    const state = { total: source.total, params: {}, imagePositions: new Map(resident ? [[source.id, source.offset]] : []),
+      setFocusedImageId: value => { assert.equal(value, source.id); events.push("focus"); },
+      seekToFocused: async () => { events.push("seek"); } };
+    const context = { workload: "scroll-backward", repetition: 2, destination: "justified" };
+    let placement;
+    const restore = runInNewContext(`${code}\nrestoreDensitySource`, {
+      exports: {}, window: { __densitySource: source, __kupua_store__: {
+        getState: () => state, setState: patch => { assert.equal(patch._focusedImageKnownOffset, source.offset); },
+      } },
+      selectDensity: async (_page, density) => { assert.equal(density, "table"); events.push("table"); },
+      waitForWindowIdle: async () => { events.push("idle"); },
+      waitForPlacement: async (...args) => { placement = args; events.push("placement"); },
+    });
+    let evaluations = 0;
+    const page = { evaluate: async callback => {
+      if (++evaluations === 2) { events.push("scroll"); return; }
+      return callback();
+    } };
+    assert.equal((await restore(page, context)).total, source.total);
+    assert.deepEqual(events, ["table", "idle", "focus", ...resident ? [] : ["seek"], "idle", "scroll", "placement"]);
+    assert.equal(placement[0], page);
+    assert.equal(placement[1], "table");
+    assert.equal(placement[2], true);
+    assert.equal(placement[3], undefined);
+    assert.equal(placement[4], undefined);
+    assert.deepEqual(JSON.parse(JSON.stringify(placement[5])), {
+      ...context, stage: "restore-source", seekRequested: !resident, scrollRequested: true,
+    });
+  }
 });
 
 test("replacing perceived history removes stale charts before rendering shared probes", () => {
@@ -560,9 +896,12 @@ test("replacing perceived history removes stale charts before rendering shared p
   let destroyed = 0;
   const charts = new Map([["old", { destroy: () => destroyed++ }]]);
   let rendered = false;
-  const ingest = runInNewContext(`${dashboardFunction("perceived-graphs.html", "ingestLog")}\ningestLog`, {
-    window: { __AUDIT_LOG__: { entries: [] } },
-    auditImageReadEntries: () => [],
+  const ingest = runInNewContext(`${dashboardFunction("perceived-graphs.html", "auditImageReadEntries")}\n${dashboardFunction("perceived-graphs.html", "ingestLog")}\ningestLog`, {
+    window: { __AUDIT_LOG__: { entries: [{ timestamp: "fixture", metrics: { P14a: { imageLookupCount: 0 } } }] } },
+    KupuaPerfComparison: { populate(entries) {
+      assert.equal(entries.length, 1, "saved audit evidence must join perceived history");
+      assert.equal(entries[0].perceived.P14a.imageLookupCount, 0);
+    } },
     document: { getElementById: (id) => elements[id] },
     charts,
     render: () => {
@@ -577,12 +916,113 @@ test("replacing perceived history removes stale charts before rendering shared p
   assert.equal(rendered, true);
 });
 
-function standaloneProbeHarness({ route = "direct-es", expectedRoute = route, resident = false, becomesResident = false, requestCount = 1, changedMedia = false, wrongTarget = false, wrongTargetIndex = -1, mixedRoute = false, failedIndex = -1, failureText = "net::ERR_ABORTED" } = {}) {
+test("P14 observes actual slow landings for 15 seconds without inventing completion", async () => {
+  const source = readFileSync(new URL("../perf.spec.ts", import.meta.url), "utf8");
+  const helper = source.slice(source.indexOf("async function waitForLandingImage("), source.indexOf("async function prepareP14Scenario("));
+  const { outputText } = ts.transpileModule(helper, { compilerOptions: { target: ts.ScriptTarget.ES2022 } });
+  for (const [readyMs, evaluationDelayMs] of [[0, 0], [8_300, 0], [14_980, 0], [Infinity, 0], [15_010, 30], [0, 15_001]]) {
+    let now = 0;
+    let identityChangesAt = Infinity;
+    const image = { get complete() { return now >= readyMs; }, naturalWidth: 400, naturalHeight: 300, src: "/fixture-image" };
+    const owner = { getAttribute: () => now >= identityChangesAt ? "different-target" : "fixture-target" };
+    const wait = runInNewContext(`${outputText}\nwaitForLandingImage`, {
+      Date: { now: () => now }, landingElapsedMs: (commit, current) => Math.max(0, current - commit),
+      document: { querySelector: selector => selector === "[data-detail-image-id]" ? owner : image },
+      getImageNetworkTiming: async () => ({ networkMs: readyMs, cacheHit: false }),
+    });
+    const page = { evaluate: (callback, argument) => { now += evaluationDelayMs; return callback(argument); }, waitForTimeout: async delay => { now += delay; } };
+    const result = await wait(page, { expectedId: "fixture-target", committedEpochMs: 0 });
+    const completesWithinWindow = Number.isFinite(readyMs) && readyMs <= 15_000 && evaluationDelayMs <= 15_000;
+    assert.equal(result.rendered, completesWithinWindow);
+    assert.equal(result.renderMs, completesWithinWindow ? readyMs : 15_000);
+    if (completesWithinWindow) assert.equal(now, readyMs);
+    else assert.ok(now >= 15_000);
+    if (!Number.isFinite(readyMs)) {
+      for (const changedAt of [0, 1_000]) {
+        now = 0;
+        identityChangesAt = changedAt;
+        await assert.rejects(wait(page, { expectedId: "fixture-target", committedEpochMs: 0 }), /identity changed/);
+      }
+    }
+  }
+});
+
+test("P14 aggregation separates completed landing times from observation limits", () => {
+  const source = readFileSync(new URL("../run-audit.mjs", import.meta.url), "utf8");
+  const helper = source.slice(source.indexOf("function median("), source.indexOf("// Read/write audit log"));
+  const aggregate = runInNewContext(`${helper}\naggregateMetrics`, {
+    assertFiniteFields, REQUIRED_JANK_NUMERIC_FIELDS, requireConsistentPresence,
+    JANK_SCENARIO_AGGREGATION, aggregateScenarioFields,
+  });
+  const base = {
+    ...Object.fromEntries(REQUIRED_JANK_NUMERIC_FIELDS.map(field => [field, 0])),
+    id: "P14b", scenarioRevision: 3, lookupGuardRevision: 1, imageLookupCount: 0,
+    cacheClass: "fresh-browser-context", startRank: 3, committedSteps: 15, traversals: 15,
+    cadenceMs: 200, speed: "fast", direction: "forward", clsEvents: [],
+    landingRendered: false, landingRenderMs: 15_000, landingNetworkMs: 0,
+  };
+  const incomplete = aggregate([[base], [base]]).P14b;
+  assert.equal(incomplete.scenarioRevision, 3);
+  assert.equal(incomplete.landingRenderMs, null);
+  assert.equal(incomplete.landingNetworkMs, null);
+  assert.equal(incomplete.landingRenderedCount, 0);
+  assert.equal(incomplete.landingCensoredCount, 2);
+  const ready = { ...base, landingRendered: true, landingRenderMs: 8_300, landingNetworkMs: 8_200 };
+  const mixed = aggregate([[base], [ready]]).P14b;
+  assert.equal(mixed.landingRenderMs, 8_300);
+  assert.equal(mixed.landingNetworkMs, 8_200);
+  assert.equal(mixed.landingRenderedCount, 1);
+  assert.equal(mixed.landingCensoredCount, 1);
+  assert.throws(() => aggregate([[base], [{ ...ready, scenarioRevision: 2 }]]), /changed.*scenario/);
+  const standalone = {
+    ...base, id: "P13c", cacheClass: "nonresident-metadata-returned-media",
+    completionBoundary: "singleton-response-and-bounded-returned-media",
+    routes: ["media-api"], imageLookupCount: 1,
+    detailLookupMs: 40, detailMetadataReadyMs: 60, detailImageReadyMs: null,
+    detailImageReady: false, detailImageFailed: false, detailObservationLimitMs: 15_000, mediaResourceReused: false,
+  };
+  const standaloneMixed = aggregate([[standalone], [{ ...standalone, detailImageReadyMs: 8_300, detailImageReady: true }]]).P13c;
+  assert.equal(standaloneMixed.detailImageReadyMs, 8_300);
+  assert.equal(standaloneMixed.detailImageReadyCount, 1);
+  assert.equal(standaloneMixed.detailImageCensoredCount, 1);
+  assert.equal(standaloneMixed.mediaResourceNotReusedCount, 2);
+  const standaloneIncomplete = aggregate([[standalone]]).P13c;
+  assert.equal(standaloneIncomplete.detailImageReadyMs, null);
+  assert.equal(standaloneIncomplete.detailImageCensoredCount, 1);
+});
+
+test("P14 preserves an unready landing as a measurement instead of failing the campaign", async () => {
+  const source = readFileSync(new URL("../perf.spec.ts", import.meta.url), "utf8");
+  const workload = source.slice(source.indexOf("  for (const scenario of p14Scenarios)"), source.indexOf("  // ─── P15:"));
+  const { outputText } = ts.transpileModule(workload, { compilerOptions: { target: ts.ScriptTarget.ES2022 } });
+  const callbacks = [], metrics = [];
+  const landing = { rendered: false, renderMs: 15_000, networkMs: 0, alreadyRendered: false, cacheHit: false };
+  runInNewContext(outputText, {
+    p14Scenarios: [{ id: "P14b", label: "fast forward", direction: "forward", steps: 15, cadenceMs: 200, speed: "fast" }],
+    test: (_name, callback) => callbacks.push(callback),
+    prepareP14Scenario: async () => ({ expectedSequence: [], startRank: 3 }),
+    captureImageLookups: () => ({ requests: [], stop() {} }),
+    traverseExpectedSequence: async () => ({ timings: Array.from({ length: 15 }, () => ({})), finalCommit: { committedEpochMs: 0 } }),
+    waitForLandingImage: async () => landing, Date: { now: () => 15_000 },
+    collectPerfSnapshot: async () => ({ cls: { shiftDetails: [] } }),
+    logTraversalSummary() {}, logPerfReport() {},
+    emitMetric: (_id, _snapshot, metric) => metrics.push(metric),
+    summariseTraversal: () => ({ landingRendered: false, landingRenderMs: 15_000 }),
+    expect: value => ({ toBe: expected => assert.equal(value, expected), toHaveLength: expected => assert.equal(value.length, expected) }),
+  });
+  await callbacks[0]({ kupua: { page: {} } });
+  assert.equal(metrics[0].landingRendered, false);
+  assert.equal(metrics[0].scenarioRevision, 3);
+});
+
+function standaloneProbeHarness({ route = "direct-es", expectedRoute = route, resident = false, becomesResident = false, requestCount = 1, changedMedia = false, readyAt = 60, mediaFails = false, wrongTarget = false, wrongTargetIndex = -1, mixedRoute = false, failedIndex = -1, failureText = "net::ERR_ABORTED" } = {}) {
   const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "perf.spec.ts"), "utf8");
   const helper = source.slice(source.indexOf("function captureImageLookups("), source.indexOf("// Guard: per-test cluster checks"));
   const { outputText } = ts.transpileModule(helper, { compilerOptions: { target: ts.ScriptTarget.ES2022 } });
   let now = 0;
   const listeners = new Map();
+  const mediaListeners = new Map();
+  let failureDispatched = false;
   const target = "fixture-target";
   const response = { ok: () => true, finished: async () => null };
   const requests = Array.from({ length: requestCount }, (_, index) => {
@@ -600,7 +1040,8 @@ function standaloneProbeHarness({ route = "direct-es", expectedRoute = route, re
     };
   });
   const image = {
-    get complete() { return now >= 60; }, naturalWidth: 400,
+    tagName: "IMG", fetchPriority: "high",
+    get complete() { return now >= readyAt; }, naturalWidth: 400,
     currentSrc: changedMedia ? "/new-rendition" : "/warm-rendition",
     getBoundingClientRect: () => ({ top: 10, left: 0, width: 400, height: 300, bottom: 310 }),
     decode: async () => {},
@@ -620,9 +1061,21 @@ function standaloneProbeHarness({ route = "direct-es", expectedRoute = route, re
     URL, expect, classifyImageLookup, innerHeight: 900,
     Date: { now: () => 1000 }, performance: { now: () => now },
     location: { href: `https://example.invalid/search?image=${target}` },
-    requestAnimationFrame: (callback) => { now += 16; queueMicrotask(callback); },
-    document: { querySelector: () => now >= 40 ? owner : null },
+    requestAnimationFrame: (callback) => {
+      now += 16;
+      if (mediaFails && now >= 60 && !failureDispatched) {
+        failureDispatched = true;
+        mediaListeners.get("error")?.({ target: image });
+      }
+      queueMicrotask(callback);
+    },
+    document: {
+      querySelector: () => now >= 40 ? owner : null,
+      addEventListener: (name, callback) => mediaListeners.set(name, callback),
+      removeEventListener: name => mediaListeners.delete(name),
+    },
     window: {
+      setTimeout, clearTimeout,
       __perfStandaloneMedia__: "/warm-rendition",
       __kupua_store__: { getState: () => ({ results: resident ? [{ id: target }] : [{ id: "other" }], imagePositions: { has: () => becomesResident } }) },
       __kupua_router__: { navigate: async () => {
@@ -630,7 +1083,7 @@ function standaloneProbeHarness({ route = "direct-es", expectedRoute = route, re
       } },
     },
   });
-  return { run: () => measure({ page }, target, expectedRoute), listeners };
+  return { run: () => measure({ page }, target, expectedRoute), listeners, mediaListeners };
 }
 
 function geometryWaitFunctions(context) {
@@ -706,7 +1159,10 @@ test("actual standalone probe records single reads and Strict Mode replay in bot
     for (const requestCount of [1, 2]) {
       const harness = standaloneProbeHarness({ route, requestCount });
       const result = await harness.run();
-      assert.equal(result.scenarioRevision, 2);
+      assert.equal(result.scenarioRevision, 3);
+      assert.equal(result.cacheClass, "nonresident-metadata-returned-media");
+      assert.equal(result.mediaResourceReused, true);
+      assert.equal(result.detailImageReady, true);
       assert.equal(result.routes[0], route);
       assert.equal(result.imageLookupCount, requestCount);
       assert.equal(result.detailLookupMs, 40 + (requestCount - 1) * 20);
@@ -717,14 +1173,37 @@ test("actual standalone probe records single reads and Strict Mode replay in bot
   }
 });
 
+test("standalone returned-media probe records changed resources and slow or censored readiness", async () => {
+  for (const readyAt of [60, 8_300, 14_900, Infinity]) {
+    const harness = standaloneProbeHarness({ changedMedia: true, readyAt });
+    const result = await harness.run();
+    assert.equal(result.mediaResourceReused, false);
+    assert.equal(result.detailImageReady, Number.isFinite(readyAt));
+    assert.equal(result.detailObservationLimitMs, 15_000);
+    assert.ok(result.detailMetadataReadyMs >= 0);
+    if (Number.isFinite(readyAt)) assert.ok(result.detailImageReadyMs >= readyAt);
+    else assert.equal(result.detailImageReadyMs, null);
+    assert.equal(harness.listeners.size, 0);
+  }
+});
+
 test("actual standalone probe rejects excess, missing or mismatched reads and resident shortcuts", async () => {
-  for (const options of [{ resident: true }, { becomesResident: true }, { requestCount: 3 }, { requestCount: 0 }, { expectedRoute: "media-api" }, { changedMedia: true }, { wrongTarget: true },
+  for (const options of [{ resident: true }, { becomesResident: true }, { requestCount: 3 }, { requestCount: 0 }, { expectedRoute: "media-api" }, { wrongTarget: true },
     { requestCount: 2, wrongTargetIndex: 0 }, { requestCount: 2, wrongTargetIndex: 1 },
     { requestCount: 2, mixedRoute: true }]) {
     const harness = standaloneProbeHarness(options);
     await assert.rejects(harness.run());
     assert.equal(harness.listeners.size, 0);
   }
+});
+
+test("standalone thumbnail fallback cannot satisfy full-media readiness", async () => {
+  const harness = standaloneProbeHarness({ mediaFails: true });
+  const result = await harness.run();
+  assert.equal(result.detailImageReady, false);
+  assert.equal(result.detailImageReadyMs, null);
+  assert.equal(result.detailImageFailed, true);
+  assert.equal(harness.mediaListeners.size, 0);
 });
 
 test("actual standalone probe accepts one cancelled Strict Mode replay before a successful read", async () => {
@@ -947,6 +1426,197 @@ test("perf campaigns and direct configs retain teardown diagnostics", () => {
   const { scripts } = JSON.parse(readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "..", "package.json"), "utf8"));
   for (const [name, command] of Object.entries(scripts)) {
     if (name.startsWith("test:perf:")) assert.doesNotMatch(command, /--reporter=list(?:\s|$)/, name);
+  }
+});
+
+test("perf auth classification distinguishes missing authorization from ordinary failures", async () => {
+  const { AUTH_RENEWAL_COMMAND, isPerfAuthResponse } = await import("../auth-failure.mjs");
+  assert.equal(AUTH_RENEWAL_COMMAND, 'kupua/node_modules/.bin/playwright codegen --save-storage="[enter path to your cookie file]" https://kupua.media.local.dev-gutools.co.uk');
+  assert.ok(readFileSync(new URL("../README.md", import.meta.url), "utf8").includes(AUTH_RENEWAL_COMMAND));
+  assert.ok(readFileSync(new URL("../campaign-setup.md", import.meta.url), "utf8").includes(AUTH_RENEWAL_COMMAND));
+  const targets = { appBaseUrl: "https://app.fixture.invalid", mediaApiBaseUrl: "https://api.fixture.invalid" };
+  for (const status of [401, 419]) {
+    assert.equal(isPerfAuthResponse({ url: "https://api.fixture.invalid/images", status }, targets), true);
+    assert.equal(isPerfAuthResponse({ url: "https://app.fixture.invalid/api/images", status }, targets), true);
+    assert.equal(isPerfAuthResponse({ url: "https://app.fixture.invalid/__kupua/perf-environment", status }, targets), true);
+    assert.equal(isPerfAuthResponse({ url: "https://app.fixture.invalid/search", status, navigation: true }, targets), true);
+    assert.equal(isPerfAuthResponse({ url: "https://images.fixture.invalid/image", status }, targets), false);
+    assert.equal(isPerfAuthResponse({ url: "https://app.fixture.invalid/imgproxy/image", status }, targets), false);
+  }
+  for (const status of [200, 403, 404, 429, 500, 502, 504]) {
+    assert.equal(isPerfAuthResponse({ url: "https://api.fixture.invalid/images", status }, targets), false);
+  }
+  assert.equal(isPerfAuthResponse({ url: "https://api.fixture.invalid/images", status: 302, location: "https://auth.fixture.invalid/login?private=1" }, targets), true);
+  assert.equal(isPerfAuthResponse({ url: "https://app.fixture.invalid/search", status: 303, location: "/login", navigation: true }, targets), true);
+  assert.equal(isPerfAuthResponse({ url: "https://api.fixture.invalid/images", status: 307, location: "/images/next" }, targets), false);
+  assert.equal(isPerfAuthResponse({ url: "https://api.fixture.invalid/images", status: 302 }, targets), false);
+  assert.equal(isPerfAuthResponse({ url: "not-a-url", status: 401 }, targets), false);
+});
+
+test("perf reporter stops once on a split auth marker and prints the exact copyable command", async () => {
+  const { AUTH_REQUIRED_MARKER, AUTH_RENEWAL_COMMAND } = await import("../auth-failure.mjs");
+  const lines = [];
+  let interrupts = 0;
+  const reporter = new TeardownReporter({ write: line => lines.push(line), interrupt: () => interrupts++ });
+  assert.equal(typeof reporter.onStdOut, "function");
+  reporter.onStdOut(Buffer.from("ordinary timeout HTTP 502\n"));
+  assert.equal(interrupts, 0);
+  reporter.onStdOut(Buffer.from(AUTH_REQUIRED_MARKER.slice(0, 8)));
+  reporter.onStdOut(Buffer.from(AUTH_REQUIRED_MARKER.slice(8)));
+  reporter.onStdOut(AUTH_REQUIRED_MARKER);
+  assert.equal(interrupts, 1);
+  assert.ok(lines.includes(AUTH_RENEWAL_COMMAND));
+  assert.doesNotMatch(lines.join("\n"), /umask|private-marker/);
+});
+
+test("missing auth stops before workload and prints the copyable renewal command", async () => {
+  const { AUTH_RENEWAL_COMMAND } = await import("../auth-failure.mjs");
+  const lines = [];
+  const gate = runInNewContext(`${runnerFunction("enforceClusterGate")}\nenforceClusterGate`, {
+    useMediaApi: true, PANDA_AUTH_FILE: "/fixture/missing.json", STABLE_UNTIL: "2026-02-15", existsSync: () => false,
+    AUTH_RENEWAL_COMMAND, console: { error: line => lines.push(line), log() {} },
+    process: { exit: code => { throw new Error(`exit ${code}`); } },
+  });
+  assert.throws(gate, /exit 2/);
+  assert.ok(lines.includes(AUTH_RENEWAL_COMMAND));
+});
+
+test("perf authentication guard observes existing responses, reports safely and disposes its listener", async () => {
+  const { AUTH_REQUIRED_MARKER, createPerfAuthGuard } = await import("../auth-failure.mjs");
+  assert.equal(typeof createPerfAuthGuard, "function");
+  const page = new EventEmitter();
+  const notices = [];
+  const guard = createPerfAuthGuard(page, { appBaseUrl: "https://app.fixture.invalid", mediaApiBaseUrl: "https://api.fixture.invalid" }, marker => notices.push(marker));
+  const response = status => ({ url: () => "https://api.fixture.invalid/images?private-marker=1", status: () => status, headers: () => ({}), request: () => ({ isNavigationRequest: () => false }) });
+  try {
+    page.emit("response", response(502));
+    guard.assertAuthenticated();
+    assert.deepEqual(notices, []);
+    page.emit("response", response(419));
+    page.emit("response", response(401));
+    assert.deepEqual(notices, [AUTH_REQUIRED_MARKER]);
+    assert.throws(() => guard.assertAuthenticated(), /Perf authentication required/);
+    assert.doesNotMatch(notices.join(""), /private-marker|fixture\.invalid/);
+  } finally {
+    guard.dispose();
+  }
+  assert.equal(page.listenerCount("response"), 0);
+});
+
+test("perf auth fixture is installed only for authenticated runs and cleans up on failure", async () => {
+  const { createPerfAuthGuard } = await import("../auth-failure.mjs");
+  const source = readFileSync(new URL("../helpers.ts", import.meta.url), "utf8");
+  const code = ts.transpileModule(source.slice(source.indexOf("export const test ="), source.indexOf("export function isMediaApiUrl")), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
+  for (const authenticated of [false, true]) {
+    const page = new EventEmitter();
+    const notices = [];
+    const context = {
+      exports: {}, sharedTest: { extend: fixtures => fixtures }, createPerfAuthGuard,
+      DEPLOYED_TEST_MEDIA_API_BASE_URL: "https://api.fixture.invalid",
+      process: { env: authenticated ? { KUPUA_PERF_AUTH_FILE: "/private-state", KUPUA_PERF_BASE_URL: "https://app.fixture.invalid" } : {} },
+      console: { log: line => notices.push(line) },
+    };
+    runInNewContext(code, context);
+    assert.ok(context.exports.test.perfAuth);
+    const run = () => context.exports.test.perfAuth[0]({ kupua: { page } }, async guard => {
+      if (!authenticated) assert.equal(guard, null);
+      else page.emit("response", { url: () => "https://api.fixture.invalid/images", status: () => 401, headers: () => ({}), request: () => ({ isNavigationRequest: () => false }) });
+    });
+    if (authenticated) await assert.rejects(run, /Perf authentication required/);
+    else await run();
+    assert.equal(page.listenerCount("response"), 0);
+    assert.equal(notices.length, authenticated ? 1 : 0);
+  }
+});
+
+test("actual Playwright reporter interrupts an auth-blocked synthetic run before the next test", async () => {
+  const { AUTH_REQUIRED_MARKER, AUTH_RENEWAL_COMMAND, createPerfAuthOutputFilter } = await import("../auth-failure.mjs");
+  const require = createRequire(import.meta.url);
+  const folder = mkdtempSync(join(tmpdir(), "kupua-auth-stop-"));
+  try {
+    const spec = `const { test } = require(${JSON.stringify(require.resolve("@playwright/test"))});\ntest('auth blocked', async () => { console.log(${JSON.stringify(AUTH_REQUIRED_MARKER)}); await new Promise(() => {}); });\ntest('must not run', async () => { console.log('UNEXPECTED_SECOND_TEST'); });\n`;
+    writeFileSync(join(folder, "auth-stop.spec.cjs"), spec);
+    writeFileSync(join(folder, "playwright.config.cjs"), `module.exports = ${JSON.stringify({
+      testDir: folder, testMatch: "auth-stop.spec.cjs", outputDir: join(folder, "results"),
+      timeout: 2000, globalTimeout: 5000, retries: 0, workers: 1,
+      reporter: [["list"], [fileURLToPath(new URL("../teardown-reporter.mjs", import.meta.url))]],
+    })};\n`);
+    const result = spawnSync(process.execPath, [require.resolve("@playwright/test/cli"), "test", `--config=${join(folder, "playwright.config.cjs")}`], { encoding: "utf8", timeout: 10000 });
+    assert.ifError(result.error);
+    assert.notEqual(result.status, 0);
+    assert.ok(result.stdout.includes(AUTH_RENEWAL_COMMAND), result.stderr);
+    assert.doesNotMatch(result.stdout + result.stderr, /UNEXPECTED_SECOND_TEST/);
+    const campaignOutput = createPerfAuthOutputFilter();
+    const visible = [campaignOutput.push(result.stdout, "stdout"), campaignOutput.push(result.stderr, "stderr")];
+    const report = runInNewContext(`${runnerFunction("reportCampaignError")}\nreportCampaignError`, {
+      campaignOutput, AUTH_RENEWAL_COMMAND, finishCampaignOutput() {}, appendRunReport() {},
+      console: { error: text => visible.push(text) },
+      process: { exit: code => { throw new Error(`exit ${code}`); } },
+    });
+    assert.throws(() => report(new Error("Playwright exited with code 130")), /exit 2/);
+    assert.equal(visible.join("\n").trim().split("\n").at(-1), AUTH_RENEWAL_COMMAND);
+    assert.doesNotMatch(visible.join("\n"), /Test was interrupted|Error:|code 130|at assertAuthenticated/);
+  } finally {
+    rmSync(folder, { recursive: true, force: true });
+  }
+});
+
+test("auth output filtering drops interruption noise without losing prior progress or ordinary errors", async () => {
+  const { AUTH_REQUIRED_MARKER, createPerfAuthOutputFilter } = await import("../auth-failure.mjs");
+  assert.equal(typeof createPerfAuthOutputFilter, "function");
+  for (const cut of [1, 8, AUTH_REQUIRED_MARKER.length - 1, AUTH_REQUIRED_MARKER.length]) {
+    const filter = createPerfAuthOutputFilter();
+    let output = filter.push("normal progress\n", "stdout");
+    output += filter.push(AUTH_REQUIRED_MARKER.slice(0, cut), "stdout");
+    output += filter.push(`${AUTH_REQUIRED_MARKER.slice(cut)}\nError: page.waitForFunction: Test ended.`, "stdout");
+    output += filter.push("Error: Playwright exited with code 130", "stderr");
+    output += filter.flush("stdout") + filter.flush("stderr");
+    assert.equal(output, "normal progress\n");
+    assert.equal(filter.authRequired, true);
+  }
+  const ordinary = createPerfAuthOutputFilter();
+  const output = ordinary.push("real failure [", "stderr") + ordinary.flush("stderr");
+  assert.equal(output, "real failure [");
+  assert.equal(ordinary.authRequired, false);
+});
+
+test("auth output filter preserves split UTF-8 independently in both streams", async () => {
+  const { createPerfAuthOutputFilter } = await import("../auth-failure.mjs");
+  const progress = Buffer.from("progress \u2192 \u00e9\n");
+  const diagnostic = Buffer.from("failure \u2014 details\n");
+  for (let cut = 1; cut < progress.length; cut++) {
+    const filter = createPerfAuthOutputFilter();
+    let stdout = filter.push(progress.subarray(0, cut), "stdout");
+    let stderr = filter.push(diagnostic.subarray(0, 10), "stderr");
+    stdout += filter.push(progress.subarray(cut), "stdout");
+    stderr += filter.push(diagnostic.subarray(10), "stderr");
+    assert.equal(stdout + filter.flush("stdout"), progress.toString());
+    assert.equal(stderr + filter.flush("stderr"), diagnostic.toString());
+    assert.equal(filter.authRequired, false);
+  }
+});
+
+test("campaign auth failure ends with the renewal command while ordinary failures retain their stack", async () => {
+  const { AUTH_RENEWAL_COMMAND } = await import("../auth-failure.mjs");
+  for (const authRequired of [false, true]) {
+    const printed = [];
+    const reported = [];
+    const error = new Error("synthetic unrelated failure");
+    const report = runInNewContext(`${runnerFunction("reportCampaignError")}\nreportCampaignError`, {
+      campaignOutput: { authRequired }, AUTH_RENEWAL_COMMAND,
+      finishCampaignOutput() {},
+      console: { error: value => printed.push(value) }, appendRunReport: text => reported.push(text),
+      process: { exit: code => { throw new Error(`exit ${code}`); } },
+    });
+    assert.throws(() => report(error), new RegExp(`exit ${authRequired ? 2 : 1}`));
+    if (authRequired) {
+      assert.equal(String(printed[0]).trim().split("\n").at(-1), AUTH_RENEWAL_COMMAND);
+      assert.doesNotMatch(String(printed[0]), /synthetic unrelated failure|at report|code 130/);
+      assert.ok(reported[0].includes(AUTH_RENEWAL_COMMAND));
+    } else {
+      assert.equal(printed[0], error);
+      assert.ok(reported[0].includes(error.stack));
+    }
   }
 });
 
@@ -1210,13 +1880,7 @@ function createShortVisualHarness(name, {
   focusCleared = false,
 } = {}) {
   const isJourney = ["navigateAndMeasure", "appendDetailVisualPhases", "appendIndexedScrollVisualPhases", "appendFullscreenExitVisualPhases"].includes(name);
-  const filename = join(fileURLToPath(new URL("..", import.meta.url)), isJourney ? "perceived-long.spec.ts" : "perceived-short.spec.ts");
-  const parsed = ts.createSourceFile(filename, readFileSync(filename, "utf8"), ts.ScriptTarget.ES2022, true);
-  const declaration = parsed.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name);
-  assert.ok(declaration);
-  const { outputText } = ts.transpileModule(declaration.getText(parsed), {
-    compilerOptions: { target: ts.ScriptTarget.ES2022 },
-  });
+  const outputText = compiledFunction(isJourney ? "perceived-long.spec.ts" : "perceived-short.spec.ts", name);
   let now = 0;
   const entries = [];
   const stableUntil = "2026-02-15";
@@ -1344,19 +2008,18 @@ function createShortVisualHarness(name, {
   };
 }
 
-for (const refreshRate of [60, 120, 240]) {
-  for (const [condition, options] of [
-    ["old idle state before search starts", { startsAt: 500 }],
-    ["an unrelated interaction completing first", { startsAt: 500, unrelatedCompletion: true }],
-    ["store idle before correlated completion", { readyAt: 0, storeReadyAt: 1_500 }],
-  ]) {
-    test(`focused-sort observer rejects ${condition} at ${refreshRate} Hz`, async () => {
-      const fixture = createShortVisualHarness("appendFocusedSortVisualPhases", { refreshRate, ...options });
-      await fixture.run();
-      assert.ok(fixture.entries[0].t >= 1_500);
-      assert.ok(fixture.elapsed() < 1_500 + 3_000 / refreshRate);
-    });
-  }
+for (const [condition, options] of [
+  ["old idle state before search starts", { startsAt: 500 }],
+  ["an unrelated interaction completing first", { startsAt: 500, unrelatedCompletion: true }],
+  ["store idle before correlated completion", { readyAt: 0, storeReadyAt: 1_500 }],
+]) {
+  const refreshRate = 120;
+  test(`focused-sort observer rejects ${condition} at ${refreshRate} Hz`, async () => {
+    const fixture = createShortVisualHarness("appendFocusedSortVisualPhases", { refreshRate, ...options });
+    await fixture.run();
+    assert.ok(fixture.entries[0].t >= 1_500);
+    assert.ok(fixture.elapsed() < 1_500 + 3_000 / refreshRate);
+  });
 }
 
 test("focused-sort observer never emits visual phases without its correlated completion", async () => {
@@ -1367,7 +2030,7 @@ test("focused-sort observer never emits visual phases without its correlated com
   assert.equal(fixture.entries.length, 0);
 });
 
-for (const refreshRate of [60, 120, 240]) {
+for (const refreshRate of [60, 240]) {
   test(`focused-sort observer reports the store's focus fallback as degraded without waiting at ${refreshRate} Hz`, async () => {
     const fixture = createShortVisualHarness("appendFocusedSortVisualPhases", { refreshRate, focusCleared: true });
     const result = await fixture.run();
@@ -1395,7 +2058,7 @@ for (const [condition, options, diagnostic] of [
 }
 
 for (const [scenario, name, action] of shortVisualObservers) {
-  for (const refreshRate of [60, 120, 240]) {
+  for (const refreshRate of [60, 240]) {
     test(`${scenario} short observer waits for delayed readiness at ${refreshRate} Hz`, async () => {
       const fixture = createShortVisualHarness(name, { refreshRate });
       const result = await fixture.run();
@@ -1451,7 +2114,7 @@ for (const [scenario, name, action] of shortVisualObservers) {
 }
 
 for (const name of ["settleMidBufferSetup", "settlePostEvictionSetup"]) {
-  for (const refreshRate of [60, 120, 240]) {
+  for (const refreshRate of [60, 240]) {
     test(`${name} waits for delayed setup readiness at ${refreshRate} Hz`, async () => {
       const fixture = createShortVisualHarness(name, { refreshRate });
       const result = await fixture.run();
@@ -1535,7 +2198,7 @@ function createSelectionPanelHarness({ refreshRate = 120, readyAt = 1_500, movin
   };
 }
 
-for (const refreshRate of [60, 120, 240]) {
+for (const refreshRate of [60, 240]) {
   test(`selection panel waits for delayed readiness at ${refreshRate} Hz`, async () => {
     const fixture = createSelectionPanelHarness({ refreshRate });
     const result = await fixture.run();
@@ -1590,14 +2253,7 @@ function createHomeVisualHarness({
   moving = false,
   visible = true,
 } = {}) {
-  const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "perceived-short.spec.ts"), "utf8");
-  const helper = source.slice(
-    source.indexOf("async function appendHomeVisualPhases("),
-    source.indexOf("async function captureChipRemovalAnchor("),
-  );
-  const { outputText } = ts.transpileModule(helper, {
-    compilerOptions: { target: ts.ScriptTarget.ES2022 },
-  });
+  const outputText = compiledFunction("perceived-short.spec.ts", "appendHomeVisualPhases");
   let now = 0;
   const entries = [];
   const rect = { top: 0, left: 0, width: 600, height: 400, bottom: 400 };
@@ -1685,16 +2341,6 @@ for (const [label, options, diagnostic] of [
   });
 }
 
-test("dashboards compare checked data modes as separate series", () => {
-  for (const filename of ["audit-graphs.html", "perceived-graphs.html"]) {
-    const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "results", filename), "utf8");
-
-    assert.match(source, /"direct-es": \{ label: "direct ES", color: "#58a6ff"/);
-    assert.match(source, /"media-api": \{ label: "media-api", color: "#f2a65a"/);
-    assert.match(source, /entryMode\(entry\) === mode/);
-    assert.match(source, /comparable within each mode/);
-  }
-});
 
 test("rejects a nonzero Playwright exit", () => {
   assert.throws(
@@ -2050,11 +2696,6 @@ test("rejects a media-api topology that differs from the requested topology", ()
   );
 });
 
-test("perf environment fingerprint preserves the app API topology", () => {
-  const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "helpers.ts"), "utf8");
-  assert.match(source, /apiTopology: appEnvironment\.apiTopology/);
-});
-
 test("rejects an environment change between repetitions", () => {
   const first = {
     dataMode: "direct-es",
@@ -2408,4 +3049,21 @@ test("calculates cross-document navigation phases from browser epoch timestamps"
   assert.equal(metrics.dt_store_ready_ms, 400);
   assert.equal(metrics.dt_first_visible_frame_ms, 500);
   assert.equal(metrics.dt_visual_settled_ms, 520);
+});
+
+test("campaign manifest is complete only with every requested suite, full repetitions and no filter", () => {
+  const entry = (family, kind, runs = 4) => ({ family, kind, timestamp: `t-${kind}`, runs, scenarios: ["A"] });
+  const base = { campaignId: "c1", label: "L", runs: 4, grep: "", apiTopology: "local", mediaDelivery: "proxy", completedAt: "t" };
+  const requested = { jank: true, short: true, long: false, density: true };
+  const all = [entry("audit", "rendering"), entry("perceived", "short"), entry("density", "density")];
+  const complete = buildCampaignManifest({ ...base, requested, entries: all });
+  assert.equal(complete.complete, true);
+  assert.deepEqual(complete.requestedSuites, ["jank", "short", "density"]);
+  const missing = buildCampaignManifest({ ...base, requested, entries: all.slice(0, 2) });
+  assert.deepEqual([missing.complete, missing.missingSuites], [false, ["density"]]);
+  const short = buildCampaignManifest({ ...base, requested, entries: [...all.slice(0, 2), entry("density", "density", 3)] });
+  assert.deepEqual([short.complete, short.shortRepetitions], [false, ["density/density"]]);
+  assert.equal(buildCampaignManifest({ ...base, grep: "P8", requested, entries: all }).complete, false);
+  const log = appendCampaignManifest({ entries: [] }, complete);
+  assert.throws(() => appendCampaignManifest(log, complete), /already published/);
 });

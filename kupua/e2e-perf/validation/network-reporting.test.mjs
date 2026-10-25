@@ -96,7 +96,7 @@ function element() {
 
 function dashboardFixture(metric = "networkRequests", entries = []) {
   const controls = { yscale: { value: "linear" }, hideQuiet: { checked: true }, comparableOnly: { checked: false }, showLabels: { checked: false },
-    metricGuide: {}, previousMetric: {}, nextMetric: {} };
+    metricGuide: {}, previousMetric: {}, nextMetric: {}, comparisonStatus: {} };
   const grid = element();
   const metricSel = { ...element(), value: metric, selectedIndex: 0, options: [{ value: metric }] };
   const configs = [];
@@ -104,6 +104,7 @@ function dashboardFixture(metric = "networkRequests", entries = []) {
     document: { createElement: element, getElementById: (key) => controls[key],
       querySelectorAll: () => [{ value: "direct-es" }, { value: "media-api" }] },
     Chart: function Chart(_context, config) { configs.push(config); this.destroy = () => {}; } };
+  runInNewContext(readFileSync(new URL("../results/campaign-comparison.js", import.meta.url), "utf8"), context);
   const names = ["KNOWN_METRICS", "METRIC_HELP", "updateMetricGuide", "MODE_STYLES", "isNetworkMetric", "pickValue", "metricUnit", "metricLabel", "formatMetricValue",
     "environmentKey", "metricsComparable", "networkSeriesKey", "entryMode", "sourceMatchLabel", "pairedModeSummary",
     "visibleModeSet", "buildCharts", "buildMetricDropdown"];
@@ -158,20 +159,20 @@ test("network comparability includes topology and capture contract; cross-transp
   const fixture = dashboardFixture();
   const local = entry(captured, "media-api", "local");
   const deployed = entry(captured, "media-api", "deployed-test");
-  assert.equal(fixture.environmentKey(local), fixture.environmentKey(deployed));
+  assert.notEqual(fixture.environmentKey(local), fixture.environmentKey(deployed));
   assert.equal(fixture.metricsComparable(local, captured, deployed, captured, "networkBytes"), false);
   const legacy = entry(captured, "media-api", undefined);
   delete legacy.environment.apiTopology;
-  assert.equal(fixture.metricsComparable(local, captured, legacy, captured, "maxFrame"), true);
+  assert.equal(fixture.metricsComparable(local, captured, legacy, captured, "maxFrame"), false);
   for (const changed of [{ networkTransport: "media-api" }, { networkCaptureRevision: 2 }]) {
     assert.equal(fixture.metricsComparable(entry(captured), captured, entry(captured), { ...captured, ...changed }, "networkBytes"), false);
   }
   assert.equal(fixture.pairedModeSummary([{ mode: "direct-es", latestValue: 2 }, { mode: "media-api", latestValue: 1 }], "networkRequests"), "");
   const ordinary = dashboardFixture("maxFrame", [entry(captured, "media-api", "local"), entry(captured, "media-api", "deployed-test")]);
   ordinary.buildCharts();
-  assert.equal(ordinary.configs[0].data.datasets.length, 1);
+  assert.equal(ordinary.configs[0].data.datasets.length, 2);
   assert.equal(ordinary.configs[0].data.datasets[0].spanGaps, true);
-  assert.equal(ordinary.configs[0].data.datasets[0].label, "media-api");
+  assert.equal(ordinary.configs[0].data.datasets[0].label, "Local API / delivery unknown");
 });
 
 test("baseline and diff markdown each include exactly one diagnostic Network table with no deltas", () => {

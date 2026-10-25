@@ -422,6 +422,252 @@ for (const density of ["grid", "justified"] as const) {
 }
 
 for (const [regime, total] of [["indexed", 12000], ["seek", 70000]] as const) {
+  test(`${regime}: centering uses the mounted app across separate orchestration instances`, async ({ page, context }) => {
+    await installJourneyFixtureRoutes(context);
+    await context.route("**/src/hooks/useScrollEffects.ts*", async route => {
+      const response = await route.fetch();
+      const source = await response.text();
+      const pattern = /(["'])(\/src\/lib\/orchestration\/search\.ts(?:\?[^"']*)?)\1/g;
+      expect([...source.matchAll(pattern)]).toHaveLength(1);
+      let activeSpecifier = "";
+      const body = source.replace(pattern, (_match, quote, specifier) => {
+        const url = new URL(specifier, "http://127.0.0.1:3041");
+        url.searchParams.set("fixtureGraph", "active");
+        activeSpecifier = `${url.pathname}${url.search}`;
+        return `${quote}${activeSpecifier}${quote}`;
+      });
+      await route.fulfill({ response, body: `window.__fixtureActiveOrchestration = ${JSON.stringify(activeSpecifier)};\n${body}` });
+    });
+    await page.goto("/search?nonFree=true");
+    await page.waitForFunction(() => Boolean((window as any).__kupua_store__));
+    await page.evaluate(async total => {
+      const path = "/src/dal/mock-data-source.ts";
+      const { MockDataSource } = await import(path);
+      const store = (window as any).__kupua_store__;
+      store.setState({ dataSource: new MockDataSource(total) });
+      await store.getState().search();
+    }, total);
+    await expect(page.locator("[data-scrubber-mode]")).toHaveAttribute("data-scrubber-mode", regime);
+    await selectDensity(page, "table");
+    await scrubDensityTo(page, "table", 0.4);
+    const point = await electAnchor(page, "table");
+    await page.mouse.click(point.x, point.y);
+    const independent = await page.evaluate(async regime => {
+      const store = (window as any).__kupua_store__;
+      const state = store.getState();
+      const id = (window as any).__densityAnchor;
+      if (state.focusedImageId !== id) throw new Error("Fixture source was not focused");
+      (window as any).__densitySource = { id, total: state.total, offset: state.imagePositions.get(id), params: JSON.stringify(state.params) };
+      const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+      const localIndex = state.imagePositions.get(id) - state.bufferOffset;
+      const targetIndex = Math.floor(state.results.length * (localIndex > state.results.length / 2 ? 0.25 : 0.75))
+        + (regime === "indexed" ? state.bufferOffset : 0);
+      const geometryPath = "/src/lib/scroll-geometry-ref.ts";
+      const { getLayoutGeometry, getItemLayoutRow } = await import(geometryPath);
+      container.scrollTop = getItemLayoutRow(getLayoutGeometry(), targetIndex).top;
+      const active = (window as any).__fixtureActiveOrchestration;
+      const bare = "/src/lib/orchestration/search.ts";
+      const [appModule, unrelated] = await Promise.all([import(active), import(bare)]);
+      return { separate: appModule.scrollFocusedIntoView !== unrelated.scrollFocusedIntoView,
+        storeUnchanged: (window as any).__kupua_store__ === store };
+    }, regime);
+    expect(independent).toEqual({ separate: true, storeUnchanged: true });
+    await expect.poll(() => page.evaluate(() => {
+      const state = (window as any).__kupua_store__.getState();
+      const id = (window as any).__densitySource.id;
+      return state.imagePositions.has(id) && ![...document.querySelectorAll<HTMLElement>('[aria-label="Image results table"] [data-image-id]')]
+        .some(cell => cell.dataset.imageId === id);
+    })).toBe(true);
+    const controlledPage = new Proxy(page, {
+      get(target, property) {
+        if (property === "evaluate") return (callback: any, argument: any) => target.evaluate(callback,
+          argument && typeof argument === "object" && "diagnosticContext" in argument ? { ...argument, timeoutMs: 500 } : argument);
+        const value = Reflect.get(target, property);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    });
+    await restoreDensitySource(controlledPage);
+    await waitForPlacement(page, "table", true);
+    await selectDensity(page, "justified");
+    await densityDrivers.prepareDensityRecovery(page, "justified");
+    await waitForPlacement(page, "justified", true);
+  });
+}
+
+for (const boundary of ["registration", "mount"] as const) {
+  for (const focus of ["same", "changed"] as const) {
+    test(`Table restoration with held ${boundary} and ${focus} focus`, async ({ page, context }) => {
+      await installJourneyFixtureRoutes(context);
+      await context.route("**/src/lib/orchestration/search.ts*", async route => {
+        const response = await route.fetch();
+        const source = await response.text();
+        const registration = "function registerScrollToFocused(fn) {";
+        expect(source.split(registration)).toHaveLength(2);
+        await route.fulfill({ response, body: source.replace(registration, `${registration}
+          const control = window.__densityTimingControl;
+          if (!fn && control) control.registrations.length = 0;
+          if (fn && control?.holdRegistration) {
+            control.registrations.push(() => {
+              const held = control.holdRegistration;
+              control.holdRegistration = false;
+              try { registerScrollToFocused(fn); } finally { control.holdRegistration = held; }
+            });
+            return;
+          }
+          if (fn && control) {
+            const callback = fn;
+            fn = () => { control.callbackEntries++; callback(); };
+          }
+        `) });
+      });
+      await context.route("**/src/hooks/useScrollEffects.ts*", async route => {
+        const response = await route.fetch();
+        const source = await response.text();
+        const marker = "requestAnimationFrame(finishDensityReady)";
+        expect(source.split(marker)).toHaveLength(2);
+        await route.fulfill({ response, body: source.replace(marker, `requestAnimationFrame(() => {
+          const control = window.__densityTimingControl;
+          if (control?.holdMount) control.mounts.push(finishDensityReady);
+          else finishDensityReady();
+        })`) });
+      });
+      await page.goto("/search?nonFree=true");
+      await page.waitForFunction(() => Boolean((window as any).__kupua_store__));
+      await page.evaluate(async () => {
+        const path = "/src/dal/mock-data-source.ts";
+        const { MockDataSource } = await import(path);
+        const store = (window as any).__kupua_store__;
+        store.setState({ dataSource: new MockDataSource(70000) });
+        await store.getState().search();
+      });
+      await establishDensitySource(page);
+      await selectDensity(page, "justified");
+      await waitForPlacement(page, "justified", true);
+      await page.evaluate(async ({ boundary, focus }) => {
+        const path = "/src/lib/scroll-geometry-ref.ts";
+        const { getLayoutGeometry, getItemLayoutRow } = await import(path);
+        const state = (window as any).__kupua_store__.getState();
+        const source = (window as any).__densitySource;
+        const sourceIndex = state.imagePositions.get(source.id) - state.bufferOffset;
+        const targetIndex = Math.floor(state.results.length * (sourceIndex > state.results.length / 2 ? 0.25 : 0.75));
+        if (focus === "changed") state.setFocusedImageId(state.results[targetIndex].id);
+        document.querySelector<HTMLElement>('[aria-label="Image results justified"]')!.scrollTop =
+          getItemLayoutRow(getLayoutGeometry(), targetIndex).top;
+        (window as any).__densityTimingControl = {
+          holdRegistration: boundary === "registration", holdMount: boundary === "mount",
+          registrations: [], mounts: [], dispatches: 0, callbackEntries: 0,
+          generation: (window as any).__kupua_getDensityRestoreGeneration__(),
+        };
+      }, { boundary, focus });
+      try {
+        await expect.poll(() => page.evaluate(() => {
+          const source = (window as any).__densitySource;
+          const state = (window as any).__kupua_store__.getState();
+          const container = document.querySelector('[aria-label="Image results justified"]')!;
+          return state.imagePositions.has(source.id) &&
+            ![...container.querySelectorAll<HTMLElement>("[data-image-id]")].some(cell => cell.dataset.imageId === source.id);
+        })).toBe(true);
+        const controlledPage = new Proxy(page, {
+          get(target, property) {
+            if (property === "evaluate") return async (callback: any, argument: any) => {
+              if (String(callback).includes("__kupua_scrollFocusedIntoView__")) {
+                await target.evaluate(() => { (window as any).__densityTimingControl.dispatches++; });
+              }
+              return target.evaluate(callback, argument && typeof argument === "object" && "diagnosticContext" in argument
+                ? { ...argument, timeoutMs: 1000 } : argument);
+            };
+            const value = Reflect.get(target, property);
+            return typeof value === "function" ? value.bind(target) : value;
+          },
+        });
+        const result = await restoreDensitySource(controlledPage).then(() => ({ success: true, message: "" }),
+          error => ({ success: false, message: String(error.message) }));
+        if (boundary === "registration") {
+          await page.waitForFunction(() => (window as any).__kupua_getDensityRestoreGeneration__() >
+            (window as any).__densityTimingControl.generation, null, { timeout: 1000 });
+        }
+        const observed = await page.evaluate(() => {
+          const control = (window as any).__densityTimingControl;
+          return { dispatches: control.dispatches, callbackEntries: control.callbackEntries,
+            registrations: control.registrations.length, mounts: control.mounts.length,
+            generationAdvanced: (window as any).__kupua_getDensityRestoreGeneration__() > control.generation };
+        });
+        expect(observed.dispatches).toBe(1);
+        if (boundary === "registration") {
+          expect(observed.registrations).toBe(1);
+          expect(observed.callbackEntries).toBe(0);
+          expect(observed.generationAdvanced).toBe(true);
+          expect(result.success).toBe(false);
+          expect(result.message).toContain("Density scroll-to-focus callback unavailable");
+        } else {
+          expect(observed.mounts).toBe(1);
+          expect(observed.generationAdvanced).toBe(false);
+          expect(observed.callbackEntries).toBe(1);
+          expect(result.success).toBe(true);
+        }
+        console.log(JSON.stringify({ fixture: "density-ordering", boundary, focus,
+          ...observed, successBeforeRelease: result.success }));
+      } finally {
+        await page.evaluate(() => {
+          const control = (window as any).__densityTimingControl;
+          control.holdRegistration = false;
+          control.holdMount = false;
+          for (const register of control.registrations.splice(0)) register();
+          for (const finish of control.mounts.splice(0)) finish();
+        });
+      }
+      await restoreDensitySource(page);
+      await waitForPlacement(page, "table", true);
+      expect(await page.evaluate(() => (window as any).__densityTimingControl.callbackEntries)).toBeGreaterThanOrEqual(1);
+    });
+  }
+}
+
+for (const focus of ["same", "changed"] as const) {
+  test(`resident source restores across Table mount with ${focus} focus`, async ({ page, context }) => {
+    await installJourneyFixtureRoutes(context);
+    await page.goto("/search?nonFree=true");
+    await page.waitForFunction(() => Boolean((window as any).__kupua_store__));
+    await page.evaluate(async () => {
+      const path = "/src/dal/mock-data-source.ts";
+      const { MockDataSource } = await import(path);
+      const store = (window as any).__kupua_store__;
+      store.setState({ dataSource: new MockDataSource(70000) });
+      await store.getState().search();
+    });
+    await establishDensitySource(page);
+    await selectDensity(page, "justified");
+    await waitForPlacement(page, "justified", true);
+    await page.evaluate(async focus => {
+      const path = "/src/lib/scroll-geometry-ref.ts";
+      const { getLayoutGeometry, getItemLayoutRow } = await import(path);
+      const state = (window as any).__kupua_store__.getState();
+      const source = (window as any).__densitySource;
+      const sourceIndex = state.imagePositions.get(source.id) - state.bufferOffset;
+      const targetIndex = Math.floor(state.results.length * (sourceIndex > state.results.length / 2 ? 0.25 : 0.75));
+      if (focus === "changed") state.setFocusedImageId(state.results[targetIndex].id);
+      const container = document.querySelector<HTMLElement>('[aria-label="Image results justified"]')!;
+      container.scrollTop = getItemLayoutRow(getLayoutGeometry(), targetIndex).top;
+    }, focus);
+    await expect.poll(() => page.evaluate(() => {
+      const state = (window as any).__kupua_store__.getState();
+      const source = (window as any).__densitySource;
+      const container = document.querySelector('[aria-label="Image results justified"]')!;
+      return { resident: state.imagePositions.has(source.id),
+        rendered: [...container.querySelectorAll<HTMLElement>("[data-image-id]")].some(cell => cell.dataset.imageId === source.id),
+        sameFocus: state.focusedImageId === source.id };
+    })).toEqual({ resident: true, rendered: false, sameFocus: focus === "same" });
+    await restoreDensitySource(page, { workload: "scroll-backward", repetition: 1, destination: "grid" });
+    await waitForPlacement(page, "table", true);
+    expect(await page.evaluate(() => {
+      const state = (window as any).__kupua_store__.getState();
+      return state.focusedImageId === (window as any).__densitySource.id &&
+        state.imagePositions.has((window as any).__densitySource.id);
+    })).toBe(true);
+  });
+}
+
+for (const [regime, total] of [["indexed", 12000], ["seek", 70000]] as const) {
   test(`${regime}: repeated native setup, paired recovery and cooldown-aware maintenance`, async ({ page }) => {
     await page.route("**/*", route => {
       const url = new URL(route.request().url());

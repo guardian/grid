@@ -3,7 +3,7 @@ import { appendFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { test, expect } from "./helpers";
 import type { KupuaHelpers } from "../e2e/shared/helpers";
-import { selectDensity, electAnchor, establishDensitySource, restoreDensitySource, prepareDensityMaintenance, waitForDensityMaintenanceCooldown, withDensityScrollNetwork, scrollToDensityTail, waitForDensityEviction, scrubDensityTo, waitForPlacement, visibleMediaReadiness, scrollAtSpeed, prepareDensityRecovery, measureDensityJourney, measureDensityRefreshContention, type Density } from "./density-browser";
+import { selectDensity, electAnchor, establishDensitySource, restoreDensitySource, prepareDensityMaintenance, waitForDensityMaintenanceCooldown, withDensityScrollNetwork, scrollToDensityTail, waitForDensityEviction, scrubDensityTo, waitForPlacement, visibleMediaReadiness, scrollAtSpeed, prepareDensityRecovery, measureDensityJourney, measureDensityRefreshContention, type Density, type DensityPlacementContext } from "./density-browser";
 import { installThumbnailProbe } from "./thumbnail-probe.mjs";
 import { createRequestProbe } from "./network-probe.mjs";
 import { DENSITY_SCENARIOS, DENSITY_WORKLOADS, validateDensityRecord } from "./density-reporting.mjs";
@@ -11,7 +11,7 @@ import { DENSITY_SCENARIOS, DENSITY_WORKLOADS, validateDensityRecord } from "./d
 const runIndex = Number(process.env.KUPUA_DENSITY_RUN_INDEX ?? 0);
 const output = resolve(import.meta.dirname, "results/.density-tmp.jsonl");
 
-async function prepare(kupua: KupuaHelpers) {
+async function prepare(kupua: KupuaHelpers, context: DensityPlacementContext) {
   await kupua.ensureExplicitMode();
   await kupua.startSearch("", "table");
   const page = kupua.page;
@@ -24,7 +24,7 @@ async function prepare(kupua: KupuaHelpers) {
     return s.total > s.results.length && !["MockDataSource", "ResidentSampleDataSource"].includes(s.dataSource.constructor.name);
   });
   if (!validWindow) throw new Error("Density campaigns require the normal windowed datasource, not a resident fixture");
-  return establishDensitySource(page);
+  return establishDensitySource(page, context);
 }
 
 for (const workload of DENSITY_WORKLOADS) {
@@ -38,12 +38,12 @@ for (const workload of DENSITY_WORKLOADS) {
     const order = runIndex % options.length;
     const densities = [...options.slice(order), ...options.slice(0, order)];
     try {
-      await prepare(kupua);
+      await prepare(kupua, { workload, repetition: runIndex, destination: "table" });
       await page.evaluate(() => { (window as any).__densityJourneyHistory = new Set<string>(); });
       for (const density of densities) {
         await cdp.send("Network.setCacheDisabled", { cacheDisabled: false });
         await page.setViewportSize({ width: 1720, height: 960 });
-        const start = await restoreDensitySource(page);
+        const start = await restoreDensitySource(page, { workload, repetition: runIndex, destination: density });
         const scenario = DENSITY_SCENARIOS.find(item => item.density === density && item.workload === workload);
         if (!scenario) throw new Error("Missing density scenario contract");
         let metrics: Record<string, number | null>;

@@ -12,7 +12,7 @@ export function assertBalancedLongRuns({ runLong, runs, dryRun }) {
 
 export function generatedHistoryExclusions() {
   return ["audit-log.json", "audit-log.js", "audit-log.md", "perceived-log.json", "perceived-log.js", "perceived-log.md",
-    "density-log.json", "density-log.js", "density-log.md", ".density-tmp.jsonl",
+    "density-log.json", "density-log.js", "density-log.md", "campaign-log.json", "campaign-log.js", ".density-tmp.jsonl",
     ".density-playwright-report.json", ".environment-tmp.json", ".latest-report-path"]
     .map((name) => `:(exclude)e2e-perf/results/${name}`)
     .concat([":(exclude)e2e-perf/kupua-perf-*.log", ":(exclude)e2e-perf/results/kupua-perf-*.log"]);
@@ -22,6 +22,7 @@ export const JANK_SCENARIO_AGGREGATION = {
   P13c: {
     invariantFields: ["scenarioRevision", "completionBoundary", "cacheClass", "routes", "imageLookupCount"],
     medianFields: ["detailLookupMs", "detailMetadataReadyMs", "detailImageReadyMs"],
+    nullableRevision3Fields: ["detailImageReadyMs"],
   },
   ...Object.fromEntries(["P14a", "P14b", "P14c", "P14d"].map((id) => [id, {
     invariantFields: ["lookupGuardRevision", "imageLookupCount"],
@@ -99,14 +100,17 @@ export function aggregateScenarioFields(entries, scenarioId, config) {
 
   for (const field of config.medianFields ?? []) {
     const values = entries.map((entry) => entry[field]);
-    if (values.some((value) => !Number.isFinite(value))) {
+    const nullable = config.nullableRevision3Fields?.includes(field) && entries.every((entry) => entry.scenarioRevision === 3);
+    if (values.some((value) => !Number.isFinite(value) && !(nullable && value === null))) {
       throw new Error(`${scenarioId} missing numeric ${field}`);
     }
-    values.sort((left, right) => left - right);
-    const middle = Math.floor(values.length / 2);
-    const median = values.length % 2 === 0
-      ? (values[middle - 1] + values[middle]) / 2
-      : values[middle];
+    const measured = values.filter((value) => value !== null);
+    if (measured.length === 0) { result[field] = null; continue; }
+    measured.sort((left, right) => left - right);
+    const middle = Math.floor(measured.length / 2);
+    const median = measured.length % 2 === 0
+      ? (measured[middle - 1] + measured[middle]) / 2
+      : measured[middle];
     result[field] = Math.round(median);
   }
 
@@ -267,6 +271,11 @@ export function assertEnvironmentMatches(observed, requested) {
   if (requested.apiTopology !== undefined && observed.apiTopology !== requested.apiTopology) {
     throw new Error(
       `App API topology mismatch: requested ${requested.apiTopology}, observed ${observed.apiTopology}`,
+    );
+  }
+  if (requested.mediaDelivery !== undefined && observed.mediaDelivery !== requested.mediaDelivery) {
+    throw new Error(
+      `App media delivery mismatch: requested ${requested.mediaDelivery}, observed ${observed.mediaDelivery ?? "unknown"}`,
     );
   }
   return observed;

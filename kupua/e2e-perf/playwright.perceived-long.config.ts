@@ -16,6 +16,8 @@
 
 import { defineConfig } from "@playwright/test";
 
+process.env.PLAYWRIGHT_NO_COPY_PROMPT = "1";
+
 export default defineConfig({
   testDir: ".",
   testMatch: ["**/perceived-long.spec.ts"],
@@ -36,7 +38,7 @@ export default defineConfig({
     headless: false,
     actionTimeout: 30_000,
     navigationTimeout: 30_000,
-    screenshot: "only-on-failure",
+    screenshot: "off",
     video: "off",
     trace: "off",
     /* Same viewport as playwright.perceived.config.ts — independent of perf.config.ts. */

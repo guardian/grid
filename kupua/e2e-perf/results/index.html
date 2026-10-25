@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kupua performance</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="engineering.css">
+  <link rel="stylesheet" href="history.css">
+  <script defer src="./audit-log.js"></script>
+  <script defer src="./perceived-log.js"></script>
+  <script defer src="./density-log.js"></script>
+  <script defer src="./campaign-log.js"></script>
+  <script defer src="./campaign-comparison.js"></script>
+  <script defer src="./dashboard-data.js"></script>
+  <script defer src="assessment.js"></script>
+  <script defer src="image-summary.js"></script>
+  <script defer src="scroll-model.js"></script>
+  <script defer src="scroll-summary.js"></script>
+  <script defer src="search-model.js"></script>
+  <script defer src="search-summary.js"></script>
+  <script defer src="history-fixtures.js"></script>
+  <script defer src="history.js"></script>
+  <script defer src="overview.js"></script>
+  <script defer src="dashboard.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main" id="skip">Skip to measurements</a>
+  <header class="engineering-header">
+    <div class="title-line"><h1>Kupua performance</h1><span class="pill">Saved histories</span></div>
+    <div class="selectors" id="selection">
+      <label>Checkpoint<select id="checkpoint"></select></label>
+      <label>Baseline<select id="baseline"></select></label>
+    </div>
+    <div id="context"></div>
+    <nav aria-label="Experience sections" id="navigation"></nav>
+    <section id="pair-details" aria-labelledby="pair-details-title" hidden>
+      <h2 id="pair-details-title">Selected-pair eligibility</h2>
+      <p id="pair-reason"></p>
+      <p>Environment eligibility does not guarantee matching measurement contracts. Each plotted comparison checks its observation contract separately.</p>
+    </section>
+    <details id="trust"><summary>Provenance & comparison rules</summary><div id="provenance"></div></details>
+  </header>
+  <p id="announcement" class="sr-only" role="status" aria-live="polite"></p>
+  <main id="main" tabindex="-1"></main>
+  <footer>
+    <p>Local saved histories. No live service requests.</p>
+    <a href="./audit-graphs.html">Rendering history</a> ·
+    <a href="./perceived-graphs.html">Responsiveness history</a> ·
+    <a href="./density-graphs.html">Density history</a> ·
+    <a href="README.md">Design rationale, scoring proposal & review questions</a> ·
+    <a href="../../exploration/docs/zz%20Archive/deployment-probe-audit-workplan-evidence.md#latest-saved-canonical-checkpoint">Recorded evidence assessment</a>
+  </footer>
+  <noscript>This dashboard needs JavaScript. The rationale and recorded evidence assessment remain available above.</noscript>
+</body>
+</html>

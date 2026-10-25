@@ -24,6 +24,18 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 25 October 2026 - Unify performance reporting and harden campaign tooling
+
+Unified saved-history dashboards in `e2e-perf/results/` with workflow summaries,
+historical graphs, pinned comparisons and exact evidence with revision/availability guards.
+Added topology/media-delivery provenance and transactional campaign identities while
+retaining historical results and explicit degraded/censored outcomes.
+
+Hardened auth/preflight and private PP3 diagnostics, repaired DEV mounted-centering,
+and revised standalone-detail/traversal readiness reporting. Added offline/browser
+regressions, simplified validation and removed obsolete fixtures/generated density Markdown.
+Known transport and producer limits remain; production scroll policy is unchanged.
+
 ### 24 October 2026 - Enter in AI search no longer opens the focused image
 
 The AI search input opts into grid navigation (`data-grid-nav-input`) so arrows and

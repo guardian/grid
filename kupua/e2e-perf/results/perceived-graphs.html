@@ -76,6 +76,12 @@
     .card .action-tag { max-width: 100%; overflow-wrap: anywhere; }
   }
 </style>
+<style>
+  .controls label:has(#comparisonCampaign), .controls label:has(#comparisonBaseline) { flex: 1 1 320px; min-width: 0; flex-direction: column; align-items: stretch; }
+  #comparisonCampaign, #comparisonBaseline { width: 100%; min-width: 0; max-width: 100%; }
+  .mode-summary { white-space: normal; flex-wrap: wrap; }
+  .selected-comparison { display: block; margin-top: 8px; color: var(--fg); }
+</style>
 </head>
 <body>
 <header>
@@ -110,6 +116,9 @@
 <div id="warnings"></div>
 
 <div class="controls" id="controls" hidden>
+  <label>Campaign<select id="comparisonCampaign" aria-label="Campaign"></select></label>
+  <label>Compare with<select id="comparisonBaseline" aria-label="Compare with"></select></label>
+  <p id="comparisonStatus" role="status" style="flex-basis:100%;overflow-wrap:anywhere"></p>
   <div class="metric-navigation">
   <label>Metric
     <select id="metric" aria-describedby="metricGuide">
@@ -178,9 +187,10 @@
 <div id="grid" class="grid" hidden></div>
 <h2 id="diagnosticHeading" hidden style="padding:0 24px;">Background diagnostics <span style="font-size:12px;color:var(--muted);font-weight:normal;">not ranked against user-action targets</span></h2>
 <div id="diagnosticGrid" class="grid" hidden></div>
-<div class="legend" id="legend" hidden>Each checked mode is a separate line: direct ES is blue, media-api is amber, and legacy/unknown is gray. Larger outlined points are the latest value in each mode. Cards show each mode's delta from its own preceding comparable run. Uncheck "comparable within each mode" to inspect legacy evidence across changed corpus, environment or scenario contracts. The green dashed line is the target. <strong>"—" chips are by-design gaps</strong>: actions emit only the explicit phases they own.</div>
+<div class="legend" id="legend" hidden>Each backend and media-delivery combination is a separate line. Larger outlined points are the latest value in each series. Cards show each series' delta from its own preceding comparable run. Uncheck "comparable within each mode" to inspect legacy evidence across changed corpus, environment or scenario contracts. The green dashed line is the target. <strong>"—" chips are by-design gaps</strong>: actions emit only the explicit phases they own.</div>
 
 <!-- Load sibling .js sidecar BEFORE the inline script so window.__PERCEIVED_LOG__ is set when the check runs (mirrors audit-graphs.html pattern). -->
+<script src="campaign-comparison.js"></script>
 <script src="perceived-log.js" onerror="window.__PERCEIVED_LOG_LOAD_FAILED__=true"></script>
 <script src="audit-log.js" onerror="window.__AUDIT_LOG_LOAD_FAILED__=true"></script>
 
@@ -314,6 +324,8 @@ function environmentKey(entry) {
   if (!environment) return "legacy";
   return JSON.stringify({
     dataMode: environment.dataMode,
+    apiTopology: environment.apiTopology,
+    mediaDelivery: environment.mediaDelivery,
     browserName: environment.browserName,
     browserVersion: environment.browserVersion,
     viewport: environment.viewport,
@@ -343,8 +355,8 @@ function sourceMatchLabel(directEntry, apiEntry) {
   if (directEntry.gitSha !== apiEntry.gitSha) return "commit differs";
   const directHash = directEntry.environment?.appSourceDirtyStateHash;
   const apiHash = apiEntry.environment?.appSourceDirtyStateHash;
-  if (!directHash || !apiHash) return "app source unverified";
-  return directHash === apiHash ? "app source matched" : "app source differs";
+  if (!directHash || !apiHash) return "recorded source fingerprints unavailable; identical source not verified (untracked file contents not covered)";
+  return directHash === apiHash ? "recorded source fingerprints match; identical source not verified (untracked file contents not covered)" : "recorded source fingerprints differ (untracked file contents not covered)";
 }
 
 const STORE_TIMING_METRICS = new Set(["took", "fetchDuration", "seekTime", "aggTook", "aggFetchDuration"]);
@@ -452,6 +464,7 @@ function ingestLog(data) {
   const entries = isAudit ? auditImageReadEntries(parsed)
     : [...(parsed.entries ?? []), ...auditImageReadEntries(window.__AUDIT_LOG__)];
   LOG = { entries: entries.sort((first, second) => first.timestamp.localeCompare(second.timestamp)) };
+  KupuaPerfComparison.populate(LOG.entries, render);
   for (const chart of charts.values()) chart.destroy();
   charts.clear();
   document.getElementById("grid").innerHTML = "";
@@ -612,7 +625,15 @@ function render() {
   } else {
     banner.hidden = true;
   }
-  const entries = visibleEntries(allEntries);
+  const entries = KupuaPerfComparison.restrict(visibleEntries(allEntries));
+  const allIds = new Set(entries.flatMap(entry => Object.keys(entry.perceived ?? {})));
+  for (const [id, chart] of charts) {
+    if (!allIds.has(id)) {
+      chart.destroy();
+      charts.delete(id);
+      document.getElementById(`card-${id}`)?.remove();
+    }
+  }
   if (entries.length === 0) {
     document.getElementById("sub").textContent =
       `${allEntries.length} entries in log, 0 visible (toggle short/long above).`;
@@ -636,31 +657,25 @@ function render() {
   document.getElementById("sub").textContent =
     `${allEntries.length} entries (${shortCount} short, ${longCount} long, ${probeCount} jank-probe), ${entries.length} visible — latest: [${entryKind(latest)} · ${entryMode(latest)}] ${latest.label} (${latest.gitSha}${latest.gitDirty ? " dirty" : ""}, ${new Date(latest.timestamp).toLocaleDateString()})`;
 
-  // Collect all scenario IDs across all entries
-  const allIds = new Set();
-  for (const entry of entries) {
-    for (const id of Object.keys(entry.perceived ?? {})) {
-      allIds.add(id);
-    }
-  }
-
   const gridEl = document.getElementById("grid");
   const diagnosticGridEl = document.getElementById("diagnosticGrid");
   const diagnosticHeading = document.getElementById("diagnosticHeading");
   const selectedModes = [...visibleModeSet()];
+  KupuaPerfComparison.status();
   diagnosticGridEl.hidden = !showDiagnostics;
   diagnosticHeading.hidden = !showDiagnostics;
   // Create or update cards
   for (const id of allIds) {
-    const modeSeries = selectedModes.flatMap((mode) => {
+    const modeSeries = [...new Set(entries.map(KupuaPerfComparison.variant))].flatMap((variant) => {
+      const mode = JSON.parse(variant)[0];
       const referenceIndex = entries.findLastIndex((entry) =>
-        entryMode(entry) === mode && perceivedMetricValue(entry.perceived?.[id], currentMetric) != null
+        KupuaPerfComparison.variant(entry) === variant && perceivedMetricValue(entry.perceived?.[id], currentMetric) != null
       );
       if (referenceIndex < 0) return [];
       const referenceEntry = entries[referenceIndex];
       const referenceMetric = referenceEntry.perceived[id];
       const points = entries.map((entry) => {
-        if (entryMode(entry) !== mode) return null;
+        if (KupuaPerfComparison.variant(entry) !== variant) return null;
         const metric = entry.perceived?.[id];
         if (!metric) return null;
         if (comparableOnly && !metricsComparable(entry, metric, referenceEntry, referenceMetric)) return null;
@@ -668,9 +683,11 @@ function render() {
       });
       const latestIndex = points.findLastIndex((point) => point != null);
       if (latestIndex < 0) return [];
-      const previousIndex = points.findLastIndex((point, index) => index < latestIndex && point != null);
+      const previousIndex = points.findLastIndex((point, index) => index < latestIndex && point != null
+        && metricsComparable(entries[index], entries[index].perceived[id], entries[latestIndex], entries[latestIndex].perceived[id]));
       return [{
         mode,
+        label: KupuaPerfComparison.label(referenceEntry),
         points,
         latestIndex,
         latestValue: points[latestIndex],
@@ -701,13 +718,14 @@ function render() {
     }
 
     const summaries = modeSeries.map((series) => {
-      const style = MODE_STYLES[series.mode];
+      const style = KupuaPerfComparison.style(series.latestEntry);
       const delta = series.previousValue == null ? null : series.latestValue - series.previousValue;
       const deltaText = delta == null
         ? "no predecessor"
         : `Δ ${delta > 0 ? "+" : ""}${formatMetricValue(currentMetric, delta)}`;
-      return `<span class="mode-summary"><span class="mode-dot" style="background:${style.color}"></span><strong style="color:${style.color}">${style.label}</strong> ${formatMetricValue(currentMetric, series.latestValue)} · ${deltaText}</span>`;
-    }).join("") + pairedModeSummary(modeSeries, currentMetric);
+      return `<span class="mode-summary"><span class="mode-dot" style="background:${style.color}"></span><strong style="color:${style.color}">${series.label}</strong> ${formatMetricValue(currentMetric, series.latestValue)} · ${deltaText}</span>`;
+    }).join("") + KupuaPerfComparison.summary(id, entry => entry.perceived, record => perceivedMetricValue(record, currentMetric),
+      metricsComparable, value => formatMetricValue(currentMetric, value));
 
     // Get or create card
     let card = document.getElementById(`card-${id}`);
@@ -752,9 +770,9 @@ function render() {
     });
 
     const datasets = modeSeries.map((series) => {
-      const style = MODE_STYLES[series.mode];
+      const style = KupuaPerfComparison.style(series.latestEntry);
       return {
-        label: style.label,
+        label: series.label,
         data: series.points,
         borderColor: style.color,
         backgroundColor: style.fill,

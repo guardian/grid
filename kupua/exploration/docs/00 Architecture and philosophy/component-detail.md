@@ -901,9 +901,12 @@ Useful behavioural entry points (existing tests, not executions performed by thi
 
 ## Perceived-Performance Instrumentation (`lib/perceived-trace.ts`)
 
-Action-boundary tracer, guarded by `import.meta.env.DEV` so production builds can eliminate
-instrumentation. Off by default in dev; enabled via `localStorage.setItem("kupua_perceived_perf", "1")`.
-The Playwright performance harness sets the flag before navigation.
+Action-boundary tracer, enabled automatically in DEV regardless of the localStorage flag.
+In non-DEV browser builds it is enabled only when `localStorage.getItem("kupua_perceived_perf")`
+is `"1"` at module initialization; refresh after changing the flag. This runtime gate does
+not guarantee production bundle elimination or zero runtime cost. The Playwright performance
+harness sets the flag before navigation. Trace opt-in alone does not provide the dev-only
+controls required by the current harness or establish hosted-build measurement parity.
 
 Production call sites use `beginTraceInteraction` and `traceInteraction` to correlate the start
 and owned phases. Current boundaries include `t_store_ready`, `t_first_visible_frame` and

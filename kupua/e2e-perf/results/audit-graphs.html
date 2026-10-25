@@ -63,6 +63,12 @@
   .picker h2 { color: var(--fg); margin: 0 0 12px; font-size: 16px; }
   .picker code { background: var(--panel); padding: 2px 6px; border-radius: 3px; font-size: 12px; color: var(--fg); }
 </style>
+<style>
+  .controls label:has(#comparisonCampaign), .controls label:has(#comparisonBaseline) { flex: 1 1 320px; min-width: 0; flex-direction: column; align-items: stretch; }
+  #comparisonCampaign, #comparisonBaseline { width: 100%; min-width: 0; max-width: 100%; }
+  .mode-summary { white-space: normal; flex-wrap: wrap; }
+  .selected-comparison { display: block; margin-top: 8px; color: var(--fg); }
+</style>
 </head>
 <body>
 <header>
@@ -88,6 +94,9 @@
 <div id="warnings"></div>
 
 <div class="controls" id="controls" hidden>
+  <label>Campaign<select id="comparisonCampaign" aria-label="Campaign"></select></label>
+  <label>Compare with<select id="comparisonBaseline" aria-label="Compare with"></select></label>
+  <p id="comparisonStatus" role="status" style="flex-basis:100%;overflow-wrap:anywhere"></p>
   <div class="metric-navigation">
     <label>Metric
       <select id="metric" aria-describedby="metricGuide"></select>
@@ -117,15 +126,16 @@
 </details>
 <div class="legend" id="legend-text" hidden>
   Each card = one perf test. X-axis = audit runs in chronological order.
-  Each checked mode is a separate line: direct ES is blue, media-api is amber,
-  and legacy/unknown is gray. Larger outlined points are the latest value in
-  each mode. Cards show each mode's delta from its own preceding comparable
+  Each backend and media-delivery combination is a separate line.
+  Larger outlined points are the latest value in each series.
+  Cards show each series' delta from its own preceding comparable
   run. Tests that never emit the selected metric are hidden. Uncheck
   "comparable within each mode" to inspect legacy evidence across changed
   corpus, methodology, environment or scenario contracts.
 </div>
 <div class="grid" id="grid"></div>
 
+<script src="campaign-comparison.js"></script>
 <script src="./audit-log.js" onerror="window.__AUDIT_LOG_LOAD_FAILED__=true"></script>
 <script>
 // ─────────────────────────────────────────────────────────────────────────────
@@ -150,7 +160,13 @@ const KNOWN_METRICS = {
   imageLookupCount:  { label: "Image metadata lookups (resident traversal: 0)", lowerIsBetter: true, defaultShow: true, quietThreshold: 0 },
   detailLookupMs:    { label: "Standalone lookup response (ms)", lowerIsBetter: true, defaultShow: true },
   detailMetadataReadyMs: { label: "Standalone metadata ready (ms)", lowerIsBetter: true, defaultShow: true },
-  detailImageReadyMs: { label: "Standalone decoded image ready (ms; warm media)", lowerIsBetter: true, defaultShow: true },
+  detailImageReadyMs: { label: "Standalone decoded image ready (ms; completed only)", lowerIsBetter: true, defaultShow: true },
+  detailImageReadyCount: { label: "Standalone media completed (samples)", lowerIsBetter: false, defaultShow: true },
+  detailImageCensoredCount: { label: "Standalone media not ready within 15s (samples)", lowerIsBetter: true, defaultShow: true },
+  detailImageFailedCount: { label: "Standalone full media failed (samples)", lowerIsBetter: true, defaultShow: true },
+  mediaResourceReusedCount: { label: "Standalone exact warmed URL reused (samples)", lowerIsBetter: false, defaultShow: true },
+  mediaResourceNotReusedCount: { label: "Standalone exact warmed URL not reused (samples)", lowerIsBetter: true, defaultShow: true },
+  mediaResourceReuseUnknownCount: { label: "Standalone resource reuse unknown (samples)", lowerIsBetter: true, defaultShow: false },
   // Focus position tracking (P4a/b, P6 — see README § Focus Position Tracking).
   focusDriftPx:      { label: "Focus drift (px, signed; 0 = perfect)", lowerIsBetter: null, defaultShow: true },
   focusDriftRatio:   { label: "Focus drift (viewport ratio; 0 = perfect)", lowerIsBetter: null, defaultShow: true, quietThreshold: 0.001 },
@@ -159,7 +175,9 @@ const KNOWN_METRICS = {
   widthDeltaPx:      { label: "column width delta (px, signed)", lowerIsBetter: null, defaultShow: false },
   resultsWidthDeltaPx: { label: "results width delta (px, signed)", lowerIsBetter: null, defaultShow: false },
   // Traversal image-render metrics (P14a–d — per-image load timing).
-  landingRenderMs:   { label: "Landing image render (ms; 0 = prefetch hit)", lowerIsBetter: true, defaultShow: true },
+  landingRenderMs:   { label: "Landing image load (ms; completed only)", lowerIsBetter: true, defaultShow: true },
+  landingRenderedCount: { label: "Landings completed (samples)", lowerIsBetter: false, defaultShow: true },
+  landingCensoredCount: { label: "Landings not ready within 15s (samples)", lowerIsBetter: true, defaultShow: true },
   landingNetworkMs:  { label: "Landing image network (ms)",     lowerIsBetter: true,  defaultShow: false },
   renderedCount:     { label: "Images rendered in time",        lowerIsBetter: false, defaultShow: true  },
   renderedTotal:     { label: "Images total (denominator for renderedCount)", lowerIsBetter: null, defaultShow: false },
@@ -196,11 +214,19 @@ const METRIC_HELP = {
   imageLookupCount: "Metadata lookup count; resident traversal expects zero lookups.",
   detailLookupMs: "Standalone detail lookup response time; metadata is not resident.",
   detailMetadataReadyMs: "Time until standalone detail metadata is ready.",
-  detailImageReadyMs: "Time until the standalone detail image is decoded and stable; media is warm.",
+  detailImageReadyMs: "Time until standalone media is decoded and visibly stable. Revision 3 measures returned media, not guaranteed warm delivery, and excludes censored samples; inspect completion counts. Older revisions required the exact warmed URL.",
+  detailImageReadyCount: "Revision 3 standalone samples whose returned image decoded and became visibly stable within 15 seconds.",
+  detailImageCensoredCount: "Revision 3 standalone samples whose image was not decoded and visibly stable within 15 seconds. Latency is unavailable, not 15 seconds.",
+  detailImageFailedCount: "Revision 3 samples with an observed current-image error. A loaded thumbnail fallback cannot satisfy full-media readiness. These samples are also incomplete; do not add the two counts.",
+  mediaResourceReusedCount: "Revision 3 samples that reused the exact previously warmed resource URL. Equality is not proof of an HTTP or upstream cache hit.",
+  mediaResourceNotReusedCount: "Revision 3 samples that did not reuse the exact warmed resource URL. Changed signing fields can change resource identity without changing rendition; this does not prove upstream cache misses.",
+  mediaResourceReuseUnknownCount: "Revision 3 samples with no observable returned media source to compare with the warmed URL. This is unavailable evidence, not a cache hit or miss.",
   focusDriftPx: "Signed change in focus position across the transition. Closer to zero is better.",
   focusDriftRatio: "Signed focus displacement as a fraction of viewport height. Closer to zero is better.",
   focusVisible: "Whether the focused image is on screen: 1 = yes, 0 = no.",
-  landingRenderMs: "Time from traversal stop until the landing image renders; zero indicates a prefetch hit.",
+  landingRenderMs: "Time from final committed navigation until the landing image loads. Revision 3 reports completed samples only; inspect completed/censored counts. Older revisions used a five-second observation window.",
+  landingRenderedCount: "Revision 3 samples whose landing image loaded within the 15-second observation window. A completed-only latency must be read with this count.",
+  landingCensoredCount: "Revision 3 samples still incomplete at 15 seconds. Their deadline markers are excluded from landing latency; zero is not inferred for older history.",
   renderedCount: "Count of images rendered before moving on; interpret against traversal count and cadence.",
   swappedNotRendered: "Count of images whose source changed but did not decode in time; interpret against traversal cadence.",
   landingAlreadyRendered: "Whether the landing image was already rendered: 1 = yes, 0 = no.",
@@ -233,6 +259,7 @@ const KNOWN_METRIC_META_KEYS = new Set([
   "lookupGuardRevision",
   "traversals", "cadenceMs", "speed", "direction", "clsEvents",
   "completionBoundary", "detailDecoded",
+  "detailObservationLimitMs", "landingRendered",
   "dragSteps", "stepIntervalMs", "releaseExcluded",
   "probeStart", "responseEndMs", "domContentLoadedMs", "loadEventMs",
   "firstPaintMs", "firstContentfulPaintMs", "resultsWidthDeltaPx",
@@ -407,6 +434,8 @@ function environmentKey(entry) {
   if (!environment) return "legacy";
   return JSON.stringify({
     dataMode: environment.dataMode,
+    apiTopology: environment.apiTopology,
+    mediaDelivery: environment.mediaDelivery,
     browserName: environment.browserName,
     browserVersion: environment.browserVersion,
     viewport: environment.viewport,
@@ -439,8 +468,8 @@ function sourceMatchLabel(directEntry, apiEntry) {
   if (directEntry.gitSha !== apiEntry.gitSha) return "commit differs";
   const directHash = directEntry.environment?.appSourceDirtyStateHash;
   const apiHash = apiEntry.environment?.appSourceDirtyStateHash;
-  if (!directHash || !apiHash) return "app source unverified";
-  return directHash === apiHash ? "app source matched" : "app source differs";
+  if (!directHash || !apiHash) return "recorded source fingerprints unavailable; identical source not verified (untracked file contents not covered)";
+  return directHash === apiHash ? "recorded source fingerprints match; identical source not verified (untracked file contents not covered)" : "recorded source fingerprints differ (untracked file contents not covered)";
 }
 
 function pairedModeSummary(modeSeries, metric) {
@@ -464,6 +493,7 @@ function isNetworkMetric(metric) {
 
 function networkSeriesKey(entry, metric) {
   return JSON.stringify([entryMode(entry), entry.environment?.apiTopology ?? "unknown",
+    entry.environment?.mediaDelivery ?? "unknown",
     metric?.networkTransport ?? "unknown", metric?.networkCaptureRevision ?? null]);
 }
 
@@ -499,6 +529,7 @@ function collectTests(entries) {
 
 function buildCharts() {
   updateMetricGuide();
+  KupuaPerfComparison.status();
   const metric = metricSel.value;
   const yscale = document.getElementById("yscale").value;
   const hideQuiet = document.getElementById("hideQuiet").checked;
@@ -510,19 +541,28 @@ function buildCharts() {
   grid.innerHTML = "";
 
   const selectedModes = [...visibleModeSet()];
-  const entries = ENTRIES.filter((entry) => selectedModes.includes(entryMode(entry)));
+  const entries = KupuaPerfComparison.restrict(ENTRIES).filter((entry) => selectedModes.includes(entryMode(entry)));
   const xLabels = entries.map((e, i) => showLabels ? `${e.label} [${entryMode(e)}]` : String(i + 1));
 
   for (const t of TESTS) {
     const seriesKeys = isNetworkMetric(metric)
       ? [...new Set(entries.map((entry) => networkSeriesKey(entry, entry.metrics?.[t])))]
-      : selectedModes;
+      : [...new Set(entries.map(KupuaPerfComparison.variant))];
+    const censorField = metric === "landingRenderMs" ? "landingCensoredCount"
+      : metric === "detailImageReadyMs" ? "detailImageCensoredCount" : null;
+    const censoredSummary = censorField ? seriesKeys.flatMap((seriesKey) => {
+      const latest = entries.findLast((entry) => KupuaPerfComparison.variant(entry) === seriesKey
+        && Object.hasOwn(entry.metrics?.[t] ?? {}, metric));
+      const current = latest?.metrics?.[t];
+      if (!current || current[metric] !== null || !(current[censorField] > 0)) return [];
+      return [`<span class="mode-summary"><strong>${KupuaPerfComparison.label(latest)}</strong> ${current[censorField]}/${current.sampleCount} not ready within 15s</span>`];
+    }).join("") : "";
     const modeSeries = seriesKeys.flatMap((seriesKey) => {
-      const mode = isNetworkMetric(metric) ? JSON.parse(seriesKey)[0] : seriesKey;
+      const mode = JSON.parse(seriesKey)[0];
       const matchesSeries = (entry) => isNetworkMetric(metric)
-        ? networkSeriesKey(entry, entry.metrics?.[t]) === seriesKey : entryMode(entry) === mode;
+        ? networkSeriesKey(entry, entry.metrics?.[t]) === seriesKey : KupuaPerfComparison.variant(entry) === seriesKey;
       const referenceIndex = entries.findLastIndex((entry) =>
-        matchesSeries(entry) && pickValue(metric, entry.metrics?.[t]) != null
+        matchesSeries(entry) && Object.hasOwn(entry.metrics?.[t] ?? {}, metric)
       );
       if (referenceIndex < 0) return [];
       const referenceEntry = entries[referenceIndex];
@@ -538,11 +578,11 @@ function buildCharts() {
       if (latestIndex < 0) return [];
       const previousIndex = data.findLastIndex(
         (value, index) => index < latestIndex && value != null && Number.isFinite(value)
-          && (!isNetworkMetric(metric) || metricsComparable(entries[index], entries[index].metrics[t], entries[latestIndex], entries[latestIndex].metrics[t], metric)),
+          && metricsComparable(entries[index], entries[index].metrics[t], entries[latestIndex], entries[latestIndex].metrics[t], metric),
       );
       return [{
         mode,
-        label: isNetworkMetric(metric) ? `${referenceMetric.networkTransport}/${referenceEntry.environment?.apiTopology ?? "unknown"} (capture r${referenceMetric.networkCaptureRevision})` : MODE_STYLES[mode].label,
+        label: `${KupuaPerfComparison.label(referenceEntry)}${isNetworkMetric(metric) ? ` (${referenceMetric.networkTransport}/${referenceEntry.environment?.apiTopology ?? "unknown"}, capture r${referenceMetric.networkCaptureRevision})` : ""}`,
         data,
         latestIndex,
         latestValue: data[latestIndex],
@@ -553,13 +593,13 @@ function buildCharts() {
     const finite = modeSeries.flatMap((series) =>
       series.data.filter((value) => value != null && Number.isFinite(value))
     );
-    if (finite.length === 0) continue;
+    if (finite.length === 0 && !censoredSummary) continue;
     const max = finite.length ? Math.max(...finite) : 0;
     const quietThreshold = KNOWN_METRICS[metric]?.quietThreshold ?? 1;
-    if (hideQuiet && max < quietThreshold) continue;
+    if (hideQuiet && max < quietThreshold && !KupuaPerfComparison.selected()[0] && !censoredSummary) continue;
 
     const summaries = modeSeries.map((series) => {
-      const style = MODE_STYLES[series.mode];
+      const style = KupuaPerfComparison.style(series.latestEntry);
       const delta = series.previousValue == null ? null : series.latestValue - series.previousValue;
       const deltaText = delta == null
         ? "no predecessor"
@@ -567,17 +607,19 @@ function buildCharts() {
       const actualRoute = entries[series.latestIndex].metrics[t]?.routes?.join("+");
       const routeLabel = actualRoute ? ` · route: ${actualRoute}` : "";
       return `<span class="mode-summary"><span class="mode-dot" style="background:${style.color}"></span><strong style="color:${style.color}">${series.label}</strong> ${formatMetricValue(metric, series.latestValue)} · ${deltaText}${routeLabel}</span>`;
-    }).join("") + pairedModeSummary(modeSeries, metric);
+    }).join("") + censoredSummary + KupuaPerfComparison.summary(t, entry => entry.metrics, record => pickValue(metric, record),
+      (entry, record, baseline, before) => metricsComparable(entry, record, baseline, before, metric), value => formatMetricValue(metric, value));
 
     const card = document.createElement("div");
     card.className = "card";
     const diagnosticContext = isNetworkMetric(metric) ? " · Browser diagnostic; lower is not necessarily better across differing capture/topology." : "";
-    card.innerHTML = `<h3>${t}</h3><div class="meta">${metricLabel(metric)} — ${summaries}${diagnosticContext}</div><canvas></canvas>`;
+    card.innerHTML = `<h3>${t}</h3><div class="meta">${metricLabel(metric)} — ${summaries}${diagnosticContext}</div>${finite.length > 0 ? "<canvas></canvas>" : ""}`;
     grid.appendChild(card);
+    if (finite.length === 0) continue;
     const ctx = card.querySelector("canvas").getContext("2d");
 
     const datasets = modeSeries.map((series) => {
-      const style = MODE_STYLES[series.mode];
+      const style = KupuaPerfComparison.style(series.latestEntry);
       return {
         label: series.label,
         data: series.data,
@@ -642,6 +684,7 @@ function onData(entries) {
   }
   ENTRIES = entries;
   TESTS = collectTests(entries);
+  KupuaPerfComparison.populate(entries, buildCharts);
 
   picker.hidden = true;
   controls.hidden = false;
@@ -655,7 +698,7 @@ function onData(entries) {
   entries.forEach((e) => {
     const li = document.createElement("li");
     const rtt = e.baseline_rtt_ms != null ? `  · RTT ${e.baseline_rtt_ms}ms` : "";
-    li.textContent = `${e.label} [${entryMode(e)}]  —  ${(e.timestamp || "").slice(0, 10)}  ·  ${e.gitSha || "?"}${e.gitDirty ? " (dirty)" : ""}  ·  ${e.runs ?? "?"} run(s)${rtt}`;
+    li.textContent = `${e.label} [${KupuaPerfComparison.label(e)}]  —  ${(e.timestamp || "").slice(0, 10)}  ·  ${e.gitSha || "?"}${e.gitDirty ? " (dirty)" : ""}  ·  ${e.runs ?? "?"} run(s)${rtt}`;
     runlist.appendChild(li);
   });
 

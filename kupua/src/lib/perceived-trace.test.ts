@@ -1,6 +1,72 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import traceSource from "./perceived-trace.ts?raw";
+
+describe("perceived trace gate", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    window.localStorage.removeItem("kupua_perceived_perf");
+    delete (window as unknown as Record<string, unknown>).__perceivedTrace__;
+    delete (window as unknown as Record<string, unknown>).__perceivedTraceClear__;
+    vi.stubGlobal("performance", { now: vi.fn(() => 1), mark: vi.fn() });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.resetModules();
+    window.localStorage.removeItem("kupua_perceived_perf");
+    delete (window as unknown as Record<string, unknown>).__perceivedTrace__;
+    delete (window as unknown as Record<string, unknown>).__perceivedTraceClear__;
+  });
+
+  it("documents the existing gate without claiming production elimination", () => {
+    const header = traceSource.slice(0, traceSource.indexOf("export interface TraceEntry"));
+    expect(header).toContain("DEV: enabled regardless of the localStorage flag");
+    expect(header).toContain("Non-DEV: enabled only when");
+    expect(header).not.toMatch(/tree-shaken out entirely|Zero bundle bytes|off by default/);
+  });
+
+  it.each([
+    { dev: true, flag: null, enabled: true },
+    { dev: true, flag: "0", enabled: true },
+    { dev: true, flag: "1", enabled: true },
+    { dev: false, flag: null, enabled: false },
+    { dev: false, flag: "0", enabled: false },
+    { dev: false, flag: "1", enabled: true },
+  ])("DEV=$dev, flag=$flag enables tracing: $enabled", async ({ dev, flag, enabled }) => {
+    vi.stubEnv("DEV", dev);
+    if (flag !== null) window.localStorage.setItem("kupua_perceived_perf", flag);
+    const { beginTraceInteraction, trace, traceInteraction } = await import("./perceived-trace");
+    const interactionId = beginTraceInteraction("gate-check");
+    trace("gate-check", "t_ack");
+    traceInteraction("gate-check", "t_store_ready", interactionId);
+
+    const exposed = window as unknown as Record<string, unknown>;
+    if (enabled) {
+      expect(interactionId).not.toBe("");
+      expect(exposed.__perceivedTrace__).toHaveLength(3);
+      expect(exposed.__perceivedTraceClear__).toBeTypeOf("function");
+      expect(performance.mark).toHaveBeenCalledTimes(3);
+      (exposed.__perceivedTraceClear__ as () => void)();
+      expect(exposed.__perceivedTrace__).toHaveLength(0);
+    } else {
+      expect(interactionId).toBe("");
+      expect(exposed.__perceivedTrace__).toBeUndefined();
+      expect(exposed.__perceivedTraceClear__).toBeUndefined();
+      expect(performance.mark).not.toHaveBeenCalled();
+    }
+  });
+
+  it.each([false, true])("captures the non-DEV opt-in at module load: $0", async (enabled) => {
+    vi.stubEnv("DEV", false);
+    if (enabled) window.localStorage.setItem("kupua_perceived_perf", "1");
+    const { beginTraceInteraction } = await import("./perceived-trace");
+    window.localStorage.setItem("kupua_perceived_perf", enabled ? "0" : "1");
+    expect(Boolean(beginTraceInteraction("gate-check"))).toBe(enabled);
+  });
+});
 
 describe("perceived trace interactions", () => {
   beforeEach(() => {

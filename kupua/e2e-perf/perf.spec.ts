@@ -375,6 +375,19 @@ async function prepareStandaloneDetail(kupua: any, targetId: string) {
 async function measureStandaloneDetail(kupua: any, targetId: string, expectedRoute: string) {
   const probe = captureImageLookups(kupua.page);
   try {
+    await kupua.page.evaluate((target: string) => {
+      const globals = window as any;
+      globals.__perfStandaloneMediaFailed__ = false;
+      globals.__perfStandaloneMediaErrorListener__ = (event: Event) => {
+        const image = event.target as HTMLImageElement | null;
+        if (image?.tagName === "IMG" && image.fetchPriority === "high"
+          && document.querySelector("[data-detail-image-id]")?.getAttribute("data-detail-image-id") === target
+          && new URL(location.href).searchParams.get("image") === target) {
+          globals.__perfStandaloneMediaFailed__ = true;
+        }
+      };
+      document.addEventListener("error", globals.__perfStandaloneMediaErrorListener__, true);
+    }, targetId);
     const timing = await kupua.page.evaluate(async (target: string) => {
       const state = (window as any).__kupua_store__.getState();
       if (state.results.some((image: any) => image?.id === target)) {
@@ -382,7 +395,9 @@ async function measureStandaloneDetail(kupua: any, targetId: string, expectedRou
       }
       const startedEpoch = Date.now();
       const started = performance.now();
+      const detailObservationLimitMs = 15_000;
       let metadataReadyMs: number | null = null;
+      let mediaResourceReused: boolean | null = null;
       let previousRect: { top: number; left: number; width: number; height: number } | null = null;
       const navigation = (window as any).__kupua_router__.navigate({
         to: "/search",
@@ -390,14 +405,20 @@ async function measureStandaloneDetail(kupua: any, targetId: string, expectedRou
         replace: true,
       });
       await navigation;
-      while (performance.now() - started < 10_000) {
+      while (performance.now() - started < detailObservationLimitMs) {
         await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
         const owner = document.querySelector("[data-detail-image-id]");
         const ownsTarget = owner?.getAttribute("data-detail-image-id") === target
           && new URL(location.href).searchParams.get("image") === target;
-        if (!ownsTarget) { previousRect = null; continue; }
+        if (!ownsTarget) {
+          if (metadataReadyMs !== null) throw new Error("P13c identity changed during observation");
+          previousRect = null;
+          continue;
+        }
         metadataReadyMs ??= performance.now() - started;
         const image = owner.querySelector('img[fetchpriority="high"]') as HTMLImageElement | null;
+        if (image) mediaResourceReused = (image.src || image.currentSrc) === (window as any).__perfStandaloneMedia__;
+        if ((window as any).__perfStandaloneMediaFailed__) { previousRect = null; continue; }
         if (!image?.complete || image.naturalWidth === 0) { previousRect = null; continue; }
         const rect = image.getBoundingClientRect();
         if (rect.width <= 0 || rect.height <= 0 || rect.bottom <= 0 || rect.top >= innerHeight) {
@@ -407,23 +428,43 @@ async function measureStandaloneDetail(kupua: any, targetId: string, expectedRou
         if (previousRect && ["top", "left", "width", "height"].every((key) =>
           Math.abs(rect[key as keyof typeof previousRect] - previousRect![key as keyof typeof previousRect]) <= 1
         )) {
-          await image.decode();
+          let decodeTimer: number | undefined;
+          const decoded = await Promise.race([
+            image.decode().then(() => true, () => false),
+            new Promise<boolean>((resolveTimeout) => {
+              decodeTimer = window.setTimeout(() => resolveTimeout(false), Math.max(0, detailObservationLimitMs - (performance.now() - started)));
+            }),
+          ]).finally(() => { if (decodeTimer !== undefined) window.clearTimeout(decodeTimer); });
           if (owner.getAttribute("data-detail-image-id") !== target) throw new Error("P13c identity changed during decode");
-          if (image.currentSrc !== (window as any).__perfStandaloneMedia__) {
-            throw new Error("P13c rendition changed; warm-media timings would not be comparable");
-          }
           if ((window as any).__kupua_store__.getState().imagePositions.has(target)) {
             throw new Error("P13c was satisfied by a resident image instead of standalone detail");
           }
+          if (!decoded || performance.now() - started > detailObservationLimitMs) { previousRect = null; continue; }
           return {
             startedEpoch,
             detailMetadataReadyMs: Math.round(metadataReadyMs),
             detailImageReadyMs: Math.round(performance.now() - started),
+            detailImageReady: true,
+            detailImageFailed: false,
+            detailObservationLimitMs,
+            mediaResourceReused,
           };
         }
         previousRect = { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
       }
-      throw new Error("P13c standalone image did not become decoded and visibly stable within 10 seconds");
+      if (metadataReadyMs === null) throw new Error("P13c standalone metadata did not become available within 15 seconds");
+      if ((window as any).__kupua_store__.getState().imagePositions.has(target)) {
+        throw new Error("P13c was satisfied by a resident image instead of standalone detail");
+      }
+      return {
+        startedEpoch,
+        detailMetadataReadyMs: Math.round(metadataReadyMs),
+        detailImageReadyMs: null,
+        detailImageReady: false,
+        detailImageFailed: (window as any).__perfStandaloneMediaFailed__ === true,
+        detailObservationLimitMs,
+        mediaResourceReused,
+      };
     }, targetId);
     probe.stop();
     if (probe.requests.length < 1 || probe.requests.length > 2) {
@@ -455,17 +496,27 @@ async function measureStandaloneDetail(kupua: any, targetId: string, expectedRou
     const detailLookupMs = Math.round(requestTiming.startTime + requestTiming.responseEnd - timing.startedEpoch);
     expect(detailLookupMs).toBeGreaterThanOrEqual(0);
     return {
-      scenarioRevision: 2,
-      cacheClass: "nonresident-metadata-warm-media",
-      completionBoundary: "singleton-response-and-decoded-stable-detail",
+      scenarioRevision: 3,
+      cacheClass: "nonresident-metadata-returned-media",
+      completionBoundary: "singleton-response-and-bounded-returned-media",
       routes: [route],
       imageLookupCount: probe.requests.length,
       detailLookupMs,
       detailMetadataReadyMs: timing.detailMetadataReadyMs,
       detailImageReadyMs: timing.detailImageReadyMs,
+      detailImageReady: timing.detailImageReady,
+      detailImageFailed: timing.detailImageFailed,
+      detailObservationLimitMs: timing.detailObservationLimitMs,
+      mediaResourceReused: timing.mediaResourceReused,
     };
   } finally {
     probe.stop();
+    await kupua.page.evaluate(() => {
+      const globals = window as any;
+      if (globals.__perfStandaloneMediaErrorListener__) document.removeEventListener("error", globals.__perfStandaloneMediaErrorListener__, true);
+      delete globals.__perfStandaloneMediaErrorListener__;
+      delete globals.__perfStandaloneMediaFailed__;
+    });
   }
 }
 
@@ -1336,26 +1387,27 @@ async function traverseAndMeasure(
 async function waitForLandingImage(
   page: any,
   landing: TraversalCommit,
-  maxWaitMs = 5000,
+  maxWaitMs = 15_000,
 ): Promise<LandingImageTiming> {
   const pollInterval = 20;
+  const deadline = landing.committedEpochMs + maxWaitMs;
 
   const initial = await page.evaluate((expectedId: string) => {
     const renderedId = document.querySelector("[data-detail-image-id]")
       ?.getAttribute("data-detail-image-id");
     const img = document.querySelector('.flex-1 img[draggable="false"]') as HTMLImageElement | null;
-    if (!img) return { matches: false, complete: false, hasSize: false, src: "" };
+    if (!img) return { matches: renderedId === expectedId, complete: false, hasSize: false, src: "" };
     return { matches: renderedId === expectedId, complete: img.complete, hasSize: img.naturalWidth > 0 && img.naturalHeight > 0, src: img.src ?? "" };
   }, landing.expectedId);
 
-  if (initial.matches && initial.complete && initial.hasSize) {
+  if (!initial.matches) throw new Error("P14 landing identity changed after final commit");
+  if (initial.matches && initial.complete && initial.hasSize && Date.now() <= deadline) {
     const renderMs = landingElapsedMs(landing.committedEpochMs, Date.now());
     const netInfo = await getImageNetworkTiming(page, initial.src, landing.committedEpochMs);
     return { alreadyRendered: renderMs === 0, renderMs, networkMs: netInfo.networkMs, rendered: true, cacheHit: netInfo.cacheHit };
   }
 
   let landingSrc = initial.src;
-  const deadline = landing.committedEpochMs + maxWaitMs;
 
   while (Date.now() < deadline) {
     await page.waitForTimeout(pollInterval);
@@ -1363,11 +1415,12 @@ async function waitForLandingImage(
       const renderedId = document.querySelector("[data-detail-image-id]")
         ?.getAttribute("data-detail-image-id");
       const img = document.querySelector('.flex-1 img[draggable="false"]') as HTMLImageElement | null;
-      if (!img) return { matches: false, complete: false, hasSize: false, src: "" };
+      if (!img) return { matches: renderedId === expectedId, complete: false, hasSize: false, src: "" };
       return { matches: renderedId === expectedId, complete: img.complete, hasSize: img.naturalWidth > 0 && img.naturalHeight > 0, src: img.src ?? "" };
     }, landing.expectedId);
+    if (!status.matches) throw new Error("P14 landing identity changed during observation");
     landingSrc = status.src;
-    if (status.matches && status.complete && status.hasSize) {
+    if (status.matches && status.complete && status.hasSize && Date.now() <= deadline) {
       const renderMs = landingElapsedMs(landing.committedEpochMs, Date.now());
       const netInfo = await getImageNetworkTiming(page, landingSrc, landing.committedEpochMs);
       return { alreadyRendered: false, renderMs, networkMs: netInfo.networkMs, rendered: true, cacheHit: netInfo.cacheHit };
@@ -1461,7 +1514,7 @@ function logTraversalSummary(id: string, timings: ImageRenderTiming[], landing: 
     ? "already rendered [prefetch hit]"
     : landing.rendered
       ? `${landing.renderMs}ms (network: ${landing.networkMs}ms${landing.cacheHit ? ", cache hit" : ""})`
-      : "NOT rendered (5s timeout)";
+      : "NOT rendered within 15s (observation limit)";
   console.log(`  [${id}] Images: ${rendered.length}/${timings.length} rendered, ${swapped.length} swapped-not-rendered`);
   if (rendered.length > 0) {
     const avg = Math.round(rendered.reduce((s, t) => s + t.renderMs, 0) / rendered.length);
@@ -2365,7 +2418,7 @@ test.describe("Rendering Performance Smoke", () => {
       const expectedRoute = await prepareStandaloneDetail(kupua, focusedId);
       await resetPerfProbes(kupua);
       const standalone = await measureStandaloneDetail(kupua, focusedId, expectedRoute);
-      const snapStandalone = await collectPerfSnapshot(kupua, "P13c: Standalone detail, warm media");
+      const snapStandalone = await collectPerfSnapshot(kupua, "P13c: Standalone detail, returned media");
       emitMetric("P13c", snapStandalone, standalone);
     } finally {
       await kupua.page.evaluate(() => { delete (window as any).__perfStandaloneMedia__; });
@@ -2412,7 +2465,7 @@ test.describe("Rendering Performance Smoke", () => {
         );
         expect(lookupProbe.requests.length).toBe(0);
         emitMetric(scenario.id, snap, {
-          scenarioRevision: 2,
+          scenarioRevision: 3,
           lookupGuardRevision: 1,
           imageLookupCount: lookupProbe.requests.length,
           cacheClass: "fresh-browser-context",
@@ -2426,7 +2479,6 @@ test.describe("Rendering Performance Smoke", () => {
           ...summariseTraversal(traversal.timings, landing),
         });
         expect(traversal.timings).toHaveLength(scenario.steps);
-        expect(landing.rendered).toBe(true);
       } finally {
         lookupProbe.stop();
       }

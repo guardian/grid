@@ -1,3 +1,5 @@
+import { AUTH_REQUIRED_MARKER, AUTH_RENEWAL_COMMAND } from "./auth-failure.mjs";
+
 const STAGES = new Map([
   ["hook:After Hooks", "Cleanup"],
   ["test.step:Stop perf probes", "Stopping probes"],
@@ -6,9 +8,24 @@ const STAGES = new Map([
 ]);
 
 export default class TeardownReporter {
-  constructor({ write = (line) => console.log(line) } = {}) {
+  constructor({ write = (line) => console.log(line), interrupt = () => process.kill(process.pid, "SIGINT") } = {}) {
     this.write = write;
+    this.interrupt = interrupt;
+    this.authStopped = false;
+    this.authTail = "";
     this.pending = new WeakMap();
+  }
+
+  onStdOut(chunk) {
+    if (this.authStopped) return;
+    const text = this.authTail + chunk.toString();
+    this.authTail = text.slice(-(AUTH_REQUIRED_MARKER.length - 1));
+    if (!text.includes(AUTH_REQUIRED_MARKER)) return;
+    this.authStopped = true;
+    this.write("Authentication required. Stopping this campaign; renew auth and rerun from the beginning.");
+    this.write("Replace the placeholder with your external cookie-file path, sign in, then close the codegen browser:");
+    this.write(AUTH_RENEWAL_COMMAND);
+    this.interrupt();
   }
 
   printsToStdio() {

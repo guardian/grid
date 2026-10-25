@@ -3132,6 +3132,20 @@ describe("P1 non-uniform resident continuity", () => {
     expect(view.container.scrollTop).toBe(1620);
   });
 
+  it("DEV centering bridge uses the mounted callback and is removed on unmount", () => {
+    const view = mountDensity(irregularGeometry());
+    frame(); frame();
+    view.scrollToIndex.mockClear();
+    const bridge = window as unknown as Record<string, unknown>;
+    const scroll = bridge.__kupua_scrollFocusedIntoView__ as (() => void) | undefined;
+    expect(typeof scroll).toBe("function");
+    act(() => scroll!());
+    expect(view.scrollToIndex).toHaveBeenCalledExactlyOnceWith(9, { align: "center" });
+    expect(view.container.scrollTop).toBe(1620);
+    view.unmount();
+    expect(bridge.__kupua_scrollFocusedIntoView__).toBeUndefined();
+  });
+
   it.each([false, true])("detail return keeps native versus traversed placement (traversed=%s)", (traversed) => {
     const geometry = irregularGeometry();
     const view = mountDensity(geometry);

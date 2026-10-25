@@ -62,6 +62,33 @@ export function pruneAuditHistory(history) {
   };
 }
 
+const SUITE_FAMILIES = Object.freeze({
+  jank: ["audit", "rendering"],
+  short: ["perceived", "short"],
+  long: ["perceived", "long"],
+  density: ["density", "density"],
+});
+
+// Membership of one runner invocation, published inside the same history transaction.
+export function buildCampaignManifest({ campaignId, label, runs, grep, requested, apiTopology, mediaDelivery, completedAt, entries }) {
+  const requestedSuites = Object.keys(SUITE_FAMILIES).filter((suite) => requested[suite]);
+  const missingSuites = requestedSuites.filter((suite) => !entries.some((entry) =>
+    entry.family === SUITE_FAMILIES[suite][0] && entry.kind === SUITE_FAMILIES[suite][1]));
+  const shortRepetitions = entries.filter((entry) => entry.runs !== runs).map((entry) => `${entry.family}/${entry.kind}`);
+  return {
+    campaignId, label, completedAt, runs, grep: grep || null, requestedSuites, apiTopology, mediaDelivery,
+    entries, complete: missingSuites.length === 0 && shortRepetitions.length === 0 && !grep,
+    missingSuites, shortRepetitions,
+  };
+}
+
+export function appendCampaignManifest(log, manifest) {
+  if (log.entries.some((entry) => entry.campaignId === manifest.campaignId)) {
+    throw new Error(`Campaign ${manifest.campaignId} is already published`);
+  }
+  return { ...log, entries: [...log.entries, manifest] };
+}
+
 export function commitFileTransaction(updates, options = {}) {
   const transactionId = randomUUID();
   const staged = updates.map(({ file, contents }) => ({

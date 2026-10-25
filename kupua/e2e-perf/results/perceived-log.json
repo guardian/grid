@@ -10019,7 +10019,11 @@
         "stableUntil": "2026-02-15T00:00:00.000Z",
         "gitSha": "cb827f6c6",
         "gitDirty": true,
-        "gitDirtyStateHash": "b699f733eec8b19b"
+        "gitDirtyStateHash": "b699f733eec8b19b",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "none",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -10575,7 +10579,11 @@
         "stableUntil": "2026-02-15T00:00:00.000Z",
         "gitSha": "cb827f6c6",
         "gitDirty": true,
-        "gitDirtyStateHash": "b699f733eec8b19b"
+        "gitDirtyStateHash": "b699f733eec8b19b",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "none",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -10887,7 +10895,11 @@
         "stableUntil": "2026-02-15T00:00:00.000Z",
         "gitSha": "595abcbc4",
         "gitDirty": false,
-        "gitDirtyStateHash": "e3b0c44298fc1c14"
+        "gitDirtyStateHash": "e3b0c44298fc1c14",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "none",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -11443,7 +11455,11 @@
         "stableUntil": "2026-02-15T00:00:00.000Z",
         "gitSha": "595abcbc4",
         "gitDirty": false,
-        "gitDirtyStateHash": "e3b0c44298fc1c14"
+        "gitDirtyStateHash": "e3b0c44298fc1c14",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "none",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -11755,7 +11771,11 @@
         "stableUntil": "2026-02-15T00:00:00.000Z",
         "gitSha": "b40755a3f",
         "gitDirty": true,
-        "gitDirtyStateHash": "679d637b06fa5e7a"
+        "gitDirtyStateHash": "679d637b06fa5e7a",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "local",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -12307,7 +12327,11 @@
         "stableUntil": "2026-02-15T00:00:00.000Z",
         "gitSha": "b40755a3f",
         "gitDirty": true,
-        "gitDirtyStateHash": "679d637b06fa5e7a"
+        "gitDirtyStateHash": "679d637b06fa5e7a",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "local",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -12617,7 +12641,11 @@
         "stableUntil": "2026-02-15T00:00:00.000Z",
         "gitSha": "04c3fcadc",
         "gitDirty": true,
-        "gitDirtyStateHash": "2cb6baf756af9d44"
+        "gitDirtyStateHash": "2cb6baf756af9d44",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "none",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -13210,7 +13238,11 @@
         "stableUntil": "2026-02-15T00:00:00.000Z",
         "gitSha": "04c3fcadc",
         "gitDirty": true,
-        "gitDirtyStateHash": "2cb6baf756af9d44"
+        "gitDirtyStateHash": "2cb6baf756af9d44",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "none",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -13522,7 +13554,11 @@
         "stableUntil": "2026-02-15T00:00:00.000Z",
         "gitSha": "04c3fcadc",
         "gitDirty": true,
-        "gitDirtyStateHash": "edba9d074dbcbfc2"
+        "gitDirtyStateHash": "edba9d074dbcbfc2",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "local",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -14123,7 +14159,11 @@
         "stableUntil": "2026-02-15T00:00:00.000Z",
         "gitSha": "04c3fcadc",
         "gitDirty": true,
-        "gitDirtyStateHash": "edba9d074dbcbfc2"
+        "gitDirtyStateHash": "edba9d074dbcbfc2",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "local",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -14434,7 +14474,11 @@
         "stableUntil": "2026-02-15T00:00:00.000Z",
         "gitSha": "08a8397a6",
         "gitDirty": true,
-        "gitDirtyStateHash": "42d21c383eb02fe3"
+        "gitDirtyStateHash": "42d21c383eb02fe3",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "none",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -15039,7 +15083,11 @@
         "stableUntil": "2026-02-15T00:00:00.000Z",
         "gitSha": "08a8397a6",
         "gitDirty": true,
-        "gitDirtyStateHash": "42d21c383eb02fe3"
+        "gitDirtyStateHash": "42d21c383eb02fe3",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "none",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -15352,7 +15400,11 @@
         "stableUntil": "2026-02-15T00:00:00.000Z",
         "gitSha": "0efb6e225",
         "gitDirty": true,
-        "gitDirtyStateHash": "ab94889c0343a455"
+        "gitDirtyStateHash": "ab94889c0343a455",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "none",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -15957,7 +16009,11 @@
         "stableUntil": "2026-02-15T00:00:00.000Z",
         "gitSha": "0efb6e225",
         "gitDirty": true,
-        "gitDirtyStateHash": "ab94889c0343a455"
+        "gitDirtyStateHash": "ab94889c0343a455",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "none",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -16270,7 +16326,11 @@
         "stableUntil": "2026-02-15T00:00:00.000Z",
         "gitSha": "cad2ac6ec",
         "gitDirty": true,
-        "gitDirtyStateHash": "208fbf43376fd37d"
+        "gitDirtyStateHash": "208fbf43376fd37d",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "local",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -16871,7 +16931,11 @@
         "stableUntil": "2026-02-15T00:00:00.000Z",
         "gitSha": "cad2ac6ec",
         "gitDirty": true,
-        "gitDirtyStateHash": "208fbf43376fd37d"
+        "gitDirtyStateHash": "208fbf43376fd37d",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "local",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -17182,7 +17246,11 @@
         "stableUntil": "2026-02-15T00:00:00.000Z",
         "gitSha": "7a34c6a67",
         "gitDirty": true,
-        "gitDirtyStateHash": "df942181b77fcc26"
+        "gitDirtyStateHash": "df942181b77fcc26",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "local",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -17781,7 +17849,11 @@
         "stableUntil": "2026-02-15T00:00:00.000Z",
         "gitSha": "7a34c6a67",
         "gitDirty": true,
-        "gitDirtyStateHash": "df942181b77fcc26"
+        "gitDirtyStateHash": "df942181b77fcc26",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "local",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -18092,7 +18164,11 @@
         "stableUntil": "2026-02-15T00:00:00.000Z",
         "gitSha": "3b7a0581d",
         "gitDirty": true,
-        "gitDirtyStateHash": "6b85e0c640c28451"
+        "gitDirtyStateHash": "6b85e0c640c28451",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "local",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -18691,7 +18767,11 @@
         "stableUntil": "2026-02-15T00:00:00.000Z",
         "gitSha": "3b7a0581d",
         "gitDirty": true,
-        "gitDirtyStateHash": "6b85e0c640c28451"
+        "gitDirtyStateHash": "6b85e0c640c28451",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "local",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -19002,7 +19082,11 @@
         "stableUntil": "2026-02-15T00:00:00.000Z",
         "gitSha": "3b7a0581d",
         "gitDirty": true,
-        "gitDirtyStateHash": "505753f5b1e63dc1"
+        "gitDirtyStateHash": "505753f5b1e63dc1",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "none",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -19607,7 +19691,11 @@
         "stableUntil": "2026-02-15T00:00:00.000Z",
         "gitSha": "3b7a0581d",
         "gitDirty": true,
-        "gitDirtyStateHash": "505753f5b1e63dc1"
+        "gitDirtyStateHash": "505753f5b1e63dc1",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "none",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -19921,7 +20009,11 @@
         "gitSha": "4ead0187c",
         "gitDirty": false,
         "gitDirtyStateHash": "e3b0c44298fc1c14",
-        "appSourceDirtyStateHash": "e3b0c44298fc1c14"
+        "appSourceDirtyStateHash": "e3b0c44298fc1c14",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "none",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -20519,7 +20611,11 @@
         "gitSha": "4ead0187c",
         "gitDirty": false,
         "gitDirtyStateHash": "e3b0c44298fc1c14",
-        "appSourceDirtyStateHash": "e3b0c44298fc1c14"
+        "appSourceDirtyStateHash": "e3b0c44298fc1c14",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "none",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -20828,7 +20924,11 @@
         "gitSha": "4ead0187c",
         "gitDirty": true,
         "gitDirtyStateHash": "41bdaeaea0d0c025",
-        "appSourceDirtyStateHash": "e3b0c44298fc1c14"
+        "appSourceDirtyStateHash": "e3b0c44298fc1c14",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "local",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -21415,7 +21515,11 @@
         "gitSha": "4ead0187c",
         "gitDirty": true,
         "gitDirtyStateHash": "41bdaeaea0d0c025",
-        "appSourceDirtyStateHash": "e3b0c44298fc1c14"
+        "appSourceDirtyStateHash": "e3b0c44298fc1c14",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "local",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -21714,7 +21818,11 @@
         "gitSha": "fc4fb9469",
         "gitDirty": true,
         "gitDirtyStateHash": "208fbf43376fd37d",
-        "appSourceDirtyStateHash": "208fbf43376fd37d"
+        "appSourceDirtyStateHash": "208fbf43376fd37d",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "local",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -22301,7 +22409,11 @@
         "gitSha": "fc4fb9469",
         "gitDirty": true,
         "gitDirtyStateHash": "208fbf43376fd37d",
-        "appSourceDirtyStateHash": "208fbf43376fd37d"
+        "appSourceDirtyStateHash": "208fbf43376fd37d",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "local",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -22600,7 +22712,11 @@
         "gitSha": "fc4fb9469",
         "gitDirty": true,
         "gitDirtyStateHash": "653115ba42eb42bb",
-        "appSourceDirtyStateHash": "e3b0c44298fc1c14"
+        "appSourceDirtyStateHash": "e3b0c44298fc1c14",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "none",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -23198,7 +23314,11 @@
         "gitSha": "fc4fb9469",
         "gitDirty": true,
         "gitDirtyStateHash": "653115ba42eb42bb",
-        "appSourceDirtyStateHash": "e3b0c44298fc1c14"
+        "appSourceDirtyStateHash": "e3b0c44298fc1c14",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "none",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -23507,7 +23627,11 @@
         "gitSha": "5c59bc757",
         "gitDirty": true,
         "gitDirtyStateHash": "90f8265d491bb0c0",
-        "appSourceDirtyStateHash": "208fbf43376fd37d"
+        "appSourceDirtyStateHash": "208fbf43376fd37d",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "local",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -24094,7 +24218,11 @@
         "gitSha": "5c59bc757",
         "gitDirty": true,
         "gitDirtyStateHash": "90f8265d491bb0c0",
-        "appSourceDirtyStateHash": "208fbf43376fd37d"
+        "appSourceDirtyStateHash": "208fbf43376fd37d",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23",
+        "apiTopology": "local",
+        "apiTopologyProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -24394,7 +24522,9 @@
         "gitSha": "afa49dfdf",
         "gitDirty": true,
         "gitDirtyStateHash": "eaa78c5afb9bd9a7",
-        "appSourceDirtyStateHash": "eaa78c5afb9bd9a7"
+        "appSourceDirtyStateHash": "eaa78c5afb9bd9a7",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -24982,7 +25112,9 @@
         "gitSha": "afa49dfdf",
         "gitDirty": true,
         "gitDirtyStateHash": "eaa78c5afb9bd9a7",
-        "appSourceDirtyStateHash": "eaa78c5afb9bd9a7"
+        "appSourceDirtyStateHash": "eaa78c5afb9bd9a7",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -25282,7 +25414,9 @@
         "gitSha": "afa49dfdf",
         "gitDirty": true,
         "gitDirtyStateHash": "02f749c1c4bcc128",
-        "appSourceDirtyStateHash": "90f12afb0fa01b3d"
+        "appSourceDirtyStateHash": "90f12afb0fa01b3d",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -25870,7 +26004,9 @@
         "gitSha": "afa49dfdf",
         "gitDirty": true,
         "gitDirtyStateHash": "02f749c1c4bcc128",
-        "appSourceDirtyStateHash": "90f12afb0fa01b3d"
+        "appSourceDirtyStateHash": "90f12afb0fa01b3d",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -26170,7 +26306,9 @@
         "gitSha": "a5941fc8d",
         "gitDirty": true,
         "gitDirtyStateHash": "35620588dcd7a63b",
-        "appSourceDirtyStateHash": "35620588dcd7a63b"
+        "appSourceDirtyStateHash": "35620588dcd7a63b",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -26758,7 +26896,9 @@
         "gitSha": "a5941fc8d",
         "gitDirty": true,
         "gitDirtyStateHash": "35620588dcd7a63b",
-        "appSourceDirtyStateHash": "35620588dcd7a63b"
+        "appSourceDirtyStateHash": "35620588dcd7a63b",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -27058,7 +27198,9 @@
         "gitSha": "08e9c5fb0",
         "gitDirty": true,
         "gitDirtyStateHash": "048c67b82bd2963e",
-        "appSourceDirtyStateHash": "048c67b82bd2963e"
+        "appSourceDirtyStateHash": "048c67b82bd2963e",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -27646,7 +27788,9 @@
         "gitSha": "08e9c5fb0",
         "gitDirty": true,
         "gitDirtyStateHash": "048c67b82bd2963e",
-        "appSourceDirtyStateHash": "048c67b82bd2963e"
+        "appSourceDirtyStateHash": "048c67b82bd2963e",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -27946,7 +28090,9 @@
         "gitSha": "89b19e6f2",
         "gitDirty": true,
         "gitDirtyStateHash": "18f4fbcbad8f44e7",
-        "appSourceDirtyStateHash": "18f4fbcbad8f44e7"
+        "appSourceDirtyStateHash": "18f4fbcbad8f44e7",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -28534,7 +28680,9 @@
         "gitSha": "89b19e6f2",
         "gitDirty": true,
         "gitDirtyStateHash": "18f4fbcbad8f44e7",
-        "appSourceDirtyStateHash": "18f4fbcbad8f44e7"
+        "appSourceDirtyStateHash": "18f4fbcbad8f44e7",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -28834,7 +28982,9 @@
         "gitSha": "43e16f9a9",
         "gitDirty": true,
         "gitDirtyStateHash": "5ccc046cfae8905a",
-        "appSourceDirtyStateHash": "5ccc046cfae8905a"
+        "appSourceDirtyStateHash": "5ccc046cfae8905a",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -29422,7 +29572,9 @@
         "gitSha": "43e16f9a9",
         "gitDirty": true,
         "gitDirtyStateHash": "5ccc046cfae8905a",
-        "appSourceDirtyStateHash": "5ccc046cfae8905a"
+        "appSourceDirtyStateHash": "5ccc046cfae8905a",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -29722,7 +29874,9 @@
         "gitSha": "43f6df618",
         "gitDirty": true,
         "gitDirtyStateHash": "2cfd7878342a9877",
-        "appSourceDirtyStateHash": "2cfd7878342a9877"
+        "appSourceDirtyStateHash": "2cfd7878342a9877",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -30310,7 +30464,9 @@
         "gitSha": "43f6df618",
         "gitDirty": true,
         "gitDirtyStateHash": "2cfd7878342a9877",
-        "appSourceDirtyStateHash": "2cfd7878342a9877"
+        "appSourceDirtyStateHash": "2cfd7878342a9877",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -30610,7 +30766,9 @@
         "gitSha": "fbb8aab4d",
         "gitDirty": true,
         "gitDirtyStateHash": "57490c97acf54b90",
-        "appSourceDirtyStateHash": "57490c97acf54b90"
+        "appSourceDirtyStateHash": "57490c97acf54b90",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -31198,7 +31356,9 @@
         "gitSha": "fbb8aab4d",
         "gitDirty": true,
         "gitDirtyStateHash": "57490c97acf54b90",
-        "appSourceDirtyStateHash": "57490c97acf54b90"
+        "appSourceDirtyStateHash": "57490c97acf54b90",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -31498,7 +31658,9 @@
         "gitSha": "0a0313d79",
         "gitDirty": true,
         "gitDirtyStateHash": "7401c65deb3f0dd9",
-        "appSourceDirtyStateHash": "5c2434a4e8c5d6d0"
+        "appSourceDirtyStateHash": "5c2434a4e8c5d6d0",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -32086,7 +32248,9 @@
         "gitSha": "0a0313d79",
         "gitDirty": true,
         "gitDirtyStateHash": "7401c65deb3f0dd9",
-        "appSourceDirtyStateHash": "5c2434a4e8c5d6d0"
+        "appSourceDirtyStateHash": "5c2434a4e8c5d6d0",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -32386,7 +32550,9 @@
         "gitSha": "df3287c84",
         "gitDirty": true,
         "gitDirtyStateHash": "13fc23e03b09a6e8",
-        "appSourceDirtyStateHash": "13fc23e03b09a6e8"
+        "appSourceDirtyStateHash": "13fc23e03b09a6e8",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -32974,7 +33140,9 @@
         "gitSha": "df3287c84",
         "gitDirty": true,
         "gitDirtyStateHash": "13fc23e03b09a6e8",
-        "appSourceDirtyStateHash": "13fc23e03b09a6e8"
+        "appSourceDirtyStateHash": "13fc23e03b09a6e8",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -33274,7 +33442,9 @@
         "gitSha": "df3287c84",
         "gitDirty": true,
         "gitDirtyStateHash": "65f4eba214cfd593",
-        "appSourceDirtyStateHash": "2937abf4005ab6bc"
+        "appSourceDirtyStateHash": "2937abf4005ab6bc",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -33862,7 +34032,9 @@
         "gitSha": "df3287c84",
         "gitDirty": true,
         "gitDirtyStateHash": "65f4eba214cfd593",
-        "appSourceDirtyStateHash": "2937abf4005ab6bc"
+        "appSourceDirtyStateHash": "2937abf4005ab6bc",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -34162,7 +34334,9 @@
         "gitSha": "0ccff3c6b",
         "gitDirty": true,
         "gitDirtyStateHash": "c8fc6bad75a506d2",
-        "appSourceDirtyStateHash": "c8fc6bad75a506d2"
+        "appSourceDirtyStateHash": "c8fc6bad75a506d2",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -34750,7 +34924,9 @@
         "gitSha": "0ccff3c6b",
         "gitDirty": true,
         "gitDirtyStateHash": "c8fc6bad75a506d2",
-        "appSourceDirtyStateHash": "c8fc6bad75a506d2"
+        "appSourceDirtyStateHash": "c8fc6bad75a506d2",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -35050,7 +35226,9 @@
         "gitSha": "de8e599ea",
         "gitDirty": false,
         "gitDirtyStateHash": "e3b0c44298fc1c14",
-        "appSourceDirtyStateHash": "e3b0c44298fc1c14"
+        "appSourceDirtyStateHash": "e3b0c44298fc1c14",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "PP1": {
@@ -35638,7 +35816,9 @@
         "gitSha": "de8e599ea",
         "gitDirty": false,
         "gitDirtyStateHash": "e3b0c44298fc1c14",
-        "appSourceDirtyStateHash": "e3b0c44298fc1c14"
+        "appSourceDirtyStateHash": "e3b0c44298fc1c14",
+        "mediaDelivery": "proxy",
+        "mediaDeliveryProvenance": "operator-confirmed-2026-10-23"
       },
       "perceived": {
         "JA1": {
@@ -35888,6 +36068,1485 @@
           "dt_first_visible_frame_p95_ms": 157,
           "dt_visual_settled_ms": 155,
           "dt_visual_settled_p95_ms": 163,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "scenarioRevision": 2,
+          "resultRegime": "indexed",
+          "settledTotal": 2928,
+          "routes": [
+            "client-only"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "short",
+      "label": "deployment checkpoint - short suite",
+      "gitSha": "293b29f3b",
+      "gitDirty": true,
+      "timestamp": "2026-10-23T23:29:50.826Z",
+      "stableUntil": "2026-02-15T00:00:00.000Z",
+      "runs": 4,
+      "baseline_rtt_ms": 1,
+      "environment": {
+        "dataMode": "media-api",
+        "apiTopology": "deployed-test",
+        "mediaDelivery": "proxy",
+        "browserName": "chromium",
+        "browserVersion": "151.0.7922.34",
+        "viewport": {
+          "width": 1720,
+          "height": 960
+        },
+        "screen": {
+          "width": 1720,
+          "height": 960
+        },
+        "deviceScaleFactor": 2,
+        "appBaseUrl": "https://kupua.media.local.dev-gutools.co.uk",
+        "os": {
+          "platform": "darwin",
+          "release": "25.6.0",
+          "architecture": "arm64"
+        },
+        "headed": true,
+        "cpuThrottle": 0,
+        "cacheClass": "uncontrolled-browser-cache",
+        "workers": 1,
+        "stableUntil": "2026-02-15T00:00:00.000Z",
+        "gitSha": "293b29f3b",
+        "gitDirty": true,
+        "gitDirtyStateHash": "a468c5cdb757456a",
+        "appSourceDirtyStateHash": "23d5fdf11369a988"
+      },
+      "perceived": {
+        "PP1": {
+          "id": "PP1",
+          "label": "home-logo (pinned indexed query→unpinned home top)",
+          "action": "home-logo",
+          "sampleCount": 4,
+          "dt_ack_ms": 2,
+          "dt_ack_p95_ms": 2,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 699,
+          "dt_store_ready_p95_ms": 967,
+          "dt_first_visible_frame_ms": 854,
+          "dt_first_visible_frame_p95_ms": 1116,
+          "dt_visual_settled_ms": 868,
+          "dt_visual_settled_p95_ms": 1129,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 697,
+          "scenarioRevision": 2,
+          "resultRegime": "seek",
+          "settledTotalMin": 1332520,
+          "settledTotalMax": 1332521,
+          "routes": [
+            "media-api"
+          ]
+        },
+        "PP2": {
+          "id": "PP2",
+          "label": "sort-no-focus (Uploaded→Width)",
+          "action": "sort-no-focus",
+          "sampleCount": 4,
+          "dt_ack_ms": 70,
+          "dt_ack_p95_ms": 73,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 565,
+          "dt_store_ready_p95_ms": 591,
+          "dt_first_visible_frame_ms": 656,
+          "dt_first_visible_frame_p95_ms": 673,
+          "dt_visual_settled_ms": 664,
+          "dt_visual_settled_p95_ms": 680,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 495,
+          "scenarioRevision": 2,
+          "resultRegime": "seek",
+          "settledTotalMin": 1209492,
+          "settledTotalMax": 1209492,
+          "routes": [
+            "media-api"
+          ]
+        },
+        "PP3": {
+          "id": "PP3",
+          "label": "sort-around-focus (Credit)",
+          "action": "sort-around-focus",
+          "sampleCount": 4,
+          "dt_ack_ms": 70,
+          "dt_ack_p95_ms": 70,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 1011,
+          "dt_store_ready_p95_ms": 1049,
+          "dt_first_visible_frame_ms": 1153,
+          "dt_first_visible_frame_p95_ms": 1189,
+          "dt_visual_settled_ms": 1157,
+          "dt_visual_settled_p95_ms": 1198,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 459,
+          "scenarioRevision": 3,
+          "resultRegime": "seek",
+          "settledTotalMin": 1209492,
+          "settledTotalMax": 1209492,
+          "routes": [
+            "media-api"
+          ]
+        },
+        "PP4": {
+          "id": "PP4",
+          "label": "sort-direction-toggle (focused)",
+          "action": "sort-around-focus",
+          "sampleCount": 4,
+          "dt_ack_ms": 68,
+          "dt_ack_p95_ms": 70,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 980,
+          "dt_store_ready_p95_ms": 1038,
+          "dt_first_visible_frame_ms": 1080,
+          "dt_first_visible_frame_p95_ms": 1138,
+          "dt_visual_settled_ms": 1088,
+          "dt_visual_settled_p95_ms": 1147,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 436,
+          "scenarioRevision": 3,
+          "resultRegime": "seek",
+          "settledTotalMin": 1209492,
+          "settledTotalMax": 1209492,
+          "routes": [
+            "media-api"
+          ]
+        },
+        "PP5": {
+          "id": "PP5",
+          "label": "filter-toggle (free-to-use checkbox)",
+          "action": "filter-toggle",
+          "sampleCount": 4,
+          "dt_ack_ms": 67,
+          "dt_ack_p95_ms": 68,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 752,
+          "dt_store_ready_p95_ms": 834,
+          "dt_first_visible_frame_ms": 766,
+          "dt_first_visible_frame_p95_ms": 848,
+          "dt_visual_settled_ms": 770,
+          "dt_visual_settled_p95_ms": 850,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 503,
+          "scenarioRevision": 2,
+          "resultRegime": "seek",
+          "settledTotalMin": 1077894,
+          "settledTotalMax": 1077894,
+          "routes": [
+            "media-api"
+          ]
+        },
+        "PP6": {
+          "id": "PP6",
+          "label": "density-swap (grid→table)",
+          "action": "density-swap",
+          "sampleCount": 4,
+          "dt_ack_ms": null,
+          "dt_ack_p95_ms": null,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": null,
+          "dt_store_ready_p95_ms": null,
+          "dt_first_visible_frame_ms": 188,
+          "dt_first_visible_frame_p95_ms": 254,
+          "dt_visual_settled_ms": 211,
+          "dt_visual_settled_p95_ms": 261,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "scenarioRevision": 2,
+          "resultRegime": "seek",
+          "settledTotalMin": 1209492,
+          "settledTotalMax": 1209492,
+          "routes": [
+            "client-only"
+          ]
+        },
+        "PP7": {
+          "id": "PP7",
+          "label": "scrubber-seek (click 50%)",
+          "action": "scrubber-seek",
+          "sampleCount": 4,
+          "dt_ack_ms": 2,
+          "dt_ack_p95_ms": 2,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 958,
+          "dt_store_ready_p95_ms": 1077,
+          "dt_first_visible_frame_ms": 1144,
+          "dt_first_visible_frame_p95_ms": 1248,
+          "dt_visual_settled_ms": 1160,
+          "dt_visual_settled_p95_ms": 1263,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 733,
+          "seekTime": 956,
+          "scenarioRevision": 2,
+          "resultRegime": "seek",
+          "settledTotalMin": 1209492,
+          "settledTotalMax": 1209492,
+          "routes": [
+            "media-api"
+          ],
+          "requestedRatio": 0.511513520977006,
+          "achievedRatio": 0.5118533333443572,
+          "seekMeasures": [
+            {
+              "name": "seek: forward fetch",
+              "duration": 734
+            },
+            {
+              "name": "seek: total (to paint)",
+              "duration": 1158
+            },
+            {
+              "name": "seek: backward fetch",
+              "duration": 230
+            },
+            {
+              "name": "seek: compute + set()",
+              "duration": 1
+            },
+            {
+              "name": "seek: render + paint",
+              "duration": 196
+            }
+          ]
+        },
+        "PP7b": {
+          "id": "PP7b",
+          "label": "scrubber-drag release (seek mode)",
+          "action": "scrubber-seek",
+          "sampleCount": 4,
+          "dt_ack_ms": 1,
+          "dt_ack_p95_ms": 2,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 898,
+          "dt_store_ready_p95_ms": 946,
+          "dt_first_visible_frame_ms": 1074,
+          "dt_first_visible_frame_p95_ms": 1117,
+          "dt_visual_settled_ms": 1089,
+          "dt_visual_settled_p95_ms": 1130,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 559,
+          "seekTime": 896,
+          "scenarioRevision": 2,
+          "resultRegime": "seek",
+          "settledTotalMin": 1209492,
+          "settledTotalMax": 1209492,
+          "routes": [
+            "media-api"
+          ],
+          "requestedRatio": 0.7045980499234802,
+          "achievedRatio": 0.7045352135733131,
+          "seekMeasures": [
+            {
+              "name": "seek: forward fetch",
+              "duration": 633
+            },
+            {
+              "name": "seek: total (to paint)",
+              "duration": 1088
+            },
+            {
+              "name": "seek: backward fetch",
+              "duration": 255
+            },
+            {
+              "name": "seek: compute + set()",
+              "duration": 1
+            },
+            {
+              "name": "seek: render + paint",
+              "duration": 190
+            }
+          ]
+        },
+        "PP7c": {
+          "id": "PP7c",
+          "label": "scrubber-buffer (click, DOM scroll)",
+          "action": "scrubber-scroll",
+          "sampleCount": 4,
+          "dt_ack_ms": null,
+          "dt_ack_p95_ms": null,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": null,
+          "dt_store_ready_p95_ms": null,
+          "dt_first_visible_frame_ms": 126,
+          "dt_first_visible_frame_p95_ms": 137,
+          "dt_visual_settled_ms": 132,
+          "dt_visual_settled_p95_ms": 142,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "scenarioRevision": 2,
+          "resultRegime": "buffer",
+          "settledTotal": 517,
+          "routes": [
+            "client-only"
+          ],
+          "requestedRatio": 0.8003875968992248,
+          "achievedRatio": 0.8023255813953488
+        },
+        "PP8": {
+          "id": "PP8",
+          "label": "post-CQL warm search (sport)",
+          "action": "search",
+          "sampleCount": 4,
+          "dt_ack_ms": 70,
+          "dt_ack_p95_ms": 80,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 1147,
+          "dt_store_ready_p95_ms": 1214,
+          "dt_first_visible_frame_ms": 1165,
+          "dt_first_visible_frame_p95_ms": 1231,
+          "dt_visual_settled_ms": 1174,
+          "dt_visual_settled_p95_ms": 1238,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 458,
+          "scenarioRevision": 3,
+          "resultRegime": "seek",
+          "settledTotalMin": 288134,
+          "settledTotalMax": 288134,
+          "routes": [
+            "media-api"
+          ]
+        },
+        "PP9": {
+          "id": "PP9",
+          "label": "cql-chip-remove (subject:sport→empty, anchor preserved)",
+          "action": "chip-remove",
+          "sampleCount": 4,
+          "dt_ack_ms": 400,
+          "dt_ack_p95_ms": 414,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 853,
+          "dt_store_ready_p95_ms": 901,
+          "dt_first_visible_frame_ms": 1072,
+          "dt_first_visible_frame_p95_ms": 1110,
+          "dt_visual_settled_ms": 1093,
+          "dt_visual_settled_p95_ms": 1127,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 444,
+          "scenarioRevision": 2,
+          "resultRegime": "seek",
+          "settledTotalMin": 1209492,
+          "settledTotalMax": 1209492,
+          "routes": [
+            "media-api"
+          ],
+          "anchorDriftPx": 0,
+          "anchorDriftRatio": 0
+        },
+        "PP10": {
+          "id": "PP10",
+          "label": "position-map background publication (fixed indexed context)",
+          "action": "position-map",
+          "sampleCount": 4,
+          "dt_ack_ms": null,
+          "dt_ack_p95_ms": null,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 1289,
+          "dt_store_ready_p95_ms": 1936,
+          "dt_first_visible_frame_ms": null,
+          "dt_first_visible_frame_p95_ms": null,
+          "dt_visual_settled_ms": null,
+          "dt_visual_settled_p95_ms": null,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 632,
+          "scenarioRevision": 2,
+          "resultRegime": "indexed",
+          "metricClass": "background-diagnostic",
+          "mapEntryCount": 21627,
+          "settledTotal": 21627,
+          "routes": [
+            "media-api"
+          ]
+        },
+        "PP11": {
+          "id": "PP11",
+          "label": "history-back (exact deep focused anchor)",
+          "action": "history-back",
+          "sampleCount": 4,
+          "dt_ack_ms": 32,
+          "dt_ack_p95_ms": 51,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 1036,
+          "dt_store_ready_p95_ms": 1166,
+          "dt_first_visible_frame_ms": 1223,
+          "dt_first_visible_frame_p95_ms": 1354,
+          "dt_visual_settled_ms": 1247,
+          "dt_visual_settled_p95_ms": 1376,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 491,
+          "scenarioRevision": 1,
+          "resultRegime": "seek",
+          "setupGlobalPosition": 768,
+          "setupBufferOffset": 700,
+          "setupBufferLength": 200,
+          "settledTotalMin": 1209492,
+          "settledTotalMax": 1209492,
+          "routes": [
+            "media-api"
+          ],
+          "anchorDriftPx": 0,
+          "anchorDriftRatio": 0
+        },
+        "PP6b": {
+          "id": "PP6b",
+          "label": "density-swap-mid (grid→table, mid-buffer)",
+          "action": "density-swap",
+          "sampleCount": 4,
+          "dt_ack_ms": null,
+          "dt_ack_p95_ms": null,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": null,
+          "dt_store_ready_p95_ms": null,
+          "dt_first_visible_frame_ms": 196,
+          "dt_first_visible_frame_p95_ms": 206,
+          "dt_visual_settled_ms": 210,
+          "dt_visual_settled_p95_ms": 213,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "scenarioRevision": 2,
+          "resultRegime": "seek",
+          "setupGlobalPosition": 90,
+          "setupBufferOffset": 0,
+          "setupBufferLength": 400,
+          "setupVisibleRangeRatio": 0.5,
+          "setupExtended": true,
+          "settledTotalMin": 1209492,
+          "settledTotalMax": 1209492,
+          "routes": [
+            "client-only"
+          ]
+        },
+        "PP6c": {
+          "id": "PP6c",
+          "label": "density-swap-post-eviction (grid→table)",
+          "action": "density-swap",
+          "sampleCount": 4,
+          "dt_ack_ms": null,
+          "dt_ack_p95_ms": null,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": null,
+          "dt_store_ready_p95_ms": null,
+          "dt_first_visible_frame_ms": 230,
+          "dt_first_visible_frame_p95_ms": 239,
+          "dt_visual_settled_ms": 242,
+          "dt_visual_settled_p95_ms": 246,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "scenarioRevision": 2,
+          "resultRegime": "seek",
+          "setupGlobalPosition": 690,
+          "setupBufferOffset": 0,
+          "setupBufferLength": 1000,
+          "setupExtended": true,
+          "setupEvictGeneration": 1,
+          "setupEvictedCount": 200,
+          "settledTotalMin": 1209492,
+          "settledTotalMax": 1209492,
+          "routes": [
+            "client-only"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "short",
+      "label": "deployment checkpoint - canonical media",
+      "gitSha": "293b29f3b",
+      "gitDirty": true,
+      "timestamp": "2026-10-24T08:33:51.333Z",
+      "stableUntil": "2026-02-15T00:00:00.000Z",
+      "runs": 4,
+      "baseline_rtt_ms": 2,
+      "environment": {
+        "dataMode": "media-api",
+        "apiTopology": "deployed-test",
+        "mediaDelivery": "canonical",
+        "browserName": "chromium",
+        "browserVersion": "151.0.7922.34",
+        "viewport": {
+          "width": 1720,
+          "height": 960
+        },
+        "screen": {
+          "width": 1720,
+          "height": 960
+        },
+        "deviceScaleFactor": 2,
+        "appBaseUrl": "https://kupua.media.local.dev-gutools.co.uk",
+        "os": {
+          "platform": "darwin",
+          "release": "25.6.0",
+          "architecture": "arm64"
+        },
+        "headed": true,
+        "cpuThrottle": 0,
+        "cacheClass": "uncontrolled-browser-cache",
+        "workers": 1,
+        "stableUntil": "2026-02-15T00:00:00.000Z",
+        "gitSha": "293b29f3b",
+        "gitDirty": true,
+        "gitDirtyStateHash": "6315b7a73b5cba68",
+        "appSourceDirtyStateHash": "b584b82db7e335c9"
+      },
+      "perceived": {
+        "PP1": {
+          "id": "PP1",
+          "label": "home-logo (pinned indexed query→unpinned home top)",
+          "action": "home-logo",
+          "sampleCount": 4,
+          "dt_ack_ms": 2,
+          "dt_ack_p95_ms": 2,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 696,
+          "dt_store_ready_p95_ms": 1006,
+          "dt_first_visible_frame_ms": 839,
+          "dt_first_visible_frame_p95_ms": 1142,
+          "dt_visual_settled_ms": 851,
+          "dt_visual_settled_p95_ms": 1155,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 694,
+          "scenarioRevision": 2,
+          "resultRegime": "seek",
+          "settledTotalMin": 1332494,
+          "settledTotalMax": 1332497,
+          "routes": [
+            "media-api"
+          ]
+        },
+        "PP2": {
+          "id": "PP2",
+          "label": "sort-no-focus (Uploaded→Width)",
+          "action": "sort-no-focus",
+          "sampleCount": 4,
+          "dt_ack_ms": 68,
+          "dt_ack_p95_ms": 69,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 501,
+          "dt_store_ready_p95_ms": 529,
+          "dt_first_visible_frame_ms": 581,
+          "dt_first_visible_frame_p95_ms": 613,
+          "dt_visual_settled_ms": 588,
+          "dt_visual_settled_p95_ms": 621,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 434,
+          "scenarioRevision": 2,
+          "resultRegime": "seek",
+          "settledTotalMin": 1209307,
+          "settledTotalMax": 1209307,
+          "routes": [
+            "media-api"
+          ]
+        },
+        "PP3": {
+          "id": "PP3",
+          "label": "sort-around-focus (Credit)",
+          "action": "sort-around-focus",
+          "sampleCount": 4,
+          "dt_ack_ms": 68,
+          "dt_ack_p95_ms": 71,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 971,
+          "dt_store_ready_p95_ms": 1059,
+          "dt_first_visible_frame_ms": 1106,
+          "dt_first_visible_frame_p95_ms": 1197,
+          "dt_visual_settled_ms": 1114,
+          "dt_visual_settled_p95_ms": 1206,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 409,
+          "scenarioRevision": 3,
+          "resultRegime": "seek",
+          "settledTotalMin": 1209307,
+          "settledTotalMax": 1209307,
+          "routes": [
+            "media-api"
+          ]
+        },
+        "PP4": {
+          "id": "PP4",
+          "label": "sort-direction-toggle (focused)",
+          "action": "sort-around-focus",
+          "sampleCount": 4,
+          "dt_ack_ms": 69,
+          "dt_ack_p95_ms": 69,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 890,
+          "dt_store_ready_p95_ms": 1009,
+          "dt_first_visible_frame_ms": 975,
+          "dt_first_visible_frame_p95_ms": 1096,
+          "dt_visual_settled_ms": 984,
+          "dt_visual_settled_p95_ms": 1104,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 406,
+          "scenarioRevision": 3,
+          "resultRegime": "seek",
+          "settledTotalMin": 1209307,
+          "settledTotalMax": 1209307,
+          "routes": [
+            "media-api"
+          ]
+        },
+        "PP5": {
+          "id": "PP5",
+          "label": "filter-toggle (free-to-use checkbox)",
+          "action": "filter-toggle",
+          "sampleCount": 4,
+          "dt_ack_ms": 67,
+          "dt_ack_p95_ms": 68,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 716,
+          "dt_store_ready_p95_ms": 736,
+          "dt_first_visible_frame_ms": 729,
+          "dt_first_visible_frame_p95_ms": 748,
+          "dt_visual_settled_ms": 730,
+          "dt_visual_settled_p95_ms": 751,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 495,
+          "scenarioRevision": 2,
+          "resultRegime": "seek",
+          "settledTotalMin": 1077709,
+          "settledTotalMax": 1077709,
+          "routes": [
+            "media-api"
+          ]
+        },
+        "PP6": {
+          "id": "PP6",
+          "label": "density-swap (grid→table)",
+          "action": "density-swap",
+          "sampleCount": 4,
+          "dt_ack_ms": null,
+          "dt_ack_p95_ms": null,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": null,
+          "dt_store_ready_p95_ms": null,
+          "dt_first_visible_frame_ms": 195,
+          "dt_first_visible_frame_p95_ms": 196,
+          "dt_visual_settled_ms": 204,
+          "dt_visual_settled_p95_ms": 205,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "scenarioRevision": 2,
+          "resultRegime": "seek",
+          "settledTotalMin": 1209307,
+          "settledTotalMax": 1209307,
+          "routes": [
+            "client-only"
+          ]
+        },
+        "PP7": {
+          "id": "PP7",
+          "label": "scrubber-seek (click 50%)",
+          "action": "scrubber-seek",
+          "sampleCount": 4,
+          "dt_ack_ms": 2,
+          "dt_ack_p95_ms": 2,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 932,
+          "dt_store_ready_p95_ms": 1141,
+          "dt_first_visible_frame_ms": 1103,
+          "dt_first_visible_frame_p95_ms": 1306,
+          "dt_visual_settled_ms": 1114,
+          "dt_visual_settled_p95_ms": 1317,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 598,
+          "seekTime": 930,
+          "scenarioRevision": 2,
+          "resultRegime": "seek",
+          "settledTotalMin": 1209307,
+          "settledTotalMax": 1209307,
+          "routes": [
+            "media-api"
+          ],
+          "requestedRatio": 0.511513215017539,
+          "achievedRatio": 0.5096394130187066,
+          "seekMeasures": [
+            {
+              "name": "seek: forward fetch",
+              "duration": 695
+            },
+            {
+              "name": "seek: total (to paint)",
+              "duration": 1113
+            },
+            {
+              "name": "seek: backward fetch",
+              "duration": 249
+            },
+            {
+              "name": "seek: compute + set()",
+              "duration": 1
+            },
+            {
+              "name": "seek: render + paint",
+              "duration": 182
+            }
+          ]
+        },
+        "PP7b": {
+          "id": "PP7b",
+          "label": "scrubber-drag release (seek mode)",
+          "action": "scrubber-seek",
+          "sampleCount": 4,
+          "dt_ack_ms": 1,
+          "dt_ack_p95_ms": 2,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 932,
+          "dt_store_ready_p95_ms": 1118,
+          "dt_first_visible_frame_ms": 1094,
+          "dt_first_visible_frame_p95_ms": 1283,
+          "dt_visual_settled_ms": 1105,
+          "dt_visual_settled_p95_ms": 1295,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 597,
+          "seekTime": 930,
+          "scenarioRevision": 2,
+          "resultRegime": "seek",
+          "settledTotalMin": 1209307,
+          "settledTotalMax": 1209307,
+          "routes": [
+            "media-api"
+          ],
+          "requestedRatio": 0.704598339874275,
+          "achievedRatio": 0.7031313827931062,
+          "seekMeasures": [
+            {
+              "name": "seek: forward fetch",
+              "duration": 713
+            },
+            {
+              "name": "seek: total (to paint)",
+              "duration": 1104
+            },
+            {
+              "name": "seek: backward fetch",
+              "duration": 227
+            },
+            {
+              "name": "seek: compute + set()",
+              "duration": 1
+            },
+            {
+              "name": "seek: render + paint",
+              "duration": 174
+            }
+          ]
+        },
+        "PP7c": {
+          "id": "PP7c",
+          "label": "scrubber-buffer (click, DOM scroll)",
+          "action": "scrubber-scroll",
+          "sampleCount": 4,
+          "dt_ack_ms": null,
+          "dt_ack_p95_ms": null,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": null,
+          "dt_store_ready_p95_ms": null,
+          "dt_first_visible_frame_ms": 120,
+          "dt_first_visible_frame_p95_ms": 120,
+          "dt_visual_settled_ms": 126,
+          "dt_visual_settled_p95_ms": 135,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "scenarioRevision": 2,
+          "resultRegime": "buffer",
+          "settledTotal": 517,
+          "routes": [
+            "client-only"
+          ],
+          "requestedRatio": 0.8003875968992248,
+          "achievedRatio": 0.8023255813953488
+        },
+        "PP8": {
+          "id": "PP8",
+          "label": "post-CQL warm search (sport)",
+          "action": "search",
+          "sampleCount": 4,
+          "dt_ack_ms": 70,
+          "dt_ack_p95_ms": 73,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 1051,
+          "dt_store_ready_p95_ms": 1141,
+          "dt_first_visible_frame_ms": 1069,
+          "dt_first_visible_frame_p95_ms": 1156,
+          "dt_visual_settled_ms": 1078,
+          "dt_visual_settled_p95_ms": 1165,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 408,
+          "scenarioRevision": 3,
+          "resultRegime": "seek",
+          "settledTotalMin": 288060,
+          "settledTotalMax": 288060,
+          "routes": [
+            "media-api"
+          ]
+        },
+        "PP9": {
+          "id": "PP9",
+          "label": "cql-chip-remove (subject:sport→empty, anchor preserved)",
+          "action": "chip-remove",
+          "sampleCount": 4,
+          "dt_ack_ms": 396,
+          "dt_ack_p95_ms": 413,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 837,
+          "dt_store_ready_p95_ms": 863,
+          "dt_first_visible_frame_ms": 1034,
+          "dt_first_visible_frame_p95_ms": 1066,
+          "dt_visual_settled_ms": 1050,
+          "dt_visual_settled_p95_ms": 1081,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 442,
+          "scenarioRevision": 2,
+          "resultRegime": "seek",
+          "settledTotalMin": 1209307,
+          "settledTotalMax": 1209307,
+          "routes": [
+            "media-api"
+          ],
+          "anchorDriftPx": 0,
+          "anchorDriftRatio": 0
+        },
+        "PP10": {
+          "id": "PP10",
+          "label": "position-map background publication (fixed indexed context)",
+          "action": "position-map",
+          "sampleCount": 4,
+          "dt_ack_ms": null,
+          "dt_ack_p95_ms": null,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 1447,
+          "dt_store_ready_p95_ms": 1699,
+          "dt_first_visible_frame_ms": null,
+          "dt_first_visible_frame_p95_ms": null,
+          "dt_visual_settled_ms": null,
+          "dt_visual_settled_p95_ms": null,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 543,
+          "scenarioRevision": 2,
+          "resultRegime": "indexed",
+          "metricClass": "background-diagnostic",
+          "mapEntryCount": 21627,
+          "settledTotal": 21627,
+          "routes": [
+            "media-api"
+          ]
+        },
+        "PP11": {
+          "id": "PP11",
+          "label": "history-back (exact deep focused anchor)",
+          "action": "history-back",
+          "sampleCount": 4,
+          "dt_ack_ms": 30,
+          "dt_ack_p95_ms": 33,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 960,
+          "dt_store_ready_p95_ms": 1040,
+          "dt_first_visible_frame_ms": 1150,
+          "dt_first_visible_frame_p95_ms": 1220,
+          "dt_visual_settled_ms": 1171,
+          "dt_visual_settled_p95_ms": 1240,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 514,
+          "scenarioRevision": 1,
+          "resultRegime": "seek",
+          "setupGlobalPosition": 768,
+          "setupBufferOffset": 700,
+          "setupBufferLength": 200,
+          "settledTotalMin": 1209307,
+          "settledTotalMax": 1209307,
+          "routes": [
+            "media-api"
+          ],
+          "anchorDriftPx": 0,
+          "anchorDriftRatio": 0
+        },
+        "PP6b": {
+          "id": "PP6b",
+          "label": "density-swap-mid (grid→table, mid-buffer)",
+          "action": "density-swap",
+          "sampleCount": 4,
+          "dt_ack_ms": null,
+          "dt_ack_p95_ms": null,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": null,
+          "dt_store_ready_p95_ms": null,
+          "dt_first_visible_frame_ms": 200,
+          "dt_first_visible_frame_p95_ms": 209,
+          "dt_visual_settled_ms": 207,
+          "dt_visual_settled_p95_ms": 218,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "scenarioRevision": 2,
+          "resultRegime": "seek",
+          "setupGlobalPosition": 90,
+          "setupBufferOffset": 0,
+          "setupBufferLength": 400,
+          "setupVisibleRangeRatio": 0.5,
+          "setupExtended": true,
+          "settledTotalMin": 1209307,
+          "settledTotalMax": 1209307,
+          "routes": [
+            "client-only"
+          ]
+        },
+        "PP6c": {
+          "id": "PP6c",
+          "label": "density-swap-post-eviction (grid→table)",
+          "action": "density-swap",
+          "sampleCount": 4,
+          "dt_ack_ms": null,
+          "dt_ack_p95_ms": null,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": null,
+          "dt_store_ready_p95_ms": null,
+          "dt_first_visible_frame_ms": 206,
+          "dt_first_visible_frame_p95_ms": 226,
+          "dt_visual_settled_ms": 213,
+          "dt_visual_settled_p95_ms": 233,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "scenarioRevision": 2,
+          "resultRegime": "seek",
+          "setupGlobalPosition": 690,
+          "setupBufferOffset": 0,
+          "setupBufferLength": 1000,
+          "setupExtended": true,
+          "setupEvictGeneration": 1,
+          "setupEvictedCount": 200,
+          "settledTotalMin": 1209307,
+          "settledTotalMax": 1209307,
+          "routes": [
+            "client-only"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "long",
+      "label": "deployment checkpoint - canonical media",
+      "gitSha": "293b29f3b",
+      "gitDirty": true,
+      "timestamp": "2026-10-24T08:36:16.196Z",
+      "stableUntil": "2026-02-15T00:00:00.000Z",
+      "runs": 4,
+      "baseline_rtt_ms": 2,
+      "environment": {
+        "dataMode": "media-api",
+        "apiTopology": "deployed-test",
+        "mediaDelivery": "canonical",
+        "browserName": "chromium",
+        "browserVersion": "151.0.7922.34",
+        "viewport": {
+          "width": 1720,
+          "height": 960
+        },
+        "screen": {
+          "width": 1720,
+          "height": 960
+        },
+        "deviceScaleFactor": 2,
+        "appBaseUrl": "https://kupua.media.local.dev-gutools.co.uk",
+        "os": {
+          "platform": "darwin",
+          "release": "25.6.0",
+          "architecture": "arm64"
+        },
+        "headed": true,
+        "cpuThrottle": 0,
+        "cacheClass": "uncontrolled-browser-cache",
+        "workers": 1,
+        "stableUntil": "2026-02-15T00:00:00.000Z",
+        "gitSha": "293b29f3b",
+        "gitDirty": true,
+        "gitDirtyStateHash": "6315b7a73b5cba68",
+        "appSourceDirtyStateHash": "b584b82db7e335c9"
+      },
+      "perceived": {
+        "JA1": {
+          "id": "JA1",
+          "label": "cold buffer navigation",
+          "action": "navigation-search",
+          "sampleCount": 4,
+          "dt_ack_ms": null,
+          "dt_ack_p95_ms": null,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 931,
+          "dt_store_ready_p95_ms": 1280,
+          "dt_first_visible_frame_ms": 1019,
+          "dt_first_visible_frame_p95_ms": 1528,
+          "dt_visual_settled_ms": 1025,
+          "dt_visual_settled_p95_ms": 1536,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 574,
+          "scenarioRevision": 2,
+          "resultRegime": "buffer",
+          "settledTotal": 517,
+          "routes": [
+            "media-api"
+          ]
+        },
+        "JA2": {
+          "id": "JA2",
+          "label": "image-dblclick decoded detail",
+          "action": "open-detail",
+          "sampleCount": 4,
+          "dt_ack_ms": null,
+          "dt_ack_p95_ms": null,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 134,
+          "dt_store_ready_p95_ms": 224,
+          "dt_first_visible_frame_ms": 6466,
+          "dt_first_visible_frame_p95_ms": 18047,
+          "dt_visual_settled_ms": 6474,
+          "dt_visual_settled_p95_ms": 18056,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 574,
+          "scenarioRevision": 2,
+          "resultRegime": "buffer",
+          "settledTotal": 517,
+          "routes": [
+            "media-api"
+          ]
+        },
+        "JA3": {
+          "id": "JA3",
+          "label": "metadata-click colourModel:RGB",
+          "action": "metadata-click",
+          "sampleCount": 4,
+          "dt_ack_ms": 58,
+          "dt_ack_p95_ms": 58,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 997,
+          "dt_store_ready_p95_ms": 1045,
+          "dt_first_visible_frame_ms": 1106,
+          "dt_first_visible_frame_p95_ms": 1148,
+          "dt_visual_settled_ms": 1117,
+          "dt_visual_settled_p95_ms": 1157,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 467,
+          "scenarioRevision": 2,
+          "resultRegime": "seek",
+          "settledTotalMin": 1207135,
+          "settledTotalMax": 1207135,
+          "routes": [
+            "media-api"
+          ]
+        },
+        "JB1": {
+          "id": "JB1",
+          "label": "cold indexed navigation",
+          "action": "navigation-search",
+          "sampleCount": 4,
+          "dt_ack_ms": null,
+          "dt_ack_p95_ms": null,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 917,
+          "dt_store_ready_p95_ms": 1223,
+          "dt_first_visible_frame_ms": 1015,
+          "dt_first_visible_frame_p95_ms": 1330,
+          "dt_visual_settled_ms": 1020,
+          "dt_visual_settled_p95_ms": 1339,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 556,
+          "scenarioRevision": 2,
+          "resultRegime": "indexed",
+          "settledTotal": 21627,
+          "routes": [
+            "media-api"
+          ]
+        },
+        "JB2": {
+          "id": "JB2",
+          "label": "facet-click subject:sport",
+          "action": "facet-click",
+          "sampleCount": 4,
+          "dt_ack_ms": 65,
+          "dt_ack_p95_ms": 80,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 897,
+          "dt_store_ready_p95_ms": 1499,
+          "dt_first_visible_frame_ms": 972,
+          "dt_first_visible_frame_p95_ms": 1502,
+          "dt_visual_settled_ms": 976,
+          "dt_visual_settled_p95_ms": 1511,
+          "matched_control_first_visible_ms": 938,
+          "matched_control_first_visible_p95_ms": 1564,
+          "matched_control_settled_ms": 947,
+          "matched_control_settled_p95_ms": 1568,
+          "fetchDuration": 419,
+          "aggFetchDuration": 232,
+          "scenarioRevision": 2,
+          "resultRegime": "indexed",
+          "matchedControlDesign": "alternating-ab-ba",
+          "settledTotal": 7363,
+          "routes": [
+            "media-api"
+          ],
+          "matchedControlRoutes": [
+            "media-api"
+          ]
+        },
+        "JB3": {
+          "id": "JB3",
+          "label": "facet-exclude -colourProfile:sRGB",
+          "action": "facet-click",
+          "sampleCount": 4,
+          "dt_ack_ms": 65,
+          "dt_ack_p95_ms": 67,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": 620,
+          "dt_store_ready_p95_ms": 675,
+          "dt_first_visible_frame_ms": 694,
+          "dt_first_visible_frame_p95_ms": 728,
+          "dt_visual_settled_ms": 700,
+          "dt_visual_settled_p95_ms": 731,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 558,
+          "aggFetchDuration": 232,
+          "scenarioRevision": 2,
+          "resultRegime": "indexed",
+          "settledTotal": 2928,
+          "routes": [
+            "media-api"
+          ]
+        },
+        "JB4": {
+          "id": "JB4",
+          "label": "scrubber-indexed-scroll ~50%",
+          "action": "scrubber-scroll",
+          "sampleCount": 4,
+          "dt_ack_ms": null,
+          "dt_ack_p95_ms": null,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": null,
+          "dt_native_exit_p95_ms": null,
+          "dt_store_ready_ms": null,
+          "dt_store_ready_p95_ms": null,
+          "dt_first_visible_frame_ms": 770,
+          "dt_first_visible_frame_p95_ms": 788,
+          "dt_visual_settled_ms": 775,
+          "dt_visual_settled_p95_ms": 812,
+          "matched_control_first_visible_ms": null,
+          "matched_control_first_visible_p95_ms": null,
+          "matched_control_settled_ms": null,
+          "matched_control_settled_p95_ms": null,
+          "fetchDuration": 558,
+          "seekTime": 442,
+          "aggFetchDuration": 232,
+          "scenarioRevision": 2,
+          "resultRegime": "indexed",
+          "settledTotal": 2928,
+          "routes": [
+            "media-api"
+          ],
+          "requestedRatio": 0.5001708233686368,
+          "achievedRatio": 0.509053638537752
+        },
+        "JB5": {
+          "id": "JB5",
+          "label": "fullscreen-preview exit after 20 traversals",
+          "action": "fullscreen-exit",
+          "sampleCount": 4,
+          "dt_ack_ms": null,
+          "dt_ack_p95_ms": null,
+          "dt_status_ms": null,
+          "dt_status_p95_ms": null,
+          "status_total_ms": null,
+          "status_total_p95_ms": null,
+          "dt_native_exit_ms": 1,
+          "dt_native_exit_p95_ms": 1,
+          "dt_store_ready_ms": null,
+          "dt_store_ready_p95_ms": null,
+          "dt_first_visible_frame_ms": 156,
+          "dt_first_visible_frame_p95_ms": 163,
+          "dt_visual_settled_ms": 158,
+          "dt_visual_settled_p95_ms": 172,
           "matched_control_first_visible_ms": null,
           "matched_control_first_visible_p95_ms": null,
           "matched_control_settled_ms": null,

@@ -5,6 +5,8 @@
     "types": ["node", "vite/client"],
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
     "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,

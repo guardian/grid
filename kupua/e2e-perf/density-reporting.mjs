@@ -454,7 +454,8 @@ export function densityEnvironmentKey(environment) {
     || !Number.isInteger(environment.workers) || environment.workers < 1 || typeof environment.headed !== "boolean") return null;
   // Git/source identity remains provenance, not an environment dimension: deliberate
   // before/after code comparisons are possible, but never across missing fingerprints.
-  return keyFor(Object.fromEntries(environmentFields.map((field) => [field, environment[field]])));
+  return keyFor({ ...Object.fromEntries(environmentFields.map((field) => [field, environment[field]])),
+    mediaDelivery: environment.mediaDelivery ?? "unknown" });
 }
 
 export function densityRecordsComparable(left, right, leftEnvironment, rightEnvironment, { paired = false } = {}) {
