@@ -42,6 +42,21 @@ unchanged retained inputs must skip, with rendering scaled to entering images.
 These are not live/hosted frame-speed claims. They own their browser/contexts;
 the operator-shared app and server are not used or reconfigured.
 
+### Table Request Lifetime
+
+The focused `--grep 'F2 Table'` controls qualify Table's detached-incomplete request
+lifetime using production cleanup versus a fixture-only cleanup-disabled counterfactual.
+They reuse the held-image,
+scroll/readiness and journey/thumbnail/request probes, with bounded ephemeral ownership
+association. The first desired-release assertion failed against production Table;
+retained baseline arms now assert that historical behavior explicitly. Two-order forward
+pressure arms and one bounded short-reversal pair retain readiness, repeated-request and
+cancellation costs. Results live under `f2TableOwnership20261025` in the existing
+[evidence record](../../exploration/docs/scroll-horizons-thumb-lookahead-results.json)
+and [Table qualification](../../exploration/docs/scroll-horizons-thumbs-and-blocking.md#table-ownership-qualification-25-october-2026).
+These synthetic controls do not certify live/canonical performance; the selected product
+policy remains detached-incomplete release, not a new admission scheduler.
+
 ## Legacy Experiments
 
 `npm --prefix kupua run test:experiment` retains the separately supervised tuning

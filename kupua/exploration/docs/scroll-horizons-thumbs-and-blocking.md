@@ -653,6 +653,101 @@ Do not repeat warm arms looking for a win or expand cancellation without a named
 remaining ownership problem. A passed-by image may be useful again; no strict
 centre-out completion order or deliberate withholding of ready images is required.
 
+### Table Ownership Qualification (25 October 2026)
+
+The initial investigation below preceded the approved product implementation recorded
+in the follow-up. The Table lead is a reproduced lifetime defect, not an inference from global
+campaign counts. A held native request remained unfinished and unaborted after its
+actual Table row detached; the original assertion requiring source release failed.
+Injecting only Grid's captured-ref/passive detached-incomplete cleanup into the served
+TableThumbnail response removed the source and the loopback server observed abort.
+Production code was not edited. The candidate survived connected rerender/development
+Strict Mode, reacquired its source on reversal, preserved a shared native consumer and
+left a completed detached image intact. Re-entry used two target requests, not zero-cost reuse.
+
+The existing F2 research file also compared baseline/candidate then candidate/baseline
+using 400 resident mock results, 373-result runway, 1720x960/DPR2, exactly 6400px of
+forward work at requested 100 results/s, and a four-second recovery cap. Setup was
+unthrottled and drained; measured delivery used 80ms/4Mibit CDP pressure and 24,698-byte
+padded SVGs from a loopback HTTP/1 server. Exact stopped paths matched within blocks;
+the result array did not change during motion. This is not a canonical/photo campaign.
+
+| Policy / block | Detached-only pending at stop | All pending at stop / after recovery | Decoded endpoint | Frame-p95 / worst interval ms |
+| --- | --- | --- | --- | --- |
+| Baseline 1 | 120 | 163 / 80 | 0/29 at cap; latency unavailable | 17.6 / 91.4 |
+| Candidate 1 | 0 | 43 / 0 | 29/29 at 2112.9ms | 17.1 / 26.5 |
+| Candidate 2 | 0 | 43 / 0 | 29/29 at 2077.9ms | 17.5 / 25.1 |
+| Baseline 2 | 119 | 163 / 79 | 0/29 at cap; latency unavailable | 17.5 / 25.9 |
+
+Ephemeral element/path association accounted for every pending request: all arms had
+27 usable current pending slots and 16-17 mounted-offscreen pending requests. The
+readiness helper counted 29 intersecting images including its sticky-header band;
+do not merge that with the 27 usable slots or the canonical 28-image aggregate.
+Ownership was sampled just after stop, not as an atomic conservation timeline.
+
+Adverse outcomes remain: moving pending exposure stayed about 92%, every arm recorded
+28px maximum sampled resize, and the candidate made 151 cancellations through recovery.
+Those cancellations are included in the probe's 151 request failures; no non-cancellation
+failures, HTTP errors or failed visible media were recorded. All arms had zero measured
+buffer-edge blocking/displacement; frame-p95 ranged 17.1-17.6ms at achieved 97.8-98.6 results/s.
+No frame non-regression, paint correctness, upstream savings or quantified revisit cost
+follows. Retain the adverse 91.4ms baseline interval rather than excluding it.
+
+**Recommendation:** apply only the existing Grid lifetime rule to TableThumbnail,
+preserving native lazy admission, overscan, source selection and error behavior.
+Promote the same functional lifecycle contract into the existing ordinary E2E file,
+add focused unit coverage, then run the full app unit/E2E gates for that product edit.
+There is no independent admission-policy defect to justify a scheduler, mounted-source
+sweep or buffer change. The investigation stopped at findings before the operator approved
+the narrow product implementation below.
+
+Sanitized rows and setup exclusions are retained under `f2TableOwnership20261025` in
+the existing research JSON. The first pressure setup changed data during motion and
+was excluded; the repaired setup reused maintenance-cooldown ordering and asserted
+400 residents before timing. A failed React import injection was likewise setup-only.
+No live TEST access, shared-server operations, proxy changes or campaign writes occurred.
+
+#### Production Follow-Up and Reversal Cost
+
+TableThumbnail now applies the same detached-incomplete passive cleanup guard. Its
+effect follows the URL because, unlike Grid, it renders no image for an absent URL;
+failing-first unit coverage caught the late-URL case that a mount-only effect missed.
+Native lazy admission, overscan, source selection, dimensions and error handling stay
+unchanged. The ordinary Grid lifecycle test now also exercises Table without a new fixture.
+
+The same forward controls now use real production cleanup versus an intercepted
+cleanup-disabled counterfactual. Both treatment orders reproduced 29/29 decoded at
+2099.4/2106.1ms versus 0/29 at the four-second cap, removing 120 detached-only pending
+requests. Moving pending exposure remained about 92%, resize 28px and displacement/blocking
+zero; frame-p95 was 17.2-18.6ms across the four observations, not a tail certificate.
+
+One additional matched pair travelled 6400px forward then 1600px backward under the
+same pressure, with exact stopped paths and unchanged data. It quantifies a real cost:
+
+| Reversal outcome | No cleanup | Production cleanup |
+| --- | --- | --- |
+| Current decoded endpoint | 9/29 at cap; latency unavailable | 29/29 at 1983.2ms |
+| Request starts / repeated starts | 200 / 0 | 239 / 39 |
+| Detached-only pending at stop | 94 | 0 |
+| Pending after recovery | 69 | 2 |
+| Cancellations through recovery | 0 | 185 |
+| Frame-p95 / worst interval ms | 17.1 / 25.3 | 17.1 / 25.0 |
+
+Cancellation-induced re-requests are not free. In this one pair, they did not erase
+the current-image benefit; that is not universal reversal-cost or frame non-regression
+proof. The two remaining requests after decoded readiness are not failed current images.
+All candidate failures were cancellations; HTTP errors and failed visible images were zero.
+Completed-byte totals end at different recovery times and omit partial cancelled bytes;
+do not present them as upstream or matched-budget savings. The first reversal attempt
+was excluded because its assertion expected positive rather than signed negative travel;
+the corrected assertion retains the exact -1600px requirement.
+
+Full app unit/E2E gates own product acceptance; isolated controls do not substitute for
+them. Full units passed 3260 tests across 92 files; full local-only E2E passed 506/506
+with retries disabled after the operator stopped the shared app. Performance TypeScript
+and final production lifecycle controls passed. No further product code changed after
+these gates; no live or canonical campaign performance claim follows.
+
 ### Approaches Not to Adopt by Default
 
 - Dynamic in-flight `fetchPriority` demotion showed **0 demotions for 332 pending

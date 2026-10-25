@@ -16,11 +16,13 @@ Last updated: 2026-10-25
 
 ### Release Detached Pending List Thumbnails (22 October 2026)
 
-Grid/Justified explicitly remove a native thumbnail's `src` after genuine unmount
+Grid/Justified and Table explicitly remove a native thumbnail's `src` after genuine unmount
 when it is still incomplete. Kahuna's native preview does not explicitly release
 that demand, and browser DOM removal alone can leave the transfer running. A captured
 element and passive cleanup keep connected Strict Mode replay and completed sources
 untouched; no mounted-image sweeper, shared request broker or admission change is added.
+Table adopted the same guard on 25 October. Its effect follows URL changes because the
+image mounts conditionally; it still leaves a connected image/source replacement untouched.
 
 This can free browser delivery capacity but requires re-admission on a quick return.
 Other native consumers may keep the resource alive; browser-cache retention and upstream
@@ -28,7 +30,9 @@ cancellation are not guaranteed. Local proxy work can continue and duplicate unc
 reacquisition. Signed canonical URLs can expire before a revisit. Preserve server-provided
 URLs and the deployment plan's initial reload recovery; do not add proxy-specific client
 logic. The [owning assessment](scroll-horizons-thumbs-and-blocking.md#post-cleanup-campaign)
-records mixed performance evidence, not an overall speedup or a policy for Table/detail.
+records mixed performance evidence, not an overall speedup or a detail-image policy.
+The [Table qualification](scroll-horizons-thumbs-and-blocking.md#table-ownership-qualification-25-october-2026)
+retains its bounded benefit and measured reversal re-request cost.
 
 ### Collapsed Multi-Image Chip Fields (8 October 2026)
 

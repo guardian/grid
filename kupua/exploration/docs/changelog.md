@@ -24,6 +24,16 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 25 October 2026 - Release abandoned pending Table thumbnails
+
+Table thumbnails now release their source only when detached and incomplete, matching
+Grid's lifetime guard while retaining native lazy loading, URLs, sizing and error behavior.
+The URL-scoped passive effect also captures images mounted after an initially absent URL;
+connected updates, Strict Mode replay and completed sources remain untouched.
+Existing unit/browser lifecycle coverage protects re-entry and shared consumers.
+Bounded pressure/reversal controls retain both current-image recovery benefits and
+additional re-request costs; no admission scheduler or buffer policy is added.
+
 ### 25 October 2026 - Correct dashboard provenance and recovery interpretation
 
 Fixed checkpoint source consensus and membership-based baseline coverage. Recovery

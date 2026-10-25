@@ -4,7 +4,7 @@ import { heldImageServer } from "../shared/held-image-fixture";
 test.use({ viewport: { width: 1720, height: 960 } });
 
 async function prepareThumbnailFixture(page: Page, context: BrowserContext, baseURL: string, origin: string,
-  density: "grid" | "justified", totalImages = 343) {
+  density: "grid" | "justified" | "table", totalImages = 343) {
   const appOrigin = new URL(baseURL).origin;
   await context.route("**/*", route => {
     const url = new URL(route.request().url());
@@ -35,7 +35,7 @@ async function prepareThumbnailFixture(page: Page, context: BrowserContext, base
   }, totalImages);
 }
 
-async function expectVisibleThumbnail(page: Page, density: "grid" | "justified", source: string) {
+async function expectVisibleThumbnail(page: Page, density: "grid" | "justified" | "table", source: string) {
   await page.waitForFunction(({ density, source }) => {
     const region = document.querySelector<HTMLElement>(`[aria-label="Image results ${density}"]`);
     const cell = region?.querySelector<HTMLElement>('[data-image-id="img-6"]');
@@ -47,13 +47,14 @@ async function expectVisibleThumbnail(page: Page, density: "grid" | "justified",
   }, { density, source });
 }
 
-test("Grid thumbnail cancellation recovers on reversal and preserves shared or completed images", async ({ page, context, baseURL }) => {
+for (const density of ["grid", "table"] as const) {
+test(`${density === "grid" ? "Grid" : "Table"} thumbnail cancellation recovers on reversal and preserves shared or completed images`, async ({ page, context, baseURL }) => {
   let holdTarget = true;
   const targetPath = "/image/img-6.svg";
   const server = await heldImageServer({ hold: path => holdTarget && path === targetPath, limit: 2048 });
   try {
-    await prepareThumbnailFixture(page, context, baseURL!, server.origin, "grid");
-    const region = page.getByRole("region", { name: "Image results grid", exact: true });
+    await prepareThumbnailFixture(page, context, baseURL!, server.origin, density);
+    const region = page.getByRole("region", { name: `Image results ${density}`, exact: true });
     const targetRequests = () => server.requests.filter(request => request.path === targetPath);
     await expect.poll(() => targetRequests().length).toBe(1);
     const initialTarget = await region.locator('[data-image-id="img-6"] img').elementHandle();
@@ -61,7 +62,7 @@ test("Grid thumbnail cancellation recovers on reversal and preserves shared or c
     const source = (await initialTarget!.getAttribute("src"))!;
     await initialTarget!.dispose();
     await page.getByRole("button", { name: "Show Browse panel", exact: true }).click();
-    await expectVisibleThumbnail(page, "grid", source);
+    await expectVisibleThumbnail(page, density, source);
     await page.waitForTimeout(200);
     expect(targetRequests()).toHaveLength(1);
     expect(targetRequests()[0].aborted).toBe(false);
@@ -71,7 +72,7 @@ test("Grid thumbnail cancellation recovers on reversal and preserves shared or c
     await page.waitForFunction(image => !image.isConnected && !image.hasAttribute("src"), target!);
     await expect.poll(() => targetRequests()[0].aborted).toBe(true);
     await region.evaluate(element => { element.scrollTop = 0; });
-    await expectVisibleThumbnail(page, "grid", source);
+    await expectVisibleThumbnail(page, density, source);
     await expect.poll(() => targetRequests().length).toBe(2);
     expect(targetRequests()[0].finished).toBe(false);
     const sharedTarget = await region.locator('[data-image-id="img-6"] img').elementHandle();
@@ -91,7 +92,7 @@ test("Grid thumbnail cancellation recovers on reversal and preserves shared or c
     await consumer.evaluate(image => image.decode());
     expect(await consumer.evaluate(image => image.naturalWidth)).toBe(100);
     await region.evaluate(element => { element.scrollTop = 0; });
-    await expectVisibleThumbnail(page, "grid", source);
+    await expectVisibleThumbnail(page, density, source);
     const completed = await region.locator('[data-image-id="img-6"] img').elementHandle();
     await completed!.evaluate(image => (image as HTMLImageElement).decode());
     await region.evaluate(element => { element.scrollTop = element.scrollHeight; });
@@ -107,6 +108,7 @@ test("Grid thumbnail cancellation recovers on reversal and preserves shared or c
     await target!.dispose();
   } finally { await server.close(); }
 });
+}
 
 test("Justified thumbnail survives reflow and density changes and reloads its replacement source", async ({ page, context, baseURL }) => {
   let holdTarget = true;

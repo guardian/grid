@@ -625,6 +625,10 @@ invalidate content even for same-count visibility swaps; new image/overlay refer
 metadata freshness. Shared registry rendering evaluates each accessor once for display/tooltips,
 and dimensions/width/height reuse a default-locale number formatter. The bounded TanStack model,
 placeholder/pending-row paths and native header behavior remain in ImageTable.
+`TableThumbnail` retains native lazy loading and source/error behavior. A passive effect
+captures the element for detached-incomplete source release, leaving connected or completed
+images alone. The effect follows the URL because the image may mount after an initially
+absent URL; connected source updates do not trigger cancellation.
 Resize uses CSS variables, with auto-fit and a visibility menu outside the contained scroll area.
 `useHeaderHeight` measures the actual sticky header through ResizeObserver for virtualizer
 padding and placement; the layout constant is a first-render fallback, not a permanent measurement.

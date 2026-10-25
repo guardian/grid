@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FIELDS_BY_ID } from "@/lib/field-registry";
 import type { EnrichedImage } from "@/lib/derive-enriched-image";
 import type { Image } from "@/types/image";
-import { TableRowCells } from "./TableRowCells";
+import * as imageUrls from "@/lib/image-urls";
+import { TableRowCells, TableThumbnail } from "./TableRowCells";
 
 vi.mock("@/lib/image-urls", () => ({ getThumbnailUrl: () => "/fixture-thumbnail.jpg" }));
 
@@ -98,5 +100,36 @@ describe("TableRowCells", () => {
     expect(thumbnail.getAttribute("src")).toBe("/fixture-thumbnail.jpg");
     fireEvent.error(thumbnail);
     expect(thumbnail.style.display).toBe("none");
+  });
+
+  it.each([false, true])("releases a detached source only while incomplete (complete=%s)", complete => {
+    const view = render(<TableThumbnail image={image} />);
+    const thumbnail = view.container.querySelector("img")!;
+    vi.spyOn(thumbnail, "complete", "get").mockReturnValue(complete);
+    view.unmount();
+    expect(thumbnail.isConnected).toBe(false);
+    expect(thumbnail.getAttribute("src")).toBe(complete ? "/fixture-thumbnail.jpg" : null);
+  });
+
+  it("preserves a connected incomplete source through Strict Mode replay and rerender", () => {
+    const view = render(<StrictMode><TableThumbnail image={image} /></StrictMode>);
+    const thumbnail = view.container.querySelector("img")!;
+    vi.spyOn(thumbnail, "complete", "get").mockReturnValue(false);
+    view.rerender(<StrictMode><TableThumbnail image={{ ...image }} /></StrictMode>);
+    expect(view.container.querySelector("img")).toBe(thumbnail);
+    expect(thumbnail.isConnected).toBe(true);
+    expect(thumbnail.getAttribute("src")).toBe("/fixture-thumbnail.jpg");
+  });
+
+  it("releases a pending source that appears after the initial empty render", () => {
+    vi.spyOn(imageUrls, "getThumbnailUrl").mockReturnValueOnce(undefined).mockReturnValue("/late-thumbnail.jpg");
+    const view = render(<TableThumbnail image={image} />);
+    expect(view.container.querySelector("img")).toBeNull();
+    view.rerender(<TableThumbnail image={{ ...image }} />);
+    const thumbnail = view.container.querySelector("img")!;
+    expect(thumbnail.getAttribute("src")).toBe("/late-thumbnail.jpg");
+    vi.spyOn(thumbnail, "complete", "get").mockReturnValue(false);
+    view.unmount();
+    expect(thumbnail.getAttribute("src")).toBeNull();
   });
 });

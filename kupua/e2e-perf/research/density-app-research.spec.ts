@@ -735,6 +735,262 @@ formatGridDate = function(iso) {
   });
 }
 
+async function installTableLifetimeRoutes(context: BrowserContext, origin: string, cleanup: boolean) {
+  await installJourneyFixtureRoutes(context);
+  await context.route(`${origin}/**`, route => route.continue());
+  await context.route("**/src/lib/image-urls.ts*", async route => {
+    const response = await route.fetch();
+    const source = await response.text();
+    const marker = "if (!S3_PROXY_ENABLED) return undefined;";
+    expect(source.split(marker)).toHaveLength(2);
+    await route.fulfill({ response, body: source.replace(marker,
+      `return image.thumbnail?.secureUrl ?? ${JSON.stringify(origin)} + "/image/" + image.id + ".svg";`)
+      .replace("S3_PROXY_ENABLED || SYNTHETIC_PREVIEW_ENABLED", "true") });
+  });
+  if (!cleanup) await context.route("**/src/components/TableRowCells.tsx*", async route => {
+    const response = await route.fetch();
+    const source = await response.text();
+    const start = source.indexOf("function TableThumbnail(");
+    const end = source.indexOf("\n}", start) + 2;
+    expect(start).toBeGreaterThanOrEqual(0);
+    const original = source.slice(start, end);
+    const effectStart = original.indexOf("const thumbnailRef = useRef(null);");
+    const effectEnd = original.indexOf("return url ?");
+    expect(effectStart).toBeGreaterThanOrEqual(0);
+    expect(effectEnd).toBeGreaterThan(effectStart);
+    expect(original.split("ref: thumbnailRef,")).toHaveLength(2);
+    const historical = (original.slice(0, effectStart) + original.slice(effectEnd)).replace("ref: thumbnailRef,", "");
+    await route.fulfill({ response, body: source.slice(0, start) + historical + source.slice(end) });
+  });
+}
+
+for (const cleanup of [false, true]) {
+test(`F2 Table detached pending thumbnail releases native request ${cleanup ? "candidate" : "baseline"}`, async ({ page, context }) => {
+  const targetPath = "/image/img-6.svg";
+  let holdTarget = true;
+  const server = await heldImageServer({ hold: path => holdTarget && path === targetPath, limit: 2048 });
+  try {
+    await installTableLifetimeRoutes(context, server.origin, cleanup);
+    await page.addInitScript(() => sessionStorage.setItem("kupua-density", "table"));
+    await page.goto("/search?nonFree=true");
+    await page.waitForFunction(() => Boolean((window as any).__kupua_store__));
+    await page.evaluate(async () => {
+      const path = "/src/dal/mock-data-source.ts";
+      const { MockDataSource } = await import(path);
+      const store = (window as any).__kupua_store__;
+      store.setState({ dataSource: new MockDataSource(343) });
+      await store.getState().search();
+      await store.getState().extendForward();
+    });
+    const region = page.getByRole("region", { name: "Image results table", exact: true });
+    const requests = () => server.requests.filter(request => request.path === targetPath);
+    await expect.poll(() => requests().length).toBe(1);
+    const target = await region.locator('[data-image-id="img-6"] img').elementHandle();
+    expect(await target!.evaluate(image => (image as HTMLImageElement).complete)).toBe(false);
+    const source = (await target!.getAttribute("src"))!;
+    await page.getByRole("button", { name: "Show Browse panel", exact: true }).click();
+    await page.evaluate(async () => { await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame); });
+    expect(await target!.evaluate(image => image.isConnected)).toBe(true);
+    expect(await target!.getAttribute("src")).toBe(source);
+    expect(requests()).toHaveLength(1);
+    expect(requests()[0].aborted).toBe(false);
+    await region.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    await page.waitForFunction(image => !image.isConnected, target!);
+    await page.evaluate(async () => { await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame); });
+    console.log(JSON.stringify({ fixture: "f2-table-detached", cleanup, detached: await target!.evaluate(image => !image.isConnected),
+      sourceRetained: await target!.getAttribute("src") !== null, requestAborted: requests()[0].aborted,
+      requestFinished: requests()[0].finished }));
+    if (!cleanup) {
+      expect(await target!.getAttribute("src")).toBe(source);
+      expect(requests()[0].aborted).toBe(false);
+      expect(requests()[0].finished).toBe(false);
+      await target!.dispose();
+      return;
+    }
+    expect(await target!.getAttribute("src")).toBeNull();
+    await expect.poll(() => requests()[0].aborted).toBe(true);
+    await region.evaluate(element => { element.scrollTop = 0; });
+    await expect.poll(() => requests().length).toBe(2);
+    const replacement = await region.locator('[data-image-id="img-6"] img').elementHandle();
+    expect(await replacement!.getAttribute("src")).toBe(source);
+    const consumer = await page.evaluateHandle(source => {
+      const image = new Image(100, 100);
+      image.src = source;
+      document.body.append(image);
+      return image;
+    }, source);
+    await region.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    await page.waitForFunction(image => !image.isConnected && !image.hasAttribute("src"), replacement!);
+    await page.waitForTimeout(200);
+    expect(requests()).toHaveLength(2);
+    expect(requests()[1].aborted).toBe(false);
+    holdTarget = false;
+    requests()[1].release();
+    await consumer.evaluate(image => image.decode());
+    expect(await consumer.evaluate(image => image.naturalWidth)).toBe(100);
+    await region.evaluate(element => { element.scrollTop = 0; });
+    const completed = await region.locator('[data-image-id="img-6"] img').elementHandle();
+    await completed!.evaluate(image => (image as HTMLImageElement).decode());
+    await region.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    await page.waitForFunction(image => !image.isConnected, completed!);
+    expect(await completed!.getAttribute("src")).toBe(source);
+    expect(await completed!.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(100);
+    expect(requests()).toHaveLength(2);
+    expect(requests()[1].finished).toBe(true);
+    console.log(JSON.stringify({ fixture: "f2-table-lifecycle-safety", connectedRerenderAndStrictMode: true,
+      reentry: true, sharedConsumer: true, completedSourcePreserved: true, targetRequests: requests().length }));
+    await consumer.evaluate(image => image.remove());
+    await consumer.dispose();
+    await completed!.dispose();
+    await replacement!.dispose();
+    await target!.dispose();
+  } finally { await server.close(); }
+});
+}
+
+const tableLifetimeMatches = new Map<number, unknown>();
+for (const [cleanup, block] of [[false, 1], [true, 1], [true, 2], [false, 2], [false, 3], [true, 3]] as const) {
+  test(`F2 Table pressure ownership ${cleanup ? "candidate" : "baseline"} block=${block}`, async ({ browser }) => {
+    const context = await browser.newContext({ baseURL: "http://127.0.0.1:3041",
+      viewport: { width: 1720, height: 960 }, deviceScaleFactor: 2 });
+    const page = await context.newPage();
+    const body = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="blue"/></svg><!--'
+      + "x".repeat(24 * 1024) + "-->");
+    const server = await heldImageServer({ hold: () => false, limit: 2048, imageBody: () => body });
+    const session = await context.newCDPSession(page);
+    await session.send("Network.enable");
+    const requests = createRequestProbe(session);
+    const ownedRequests = new Map<object, { path: string; pending: boolean }>();
+    page.on("request", request => {
+      const url = new URL(request.url());
+      if (url.origin === server.origin && request.resourceType() === "image") {
+        if (ownedRequests.size >= 1024) throw new Error("Table ownership request bound exceeded");
+        ownedRequests.set(request, { path: url.pathname, pending: true });
+      }
+    });
+    const finishRequest = (request: object) => {
+      const record = ownedRequests.get(request);
+      if (record) record.pending = false;
+    };
+    page.on("requestfinished", finishRequest);
+    page.on("requestfailed", finishRequest);
+    try {
+      await installTableLifetimeRoutes(context, server.origin, cleanup);
+      await page.addInitScript(() => sessionStorage.setItem("kupua-density", "table"));
+      await page.goto("/search?nonFree=true");
+      await page.waitForFunction(() => Boolean((window as any).__kupua_store__));
+      await page.evaluate(async () => {
+        const path = "/src/dal/mock-data-source.ts";
+        const { MockDataSource } = await import(path);
+        const store = (window as any).__kupua_store__;
+        store.setState({ dataSource: new MockDataSource(70000) });
+        await store.getState().search();
+      });
+      await waitForDensityMaintenanceCooldown(page);
+      await page.evaluate(async () => { await (window as any).__kupua_store__.getState().extendForward(); });
+      expect(await page.evaluate(() => (window as any).__kupua_store__.getState().results.length)).toBe(400);
+      const initialReady = await densityDrivers.visibleMediaReadiness(page, "table", await page.evaluate(() => performance.now()));
+      expect(initialReady.mediaCensored).toBe(0);
+      await expect.poll(() => requests.snapshot().mediaRequestsPending, { timeout: 10000 }).toBe(0);
+      ownedRequests.clear();
+      await page.evaluate(() => {
+        const region = document.querySelector('[aria-label="Image results table"]')!;
+        const seen = new Map<HTMLImageElement, string>();
+        const scan = () => {
+          for (const image of region.querySelectorAll<HTMLImageElement>("[data-image-id] img")) {
+            if (!seen.has(image)) seen.set(image, new URL(image.src).pathname);
+          }
+          if (seen.size > 1024) throw new Error("Table ownership element bound exceeded");
+        };
+        scan();
+        const observer = new MutationObserver(scan);
+        observer.observe(region, { childList: true, subtree: true });
+        (window as any).__f2TableOwnership = { seen, observer,
+          results: (window as any).__kupua_store__.getState().results };
+      });
+      await session.send("Network.emulateNetworkConditions", { offline: false, latency: 80,
+        downloadThroughput: 4 * 1024 * 1024 / 8, uploadThroughput: 4 * 1024 * 1024 / 8 });
+      requests.beginPhase();
+      await page.evaluate(densityDrivers.installDensityJourney, { density: "table" as const, direction: 1 as const, resultsPerSecond: 100 });
+      await page.evaluate(installThumbnailProbe, { density: "table" as const });
+      const initial = await page.evaluate(() => (window as any).__densityJourney.snapshot());
+      const distance = Math.round(initial.commandedSpeedPxPerSec! * 2);
+      const forward = await scrollAtSpeed(page, "table", initial.commandedSpeedPxPerSec!, 2500,
+        { measureBounds: true, maxDistancePx: distance });
+      expect(forward.drivenDistancePx).toBe(distance);
+      const reverseDistance = block === 3 ? distance / 4 : 0;
+      const movement = reverseDistance ? await scrollAtSpeed(page, "table", -initial.commandedSpeedPxPerSec!, 1000,
+        { measureBounds: true, maxDistancePx: reverseDistance }) : forward;
+      expect(movement.drivenDistancePx).toBe(reverseDistance ? -reverseDistance : distance);
+      const observed = await page.evaluate(() => {
+        const region = document.querySelector('[aria-label="Image results table"]')!;
+        const bounds = region.getBoundingClientRect();
+        const top = Math.max(bounds.top, region.querySelector("[data-table-header]")!.getBoundingClientRect().bottom);
+        const ownership = (window as any).__f2TableOwnership;
+        const mounted = [...region.querySelectorAll<HTMLImageElement>("[data-image-id] img")];
+        const visible = mounted.filter(image => {
+          const rect = image.closest("[data-image-id]")!.getBoundingClientRect();
+          return rect.bottom > top && rect.top < bounds.bottom;
+        });
+        const journey = (window as any).__densityJourney.snapshot();
+        const thumbnails = window.__kupua_thumbnailProbe!.stop();
+        (window as any).__densityJourney.dispose();
+        window.__kupua_thumbnailProbe!.dispose();
+        return { journey, thumbnails,
+          sameData: ownership.results === (window as any).__kupua_store__.getState().results,
+          visible: visible.map(image => new URL(image.src).pathname).sort(),
+          mounted: mounted.map(image => new URL(image.src).pathname),
+          detached: [...ownership.seen.entries()].filter(([image]: [HTMLImageElement, string]) => !image.isConnected)
+            .map(([, path]: [HTMLImageElement, string]) => path) };
+      });
+      const atStop = requests.snapshot();
+      const visible = new Set(observed.visible), mounted = new Set(observed.mounted), detached = new Set(observed.detached);
+      const pending = [...ownedRequests.values()].filter(request => request.pending);
+      const ownershipCounts = {
+        pending: pending.length,
+        visiblePending: pending.filter(request => visible.has(request.path)).length,
+        mountedOffscreenPending: pending.filter(request => mounted.has(request.path) && !visible.has(request.path)).length,
+        detachedOnlyPending: pending.filter(request => detached.has(request.path) && !mounted.has(request.path)).length,
+        unassociatedPending: pending.filter(request => !mounted.has(request.path) && !detached.has(request.path)).length,
+      };
+      const recovered = await densityDrivers.visibleMediaReadiness(page, "table", movement.stoppedAtPerformanceMs!, 4000);
+      const after = requests.snapshot();
+      const matching = { initialCount: initial.initialBufferCount, runway: initial.initialRunwayResults,
+        speed: initial.commandedSpeedPxPerSec, distance, reverseDistance, visible: observed.visible };
+      if (tableLifetimeMatches.has(block)) expect(matching).toEqual(tableLifetimeMatches.get(block));
+      else tableLifetimeMatches.set(block, matching);
+      expect(observed.sameData).toBe(true);
+      expect(observed.journey.journeyOverflow).toBe(0);
+      expect(ownershipCounts.unassociatedPending).toBe(0);
+      expect(recovered.failedMediaCount).toBe(0);
+      console.log(JSON.stringify({ fixture: "f2-table-pressure", cleanup, block, payloadBytes: body.length,
+        viewport: [1720, 960, 2], initialCount: initial.initialBufferCount, runway: initial.initialRunwayResults,
+        distance, reverseDistance, forwardDurationMs: forward.drivenDurationMs,
+        reverseDurationMs: reverseDistance ? movement.drivenDurationMs : 0,
+        achievedResultsPerSecond: observed.journey.achievedResultsPerSecond,
+        stoppedUsableSlots: visible.size, ownershipCounts,
+        mediaReadyMs: recovered.mediaReadyMs, mediaCensored: recovered.mediaCensored,
+        observedMedia: recovered.visibleMediaCount, decodedMedia: recovered.decodedMediaCount,
+        failedMedia: recovered.failedMediaCount, pendingAfter: after.mediaRequestsPending,
+        cancellationsAtStop: atStop.mediaRequestCancellations, cancellationsAfter: after.mediaRequestCancellations,
+        requestFailures: after.mediaRequestFailures, httpErrors: after.mediaHttpErrors,
+        requestStarts: after.mediaRequestStarts, completedBytes: after.mediaCompletedBytes,
+        repeatedRequestStarts: ownedRequests.size - new Set([...ownedRequests.values()].map(request => request.path)).size,
+        frameP95Ms: observed.thumbnails.frameP95Ms, frameMaxMs: observed.thumbnails.frameMaxMs,
+        pendingVisibleRatioMean: observed.thumbnails.pendingVisibleRatioMean,
+        blockedMs: movement.bufferEdgeBlockedMs, retainedDisplacementMaxPx: observed.journey.retainedDisplacementMaxPx,
+        retainedResizeMaxPx: observed.journey.retainedResizeMaxPx }));
+    } finally {
+      await page.evaluate(() => { (window as any).__f2TableOwnership?.observer.disconnect();
+        (window as any).__densityJourney?.dispose(); window.__kupua_thumbnailProbe?.dispose(); }).catch(() => {});
+      requests.dispose();
+      await session.detach();
+      await context.close();
+      await server.close();
+    }
+  });
+}
+
 function withoutThumbnailCleanup(source: string): string {
   const start = source.indexOf("function GridThumbnail(props)");
   const end = source.indexOf("\n}", start) + 2;

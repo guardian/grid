@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useEffect, useRef } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { Image } from "@/types/image";
 import type { EnrichedImage } from "@/lib/derive-enriched-image";
@@ -8,7 +8,16 @@ import { DataSearchPill } from "./SearchPill";
 
 export function TableThumbnail({ image }: { image: Image }) {
   const url = getThumbnailUrl(image);
-  return url ? <img src={url} alt="" loading="lazy" className="h-7 w-auto object-contain"
+  const thumbnailRef = useRef<HTMLImageElement>(null);
+  useEffect(() => {
+    const thumbnail = thumbnailRef.current;
+    return () => {
+      if (thumbnail && !thumbnail.isConnected && !thumbnail.complete) {
+        thumbnail.removeAttribute("src");
+      }
+    };
+  }, [url]);
+  return url ? <img ref={thumbnailRef} src={url} alt="" loading="lazy" className="h-7 w-auto object-contain"
     onError={event => { event.currentTarget.style.display = "none"; }} /> : null;
 }
 
