@@ -24,6 +24,25 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 25 October 2026 - Respect seek cooldown in Justified maintenance fixture
+
+The delayed-maintenance fixture now uses the existing extension-readiness helper
+before filling its buffer. Seek completion can precede cooldown expiry, so awaited
+extension calls could all return without fetching. Capacity, held-read, eviction and
+subpixel placement assertions remain unchanged; no application behavior is altered.
+
+### 25 October 2026 - Preserve Grid cell handlers across detail return
+
+Grid detail entry now reads latest query/sort params at invocation rather than depending
+on the router search object's identity. Image-only URL transitions no longer replace
+the dependent click/double-click/tick handlers and rerender every retained cell.
+Cursor capture, focus, history, density, placement and interruption owners are unchanged.
+The media-fallback fixture now publishes its mock image change explicitly instead of
+relying on navigation-triggered rerenders; its existing assertions are unchanged.
+Bounded return attribution and a failing-first retained-cell regression distinguish this
+script-work repair from media, layout/paint and measurement costs; first-use DEV gains
+do not establish a canonical or warmed-return speedup.
+
 ### 25 October 2026 - Release abandoned pending Table thumbnails
 
 Table thumbnails now release their source only when detached and incomplete, matching

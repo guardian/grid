@@ -1,11 +1,14 @@
 import { test, expect, type CDPSession, type BrowserContext, type Page } from "@playwright/test";
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
+import ts from "typescript";
+import { KupuaHelpers } from "../../e2e/shared/helpers";
 import { electAnchor, establishDensitySource, restoreDensitySource, selectDensity, scrubDensityTo,
   prepareDensityMaintenance, scrollToDensityTail, waitForDensityEviction, waitForPlacement,
   waitForDensityMaintenanceCooldown, scrollAtSpeed,
   prepareDensityRecovery, measureDensityRecovery } from "../density-browser";
 import { DENSITY_SCENARIOS, validateDensityRecord } from "../density-reporting.mjs";
-import { createRequestProbe } from "../network-probe.mjs";
+import { createRequestProbe, installNetworkProbe } from "../network-probe.mjs";
 import { installThumbnailProbe } from "../thumbnail-probe.mjs";
 import { heldImageServer } from "../../e2e/shared/held-image-fixture";
 import * as densityDrivers from "../density-browser";
@@ -485,6 +488,391 @@ async function prepareRenderWorkWindow(page: Page, density: "grid" | "table" | "
   await page.bringToFront();
   const ready = await densityDrivers.visibleMediaReadiness(page, density, await page.evaluate(() => performance.now()));
   expect(ready.mediaCensored).toBe(0);
+}
+
+function gridDetailCallbackPolicy(source: string, stable: boolean) {
+  const syntax = ts.createSourceFile("ImageGrid.js", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
+  let declaration: ts.VariableDeclaration | undefined;
+  const visit = (node: ts.Node) => {
+    if (ts.isVariableDeclaration(node) && node.name.getText(syntax) === "enterDetail") declaration = node;
+    ts.forEachChild(node, visit);
+  };
+  visit(syntax);
+  expect(declaration).toBeTruthy();
+  const call = declaration!.initializer as ts.CallExpression;
+  const callback = call.arguments[0] as ts.ArrowFunction;
+  const body = callback.body as ts.Block;
+  const dependencies = call.arguments[1] as ts.ArrayLiteralExpression;
+  const hasRouteDependency = dependencies.elements.some(element => element.getText(syntax) === "searchParams");
+  if (stable === !hasRouteDependency) return source;
+  if (!stable) {
+    const currentParams = body.statements.find(statement => ts.isVariableStatement(statement)
+      && statement.declarationList.declarations.some(declaration => declaration.name.getText(syntax) === "currentParams"));
+    expect(currentParams).toBeTruthy();
+    const edits = [{ start: currentParams!.getStart(syntax), end: currentParams!.getEnd(), text: "" },
+      { start: dependencies.getStart(syntax), end: dependencies.getEnd(),
+        text: `[${dependencies.elements.map(element => element.getText(syntax)).join(", ")}, searchParams]` }];
+    const references = (node: ts.Node) => {
+      if (ts.isIdentifier(node) && node.text === "currentParams") edits.push({ start: node.getStart(syntax), end: node.getEnd(), text: "searchParams" });
+      ts.forEachChild(node, references);
+    };
+    for (const statement of body.statements.filter(statement => statement !== currentParams)) references(statement);
+    expect(edits).toHaveLength(4);
+    let result = source;
+    for (const edit of edits.sort((left, right) => right.start - left.start)) result = result.slice(0, edit.start) + edit.text + result.slice(edit.end);
+    return result;
+  }
+  const edits = [{ start: body.getStart(syntax) + 1, end: body.getStart(syntax) + 1,
+    text: "\nconst currentParams = searchParamsRef.current;\n" },
+  { start: dependencies.getStart(syntax), end: dependencies.getEnd(),
+    text: `[${dependencies.elements.filter(element => element.getText(syntax) !== "searchParams").map(element => element.getText(syntax)).join(", ")}]` }];
+  const references = (node: ts.Node) => {
+    if (ts.isIdentifier(node) && node.text === "searchParams") edits.push({ start: node.getStart(syntax), end: node.getEnd(), text: "currentParams" });
+    ts.forEachChild(node, references);
+  };
+  references(body);
+  expect(edits).toHaveLength(4);
+  let result = source;
+  for (const edit of edits.sort((left, right) => right.start - left.start)) result = result.slice(0, edit.start) + edit.text + result.slice(edit.end);
+  return result;
+}
+
+function loadReturnResearchControls() {
+  const source = readFileSync(new URL("../perf.spec.ts", import.meta.url), "utf8");
+  const syntax = ts.createSourceFile("perf.spec.ts", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const names = ["injectPerfProbes", "resetPerfProbes", "collectPerfSnapshot", "waitForFocusedReturnStability"];
+  const functions = names.map(name => {
+    const declaration = syntax.statements.find(statement => ts.isFunctionDeclaration(statement) && statement.name?.text === name);
+    expect(declaration, `Existing P13b control ${name}`).toBeTruthy();
+    let code = declaration!.getText(syntax);
+    if (name === "waitForFocusedReturnStability") {
+      expect(code.split("return;")).toHaveLength(2);
+      code = code.replace("return;", `{ const clock = (window as any).__p13bResearch;
+        if (clock) { clock.completedAt = performance.now(); performance.mark("p13b-research-complete"); }
+        return; }`);
+    }
+    return code;
+  });
+  const compiled = ts.transpileModule(functions.join("\n"), {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None },
+  }).outputText;
+  return new Function("installNetworkProbe", `${compiled}\nreturn {${names.join(",")}};`)(installNetworkProbe) as {
+    injectPerfProbes: (helpers: { page: Page }) => Promise<void>;
+    resetPerfProbes: (helpers: { page: Page }) => Promise<void>;
+    collectPerfSnapshot: (helpers: { page: Page }) => Promise<any>;
+    waitForFocusedReturnStability: (page: Page, target: string, timeout?: number) => Promise<void>;
+  };
+}
+
+function returnTraceSummary(events: any[], profile?: any) {
+  const start = events.find(event => event.name === "p13b-research-start");
+  const end = events.find(event => event.name === "p13b-research-complete");
+  expect(start).toBeTruthy();
+  expect(end).toBeTruthy();
+  const first = start.ts, last = end.ts;
+  const intervals = (names: string[]) => events.filter(event => event.pid === start.pid && event.tid === start.tid
+    && event.ph === "X" && names.includes(event.name) && event.ts < last && event.ts + event.dur > first)
+    .map(event => [Math.max(first, event.ts), Math.min(last, event.ts + event.dur)] as [number, number]);
+  const union = (ranges: [number, number][]) => {
+    let total = 0, right = -Infinity;
+    for (const [left, end] of ranges.sort((left, right) => left[0] - right[0])) {
+      total += Math.max(0, end - Math.max(left, right));
+      right = Math.max(right, end);
+    }
+    return total / 1000;
+  };
+  const script = intervals(["FunctionCall", "EvaluateScript", "RunMicrotasks", "EventDispatch"]);
+  const layout = intervals(["Layout", "UpdateLayoutTree", "RecalculateStyles"]);
+  const paint = intervals(["Paint", "PrePaint", "Layerize", "CompositeLayers", "UpdateLayerTree"]);
+  const decode = intervals(["Decode Image", "ImageDecodeTask", "ImageDecode"]);
+  const overlap = script.flatMap(([left, right]) => [...layout, ...paint, ...decode]
+    .filter(([otherLeft, otherRight]) => otherLeft < right && otherRight > left)
+    .map(([otherLeft, otherRight]) => [Math.max(left, otherLeft), Math.min(right, otherRight)] as [number, number]));
+  const layoutStacks = new Map<string, { count: number; ms: number; maxMs: number }>();
+  const scriptCalls = new Map<string, { count: number; ms: number; maxMs: number }>();
+  for (const event of events.filter(event => event.pid === start.pid && event.tid === start.tid
+    && event.ph === "X" && event.name === "FunctionCall" && event.ts < last && event.ts + event.dur > first)) {
+    const data = event.args?.data ?? {};
+    const source = String(data.url ?? "").split("/").at(-1)?.split("?")[0] || "evaluated script";
+    const key = `${data.functionName || "anonymous"} (${source})`;
+    const record = scriptCalls.get(key) ?? { count: 0, ms: 0, maxMs: 0 };
+    const duration = (Math.min(last, event.ts + event.dur) - Math.max(first, event.ts)) / 1000;
+    record.count++;
+    record.ms += duration;
+    record.maxMs = Math.max(record.maxMs, duration);
+    scriptCalls.set(key, record);
+  }
+  for (const event of events.filter(event => event.pid === start.pid && event.tid === start.tid
+    && event.ph === "X" && ["Layout", "UpdateLayoutTree"].includes(event.name)
+    && event.ts >= first && event.ts <= last)) {
+    const frames = event.args?.beginData?.stackTrace ?? event.args?.data?.stackTrace ?? [];
+    const stack = frames.slice(0, 4).map((frame: any) => frame.functionName || "anonymous").join(" > ") || "no synchronous stack";
+    const key = `${event.name}: ${stack}`;
+    const record = layoutStacks.get(key) ?? { count: 0, ms: 0, maxMs: 0 };
+    record.count++;
+    record.ms += event.dur / 1000;
+    record.maxMs = Math.max(record.maxMs, event.dur / 1000);
+    layoutStacks.set(key, record);
+  }
+  const cpuSelf = new Map<string, number>();
+  const cpuStacks = new Map<string, number>();
+  if (profile) {
+    expect(profile.nodes.length).toBeLessThan(50000);
+    expect(profile.samples.length).toBeLessThan(100000);
+    const nodes = new Map<number, any>(profile.nodes.map((node: any) => [node.id, node]));
+    const parents = new Map<number, number>();
+    for (const node of profile.nodes) for (const child of node.children ?? []) parents.set(child, node.id);
+    const label = (node: any) => `${node.callFrame.functionName || "anonymous"} (${String(node.callFrame.url ?? "").split("/").at(-1)?.split("?")[0] || "native/evaluated"})`;
+    let time = profile.startTime;
+    for (const [index, sample] of profile.samples.entries()) {
+      const duration = profile.timeDeltas[index];
+      time += duration;
+      if (time < first || time > last) continue;
+      const leaf = nodes.get(sample);
+      const self = label(leaf);
+      cpuSelf.set(self, (cpuSelf.get(self) ?? 0) + duration / 1000);
+      const stack = [self];
+      let ancestor = parents.get(sample);
+      while (ancestor !== undefined && stack.length < 10) {
+        stack.push(label(nodes.get(ancestor)));
+        ancestor = parents.get(ancestor);
+      }
+      const key = stack.join(" > ");
+      cpuStacks.set(key, (cpuStacks.get(key) ?? 0) + duration / 1000);
+    }
+    expect(cpuSelf.size).toBeGreaterThan(0);
+  }
+  return { boundaryMs: (last - first) / 1000, scriptInclusiveMs: union(script),
+    scriptExcludingLayoutPaintDecodeMs: union(script) - union(overlap),
+    layoutMs: union(layout), paintMs: union(paint), mainThreadDecodeMs: union(decode),
+    classifiedMainThreadUnionMs: union([...script, ...layout, ...paint, ...decode]),
+    scriptCalls: [...scriptCalls.entries()].sort((left, right) => right[1].ms - left[1].ms).slice(0, 8)
+      .map(([callback, timing]) => ({ callback, ...timing })),
+    cpuSelf: [...cpuSelf.entries()].sort((left, right) => right[1] - left[1]).slice(0, 12)
+      .map(([callback, sampledMs]) => ({ callback, sampledMs })),
+    cpuStacks: [...cpuStacks.entries()].sort((left, right) => right[1] - left[1]).slice(0, 8)
+      .map(([stack, sampledMs]) => ({ stack, sampledMs })),
+    layoutStacks: [...layoutStacks.entries()].sort((left, right) => right[1].ms - left[1].ms).slice(0, 8)
+      .map(([stack, timing]) => ({ stack, ...timing })) };
+}
+
+const returnResearchCases = [
+  ...[false, true, true, false, false, true, true, false].map((probes, index) => ({ name: `probe-comparison-${index + 1}`,
+    probes, profiled: false, warmupReturns: 0, countCells: false, stable: false, regression: false })),
+  { name: "cpu-diagnostic", probes: false, profiled: true, warmupReturns: 0, countCells: false, stable: false, regression: false },
+  { name: "warm-diagnostic", probes: false, profiled: false, warmupReturns: 2, countCells: false, stable: false, regression: false },
+  { name: "retained-cells-first", probes: false, profiled: false, warmupReturns: 0, countCells: true, stable: false, regression: false },
+  { name: "retained-cells-warm", probes: false, profiled: false, warmupReturns: 2, countCells: true, stable: false, regression: false },
+  { name: "stable-cells-first", probes: false, profiled: false, warmupReturns: 0, countCells: true, stable: true, regression: false },
+  { name: "stable-cells-warm", probes: false, profiled: false, warmupReturns: 2, countCells: true, stable: true, regression: false },
+  { name: "production-regression", probes: false, profiled: false, warmupReturns: 0, countCells: true, stable: true, regression: true },
+  ...Array.from({ length: 4 }, (_, index) => ({ name: `production-remeasure-${index + 1}`,
+    probes: true, profiled: false, warmupReturns: 0, countCells: false, stable: true, regression: false })),
+  { name: "untraced-historical", probes: true, profiled: false, warmupReturns: 0, countCells: false, stable: false, regression: false },
+  { name: "untraced-production", probes: true, profiled: false, warmupReturns: 0, countCells: false, stable: true, regression: false },
+];
+for (const [repetition, scenario] of returnResearchCases.entries()) {
+  const { probes, profiled, warmupReturns, countCells, stable: stabilizeEnterDetail, regression: productionRegression } = scenario;
+  const traced = !scenario.name.startsWith("untraced-");
+  test(`P13b resident return attribution ${scenario.name} probes=${probes} repetition=${repetition + 1}`, async ({ browser }) => {
+    const context = await browser.newContext({ baseURL: "http://127.0.0.1:3041",
+      viewport: { width: 1720, height: 960 }, deviceScaleFactor: 2 });
+    const page = await context.newPage();
+    const helpers = new KupuaHelpers(page);
+    const controls = loadReturnResearchControls();
+    const session = await context.newCDPSession(page);
+    let tracing = false;
+    let remoteRequests = 0;
+    let blockedRemoteRequests = 0;
+    const remoteResourceTypes: Record<string, number> = {};
+    page.on("request", request => { if (/^https?:/.test(request.url())
+      && new URL(request.url()).origin !== "http://127.0.0.1:3041") {
+        remoteRequests++;
+        remoteResourceTypes[request.resourceType()] = (remoteResourceTypes[request.resourceType()] ?? 0) + 1;
+      } });
+    try {
+      await installJourneyFixtureRoutes(context);
+      await context.route("**/*", route => {
+        if (new URL(route.request().url()).origin === "http://127.0.0.1:3041") return route.fallback();
+        blockedRemoteRequests++;
+        return route.fulfill({ status: 404, body: "isolated fixture" });
+      });
+      await context.route("**/src/lib/image-urls.ts*", async route => {
+        const response = await route.fetch();
+        const source = await response.text();
+        const thumbnail = "if (!S3_PROXY_ENABLED) return undefined;";
+        const full = "if (!IMGPROXY_ENABLED || !IMAGE_BUCKET) return undefined;";
+        expect(source.split(thumbnail)).toHaveLength(2);
+        expect(source.split(full)).toHaveLength(2);
+        await route.fulfill({ response, body: source.replace(thumbnail,
+          'return "data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'300\'%3E%3Cpath fill=\'blue\' d=\'M0 0h400v300H0z\'/%3E%3C/svg%3E#" + image.id;')
+          .replace(full, "return getThumbnailUrl(image);")
+          .replace("S3_PROXY_ENABLED || SYNTHETIC_PREVIEW_ENABLED", "true") });
+      });
+      await context.route("**/src/components/ImageGrid.tsx*", async route => {
+        const response = await route.fetch();
+        let source = await response.text();
+        if (!productionRegression) source = gridDetailCallbackPolicy(source, stabilizeEnterDetail);
+        if (countCells) {
+          const marker = /const GridCell = (_s\d*)\(memo\(/;
+          expect(Array.from(source.matchAll(/const GridCell = (_s\d*)\(memo\(/g)).length).toBe(1);
+          source = `(${installGridCellCounter.toString()})();\n`
+            + source.replace(marker, "const GridCell = $1(globalThis.__gridCellCounter.wrapMemo(memo,");
+        }
+        await route.fulfill({ response, body: source });
+      });
+      await page.addInitScript(() => sessionStorage.setItem("kupua-density", "grid"));
+      await prepareRenderWorkWindow(page, "grid");
+      await helpers.ensureExplicitMode();
+      const region = page.getByRole("region", { name: "Image results grid", exact: true });
+      const bounds = await region.boundingBox();
+      await page.mouse.move(bounds!.x + 200, bounds!.y + 200);
+      for (let index = 0; index < 5; index++) {
+        await page.mouse.wheel(0, 600);
+        await page.waitForTimeout(50);
+      }
+      await page.waitForTimeout(500);
+      const media = await densityDrivers.visibleMediaReadiness(page, "grid", await page.evaluate(() => performance.now()));
+      expect(media.mediaCensored).toBe(0);
+      const target = await page.evaluate(() => (window as any).__kupua_getViewportAnchorId__());
+      expect(target).toBeTruthy();
+      const cell = region.locator(`[data-image-id="${target}"]`);
+      const before = await cell.evaluate(element => {
+        const region = element.closest('[aria-label="Image results grid"]')!;
+        const bounds = region.getBoundingClientRect(), rect = element.getBoundingClientRect();
+        return { top: rect.top - bounds.top, left: rect.left - bounds.left, scrollTop: region.scrollTop };
+      });
+      const listUrl = page.url();
+      await cell.dblclick();
+      await helpers.waitForDecodedDetailImage(target);
+      for (let warmup = 0; warmup < warmupReturns; warmup++) {
+        await helpers.closeDetailViaBackspace();
+        await controls.waitForFocusedReturnStability(page, target);
+        await cell.dblclick();
+        await helpers.waitForDecodedDetailImage(target);
+      }
+      if (probes) { await controls.injectPerfProbes({ page }); await page.waitForTimeout(300); }
+      await page.evaluate(() => {
+        const store = (window as any).__kupua_store__;
+        const original = store.getState();
+        const record: any = { startedAt: null, completedAt: null, samples: [], active: true, publications: 0,
+          originalResults: original.results, originalOffset: original.bufferOffset, frame: 0 };
+        let previous = performance.now();
+        const sample = (now: number) => {
+          if (!record.active) return;
+          record.samples.push({ start: previous, end: now, duration: now - previous });
+          previous = now;
+          if (record.samples.length > 128) throw new Error("Return frame bound exceeded");
+          record.frame = requestAnimationFrame(sample);
+        };
+        record.frame = requestAnimationFrame(sample);
+        record.unsubscribe = store.subscribe((state: any, previous: any) => {
+          if (record.startedAt !== null && record.completedAt === null && state.results !== previous.results) record.publications++;
+        });
+        document.addEventListener("keydown", function start(event) {
+          if (event.key !== "Backspace") return;
+          document.removeEventListener("keydown", start, true);
+          record.startedAt = performance.now();
+          performance.mark("p13b-research-start");
+        }, true);
+        (window as any).__p13bResearch = record;
+        const cells = (window as any).__gridCellCounter;
+        if (cells) {
+          cells.stats = { renders: 0, unique: new Set(), retainedComparisons: 0, retainedSkipped: 0, changes: {} };
+          cells.active = true;
+        }
+      });
+      if (traced) {
+        await session.send("Tracing.start", { categories: "devtools.timeline,blink.user_timing,disabled-by-default-devtools.timeline,disabled-by-default-devtools.timeline.stack",
+          transferMode: "ReturnAsStream" });
+        tracing = true;
+      }
+      if (profiled) {
+        await session.send("Profiler.enable");
+        await session.send("Profiler.setSamplingInterval", { interval: 100 });
+        await session.send("Profiler.start");
+      }
+      if (probes) await controls.resetPerfProbes({ page });
+      await helpers.closeDetailViaBackspace();
+      await controls.waitForFocusedReturnStability(page, target);
+      const snapshot = probes ? await controls.collectPerfSnapshot({ page }) : null;
+      const observed = await page.evaluate(target => {
+        const record = (window as any).__p13bResearch;
+        record.active = false;
+        cancelAnimationFrame(record.frame);
+        record.unsubscribe();
+        const state = (window as any).__kupua_store__.getState();
+        const region = document.querySelector('[aria-label="Image results grid"]')!;
+        const cell = region.querySelector(`[data-image-id="${CSS.escape(target)}"]`)!;
+        const bounds = region.getBoundingClientRect(), rect = cell.getBoundingClientRect();
+        const intervals = record.samples.filter((sample: any) => sample.end > record.startedAt && sample.start < record.completedAt)
+          .map((sample: any) => sample.duration);
+        const cells = (window as any).__gridCellCounter;
+        if (cells) cells.active = false;
+        return { boundaryMs: record.completedAt - record.startedAt, intervals,
+          cellWork: cells ? { renders: cells.stats.renders, unique: cells.stats.unique.size,
+            retainedComparisons: cells.stats.retainedComparisons, retainedSkipped: cells.stats.retainedSkipped,
+            changedProps: cells.stats.changes } : null,
+          publications: record.publications, sameData: record.originalResults === state.results,
+          sameOffset: record.originalOffset === state.bufferOffset, focused: state.focusedImageId === target,
+          top: rect.top - bounds.top, left: rect.left - bounds.left, scrollTop: region.scrollTop,
+          visible: rect.bottom > bounds.top && rect.top < bounds.bottom,
+          foreground: document.visibilityState === "visible",
+          mountedImages: region.querySelectorAll("img").length,
+          decodedMountedImages: [...region.querySelectorAll<HTMLImageElement>("img")].filter(image => image.complete && image.naturalWidth > 0).length };
+      }, target);
+      const profile = profiled ? (await session.send("Profiler.stop")).profile : undefined;
+      let trace = null;
+      if (traced) {
+        const completed = new Promise<any>(resolve => session.once("Tracing.tracingComplete", resolve));
+        await session.send("Tracing.end");
+        tracing = false;
+        const { stream } = await completed;
+        let data = "";
+        try {
+          for (let chunk = 0; chunk < 128; chunk++) {
+            const result = await session.send("IO.read", { handle: stream, size: 65536 });
+            data += result.data;
+            if (data.length > 8 * 1024 * 1024) throw new Error("Return trace bound exceeded");
+            if (result.eof) break;
+            if (chunk === 127) throw new Error("Return trace chunk bound exceeded");
+          }
+        } finally { await session.send("IO.close", { handle: stream }); }
+        const events = JSON.parse(data).traceEvents;
+        trace = returnTraceSummary(events, profile);
+      }
+      expect(page.url()).toBe(listUrl);
+      expect(observed.foreground).toBe(true);
+      expect(observed.focused).toBe(true);
+      expect(observed.visible).toBe(true);
+      expect(observed.sameData).toBe(true);
+      expect(observed.sameOffset).toBe(true);
+      expect(observed.publications).toBe(0);
+      expect(Math.abs(observed.top - before.top)).toBeLessThanOrEqual(1);
+      expect(Math.abs(observed.left - before.left)).toBeLessThanOrEqual(1);
+      expect(observed.scrollTop).toBe(before.scrollTop);
+      expect(blockedRemoteRequests).toBe(remoteRequests);
+      if (productionRegression) {
+        expect(observed.cellWork?.changedProps).toEqual({});
+        expect(observed.cellWork?.renders).toBe(0);
+        expect(observed.cellWork?.retainedSkipped).toBe(observed.cellWork?.retainedComparisons);
+      }
+      console.log(JSON.stringify({ fixture: "p13b-return-attribution", scenario: scenario.name, probes, traced, profiled, warmupReturns, countCells, stabilizeEnterDetail, repetition: repetition + 1,
+        boundaryMs: observed.boundaryMs, observedFrameCount: observed.intervals.length,
+        observedMaxFrameMs: observed.intervals.length ? Math.max(...observed.intervals) : null,
+        probeFrameCount: snapshot?.jank.frameCount ?? null, probeFrameP95Ms: snapshot?.jank.p95FrameMs ?? null,
+        probeMaxFrameMs: snapshot?.jank.maxFrameMs ?? null, probeLoafBlockingMs: snapshot?.loaf.totalBlockingMs ?? null,
+        mountedImages: observed.mountedImages, decodedMountedImages: observed.decodedMountedImages,
+        publications: observed.publications, cellWork: observed.cellWork, blockedRemoteRequests, remoteResourceTypes, trace }));
+    } finally {
+      if (tracing) await session.send("Tracing.end").catch(() => {});
+      await page.evaluate(() => { const record = (window as any).__p13bResearch;
+        if (record) { record.active = false; cancelAnimationFrame(record.frame); record.unsubscribe(); }
+        (window as any).__perfProbes?.stop(); }).catch(() => {});
+      await session.detach();
+      await context.close();
+    }
+  });
 }
 
 function installTableRowCounter() {

@@ -57,6 +57,19 @@ and [Table qualification](../../exploration/docs/scroll-horizons-thumbs-and-bloc
 These synthetic controls do not certify live/canonical performance; the selected product
 policy remains detached-incomplete release, not a new admission scheduler.
 
+### P13b Return Attribution
+
+`--grep 'P13b resident return attribution production-regression'` runs the focused
+retained-cell/placement regression. The broader named cases retain probe on/off,
+CPU and warmed-return diagnostics, four production remeasurements and a tracing-disabled
+pair; choose the unanswered question rather than replaying the entire matrix.
+Controls reuse the existing perf spec's function bodies through AST extraction, never
+importing/executing its live tests. Mock resident data, decoded synthetic media and the
+real Backspace/history/return path stay fixed; only sanitized trace/CPU aggregates leave
+memory. Historical callback identity is a narrowly intercepted counterfactual, not an
+old checkout. Exact focus/placement checks remain strict. Results and exclusions are
+`p13bReturnAttribution20261025` in the existing research JSON and owning scroll guide.
+
 ## Legacy Experiments
 
 `npm --prefix kupua run test:experiment` retains the separately supervised tuning

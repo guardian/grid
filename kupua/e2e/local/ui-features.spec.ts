@@ -1416,7 +1416,11 @@ test.describe("KUP-021 media fallback", () => {
       };
       (window as any).__mediaFallback = probe;
       document.addEventListener("error", probe.onError, true);
+      const store = (window as any).__kupua_store__;
+      const state = store.getState();
+      store.setState({ results: state.results.map((image: { id: string }) => image.id === first ? { ...image } : image) });
     }, identities);
+    await expect.poll(() => requests.filter(path => path.includes("/thumbnail/"))).toHaveLength(1);
     await page.evaluate(async () => {
       const { pushNavigate } = await import("/src/lib/orchestration/search.ts");
       pushNavigate((window as any).__kupua_router__.navigate, {

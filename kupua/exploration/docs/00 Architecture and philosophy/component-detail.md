@@ -647,6 +647,9 @@ Buffer access and scroll placement remain in the shared hooks. Cells use `useEnr
 `image-borders.ts` for provenance styling and `graphic-image-blur.ts` for the user-controlled blur.
 Date labels follow the primary sort. Metadata pills stop propagation so searching a value does
 not also select/open its image. Browsing, selection and middle-click preview use the shared owners.
+Detail entry reads query/sort params from the existing latest-params ref at invocation;
+image-only URL transitions do not replace its callback or the dependent click/tick handlers.
+Cursor capture, focus and history push still run through their existing owners.
 Date presentation is computed inside the memoized cell, not the parent's virtual-row loop.
 Caption and tooltip share formatted upload/taken/modified values and two Intl formatters;
 image-only Justified cells perform no date presentation work. No per-image date cache is retained.

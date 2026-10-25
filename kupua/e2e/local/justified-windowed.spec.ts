@@ -504,6 +504,7 @@ test("append repacks a visible temporary tail while preserving the elected viewp
 test("delayed window maintenance retains the visible image without double compensation", async ({ kupua, page }, info) => {
   await start(kupua, page, info.project.name);
   await seek(page, 0.4);
+  await kupua.waitForExtendReady();
   await page.evaluate(async () => {
     const store = (window as any).__kupua_store__;
     for (let page = 0; page < 4; page++) await store.getState().extendForward();

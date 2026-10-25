@@ -32,7 +32,7 @@ Vite builds the app; Vitest and Playwright provide tests.
 
 | Area | Responsibility and entry point |
 |---|---|
-| Search and navigation | The URL represents search/detail state. [URL sync](src/hooks/useUrlSearchSync.ts) coordinates it with the search store; density is a separate per-tab preference. Table, Grid and Justified code loads upfront with the search route. |
+| Search and navigation | The URL represents search/detail state. [URL sync](src/hooks/useUrlSearchSync.ts) coordinates it with the search store; density is a separate per-tab preference. Table, Grid and Justified code loads upfront with the search route. Grid detail-entry handlers read latest query params without depending on image-only route identity, preserving retained-cell memoization. |
 | Data access | [The DAL](src/dal/index.ts) selects an implementation of `ImageDataSource`: media-api or direct Elasticsearch. API mode constructs no ES datasource and leaves query defaults to media-api. Direct mode derives defaults from its CQL parser; remaining grammar differences live in KUP-011. Views work through the shared data boundary. |
 | Search state | [Search store](src/stores/search-store.ts) owns the result buffer and query, seek, extension and restoration work. It publishes data and placement intent rather than scrolling the DOM. |
 | View and position | [Data window](src/hooks/useDataWindow.ts) bridges the buffer and rendered list; [scroll effects](src/hooks/useScrollEffects.ts) own viewport placement, validate velocity samples and supply first-row validity for seek-mode backward admission. Navigation intent is separate from geometry validity. Views own physical scroll extents; coordinate mechanics vary by result-set size. |

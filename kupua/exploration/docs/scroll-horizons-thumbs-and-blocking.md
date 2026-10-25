@@ -1,860 +1,550 @@
 # Scroll continuity: decisions and next work
 
-Updated 23 October 2026. This guide owns the way forward for **B2: metadata supply
-and buffer-edge blocking**, and remaining **F2: current-image delivery** work.
-It retains findings that can change a decision, not the sequence of investigations.
-Numeric records remain in the [research evidence](scroll-horizons-thumb-lookahead-results.json)
-and [campaign history](../../e2e-perf/results/density-log.json). Earlier decision text
-inside those records describes its historical checkpoint, not today's task list.
+Updated 25 October 2026. This guide owns the next decisions for **B2: metadata
+supply and buffer-edge blocking**, and remaining **F2: current-image delivery**
+work. It retains current policy, useful evidence and limits, not session history.
+Numeric records live in the [research evidence](scroll-horizons-thumb-lookahead-results.json)
+and [campaign history](../../e2e-perf/results/density-log.json). Historical
+recommendations inside those records are checkpoints, not current authority.
 
 ## Recommendation
 
-**Resume B2 with the existing bounded 400ms backward-prediction candidate, on top
-of committed thumbnail cleanup.** There is a leading candidate; there is not yet a
-demonstrated all-layout, all-goal winner. Do not restart a broad candidate search,
-ship a larger horizon by assumption, or wait for every remaining F2 question.
+**Qualify the existing bounded 400ms backward-prediction candidate against today's
+product baseline.** Grid/Table render-work repairs and detached-thumbnail cleanup
+are implemented. B2 remains open: the smaller predictor has a demonstrated
+blocking benefit, but not an all-layout, all-goal acceptance result on that baseline.
+Do not restart a broad candidate search, widen horizons by assumption or wait for
+every remaining delivery question.
 
-The next useful step is a focused qualification of that candidate with today's
-product baseline. Earlier comparisons establish a blocking benefit and expose its
-costs; they predate cleanup and the fixed-grid repair. Determine whether those
-costs remain, decide separately for Grid and Justified, and implement only the
-supported scope. Initial runway and late-arrival geometry are separate decisions.
+Live evidence shows metadata publication releasing walls while thumbnails remain
+pending. Cleanup can reduce delivery contention; it cannot supply missing records
+or guarantee stable Justified packing. Initial runway and late-arrival geometry
+are separate decisions.
 
-Live evidence already shows metadata publication releasing walls while thumbnails
-remain pending. F2 can reduce delivery contention; it cannot supply missing records
-or by itself stabilize Justified packing. Its remaining questions do not erase B2.
+Keep three independent goals:
 
-The three goals remain independent:
+- **Useful progress:** ready current images while browsing and after stopping.
+- **Smoothness:** consistent frames, not smooth blank slots or a stalled viewport.
+- **Stability:** intended identity/position and correct ratios without unsolicited movement.
 
-- **Useful progress:** moving through results with ready current images, including after stopping.
-- **Smoothness:** consistent frames, not smooth movement through blank slots or a stalled viewport.
-- **Stability:** intended identity/position and correct ratios, without unsolicited movement or flashes.
-
-No aggregate score or reduction in request counts can trade away one of these goals.
+No aggregate score or request-count reduction can trade away one of these goals.
 
 <a id="current-decision"></a>
 ## Current State
 
-| Area | Retain | Still open |
+| Area | Implemented baseline | Remaining decision |
 | --- | --- | --- |
-| B1 and velocity ownership | Stale viewport reports do not become backward demand; maintenance does not create predictive velocity. Legitimate programmatic demand remains valid. | Candidate-specific navigation/maintenance interaction, not a new wheel-only admission rule. |
-| F1 and thumbnail admission | Thumbnail-only loading updates; visible rows plus two lower rows eager, upper/rest lazy, five-row overscan. | Sustained delivery and unseen backward entry; the lower band is not a complete priority policy. |
-| B2 | Product backward threshold is still 50. Forward prediction uses a 400ms horizon, capped at one page. | The mirrored backward candidate is researched but not implemented. |
-| Fixed Grid | KUP-042 preserves global row membership and net-origin compensation, with complete pages and exact-capacity eviction. | Media sizing/animation and frame cost are distinct from fixed-row correctness. |
-| Table identity | Image-based row keys preserve retained elements while the visible slice moves. | Constrained delivery backlog and rendering cost remain. |
-| F2 cleanup | Commit `2fb9bf3ee`: detached, incomplete Grid/Justified thumbnails release their native source. Connected/completed elements and other consumers remain protected. | Conditional benefit, not a finished visible-first policy or proof of backend savings. |
-| Justified geometry | Truthful dimensions and anchor compensation remain authoritative. | Partially known boundary blocks can repack visible images; a stable centre anchor is insufficient. |
+| B1 and velocity ownership | Stale viewport reports do not become backward demand; maintenance does not create predictive velocity. Legitimate programmatic demand remains valid. | Candidate-specific navigation/maintenance interaction, not a wheel-only admission rule. |
+| F1 thumbnail admission | Thumbnail-only loading updates; visible rows plus two lower rows eager, upper/rest lazy, five-row overscan. | Sustained delivery and unseen backward entry; the lower band is not a complete priority policy. |
+| B2 | Backward threshold remains 50. Forward prediction uses a 400ms horizon capped at one page. | Qualify the researched backward mirror; it is not implemented. |
+| Fixed Grid | KUP-042 preserves global row membership and net-origin compensation, with complete pages and exact-capacity eviction. | Media arrival/animation is distinct from fixed-row correctness. |
+| Grid/Table rendering | Reused locale formatters, memoized date/cell content and stable image-based inputs avoid demonstrated repeated work. | New optimization needs a measured residual bottleneck; no broad renderer rewrite is justified. |
+| Table identity and lifetime | Stable row keys retain elements; detached incomplete thumbnails release their native source. | Moving delivery remains constrained; reversal can require new transfers. |
+| Grid/Justified lifetime | Detached incomplete thumbnails release their source; connected/completed/shared consumers remain protected. | Conditional benefit, not visible-first scheduling or proof of upstream savings. |
+| Detail return | Grid handlers read current query params without depending on image-only route identity. | No clear warmed-return latency gain or wrapper/restoration redesign justified. |
+| Justified geometry | Truthful dimensions and anchor compensation remain authoritative. | Partially known boundary blocks can repack visible images despite a stable centre anchor. |
 
 <a id="active-plan"></a>
 <a id="potential-next-steps"></a>
 <a id="next-discriminating-work"></a>
 ## B2: The Next Decision
 
-### Leading candidate
+### Leading Candidate
 
-Reuse `forwardExtendThreshold(-velocityEma)` for the existing **seek-mode backward
-admission** decision: `min(200, 50 + max(0, -velocityEma) * 400ms)`. Velocity is in
-results per millisecond. Preserve first-row viewport validity, velocity resets,
-base demand, cooldowns, per-direction concurrency and compensation. Leave the
-forward horizon, indexed path, page size and retention cap unchanged.
+Reuse `forwardExtendThreshold(-velocityEma)` for **seek-mode backward admission**:
+`min(200, 50 + max(0, -velocityEma) * 400ms)`, with velocity in results/ms. Preserve
+first-row validity, velocity resets, base demand, cooldowns, per-direction
+concurrency and compensation. Leave forward policy, indexed mode, page size and
+retention unchanged.
 
-This is the concrete candidate in `b2LocalComparison20261020`, not the later
-1,000ms experiment. It remains a recommendation to qualify, not authorization to
-implement or an assertion that the JSON approved shipping it.
+This is the candidate in `b2LocalComparison20261020`, not the later 1,000ms
+experiment. It is a recommendation to qualify, not implementation approval.
 
-### What is already established
+### Established Evidence
 
-The corrected matched study contains ten pairs per layout, with both treatment
-orders, exact starting windows/geometry, synthetic media and held metadata reads.
+The corrected matched study has ten pairs per layout, both treatment orders,
+matched starting windows/geometry, synthetic media and held metadata reads.
 
-| Case | Result | Consequence |
+| Case | Result | Decision value |
 | --- | --- | --- |
-| Grid, 900ms reads, sustained/reversal/capacity cases | About 259–340ms blocking became zero; one extra page and greater travel. Some frame/exposure results worsened. | Strong support for the smaller predictor; fewer walls alone is not acceptance. |
-| Justified, same slow-read cases | Blocking fell by 623–658ms but remained 337–381ms; one extra page and more travel. | A meaningful reduction, not uninterrupted browsing. |
-| Fast 350ms delivery | Neither policy blocked in the matched cases. | Useful negative control; no benefit should be invented where supply already keeps up. |
-| Exact 600px short stop | Zero versus one read, without a candidate post-stop refill chain. Justified candidate exposure was 46–49% versus zero; stopped readiness about 199–205ms versus 40–52ms. | One extra page is the accepted bounded speculation envelope, but the visible cost needs explanation or improvement. |
-| Capacity/reversal | Retention stayed bounded; held-refill/current-policy anchor controls also exist. | Reuse this evidence, but do not claim it certifies every candidate navigation or all-visible-box transition. |
+| Grid, 900ms reads, sustained/reversal/capacity | About 259-340ms blocking became zero; one extra page and greater travel. Some frame/exposure results worsened. | Strong support for the smaller predictor; fewer walls alone is not acceptance. |
+| Justified, same slow-read cases | Blocking fell by 623-658ms but remained 337-381ms; one extra page and more travel. | Meaningful reduction, not uninterrupted browsing. |
+| Fast 350ms delivery | Neither policy blocked. | Retain as a negative control; do not invent benefit where supply keeps up. |
+| Exact 600px short stop | Zero versus one read, without a candidate post-stop refill chain. Justified exposure was 46-49% versus zero; stopped readiness about 199-205ms versus 40-52ms. | One extra page is the accepted bounded speculation envelope, but visible cost still needs qualification. |
+| Capacity/reversal | Retention stayed bounded; held-refill/current-policy anchor controls exist. | Reuse them without claiming coverage of every candidate navigation or all-visible-box transition. |
 
 Grid and corrected Justified records use different setup revisions. The rejected
-Justified setup allowed candidate prefetch during restoration, changing 201 records
-to 401 before measurement. Accepted pairs keep baseline policy through matched
-setup and activate the candidate afterward. Do not pool the rejected setup or
-infer that legitimate programmatic demand should be prohibited.
+Justified setup allowed prefetch during restoration, changing 201 records to 401
+before timing. Accepted pairs activate the candidate after matched setup. Do not
+pool the rejected setup or prohibit legitimate programmatic demand to avoid it.
 
-### Focused qualification, not a new matrix
+### Focused Qualification
 
-**Question:** with current cleanup and geometry fixes held constant, does the
-400ms backward candidate retain its blocking benefit without unacceptable current
+**Question:** with current cleanup and geometry/render fixes held constant, does
+the 400ms backward candidate retain its blocking benefit without unacceptable
 readiness, frame, placement or resource costs?
 
-1. Reuse the [existing B2 comparisons](../../e2e-perf/research/density-app-research.spec.ts)
-   for a short stop, slow sustained backward motion and capacity/reversal in Grid
-   and Justified. Retain a fast-delivery negative control. Match initial runway,
-   ordered content, visible geometry, input and media conditions; reverse order.
-   Adapt obsolete pre-KUP-042 setup assumptions, never weaken geometry assertions.
-2. Keep cleanup **on in both arms**. Compare current backward threshold 50 with the
-   candidate. The unanswered question is B2's incremental value on the current app,
-   not whether cleanup can ever help. Reuse prior F2-only evidence; a four-arm
-   factorial is justified only if a specific interaction remains ambiguous.
-3. Record achieved work and walls alongside moving readiness, stable stopped
-   data/decode, retained boxes/sources, frames, accepted reads and pending work.
-   Check short stops, reversal and valid non-wheel demand without resurrecting a
-   maintenance-driven refill chain. Local synthetic delay is not a native-photo
-   delivery model; qualify any delivery-dependent claim in a separately authorized,
-   bounded representative-photo comparison before relying on it.
-4. Make a **per-layout disposition**. A clear Grid result need not wait for a
-   Justified packing redesign. If Justified still trades fewer walls for worse
-   pictures/frames, retain that result and select its next narrow discriminator.
-   Do not quietly accept the penalty or broaden the policy to make a metric pass.
+1. Reuse the [existing comparisons](../../e2e-perf/research/density-app-research.spec.ts)
+   for short stops, slow sustained backward motion and capacity/reversal in Grid
+   and Justified, plus a fast-delivery negative control. Match runway, ordered
+   content, geometry, input and media conditions; reverse treatment order. Adapt
+   pre-KUP-042 setup assumptions without weakening geometry assertions.
+2. Keep cleanup on in both arms. Compare backward threshold 50 with the candidate.
+   Reuse F2-only evidence; a four-arm factorial needs a specific unresolved interaction.
+3. Record achieved work/walls, moving readiness, stopped data/decode, retained
+   boxes/sources, frames, accepted reads and pending work. Preserve short-stop
+   bounds, reversal and non-wheel demand without maintenance-driven refill chains.
+   Synthetic latency is not native-photo delivery; any delivery-dependent claim
+   needs a separately authorized bounded representative-photo comparison.
+4. Make a **per-layout disposition**. Grid need not wait for a Justified packing
+   redesign. If Justified still trades fewer walls for worse pictures/frames,
+   retain the adverse result and choose its next narrow discriminator.
 
-Completion is a supported implement/retain/reject decision for the smaller
-candidate, with remaining exceptions named. It is not a demand for universal
-no-blocking guarantees under arbitrarily delayed delivery. Product changes then
-need failing-first regressions, the full required unit/E2E gates, independent
-review and an operator-run compatible campaign. This document performs none of them.
+Completion means a supported implement/retain/reject decision with named exceptions,
+not universal no-blocking guarantees under arbitrary latency. A selected product
+change still needs regressions, required full gates, independent review and an
+operator-run compatible campaign.
 
-### Initial runway is a different problem
+### Initial Runway Is Separate
 
 `b2UninterruptedResearch20261021` separates starting availability from steady lead
-time. With a 201-image Justified window and 83-result runway, both 400ms and 1,000ms
-horizons still blocked about 339–341ms under 900ms delivery. A larger horizon cannot
-make the first response arrive before already-insufficient runway is consumed.
+time. With 201 Justified images and 83 results of runway, both 400ms and 1,000ms
+horizons blocked about 339-341ms under 900ms delivery. A larger horizon cannot make
+the first response arrive before insufficient initial runway is consumed.
 
-The ready-runway controls loaded an extra page **before timing in both arms**.
-They do not establish a free startup prefetch or an acceptable navigation wait.
-If first-entry blocking remains important after the smaller candidate, decide the
-initial-page admission contract explicitly: when to request, how it coexists with
-seek/history/restoration, whether it delays exposure, and the short-stop cost.
-Do not wait for thumbnail completion to publish metadata or silently withhold ready results.
+Ready-runway controls loaded an extra page **before timing in both arms**. They do
+not establish free startup prefetch or an acceptable navigation wait. If first-entry
+blocking remains important, explicitly decide admission timing, seek/history
+coexistence, exposure delay and short-stop cost. Never delay metadata publication
+for thumbnail completion or silently withhold ready results.
 
-The 1,000ms result is a **conditional Justified alternative**, not the default next
-patch. With ready runway it kept sampled non-rigid geometry below 0.016px where
-400ms backward controls moved up to 1,466px and censored their endpoints. However,
-backward frame-p95 worsened roughly 25.5–26.2 → 32.8–33.3ms and exposure increased.
-Grid had zero walls under both horizons in those aligned controls, so there is no
-demonstrated reason to widen it. Neither larger lead time nor a prepared page
-guarantees stable geometry when real delivery arrives late.
+The 1,000ms result is a conditional Justified alternative, not the default patch.
+With ready runway it kept sampled non-rigid geometry below 0.016px where 400ms
+backward controls moved up to 1,466px and censored endpoints. However, backward
+frame-p95 worsened about 25.5-26.2 to 32.8-33.3ms and exposure increased. Grid had
+zero walls under both horizons, giving no demonstrated reason to widen it.
 
 ## Research Questions and Fixes to Ponder
 
-These are ranked by their relevance to the next decision, not blanket prerequisites
-or approved implementations. Existing evidence should narrow each task before any
-new experiment is commissioned.
+**DONE means the named, demonstrated defect is repaired, not that its entire
+performance domain is solved.** Open work is ranked for the next decision; it is
+neither blanket implementation approval nor a new set of prerequisites for B2.
 
-| Question | Evidence and smallest useful next step | Candidate only if supported |
+| Status | Question or fix | Current evidence and disposition |
 | --- | --- | --- |
-| Why do constrained Grid/Justified landing cohorts change? | Revision 4 censors 3/4 Grid and 2/4 Justified landings despite later decoded media. Associate the existing stopped-cohort and retained-box evidence with publication, viewport position and edge membership; distinguish harmless boundary membership from actual position loss. | Repair the responsible publication/placement owner or measurement boundary. Do not simply relax the cohort check or call it a timeout. This can be investigated alongside B2, not before all B2 work. |
-| What causes Justified's visible boundary repacking? | Calibrated current-policy controls show a block changing from 4 known dimensions to 48; a previously correct image moves/resizes while its source and centre anchor remain correct. Earlier metadata can move this work offscreen but cannot guarantee it. | Conditional true-ratio row composition if earlier delivery is insufficient. Preserve known boxes and pack new images at real ratios; see the lifecycle limits below. |
-| Does current cleanup remove B2's earlier short-stop/readiness penalty? | The old 400ms study used synthetic media before cleanup. The bounded post-cleanup comparison above answers the missing interaction. | Keep the smaller predictor if all goals support it; otherwise isolate admission/publication/media work instead of widening horizons. |
-| Why does Table fail constrained decode recovery? | Latest D8 keeps its cohort, reports 0/28 decoded at four seconds and about 153 requests still pending. Stable row keys fixed churn, not delivery. | Study Table's own request ownership and admission before proposing analogous unmount cleanup. Do not transplant GridThumbnail behavior without shared-consumer/re-admission evidence. |
-| What dominates Grid/Table frame cost? | Both breach the frame reference even at gentle demand. Earlier profiling points to metadata/date-label work; predecoded-media controls separately implicated arrival/decode/first display. Neither certifies the cause of today's whole frame cost. | Narrow render/formatting or arrival-work correction after attribution; preserve F1's thumbnail-only update boundary. Do not bundle it into B2. |
-| Would one eager row above help unseen backward entry? | The lower-band experiments never tested it. A cached reversal is not unseen backward browsing after eviction or a new seek. | Compare two-below against two-below/one-above at fixed metadata policy, including frame/refresh cost. Not a bigger-buffer or scheduler mandate. |
-| Is mounted background demand still preventing useful image delivery? | Unmount cleanup removes abandoned consumers, but constrained moving readiness remains poor. Passed-by requests were mostly once-useful demand, not inherently waste. | Bounded visible-first native admission only after current-demand attribution; delaying src changes effective admission even if loading stays eager. |
-| Does local proxy behavior need improvement? | Actual-handler controls show complete-body buffering, no client-close abort and no in-flight miss coalescing. Cancellation can free browser capacity while upstream work continues; immediate reacquisition can duplicate a miss. | Coalescing, streaming or abort propagation are separate trade-offs. Preserve intentional cache warming unless explicitly changed; measure progressive-paint or resource benefit rather than assuming it. |
-| What changes on hosted media? | HTTP2/CDN delivery can change connection contention, but not eliminate bandwidth, render or ownership costs. | Recheck the remaining bottleneck under the deployment's actual path, not a copy of laptop HTTP1 limits. Keep signed-URL expiry and shared consumers explicit. |
+| OPEN | Why do constrained Grid/Justified landing cohorts change? | Revision 4 censors 3/4 Grid and 2/4 Justified landings despite later decoded media. Associate stopped cohorts/retained boxes with publication, viewport and edge membership. Distinguish harmless membership change from position loss; do not relax the cohort check or call it a timeout. Can proceed alongside B2. |
+| OPEN | What causes Justified visible boundary repacking? | A block changing from 4 known dimensions to 48 moves/resizes a previously correct image while its source and centre anchor remain correct. Earlier metadata can move work offscreen, not guarantee stability. True-ratio fragments remain a feasibility result with unresolved lifecycle. |
+| OPEN | Does current cleanup remove B2's short-stop/readiness penalty? | The old 400ms study predates cleanup and render repairs. Qualify its incremental value on the current baseline as specified above; do not widen horizons to hide costs. |
+| **DONE** | Table detached-request ownership defect | Reproduced missing source release, qualified shared/completed/re-entry consumers and implemented URL-scoped passive cleanup. Production controls recover 29/29 images around 2.1s versus 0/29 at cap; reversal adds 39 repeated starts. **Remaining:** sustained moving delivery and canonical post-fix recovery, not another cleanup investigation. |
+| **DONE** | Demonstrated Grid/Table render-work defects | Removed repeated locale setup, duplicate derivation and retained-row model-identity churn; moved Grid date work behind memoization. Bounded synthetic/live DEV rechecks support the repairs. **Remaining:** paint/arrival/enrichment and long/constrained workloads, not assumed further formatter or renderer work. |
+| **DONE** | P13b retained Grid callback churn | Image-only route changes invalidated three handlers across 84 retained cells. Latest-param reads remove the renders while preserving strict placement. First-return DEV work improves; no clear warmed-return latency gain or canonical speedup established. |
+| **DONE** | Dashboard provenance and evidence presentation | Member-consensus source metadata, actual baseline membership, adverse recovery flags/counts, frame populations and explicit delta/boundary labels are implemented. **Remaining:** unavailable request-to-current-image associations and joint censor reasons cannot be inferred from aggregates. |
+| OPEN | Would one eager row above help unseen backward entry? | Lower-band studies did not test it. Cached reversal is not unseen entry after eviction/seek. Compare two-below against two-below/one-above at fixed metadata policy, including frame/refresh cost; not a buffer/scheduler mandate. |
+| OPEN | Does mounted background demand still impede useful delivery? | Cleanup removes abandoned consumers, but moving readiness remains poor. Attribute current demand before selecting visible-first native admission. Delaying `src` changes admission even when `loading` remains eager. |
+| DEFERRED | Does local proxy behavior need improvement? | Actual-handler controls show full-body buffering, no client-close abort and no in-flight miss coalescing. Operator excludes proxy redesign from this work. Any later coalescing/streaming/abort decision must preserve or explicitly change cache warming and measure benefit. |
+| OPEN | What changes on hosted media? | HTTP2/CDN can alter contention, not remove bandwidth/render/ownership cost. Qualify the actual deployment path, signed-URL expiry and shared consumers rather than copying laptop HTTP1 limits. |
 
-### Justified geometry: retain the feasible alternative, not the rejected one
+### Justified Geometry: Feasible Alternative and Limits
 
 The true-ratio fragment control in `b2UninterruptedResearch20261021` preserved
-previously known rows and independently packed incoming images at their actual
-ratios. Four mixed-ratio unit cases and a stopped backward-publication compositor
-control support feasibility: 32 retained targets stayed stable, the previously
-moving point shifted about 0.37px vertically, and all 1,000 loaded boxes respected
-their ratios. This is **not** a general fragment lifecycle or a blocking fix.
+known rows and independently packed incoming images at actual ratios. Four
+mixed-ratio unit cases and a stopped backward-publication compositor control
+support feasibility: 32 retained targets stayed stable, the previously moving
+point shifted about 0.37px vertically, and all 1,000 loaded boxes respected ratios.
+This is **not** a general fragment lifecycle or blocking fix.
 
-Before selecting it, resolve repeated/moving publications, both boundaries, partial
-eviction, coalescing/release, true ends, bounded state, resize/density/seek/history,
-and consistency of row lookup, keyboard neighbours, hit targets and scroll extent.
-Incomplete rows can leave horizontal space and add height. The old DOM observer
-missed common-mode movement; use the newer applied-input observer and calibrated
-pixel controls where needed, without claiming every-frame paint coverage.
+Selection still requires repeated/moving publications, both boundaries, partial
+eviction, release/coalescing, true ends, bounded state, resize/density/seek/history,
+and consistent row lookup, keyboard neighbours, hit targets and extent. Incomplete
+rows can leave horizontal space and add height. Use applied-input observers and
+calibrated pixel controls: the old DOM observer missed common-mode movement, and
+none of these controls establishes every-frame paint coverage.
 
-**Do not revive provisional square-slot retention.** It stabilizes old boxes by
+**Do not revive provisional square-slot retention.** It preserves old boxes by
 giving new visible images unsuitable shapes. Original-cohort departure, timers,
-idle or media-ready events do not make release safe: other images in the same
-block may still be visible. The useful lifetime research establishes that
-constraint; it is not an active implementation recipe.
+idle and media readiness do not make release safe when other block members remain
+visible. Lifetime research establishes that constraint, not an implementation recipe.
 
 <a id="revision-4-campaign-assessment"></a>
 <a id="active-pressure-campaign"></a>
 ## Campaign Evidence That Changes the Plan
 
-The current baseline is **scroll load and recovery v4**, timestamp
-`2026-10-22T23:01:03.116Z`, HEAD `2fb9bf3ee` with a dirty tree. Four repetitions
-completed: 36 workload executions, 84 records. Local media-api, seek mode,
-Chromium 151, 1720x960/DPR2. Capture/coverage checks passed; paint is unmeasured.
-Report-start to history was 13m06s, versus 14m18s for the preceding cleanup campaign,
-excluding preflight/final serialization. Measurement improvements need not add minutes.
+### Historical Revision-4 Diagnosis
 
-| Current observation | Meaning for next work |
+**Scroll load and recovery v4**, timestamp `2026-10-22T23:01:03.116Z`, HEAD
+`2fb9bf3ee` with dirty tree, is the pre-render-repair diagnostic baseline. Four
+repetitions completed 36 workloads/84 records: local media-api, seek mode,
+Chromium 151, 1720x960/DPR2. Capture/coverage passed; paint is unmeasured. These
+observations are not current post-Table-cleanup measurements.
+
+| Observation | Retained meaning |
 | --- | --- |
-| At 200 requested results/s, backward progress is 149/134/148 results/s and accumulated walls 699/915/715ms for Grid/Justified/Table. | B2 is still material after cleanup. These are phase medians, not one universal threshold or episode duration. |
-| At constrained 100 results/s, median pending slots are 88/84/92%, with zero metadata wall in all repetitions. At 200, all reach 100% pending and walls appear. | Delivery and metadata continuity are separate. Earlier metadata cannot alone cure the first phase's unready pictures. |
-| Ordinary forward decode medians are 365/810/341ms; Table's worst is 2.20s. D2 lands in 27/21/53ms after its short reversal. | Recent-content revisiting is not unseen-entry performance. Do not add data and media clocks, or ignore Table's adverse repetition. |
-| Constrained stable decoded endpoints: Grid 1/4, Justified 2/4, Table 0/4. | Grid/Justified are cohort-change censoring, not four-second decode timeouts. Table keeps its cohort but does not decode within the cap. No survivor-only latency median. |
-| Grid/Table breach the 33.4ms frame reference at every load step/repetition; Justified does not, but has adverse backward/reversal geometry. | No overall density winner. Smooth movement, image readiness and sampled stability must remain separate. |
-| Ordinary Justified forward at 100 results/s has about 0.2% median pending slots but 64% in its worst repetition. | Medians and comfortable initial runway do not establish reliable sustained delivery. |
+| At requested 200 results/s, backward progress is 149/134/148 results/s and walls 699/915/715ms for Grid/Justified/Table. | B2 remains material after Grid/Justified cleanup. Phase medians are not universal thresholds or episode durations. |
+| Constrained 100 results/s: median pending slots 88/84/92%, zero metadata walls in every repetition. At 200, all reach 100% pending and walls appear. | Delivery and metadata continuity are separate. Earlier metadata alone cannot cure unready pictures. |
+| Ordinary forward decode medians 365/810/341ms; worst Table 2.20s. D2 short-reversal landings 27/21/53ms. | Revisiting recent content does not establish unseen-entry performance. Do not add data/media clocks or omit adverse repetitions. |
+| Constrained stable decoded endpoints: Grid 1/4, Justified 2/4, Table 0/4. | Grid/Justified censor on cohort changes, not four-second decode timeouts. Table retains its cohort but misses the cap. No survivor-only latency median. |
+| Grid/Table exceed 33.4ms at every load step/repetition; Justified has adverse backward/reversal geometry. | Historical motivation for attribution, not proof that repaired Grid/Table still have the same frame defect or an overall density winner. |
+| Ordinary Justified forward at 100 results/s: about 0.2% median pending slots, 64% worst repetition. | Median readiness and comfortable initial runway do not establish reliable sustained supply. |
 
-Initial buffers are 201 images, with roughly 83–92 results of runway. The gentle
-step largely consumes that prepared window; it is not a sustained-supply guarantee.
-Four-sample p95 is the worst repetition, not a population tail. Count-based pending
-slots must not be confused with historical whole-viewport pending area, especially
-for Table's narrow thumbnail column.
+Initial windows contain 201 images and about 83-92 results of runway; gentle
+motion largely consumes prepared content. Four-sample p95 is the worst repetition,
+not a population tail. Table slot counts are not whole-viewport pending area.
 
-### Bounded Grid/Table Frame Attribution (25 October 2026)
+### After-Rendering Canonical Comparison
 
-Question: does the ordinary-rate frame gap require media arrival, metadata
-publication or campaign observers? Earlier warm-media attribution covered
-Justified only; historical campaign comparisons did not isolate these causes.
-Hypothesis: costly Grid/Table frames persist with resident data and predecoded
-media. Control: reuse `scrollAtSpeed` and journey calibration, dispose the journey
-observer before motion, retain only rAF timing and a store publication counter.
-Each forward pass was bounded to 800ms at calibrated 100 results/s; 12 passes
-total (9.6s planned motion), including one excluded pass. No campaign was run.
+The four 24 October entries and four 25 October entries in campaign
+`ee34e38f-0d8a-48d1-b1b6-05b2dba776e1` (**after rendering fixes**) have matching
+78 scenario IDs, contracts and four-observation populations: 34 rendering,
+15 short, 8 long and 21 density scenarios. Topology, canonical media, browser,
+viewport/DPR, cutoff and worker/CPU settings match; source, content and cache
+warmth are not controlled. All 6,100 density field summaries have consistent
+sample/unavailable totals; browser sidecars match canonical JSON.
 
-Shared foreground-visible Vite DEV app, verified ApiDataSource / deployed TEST /
-canonical media, seek tier, 1720x960/DPR2. Served raw sources for ImageGrid,
-ImageTable, JustifiedGrid, useDataWindow and useScrollEffects matched disk SHA256.
-One 200-image cohort was predecoded and retained outside motion: 200/200 succeeded
-in 618ms under a 10s cap. Caches were uncontrolled. The window grew from 200 to
-400 during the excluded pass; valid cross-density and formatter comparisons used
-the same 400-result array. Workloads differ by density: Grid/Table/Justified
-initial visible slots 18/27/39, runway 382/373/361 results and calibrated speed
-5050/3200/2622.5px/s. This is not equal pixel or DOM work, or hosted-build evidence.
+- **Table delivery lead, since repaired locally:** D8 retained a median 28 images
+  but decoded-count median/maximum zero. Global request carry-in rose 293.5 to
+  314.5 and end-pending 164 to 172.5; data-ready was 16.75ms under a 4s recovery
+  cap, with no recovery failures, HTTP errors or cohort changes. These counts
+  motivated ownership qualification, not proof of which requests were obsolete.
+  The subsequent Table cleanup is not measured by this campaign.
+- **P13b lead, since attributed locally:** frame-p95/max improved 100 to 59ms and
+  LoAF blocking 48 to 6ms over roughly six frames. This is not action latency.
+  The later callback repair has local evidence below, not a new canonical result.
+- **No established client defect from full-image waits:** JA2 loaded/stable
+  settlement rose 6,474 to 11,762ms while store-ready fell 134 to 117ms; P13c
+  decoded detail rose 1,374 to 1,884ms; P14c fast-backward landing 2,695 to
+  3,560ms, with loaded-within-cadence 2/10 to 1/10. Proxy performance is a known,
+  excluded limitation. Do not add clocks, equate loaded/decoded/painted, or infer
+  backend costs from landing Resource Timing.
+- **No p95-only regression verdict:** P15b is fullscreen traversal, not return.
+  Its p95 rose 10 to 22ms, but max fell 50 to 34ms, blocking 15 to zero and
+  frame count 157 to 57. Changed window composition matters.
 
-| Pass | rAF intervals | Frame-p95 ms | Progressed results | Qualification |
-| --- | --- | --- | --- | --- |
-| Grid ordinary, minimal | 34 | 58.4 | 84 | 200 resident; 6/24 endpoint images loaded |
-| Grid warm, minimal 1 | 31 | 58.3 | 84 | 200 resident; 24/24 endpoint images loaded |
-| Grid warm, minimal 2 | 24 | 58.4 | 78 | EXCLUDED: one publication, window grew to 400 |
-| Table warm, minimal | 18 | 133.1 | 76 | 27/27 endpoint images loaded |
-| Justified warm, minimal | 78 | 25.0 | 72 | 39/39 endpoint images loaded |
-| Grid warm, minimal | 35 | 58.4 | 78 | 24/24 endpoint images loaded |
-| Grid warm, CPU-profiled | 31 | 50.9 | 84 | Profile overhead; not a benchmark pair |
-| Table warm, CPU-profiled | 16 | 141.7 | 77 | Profile overhead; not a benchmark pair |
-| Grid native before | 41 | 50.0 | 84 | Formatter control, 799ms motion |
-| Grid formatter reuse 1 | 84 | 16.7 | 84 | 794ms; 14,208 intercepted calls including setup |
-| Grid formatter reuse 2 | 94 | 9.3 | 84 | 790ms; 14,736 intercepted calls including setup |
-| Grid native after | 41 | 41.7 | 78 | 756ms; retain shorter achieved motion |
+Nine D1/D2/D8 records changed contracts in revision 4. D3-D7/D11 retain twelve
+comparable records; the new 100-results/s step is not the old continuous journey.
+Do not calculate a cumulative speedup across that boundary. Comparable seek
+medians improved 2082 to 1353ms Grid and 1994 to 1762ms Justified while maintenance
+frames and paired refresh decode penalties worsened (7 to 73ms and 45 to 109ms).
+Both campaigns already had Grid/Justified cleanup; this is not another controlled
+cleanup intervention. Campaign labels can precede eventual commits: use contracts
+and provenance, not commit order alone.
 
-All valid passes stayed visible and had zero result publications/read starts during
-motion. Script duration was 745ms Grid / 756ms Table in approximately 1s profiled
-windows **including setup**, versus layout plus style 23/44ms. Grid self-samples
-included 383ms in getCellDateLine and 56ms in buildDateTooltip; Table included 89ms
-in a field accessor plus substantial React DEV work. No paint/raster attribution
-or production-build extrapolation follows from these CPU samples.
+## Completed Render Repairs and Retained Evidence
 
-For Grid only, a temporary exact-option Date locale-method wrapper reused two
-Intl.DateTimeFormat instances. Forty output comparisons against native methods
-matched. Native/reuse/reuse/native ordering retained identical initial geometry,
-data and media, with about 101 results/s calibrated applied motion; restored native
-frames worsened again. This supports **repeated Grid locale formatting as a causal
-app CPU defect in this DEV reproduction**, not the entire historical frame gap.
-Table uses a different date formatter: no shared-date-cause claim is retained.
-Campaign observers and result-buffer publication are not necessary for the valid
-warm reproductions. Prewarming did not remove the gap; residual decode/first-display,
-enrichment publication, paint and additional live observer costs remain unquantified.
+**DONE: the demonstrated repeated render/formatting work is removed.** Grid
+shares two Intl date formatters and computes caption/tooltip dates inside its
+cell memo boundary; image-only Justified cells skip dates. TableRowCells takes
+stable image/column/enrichment/handler inputs, not volatile TanStack Row objects;
+outer rows also avoid Row identity churn. Display/tooltips share accessor output,
+and numeric fields reuse one default-locale number formatter. Table date-fns,
+headers, bounded model input, focus/selection, enrichment and geometry stay intact.
 
-Smallest justified next step: separately approve a targeted Grid formatter-reuse
-fix with output-equivalence tests and full required product gates. Do not redesign
-the renderer or enlarge buffers. Table's rendering root cause and historical
-stopped-media censoring remain independent unresolved questions. Short sparse
-passes are not population tails; predecoded references/loaded DOM do not establish
-every-frame painted output. All wrappers, retained images, observers and diagnostic
-globals were released; the owned CDP profiler/session and viewport override were
-removed. No raw profiles, identities, URLs, credentials or canonical histories saved.
+### Why These Repairs Were Selected
 
-### Grid Fix Remeasurement and Table Columns (25 October 2026)
-
-The approved Grid change extracts `formatGridDate` and reuses two Intl formatters.
-The regression first failed on 20 native locale-date calls, then passed with reuse;
-output checks include missing, empty, invalid, offset and DST-boundary dates.
-The implemented source, not a prototype wrapper, was reloaded and verified against
-disk hashes alongside unchanged Table/field-registry sources. TEST/canonical DEV,
-foreground, 1720x960/DPR2, uncontrolled caches and the same 800ms driver contract
-were retained. One read-only forward extension prepared 400 resident results at
-offset zero before timing; 200 retained thumbnails decoded in 101ms under a 10s cap.
-
-Grid's two implemented-reuse passes recorded frame-p95 **16.8/9.4ms**, no intervals
-over 33.4ms, 84 frontier results each, and approximately 100.2 calibrated applied
-results/s. Both had 18 initial/24 final loaded slots, 382 results of initial runway,
-1706x888 containers, unchanged data and no read starts/publications. These agree
-with the earlier temporary reuse control; earlier native 50.0/41.7ms observations
-are contextual evidence, not a newly randomized before/after campaign.
-
-Table question: are enabled metadata cells necessary for the large ordinary-rate
-frame cost, and are date/number formatters its sole explanation? Earlier profiles
-could not separate enabled-column cost from row machinery. The falsifiable control
-hid columns using the existing store, verified actual rendered header counts and
-restored preferences in `finally`. Short passes ran in both treatment orders,
-with original columns bracketing thumbnail-only, selection-only and dates-only;
-a second reversed pair separated numeric-only from original-minus-numeric.
-All Table passes used the same 400-result array, 1706x876 container, 27 initial
-visible rows, 373-result runway, approximately 100 applied results/s and zero
-result publications/read starts. Hiding media intentionally removes image work;
-thumbnail-only retains it as the independent warm-media control.
-
-| Table configuration | Columns including selection | Two frame-p95 observations (ms) |
+| Control | Useful evidence | Limit |
 | --- | --- | --- |
-| Original saved configuration | 23 | 50.0, 58.3 |
-| Thumbnail only | 2 | 16.7, 25.0 |
-| Selection only | 1 | 16.7, 16.7 |
-| Taken/uploaded dates only | 3 | 25.0, 25.0 |
-| Dimensions/width/height only | 4 | 17.5, 25.0 |
-| Original minus dimensions/width/height | 20 | 41.6, 66.7 |
+| Resident/predecoded Grid/Table with minimal observers | Warm Grid frame-p95 about 58ms and Table 133ms persisted without result publications/read starts. Profiles implicated Grid date work and Table enabled-cell/React work. | DEV, short passes; profile windows include setup. No paint/raster or production-build attribution. |
+| Grid exact-option native/reuse/reuse/native formatting | Output parity held; native frame-p95 50.0/41.7ms versus reuse 16.7/9.3ms. Actual formatter fix recheck 16.8/9.4ms. | Demonstrates repeated locale setup in this reproduction, not the entire historical frame gap. Table uses different date formatting. |
+| Table original/thumbnail/selection/date/numeric column controls | Original 23-column frame-p95 50.0/58.3ms; thumbnail 16.7/25.0ms; selection 16.7/16.7ms. Date/numeric-only arms did not explain the whole gap. Retain the original 117ms worst interval. | Enabled-cell work matters; not zero row/virtualizer cost or justification to remove useful columns. |
+| Retained-row native/semantic reference control | Only `row` changed for retained images. Native 2,376-3,026 row-body calls versus semantic 156-158; semantic p95 16.7-17.5ms versus native 33.4-75.0ms. | Diagnostic comparator is not shipped: image identity alone cannot cover column/model, metadata, selection or enrichment changes. |
 
-Retain the original configuration's 117ms worst interval; do not average it away.
-These results support enabled-cell work as the major differentiator in this warm
-reproduction, not zero fixed row/virtualizer cost or a universal columns-only cause.
-Neither dates nor numeric formatting alone explains the full enabled-column gap.
+The retained-row control used local mock data, 400 residents, 200 predecoded
+synthetic thumbnails, seek mode, 1720x960/DPR2, 27 initial Table rows and fixed
+80-result work. Achieved rates differed (about 91-101 results/s), so it is not
+an exact matched-rate benchmark. Declared geometry/text/tooltips matched; no
+pixel/paint witness was taken. Observer-present diagnostics are not observer-free
+browser attribution.
 
-One additional instrumented original-column pass (frame-p95 50.1ms) wrapped registry
-accessors, raw-value functions and renderers, plus native number formatting. Including
-setup, it observed 9,944 locale-number calls / 80.6ms; dimensions accessor 3,531 calls /
-62.1ms; width/height accessors 1,177 calls each / 7.2/9.6ms. The two date-fns formatters
-each ran 2,354 times, totaling 12.2ms. Nested timings overlap and wrapper overhead
-precludes adding these into a frame budget. Dimensions has no raw-value override;
-tooltip extraction repeats its formatted accessor alongside display/core-row work.
-All enabled columns render even outside the horizontal viewport, and changing
-virtual windows replaces TanStack row objects, defeating otherwise stable row memo.
+### Implemented Results
 
-Potential Table improvements, not implemented: share a default-locale number
-formatter with output-parity coverage; avoid repeated dimension/raw-display
-derivation; characterize row/cell reuse before considering a wider rendering change.
-Do not replace date-fns or remove useful columns merely because a date-only arm is
-cheaper. Grid still computes date-line props across virtual rows; formatter reuse
-addresses demonstrated setup cost without adding per-image caches or changing
-renderer, buffer or media policy. Table recovery under constrained delivery, paint
-and enrichment-publication costs remain unmeasured here.
+Final isolated controls retained the same 400-result array, predecoded media,
+viewport and fixed 80-result work, with no publications or pending endpoint media.
 
-Fifteen passes were bounded to 800ms each (12s planned motion), including the one
-instrumented pass; no campaign or live writes. All native wrappers, field mutations,
-retained images, globals, observers and the owned CDP viewport override/session were
-removed. Original column configuration was verified restored. No Table product code,
-raw profiles, identities, URLs or canonical histories were written.
+- Table production row-body/title counts were 160/160/158, frame-p95
+  17.7/17.2/16.7ms; the semantic comparator found no remaining Row churn to skip.
+  Retain the 25.1ms worst interval and 2.7ms thumbnail-observer maximum.
+- Grid date calls fell from 6,552 to 504 per pass; measured formatter work from
+  11.1ms to 1.2/0.8ms. Both already had about 16.7ms frame-p95: this follow-up
+  saves CPU, not an established further frame-cadence improvement. Justified
+  performed zero date calls. Numeric reuse has parity/allocation coverage, not
+  separately isolated frame-speed attribution.
+- Direct memo counters found all 3,144/2,940 retained Grid comparisons and
+  4,338/4,269 Justified comparisons skipped in steady-window motion. No handler
+  churn was observed there; detail-return churn is a separate mechanism below.
 
-### Isolated Retained-Row Control (25 October 2026)
+A bounded foreground live DEV recheck verified served source hashes, ApiDataSource,
+deployed TEST/canonical media and 1720x960/DPR2. Ten fixed-work passes used 400
+residents and about 80 calibrated results each, with zero read starts/publications
+and no intervals above 33.4ms. Caches/enrichment were not independently controlled.
 
-The next question was whether new TanStack Row references, rather than changed
-image data or geometry, defeat EnrichedTableRow memoization. Existing column-off
-and formatting probes could not answer that. The bounded research control reuses
-fixture routes, MockDataSource, visibleMediaReadiness, journey/thumbnail probes
-and scrollAtSpeed; only the memo/reference counter is new. It runs in the separate
-Playwright research browser on runner-owned port3041, with service access blocked.
-The shared app/server is untouched. Two embedded interception setups failed before
-motion; an outer-realm URL error was identified, but the subsequent fetch/response
-failure remained unresolved. No performance conclusion uses those failed setups.
+| Live DEV condition | Frame-p95 ms | Worst interval ms |
+| --- | --- | --- |
+| Grid ordinary / explicitly prewarmed | 24.9 / 9.1 | 25.1 / 16.6 |
+| Table ordinary / explicitly prewarmed | 17.6 / 16.7 | 25.3 / 25.5 |
+| Justified ordinary / explicitly prewarmed | 9.4 / 9.2 | 16.8 / 16.7 |
+| Table full columns, bracketing thumbnail-only | 17.4 / 16.8 | 25.1 / 25.0 |
+| Table thumbnail-only, two observations | 8.7 / 9.1 | 16.7 / 9.4 |
 
-The first isolated setup also failed: its immediate extension remained at 200
-results and four media slots were pending at stop. That observation is excluded
-from the comparison. The repaired setup uses the existing maintenance cooldown
-and predecodes/retains 200 synthetic thumbnails under a 10s cap.
+The former large warm Grid/Table penalty was not reproduced. Full Table retains a
+smaller metadata-cell cost; no exact browser-subsystem diagnosis or further rewrite
+follows. Historical/current observations are not randomized paired speedups, hosted
+or production-build results, population tails, constrained-delivery or paint proof.
+Table's 27 usable rows and the media helper's 29 intersecting images are different
+populations. Remaining approximately 1ms Grid formatting work does not justify extra
+caches without a newly measured bottleneck.
 
-The successful control used synthetic metadata/media, 400 resident results, seek
-mode, 1720x960/DPR2, 1706x876 container, 27 initial visible rows and 373-result runway.
-Native/semantic/semantic/native/native/semantic passes each applied exactly 2560px
-(80 calibrated results) with a 1s cap. All stayed visible, retained the same data,
-had zero result publications and zero endpoint pending slots, and matched endpoint
-text, tooltips and declared row-placement styles. No pixel/paint witness was taken.
+### P13b Return Attribution and Callback Repair (25 October 2026)
 
-| Mode in execution order | Row-body render calls | Frame-p95 ms | Applied results/s |
-| --- | --- | --- | --- |
-| Native | 2,376 | 75.0 | 91.36 |
-| Semantic | 156 | 17.5 | 99.07 |
-| Semantic | 156 | 16.7 | 99.66 |
-| Native | 2,840 | 34.3 | 97.13 |
-| Native | 3,026 | 33.4 | 96.65 |
-| Semantic | 158 | 16.7 | 100.57 |
+**DONE: image-only route transitions no longer invalidate retained Grid handlers.**
+`enterDetail` reads the existing latest-params ref at invocation. Cursor capture,
+history, focus, wrapper visibility, return placement, density and interruption
+owners are unchanged. The regression failed first on onCellClick,
+onCellDoubleClick and onTickClick changing across 84 retained cells, causing 168
+DEV render calls; after repair all 84 comparisons skip, with zero retained renders.
 
-Every counted changed prop was `row`; images and other row props were unchanged.
-Native passes counted 1,111/1,341/1,434 retained-image/new-Row comparisons. Semantic
-reuse ignored Row identity only when original image and every other prop matched
-(virtual geometry was compared by value), reducing row-body calls by roughly 94%.
-Both modes carried the same counters and probes. Thumbnail observer sample maxima
-were 0.6-0.9ms, journey maxima 0.4-0.5ms; faster semantic arms actually accumulated
-more thumbnail observer time (36-40ms versus 12-14ms). These are diagnostic costs,
-not proof that observers have no asynchronous/layout effects.
+Local controls used mock data/400 residents, 84 decoded synthetic thumbnails and
+decoded detail, 1720x960/DPR2, real Backspace/history return and the existing stable
+focused-destination boundary. Focus, list URL, buffer, exact scrollTop and relative
+placement within 1px were preserved. No live service or canonical campaign ran.
+Actual canonical probe/boundary bodies were reused without executing the live spec.
+The initial large cost was script, not the wrapper's layout/paint; a separate CPU
+sample implicated DEV JSX/Strict Mode.
 
-This confirms an avoidable retained-row render mechanism in the synthetic control.
-It is not a measured live improvement, production-build result or exact matched-rate
-benchmark: fixed work matched, achieved rates did not, and the adverse 75ms native
-observation remains. The next justified product change is a stable cell-content
-boundary that avoids propagating unchanged model-object churn, while retaining
-bounded virtual-window input. Do not ship the diagnostic comparator: reference
-equality of image data alone does not cover column/model changes, enrichment,
-selection/focus, sorting or metadata replacement outside this steady-window test.
+| Traced first-return aggregate, four observations per condition | Historical callback | Repaired callback |
+| --- | --- | --- |
+| Key-to-stable median | 85.6ms | 46.95ms |
+| Median per-observation frame-p95/max | 62.25ms | 17.2ms |
+| LoAF blocking median | 7.1ms | 0ms |
+| Script excluding nested layout/paint range | 50.95-56.54ms | 13.06-15.85ms |
+| Layout / paint ranges | 5.69-7.06 / 4.61-4.97ms | 6.03-7.70 / 4.22-4.86ms |
 
-Grid still computes date-line props in the parent virtual-row loop and repeats some
-date work in tooltips. Those are remaining opportunities, not demonstrated post-fix
-bottlenecks. Actual fixed Grid frame-p95 16.8/9.4ms versus earlier native 50.0/41.7ms
-is descriptive context, not randomized paired observations or a throughput speedup.
-The focused research test and perf TypeScript check passed; the owned browser/context
-and its routes/counters were disposed. Full product E2E for the Grid fix is still
-pending operator release of port 3000; this local control does not replace that gate.
+A tracing-disabled pair also improved (key-to-stable 91.5 to 38.8ms, frame-p95/max
+57.8 to 16.7ms, LoAF 8.6 to zero). A warmed counter pair showed **no clear latency
+gain**, about 36 versus 40ms, despite removing renders. First-use DEV amplification
+must not become a universal warmed or production-build claim. Small frame samples
+are not population tails. Do not chase ordinary remaining layout/paint or rewrite
+restoration on these results. Raw traces/profiles were not persisted; accepted
+observations and exclusions live under `p13bReturnAttribution20261025`.
 
-### Implemented Render-Work Follow-Up (25 October 2026)
+### Product Validation
 
-The operator approved the narrow Table repair and further Grid work after reviewing
-the evidence/fix summary. No diagnostic comparator is shipped. TableRowCells now
-receives stable image, columns, enrichment and click-handler inputs. Outer rows
-also no longer receive native TanStack Row objects. Accessor output is shared by
-display and tooltip; one default-locale Intl.NumberFormat serves dimensions/width/
-height. Table's date-fns formatting, bounded model input, headers, placeholder paths,
-placement, focus/selection, media delivery and native thumbnail lifetime are retained.
-
-Grid computes date presentation inside the existing cell memo boundary. Caption and
-tooltip share the three formatted date values; primary sort and collection/usage
-maximum-date semantics are retained. Image-only Justified cells skip date work.
-The two existing locale formatters remain; no per-image cache or buffer change.
-
-Failing-first checks exposed 3,915 title reads for 122 row identities, then 6,172 cheap
-outer-row renders after the first content extraction. The completed repair removes
-both sources of churn. A separate Grid check counted 6,552 date calls in one roughly
-800ms pass; the numeric regression detected 80 native locale calls over 20 repeated
-three-field reads. Output equivalence was retained rather than weakening assertions.
-The old diagnostic expectation that semantic memo must outperform native memo was
-replaced deliberately: production now must have no Row-reference churn to ignore.
-
-Final combined isolated run reused the same research browser, fixtures and probes:
-400 resident results, retained/predecoded 200-image synthetic cohort, 1720x960/DPR2,
-fixed 80-result calibrated work per pass, at most 1s each. Three Table native passes
-recorded frame-p95 17.7/17.2/16.7ms, 160/160/158 row-body calls and matching title reads.
-Native/semantic rows had no differing props or extra semantic-reuse opportunities;
-all endpoint text/tooltips/declared placement witnesses matched. Semantic frame-p95
-was 17.2/16.8/16.8ms. Retain the 25.1ms worst interval and 2.7ms thumbnail-observer maximum;
-one journey-observer maximum was 1.7ms. These remain observer-present synthetic data.
-
-Grid's two final passes made 504 date calls each, measured formatter work 1.2/0.8ms,
-frame-p95 16.6/16.6ms, worst intervals 17.0/16.7ms. The corresponding pre-change work
-check had 6,552 calls / 11.1ms but already 16.7ms frame-p95: this follow-up saves CPU,
-not an established further frame-cadence improvement. Justified made zero date calls,
-with 9.2/9.2ms frame-p95 and 17.5ms worst intervals. The last numeric-formatter change
-has output/allocation coverage, not a separately isolated frame-speed attribution.
-
-Every final pass completed its fixed distance with unchanged data, no publications
-and zero pending endpoint media. Achieved rates were 98.1-100.3 results/s Table and
-about 99.3 Grid; Justified 99.3-100.0. No population tails, live/hosted improvement,
-paint proof or resolution of constrained Table recovery follows. All owned contexts,
-routes and counters were disposed; canonical histories and shared server unchanged.
-
-This exhausts the demonstrated retained-render/locale-setup/duplicate-derivation
-opportunities selected here. Remaining Grid formatting is around 1ms over the motion
-window; extra caches or a wider renderer refactor have no established payoff from
-these controls. Further work needs a new measured bottleneck. Unit coverage includes
-same-ID metadata replacement, same-count column swaps, enrichment, modifiers, dates,
-list/composite rendering and numeric/missing/invalid output. Full units and perf
-TypeScript passed; full product E2E remains pending operator release of port 3000.
-
-### Direct Grid Memo and Live DEV Recheck (25 October 2026)
-
-The direct GridCell counter reuses the isolated date-work control and native shallow
-prop comparison. Fixed Grid rendered 168 times for 84 entering image identities in
-each pass; 3,144/2,940 retained comparisons all skipped, with no changed retained
-props. Justified rendered 150 times for 75 entering identities, skipping all
-4,338/4,269 retained comparisons. Date calls remained 504 Grid / zero Justified.
-Frame-p95 was 16.6/16.6ms Grid and 15.8/9.3ms Justified; retain the adverse first
-Justified value. A numbered refresh-signature marker mismatch failed before motion
-and was repaired; it is not app performance evidence. No callback/collection-colour
-churn was observed in this synthetic steady-window control.
-
-Before E2E, the actual shared app was reloaded because HMR was unavailable. Raw served
-hashes for ImageGrid, ImageTable, TableRowCells, date formatting, field registry and
-number formatting matched disk. Runtime ApiDataSource, configured deployed TEST /
-canonical media, foreground visibility and 1720x960/DPR2 were verified. Retained
-Resource Timing entries corroborated image-API traffic; an earlier legacy-/api
-classifier was inapplicable and its zeros were discarded, not called zero requests.
-No independent backend-binary or production-build identity claim follows.
-
-One read-only extension prepared 400 resident results at offset zero. Every pass
-applied about 80 calibrated results with a 1s cap; a separate decoded-media observer
-had a 1s stop cap. Ordinary means before explicit prewarming, not cold caches. A
-200-image prewarm completed in 75ms with no failures. Cache state and live enrichment
-were not independently controlled; result-buffer publications were measured.
-
-| Live DEV pass | Frame-p95 ms | Worst interval ms | Applied results/s |
-| --- | --- | --- | --- |
-| Grid ordinary | 24.9 | 25.1 | 99.16 |
-| Table ordinary, 23 columns including selection | 17.6 | 25.3 | 99.10 |
-| Justified ordinary | 9.4 | 16.8 | 100.19 |
-| Grid explicitly prewarmed | 9.1 | 16.6 | 100.16 |
-| Table explicitly prewarmed | 16.7 | 25.5 | 97.12 |
-| Justified explicitly prewarmed | 9.2 | 16.7 | 99.13 |
-| Table original columns, bracket start | 17.4 | 25.1 | 97.09 |
-| Table thumbnail only, repetition 1 | 8.7 | 16.7 | 99.06 |
-| Table thumbnail only, repetition 2 | 9.1 | 9.4 | 99.08 |
-| Table original columns, bracket end | 16.8 | 25.0 | 99.11 |
-
-The column intervention initially imported a disconnected bare-path store while the
-live Table used a timestamp-qualified dependency. The rendered-header guard stopped
-it and `finally` restored that instance; the completed bracket-start pass was retained.
-Resolving the exact dependency from the served owner module made the remaining three
-passes observable. Rendered header counts verified 23 versus 2; preferences were restored.
-No completed pass was rerun and total motion stayed within ten 1s-capped passes.
-
-All ten passes stayed visible, kept the same result array, completed fixed distance,
-had zero read starts/result publications during motion and no intervals over 33.4ms.
-All decoded endpoints completed within their separate cap. Grid/Justified usable
-slot counts were 24/33 at stop. Table's slot witness counted 27 usable rows while
-the shared media helper counted 29 intersecting images including the header band;
-do not merge those populations or call either paint proof. No constrained delivery,
-long churn, backward geometry or historical Table-recovery claim was remeasured.
-
-The former large warm Grid/Table frame penalty was not reproduced in this bounded
-live DEV check. Full Table retains a smaller metadata-cell cost versus thumbnail-only;
-these data do not identify its exact browser subsystem or justify another renderer
-change. Historical and current observations are not randomized paired speedup data.
-All owned globals, listeners, observers, warm references and CDP overrides/session
-were removed, with cleanup readback; shared server/configuration and canonical
-histories were unchanged. Full E2E was still outstanding at this checkpoint;
-the completed product gate is recorded below.
-
-### Completed Product Validation (25 October 2026)
-
-Full local-only E2E completed with 505/505 passing, retries disabled, covering
-Chromium, forced-seek, Justified preview, indexed and seek projects. Full units
-passed 3,256 tests across 92 files; perf TypeScript and the focused research controls
-also passed. The first E2E attempt was agent-interrupted and does not count toward
-this gate; only the completed rerun is used. No assertions were weakened or failures
-retried away. The operator's shared app was stopped by the operator before testing;
-runner-owned servers used explicit local ES settings, not TEST. This validates
-workflows/regressions, not hosted performance or the unresolved media/paint questions.
-
-### Direct Canonical-Pair Review: App and Dashboard (25 October 2026)
-
-The direct review compared the four 24 October canonical entries with the four
-25 October entries referenced by the latest campaign manifest, not the proxy run.
-Both have 34 rendering, 15 short, 8 long and 21 density scenarios; all 78 scenario IDs,
-recorded contracts and four-observation populations match. Topology, canonical media,
-browser 151, 1720x960/DPR2, cutoff and worker/CPU settings match; source, content and
-cache warmth are not controlled. All 6,100 density field summaries have consistent
-sample/unavailable totals. All four browser sidecars equal their canonical JSON.
-
-**App opportunities, not new fixes:**
-
-1. **Table request ownership/admission is the strongest rendering-adjacent lead.**
-  D8-table retains a median 28 observed images but decoded-count median/maximum 0.
-  Media requests carried into recovery increased 293.5 to 314.5; pending requests at
-  the end increased 164 to 172.5. The recovery limit remains 4s, data-ready 16.75ms,
-  recovery failures/HTTP errors/cohort changes zero. Grid/Justified carry-in medians are 66/85
-  and pending medians 12/13. These are global request aggregates, not a mapping of
-   current versus obsolete image demand; do not subtract medians into a synthetic
-   request timeline. TableThumbnail lacks GridThumbnail's detached-incomplete-source
-   cleanup. First qualify Table's current-demand ownership using existing lifecycle
-   controls before copying a cleanup/admission policy; protect connected/completed
-   elements and shared native consumers. The backlog existed before the render fix.
-2. **Full-image/detail waits are not yet actionable app-fix evidence.** JA2 settlement
-  rose 6,474 to 11,762ms while its store-ready clock fell 134 to 117ms. P13c decoded
-  detail rose 1,374 to 1,884ms; fast backward P14c landing rose 2,695 to 3,560ms and
-  loaded-within-cadence counts fell 2/10 to 1/10. Do not add clocks, call loaded data
-  decoded/painted or infer backend cost from landing Resource Timing. The operator
-  confirms canonical proxy performance is a known limitation outside this work's
-  scope. No avoidable non-proxy client work has been established by these timings;
-  defer app-fix work here unless independent evidence identifies such a defect.
-3. **Return-to-list has a lower-priority local render burst.** P13b frame-p95/max
-  improved 100 to 59ms and LoAF blocking 48 to 6ms, but only six frames were captured.
-   Qualify action latency and script/layout ownership before another rendering change.
-  P15b is fullscreen traversal, not a return regression: p95 rose 10 to 22ms while
-  max frame fell 50 to 34ms, blocking 15 to 0ms and frame count 157 to 57. Changed
-   observation-window composition prevents a p95-only regression verdict.
-
-**Dashboard/data follow-ups:**
-
-The following findings describe the pre-repair dashboard; implemented corrections
-are recorded immediately below, without changing the underlying measurements.
-
-- **Expose existing adverse/queue evidence first.** The recovery summary prints
-  median cohort flags: D8-justified shows 0 although its recorded maximum is 1.
-  Data/media are 3/4 available, and every recorded recovery duration is below 2.242s,
-  not a 4s timeout. The producer invalidates latencies on a post-ready cohort change.
-  Show the adverse flag/range and existing visible/decoded/carry-in/pending counts
-  beside censoring; partial fields must remain numerically withheld. No new campaign
-  is needed to surface these fields. Do not infer joint per-observation reasons by
-  subtracting or combining separate aggregates.
-- **Fix confirmed provenance/context defects.** dashboard.js passes whole checkpoints
-  to the comparison helper, but checkpoint construction omits root gitSha. On these
-  actual data, checkpoint comparison says fingerprints unavailable while entry
-  comparison correctly says fingerprints differ. scroll-summary.js also always says
-  baseline long responsiveness is absent, despite this baseline containing its full
-  eight-record long member. Derive both messages from actual checkpoint membership
-  and per-entry source metadata rather than unconditional or missing-root fields.
-- **Keep boundaries and denominators explicit.** JA2's stored label still says
-  "decoded detail" although its boundary is loaded/stable. Show captured frame counts
-  with short-window p95 values and preserve worst-frame/blocking context. The nine
-  layout-pair deltas are differences of matched layout medians; D11 busy-minus-quiet
-  fields instead aggregate genuinely within-repetition paired differences.
-- **Only extend gathering for a precise remaining gap.** Public aggregates cannot
-  associate each stopped visible element with pending/obsolete requests or retain
-  joint censor reasons. Inspect any retained per-run diagnostics first; if necessary,
-  add bounded current-cohort readiness/request-state counts and explicit censor-reason
-  totals, exporting no identities or signed URLs. Do not rebuild the harness.
-
-**Implemented dashboard corrections:** checkpoint SHA now requires complete, agreeing
-member metadata; the existing environment consensus supplies the dirty-state hash.
-Missing/mixed sources remain unverified. Long-run coverage follows actual baseline
-membership. Recovery shows median and recorded upper-tail flags, visible/decoded counts
-and request carry-in/pending/completion/cancellation/error evidence; partial latencies
-remain withheld and global requests are not labelled as current-image ownership.
-Image summaries expose per-observation frame counts, p95, worst-frame, LoAF and saved
-boundaries. Layout comparisons explicitly subtract matched-layout medians, unlike D11's
-within-repetition deltas. Future JA2 labels say loaded/stable; historical labels stay intact.
-No new gathering was needed to expose these fields; ownership and joint censor reasons
-remain gaps, not inferred results. Offline and local-browser regressions cover the repairs.
-
-After coordinated rename approval, campaign `ee34e38f-0d8a-48d1-b1b6-05b2dba776e1`
-is labelled "after rendering fixes": one manifest, four family entries and their mirrors.
-Only those five canonical label values changed; metrics, provenance, timestamps, IDs,
-membership and older labels were preserved. This dashboard follow-up ran no live probes
-or campaigns and made no further app changes.
-
-Nine D1/D2/D8 records changed workload contracts in revision 4. D3–D7/D11 retain
-twelve comparable records; even the new 100-results/s step is not the old continuous
-journey. Do not compute a cumulative scroll speedup across that revision boundary.
-The latest comparable seek medians improved 2082 → 1353ms Grid and 1994 → 1762ms
-Justified, while maintenance frame medians worsened and paired refresh decode
-penalties rose 7 → 73ms and 45 → 109ms. Both campaigns already had cleanup; these
-changes are not another product intervention or a controlled causal comparison.
+Current full gates passed: **3,260 units across 92 files at default parallelism**,
+and **506/506 local E2E with three workers and retries disabled**. Performance
+TypeScript and focused research controls passed. The media-fallback fixture now
+publishes changed mock inputs explicitly; the Justified maintenance fixture waits
+for extension readiness before manual filling. Behavioral assertions and timeouts
+remain unchanged. These gates validate workflows, not hosted performance or the
+remaining delivery/paint questions. Implementation history belongs in the
+[changelog](changelog.md), not this guide.
 
 <a id="post-lookahead-campaign"></a>
 <a id="post-cleanup-campaign"></a>
-### What the Earlier Repairs Bought
+## Earlier Repairs: Evidence Worth Reusing
 
-| Repair | Retained evidence | Limit |
+| Repair | Evidence | Limit |
 | --- | --- | --- |
-| Maintenance-safe velocity and B1 validity | Spurious D9 forward starts fell 1 → 0; historical P17 backward reads/prepends fell two → one. | Removing false work did not remove Justified walls. |
-| F1 visible admission/render isolation | Justified ordinary frame-p95 returned roughly 24–25 → 17ms after the preceding admission work. | Not delivery priority or a backward runway fix. |
-| Two lower eager rows | Same historical D8 contract: pending area 13.66 → 0.14% Grid and 36.63 → 2.95% Justified, matched entry controls support the mechanism. | Late sustained Justified and reversal/frame/refresh trade-offs remained. No tested upper-row comparison. |
-| KUP-042 | Correct fixed-row membership and compensation, protected by all-visible-box regressions. | Not Justified packing or a universal performance claim; the office-network campaign has intervening changes and transport confounds. |
-| Table row identity | Revision-3 retained replacements fell 2624 → 22.5 forward and 2168 → 108 backward; late pending slots improved substantially. | Delivery backlog and frame cost remain. Latest replacement counts stay low under the changed workload. |
-| Unmount cleanup | Active cancellation and reduced outstanding work; native-photo pressure comparison supports conditional landing/progress benefit. | Same-contract campaign changes were mixed, including worse Grid frames and adverse Justified geometry. No broad speedup or upstream-savings claim. |
-
-Campaign labels may describe working-tree changes before their eventual commit.
-Use contracts and recorded provenance, not commit order alone. Content, packing,
-network conditions and decoded/proxy/CDN warmth were not frozen.
+| Maintenance-safe velocity / B1 validity | Spurious D9 forward starts fell 1 to zero; historical P17 backward reads/prepends two to one. | Removing false work did not remove Justified walls. |
+| F1 admission/render isolation | Justified ordinary frame-p95 returned about 24-25 to 17ms. | Not delivery priority or backward runway. |
+| Two lower eager rows | Same historical D8: pending area 13.66 to 0.14% Grid, 36.63 to 2.95% Justified; matched entry controls support the mechanism. | Sustained, reversal/frame/refresh costs remain; no upper-row comparison. |
+| KUP-042 | Fixed-row membership/compensation protected by all-visible-box regressions. | Not Justified packing or universal speedup; intervening changes/transport confound the office-network campaign. |
+| Table row identity | Revision-3 replacements fell 2624 to 22.5 forward and 2168 to 108 backward; late pending slots improved. | Stable elements did not resolve the later request-lifetime defect or all delivery/frame work. |
+| Grid/Justified cleanup | Active cancellation and fewer outstanding requests; native-photo controls support conditional stopped readiness/progress benefit. | Same-contract campaigns were mixed, including worse Grid frames and adverse Justified geometry. No upstream-savings claim. |
 
 <a id="delivery-options-decision"></a>
-## F2: Keep the Committed Fix, Bound Its Claims
+## F2: Implemented Cleanup and Remaining Delivery Work
 
-Cleanup is now part of the product baseline, not an unfinished experiment. It removes
-src only from a captured element that is detached and incomplete. Keep connected
-Strict Mode replay, completed images, shared native consumers and re-admission intact.
-The [ordinary lifecycle regressions](../../e2e/local/thumbnail-lifecycle.spec.ts) cover
-production behavior; broader controls remain in research, not habitual E2E.
+Cleanup is product baseline in Grid, Justified and Table. Remove `src` only from
+a captured detached, incomplete image; preserve connected Strict Mode replay,
+completed images, shared native consumers and re-admission. Production behavior
+is covered by [ordinary lifecycle tests](../../e2e/local/thumbnail-lifecycle.spec.ts);
+pressure controls belong in research, not habitual E2E.
 
 `f2NativeComparisonTimingV220261022` is the usable matched native-photo result.
-In two treatment orders under 80ms/4Mibit delivery pressure, cleanup reduced stopped
-readiness from about 5.0–5.6s to 2.2–2.4s and blocking from 2.5–3.0s to 1.1–1.3s.
-Frame-p95 worsened roughly 67 → 75ms, moving pending slots remained above 90%, and
-both policies retained adverse geometry. Warm unthrottled arms had no cancellations
-and no established benefit; the first cold-proxy arm is confounded. These are
-bounded Justified controls, not Grid, hosted-CDN, native-trackpad or long-churn proof.
+In two treatment orders under 80ms/4Mibit pressure, Justified cleanup reduced
+stopped readiness about 5.0-5.6s to 2.2-2.4s and blocking 2.5-3.0s to 1.1-1.3s.
+Frame-p95 worsened about 67 to 75ms, moving pending slots stayed above 90% and
+both policies retained adverse geometry. Warm unthrottled arms established no
+benefit; the first cold-proxy arm is confounded. This is not Grid, hosted-CDN,
+native-trackpad or long-churn proof.
 
-That result is enough to retain the small lifetime fix, not to declare F2 solved.
-Do not repeat warm arms looking for a win or expand cancellation without a named
-remaining ownership problem. A passed-by image may be useful again; no strict
-centre-out completion order or deliberate withholding of ready images is required.
+Retain the small lifetime fix, not a claim that F2 is solved. Do not repeat warm
+arms looking for a win or expand cancellation without a named ownership problem.
+A passed-by image may be useful again; strict centre-out completion or deliberate
+withholding of ready images is not required.
 
 ### Table Ownership Qualification (25 October 2026)
 
-The initial investigation below preceded the approved product implementation recorded
-in the follow-up. The Table lead is a reproduced lifetime defect, not an inference from global
-campaign counts. A held native request remained unfinished and unaborted after its
-actual Table row detached; the original assertion requiring source release failed.
-Injecting only Grid's captured-ref/passive detached-incomplete cleanup into the served
-TableThumbnail response removed the source and the loopback server observed abort.
-Production code was not edited. The candidate survived connected rerender/development
-Strict Mode, reacquired its source on reversal, preserved a shared native consumer and
-left a completed detached image intact. Re-entry used two target requests, not zero-cost reuse.
+**DONE: the actual Table renderer had a missing request-release defect, now
+repaired.** A held request remained unfinished/unaborted after its row detached;
+source-release coverage failed first. Production TableThumbnail now uses passive
+detached/incomplete cleanup, following URL changes because an initially absent
+URL can mount the image later. Native lazy loading, overscan, dimensions, URL
+selection and error behavior are unchanged. Controls protect connected rerenders,
+Strict Mode, shared consumers, completed images and re-entry.
 
-The existing F2 research file also compared baseline/candidate then candidate/baseline
-using 400 resident mock results, 373-result runway, 1720x960/DPR2, exactly 6400px of
-forward work at requested 100 results/s, and a four-second recovery cap. Setup was
-unthrottled and drained; measured delivery used 80ms/4Mibit CDP pressure and 24,698-byte
-padded SVGs from a loopback HTTP/1 server. Exact stopped paths matched within blocks;
-the result array did not change during motion. This is not a canonical/photo campaign.
+Production pressure controls compare cleanup with a narrow cleanup-disabled
+counterfactual in both treatment orders. Local mock metadata, 400 residents,
+373-result runway, 1720x960/DPR2, exactly 6400px at requested 100 results/s,
+80ms/4Mibit pressure and 24,698-byte padded SVGs over loopback HTTP1 are held
+constant. Setup is drained/unthrottled; stopped paths match and data stays unchanged.
 
-| Policy / block | Detached-only pending at stop | All pending at stop / after recovery | Decoded endpoint | Frame-p95 / worst interval ms |
-| --- | --- | --- | --- | --- |
-| Baseline 1 | 120 | 163 / 80 | 0/29 at cap; latency unavailable | 17.6 / 91.4 |
-| Candidate 1 | 0 | 43 / 0 | 29/29 at 2112.9ms | 17.1 / 26.5 |
-| Candidate 2 | 0 | 43 / 0 | 29/29 at 2077.9ms | 17.5 / 25.1 |
-| Baseline 2 | 119 | 163 / 79 | 0/29 at cap; latency unavailable | 17.5 / 25.9 |
+| Forward outcome | No cleanup | Production cleanup |
+| --- | --- | --- |
+| Detached-only pending at stop | 120 / 120 | 0 / 0 |
+| All pending at stop / after recovery | 163/79 and 163/80 | 44/0 and 43/0 |
+| Decoded endpoint | 0/29 at four-second cap in both arms | 29/29 at 2099.4 / 2106.1ms |
+| Frame-p95 / worst interval | 18.6/25.1 and 17.3/25.9ms | 17.2/25.2 and 17.5/25.6ms |
 
-Ephemeral element/path association accounted for every pending request: all arms had
-27 usable current pending slots and 16-17 mounted-offscreen pending requests. The
-readiness helper counted 29 intersecting images including its sticky-header band;
-do not merge that with the 27 usable slots or the canonical 28-image aggregate.
-Ownership was sampled just after stop, not as an atomic conservation timeline.
+Every pending request was associated with an element/path at the stop sample.
+All arms had 27 usable current pending slots and 16-17 mounted-offscreen requests;
+the readiness observer counts 29 images including the sticky-header band. Neither
+population is the canonical D8 28-image aggregate, and this is not an atomic
+request-conservation timeline. Earlier equivalent fixture-only controls agree;
+their adverse 91.4ms baseline interval remains in the evidence record.
 
-Adverse outcomes remain: moving pending exposure stayed about 92%, every arm recorded
-28px maximum sampled resize, and the candidate made 151 cancellations through recovery.
-Those cancellations are included in the probe's 151 request failures; no non-cancellation
-failures, HTTP errors or failed visible media were recorded. All arms had zero measured
-buffer-edge blocking/displacement; frame-p95 ranged 17.1-17.6ms at achieved 97.8-98.6 results/s.
-No frame non-regression, paint correctness, upstream savings or quantified revisit cost
-follows. Retain the adverse 91.4ms baseline interval rather than excluding it.
-
-**Recommendation:** apply only the existing Grid lifetime rule to TableThumbnail,
-preserving native lazy admission, overscan, source selection and error behavior.
-Promote the same functional lifecycle contract into the existing ordinary E2E file,
-add focused unit coverage, then run the full app unit/E2E gates for that product edit.
-There is no independent admission-policy defect to justify a scheduler, mounted-source
-sweep or buffer change. The investigation stopped at findings before the operator approved
-the narrow product implementation below.
-
-Sanitized rows and setup exclusions are retained under `f2TableOwnership20261025` in
-the existing research JSON. The first pressure setup changed data during motion and
-was excluded; the repaired setup reused maintenance-cooldown ordering and asserted
-400 residents before timing. A failed React import injection was likewise setup-only.
-No live TEST access, shared-server operations, proxy changes or campaign writes occurred.
-
-#### Production Follow-Up and Reversal Cost
-
-TableThumbnail now applies the same detached-incomplete passive cleanup guard. Its
-effect follows the URL because, unlike Grid, it renders no image for an absent URL;
-failing-first unit coverage caught the late-URL case that a mount-only effect missed.
-Native lazy admission, overscan, source selection, dimensions and error handling stay
-unchanged. The ordinary Grid lifecycle test now also exercises Table without a new fixture.
-
-The same forward controls now use real production cleanup versus an intercepted
-cleanup-disabled counterfactual. Both treatment orders reproduced 29/29 decoded at
-2099.4/2106.1ms versus 0/29 at the four-second cap, removing 120 detached-only pending
-requests. Moving pending exposure remained about 92%, resize 28px and displacement/blocking
-zero; frame-p95 was 17.2-18.6ms across the four observations, not a tail certificate.
-
-One additional matched pair travelled 6400px forward then 1600px backward under the
-same pressure, with exact stopped paths and unchanged data. It quantifies a real cost:
+A matched 6400px forward / 1600px backward pair quantifies a real reversal cost:
 
 | Reversal outcome | No cleanup | Production cleanup |
 | --- | --- | --- |
-| Current decoded endpoint | 9/29 at cap; latency unavailable | 29/29 at 1983.2ms |
+| Current decoded endpoint | 9/29 at cap | 29/29 at 1983.2ms |
 | Request starts / repeated starts | 200 / 0 | 239 / 39 |
 | Detached-only pending at stop | 94 | 0 |
 | Pending after recovery | 69 | 2 |
 | Cancellations through recovery | 0 | 185 |
-| Frame-p95 / worst interval ms | 17.1 / 25.3 | 17.1 / 25.0 |
+| Frame-p95 / worst interval | 17.1 / 25.3ms | 17.1 / 25.0ms |
 
-Cancellation-induced re-requests are not free. In this one pair, they did not erase
-the current-image benefit; that is not universal reversal-cost or frame non-regression
-proof. The two remaining requests after decoded readiness are not failed current images.
-All candidate failures were cancellations; HTTP errors and failed visible images were zero.
-Completed-byte totals end at different recovery times and omit partial cancelled bytes;
-do not present them as upstream or matched-budget savings. The first reversal attempt
-was excluded because its assertion expected positive rather than signed negative travel;
-the corrected assertion retains the exact -1600px requirement.
+The 39 re-requests were not free, but did not erase this pair's current-image
+benefit. Two pending requests after current decode are not failed current images.
+Moving exposure stayed about 92%; sampled resize remained 28px, displacement/walls
+zero. Candidate failures were cancellations, with no HTTP errors or failed visible
+media. This does not establish universal reversal/frame non-regression, paint,
+live/canonical recovery or upstream savings. Completed bytes use different recovery
+end times and omit partial cancelled transfers; they are not matched-budget savings.
 
-Full app unit/E2E gates own product acceptance; isolated controls do not substitute for
-them. Full units passed 3260 tests across 92 files; full local-only E2E passed 506/506
-with retries disabled after the operator stopped the shared app. Performance TypeScript
-and final production lifecycle controls passed. No further product code changed after
-these gates; no live or canonical campaign performance claim follows.
+No independent lazy-admission defect was found. A scheduler, mounted-source sweep
+or buffer change does not follow from this lifetime repair. Full gates and lifecycle
+coverage passed; a representative post-fix delivery comparison is separate work.
 
 ### Approaches Not to Adopt by Default
 
-- Dynamic in-flight `fetchPriority` demotion showed **0 demotions for 332 pending
-  High requests**, while natural promotions verified the collector. Initial hints
-  working does not establish mutation uptake. Revisit only for a changed runtime
-  or a different, explicitly tested mechanism.
-- A mounted-image src sweeper left the same node blank on reversal because unchanged
-  React props did not restore src. Any admission policy needs declarative ownership
-  and re-admission, not a DOM sweep.
-- Fetch/blob brokers add full-body display latency, CORS, deduplication and object-URL
-  lifetimes. Native cross-origin img can work where opaque fetch blobs cannot.
-  A queue library or worker does not supply current-demand ownership automatically.
-- A blanket 150-image backward floor previously produced three reads/600 hits after
-  a short stop without avoiding a stall. Do not use it as a fallback.
+- Dynamic in-flight `fetchPriority` demotion produced **0 demotions for 332 pending
+  High requests** while natural promotions verified collection. Initial hints
+  working does not establish mutation uptake; revisit only a changed mechanism/runtime.
+- An imperative mounted-image `src` sweep left the same node blank on reversal:
+  unchanged React props did not restore it. Admission needs declarative re-entry ownership.
+- Fetch/blob brokers add full-body latency, CORS, deduplication and object-URL
+  lifetimes. Native cross-origin images can work where opaque fetch blobs cannot.
+  A queue library/worker does not supply current-demand ownership.
+- A blanket 150-image backward floor produced three reads/600 hits after a short
+  stop without avoiding a stall. Do not use it as fallback.
 - Larger buffers, global key rewrites, guessed visible ratios, async hints and
-  universal horizon increases have no established general benefit. Changes to
-  quality, format, thumbnail sizing or layout engines are separate decisions.
+  universal horizon increases have no established general benefit. Quality,
+  format, sizing and layout-engine changes are separate decisions.
 
-Proxy coalescing, streaming, abort propagation and HTTP2/separate origins remain
-possible targeted improvements, not dependencies of B2 or retroactive proof of
-backend savings. [KUP-041](bug-backlog.md#kup-041) separately owns API-to-ES read
-cancellation; do not conflate it with browser image cleanup or transport failures.
-The [TEST deployment plan](kupua-TEST-deployment-plan.md) owns canonical thumbnail
-URLs and expiry compromises. The [imgproxy assessment](imgproxy-kupua-assessment.md)
-concerns future preview/zoom delivery; it does not block today's thumbnail path.
+Actual proxy controls show whole-body buffering, no client-close abort and no
+in-flight miss coalescing. Browser cancellation can free local capacity while the
+proxy continues warming cache; immediate reacquisition can duplicate a miss.
+Streaming/coalescing/abort propagation and HTTP2/separate origins remain separate,
+operator-authorized trade-offs, not B2 dependencies or retroactive savings proof.
+[KUP-041](bug-backlog.md#kup-041) owns API-to-ES read cancellation, not native-image
+lifetime. The [TEST plan](kupua-TEST-deployment-plan.md) owns canonical URLs/expiry;
+the [imgproxy assessment](01%20Research/imgproxy-research.md) concerns future preview/zoom
+delivery and does not block today's thumbnails.
+
+## Dashboard Evidence: Completed Corrections
+
+**DONE:** checkpoint source metadata now requires complete member consensus,
+baseline long-run coverage follows membership, and recovery shows adverse flags,
+visible/decoded counts and global request carry-in/pending/completion/cancellation
+evidence. Partial latencies remain withheld. Image summaries include frame counts,
+p95, worst frame, LoAF and saved boundaries. Layout deltas subtract matched-layout
+medians; D11 deltas are within-repetition pairs. New JA2 labels say loaded/stable;
+historical labels remain intact. Offline/local-browser regressions cover these rules.
+
+These repairs expose existing evidence without new campaigns. They do not associate
+global requests with current images or recover unavailable joint censor reasons.
+Do not subtract separate medians/aggregates into synthetic timelines. Campaign
+**after rendering fixes** retains original metrics, provenance, IDs and membership;
+its label is not evidence of a controlled causal experiment.
 
 ## Evidence and Reuse Map
 
-Use the existing [research JSON](scroll-horizons-thumb-lookahead-results.json) keys
-below. Preserve numbers, exclusions and provenance; do not rewrite a historical
-`nextDecision` into current authority. No new archive or duplicate results ledger
-is needed to keep the useful evidence accessible.
+Preserve observations, exclusions and provenance in the existing
+[research JSON](scroll-horizons-thumb-lookahead-results.json). Do not rewrite old
+`nextDecision` fields as current authority or create a duplicate results ledger.
 
 | Evidence | Reuse for |
 | --- | --- |
-| `b2LocalComparison20261020`, including `justifiedAfterSetupRepair` | Original 400ms candidate, short-stop and slow/fast delivery costs, both orders, reversal and capacity. |
-| `b2LiveBoundary20261021`, `b2TierReproduction20261021` | Walls release after metadata publication while thumbnails remain pending; indexed missing-data exposure with/without a map; resident true ends. Viewport-specific recipes, not universal speeds. |
-| `b2Publication20261021`, `b2StabilityFilmstrip20261021` | Identity across DOM replacement, applied-input/anchor controls, calibrated edge/interior geometry and paint attribution. Original Grid realignment predates KUP-042. |
-| `b2GeometryLifetime20261021` | Why original-cohort release is unsafe, truthful-dimension invalidation, and stable forward negative controls. The provisional-slot recommendation was withdrawn. |
-| `b2UninterruptedResearch20261021` | Separate 400/1,000ms, first-entry/ready-runway comparisons; true-ratio fragment feasibility and unresolved lifecycle. |
-| Initial lookahead rows, `frameAttribution`, `decodingHint`, `scrollLookaheadMatched`, `refreshLookaheadMatched` | Lower-band choice, arrival-related frame work, lack of demonstrated async-hint benefit, sustained/reversal and refresh costs. |
-| `f2RequestOwnership20261022`, `f2PriorityUptake20261022` | Late once-useful demand, metadata-delivery association and failed dynamic-demotion mechanism. Not a pure queue-time or eager-band attribution. |
-| `f2DeliveryOptions20261022` | Native ownership/re-admission, shared consumers, HTTP1 capacity, fetch/blob and actual-proxy boundary controls; matched synthetic delivery. |
-| `f2CleanupCampaign20261022`, `f2NativeComparisonTimingV220261022` | Mixed canonical outcome and bounded native-photo benefit/trade-off. |
-| [Density](../../e2e-perf/results/density-log.json), [rendering](../../e2e-perf/results/audit-log.json), [perceived](../../e2e-perf/results/perceived-log.json) histories | Existing live baselines and navigation/traversal guardrails. The latest density-only run did not remeasure the other suites. |
+| `b2LocalComparison20261020`, including `justifiedAfterSetupRepair` | 400ms candidate, short-stop/slow/fast costs, both orders, reversal/capacity. |
+| `b2LiveBoundary20261021`, `b2TierReproduction20261021` | Metadata releases walls before thumbnail readiness; indexed missing-data exposure with/without map; resident true ends. Recipes are viewport-specific. |
+| `b2Publication20261021`, `b2StabilityFilmstrip20261021` | DOM replacement identity, applied-input/anchor controls, calibrated geometry and paint attribution. Original Grid realignment predates KUP-042. |
+| `b2GeometryLifetime20261021` | Unsafe original-cohort release, dimension invalidation, forward negative controls; provisional slots withdrawn. |
+| `b2UninterruptedResearch20261021` | 400/1,000ms and initial/ready-runway comparisons, true-ratio feasibility and unresolved lifecycle. |
+| Initial lookahead rows, `frameAttribution`, `decodingHint`, `scrollLookaheadMatched`, `refreshLookaheadMatched` | Lower-band choice, arrival work, no demonstrated async-hint benefit, sustained/reversal/refresh costs. |
+| `f2RequestOwnership20261022`, `f2PriorityUptake20261022` | Late once-useful demand, metadata association and failed dynamic demotion; not pure queue/eager-band attribution. |
+| `f2DeliveryOptions20261022` | Native lifetime/re-entry/shared consumers, HTTP1 capacity, fetch/blob and actual proxy controls. |
+| `f2CleanupCampaign20261022`, `f2NativeComparisonTimingV220261022` | Mixed canonical results and bounded native-photo cleanup benefit/cost. |
+| `f2TableOwnership20261025`, especially `productionFollowUp` | Reproduced Table defect, production pressure counterfactual, reversal re-request cost and limits. Initial recommendation fields are historical. |
+| `p13bReturnAttribution20261025` | Retained callback mechanism, first-use/warmed/probe/tracing distinctions, accepted measurements and exclusions. |
+| [Existing research spec](../../e2e-perf/research/density-app-research.spec.ts) | Render/reference/date-work controls and their failure-first production regressions; reuse fixtures/probes rather than creating another harness. |
+| [Density](../../e2e-perf/results/density-log.json), [rendering](../../e2e-perf/results/audit-log.json), [perceived](../../e2e-perf/results/perceived-log.json) histories | Recorded live baselines and navigation/traversal guardrails; check scenario contracts and campaign membership before comparing. |
 
-Important exclusions to retain: old embedded recovery clocks crossed controller
-round trips and cannot establish speedups; early publication screenshots missed
-the pending-decode interval; the repeated-image delay control did not exercise its
-hold; the async-hint request collector lacked valid fresh-document lifetime
-accounting. The six-second native baseline had real walls but did not reach its
-endpoint, so it is not an on/off recovery comparison. Do not recover these claims
-from a later successful test or pool them with corrected captures.
+Important exclusions: early embedded recovery clocks crossed controller round trips;
+early publication screenshots missed pending decode; repeated-image delay did not
+exercise its hold; the async-hint collector lacked fresh-document lifetime accounting.
+The six-second native baseline had real walls but never reached its endpoint, so it
+is not a matched recovery comparison. Initial P13b no-probe frame summaries omitted
+the keydown-straddling interval; their marked trace clocks remain valid, but those
+frame summaries are excluded. Failed/in-flight-changing setups supply no performance
+result. Never pool them with corrected captures or rehabilitate them via later success.
 
-Research methods live in [local controls](../../e2e-perf/research/controls.md),
-detector checks in [validation](../../e2e-perf/validation/README.md), and current
-campaign/metric contracts in the [measurement reference](../../e2e-perf/measurement-reference.md).
-Reuse those owners instead of copying test commands, run counts and setup transcripts here.
+Methods live in [local controls](../../e2e-perf/research/controls.md), detector checks
+in [validation](../../e2e-perf/validation/README.md), and metric contracts in the
+[measurement reference](../../e2e-perf/measurement-reference.md). Do not copy setup
+transcripts, test-run chronology or commands here.
 
-The earlier [pinned Immich study](https://github.com/immich-app/immich/commit/53618ff7496ee313d1cff7b3bcdf19c82b765cdf)
+The [pinned Immich study](https://github.com/immich-app/immich/commit/53618ff7496ee313d1cff7b3bcdf19c82b765cdf)
 found a month-index/placeholder model and same-origin URL-keyed worker, not a
-drop-in arbitrary-sort cursor-window or CDN scheduler. Reuse current-demand
-protection, deduplication and late-write rejection principles, not that architecture.
-The installed WASM package supplies geometry, not a delivery policy.
+drop-in arbitrary-sort cursor-window/CDN scheduler. Reuse current-demand protection,
+deduplication and late-write rejection principles, not that architecture. The
+installed WASM package provides geometry, not delivery policy.
 
 ## Contracts and Validation
 
 | Owner | Preserve |
 | --- | --- |
-| [Data window](../../src/hooks/useDataWindow.ts), [tuning](../../src/constants/tuning.ts) | Directional demand, first-row validity, maintenance-safe velocity and scope resets. The proposed backward mirror must not silently alter indexed or forward policy. |
-| [Scroll effects](../../src/hooks/useScrollEffects.ts), [search store](../../src/stores/search-store.ts) | One placement owner, generation guards, legitimate programmatic demand, 200-image pages, 1,000-image retention and one extension per direction. Metadata publication does not wait for images. |
-| [ImageGrid](../../src/components/ImageGrid.tsx), [Justified layout](../../src/lib/windowed-justified-layout.ts) | Existing eager/overscan policy, real image ratios, authoritative metadata/permissions, bounded geometry facts and consistent rendering/navigation coordinates. |
-| [Image URLs](../../src/lib/image-urls.ts), [traversal](../../src/hooks/useImageTraversal.ts), [prefetch](../../src/lib/image-prefetch.ts) | Shared-current-consumer protection, current element/source validation and independent full-image traversal semantics. List-thumbnail evidence does not certify final-detail delivery. |
+| [Data window](../../src/hooks/useDataWindow.ts), [tuning](../../src/constants/tuning.ts) | Directional demand, first-row validity, maintenance-safe velocity and scope resets; no silent indexed/forward change from a backward mirror. |
+| [Scroll effects](../../src/hooks/useScrollEffects.ts), [search store](../../src/stores/search-store.ts) | One placement owner, generation guards, legitimate programmatic demand, 200-image pages, 1,000-image retention and one extension per direction. Metadata never waits for images. |
+| [ImageGrid](../../src/components/ImageGrid.tsx), [Justified layout](../../src/lib/windowed-justified-layout.ts) | Eager/overscan policy, true ratios, authoritative metadata/permissions, bounded geometry and consistent render/navigation coordinates. |
+| [Image URLs](../../src/lib/image-urls.ts), [traversal](../../src/hooks/useImageTraversal.ts), [prefetch](../../src/lib/image-prefetch.ts) | Shared-current-consumer protection, source validation and independent full-image traversal semantics; thumbnails do not certify detail delivery. |
 
 <a id="fixed-grid-continuity"></a>
 KUP-042's [fixed-row policy](00%20Architecture%20and%20philosophy/03-scroll-architecture.md#fixed-row-window-policy)
-remains the geometry contract; [its backlog entry](bug-backlog.md#kup-042) retains
-the original reproduction. Raw image-box resizing/arrival animation is not proof of
-a fixed-row regression. For Justified, truthful dimension snapshots are not a
-presentation lifetime: width, visibility, navigation and fragment ownership need
-their own contract if a geometry change is selected.
+remains the contract; [its backlog entry](bug-backlog.md#kup-042) retains the original
+reproduction. Image resizing/arrival animation alone is not a fixed-row regression.
+Justified dimension snapshots do not define presentation lifetime: width,
+visibility, navigation and fragment ownership need explicit contracts if selected.
 
-Any next investigation must state the unanswered question and why the existing
+Every next investigation must name the unanswered question and why existing
 evidence cannot answer it. Match **achieved demand and runway**, not copied px/s;
-viewport, packing, DPR and media conditions remain independent. Keep setup costs
-outside timed motion explicit rather than free. Loaded, decoded and painted are
-different boundaries; sources and a centre anchor alone do not certify all-visible
-stability. Correct geometry for applied input and arrival animation, not by widening
-tolerances. Same-element counters can miss wholesale node replacement.
+viewport, packing, DPR and media remain independent. Keep setup cost explicit.
+Loaded, decoded and painted are distinct. Sources/centre anchors and same-element
+counters cannot certify all-visible stability or detect every wholesale replacement.
+Account for applied input and arrival animation instead of widening tolerances.
 
-Canonical revision-4 capture already supplies atomic stop clocks, request windows,
-count-based exposure, wall episodes, retained geometry, censoring and costs. Use it
-before adding probes. Browser before-send time is not pure queue time, maxima from
-different requests are not additive, and cancellations/completed bytes are not
-upstream savings. Perceived latest-store timings and older loaded-only endpoints
-must not be silently treated as action-owned decode evidence. Raw per-run histories
-are not universally retained; do not invent unavailable distributions.
+Revision-4 capture already supplies atomic stop clocks, request windows, exposure,
+wall episodes, geometry, censoring and costs. Use it before adding probes. Before-send
+time is not pure queue time; unrelated maxima are not additive. Perceived store-ready
+or older loaded-only endpoints are not action-owned decode. Raw per-run histories
+are not universally available; do not invent distributions or joint censor reasons.
 
-Keep photo/cache/transport attribution separate from synthetic controls. Preserve
-all-current-image success, short-stop bounds, reversal, capacity, resize/density,
-seek/history and legitimate non-wheel demand in the selected implementation's
-tests. Full required product gates apply to product changes; measurement validation
-is not their substitute. Retain independent review and explicit disposition of
-adverse results rather than retries, timeout inflation or weaker assertions.
+Separate photo/cache/transport attribution from synthetic controls. Selected changes
+must preserve current-image success, short stops, reversal, capacity, resize/density,
+seek/history and non-wheel demand. Required full product gates, independent review
+and explicit adverse-result disposition cannot be replaced by measurement controls,
+retries, timeout inflation or weakened assertions.
 
-Campaigns and dry runs remain operator-run; live investigations need fresh scoped
-permission. Do not change shared servers, proxy behavior or non-local data. Persist
-only sanitized evidence, never live identities, signed URLs or credentials. Keep
-runtime practical and reuse existing controls; a new experiment must answer a new
-decision, not prove again that the core browsing workflow exists.
+Campaigns/dry runs remain operator-run; live work needs fresh scoped permission.
+Do not alter shared servers, proxy behavior or non-local data. Persist only sanitized
+evidence, never identities, signed URLs or credentials. Reuse existing controls and
+keep runtime practical; a new experiment must answer a new decision, not re-prove
+that the core browsing workflow exists.

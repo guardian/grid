@@ -695,13 +695,14 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
   /** Navigate to image detail overlay (shared by single-click in phantom, double-click in explicit). */
   const enterDetail = useCallback(
     (imageId: string) => {
+      const currentParams = searchParamsRef.current;
       beginTraceInteraction("open-detail", { imageId });
       setFocusedImageId(imageId);
       const idx = findImageIndex(imageId);
       if (idx >= 0) {
         const img = getImage(idx);
-        const searchKey = buildSearchKey(searchParams);
-        const cursor = img ? extractSortValues(img, searchParams.orderBy, searchKey) : null;
+        const searchKey = buildSearchKey(currentParams);
+        const cursor = img ? extractSortValues(img, currentParams.orderBy, searchKey) : null;
         // In two-tier mode, idx from findImageIndex is already global.
         // In normal mode, add bufferOffset to get global position.
         const globalOffset = twoTier ? idx : bufferOffset + idx;
@@ -713,7 +714,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
         state: { _detailEntryImageId: imageId },
       });
     },
-    [navigate, setFocusedImageId, findImageIndex, getImage, searchParams, bufferOffset, twoTier],
+    [navigate, setFocusedImageId, findImageIndex, getImage, bufferOffset, twoTier],
   );
 
   /**
