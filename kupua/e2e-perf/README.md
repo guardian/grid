@@ -63,7 +63,7 @@ remain operator-run even when the command does not append history.
 
 ## Results
 
-Start with the [unified dashboard](results/index.html). All dashboards are colocated
+Start with the [Performance dashboard](results/Performance%20dashboard.html). All dashboards are colocated
 in `results/`; the individual family pages below remain available.
 
 | Family | Canonical history | Dashboard |
@@ -71,7 +71,7 @@ in `results/`; the individual family pages below remain available.
 | Rendering | [audit-log.json](results/audit-log.json) | [Rendering](results/audit-graphs.html) |
 | Short/long responsiveness | [perceived-log.json](results/perceived-log.json) | [Responsiveness](results/perceived-graphs.html) |
 | Density | [density-log.json](results/density-log.json) | [Density](results/density-graphs.html) |
-| Campaign membership | [campaign-log.json](results/campaign-log.json) | Selectable checkpoints in the [unified dashboard](results/index.html) |
+| Campaign membership | [campaign-log.json](results/campaign-log.json) | Selectable checkpoints in the [Performance dashboard](results/Performance%20dashboard.html) |
 
 Every entry from one runner invocation carries the same `campaignId`; the manifest
 (requested suites, runs, filter, topology/delivery, entry refs) is published in the same
@@ -110,10 +110,35 @@ not success. Inspect censoring, coverage, costs and achieved demand before timin
 - Loaded, decoded and painted are distinct. Canonical unavailable paint is not zero flashes.
 - Four repetitions are four observations, not population-tail estimates.
 
+Checkpoint source comparison requires complete membership and agreeing member SHAs;
+dirty-state fingerprints must also agree before source matching is reported. Baseline
+long-run coverage follows selected membership, never a borrowed historical run.
+Stopped recovery exposes median/tail cohort flags and visible/decoded/request counts;
+global request backlog does not identify current-visible versus obsolete demand.
+Partial latencies stay withheld, and separate aggregates do not establish joint censor reasons.
+
+Image Workflows includes expandable frame context: observation counts, median frames
+per observation, frame-p95, worst-frame and LoAF diagnostics with saved boundaries.
+These are not action latency or pooled frame samples. Density history's Grid/Justified
+comparisons subtract matched-layout medians; D11 instead saves within-repetition deltas.
+
 The [measurement reference](measurement-reference.md) owns workload/metric contracts,
 dashboard formulas, historical compatibility and interpretation. The
 [scrolling evidence guide](../exploration/docs/scroll-horizons-thumbs-and-blocking.md)
 owns findings and decisions, not campaign operation.
+
+## Legacy dashboard maintenance
+
+The three family pages link back to [Performance dashboard.html](results/Performance%20dashboard.html).
+When history contracts change, update the rendering page's `KNOWN_ENTRY_KEYS`,
+`KNOWN_METRICS` and metric metadata allowlist; keep `campaignId` as entry metadata.
+The responsiveness page's audit-image importer must retain completion boundaries,
+completed/censored/failed outcomes and resource-reuse evidence before its schema
+check. Returned media is not guaranteed warm; completed-only timings need outcome
+counts, and fully censored observations must remain visible without an invented latency.
+Density recovery exposes independent cohort median/tail flags, visible/decoded
+counts and global request summaries—not joint censor causes or current-image ownership.
+Add offline regression coverage in the existing dashboard validation specs.
 
 <a id="local-validation"></a>
 <a id="buffer-bounds-and-final-viewport-controls"></a>

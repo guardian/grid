@@ -318,7 +318,7 @@ campaign or a performance claim. Campaigns and dry runs remain separately approv
 
 ## Dashboards and reports
 
-The [graph-led saved-history dashboard](results/index.html) adds the
+The [graph-led saved-history dashboard](results/Performance%20dashboard.html) adds the
 approved Overview -> Search & Navigation / Scrolling & Layout / Image Workflows -> exact-record slices; legacy dashboards below
 remain available. Its [shared adapter](results/dashboard-data.js) names the four exact
 24 October entry timestamps and expected scenario sets explicitly. Labels and independently

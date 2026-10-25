@@ -24,6 +24,15 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 25 October 2026 - Correct dashboard provenance and recovery interpretation
+
+Fixed checkpoint source consensus and membership-based baseline coverage. Recovery
+now exposes adverse cohort tails and saved readiness/request counts while preserving
+partial latencies and ownership limits. Added frame-population/boundary context,
+clarified paired-delta and JA2 labels, and kept dashboard validation proportionate.
+Saved the latest campaign results as "after rendering fixes", preserving measurements,
+provenance and older labels.
+
 ### 25 October 2026 - Remove repeated Grid and Table render/formatting work
 
 Fixed-grid captions and date tooltips now share two reusable Intl date/time

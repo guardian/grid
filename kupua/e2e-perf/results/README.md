@@ -1,10 +1,10 @@
 # Kupua Performance Dashboards
 
-All saved-history dashboards live here. Start with [the unified dashboard](index.html);
+All saved-history dashboards live here. Start with [the Performance dashboard](Performance%20dashboard.html);
 the [rendering](audit-graphs.html), [responsiveness](perceived-graphs.html) and
 [density](density-graphs.html) pages retain their broader historical controls.
 
-Open [index.html](index.html) directly in a browser. No server, framework, installation,
+Open [Performance dashboard.html](Performance%20dashboard.html) directly in a browser. No server, framework, installation,
 application session or live service is needed. The accepted graph-led layout now reads
 the three real history sidecars through [dashboard-data.js](./dashboard-data.js).
 The curated copy and synthetic design fixtures are not loaded by this page.
@@ -41,7 +41,7 @@ summary separately reuses the complete legacy v1 calculation and gates.
 
 ## Workflow History (tracked metrics)
 
-Each workflow tab in [index.html](index.html) has **Compare | History** views
+Each workflow tab in [Performance dashboard.html](Performance%20dashboard.html) has **Compare | History** views
 (`mode=history`; summaries and Overview trend lines link to it). Only **tracked**
 metrics get history; the list lives once, in `WORKFLOWS` in [history.js](history.js):
 

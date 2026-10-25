@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 
 const dashboards = ["audit", "perceived"] as const;
 
-const experienceUrl = new URL("../results/index.html", import.meta.url);
+const experienceUrl = new URL("../results/Performance%20dashboard.html", import.meta.url);
 type ExperienceCase = "healthy" | "mixed" | "degraded" | "censored" | "unsupported" | "missing" | "incompatible" | "invalid" | "density-invalid" | "guards-invalid" | "large" | "missing-family" | "zero-baseline" | "missing-endpoint" | "missing-pending" | "traversal-invalid" | "traversal-unsupported" | "traversal-zero" | "traversal-over-total" | "traversal-empty" | "scroll-phase-invalid" | "scroll-unsupported" | "scroll-partial" | "scroll-zero" | "scroll-missing-phase" | "scroll-incompatible" | "scroll-signed" | "search-invalid" | "search-unsupported" | "search-incompatible" | "search-missing-phase" | "search-signed" | "search-zero" | "search-d11-isolation" | "search-d11-media" | "search-d11-invalid" | "search-background" | "search-no-settlement";
 
 async function loadExperience(page: Page, kind?: ExperienceCase) {
@@ -122,6 +122,36 @@ test('bounded corrections: real proxy Overview and revision-aware exact outcomes
   await page.locator('#checkpoint').selectOption('proxy-baseline');
   await expect(page.locator('main')).toContainText('256');
   await expect(page.locator('#checkpoint')).toHaveValue('proxy-baseline');
+  expect(errors).toEqual([]);expect(remote).toEqual([]);
+});
+
+test('campaign corrections: provenance, recovery tails and frame populations', async ({page}) => {
+  const {errors,remote}=await loadExperience(page);
+  const campaigns=JSON.parse(readFileSync(new URL('../results/campaign-log.json',import.meta.url),'utf8'));
+  const campaign=`campaign:${campaigns.entries.at(-1).campaignId}`;
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto(`${experienceUrl.href}#checkpoint=${campaign}&baseline=recorded&view=scroll&workload=constrained`);
+  await expect(page).toHaveTitle(/after rendering fixes/);
+  await expect(page.locator('#comparison-details')).toHaveAttribute('title',/source fingerprints differ/);
+  const recovery=page.getByRole('region',{name:'Constrained stopped recovery',exact:true});
+  const justified=recovery.locator('tbody tr').filter({hasText:'Justified · forward'});
+  await expect(justified).toContainText('Cohort changed: median 0 · observed maximum 1');
+  await expect(justified).toContainText('3/4 complete · 1/4 unavailable · partial');
+  const table=recovery.locator('tbody tr').filter({hasText:'Table · forward'});
+  await table.getByText('Recovery cohort & request evidence',{exact:true}).click();
+  await expect(table).toContainText('Request carry-in / pending: median 314.5');
+  await expect(table).toContainText('median 172.5');
+  await expect(page.locator('.scroll-summary')).toContainText('Baseline long responsiveness is included');
+  await page.goto(`${experienceUrl.href}#checkpoint=${campaign}&baseline=recorded&view=images`);
+  await page.getByText('Frame evidence · populations & completion boundaries',{exact:true}).click();
+  const frames=page.getByRole('region',{name:'Image workflow frame context',exact:true});
+  const returned=frames.getByRole('row').filter({hasText:'C · P13b'});
+  await expect(returned).toContainText('visible-stable-focused-destination');
+  await expect(returned.locator('td')).toHaveText(['4','6','59 ms','59 ms','6 ms']);
+  await expect(frames.getByRole('row').filter({hasText:'C · P15b'})).toContainText('two-decoded-fullscreen-commits');
+  await page.setViewportSize({width:390,height:844});
+  await expect(frames).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   expect(errors).toEqual([]);expect(remote).toEqual([]);
 });
 
@@ -866,7 +896,7 @@ test("dashboard integration: mobile tables and keyboard groups do not overflow t
 
 type Dashboard = typeof dashboards[number];
 
-async function loadDashboard(page: Page, dashboard: Dashboard, deliveryComparison = false, mixedHistory = false, landingOutcomes: boolean | "latest-censored" = false) {
+async function loadDashboard(page: Page, dashboard: Dashboard, deliveryComparison = false, mixedHistory = false, landingOutcomes: boolean | "latest-censored" = false, imageProbes = false) {
   await page.route("**/*", route => route.abort());
   const requests: string[] = [];
   const errors: string[] = [];
@@ -877,7 +907,8 @@ async function loadDashboard(page: Page, dashboard: Dashboard, deliveryCompariso
     timestamp: `2026-01-0${index + 1}T12:00:00Z`,
     gitSha: "fixture",
     runs: 3,
-    kind: mixedHistory && index === 1 ? "long" : "short",
+    campaignId: `fixture-campaign-${index}`,
+    ...(dashboard === "perceived" && !imageProbes ? { kind: mixedHistory && index === 1 ? "long" : "short" } : {}),
     environment: deliveryComparison ? {
       dataMode: "media-api", apiTopology: "deployed-test", mediaDelivery: index === 2 ? "canonical" : "proxy",
       appBaseUrl: "https://fixture.invalid", browserName: "chromium", browserVersion: "fixture",
@@ -885,12 +916,15 @@ async function loadDashboard(page: Page, dashboard: Dashboard, deliveryCompariso
       screen: { width: 1720, height: 960 }, deviceScaleFactor: index === 0 ? 1 : 2, headed: true, cpuThrottle: 0,
       cacheClass: "fixture", workers: 1, stableUntil: "2026-02-15", appSourceDirtyStateHash: "fixture",
     } : { dataMode: "direct-es" },
-    ...(dashboard === "audit" ? {
+    ...(dashboard === "audit" || imageProbes ? {
       metrics: {
         P1: { severeRate: value, severe: value, maxFrame: value, frameCount: 100, scenarioRevision: !deliveryComparison && index === 1 ? 2 : 1 },
         P2: { severeRate: 100, severe: 1, frameCount: 10 },
         ...(landingOutcomes ? {
           P13c: {
+            imageLookupCount: 1,
+            completionBoundary: "singleton-response-and-bounded-returned-media",
+            detailImageFailedCount: index === 2 ? 1 : 0,
             scenarioRevision: landingOutcomes === "latest-censored" && index < 2 ? 2 : 3,
             cacheClass: landingOutcomes === "latest-censored" && index < 2 ? "nonresident-metadata-warm-media" : "nonresident-metadata-returned-media",
             sampleCount: index === 2 ? 2 : 1,
@@ -900,9 +934,11 @@ async function loadDashboard(page: Page, dashboard: Dashboard, deliveryCompariso
             detailImageCensoredCount: landingOutcomes === "latest-censored" && index === 2 ? 2 : index === 1 ? 0 : 1,
             mediaResourceReusedCount: index === 0 ? 1 : 0,
             mediaResourceNotReusedCount: index === 0 ? 0 : 1,
-            mediaResourceReuseUnknownCount: 0,
+            mediaResourceReuseUnknownCount: index === 2 ? 1 : 0,
           },
           P14b: {
+            imageLookupCount: 0,
+            completionBoundary: "traversal-and-bounded-landing",
             scenarioRevision: 3, sampleCount: index === 2 ? 2 : 1,
             landingRenderMs: index === 0 ? null : index === 1 ? 8_300 : 3_000,
             landingRenderedCount: index === 0 ? 0 : 1,
@@ -926,8 +962,8 @@ async function loadDashboard(page: Page, dashboard: Dashboard, deliveryCompariso
   }));
   const bootstrap = `<script>
     ${readFileSync(new URL("../results/campaign-comparison.js", import.meta.url), "utf8")}
-    window.__AUDIT_LOG__ = ${JSON.stringify({ entries: dashboard === "audit" ? entries : [] })};
-    window.__PERCEIVED_LOG__ = ${JSON.stringify({ entries })};
+    window.__AUDIT_LOG__ = ${JSON.stringify({ entries: dashboard === "audit" || imageProbes ? entries : [] })};
+    window.__PERCEIVED_LOG__ = ${JSON.stringify({ entries: imageProbes ? [] : entries })};
     window.__chartConfigs = new Map();
     window.__destroyedCharts = [];
     window.Chart = class {
@@ -988,6 +1024,73 @@ test("perceived: selecting short campaigns reconciles cards and charts in both g
   expect(state.charts.find(chart => chart.id === "canvas-PP10")?.points).toEqual([[150, 350]]);
   for (const chart of state.charts) expect(chart.labels).toHaveLength(2);
   expect(requests).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test("audit: campaign metadata is known and navigation reaches the renamed dashboard", async ({ page }) => {
+  const { requests, errors } = await loadDashboard(page, "audit");
+  await expect(page.locator("#warnings")).toBeEmpty();
+  await expect(page.getByRole("link", { name: "Performance dashboard", exact: true })).toHaveAttribute("href", "Performance%20dashboard.html");
+  expect(requests).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test("perceived: imported image outcomes retain boundaries, failures and resource evidence", async ({ page }) => {
+  const { requests, errors } = await loadDashboard(page, "perceived", false, false, true, true);
+  const metric = page.getByRole("combobox", { name: "Metric", exact: true });
+  await metric.selectOption("detailImageReadyMs");
+  const card = page.locator("#card-P13c");
+  await expect(card).toContainText("returned media");
+  await expect(card).not.toContainText("/ warm media");
+  await expect(card).toContainText("1/2 completed · 1 incomplete");
+  await expect(card).toContainText("1 failed (included in incomplete)");
+  await expect(card).toContainText("Exact warmed URL reused / not reused / unknown: 0 / 1 / 1");
+  await expect(card).toContainText("Boundary: singleton-response-and-bounded-returned-media");
+  await expect(card).toContainText("Observation cap: 15s (not latency)");
+  await expect(page.locator("#metricBanner")).toBeHidden();
+  for (const name of ["detailImageReadyCount", "detailImageCensoredCount", "detailImageFailedCount", "mediaResourceReusedCount", "mediaResourceNotReusedCount", "mediaResourceReuseUnknownCount"]) {
+    await metric.selectOption(name);
+    await expect(page.locator("#metricGuide")).not.toContainText(/Lower is better|undefined/);
+    await expect(card.locator(".metric-summary")).not.toContainText(/\\dms/);
+  }
+  await metric.selectOption("landingRenderMs");
+  await expect(page.locator("#card-P14b")).toContainText("1/2 completed · 1 incomplete");
+  await expect(page.getByRole("link", { name: "Performance dashboard", exact: true })).toHaveAttribute("href", "Performance%20dashboard.html");
+  expect(requests).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test("perceived: latest censored image evidence stays visible without an older success or empty chart", async ({ page }) => {
+  const { requests, errors } = await loadDashboard(page, "perceived", false, false, "latest-censored", true);
+  await page.getByRole("combobox", { name: "Metric", exact: true }).selectOption("detailImageReadyMs");
+  const card = page.locator("#card-P13c");
+  await expect(card).toContainText("0/2 completed · 2 incomplete");
+  await expect(card).toContainText("measurement unavailable");
+  await expect(card).not.toContainText(/8,?300ms/);
+  await expect(card.locator("canvas")).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).__chartConfigs.size)).toBe(0);
+  await page.evaluate(() => {
+    const fixture = window as any;
+    fixture.__AUDIT_LOG__ = { entries: [] };
+    fixture.ingestLog({ entries: [{ label: "No image probe", timestamp: "2026-01-04T12:00:00Z", perceived: { PP1: { action: "home-logo", dt_ack_ms: 10 } } }] });
+  });
+  await expect(card).toHaveCount(0);
+  expect(requests).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test("perceived: historical missing outcome counts remain unknown, not zero", async ({ page }) => {
+  const { errors } = await loadDashboard(page, "perceived", false, false, true, true);
+  await page.evaluate(() => {
+    const fixture = window as any;
+    for (const entry of fixture.__AUDIT_LOG__.entries) {
+      for (const key of ["detailImageReadyCount", "detailImageCensoredCount", "detailImageFailedCount", "mediaResourceReusedCount", "mediaResourceNotReusedCount", "mediaResourceReuseUnknownCount"]) delete entry.metrics.P13c[key];
+    }
+    fixture.ingestLog({ entries: [] });
+  });
+  await page.getByRole("combobox", { name: "Metric", exact: true }).selectOption("detailImageReadyMs");
+  await expect(page.locator("#card-P13c")).toContainText("Completion outcomes not recorded");
+  await expect(page.locator("#card-P13c")).not.toContainText("0 incomplete");
   expect(errors).toEqual([]);
 });
 
@@ -1141,7 +1244,7 @@ for (const dashboard of dashboards) {
   });
 }
 
-const historyUrl = new URL("../results/index.html", import.meta.url);
+const historyUrl = new URL("../results/Performance%20dashboard.html", import.meta.url);
 async function loadHistory(page: Page, hash: string) {
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
@@ -1177,9 +1280,10 @@ test("history: baseline pin and selected point survive reload and Back; current 
   const errors = await loadHistory(page, "view=scroll");
   await expect(page.locator(".role-pill").nth(0)).toContainText("latest · follows new results");
   await expect(page.locator(".role-pill").nth(1)).toContainText("registered proxy baseline");
+  const currentLabel = await page.locator(".role-pill").nth(0).innerText();
   const chart = page.getByRole("group", { name: /Table Frame p95 history/ });
-  await chart.locator('a.hpt[tabindex="0"]').focus();
-  await page.keyboard.press("ArrowLeft");
+  await chart.getByRole("link", { name: /23 Oct 03:30 UTC, Local API · proxy media, r4/ }).focus();
+  await page.keyboard.press("ArrowRight");
   await page.keyboard.press("ArrowLeft");
   const label = await page.evaluate(() => document.activeElement?.getAttribute("aria-label"));
   expect(label).toContain("23 Oct 03:30 UTC, Local API · proxy media, r4");
@@ -1192,7 +1296,7 @@ test("history: baseline pin and selected point survive reload and Back; current 
   await page.reload();
   await expect(page.locator(".role-pill").nth(1)).toContainText("pinned");
   await expect(page.locator("#inspector-title")).toHaveText("Table · Frame p95 · 23 Oct 03:30 UTC");
-  await expect(page.locator(".role-pill").nth(0)).toContainText("24 Oct 08:49 UTC");
+  await expect(page.locator(".role-pill").nth(0)).toHaveText(currentLabel);
   await page.goBack();
   await expect(page.locator(".role-pill").nth(1)).toContainText("registered proxy baseline");
   await page.goForward();

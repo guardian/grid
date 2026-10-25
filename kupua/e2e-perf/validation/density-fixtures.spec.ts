@@ -1579,7 +1579,7 @@ test("dashboard excludes unmeasured probes but retains censored landing outcomes
   metrics.recoveryObservationMs = { median: 4000, p95: 4005, sampleCount: 4 };
   await mountDensityDashboard(page, [entry], false);
   await expect(page.getByLabel("Constrained landing outcomes")).toContainText("Table: 0/4 stable landings");
-  await expect(page.getByLabel("Constrained landing outcomes")).toContainText("Not decoded within 4,000 ms");
+  await expect(page.getByLabel("Constrained landing outcomes")).toContainText("observation cap 4,000 ms (not latency)");
   await page.getByRole("button", { name: "Inspect load and landing for Table forward constrained", exact: true }).click();
   await expect(page.getByLabel("Metric", { exact: true })).toHaveValue("stopMediaReadyMs");
   await expect(page.locator("#cards svg")).toHaveCount(0);
@@ -1587,6 +1587,43 @@ test("dashboard excludes unmeasured probes but retains censored landing outcomes
   await expect(page.getByLabel("Metric", { exact: true }).locator('option[value="paintMismatchCount"]')).toHaveCount(0);
   await page.getByLabel("Find a measurement", { exact: true }).fill("paintMismatchCount");
   await expect(page.getByLabel("Metric", { exact: true }).locator("option")).toHaveCount(0);
+});
+
+test("density dashboard retains independent recovery tails, populations and global request counts", async ({ page }) => {
+  const entry = pressureEntry();
+  const metrics = entry.metrics["D8-justified"].metrics;
+  Object.assign(metrics, {
+    stopMediaReadyMs: { median: 800, p95: 900, sampleCount: 3 },
+    stopCohortChanged: { median: 0, p95: 1, sampleCount: 4 },
+    postReadyCohortStable: { median: 1, p95: 1, sampleCount: 4 },
+    stopVisibleMediaCount: { median: 36, p95: 41, sampleCount: 4 },
+    stopDecodedMediaCount: { median: 35, p95: 40, sampleCount: 4 },
+    stopFailedMediaCount: { median: 0, p95: 1, sampleCount: 4 },
+    recoveryMediaRequestsCarryIn: { median: 12, p95: 18, sampleCount: 4 },
+    recoveryMediaRequestsPending: { median: 2, p95: 5, sampleCount: 4 },
+    recoveryMediaRequestsCompleted: { median: 10, p95: 14, sampleCount: 4 },
+    recoveryMediaRequestCancellations: { median: 0, p95: 3, sampleCount: 4 },
+    recoveryMediaRequestFailures: { median: 0, p95: 3, sampleCount: 4 },
+    recoveryMediaHttpErrors: { median: 0, p95: 0, sampleCount: 4 },
+  });
+  await mountDensityDashboard(page, [entry], false);
+  const row = page.locator("#pressure-justified-scroll-constrained");
+  await expect(row).toContainText("3/4 stable decoded landings");
+  await expect(row).toContainText("Incomplete recovery; latency withheld");
+  await expect(row).not.toContainText("Decode median: 800");
+  await row.getByText("Recovery cohort & request evidence", { exact: true }).click();
+  await expect(row).toContainText("Cohort changed: median 0 · upper tail 1");
+  await expect(row).toContainText("Post-ready stable: median 1 · upper tail 1");
+  await expect(row).toContainText("Visible / decoded: median 36 · upper tail 41 / median 35 · upper tail 40");
+  await expect(row).toContainText("Request carry-in / pending: median 12 · upper tail 18 / median 2 · upper tail 5");
+  await expect(row).toContainText("Completed / cancelled: median 10 · upper tail 14 / median 0 · upper tail 3");
+  await expect(row).toContainText("Joint censor-reason counts are not recorded");
+  await expect(row).toContainText("global requests, not current-visible ownership");
+  await expect(row).toContainText("do not prove every observation passed");
+  await expect(page.getByRole("link", { name: "Performance dashboard", exact: true })).toHaveAttribute("href", "Performance%20dashboard.html");
+  const missing = page.locator("#pressure-table-scroll-constrained");
+  await missing.getByText("Recovery cohort & request evidence", { exact: true }).click();
+  await expect(missing).toContainText("Request carry-in / pending: unavailable (0/4 observations)");
 });
 
 test("overview puts rankings before diagnostics and uses Kupua theme", async ({ page }) => {
@@ -1650,7 +1687,7 @@ test("pressure overview retains censored endpoints invalid clock tails and respo
   entry.metrics["D1-justified"].metrics.requestClockMissingCount.p95 = 1;
   await mountDensityDashboard(page, [entry], false);
   await expect(page.locator("#pressure-grid-scroll-constrained")).toContainText("3/4 stable decoded landings");
-  await expect(page.locator("#pressure-grid-scroll-constrained")).toContainText("Censored");
+  await expect(page.locator("#pressure-grid-scroll-constrained")).toContainText("Incomplete recovery; latency withheld");
   await expect(page.locator("#pressure-justified-scroll-forward")).toContainText("Invalid timing");
   await expect(page.locator("#score-justified-progress")).toHaveAttribute("data-score", "unavailable");
   for (const width of [390, 1720]) {

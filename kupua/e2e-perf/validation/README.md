@@ -23,9 +23,13 @@ set -o pipefail; npm --prefix kupua run test:perf-harness:focus -- --test-name-p
 set -o pipefail; npm --prefix kupua run test:perf-fixtures -- dashboard-navigation.spec.ts --grep 'traversal' 2>&1 | tee "$TMPDIR/kupua-test-output.txt"
 ```
 
-Use focused checks while editing; run each applicable full gate once after the final
-substantive batch. Run `test:perf-app` only when actual-renderer validation or its
-helpers change, not for offline/dashboard-only edits. No campaign or perf run is
+Keep local-dashboard validation proportionate: use a focused model/browser regression
+for changed behavior and a visual review for presentation. Do not expand coverage or
+run full harness/fixture suites by default for dashboard labels, layout or summaries.
+Reserve full gates for changes to measurement contracts, observers, aggregation or
+history publication machinery, or an explicitly requested sweep. Existing app unit/E2E
+requirements are unchanged. Run `test:perf-app` only when actual-renderer validation or
+its helpers change, not for offline/dashboard-only edits. No campaign or perf run is
 part of this validation. Retained controls and the latest bounded reduction evidence
 are in the [evidence document](../../exploration/docs/zz%20Archive/deployment-probe-audit-workplan-evidence.md#perf-validation-simplification).
 

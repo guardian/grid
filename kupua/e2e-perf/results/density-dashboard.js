@@ -467,6 +467,7 @@
       landing.append(make("p", `${media?.sampleCount ?? 0}/${record.sampleCount} stable decoded landings`, censored ? "landing-reason" : ""),
         make("p", completeValue(record, "stopMediaReadyMs") !== null ? `Decode median: ${formatNumber(media.median)} ms · worst ${formatNumber(media.p95)} ms` : landingOutcome(record), "small"));
       if (record.workload === "scroll-backward") landing.append(make("p", "After the reverse leg", "muted"));
+      landing.append(recoveryEvidence(record));
       const cost = make("div", null, "cost-row"); cost.append(make("strong", `${names[record.density]} · ${direction} · ${constrained ? "Constrained" : "Ordinary"}`),
         make("p", `Motion cancellations: ${formatNumber(completeValue(record, "mediaRequestCancellations"))} · proxy hits / misses / unknown: ${["mediaProxyCacheHits", "mediaProxyCacheMisses", "mediaProxyCacheUnknown"].map(key => formatNumber(completeValue(record, key))).join(" / ")}`));
       const costsLink = make("button", "Inspect cancellations", "inspect"); costsLink.type = "button";
@@ -495,13 +496,31 @@
       row.append(reference); $("pressure-rows").append(row);
     }
   }
+  function recoveryEvidence(record) {
+    const details = make("details", null, "recovery-evidence");
+    details.append(make("summary", "Recovery cohort & request evidence"));
+    const distribution = key => {
+      const metric = record.metrics[key];
+      return completeValue(record, key) === null ? `unavailable (${metric?.sampleCount ?? 0}/${record.sampleCount} observations)`
+        : `median ${metric.median.toLocaleString(undefined, { maximumFractionDigits: 1 })} · upper tail ${metric.p95.toLocaleString(undefined, { maximumFractionDigits: 1 })}`;
+    };
+    for (const [label, ...keys] of [
+      ["Cohort changed", "stopCohortChanged"], ["Post-ready stable", "postReadyCohortStable"],
+      ["Data / media incomplete", "stopDataCensored", "stopMediaCensored"],
+      ["Visible / decoded", "stopVisibleMediaCount", "stopDecodedMediaCount"],
+      ["Failed visible media", "stopFailedMediaCount"],
+      ["Request carry-in / pending", "recoveryMediaRequestsCarryIn", "recoveryMediaRequestsPending"],
+      ["Completed / cancelled", "recoveryMediaRequestsCompleted", "recoveryMediaRequestCancellations"],
+      ["Failures / HTTP errors", "recoveryMediaRequestFailures", "recoveryMediaHttpErrors"],
+    ]) {
+      details.append(make("p", `${label}: ${keys.map(distribution).join(" / ")}`, "small"));
+    }
+    details.append(make("p", "Independent aggregate summaries; global requests, not current-visible ownership. Joint censor-reason counts are not recorded. Upper tails of stability flags do not prove every observation passed. Upper tail is saved p95 (maximum with four repetitions).", "small muted"));
+    return details;
+  }
   function landingOutcome(record) {
-    const metrics = record.metrics;
-    if (metrics.stopCohortChanged?.p95 > 0) return "Cohort changed; latency withheld";
-    if (metrics.stopFailedMediaCount?.p95 > 0) return "Failed media; latency withheld";
-    if (metrics.stopDataCensored?.p95 > 0) return "Data readiness incomplete";
-    if (metrics.stopMediaCensored?.p95 > 0 && metrics.recoveryObservationMs?.p95 >= metrics.recoveryLimitMs?.median) return `Not decoded within ${fmt(metrics.recoveryLimitMs.median, "stopMediaReadyMs")}`;
-    return "Censored; completion not established";
+    const limit = completeValue(record, "recoveryLimitMs");
+    return `Incomplete recovery; latency withheld${limit === null ? "" : ` · observation cap ${fmt(limit, "stopMediaReadyMs")} (not latency)`}. Inspect independent cohort and request evidence.`;
   }
   function recordsComparable(entry, record, baseline, before) {
     return Boolean(environmentsComparable(entry, baseline)
@@ -773,7 +792,7 @@
       const candidate = entry.metrics[pair.candidateId], control = entry.metrics[pair.controlId];
       if (!candidate || !control || !entry.environmentCompatibilityKey || candidate.density !== "justified" || control.density !== "grid" || !candidate.pairedContractKey || candidate.pairedContractKey !== control.pairedContractKey || candidate.pairedContractKey !== pair.contractKey || !displayed.some(row => row.entry === entry && [candidate.id, control.id].includes(row.record.id))) continue;
       const a = control.metrics[key]?.median, b = candidate.metrics[key]?.median;
-      tableRow(pairs, [entry.label, `${control.id} ↔ ${candidate.id}`, info[0], Number.isFinite(a) && Number.isFinite(b) ? fmt(b - a, key, true) : "unavailable", `${Math.min(candidate.sampleCount, control.sampleCount)} repetitions; descriptive only`]);
+      tableRow(pairs, [entry.label, `${control.id} ↔ ${candidate.id}`, info[0], Number.isFinite(a) && Number.isFinite(b) ? fmt(b - a, key, true) : "unavailable", `${control.sampleCount} Grid / ${candidate.sampleCount} Justified observations; difference of matched-layout medians, not within-repetition deltas; descriptive only`]);
     }
     if (!pairs.childElementCount) tableRow(pairs, ["No compatible pairs for this selection", "", "", "", ""]);
   }

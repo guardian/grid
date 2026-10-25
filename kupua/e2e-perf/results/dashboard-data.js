@@ -328,6 +328,9 @@
       }
       const environments = checkpoint.members.map(id => entries[id].environment ?? {});
       checkpoint.environment = Object.fromEntries([...new Set(environments.flatMap(environment => Object.keys(environment)))].map(key => [key, environments.every(environment => JSON.stringify(environment[key]) === JSON.stringify(environments[0][key])) ? environments[0][key] : null]));
+      const sources = checkpoint.members.map(id => entries[id].gitSha);
+      checkpoint.gitSha = checkpoint.missing.length === 0 && sources.length === definition.members.length
+        && sources.length > 0 && sources[0] && sources.every(source => source === sources[0]) ? sources[0] : null;
       checkpoints[definition.id] = checkpoint;
     }
     return { records, entries, checkpoints };

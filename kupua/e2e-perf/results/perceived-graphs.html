@@ -86,7 +86,7 @@
 <body>
 <header>
   <h1>Kupua perceived-perf — all audited runs</h1>
-  <nav aria-label="Performance dashboards"><a href="audit-graphs.html">Rendering performance</a> · <a href="density-graphs.html">Density comparisons and thumbnails</a></nav>
+  <nav aria-label="Performance dashboards"><a href="Performance%20dashboard.html">Performance dashboard</a> · <a href="audit-graphs.html">Rendering performance</a> · <a href="density-graphs.html">Density comparisons and thumbnails</a></nav>
   <div class="sub" id="sub">Loading…</div>
   <div id="metricBanner" hidden style="margin-top:8px;padding:8px 12px;border-radius:6px;background:rgba(248,81,73,0.12);border:1px solid rgba(248,81,73,0.4);color:#f85149;font-size:13px;"></div>
   <div style="margin-top:6px;font-size:11px;color:var(--muted);">Tip: use ← → arrow keys to cycle metrics</div>
@@ -143,7 +143,8 @@
       <option value="imageLookupCount">Image metadata lookups (resident traversal: 0)</option>
       <option value="detailLookupMs">Standalone lookup response (ms)</option>
       <option value="detailMetadataReadyMs">Standalone metadata ready (ms)</option>
-      <option value="detailImageReadyMs">Standalone decoded image ready (ms; warm media)</option>
+      <option value="detailImageReadyMs">Standalone decoded image ready (ms; completed only)</option>
+      <option value="landingRenderMs">Landing image load (ms; completed only)</option>
       </optgroup>
       <optgroup label="Position preservation and matched controls">
       <option value="requestedRatio">Requested result ratio</option>
@@ -238,7 +239,23 @@ function visibleEntries(entries) {
       || (k === "jank-probes" && showImageProbes));
   });
 }
+const IMAGE_OUTCOME_METRICS = {
+  detailImageReadyCount: ["Standalone media completed (samples)", "Returned full images decoded and visibly stable within the 15-second horizon."],
+  detailImageCensoredCount: ["Standalone media incomplete (samples)", "Returned full images not decoded and stable within 15 seconds; the deadline is not latency."],
+  detailImageFailedCount: ["Standalone full media failed (samples)", "Observed image errors are a subset of incomplete outcomes; do not add the counts."],
+  mediaResourceReusedCount: ["Exact warmed URL reused (samples)", "Returned media matched the warmed resource URL; not proof of an HTTP or upstream cache hit."],
+  mediaResourceNotReusedCount: ["Exact warmed URL not reused (samples)", "Returned media did not match the warmed URL; signing changes do not prove upstream cache misses."],
+  mediaResourceReuseUnknownCount: ["Resource reuse unknown (samples)", "No observable returned source was available for comparison; not a cache hit or miss."],
+  landingRenderedCount: ["Landings completed (samples)", "Landing images loaded within the revision-3 15-second observation horizon."],
+  landingCensoredCount: ["Landings incomplete (samples)", "Landing images were not ready within 15 seconds; deadline markers are not landing latency."],
+};
+const outcomeOptions = document.createElement("optgroup");
+outcomeOptions.label = "Image completion and resource outcomes";
+for (const [key, [label]] of Object.entries(IMAGE_OUTCOME_METRICS)) outcomeOptions.append(new Option(label, key));
+document.getElementById("metric").append(outcomeOptions);
+
 const METRIC_LABELS = {
+  ...Object.fromEntries(Object.entries(IMAGE_OUTCOME_METRICS).map(([key, [label]]) => [key, label])),
   dt_ack_ms: "Action acknowledgement (ms)",
   dt_first_pixel_ms: "Legacy first pixel (ms)",
   dt_settled_ms: "Legacy settled (ms)",
@@ -265,7 +282,8 @@ const METRIC_LABELS = {
   imageLookupCount: "Image metadata lookups (resident traversal: 0)",
   detailLookupMs: "Standalone lookup response (ms)",
   detailMetadataReadyMs: "Standalone metadata ready (ms)",
-  detailImageReadyMs: "Standalone decoded image ready (ms; warm media)",
+  detailImageReadyMs: "Standalone decoded image ready (ms; completed only)",
+  landingRenderMs: "Landing image load (ms; completed only)",
   requestedRatio: "Requested result ratio",
   achievedRatio: "Achieved result ratio",
   anchorDriftPx: "Anchor drift (px)",
@@ -278,6 +296,7 @@ const METRIC_LABELS = {
 };
 
 const METRIC_HELP = {
+  ...Object.fromEntries(Object.entries(IMAGE_OUTCOME_METRICS).map(([key, [, help]]) => [key, help])),
   dt_ack_ms: "Time from user action to synchronous acknowledgement; this is not a painted frame.",
   dt_status_ms: "Time from user action until a status banner or spinner is shown.",
   dt_store_ready_ms: "Time from user action until the store is ready; this is not visual completion.",
@@ -289,7 +308,8 @@ const METRIC_HELP = {
   imageLookupCount: "Metadata lookup count; resident traversal expects zero lookups.",
   detailLookupMs: "Standalone detail lookup response time; metadata is not resident.",
   detailMetadataReadyMs: "Time until standalone detail metadata is ready.",
-  detailImageReadyMs: "Time until the standalone detail image is decoded and stable; media is warm.",
+  detailImageReadyMs: "Completed-only decoded/stable image timing; revision 3 measures returned media, not guaranteed warm. Inspect completed, censored and failed counts. Older revisions required the warmed URL.",
+  landingRenderMs: "Time from final navigation until the landing image loads; revision 3 reports completed samples only within 15 seconds. Inspect completed/censored counts.",
   requestedRatio: "Requested position as a fraction of the result set. Context only; compare with achieved ratio.",
   achievedRatio: "Achieved position as a fraction of the result set. Context only; compare with requested ratio.",
   anchorDriftPx: "Signed anchor displacement in pixels. Closer to zero is better.",
@@ -307,6 +327,7 @@ const METRIC_HELP = {
 };
 
 function metricUnit(metric) {
+  if (Object.hasOwn(IMAGE_OUTCOME_METRICS, metric)) return "";
   if (["requestedRatio", "achievedRatio", "anchorDriftRatio"].includes(metric)) return "";
   if (metric === "anchorDriftPx") return "px";
   if (["sampleCount", "mapEntryCount", "imageLookupCount"].includes(metric)) return "";
@@ -368,6 +389,28 @@ function perceivedMetricValue(record, metric) {
   return Number.isFinite(record[metric]) ? record[metric] : null;
 }
 
+function imageOutcomeSummary(record) {
+  const detail = Object.hasOwn(record, "detailImageReadyMs");
+  const landing = Object.hasOwn(record, "landingRenderMs");
+  if (!detail && !landing) return "";
+  const count = key => Number.isInteger(record[key]) && record[key] >= 0 ? record[key] : "unknown";
+  const ready = detail ? "detailImageReadyCount" : "landingRenderedCount";
+  const censored = detail ? "detailImageCensoredCount" : "landingCensoredCount";
+  const parts = Object.hasOwn(record, ready)
+    ? [`${count(ready)}/${count("sampleCount")} completed · ${count(censored)} incomplete`]
+    : ["Completion outcomes not recorded"];
+  if (detail && Object.hasOwn(record, "detailImageFailedCount")) parts.push(`${count("detailImageFailedCount")} failed (included in incomplete)`);
+  if (detail && Object.keys(record).some(key => key.startsWith("mediaResource"))) {
+    parts.push(`Exact warmed URL reused / not reused / unknown: ${["mediaResourceReusedCount", "mediaResourceNotReusedCount", "mediaResourceReuseUnknownCount"].map(count).join(" / ")}; not HTTP-cache evidence`);
+  }
+  if (Number.isFinite(record.detailObservationLimitMs)) parts.push(`Observation cap: ${record.detailObservationLimitMs / 1000}s (not latency)`);
+  if (record.completionBoundary) parts.push(`Boundary: ${record.completionBoundary}`);
+  const node = document.createElement("span");
+  node.className = "image-outcomes";
+  node.textContent = ` · ${parts.join(" · ")}`;
+  return node.outerHTML;
+}
+
 function pairedModeSummary(modeSeries, metric) {
   const direct = modeSeries.find((series) => series.mode === "direct-es");
   const api = modeSeries.find((series) => series.mode === "media-api");
@@ -384,6 +427,7 @@ function pairedModeSummary(modeSeries, metric) {
 // Update this set + METRIC_LABELS + the <select id="metric"> options
 // + getTargetForAction() when adding a new metric.
 const KNOWN_METRICS = new Set([
+  ...Object.keys(IMAGE_OUTCOME_METRICS), "landingRenderMs",
   "dt_ack_ms",
   "dt_status_ms",
   "dt_first_pixel_ms",
@@ -424,7 +468,7 @@ const KNOWN_METRICS = new Set([
 // unknown-metric scan can ignore them rather than warning.
 const NON_METRIC_FIELDS = new Set([
   "id", "label", "action", "seekMeasures", "scenarioRevision", "settledTotal", "settledTotalMin", "settledTotalMax", "metricClass",
-  "cacheClass", "lookupGuardRevision",
+  "cacheClass", "lookupGuardRevision", "completionBoundary", "detailObservationLimitMs",
   "resultRegime", "routes", "matchedControlRoutes", "matchedControlDesign", "setupGlobalPosition", "setupBufferOffset", "setupBufferLength",
   "setupVisibleRangeRatio", "setupExtended", "setupEvictGeneration", "setupEvictedCount",
   "degradedCount", "degradedReasons",
@@ -443,12 +487,13 @@ function auditImageReadEntries(audit) {
       const metric = entry.metrics?.[id];
       if (!Number.isFinite(metric?.imageLookupCount)) continue;
       const record = {
-        label: id === "P13c" ? "Standalone detail, non-resident metadata / warm media" : "Resident traversal lookup guard",
+        label: id === "P13c" ? "Standalone detail, non-resident metadata / returned media" : "Resident traversal lookup guard",
         action: id === "P13c" ? "standalone-detail" : "resident-traversal",
       };
       for (const field of ["imageLookupCount", "detailLookupMs", "detailMetadataReadyMs", "detailImageReadyMs", "sampleCount",
-        "scenarioRevision", "cacheClass", "lookupGuardRevision", "routes"]) {
-        if (metric[field] != null) record[field] = metric[field];
+        "scenarioRevision", "cacheClass", "lookupGuardRevision", "routes", "completionBoundary", "detailObservationLimitMs",
+        "landingRenderMs", ...Object.keys(IMAGE_OUTCOME_METRICS)]) {
+        if (Object.hasOwn(metric, field)) record[field] = metric[field];
       }
       perceived[id] = record;
     }
@@ -537,7 +582,8 @@ document.getElementById("reload").addEventListener("click", () => location.reloa
 function updateMetricGuide() {
   const sel = document.getElementById("metric");
   const baseMetric = currentMetric.replace("_p95_ms", "_ms");
-  const isContextOrDrift = ["sampleCount", "requestedRatio", "achievedRatio", "anchorDriftPx", "anchorDriftRatio", "mapEntryCount"].includes(baseMetric);
+  const isContextOrDrift = Object.hasOwn(IMAGE_OUTCOME_METRICS, baseMetric)
+    || ["sampleCount", "requestedRatio", "achievedRatio", "anchorDriftPx", "anchorDriftRatio", "mapEntryCount"].includes(baseMetric);
   const percentile = currentMetric.includes("_p95_") ? " 95th percentile across repetitions, not the worst sample." : "";
   document.getElementById("metricGuide").textContent =
     `${METRIC_LABELS[currentMetric]} — ${METRIC_HELP[baseMetric]}${percentile}${isContextOrDrift ? "" : " Lower is better."}`;
@@ -627,6 +673,9 @@ function render() {
   }
   const entries = KupuaPerfComparison.restrict(visibleEntries(allEntries));
   const allIds = new Set(entries.flatMap(entry => Object.keys(entry.perceived ?? {})));
+  for (const card of document.querySelectorAll("#grid .card, #diagnosticGrid .card")) {
+    if (!allIds.has(card.id.slice("card-".length))) card.remove();
+  }
   for (const [id, chart] of charts) {
     if (!allIds.has(id)) {
       chart.destroy();
@@ -669,7 +718,7 @@ function render() {
     const modeSeries = [...new Set(entries.map(KupuaPerfComparison.variant))].flatMap((variant) => {
       const mode = JSON.parse(variant)[0];
       const referenceIndex = entries.findLastIndex((entry) =>
-        KupuaPerfComparison.variant(entry) === variant && perceivedMetricValue(entry.perceived?.[id], currentMetric) != null
+        KupuaPerfComparison.variant(entry) === variant && Object.hasOwn(entry.perceived?.[id] ?? {}, currentMetric)
       );
       if (referenceIndex < 0) return [];
       const referenceEntry = entries[referenceIndex];
@@ -681,8 +730,7 @@ function render() {
         if (comparableOnly && !metricsComparable(entry, metric, referenceEntry, referenceMetric)) return null;
         return perceivedMetricValue(metric, currentMetric);
       });
-      const latestIndex = points.findLastIndex((point) => point != null);
-      if (latestIndex < 0) return [];
+      const latestIndex = referenceIndex;
       const previousIndex = points.findLastIndex((point, index) => index < latestIndex && point != null
         && metricsComparable(entries[index], entries[index].perceived[id], entries[latestIndex], entries[latestIndex].perceived[id]));
       return [{
@@ -719,11 +767,11 @@ function render() {
 
     const summaries = modeSeries.map((series) => {
       const style = KupuaPerfComparison.style(series.latestEntry);
-      const delta = series.previousValue == null ? null : series.latestValue - series.previousValue;
-      const deltaText = delta == null
+      const delta = series.previousValue == null || series.latestValue == null ? null : series.latestValue - series.previousValue;
+      const deltaText = series.latestValue == null ? "measurement unavailable" : delta == null
         ? "no predecessor"
         : `Δ ${delta > 0 ? "+" : ""}${formatMetricValue(currentMetric, delta)}`;
-      return `<span class="mode-summary"><span class="mode-dot" style="background:${style.color}"></span><strong style="color:${style.color}">${series.label}</strong> ${formatMetricValue(currentMetric, series.latestValue)} · ${deltaText}</span>`;
+      return `<span class="mode-summary"><span class="mode-dot" style="background:${style.color}"></span><strong style="color:${style.color}">${series.label}</strong> ${formatMetricValue(currentMetric, series.latestValue)} · ${deltaText}${imageOutcomeSummary(series.latestMetrics)}</span>`;
     }).join("") + KupuaPerfComparison.summary(id, entry => entry.perceived, record => perceivedMetricValue(record, currentMetric),
       metricsComparable, value => formatMetricValue(currentMetric, value));
 
@@ -751,6 +799,7 @@ function render() {
       return `<span class="metric-chip ${cls}">${lbl}: ${formatMetricValue(m, v)}</span>`;
     }).join("");
 
+    const hasPoints = modeSeries.some(series => series.points.some(Number.isFinite));
     card.innerHTML = `
       <div class="card-header">
         <h3>${id}: ${latestMetrics?.label ?? id}</h3>
@@ -758,11 +807,13 @@ function render() {
       </div>
       <div class="metric-summary">${METRIC_LABELS[currentMetric]} — ${summaries}</div>
       <div class="metrics-row">${chipsHtml}</div>
-      <canvas id="canvas-${id}"></canvas>
+      ${hasPoints ? `<canvas id="canvas-${id}"></canvas>` : ""}
     `;
 
     // Render sparkline
     if (charts.has(id)) charts.get(id).destroy();
+    charts.delete(id);
+    if (!hasPoints) continue;
     const ctx = document.getElementById(`canvas-${id}`).getContext("2d");
     const labels = entries.map((e) => {
       const d = new Date(e.timestamp);

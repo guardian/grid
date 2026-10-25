@@ -698,14 +698,14 @@ test.describe("Journey Tests", () => {
       const entries = await readTrace(kupua);
       const correlated = computeCorrelatedMetrics({
         id: "JA2",
-        label: "image-dblclick decoded detail",
+        label: "image-dblclick loaded stable detail",
         action: "open-detail",
         requiredPhases: ["t_store_ready", "t_first_visible_frame", "t_visual_settled"],
         entries,
       });
       const m: PerceivedMetrics = {
         id: "JA2",
-        label: "image-dblclick decoded detail",
+        label: "image-dblclick loaded stable detail",
         action: "open-detail",
         dt_ack_ms: null,
         dt_status_ms: null,

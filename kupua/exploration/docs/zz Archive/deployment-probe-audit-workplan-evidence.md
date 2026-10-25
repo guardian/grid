@@ -63,7 +63,7 @@ or campaign runtime saving is claimed. Stop here; further cleanup is not authori
 ## Scrolling and Layout History Design Slice
 
 **25 October 2026 — operator-authorized; now integrated as each workflow's History view.**
-[index.html](../../../e2e-perf/results/index.html) `mode=history` answers two questions:
+[Performance dashboard.html](../../../e2e-perf/results/Performance%20dashboard.html) `mode=history` answers two questions:
 is this metric moving in the right direction, and how does this topology compare?
 
 - **Scope:** D1/D2 Grid/Justified/Table × four metrics (frame p95, pending visible slots,
@@ -729,7 +729,7 @@ review before further checkpoint registration or workflow expansion.
 **24 October 2026 — bounded local integration, not a campaign or producer certificate.**
 Operator approved the existing compact Overview -> Image Workflows -> exact evidence
 direction, only the documented four-entry checkpoint, and visibly provisional grades.
-The [page](../../../e2e-perf/results/index.html) loads all three canonical sidecars through
+The [page](../../../e2e-perf/results/Performance%20dashboard.html) loads all three canonical sidecars through
 the [shared adapter](../../../e2e-perf/results/dashboard-data.js); curated/synthetic design inputs are
 not production history. The 78 records retain their raw objects, revisions, contracts
 and owning entry provenance. Histories and producers were not edited by this unit.

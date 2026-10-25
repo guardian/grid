@@ -16,6 +16,9 @@ window.renderScrollSummary = function(h, charts) {
   const workloadLabel=state.workload==="constrained"?"Constrained · forward · 80ms / 4Mibit/s":`Ordinary · ${state.direction}`;
   const selectedPhaseAvailable=phase!=="reversal"||browsingPrefix==="D2";
   const measuredRecords=rs.filter(r=>r.area==="scroll");
+  const longCoverage=!base?"No baseline selected.":baseRecords.some(r=>r.kind==="long")
+    ?"Baseline long responsiveness is included in the selected checkpoint."
+    :"Baseline long responsiveness is absent from the selected checkpoint; no older long run is borrowed.";
   function control(key,label,options) {
     if(key==="direction"&&state.workload==="constrained")return '<label for="scroll-direction">Direction<select id="scroll-direction" disabled aria-label="Direction · D8 is forward only"><option>Forward only · D8</option></select></label>';
     return `<label for="scroll-${key}">${label}<select id="scroll-${key}" data-scroll-control="${key}">${options.map(([v,text])=>`<option value="${v}"${state[key]===v?" selected":""}>${text}</option>`).join("")}</select></label>`;
@@ -80,12 +83,27 @@ window.renderScrollSummary = function(h, charts) {
     if(!Number.isInteger(pop.available)||!Number.isInteger(pop.unavailable)||pop.available+pop.unavailable!==pop.total)return linked(r,key,"Outcome population unavailable",baseline);
     return linked(r,key,`${pop.available}/${pop.total} complete · ${pop.unavailable}/${pop.total} unavailable${pop.available>0&&pop.unavailable>0?" · partial":""}`,baseline);
   }
+  function distribution(r,key) {
+    const median=r?MODEL.value(r,key,"median"):null,tail=r?MODEL.value(r,key,"p95"):null;
+    if(!finite(median)||!finite(tail))return numeric(r,key);
+    return linked(r,key,`median ${format(median)} · ${DATA.tailLabel(r,key).toLowerCase()} ${format(tail)}`);
+  }
+  function recoveryEvidence(r) {
+    const rows=[
+      ["Cohort changed","stopCohortChanged"],["Post-ready stable","postReadyCohortStable"],
+      ["Visible / decoded","stopVisibleMediaCount","stopDecodedMediaCount"],
+      ["Request carry-in / pending","recoveryMediaRequestsCarryIn","recoveryMediaRequestsPending"],
+      ["Completed / cancelled","recoveryMediaRequestsCompleted","recoveryMediaRequestCancellations"],
+      ["Failures / HTTP errors","recoveryMediaRequestFailures","recoveryMediaHttpErrors"]
+    ];
+    return `<details><summary>Recovery cohort & request evidence</summary>${rows.map(([label,...keys])=>`<div><small>${esc(label)}: ${keys.map(key=>distribution(r,key)).join(" / ")}</small></div>`).join("")}<p class="note">Independent aggregate summaries; global requests, not current-visible ownership. Cohort changes can invalidate ready clocks; joint censor-reason counts are not recorded. Upper tails of stability flags do not prove every observation passed.</p></details>`;
+  }
   function recoveryGroup(title,prefixes,note) {
     const current=prefixes.flatMap(prefix=>densities.map(d=>({r:find(`${prefix}-${d}`),d,prefix})));
     return `<section class="engineering-panel" aria-label="${esc(title)}"><div class="panel-heading"><h3>${esc(title)}</h3><span>${esc(note)}</span></div><div class="engineering-table-wrap" tabindex="0" role="region" aria-label="${esc(title)} evidence"><table class="engineering-table scroll-recovery-table"><thead><tr><th scope="col">Density / direction</th><th scope="col">Data ready · ms</th><th scope="col">Decoded media ready · ms</th><th scope="col">Media outcomes / cohort</th></tr></thead><tbody>${current.map(({r,d,prefix})=>{
       const p=r&&base?pair(r,"stopMediaReadyMs"):null;
       const before=baseRecords.find(record=>record.scenario===`${prefix}-${d}`);
-      return `<tr><th scope="row">${linked(r,"stopMediaReadyMs",`${names[d]} · ${prefix==="D2"?"backward + reversal":"forward"}`)}<small>${r?esc(r.raw.resultRegime):"Record absent"}</small></th><td>${mini(r,"stopDataReadyMs","ms")}<small>C ${outcomes(r,"stopDataReadyMs")}</small>${before?`<small>B ${outcomes(before,"stopDataReadyMs",true)}</small>`:""}</td><td>${mini(r,"stopMediaReadyMs","ms")}</td><td><div>C ${outcomes(r,"stopMediaReadyMs")}</div>${before?`<div>B ${outcomes(before,"stopMediaReadyMs",true)}</div>${!p?.ok?`<small>Comparison withheld: ${esc(p?.reason||"Current record absent")}. Baseline outcomes describe that observation only.</small>`:""}`:""}<small>${linked(r,"stopCohortChanged","Cohort changed")}: ${numeric(r,"stopCohortChanged")} · ${linked(r,"postReadyCohortStable","Post-ready stable")}: ${numeric(r,"postReadyCohortStable")}</small><small>Observation cap: ${numeric(r,"recoveryLimitMs","ms")} (not latency)</small></td></tr>`;
+      return `<tr><th scope="row">${linked(r,"stopMediaReadyMs",`${names[d]} · ${prefix==="D2"?"backward + reversal":"forward"}`)}<small>${r?esc(r.raw.resultRegime):"Record absent"}</small></th><td>${mini(r,"stopDataReadyMs","ms")}<small>C ${outcomes(r,"stopDataReadyMs")}</small>${before?`<small>B ${outcomes(before,"stopDataReadyMs",true)}</small>`:""}</td><td>${mini(r,"stopMediaReadyMs","ms")}</td><td><div>C ${outcomes(r,"stopMediaReadyMs")}</div>${before?`<div>B ${outcomes(before,"stopMediaReadyMs",true)}</div>${!p?.ok?`<small>Comparison withheld: ${esc(p?.reason||"Current record absent")}. Baseline outcomes describe that observation only.</small>`:""}`:""}<small>Cohort changed: ${distribution(r,"stopCohortChanged")}</small><small>Observation cap: ${numeric(r,"recoveryLimitMs","ms")} (not latency)</small>${recoveryEvidence(r)}</td></tr>`;
     }).join("")}</tbody></table></div></section>`;
   }
   function scalarRow(r,label,fields) {
@@ -107,5 +125,5 @@ window.renderScrollSummary = function(h, charts) {
     <section id="scroll-recovery" tabindex="-1" aria-label="Stopped recovery groups">${recoveryGroup("Ordinary stopped recovery",["D1","D2"],"Last motion stop · shared 4s observation cap")}${recoveryGroup("Constrained stopped recovery",["D8"],"80ms latency · 4Mibit/s download · forward")}</section>
     ${layout()}${maintenance()}
     <section class="engineering-panel" aria-label="Related workflow evidence"><div class="panel-heading"><h2>Supporting & related evidence</h2><span>One canonical observation · linked, not re-collected</span></div><p>${["P2","P8","P17"].map(id=>{const r=find(id);return linked(r,r?.primary,`${id} · browsing frame / direction guards`);}).join(" · ")}</p><p>Search-owned: ${["D5-grid","D5-justified","D11-grid","D11-justified"].map(id=>{const r=find(id);return linked(r,r?.primary,`${id} · ${id.startsWith("D5")?"seeking":"refresh / contention"}`);}).join(" · ")}. Image-owned: ${["D4-grid","D4-justified"].map(id=>{const r=find(id);return linked(r,r?.primary,`${id} · list return`);}).join(" · ")}.</p></section>
-    <details class="panel-method"><summary>Coverage, outcomes & known measurement limits</summary><p>All values come from complete saved canonical records. No raw repetitions, confidence intervals or new histories are reconstructed. Field contributors, unsupported capture, invalid capture, partial endpoints and true zeros stay distinct. Partial recovery does not earn a full-population latency; deadlines never replace latency. D3/D6 placement and decoded-media clocks overlap and must not be added; stopped-data and stopped-media clocks likewise share a start. Paint remains unmeasured. D7 foreground and other documented producer limitations are not certified by dashboard tests. D9/D10 remain retired; this load ladder is not a 24-second steady workload. Baseline long responsiveness remains absent and source/content/cache differences remain uncontrolled.</p></details></div>`;
+    <details class="panel-method"><summary>Coverage, outcomes & known measurement limits</summary><p>All values come from complete saved canonical records. No raw repetitions, confidence intervals or new histories are reconstructed. Field contributors, unsupported capture, invalid capture, partial endpoints and true zeros stay distinct. Partial recovery does not earn a full-population latency; deadlines never replace latency. D3/D6 placement and decoded-media clocks overlap and must not be added; stopped-data and stopped-media clocks likewise share a start. Paint remains unmeasured. D7 foreground and other documented producer limitations are not certified by dashboard tests. D9/D10 remain retired; this load ladder is not a 24-second steady workload. ${esc(longCoverage)} Source/content/cache differences remain uncontrolled.</p></details></div>`;
 };

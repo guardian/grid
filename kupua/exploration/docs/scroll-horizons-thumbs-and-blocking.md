@@ -519,6 +519,93 @@ retried away. The operator's shared app was stopped by the operator before testi
 runner-owned servers used explicit local ES settings, not TEST. This validates
 workflows/regressions, not hosted performance or the unresolved media/paint questions.
 
+### Direct Canonical-Pair Review: App and Dashboard (25 October 2026)
+
+The direct review compared the four 24 October canonical entries with the four
+25 October entries referenced by the latest campaign manifest, not the proxy run.
+Both have 34 rendering, 15 short, 8 long and 21 density scenarios; all 78 scenario IDs,
+recorded contracts and four-observation populations match. Topology, canonical media,
+browser 151, 1720x960/DPR2, cutoff and worker/CPU settings match; source, content and
+cache warmth are not controlled. All 6,100 density field summaries have consistent
+sample/unavailable totals. All four browser sidecars equal their canonical JSON.
+
+**App opportunities, not new fixes:**
+
+1. **Table request ownership/admission is the strongest rendering-adjacent lead.**
+  D8-table retains a median 28 observed images but decoded-count median/maximum 0.
+  Media requests carried into recovery increased 293.5 to 314.5; pending requests at
+  the end increased 164 to 172.5. The recovery limit remains 4s, data-ready 16.75ms,
+  recovery failures/HTTP errors/cohort changes zero. Grid/Justified carry-in medians are 66/85
+  and pending medians 12/13. These are global request aggregates, not a mapping of
+   current versus obsolete image demand; do not subtract medians into a synthetic
+   request timeline. TableThumbnail lacks GridThumbnail's detached-incomplete-source
+   cleanup. First qualify Table's current-demand ownership using existing lifecycle
+   controls before copying a cleanup/admission policy; protect connected/completed
+   elements and shared native consumers. The backlog existed before the render fix.
+2. **Full-image/detail waits are not yet actionable app-fix evidence.** JA2 settlement
+  rose 6,474 to 11,762ms while its store-ready clock fell 134 to 117ms. P13c decoded
+  detail rose 1,374 to 1,884ms; fast backward P14c landing rose 2,695 to 3,560ms and
+  loaded-within-cadence counts fell 2/10 to 1/10. Do not add clocks, call loaded data
+  decoded/painted or infer backend cost from landing Resource Timing. The operator
+  confirms canonical proxy performance is a known limitation outside this work's
+  scope. No avoidable non-proxy client work has been established by these timings;
+  defer app-fix work here unless independent evidence identifies such a defect.
+3. **Return-to-list has a lower-priority local render burst.** P13b frame-p95/max
+  improved 100 to 59ms and LoAF blocking 48 to 6ms, but only six frames were captured.
+   Qualify action latency and script/layout ownership before another rendering change.
+  P15b is fullscreen traversal, not a return regression: p95 rose 10 to 22ms while
+  max frame fell 50 to 34ms, blocking 15 to 0ms and frame count 157 to 57. Changed
+   observation-window composition prevents a p95-only regression verdict.
+
+**Dashboard/data follow-ups:**
+
+The following findings describe the pre-repair dashboard; implemented corrections
+are recorded immediately below, without changing the underlying measurements.
+
+- **Expose existing adverse/queue evidence first.** The recovery summary prints
+  median cohort flags: D8-justified shows 0 although its recorded maximum is 1.
+  Data/media are 3/4 available, and every recorded recovery duration is below 2.242s,
+  not a 4s timeout. The producer invalidates latencies on a post-ready cohort change.
+  Show the adverse flag/range and existing visible/decoded/carry-in/pending counts
+  beside censoring; partial fields must remain numerically withheld. No new campaign
+  is needed to surface these fields. Do not infer joint per-observation reasons by
+  subtracting or combining separate aggregates.
+- **Fix confirmed provenance/context defects.** dashboard.js passes whole checkpoints
+  to the comparison helper, but checkpoint construction omits root gitSha. On these
+  actual data, checkpoint comparison says fingerprints unavailable while entry
+  comparison correctly says fingerprints differ. scroll-summary.js also always says
+  baseline long responsiveness is absent, despite this baseline containing its full
+  eight-record long member. Derive both messages from actual checkpoint membership
+  and per-entry source metadata rather than unconditional or missing-root fields.
+- **Keep boundaries and denominators explicit.** JA2's stored label still says
+  "decoded detail" although its boundary is loaded/stable. Show captured frame counts
+  with short-window p95 values and preserve worst-frame/blocking context. The nine
+  layout-pair deltas are differences of matched layout medians; D11 busy-minus-quiet
+  fields instead aggregate genuinely within-repetition paired differences.
+- **Only extend gathering for a precise remaining gap.** Public aggregates cannot
+  associate each stopped visible element with pending/obsolete requests or retain
+  joint censor reasons. Inspect any retained per-run diagnostics first; if necessary,
+  add bounded current-cohort readiness/request-state counts and explicit censor-reason
+  totals, exporting no identities or signed URLs. Do not rebuild the harness.
+
+**Implemented dashboard corrections:** checkpoint SHA now requires complete, agreeing
+member metadata; the existing environment consensus supplies the dirty-state hash.
+Missing/mixed sources remain unverified. Long-run coverage follows actual baseline
+membership. Recovery shows median and recorded upper-tail flags, visible/decoded counts
+and request carry-in/pending/completion/cancellation/error evidence; partial latencies
+remain withheld and global requests are not labelled as current-image ownership.
+Image summaries expose per-observation frame counts, p95, worst-frame, LoAF and saved
+boundaries. Layout comparisons explicitly subtract matched-layout medians, unlike D11's
+within-repetition deltas. Future JA2 labels say loaded/stable; historical labels stay intact.
+No new gathering was needed to expose these fields; ownership and joint censor reasons
+remain gaps, not inferred results. Offline and local-browser regressions cover the repairs.
+
+After coordinated rename approval, campaign `ee34e38f-0d8a-48d1-b1b6-05b2dba776e1`
+is labelled "after rendering fixes": one manifest, four family entries and their mirrors.
+Only those five canonical label values changed; metrics, provenance, timestamps, IDs,
+membership and older labels were preserved. This dashboard follow-up ran no live probes
+or campaigns and made no further app changes.
+
 Nine D1/D2/D8 records changed workload contracts in revision 4. D3–D7/D11 retain
 twelve comparable records; even the new 100-results/s step is not the old continuous
 journey. Do not compute a cumulative scroll speedup across that revision boundary.

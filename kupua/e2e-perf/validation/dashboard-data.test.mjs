@@ -41,6 +41,29 @@ test("canonical checkpoint retains all 78 exact records and explicit four-entry 
   assert.equal(api.population(recovery, "stopMediaReadyMs").available, 0);
 });
 
+test("checkpoint source comparison uses verified member consensus", () => {
+  const context = loadPresentation(), api = context.KupuaDashboardData;
+  const campaigns = JSON.parse(readFileSync(new URL("results/campaign-log.json", root), "utf8"));
+  const registry = [...api.definitions, ...api.campaignDefinitions(campaigns)];
+  const data = api.build(histories, registry);
+  const current = data.checkpoints[`campaign:${campaigns.entries.at(-1).campaignId}`];
+  for (const checkpoint of [data.checkpoints.recorded, data.checkpoints["proxy-baseline"], current]) {
+    const entries = checkpoint.members.map(id => data.entries[id]);
+    assert.equal(checkpoint.gitSha, entries[0].gitSha);
+    assert.ok(entries.every(entry => entry.gitSha === checkpoint.gitSha));
+  }
+  assert.match(context.KupuaPerfComparison.compare(current, data.checkpoints.recorded).reason, /source fingerprints differ/);
+  for (const patch of [{ gitSha: "different" }, { gitSha: undefined },
+    { environment: { ...histories.audit.entries.find(entry => entry.timestamp === api.members.audit).environment, appSourceDirtyStateHash: "different" } }]) {
+    const changed = structuredClone(histories);
+    Object.assign(changed.audit.entries.find(entry => entry.timestamp === api.members.audit), patch);
+    const checkpoint = api.build(changed).checkpoints.recorded;
+    assert.match(context.KupuaPerfComparison.compare(checkpoint, data.checkpoints.recorded).reason, /source fingerprints unavailable/);
+  }
+  const missing = api.build({ ...histories, audit: { entries: [] } }).checkpoints.recorded;
+  assert.equal(missing.gitSha, null, "incomplete membership cannot verify source consensus");
+});
+
 test("sidecars equal canonical JSON and checkpoint scenarios match maintained manifests", () => {
   const api = load(), data = api.build(histories);
   const expected = { rendering: expectedJankMetricIds(), short: expectedPerceivedMetricIds("short"), long: expectedPerceivedMetricIds("long"), density: [...DENSITY_METRIC_IDS] };
@@ -324,6 +347,69 @@ function loadScroll() {
   const records = entry.records.map(id => data.records[id]);
   return { api, model, data, entry, records, get: scenario => records.find(record => record.scenario === scenario) };
 }
+
+function renderScrollCheckpoint(baseline = "recorded") {
+  const context = vm.createContext({ URLSearchParams });
+  context.window = context;
+  for (const file of ["campaign-comparison", "dashboard-data", "scroll-model", "scroll-summary"]) {
+    vm.runInContext(readFileSync(new URL(`results/${file}.js`, root), "utf8"), context);
+  }
+  const api = context.KupuaDashboardData;
+  const campaigns = JSON.parse(readFileSync(new URL("results/campaign-log.json", root), "utf8"));
+  const data = api.build(histories, [...api.definitions, ...api.campaignDefinitions(campaigns)]);
+  const checkpoint = data.checkpoints[`campaign:${campaigns.entries.at(-1).campaignId}`];
+  const recordsFor = checkpoint => checkpoint.members.flatMap(id => data.entries[id].records.map(id => data.records[id]));
+  const records = recordsFor(checkpoint), base = data.checkpoints[baseline], baseRecords = recordsFor(base);
+  const densityEntry = checkpoint => data.entries[checkpoint.members.find(id => data.entries[id].family === "density")];
+  const linked = (_record, _key, text) => text;
+  return context.renderScrollSummary({ rs: records, base, baseRecords, densityEntry: densityEntry(checkpoint),
+    baselineDensityEntry: densityEntry(base), find: scenario => records.find(record => record.scenario === scenario),
+    esc: String, format: (value, unit = "") => `${value}${unit ? ` ${unit}` : ""}`, href: () => "#evidence",
+    pair: () => ({ ok: false, reason: "Test keeps baseline values separate" }), scrollGroupLink: (_group, text) => text,
+    state: { density: "all", direction: "forward", phase: "middle", workload: "ordinary", statistic: "median" }
+  }, { linked, lane: () => "", axis: () => "" });
+}
+
+test("image frame context keeps observations, frame populations and boundaries distinct", () => {
+  const context = loadPresentation();
+  vm.runInContext(readFileSync(new URL("results/image-summary.js", root), "utf8"), context);
+  const api = context.KupuaDashboardData, data = api.build(histories);
+  const records = Object.values(data.records).filter(record => ["P13b", "P15b"].includes(record.scenario));
+  const html = context.renderImageWorkflowSummary({ cp: { synthetic: false }, rs: records, base: null,
+    find: () => null, read: api.measure, format: String, esc: String, groupLink: (_group, text) => text
+  }, { linked: (_record, _field, text) => text, actions: () => "", traversal: () => "" });
+  assert.match(html, /Frames per observation · median/);
+  assert.match(html, /Frame p95 · median/);
+  assert.match(html, /Worst frame · median/);
+  assert.match(html, /LoAF blocking · median/);
+  assert.match(html, /visible-stable-focused-destination/);
+  assert.match(html, /two-decoded-fullscreen-commits/);
+  assert.match(html, /not action latency/);
+  assert.match(html, /not pooled frame samples/);
+});
+
+test("scroll coverage follows the selected baseline's actual long membership", () => {
+  const canonical = renderScrollCheckpoint();
+  assert.match(canonical, /Baseline long responsiveness is included/);
+  assert.doesNotMatch(canonical, /Baseline long responsiveness remains absent/);
+  const proxy = renderScrollCheckpoint("proxy-baseline");
+  assert.match(proxy, /Baseline long responsiveness is absent/);
+  assert.match(proxy, /no older long run is borrowed/i);
+});
+
+test("recovery shows adverse tails and saved demand without inventing censor causes", () => {
+  const html = renderScrollCheckpoint();
+  const constrained = html.slice(html.indexOf('aria-label="Constrained stopped recovery"'));
+  const justified = constrained.match(/<tr><th scope="row">Justified[\s\S]*?<\/tr>/)[0];
+  assert.match(justified, /Cohort changed: median 0 · observed maximum 1/);
+  assert.match(justified, /3\/4 complete · 1\/4 unavailable · partial/);
+  assert.match(justified, /Visible \/ decoded/);
+  assert.match(constrained, /Request carry-in \/ pending/);
+  assert.match(constrained, /314.5/);
+  assert.match(constrained, /172.5/);
+  assert.match(constrained, /global requests, not current-visible ownership/i);
+  assert.doesNotMatch(constrained, /4,000 ms delivery timeout/);
+});
 
 function legacySummary() {
   const source = readFileSync(new URL("results/density-dashboard.js", root), "utf8");

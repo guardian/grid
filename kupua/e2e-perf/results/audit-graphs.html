@@ -73,7 +73,7 @@
 <body>
 <header>
   <h1>Kupua rendering perf — all audited runs</h1>
-  <nav aria-label="Performance dashboards"><a href="perceived-graphs.html">Perceived responsiveness</a> · <a href="density-graphs.html">Density comparisons and thumbnails</a></nav>
+  <nav aria-label="Performance dashboards"><a href="Performance%20dashboard.html">Performance dashboard</a> · <a href="perceived-graphs.html">Perceived responsiveness</a> · <a href="density-graphs.html">Density comparisons and thumbnails</a></nav>
   <div class="sub" id="sub">Loading…</div>
   <div style="margin-top:6px;font-size:11px;color:var(--muted);">Tip: use ← → arrow keys to cycle metrics</div>
 </header>
@@ -141,7 +141,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Known schema — keep in sync with run-audit.mjs / perf.spec.ts.
 // If audit-log.json contains keys not listed here, the page warns the user
-// and asks them to update this map. See ../README.md § "Audit graphs page".
+// and asks them to update this map. See ../README.md § "Legacy dashboard maintenance".
 // ─────────────────────────────────────────────────────────────────────────────
 const KNOWN_METRICS = {
   // metric key:        { label,                                lowerIsBetter, defaultShow, quietThreshold }
@@ -251,7 +251,7 @@ const METRIC_HELP = {
 };
 const KNOWN_ENTRY_KEYS = new Set([
   "label", "gitSha", "gitDirty", "timestamp", "stableUntil", "runs", "metrics",
-  "baseline_rtt_ms", "environment",
+  "baseline_rtt_ms", "environment", "campaignId",
 ]);
 const KNOWN_METRIC_META_KEYS = new Set([
   "report", "scenarioRevision", "cacheClass", "startRank", "committedSteps",
@@ -360,7 +360,7 @@ function renderWarnings({ unknownEntryKeys, unknownMetricKeys }) {
     parts.push([...unknownEntryKeys].map(k => `<code>${k}</code>`).join(", "));
     parts.push(".<br>");
   }
-  parts.push(`<span class="hint">→ Ask an agent to update <code>KNOWN_METRICS</code> / <code>KNOWN_ENTRY_KEYS</code> in <code>audit-graphs.html</code> (see <code>e2e-perf/README.md</code> § "Audit graphs page").</span>`);
+  parts.push(`<span class="hint">→ Ask an agent to update <code>KNOWN_METRICS</code> / <code>KNOWN_ENTRY_KEYS</code> in <code>audit-graphs.html</code> (see <a href="../README.md#legacy-dashboard-maintenance">e2e-perf/README.md § "Legacy dashboard maintenance"</a>).</span>`);
   div.innerHTML = parts.join("");
   warnings.appendChild(div);
 }
