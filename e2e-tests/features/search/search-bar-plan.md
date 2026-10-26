@@ -69,17 +69,30 @@ The `usePermissionsFilter` config setting decides which of the two layouts is us
 ## Search text input breakdown
 
 The search text input is split into free text, chips, and scenarios that
-combine them. The free text lives in one text chip, whose input has
-`data-cy="image-search-input"`.
+combine them.
+
+The `use-cql-chips` feature switch picks the input, and it is **on by default**
+(`kahuna/app/lib/FeatureSwitch.scala`), so the CQL input is what users see. The
+feature files treat CQL as the default and switch it on in their `Background`.
+
+- **CQL input** (default): the `cql-input` web component from `@guardian/cql`.
+  Chips render as `chip-wrapper` elements inside its open shadow root.
+- **Chips input** (switch off): the free text lives in one text chip, whose
+  input has `data-cy="image-search-input"`.
+
+Step definitions live in `e2e-tests/steps/search/`. Shared search-box locators
+and the feature switch helper are in `search-box.ts`.
 
 ### Free text search
 
 Feature file: [search-free-text.feature](./search-free-text.feature)
 
-- [x] **1. Placeholder text**: `Search for images... (type + for advanced
-      search)` by default, and `Search for conceptual images using AI
-      search...` when the AI search box is ticked. The CQL input has its own
-      placeholder with a `…` character and no AI version.
+- [x] **1. Placeholder text**: the CQL input shows `Search for images… (type +
+      for advanced search)` only while it is completely empty. It hides as
+      soon as there's text or a chip, and it ignores AI search. The chips
+      input uses `...` instead of `…` and switches to `Search for conceptual
+      images using AI search...` when AI search is ticked. Chips-input
+      scenarios aren't written yet.
 - [ ] **2. Focus on page load**: the input is focused with the cursor after
       any text already there.
 - [ ] **3. Typing runs a search**: the URL `query` updates and results reload
@@ -116,4 +129,6 @@ Feature file: [search-free-text.feature](./search-free-text.feature)
 - The search input has a click handler, `wrapperClicked`
   (`gr-chips.html`), that isn't defined anywhere. Clicking the empty space in
   the search bar probably does nothing.
-- None of the feature files have step definitions yet, so they can't run.
+- Run one feature against a running stack with
+  `npx bddgen && npx playwright test .features-gen/features/search`
+  (from `e2e-tests/`).
