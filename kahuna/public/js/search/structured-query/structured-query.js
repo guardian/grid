@@ -3,27 +3,22 @@ import Rx from "rx";
 
 import "./structured-query.css";
 
-import { grChips } from "../../components/gr-chips/gr-chips";
-
 import { rxUtil } from "../../util/rx";
 
 import { querySuggestions } from "./query-suggestions";
-import { renderQuery, structureQuery } from "./syntax";
-import { getFeatureSwitchActive } from "../../components/gr-feature-switch-panel/gr-feature-switch-panel";
+import { renderQuery } from "./syntax";
 import { grCqlInput } from "../../components/gr-cql-input/gr-cql-input";
 import { structureCqlQuery } from "../../components/gr-cql-input/syntax";
 
 export const grStructuredQuery = angular.module("gr.structuredQuery", [
   rxUtil.name,
-  grChips.name,
   querySuggestions.name,
   grCqlInput.name
 ]);
 
 grStructuredQuery.controller("grStructuredQueryCtrl", [
-  "querySuggestions",
   "$scope",
-  function (querySuggestions, $scope) {
+  function ($scope) {
     const ctrl = this;
     ctrl.$onInit = () => {
       ctrl.maybeOrgOwnedValue = window._clientConfig.maybeOrgOwnedValue;
@@ -50,9 +45,6 @@ grStructuredQuery.controller("grStructuredQueryCtrl", [
         .distinctUntilChanged()
         .debounce(500);
 
-      ctrl.getSuggestions = querySuggestions.getChipSuggestions;
-      ctrl.filterFields = querySuggestions.typeaheadFields.map(_ => _.fieldName);
-
       function valOrUndefined(str) {
         // Watch out for `false`, but we know it's a string here..
         return str ? str : undefined;
@@ -68,16 +60,7 @@ grStructuredQuery.directive("grStructuredQuery", [
       restrict: "E",
       require: ["grStructuredQuery", "ngModel"],
       template: `
-            <gr-chips ng-if="!ctrl.useCql"
-                      autofocus="autofocus"
-                      ng-model="ctrl.structuredQuery"
-                      gr:valid-keys="ctrl.filterFields"
-                      gr:on-change="ctrl.structuredQueryChanged($chips)"
-                      gr:autocomplete="ctrl.getSuggestions($chip)"
-                      use-ai-search="searchQuery.useAISearch">
-            </gr-chips>
-            <gr-cql-input ng-if="ctrl.useCql"
-                          on-change="ctrl.handleChange"
+            <gr-cql-input on-change="ctrl.handleChange"
                           value="ctrl.value">
             </gr-cql-input>`,
       controller: "grStructuredQueryCtrl",
@@ -87,24 +70,15 @@ grStructuredQuery.directive("grStructuredQuery", [
           ngModelCtrl.$setViewValue(query);
         });
 
-        ctrl.useCql = getFeatureSwitchActive("use-cql-chips");
+        ctrl.handleChange = ({ queryStr, queryAst }) => {
+          ctrl.value = queryStr;
+          const structuredQuery = structureCqlQuery(queryAst);
+          ctrl.structuredQueryChanged(structuredQuery);
+        };
 
-        if (ctrl.useCql) {
-          ctrl.handleChange = ({ queryStr, queryAst }) => {
-            ctrl.value = queryStr;
-            const structuredQuery = structureCqlQuery(queryAst);
-            ctrl.structuredQueryChanged(structuredQuery);
-          };
-
-          ngModelCtrl.$render = function () {
-            ctrl.value = ngModelCtrl.$viewValue || "";
-          };
-        } else {
-          ngModelCtrl.$render = function () {
-            const queryString = ngModelCtrl.$viewValue || "";
-            ctrl.structuredQuery = structureQuery(queryString);
-          };
-        }
+        ngModelCtrl.$render = function () {
+          ctrl.value = ngModelCtrl.$viewValue || "";
+        };
       }
     };
   }
