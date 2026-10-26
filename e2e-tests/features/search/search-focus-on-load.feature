@@ -6,8 +6,6 @@ Feature: Search box focus on page load
     Given the application stack is running
     And I am signed in through pan-domain auth
     And I have opened the image search page
-    And the CQL search input feature switch is on
-    # We are treating the CQL search input as default for these scenarios
 
   Scenario: The empty search box is focused when the page loads
     Given the search box is empty
