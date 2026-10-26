@@ -35,6 +35,8 @@ interface TestContext {
   region?: Locator;
   /** The usage rights category code a `Given` chose the opened image by. */
   usageRightsCategory?: string;
+  /** The `q` of each search Kahuna ran since recording started (see recordSearches). */
+  searchesRun?: string[];
 }
 
 export interface TestImage {

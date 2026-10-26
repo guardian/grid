@@ -1,4 +1,5 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Locator, Page, Request } from '@playwright/test';
+import { DOMAIN } from '../../setup/constants.ts';
 
 /** The top bar region holding the search box and its filters (kahuna/public/js/search/view.html). */
 export const searchRegion = (page: Page): Locator =>
@@ -18,4 +19,30 @@ export async function searchBoxReady(page: Page): Promise<Locator> {
   const box = cqlInput(page);
   await box.waitFor();
   return box;
+}
+
+/**
+ * Whether a request is the first media-api search the results page makes when it loads
+ * (`length: 1` in kahuna/public/js/search/results.js). Paging, polling for new images
+ * and the AI preview use other lengths, so each match is one search run.
+ */
+export function isSearchRun(request: Request): boolean {
+  const url = new URL(request.url());
+  return (
+    url.hostname === `api.media.${DOMAIN}` &&
+    url.pathname === '/images' &&
+    url.searchParams.get('length') === '1'
+  );
+}
+
+/** Start recording the `q` of every search run into `searchesRun`. Safe to call more than once. */
+export function recordSearches(page: Page, testContext: { searchesRun?: string[] }): void {
+  if (testContext.searchesRun) return;
+  const searchesRun: string[] = [];
+  testContext.searchesRun = searchesRun;
+  page.on('request', (request) => {
+    if (isSearchRun(request)) {
+      searchesRun.push(new URL(request.url()).searchParams.get('q') ?? '');
+    }
+  });
 }
