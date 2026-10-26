@@ -9,8 +9,8 @@ import {
   testImages,
   uniqueImage,
   uploadPage,
-  useDirectLoad,
 } from './setup.ts';
+import { setTestClientConfig } from '../utils/test-config.ts';
 const { fileName: uploadingFile } = testImages.smaller;
 
 Given('I have several uploads in progress', async ({ page }) => {
@@ -86,7 +86,9 @@ Then('the job should be marked as an upload error with the error message', async
 When('I upload a file that is not a JPG, PNG or TIFF', async ({ page, testContext }) => {
   const gif = gifImage();
   testContext.uploadedImagePath = gif.path;
-  await useDirectLoad(page);
+  await setTestClientConfig(page, {
+    shouldUploadStraightToBucket: false,
+  });
   await uploadPage(page).fileInput.setInputFiles(gif.path);
 });
 
