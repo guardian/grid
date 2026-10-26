@@ -77,6 +77,37 @@ async function imageLinksForUploader(
   return links.map((link) => link.rel);
 }
 
+/** Kahuna offers undelete from the session's `canDelete` and the image's uploader. */
+export async function expectNoDeletePermission(
+  page: Page,
+  imagePath: string,
+  expectedUploader: string,
+): Promise<void> {
+  const root = await page.request.get(await getMediaApiUrl(page));
+  const { links } = (await root.json()) as { links: { rel: string; href: string }[] };
+  const sessionLink = links.find((link) => link.rel === 'session');
+  if (!sessionLink) throw new Error('Media API root has no session link');
+  const session = await page.request.get(sessionLink.href);
+  expect(session.ok()).toBeTruthy();
+  const {
+    data: { user },
+  } = (await session.json()) as {
+    data: { user: { email: string; permissions: { canDelete: boolean } } };
+  };
+  expect(user.permissions.canDelete).toBe(false);
+  expect(user.email).not.toBe(expectedUploader);
+
+  const image = await page.request.get(
+    `${await getMediaApiUrl(page)}/images/${mediaIdOf(imagePath)}`,
+  );
+  expect(image.ok()).toBeTruthy();
+  const { data } = (await image.json()) as {
+    data: { uploadedBy: string; softDeletedMetadata?: unknown };
+  };
+  expect(data.uploadedBy).toBe(expectedUploader);
+  expect(data.softDeletedMetadata).toBeDefined();
+}
+
 /** Search lags the image's own endpoint, so wait until the upload is findable by uploader. */
 export async function expectInUploadHistory(
   page: Page,
