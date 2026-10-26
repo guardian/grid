@@ -95,8 +95,10 @@ Feature file: [search-free-text.feature](./search-free-text.feature)
       stays visible next to filter chips, because the empty text chip is
       always kept. Chips-input scenarios are in
       [search-free-text-chips.feature](./search-free-text-chips.feature).
-- [ ] **2. Focus on page load**: the input is focused with the cursor after
-      any text already there.
+- [x] **2. Focus on page load**: the input is focused with the cursor after
+      any text already there. Feature files:
+      [search-focus-on-load.feature](./search-focus-on-load.feature) and
+      [search-focus-on-load-chips.feature](./search-focus-on-load-chips.feature).
 - [ ] **3. Typing runs a search**: the URL `query` updates and results reload
       500 ms after you stop typing. Text that hasn't changed isn't searched
       again.

@@ -21,6 +21,10 @@ export const cqlInput = (page: Page): Locator => searchRegion(page).locator('cql
 /** The hint @guardian/cql renders inside an empty CQL search box. */
 export const cqlPlaceholder = (page: Page): Locator => cqlInput(page).locator('.Cql__Placeholder');
 
+/** The element that takes keyboard focus and holds the typed text in whichever search box is in use. */
+export const searchBoxEditable = (page: Page, input: SearchInput): Locator =>
+  input === 'cql' ? cqlInput(page).locator('.Cql__ContentEditable') : chipsTextInput(page);
+
 /** Wait until whichever search box is in use has rendered. */
 export async function searchBoxReady(page: Page, input: SearchInput): Promise<Locator> {
   const box = input === 'cql' ? cqlInput(page) : chipsTextInput(page);
