@@ -15,6 +15,7 @@ import {
   uniqueBatch,
   uploadPage,
 } from './setup.ts';
+import { setTestClientConfig } from '../utils/test-config.ts';
 
 /**
  * Upload page shell
@@ -248,10 +249,7 @@ Then('I should be taken to the upload progress view', async ({ page }) => {
 Given('an upload size limit is configured', async ({ page }) => {
   // upload/manager.js reads the limit when files are selected, so setting it now is enough.
   const limit = Math.round((testImages.smaller.bytes + testImages.larger.bytes) / 2);
-
-  await page.evaluate((bytes) => {
-    window._clientConfig.maybeUploadLimitInBytes = bytes;
-  }, limit);
+  await setTestClientConfig(page, { maybeUploadLimitInBytes: limit });
 });
 
 When('I select a file that is larger than the size limit', async ({ page }) => {

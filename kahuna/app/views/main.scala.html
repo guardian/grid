@@ -99,6 +99,8 @@
           announcements: @Html(announcements),
           imageTypes: @Html(imageTypes),
           agencyPicksIngredients: @Html(agencyPicksIngredients),
+          // We merge in any test-specific client configuration overrides from playwright
+          ...(window._testClientConfig ?? {})
         }
     </script>
 
