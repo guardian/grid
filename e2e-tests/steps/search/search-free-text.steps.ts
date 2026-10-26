@@ -5,6 +5,8 @@ import {
   chipsTextInput,
   cqlInput,
   cqlPlaceholder,
+  isSearchRun,
+  recordSearches,
   searchBoxReady,
   searchRegion,
   setCqlFeatureSwitch,
@@ -59,6 +61,7 @@ Given('the {string} checkbox is ticked', async ({ page }, name: string) => {
 });
 
 When('I type {string} into the search box', async ({ page, testContext }, text: string) => {
+  recordSearches(page, testContext);
   if ((testContext.searchInput ?? DEFAULT_SEARCH_INPUT) === 'cql') {
     await cqlInput(page).locator('.Cql__ContentEditable').pressSequentially(text);
   } else {
@@ -75,7 +78,10 @@ When('I untick the {string} checkbox', async ({ page }, name: string) => {
 });
 
 When('I open a search link with the query {string}', async ({ page, testContext }, query: string) => {
+  // Wait for the link's own search so later steps don't mistake it for a new one.
+  const searched = page.waitForRequest(isSearchRun);
   await page.goto(`${KAHUNA_APP_URL}/search?query=${encodeURIComponent(query)}`);
+  await searched;
   await searchBoxReady(page, testContext.searchInput ?? DEFAULT_SEARCH_INPUT);
 });
 
@@ -108,11 +114,11 @@ Then('the search box placeholder should not be visible', async ({ page, testCont
 Then('a {string} filter chip should be shown', async ({ page, testContext }, key: string) => {
   const chip = (testContext.searchInput ?? DEFAULT_SEARCH_INPUT) === 'cql'
     ? cqlInput(page)
-        .locator('chip-wrapper')
-        .filter({ has: page.locator('chip-key', { hasText: key }) })
+      .locator('chip-wrapper')
+      .filter({ has: page.locator('chip-key', { hasText: key }) })
     : searchRegion(page)
-        .locator('gr-filter-chip')
-        .filter({ has: page.locator('.gr-filter-chip__key', { hasText: `${key}:` }) });
+      .locator('gr-filter-chip')
+      .filter({ has: page.locator('.gr-filter-chip__key', { hasText: `${key}:` }) });
   await expect(chip).toBeVisible();
 });
 

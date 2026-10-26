@@ -33,6 +33,8 @@ interface TestContext {
   releasePastUploads?: () => void;
   /** Which search box Kahuna renders, set by the `use-cql-chips` feature switch steps. */
   searchInput?: 'chips' | 'cql';
+  /** The `q` of each search Kahuna ran since recording started (see recordSearches). */
+  searchesRun?: string[];
 }
 
 export interface TestImage {
@@ -53,7 +55,7 @@ export const test = base.extend<{ testContext: TestContext }>({
       await page.waitForTimeout(1_500);
     }
   },
-  testContext: async ({}, use) => {
+  testContext: async ({ }, use) => {
     await use({ dialogs: [] });
   },
 });
