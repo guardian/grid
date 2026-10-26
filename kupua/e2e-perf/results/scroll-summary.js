@@ -23,6 +23,57 @@ window.renderScrollSummary = function(h, charts) {
     if(key==="direction"&&state.workload==="constrained")return '<label for="scroll-direction">Direction<select id="scroll-direction" disabled aria-label="Direction · D8 is forward only"><option>Forward only · D8</option></select></label>';
     return `<label for="scroll-${key}">${label}<select id="scroll-${key}" data-scroll-control="${key}">${options.map(([v,text])=>`<option value="${v}"${state[key]===v?" selected":""}>${text}</option>`).join("")}</select></label>`;
   }
+  function browsingComparison() {
+    const fields=[
+      {key:field("bufferEdgeBlockedMs",phase),label:"Buffer-edge pauses",unit:"ms",lower:true,less:"less waiting",more:"more waiting",better:"Less blocked time",worse:"More blocked time"},
+      {key:field("achievedResultsPerSecond",phase),label:"Delivered results/s",unit:"",deltaUnit:"results/s",relative:true,less:"less delivered",more:"more delivered",better:"More progress",worse:"Less progress"},
+      {key:field("pendingVisibleRatioMean",phase),label:"Visible items not ready",unit:"%",deltaUnit:"pp",factor:100,lower:true,less:"fewer unready items",more:"more unready items",better:"Fewer unready items",worse:"More unready items"},
+      {key:field("frameP95Ms",phase),label:"Frame time · p95",unit:"ms",lower:true,less:"lower frame time",more:"higher frame time",better:"Lower frame times",worse:"Higher frame times"}
+    ];
+    const rows=browsing.map((record,index)=>({record,name:names[densities[index]],cells:fields.map(spec=>{
+      const comparison=record&&base?pair(record,spec.key):null;
+      const after=get(record,spec.key),before=comparison?.ok?get(comparison.b,spec.key):null;
+      const comparable=Boolean(comparison?.ok)&&finite(after)&&finite(before);
+      const change=comparable?after-before:null;
+      const score=comparable?(spec.lower?-change:Math.min(after,demand)-Math.min(before,demand)):null;
+      return {spec,after,before,comparison,comparable,change,trend:score===null?null:score>0?"good":score<0?"bad":"muted"};
+    })}));
+    const summaries=fields.map((spec,index)=>{
+      const cells=rows.map(row=>row.cells[index]).filter(cell=>cell.comparable);
+      return {spec,count:cells.length,good:cells.filter(cell=>cell.trend==="good").length,bad:cells.filter(cell=>cell.trend==="bad").length};
+    });
+    const describe=summary=>{
+      if(!summary.count)return `${summary.spec.label}: comparison unavailable`;
+      if(summary.good&&summary.bad)return `${summary.spec.label}: mixed changes`;
+      const count=summary.good||summary.bad;
+      if(!count)return `${summary.spec.label}: unchanged`;
+      return `${summary.good?summary.spec.better:summary.spec.worse}${densities.length===1?"":` in ${count} of ${summary.count} ${summary.count<densities.length?"comparable ":""}layouts`}`;
+    };
+    const primary=summaries.find(summary=>summary.good||summary.bad);
+    const title=!base?"Current browsing":primary?describe(primary):summaries.some(summary=>summary.count)?"No observed change in comparable measurements":"Comparison unavailable";
+    const secondary=base&&primary?summaries.filter(summary=>summary!==primary&&(summary.good||summary.bad)).slice(0,2).map(describe).join(". "):"";
+    const cellHtml=(record,cell)=>{
+      const {spec,after,before,comparison,comparable,change,trend}=cell;
+      const factor=spec.factor||1;
+      const current=finite(after)?linked(record,spec.key,format(after*factor,spec.unit)):record?linked(record,spec.key,"Unavailable"):"Absent";
+      if(!base)return `<td><strong class="outcome-after">${current}</strong></td>`;
+      if(!comparable)return `<td><strong class="outcome-after">${current}</strong><div class="outcome-change muted" title="${esc(comparison?.reason||"No matching observation")}">Not comparable</div></td>`;
+      const relative=spec.relative&&before!==0;
+      const amount=relative?100*Math.abs(change)/Math.abs(before):Math.abs(change)*factor;
+      const unit=relative?"%":spec.deltaUnit||spec.unit;
+      const description=change===0?"No observed change":`${change<0?"↓":"↑"} ${format(amount,unit)} ${change<0?spec.less:spec.more}`;
+      return `<td><div class="outcome-values"><span class="outcome-before">${linked(comparison.b,spec.key,format(before*factor),true)}</span><span class="outcome-arrow" aria-label="to">→</span><strong class="outcome-after">${current}</strong></div><div class="outcome-change ${trend}">${description}</div></td>`;
+    };
+    const qualifications=base?rows.flatMap(({record,name})=>{
+      if(!record)return [];
+      for(const [key,label] of [["initialRunwayResults","starting runway"],["initialBufferCount","starting buffer"]]){
+        const comparison=pair(record,key),after=get(record,key),before=comparison.ok?get(comparison.b,key):null;
+        if(finite(after)&&finite(before)&&after!==before)return [`${name} ${label} differs: ${format(before)} → ${format(after)} results.`];
+      }
+      return [];
+    }):[];
+    return `<div class="browsing-outcomes"><h2>${esc(title)}</h2>${secondary?`<p class="outcome-summary">${esc(secondary)}.</p>`:""}<div class="engineering-table-wrap" tabindex="0" role="region" aria-label="Browsing outcomes; before and after"><table class="engineering-table outcome-table"><thead><tr><th scope="col">Layout</th>${fields.map(spec=>`<th scope="col">${esc(spec.label)}</th>`).join("")}</tr></thead><tbody>${rows.map(row=>`<tr><th scope="row">${esc(row.name)}</th>${row.cells.map(cell=>cellHtml(row.record,cell)).join("")}</tr>`).join("")}</tbody></table></div>${qualifications.length?`<p class="note outcome-qualification">${esc(qualifications.join(" "))}</p>`:""}</div>`;
+  }
   function delta(r,key,factor=1,unit="") {
     if(!base||!r)return "";
     const p=pair(r,key),a=get(r,key),b=p.ok?get(p.b,key):null;
@@ -120,7 +171,19 @@ window.renderScrollSummary = function(h, charts) {
   const demandKey=field("requestedResultsPerSecond",phase);
   const demand=phase==="reversal"?100:({early:30,middle:100,late:200}[phase]);
   return `<div class="engineering-overview scroll-summary" role="region" aria-label="Scrolling and Layout summary"><div class="image-summary-toolbar"><span class="pill">${measuredRecords.length} Scrolling & Layout records available</span><span class="pill">Canonical aggregates · n by field</span>${h.overviewLink}${h.historyLink}<div class="image-group-links" aria-label="Scrolling groups">${[["browsing","Browsing"],["recovery","Stopped recovery"],["layout","Transitions / reflow"],["maintenance","Maintenance"]].map(([g,t])=>h.scrollGroupLink(g,t)).join("")}</div></div>
-    <section class="engineering-panel" id="scroll-browsing" tabindex="-1" aria-label="Directional browsing"><div class="scroll-controls" aria-label="Local scrolling controls">${control("density","Density",[["all","All densities"],...Object.entries(names)])}${control("direction","Direction",[["forward","Forward"],["backward","Backward"]])}${control("workload","Workload",[["ordinary","Ordinary"],["constrained","Constrained · D8 forward"]])}${control("phase","Load phase",Object.entries(phaseNames))}${control("statistic","Statistic",[["median","Median of observations"],["p95","p95 of observations"]])}</div><div class="overview-key"><span><i class="legend-current"></i> C · ${statName}</span>${base?`<span><i class="legend-baseline"></i> B · eligible ${statName.toLowerCase()}</span><span>Δ C − B · descriptive, not delivery causation</span>`:""}</div><div class="panel-heading"><h2>Browsing · ${esc(workloadLabel)}</h2><span>${esc(phaseNames[phase])} · ${esc(statName)} · ${esc(browsing.filter(Boolean).map(r=>r.raw.resultRegime).filter((v,i,a)=>a.indexOf(v)===i).join(" / "))}</span></div>${!selectedPhaseAvailable?'<p class="note watch">Reversal is recorded only in ordinary backward D2. This selection is unavailable; no other phase is substituted.</p>':""}<div class="small-multiples">${metricPanel("Achieved results/s",field("achievedResultsPerSecond",phase),"results/s",{reference:demand,referenceKey:demandKey})}${metricPanel("Pending slots (%)",field("pendingVisibleRatioMean",phase),"%",{factor:100,reference:20})}${metricPanel("Frame p95 (ms)",field("frameP95Ms",phase),"ms",{reference:33.4})}</div><details class="panel-method"><summary>Useful progress, picture readiness, frames & sampled stability</summary><p>Sequential fixed demands, not independent capacity tests or physical trackpad certification. The reversal uses the original 100 results/s calibration. Frame-p95 is computed within each observation; the selected statistic summarizes those values. References are diagnostic bands, not new acceptance grades. Pending slots are count-based, not pending image area; DOM/load/decode are not paint.</p><div class="engineering-table-wrap" tabindex="0" role="region" aria-label="Browsing guards and stability evidence"><table class="engineering-table"><thead><tr><th scope="col">Density</th><th scope="col">Blocked input · ms</th><th scope="col">Retained displacement · px</th><th scope="col">Refill coverage / phase</th></tr></thead><tbody>${browsing.map((r,i)=>scalarRow(r,names[densities[i]],[[field("bufferEdgeBlockedMs",phase),"ms"],[phase==="reversal"?"reversalRetainedDisplacementMaxPx":"retainedDisplacementMaxPx","px"],["refillCoverageComplete",""]])).join("")}</tbody></table></div><p>${browsing.filter(Boolean).map(r=>`${linked(r,field("thumbnailVisibleWaitCompletedMaxMs",phase),`${r.scenario} · completed visible wait`)} · ${linked(r,field("thumbnailVisibleWaitCensoredCount",phase),"censored waits")} · ${linked(r,field("mediaRequestStarts",phase),"request cohorts")}`).join(" · ")}</p><p>Zero walls is valid; absent repeated publication is not proof of good supply. Geometry includes animation and cannot certify paint or attribute movement to a layout defect.</p></details></section>
+    <section class="engineering-panel" id="scroll-browsing" tabindex="-1" aria-label="Directional browsing" aria-keyshortcuts="ArrowLeft ArrowRight">
+      <div class="scroll-controls" aria-label="Local scrolling controls">${control("direction","Direction",[["forward","Forward"],["backward","Backward"]])}${control("workload","Workload",[["ordinary","Ordinary"],["constrained","Constrained · D8 forward"]])}${control("phase","Load phase",Object.entries(phaseNames))}${control("statistic","Statistic",[["median","Median of observations"],["p95","p95 of observations"]])}${control("density","Density",[["all","All densities"],...Object.entries(names)])}</div>
+      <p class="browsing-context">${esc(workloadLabel)} · ${esc(phaseNames[phase])} · ${esc(statName)} · ${esc(browsing.filter(Boolean).map(r=>r.raw.resultRegime).filter((v,i,a)=>a.indexOf(v)===i).join(" / "))}</p>
+      ${!selectedPhaseAvailable?'<p class="note watch">Reversal is recorded only in ordinary backward D2. This selection is unavailable; no other phase is substituted.</p>':""}
+      ${browsingComparison()}
+      <details class="panel-method browsing-details"><summary>Supporting charts, measurement context & exact evidence</summary>
+        <div class="overview-key"><span><i class="legend-current"></i> C · ${statName}</span>${base?`<span><i class="legend-baseline"></i> B · eligible ${statName.toLowerCase()}</span>`:""}</div>
+        <div class="small-multiples">${metricPanel("Achieved results/s",field("achievedResultsPerSecond",phase),"results/s",{reference:demand,referenceKey:demandKey})}${metricPanel("Pending slots (%)",field("pendingVisibleRatioMean",phase),"%",{factor:100,reference:20})}${metricPanel("Frame p95 (ms)",field("frameP95Ms",phase),"ms",{reference:33.4})}</div>
+        <p>Sequential fixed demands, not independent capacity tests or physical trackpad certification. The reversal uses the original 100 results/s calibration. Frame-p95 is computed within each observation; the selected statistic summarizes those values. References are diagnostic bands, not new acceptance grades. Pending slots are count-based, not pending image area; DOM/load/decode are not paint.</p>
+        <div class="engineering-table-wrap" tabindex="0" role="region" aria-label="Browsing guards and stability evidence"><table class="engineering-table"><thead><tr><th scope="col">Density</th><th scope="col">Blocked input · ms</th><th scope="col">Retained displacement · px</th><th scope="col">Refill coverage / phase</th></tr></thead><tbody>${browsing.map((r,i)=>scalarRow(r,names[densities[i]],[[field("bufferEdgeBlockedMs",phase),"ms"],[phase==="reversal"?"reversalRetainedDisplacementMaxPx":"retainedDisplacementMaxPx","px"],["refillCoverageComplete",""]])).join("")}</tbody></table></div>
+        <p>${browsing.filter(Boolean).map(r=>`${linked(r,field("thumbnailVisibleWaitCompletedMaxMs",phase),`${r.scenario} · completed visible wait`)} · ${linked(r,field("thumbnailVisibleWaitCensoredCount",phase),"censored waits")} · ${linked(r,field("mediaRequestStarts",phase),"request cohorts")}`).join(" · ")}</p><p>Zero walls is valid; absent repeated publication is not proof of good supply. Geometry includes animation and cannot certify paint or attribute movement to a layout defect.</p>
+      </details>
+    </section>
     ${indexTable()}
     <section id="scroll-recovery" tabindex="-1" aria-label="Stopped recovery groups">${recoveryGroup("Ordinary stopped recovery",["D1","D2"],"Last motion stop · shared 4s observation cap")}${recoveryGroup("Constrained stopped recovery",["D8"],"80ms latency · 4Mibit/s download · forward")}</section>
     ${layout()}${maintenance()}

@@ -5,6 +5,48 @@
   let allHistory = null;
   const ASSESSMENT = window.ASSESSMENT;
   const $ = id => document.getElementById(id);
+  document.addEventListener("keydown", event => {
+    if(event.key === "Tab") document.documentElement.dataset.keyboardFocus = "true";
+    if(!["ArrowLeft","ArrowRight"].includes(event.key) || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    if(!["scroll","search"].includes(state?.view) || state.evidence || state.scenario || window.getSelection()?.toString()) return;
+    if(event.target.closest?.('input,select,textarea,button,a,summary,[contenteditable],[role="slider"],[tabindex="0"]')) return;
+    const historyMode = state.mode === "history";
+    const step = event.key === "ArrowRight" ? 1 : -1;
+    if(state.view === "search"){
+      const bounds = $("search-actions")?.getBoundingClientRect();
+      const phase = $("search-phase");
+      if(historyMode || state.group && state.group !== "actions" || !bounds || bounds.bottom <= 0 || bounds.top >= innerHeight || !phase?.options.length) return;
+      const next = phase.options[(phase.selectedIndex + step + phase.options.length) % phase.options.length];
+      event.preventDefault();
+      location.hash = url({searchPhase:next.value,group:"actions",evidence:"",metric:"",scenario:"",side:""});
+      return;
+    }
+    if(!historyMode){
+      const bounds = $("scroll-browsing")?.getBoundingClientRect();
+      if(state.group && state.group !== "browsing" || !bounds || bounds.bottom <= 0 || bounds.top >= innerHeight) return;
+    }
+    const direction = document.querySelector(historyMode ? '[data-h="dir"]' : '#scroll-direction');
+    const phase = document.querySelector(historyMode ? '[data-h="phase"]' : '#scroll-phase');
+    if(!direction || !phase) return;
+    const directions = direction.disabled ? ["forward"] : [...direction.options].map(option => option.value);
+    const scenes = directions.flatMap(value => [...phase.options]
+      .filter(option => option.value !== "reversal" || value === "backward")
+      .map(option => ({direction:value,phase:option.value})));
+    const index = scenes.findIndex(scene => scene.direction === (direction.disabled ? "forward" : direction.value) && scene.phase === phase.value);
+    const next = scenes[index < 0 ? step > 0 ? 0 : scenes.length - 1 : (index + step + scenes.length) % scenes.length];
+    if(!next) return;
+    event.preventDefault();
+    if(historyMode){
+      const params = new URLSearchParams(location.hash.slice(1));
+      params.delete("h.data");
+      params.set("h.dir",next.direction);
+      params.set("h.phase",next.phase);
+      location.hash = `#${params}`;
+    } else location.hash = url({...next,group:"browsing",evidence:"",metric:"",scenario:"",side:""});
+  });
+  document.addEventListener("pointerdown", () => {
+    delete document.documentElement.dataset.keyboardFocus;
+  }, true);
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const finite = value => typeof value === "number" && Number.isFinite(value);
   const format = (value, unit = "") => value === undefined ? "Absent" : value === null ? "Null · unavailable" : typeof value === "boolean" ? String(value) : finite(value) ? `${value.toLocaleString("en-GB",{maximumFractionDigits:unit==="fraction"?5:2})}${unit ? ` ${unit}` : ""}` : esc(typeof value==="object"?JSON.stringify(value):value);
@@ -18,7 +60,13 @@
   const workflowViews = ["search","scroll","images"];
   function readState() {
     const p = new URLSearchParams(location.hash.slice(1));
-    return {cp:checkpoints[p.get("checkpoint")] && p.get("checkpoint")!=="legacy" ? p.get("checkpoint") : "recorded",base:checkpoints[p.get("baseline")] ? p.get("baseline") : "none",view:sections[p.get("view")] ? p.get("view") : "overview",mode:p.get("mode")==="history"&&workflowViews.includes(p.get("view"))?"history":"",evidence:p.get("evidence") || "",metric:p.get("metric") || "",scenario:p.get("scenario") || "",side:p.get("side")==="baseline"?"baseline":"",group:["detail","traversal","return","selection","browsing","recovery","layout","maintenance","startup","actions","seeking","restore","refresh","background"].includes(p.get("group"))?p.get("group"):"",
+    const cold = !p.has("checkpoint") && !p.has("baseline");
+    const campaigns = (window.__CAMPAIGN_LOG__?.entries ?? [])
+      .filter(campaign => checkpoints[`campaign:${campaign.campaignId}`])
+      .sort((left, right) => String(right.completedAt).localeCompare(String(left.completedAt)));
+    const defaultCheckpoint = cold && campaigns[0] ? `campaign:${campaigns[0].campaignId}` : "recorded";
+    const defaultBaseline = cold && campaigns[1] ? `campaign:${campaigns[1].campaignId}` : "none";
+    return {cp:checkpoints[p.get("checkpoint")] && p.get("checkpoint")!=="legacy" ? p.get("checkpoint") : defaultCheckpoint,base:checkpoints[p.get("baseline")] ? p.get("baseline") : defaultBaseline,view:sections[p.get("view")] ? p.get("view") : "overview",mode:p.get("mode")==="history"&&workflowViews.includes(p.get("view"))?"history":"",evidence:p.get("evidence") || "",metric:p.get("metric") || "",scenario:p.get("scenario") || "",side:p.get("side")==="baseline"?"baseline":"",group:["detail","traversal","return","selection","browsing","recovery","layout","maintenance","startup","actions","seeking","restore","refresh","background"].includes(p.get("group"))?p.get("group"):"",
       density:["all","grid","justified","table"].includes(p.get("density"))?p.get("density"):"all",
       direction:p.get("direction")==="backward"?"backward":"forward",phase:["early","middle","late","reversal"].includes(p.get("phase"))?p.get("phase"):"middle",
       workload:p.get("workload")==="constrained"?"constrained":"ordinary",statistic:p.get("statistic")==="p95"?"p95":"median",
@@ -237,10 +285,10 @@
     const groups=area==="images"?["Detail entry","Traversal","Fullscreen return","Selection & panels"]:[...new Set(rs.map(record=>record.workflow))];
     const returnGroup=selected?imageGroup(selected):state.group;
     const backToSummary=searchContext()||area==="search"&&!scrollContext()?`<div class="image-evidence-context">${link("← Search & Navigation summary",{view:"search",evidence:"",scenario:"",metric:"",side:"",group:searchContext()?state.group:selected?searchGroup(selected):"actions"})}<span class="pill">Inspecting ${baselineEvidence()?"B · baseline":"C · current"} observation</span><span>Comparison direction: C − B</span></div>`:area==="scroll"||scrollContext()?`<div class="image-evidence-context">${link("← Scrolling & Layout summary",{view:"scroll",evidence:"",scenario:"",metric:"",side:"",group:scrollContext()?state.group:selected?scrollGroup(selected):"browsing"})}<span class="pill">Inspecting ${baselineEvidence()?"B · baseline":"C · current"} observation</span><span>Comparison direction: C − B</span></div>`:area==="images"?`<div class="image-evidence-context">${link("← Image Workflows summary",{view:"images",evidence:"",scenario:"",metric:"",side:"",group:returnGroup})}<span class="pill">Inspecting ${baselineEvidence()?"B · baseline":"C · current"} observation${owner?` · ${esc(owner.name)}`:" · unavailable"}</span><span>Comparison direction: C − B</span></div>`:"";
-    return `${backToSummary}<div class="workflow-layout"><aside aria-label="Workflow observations"><ul class="workflow-menu">${groups.map(g=>`<li><strong>${g}</strong>${rs.filter(r=>r.workflow===g).map(r=>`<p><a href="${esc(url({evidence:r.id,scenario:r.scenario,metric:"",group:scrollContext()||searchContext()?state.group:area==="scroll"?scrollGroup(r):area==="search"?searchGroup(r):area==="images"?imageGroup(r):""}))}" aria-current="${r.id===selected?.id}">${esc(r.title)}</a><small>${r.synthetic?"Synthetic":"Recorded"} · r${r.raw.scenarioRevision??"unknown"}</small></p>`).join("")||"<small>No record in this checkpoint. Unrated.</small>"}</li>`).join("")}</ul></aside>${selected?recordView(selected):`<section class="empty"><h3>Evidence unavailable in this checkpoint</h3><p>The selected observation is missing, outside this checkpoint or excluded by the profile. No older successful record is substituted.</p><p><code>${esc(state.evidence||state.scenario)}</code></p>${link("Return to checkpoint overview",{view:"overview",evidence:"",scenario:"",metric:"",side:""})}</section>`}</div>`;
+    return `${backToSummary}<div class="workflow-layout"><aside aria-label="Workflow observations"><ul class="workflow-menu">${groups.map(g=>`<li><strong>${g}</strong>${rs.filter(r=>r.workflow===g).map(r=>`<p><a href="${esc(url({evidence:r.id,scenario:r.scenario,metric:"",group:scrollContext()||searchContext()?state.group:area==="scroll"?scrollGroup(r):area==="search"?searchGroup(r):area==="images"?imageGroup(r):""}))}" aria-current="${r.id===selected?.id}">${esc(r.title)}</a><small>${r.synthetic?"Synthetic":"Recorded"} · ${r.raw.scenarioRevision==null?"Revision unavailable":`r${esc(r.raw.scenarioRevision)}`}</small></p>`).join("")||"<small>No record in this checkpoint. Unrated.</small>"}</li>`).join("")}</ul></aside>${selected?recordView(selected):`<section class="empty"><h3>Evidence unavailable in this checkpoint</h3><p>The selected observation is missing, outside this checkpoint or excluded by the profile. No older successful record is substituted.</p><p><code>${esc(state.evidence||state.scenario)}</code></p>${link("Return to checkpoint overview",{view:"overview",evidence:"",scenario:"",metric:"",side:""})}</section>`}</div>`;
   }
   function rules() {
-    return `<h2>Judgements, not a universal score</h2><p class="lede">Order investigation by adverse outcomes and unmet expectations, never by unrelated milliseconds.</p><div class="columns"><section><h3>Proposal v0 · requires review</h3><ol class="decision-list"><li><strong>Eligibility first.</strong> Missing, unsupported or invalid evidence is unrated. Published campaigns and valid measurements can still contain bad application outcomes. Do not let unrated appear better than painful.</li><li><strong>Outcomes before speed.</strong> Any reported degradation/censoring receives “Adverse outcome”; no completed-only timing can cancel it. Counts and denominators are always adjacent.</li><li><strong>Response bands are unapproved.</strong> Sampled sort: median ≤1,500ms and observed max ≤3,000ms. Seek/detail: median ≤2,000ms and observed max ≤4,000ms. Above the median target: “Outside proposed band”; median or maximum beyond twice the median target: “Far outside proposed band”. These are demonstrations for the measured action only, not user-satisfaction grades. If no maximum is imported, explicitly withhold tail reassurance. These bands need user validation, not numerical polish.</li><li><strong>Traversal is cadence-relative.</strong> ≥80% median loaded within cadence: “Meets proposed band”; 50–79%: “Below proposed band”; &lt;50%: “Far below proposed band”. Each cadence/direction is its own condition. Eventual load never repairs the cadence grade. Thresholds provisional; loaded is not decoded or painted.</li><li><strong>Scrolling retains distinct dimensions.</strong> Reuse the existing pressure-reference v1 bands: delivered demand ≥80%, pending slots ≤20%, blocked input ≤5%, frame-p95 ≤33.4ms. These are diagnostic expectations, not satisfaction targets. Show worst/outlier evidence beside medians. This prototype's forward-step assessments are not full workflow indices.</li><li><strong>Keep existing density indices, do not counterfeit them.</strong> North-star v1 uses weakest normalized components across both directions/all phases with validity gates. Progress includes readiness and blocking; smoothness uses 60Hz and severe intervals; sampled stability uses retained readiness/geometry. Overview's sampled forward step does not supply a full index. Scrolling & Layout separately reuses the complete saved density v1 inputs and gates; missing or invalid components leave an index unavailable. Separate picture availability makes that contribution visible without redefining v1.</li><li><strong>Preservation is not a speed score.</strong> Show signed displacement and any false target-visibility guard separately. A 1px tolerance is a proposal only; all nonzero signed values remain inspectable. Unsupported paint is unrelated to an application target being invisible.</li><li><strong>Change is a second axis.</strong> Show a descriptive delta only for compatible environments AND contracts with available endpoints. No significance claim, percent speedup trophy or cross-contract trend line. No approved regression noise band exists yet.</li></ol></section><aside class="coverage"><h3>Limits that cannot be designed away</h3><ul><li>Four repetitions: p95 is the maximum of those repetitions, not a population tail.</li><li>The recorded setup is a laptop development app using the TEST API and canonical images. Hosted-build parity is not established.</li><li>P14 U1/U2 clocks/resource/cache limitations persist.</li><li>P13c decoded/stable, JA2 loaded/stable and P14 loaded are distinct boundaries.</li><li>Uncontrolled cache, non-identical content and incomplete source fingerprints prevent causal delivery claims.</li><li>A complete narrow profile cannot outrank omitted difficult workflows.</li></ul><h3>Before production integration</h3><p>Approve one Image Workflows slice, then implement explicit checkpoint membership, canonical record adapters, existing per-metric comparison guards, source links and accessible URL state. Fix or visibly limit U7/U13/U14 for that slice. Do not replace histories or declare measurement repairs complete.</p><a href="README.md">Open rationale & unresolved decisions</a></aside></div>`;
+    return `<h2>Judgements, not a universal score</h2><p class="lede">Order investigation by adverse outcomes and unmet expectations, never by unrelated milliseconds.</p><div class="columns"><section><h3>Interpretation rules</h3><ol class="decision-list"><li><strong>Eligibility first.</strong> Missing, unsupported or invalid evidence is unrated. Published campaigns and valid measurements can still contain bad application outcomes. Do not let unrated appear better than painful.</li><li><strong>Outcomes before speed.</strong> Any reported degradation/censoring receives “Adverse outcome”; no completed-only timing can cancel it. Counts and denominators are always adjacent.</li><li><strong>Response bands are unapproved.</strong> Sampled sort: median ≤1,500ms and observed max ≤3,000ms. Seek/detail: median ≤2,000ms and observed max ≤4,000ms. Above the median target: “Outside proposed band”; median or maximum beyond twice the median target: “Far outside proposed band”. These are demonstrations for the measured action only, not user-satisfaction grades. If no maximum is imported, explicitly withhold tail reassurance. These bands need user validation, not numerical polish.</li><li><strong>Traversal is cadence-relative.</strong> ≥80% median loaded within cadence: “Meets proposed band”; 50–79%: “Below proposed band”; &lt;50%: “Far below proposed band”. Each cadence/direction is its own condition. Eventual load never repairs the cadence grade. Thresholds provisional; loaded is not decoded or painted.</li><li><strong>Scrolling retains distinct dimensions.</strong> Reuse the existing pressure-reference v1 bands: delivered demand ≥80%, pending slots ≤20%, blocked input ≤5%, frame-p95 ≤33.4ms. These are diagnostic expectations, not satisfaction targets. Show worst/outlier evidence beside medians. Overview's forward-step assessments are not full workflow indices.</li><li><strong>Keep existing density indices, do not counterfeit them.</strong> North-star v1 uses weakest normalized components across both directions/all phases with validity gates. Progress includes readiness and blocking; smoothness uses 60Hz and severe intervals; sampled stability uses retained readiness/geometry. Overview's sampled forward step does not supply a full index. Scrolling & Layout separately reuses the complete saved density v1 inputs and gates; missing or invalid components leave an index unavailable. Separate picture availability makes that contribution visible without redefining v1.</li><li><strong>Preservation is not a speed score.</strong> Show signed displacement and any false target-visibility guard separately. A 1px tolerance is a proposal only; all nonzero signed values remain inspectable. Unsupported paint is unrelated to an application target being invisible.</li><li><strong>Change is a second axis.</strong> Show a descriptive delta only for compatible environments AND contracts with available endpoints. No significance claim, percent speedup trophy or cross-contract trend line. No approved regression noise band exists yet.</li></ol></section><aside class="coverage"><h3>Limits that cannot be designed away</h3><ul><li>Four repetitions: p95 is the maximum of those repetitions, not a population tail.</li><li>The recorded setup is a laptop development app using the TEST API and canonical images. Hosted-build parity is not established.</li><li>P14 U1/U2 clocks/resource/cache limitations persist.</li><li>P13c decoded/stable, JA2 loaded/stable and P14 loaded are distinct boundaries.</li><li>Uncontrolled cache, non-identical content and incomplete source fingerprints prevent causal delivery claims.</li><li>A complete narrow profile cannot outrank omitted difficult workflows.</li></ul><a href="README.md">Dashboard reference</a></aside></div>`;
   }
   function provenance(cp,base,pair) {
     const display=v=>v==null?"Unknown · absent or not shared by all entries":esc(typeof v==="object"?JSON.stringify(v):v);
@@ -276,22 +324,26 @@
     };
     $("provenance").innerHTML=provenance(cp,base,pair);$("trust").open=trustOpen;
     $("navigation").innerHTML=Object.entries(sections).map(([key,name])=>`<a href="${esc(url({view:key,mode:workflowViews.includes(key)?state.mode:"",evidence:"",metric:"",scenario:"",side:"",group:""}))}" ${state.view===key?'aria-current="page"':""}>${name}</a>`).join("");
+    document.querySelector(".engineering-header").classList.toggle("history-mode",state.mode==="history");
     if(state.mode==="history"){
       $("main").innerHTML=`${modeToggle()}<div id="history-root"></div>`;
       window.KupuaHistory.render($("history-root"));
       document.title=`${sections[state.view]} · History${window.KupuaHistory.synthetic()?" · SYNTHETIC":""} · Kupua performance`;
-      $("announcement").textContent=`${sections[state.view]} history.`;
+      const scene=state.view==="scroll"?` ${document.querySelector('[data-h="dir"]')?.selectedOptions[0]?.textContent}. ${document.querySelector('[data-h="phase"]')?.selectedOptions[0]?.textContent}.`:"";
+      $("announcement").textContent=`${sections[state.view]} history.${scene}`;
       return;
     }
     $("main").innerHTML=state.view==="overview"?overview(cp):state.view==="rules"?rules():`${modeToggle()}${workflow(cp)}`;
     document.title=`${sections[state.view]} · ${cp.name} · Kupua performance`;
     $("announcement").textContent=`${sections[state.view]}. ${cp.name}. ${pair.ok?"Environment eligible; check record contract.":pair.reason}`;
+    if(state.view==="scroll"&&!state.evidence) $("announcement").textContent+=` ${$("scroll-direction")?.selectedOptions[0]?.textContent}. ${$("scroll-phase")?.selectedOptions[0]?.textContent}.`;
+    if(state.view==="search"&&!state.evidence&&$("search-phase")) $("announcement").textContent+=` ${$("search-phase").selectedOptions[0]?.textContent}.`;
     const summaryGroup=["images","scroll","search"].includes(state.view)&&!state.evidence&&!state.scenario&&state.group;
     if(focus || state.metric || state.evidence || summaryGroup) requestAnimationFrame(()=>{
       if(["checkpoint","baseline"].includes(active)||(active?.startsWith("scroll-")||active?.startsWith("search-"))&&$(active)?.matches("select")){ $(active).focus(); return; }
       if(summaryGroup){
         const section=document.getElementById(`${state.view==="scroll"?"scroll":state.view==="search"?"search":"image"}-${summaryGroup}`);
-        if(section){section.focus({preventScroll:true});section.scrollIntoView({block:"start"});}
+        if(section){if(section.tagName==="DETAILS")section.open=true;section.focus({preventScroll:true});section.scrollIntoView({block:"start"});}
         return;
       }
       if(!explicitEvidence){

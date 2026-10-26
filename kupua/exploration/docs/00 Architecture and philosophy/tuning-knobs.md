@@ -40,8 +40,8 @@ less space for anchor placement before `maxScroll` clamps it.
 **Coupled to:**
 - `PAGE_SIZE` — must be smaller (currently 200 < 1000). If PAGE_SIZE ≥
   BUFFER_CAPACITY, each extend replaces the entire buffer.
-- `EXTEND_THRESHOLD` — triggers extends when visible range is within 50
-  items of buffer edge. With 1000 capacity, that's 5% of the buffer.
+- `EXTEND_THRESHOLD` — base admission distance of 50 items, or 5% of the
+  1000-item buffer. Directional prediction can widen it to one page.
 - **Scroll range geometry** — table: 1000 × 32px = 32,000px. Grid:
   1000/6cols × 303px ≈ 50,500px. Affects how soon scroll compensation
   hits maxScroll clamps.
@@ -83,13 +83,14 @@ PAGE_SIZE × per-doc size, not with total docs.
 
 ### EXTEND_THRESHOLD (50)
 
-**What it does:** When the visible range's start index ≤ 50 (near buffer
-start), triggers `extendBackward`. When end index ≥ bufferLength - 50
-(near buffer end), triggers `extendForward`.
+**What it does:** Sets the base edge-admission distance. In buffer-local coordinates,
+start index ≤ 50 admits `extendBackward`, and end index ≥ bufferLength - 50 admits
+`extendForward`, subject to available results and store guards.
 
-For forward extends this is the *minimum* threshold — the actual trigger
-point widens with recent scroll velocity (see `VELOCITY_*` knobs below).
-Backward extends use the static value.
+Forward admission and fixed Grid/Table buffer-local backward admission can widen
+this distance with recent directional velocity (see `VELOCITY_*` knobs below).
+Justified, unspecified hook callers and indexed backward admission keep the static
+backward threshold.
 
 For buffer-local views, explicit viewport-validity evidence must also admit the
 relevant edge: a stale start cannot request backward data and a stale end cannot
@@ -110,18 +111,20 @@ network but higher risk of visible gaps during fast scroll).
 
 ### VELOCITY_EMA_ALPHA (0.4), VELOCITY_LOOKAHEAD_MS (400), VELOCITY_IDLE_RESET_MS (250)
 
-**What they do:** Velocity-aware widening of the forward-extend trigger.
-`reportVisibleRange` tracks an EMA-smoothed forward velocity (items/ms);
-the effective forward threshold is `EXTEND_THRESHOLD + velocity ×
-LOOKAHEAD_MS`, capped at `PAGE_SIZE`. At rest the trigger is the bare
-`EXTEND_THRESHOLD = 50`; at sustained fast wheel velocity it expands
-toward `PAGE_SIZE = 200`, firing the extend earlier so the ES round-trip
-overlaps with the user still chewing through buffered items.
+**What they do:** Velocity-aware widening of directional admission thresholds.
+`reportVisibleRange` tracks signed EMA-smoothed velocity in items/ms. Forward
+admission uses `min(PAGE_SIZE, EXTEND_THRESHOLD + max(0, velocity) × VELOCITY_LOOKAHEAD_MS)`.
+Fixed Grid and Table select the same predictor with negated velocity for buffer-local
+backward admission. Justified, unspecified callers and indexed backward admission
+remain at 50. With no predictive velocity in the relevant direction, the threshold
+is `EXTEND_THRESHOLD = 50`; under fast movement it grows towards `PAGE_SIZE = 200`.
 
 `VELOCITY_EMA_ALPHA` is the new-sample weight (same convention as
-`image-prefetch.ts`). `VELOCITY_LOOKAHEAD_MS` matches a typical extend
-round-trip on real ES (200–500ms). `VELOCITY_IDLE_RESET_MS` drops stale
-velocity from an unrelated earlier burst once a scroll has paused.
+`image-prefetch.ts`). `VELOCITY_LOOKAHEAD_MS` is a 400ms prediction horizon,
+not a delivery-time guarantee. `VELOCITY_IDLE_RESET_MS` drops stale velocity
+after a pause. Invalid viewport samples and changes to reporting owner, result
+publication, offset, search generation, total, layout policy, geometry or viewport
+height also break continuity; placement and compensation are not inferred travel.
 
 **Performance impact:** Fast scrolling admits the next page sooner, increasing
 available delivery time at the cost of earlier work. At low velocity the threshold
@@ -132,8 +135,9 @@ whether the user continues in the predicted direction.
 - `EXTEND_THRESHOLD` — the floor of the widened threshold.
 - `PAGE_SIZE` — the cap. There's no benefit to a threshold larger than
   one in-flight fetch's worth of items.
-- Forward extends only. Backward extends pair with prepend compensation
-  and use the fixed backward threshold.
+- Layout and coordinate policy — only fixed Grid/Table buffer-local backward
+  admission uses prediction. Earlier admission does not alter prepend compensation,
+  cooldowns or per-direction concurrency.
 
 **Corpus scaling:** Not corpus-dependent.
 

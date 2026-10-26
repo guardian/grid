@@ -42,6 +42,88 @@ unchanged retained inputs must skip, with rendering scaled to entering images.
 These are not live/hosted frame-speed claims. They own their browser/contexts;
 the operator-shared app and server are not used or reconfigured.
 
+### Backward Metadata Acceptance
+
+`--grep 'B2 acceptance '` selects Table short-stop, negative-control, pressure and
+capacity/reversal comparisons in both orders, plus settled far-seek comparisons for
+Grid, Justified and Table. These reuse the isolated app and existing journey/media
+probes; no live services or canonical campaign histories are accessed.
+
+It also selects `B2 acceptance product short-stop` for all three layouts. These
+cases keep product admission unmodified, delay metadata through the stop, and check
+bounded reads, logical-anchor placement through publication and eventual readiness.
+They do not require element retention or completion by first decode. The comparison
+adapters explicitly restore historical threshold 50 for their `current` arms and
+retain the all-layout candidate separately; `current` in those historical controls
+does not mean today's shipped Grid/Table policy. Publication identity/retention
+controls likewise retain their original threshold-50 admission.
+
+The stopped Table witness retains raw movement but separates animated CSS translate
+from layout position, with an independent 8px displacement calibration and unchanged
+1px layout limit. It preserves first-ready censor/pending metrics while checking
+bounded stopped work, stable placement and no continuing idle chain. One extra page
+need not finish by first decode. The existing
+[evidence record](../../exploration/docs/scroll-horizons-thumb-lookahead-results.json)
+under `b2QualificationClosure20261025` also retains separately authorised canonical
+comparisons and the late-publication readiness witness; synthetic success is not a
+canonical/paint certificate or selected product policy.
+
+### Current Publication Identity
+
+`--grep 'Publication identity current '` selects the held-backward-publication tests
+for Table, fixed Grid and Justified. They use original admission, keys and scroll
+writes, with isolated mock data and synthetic decoded media. Fixture-only render
+tokens and a read-only witness in the existing compensation layout effect correlate
+actual committed DOM with chosen virtual rows. Original image references and mutation
+records distinguish absent photographs, element replacement and source changes.
+After-measurement controls distinguish removal, same-node reinsertion and cloning.
+These are not paint, latency or all-regime retention guarantees. Accepted observations
+and proposed next questions are `publicationIdentityCurrent20261025` in the existing
+[evidence record](../../exploration/docs/scroll-horizons-thumb-lookahead-results.json).
+
+`--grep 'Publication retention Table C'` selects the fixture-only exact-cohort
+`rangeExtractor` counterfactual, preserving product keys, compensation and admission.
+It checks original-element survival through every captured commit, bounded extra
+rows, latched release and subsequent scroll without stale retention or extra reads.
+Separate post-measurement controls expose constant-count extractor memoization and
+Table's sparse-window cache collision; they do not silently repair either boundary.
+Results and limitations are `publicationRetentionTableC20261025` in the same record.
+This is supporting B2 fast-scroll research, not a product fix or timing/paint claim.
+
+`--grep 'Publication retention (grid|justified) C'` selects both C (unchanged keys)
+and CK (stable fixture keys) for Grid and Justified. Mapped-row selection is isolated
+from parent/cell identity, with original and first-publication-created image refs,
+between-commit removal tracking, stable-parent/unique-key guards and latched release.
+CK Grid preserves physical-column cells and keys global physical rows; CK Justified
+uses unclamped packed-row-start ordinals and image-ID cells from setup onward.
+Use `--grep 'Publication identity current |Publication retention '` for all eight
+related cases. `publicationRetentionGridJustified20261025` owns results and limits.
+These loaded-media mechanism controls do not measure native-readiness or fast-scroll
+benefit, and one density's outcome does not decide another density's eligibility.
+
+### Local HTTP Retention Value
+
+`--grep 'Retention value '` selects the 16-case current/B2/CK value matrix, including
+pressure-only CK-inner comparisons. Narrow to a named layout/workload/order when
+answering one question. These are isolated research tests, not operator campaigns;
+the final matrix took about seven minutes. All media comes from the existing
+ephemeral loopback held-image server, with immediate setup and delayed new media.
+Metadata, starting window/placement and both policy orders are explicit.
+
+Observers continue beyond first-ready through late publication and keep loaded
+pending separate from node-bound decode acknowledgement. Weak image/cell identity
+witnesses avoid strong-reference resource retention; DOM-presence guards distinguish
+collected references from actual surviving elements. Pressure cases first require
+observed current-policy blocking and its B2 reduction. Capture validity and candidate
+preservation failures are separate: failures remain reported, not silently fixed.
+CK-inner checks only loss under unchanged cell/parent, not universal row preservation.
+
+The existing evidence record's `retentionValueLocalHttp20261025` owns all 52 final
+observations, prior exclusions/refutations, fixed observation windows, frame/request
+contracts and per-layout interpretation. Earlier strong-reference development runs
+are not pooled. Passing captures do not select retention for production or establish
+canonical-photo, cache-neutral, population-tail or painted-frame benefit.
+
 ### Table Request Lifetime
 
 The focused `--grep 'F2 Table'` controls qualify Table's detached-incomplete request

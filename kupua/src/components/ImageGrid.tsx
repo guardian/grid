@@ -419,7 +419,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     focusedImageId, setFocusedImageId,
     reportVisibleRange, getImage, findImageIndex,
     twoTier,
-  } = useDataWindow();
+  } = useDataWindow(justified ? "justified" : "grid");
   const searchParams = useSearch({ from: "/search" });
   const searchParamsRef = useRef(searchParams);
   searchParamsRef.current = searchParams;

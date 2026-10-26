@@ -8,3 +8,6 @@
 @media(max-width:650px){.findings,.overview-bottom{grid-template-columns:1fr;gap:0}.overview-bottom section{margin-bottom:12px}.overview-v2 .hero h2{font-size:23px}.finding{padding:12px 0}.overview-v2 .hero{padding-left:12px}.coverage-line{font-size:13px}}
 @media(prefers-reduced-motion:no-preference){a,button{transition:color .12s,background .12s}}
 .raw-evidence{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%}.evidence,.workflow-layout>*{min-width:0}.evidence td{overflow-wrap:anywhere}.evidence dd{overflow-wrap:anywhere}
+html:not([data-keyboard-focus]) :focus{outline:none!important}
+html[data-keyboard-focus] :focus-visible{outline:1px solid var(--accent)!important;outline-offset:2px!important}
+html [tabindex="-1"]:focus{outline:none!important}

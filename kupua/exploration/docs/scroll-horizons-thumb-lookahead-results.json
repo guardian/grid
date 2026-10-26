@@ -1,4 +1,529 @@
 {
+  "b2ForwardSharedBrowser20261025": {
+    "kind": "bounded-live-forward-recovery-diagnostic-not-a-campaign-or-policy-comparison",
+    "decision": "The matched-viewport shared tab produced roughly 0.4-0.6s visible-media recovery, but with much poorer frame cadence and slower stable-data/placement readiness than the campaign. Similar recovery totals do not establish the same cause. No B2-on/off causal conclusion, rollback, retention change or upper-row gate follows.",
+    "scope": {
+      "topology": "local Vite app, ApiDataSource, deployed TEST, canonical media; pinned campaign cutoff",
+      "viewport": { "width": 1720, "height": 960, "dpr": 2, "screenWidth": 1720, "screenHeight": 960 },
+      "resultsArea": { "width": 1706, "height": 888 },
+      "foreground": "Verified before setup and through measured journeys; all four measured attempts used the matched viewport/screen/DPR.",
+      "budget": "Four nine-second forward journeys maximum; 80 metadata requests and 6000 image starts. Reported budget counters ended at 65 metadata units and 4253 image starts, including conservative reserves for preflight/setup. No direct-ES observations or live writes.",
+      "source": "One retained source identity/cursor stayed in browser memory. Each layout restored 201 records around that source, with visible media ready. All three Grid starting signatures matched exactly in IDs, offset, count, scrollTop and visible geometry. Justified had one measured attempt, not a same-layout repeated pair.",
+      "cache": "Normal cache during setup; browser HTTP cache bypass during motion and recovery. Decoded/CDN/upstream caches uncontrolled.",
+      "driver": "Existing captureDensityJourney: three consecutive 3s steps at 30/100/200 results per second; four-second current-cohort recovery cap. Two additional seconds after the normal recovery endpoint observe late publication, visible loaded readiness and weak-reference image replacement. No paint capture."
+    },
+    "setupExclusions": [
+      "A browser-only threshold-50 route intervention timed out during navigation before any measured journey. Its route/session were removed; clean reload verified the product hook had no intervention marker. All measured attempts used shipped B2 policy.",
+      "The standard recovery helper could not rediscover the source cursor after switching density. The already-captured cursor was checked against unchanged query/total/source membership and supplied to the same existing restoreAroundCursor API; the failed setup attempt was not measured."
+    ],
+    "detailedRelayAttempts": [
+      { "density": "grid", "attempt": 1, "comparativeValidity": "rejected", "stressAchievedResultsPerSecond": 165.841, "stressBlockedMs": 446.015, "stressFrameP95Ms": 133.8, "stopDataReadyMs": null, "stopMediaReadyMs": null, "stopCohortChanged": 1, "missingRequestClocks": 4, "backwardReads": 0, "forwardReads": 5, "publicationsAfterStop": 1 },
+      { "density": "grid", "attempt": 2, "comparativeValidity": "rejected", "stressAchievedResultsPerSecond": 167.224, "stressBlockedMs": 420.012, "stressFrameP95Ms": 133.3, "stopDataReadyMs": null, "stopMediaReadyMs": null, "stopCohortChanged": 1, "missingRequestClocks": 4, "endBeforeStartEvents": 4, "minimumNegativeDurationMs": -5093.048, "backwardReads": 0, "forwardReads": 5, "publicationsAfterStop": 1 }
+    ],
+    "relayQualification": "The existing request probe ran inside the browser realm; a sanitized CDP relay supplied events, excluding headers/bodies. A local-only image control observed one start/completion with valid clocks, but the second live attempt explicitly exposed four end-before-start event pairs. No timestamp coercion or censored latency replacement was applied. Detailed relay removed after these attempts.",
+    "lighterObservations": [
+      { "density": "grid", "attempt": 3, "status": "usable bounded readiness observation, not campaign-equivalent timing", "stressAchievedResultsPerSecond": 160.365, "stressBlockedMs": 349.555, "stressFrameP95Ms": 116.7, "stopDataReadyMs": 259.8, "stopMediaReadyMs": 409.1, "stopMediaCensored": 0, "stopCohortChanged": 0, "stopVisibleMediaCount": 18, "backwardReads": 0, "forwardReads": 5, "publicationsAfterStop": 1, "publicationsAfterReady": 0, "postReadyMaxUnloadedImages": 0, "postReadyMaxReplacedImages": 0, "refillsPendingAtEnd": 0, "observationFromStopMs": 2434.1 },
+      { "density": "justified", "attempt": 4, "status": "usable bounded readiness observation, not campaign-equivalent timing", "stressAchievedResultsPerSecond": 191.252, "stressBlockedMs": 258.177, "stressFrameP95Ms": 175.2, "stopDataReadyMs": 150.5, "stopMediaReadyMs": 580, "stopMediaCensored": 0, "stopCohortChanged": 0, "stopVisibleMediaCount": 42, "backwardReads": 0, "forwardReads": 5, "publicationsAfterStop": 0, "publicationsAfterReady": 0, "postReadyMaxUnloadedImages": 0, "postReadyMaxReplacedImages": 0, "refillsPendingAtEnd": 0, "observationFromStopMs": 2600.6 }
+    ],
+    "limits": "Lighter observations retained only a minimal CDP request-start counter plus in-page Resource Timing, journey and thumbnail observers. They cannot establish cancellation counts. Removing the detailed relay did not restore campaign-like frame cadence, so it is not an isolated explanation of the timing difference. The stable-data clock includes placement and repeated frame observations, not just API latency. No valid on/off pair was obtained; exact original campaign images and native cache state are unavailable. No numeric comparison between observer modes is a product speedup claim.",
+    "cleanup": "Removed source route, CDP listeners/sessions, fetch budget wrapper and diagnostic globals; restored normal browser caching. Original CSS viewport 1150x919 and DPR2 verified after correcting the tool's DPR1 reset. App remained error-free. No server lifecycle, product code, dependencies, canonical campaign history or Git state changed."
+  },
+  "retentionValueLocalHttp20261025": {
+    "kind": "bounded-local-native-http-value-comparison-not-canonical-media-or-paint-certification",
+    "decision": "Current evidence does not justify production retention/key complexity as a B2 prerequisite. B2 blocking benefit is reproduced first; retention improves element survival and removes node-bound decode-ack resets,but adds no consistent material loaded-media/readiness or cohort-transfer benefit here. Grid and Justified are assessed independently. Existing Grid/Table B2 scope remains an operator decision;Justified50recommendation is not changed by these local tests.",
+    "provenance": "Current source with uncommitted research changes;no src edits. Isolated3041Vite DEV,MockDataSource70000,seek/nonindexed,1720x960/DPR1,uniform4:3metadata,real loopback HTTP SVG media. Each arm uses a fresh page and loopback origin;exact starting IDs,offset,count,total,scrollTop,visible geometry and container dimensions match within each ordered comparison. All services blocked except isolated assets and that test's local image server. No shared-tab,live-system,dependency,campaign or Git changes.",
+    "blockingQualification": {
+      "contract": "Before new value comparisons,reran existing matched900ms-read sustained backward controls for both layouts,both treatment orders.201initial records,runway94Grid/83Justified;legacy fixed4000px/sdriver,not the new normalized200results/sworkload. Synthetic immediate media. Four pairs pass;every current arm blocks and every B2 arm reduces walls. B2 adds one read in each pair.",
+      "columns": ["density","order","currentWallsMs","b2WallsMs","currentReads","b2Reads"],
+      "rows": [
+        ["grid","forward",235.35,0,1,2],
+        ["grid","reverse",232,0,1,2],
+        ["justified","forward",986.35,345.1,2,3],
+        ["justified","reverse",983.7,342.6,2,3]
+      ],
+      "log": "kupua-retention-value-blocking-baseline-output.txt"
+    },
+    "design": {
+      "policies": "current=threshold50; b2=400msbackward prediction capped200; ck=B2plus exact cohort selection and stable row/cell keys from setup; ck-inner=CKplus stable photo-ID GridThumbnail key,instead of animation-dependent key. Existing compensation/loading/CSS animation remain unchanged. Browser-served interventions only. CKinherits the per-render extractor callback and known bounded fixture plan,not production lifecycle design.",
+      "workloads": "loaded-short-stop:600pxupward,immediate media;pending-short-stop:same600px,newly encountered media body delayed1200ms;pressure/pressure-inner:three consecutive1ssteps at200results/s,new media delayed120ms. Every metadata extension delayed900ms. Starting viewport is loaded before delays activate. All comparisons start300records at local90;no capacity/eviction claim.",
+      "orders": "forward=current,b2,ck;reverse=ck,b2,current. pressure-inner adds ck-inner last/first respectively. Both layouts receive every workload/order independently:16cases,52observations. No cross-layout stopping rule.",
+      "observation": "Continue rAFsampling through late publication,not just first ready. Pending-short-stop observes6000msafter stop;other cases3000ms. First-ready latency is withheld for changed stopped identities or unresolved final pending;raw first-ready is retained in temporary logs. Visible known-photo CELL area is the weighting denominator,not a compositor-pixel or missing-data certificate. Loaded pending uses complete/naturalWidth;decode-ack pending additionally awaits decode()per element. New-node acknowledgement can reset without a new transfer or loaded-media gap. These clocks are not painted blankness.",
+      "lifetimeIsolation": "Value witnesses hold WeakRef images/cells,with explicit presence guards;retention election itself stores IDs. Earlier strong-reference development timings are not pooled with final data because witnesses could prolong resource reuse. Weak references do not certify cache/GC neutrality;decode/read/layout sampling still has overhead. No forced GC or synthetic remount penalty.",
+      "framesAndDemand": "Publication frame windows are fixed200msafter each actual store publication,using observed rAFintervals and explicit sample counts in raw logs. Small-window p95 can equal worst frame;not population tails or production-build timings. CDPbrowser starts/cancellations and server-observed starts/aborts/completions are separate. Cohort requests use bounded union of publication cohorts;these are not current-visible priority,bytes,upstream work or pure retention cost when achieved exposure differs.",
+      "validity": "Require exact starting match,unchanged scope,no overflow,metadata drained,maxretention<=1000,peak<=2,stop sampling coverage within100msof contracted length and initial stop-observer gap<=25ms. Each pressure case requires current walls>0 and B2walls<current. CKplans release once per publication with no active plan remaining. Original-survival failures are explicit candidate outcomes,not invalid captures. ck-inner hard-checks zero thumbnail loss UNDER UNCHANGED CELL/PARENT,not a universal preservation assertion."
+    },
+    "caseColumns": ["density","workload","order","observations"],
+    "observationColumns": ["policy","wallsMs","achievedResultsPerSecond","metadataReads","meanLoadedPendingPercent","meanDecodeAckPendingPercent","firstReadyMsOrNull","publicationFrameP95Ms","publicationWorstFrameMs","browserMediaStarts","browserMediaCancellations","nativeServerStarts","nativeServerAborts","cohortRepeatedStarts","failedOriginalSurvivalCohorts","stoppedCohortChanged"],
+    "cases": [
+      ["grid","loaded-short-stop","forward",[
+        ["current",0,null,0,0,0,7.6,null,null,12,0,12,0,0,0,false],
+        ["b2",0,null,1,0,4.486,7.5,134.2,134.2,42,0,42,0,0,1,false],
+        ["ck",0,null,1,0,0,4.7,133.6,133.6,42,0,42,0,0,0,false]
+      ]],
+      ["grid","loaded-short-stop","reverse",[
+        ["ck",0,null,1,0,0,4.3,133.3,133.3,42,0,42,0,0,0,false],
+        ["b2",0,null,1,0,3.898,3.9,116.6,116.6,42,0,42,0,0,1,false],
+        ["current",0,null,0,0,0,7.6,null,null,12,0,12,0,0,0,false]
+      ]],
+      ["grid","pending-short-stop","forward",[
+        ["current",0,null,0,18.826,18.826,2279.2,null,null,12,0,12,0,0,0,false],
+        ["b2",0,null,1,18.924,19.604,2290.9,125,125,42,30,12,0,0,1,false],
+        ["ck",0,null,1,18.828,18.828,2279.5,133.3,133.3,42,30,12,0,0,0,false]
+      ]],
+      ["grid","pending-short-stop","reverse",[
+        ["ck",0,null,1,18.829,18.829,2280,125,125,42,30,12,0,0,0,false],
+        ["b2",0,null,1,19.016,19.741,2299.3,133.4,133.4,42,30,12,0,0,1,false],
+        ["current",0,null,0,18.921,18.921,2290.8,null,null,12,0,12,0,0,0,false]
+      ]],
+      ["grid","pressure","forward",[
+        ["current",1269.402,115.236,2,28.334,29.451,977.1,100,100,371,250,312,190,11,2,false],
+        ["b2",573.094,155.15,3,32.468,32.468,1105,92,99.9,533,432,445,342,10,3,false],
+        ["ck",539.703,157.552,3,30.731,30.731,1111.7,100,100.6,545,443,447,345,11,1,false]
+      ]],
+      ["grid","pressure","reverse",[
+        ["ck",503.651,159.133,3,30.677,30.677,null,101,115.8,556,454,444,336,11,1,true],
+        ["b2",534.873,157.879,3,30.748,30.748,1114.6,96.5,100.1,545,446,460,358,11,3,false],
+        ["current",1262.45,117.565,2,28.314,29.432,1089.8,100.1,100.1,377,251,323,197,9,2,false]
+      ]],
+      ["grid","pressure-inner","forward",[
+        ["current",1272.849,115.615,2,30.642,31.759,1124.9,92.5,92.5,371,245,327,201,11,2,false],
+        ["b2",560.579,157.038,3,30.227,30.227,1110,99.7,100,545,443,462,360,11,3,false],
+        ["ck",564.207,156.153,3,30.416,30.416,1109.3,99.9,100.1,539,442,439,337,11,1,false],
+        ["ck-inner",583.779,154.709,3,30.333,30.333,1110.8,100,108.8,539,443,443,341,11,0,false]
+      ]],
+      ["grid","pressure-inner","reverse",[
+        ["ck-inner",503.06,154.502,3,29.874,29.874,null,108.3,108.9,559,460,471,369,10,0,true],
+        ["ck",648.597,149.626,3,30.661,30.661,1091.8,107.7,109.1,521,413,426,318,11,1,false],
+        ["b2",655.518,149.352,3,30.758,30.758,1114,100,100,515,407,418,310,9,3,false],
+        ["current",1255.574,116.863,2,29.846,30.96,1099.8,100.9,100.9,377,250,317,190,11,2,false]
+      ]],
+      ["justified","loaded-short-stop","forward",[
+        ["current",0,null,0,0,0,7.6,null,null,21,0,21,0,0,0,false],
+        ["b2",0,null,1,0,3.059,4.8,91.4,91.4,76,0,76,0,0,1,false],
+        ["ck",0,null,1,0,0,2.9,91.9,91.9,76,0,76,0,0,0,false]
+      ]],
+      ["justified","loaded-short-stop","reverse",[
+        ["ck",0,null,1,0,0,2.4,83.4,83.4,76,0,76,0,0,0,false],
+        ["b2",0,null,1,0,2.784,1.3,83.3,83.3,76,0,76,0,0,1,false],
+        ["current",0,null,0,0,0.03,21.7,null,null,21,0,21,0,0,0,false]
+      ]],
+      ["justified","pending-short-stop","forward",[
+        ["current",0,null,0,17.108,17.108,4688.2,null,null,21,0,21,0,0,0,false],
+        ["b2",0,null,1,17.022,17.832,4680.5,91.6,91.6,76,55,21,0,0,1,false],
+        ["ck",0,null,1,16.968,16.968,4681.2,100.5,100.5,76,55,21,0,0,0,false]
+      ]],
+      ["justified","pending-short-stop","reverse",[
+        ["ck",0,null,1,17.047,17.047,4687.5,92.5,92.5,76,55,21,0,0,0,false],
+        ["b2",0,null,1,17.007,17.81,4682.2,90.8,90.8,76,55,21,0,0,1,false],
+        ["current",0,null,0,17.022,17.022,4685.8,null,null,21,0,21,0,0,0,false]
+      ]],
+      ["justified","pressure","forward",[
+        ["current",1251.495,117.907,2,39.256,39.55,1610.7,75.8,75.8,401,237,320,156,6,2,false],
+        ["b2",503.166,158.814,3,39.311,39.311,null,67.5,75,601,460,446,294,3,3,true],
+        ["ck",529.731,158.746,3,39.027,39.027,null,74.9,75,583,444,424,279,5,2,true]
+      ]],
+      ["justified","pressure","reverse",[
+        ["ck",538.645,158.306,3,40.726,40.726,1582.2,75,75,582,442,415,273,6,1,false],
+        ["b2",501.676,158.756,3,37.477,37.477,1479.9,82.9,83.8,618,479,453,305,0,3,false],
+        ["current",1250.975,117.783,2,38.68,39.136,1604.1,66.7,66.7,423,244,329,147,0,2,false]
+      ]],
+      ["justified","pressure-inner","forward",[
+        ["current",1268.513,115.863,2,39.008,39.57,1593.3,74.9,74.9,398,231,311,140,6,2,false],
+        ["b2",541.782,158.254,3,37.839,37.839,1498.9,66.7,75.3,594,449,433,286,6,3,false],
+        ["ck",500.282,159.222,3,37.332,37.332,null,83.5,83.9,603,458,436,288,6,2,true],
+        ["ck-inner",501.969,158.819,3,38.282,38.282,null,74.2,83.3,602,473,439,305,2,1,true]
+      ]],
+      ["justified","pressure-inner","reverse",[
+        ["ck-inner",515.704,158.965,3,39.791,39.791,null,66.6,83.4,582,450,430,290,6,1,true],
+        ["ck",507.768,159.348,3,37.533,37.533,1481.4,66.7,83.4,605,459,440,288,0,2,false],
+        ["b2",510.179,158.73,3,38.539,38.539,null,75.3,83.6,596,457,443,292,6,3,true],
+        ["current",1250.812,117.966,2,38.916,39.21,1602.7,75,75,429,257,332,157,0,2,false]
+      ]]
+    ],
+    "innerKeyFindings": "CKpressure loses originals under unchanged cells/parents when anim-arriving changes;the existing GridThumbnail key is animationClass?image.id:undefined. Stable inner photo-ID key preserves all Grid originals across three publications in both orders. In final Justified ck-inner cases,the first two cohorts retain all originals despite animation changes,but third cohorts retain27/30forward and34/37reverse,with matching cell/parent losses and no animation change. All inner-key cases have0thumbnail losses UNDER UNCHANGED CELL/PARENT. Do not call remaining losses a proven legitimate rebreak or a fully solved lifetime contract;parent/cell causes were not traced further.",
+    "interpretation": [
+      "We observed blocking before reductions. In the new200results/sHTTPpressure arms,B2 reduces roughly1.25-1.27swalls to0.50-0.66swith2->3reads;initial runway still cannot cover900msdelivery. This is not the legacy4000px/sGridwall-elimination workload.",
+      "Loaded short stops have0loaded-media pending under all policies. B2 has a new-node decode-ack reset and CK removes it,but no corresponding loaded-media or native-transfer gap is observed. This does not certify painted continuity or refute the earlier canonical late-readiness witness.",
+      "Pending short stops:Grid B2first-ready2291/2299msversusCK2280/2280ms;11-19msimprovement is small,with12native cohort starts and0cohort repeat starts under both. Justified B24680/4682msversusCK4681/4688ms,21native cohort starts and0repeats both. HTTP/1connection scheduling and1200msbody delay dominate these controls;no material transfer saving is demonstrated.",
+      "Pressure CK and ck-inner have mixed walls,frame intervals,achieved progress and demand. Different achieved progress/exposure and changed stopped cohorts prevent attributing request-count changes solely to retention. Several readiness clocks are censored rather than borrowed from raw first-ready. No universal speedup,no-harm guarantee or calibrated16.7msacceptance threshold is claimed.",
+      "Retention and key continuity are real mechanisms,but current useful-delivery evidence does not earn a production retention framework or a new B2gate. Preserve per-layout eligibility and the original blocking goal;this is bounded evidence,not proof that retention can never help real images."
+    ],
+    "developmentAndExclusions": [
+      "Initial test filter anchored too narrowly selected0tests;corrected before baseline execution.",
+      "First pressure CK survival assertion failed0/19while photos remained present. Added unchanged-cell/parent and animation diagnostics;kept the refutation as an explicit candidate outcome rather than weakening capture-validity gates. Original eight strict mechanism controls remain intact.",
+      "Strong-reference development matrix10passed/2invalid:local module route.fetch ECONNRESET and76msinitial stop gap exceeding unchanged25mslimit. Targeted retries passed. Its3sJustifiedpending results were censored;extended pending observation to6s,not the test timeout or validity limit. Those timings are not pooled with final weak-reference cases.",
+      "Initial ck-inner universal survival assertion failed27/30Justifiedwith cell/parent change. Narrowed causal assertion to the actual inner-key question,retaining all residual cohort failures. No parent/geometry repair added.",
+      "Found strong-reference observer resource-retention risk;repaired value witnesses with WeakRef/presence guards and reran the ENTIRE finalized16case matrix. Prior development timings remain diagnostic,not final selection data."
+    ],
+    "validation": "Final weak-reference matrix16passed7.3minutes:all16completecomparisons/52observations,kupua-retention-value-final-output.txt. Earlier final-eight mechanism regressions passed,kupua-retention-value-final-regression-output.txt;compiler pipeline explicitly0,kupua-retention-value-typecheck-output.txt. Final evidence rows rounded to0.001and validated against the authoritative log. No src changes,so product unit/E2E not rerun. Temporary logs contain only synthetic/local aggregates;canonical benchmark histories and shared apps untouched.",
+    "limitsAndNextDecision": "Small DEVlocalHTTP/SVG controls,uniformmetadata,one viewport/DPR,no CPU or real bandwidth/CDN/topology/codec certification;two orders are not population tails. Per-render extractor/fixture scope not production plan lifecycle. Remaining Justified parent/cell loss,Table sparse cache,history/seek/reset/resize/eviction/indexed compatibility remain unimplemented. Recommend no production retention selection from this study;return to explicit Grid/Table B2scope decision,with Justified50unless separately selected. Further retention work should answer a named real-media question under new authority,not chase remount perfection. No live permission,upgrade,production fix,Git mutation or campaign approval follows."
+  },
+  "publicationRetentionGridJustified20261025": {
+    "kind": "fixture-only-selection-and-key-counterfactuals-not-timing-paint-or-production-approval",
+    "purpose": "Investigate Grid and Justified independently as supporting work for B2 fast-scroll continuity. A lack of benefit in one density does not stop testing another. Fewer replacements alone do not justify shipping retention.",
+    "baseline": "Same isolated3041/MockDataSource70000/seek-nonindexed held backward publication as the existing Table C diagnostic:1720x960/defaultDPR1,300->500records,offset-200,no eviction. Mock metadata4000x3000 and synthetic media400x300. Existing admission,loading,scroll writes and dependencies unchanged. No live app or campaign access.",
+    "arms": "C selects the union of ordinary rows and exact new mapped rows for the initial visible cohort,with original keys. CK adds fixture-scoped stable parent keys from setup onward. Both retain the original compensation owner,release after default coverage and latch release.",
+    "keys": {
+      "grid": "React row-parent key uses fixed fixture scope,searchParams,columns and global physical row:twoTier?index:floor(bufferOffset/columns)+index. Existing physical-column cell keys remain. Virtualizer measurement keys are not changed.",
+      "justified": "Fixture-only layout interception exposes block.start+packedRow.firstItemIndex BEFORE buffer-local clipping. React parent key uses fixed fixture scope,searchKey,indexed flag,width and that unclamped packed-start ordinal; child keys use image.id,with scoped placeholder ordinals. Origin remains overlap-relative,not claimed as global rank. No production reset/epoch lifecycle implementation.",
+      "guards": "Actual parent DOM key markers agree with initial keys and per-render effective provider keys for every CK cohort image at every observed commit. Sparse row keys are unique. Original image references and MutationObserver separately verify lifetime. Key policy is established before initial references,not toggled on publication."
+    },
+    "failingFirst": "After C passed,CK assertions were added without key intervention. Both failed correctly at sameElement:expected18/41,observed0. Log:kupua-grid-justified-retention-ck-failing-output.txt. No prediction was forced by weakening survival checks.",
+    "commitColumns": ["renderAttempt","scrollTop","chosenRowMin","chosenRowMax","ordinaryRangeStart","ordinaryRangeEnd","photosPresent","sameOriginalImg","sameFirstPublicationImg","stableParentKeys","currentImgsLoaded","targetsInChosenRows"],
+    "rows": [
+      {
+        "density": "grid", "arm": "C", "cohort": 18, "mutationRecords": 458,
+        "ordinarySelectedRows": 13, "maximumExtraRows": 3, "maximumSelectedRows": 16,
+        "originalImgsRemoved": 18, "originalSrcMutations": 0, "publicationImgsRemoved": 0,
+        "commits": [
+          [2,4545,10,51,15,17,18,0,18,0,18,18],
+          [4,14847,10,51,15,17,18,0,18,0,18,18],
+          [6,14847,44,56,49,51,18,0,18,0,18,18],
+          [8,14847,44,56,49,51,18,0,18,0,18,18]
+        ]
+      },
+      {
+        "density": "justified", "arm": "C", "cohort": 41, "mutationRecords": 628,
+        "ordinarySelectedRows": 16, "maximumExtraRows": 6, "maximumSelectedRows": 22,
+        "originalImgsRemoved": 41, "originalSrcMutations": 0, "publicationImgsRemoved": 0,
+        "commits": [
+          [2,2425,7,47,12,17,41,0,41,0,41,41],
+          [4,8143,7,47,12,17,41,0,41,0,41,41],
+          [6,8143,37,52,42,47,41,0,41,0,41,41],
+          [8,8143,37,52,42,47,41,0,41,0,41,41]
+        ]
+      },
+      {
+        "density": "grid", "arm": "CK", "cohort": 18, "mutationRecords": 304,
+        "ordinarySelectedRows": 13, "maximumExtraRows": 3, "maximumSelectedRows": 16,
+        "originalImgsRemoved": 0, "originalSrcMutations": 0, "publicationImgsRemoved": 0,
+        "commits": [
+          [2,4545,10,51,15,17,18,18,18,18,18,18],
+          [4,14847,10,51,15,17,18,18,18,18,18,18],
+          [6,14847,44,56,49,51,18,18,18,18,18,18],
+          [8,14847,44,56,49,51,18,18,18,18,18,18]
+        ]
+      },
+      {
+        "density": "justified", "arm": "CK", "cohort": 41, "mutationRecords": 388,
+        "ordinarySelectedRows": 16, "maximumExtraRows": 6, "maximumSelectedRows": 22,
+        "originalImgsRemoved": 0, "originalSrcMutations": 0, "publicationImgsRemoved": 0,
+        "commits": [
+          [2,2425,7,47,12,17,41,41,41,41,41,41],
+          [4,8143,7,47,12,17,41,41,41,41,41,41],
+          [6,8143,37,52,42,47,41,41,41,41,41,41],
+          [8,8143,37,52,42,47,41,41,41,41,41,41]
+        ]
+      }
+    ],
+    "sharedGuards": "All four arms have1read/1publication,one latched release,unchanged scope,zero observer overflow and correct loaded final sources. Ordinary .range follows the original sequence,including corrected-DOM-scrollTop/old-range intermediate commit. Each has4active/4released extractor calls before followup. Subsequent in-buffer scroll toimage180has0extra rows,0old cohort present,still1read/1publication,no pending metadata. Removal/reinsertion/clone calibrations remain separate after measurement.",
+    "conclusions": [
+      "C removes committed cohort exclusion in both densities,but original image elements still get replaced. First-publication-created elements remain present at every later commit with no observed removal,including the intermediate corrected-offset/old-range commit.",
+      "CK preserves all18Grid and41Justifiedoriginal images in this unchanged-membership case; parent identity agrees throughout. Range selection and React parent/cell identity are distinct causes,not competing explanations.",
+      "Three extra Grid rows or six Justified rows suffice here. This is bounded observed DOM work,not a qualified frame or request cost. No direct virtualizer internal-field mutation or additional placement owner is needed for this mechanism."
+    ],
+    "limits": "One interior nonindexed backward page with loaded synthetic media and uniform metadata ratios; no meaningful native-readiness penalty or B2+CK speed comparison. Fixture callback refreshes per render; production plan election,invalidation,epoch/user-intent/cancellation and overlapping-publication lifecycle are not implemented. No arbitrary rebreak,capacity,forward,indexed,resize,seek/sort/history guarantee. Genuine rebreak and historical A.4 key regressions remain distinct from this case. No paint,bytes,media-request or performance-benefit claims.",
+    "validation": "C2passed;failing-first CK2failed at original-element assertions;CK2passed after key intervention;all4new arms passed with independent publication-node removal/unique-key guards. Final combined original3baselines+TableC+Grid/JustifiedC/CK:8passed28.2s,kupua-all-publication-retention-verified-output.txt. typecheck:perf pipeline explicitly0,kupua-grid-justified-retention-typecheck-output.txt;editor diagnostics clean. No src changes,so full product unit/E2E not rerun.",
+    "nextDecision": "Mechanisms now supported for each density;no product adoption decision follows. Next select readiness-sensitive per-layout comparisons in both treatment orders:B2alone versus B2+CK,plus high-demand backward movement. Preserve wall/progress,frames,useful readiness and attributable bounded demand;classify benefit,harm,no benefit and inconclusive separately. Grid remains eligible regardless of Justified/Tablevalue. Already-loaded SVGs alone cannot settle native-readiness benefit;no broad retention framework or campaign rerun is justified merely by lower remount counts."
+  },
+  "publicationRetentionTableC20261025": {
+    "kind": "fixture-only-supported-range-extractor-counterfactual-not-product-or-performance-approval",
+    "purpose": "Support B2's original goal of reducing fast-scroll metadata blocking without introducing worse current-photo lifetime or unbounded work. This experiment isolates retention, not B2 admission or a new universal prerequisite.",
+    "baseline": "Same isolated3041/current-source Table held-publication fixture as publicationIdentityCurrent20261025:MockDataSource70000,seek/nonindexed,1720x960/defaultDPR1,loaded synthetic400x300SVG,300->500records,offset-200,no eviction. Product keys,scroll writes,admission,loading policy and dependencies unchanged. Shared app and canonical histories untouched.",
+    "intervention": "Only browser-served ImageTable gains a public rangeExtractor union of default rows and exact NEW buffer-local rows for the original visible cohort. Deduplicate,sort,bounds-check; release once all required rows are covered by default selection and latch release. Extractor callback is refreshed each render deliberately; this is not a production efficiency or lifetime-state-machine design.",
+    "failingFirst": "New survival assertion without selection intervention failed as expected:27photos required,0present at first publication commit,27original imgs removed. Retained the unchanged baseline arm rather than weakening its observation.",
+    "cohort": 27,
+    "reads": 1,
+    "publications": 1,
+    "renderAttempts": 6,
+    "mutationRecords": 342,
+    "commitColumns": ["renderAttempt","scrollTop","chosenRowMin","chosenRowMax","ordinaryRangeStart","ordinaryRangeEnd","photosPresent","sameOriginalImg","originalImgsConnected","correctCurrentSources","currentImgsLoaded","targetsInChosenRows"],
+    "commits": [
+      [2,2880,75,316,90,117,27,27,27,27,27,27],
+      [4,9280,275,332,290,317,27,27,27,27,27,27],
+      [6,9280,275,332,290,317,27,27,27,27,27,27]
+    ],
+    "selection": {
+      "ordinarySelectedRows": 58,
+      "maximumExtraRows": 27,
+      "maximumSelectedRows": 85,
+      "activeExtractorCalls": 2,
+      "releasedExtractorCallsBeforeFollowup": 4,
+      "releases": 1,
+      "originalImgsRemoved": 0,
+      "originalSrcMutations": 0,
+      "settledOriginalImgsRetained": 27
+    },
+    "afterReleaseScroll": {
+      "bufferLocalTargetRow": 180,
+      "status": "released",
+      "releases": 1,
+      "extraSelectedRows": 0,
+      "oldCohortPresent": 0,
+      "totalReads": 1,
+      "totalPublications": 1,
+      "metadataPending": false
+    },
+    "separateDependencyControls": {
+      "scope": "After primary measurement and removal/reinsertion/clone calibration; deliberate limitations, not failures hidden inside the passing retention result.",
+      "extractorInvalidation": {
+        "method": "Isolated installed Virtualizer constructed from captured options,with no scroll element and constant500count/range; no DOM or scroll-owner intervention.",
+        "initialPlan": [180,181,183,185],
+        "newPlan": [180,182,184,185],
+        "unchangedCallbackSelection": [180,181,183,185],
+        "refreshedCallbackSelection": [180,182,184,185],
+        "conclusion": "A hidden-ref plan mutation alone does not invalidate memoized extraction. This control is not a full-capacity publication test."
+      },
+      "tableSparseCache": {
+        "method": "Force actual Table selection to each sparse row set; copied mock results trigger rendering outside measurement. Endpoints/count remain identical. Existing Table cache remains unchanged.",
+        "firstSelection": [180,181,183,185],
+        "firstPresentWithImages": 4,
+        "secondSelection": [180,182,184,185],
+        "secondPresentWithImages": 2,
+        "conclusion": "The contiguous-window firstID/lastID/count sentinel is not safe for arbitrary sparse unions. A production retention design must address exact membership; this is not claimed as an existing contiguous-window product defect."
+      }
+    },
+    "interpretation": "Range exclusion is sufficient to break Table's original-element lifetime in this scenario; supported bounded selection preserves all27originals without changing keys or compensation. Ordinary virtualizer.range remains90-117at first publication even though targets290-316are selected,so selection and demand-range ownership remain distinct. No additional metadata reads occur through the followup scroll. Baseline Table/Grid/Justified omission/replacement observations remain unchanged.",
+    "limits": "One held interior backward page,no eviction,original admission,known fixture cohort,synthetic loaded media and DOM observation. No B2+retention fast-scroll comparison,frame-cost guarantee,media-request/bytes guarantee,paint or native-readiness attribution. No full-capacity,indexed,forward,overlapping-publication,new-user-intent or production cancellation coverage. Per-render callback refresh and fixture latching are not production designs. Extra mounted rows can affect work,focus and admission.",
+    "validation": "Focused failing-first log:kupua-table-retention-failing-output.txt. Final combined baseline/candidate run:4passed,15.4s,kupua-table-retention-verified-output.txt. Dependency controls matched expected stale extraction and sparse-cache counterexample. typecheck:perf pipeline explicitly0,kupua-table-retention-typecheck-output.txt; editor diagnostics clean. No src changes,so full product unit/E2E not rerun.",
+    "nextDecision": "Ask the original interlocutor to challenge minimal cache-safe membership,plan invalidation/release and cost before selecting production work. Then separately test Grid/Justified unchanged-key retention to isolate parent/key effects. Before product selection,compare fast-scroll blocking,useful readiness,frames and bounded demand against B2 alone; do not trade the original goal for zero-remount perfection or discard already-qualified B2 benefit."
+  },
+  "publicationIdentityCurrent20261025": {
+    "kind": "current-source-held-publication-commit-and-element-identity-diagnostic-not-a-performance-or-paint-test",
+    "question": "Do still-visible photographs lose their original image elements because their identity labels change, because they temporarily leave the committed rendered set before compensation, or through slot/source reuse? Test stable-photo-keyed Table as a natural control against fixed Grid and Justified.",
+    "baseline": "HEADcc9230fa7 with current uncommitted research work. Product source, keys, scroll writes and backward admission unchanged. Isolated runner3041,MockDataSource70000,seek/non-indexed regime,1720x960/defaultDPR1,synthetic400x300SVG. Initial seek42000 and buffer-local row/image90setup reuse existing helpers. No shared-tab/live services, real metadata/media, cache/transport experiment or B2 predictor intervention.",
+    "method": "One programmatic backward extension is held, with loaded initial visible img references retained. Release exactly one response:300->500records,offset-200,no eviction. Fixture-only intercepted component code records the chosen virtual rows per render; an observation at the start of the EXISTING layout-effect compensation callback inspects actual committed DOM using that render's token. No extra React hook/state update, virtualizer calculation, key change, scroll write or render-time offset mutation. Render attempts are not treated as commits. MutationObserver independently records original removal/src changes. Read-only DOM/layout observation can affect timing: no latency/paint conclusion.",
+    "cohort": "All initial photos also visible at settled recovery are included:Table27,Grid18,Justified41; in these cases all initial visible photos belong to that final shared cohort. Presence anywhere in the region, viewport intersection, same actual img, connected old img, source-attribute equality and desired-row membership are separate measurements. Detached-parent data attributes do not count as a still-rendered photo.",
+    "commitColumns": ["renderAttempt","scrollTop","chosenRowMin","chosenRowMax","targetNewRowMin","targetNewRowMax","photosPresent","sameOriginalImg","originalImgsConnected","correctCurrentSources","currentImgsLoaded","targetsInChosenRows"],
+    "rows": [
+      {
+        "density": "table", "sharedVisible": 27, "renderAttempts": 6, "committedSnapshots": 3, "mutationRecords": 423,
+        "commits": [
+          [2,2880,75,132,290,316,0,0,0,0,0,0],
+          [4,9280,275,332,290,316,27,0,0,27,27,27],
+          [6,9280,275,332,290,316,27,0,0,27,27,27]
+        ],
+        "originalImgsRemoved": 27, "originalSrcMutations": 0, "settledOriginalImgsRetained": 0
+      },
+      {
+        "density": "grid", "sharedVisible": 18, "renderAttempts": 8, "committedSnapshots": 4, "mutationRecords": 458,
+        "commits": [
+          [2,4545,10,22,49,51,0,0,0,0,0,0],
+          [4,14847,10,22,49,51,0,0,0,0,0,0],
+          [6,14847,44,56,49,51,18,0,0,18,18,18],
+          [8,14847,44,56,49,51,18,0,0,18,18,18]
+        ],
+        "originalImgsRemoved": 18, "originalSrcMutations": 0, "settledOriginalImgsRetained": 0
+      },
+      {
+        "density": "justified", "sharedVisible": 41, "renderAttempts": 8, "committedSnapshots": 4, "mutationRecords": 628,
+        "commits": [
+          [2,2425,7,22,42,47,0,0,0,0,0,0],
+          [4,8143,7,22,42,47,0,0,0,0,0,0],
+          [6,8143,37,52,42,47,41,0,0,41,41,41],
+          [8,8143,37,52,42,47,41,0,0,41,41,41]
+        ],
+        "originalImgsRemoved": 41, "originalSrcMutations": 0, "settledOriginalImgsRetained": 0
+      }
+    ],
+    "controls": "Each held baseline retains the original visible elements before release. Deliberate calibration after measurements detects removal, reinsertion of the SAME element and clone replacement separately; calibration is excluded from observed mutations. Local-only module routes retain external-service blocking. Exactly1backward read/1publication,unchanged scope,200new records/offset-200,no observer/frame overflow,correct final sources and decoded visible recovery pass in every case.",
+    "conclusions": [
+      "A current-source committed virtual-range gap is observed in ALL THREE densities for this buffer-local prepend, including Table's stable image-ID row-key path. It is not only a Justified key-label phenomenon.",
+      "In each first publication commit the photographs' new rows are outside the chosen rows and none of the shared photographs is in the region DOM. After compensation all return, but with new image elements. Stable labels alone cannot retain elements omitted from rendering in this path.",
+      "Grid/Justified also have an intermediate committed snapshot with corrected DOM scrollTop but the old chosen row set. This witnesses the DOM/virtual-range coordination gap; it does not establish when either snapshot was painted.",
+      "No src mutation of the original img nodes is observed here. Do not describe this result as demonstrated in-place source swapping. Detached card ancestry can change independently from the old img's src/lifetime.",
+      "Key/parent identity breaks can coexist or matter where row sets overlap. The test does not establish that every suggested stable-key change is useless, that A0+K is the only repair, or that direct render-time mutation of virtualizer.scrollOffset is safe.",
+      "Spatial correctness and image-element lifetime are distinct. Fixed Grid slot handling is not proof of retained img identity. Prior per-layout B2 benefit/cost results remain valid, but scope recommendations cannot be justified by claiming only Justified has this lifetime interruption."
+    ],
+    "limits": "One held backward200-image publication without eviction in seek/buffer-local mode, interior settled viewport, synthetic media and DEV instrumentation. No forward/head-eviction,capacity,indexed,resize,seek/sort transition or all-regime guarantee; no painted blank/wrong frame, cache/bytes, native-media delay or exact attribution of the earlier canonical Justified271mswait. Passing diagnostic tests validate capture/guards, not a product fix.",
+    "validation": "Initial Table case passed, then all3density cases passed; after final local-only route guards,all3passed again. Final log kupua-publication-identity-verified-output.txt; prior all-density log kupua-publication-identity-current-output.txt. Final compiler pipeline explicitly0after one missing callback type annotation repair; editor diagnostics clean. Shared user app untouched,fixture pages/context closed and held read/source observer cleaned in finally. No product or Git mutation.",
+    "nextDecision": "Treat preservation of the retained cohort across publication/compensation as the first demonstrated ownership issue, then test whether stable row/cell identity is additionally needed when that cohort remains rendered. Compare supported viewport/virtualizer coordination or bounded transitional retention before proposing direct internal-field mutation; preserve existing single placement ownership, seek/reset/history,validity,ratios and bounded state. Any experimental fix needs separate operator approval. Do not turn unpainted intermediate DOM snapshots into a new universal UX gate or discard measured B2 benefits."
+  },
+  "b2QualificationClosure20261025": {
+    "kind": "bounded-shared-consumer-qualification-and-late-current-media-witness-not-a-campaign",
+    "supersedes": "The unresolved Table measurement blocker and unmeasured Table/native short-stop statements in the earlier same-day checkpoints below. Historical failures and exclusions remain evidence, not current task status.",
+    "decision": "Evidence supports operator selection of the bounded400ms backward predictor for Grid/Table as a continuity compromise, not a universal frame/readiness improvement. Do not enable it indiscriminately for Justified: high-demand wall benefit is confirmed, but a late-publication current-thumbnail readiness cost is demonstrated. Keep any selected scope explicit; no product change, eager-band change, scheduler or buffer increase was implemented.",
+    "animationAttribution": {
+      "owner": "ImageTable.EnrichedTableRow applies anim-arriving to the row; index.css kupua-arrive animates CSS translate from0 -8px to0 0 over0.8s. Placement remains a separate transform:translateY(row.start).",
+      "discriminator": "Previously failing current-policy pressure pair: raw stopped movement4.1259765625px, initial animation translate-4.12584px/final0; animation-adjusted layout movement0.0001365625px. Independent transform+8px injection measured exactly8px. Candidate preserved the stopped row through6400px scroll-origin compensation with0layout movement.",
+      "implementedMeasurement": "Research only: retain raw movement, animation translation and scroll-origin delta; subtract only animated CSS translate, never placement transform. Keep1pxlayout limit and assert injected8pxcalibration within0.05px. Expected animation is not a newly discovered Table placement defect and is not disabled."
+    },
+    "localAcceptance": {
+      "commandSelection": "test:perf-research --grep 'B2 acceptance '; existing isolated3041runner, mock70000records, synthetic400x300SVG,1720x960/defaultDPR1; no service access or canonical history writes",
+      "validation": "All11tests passed in3.0minutes:8Tableworkload/order cases (16policy observations) and3settled-far-seek tests (6policy observations). typecheck:perf passed with explicit pipeline exit0. No src changes, so no full product unit/E2E rerun.",
+      "workloads": "Exact600px upward short stop with100msmetadata;100results/s/350msnegative control;200results/s/350mspressure;200results/s/900msslow backward motion plus1.5sreversal. Capacity cases begin1000records/300resultsbackward runway, short stop300records. Exact paired initial records/offset/placement and both treatment orders.",
+      "contract": "One speculative page is accepted. Preserve first-ready censor/pending metrics; do not require all speculation complete when current photos first decode. After1500msstopped observation plus500msidle, assert drained metadata, no idle starts and retained stopped-anchor layout<=1px. Candidate total reads<=current+1; retention<=1000, peak<=2. PostStopMediaReadyMs is a late readiness-check clock, not earliest actual decode latency.",
+      "columns": ["workload","order","currentWallMs","candidateWallMs","currentReads","candidateReads","currentAchievedResultsPerSecond","candidateAchievedResultsPerSecond","currentWorstFrameMs","candidateWorstFrameMs","currentMaximumPhaseFrameP95Ms","candidateMaximumPhaseFrameP95Ms","currentEarlyDecodeMs","candidateEarlyDecodeMs","currentEarlyPendingRefills","candidateEarlyPendingRefills","currentRawStoppedDisplacementPx","candidateRawStoppedDisplacementPx","currentLayoutStoppedDisplacementPx","candidateLayoutStoppedDisplacementPx"],
+      "rows": [
+        ["short-stop","current-first",0,0,0,1,null,null,26.1,25.3,26.1,25.3,31.8,26.7,0,0,null,null,null,null],
+        ["short-stop","candidate-first",0,0,0,1,null,null,27.2,33,27.2,33,17.1,20.6,0,0,null,null,null,null],
+        ["negative-control","current-first",0,0,1,1,97.95,98.86,91.2,100.1,25.9,33,51.5,20,0,0,0,0,0,0],
+        ["negative-control","candidate-first",0,0,1,1,98.47,98.7,83.3,100.1,25.1,41.7,31.8,19,0,0,0,0,0,0],
+        ["fast","current-first",276.73,0,2,3,175.62,193.16,146.2,91.2,41.1,54.7,69.9,51.8,0,1,4.938965,0,0.000035,0],
+        ["fast","candidate-first",275.85,0,2,3,175.88,192.9,146.2,92.5,33.3,57.5,71.5,62.8,0,1,4.845703,0,0.000123,0],
+        ["slow-reversal","current-first",672.34,376.23,2,2,151.43,164.12,149.9,150,42.5,37.5,40.2,60.7,0,0,0,0,0,0],
+        ["slow-reversal","candidate-first",685.76,481.69,2,2,149.97,164.44,141.8,133.4,42,33.7,41.7,81.2,0,0,0,0,0,0]
+      ],
+      "checks": "All early endpoints in final complete run uncensored, stopped checks pass, no idle chains or failed current images. All12non-shortstop arm calibrations measured8px and adjusted stopped movement<0.001px. All3far-seek comparisons retain identical300-record destination/placement/visibleIDs with0extensions and decoded current media. Earlier censored/overstrict-contract attempts remain excluded, not erased.",
+      "interpretation": "Table is not simply faster:350mspressure removes276mswalls with one extra page, but maximum phase-p95 rises to54.7/57.5ms while worst frame falls146.2->91.2/92.5ms.900msreversal reduces rather than eliminates walls, with2reads both. Negative control has0walls/1read both, but candidate frame samples can still be worse. Small DEV samples do not establish population tails or production-build effects."
+    },
+    "canonicalFollowUp": {
+      "environment": "Operator-shared foreground local Vite DEV,ApiDataSource/deployed-test/canonical;1150x919window,1136x847region,DPR2; existing until-bound scope, observed total1208672. Natural metadata/media delivery, noCPU/network throttle; HTTP-cache bypass only during motion/recovery. Decoded/CDN/upstream cache warmth uncontrolled; no hosted-client, cold-photo, verifiedHTTP2 or paint claim.",
+      "method": "Browser-served useDataWindow expression conditionally mirrors400ms backward admission; no file/server change. Current policy through setup, reset existing velocity before input. Exact initial IDs/offset/total/params/visible boxes/scrollTop per pair, decoded starting cohort.3smotion,4sfirst recovery, explicit1500msstopped/500msidle follow-up. Fixed6400px/sTable (requested200results/s) and10000px/sJustified (requested245.17 by initial calibration); judge achieved demand, not requested labels.",
+      "setup": "Table current-first starts300records, candidate-first500; backward runway200 in BOTH orders. One current setup explicitly fills its missing forward page before timing after exact-prefix verification. Justified300/500attempt excluded; final pair explicitly starts500records/90backward runway, candidate setup fills one forward page. Different setups/orders are not pooled; preparation adds no backward runway or free product startup prefetch. No programmatic demand is suppressed.",
+      "budgets": "62cursor calls across accepted runs, setup, excluded attempts and the final publication witness, below64cap. This is a cursor-call budget, not a count of every API read. No non-local writes, campaigns, proxy/server changes or persisted raw traces/identities/URLs.",
+      "columns": ["density","order","policy","initialCount","backwardRunway","achievedResultsPerSecond","progressedResults","wallMs","phaseFrameP95Ms","worstFrameMs","firstDataMs","firstDecodeMs","metadataReadCount","mediaCarryIn","mediaStarts","mediaCompletions","mediaCancellations"],
+      "rows": [
+        ["table","current-first","current",300,200,168.73,509,436.13,[33.4,41.4,33.5],209.2,17.1,962.7,2,1,476,105,372],
+        ["table","current-first","candidate",300,200,179.9,575,0,[41.7,40.8,25.8],100.1,47.8,1008.6,3,0,566,82,484],
+        ["table","candidate-first","candidate",500,200,190.92,582,0,[42.3,41,41.6],100.1,51.6,1147.9,3,0,581,64,517],
+        ["table","candidate-first","current",500,200,172.27,520,368.13,[33.8,33.9,58.1],99.4,19.1,951.9,2,0,509,97,412],
+        ["justified","candidate-first","candidate",500,90,209.13,632,85.35,[17.3,16.9,16.7],57.6,55.3,590.4,4,0,752,87,665],
+        ["justified","candidate-first","current",500,90,161.64,490,667.05,[16.7,9.7,15.8],56.3,18,604.2,3,0,567,123,444]
+      ],
+      "checks": "All6first endpoints uncensored, all6stopped anchors retained with0adjusted displacement, all post-observation metadata drained/no idle starts; no non-cancellation Image network failures or pending Images at observation end. Table current27/27decoded each arm; Justified candidate27/27 versus current20/20at different achieved endpoints. Moving pending slots approach100% in every arm. Native Table metadata reads421-548ms; Justified428-550ms.",
+      "interpretation": "Table continuity benefit replicates both orders with one extra read, greater progress and additional request/cancellation churn; frame outcomes mixed, decoded endpoint a little slower but different identities. Justified high-achieved-demand reversal now confirms substantial benefit, not the earlier104results/snegative-control inference. Initial-runway wall85msremains; neither path supplies continuously ready moving photos. Counts run through different endpoint/dwell boundaries and are global, not bytes/upstream savings, obsolete-request ownership or same-image latency speedups."
+    },
+    "canonicalJustifiedShortStop": {
+      "method": "Both orders, same warmed500-record source, exact600pxupward input at4000px/s, same starting records/geometry, current policy through setup. HTTP-cache bypass during motion/recovery does not clear decoded/CDN caches. Existing measureDensityRecovery plus companion journey through1500msstopped observation and500msidle; not cold unseen-entry or paint proof.",
+      "columns": ["order","policy","reads","earlyDecodeMs","movingPendingAreaPct","frameP95Ms","retainedDisplacementMaxPx","retainedResizeMaxPx","retainedNodeReplacements","mediaCarryIn","mediaStarts","mediaCompletions","mediaCancellations"],
+      "rows": [
+        ["current-first","current",0,30.3,2.6557,9.2,0,0,0,0,10,10,0],
+        ["current-first","candidate",1,30.5,4.9314,9.3,0.242188,0,27,0,68,36,32],
+        ["candidate-first","candidate",1,30.7,0.0202,9.1,0.242188,0,27,6,68,44,30],
+        ["candidate-first","current",0,23.6,2.2283,8.7,0,0,0,7,0,7,0]
+      ],
+      "checks": "All four first cohorts uncensored/27decoded; no read starts after input stop, idle chains, pending metadata or pending Images at observation end. Candidate's one metadata read takes593/409ms, so early24-31msdecode occurs BEFORE the later publication. Zero source changes does not mean no remounts.",
+      "latePublicationWitness": {
+        "kind": "One candidate-only warmed follow-through using existing thumbnail observer, not a randomized paired latency comparison",
+        "method": "Rearm existing thumbnail observer exactly at motion-stop, then retain its1500mswindow through the extra publication instead of ending image observation at first decode. Installer armed once, one metadata publication occurred,449.4msread; collector overflow/detachment absent; final27/27decoded. Source wrappers/probes/cache bypass removed in finally.",
+        "earlyDataMs": 14.2,
+        "earlyDecodeMs": 23,
+        "postStopObservationMs": 1501.2,
+        "postStopPendingAreaPctMean": 10.3378,
+        "postStopPendingAreaPctMax": 96.3877,
+        "postStopAnyPendingMs": 283.9,
+        "postStopCompletedVisibleWaitMaxMs": 270.9,
+        "postStopFrameP95Ms": 9,
+        "postStopWorstFrameMs": 82.9,
+        "observerSampleMaxMs": 0.6,
+        "pendingAtEnd": 0,
+        "failedImages": 0,
+        "decodeFailures": 0,
+        "limit": "Loaded/decode readiness of current slots, not blank painted pixels. One publication and late exposure are observed; companion paired journeys count27node replacements, while this thumbnail collector's generation counter cannot certify wholesale replacement (reported0). Do not mistake early readiness or final recovery for an uninterrupted ready viewport, or claim a precisely isolated remount cost from this one arm."
+      },
+      "decisionValue": "The speculative request count itself is within the accepted one-page envelope. The meaningful Justified cost is later current-image unready exposure despite a good first-ready clock. This warrants an explicit operator trade-off or narrower initial product scope, not hiding the cost behind improved walls or widening buffers/horizons."
+    },
+    "validationAndExclusions": "Original Table raw-position failures are explained by CSSanimation, not tolerance inflation. Compiler passed, final complete acceptance surface11/11passed. An earlier all-surface run was accidentally interrupted after a hidden active-terminal notice and is excluded from completion evidence; a fresh separate log supplies the complete run. Exact-setup mismatches were rejected before further measured arms; only same-prefix explicit forward preparation plus unchanged exact signatures qualified replacement pairs. Cleanup verified: cache bypass reset,CDP detached,source wrappers/probes/routes removed; full reload has original hook without intervention marker,no research globals,Grid rendered,ApiDataSource and no data error.",
+    "nextStep": "Operator chooses product scope and accepted compromises. Recommended first scope is Grid/Table400ms, retaining Justified50pending explicit late-readiness disposition. Implementation still needs failing-first product regressions, non-wheel/seek/maintenance preservation, required full unit/E2Egates and a compatible operator campaign. No further broad campaign is needed merely to establish B2; no proxy rewrite, larger buffer, eager-top row or scheduler follows from these results."
+  },
+  "b2SharedConsumerFollowUp20261025": {
+    "status": "Partial research; settled-far-seek controls pass, Table bounded-stop fixture refinement is blocked on a baseline placement witness. No product changes or all-view acceptance.",
+    "question": "Does the backward metadata predictor change a settled far seek or interfere with current visible thumbnails, and does the shared Table consumer preserve bounded speculation?",
+    "admission": "Grid/Justified sets src on mounted thumbnails, visible rows plus2lower rows eager, upper/rest lazy. No separate fetchPriority for visible thumbnails and no strict client visible-first queue. Table thumbnails all native lazy. B2 changes metadata admission only, not the eager row band; no upper eager row is selected. Browser-native admission/scheduling can still admit offscreen lazy consumers.",
+    "seekOwnership": "seek aborts old range reads and starts its destination operation; velocity continuity requires same results, generation, total, offset and layout. A changed seek window drops predictive velocity. This preserves metadata ownership, not a guarantee that all old native image transfers stop or visible images outrank mounted eager/lazy consumers.",
+    "settledFarSeek": {
+      "method": "New isolated app research comparisons in density-app-research.spec.ts. Both policies start from the same mock settled window, candidate is armed before seek and remains armed through1500ms stopped observation. Seek42000->52000, synthetic media, blocked services; exact final IDs/offset/scrollTop/visible identity order compared. No explicit velocity reset immediately before far seek masks the product boundary.",
+      "result": "All3layout tests passed (6policy observations): generation advanced, identical300-record destination and placement,0forward/0backward extensions, current media decoded. Visible counts Grid18,Justified41,Table29 in both arms.",
+      "limit": "Functional synthetic proof of unchanged destination/admission, not a canonical-network latency comparison or visible-first priority certificate. A stationary viewport can still have pending native media work."
+    },
+    "table": {
+      "method": "Two orders, mock70000records and synthetic thumbnails on isolated3041. Short stop exact600px with100msmetadata; pressure350ms and slow-reversal900ms at requested200results/s. Capacity workloads start1000records/300resultsbackward runway. Current baseline through exact paired setup. These are not live canonical-photo results.",
+      "shortStop": "Both orders pass the bounded600px/one-extra-read/no-post-stop-chain controls. Current0reads versus candidate1, retention300->500; no walls, decoded endpoints. In the expanded run decode20.1/28.6ms current versus28.7/124.3ms candidate. Earlier diagnostic pair has candidate114.1ms versus current23.5ms; retain variability rather than a universal readiness claim.",
+      "slowReversal": [
+        {"order":"current-first","currentWallMs":696.24,"candidateWallMs":477.25,"currentAchievedResultsPerSecond":150.37,"candidateAchievedResultsPerSecond":164.03,"currentReads":2,"candidateReads":2,"currentStopDecodeMs":40.2,"candidateStopDecodeMs":47.1},
+        {"order":"candidate-first","currentWallMs":705.66,"candidateWallMs":471.74,"currentAchievedResultsPerSecond":148.51,"candidateAchievedResultsPerSecond":164.45,"currentReads":2,"candidateReads":2,"currentStopDecodeMs":39.2,"candidateStopDecodeMs":43.8}
+      ],
+      "slowReversalChecks": "Both original control orders passed: stopped data/media uncensored, no post-stop admissions or pending metadata, retained<=1000, peak<=2. This does not certify the subsequently added stopped-anchor witness.",
+      "pressure": "350ms at200results/s is pressure, not a negative control (50results is only250msrunway). Current has about304-306mswalls and2reads; candidate0walls/about191-194resultsps and3reads, with1stillpending at its first ready-media endpoint. One diagnostic reports1admission after input stop; attribution to final-input delivery versus an idle chain is unresolved. Candidate-first frame-p95 phases34.3/50.9/67.5ms are adverse. First expanded arm stopped-media censoring is retained, not erased by the later uncensored arm.",
+      "contractCorrection": "Requiring zero speculative reads in flight at the instant current photos decode is stronger than the accepted one-extra-page envelope. Preserve it as an early-endpoint metric, not automatically a product defect. Refined controls retain early censor/pending fields, observe1500msafterstop plus500msidle, require drained work/no idle admissions, candidate<=current+1read and stable stopped anchor. An added100results/s/350msnegative control has not yet run.",
+      "blocker": "The refined fast current-first control fails on CURRENT policy before candidate: post-stop anchor displacement5.26171875px against1px. Work drains, no idle starts and current media decodes. Arrival/row measurement versus true movement is not attributed. Do not widen tolerance, blame B2 or turn it into a product prerequisite without evidence. Further fixture edits paused for operator direction.",
+      "validation": "Initial short-stop2/2 pass; expanded surface stops after2pass/1fail; remaining independent surface5pass/1fail, including all3far-seek tests. Compiler passed after browser-import correction; latest refinement editor diagnostics report no errors, but focused runtime control fails on baseline anchor. The new research surface is not all green. No product unit/E2E rerun because no src changes."
+    }
+  },
+  "b2CurrentBaseline20261025": {
+    "kind": "current-baseline-local-remeasurement-and-bounded-canonical-live-comparison-not-a-campaign",
+    "sourceHead": "cc9230fa7",
+    "decision": "Keep the 400ms mirror as the leading B2 candidate. Grid metadata-wall benefit replicates in both live treatment orders, but readiness and worst-frame costs are not uniformly better. Justified is not cleared: a high-demand pair has adverse frames and its reversed-order pair is only a lower-achieved-demand negative control. Do not approve a blanket shared-hook change or infer Table acceptance from Grid/Justified. No product policy was changed.",
+    "policy": {
+      "current": "Seek-mode backward threshold50",
+      "candidate": "min(200,50+max(0,-velocityEma)*400ms), velocity in results/ms",
+      "fixed": "Current render/callback repairs and detached-incomplete cleanup in both arms; unchanged forward/indexed policy, page200, capacity1000, cooldowns and placement owners",
+      "sharedConsumer": "ImageTable and ImageGrid both use useDataWindow/useScrollEffects. The intercepted expression is not intrinsically Grid-only. Table candidate behavior remains unmeasured."
+    },
+    "local": {
+      "method": "Existing B2 local short-stop/sustained-fast-delivery/sustained/reversal/capacity-reversal tests, both layouts/orders, unchanged research source and assertions. Two Grid short-stop tests plus18remaining tests passed; no1000ms cases or historical broad matrix.",
+      "conditions": "MockDataSource70000; synthetic400x300SVG; isolated runner-owned3041; viewport1720x960/default fixtureDPR1;100/350/900ms injected cursor delays according to existing workload;4000px/s motion, exact600px short stop; current baseline through setup, candidate activated after velocity reset",
+      "matching": "All20pairs retained exact initial ordered records, offset, scope, viewport, focus and visible geometry (translated tops rounded0.001px); no harness adaptation required after KUP-042",
+      "checks": "40policy observations; stopped data/media uncensored, no post-stop read starts or pending refills, retention<=1000, exact-capacity cases stay1000; existing concurrency/read/overflow bounds pass. These passing controls are not an all-visible paint certificate.",
+      "columns": ["density","workload","order","currentWallMs","currentReads","currentPendingAreaPct","currentFrameP95Ms","currentWorstFrameMs","currentStopDecodeMs","currentDrivenPx","candidateWallMs","candidateReads","candidatePendingAreaPct","candidateFrameP95Ms","candidateWorstFrameMs","candidateStopDecodeMs","candidateDrivenPx"],
+      "rows": [
+        ["grid","short-stop","current-first",0,0,0,16.9,16.9,32.7,600,0,1,0,16.8,16.8,41.3,600],
+        ["grid","short-stop","candidate-first",0,0,0,25.6,25.6,32.6,600,0,1,0,17.1,17.1,32.1,600],
+        ["grid","sustained-fast-delivery","current-first",0,1,1.47,16.7,41.7,32.7,12014,0,2,3.64,16.8,91.8,33.1,12006],
+        ["grid","sustained-fast-delivery","candidate-first",0,1,1.48,16.7,37.4,24.2,12029,0,2,3.26,16.7,87.8,33.3,12006],
+        ["grid","sustained","current-first",245.15,1,2.45,16.8,98.3,46.5,10984,0,2,4.26,16.6,115.9,33.1,11997],
+        ["grid","sustained","candidate-first",230.05,1,2.17,16.3,96.2,33.9,11061,0,2,4.81,16.6,112.7,34,12011],
+        ["grid","reversal","current-first",235.2,1,1.45,16.6,96.3,48.4,17010,0,2,2.43,16.5,116.3,45.9,18001],
+        ["grid","reversal","candidate-first",227.45,1,1.48,16.4,98.4,42.1,17040,0,2,2.34,16.4,105.5,35.4,17901],
+        ["grid","capacity-reversal","current-first",225.9,1,1.42,15.3,66,32.3,17067,0,2,2.38,15.3,117.1,35.5,17884],
+        ["grid","capacity-reversal","candidate-first",229.55,1,1.58,14.7,75.3,27.3,17063,0,2,2.52,15.9,102.1,46.4,17975],
+        ["justified","short-stop","current-first",0,0,0,17.7,17.7,49.5,600,0,1,0,16.8,16.8,151.6,600],
+        ["justified","short-stop","candidate-first",0,0,0,22.5,22.5,35.1,600,0,1,3.43,15.7,15.7,163.9,600],
+        ["justified","sustained-fast-delivery","current-first",0,3,2.58,24.6,61.4,37.7,12005,0,3,4.79,23.8,85.8,35.4,11948],
+        ["justified","sustained-fast-delivery","candidate-first",0,3,2.72,25.5,57.6,33.5,12006,0,3,4.64,26.1,82.2,31.2,12000],
+        ["justified","sustained","current-first",995.7,2,3.12,17.6,67.1,112.6,8014,331.1,3,4.52,18.2,75.9,58.3,10643],
+        ["justified","sustained","candidate-first",979.95,2,3.61,16.7,76.2,107.9,8017,339.85,3,3.85,20.9,59.6,38.1,10620],
+        ["justified","reversal","current-first",977.9,3,2.16,16.8,74.3,37.7,13998,340.3,3,3.5,23.4,75.3,35.4,16670],
+        ["justified","reversal","candidate-first",983.05,3,1.99,16.7,68.6,37.3,14031,333.45,3,3.4,22.4,66.5,38.9,16643],
+        ["justified","capacity-reversal","current-first",1002.6,2,2.38,17.1,68,38.5,14013,383.2,3,3.68,17.6,70.4,40.7,16464],
+        ["justified","capacity-reversal","candidate-first",1005.4,2,2.32,16.8,65.6,41.3,13996,374.45,3,3.77,20.7,83.8,36.1,16460]
+      ],
+      "interpretation": "Grid slow-read walls225.90-245.15ms become0, with one extra read; worst frames/exposure can worsen even when p95 is similar. Fast-delivery controls have no walls under either policy. Justified slow-read walls977.90-1005.40ms fall to331.10-383.20ms; short-stop readiness151.6/163.9ms versus49.5/35.1ms remains adverse. Current short-stop moving exposure0/3.43% is much lower than old46-49%, but does not erase the stopped readiness cost. No historical-to-current causal speedup is claimed."
+    },
+    "canonicalCampaignReuse": {
+      "campaignId": "ee34e38f-0d8a-48d1-b1b6-05b2dba776e1",
+      "label": "after rendering fixes",
+      "head": "aa9b9d80b with dirty tree",
+      "densityTimestamp": "2026-10-25T05:39:01.761Z",
+      "population": "Four repetitions; already deployed-test/canonical,1720x960/DPR2. Predates Table cleanup and P13b; not a post-all-repairs baseline or randomized causal comparison.",
+      "backward": "D2 late requested200results/s: Grid achieved median164.48 with489.04ms walls; Justified160.19 with555.16ms walls. Middle100results/s has0walls in both. Late pending-slot medians63.78%/44.61%; stop decoded cohorts uncensored in all four, median21.7/20.4ms after reversal. These loaded/revisited endpoints do not certify unseen moving delivery.",
+      "constrained": "D8 middle100results/s pending-slot medians93.20%Grid/87.43%Justified,0medianwalls. Late200:100%pending both,0medianwalls but one adverse Justified repetition; Grid stopped decode1882.35ms, Justified1/4cohort-change censor and no aggregate decode latency. Current canonical evidence, not old proxy evidence; metadata and delivery remain separate. Table's constrained zero-decoded campaign lead predates its repaired cleanup."
+    },
+    "canonicalLive": {
+      "environment": "Operator-shared foreground Vite DEV app; diagnostics confirm ApiDataSource/media-api/deployed-test/canonical; mounted media uses direct externalHTTPS, no localS3/imgproxy image paths. Repaired Grid callback and cleanup source markers verified. Window1150x919, region1136x847,DPR2; total1208682, same existing until-bound query. No production-build or hosted-app claim.",
+      "counterfactual": "One browser-served useDataWindow expression replaced in memory by the conditional400msmirror. No files/server settings changed. Current policy through setup; reset the existing module's velocity, activate candidate only during measurement; earlier candidate reads at local148-190 versus current48-50 witness actual admission. Conditional disabled and source-method wrappers restored in finally; browser routes removed.",
+      "workload": "Eight3s backward passes, requested200results/s in three1s phases,4s atomic recovery; two treatment orders/layout. No injected network/metadata latency orCPU throttle. Existing captureDensityJourney/thumbnail/readiness/placement probes reused, no new harness. HTTP cache bypass only during motion/recovery, reset afterward. Setup photos decoded before timing; CDN/decoded/upstream caches uncontrolled, no cold-photo or population-tail claim.",
+      "matching": "Exact ordered buffer IDs, offset, total, params, visible identity/box signature and scrollTop within each pair. Repeated seek alone restored a different viewport despite identical records: explicitly restore the recorded scrollTop before the unchanged assertion. Different content/runway across pairs is reported, never pooled as an identical workload.",
+      "budgets": "45cursor reads including setup and the excluded incomplete pair, below64read cap; each natural baseline additionally bounded to8cursor reads. No non-local writes, campaigns, server/proxy changes or saved raw live traces/identities/URLs.",
+      "requestMeaning": "CDP Image starts/completions/cancellations through each arm's recovery endpoint, including setup carry-in (0in every accepted arm). Counts are global, not current-image association, queue time, bytes or upstream work. Different achieved travel/cohorts/recovery endpoints preclude matched-budget savings claims. ResourceTiming mostly withholds protocol:72unavailable plus1HTTP1image; do not claim verifiedHTTP2 from canonical mode.",
+      "rows": [
+        {"density":"grid","order":"current-first","policy":"current","initialCount":300,"runway":198,"resultsPerPixel":0.01320132,"achievedResultsPerSecond":170.13,"progressedResults":512,"wallMs":424.21,"pendingSlotPctByPhase":[95.92,91.85,100],"frameP95MsByPhase":[16.9,24.9,25],"worstFrameMs":66.8,"stopDataMs":6.1,"stopDecodeMs":720.6,"decodedCount":16,"metadataReadMs":[519.8,480.5],"firstReadLocalStart":50,"mediaStarts":548,"mediaCompleted":98,"mediaCancelled":450,"mediaPendingAtEndpoint":0,"retainedDisplacementMaxPx":153.93,"retainedResizeMaxPx":256},
+        {"density":"grid","order":"current-first","policy":"candidate","initialCount":300,"runway":198,"resultsPerPixel":0.01320132,"achievedResultsPerSecond":196.18,"progressedResults":596,"wallMs":0,"pendingSlotPctByPhase":[89.67,100,100],"frameP95MsByPhase":[17.4,25.1,16.7],"worstFrameMs":92.1,"stopDataMs":15,"stopDecodeMs":293.7,"decodedCount":12,"metadataReadMs":[497.6,497.7,442.4],"firstReadLocalStart":162,"mediaStarts":652,"mediaCompleted":77,"mediaCancelled":575,"mediaPendingAtEndpoint":0,"retainedDisplacementMaxPx":4.14,"retainedResizeMaxPx":0.000122},
+        {"density":"grid","order":"candidate-first","policy":"candidate","initialCount":300,"runway":204,"resultsPerPixel":0.01320132,"achievedResultsPerSecond":198.58,"progressedResults":600,"wallMs":0,"pendingSlotPctByPhase":[95.86,100,100],"frameP95MsByPhase":[16.9,24.4,24.7],"worstFrameMs":50.8,"stopDataMs":11.8,"stopDecodeMs":821.1,"decodedCount":16,"metadataReadMs":[530.9,517.8,545.1],"firstReadLocalStart":188,"mediaStarts":672,"mediaCompleted":51,"mediaCancelled":621,"mediaPendingAtEndpoint":0,"retainedDisplacementMaxPx":4.14,"retainedResizeMaxPx":0.000122},
+        {"density":"grid","order":"candidate-first","policy":"current","initialCount":300,"runway":204,"resultsPerPixel":0.01320132,"achievedResultsPerSecond":170.29,"progressedResults":516,"wallMs":403.24,"pendingSlotPctByPhase":[91.35,100,100],"frameP95MsByPhase":[17.4,25.4,30.3],"worstFrameMs":66.3,"stopDataMs":25.2,"stopDecodeMs":720.1,"decodedCount":12,"metadataReadMs":[464.7,535.4],"firstReadLocalStart":48,"mediaStarts":548,"mediaCompleted":76,"mediaCancelled":469,"mediaPendingAtEndpoint":3,"retainedDisplacementMaxPx":153.93,"retainedResizeMaxPx":256},
+        {"density":"justified","order":"current-first","policy":"current","initialCount":300,"runway":96,"resultsPerPixel":0.01970883,"achievedResultsPerSecond":178.37,"progressedResults":538,"wallMs":616.33,"pendingSlotPctByPhase":[92.4,100,100],"frameP95MsByPhase":[16.7,16.9,17.5],"worstFrameMs":66.5,"stopDataMs":19.9,"stopDecodeMs":1114.9,"decodedCount":28,"metadataReadMs":[513.4,441.5,448.4],"firstReadLocalStart":48,"mediaStarts":616,"mediaCompleted":84,"mediaCancelled":532,"mediaPendingAtEndpoint":0,"retainedDisplacementMaxPx":893.48,"retainedResizeMaxPx":94.99},
+        {"density":"justified","order":"current-first","policy":"candidate","initialCount":300,"runway":96,"resultsPerPixel":0.01970883,"achievedResultsPerSecond":211.63,"progressedResults":651,"wallMs":14.14,"pendingSlotPctByPhase":[90.64,100,100],"frameP95MsByPhase":[16.7,17,41.3],"worstFrameMs":79.7,"stopDataMs":18.5,"stopDecodeMs":1020,"decodedCount":27,"metadataReadMs":[422.7,453.5,495.9,526.3],"firstReadLocalStart":96,"mediaStarts":758,"mediaCompleted":76,"mediaCancelled":682,"mediaPendingAtEndpoint":0,"retainedDisplacementMaxPx":7.6,"retainedResizeMaxPx":0.000122},
+        {"density":"justified","order":"candidate-first","policy":"candidate","initialCount":500,"runway":263,"resultsPerPixel":0.04701414,"achievedResultsPerSecond":104.01,"progressedResults":316,"wallMs":0,"pendingSlotPctByPhase":[77.69,100,100],"frameP95MsByPhase":[16.7,9.3,9.2],"worstFrameMs":33.4,"stopDataMs":7.7,"stopDecodeMs":941.2,"decodedCount":23,"metadataReadMs":[517.1,535],"firstReadLocalStart":166,"mediaStarts":379,"mediaCompleted":92,"mediaCancelled":282,"mediaPendingAtEndpoint":5,"retainedDisplacementMaxPx":1.19,"retainedResizeMaxPx":0.000061},
+        {"density":"justified","order":"candidate-first","policy":"current","initialCount":500,"runway":263,"resultsPerPixel":0.04701414,"achievedResultsPerSecond":104.15,"progressedResults":316,"wallMs":0,"pendingSlotPctByPhase":[42.61,99.79,100],"frameP95MsByPhase":[16.4,15.9,15.8],"worstFrameMs":41.7,"stopDataMs":4.5,"stopDecodeMs":420.9,"decodedCount":27,"metadataReadMs":[463.2],"firstReadLocalStart":48,"mediaStarts":327,"mediaCompleted":152,"mediaCancelled":175,"mediaPendingAtEndpoint":0,"retainedDisplacementMaxPx":0.59,"retainedResizeMaxPx":0.000061}
+      ],
+      "checks": "All8starting signatures exact within pairs; all8stop cohorts stable, all visible images decoded without failures; no post-stop reads or pending metadata refills, peak1refill; no non-cancellation media network failures. Paint remains unavailable. Current/candidate endpoints contain different identities/counts because achieved travel differs; do not call their latency difference the same-screen speedup.",
+      "negativeControl": "Justified candidate-first pair begins with500records/263runway and calibration0.047014results/px, achieving104results/s despite requested200; both policies travel316results with0walls. Retain as lower-achieved-demand/no-benefit evidence, not a second successful high-demand comparison. Candidate takes2reads versus1,379starts versus327,282cancellations versus175,decode941.2ms versus420.9ms. Endpoint populations differ, so no same-image latency claim.",
+      "geometryLimit": "The existing journey observer includes image arrival/animation and compensation, not only packing. Smaller candidate displacement/resize samples do not prove all-visible placement or paint. In particular current Grid's256pxresize/153.93pxdisplacement must not be labelled a new KUP-042 regression without animation/slot attribution.",
+      "naturalCurrentPolicyBaselines": [
+        {"density":"grid","initialCount":300,"runway":98,"loadSteps":[30,100,200],"achievedResultsPerSecond":[30.6,99.92,168.5],"wallMsByPhase":[0,0,451.7],"pendingSlotPctByPhase":[20.52,97.53,100],"frameP95MsByPhase":[16.6,17,17.6],"metadataReadMs":[436.2,473.7,408.2,471.2,496.5],"stopDataMs":null,"stopDecodeMs":null,"stopCohortChanged":1},
+        {"density":"justified","initialCount":300,"runway":203,"loadSteps":[30,100,200],"achievedResultsPerSecond":[32.66,98.83,175.5],"wallMsByPhase":[0,0,305.25],"pendingSlotPctByPhase":[7.66,93.72,100],"frameP95MsByPhase":[9.1,9.3,9.4],"metadataReadMs":[480.2,514,423.5,435.1],"stopDataMs":13.4,"stopDecodeMs":979.7,"stopCohortChanged":0}
+      ],
+      "exclusions": [
+        "Timed-out pointer-driven seek produced no generation change/read and no measurement; a density pointer click was intercepted by Table. DOM centre hit checks later pass for all three buttons: no app-overlap defect established. Explicit DOM density commands/store seek are diagnostic setup, not a native-input certificate.",
+        "Initial route.fetch-based interception failed to reach usable reload; removed before natural baselines. Accepted intervention fulfilled source fetched in browser memory directly; no route-side fetch. No timings from the failed interception.",
+        "Cursor-restore helper rejected synthetic-seek setup without a retained source cursor; no timed work began. Accepted live study uses explicit seek plus recorded placement, not a relaxed cursor assertion.",
+        "First attempted live pair completed only current before exact placement mismatch. Its488.99mswalls/165.26resultsps/554starts/445cancellations are not paired candidate evidence. Later accepted study resets its reference/results and explicitly matches placement.",
+        "No live canonical short-stop/reversal/capacity candidate study, Table candidate study, production-build/hosted-client result, protocol certification, raw trace persistence or paint certificate. Local controls cover bounded short-stop/reversal/capacity behavior with synthetic media only."
+      ]
+    },
+    "nextDecision": "No full campaign rerun is needed to re-prove B2. Grid merits explicit operator selection as a bounded continuity improvement, with extra reads/request churn and adverse worst frames disclosed. Do not silently generalize it to every shared-hook consumer or invent density-policy plumbing without deciding scope. For shared acceptance, the unresolved discriminators are Table coverage and Justified's actual-photo short-stop/frame trade-off plus a reversed high-achieved-demand pair; do not repeat the lower-demand no-benefit pair searching for a win. Keep photo-delivery/admission, initial runway and Justified geometry as separate questions."
+  },
   "p13bReturnAttribution20261025": {
     "kind": "bounded-resident-return-attribution-and-retained-callback-repair-not-a-campaign",
     "decision": "Retain only the small ImageGrid enterDetail callback repair: read the existing latest-params ref at invocation rather than depending on the whole route search object. Do not change wrapper visibility, return placement, history, density or interruption ownership. First-return DEV script work and an untraced pair improve; no clear warmed-return latency gain or live canonical speedup is claimed.",

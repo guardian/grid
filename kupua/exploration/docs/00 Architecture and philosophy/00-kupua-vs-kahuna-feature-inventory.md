@@ -202,7 +202,9 @@ Sources: [continuity chooser](../../../src/lib/search-continuity.ts),
 **Kahuna:** configures four preloaded rows in its lazy grid.
 
 **Kupua:** widens forward-loading lookahead from 50 towards 200 images as scrolling
-speeds up. When pages are prepended or evicted, viewport compensation keeps existing
+speeds up, using a 400ms velocity predictor. Fixed Grid and Table use the same
+directional prediction for buffer-local backward loading; Justified and indexed
+backward loading retain threshold 50. When pages are prepended or evicted, viewport compensation keeps existing
 content from moving merely because the in-memory window changed. This reduces
 loading gaps without claiming that every network or rendering stall is eliminated.
 

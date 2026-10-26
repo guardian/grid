@@ -24,6 +24,83 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 26 October 2026 - Refine dashboard comparisons, navigation and evidence
+
+Cold opens select the newest complete registered campaign and its predecessor,
+preserving explicit URL selections and fallbacks for one or no campaigns. History
+shows recorded results only, hides inactive Compare controls, and links registered
+campaigns and curated checkpoints to exact evidence. Links retain the selected pair
+and side when applicable; other observations open without an invented baseline.
+Field, statistic and scroll context remain explicit.
+
+Scrolling comparisons lead with data-derived directional summaries and Before/After
+values for blocked time, delivered progress, unready slots and frame timing. Existing
+field/population guards qualify comparisons; requested demand bounds favourable rate
+cues and differing starting runway remains explicit. Supporting charts and methods
+are expandable, uncharted Image Workflows groups use compact evidence disclosures,
+and Overview's five summaries remain unchanged.
+
+Left/Right traverse scrolling direction/load-phase scenes while retaining density,
+workload and statistic, or cycle Search's Action phase while preserving regime and
+comparison selections. Native controls, History-point keys, evidence views and unrelated
+sections keep their own behavior. Density is last in the Compare controls; focus
+rings are thin and Tab-driven, never pointer-driven.
+
+Removed obsolete integration instructions, duplicate or misleading coverage copy,
+and a nonfunctional Markdown fragment link; clarified references and missing revisions.
+Synthetic examples remain outside the dashboard. The existing adverse-recovery test
+is pinned to its historical campaign with unchanged assertions. Provisional thresholds,
+measurement limits, comparison eligibility and saved histories are preserved.
+
+### 25 October 2026 - Scope backward metadata lookahead to fixed Grid and Table
+
+Fixed Grid and Table now reuse the existing 400ms velocity predictor for seek-mode
+backward admission, retaining the 50-image base and one-page cap. Justified and
+unspecified hook callers remain at 50. Explicit layout selection is read by the
+stable reporting callback and changes break velocity continuity; viewport validity,
+programmatic demand and store-owned cooldown, concurrency and seek cancellation
+remain authoritative. Forward/indexed policies, compensation, buffers, keys and
+thumbnail loading are unchanged.
+
+Added failing-first admission and lifecycle regressions, plus isolated product
+short-stop controls that observe logical-anchor placement through delayed publication.
+Historical research adapters explicitly preserve their threshold-50 counterfactuals
+rather than silently relabeling the shipped policy. One speculative page remains an
+accepted continuity compromise; upper-row and retention work are not adoption gates.
+
+### 25 October 2026 - Research publication retention and its value for B2
+
+Extended isolated publication diagnostics across Table, Grid and Justified to
+separate temporary row exclusion, parent/cell identity and animation-dependent
+thumbnail replacement. Fixture-only retention and stable-key counterfactuals track
+original and publication-created image elements, bounded extra rows, release and
+subsequent scrolling. Independent controls expose Table's sparse-membership cache
+collision and hidden-plan extractor invalidation limits without changing product code.
+
+Matched current/B2/retention comparisons first reproduce backward blocking, then
+assess readiness, frames and demand using delayed loopback HTTP media in both
+treatment orders. Weak identity witnesses avoid explicitly pinning removed resources;
+late-publication observation separates loaded media from decode acknowledgement and
+retains censoring and adverse results. Preservation improves in bounded cases, but
+delivery gains do not justify making retention a B2 prerequisite; remaining Justified
+parent/cell losses and real-media limits stay explicit. Product policies, dependencies
+and canonical campaign histories are unchanged.
+
+### 25 October 2026 - Calibrate shared backward-predictor acceptance controls
+
+Added isolated Table short-stop, pressure, negative-control and capacity/reversal
+comparisons, plus settled far-seek comparisons for the shared view consumers.
+Stopped Table geometry now separates arrival animation from placement while retaining
+raw movement and independently calibrating real displacement. First-ready pending
+work remains visible; bounded speculation is checked separately from stopped position
+and continuing idle demand. Product admission, placement and buffer policies are unchanged.
+
+Current-source held-publication diagnostics also correlate committed DOM before
+compensation with each render's chosen virtual rows. Retained image references and
+mutation history distinguish omission, replacement and source changes; deliberate
+controls distinguish absence, same-node reinsertion and cloning. Instrumentation
+observes existing effects without changing product keys, scroll writes or admission.
+
 ### 25 October 2026 - Respect seek cooldown in Justified maintenance fixture
 
 The delayed-maintenance fixture now uses the existing extension-readiness helper

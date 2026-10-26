@@ -348,7 +348,7 @@ function loadScroll() {
   return { api, model, data, entry, records, get: scenario => records.find(record => record.scenario === scenario) };
 }
 
-function renderScrollCheckpoint(baseline = "recorded") {
+function renderScrollCheckpoint(baseline = "recorded", checkpointId) {
   const context = vm.createContext({ URLSearchParams });
   context.window = context;
   for (const file of ["campaign-comparison", "dashboard-data", "scroll-model", "scroll-summary"]) {
@@ -357,7 +357,7 @@ function renderScrollCheckpoint(baseline = "recorded") {
   const api = context.KupuaDashboardData;
   const campaigns = JSON.parse(readFileSync(new URL("results/campaign-log.json", root), "utf8"));
   const data = api.build(histories, [...api.definitions, ...api.campaignDefinitions(campaigns)]);
-  const checkpoint = data.checkpoints[`campaign:${campaigns.entries.at(-1).campaignId}`];
+  const checkpoint = data.checkpoints[checkpointId ?? `campaign:${campaigns.entries.at(-1).campaignId}`];
   const recordsFor = checkpoint => checkpoint.members.flatMap(id => data.entries[id].records.map(id => data.records[id]));
   const records = recordsFor(checkpoint), base = data.checkpoints[baseline], baseRecords = recordsFor(base);
   const densityEntry = checkpoint => data.entries[checkpoint.members.find(id => data.entries[id].family === "density")];
@@ -398,7 +398,7 @@ test("scroll coverage follows the selected baseline's actual long membership", (
 });
 
 test("recovery shows adverse tails and saved demand without inventing censor causes", () => {
-  const html = renderScrollCheckpoint();
+  const html = renderScrollCheckpoint("recorded", "campaign:ee34e38f-0d8a-48d1-b1b6-05b2dba776e1");
   const constrained = html.slice(html.indexOf('aria-label="Constrained stopped recovery"'));
   const justified = constrained.match(/<tr><th scope="row">Justified[\s\S]*?<\/tr>/)[0];
   assert.match(justified, /Cohort changed: median 0 · observed maximum 1/);

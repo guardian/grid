@@ -14,6 +14,21 @@ Last updated: 2026-10-25
 
 ## From Grid / Kahuna
 
+### Scoped Backward Metadata Lookahead (25 October 2026)
+
+Kupua's seek-mode buffer admission deliberately uses layout-specific prediction:
+fixed Grid and Table mirror the existing 400ms forward predictor for upward motion,
+with a 50-image base and one 200-image page cap. Justified and unspecified callers
+retain threshold 50; indexed backward admission is unchanged. This extends Kupua's
+custom window policy, not native lazy-image admission or a shared loading scheduler.
+
+Earlier metadata can reduce buffer-edge blocking, but a short stop may spend one
+extra read and publication can bring rendering/native image work forward. No universal
+zero-wall, stable-element or first-decode completion guarantee follows. Justified's
+measured late-readiness cost keeps it outside the selected scope. Page size, buffer
+capacity, compensation, thumbnail eager bands and retention are unchanged. See
+the [owning policy and evidence](scroll-horizons-thumbs-and-blocking.md#recommendation).
+
 ### Release Detached Pending List Thumbnails (22 October 2026)
 
 Grid/Justified and Table explicitly remove a native thumbnail's `src` after genuine unmount

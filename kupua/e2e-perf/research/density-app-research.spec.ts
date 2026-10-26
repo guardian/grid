@@ -73,6 +73,1134 @@ function retainKnownBoundaryRows(packed: JustifiedLayout, start: number, count: 
   };
 }
 
+async function installB2AcceptanceRoutes(context: BrowserContext, productPolicy = false) {
+  await context.route("**/*", async route => {
+    const url = new URL(route.request().url());
+    const local = url.origin === "http://127.0.0.1:3041";
+    if (local && url.pathname.startsWith("/b2-thumbnail/")) {
+      return route.fulfill({ contentType: "image/svg+xml", body:
+        '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><path fill="#567" d="M0 0h400v300H0z"/></svg>' });
+    }
+    if (local && url.pathname === "/src/hooks/useDataWindow.ts") {
+      const response = await route.fetch();
+      const source = await response.text();
+      const original = "rangeStartMatchesViewport && startIndex <= backwardThreshold && offset > 0";
+      expect(source.split(original)).toHaveLength(2);
+      if (productPolicy) return route.fulfill({ response, body: source });
+      return route.fulfill({ response, body: source.replace(original,
+        "rangeStartMatchesViewport && startIndex <= (globalThis.__b2AcceptanceCandidate === true ? forwardExtendThreshold(-_velocityEma) : EXTEND_THRESHOLD) && offset > 0") });
+    }
+    if (local && url.pathname === "/src/lib/image-urls.ts") {
+      const response = await route.fetch();
+      const source = await response.text();
+      const original = "if (!S3_PROXY_ENABLED) return undefined;";
+      const enabled = "S3_PROXY_ENABLED || SYNTHETIC_PREVIEW_ENABLED";
+      expect(source.split(original)).toHaveLength(2);
+      expect(source.split(enabled)).toHaveLength(2);
+      return route.fulfill({ response, body: source.replace(original, 'return "/b2-thumbnail/" + image.id;')
+        .replace(enabled, "true") });
+    }
+    const asset = local && !/^\/(es|api|grid-|s3|imgproxy|bedrock)/.test(url.pathname);
+    return asset ? route.continue() : route.fulfill({ status: 404, body: "isolated fixture" });
+  });
+}
+
+async function prepareB2AcceptancePage(context: BrowserContext, density: "grid" | "justified" | "table", capacity: boolean) {
+  const page = await context.newPage();
+  await page.goto("/search?nonFree=true");
+  await page.waitForFunction(() => Boolean((window as any).__kupua_store__));
+  await page.evaluate(async () => {
+    const path = "/src/dal/mock-data-source.ts";
+    const { MockDataSource } = await import(path);
+    const store = (window as any).__kupua_store__;
+    store.setState({ dataSource: new MockDataSource(70000) });
+    await store.getState().search();
+  });
+  await selectDensity(page, density);
+  await page.evaluate(async () => (window as any).__kupua_store__.getState().seek(42000));
+  await waitForDensityMaintenanceCooldown(page);
+  if (capacity) await prepareDensityMaintenance(page, density);
+  await page.evaluate(async ({ density, capacity }) => {
+    const path = "/src/lib/scroll-geometry-ref.ts";
+    const { getLayoutGeometry, getItemLayoutRow } = await import(path);
+    const region = document.querySelector<HTMLElement>(`[aria-label="Image results ${density}"]`)!;
+    region.scrollTop = getItemLayoutRow(getLayoutGeometry(), capacity ? 300 : 90).top;
+  }, { density, capacity });
+  await waitForPlacement(page, density, false);
+  const ready = await densityDrivers.visibleMediaReadiness(page, density, await page.evaluate(() => performance.now()));
+  expect(ready.mediaCensored).toBe(0);
+  return page;
+}
+
+async function installPublicationRoutes(context: BrowserContext, retainRows: boolean, stableKeys: boolean, originalAdmission = true,
+  stableThumbnailKey = false) {
+    if (originalAdmission) await context.route("**/src/hooks/useDataWindow.ts*", async route => {
+      if (new URL(route.request().url()).origin !== "http://127.0.0.1:3041") return route.fallback();
+      const response = await route.fetch();
+      const source = await response.text();
+      const original = "rangeStartMatchesViewport && startIndex <= backwardThreshold && offset > 0";
+      expect(source.split(original)).toHaveLength(2);
+      return route.fulfill({ response, body: source.replace(original,
+        "rangeStartMatchesViewport && startIndex <= EXTEND_THRESHOLD && offset > 0") });
+    });
+    if (stableKeys) {
+      await context.route("**/src/lib/windowed-justified-layout.ts*", async route => {
+        if (new URL(route.request().url()).origin !== "http://127.0.0.1:3041") return route.fallback();
+        const response = await route.fetch();
+        const source = await response.text();
+        const firstItem = "firstItemIndex: Math.max(0, toItem(block.start + row.firstItemIndex)),";
+        expect(source.split(firstItem)).toHaveLength(2);
+        return route.fulfill({ response, body: source.replace(firstItem,
+          `__retentionPackedStart: block.start + row.firstItemIndex,\n${firstItem}`) });
+      });
+    }
+    const loads = { grid: 0, table: 0, effects: 0 };
+    for (const component of ["ImageGrid", "ImageTable"] as const) {
+      await context.route(`**/src/components/${component}.tsx*`, async route => {
+        if (new URL(route.request().url()).origin !== "http://127.0.0.1:3041") return route.fallback();
+        const response = await route.fetch();
+        let source = await response.text();
+        const hook = "useScrollEffects({";
+        const items = "const virtualItems = virtualizer.getVirtualItems();";
+        expect(source.split(hook)).toHaveLength(2);
+        expect(source.split(items)).toHaveLength(2);
+        const view = component === "ImageTable" ? '"table"' : 'justified ? "justified" : "grid"';
+        const rowForIndex = component === "ImageTable" ? "index => index"
+          : "index => justifiedLayout?.getItemRow(index).index ?? getItemLayoutRow(fixedGeometry, index).index";
+        if (retainRows) {
+          const imported = "import { useVirtualizer }";
+          const options = "const virtualizer = useVirtualizer({";
+          expect(source.split(imported)).toHaveLength(2);
+          expect(source.split(options)).toHaveLength(2);
+          source = source.replace(imported, "import { useVirtualizer, defaultRangeExtractor as __retentionDefaultRange }")
+            .replace(options, `${options}\nrangeExtractor: range => {
+              const defaults = __retentionDefaultRange(range);
+              return globalThis.__retentionDiagnostic?.extractRows(defaults, range, bufferOffset, results.length, ${rowForIndex}) ?? defaults;
+            },`);
+        }
+        if (stableKeys && component === "ImageGrid") {
+          const options = "const virtualizer = useVirtualizer({";
+          const rowKey = "virtualRow.key";
+          const cellKey = "justified ? imageIdx : getItemColumn(fixedGeometry, imageIdx)";
+          const rowClass = 'className: "absolute left-0 right-0 flex",';
+          expect(source.split(options)).toHaveLength(2);
+          expect(source.split(rowKey)).toHaveLength(2);
+          expect(source.split(cellKey)).toHaveLength(2);
+          expect(source.split(rowClass)).toHaveLength(2);
+          source = source.replace(options, `const __retentionRowKey = index => {
+            if (!justifiedLayout) return JSON.stringify(["fixture-grid", searchParams, columns,
+              twoTier ? index : Math.floor(bufferOffset / columns) + index]);
+            const row = justifiedLayout.getRow(index);
+            if (!Number.isInteger(row.__retentionPackedStart)) throw new Error("Missing unclamped packed-row identity");
+            return JSON.stringify(["fixture-justified", justifiedLayout.searchKey, twoTier,
+              justifiedLayout.window.width, row.__retentionPackedStart]);
+          };\n${options}`)
+            .replace(rowKey, "__retentionRowKey(virtualRow.index)")
+            .replace(cellKey, 'justified ? (image?.id ?? "fixture-placeholder:" + imageIdx) : getItemColumn(fixedGeometry, imageIdx)')
+            .replace(rowClass, `${rowClass}\n"data-retention-row-key": __retentionRowKey(virtualRow.index),`);
+          if (stableThumbnailKey) {
+            const innerKey = /animationClass\s*\?\s*image\.id\s*:\s*(?:undefined|void 0)/g;
+            expect(source.match(innerKey)).toHaveLength(1);
+            source = source.replace(innerKey, "image.id");
+          }
+        }
+        const measuredItems = stableKeys && component === "ImageGrid"
+          ? "virtualItems.map(item => ({ ...item, key: __retentionRowKey(item.index) }))" : "virtualItems";
+        loads[component === "ImageTable" ? "table" : "grid"]++;
+        return route.fulfill({ response, body: source.replace(hook,
+          `const __retentionFrame = globalThis.__retentionDiagnostic?.beginRender({ density: ${view}, offset: bufferOffset, count: results.length, rowForIndex: ${rowForIndex} });\n${hook}\n__retentionFrame,`)
+          .replace(items, `${items}\nglobalThis.__retentionDiagnostic?.finishRender(__retentionFrame, ${measuredItems}, virtualizer.range, virtualizer);`) });
+      });
+    }
+    await context.route("**/src/hooks/useScrollEffects.ts*", async route => {
+      if (new URL(route.request().url()).origin !== "http://127.0.0.1:3041") return route.fallback();
+      const response = await route.fetch();
+      const source = await response.text();
+      const marker = "committedLayout.current = layoutPublication;";
+      expect(source.split(marker)).toHaveLength(2);
+      loads.effects++;
+      return route.fulfill({ response, body: source.replace(marker,
+        `globalThis.__retentionDiagnostic?.commit(config.__retentionFrame, parentRef.current);\n${marker}`) });
+    });
+    return loads;
+}
+
+for (const { density, retainRows, stableKeys } of [
+  { density: "table", retainRows: false, stableKeys: false },
+  { density: "grid", retainRows: false, stableKeys: false },
+  { density: "justified", retainRows: false, stableKeys: false },
+  { density: "table", retainRows: true, stableKeys: false },
+  { density: "grid", retainRows: true, stableKeys: false },
+  { density: "justified", retainRows: true, stableKeys: false },
+  { density: "grid", retainRows: true, stableKeys: true },
+  { density: "justified", retainRows: true, stableKeys: true },
+] as const) {
+  test(retainRows ? `Publication retention ${density === "table" ? "Table" : density} ${stableKeys ? "CK" : "C"}` : `Publication identity current ${density}`, async ({ context }) => {
+    await installB2AcceptanceRoutes(context);
+    const loads = await installPublicationRoutes(context, retainRows, stableKeys);
+    const page = await prepareB2AcceptancePage(context, density, false);
+    try {
+      const setup = await page.evaluate(async ({ density, retainRows, stableKeys }) => {
+        const path = "/src/hooks/useDataWindow.ts";
+        const module = await import(path);
+        if (module.useDataWindow.toString().includes("__b2AcceptanceCandidate")) {
+          throw new Error("Identity diagnostic must use the original admission policy");
+        }
+        const store = (window as any).__kupua_store__;
+        const state = store.getState();
+        const region = document.querySelector<HTMLElement>(`[aria-label="Image results ${density}"]`)!;
+        const selector = density === "table" ? '[role="row"][data-image-id]' : '[data-grid-cell][data-image-id]';
+        const cells = () => [...region.querySelectorAll<HTMLElement>(selector)];
+        const visible = (cell: HTMLElement) => {
+          const bounds = region.getBoundingClientRect();
+          const header = density === "table" ? region.querySelector("[data-table-header]")?.getBoundingClientRect().bottom : undefined;
+          const box = cell.getBoundingClientRect();
+          return box.bottom > Math.max(bounds.top, header ?? bounds.top) && box.top < bounds.bottom;
+        };
+        const targets = cells().filter(visible).map(cell => {
+          const image = cell.querySelector<HTMLImageElement>("img")!;
+          return { id: cell.dataset.imageId!, image, source: image.getAttribute("src"), removed: false, sourceChanged: false,
+            initialRowKey: image.closest("[data-retention-row-key]")?.getAttribute("data-retention-row-key") ?? null,
+            publicationRemoved: false,
+            publicationImage: null as HTMLImageElement | null };
+        });
+        if (!targets.length || targets.length > 128 || targets.some(target => !target.image?.complete || target.image.naturalWidth === 0)) {
+          throw new Error("Identity diagnostic requires a bounded loaded visible cohort");
+        }
+        if (stableKeys && targets.some(target => target.initialRowKey === null)) {
+          throw new Error("CK requires the same fixture row-key policy from setup onward");
+        }
+        let lastFrame: any;
+        const facts = (frame: any) => {
+          const current = new Map(cells().map(cell => [cell.dataset.imageId, cell]));
+          return targets.map(target => {
+            const cell = current.get(target.id);
+            const image = cell?.querySelector<HTMLImageElement>("img");
+            const rank = store.getState().imagePositions.get(target.id);
+            const row = frame && rank !== undefined ? frame.rowForIndex(rank - frame.offset) : null;
+            return { present: Boolean(cell), visible: Boolean(cell && visible(cell)),
+              sameElement: image === target.image, originalConnected: target.image.isConnected,
+              samePublicationElement: Boolean(image && image === target.publicationImage),
+              stableParentKey: stableKeys && Boolean(image && target.initialRowKey ===
+                image.closest("[data-retention-row-key]")?.getAttribute("data-retention-row-key") &&
+                frame?.rows.find((item: { index: number }) => item.index === row)?.key === target.initialRowKey),
+              originalStillSamePhoto: target.image.closest<HTMLElement>(selector)?.dataset.imageId === target.id,
+              originalSourceSame: target.image.getAttribute("src") === target.source,
+              currentSourceSame: image?.getAttribute("src") === target.source,
+              loaded: Boolean(image?.complete && image.naturalWidth > 0),
+              expectedRow: row, inChosenRows: row === null ? null : frame.rows.some((item: any) => item.index === row) };
+          });
+        };
+        const probe: any = { density, stableKeys, phase: "baseline", targets, initialCount: state.results.length,
+          initialOffset: state.bufferOffset, initialResults: state.results, initialTotal: state.total,
+          initialParams: JSON.stringify(state.params), frames: 0, commits: [], reads: 0, publications: 0,
+          mutationRecords: 0, overflow: false, held: false, release: () => {}, restore: () => {}, pending: null,
+          retention: { enabled: retainRows, status: "armed", releases: 0, calls: [], maxAdded: 0 },
+          extractRows(defaults: number[], range: { count: number }, offset: number, count: number,
+            rowForIndex: (index: number) => number) {
+            if (probe.controlRows) return probe.controlRows;
+            const plan = probe.retention;
+            const required = [...new Set(targets.map(target => rowForIndex(store.getState().imagePositions.get(target.id) - offset)))];
+            if (offset !== probe.initialOffset && plan.status === "armed") plan.status = "active";
+            if (plan.status === "active" && required.every(index => defaults.includes(index))) {
+              plan.status = "released";
+              plan.releases++;
+            }
+            const added = plan.status === "active" ? required.filter(index => !defaults.includes(index)) : [];
+            if (required.some(index => !Number.isInteger(index) || index < 0 || index >= range.count) ||
+              count !== store.getState().results.length) throw new Error("Retention fixture requires bounded mapped cohort rows");
+            const selected = [...new Set([...defaults, ...added])].sort((first, second) => first - second);
+            plan.maxAdded = Math.max(plan.maxAdded, added.length);
+            if (plan.calls.length >= 128) throw new Error("Retention extractor capture overflow");
+            plan.calls.push({ status: plan.status, offsetDelta: offset - probe.initialOffset,
+              count, defaultCount: defaults.length, added: added.length, selected: selected.length,
+              requiredCovered: required.every(index => selected.includes(index)) });
+            return selected;
+          },
+          beginRender(frame: any) {
+            if (frame.density !== density) return undefined;
+            if (++probe.frames > 128) probe.overflow = true;
+            return { ...frame, render: probe.frames, rows: [], range: null };
+          },
+          finishRender(frame: any, items: any[], range: any, virtualizer: any) {
+            if (!frame) return;
+            probe.virtualizer = virtualizer;
+            frame.rows = items.map(item => ({ index: item.index, key: item.key }));
+            if (stableKeys && new Set(frame.rows.map((item: { key: string }) => item.key)).size !== frame.rows.length) {
+              throw new Error("Fixture row keys must be unique across sparse selection");
+            }
+            frame.range = range ? { start: range.startIndex, end: range.endIndex } : null;
+          },
+          commit(frame: any, element: HTMLElement) {
+            if (!frame || element !== region) return;
+            if (probe.commits.length >= 128) { probe.overflow = true; return; }
+            lastFrame = frame;
+            probe.lastFrame = frame;
+            if (frame.offset !== probe.initialOffset) {
+              const current = new Map(cells().map(cell => [cell.dataset.imageId, cell]));
+              for (const target of targets) {
+                target.publicationImage ??= current.get(target.id)?.querySelector<HTMLImageElement>("img") ?? null;
+              }
+            }
+            probe.commits.push({ render: frame.render, phase: probe.phase, offset: frame.offset,
+              count: frame.count, scrollTop: region.scrollTop, rows: frame.rows, range: frame.range, facts: facts(frame) });
+          },
+          sample: () => facts(lastFrame),
+        };
+        const observer = new MutationObserver(records => {
+          if (probe.phase === "calibration") return;
+          probe.mutationRecords += records.length;
+          if (probe.mutationRecords > 4096) { probe.overflow = true; observer.disconnect(); return; }
+          for (const record of records) {
+            for (const removed of record.removedNodes) {
+              for (const target of targets) {
+                if (removed === target.image || removed.contains(target.image)) target.removed = true;
+                if (target.publicationImage && (removed === target.publicationImage || removed.contains(target.publicationImage))) {
+                  target.publicationRemoved = true;
+                }
+              }
+            }
+            if (record.type === "attributes") {
+              for (const target of targets) if (record.target === target.image &&
+                (record.oldValue !== target.source || target.image.getAttribute("src") !== target.source)) target.sourceChanged = true;
+            }
+          }
+        });
+        observer.observe(region, { childList: true, subtree: true, attributes: true, attributeFilter: ["src"], attributeOldValue: true });
+        const unsubscribe = store.subscribe((next: any, previous: any) => {
+          if (next.results !== previous.results) { probe.publications++; probe.phase = "publication"; }
+        });
+        probe.cleanup = () => { probe.release(); probe.restore(); observer.disconnect(); unsubscribe(); };
+        (window as any).__retentionDiagnostic = probe;
+        const source = state.dataSource;
+        const original = source.searchAfter;
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        probe.release = release;
+        probe.restore = () => { source.searchAfter = original; };
+        source.searchAfter = async (...args: unknown[]) => {
+          if (++probe.reads !== 1 || !args[4]) throw new Error("Identity diagnostic admits exactly one backward read");
+          probe.held = true;
+          await gate;
+          return original.apply(source, args);
+        };
+        probe.phase = "held";
+        probe.pending = store.getState().extendBackward();
+        return { initialCount: state.results.length, visible: targets.length,
+          regime: document.querySelector("[data-scrubber-mode]")?.getAttribute("data-scrubber-mode") };
+      }, { density, retainRows, stableKeys });
+      expect(setup.regime).toBe("seek");
+      expect(loads.effects).toBeGreaterThan(0);
+      expect(loads[density === "table" ? "table" : "grid"]).toBeGreaterThan(0);
+      await page.waitForFunction(() => (window as any).__retentionDiagnostic.held);
+      expect(await page.evaluate(() => (window as any).__retentionDiagnostic.sample().every((item: any) => item.present && item.sameElement))).toBe(true);
+      await page.evaluate(() => { (window as any).__retentionDiagnostic.phase = "released"; (window as any).__retentionDiagnostic.release(); });
+      await page.waitForFunction(() => {
+        const probe = (window as any).__retentionDiagnostic;
+        const state = (window as any).__kupua_store__.getState();
+        return probe.publications > 0 && !state._extendBackwardInFlight;
+      });
+      await waitForPlacement(page, density, false);
+      const ready = await densityDrivers.visibleMediaReadiness(page, density, await page.evaluate(() => performance.now()));
+      expect(ready.mediaCensored).toBe(0);
+      const result = await page.evaluate(() => {
+        const probe = (window as any).__retentionDiagnostic;
+        const state = (window as any).__kupua_store__.getState();
+        const final = probe.sample();
+        const shared = final.flatMap((item: any, index: number) => item.visible ? [index] : []);
+        const summarise = (items: any[]) => ({ present: items.filter(item => item.present).length,
+          sameElement: items.filter(item => item.sameElement).length,
+          samePublicationElement: items.filter(item => item.samePublicationElement).length,
+          stableParentKeys: items.filter(item => item.stableParentKey).length,
+          originalConnected: items.filter(item => item.originalConnected).length,
+          originalStillSamePhoto: items.filter(item => item.originalStillSamePhoto).length,
+          originalSourceSame: items.filter(item => item.originalSourceSame).length,
+          currentSourceSame: items.filter(item => item.currentSourceSame).length,
+          loaded: items.filter(item => item.loaded).length,
+          inChosenRows: items.filter(item => item.inChosenRows).length });
+        const summary = { density: probe.density, stableKeys: probe.stableKeys,
+          initialCount: probe.initialCount, finalCount: state.results.length,
+          offsetDelta: state.bufferOffset - probe.initialOffset, initialVisible: probe.targets.length,
+          sharedVisible: shared.length, reads: probe.reads, publications: probe.publications,
+          scopeUnchanged: state.total === probe.initialTotal && JSON.stringify(state.params) === probe.initialParams,
+          overflow: probe.overflow, framesCreated: probe.frames, mutationRecords: probe.mutationRecords,
+          commits: probe.commits.map((commit: any) => ({ render: commit.render, phase: commit.phase,
+            offsetDelta: commit.offset - probe.initialOffset, count: commit.count, scrollTop: commit.scrollTop,
+            rowMin: commit.rows[0]?.index, rowMax: commit.rows.at(-1)?.index, range: commit.range,
+            expectedRowMin: Math.min(...shared.map((index: number) => commit.facts[index].expectedRow)),
+            expectedRowMax: Math.max(...shared.map((index: number) => commit.facts[index].expectedRow)),
+            ...summarise(shared.map((index: number) => commit.facts[index])) })),
+          final: summarise(shared.map((index: number) => final[index])),
+          originalsRemoved: shared.filter((index: number) => probe.targets[index].removed).length,
+          publicationImgsRemoved: shared.filter((index: number) => probe.targets[index].publicationRemoved).length,
+          originalSourcesMutated: shared.filter((index: number) => probe.targets[index].sourceChanged).length,
+          retention: { ...probe.retention },
+          calibration: { absentDetected: false, sameNodeReturnDetected: false, replacementDetected: false } };
+        probe.phase = "calibration";
+        const target = probe.targets[shared[0]];
+        const selector = probe.density === "table" ? '[role="row"][data-image-id]' : '[data-grid-cell][data-image-id]';
+        const region = document.querySelector(`[aria-label="Image results ${probe.density}"]`)!;
+        const find = () => [...region.querySelectorAll<HTMLElement>(selector)].find(cell => cell.dataset.imageId === target.id);
+        const cell = find()!;
+        const image = cell.querySelector("img")!;
+        const parent = cell.parentNode!;
+        const next = cell.nextSibling;
+        parent.removeChild(cell);
+        summary.calibration.absentDetected = !find() && !image.isConnected;
+        parent.insertBefore(cell, next);
+        summary.calibration.sameNodeReturnDetected = find()?.querySelector("img") === image && image.isConnected;
+        const replacement = image.cloneNode(true);
+        image.replaceWith(replacement);
+        summary.calibration.replacementDetected = find()?.querySelector("img") === replacement && !image.isConnected;
+        return summary;
+      });
+      console.log(JSON.stringify({ fixture: "publication-identity-current", ...result }));
+      expect(result.reads).toBe(1);
+      expect(result.publications).toBe(1);
+      expect(result.finalCount - result.initialCount).toBe(200);
+      expect(result.offsetDelta).toBe(-200);
+      expect(result.scopeUnchanged).toBe(true);
+      expect(result.overflow).toBe(false);
+      expect(result.sharedVisible).toBeGreaterThan(0);
+      expect(result.final.present).toBe(result.sharedVisible);
+      expect(result.final.currentSourceSame).toBe(result.sharedVisible);
+      expect(result.final.loaded).toBe(result.sharedVisible);
+      expect(result.commits.some((commit: { offsetDelta: number }) => commit.offsetDelta === -200)).toBe(true);
+      expect(result.calibration).toEqual({ absentDetected: true, sameNodeReturnDetected: true, replacementDetected: true });
+      if (retainRows) {
+        expect(result.sharedVisible).toBe(result.initialVisible);
+        for (const commit of result.commits.filter((commit: { offsetDelta: number }) => commit.offsetDelta === -200)) {
+          expect(commit.present).toBe(result.sharedVisible);
+          expect(commit.samePublicationElement).toBe(result.sharedVisible);
+          expect(commit.currentSourceSame).toBe(result.sharedVisible);
+          expect(commit.inChosenRows).toBe(result.sharedVisible);
+          if (density === "table" || stableKeys) {
+            expect(commit.sameElement).toBe(result.sharedVisible);
+            expect(commit.loaded).toBe(result.sharedVisible);
+          }
+          if (stableKeys) expect(commit.stableParentKeys).toBe(result.sharedVisible);
+        }
+        if (density === "table" || stableKeys) expect(result.originalsRemoved).toBe(0);
+        expect(result.publicationImgsRemoved).toBe(0);
+        expect(result.originalSourcesMutated).toBe(0);
+        expect(result.retention.status).toBe("released");
+        expect(result.retention.releases).toBe(1);
+        expect(result.retention.maxAdded).toBeGreaterThan(0);
+        expect(result.retention.maxAdded).toBeLessThanOrEqual(result.initialVisible);
+        expect(result.retention.calls.filter((call: { status: string }) => call.status === "active")
+          .every((call: { requiredCovered: boolean }) => call.requiredCovered)).toBe(true);
+        await page.evaluate(async () => {
+          const path = "/src/lib/scroll-geometry-ref.ts";
+          const { getLayoutGeometry, getItemLayoutRow } = await import(path);
+          const probe = (window as any).__retentionDiagnostic;
+          probe.phase = "after-release-scroll";
+          document.querySelector<HTMLElement>(`[aria-label="Image results ${probe.density}"]`)!.scrollTop =
+            getItemLayoutRow(getLayoutGeometry(), 180).top;
+        });
+        await waitForPlacement(page, density, false);
+        const afterScroll = await page.evaluate(() => {
+          const probe = (window as any).__retentionDiagnostic;
+          const state = (window as any).__kupua_store__.getState();
+          return { status: probe.retention.status, releases: probe.retention.releases,
+            finalCall: probe.retention.calls.at(-1), reads: probe.reads, publications: probe.publications,
+            pending: state._extendBackwardInFlight || state._extendForwardInFlight,
+            retainedPresent: probe.sample().filter((item: { present: boolean }) => item.present).length };
+        });
+        console.log(JSON.stringify({ fixture: `publication-retention-${density}-after-scroll`, ...afterScroll }));
+        expect(afterScroll.status).toBe("released");
+        expect(afterScroll.releases).toBe(1);
+        expect(afterScroll.finalCall.added).toBe(0);
+        expect(afterScroll.retainedPresent).toBe(0);
+        expect(afterScroll.reads).toBe(1);
+        expect(afterScroll.publications).toBe(1);
+        expect(Boolean(afterScroll.pending)).toBe(false);
+        if (density !== "table") return;
+        const invalidation = await page.evaluate(() => {
+          const probe = (window as any).__retentionDiagnostic;
+          const Constructor = probe.virtualizer.constructor;
+          let chosen = [180, 181, 183, 185];
+          const extractor = () => chosen;
+          const virtualizer = new Constructor({ ...probe.virtualizer.options, count: 500,
+            getScrollElement: () => null, initialOffset: 0, initialRect: { width: 100, height: 100 },
+            rangeExtractor: extractor, onChange: () => {} });
+          const initial = virtualizer.getVirtualItems().map((item: { index: number }) => item.index);
+          chosen = [180, 182, 184, 185];
+          const hiddenChange = virtualizer.getVirtualItems().map((item: { index: number }) => item.index);
+          virtualizer.setOptions({ ...virtualizer.options, rangeExtractor: () => chosen });
+          const refreshed = virtualizer.getVirtualItems().map((item: { index: number }) => item.index);
+          return { initial, hiddenChange, refreshed };
+        });
+        expect(invalidation.initial).toEqual([180, 181, 183, 185]);
+        expect(invalidation.hiddenChange).toEqual(invalidation.initial);
+        expect(invalidation.refreshed).toEqual([180, 182, 184, 185]);
+        const cacheControls = [];
+        for (const indices of [[180, 181, 183, 185], [180, 182, 184, 185]]) {
+          await page.evaluate(indices => {
+            const probe = (window as any).__retentionDiagnostic;
+            probe.cleanup();
+            probe.phase = "sparse-cache-control";
+            probe.controlRows = indices;
+            const store = (window as any).__kupua_store__;
+            store.setState({ results: [...store.getState().results] });
+          }, indices);
+          await page.waitForFunction(indices => {
+            const probe = (window as any).__retentionDiagnostic;
+            return JSON.stringify(probe.lastFrame.rows.map((row: { index: number }) => row.index)) === JSON.stringify(indices);
+          }, indices);
+          cacheControls.push(await page.evaluate(indices => {
+            const state = (window as any).__kupua_store__.getState();
+            const expected = indices.map(index => state.results[index].id);
+            const rows = [...document.querySelectorAll<HTMLElement>('[aria-label="Image results table"] [role="row"][data-image-id]')];
+            return { selected: indices.length, present: expected.filter(id => rows.some(row => row.dataset.imageId === id)).length,
+              withImage: expected.filter(id => rows.some(row => row.dataset.imageId === id && row.querySelector("img"))).length };
+          }, indices));
+        }
+        console.log(JSON.stringify({ fixture: "publication-retention-table-dependency-controls", invalidation, cacheControls }));
+        expect(cacheControls).toEqual([
+          { selected: 4, present: 4, withImage: 4 },
+          { selected: 4, present: 2, withImage: 2 },
+        ]);
+      }
+    } finally {
+      await page.evaluate(() => { (window as any).__retentionDiagnostic?.cleanup(); delete (window as any).__retentionDiagnostic; }).catch(() => {});
+      await page.close();
+    }
+  });
+}
+
+function installRetentionValueProbe({ density, retain, candidate, metadataDelay }:
+  { density: "grid" | "justified"; retain: boolean; candidate: boolean; metadataDelay: number }) {
+  const store = (window as any).__kupua_store__;
+  const initial = store.getState();
+  const region = document.querySelector<HTMLElement>(`[aria-label="Image results ${density}"]`)!;
+  const cells = () => [...region.querySelectorAll<HTMLElement>("[data-grid-cell][data-image-id]")];
+  const visible = () => {
+    const bounds = region.getBoundingClientRect();
+    return cells().filter(cell => {
+      const box = cell.getBoundingClientRect();
+      return box.bottom > bounds.top && box.top < bounds.bottom;
+    });
+  };
+  const source = initial.dataSource;
+  const original = source.searchAfter;
+  const decoded = new WeakMap<HTMLImageElement, { source: string; ready: boolean }>();
+  const probe: any = { density, retain, initialOffset: initial.bufferOffset, initialTotal: initial.total,
+    initialParams: JSON.stringify(initial.params), reads: 0, pending: 0, peak: 0, maxRetained: initial.results.length,
+    frames: 0, commits: 0, samples: [], events: [], releases: 0, maxAdded: 0,
+    plan: null, overflow: false, frame: 0, cohortPaths: new Set<string>(),
+    beginRender(frame: any) {
+      if (++probe.frames > 4096) throw new Error("Value render bound exceeded");
+      return { ...frame, rows: [], range: null };
+    },
+    finishRender(frame: any, items: any[], range: any) {
+      frame.rows = items.map(item => ({ index: item.index, key: item.key }));
+      frame.range = range;
+    },
+    extractRows(defaults: number[], range: { count: number }, offset: number, count: number,
+      rowForIndex: (index: number) => number) {
+      const plan = probe.plan;
+      if (!plan || plan.status !== "active") return defaults;
+      if (count !== store.getState().results.length) throw new Error("Value extraction publication mismatch");
+      const required = [...new Set<number>(plan.targets.map((target: any) => {
+        const rank = store.getState().imagePositions.get(target.id);
+        if (rank === undefined) throw new Error("Value cohort left measured buffer");
+        return rowForIndex(rank - offset);
+      }))];
+      if (required.some(index => !Number.isInteger(index) || index < 0 || index >= range.count)) {
+        throw new Error("Value cohort row outside measured layout");
+      }
+      if (required.every(index => defaults.includes(index))) {
+        plan.status = "released";
+        probe.releases++;
+        return defaults;
+      }
+      const added = required.filter(index => !defaults.includes(index));
+      probe.maxAdded = Math.max(probe.maxAdded, added.length);
+      return [...new Set([...defaults, ...added])].sort((first, second) => first - second);
+    },
+    commit(frame: any, element: HTMLElement) {
+      if (element !== region || !frame) return;
+      probe.commits++;
+      const plan = probe.plan;
+      if (!plan || plan.captureFinished) return;
+      const current = new Map(cells().map(cell => [cell.dataset.imageId, cell]));
+      const present = plan.targets.filter((target: any) => current.has(target.id)).length;
+      const same = plan.targets.filter((target: any) => current.has(target.id) &&
+        current.get(target.id)?.querySelector("img") === target.image.deref()).length;
+      const sameCells = plan.targets.filter((target: any) => current.has(target.id) && current.get(target.id) === target.cell.deref()).length;
+      const stableParents = plan.targets.filter((target: any) => target.parentKey !== null &&
+        current.get(target.id)?.closest("[data-retention-row-key]")?.getAttribute("data-retention-row-key") === target.parentKey).length;
+      const animationChanges = plan.targets.filter((target: any) => current.has(target.id) &&
+        current.get(target.id)!.classList.contains("anim-arriving") !== target.arriving).length;
+      const innerLosses = plan.targets.filter((target: any) => current.get(target.id) === target.cell.deref() &&
+        target.parentKey !== null && current.get(target.id)?.closest("[data-retention-row-key]")?.getAttribute("data-retention-row-key") === target.parentKey &&
+        current.get(target.id)?.querySelector("img") !== target.image.deref()).length;
+      plan.minPresent = Math.min(plan.minPresent, present);
+      plan.minOriginal = Math.min(plan.minOriginal, same);
+      plan.minSameCells = Math.min(plan.minSameCells, sameCells);
+      plan.minStableParents = Math.min(plan.minStableParents, stableParents);
+      plan.maximumAnimationChanges = Math.max(plan.maximumAnimationChanges, animationChanges);
+      plan.stableCellThumbnailLosses = Math.max(plan.stableCellThumbnailLosses, innerLosses);
+      plan.observedCommits++;
+      if ((!retain || plan.status === "released") && present === plan.targets.length) {
+        plan.captureFinished = true;
+        plan.recoveredAt = performance.now();
+      }
+    },
+  };
+  source.searchAfter = async (...args: unknown[]) => {
+    if (++probe.reads > 8) throw new Error("Value metadata-read budget exceeded");
+    probe.peak = Math.max(probe.peak, ++probe.pending);
+    try {
+      await new Promise(resolve => setTimeout(resolve, metadataDelay));
+      return await original.apply(source, args);
+    } finally { probe.pending--; }
+  };
+  const unsubscribe = store.subscribe((state: any, previous: any) => {
+    probe.maxRetained = Math.max(probe.maxRetained, state.results.length);
+    if (state.results === previous.results) return;
+    if (probe.events.length >= 8) throw new Error("Value publication bound exceeded");
+    const targets = visible().map(cell => {
+      const image = cell.querySelector<HTMLImageElement>("img");
+      if (!image) throw new Error("Value publication cohort lacks an image element");
+      probe.cohortPaths.add(new URL(image.src).pathname);
+      return { id: cell.dataset.imageId!, image: new WeakRef(image), cell: new WeakRef(cell),
+        pending: !image.complete || image.naturalWidth === 0,
+        parentKey: cell.closest("[data-retention-row-key]")?.getAttribute("data-retention-row-key") ?? null,
+        arriving: cell.classList.contains("anim-arriving") };
+    });
+    if (!targets.length || targets.length > 128) throw new Error("Value publication cohort outside bounds");
+    const plan = { targets, at: performance.now(), status: retain ? "active" : "observing",
+      minPresent: targets.length, minOriginal: targets.length, observedCommits: 0,
+      minSameCells: targets.length, minStableParents: targets.length, maximumAnimationChanges: 0,
+      stableCellThumbnailLosses: 0,
+      captureFinished: false, recoveredAt: null };
+    probe.plan = plan;
+    probe.events.push(plan);
+  });
+  let previousTime = performance.now();
+  const sample = (time: number) => {
+    if (probe.samples.length >= 4096) { probe.overflow = true; return; }
+    const bounds = region.getBoundingClientRect();
+    let area = 0;
+    let pendingArea = 0;
+    let loadedPendingArea = 0;
+    const identities: string[] = [];
+    for (const cell of visible()) {
+      const image = cell.querySelector<HTMLImageElement>("img");
+      const box = cell.getBoundingClientRect();
+      const exposed = Math.max(0, Math.min(box.right, bounds.right) - Math.max(box.left, bounds.left)) *
+        Math.max(0, Math.min(box.bottom, bounds.bottom) - Math.max(box.top, bounds.top));
+      identities.push(cell.dataset.imageId!);
+      area += exposed;
+      let ready = false;
+      if (image) {
+        let state = decoded.get(image);
+        const currentSource = image.getAttribute("src") ?? "";
+        if (!state || state.source !== currentSource) {
+          state = { source: currentSource, ready: false };
+          decoded.set(image, state);
+          const captured = state;
+          void image.decode().then(() => { captured.ready = true; }, () => {});
+        }
+        ready = state.ready && image.complete && image.naturalWidth > 0;
+      }
+      if (!ready) pendingArea += exposed;
+      if (!image?.complete || image.naturalWidth === 0) loadedPendingArea += exposed;
+    }
+    probe.samples.push({ time, frame: time - previousTime, pending: area ? pendingArea / area : 1,
+      loadedPending: area ? loadedPendingArea / area : 1,
+      cohort: identities.sort().join("|") });
+    previousTime = time;
+    probe.frame = requestAnimationFrame(sample);
+  };
+  (window as any).__b2AcceptanceCandidate = candidate;
+  (window as any).__retentionDiagnostic = probe;
+  probe.frame = requestAnimationFrame(sample);
+  probe.dispose = () => {
+    cancelAnimationFrame(probe.frame);
+    unsubscribe();
+    source.searchAfter = original;
+    (window as any).__b2AcceptanceCandidate = false;
+    delete (window as any).__retentionDiagnostic;
+  };
+}
+
+for (const density of ["grid", "justified"] as const) {
+  for (const workload of ["loaded-short-stop", "pending-short-stop", "pressure", "pressure-inner"] as const) {
+    for (const reverseOrder of [false, true]) {
+      test(`Retention value ${density} ${workload} ${reverseOrder ? "ck-first" : "current-first"}`, async ({ context }) => {
+        let reference: unknown;
+        const comparisons: { policy: string; walls: number; reads: number; pendingMean: number;
+          loadedPendingMean: number; firstReadyMs: number | null; frameP95Ms: number | null;
+          starts: number | null; cancellations: number | null }[] = [];
+        const order = workload === "pressure-inner"
+          ? reverseOrder ? ["ck-inner", "ck", "b2", "current"] as const : ["current", "b2", "ck", "ck-inner"] as const
+          : reverseOrder ? ["ck", "b2", "current"] as const : ["current", "b2", "ck"] as const;
+        for (const policy of order) {
+          let activeMedia = false;
+          const mediaDelay = workload === "pending-short-stop" ? 1200 : workload.startsWith("pressure") ? 120 : 0;
+          const server = await heldImageServer({ hold: () => activeMedia && mediaDelay > 0,
+            releaseDelayMs: mediaDelay, limit: 4096,
+            imageBody: () => '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><path fill="#567" d="M0 0h400v300H0z"/></svg>' });
+          let page: Page | undefined;
+          let session: CDPSession | undefined;
+          let requests: ReturnType<typeof createRequestProbe> | undefined;
+          try {
+            await installB2AcceptanceRoutes(context);
+            await context.route(`${server.origin}/**`, route => route.continue());
+            await context.route("**/src/lib/image-urls.ts*", async route => {
+              if (new URL(route.request().url()).origin !== "http://127.0.0.1:3041") return route.fallback();
+              const response = await route.fetch();
+              const source = await response.text();
+              const marker = "if (!S3_PROXY_ENABLED) return undefined;";
+              expect(source.split(marker)).toHaveLength(2);
+              return route.fulfill({ response, body: source.replace(marker,
+                `return ${JSON.stringify(server.origin)} + "/image/" + image.id + ".svg";`)
+                .replace("S3_PROXY_ENABLED || SYNTHETIC_PREVIEW_ENABLED", "true") });
+            });
+            await installPublicationRoutes(context, policy.startsWith("ck"), policy.startsWith("ck"), false, policy === "ck-inner");
+            page = await prepareB2AcceptancePage(context, density, false);
+            const initial = await page.evaluate(density => {
+              const state = (window as any).__kupua_store__.getState();
+              const region = document.querySelector<HTMLElement>(`[aria-label="Image results ${density}"]`)!;
+              const bounds = region.getBoundingClientRect();
+              const visible = [...region.querySelectorAll<HTMLElement>("[data-grid-cell][data-image-id]")].filter(cell => {
+                const box = cell.getBoundingClientRect();
+                return box.bottom > bounds.top && box.top < bounds.bottom;
+              }).map(cell => ({ id: cell.dataset.imageId, top: Math.round((cell.getBoundingClientRect().top - bounds.top) * 10) / 10,
+                width: cell.getBoundingClientRect().width, height: cell.getBoundingClientRect().height }));
+              return { ids: state.results.map((image: any) => image?.id), offset: state.bufferOffset,
+                count: state.results.length, total: state.total, scrollTop: region.scrollTop,
+                width: region.clientWidth, height: region.clientHeight, visible };
+            }, density);
+            if (reference === undefined) reference = initial;
+            else expect(initial, "matched metadata, viewport and loaded starting cohort").toEqual(reference);
+            session = await context.newCDPSession(page);
+            await session.send("Network.enable");
+            requests = createRequestProbe(session);
+            requests.beginPhase();
+            const firstRequest = server.requests.length;
+            activeMedia = true;
+            await page.evaluate(installRetentionValueProbe, { density, retain: policy.startsWith("ck"), candidate: policy !== "current", metadataDelay: 900 });
+            const result = await page.evaluate(async ({ density, workload }) => {
+              const driverPath = "/e2e-perf/density-browser.ts";
+              const velocityPath = "/src/hooks/useDataWindow.ts";
+              const drivers = await import(driverPath);
+              (await import(velocityPath))._resetForwardVelocity();
+              const localPage = { evaluate: (callback: any, argument: any) => callback(argument) };
+              const probe = (window as any).__retentionDiagnostic;
+              let metrics: any;
+              let stoppedAt: number;
+              if (workload.startsWith("pressure")) {
+                const capture = await drivers.captureDensityJourney({ density, direction: -1, durationMs: 3000,
+                  resultsPerSecond: 200, loadSteps: [200, 200, 200], recoveryTimeoutMs: 4000,
+                  reverseDurationMs: 0, networkConstrained: false });
+                metrics = capture.metrics;
+                stoppedAt = capture.stoppedEpoch - performance.timeOrigin;
+              } else {
+                const motion = await drivers.scrollAtSpeed(localPage, density, -4000, 1500,
+                  { measureBounds: true, maxDistancePx: 600 });
+                metrics = motion;
+                stoppedAt = motion.stoppedAtPerformanceMs;
+              }
+              const observationLimitMs = workload === "pending-short-stop" ? 6000 : 3000;
+              const observationEnd = stoppedAt + observationLimitMs;
+              const remaining = observationEnd - performance.now();
+              if (remaining > 0) await new Promise(resolve => setTimeout(resolve, remaining));
+              await new Promise(requestAnimationFrame);
+              const stopped = probe.samples.filter((sample: any) => sample.time >= stoppedAt && sample.time <= observationEnd);
+              if (stopped.length < 2) throw new Error("Value stopped observation missing");
+              const percentile = (values: number[], fraction: number) => {
+                const sorted = values.slice().sort((first, second) => first - second);
+                return sorted.length ? sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * fraction) - 1)] : null;
+              };
+              let anyPendingMs = 0;
+              let weightedPending = 0;
+              let weightedLoadedPending = 0;
+              let observedMs = 0;
+              for (let index = 0; index < stopped.length - 1; index++) {
+                const delta = stopped[index + 1].time - stopped[index].time;
+                observedMs += delta;
+                weightedPending += stopped[index].pending * delta;
+                weightedLoadedPending += stopped[index].loadedPending * delta;
+                if (stopped[index].pending > 0) anyPendingMs += delta;
+              }
+              const publicationFrames = probe.samples.filter((sample: any) =>
+                probe.events.some((event: any) => sample.time >= event.at && sample.time <= event.at + 200));
+              const lastPublication = probe.events.at(-1)?.at ?? stoppedAt;
+              const afterPublication = stopped.filter((sample: any) => sample.time >= lastPublication);
+              const lastPending = stopped.findLast((sample: any) => sample.pending > 0);
+              const firstReady = stopped.find((sample: any) => sample.pending === 0);
+              const cohortChanged = stopped.some((sample: any) => sample.cohort !== stopped[0].cohort);
+              const state = (window as any).__kupua_store__.getState();
+              return { metrics, stopped: { observationLimitMs, samples: stopped.length, observedMs,
+                firstSampleLagMs: stopped[0].time - stoppedAt,
+                meanPendingArea: weightedPending / observedMs,
+                meanLoadedPendingArea: weightedLoadedPending / observedMs,
+                maximumLoadedPendingArea: Math.max(...stopped.map((sample: any) => sample.loadedPending)),
+                maximumPendingArea: Math.max(...stopped.map((sample: any) => sample.pending)), anyPendingMs,
+                firstReadyMs: firstReady && !cohortChanged && stopped.at(-1).pending === 0 ? firstReady.time - stoppedAt : null,
+                rawFirstReadyMs: firstReady ? firstReady.time - stoppedAt : null,
+                lastPendingMs: lastPending ? lastPending.time - stoppedAt : null,
+                finalPendingArea: stopped.at(-1).pending,
+                finalLoadedPendingArea: stopped.at(-1).loadedPending,
+                cohortChanged,
+                postPublicationPendingSamples: afterPublication.filter((sample: any) => sample.pending > 0).length },
+                publicationFrames: { samples: publicationFrames.length,
+                  p95Ms: percentile(publicationFrames.map((sample: any) => sample.frame), 0.95),
+                  worstMs: percentile(publicationFrames.map((sample: any) => sample.frame), 1) },
+                reads: probe.reads, pending: probe.pending, peak: probe.peak, maxRetained: probe.maxRetained,
+                releases: probe.releases, maxAdded: probe.maxAdded, overflow: probe.overflow,
+                scopeUnchanged: state.total === probe.initialTotal && JSON.stringify(state.params) === probe.initialParams,
+                activePlan: probe.plan?.status === "active",
+                events: probe.events.map((event: any) => ({ relativeToStopMs: event.at - stoppedAt,
+                  cohort: event.targets.length, pendingAtPublication: event.targets.filter((target: any) => target.pending).length,
+                  minPresent: event.minPresent, minOriginal: event.minOriginal,
+                  minSameCells: event.minSameCells, minStableParents: event.minStableParents,
+                  maximumAnimationChanges: event.maximumAnimationChanges,
+                  stableCellThumbnailLosses: event.stableCellThumbnailLosses,
+                  observedCommits: event.observedCommits, recoveredMs: event.recoveredAt === null ? null : event.recoveredAt - event.at })),
+                cohortPaths: [...probe.cohortPaths] as string[] };
+            }, { density, workload });
+            const { cohortPaths, ...safe } = result;
+            const measured = server.requests.slice(firstRequest);
+            const cohorts = measured.filter(request => cohortPaths.includes(request.path));
+            const native = { starts: measured.length, aborted: measured.filter(request => request.aborted).length,
+              finished: measured.filter(request => request.finished).length,
+              pending: measured.filter(request => !request.aborted && !request.finished).length,
+              cohortStarts: cohorts.length, cohortAborts: cohorts.filter(request => request.aborted).length,
+              cohortUnique: new Set(cohorts.map(request => request.path)).size,
+              cohortRepeatedStarts: cohorts.length - new Set(cohorts.map(request => request.path)).size };
+            const requestSummary = requests.snapshot();
+            console.log(JSON.stringify({ fixture: "retention-value", density, workload, reverseOrder, policy,
+              metadataDelayMs: 900, mediaDelayMs: mediaDelay, initialCount: initial.count,
+              ...safe, native, requests: requestSummary }));
+            const walls = workload.startsWith("pressure")
+              ? ["early", "middle", "late"].reduce((sum, prefix) => sum + (result.metrics[prefix + "BufferEdgeBlockedMs"] ?? 0), 0)
+              : result.metrics.bufferEdgeBlockedMs;
+            comparisons.push({ policy, walls, reads: result.reads, pendingMean: result.stopped.meanPendingArea,
+              loadedPendingMean: result.stopped.meanLoadedPendingArea, firstReadyMs: result.stopped.firstReadyMs,
+              frameP95Ms: result.publicationFrames.p95Ms, starts: requestSummary.mediaRequestStarts,
+              cancellations: requestSummary.mediaRequestCancellations });
+            expect(result.scopeUnchanged).toBe(true);
+            expect(result.overflow).toBe(false);
+            expect(result.pending).toBe(0);
+            expect(result.maxRetained).toBeLessThanOrEqual(1000);
+            expect(result.peak).toBeLessThanOrEqual(2);
+            expect(requestSummary.requestCaptureOverflow).toBe(0);
+            expect(result.stopped.observedMs).toBeGreaterThan(result.stopped.observationLimitMs - 100);
+            expect(result.stopped.firstSampleLagMs).toBeLessThanOrEqual(25);
+            if (workload === "pending-short-stop" && policy !== "current") {
+              expect(result.events.length).toBeGreaterThan(0);
+              expect(result.events.some((event: { pendingAtPublication: number }) => event.pendingAtPublication > 0)).toBe(true);
+            }
+            if (policy.startsWith("ck")) {
+              expect(result.activePlan).toBe(false);
+              expect(result.releases).toBe(result.events.length);
+              console.log(JSON.stringify({ fixture: "retention-value-mechanism-outcome", density, workload, reverseOrder,
+                policy,
+                originalSurvival: result.events.every((event: { minOriginal: number; cohort: number }) => event.minOriginal === event.cohort),
+                failedCohorts: result.events.filter((event: { minOriginal: number; cohort: number }) => event.minOriginal !== event.cohort).length }));
+              if (policy === "ck-inner") {
+                for (const event of result.events) expect(event.stableCellThumbnailLosses).toBe(0);
+              }
+            }
+          } finally {
+            await page?.evaluate(() => (window as any).__retentionDiagnostic?.dispose()).catch(() => {});
+            requests?.dispose();
+            await session?.detach().catch(() => {});
+            await page?.close();
+            await server.close();
+          }
+        }
+        console.log(JSON.stringify({ fixture: "retention-value-comparison", density, workload, reverseOrder, comparisons }));
+        if (workload.startsWith("pressure")) {
+          const current = comparisons.find(value => value.policy === "current")!;
+          const b2 = comparisons.find(value => value.policy === "b2")!;
+          expect(current.walls, "current-policy blocking must be observed in this workload").toBeGreaterThan(0);
+          expect(b2.walls, "B2 must reduce observed blocking before retention value is interpreted").toBeLessThan(current.walls);
+        }
+      });
+    }
+  }
+}
+
+for (const density of ["grid", "table", "justified"] as const) {
+  test(`B2 acceptance product short-stop ${density}`, async ({ context }) => {
+    await installB2AcceptanceRoutes(context, true);
+    const page = await prepareB2AcceptancePage(context, density, false);
+    try {
+      const result = await page.evaluate(async density => {
+        const store = (window as any).__kupua_store__;
+        const source = store.getState().dataSource;
+        const original = source.searchAfter;
+        const before = store.getState();
+        let reads = 0;
+        let readsAfterStop = 0;
+        let stopped = false;
+        source.searchAfter = async function (...args: any[]) {
+          reads++;
+          if (stopped) readsAfterStop++;
+          if (reads > 2) throw new Error("Product short-stop read budget exceeded");
+          await new Promise(resolve => setTimeout(resolve, 900));
+          return original.apply(this, args);
+        };
+        try {
+          const driverPath = "/e2e-perf/density-browser.ts";
+          const drivers = await import(driverPath);
+          const localPage = { evaluate: (callback: any, argument: any) => callback(argument) };
+          const motion = await drivers.scrollAtSpeed(localPage, density, -4000, 1500,
+            { measureBounds: true, maxDistancePx: 600 });
+          stopped = true;
+          const region = document.querySelector<HTMLElement>(`[aria-label="Image results ${density}"]`)!;
+          const anchorId = (window as any).__kupua_getViewportAnchorId__();
+          const anchorTop = () => {
+            const element = [...region.querySelectorAll<HTMLElement>("[data-image-id]")]
+              .find(cell => cell.dataset.imageId === anchorId);
+            if (!element) return null;
+            const translation = Number.parseFloat(getComputedStyle(element).translate.split(/\s+/)[1] ?? "0");
+            return element.getBoundingClientRect().top - region.getBoundingClientRect().top -
+              (Number.isFinite(translation) ? translation : 0);
+          };
+          const initialTop = anchorTop();
+          let maxAnchorDisplacement = 0;
+          let missingAnchorSamples = 0;
+          const deadline = performance.now() + 1600;
+          while (performance.now() < deadline) {
+            await new Promise(requestAnimationFrame);
+            const top = anchorTop();
+            if (top === null) missingAnchorSamples++;
+            else if (initialTop !== null) maxAnchorDisplacement = Math.max(maxAnchorDisplacement, Math.abs(top - initialTop));
+          }
+          const media = await drivers.visibleMediaReadiness(localPage, density, motion.stoppedAtPerformanceMs, 4000);
+          const after = store.getState();
+          return { reads, readsAfterStop, distance: motion.drivenDistancePx,
+            anchorPresent: initialTop !== null && anchorTop() !== null, maxAnchorDisplacement, missingAnchorSamples,
+            pending: Number(after._extendBackwardInFlight) + Number(after._extendForwardInFlight),
+            mediaCensored: media.mediaCensored, countDelta: after.results.length - before.results.length,
+            offsetDelta: after.bufferOffset - before.bufferOffset };
+        } finally { source.searchAfter = original; }
+      }, density);
+      expect(result.distance).toBe(-600);
+      expect(result.reads).toBe(density === "justified" ? 0 : 1);
+      expect(result.readsAfterStop).toBe(0);
+      expect(result.pending).toBe(0);
+      expect(result.mediaCensored).toBe(0);
+      expect(result.anchorPresent).toBe(true);
+      expect(result.missingAnchorSamples).toBe(0);
+      expect(result.maxAnchorDisplacement).toBeLessThanOrEqual(1);
+      expect(result.countDelta).toBe(density === "justified" ? 0 : 200);
+      expect(result.offsetDelta).toBe(density === "justified" ? 0 : -200);
+    } finally { await page.close(); }
+  });
+}
+
+for (const workload of ["short-stop", "negative-control", "fast", "slow-reversal"] as const) {
+  for (const candidateFirst of [false, true]) {
+    test(`B2 acceptance Table ${workload} ${candidateFirst ? "candidate-first" : "current-first"}`, async ({ context }) => {
+      await installB2AcceptanceRoutes(context);
+      let reference: unknown;
+      const readCounts: number[] = [];
+      for (const candidate of candidateFirst ? [true, false] : [false, true]) {
+        const page = await prepareB2AcceptancePage(context, "table", workload !== "short-stop");
+        try {
+          const initial = await page.evaluate(() => {
+            const state = (window as any).__kupua_store__.getState();
+            const region = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+            return { ids: state.results.map((image: any) => image?.id), offset: state.bufferOffset,
+              total: state.total, scrollTop: region.scrollTop, width: region.clientWidth, height: region.clientHeight };
+          });
+          if (reference === undefined) reference = initial;
+          else expect(initial, "matched Table window and starting placement").toEqual(reference);
+          const result = await page.evaluate(async ({ candidate, workload }) => {
+            const driverPath = "/e2e-perf/density-browser.ts";
+            const thumbnailPath = "/e2e-perf/thumbnail-probe.mjs";
+            const velocityPath = "/src/hooks/useDataWindow.ts";
+            const drivers = await import(driverPath);
+            const thumbnails = await import(thumbnailPath);
+            const velocity = await import(velocityPath);
+            const store = (window as any).__kupua_store__;
+            const source = store.getState().dataSource;
+            const original = source.searchAfter;
+            const reads: { backward: boolean; durationMs: number | null }[] = [];
+            let retainedMax = store.getState().results.length;
+            const unsubscribe = store.subscribe((state: any) => { retainedMax = Math.max(retainedMax, state.results.length); });
+            source.searchAfter = async function (...args: any[]) {
+              if (reads.length >= 8) throw new Error("Table acceptance read budget exceeded");
+              const read = { backward: Boolean(args[4]), durationMs: null as number | null };
+              reads.push(read);
+              const started = performance.now();
+              try {
+                await new Promise(resolve => setTimeout(resolve, workload === "short-stop" ? 100 : workload === "slow-reversal" ? 900 : 350));
+                return await original.apply(this, args);
+              } finally { read.durationMs = performance.now() - started; }
+            };
+            const localPage = { evaluate: (callback: any, argument: any) => callback(argument) };
+            velocity._resetForwardVelocity();
+            (window as any).__b2AcceptanceCandidate = candidate;
+            try {
+              if (workload !== "short-stop") {
+                const rate = workload === "negative-control" ? 100 : 200;
+                const capture = await drivers.captureDensityJourney({ density: "table", direction: -1,
+                  durationMs: 3000, resultsPerSecond: rate, loadSteps: [rate, rate, rate],
+                  recoveryTimeoutMs: 4000, reverseDurationMs: workload === "slow-reversal" ? 1500 : 0,
+                  networkConstrained: false });
+                const endpointUnfinishedReads = reads.filter(read => read.durationMs === null).length;
+                const region = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+                const anchorId = (window as any).__kupua_getViewportAnchorId__();
+                const anchorElement = () => [...region.querySelectorAll<HTMLElement>("[data-image-id]")]
+                  .find(cell => cell.dataset.imageId === anchorId);
+                const anchor = () => {
+                  const element = anchorElement();
+                  if (!element) return null;
+                  const rawTop = element.getBoundingClientRect().top - region.getBoundingClientRect().top;
+                  const parsedTranslate = Number.parseFloat(getComputedStyle(element).translate.split(/\s+/)[1] ?? "0");
+                  const translateY = Number.isFinite(parsedTranslate) ? parsedTranslate : 0;
+                  return { rawTop, translateY, layoutTop: rawTop - translateY,
+                    arriving: element.classList.contains("anim-arriving"), scrollTop: region.scrollTop };
+                };
+                const anchorInitial = anchor();
+                const calibrationElement = anchorElement();
+                let layoutCalibrationPx: number | null = null;
+                if (calibrationElement) {
+                  const saved = { value: calibrationElement.style.getPropertyValue("transform"),
+                    priority: calibrationElement.style.getPropertyPriority("transform") };
+                  const before = anchor();
+                  try {
+                    calibrationElement.style.setProperty("transform", `${saved.value} translateY(8px)`, "important");
+                    const shifted = anchor();
+                    if (before && shifted) layoutCalibrationPx = shifted.layoutTop - before.layoutTop;
+                  } finally {
+                    if (saved.value) calibrationElement.style.setProperty("transform", saved.value, saved.priority);
+                    else calibrationElement.style.removeProperty("transform");
+                  }
+                }
+                const stoppedAt = capture.stoppedEpoch - performance.timeOrigin;
+                const remaining = 1500 - (performance.now() - stoppedAt);
+                if (remaining > 0) await new Promise(resolve => setTimeout(resolve, remaining));
+                const postStopMedia = await drivers.visibleMediaReadiness(localPage, "table", stoppedAt, 4000);
+                const readsAtIdle = reads.length;
+                await new Promise(resolve => setTimeout(resolve, 500));
+                const anchorFinal = anchor();
+                return { metrics: { ...capture.metrics, endpointUnfinishedReads,
+                  postStopMediaCensored: postStopMedia.mediaCensored,
+                  postStopMediaReadyMs: postStopMedia.mediaReadyMs,
+                  postStopRefillsPending: Number(store.getState()._extendBackwardInFlight) + Number(store.getState()._extendForwardInFlight),
+                  idleReadStarts: reads.length - readsAtIdle,
+                  postStopAnchorRetained: Number(Boolean(anchorInitial && anchorFinal)),
+                  postStopAnchorDisplacementPx: anchorInitial && anchorFinal ? Math.abs(anchorFinal.layoutTop - anchorInitial.layoutTop) : null,
+                  postStopAnchorRawDisplacementPx: anchorInitial && anchorFinal ? Math.abs(anchorFinal.rawTop - anchorInitial.rawTop) : null,
+                  postStopAnchorInitialTranslatePx: anchorInitial?.translateY ?? null,
+                  postStopAnchorFinalTranslatePx: anchorFinal?.translateY ?? null,
+                  postStopAnchorInitiallyArriving: Number(anchorInitial?.arriving ?? false),
+                  postStopAnchorScrollDeltaPx: anchorInitial && anchorFinal ? anchorFinal.scrollTop - anchorInitial.scrollTop : null,
+                  postStopAnchorLayoutCalibrationPx: layoutCalibrationPx },
+                  reads, retainedMax };
+              }
+              const starts: number[] = [];
+              const stopListening = store.subscribe((state: any, previous: any) => {
+                if (state._extendBackwardInFlight && !previous._extendBackwardInFlight) starts.push(performance.now());
+              });
+              try {
+                thumbnails.installThumbnailProbe({ density: "table" });
+                const motion = await drivers.scrollAtSpeed(localPage, "table", -4000, 1500,
+                  { measureBounds: true, maxDistancePx: 600 });
+                const exposure = (window as any).__kupua_thumbnailProbe.stop();
+                const media = await drivers.visibleMediaReadiness(localPage, "table", motion.stoppedAtPerformanceMs, 4000);
+                const remaining = 1500 - (performance.now() - motion.stoppedAtPerformanceMs);
+                if (remaining > 0) await new Promise(resolve => setTimeout(resolve, remaining));
+                return { metrics: { ...exposure, ...motion, stopMediaCensored: media.mediaCensored,
+                  stopMediaReadyMs: media.mediaReadyMs, readStartsAfterStop: starts.filter(time => time >= motion.stoppedAtPerformanceMs).length,
+                  refillsPendingAtEnd: Number(store.getState()._extendBackwardInFlight) + Number(store.getState()._extendForwardInFlight) },
+                  reads, retainedMax };
+              } finally { stopListening(); }
+            } finally {
+              (window as any).__b2AcceptanceCandidate = false;
+              source.searchAfter = original;
+              unsubscribe();
+              (window as any).__densityJourney?.dispose();
+              (window as any).__kupua_thumbnailProbe?.dispose();
+            }
+          }, { candidate, workload });
+          console.log(JSON.stringify({ fixture: "B2-Table-acceptance", workload, candidateFirst, candidate,
+            initialCount: initial.ids.length, ...result }));
+          expect(result.retainedMax).toBeLessThanOrEqual(1000);
+          readCounts[Number(candidate)] = result.reads.length;
+          if (workload === "short-stop") {
+            expect(result.metrics.stopMediaCensored).toBe(0);
+            expect(result.metrics.refillsPendingAtEnd).toBe(0);
+            expect(result.metrics.readStartsAfterStop).toBe(0);
+            expect(result.metrics.drivenDistancePx).toBe(-600);
+            expect(result.reads.length).toBeLessThanOrEqual(candidate ? 1 : 0);
+          } else {
+            expect(result.metrics.postStopMediaCensored).toBe(0);
+            expect(result.metrics.postStopRefillsPending).toBe(0);
+            expect(result.metrics.idleReadStarts).toBe(0);
+            expect(result.metrics.postStopAnchorRetained).toBe(1);
+            expect(result.metrics.postStopAnchorLayoutCalibrationPx).toBeCloseTo(8, 1);
+            expect(result.metrics.postStopAnchorDisplacementPx).toBeLessThanOrEqual(1);
+            expect(result.metrics.peakRefillsInFlight).toBeLessThanOrEqual(2);
+            expect(result.metrics.initialBufferCount).toBe(1000);
+            if (workload === "negative-control") {
+              for (const prefix of ["early", "middle", "late"]) expect(result.metrics[prefix + "BufferEdgeBlockedMs"]).toBe(0);
+            }
+          }
+        } finally { await page.close(); }
+      }
+      expect(readCounts[1]).toBeLessThanOrEqual(readCounts[0] + 1);
+    });
+  }
+}
+
+for (const density of ["grid", "justified", "table"] as const) {
+  test(`B2 acceptance settled far seek ${density}`, async ({ context }) => {
+    await installB2AcceptanceRoutes(context);
+    let reference: unknown;
+    for (const candidate of [false, true]) {
+      const page = await prepareB2AcceptancePage(context, density, false);
+      try {
+        const result = await page.evaluate(async ({ density, candidate }) => {
+          const store = (window as any).__kupua_store__;
+          const extensions = { forward: 0, backward: 0 };
+          const unsubscribe = store.subscribe((state: any, previous: any) => {
+            if (state._extendForwardInFlight && !previous._extendForwardInFlight) extensions.forward++;
+            if (state._extendBackwardInFlight && !previous._extendBackwardInFlight) extensions.backward++;
+          });
+          (window as any).__b2AcceptanceCandidate = candidate;
+          try {
+            const generation = store.getState()._seekGeneration;
+            await store.getState().seek(52000);
+            const driverPath = "/e2e-perf/density-browser.ts";
+            const drivers = await import(driverPath);
+            const localPage = { evaluate: (callback: any, argument: any) => callback(argument) };
+            const media = await drivers.visibleMediaReadiness(localPage, density, performance.now(), 4000);
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            const state = store.getState();
+            const region = document.querySelector<HTMLElement>(`[aria-label="Image results ${density}"]`)!;
+            const bounds = region.getBoundingClientRect();
+            return { generationAdvanced: state._seekGeneration > generation, error: Boolean(state.error),
+              count: state.results.length, offset: state.bufferOffset, ids: state.results.map((image: any) => image?.id),
+              scrollTop: region.scrollTop, visible: [...region.querySelectorAll<HTMLElement>("[data-image-id]")].filter(cell => {
+                const box = cell.getBoundingClientRect();
+                return box.bottom > bounds.top && box.top < bounds.bottom;
+              }).map(cell => cell.dataset.imageId), extensions, mediaCensored: media.mediaCensored };
+          } finally { unsubscribe(); (window as any).__b2AcceptanceCandidate = false; }
+        }, { density, candidate });
+        expect(result.generationAdvanced).toBe(true);
+        expect(result.error).toBe(false);
+        expect(result.mediaCensored).toBe(0);
+        expect(result.extensions).toEqual({ forward: 0, backward: 0 });
+        if (reference === undefined) reference = result;
+        else expect(result, "same far destination, placement and extension demand").toEqual(reference);
+        console.log(JSON.stringify({ fixture: "B2-settled-far-seek", density, candidate,
+          count: result.count, visibleCount: result.visible.length, extensions: result.extensions,
+          mediaCensored: result.mediaCensored, generationAdvanced: result.generationAdvanced }));
+      } finally { await page.close(); }
+    }
+  });
+}
+
 function installGridCellCounter() {
   const counter: any = { active: false, stats: null,
     wrapMemo(memo: any, component: any) {
@@ -130,9 +1258,11 @@ for (const density of ["grid", "justified"] as const) {
           }
           if (local && url.pathname === "/src/hooks/useDataWindow.ts") {
             const response = await route.fetch();
-            const source = await response.text();
+            const served = await response.text();
+            const shipped = "rangeStartMatchesViewport && startIndex <= backwardThreshold && offset > 0";
+            expect(served.split(shipped)).toHaveLength(2);
             const original = "rangeStartMatchesViewport && startIndex <= EXTEND_THRESHOLD && offset > 0";
-            expect(source.split(original)).toHaveLength(2);
+            const source = served.replace(shipped, original);
             policyLoads++;
             if (latencyForward) {
               const forward = "Math.max(0, velocityEma) * VELOCITY_LOOKAHEAD_MS";

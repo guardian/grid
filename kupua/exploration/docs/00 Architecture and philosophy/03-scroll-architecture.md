@@ -291,31 +291,35 @@ admission and fetch horizons have separate owners and configuration.
 
 The user scrolls with mouse wheel or trackpad. TanStack Virtual renders
 ~15–30 visible rows from the buffer. When the viewport approaches the
-buffer edge (within `EXTEND_THRESHOLD = 50` items), `reportVisibleRange`
+buffer edge, `reportVisibleRange`
 triggers `extendForward` or `extendBackward`. The extend fetches
 `PAGE_SIZE = 200` items via `search_after`, appends/prepends them, and
 evicts from the opposite end if the buffer exceeds `BUFFER_CAPACITY = 1000`.
+The base admission threshold is `EXTEND_THRESHOLD = 50` items; directional
+prediction can widen it as described below.
 
 Headroom aims to hide refill latency, but its physical size depends on density.
 A finite buffer can still stop scrolling when a refill misses the edge; earlier
 admission cannot overcome sustained consumption above delivery throughput.
 
-**Velocity-aware forward trigger.** At sustained fast wheel velocity (e.g.
-the table fast-scroll perf test eats ~1700 items/s) the user can chew
-through 50 items in less than a single ES round-trip (~100–500ms),
-pinning `scrollTop` at the buffer's bottom until the extend returns.
-`reportVisibleRange` mitigates this by tracking an EMA-smoothed forward
-velocity and widening the forward threshold to
-`EXTEND_THRESHOLD + velocity × VELOCITY_LOOKAHEAD_MS`, capped at
-`PAGE_SIZE = 200`. Effect: at rest the trigger is the bare 50; under a
-fast burst the extend fires up to ~150 items earlier, and the fetch
-overlaps with the user still consuming buffered content.
+**Velocity-aware directional triggers.** `reportVisibleRange` tracks signed,
+EMA-smoothed velocity in items/ms. Forward admission uses
+`min(PAGE_SIZE, EXTEND_THRESHOLD + max(0, velocity) × VELOCITY_LOOKAHEAD_MS)`.
+Fixed Grid and Table explicitly select the same predictor with negated velocity
+for buffer-local backward admission. Justified, callers without a layout policy,
+and indexed backward admission retain the fixed threshold of 50.
+
+The 400ms horizon widens the relevant threshold from 50 towards one 200-image
+page, allowing a fetch to overlap consumption of the remaining buffer. Store-owned
+cooldowns and one in-flight extension per direction still govern admission. A short
+stop can leave one speculative page in flight; prediction does not wait for thumbnail
+readiness or change page size, buffer capacity, retention or scroll compensation.
 
 Velocity samples are separate from navigation intent. `useScrollEffects` admits a
 sample only when the reported first/last rows match the current scroll viewport
 (with a one-pixel boundary tolerance and an explicit last-row allowance).
 `useDataWindow` resets the baseline across reporting-owner, result-publication,
-buffer-offset, search-generation, total, layout or viewport-height changes. Invalid
+buffer-offset, search-generation, total, layout-policy, geometry or viewport-height changes. Invalid
 samples also reset it. A stationary range correction rebases the end index without
 counting it as movement. Sampling does not scan the buffer or own viewport placement.
 
@@ -331,8 +335,8 @@ a refill chain while the virtualizer still reports the old tail after eviction
 compensation. Visible-range reporting continues, and one valid edge can admit demand
 without both edges qualifying for a velocity sample. Callers omitting this evidence
 retain base admission; indexed admission uses its global-range rules. Valid programmatic movement
-remains eligible. Prediction is still forward-only, the backward threshold remains
-50, and neither guard changes the configured fetch horizons.
+remains eligible. These validity guards apply independently of the directional
+threshold policy.
 
 ### Scrolling past the buffer (indexed scroll mode)
 
@@ -384,16 +388,18 @@ reused, not restarted. Pending or settled AI queries never issue ordinary window
    the existing row-delta guard avoids unnecessary movement, with sub-row carry
    applied separately when required.
 8. At 150ms (`SEEK_DEFERRED_SCROLL_MS`), a synthetic scroll event triggers
-   `reportVisibleRange`. With ~100 items of headroom, `startIndex > 50`
-   (EXTEND_THRESHOLD) — **no immediate backward extend**. Forward extend
-   fires if needed.
-9. As the user scrolls up past the headroom, `extendBackward` fires and
-   prepends to off-screen content — **invisible** by construction.
+   `reportVisibleRange`. The replacement buffer resets velocity continuity, so
+   backward admission starts at the base threshold of 50. With ~100 items of
+   headroom, no immediate backward extend is needed. Forward extend fires if needed.
+9. As the user scrolls up, the layout's backward threshold determines when
+   `extendBackward` fires. Fixed Grid and Table can admit the page before reaching
+   the base threshold; viewport compensation accounts for the prepended rows.
 10. Post-extend cooldown (50ms) prevents cascading compensations.
 
 Total time: ~250–600ms on real ES (one extra backward fetch, ~50-100ms).
-Settle-window content shift: **0 items** (bidirectional seek ensures all prepends
-happen off-screen).
+The initial headroom separates destination placement from subsequent buffer
+maintenance; it does not guarantee that every refill finishes before the viewport
+reaches the edge.
 
 ### Destination seek preparation
 
@@ -1036,7 +1042,7 @@ past the last doc with a value is the **null zone**:
 | **Cursor** | ES `search_after` sort values tuple. Stored at buffer start (`startCursor`) and end (`endCursor`). |
 | **Density** | A viewing mode (table, grid, detail, fullscreen) — conceptually a zoom level of the same ordered list. |
 | **Extend** | Fetch a page and append/prepend to the buffer. Forward = append + evict start. Backward = prepend + evict end. |
-| **`EXTEND_THRESHOLD`** | How close to the buffer edge (50 items) before `reportVisibleRange` triggers an extend. |
+| **`EXTEND_THRESHOLD`** | Base edge-admission distance (50 items). Velocity widens forward admission and fixed Grid/Table buffer-local backward admission, capped at one page. |
 | **Indexed scroll mode** | The middle tier (1k–65k results). `twoTier` active (from total range), virtualizer spans `total`, scrubber drag = direct scroll, buffer slides via extends and scroll-triggered seeks. Position map loads in background for faster seeks. |
 | **"Never Lost"** | The principle that focus, scroll position, and context survive every transition. |
 | **Null zone** | Region of results where the sort field is `null`. Sorted by `uploadTime` fallback. |

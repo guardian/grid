@@ -64,8 +64,8 @@ import type { Image } from "@/types/image";
 // effective forward threshold widens with velocity, capped at PAGE_SIZE
 // (no benefit beyond "one fetch in flight").
 //
-// Forward-only by design. Backward extends pair with prepend compensation
-// — the central swimming risk — and we leave them strictly alone.
+// Fixed Grid and Table also use this predictor for seek-mode backward demand.
+// Other callers and indexed backward admission retain the base threshold.
 //
 // Constants live in constants/tuning.ts.
 // ---------------------------------------------------------------------------
@@ -83,6 +83,7 @@ export interface ViewportVelocitySample {
 
 let _velocityContext: {
   owner: object;
+  layoutPolicy: "grid" | "table" | "justified" | undefined;
   results: readonly (Image | undefined)[];
   generation: number;
   total: number;
@@ -319,8 +320,10 @@ interface DataWindow {
  * } = useDataWindow();
  * ```
  */
-export function useDataWindow(): DataWindow {
+export function useDataWindow(layoutPolicy?: "grid" | "table" | "justified"): DataWindow {
   const ownerRef = useRef({ mounted: true });
+  const layoutPolicyRef = useRef(layoutPolicy);
+  layoutPolicyRef.current = layoutPolicy;
   const scopeRef = useRef<{ params: object; key: string } | null>(null);
   useEffect(() => {
     const owner = ownerRef.current;
@@ -401,18 +404,13 @@ export function useDataWindow(): DataWindow {
         _notifyVisibleListeners();
       }
 
-      // Velocity-aware adaptive forward-extend threshold.
-      // Tracks EMA of items/ms (forward velocity) and widens the trigger
-      // threshold so a fast wheel/trackpad burst fires extendForward early
-      // enough that the round-trip completes before the viewport hits the
-      // buffer's bottom. Forward-only — backward extend keeps the static
-      // EXTEND_THRESHOLD because prepend compensation is the swimming risk.
+      // Signed velocity widens forward admission and scoped backward admission.
       const now = performance.now();
       if (velocitySample) {
         const state = useSearchStore.getState();
         const generation = getSearchGeneration();
         const previous = _velocityContext;
-        const continuous = previous?.owner === ownerRef.current && previous.results === state.results &&
+        const continuous = previous?.owner === ownerRef.current && previous.layoutPolicy === layoutPolicyRef.current && previous.results === state.results &&
           previous.generation === generation && previous.total === t && previous.offset === offset &&
           previous.sample.viewportHeight === velocitySample.viewportHeight &&
           previous.sample.layout === velocitySample.layout;
@@ -422,7 +420,7 @@ export function useDataWindow(): DataWindow {
         ) : 0;
         _lastReportTime = now;
         _lastEndIndex = endIndex;
-        _velocityContext = { owner: ownerRef.current, results: state.results, generation, total: t, offset, sample: velocitySample };
+        _velocityContext = { owner: ownerRef.current, layoutPolicy: layoutPolicyRef.current, results: state.results, generation, total: t, offset, sample: velocitySample };
       } else {
         _resetForwardVelocity();
       }
@@ -504,7 +502,9 @@ export function useDataWindow(): DataWindow {
         }
 
         // Near the start of the buffer → extend backward
-        if (rangeStartMatchesViewport && startIndex <= EXTEND_THRESHOLD && offset > 0) {
+        const backwardThreshold = layoutPolicyRef.current === "grid" || layoutPolicyRef.current === "table"
+          ? forwardExtendThreshold(-_velocityEma) : EXTEND_THRESHOLD;
+        if (rangeStartMatchesViewport && startIndex <= backwardThreshold && offset > 0) {
           extendBackward();
         }
       }

@@ -367,7 +367,7 @@ function mountDensity(initialGeometry: ScrollGeometry, strict = false, reportVie
   };
   const view = renderHook((props: { geometry: ScrollGeometry }) => {
     const state = useSearchStore();
-    const dataWindow = useDataWindow();
+    const dataWindow = useDataWindow("layout" in props.geometry ? "justified" : props.geometry.columns === 1 ? "table" : "grid");
     const twoTier = isTwoTierFromTotal(state.total);
     const count = twoTier ? state.total : state.results.length;
     geometry = windowCoordinates && !("layout" in props.geometry)

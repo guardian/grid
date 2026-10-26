@@ -9,6 +9,28 @@ application session or live service is needed. The accepted graph-led layout now
 the three real history sidecars through [dashboard-data.js](./dashboard-data.js).
 The curated copy and synthetic design fixtures are not loaded by this page.
 
+Without checkpoint/baseline URL selections, the dashboard opens on the newest
+complete registered campaign and its chronological predecessor. Explicit selections
+are preserved. A single campaign has no baseline; without campaigns, the curated
+recorded checkpoint remains the fallback. Existing comparison-eligibility checks apply.
+
+## Keyboard and Focus
+
+Left/Right traverse scrolling direction and load phase in History, or in the visible
+Compare browsing section: Forward gentle/reference/stress, then Backward
+gentle/reference/stress/reversal, wrapping at either end. Constrained Compare browsing
+has only the three forward phases. Density, workload and statistic stay fixed.
+Native controls, selected text, evidence views and focused History points keep their
+own keyboard behavior; arrows on a History point move between campaigns.
+
+In Search & Navigation's visible Queries, filters, Home & sorting section,
+Left/Right cycle Action phase in dropdown order, wrapping at either end. The
+regime and comparison selections stay fixed; History and other sections are unaffected.
+
+Tab enables a thin focus ring; pointer input clears it. Programmatic landmark focus
+does not draw a surrounding box. Compare controls run left to right as Direction,
+Workload, Load phase, Statistic, Density.
+
 ## Canonical integration boundary
 
 The approved units keep Overview -> Search & Navigation / Scrolling & Layout / Image
@@ -53,10 +75,19 @@ metrics get history; the list lives once, in `WORKFLOWS` in [history.js](history
 
 **Supporting** records (P4/P11/P16, PP6, P2/P8/P17, D3/D6/D7, D5/D11) stay in Compare and exact
 evidence; **diagnostic** fields stay in raw records. Every saved entry is a point; no registration
-or label grouping. Current/baseline are pinned per family (no shared campaign identity). Colour =
-topology, shape = delivery, hollow = operator-confirmed inferred environment (never joined).
-Lines join only consecutive values passing `recordPair`. Scrolling also offers SYNTHETIC
-adverse history. Rules and checks: [evidence](../../exploration/docs/zz%20Archive/deployment-probe-audit-workplan-evidence.md#scrolling-and-layout-history-design-slice).
+or label grouping. Current/baseline are pinned per family, independently of Compare;
+Compare-only header controls and provenance are hidden in History. Colour = topology,
+shape = delivery, hollow = operator-confirmed inferred environment (never joined).
+Lines join only consecutive values passing `recordPair`. Only recorded histories are
+exposed; synthetic fixtures are not loaded by the dashboard or offered as a dataset.
+Rules and checks: [evidence](../../exploration/docs/zz%20Archive/deployment-probe-audit-workplan-evidence.md#scrolling-and-layout-history-design-slice).
+
+History points in registered checkpoints or complete campaigns can open their exact
+Compare evidence. Points belonging to the selected Compare pair preserve that pair
+and current/baseline side; other registered points open their owning checkpoint with
+no inferred baseline. The selected field, statistic and scrolling phase/direction
+travel with the link. Unregistered history retains its inspector and complete saved
+record without inventing checkpoint membership.
 
 ## Search & Navigation summary
 
@@ -104,12 +135,20 @@ feature expansion or another campaign.
 
 ## Scrolling & Layout summary
 
-The tab now opens the graph-led summary, not a technical record. It uses complete
-adapter records and the audit's workflow ownership map:
+The tab opens an outcome-first comparison using complete adapter records. Dynamic
+headlines describe available directional changes for the selected scope; they do not
+infer causation, significance or a universal score. Before/After values link to exact
+evidence. Change wording and colour account for each metric's desirable direction;
+delivered rate above requested demand earns no additional favourable cue. No baseline,
+missing fields and incompatible populations remain explicit, never healthy zeroes.
+
+Supporting charts and technical context sit under a single disclosure. Starting
+runway/buffer differences remain beside the comparison. Overview keeps its five
+existing summaries. Workflow ownership remains:
 
 | Section | Canonical records / presentation |
 | --- | --- |
-| Browsing | D1/D2 Grid, Justified, Table; gentle/reference/stress and D2 reversal. Separate achieved/requested rate, pending slots, frame-p95 and expandable blocking/stability/request evidence |
+| Browsing | D1/D2 Grid, Justified, Table; gentle/reference/stress and D2 reversal. Direct blocked-time, delivered-rate, pending-slot and frame-p95 comparisons; supporting charts/stability/request evidence remain expandable |
 | Density indices v1 | Existing independent progress, smoothness and sampled-stability formulas across both ordinary directions/all phases/reversal; exact limiting components linked; incomplete inputs/censoring withhold indices |
 | Stopped recovery | D1/D2 ordinary and D8 constrained groups; independent data-ready/decoded-media clocks, contributors/censors/cohort guards and actual observation cap |
 | Transitions/reflow | D3/D6 plus expandable P4a/b, P11 variants, P16a/b, PP6/6b/6c; unlike clocks remain separate; signed displacement/false visibility survive |
@@ -206,6 +245,11 @@ Overview's **Traversal** and **Detail entry** headings also open the matching su
 Existing plotted marks still provide direct access to precise evidence.
 
 The summary reuses Overview's chart/table renderers, typography and C/B conventions:
+
+Uncharted Fullscreen/return and Selection/panels groups are compact disclosures with
+saved-record counts. Their group links open the corresponding disclosure. Evidence
+and validity qualifications remain available without presenting coverage gaps as
+large primary-result panels.
 
 1. **Detail opening:** singleton lookup, metadata readiness, decoded/stable returned media,
    and the separate loaded/stable double-click entry. Clocks remain independent; JA2's

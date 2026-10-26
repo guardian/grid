@@ -400,7 +400,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
     focusedImageId, setFocusedImageId,
     reportVisibleRange, getImage, findImageIndex,
     twoTier,
-  } = useDataWindow();
+  } = useDataWindow("table");
   const {
     config,
     toggleVisibility,

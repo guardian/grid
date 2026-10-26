@@ -323,8 +323,12 @@ buffer-local indices in normal mode and global indices in two-tier mode. Normal 
 the small full-buffer and large seek tiers; two-tier mode virtualizes the total with skeletons
 outside the loaded window. Eligibility depends on configured thresholds, not map readiness.
 
-Forward-extend headroom grows with EMA-smoothed scroll velocity, capped at one page; backward
-headroom stays fixed. Buffer-local admission rejects an explicitly stale trailing range for
+Forward-extend headroom grows with signed EMA-smoothed scroll velocity over a 400ms
+horizon, from a 50-image base to a one-page cap of 200. Fixed Grid and Table explicitly
+select the same predictor with negated velocity for buffer-local backward admission;
+Justified, unspecified callers and indexed backward admission retain threshold 50.
+The stable reporting callback reads current layout policy, and policy changes break
+velocity continuity. Buffer-local admission rejects an explicitly stale trailing range for
 forward demand and an explicitly stale first row for backward demand; each edge is independent
 of navigation intent and of full-range velocity validity. Callers without that evidence retain
 base admission; indexed views use global-range admission. View-owned indexed maintenance refills debounce for 200ms. User browse

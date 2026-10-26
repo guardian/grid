@@ -1,6 +1,10 @@
 .mode-toggle { display:flex; gap:14px; margin:0 0 10px; border-bottom:1px solid var(--line); }
 .mode-toggle a { padding:5px 2px; font-size:12px; text-decoration:none; color:var(--text); border-bottom:2px solid transparent; }
 .mode-toggle a[aria-current=page] { color:#fff; border-color:var(--accent); }
+.engineering-header.history-mode #selection,
+.engineering-header.history-mode #context,
+.engineering-header.history-mode #pair-details,
+.engineering-header.history-mode #trust { display:none; }
 .history-view svg[data-chart] { width:100%; height:auto; display:block; overflow:visible; }
 .history-view .axis { stroke:#737373; stroke-width:1; }
 .history-view .tick { font-size:9px; fill:var(--muted); }
@@ -12,7 +16,7 @@
 .history-view .series { stroke-width:1.6; }
 .history-view .glyph { font-size:13px; font-weight:700; }
 .history-view .hpt:focus { outline:none; }
-.history-view .hpt:focus-visible rect, .history-view .hpt.selected rect { stroke:#fff; stroke-width:1.5; }
+html[data-keyboard-focus] .history-view .hpt:focus-visible rect { stroke:#fff; stroke-width:1; }
 .history-view .role-current { fill:none; stroke:#fff; stroke-width:2; }
 .history-view .role-baseline { fill:none; stroke:#fff; stroke-width:1.6; stroke-dasharray:3 2; }
 .history-view .role-label { font-size:10px; font-weight:700; fill:#fff; }
@@ -44,7 +48,6 @@
 .history-table td>small { margin-left:0; }
 .inline-control { display:inline-flex; align-items:center; gap:6px; font-size:11px; }
 .inline-control select { width:auto; padding:3px 6px; font-size:12px; }
-.synthetic-banner { border-left:3px solid var(--warning); padding-left:10px; }
 @media(max-width:760px) {
   .history-selection { grid-template-columns:1fr; }
   .history-facts { grid-template-columns:1fr; }

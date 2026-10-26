@@ -34,7 +34,7 @@
 
   // The tracked list: the only metrics given history. Supporting/diagnostic records stay in Compare/evidence.
   const WORKFLOWS = {
-    scroll: { title: "Scrolling & Layout", controls: ["dir", "phase"], synthetic: true,
+    scroll: { title: "Scrolling & Layout", controls: ["dir", "phase"],
       rows: scrollMetrics.map(metric => ({ ...metric, scope: view => metric.unphased ? "Whole journey · last motion stop" : `${PHASES[view.phase]} · ${view.dir}`,
         columns: Object.entries(DENSITIES).map(([density, label]) => ({ id: density, family: "density", kind: "density", label,
           scenario: view => `${view.dir === "backward" ? "D2" : "D1"}-${density}`, field: (record, view) => resolve(record, metric, view.phase) })) })) },
@@ -156,21 +156,17 @@
   const unitOf = (row, col) => col.unit ?? row.unit;
   const histories = () => ({ audit: globalThis.__AUDIT_LOG__, perceived: globalThis.__PERCEIVED_LOG__, density: globalThis.__DENSITY_LOG__ });
   const datasets = {};
-  function dataset(kind) {
-    if (datasets[kind]) return datasets[kind];
-    if (kind === "synthetic") {
-      const fixture = globalThis.KupuaHistoryFixtures.build(globalThis.__DENSITY_LOG__);
-      return datasets[kind] = { ...model({ density: { entries: fixture.entries } }, true), defaults: { density: fixture.defaultBaseline }, baselineSource: "fixture-designated baseline" };
-    }
+  function dataset() {
+    if (datasets.recorded) return datasets.recorded;
     const registered = DATA.definitions.find(d => d.id === "proxy-baseline")?.members ?? [];
-    return datasets[kind] = { ...model(histories(), false), defaults: Object.fromEntries(registered.map(m => [m.kind, m.timestamp])), baselineSource: "registered proxy baseline" };
+    return datasets.recorded = { ...model(histories(), false), defaults: Object.fromEntries(registered.map(m => [m.kind, m.timestamp])), baselineSource: "registered proxy baseline" };
   }
   function readView() {
     const p = new URLSearchParams(location.hash.slice(1));
     const pick = (key, allowed, fallback) => allowed.includes(p.get(key)) ? p.get(key) : fallback;
     const wf = pick("view", Object.keys(WORKFLOWS), "scroll");
     const roles = prefix => Object.fromEntries(Object.keys(KINDS).filter(k => p.get(`${prefix}.${k}`)).map(k => [k, p.get(`${prefix}.${k}`)]));
-    return { wf, data: WORKFLOWS[wf].synthetic ? pick("h.data", ["recorded", "synthetic"], "recorded") : "recorded",
+    return { wf,
       dir: pick("h.dir", ["forward", "backward"], "forward"), phase: pick("h.phase", Object.keys(PHASES), "middle"), stat: pick("h.stat", ["median", "p95"], "median"),
       hide: new Set((p.get("h.hide") ?? "").split(",").filter(Boolean)), current: roles("c"), baseline: roles("b"),
       point: p.get("h.point"), table: p.get("h.table") };
@@ -181,7 +177,7 @@
     for (const key of [...p.keys()]) if (/^(h|c|b)\./.test(key) || ["evidence", "metric", "scenario", "side", "group"].includes(key)) p.delete(key);
     p.set("view", v.wf);
     p.set("mode", "history");
-    for (const key of ["data", "dir", "phase", "stat"]) p.set(`h.${key}`, v[key]);
+    for (const key of ["dir", "phase", "stat"]) p.set(`h.${key}`, v[key]);
     if (v.hide.size) p.set("h.hide", [...v.hide].sort().join(","));
     for (const [prefix, roles] of [["c", v.current], ["b", v.baseline]]) for (const [k, ts] of Object.entries(roles)) if (ts) p.set(`${prefix}.${k}`, ts);
     if (v.point) p.set("h.point", v.point);
@@ -266,10 +262,17 @@
 
   function evidenceLink(p, ctx) {
     if (!p.record || !p.field || ctx.data.synthetic) return "";
-    const member = definition => DATA.definitions.find(d => d.id === definition)?.members.some(m => m.kind === p.item.kind && m.timestamp === p.item.ts);
-    const side = member("recorded") ? "" : member("proxy-baseline") ? "baseline" : null;
-    if (side === null) return "";
-    return `<a href="${esc(DATA.route({ cp: "recorded", base: "proxy-baseline", view: ctx.view.wf, evidence: p.record.id, metric: p.field.key, side, statistic: ctx.view.stat }))}">Open in Compare evidence →</a>`;
+    const registry = [...DATA.definitions, ...DATA.campaignDefinitions(globalThis.__CAMPAIGN_LOG__)];
+    const member = definition => definition?.members.some(m => m.family === p.item.entry.family && m.kind === p.item.kind && m.timestamp === p.item.ts)
+      && (!definition.campaignId || definition.campaignId === p.item.entry.campaignId);
+    const params = new URLSearchParams(location.hash.slice(1));
+    const current = registry.find(definition => definition.id === params.get("checkpoint"));
+    const baseline = registry.find(definition => definition.id === params.get("baseline"));
+    const side = member(current) ? "" : member(baseline) ? "baseline" : "";
+    const selected = member(current) || member(baseline);
+    const owner = selected ? current : registry.find(member);
+    if (!owner) return "";
+    return `<a href="${esc(DATA.route({ cp: owner.id, base: selected ? baseline?.id ?? "none" : "none", view: ctx.view.wf, evidence: p.record.id, metric: p.field.key, side, statistic: ctx.view.stat, direction: ctx.view.dir, phase: ctx.view.phase }))}">Open in Compare evidence →</a>`;
   }
 
   function inspector(ctx) {
@@ -281,7 +284,7 @@
     const role = [ts === ctx.current[kind] && "current", ts === ctx.baseline[kind] && "baseline"].filter(Boolean).join(" & ");
     return `<section class="engineering-panel history-inspector" aria-labelledby="inspector-title"><div class="panel-heading"><h2 id="inspector-title" tabindex="-1">${esc(col.label)} · ${esc(row.title)} · ${esc(stamp(ts))}</h2><span>${esc(KINDS[kind])} · ${esc(item.label)}${role ? ` · selected as ${role}` : ""}</span></div>
       <dl class="history-facts"><dt>Environment</dt><dd>${esc(item.env.label)}${item.entry ? ` · ${esc(CMP.label(item.entry))}` : ""}</dd><dt>Record</dt><dd>${p.record ? `<code>${esc(p.record.id)}</code>` : "absent"}</dd>
-      <dt>Contract</dt><dd>${raw ? `r${esc(raw.scenarioRevision ?? "unknown")}${raw.profile ? ` · ${esc(raw.profile)}` : ""}${raw.cacheClass ? ` · ${esc(raw.cacheClass)}` : ""}` : "—"}</dd>
+      <dt>Contract</dt><dd>${raw ? `${raw.scenarioRevision == null ? "Revision unavailable" : `r${esc(raw.scenarioRevision)}`}${raw.profile ? ` · ${esc(raw.profile)}` : ""}${raw.cacheClass ? ` · ${esc(raw.cacheClass)}` : ""}` : "—"}</dd>
       <dt>Field</dt><dd>${p.field ? `<code>${esc(p.field.key)}</code>${PHASES[p.field.scope] ? ` · ${esc(PHASES[p.field.scope])}` : ""}` : esc(p.reason)}</dd>
       <dt>${col.statisticFree ? "Value" : ctx.view.stat === "p95" ? "p95 of observations" : "Median of observations"}</dt><dd>${finite(p.value) ? esc(fmt(p.value, unit)) : `No value · ${esc(p.reason)}`}</dd>
       <dt>Saved field</dt><dd>${p.saved !== undefined ? `<code>${esc(JSON.stringify(p.saved))}</code>${raw.sampleCount !== undefined ? ` · ${esc(raw.sampleCount)} observations` : ""}` : "—"}</dd>
@@ -306,7 +309,7 @@
   }
 
   function render(target) {
-    const view = readView(), data = dataset(view.data), workflow = WORKFLOWS[view.wf];
+    const view = readView(), data = dataset(), workflow = WORKFLOWS[view.wf];
     const kinds = kindsOf(workflow), items = {}, trimmed = {};
     for (const kind of kinds) ({ items: items[kind], trimmed: trimmed[kind] } = applicable(data, workflow, kind, view));
     const known = (kind, ts) => items[kind]?.some(i => i.ts === ts);
@@ -326,13 +329,11 @@
       return `<div class="role-pill"><strong>${role}</strong> ${ts ? `${esc(stamp(ts))} · ${esc(find(kind, ts).env.label)} <small>${esc(find(kind, ts).label)}</small>` : "none"} <span class="pill${explicit ? "" : " muted"}">${explicit ? "pinned" : role === "Current" ? "latest · follows new results" : ts ? data.baselineSource : "no registered baseline"}</span>${explicit ? ` <a href="${esc(reset)}">${role === "Current" ? "Follow latest" : `Use ${esc(data.baselineSource)}`}</a>` : ""}</div>`;
     };
     target.innerHTML = `<div class="engineering-overview history-view">
-      <p class="note">History pins current/baseline per result family below; the header checkpoint and baseline apply to Compare.</p>
-      ${data.synthetic ? '<p class="note watch synthetic-banner"><strong>SYNTHETIC adverse examples.</strong> Cloned from three real entries and altered for review; not observed history and never comparable with recorded campaigns.</p>' : ""}
       ${kinds.map(kind => {
         const c = current[kind], b = baseline[kind], compare = c && b && c !== b ? CMP.compare(find(kind, c).entry, find(kind, b).entry) : null;
         return `<div class="history-selection" aria-label="${esc(KINDS[kind])} selection"><h2 class="history-kind">${esc(KINDS[kind])} <small>${items[kind].length} campaigns${trimmed[kind] ? ` · ${trimmed[kind]} earlier entries predate these fields` : ""}</small></h2>${rolePill("Current", kind)}${rolePill("Baseline", kind)}${compare ? `<p class="note">${compare.compatible ? "Environments eligible" : "Environments not comparable"}: ${esc(compare.reason)}.</p>` : ""}</div>`;
       }).join("")}
-      <div class="scroll-controls history-controls">${workflow.synthetic ? select("data", "History", [["recorded", "Recorded campaigns"], ["synthetic", "SYNTHETIC adverse examples"]]) : ""}${workflow.controls.includes("dir") ? select("dir", "Direction", [["forward", "Forward · D1"], ["backward", "Backward · D2"]]) : ""}${workflow.controls.includes("phase") ? select("phase", "Load phase", Object.entries(PHASES)) : ""}${select("stat", "Statistic", [["median", "Median of observations"], ["p95", "p95 · observed max at small n"]])}</div>
+      <div class="scroll-controls history-controls">${workflow.controls.includes("dir") ? select("dir", "Direction", [["forward", "Forward · D1"], ["backward", "Backward · D2"]]) : ""}${workflow.controls.includes("phase") ? select("phase", "Load phase", Object.entries(PHASES)) : ""}${select("stat", "Statistic", [["median", "Median of observations"], ["p95", "p95 · observed max at small n"]])}</div>
       <fieldset class="history-envs"><legend>Environments · colour = topology, shape = media delivery, hollow = inferred</legend>${Object.values(envs).map(({ env, count }) => `<label><input type="checkbox" data-env="${esc(env.id)}"${view.hide.has(env.id) ? "" : " checked"}><svg class="swatch" viewBox="-6 -6 12 12" aria-hidden="true">${shape(env, 0, 0)}</svg>${esc(env.label)} <small>${count}</small></label>`).join("")}</fieldset>
       <div class="overview-key history-key"><span><svg class="swatch" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 -10L10 0L0 10L-10 0Z" class="role-current"/></svg>C current</span><span><svg class="swatch" viewBox="-12 -12 24 24" aria-hidden="true"><circle r="9" class="role-baseline"/></svg>B baseline</span><span>Lines join only consecutive values whose records pass the comparison guard</span><span>Dashed divider · contract revision change</span><span>× no value (censored/unavailable) · ! withheld (invalid/partial/unsupported) · – record absent</span><span>x = campaign order, not elapsed time</span></div>
       ${workflow.rows.map(row => { const uniform = new Set(row.columns.map(col => col.better ?? row.better)).size === 1; return `<section class="engineering-panel history-metric" aria-label="${esc(row.title)} history"><div class="panel-heading"><h2>${esc(row.title)}</h2><span>${esc(row.scope(view))}${uniform ? ` · ${row.columns[0].better ?? row.better} is better` : ""}</span></div><div class="small-multiples">${row.columns.map(col => {
@@ -351,7 +352,7 @@
   let pendingFocus = false;
   document.addEventListener("change", event => {
     const view = readView(), t = event.target;
-    if (t.dataset.h) location.hash = hash(view, t.dataset.h === "data" ? { data: t.value, current: {}, baseline: {}, point: null } : { [t.dataset.h]: t.value });
+    if (t.dataset.h) location.hash = hash(view, { [t.dataset.h]: t.value });
     else if (t.dataset.env) { const hide = new Set(view.hide); t.checked ? hide.delete(t.dataset.env) : hide.add(t.dataset.env); location.hash = hash(view, { hide }); }
   });
   document.addEventListener("click", event => { if (event.target.closest?.("a.hpt")) pendingFocus = true; });
@@ -366,5 +367,5 @@
     all.forEach(el => el.setAttribute("tabindex", el === next ? "0" : "-1"));
     next.focus();
   });
-  globalThis.KupuaHistory = { render, synthetic: () => readView().data === "synthetic" };
+  globalThis.KupuaHistory = { render, synthetic: () => false };
 })();

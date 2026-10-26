@@ -333,6 +333,214 @@ describe("maintenance-safe forward velocity", () => {
   });
 });
 
+describe("B2 scoped backward admission", () => {
+  const initial = useSearchStore.getState();
+  const extendBackward = vi.fn().mockResolvedValue(undefined);
+  const extendForward = vi.fn().mockResolvedValue(undefined);
+  const geometry = {};
+  const sample = (scrollTop: number, layout = geometry, viewportHeight = 600) => ({ scrollTop, layout, viewportHeight });
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["performance"] });
+    vi.clearAllMocks();
+    _resetForwardVelocity();
+    resetVisibleRange();
+    useSearchStore.setState({ ...initial, total: 70000, bufferOffset: 42000,
+      results: Array.from({ length: 600 }, (_, index) => ({ id: `b2-${index}` }) as Image),
+      extendBackward, extendForward }, true);
+    vi.advanceTimersByTime(1000);
+  });
+
+  afterEach(() => {
+    cleanup();
+    resetVisibleRange();
+    vi.useRealTimers();
+    useSearchStore.setState(initial, true);
+  });
+
+  it.each(["grid", "table"] as const)("%s admits earlier physical backward demand with or without input intent", layout => {
+    const view = renderHook(() => useDataWindow(layout));
+    act(() => view.result.current.reportVisibleRange(220, 240, true, sample(7000)));
+    expect(extendBackward).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(50));
+    act(() => view.result.current.reportVisibleRange(170, 190, false, sample(5400)));
+    expect(extendBackward).toHaveBeenCalledOnce();
+    expect(extendForward).not.toHaveBeenCalled();
+  });
+
+  it.each([undefined, "justified"] as const)("keeps %s at 50 despite valid backward velocity", layout => {
+    const view = renderHook(() => useDataWindow(layout));
+    act(() => view.result.current.reportVisibleRange(220, 240, true, sample(7000)));
+    act(() => vi.advanceTimersByTime(50));
+    act(() => view.result.current.reportVisibleRange(170, 190, true, sample(5400)));
+    expect(extendBackward).not.toHaveBeenCalled();
+    act(() => view.result.current.reportVisibleRange(50, 70));
+    expect(extendBackward).toHaveBeenCalledOnce();
+  });
+
+  it.each(["grid", "table", "justified"] as const)("%s preserves base non-wheel demand without a velocity sample", layout => {
+    const view = renderHook(() => useDataWindow(layout));
+    act(() => view.result.current.reportVisibleRange(51, 71));
+    expect(extendBackward).not.toHaveBeenCalled();
+    act(() => view.result.current.reportVisibleRange(50, 70));
+    expect(extendBackward).toHaveBeenCalledOnce();
+  });
+
+  it("caps backward prediction at one page", () => {
+    const view = renderHook(() => useDataWindow("grid"));
+    act(() => view.result.current.reportVisibleRange(400, 420, true, sample(12000)));
+    act(() => vi.advanceTimersByTime(10));
+    act(() => view.result.current.reportVisibleRange(PAGE_SIZE + 1, PAGE_SIZE + 21, true, sample(6500)));
+    expect(extendBackward).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(10));
+    act(() => view.result.current.reportVisibleRange(PAGE_SIZE, PAGE_SIZE + 20, true, sample(6400)));
+    expect(extendBackward).toHaveBeenCalledOnce();
+  });
+
+  it.each([90, 91])("uses the unsaturated 90-image threshold at start %s", start => {
+    const view = renderHook(() => useDataWindow("grid"));
+    act(() => view.result.current.reportVisibleRange(start + 25, start + 45, false, sample(4000)));
+    act(() => vi.advanceTimersByTime(100));
+    act(() => view.result.current.reportVisibleRange(start, start + 20, false, sample(3200)));
+    expect(extendBackward).toHaveBeenCalledTimes(start === 90 ? 1 : 0);
+  });
+
+  it.each(["grid", "table", "justified"] as const)("%s preserves forward prediction without widening backward demand", layout => {
+    const view = renderHook(() => useDataWindow(layout));
+    act(() => view.result.current.reportVisibleRange(60, 80, false, sample(2000)));
+    act(() => vi.advanceTimersByTime(50));
+    act(() => view.result.current.reportVisibleRange(100, 120, false, sample(3200)));
+    expect(extendBackward).not.toHaveBeenCalled();
+    act(() => view.result.current.reportVisibleRange(460, 480));
+    act(() => vi.advanceTimersByTime(50));
+    act(() => view.result.current.reportVisibleRange(460, 480, false, sample(15000)));
+    act(() => vi.advanceTimersByTime(50));
+    act(() => view.result.current.reportVisibleRange(510, 530, false, sample(16600)));
+    expect(extendForward).toHaveBeenCalledOnce();
+  });
+
+  it("keeps predictive demand behind real cooldown, concurrency and newer-seek ownership", async () => {
+    const source = new MockDataSource(70000);
+    const pending: Promise<void>[] = [];
+    let clock = Date.now();
+    const date = vi.spyOn(Date, "now").mockImplementation(() => clock);
+    let release!: () => void;
+    let holdBackward = false;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const read = source.searchAfter.bind(source);
+    const reads = vi.spyOn(source, "searchAfter").mockImplementation(async (...args) => {
+      const response = await read(...args);
+      if (args[4] && holdBackward) await gate;
+      return response;
+    });
+    useSearchStore.setState({ dataSource: source, extendForward: initial.extendForward,
+      extendBackward: () => { const operation = initial.extendBackward(); pending.push(operation); return operation; } });
+    const view = renderHook(() => useDataWindow("table"));
+    try {
+      await act(async () => { await useSearchStore.getState().seek(42000); });
+      holdBackward = true;
+      reads.mockClear();
+      act(() => view.result.current.reportVisibleRange(140, 160, false, sample(4500)));
+      act(() => vi.advanceTimersByTime(50));
+      act(() => view.result.current.reportVisibleRange(100, 120, false, sample(3200)));
+      expect(reads).not.toHaveBeenCalled();
+      clock += 2100;
+      act(() => vi.advanceTimersByTime(300));
+      act(() => view.result.current.reportVisibleRange(140, 160, false, sample(4500)));
+      act(() => vi.advanceTimersByTime(50));
+      act(() => view.result.current.reportVisibleRange(100, 120, false, sample(3200)));
+      expect(useSearchStore.getState()._extendBackwardInFlight).toBe(true);
+      act(() => vi.advanceTimersByTime(50));
+      act(() => view.result.current.reportVisibleRange(80, 100, false, sample(2600)));
+      expect(reads.mock.calls.filter(args => args[4])).toHaveLength(1);
+      const signal = reads.mock.calls.find(args => args[4])![3];
+      holdBackward = false;
+      await act(async () => { await useSearchStore.getState().seek(52000); });
+      const destination = useSearchStore.getState().results;
+      expect(signal?.aborted).toBe(true);
+      await act(async () => { release(); await Promise.all(pending); });
+      expect(useSearchStore.getState().results).toBe(destination);
+      expect(useSearchStore.getState()._extendBackwardInFlight).toBe(false);
+    } finally { release(); await Promise.all(pending); date.mockRestore(); }
+  });
+
+  it("rejects an invalid first row even with predictive velocity", () => {
+    const view = renderHook(() => useDataWindow("table"));
+    act(() => view.result.current.reportVisibleRange(220, 240, true, sample(7000)));
+    act(() => vi.advanceTimersByTime(50));
+    act(() => view.result.current.reportVisibleRange(170, 190, true, sample(5400), false));
+    expect(extendBackward).not.toHaveBeenCalled();
+    act(() => view.result.current.reportVisibleRange(20, 40, false, undefined, false));
+    expect(extendBackward).not.toHaveBeenCalled();
+  });
+
+  it.each(["results", "offset", "total", "layout", "height", "idle", "maintenance", "stationary"] as const)(
+    "drops predictive backward demand across %s discontinuity", discontinuity => {
+      const view = renderHook(() => useDataWindow("grid"));
+      act(() => view.result.current.reportVisibleRange(260, 280, true, sample(8000)));
+      act(() => vi.advanceTimersByTime(50));
+      act(() => view.result.current.reportVisibleRange(210, 230, true, sample(6500)));
+      act(() => {
+        const state = useSearchStore.getState();
+        if (discontinuity === "results") useSearchStore.setState({ results: [...state.results] });
+        if (discontinuity === "offset") useSearchStore.setState({ bufferOffset: state.bufferOffset - 200 });
+        if (discontinuity === "total") useSearchStore.setState({ total: state.total + 1 });
+        if (discontinuity === "maintenance") view.result.current.reportVisibleRange(210, 230);
+        vi.advanceTimersByTime(discontinuity === "idle" ? 300 : 50);
+      });
+      act(() => view.result.current.reportVisibleRange(170, 190, false,
+        sample(discontinuity === "stationary" ? 6500 : 5400,
+          discontinuity === "layout" ? {} : geometry, discontinuity === "height" ? 900 : 600)));
+      expect(extendBackward).not.toHaveBeenCalled();
+    });
+
+  it("does not carry backward velocity into a replacement reporting owner", () => {
+    const previous = renderHook(() => useDataWindow("grid"));
+    act(() => previous.result.current.reportVisibleRange(260, 280, false, sample(8000)));
+    act(() => vi.advanceTimersByTime(50));
+    act(() => previous.result.current.reportVisibleRange(210, 230, false, sample(6500)));
+    const current = renderHook(() => useDataWindow("table"));
+    act(() => vi.advanceTimersByTime(50));
+    act(() => current.result.current.reportVisibleRange(170, 190, false, sample(5400)));
+    expect(extendBackward).not.toHaveBeenCalled();
+    previous.unmount();
+    act(() => vi.advanceTimersByTime(50));
+    act(() => current.result.current.reportVisibleRange(130, 150, false, sample(4000)));
+    expect(extendBackward).toHaveBeenCalledOnce();
+  });
+
+  it("updates layout policy without leaving a stale callback or carrying velocity into the new layout", () => {
+    const view = renderHook(({ layout }: { layout: "grid" | "justified" }) => useDataWindow(layout),
+      { initialProps: { layout: "grid" } });
+    const report = view.result.current.reportVisibleRange;
+    act(() => report(260, 280, true, sample(8000)));
+    act(() => vi.advanceTimersByTime(50));
+    act(() => report(210, 230, true, sample(6500)));
+    view.rerender({ layout: "justified" });
+    act(() => vi.advanceTimersByTime(50));
+    act(() => report(170, 190, true, sample(5400)));
+    expect(extendBackward).not.toHaveBeenCalled();
+    view.rerender({ layout: "grid" });
+    act(() => vi.advanceTimersByTime(50));
+    act(() => report(130, 150, true, sample(4000)));
+    expect(extendBackward).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(50));
+    act(() => report(90, 110, true, sample(2700)));
+    expect(extendBackward).toHaveBeenCalledOnce();
+  });
+
+  it("leaves indexed backward admission at 50", () => {
+    useSearchStore.setState({ total: 5000, bufferOffset: 1000 });
+    const view = renderHook(() => useDataWindow("table"));
+    act(() => view.result.current.reportVisibleRange(1220, 1240, true, sample(39000)));
+    act(() => vi.advanceTimersByTime(50));
+    act(() => view.result.current.reportVisibleRange(1170, 1190, true, sample(37400)));
+    expect(extendBackward).not.toHaveBeenCalled();
+    act(() => view.result.current.reportVisibleRange(1049, 1069));
+    expect(extendBackward).toHaveBeenCalledOnce();
+  });
+});
+
 describe("forwardExtendThreshold (velocity-aware)", () => {
   it("returns base threshold (50) at zero velocity", () => {
     expect(forwardExtendThreshold(0)).toBe(50);
