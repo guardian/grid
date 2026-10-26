@@ -18,5 +18,5 @@ export async function setTestClientConfig(page: Page, config: Partial<ClientConf
  await page.addInitScript((config) => {
     window._testClientConfig = config;
   }, config);
-  page.reload();
+  await page.reload();
 }
