@@ -662,6 +662,7 @@ button[disabled],
 
 .inner-clickable--disabled {
   opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .button-right-side {
