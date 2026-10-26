@@ -31,6 +31,8 @@ interface TestContext {
   presetLabels?: string[];
   /** Lets a held past-uploads search through (see holdPastUploads). */
   releasePastUploads?: () => void;
+  /** Which search box Kahuna renders, set by the `use-cql-chips` feature switch steps. */
+  searchInput?: 'chips' | 'cql';
 }
 
 export interface TestImage {

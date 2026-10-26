@@ -8,7 +8,7 @@ Feature: Free text search placeholder
     And I have opened the image search page
     And the CQL search input feature switch is on
     # We are treating the CQL search input as default for these scenarios
-  @todo
+
   Scenario: An empty search box shows the default placeholder
     Given the search box is empty
     Then the search box placeholder should read "Search for images… (type + for advanced search)"
@@ -16,36 +16,28 @@ Feature: Free text search placeholder
   # Evidence: kahuna/public/js/components/gr-chips/gr-text-chip.js lines 28-29
   # Evidence: kahuna/public/js/components/gr-chips/gr-chips.js lines 29, 65-68
   # Evidence: kahuna/public/js/search/structured-query/structured-query.js lines 71, 90
-  @todo
+
   Scenario: The placeholder is hidden once I type free text
     Given the search box is empty
     When I type "cat" into the search box
     Then the search box placeholder should not be visible
   # Evidence: kahuna/public/js/components/gr-chips/gr-text-chip.html lines 1-9
-  @todo
-  Scenario: The placeholder still shows when only filter chips are present
+
+  Scenario: The placeholder is hidden when the search box has a filter chip
     Given I open a search link with the query "credit:Reuters"
     Then a "credit" filter chip should be shown
-    And the search box placeholder should read "Search for images… (type + for advanced search)"
-  # Evidence: kahuna/public/js/search/structured-query/syntax.ts lines 75-90
-  # Evidence: kahuna/public/js/components/gr-chips/gr-chips.html lines 3-11
-  @todo
-  Scenario: Ticking AI search switches to the AI placeholder
-    Given AI search is enabled
-    And the search box is empty
-    When I tick the "AI search" checkbox
-    Then the search box placeholder should read "Search for conceptual images using AI search..."
-  # Evidence: kahuna/public/js/search/query.html lines 2-10, 13-15
-  # Evidence: kahuna/public/js/search/structured-query/structured-query.js lines 71-77
-  # Evidence: kahuna/public/js/components/gr-chips/gr-chips.js lines 30, 65-68, 183
-  @todo
+    And the search box placeholder should not be visible
+  # Evidence: kahuna/public/js/search/structured-query/structured-query.js lines 79-82, 90-99
+  # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 70-84
+  # Evidence: kahuna/node_modules/@guardian/cql/dist/lib.js lines 13000-13006
+
   Scenario: Unticking AI search restores the default placeholder
     Given AI search is enabled
     And the "AI search" checkbox is ticked
     When I untick the "AI search" checkbox
     Then the search box placeholder should read "Search for images… (type + for advanced search)"
   # Evidence: kahuna/public/js/components/gr-chips/gr-chips.js lines 29-30, 65-68
-  @todo
+
   Scenario: Opening a link with AI search on shows the AI placeholder
     Given AI search is enabled
     When I open a search link with AI search turned on
@@ -53,7 +45,7 @@ Feature: Free text search placeholder
     And the search box placeholder should read "Search for images… (type + for advanced search)"
   # Evidence: kahuna/public/js/search/query.js lines 120-125, 644-654
   # Evidence: kahuna/public/js/components/gr-chips/gr-chips.js lines 65-68
-  @todo
+
   Scenario: Without AI search the default placeholder is always shown
     Given AI search is disabled
     When I open a search link with AI search turned on
@@ -61,8 +53,7 @@ Feature: Free text search placeholder
     And the search box placeholder should read "Search for images… (type + for advanced search)"
   # Evidence: kahuna/public/js/search/query.js lines 120-123
   # Evidence: kahuna/public/js/search/query.html lines 2-3
- 
-  @todo
+
   Scenario: Ticking AI search does not change the CQL search input placeholder
     Given AI search is enabled
     And the search box is empty

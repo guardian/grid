@@ -4,6 +4,7 @@ type ClientConfig = {
   systemName: string;
   maybeUploadLimitInBytes: number;
   shouldUploadStraightToBucket: boolean;
+  aiSearchEnabled: boolean;
 };
 
 declare global {
