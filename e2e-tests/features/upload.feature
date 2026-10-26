@@ -50,11 +50,6 @@ Feature: Uploading images to the Grid
     Then I should be taken to a search filtered to images I uploaded
   # Evidence: kahuna/public/js/upload/view.html lines 22-23
 
-  # Currently unreachable: none of these controls reach the controller's own confirm.
-  # "Back to search" is a ui-sref, and ui-router destroys the UploadCtrl scope before
-  # broadcasting $locationChangeStart; "Home" and "View all your uploads" are plain hrefs,
-  # so the browser shows its own generic beforeunload prompt instead.
-  @todo
   Scenario: Warning before leaving the page with uploads in progress
     Given I have an upload in progress
     When I try to navigate away from the upload page via the following buttons:
@@ -62,7 +57,7 @@ Feature: Uploading images to the Grid
       | Home |
       | View all your uploads |
     Then I should be warned that uploads are in progress and asked to confirm
-  # Evidence: kahuna/public/js/upload/controller.js lines 18-34, 47-54
+  # Evidence: kahuna/public/js/upload/controller.js lines 21-33, 52-59
 
   # ---------------------------------------------------------------------------
   # File upload prompt (prompt/prompt.html + prompt.js)
@@ -182,15 +177,11 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.html lines 24-38
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 77-78, 179-185
 
-  # Unreachable in this stack's straight-to-bucket mode: the file uploads to S3 fine, then
-  # processing fails and the status carries a raw UnsupportedMimeTypeException. The friendly
-  # "only supports JPG, PNG and TIFF" copy is keyed off errorKey 'unsupported-type', which is
-  # only returned on the direct-load path.
-  @todo
   Scenario: An unsupported file type gives a helpful error
     When I upload a file that is not a JPG, PNG or TIFF
     Then the job should show an error explaining only JPG, PNG and TIFF are supported
-  # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 155-163
+  # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 153-161
+  # Evidence: image-loader/app/controllers/ImageLoaderController.scala lines 324
 
   Scenario: A completed upload becomes an editable image
     Given an upload has completed

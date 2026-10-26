@@ -2,6 +2,7 @@ import type { APIRequestContext, Page } from '@playwright/test';
 import { Given, Then, KAHUNA_APP_URL, expect } from '../setup.ts';
 import { findSeededImageId, hasNoUsageRights, loadImageFixtures } from '../../setup/image-fixtures.ts';
 import { usageRightsCategories } from '../utils/api/metadata-editor.queries.ts';
+import { setTestClientConfig } from '../utils/test-config.ts';
 
 /** An image seeded into Elasticsearch from fixtures/elasticsearch/images.json. */
 const SEEDED_IMAGE_ID = findSeededImageId('with no usage rights category', hasNoUsageRights);
@@ -43,9 +44,8 @@ Given('the usage rights summary is switched on', async ({ page }) => {
 });
 
 Given('the usage rights summary is switched off', async ({ page }) => {
-  await page.evaluate(() => {
-    window._clientConfig.usageRightsSummary = false;
-  });
+
+ await setTestClientConfig(page, { usageRightsSummary: false });
   // The metadata controller reads the switch on creation; same-document navigation recreates it.
   const imageUrl = page.url();
   await page.getByRole('link', { name: 'Go to image search' }).click();
