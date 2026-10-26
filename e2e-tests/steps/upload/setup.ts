@@ -180,7 +180,6 @@ export const uploadPage = (page: Page) => {
     deleteJobButton: currentUploads.getByRole('button', { name: 'Delete image' }),
     /** The deleted-image notice on a re-uploaded image, holding its undelete control and message. */
     deletionStatus,
-    // The editor's footer has a second "Undelete" button, so scope to the notice.
     undeleteJobButton: deletionStatus.getByRole('button', { name: 'Undelete' }),
   };
 };
