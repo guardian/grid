@@ -27,6 +27,8 @@ mappings:
     port: 9011
   - prefix: media-leases
     port: 9012
+  - prefix: oidc.media
+    port: 9014
   - prefix: es.media
     port: 9200
   - prefix: thrall.media
