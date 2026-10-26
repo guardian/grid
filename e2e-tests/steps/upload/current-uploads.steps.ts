@@ -198,7 +198,7 @@ Then(
   'there should be a message indicating that I do not have permission to undelete',
   async ({ page }) => {
     const { deletionStatus, undeleteJobButton } = uploadPage(page);
-    const message = 'You do not have permission to undelete this image';
+    const message = 'Only the uploader or a user with delete permission can';
     await expect(deletionStatus).toContainText(message);
     await expect(undeleteJobButton).toHaveAccessibleDescription(new RegExp(message));
   },
