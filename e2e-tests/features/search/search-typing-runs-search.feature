@@ -7,8 +7,6 @@ Feature: Typing in the search box runs a search
     Given the application stack is running
     And I am signed in through pan-domain auth
     And I have opened the image search page
-    And the CQL search input feature switch is on
-    # We are treating the CQL search input as default for these scenarios
 
   Scenario: Pausing after typing puts the text in the page address
     Given the search box is empty

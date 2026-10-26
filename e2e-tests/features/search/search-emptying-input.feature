@@ -6,8 +6,6 @@ Feature: Emptying the search box
     Given the application stack is running
     And I am signed in through pan-domain auth
     And I have opened the image search page
-    And the CQL search input feature switch is on
-    # We are treating the CQL search input as default for these scenarios
 
   Scenario: Deleting all the text removes the query from the page address
     Given I open a search link with the query "cat"

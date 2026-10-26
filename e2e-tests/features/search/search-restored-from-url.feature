@@ -6,8 +6,6 @@ Feature: Search box restored from the page address
     Given the application stack is running
     And I am signed in through pan-domain auth
     And I have opened the image search page
-    And the CQL search input feature switch is on
-    # We are treating the CQL search input as default for these scenarios
 
   Scenario: Opening a search link fills in the search box
     Given I open a search link with the query "cat"
