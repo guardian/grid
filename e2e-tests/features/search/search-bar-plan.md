@@ -74,11 +74,10 @@ combine them.
 The `use-cql-chips` feature switch picks the input, and it is **on by default**
 (`kahuna/app/lib/FeatureSwitch.scala`), so the CQL input is what users see. The
 feature files treat CQL as the default and switch it on in their `Background`.
+The legacy chips input (switch off) is being removed, so it isn't tested.
 
-- **CQL input** (default): the `cql-input` web component from `@guardian/cql`.
+- **CQL input**: the `cql-input` web component from `@guardian/cql`.
   Chips render as `chip-wrapper` elements inside its open shadow root.
-- **Chips input** (switch off): the free text lives in one text chip, whose
-  input has `data-cy="image-search-input"`.
 
 Step definitions live in `e2e-tests/steps/search/`. Shared search-box locators
 and the feature switch helper are in `search-box.ts`.
@@ -89,26 +88,20 @@ Feature file: [search-free-text.feature](./search-free-text.feature)
 
 - [x] **1. Placeholder text**: the CQL input shows `Search for images… (type +
       for advanced search)` only while it is completely empty. It hides as
-      soon as there's text or a chip, and it ignores AI search. The chips
-      input uses `...` instead of `…` and switches to `Search for conceptual
-      images using AI search...` when AI search is ticked. Its placeholder
-      stays visible next to filter chips, because the empty text chip is
-      always kept. Chips-input scenarios are in
-      [search-free-text-chips.feature](./search-free-text-chips.feature).
+      soon as there's text or a chip, and it ignores AI search.
 - [x] **2. Focus on page load**: the input is focused with the cursor after
-      any text already there. Feature files:
-      [search-focus-on-load.feature](./search-focus-on-load.feature) and
-      [search-focus-on-load-chips.feature](./search-focus-on-load-chips.feature).
+      any text already there. Feature file:
+      [search-focus-on-load.feature](./search-focus-on-load.feature).
 - [x] **3. Typing runs a search**: the URL `query` updates and results reload
       500 ms after you stop typing. Text that hasn't changed isn't searched
-      again. Feature files:
-      [search-typing-runs-search.feature](./search-typing-runs-search.feature)
-      and
-      [search-typing-runs-search-chips.feature](./search-typing-runs-search-chips.feature).
-- [ ] **4. Emptying the input**: deleting all the text removes `query` from
-      the URL.
-- [ ] **5. Restored from the URL**: opening a link with `?query=…` fills in
-      the input. Back and forward update the text.
+      again. Feature file:
+      [search-typing-runs-search.feature](./search-typing-runs-search.feature).
+- [x] **4. Emptying the input**: deleting all the text removes `query` from
+      the URL. Feature file:
+      [search-emptying-input.feature](./search-emptying-input.feature).
+- [x] **5. Restored from the URL**: opening a link with `?query=…` fills in
+      the input. Back and forward update the text. Feature file:
+      [search-restored-from-url.feature](./search-restored-from-url.feature).
 - [ ] **6. Text is tidied when loaded from the URL** (only on load or with
       back/forward, not while typing):
   - Separate words are joined into one piece of text.

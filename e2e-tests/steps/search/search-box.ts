@@ -1,5 +1,6 @@
 import type { Locator, Page, Request } from '@playwright/test';
 import { DOMAIN } from '../../setup/constants.ts';
+import { expect } from '../setup.ts';
 
 /** Which search box Kahuna renders, chosen by the `use-cql-chips` feature switch. */
 export type SearchInput = 'chips' | 'cql';
@@ -30,6 +31,14 @@ export async function searchBoxReady(page: Page, input: SearchInput): Promise<Lo
   const box = input === 'cql' ? cqlInput(page) : chipsTextInput(page);
   await box.waitFor();
   return box;
+}
+
+export async function expectSearchBoxEmpty(page: Page, input: SearchInput): Promise<void> {
+  if (input === 'cql') {
+    await expect(cqlInput(page)).toHaveAttribute('value', '');
+  } else {
+    await expect(chipsTextInput(page)).toHaveValue('');
+  }
 }
 
 /**

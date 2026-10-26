@@ -5,6 +5,7 @@ import {
   chipsTextInput,
   cqlInput,
   cqlPlaceholder,
+  expectSearchBoxEmpty,
   isSearchRun,
   recordSearches,
   searchBoxReady,
@@ -47,11 +48,7 @@ Given('AI search is {word}', async ({ page, testContext }, state: string) => {
 });
 
 Given('the search box is empty', async ({ page, testContext }) => {
-  if ((testContext.searchInput ?? DEFAULT_SEARCH_INPUT) === 'cql') {
-    await expect(cqlInput(page)).toHaveAttribute('value', '');
-  } else {
-    await expect(chipsTextInput(page)).toHaveValue('');
-  }
+  await expectSearchBoxEmpty(page, testContext.searchInput ?? DEFAULT_SEARCH_INPUT);
 });
 
 Given('the {string} checkbox is ticked', async ({ page }, name: string) => {
