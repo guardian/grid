@@ -18,6 +18,12 @@
     margin: 10px 0;
 }
 
+.ure__description > a {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
 .ure__caution {
     margin: 10px 0;
 }
@@ -48,4 +54,9 @@
 
 .ure__category-preview {
     border: 1px solid #ffbc01;
+}
+
+.ure__properties .form-property label:has(> input[type="checkbox"]) {
+    display: inline-flex;
+    gap: 2px;
 }
