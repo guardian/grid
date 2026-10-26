@@ -55,7 +55,7 @@ export const test = base.extend<{ testContext: TestContext }>({
       await page.waitForTimeout(1_500);
     }
   },
-  testContext: async ({}, use) => {
+  testContext: async ({ }, use) => {
     await use({ dialogs: [] });
   },
 });
