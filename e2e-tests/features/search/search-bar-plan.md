@@ -91,8 +91,10 @@ Feature file: [search-free-text.feature](./search-free-text.feature)
       for advanced search)` only while it is completely empty. It hides as
       soon as there's text or a chip, and it ignores AI search. The chips
       input uses `...` instead of `…` and switches to `Search for conceptual
-      images using AI search...` when AI search is ticked. Chips-input
-      scenarios aren't written yet.
+      images using AI search...` when AI search is ticked. Its placeholder
+      stays visible next to filter chips, because the empty text chip is
+      always kept. Chips-input scenarios are in
+      [search-free-text-chips.feature](./search-free-text-chips.feature).
 - [ ] **2. Focus on page load**: the input is focused with the cursor after
       any text already there.
 - [ ] **3. Typing runs a search**: the URL `query` updates and results reload
