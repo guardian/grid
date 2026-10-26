@@ -8,14 +8,13 @@ type ClientConfig = {
 
 declare global {
   interface Window {
-    _clientConfig: ClientConfig,
-    _testClientConfig: Partial<ClientConfig>
+    _clientConfig: ClientConfig;
+    _testClientConfig: Partial<ClientConfig>;
   }
 }
- 
- 
+
 export async function setTestClientConfig(page: Page, config: Partial<ClientConfig>) {
- await page.addInitScript((config) => {
+  await page.addInitScript((config) => {
     window._testClientConfig = config;
   }, config);
   await page.reload();

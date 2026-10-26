@@ -247,7 +247,6 @@ Then('I should be taken to the upload progress view', async ({ page }) => {
 });
 
 Given('an upload size limit is configured', async ({ page }) => {
-  // upload/manager.js reads the limit when files are selected, so setting it now is enough.
   const limit = Math.round((testImages.smaller.bytes + testImages.larger.bytes) / 2);
   await setTestClientConfig(page, { maybeUploadLimitInBytes: limit });
 });

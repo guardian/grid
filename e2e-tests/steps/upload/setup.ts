@@ -6,7 +6,6 @@ import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { KAHUNA_PORT } from '../../setup/constants.ts';
 import type { TestImage } from '../setup.ts';
-import { setTestClientConfig } from '../utils/test-config.ts';
 
 
 const FIXTURE_IMAGES = path.join(import.meta.dirname, '..', '..', 'fixtures', 'images');
@@ -75,13 +74,6 @@ export const holdIngest = (page: Page, ms = 5_000) =>
       await route.abort();
     },
   );
-
-/** Upload via image-loader's load endpoint, which rejects bad types with an `errorKey`. */
-export const useDirectLoad = async (page: Page) =>
-  await setTestClientConfig(page, {
-    shouldUploadStraightToBucket: false,
-  });
-
 
 /** Reject the transfer to the ingest bucket so the job fails. */
 export const failIngest = (page: Page) =>
