@@ -49,4 +49,65 @@ class ImgProxyUrlBuilderTest extends AnyFunSuiteLike {
 
     uri shouldBe "https://imgproxy.example.com/insecure/w:{w}/h:{h}/q:{q}/rot:0/aHR0cDovL2V4YW1wbGUuY29tL2Zvby5qcGc"
   }
+
+  test("fixedUri adds an exp: segment inside the signed path when an expiry is given") {
+    val uri = ImgProxyUrlBuilder.fixedUri(baseUri, sourceUri, width = 100, height = 200, quality = Some(80), expiresEpochSeconds = Some(1700000000L))
+
+    uri shouldBe "https://imgproxy.example.com/insecure/w:100/h:200/q:80/rot:0/exp:1700000000/aHR0cDovL2V4YW1wbGUuY29tL2Zvby5qcGc"
+  }
+
+  test("s3SourceUri builds a stable s3:// source from an asset's S3 object URL") {
+    val file = new URI("http://my-bucket.s3.amazonaws.com/1/0/5/7/b/f/1057bff12c838ad8e7c9cfabd033af14856b67b0")
+
+    ImgProxyUrlBuilder.s3SourceUri("my-bucket", file).toString shouldBe "s3://my-bucket/1/0/5/7/b/f/1057bff12c838ad8e7c9cfabd033af14856b67b0"
+  }
+
+  test("s3 sources are not rewritten to localstack URLs in local dev") {
+    val s3Source = new URI("s3://my-bucket/a/b/c")
+
+    ImgProxyUrlBuilder.normaliseSourceForLocalDev(s3Source, Some("http://localhost:4566")) shouldBe s3Source
+  }
+
+  test("roundedExpiry is stable within a window and valid for between one and two windows") {
+    val ttl = 3600L
+    val windowStart = 1700000000L / ttl * ttl
+
+    ImgProxyUrlBuilder.roundedExpiry(windowStart, ttl) shouldBe windowStart + 2 * ttl
+    ImgProxyUrlBuilder.roundedExpiry(windowStart + ttl - 1, ttl) shouldBe windowStart + 2 * ttl
+    ImgProxyUrlBuilder.roundedExpiry(windowStart + ttl, ttl) shouldBe windowStart + 3 * ttl
+  }
+
+  test("signedUrlsForSizes signs one URL per width x height box, smallest first") {
+    val signing = ImgProxySigning(key = "68656c6c6f", salt = "776f726c64")
+
+    val urls = ImgProxyUrlBuilder.signedUrlsForSizes(baseUri, sourceUri, sizes = Seq((1920, 1080), (800, 800)), quality = Some(85), signing = signing)
+
+    urls.map(u => (u.width, u.height)) shouldBe Seq((800, 800), (1920, 1080))
+    urls.head.url shouldBe ImgProxyUrlBuilder.fixedUri(baseUri, sourceUri, 800, 800, Some(85), signing = Some(signing))
+    urls.foreach(_.url.contains("/insecure/") shouldBe false)
+  }
+
+  test("signedUrlsForSizes orders boxes by area, so the first covering box is the smallest") {
+    val signing = ImgProxySigning(key = "68656c6c6f", salt = "776f726c64")
+
+    val urls = ImgProxyUrlBuilder.signedUrlsForSizes(baseUri, sourceUri, sizes = Seq((1280, 1280), (1920, 800), (1280, 800)), quality = None, signing = signing)
+
+    urls.map(u => (u.width, u.height)) shouldBe Seq((1280, 800), (1920, 800), (1280, 1280))
+  }
+
+  test("signedUrlsForSizes leaves quality to imgproxy when none is given") {
+    val signing = ImgProxySigning(key = "68656c6c6f", salt = "776f726c64")
+
+    val urls = ImgProxyUrlBuilder.signedUrlsForSizes(baseUri, sourceUri, sizes = Seq((1920, 1080)), quality = None, signing = signing)
+
+    urls.head.url.contains("/w:1920/h:1080/rot:0/") shouldBe true
+  }
+
+  test("parseSize reads WIDTHxHEIGHT and rejects anything else") {
+    ImgProxyUrlBuilder.parseSize("1920x1080") shouldBe Some((1920, 1080))
+    ImgProxyUrlBuilder.parseSize(" 800X800 ") shouldBe Some((800, 800))
+    ImgProxyUrlBuilder.parseSize("1920") shouldBe None
+    ImgProxyUrlBuilder.parseSize("0x1080") shouldBe None
+    ImgProxyUrlBuilder.parseSize("axb") shouldBe None
+  }
 }
