@@ -7,8 +7,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { createHash } from 'node:crypto';
-import { REPO_ROOT, TEST_ACCOUNTS } from './constants.ts';
+import { REPO_ROOT } from './constants.ts';
 
 const FIXTURE_PATH = path.join(REPO_ROOT, 'e2e-tests', 'fixtures', 'elasticsearch', 'images.json');
 
@@ -42,39 +41,7 @@ export function loadImageFixtures(): EsHit[] {
     if (hits.length === 0) {
       throw new Error('No image fixtures found to seed into Elasticsearch. This is unexpected - failing early');
     }
-    // These variants exercise usage summaries and ownership without changing the original images.
-    const summaryImages = [
-      { name: 'Payable image', usageRights: { category: 'pay-to-use' }, credit: 'E2E photographer' },
-      { name: 'BBC free image', usageRights: { category: 'public-domain' }, credit: 'BBC' },
-      { name: 'Non-BBC free image', usageRights: { category: 'public-domain' }, credit: 'E2E photographer' },
-      { name: 'AP free image', usageRights: { category: 'agency', supplier: 'AP' }, credit: 'AP' },
-      {
-        name: 'PA free image',
-        usageRights: { category: 'agency', supplier: 'PA' },
-        credit: 'PA',
-        uploadedBy: 'PA_AutoIngest',
-      },
-      {
-        name: 'Restricted account owned image',
-        usageRights: { category: 'pay-to-use' },
-        credit: 'E2E photographer',
-        uploadedBy: TEST_ACCOUNTS.restricted,
-      },
-    ].map(({ name, usageRights, credit, uploadedBy }) => {
-      const id = createHash('sha1').update(name).digest('hex');
-      return {
-        _id: id,
-        _source: {
-          ...hits[0]._source,
-          id,
-          usageRights,
-          originalUsageRights: usageRights,
-          metadata: { ...hits[0]._source.metadata, credit },
-          uploadedBy: uploadedBy ?? 'e2e-fixtures',
-        },
-      };
-    });
-    cachedHits = [...hits, ...summaryImages];
+    cachedHits = hits;
   }
   return cachedHits;
 }
