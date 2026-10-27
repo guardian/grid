@@ -113,16 +113,23 @@ Given('I am signed in without edit metadata permission', async ({ page }) => {
   await switchAccount(page, TEST_ACCOUNTS.restricted);
 });
 
-Given('the image was uploaded by me', async ({ page }) => {
+Given('I am signed in with edit metadata permission', async ({ page }) => {
+  await switchAccount(page, TEST_ACCOUNTS.fullAccess);
+});
+
+Given('the image was uploaded by me', async ({ page, testContext }) => {
   const imageId = findSeededImageId(
     'owned by the restricted account',
     (source) => source.uploadedBy === TEST_ACCOUNTS.restricted,
   );
   await openImage(page, imageId);
-  await expectEditPermissionForImage(page, imageId, TEST_ACCOUNTS.restricted);
+  testContext.permissionImage = { id: imageId, uploadedBy: TEST_ACCOUNTS.restricted };
 });
 
-Then('the edit rights and restrictions button is shown', async ({ page }) => {
+Then('the edit rights and restrictions button is shown', async ({ page, testContext }) => {
+  const image = testContext.permissionImage;
+  if (!image) throw new Error('No image was selected by an earlier ownership step');
+  await expectEditPermissionForImage(page, image.id, image.uploadedBy);
   const section = rightsAndRestrictions(page);
   await expect(section.getByRole('definition')).toContainText(/\S/);
   await section.hover();
@@ -141,7 +148,7 @@ Then('the rights editor is shown', async ({ page }) => {
   await expect(page.getByRole('form', { name: 'Image usage rights' })).toBeVisible();
 });
 
-Given('the image was uploaded by someone else', async ({ page }) => {
+Given('the image was uploaded by someone else', async ({ page, testContext }) => {
   const image = loadImageFixtures().find(({ _source }) =>
     typeof _source.uploadedBy === 'string' &&
     !Object.values(TEST_ACCOUNTS).some((account) => account === _source.uploadedBy),
@@ -150,10 +157,13 @@ Given('the image was uploaded by someone else', async ({ page }) => {
     throw new Error('No seeded image uploaded by someone other than the test accounts');
   }
   await openImage(page, image._id);
-  await expectNoEditPermissionForImage(page, image._id, image._source.uploadedBy);
+  testContext.permissionImage = { id: image._id, uploadedBy: image._source.uploadedBy };
 });
 
-Then('the edit rights and restrictions button is not shown', async ({ page }) => {
+Then('the edit rights and restrictions button is not shown', async ({ page, testContext }) => {
+  const image = testContext.permissionImage;
+  if (!image) throw new Error('No image was selected by an earlier ownership step');
+  await expectNoEditPermissionForImage(page, image.id, image.uploadedBy);
   const section = rightsAndRestrictions(page);
   await expect(section.getByRole('definition')).toContainText(/\S/);
   await section.hover();

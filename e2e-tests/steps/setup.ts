@@ -35,6 +35,8 @@ interface TestContext {
   region?: Locator;
   /** The usage rights category code a `Given` chose the opened image by. */
   usageRightsCategory?: string;
+  /** The seeded image selected for an edit-permission scenario. */
+  permissionImage?: { id: string; uploadedBy: string };
 }
 
 export interface TestImage {
@@ -62,4 +64,3 @@ export const test = base.extend<{ testContext: TestContext }>({
 
 export const { Given, When, Then, Before, After } = createBdd(test);
 export { expect };
-
