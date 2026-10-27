@@ -1,4 +1,5 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Locator, Page, Request } from '@playwright/test';
+import { DOMAIN } from '../../setup/constants.ts';
 
 /** The top bar region holding the search box and its filters (kahuna/public/js/search/view.html). */
 export const searchRegion = (page: Page): Locator =>
@@ -18,4 +19,30 @@ export async function searchBoxReady(page: Page): Promise<Locator> {
   const box = cqlInput(page);
   await box.waitFor();
   return box;
+}
+
+/** Only the first `/images` request of each non-AI search asks for `length=1` with `countAll=true` (results.js), so this matches once per search. */
+export function isSearchRun(request: Request): boolean {
+  const url = new URL(request.url());
+  return (
+    url.hostname === `api.media.${DOMAIN}` &&
+    url.pathname === '/images' &&
+    url.searchParams.get('length') === '1' &&
+    url.searchParams.get('countAll') === 'true' &&
+    // AI searches' first request uses the configured result limit as `length`, which could be 1.
+    // Also useAISearch is not set to 'false' for non-AI searches.
+    url.searchParams.get('useAISearch') !== 'true'
+  );
+}
+
+/** Start recording the `q` of every search run into `searchesRun`. Safe to call more than once. */
+export function recordSearches(page: Page, testContext: { searchesRun?: string[] }): void {
+  if (testContext.searchesRun) return;
+  const searchesRun: string[] = [];
+  testContext.searchesRun = searchesRun;
+  page.on('request', (request) => {
+    if (isSearchRun(request)) {
+      searchesRun.push(new URL(request.url()).searchParams.get('q') ?? '');
+    }
+  });
 }

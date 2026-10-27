@@ -37,6 +37,8 @@ interface TestContext {
   usageRightsCategory?: string;
   /** The seeded image selected for an edit-permission scenario. */
   permissionImage?: { id: string; uploadedBy: string };
+  /** The `q` of each search Kahuna ran since recording started (see recordSearches). */
+  searchesRun?: string[];
 }
 
 export interface TestImage {
@@ -57,7 +59,7 @@ export const test = base.extend<{ testContext: TestContext }>({
       await page.waitForTimeout(1_500);
     }
   },
-  testContext: async ({}, use) => {
+  testContext: async ({ }, use) => {
     await use({ dialogs: [] });
   },
 });
