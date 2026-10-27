@@ -20,7 +20,6 @@ Then('the page address should have the query {string}', async ({ page }, query: 
 Then('a single search should be run for {string}', async ({ testContext }, query: string) => {
     const searchesRun = testContext.searchesRun ?? [];
     await expect.poll(() => searchesRun.filter((q) => q === query).length).toBe(1);
-    // An empty-box search from page load can land after recording starts, so ignore it.
     expect(searchesRun.filter((q) => q !== '')).toEqual([query]);
 });
 
