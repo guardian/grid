@@ -3,6 +3,8 @@ import { setTestClientConfig } from '../utils/test-config.ts';
 import {
   cqlInput,
   cqlPlaceholder,
+  isSearchRun,
+  recordSearches,
   searchBoxReady,
   searchRegion,
 } from './search-box.ts';
@@ -23,12 +25,16 @@ Given('the search box is empty', async ({ page }) => {
   await expect(cqlInput(page)).toHaveAttribute('value', '');
 });
 
-When('I type {string} into the search box', async ({ page }, text: string) => {
+When('I type {string} into the search box', async ({ page, testContext }, text: string) => {
+  recordSearches(page, testContext);
   await cqlInput(page).locator('.Cql__ContentEditable').pressSequentially(text);
 });
 
 When('I open a search link with the query {string}', async ({ page }, query: string) => {
+  // Wait for the link's own search so later steps don't mistake it for a new one.
+  const searched = page.waitForRequest(isSearchRun);
   await page.goto(`${KAHUNA_APP_URL}/search?query=${encodeURIComponent(query)}`);
+  await searched;
   await searchBoxReady(page);
 });
 
