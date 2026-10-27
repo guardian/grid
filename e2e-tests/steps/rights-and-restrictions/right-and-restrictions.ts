@@ -1,11 +1,11 @@
 import type { APIRequestContext, Page } from '@playwright/test';
-import { Given, Then, KAHUNA_APP_URL, expect } from '../setup.ts';
+import { Given, When, Then, KAHUNA_APP_URL, expect } from '../setup.ts';
 import { findSeededImageId, hasNoUsageRights, loadImageFixtures } from '../../setup/image-fixtures.ts';
 import { usageRightsCategories } from '../utils/api/metadata-editor.queries.ts';
 import { setTestClientConfig } from '../utils/test-config.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { switchAccount } from '../utils/auth.ts';
-import { expectNoEditPermissionForImage } from '../utils/api/media-api.assertions.ts';
+import { expectEditPermissionForImage, expectNoEditPermissionForImage } from '../utils/api/media-api.assertions.ts';
 
 /** An image seeded into Elasticsearch from fixtures/elasticsearch/images.json. */
 const SEEDED_IMAGE_ID = findSeededImageId('with no usage rights category', hasNoUsageRights);
@@ -111,6 +111,34 @@ Given('the image was uploaded by {string}', async ({ page }, uploader: string) =
 
 Given('I am signed in without edit metadata permission', async ({ page }) => {
   await switchAccount(page, TEST_ACCOUNTS.restricted);
+});
+
+Given('the image was uploaded by me', async ({ page }) => {
+  const imageId = findSeededImageId(
+    'owned by the restricted account',
+    (source) => source.uploadedBy === TEST_ACCOUNTS.restricted,
+  );
+  await openImage(page, imageId);
+  await expectEditPermissionForImage(page, imageId, TEST_ACCOUNTS.restricted);
+});
+
+Then('the edit rights and restrictions button is shown', async ({ page }) => {
+  const section = rightsAndRestrictions(page);
+  await expect(section.getByRole('definition')).toContainText(/\S/);
+  await section.hover();
+  const button = section.getByRole('button', { name: '✎' });
+  await expect(button).toBeVisible();
+  await expect(button).toBeEnabled();
+});
+
+When('I choose to edit the rights and restrictions', async ({ page }) => {
+  const section = rightsAndRestrictions(page);
+  await section.hover();
+  await section.getByRole('button', { name: '✎' }).click();
+});
+
+Then('the rights editor is shown', async ({ page }) => {
+  await expect(page.getByRole('form', { name: 'Image usage rights' })).toBeVisible();
 });
 
 Given('the image was uploaded by someone else', async ({ page }) => {

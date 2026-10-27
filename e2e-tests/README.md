@@ -158,6 +158,8 @@ is harmless today, but a test that uploads or edits an image will want a fresh s
 The image fixture loader also seeds five deterministic usage-summary variants (payable,
 BBC-credited, non-BBC free, AP-supplied, and PA-supplied) based on the first fixture image.
 The free AP image has only the News summary; the free PA image has both News and Sport.
+An additional deterministic image belongs to the restricted account, allowing the
+uploader-permission scenario to open its rights editor without saving changes.
 Summary
 scenarios use Kahuna's default enabled configuration; only the switched-off scenario
 sets `usageRightsSummary` to false in the page and recreates the metadata panel by
