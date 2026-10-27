@@ -13,7 +13,9 @@ const FIXTURE_PATH = path.join(REPO_ROOT, 'e2e-tests', 'fixtures', 'elasticsearc
 
 /** Only the fields queried here are typed; the rest pass through to Elasticsearch untouched. */
 export interface ImageSource {
-  usageRights?: { category?: string };
+  usageRights?: { category?: string; supplier?: string; suppliers?: string; restrictions?: string };
+  metadata?: { credit?: string };
+  uploadedBy?: string;
   [key: string]: unknown;
 }
 
