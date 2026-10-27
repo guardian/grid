@@ -21,13 +21,17 @@ export async function searchBoxReady(page: Page): Promise<Locator> {
   return box;
 }
 
-/** Each search sends several `/images` requests, but only its first uses `length=1`, so this matches once per search. */
+/** Only the first `/images` request of each non-AI search asks for `length=1` with `countAll=true` (results.js), so this matches once per search. */
 export function isSearchRun(request: Request): boolean {
   const url = new URL(request.url());
   return (
     url.hostname === `api.media.${DOMAIN}` &&
     url.pathname === '/images' &&
-    url.searchParams.get('length') === '1'
+    url.searchParams.get('length') === '1' &&
+    url.searchParams.get('countAll') === 'true' &&
+    // AI searches' first request uses the configured result limit as `length`, which could be 1.
+    // Also useAISearch is not set to 'false' for non-AI searches.
+    url.searchParams.get('useAISearch') !== 'true'
   );
 }
 
