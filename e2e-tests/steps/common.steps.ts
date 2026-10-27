@@ -8,6 +8,17 @@ Given('the application stack is running', async ({ request }) => {
   expect(response.ok()).toBeTruthy();
 });
 
+// The `auth` setup project signs in through Panda and OIDC once per run (setup/auth.setup.ts),
+// so here we only confirm the saved session holds the Panda cookie and is still accepted.
+Given('I am signed in through pan-domain auth', async ({ page }) => {
+  const cookies = await page.context().cookies();
+  expect(cookies.map((cookie) => cookie.name)).toContain('gutoolsAuth-assym');
+
+  await page.goto(KAHUNA_APP_URL);
+  // A missing or expired session would have redirected us to the OIDC provider.
+  await expect(page).toHaveURL((url) => url.origin === KAHUNA_APP_URL);
+});
+
 /** From the search page, go to the upload page. */
 async function goToUploadPage(page: Page): Promise<void> {
   // Arrive from search rather than deep-linking, so the upload page has a same-document

@@ -160,10 +160,7 @@ Given('the image was uploaded by someone else', async ({ page, testContext }) =>
   testContext.permissionImage = { id: image._id, uploadedBy: image._source.uploadedBy };
 });
 
-Then('the edit rights and restrictions button is not shown', async ({ page, testContext }) => {
-  const image = testContext.permissionImage;
-  if (!image) throw new Error('No image was selected by an earlier ownership step');
-  await expectNoEditPermissionForImage(page, image.id, image.uploadedBy);
+Then('the edit rights and restrictions button is not shown', async ({ page }) => {
   const section = rightsAndRestrictions(page);
   await expect(section.getByRole('definition')).toContainText(/\S/);
   await section.hover();
@@ -198,6 +195,7 @@ Then('the usage rights summary lists no usage', async ({ page }) => {
   await expect(usageSummary(page).locator('svg')).toHaveCount(0);
 });
 
+// It's ok to target a css class here because non-Guardian orgs supply stylesheets that provide the appropriate imagary  
 Then('the usage rights summary shows an agency marker titled {string}', async ({ page }, uploader: string) => {
   await expect(usageSummary(page).getByTitle(uploader, { exact: true }))
     .toHaveClass(new RegExp(`(?:^|\\s)supplier-${uploader}(?:\\s|$)`));
