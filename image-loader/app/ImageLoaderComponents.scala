@@ -7,6 +7,7 @@ import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{ImageLoaderController, ImageLoaderManagement, UploadStatusController}
 import lib._
 import lib.storage.{ImageLoaderStore, QuarantineStore}
+import model.upload.OptimiseWithPngQuant
 import model.{Projector, QuarantineUploader, Uploader}
 import play.api.ApplicationLoader.Context
 import router.Routes
@@ -35,8 +36,9 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
       new Embedder(new Bedrock(config), new SimpleSqsMessageConsumer(queueUrl, config))
     }
 
-  val uploader = new Uploader(store, config, imageOperations, notifications, maybeEmbedder, imageProcessor, gridClient, auth)
-  val projector = Projector(config, imageOperations, imageProcessor, auth, maybeEmbedder)
+  val optimiseOps = new OptimiseWithPngQuant()
+  val uploader = new Uploader(store, config, imageOperations, notifications, maybeEmbedder, imageProcessor, gridClient, auth, optimiseOps)
+  val projector = Projector(config, imageOperations, imageProcessor, auth, maybeEmbedder, optimiseOps)
   val quarantineUploader: Option[QuarantineUploader] = config.maybeQuarantineBucket.map(_ =>
     new QuarantineUploader(new QuarantineStore(config), config)
   )
