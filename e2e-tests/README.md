@@ -154,3 +154,8 @@ permissions, Elasticsearch fixtures or seeded collections. After changing any of
 
 Reuse also means state carries over between runs. The current suite is read-only, so this
 is harmless today, but a test that uploads or edits an image will want a fresh stack.
+
+Usage-summary images (payable, BBC free, non-BBC free, AP and PA) are standalone
+entries in [`fixtures/elasticsearch/images.json`](fixtures/elasticsearch/images.json).
+The fixture loader reads these entries without generating or overriding image data.
+After changing them, use `GRID_RESEED=true npm test` against a reused stack.

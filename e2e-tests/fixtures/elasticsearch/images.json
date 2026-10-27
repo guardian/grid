@@ -3067,6 +3067,1330 @@
                         "userMetadataLastModified": "2020-03-04T10:55:06.059Z",
                         "suggestMetadataCredit": "Photographer First"
                     }
+                },
+                {
+                    "_id": "452ed2e0ca157ff0694e3206e675ddcb82357d75",
+                    "_source": {
+                        "id": "452ed2e0ca157ff0694e3206e675ddcb82357d75",
+                        "uploadTime": "2020-03-04T10:41:37.204Z",
+                        "uploadedBy": "e2e-fixtures",
+                        "lastModified": "2020-03-04T10:55:06.059Z",
+                        "identifiers": {},
+                        "uploadInfo": {
+                            "filename": "Swans_Nesting_004.JPG"
+                        },
+                        "source": {
+                            "file": "http://media-service-prod-imagebucket-1luk2yux3owkh.s3.amazonaws.com/f/6/b/f/d/2/f6bfd2f0e54c232fd642237dfe773bb14275b3b3",
+                            "size": 587773,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 3156,
+                                "height": 1728
+                            }
+                        },
+                        "thumbnail": {
+                            "file": "http://media-service-prod-thumbbucket-1pyxt0kyxzho.s3.amazonaws.com/f/6/b/f/d/2/f6bfd2f0e54c232fd642237dfe773bb14275b3b3",
+                            "size": 14830,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 256,
+                                "height": 140
+                            }
+                        },
+                        "fileMetadata": {
+                            "iptc": {
+                                "Copyright Notice": "© Photographer First",
+                                "Coded Character Set": "UTF-8",
+                                "Application Record Version": "4",
+                                "Caption/Abstract": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \rThis week will see the staff putting out bundles of reeds for the swans to build their nests.\rThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\rThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \rAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \rThe colony can number over 600 swans with around 150 nesting pairs. \rWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\r© Photographer First\rTel: 07831 566005",
+                                "Credit": "Photographer First",
+                                "Source": "Photographer First",
+                                "Keywords": "richardaustinimages.com",
+                                "By-line": "Photographer First",
+                                "Caption Writer/Editor": "Photographer First",
+                                "Date Created": "2020:03:04"
+                            },
+                            "exif": {
+                                "Image Description": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Photographer First\nTel: 07831 566005",
+                                "X Resolution": "350 dots per inch",
+                                "Software": "Digital Photo Professional",
+                                "Photometric Interpretation": "RGB",
+                                "Make": "Canon",
+                                "Image Width": "5184 pixels",
+                                "YCbCr Positioning": "Center of pixel array",
+                                "Samples Per Pixel": "3 samples/pixel",
+                                "Copyright": "© Photographer First",
+                                "Date/Time": "2020:03:03 19:10:38",
+                                "Model": "Canon EOS-1D X",
+                                "Orientation": "Top, left side (Horizontal / normal)",
+                                "Resolution Unit": "Inch",
+                                "Bits Per Sample": "8 8 8 bits/component/pixel",
+                                "Y Resolution": "350 dots per inch",
+                                "Artist": "Photographer First",
+                                "Image Height": "3456 pixels"
+                            },
+                            "exifSub": {
+                                "Exif Version": "2.30",
+                                "Exposure Mode": "Auto exposure",
+                                "ISO Speed Ratings": "400",
+                                "Lens Specification": "24-70mm",
+                                "Body Serial Number": "063012002171",
+                                "Custom Rendered": "Normal process",
+                                "Exif Image Height": "1728 pixels",
+                                "Lens Serial Number": "5903000717",
+                                "Flash": "Flash did not fire",
+                                "Focal Length": "61 mm",
+                                "Date/Time Original": "2020:03:03 14:54:13",
+                                "White Balance Mode": "Auto white balance",
+                                "Shutter Speed Value": "1/789 sec",
+                                "Exif Image Width": "3156 pixels",
+                                "Focal Plane Y Resolution": "49/172800 inches",
+                                "Sub-Sec Time Original": "82",
+                                "Exposure Time": "1/800 sec",
+                                "Metering Mode": "Multi-segment",
+                                "Exposure Program": "Shutter priority",
+                                "Exposure Bias Value": "2/3 EV",
+                                "F-Number": "f/10.0",
+                                "Color Space": "sRGB",
+                                "FlashPix Version": "1.00",
+                                "Components Configuration": "YCbCr",
+                                "Lens Model": "EF24-70mm f/4L IS USM",
+                                "Date/Time Digitized": "2016:07:28 15:57:54",
+                                "Recommended Exposure Index": "400",
+                                "Date/Time Original Composite": "2020-03-03T14:54:13.820Z",
+                                "Aperture Value": "f/9.9",
+                                "Sensitivity Type": "Recommended Exposure Index",
+                                "Scene Capture Type": "Standard",
+                                "Focal Plane Resolution Unit": "Inches",
+                                "Sub-Sec Time Digitized": "76",
+                                "Focal Plane X Resolution": "731/2592000 inches",
+                                "Max Aperture Value": "f/4.0"
+                            },
+                            "xmp": {
+                                "dc:format": "image/jpeg",
+                                "dc:description": [
+                                    "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Photographer First\nTel: 07831 566005",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "xmp:MetadataDate": "2020-03-04T10:04:59.000Z",
+                                "aux:LensSerialNumber": "5903000717",
+                                "aux:ImageNumber": "0",
+                                "dc:subject": [
+                                    "richardaustinimages.com"
+                                ],
+                                "photoshop:CaptionWriter": "Photographer First",
+                                "aux:FlashCompensation": "0/1",
+                                "aux:Lens": "EF24-70mm f/4L IS USM",
+                                "xmp:ModifyDate": "2020-03-03T19:10:38.000Z",
+                                "xmpMM:OriginalDocumentID": "B5CA1C6D9E598ABFD1488E67E2EC3F78",
+                                "xmp:Rating": "0",
+                                "photoshop:DateCreated": "2020-03-04T00:00:00.000Z",
+                                "photoshop:Credit": "Photographer First",
+                                "xmp:CreateDate": "2016-07-28T15:57:54.760Z",
+                                "aux:LensID": "504",
+                                "aux:ApproximateFocusDistance": "595/100",
+                                "dc:rights": [
+                                    "© Photographer First",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "xmp:CreatorTool": "Digital Photo Professional",
+                                "aux:LensInfo": "24/1 70/1 0/0 0/0",
+                                "xmpMM:DocumentID": "B5CA1C6D9E598ABFD1488E67E2EC3F78",
+                                "xmpRights:Marked": "True",
+                                "dc:creator": [
+                                    "Photographer First"
+                                ],
+                                "Iptc4xmpCore:CreatorContactInfo": [
+                                    "{'Iptc4xmpCore:CiUrlWork':'richardaustinimages.com'}",
+                                    "{'Iptc4xmpCore:CiEmailWork':'r_austin@btconnect.com'}",
+                                    "{'Iptc4xmpCore:CiTelWork':'07831 566005'}",
+                                    "{'Iptc4xmpCore:CiAdrCtry':'UK'}",
+                                    "{'Iptc4xmpCore:CiAdrPcode':'DT7 3PW'}"
+                                ],
+                                "aux:Firmware": "2.0.3",
+                                "aux:SerialNumber": "063012002171",
+                                "xmpMM:History": [
+                                    [
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop CC 2015.5 (Macintosh)'}",
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:when':'2020-03-03T19:10:38Z'}",
+                                        "{'stEvt:changed':'/'}",
+                                        "{'stEvt:instanceID':'xmp.iid:e8c994fa-f18f-4333-815c-aa852b3beced'}"
+                                    ],
+                                    [
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop Camera Raw 9.6'}",
+                                        "{'stEvt:instanceID':'xmp.iid:e9307528-6f0e-451c-830a-0580bd9c73a2'}",
+                                        "{'stEvt:changed':'/metadata'}",
+                                        "{'stEvt:when':'2020-03-03T21:20:25Z'}"
+                                    ],
+                                    [
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:when':'2020-03-04T10:04:59Z'}",
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop Camera Raw 9.6.1 (Macintosh)'}",
+                                        "{'stEvt:changed':'/metadata'}",
+                                        "{'stEvt:instanceID':'xmp.iid:f013e587-41b4-4496-a7c8-5be3c1495b5c'}"
+                                    ]
+                                ],
+                                "photoshop:Source": "Photographer First",
+                                "xmpMM:InstanceID": "xmp.iid:f013e587-41b4-4496-a7c8-5be3c1495b5c"
+                            },
+                            "icc": {
+                                "Chromatic Adaptation": "sf32 (0x73663332): 44 bytes",
+                                "Profile Size": "3140",
+                                "Media White Point": "(0.9642, 1, 0.8249)",
+                                "Device model": "Z009",
+                                "Red Colorant": "(0.436, 0.2224, 0.0139)",
+                                "Blue TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Version": "2.4.0",
+                                "Tag Count": "14",
+                                "Profile Description": "sRGB v1.31 (Canon)",
+                                "Green Colorant": "(0.3851, 0.7169, 0.0971)",
+                                "XYZ values": "0.964 1 0.825",
+                                "Signature": "acsp",
+                                "Device manufacturer": "CANO",
+                                "Device Mfg Description": "Canon Inc.",
+                                "Green TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Red TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Blue Colorant": "(0.1431, 0.0606, 0.7139)",
+                                "Color space": "RGB",
+                                "Primary Platform": "Microsoft Corporation",
+                                "Profile Connection Space": "XYZ",
+                                "CMM Type": "UCCM",
+                                "Class": "Display Device",
+                                "Profile Date/Time": "2003:04:04 00:00:00",
+                                "Device Model Description": "sRGB v1.31 (Canon)",
+                                "Profile Copyright": "Copyright (c) 2003, Canon Inc.  All rights reserved.",
+                                "Technology": "CRT"
+                            },
+                            "getty": {},
+                            "colourModel": "RGB",
+                            "colourModelInformation": {
+                                "hasAlpha": "false",
+                                "colorType": "TrueColor",
+                                "photometricInterpretation": "RGB",
+                                "bitsPerSample": "8"
+                            }
+                        },
+                        "metadata": {
+                            "dateTaken": "2020-03-03T14:54:13.820Z",
+                            "description": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Photographer First\nTel: 07831 566005",
+                            "credit": "E2E photographer",
+                            "byline": "Photographer First",
+                            "copyright": "© Photographer First",
+                            "source": "Photographer First",
+                            "keywords": [
+                                "richardaustinimages.com"
+                            ],
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "originalMetadata": {
+                            "dateTaken": "2020-03-03T14:54:13.820Z",
+                            "description": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Photographer First\nTel: 07831 566005",
+                            "credit": "Photographer First",
+                            "byline": "Photographer First",
+                            "copyright": "© Photographer First",
+                            "source": "Photographer First",
+                            "keywords": [
+                                "richardaustinimages.com"
+                            ],
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "usageRights": {
+                            "category": "pay-to-use"
+                        },
+                        "originalUsageRights": {
+                            "category": "pay-to-use"
+                        },
+                        "exports": [],
+                        "usages": [],
+                        "leases": {
+                            "leases": [],
+                            "lastModified": null
+                        },
+                        "collections": [
+                            {
+                                "path": [
+                                    "Daily Edit",
+                                    "Daily edit home"
+                                ],
+                                "pathId": "daily edit/daily edit home",
+                                "description": "Daily edit home",
+                                "actionData": {
+                                    "author": "paul.bellsham@guardian.co.uk",
+                                    "date": "2020-03-04T10:55:06.059+00:00"
+                                }
+                            }
+                        ],
+                        "userMetadataLastModified": "2020-03-04T10:55:06.059Z",
+                        "suggestMetadataCredit": "Photographer First"
+                    }
+                },
+                {
+                    "_id": "28773ab4d6f23c84b03409b2d8394d136b602465",
+                    "_source": {
+                        "id": "28773ab4d6f23c84b03409b2d8394d136b602465",
+                        "uploadTime": "2020-03-04T10:41:37.204Z",
+                        "uploadedBy": "e2e-fixtures",
+                        "lastModified": "2020-03-04T10:55:06.059Z",
+                        "identifiers": {},
+                        "uploadInfo": {
+                            "filename": "Swans_Nesting_004.JPG"
+                        },
+                        "source": {
+                            "file": "http://media-service-prod-imagebucket-1luk2yux3owkh.s3.amazonaws.com/f/6/b/f/d/2/f6bfd2f0e54c232fd642237dfe773bb14275b3b3",
+                            "size": 587773,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 3156,
+                                "height": 1728
+                            }
+                        },
+                        "thumbnail": {
+                            "file": "http://media-service-prod-thumbbucket-1pyxt0kyxzho.s3.amazonaws.com/f/6/b/f/d/2/f6bfd2f0e54c232fd642237dfe773bb14275b3b3",
+                            "size": 14830,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 256,
+                                "height": 140
+                            }
+                        },
+                        "fileMetadata": {
+                            "iptc": {
+                                "Copyright Notice": "© Photographer First",
+                                "Coded Character Set": "UTF-8",
+                                "Application Record Version": "4",
+                                "Caption/Abstract": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \rThis week will see the staff putting out bundles of reeds for the swans to build their nests.\rThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\rThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \rAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \rThe colony can number over 600 swans with around 150 nesting pairs. \rWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\r© Photographer First\rTel: 07831 566005",
+                                "Credit": "Photographer First",
+                                "Source": "Photographer First",
+                                "Keywords": "richardaustinimages.com",
+                                "By-line": "Photographer First",
+                                "Caption Writer/Editor": "Photographer First",
+                                "Date Created": "2020:03:04"
+                            },
+                            "exif": {
+                                "Image Description": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Photographer First\nTel: 07831 566005",
+                                "X Resolution": "350 dots per inch",
+                                "Software": "Digital Photo Professional",
+                                "Photometric Interpretation": "RGB",
+                                "Make": "Canon",
+                                "Image Width": "5184 pixels",
+                                "YCbCr Positioning": "Center of pixel array",
+                                "Samples Per Pixel": "3 samples/pixel",
+                                "Copyright": "© Photographer First",
+                                "Date/Time": "2020:03:03 19:10:38",
+                                "Model": "Canon EOS-1D X",
+                                "Orientation": "Top, left side (Horizontal / normal)",
+                                "Resolution Unit": "Inch",
+                                "Bits Per Sample": "8 8 8 bits/component/pixel",
+                                "Y Resolution": "350 dots per inch",
+                                "Artist": "Photographer First",
+                                "Image Height": "3456 pixels"
+                            },
+                            "exifSub": {
+                                "Exif Version": "2.30",
+                                "Exposure Mode": "Auto exposure",
+                                "ISO Speed Ratings": "400",
+                                "Lens Specification": "24-70mm",
+                                "Body Serial Number": "063012002171",
+                                "Custom Rendered": "Normal process",
+                                "Exif Image Height": "1728 pixels",
+                                "Lens Serial Number": "5903000717",
+                                "Flash": "Flash did not fire",
+                                "Focal Length": "61 mm",
+                                "Date/Time Original": "2020:03:03 14:54:13",
+                                "White Balance Mode": "Auto white balance",
+                                "Shutter Speed Value": "1/789 sec",
+                                "Exif Image Width": "3156 pixels",
+                                "Focal Plane Y Resolution": "49/172800 inches",
+                                "Sub-Sec Time Original": "82",
+                                "Exposure Time": "1/800 sec",
+                                "Metering Mode": "Multi-segment",
+                                "Exposure Program": "Shutter priority",
+                                "Exposure Bias Value": "2/3 EV",
+                                "F-Number": "f/10.0",
+                                "Color Space": "sRGB",
+                                "FlashPix Version": "1.00",
+                                "Components Configuration": "YCbCr",
+                                "Lens Model": "EF24-70mm f/4L IS USM",
+                                "Date/Time Digitized": "2016:07:28 15:57:54",
+                                "Recommended Exposure Index": "400",
+                                "Date/Time Original Composite": "2020-03-03T14:54:13.820Z",
+                                "Aperture Value": "f/9.9",
+                                "Sensitivity Type": "Recommended Exposure Index",
+                                "Scene Capture Type": "Standard",
+                                "Focal Plane Resolution Unit": "Inches",
+                                "Sub-Sec Time Digitized": "76",
+                                "Focal Plane X Resolution": "731/2592000 inches",
+                                "Max Aperture Value": "f/4.0"
+                            },
+                            "xmp": {
+                                "dc:format": "image/jpeg",
+                                "dc:description": [
+                                    "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Photographer First\nTel: 07831 566005",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "xmp:MetadataDate": "2020-03-04T10:04:59.000Z",
+                                "aux:LensSerialNumber": "5903000717",
+                                "aux:ImageNumber": "0",
+                                "dc:subject": [
+                                    "richardaustinimages.com"
+                                ],
+                                "photoshop:CaptionWriter": "Photographer First",
+                                "aux:FlashCompensation": "0/1",
+                                "aux:Lens": "EF24-70mm f/4L IS USM",
+                                "xmp:ModifyDate": "2020-03-03T19:10:38.000Z",
+                                "xmpMM:OriginalDocumentID": "B5CA1C6D9E598ABFD1488E67E2EC3F78",
+                                "xmp:Rating": "0",
+                                "photoshop:DateCreated": "2020-03-04T00:00:00.000Z",
+                                "photoshop:Credit": "Photographer First",
+                                "xmp:CreateDate": "2016-07-28T15:57:54.760Z",
+                                "aux:LensID": "504",
+                                "aux:ApproximateFocusDistance": "595/100",
+                                "dc:rights": [
+                                    "© Photographer First",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "xmp:CreatorTool": "Digital Photo Professional",
+                                "aux:LensInfo": "24/1 70/1 0/0 0/0",
+                                "xmpMM:DocumentID": "B5CA1C6D9E598ABFD1488E67E2EC3F78",
+                                "xmpRights:Marked": "True",
+                                "dc:creator": [
+                                    "Photographer First"
+                                ],
+                                "Iptc4xmpCore:CreatorContactInfo": [
+                                    "{'Iptc4xmpCore:CiUrlWork':'richardaustinimages.com'}",
+                                    "{'Iptc4xmpCore:CiEmailWork':'r_austin@btconnect.com'}",
+                                    "{'Iptc4xmpCore:CiTelWork':'07831 566005'}",
+                                    "{'Iptc4xmpCore:CiAdrCtry':'UK'}",
+                                    "{'Iptc4xmpCore:CiAdrPcode':'DT7 3PW'}"
+                                ],
+                                "aux:Firmware": "2.0.3",
+                                "aux:SerialNumber": "063012002171",
+                                "xmpMM:History": [
+                                    [
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop CC 2015.5 (Macintosh)'}",
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:when':'2020-03-03T19:10:38Z'}",
+                                        "{'stEvt:changed':'/'}",
+                                        "{'stEvt:instanceID':'xmp.iid:e8c994fa-f18f-4333-815c-aa852b3beced'}"
+                                    ],
+                                    [
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop Camera Raw 9.6'}",
+                                        "{'stEvt:instanceID':'xmp.iid:e9307528-6f0e-451c-830a-0580bd9c73a2'}",
+                                        "{'stEvt:changed':'/metadata'}",
+                                        "{'stEvt:when':'2020-03-03T21:20:25Z'}"
+                                    ],
+                                    [
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:when':'2020-03-04T10:04:59Z'}",
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop Camera Raw 9.6.1 (Macintosh)'}",
+                                        "{'stEvt:changed':'/metadata'}",
+                                        "{'stEvt:instanceID':'xmp.iid:f013e587-41b4-4496-a7c8-5be3c1495b5c'}"
+                                    ]
+                                ],
+                                "photoshop:Source": "Photographer First",
+                                "xmpMM:InstanceID": "xmp.iid:f013e587-41b4-4496-a7c8-5be3c1495b5c"
+                            },
+                            "icc": {
+                                "Chromatic Adaptation": "sf32 (0x73663332): 44 bytes",
+                                "Profile Size": "3140",
+                                "Media White Point": "(0.9642, 1, 0.8249)",
+                                "Device model": "Z009",
+                                "Red Colorant": "(0.436, 0.2224, 0.0139)",
+                                "Blue TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Version": "2.4.0",
+                                "Tag Count": "14",
+                                "Profile Description": "sRGB v1.31 (Canon)",
+                                "Green Colorant": "(0.3851, 0.7169, 0.0971)",
+                                "XYZ values": "0.964 1 0.825",
+                                "Signature": "acsp",
+                                "Device manufacturer": "CANO",
+                                "Device Mfg Description": "Canon Inc.",
+                                "Green TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Red TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Blue Colorant": "(0.1431, 0.0606, 0.7139)",
+                                "Color space": "RGB",
+                                "Primary Platform": "Microsoft Corporation",
+                                "Profile Connection Space": "XYZ",
+                                "CMM Type": "UCCM",
+                                "Class": "Display Device",
+                                "Profile Date/Time": "2003:04:04 00:00:00",
+                                "Device Model Description": "sRGB v1.31 (Canon)",
+                                "Profile Copyright": "Copyright (c) 2003, Canon Inc.  All rights reserved.",
+                                "Technology": "CRT"
+                            },
+                            "getty": {},
+                            "colourModel": "RGB",
+                            "colourModelInformation": {
+                                "hasAlpha": "false",
+                                "colorType": "TrueColor",
+                                "photometricInterpretation": "RGB",
+                                "bitsPerSample": "8"
+                            }
+                        },
+                        "metadata": {
+                            "dateTaken": "2020-03-03T14:54:13.820Z",
+                            "description": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Photographer First\nTel: 07831 566005",
+                            "credit": "BBC",
+                            "byline": "Photographer First",
+                            "copyright": "© Photographer First",
+                            "source": "Photographer First",
+                            "keywords": [
+                                "richardaustinimages.com"
+                            ],
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "originalMetadata": {
+                            "dateTaken": "2020-03-03T14:54:13.820Z",
+                            "description": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Photographer First\nTel: 07831 566005",
+                            "credit": "Photographer First",
+                            "byline": "Photographer First",
+                            "copyright": "© Photographer First",
+                            "source": "Photographer First",
+                            "keywords": [
+                                "richardaustinimages.com"
+                            ],
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "usageRights": {
+                            "category": "public-domain"
+                        },
+                        "originalUsageRights": {
+                            "category": "public-domain"
+                        },
+                        "exports": [],
+                        "usages": [],
+                        "leases": {
+                            "leases": [],
+                            "lastModified": null
+                        },
+                        "collections": [
+                            {
+                                "path": [
+                                    "Daily Edit",
+                                    "Daily edit home"
+                                ],
+                                "pathId": "daily edit/daily edit home",
+                                "description": "Daily edit home",
+                                "actionData": {
+                                    "author": "paul.bellsham@guardian.co.uk",
+                                    "date": "2020-03-04T10:55:06.059+00:00"
+                                }
+                            }
+                        ],
+                        "userMetadataLastModified": "2020-03-04T10:55:06.059Z",
+                        "suggestMetadataCredit": "Photographer First"
+                    }
+                },
+                {
+                    "_id": "1cbc493f388bdea87c98c1e03f40ed3e7ef0a30e",
+                    "_source": {
+                        "id": "1cbc493f388bdea87c98c1e03f40ed3e7ef0a30e",
+                        "uploadTime": "2020-03-04T10:41:37.204Z",
+                        "uploadedBy": "e2e-fixtures",
+                        "lastModified": "2020-03-04T10:55:06.059Z",
+                        "identifiers": {},
+                        "uploadInfo": {
+                            "filename": "Swans_Nesting_004.JPG"
+                        },
+                        "source": {
+                            "file": "http://media-service-prod-imagebucket-1luk2yux3owkh.s3.amazonaws.com/f/6/b/f/d/2/f6bfd2f0e54c232fd642237dfe773bb14275b3b3",
+                            "size": 587773,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 3156,
+                                "height": 1728
+                            }
+                        },
+                        "thumbnail": {
+                            "file": "http://media-service-prod-thumbbucket-1pyxt0kyxzho.s3.amazonaws.com/f/6/b/f/d/2/f6bfd2f0e54c232fd642237dfe773bb14275b3b3",
+                            "size": 14830,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 256,
+                                "height": 140
+                            }
+                        },
+                        "fileMetadata": {
+                            "iptc": {
+                                "Copyright Notice": "© Photographer First",
+                                "Coded Character Set": "UTF-8",
+                                "Application Record Version": "4",
+                                "Caption/Abstract": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \rThis week will see the staff putting out bundles of reeds for the swans to build their nests.\rThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\rThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \rAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \rThe colony can number over 600 swans with around 150 nesting pairs. \rWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\r© Photographer First\rTel: 07831 566005",
+                                "Credit": "Photographer First",
+                                "Source": "Photographer First",
+                                "Keywords": "richardaustinimages.com",
+                                "By-line": "Photographer First",
+                                "Caption Writer/Editor": "Photographer First",
+                                "Date Created": "2020:03:04"
+                            },
+                            "exif": {
+                                "Image Description": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Photographer First\nTel: 07831 566005",
+                                "X Resolution": "350 dots per inch",
+                                "Software": "Digital Photo Professional",
+                                "Photometric Interpretation": "RGB",
+                                "Make": "Canon",
+                                "Image Width": "5184 pixels",
+                                "YCbCr Positioning": "Center of pixel array",
+                                "Samples Per Pixel": "3 samples/pixel",
+                                "Copyright": "© Photographer First",
+                                "Date/Time": "2020:03:03 19:10:38",
+                                "Model": "Canon EOS-1D X",
+                                "Orientation": "Top, left side (Horizontal / normal)",
+                                "Resolution Unit": "Inch",
+                                "Bits Per Sample": "8 8 8 bits/component/pixel",
+                                "Y Resolution": "350 dots per inch",
+                                "Artist": "Photographer First",
+                                "Image Height": "3456 pixels"
+                            },
+                            "exifSub": {
+                                "Exif Version": "2.30",
+                                "Exposure Mode": "Auto exposure",
+                                "ISO Speed Ratings": "400",
+                                "Lens Specification": "24-70mm",
+                                "Body Serial Number": "063012002171",
+                                "Custom Rendered": "Normal process",
+                                "Exif Image Height": "1728 pixels",
+                                "Lens Serial Number": "5903000717",
+                                "Flash": "Flash did not fire",
+                                "Focal Length": "61 mm",
+                                "Date/Time Original": "2020:03:03 14:54:13",
+                                "White Balance Mode": "Auto white balance",
+                                "Shutter Speed Value": "1/789 sec",
+                                "Exif Image Width": "3156 pixels",
+                                "Focal Plane Y Resolution": "49/172800 inches",
+                                "Sub-Sec Time Original": "82",
+                                "Exposure Time": "1/800 sec",
+                                "Metering Mode": "Multi-segment",
+                                "Exposure Program": "Shutter priority",
+                                "Exposure Bias Value": "2/3 EV",
+                                "F-Number": "f/10.0",
+                                "Color Space": "sRGB",
+                                "FlashPix Version": "1.00",
+                                "Components Configuration": "YCbCr",
+                                "Lens Model": "EF24-70mm f/4L IS USM",
+                                "Date/Time Digitized": "2016:07:28 15:57:54",
+                                "Recommended Exposure Index": "400",
+                                "Date/Time Original Composite": "2020-03-03T14:54:13.820Z",
+                                "Aperture Value": "f/9.9",
+                                "Sensitivity Type": "Recommended Exposure Index",
+                                "Scene Capture Type": "Standard",
+                                "Focal Plane Resolution Unit": "Inches",
+                                "Sub-Sec Time Digitized": "76",
+                                "Focal Plane X Resolution": "731/2592000 inches",
+                                "Max Aperture Value": "f/4.0"
+                            },
+                            "xmp": {
+                                "dc:format": "image/jpeg",
+                                "dc:description": [
+                                    "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Photographer First\nTel: 07831 566005",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "xmp:MetadataDate": "2020-03-04T10:04:59.000Z",
+                                "aux:LensSerialNumber": "5903000717",
+                                "aux:ImageNumber": "0",
+                                "dc:subject": [
+                                    "richardaustinimages.com"
+                                ],
+                                "photoshop:CaptionWriter": "Photographer First",
+                                "aux:FlashCompensation": "0/1",
+                                "aux:Lens": "EF24-70mm f/4L IS USM",
+                                "xmp:ModifyDate": "2020-03-03T19:10:38.000Z",
+                                "xmpMM:OriginalDocumentID": "B5CA1C6D9E598ABFD1488E67E2EC3F78",
+                                "xmp:Rating": "0",
+                                "photoshop:DateCreated": "2020-03-04T00:00:00.000Z",
+                                "photoshop:Credit": "Photographer First",
+                                "xmp:CreateDate": "2016-07-28T15:57:54.760Z",
+                                "aux:LensID": "504",
+                                "aux:ApproximateFocusDistance": "595/100",
+                                "dc:rights": [
+                                    "© Photographer First",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "xmp:CreatorTool": "Digital Photo Professional",
+                                "aux:LensInfo": "24/1 70/1 0/0 0/0",
+                                "xmpMM:DocumentID": "B5CA1C6D9E598ABFD1488E67E2EC3F78",
+                                "xmpRights:Marked": "True",
+                                "dc:creator": [
+                                    "Photographer First"
+                                ],
+                                "Iptc4xmpCore:CreatorContactInfo": [
+                                    "{'Iptc4xmpCore:CiUrlWork':'richardaustinimages.com'}",
+                                    "{'Iptc4xmpCore:CiEmailWork':'r_austin@btconnect.com'}",
+                                    "{'Iptc4xmpCore:CiTelWork':'07831 566005'}",
+                                    "{'Iptc4xmpCore:CiAdrCtry':'UK'}",
+                                    "{'Iptc4xmpCore:CiAdrPcode':'DT7 3PW'}"
+                                ],
+                                "aux:Firmware": "2.0.3",
+                                "aux:SerialNumber": "063012002171",
+                                "xmpMM:History": [
+                                    [
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop CC 2015.5 (Macintosh)'}",
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:when':'2020-03-03T19:10:38Z'}",
+                                        "{'stEvt:changed':'/'}",
+                                        "{'stEvt:instanceID':'xmp.iid:e8c994fa-f18f-4333-815c-aa852b3beced'}"
+                                    ],
+                                    [
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop Camera Raw 9.6'}",
+                                        "{'stEvt:instanceID':'xmp.iid:e9307528-6f0e-451c-830a-0580bd9c73a2'}",
+                                        "{'stEvt:changed':'/metadata'}",
+                                        "{'stEvt:when':'2020-03-03T21:20:25Z'}"
+                                    ],
+                                    [
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:when':'2020-03-04T10:04:59Z'}",
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop Camera Raw 9.6.1 (Macintosh)'}",
+                                        "{'stEvt:changed':'/metadata'}",
+                                        "{'stEvt:instanceID':'xmp.iid:f013e587-41b4-4496-a7c8-5be3c1495b5c'}"
+                                    ]
+                                ],
+                                "photoshop:Source": "Photographer First",
+                                "xmpMM:InstanceID": "xmp.iid:f013e587-41b4-4496-a7c8-5be3c1495b5c"
+                            },
+                            "icc": {
+                                "Chromatic Adaptation": "sf32 (0x73663332): 44 bytes",
+                                "Profile Size": "3140",
+                                "Media White Point": "(0.9642, 1, 0.8249)",
+                                "Device model": "Z009",
+                                "Red Colorant": "(0.436, 0.2224, 0.0139)",
+                                "Blue TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Version": "2.4.0",
+                                "Tag Count": "14",
+                                "Profile Description": "sRGB v1.31 (Canon)",
+                                "Green Colorant": "(0.3851, 0.7169, 0.0971)",
+                                "XYZ values": "0.964 1 0.825",
+                                "Signature": "acsp",
+                                "Device manufacturer": "CANO",
+                                "Device Mfg Description": "Canon Inc.",
+                                "Green TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Red TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Blue Colorant": "(0.1431, 0.0606, 0.7139)",
+                                "Color space": "RGB",
+                                "Primary Platform": "Microsoft Corporation",
+                                "Profile Connection Space": "XYZ",
+                                "CMM Type": "UCCM",
+                                "Class": "Display Device",
+                                "Profile Date/Time": "2003:04:04 00:00:00",
+                                "Device Model Description": "sRGB v1.31 (Canon)",
+                                "Profile Copyright": "Copyright (c) 2003, Canon Inc.  All rights reserved.",
+                                "Technology": "CRT"
+                            },
+                            "getty": {},
+                            "colourModel": "RGB",
+                            "colourModelInformation": {
+                                "hasAlpha": "false",
+                                "colorType": "TrueColor",
+                                "photometricInterpretation": "RGB",
+                                "bitsPerSample": "8"
+                            }
+                        },
+                        "metadata": {
+                            "dateTaken": "2020-03-03T14:54:13.820Z",
+                            "description": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Photographer First\nTel: 07831 566005",
+                            "credit": "E2E photographer",
+                            "byline": "Photographer First",
+                            "copyright": "© Photographer First",
+                            "source": "Photographer First",
+                            "keywords": [
+                                "richardaustinimages.com"
+                            ],
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "originalMetadata": {
+                            "dateTaken": "2020-03-03T14:54:13.820Z",
+                            "description": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Photographer First\nTel: 07831 566005",
+                            "credit": "Photographer First",
+                            "byline": "Photographer First",
+                            "copyright": "© Photographer First",
+                            "source": "Photographer First",
+                            "keywords": [
+                                "richardaustinimages.com"
+                            ],
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "usageRights": {
+                            "category": "public-domain"
+                        },
+                        "originalUsageRights": {
+                            "category": "public-domain"
+                        },
+                        "exports": [],
+                        "usages": [],
+                        "leases": {
+                            "leases": [],
+                            "lastModified": null
+                        },
+                        "collections": [
+                            {
+                                "path": [
+                                    "Daily Edit",
+                                    "Daily edit home"
+                                ],
+                                "pathId": "daily edit/daily edit home",
+                                "description": "Daily edit home",
+                                "actionData": {
+                                    "author": "paul.bellsham@guardian.co.uk",
+                                    "date": "2020-03-04T10:55:06.059+00:00"
+                                }
+                            }
+                        ],
+                        "userMetadataLastModified": "2020-03-04T10:55:06.059Z",
+                        "suggestMetadataCredit": "Photographer First"
+                    }
+                },
+                {
+                    "_id": "70b8bd47c84f4172824c41b3178afca61ba214e3",
+                    "_source": {
+                        "id": "70b8bd47c84f4172824c41b3178afca61ba214e3",
+                        "uploadTime": "2020-03-04T10:41:37.204Z",
+                        "uploadedBy": "e2e-fixtures",
+                        "lastModified": "2020-03-04T10:55:06.059Z",
+                        "identifiers": {},
+                        "uploadInfo": {
+                            "filename": "Swans_Nesting_004.JPG"
+                        },
+                        "source": {
+                            "file": "http://media-service-prod-imagebucket-1luk2yux3owkh.s3.amazonaws.com/f/6/b/f/d/2/f6bfd2f0e54c232fd642237dfe773bb14275b3b3",
+                            "size": 587773,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 3156,
+                                "height": 1728
+                            }
+                        },
+                        "thumbnail": {
+                            "file": "http://media-service-prod-thumbbucket-1pyxt0kyxzho.s3.amazonaws.com/f/6/b/f/d/2/f6bfd2f0e54c232fd642237dfe773bb14275b3b3",
+                            "size": 14830,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 256,
+                                "height": 140
+                            }
+                        },
+                        "fileMetadata": {
+                            "iptc": {
+                                "Copyright Notice": "© Photographer First",
+                                "Coded Character Set": "UTF-8",
+                                "Application Record Version": "4",
+                                "Caption/Abstract": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \rThis week will see the staff putting out bundles of reeds for the swans to build their nests.\rThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\rThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \rAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \rThe colony can number over 600 swans with around 150 nesting pairs. \rWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\r© Photographer First\rTel: 07831 566005",
+                                "Credit": "Photographer First",
+                                "Source": "Photographer First",
+                                "Keywords": "richardaustinimages.com",
+                                "By-line": "Photographer First",
+                                "Caption Writer/Editor": "Photographer First",
+                                "Date Created": "2020:03:04"
+                            },
+                            "exif": {
+                                "Image Description": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Photographer First\nTel: 07831 566005",
+                                "X Resolution": "350 dots per inch",
+                                "Software": "Digital Photo Professional",
+                                "Photometric Interpretation": "RGB",
+                                "Make": "Canon",
+                                "Image Width": "5184 pixels",
+                                "YCbCr Positioning": "Center of pixel array",
+                                "Samples Per Pixel": "3 samples/pixel",
+                                "Copyright": "© Photographer First",
+                                "Date/Time": "2020:03:03 19:10:38",
+                                "Model": "Canon EOS-1D X",
+                                "Orientation": "Top, left side (Horizontal / normal)",
+                                "Resolution Unit": "Inch",
+                                "Bits Per Sample": "8 8 8 bits/component/pixel",
+                                "Y Resolution": "350 dots per inch",
+                                "Artist": "Photographer First",
+                                "Image Height": "3456 pixels"
+                            },
+                            "exifSub": {
+                                "Exif Version": "2.30",
+                                "Exposure Mode": "Auto exposure",
+                                "ISO Speed Ratings": "400",
+                                "Lens Specification": "24-70mm",
+                                "Body Serial Number": "063012002171",
+                                "Custom Rendered": "Normal process",
+                                "Exif Image Height": "1728 pixels",
+                                "Lens Serial Number": "5903000717",
+                                "Flash": "Flash did not fire",
+                                "Focal Length": "61 mm",
+                                "Date/Time Original": "2020:03:03 14:54:13",
+                                "White Balance Mode": "Auto white balance",
+                                "Shutter Speed Value": "1/789 sec",
+                                "Exif Image Width": "3156 pixels",
+                                "Focal Plane Y Resolution": "49/172800 inches",
+                                "Sub-Sec Time Original": "82",
+                                "Exposure Time": "1/800 sec",
+                                "Metering Mode": "Multi-segment",
+                                "Exposure Program": "Shutter priority",
+                                "Exposure Bias Value": "2/3 EV",
+                                "F-Number": "f/10.0",
+                                "Color Space": "sRGB",
+                                "FlashPix Version": "1.00",
+                                "Components Configuration": "YCbCr",
+                                "Lens Model": "EF24-70mm f/4L IS USM",
+                                "Date/Time Digitized": "2016:07:28 15:57:54",
+                                "Recommended Exposure Index": "400",
+                                "Date/Time Original Composite": "2020-03-03T14:54:13.820Z",
+                                "Aperture Value": "f/9.9",
+                                "Sensitivity Type": "Recommended Exposure Index",
+                                "Scene Capture Type": "Standard",
+                                "Focal Plane Resolution Unit": "Inches",
+                                "Sub-Sec Time Digitized": "76",
+                                "Focal Plane X Resolution": "731/2592000 inches",
+                                "Max Aperture Value": "f/4.0"
+                            },
+                            "xmp": {
+                                "dc:format": "image/jpeg",
+                                "dc:description": [
+                                    "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Photographer First\nTel: 07831 566005",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "xmp:MetadataDate": "2020-03-04T10:04:59.000Z",
+                                "aux:LensSerialNumber": "5903000717",
+                                "aux:ImageNumber": "0",
+                                "dc:subject": [
+                                    "richardaustinimages.com"
+                                ],
+                                "photoshop:CaptionWriter": "Photographer First",
+                                "aux:FlashCompensation": "0/1",
+                                "aux:Lens": "EF24-70mm f/4L IS USM",
+                                "xmp:ModifyDate": "2020-03-03T19:10:38.000Z",
+                                "xmpMM:OriginalDocumentID": "B5CA1C6D9E598ABFD1488E67E2EC3F78",
+                                "xmp:Rating": "0",
+                                "photoshop:DateCreated": "2020-03-04T00:00:00.000Z",
+                                "photoshop:Credit": "Photographer First",
+                                "xmp:CreateDate": "2016-07-28T15:57:54.760Z",
+                                "aux:LensID": "504",
+                                "aux:ApproximateFocusDistance": "595/100",
+                                "dc:rights": [
+                                    "© Photographer First",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "xmp:CreatorTool": "Digital Photo Professional",
+                                "aux:LensInfo": "24/1 70/1 0/0 0/0",
+                                "xmpMM:DocumentID": "B5CA1C6D9E598ABFD1488E67E2EC3F78",
+                                "xmpRights:Marked": "True",
+                                "dc:creator": [
+                                    "Photographer First"
+                                ],
+                                "Iptc4xmpCore:CreatorContactInfo": [
+                                    "{'Iptc4xmpCore:CiUrlWork':'richardaustinimages.com'}",
+                                    "{'Iptc4xmpCore:CiEmailWork':'r_austin@btconnect.com'}",
+                                    "{'Iptc4xmpCore:CiTelWork':'07831 566005'}",
+                                    "{'Iptc4xmpCore:CiAdrCtry':'UK'}",
+                                    "{'Iptc4xmpCore:CiAdrPcode':'DT7 3PW'}"
+                                ],
+                                "aux:Firmware": "2.0.3",
+                                "aux:SerialNumber": "063012002171",
+                                "xmpMM:History": [
+                                    [
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop CC 2015.5 (Macintosh)'}",
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:when':'2020-03-03T19:10:38Z'}",
+                                        "{'stEvt:changed':'/'}",
+                                        "{'stEvt:instanceID':'xmp.iid:e8c994fa-f18f-4333-815c-aa852b3beced'}"
+                                    ],
+                                    [
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop Camera Raw 9.6'}",
+                                        "{'stEvt:instanceID':'xmp.iid:e9307528-6f0e-451c-830a-0580bd9c73a2'}",
+                                        "{'stEvt:changed':'/metadata'}",
+                                        "{'stEvt:when':'2020-03-03T21:20:25Z'}"
+                                    ],
+                                    [
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:when':'2020-03-04T10:04:59Z'}",
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop Camera Raw 9.6.1 (Macintosh)'}",
+                                        "{'stEvt:changed':'/metadata'}",
+                                        "{'stEvt:instanceID':'xmp.iid:f013e587-41b4-4496-a7c8-5be3c1495b5c'}"
+                                    ]
+                                ],
+                                "photoshop:Source": "Photographer First",
+                                "xmpMM:InstanceID": "xmp.iid:f013e587-41b4-4496-a7c8-5be3c1495b5c"
+                            },
+                            "icc": {
+                                "Chromatic Adaptation": "sf32 (0x73663332): 44 bytes",
+                                "Profile Size": "3140",
+                                "Media White Point": "(0.9642, 1, 0.8249)",
+                                "Device model": "Z009",
+                                "Red Colorant": "(0.436, 0.2224, 0.0139)",
+                                "Blue TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Version": "2.4.0",
+                                "Tag Count": "14",
+                                "Profile Description": "sRGB v1.31 (Canon)",
+                                "Green Colorant": "(0.3851, 0.7169, 0.0971)",
+                                "XYZ values": "0.964 1 0.825",
+                                "Signature": "acsp",
+                                "Device manufacturer": "CANO",
+                                "Device Mfg Description": "Canon Inc.",
+                                "Green TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Red TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Blue Colorant": "(0.1431, 0.0606, 0.7139)",
+                                "Color space": "RGB",
+                                "Primary Platform": "Microsoft Corporation",
+                                "Profile Connection Space": "XYZ",
+                                "CMM Type": "UCCM",
+                                "Class": "Display Device",
+                                "Profile Date/Time": "2003:04:04 00:00:00",
+                                "Device Model Description": "sRGB v1.31 (Canon)",
+                                "Profile Copyright": "Copyright (c) 2003, Canon Inc.  All rights reserved.",
+                                "Technology": "CRT"
+                            },
+                            "getty": {},
+                            "colourModel": "RGB",
+                            "colourModelInformation": {
+                                "hasAlpha": "false",
+                                "colorType": "TrueColor",
+                                "photometricInterpretation": "RGB",
+                                "bitsPerSample": "8"
+                            }
+                        },
+                        "metadata": {
+                            "dateTaken": "2020-03-03T14:54:13.820Z",
+                            "description": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Photographer First\nTel: 07831 566005",
+                            "credit": "AP",
+                            "byline": "Photographer First",
+                            "copyright": "© Photographer First",
+                            "source": "Photographer First",
+                            "keywords": [
+                                "richardaustinimages.com"
+                            ],
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "originalMetadata": {
+                            "dateTaken": "2020-03-03T14:54:13.820Z",
+                            "description": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Photographer First\nTel: 07831 566005",
+                            "credit": "Photographer First",
+                            "byline": "Photographer First",
+                            "copyright": "© Photographer First",
+                            "source": "Photographer First",
+                            "keywords": [
+                                "richardaustinimages.com"
+                            ],
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "usageRights": {
+                            "category": "agency",
+                            "supplier": "AP"
+                        },
+                        "originalUsageRights": {
+                            "category": "agency",
+                            "supplier": "AP"
+                        },
+                        "exports": [],
+                        "usages": [],
+                        "leases": {
+                            "leases": [],
+                            "lastModified": null
+                        },
+                        "collections": [
+                            {
+                                "path": [
+                                    "Daily Edit",
+                                    "Daily edit home"
+                                ],
+                                "pathId": "daily edit/daily edit home",
+                                "description": "Daily edit home",
+                                "actionData": {
+                                    "author": "paul.bellsham@guardian.co.uk",
+                                    "date": "2020-03-04T10:55:06.059+00:00"
+                                }
+                            }
+                        ],
+                        "userMetadataLastModified": "2020-03-04T10:55:06.059Z",
+                        "suggestMetadataCredit": "Photographer First"
+                    }
+                },
+                {
+                    "_id": "01fba03b81b4636745fec6602acb003874b38a3f",
+                    "_source": {
+                        "id": "01fba03b81b4636745fec6602acb003874b38a3f",
+                        "uploadTime": "2020-03-04T10:41:37.204Z",
+                        "uploadedBy": "PA_AutoIngest",
+                        "lastModified": "2020-03-04T10:55:06.059Z",
+                        "identifiers": {},
+                        "uploadInfo": {
+                            "filename": "Swans_Nesting_004.JPG"
+                        },
+                        "source": {
+                            "file": "http://media-service-prod-imagebucket-1luk2yux3owkh.s3.amazonaws.com/f/6/b/f/d/2/f6bfd2f0e54c232fd642237dfe773bb14275b3b3",
+                            "size": 587773,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 3156,
+                                "height": 1728
+                            }
+                        },
+                        "thumbnail": {
+                            "file": "http://media-service-prod-thumbbucket-1pyxt0kyxzho.s3.amazonaws.com/f/6/b/f/d/2/f6bfd2f0e54c232fd642237dfe773bb14275b3b3",
+                            "size": 14830,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 256,
+                                "height": 140
+                            }
+                        },
+                        "fileMetadata": {
+                            "iptc": {
+                                "Copyright Notice": "© Photographer First",
+                                "Coded Character Set": "UTF-8",
+                                "Application Record Version": "4",
+                                "Caption/Abstract": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \rThis week will see the staff putting out bundles of reeds for the swans to build their nests.\rThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\rThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \rAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \rThe colony can number over 600 swans with around 150 nesting pairs. \rWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\r© Photographer First\rTel: 07831 566005",
+                                "Credit": "Photographer First",
+                                "Source": "Photographer First",
+                                "Keywords": "richardaustinimages.com",
+                                "By-line": "Photographer First",
+                                "Caption Writer/Editor": "Photographer First",
+                                "Date Created": "2020:03:04"
+                            },
+                            "exif": {
+                                "Image Description": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Photographer First\nTel: 07831 566005",
+                                "X Resolution": "350 dots per inch",
+                                "Software": "Digital Photo Professional",
+                                "Photometric Interpretation": "RGB",
+                                "Make": "Canon",
+                                "Image Width": "5184 pixels",
+                                "YCbCr Positioning": "Center of pixel array",
+                                "Samples Per Pixel": "3 samples/pixel",
+                                "Copyright": "© Photographer First",
+                                "Date/Time": "2020:03:03 19:10:38",
+                                "Model": "Canon EOS-1D X",
+                                "Orientation": "Top, left side (Horizontal / normal)",
+                                "Resolution Unit": "Inch",
+                                "Bits Per Sample": "8 8 8 bits/component/pixel",
+                                "Y Resolution": "350 dots per inch",
+                                "Artist": "Photographer First",
+                                "Image Height": "3456 pixels"
+                            },
+                            "exifSub": {
+                                "Exif Version": "2.30",
+                                "Exposure Mode": "Auto exposure",
+                                "ISO Speed Ratings": "400",
+                                "Lens Specification": "24-70mm",
+                                "Body Serial Number": "063012002171",
+                                "Custom Rendered": "Normal process",
+                                "Exif Image Height": "1728 pixels",
+                                "Lens Serial Number": "5903000717",
+                                "Flash": "Flash did not fire",
+                                "Focal Length": "61 mm",
+                                "Date/Time Original": "2020:03:03 14:54:13",
+                                "White Balance Mode": "Auto white balance",
+                                "Shutter Speed Value": "1/789 sec",
+                                "Exif Image Width": "3156 pixels",
+                                "Focal Plane Y Resolution": "49/172800 inches",
+                                "Sub-Sec Time Original": "82",
+                                "Exposure Time": "1/800 sec",
+                                "Metering Mode": "Multi-segment",
+                                "Exposure Program": "Shutter priority",
+                                "Exposure Bias Value": "2/3 EV",
+                                "F-Number": "f/10.0",
+                                "Color Space": "sRGB",
+                                "FlashPix Version": "1.00",
+                                "Components Configuration": "YCbCr",
+                                "Lens Model": "EF24-70mm f/4L IS USM",
+                                "Date/Time Digitized": "2016:07:28 15:57:54",
+                                "Recommended Exposure Index": "400",
+                                "Date/Time Original Composite": "2020-03-03T14:54:13.820Z",
+                                "Aperture Value": "f/9.9",
+                                "Sensitivity Type": "Recommended Exposure Index",
+                                "Scene Capture Type": "Standard",
+                                "Focal Plane Resolution Unit": "Inches",
+                                "Sub-Sec Time Digitized": "76",
+                                "Focal Plane X Resolution": "731/2592000 inches",
+                                "Max Aperture Value": "f/4.0"
+                            },
+                            "xmp": {
+                                "dc:format": "image/jpeg",
+                                "dc:description": [
+                                    "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Photographer First\nTel: 07831 566005",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "xmp:MetadataDate": "2020-03-04T10:04:59.000Z",
+                                "aux:LensSerialNumber": "5903000717",
+                                "aux:ImageNumber": "0",
+                                "dc:subject": [
+                                    "richardaustinimages.com"
+                                ],
+                                "photoshop:CaptionWriter": "Photographer First",
+                                "aux:FlashCompensation": "0/1",
+                                "aux:Lens": "EF24-70mm f/4L IS USM",
+                                "xmp:ModifyDate": "2020-03-03T19:10:38.000Z",
+                                "xmpMM:OriginalDocumentID": "B5CA1C6D9E598ABFD1488E67E2EC3F78",
+                                "xmp:Rating": "0",
+                                "photoshop:DateCreated": "2020-03-04T00:00:00.000Z",
+                                "photoshop:Credit": "Photographer First",
+                                "xmp:CreateDate": "2016-07-28T15:57:54.760Z",
+                                "aux:LensID": "504",
+                                "aux:ApproximateFocusDistance": "595/100",
+                                "dc:rights": [
+                                    "© Photographer First",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "xmp:CreatorTool": "Digital Photo Professional",
+                                "aux:LensInfo": "24/1 70/1 0/0 0/0",
+                                "xmpMM:DocumentID": "B5CA1C6D9E598ABFD1488E67E2EC3F78",
+                                "xmpRights:Marked": "True",
+                                "dc:creator": [
+                                    "Photographer First"
+                                ],
+                                "Iptc4xmpCore:CreatorContactInfo": [
+                                    "{'Iptc4xmpCore:CiUrlWork':'richardaustinimages.com'}",
+                                    "{'Iptc4xmpCore:CiEmailWork':'r_austin@btconnect.com'}",
+                                    "{'Iptc4xmpCore:CiTelWork':'07831 566005'}",
+                                    "{'Iptc4xmpCore:CiAdrCtry':'UK'}",
+                                    "{'Iptc4xmpCore:CiAdrPcode':'DT7 3PW'}"
+                                ],
+                                "aux:Firmware": "2.0.3",
+                                "aux:SerialNumber": "063012002171",
+                                "xmpMM:History": [
+                                    [
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop CC 2015.5 (Macintosh)'}",
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:when':'2020-03-03T19:10:38Z'}",
+                                        "{'stEvt:changed':'/'}",
+                                        "{'stEvt:instanceID':'xmp.iid:e8c994fa-f18f-4333-815c-aa852b3beced'}"
+                                    ],
+                                    [
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop Camera Raw 9.6'}",
+                                        "{'stEvt:instanceID':'xmp.iid:e9307528-6f0e-451c-830a-0580bd9c73a2'}",
+                                        "{'stEvt:changed':'/metadata'}",
+                                        "{'stEvt:when':'2020-03-03T21:20:25Z'}"
+                                    ],
+                                    [
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:when':'2020-03-04T10:04:59Z'}",
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop Camera Raw 9.6.1 (Macintosh)'}",
+                                        "{'stEvt:changed':'/metadata'}",
+                                        "{'stEvt:instanceID':'xmp.iid:f013e587-41b4-4496-a7c8-5be3c1495b5c'}"
+                                    ]
+                                ],
+                                "photoshop:Source": "Photographer First",
+                                "xmpMM:InstanceID": "xmp.iid:f013e587-41b4-4496-a7c8-5be3c1495b5c"
+                            },
+                            "icc": {
+                                "Chromatic Adaptation": "sf32 (0x73663332): 44 bytes",
+                                "Profile Size": "3140",
+                                "Media White Point": "(0.9642, 1, 0.8249)",
+                                "Device model": "Z009",
+                                "Red Colorant": "(0.436, 0.2224, 0.0139)",
+                                "Blue TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Version": "2.4.0",
+                                "Tag Count": "14",
+                                "Profile Description": "sRGB v1.31 (Canon)",
+                                "Green Colorant": "(0.3851, 0.7169, 0.0971)",
+                                "XYZ values": "0.964 1 0.825",
+                                "Signature": "acsp",
+                                "Device manufacturer": "CANO",
+                                "Device Mfg Description": "Canon Inc.",
+                                "Green TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Red TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Blue Colorant": "(0.1431, 0.0606, 0.7139)",
+                                "Color space": "RGB",
+                                "Primary Platform": "Microsoft Corporation",
+                                "Profile Connection Space": "XYZ",
+                                "CMM Type": "UCCM",
+                                "Class": "Display Device",
+                                "Profile Date/Time": "2003:04:04 00:00:00",
+                                "Device Model Description": "sRGB v1.31 (Canon)",
+                                "Profile Copyright": "Copyright (c) 2003, Canon Inc.  All rights reserved.",
+                                "Technology": "CRT"
+                            },
+                            "getty": {},
+                            "colourModel": "RGB",
+                            "colourModelInformation": {
+                                "hasAlpha": "false",
+                                "colorType": "TrueColor",
+                                "photometricInterpretation": "RGB",
+                                "bitsPerSample": "8"
+                            }
+                        },
+                        "metadata": {
+                            "dateTaken": "2020-03-03T14:54:13.820Z",
+                            "description": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Photographer First\nTel: 07831 566005",
+                            "credit": "PA",
+                            "byline": "Photographer First",
+                            "copyright": "© Photographer First",
+                            "source": "Photographer First",
+                            "keywords": [
+                                "richardaustinimages.com"
+                            ],
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "originalMetadata": {
+                            "dateTaken": "2020-03-03T14:54:13.820Z",
+                            "description": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Photographer First\nTel: 07831 566005",
+                            "credit": "Photographer First",
+                            "byline": "Photographer First",
+                            "copyright": "© Photographer First",
+                            "source": "Photographer First",
+                            "keywords": [
+                                "richardaustinimages.com"
+                            ],
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "usageRights": {
+                            "category": "agency",
+                            "supplier": "PA"
+                        },
+                        "originalUsageRights": {
+                            "category": "agency",
+                            "supplier": "PA"
+                        },
+                        "exports": [],
+                        "usages": [],
+                        "leases": {
+                            "leases": [],
+                            "lastModified": null
+                        },
+                        "collections": [
+                            {
+                                "path": [
+                                    "Daily Edit",
+                                    "Daily edit home"
+                                ],
+                                "pathId": "daily edit/daily edit home",
+                                "description": "Daily edit home",
+                                "actionData": {
+                                    "author": "paul.bellsham@guardian.co.uk",
+                                    "date": "2020-03-04T10:55:06.059+00:00"
+                                }
+                            }
+                        ],
+                        "userMetadataLastModified": "2020-03-04T10:55:06.059Z",
+                        "suggestMetadataCredit": "Photographer First"
+                    }
                 }
             ]
         }
