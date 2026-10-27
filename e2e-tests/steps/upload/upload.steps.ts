@@ -4,7 +4,7 @@ import { Given, KAHUNA_APP_URL, Then, When, expect } from '../setup.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { E2E_UPLOAD_SUPPORT_EMAIL } from '../../setup/config.ts';
 import { switchAccount } from '../utils/auth.ts';
-import { expectNoUploadPermission, expectUploadPermission } from './media-api.assertions.ts';
+import { expectNoUploadPermission, expectUploadPermission } from '../utils/api/media-api.assertions.ts';
 import {
   BATCH_SIZE,
   batchJobs,

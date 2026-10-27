@@ -31,6 +31,12 @@ interface TestContext {
   presetLabels?: string[];
   /** Lets a held past-uploads search through (see holdPastUploads). */
   releasePastUploads?: () => void;
+  /** The page region a `Then` found, for later steps to assert on its contents. */
+  region?: Locator;
+  /** The usage rights category code a `Given` chose the opened image by. */
+  usageRightsCategory?: string;
+  /** The `q` of each search Kahuna ran since recording started (see recordSearches). */
+  searchesRun?: string[];
 }
 
 export interface TestImage {
@@ -51,7 +57,7 @@ export const test = base.extend<{ testContext: TestContext }>({
       await page.waitForTimeout(1_500);
     }
   },
-  testContext: async ({}, use) => {
+  testContext: async ({ }, use) => {
     await use({ dialogs: [] });
   },
 });

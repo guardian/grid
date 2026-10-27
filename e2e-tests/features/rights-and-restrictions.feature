@@ -20,28 +20,23 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/image/index.js lines 25-28
 
   # ---------------------------------------------------------------------------
-  # Category display (usage rights summary switched off)
+  # Category display 
   # ---------------------------------------------------------------------------
-@todo
   Scenario: The category name is shown for an image with usage rights
-    Given the usage rights summary is switched off
-    And the image has the "Agency - subscription" usage rights category
+    Given the image has the "Agency - subscription" usage rights category
     Then the rights and restrictions section shows "Agency - subscription"
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 29-32
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 63, 69-73, 446-472
   # Evidence: kahuna/app/views/main.scala.html lines 93
   # Evidence: kahuna/app/lib/KahunaConfig.scala lines 50
-@todo
   Scenario: The mapped category name is shown for an image with a legacy usage right
-    Given the usage rights summary is switched off
-    And the image has the "chargeable" usage rights category
+    Given the image has the "chargeable" usage rights category
     And the configuration contains pay-to-use and not chargeable
     Then the rights and restrictions section shows "Pay to use"
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 29-32
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 63, 69-73, 446-472
   # Evidence: kahuna/app/views/main.scala.html lines 93
   # Evidence: kahuna/app/lib/KahunaConfig.scala lines 50
-@todo
   Scenario: The mapped category name and fields are shown for an image with a legacy usage rights and a suppliers field
     Given the image has the "composite" usage rights category
     And the usage rights suppliers is "Alamy, Getty Images"
@@ -52,46 +47,31 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 63, 69-73, 446-472
   # Evidence: kahuna/app/views/main.scala.html lines 93
   # Evidence: kahuna/app/lib/KahunaConfig.scala lines 50
-@todo
   Scenario: An image without a usage rights category is shown as Unknown
-    Given the usage rights summary is switched off
-    And the image has no usage rights category
+    Given the image has no usage rights category
     Then the rights and restrictions section shows "Unknown"
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 30-32
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 462-472
-@todo
+
+
+
+  # ---------------------------------------------------------------------------
+  # Usage rights summary
+  # ---------------------------------------------------------------------------
+
   Scenario: No usage icons are shown when the usage rights summary is switched off
-    Given the usage rights summary is switched off
-    And the image is payable
+    Given the image is payable
+    And the usage rights summary is switched off
     Then the rights and restrictions section shows only the category
-    And no usage rights summary is shown
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 30-37
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 63
   # Evidence: kahuna/app/views/main.scala.html lines 93
 
-  # ---------------------------------------------------------------------------
-  # Usage rights summary (switched on)
-  # ---------------------------------------------------------------------------
-@todo
-  Scenario: The usage rights summary shows the category name
-    Given the usage rights summary is switched on
-    And the image has the "Agency - subscription" usage rights category
-    Then the usage rights summary shows "Agency - subscription"
-  # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 33-37
-  # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 63, 543-557
-  # Evidence: kahuna/public/js/components/gr-usagerights-summary/gr-usagerights-summary.tsx lines 89-91, 107-110
-@todo
-  Scenario: The usage rights summary shows Unknown for an image without a category
-    Given the usage rights summary is switched on
-    And the image has no usage rights category
-    Then the usage rights summary shows "Unknown"
-  # Evidence: kahuna/public/js/components/gr-usagerights-summary/gr-usagerights-summary.tsx lines 89-91, 109
-  # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 543-557
-@todo
   Scenario Outline: The usage rights summary lists the usage that applies to the image
     Given the usage rights summary is switched on
     And the image is <image>
     Then the usage rights summary lists "<usage>" with its icon
+    And the usage rights summary contains exactly 1 usage entry
 
     # title-format: The summary lists "<usage>" for an image that is <image>
     Examples:
@@ -99,11 +79,17 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
       | payable                                              | Payable images   |
       | unrestricted, free and credited to the BBC           | Usable for all   |
       | free and in the "agency" usage rights category       | Usable for News  |
-      | free and has the usage rights supplier "PA"          | Usable for Sport |
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 33-37
   # Evidence: kahuna/public/js/components/gr-usagerights-summary/gr-usagerights-summary.tsx lines 17, 52-87, 113-129
   # Evidence: kahuna/public/js/components/gr-usagerights-summary/gr-usagerights-bbc.tsx lines 46-129
-@todo
+
+  Scenario: A free PA agency image is usable for both News and Sport
+    Given the usage rights summary is switched on
+    And the image is free and has the usage rights supplier "PA"
+    Then the usage rights summary lists "Usable for News" with its icon
+    And the usage rights summary lists "Usable for Sport" with its icon
+    And the usage rights summary contains exactly 2 usage entries
+
   Scenario: The usage rights summary lists nothing when no usage applies
     Given the usage rights summary is switched on
     And the image is free, unrestricted and not credited to the BBC
@@ -111,7 +97,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
     Then the usage rights summary lists no usage
   # Evidence: kahuna/public/js/components/gr-usagerights-summary/gr-usagerights-summary.tsx lines 52-87, 113-129
   # Evidence: kahuna/public/js/components/gr-usagerights-summary/gr-usagerights-bbc.tsx lines 46-108
-@todo
+
   Scenario: The usage rights summary shows the supplier's agency marker
     Given the usage rights summary is switched on
     And the image was uploaded by "PA_AutoIngest"
@@ -135,7 +121,6 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: media-api/app/controllers/MediaApi.scala lines 814
   # Evidence: media-api/app/lib/ImageResponse.scala lines 148
   # Evidence: rest-lib/src/main/scala/com/gu/mediaservice/lib/auth/Authorisation.scala lines 62-74
-@todo
   Scenario: A user without edit permission cannot edit another user's image rights
     Given I am signed in without edit metadata permission
     And the image was uploaded by someone else

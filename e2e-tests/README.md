@@ -33,7 +33,9 @@ Caddy reverse proxy on `:443` that replays dev-nginx's subdomain routing for the
 The harness applies both development CloudFormation templates to LocalStack, seeds Panda
 settings and permissions from [`fixtures/`](fixtures), and builds the local provider from
 [`dev/oidc-provider`](../dev/oidc-provider). Browser scenarios sign in through Panda and
-OIDC as `grid-e2e-account@guardian.co.uk`; authentication is not bypassed.
+OIDC as `grid-e2e-account@guardian.co.uk`; authentication is not bypassed. The provider
+is served at `http://oidc.localhost:9014` rather than under `*.local.dev-gutools.co.uk`,
+because that domain is HSTS-preloaded and browsers would force `https` onto it.
 
 Sign-in happens once per run, in the `auth` setup project
 ([`setup/auth.setup.ts`](setup/auth.setup.ts)), which saves the session to

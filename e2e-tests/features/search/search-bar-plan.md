@@ -87,9 +87,10 @@ Feature file: [search-free-text.feature](./search-free-text.feature)
 - [x] **2. Focus on page load**: the input is focused with the cursor after
       any text already there. Feature file:
       [search-focus-on-load.feature](./search-focus-on-load.feature).
-- [ ] **3. Typing runs a search**: the URL `query` updates and results reload
+- [x] **3. Typing runs a search**: the URL `query` updates and results reload
       500 ms after you stop typing. Text that hasn't changed isn't searched
-      again.
+      again. Feature file:
+      [search-typing-runs-search.feature](./search-typing-runs-search.feature).
 - [ ] **4. Emptying the input**: deleting all the text removes `query` from
       the URL.
 - [ ] **5. Restored from the URL**: opening a link with `?query=…` fills in

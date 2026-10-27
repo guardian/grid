@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import { Given, Then, When, expect } from '../setup.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { openUploadPageAs } from '../common.steps.ts';
-import { expectInUploadHistory } from './media-api.assertions.ts';
+import { expectInUploadHistory } from '../utils/api/media-api.assertions.ts';
 import { holdPastUploads, uniqueImage, uploadPage } from './setup.ts';
 
 const LOADING_MESSAGE = 'Loading…';

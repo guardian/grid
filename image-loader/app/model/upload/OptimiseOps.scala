@@ -15,7 +15,7 @@ trait OptimiseOps {
   def shouldOptimise(mimeType: Option[MimeType], fileMetadata: FileMetadata): Boolean
 }
 
-object OptimiseWithPngQuant extends OptimiseOps {
+class OptimiseWithPngQuant extends OptimiseOps {
 
   def toOptimisedFile(file: File, imageWrapper: ImageWrapper, optimisedFile: File)
                      (implicit ec: ExecutionContext, logMarker: LogMarker): Future[(File, MimeType)] = Future {

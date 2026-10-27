@@ -163,7 +163,7 @@ export function generateServiceConfig(
     [
       'play.http.secret.key = "testcontainers-e2e-application-secret-0123456789"',
       'enforceUploadImagesPermission = true',
-      `usageRights.applicable' = ${JSON.stringify([
+      `usageRights.applicable = ${JSON.stringify([
         "com.gu.mediaservice.model.NoRights",
         "com.gu.mediaservice.model.PayToUse",
         "com.gu.mediaservice.model.PRAndThirdParty",
