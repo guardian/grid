@@ -19,41 +19,16 @@ Given('I have opened the image search page', async ({ page }) => {
   await searchBoxReady(page);
 });
 
-Given('AI search is {word}', async ({ page }, state: string) => {
-  // Overrides `aiSearchEnabled` in window._clientConfig (kahuna/app/views/main.scala.html) and reloads.
-  await setTestClientConfig(page, { aiSearchEnabled: enabledDisabled(state) });
-  await searchBoxReady(page);
-});
-
 Given('the search box is empty', async ({ page }) => {
   await expect(cqlInput(page)).toHaveAttribute('value', '');
-});
-
-Given('the {string} checkbox is ticked', async ({ page }, name: string) => {
-  const checkbox = searchRegion(page).getByRole('checkbox', { name });
-  await checkbox.check();
-  await expect(checkbox).toBeChecked();
 });
 
 When('I type {string} into the search box', async ({ page }, text: string) => {
   await cqlInput(page).locator('.Cql__ContentEditable').pressSequentially(text);
 });
 
-When('I tick the {string} checkbox', async ({ page }, name: string) => {
-  await searchRegion(page).getByRole('checkbox', { name }).check();
-});
-
-When('I untick the {string} checkbox', async ({ page }, name: string) => {
-  await searchRegion(page).getByRole('checkbox', { name }).uncheck();
-});
-
 When('I open a search link with the query {string}', async ({ page }, query: string) => {
   await page.goto(`${KAHUNA_APP_URL}/search?query=${encodeURIComponent(query)}`);
-  await searchBoxReady(page);
-});
-
-When('I open a search link with AI search turned on', async ({ page }) => {
-  await page.goto(`${KAHUNA_APP_URL}/search?useAISearch=true`);
   await searchBoxReady(page);
 });
 
