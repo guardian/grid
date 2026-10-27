@@ -18,8 +18,7 @@ The `usePermissionsFilter` config setting decides which of the two layouts is us
 - [ ] **Suggestions**: filter field names and suggested values for a chip
       (`query-suggestions.ts`).
 - [ ] **CQL input**: the search box is a CQL input (`gr-cql-input`).
-- [ ] **Clear button**: only shows when there's a query, and clears the query
-      and the org-owned setting.
+- [ ] **Clear button**: only shows when there's a query, and clears the query.
 - [ ] **Advanced search help**: the ⓘ button shows and hides the syntax help
       panel (`gr-syntax`).
 - [ ] **AI search checkbox**: only shown when `aiSearchEnabled` is on, and stays
@@ -94,14 +93,6 @@ Feature file: [search-free-text.feature](./search-free-text.feature)
       the URL.
 - [ ] **5. Restored from the URL**: opening a link with `?query=…` fills in
       the input. Back and forward update the text.
-- [ ] **6. Text is tidied when loaded from the URL** (only on load or with
-      back/forward, not while typing). These rules came from the legacy chips
-      parser (`structureQuery`), so check what the CQL input does first:
-  - Separate words are joined into one piece of text.
-  - Quotes are dropped, so `"red bus"` becomes `red bus`. This may be a bug:
-    decide whether to capture current or expected behaviour.
-  - Tokens that are only punctuation are dropped.
-  - `-word` stays as text, not a chip.
 
 ### Chips
 
