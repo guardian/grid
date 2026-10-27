@@ -3,6 +3,9 @@ import { Given, Then, KAHUNA_APP_URL, expect } from '../setup.ts';
 import { findSeededImageId, hasNoUsageRights, loadImageFixtures } from '../../setup/image-fixtures.ts';
 import { usageRightsCategories } from '../utils/api/metadata-editor.queries.ts';
 import { setTestClientConfig } from '../utils/test-config.ts';
+import { TEST_ACCOUNTS } from '../../setup/constants.ts';
+import { switchAccount } from '../utils/auth.ts';
+import { expectNoEditPermissionForImage } from '../utils/api/media-api.assertions.ts';
 
 /** An image seeded into Elasticsearch from fixtures/elasticsearch/images.json. */
 const SEEDED_IMAGE_ID = findSeededImageId('with no usage rights category', hasNoUsageRights);
@@ -104,6 +107,30 @@ Given('the image was uploaded by {string}', async ({ page }, uploader: string) =
     `uploaded by "${uploader}"`,
     (source) => source.uploadedBy === uploader,
   ));
+});
+
+Given('I am signed in without edit metadata permission', async ({ page }) => {
+  await switchAccount(page, TEST_ACCOUNTS.restricted);
+});
+
+Given('the image was uploaded by someone else', async ({ page }) => {
+  const image = loadImageFixtures().find(({ _source }) =>
+    typeof _source.uploadedBy === 'string' &&
+    !Object.values(TEST_ACCOUNTS).some((account) => account === _source.uploadedBy),
+  );
+  if (!image || typeof image._source.uploadedBy !== 'string') {
+    throw new Error('No seeded image uploaded by someone other than the test accounts');
+  }
+  await openImage(page, image._id);
+  await expectNoEditPermissionForImage(page, image._id, image._source.uploadedBy);
+});
+
+Then('the edit rights and restrictions button is not shown', async ({ page }) => {
+  const section = rightsAndRestrictions(page);
+  await expect(section.getByRole('definition')).toContainText(/\S/);
+  await section.hover();
+  await expect(section.getByRole('button', { name: '✎', includeHidden: true })).toBeHidden();
+  await expect(page.getByRole('form', { name: 'Image usage rights' })).toBeHidden();
 });
 
 Then('the rights and restrictions section shows only the category', async ({ page }) => {

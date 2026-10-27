@@ -40,8 +40,16 @@ export async function expectNoEditPermission(
   imagePath: string,
   expectedUploader: string,
 ): Promise<void> {
+  await expectNoEditPermissionForImage(page, mediaIdOf(imagePath), expectedUploader);
+}
+
+export async function expectNoEditPermissionForImage(
+  page: Page,
+  imageId: string,
+  expectedUploader: string,
+): Promise<void> {
   const response = await page.request.get(
-    `${await getMediaApiUrl(page)}/images/${mediaIdOf(imagePath)}`,
+    `${await getMediaApiUrl(page)}/images/${imageId}`,
   );
   expect(response.ok()).toBeTruthy();
   const { data, links } = (await response.json()) as {

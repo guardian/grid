@@ -121,7 +121,6 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: media-api/app/controllers/MediaApi.scala lines 814
   # Evidence: media-api/app/lib/ImageResponse.scala lines 148
   # Evidence: rest-lib/src/main/scala/com/gu/mediaservice/lib/auth/Authorisation.scala lines 62-74
-@todo
   Scenario: A user without edit permission cannot edit another user's image rights
     Given I am signed in without edit metadata permission
     And the image was uploaded by someone else
