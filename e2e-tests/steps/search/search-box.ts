@@ -21,11 +21,7 @@ export async function searchBoxReady(page: Page): Promise<Locator> {
   return box;
 }
 
-/**
- * Whether a request is the first media-api search the results page makes when it loads
- * (`length: 1` in kahuna/public/js/search/results.js). Paging, polling for new images
- * and the AI preview use other lengths, so each match is one search run.
- */
+/** Each search sends several `/images` requests, but only its first uses `length=1`, so this matches once per search. */
 export function isSearchRun(request: Request): boolean {
   const url = new URL(request.url());
   return (
