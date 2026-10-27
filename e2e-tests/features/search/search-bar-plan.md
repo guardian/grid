@@ -84,8 +84,9 @@ Feature file: [search-free-text.feature](./search-free-text.feature)
 - [x] **1. Placeholder text**: the CQL input shows `Search for images… (type +
       for advanced search)` only while it is completely empty. It hides as
       soon as there's text or a chip, and it ignores AI search.
-- [ ] **2. Focus on page load**: the input is focused with the cursor after
-      any text already there.
+- [x] **2. Focus on page load**: the input is focused with the cursor after
+      any text already there. Feature file:
+      [search-focus-on-load.feature](./search-focus-on-load.feature).
 - [ ] **3. Typing runs a search**: the URL `query` updates and results reload
       500 ms after you stop typing. Text that hasn't changed isn't searched
       again.
