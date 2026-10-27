@@ -33,6 +33,8 @@ object UsageRightsMetadataMapper {
         ImageMetadata(byline = Some(u.creator),      credit = u.publication, imageType = Some("Illustration"))
       case u: Composite                => ImageMetadata(credit = Some(u.suppliers), imageType = Some("Composite"))
       case u: Screengrab               => ImageMetadata(credit = u.source)
+      case u: PublisherPhotographer => ImageMetadata(byline = Some(u.creator), credit = u.publication, imageType = Some("Photograph"))
+      case u: PublisherIllustrator => ImageMetadata(byline = Some(u.creator), credit = u.publication, imageType = Some("Illustration"))
     }
 
     // if we don't match, return None

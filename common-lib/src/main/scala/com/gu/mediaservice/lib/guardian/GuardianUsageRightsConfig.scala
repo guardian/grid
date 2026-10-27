@@ -7,6 +7,8 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
   private val ObserverPublication = "The Observer"
   private val GuardianPublication = "The Guardian"
 
+  override val staffIllustratorsPublication: Option[String] = Some(GuardianPublication)
+
   val externalStaffPhotographers: List[PublicationPhotographers] = List(
     PublicationPhotographers(GuardianPublication, List(
       PublicationPhotographer("Ben Doherty"),

@@ -6,26 +6,45 @@ import '../util/eq';
 export var datalist = angular.module('kahuna.forms.datalist', ['util.eq']);
 
 
-datalist.directive('grDatalist', ['$q', function($q) {
+datalist.directive('grDatalist', ['$q', '$timeout', function($q, $timeout) {
     return {
         restrict: 'E',
         transclude: true,
         scope: {
             search:   '&grSearch',
-            onSelect: '&?grOnSelect'
+            onSelect: '&?grOnSelect',
+            showToggle: '<?grShowToggle'
         },
         template: template,
         controllerAs: 'ctrl',
-        controller: [function() {
+        controller: ['$element', function($element) {
             var ctrl = this;
             ctrl.$onInit = () => {
               var selectedIndex = 0;
 
               ctrl.results = [];
 
-              ctrl.moveIndex = movement =>
+              // Keeps the keyboard-selected option visible within the scrollable list
+              const scrollSelectedIntoView = () => {
+                  const list = $element[0].querySelector('.datalist__options');
+                  const option = list && list.querySelector('.datalist__option--selected');
+                  if (!option) { return; }
+
+                  const optionTop = option.offsetTop; // list is the positioned offsetParent
+                  const optionBottom = optionTop + option.offsetHeight;
+                  if (optionTop < list.scrollTop) {
+                      list.scrollTop = optionTop;
+                  } else if (optionBottom > list.scrollTop + list.clientHeight) {
+                      list.scrollTop = optionBottom - list.clientHeight;
+                  }
+              };
+
+              ctrl.moveIndex = movement => {
                   selectedIndex = (selectedIndex + movement + ctrl.results.length) %
                                   ctrl.results.length;
+                  // Wait for the selected class to be rendered
+                  $timeout(scrollSelectedIntoView, 0, false);
+              };
 
               ctrl.setIndex = key => selectedIndex = key;
 
@@ -46,6 +65,33 @@ datalist.directive('grDatalist', ['$q', function($q) {
 
               ctrl.setValueFromSelectedIndex = () => {
                   ctrl.setValueTo(ctrl.results[selectedIndex]);
+              };
+
+              // Opens the full list (search with an empty query), or closes it
+              ctrl.toggle = $event => {
+                  if (ctrl.active) {
+                      ctrl.active = false;
+                      ctrl.reset();
+                  } else {
+                      const input = $element[0].querySelector('input');
+                      const currentValue = input && input.value;
+                      ctrl.searchFor('').then(() => {
+                          const currentIndex = ctrl.results.indexOf(currentValue);
+                          if (currentIndex > -1) {
+                              selectedIndex = currentIndex;
+                          }
+                          ctrl.active = ctrl.results.length > 0;
+                          // Opened from the keyboard: hand focus to the input so the arrow keys work,
+                          // without letting its focus handler replace the full list with a filtered one
+                          if (ctrl.active && input && $event && $event.detail === 0 &&
+                              document.activeElement !== input) {
+                              ctrl.skipFocusSearch = true;
+                              input.focus();
+                          }
+                          // Wait for the options list to be rendered
+                          $timeout(scrollSelectedIntoView, 0, false);
+                      });
+                  }
               };
 
               ctrl.reset = () => {
@@ -113,13 +159,19 @@ datalist.directive('grDatalistInput',
                     ( keys[event.which] === 'up' || keys[event.which] === 'down' ) ) {
                     event.preventDefault();
                     event.stopPropagation();
+                    // keydown repeats while the key is held, so the selection keeps moving
+                    scope.$apply(keyFuncs[keys[event.which]]);
                 }
             });
 
             input.on('keyup', event => {
-                const func = keyFuncs[keys[event.which]];
+                const key = keys[event.which];
+                const func = keyFuncs[key];
 
-                if (func && parentCtrl.active) {
+                if ((key === 'up' || key === 'down') && parentCtrl.active) {
+                    // Already handled on keydown
+                    event.preventDefault();
+                } else if (func && parentCtrl.active) {
                     event.preventDefault();
                     scope.$apply(func);
                 } else if (keys[event.which] !== 'enter' && keys[event.which] !== 'esc') {
@@ -129,7 +181,13 @@ datalist.directive('grDatalistInput',
                 }
             });
 
-            input.on('focus', searchAndActivate);
+            input.on('focus', () => {
+                if (parentCtrl.skipFocusSearch) {
+                    parentCtrl.skipFocusSearch = false;
+                } else {
+                    searchAndActivate();
+                }
+            });
             input.on('click', searchAndActivate);
 
             // This is done to make the results disappear when you select

@@ -454,7 +454,6 @@ button {
     border: 0;
     background: #00adee;
     border-radius: 2px;
-    box-shadow: 0 2px #00729c;
     box-sizing: border-box;
     color: white;
     display: block;
@@ -466,7 +465,6 @@ button {
     background: #008fc5;
 }
 .button:active {
-    box-shadow: none;
     top: 2px;
 }
 .button:focus,
@@ -478,19 +476,13 @@ a:focus {
 button[disabled],
 .button[disabled] {
     background-color: #999;
-    box-shadow: 0 2px #666;
     color: #ccc;
-}
-.button--green {
-    background: forestgreen;
-    box-shadow: 0 2px darkgreen;
 }
 
 .button-shy {
     padding: 2px 5px;
     color: #ccc;
     background: transparent;
-    box-shadow: 0 2px #888;
     border: 1px solid #888;
     font-size: inherit;
 }
@@ -515,7 +507,7 @@ button[disabled],
     cursor: auto;
 }
 
-.button-save:hover {
+.button-save:not([disabled]):hover {
     background-color: #008fc5;
 }
 
@@ -2955,11 +2947,22 @@ FIXME: what to do with touch devices
     background: #444;
     color: #ccc;
     padding: 5px;
-    padding-right: 15px; /* hack to reserve some space for the scrollbar */
     font-size: 1.2rem;
     box-sizing: border-box;
     max-height: 400px;
     overflow-y: auto;
+}
+
+.datalist__toggle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    padding: 0 4px 0 8px;
+    background: transparent;
+    border: 0;
+    color: #ccc;
+    cursor: pointer;
 }
 
 .datalist__input {
