@@ -133,6 +133,7 @@ Then('the usage rights summary lists no usage', async ({ page }) => {
   await expect(usageSummary(page).locator('svg')).toHaveCount(0);
 });
 
+// It's ok to target a css class here because non-Guardian orgs supply stylesheets that provide the appropriate imagary  
 Then('the usage rights summary shows an agency marker titled {string}', async ({ page }, uploader: string) => {
   await expect(usageSummary(page).getByTitle(uploader, { exact: true }))
     .toHaveClass(new RegExp(`(?:^|\\s)supplier-${uploader}(?:\\s|$)`));
