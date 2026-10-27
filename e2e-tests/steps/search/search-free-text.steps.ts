@@ -25,7 +25,8 @@ Given('the search box is empty', async ({ page }) => {
   await expect(cqlInput(page)).toHaveAttribute('value', '');
 });
 
-When('I type {string} into the search box', async ({ page }, text: string) => {
+When('I type {string} into the search box', async ({ page, testContext }, text: string) => {
+  recordSearches(page, testContext);
   await cqlInput(page).locator('.Cql__ContentEditable').pressSequentially(text);
 });
 

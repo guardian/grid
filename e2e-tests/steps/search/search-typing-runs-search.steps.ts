@@ -29,3 +29,7 @@ Then('the search should not be run again', async ({ page, testContext }) => {
     await page.waitForTimeout(SEARCH_SETTLE_MS);
     expect(testContext.searchesRun ?? []).toEqual([]);
 });
+
+When('I pause typing', async ({ page }) => {
+    await page.waitForTimeout(600);
+})

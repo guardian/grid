@@ -20,6 +20,7 @@ Feature: Typing in the search box runs a search
   Scenario: Pausing after typing runs one search for the typed text
     Given the search box is empty
     When I type "cat" into the search box
+    And I pause typing
     Then a single search should be run for "cat"
   # Evidence: kahuna/public/js/search/structured-query/structured-query.js lines 47-51, 86-88, 93-97
   # Evidence: kahuna/public/js/search/results.js lines 354, 580-618
