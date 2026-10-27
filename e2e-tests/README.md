@@ -154,13 +154,3 @@ permissions, Elasticsearch fixtures or seeded collections. After changing any of
 
 Reuse also means state carries over between runs. The current suite is read-only, so this
 is harmless today, but a test that uploads or edits an image will want a fresh stack.
-
-The image fixture loader also seeds five deterministic usage-summary variants (payable,
-BBC-credited, non-BBC free, AP-supplied, and PA-supplied) based on the first fixture image.
-The free AP image has only the News summary; the free PA image has both News and Sport.
-Summary
-scenarios use Kahuna's default enabled configuration; only the switched-off scenario
-sets `usageRightsSummary` to false in the page and recreates the metadata panel by
-navigating to search and back without reloading. Images and their costs
-still come from the real media API. After
-changing these fixtures, use `GRID_RESEED=true npm test` against a reused stack.
