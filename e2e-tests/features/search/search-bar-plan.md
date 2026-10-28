@@ -91,14 +91,14 @@ Feature file: [search-free-text.feature](./search-free-text.feature)
       500 ms after you stop typing. Text that hasn't changed isn't searched
       again. Feature file:
       [search-typing-runs-search.feature](./search-typing-runs-search.feature).
-- [ ] **4. Emptying the input**: deleting all the text removes `query` from
+- [x] **4. Emptying the input**: deleting all the text removes `query` from
       the URL.
-- [ ] **5. Restored from the URL**: opening a link with `?query=…` fills in
+- [x] **5. Restored from the URL**: opening a link with `?query=…` fills in
       the input. Back and forward update the text.
 
 ### Chips
 
-- [ ] To be broken down.
+- [ ] [Chip types, values, fixtures and combination tests](./search-chips-plan.md).
 
 ### Free text combined with chips
 
