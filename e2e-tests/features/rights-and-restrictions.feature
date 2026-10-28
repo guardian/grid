@@ -250,7 +250,6 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # ---------------------------------------------------------------------------
   # Metadata templates driving the rights editor
   # ---------------------------------------------------------------------------
-@todo
   Scenario: Choosing a template with a different category previews its rights
     Given I am signed in with edit metadata permission
     And metadata templates are configured
@@ -262,26 +261,24 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 565-570, 596-606
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.html lines 4, 24, 210
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.js lines 289
-@todo
   Scenario: Choosing a template with the same category keeps the rights editor closed
     Given I am signed in with edit metadata permission
     And metadata templates are configured
-    And the image has the "Agency - subscription" usage rights category
-    When I choose a metadata template that sets the "Agency - subscription" usage rights category
+    And the image has the "Pay to use" usage rights category
+    When I choose a metadata template that sets the "Pay to use" usage rights category
     Then the rights editor is not shown
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 21-29
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 565-570, 596-601
-@todo
   Scenario: Applying a template closes the rights preview
     Given I am signed in with edit metadata permission
     And metadata templates are configured
+    And the image has no usage rights category
     And a metadata template's usage rights are being previewed on the image
     When I apply the metadata template
     Then the rights editor closes
     And the rights and restrictions section shows the template's usage rights category
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 10-11, 21-32
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 615-622
-@todo
   Scenario: Cancelling a template restores the original rights
     Given I am signed in with edit metadata permission
     And metadata templates are configured

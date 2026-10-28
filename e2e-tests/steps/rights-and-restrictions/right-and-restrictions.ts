@@ -6,6 +6,7 @@ import { setTestClientConfig } from '../utils/test-config.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { switchAccount } from '../utils/auth.ts';
 import { expectEditPermissionForImage, expectNoEditPermissionForImage } from '../utils/api/media-api.assertions.ts';
+import { E2E_RIGHTS_TEMPLATE } from '../../setup/config.ts';
 
 /** An image seeded into Elasticsearch from fixtures/elasticsearch/images.json. */
 const IMAGE_WITHOUT_RIGHTS = findSeededImage('with no usage rights category', hasNoUsageRights);
@@ -514,3 +515,101 @@ Then('it is headed {string}', async ({ testContext }, heading: string) => {
   // Kahuna heads metadata regions with the key (<dt>) of their description list.
   await expect(testContext.region!.getByRole('term').first()).toHaveText(heading);
 });
+// ---------------------------------------------------------------------------
+// Metadata templates driving the rights editor
+// ---------------------------------------------------------------------------
+
+const metadataTemplates = (page: Page) =>
+  page.getByRole('region', { name: 'Metadata templates', exact: true });
+const metadataTemplateSelect = (page: Page) =>
+  metadataTemplates(page).getByRole('combobox', { name: 'Metadata template' });
+
+/** The display name of the category `E2E_RIGHTS_TEMPLATE` sets, e.g. "Agency - subscription". */
+async function rightsTemplateCategoryName(request: APIRequestContext): Promise<string> {
+  const { category } = E2E_RIGHTS_TEMPLATE.usageRights;
+  const name = (await usageRightsCategories(request)).find(({ value }) => value === category)?.name;
+  if (!name) throw new Error(`The "${category}" usage rights category is not configured`);
+  return name;
+}
+
+/**
+ * Kahuna applies a template's selection once it has fetched the collections tree, which it
+ * only requests on the first selection after the page loads. Waiting for that response
+ * means an editor that should stay closed is checked after the selection has been handled.
+ */
+async function chooseRightsTemplate(page: Page): Promise<void> {
+  const [collections] = await Promise.all([
+    page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return url.hostname.startsWith('media-collections.') && url.pathname === '/collections';
+    }),
+    metadataTemplateSelect(page).selectOption({ label: E2E_RIGHTS_TEMPLATE.templateName }),
+  ]);
+  expect(collections.ok(), 'fetching collections for the metadata template').toBeTruthy();
+}
+
+Given('metadata templates are configured', async ({ page }) => {
+  // Templates are baked into Kahuna's config at boot, so a stale stack won't list this one.
+  await expect(
+    metadataTemplateSelect(page).getByRole('option', { name: E2E_RIGHTS_TEMPLATE.templateName, exact: true }),
+    'restart the stack if the rights template is missing',
+  ).toHaveCount(1);
+});
+
+When('I choose a metadata template that sets a usage rights category', async ({ page }) => {
+  await chooseRightsTemplate(page);
+});
+
+When(
+  'I choose a metadata template that sets the {string} usage rights category',
+  async ({ page, request }, category: string) => {
+    expect(await usageRightsCategoryCode(request, category)).toBe(E2E_RIGHTS_TEMPLATE.usageRights.category);
+    await chooseRightsTemplate(page);
+  },
+);
+
+Given("a metadata template's usage rights are being previewed on the image", async ({ page }) => {
+  await chooseRightsTemplate(page);
+  await expect(rightsEditor(page)).toBeVisible();
+});
+
+Then(
+  "the rights editor shows the template's usage rights as a locked preview",
+  async ({ page, request }) => {
+    const editor = rightsEditor(page);
+    await expect(editor).toBeVisible();
+    const category = editor.getByRole('combobox').first();
+    await expect(category.locator('option:checked')).toHaveText(await rightsTemplateCategoryName(request));
+    await expect(category).toBeDisabled();
+    await expect(restrictedCheckbox(page)).toBeChecked();
+    await expect(restrictionsInput(page)).toHaveValue(E2E_RIGHTS_TEMPLATE.usageRights.restrictions);
+    await expect(restrictionsInput(page)).toHaveJSProperty('readOnly', true);
+  },
+);
+
+Then('the rights editor offers no save or cancel buttons', async ({ page }) => {
+  const editor = rightsEditor(page);
+  await expect(editor.getByRole('button', { name: 'Save usage rights', exact: true })).toHaveCount(0);
+  await expect(editor.getByRole('button', { name: 'Close usage rights form', exact: true })).toHaveCount(0);
+});
+
+When('I apply the metadata template', async ({ page }) => {
+  // Kahuna closes the template whether or not applying succeeds, so check the save itself.
+  const [rights] = await Promise.all([
+    page.waitForResponse(isUsageRightsSave(imageIdFromUrl(page))),
+    metadataTemplates(page).getByTitle('Apply template', { exact: true }).click(),
+  ]);
+  expect(rights.ok(), `applying the template's rights: ${await rights.text()}`).toBeTruthy();
+});
+
+When('I cancel the metadata template', async ({ page }) => {
+  await metadataTemplates(page).getByTitle('Close', { exact: true }).click();
+});
+
+Then(
+  "the rights and restrictions section shows the template's usage rights category",
+  async ({ page, request }) => {
+    const category = await rightsTemplateCategoryName(request);
+    await expect(rightsAndRestrictions(page).getByText(category, { exact: true })).toBeVisible();
+  },
+);
