@@ -283,6 +283,9 @@ representative paths and their integration with the chip input. The separate
 
 ### Interactions: 12 scenarios
 
+Feature file for slots 1-3: [search-chips.feature](./search-chips.feature).
+Step definitions for these slots: [search-chips.steps.ts](../../steps/search/search-chips.steps.ts).
+
 | Slot | Behaviour to capture | Unique behaviour covered |
 | --- | --- | --- |
 | 1 | Create a `city` chip by typing its field and value. | No-resolver path: a chip can be completed without any value suggestions. |
