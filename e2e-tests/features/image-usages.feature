@@ -367,6 +367,6 @@ Feature: Viewing an image's usages in the single image view
     @todo
     Scenario: The usages refresh when the image is updated
       Given I am viewing the image's usages
-      When the image is updated elsewhere in the application
+      When the image usages change as a result of a user action, for example, downloading an image
       Then the usages list refreshes to reflect the updated image
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 97-105
