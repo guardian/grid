@@ -16,8 +16,8 @@ production.
 The recovered discussion specifies the inventory, fixture matrix and a split of
 12 interaction scenarios plus 12 result combinations. Its saved response cuts
 off during the result-combination summary. The detailed allocation below is a
-proposed expansion of those groups; the remaining two scenario slots need
-confirmation before feature files are written.
+proposed expansion of those groups; the remaining two scenario slots can be
+decided after drafting the first 24 scenarios and do not block that work.
 
 ## Chip inventory
 
@@ -326,23 +326,38 @@ explicit because they can introduce implicit filters.
 
 ### Remaining two slots
 
-Slots **25 and 26** are reserved pending confirmation of the untruncated strategy.
-Do not silently invent agreed scenarios or increase the fixture set. Potential
-gaps to assess include conditional/configured chips and suggestion failure
-behaviour, but neither is committed to these slots yet.
+Slots **25 and 26** remain unallocated. After drafting the first 24 scenarios,
+decide whether conditional/configured chips or suggestion failure behaviour add
+distinct coverage. This decision does not block writing or running the defined
+scenarios.
 
-## Implementation gates
+## Next steps
 
-- [ ] Confirm slots 25-26 and the detailed allocation of the first 24 slots.
-- [ ] Verify the illustrator resolver/API shape, source suggestion route and
-      label suggestion relation. Record defects separately from intended behaviour.
-- [x] Populate credit/photoshoot completions and exact fixture metadata.
-- [ ] Resolve frontend support for backend-only syntax and configured aliases.
-- [ ] Assign deterministic expected IDs and date boundaries to result scenarios.
-- [x] Implement the 12-image set, preserving existing fixtures.
-- [ ] Write evidence-annotated feature files, then wire steps using the shared
-      search-box locators in the existing search step directory.
-- [ ] Run focused BDD generation and browser checks against a running stack.
+The 12-image fixture set is already implemented. Use it for the following work;
+there is no separate fixture or resolver-audit phase required before drafting
+the feature files.
+
+- [ ] Write evidence-annotated feature files for the 12 interaction scenarios,
+  covering the five value-resolution paths and the unique behaviours above.
+  Establish any uncertain keyboard/editing expectations from the current
+  component while drafting the affected scenario.
+- [ ] Write feature files for the 12 result-combination scenarios. State the
+  expected fixture matches and near-misses, scope searches with `ids`, and
+  make cost, ownership, deleted/replaced defaults and date boundaries
+  explicit where they affect the outcome.
+- [ ] Implement the step definitions for those feature files in the existing
+  search step directory. Reuse the shared search-box locators and fixture ID
+  helpers; exercise the real UI, lookup APIs and seeded search results.
+- [ ] Generate and run the matching BDD tests against a running stack. Check for
+  undefined steps with `npx bddgen`, then run the relevant generated search
+  specs with Playwright. Fix test/setup issues and report application defects
+  exposed by the scenarios.
+
+Investigate the noted illustrator/source/label lookup concerns when working on
+their scenarios; they are not prerequisites for unrelated coverage. Do not mock
+away a broken lookup to make an end-to-end scenario pass. Additional backend
+syntax and configured aliases only need further investigation if selected for
+a feature file, rather than as a blanket prerequisite.
 
 The chip input is shared by both search layouts. Avoid duplicating every
 combination across layouts; add layout-specific coverage only where controls
