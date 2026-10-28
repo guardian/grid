@@ -7,14 +7,6 @@ import { expect } from '@playwright/test';
 import { KAHUNA_PORT } from '../../setup/constants.ts';
 import type { TestImage } from '../setup.ts';
 
-declare global {
-  interface Window {
-    _clientConfig: {
-      systemName: string;
-      maybeUploadLimitInBytes: number;
-    };
-  }
-}
 
 const FIXTURE_IMAGES = path.join(import.meta.dirname, '..', '..', 'fixtures', 'images');
 
@@ -55,6 +47,16 @@ export const gridHostedImageUrl = `http://localhost:${KAHUNA_PORT}/assets/images
 export const uniqueImage = (base: TestImage = testImages.smaller): TestImage => {
   const filePath = path.join(tmpdir(), `upload-e2e-${randomBytes(6).toString('hex')}.jpg`);
   writeFileSync(filePath, Buffer.concat([readFileSync(base.path), randomBytes(16)]));
+  return { fileName: path.basename(filePath), path: filePath, bytes: statSync(filePath).size };
+};
+
+/** A 1×1 GIF: a real image, but not a type the Grid accepts. */
+export const gifImage = (): TestImage => {
+  const filePath = path.join(tmpdir(), `upload-e2e-${randomBytes(6).toString('hex')}.gif`);
+  writeFileSync(
+    filePath,
+    Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==', 'base64'),
+  );
   return { fileName: path.basename(filePath), path: filePath, bytes: statSync(filePath).size };
 };
 
@@ -131,6 +133,7 @@ export const uploadPage = (page: Page) => {
   const currentUploads = page.getByRole('region', { name: 'Your current uploads' });
   const pastUploads = page.getByRole('region', { name: 'Your past 50 uploads' });
   const metadataEditor = currentUploads.getByRole('region', { name: 'Image metadata' });
+  const job = (fileName: string) => page.getByRole('region', { name: `${fileName} upload` });
 
   return {
     prompt,
@@ -154,9 +157,11 @@ export const uploadPage = (page: Page) => {
     uploadButton: (label: string) => prompt.getByRole('button').filter({ hasText: label }),
     topBarLink: (label: string) => page.getByRole('banner').getByRole('link').filter({ hasText: label }),
     /** Any control that takes you off the upload page, wherever it sits on it. */
-    leaveLink: (label: string) => page.getByRole('link').filter({ hasText: label }),
+    // "View all your uploads" is repeated in the current-uploads section while uploads run.
+    leaveLink: (label: string) => page.getByRole('link').filter({ hasText: label }).first(),
     /** A queued or in-flight upload, before it becomes an editable image. */
-    job: (fileName: string) => page.getByRole('region', { name: `${fileName} upload` }),
+    job,
+    jobStatus: (fileName: string) => job(fileName).getByRole('status'),
     /** The required-metadata editor form on a finished upload, once it has become an editable image. */
     metadataEditor,
     /** A finished upload's whole image-editor (rights, metadata, grouping), one per current upload. */

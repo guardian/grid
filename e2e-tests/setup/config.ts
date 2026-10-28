@@ -163,6 +163,19 @@ export function generateServiceConfig(
     [
       'play.http.secret.key = "testcontainers-e2e-application-secret-0123456789"',
       'enforceUploadImagesPermission = true',
+      `usageRights.applicable = ${JSON.stringify([
+        "com.gu.mediaservice.model.NoRights",
+        "com.gu.mediaservice.model.PayToUse",
+        "com.gu.mediaservice.model.PRAndThirdParty",
+        "com.gu.mediaservice.model.Agency",
+        "com.gu.mediaservice.model.Bylines",
+        "com.gu.mediaservice.model.StaffPhotographer",
+        "com.gu.mediaservice.model.ContractPhotographer",
+        "com.gu.mediaservice.model.CommissionedPhotographer",
+        "com.gu.mediaservice.model.ContractIllustrator",
+        "com.gu.mediaservice.model.CommissionedIllustrator",
+        "com.gu.mediaservice.model.StaffIllustrator",
+      ])}`,
       '',
     ].join('\n'),
   );

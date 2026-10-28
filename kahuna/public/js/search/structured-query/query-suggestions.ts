@@ -162,12 +162,15 @@ querySuggestions.factory("querySuggestions", [
       { fieldName: "uploader" },
       { fieldName: "usages@<added" },
       { fieldName: "usages@>added" },
+      { fieldName: "usages@orderedBy" },
       { fieldName: "usages@platform", resolver: listUsagePlatforms },
+      { fieldName: "usages@publication" },
       {
         fieldName: "usages@status",
-        resolver: ["published", "pending", "removed"]
+        resolver: ["published", "pending", "removed", "replaced"]
       },
       { fieldName: "usages@reference" },
+      { fieldName: "usages@section" },
       { fieldName: "has" },
       { fieldName: "croppedBy" },
       { fieldName: "filename" },
@@ -224,7 +227,9 @@ querySuggestions.factory("querySuggestions", [
       // TODO: would be nice to use user friendly labels and map
       // them to the key internally
       return editsApi.getUsageRightsCategories().then((results) => {
-        return results.map((res) => res.value).filter((key) => key !== ""); // no empty category
+        return results
+          .map((res) => res.searchAlias || res.value)
+          .filter((key) => key !== "");
       });
     }
 

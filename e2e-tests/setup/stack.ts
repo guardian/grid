@@ -14,7 +14,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { LocalstackContainer } from '@testcontainers/localstack';
-import { GenericContainer, Network, Wait } from 'testcontainers';
+import { GenericContainer, Network, Wait, getContainerRuntimeClient } from 'testcontainers';
 import type { StartedNetwork, StartedTestContainer } from 'testcontainers';
 import {
   CONFIG_DIR,
@@ -53,6 +53,7 @@ import type { ListrTask } from './progress.ts';
 import {
   createAuthStack,
   createCoreStack,
+  describeCoreStack,
   provisioningClients,
   seedAuthBuckets,
   seedBuckets,
@@ -61,6 +62,7 @@ import {
 import type { StackProps } from './provision.ts';
 import { seedCollections } from './seed-collections.ts';
 import { seedElasticsearch } from './seed-elasticsearch.ts';
+import { seedImageFiles } from './seed-image-files.ts';
 import type { GridEnvironment } from './state.ts';
 import type { ListrTaskFn } from 'listr2';
 
@@ -81,7 +83,7 @@ export interface StartStackOptions {
    * dev-nginx. Defaults to true under CI, which has no dev-nginx.
    */
   proxy?: boolean;
-  /** Seed Elasticsearch with the image fixtures. Defaults to true. */
+  /** Seed Elasticsearch with the image fixtures (and S3 with their files). Defaults to true. */
   seed?: boolean;
 }
 
@@ -90,6 +92,7 @@ export interface StartStackOptions {
 const KAHUNA_URL = `http://localhost:${KAHUNA_PORT}`;
 const MEDIA_API_URL = `http://localhost:${MEDIA_API_PORT}`;
 const ELASTICSEARCH_URL = `http://localhost:${ELASTICSEARCH_PORT}`;
+const LOCALSTACK_URL = `http://localhost:${LOCALSTACK_PORT}`;
 
 /** How much of the stack is already listening on the fixed host ports. */
 type StackProbe = 'none' | 'healthy' | 'partial';
@@ -116,6 +119,8 @@ interface StoppableStack {
 interface BootContext extends StoppableStack {
   coreStackProps?: StackProps;
   authStackProps?: StackProps;
+  /** Rejects as soon as the Grid services container dies, so readiness waits fail fast. */
+  gridCrashed?: Promise<never>;
 }
 
 /**
@@ -354,6 +359,24 @@ function gridContainer(
   });
 }
 
+/**
+ * Reject as soon as the container exits, the Docker-native equivalent of `docker wait`.
+ * The readiness tasks race this, so a dead container aborts the boot at once instead of
+ * polling healthchecks until the startup timeout elapses.
+ */
+async function rejectWhenExited(container: StartedTestContainer): Promise<never> {
+  const client = await getContainerRuntimeClient();
+  const { StatusCode } = await client.container.getById(container.getId()).wait();
+  throw new Error(
+    `Grid services container exited with status ${StatusCode} before its services became healthy.`,
+  );
+}
+
+/** Resolve with `work`, or reject early if the Grid container dies first. */
+function failFastOnCrash<T>(work: Promise<T>, crashed: Promise<never>): Promise<T> {
+  return Promise.race([work, crashed]);
+}
+
 function oidcContainer(image: GenericContainer, network: StartedNetwork): GenericContainer {
   return image
     .withNetwork(network)
@@ -420,7 +443,7 @@ async function waitForHealthy(
  * Start LocalStack and provision everything held in it. Sequential: each step needs the
  * resources the one before it created.
  */
-function localstackTasks(): ListrTask<BootContext>[] {
+function localstackTasks(seed: boolean): ListrTask<BootContext>[] {
   let clients: ReturnType<typeof provisioningClients>;
 
   return [
@@ -451,6 +474,11 @@ function localstackTasks(): ListrTask<BootContext>[] {
     {
       title: 'Seed auth buckets',
       task: (ctx) => seedAuthBuckets(clients.s3, ctx.authStackProps!),
+    },
+    {
+      title: 'Seed image files',
+      skip: () => !seed && 'seeding not requested',
+      task: (ctx, task) => seedImageFiles(clients.s3, ctx.coreStackProps!, reportTo(task)),
     },
     {
       title: 'Seed KCL lease tables',
@@ -517,7 +545,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
             },
             {
               title: 'LocalStack',
-              task: (_, task) => task.newListr(localstackTasks(), { concurrent: false }),
+              task: (_, task) => task.newListr(localstackTasks(seed), { concurrent: false }),
             },
           ],
           { concurrent: true },
@@ -542,36 +570,48 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
           {
             title: 'Start container',
             task: async (ctx) => {
-              ctx.containers.push(
-                await gridContainer(ctx.network!, ctx.configDir!, startupTimeoutMs).start(),
-              );
+              const started = await gridContainer(ctx.network!, ctx.configDir!, startupTimeoutMs).start();
+              ctx.containers.push(started);
+              // A clean boot never awaits this, so sink it to avoid an unhandled rejection
+              // when the container finally stops during teardown.
+              ctx.gridCrashed = rejectWhenExited(started);
+              ctx.gridCrashed.catch(() => {});
             },
           },
           {
             title: 'Wait for services',
-            task: (_, services) => {
+            task: (ctx, services) => {
+              const crashed = ctx.gridCrashed!;
               const readiness: ListrTask<BootContext>[] = [
                 ...Object.entries(SERVICE_PORTS).map(([service, port]): { title: string, task: ListrTaskFn<BootContext, any, any> } => ({
                   title: service,
                   task: (_, serviceTask) =>
-                    waitForHealthy(port, 'management/healthcheck', startupTimeoutMs, reportTo(serviceTask)),
+                    failFastOnCrash(
+                      waitForHealthy(port, 'management/healthcheck', startupTimeoutMs, reportTo(serviceTask)),
+                      crashed,
+                    ),
                 })),
                 {
                   // Waits for the `Images_Current` alias the app assigns on startup, so this
                   // only needs the container running, not every service healthy.
                   title: 'Seed Elasticsearch',
                   skip: () => !seed && 'seeding not requested',
-                  task: async (_, seedTask) => {
-                    await seedElasticsearch(ELASTICSEARCH_URL, startupTimeoutMs, reportTo(seedTask));
-                  },
+                  task: (_, seedTask) =>
+                    failFastOnCrash(
+                      seedElasticsearch(ELASTICSEARCH_URL, startupTimeoutMs, reportTo(seedTask)),
+                      crashed,
+                    ),
                 },
                 {
                   title: 'Seed collections',
                   skip: () => !seed && 'seeding not requested',
-                  task: async (_, seedTask) => {
+                  task: (_, seedTask) => {
                     const report = reportTo(seedTask);
-                    await waitForHealthy(SERVICE_PORTS.collections, 'management/healthcheck', startupTimeoutMs, report);
-                    await seedCollections(report);
+                    return failFastOnCrash(
+                      waitForHealthy(SERVICE_PORTS.collections, 'management/healthcheck', startupTimeoutMs, report)
+                        .then(() => seedCollections(report)),
+                      crashed,
+                    );
                   },
                 },
               ];
@@ -743,6 +783,14 @@ async function attachToStack(options: StartStackOptions): Promise<GridEnvironmen
         skip: () => !reseed && 'reseeding not requested',
         task: async (_, task) => {
           await seedElasticsearch(ELASTICSEARCH_URL, 60_000, reportTo(task));
+        },
+      },
+      {
+        title: 'Re-seed image files',
+        skip: () => !reseed && 'reseeding not requested',
+        task: async (_, task) => {
+          const { cfn, s3 } = provisioningClients(LOCALSTACK_URL);
+          await seedImageFiles(s3, await describeCoreStack(cfn), reportTo(task));
         },
       },
       {

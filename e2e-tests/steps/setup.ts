@@ -31,6 +31,12 @@ interface TestContext {
   presetLabels?: string[];
   /** Lets a held past-uploads search through (see holdPastUploads). */
   releasePastUploads?: () => void;
+  /** The page region a `Then` found, for later steps to assert on its contents. */
+  region?: Locator;
+  /** The usage rights category code a `Given` chose the opened image by. */
+  usageRightsCategory?: string;
+  /** The `q` of each search Kahuna ran since recording started (see recordSearches). */
+  searchesRun?: string[];
 }
 
 export interface TestImage {
@@ -45,7 +51,13 @@ export interface TestImage {
  * use `baseURL` from the Playwright config, which points at Kahuna's fixed host port.
  */
 export const test = base.extend<{ testContext: TestContext }>({
-  testContext: async ({}, use) => {
+  page: async ({ page }, use) => {
+    await use(page);
+    if (page.video() && !page.isClosed()) {
+      await page.waitForTimeout(1_500);
+    }
+  },
+  testContext: async ({ }, use) => {
     await use({ dialogs: [] });
   },
 });

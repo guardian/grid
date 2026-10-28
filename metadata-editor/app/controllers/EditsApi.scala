@@ -70,6 +70,7 @@ class EditsApi(auth: Authentication,
 
 case class CategoryResponse(
   value: String,
+  searchAlias: Option[String],
   name: String,
   cost: String,
   description: String,
@@ -86,6 +87,9 @@ object CategoryResponse {
 
   def fromUsageRights(u: UsageRightsSpec, config: EditsConfig) = CategoryResponse (
       value = u.category,
+      // an org-specific alias (e.g. "gnm-owned-illustration") to surface in the `category:` search
+      // typeahead, in preference to the stable, index-persisted `value` above
+      searchAlias = u.searchAlias(config),
       name = u.name(config),
       cost = u.defaultCost.getOrElse(Pay).toString,
       description = u.description(config),

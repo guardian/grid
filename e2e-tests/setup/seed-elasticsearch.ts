@@ -10,33 +10,10 @@
  * `hits.hits[]` as `{ _id, _source }`. Each document is (re)indexed under its `_id` — the
  * stale `_index` recorded in the fixture is ignored in favour of the live alias.
  */
-import * as fs from 'fs';
-import * as path from 'path';
-import { REPO_ROOT } from './constants.ts';
+import { loadImageFixtures } from './image-fixtures.ts';
 
 /** Alias the Grid app assigns to the live images index (dev service-config `es.index.aliases.current`). */
 const IMAGES_ALIAS = 'Images_Current';
-
-const FIXTURE_PATH = path.join(
-  REPO_ROOT,
-  'e2e-tests',
-  'fixtures',
-  'elasticsearch',
-  'images.json',
-);
-
-interface EsHit {
-  _id: string;
-  _source: Record<string, unknown>;
-}
-
-interface EsSearchFixture {
-  body?: {
-    hits?: {
-      hits?: EsHit[];
-    };
-  };
-}
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -72,12 +49,7 @@ export async function seedElasticsearch(
   startupTimeoutMs: number,
   report: (message: string) => void,
 ): Promise<void> {
-  const fixture = JSON.parse(fs.readFileSync(FIXTURE_PATH, 'utf8')) as EsSearchFixture;
-  const hits = fixture.body?.hits?.hits ?? [];
-
-  if (hits.length === 0) {
-    throw new Error('No image fixtures found to seed into Elasticsearch. This is unexpected - failing early');
-  }
+  const hits = loadImageFixtures();
 
   report(`Waiting for the '${IMAGES_ALIAS}' alias`);
   await waitForAlias(esBaseUrl, startupTimeoutMs);

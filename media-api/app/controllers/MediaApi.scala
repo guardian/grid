@@ -10,6 +10,7 @@ import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws._
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.formatting.printDateTime
+import com.gu.mediaservice.lib.imaging.im4jwrapper.ExifTool
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
@@ -19,10 +20,10 @@ import com.gu.mediaservice.{GridClient, JsonDiff}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib._
 import lib.elasticsearch._
-import lib.querysyntax.Condition
+import lib.querysyntax.{Condition, Parser}
 import models.UsagesInContent
 import org.apache.http.entity.ContentType
-import org.apache.pekko.stream.scaladsl.StreamConverters
+import org.apache.pekko.stream.scaladsl.{FileIO, StreamConverters}
 import org.http4s.UriTemplate
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.http.HttpEntity
@@ -32,8 +33,9 @@ import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
 import java.net.URI
+import java.nio.file.{Files, Path, StandardCopyOption}
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.util.Try
 
 object MediaApi {
@@ -42,6 +44,14 @@ object MediaApi {
   def shouldSkipUsageRecording(uri: String, user: String): Boolean =
     // We don't want to record usages for InDesign downloads for now
     uri.contains("download") && user == InDesignIdentity
+
+  def deletedImageUploaderScope(
+    conditions: List[Condition],
+    hasGlobalDeletePermission: Boolean,
+    identity: String
+  ): Option[String] =
+    if (!hasGlobalDeletePermission && Parser.explicitlyIncludesDeleted(conditions)) Some(identity)
+    else None
 }
 
 class MediaApi(
@@ -463,21 +473,70 @@ class MediaApi(
         val apiKey = request.user.accessor
         logger.info(logMarker, s"Download original image: $id from user: ${Authentication.getIdentity(request.user)}")
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OriginalDownloadType)
-        val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
-        val file = StreamConverters.fromInputStream(() => s3Object)
-        val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType.map(_.name))
 
         if(config.recordDownloadAsUsage) {
           postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user), id, Authentication.getIdentity(request.user))
         }
 
-          Future.successful(
-            Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> getContentDisposition(image, Source, config.shortenDownloadFilename))
-          )
+        val contentDisposition = getContentDisposition(image, Source, config.shortenDownloadFilename)
+
+        if (config.stripDownloadMetadata) {
+          streamWithStrippedMetadata(image, contentDisposition)
+        } else {
+          streamOriginal(image, contentDisposition)
+        }
       }
       case _ => Future.successful(ImageNotFound(id))
     }
   }
+
+  /** Stream the original image bytes straight from S3, unmodified. */
+  private def streamOriginal(image: Image, contentDisposition: String): Future[Result] =
+    Future(blocking {
+      val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
+      val data = StreamConverters.fromInputStream(() => s3Object)
+      Result(ResponseHeader(OK), HttpEntity.Streamed(data, image.source.size, image.source.mimeType.map(_.name)))
+        .withHeaders("Content-Disposition" -> contentDisposition)
+    })
+
+  /**
+   * Stream the original image with its embedded metadata stripped - see
+   * `ExifTool.stripMetadataRetaining` for exactly what is retained.
+   *
+   * ExifTool rewrites only the metadata marker segments, so the compressed pixel data is bit-for-bit
+   * identical to the original - unlike a resizing proxy, which always decodes and re-encodes the image.
+   * ExifTool needs a real file path rather than a stream, hence the temp file, which is deleted once
+   * the response body has been consumed (or on failure).
+   */
+  private def streamWithStrippedMetadata(image: Image, contentDisposition: String)(implicit logMarker: LogMarker): Future[Result] =
+    Future(blocking {
+      val tempPath = Files.createTempFile("grid-download-", ".tmp")
+      val inputStream = s3Client.getObject(config.imageBucket, image.source.file)
+      try {
+        Files.copy(inputStream, tempPath, StandardCopyOption.REPLACE_EXISTING)
+        tempPath
+      } catch {
+        case e: Throwable =>
+          deleteQuietly(tempPath)
+          throw e
+      } finally {
+        Try(inputStream.close())
+      }
+    }).flatMap { tempPath =>
+      ExifTool.stripMetadataRetaining(tempPath.toFile, DownloadMetadata.retainedTags(image)).map(_ => tempPath).recoverWith { case e =>
+        logger.warn(logMarker, s"ExifTool metadata strip failed for image ${image.id} download", e)
+        deleteQuietly(tempPath)
+        Future.failed(e)
+      }
+    }.map { tempPath =>
+      val data = FileIO.fromPath(tempPath).watchTermination() { (_, done) =>
+        done.onComplete(_ => deleteQuietly(tempPath))
+      }
+      Result(ResponseHeader(OK), HttpEntity.Streamed(data, Some(Files.size(tempPath)), image.source.mimeType.map(_.name)))
+        .withHeaders("Content-Disposition" -> contentDisposition)
+    }
+
+  private def deleteQuietly(path: Path): Unit = Try(Files.deleteIfExists(path))
 
   def syndicateImage(id: String, partnerName: String, startPending: String) = auth.async { request =>
     implicit val logMarker: LogMarker = MarkerMap(
@@ -608,7 +667,13 @@ class MediaApi(
 
     val _searchParams = SearchParams(request)
     val hasDeletePermission = authorisation.isUploaderOrHasPermission(request.user, "", DeleteImagePermission)
-    val canViewDeletedImages = _searchParams.query.contains("is:deleted") && !hasDeletePermission
+    val searchParams = MediaApi.deletedImageUploaderScope(
+      _searchParams.structuredQuery,
+      hasDeletePermission,
+      Authentication.getIdentity(request.user)
+    ).fold(_searchParams) { uploader =>
+      _searchParams.copy(uploadedBy = Some(uploader))
+    }
 
     sealed trait AiSearchMode
     case object TextSearch extends AiSearchMode
@@ -781,26 +846,28 @@ class MediaApi(
       }
     }
 
-    if (_searchParams.useAISearch.contains(true) && config.aiSearchEnabled) {
-      // Short-circuit polling requests (length=0) to avoid unnecessary Bedrock/KNN calls.
-      // Everything else is handled by performAiSearchAndRespond, which falls back to
-      // filter-pool counts when there's no query to rank by.
-      if (_searchParams.length == 0) emptyAiSearchResponse
-      else performAiSearchAndRespond(_searchParams)
-    } else {
-      val searchParams = if (canViewDeletedImages) {
-        _searchParams.copy(uploadedBy = Some(Authentication.getIdentity(request.user)))
-      } else {
-        _searchParams
+    SearchParams.validateQuerySyntax(searchParams).fold(
+      errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
+        errors.map(_.message).mkString(", "))
+      ),
+      validQueryParams => {
+        if (validQueryParams.useAISearch.contains(true) && config.aiSearchEnabled) {
+          // Short-circuit polling requests (length=0) to avoid unnecessary Bedrock/KNN calls.
+          // Everything else is handled by performAiSearchAndRespond, which falls back to
+          // filter-pool counts when there's no query to rank by.
+          if (validQueryParams.length == 0) emptyAiSearchResponse
+          else performAiSearchAndRespond(validQueryParams)
+        } else {
+          SearchParams.validate(validQueryParams).fold(
+            // TODO: respondErrorCollection?
+            errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
+              errors.map(_.message).mkString(", "))
+            ),
+            params => performSearchAndRespond(params)
+          )
+        }
       }
-      SearchParams.validate(searchParams).fold(
-        // TODO: respondErrorCollection?
-        errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
-          errors.map(_.message).mkString(", "))
-        ),
-        params => performSearchAndRespond(params)
-      )
-    }
+    )
   }
 
   private def getImageResponseFromES(
