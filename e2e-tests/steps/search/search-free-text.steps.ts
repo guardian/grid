@@ -3,6 +3,7 @@ import { setTestClientConfig } from '../utils/test-config.ts';
 import {
   cqlInput,
   cqlPlaceholder,
+  expectSearchBoxEmpty,
   isSearchRun,
   recordSearches,
   searchBoxReady,
@@ -22,7 +23,7 @@ Given('I have opened the image search page', async ({ page }) => {
 });
 
 Given('the search box is empty', async ({ page }) => {
-  await expect(cqlInput(page)).toHaveAttribute('value', '');
+  await expectSearchBoxEmpty(page);
 });
 
 When('I type {string} into the search box', async ({ page, testContext }, text: string) => {

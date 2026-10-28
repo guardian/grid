@@ -1,5 +1,6 @@
 import type { Locator, Page, Request } from '@playwright/test';
 import { DOMAIN } from '../../setup/constants.ts';
+import { expect } from '../setup.ts';
 
 /** The top bar region holding the search box and its filters (kahuna/public/js/search/view.html). */
 export const searchRegion = (page: Page): Locator =>
@@ -21,7 +22,15 @@ export async function searchBoxReady(page: Page): Promise<Locator> {
   return box;
 }
 
-/** Only the first `/images` request of each non-AI search asks for `length=1` with `countAll=true` (results.js), so this matches once per search. */
+export async function expectSearchBoxEmpty(page: Page): Promise<void> {
+  await expect(cqlInput(page)).toHaveAttribute('value', '');
+}
+
+/**
+ * Whether a request is the first media-api search the results page makes when it loads
+ * (`length: 1` in kahuna/public/js/search/results.js). Paging, polling for new images
+ * and the AI preview use other lengths, so each match is one search run.
+ */
 export function isSearchRun(request: Request): boolean {
   const url = new URL(request.url());
   return (
