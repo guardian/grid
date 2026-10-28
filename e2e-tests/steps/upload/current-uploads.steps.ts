@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import { Given, Then, When, expect } from '../setup.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { openUploadPageAs } from '../common.steps.ts';
-import { expectNoDeletePermission } from './media-api.assertions.ts';
+import { expectNoDeletePermission } from '../utils/api/media-api.assertions.ts';
 import {
   failDelete,
   failIngest,
