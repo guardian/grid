@@ -41,6 +41,8 @@ interface TestContext {
   permissionImage?: { id: string; uploadedBy: string };
   /** The `q` of each search Kahuna ran since recording started (see recordSearches). */
   searchesRun?: string[];
+  /** Rights editor property values a step filled in, keyed by property label. */
+  rightsProperties?: Record<string, string>;
   /** Ids of the image copies `seedImage` indexed, deleted by the `After` hook. */
   seededImageIds: string[];
 }

@@ -144,14 +144,12 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # ---------------------------------------------------------------------------
   # Editing rights
   # ---------------------------------------------------------------------------
-@todo
   Scenario: The rights editor is closed by default
     Given I am signed in with edit metadata permission
     Then the rights editor is not shown
     And the current usage rights category is shown
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 21-29
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 62
-@todo
   Scenario: Opening the rights editor replaces the category display
     Given I am signed in with edit metadata permission
     When I choose to edit the rights and restrictions
@@ -169,7 +167,6 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 21-32
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.js lines 175-189, 201-218, 285-289
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 69-73, 167-172
-@todo
   Scenario: Cancelling the rights editor leaves the rights unchanged
     Given I am signed in with edit metadata permission
     And the image has the "Agency - subscription" usage rights category
@@ -180,7 +177,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 21-32
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.js lines 196, 287
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.html lines 210-215
-@todo # TODO - Add in GNM owned photograph when merged
+  # TODO - Add in GNM owned photograph when merged
   Scenario Outline: Editing a rights category shows its configured properties
     Given I am signed in with edit metadata permission
     And I have opened the rights editor
@@ -200,29 +197,31 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.html lines 73-84
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.js lines 109-137
   # Evidence: e2e-tests/setup/config.ts (usageRights.applicable)
-@todo
   Scenario Outline: Editing a rights category without properties shows no category fields
     Given I am signed in with edit metadata permission
     And I have opened the rights editor
     When I select the "<category>" usage rights category
     Then the rights editor shows no category properties
+    And the rights editor <restricted> the "Restricted" checkbox
 
+    # Every category except Unknown Rights can be restricted, so it still offers the
+    # "Restricted" checkbox even when it has no properties of its own.
     Examples:
-      | category      |
-      | Unknown Rights |
-      | Pay to use     |
-      | Bylines        |
-  # Evidence: metadata-editor/app/model/UsageRightsProperty.scala
+      | category       | restricted    |
+      | Unknown Rights | does not show |
+      | Pay to use     | shows         |
+      | Bylines        | shows         |
+  # Evidence: metadata-editor/app/model/UsageRightsProperty.scala lines 74-77 (restrictions offered for every category except NoRights)
   # Evidence: e2e-tests/setup/config.ts (usageRights.applicable)
-@todo # TODO - Add in GNM owned photograph when merged  
-  Scenario Outline: Saving a rights category with its properties filled in
+  # TODO - Add in GNM owned photograph when merged
+  Scenario: Saving a rights category with its properties filled in
     Given I am signed in with edit metadata permission
     And the image has no usage rights category
     And I have opened the rights editor
     When I select the "Agency - subscription" usage rights category and set configured fields
     And I save the rights
     Then the rights editor closes
-    And the rights and restrictions section shows "<category>"
+    And the rights and restrictions section shows "Agency - subscription"
     When I choose to edit the rights and restrictions
     Then the rights editor shows the configured fields
 
@@ -231,7 +230,6 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.html lines 5, 38-226 (restrictions checkbox and textarea lines 73-107)
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.js lines 109-137, 160-189, 201-218
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 21-32
-@todo
   Scenario: Saving a rights category that requires restrictions
     Given I am signed in with edit metadata permission
     And the image has no usage rights category
