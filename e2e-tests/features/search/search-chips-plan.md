@@ -3,9 +3,7 @@
 Chip types, available values, a reusable image fixture proposal and a bounded
 scenario strategy for the [search bar plan](./search-bar-plan.md).
 
-This is a documentation-only plan. No fixtures, feature files or step definitions
-are created by this change. Use the current `@guardian/cql` input, not the legacy
-chips input or its retiring feature switch.
+Use the current `@guardian/cql` input, not the legacy chips input or its retiring feature switch.
 
 ## Scope and coverage strategy
 
@@ -67,8 +65,11 @@ confirmation before feature files are written.
 
 ## Twelve-image fixture proposal
 
-Preserve existing images and add contrasting records with deterministic IDs and
-metadata. These are logical roles, not fixture files to create yet.
+The 12 records are implemented in
+[search-chips.ts](../../fixtures/elasticsearch/search-chips.ts) and appended after
+the captured images by the [shared loader](../../setup/image-fixtures.ts).
+The existing Elasticsearch and image-file seeders consume that combined list.
+Existing records and their lookup order are preserved.
 
 | Image | Proposed distinguishing data | Main purpose |
 | --- | --- | --- |
@@ -89,11 +90,40 @@ Scope searches with the supported `ids` parameter so unrelated seeded images
 cannot affect expected results. Do not add a shared label for isolation: a label
 would itself change persistence behaviour, especially for I.
 
-Before implementation, assign exact values and expected result IDs to each
-record. Distribute the remaining metadata fields, subjects, usage details and
-fixed date boundaries across these same images rather than multiplying fixtures.
-Confirm how to seed completion fields, usages, crops, leases and deleted records
-through the existing setup mechanisms.
+### Implemented values
+
+`SEARCH_CHIP_IMAGE_IDS` exports the A-L IDs, calculated as the SHA-1 of
+`search-chips-<role>`. Use these IDs with the `ids` search parameter rather than
+adding an isolation label. The current uploader is `TEST_ACCOUNTS.fullAccess`;
+the contrasting uploader is `search-chips-other@guardian.co.uk`.
+
+- A and B share `Harbour festival at the waterfront`, credit
+  `Search Chips Shared Credit`, Bristol, Somerset, United Kingdom and sublocation
+  Harbourside. A is JPEG with keyword `daylight`; B is PNG with keyword `night`
+  and a crop by the current user. Both have `harbour` and subject `arts`.
+- C is London/pay-to-use/current uploader; D is Cardiff/chargeable/other uploader.
+- E uses Example Internal Photographer and Example publication, label
+  `search-chips-featured`, collection `search-chips`, photoshoot
+  `Search Chips Harbour Shoot` and archive status. The collection is also created
+  by the [collection seeder](../../setup/seed-collections.ts).
+- F uses Example Contracted Illustrator and Example publication, with an
+  open-ended allow-use lease by the current user.
+- G has print/pending and digital/published usages; H has print/published.
+  J has digital/published and digital/replaced usages.
+- I has only title/description metadata, unknown rights, no edits, identifiers,
+  crops, usages, leases or collections. K and L are soft-deleted records owned
+  by the current and other uploader respectively.
+
+The fixed timestamp is `2024-06-15T12:00:00.000Z`. A uploads one day before it;
+D uploads one day after it. J's usage dates also straddle it. All records except
+I have date-taken metadata at that boundary. Credit completions match metadata;
+E's photoshoot completion is stored in `userMetadata.photoshoot.suggest`.
+
+The existing image-file seeder backs these records with the same placeholder
+JPEG as the captured records, including B's indexed PNG source. These fixtures
+test indexed search metadata, not original file decoding or upload ingestion.
+Reseed a reused stack with `GRID_RESEED=true`, or restart `dev:e2e`, before
+running scenarios against the new data.
 
 ## Scenario allocation
 
@@ -157,10 +187,10 @@ behaviour, but neither is committed to these slots yet.
 - [ ] Confirm slots 25-26 and the detailed allocation of the first 24 slots.
 - [ ] Verify the illustrator resolver/API shape, source suggestion route and
       label suggestion relation. Record defects separately from intended behaviour.
-- [ ] Confirm completion data for credit/photoshoot and exact fixture metadata.
+- [x] Populate credit/photoshoot completions and exact fixture metadata.
 - [ ] Resolve frontend support for backend-only syntax and configured aliases.
 - [ ] Assign deterministic expected IDs and date boundaries to result scenarios.
-- [ ] Implement the 12-image set only after these decisions, preserving existing fixtures.
+- [x] Implement the 12-image set, preserving existing fixtures.
 - [ ] Write evidence-annotated feature files, then wire steps using the shared
       search-box locators in the existing search step directory.
 - [ ] Run focused BDD generation and browser checks against a running stack.
