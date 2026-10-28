@@ -48,6 +48,22 @@ export async function expectNoEditPermissionForImage(
   imageId: string,
   expectedUploader: string,
 ): Promise<void> {
+  expect(await imageLinksForUploader(page, imageId, expectedUploader)).not.toContain('edits');
+}
+
+export async function expectEditPermissionForImage(
+  page: Page,
+  imageId: string,
+  expectedUploader: string,
+): Promise<void> {
+  expect(await imageLinksForUploader(page, imageId, expectedUploader)).toContain('edits');
+}
+
+async function imageLinksForUploader(
+  page: Page,
+  imageId: string,
+  expectedUploader: string,
+): Promise<string[]> {
   const response = await page.request.get(
     `${await getMediaApiUrl(page)}/images/${imageId}`,
   );
@@ -58,7 +74,7 @@ export async function expectNoEditPermissionForImage(
   };
 
   expect(data.uploadedBy).toBe(expectedUploader);
-  expect(links.map((link) => link.rel)).not.toContain('edits');
+  return links.map((link) => link.rel);
 }
 
 /** Search lags the image's own endpoint, so wait until the upload is findable by uploader. */

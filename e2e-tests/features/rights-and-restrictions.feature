@@ -108,11 +108,12 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # ---------------------------------------------------------------------------
   # Edit permission
   # ---------------------------------------------------------------------------
-@todo
   Scenario: A user with edit permission can edit the image's rights
     Given I am signed in with edit metadata permission
     And the image was uploaded by someone else
     Then the edit rights and restrictions button is shown
+    When I choose to edit the rights and restrictions
+    Then the rights editor is shown
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 40-44
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 658
   # Evidence: kahuna/public/js/image/view.html lines 169-172
@@ -130,11 +131,12 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/edits/service.js lines 244-247
   # Evidence: media-api/app/controllers/MediaApi.scala lines 814
   # Evidence: rest-lib/src/main/scala/com/gu/mediaservice/lib/auth/Authorisation.scala lines 62-74
-@todo
   Scenario: The uploader can edit their own image's rights without edit permission
     Given I am signed in without edit metadata permission
     And the image was uploaded by me
     Then the edit rights and restrictions button is shown
+    When I choose to edit the rights and restrictions
+    Then the rights editor is shown
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 40-44
   # Evidence: media-api/app/controllers/MediaApi.scala lines 814
   # Evidence: rest-lib/src/main/scala/com/gu/mediaservice/lib/auth/Authorisation.scala lines 62-69
