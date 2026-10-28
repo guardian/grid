@@ -6,6 +6,7 @@ import { setTestClientConfig } from '../utils/test-config.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { switchAccount } from '../utils/auth.ts';
 import { expectEditPermissionForImage, expectNoEditPermissionForImage } from '../utils/api/media-api.assertions.ts';
+import { E2E_RIGHTS_TEMPLATE } from '../../setup/config.ts';
 
 /** An image seeded into Elasticsearch from fixtures/elasticsearch/images.json. */
 const IMAGE_WITHOUT_RIGHTS = findSeededImage('with no usage rights category', hasNoUsageRights);
@@ -168,30 +169,221 @@ const REQUIRED_PROPERTY_VALUES: Record<string, Record<string, string>> = {
   'Agency - subscription': { Supplier: 'AP' },
 };
 
-When('I save the {string} usage rights category', async ({ page }, category: string) => {
-  const required = REQUIRED_PROPERTY_VALUES[category];
-  if (!required) throw new Error(`No required property values are defined for "${category}"`);
+/** Required and optional property values a scenario fills in before saving a category. */
+const CONFIGURED_PROPERTY_VALUES: Record<string, Record<string, string>> = {
+  'Agency - subscription': { Supplier: 'AP', Collection: 'News' },
+};
 
-  const editor = rightsEditor(page);
+const RESTRICTIONS_PLACEHOLDER = 'What restrictions apply to this image?';
+
+const rightsProperty = (page: Page, property: string) =>
+  rightsEditor(page).getByLabel(property, { exact: true });
+const restrictedCheckbox = (page: Page) =>
+  rightsEditor(page).getByRole('checkbox', { name: 'Restricted', exact: true });
+// The restrictions textarea has no label of its own, only a placeholder.
+const restrictionsInput = (page: Page) => rightsEditor(page).getByPlaceholder(RESTRICTIONS_PLACEHOLDER);
+
+const imageIdFromUrl = (page: Page) => new URL(page.url()).pathname.split('/').pop();
+
+const isUsageRightsSave = (imageId: string | undefined) => (response: Response) =>
+  response.request().method() === 'PUT' &&
+  new URL(response.url()).pathname === `/metadata/${imageId}/usage-rights`;
+
+async function selectCategory(page: Page, category: string): Promise<void> {
   // The category <select> is the editor's first control and has no label of its own.
-  await editor.getByRole('combobox').first().selectOption({ label: category });
-  for (const [property, value] of Object.entries(required)) {
-    await editor.getByLabel(property, { exact: true }).selectOption({ label: value });
-  }
+  await rightsEditor(page).getByRole('combobox').first().selectOption({ label: category });
+}
 
+/** Fill a category property, whichever control the editor renders for it. */
+async function setProperty(page: Page, property: string, value: string): Promise<void> {
+  const field = rightsProperty(page, property);
+  const tagName = await field.evaluate((element) => element.tagName);
+  if (tagName === 'SELECT') {
+    await field.selectOption({ label: value });
+  } else {
+    await field.fill(value);
+  }
+}
+
+async function expectProperty(page: Page, property: string, value: string): Promise<void> {
+  const field = rightsProperty(page, property);
+  const tagName = await field.evaluate((element) => element.tagName);
+  // Angular's ng-options values are internal ("string:AP"), so check the chosen option's text.
+  if (tagName === 'SELECT') {
+    await expect(field.locator('option:checked')).toHaveText(value);
+  } else {
+    await expect(field).toHaveValue(value);
+  }
+}
+
+async function saveRights(page: Page): Promise<void> {
+  const editor = rightsEditor(page);
   // The editor closes whether or not the save succeeds, so check the requests themselves:
   // the rights, then the metadata the metadata editor derives from them.
-  const imageId = new URL(page.url()).pathname.split('/').pop();
-  const isSaveRequest = (method: string, path: string) => (response: Response) =>
-    response.request().method() === method && new URL(response.url()).pathname === path;
+  const imageId = imageIdFromUrl(page);
   const [rights, derivedMetadata] = await Promise.all([
-    page.waitForResponse(isSaveRequest('PUT', `/metadata/${imageId}/usage-rights`)),
-    page.waitForResponse(isSaveRequest('POST', `/metadata/${imageId}/metadata/set-from-usage-rights`)),
+    page.waitForResponse(isUsageRightsSave(imageId)),
+    page.waitForResponse((response) =>
+      response.request().method() === 'POST' &&
+      new URL(response.url()).pathname === `/metadata/${imageId}/metadata/set-from-usage-rights`,
+    ),
     editor.getByRole('button', { name: 'Save usage rights', exact: true }).click(),
   ]);
   expect(rights.ok(), `saving the rights: ${await rights.text()}`).toBeTruthy();
   expect(derivedMetadata.ok(), `deriving metadata from the rights: ${await derivedMetadata.text()}`)
     .toBeTruthy();
+}
+
+When('I save the {string} usage rights category', async ({ page }, category: string) => {
+  const required = REQUIRED_PROPERTY_VALUES[category];
+  if (!required) throw new Error(`No required property values are defined for "${category}"`);
+
+  await selectCategory(page, category);
+  for (const [property, value] of Object.entries(required)) {
+    await setProperty(page, property, value);
+  }
+  await saveRights(page);
+});
+
+When('I select the {string} usage rights category', async ({ page }, category: string) => {
+  await selectCategory(page, category);
+});
+
+When(
+  'I select the {string} usage rights category and set configured fields',
+  async ({ page, testContext }, category: string) => {
+    const values = CONFIGURED_PROPERTY_VALUES[category];
+    if (!values) throw new Error(`No configured property values are defined for "${category}"`);
+
+    await selectCategory(page, category);
+    for (const [property, value] of Object.entries(values)) {
+      await setProperty(page, property, value);
+    }
+    testContext.rightsProperties = values;
+  },
+);
+
+When('I set the {string} property to {string}', async ({ page }, property: string, value: string) => {
+  await setProperty(page, property, value);
+});
+
+When('I add the restriction {string}', async ({ page }, restriction: string) => {
+  const checkbox = restrictedCheckbox(page);
+  // Categories that require restrictions tick (and lock) the checkbox themselves.
+  if (!(await checkbox.isChecked())) await checkbox.check();
+  await restrictionsInput(page).fill(restriction);
+});
+
+When('I save the rights', async ({ page }) => {
+  await saveRights(page);
+});
+
+When('I cancel the rights editor', async ({ page }) => {
+  const imageId = imageIdFromUrl(page);
+  const saves: string[] = [];
+  const recordSave = (response: Response) => {
+    if (isUsageRightsSave(imageId)(response)) saves.push(response.url());
+  };
+  page.on('response', recordSave);
+  try {
+    await rightsEditor(page).getByRole('button', { name: 'Close usage rights form', exact: true }).click();
+    await expect(rightsEditor(page)).toBeHidden();
+  } finally {
+    page.off('response', recordSave);
+  }
+  expect(saves, 'cancelling must not save the rights').toEqual([]);
+});
+
+Then(
+  'the rights editor shows the {string} property as {word}',
+  async ({ page }, property: string, required: string) => {
+    if (required !== 'required' && required !== 'optional') {
+      throw new Error(`Expected "required" or "optional", got "${required}"`);
+    }
+    const field = rightsProperty(page, property);
+    await expect(field).toBeVisible();
+    if (required === 'required') {
+      await expect(field).toHaveAttribute('required');
+    } else {
+      await expect(field).not.toHaveAttribute('required');
+    }
+  },
+);
+
+Then(
+  /^the rights editor shows the "Restricted" checkbox (unticked|ticked and locked)$/,
+  async ({ page }, state: string) => {
+    const checkbox = restrictedCheckbox(page);
+    await expect(checkbox).toBeVisible();
+    if (state === 'unticked') {
+      await expect(checkbox).not.toBeChecked();
+      await expect(checkbox).toBeEnabled();
+    } else {
+      await expect(checkbox).toBeChecked();
+      await expect(checkbox).toBeDisabled();
+    }
+  },
+);
+
+Then('the rights editor shows no category properties', async ({ page }) => {
+  const editor = rightsEditor(page);
+  await expect(editor).toBeVisible();
+  // Each category property is a labelled field; only the category <select> has no label.
+  // The "Restricted" checkbox isn't a category property, so it's asserted separately.
+  await expect(editor.getByRole('combobox')).toHaveCount(1);
+  await expect(editor.getByRole('textbox')).toHaveCount(0);
+  await expect(editor.getByRole('radio')).toHaveCount(0);
+});
+
+Then(
+  /^the rights editor (shows|does not show) the "Restricted" checkbox$/,
+  async ({ page }, shown: string) => {
+    if (shown === 'shows') {
+      await expect(restrictedCheckbox(page)).toBeVisible();
+      await expect(restrictedCheckbox(page)).not.toBeChecked();
+    } else {
+      await expect(rightsEditor(page).getByRole('checkbox')).toHaveCount(0);
+    }
+  },
+);
+
+Then('the rights editor shows the configured fields', async ({ page, testContext }) => {
+  const values = testContext.rightsProperties;
+  if (!values) throw new Error('No property values were set by an earlier step');
+  for (const [property, value] of Object.entries(values)) {
+    await expectProperty(page, property, value);
+  }
+});
+
+Then(
+  'the rights editor shows the {string} property set to {string}',
+  async ({ page }, property: string, value: string) => {
+    await expectProperty(page, property, value);
+  },
+);
+
+Then('the rights editor shows the restriction {string}', async ({ page }, restriction: string) => {
+  await expect(restrictedCheckbox(page)).toBeChecked();
+  await expect(restrictionsInput(page)).toHaveValue(restriction);
+});
+
+Then('the rights editor is not shown', async ({ page }) => {
+  await expect(rightsEditor(page)).toBeHidden();
+});
+
+Then('the current usage rights category is shown', async ({ page }) => {
+  // The category is the section's description (<dd>), whether or not the usage summary is on.
+  await expect(rightsAndRestrictions(page).getByRole('definition')).toContainText(/\S/);
+});
+
+Then('the current usage rights category display is hidden', async ({ page }) => {
+  await expect(rightsAndRestrictions(page).getByRole('definition')).toHaveCount(0);
+});
+
+Then('the edit rights and restrictions button is hidden', async ({ page }) => {
+  const section = rightsAndRestrictions(page);
+  await section.hover();
+  await expect(section.getByRole('button', { name: '✎', includeHidden: true })).toBeHidden();
 });
 
 Then('the rights editor closes', async ({ page }) => {
@@ -323,3 +515,101 @@ Then('it is headed {string}', async ({ testContext }, heading: string) => {
   // Kahuna heads metadata regions with the key (<dt>) of their description list.
   await expect(testContext.region!.getByRole('term').first()).toHaveText(heading);
 });
+// ---------------------------------------------------------------------------
+// Metadata templates driving the rights editor
+// ---------------------------------------------------------------------------
+
+const metadataTemplates = (page: Page) =>
+  page.getByRole('region', { name: 'Metadata templates', exact: true });
+const metadataTemplateSelect = (page: Page) =>
+  metadataTemplates(page).getByRole('combobox', { name: 'Metadata template' });
+
+/** The display name of the category `E2E_RIGHTS_TEMPLATE` sets, e.g. "Agency - subscription". */
+async function rightsTemplateCategoryName(request: APIRequestContext): Promise<string> {
+  const { category } = E2E_RIGHTS_TEMPLATE.usageRights;
+  const name = (await usageRightsCategories(request)).find(({ value }) => value === category)?.name;
+  if (!name) throw new Error(`The "${category}" usage rights category is not configured`);
+  return name;
+}
+
+/**
+ * Kahuna applies a template's selection once it has fetched the collections tree, which it
+ * only requests on the first selection after the page loads. Waiting for that response
+ * means an editor that should stay closed is checked after the selection has been handled.
+ */
+async function chooseRightsTemplate(page: Page): Promise<void> {
+  const [collections] = await Promise.all([
+    page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return url.hostname.startsWith('media-collections.') && url.pathname === '/collections';
+    }),
+    metadataTemplateSelect(page).selectOption({ label: E2E_RIGHTS_TEMPLATE.templateName }),
+  ]);
+  expect(collections.ok(), 'fetching collections for the metadata template').toBeTruthy();
+}
+
+Given('metadata templates are configured', async ({ page }) => {
+  // Templates are baked into Kahuna's config at boot, so a stale stack won't list this one.
+  await expect(
+    metadataTemplateSelect(page).getByRole('option', { name: E2E_RIGHTS_TEMPLATE.templateName, exact: true }),
+    'restart the stack if the rights template is missing',
+  ).toHaveCount(1);
+});
+
+When('I choose a metadata template that sets a usage rights category', async ({ page }) => {
+  await chooseRightsTemplate(page);
+});
+
+When(
+  'I choose a metadata template that sets the {string} usage rights category',
+  async ({ page, request }, category: string) => {
+    expect(await usageRightsCategoryCode(request, category)).toBe(E2E_RIGHTS_TEMPLATE.usageRights.category);
+    await chooseRightsTemplate(page);
+  },
+);
+
+Given("a metadata template's usage rights are being previewed on the image", async ({ page }) => {
+  await chooseRightsTemplate(page);
+  await expect(rightsEditor(page)).toBeVisible();
+});
+
+Then(
+  "the rights editor shows the template's usage rights as a locked preview",
+  async ({ page, request }) => {
+    const editor = rightsEditor(page);
+    await expect(editor).toBeVisible();
+    const category = editor.getByRole('combobox').first();
+    await expect(category.locator('option:checked')).toHaveText(await rightsTemplateCategoryName(request));
+    await expect(category).toBeDisabled();
+    await expect(restrictedCheckbox(page)).toBeChecked();
+    await expect(restrictionsInput(page)).toHaveValue(E2E_RIGHTS_TEMPLATE.usageRights.restrictions);
+    await expect(restrictionsInput(page)).toHaveJSProperty('readOnly', true);
+  },
+);
+
+Then('the rights editor offers no save or cancel buttons', async ({ page }) => {
+  const editor = rightsEditor(page);
+  await expect(editor.getByRole('button', { name: 'Save usage rights', exact: true })).toHaveCount(0);
+  await expect(editor.getByRole('button', { name: 'Close usage rights form', exact: true })).toHaveCount(0);
+});
+
+When('I apply the metadata template', async ({ page }) => {
+  // Kahuna closes the template whether or not applying succeeds, so check the save itself.
+  const [rights] = await Promise.all([
+    page.waitForResponse(isUsageRightsSave(imageIdFromUrl(page))),
+    metadataTemplates(page).getByTitle('Apply template', { exact: true }).click(),
+  ]);
+  expect(rights.ok(), `applying the template's rights: ${await rights.text()}`).toBeTruthy();
+});
+
+When('I cancel the metadata template', async ({ page }) => {
+  await metadataTemplates(page).getByTitle('Close', { exact: true }).click();
+});
+
+Then(
+  "the rights and restrictions section shows the template's usage rights category",
+  async ({ page, request }) => {
+    const category = await rightsTemplateCategoryName(request);
+    await expect(rightsAndRestrictions(page).getByText(category, { exact: true })).toBeVisible();
+  },
+);
