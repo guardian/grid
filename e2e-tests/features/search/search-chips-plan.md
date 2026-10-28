@@ -259,22 +259,44 @@ near-misses. A browser scenario should prove user-visible behaviour; exhaustive
 field aliases and parser permutations belong in parser tests. The numbered list
 is a proposed breakdown, not an assertion that the behaviours already work.
 
+The 12 interaction scenarios cover five representative value-resolution paths,
+alongside shared chip interactions. This is not one browser test per chip:
+
+1. **Usage-rights API lookup**: configured creator/category/supplier values;
+  use `by` in slot 6.
+2. **Indexed-metadata API lookup**: values from seeded image metadata;
+  use `credit` in slot 4.
+3. **Label API lookup**: label suggestions and the `#` shortcut in slot 10.
+  The missing suggestion relation remains an implementation prerequisite.
+4. **Local/configured option lists**: representative list selection with
+  `fileType` in slot 3. Conditional lists and configured alias options share
+  this source family, but are not all exercised by that one scenario.
+5. **No-resolver manual entry**: a key such as `city` in slot 1. This is the
+  no-lookup fallback, not another API resolver.
+
+Key-name suggestions are a separate shared interaction, covered in slot 2.
+Slot 5 also checks that a field with suggestions still accepts a manually typed
+value outside the offered list. Resolver-level tests should cover each distinct
+resolver's extraction/filtering logic; these browser scenarios exercise the
+representative paths and their integration with the chip input. The separate
+12 result-combination scenarios cover backend search semantics.
+
 ### Interactions: 12 scenarios
 
-| Slot | Behaviour to capture |
-| --- | --- |
-| 1 | Create a chip by typing a supported field and value. |
-| 2 | Select a suggested field name. |
-| 3 | Select a static/configured value suggestion. |
-| 4 | Select a dynamic value suggestion from seeded completion data. |
-| 5 | Enter a valid value that is not offered as a suggestion. |
-| 6 | Edit an existing chip value and update the search. |
-| 7 | Negate a chip and verify its query representation. |
-| 8 | Remove one chip without removing neighbouring text or chips. |
-| 9 | Enter a quoted value containing spaces. |
-| 10 | Create chips using supported shortcuts, including the label shorthand. |
-| 11 | Move between text and chips with the keyboard and establish Backspace behaviour. |
-| 12 | Restore chips and adjacent text from the URL, including browser history navigation. |
+| Slot | Behaviour to capture | Unique behaviour covered |
+| --- | --- | --- |
+| 1 | Create a `city` chip by typing its field and value. | No-resolver path: a chip can be completed without any value suggestions. |
+| 2 | Select a suggested field name. | Key-name completion is distinct from value resolution and inserts the selected key. |
+| 3 | Select a static/configured value suggestion, using `fileType`. | Local option-list path: selecting an offered value completes the correct chip without a remote value lookup. |
+| 4 | Select a `credit` suggestion from seeded completion data. | Indexed-metadata API path: the typed prefix drives a lookup and the selected returned value becomes the chip value. |
+| 5 | Manually enter a valid `credit` value that is not offered as a suggestion. | Suggestions are not a validation whitelist; a suggested-value field still accepts manual input. |
+| 6 | Edit an existing `by` chip by selecting another suggested photographer, and update the search. | Usage-rights API path: configured creator options populate the chooser, and editing replaces the existing value rather than adding another chip. |
+| 7 | Negate a chip and verify its query representation. | Exclusion polarity survives serialisation and changes the query rather than becoming part of the value text. |
+| 8 | Remove one chip without removing neighbouring text or chips. | Targeted deletion preserves the surrounding query and removes only the intended filter. |
+| 9 | Enter a quoted value containing spaces. | A multi-word value remains one chip value and preserves its meaning when serialised. |
+| 10 | Create a label chip with `#` and select a label suggestion. | Label API path: shorthand resolves to the `label` key and uses its label-specific suggestion lookup. Verify the missing relation before implementation. |
+| 11 | Move between text and chips with the keyboard and establish Backspace behaviour. | Keyboard navigation crosses text/chip boundaries, with deletion behaviour distinct from explicit chip removal. |
+| 12 | Restore chips and adjacent text from the URL, including browser history navigation. | Query hydration and back/forward navigation reconstruct the same chip keys, values, polarity and neighbouring text. |
 
 Coordinate slots 10 and 11 with the parent plan's free-text-and-chips section to
 avoid duplicate coverage. Observe the actual CQL component behaviour before
