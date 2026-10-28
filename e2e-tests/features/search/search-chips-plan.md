@@ -307,6 +307,9 @@ specifying editing, negation and keyboard expectations.
 
 ### Result combinations: 12 scenarios
 
+Feature file for slots 13-15: [search-chips-results.feature](./search-chips-results.feature).
+These scenarios are tagged `@todo` until their step definitions are implemented.
+
 | Slot | Representative combination | Fixture roles |
 | --- | --- | --- |
 | 13 | Intersect shared metadata with a distinguishing uploader or keyword. | A, B |
