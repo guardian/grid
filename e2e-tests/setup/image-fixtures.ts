@@ -1,5 +1,5 @@
 /**
- * Loads and queries the image fixtures in `fixtures/elasticsearch/images.json`, which
+ * Loads the captured image fixtures and the generated search-chip fixtures, which
  * seed-elasticsearch.ts seeds into Elasticsearch. Steps look up seeded images by what they are
  * rather than hard-coding ids that break when the fixture changes.
  *
@@ -8,13 +8,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { REPO_ROOT } from './constants.ts';
+import { searchChipImageFixtures } from '../fixtures/elasticsearch/search-chips.ts';
 
 const FIXTURE_PATH = path.join(REPO_ROOT, 'e2e-tests', 'fixtures', 'elasticsearch', 'images.json');
 
 /** Only the fields queried here are typed; the rest pass through to Elasticsearch untouched. */
 export interface ImageSource {
-  usageRights?: { category?: string; supplier?: string; suppliers?: string; restrictions?: string };
-  metadata?: { credit?: string };
+  usageRights?: { category?: string; supplier?: string; suppliers?: string; restrictions?: string;[key: string]: unknown };
+  metadata?: { credit?: string;[key: string]: unknown };
   uploadedBy?: string;
   [key: string]: unknown;
 }
@@ -41,7 +42,7 @@ export function loadImageFixtures(): EsHit[] {
     if (hits.length === 0) {
       throw new Error('No image fixtures found to seed into Elasticsearch. This is unexpected - failing early');
     }
-    cachedHits = hits;
+    cachedHits = [...hits, ...searchChipImageFixtures(hits[0])];
   }
   return cachedHits;
 }
