@@ -77,6 +77,25 @@ async function imageLinksForUploader(
   return links.map((link) => link.rel);
 }
 
+/** The image's `delete` action is only offered to its uploader or holders of delete_image. */
+export async function expectNoDeletePermission(
+  page: Page,
+  imagePath: string,
+  expectedUploader: string,
+): Promise<void> {
+  const response = await page.request.get(
+    `${await getMediaApiUrl(page)}/images/${mediaIdOf(imagePath)}`,
+  );
+  expect(response.ok()).toBeTruthy();
+  const { data, actions } = (await response.json()) as {
+    data: { uploadedBy: string };
+    actions: { name: string }[];
+  };
+
+  expect(data.uploadedBy).toBe(expectedUploader);
+  expect(actions.map((action) => action.name)).not.toContain('delete');
+}
+
 /** Search lags the image's own endpoint, so wait until the upload is findable by uploader. */
 export async function expectInUploadHistory(
   page: Page,

@@ -211,8 +211,6 @@ Feature: Uploading images to the Grid
     And I should be able to undelete it
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 187-195
 
-  # Existing bug: the UI still presents this button even if permission to delete is not present
-  @todo
   Scenario: Uploading a previously deleted image uploaded by a different user does not display undeletion button without the appropriate permission
     Given an image is uploaded by a user that is not me
     And then deleted
