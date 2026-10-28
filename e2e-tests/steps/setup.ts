@@ -2,6 +2,8 @@ import { expect } from '@playwright/test';
 import type { APIResponse, FileChooser, Locator, Response } from '@playwright/test';
 import { test as base, createBdd } from 'playwright-bdd';
 import { DOMAIN } from '../setup/constants.ts';
+import type { ImageSource } from '../setup/image-fixtures.ts';
+import { deleteImageCopies, indexImageCopy } from '../setup/seed-image.ts';
 
 export const KAHUNA_APP_URL = `https://media.${DOMAIN}`;
 
@@ -39,7 +41,12 @@ interface TestContext {
   permissionImage?: { id: string; uploadedBy: string };
   /** The `q` of each search Kahuna ran since recording started (see recordSearches). */
   searchesRun?: string[];
+  /** Ids of the image copies `seedImage` indexed, deleted by the `After` hook. */
+  seededImageIds: string[];
 }
+
+/** Index a disposable copy of a seeded image, with `overrides` applied, and return its id. */
+type SeedImage = (overrides?: Partial<ImageSource>) => Promise<string>;
 
 export interface TestImage {
   fileName: string;
@@ -52,7 +59,7 @@ export interface TestImage {
  * domain (required for the services' CORS origins to match). API-level `request` tests
  * use `baseURL` from the Playwright config, which points at Kahuna's fixed host port.
  */
-export const test = base.extend<{ testContext: TestContext }>({
+export const test = base.extend<{ testContext: TestContext; seedImage: SeedImage }>({
   page: async ({ page }, use) => {
     await use(page);
     if (page.video() && !page.isClosed()) {
@@ -60,9 +67,21 @@ export const test = base.extend<{ testContext: TestContext }>({
     }
   },
   testContext: async ({ }, use) => {
-    await use({ dialogs: [] });
+    await use({ dialogs: [], seededImageIds: [] });
+  },
+  seedImage: async ({ testContext }, use) => {
+    await use(async (overrides) => {
+      const id = await indexImageCopy(overrides);
+      testContext.seededImageIds.push(id);
+      return id;
+    });
   },
 });
 
 export const { Given, When, Then, Before, After } = createBdd(test);
 export { expect };
+
+// Runs after failed scenarios too, so copies never outlive their scenario or its retries.
+After(async ({ testContext }) => {
+  await deleteImageCopies(testContext.seededImageIds);
+});
