@@ -2,7 +2,7 @@ package lib
 
 import com.gu.mediaservice.lib.config.{CommonConfigWithElastic, GridConfigResources}
 import com.gu.mediaservice.lib.elasticsearch.filters
-import com.gu.mediaservice.lib.imgproxy.{ImgProxySigning, ImgProxyUrlBuilder}
+import com.gu.mediaservice.lib.imgproxy.ImgProxySigning
 import com.sksamuel.elastic4s.ElasticApi.{matchPhraseQuery, should}
 import com.sksamuel.elastic4s.ElasticDsl.matchQuery
 import com.sksamuel.elastic4s.requests.searches.queries.Query
@@ -63,17 +63,6 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   // pre-signed S3 URL, so imgproxy URLs are cacheable and don't leak credentials. Always pair this with
   // signing (images.imgproxy.key/salt) - unsigned, anyone could read any object in the bucket via imgproxy.
   val imgproxyUseS3Source: Boolean = boolean("images.imgproxy.s3Source.enabled")
-  // Signed URLs can't be templated client-side, so we sign a URL per "WIDTHxHEIGHT" bounding box and clients
-  // pick the smallest that covers what they need. Defaults are 800px low-res plus common (landscape) screens.
-  val imgproxySignedSizes: Seq[(Int, Int)] = {
-    val configured = configuration.getOptional[Seq[String]]("images.imgproxy.signedSizes")
-      .getOrElse(Seq("800x800", "1280x800", "1920x1080", "2560x1440", "3840x2160"))
-    configured.map(size => ImgProxyUrlBuilder.parseSize(size).getOrElse(
-      sys.error(s"Invalid images.imgproxy.signedSizes entry '$size', expected WIDTHxHEIGHT")
-    ))
-  }
-  // Unset by default, leaving imgproxy to use its per-format default quality
-  val imgproxySignedQuality: Option[Int] = intOpt("images.imgproxy.signedQuality")
   val imgproxySignedUrlTtlSeconds: Option[Long] =
     configuration.getOptional[FiniteDuration]("images.imgproxy.signedUrlTtl").map(_.toSeconds).filter(_ > 0)
   val usageUri: String = services.usageBaseUri

@@ -2,7 +2,7 @@ import angular from 'angular';
 
 export var imgops = angular.module('kahuna.imgops', []);
 
-imgops.factory('imgops', ['$window', '$q', function($window, $q) {
+imgops.factory('imgops', ['$window', function($window) {
     const quality = 85;
 
     const lowResMaxWidth  = 800;
@@ -38,22 +38,16 @@ imgops.factory('imgops', ['$window', '$q', function($window, $q) {
         });
     }
 
-    // Signed imgproxy URLs can't be templated, so the API signs one per width x height box (smallest first);
-    // use the smallest that covers the requested size, or the largest available.
-    function pickSignedUri(signedUrls, { w, h }) {
-        const covering = signedUrls.find(signed => signed.w >= w && signed.h >= h);
-        return (covering || signedUrls[signedUrls.length - 1]).url;
-    }
-
     function getOptimisedUri(image, options) {
-        const signedUrls = image.data.signedOptimisedUrls;
-        if (signedUrls && signedUrls.length > 0) {
-            return $q.resolve(pickSignedUri(signedUrls, options));
-        }
-
         const rel = image.data.optimisedPng ? 'optimisedPng' : 'optimised';
 
-        return image.follow(rel, options).getUri().catch(() => {
+        // Signed imgproxy URLs can't be templated, so media-api signs one for exactly this size,
+        // leaving quality to imgproxy's default
+        const uri = image.data.optimisedUrlsRequireResolution ?
+            image.follow(rel, { w: options.w, h: options.h }).get().then(resolved => resolved.data.url) :
+            image.follow(rel, options).getUri();
+
+        return uri.catch(() => {
             const asset = image.data.optimisedPng ? image.optimisedPng : image.source;
             return asset.secureUrl || asset.file;
         });
