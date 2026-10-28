@@ -89,7 +89,7 @@ jobs:
     # Authenticate so buildx can pull the registry layer cache. Only pushes to
     # main write it back; manual runs only read the cache.
     - name: Log in to GHCR
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
