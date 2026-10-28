@@ -108,7 +108,17 @@ jobs:
         # intermediate layers too, so the mise toolchain layer is reused).
         cache-from: type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main
         cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main,mode=max' || '' }}
+    - name: Set up local CA for devcontainer-nginx
+      id: local-ca
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mkcert libnss3-tools
+        export CAROOT="$HOME/.local/share/mkcert"
+        mkcert -install
+        echo "certificate=$CAROOT/rootCA.pem" >> "$GITHUB_OUTPUT"
     - name: Run Playwright tests
+      env:
+        NODE_EXTRA_CA_CERTS: ${{ steps.local-ca.outputs.certificate }}
       run: npm test
     - name: Upload e2e reports
       uses: actions/upload-artifact@v7
