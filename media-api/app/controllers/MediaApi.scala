@@ -589,7 +589,7 @@ class MediaApi(
     assetType: ImageFileType,
     width: Int,
     height: Int,
-    quality: Int,
+    quality: Option[Int],
     request: AuthenticatedRequest[AnyContent, Principal]
   ): Future[Result] = {
     implicit val logMarker: LogMarker = MarkerMap(
@@ -612,11 +612,11 @@ class MediaApi(
     }
   }
 
-  def getOptimisedImageUrl(id: String, width: Int, height: Int, quality: Int) = auth.async { request =>
+  def getOptimisedImageUrl(id: String, width: Int, height: Int, quality: Option[Int]) = auth.async { request =>
     resolvedImageUrl(id, Source, width, height, quality, request)
   }
 
-  def getOptimisedPngImageUrl(id: String, width: Int, height: Int, quality: Int) = auth.async { request =>
+  def getOptimisedPngImageUrl(id: String, width: Int, height: Int, quality: Option[Int]) = auth.async { request =>
     resolvedImageUrl(id, OptimisedPng, width, height, quality, request)
   }
 

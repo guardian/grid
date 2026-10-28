@@ -11,9 +11,6 @@ import scala.util.Try
 
 case class ImgProxySigning(key: String, salt: String)
 
-/** A pre-signed imgproxy URL that resizes to fit within a `width` x `height` box. */
-case class SignedImgProxyUrl(width: Int, height: Int, url: String)
-
 object ImgProxyUrlBuilder extends GridLogging {
   private val InsecureSignature = "insecure"
 
@@ -44,8 +41,16 @@ object ImgProxyUrlBuilder extends GridLogging {
   private def encodeSourceUrl(sourceUri: URI): String =
     Base64.getUrlEncoder.withoutPadding.encodeToString(sourceUri.toString.getBytes(StandardCharsets.UTF_8))
 
-  private def normaliseRotation(rotationDegrees: Int): Int =
-    if (rotationDegrees < 0) rotationDegrees + 360 else rotationDegrees
+  /**
+    * imgproxy already rotates sources to match their EXIF orientation (IMGPROXY_AUTO_ROTATE), so `rot:` is only
+    * needed for sources whose orientation tag has been stripped, and is omitted when there's nothing to rotate.
+    * `rotationDegrees` is clockwise and applied after any EXIF rotation.
+    */
+  private def rotationSegment(rotationDegrees: Int): String =
+    Math.floorMod(rotationDegrees, 360) match {
+      case 0 => ""
+      case rotation => s"/rot:$rotation"
+    }
 
   private def hexToBytes(hex: String): Array[Byte] =
     hex.trim.stripPrefix("0x").replace(":", "").replace(" ", "")
@@ -73,8 +78,7 @@ object ImgProxyUrlBuilder extends GridLogging {
 
   def templatedUri(baseUri: String, sourceUri: URI, rotationDegrees: Int, awsLocalEndpoint: Option[String] = None): String = {
     val encoded = encodeSourceUrl(normaliseSourceForLocalDev(sourceUri, awsLocalEndpoint))
-    val rotation = normaliseRotation(rotationDegrees)
-    s"$baseUri/$InsecureSignature/w:{w}/h:{h}/q:{q}/rot:$rotation/$encoded"
+    s"$baseUri/$InsecureSignature/w:{w}/h:{h}/q:{q}${rotationSegment(rotationDegrees)}/$encoded"
   }
 
   def fixedUri(
@@ -89,41 +93,9 @@ object ImgProxyUrlBuilder extends GridLogging {
     expiresEpochSeconds: Option[Long] = None
   ): String = {
     val encoded = encodeSourceUrl(normaliseSourceForLocalDev(sourceUri, awsLocalEndpoint))
-    val rotation = normaliseRotation(rotationDegrees)
     val qualitySegment = quality.map(q => s"/q:$q").getOrElse("")
     val expirySegment = expiresEpochSeconds.map(e => s"/exp:$e").getOrElse("")
-    val path = s"/w:$width/h:$height$qualitySegment/rot:$rotation$expirySegment/$encoded"
+    val path = s"/w:$width/h:$height$qualitySegment${rotationSegment(rotationDegrees)}$expirySegment/$encoded"
     s"$baseUri/${signatureSegment(signing, path)}$path"
   }
-
-  /**
-    * Signed URLs for a fixed set of (width, height) bounding boxes, smallest first. A signature covers the
-    * resize parameters, so clients can't fill in their own sizes; instead they pick the smallest box that
-    * covers what they need. With no quality, imgproxy uses its per-format default (IMGPROXY_FORMAT_QUALITY).
-    */
-  def signedUrlsForSizes(
-    baseUri: String,
-    sourceUri: URI,
-    sizes: Seq[(Int, Int)],
-    quality: Option[Int],
-    signing: ImgProxySigning,
-    awsLocalEndpoint: Option[String] = None,
-    rotationDegrees: Int = 0,
-    expiresEpochSeconds: Option[Long] = None
-  ): Seq[SignedImgProxyUrl] =
-    sizes.distinct.sortBy { case (width, height) => (width.toLong * height, width) }.map { case (width, height) =>
-      SignedImgProxyUrl(width, height, fixedUri(
-        baseUri, sourceUri, width, height, quality, awsLocalEndpoint, rotationDegrees, Some(signing), expiresEpochSeconds
-      ))
-    }
-
-  /** Parses a "WIDTHxHEIGHT" size, e.g. "1920x1080". */
-  def parseSize(size: String): Option[(Int, Int)] =
-    size.trim.toLowerCase.split('x') match {
-      case Array(w, h) => for {
-        width <- w.trim.toIntOption if width > 0
-        height <- h.trim.toIntOption if height > 0
-      } yield (width, height)
-      case _ => None
-    }
 }
