@@ -21,6 +21,7 @@ object SupplierCleanUp extends App {
   val STAGE = sys.env.getOrElse("STAGE", throw new RuntimeException("Must set a STAGE env variable"))
   val GRIDDOMAIN = if(STAGE == "PROD") "gutools.co.uk" else "test.dev-gutools.co.uk"
   val MaxConcurrentRequests = 50
+  val dryMode = sys.env.contains("DRYRUN")
   val client: HttpClient = HttpClient.newHttpClient()
 
   println(s"Running for stage $STAGE with domain $GRIDDOMAIN")
@@ -165,7 +166,12 @@ object SupplierCleanUp extends App {
     } else {
       println(s"Found ${ids.size} ids, now running deletion")
       traverseBatched(ids.zipWithIndex, MaxConcurrentRequests) { case (mediaId, index) =>
-        processMediaId(mediaId, index, ids.size)
+        if(dryMode) {
+          println(s"[DRY MODE] Would process $mediaId (${index+1} of ${ids.size})")
+          Future.successful((true, mediaId))
+        } else {
+          processMediaId(mediaId, index, ids.size)
+        }
       }.map { outcomes =>
         val (success, fail) = outcomes.partition { case (processed, _) => processed }
         println(s"Successfully processed ${success.size} of  ${ids.size}")
