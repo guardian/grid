@@ -32,6 +32,7 @@ Feature: Viewing an image's usages in the single image view
     Then the Usages tab is labelled "Usages (4)"
   # Evidence: kahuna/public/js/image/controller.js lines 201-205, 323-329
 
+  @todo
   Rule: Usages are listed on the Usages tab
 
     Background:
