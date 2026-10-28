@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 import type { APIRequestContext, Page, Response } from '@playwright/test';
-=======
-import type { APIRequestContext, Page } from '@playwright/test';
->>>>>>> main
 import { Given, When, Then, KAHUNA_APP_URL, expect } from '../setup.ts';
 import { findSeededImageId, hasNoUsageRights, loadImageFixtures } from '../../setup/image-fixtures.ts';
 import { usageRightsCategories } from '../utils/api/metadata-editor.queries.ts';
