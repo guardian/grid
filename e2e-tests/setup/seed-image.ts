@@ -9,7 +9,6 @@
 import { randomBytes } from 'node:crypto';
 import { DeleteItemCommand } from '@aws-sdk/client-dynamodb';
 import { ELASTICSEARCH_PORT, LOCALSTACK_PORT } from './constants.ts';
-import { hasNoUsageRights, loadImageFixtures } from './image-fixtures.ts';
 import type { ImageSource } from './image-fixtures.ts';
 import { provisioningClients } from './provision.ts';
 
@@ -20,20 +19,19 @@ const documentUrl = (id: string) =>
   `http://localhost:${ELASTICSEARCH_PORT}/${IMAGES_ALIAS}/_doc/${id}`;
 
 /**
- * Index a copy of a seeded image with no usage rights, with `overrides` replacing top-level
- * fields (e.g. `usageRights`), and return its id. Searchable once this resolves.
+ * Index a copy of `source` (e.g. a fixture from `findSeededImage`), with `overrides` replacing
+ * top-level fields (e.g. `usageRights`), and return its id. Searchable once this resolves.
+ * The copy starts with no leases, collections, exports, usages or edits.
  */
-export async function indexImageCopy(overrides: Partial<ImageSource> = {}): Promise<string> {
-  const source = loadImageFixtures().find(({ _source }) => hasNoUsageRights(_source));
-  if (!source) throw new Error('No seeded image without usage rights to copy');
-
+export async function indexImageCopy(
+  source: ImageSource,
+  overrides: Partial<ImageSource> = {},
+): Promise<string> {
   // Media ids are SHA-1 hex digests, so keep the copy's id the same shape.
   const id = randomBytes(20).toString('hex');
   const image: ImageSource = {
-    ...structuredClone(source._source),
+    ...structuredClone(source),
     id,
-    usageRights: {},
-    originalUsageRights: {},
     leases: { leases: [], lastModified: null },
     collections: [],
     exports: [],

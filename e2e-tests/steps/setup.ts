@@ -45,8 +45,8 @@ interface TestContext {
   seededImageIds: string[];
 }
 
-/** Index a disposable copy of a seeded image, with `overrides` applied, and return its id. */
-type SeedImage = (overrides?: Partial<ImageSource>) => Promise<string>;
+/** Index a disposable copy of `source`, with `overrides` applied, and return its id. */
+type SeedImage = (source: ImageSource, overrides?: Partial<ImageSource>) => Promise<string>;
 
 export interface TestImage {
   fileName: string;
@@ -70,8 +70,8 @@ export const test = base.extend<{ testContext: TestContext; seedImage: SeedImage
     await use({ dialogs: [], seededImageIds: [] });
   },
   seedImage: async ({ testContext }, use) => {
-    await use(async (overrides) => {
-      const id = await indexImageCopy(overrides);
+    await use(async (source, overrides) => {
+      const id = await indexImageCopy(source, overrides);
       testContext.seededImageIds.push(id);
       return id;
     });

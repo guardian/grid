@@ -1,6 +1,6 @@
 import type { APIRequestContext, Page, Response } from '@playwright/test';
 import { Given, When, Then, KAHUNA_APP_URL, expect } from '../setup.ts';
-import { findSeededImageId, hasNoUsageRights, loadImageFixtures } from '../../setup/image-fixtures.ts';
+import { findSeededImage, findSeededImageId, hasNoUsageRights, loadImageFixtures } from '../../setup/image-fixtures.ts';
 import { usageRightsCategories } from '../utils/api/metadata-editor.queries.ts';
 import { setTestClientConfig } from '../utils/test-config.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
@@ -8,7 +8,8 @@ import { switchAccount } from '../utils/auth.ts';
 import { expectEditPermissionForImage, expectNoEditPermissionForImage } from '../utils/api/media-api.assertions.ts';
 
 /** An image seeded into Elasticsearch from fixtures/elasticsearch/images.json. */
-const SEEDED_IMAGE_ID = findSeededImageId('with no usage rights category', hasNoUsageRights);
+const IMAGE_WITHOUT_RIGHTS = findSeededImage('with no usage rights category', hasNoUsageRights);
+const SEEDED_IMAGE_ID = IMAGE_WITHOUT_RIGHTS._id;
 
 const imageInformation = (page: Page) => page.getByRole('complementary', { name: 'Image information' });
 const rightsAndRestrictions = (page: Page) =>
@@ -279,7 +280,7 @@ Given('the usage rights suppliers is {string}', async ({ page, testContext }, su
 
 Given('the image has no usage rights category', async ({ page, seedImage }) => {
   // A disposable copy, so scenarios that save rights don't change a shared fixture.
-  await openImage(page, await seedImage({ usageRights: {} }));
+  await openImage(page, await seedImage(IMAGE_WITHOUT_RIGHTS._source, { usageRights: {} }));
 });
 
 Given('the configuration contains pay-to-use and not chargeable', async ({ request }) => {

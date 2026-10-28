@@ -47,15 +47,20 @@ export function loadImageFixtures(): EsHit[] {
 }
 
 /**
- * The id of the first seeded image, in fixture order, whose source matches `predicate`.
+ * The first seeded image, in fixture order, whose source matches `predicate`.
  * @param description completes the error message, e.g. "with no usage rights category".
  */
-export function findSeededImageId(description: string, predicate: (source: ImageSource) => boolean): string {
+export function findSeededImage(description: string, predicate: (source: ImageSource) => boolean): EsHit {
   const hit = loadImageFixtures().find((h) => predicate(h._source));
   if (!hit) {
     throw new Error(`No seeded image in fixtures/elasticsearch/images.json ${description}`);
   }
-  return hit._id;
+  return hit;
+}
+
+/** The id of the first seeded image whose source matches `predicate` (see `findSeededImage`). */
+export function findSeededImageId(description: string, predicate: (source: ImageSource) => boolean): string {
+  return findSeededImage(description, predicate)._id;
 }
 
 /** NoRights is stored as `{}`, so an image without a category has no usage rights. */
