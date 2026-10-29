@@ -1,10 +1,13 @@
 package com.gu.mediaservice.lib.imaging
 
+import app.photofox.vipsffm.{VImage, VipsOption}
 import com.gu.mediaservice.lib.BrowserViewableImage
+import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.ctx
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model._
 
 import java.io._
+import java.lang.foreign.Arena
 import scala.concurrent.Future
 
 
@@ -43,9 +46,36 @@ class VipsImageOperations extends GridLogging with ImageOperations {
                       iccColourSpace: Option[String],
                       colourModel: Option[String],
                       orientationMetadata: Option[OrientationMetadata]
-                     )(implicit logMarker: LogMarker): Future[(File, MimeType)] = ???
+                     )(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
+    Future {
+      val arena = Arena.ofConfined()
+      try {
+        val thumbnail = VImage.thumbnail(arena, browserViewableImage.file.getAbsolutePath, width,
+          VipsOption.Boolean("auto-rotate", false)
+        )
+        saveImageToFile(thumbnail, qual, outputFile)
+        (outputFile, thumbMimeType)
+      } catch {
+        case e: Exception =>
+          logger.error(logMarker, "Error while creating thumbnail", e)
+          throw e
+      } finally {
+        arena.close()
+      }
+    }
+  }
 
   def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File)(implicit logMarker: LogMarker): Future[(File, MimeType)] = ???
 
   def identifyColourModel(sourceFile: File, mimeType: MimeType)(implicit logMarker: LogMarker): Future[Option[String]] = ???
+
+  private def saveImageToFile(image: VImage, qual: Double, outputFile: File): File = {
+    logger.info(s"Saving image to file: " + outputFile.getAbsolutePath)
+    image.jpegsave(outputFile.getAbsolutePath,
+      VipsOption.Int("Q", qual.toInt),
+      VipsOption.Boolean("strip", true)
+    )
+    outputFile
+  }
+
 }
