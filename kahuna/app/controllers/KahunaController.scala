@@ -3,7 +3,7 @@ package controllers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, BaseControllerWithLoginRedirects}
-import lib.{ExampleSwitch, FeatureSwitches, KahunaConfig, KupuaPage, UseCqlChips, UseKupua}
+import lib.{ExampleSwitch, FeatureSwitches, KahunaConfig, KupuaPage, UseKupua}
 import play.api.Environment
 import play.api.mvc.{Action, AnyContent, ControllerComponents, Cookie, DiscardingCookie}
 import play.api.libs.json._
@@ -44,7 +44,7 @@ class KahunaController(
     val isIFramed = request.headers.get("Sec-Fetch-Dest").contains("iframe")
     val kupuaSwitches = if (KupuaPage.isAllowedStage(config.stage)) List(UseKupua) else Nil
     val featureSwitches = new FeatureSwitches(
-      List(ExampleSwitch, UseCqlChips) ++ kupuaSwitches
+      List(ExampleSwitch) ++ kupuaSwitches
     )
     val featureSwitchesWithClientValues = featureSwitches.getClientSwitchValues(featureSwitches.getFeatureSwitchCookies(request.cookies.get))
     val serveKupua = KupuaPage.shouldServe(

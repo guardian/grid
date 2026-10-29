@@ -10,12 +10,6 @@ object ExampleSwitch extends FeatureSwitch(
   default = false
 )
 
-object UseCqlChips extends FeatureSwitch(
-  key = "use-cql-chips",
-  title = "Use CQL for the chips interface",
-  default = true
-)
-
 object UseKupua extends FeatureSwitch(
   key = "use-kupua",
   title = "Use the Kupua prototype frontend (temporary experiment; reload after switching)",
