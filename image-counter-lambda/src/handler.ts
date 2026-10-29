@@ -16,6 +16,9 @@ interface ImageCounts {
   indexStatsCount: number;
 }
 
+
+const client = new CloudWatchClient({ region: "eu-west-1" });
+
 const getImageCount = async (
   credentials: MediaAPICredentials
 ): Promise<ImageCounts> => {
@@ -51,12 +54,8 @@ export const handler = async (): Promise<{
   console.log("image counts", images);
 
   // post it to CW as metric
-  const client = new CloudWatchClient({ region: "eu-west-1" });
-
-  for (const [key, value] of Object.entries(images)) {
-    const met = metric(key.toUpperCase(), value as number);
-    await client.send(new PutMetricDataCommand(met));
-  }
+  const imageMetrics = [...Object.entries(images)].map((k,v)=>metric(k.toUpperCase(), value as number))
+  await client.send(new PutMetricDataCommand(imageMetrics));
 
   // return happy lambda response to caller
   return {
