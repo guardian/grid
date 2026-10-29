@@ -1,4 +1,4 @@
-import type { APIRequestContext, Page, Response } from '@playwright/test';
+import type { APIRequestContext, Locator, Page, Response } from '@playwright/test';
 import { Given, When, Then, KAHUNA_APP_URL, expect } from '../setup.ts';
 import { findSeededImage, findSeededImageId, hasNoUsageRights, loadImageFixtures } from '../../setup/image-fixtures.ts';
 import { usageRightsCategories } from '../utils/api/metadata-editor.queries.ts';
@@ -172,12 +172,23 @@ const REQUIRED_PROPERTY_VALUES: Record<string, Record<string, string>> = {
 /** Required and optional property values a scenario fills in before saving a category. */
 const CONFIGURED_PROPERTY_VALUES: Record<string, Record<string, string>> = {
   'Agency - subscription': { Supplier: 'AP', Collection: 'News' },
+  // Publications and creators from usageRightsConfigProvider (dev/script/generate-config/service-config.js).
+  // Creator suggestions depend on the chosen publication, so it's set first.
+  'GNM Photographer': { Publication: 'Example publication', Creator: 'Example Contracted Photographer' },
+  'GNM Illustrator': { Publication: 'Example publication', Creator: 'Example Staff Illustrator' },
 };
 
 const RESTRICTIONS_PLACEHOLDER = 'What restrictions apply to this image?';
 
 const rightsProperty = (page: Page, property: string) =>
   rightsEditor(page).getByLabel(property, { exact: true });
+/**
+ * A property with three or fewer options is rendered as radios, which its label isn't linked
+ * to, so they're picked by option name. Only one category's radios are shown at a time.
+ */
+const rightsRadios = (page: Page) => rightsEditor(page).getByRole('radio');
+const rightsRadio = (page: Page, option: string) =>
+  rightsEditor(page).getByRole('radio', { name: option, exact: true });
 const restrictedCheckbox = (page: Page) =>
   rightsEditor(page).getByRole('checkbox', { name: 'Restricted', exact: true });
 // The restrictions textarea has no label of its own, only a placeholder.
@@ -194,25 +205,50 @@ async function selectCategory(page: Page, category: string): Promise<void> {
   await rightsEditor(page).getByRole('combobox').first().selectOption({ label: category });
 }
 
+type PropertyControl =
+  | { kind: 'radio'; radios: Locator }
+  | { kind: 'select' | 'text'; field: Locator; suggestions: boolean };
+
+/** Find the control the editor renders for a category property. */
+async function propertyControl(page: Page, property: string): Promise<PropertyControl> {
+  const field = rightsProperty(page, property);
+  const radios = rightsRadios(page);
+  await expect(field.or(radios).first()).toBeVisible();
+  if ((await field.count()) === 0) return { kind: 'radio', radios };
+
+  const tagName = await field.evaluate((element) => element.tagName);
+  // Properties with options keyed on another property offer them as gr-datalist suggestions.
+  const suggestions = (await field.locator('xpath=ancestor::gr-datalist[1]').count()) > 0;
+  return { kind: tagName === 'SELECT' ? 'select' : 'text', field, suggestions };
+}
+
 /** Fill a category property, whichever control the editor renders for it. */
 async function setProperty(page: Page, property: string, value: string): Promise<void> {
-  const field = rightsProperty(page, property);
-  const tagName = await field.evaluate((element) => element.tagName);
-  if (tagName === 'SELECT') {
-    await field.selectOption({ label: value });
+  const control = await propertyControl(page, property);
+  if (control.kind === 'radio') {
+    await rightsRadio(page, value).check();
+  } else if (control.kind === 'select') {
+    await control.field.selectOption({ label: value });
+  } else if (control.suggestions) {
+    // Type (not fill) so gr-datalist searches as the user types, then pick the suggestion.
+    await control.field.clear();
+    await control.field.pressSequentially(value);
+    await rightsEditor(page).getByRole('option', { name: value, exact: true }).click();
+    await expect(control.field).toHaveValue(value);
   } else {
-    await field.fill(value);
+    await control.field.fill(value);
   }
 }
 
 async function expectProperty(page: Page, property: string, value: string): Promise<void> {
-  const field = rightsProperty(page, property);
-  const tagName = await field.evaluate((element) => element.tagName);
-  // Angular's ng-options values are internal ("string:AP"), so check the chosen option's text.
-  if (tagName === 'SELECT') {
-    await expect(field.locator('option:checked')).toHaveText(value);
+  const control = await propertyControl(page, property);
+  if (control.kind === 'radio') {
+    await expect(rightsRadio(page, value)).toBeChecked();
+  } else if (control.kind === 'select') {
+    // Angular's ng-options values are internal ("string:AP"), so check the chosen option's text.
+    await expect(control.field.locator('option:checked')).toHaveText(value);
   } else {
-    await expect(field).toHaveValue(value);
+    await expect(control.field).toHaveValue(value);
   }
 }
 
@@ -300,7 +336,9 @@ Then(
     if (required !== 'required' && required !== 'optional') {
       throw new Error(`Expected "required" or "optional", got "${required}"`);
     }
-    const field = rightsProperty(page, property);
+    const control = await propertyControl(page, property);
+    // Every radio in a group carries the property's required attribute.
+    const field = control.kind === 'radio' ? control.radios.first() : control.field;
     await expect(field).toBeVisible();
     if (required === 'required') {
       await expect(field).toHaveAttribute('required');

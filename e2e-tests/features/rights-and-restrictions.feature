@@ -177,7 +177,6 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 21-32
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.js lines 196, 287
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.html lines 210-215
-  # TODO - Add in GNM owned photograph when merged
   Scenario Outline: Editing a rights category shows its configured properties
     Given I am signed in with edit metadata permission
     And I have opened the rights editor
@@ -187,16 +186,24 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
 
     # A category whose default cost is conditional requires restrictions, so the
     # "Restricted" checkbox is ticked automatically and cannot be unticked.
+    # The publisher categories offer the publications and creators in usageRightsConfigProvider.
     Examples:
       | category                    | property      | required | restricted        |
       | Agency - subscription       | Supplier      | required | unticked          |
       | Agency - subscription       | Collection    | optional | unticked          |
       | PR & Third Party            | Source        | required | ticked and locked |
+      | GNM Photographer            | Publication   | required | unticked          |
+      | GNM Photographer            | Creator       | required | unticked          |
+      | GNM Illustrator             | Publication   | required | unticked          |
+      | GNM Illustrator             | Creator       | required | unticked          |
   # Evidence: metadata-editor/app/model/UsageRightsProperty.scala lines 74-77 (restrictions required when defaultCost is Conditional)
-  # Evidence: common-lib/src/main/scala/com/gu/mediaservice/model/UsageRights.scala (defaultCost per category)
-  # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.html lines 73-84
+  # Evidence: metadata-editor/app/model/UsageRightsProperty.scala lines 155-163 (publisher publication and creator properties)
+  # Evidence: common-lib/src/main/scala/com/gu/mediaservice/model/UsageRights.scala (defaultCost per category; publisher names use branding.staffPhotographerOrganisation, default "GNM")
+  # Evidence: common-lib/src/main/scala/com/gu/mediaservice/lib/config/UsageRightsConfig.scala lines 143-156 (allPhotographers, allIllustrators)
+  # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.html lines 73-84, 130-179 (radios for 3 or fewer options, datalist for optionsMap)
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.js lines 109-137
   # Evidence: e2e-tests/setup/config.ts (usageRights.applicable)
+  # Evidence: dev/script/generate-config/service-config.js lines 67-83 (usageRightsConfigProvider publications and creators)
   Scenario Outline: Editing a rights category without properties shows no category fields
     Given I am signed in with edit metadata permission
     And I have opened the rights editor
@@ -210,22 +217,28 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
       | category       | restricted    |
       | Unknown Rights | does not show |
       | Pay to use     | shows         |
-      | Bylines        | shows         |
   # Evidence: metadata-editor/app/model/UsageRightsProperty.scala lines 74-77 (restrictions offered for every category except NoRights)
   # Evidence: e2e-tests/setup/config.ts (usageRights.applicable)
-  # TODO - Add in GNM owned photograph when merged
-  Scenario: Saving a rights category with its properties filled in
+  Scenario Outline: Saving a rights category with its properties filled in
     Given I am signed in with edit metadata permission
     And the image has no usage rights category
     And I have opened the rights editor
-    When I select the "Agency - subscription" usage rights category and set configured fields
+    When I select the "<category>" usage rights category and set configured fields
     And I save the rights
     Then the rights editor closes
-    And the rights and restrictions section shows "Agency - subscription"
+    And the rights and restrictions section shows "<category>"
     When I choose to edit the rights and restrictions
     Then the rights editor shows the configured fields
 
+    # PR & Third Party also requires a restriction; see "Saving a rights category that requires restrictions".
+    Examples:
+      | category              |
+      | Agency - subscription |
+      | GNM Photographer      |
+      | GNM Illustrator       |
+
   # Evidence: metadata-editor/app/model/UsageRightsProperty.scala lines 74-77 (restrictions offered for every category except NoRights)
+  # Evidence: metadata-editor/app/model/UsageRightsProperty.scala lines 155-163 (publisher publication and creator properties)
   # Evidence: dev/script/generate-config/service-config.js lines 54-83 (usageRightsConfigProvider options)
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.html lines 5, 38-226 (restrictions checkbox and textarea lines 73-107)
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.js lines 109-137, 160-189, 201-218
