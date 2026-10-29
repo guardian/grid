@@ -36,16 +36,15 @@ updates:
       prefix: "chore(deps): "
 
 
-# Not scanning these projects for now as I'm not sure how noisy/annoying dependabot will be for the team.
-#  # the frontend site
-#  - package-ecosystem: 'npm'
-#    directory: '/kahuna'
-#    schedule:
-#      interval: 'weekly'
-#    commit-message:
-#      prefix: "chore(deps): "
-#
-#  # things that run in an AWS Lambda environment
+  # the frontend site
+  - package-ecosystem: 'npm'
+    directory: '/kahuna'
+    schedule:
+      interval: 'weekly'
+    commit-message:
+      prefix: "chore(deps): "
+
+  # things that run in an AWS Lambda environment
   - package-ecosystem: 'npm'
     directory: '/image-counter-lambda'
     schedule:
