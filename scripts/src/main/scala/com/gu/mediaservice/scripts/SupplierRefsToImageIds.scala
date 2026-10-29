@@ -66,10 +66,8 @@ object SupplierRefsToImageIds extends App {
     }
     (readSupplierRefs(csvPath), outPath)
   } else {
-    val outPath = args.lift(0).getOrElse {
-      throw new IllegalArgumentException("Usage: <outputFile>")
-    }
-    (suppliersInTest, outPath)
+    val testOutputPath = "./test-out.csv"
+    (suppliersInTest, testOutputPath)
   }
 
   println(s"Found ${supplierRefs.size} supplier refs to process")

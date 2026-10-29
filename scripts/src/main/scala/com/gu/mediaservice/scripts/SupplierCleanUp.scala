@@ -1,12 +1,14 @@
 package com.gu.mediaservice.scripts
 
 import com.gu.mediaservice.model.leases.MediaLease
-import play.api.libs.json.Json
+import org.joda.time.DateTime
+import play.api.libs.json.{JsValue, Json}
 
 import java.net.URI
 import java.net.http.HttpRequest.BodyPublishers
 import java.net.http.HttpResponse.BodyHandlers
 import java.net.http.{HttpClient, HttpRequest}
+import java.util.concurrent.{CompletableFuture, TimeUnit}
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.jdk.FutureConverters._
 import scala.io.Source
@@ -19,7 +21,6 @@ object SupplierCleanUp extends App {
   val STAGE = sys.env.getOrElse("STAGE", throw new RuntimeException("Must set a STAGE env variable"))
   val GRIDDOMAIN = if(STAGE == "PROD") "gutools.co.uk" else "test.dev-gutools.co.uk"
   val MaxConcurrentRequests = 50
-  val dryMode = sys.env.contains("DRYRUN")
   val client: HttpClient = HttpClient.newHttpClient()
 
   println(s"Running for stage $STAGE with domain $GRIDDOMAIN")
@@ -52,11 +53,18 @@ object SupplierCleanUp extends App {
     }
   }
 
-  val inputPath = args.headOption.getOrElse {
-    throw new IllegalArgumentException("To run the script pass in a path to a csv file of image ids as an argument")
-  }
-  val imageIds = {
-    val source = Source.fromFile(inputPath)
+  def delay(seconds: Long): Future[Unit] =
+    CompletableFuture
+      .runAsync(() => (), CompletableFuture.delayedExecutor(seconds, TimeUnit.SECONDS))
+      .asScala
+      .map(_ => ())
+
+  val suppliersInTest = List("13300266", "17218005aa", "17217489bk")
+  val supplierRefs = if (STAGE == "PROD") {
+    val csvPath = args.headOption.getOrElse {
+      throw new IllegalArgumentException("To run the script pass in a path to a csv file as an argument")
+    }
+    val source = Source.fromFile(csvPath)
     try {
       source
         .getLines()
@@ -67,11 +75,34 @@ object SupplierCleanUp extends App {
     } finally {
       source.close()
     }
+  } else {
+    suppliersInTest
   }
-  println(s"Found ${imageIds.size} image ids to process")
-  if (imageIds.isEmpty) {
-    println("No image ids found in supplied csv, exiting script")
+  println(s"Found ${supplierRefs.size} supplier refs to process")
+  if (supplierRefs.isEmpty) {
+    println("No supplier refs found in supplied csv, exiting script")
     sys.exit(1)
+  }
+  val supplierRefBatches = supplierRefs.grouped(1000).toList
+  val mediaIds = supplierRefBatches.zipWithIndex.foldLeft(Future.successful(Seq.empty[String])) {
+    case (previousBatches, (refs, index)) =>
+      println("Making API calls in batchSize " + MaxConcurrentRequests)
+      previousBatches.flatMap { previousIds =>
+        println(s"${DateTime.now()}: Fetching grid ids, for batch ${index + 1} of ${supplierRefBatches.size}")
+
+        val ids = traverseBatched(refs, MaxConcurrentRequests) { ref =>
+        val request = HttpRequest.newBuilder(new URI(s"https://api.media.$GRIDDOMAIN/images?q=suppliersReference%3A$ref")).headers("X-Gu-Media-Key", GRIDKEY).build()
+          send(request).map { response =>
+            val json = Json.parse(response.body())
+            (json \ "data").as[Seq[JsValue]].map(imageMetadata => (imageMetadata \ "data" \ "id").as[String])
+          }
+        }.map(_.flatten)
+
+        ids.flatMap { batchIds =>
+          println(s"${DateTime.now()}: Found ${batchIds.size} grid ids for batch ${index + 1} of ${supplierRefBatches.size}")
+          delay(2).map(_ => previousIds ++ batchIds)
+        }
+      }
   }
 
   val usagesBody = BodyPublishers.ofString("""{"data":{"restrictions":"No longer available from the supplier","category":"chargeable"}}""")
@@ -133,12 +164,7 @@ object SupplierCleanUp extends App {
     } else {
       println(s"Found ${ids.size} ids, now running deletion")
       traverseBatched(ids.zipWithIndex, MaxConcurrentRequests) { case (mediaId, index) =>
-        if(dryMode) {
-          println(s"[DRY MODE] Would process $mediaId (${index+1} of ${ids.size})")
-          Future.successful((true, mediaId))
-        } else {
-          processMediaId(mediaId, index, ids.size)
-        }
+        processMediaId(mediaId, index, ids.size)
       }.map { outcomes =>
         val (success, fail) = outcomes.partition { case (processed, _) => processed }
         println(s"Successfully processed ${success.size} of  ${ids.size}")
