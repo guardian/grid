@@ -4,6 +4,7 @@ import app.photofox.vipsffm.enums.{VipsIntent, VipsInterpretation}
 import app.photofox.vipsffm.jextract.VipsRaw
 import app.photofox.vipsffm.{VImage, VipsHelper, VipsOption}
 import com.gu.mediaservice.lib.BrowserViewableImage
+import com.gu.mediaservice.lib.imaging.im4jwrapper.ExifTool.{runExiftoolCmd, setTags, tagSource}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.ctx
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model._
@@ -60,7 +61,19 @@ class VipsImageOperations extends GridLogging with ImageOperations {
     }
   }
 
-  def appendMetadata(sourceFile: File, metadata: ImageMetadata): Future[File] = ???
+  def appendMetadata(sourceFile: File, metadata: ImageMetadata): Future[File] = {
+    def tagFilter(metadata: ImageMetadata): Map[String, String] = {
+      Map[String, Option[String]](
+        "Copyright" -> metadata.copyright,
+        "Credit" -> metadata.credit,
+        "OriginalTransmissionReference" -> metadata.suppliersReference
+      ).collect { case (key, Some(value)) => (key, value) }
+    }
+
+    runExiftoolCmd(
+      setTags(tagSource(sourceFile))(tagFilter(metadata))
+    ).map(_ => sourceFile)
+  }
 
   def resizeImage(
                    sourceFile: File,
