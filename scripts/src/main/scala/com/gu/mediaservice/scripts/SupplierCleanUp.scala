@@ -60,6 +60,7 @@ object SupplierCleanUp extends App {
       .map(_ => ())
 
   val suppliersInTest = List("13300266", "17218005aa", "17217489bk")
+
   val supplierRefs = if (STAGE == "PROD") {
     val csvPath = args.headOption.getOrElse {
       throw new IllegalArgumentException("To run the script pass in a path to a csv file as an argument")
