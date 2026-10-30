@@ -24,6 +24,11 @@ class MediaApiComponents(context: Context) extends GridComponents(context, new M
   usageQuota.scheduleUpdates()
   applicationLifecycle.addStopHook(() => Future{usageQuota.stopUpdates()})
 
+  val usageReportService = new UsageReportService(config)(actorSystem.dispatcher)
+  val usageReportScheduler = new UsageReportScheduler(usageReportService, actorSystem.scheduler)(actorSystem.dispatcher)
+  usageReportScheduler.scheduleUpdates()
+  applicationLifecycle.addStopHook(() => Future{usageReportScheduler.stopUpdates()})
+
   val elasticSearch = new ElasticSearch(config, mediaApiMetrics, config.esConfig, () => usageQuota.usageStore.overQuotaAgencies, actorSystem.scheduler)
   elasticSearch.ensureIndexExistsAndAliasAssigned()
 
