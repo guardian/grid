@@ -305,9 +305,12 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
           ))
       case JsDefined(c) if legacyCategoryReplacements.get(c.as[String]).contains(PublisherPhotographer) =>
         val photographer = (source \ "usageRights" \ "photographer").asOpt[String]
+        val supplier = (source \ "usageRights" \ "supplier").asOpt[String]
+        val suppliers = (source \ "usageRights" \ "suppliers").asOpt[String]
         (__ \ "usageRights").json.update(__.read[JsObject]
           .map(_ ++ Json.obj("category" -> PublisherPhotographer.category, "legacyCategory" -> c.as[String])
             ++ photographer.fold(Json.obj())(s => Json.obj("creator" -> s))
+            ++ supplier.fold(Json.obj())(s => Json.obj("creator" -> s))
           ))
       case JsDefined(c) if legacyCategoryReplacements.get(c.as[String]).contains(PublisherIllustrator) =>
         (__ \ "usageRights").json.update(__.read[JsObject]
