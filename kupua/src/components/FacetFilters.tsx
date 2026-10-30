@@ -30,6 +30,13 @@ import {
   ILLUSTRATOR_CATEGORIES,
 } from "@/dal/adapters/elasticsearch/cql";
 import { buildIsOptions } from "@/lib/typeahead-fields";
+import { groupCategoryBuckets, useUsageRightsCatalogue } from "@/lib/usage-rights-catalogue";
+import { useCategoryLabel } from "@/lib/category-labels";
+import { AGG_EXPANDED_SIZE, CATEGORY_AGG_SIZE } from "@/constants/tuning";
+
+const CATEGORY_PATH = "usageRights.category";
+// media-api expands category aliases and replaced values in search; direct-ES does not.
+const GROUP_CATEGORIES = import.meta.env.VITE_USE_MEDIA_API === "true";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -87,6 +94,8 @@ export function FacetFilters() {
   const fetchExpandedAgg = useSearchStore((s) => s.fetchExpandedAgg);
   const collapseExpandedAgg = useSearchStore((s) => s.collapseExpandedAgg);
   const dynamicFacetBuckets = useSearchStore((s) => s.dynamicFacetBuckets);
+  const catalogue = useUsageRightsCatalogue((s) => (GROUP_CATEGORIES ? s.categories : null));
+  useCategoryLabel();
 
   const searchParams = useSearch({ from: "/search" });
   const updateSearch = useUpdateSearchParams();
@@ -220,19 +229,25 @@ export function FacetFilters() {
           updateSearch({ query: newQuery || undefined });
         }}
       />
-      {FACET_FIELDS.map((field) => (
-        <FacetSection
-          key={field.id}
-          field={field}
-          buckets={aggregations?.fields[field.esSearchPath as string]?.buckets ?? []}
-          expandedBuckets={expandedAggs[field.esSearchPath as string]?.buckets}
-          expandedLoading={expandedAggsLoading.has(field.esSearchPath as string)}
-          onShowMore={() => fetchExpandedAgg(field.esSearchPath as string)}
-          onCollapse={() => collapseExpandedAgg(field.esSearchPath as string)}
-          currentQuery={currentQuery}
-          onFacetClick={handleFacetClick}
-        />
-      ))}
+      {FACET_FIELDS.map((field) => {
+        const path = field.esSearchPath as string;
+        const buckets = aggregations?.fields[path]?.buckets ?? [];
+        const expanded = expandedAggs[path]?.buckets;
+        const isCategory = path === CATEGORY_PATH;
+        return (
+          <FacetSection
+            key={field.id}
+            field={field}
+            buckets={isCategory ? groupCategoryBuckets(buckets, catalogue, CATEGORY_AGG_SIZE) : buckets}
+            expandedBuckets={isCategory && expanded ? groupCategoryBuckets(expanded, catalogue, AGG_EXPANDED_SIZE) : expanded}
+            expandedLoading={expandedAggsLoading.has(path)}
+            onShowMore={() => fetchExpandedAgg(path)}
+            onCollapse={() => collapseExpandedAgg(path)}
+            currentQuery={currentQuery}
+            onFacetClick={handleFacetClick}
+          />
+        );
+      })}
       {/* Dynamic facets — one per has:"<field>" clause in the query, for
           arbitrary field paths outside the field registry (e.g.
           fileMetadata.xmp.*). Reuses FacetSection: same click, expand, and

@@ -24,6 +24,17 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 30 October 2026 - Filters Category rows follow Grid's categories
+
+In media-api mode, the Filters panel's Category rows fold stored values into the category
+that replaces them (metadata-editor's `legacyCategories`), labelled with the server name and
+applying `category:<search alias or value>`, which media-api expands. Stored values no
+category claims keep their own rows. The category aggregation now requests the whole
+vocabulary (100 buckets) so sums are exact; servers without replaced values, a possibly
+truncated aggregation, direct-ES and no-catalogue modes keep raw stored-value rows. A query
+already holding a replaced value (e.g. `category:staff-photographer`) does not highlight
+the grouped row.
+
 ### 30 October 2026 - Category typeahead matches Kahuna, with exact counts
 
 In media-api mode, `category:` suggestions now list Grid's configured categories as

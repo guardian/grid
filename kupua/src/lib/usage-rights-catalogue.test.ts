@@ -6,7 +6,7 @@ const links = vi.hoisted(() => ({ edits: "https://metadata.example.test" as stri
 vi.mock("@/lib/grid-api-instance", () => ({ serviceLink: async (rel: string) => (rel === "edits" ? links.edits : undefined) }));
 
 import { categoryLabel } from "./category-labels";
-import { loadUsageRightsCatalogue, useUsageRightsCatalogue } from "./usage-rights-catalogue";
+import { groupCategoryBuckets, loadUsageRightsCatalogue, useUsageRightsCatalogue } from "./usage-rights-catalogue";
 
 const categories = [
   { value: "", name: "Unknown Rights", cost: "pay", description: "" },
@@ -77,6 +77,35 @@ describe("category labels", () => {
       { value: "publisher-photographer", name: "ACME Photographer", searchAlias: "acme-photographer" },
     ] });
     expect(categoryLabel("publisher-photographer")).toBe("ACME Photographer");
+    expect(categoryLabel("acme-photographer")).toBe("ACME Photographer");
     expect(categoryLabel("pay-to-use")).toBe("Pay to use");
+  });
+});
+
+describe("category facet grouping", () => {
+  const catalogue = [
+    { value: "", name: "Unknown Rights", legacyCategories: [] },
+    { value: "publisher-photographer", name: "ACME Photographer", searchAlias: "acme-photographer",
+      legacyCategories: ["staff-photographer", "Bylines"] },
+    { value: "pr-and-third-party", name: "PR & Third Party", legacyCategories: ["handout"] },
+    { value: "pay-to-use", name: "Pay to use", legacyCategories: ["chargeable"] },
+  ];
+  const buckets = [
+    { key: "staff-photographer", count: 50 }, { key: "agency", count: 40 }, { key: "handout", count: 30 },
+    { key: "publisher-photographer", count: 5 }, { key: "Bylines", count: 2 }, { key: "", count: 1 },
+  ];
+
+  it("folds replaced values into their category, keyed by search alias, keeping unclaimed values, by count", () => {
+    expect(groupCategoryBuckets(buckets, catalogue, 100)).toEqual([
+      { key: "acme-photographer", count: 57 }, { key: "agency", count: 40 },
+      { key: "pr-and-third-party", count: 30 }, { key: "", count: 1 },
+    ]);
+  });
+
+  it("leaves buckets untouched without replaced values from the server, or when possibly truncated", () => {
+    const older = catalogue.map(({ legacyCategories: _, ...c }) => c);
+    expect(groupCategoryBuckets(buckets, older, 100)).toBe(buckets);
+    expect(groupCategoryBuckets(buckets, catalogue, buckets.length)).toBe(buckets);
+    expect(groupCategoryBuckets(buckets, null, 100)).toBe(buckets);
   });
 });

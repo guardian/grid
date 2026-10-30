@@ -64,6 +64,7 @@ import {
   AGG_DEBOUNCE_MS,
   AGG_CIRCUIT_BREAKER_MS,
   AGG_DEFAULT_SIZE,
+  CATEGORY_AGG_SIZE,
   AGG_EXPANDED_SIZE,
   SEEK_COOLDOWN_MS,
   SEARCH_FETCH_COOLDOWN_MS,
@@ -89,7 +90,11 @@ interface SearchOptions {
 /** Aggregatable fields derived from the field registry — built once. */
 const AGG_FIELDS = FIELD_REGISTRY
   .filter((f) => f.aggregatable && f.esSearchPath && typeof f.esSearchPath === "string")
-  .map((f) => ({ field: f.esSearchPath as string, size: AGG_DEFAULT_SIZE }));
+  .map((f) => ({
+    field: f.esSearchPath as string,
+    // Whole vocabulary, so category facet rows can merge replaced values exactly.
+    size: f.esSearchPath === "usageRights.category" ? CATEGORY_AGG_SIZE : AGG_DEFAULT_SIZE,
+  }));
 
 /** A refused or unreachable media-api AI search: publish an empty, error-free result with no pool or overlay. */
 function absentAiResult(): AiSearchResult {

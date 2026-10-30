@@ -50,7 +50,10 @@ function serverCategory(value: string): UsageRightsCategory | undefined {
   const categories = useUsageRightsCatalogue.getState().categories;
   if (categories !== indexedFrom) {
     indexedFrom = categories;
-    byValue = new Map((categories ?? []).map((category) => [category.value, category]));
+    byValue = new Map((categories ?? []).flatMap((category) => [
+      ...(category.searchAlias ? [[category.searchAlias, category] as const] : []),
+      [category.value, category] as const,
+    ]));
   }
   return byValue.get(value);
 }

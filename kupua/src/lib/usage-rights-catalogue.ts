@@ -48,6 +48,28 @@ function decodeCategories(raw: unknown): UsageRightsCategory[] | null {
 
 let loading: Promise<void> | null = null;
 
+/**
+ * Filters-panel category rows: each category absorbs the stored values it replaces, keyed by
+ * its search value (Kahuna's chip); unclaimed values stay. Unchanged unless counts are exact:
+ * every category lists replaced values and the aggregation wasn't truncated at `requested`.
+ */
+export function groupCategoryBuckets<B extends { key: string; count: number }>(
+  buckets: B[], catalogue: UsageRightsCategory[] | null, requested: number,
+): Array<{ key: string; count: number }> {
+  if (!catalogue?.every((c) => c.legacyCategories) || buckets.length >= requested) return buckets;
+  const owner = new Map<string, string>();
+  for (const c of catalogue) {
+    if (c.value === "") continue;
+    for (const v of [c.value, ...c.legacyCategories!]) owner.set(v, c.searchAlias ?? c.value);
+  }
+  const counts = new Map<string, number>();
+  for (const b of buckets) {
+    const key = owner.get(b.key) ?? b.key;
+    counts.set(key, (counts.get(key) ?? 0) + b.count);
+  }
+  return [...counts].map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count);
+}
+
 /** Fire-and-forget at startup; one attempt per page load. */
 export function loadUsageRightsCatalogue(): Promise<void> {
   if (useUsageRightsCatalogue.getState().categories) return Promise.resolve();

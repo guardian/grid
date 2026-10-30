@@ -23,6 +23,7 @@ import type {
   SearchParams,
 } from "@/dal/types";
 import { gridConfig } from "./grid-config";
+import { CATEGORY_AGG_SIZE } from "@/constants/tuning";
 import { displayTickers } from "./ticker-display";
 import { FIELDS_BY_CQL_KEY } from "./field-registry";
 import { isolateAggregationFailure } from "./safe-aggregation";
@@ -70,8 +71,7 @@ const SUBJECTS = [
 
 const FILE_TYPES = ["jpeg", "tiff", "png"];
 
-/** Above Grid's whole category vocabulary (~35), so a short page proves completeness. */
-const CATEGORY_BUCKETS = 100;
+const CATEGORY_BUCKETS = CATEGORY_AGG_SIZE;
 
 const USAGE_PLATFORMS = ["print", "digital", "syndication", ...(gridConfig["image.record.download"] ? ["download"] : [])];
 

@@ -215,6 +215,9 @@ export const AGG_DEFAULT_SIZE = 10;
 /** Bucket count for "show more" — single-field on-demand request. */
 export const AGG_EXPANDED_SIZE = 100;
 
+/** Above Grid's whole category vocabulary (~35), so a short page proves completeness. */
+export const CATEGORY_AGG_SIZE = 100;
+
 // ---------------------------------------------------------------------------
 // Prefetch / traversal session
 // ---------------------------------------------------------------------------
