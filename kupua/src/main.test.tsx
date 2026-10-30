@@ -87,7 +87,11 @@ it("U6z initializes API ownership before imports, including main's collection lo
   expect(startup.render).toHaveBeenCalledOnce();
   await vi.waitFor(() => expect(useCollectionStore.getState().status).toBe("ready"));
   expect(useCollectionStore.getState().tree?.data.basename).toBe("root");
-  expect(useCollectionStore.getState().counts).toEqual({ fixture: 3, "fixture/child": 3 });
+  expect(useCollectionStore.getState().countsByScope).toEqual({});
+  expect(calls.filter(({ path }) => path === "/api/images/aggregations")).toEqual([]);
+
+  await useCollectionStore.getState().loadCounts(source, "free");
+  expect(useCollectionStore.getState().countsByScope.free).toEqual({ fixture: 3, "fixture/child": 3 });
   expect(calls.find(({ path }) => path === "/api/images/aggregations")?.body).toMatchObject({
     free: true, fields: [{ field: "collections.pathId", size: 6000 }],
   });
@@ -158,7 +162,7 @@ it("U6z keeps the first API resolver through remounts with cold registered, alia
   }
 });
 
-it.each(["refused", "unavailable", "incomplete", "empty"])("U6z keeps the collection tree with %s counts through its startup owner", async (outcome) => {
+it.each(["refused", "unavailable", "incomplete", "empty"])("U6z keeps the collection tree with %s counts", async (outcome) => {
   const { useSearchStore } = await import("./stores/search-store");
   const { useCollectionStore } = await import("./stores/collection-store");
   const paths: string[] = [];
@@ -172,10 +176,11 @@ it.each(["refused", "unavailable", "incomplete", "empty"])("U6z keeps the collec
     return Response.json({ errorKey: outcome === "incomplete" ? "aggregations-incomplete" : "forbidden" },
       { status: outcome === "incomplete" ? 503 : 403 });
   }));
-  useCollectionStore.setState({ status: "idle", counts: { stale: 9 } });
-  await useCollectionStore.getState().loadCollections(useSearchStore.getState().dataSource);
+  useCollectionStore.setState({ status: "idle", countsByScope: {} });
+  await useCollectionStore.getState().loadCollections();
+  await useCollectionStore.getState().loadCounts(useSearchStore.getState().dataSource, "all");
   expect(useCollectionStore.getState().status).toBe("ready");
   expect(useCollectionStore.getState().tree?.data.basename).toBe("fixture-tree");
-  expect(useCollectionStore.getState().counts).toEqual({});
+  expect(useCollectionStore.getState().countsByScope.all ?? {}).toEqual({});
   expect(paths.sort()).toEqual(["/api/images/aggregations", "/collections"]);
 });

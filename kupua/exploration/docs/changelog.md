@@ -24,6 +24,15 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 30 October 2026 - Collection counts follow the free-to-use checkbox (KUP-037)
+
+Collection subtree counts previously used an implicit free-only default regardless of
+the checkbox. They now count the whole library in the current "Free to use only" scope.
+Startup loads only the collection tree; counts load when Collections is shown or
+hover-prefetched from Browse, at most once per scope per tab session (in-flight requests
+shared, failures retried on next need). This removes the whole-index aggregation from
+every page load.
+
 ### 30 October 2026 - Hosted configuration from Kahuna
 
 When serving Kupua, Kahuna now adds an allowlisted `gridConfig` object and the

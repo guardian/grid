@@ -1,15 +1,18 @@
 /**
  * Collection store — manages the collection tree and per-node image counts.
  *
- * Loads once at boot:
- * 1. Fetches the collection tree directly from the collections service
- *    (URL from `VITE_COLLECTIONS_URL`, credentials included for panda auth)
- * 2. Fetches unfiltered image counts via an aggregation on the app's data source (not search-scoped)
- * 3. Computes subtree counts (parent = sum of own + all descendants)
+ * Loads the tree once at boot from the collections service (URL from
+ * `VITE_COLLECTIONS_URL`, credentials included for panda auth): colours and
+ * suggestions need it.
+ *
+ * Counts load lazily, only when the Collections section is shown (or
+ * hover-prefetched), in the "Free to use only" checkbox's scope. Each scope is
+ * fetched at most once per tab session: the whole-index aggregation is not
+ * repeated per reload or toggle. Subtree counts sum own + all descendants.
  *
  * Graceful-absence: if the tree fetch fails, status = 'absent' and the
- * Collections panel section is hidden. If only the count fetch fails, the
- * tree is shown without counts.
+ * Collections panel section is hidden. A failed count fetch shows the tree
+ * without counts and is retried on the next need.
  *
  * Persisted to sessionStorage (survives reload, not cross-tab).
  */
@@ -48,19 +51,27 @@ export interface CollectionNode {
 
 export type CollectionStatus = "idle" | "loading" | "ready" | "absent";
 
+/** Count scope follows the "Free to use only" checkbox: `all` includes paid images. */
+export type CollectionCountScope = "all" | "free";
+
+export function collectionCountScope(params: { nonFree?: string }): CollectionCountScope {
+  return params.nonFree === "true" ? "all" : "free";
+}
+
 interface CollectionStoreState {
   /** The root of the collection tree (or null if not loaded / absent). */
   tree: CollectionNode | null;
   /**
-   * Per-pathId SUBTREE image count (own + all descendants).
-   * Empty map when agg failed or not yet loaded.
-   * Stored as a plain object for JSON serialisation; access via helpers.
+   * Per-scope, per-pathId SUBTREE image count (own + all descendants).
+   * A missing scope means not fetched yet (or the last fetch failed).
    */
-  counts: Record<string, number>;
+  countsByScope: Partial<Record<CollectionCountScope, Record<string, number>>>;
   status: CollectionStatus;
 
-  /** Load the collection tree and counts. Called once at app boot. */
-  loadCollections: (dataSource: Pick<ImageDataSource, "getAggregations">) => Promise<void>;
+  /** Load the collection tree. Called once at app boot. */
+  loadCollections: () => Promise<void>;
+  /** Fetch one scope's counts unless already cached or in flight. */
+  loadCounts: (dataSource: Pick<ImageDataSource, "getAggregations">, scope: CollectionCountScope) => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -114,52 +125,54 @@ export function buildSubtreeCounts(
 // Store
 // ---------------------------------------------------------------------------
 
+const countsInFlight = new Map<CollectionCountScope, Promise<void>>();
+
 export const useCollectionStore = create<CollectionStoreState>()(
   persist(
     (set, get) => ({
       tree: null,
-      counts: {},
+      countsByScope: {},
       status: "idle" as CollectionStatus,
 
-      loadCollections: async (dataSource) => {
+      loadCollections: async () => {
         // Don't reload if already loaded or loading
         const { status } = get();
         if (status === "loading" || status === "ready") return;
 
         set({ status: "loading" });
+        const tree = await fetchCollectionTree();
+        set(tree ? { tree, status: "ready" } : { tree: null, status: "absent" });
+      },
 
-        // Fire both requests in parallel
-        const [treeResult, aggResult] = await Promise.allSettled([
-          fetchCollectionTree(),
-          dataSource.getAggregations({}, [{ field: "collections.pathId", size: 6000 }]),
-        ]);
-
-        // Tree fetch failure → absent (Collections section hidden)
-        if (treeResult.status === "rejected" || treeResult.value === null) {
-          set({ status: "absent", tree: null, counts: {} });
-          return;
-        }
-
-        const tree = treeResult.value;
-
-        // Agg failure → show tree without counts (not absent)
-        let counts: Record<string, number> = {};
-        if (aggResult.status === "fulfilled") {
-          const buckets = aggResult.value.fields["collections.pathId"]?.buckets ?? [];
-          const directCounts = new Map(buckets.map((b) => [b.key, b.count]));
-          const subtreeCounts = buildSubtreeCounts(directCounts);
-          counts = Object.fromEntries(subtreeCounts);
-        }
-
-        set({ tree, counts, status: "ready" });
+      loadCounts: (dataSource, scope) => {
+        if (get().countsByScope[scope]) return Promise.resolve();
+        const pending = countsInFlight.get(scope);
+        if (pending) return pending;
+        const request = (async () => {
+          try {
+            const result = await dataSource.getAggregations(
+              scope === "all" ? { nonFree: "true" } : {},
+              [{ field: "collections.pathId", size: 6000 }],
+            );
+            const buckets = result.fields["collections.pathId"]?.buckets ?? [];
+            const counts = Object.fromEntries(buildSubtreeCounts(new Map(buckets.map((b) => [b.key, b.count]))));
+            set((state) => ({ countsByScope: { ...state.countsByScope, [scope]: counts } }));
+          } catch {
+            // Optional data: the tree stays usable without counts.
+          } finally {
+            countsInFlight.delete(scope);
+          }
+        })();
+        countsInFlight.set(scope, request);
+        return request;
       },
     }),
     {
       name: "kupua-collection-store",
       storage: createJSONStorage(() => sessionStorage),
-      // Only persist the stable parts; status resets to 'idle' on reload
-      // so loadCollections() fires again and picks up fresh counts.
-      partialize: (s) => ({ tree: s.tree, counts: s.counts }),
+      // The tree is refetched per load (status resets to 'idle'); counts are
+      // kept for the tab session to avoid repeating the whole-index aggregation.
+      partialize: (s) => ({ tree: s.tree, countsByScope: s.countsByScope }),
     },
   ),
 );

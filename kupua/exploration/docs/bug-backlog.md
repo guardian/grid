@@ -57,13 +57,14 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | ID | Topic | Current status | Migration relevance |
 | --- | --- | --- | --- |
 | [KUP-011](#kup-011) | Parsed intent versus automatic defaults | Defaults aligned locally in both modes; open direct-to-ES grammar divergence | Remaining cross-mode syntax scope |
-| [KUP-037](#kup-037) | Collection badges silently use the free-only default scope | Open; source and recorded API body confirm both modes agree | Independent count/label correctness; not an M2a routing gate |
 | [KUP-041](#kup-041) | API cancellation does not reach outgoing Elasticsearch reads | Open; cancellation handle is not retained, backend work observed after browser cancellation | Independent resource-lifetime follow-up; not a proven PP3 cause or migration gate |
+| [KUP-043](#kup-043) | Image refresh and enrichment after a write | Parked design question | Prerequisite for future edits/deletions only |
 
 KUP-038 is closed against the ledger's completed B8/L37/B17 repairs, not a new fix.
 KUP-042 is repaired locally with globally stable fixed-grid rows; Justified packing,
 thumbnail arrival and B2 prediction remain separate work.
-KUP-011/037 have no closure evidence from continuity work and remain separately scoped.
+KUP-011 has no closure evidence from continuity work and remains separately scoped;
+KUP-037 is DONE (30 October, counts follow the checkbox).
 KUP-035 is DONE for default-collapsed chip rendering; intentional large expansion remains
 an accepted cost, not an open repair requirement.
 
@@ -529,7 +530,7 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Trigger / expected / actual:** `loadCollections()` requests `getAggregations({})` for `collections.pathId` and describes the result as unfiltered membership volume. Missing `nonFree=true` activates Kupua's ordinary free-only default, so both direct ES and media-api requests count only free-eligible images. If the badges mean total collection membership, they undercount; if free-only counts are intended, the UI/comments do not disclose that scope.
 - **Evidence:** [collection request](../../src/stores/collection-store.ts#L123), [API mapper default](../../src/dal/grid-api-search-adapter.ts#L129), [direct builder](../../src/dal/es-adapter.ts#L548), and the [cold-start request assertion](../../src/main.test.tsx#L78), which explicitly requires `free: true`. This is source/test confirmation, not a browser comparison or measured user impact.
 - **Smallest discriminator:** create one free and one non-free image in the same collection, load counts through each datasource, and assert the intended badge total. First decide whether the product label means all membership or free-only membership; do not weaken direct/API parity.
-- **Dependency / disposition:** OPEN, independently parked. Both modes currently agree, so this does not block M2a routing or invalidate existing API comparisons. Resolve later as one client intent/label decision with failing-first direct and API tests.
+- **Dependency / disposition:** DONE (30 October). Operator decision: counts follow the "Free to use only" checkbox, not the user's default (silently using a default some users don't have looked buggy). Counts now load lazily when Collections is shown or hover-prefetched, once per scope per tab session; startup loads only the tree. Failing-first store, `CollectionTree` and Browse-hover tests; startup assertions updated to require no count request. Direct-ES and media-api share the store path. PROD request cost remains unmeasured; the change reduces how often it runs.
 
 #### KUP-038
 **Density switch and Home/End keys cancel an in-flight search without replacing it**
@@ -578,6 +579,12 @@ To rerun the focused contract, follow the [local E2E setup/port rules](../../e2e
 ```sh
 set -o pipefail; npm --prefix kupua run test:e2e -- --project=chromium density-controls.spec.ts --grep 'fixed-row publication' --retries=0 2>&1 | tee "$TMPDIR/kupua-test-output.txt"
 ```
+
+#### KUP-043
+**Image refresh and enrichment after a write (future edits/deletions)**
+- **Scope:** design question recorded 30 October at operator request; no code or evidence yet.
+- **Need:** once Kupua performs writes (gated by media-api's per-image action links, not shipped permissions), a changed or deleted image must update in the buffer, Details and selection without losing position, and must not be overwritten by stale enrichment or in-flight reads. KUP-030's closure covered only the AI overlay lifetime.
+- **Disposition:** OPEN, deliberately parked until edits/deletions are scoped. Not a current migration gate.
 
 ### Dependency Unresolved
 

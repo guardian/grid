@@ -88,6 +88,14 @@ as the whole count. This costs one retained baseline map per poll lifetime and l
 sequencing, without extra reads. It does not guarantee immutable metadata or alter Kahuna.
 See [the current ticker contract](00%20Architecture%20and%20philosophy/ticker-system-reference.md).
 
+### Collection counts follow the free-to-use checkbox (30 October 2026)
+
+Kahuna shows no collection counts. Kupua's subtree badges count the whole library
+in the current "Free to use only" scope rather than the user's default, so the numbers
+match what the checkbox shows. To limit whole-index aggregations, counts load only when
+Collections is shown or hover-prefetched and are cached per scope for the tab session.
+Trade-off: counts can be as stale as the tab session; the tree itself still refreshes per load.
+
 ### Ticker display order (30 October 2026)
 
 Kahuna renders ticker badges in media-api's response order. Kupua renders configured

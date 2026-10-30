@@ -13,9 +13,10 @@
  * See kupua/exploration/docs/00 Architecture and philosophy/06-collections.md for architecture.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useSearch } from "@tanstack/react-router";
-import { useCollectionStore, type CollectionNode } from "@/stores/collection-store";
+import { collectionCountScope, useCollectionStore, type CollectionNode } from "@/stores/collection-store";
+import { useSearchStore } from "@/stores/search-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { findFieldTerm, upsertFieldTerm, removeAllFieldTerms } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { formatCount } from "@/lib/format-count";
@@ -24,14 +25,22 @@ import { formatCount } from "@/lib/format-count";
 // CollectionTree — top-level component
 // ---------------------------------------------------------------------------
 
+const NO_COUNTS: Record<string, number> = {};
+
 export function CollectionTree() {
   const status = useCollectionStore((s) => s.status);
   const tree = useCollectionStore((s) => s.tree);
-  const counts = useCollectionStore((s) => s.counts);
 
   const searchParams = useSearch({ from: "/search" });
+  const scope = collectionCountScope(searchParams);
+  const counts = useCollectionStore((s) => s.countsByScope[scope]) ?? NO_COUNTS;
   const updateSearch = useUpdateSearchParams();
   const currentQuery = searchParams.query ?? "";
+
+  // Mounted only while the panel and section are open: that is the request for counts.
+  useEffect(() => {
+    void useCollectionStore.getState().loadCounts(useSearchStore.getState().dataSource, scope);
+  }, [scope]);
 
   // Local expand state — collapsed by default, keyed by pathId.
   const [expanded, setExpanded] = useState<Set<string>>(new Set());

@@ -25,6 +25,7 @@ import { resetScrollAndFocusSearch } from "@/lib/orchestration/search";
 import { beginTraceInteraction } from "@/lib/perceived-trace";
 import { SELECTIONS_PERSIST_ACROSS_NAVIGATION } from "@/constants/tuning";
 import { displayTickers } from "@/lib/ticker-display";
+import { collectionCountScope, useCollectionStore } from "@/stores/collection-store";
 import { upsertFieldTerm, findFieldTerm } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import type { TickerCountResult } from "@/dal";
 import { restoreArrivalState, snapshotStore } from "@/lib/history-snapshot";
@@ -107,6 +108,7 @@ export function StatusBar() {
   const rightVisible = usePanelStore((s) => s.config.right.visible);
   const togglePanel = usePanelStore((s) => s.togglePanel);
   const filtersExpanded = usePanelStore((s) => s.isSectionOpen("left-filters"));
+  const collectionsExpanded = usePanelStore((s) => s.isSectionOpen("left-collections"));
   const fetchAggregations = useSearchStore((s) => s.fetchAggregations);
 
   const selectDensity = (choice: "grid" | "table" | "justified") => {
@@ -123,10 +125,14 @@ export function StatusBar() {
   // prevents duplicate requests.
   // Documented: infra-safeguards.md §6, panels-plan.md Decision #9.
   const handleBrowseHover = useCallback(() => {
-    if (!leftVisible && filtersExpanded) {
-      fetchAggregations();
+    if (leftVisible) return;
+    if (filtersExpanded) fetchAggregations();
+    // Collection counts follow the same rule; cached per scope, so repeat hovers are free.
+    if (collectionsExpanded && useCollectionStore.getState().status !== "absent") {
+      void useCollectionStore.getState().loadCounts(
+        useSearchStore.getState().dataSource, collectionCountScope(searchParams));
     }
-  }, [leftVisible, filtersExpanded, fetchAggregations]);
+  }, [leftVisible, filtersExpanded, collectionsExpanded, fetchAggregations, searchParams]);
 
   return (
     <div

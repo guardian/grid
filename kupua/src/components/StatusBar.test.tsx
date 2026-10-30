@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.hoisted(() => {
@@ -14,6 +14,8 @@ import { useSearchStore } from "@/stores/search-store";
 import { gridConfig } from "@/lib/grid-config";
 import { snapshotStore } from "@/lib/history-snapshot";
 import { buildSearchKey } from "@/lib/image-offset-cache";
+import { useCollectionStore } from "@/stores/collection-store";
+import { usePanelStore } from "@/stores/panel-store";
 
 const ticker = gridConfig.tickerDefinitions[0];
 const resultCount = () => screen.getAllByRole("status")[0].textContent;
@@ -96,5 +98,24 @@ describe("StatusBar AI totals", () => {
     expect(badges.map((badge) => badge.textContent)).toEqual(["3 new", `1 ${org.name}`, `2 ${picks.name}`, "4 server"]);
     expect(badges[1].style.backgroundColor).toBe("rgb(0, 86, 137)");
     expect(badges[2].style.backgroundColor).toBe("rgb(171, 205, 239)");
+  });
+
+  it("hovering Browse prefetches collection counts only when the hidden panel's Collections section is open", () => {
+    const loadCounts = vi.spyOn(useCollectionStore.getState(), "loadCounts").mockResolvedValue();
+    const panels = usePanelStore.getState().config;
+    try {
+      usePanelStore.setState({ config: { ...panels, left: { ...panels.left, visible: false }, sections: { "left-collections": false } } });
+      render(<StatusBar />);
+      const browse = screen.getByRole("button", { name: "Show Browse panel" });
+      fireEvent.mouseEnter(browse);
+      expect(loadCounts).not.toHaveBeenCalled();
+
+      act(() => usePanelStore.setState({ config: { ...panels, left: { ...panels.left, visible: false }, sections: { "left-collections": true } } }));
+      fireEvent.mouseEnter(browse);
+      expect(loadCounts).toHaveBeenCalledWith(useSearchStore.getState().dataSource, "free");
+    } finally {
+      loadCounts.mockRestore();
+      usePanelStore.setState({ config: panels });
+    }
   });
 });

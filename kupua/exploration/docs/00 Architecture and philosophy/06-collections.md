@@ -31,10 +31,12 @@ auto-switching the sort to `-dateAddedToCollection`. Read-only in Phase 2.
    `credentials: "include"` (panda auth). No Vite proxy — CORS allowlisted
    server-side.
 
-3. **Counts = unfiltered ES agg.** Terms agg on `collections.pathId` (size 6000,
-   covers PROD's 5,350+ unique values). Run against empty `SearchParams` — counts
-   represent "images in collection X" globally, not scoped to the current search.
-   Fired once at boot alongside the tree fetch.
+3. **Counts = whole-library ES agg in the checkbox's scope.** Terms agg on
+   `collections.pathId` (size 6000, covers PROD's 5,350+ unique values), not scoped
+   to the current search. Scope follows "Free to use only": `nonFree=true` counts
+   all images, otherwise free-only. Fetched lazily when Collections is shown (left
+   panel open and section expanded) or hover-prefetched from Browse, at most once
+   per scope per tab session (KUP-037). The tree alone loads at boot.
 
 4. **Subtree counts via pathId-splitting** (not tree walk). Splits each pathId on
    `/` to generate ancestor prefixes — mirrors ES's `hierarchyAnalyzer`
@@ -110,14 +112,16 @@ auto-switching the sort to `-dateAddedToCollection`. Read-only in Phase 2.
 ```ts
 interface CollectionStoreState {
   tree: CollectionNode | null;
-  counts: Record<string, number>;  // pathId → subtree count
+  countsByScope: Partial<Record<"all" | "free", Record<string, number>>>; // pathId → subtree count
   status: "idle" | "loading" | "ready" | "absent";
-  loadCollections(): Promise<void>;
+  loadCollections(): Promise<void>;           // tree only
+  loadCounts(dataSource, scope): Promise<void>; // cached/in-flight scopes are no-ops
 }
 ```
 
 Persisted to `sessionStorage` (survives reload, not cross-tab). Status resets to
-`"idle"` on reload so `loadCollections()` fires again with fresh counts.
+`"idle"` on reload so the tree refetches; counts persist per scope for the tab
+session (accepted staleness). A failed count fetch is not cached.
 
 **Boot:** `useCollectionStore.getState().loadCollections()` in `main.tsx`
 (fire-and-forget, same pattern as `fetchQuotas()`).

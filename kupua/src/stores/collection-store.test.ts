@@ -9,20 +9,17 @@ import type { ImageDataSource } from "@/dal";
 describe("loadCollections", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
-    useCollectionStore.setState({ tree: null, counts: {}, status: "idle" });
+    useCollectionStore.setState({ tree: null, countsByScope: {}, status: "idle" });
   });
 
-  it("counts collection images through the data source it is given, in the unfiltered default scope", async () => {
+  it("loads only the tree; counts wait until the Collections section needs them", async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: { basename: "root", children: [] } })));
     vi.stubGlobal("fetch", fetchMock);
-    const getAggregations = vi.fn(async () => ({
-      fields: { "collections.pathId": { buckets: [{ key: "sport", count: 2 }, { key: "sport/football", count: 3 }] } },
-    }));
 
-    await useCollectionStore.getState().loadCollections({ getAggregations } as unknown as Pick<ImageDataSource, "getAggregations">);
+    await useCollectionStore.getState().loadCollections();
 
-    expect(getAggregations).toHaveBeenCalledWith({}, [{ field: "collections.pathId", size: 6000 }]);
-    expect(useCollectionStore.getState().counts).toEqual({ sport: 5, "sport/football": 3 });
+    expect(useCollectionStore.getState().status).toBe("ready");
+    expect(useCollectionStore.getState().countsByScope).toEqual({});
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -31,19 +28,67 @@ describe("loadCollections", () => {
     vi.stubGlobal("window", { __KUPUA_CONFIG__: undefined } as unknown as Window);
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: { basename: "root", children: [] } })));
     vi.stubGlobal("fetch", fetchMock);
-    const getAggregations = vi.fn(async () => ({ fields: {} }));
-    const source = { getAggregations } as unknown as Pick<ImageDataSource, "getAggregations">;
 
     try {
-      await useCollectionStore.getState().loadCollections(source);
+      await useCollectionStore.getState().loadCollections();
       expect(fetchMock).not.toHaveBeenCalled();
 
       globalThis.window.__KUPUA_CONFIG__ = { collectionsUri: "https://media-collections.example.test/" };
-      await useCollectionStore.getState().loadCollections(source);
+      await useCollectionStore.getState().loadCollections();
       expect(fetchMock).toHaveBeenCalledWith("https://media-collections.example.test/collections", { credentials: "include" });
     } finally {
       vi.unstubAllEnvs();
     }
+  });
+});
+
+describe("loadCounts", () => {
+  const buckets = (count: number) => ({
+    fields: { "collections.pathId": { buckets: [{ key: "sport", count }, { key: "sport/football", count: 3 }] } },
+  });
+  const source = (getAggregations: ReturnType<typeof vi.fn>) =>
+    ({ getAggregations } as unknown as Pick<ImageDataSource, "getAggregations">);
+
+  afterEach(() => { useCollectionStore.setState({ countsByScope: {} }); });
+
+  it("counts in the checkbox's scope: all-rights includes paid images, free-only uses the default filter", async () => {
+    const getAggregations = vi.fn(async (params: { nonFree?: string }, _fields: unknown) => buckets(params.nonFree === "true" ? 4 : 2));
+
+    await useCollectionStore.getState().loadCounts(source(getAggregations), "all");
+    await useCollectionStore.getState().loadCounts(source(getAggregations), "free");
+
+    expect(getAggregations.mock.calls.map(([params, fields]) => [params, fields])).toEqual([
+      [{ nonFree: "true" }, [{ field: "collections.pathId", size: 6000 }]],
+      [{}, [{ field: "collections.pathId", size: 6000 }]],
+    ]);
+    expect(useCollectionStore.getState().countsByScope).toEqual({
+      all: { sport: 7, "sport/football": 3 },
+      free: { sport: 5, "sport/football": 3 },
+    });
+  });
+
+  it("fetches each scope once per session, including concurrent requests", async () => {
+    const getAggregations = vi.fn(async () => buckets(1));
+
+    await Promise.all([
+      useCollectionStore.getState().loadCounts(source(getAggregations), "free"),
+      useCollectionStore.getState().loadCounts(source(getAggregations), "free"),
+    ]);
+    await useCollectionStore.getState().loadCounts(source(getAggregations), "free");
+
+    expect(getAggregations).toHaveBeenCalledOnce();
+  });
+
+  it("does not cache a failure, so the next need retries", async () => {
+    const getAggregations = vi.fn()
+      .mockRejectedValueOnce(new Error("unavailable"))
+      .mockResolvedValueOnce(buckets(1));
+
+    await useCollectionStore.getState().loadCounts(source(getAggregations), "all");
+    expect(useCollectionStore.getState().countsByScope).toEqual({});
+
+    await useCollectionStore.getState().loadCounts(source(getAggregations), "all");
+    expect(useCollectionStore.getState().countsByScope.all).toEqual({ sport: 4, "sport/football": 3 });
   });
 });
 

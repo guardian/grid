@@ -8,7 +8,7 @@ import { snapshotStore, PERSIST_HISTORY_SNAPSHOTS_FOR_RELOAD } from "./lib/histo
 import { buildHistorySnapshot } from "./lib/build-history-snapshot";
 import { fetchQuotas } from "./lib/cost/quota-store";
 import { useCollectionStore } from "./stores/collection-store";
-import { useSearchStore } from "./stores/search-store";
+import "./stores/search-store";
 import { checkBedrockHealth } from "./lib/bedrock-proxy-client";
 import { setAiSearchAvailable } from "./lib/grid-config";
 import { apiAiSearchAvailable } from "./lib/grid-api-instance";
@@ -24,10 +24,10 @@ fetchQuotas();
 (import.meta.env.VITE_USE_MEDIA_API === "true" ? apiAiSearchAvailable() : checkBedrockHealth())
   .then(setAiSearchAvailable).catch(() => {});
 
-// Load collection tree + counts once at startup. Fire-and-forget — if the
-// collections service is unavailable, the Collections panel section is hidden.
-// See kupua/src/stores/collection-store.ts.
-useCollectionStore.getState().loadCollections(useSearchStore.getState().dataSource);
+// Load the collection tree once at startup (counts load lazily when shown).
+// Fire-and-forget — if the collections service is unavailable, the
+// Collections panel section is hidden. See kupua/src/stores/collection-store.ts.
+useCollectionStore.getState().loadCollections();
 
 // Disable browser's automatic scroll restoration — we manage scroll
 // position ourselves via snapshot-based restoration on popstate.
