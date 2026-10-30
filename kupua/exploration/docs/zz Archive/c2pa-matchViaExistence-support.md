@@ -1,3 +1,7 @@
+> **Archived 30 October 2026 — done via media-api.** media-api compiles `matchViaExistence`
+> aliases and returns their values; Kupua's API and hosted modes use that. Direct-ES support was
+> never built (direct-ES is being retired). Current state: [Deployed via Kahuna](../00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md).
+
 # C2PA `matchViaExistence` Support — Workplan
 
 > **Status:** Planning / not started.

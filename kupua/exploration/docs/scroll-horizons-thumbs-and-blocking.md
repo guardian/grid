@@ -836,7 +836,7 @@ proxy continues warming cache; immediate reacquisition can duplicate a miss.
 Streaming/coalescing/abort propagation and HTTP2/separate origins remain separate,
 operator-authorized trade-offs, not B2 dependencies or retroactive savings proof.
 [KUP-041](bug-backlog.md#kup-041) owns API-to-ES read cancellation, not native-image
-lifetime. The [TEST plan](kupua-TEST-deployment-00-plan.md) owns canonical URLs/expiry;
+lifetime. [Deployed via Kahuna](00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md) describes canonical URLs/expiry;
 the [imgproxy assessment](01%20Research/imgproxy-research.md) concerns future preview/zoom
 delivery and does not block today's thumbnails.
 

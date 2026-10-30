@@ -1,3 +1,7 @@
+> **Archived 30 October 2026 — done.** C1–C4 and the ticker-metadata slice are implemented;
+> the status line below is stale. Current state:
+> [Deployed via Kahuna](../00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md).
+
 # Kupua TEST: Configuration From The Server
 
 **Status, 30 October 2026:** scope agreed; implementation not started. This is the

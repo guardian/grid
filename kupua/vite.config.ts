@@ -120,7 +120,6 @@ function perfEnvironment(): Plugin {
  * `vite build --mode hosted` (npm run build:hosted) builds the page Kahuna serves:
  * assets under /assets/kupua/, written into Kahuna's public folder, with settings
  * only from hosted/.env.hosted — never the laptop's .env/.env.local.
- * See exploration/docs/kupua-TEST-deployment-00-plan.md.
  */
 const HOSTED_MODE = "hosted";
 

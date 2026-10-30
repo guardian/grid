@@ -242,7 +242,7 @@ signed S3), full images from the imgops `optimisedPng`/`optimised` link template
 
 The imgops links embed signed source URLs that expire after roughly 15-25 minutes; reload to
 recover. Without the flag every mode keeps its existing delivery. Hosted Kupua will always use returned URLs; see
-the [TEST hosting plan](exploration/docs/kupua-TEST-deployment-00-plan.md).
+[Deployed via Kahuna](exploration/docs/00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md).
 
 ### Hosted build (Kupua served by Kahuna)
 

@@ -1,3 +1,8 @@
+> **Archived 30 October 2026 — done.** Kupua is served by Kahuna on TEST with server
+> configuration. Remaining items were dropped or accepted by the operator, except automatic
+> renewal of expiring signed media URLs, which is under discussion. Current state:
+> [Deployed via Kahuna](../00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md).
+
 # Kupua: TEST Hosting — Plan and Architecture
 
 **Status, 23 October 2026:** Kupua is served by Kahuna on TEST behind an opt-in switch, built

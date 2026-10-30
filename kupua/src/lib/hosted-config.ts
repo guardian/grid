@@ -1,7 +1,6 @@
 /**
  * Runtime configuration Kahuna injects as `window.__KUPUA_CONFIG__` when it serves
  * Kupua's page. Only hosted builds (VITE_HOSTED=true) read it; local modes never do.
- * See exploration/docs/kupua-TEST-deployment-00-plan.md.
  */
 
 export interface HostedConfig {

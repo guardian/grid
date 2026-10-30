@@ -7,9 +7,11 @@ summarised at the end.
 ## Serving and configuration
 
 - `npm --prefix kupua run build:hosted` builds with `VITE_HOSTED=true` and
-  `VITE_USE_MEDIA_API=true` into `kahuna/public/kupua`.
-- Kahuna serves that page to users who opted in (cookie). `/kupua/off` clears the cookie and
-  returns to Kahuna ([hosted-config.ts](../../../src/lib/hosted-config.ts)).
+  `VITE_USE_MEDIA_API=true` into `kahuna/public/kupua`, with settings only from
+  `hosted/.env.hosted` ([vite.config.ts](../../../vite.config.ts)).
+- Kahuna serves that page to users who opted in: `/kupua/on` sets the cookie, `/kupua/off`
+  clears it and returns to Kahuna ([KahunaController.scala](../../../../kahuna/app/controllers/KahunaController.scala)).
+  The page carries its own Content Security Policy.
 - Kahuna injects `window.__KUPUA_CONFIG__` before any module runs
   ([KupuaPage.scala](../../../../kahuna/app/lib/KupuaPage.scala)):
 
@@ -57,6 +59,13 @@ Searches send the category's search alias, which media-api expands.
 search or summed from its aggregation buckets using server-supplied category data. `is:` counts
 are the server's own filter counts, so they always match what the `is:` search returns.
 
+**Field aliases.** Searches on configured aliases, including `matchViaExistence` ones (e.g. C2PA,
+where absence means `false`), are compiled by media-api, which also returns their values.
+
+**Media delivery.** Hosted Kupua always uses the URLs in each image (`VITE_MEDIA_DELIVERY=canonical`;
+laptop API modes opt in with `--canonical-media`). Full-image imgops links embed signed source
+URLs that expire after roughly 15-25 minutes; a page reload fetches fresh ones.
+
 ## Still local in deployed mode
 
 | What | Why |
@@ -68,5 +77,6 @@ are the server's own filter counts, so they always match what the `is:` search r
 
 Direct-ES mode computes everything above locally from Elasticsearch documents: cost, validity,
 `is:` filters, free-to-use, category expansion and sort aliases mirror Grid's Scala code and can
-lag it. Local `--use-media-api` mode uses the same server sources as deployed mode through Vite
-proxies, with `grid-config.ts` defaults in place of Kahuna's settings.
+lag it. It does not support `matchViaExistence` aliases. Local `--use-media-api` mode uses the same server sources as deployed mode through Vite
+proxies, with `grid-config.ts` defaults in place of Kahuna's settings and local imgproxy for
+full images unless `--canonical-media` is set.

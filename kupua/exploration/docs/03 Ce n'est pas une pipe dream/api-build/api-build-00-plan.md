@@ -1196,8 +1196,8 @@ and external CORS config persist.
 replacing `/s3` and `/imgproxy` in API mode. Check the details that local imgproxy handles today:
 rotation, format, DPR, transparency. Renew by re-fetching the singleton when a signed URL has expired.
 Laptop API modes opt in with `--canonical-media` (default delivery unchanged); hosted Kupua always
-uses entity links. Delivery order, initial reload-based expiry recovery and hosting are detailed in
-the [TEST hosting plan](../../kupua-TEST-deployment-00-plan.md).
+uses entity links. Current delivery and expiry are described in
+[Deployed via Kahuna](../../00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md).
 
 **M2b: canonical media delivery checks.** After U7, the operator verifies returned URLs, bounded
 expiry renewal, visual/transform correctness and affected image-loading/traversal performance
@@ -1490,5 +1490,5 @@ operator in chat instead, not here.
 - 26 Sep, U6d, [es-adapter.ts](../../../../src/dal/es-adapter.ts) `getByIds`: an aborted call (or chunk) resolves to `[]`, which `hydrate` would read as "every selected image is gone". No caller passes a signal today, so latent. The media-api path rejects instead. Risk/clean-up.
 - 26 Sep, U6d, `ImageQueryController.scala` header comment: "Every action admits its body through admitSearchParams" is no longer true (mget is ID-only). Left alone per the comment-pruning rule. Clean-up.
 - 26 Sep, U6d P19 preflight, [selection-store.ts:199](../../../../src/stores/selection-store.ts#L199) `requestFullReconcile`: the full reconcile over 1,000 selected images runs as one idle task of about 318 ms, a 360 ms frame, in both modes. It is client work, not media-api. It was already noted in the archived 13 September consolidation audit and the interaction catalogue L08. **Moved to the backlog as [KUP-035](../../bug-backlog.md#kup-035).**
-- 26 Sep, U6d, [image-offset-cache.ts](../../../../src/lib/image-offset-cache.ts) `readFieldPath`/`readAliasValue`: boolean alias values (e.g. `cutout`) give a `null` cursor in both modes, while ES sorts them as 1/0, so a range or restore from such an anchor under that sort starts in the wrong place. Latent. The media-api `false` for a missing `matchViaExistence` alias also reads as null, as [c2pa-matchViaExistence-support.md](../../c2pa-matchViaExistence-support.md) §3.4 requires. That workplan (not started) owns the rest; U6c's aggregation builder has no missing bucket yet (its C5).
+- 26 Sep, U6d, [image-offset-cache.ts](../../../../src/lib/image-offset-cache.ts) `readFieldPath`/`readAliasValue`: boolean alias values (e.g. `cutout`) give a `null` cursor in both modes, while ES sorts them as 1/0, so a range or restore from such an anchor under that sort starts in the wrong place. Latent. The media-api `false` for a missing `matchViaExistence` alias also reads as null. media-api compiles those aliases (see [Deployed via Kahuna](../../00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md)); direct-ES does not support them.
 - 26 Sep, U6d P19 preflight, [perf.spec.ts](../../../../e2e-perf/perf.spec.ts) `esRequests`/`esBytes` (the "Network (ES requests)" report and metric): these count only `/es/` traffic, so in `--use-media-api` runs they read 0. No verdict, chart or assertion uses them. Clean-up: add media-api counts alongside them, keeping the ES fields' meaning for history. This changes the probe shared by every scenario, so validate it with a full operator run.
