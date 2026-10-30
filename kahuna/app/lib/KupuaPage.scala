@@ -1,10 +1,42 @@
 package lib
 
+import com.gu.mediaservice.lib.config.FieldAlias
 import play.api.libs.json.{JsObject, Json}
+
+/** The allowlisted site settings Kupua receives; never raw configuration. */
+case class KupuaSiteSettings(
+  staffPhotographerOrganisation: String,
+  shouldDisplayOrgOwnedCountAndFilterCheckbox: Boolean,
+  fieldAliases: Seq[FieldAlias],
+  imageTypes: Seq[String],
+  recordDownloadAsUsage: Boolean,
+  useReaper: Boolean,
+  agencyPicksIngredients: Option[Map[String, Seq[String]]],
+  agencyPicksColour: String,
+  showDenySyndicationWarning: Boolean,
+  denySyndicationTextHeader: String,
+  defaultShouldBlurGraphicImages: Boolean
+)
+
+object KupuaSiteSettings {
+  def from(config: KahunaConfig): KupuaSiteSettings = KupuaSiteSettings(
+    staffPhotographerOrganisation = config.staffPhotographerOrganisation,
+    shouldDisplayOrgOwnedCountAndFilterCheckbox = config.shouldDisplayOrgOwnedCountAndFilterCheckbox,
+    fieldAliases = config.fieldAliasConfigs,
+    imageTypes = config.imageTypes,
+    recordDownloadAsUsage = config.recordDownloadAsUsage,
+    useReaper = config.useReaper.getOrElse(false),
+    agencyPicksIngredients = config.agencyPicksIngredients,
+    agencyPicksColour = config.agencyPicksColour,
+    showDenySyndicationWarning = config.showDenySyndicationWarning.getOrElse(false),
+    denySyndicationTextHeader = config.denySyndicationTextHeader,
+    defaultShouldBlurGraphicImages = config.defaultShouldBlurGraphicImages
+  )
+}
 
 /**
  * Temporary experiment: Kahuna serves the Kupua prototype's page instead of its own
- * when the user opts in. See kupua/exploration/docs/kupua-TEST-deployment-plan.md.
+ * when the user opts in.
  */
 object KupuaPage {
   val SwitchCookie: String = s"feature-switch-${UseKupua.key}"
@@ -28,6 +60,39 @@ object KupuaPage {
         s"$directive 'wasm-unsafe-eval'"
       else directive
     }.mkString("; ")
+
+  /** `showPaid` is per-request: never cache the result across users. */
+  def pageConfig(mediaApiUri: String, collectionsUri: String, settings: KupuaSiteSettings, showPaid: Option[Boolean]): JsObject = {
+    import settings._
+    // Mirrors media-api's ticker map in ElasticSearch.scala.
+    val orgTicker =
+      if (shouldDisplayOrgOwnedCountAndFilterCheckbox) Some(Json.obj(
+        "name" -> s"$staffPhotographerOrganisation-owned",
+        "searchClause" -> s"is:$staffPhotographerOrganisation-owned",
+        "backgroundColour" -> "#005689"))
+      else None
+    val agencyTicker = agencyPicksIngredients.map(_ => Json.obj(
+      "name" -> "agency picks",
+      "searchClause" -> "is:agency-pick",
+      "backgroundColour" -> agencyPicksColour,
+      "subAggField" -> "usageRights.supplier"))
+    val gridConfig = Json.obj(
+      "staffPhotographerOrganisation" -> staffPhotographerOrganisation,
+      "fieldAliases" -> fieldAliases,
+      "imageTypes" -> imageTypes,
+      "recordDownloadAsUsage" -> recordDownloadAsUsage,
+      "useReaper" -> useReaper,
+      "hasAgencyPicks" -> agencyPicksIngredients.isDefined,
+      "agencyPicksIngredients" -> Json.toJson(agencyPicksIngredients.getOrElse(Map.empty[String, Seq[String]])),
+      "agencyPicksColour" -> agencyPicksColour,
+      "tickerDefinitions" -> (orgTicker.toList ++ agencyTicker.toList),
+      "showDenySyndicationWarning" -> showDenySyndicationWarning,
+      "denySyndicationTextHeader" -> denySyndicationTextHeader,
+      "defaultShouldBlurGraphicImages" -> defaultShouldBlurGraphicImages
+    )
+    Json.obj("mediaApiUri" -> mediaApiUri, "collectionsUri" -> collectionsUri, "gridConfig" -> gridConfig) ++
+      showPaid.fold(Json.obj())(paid => Json.obj("showPaid" -> paid))
+  }
 
   /** Kupua's built page with its runtime config injected first in <head>; None if it has no <head>. */
   def render(indexHtml: String, config: JsObject): Option[String] = {

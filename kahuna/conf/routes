@@ -11,7 +11,7 @@ GET     /upload                                       controllers.KahunaControll
 GET     /quotas                                       controllers.KahunaController.quotas
 GET     /notifications                                controllers.KahunaController.notifications
 
-# Temporary Kupua prototype opt-in/out (see kupua/exploration/docs/kupua-TEST-deployment-plan.md)
+# Temporary Kupua prototype opt-in/out
 GET     /kupua/on                                     controllers.KahunaController.kupuaOn
 GET     /kupua/off                                    controllers.KahunaController.kupuaOff
 

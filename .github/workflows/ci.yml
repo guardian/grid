@@ -60,7 +60,6 @@ jobs:
           npm run dist
       # Temporary Kupua prototype experiment: build the page Kahuna serves on opt-in
       # into kahuna/public/kupua before Scala packaging. Build only; Kupua's tests run locally.
-      # See kupua/exploration/docs/kupua-TEST-deployment-plan.md.
       - name: Kupua (hosted build)
         working-directory: ./kupua
         run: |

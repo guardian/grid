@@ -2,8 +2,8 @@ package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, BaseControllerWithLoginRedirects}
-import lib.{ExampleSwitch, FeatureSwitches, KahunaConfig, KupuaPage, UseKupua}
+import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, BaseControllerWithLoginRedirects, Permissions}
+import lib.{ExampleSwitch, FeatureSwitches, KahunaConfig, KupuaPage, KupuaSiteSettings, UseKupua}
 import play.api.Environment
 import play.api.mvc.{Action, AnyContent, ControllerComponents, Cookie, DiscardingCookie}
 import play.api.libs.json._
@@ -50,7 +50,7 @@ class KahunaController(
     val serveKupua = KupuaPage.shouldServe(
       config.stage, featureSwitches.getFeatureSwitchValue(featureSwitchesWithClientValues, UseKupua.key), isIFramed
     )
-    val kupuaPage = if (serveKupua) loadKupuaPage() else None
+    val kupuaPage = if (serveKupua) loadKupuaPage(maybeUser.map(authorisation.hasPermissionTo(Permissions.ShowPaid))) else None
     val featureSwitchesJson = Json.stringify(Json.toJson(featureSwitches.getFeatureSwitchesToStringify(featureSwitchesWithClientValues)))
 
     val scriptsToLoad = config.scriptsToLoad
@@ -99,12 +99,13 @@ class KahunaController(
   }
 
   /** Re-read per opted-in request (small file) so a rebuilt Kupua appears without a restart. */
-  private def loadKupuaPage(): Option[String] =
+  private lazy val kupuaSiteSettings = KupuaSiteSettings.from(config)
+
+  private def loadKupuaPage(showPaid: Option[Boolean]): Option[String] =
     environment.resourceAsStream(KupuaPage.IndexResource).flatMap { stream =>
       val html = try Source.fromInputStream(stream, "UTF-8").mkString finally stream.close()
-      KupuaPage.render(html, Json.obj(
-        "mediaApiUri" -> config.services.apiBaseUri,
-        "collectionsUri" -> config.services.collectionsBaseUri
+      KupuaPage.render(html, KupuaPage.pageConfig(
+        config.services.apiBaseUri, config.services.collectionsBaseUri, kupuaSiteSettings, showPaid
       ))
     }
 
