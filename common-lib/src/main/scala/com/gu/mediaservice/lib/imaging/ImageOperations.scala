@@ -42,7 +42,7 @@ trait ImageOperations {
                  orientationMetadata: Option[OrientationMetadata]
                )(implicit logMarker: LogMarker): Future[File]
 
-  def optimiseImage(resizedFile: File, mediaType: MimeType)(implicit logMarker: LogMarker): File
+  def optimiseCrop(resizedFile: File, mediaType: MimeType)(implicit logMarker: LogMarker): File
 
   def resizeImage(
                    sourceFile: File,
