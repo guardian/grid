@@ -88,19 +88,28 @@ as the whole count. This costs one retained baseline map per poll lifetime and l
 sequencing, without extra reads. It does not guarantee immutable metadata or alter Kahuna.
 See [the current ticker contract](00%20Architecture%20and%20philosophy/ticker-system-reference.md).
 
-### 1. `nonFree` default is "show all" (unchecked)
+### Ticker display order (30 October 2026)
+
+Kahuna renders ticker badges in media-api's response order. Kupua renders configured
+tickers first (org-owned, then agency picks, after the separate "N new" badge), then any
+server-only tickers in response order, so the familiar order cannot shift if response or
+configuration order changes. Returned clause/colour win over configured ones. Tickers whose
+clause is not `is:<value>` are skipped rather than shown as dead badges, and server-only
+tickers do not become new Filters/typeahead `is:` options. Trade-off: a deliberately
+reordered server list is not reflected for configured tickers.
+
+### 1. `nonFree` default follows `showPaid` only when hosted
 
 In production kahuna, the `nonFree` default depends on the user's
 `showPaid` permission (fetched from `mediaApi.getSession()`).  Most users
 default to free-only; users with the `showPaid` permission see everything.
 
-Kupua has no auth, so there is no session to query.  The default is
-`nonFree=true` (show all images, checkbox unchecked).  When the user
-checks "Free to use only", `nonFree` is removed from the URL and the
-free-to-use category filter is applied.
-
-When auth is added, this should be revisited to respect the user's
-`showPaid` permission, matching kahuna's behaviour.
+Hosted Kupua (served by Kahuna) receives the permission in its page config
+and matches this for initial and Home searches (`false` → free-only).
+Laptop modes have no session, so the default stays `nonFree=true` (show all
+images, checkbox unchecked), as does a hosted page without the value.
+When the user checks "Free to use only", `nonFree` is removed from the URL
+and the free-to-use category filter is applied.
 
 ### 2. ~~Route path is `/` not `/search`~~ — RESOLVED
 

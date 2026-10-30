@@ -122,6 +122,14 @@ tickers work in all setups (standalone, dev, prod) with no Grid API dependency.
 ```
 Adding a new ticker = one array entry. ES query builder, store, and UI all iterate the definitions.
 
+**Returned metadata and display order** (`ticker-display.ts`): count results carry optional
+`searchClause`/`backgroundColour`. media-api's are decoded by `decodeTickerCounts` (`dal/types.ts`)
+for both `/images/count` and AI responses; direct-ES fills them from the definitions; poll merges
+keep them (arrival wins). `displayTickers` orders configured definitions first, then server-only
+names in response order; returned metadata wins and configured fills gaps. Only `is:<value>`
+clauses render. StatusBar, the Filters `Is` section and the `is:` typeahead all use it; server-only
+tickers appear only in the StatusBar. See deviations "Ticker display order".
+
 **`_doSearch` ticker injection**: `buildTickerAggs()` (`es-adapter.ts`) compiles each definition's `searchClause` via `parseCql` and builds named `filter` agg objects. Definitions with `subAggField` get a nested `byAgency` terms agg (size 9), mirroring Scala. Only injected when `includeTickers=true`; `searchRange` passes `false`.
 
 **Polling**: `countWithTickers` fires `_search` with `size:0`, `track_total_hits:true`, and ticker filter aggs. Returns `{ count, tickerCounts }` for the requested interval. The store retains the browse baseline and combines it with the latest accepted cumulative arrival contribution, including subcounts. It does not add the same fixed interval repeatedly or advance `newCountSince`; result membership stays frozen. Immutable upload time does not make repeated intervals disjoint.

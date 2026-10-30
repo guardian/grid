@@ -1,9 +1,11 @@
 html { scrollbar-gutter:stable; }
 header.engineering-header, main, footer { max-width: 1440px; padding-left: 22px; padding-right: 22px; }
 header.engineering-header { padding-top: 12px; }
-.engineering-header .title-line { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
-.engineering-header h1 { font-size:23px; letter-spacing:0; margin:0; }
-.engineering-header .selectors { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:0 0 8px; }
+.engineering-header .title-line { display:flex; align-items:center; gap:20px; margin-bottom:8px; }
+.engineering-header .title-link { color:inherit; text-decoration:none; align-self:flex-end; }
+.engineering-header .title-link:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.engineering-header h1 { font-size:28.75px; letter-spacing:0; margin:0; }
+.engineering-header .selectors { display:grid; grid-template-columns:1fr 1fr; gap:16px; flex:1; max-width:680px; margin:0 0 0 auto; }
 .engineering-header label { font-size:11px; gap:3px; }
 .engineering-header select { padding:6px 8px; font-size:13px; }
 .context-badges { display:flex; flex-wrap:wrap; align-items:start; gap:5px; }
@@ -173,7 +175,8 @@ main { padding-top:12px; }
   .image-summary-lower { grid-template-columns:1fr; gap:0; }
   .image-group-links { margin-left:0; width:100%; }
   header.engineering-header,main,footer { padding-left:12px; padding-right:12px; }
-  .engineering-header .selectors { gap:8px; }
+  .engineering-header .title-line { flex-wrap:wrap; gap:12px; }
+  .engineering-header .selectors { flex-basis:100%; gap:8px; }
   .engineering-header .selectors label { min-width:0; }
   .engineering-header nav { display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:4px; }
   .engineering-header nav a { font-size:11px; }
@@ -191,7 +194,7 @@ main { padding-top:12px; }
   .panel-heading>span { font-size:10px; }
   .engineering-overview h2 { font-size:14px; }
   .context-badges .pill,.sample-note summary { font-size:10px; }
-  .engineering-header h1 { font-size:21px; }
+  .engineering-header h1 { font-size:26.25px; }
   .engineering-header .selectors select { font-size:12px; }
   .engineering-header .selectors label { font-size:10px; }
   .overview-key { font-size:9px; gap:4px 9px; }

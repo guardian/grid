@@ -1195,7 +1195,7 @@ replacing `/s3` and `/imgproxy` in API mode. Check the details that local imgpro
 rotation, format, DPR, transparency. Renew by re-fetching the singleton when a signed URL has expired.
 Laptop API modes opt in with `--canonical-media` (default delivery unchanged); hosted Kupua always
 uses entity links. Delivery order, initial reload-based expiry recovery and hosting are detailed in
-the [TEST hosting plan](../../kupua-TEST-deployment-plan.md).
+the [TEST hosting plan](../../kupua-TEST-deployment-00-plan.md).
 
 **M2b: canonical media delivery checks.** After U7, the operator verifies returned URLs, bounded
 expiry renewal, visual/transform correctness and affected image-loading/traversal performance

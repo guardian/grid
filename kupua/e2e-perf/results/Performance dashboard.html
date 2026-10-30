@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="engineering.css">
   <link rel="stylesheet" href="history.css">
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <script defer src="./audit-log.js"></script>
   <script defer src="./perceived-log.js"></script>
   <script defer src="./density-log.js"></script>
@@ -26,10 +27,12 @@
 <body>
   <a class="skip" href="#main" id="skip">Skip to measurements</a>
   <header class="engineering-header">
-    <div class="title-line"><h1>Kupua performance</h1><span class="pill">Saved histories</span></div>
-    <div class="selectors" id="selection">
-      <label>Checkpoint<select id="checkpoint"></select></label>
-      <label>Baseline<select id="baseline"></select></label>
+    <div class="title-line">
+      <a class="title-link" href="./Performance%20dashboard.html"><h1>Kupua performance</h1></a>
+      <div class="selectors" id="selection">
+        <label>Candidate<select id="checkpoint"></select></label>
+        <label>Baseline<select id="baseline"></select></label>
+      </div>
     </div>
     <div id="context"></div>
     <nav aria-label="Experience sections" id="navigation"></nav>

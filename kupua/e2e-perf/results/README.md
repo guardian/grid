@@ -16,10 +16,11 @@ recorded checkpoint remains the fallback. Existing comparison-eligibility checks
 
 ## Keyboard and Focus
 
-Left/Right traverse scrolling direction and load phase in History, or in the visible
-Compare browsing section: Forward gentle/reference/stress, then Backward
-gentle/reference/stress/reversal, wrapping at either end. Constrained Compare browsing
-has only the three forward phases. Density, workload and statistic stay fixed.
+Left/Right traverse the seven supported scrolling direction/load-phase choices in
+History or the visible Compare browsing section: Forward gentle/reference/stress,
+then Backward gentle/reference/stress/reversal, wrapping at either end. Forward/Reversal
+is skipped because reversal data is recorded only for backward D2. Constrained Compare
+browsing has only the three forward phases. Density, workload and statistic stay fixed.
 Native controls, selected text, evidence views and focused History points keep their
 own keyboard behavior; arrows on a History point move between campaigns.
 

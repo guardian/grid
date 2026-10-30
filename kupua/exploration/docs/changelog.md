@@ -24,6 +24,27 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 30 October 2026 - Hosted configuration from Kahuna
+
+When serving Kupua, Kahuna now adds an allowlisted `gridConfig` object and the
+request principal's `showPaid` permission to `window.__KUPUA_CONFIG__`. Settings use
+Grid's existing names and serializers; tickers mirror media-api's ticker map and
+disabled features are encoded explicitly. Ordinary Kahuna does no extra work.
+
+Hosted Kupua validates each setting whole and resolves it once when `grid-config`
+first evaluates, so module-time consumers (field registry, typeahead, facets,
+borders, blur default) see server values; laptop modes and missing or invalid
+settings keep local defaults. `matchViaExistence` is preserved for later client
+support. Initial and Home searches follow `showPaid` (`false` omits `nonFree`),
+explicit URLs are preserved, and Home links share one href with the click path.
+
+Ticker counts now keep media-api's returned clause and colour through count, AI and
+poll-merge paths via one shared decoder; direct-ES fills them from configured
+definitions. A shared display helper orders configured tickers first, preserving the
+existing status-bar order, then server-only tickers in response order. Returned metadata
+wins, non-`is:` clauses are skipped, and server-only tickers stay out of Filters and
+typeahead options. Count arithmetic and requests are unchanged.
+
 ### 26 October 2026 - Refine dashboard comparisons, navigation and evidence
 
 Cold opens select the newest complete registered campaign and its predecessor,

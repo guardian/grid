@@ -55,13 +55,16 @@ escaped and contains explicit public fields only.
 | --- | --- | --- |
 | `mediaApiUri` | `services.apiBaseUri` | all media-api reads; missing or invalid refuses reads (no fallback) |
 | `collectionsUri` | `services.collectionsBaseUri` | collection tree; missing is quiet absence |
+| `showPaid` | request principal's `ShowPaid` permission; omitted when unknown | hosted initial/Home default (`false` → free-only) |
+| `gridConfig` | allowlisted site settings ([config workplan](kupua-TEST-deployment-01-config-via-server.md)) | organisation, aliases, image types, tickers, agency picks, reaper/download vocabulary, deny-syndication banner, graphic-blur default |
 
 [hosted-config](../../src/lib/hosted-config.ts) reads the object only in hosted builds and
 accepts only https URLs without query or fragment. Local modes never read it, and the laptop
 API-address allowlist in [proxy-target](../../src/dal/grid-api/proxy-target.ts) is unchanged.
 One build therefore works on local Grid and on TEST, each talking to its own services.
-Everything else (organisation, aliases, image types, cost and ticker settings) still comes from
-the hardcoded [grid-config](../../src/lib/grid-config.ts); see section 10.
+Kahuna builds the extra fields only when serving Kupua. Kupua validates each `gridConfig`
+setting whole and resolves it once when [grid-config](../../src/lib/grid-config.ts) first
+evaluates; missing or invalid settings, and every laptop mode, keep its local defaults.
 
 ## 4. Media Delivery
 
@@ -192,12 +195,12 @@ they can be extracted later.
    Justified, position preservation, traversal, and reload recovery after expiry. Confirm no
    browser Elasticsearch or Bedrock traffic. Invite others only after acceptance.
 2. **Before users beyond TEST:** assess [GRID-016](bug-backlog.md#grid-016).
-3. **Configuration, second slice:** map Kahuna's organisation, field aliases, image types,
-   cost/agency-pick settings and ticker vocabulary into Kupua's existing shape, replacing
-   `grid-config` when present. Settings must be in place before modules derive alias fields or
-   construct stores; without the injected object, local behaviour stays as it is. Optionally, a
-   Kahuna JSON endpoint lets laptop modes use TEST's real configuration (CORS from the laptop
-   origin is unverified, and the fetch would sit on the startup path).
+3. **Configuration, second slice:** follow the agreed
+  [server-configuration workplan](kupua-TEST-01-config-via-server.md). Extend hosted inline
+  injection before module initialization; include `show_paid` initial/Home defaults and
+  existing domain/display settings. Laptop modes stay unchanged. BBC permission-filter and
+  cost-checkbox configuration are excluded. Ticker-response metadata is an explicit next
+  slice, separated to keep implementation sessions bounded. Implementation is not started.
 4. **M2b:** canonical-delivery checks and targeted measurements, owned by the API build plan. Use
   the `--use-deployed-media-api` pair with and without `--canonical-media`. The perf runner
   now verifies delivery and all three dashboards distinguish it; matched campaigns remain

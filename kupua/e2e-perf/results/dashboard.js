@@ -10,13 +10,16 @@
     if(!["ArrowLeft","ArrowRight"].includes(event.key) || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
     if(!["scroll","search"].includes(state?.view) || state.evidence || state.scenario || window.getSelection()?.toString()) return;
     if(event.target.closest?.('input,select,textarea,button,a,summary,[contenteditable],[role="slider"],[tabindex="0"]')) return;
+    const params = new URLSearchParams(location.hash.slice(1));
     const historyMode = state.mode === "history";
     const step = event.key === "ArrowRight" ? 1 : -1;
     if(state.view === "search"){
       const bounds = $("search-actions")?.getBoundingClientRect();
       const phase = $("search-phase");
       if(historyMode || state.group && state.group !== "actions" || !bounds || bounds.bottom <= 0 || bounds.top >= innerHeight || !phase?.options.length) return;
-      const next = phase.options[(phase.selectedIndex + step + phase.options.length) % phase.options.length];
+      const selectedIndex = [...phase.options].findIndex(option => option.value === params.get("searchPhase"));
+      const currentIndex = selectedIndex < 0 ? phase.selectedIndex : selectedIndex;
+      const next = phase.options[(currentIndex + step + phase.options.length) % phase.options.length];
       event.preventDefault();
       location.hash = url({searchPhase:next.value,group:"actions",evidence:"",metric:"",scenario:"",side:""});
       return;
@@ -32,7 +35,9 @@
     const scenes = directions.flatMap(value => [...phase.options]
       .filter(option => option.value !== "reversal" || value === "backward")
       .map(option => ({direction:value,phase:option.value})));
-    const index = scenes.findIndex(scene => scene.direction === (direction.disabled ? "forward" : direction.value) && scene.phase === phase.value);
+    const currentDirection = direction.disabled ? "forward" : params.get(historyMode ? "h.dir" : "direction") || direction.value;
+    const currentPhase = params.get(historyMode ? "h.phase" : "phase") || phase.value;
+    const index = scenes.findIndex(scene => scene.direction === currentDirection && scene.phase === currentPhase);
     const next = scenes[index < 0 ? step > 0 ? 0 : scenes.length - 1 : (index + step + scenes.length) % scenes.length];
     if(!next) return;
     event.preventDefault();

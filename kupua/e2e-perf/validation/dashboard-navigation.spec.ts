@@ -1255,6 +1255,60 @@ async function loadHistory(page: Page, hash: string) {
 }
 const historyModel = (page: Page, script: string) => page.evaluate(script);
 
+test("keyboard traversal includes supported direction/load-phase choices and preserves other selectors", async ({ page }) => {
+  const errors = await loadHistory(page, "view=scroll&h.dir=forward&h.phase=early&h.stat=median");
+  const historyStates = await page.evaluate(() => {
+    const states: [string | null, string | null, string | null][] = [];
+    for (let i = 0; i < 7; i++) {
+      document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }));
+      const params = new URLSearchParams(location.hash.slice(1));
+      states.push([params.get("h.dir"), params.get("h.phase"), params.get("h.stat")]);
+    }
+    return states;
+  });
+  expect(historyStates).toEqual([
+    ["forward", "middle", "median"], ["forward", "late", "median"],
+    ["backward", "early", "median"], ["backward", "middle", "median"],
+    ["backward", "late", "median"], ["backward", "reversal", "median"],
+    ["forward", "early", "median"]
+  ]);
+
+  await page.goto(`${historyUrl.href}#view=scroll&group=browsing&direction=forward&phase=early&statistic=p95`);
+  await expect(page.locator("#scroll-phase")).toHaveValue("early");
+  const compareStates = await page.evaluate(() => {
+    const states: [string | null, string | null, string | null][] = [];
+    for (let i = 0; i < 7; i++) {
+      document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }));
+      const params = new URLSearchParams(location.hash.slice(1));
+      states.push([params.get("direction"), params.get("phase"), params.get("statistic")]);
+    }
+    return states;
+  });
+  expect(compareStates).toEqual([
+    ["forward", "middle", "p95"], ["forward", "late", "p95"],
+    ["backward", "early", "p95"], ["backward", "middle", "p95"],
+    ["backward", "late", "p95"], ["backward", "reversal", "p95"],
+    ["forward", "early", "p95"]
+  ]);
+
+  await page.goto(`${historyUrl.href}#view=search&group=actions&searchPhase=dt_store_ready_ms&searchRegime=seek&statistic=p95`);
+  await expect(page.locator("#search-phase")).toHaveValue("dt_store_ready_ms");
+  const searchOptions = await page.locator("#search-phase option").evaluateAll(options => options.map(option => (option as HTMLOptionElement).value));
+  const searchStates = await page.evaluate(count => {
+    const states: [string | null, string | null, string | null][] = [];
+    for (let i = 0; i < count; i++) {
+      document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }));
+      const params = new URLSearchParams(location.hash.slice(1));
+      states.push([params.get("searchPhase"), params.get("searchRegime"), params.get("statistic")]);
+    }
+    return states;
+  }, searchOptions.length);
+  const searchStart = searchOptions.indexOf("dt_store_ready_ms");
+  expect(searchStates.map(([phase]) => phase)).toEqual(Array.from({ length: searchOptions.length }, (_, i) => searchOptions[(searchStart + i + 1) % searchOptions.length]));
+  expect(searchStates.map(([, regime, statistic]) => [regime, statistic])).toEqual(searchOptions.map(() => ["seek", "p95"]));
+  expect(errors).toEqual([]);
+});
+
 test("history: lines never join across contract, environment or withheld values", async ({ page }) => {
   const errors = await loadHistory(page, "view=scroll&h.data=synthetic");
   const result = await historyModel(page, `(() => {
