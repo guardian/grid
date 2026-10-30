@@ -14,12 +14,13 @@
  * endpoint (+30ms ES overhead per page). Kupua uses this TS heuristic instead,
  * covering both signal paths (XMP alias + keyword scan).
  *
- * The `defaultShouldBlurGraphicImages` flag is hardcoded to `true` per the
- * Cluster 1 "hardcode-defaults rule". A future user preference (cookie toggle)
+ * The `defaultShouldBlurGraphicImages` default comes from gridConfig (hosted: Kahuna's
+ * setting; otherwise `true`). A future user preference (cookie toggle)
  * can be passed in as the `shouldBlur` parameter.
  */
 
 import type { Image } from "@/types/image";
+import { gridConfig } from "./grid-config";
 
 /**
  * Phrase list ported verbatim from kahuna's graphic-image-blur.js.
@@ -37,7 +38,7 @@ const GRAPHIC_PHRASES: readonly string[] = [
   "bodies of",
 ];
 
-const defaultShouldBlurGraphicImages = true;
+const defaultShouldBlurGraphicImages = gridConfig.defaultShouldBlurGraphicImages;
 
 /**
  * Returns true if the image should be considered potentially graphic and

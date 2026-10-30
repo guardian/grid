@@ -24,7 +24,7 @@ import { shortcutTooltip } from "@/lib/keyboard-shortcuts";
 import { resetScrollAndFocusSearch } from "@/lib/orchestration/search";
 import { beginTraceInteraction } from "@/lib/perceived-trace";
 import { SELECTIONS_PERSIST_ACROSS_NAVIGATION } from "@/constants/tuning";
-import { gridConfig } from "@/lib/grid-config";
+import { displayTickers } from "@/lib/ticker-display";
 import { upsertFieldTerm, findFieldTerm } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import type { TickerCountResult } from "@/dal";
 import { restoreArrivalState, snapshotStore } from "@/lib/history-snapshot";
@@ -202,30 +202,27 @@ export function StatusBar() {
           </button>
         )}
 
-        {/* Category ticker badges — one per tickerDefinition with a non-zero,
-            non-total count. Click applies the corresponding is: filter.
+        {/* Category ticker badges — non-zero, non-total counts in displayTickers order.
+            Click applies the corresponding is: filter.
             Mirrors Kahuna's ng-repeat tickerCounts badges in results.html. */}
-        {tickerCounts && gridConfig.tickerDefinitions.map((def) => {
-          const ticker = tickerCounts[def.name];
-          if (!ticker || ticker.value === 0 || ticker.value === (aiPoolTotal ?? total)) return null;
-
-          // Extract the is: value from the searchClause (e.g. "is:GNM-owned" → "GNM-owned")
-          const isValue = def.searchClause.startsWith("is:") ? def.searchClause.slice(3) : def.searchClause;
+        {displayTickers(tickerCounts).map((ticker) => {
+          if (ticker.value === 0 || ticker.value === (aiPoolTotal ?? total)) return null;
+          const isValue = ticker.isValue;
           const isActive = !!findFieldTerm(currentQuery, "is", isValue);
 
           return (
             <button
-              key={def.name}
+              key={ticker.name}
               onClick={() => {
                 const newQuery = upsertFieldTerm(currentQuery, "is", isValue, false);
                 updateSearch({ query: newQuery || undefined });
               }}
               className={`px-1.5 rounded-sm cursor-pointer text-sm leading-tight flex items-center shrink-0 whitespace-nowrap transition-opacity ${isActive ? "opacity-60" : "hover:opacity-90"}`}
-              style={{ backgroundColor: def.backgroundColour, color: "white" }}
+              style={{ backgroundColor: ticker.backgroundColour, color: "white" }}
               title={buildTickerTooltip(ticker, tickersLastUpdated)}
               aria-pressed={isActive}
             >
-              {ticker.value.toLocaleString()} {def.name}
+              {ticker.value.toLocaleString()} {ticker.name}
             </button>
           );
         })}

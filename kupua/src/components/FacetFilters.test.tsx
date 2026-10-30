@@ -48,6 +48,17 @@ function rowKeys(section: HTMLElement) {
   return Array.from(section.querySelectorAll("[data-facet-key]")).map(button => button.getAttribute("data-facet-key"));
 }
 
+describe("Is section tickers", () => {
+  it("counts and colours is: values by the returned clause, not the configured ticker name", () => {
+    useSearchStore.setState({ tickerCounts: {
+      "server picks": { value: 1234, searchClause: "is:agency-pick", backgroundColour: "#abcdef" },
+    } });
+    render(<FacetFilters />);
+    const row = screen.getByTitle(/^is:agency-pick \(1,234\)/);
+    expect(row.querySelector("[aria-hidden=true]")?.getAttribute("style")).toContain("rgb(171, 205, 239)");
+  });
+});
+
 describe("Filters disclosure", () => {
   it("retains the ten-bucket possibly-more heuristic, including overfull base responses", () => {
     useSearchStore.setState({ aggregations: { fields: { [field]: { buckets: baseBuckets.slice(0, 9), total: 9 } } } });

@@ -429,6 +429,7 @@ function parseTickerAggs(
     const agg = aggregations[def.name] as Record<string, unknown> | undefined;
     if (!agg) continue;
     const value = agg.doc_count as number;
+    const meta = { searchClause: def.searchClause, backgroundColour: def.backgroundColour };
     if (def.subAggField) {
       const byAgency = agg.byAgency as {
         buckets: Array<{ key: string; doc_count: number }>;
@@ -442,12 +443,12 @@ function parseTickerAggs(
         if (byAgency.sum_other_doc_count > 0) {
           subCounts["other"] = byAgency.sum_other_doc_count;
         }
-        result[def.name] = { value, subCounts };
+        result[def.name] = { value, subCounts, ...meta };
       } else {
-        result[def.name] = { value };
+        result[def.name] = { value, ...meta };
       }
     } else {
-      result[def.name] = { value };
+      result[def.name] = { value, ...meta };
     }
   }
   return result;

@@ -22,9 +22,9 @@ import type {
   SortDistBucket,
   SortDistribution,
   SortValues,
-  TickerCountResult,
   UsageFilterAggRequest,
 } from "./types";
+import { decodeTickerCounts } from "./types";
 import type { PositionMap } from "./position-map";
 import { POSITION_MAP_CHUNK_SIZE } from "./position-map";
 import { buildSortClause } from "./adapters/elasticsearch/sort-builders";
@@ -39,7 +39,7 @@ type KeywordPage = { buckets: Array<{ key: string | number; count: number }>; af
 type KeyPage = { keys: Array<{ id: string; sortValues: SortValues }>; after: SortValues | null };
 type DateStats = { valueCount: number; min: number | null; max: number | null; coveredCount?: number };
 type DateBuckets = { buckets: SortDistBucket[]; positionKind: "exact-rank" | "approximate-evidence"; evidenceCount: number };
-type CountResponse = { total: number; tickerCounts: Record<string, TickerCountResult> };
+type CountResponse = { total: number; tickerCounts: unknown };
 type AggregationsResponse = {
   fields: Record<string, { buckets: Array<{ key: string; count: number }> }>;
   isFilterCounts: Record<string, number>;
@@ -125,11 +125,7 @@ export class ApiDataSource implements ImageDataSource {
     const body = buildReadBody(params);
     delete body.sort;
     const json = await postImageRead("/images/count", body) as CountResponse;
-    const tickerCounts: Record<string, TickerCountResult> = {};
-    for (const [name, { value, subCounts }] of Object.entries(json.tickerCounts)) {
-      tickerCounts[name] = subCounts ? { value, subCounts } : { value };
-    }
-    return { count: json.total, tickerCounts };
+    return { count: json.total, tickerCounts: decodeTickerCounts(json.tickerCounts) };
   }
 
   async openPit(_keepAlive?: string): Promise<string | null> {

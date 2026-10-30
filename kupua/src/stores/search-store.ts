@@ -956,6 +956,9 @@ function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState
             ? mergeSubCounts(prev.subCounts, delta.subCounts)
             : prev.subCounts;
           mergedTickerCounts[name] = {
+            ...prev,
+            ...(delta.searchClause ? { searchClause: delta.searchClause } : {}),
+            ...(delta.backgroundColour ? { backgroundColour: delta.backgroundColour } : {}),
             value: prev.value + delta.value,
             ...(mergedSubCounts ? { subCounts: mergedSubCounts } : {}),
           };

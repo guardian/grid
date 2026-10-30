@@ -9,6 +9,7 @@
  */
 
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { HOME_HREF } from "@/lib/home-defaults";
 
 interface Props {
   children: ReactNode;
@@ -37,9 +38,7 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   private handleReload = () => {
-    // Hard reload fallback — can't use the runtime DEFAULT_SEARCH constant.
-    // Must match DEFAULT_SEARCH in src/lib/home-defaults.ts.
-    window.location.href = "/search?nonFree=true";
+    window.location.href = HOME_HREF;
   };
 
   render() {

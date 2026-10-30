@@ -7,7 +7,8 @@
  */
 
 import type { Image } from "@/types/image";
-import type { AiSearchResult, ImageByIdResult, SearchAfterResult, SearchParams, SortValues, TickerCountResult } from "./types";
+import type { AiSearchResult, ImageByIdResult, SearchAfterResult, SearchParams, SortValues } from "./types";
+import { decodeTickerCounts } from "./types";
 import { buildSortClause } from "./adapters/elasticsearch/sort-builders";
 import { type EnrichmentFields } from "@/stores/enrichment-store";
 import { unwrapEntity } from "./grid-api/argo";
@@ -28,7 +29,7 @@ type ImageWindowApiResponse = ImagePageResponse & { total?: number; offset: numb
 type AiSearchApiResponse = {
   data: ImagePageResponse["data"];
   total: number;
-  actions?: { tickerCounts?: Record<string, TickerCountResult> };
+  actions?: { tickerCounts?: unknown };
 };
 
 /** Kupua's fixed AI result size, as in direct mode. */
@@ -348,10 +349,7 @@ export async function apiSearchByAi(params: SearchParams, signal?: AbortSignal):
 
   const { hits, enrichment } = decodeImagePage(json.data);
   const ranked = hits.map((image, index) => ({ ...image, __aiScore: hits.length - index }));
-  const tickerCounts: Record<string, TickerCountResult> = {};
-  for (const [name, { value, subCounts }] of Object.entries(json.actions?.tickerCounts ?? {})) {
-    tickerCounts[name] = subCounts ? { value, subCounts } : { value };
-  }
+  const tickerCounts = decodeTickerCounts(json.actions?.tickerCounts);
   return {
     hits: ranked,
     total: ranked.length,

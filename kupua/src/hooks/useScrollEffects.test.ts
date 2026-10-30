@@ -11,7 +11,7 @@ vi.hoisted(() => {
 const anchor = vi.hoisted(() => ({ viewportId: null as string | null, visibleIds: null as string[] | null }));
 const navigate = vi.hoisted(() => vi.fn());
 const startupDefaults = vi.hoisted(() => ({ value: { nonFree: "true" } as Record<string, string | undefined> }));
-vi.mock("@/lib/home-defaults", () => ({ get DEFAULT_SEARCH() { return startupDefaults.value; } }));
+vi.mock("@/lib/home-defaults", () => ({ get DEFAULT_SEARCH() { return startupDefaults.value; }, HOME_HREF: "/search?nonFree=true" }));
 const router = vi.hoisted(() => {
   type Notification = { location: { state: { kupuaKey?: string } }; action: { type: "BACK" | "PUSH" } };
   const listeners = new Set<(notification: Notification) => void>();

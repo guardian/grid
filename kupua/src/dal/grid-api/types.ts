@@ -419,15 +419,15 @@ export type ImageResponse = EntityResponse<ImageData>;
 // ─── Search response types ────────────────────────────────────────────────────
 
 /**
- * Ticker badges in the search UI — part of the search-level `actions` map.
+ * Ticker badges in the search UI — part of the search-level `actions` map,
+ * keyed by ticker name. Decoded by `decodeTickerCounts`.
  * Not to be confused with the per-image `actions[]` HATEOAS array.
  */
 export interface TickerCount {
-  name: string;
   value: number;
   backgroundColour: string;
   searchClause: string;
-  subCounts?: TickerCount[];
+  subCounts?: Record<string, number>;
 }
 
 /**
@@ -438,7 +438,7 @@ export interface TickerCount {
  * Same field name, entirely different shape — do not confuse.
  */
 export interface SearchResponseActions {
-  tickerCounts?: TickerCount[];
+  tickerCounts?: Record<string, TickerCount>;
 }
 
 /**

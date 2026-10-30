@@ -259,6 +259,25 @@ describe("KUP-006 cumulative poll accounting", () => {
     expect(state().tickerCounts).toEqual(baseline.tickerCounts);
   });
 
+  it("keeps returned ticker metadata through poll merges, preferring the arrival's", async () => {
+    vi.mocked(mock.countWithTickers).mockResolvedValue({ count: 100, tickerCounts: {
+      staff: { value: 5, searchClause: "is:ACME-owned", backgroundColour: "#123456" },
+      agency: { value: 9, searchClause: "is:agency-pick", backgroundColour: "#abcdef" },
+    } });
+    await actions().search();
+    vi.mocked(mock.countWithTickers).mockResolvedValue({ count: 2, tickerCounts: {
+      staff: { value: 2 },
+      agency: { value: 1, searchClause: "is:agency-pick", backgroundColour: "#fedcba" },
+      extra: { value: 4, searchClause: "is:extra", backgroundColour: "#000001" },
+    } });
+    await tick();
+    expect(state().tickerCounts).toEqual({
+      staff: { value: 7, searchClause: "is:ACME-owned", backgroundColour: "#123456" },
+      agency: { value: 10, searchClause: "is:agency-pick", backgroundColour: "#fedcba" },
+      extra: { value: 4, searchClause: "is:extra", backgroundColour: "#000001" },
+    });
+  });
+
   it("does not let an older completion overwrite a newer accepted response", async () => {
     await actions().search();
     const older = deferred<CountWithTickersResult>();

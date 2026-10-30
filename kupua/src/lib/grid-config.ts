@@ -1,44 +1,28 @@
 /**
- * Mock Grid config — hardcoded values derived from exploration/mock/grid-config.conf.
- *
- * Eventually this should be read from a proper config store / API.
- * For now we hardcode the values so kupua's CQL parser and typeahead
- * resolvers can work identically to kahuna.
+ * Grid config. Hosted builds take Kahuna's injected site settings (hosted-config.ts);
+ * every other mode, and any missing/invalid setting, keeps these local defaults
+ * derived from exploration/mock/grid-config.conf.
  */
 
-interface FieldAlias {
-  elasticsearchPath: string;
-  alias: string;
-  label: string;
-  displaySearchHint: boolean;
-  displayInAdditionalMetadata: boolean;
-  searchHintOptions?: string[];
-}
+import { hostedGridConfig, type HostedFieldAlias, type HostedTickerDefinition } from "./hosted-config";
+
+type FieldAlias = HostedFieldAlias;
 
 /**
  * A single ticker definition — drives filter aggregations in countWithTickers
  * and badge rendering in StatusBar + Filters panel.
  */
-export interface TickerDefinition {
-  /** Display name shown in the badge (e.g. "GNM-owned", "agency picks"). */
-  name: string;
-  /** CQL clause applied when the badge is clicked (e.g. "is:GNM-owned"). */
-  searchClause: string;
-  /** CSS background colour for the badge. */
-  backgroundColour: string;
-  /**
-   * When set, the ticker request also fetches top values for this ES field
-   * (sub-aggregation). Currently only used by agency-picks ("usageRights.supplier").
-   */
-  subAggField?: string;
-}
+export type TickerDefinition = HostedTickerDefinition;
+
+// Kahuna's hosted page supplies these before any module evaluates; local modes get {}.
+const hosted = hostedGridConfig();
 
 export const gridConfig = {
   /**
    * The organisation name used for `is:<org>-owned` style queries.
    * From `staffPhotographerOrganisation` in Grid config (default "GNM").
    */
-  staffPhotographerOrganisation: "GNM",
+  staffPhotographerOrganisation: hosted.staffPhotographerOrganisation ?? "GNM",
 
   /**
    * Categories that qualify an image for the syndication "review" queue.
@@ -68,13 +52,16 @@ export const gridConfig = {
    * Mirrors Kahuna's `_clientConfig.showDenySyndicationWarning`.
    * Set to true by default — operators can override once runtime config is wired.
    */
-  showDenySyndicationWarning: true,
+  showDenySyndicationWarning: hosted.showDenySyndicationWarning ?? true,
 
   /**
    * Text shown in the deny-syndication warning banner.
    * Mirrors Kahuna's `_clientConfig.denySyndicationTextHeader`.
    */
-  denySyndicationTextHeader: "This image has been denied for syndication.",
+  denySyndicationTextHeader: hosted.denySyndicationTextHeader ?? "This image has been denied for syndication.",
+
+  /** Kahuna's `defaultShouldBlurGraphicImages`; no user preference UI yet. */
+  defaultShouldBlurGraphicImages: hosted.defaultShouldBlurGraphicImages ?? true,
 
 
   /**
@@ -84,13 +71,13 @@ export const gridConfig = {
    * Download usage rows are always shown in the UI if the data is present in ES,
    * regardless of this flag.
    */
-  "image.record.download": false,
+  "image.record.download": hosted.recordDownloadAsUsage ?? false,
 
   /** Whether the reaper feature is enabled */
-  useReaper: false,
+  useReaper: hosted.useReaper ?? false,
 
   /** Whether agency pick filtering is available */
-  hasAgencyPicks: true,
+  hasAgencyPicks: hosted.hasAgencyPicks ?? true,
 
   /**
    * Agency picks detection — mirrors `agencyPicks.ingredients` in Grid config.
@@ -99,8 +86,8 @@ export const gridConfig = {
    * Used by `is:agency-pick` in cql.ts (filter aggregation + typeahead).
    * Source: agencyPicsConfigFragment.conf (redacted copy stored separately).
    */
-  agencyPicksColour: "#7d006880",
-  agencyPicksIngredients: {
+  agencyPicksColour: hosted.agencyPicksColour ?? "#7d006880",
+  agencyPicksIngredients: hosted.agencyPicksIngredients ?? {
     "metadata.description": [
       "topshot",          // Getty
       "topshots",         // Getty
@@ -132,7 +119,7 @@ export const gridConfig = {
    * Mirrors the aggregationsNameToSearchClauseMap built in ElasticSearch.scala.
    * Gated by the same feature flags as the underlying `is:` queries.
    */
-  tickerDefinitions: [
+  tickerDefinitions: hosted.tickerDefinitions ?? [
     {
       name: "GNM-owned",
       searchClause: "is:GNM-owned",
@@ -153,10 +140,10 @@ export const gridConfig = {
    * When non-empty, the imageType field is visible in the metadata panel.
    * Mirrors `imageTypes` from Guardian config (Kahuna parity — decided 2026-05-02).
    */
-  imageTypes: [] as string[],
+  imageTypes: hosted.imageTypes ?? [] as string[],
 
   /** Field aliases from config — drives additional search fields + typeahead */
-  fieldAliases: [
+  fieldAliases: hosted.fieldAliases ?? [
     {
       elasticsearchPath: "fileMetadata.iptc.Edit Status",
       alias: "editStatus",

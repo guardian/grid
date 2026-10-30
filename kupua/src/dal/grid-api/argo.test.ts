@@ -204,7 +204,7 @@ const SEARCH_RESPONSE_RAW: SearchResponseRaw = {
     },
   ],
   links: [{ rel: "next", href: "https://api.media.test.dev-gutools.co.uk/images?offset=1&length=1" }],
-  actions: { tickerCounts: [] },
+  actions: { tickerCounts: {} },
 };
 
 // ─── Tests ────────────────────────────────────────────────────────────────────

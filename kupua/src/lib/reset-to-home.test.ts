@@ -186,6 +186,22 @@ describe("resetToHome", () => {
     expect(fixture.flags.density).toBeNull();
   });
 
+  it("free-only hosted users return Home without nonFree, clearing an explicit paid search", async () => {
+    vi.resetModules();
+    vi.stubEnv("VITE_HOSTED", "true");
+    window.__KUPUA_CONFIG__ = { showPaid: false };
+    try {
+      const { resetToHome } = await import("./reset-to-home");
+      fixture.state.params = { nonFree: "true", query: "city:Dublin" };
+      await resetToHome(vi.fn());
+      expect(fixture.state.params).toMatchObject({ query: undefined, nonFree: undefined, offset: 0 });
+    } finally {
+      vi.unstubAllEnvs();
+      delete window.__KUPUA_CONFIG__;
+      vi.resetModules();
+    }
+  });
+
   it("current Home failure still navigates gracefully", async () => {
     const { resetToHome } = await import("./reset-to-home");
     fixture.operation.mockRejectedValueOnce(new Error("current failure"));

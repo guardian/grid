@@ -23,6 +23,7 @@ import type {
   SearchParams,
 } from "@/dal/types";
 import { gridConfig } from "./grid-config";
+import { displayTickers } from "./ticker-display";
 import { FIELDS_BY_CQL_KEY } from "./field-registry";
 import { isolateAggregationFailure } from "./safe-aggregation";
 import { removeAllFieldTerms } from "@/dal/adapters/elasticsearch/cql-query-edit";
@@ -392,14 +393,8 @@ export function buildTypeaheadFields(
 
         // GNM-owned, agency-pick — already in tickerCounts (no extra request).
         // tickerCounts is cleared on new search start, so always safe to read.
-        const tickers = getTickerCounts?.();
-        for (const def of gridConfig.tickerDefinitions) {
-          if (def.searchClause.startsWith("is:")) {
-            const isVal = def.searchClause.slice(3);
-            const count = tickers?.[def.name]?.value;
-            if (count != null) countMap.set(isVal, count);
-          }
-        }
+        const tickers = getTickerCounts?.() ?? null;
+        for (const ticker of displayTickers(tickers)) countMap.set(ticker.isValue, ticker.value);
 
         // GNM-owned-photo, GNM-owned-illustration — sum category buckets (free).
         const categoryBuckets = storeBuckets("category", getAggregations);

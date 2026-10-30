@@ -702,18 +702,23 @@ describe("ApiDataSource counts", () => {
   const counted = {
     total: 1234,
     tickerCounts: {
-      "GNM-owned": { value: 7, searchClause: "is:GNM-owned", backgroundColour: "#005689" },
-      "agency picks": { value: 3, searchClause: "is:agency-pick", backgroundColour: "#7d0068", subCounts: { Reuters: 2, other: 1 } },
+      "ACME-owned": { value: 7, searchClause: "is:ACME-owned", backgroundColour: "#123456" },
+      "agency picks": { value: 3, searchClause: "is:agency-pick", backgroundColour: "#abcdef", subCounts: { Reuters: 2, other: 1 } },
+      "malformed": { value: 1, searchClause: 5, backgroundColour: "" },
     },
   };
 
-  it("counts through media-api with the read scope and no sort, keeping each ticker's value and sub-counts", async () => {
+  it("counts through media-api with the read scope and no sort, keeping each ticker's value, sub-counts and metadata", async () => {
     const calls = stubMediaApi({ "/images/count": () => counted });
     const result = await new ApiDataSource().countWithTickers({ ...params, since: "2026-09-25T10:00:00.000Z", offset: 0, length: 0 });
 
     expect(result).toEqual({
       count: 1234,
-      tickerCounts: { "GNM-owned": { value: 7 }, "agency picks": { value: 3, subCounts: { Reuters: 2, other: 1 } } },
+      tickerCounts: {
+        "ACME-owned": { value: 7, searchClause: "is:ACME-owned", backgroundColour: "#123456" },
+        "agency picks": { value: 3, searchClause: "is:agency-pick", backgroundColour: "#abcdef", subCounts: { Reuters: 2, other: 1 } },
+        "malformed": { value: 1 },
+      },
     });
     expect(calls).toHaveLength(1);
     expect(calls[0].body).toMatchObject({ orderBy: "-uploadTime", since: "2026-09-25T10:00:00.000Z" });
@@ -910,8 +915,8 @@ describe("ApiDataSource AI search", () => {
     expect(result!.pitId).toBeNull();
     expect(result!.aiPoolTotal).toBe(12_345);
     expect(result!.tickerCounts).toEqual({
-      "GNM-owned": { value: 4321 },
-      "agency picks": { value: 17, subCounts: { Reuters: 9, other: 8 } },
+      "GNM-owned": { value: 4321, searchClause: "is:GNM-owned", backgroundColour: "#005689" },
+      "agency picks": { value: 17, searchClause: "is:agency-pick", backgroundColour: "#c70000", subCounts: { Reuters: 9, other: 8 } },
     });
     expect([...result!.enrichment!.keys()]).toEqual(["img-c", "img-a", "img-b"]);
     expect(result!.enrichment!.get("img-c")).toMatchObject({

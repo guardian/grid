@@ -22,6 +22,7 @@ import { ALT_CLICK } from "@/lib/keyboard-shortcuts";
 import { beginTraceInteraction } from "@/lib/perceived-trace";
 import { formatCount } from "@/lib/format-count";
 import { gridConfig } from "@/lib/grid-config";
+import { displayTickers } from "@/lib/ticker-display";
 import { findScrollParent } from "@/lib/dom-utils";
 import type { AggregationBucket, TickerCountResult, AggregationsResult } from "@/dal";
 import {
@@ -356,16 +357,10 @@ function FacetSection({
 // IsSection — "Is" filter section showing all valid is: values
 // ---------------------------------------------------------------------------
 
-/**
- * Pre-compute a lookup from is: value → ticker definition so we can find
- * the right backgroundColour and count without iterating tickerDefinitions
- * on every render.
- * "is:GNM-owned" → { name: "GNM-owned", backgroundColour: "#005689", ... }
- */
-const IS_VALUE_TO_TICKER = new Map(
-  gridConfig.tickerDefinitions
-    .filter((d) => d.searchClause.startsWith("is:"))
-    .map((d) => [d.searchClause.slice(3), d]),
+/** Swatch colours before counts load; returned ticker colours take precedence. */
+const CONFIGURED_TICKER_COLOURS = new Map(
+  displayTickers(Object.fromEntries(gridConfig.tickerDefinitions.map((def) => [def.name, { value: 0 }])))
+    .map((ticker) => [ticker.isValue, ticker.backgroundColour]),
 );
 
 interface IsSectionProps {
@@ -379,6 +374,8 @@ interface IsSectionProps {
 function IsSection({ currentQuery, tickerCounts, aggregations, isFilterCounts, onIsClick }: IsSectionProps) {
   const isOptions = buildIsOptions();
   const org = gridConfig.staffPhotographerOrganisation;
+  const tickerByIsValue = new Map(displayTickers(tickerCounts).map((ticker) => [ticker.isValue, ticker]));
+  const tickerCountByIsValue = new Map([...tickerByIsValue].map(([value, ticker]) => [value, ticker.value]));
 
   // Derive photo/illustration counts from the category terms agg (free — no extra ES call)
   const categoryBuckets = aggregations?.fields["usageRights.category"]?.buckets;
@@ -403,10 +400,7 @@ function IsSection({ currentQuery, tickerCounts, aggregations, isFilterCounts, o
     const existing = findFieldTerm(currentQuery, "is", value);
     const isActive = !!existing && !existing.negated;
     const isExcluded = !!existing && existing.negated;
-    const tickerDef = IS_VALUE_TO_TICKER.get(value);
-    const count = tickerDef && tickerCounts
-      ? tickerCounts[tickerDef.name]?.value
-      : derivedIsCount(value);
+    const count = tickerCountByIsValue.get(value) ?? derivedIsCount(value);
     return !(count === 0 && !isActive && !isExcluded);
   });
 
@@ -421,10 +415,8 @@ function IsSection({ currentQuery, tickerCounts, aggregations, isFilterCounts, o
           const isActive = !!existing && !existing.negated;
           const isExcluded = !!existing && existing.negated;
 
-          const tickerDef = IS_VALUE_TO_TICKER.get(value);
-          const count = tickerDef && tickerCounts
-            ? tickerCounts[tickerDef.name]?.value
-            : derivedIsCount(value);
+          const count = tickerCountByIsValue.get(value) ?? derivedIsCount(value);
+          const swatch = tickerByIsValue.get(value)?.backgroundColour ?? CONFIGURED_TICKER_COLOURS.get(value);
 
           // Hide ticker-backed values with a known zero count, unless the
           // user has already applied it (they need to be able to remove it).
@@ -446,10 +438,10 @@ function IsSection({ currentQuery, tickerCounts, aggregations, isFilterCounts, o
               <span className="flex items-center gap-1.5 min-w-0">
                 <span className="truncate">{value}</span>
                 {/* Colour swatch for ticker-backed values */}
-                {tickerDef && (
+                {swatch && (
                   <span
                     className="w-2 h-2 rounded-sm shrink-0"
-                    style={{ backgroundColor: tickerDef.backgroundColour }}
+                    style={{ backgroundColor: swatch }}
                     aria-hidden="true"
                   />
                 )}

@@ -82,4 +82,19 @@ describe("StatusBar AI totals", () => {
     expect(screen.queryByRole("button", { name: /new$/ })).toBeNull();
     expect(sessionStorage.getItem("kupua-sb-new")).toBeNull();
   });
+
+  it("renders New, then configured tickers in order, then server-only ones, with returned colours", () => {
+    const [org, picks] = gridConfig.tickerDefinitions;
+    useSearchStore.setState({ newCount: 3, tickerCounts: {
+      server: { value: 4, searchClause: "is:server-only", backgroundColour: "#000001" },
+      text: { value: 5, searchClause: "credit:Reuters", backgroundColour: "#000002" },
+      [picks.name]: { value: 2, searchClause: picks.searchClause, backgroundColour: "#abcdef" },
+      [org.name]: { value: 1 },
+    } });
+    render(<StatusBar />);
+    const badges = screen.getAllByRole("button").filter((button) => /^\d/.test(button.textContent ?? ""));
+    expect(badges.map((badge) => badge.textContent)).toEqual(["3 new", `1 ${org.name}`, `2 ${picks.name}`, "4 server"]);
+    expect(badges[1].style.backgroundColor).toBe("rgb(0, 86, 137)");
+    expect(badges[2].style.backgroundColor).toBe("rgb(171, 205, 239)");
+  });
 });

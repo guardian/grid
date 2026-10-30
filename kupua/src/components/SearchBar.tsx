@@ -17,7 +17,7 @@ import {
   pushTypingSearchEntry,
 } from "@/lib/orchestration/search";
 import { resetToHome } from "@/lib/reset-to-home";
-import { DEFAULT_SEARCH } from "@/lib/home-defaults";
+import { DEFAULT_SEARCH, HOME_HREF } from "@/lib/home-defaults";
 import { SettingsMenu } from "./SettingsMenu";
 import { useSelectionStore } from "@/stores/selection-store";
 import { beginTraceInteraction } from "@/lib/perceived-trace";
@@ -190,10 +190,8 @@ export function SearchBar() {
            Uses <a> (not <Link>) with e.preventDefault() so we can await
            search() before navigating. This prevents the table→grid flash:
            the density switch only happens after fresh page-1 data is ready. */}
-      {/* href must match DEFAULT_SEARCH in src/lib/home-defaults.ts
-           (static string for right-click "open in new tab") */}
       <a
-        href="/search?nonFree=true"
+        href={HOME_HREF}
         title="Grid — clear all filters"
         className="shrink-0 -ml-3 w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors"
         onClick={(e) => {

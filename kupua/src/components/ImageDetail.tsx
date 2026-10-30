@@ -59,7 +59,7 @@ import { StableImg } from "@/components/StableImg";
 import { resetToHome } from "@/lib/reset-to-home";
 import { scrollFocusedIntoView, markUserInitiatedNavigation, pushNavigateAsPopstate, consumeDetailEnteredViaSpaFlag } from "@/lib/orchestration/search";
 import { withCurrentKupuaKey, mintKupuaKey } from "@/lib/orchestration/history-key";
-import { DEFAULT_SEARCH } from "@/lib/home-defaults";
+import { DEFAULT_SEARCH, HOME_HREF } from "@/lib/home-defaults";
 import { storeImageOffset, getImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { ImageMetadata } from "@/components/ImageMetadata";
 import { UsagesSection, countDisplayUsages } from "@/components/UsagesSection";
@@ -659,10 +659,8 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
                  Hit area is a square matching the full bar height (h-11 = 44px).
                  Uses <a> (not <Link>) with e.preventDefault() so we can await
                  search() before navigating — prevents table→grid flash. */}
-            {/* href must match DEFAULT_SEARCH in src/lib/home-defaults.ts
-                 (static string for right-click "open in new tab") */}
             <a
-              href="/search?nonFree=true"
+              href={HOME_HREF}
               title="Grid — clear all filters"
               className="shrink-0 w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors"
               onClick={(e) => {

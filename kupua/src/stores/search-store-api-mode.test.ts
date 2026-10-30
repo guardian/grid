@@ -585,7 +585,7 @@ describe("API mode: routing and counting", () => {
     useApiMode(120_000);
     await state().search();
 
-    expect(state().tickerCounts).toEqual({ "GNM-owned": { value: 7 } });
+    expect(state().tickerCounts).toEqual({ "GNM-owned": { value: 7, searchClause: "is:GNM-owned", backgroundColour: "#005689" } });
     expect(bodiesFor("/images/count")).toHaveLength(1);
     expect(bodiesFor("/images/count")[0]).not.toHaveProperty("sort");
   });

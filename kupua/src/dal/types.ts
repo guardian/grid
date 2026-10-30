@@ -112,6 +112,28 @@ export interface TickerCountResult {
    * if > 0. Omitted when the ticker has no subAggField or all counts are 0.
    */
   subCounts?: Record<string, number>;
+  /** media-api's clause for this ticker; direct-ES fills it from configured definitions. */
+  searchClause?: string;
+  backgroundColour?: string;
+}
+
+const nonEmpty = (value: unknown): value is string => typeof value === "string" && value.length > 0;
+
+/** Decode media-api's `tickerCounts` object, keeping only well-formed metadata. */
+export function decodeTickerCounts(raw: unknown): Record<string, TickerCountResult> {
+  const result: Record<string, TickerCountResult> = {};
+  if (typeof raw !== "object" || raw === null) return result;
+  for (const [name, entry] of Object.entries(raw as Record<string, Partial<Record<keyof TickerCountResult, unknown>>>)) {
+    const { value, subCounts, searchClause, backgroundColour } = entry ?? {};
+    if (typeof value !== "number") continue;
+    result[name] = {
+      value,
+      ...(subCounts ? { subCounts: subCounts as Record<string, number> } : {}),
+      ...(nonEmpty(searchClause) ? { searchClause } : {}),
+      ...(nonEmpty(backgroundColour) ? { backgroundColour } : {}),
+    };
+  }
+  return result;
 }
 
 /**

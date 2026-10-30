@@ -11,7 +11,7 @@
  * Canonical delivery (VITE_MEDIA_DELIVERY=canonical, API modes only): thumbnails
  *   use the URL media-api returns (`thumbnail.secureUrl`: CloudFront or signed S3);
  *   full images expand the returned imgops `optimisedPng`/`optimised` link.
- *   See exploration/docs/kupua-TEST-deployment-plan.md.
+ *   See exploration/docs/kupua-TEST-deployment-00-plan.md.
  *
  * Default delivery:
  *   - In TEST mode (S3 proxy running): returns `/s3/thumb/<imageId>`
