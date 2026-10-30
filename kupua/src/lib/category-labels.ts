@@ -61,15 +61,6 @@ export function categoryLabel(category: string | undefined | null): string {
   return serverCategory(category)?.name ?? FALLBACK_LABELS[category] ?? category;
 }
 
-/**
- * The `category:` value to search with: the server's org-specific alias when media-api
- * executes queries (it expands aliases); direct-ES only understands stored values.
- */
-export function categorySearchValue(category: string): string {
-  if (import.meta.env.VITE_USE_MEDIA_API !== "true") return category;
-  return serverCategory(category)?.searchAlias ?? category;
-}
-
 /** Re-renders the caller when the server catalogue arrives. */
 export function useCategoryLabel(): typeof categoryLabel {
   useUsageRightsCatalogue((state) => state.categories);

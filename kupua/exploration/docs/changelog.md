@@ -24,6 +24,14 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 30 October 2026 - Category typeahead matches Kahuna, with exact counts
+
+In media-api mode, `category:` suggestions now list Grid's configured categories as
+Kahuna does (search alias or value, kebab only), rather than only stored values with
+hits. Counts add each category's own hits to the stored values it replaces, using a
+proposed additive metadata-editor field; servers without it get no counts rather than
+undercounts. Direct-ES and no-catalogue modes keep hit-based stored values, kebab only.
+
 ### 30 October 2026 - Usage Rights categories from Grid
 
 Kupua now follows Kahuna's route to Grid's configured Usage Rights categories: media-api's

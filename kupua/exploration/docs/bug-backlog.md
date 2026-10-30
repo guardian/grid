@@ -69,9 +69,11 @@ KUP-035 is DONE for default-collapsed chip rendering; intentional large expansio
 an accepted cost, not an open repair requirement.
 
 Usage Rights compatibility (30 October): Kupua now reads Grid's configured categories
-from metadata-editor, with a refreshed local fallback for direct-ES/laptop modes. Remaining:
-the vendored Getty chargeable-source configuration and direct-ES legacy-category expansion
-(accepted lag; direct-ES will be retired).
+from metadata-editor, with a refreshed local fallback for direct-ES/laptop modes. Exact
+`category:` typeahead counts for replacement categories need metadata-editor's proposed
+additive `legacyCategories` field (Grid commit pending engineer review; no Kahuna/PROD
+cost: config-derived strings in an already-cached response). Remaining: the vendored Getty
+chargeable-source configuration and direct-ES legacy-category expansion (accepted lag).
 
 ### Open Grid Work
 

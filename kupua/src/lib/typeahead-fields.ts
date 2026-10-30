@@ -33,7 +33,7 @@ import {
   ILLUSTRATOR_CATEGORIES,
 } from "@/dal/adapters/elasticsearch/cql";
 import type { TickerCountResult } from "@/dal";
-import { categoryLabel, categorySearchValue } from "./category-labels";
+import { useUsageRightsCatalogue } from "./usage-rights-catalogue";
 
 // ---------------------------------------------------------------------------
 // Types matching @guardian/cql's TypeaheadField expectations
@@ -69,6 +69,9 @@ const SUBJECTS = [
 ];
 
 const FILE_TYPES = ["jpeg", "tiff", "png"];
+
+/** Above Grid's whole category vocabulary (~35), so a short page proves completeness. */
+const CATEGORY_BUCKETS = 100;
 
 const USAGE_PLATFORMS = ["print", "digital", "syndication", ...(gridConfig["image.record.download"] ? ["download"] : [])];
 
@@ -298,14 +301,29 @@ export function buildTypeaheadFields(
     {
       fieldName: "category",
       resolver: async (value: string, signal?: AbortSignal) => {
+        const lower = value.toLowerCase();
+        const catalogue = useUsageRightsCatalogue.getState().categories;
+        // Kahuna parity (media-api only, which expands aliases and replaced values): Grid's list, kebab only.
+        if (catalogue && import.meta.env.VITE_USE_MEDIA_API === "true") {
+          const { buckets } = await scopedAgg("usageRights.category", CATEGORY_BUCKETS, "category", signal);
+          const hits = new Map(buckets.map((b) => [b.key, b.count]));
+          // media-api reports no truncation: a missing value is zero only when the page wasn't full.
+          const complete = buckets.length < CATEGORY_BUCKETS;
+          const counted = catalogue.every((c) => c.legacyCategories);
+          return catalogue.filter((c) => c.value !== "").map((c) => {
+            const values = [c.value, ...(c.legacyCategories ?? [])];
+            const known = counted && (complete || values.every((v) => hits.has(v)));
+            return {
+              value: c.searchAlias ?? c.value,
+              // Omit rather than undercount (older servers, or truncated buckets).
+              ...(known ? { count: values.reduce((sum, v) => sum + (hits.get(v) ?? 0), 0) } : {}),
+            };
+          }).filter((s) => s.value.toLowerCase().startsWith(lower));
+        }
         const query = getParams?.()?.query;
         let buckets = !queryContainsField("category", query) ? storeBuckets("category", getAggregations) : null;
         buckets ??= (await scopedAgg("usageRights.category", 50, "category", signal)).buckets;
-        // Kahuna parity: suggest the server's search alias where it has one.
-        const named = buckets.filter((b) => b.key !== "")
-          .map((b) => ({ value: categorySearchValue(b.key), label: categoryLabel(b.key), count: b.count }));
-        const lower = value.toLowerCase();
-        return named.filter((s) => s.value.toLowerCase().startsWith(lower));
+        return bucketFilter(value, buckets);
       },
     },
     {

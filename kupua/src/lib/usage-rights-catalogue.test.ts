@@ -5,12 +5,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const links = vi.hoisted(() => ({ edits: "https://metadata.example.test" as string | undefined }));
 vi.mock("@/lib/grid-api-instance", () => ({ serviceLink: async (rel: string) => (rel === "edits" ? links.edits : undefined) }));
 
-import { categoryLabel, categorySearchValue } from "./category-labels";
+import { categoryLabel } from "./category-labels";
 import { loadUsageRightsCatalogue, useUsageRightsCatalogue } from "./usage-rights-catalogue";
 
 const categories = [
   { value: "", name: "Unknown Rights", cost: "pay", description: "" },
-  { value: "publisher-photographer", name: "ACME Photographer", searchAlias: "acme-photographer", cost: "free", description: "" },
+  { value: "publisher-photographer", name: "ACME Photographer", searchAlias: "acme-photographer", cost: "free", description: "",
+    legacyCategories: ["staff-photographer"] },
   { value: "commissioned-agency", name: "Agency – commissioned (server)", cost: "free", description: "" },
 ];
 
@@ -44,7 +45,7 @@ describe("usage rights catalogue", () => {
     ]);
     expect(useUsageRightsCatalogue.getState().categories).toEqual([
       { value: "", name: "Unknown Rights" },
-      { value: "publisher-photographer", name: "ACME Photographer", searchAlias: "acme-photographer" },
+      { value: "publisher-photographer", name: "ACME Photographer", searchAlias: "acme-photographer", legacyCategories: ["staff-photographer"] },
       { value: "commissioned-agency", name: "Agency – commissioned (server)" },
     ]);
   });
@@ -53,6 +54,7 @@ describe("usage rights catalogue", () => {
     ["no edits link", () => { links.edits = undefined; stubEditsService(categories); }],
     ["an unavailable list", () => stubEditsService(categories, false)],
     ["a malformed entry", () => stubEditsService([...categories, { value: "x" }])],
+    ["malformed replaced values", () => stubEditsService([{ ...categories[0], legacyCategories: [3] }])],
     ["a non-array body", () => stubEditsService({ value: "x" })],
     ["a network failure", () => vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("offline"); }))],
   ])("stays absent with %s", async (_label, arrange) => {
@@ -76,15 +78,5 @@ describe("category labels", () => {
     ] });
     expect(categoryLabel("publisher-photographer")).toBe("ACME Photographer");
     expect(categoryLabel("pay-to-use")).toBe("Pay to use");
-  });
-
-  it("search with the server's alias only when media-api executes the query", () => {
-    useUsageRightsCatalogue.setState({ categories: [
-      { value: "publisher-photographer", name: "ACME Photographer", searchAlias: "acme-photographer" },
-    ] });
-    expect(categorySearchValue("publisher-photographer")).toBe("publisher-photographer");
-    vi.stubEnv("VITE_USE_MEDIA_API", "true");
-    expect(categorySearchValue("publisher-photographer")).toBe("acme-photographer");
-    expect(categorySearchValue("staff-photographer")).toBe("staff-photographer");
   });
 });

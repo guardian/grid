@@ -12,6 +12,8 @@ export interface UsageRightsCategory {
   value: string;
   name: string;
   searchAlias?: string;
+  /** Stored values this category also matches in search; absent from older servers. */
+  legacyCategories?: string[];
 }
 
 export const useUsageRightsCatalogue = create<{ categories: UsageRightsCategory[] | null }>(() => ({
@@ -33,7 +35,13 @@ function decodeCategories(raw: unknown): UsageRightsCategory[] | null {
     if (typeof entry?.value !== "string" || typeof entry.name !== "string" || !entry.name) return null;
     const alias = entry.searchAlias;
     if (alias !== undefined && alias !== null && (typeof alias !== "string" || !alias)) return null;
-    result.push({ value: entry.value, name: entry.name, ...(typeof alias === "string" ? { searchAlias: alias } : {}) });
+    const legacy = entry.legacyCategories;
+    if (legacy !== undefined && !(Array.isArray(legacy) && legacy.every((v) => typeof v === "string"))) return null;
+    result.push({
+      value: entry.value, name: entry.name,
+      ...(typeof alias === "string" ? { searchAlias: alias } : {}),
+      ...(Array.isArray(legacy) ? { legacyCategories: legacy as string[] } : {}),
+    });
   }
   return result;
 }

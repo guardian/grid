@@ -28,25 +28,55 @@ const literalCases = [
 ] as const;
 
 describe("literal-safe typeahead scope", () => {
-  it("category suggestions use server names and, when media-api runs the query, its search aliases", async () => {
+  it("category suggestions list Grid's categories by search value, counting replaced values (Kahuna parity, kebab only)", async () => {
     const { useUsageRightsCatalogue } = await import("./usage-rights-catalogue");
     const dataSource = new MockDataSource(0);
     vi.spyOn(dataSource, "getAggregations").mockResolvedValue({ fields: { "usageRights.category": { buckets: [
-      { key: "publisher-photographer", count: 5 }, { key: "pay-to-use", count: 2 }, { key: "", count: 9 },
-    ], total: 16 } } });
-    const resolver = buildTypeaheadFields(dataSource, undefined, () => ({ query: "category:" }))
+      { key: "staff-photographer", count: 5 }, { key: "publisher-photographer", count: 1 },
+      { key: "chargeable", count: 2 }, { key: "", count: 9 },
+    ], total: 17 } } });
+    let scope: SearchParams = { query: "category:" };
+    const resolver = buildTypeaheadFields(dataSource, undefined, () => scope)
       .find((field) => field.fieldName === "category")!.resolver;
     if (typeof resolver !== "function") throw new Error("Expected category resolver");
-    useUsageRightsCatalogue.setState({ categories: [
-      { value: "publisher-photographer", name: "ACME Photographer", searchAlias: "acme-photographer" },
-    ] });
-    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const catalogue = (legacy: boolean) => [
+      { value: "", name: "Unknown Rights", ...(legacy ? { legacyCategories: [] } : {}) },
+      { value: "pay-to-use", name: "Pay to use", ...(legacy ? { legacyCategories: ["chargeable"] } : {}) },
+      { value: "publisher-photographer", name: "ACME Photographer", searchAlias: "acme-photographer",
+        ...(legacy ? { legacyCategories: ["staff-photographer", "contract-photographer"] } : {}) },
+      { value: "agency", name: "Agency", ...(legacy ? { legacyCategories: [] } : {}) },
+    ];
     try {
+      vi.stubEnv("VITE_USE_MEDIA_API", "true");
+      useUsageRightsCatalogue.setState({ categories: catalogue(true) });
       expect(await resolver("")).toEqual([
-        { value: "acme-photographer", label: "ACME Photographer", count: 5 },
-        { value: "pay-to-use", label: "Pay to use", count: 2 },
+        { value: "pay-to-use", count: 2 },
+        { value: "acme-photographer", count: 6 },
+        { value: "agency", count: 0 },
       ]);
-      expect(await resolver("acme")).toEqual([{ value: "acme-photographer", label: "ACME Photographer", count: 5 }]);
+      expect(await resolver("acme")).toEqual([{ value: "acme-photographer", count: 6 }]);
+
+      // A full page may be truncated: a missing value is unknown, not zero.
+      scope = { query: "category:", nonFree: "true" };
+      vi.mocked(dataSource.getAggregations).mockResolvedValueOnce({ fields: { "usageRights.category": { buckets: [
+        { key: "staff-photographer", count: 5 }, { key: "chargeable", count: 2 }, { key: "pay-to-use", count: 1 },
+        ...Array.from({ length: 97 }, (_, i) => ({ key: `other-${i}`, count: 1 })),
+      ] } } });
+      expect(await resolver("")).toEqual([
+        { value: "pay-to-use", count: 3 }, { value: "acme-photographer" }, { value: "agency" },
+      ]);
+      expect(vi.mocked(dataSource.getAggregations).mock.calls.at(-1)?.[1]).toEqual([{ field: "usageRights.category", size: 100 }]);
+      scope = { query: "category:" };
+
+      // An older server without replaced values: list stays, counts are omitted rather than wrong.
+      useUsageRightsCatalogue.setState({ categories: catalogue(false) });
+      expect(await resolver("")).toEqual([{ value: "pay-to-use" }, { value: "acme-photographer" }, { value: "agency" }]);
+
+      // Direct-ES, or no catalogue: stored values with hits, kebab only.
+      vi.unstubAllEnvs();
+      expect(await resolver("")).toEqual([
+        { value: "staff-photographer", count: 5 }, { value: "publisher-photographer", count: 1 }, { value: "chargeable", count: 2 },
+      ]);
     } finally {
       vi.unstubAllEnvs();
       useUsageRightsCatalogue.setState({ categories: null });

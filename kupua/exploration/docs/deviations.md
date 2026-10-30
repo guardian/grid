@@ -98,6 +98,17 @@ groups) that needs manual refresh when Grid changes categories. Kupua also gives
 `publisher-photographer` the photographer border, which Kahuna's hardcoded list lacks.
 Table cells adopt server names on their next render rather than when the list arrives.
 
+`category:` typeahead in media-api mode matches Kahuna: Grid's list as search values
+(`searchAlias` or value, kebab only, no names), not only values with hits. Kupua adds
+scoped counts: each category's own hits plus the stored values it replaces. That needs
+metadata-editor's additive `legacyCategories` field (proposed Grid change, separate
+commit, pending engineer review). Without it, counts are omitted rather than undercount
+replacement categories such as `gnm-photographer`. Direct-ES and no-catalogue modes list
+stored values with hits, kebab only.
+
+The media-api category list keeps Grid's config order (as Kahuna), unlike Kupua's usual
+most-frequent-first aggregation suggestions. Deliberate for now; revisit once counts arrive.
+
 ### Collection counts follow the free-to-use checkbox (30 October 2026)
 
 Kahuna shows no collection counts. Kupua's subtree badges count the whole library
