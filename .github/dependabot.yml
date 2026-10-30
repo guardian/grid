@@ -68,7 +68,11 @@ updates:
       interval: 'weekly'
     commit-message:
       prefix: "chore(deps): "
-
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
   # things that run in an AWS Lambda environment
   - package-ecosystem: 'npm'
     directory: '/image-counter-lambda'
