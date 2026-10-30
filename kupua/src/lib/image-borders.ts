@@ -19,6 +19,8 @@ const CATEGORY_BORDERS: Record<string, string> = {
   "staff-photographer": "#005689",
   "contract-photographer": "#005689",
   "commissioned-photographer": "#005689",
+  // Grid's replacement for the three above (media-api may rewrite legacy values to it).
+  "publisher-photographer": "#005689",
 };
 
 // ---------------------------------------------------------------------------

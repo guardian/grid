@@ -23,3 +23,8 @@ export async function initGridApi(signal?: AbortSignal): Promise<void> {
 export async function apiAiSearchAvailable(): Promise<boolean> {
   return (await discovery.init()) && discovery.getLink("ai-search") !== undefined;
 }
+
+/** A media-api root relation's href, waiting for the shared root read; undefined when absent. */
+export async function serviceLink(rel: string): Promise<string | undefined> {
+  return (await discovery.init()) ? discovery.getLink(rel) : undefined;
+}

@@ -395,16 +395,18 @@ function fieldToClause(field: CqlField, negated: boolean): QueryClause {
   };
 }
 
-// Usage rights categories — mirrors Scala's UsageRights model
+// Usage rights categories — mirrors Scala's UsageRights.photographer / .illustrator
 export const PHOTOGRAPHER_CATEGORIES = [
   "staff-photographer",
   "contract-photographer",
   "commissioned-photographer",
+  "publisher-photographer",
 ];
 export const ILLUSTRATOR_CATEGORIES = [
   "staff-illustrator",
   "contract-illustrator",
   "commissioned-illustrator",
+  "publisher-illustrator",
 ];
 const WHOLLY_OWNED_CATEGORIES = [
   ...PHOTOGRAPHER_CATEGORIES,

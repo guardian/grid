@@ -24,6 +24,17 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 30 October 2026 - Usage Rights categories from Grid
+
+Kupua now follows Kahuna's route to Grid's configured Usage Rights categories: media-api's
+`edits` link, then metadata-editor's `usage-rights-list`. Server names label categories in
+Details, multi-select and typeahead, and `category:` suggestions use the server's search
+alias when media-api executes the query. The list is optional and validated whole; laptop
+and direct-ES modes keep a refreshed local fallback (Unknown Rights, Pay to use, PR & Third
+Party, publisher photographer/illustrator). Publisher categories join the photographer and
+illustrator groups used by owned-image counts, `is:` filters and the photographer border,
+and the vendored cost snapshot adds the new categories for direct-ES free filtering.
+
 ### 30 October 2026 - Collection counts follow the free-to-use checkbox (KUP-037)
 
 Collection subtree counts previously used an implicit free-only default regardless of

@@ -88,6 +88,16 @@ as the whole count. This costs one retained baseline map per poll lifetime and l
 sequencing, without extra reads. It does not guarantee immutable metadata or alter Kahuna.
 See [the current ticker contract](00%20Architecture%20and%20philosophy/ticker-system-reference.md).
 
+### Usage Rights categories: server first, direct-ES lags (30 October 2026)
+
+Like Kahuna, Kupua reads category names and search aliases from metadata-editor. Search
+aliases are offered only when media-api executes queries; direct-ES understands stored
+values only and does not expand Grid's replacement categories' legacy values. Direct-ES
+and laptop modes use a local fallback (labels, cost snapshot, photographer/illustrator
+groups) that needs manual refresh when Grid changes categories. Kupua also gives
+`publisher-photographer` the photographer border, which Kahuna's hardcoded list lacks.
+Table cells adopt server names on their next render rather than when the list arrives.
+
 ### Collection counts follow the free-to-use checkbox (30 October 2026)
 
 Kahuna shows no collection counts. Kupua's subtree badges count the whole library

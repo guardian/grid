@@ -28,6 +28,31 @@ const literalCases = [
 ] as const;
 
 describe("literal-safe typeahead scope", () => {
+  it("category suggestions use server names and, when media-api runs the query, its search aliases", async () => {
+    const { useUsageRightsCatalogue } = await import("./usage-rights-catalogue");
+    const dataSource = new MockDataSource(0);
+    vi.spyOn(dataSource, "getAggregations").mockResolvedValue({ fields: { "usageRights.category": { buckets: [
+      { key: "publisher-photographer", count: 5 }, { key: "pay-to-use", count: 2 }, { key: "", count: 9 },
+    ], total: 16 } } });
+    const resolver = buildTypeaheadFields(dataSource, undefined, () => ({ query: "category:" }))
+      .find((field) => field.fieldName === "category")!.resolver;
+    if (typeof resolver !== "function") throw new Error("Expected category resolver");
+    useUsageRightsCatalogue.setState({ categories: [
+      { value: "publisher-photographer", name: "ACME Photographer", searchAlias: "acme-photographer" },
+    ] });
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    try {
+      expect(await resolver("")).toEqual([
+        { value: "acme-photographer", label: "ACME Photographer", count: 5 },
+        { value: "pay-to-use", label: "Pay to use", count: 2 },
+      ]);
+      expect(await resolver("acme")).toEqual([{ value: "acme-photographer", label: "ACME Photographer", count: 5 }]);
+    } finally {
+      vi.unstubAllEnvs();
+      useUsageRightsCatalogue.setState({ categories: null });
+    }
+  });
+
   it("reuses completed equivalent buckets while filtering the latest prefix", async () => {
     const dataSource = new MockDataSource(0);
     const aggregation = vi.spyOn(dataSource, "getAggregations").mockResolvedValue({

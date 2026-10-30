@@ -8,6 +8,7 @@ import { snapshotStore, PERSIST_HISTORY_SNAPSHOTS_FOR_RELOAD } from "./lib/histo
 import { buildHistorySnapshot } from "./lib/build-history-snapshot";
 import { fetchQuotas } from "./lib/cost/quota-store";
 import { useCollectionStore } from "./stores/collection-store";
+import { loadUsageRightsCatalogue } from "./lib/usage-rights-catalogue";
 import "./stores/search-store";
 import { checkBedrockHealth } from "./lib/bedrock-proxy-client";
 import { setAiSearchAvailable } from "./lib/grid-config";
@@ -28,6 +29,9 @@ fetchQuotas();
 // Fire-and-forget — if the collections service is unavailable, the
 // Collections panel section is hidden. See kupua/src/stores/collection-store.ts.
 useCollectionStore.getState().loadCollections();
+
+// Grid's configured Usage Rights categories (names, search aliases); optional.
+void loadUsageRightsCatalogue();
 
 // Disable browser's automatic scroll restoration — we manage scroll
 // position ourselves via snapshot-based restoration on popstate.

@@ -68,10 +68,10 @@ KUP-037 is DONE (30 October, counts follow the checkbox).
 KUP-035 is DONE for default-collapsed chip rendering; intentional large expansion remains
 an accepted cost, not an open repair requirement.
 
-Separate main-compatibility follow-ups remain: configured `pay-to-use` / `pr-and-third-party`
-labels and legacy-category expansion in Kupua, plus its vendored Getty chargeable-source
-configuration. These are not query-alignment gates or permission to reopen deferred
-rights/display work; broader implementation and deployment validation require separate scope.
+Usage Rights compatibility (30 October): Kupua now reads Grid's configured categories
+from metadata-editor, with a refreshed local fallback for direct-ES/laptop modes. Remaining:
+the vendored Getty chargeable-source configuration and direct-ES legacy-category expansion
+(accepted lag; direct-ES will be retired).
 
 ### Open Grid Work
 

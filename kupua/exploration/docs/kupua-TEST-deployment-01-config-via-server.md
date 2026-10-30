@@ -297,7 +297,9 @@ At minimum, cover:
   missing-value suggestion counts and presentation; preserve ordinary Boolean aliases
   and existing sort/cursor semantics. Do not label transport of the flag as completed
   C2PA support.
-- **New Usage Rights categories:** identify the actual categories added to Grid and
+- **New Usage Rights categories:** done 30 October: categories come from metadata-editor
+  (Kahuna's source) with a refreshed local fallback; see deviations and changelog. Original
+  scope: identify the actual categories added to Grid and
   compare them with Kupua's labels, metadata display, search suggestions, styling and
   remaining local cost/validity/filter fallbacks. The earlier
   [configuration/category drift note](zz%20Archive/kupua-audit-assessment.md#L172)

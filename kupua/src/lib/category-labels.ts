@@ -1,13 +1,21 @@
 /**
- * Human-friendly display names for usageRights.category values.
- *
- * Mirrored from the Scala model in common-lib UsageRights.scala.
- * Kahuna gets these from the media-api at runtime; kupua reads ES
- * directly so we maintain a static copy.
+ * Display names for usageRights.category values. Server names from metadata-editor
+ * (usage-rights-catalogue) win; otherwise a local fallback mirroring common-lib
+ * UsageRights.scala (snapshot 30 October 2026), used by direct-ES and laptop modes.
  */
-const CATEGORY_LABELS: Record<string, string> = {
-  "": "No Rights",
+
+import { gridConfig } from "@/lib/grid-config";
+import { useUsageRightsCatalogue, type UsageRightsCategory } from "@/lib/usage-rights-catalogue";
+
+const org = gridConfig.staffPhotographerOrganisation;
+
+const FALLBACK_LABELS: Record<string, string> = {
+  "": "Unknown Rights",
   "chargeable": "Chargeable supplied/on spec",
+  "pay-to-use": "Pay to use",
+  "pr-and-third-party": "PR & Third Party",
+  "publisher-photographer": `${org} Photographer`,
+  "publisher-illustrator": `${org} Illustrator`,
   "agency": "Agency – subscription",
   "commissioned-agency": "Agency – commissioned",
   "PR Image": "PR Image",
@@ -35,8 +43,35 @@ const CATEGORY_LABELS: Record<string, string> = {
   "programmes-acquisitions": "Programmes – Acquisitions",
 };
 
+let indexedFrom: UsageRightsCategory[] | null = null;
+let byValue = new Map<string, UsageRightsCategory>();
+
+function serverCategory(value: string): UsageRightsCategory | undefined {
+  const categories = useUsageRightsCatalogue.getState().categories;
+  if (categories !== indexedFrom) {
+    indexedFrom = categories;
+    byValue = new Map((categories ?? []).map((category) => [category.value, category]));
+  }
+  return byValue.get(value);
+}
+
 /** Returns the human-friendly label for a category key, or the raw key if unknown. */
 export function categoryLabel(category: string | undefined | null): string {
   if (category == null) return "None";
-  return CATEGORY_LABELS[category] ?? category;
+  return serverCategory(category)?.name ?? FALLBACK_LABELS[category] ?? category;
+}
+
+/**
+ * The `category:` value to search with: the server's org-specific alias when media-api
+ * executes queries (it expands aliases); direct-ES only understands stored values.
+ */
+export function categorySearchValue(category: string): string {
+  if (import.meta.env.VITE_USE_MEDIA_API !== "true") return category;
+  return serverCategory(category)?.searchAlias ?? category;
+}
+
+/** Re-renders the caller when the server catalogue arrives. */
+export function useCategoryLabel(): typeof categoryLabel {
+  useUsageRightsCatalogue((state) => state.categories);
+  return categoryLabel;
 }

@@ -506,6 +506,10 @@
   },
   "categoryDefaultCost": {
     "chargeable": "pay",
+    "pay-to-use": "pay",
+    "pr-and-third-party": "conditional",
+    "publisher-photographer": "free",
+    "publisher-illustrator": "free",
     "agency": null,
     "commissioned-agency": "free",
     "PR Image": "conditional",

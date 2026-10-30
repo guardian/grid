@@ -33,7 +33,7 @@ import {
   ILLUSTRATOR_CATEGORIES,
 } from "@/dal/adapters/elasticsearch/cql";
 import type { TickerCountResult } from "@/dal";
-import { categoryLabel } from "./category-labels";
+import { categoryLabel, categorySearchValue } from "./category-labels";
 
 // ---------------------------------------------------------------------------
 // Types matching @guardian/cql's TypeaheadField expectations
@@ -299,12 +299,13 @@ export function buildTypeaheadFields(
       fieldName: "category",
       resolver: async (value: string, signal?: AbortSignal) => {
         const query = getParams?.()?.query;
-        if (!queryContainsField("category", query)) {
-          const cached = storeBuckets("category", getAggregations);
-          if (cached) return bucketFilter(value, cached).map((s) => ({ ...s, label: categoryLabel(s.value) }));
-        }
-        const { buckets } = await scopedAgg("usageRights.category", 50, "category", signal);
-        return bucketFilter(value, buckets).map((s) => ({ ...s, label: categoryLabel(s.value) }));
+        let buckets = !queryContainsField("category", query) ? storeBuckets("category", getAggregations) : null;
+        buckets ??= (await scopedAgg("usageRights.category", 50, "category", signal)).buckets;
+        // Kahuna parity: suggest the server's search alias where it has one.
+        const named = buckets.filter((b) => b.key !== "")
+          .map((b) => ({ value: categorySearchValue(b.key), label: categoryLabel(b.key), count: b.count }));
+        const lower = value.toLowerCase();
+        return named.filter((s) => s.value.toLowerCase().startsWith(lower));
       },
     },
     {

@@ -51,7 +51,7 @@ import { VALIDITY_DESCRIPTIONS } from "@/lib/cost/validity-map";
 import { isLeaseActive } from "@/lib/syndication/calculate-syndication-status";
 import type { Lease } from "@/types/image";
 import { gridConfig } from "@/lib/grid-config";
-import { categoryLabel } from "@/lib/category-labels";
+import { useCategoryLabel } from "@/lib/category-labels";
 
 
 const SECTIONS = groupFieldsIntoSections(DETAIL_PANEL_FIELDS);
@@ -193,6 +193,7 @@ interface ImageMetadataProps {
 
 export function ImageMetadata({ image, overlay }: ImageMetadataProps) {
   const onSearch = useMetadataSearch();
+  const categoryLabel = useCategoryLabel();
   const enriched = useEnrichedImage(image, overlay);
 
   // All cost/validity fields come from deriveImage (ES baseline + API overlay)

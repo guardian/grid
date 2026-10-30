@@ -31,7 +31,7 @@ import { MultiSearchPill } from "./SearchPill";
 import { MultiValue } from "./MultiValue";
 import { isLeaseActive } from "@/lib/syndication/calculate-syndication-status";
 import { deriveImage } from "@/lib/derive-enriched-image";
-import { categoryLabel } from "@/lib/category-labels";
+import { useCategoryLabel } from "@/lib/category-labels";
 import { useEnrichmentStore } from "@/stores/enrichment-store";
 import type { Cost } from "@/dal/grid-api/types";
 
@@ -425,6 +425,7 @@ function LeaseTypeRow({ label, count, total, isAllow }: { label: string; count: 
 
 function RightsAndLeasesSection({ images, reconciledView, total }: MultiImageMetadataProps) {
   const onSearch = useMetadataSearch();
+  const categoryLabel = useCategoryLabel();
 
   // Reconciled category from the reconciliation engine
   const categoryRec = reconciledView?.get("usageRights_category");

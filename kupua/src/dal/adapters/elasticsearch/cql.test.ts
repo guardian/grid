@@ -63,7 +63,7 @@ describe("parseCql — is: queries", () => {
   it("is:gnm-owned → terms on WHOLLY_OWNED_CATEGORIES", () => {
     const { must } = parseCql("is:gnm-owned");
     const q = must[0] as { terms: { "usageRights.category": string[] } };
-    expect(q.terms["usageRights.category"]).toHaveLength(6); // 3 photo + 3 illustration
+    expect(q.terms["usageRights.category"]).toHaveLength(8); // 4 photo + 4 illustration, as Grid's UsageRights.whollyOwned
   });
 
   it("is:gnm-owned-photo → terms with photographer categories only", () => {
@@ -73,6 +73,7 @@ describe("parseCql — is: queries", () => {
       "staff-photographer",
       "contract-photographer",
       "commissioned-photographer",
+      "publisher-photographer",
     ]);
   });
 
