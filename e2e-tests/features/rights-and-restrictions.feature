@@ -159,7 +159,6 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
     And the current usage rights category display is hidden
     And the edit rights and restrictions button is hidden
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 21-29, 40-44
-@todo
   Scenario: Saving new rights closes the editor and shows the new category
     Given I am signed in with edit metadata permission
     And the image has no usage rights category

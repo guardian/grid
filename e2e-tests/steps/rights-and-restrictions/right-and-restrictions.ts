@@ -1,6 +1,6 @@
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext, Page, Response } from '@playwright/test';
 import { Given, When, Then, KAHUNA_APP_URL, expect } from '../setup.ts';
-import { findSeededImageId, hasNoUsageRights, loadImageFixtures } from '../../setup/image-fixtures.ts';
+import { findSeededImage, findSeededImageId, hasNoUsageRights, loadImageFixtures } from '../../setup/image-fixtures.ts';
 import { usageRightsCategories } from '../utils/api/metadata-editor.queries.ts';
 import { setTestClientConfig } from '../utils/test-config.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
@@ -8,12 +8,21 @@ import { switchAccount } from '../utils/auth.ts';
 import { expectEditPermissionForImage, expectNoEditPermissionForImage } from '../utils/api/media-api.assertions.ts';
 
 /** An image seeded into Elasticsearch from fixtures/elasticsearch/images.json. */
-const SEEDED_IMAGE_ID = findSeededImageId('with no usage rights category', hasNoUsageRights);
+const IMAGE_WITHOUT_RIGHTS = findSeededImage('with no usage rights category', hasNoUsageRights);
+const SEEDED_IMAGE_ID = IMAGE_WITHOUT_RIGHTS._id;
 
 const imageInformation = (page: Page) => page.getByRole('complementary', { name: 'Image information' });
 const rightsAndRestrictions = (page: Page) =>
   page.getByRole('region', { name: 'Rights and restrictions', exact: true });
 const usageSummary = (page: Page) => rightsAndRestrictions(page).locator('usage-rights-summary');
+const rightsEditor = (page: Page) => page.getByRole('form', { name: 'Image usage rights' });
+
+/** Kahuna only reveals the edit button while the section is hovered. */
+async function openRightsEditor(page: Page): Promise<void> {
+  const section = rightsAndRestrictions(page);
+  await section.hover();
+  await section.getByRole('button', { name: '✎' }).click();
+}
 
 async function openImage(page: Page, imageId: string): Promise<void> {
   await page.goto(`${KAHUNA_APP_URL}/images/${imageId}`);
@@ -139,13 +148,54 @@ Then('the edit rights and restrictions button is shown', async ({ page, testCont
 });
 
 When('I choose to edit the rights and restrictions', async ({ page }) => {
-  const section = rightsAndRestrictions(page);
-  await section.hover();
-  await section.getByRole('button', { name: '✎' }).click();
+  await openRightsEditor(page);
 });
 
 Then('the rights editor is shown', async ({ page }) => {
-  await expect(page.getByRole('form', { name: 'Image usage rights' })).toBeVisible();
+  await expect(rightsEditor(page)).toBeVisible();
+});
+
+Given('I have opened the rights editor', async ({ page }) => {
+  await openRightsEditor(page);
+  await expect(rightsEditor(page)).toBeVisible();
+});
+
+/**
+ * Values for the required properties of each category a scenario saves, keyed by category
+ * display name then property label. A category's form can't be submitted without them.
+ */
+const REQUIRED_PROPERTY_VALUES: Record<string, Record<string, string>> = {
+  'Agency - subscription': { Supplier: 'AP' },
+};
+
+When('I save the {string} usage rights category', async ({ page }, category: string) => {
+  const required = REQUIRED_PROPERTY_VALUES[category];
+  if (!required) throw new Error(`No required property values are defined for "${category}"`);
+
+  const editor = rightsEditor(page);
+  // The category <select> is the editor's first control and has no label of its own.
+  await editor.getByRole('combobox').first().selectOption({ label: category });
+  for (const [property, value] of Object.entries(required)) {
+    await editor.getByLabel(property, { exact: true }).selectOption({ label: value });
+  }
+
+  // The editor closes whether or not the save succeeds, so check the requests themselves:
+  // the rights, then the metadata the metadata editor derives from them.
+  const imageId = new URL(page.url()).pathname.split('/').pop();
+  const isSaveRequest = (method: string, path: string) => (response: Response) =>
+    response.request().method() === method && new URL(response.url()).pathname === path;
+  const [rights, derivedMetadata] = await Promise.all([
+    page.waitForResponse(isSaveRequest('PUT', `/metadata/${imageId}/usage-rights`)),
+    page.waitForResponse(isSaveRequest('POST', `/metadata/${imageId}/metadata/set-from-usage-rights`)),
+    editor.getByRole('button', { name: 'Save usage rights', exact: true }).click(),
+  ]);
+  expect(rights.ok(), `saving the rights: ${await rights.text()}`).toBeTruthy();
+  expect(derivedMetadata.ok(), `deriving metadata from the rights: ${await derivedMetadata.text()}`)
+    .toBeTruthy();
+});
+
+Then('the rights editor closes', async ({ page }) => {
+  await expect(rightsEditor(page)).toBeHidden();
 });
 
 Given('the image was uploaded by someone else', async ({ page, testContext }) => {
@@ -228,8 +278,9 @@ Given('the usage rights suppliers is {string}', async ({ page, testContext }, su
   await openImage(page, imageId);
 });
 
-Given('the image has no usage rights category', async ({ page }) => {
-  await openImage(page, SEEDED_IMAGE_ID);
+Given('the image has no usage rights category', async ({ page, seedImage }) => {
+  // A disposable copy, so scenarios that save rights don't change a shared fixture.
+  await openImage(page, await seedImage(IMAGE_WITHOUT_RIGHTS._source, { usageRights: {} }));
 });
 
 Given('the configuration contains pay-to-use and not chargeable', async ({ request }) => {
