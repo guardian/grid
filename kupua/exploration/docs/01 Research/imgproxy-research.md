@@ -251,6 +251,35 @@ decoded-image clocks remain separate. The
 owns current execution status; these recommendations authorize no deployment,
 backend change, security-policy change or new campaign.
 
+### Client Requirements, In Short (30 October 2026)
+
+Two things clients need from the imgproxy links:
+
+1. **Client-chosen size.** Clients pick pixels at render time (cell or viewport × DPR ×
+   zoom). Fixed-size URLs force either oversized images or a per-image request per size,
+   and a per-image resolver call slows image-to-image traversal and blocks prefetch. imgops
+   already provides this (`{w,h,q}` left open in the template); keep it.
+2. **No expiry.** Today's imgops links embed a presigned S3 source, which expires after
+   about 15–25 minutes, so long-lived pages (Kupua's buffer, any open tab) break until
+   reload. imgops itself does not sign; the expiry comes only from the presigned source.
+   A plain `s3://` source (imgproxy reads S3 with its own credentials) and no `exp` in any
+   imgproxy signature removes the expiry, and also makes URLs stable and cacheable.
+
+imgproxy signs the whole path, size included, so signing and client-chosen size conflict.
+The options:
+
+| | Design | Signing | Size | Expiry | Cost |
+|---|---|---|---|---|---|
+| 1 | Media-api returns signed URLs for a small width ladder (e.g. 5 widths); the client picks the nearest | Full | Bucketed | None | About 5 URLs per image in every response |
+| 2 | Media-api redirect: the client templates `/images/:id/optimised?w=&h=`, media-api redirects to a signed imgproxy URL | Full | Exact | None, if the redirect is cacheable | An extra hop per image load; all image traffic passes through media-api |
+| 3 | Unsigned, restricted: `IMGPROXY_ALLOWED_SOURCES` limited to the image bucket, plus a maximum result size | None | Exact | None | Anyone who can reach imgproxy can read any object in the bucket (acceptable for the Guardian's bucket) |
+
+Suggested: make the choice configurable. The Guardian runs 3, the BBC runs 1. Both keep
+stable, non-expiring URLs and client-chosen size, and neither needs a per-image resolver
+call. Keep the response shape stable for clients (a template for 3, the ladder for 1).
+imgproxy facts above (whole-path signing, allowed sources, expiry only when requested) are
+to be confirmed against its documentation.
+
 > **Date:** 2026-03-22
 > **Source:** `/Users/mkarpow/code/eelpie/grid` (Tony McCrae's fork)
 
