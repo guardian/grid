@@ -592,6 +592,42 @@ class MediaApi(
     }
   }
 
+  private def resolvedImageUrl(
+    id: String,
+    assetType: ImageFileType,
+    width: Int,
+    height: Int,
+    quality: Option[Int],
+    request: AuthenticatedRequest[AnyContent, Principal]
+  ): Future[Result] = {
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "resolved-image-url",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "imageId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
+    elasticSearch.getImageById(id) map {
+      case Some(image) if isVisibleToAccessor(request.user, image) =>
+        val asset = assetType match {
+          case OptimisedPng => image.optimisedPng.getOrElse(image.source)
+          case _ => image.source
+        }
+        // Only pre-signed if imgproxy isn't reading from S3 directly
+        lazy val presignedUrl = s3Client.signUrl(config.imageBucket, asset.file, image, imageType = assetType)
+        val imgproxyUrl = imageResponse.imgproxyResizedUrl(image, assetType, presignedUrl, width, height, quality)
+        respond(Json.obj("url" -> imgproxyUrl))
+      case _ => ImageNotFound(id)
+    }
+  }
+
+  def getOptimisedImageUrl(id: String, width: Int, height: Int, quality: Option[Int]) = auth.async { request =>
+    resolvedImageUrl(id, Source, width, height, quality, request)
+  }
+
+  def getOptimisedPngImageUrl(id: String, width: Int, height: Int, quality: Option[Int]) = auth.async { request =>
+    resolvedImageUrl(id, OptimisedPng, width, height, quality, request)
+  }
+
   def postToUsages(
     uri: String,
     onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal,
