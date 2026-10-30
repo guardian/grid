@@ -1,45 +1,27 @@
 package com.gu.mediaservice.scripts
 
+import com.gu.mediaservice.helpers.CsvFile
 import com.gu.mediaservice.model.leases.MediaLease
 import play.api.libs.json.Json
 
 import java.io.PrintWriter
 import java.net.URI
+import java.net.http.HttpRequest
 import java.net.http.HttpRequest.BodyPublishers
 import java.net.http.HttpResponse.BodyHandlers
-import java.net.http.{HttpClient, HttpRequest}
+import java.net.http.HttpClient
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.jdk.FutureConverters._
-import scala.io.Source
 import scala.util.control.NonFatal
 
-object ImageIdsCleanUp extends App {
+object ImageIdsCleanUp {
   implicit val executionContext: ExecutionContext = ExecutionContext.global
 
   val GRIDKEY = sys.env.getOrElse("GRIDKEY", throw new RuntimeException("Must set a GRIDKEY env variable"))
   val STAGE = sys.env.getOrElse("STAGE", throw new RuntimeException("Must set a STAGE env variable"))
-  val GRIDDOMAIN = if(STAGE == "PROD") "gutools.co.uk" else "test.dev-gutools.co.uk"
-  val DRYRUN = sys.env.contains("DRYRUN")
+  val GRIDDOMAIN = if (STAGE == "PROD") "gutools.co.uk" else "test.dev-gutools.co.uk"
   val MaxConcurrentRequests = 50
   val client: HttpClient = HttpClient.newHttpClient()
-
-  println(s"Running for stage $STAGE with domain $GRIDDOMAIN")
-
-  def denyLeaseBody(mediaId: String) = {
-    val mediaLease = MediaLease(
-      id = None,
-      leasedBy = None,
-      startDate = None,
-      endDate = None,
-      access = com.gu.mediaservice.model.leases.DenyUseLease,
-      notes = Some("No longer available from the supplier"),
-      mediaId = mediaId
-    )
-
-    val js = Json.toJson[MediaLease](mediaLease)
-    val leaseBody = BodyPublishers.ofString(s"""${js.toString()}""")
-    leaseBody
-  }
 
   def send(request: HttpRequest) =
     client.sendAsync(request, BodyHandlers.ofString()).asScala
@@ -53,36 +35,26 @@ object ImageIdsCleanUp extends App {
     }
   }
 
-  val imageIds = {
-    val csvPath = args.headOption.getOrElse {
-      throw new IllegalArgumentException("To run the script pass in a path to a csv file as an argument")
-    }
-    val source = Source.fromFile(csvPath)
-    try {
-      source
-        .getLines()
-        .drop(1)
-        .map(_.takeWhile(_ != ',').trim)
-        .filter(_.nonEmpty)
-        .distinct
-        .toList
-    } finally {
-      source.close()
-    }
-  }
-  println(s"Found ${imageIds.size} image ids to process")
-  if (imageIds.isEmpty) {
-    println("No image ids found in supplied csv, exiting script")
-    sys.exit(1)
-  }
-
-  val usagesBody = BodyPublishers.ofString("""{"data":{"restrictions":"No longer available from the supplier","category":"chargeable"}}""")
-
   val ReportPath = "./kill-notice-report.csv"
 
   case class ProcessResult(mediaId: String, success: Boolean, outcome: String)
 
-  def csvField(value: String): String = // TODO this may be unnecessary? 
+  private val usagesBody = BodyPublishers.ofString("""{"data":{"restrictions":"No longer available from the supplier","category":"chargeable"}}""")
+
+  private def denyLeaseBody(mediaId: String) = {
+    val mediaLease = MediaLease(
+      id = None,
+      leasedBy = None,
+      startDate = None,
+      endDate = None,
+      access = com.gu.mediaservice.model.leases.DenyUseLease,
+      notes = Some("No longer available from the supplier"),
+      mediaId = mediaId
+    )
+    BodyPublishers.ofString(Json.toJson[MediaLease](mediaLease).toString())
+  }
+
+  private def csvField(value: String): String =
     "\"" + value.replace("\"", "\"\"") + "\""
 
   def writeReport(path: String, results: Seq[ProcessResult]): Unit = {
@@ -97,7 +69,17 @@ object ImageIdsCleanUp extends App {
     }
   }
 
-  def processMediaId(mediaId: String, index: Int, total: Int): Future[ProcessResult] = {
+  def logSummaryAndWriteReport(results: Seq[ProcessResult], reportPath: String = ReportPath): Unit = {
+    val (success, fail) = results.partition(_.success)
+    println(s"Successfully processed ${success.size} of ${results.size}")
+    if (fail.nonEmpty) {
+      println(s"Unable to process ${fail.size} ids: \n${fail.map(_.mediaId).mkString("\n")}")
+    }
+    writeReport(reportPath, results)
+    println(s"Wrote outcome report to $reportPath")
+  }
+
+  private def processMediaId(mediaId: String, index: Int, total: Int): Future[ProcessResult] = {
     println(s"Running for id $mediaId, ${index + 1} of $total")
     // Make an api request to try to delete the image, either successful or
     // attempt a hard delete
@@ -136,7 +118,7 @@ object ImageIdsCleanUp extends App {
         }
       }
       case code => {
-        println(s"Got unexpected response $code calling delete for ${mediaId}")
+        println(s"Got unexpected response $code calling delete for $mediaId")
         Future.successful((false, s"unexpected-delete-response-$code"))
       }
     }}
@@ -148,23 +130,33 @@ object ImageIdsCleanUp extends App {
       }
   }
 
-  println(s"Found ${imageIds.size} ids, now running deletion")
-  val program = traverseBatched(imageIds.zipWithIndex, MaxConcurrentRequests) { case (mediaId, index) =>
-    if(DRYRUN) {
-      println(s"[DRY MODE] Would process $mediaId (${index+1} of ${imageIds.size})")
-      Future.successful(ProcessResult(mediaId, true, "dry-run-skipped"))
-    } else {
-      processMediaId(mediaId, index, imageIds.size)
+  def cleanUpImageIds(imageIds: Seq[String], dryRun: Boolean): Future[Seq[ProcessResult]] = {
+    println(s"Found ${imageIds.size} ids, now running deletion")
+    traverseBatched(imageIds.zipWithIndex, MaxConcurrentRequests) { case (mediaId, index) =>
+      if (dryRun) {
+        println(s"[DRY MODE] Would process $mediaId (${index + 1} of ${imageIds.size})")
+        Future.successful(ProcessResult(mediaId, true, "dry-run-skipped"))
+      } else {
+        processMediaId(mediaId, index, imageIds.size)
+      }
     }
-  }.map { outcomes =>
-    val (success, fail) = outcomes.partition(_.success)
-    println(s"Successfully processed ${success.size} of  ${imageIds.size}")
-    if(fail.nonEmpty) {
-      println(s"Unable to process ${fail.size} ids: \n${fail.map(_.mediaId).mkString("\n")}")
-    }
-    writeReport(ReportPath, outcomes)
-    println(s"Wrote outcome report to $ReportPath")
   }
 
-  Await.result(program, scala.concurrent.duration.Duration.Inf)
+  def main(args: Array[String]): Unit = {
+    val dryRun = sys.env.contains("DRYRUN")
+    println(s"Running for stage $STAGE with domain $GRIDDOMAIN")
+
+    val csvPath = args.headOption.getOrElse {
+      throw new IllegalArgumentException("To run the script pass in a path to a csv file as an argument")
+    }
+    val imageIds = CsvFile.readFirstColumn(csvPath)
+    println(s"Found ${imageIds.size} image ids to process")
+    if (imageIds.isEmpty) {
+      println("No image ids found in supplied csv, exiting script")
+      sys.exit(1)
+    }
+
+    val program = cleanUpImageIds(imageIds, dryRun).map(results => logSummaryAndWriteReport(results))
+    Await.result(program, scala.concurrent.duration.Duration.Inf)
+  }
 }

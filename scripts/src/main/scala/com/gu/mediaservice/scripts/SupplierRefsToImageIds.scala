@@ -10,7 +10,7 @@ import java.net.http.{HttpClient, HttpRequest}
 import java.util.concurrent.{CompletableFuture, TimeUnit}
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.jdk.FutureConverters._
-import scala.io.Source
+import com.gu.mediaservice.helpers.CsvFile
 
 object SupplierRefsToImageIds extends App {
   implicit val executionContext: ExecutionContext = ExecutionContext.global
@@ -41,20 +41,6 @@ object SupplierRefsToImageIds extends App {
       .asScala
       .map(_ => ())
 
-  def readSupplierRefs(csvPath: String): List[String] = {
-    val source = Source.fromFile(csvPath)
-    try {
-      source
-        .getLines()
-        .drop(1)
-        .map(_.takeWhile(_ != ',').trim)
-        .filter(_.nonEmpty)
-        .toList
-    } finally {
-      source.close()
-    }
-  }
-
   val suppliersInTest = List("13300266", "17218005aa", "17217489bk")
 
   val (supplierRefs, outputPath) = if (STAGE == "PROD") {
@@ -64,7 +50,7 @@ object SupplierRefsToImageIds extends App {
     val outPath = args.lift(1).getOrElse {
       throw new IllegalArgumentException("Usage (PROD): <supplierRefsCsv> <outputFile>")
     }
-    (readSupplierRefs(csvPath), outPath)
+    (CsvFile.readFirstColumn(csvPath), outPath)
   } else {
     val testOutputPath = "./test-out.csv"
     (suppliersInTest, testOutputPath)
