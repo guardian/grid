@@ -128,7 +128,7 @@ test.describe("CQL resolver ownership", () => {
       await page.evaluate((count) => (window as any).__kupua_store__.setState({
         tickerCounts: { "agency picks": { value: count } },
         aggregations: { fields: { "usageRights.category": { buckets: [{ key: "staff-photographer", count: count + 10 }], total: count + 10 } } },
-        isFilterCounts: { deleted: count + 20, "under-quota": count + 30 },
+        isFilterCounts: { deleted: count + 20, "under-quota": count + 30, "GNM-owned-photo": count + 10 },
       }), 101 + generation);
       await typeQuery(page, "is:");
       const values = await page.evaluate(() => (window as any).__cqlLifetimeProbe.suggestions.at(-1).values);

@@ -43,6 +43,7 @@ import { buildSortClause, parseSortField, createDataSource } from "@/dal";
 import { IS_LOCAL_ES } from "@/dal/es-config";
 import { decorateParamsForAggregations } from "@/lib/ai-search-params";
 import { FIELD_REGISTRY } from "@/lib/field-registry";
+import { gridConfig } from "@/lib/grid-config";
 import { isolateAggregationFailure } from "@/lib/safe-aggregation";
 import { findHasFieldTargets } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { resolveKeywordSortInfo, resolveDateSortInfo, resolvePrimarySortKey } from "@/lib/sort-context";
@@ -4474,9 +4475,12 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     const startTime = performance.now();
 
     // Build filter agg requests — the adapter compiles "is:<name>" internally.
+    const org = gridConfig.staffPhotographerOrganisation;
     const isFilterRequests: FilterAggRequest[] = [
       { name: "deleted", isFilter: "deleted" },
       { name: "under-quota", isFilter: "under-quota" },
+      { name: `${org}-owned-photo`, isFilter: `${org}-owned-photo` },
+      { name: `${org}-owned-illustration`, isFilter: `${org}-owned-illustration` },
     ];
 
     // Usage nested-filter agg requests — counts parent images via reverse_nested.

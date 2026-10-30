@@ -993,12 +993,12 @@ describe("API mode: facet aggregations", () => {
 
     const bodies = bodiesFor("/images/aggregations");
     expect(bodies).toHaveLength(1);
-    expect(bodies[0].isFilters).toEqual(["deleted", "under-quota"]);
+    expect(bodies[0].isFilters).toEqual(["deleted", "under-quota", "GNM-owned-photo", "GNM-owned-illustration"]);
     const requested = (bodies[0].fields as Array<{ field: string }>).map((f) => f.field);
     expect(requested).toEqual(expect.arrayContaining(["usageRights.category", "metadata.credit", "usagesPlatform", "usagesStatus"]));
     expect(state().aggregations?.fields["metadata.credit"]?.buckets).toEqual([{ key: "metadata.credit-top", count: 3 }]);
     expect(state().aggregations?.fields).not.toHaveProperty("usagesPlatform");
-    expect(state().isFilterCounts).toEqual({ deleted: 0, "under-quota": 11 });
+    expect(state().isFilterCounts).toEqual({ deleted: 0, "under-quota": 11, "GNM-owned-photo": 11, "GNM-owned-illustration": 11 });
     expect(state().usageFilterCounts).toEqual({ digital: 9, print: 0, syndication: 0, published: 4, pending: 0, removed: 0 });
     expect(state().aggLoading).toBe(false);
   });

@@ -57,6 +57,16 @@ describe("Is section tickers", () => {
     const row = screen.getByTitle(/^is:agency-pick \(1,234\)/);
     expect(row.querySelector("[aria-hidden=true]")?.getAttribute("style")).toContain("rgb(171, 205, 239)");
   });
+
+  it("shows owned photo and illustration counts from the server's is: filter counts, not category sums", () => {
+    useSearchStore.setState({
+      aggregations: { fields: { "usageRights.category": { buckets: [{ key: "staff-photographer", count: 99 }], total: 99 } } },
+      isFilterCounts: { "GNM-owned-photo": 7, "GNM-owned-illustration": 3 },
+    });
+    render(<FacetFilters />);
+    expect(screen.getByTitle(/^is:GNM-owned-photo \(7\)/)).toBeTruthy();
+    expect(screen.getByTitle(/^is:GNM-owned-illustration \(3\)/)).toBeTruthy();
+  });
 });
 
 describe("Filters disclosure", () => {

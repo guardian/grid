@@ -28,6 +28,15 @@ const literalCases = [
 ] as const;
 
 describe("literal-safe typeahead scope", () => {
+  it("is: suggestions count owned photo and illustration with the server's is: filter counts", async () => {
+    const counts = { deleted: 1, "under-quota": 2, "GNM-owned-photo": 7, "GNM-owned-illustration": 3 };
+    const resolver = buildTypeaheadFields(new MockDataSource(0), undefined, () => ({}), () => null, () => counts)
+      .find((field) => field.fieldName === "is")!.resolver;
+    if (typeof resolver !== "function") throw new Error("Expected is resolver");
+    expect(await resolver("GNM-owned-")).toEqual(expect.arrayContaining([
+      { value: "GNM-owned-photo", count: 7 }, { value: "GNM-owned-illustration", count: 3 },
+    ]));
+  });
   it("category suggestions list Grid's categories by search value, counting replaced values (Kahuna parity, kebab only)", async () => {
     const { useUsageRightsCatalogue } = await import("./usage-rights-catalogue");
     const dataSource = new MockDataSource(0);

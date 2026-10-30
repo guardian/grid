@@ -24,6 +24,14 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 30 October 2026 - Owned photo and illustration counts from the server
+
+The Filters "Is" section and `is:` typeahead no longer sum category buckets against
+Kupua's photographer/illustrator lists. The shared aggregation request now also asks for
+the `${org}-owned-photo` and `${org}-owned-illustration` filter counts, so in media-api
+mode they are media-api's own `is:` counts and always match the search; direct-ES compiles
+the same filters locally. Filter counts the server omits are now absent, not zero.
+
 ### 30 October 2026 - Selections use server cost and validity
 
 In media-api mode, selection's bulk reads (`POST /images/mget`) now keep each response

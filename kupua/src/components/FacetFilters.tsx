@@ -24,11 +24,7 @@ import { formatCount } from "@/lib/format-count";
 import { gridConfig } from "@/lib/grid-config";
 import { displayTickers } from "@/lib/ticker-display";
 import { findScrollParent } from "@/lib/dom-utils";
-import type { AggregationBucket, TickerCountResult, AggregationsResult } from "@/dal";
-import {
-  PHOTOGRAPHER_CATEGORIES,
-  ILLUSTRATOR_CATEGORIES,
-} from "@/dal/adapters/elasticsearch/cql";
+import type { AggregationBucket, TickerCountResult } from "@/dal";
 import { buildIsOptions } from "@/lib/typeahead-fields";
 import { groupCategoryBuckets, useUsageRightsCatalogue } from "@/lib/usage-rights-catalogue";
 import { useCategoryLabel } from "@/lib/category-labels";
@@ -200,7 +196,6 @@ export function FacetFilters() {
       <IsSection
         currentQuery={currentQuery}
         tickerCounts={tickerCounts}
-        aggregations={aggregations}
         isFilterCounts={isFilterCounts}
         onIsClick={(value, negated) => {
           const existing = findFieldTerm(currentQuery, "is", value);
@@ -381,34 +376,19 @@ const CONFIGURED_TICKER_COLOURS = new Map(
 interface IsSectionProps {
   currentQuery: string;
   tickerCounts: Record<string, TickerCountResult> | null;
-  aggregations: AggregationsResult | null;
   isFilterCounts: Record<string, number> | null;
   onIsClick: (value: string, negated: boolean) => void;
 }
 
-function IsSection({ currentQuery, tickerCounts, aggregations, isFilterCounts, onIsClick }: IsSectionProps) {
+function IsSection({ currentQuery, tickerCounts, isFilterCounts, onIsClick }: IsSectionProps) {
   const isOptions = buildIsOptions();
   const org = gridConfig.staffPhotographerOrganisation;
   const tickerByIsValue = new Map(displayTickers(tickerCounts).map((ticker) => [ticker.isValue, ticker]));
   const tickerCountByIsValue = new Map([...tickerByIsValue].map(([value, ticker]) => [value, ticker.value]));
 
-  // Derive photo/illustration counts from the category terms agg (free — no extra ES call)
-  const categoryBuckets = aggregations?.fields["usageRights.category"]?.buckets;
-  const categoryCountMap = categoryBuckets
-    ? new Map(categoryBuckets.map((b) => [b.key, b.count]))
-    : null;
-  const derivedIsCount = (value: string): number | undefined => {
-    if (value === `${org}-owned-photo` && categoryCountMap) {
-      return PHOTOGRAPHER_CATEGORIES.reduce((s, c) => s + (categoryCountMap.get(c) ?? 0), 0);
-    }
-    if (value === `${org}-owned-illustration` && categoryCountMap) {
-      return ILLUSTRATOR_CATEGORIES.reduce((s, c) => s + (categoryCountMap.get(c) ?? 0), 0);
-    }
-    if (value === "deleted" || value === "under-quota") {
-      return isFilterCounts?.[value];
-    }
-    return undefined;
-  };
+  const serverCounted = new Set(["deleted", "under-quota", `${org}-owned-photo`, `${org}-owned-illustration`]);
+  const derivedIsCount = (value: string): number | undefined =>
+    serverCounted.has(value) ? isFilterCounts?.[value] : undefined;
 
   // Pre-compute visible items to decide whether to render the section at all.
   const visibleItems = isOptions.filter((value) => {

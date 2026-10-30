@@ -29,10 +29,6 @@ import { FIELDS_BY_CQL_KEY } from "./field-registry";
 import { isolateAggregationFailure } from "./safe-aggregation";
 import { removeAllFieldTerms } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { useCollectionStore, type CollectionNode } from "@/stores/collection-store";
-import {
-  PHOTOGRAPHER_CATEGORIES,
-  ILLUSTRATOR_CATEGORIES,
-} from "@/dal/adapters/elasticsearch/cql";
 import type { TickerCountResult } from "@/dal";
 import { useUsageRightsCatalogue } from "./usage-rights-catalogue";
 
@@ -415,36 +411,17 @@ export function buildTypeaheadFields(
         const tickers = getTickerCounts?.() ?? null;
         for (const ticker of displayTickers(tickers)) countMap.set(ticker.isValue, ticker.value);
 
-        // GNM-owned-photo, GNM-owned-illustration — sum category buckets (free).
-        const categoryBuckets = storeBuckets("category", getAggregations);
-        if (categoryBuckets) {
-          const bm = new Map(categoryBuckets.map((b) => [b.key, b.count]));
-          countMap.set(
-            `${org}-owned-photo`,
-            PHOTOGRAPHER_CATEGORIES.reduce((s, c) => s + (bm.get(c) ?? 0), 0),
-          );
-          countMap.set(
-            `${org}-owned-illustration`,
-            ILLUSTRATOR_CATEGORIES.reduce((s, c) => s + (bm.get(c) ?? 0), 0),
-          );
-        }
-
-        // deleted, under-quota — from panel cache if warm; otherwise direct call.
-        // photo/illustration also in the cold fallback (review #6).
+        // deleted, under-quota, owned photo/illustration — the server's is: counts,
+        // from the panel cache if warm; otherwise a direct call.
+        const isCounted = ["deleted", "under-quota", `${org}-owned-photo`, `${org}-owned-illustration`];
         const cached = getIsFilterCounts?.();
         if (cached) {
-          if ("deleted" in cached) countMap.set("deleted", cached["deleted"]);
-          if ("under-quota" in cached) countMap.set("under-quota", cached["under-quota"]);
+          for (const name of isCounted) if (name in cached) countMap.set(name, cached[name]);
         } else {
           try {
             const params = getParams?.();
             if (params) {
-              const filterRequests: FilterAggRequest[] = [
-                { name: "deleted", isFilter: "deleted" },
-                { name: "under-quota", isFilter: "under-quota" },
-                { name: `${org}-owned-photo`, isFilter: `${org}-owned-photo` },
-                { name: `${org}-owned-illustration`, isFilter: `${org}-owned-illustration` },
-              ];
+              const filterRequests: FilterAggRequest[] = isCounted.map((name) => ({ name, isFilter: name }));
               const aggResult = await readOptions(params, [], signal, filterRequests);
               for (const [k, v] of Object.entries(aggResult.filters ?? {})) countMap.set(k, v);
             }

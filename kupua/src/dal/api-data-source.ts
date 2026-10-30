@@ -104,7 +104,9 @@ export class ApiDataSource implements ImageDataSource {
     return {
       fields: Object.fromEntries(fields.map(({ field }) => [field, { buckets: bucketsOf(field) }])),
       ...(isFilters?.length
-        ? { filters: Object.fromEntries(isFilters.map(({ name, isFilter }) => [name, json.isFilterCounts[isFilter] ?? 0])) }
+        ? { filters: Object.fromEntries(isFilters
+            .filter(({ isFilter }) => typeof json.isFilterCounts?.[isFilter] === "number")
+            .map(({ name, isFilter }) => [name, json.isFilterCounts[isFilter]])) }
         : {}),
       ...(usageFilters?.length
         ? {
