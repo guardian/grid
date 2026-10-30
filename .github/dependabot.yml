@@ -8,6 +8,11 @@ updates:
       interval: 'weekly'
     commit-message:
       prefix: "chore(deps): "
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
 
   # things that only get run locally
   - package-ecosystem: 'npm'
@@ -16,24 +21,44 @@ updates:
       interval: 'weekly'
     commit-message:
       prefix: "chore(deps): "
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
   - package-ecosystem: 'npm'
     directory: '/dev/script/generate-config'
     schedule:
       interval: 'weekly'
     commit-message:
       prefix: "chore(deps): "
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
   - package-ecosystem: 'npm'
     directory: '/scripts/sample-images'
     schedule:
       interval: 'weekly'
     commit-message:
       prefix: "chore(deps): "
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
   - package-ecosystem: 'npm'
     directory: '/scripts/reindex-images'
     schedule:
       interval: 'weekly'
     commit-message:
       prefix: "chore(deps): "
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
 
 
   # the frontend site
@@ -51,3 +76,8 @@ updates:
       interval: 'weekly'
     commit-message:
       prefix: "chore(deps): "
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
