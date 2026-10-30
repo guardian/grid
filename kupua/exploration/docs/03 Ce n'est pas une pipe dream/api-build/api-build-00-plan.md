@@ -706,6 +706,8 @@ suite in API mode.
     (`getIdRange`) onto media-api in API mode.
   - **No server enrichment for selection (Q1):** `getByIds` keeps returning `Image[]`; selection's
     Cost Summary keeps deriving off-screen images as in direct mode (KUP-029/030 stay deferred).
+    *Superseded 30 October:* mget enrichment is now attached to each returned image object
+    (selection-owned, not the shared store); KUP-029/030 were resolved on 27 September.
   - **Unreadable image = not found (Q2),** as Grid's `GET /images/:id` does; the server logs it. A
     restored selection then drops it with the existing "no longer available" toast.
   - **Visibility (Q3):** the singleton rule (`isVisibleToAccessor`, as `GET /images/:id` and U6a

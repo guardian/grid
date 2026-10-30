@@ -350,6 +350,8 @@ timing remains measurement-gated; the obsolete chunk-size setting has been remov
 
 For interactive selection of visible images, `ensureMetadata` re-fetches data the buffer already contains. An optimisation — seeding `metadataCache` from `results[]` at toggle/add time — would eliminate those round-trips and remove pending-field flicker for common interactive selections. Not built in v1; `ensureMetadata` guards against duplicates (`pendingFetchIds` dedup), so the extra fetch is wasted but not wrong.
 
+**Server cost and validity for cached images (media-api mode).** `getByIds` (`POST /images/mget`) attaches each image's server enrichment (cost, validity, rights, actions, syndication, usages) to the returned object, which `metadataCache` stores as-is. The Cost Summary and single-selection panel use the current search's overlay first, then this attachment, then local rules. The attachment is evicted with the image, so it is exactly as fresh as the cached metadata; there is no separate expiry. Any future step that copies cached images must carry the attachment. Direct-ES reads attach nothing.
+
 **Memoisation key:** the `reconciledView` is invalidated by a generation counter bumped on any selectedIds mutation AND on each chunk completion during lazy recompute. No structural diffing.
 
 ## 8. What gets reconciled, what doesn't

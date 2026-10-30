@@ -17,6 +17,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { extractEnrichment, apiSearchAfter, apiGetImage, apiGetByIds } from "./grid-api-search-adapter";
+import { attachedEnrichment } from "@/stores/enrichment-store";
 import { deriveImage } from "@/lib/derive-enriched-image";
 import { getFieldRawValue } from "@/lib/field-registry";
 import { useEnrichmentStore } from "@/stores/enrichment-store";
@@ -607,6 +608,14 @@ describe("returned media links", () => {
     for (const image of [pageImage, single?.image, mgetImage]) {
       expect(image?.__mediaLinks).toEqual({ optimised, optimisedPng });
     }
+  });
+
+  it("keeps mget's server cost and validity with each returned image object", async () => {
+    const data = { ...makeCanonicalImage(), cost: "overquota", valid: false, invalidReasons: { over_quota: "Over quota" } };
+    respond({ data: [{ data, links }] });
+    const [image] = await apiGetByIds([data.id]);
+    expect(attachedEnrichment(image)).toMatchObject({ cost: "overquota", valid: false, invalidReasons: { over_quota: "Over quota" } });
+    expect(attachedEnrichment({ ...image })).toBeUndefined();
   });
 
   it("leaves media links absent when an entity has none", async () => {

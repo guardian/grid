@@ -82,7 +82,7 @@ use `sort-profile`; maps and range walks use `keys`. Walk loops and caps stay cl
 Counts/tickers use `count`; facets, typeahead and collection counts use `aggregations`;
 standalone detail uses `GET /images/:id`; selection hydration uses `mget` (200 IDs per request,
 at most four in flight). `getById(id, signal?)` returns `{image, enrichment?} | undefined`;
-`getByIds` deliberately returns `Image[]` without enrichment. `openPit` resolves `null`;
+`getByIds` returns `Image[]`; each image carries its mget enrichment as an attachment (see Enrichment System). `openPit` resolves `null`;
 `offsetReadLimit` is 10,000, so an estimate-less deep seek lands at 9,800 with its actual position.
 AI search uses `GET /images` with `useAISearch=true` and a separate `aiQuery`. There is
 no ES fallback, and the factory constructs no ES datasource in API mode.
@@ -149,16 +149,17 @@ Three-layer merge model:
 
 1. **ES baseline inputs** — `SOURCE_INCLUDES` in `es-config.ts` requests rights/leases/usages/labels/syndicationRights/XMP fields. Individual records may omit fields; no Grid service call is needed for these direct-mode inputs.
 2. **TS cost+validity calculation** — `calculateCost` (port of Scala `CostCalculator`), `buildValidityMap` + `deriveValid` (mirrors Scala's two-pass override model), `isImagePotentiallyGraphic`, quota-store (`fetchQuotas()` at startup, graceful absence). `guardian-config.json` is a vendored config snapshot.
-3. **API overlay** — `enrichment-store` (Zustand, no persistence) receives committed ordinary and AI search enrichment. `deriveImage(image, overlay?)` merges server fields over the baseline; direct ES supplies no overlay. Ordinary pages, AI results and standalone detail map baseline images and enrichment from their response entities. Selection bulk lookup returns baseline images without publishing enrichment.
+3. **API overlay** — `enrichment-store` (Zustand, no persistence) receives committed ordinary and AI search enrichment. `deriveImage(image, overlay?)` merges server fields over the baseline; direct ES supplies no overlay. Ordinary pages, AI results and standalone detail map baseline images and enrichment from their response entities. Selection bulk lookup (`POST /images/mget`) attaches each entity's enrichment to the returned image object (`attachEnrichment`, a WeakMap), so it lives exactly as long as that object in selection's metadata cache and never enters the shared store.
 
 **Consuming enriched data:** `useEnrichedImage(image, ownOverlay?)` subscribes per-ID to the
-enrichment store (O(1) `Map.get`); an owned standalone overlay takes precedence. Non-React
-callers use `deriveImage` directly. ImageDetail passes its owned overlay to ImageMetadata only
-while displaying that standalone image. Selection bulk lookup does not add server enrichment.
+enrichment store (O(1) `Map.get`); an owned standalone overlay takes precedence, then the shared
+store, then enrichment attached to the image object. Non-React callers use `deriveImage`
+directly; the selection Cost Summary uses the same store-then-attached order. ImageDetail passes
+its owned overlay to ImageMetadata only while displaying that standalone image.
 `deriveImage` uses field-wise lazy fallback: supplied cost/status skip local calculation;
 validity is built only when `valid` or `invalidReasons` is missing. Nullish fallback preserves
 meaningful `false`, empty-object and empty-array overlay values. Local fallback remains necessary
-for direct mode, partial overlays and selection summaries; it is not a background enrichment read.
+for direct mode and partial overlays; it is not a background enrichment read.
 
 Fresh API pages and committed first-page fallbacks replace the overlay map. Fill, extensions,
 focus/restore buffers and seeks merge their contributing overlays. An inserted target contributes
@@ -497,7 +498,7 @@ requests a coalesced full reconciliation when it overlaps the current selection.
 repair the anchor and issue one unavailable-items toast only while the captured selected Set
 and anchor still own the request. Rejected reads retain membership; late successful metadata
 can still warm the cache. API mget uses 200-ID chunks/four in flight, rejects any failed logical
-lookup and supplies no enrichment. `electFallbackAnchor` uses the last remaining Set entry.
+lookup and attaches each image's server enrichment to that image object. `electFallbackAnchor` uses the last remaining Set entry.
 Clear-on-navigation remains controlled by `SELECTIONS_PERSIST_ACROSS_NAVIGATION`.
 
 ## Click Interpreter (`lib/interpretClick.ts`)

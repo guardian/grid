@@ -968,19 +968,20 @@ Sources: [ImageMetadata](../../../src/components/ImageMetadata.tsx),
 
 **Kupua:** server-supplied cost, validity, invalid reasons and syndication status
 win when present; missing fields use local fallback derivation. Selection bulk
-lookup does not publish enrichment, so selection summaries can use those fallbacks.
+lookup keeps each image's server fields with that image, so selection summaries
+and off-screen single selections use server values too.
 Local date-based lease classification does not override an available server status.
 
 Accepted AI results replace the enrichment map with their own response's data;
-they do not retain an earlier ordinary result's overlay. Selection hydration has
-separate ownership and does not provide the same enrichment guarantee. Display
+they do not retain an earlier ordinary result's overlay. Selection-read server
+fields live and expire with the selected image object, not the search map. Display
 labels are not the authority for server search eligibility or actions, and local
 lease calculation is not an unconditional correction to server syndication status.
 
 **New endpoints:** no separate enrichment endpoint. Ordinary page enrichment arrives
 through `POST /images/search-after` or `POST /images/window`; existing `GET /images`
 with `aiQuery` and `GET /images/:id` supply AI/detail enrichment respectively.
-`POST /images/mget` supplies selection images without publishing enrichment.
+`POST /images/mget` supplies selection images with their server fields, kept per image object.
 
 Sources: [image derivation](../../../src/lib/derive-enriched-image.ts),
 [response adapter](../../../src/dal/grid-api-search-adapter.ts),

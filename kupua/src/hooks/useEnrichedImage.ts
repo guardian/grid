@@ -13,7 +13,7 @@
  */
 
 import { useRef } from "react";
-import { useEnrichmentStore, type EnrichmentFields } from "@/stores/enrichment-store";
+import { attachedEnrichment, useEnrichmentStore, type EnrichmentFields } from "@/stores/enrichment-store";
 import { deriveImage, type EnrichedImage } from "@/lib/derive-enriched-image";
 import type { Image } from "@/types/image";
 
@@ -26,7 +26,7 @@ import type { Image } from "@/types/image";
  */
 export function useEnrichedImage(image: Image | undefined, ownOverlay?: EnrichmentFields): EnrichedImage | undefined {
   const storedOverlay = useEnrichmentStore((s) => image ? s.data.get(image.id) : undefined);
-  const overlay = ownOverlay ?? storedOverlay;
+  const overlay = ownOverlay ?? storedOverlay ?? (image && attachedEnrichment(image));
 
   // Memoise: only recompute when image or overlay reference changes.
   const prevRef = useRef<{ image: typeof image; overlay: typeof overlay; result: EnrichedImage | undefined }>({

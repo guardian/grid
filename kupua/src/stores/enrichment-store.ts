@@ -77,3 +77,15 @@ export const useEnrichmentStore = create<EnrichmentState>()((set) => ({
       return { data: merged };
     }),
 }));
+
+// Server enrichment that arrived with an image object outside search publication (selection's
+// bulk reads). It lives exactly as long as that object, so it is as fresh as the image shown.
+const attached = new WeakMap<object, EnrichmentFields>();
+
+export function attachEnrichment(image: object, fields: EnrichmentFields): void {
+  attached.set(image, fields);
+}
+
+export function attachedEnrichment(image: object): EnrichmentFields | undefined {
+  return attached.get(image);
+}

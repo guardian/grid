@@ -7,6 +7,7 @@ import { RECONCILE_FIELDS } from "@/lib/field-registry";
 import { recomputeAll } from "@/lib/reconcile";
 import type { Image } from "@/types/image";
 import { MultiImageMetadata } from "./MultiImageMetadata";
+import { attachEnrichment, useEnrichmentStore } from "@/stores/enrichment-store";
 
 const fixture = vi.hoisted(() => {
   vi.stubGlobal("matchMedia", vi.fn(() => ({
@@ -38,8 +39,22 @@ beforeEach(async () => {
 });
 afterEach(() => {
   cleanup();
+  useEnrichmentStore.getState().setEnrichment(new Map());
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+describe("multi-image cost summary", () => {
+  it("uses server cost read with selected images, below the current search's overlay", () => {
+    const [a, b] = images.map((image) => ({ ...image, usageRights: { category: "staff-photographer" } }));
+    attachEnrichment(a, { cost: "overquota" });
+    attachEnrichment(b, { cost: "free" });
+    useEnrichmentStore.getState().setEnrichment(new Map([[b.id, { cost: "conditional" }]]));
+    render(<MultiImageMetadata images={[a, b]} reconciledView={recomputeAll([a, b], RECONCILE_FIELDS)} total={2} />);
+    expect(screen.getByText("1 over quota")).toBeTruthy();
+    expect(screen.getByText("1 restricted")).toBeTruthy();
+    expect(screen.queryByText(/free/)).toBeNull();
+  });
 });
 
 describe("multi-image Location punctuation", () => {

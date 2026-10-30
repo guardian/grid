@@ -24,6 +24,17 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 30 October 2026 - Selections use server cost and validity
+
+In media-api mode, selection's bulk reads (`POST /images/mget`) now keep each response
+entity's server enrichment, attached to the returned image object through a WeakMap rather
+than the shared enrichment store. It therefore lives exactly as long as the cached image,
+and a new search cannot wipe it. The selection Cost Summary and `useEnrichedImage` (the
+single-selection panel for an off-screen image) use the current search's overlay first,
+then the attachment, then local rules. Previously off-screen selected images always used
+the vendored cost configuration, so over-quota suppliers and Grid configuration changes
+could disagree with the grid. Direct-ES reads attach nothing.
+
 ### 30 October 2026 - Filters Category rows follow Grid's categories
 
 In media-api mode, the Filters panel's Category rows fold stored values into the category

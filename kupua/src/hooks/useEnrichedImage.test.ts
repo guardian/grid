@@ -3,7 +3,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { useEnrichedImage } from "./useEnrichedImage";
-import { useEnrichmentStore } from "@/stores/enrichment-store";
+import { attachEnrichment, useEnrichmentStore } from "@/stores/enrichment-store";
 import type { Image } from "@/types/image";
 
 const image = { id: "img-1", metadata: {}, usageRights: { category: "staff-photographer" } } as unknown as Image;
@@ -23,5 +23,14 @@ describe("useEnrichedImage", () => {
     expect(result.current).toMatchObject({ cost: "overquota", persisted: { value: true, reasons: [] } });
     act(() => useEnrichmentStore.getState().setEnrichment(new Map()));
     expect(result.current?.cost).toBe("overquota");
+  });
+
+  it("falls back to server data read with the image object when the shared store has none", () => {
+    const read = { ...image };
+    attachEnrichment(read, { cost: "overquota" });
+    const { result } = renderHook(() => useEnrichedImage(read));
+    expect(result.current?.cost).toBe("overquota");
+    act(() => useEnrichmentStore.getState().setEnrichment(new Map([["img-1", { cost: "pay" }]])));
+    expect(result.current?.cost).toBe("pay");
   });
 });

@@ -10,7 +10,7 @@ import type { Image } from "@/types/image";
 import type { AiSearchResult, ImageByIdResult, SearchAfterResult, SearchParams, SortValues } from "./types";
 import { decodeTickerCounts } from "./types";
 import { buildSortClause } from "./adapters/elasticsearch/sort-builders";
-import { type EnrichmentFields } from "@/stores/enrichment-store";
+import { attachEnrichment, type EnrichmentFields } from "@/stores/enrichment-store";
 import { unwrapEntity } from "./grid-api/argo";
 import type { ImageData, Link } from "./grid-api/types";
 import { MGET_CHUNK_SIZE, MGET_CONCURRENCY } from "@/constants/tuning";
@@ -192,8 +192,14 @@ export async function apiGetByIds(ids: string[], signal?: AbortSignal): Promise<
   let next = 0;
   const worker = async () => {
     while (next < chunks.length && !controller.signal.aborted) {
-      const json = await postImageRead("/images/mget", { ids: chunks[next++] }, controller.signal) as { data: Array<{ data?: unknown; links?: Link[] }> };
-      for (const entity of json.data) if (entity.data != null) images.push(mapApiImageToImage(entity.data, entity.links));
+      const json = await postImageRead("/images/mget", { ids: chunks[next++] }, controller.signal) as { data: Array<{ data?: unknown; actions?: unknown; links?: Link[] }> };
+      for (const entity of json.data) {
+        if (entity.data == null) continue;
+        const image = mapApiImageToImage(entity.data, entity.links);
+        const enrichment = extractEnrichment(entity);
+        if (enrichment) attachEnrichment(image, enrichment[1]);
+        images.push(image);
+      }
     }
   };
   try {
