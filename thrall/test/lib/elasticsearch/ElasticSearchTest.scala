@@ -60,6 +60,51 @@ class ElasticSearchTest extends ElasticSearchTestBase {
           reloadedImage(id).get.fileMetadata.exif("Green TRC").length shouldBe reallyLongTRC.length
         }
 
+        "retries indexing without XMP fields that conflict with mappings" in {
+          val suffix = UUID.randomUUID().toString.replace("-", "")
+          val objectMappedField = s"objectMapped$suffix"
+          val scalarMappedField = s"scalarMapped$suffix"
+          val objectImageId = UUID.randomUUID().toString
+          val scalarImageId = UUID.randomUUID().toString
+          val scalarToObjectImageId = UUID.randomUUID().toString
+          val objectImage = createImageForSyndication(
+            id = objectImageId,
+            rightsAcquired = true,
+            rcsPublishDate = Some(now),
+            lease = None,
+            fileMetadata = Some(FileMetadata(xmp = Map(objectMappedField -> Json.obj("Notes" -> "details"))))
+          )
+          val scalarImage = createImageForSyndication(
+            id = scalarImageId,
+            rightsAcquired = true,
+            rcsPublishDate = Some(now),
+            lease = None,
+            fileMetadata = Some(FileMetadata(xmp = Map(objectMappedField -> JsString("details"))))
+          )
+          val scalarMappedImage = createImageForSyndication(
+            id = UUID.randomUUID().toString,
+            rightsAcquired = true,
+            rcsPublishDate = Some(now),
+            lease = None,
+            fileMetadata = Some(FileMetadata(xmp = Map(scalarMappedField -> JsString("details"))))
+          )
+          val objectForScalarMappingImage = createImageForSyndication(
+            id = scalarToObjectImageId,
+            rightsAcquired = true,
+            rcsPublishDate = Some(now),
+            lease = None,
+            fileMetadata = Some(FileMetadata(xmp = Map(scalarMappedField -> Json.obj("Notes" -> "details"))))
+          )
+
+          Await.result(ES.directInsert(objectImage, ES.imagesCurrentAlias), fiveSeconds)
+          Await.result(ES.directInsert(scalarImage, ES.imagesCurrentAlias), fiveSeconds)
+          Await.result(ES.directInsert(scalarMappedImage, ES.imagesCurrentAlias), fiveSeconds)
+          Await.result(ES.directInsert(objectForScalarMappingImage, ES.imagesCurrentAlias), fiveSeconds)
+
+          reloadedImage(scalarImageId).get.fileMetadata.xmp.contains(objectMappedField) shouldBe false
+          reloadedImage(scalarToObjectImageId).get.fileMetadata.xmp.contains(scalarMappedField) shouldBe false
+        }
+
         "initial indexing does not add lastModified to the leases object" in {
           val id = UUID.randomUUID().toString
           val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)
