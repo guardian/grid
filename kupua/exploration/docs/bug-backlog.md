@@ -29,23 +29,17 @@ direct-to-ES parser divergence belongs to KUP-011 and does not reopen Grid work.
 Other dispositions have not been revalidated.
 Update this overview when a detailed disposition changes.
 
-**Operator scheduling decision, 23 September:** KUP-029/030 were deferred until after a working
-API-backed app. Post-U6z evidence now refutes KUP-029's independent ordinary-path premise while
-KUP-030 remains evidenced but is owned by U9 AI convergence, not a separate repair. Neither blocks
-query alignment, core search/scroll/position/traversal or initial image-read integration.
-Authorization and data-protection obligations remain.
+**KUP-029/030 (rights display versus server data): resolved, 27 September.** They were deferred
+on 23 September until after a working API-backed app; that deferral is spent. KUP-029 (rights
+label and no-rights badge disagreeing) was refuted: ordinary API images carry one consistent set
+of rights. KUP-030 (AI results reusing an earlier search's server cost/validity for the same
+image) was fixed by U9-B: AI results replace that data with their own. On 30 October selections
+also gained server cost and validity; off-screen selected images previously used local rules.
 
-**Operator amendment, 26 September:** the active API build plan now scopes U6z to non-AI
-media-api coverage, including recovery. Existing AI is the sole deliberate ES exception pending
-team agreement; M1 is accepted. KUP-010/026 closure must name the demonstrated boundary, not
-claim absolute API-only completion. Reassess KUP-030 without changing selection enrichment or
-silently broadening its deferred display-repair scope. KUP-033 is DONE as an independent pitstop.
-KUP-034 and KUP-036 are DONE as separate repairs. U6z now verifies non-AI routing and recovery
-without a production change; KUP-010/026's demonstrated scopes are closed below. KUP-030 retains
-a real-route same-ID AI overlay-lifetime residual; effective-value divergence remains synthetic
-and rendered divergence is unproved. The
-operator reported U6z's cold review clean. **U9-B (27 September)** closed KUP-030: accepted AI
-publication now replaces the enrichment map with the current result's own overlay.
+**Operator amendment, 26 September:** U6z covered non-AI media-api reads, including recovery;
+AI was then the deliberate ES exception, since converged by U9. KUP-033/034/036 are DONE as
+separate repairs; KUP-010/026 are closed at their demonstrated scope, not as absolute API-only
+completion.
 
 **Migration relevance:** a prerequisite blocks its named slice's acceptance, not all migration work.
 Related obligations matter to the selected integration but do not automatically mandate a standalone
@@ -69,11 +63,11 @@ KUP-035 is DONE for default-collapsed chip rendering; intentional large expansio
 an accepted cost, not an open repair requirement.
 
 Usage Rights compatibility (30 October): Kupua now reads Grid's configured categories
-from metadata-editor, with a refreshed local fallback for direct-ES/laptop modes. Exact
-`category:` typeahead counts for replacement categories need metadata-editor's proposed
-additive `legacyCategories` field (Grid commit pending engineer review; no Kahuna/PROD
-cost: config-derived strings in an already-cached response). Remaining: the vendored Getty
-chargeable-source configuration and direct-ES legacy-category expansion (accepted lag).
+from metadata-editor, with a refreshed local fallback for direct-ES/laptop modes. Its additive
+`legacyCategories` field (live on TEST) gives exact `category:` typeahead counts and lets the
+Filters panel fold replaced values into their category. The vendored cost configuration is now
+a fallback only in media-api mode (search, detail and selections carry server cost); direct-ES
+legacy-category expansion remains accepted lag.
 
 ### Open Grid Work
 
@@ -460,7 +454,7 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Original trigger removed:** P32-B3 described unavailable ordinary API reads falling back to ES without an overlay. U5 deleted `StranglerAdapter` in `3fdfeece2`; current ordinary pages never rescue through ES. Failure now preserves the committed state instead of publishing a new overlay-less page. That historical trigger no longer applies.
 - **Executed residual (U6z, 26 September):** [the composed ordinary/AI/ordinary test](../../src/stores/search-store-api-mode.test.ts) uses the real store, mapper, `ApiDataSource` and existing ES AI delegate over controlled transport. An ordinary same-ID API result publishes `overquota`; a subsequent AI image whose derived baseline is `free` still derives `overquota` through the retained shared overlay. Returning to ordinary API search replaces it with the new response's `pay` overlay. This is synthetic effective-display evidence, not a live policy mismatch or authorization failure.
 - **Real-route reproduction (27 September):** in a read-only TEST media-api-mode tab, one real AI query used Bedrock/direct ES. Twenty of its IDs were then loaded through ordinary media-api reads and the same query was re-entered through the visible AI control. All 20 matching AI results retained and consumed their ordinary overlays. For this sample, overlay rights/cost matched the saved AI baseline and rendered presentation changed 0/20; natural incidence of wrong display remains unproved. The ID scope was controlled setup, no responses were intercepted, and Home cleanup removed the page-only probe.
-- **Selection boundary:** bulk hydration deliberately has no enrichment and leaves the shared overlay map untouched. U6z does not add enrichment, clear selected overlays or introduce freshness policy to manufacture closure.
+- **Selection boundary:** at closure, bulk hydration had no enrichment and left the shared overlay map untouched. Since 30 October it attaches server enrichment to each selected image object instead, still leaving the shared map untouched.
 - **Disposition: OPEN evidence, resolution owned by U9 AI convergence (27 September).** The original ordinary fallback is gone, but real same-ID AI retention prevents broad closure. Incorrect effective display, other overlay fields, selection consequences and naturally incidental overlap remain unproved. Do not investigate or repair KUP-030 separately: U9-B's canonical media-api AI response must publish the current result's complete enrichment map, eliminating cross-provenance retention by construction. Close this ID only with that composed evidence. It remains separate from U6z's non-AI milestone and U8 deployment preparation.
 - **Closure evidence (U9-B, 27 September):** accepted AI publication replaces the shared enrichment map with the result's own map (empty in direct mode and for an absent API result) before publishing hits. [The composed test](../../src/stores/search-store-api-mode.test.ts) now runs ordinary -> media-api AI -> ordinary over the real store, mapper and `ApiDataSource`: the AI step derives the AI response's overlay, not the retained `overquota`, and the return step derives the new ordinary overlay. Successful-empty, forbidden, conflict, unavailable and unreachable AI results leave an empty map; cancelled/superseded AI work changes nothing. Replacing with an upsert fails 6 tests. Selection hydration is unchanged and still supplies no overlay.
 - **Disposition: CLOSED (27 September, U9-B).** The scope is AI publication in both modes. No live rendered-divergence check was run, and selection-overlay freshness remains outside this ID.

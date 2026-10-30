@@ -116,8 +116,8 @@ supplements that foundation; section 16 records the evidence and its limits.
 > operator decisions. The active build sequence is `kupua/exploration/docs/03 Ce n'est pas une pipe dream/api-build/api-build-00-plan.md`
 > (local-first, PIT-less with PIT-ready choices, shared admission helper); it wins where candidate 11 conflicts. Inventory 01 is capability reference and workplan 02 is historical design input.
 > These instructions govern implementation mechanics and safeguards, not authorization. Prioritize
-> the working API-backed search/scroll/position/traversal path; KUP-029/030 corrections are deferred
-> until afterward, not initial-path gates. Authorization and performance safeguards remain mandatory.
+> the working API-backed search/scroll/position/traversal path; KUP-029/030 are resolved (refuted/fixed
+> 27 September). Authorization and performance safeguards remain mandatory.
 
 23. **Preserve existing sort ownership unless a change is explicitly approved.**
     Any new server-side semantic builder must be separate from legacy

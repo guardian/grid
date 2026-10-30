@@ -24,8 +24,8 @@ candidate sections 12-14 qualify earlier reports. Protocol/registers govern comm
 administration, not product execution.
 
 **Core-first priority, 23 September:** get API-backed search, scrolling, position preservation and
-traversal working. KUP-029/030 display/enrichment corrections are deferred until after a working
-API-backed app, not gates on alignment or the initial API path. Authorization, data protection,
+traversal working. KUP-029/030 display/enrichment corrections, deferred at the time, have since
+been resolved (refuted/fixed 27 September). Authorization, data protection,
 existing workflows and performance safeguards still apply. The next bounded unit is
 [post-merge prototype query alignment](api-boundary-11-candidate-plan.md#15-post-merge-prototype-query-alignment-workplan).
 Migration implementation remains paused until PR #4957 acceptance/merge and separate operator

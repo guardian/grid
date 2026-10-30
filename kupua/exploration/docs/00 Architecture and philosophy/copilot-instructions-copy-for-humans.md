@@ -42,9 +42,9 @@ are not active instructions; a planning baseline is not blanket implementation a
 
 **Directive: Core API migration first.** Prioritize a working API-backed search, arbitrary-position
 scrolling, position preservation and traversal experience. Independently useful display/metadata
-corrections must not become new gates merely because research found them. The operator explicitly
-defers KUP-029/030 effective-rights/overlay corrections until after a working API-backed app; retain
-them as known follow-ups, not prerequisites for query alignment or the initial API path. This does
+corrections must not become new gates merely because research found them. KUP-029/030
+(effective-rights/overlay) are resolved: KUP-029 was refuted and KUP-030 fixed (27 September);
+selections use server cost and validity since 30 October. This does
 not relax server authorization, data protection, existing workflow preservation or performance
 safeguards. Further characterization may be separately commissioned; committing research is a
 checkpoint, not a freeze or authorization to implement its findings.
