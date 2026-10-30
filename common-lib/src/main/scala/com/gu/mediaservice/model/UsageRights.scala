@@ -241,7 +241,6 @@ object PRAndThirdParty extends ReplacementUsageRightsSpec {
     Pool.category,
     CrownCopyright.category,
     Obituary.category,
-    CommissionedAgency.category,
     GuardianWitness.category,
     Composite.category,
     PublicDomain.category
@@ -696,7 +695,8 @@ object PublisherPhotographer extends ReplacementUsageRightsSpec {
     StaffPhotographer.category,
     ContractPhotographer.category,
     CommissionedPhotographer.category,
-    Bylines.category
+    Bylines.category,
+    CommissionedAgency.category,
   )
 
   val allCategories: NonEmptyList[String] = NonEmptyList.fromSeq(category, legacyCategories)
