@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.imaging
 
-import app.photofox.vipsffm.{VImage, Vips}
+import app.photofox.vipsffm.VImage
 import com.gu.mediaservice.lib.BrowserViewableImage
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
@@ -15,8 +15,6 @@ import java.lang.foreign.Arena
 import scala.concurrent.Future
 
 class VipsImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures {
-
-  Vips.init()
 
   implicit override val patienceConfig: PatienceConfig = PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
   implicit val logMarker: LogMarker = MarkerMap()
