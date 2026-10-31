@@ -452,7 +452,8 @@ When the user navigates back to a query containing more of the selected items, t
 Per UX call: GPhotos-style.
 
 - **Long-press** (default 500ms; tunable in `constants/tuning.ts`) on any cell enters Selection Mode and toggles that cell.
-- **Second long-press** selects a range from the previous anchor using its existing selected/unselected add/remove polarity, then retains the new endpoint for chaining. A newer gesture cancels a pending range rather than accumulating unfinished gestures. Paint-drag is not implemented.
+- **Second long-press** selects a range from the previous anchor using its existing selected/unselected add/remove polarity, then retains the new endpoint for chaining. A newer gesture cancels a pending range rather than accumulating unfinished gestures.
+- **Drag after long-press** selects the range origin→finger live (loaded images, tracked by global position); dragging back releases what the drag added, starting on a selected image erases, and edges auto-scroll. On release, any never-loaded part of the range goes through the same range walk, whose polarity follows the origin's selected state.
 - **Tap** in Selection Mode toggles, same as desktop click.
 - **No tickbox visible until Selection Mode is active**, then visible on every cell (no hover concept on touch).
 - **Long-press a tick to exit Selection Mode?** No. Only the toolbar Clear button exits.
@@ -525,7 +526,7 @@ To be appended to `../deviations.md`:
 - Shift-click range never silently drops items between anchor and target (Kahuna does, requiring users to scroll-load). Trade-off: server roundtrip in two-tier+; mitigated by hard cap (5k) and informational toast at soft cap (2k).
 - No Cmd/Ctrl-A. Justified by multi-million scale.
 - Anchor is sticky across shift-clicks (Kahuna's anchor is "last added URI", causing repeated shift-clicks to misbehave).
-- Touch support via long-press + second-long-press range (Kahuna has none). The last long-pressed endpoint chains subsequent ranges even when unselected; Shift-click keeps its original anchor. Paint-drag was attempted and cut — see [`../deviations.md`](../deviations.md).
+- Touch support via long-press + second-long-press range (Kahuna has none). The last long-pressed endpoint chains subsequent ranges even when unselected; Shift-click keeps its original anchor. Drag-select after long-press covers continuous ranges — see [`../deviations.md`](../deviations.md).
 - Stale metadata under external edits: acknowledged, deferred to Phase 3+ (Kahuna doesn't handle this either, but Kahuna's selection dies on route change so the window is small).
 - Bulk operations on whole-search-result populations are explicitly NOT a selection-store concern (see §15).
 

@@ -25,6 +25,7 @@ Start with the implementation; use the linked guide for intent and broader contr
 | Shared presentation | [Column menu](../../../src/components/ColumnContextMenu.tsx), [field disclosure](../../../src/components/FieldDisclosure.tsx), [metadata primitives](../../../src/components/metadata-primitives.tsx) | [Selections](05-selections.md) |
 | Media and traversal | [Detail](../../../src/components/ImageDetail.tsx), [preview](../../../src/components/FullscreenPreview.tsx), [image URLs](../../../src/lib/image-urls.ts), [prefetch](../../../src/lib/image-prefetch.ts) | [Keyboard navigation](keyboard-navigation.md) |
 | Collections | [Collection store](../../../src/stores/collection-store.ts), [tree](../../../src/components/CollectionTree.tsx) | [Collections](06-collections.md) |
+| Shell and results zoom | [Shell](../../../src/hooks/useShell.ts), [panels](../../../src/components/PanelLayout.tsx), [zoom ladders](../../../src/lib/results-zoom.ts), [zoom store](../../../src/stores/zoom-store.ts) | [Compact shell design (archived)](../zz%20Archive/compact-shell-design.md) |
 | Runtime boundaries | [Vite configuration](../../../vite.config.ts), [startup script](../../../scripts/start.sh) | [Infrastructure safeguards](../infra-safeguards.md) |
 
 ---
@@ -57,6 +58,11 @@ phantom mode without overwriting the saved choice. Callers use the effective-mod
 Column and panel stores separately persist table layout and panel settings in localStorage.
 Density is neither a URL search parameter nor a history-snapshot field.
 
+`defaultDensity()` is Justified on coarse pointers and Grid otherwise, unless the user has locked
+a Home view. `lib/home-view.ts` persists that lock (density plus Justified/Grid zoom offsets) in
+localStorage; fresh tabs and Home apply it, while per-tab sessionStorage choices still win
+within a tab. `stores/zoom-store.ts` owns per-tab results-zoom offsets (see Results Zoom).
+
 `column-store` persists hidden columns and widths using TanStack column IDs, not raw dotted
 field paths. Its pre-auto-fit widths are runtime-only so a repeated double-click can restore a
 previous size. `ColumnContextMenu` delegates visibility/fit actions to ImageTable; it owns only
@@ -69,6 +75,10 @@ rendering containment rules. CSS-driven selection state avoids propagating mode 
 cell. Containment is functional, not decoration: changes can affect painting and popup clipping.
 `constants/layout.ts` supplies shared row/header/cell geometry; views measure responsive dimensions
 and pass current geometry to navigation rather than duplicating independent estimates.
+
+Shell variants: `compact:` and `wide:` key off `html[data-shell]`, which `hooks/useShell.ts`
+maintains. Width-only concerns (filters collapsing below 760px, status-bar compaction, zoom
+ladders) use width breakpoints instead, because a narrow desktop window keeps the desktop shell.
 
 # Data Layer
 
@@ -428,7 +438,8 @@ cursor restore, detail return and density cleanup from restoring the departing p
 
 Grid density resets only if its captured density intent remains current. Later choices, including
 same-value or away/back choices, win without cancelling the query reset; abandoned Home cannot
-overwrite them. Preference persistence itself belongs to `ui-prefs-store`.
+overwrite them. Preference persistence itself belongs to `ui-prefs-store`. The reset target is
+`defaultDensity()` and the zoom store's `resetToHome()`, so a locked Home view is honoured.
 
 ## Keyboard Shortcuts (`lib/keyboard-shortcuts.ts`)
 
@@ -479,8 +490,11 @@ Phantom capture cannot independently restore a hidden bookmark. See the
 
 - **`hooks/useSwipeCarousel.ts`** owns touch traversal animation and velocity-aware commit. `commitStripReset` coordinates the media-node handoff with detail rendering.
 - **`hooks/useSwipeDismiss.ts`** owns pull-down dismissal outside fullscreen, sharing the detail-return target policy.
-- **`hooks/useLongPress.ts`** detects touch holds and suppresses context menus/synthetic clicks, including committed Android cancellation. `handleLongPressStart.ts` translates the gesture into selection/range intent; tickboxes remain immediate.
-- **`hooks/usePinchZoom.ts`** owns fullscreen touch/mouse/keyboard zoom and pan. Scale gates traversal/swiping, resets on image change, and touch-to-mouse guards prevent duplicate actions. Detailed gesture bindings belong in the keyboard guide and hook.
+- **`hooks/useLongPress.ts`** detects touch holds and suppresses context menus/synthetic clicks, including committed Android cancellation. It listens on the touch target itself (virtualization may detach it) and attaches its non-passive move listener only after the hold commits; multi-touch cancels. `handleLongPressStart.ts` translates the gesture into selection/range intent; tickboxes remain immediate.
+- **Drag-select** (`createDragSelect` in `handleLongPressStart.ts`, wired by `hooks/useTouchSelection.ts` for Grid, Justified and Table): after a long-press, dragging selects the range origin→finger, Google Photos style; dragging back un-selects what this drag added. Starting on a selected image erases instead. Edges auto-scroll. Touched images are tracked by global position so buffer eviction mid-drag is harmless; on release, any never-loaded part of the range is completed by the shared range walk (add or remove, by anchor polarity).
+- **`hooks/usePullToRefresh.ts`** refreshes results (`lib/refresh-results.ts`) when pulled down at the top; disabled while a selection exists. Native browser pull-to-refresh is suppressed by `overscroll-behavior-y: none`.
+- **`hooks/useContentPullToDrag.ts`** lets a sheet's scrollable content hand a downward pull at its top over to the sheet drag, freezing content scroll during the drag.
+- **`hooks/usePinchZoom.ts`** owns fullscreen touch/mouse/keyboard zoom and pan. Scale gates traversal/swiping, resets on image change, and touch-to-mouse guards prevent duplicate actions. Space toggles zoom and `+`/`=`/`-`/`0` step it (1.5x) anchored at the mouse pointer when it is over the image, else the centre. Detailed gesture bindings belong in the keyboard guide and hook.
 
 ---
 
@@ -548,7 +562,7 @@ Existing truncation/soft-cap feedback stays; the route owns the hook and passes 
 ## Selection UI
 
 - **`components/Tickbox.tsx`** — absolute-positioned overlay (grid) and inline variant in the table's 32px selection column. `hooks/useIsSelected.ts` subscribes per ID. CSS controls tickbox visibility through `[data-selection-mode="true"]` and selected-cell overlays through `:has(.tickbox[aria-checked="true"])`; this avoids per-cell mode props, not all React work on selection changes. Focus rings are suppressed in selection mode.
-- **`components/SelectionFab.tsx`** — coarse-pointer only. Count + X button. StatusBar count/clear hidden on coarse pointer.
+- **`components/SelectionFab.tsx`** — coarse-pointer only: "▴ N | ×". The count opens a small menu (Details, which expands the compact selection card; Clear). The FAB lifts above the card's peek strip and hides during drag-select (`body[data-drag-selecting]`). StatusBar count/clear hidden on coarse pointer.
 
 ---
 
@@ -562,6 +576,12 @@ Top-level header: logo (click → `resetToHome()`), `CqlSearchInput` with 300ms 
 propagate to the URL via `updateSearch({ aiQuery })` with 600ms debounce. Pending debounce is
 cancelled on unmount. Clear and Home remain separate operations; Home resets the whole context.
 
+In the compact shell the CQL editor shows only the free-text part of the query
+(`splitFieldTerms` in `cql-query-edit.ts`); field terms live as chips in the Refine sheet and are
+merged back without duplicates. Clear keeps those chips. Below 760px (any shell) a filters
+button replaces the inline free-to-use, date and sort controls and opens `FiltersSheet`; its
+badge shows the chip count in the compact shell, otherwise a dot for non-default filters.
+
 ## AI Search Input (`components/AiSearchInput.tsx`)
 
 Owns the expandable semantic-query editor, gated by the startup AI-capability result.
@@ -573,7 +593,10 @@ text-editing keys. Search execution and result contracts belong to the AI search
 
 ## Settings Menu (`components/SettingsMenu.tsx`)
 
-Three-dot menu in SearchBar. Controls explicit/phantom focus and graphic-image blur (default on).
+Three-dot menu in SearchBar. The top row holds results zoom (− / level / +; the level resets),
+hidden in Table, and a full-screen toggle whose tooltip names the browser's own shortcut
+(⌃⌘F / F11). Below it, "Lock this view" saves the current density and zoom as the Home view.
+Then explicit/phantom focus and graphic-image blur (default on).
 Coarse-pointer detection disables explicit mode; only user preferences, not pointer detection,
 are persisted. Outside click or Escape closes the menu.
 
@@ -581,8 +604,8 @@ are persisted. Outside click or Escape closes the menu.
 
 Publishes free-only, date and primary-sort choices through URL search navigation. Sort choices
 come from the registry and obey the active AI context; table headers select the same single
-primary field, without a separate Shift multi-sort mode. The toolbar hides these controls on
-small screens; it does not own query execution.
+primary field, without a separate Shift multi-sort mode. The toolbar hides these controls below
+760px; `inSheet` renders them stacked inside `FiltersSheet`. It does not own query execution.
 
 ## Date Filter (`components/DateFilter.tsx`)
 
@@ -590,6 +613,7 @@ Owns presets and custom ranges for upload time, date taken and last modified, pu
 corresponding URL fields through search navigation. Picker dates are local time; URL bounds are
 UTC. Preserve local conversion in `toDateInputValue`: slicing an ISO string selects the UTC
 date instead and can shift the displayed day. Relative preset recognition tolerates time drift.
+The `inline` variant (inside `FiltersSheet`) applies changes immediately and has no footer.
 
 ## Status Bar (`components/StatusBar.tsx`)
 
@@ -597,6 +621,10 @@ Displays search/count state and provides panel, density, selection-clear and new
 Panel hover can prefetch aggregations when Filters is expanded. Accepting new arrivals clears
 selection before `reSearch`; density changes go to the preference store, not the URL. Coarse
 pointers use SelectionFab instead of the inline selection controls.
+
+The bar is 38px tall on coarse pointers. Below 600px wide, tickers collapse to counts; below
+500px, a single density button cycles Justified → Grid → Table. The right-panel toggle is hidden
+in the compact shell, where the right panel appears only as the selection card.
 
 AI results display the loaded count with a separate pool total when available; pool metadata is
 not paired with the pre-settlement cached count. Ticker badges use `gridConfig.tickerDefinitions`,
@@ -714,10 +742,32 @@ usability needs separate proof. Cross-block dependencies require a concrete fail
 not a speculative improvement to these technical boundaries.
 
 Fixed Grid columns and Justified target row height are distinct sizing parameters. They share
-capture/reflow ownership, not column arithmetic; no sizing controls are implemented. See
+capture/reflow ownership, not column arithmetic; results zoom (below) steps each independently. See
 [position contracts](02-focus-and-position-preservation.md#4-transitions-and-relaxations),
 [seek policy and costs](03-scroll-architecture.md#destination-seek-preparation), and
 [Justified feature comparison](00-kupua-vs-kahuna-feature-inventory.md#42-whole-image-justified-rows).
+
+## Results Zoom (`lib/results-zoom.ts`, `stores/zoom-store.ts`)
+
+Zoom is an integer offset from each density's default level; offset 0 is always the classic
+geometry, so tests and performance runs at default zoom see unchanged layouts. Table has no zoom.
+Ladders are width-aware and have six levels:
+
+- **Justified** scales the target row height: phone ladder `[2.6, 1.8, 1.35, 1, 1/1.5, 1/2.2]`
+  below 600px, desktop ladder `[1.8, 1.35, 1, 1/1.5, 1/2.2, 1/3.2]` otherwise.
+- **Grid** uses the classic 280×190 cell with metadata at offset 0. Where fewer than three classic
+  columns fit, levels are 72/90/120/180/230px square cells (230 shows a date line only) plus
+  classic. Otherwise each step adds or removes one column (+3…−2); metadata shows only when cells
+  are at least 200px wide. Thumbnails take an explicit width from the image ratio so they scale
+  with the cell, keeping the margin to the cell edge constant.
+
+`zoom-store` holds the offsets (sessionStorage per tab, falling back to the locked Home view),
+the valid range registered by the mounted view for its current width (re-clamping on change),
+and `step`/`reset`/`resetToHome`. ImageGrid subscribes to offset changes and captures the scroll
+anchor before re-laying out, using the same anchor path as resize. Pinch on results uses passive
+listeners; `pinchStep` turns one deliberate pinch into one level, previewed with a transform only
+when the target level changes. Keyboard `+`/`=`/`-`/`0` and the Settings menu use the same store;
+the keys are inactive while image detail or an image fullscreen is showing.
 
 ## Image Detail (`components/ImageDetail.tsx`)
 
@@ -737,6 +787,12 @@ and DOM element; one distinct thumbnail fallback is allowed. Terminal media fail
 metadata and navigation available. Zoom loads a higher-resolution rendition; `useCursorAutoHide`
 coordinates fullscreen controls. None of this implements expired-URL renewal.
 
+`NavStrip.tsx` supplies the hover-revealed prev/next strips and `FullscreenCornerButton`, a
+top-right enter/exit toggle inside the image area; circles fade in after a 100ms hover delay so
+passing the pointer over them does not flash them. The next strip starts below the corner button.
+In the compact shell, metadata moves into a non-modal `BottomSheet` card (no scrim). Expanding
+the card shrinks the image into the top quarter; tapping the image collapses the card.
+
 ## Fullscreen Preview (`components/FullscreenPreview.tsx`)
 
 Fullscreen peek opened with `f` or middle-click, without a detail route or metadata. The component
@@ -748,6 +804,12 @@ finalizing the preview. Entry failure rolls back the extra history entry.
 Exit preserves list placement when still on the entry image. After traversal, it waits for
 fullscreen/layout settlement before centring the current focus, guarded against a newer preview.
 Phantom mode adds a pulse. Prefetch, zoom and cursor hiding are shared with detail.
+
+`lib/app-fullscreen.ts` adds whole-app fullscreen (the Settings menu toggle) on the document
+element. Image fullscreen stacks on top of it through the native fullscreen stack, so leaving an
+image returns to the fullscreen app. All image-fullscreen checks use `imageFullscreenElement()`,
+which ignores app-level fullscreen; with app fullscreen off, behaviour is identical to plain
+`document.fullscreenElement`.
 
 ## Image Metadata (`components/ImageMetadata.tsx`)
 
@@ -799,6 +861,28 @@ the buffer then metadata cache. With no selection, explicit mode uses focus; pha
 implicit focused metadata. Multiple selection uses cached images for metadata and buffer-first
 images for usage summaries. While current selection metadata is pending, the last completed
 presentation remains visible with `aria-busy`; this is not a guarantee of complete cache coverage.
+
+## Compact Shell (`hooks/useShell.ts`, `components/BottomSheet.tsx`, `components/FiltersSheet.tsx`)
+
+The compact (phone) shell applies only when the viewport is at most 639px wide **and** the
+primary pointer is coarse; `useIsCompact()` and `html[data-shell]` expose it. A narrow desktop
+window keeps the desktop shell. The engine (buffer, scroll, focus, selection) is shared; only
+chrome differs. Design rationale is archived in the [compact shell design](../zz%20Archive/compact-shell-design.md).
+
+- **Panels.** `PanelLayout` renders the left panel as a `SideSheet` (scrim, swipe toward its edge
+  to dismiss) and the right panel as a `BottomSheet` card shown only while a selection exists; it
+  closes when the selection empties. A placeholder keeps the results at the same child index so
+  crossing the breakpoint never remounts the list. Panel configuration is not rewritten.
+- **`BottomSheet`** is a peek (64px) / expanded (75vh) card with drag, optional scrim and
+  `useContentPullToDrag`. With a scrim it is modal: `useFocusTrap` moves focus to the outline-less
+  container and keeps Tab inside, restoring focus on close (never to a text field).
+- **`FiltersSheet`** is the Refine surface. In the compact shell it is a bottom sheet with
+  `RefineChips` (tap key to negate, tap value to edit, × to remove, "+ Add filter"), free-to-use,
+  sort and inline dates, with Reset and "Show N results". On narrow desktop it is a dropdown
+  under the search bar with the same filters, no chips (the editor shows the full query) and
+  live application. Both trap focus and close on Escape.
+- **Chip model.** `cql-query-edit.ts` provides `splitFieldTerms`/`joinFieldTerms` and
+  `parseFieldChips`/`serializeFieldChips`; chip edits round-trip through the URL query.
 
 ## Usages (`components/UsagesSection.tsx`)
 

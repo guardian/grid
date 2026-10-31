@@ -8,11 +8,37 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-10-25
+Last updated: 2026-10-31
 
 ---
 
 ## From Grid / Kahuna
+
+### Compact Phone Shell (31 October 2026)
+
+On narrow (≤639px) coarse-pointer viewports Kupua uses a phone shell: panels become sheets,
+the right panel appears only as a selection card, image metadata moves into a peek card, the
+search field shows free text with field terms as editable chips in a Refine sheet, and a
+floating action button carries selection actions. Justified is the default density on touch.
+Kahuna has no phone layout. A narrow desktop window keeps the desktop shell; only the
+free-to-use/date/sort controls collapse behind a filters dropdown below 760px. Trade-off: two
+chrome paths to maintain, sharing one engine. See the [design](zz%20Archive/compact-shell-design.md).
+
+### Results Zoom and Locked Home View (31 October 2026)
+
+Grid and Justified zoom through six width-aware levels (pinch, `+`/`-`/`0`, Settings menu);
+offset 0 is Kahuna-comparable classic geometry. "Lock this view" persists a density and zoom as
+the Home default in localStorage. Kahuna has fixed thumbnail sizes. Trade-off: grid thumbnails
+upscale at large levels and look soft until a larger rendition exists.
+
+### Whole-App Fullscreen With Stacked Image Fullscreen (31 October 2026)
+
+The Settings menu can put the whole app into element fullscreen; image fullscreen then stacks
+on top and stepping out with `f`, Backspace or Escape returns to the fullscreen app (observed in
+Chrome and Firefox; the spec allows browsers to exit fully on Escape). Kupua has no shortcut of
+its own: the browser's window fullscreen (⌃⌘F / F11) is the standard and the menu advertises
+it. Pages cannot detect browser window fullscreen, so the menu shows "Full screen" there. iOS
+Safari has no element fullscreen; the controls do nothing.
 
 ### Scoped Backward Metadata Lookahead (25 October 2026)
 
@@ -1730,27 +1756,21 @@ view). No user-visible impact.
 
 ## Selections (Phase S5) -- Touch gestures
 
-### Paint-drag (Google Photos style) cut from S5
+### Drag-select (Google Photos style) after long-press
 
-**What:** The original S5 plan specced a long-press-then-drag gesture that
-paint-toggles every cell the finger enters, mirroring Google Photos. The
-`usePointerDrag` hook was built and wired but deleted before shipping. Mobile
-selection now relies on long-press + tickbox tap + second-long-press range only.
+**What:** After a long-press commits, dragging selects the range origin→finger; dragging back
+releases what this drag added, and starting on a selected image erases. Near-edge dragging
+auto-scrolls. Kahuna has no touch range gesture.
 
-**Why:** The browser reads `touch-action` at `pointerdown` (~0ms). Our long-press
-commits at 500ms. Setting `touch-action: none` at commit time is too late --
-the browser has already decided the gesture may scroll, and any subsequent
-`pointermove` fires `pointercancel`. The only fix would be setting
-`touch-action: none` permanently on the grid container while in selection mode,
-which disables vertical scrolling entirely while items are selected
-(unacceptable UX -- users would be unable to scroll to find more items to add).
-Google Photos solves this in a native app with OS-level gesture disambiguation.
-Kupua is a web app.
+**How:** `touch-action` is decided at `pointerdown`, so pointer events are cancelled once the
+browser starts scrolling. `useLongPress` therefore uses touch events: after commit it attaches a
+non-passive `touchmove` on the touch target (which survives virtualization detaching it) and
+calls `preventDefault`, so the page stops scrolling only for that gesture. Scrolling outside a
+committed drag is unaffected.
 
-**Trade-off:** Mobile range selection requires two distinct long-press gestures
-(anchor + target) instead of one continuous drag. Slightly slower for adjacent
-ranges; comparable for distant ranges (the long-press range path uses the same
-buffer/server walk as desktop shift-click).
+**Trade-off:** Relies on touch events rather than Pointer Events, and on the target node staying
+alive while detached. Ranges through never-loaded results are completed on release by the range
+walk, so live feedback covers only loaded images.
 
 ---
 

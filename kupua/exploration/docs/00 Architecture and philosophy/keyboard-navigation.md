@@ -71,6 +71,26 @@ failed/aborted request releases only its own intent; successful publication leav
 one-shot consumption to the scroll hook. These ownership rules do not establish a
 general symmetric Home/End cancellation guarantee.
 
+## Global Shortcuts
+
+Registered through the shared shortcut registry: bare keys outside editable fields, Alt+key
+inside them.
+
+| Key | Results | Image detail / fullscreen |
+|---|---|---|
+| `/` | Focus the search box | *(nothing)* |
+| `+` / `=` | Bigger thumbnails (one zoom level) | Zoom image in 1.5x at the pointer (fullscreen only) |
+| `-` | Smaller thumbnails | Zoom image out; snaps back to fit near 1x |
+| `0` | Default zoom | Reset image zoom |
+| Space | — | Toggle image zoom at the pointer (fullscreen only) |
+| `f` | Fullscreen preview of focused image | Toggle fullscreen |
+| `[` / `]` | Toggle left / right panel | — |
+
+Image zoom keys anchor at the mouse pointer when it is over the image, otherwise the centre.
+Results-zoom keys are inactive while detail or an image fullscreen is showing, so each key
+has one meaning at a time. Whole-app fullscreen has no Kupua shortcut; the browser's own
+(⌃⌘F on macOS, F11 elsewhere) is the standard, and the Settings menu names it.
+
 ## Key Propagation from the Search Box
 
 The CQL search input is a ProseMirror-based web component. When it has

@@ -40,6 +40,7 @@ Vite builds the app; Vitest and Playwright provide tests.
 | Fields | [Field registry](src/lib/field-registry.tsx) supplies shared definitions for columns, sorting, filters and metadata. Display consumers use registered accessors/formatters directly; `getFieldRawValue` supplies raw text. Fixed-grid captions/tooltips share [date formatting](src/lib/format-grid-date.ts) with reused local-time Intl formatters. |
 | Table content | [TableRowCells](src/components/TableRowCells.tsx) memoizes registry-based cells on stable image, columns and enrichment inputs; TanStack Row objects never cross the memoized row/content boundary. Placement, focus and selection stay in ImageTable; numeric fields reuse a default-locale formatter. Table thumbnails retain native lazy loading and release only detached incomplete sources; URL changes recapture conditionally mounted images without clearing connected consumers. |
 | Selection | [Selection store](src/stores/selection-store.ts) owns multi-image membership independently of focus. |
+| Shell and zoom | [Shell](src/hooks/useShell.ts) selects the compact (touch phone) or desktop chrome over one shared engine; [results zoom](src/lib/results-zoom.ts) supplies width-aware Grid/Justified levels held in the [zoom store](src/stores/zoom-store.ts). |
 
 For subsystem internals, start with the relevant section of the
 [component reference](exploration/docs/00%20Architecture%20and%20philosophy/component-detail.md).
@@ -61,6 +62,7 @@ There is no need to read the whole documentation tree before working.
 | Selection and shared metadata | [Selections guide](exploration/docs/00%20Architecture%20and%20philosophy/05-selections.md) and [field catalogue](exploration/docs/00%20Architecture%20and%20philosophy/field-catalogue.md). |
 | Detail, fullscreen, gestures, panels, CQL or data adapters | The relevant subsystem in the [component reference](exploration/docs/00%20Architecture%20and%20philosophy/component-detail.md). |
 | Keyboard interaction | [Keyboard navigation](exploration/docs/00%20Architecture%20and%20philosophy/keyboard-navigation.md). |
+| Phone layout, sheets, touch gestures and results zoom | [Compact shell](exploration/docs/00%20Architecture%20and%20philosophy/component-detail.md#compact-shell-hooksuseshellts-componentsbottomsheettsx-componentsfilterssheettsx) and [results zoom](exploration/docs/00%20Architecture%20and%20philosophy/component-detail.md#results-zoom-libresults-zoomts-storeszoom-storets) in the component reference. |
 | Collections | [Collections guide](exploration/docs/00%20Architecture%20and%20philosophy/06-collections.md). |
 | AI search | [AI compatibility workplan](exploration/docs/ai-search-catching-up-workplan.md) for contracts and [component reference](exploration/docs/00%20Architecture%20and%20philosophy/component-detail.md) for implementation entry points. |
 | Backend merges and future PRs | [Living impact checklist](exploration/docs/00-kupua-backend-merge-to-MAIN-impact-map.md): recheck and update relevant disclosure bullets for non-trivial shared-backend changes; no merge history. |

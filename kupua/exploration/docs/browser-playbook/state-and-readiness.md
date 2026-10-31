@@ -125,6 +125,12 @@ Measure the real scroll viewport. The table ARIA grid can span all virtual conte
 its scroll ancestor is the viewport. Exclude sticky headers using live rectangles.
 Re-read dimensions/columns after panel activation or resize.
 
+- **Mobile emulation:** `page.setViewportSize` only narrows the width. The pointer
+  stays fine, so `pointer-coarse:` styles and `_pointerCoarse` paths don't run. Use
+  a CDP session: call `Emulation.setDeviceMetricsOverride` with `mobile: true`, then
+  `Emulation.setTouchEmulationEnabled`, then reload. Check that
+  `matchMedia('(pointer: coarse)')` matches. Clear both overrides in cleanup.
+
 - Elect the app-owned viewport or selection anchor appropriate to the contract,
   not the nearest DOM item to centre. Record focus, selection and anchor separately.
 - Retain stable identity through reflow/traversal; do not carry `.nth(...)` across

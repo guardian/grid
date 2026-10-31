@@ -419,13 +419,17 @@ Sources: [ImageDetail](../../../src/components/ImageDetail.tsx),
 **Kahuna:** its desktop-oriented image page and search controls do not provide
 Kupua's integrated phone browsing, swipe traversal and portrait inspection workflow.
 
-**Kupua:** adapts both the layout and the interactions for a phone, rather than
-just shrinking the desktop interface:
+**Kupua:** on touch phones, uses a dedicated compact shell rather than a shrunken
+desktop interface ([compact shell](component-detail.md#compact-shell-hooksuseshellts-componentsbottomsheettsx-componentsfilterssheettsx)):
 
-- **Portrait detail:** the image sits above full-width metadata and Usages in one
-  vertical scroll. On wider screens, metadata returns to a side column. The narrow
-  layout reserves 55% of the small viewport height for the image, leaving a useful
-  route into the information below it.
+- **Content first:** Justified is the default density; the search field shows only free
+  text, and a Refine sheet holds field terms as tappable chips (negate, edit, remove,
+  add) alongside free-to-use, sort and dates, with a live "Show N results" count.
+- **Sheets instead of panels:** the Browse panel slides in over a scrim and swipes away;
+  selection details appear in a peek-and-expand card instead of a side panel.
+- **Portrait detail:** the image fills the screen above a peek card holding metadata and
+  Usages; expanding the card shrinks the image into the top quarter, and tapping the
+  image collapses it.
 - **Swipe through the result set:** horizontal touch swipes move between images in
   detail and fullscreen, with the same prefetch and off-buffer traversal as desktop.
 - **Return naturally:** swipe down from ordinary detail to return to the grid;
@@ -434,16 +438,22 @@ just shrinking the desktop interface:
   zoom and panning support closer inspection. Zoomed panning takes precedence over
   navigation gestures. Detail fullscreen also supports downward swipe to exit when
   unzoomed, rather than requiring desktop keyboard controls.
-- **Touch selection:** long-press entry, range chaining and a floating selection
-  count/clear control make multi-image work possible without Shift or hover (§5.7).
+- **Pinch the results:** one pinch steps one zoom level (§4.8); pull down at the top
+  to refresh.
+- **Touch selection:** long-press, drag-select and a floating selection menu make
+  multi-image work possible without Shift or hover (§5.7).
 - **Phone-appropriate input:** touch uses Click-to-Open, not desktop focus and
   double-click. Initial search autofocus is suppressed so the keyboard does not
   cover the results; chip deletion avoids unnecessarily dismissing it (§7.5).
 
 This is a substantially more usable mobile browsing/inspection workflow, not full
-desktop feature parity. On small screens the toolbar's free-only/date and sort
-controls are hidden to leave room for search. Responsive layout follows viewport
-width, while touch-specific behaviour follows coarse-pointer detection.
+desktop feature parity. The compact shell applies to narrow coarse-pointer viewports;
+a narrow desktop window keeps the desktop shell, with free-to-use, date and sort
+collapsing into a dropdown below 760px.
+
+<img src="../feature-assets/refine-sheet.png" width="320" alt="Phone Refine sheet: city and has chips with Add filter, free-to-use and sort, date field and presets, and a Show 226 results button.">
+
+*Actual phone-emulated local UI. The result count is an example at capture time.*
 
 **New endpoints:** **none** for responsive layout, fullscreen or gesture handling.
 Conditionally `POST /images/search-after` loads off-buffer traversal (§3.4);
@@ -456,6 +466,8 @@ Sources: [responsive detail and touch fullscreen](../../../src/components/ImageD
 [swipe dismissal](../../../src/hooks/useSwipeDismiss.ts),
 [zoom and pan](../../../src/hooks/usePinchZoom.ts),
 [touch selection controls](../../../src/components/SelectionFab.tsx),
+[compact shell panels](../../../src/components/PanelLayout.tsx),
+[Refine sheet](../../../src/components/FiltersSheet.tsx),
 [responsive toolbar](../../../src/components/SearchFilters.tsx),
 [Kahuna image view](../../../../kahuna/public/js/image/view.html).
 
@@ -476,6 +488,10 @@ when zoomed, horizontal input pans the image instead.
 Leaving a preview on its entry image preserves list placement; after traversal,
 return placement brings the current image into view. Fullscreen is a presentation
 capability; traversal is separate (§3.4).
+
+The whole app can also go fullscreen from the Settings menu; image fullscreen then
+stacks on top and stepping out returns to the fullscreen app. A hover-revealed corner
+button in detail and preview enters or exits image fullscreen.
 
 **New endpoints:** **none**. Browser fullscreen, preview state and dismissal are
 client-side. Fetching image bytes is not a new media-api image-data endpoint.
@@ -511,7 +527,7 @@ Sources: [image traversal](../../../src/hooks/useImageTraversal.ts),
 provide Kupua's combined fullscreen zoom/pan interaction.
 
 **Kupua:** supports pinch, wheel, click/tap and keyboard zoom, with panning and
-momentum. Higher-resolution media can be requested as zoom increases. Zoomed
+momentum. Wheel, Space and `+`/`-` zoom at the mouse pointer. Higher-resolution media can be requested as zoom increases. Zoomed
 panning takes precedence over swipe traversal, so inspecting a detail does not
 accidentally navigate to another image.
 
@@ -678,6 +694,23 @@ Sources: [SettingsMenu](../../../src/components/SettingsMenu.tsx),
 [blur rules](../../../src/lib/graphic-image-blur.ts),
 [Kahuna blur preference](../../../../kahuna/public/js/services/graphic-image-blur.js).
 
+### 4.8 Zoom the results and lock a Home view
+
+**Kahuna:** shows fixed-size grid cells.
+
+**Kupua:** Grid and Justified each zoom through six width-aware levels by pinch,
+`+`/`-`/`0` or the Settings menu, keeping the image under the gesture or viewport
+anchor in place. Small Grid levels drop metadata for dense thumbnails; large levels
+enlarge them. "Lock this view" saves the current density and zoom as what Home and new
+tabs open with.
+
+**New endpoints:** none; zoom and the Home view are local layout state.
+
+Sources: [zoom ladders](../../../src/lib/results-zoom.ts),
+[zoom store](../../../src/stores/zoom-store.ts),
+[Home view](../../../src/lib/home-view.ts),
+[SettingsMenu](../../../src/components/SettingsMenu.tsx).
+
 ---
 
 ## 5. Multi-image selection
@@ -829,9 +862,12 @@ Sources: [selection store](../../../src/stores/selection-store.ts),
 
 **Kupua:** long-press enters selection or extends a range from the current anchor;
 the touched endpoint becomes the next anchor. Long-pressing the selected anchor
-does not deselect it. Tickboxes remain immediate, and touch users get a floating
-selection count/clear control. Movement cancels an uncommitted long-press so that
-scrolling is not mistaken for selection.
+does not deselect it. Continuing to drag after a long-press selects the range under
+the finger, Google Photos style: dragging back releases it, starting on a selected
+image erases, and the list auto-scrolls near the edges. Tickboxes remain immediate,
+and touch users get a floating selection button whose menu opens the selection card
+or clears. Movement cancels an uncommitted long-press so that scrolling is not
+mistaken for selection.
 
 **New endpoints:** none for the gesture or selection controls; conditionally
 `POST /images/keys` for off-buffer range enumeration and `POST /images/mget`
