@@ -2,7 +2,7 @@ package com.gu.mediaservice.lib.imaging
 
 import app.photofox.vipsffm.enums.{VipsIntent, VipsInterpretation}
 import app.photofox.vipsffm.jextract.VipsRaw
-import app.photofox.vipsffm.{VImage, VipsHelper, VipsOption}
+import app.photofox.vipsffm.{VImage, Vips, VipsHelper, VipsOption}
 import com.gu.mediaservice.lib.BrowserViewableImage
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ExifTool.{runExiftoolCmd, setTags, tagSource}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.ctx
@@ -15,6 +15,9 @@ import scala.concurrent.Future
 
 
 class VipsImageOperations extends GridLogging with ImageOperations {
+
+  Vips.init()
+  VipsHelper.cache_set_max(0)
 
   def cropImage(
                  sourceFile: File,
