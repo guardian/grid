@@ -28,7 +28,7 @@ class VipsImageOperations extends GridLogging with ImageOperations {
                  orientationMetadata: Option[OrientationMetadata]
                )(implicit logMarker: LogMarker): Future[File] = {
     Future {
-      val arena = Arena.ofConfined
+      implicit val arena: Arena = Arena.ofConfined
 
       try {
         val image = VImage.newFromFile(arena, sourceFile.getAbsolutePath)
@@ -42,15 +42,7 @@ class VipsImageOperations extends GridLogging with ImageOperations {
         val cropped = rotated.extractArea(bounds.x, bounds.y, bounds.width, bounds.height)
 
         // If we saw and ICC profile than we will need to transform
-        val needsICCTransform = VipsHelper.image_get_typeof(arena, image.getUnsafeStructAddress, "icc-profile-data") != 0
-        val correctedForICCProfile = if (needsICCTransform ) {
-          cropped.iccTransform("srgb",
-            VipsOption.Enum("intent",VipsIntent.INTENT_PERCEPTUAL),     // Helps with CMYK; see https://github.com/libvips/libvips/issues/1110
-          )
-        } else {
-          // LAB gets corrupted by a needless icc_transform
-          cropped
-        }
+        val correctedForICCProfile = correctForICCProfile(cropped)
 
         val master = correctedForICCProfile
 
@@ -265,6 +257,18 @@ class VipsImageOperations extends GridLogging with ImageOperations {
       case _ =>
         logger.error(s"Save to $mimeType is not supported.")
         throw new UnsupportedCropOutputTypeException
+    }
+  }
+
+  private def correctForICCProfile(image: VImage)(implicit arena: Arena): VImage = {
+    val needsICCTransform = VipsHelper.image_get_typeof(arena, image.getUnsafeStructAddress, "icc-profile-data") != 0
+    if (needsICCTransform) {
+      image.iccTransform("srgb",
+        VipsOption.Enum("intent", VipsIntent.INTENT_PERCEPTUAL), // Helps with CMYK; see https://github.com/libvips/libvips/issues/1110
+      )
+    } else {
+      // LAB gets corrupted by a needless icc_transform
+      image
     }
   }
 
