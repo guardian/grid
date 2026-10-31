@@ -418,15 +418,15 @@ for (const width of [320, 393]) {
         expect(observation.rootScroll).toBe(0);
         expect(observation.resultsLeft).toBe(0);
         if (observation.label?.endsWith(" view") || observation.label === "Clear selection") reached.push(observation.label);
-        if (observation.label?.endsWith(" view") || observation.label === "Clear selection" || observation.label === "Show Details panel") {
+        if (observation.label?.endsWith(" view") || observation.label === "Clear selection") {
           expect(observation.left).toBeGreaterThanOrEqual(0);
           expect(observation.right).toBeLessThanOrEqual(width);
           expect(observation.hit).toBe(true);
         }
-        if (observation.label === "Show Details panel") break;
+        // Below 500px only the active density shows; the Details toggle is hidden on phones.
+        if (observation.label?.endsWith(" view")) break;
       }
-      expect(reached).toEqual([...(selected ? ["Clear selection"] : []), "Table view", "Grid view", "Justified view"]);
-      await expect(page.getByRole("button", { name: "Show Details panel", exact: true })).toBeFocused();
+      expect(reached).toEqual([...(selected ? ["Clear selection"] : []), "Grid view"]);
       if (selected) await page.getByRole("button", { name: "Clear selection", exact: true }).click();
     }
   });

@@ -54,7 +54,7 @@ import { captureDetailEntry, chooseDetailReturn } from "@/lib/detail-return";
 import { usePinchZoom } from "@/hooks/usePinchZoom";
 import { getFullImageUrl, getThumbnailUrl, getZoomImageUrl } from "@/lib/image-urls";
 import { isFullResLoaded, markFullResLoaded, onFullResDecoded, getCarouselImageUrl } from "@/lib/image-prefetch";
-import { NavStrip } from "@/components/NavStrip";
+import { FullscreenCornerButton, NavStrip } from "@/components/NavStrip";
 import { StableImg } from "@/components/StableImg";
 import { resetToHome } from "@/lib/reset-to-home";
 import { scrollFocusedIntoView, markUserInitiatedNavigation, pushNavigateAsPopstate, consumeDetailEnteredViaSpaFlag } from "@/lib/orchestration/search";
@@ -63,7 +63,8 @@ import { DEFAULT_SEARCH, HOME_HREF } from "@/lib/home-defaults";
 import { storeImageOffset, getImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { ImageMetadata } from "@/components/ImageMetadata";
 import { UsagesSection, countDisplayUsages } from "@/components/UsagesSection";
-import { AccordionSection } from "@/components/PanelLayout";
+import { AccordionSection, useIsCompact } from "@/components/PanelLayout";
+import { BottomSheet } from "@/components/BottomSheet";
 import { useUiPrefsStore, getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { consumeTraceInteraction, traceInteraction } from "@/lib/perceived-trace";
 import type { Image } from "@/types/image";
@@ -189,6 +190,8 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   }, []);
   // Mobile scroll container — the outer flex-col div that scrolls on narrow screens.
   const mobileScrollRef = useRef<HTMLDivElement>(null);
+  const isCompact = useIsCompact();
+  const [cardExpanded, setCardExpanded] = useState(false);
   const { isFullscreen, toggleFullscreen } = useFullscreen(containerRef);
   const { cursorHidden, navMouseEnter, navMouseLeave } = useCursorAutoHide(isFullscreen);
 
@@ -725,22 +728,27 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
         className={
           isFullscreen
             ? "flex-1 flex min-h-0"
-            : "flex-1 flex min-h-0 overflow-y-auto sm:overflow-clip overscroll-y-contain overscroll-x-none flex-col sm:flex-row touch-pan-y sm:touch-auto"
+            : "flex-1 flex min-h-0 overflow-y-auto wide:overflow-clip overscroll-y-contain overscroll-x-none flex-col wide:flex-row touch-pan-y wide:touch-auto"
         }
       >
         {/* Image container — this div is fullscreened. overflow-clip clips
             the carousel's off-screen prev/next panels without creating a scroll
             container — overflow-hidden would eat the macOS trackpad back-swipe.
             touch-action: none — we handle all gestures ourselves (swipe carousel).
-            h-[55svh] — svh (small viewport height) is stable when address bar
+            h-[calc(100%-64px)] — compact image fills the screen above the metadata
+            card's peek strip; svh (small viewport height) is stable when address bar
             shows/hides, avoiding the twitch on fullscreen exit. */}
         <div
           ref={containerRef}
           className={`relative overflow-clip ${
             isFullscreen
               ? `w-full h-full touch-none${cursorHidden ? " cursor-none" : ""}`
-              : "bg-grid-bg shrink-0 sm:flex-1 min-w-0 h-[55svh] sm:h-full touch-none sm:touch-auto"
+              : `bg-grid-bg shrink-0 wide:flex-1 min-w-0 ${
+                // Expanded card covers the bottom 75%: the image shrinks into the top quarter.
+                isCompact && cardExpanded ? "h-[calc(25svh-44px)]" : "h-[calc(100%-64px)]"
+              } wide:h-full touch-none wide:touch-auto transition-[height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`
           }`}
+          onClickCapture={isCompact && cardExpanded ? (e) => { e.stopPropagation(); setCardExpanded(false); } : undefined}
         >
           {/* Carousel strip — three panels (prev | current | next).
               Translated by useSwipeCarousel during horizontal swipe.
@@ -850,18 +858,21 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
           {/* Prev/next navigation strips — desktop only (mobile uses swipe).
               Positioned on top of the carousel strip. */}
           {!(isFullscreen && cursorHidden) && !isZoomed && prevImage && (
-            <NavStrip direction="prev" onClick={goToPrev} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} className="hidden sm:flex" />
+            <NavStrip direction="prev" onClick={goToPrev} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} className="hidden wide:flex" />
           )}
           {!(isFullscreen && cursorHidden) && !isZoomed && nextImage && (
-            <NavStrip direction="next" onClick={goToNext} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} className="hidden sm:flex" />
+            <NavStrip direction="next" onClick={goToNext} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} className="hidden wide:flex" />
+          )}
+          {!(isFullscreen && cursorHidden) && (
+            <FullscreenCornerButton isFullscreen={isFullscreen} onClick={toggleFullscreen} className="hidden wide:flex" />
           )}
         </div>
 
         {/* Metadata — hidden in fullscreen.
             Desktop: fixed-width right column, scrolls independently.
-            Mobile: flows below the image in the single scroll container. */}
-        {!isFullscreen && displayImage && (
-          <aside className="w-full sm:w-72 shrink-0 sm:border-l border-t sm:border-t-0 border-grid-separator bg-grid-bg sm:overflow-y-auto sm:overflow-x-clip">
+            Compact: a card peeking over the image. */}
+        {!isFullscreen && displayImage && (() => {
+          const content = <>
             <AccordionSection sectionId="detail-metadata" title="Details">
               <div className="p-3">
                 <ImageMetadata image={displayImage} overlay={imageFromResults ? undefined : standaloneEnrichment} />
@@ -873,8 +884,24 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
             >
               <UsagesSection usages={displayImage.usages} />
             </AccordionSection>
-          </aside>
-        )}
+          </>;
+          return isCompact ? (
+            <BottomSheet
+              label="Image details"
+              header={displayImage.metadata?.title ?? displayImage.metadata?.description ?? displayImage.metadata?.credit ?? "Details"}
+              expanded={cardExpanded}
+              onExpandedChange={setCardExpanded}
+              // The shrunken image stays live: swipe-down still dismisses the detail.
+              scrim={false}
+            >
+              {content}
+            </BottomSheet>
+          ) : (
+            <aside className="w-72 shrink-0 border-l border-grid-separator bg-grid-bg overflow-y-auto overflow-x-clip">
+              {content}
+            </aside>
+          );
+        })()}
       </div>
     </div>
   );

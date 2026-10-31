@@ -37,7 +37,7 @@ function parsePrimarySort(orderBy: string): { field: string; desc: boolean } {
 // Middle filters: free-to-use toggle + date range
 // ---------------------------------------------------------------------------
 
-function FilterControls() {
+function FilterControls({ inSheet = false }: { inSheet?: boolean }) {
   const params = useSearch({ from: "/search" });
   const updateSearch = useUpdateSearchParams();
 
@@ -48,21 +48,21 @@ function FilterControls() {
   }, [params.nonFree, updateSearch]);
 
   return (
-    <div className="hidden sm:flex items-center gap-3 shrink-0">
+    <div className={inSheet ? "flex flex-col items-start gap-5" : "hidden min-[760px]:flex items-center gap-3 shrink-0"}>
       {/* Free to use only toggle */}
-      <label className="flex items-center gap-1.5 text-sm text-grid-text-muted cursor-pointer select-none whitespace-nowrap">
+      <label className={`flex items-center gap-1.5 text-grid-text-muted cursor-pointer select-none whitespace-nowrap ${inSheet ? "text-sm gap-3" : "text-sm"}`}>
         <input
           type="checkbox"
           checked={params.nonFree !== "true"}
           onChange={handleFreeOnlyToggle}
-          className="rounded border-grid-border bg-grid-bg text-grid-accent focus:ring-grid-accent focus:ring-offset-0 w-3.5 h-3.5"
+          className={`rounded border-grid-border bg-grid-bg text-grid-accent focus:ring-grid-accent focus:ring-offset-0 ${inSheet ? "w-5 h-5" : "w-3.5 h-3.5"}`}
         />
-        <span className="lg:hidden">Free only</span>
-        <span className="hidden lg:inline">Free to use only</span>
+        <span className={inSheet ? "hidden" : "lg:hidden"}>Free only</span>
+        <span className={inSheet ? "" : "hidden lg:inline"}>Free to use only</span>
       </label>
 
-      {/* Date range filter */}
-      <DateFilter />
+      {/* Date range filter (Refine sheet lays it out separately) */}
+      {!inSheet && <DateFilter />}
     </div>
   );
 }
@@ -71,7 +71,7 @@ function FilterControls() {
 // Sort controls (right end of toolbar)
 // ---------------------------------------------------------------------------
 
-function SortControls() {
+function SortControls({ inSheet = false }: { inSheet?: boolean }) {
   const params = useSearch({ from: "/search" });
   const updateSearch = useUpdateSearchParams();
   const [open, setOpen] = useState(false);
@@ -144,7 +144,7 @@ function SortControls() {
   }, [open]);
 
   return (
-    <div ref={dropdownRef} className="hidden sm:flex items-center gap-0.5 shrink-0 relative">
+    <div ref={dropdownRef} className={`${inSheet ? "flex" : "hidden min-[760px]:flex"} items-center gap-0.5 shrink-0 relative`}>
       {/* Sort field button */}
       <button
         type="button"

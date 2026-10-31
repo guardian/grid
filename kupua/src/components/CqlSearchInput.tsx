@@ -102,6 +102,7 @@ function ensureRegistered() {
   registered = true;
 }
 
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -318,7 +319,14 @@ export function CqlSearchInput({
     // CQL doesn't expose via theme or ::part.
     if (el.shadowRoot) {
       const style = document.createElement("style");
-      style.textContent = `.Cql__OptionCount { opacity: 0.7; margin-left: 1.5em; }`;
+      style.textContent = `.Cql__OptionCount { opacity: 0.7; margin-left: 1.5em; }
+        @media (max-width: 639px) {
+          /* Phones: suggestions span the screen under the search bar, never following the caret off-screen. */
+          .Cql__TypeaheadPopoverContainer {
+            position: fixed !important; top: 46px !important; left: 8px !important; right: 8px !important;
+            width: auto !important; max-width: none !important; transform: none !important;
+          }
+        }`;
       el.shadowRoot.appendChild(style);
     }
 

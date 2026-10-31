@@ -160,7 +160,8 @@ test.beforeEach(async ({ page }) => {
   // Navigate; don't call kupua.goto() to avoid the desktop pointer assumption.
   await page.goto("/search?nonFree=true");
   await page.waitForFunction(() => {
-    const grid = document.querySelector('[aria-label="Image results grid"]');
+    // Touch devices default to justified.
+    const grid = document.querySelector('[aria-label="Image results justified"]');
     return grid && grid.querySelectorAll("[data-grid-cell]").length > 3;
   }, { timeout: 15_000 });
   // Ensure clean slate
@@ -210,7 +211,7 @@ test("StatusBar remains at top (not repositioned) when in selection mode on coar
 // ===========================================================================
 
 test("long-press-tap selects the exact visible range", async ({ page }) => {
-  const grid = page.locator('[aria-label="Image results grid"]');
+  const grid = page.locator('[aria-label="Image results justified"]');
   const scrollBefore = await grid.evaluate((element) => element.scrollTop);
   await grid.evaluate((element) => {
     element.scrollBy({ top: 150 });
@@ -314,4 +315,20 @@ test("SelectionFab appears at bottom-right and clears selection on tap", async (
 
   await expect.poll(() => getSelectionCount(page)).toBe(0);
   await expect(fab).not.toBeVisible();
+});
+
+test("SelectionFab count expands actions; Details expands the card and scrim collapses it", async ({ page }) => {
+  const rect = await getFirstTouchableCellRect(page);
+  await beginLongPress(page, rect.x, rect.y);
+  await endPress(page, rect.x, rect.y);
+
+  await expect(page.getByRole("button", { name: "Expand Details" })).toBeVisible();
+  await page.getByRole("button", { name: "1 selected — actions" }).click();
+  await page.getByRole("menuitem", { name: "Details" }).click();
+  await expect(page.getByRole("menuitem")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Collapse Details" })).toBeVisible();
+
+  await page.getByTestId("card-scrim").click({ position: { x: 10, y: 10 } });
+  await expect(page.getByRole("button", { name: "Expand Details" })).toBeVisible();
+  expect(await getSelectionCount(page)).toBe(1);
 });

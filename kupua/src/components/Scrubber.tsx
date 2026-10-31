@@ -1085,7 +1085,8 @@ export function Scrubber({
       <div
         ref={thumbCallbackRef}
         data-scrubber-thumb="true"
-        className="absolute"
+        // Coarse pointers: invisible ~44px hit area around the 8px pill.
+        className="absolute pointer-coarse:before:absolute pointer-coarse:before:content-[''] pointer-coarse:before:-left-8 pointer-coarse:before:-right-1 pointer-coarse:before:-top-3 pointer-coarse:before:-bottom-3"
         style={{
           left: THUMB_INSET,
           right: THUMB_INSET,

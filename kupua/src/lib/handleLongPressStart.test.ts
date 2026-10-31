@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { handleLongPressStart } from "@/lib/handleLongPressStart";
+import { createDragSelect, handleLongPressStart } from "@/lib/handleLongPressStart";
 import type { AddRangeEffect } from "@/lib/dispatchClickEffects";
 import type { Image } from "@/types/image";
 import { useSelectionStore } from "@/stores/selection-store";
@@ -222,5 +222,78 @@ describe("handleLongPressStart -- different anchor (range)", () => {
 
     const effect = handleRange.mock.calls[0][0];
     expect(effect.anchorGlobalIndex).toBeNull();
+  });
+});
+
+describe("createDragSelect", () => {
+  // Loaded window: ids a..f at global positions 10..15.
+  const ids = ["a", "b", "c", "d", "e", "f"];
+  let selected: Set<string>;
+
+  function setup(initial: string[], loaded = ids) {
+    selected = new Set(initial);
+    vi.mocked(useSelectionStore.getState).mockReturnValue({
+      selectedIds: selected,
+      add: vi.fn((more: string[]) => more.forEach((id) => selected.add(id))),
+      remove: vi.fn((less: string[]) => less.forEach((id) => selected.delete(id))),
+      setAnchor: vi.fn(),
+    } as unknown as ReturnType<typeof useSelectionStore.getState>);
+    vi.mocked(useSearchStore.getState).mockReturnValue({
+      imagePositions: new Map(ids.map((id, i) => [id, 10 + i])),
+      results: loaded.map((id) => ({ id })),
+      params: { nonFree: "true" },
+    } as unknown as ReturnType<typeof useSearchStore.getState>);
+  }
+
+  it("paints a range and un-paints what it added when dragged back", () => {
+    setup(["a"]);
+    const handleRange = vi.fn();
+    const drag = createDragSelect(() => ({ handleRange, orderBy: undefined }));
+    drag.prime("b", false);
+    drag.enter("b", "e");
+    expect([...selected].sort()).toEqual(["a", "b", "c", "d", "e"]);
+    drag.enter("b", "c");
+    expect([...selected].sort()).toEqual(["a", "b", "c"]);
+    drag.end();
+    expect(handleRange).not.toHaveBeenCalled();
+  });
+
+  it("starting on a selected image erases, and never touches unselected ones", () => {
+    setup(["a", "b", "c", "d", "f"]);
+    const drag = createDragSelect(() => ({ handleRange: vi.fn(), orderBy: undefined }));
+    drag.prime("c", true);
+    drag.enter("c", "f");
+    expect([...selected].sort()).toEqual(["a", "b"]);
+    drag.enter("c", "d");
+    expect([...selected].sort()).toEqual(["a", "b", "f"]);
+  });
+
+  it("an id evicted from the buffer mid-drag is not treated as leaving the range", () => {
+    setup(["a", "b", "c", "d", "e", "f"]);
+    const drag = createDragSelect(() => ({ handleRange: vi.fn(), orderBy: undefined }));
+    drag.prime("a", true);
+    drag.enter("a", "c");
+    expect([...selected].sort()).toEqual(["d", "e", "f"]);
+    // Auto-scroll moved the buffer: a and b are no longer loaded.
+    vi.mocked(useSearchStore.getState).mockReturnValue({
+      imagePositions: new Map(ids.map((id, i) => [id, 10 + i])),
+      results: ["c", "d", "e", "f"].map((id) => ({ id })),
+      params: { nonFree: "true" },
+    } as unknown as ReturnType<typeof useSearchStore.getState>);
+    drag.enter("a", "e");
+    expect([...selected].sort()).toEqual(["f"]);
+  });
+
+  it.each([false, true])("fills an unloaded part of the range on release (erase=%s)", (erase) => {
+    setup(erase ? ["b", "e"] : [], ["b", "e"]);
+    const handleRange = vi.fn();
+    const drag = createDragSelect(() => ({ handleRange, orderBy: undefined }));
+    drag.prime("b", erase);
+    drag.enter("b", "e");
+    expect(selected.has("b")).toBe(!erase);
+    drag.end();
+    expect(handleRange).toHaveBeenCalledWith(expect.objectContaining({
+      op: "add-range", anchorId: "b", anchorGlobalIndex: 11, targetId: "e", targetGlobalIndex: 14,
+    }));
   });
 });

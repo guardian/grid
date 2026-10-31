@@ -90,7 +90,7 @@ vi.mock("@/components/ImageMetadata", () => ({ ImageMetadata: ({ image, overlay 
   <span data-testid="metadata">{image.id}: {image.metadata.title}{overlay?.cost ? ` [${overlay.cost}]` : ""}</span>
 ) }));
 vi.mock("@/components/UsagesSection", () => ({ UsagesSection: () => null, countDisplayUsages: () => 0 }));
-vi.mock("@/components/PanelLayout", () => ({ AccordionSection: ({ children }: { children: ReactNode }) => <section>{children}</section> }));
+vi.mock("@/components/PanelLayout", () => ({ AccordionSection: ({ children }: { children: ReactNode }) => <section>{children}</section>, useIsCompact: () => false }));
 vi.mock("@/lib/reset-to-home", () => ({ resetToHome: vi.fn() }));
 vi.mock("@/lib/orchestration/search", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/orchestration/search")>(),

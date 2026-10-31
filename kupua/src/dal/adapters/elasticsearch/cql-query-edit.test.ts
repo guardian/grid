@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { findFieldTerm, upsertFieldTerm, findHasFieldTargets, removeAllFieldTerms } from "./cql-query-edit";
+import { findFieldTerm, upsertFieldTerm, findHasFieldTargets, removeAllFieldTerms, splitFieldTerms, joinFieldTerms, parseFieldChips, serializeFieldChips } from "./cql-query-edit";
 import { gridConfig } from "@/lib/grid-config";
 
 // ---------------------------------------------------------------------------
@@ -287,6 +287,32 @@ describe("findHasFieldTargets", () => {
 // ---------------------------------------------------------------------------
 // removeAllFieldTerms
 // ---------------------------------------------------------------------------
+describe("splitFieldTerms", () => {
+  it.each([
+    ["", "", ""],
+    ["cats", "", "cats"],
+    ["cats credit:Getty dogs", "credit:Getty", "cats dogs"],
+    ['-by:"Jane Doe" cats #news', '-by:"Jane Doe" #news', "cats"],
+    ["credit:Getty", "credit:Getty", ""],
+  ])("%j → fields %j, text %j", (query, fields, text) => {
+    const split = splitFieldTerms(query);
+    expect(split).toEqual({ fields, text });
+    expect(splitFieldTerms(joinFieldTerms(split.fields, split.text))).toEqual(split);
+  });
+});
+
+describe("parseFieldChips / serializeFieldChips", () => {
+  it("round-trips polarity, quoting and shortcuts", () => {
+    const chips = parseFieldChips('credit:Getty -by:"Jane Doe" #news');
+    expect(chips).toEqual([
+      { key: "credit", value: "Getty", negated: false },
+      { key: "by", value: "Jane Doe", negated: true },
+      { key: "label", value: "news", negated: false },
+    ]);
+    expect(serializeFieldChips(chips)).toBe('credit:Getty -by:"Jane Doe" label:news');
+  });
+});
+
 describe("removeAllFieldTerms", () => {
   it("removes a field term that has a value", () => {
     expect(removeAllFieldTerms("credit:Getty", "credit")).toBe("");

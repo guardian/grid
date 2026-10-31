@@ -42,7 +42,19 @@ export interface UseLongPressOptions {
    * @param y - clientY at commit time.
    */
   onLongPressStart: (cellId: string, x: number, y: number) => void;
+
+  /**
+   * Fired while dragging after a committed long-press, each time the finger
+   * enters a different cell (excluding the origin). Near the container's top or
+   * bottom edge the container auto-scrolls. Absent = no drag-select.
+   */
+  onDragEnterCell?: (originId: string, cellId: string) => void;
+  /** Fired when a drag-select gesture ends. */
+  onDragEnd?: () => void;
 }
+
+const AUTO_SCROLL_EDGE_PX = 48;
+const AUTO_SCROLL_MAX_PX_PER_FRAME = 12;
 
 /**
  * Returns the `data-cell-id` of the nearest ancestor with that attribute,
@@ -57,11 +69,17 @@ function getCellId(target: EventTarget | null): string {
 export function useLongPress({
   containerRef,
   onLongPressStart,
+  onDragEnterCell,
+  onDragEnd,
 }: UseLongPressOptions): void {
   // Store callbacks in refs so the effect never needs to re-attach listeners
   // when callbacks change identity (e.g. from useCallback recreations).
   const startRef = useRef(onLongPressStart);
   startRef.current = onLongPressStart;
+  const dragRef = useRef(onDragEnterCell);
+  dragRef.current = onDragEnterCell;
+  const dragEndRef = useRef(onDragEnd);
+  dragEndRef.current = onDragEnd;
 
   useEffect(() => {
     const el = containerRef.current!;
@@ -74,6 +92,97 @@ export function useLongPress({
     let pointerId = -1;
     let cellId = "";
     let committed = false; // true once the long-press threshold fires
+    let dragging = false;
+    let lastDragCell = "";
+    let lastX = 0;
+    let lastY = 0;
+    let raf = 0;
+    // Auto-scroll edges, measured once per drag (fixed card strip hides the container's bottom).
+    let edges: { top: number; bottom: number } | null = null;
+    let activeTouches = 0;
+
+    function dragHitTest(): void {
+      const hit = getCellId(document.elementFromPoint(lastX, lastY));
+      if (hit && hit !== lastDragCell) {
+        lastDragCell = hit;
+        dragRef.current?.(cellId, hit);
+      }
+    }
+
+    function autoScrollTick(): void {
+      raf = 0;
+      if (!dragging) return;
+      if (!edges) {
+        const r = el.getBoundingClientRect();
+        const card = document.querySelector<HTMLElement>('[role="region"][aria-label="Details"]');
+        edges = { top: r.top, bottom: Math.min(r.bottom, card?.getBoundingClientRect().top ?? Infinity) };
+      }
+      let v = 0;
+      if (lastY < edges.top + AUTO_SCROLL_EDGE_PX) v = -(edges.top + AUTO_SCROLL_EDGE_PX - lastY);
+      else if (lastY > edges.bottom - AUTO_SCROLL_EDGE_PX) v = lastY - (edges.bottom - AUTO_SCROLL_EDGE_PX);
+      if (v !== 0) {
+        const step = Math.sign(v) * Math.min(AUTO_SCROLL_MAX_PX_PER_FRAME, Math.abs(v) / 3 + 2);
+        el.scrollTop += step;
+      }
+      dragHitTest();
+      if (v !== 0) raf = requestAnimationFrame(autoScrollTick);
+    }
+
+    function stopDrag(): void {
+      if (dragging) dragEndRef.current?.();
+      delete document.body.dataset.dragSelecting;
+      dragging = false;
+      lastDragCell = "";
+      edges = null;
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+    }
+
+    // Non-passive, attached only once a long-press commits, so it can claim the touch from native scrolling.
+    function onTouchMove(e: TouchEvent): void {
+      if (!committed || !dragRef.current) return;
+      e.preventDefault();
+      dragging = true;
+      document.body.dataset.dragSelecting = "true";
+      lastX = e.touches[0].clientX;
+      lastY = e.touches[0].clientY;
+      // Hit-testing happens once per frame in the tick.
+      if (!raf) raf = requestAnimationFrame(autoScrollTick);
+    }
+
+    function onTouchEnd(e: TouchEvent): void {
+      activeTouches = e.touches.length;
+      if (activeTouches > 0) return;
+      stopDrag();
+      detachTarget();
+    }
+
+    // Touch events keep targeting the touchstart node even after the virtualizer
+    // removes it; detached nodes don't bubble to the container, so listen on it directly.
+    let pendingTarget: EventTarget | null = null;
+    let touchTarget: EventTarget | null = null;
+    function detachTarget(): void {
+      touchTarget?.removeEventListener("touchmove", onTouchMove as EventListener);
+      touchTarget?.removeEventListener("touchend", onTouchEnd as EventListener);
+      touchTarget?.removeEventListener("touchcancel", onTouchEnd as EventListener);
+      touchTarget = null;
+    }
+    function attachTarget(): void {
+      detachTarget();
+      touchTarget = pendingTarget;
+      touchTarget?.addEventListener("touchmove", onTouchMove as EventListener, { passive: false });
+      touchTarget?.addEventListener("touchend", onTouchEnd as EventListener);
+      touchTarget?.addEventListener("touchcancel", onTouchEnd as EventListener);
+    }
+    function onTouchStart(e: TouchEvent): void {
+      activeTouches = e.touches.length;
+      // A second finger (pinch) is never a long-press.
+      if (activeTouches > 1) { cancel(); return; }
+      pendingTarget = e.target;
+    }
+    function onContainerTouchEnd(e: TouchEvent): void {
+      activeTouches = e.touches.length;
+    }
 
     function cancel(): void {
       if (timer !== undefined) {
@@ -112,7 +221,9 @@ export function useLongPress({
 
       timer = setTimeout(() => {
         timer = undefined;
+        if (activeTouches > 1) return;
         committed = true;
+        if (dragRef.current) attachTarget();
         startRef.current(cellId, startX, startY);
         // Suppress the synthetic click that browsers fire after pointerup.
         // Without this, the cell's onClick fires immediately after the long-press
@@ -162,6 +273,7 @@ export function useLongPress({
 
     function onScroll(): void {
       // A scroll firing before threshold = the user is scrolling, not pressing.
+      if (dragging) return;
       cancel();
     }
 
@@ -188,9 +300,17 @@ export function useLongPress({
     el.addEventListener("pointercancel", onPointerCancel);
     el.addEventListener("scroll", onScroll, { passive: true });
     el.addEventListener("contextmenu", onContextMenu);
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchend", onContainerTouchEnd, { passive: true });
+    el.addEventListener("touchcancel", onContainerTouchEnd, { passive: true });
 
     return () => {
       cancel();
+      stopDrag();
+      detachTarget();
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchend", onContainerTouchEnd);
+      el.removeEventListener("touchcancel", onContainerTouchEnd);
       el.removeEventListener("pointerdown", onPointerDown);
       el.removeEventListener("pointermove", onPointerMove);
       el.removeEventListener("pointerup", onPointerUp);

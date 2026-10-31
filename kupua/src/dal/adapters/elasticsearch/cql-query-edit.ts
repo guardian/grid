@@ -190,6 +190,79 @@ export function upsertFieldTerm(
 }
 
 /**
+ * Split a CQL query into its field terms (chips) and its free text, preserving
+ * each part's original spelling. AND-only grammar makes the split lossless.
+ */
+export function splitFieldTerms(query: string): { fields: string; text: string } {
+  if (!query.trim()) return { fields: "", text: "" };
+  const result = parser(query);
+  if (!result.queryAst?.content) return { fields: "", text: query.trim() };
+  const spans: Array<[number, number]> = [];
+  const walk = (binary: CqlBinary) => {
+    const expr = binary.left;
+    if (expr.content.type === "CqlField") {
+      const field = expr.content;
+      const keyStart = field.key.start;
+      const charBefore = keyStart > 0 ? query[keyStart - 1] : "";
+      const start = charBefore === "-" || charBefore === "+" ? keyStart - 1 : keyStart;
+      spans.push([start, (field.value?.end ?? field.key.end) + 1]);
+    } else if (expr.content.type === "CqlBinary") {
+      walk(expr.content);
+    }
+    if (binary.right) walk(binary.right.binary);
+  };
+  walk(result.queryAst.content);
+  const fields = spans.map(([s, e]) => query.slice(s, e)).join(" ");
+  let text = "";
+  let cursor = 0;
+  for (const [s, e] of spans) {
+    text += query.slice(cursor, s) + " ";
+    cursor = e;
+  }
+  text += query.slice(cursor);
+  return { fields, text: text.replace(/\s+/g, " ").trim() };
+}
+
+/** Inverse of splitFieldTerms (field order first; AND makes order irrelevant). */
+export function joinFieldTerms(fields: string, text: string): string {
+  return [fields.trim(), text.trim()].filter(Boolean).join(" ");
+}
+
+export interface FieldChip { key: string; value: string; negated: boolean }
+
+/** Parse a fields-only string (see splitFieldTerms) into chips. */
+export function parseFieldChips(fields: string): FieldChip[] {
+  if (!fields.trim()) return [];
+  const result = parser(fields);
+  if (!result.queryAst?.content) return [];
+  const chips: FieldChip[] = [];
+  const walk = (binary: CqlBinary) => {
+    const expr = binary.left;
+    if (expr.content.type === "CqlField") {
+      const field = expr.content;
+      chips.push({
+        key: field.key.literal ?? field.key.lexeme,
+        value: field.value?.literal ?? field.value?.lexeme ?? "",
+        negated: expr.polarity === "NEGATIVE",
+      });
+    } else if (expr.content.type === "CqlBinary") {
+      walk(expr.content);
+    }
+    if (binary.right) walk(binary.right.binary);
+  };
+  walk(result.queryAst.content);
+  return chips;
+}
+
+export function serializeFieldChips(chips: readonly FieldChip[]): string {
+  return chips
+    .filter((chip) => chip.value)
+    .map(({ key, value, negated }) =>
+      `${negated ? "-" : ""}${shouldQuote(key) ? `"${key}"` : key}:${shouldQuote(value) ? `"${value}"` : value}`)
+    .join(" ");
+}
+
+/**
  * Remove ALL occurrences of a field key (any value, any polarity) from a CQL
  * query string. Useful for exclusive filters like collection, where selecting
  * a new value should clear all previous values for that key.

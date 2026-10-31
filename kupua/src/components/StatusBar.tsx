@@ -21,9 +21,8 @@ import { useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { shortcutTooltip } from "@/lib/keyboard-shortcuts";
-import { resetScrollAndFocusSearch } from "@/lib/orchestration/search";
+import { refreshResults } from "@/lib/refresh-results";
 import { beginTraceInteraction } from "@/lib/perceived-trace";
-import { SELECTIONS_PERSIST_ACROSS_NAVIGATION } from "@/constants/tuning";
 import { displayTickers } from "@/lib/ticker-display";
 import { collectionCountScope, useCollectionStore } from "@/stores/collection-store";
 import { upsertFieldTerm, findFieldTerm } from "@/dal/adapters/elasticsearch/cql-query-edit";
@@ -61,6 +60,21 @@ function buildTickerTooltip(
 
 const SB_TOTAL_KEY = "kupua-sb-total";
 
+const CYCLE = { justified: "grid", grid: "table", table: "justified" } as const;
+const NARROW_QUERY = "(max-width: 499px)";
+
+function useNarrow() {
+  const [narrow, setNarrow] = useState(() => window.matchMedia?.(NARROW_QUERY).matches ?? false);
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    const mql = window.matchMedia(NARROW_QUERY);
+    const onChange = () => setNarrow(mql.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+  return narrow;
+}
+
 export function StatusBar() {
   const total = useSearchStore((s) => s.total);
   const aiPoolTotal = useSearchStore((s) => s.aiPoolTotal);
@@ -70,6 +84,7 @@ export function StatusBar() {
   const selectedCount = useSelectionStore((s) => s.selectedIds.size);
   const clearSelection = useSelectionStore((s) => s.clear);
   const isCoarsePointer = useUiPrefsStore((s) => s._pointerCoarse);
+  const narrowCycle = useNarrow();
 
   // _isInitialLoad is true from store init until the first search completes.
   // It's the correct "has a search ever settled?" signal — unlike `total > 0`,
@@ -98,7 +113,6 @@ export function StatusBar() {
   // AI results show the pool they were ranked from; never paired with a cached total.
   const displayPool = storeReady && total > 0 ? aiPoolTotal : null;
   const newCountSince = storeSince ?? (useSavedArrivals ? cached.frozenUntil : null);
-  const reSearch = useSearchStore((s) => s.search);
   const updateSearch = useUpdateSearchParams();
   const density = useUiPrefsStore((state) => state.density);
   const setDensity = useUiPrefsStore((state) => state.setDensity);
@@ -136,7 +150,7 @@ export function StatusBar() {
 
   return (
     <div
-      className="@container flex items-stretch gap-0 h-7 bg-grid-bg border-b border-grid-separator text-sm text-grid-text-muted shrink-0 select-none relative"
+      className="@container flex items-stretch gap-0 h-7 pointer-coarse:h-[38px] bg-grid-bg border-b border-grid-separator text-sm text-grid-text-muted shrink-0 select-none relative"
       data-coarse-pointer={isCoarsePointer ? "true" : undefined}
       data-selection-mode={selectedCount > 0 ? "true" : undefined}
     >
@@ -146,7 +160,7 @@ export function StatusBar() {
         onClick={() => togglePanel("left")}
         onMouseDown={(e) => e.preventDefault()}
         onMouseEnter={handleBrowseHover}
-        className={`shrink-0 flex items-center gap-1 px-2 transition-colors cursor-pointer whitespace-nowrap relative ${
+        className={`shrink-0 flex items-center gap-1 px-2 pointer-coarse:px-3.5 transition-colors cursor-pointer whitespace-nowrap relative ${
           leftVisible
             ? "text-grid-accent bg-grid-bg z-10 after:content-[''] after:absolute after:left-0 after:right-0 after:bottom-[-1px] after:h-px after:bg-grid-bg"
             : "text-grid-text-muted hover:bg-grid-hover"
@@ -186,16 +200,8 @@ export function StatusBar() {
         {/* New images ticker — seeded from sessionStorage across reload */}
         {displayNewCount > 0 && (
           <button
-            onClick={() => {
-              resetScrollAndFocusSearch({ skipEagerScroll: true });
-              // S6: clear selection before reSearch so the multi-panel doesn't
-              // briefly flash old reconciled state against the new results.
-              if (!SELECTIONS_PERSIST_ACROSS_NAVIGATION) {
-                clearSelection();
-              }
-              reSearch();
-            }}
-            className="bg-grid-accent hover:bg-grid-accent-hover text-white px-1.5 rounded-sm cursor-pointer text-sm leading-tight flex items-center shrink-0 whitespace-nowrap"
+            onClick={refreshResults}
+            className="bg-grid-accent hover:bg-grid-accent-hover text-white px-1.5 pointer-coarse:py-1 rounded-sm cursor-pointer text-sm leading-tight flex items-center shrink-0 whitespace-nowrap"
             title={`${displayNewCount.toLocaleString()} new images since ${
               newCountSince
                 ? formatDistanceToNow(new Date(newCountSince), {
@@ -223,12 +229,13 @@ export function StatusBar() {
                 const newQuery = upsertFieldTerm(currentQuery, "is", isValue, false);
                 updateSearch({ query: newQuery || undefined });
               }}
-              className={`px-1.5 rounded-sm cursor-pointer text-sm leading-tight flex items-center shrink-0 whitespace-nowrap transition-opacity ${isActive ? "opacity-60" : "hover:opacity-90"}`}
+              className={`px-1.5 pointer-coarse:py-1 rounded-sm cursor-pointer text-sm leading-tight flex items-center shrink-0 whitespace-nowrap transition-opacity ${isActive ? "opacity-60" : "hover:opacity-90"}`}
               style={{ backgroundColor: ticker.backgroundColour, color: "white" }}
               title={buildTickerTooltip(ticker, tickersLastUpdated)}
               aria-pressed={isActive}
+              aria-label={`${ticker.value.toLocaleString()} ${ticker.name}`}
             >
-              {ticker.value.toLocaleString()} {ticker.name}
+              {ticker.value.toLocaleString()}<span className="hidden @[600px]:inline ml-[0.25em]">{ticker.name}</span>
             </button>
           );
         })}
@@ -267,11 +274,13 @@ export function StatusBar() {
       <div role="group" aria-label="Image layout" className="flex shrink-0">
         {(["table", "grid", "justified"] as const).map((mode) => {
           const label = `${mode[0].toUpperCase()}${mode.slice(1)} view`;
+          // Narrow bars show only the active density; tapping it cycles to the next.
+          const next = CYCLE[mode];
           return <button
             key={mode}
             type="button"
-            onClick={() => selectDensity(mode)}
-            className={`w-8 shrink-0 flex items-center justify-center hover:bg-grid-hover transition-colors cursor-pointer ${density === mode ? "text-grid-accent" : "text-grid-text-muted"}`}
+            onClick={() => selectDensity(narrowCycle && density === mode ? next : mode)}
+            className={`${density === mode ? "" : "@max-[499px]:hidden "}w-8 pointer-coarse:w-[38px] shrink-0 flex items-center justify-center hover:bg-grid-hover transition-colors cursor-pointer ${density === mode ? "text-grid-accent" : "text-grid-text-muted"}`}
             title={density === mode && mode !== "grid" ? `${label} — click again for grid` : label}
             aria-label={label}
             aria-pressed={density === mode}
@@ -293,13 +302,13 @@ export function StatusBar() {
         })}
       </div>
 
-      <div className="w-px bg-grid-separator shrink-0" />
+      <div className="w-px bg-grid-separator shrink-0 compact:hidden" />
 
-      {/* Right panel toggle — full-height strip; extends below when active */}
+      {/* Right panel toggle — phones use the bottom card instead */}
       <button
         onClick={() => togglePanel("right")}
         onMouseDown={(e) => e.preventDefault()}
-        className={`shrink-0 flex items-center gap-1 px-2 transition-colors cursor-pointer whitespace-nowrap relative ${
+        className={`compact:hidden shrink-0 flex items-center gap-1 px-2 pointer-coarse:px-3.5 transition-colors cursor-pointer whitespace-nowrap relative ${
           rightVisible
             ? "text-grid-accent bg-grid-bg z-10 after:content-[''] after:absolute after:left-0 after:right-0 after:bottom-[-1px] after:h-px after:bg-grid-bg"
             : "text-grid-text-muted hover:bg-grid-hover"

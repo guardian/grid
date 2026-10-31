@@ -24,6 +24,27 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 31 October 2026 - Compact phone shell and touch selection
+
+Narrow (at most 639px) coarse-pointer viewports get a compact shell, chosen by `useShell`
+and exposed as `html[data-shell]` with `compact:`/`wide:` Tailwind variants. Narrow desktop
+windows keep the desktop shell; a desktop opt-in was tried and dropped because cards and
+sheets conflict with click-to-focus. `PanelLayout` renders the left panel as a scrim side
+sheet and the right panel as a `BottomSheet` selection card, keeping the results at the
+same child index so crossing the breakpoint never remounts the list. Image detail moves
+metadata into a scrim-less card; expanding it shrinks the image to the top quarter.
+The search field shows free text only; field terms become chips in the `FiltersSheet`
+Refine sheet (`RefineChips`, chip helpers in `cql-query-edit.ts`), which commits each chip
+change as one URL update rather than a debounced typing session, avoiding a double search.
+Escape inside a chip editor cancels the edit, not the sheet. Chips show `+`/`–` polarity.
+Below 760px, free-to-use, date and sort collapse behind a filters button on any device
+(a dropdown without chips on desktop). Long-press now continues into Google Photos-style
+drag-select with edge auto-scroll, listening on the touch target because virtualization
+can detach it; erase mode applies when starting on a selected image, and never-loaded
+gaps are completed through the range walk in either polarity. Pull-to-refresh, a 38px
+touch status bar, collapsing tickers and density buttons, a 44px scrubber grab area, an
+expanding SelectionFab menu and focus-trapped sheets complete the shell.
+
 ### 30 October 2026 - Owned photo and illustration counts from the server
 
 The Filters "Is" section and `is:` typeahead no longer sum category buckets against

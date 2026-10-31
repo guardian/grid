@@ -36,8 +36,7 @@ import { thumbnailsEnabled } from "@/lib/image-urls";
 import { storeImageOffset, buildSearchKey, extractSortValues, getRetainedSortValues } from "@/lib/image-offset-cache";
 import { interpretClick, type Modifier } from "@/lib/interpretClick";
 import { dispatchClickEffects, type AddRangeEffect } from "@/lib/dispatchClickEffects";
-import { handleLongPressStart } from "@/lib/handleLongPressStart";
-import { useLongPress } from "@/hooks/useLongPress";
+import { useTouchSelection } from "@/hooks/useTouchSelection";
 import { useEnrichedImage } from "@/hooks/useEnrichedImage";
 import { getImageBorderColour } from "@/lib/image-borders";
 import { renderTableField, TableRowCells, TableThumbnail } from "./TableRowCells";
@@ -811,16 +810,9 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   // Same logic as ImageGrid -- shared via handleLongPressStart helper.
   // -------------------------------------------------------------------------
 
-  useLongPress({
-    containerRef: parentRef,
-    onLongPressStart: (cellId) =>
-      handleLongPressStart({
-        cellId,
-        handleRange,
-        findImageIndex,
-        getImage,
-        orderBy: searchParamsRef.current.orderBy,
-      }),
+  useTouchSelection({
+    containerRef: parentRef, handleRange, findImageIndex, getImage,
+    getOrderBy: () => searchParamsRef.current.orderBy,
   });
 
   // Restore focus and scroll when returning from image detail overlay.

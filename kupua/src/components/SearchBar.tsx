@@ -1,10 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { splitFieldTerms, joinFieldTerms, parseFieldChips, serializeFieldChips } from "@/dal/adapters/elasticsearch/cql-query-edit";
+import { useIsCompact } from "./PanelLayout";
+import { usePanelStore } from "@/stores/panel-store";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useUrlSearchSync, useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
 import { SearchFilters } from "./SearchFilters";
 import { CqlSearchInput } from "./CqlSearchInput";
+import { FiltersSheet } from "./FiltersSheet";
 import { AiSearchInput } from "./AiSearchInput";
 import {
   _debounceTimerId,
@@ -83,6 +87,47 @@ export function SearchBar() {
   // --- AI query lives in its own URL param (searchParams.aiQuery) ---
   const urlAiText = searchParams.aiQuery ?? null;
   const urlQuery = searchParams.query ?? "";
+  const isCompact = useIsCompact();
+  // Compact shell: the search bar edits free text only; chips live in Refine.
+  const split = useMemo(() => splitFieldTerms(urlQuery), [urlQuery]);
+  const splitRef = useRef(split);
+  splitRef.current = split;
+  const handleBarChange = useCallback(
+    (q: string) => {
+      if (!isCompact) return handleQueryChangeRef.current(q);
+      // Chips typed in the bar stay there until blur; merge without duplicating ones already committed.
+      const typed = splitFieldTerms(q);
+      const seen = new Set<string>();
+      const chips = parseFieldChips(joinFieldTerms(splitRef.current.fields, typed.fields)).filter((chip) => {
+        const key = `${chip.negated}|${chip.key.toLowerCase()}|${chip.value}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      handleQueryChangeRef.current(joinFieldTerms(serializeFieldChips(chips), typed.text));
+    },
+    [isCompact],
+  );
+  // Refine edits are discrete commits: one history entry and one search, not a debounced typing session.
+  const handleFieldsChange = useCallback(
+    (f: string) => {
+      if (_debounceTimerId) clearTimeout(_debounceTimerId);
+      setDebounceTimer(null);
+      cqlDebounceRef.current = null;
+      const query = joinFieldTerms(f, splitRef.current.text);
+      beginTraceInteraction("search", { source: "refine" });
+      updateSearch({ query: query || undefined });
+    },
+    [updateSearch],
+  );
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const chipCount = split.fields ? split.fields.split(/\s+(?=[+-]?[^\s:]+:|[#~])/).length : 0;
+  const closeFilters = useCallback(() => setFiltersOpen(false), []);
+  const hasNonDefaultFilters =
+    searchParams.nonFree !== "true" || !!searchParams.since || !!searchParams.until ||
+    !!searchParams.takenSince || !!searchParams.takenUntil ||
+    !!searchParams.modifiedSince || !!searchParams.modifiedUntil ||
+    (!!searchParams.orderBy && searchParams.orderBy !== "-uploadTime");
   const cqlDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const aiDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingEntryRef = useRef<{ key: string; generation: number } | null>(null);
@@ -145,6 +190,8 @@ export function SearchBar() {
     },
     [beginTypingSession, updateSearch]
   );
+  const handleQueryChangeRef = useRef(handleQueryChange);
+  handleQueryChangeRef.current = handleQueryChange;
 
   // AI text change handler — debounced like CQL changes.
   const handleAiTextChange = useCallback(
@@ -170,8 +217,10 @@ export function SearchBar() {
     resetCqlInputComponents();
     if (aiDebounceRef.current) { clearTimeout(aiDebounceRef.current); aiDebounceRef.current = null; }
     setHasEditorContent(false);
-    updateSearch({ query: undefined, aiQuery: undefined });
-  }, [updateSearch]);
+    // Compact: × clears the typed text; chips are managed (and reset) in Refine.
+    const keep = isCompact ? splitRef.current.fields : "";
+    updateSearch({ query: keep || undefined, aiQuery: undefined });
+  }, [updateSearch, isCompact]);
 
   // Show clear button only when there's CQL content (not just AI).
   // When only AI is active, the AI widget has its own ✕.
@@ -231,13 +280,20 @@ export function SearchBar() {
           <circle cx="11" cy="11" r="8" />
           <line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
-        <div className="flex-1 min-w-0 overflow-hidden">
+        <div
+          className="flex-1 min-w-0 overflow-hidden"
+          onBlur={isCompact ? () => {
+            // Chips typed into the bar move to Refine once editing ends.
+            setTimeout(() => setExternalInputRevision((r) => r + 1), 400);
+          } : undefined}
+        >
           <CqlSearchInput
             key={getCqlInputGeneration()}
-            value={urlQuery}
+            value={isCompact ? split.text : urlQuery}
             externalRevision={externalInputRevision}
-            onChange={handleQueryChange}
+            onChange={handleBarChange}
             onHasContentChange={setHasEditorContent}
+            placeholder={isCompact ? "Search for images…" : undefined}
           />
         </div>
         <AiSearchInput
@@ -259,13 +315,35 @@ export function SearchBar() {
 
 
       {/* Separator */}
-      <div className="hidden sm:block w-px h-5 bg-grid-separator shrink-0" />
+      <div className="hidden min-[760px]:block w-px h-5 bg-grid-separator shrink-0" />
+
+      {/* Narrow screens: filters + sort move behind this button (sheet on touch phones, dropdown on desktop) */}
+      <button
+        type="button"
+        onClick={() => setFiltersOpen((v) => {
+          if (!v && usePanelStore.getState().config.left.visible) usePanelStore.getState().togglePanel("left");
+          return !v;
+        })}
+        aria-label="Filters and sort"
+        aria-expanded={filtersOpen}
+        className="min-[760px]:hidden relative shrink-0 w-10 h-10 -mr-1 flex items-center justify-center text-grid-text-muted"
+      >
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z" />
+        </svg>
+        {isCompact && chipCount > 0 ? (
+          <span className="absolute top-0.5 right-0 min-w-4 h-4 px-1 rounded-full bg-grid-accent text-white text-[10px] leading-4 text-center tabular-nums">
+            +{chipCount}
+          </span>
+        ) : hasNonDefaultFilters && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-grid-accent" />}
+      </button>
+      {filtersOpen && <FiltersSheet onClose={closeFilters} fields={split.fields} onFieldsChange={handleFieldsChange} dropdown={!isCompact} />}
 
       {/* Filters (free-to-use, dates) — hidden on phones, visible from sm */}
       <SearchFilters />
 
       {/* Separator */}
-      <div className="hidden sm:block w-px h-5 bg-grid-separator shrink-0" />
+      <div className="hidden min-[760px]:block w-px h-5 bg-grid-separator shrink-0" />
 
       {/* Sort controls — right-aligned, rendered by SearchFilters.SortControls */}
       <SearchFilters.Sort />

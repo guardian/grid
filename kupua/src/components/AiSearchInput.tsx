@@ -265,7 +265,7 @@ export function AiSearchInput({
         <SparklesIcon />
       </button>
       <span className={`text-yellow-400/50 group-hover:text-yellow-400 group-focus-visible:text-yellow-400 text-xs whitespace-nowrap select-none pointer-events-none overflow-hidden transition-all duration-200 ease-out ${
-        isActive ? "max-w-0 opacity-0" : "max-w-[4rem] opacity-100"
+        isActive ? "max-w-0 opacity-0" : "max-w-0 opacity-0 sm:max-w-[4rem] sm:opacity-100"
       }`}>AI search</span>
       <div
         ref={wrapperRef}

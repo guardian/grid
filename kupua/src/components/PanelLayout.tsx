@@ -15,7 +15,9 @@
 
 import {
   type ReactNode,
+  type TouchEvent,
   useCallback,
+  useEffect,
   useRef,
 } from "react";
 import {
@@ -25,6 +27,8 @@ import {
   type PanelSide,
 } from "@/stores/panel-store";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
+import { useSelectionStore } from "@/stores/selection-store";
+import { BottomSheet } from "./BottomSheet";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -179,6 +183,69 @@ function ResizeHandle({ side, panelRef }: ResizeHandleProps) {
   );
 }
 
+import { useIsCompact } from "@/hooks/useShell";
+export { useIsCompact };
+
+/** Compact-shell side sheet: slides in, swipe toward its edge to dismiss. */
+function SideSheet({ side, onDismiss, children }: { side: PanelSide; onDismiss: () => void; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const gesture = useRef<{ x: number; y: number; t: number; locked: boolean | null } | null>(null);
+  const sign = side === "left" ? -1 : 1;
+
+  const onTouchStart = (e: TouchEvent) => {
+    const t = e.touches[0];
+    // The slide-in animation's fill would override inline translate.
+    if (ref.current) ref.current.style.animation = "none";
+    gesture.current = { x: t.clientX, y: t.clientY, t: performance.now(), locked: null };
+  };
+  const onTouchMove = (e: TouchEvent) => {
+    const g = gesture.current;
+    const el = ref.current;
+    if (!g || !el) return;
+    const dx = e.touches[0].clientX - g.x;
+    const dy = e.touches[0].clientY - g.y;
+    if (g.locked === null) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      g.locked = Math.abs(dx) > Math.abs(dy);
+    }
+    if (!g.locked) return;
+    const offset = Math.max(0, dx * sign);
+    el.style.transition = "none";
+    el.style.translate = `${offset * sign}px 0`;
+  };
+  const onTouchEnd = (e: TouchEvent) => {
+    const g = gesture.current;
+    const el = ref.current;
+    gesture.current = null;
+    if (!g?.locked || !el) return;
+    const offset = Math.max(0, (e.changedTouches[0].clientX - g.x) * sign);
+    const velocity = offset / Math.max(1, performance.now() - g.t);
+    el.style.transition = "translate 0.2s cubic-bezier(0.22, 1, 0.36, 1)";
+    if (offset > el.offsetWidth / 3 || velocity > 0.5) {
+      el.style.translate = `${sign * 100}% 0`;
+      el.addEventListener("transitionend", onDismiss, { once: true });
+    } else {
+      el.style.translate = "0 0";
+    }
+  };
+
+  return (
+    <div
+      ref={ref}
+      className={`absolute inset-y-0 z-50 overflow-y-auto bg-grid-bg shadow-xl ${
+        side === "left" ? "left-0 border-r anim-sheet-left" : "right-0 border-l anim-sheet-right"
+      } border-grid-separator`}
+      style={{ width: "min(85vw, 360px)", overflowAnchor: "none", touchAction: "pan-y" }}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchEnd}
+    >
+      {children}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // PanelLayout — main component
 // ---------------------------------------------------------------------------
@@ -201,6 +268,62 @@ export function PanelLayout({ leftPanel, rightPanel, scrubber, children }: Panel
 
   useKeyboardShortcut("[", () => togglePanel("left"));
   useKeyboardShortcut("]", () => togglePanel("right"));
+
+  const isCompact = useIsCompact();
+  const hasSelection = useSelectionStore((s) => s.selectedIds.size > 0);
+
+  // Compact: the expanded card belongs to the selection; clearing it (×, Home) closes it.
+  // Transition-only, so resizing across the breakpoint never rewrites the saved panel config.
+  const hadSelection = useRef(hasSelection);
+  useEffect(() => {
+    if (isCompact && hadSelection.current && !hasSelection && usePanelStore.getState().config.right.visible) {
+      togglePanel("right");
+    }
+    hadSelection.current = hasSelection;
+  }, [isCompact, hasSelection, togglePanel]);
+
+  // Compact shell: panels overlay the results (viewport width unchanged) and a
+  // scrim tap dismisses them.
+  if (isCompact) {
+    const showLeft = leftVisible && !!leftPanel;
+    const showCard = !!rightPanel && hasSelection;
+    return (
+      <div className="flex-1 flex min-h-0 overflow-hidden relative">
+        {/* Placeholder keeps the main content at the same child index as the desktop
+            tree, so crossing the breakpoint doesn't remount the results (and lose scroll). */}
+        {null}
+        <div className="flex-1 min-w-0 flex relative">
+          <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+            {children}
+          </div>
+          {scrubber}
+        </div>
+        {showLeft && (
+          <div
+            className="absolute inset-0 z-40 bg-black/50 anim-scrim"
+            data-testid="panel-scrim"
+            aria-hidden="true"
+            onClick={() => togglePanel("left")}
+          />
+        )}
+        {showLeft && (
+          <SideSheet side="left" onDismiss={() => togglePanel("left")}>
+            {leftPanel}
+          </SideSheet>
+        )}
+        {showCard && (
+          <BottomSheet
+            label="Details"
+            header="Selection details"
+            expanded={rightVisible}
+            onExpandedChange={(next) => { if (next !== rightVisible) togglePanel("right"); }}
+          >
+            {rightPanel}
+          </BottomSheet>
+        )}
+      </div>
+    );
+  }
 
   // -------------------------------------------------------------------------
   // Render

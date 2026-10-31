@@ -193,7 +193,7 @@ function buildButtonLabel(
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export function DateFilter() {
+export function DateFilter({ inline = false }: { inline?: boolean }) {
   const params = useSearch({ from: "/search" });
   const updateSearch = useUpdateSearchParams();
   const [open, setOpen] = useState(false);
@@ -332,31 +332,33 @@ export function DateFilter() {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value; // YYYY-MM-DD (local time from picker)
       // Interpret as local midnight, then convert to UTC for the URL/query.
-      setDraftSince(value ? new Date(value + "T00:00:00").toISOString() : undefined);
+      const since = value ? new Date(value + "T00:00:00").toISOString() : undefined;
+      setDraftSince(since);
+      if (inline) applyDateFilter(draftField, since, draftUntil);
     },
-    []
+    [inline, applyDateFilter, draftField, draftUntil]
   );
 
   const handleToChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value; // YYYY-MM-DD (local time from picker)
       // Interpret as local end-of-day, then convert to UTC for the URL/query.
-      setDraftUntil(
-        value
-          ? new Date(value + "T23:59:59.999").toISOString()
-          : undefined
-      );
+      const until = value ? new Date(value + "T23:59:59.999").toISOString() : undefined;
+      setDraftUntil(until);
+      if (inline) applyDateFilter(draftField, draftSince, until);
     },
-    []
+    [inline, applyDateFilter, draftField, draftSince]
   );
 
   const handleClearFrom = useCallback(() => {
     setDraftSince(undefined);
-  }, []);
+    if (inline) applyDateFilter(draftField, undefined, draftUntil);
+  }, [inline, applyDateFilter, draftField, draftUntil]);
 
   const handleClearTo = useCallback(() => {
     setDraftUntil(undefined);
-  }, []);
+    if (inline) applyDateFilter(draftField, draftSince, undefined);
+  }, [inline, applyDateFilter, draftField, draftSince]);
 
   // ── Derived state ────────────────────────────────────────────────────
 
@@ -376,9 +378,9 @@ export function DateFilter() {
   // ── Render ───────────────────────────────────────────────────────────
 
   return (
-    <div ref={dropdownRef} className="relative">
+    <div ref={dropdownRef} className={inline ? "w-full" : "relative"}>
       {/* Trigger button */}
-      <button
+      {!inline && <button
         type="button"
         onClick={() => setOpen(!open)}
         className={`relative flex items-center gap-1.5 px-2 py-1 rounded text-sm border transition-colors cursor-pointer select-none whitespace-nowrap border-grid-border hover:text-grid-text-bright hover:border-grid-text-muted ${
@@ -401,11 +403,11 @@ export function DateFilter() {
         {isActive && (
           <span className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-grid-accent" />
         )}
-      </button>
+      </button>}
 
-      {/* Dropdown overlay */}
-      {open && (
-        <div className="absolute top-full right-0 mt-1 z-50 bg-grid-bg border border-grid-border rounded shadow-lg w-80 p-4">
+      {/* Dropdown overlay (inline: always-open, in flow) */}
+      {(open || inline) && (
+        <div className={inline ? "w-full" : "absolute top-full right-0 mt-1 z-50 bg-grid-bg border border-grid-border rounded shadow-lg w-80 p-4"}>
           {/* Field selector */}
           <h3 className="text-sm font-bold text-grid-text-bright mb-2">
             Field
@@ -420,7 +422,10 @@ export function DateFilter() {
                   type="radio"
                   name="date-field"
                   checked={draftField === opt.key}
-                  onChange={() => setDraftField(opt.key)}
+                  onChange={() => {
+                    setDraftField(opt.key);
+                    if (inline && (draftSince || draftUntil)) applyDateFilter(opt.key, draftSince, draftUntil);
+                  }}
                   className="accent-grid-accent w-3.5 h-3.5"
                 />
                 {opt.label}
@@ -500,8 +505,8 @@ export function DateFilter() {
             </div>
           </div>
 
-          {/* Footer buttons */}
-          <div className="flex justify-end gap-2">
+          {/* Footer buttons — inline (Refine sheet) applies live */}
+          {!inline && <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={handleCancel}
@@ -522,7 +527,7 @@ export function DateFilter() {
             >
               Filter
             </button>
-          </div>
+          </div>}
         </div>
       )}
     </div>

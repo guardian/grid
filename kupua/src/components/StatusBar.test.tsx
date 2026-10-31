@@ -56,7 +56,7 @@ describe("StatusBar AI totals", () => {
   it("shows absolute pool ticker counts, hiding only a ticker equal to the pool", () => {
     useSearchStore.setState({ aiPoolTotal: 4000, tickerCounts: { [ticker.name]: { value: 200 } } });
     const view = render(<StatusBar />);
-    expect(tickerBadge()?.textContent).toBe(`200 ${ticker.name}`);
+    expect(tickerBadge()?.getAttribute("aria-label")).toBe(`200 ${ticker.name}`);
 
     view.unmount();
     useSearchStore.setState({ tickerCounts: { [ticker.name]: { value: 4000 } } });
@@ -95,7 +95,7 @@ describe("StatusBar AI totals", () => {
     } });
     render(<StatusBar />);
     const badges = screen.getAllByRole("button").filter((button) => /^\d/.test(button.textContent ?? ""));
-    expect(badges.map((badge) => badge.textContent)).toEqual(["3 new", `1 ${org.name}`, `2 ${picks.name}`, "4 server"]);
+    expect(badges.map((badge) => badge.getAttribute("aria-label") ?? badge.textContent)).toEqual(["3 new", `1 ${org.name}`, `2 ${picks.name}`, "4 server"]);
     expect(badges[1].style.backgroundColor).toBe("rgb(0, 86, 137)");
     expect(badges[2].style.backgroundColor).toBe("rgb(171, 205, 239)");
   });
