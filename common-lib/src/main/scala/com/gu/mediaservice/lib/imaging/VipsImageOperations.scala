@@ -162,9 +162,12 @@ class VipsImageOperations extends GridLogging with ImageOperations {
       case Png =>
         // We are allowed to quantise PNG crops but not the master
         if (quantise) {
+          // In libvips Q sets the quality target for the PNG quantiser. The range is 0–100 and the default is 100.
+          // A lower Q lets the quantiser use fewer colours and accept more error. You get a smaller, lossier file with more banding.
+          // Magick used the quality parameter as the effort, so the value of 1 supplied by pngCropQuality is inappropriate and we will ignore it
           image.pngsave(outputFile.getAbsolutePath,
             VipsOption.Boolean("palette", true),
-            VipsOption.Int("Q", qual.toInt),
+            VipsOption.Int("Q", 70),
             //VipsOption.Int("effort", 7),
             VipsOption.Int("bitdepth", 8),
             VipsOption.Boolean("strip", true)
