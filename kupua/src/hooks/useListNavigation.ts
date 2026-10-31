@@ -36,6 +36,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { isNativeInputTarget } from "@/lib/keyboard-shortcuts";
+import { imageFullscreenElement } from "@/lib/app-fullscreen";
 import { useSearchStore } from "@/stores/search-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { useSelectionStore } from "@/stores/selection-store";
@@ -448,7 +449,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
       // When FullscreenPreview is active (browser Fullscreen API), all keyboard
       // navigation is handled by FullscreenPreview — bail out to prevent double-
       // processing (e.g. ArrowLeft moving focus twice, skipping an image).
-      if (document.fullscreenElement) return;
+      if (imageFullscreenElement()) return;
       if (isNativeInputTarget(e)) return;
 
       const isGrid = c.spatial !== undefined || c.columnsPerRow > 1;
@@ -543,7 +544,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
     const handleCapture = (e: KeyboardEvent) => {
       const c = configRef.current;
       if (c.imageParam) return;
-      if (document.fullscreenElement) return;
+      if (imageFullscreenElement()) return;
       if (isNativeInputTarget(e)) return;
 
       const hasFocus = c.focusedImageId !== null && getEffectiveFocusMode() === "explicit" &&

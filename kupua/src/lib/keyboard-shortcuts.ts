@@ -133,6 +133,10 @@ function codeToKey(code: string): string | undefined {
     case "BracketLeft": return "[";
     case "BracketRight": return "]";
     case "KeyF": return "f";
+    case "Equal": return "=";
+    case "Minus": return "-";
+    case "Digit0": return "0";
+    case "Slash": return "/";
     // Add more as needed
     default: return undefined;
   }

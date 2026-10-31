@@ -25,7 +25,8 @@ import { URL_PARAM_KEYS, URL_DISPLAY_KEYS } from "@/lib/search-params-schema";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { isMobile } from "@/lib/is-mobile";
 import { useSelectionStore } from "@/stores/selection-store";
-import { useUiPrefsStore } from "@/stores/ui-prefs-store";
+import { defaultDensity, useUiPrefsStore } from "@/stores/ui-prefs-store";
+import { useZoomStore } from "@/stores/zoom-store";
 import type { RouterHistory } from "@tanstack/react-router";
 
 let cancelHome: (() => void) | null = null;
@@ -208,7 +209,8 @@ export async function resetToHome(navigate: () => void | string, traceInteractio
   const preferences = useUiPrefsStore.getState();
   if (preferences._densityIntent === densityIntent) {
     if (preferences.density === "table") releases.push(suppressDensityFocusSave());
-    preferences.setDensity("grid");
+    preferences.setDensity(defaultDensity());
+    useZoomStore.getState().resetToHome();
   }
 
   // Navigate AFTER data is ready. The density switch (table→grid) now

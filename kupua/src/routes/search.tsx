@@ -40,6 +40,9 @@ import { useSearchStore } from "@/stores/search-store";
 import { useSelectionStore, useSelectionMetadataRevision } from "@/stores/selection-store";
 import { usePanelStore } from "@/stores/panel-store";
 import { useEffectiveFocusMode, useUiPrefsStore } from "@/stores/ui-prefs-store";
+import { useZoomStore } from "@/stores/zoom-store";
+import { imageFullscreenElement } from "@/lib/app-fullscreen";
+import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { useVisibleRange } from "@/hooks/useDataWindow";
 import { useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -66,6 +69,21 @@ function SearchPage() {
   const handleRange = useRangeSelection();
   const showImageDetail = !!image;
   const isGrid = density !== "table";
+
+  // Results zoom: + bigger thumbnails, - smaller, 0 default (Alt+key in text fields).
+  // Image detail and fullscreen preview own these keys for image zoom.
+  const resultsZoomActive = () => !showImageDetail && !imageFullscreenElement();
+  const zoomIn = () => { if (resultsZoomActive()) useZoomStore.getState().step(density, 1); };
+  const zoomOut = () => { if (resultsZoomActive()) useZoomStore.getState().step(density, -1); };
+  useKeyboardShortcut("=", zoomIn);
+  useKeyboardShortcut("+", zoomIn);
+  useKeyboardShortcut("-", zoomOut);
+  useKeyboardShortcut("0", () => { if (resultsZoomActive()) useZoomStore.getState().reset(density); });
+  useKeyboardShortcut("/", () => {
+    if (showImageDetail || imageFullscreenElement()) return;
+    const input = document.querySelector("cql-input");
+    if (input instanceof HTMLElement) input.focus();
+  });
 
   // Keep document.title in sync with the search query
   useDocumentTitle();

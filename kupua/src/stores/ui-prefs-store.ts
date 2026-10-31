@@ -17,6 +17,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { useSearchStore } from "@/stores/search-store";
+import { readHomeView } from "@/lib/home-view";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -31,12 +32,23 @@ export function writeDensityPreference(density: Density): void {
   try { sessionStorage.setItem(DENSITY_STORAGE_KEY, density); } catch {}
 }
 
+/** Locked Home view wins; else touch devices default to justified, desktop to grid. */
+export function defaultDensity(): Density {
+  const locked = readHomeView();
+  if (locked) return locked.density;
+  try {
+    return window.matchMedia?.("(pointer: coarse)").matches ? "justified" : "grid";
+  } catch {
+    return "grid";
+  }
+}
+
 function initialDensity(): Density {
   try {
     const saved = sessionStorage.getItem(DENSITY_STORAGE_KEY);
-    return saved === "table" || saved === "justified" ? saved : "grid";
+    return saved === "table" || saved === "justified" || saved === "grid" ? saved : defaultDensity();
   } catch {
-    return "grid";
+    return defaultDensity();
   }
 }
 

@@ -47,9 +47,9 @@ describe("construction-local justified estimates", () => {
       pack.mockClear();
       const model = build(images, width, context(true, 0, 240), previous);
       expect(pack.mock.calls).toEqual([
-        [images.map(packing.imageRatio), width, true],
-        [Array(48).fill(1), width, true],
-        [Array(48).fill(1), width, false],
+        [images.map(packing.imageRatio), width, true, undefined],
+        [Array(48).fill(1), width, true, undefined],
+        [Array(48).fill(1), width, false, undefined],
       ]);
       let top = 0;
       let firstRow = 0;

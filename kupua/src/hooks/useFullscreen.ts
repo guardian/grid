@@ -13,6 +13,7 @@
  */
 
 import { useCallback, useEffect, useState, type RefObject } from "react";
+import { imageFullscreenElement } from "@/lib/app-fullscreen";
 
 export function useFullscreen(ref: RefObject<HTMLElement | null>) {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -20,7 +21,7 @@ export function useFullscreen(ref: RefObject<HTMLElement | null>) {
   // Listen for fullscreen changes (including user pressing Escape)
   useEffect(() => {
     const handleChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      setIsFullscreen(!!imageFullscreenElement());
     };
     document.addEventListener("fullscreenchange", handleChange);
     return () => document.removeEventListener("fullscreenchange", handleChange);
@@ -30,7 +31,7 @@ export function useFullscreen(ref: RefObject<HTMLElement | null>) {
     const el = ref.current;
     if (!el) return;
 
-    if (document.fullscreenElement) {
+    if (imageFullscreenElement()) {
       document.exitFullscreen().catch(() => {
         // Silently ignore — may fail if already exiting
       });
@@ -43,12 +44,12 @@ export function useFullscreen(ref: RefObject<HTMLElement | null>) {
 
   const enterFullscreen = useCallback(() => {
     const el = ref.current;
-    if (!el || document.fullscreenElement) return;
+    if (!el || imageFullscreenElement()) return;
     el.requestFullscreen().catch(() => {});
   }, [ref]);
 
   const exitFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) return;
+    if (!imageFullscreenElement()) return;
     document.exitFullscreen().catch(() => {});
   }, []);
 

@@ -40,13 +40,14 @@ import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { useImageTraversal } from "@/hooks/useImageTraversal";
 import { useCursorAutoHide } from "@/hooks/useCursorAutoHide";
 import { usePinchZoom } from "@/hooks/usePinchZoom";
-import { NavStrip } from "@/components/NavStrip";
+import { FullscreenCornerButton, NavStrip } from "@/components/NavStrip";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { prefetchNearbyImages, getCarouselImageUrl } from "@/lib/image-prefetch";
 import { getZoomImageUrl } from "@/lib/image-urls";
 import { scrollFocusedIntoView, registerEnterPreview } from "@/lib/orchestration/search";
 import { beginTraceInteraction, traceInteraction } from "@/lib/perceived-trace";
 import { requestFullscreenExit, shouldRecoverFullscreenBack } from "@/lib/fullscreen-exit";
+import { imageFullscreenElement } from "@/lib/app-fullscreen";
 import type { Image } from "@/types/image";
 
 /**
@@ -242,7 +243,7 @@ export function FullscreenPreview() {
         window.addEventListener("resize", onResize);
       };
 
-      if (document.fullscreenElement) {
+      if (imageFullscreenElement()) {
         // User-initiated exit (Backspace/f): exitFullscreen() is async and
         // hasn't completed. Wait for fullscreenchange, then for layout.
         const onExit = () => {
@@ -274,10 +275,10 @@ export function FullscreenPreview() {
 
   const exitPreview = useCallback(() => {
     exitInteractionRef.current = beginTraceInteraction("fullscreen-exit");
-    if (document.fullscreenElement && initiatedRef.current) {
+    if (imageFullscreenElement() && initiatedRef.current) {
       void requestFullscreenExit(
         () => document.exitFullscreen(),
-        () => document.fullscreenElement !== null,
+        () => imageFullscreenElement() !== null,
         finalizePreviewExit,
       );
       return;
@@ -361,7 +362,7 @@ export function FullscreenPreview() {
   // Listen for fullscreen exit (Esc is handled natively by the browser)
   useEffect(() => {
     const handleFullscreenChange = () => {
-      if (!document.fullscreenElement && initiatedRef.current) {
+      if (!imageFullscreenElement() && initiatedRef.current) {
         finalizePreviewExit();
       }
     };
@@ -379,15 +380,15 @@ export function FullscreenPreview() {
       if (phantomEntryRef.current && initiatedRef.current) {
         phantomEntryRef.current = false;
         exitInteractionRef.current = beginTraceInteraction("fullscreen-exit");
-        if (document.fullscreenElement) {
+        if (imageFullscreenElement()) {
           void requestFullscreenExit(
             () => document.exitFullscreen(),
-            () => document.fullscreenElement !== null,
+            () => imageFullscreenElement() !== null,
             finalizePreviewExit,
             () => {
               if (!shouldRecoverFullscreenBack(
                 initiatedRef.current,
-                document.fullscreenElement !== null,
+                imageFullscreenElement() !== null,
               )) return;
               history.pushState(
                 { ...history.state, _kupuaFullscreenPreview: true },
@@ -503,6 +504,7 @@ export function FullscreenPreview() {
           {navReady && !cursorHidden && !isZoomed && nextImage && (
             <NavStrip direction="next" onClick={goToNext} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} />
           )}
+          {navReady && !cursorHidden && <FullscreenCornerButton isFullscreen onClick={exitPreview} />}
         </>
       )}
     </div>

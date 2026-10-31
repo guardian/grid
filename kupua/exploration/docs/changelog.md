@@ -24,6 +24,23 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 31 October 2026 - Results zoom, locked Home view and app fullscreen
+
+Grid and Justified zoom through six width-aware levels (`results-zoom.ts`): Justified
+scales the target row height on separate phone and desktop ladders; Grid steps through
+small square cells on narrow widths or one column at a time otherwise, showing metadata
+only on cells at least 200px wide. Offset 0 is always the classic geometry, so tests and
+performance runs at default zoom are unaffected. `zoom-store` holds per-tab offsets and the
+range each mounted view registers for its width; ImageGrid captures its scroll anchor on
+zoom change exactly as on resize. Pinch steps one level per gesture with a transform
+preview; `+`/`=`/`-`/`0` and the Settings menu zoom row use the same store. Grid thumbnails
+take an explicit width from the image ratio so they scale with the cell. "Lock this view"
+persists density and zoom (`home-view.ts`) for Home and fresh tabs; touch devices otherwise
+default to Justified. `app-fullscreen.ts` adds whole-app fullscreen from the Settings menu;
+image fullscreen stacks on top, and every image-fullscreen check now ignores the app layer
+through `imageFullscreenElement()`. In fullscreen, Space and the zoom keys zoom at the mouse
+pointer. A hover-delayed corner button toggles image fullscreen, with the next-image strip
+starting below it. `/` focuses the search box.
 ### 31 October 2026 - Compact phone shell and touch selection
 
 Narrow (at most 639px) coarse-pointer viewports get a compact shell, chosen by `useShell`

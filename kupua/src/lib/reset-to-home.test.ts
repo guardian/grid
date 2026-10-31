@@ -51,7 +51,7 @@ vi.mock("@/stores/search-store", () => ({
 vi.mock("@/stores/selection-store", () => ({
   useSelectionStore: { getState: () => ({ clear: clearSelection }) },
 }));
-vi.mock("@/stores/ui-prefs-store", () => ({ useUiPrefsStore: { getState: () => fixture.preferences } }));
+vi.mock("@/stores/ui-prefs-store", () => ({ defaultDensity: () => "grid", useUiPrefsStore: { getState: () => fixture.preferences } }));
 
 vi.mock("@/hooks/useReturnFromDetail", () => ({ suppressReturnFromDetail: () => fixture.suppress("detail") }));
 vi.mock("@/hooks/useScrollEffects", () => ({

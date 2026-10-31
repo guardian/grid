@@ -75,9 +75,9 @@ function balanceBlockEnd(boxes: ImageBox[], width: number, targetHeight: number)
   }
 }
 
-export function buildRatioLayout(ratios: number[], width: number, balanceTrailingRows = false): JustifiedLayout {
+export function buildRatioLayout(ratios: number[], width: number, balanceTrailingRows = false, rowScale = 1): JustifiedLayout {
   const rowWidth = Math.max(1, width);
-  const rowHeight = width < 600 ? 130 : 190;
+  const rowHeight = (width < 600 ? 130 : 190) * rowScale;
   const packed = new ImmichLayout(new Float32Array(ratios), {
     rowWidth, spacing: 4, rowHeight, heightTolerance: 0.5,
   });

@@ -12,6 +12,81 @@ import {
   type FocusMode,
 } from "@/stores/ui-prefs-store";
 import { isHostedBuild, KAHUNA_RETURN_PATH } from "@/lib/hosted-config";
+import { useZoomStore } from "@/stores/zoom-store";
+import { isAppFullscreen, toggleAppFullscreen } from "@/lib/app-fullscreen";
+import { FULLSCREEN_EXIT_ICON, FULLSCREEN_ICON } from "@/components/NavStrip";
+import { readHomeView, writeHomeView, type HomeView } from "@/lib/home-view";
+
+// Browser-native shortcut: same result, and Esc/image fullscreen behave better in that mode.
+const NATIVE_FULLSCREEN_KEY = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌃⌘F" : "F11";
+
+function ZoomRow({ onFullscreen }: { onFullscreen: () => void }) {
+  const density = useUiPrefsStore((s) => s.density);
+  const offset = useZoomStore((s) =>
+    density === "justified" ? s.justifiedOffset : density === "grid" ? s.gridOffset : 0,
+  );
+  const range = useZoomStore((s) => (density === "table" ? null : s.ranges[density]));
+  const { step, reset } = useZoomStore.getState();
+  const fullscreen = isAppFullscreen();
+  const btn =
+    "w-8 h-8 flex items-center justify-center rounded text-lg text-grid-text hover:bg-grid-hover/30 disabled:text-grid-text-dim disabled:hover:bg-transparent";
+  return (
+    <>
+      <div className="px-3 py-1 flex items-center gap-1 text-sm text-grid-text">
+        <span className="flex-1">{range ? "Zoom" : "View"}</span>
+        {range && density !== "table" && (
+          <>
+            <button className={btn} aria-label="Smaller thumbnails" title="Smaller (−)" disabled={offset <= range[0]} onClick={() => step(density, -1)}>−</button>
+            <button className="min-w-14 h-8 px-1 rounded text-xs tabular-nums hover:bg-grid-hover/30" title="Reset (0)" onClick={() => reset(density)}>
+              {offset === 0 ? "Default" : offset > 0 ? `+${offset}` : `−${-offset}`}
+            </button>
+            <button className={btn} aria-label="Bigger thumbnails" title="Bigger (+)" disabled={offset >= range[1]} onClick={() => step(density, 1)}>+</button>
+            <div className="w-px h-5 mx-1 bg-grid-separator" />
+          </>
+        )}
+        <button
+          className={btn}
+          aria-label={fullscreen ? "Exit full screen" : "Full screen"}
+          title={`${fullscreen ? "Exit full screen" : "Full screen"} (${NATIVE_FULLSCREEN_KEY})`}
+          onClick={onFullscreen}
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d={fullscreen ? FULLSCREEN_EXIT_ICON : FULLSCREEN_ICON} />
+          </svg>
+        </button>
+      </div>
+      <LockViewRow />
+      <div className="my-1 border-t border-grid-border" />
+    </>
+  );
+}
+
+function LockViewRow() {
+  const density = useUiPrefsStore((s) => s.density);
+  const justifiedOffset = useZoomStore((s) => s.justifiedOffset);
+  const gridOffset = useZoomStore((s) => s.gridOffset);
+  const [home, setHome] = useState(readHomeView);
+  const current = { density, justifiedOffset, gridOffset };
+  const matches = home !== null && home.density === density
+    && (density === "table" || current[`${density}Offset`] === home[`${density}Offset`]);
+  const save = (view: HomeView | null) => { writeHomeView(view); setHome(view); };
+  return (
+    <button
+      role="menuitemcheckbox"
+      aria-checked={matches}
+      onClick={() => save(matches ? null : current)}
+      className="w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 text-grid-text hover:bg-grid-hover/15"
+    >
+      <span className="w-4 text-center">{matches ? "✓" : ""}</span>
+      <span>
+        {matches ? "View locked as Home" : "Lock this view"}
+        <span className="block text-xs text-grid-text-dim">
+          {matches ? "Tap to unlock" : home ? "Replace your locked Home view" : "Home and new tabs open with this layout and zoom"}
+        </span>
+      </span>
+    </button>
+  );
+}
 
 export function SettingsMenu() {
   const [open, setOpen] = useState(false);
@@ -87,6 +162,8 @@ export function SettingsMenu() {
           role="menu"
           className="absolute right-[5px] top-full mt-1 w-56 bg-grid-bg border border-grid-border rounded shadow-lg z-50 py-1"
         >
+          <ZoomRow onFullscreen={() => { setOpen(false); toggleAppFullscreen(); }} />
+
           {/* Focus mode section */}
           <div className="px-3 py-1.5 text-xs font-medium text-grid-text-dim uppercase tracking-wider">
             Click mode

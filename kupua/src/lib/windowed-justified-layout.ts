@@ -10,6 +10,8 @@ export interface LayoutWindow {
   total: number;
   indexed: boolean;
   searchKey: string;
+  /** Pinch-zoom multiplier on the target row height. */
+  rowScale?: number;
 }
 
 interface Dimension { id: string; ratio: number }
@@ -86,8 +88,8 @@ export function buildWindowedJustifiedLayout(
     const count = blockEnd - start;
     const known = blockStart >= firstBlock && blockStart <= lastBlock;
     const trueEnd = blockEnd === end && (context.indexed || context.bufferOffset + images.length >= context.total);
-    const packed = !known && count === size && !trueEnd ? (estimated ??= buildRatioLayout(Array(size).fill(1), width, true))
-      : buildRatioLayout(Array.from({ length: count }, (_, index) => dimensions.get(start + index)?.ratio ?? 1), width, !trueEnd);
+    const packed = !known && count === size && !trueEnd ? (estimated ??= buildRatioLayout(Array(size).fill(1), width, true, context.rowScale))
+      : buildRatioLayout(Array.from({ length: count }, (_, index) => dimensions.get(start + index)?.ratio ?? 1), width, !trueEnd, context.rowScale);
     const first = context.indexed ? 0 : Math.max(0, origin - start);
     const last = context.indexed ? count - 1 : Math.min(count - 1, end - start - 1);
     const fromRow = packed.getItemRow(first).index;

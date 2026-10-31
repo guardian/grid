@@ -501,7 +501,12 @@ export function usePinchZoom({
       e.preventDefault();
     }
 
+    let hoverX = NaN;
+    let hoverY = NaN;
+
     function onMouseMove(e: MouseEvent) {
+      hoverX = e.clientX;
+      hoverY = e.clientY;
       if (!mouseDown) return;
       const dx = e.clientX - mousePanStartX;
       const dy = e.clientY - mousePanStartY;
@@ -649,23 +654,56 @@ export function usePinchZoom({
     const PAN_STEP = 0.25;
     /** Keyboard clamp: 5% beyond tight image edge. */
     const KB_OVERFLOW = 0.05;
+    /** Scale multiplier per +/- key press. */
+    const KEY_ZOOM_STEP = 1.5;
 
     function onKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
 
-      // Space: toggle zoom centred (no double-click trigger)
+      // Space: toggle zoom at the mouse pointer (centre if the pointer is elsewhere)
       if (e.key === " ") {
         e.preventDefault();
         if (momentumRaf) { cancelAnimationFrame(momentumRaf); momentumRaf = 0; }
         if (scale > 1) {
           resetZoom(true);
         } else {
+          const cr = getContainerRect();
+          const inside = hoverX >= cr.left && hoverX <= cr.right && hoverY >= cr.top && hoverY <= cr.bottom;
           scale = DOUBLE_TAP_SCALE;
-          translateX = 0;
-          translateY = 0;
+          translateX = inside ? (cr.left + cr.width / 2 - hoverX) * (scale - 1) : 0;
+          translateY = inside ? (cr.top + cr.height / 2 - hoverY) * (scale - 1) : 0;
+          const nat = getImageNaturalSize();
+          const clamped = clampTranslate(translateX, translateY, scale, nat.w, nat.h, cr.width, cr.height);
+          translateX = clamped.tx;
+          translateY = clamped.ty;
           applyTransform(true);
         }
+        return;
+      }
+
+      // Same keys as results zoom: + / = bigger, - smaller, 0 reset (centre-anchored).
+      if (e.key === "+" || e.key === "=" || e.key === "-" || e.key === "0") {
+        e.preventDefault();
+        if (momentumRaf) { cancelAnimationFrame(momentumRaf); momentumRaf = 0; }
+        if (e.key === "0") { resetZoom(true); return; }
+        const factor = e.key === "-" ? 1 / KEY_ZOOM_STEP : KEY_ZOOM_STEP;
+        const next = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * factor));
+        if (next <= SNAP_TO_1_THRESHOLD) { resetZoom(true); return; }
+        const cr = getContainerRect();
+        const cx = cr.left + cr.width / 2;
+        const cy = cr.top + cr.height / 2;
+        const inside = hoverX >= cr.left && hoverX <= cr.right && hoverY >= cr.top && hoverY <= cr.bottom;
+        const ax = inside ? hoverX - cx : 0;
+        const ay = inside ? hoverY - cy : 0;
+        translateX = ax - ((ax - translateX) / scale) * next;
+        translateY = ay - ((ay - translateY) / scale) * next;
+        scale = next;
+        const nat = getImageNaturalSize();
+        const clamped = clampTranslate(translateX, translateY, scale, nat.w, nat.h, cr.width, cr.height, KB_OVERFLOW);
+        translateX = clamped.tx;
+        translateY = clamped.ty;
+        applyTransform(true);
         return;
       }
 
