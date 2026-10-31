@@ -1,12 +1,17 @@
 package lib
 
+import com.gu.mediaservice.lib.config.GridConfigResources
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.{PendingUsageStatus, PrintUsage, Usage}
 import lib.elasticsearch.{Fixtures, SourceWrapper}
 import org.joda.time.DateTime.now
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
+import play.api.Configuration
+import play.api.inject.ApplicationLifecycle
 import play.api.libs.json._
+
+import scala.concurrent.Future
 
 class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
 
@@ -218,6 +223,24 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
     val extractedFields = ImageResponse.extractAliasFieldValues(mediaApiConfig, sourceWrapper)
 
     extractedFields.contains("c2paMetadataAvailable" -> JsBoolean(true)) shouldEqual true
+  }
+
+  it("renders the embedding by default and, when asked, omits only the embedding") {
+    val responses = new ImageResponse(new MediaApiConfig(GridConfigResources(
+      Configuration.from(USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap ++ Map("domain.root" -> "example.test")),
+      null,
+      new ApplicationLifecycle {
+        override def addStopHook(hook: () => Future[_]): Unit = {}
+        override def stop(): Future[_] = Future.successful(())
+      }
+    )), null, null)
+    val image = createImage("test-image-with-embedding", agency, vector = Some(List(0.25, 0.5)))
+
+    val default = Json.toJsObject(image)(responses.imageResponseWrites(image.id, expandFileMetaData = false))
+    val projected = Json.toJsObject(image)(responses.imageResponseWrites(image.id, expandFileMetaData = false, includeEmbedding = false))
+
+    (default \ "embedding").toOption shouldEqual image.embedding.map(Json.toJson(_))
+    projected shouldEqual (default - "embedding")
   }
 
   it("should extract a matchViaExistence alias field as false, rather than omitting it, when the underlying field is absent") {

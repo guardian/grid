@@ -11,6 +11,10 @@ GET     /upload                                       controllers.KahunaControll
 GET     /quotas                                       controllers.KahunaController.quotas
 GET     /notifications                                controllers.KahunaController.notifications
 
+# Temporary Kupua prototype opt-in/out
+GET     /kupua/on                                     controllers.KahunaController.kupuaOn
+GET     /kupua/off                                    controllers.KahunaController.kupuaOff
+
 # Empty page to return to the same domain as the app
 GET     /ok                                           controllers.KahunaController.ok
 

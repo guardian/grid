@@ -1,0 +1,4743 @@
+/**
+ * Main application store — windowed buffer architecture.
+ *
+ * Manages search params, results buffer, loading state, and the data source.
+ * URL sync is handled by the useUrlSearchSync hook (URL → store → search).
+ *
+ * Results are stored in a fixed-capacity windowed buffer. `bufferOffset` maps
+ * buffer[0] to a global position in the result set. The buffer slides as the
+ * user scrolls — `extendForward` and `extendBackward` fetch pages via
+ * `search_after` cursors, and old entries are evicted to keep memory bounded.
+ *
+ * For random access (scrubber, sort-around-focus), `seek()` clears the buffer
+ * and refills at the target position using `from/size` (≤100k) or
+ * `search_after` with sort-value estimation (>100k).
+ *
+ * PIT (Point In Time) is used on non-local ES for pagination consistency.
+ * On local ES (stable 10k dataset), PIT is skipped — search_after still works
+ * but without snapshot isolation.
+ */
+
+import { create } from "zustand";
+import type { Image } from "@/types/image";
+import type {
+  ImageDataSource,
+  SearchParams,
+  SortValues,
+  AggregationsResult,
+  AggregationResult,
+  AggregationBucket,
+  SortDistribution,
+  SortDistBucket,
+  SearchAfterResult,
+  AiSearchResult,
+  TickerCountResult,
+  FilterAggRequest,
+  UsageFilterAggRequest,
+} from "@/dal";
+import type { PositionMap } from "@/dal/position-map";
+import { useEnrichmentStore } from "@/stores/enrichment-store";
+import type { EnrichmentFields } from "@/stores/enrichment-store";
+import { cursorForPosition } from "@/dal/position-map";
+import { buildSortClause, parseSortField, createDataSource } from "@/dal";
+import { IS_LOCAL_ES } from "@/dal/es-config";
+import { decorateParamsForAggregations } from "@/lib/ai-search-params";
+import { FIELD_REGISTRY } from "@/lib/field-registry";
+import { gridConfig } from "@/lib/grid-config";
+import { isolateAggregationFailure } from "@/lib/safe-aggregation";
+import { findHasFieldTargets } from "@/dal/adapters/elasticsearch/cql-query-edit";
+import { resolveKeywordSortInfo, resolveDateSortInfo, resolvePrimarySortKey } from "@/lib/sort-context";
+import { buildSearchKey, extractSortValues, getRetainedSortValues, retainSortValues } from "@/lib/image-offset-cache";
+import { devLog } from "@/lib/dev-log";
+import { getScrollContainer } from "@/lib/scroll-container-ref";
+import { getLayoutGeometry, requireFixedRowGeometry, getFixedRowCount, getItemLayoutRow, getLayoutRow } from "@/lib/scroll-geometry-ref";
+import { prepareDestinationSeek } from "@/lib/destination-seek";
+import { isTwoTierFromTotal } from "@/lib/two-tier";
+import { addToast } from "@/stores/toast-store";
+import {
+  BUFFER_CAPACITY,
+  PAGE_SIZE,
+  SCROLL_MODE_THRESHOLD,
+  MAX_RESULT_WINDOW,
+  DEEP_SEEK_THRESHOLD,
+  NEW_IMAGES_POLL_INTERVAL,
+  NEW_IMAGES_POLL_INTERVAL_BG,
+  AGG_DEBOUNCE_MS,
+  AGG_CIRCUIT_BREAKER_MS,
+  AGG_DEFAULT_SIZE,
+  CATEGORY_AGG_SIZE,
+  AGG_EXPANDED_SIZE,
+  SEEK_COOLDOWN_MS,
+  SEARCH_FETCH_COOLDOWN_MS,
+  POST_EXTEND_COOLDOWN_MS,
+} from "@/constants/tuning";
+import { DEFAULT_SEARCH } from "@/lib/home-defaults";
+import { beginTraceInteraction, trace, traceInteraction } from "@/lib/perceived-trace";
+import type { SearchContinuity, OwnedSearchContinuity } from "@/lib/search-continuity";
+
+interface SearchOptions {
+  continuity?: SearchContinuity;
+  discardOffsetHint?: boolean;
+  phantomOnly?: boolean;
+  retainExplicitFocus?: boolean;
+  visibleNeighbours?: string[];
+  frozenUntil?: string;
+  frozenNewCount?: number;
+  sortOnly?: boolean;
+  traceAction?: string;
+  traceInteractionId?: string;
+}
+
+/** Aggregatable fields derived from the field registry — built once. */
+const AGG_FIELDS = FIELD_REGISTRY
+  .filter((f) => f.aggregatable && f.esSearchPath && typeof f.esSearchPath === "string")
+  .map((f) => ({
+    field: f.esSearchPath as string,
+    // Whole vocabulary, so category facet rows can merge replaced values exactly.
+    size: f.esSearchPath === "usageRights.category" ? CATEGORY_AGG_SIZE : AGG_DEFAULT_SIZE,
+  }));
+
+/** A refused or unreachable media-api AI search: publish an empty, error-free result with no pool or overlay. */
+function absentAiResult(): AiSearchResult {
+  return { hits: [], total: 0, sortValues: [], tickerCounts: {}, enrichment: new Map() };
+}
+
+function sortAiResults(results: Image[], orderBy: string): Image[] {
+  const desc = orderBy.startsWith("-");
+  const field = desc ? orderBy.slice(1) : orderBy;
+  return [...results].sort((first, second) => {
+    if (field === "relevance") {
+      const firstScore = first.__aiScore ?? 0;
+      const secondScore = second.__aiScore ?? 0;
+      return desc ? secondScore - firstScore : firstScore - secondScore;
+    }
+    if (field === "uploadTime") {
+      const firstTime = new Date(first.uploadTime).getTime();
+      const secondTime = new Date(second.uploadTime).getTime();
+      return desc ? secondTime - firstTime : firstTime - secondTime;
+    }
+    return 0;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Reverse-compute: pure function extracted from seek() for independent testing.
+//
+// Given the user's current scroll position and the new buffer geometry after
+// a seek, computes the buffer-local index that keeps the user's visual
+// position stable (zero flash, zero swimming). Also handles:
+// - Bidirectional seek headroom offset (backward items prepended)
+// - Sub-row pixel preservation (seekSubRowOffset for effect #6)
+// - Buffer-shrink clamping (End key, small buffers)
+// - At-real-end detection (End key fast path)
+//
+// ---------------------------------------------------------------------------
+
+export interface ComputeScrollTargetInput {
+  /** User's current scrollTop in the scroll container (px). */
+  currentScrollTop: number;
+  /** Row height in pixels (303 for grid, 32 for table). */
+  rowHeight: number;
+  /** Number of columns per row (grid: dynamic, table: 1). */
+  columns: number;
+  /** Scroll container's clientHeight — used for maxScroll computation. */
+  clientHeight: number;
+  /** Number of backward items prepended by bidirectional seek (0 if none). */
+  backwardItemCount: number;
+  /** Total number of items in the new buffer (result.hits.length). */
+  bufferLength: number;
+  /** Effective total result count (null-zone-aware). */
+  total: number;
+  /** Actual buffer offset in the full result set. */
+  actualOffset: number;
+  /** Clamped seek target offset (before buffer fetch). */
+  clampedOffset: number;
+}
+
+interface ComputeScrollTargetResult {
+  /** Buffer-local index for the virtualizer to scroll to. */
+  scrollTargetIndex: number;
+  /** Sub-row pixel offset for effect #6 to apply after render. */
+  seekSubRowOffset: number;
+}
+
+export function computeScrollTarget(input: ComputeScrollTargetInput): ComputeScrollTargetResult {
+  const {
+    currentScrollTop,
+    rowHeight,
+    columns,
+    clientHeight,
+    backwardItemCount,
+    bufferLength,
+    total,
+    actualOffset,
+    clampedOffset,
+  } = input;
+
+  const rowH = rowHeight;
+  const cols = columns;
+  const geometry = { columns: cols, rowHeight: rowH, itemOffset: actualOffset };
+
+  // Math.floor, not Math.round: you're "on" a row until you've fully scrolled
+  // past it. Math.round snaps to the NEXT row at 50%, which (a) causes the
+  // headroom check below to miss the boundary row when scrollTop is in the
+  // upper half — skipping the essential reverseIndex += backwardItemCount
+  // adjustment — and (b) produces negative seekSubRowOffset values that
+  // bypass the `seekSubRowOffset > 0` guard in effect #6.
+  const currentRow = Math.floor(currentScrollTop / rowH);
+  const { reverseIndex, seekSubRowOffset, atRealEnd, endTargetIndex } = prepareDestinationSeek({
+    reverseIndex: getLayoutRow(geometry, currentRow).firstItemIndex,
+    subRowOffset: currentScrollTop - currentRow * rowH,
+    backwardItemCount, bufferLength, actualOffset, total, clampedOffset,
+  });
+
+  let scrollTargetIndex: number;
+
+  if (atRealEnd) {
+    scrollTargetIndex = endTargetIndex ?? Math.max(0, Math.min(reverseIndex, bufferLength - 1));
+  } else {
+    const totalRows = getFixedRowCount(geometry, bufferLength);
+    const newScrollHeight = totalRows * rowH;
+    const maxScroll = newScrollHeight - clientHeight;
+    const reversePixelTop = getItemLayoutRow(geometry, reverseIndex).top;
+
+    if (reversePixelTop < maxScroll) {
+      scrollTargetIndex = reverseIndex;
+    } else {
+      // Buffer-shrink: last visible row whose top pixel ≤ maxScroll.
+      const lastVisibleRow = Math.max(0, Math.floor(maxScroll / rowH));
+      scrollTargetIndex = Math.min(getLayoutRow(geometry, lastVisibleRow).firstItemIndex, bufferLength - 1);
+    }
+  }
+
+  return { scrollTargetIndex, seekSubRowOffset };
+}
+
+// ---------------------------------------------------------------------------
+// Store interface
+// ---------------------------------------------------------------------------
+
+interface SearchDiscoveryMetadata {
+  total: number;
+  tickers: Awaited<ReturnType<ImageDataSource["countWithTickers"]>> | null;
+}
+
+interface InitialSearchDiscovery {
+  phase: "initial-read" | "metadata-published";
+  replacement: AbortSignal | null;
+  resultsPublished: boolean;
+  signal: AbortSignal;
+  searchGeneration: number;
+  searchKey: string;
+  dataSource: ImageDataSource;
+  params: SearchParams;
+  frozenUntil?: string;
+  page: Promise<SearchAfterResult>;
+  ready: Promise<{ metadata: SearchDiscoveryMetadata } | { error: unknown }>;
+}
+
+interface BrowseNavigation {
+  signal: AbortSignal;
+  targetOffset: number;
+  phase: "queued" | "loading" | "ready";
+  searchGeneration: number;
+  searchKey: string;
+  initialSearchSuperseded: boolean;
+  discovery?: InitialSearchDiscovery;
+}
+
+interface SearchState {
+  // Data source (swappable between ES and Grid API)
+  dataSource: ImageDataSource;
+
+  // Search state
+  params: SearchParams;
+  /**
+   * Windowed buffer of loaded images. Dense array, max BUFFER_CAPACITY entries.
+   * May contain `undefined` gaps during loading (same as the old sparse array).
+   * buffer[0] corresponds to global position `bufferOffset`.
+   */
+  results: (Image | undefined)[];
+  /** Global offset of buffer[0] in the full result set. */
+  bufferOffset: number;
+  total: number;
+  loading: boolean;
+  error: string | null;
+
+  /** ES query time in ms from the most recent primary search. */
+  took: number | null;
+  /** Wall-clock time in ms of the most recent seek operation (null if no seek yet). */
+  seekTime: number | null;
+  /** Wall-clock ms from the start of the primary search() call to result return.
+   *  Equals `took` + network + proxy + JSON.parse. Null until first search. */
+  fetchDuration: number | null;
+
+  // O(1) image ID → global index lookup, maintained incrementally.
+  imagePositions: Map<string, number>;
+
+  // Cursors for search_after pagination
+  /** Sort values of the first buffer entry — for backward extend. */
+  startCursor: SortValues | null;
+  /** Sort values of the last buffer entry — for forward extend. */
+  endCursor: SortValues | null;
+
+  /** PIT ID for consistent pagination (null on local ES or before first search). */
+  pitId: string | null;
+  /**
+   * Bumped every time search() opens a new PIT. seek/extend capture this at
+   * start and skip the PIT if it changed mid-flight (avoids 404 round-trip
+   * on a stale PIT that search() already closed). See es-audit.md Issue #1.
+   */
+  _pitGeneration: number;
+
+  // Focus
+  focusedImageId: string | null;
+  /** Image ID for phantom focus promotion — drives scroll positioning via
+   *  sortAroundFocusGeneration + Effect #9 but never renders a focus ring.
+   *  Cleared by Effect #9 after scroll positioning. */
+  _phantomFocusImageId: string | null;
+  _searchContinuity: OwnedSearchContinuity | null;
+
+  /** Non-null while sort-around-focus is finding the image's new position. */
+  sortAroundFocusStatus: string | null;
+  /**
+   * Incremented each time sort-around-focus completes and sets focusedImageId
+   * (or _phantomFocusImageId for phantom promotion).
+   * Views watch this to scroll to the focused image at its new position.
+   */
+  sortAroundFocusGeneration: number;
+  /**
+   * True while `_topUpScrollModeBuffer` is walking the buffer back to
+   * `bufferOffset: 0` after a sort-around-focus/restoreAroundCursor landing
+  * centred it elsewhere. Tracks maintenance completion, not top-reset
+  * authority: scroll placement follows explicit publication/navigation.
+   */
+  _bufferSelfCorrecting: boolean;
+
+  // New images ticker
+  newCount: number;
+  newCountSince: string | null;
+  /**
+   * Per-category ticker counts from the most recent search's filter aggs.
+   * Keyed by ticker name (e.g. "GNM-owned", "agency picks").
+   * Null until the first search completes. Reset to null on new search start.
+   * Additively merged on each poll tick (same as Kahuna).
+   */
+  tickerCounts: Record<string, TickerCountResult> | null;
+  /** ISO timestamp of the last tickerCounts update. Drives tooltip "last updated X ago". */
+  tickersLastUpdated: string | null;
+  /**
+   * Size of the filtered pool the current AI result was ranked from (`total` is the returned
+   * hit count). Null outside AI results and when the pool could not be counted.
+   */
+  aiPoolTotal: number | null;
+
+  // Track in-flight extend operations to avoid duplicates
+  _extendForwardInFlight: boolean;
+  _extendBackwardInFlight: boolean;
+
+  /**
+   * Number of items prepended by the most recent backward extend.
+   * Incremented as a generation counter (not reset to 0) so views can
+   * detect the change via useEffect. Views must adjust scrollTop by
+   * `prependCount * rowHeight` to prevent content shift.
+   */
+  _lastPrependCount: number;
+  /** Generation counter — bumped on every backward extend for change detection. */
+  _prependGeneration: number;
+  /** IDs of images that arrived via the most recent backward extend. Cleared after animation timeout. */
+  _arrivingImageIds: ReadonlySet<string>;
+  /** Image ID to show the phantom-focus pulse animation. Set alongside
+   *  _phantomFocusImageId but NOT cleared by Effect #9 — cleared by a timeout. */
+  _phantomPulseImageId: string | null;
+  /** True until the first search completes. Suppresses phantom pulse on
+   *  cold load — the pulse is only meaningful after a user action. */
+  _isInitialLoad: boolean;
+
+  /**
+   * Number of items evicted from the start by the most recent forward extend.
+   * Views must adjust scrollTop by `-evictCount * rowHeight` to keep the
+   * viewport pointing at the same data. Without this, the viewport sits near
+   * the buffer end after eviction, causing an infinite extend loop (Bug #16).
+   */
+  _lastForwardEvictCount: number;
+  /** Generation counter — bumped on every forward-extend-with-eviction. */
+  _forwardEvictGeneration: number;
+
+  /**
+   * Generation counter — bumped on every seek (and sort-around-focus reposition).
+   * Views watch this to reset scrollTop after the buffer is replaced.
+   * The buffer-local target index is stored in `_seekTargetLocalIndex`
+   * so views can scroll to the right position (not always 0).
+   */
+  _seekGeneration: number;
+  /**
+   * Buffer-local index the seek targeted. Views should scroll here after
+   * the seek completes. -1 means "scroll to 0" (default).
+   */
+  _seekTargetLocalIndex: number;
+
+  /**
+   * Bumped when search() lands fresh results without focus preservation
+   * (the no-focus path). The scroll-reset effect in useScrollEffects watches
+   * `gen` to reset scrollTop=0 atomically with the data swap, avoiding the
+   * flash of old buffer at scrollTop=0 (Bug 2). `sortOnly` tells the effect
+   * whether to preserve scrollLeft (table horizontal scroll survives sort).
+   */
+  _scrollReset: { gen: number; sortOnly: boolean };
+
+  /**
+   * Global index the seek targeted, for two-tier mode. When twoTier is active,
+   * effect #6 uses this instead of _seekTargetLocalIndex because the virtualizer's
+   * coordinate space is global (row 0 = global position 0).
+   * -1 means "not set" (use _seekTargetLocalIndex instead).
+   */
+  _seekTargetGlobalIndex: number;
+
+  /**
+   * Sub-row pixel offset to preserve after seek. When the headroom pre-set
+   * fires, the user's sub-row offset (scrollTop % rowHeight) must be restored
+   * by effect #6 AFTER the new buffer is rendered (so scrollHeight is large
+   * enough to avoid browser clamping). 0 means "snap to row boundary".
+   */
+  _seekSubRowOffset: number;
+
+  _browseNavigation: BrowseNavigation | null;
+
+  /**
+   * Post-seek focus intent for Home/End keys.
+   * When Home/End triggers a seek (because the buffer doesn't cover the
+   * target position), focus can't be set immediately — the buffer hasn't
+   * arrived yet. This field records the intent so effect #6 in
+   * useScrollEffects can apply it after the seek completes.
+   * "first" = focus first image in new buffer, "last" = focus last.
+   */
+  _pendingFocusAfterSeek: {
+    edge: "first" | "last";
+    focusedImageId: string | null;
+    signal?: AbortSignal;
+  } | null;
+
+  /**
+   * Pending movement for keyboard snap-back to off-buffer focus.
+   * Fixed layouts record an item delta; spatial layouts record a guarded
+   * row/page intent that can only be resolved against admitted geometry.
+   * Effect #9 (sortAroundFocusGeneration) consumes it before final placement.
+   * Cleared by search() and consumed by the scroll effect.
+   */
+  _pendingFocusDelta: number | { kind: "row" | "page"; direction: 1 | -1; id: string; focusIntent: number } | null;
+
+  /**
+   * Last known global offset of the focused image. Saved when focus is set
+   * (from imagePositions) so that seekToFocused can pass a reasonable offset
+   * to _findAndFocusImage instead of 0 on large datasets where countBefore
+   * would take 2-5s. Without this, bufferOffset stays at 0 and the scrubber
+   * / position counter show wrong values until the async correction resolves.
+   */
+  _focusedImageKnownOffset: number | null;
+
+  // --- Aggregation state (unchanged from before) ---
+  aggregations: AggregationsResult | null;
+  aggTook: number | null;
+  /** Wall-clock ms from getAggregations() call to result return. */
+  aggFetchDuration: number | null;
+  aggLoading: boolean;
+  aggCircuitOpen: boolean;
+  _aggCacheKey: string | null;
+  expandedAggs: Record<string, AggregationResult>;
+  expandedAggsLoading: Set<string>;
+  /** Filter agg counts for `is:` values that need full ES queries (deleted, under-quota). */
+  isFilterCounts: Record<string, number> | null;
+  /** Nested-filter agg counts for usages (platform:digital, platform:print, status:published, etc.). */
+  usageFilterCounts: Record<string, number> | null;
+  /**
+   * Buckets for arbitrary, unregistered field paths referenced by a `has:`
+   * clause in the current query — keyed by ES field path. Fetched as
+   * isolated single-field requests alongside the static AGG_FIELDS batch
+   * (never merged into it — a non-aggregatable field must not take down
+   * unrelated facets). Absent key = no data (not fetched, empty, or the
+   * field isn't aggregatable).
+   */
+  dynamicFacetBuckets: Record<string, AggregationBucket[]>;
+
+  // --- Sort distribution for scrubber (tooltip + track ticks) ---
+  /** Pre-fetched distribution for the current sort field (keyword or date). */
+  sortDistribution: SortDistribution | null;
+  /** Cache key: query params + orderBy. Null = not fetched. */
+  _sortDistCacheKey: string | null;
+
+  // --- Null-zone distribution (uploadTime) for scrubber null-zone labels + ticks ---
+  /** Pre-fetched uploadTime distribution for null-zone docs. Only set when
+   *  the primary sort has a null zone (coveredCount < total). */
+  nullZoneDistribution: SortDistribution | null;
+  /** Cache key for null-zone distribution. */
+  _nullZoneDistCacheKey: string | null;
+
+  // --- Position map (lightweight index for indexed scroll mode) ---
+  /**
+   * Complete [id, sortValues] index for all results, fetched in the background
+   * with `_source: false` after search when total is in the position-map range
+   * (SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD).
+   *
+   * When available, seek() uses exact position→sortValues lookup (one search_after
+   * call) instead of percentile estimation or composite walks. Null when: not yet
+   * fetched, fetch in progress, total out of range, or fetch failed/aborted.
+   */
+  positionMap: PositionMap | null;
+  /** True while the background position map fetch is in progress. */
+  positionMapLoading: boolean;
+
+  // Actions
+  setParams: (params: Partial<SearchParams>) => void;
+  /**
+   * Run a new search. If `sortAroundFocusId` is provided, attempts to find
+   * that image's position in the new results and seek to it after the
+   * initial page loads. Used for sort-around-focus ("Never Lost").
+   */
+  search: (sortAroundFocusId?: string | null, options?: SearchOptions) => Promise<void>;
+  /**
+   * Extend the buffer forward (append pages after the current end).
+   * Uses search_after with endCursor. Evicts from start if over capacity.
+   */
+  extendForward: () => Promise<void>;
+  /**
+   * Extend the buffer backward (prepend pages before the current start).
+   * Uses reverse search_after with startCursor. Evicts from end if over capacity.
+   */
+  extendBackward: () => Promise<void>;
+  /**
+  * Cancel obsolete browsing and range work before a semantic reset, with
+  * a 2-second extension cooldown. Density uses cancelWindowMaintenance
+  * instead so changing the view does not abandon its pending destination.
+   */
+  abortExtends: () => void;
+  cancelWindowMaintenance: () => void;
+  queueBrowsePosition: (globalOffset: number) => void;
+  canReuseResidentResults: () => boolean;
+  /**
+  * Replace the buffer at a global destination. Navigation owns that destination
+  * across views; a refill is layout maintenance and cannot supersede it.
+   */
+  seek: (globalOffset: number, traceAction?: string, traceInteractionId?: string, purpose?: "navigation" | "refill", restoreFocusIntent?: number) => Promise<void>;
+
+  /**
+   * Restore the buffer around a specific image using its cached sort cursor.
+   * Used by ImageDetail on page reload to recover the counter + prev/next.
+   *
+   * With a cursor: `search_after` forward + backward from the cursor, then
+   * `countBefore` for exact bufferOffset. Guaranteed to land the image in
+   * the buffer regardless of depth.
+   *
+   * Without a cursor (old cache, missing fields): falls back to `seek(offset)`
+   * which works for shallow offsets (<10k) and degrades gracefully for deep ones.
+   */
+  restoreAroundCursor: (
+    imageId: string,
+    cursor: SortValues | null,
+    cachedOffset: number,
+    /** When true, sets focusedImageId on success (explicit mode). Must be
+     *  false / omitted in phantom mode — phantom's invariant is that
+     *  focusedImageId is always null. */
+    setFocus?: boolean,
+  ) => Promise<void>;
+
+  // Thin wrapper over extendForward — the canonical public API for views.
+  loadMore: () => Promise<void>;
+
+  _focusIntent: number;
+  _cursorRestore: { imageId: string; generation: number; signal: AbortSignal } | null;
+  setFocusedImageId: (id: string | null, recordIntent?: boolean) => void;
+  /**
+   * Seek the buffer back to the focused image's position.
+   * Used by arrow snap-back: when the user pressed an arrow key but the
+   * focused image is not in the buffer (seeked away via scrubber).
+   * Calls _findAndFocusImage with no fallback (same query/sort).
+   * On failure (image deleted), clears focus.
+   */
+  seekToFocused: () => Promise<void>;
+  fetchAggregations: (mode?: "debounced" | "immediate" | "force") => Promise<void>;
+  fetchExpandedAgg: (field: string) => Promise<void>;
+  collapseExpandedAgg: (field: string) => void;
+  /**
+   * Fetch sort distribution for the current sort field (keyword or date).
+   * Lazy — called on first scrubber interaction, cached until query/sort changes.
+   */
+  fetchSortDistribution: () => Promise<void>;
+
+  /**
+   * Fetch the uploadTime distribution for null-zone docs. Only does work when
+   * the primary sort has coveredCount < total (meaning a null zone exists).
+   * Lazy — triggered when the primary distribution reveals a null zone.
+   */
+  fetchNullZoneDistribution: () => Promise<void>;
+
+  /**
+   * Re-sort the in-memory AI result buffer by the given orderBy key.
+   * No-op when not in AI mode (results array is unchanged). Used by
+   * useUrlSearchSync to handle sort-only URL changes without an ES round-trip.
+   */
+  resortAiBuffer: (
+    orderBy: string,
+    continuity?: SearchContinuity,
+  ) => void;
+}
+
+// ---------------------------------------------------------------------------
+// Module-level state (not in Zustand — avoids re-renders)
+// ---------------------------------------------------------------------------
+
+let _newImagesPollTimer: ReturnType<typeof setInterval> | null = null;
+let _newImagesPollVisibilityHandler: (() => void) | null = null;
+
+/**
+ * Generation counter for the new-images poll. Bumped every time
+ * startNewImagesPoll is called. The poll callback captures the current
+ * generation and skips the set() if a newer generation has started.
+ * This prevents a dangling in-flight count() from a stale poll from
+ * overwriting newCount: 0 after search() clears it.
+ */
+let _newImagesPollGeneration = 0;
+
+let _searchAbortController = new AbortController();
+let _pendingInitialSearchSignal: AbortSignal | null = null;
+let _browseAbortController = new AbortController();
+let _pendingWindowReadSignal: AbortSignal | null = null;
+let _initialSearchDiscovery: InitialSearchDiscovery | null = null;
+
+/**
+ * Range cancellation for extends, fills, viewport refills and cursor restores.
+ * search() aborts previous ranges; density can cancel buffer movement
+ * without cancelling the initial search that owns its loading state.
+ */
+let _rangeAbortController = new AbortController();
+
+/**
+ * Focus lookup and centred loading share their captured focus signal plus
+ * timeout. Search, explicit browsing and a newer snap-back replace this owner;
+ * automatic viewport refill and density maintenance cannot cancel it.
+ */
+let _findFocusAbortController = new AbortController();
+
+/**
+ * Monotonically increasing generation counter for search(). Each call to
+ * search() bumps this and captures its own generation. After every await,
+ * if the generation has moved on, the stale search bails out — preventing
+ * a slower earlier search from overwriting a faster newer one.
+ */
+let _searchGeneration = 0;
+
+export function getSearchGeneration(): number { return _searchGeneration; }
+
+function hasPendingSearch(state: SearchState): boolean {
+  return (_pendingInitialSearchSignal !== null && !_pendingInitialSearchSignal.aborted) ||
+    state.sortAroundFocusStatus !== null;
+}
+
+function hasPendingForegroundRead(state: SearchState): boolean {
+  return hasPendingSearch(state) || (state._browseNavigation !== null &&
+    !state._browseNavigation.signal.aborted && state._browseNavigation.phase !== "ready");
+}
+
+function cancelBrowseNavigation(get: () => SearchState, set: (state: Partial<SearchState>) => void): void {
+  _browseAbortController.abort();
+  if (get()._browseNavigation) {
+    set({ _browseNavigation: null, _pendingFocusAfterSeek: null, loading: hasPendingSearch(get()) });
+  }
+}
+
+function cancelWindowReads(get: () => SearchState, set: (state: Partial<SearchState>) => void): void {
+  const cancelledRead = _pendingWindowReadSignal === _rangeAbortController.signal;
+  _pendingWindowReadSignal = null;
+  _rangeAbortController.abort();
+  _rangeAbortController = new AbortController();
+  set({ _extendForwardInFlight: false, _extendBackwardInFlight: false,
+    _cursorRestore: get()._cursorRestore?.signal.aborted ? null : get()._cursorRestore,
+    ...(cancelledRead && { loading: hasPendingForegroundRead(get()) }) });
+}
+
+function currentSearchDiscovery(state: SearchState): InitialSearchDiscovery | null {
+  const discovery = state._browseNavigation?.discovery ?? _initialSearchDiscovery;
+  return discovery && !discovery.resultsPublished && discovery.searchGeneration === _searchGeneration && discovery.dataSource === state.dataSource &&
+    discovery.searchKey === buildSearchKey(state.params) ? discovery : null;
+}
+
+function finishSearchDiscovery(discovery: InitialSearchDiscovery | undefined): void {
+  if (!discovery) return;
+  discovery.resultsPublished = true;
+  if (_searchAbortController.signal === discovery.signal) _searchAbortController.abort();
+  if (_initialSearchDiscovery === discovery) _initialSearchDiscovery = null;
+}
+
+function discoveryMetadataState(discovery: InitialSearchDiscovery, metadata: SearchDiscoveryMetadata): Partial<SearchState> {
+  return discovery.phase === "metadata-published" ? {} : {
+    newCountSince: discovery.frozenUntil ?? new Date().toISOString(),
+    tickerCounts: metadata.tickers?.tickerCounts ?? null,
+    tickersLastUpdated: metadata.tickers ? new Date().toISOString() : null,
+    ...(!discovery.frozenUntil && { newCount: 0 }),
+  };
+}
+
+function adoptDiscoveryMetadata(discovery: InitialSearchDiscovery, metadata: SearchDiscoveryMetadata,
+  get: () => SearchState, set: (state: Partial<SearchState> | ((state: SearchState) => Partial<SearchState>)) => void): void {
+  if (discovery.phase !== "initial-read") return;
+  set({ ...discoveryMetadataState(discovery, metadata), pitId: null });
+  discovery.phase = "metadata-published";
+  startNewImagesPoll(get, set);
+  if (isTwoTierFromTotal(metadata.total)) {
+    _positionMapAbortController = new AbortController();
+    _fetchPositionMap(discovery.dataSource, discovery.params, _positionMapAbortController.signal, get, set);
+  }
+}
+
+export function getInitialSearchPresentation(): {
+  readonly signal: AbortSignal;
+  readonly replacement: AbortSignal | null;
+  readonly searchGeneration: number;
+} | null {
+  return _initialSearchDiscovery;
+}
+
+async function finishAbandonedDiscovery(discovery: InitialSearchDiscovery | undefined, owner: AbortSignal,
+  missingFocusId: string | undefined, get: () => SearchState,
+  set: (state: Partial<SearchState> | ((state: SearchState) => Partial<SearchState>)) => void): Promise<void> {
+  if (!discovery) return;
+  const owns = () => discovery.replacement === owner && !discovery.resultsPublished && !discovery.signal.aborted &&
+    discovery.searchGeneration === _searchGeneration && discovery.dataSource === get().dataSource &&
+    discovery.searchKey === buildSearchKey(get().params);
+  if (!owns()) return;
+  set({ loading: true });
+  try {
+    const [page, discovered] = await Promise.all([discovery.page, discovery.ready]);
+    if (!owns()) return;
+    if ("error" in discovered) throw discovered.error;
+    adoptDiscoveryMetadata(discovery, discovered.metadata, get, set);
+    retainSortValues(discovery.searchKey, page.hits, page.sortValues, true);
+    if (page.enrichment) useEnrichmentStore.getState().setEnrichment(page.enrichment);
+    finishSearchDiscovery(discovery);
+    set({ results: page.hits, total: page.total, bufferOffset: 0, imagePositions: buildPositions(page.hits, 0),
+      startCursor: page.sortValues[0] ?? null, endCursor: page.sortValues.at(-1) ?? null,
+      loading: false, error: null, _isInitialLoad: false, sortAroundFocusStatus: null, _browseNavigation: null,
+      _pendingFocusAfterSeek: null, _pendingFocusDelta: null, _phantomFocusImageId: null,
+      _seekTargetLocalIndex: -1, _seekTargetGlobalIndex: -1, _seekSubRowOffset: 0,
+      _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false },
+      ...((page.total === 0 || (missingFocusId !== undefined && get().focusedImageId === missingFocusId)) &&
+        { focusedImageId: null, _focusedImageKnownOffset: null }) });
+    void _topUpScrollModeBuffer(get);
+  } catch (error) {
+    if (!owns()) return;
+    if (_searchAbortController.signal === discovery.signal) _searchAbortController.abort();
+    set({ error: error instanceof Error ? error.message : "Search discovery failed", loading: false, sortAroundFocusStatus: null });
+  }
+}
+
+function startBrowseNavigation(state: SearchState, targetOffset: number): BrowseNavigation {
+  const discovery = currentSearchDiscovery(state);
+  const initialSearchSuperseded = state._browseNavigation?.initialSearchSuperseded === true ||
+    (!state.params.aiQuery && (discovery !== null || (_pendingInitialSearchSignal !== null && !_pendingInitialSearchSignal.aborted) ||
+      state.sortAroundFocusStatus !== null));
+  _browseAbortController.abort();
+  _browseAbortController = new AbortController();
+  if (discovery) discovery.replacement = _browseAbortController.signal;
+  if (!state.params.aiQuery) {
+    if (!discovery) _searchAbortController.abort();
+    _findFocusAbortController.abort();
+    _findFocusAbortController = new AbortController();
+  }
+  return { signal: _browseAbortController.signal, targetOffset, phase: "queued",
+    searchGeneration: _searchGeneration, searchKey: buildSearchKey(state.params), initialSearchSuperseded,
+    ...(discovery && { discovery }) };
+}
+
+interface SearchLifecycleSnapshot {
+  started: number;
+  settled: number;
+  query: string | null;
+  orderBy: string | null;
+}
+
+let _searchLifecycle: SearchLifecycleSnapshot = {
+  started: 0,
+  settled: 0,
+  query: null,
+  orderBy: null,
+};
+
+/**
+ * Cooldown timestamp after a seek. Extends are suppressed until this time
+ * to prevent a cascade of backward extends when the virtualizer starts at
+ * scrollTop=0 after a seek (visible range [0..20], bufferOffset > 0 →
+ * extendBackward fires repeatedly until bufferOffset reaches 0).
+ * The cooldown gives the view time to settle at the correct position.
+ */
+let _seekCooldownUntil = 0;
+
+/**
+ * Re-entrancy guard for _topUpScrollModeBuffer — several call sites can fire
+ * from one user interaction (e.g. a reload triggers both search()'s
+ * outside-buffer fallback and ImageDetail's restoreAroundCursor). A second
+ * concurrent top-up doesn't corrupt state (extendForward/extendBackward
+ * serialise via their own in-flight flags), but it burns its whole step
+ * budget on no-op BLOCKED calls for nothing — this flag lets a later call
+ * bail immediately instead.
+ */
+let _topUpInFlight = false;
+
+/**
+ * One-shot flag to suppress the next `restoreAroundCursor` call.
+ *
+ * When resetToHome runs, its `search()` replaces the deep buffer with
+ * first-page data (bufferOffset=0). ImageDetail — still mounted because
+ * `navigate()` hasn't been processed — sees its image disappear from the
+ * buffer and fires `restoreAroundCursor`, which overwrites bufferOffset
+ * with the deep offset. Setting this flag prevents that one spurious call.
+ *
+ * Consumed (set back to false) by `restoreAroundCursor` itself, or cleared
+ * by a safety timeout in resetToHome if restoreAroundCursor never fires.
+ */
+let _suppressRestore: symbol | null = null;
+
+/** Set the suppress flag. Called by resetToHome before search(). */
+export function suppressNextRestore(): () => void {
+  const owner = Symbol();
+  _suppressRestore = owner;
+  return () => { if (_suppressRestore === owner) _suppressRestore = null; };
+}
+
+/** Debounce timer for aggregation fetches. */
+let _aggDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Resolve function for the pending debounce promise (false = superseded). */
+let _aggDebouncedResolve: ((shouldRun: boolean) => void) | null = null;
+
+/** Abort controller for the current aggregation request. */
+let _aggAbortController: AbortController | null = null;
+
+/** Dispatched base batch shared by equivalent hover/open callers, not debounce timers. */
+let _aggPending: { key: string; promise: Promise<void> } | null = null;
+
+/** Monotonic guard preventing stale aggregation requests from publishing. */
+let _aggRequestGeneration = 0;
+
+/** Abort controller for in-flight expanded aggregation requests. */
+let _expandedAggRequest: { field: string; key: string; controller: AbortController } | null = null;
+
+interface PendingDistributionRequest {
+  key: string;
+  controller: AbortController;
+  promise: Promise<void>;
+}
+
+/** Pending sort distribution request (keyword or date). */
+let _sortDistRequest: PendingDistributionRequest | null = null;
+
+/** Pending null-zone (uploadTime) distribution request. */
+let _nullZoneDistRequest: PendingDistributionRequest | null = null;
+
+/** Abort controller for the in-flight position map background fetch. */
+let _positionMapAbortController: AbortController | null = null;
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute a cache key from SearchParams that affect the result set.
+ * Only includes fields that change what documents match — not pagination
+ * or display params. This way, scrolling doesn't invalidate the agg cache.
+ */
+function aggCacheKey(params: SearchParams | null): string {
+  if (params === null) return "empty-ai-membership";
+  const { query, aiQuery, useAISearch, vecWeight, nonFree, payType,
+    since, until, dateField, takenSince, takenUntil,
+    modifiedSince, modifiedUntil, uploadedBy, ids, hasCrops,
+    hasRightsAcquired, syndicationStatus, persisted } = params;
+  return JSON.stringify({
+    query, aiQuery, useAISearch, vecWeight, nonFree, payType,
+    since, until, dateField, takenSince, takenUntil,
+    modifiedSince, modifiedUntil, uploadedBy, ids, hasCrops,
+    hasRightsAcquired, syndicationStatus, persisted,
+  });
+}
+
+function aggregationParams(get: () => SearchState): SearchParams | null {
+  return decorateParamsForAggregations(
+    frozenParams(get().params, get),
+    get().results.map((image) => image?.id).filter(Boolean) as string[],
+  );
+}
+
+function emptyAggregationState(): Partial<SearchState> {
+  return {
+    aggregations: { fields: {}, filters: {}, usageFilters: {} },
+    dynamicFacetBuckets: {},
+    expandedAggs: {},
+    expandedAggsLoading: new Set(),
+    isFilterCounts: {},
+    usageFilterCounts: {},
+    aggLoading: false,
+    aggTook: null,
+    aggFetchDuration: null,
+    _aggCacheKey: aggCacheKey(null),
+  };
+}
+
+function cancelExpandedAggregation(): void {
+  _expandedAggRequest?.controller.abort();
+  _expandedAggRequest = null;
+}
+
+function cancelAggregationFetch(): number {
+  if (_aggDebounceTimer) {
+    clearTimeout(_aggDebounceTimer);
+    _aggDebounceTimer = null;
+  }
+  if (_aggDebouncedResolve) {
+    const resolveSuperseded = _aggDebouncedResolve;
+    _aggDebouncedResolve = null;
+    resolveSuperseded(false);
+  }
+  if (_aggAbortController) {
+    _aggAbortController.abort();
+    _aggAbortController = null;
+  }
+  _aggPending = null;
+  _aggRequestGeneration += 1;
+  return _aggRequestGeneration;
+}
+
+/**
+ * Cache key for sort distribution — includes orderBy (sort field + direction
+ * matter) on top of the result-set-affecting params from aggCacheKey.
+ */
+function sortDistCacheKey(params: SearchParams): string {
+  return aggCacheKey(params) + "|" + (params.orderBy ?? "");
+}
+
+function nullZoneDistCacheKey(params: SearchParams): string {
+  const dateInfo = resolveDateSortInfo(params.orderBy);
+  const missingField = dateInfo?.field ?? resolveKeywordSortInfo(params.orderBy)?.field ?? "";
+  return aggCacheKey(params) + `|nullzone:uploadTime:${dateInfo?.direction ?? "desc"}|missing:${missingField}`;
+}
+
+function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState>) => void) {
+  stopNewImagesPoll();
+  const gen = ++_newImagesPollGeneration;
+  const baselineTickerCounts = get().tickerCounts;
+  let requestSequence = 0;
+  let acceptedSequence = 0;
+  const tick = async () => {
+    if (gen !== _newImagesPollGeneration) return; // stale poll
+    const { dataSource, params, newCountSince } = get();
+    if (!newCountSince) return;
+    const effectiveSinceTime = Math.max(
+      Date.parse(newCountSince), Date.parse(params.since ?? newCountSince),
+    );
+    if (params.until && effectiveSinceTime >= Date.parse(params.until)) return;
+    const sequence = ++requestSequence;
+    try {
+      const since =
+        params.since && params.since > newCountSince
+          ? params.since
+          : newCountSince;
+
+      const { count, tickerCounts: arrivalTickerCounts } = await dataSource.countWithTickers({
+        ...params,
+        since,
+        offset: 0,
+        length: 0,
+      });
+      if (gen !== _newImagesPollGeneration || sequence < acceptedSequence) return;
+      acceptedSequence = sequence;
+
+      let mergedTickerCounts: Record<string, TickerCountResult> | null = baselineTickerCounts;
+      if (baselineTickerCounts !== null) {
+        mergedTickerCounts = { ...baselineTickerCounts };
+        for (const [name, delta] of Object.entries(arrivalTickerCounts)) {
+          const prev = mergedTickerCounts[name];
+          if (!prev) {
+            mergedTickerCounts[name] = delta;
+            continue;
+          }
+          const mergedSubCounts = delta.subCounts
+            ? mergeSubCounts(prev.subCounts, delta.subCounts)
+            : prev.subCounts;
+          mergedTickerCounts[name] = {
+            ...prev,
+            ...(delta.searchClause ? { searchClause: delta.searchClause } : {}),
+            ...(delta.backgroundColour ? { backgroundColour: delta.backgroundColour } : {}),
+            value: prev.value + delta.value,
+            ...(mergedSubCounts ? { subCounts: mergedSubCounts } : {}),
+          };
+        }
+      }
+
+      set({
+        newCount: count,
+        ...(mergedTickerCounts !== null ? { tickerCounts: mergedTickerCounts, tickersLastUpdated: new Date().toISOString() } : {}),
+      });
+    } catch {
+      // Silently ignore — ticker is non-critical
+    }
+  };
+  const scheduleInterval = () => {
+    if (_newImagesPollTimer) clearInterval(_newImagesPollTimer);
+    const interval =
+      typeof document !== "undefined" && document.visibilityState === "hidden"
+        ? NEW_IMAGES_POLL_INTERVAL_BG
+        : NEW_IMAGES_POLL_INTERVAL;
+    _newImagesPollTimer = setInterval(tick, interval);
+  };
+
+  if (typeof document !== "undefined") {
+    _newImagesPollVisibilityHandler = () => {
+      scheduleInterval();
+      // Fire immediately when the tab becomes visible so the count is fresh.
+      if (document.visibilityState === "visible") tick();
+    };
+    document.addEventListener("visibilitychange", _newImagesPollVisibilityHandler);
+  }
+
+  scheduleInterval();
+}
+
+/**
+ * Merge cumulative arrival subcounts with browse-baseline subcounts.
+ */
+function mergeSubCounts(
+  prev: Record<string, number> | undefined,
+  delta: Record<string, number>,
+): Record<string, number> {
+  const merged: Record<string, number> = { ...(prev ?? {}) };
+  for (const [key, count] of Object.entries(delta)) {
+    merged[key] = (merged[key] ?? 0) + count;
+  }
+  return merged;
+}
+
+function stopNewImagesPoll() {
+  if (_newImagesPollTimer) {
+    clearInterval(_newImagesPollTimer);
+    _newImagesPollTimer = null;
+  }
+  if (typeof document !== "undefined" && _newImagesPollVisibilityHandler) {
+    document.removeEventListener("visibilitychange", _newImagesPollVisibilityHandler);
+    _newImagesPollVisibilityHandler = null;
+  }
+  _newImagesPollGeneration++; // invalidate any in-flight count()
+}
+
+/**
+ * Apply the "frozen until" cap to search params for extend/seek/fill requests.
+ *
+ * After a search, `newCountSince` records the timestamp. All subsequent
+ * pagination requests should exclude images uploaded after that time —
+ * otherwise the ticker can say "5 new" while those images have already
+ * silently leaked into the buffer via a PIT-less extend.
+ *
+ * The cap is applied as `until: newCountSince` (which becomes
+ * `range.uploadTime.lte` in the ES query builder). If the user has already
+ * set an explicit `until` (date filter), we use whichever is earlier so the
+ * user's filter is never widened.
+ *
+ * PIT provides snapshot isolation while alive, so the cap is redundant when
+ * the PIT is active — but harmless (a subset filter on a snapshot is a no-op).
+ * The cap matters when the PIT has expired (idle >5 min) and requests fall
+ * back to the live index.
+ */
+function frozenParams(params: SearchParams, get: () => SearchState): SearchParams {
+  const { newCountSince } = get();
+  if (!newCountSince) return params;
+
+  // If the user set an explicit `until`, use the earlier of the two
+  const effectiveUntil =
+    params.until && params.until < newCountSince
+      ? params.until
+      : newCountSince;
+
+  return { ...params, until: effectiveUntil };
+}
+
+/**
+ * Build an imagePositions Map from a hits array starting at `offset`.
+ * Used for full rebuilds (search) and incremental updates (extend).
+ */
+function buildPositions(
+  hits: (Image | undefined)[],
+  offset: number,
+  existing?: Map<string, number>,
+): Map<string, number> {
+  const map = existing ? new Map(existing) : new Map<string, number>();
+  for (let i = 0; i < hits.length; i++) {
+    const img = hits[i];
+    if (img?.id) {
+      map.set(img.id, offset + i);
+    }
+  }
+  return map;
+}
+
+/**
+ * Remove positions for images in a given global index range from the Map.
+ * Used during eviction to keep imagePositions accurate.
+ */
+function evictPositions(
+  map: Map<string, number>,
+  buffer: (Image | undefined)[],
+  evictStart: number,  // buffer-local start index
+  evictEnd: number,    // buffer-local end index (exclusive)
+): Map<string, number> {
+  const newMap = new Map(map);
+  for (let i = evictStart; i < evictEnd; i++) {
+    const img = buffer[i];
+    if (img?.id) {
+      newMap.delete(img.id);
+    }
+  }
+  return newMap;
+}
+
+/**
+ * Capture the IDs of the focused image's nearest neighbours from the buffer.
+ * Returns an ordered array: alternating forward/backward (±1, ±2, … ±N),
+ * so the nearest neighbour is first. Used for neighbour fallback when the
+ * focused image disappears after a search context change.
+ */
+function _captureNeighbours(
+  focusedImageId: string,
+  results: (Image | undefined)[],
+  bufferOffset: number,
+  imagePositions: Map<string, number>,
+  count = 20,
+): string[] {
+  const globalIdx = imagePositions.get(focusedImageId);
+  if (globalIdx === undefined) return [];
+  const localIdx = globalIdx - bufferOffset;
+  if (localIdx < 0 || localIdx >= results.length) return [];
+
+  const neighbours: string[] = [];
+  for (let d = 1; d <= count; d++) {
+    const fwd = localIdx + d;
+    if (fwd < results.length && results[fwd]?.id) {
+      neighbours.push(results[fwd]!.id);
+    }
+    const bwd = localIdx - d;
+    if (bwd >= 0 && results[bwd]?.id) {
+      neighbours.push(results[bwd]!.id);
+    }
+  }
+  return neighbours;
+}
+
+// ---------------------------------------------------------------------------
+// search_after anchor helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Build search_after anchor values for clauses after the semantic primary.
+ *
+ * When seeking to a position via search_after, we have the primary sort value
+ * (estimated or from keyword lookup) but need "neutral" anchors for the
+ * remaining sort fields. These anchors must be positioned so that
+ * search_after returns docs starting from the BEGINNING of the primary
+ * sort bucket.
+ *
+ * Key insight: search_after returns docs strictly AFTER the cursor,
+ * following each field's sort direction independently. For a desc field,
+ * "after" means "less than". So:
+ *   - Ascending field → anchor at minimum (0) → returns docs where value > 0 (all)
+ *   - Descending field → anchor at maximum → returns docs where value < MAX (all)
+ *   - `id` field (always asc keyword) → anchor at "" → returns all docs
+ *
+ * Without direction-aware anchors, a desc-sorted fallback clause with
+ * anchor 0 would require docs with value < 0 — excluding everything and
+ * causing search_after to skip the entire primary bucket.
+ */
+function buildSeekCursorAnchors(
+  sortClause: Record<string, unknown>[],
+  primaryValue: string | number,
+): SortValues {
+  const cursor: SortValues = [primaryValue];
+  for (let i = 1; i < sortClause.length; i++) {
+    const clause = sortClause[i];
+    const { field, direction } = parseSortField(clause);
+    if (field === "id") {
+      cursor.push("");
+    } else if (direction === "desc") {
+      // For desc-sorted fields, "after" means "less than the anchor".
+      // Use MAX_SAFE_INTEGER so all real values (< MAX) are included.
+      cursor.push(Number.MAX_SAFE_INTEGER);
+    } else {
+      // For asc-sorted fields, "after" means "greater than the anchor".
+      // Use 0 so all real positive values (> 0) are included.
+      cursor.push(0);
+    }
+  }
+  return cursor;
+}
+
+/**
+ * Binary-search a cached SortDistribution for the bucket covering a global
+ * position. Returns null if the position is outside the covered range —
+ * either the distribution is absent, or (at high cardinality) truncated,
+ * see the archived keyword-sorts evidence §11 Q1.
+ */
+function findBucketAtPosition(
+  dist: SortDistribution,
+  position: number,
+): SortDistBucket | null {
+  const { buckets } = dist;
+  if (buckets.length === 0 || position < 0) return null;
+
+  let lo = 0;
+  let hi = buckets.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >>> 1;
+    if (buckets[mid].startPosition <= position) {
+      lo = mid;
+    } else {
+      hi = mid - 1;
+    }
+  }
+
+  const bucket = buckets[lo];
+  if (position >= bucket.startPosition + bucket.count) return null;
+  return bucket;
+}
+
+// ---------------------------------------------------------------------------
+// Null-zone cursor helpers — imported from DAL (shared with getIdRange)
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Scroll-mode buffer fill — eagerly load all results for small sets
+// ---------------------------------------------------------------------------
+
+/**
+ * After the initial search, if total ≤ SCROLL_MODE_THRESHOLD, fetch all
+ * remaining results so the buffer contains the entire result set. This
+ * activates "scroll mode" in the scrubber (drag directly scrolls content).
+ *
+ * Runs in the background — user already sees the first PAGE_SIZE results.
+ * Fetches in PAGE_SIZE chunks via searchAfter, appending to the buffer.
+ * Aborted if a new search starts (signal is cancelled).
+ */
+async function _fillBufferForScrollMode(
+  dataSource: ImageDataSource,
+  params: SearchParams,
+  loadedSoFar: number,
+  total: number,
+  cursor: SortValues,
+  pitId: string | null,
+  signal: AbortSignal,
+  get: () => SearchState,
+  set: (partial: Partial<SearchState> | ((s: SearchState) => Partial<SearchState>)) => void,
+): Promise<void> {
+  // Apply frozen-until cap — scroll-mode fill should not include new images.
+  const frozenP = frozenParams(params, get);
+  let currentCursor = cursor;
+  let currentPitId = pitId;
+  let fetched = loadedSoFar;
+
+  devLog(`[scroll-mode-fill] Fetching remaining ${total - fetched} results (total: ${total})`);
+
+  // Suppress forward extends while filling — prevents the virtualizer's
+  // reportVisibleRange from firing overlapping searchAfter requests.
+  set({ _extendForwardInFlight: true });
+
+  while (fetched < total) {
+    if (signal.aborted) {
+      set({ _extendForwardInFlight: false });
+      return;
+    }
+
+    const remaining = total - fetched;
+    const chunkSize = Math.min(PAGE_SIZE, remaining);
+
+    try {
+      const result = await dataSource.searchAfter(
+        { ...frozenP, length: chunkSize },
+        currentCursor,
+        currentPitId,
+        signal,
+      );
+
+      if (signal.aborted) {
+        set({ _extendForwardInFlight: false });
+        return;
+      }
+      if (result.pitId === null) {
+        currentPitId = null;
+        set({ pitId: null });
+      }
+      if (result.hits.length === 0) break;
+
+      // Update cursor for next iteration
+      const newEndCursor = result.sortValues.length > 0
+        ? result.sortValues[result.sortValues.length - 1]
+        : null;
+      if (!newEndCursor) break;
+      currentCursor = newEndCursor;
+
+      retainSortValues(buildSearchKey(params), result.hits, result.sortValues);
+      // Append to buffer — no eviction (we want the full set)
+      // Commit-to-view (fill loop): merge enrichment incrementally.
+      if (result.enrichment) useEnrichmentStore.getState().upsertEnrichment(result.enrichment);
+      set((state) => {
+        const newBuffer = [...state.results, ...result.hits];
+        const newPositions = buildPositions(
+          result.hits,
+          state.bufferOffset + state.results.length,
+          state.imagePositions,
+        );
+        return {
+          results: newBuffer,
+          imagePositions: newPositions,
+          endCursor: newEndCursor,
+          // Total is stable within a search session (frozen params) — always
+          // use the store's known total rather than the result total, which
+          // is 0 when track_total_hits is disabled (audit F-01).
+          total: state.total,
+        };
+      });
+
+      fetched += result.hits.length;
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") {
+        set({ _extendForwardInFlight: false });
+        return;
+      }
+      // Non-fatal — user already has partial results, scroll mode just
+      // won't activate. Log and stop.
+      console.warn("[scroll-mode-fill] Failed to fetch chunk:", e);
+      break;
+    }
+  }
+
+  devLog(`[scroll-mode-fill] Complete — buffer now has ${get().results.length} results`);
+  set({ _extendForwardInFlight: false });
+}
+
+// ---------------------------------------------------------------------------
+// Scroll-mode top-up — fills the buffer to full total after a buffer-
+// centering operation (sort-around-focus, restoreAroundCursor) lands it at
+// an arbitrary offset instead of 0.
+//
+// _fillBufferForScrollMode (above) only covers the case where search()'s
+// normal branch lands the buffer at offset 0. The sort-around-focus branch
+// and restoreAroundCursor instead call _loadBufferAroundImage, which
+// centres the buffer on a target image at an arbitrary global offset.
+// Without a top-up, small (≤ SCROLL_MODE_THRESHOLD) result sets would keep
+// the scrubber in seek mode.
+// ---------------------------------------------------------------------------
+
+/**
+ * Drives the existing extendForward()/extendBackward() actions to fill the
+ * buffer to [0, total) rather than reimplementing fetch/prepend/eviction.
+ * Their publications retain the existing view-owned compensation path.
+ *
+ * Stops if `total` or `_pitGeneration` change (either means a genuinely new
+ * search superseded this landing — a sort-direction toggle keeps `total`
+ * identical but still bumps `_pitGeneration`, so both are checked).
+ * `bufferOffset`/`results` changing as we make our own progress is expected,
+ * not a staleness signal.
+ *
+ * Each extend call shares the same abort controller every other extend
+ * relies on, but `extendForward`/`extendBackward` swallow `AbortError` and
+ * return normally — a concurrent search doesn't stop this loop by itself,
+ * the `total`/`_pitGeneration` guards above do that job. Progress is only
+ * counted when the buffer actually grew; consecutive no-progress calls
+ * (blocked by an in-flight flag, a missing cursor, or a cooldown TOCTOU)
+ * are capped separately so they can't silently burn the whole step budget
+ * before a single real fetch happens. Also bounded by a wall-clock deadline
+ * and a single re-entrancy flag (`_topUpInFlight`) — several call sites can
+ * fire from one interaction (e.g. reload triggers both search()'s fallback
+ * and restoreAroundCursor).
+ */
+async function _topUpScrollModeBuffer(
+  get: () => SearchState,
+): Promise<void> {
+  const myTotal = get().total;
+  if (myTotal <= 0 || myTotal > SCROLL_MODE_THRESHOLD) return;
+  // SCROLL_MODE_THRESHOLD is env-configurable per server and could in theory
+  // exceed BUFFER_CAPACITY. If it does, the scroll-mode gate (total <=
+  // bufferLength) can never be satisfied — bail rather than spin the full
+  // step budget for nothing every time this is called.
+  if (myTotal > BUFFER_CAPACITY) return;
+  if (_topUpInFlight) return;
+  _topUpInFlight = true;
+  useSearchStore.setState({ _bufferSelfCorrecting: true });
+
+  const myPitGeneration = get()._pitGeneration;
+  const maxSteps = Math.ceil(myTotal / PAGE_SIZE) + 2;
+  const maxConsecutiveNoProgress = 3;
+  const deadline = Date.now() + 15_000;
+  const isStale = () =>
+    get().total !== myTotal || get()._pitGeneration !== myPitGeneration;
+  /** Wait out any active cooldown in one sleep rather than polling. */
+  const waitOutCooldown = async () => {
+    const remaining = _seekCooldownUntil - Date.now();
+    if (remaining > 0) await new Promise((r) => setTimeout(r, remaining));
+  };
+
+  try {
+    let steps = 0;
+    let noProgress = 0;
+    while (
+      !isStale() &&
+      get().bufferOffset + get().results.length < myTotal &&
+      steps < maxSteps &&
+      noProgress < maxConsecutiveNoProgress &&
+      Date.now() < deadline
+    ) {
+      await waitOutCooldown();
+      if (isStale()) break;
+      const before = get().bufferOffset + get().results.length;
+      await get().extendForward();
+      if (get().bufferOffset + get().results.length > before) {
+        steps++;
+        noProgress = 0;
+      } else {
+        noProgress++;
+      }
+    }
+
+    steps = 0;
+    noProgress = 0;
+    while (
+      !isStale() &&
+      get().bufferOffset > 0 &&
+      steps < maxSteps &&
+      noProgress < maxConsecutiveNoProgress &&
+      Date.now() < deadline
+    ) {
+      await waitOutCooldown();
+      if (isStale()) break;
+      const before = get().bufferOffset;
+      await get().extendBackward();
+      if (get().bufferOffset < before) {
+        steps++;
+        noProgress = 0;
+      } else {
+        noProgress++;
+      }
+    }
+  } finally {
+    _topUpInFlight = false;
+    useSearchStore.setState({ _bufferSelfCorrecting: false });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Position map background fetch — lightweight index for indexed scroll mode
+// ---------------------------------------------------------------------------
+
+/**
+ * After the initial search, if total is in the position-map range
+ * (SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD), fetch a
+ * lightweight [id, sortValues] index for all results in the background.
+ *
+ * Uses the DAL's `fetchPositionIndex` which opens its own dedicated PIT
+ * (decoupled from the main search PIT lifecycle). All-or-nothing: if
+ * aborted or failed, the partial result is discarded and positionMap
+ * stays null.
+ *
+ * Aborted by search() — a new search invalidates the position map.
+ * Extends and seeks do NOT abort this fetch (separate abort controller).
+ */
+async function _fetchPositionMap(
+  dataSource: ImageDataSource,
+  params: SearchParams,
+  signal: AbortSignal,
+  get: () => SearchState,
+  set: (partial: Partial<SearchState> | ((s: SearchState) => Partial<SearchState>)) => void,
+): Promise<void> {
+  if (!dataSource.fetchPositionIndex) {
+    devLog("[position-map] dataSource does not implement fetchPositionIndex");
+    set({ positionMapLoading: false });
+    return;
+  }
+
+  devLog(`[position-map] Starting background fetch for ${get().total} positions...`);
+  const total = get().total;
+  const traceInteractionId = beginTraceInteraction("position-map", { total });
+  set({ positionMapLoading: true, positionMap: null });
+
+  try {
+    const map = await dataSource.fetchPositionIndex(params, signal);
+
+    if (signal.aborted) {
+      set({ positionMapLoading: false });
+      return;
+    }
+
+    if (map) {
+      devLog(`[position-map] Complete — ${map.length} entries loaded`);
+      set({ positionMap: map, positionMapLoading: false });
+      traceInteraction("position-map", "t_store_ready", traceInteractionId, {
+        total,
+        entries: map.length,
+      });
+    } else {
+      devLog("[position-map] fetchPositionIndex returned null (aborted or empty)");
+      set({ positionMap: null, positionMapLoading: false });
+    }
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      set({ positionMapLoading: false });
+      return;
+    }
+    console.warn("[position-map] Background fetch failed:", e);
+    set({ positionMap: null, positionMapLoading: false });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Shared buffer-loading helper — "load a page centered on a known image"
+// ---------------------------------------------------------------------------
+
+/**
+ * Result of loading a buffer centered on a target image.
+ * Callers use this to set the store state with caller-specific extras
+ * (e.g. sort-around-focus sets focusedImageId + sortAroundFocusGeneration;
+ * restore-around-cursor sets _seekGeneration + _seekTargetLocalIndex).
+ */
+interface BufferAroundImage {
+  combinedHits: (Image | undefined)[];
+  sortValues: SortValues[];
+  bufferStart: number;
+  startCursor: SortValues | null;
+  endCursor: SortValues | null;
+  total: number;
+  pitId: string | null;
+  /** Buffer-local index of the target image. */
+  targetLocalIndex: number;
+  /** Merged enrichment from forward + backward results (upsert semantics at commit). */
+  enrichment?: Map<string, EnrichmentFields>;
+}
+
+/**
+ * Given a target image, its sort values, and its exact global offset,
+ * fetch a buffer page centered on the image via bidirectional search_after.
+ *
+ * This is the shared core of sort-around-focus (_findAndFocusImage) and
+ * image-detail reload restore (restoreAroundCursor). Both need to load a
+ * buffer around a specific image at any depth — the only difference is how
+ * they discover the image's sort values and what store state they set
+ * afterwards.
+ *
+ * Returns null if aborted.
+ */
+async function _loadBufferAroundImage(
+  targetHit: Image,
+  sortValues: SortValues,
+  exactOffset: number,
+  params: SearchParams,
+  pitId: string | null,
+  signal: AbortSignal,
+  searchAfter: ImageDataSource["searchAfter"],
+  targetEnrichment?: EnrichmentFields,
+  offsetIsEstimate = false,
+): Promise<BufferAroundImage | null> {
+  const backwardCount = offsetIsEstimate
+    ? Math.floor(PAGE_SIZE / 2)
+    : Math.min(Math.floor(PAGE_SIZE / 2), exactOffset);
+  // Forward + backward pages are independent ES requests against the same
+  // cursor/PIT — run in parallel (same pattern as seek() position-map path).
+  const [forwardResult, backwardResult] = await Promise.all([
+    searchAfter(
+      { ...params, length: Math.floor(PAGE_SIZE / 2) },
+      sortValues,
+      pitId,
+      signal,
+    ),
+    backwardCount > 0
+      ? searchAfter(
+          { ...params, length: backwardCount },
+          sortValues,
+          pitId,
+          signal,
+          true,
+        )
+      : Promise.resolve({ hits: [], sortValues: [], total: 0, pitId: undefined, enrichment: undefined }),
+  ]);
+  if (signal.aborted) return null;
+
+  const bufferStart = Math.max(0, exactOffset - backwardResult.hits.length);
+  const bwHits = backwardResult.hits;
+  const bwSortValues = backwardResult.sortValues;
+
+  // Combine: backward hits + target image + forward hits
+  // The target image itself is NOT in either result (search_after is exclusive).
+  const combinedHits: (Image | undefined)[] = [
+    ...bwHits,
+    targetHit,
+    ...forwardResult.hits,
+  ];
+  const combinedSortValues: SortValues[] = [
+    ...bwSortValues,
+    sortValues,
+    ...forwardResult.sortValues,
+  ];
+
+  const startCursor = combinedSortValues.length > 0
+    ? combinedSortValues[0]
+    : null;
+  const endCursor = combinedSortValues.length > 0
+    ? combinedSortValues[combinedSortValues.length - 1]
+    : null;
+
+  return {
+    combinedHits,
+    sortValues: combinedSortValues,
+    bufferStart,
+    startCursor,
+    endCursor,
+    total: forwardResult.total,
+    // Use !== undefined so explicit null (PIT-expiry fallback, audit #21)
+    // clears the stale PIT instead of preserving it via ??.
+    pitId: backwardResult.pitId === null ? null : forwardResult.pitId !== undefined ? forwardResult.pitId : pitId,
+    /** Buffer-local index of the target image. */
+    targetLocalIndex: bwHits.length,
+    // Merge enrichment from forward + backward results (both carry enrichment on the
+    // media-api path; undefined on direct-ES path). Forward wins on id conflict (harmless
+    // — same image can't be in both directions of a bidirectional search_after).
+    enrichment: (forwardResult.enrichment || backwardResult.enrichment || targetEnrichment)
+      ? new Map<string, EnrichmentFields>([
+          ...(backwardResult.enrichment ?? []),
+          ...(forwardResult.enrichment ?? []),
+          ...(targetEnrichment ? [[targetHit.id, targetEnrichment] as const] : []),
+        ])
+      : undefined,
+  };
+}
+
+function createExpiryAwareSearchAfter(
+  dataSource: ImageDataSource,
+  get: () => SearchState,
+  set: (state: Partial<SearchState>) => void,
+): ImageDataSource["searchAfter"] {
+  return async (params, cursor, pitId, signal, reverse, seekToEnd) => {
+    signal?.throwIfAborted();
+    const requestedPitId = pitId && get().pitId === null ? null : pitId;
+    const result = await dataSource.searchAfter(params, cursor, requestedPitId, signal, reverse, seekToEnd);
+    signal?.throwIfAborted();
+    if (requestedPitId && result.pitId === null && get().pitId === requestedPitId) set({ pitId: null });
+    return pitId && get().pitId === null && result.pitId !== null ? { ...result, pitId: null } : result;
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Sort-around-focus — async find-and-seek after sort change
+// ---------------------------------------------------------------------------
+
+/**
+ * After a sort change, asynchronously find a specific image's new position
+ * and seek to it. This runs after the initial search has completed and
+ * results are showing at position 0. Non-blocking — the user sees fresh
+ * results immediately; this work happens in the background.
+ *
+ * Algorithm:
+ * 1. Fetch image by ID with current sort to get its sort[] values.
+ * 2. countBefore query → exact global offset.
+ * 3. If offset is within the current buffer → just focus + scroll. Done.
+ * 4. If outside → _loadBufferAroundImage (bidirectional search_after).
+ * 5. Graceful degradation: any failure → stay at top, clear status.
+ */
+async function _findAndFocusImage(
+  imageId: string,
+  params: SearchParams,
+  get: () => SearchState,
+  set: (s: Partial<SearchState>) => void,
+  /** First-page results to fall back to if the image isn't found. When
+   *  provided, failure shows these results at offset 0 instead of leaving
+   *  a stale buffer (important for query/filter changes where the old
+   *  buffer is from a different search context). */
+  fallbackFirstPage?: {
+    hits: Image[];
+    sortValues: SortValues[];
+    enrichment?: Map<string, EnrichmentFields>;
+    startCursor: SortValues | null;
+    endCursor: SortValues | null;
+    pitId: string | null;
+    /** The correct total for the new query. _findAndFocusImage sets this
+     *  atomically with the new buffer so the virtualizer never sees a
+     *  total/buffer mismatch (which triggers scroll-clamp → seek → flash). */
+    total: number;
+  },
+  /** Ordered neighbour IDs from the old buffer (nearest first). When the
+   *  focused image isn't found, the engine scans this list for the nearest
+   *  survivor in the first page of new results. */
+  prevNeighbours?: string[] | null,
+  /** Known global offset of the image (e.g. from a previous focus). Used as
+   *  the offset hint in deep-seek mode (>65k results) to avoid the 0-placeholder
+   *  that makes the scrubber/position counter wrong until async correction. */
+  hintOffset?: number | null,
+  /** When true, position the buffer around the image but do NOT set
+   *  focusedImageId: publish `_phantomFocusImageId` with the
+   *  sortAroundFocusGeneration bump instead. Used by phantom focus promotion. */
+  phantomOnly?: boolean,
+  /** Keep an existing explicit focus while phantom-positioning around a
+   *  higher-priority selection anchor. */
+  retainExplicitFocus?: boolean,
+  /** Abort signal for the find-focus work (Steps 1-2). Passed by the caller
+   *  rather than read from module scope, so concurrent search() calls don't
+   *  grab each other's controllers. */
+  findFocusSignalOverride?: AbortSignal,
+  discoveredTotal?: number,
+  continuity?: OwnedSearchContinuity,
+): Promise<void> {
+  const { dataSource } = get();
+  // Apply frozen-until cap — sort-around-focus should not include new images.
+  const fp = frozenParams(params, get);
+  const presentationCurrent = () => continuity?.historyFocusIntent === undefined
+    || get()._focusIntent === continuity.historyFocusIntent;
+
+  trace("sort-around-focus", "t_ack");
+  trace("sort-around-focus", "t_status_visible", { status: "Finding image\u2026" });
+  set({ sortAroundFocusStatus: "Finding image…" });
+
+  // Use the caller-provided signal when available (search() captures the
+  // signal BEFORE its await, so concurrent searches don't cross-contaminate).
+  // Falls back to reading from module scope for seekToFocused() which is
+  // single-flight and doesn't race.
+  const findFocusSignal = findFocusSignalOverride ?? _findFocusAbortController.signal;
+
+  // Timeout controller: if the process takes longer than 8s, abort the
+  // in-flight ES requests and fall back gracefully. This prevents both
+  // "Seeking... forever" AND the flash bug where the timeout shows fallback
+  // results but the function continues and later overwrites them.
+  const timeoutController = new AbortController();
+  const combinedSignal = AbortSignal.any
+    ? AbortSignal.any([findFocusSignal, timeoutController.signal])
+    : findFocusSignal; // Fallback for environments without AbortSignal.any
+  const timeoutId = setTimeout(() => {
+    if (findFocusSignal.aborted) return;
+    console.warn("[sort-around-focus] Timed out after 8s");
+    timeoutController.abort();
+    if (fallbackFirstPage) {
+      retainSortValues(buildSearchKey(params), fallbackFirstPage.hits, fallbackFirstPage.sortValues, true);
+      if (fallbackFirstPage.enrichment) useEnrichmentStore.getState().setEnrichment(fallbackFirstPage.enrichment);
+      set({
+        results: fallbackFirstPage.hits,
+        bufferOffset: 0,
+        total: fallbackFirstPage.total,
+        loading: false,
+        imagePositions: buildPositions(fallbackFirstPage.hits, 0),
+        startCursor: fallbackFirstPage.startCursor,
+        endCursor: fallbackFirstPage.endCursor,
+        pitId: get().pitId,
+        sortAroundFocusStatus: null,
+        _seekTargetLocalIndex: -1,
+        _seekTargetGlobalIndex: -1,
+        ...(presentationCurrent() && { focusedImageId: null, _phantomFocusImageId: null,
+          _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false } }),
+      });
+      // Only the first page landed — top up for small result sets (see
+      // _topUpScrollModeBuffer doc above _fillBufferForScrollMode).
+      void _topUpScrollModeBuffer(get);
+    } else {
+      set({ sortAroundFocusStatus: null, loading: false });
+    }
+  }, 8000);
+
+  try {
+    // Step 1: Search for this specific image with the current sort to get
+    // both the image and its sort[] values in one request.
+    if (combinedSignal.aborted) return;
+    const sortResult = await dataSource.searchAfter(
+      { ...fp, ids: imageId, length: 1 },
+      null,
+      null,
+      combinedSignal,
+    );
+
+    if (combinedSignal.aborted) return;
+    if (sortResult.hits.length === 0 || sortResult.sortValues.length === 0) {
+      // Image not in results (maybe filtered out) — degrade gracefully.
+      // If we have first-page results, show them (query/filter changes leave
+      // the old buffer stale). Otherwise just clear loading (sort changes
+      // where the old buffer is still from the same query).
+      if (fallbackFirstPage) {
+        // Neighbour fallback: batch-check which old neighbours survive in the
+        // new result set. Uses a single ES ids query — works regardless of
+        // where the user was scrolled (unlike first-page-only scanning).
+        if (prevNeighbours && prevNeighbours.length > 0 && !combinedSignal.aborted) {
+          try {
+            const batchResult = await dataSource.searchAfter(
+              { ...fp, ids: prevNeighbours.join(","), length: prevNeighbours.length },
+              null,
+              null,
+              combinedSignal,
+            );
+            if (!combinedSignal.aborted && batchResult.hits.length > 0) {
+              // Build a set of surviving IDs for O(1) lookup
+              const survivorIds = new Set(batchResult.hits.map((h) => h.id));
+              // Walk prevNeighbours in distance order → first hit is nearest
+              for (const nId of prevNeighbours) {
+                if (survivorIds.has(nId)) {
+                  devLog(
+                    `[sort-around-focus] neighbour fallback: focused=${imageId} gone, ` +
+                    `nearest survivor=${nId} (batch ES check)`,
+                  );
+                  // Recurse: find-and-focus the surviving neighbour.
+                  // Pass fallbackFirstPage but NOT prevNeighbours (no infinite loop).
+                  clearTimeout(timeoutId);
+                  await _findAndFocusImage(nId, params, get, set, fallbackFirstPage, null, null, phantomOnly, retainExplicitFocus, findFocusSignalOverride, discoveredTotal, continuity);
+                  return;
+                }
+              }
+            }
+          } catch (e) {
+            // Batch check failed (abort, network error) — fall through to clear focus
+            if (!(e instanceof DOMException && e.name === "AbortError")) {
+              console.warn("[sort-around-focus] neighbour batch check failed:", e);
+            }
+          }
+        }
+
+        if (combinedSignal.aborted) return;
+        retainSortValues(buildSearchKey(params), fallbackFirstPage.hits, fallbackFirstPage.sortValues, true);
+        if (fallbackFirstPage.enrichment) useEnrichmentStore.getState().setEnrichment(fallbackFirstPage.enrichment);
+        set({
+          results: fallbackFirstPage.hits,
+          bufferOffset: 0,
+          total: fallbackFirstPage.total,
+          loading: false,
+          imagePositions: buildPositions(fallbackFirstPage.hits, 0),
+          startCursor: fallbackFirstPage.startCursor,
+          endCursor: fallbackFirstPage.endCursor,
+          pitId: get().pitId,
+          sortAroundFocusStatus: null,
+          _seekTargetLocalIndex: -1,
+          _seekTargetGlobalIndex: -1,
+          // Bump _scrollReset.gen so Effect #7b resets scroll to top.
+          // The fallback publishes an explicit top intent regardless of
+          // whether the departing buffer was already at offset zero.
+          ...(presentationCurrent() && { focusedImageId: null, _phantomFocusImageId: null,
+            _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false } }),
+        });
+        // Only the first page landed (target not found, no surviving
+        // neighbour) — top up for small result sets. This is the dominant
+        // real-world trigger: a phantom/explicit focus from an unrelated
+        // prior query almost never survives into a new filtered query.
+        void _topUpScrollModeBuffer(get);
+      } else {
+        set({ sortAroundFocusStatus: null, loading: false });
+      }
+      return;
+    }
+
+    const targetHit = sortResult.hits[0];
+    const imageSortValues = sortResult.sortValues[0];
+
+    // Step 2: Determine the image's global offset.
+    //
+    // Three paths, fast → slow:
+    // A. Position map available → O(n) scan (~<1ms for 65k strings).
+    // B. Position map miss → synchronous countBefore (stale map edge case).
+    // C. No position map (deep-seek >65k, OR buffer tier ≤1k — neither ever
+    //    has one) → use offset=0/hint to start the cursor-based buffer fetch,
+    //    run countBefore concurrently, then publish once with exact aligned
+    //    coordinates. The old buffer remains visible while both requests run.
+    if (combinedSignal.aborted) return;
+    let offset: number;
+    let offsetIsEstimate = false;
+
+    // Use the NEW total for path decisions when available. In the sort-around-
+    // focus path after a query/filter change, get().total still reflects the
+    // PREVIOUS search (total is set atomically with the buffer later). Using
+    // the stale total can route us into deep-seek mode (>65k) when the new
+    // result set is actually small (<65k) — causing the stale hint to be used
+    // as bufferOffset, which may exceed the new total → scroll clamps to end.
+    const effectiveTotal = fallbackFirstPage?.total ?? discoveredTotal ?? get().total;
+
+    // Guard: a stale hint that exceeds the effective total causes scroll-clamp
+    // to end of results (bufferOffset > total). This happens when the query
+    // narrows results drastically (new total < old hint position). Invalidate
+    // such hints — offset=0 with async correction is far less disruptive than
+    // the catastrophic end-of-results clamp.
+    // Valid hints (from snapshot restore where hint < total, or sort-only where
+    // total is unchanged) pass through safely.
+    const effectiveHint = (hintOffset != null && hintOffset < effectiveTotal)
+      ? hintOffset
+      : null;
+
+    const posMap = get().positionMap;
+    if (posMap) {
+      const idx = posMap.ids.indexOf(imageId);
+      if (idx !== -1) {
+        offset = idx;
+        devLog(
+          `[sort-around-focus] position map hit: id=${imageId}, offset=${offset} (skipped countBefore)`,
+        );
+      } else {
+        // Image not in position map (stale map or image added since map was built).
+        // Fall back to countBefore — this is rare and fast (position map
+        // means ≤65k results, so countBefore is ~5-10ms).
+        offset = await dataSource.countBefore(
+          fp,
+          imageSortValues,
+          combinedSignal,
+        );
+        devLog(
+          `[sort-around-focus] position map miss: id=${imageId}, countBefore=${offset}`,
+        );
+      }
+    } else if (isTwoTierFromTotal(effectiveTotal)) {
+      // Two-tier range but positionMap is temporarily null — the new map is
+      // still fetching in the background (search() nullifies the old sort's
+      // map before _findAndFocusImage runs). countBefore is fast (~10ms for
+      // ≤65k results) and gives an exact offset, avoiding the flash of wrong
+      // scroll position that happens when we use offset=0 as a placeholder.
+      offset = await dataSource.countBefore(
+        fp,
+        imageSortValues,
+        combinedSignal,
+      );
+      devLog(
+        `[sort-around-focus] position map null (two-tier fetch in progress): ` +
+        `countBefore=${offset}`,
+      );
+    } else {
+      // No position map — either true deep-seek (>65k) or buffer tier (≤1k).
+      // Use the hint (or 0) only to start the independent cursor-based fetch;
+      // exact coordinates are resolved concurrently before publication.
+      // NOTE: effectiveHint is null when fallbackFirstPage is provided (query
+      // changed) — stale hints from a different query are dangerous regardless
+      // of tier (they may exceed the new total).
+      offset = effectiveHint ?? 0;
+      offsetIsEstimate = true;
+      devLog(
+        `[sort-around-focus] no position map, using ${effectiveHint != null ? `hint offset=${offset}` : "estimated offset=0"} (will correct async)`,
+      );
+    }
+
+    if (combinedSignal.aborted) return;
+
+    // Step 3: Check if the offset is within the current buffer.
+    // Two guards:
+    //  - offsetIsEstimate: deep-seek placeholder offset=0, never trust it.
+    //  - fallbackFirstPage: the buffer is from the PREVIOUS search (different
+    //    query or sort). Even if the numeric offset falls within the old
+    //    buffer's range, the content at that position is stale. Always load
+    //    fresh content in this case.
+    const { bufferOffset, results } = get();
+    const bufferEnd = bufferOffset + results.length;
+    const isInBuffer = !fallbackFirstPage && discoveredTotal === undefined && !offsetIsEstimate &&
+      offset >= bufferOffset && offset < bufferEnd;
+
+    if (isInBuffer) {
+      // Image is in the buffer — just focus it (or scroll to it in phantom mode).
+      // Guard: if the timeout already fired, don't overwrite fallback state.
+      if (timeoutController.signal.aborted) return;
+      if (!presentationCurrent()) {
+        set({ _searchContinuity: continuity ? { ...continuity, targetId: imageId, phase: "retired" } : null,
+          _isInitialLoad: false, sortAroundFocusStatus: null, loading: false });
+      } else if (phantomOnly) {
+        // Phantom promotion: position around image but don't set focusedImageId.
+        // Use _phantomFocusImageId + sortAroundFocusGeneration so Effect #9
+        // handles scroll positioning (same path as explicit focus).
+        const suppressPulse = get()._isInitialLoad;
+        set({
+          ...(!retainExplicitFocus && {
+            focusedImageId: null,
+            _focusedImageKnownOffset: null,
+          }),
+          _phantomFocusImageId: imageId,
+          _searchContinuity: continuity ? { ...continuity, targetId: imageId } : null,
+          ...(!suppressPulse && { _phantomPulseImageId: imageId }),
+          _isInitialLoad: false,
+          sortAroundFocusStatus: null,
+          loading: false,
+          sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
+        });
+        if (!suppressPulse) setTimeout(() => set({ _phantomPulseImageId: null }), 2500);
+      } else {
+        set({
+          focusedImageId: imageId,
+          _searchContinuity: continuity ? { ...continuity, targetId: imageId } : null,
+          _isInitialLoad: false,
+          _focusedImageKnownOffset: offset,
+          sortAroundFocusStatus: null,
+          loading: false,
+          sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
+        });
+      }
+      // The image was already in the buffer, so nothing was fetched — but
+      // for small result sets the buffer itself may still be partial (e.g.
+      // seekToFocused() firing during the initial two-phase fill). Top up
+      // so the scrubber can enter scroll mode (see function doc above
+      // _fillBufferForScrollMode).
+      void _topUpScrollModeBuffer(get);
+    } else {
+      // Outside buffer — load a page centered on the image
+      trace("sort-around-focus", "t_seeking");
+      set({ sortAroundFocusStatus: "Seeking…" });
+
+      // The buffer fetch uses sort-value cursors, so it does not depend on the
+      // exact numeric offset. Start countBefore in parallel and apply its
+      // result before publishing: the old buffer remains visible until the
+      // new buffer has final coordinates, avoiding an estimate-then-correct
+      // third visual state.
+      const exactOffsetPromise = offsetIsEstimate
+        ? dataSource.countBefore(fp, imageSortValues, combinedSignal)
+            .catch((e) => {
+              if (!(e instanceof DOMException && e.name === "AbortError")) {
+                console.warn("[sort-around-focus] exact offset lookup failed:", e);
+              }
+              return null;
+            })
+        : null;
+
+      // Abort any in-flight extends/scroll-seeks from the previous search
+      // and create a fresh controller for post-focus extends. We use
+      // combinedSignal (from _findFocusAbortController) for the actual
+      // buffer load — NOT _rangeAbortController — so that scroll-triggered
+      // seeks in two-tier mode can't abort this work.
+      _rangeAbortController.abort();
+      _rangeAbortController = new AbortController();
+      set({ _extendForwardInFlight: false, _extendBackwardInFlight: false });
+
+      const buf = await _loadBufferAroundImage(
+        targetHit, imageSortValues, offset, fp,
+        get().pitId, combinedSignal, createExpiryAwareSearchAfter(dataSource, get, set),
+        sortResult.enrichment?.get(targetHit.id),
+        offsetIsEstimate,
+      );
+      if (!buf) return; // aborted
+
+      const exactOffset = await exactOffsetPromise;
+      if (combinedSignal.aborted) return;
+
+      let finalResults = buf.combinedHits;
+      let finalSortValues = buf.sortValues;
+      let finalBufferOffset = buf.bufferStart;
+      let finalStartCursor = buf.startCursor;
+      if (exactOffset != null) {
+        const excessPreceding = Math.max(0, buf.targetLocalIndex - exactOffset);
+        const rawCorrectedOffset = Math.max(0, exactOffset - buf.targetLocalIndex);
+        finalBufferOffset = rawCorrectedOffset;
+        const totalTrim = excessPreceding;
+        if (totalTrim > 0) {
+          finalResults = finalResults.slice(totalTrim);
+          finalSortValues = finalSortValues.slice(totalTrim);
+          if (finalResults[0]) {
+            finalStartCursor = finalSortValues[0]
+              ?? extractSortValues(finalResults[0], fp.orderBy)
+              ?? finalStartCursor;
+          }
+        }
+      }
+
+      _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
+
+      // Guard: if the timeout fired while _loadBufferAroundImage was
+      // running, don't overwrite the fallback state with stale results.
+      if (timeoutController.signal.aborted) return;
+
+      // NOTE: we intentionally do NOT bump _seekGeneration here, in either
+      // mode. sortAroundFocusGeneration is the sole scroll trigger (phantom
+      // mode supplies _phantomFocusImageId as its target). Bumping
+      // _seekGeneration too would fire the seek scroll effect in the same
+      // layout pass, causing two conflicting scroll positions and a visible
+      // grid-cell recomposition twitch.
+      retainSortValues(buildSearchKey(params), finalResults, finalSortValues, Boolean(fallbackFirstPage));
+      // Commit-to-view (buffer-around / sort-around-focus): merge enrichment.
+      if (buf.enrichment) useEnrichmentStore.getState().upsertEnrichment(buf.enrichment);
+      set({
+        results: finalResults,
+        bufferOffset: finalBufferOffset,
+        // fallbackFirstPage.total is result.total from the initial search().
+        // get().total is a safe fallback (e.g. recursive neighbour-focus call).
+        total: fallbackFirstPage?.total ?? discoveredTotal ?? get().total,
+        loading: false,
+        imagePositions: buildPositions(finalResults, finalBufferOffset),
+        startCursor: finalStartCursor,
+        endCursor: buf.endCursor,
+        pitId: get().pitId === null ? null : buf.pitId,
+        _extendForwardInFlight: false,
+        _extendBackwardInFlight: false,
+        sortAroundFocusStatus: null,
+        _searchContinuity: continuity ? { ...continuity, targetId: imageId,
+          ...(!presentationCurrent() && { phase: "retired" as const }) } : null,
+        ...(presentationCurrent() ? (phantomOnly
+          ? {
+              // Phantom: scroll to image via Effect #9, no focus ring.
+              ...(!retainExplicitFocus && {
+                focusedImageId: null,
+                _focusedImageKnownOffset: null,
+              }),
+              _phantomFocusImageId: imageId,
+              ...(!get()._isInitialLoad && { _phantomPulseImageId: imageId }),
+              sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
+            }
+          : {
+              // Explicit: set focus + bump generation for scroll effect #9
+              focusedImageId: imageId,
+              _focusedImageKnownOffset: exactOffset ?? (finalBufferOffset + buf.targetLocalIndex),
+              sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
+            }) : {}),
+      });
+
+      if (presentationCurrent() && phantomOnly && !get()._isInitialLoad) {
+        setTimeout(() => set({ _phantomPulseImageId: null }), 2500);
+      }
+      set({ _isInitialLoad: false });
+
+      void _topUpScrollModeBuffer(get);
+    }
+  } catch (e) {
+    if (findFocusSignal.aborted) return;
+    if (e instanceof DOMException && e.name === "AbortError") return;
+    // Any failure → degrade gracefully
+    console.warn("[sort-around-focus] Failed to find image:", e);
+    if (fallbackFirstPage) {
+      retainSortValues(buildSearchKey(params), fallbackFirstPage.hits, fallbackFirstPage.sortValues, true);
+      if (fallbackFirstPage.enrichment) useEnrichmentStore.getState().setEnrichment(fallbackFirstPage.enrichment);
+      set({
+        results: fallbackFirstPage.hits,
+        bufferOffset: 0,
+        total: fallbackFirstPage.total,
+        loading: false,
+        imagePositions: buildPositions(fallbackFirstPage.hits, 0),
+        startCursor: fallbackFirstPage.startCursor,
+        endCursor: fallbackFirstPage.endCursor,
+        pitId: get().pitId,
+        sortAroundFocusStatus: null,
+        ...(presentationCurrent() && { focusedImageId: null, _phantomFocusImageId: null,
+          _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false } }),
+      });
+    } else {
+      set({ sortAroundFocusStatus: null, loading: false });
+    }
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Store
+// ---------------------------------------------------------------------------
+
+export const useSearchStore = create<SearchState>((set, get) => ({
+  dataSource: createDataSource(),
+
+  params: {
+    query: undefined,
+    offset: 0,
+    length: PAGE_SIZE,
+    orderBy: "-uploadTime",
+    ...DEFAULT_SEARCH,
+  },
+  results: [],
+  bufferOffset: 0,
+  total: 0,
+  loading: false,
+  error: null,
+  took: null,
+  seekTime: null,
+  fetchDuration: null,
+
+  imagePositions: new Map(),
+
+  startCursor: null,
+  endCursor: null,
+  pitId: null,
+  _pitGeneration: 0,
+
+  focusedImageId: null,
+  _phantomFocusImageId: null,
+  _searchContinuity: null,
+  sortAroundFocusStatus: null,
+  sortAroundFocusGeneration: 0,
+  _bufferSelfCorrecting: false,
+
+  newCount: 0,
+  newCountSince: null,
+  tickerCounts: null,
+  tickersLastUpdated: null,
+  aiPoolTotal: null,
+  _extendForwardInFlight: false,
+  _extendBackwardInFlight: false,
+  _lastPrependCount: 0,
+  _prependGeneration: 0,
+  _arrivingImageIds: new Set(),
+  _phantomPulseImageId: null,
+  _isInitialLoad: true,
+  _lastForwardEvictCount: 0,
+  _forwardEvictGeneration: 0,
+  _seekGeneration: 0,
+  _seekTargetLocalIndex: -1,
+  _seekTargetGlobalIndex: -1,
+  _scrollReset: { gen: 0, sortOnly: false },
+  _seekSubRowOffset: 0,
+  _browseNavigation: null,
+  _pendingFocusAfterSeek: null,
+  _pendingFocusDelta: null,
+  _focusedImageKnownOffset: null,
+
+  // Aggregation state
+  aggregations: null,
+  aggTook: null,
+  aggFetchDuration: null,
+  aggLoading: false,
+  aggCircuitOpen: false,
+  _aggCacheKey: null,
+  expandedAggs: {},
+  expandedAggsLoading: new Set(),
+  isFilterCounts: null,
+  usageFilterCounts: null,
+  dynamicFacetBuckets: {},
+
+  // Sort distribution state (scrubber tooltip + ticks)
+  sortDistribution: null,
+  _sortDistCacheKey: null,
+
+  // --- Null-zone distribution (uploadTime) for scrubber null-zone labels + ticks ---
+  /** Pre-fetched uploadTime distribution for null-zone docs. Only set when
+   *  the primary sort has a null zone (coveredCount < total). */
+  nullZoneDistribution: null,
+  /** Cache key for null-zone distribution. */
+  _nullZoneDistCacheKey: null,
+
+  // Position map state
+  positionMap: null,
+  positionMapLoading: false,
+
+  setParams: (newParams) => {
+    set((state) => ({
+      params: { ...state.params, ...newParams, offset: 0 },
+    }));
+  },
+
+  _focusIntent: 0,
+  _cursorRestore: null,
+  setFocusedImageId: (id, recordIntent = true) => {
+    const offset = id ? get().imagePositions.get(id)
+      ?? (get().focusedImageId === id ? get()._focusedImageKnownOffset : null) : null;
+    set({ focusedImageId: id, _focusedImageKnownOffset: offset,
+      ...(recordIntent && { _focusIntent: get()._focusIntent + 1 }) });
+  },
+
+  seekToFocused: async () => {
+    const { focusedImageId, params } = get();
+    if (!focusedImageId || params.aiQuery) {
+      set({ _pendingFocusDelta: null });
+      return;
+    }
+
+    const discovery = currentSearchDiscovery(get());
+    cancelBrowseNavigation(get, set);
+    cancelWindowReads(get, set);
+    _findFocusAbortController.abort();
+    _findFocusAbortController = new AbortController();
+    const signal = _findFocusAbortController.signal;
+    if (discovery) discovery.replacement = signal;
+    const searchGeneration = _searchGeneration;
+    const genBefore = get().sortAroundFocusGeneration;
+    const hintOffset = get()._focusedImageKnownOffset;
+    // No fallbackFirstPage — buffer is current (same query/sort), so the
+    // isInBuffer shortcut in _findAndFocusImage fires correctly.
+    // No prevNeighbours — not a search context change.
+    // Pass hintOffset so deep-seek mode uses the known position instead of 0.
+    try {
+      let discoveredTotal: number | undefined;
+      if (discovery) {
+        const discovered = await discovery.ready;
+        if (signal.aborted || searchGeneration !== _searchGeneration) return;
+        if ("error" in discovered) throw discovered.error;
+        discoveredTotal = discovered.metadata.total;
+        adoptDiscoveryMetadata(discovery, discovered.metadata, get, set);
+      }
+      await _findAndFocusImage(focusedImageId, discovery?.params ?? params, get, set,
+        undefined, undefined, hintOffset, undefined, undefined, signal, discoveredTotal);
+      if (signal.aborted || searchGeneration !== _searchGeneration) return;
+      if (discovery && get().sortAroundFocusGeneration !== genBefore) {
+        finishSearchDiscovery(discovery);
+        set({ _isInitialLoad: false });
+      }
+      if (get().focusedImageId !== focusedImageId) return;
+      if (get().sortAroundFocusGeneration === genBefore && !discovery) {
+        devLog(`[seekToFocused] image ${focusedImageId} not found — clearing focus`);
+        set({ focusedImageId: null, _pendingFocusDelta: null, _focusedImageKnownOffset: null });
+      }
+    } catch (error) {
+      if (signal.aborted || searchGeneration !== _searchGeneration) return;
+      set({ error: error instanceof Error ? error.message : "Focus lookup failed", loading: false,
+        sortAroundFocusStatus: null, _pendingFocusDelta: null });
+    } finally {
+      await finishAbandonedDiscovery(discovery ?? undefined, signal, focusedImageId, get, set);
+    }
+  },
+
+  search: async (sortAroundFocusId?: string | null, options?: SearchOptions) => {
+    const historyFocusIntent = options?.continuity?.provenance === "history" ? get()._focusIntent : undefined;
+    const historyPresentationCurrent = () => historyFocusIntent === undefined || get()._focusIntent === historyFocusIntent;
+    if (options?.continuity) {
+      const { targetId, focus, neighbours } = options.continuity;
+      sortAroundFocusId = targetId;
+      options = { ...options, phantomOnly: targetId !== null && focus !== "target", retainExplicitFocus: focus === "retain", visibleNeighbours: neighbours };
+    }
+    trace("search", "t_0");
+    // Bump generation so any in-flight stale search bails out after its
+    // next await. Captured locally — after every await below, if the
+    // module-level counter has moved on, this search is stale.
+    _searchGeneration += 1;
+    const myGeneration = _searchGeneration;
+
+    const { dataSource, params, pitId: oldPitId } = get();
+
+    // Capture neighbours of the focused image BEFORE the search replaces
+    // the buffer. Used for neighbour fallback if the focused image
+    // disappears from the new results.
+    // When visibleNeighbours is provided (phantom mode), use those instead
+    // of _captureNeighbours — restricts fallback to images the user actually
+    // saw, not ±20 buffer positions that may include off-screen images.
+    const prevNeighbours = sortAroundFocusId
+      ? (options?.continuity?.fallback === "top" ? [] : options?.visibleNeighbours ?? _captureNeighbours(
+          sortAroundFocusId,
+          get().results,
+          get().bufferOffset,
+          get().imagePositions,
+        ))
+      : null;
+
+    // Stop the new-images poll IMMEDIATELY — before any async work.
+    // Without this, a dangling in-flight poll count() can resolve after
+    // search completes and overwrite newCount: 0, causing the ticker to
+    // reappear despite the user having just clicked it to refresh.
+    stopNewImagesPoll();
+
+    // Capture the frozen-until boundary so we can identify new arrivals
+    // after the search completes (images with uploadTime > this timestamp).
+    const prevNewCountSince = get().newCountSince;
+
+    trace("search", "t_ack");
+    if (options?.sortOnly && !sortAroundFocusId) trace("sort-no-focus", "t_ack");
+    if (options?.traceAction) traceInteraction(options.traceAction, "t_ack", options.traceInteractionId);
+    // phantomOnly invariant: phantom-mode search/restore must NEVER leave
+    // focusedImageId set. Without this, a leaked focusedImageId from a
+    // previous explicit-focus context survives across phantom restores
+    // (e.g. popstate forward into a phantom snapshot) and corrupts
+    // downstream consumers — most notably buildHistorySnapshot, which
+    // prefers focusedImageId over the viewport anchor in explicit mode
+    // and would clobber the phantom snapshot with the leaked focus on
+    // the next departure-capture. See
+    // exploration/docs/audit-history-back-forward-back-forward-bug.md.
+    set({ loading: true, error: null, sortAroundFocusStatus: null, ...(!options?.frozenUntil && { newCount: 0, tickerCounts: null, tickersLastUpdated: null }),
+      ...(options?.frozenUntil && options.frozenNewCount !== undefined && { newCount: options.frozenNewCount, newCountSince: options.frozenUntil }),
+      ...(!params.aiQuery && { aiPoolTotal: null }), _pendingFocusDelta: null, _pendingFocusAfterSeek: null, _phantomFocusImageId: null, ...(options?.phantomOnly && !options.retainExplicitFocus && { focusedImageId: null, _focusedImageKnownOffset: null }) });
+    if (import.meta.env.DEV) {
+      _searchLifecycle = {
+        ..._searchLifecycle,
+        started: myGeneration,
+        query: params.query ?? null,
+        orderBy: params.orderBy ?? null,
+      };
+    }
+
+    // Abort all in-flight extends from the previous search and set a
+    // cooldown. The cooldown prevents extends triggered by scroll-reset
+    // effects (useLayoutEffect in ImageGrid/ImageTable) that fire between
+    // the search() call and the results arriving — during this window the
+    // buffer is still at the old deep offset, and extendBackward would
+    // prepend stale data.
+    _browseAbortController.abort();
+    _pendingWindowReadSignal = null;
+    _initialSearchDiscovery = null;
+    set({ _browseNavigation: null, _searchContinuity: null, _cursorRestore: null });
+    _searchAbortController.abort();
+    _searchAbortController = new AbortController();
+    _rangeAbortController.abort();
+    _rangeAbortController = new AbortController();
+    _findFocusAbortController.abort();
+    _findFocusAbortController = new AbortController();
+    _seekCooldownUntil = Date.now() + SEARCH_FETCH_COOLDOWN_MS;
+    const signal = _searchAbortController.signal;
+    // Capture the find-focus signal NOW, before the await. Passed to
+    // _findAndFocusImage so it uses THIS search's controller, not a
+    // later search's (which would be non-aborted and run to completion).
+    const findFocusSignal = _findFocusAbortController.signal;
+    const continuity: OwnedSearchContinuity | undefined = options?.continuity
+      ? { ...options.continuity, owner: findFocusSignal, searchGeneration: myGeneration, historyFocusIntent, phase: "ready" }
+      : undefined;
+
+    // Abort any in-flight sort distribution or expanded agg fetch
+    _sortDistRequest?.controller.abort();
+    _nullZoneDistRequest?.controller.abort();
+    _sortDistRequest = null;
+    _nullZoneDistRequest = null;
+    cancelExpandedAggregation();
+    if (_positionMapAbortController) _positionMapAbortController.abort();
+    cancelAggregationFetch();
+
+    // Clear extend-in-flight flags — the abort above cancels any in-flight
+    // extends or scroll-mode fill from the previous search. Without this,
+    // a scroll-mode fill that gets aborted leaves _extendForwardInFlight
+    // stuck at true, blocking sort-around-focus and future extends.
+    set({
+      _extendForwardInFlight: false, _extendBackwardInFlight: false,
+      aggLoading: false,
+      expandedAggs: {}, expandedAggsLoading: new Set(),
+      sortDistribution: null, _sortDistCacheKey: null,
+      nullZoneDistribution: null, _nullZoneDistCacheKey: null,
+      positionMap: null, positionMapLoading: false,
+    });
+
+    // Close old PIT (fire-and-forget)
+    if (oldPitId) {
+      dataSource.closePit(oldPitId);
+    }
+
+    // -----------------------------------------------------------------------
+    // AI search path — bypass PIT, pagination, and new-images poll entirely.
+    // Triggered when the `aiQuery` param is present (separate URL param).
+    // Returns a flat ≤200 result set (total === hits.length) which prevents
+    // the store from opening PITs, triggering scroll-mode fill, or fetching
+    // the position map. See ai-search-workplan.md §9.2.
+    // -----------------------------------------------------------------------
+    const hasAiQuery = !!params.aiQuery;
+    if (hasAiQuery) {
+      if (!dataSource.searchByAi) {
+        // searchByAi not implemented by this data source — clear loading and bail.
+        // This is a defensive guard; in normal operation the UI only surfaces
+        // the aiQuery chip when Bedrock is available.
+        set({ loading: false, error: "AI search is not supported by the current data source" });
+        return;
+      }
+      _pendingInitialSearchSignal = signal;
+      set({ _searchContinuity: continuity ? { ...continuity, phase: "pending" } : null });
+      try {
+        const aiResult = await dataSource.searchByAi(params, signal) ?? absentAiResult();
+        if (_searchGeneration !== myGeneration || signal.aborted) return;
+        if (aiResult.hits.some((image) => !Number.isFinite(image.__aiScore))) {
+          throw new Error("AI search result is missing its relevance order");
+        }
+
+        const currentParams = get().params;
+        const completionParams = aggCacheKey(currentParams) === aggCacheKey(params)
+          ? { ...params, orderBy: currentParams.orderBy }
+          : params;
+        const aiHits = sortAiResults(
+          aiResult.hits,
+          completionParams.orderBy ?? "-relevance",
+        );
+
+        const startCursor = aiResult.sortValues.length > 0 ? aiResult.sortValues[0] : null;
+        const endCursor = aiResult.sortValues.length > 0
+          ? aiResult.sortValues[aiResult.sortValues.length - 1]
+          : null;
+        const now = new Date().toISOString();
+
+        // All AI results arrive in one shot (≤200) — the anchor image is always
+        // "in the first page". Mirror the focusedInFirstPage logic from the
+        // normal path so Back-navigation position restoration works correctly.
+        const currentContinuity = get()._searchContinuity;
+        const completionFocusCurrent = () => currentContinuity?.historyFocusIntent === undefined
+          || get()._focusIntent === currentContinuity.historyFocusIntent;
+        const completionContinuity = currentContinuity?.searchGeneration === myGeneration && !currentContinuity.owner.aborted
+          ? { ...currentContinuity, phase: currentContinuity.phase === "retired" || !completionFocusCurrent() ? "retired" as const : "ready" as const }
+          : undefined;
+        const placementRetired = completionContinuity?.phase === "retired";
+        const targetId = completionContinuity ? completionContinuity.targetId : sortAroundFocusId;
+        const phantomOnly = completionContinuity ? completionContinuity.focus !== "target" : options?.phantomOnly;
+        const focusedInAiResults = targetId
+          ? aiHits.some((img) => img.id === targetId)
+          : false;
+
+        if (import.meta.env.DEV) {
+          _searchLifecycle = { ..._searchLifecycle, orderBy: completionParams.orderBy ?? null };
+        }
+        if (aiHits.length === 0) cancelAggregationFetch();
+        _browseAbortController.abort();
+        // The AI result owns the overlay: exactly its images' current fields, or none.
+        useEnrichmentStore.getState().setEnrichment(aiResult.enrichment ?? new Map());
+        set({
+          results: aiHits,
+          _searchContinuity: focusedInAiResults || placementRetired ? completionContinuity ?? null : null,
+          _browseNavigation: null,
+          _pendingFocusAfterSeek: null,
+          ...(aiHits.length === 0 ? emptyAggregationState() : {}),
+          bufferOffset: 0,
+          _bufferSelfCorrecting: false,
+          total: aiHits.length, // KEY invariant: total === buffer size → no pagination
+          aiPoolTotal: aiResult.aiPoolTotal ?? null,
+          loading: false,
+          took: aiResult.took ?? null,
+          seekTime: null,
+          params: { ...completionParams, offset: 0 },
+          imagePositions: buildPositions(aiHits, 0),
+          startCursor,
+          endCursor,
+          pitId: null,
+          ...(completionFocusCurrent() && { focusedImageId: completionContinuity?.focus === "retain" ? get().focusedImageId
+            : (focusedInAiResults && !phantomOnly) ? targetId! : null,
+          _focusedImageKnownOffset: null }),
+          newCount: 0,
+          newCountSince: now,
+          tickerCounts: aiResult.tickerCounts ?? null,
+          tickersLastUpdated: aiResult.tickerCounts ? now : null,
+          _arrivingImageIds: new Set(),
+          _extendForwardInFlight: false,
+          _extendBackwardInFlight: false,
+          _seekTargetLocalIndex: -1,
+          _seekTargetGlobalIndex: -1,
+          // Use sortAroundFocusGeneration (scroll to image) when we have an
+          // anchor, otherwise reset to top.
+          ...(placementRetired ? {} : focusedInAiResults
+            ? { sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1 }
+            : { _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false } }),
+          ...(focusedInAiResults && phantomOnly && !placementRetired
+            ? { _phantomFocusImageId: targetId!, _phantomPulseImageId: targetId! }
+            : { _phantomFocusImageId: null }),
+          _isInitialLoad: false,
+        });
+
+        if (focusedInAiResults && phantomOnly && !placementRetired) {
+          setTimeout(() => set({ _phantomPulseImageId: null }), 2500);
+        }
+
+        // Do NOT start new-images poll — AI results are ranked by relevance;
+        // new uploads don't change the semantic ranking.
+        _seekCooldownUntil = Date.now() + SEARCH_FETCH_COOLDOWN_MS;
+      } catch (e) {
+        if (_searchGeneration !== myGeneration) return;
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        console.warn("[search] AI search failed:", e);
+        const errMsg = e instanceof Error ? e.message : String(e);
+        if (errMsg.includes("503")) {
+          addToast({ category: "error", message: "AI search unavailable — Bedrock proxy returned an error. Remove the aiQuery chip or try again." });
+        }
+        set({ loading: false, error: errMsg, aiPoolTotal: null,
+          ...(get()._searchContinuity?.phase === "pending" && { _searchContinuity: null }) });
+      } finally {
+        if (_pendingInitialSearchSignal === signal) _pendingInitialSearchSignal = null;
+      }
+      return;
+    }
+
+    _pendingInitialSearchSignal = signal;
+    let discovery: InitialSearchDiscovery | null = null;
+    try {
+      // Bump PIT generation BEFORE any await so in-flight seek/extend
+      // operations that captured the old pitId are immediately invalidated
+      // (previously bumped after openPit resolved — too late for extends
+      // that fire during the sequential PIT open). See es-audit.md Issue #1.
+      set({ _pitGeneration: get()._pitGeneration + 1 });
+
+      // Open PIT and fire the first search in parallel to save ~131 ms per
+      // search (PIT open is pure network RTT). The first page doesn't use
+      // search_after cursors, so it doesn't need the PIT id upfront.
+      // First searchAfter passes pitId=null → index-prefixed /{index}/_search.
+      // PIT id from openPit() is stored in state for all subsequent
+      // extends/seeks/fills.
+      //
+      // CRITICAL: openPit is wrapped in .catch so a PIT rejection does NOT
+      // fail the whole Promise.all (naïve form would reject on first failure).
+      const requestParams = options?.frozenUntil
+        ? { ...params, until: (!params.until || params.until > options.frozenUntil) ? options.frozenUntil : params.until }
+        : params;
+      const pitRequest = IS_LOCAL_ES
+          ? Promise.resolve(null)
+          : dataSource.openPit("1m").catch((e) => {
+              console.warn("[search] Failed to open PIT, proceeding without:", e);
+              return null as string | null;
+            });
+      const pageRequest = dataSource.searchAfter(
+          { ...requestParams, length: PAGE_SIZE, trackTotalHits: true },
+          null, // no cursor — first page
+          null, // no PIT — index-prefixed /{index}/_search
+          signal, // cancel this request if a newer search() supersedes it
+        );
+        // Fire ticker aggs in parallel with the first page.
+        // countWithTickers uses size:0 so it doesn't compete with the main
+        // search for ES heap. Errors are non-fatal — null means no tickers.
+      const tickerRequest = dataSource.countWithTickers(requestParams).catch(() => null);
+      discovery = {
+        phase: "initial-read", replacement: null, resultsPublished: false, signal, searchGeneration: myGeneration, searchKey: buildSearchKey(params), dataSource,
+        params: requestParams, frozenUntil: options?.frozenUntil, page: pageRequest,
+        ready: tickerRequest.then(async (tickers) => {
+          const total = tickers?.count ?? (await pageRequest).total;
+          if (!Number.isFinite(total) || total < 0) throw new Error("Search result count is unavailable");
+          return { metadata: { total, tickers } };
+        }).catch((error: unknown) => ({ error })),
+      };
+      _initialSearchDiscovery = discovery;
+      const [newPitId, result, tickersResult] = await Promise.all([pitRequest, pageRequest, tickerRequest]);
+
+      // Stale search — a newer search() was called while we were awaiting.
+      // Bail out to avoid overwriting the newer search's state.
+      // INVARIANT: no further awaits between this check and the final set()
+      // block below. If you add an await, repeat this check after it —
+      // the mechanism doesn't fail loudly when violated.
+        if (_searchGeneration !== myGeneration || signal.aborted ||
+            discovery.replacement !== null) {
+        // Close this PIT now rather than leaving it to expire on its own
+        // keepAlive — cheap and bounded per-call, but adds up across many
+        // concurrent users each opening a PIT per stale keystroke pause.
+        if (newPitId) dataSource.closePit(newPitId);
+        return;
+      }
+
+      // On popstate restore with a frozenUntil, reuse the original freeze
+      // timestamp so the ticker correctly counts new images since the
+      // user's original search — not since the back/forward navigation.
+      const now = options?.frozenUntil ?? new Date().toISOString();
+
+      // Extract cursors from sort values
+      const startCursor = result.sortValues.length > 0 ? result.sortValues[0] : null;
+      const endCursor = result.sortValues.length > 0
+        ? result.sortValues[result.sortValues.length - 1]
+        : null;
+
+      // Check if the focused image landed in the first page
+      const focusedInFirstPage = sortAroundFocusId
+        ? result.hits.some((img) => img?.id === sortAroundFocusId)
+        : false;
+
+      // -----------------------------------------------------------------
+      // Sort-around-focus: if we have a target image that wasn't in the
+      // first page, DON'T expose the initial results to the view. The user
+      // doesn't want to see position-0 results — they want the focused
+      // image's neighbourhood. Keep loading=true and let _findAndFocusImage
+      // do the buffer replacement in one shot, eliminating the flash of
+      // wrong content. We still update metadata (total, pitId, etc.) so
+      // _findAndFocusImage has what it needs.
+      // -----------------------------------------------------------------
+      if (sortAroundFocusId && !focusedInFirstPage && result.total > 0) {
+        discovery.phase = "metadata-published";
+        set({
+          // NOTE: total is NOT set here. _findAndFocusImage sets it
+          // atomically with the new buffer. Setting it here would cause
+          // the virtualizer to re-render with a mismatched total/buffer,
+          // triggering scroll-clamp → scroll-seek → flash of wrong content.
+          took: result.took ?? null,
+          fetchDuration: result.fetchDuration ?? null,
+          seekTime: null,
+          params: { ...params, offset: 0 },
+          pitId: result.pitId ?? newPitId,
+          ...(!options?.frozenUntil && { newCount: 0 }),
+          newCountSince: now,
+          tickerCounts: tickersResult?.tickerCounts ?? null,
+          tickersLastUpdated: tickersResult ? new Date().toISOString() : null,
+          // Keep loading: true — _findAndFocusImage will set it to false.
+          // Keep results/bufferOffset/imagePositions unchanged — old buffer
+          // stays visible (or empty on first load) until the focused image's
+          // neighbourhood is loaded, preventing flash of wrong content.
+        });
+        startNewImagesPoll(get, set);
+        // Fire async — stays loading until complete.
+        // Pass the first-page results as fallback so the view shows
+        // correct content if the focused image isn't in the new results
+        // (e.g. query change where the image was filtered out).
+        _findAndFocusImage(sortAroundFocusId, params, get, set, {
+          hits: result.hits,
+          sortValues: result.sortValues,
+          enrichment: result.enrichment,
+          startCursor,
+          endCursor,
+          pitId: result.pitId ?? newPitId,
+          total: result.total,
+        }, prevNeighbours, continuity?.anchorOffset ?? (options?.discardOffsetHint ? null : get()._focusedImageKnownOffset) ?? null, options?.phantomOnly, options?.retainExplicitFocus, findFocusSignal, undefined, continuity)
+          .then(() => {
+            if (_initialSearchDiscovery === discovery && !findFocusSignal.aborted && discovery?.replacement === null) {
+              discovery.resultsPublished = true;
+              _initialSearchDiscovery = null;
+            }
+            if (
+              options?.traceAction
+              && _searchGeneration === myGeneration
+              && !get().loading
+              && !get().error
+            ) {
+              traceInteraction(
+                options.traceAction,
+                "t_store_ready",
+                options.traceInteractionId,
+                { total: get().total },
+              );
+            }
+          })
+          .catch(console.error);
+
+        // Position map: start background fetch even in sort-around-focus path.
+        // The position map uses a dedicated PIT and abort controller, fully
+        // independent of _findAndFocusImage's range controller. Without this,
+        // switching sorts with a focused image leaves positionMap permanently
+        // null — all subsequent seeks use the slow deep-seek path, and in
+        // two-tier mode the inexact offset causes permanent skeletons.
+        if (isTwoTierFromTotal(result.total)) {
+          _positionMapAbortController = new AbortController();
+          _fetchPositionMap(
+            dataSource, params,
+            _positionMapAbortController.signal, get, set,
+          );
+        }
+      } else {
+        discovery.resultsPublished = true;
+        if (_initialSearchDiscovery === discovery) _initialSearchDiscovery = null;
+        if (options?.sortOnly && !sortAroundFocusId) {
+          trace("sort-no-focus", "t_store_ready", { total: result.total });
+        }
+        if (options?.traceAction) traceInteraction(options.traceAction, "t_store_ready", options.traceInteractionId, { total: result.total });
+
+        const suppressPulse = get()._isInitialLoad;
+
+        // Identify images that arrived after the frozen-until boundary
+        // (the user clicked "N new" to refresh — these are the new arrivals).
+        const arrivingIds: Set<string> = prevNewCountSince && !sortAroundFocusId
+          ? new Set(result.hits
+              .filter((h) => h.uploadTime && h.uploadTime > prevNewCountSince)
+              .map((h) => h.id))
+          : new Set();
+
+        retainSortValues(buildSearchKey(params), result.hits, result.sortValues, true);
+        // Commit-to-view (fresh search): replace the enrichment overlay.
+        // setEnrichment replaces all — fresh search is the only commit that uses set (not upsert).
+        if (result.enrichment) useEnrichmentStore.getState().setEnrichment(result.enrichment);
+        set({
+          results: result.hits,
+          bufferOffset: 0,
+          _bufferSelfCorrecting: false,
+          total: result.total,
+          loading: false,
+          took: result.took ?? null,
+          fetchDuration: result.fetchDuration ?? null,
+          seekTime: null,
+          params: { ...params, offset: 0 },
+          imagePositions: buildPositions(result.hits, 0),
+          startCursor,
+          endCursor,
+          pitId: result.pitId ?? newPitId,
+          ...(historyPresentationCurrent() && { focusedImageId: options?.retainExplicitFocus
+            ? get().focusedImageId
+            : (focusedInFirstPage && !options?.phantomOnly) ? sortAroundFocusId! : null }),
+          _searchContinuity: focusedInFirstPage && continuity
+            ? { ...continuity, ...(!historyPresentationCurrent() && { phase: "retired" as const }) } : null,
+          ...(!options?.frozenUntil && { newCount: 0 }),
+          newCountSince: now,
+          tickerCounts: tickersResult?.tickerCounts ?? null,
+          tickersLastUpdated: tickersResult ? new Date().toISOString() : null,
+          // Set arriving IDs atomically with results so the animation
+          // class (opacity: 0 via fill-mode: both) is applied in the same
+          // React render — no one-frame flash of old content.
+          _arrivingImageIds: arrivingIds,
+          _extendForwardInFlight: false,
+          _extendBackwardInFlight: false,
+          // Clear stale seek targets — a search landing at offset 0 has no
+          // seek context. Without this, a previous seek's global index lingers
+          // and could confuse future effect #6 runs if _seekGeneration ever
+          // bumps without a fresh seek (defence-in-depth).
+          _seekTargetLocalIndex: -1,
+          _seekTargetGlobalIndex: -1,
+          // When sort-around-focus image is in the first page, bump the
+          // generation so the view scrolls to its new position. Without
+          // this, the scroll-reset effect leaves scrollTop=0 and the
+          // focused image may be off-screen in its new sort position.
+          // Phantom mode uses the same bump with _phantomFocusImageId below.
+          ...(historyPresentationCurrent() ? (focusedInFirstPage
+            ? { sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1 }
+            : { _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: !!options?.sortOnly } }) : {}),
+          ...(historyPresentationCurrent() && focusedInFirstPage && options?.phantomOnly && !suppressPulse
+            ? { _phantomFocusImageId: sortAroundFocusId!, _phantomPulseImageId: sortAroundFocusId! }
+            : historyPresentationCurrent() && focusedInFirstPage && options?.phantomOnly
+              ? { _phantomFocusImageId: sortAroundFocusId! }
+              : {}),
+          _isInitialLoad: false,
+        });
+
+        if (historyPresentationCurrent() && focusedInFirstPage && options?.phantomOnly && !suppressPulse) {
+          setTimeout(() => set({ _phantomPulseImageId: null }), 2500);
+        }
+
+        if (arrivingIds.size > 0) {
+          setTimeout(() => set({ _arrivingImageIds: new Set() }), 1500);
+        }
+
+        // Replace the 2s SEARCH_FETCH_COOLDOWN with the short post-seek
+        // cooldown now that fresh data has landed. Without this, extends
+        // are blocked for ~1.5s after search completes, and fast scrolling
+        // outruns the 200-item buffer into permanent skeletons.
+        _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
+
+        startNewImagesPoll(get, set);
+
+        // -----------------------------------------------------------
+        // Scroll-mode fill: if the total is small enough, eagerly
+        // fetch ALL remaining results so the scrubber enters scroll
+        // mode (drag directly scrolls content, no seek needed).
+        // Runs in the background — user already sees the first page.
+        // -----------------------------------------------------------
+        if (
+          result.total > result.hits.length &&
+          result.total <= SCROLL_MODE_THRESHOLD &&
+          endCursor
+        ) {
+          _fillBufferForScrollMode(
+            dataSource, params, result.hits.length, result.total,
+            endCursor, result.pitId ?? newPitId, _rangeAbortController.signal, get, set,
+          );
+        }
+
+        // -----------------------------------------------------------
+        // Position map: if total is in the indexed-scroll range
+        // (above scroll-mode threshold, at or below position-map
+        // threshold), fetch a lightweight [id, sortValues] index in
+        // the background. Uses a dedicated PIT and abort controller.
+        // -----------------------------------------------------------
+        if (isTwoTierFromTotal(result.total)) {
+          _positionMapAbortController = new AbortController();
+          _fetchPositionMap(
+            dataSource, params,
+            _positionMapAbortController.signal, get, set,
+          );
+        }
+      }
+    } catch (e) {
+      // A newer search cancels the superseded browser request via `signal`;
+      // this does not establish that backend work stopped. apiSearchAfter's fetch
+      // rejects with AbortError on cancellation (unlike the direct-ES path,
+      // which swallows it internally) — bail out silently rather than
+      // surfacing it as a search failure.
+        if (_searchGeneration !== myGeneration || signal.aborted ||
+            discovery?.replacement) return;
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      set({
+        error: e instanceof Error ? e.message : "Search failed",
+        loading: false,
+        sortAroundFocusStatus: null,
+      });
+    } finally {
+      if (_pendingInitialSearchSignal === signal) _pendingInitialSearchSignal = null;
+    }
+  },
+
+  extendForward: async () => {
+    if (get().params.aiQuery) return;
+    const {
+      dataSource, params: rawParams, results, bufferOffset, total,
+      endCursor, pitId, _extendForwardInFlight, _pitGeneration,
+    } = get();
+    const params = frozenParams(rawParams, get);
+
+    // Guards — with diagnostics so we can identify silent-block causes
+    if (_extendForwardInFlight) {
+      devLog(`[extendForward] BLOCKED: _extendForwardInFlight=true`);
+      return;
+    }
+    if (!endCursor) {
+      devLog(`[extendForward] BLOCKED: endCursor is null`);
+      return;
+    }
+    if (Date.now() < _seekCooldownUntil) {
+      devLog(`[extendForward] BLOCKED: seekCooldown (${_seekCooldownUntil - Date.now()}ms remaining)`);
+      return;
+    }
+    const globalEnd = bufferOffset + results.length;
+    if (globalEnd >= total) {
+      devLog(`[extendForward] BLOCKED: at end (globalEnd=${globalEnd} >= total=${total}, bufferOffset=${bufferOffset}, results.length=${results.length})`);
+      return;
+    }
+
+    const signal = _rangeAbortController.signal;
+    set({ _extendForwardInFlight: true });
+
+    try {
+      // If search() opened a new PIT since we captured ours, skip the
+      // stale PIT — avoids a 404 round-trip. See es-audit.md Issue #1.
+      const effectivePitId = get()._pitGeneration === _pitGeneration ? pitId : null;
+
+      const result = await createExpiryAwareSearchAfter(dataSource, get, set)(
+        { ...params, length: PAGE_SIZE },
+        endCursor,
+        effectivePitId,
+        signal,
+      );
+
+      if (signal.aborted) return;
+      if (result.pitId === null) set({ pitId: null });
+      if (result.hits.length === 0) {
+        set({ _extendForwardInFlight: false });
+        return;
+      }
+
+      retainSortValues(buildSearchKey(rawParams), result.hits, result.sortValues);
+      // Commit-to-view (extend-forward): merge enrichment.
+      if (result.enrichment) useEnrichmentStore.getState().upsertEnrichment(result.enrichment);
+      set((state) => {
+        const newBuffer = [...state.results, ...result.hits];
+        let newOffset = state.bufferOffset;
+        let newStartCursor = state.startCursor;
+        let newPositions = buildPositions(
+          result.hits,
+          state.bufferOffset + state.results.length,
+          state.imagePositions,
+        );
+
+        let evictedFromStart = 0;
+        if (newBuffer.length > BUFFER_CAPACITY) {
+          evictedFromStart = newBuffer.length - BUFFER_CAPACITY;
+          newPositions = evictPositions(
+            newPositions, newBuffer, 0, evictedFromStart,
+          );
+          newBuffer.splice(0, evictedFromStart);
+          newOffset += evictedFromStart;
+          const firstItem = newBuffer[0];
+          const evictedStart = firstItem
+            ? getRetainedSortValues(firstItem.id, buildSearchKey(rawParams))
+              ?? extractSortValues(firstItem, params.orderBy)
+            : null;
+          // Preserve last good cursor if extraction fails — overwriting with
+          // null would permanently block extendBackward (audit #14).
+          newStartCursor = evictedStart ?? state.startCursor;
+        }
+
+        const newEndCursor = result.sortValues.length > 0
+          ? result.sortValues[result.sortValues.length - 1]
+          : state.endCursor;
+
+        return {
+          results: newBuffer,
+          bufferOffset: newOffset,
+          // Total is stable within a search session (frozen params) — always
+          // use the store's known total (audit F-01).
+          total: state.total,
+          endCursor: newEndCursor,
+          startCursor: newStartCursor,
+          // Use !== undefined so explicit null (PIT-expiry fallback, audit #21)
+          // clears the stale PIT instead of preserving it via ??.
+          pitId: state.pitId === null ? null : result.pitId !== undefined ? result.pitId : state.pitId,
+          imagePositions: newPositions,
+          _extendForwardInFlight: false,
+          // Signal views to compensate scrollTop for evicted items (Bug #16)
+          ...(evictedFromStart > 0 ? {
+            _lastForwardEvictCount: evictedFromStart,
+            _forwardEvictGeneration: state._forwardEvictGeneration + 1,
+          } : {}),
+        };
+      });
+    } catch (e) {
+      if (signal.aborted) return;
+      if (e instanceof DOMException && e.name === "AbortError") {
+        set({ _extendForwardInFlight: false });
+        return;
+      }
+      set({
+        _extendForwardInFlight: false,
+        error: e instanceof Error ? e.message : "Extend forward failed",
+      });
+    }
+  },
+
+  abortExtends: () => {
+    get().cancelWindowMaintenance();
+    cancelBrowseNavigation(get, set);
+  },
+
+  cancelWindowMaintenance: () => {
+    cancelWindowReads(get, set);
+    _seekCooldownUntil = Date.now() + SEARCH_FETCH_COOLDOWN_MS;
+  },
+
+  extendBackward: async () => {
+    if (get().params.aiQuery) return;
+    const {
+      dataSource, params: rawParams, bufferOffset, startCursor, pitId,
+      _extendBackwardInFlight, _pitGeneration,
+    } = get();
+    const params = frozenParams(rawParams, get);
+
+    // Guards — with diagnostics so we can identify silent-block causes
+    if (_extendBackwardInFlight) {
+      devLog(`[extendBackward] BLOCKED: _extendBackwardInFlight=true`);
+      return;
+    }
+    if (bufferOffset <= 0) return; // already at the start (normal, no log)
+    if (Date.now() < _seekCooldownUntil) {
+      devLog(`[extendBackward] BLOCKED: seekCooldown (${_seekCooldownUntil - Date.now()}ms remaining)`);
+      return;
+    }
+    if (!startCursor) {
+      devLog(`[extendBackward] BLOCKED: startCursor is null`);
+      return;
+    }
+
+    const fetchCount = Math.min(PAGE_SIZE, bufferOffset);
+
+    const signal = _rangeAbortController.signal;
+    set({ _extendBackwardInFlight: true });
+
+    try {
+      // Reverse search_after: flip sort, use startCursor as anchor,
+      // results come back in reversed order (adapter reverses them).
+      // Works at any depth — no from/size offset limit.
+
+      // If search() opened a new PIT since we captured ours, skip the
+      // stale PIT — avoids a 404 round-trip. See es-audit.md Issue #1.
+      const effectivePitId = get()._pitGeneration === _pitGeneration ? pitId : null;
+
+      let result = await createExpiryAwareSearchAfter(dataSource, get, set)(
+        { ...params, length: fetchCount },
+        startCursor,
+        effectivePitId,
+        signal,
+        true, // reverse
+      );
+
+      if (signal.aborted) return;
+      if (result.pitId === null) set({ pitId: null });
+      if (startCursor[0] === null && result.hits.length < fetchCount) {
+        const valuedPage = await createExpiryAwareSearchAfter(dataSource, get, set)(
+          { ...params, offset: 0, length: fetchCount - result.hits.length, trackTotalHits: false },
+          null,
+          result.pitId === undefined ? effectivePitId : result.pitId,
+          signal,
+          true,
+        );
+        if (signal.aborted) return;
+        if (valuedPage.pitId === null) set({ pitId: null });
+        result = {
+          ...result,
+          hits: [...valuedPage.hits, ...result.hits],
+          sortValues: [...valuedPage.sortValues, ...result.sortValues],
+          enrichment: result.enrichment || valuedPage.enrichment
+            ? new Map([...valuedPage.enrichment ?? [], ...result.enrichment ?? []])
+            : undefined,
+        };
+      }
+      if (result.hits.length === 0) {
+        set({ _extendBackwardInFlight: false });
+        return;
+      }
+
+      retainSortValues(buildSearchKey(rawParams), result.hits, result.sortValues);
+      // Commit-to-view (extend-backward): merge enrichment.
+      if (result.enrichment) useEnrichmentStore.getState().upsertEnrichment(result.enrichment);
+      set((state) => {
+        // result.hits are already in correct (forward) order after reversal
+        const newBuffer = [...result.hits, ...state.results];
+        const newOffset = Math.max(0, state.bufferOffset - result.hits.length);
+        let newEndCursor = state.endCursor;
+        let newPositions = buildPositions(
+          result.hits,
+          newOffset,
+          state.imagePositions,
+        );
+
+        // Eviction: if buffer exceeds capacity, evict from end
+        if (newBuffer.length > BUFFER_CAPACITY) {
+          const evictCount = newBuffer.length - BUFFER_CAPACITY;
+          const evictStart = newBuffer.length - evictCount;
+          newPositions = evictPositions(
+            newPositions, newBuffer, evictStart, newBuffer.length,
+          );
+          newBuffer.splice(evictStart, evictCount);
+          // Recompute endCursor from the new last buffer item (symmetric
+          // with the startCursor recomputation in extendForward eviction).
+          const lastItem = newBuffer[newBuffer.length - 1];
+          const evictedEnd = lastItem
+            ? getRetainedSortValues(lastItem.id, buildSearchKey(rawParams))
+              ?? extractSortValues(lastItem, params.orderBy)
+            : null;
+          // Preserve last good cursor if extraction fails — overwriting with
+          // null would permanently block extendForward (audit #14).
+          newEndCursor = evictedEnd ?? state.endCursor;
+        }
+
+        // Start cursor from the first result (earliest in sort order)
+        const newStartCursor = result.sortValues.length > 0
+          ? result.sortValues[0]
+          : state.startCursor;
+
+        return {
+          results: newBuffer,
+          bufferOffset: newOffset,
+          startCursor: newStartCursor,
+          endCursor: newEndCursor,
+          // Total is stable within a search session (frozen params) — always
+          // use the store's known total (audit F-01).
+          total: state.total,
+          imagePositions: newPositions,
+          _extendBackwardInFlight: false,
+          _lastPrependCount: result.hits.length,
+          _prependGeneration: state._prependGeneration + 1,
+          // Atomic with results — no one-frame flash (fill-mode: both
+          // applies opacity: 0 from the same render).
+          _arrivingImageIds: new Set(result.hits.map((h) => h.id)),
+        };
+      });
+
+      setTimeout(() => set({ _arrivingImageIds: new Set() }), 1500);
+
+      // APPROACH #4 (Agent 10): After each backward extend completes, set a
+      // short cooldown so the next extend can't fire immediately. Without this,
+      // the prepend compensation (scrollTop += ~8787px) fires a scroll event
+      // which triggers another extendBackward before the browser has painted
+      // the compensated position — cascading compensations cause visible
+      // "swimming." See POST_EXTEND_COOLDOWN_MS in tuning.ts for constraints.
+      _seekCooldownUntil = Date.now() + POST_EXTEND_COOLDOWN_MS;
+    } catch (e) {
+      if (signal.aborted) return;
+      if (e instanceof DOMException && e.name === "AbortError") {
+        set({ _extendBackwardInFlight: false });
+        return;
+      }
+      set({
+        _extendBackwardInFlight: false,
+        error: e instanceof Error ? e.message : "Extend backward failed",
+      });
+    }
+  },
+
+  canReuseResidentResults: () => currentSearchDiscovery(get()) === null,
+
+  queueBrowsePosition: (globalOffset) => {
+    const state = get();
+    if (state.params.aiQuery) return;
+    const targetOffset = Math.max(0, Math.min(globalOffset, Math.max(0, state.total - 1)));
+    const pending = state._browseNavigation;
+    if (pending?.targetOffset === targetOffset && !pending.signal.aborted) return;
+    const navigation = startBrowseNavigation(state, targetOffset);
+    get().cancelWindowMaintenance();
+    if (!navigation.initialSearchSuperseded && targetOffset >= state.bufferOffset &&
+        targetOffset < state.bufferOffset + state.results.length) {
+      set({ _browseNavigation: null, _pendingFocusAfterSeek: null, loading: false });
+      return;
+    }
+    set({ _browseNavigation: navigation, _pendingFocusAfterSeek: null, loading: true, error: null,
+      sortAroundFocusStatus: null });
+    const cancel = () => {
+      clearTimeout(timer);
+      void finishAbandonedDiscovery(navigation.discovery, navigation.signal, undefined, get, set);
+    };
+    const timer = setTimeout(() => {
+      navigation.signal.removeEventListener("abort", cancel);
+      if (get()._browseNavigation?.signal !== navigation.signal || navigation.signal.aborted) return;
+      if (_searchGeneration !== navigation.searchGeneration || buildSearchKey(get().params) !== navigation.searchKey) {
+        get().abortExtends();
+        return;
+      }
+      void get().seek(targetOffset);
+    }, 200);
+    navigation.signal.addEventListener("abort", cancel, { once: true });
+  },
+
+  seek: async (globalOffset: number, traceAction: string = "seek", traceInteractionId?: string, purpose = "navigation", restoreFocusIntent?: number) => {
+    if (get().params.aiQuery) {
+      set({ _pendingFocusAfterSeek: null });
+      return;
+    }
+    if (purpose === "refill" && get()._browseNavigation) return;
+    const { dataSource, params: rawParams, pitId, _pitGeneration } = get();
+    let params = frozenParams(rawParams, get);
+    const searchAfter = createExpiryAwareSearchAfter(dataSource, get, set);
+    const offsetReadLimit = Math.min(dataSource.offsetReadLimit ?? MAX_RESULT_WINDOW, MAX_RESULT_WINDOW);
+    const pendingFocus = get()._pendingFocusAfterSeek;
+    const presentationCurrent = () => restoreFocusIntent === undefined || get()._focusIntent === restoreFocusIntent;
+
+    // Clamp to valid range
+    let { total } = get();
+    let clampedOffset = Math.max(0, Math.min(globalOffset, Math.max(0, total - 1)));
+
+    const previousNavigation = get()._browseNavigation;
+    const queuedNavigation = previousNavigation?.phase === "queued" &&
+      previousNavigation.targetOffset === clampedOffset && !previousNavigation.signal.aborted
+      ? previousNavigation : null;
+    let navigation = purpose === "navigation" && presentationCurrent()
+      ? { ...(queuedNavigation ?? startBrowseNavigation(get(), clampedOffset)), phase: "loading" as const }
+      : null;
+
+    // Abort in-flight extends / previous seeks
+    _rangeAbortController.abort();
+    _rangeAbortController = new AbortController();
+    // Capture the signal NOW — if another seek starts later, it will abort
+    // this controller and all our in-flight requests will be cancelled.
+    // Without this capture, requests made later in this async function would
+    // read the module-level _rangeAbortController (which may have been
+    // replaced by a newer seek), allowing stale seeks to complete uncancelled.
+    const signal = navigation?.signal ?? _rangeAbortController.signal;
+    if (restoreFocusIntent === undefined && get()._cursorRestore?.signal.aborted) set({ _cursorRestore: null });
+    _pendingWindowReadSignal = purpose === "refill" ? signal : null;
+
+    const reuseResidentStart = (pendingFocus?.signal !== undefined || previousNavigation !== null) &&
+      !navigation?.initialSearchSuperseded && clampedOffset === 0 &&
+      get().bufferOffset === 0 && get().results.length > 0;
+    if (reuseResidentStart) {
+      set({ loading: false, _browseNavigation: null, _pendingFocusAfterSeek: null, _pendingFocusDelta: null,
+        _extendForwardInFlight: false, _extendBackwardInFlight: false });
+      return;
+    }
+
+    // If search() opened a new PIT since we captured ours, skip the
+    // stale PIT — avoids a 404 round-trip. See es-audit.md Issue #1.
+    let effectivePitId = get()._pitGeneration === _pitGeneration ? pitId : null;
+
+    // Set cooldown IMMEDIATELY (synchronous, before any await). This prevents
+    // extendForward/extendBackward from racing when a scroll event and seek
+    // fire in the same microtask (e.g. Home key sets scrollTop=0 then seeks).
+    // Without this, the scroll handler triggers reportVisibleRange → extend
+    // before the seek's async fetch can set the cooldown.
+    _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
+
+    set({
+      loading: true,
+      error: null,
+      _browseNavigation: navigation,
+      ...(navigation && { sortAroundFocusStatus: null }),
+      _pendingFocusDelta: null,
+      _pendingFocusAfterSeek: pendingFocus && !pendingFocus.signal
+        ? { ...pendingFocus, signal }
+        : null,
+      _extendForwardInFlight: false,
+      _extendBackwardInFlight: false,
+    });
+    trace(traceAction, "t_ack");
+    traceInteraction(traceAction, "t_ack", traceInteractionId);
+
+    const seekStartTime = Date.now();
+    // Performance marks for DevTools profiling — visible in the Performance
+    // tab's "Timings" lane. Cleared at the start so only the latest seek shows.
+    // Clear only seek-specific marks/measures — don't wipe unrelated profiling.
+    for (const name of ['seek-start', 'seek-forward-done', 'seek-backward-done', 'seek-set-done', 'seek-painted']) {
+      performance.clearMarks(name);
+    }
+    for (const name of ['seek: forward fetch', 'seek: backward fetch', 'seek: compute + set()', 'seek: total (to paint)', 'seek: render + paint']) {
+      performance.clearMeasures(name);
+    }
+    performance.mark('seek-start');
+
+    let committed = false;
+    const discovery = navigation?.discovery;
+    try {
+      let metadata: SearchDiscoveryMetadata | null = null;
+      if (discovery) {
+        const discovered = await discovery.ready;
+        if (signal.aborted || discovery.searchGeneration !== _searchGeneration ||
+            discovery.searchKey !== buildSearchKey(get().params)) return;
+        if ("error" in discovered) throw discovered.error;
+        metadata = discovered.metadata;
+        total = metadata.total;
+        params = discovery.phase === "metadata-published" ? frozenParams(discovery.params, get) : discovery.params;
+        effectivePitId = discovery.phase === "metadata-published" ? get().pitId : null;
+        const requested = pendingFocus && !pendingFocus.signal && pendingFocus.edge === "last" ? total - 1 : globalOffset;
+        clampedOffset = Math.max(0, Math.min(requested, Math.max(0, total - 1)));
+        navigation = { ...navigation!, targetOffset: clampedOffset };
+        set({ _browseNavigation: navigation });
+      }
+      const discoveredState = metadata && discovery
+        ? { ...discoveryMetadataState(discovery, metadata), _isInitialLoad: false } : {};
+      // Center the buffer around the target offset
+      const halfBuffer = Math.floor(PAGE_SIZE / 2);
+      const fetchStart = Math.max(0, clampedOffset - halfBuffer);
+
+      let result: SearchAfterResult | undefined;
+      let actualOffset = fetchStart;
+      let usedNullZoneFilter = false;
+      // True when the seek path gives an exact offset (position-map, shallow).
+      // When true, use targetLocalIndex directly for scroll positioning instead
+      // of reverse-computing from the user's current scrollTop. This prevents
+      // the scrubber thumb from jumping after the seek settles.
+      let exactOffset = false;
+      // Bidirectional seek: after the forward fetch completes (for deep paths),
+      // we add a backward fetch to place the user in the MIDDLE of the buffer.
+      // This eliminates swimming — both extendBackward and extendForward operate
+      // on off-screen content. The End-key and shallow paths skip this.
+      let skipBackwardFetch = false;
+      // Track how many backward items were prepended. Used by the reverse-compute
+      // to offset scrollTargetIndex past the backward headroom.
+      let backwardItemCount = 0;
+
+      // ---------------------------------------------------------------
+      // Fast path: End key — target is within PAGE_SIZE of the end.
+      // Use reverse search_after (no cursor = last PAGE_SIZE results)
+      // to guarantee the buffer covers the absolute last items.
+      // Without this, the keyword/percentile estimation path may land
+      // slightly short of the end and the buffer won't reach total.
+      // ---------------------------------------------------------------
+      if (total === 0 && discovery) {
+        result = { hits: [], total: 0, sortValues: [] };
+        exactOffset = true;
+        skipBackwardFetch = true;
+      } else if (clampedOffset + PAGE_SIZE >= total && fetchStart >= DEEP_SEEK_THRESHOLD) {
+        result = await searchAfter(
+          { ...params, length: PAGE_SIZE },
+          null,
+          effectivePitId,
+          signal,
+          true, // reverse
+          true, // seekToEnd — nulls come first in reversed order
+        );
+        if (result.hits.length > 0) {
+          actualOffset = Math.max(0, total - result.hits.length);
+        }
+        skipBackwardFetch = true; // At the absolute end — nothing beyond to fetch
+        exactOffset = true; // Offset is known-exact (reverse from end)
+      } else if (fetchStart < DEEP_SEEK_THRESHOLD) {
+        // ---------------------------------------------------------------
+        // Shallow seek — from/size is fast at small offsets (<10k)
+        // ---------------------------------------------------------------
+        result = await searchAfter(
+          { ...params, offset: fetchStart, length: PAGE_SIZE },
+          null,
+          null,
+          signal,
+        );
+        skipBackwardFetch = true; // from/size already centers buffer via fetchStart
+        exactOffset = true; // from/size gives exact positioning
+      } else if (get().positionMap && clampedOffset < get().positionMap!.length) {
+        // ---------------------------------------------------------------
+        // Position-map fast path — exact position→sortValues lookup.
+        //
+        // Both forward and backward cursors are known upfront from the map,
+        // so we run them in parallel via Promise.all. Saves ~250-350ms on
+        // TEST (max of two fetches instead of sequential sum).
+        //
+        // Handles date, keyword, and null-zone sorts uniformly — the
+        // position map stores the actual sort values ES returned (including
+        // null for null-zone entries).
+        // ---------------------------------------------------------------
+        const posMap = get().positionMap!;
+        const forwardCursor = cursorForPosition(posMap, clampedOffset);
+
+        devLog(
+          `[seek] POSITION MAP fast path: target=${clampedOffset}, ` +
+          `mapLength=${posMap.length}, cursor=${JSON.stringify(forwardCursor)}`,
+        );
+
+        if (forwardCursor === null) {
+          // Position 0 — fetch from the start (no search_after cursor)
+          result = await searchAfter(
+            { ...params, length: PAGE_SIZE },
+            null,
+            effectivePitId,
+            signal,
+          );
+          actualOffset = 0;
+          exactOffset = true;
+          skipBackwardFetch = true; // at the start — nothing before to fetch
+        } else {
+          // --- Parallel forward + backward fetch ---
+
+          // Backward: fetch halfBuffer items before clampedOffset.
+          // The backward cursor is the entry AT the target position — with
+          // reverse: true, search_after returns items strictly before it.
+          const skipBackward = clampedOffset < halfBuffer;
+          let backwardPromise: Promise<SearchAfterResult | null> | null = null;
+
+          if (!skipBackward) {
+            const backwardCursor = posMap.sortValues[clampedOffset];
+            if (backwardCursor) {
+              backwardPromise = searchAfter(
+                { ...params, length: halfBuffer },
+                backwardCursor,
+                effectivePitId,
+                signal,
+                true, // reverse
+              );
+            }
+          }
+
+          // Forward fetch — null-zone cursors are handled transparently by the adapter
+          const forwardPromise = searchAfter(
+            { ...params, length: PAGE_SIZE },
+            forwardCursor,
+            effectivePitId,
+            signal,
+          );
+          if (forwardCursor[0] === null) usedNullZoneFilter = true;
+
+          // Run in parallel
+          const [forwardResult, backwardResult] = await Promise.all([
+            forwardPromise,
+            backwardPromise ?? Promise.resolve(null),
+          ]);
+
+          if (signal.aborted) return;
+
+          // Combine results
+          result = backwardResult?.pitId === null ? { ...forwardResult, pitId: null } : forwardResult;
+
+          if (backwardResult && backwardResult.hits.length > 0) {
+            const combinedHits = [
+              ...backwardResult.hits,
+              ...forwardResult.hits,
+            ];
+            const combinedSortValues = [
+              ...backwardResult.sortValues,
+              ...forwardResult.sortValues,
+            ];
+
+            const newBufferStart = Math.max(0, clampedOffset - backwardResult.hits.length);
+
+            result = {
+              ...result,
+              hits: combinedHits,
+              sortValues: combinedSortValues,
+              enrichment: (backwardResult.enrichment || forwardResult.enrichment)
+                ? new Map([...(backwardResult.enrichment ?? []), ...(forwardResult.enrichment ?? [])])
+                : undefined,
+            };
+            actualOffset = newBufferStart;
+            backwardItemCount = backwardResult.hits.length;
+
+            devLog(
+              `[seek] POSITION MAP parallel: prepended ${backwardResult.hits.length} backward items, ` +
+              `buffer now ${combinedHits.length} items, bufferOffset=${newBufferStart}`,
+            );
+          } else {
+            actualOffset = clampedOffset;
+          }
+
+          exactOffset = true;
+          // Skip the sequential backward-fetch block — we already did it in parallel
+          skipBackwardFetch = true;
+        }
+      } else {
+        // ---------------------------------------------------------------
+        // Deep seek — percentile estimation + search_after + countBefore
+        //
+        // 1. Estimate the sort value at the target percentile
+        // 2. search_after from that value (no from/size depth limit)
+        // 3. countBefore to find the exact global offset we landed at
+        // ---------------------------------------------------------------
+        const sortClause = buildSortClause(params.orderBy);
+        const primarySort = sortClause[0];
+        const { field: primaryField, direction: primaryDir } =
+          parseSortField(primarySort);
+
+        // For desc sort: position 0 = highest value. To find the value at
+        // position P in N results, we need percentile (100 - P/N * 100).
+        // For asc sort: position 0 = lowest value → percentile P/N * 100.
+        //
+        // CRITICAL: When a field has null values (e.g. lastModified — many
+        // images never modified), ES puts nulls at the END of the sort
+        // (missing: "_last" for both asc and desc). The percentile agg
+        // only covers docs WITH the field. If we use `total` as the
+        // denominator, we compute a percentile that's too conservative:
+        // e.g. position 50k out of 1.3M = 3.8% ratio, but if only 100k
+        // docs have the field, position 50k is actually at the 50th
+        // percentile of those docs. Use coveredCount when available
+        // (from the sort distribution), falling back to total.
+        //
+        // For both directions, positions 0..(coveredCount-1) have values and
+        // positions coveredCount..(total-1) are nulls. ES `missing: "_last"`
+        // is direction-independent. Within the null zone, documents are sorted
+        // by the remaining sort fields (including the uploadTime fallback).
+        // Ensure sortDistribution is loaded before we rely on coveredCount.
+        // On first scrubber click, fetchSortDistribution fires in parallel
+        // with seek — but seek needs coveredCount to detect the null zone.
+        // Without it, seek treats the entire corpus as having values for the
+        // primary field, and the percentile maps to the wrong position.
+        // One extra round-trip on first click only (cached after that).
+        let dist = get().sortDistribution;
+        if (!dist && primaryField !== "uploadTime") {
+          await get().fetchSortDistribution();
+          dist = get().sortDistribution;
+        }
+        if (signal.aborted) return;
+        const coveredCount = dist?.coveredCount ?? total;
+
+        // Determine if the target position is in the "null zone" — beyond
+        // the docs that have the primary sort field value. In the null zone
+        // all docs tie on the primary field (null), so they're ordered by
+        // the uploadTime fallback and id tiebreaker. Percentile estimation
+        // on the primary field is useless here.
+        const inNullZone = clampedOffset >= coveredCount;
+
+        devLog(
+          `[seek-diag] target=${clampedOffset}, total=${total}, coveredCount=${coveredCount}, ` +
+          `primaryField=${primaryField}, primaryDir=${primaryDir}, inNullZone=${inNullZone}, ` +
+          `distLoaded=${!!dist}, distBuckets=${dist?.buckets.length ?? 0}`,
+        );
+
+
+        let estimatedValue: number | null = null;
+
+        if (inNullZone) {
+          // Target is in the null-value zone. All docs here have null for
+          // the primary sort field, so they're ordered by the uploadTime
+          // fallback. Estimate the uploadTime at the target position within
+          // the null zone, then search_after with [null, uploadTime, ""].
+
+          const nullZoneSize = total - coveredCount;
+          const posInNullZone = clampedOffset - coveredCount;
+
+          // Null zone is sorted by the uploadTime fallback (direction matches
+          // buildSortClause's logic — desc for date desc, asc for date asc).
+          // Derive fallback direction from the sort clause.
+          let fallbackDir: "asc" | "desc" = "desc";
+          for (const clause of sortClause) {
+            const { field, direction } = parseSortField(clause);
+            if (field === "uploadTime") { fallbackDir = direction; break; }
+          }
+
+          // --- Estimate uploadTime at the target position ---
+          //
+          // Strategy 1 (preferred): use the null-zone distribution if loaded.
+          // This is the same data the tooltip uses — binary search on bucket
+          // startPositions gives the exact bucket for this position. Much more
+          // accurate than percentile over all docs, because it only covers
+          // null-zone docs with their actual uploadTime distribution.
+          //
+          // Strategy 2 (fallback): percentile over all docs via ES aggregation.
+          // Inaccurate because the non-null docs have different uploadTime
+          // distributions than the null-zone docs.
+          const nullZoneDist = get().nullZoneDistribution;
+          let uploadTimeEstimate: number | null = null;
+
+          if (nullZoneDist && nullZoneDist.buckets.length >= 2) {
+            // Binary search the distribution for the bucket at posInNullZone
+            const buckets = nullZoneDist.buckets;
+            let lo = 0;
+            let hi = buckets.length - 1;
+            while (lo < hi) {
+              const mid = (lo + hi + 1) >>> 1;
+              if (buckets[mid].startPosition <= posInNullZone) {
+                lo = mid;
+              } else {
+                hi = mid - 1;
+              }
+            }
+            const bucket = buckets[lo];
+            // Interpolate within the bucket for sub-bucket precision.
+            // The bucket covers positions [startPosition, nextStartPosition).
+            // Linear interpolation between this bucket's date and the next.
+            const bucketDate = new Date(bucket.key).getTime();
+            if (lo + 1 < buckets.length) {
+              const nextBucket = buckets[lo + 1];
+              const nextDate = new Date(nextBucket.key).getTime();
+              const posInBucket = posInNullZone - bucket.startPosition;
+              const bucketSize = nextBucket.startPosition - bucket.startPosition;
+              const frac = bucketSize > 0 ? posInBucket / bucketSize : 0;
+              uploadTimeEstimate = bucketDate + frac * (nextDate - bucketDate);
+            } else {
+              uploadTimeEstimate = bucketDate;
+            }
+            devLog(
+              `[seek-diag] NULL ZONE: posInNullZone=${posInNullZone}, nullZoneSize=${nullZoneSize}, ` +
+              `using DISTRIBUTION bucket[${lo}] key=${bucket.key}, ` +
+              `estimate=${new Date(uploadTimeEstimate).toISOString()}`,
+            );
+          } else {
+            // Fallback: percentile over all docs (inaccurate for null zone)
+            const nullRatio = posInNullZone / Math.max(1, nullZoneSize);
+            const uploadPercentile = Math.max(0.01, Math.min(99.99,
+              fallbackDir === "desc"
+                ? (1 - nullRatio) * 100
+                : nullRatio * 100,
+            ));
+            devLog(
+              `[seek-diag] NULL ZONE: posInNullZone=${posInNullZone}, nullZoneSize=${nullZoneSize}, ` +
+              `nullRatio=${nullRatio.toFixed(4)}, fallbackDir=${fallbackDir}, ` +
+              `using PERCENTILE=${uploadPercentile.toFixed(2)} (no null-zone distribution)`,
+            );
+            uploadTimeEstimate = await dataSource.estimateSortValue(
+              params,
+              "uploadTime",
+              uploadPercentile,
+              signal,
+            );
+          }
+
+
+          if (uploadTimeEstimate != null) {
+            devLog(
+              `[seek-diag] NULL ZONE estimate: uploadTime=${uploadTimeEstimate} ` +
+              `(${new Date(uploadTimeEstimate).toISOString()})`,
+            );
+            // Null zone strategy: pass a null-prefixed cursor so the adapter
+            // applies the correct sort/filter overrides internally.
+            // The adapter detects cursor[0] === null, strips the prefix, narrows
+            // to docs where primaryField is missing, sorts by [uploadTime, id],
+            // and remaps returned sort values back to full shape.
+            const nullZoneCursor: SortValues = [null, uploadTimeEstimate, ""];
+
+            usedNullZoneFilter = true;
+            result = await searchAfter(
+              { ...params, length: PAGE_SIZE },
+              nullZoneCursor,
+              effectivePitId,
+              signal,
+            );
+
+            // Find where we actually landed. The countBefore for the null
+            // zone is: coveredCount (all docs with values sort before any
+            // null doc) + position within the null zone. We count within
+            // the null zone by asking "how many null-zone docs sort before
+            // the landed position" on the uploadTime+id sort.
+            if (result.hits.length > 0 && result.sortValues.length > 0) {
+              if (signal.aborted) return;
+              // landedSortValues is already full shape: [null, uploadTime, id]
+              const landedSortValues = result.sortValues[0];
+              const uploadTimeIdx = sortClause.findIndex((c) => {
+                const { field } = parseSortField(c);
+                return field === "uploadTime";
+              });
+              const landedUploadTime = uploadTimeIdx >= 0 ? landedSortValues[uploadTimeIdx] : null;
+              devLog(
+                `[seek-diag] NULL ZONE landed: uploadTime=${landedUploadTime} ` +
+                `(${new Date(landedUploadTime as number).toISOString()}), ` +
+                `firstHitUploadTime=${result.hits[0]?.uploadTime}`,
+              );
+
+              const countBefore = await dataSource.countBefore(
+                params,
+                landedSortValues,
+                signal,
+              );
+              devLog(
+                `[seek-diag] NULL ZONE countBefore=${countBefore}, ` +
+                `expected≈${clampedOffset}, coveredCount=${coveredCount}, ` +
+                `impliedNullZonePos=${countBefore - coveredCount}, ` +
+                `targetNullZonePos=${posInNullZone}, ` +
+                `drift=${countBefore - clampedOffset}, ` +
+                `fullSortValues=${JSON.stringify(landedSortValues)}`,
+              );
+              actualOffset = countBefore;
+            }
+            // Sort values are already in full shape (adapter remapped them).
+          }
+          // If uploadTimeEstimate is null, fall through to the keyword/fallback path below.
+        }
+
+        const keywordInfo = resolveKeywordSortInfo(params.orderBy);
+        const primaryKeyForEstimate = resolvePrimarySortKey(params.orderBy);
+        const numericPrimary = primaryKeyForEstimate === "width" || primaryKeyForEstimate === "height";
+        if (!inNullZone && (!keywordInfo || numericPrimary)) {
+          // Compute percentile for the covered range (docs WITH the field).
+          const posInCovered = clampedOffset;
+          const positionRatio = posInCovered / Math.max(1, coveredCount);
+          const percentile =
+            primaryDir === "desc"
+              ? (1 - positionRatio) * 100
+              : positionRatio * 100;
+
+          const clampedPercentile = Math.max(0.01, Math.min(99.99, percentile));
+
+
+          if (primaryField) {
+            estimatedValue = await dataSource.estimateSortValue(
+              params,
+              primaryField,
+              clampedPercentile,
+              signal,
+            );
+          }
+        }
+
+        // Skip percentile/keyword paths if the null zone path already handled the seek.
+        if (!result && estimatedValue != null) {
+          // Use search_after with the estimated sort value. Remaining clauses
+          // get direction-aware anchors (see buildSeekCursorAnchors).
+          const searchAfterValues = buildSeekCursorAnchors(sortClause, estimatedValue);
+
+          result = await searchAfter(
+            { ...params, length: PAGE_SIZE },
+            searchAfterValues,
+            effectivePitId,
+            signal,
+          );
+
+          // Find where we actually landed via countBefore
+          if (result.hits.length > 0 && result.sortValues.length > 0) {
+            // Check abort before starting another async operation —
+            // searchAfter may have completed just before we were aborted.
+            if (signal.aborted) return;
+            const landedSortValues = result.sortValues[0];
+            const countBefore = await dataSource.countBefore(
+              params,
+              landedSortValues,
+              signal,
+            );
+            actualOffset = countBefore;
+          }
+        } else if (!result) {
+          // Keyword sorts — percentile estimation on the raw field is
+          // unavailable (ES rejects `percentiles` on keyword fields).
+          const pField = keywordInfo?.field ?? null;
+
+          // Fast path: the cached sort distribution (already fetched above
+          // for coveredCount) already tells us the exact bucket — no need
+          // to walk the vocabulary again. A miss means the distribution
+          // doesn't cover this position (absent, or truncated at high
+          // cardinality — see the archived keyword-sorts evidence §11 Q1), so fall
+          // through to the composite-walk path below.
+          const bucket = pField && dist ? findBucketAtPosition(dist, fetchStart) : null;
+
+          if (pField && bucket) {
+            const posInBucket = fetchStart - bucket.startPosition;
+            // uploadTime fallback is always desc for keyword sorts
+            // (see buildSortClause) — position 0 in the bucket is the
+            // most recent upload, regardless of the primary field's
+            // own asc/desc direction.
+            const pctInBucket = Math.max(0.01, Math.min(99.99,
+              (1 - posInBucket / Math.max(1, bucket.count)) * 100,
+            ));
+
+            devLog(
+              `[seek] keyword strategy: cached distribution, field=${pField}, ` +
+              `bucket=${bucket.key} (${bucket.count} docs), target=${fetchStart}`,
+            );
+
+            const uploadTimeEstimate = await dataSource.estimateSortValue(
+              params,
+              "uploadTime",
+              pctInBucket,
+              signal,
+              [{ field: pField, value: bucket.key }],
+            );
+
+            if (signal.aborted) return;
+
+            // _count rejects a fractional epoch (tdigest returns a float) —
+            // round before using it as a cursor. If the scoped percentile
+            // is unavailable, land at the bucket start instead of
+            // re-walking the vocabulary — no worse than today.
+            const searchAfterValues: SortValues = uploadTimeEstimate != null
+              ? [bucket.key, Math.round(uploadTimeEstimate), ""]
+              : buildSeekCursorAnchors(sortClause, bucket.key);
+
+            result = await searchAfter(
+              { ...params, length: PAGE_SIZE },
+              searchAfterValues,
+              effectivePitId,
+              signal,
+            );
+
+            // Verify actual position via countBefore. Accept — no
+            // refinement loop (iterating the percentile was measured to
+            // oscillate; see the archived keyword-sorts evidence §4).
+            if (result.hits.length > 0 && result.sortValues.length > 0) {
+              if (signal.aborted) return;
+              const landedSortValues = result.sortValues[0];
+              actualOffset = await dataSource.countBefore(params, landedSortValues, signal);
+            }
+          } else if (pField && dataSource.findKeywordSortValue) {
+            // Composite aggregation to walk unique values and find the
+            // value at the target position. O(unique_values/1000) ES
+            // requests — typically 2-10 for real-world data.
+            devLog(
+              `[seek] keyword strategy: composite-walk fallback, field=${pField}, target=${fetchStart}, ` +
+              `dir=${primaryDir}, total=${total}`,
+            );
+            const keywordValue = await dataSource.findKeywordSortValue(
+              params,
+              pField,
+              fetchStart,
+              primaryDir as "asc" | "desc",
+              signal,
+            );
+
+            if (signal.aborted) return;
+
+            devLog(
+              `[seek] findKeywordSortValue returned: ${JSON.stringify(keywordValue)}`,
+            );
+
+            if (keywordValue != null) {
+              // Build search_after cursor with direction-aware anchors
+              const searchAfterValues = buildSeekCursorAnchors(sortClause, keywordValue);
+
+              devLog(
+                `[seek] search_after cursor: ${JSON.stringify(searchAfterValues)}`,
+              );
+
+              result = await searchAfter(
+                { ...params, length: PAGE_SIZE },
+                searchAfterValues,
+                effectivePitId,
+                signal,
+              );
+
+              // Verify actual position via countBefore
+              if (result.hits.length > 0 && result.sortValues.length > 0) {
+                if (signal.aborted) return;
+                const landedSortValues = result.sortValues[0];
+                const countBefore = await dataSource.countBefore(
+                  params,
+                  landedSortValues,
+                  signal,
+                );
+                actualOffset = countBefore;
+                devLog(
+                  `[seek] countBefore=${countBefore}, landedSortValues=${JSON.stringify(landedSortValues)}, ` +
+                  `target was ${fetchStart}, drift=${Math.abs(countBefore - fetchStart)}`,
+                );
+              }
+
+              // If we landed far from the target and the target is near the
+              // end of the result set, the gap is likely null/missing-value
+              // docs that composite agg doesn't count. Use reverse search_after
+              // (no cursor = last PAGE_SIZE results) to land at the true end.
+              //
+              // Subtlety: ES sorts nulls as `_last` by default for BOTH asc
+              // and desc. A naive reverse sort would put nulls last again —
+              // returning the highest keyword values, not the true end. We
+              // pass `seekToEnd: true` so the reversed sort uses
+              // `missing: "_first"`, putting nulls first in reversed order
+              // (= last in original order).
+              if (
+                actualOffset + PAGE_SIZE < fetchStart &&
+                fetchStart > total - MAX_RESULT_WINDOW
+              ) {
+                if (signal.aborted) return;
+                const reverseResult = await searchAfter(
+                  { ...params, length: PAGE_SIZE },
+                  null,
+                  effectivePitId,
+                  signal,
+                  true, // reverse
+                  true, // seekToEnd — nulls come first in reversed order
+                );
+                if (reverseResult.hits.length > 0) {
+                  result = reverseResult;
+                  actualOffset = Math.max(0, total - reverseResult.hits.length);
+                }
+              }
+            } else {
+              // findKeywordSortValue returned null (field not aggregatable,
+              // exceeded page limit, or target past end). Fall back to
+              // from/size at the capped position.
+              const cappedStart = Math.min(fetchStart, offsetReadLimit - PAGE_SIZE);
+              result = await searchAfter(
+                { ...params, offset: Math.max(0, cappedStart), length: PAGE_SIZE },
+                null,
+                null,
+                signal,
+              );
+              actualOffset = Math.max(0, cappedStart);
+            }
+          } else {
+            // No keyword seek available — fall back to from/size at capped position.
+            const cappedStart = Math.min(fetchStart, offsetReadLimit - PAGE_SIZE);
+            result = await searchAfter(
+              { ...params, offset: Math.max(0, cappedStart), length: PAGE_SIZE },
+              null,
+              null,
+              signal,
+            );
+            actualOffset = Math.max(0, cappedStart);
+          }
+        }
+      }
+
+      performance.mark('seek-forward-done');
+
+      // -----------------------------------------------------------------
+      // Bidirectional seek — backward fetch (Idea B from scroll-architecture §7)
+      //
+      // Deep paths above fetched PAGE_SIZE (200) items FORWARD from the
+      // landed cursor. The user sees buffer[0..~15] — the very top. The
+      // first extendBackward at ~800ms would prepend directly above visible
+      // content, causing a ~1% visible swim.
+      //
+      // Fix: add a backward fetch of halfBuffer items BEFORE the landed
+      // cursor. Combined buffer = [...backward, ...forward]. The user sees
+      // the buffer middle (~100 items of headroom above), so both
+      // extendBackward and extendForward operate on off-screen content.
+      //
+      // Uses detectNullZoneCursor to handle null-zone cursors automatically
+      // (same pattern as _loadBufferAroundImage). The position-map path
+      // handles its own parallel backward fetch and sets skipBackwardFetch=true,
+      // so this block only runs for the deep seek path.
+      // -----------------------------------------------------------------
+      if (
+        !skipBackwardFetch &&
+        result &&
+        result.hits.length > 0 &&
+        result.sortValues.length > 0 &&
+        actualOffset > 0 // no point fetching backward if we're at position 0
+      ) {
+        if (signal.aborted) return;
+
+        const landedCursor = result.sortValues[0];
+
+        // Null-zone cursors are handled transparently by the adapter.
+        const backwardResult = await searchAfter(
+          { ...params, length: halfBuffer },
+          landedCursor,
+          result.pitId === null ? null : effectivePitId,
+          signal,
+          true, // reverse
+        );
+
+        if (signal.aborted) return;
+
+        if (backwardResult.pitId === null) result = { ...result, pitId: null };
+        if (backwardResult.hits.length > 0) {
+          // Combine: backward (reversed to restore original order) + forward
+          const combinedHits = [
+            ...backwardResult.hits,
+            ...result.hits,
+          ];
+          const combinedSortValues = [
+            ...backwardResult.sortValues,
+            ...result.sortValues,
+          ];
+
+          // Adjust actualOffset to account for the prepended backward items
+          const newBufferStart = Math.max(0, actualOffset - backwardResult.hits.length);
+
+          // Update result with the combined buffer
+          result = {
+            ...result,
+            hits: combinedHits,
+            sortValues: combinedSortValues,
+            enrichment: (backwardResult.enrichment || result.enrichment)
+              ? new Map([...(backwardResult.enrichment ?? []), ...(result.enrichment ?? [])])
+              : undefined,
+          };
+          actualOffset = newBufferStart;
+          backwardItemCount = backwardResult.hits.length;
+
+          devLog(
+            `[seek] bidirectional: prepended ${backwardResult.hits.length} backward items, ` +
+            `buffer now ${combinedHits.length} items, bufferOffset=${newBufferStart}`,
+          );
+        }
+      }
+
+      performance.mark('seek-backward-done');
+
+      // If this seek was superseded by a newer one, our signal is aborted.
+      // Don't overwrite the store with stale results.
+      if (signal.aborted) return;
+
+      // Safety net: all branches above should assign result, but guard
+      // against a future edit that introduces a path without assignment.
+      if (!result) {
+        set({ loading: hasPendingSearch(get()) });
+        return;
+      }
+
+      if (result.pitId === null) set({ pitId: null });
+      if (result.hits.length === 0 && discovery && total > 0) {
+        result = await discovery.page;
+        if (signal.aborted || discovery.searchGeneration !== _searchGeneration) return;
+        actualOffset = 0;
+        total = result.total;
+        clampedOffset = Math.max(0, Math.min(clampedOffset, Math.max(0, total - 1)));
+        exactOffset = true;
+        backwardItemCount = 0;
+      }
+      if (result.hits.length === 0) {
+        if (discovery) {
+          finishSearchDiscovery(discovery);
+          committed = true;
+          set({ ...discoveredState, results: [], total, bufferOffset: 0, imagePositions: new Map(),
+            startCursor: null, endCursor: null, pitId: null, loading: false, _browseNavigation: null,
+            _pendingFocusAfterSeek: null, _bufferSelfCorrecting: false,
+            _seekTargetLocalIndex: -1, _seekTargetGlobalIndex: -1, _seekSubRowOffset: 0,
+            _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false } });
+          if (discovery.phase === "initial-read") startNewImagesPoll(get, set);
+          traceInteraction(traceAction, "t_store_ready", traceInteractionId, { total, targetOffset: clampedOffset });
+          return;
+        }
+        set({ loading: hasPendingSearch(get()) });
+        return;
+      }
+
+      const startCursor = result.sortValues.length > 0 ? result.sortValues[0] : null;
+      const endCursor = result.sortValues.length > 0
+        ? result.sortValues[result.sortValues.length - 1]
+        : null;
+
+      // Refresh cooldown from data arrival — the virtualizer needs time to
+      // render at the new scroll position before edge-detection kicks in.
+      // Without this, extendBackward can fire during a logo-click scroll
+      // reset (scrollTop=0 on a deep buffer), corrupting the buffer.
+      // See tuning.ts for the timing relationship with SEEK_DEFERRED_SCROLL_MS.
+      _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
+
+      // Compute the buffer-local target index so views can scroll there.
+      // Clamp to buffer bounds — the percentile estimate may drift, landing
+      // the buffer offset far enough from the target that the target falls
+      // outside the fetched page. Without clamping, the view would try to
+      // scroll to index 10000+ in a 200-item buffer → wild jump.
+      const rawTargetLocalIndex = clampedOffset - actualOffset;
+      const targetLocalIndex = Math.max(0, Math.min(
+        rawTargetLocalIndex,
+        result.hits.length - 1,
+      ));
+      const targetWasClamped = rawTargetLocalIndex !== targetLocalIndex;
+
+      // FLASH PREVENTION / THUMB-JUMP FIX:
+      //
+      // For DEEP seeks (percentile estimation — inexact offset):
+      //   Reverse-compute a local index from the user's current scrollTop.
+      //   This prevents flash — the virtualizer renders new content at the
+      //   user's current scroll position, not the (drifted) target position.
+      //
+      // For EXACT-OFFSET seeks (position-map and shallow — precise offset):
+      //   Use targetLocalIndex directly. The offset is known-correct, so the
+      //   target image IS at that local index. Using the reverse-compute here
+      //   would cause a scrubber thumb jump: visibleRange.start would differ
+      //   from the seek target, and the thumb would snap from the user's drag
+      //   position to the reverse-computed position when pendingSeekPosRef
+      //   clears. Direct targeting means the thumb stays put.
+      //
+      // The reverse-compute math is extracted into computeScrollTarget() for
+      // independent unit testing.
+      const scrollEl = getScrollContainer();
+      let scrollTargetIndex: number;
+      let _seekSubRowOffset = 0;
+
+      // Diagnostic variables for the devLog below
+      let _diagReverseIndex: number | string = 'N/A';
+      let _diagOrigScrollTop: number | string = 'N/A';
+      let _diagCurrentRow: number | string = 'N/A';
+      let _diagCols: number | string = 'N/A';
+      let _diagHeadroomFired = false;
+
+      if (scrollEl) {
+        if (exactOffset) {
+          // EXACT-OFFSET PATH (position-map, shallow from/size):
+          // The offset is known-correct — the target image IS at targetLocalIndex.
+          // Use it directly. Using the reverse-compute here would cause the
+          // scrubber thumb to jump: visibleRange.start would differ from the
+          // seek target position, and the thumb would snap from the user's drag
+          // position when pendingSeekPosRef clears.
+          scrollTargetIndex = targetLocalIndex;
+          // No sub-row offset needed — we want to land exactly at the target.
+        } else if ("layout" in getLayoutGeometry()) {
+          const geometry = getLayoutGeometry();
+          if (!("layout" in geometry) || !geometry.window) throw new Error("Window preparation requires supported geometry");
+          const computed = geometry.window.prepareSeek({ images: result.hits, bufferOffset: actualOffset,
+            total: discovery ? total : get().total, backwardItemCount, clampedOffset,
+            scrollTop: scrollEl.scrollTop, clientHeight: scrollEl.clientHeight });
+          scrollTargetIndex = computed.scrollTargetIndex;
+          _seekSubRowOffset = computed.seekSubRowOffset;
+        } else {
+          // INEXACT-OFFSET PATH (deep seek with percentile estimation):
+          // Reverse-compute a local index from the user's current scrollTop.
+          // This prevents flash — the virtualizer renders new content at the
+          // user's current scroll position, not the (drifted) target position.
+          const geo = requireFixedRowGeometry(getLayoutGeometry());
+          // Total is stable within a search session (frozen params) — always
+          // use the store's known total (audit F-01).
+          const effectiveTotal = discovery ? total : get().total;
+
+          const computed = computeScrollTarget({
+            currentScrollTop: scrollEl.scrollTop,
+            rowHeight: geo.rowHeight,
+            columns: geo.columns,
+            clientHeight: scrollEl.clientHeight,
+            backwardItemCount,
+            bufferLength: result.hits.length,
+            total: effectiveTotal,
+            actualOffset,
+            clampedOffset,
+          });
+
+          scrollTargetIndex = computed.scrollTargetIndex;
+          _seekSubRowOffset = computed.seekSubRowOffset;
+        }
+
+        // Populate diagnostics for the devLog
+        const geo = getLayoutGeometry();
+        _diagOrigScrollTop = scrollEl.scrollTop;
+        if (!("layout" in geo)) {
+          _diagCurrentRow = Math.floor(scrollEl.scrollTop / geo.rowHeight);
+          _diagCols = geo.columns;
+          let reverseIndex = _diagCurrentRow * geo.columns;
+          if (backwardItemCount > 0 && reverseIndex < backwardItemCount) {
+            _diagHeadroomFired = true;
+            reverseIndex += backwardItemCount;
+          }
+          _diagReverseIndex = reverseIndex;
+        }
+      } else {
+        // No scroll container (tests, SSR). For exact-offset seeks the target
+        // index is known-correct; for inexact paths fall back to buffer centre.
+        scrollTargetIndex = exactOffset ? targetLocalIndex : Math.floor(result.hits.length / 2);
+      }
+
+
+      // NOTE: We generally do NOT set scrollEl.scrollTop here — the
+      // _seekTargetLocalIndex is chosen so that localIndexToPixelTop()
+      // matches (or is very close to) the user's current scrollTop.
+      // EXCEPTION: the headroom zone (reverseIndex < backwardItemCount) —
+      // that stores a sub-row offset for effect #6 to apply after the new
+      // buffer is rendered (to avoid browser clamping on the old buffer).
+
+      devLog(
+        `[seek-scroll-target] exactOffset=${exactOffset}, scrollTop=${scrollEl?.scrollTop.toFixed(1)}, ` +
+        `origScrollTop=${_diagOrigScrollTop}, currentRow=${_diagCurrentRow}, cols=${_diagCols}, ` +
+        `reverseIndex=${_diagReverseIndex}, headroomFired=${_diagHeadroomFired}, ` +
+        `scrollTargetIndex=${scrollTargetIndex}, ` +
+        `rawTargetLocalIndex=${rawTargetLocalIndex}, targetLocalIndex=${targetLocalIndex}, ` +
+        `bufferLen=${result.hits.length}, actualOffset=${actualOffset}, clampedOffset=${clampedOffset}, ` +
+        `backwardItemCount=${backwardItemCount}, skipBackwardFetch=${skipBackwardFetch}, ` +
+        `clientWidth=${scrollEl?.clientWidth}`,
+      );
+      // Effect #6 in useScrollEffects will only adjust scrollTop if there's
+      // a meaningful difference — otherwise it's a no-op → zero flash.
+
+      retainSortValues(buildSearchKey(rawParams), result.hits, result.sortValues, Boolean(discovery));
+      // Commit-to-view (seek): merge enrichment from the committed pages.
+      if (result.enrichment) {
+        if (discovery) useEnrichmentStore.getState().setEnrichment(result.enrichment);
+        else useEnrichmentStore.getState().upsertEnrichment(result.enrichment);
+      }
+      const publishedTotal = discovery ? total : get().total;
+      finishSearchDiscovery(discovery);
+      committed = true;
+      set({
+        ...discoveredState,
+        results: result.hits,
+        _browseNavigation: navigation && presentationCurrent() ? { ...navigation, phase: "ready" } : null,
+        bufferOffset: actualOffset,
+        // Total is stable within a search session (frozen params) — always
+        // use the store's known total (audit F-01).
+        total: publishedTotal,
+        loading: hasPendingSearch(get()),
+        imagePositions: buildPositions(result.hits, actualOffset),
+        startCursor,
+        endCursor,
+        // Use !== undefined so explicit null (PIT-expiry fallback, audit #21)
+        // clears the stale PIT instead of preserving it via ??.
+        pitId: get().pitId === null ? null : result.pitId !== undefined ? result.pitId : effectivePitId,
+        _extendForwardInFlight: false,
+        _extendBackwardInFlight: false,
+        _seekGeneration: get()._seekGeneration + (presentationCurrent() ? 1 : 0),
+        _seekTargetLocalIndex: scrollTargetIndex,
+        // In two-tier mode, effect #6 needs the global index to compute the
+        // correct pixel offset (virtualizer row 0 = global 0). Two-tier is
+        // active whenever total is in position-map-eligible range, regardless
+        // of whether the map has loaded yet.
+        //
+        // EXACT-OFFSET paths (position-map, shallow from/size): use clampedOffset
+        // — the buffer is guaranteed to cover that position.
+        //
+        // INEXACT-OFFSET paths (deep seek with percentile estimation):
+        // Use `actualOffset + backwardItemCount` — the bidirectional centre of
+        // the buffer. This is the global position where "interesting" content
+        // starts (100 items of headroom before, 200 forward).
+        //
+        // We can NOT use `clampedOffset` (the old code) because estimation
+        // drift in the null zone means clampedOffset may be thousands of
+        // positions away from actualOffset → Effect #6 forces scrollTop to
+        // a position outside the buffer → permanent skeletons.
+        //
+        // We can NOT use `actualOffset + scrollTargetIndex` (from
+        // computeScrollTarget) because that function clamps to buffer-local
+        // scroll bounds — in two-tier mode where scrollTop is a global pixel
+        // position, the reverse-computed index clamps to buffer end (299),
+        // placing the viewport at the last buffer row → no scroll-up headroom.
+        //
+        // `actualOffset + backwardItemCount` works for both cases:
+        // - Normal: ≈ clampedOffset (drift is small) → Effect #6 is a no-op
+        // - Null zone: ≈ buffer centre → Effect #6 jumps to the data we found
+        _seekTargetGlobalIndex: (() => {
+          if (!isTwoTierFromTotal(publishedTotal)) return -1;
+          if (exactOffset) return clampedOffset;
+          return actualOffset + backwardItemCount;
+        })(),
+        _seekSubRowOffset,
+        seekTime: Date.now() - seekStartTime,
+      });
+      if (discovery) {
+        void _topUpScrollModeBuffer(get);
+        if (discovery.phase === "initial-read") {
+          startNewImagesPoll(get, set);
+          if (isTwoTierFromTotal(publishedTotal)) {
+            _positionMapAbortController = new AbortController();
+            _fetchPositionMap(dataSource, params, _positionMapAbortController.signal, get, set);
+          }
+        }
+      }
+      traceInteraction(traceAction, "t_store_ready", traceInteractionId, {
+        total: get().total,
+        targetOffset: clampedOffset,
+      });
+
+      performance.mark('seek-set-done');
+
+      const writtenTotal = get().total;
+
+      devLog(
+        `[seek] COMPLETE: target=${clampedOffset}, actualOffset=${actualOffset}, ` +
+        `hits=${result.hits.length}, targetLocalIndex=${targetLocalIndex}, ` +
+        `ratio=${(actualOffset / (writtenTotal || 1)).toFixed(4)}` +
+        (usedNullZoneFilter ? ` (null-zone seek, result.total=${result.total} filtered, kept storeTotal=${writtenTotal})` : '') +
+        (targetWasClamped ? ` CLAMPED→center=${scrollTargetIndex}` : ''),
+      );
+
+      // Performance measures — these show up as named bars in DevTools
+      // Performance tab Timings lane, with duration in ms.
+      // Each wrapped individually so a missing mark doesn't block the rest.
+      try { performance.measure('seek: forward fetch', 'seek-start', 'seek-forward-done'); } catch { /* mark missing */ }
+      try { performance.measure('seek: backward fetch', 'seek-forward-done', 'seek-backward-done'); } catch { /* mark missing */ }
+      try { performance.measure('seek: compute + set()', 'seek-backward-done', 'seek-set-done'); } catch { /* mark missing */ }
+
+      // Defer the final marks to AFTER the browser paints — this captures
+      // React rendering + layout + paint, not just the synchronous set().
+      // Two rAFs: first fires before paint, second fires after paint.
+      // Guard: rAF doesn't exist in Vitest (Node/jsdom).
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            performance.mark('seek-painted');
+            try { performance.measure('seek: total (to paint)', 'seek-start', 'seek-painted'); } catch { /* */ }
+            try { performance.measure('seek: render + paint', 'seek-set-done', 'seek-painted'); } catch { /* */ }
+          });
+        });
+      }
+
+    } catch (e) {
+      if (signal.aborted || (e instanceof DOMException && e.name === "AbortError")) return;
+      set({
+        error: e instanceof Error ? e.message : "Seek failed",
+        loading: hasPendingSearch(get()),
+      });
+    } finally {
+      if (!committed) await finishAbandonedDiscovery(discovery, signal, undefined, get, set);
+      if (!committed && get()._browseNavigation?.signal === signal) {
+        set({ _browseNavigation: null,
+          loading: hasPendingSearch(get()) });
+      }
+      if (_pendingWindowReadSignal === signal) {
+        _pendingWindowReadSignal = null;
+        if (!committed) set({ loading: hasPendingForegroundRead(get()) });
+      }
+      if (!committed && get()._pendingFocusAfterSeek?.signal === signal) {
+        set({ _pendingFocusAfterSeek: null });
+      }
+    }
+  },
+
+  // -------------------------------------------------------------------------
+  // Thin wrapper — loadMore delegates to extendForward
+  // -------------------------------------------------------------------------
+
+  loadMore: async () => {
+    // Delegate to extendForward — same semantics (append more data)
+    return get().extendForward();
+  },
+
+  restoreAroundCursor: async (
+    imageId: string,
+    cursor: SortValues | null,
+    cachedOffset: number,
+    setFocus = false,
+  ) => {
+    // Suppress flag set by resetToHome — prevents the race where
+    // ImageDetail fires restoreAroundCursor after search() replaces the
+    // deep buffer with first-page data. See _suppressRestore declaration.
+    if (_suppressRestore) {
+      _suppressRestore = null;
+      return;
+    }
+
+    if (get().params.aiQuery) return;
+    const focusIntent = get()._focusIntent;
+
+    // Without a cursor, fall back to the approximate seek. This covers
+    // old cache entries and images with missing sort fields. Shallow
+    // offsets (<DEEP_SEEK_THRESHOLD) will still work perfectly.
+    if (!cursor) {
+      const work = get().seek(cachedOffset, "seek", undefined, "navigation", focusIntent);
+      const pending = { imageId, generation: _searchGeneration,
+        signal: get()._browseNavigation?.signal ?? _rangeAbortController.signal };
+      set({ _cursorRestore: pending });
+      try { return await work; }
+      finally { if (get()._cursorRestore === pending) set({ _cursorRestore: null }); }
+    }
+
+    const { dataSource, params: rawParams, pitId, _pitGeneration } = get();
+    const searchGeneration = _searchGeneration;
+    const discovery = currentSearchDiscovery(get());
+    let params = frozenParams(rawParams, get);
+
+    // Abort in-flight extends and previous restores
+    get().abortExtends();
+    _findFocusAbortController.abort();
+    _findFocusAbortController = new AbortController();
+    const signal = _rangeAbortController.signal;
+    if (discovery) discovery.replacement = signal;
+    _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
+
+    // If search() opened a new PIT since we captured ours, skip the stale PIT.
+    let effectivePitId = get()._pitGeneration === _pitGeneration ? pitId : null;
+
+    const cursorRestore = { imageId, generation: searchGeneration, signal };
+    set({ loading: true, error: null, sortAroundFocusStatus: null, _cursorRestore: cursorRestore });
+
+    try {
+      let discoveredTotal: number | undefined;
+      if (discovery) {
+        const discovered = await discovery.ready;
+        if (signal.aborted || _searchGeneration !== searchGeneration) return;
+        if ("error" in discovered) throw discovered.error;
+        discoveredTotal = discovered.metadata.total;
+        adoptDiscoveryMetadata(discovery, discovered.metadata, get, set);
+        params = frozenParams(discovery.params, get);
+        effectivePitId = get().pitId;
+      }
+      // Steps 1 + 2 are independent — run in parallel.
+      // Step 1: countBefore for exact global offset.
+      // Step 2: Fetch the target image by ID for its hit object + fresh sort values.
+      const savedRank = dataSource.countBefore(params, cursor, signal).then(
+        (offset) => ({ ok: true as const, offset }),
+        (error: unknown) => ({ ok: false as const, error }),
+      );
+      const targetResult = await dataSource.searchAfter(
+        { ...params, ids: imageId, length: 1 },
+        null, null, signal,
+      );
+      if (signal.aborted || _searchGeneration !== searchGeneration) return;
+
+      const targetHit = targetResult.hits[0];
+      if (!targetHit) {
+        if (discovery) return;
+        // Image no longer matches the query — degrade to standalone mode
+        console.warn("[restoreAroundCursor] Image not found in results, falling back");
+        set({ loading: false });
+        return;
+      }
+
+      // Use fresh sort values if available, fall back to cached cursor
+      const targetSortValues = targetResult.sortValues[0] ?? cursor;
+      const tupleUnchanged = targetSortValues.length === cursor.length
+        && targetSortValues.every((value, index) => value === cursor[index]);
+      const selectedRank = tupleUnchanged
+        ? await savedRank
+        : { ok: true as const, offset: await dataSource.countBefore(params, targetSortValues, signal) };
+      if (signal.aborted || _searchGeneration !== searchGeneration) return;
+      if (!selectedRank.ok) throw selectedRank.error;
+      const exactOffset = selectedRank.offset;
+
+      // Step 3: Load a buffer centered on the target image
+      const buf = await _loadBufferAroundImage(
+        targetHit, targetSortValues, exactOffset,
+        params, effectivePitId, signal, createExpiryAwareSearchAfter(dataSource, get, set),
+        targetResult.enrichment?.get(targetHit.id),
+      );
+      if (!buf || signal.aborted || _searchGeneration !== searchGeneration) return;
+
+      _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
+
+      const publishedTotal = discoveredTotal ?? get().total;
+      const publishedTargetOrdinal = buf.bufferStart + buf.targetLocalIndex;
+      const seekTargetGlobalIndex = isTwoTierFromTotal(publishedTotal) ? publishedTargetOrdinal : -1;
+
+      retainSortValues(buildSearchKey(rawParams), buf.combinedHits, buf.sortValues);
+      // Commit-to-view (restoreAroundCursor buffer-around): merge enrichment.
+      if (buf.enrichment) useEnrichmentStore.getState().upsertEnrichment(buf.enrichment);
+      finishSearchDiscovery(discovery ?? undefined);
+      set({
+        results: buf.combinedHits,
+        bufferOffset: buf.bufferStart,
+        total: publishedTotal,
+        loading: false,
+        ...(discovery && { _isInitialLoad: false }),
+        imagePositions: buildPositions(buf.combinedHits, buf.bufferStart),
+        startCursor: buf.startCursor,
+        endCursor: buf.endCursor,
+        pitId: get().pitId === null ? null : buf.pitId,
+        _extendForwardInFlight: false,
+        _extendBackwardInFlight: false,
+        _seekGeneration: get()._seekGeneration + (get()._focusIntent === focusIntent ? 1 : 0),
+        _seekTargetLocalIndex: buf.targetLocalIndex,
+        _seekTargetGlobalIndex: seekTargetGlobalIndex,
+        _seekSubRowOffset: 0,
+        // Explicit mode only — phantom mode must never set focusedImageId
+        // (phantom invariant: focusedImageId is always null). Without this,
+        // useReturnFromDetail's `previousFocus === null` guard fires and
+        // detail-close skips centring on the restored image (audit #16).
+        ...(setFocus && get()._focusIntent === focusIntent
+          && { focusedImageId: imageId, _focusedImageKnownOffset: publishedTargetOrdinal }),
+      });
+
+      devLog(
+        `[restoreAroundCursor] OK: imageId=${imageId}, exactOffset=${exactOffset}, ` +
+        `bufferStart=${buf.bufferStart}, targetLocal=${buf.targetLocalIndex}, ` +
+        `hits=${buf.combinedHits.length}`,
+      );
+
+      // Scroll-mode top-up: restoreAroundCursor centres the buffer on the
+      // target image rather than filling it — top up for small result sets
+      // (see function doc above _fillBufferForScrollMode/_topUpScrollModeBuffer).
+      void _topUpScrollModeBuffer(get);
+    } catch (e) {
+      if (signal.aborted || _searchGeneration !== searchGeneration) return;
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      console.warn("[restoreAroundCursor] Failed, falling back to seek:", e);
+      // Fall back to approximate seek on any error
+      set({ loading: false });
+      try {
+        const work = get().seek(cachedOffset, "seek", undefined, "navigation", focusIntent);
+        cursorRestore.signal = get()._browseNavigation?.signal ?? _rangeAbortController.signal;
+        return await work;
+      } catch {
+        // Both paths failed — standalone mode
+      }
+    } finally {
+      await finishAbandonedDiscovery(discovery ?? undefined, signal, imageId, get, set);
+      if (get()._cursorRestore === cursorRestore) set({ _cursorRestore: null });
+    }
+  },
+
+  // -------------------------------------------------------------------------
+  // Aggregation actions (unchanged from pre-buffer architecture)
+  // -------------------------------------------------------------------------
+
+  resortAiBuffer: (orderBy, continuity) => {
+    const preserveImageId = continuity?.targetId ?? null;
+    const phantomOnly = continuity?.focus !== "target";
+    let ownedContinuity: OwnedSearchContinuity | null = null;
+    if (continuity) {
+      _findFocusAbortController.abort();
+      _findFocusAbortController = new AbortController();
+      ownedContinuity = { ...continuity, owner: _findFocusAbortController.signal,
+        searchGeneration: _searchGeneration,
+        historyFocusIntent: continuity.provenance === "history" ? get()._focusIntent : undefined, phase: "ready" };
+    }
+    if (ownedContinuity?.provenance === "history" && hasPendingSearch(get())) {
+      set({ _searchContinuity: { ...ownedContinuity, phase: "pending" }, _phantomFocusImageId: null,
+        ...(ownedContinuity.focus === "none" ? { focusedImageId: null, _focusedImageKnownOffset: null } : {}) });
+      return;
+    }
+    const { results } = get();
+    const populated = results.filter((image): image is Image => image !== null);
+    const sorted = sortAiResults(populated, orderBy);
+    const preserveFound = preserveImageId
+      ? sorted.some((image) => image.id === preserveImageId)
+      : false;
+    set({
+      results: sorted,
+      _searchContinuity: ownedContinuity && (preserveFound || hasPendingSearch(get()))
+        ? { ...ownedContinuity, phase: preserveFound ? "ready" : "pending" } : null,
+      _phantomFocusImageId: null,
+      imagePositions: buildPositions(sorted, 0),
+      ...(continuity ? { focusedImageId: continuity.focus === "retain" ? get().focusedImageId
+        : preserveFound && continuity.focus === "target" ? preserveImageId : null,
+        _focusedImageKnownOffset: null } : {}),
+      ...(preserveFound
+        ? {
+            sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
+            ...(phantomOnly
+              ? { _phantomFocusImageId: preserveImageId }
+              : { focusedImageId: preserveImageId }),
+          }
+        : { _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: true } }),
+    });
+  },
+
+  fetchAggregations: async (mode = "debounced") => {
+    const { dataSource } = get();
+    const force = mode === "force";
+    if (!force && (get().loading || get().error)) return;
+    let callParams = aggregationParams(get);
+    let key = aggCacheKey(callParams);
+    if (!force && _aggPending?.key === key) return _aggPending.promise;
+
+    const requestGeneration = cancelAggregationFetch();
+    if (get().aggLoading) set({ aggLoading: false });
+
+    if (!force && key === get()._aggCacheKey) return;
+    if (callParams !== null && !force && get().aggCircuitOpen) return;
+
+    if (mode === "debounced" && callParams !== null) {
+      const shouldRun = await new Promise<boolean>((resolve) => {
+        _aggDebouncedResolve = resolve;
+        _aggDebounceTimer = setTimeout(() => {
+          _aggDebounceTimer = null;
+          _aggDebouncedResolve = null;
+          resolve(true);
+        }, AGG_DEBOUNCE_MS);
+      });
+      if (!shouldRun) return;
+      if (requestGeneration !== _aggRequestGeneration) return;
+      if (get().loading || get().error) return;
+    }
+
+    // Recompute after debounce — params/results may have changed while waiting.
+    callParams = aggregationParams(get);
+    key = aggCacheKey(callParams);
+    if (callParams === null) {
+      cancelExpandedAggregation();
+      set(emptyAggregationState());
+      return;
+    }
+    if (!force && key === get()._aggCacheKey) return;
+    if (!force && get().aggCircuitOpen) return;
+
+    const controller = new AbortController();
+    _aggAbortController = controller;
+    let resolvePending!: () => void;
+    _aggPending = {
+      key,
+      promise: new Promise<void>((resolve) => { resolvePending = resolve; }),
+    };
+    set({ aggLoading: true });
+
+    const startTime = performance.now();
+
+    // Build filter agg requests — the adapter compiles "is:<name>" internally.
+    const org = gridConfig.staffPhotographerOrganisation;
+    const isFilterRequests: FilterAggRequest[] = [
+      { name: "deleted", isFilter: "deleted" },
+      { name: "under-quota", isFilter: "under-quota" },
+      { name: `${org}-owned-photo`, isFilter: `${org}-owned-photo` },
+      { name: `${org}-owned-illustration`, isFilter: `${org}-owned-illustration` },
+    ];
+
+    // Usage nested-filter agg requests — counts parent images via reverse_nested.
+    const usageFilterRequests: UsageFilterAggRequest[] = [
+      { name: "digital", subField: "platform", value: "digital" },
+      { name: "print", subField: "platform", value: "print" },
+      { name: "syndication", subField: "platform", value: "syndication" },
+      { name: "published", subField: "status", value: "published" },
+      { name: "pending", subField: "status", value: "pending" },
+      { name: "removed", subField: "status", value: "removed" },
+    ];
+
+    try {
+      // esPath is the resolved ES path (has: itself filters on
+      // getFieldPath(value), so the facet must aggregate on the same
+      // resolved path or it silently never appears — review finding F3).
+      // dynamicFacetBuckets/expandedAggs are keyed by esPath throughout,
+      // matching how static facets are always keyed by their ES path.
+      const dynamicFields = findHasFieldTargets(callParams.query ?? "").filter(
+        ({ esPath }) => !AGG_FIELDS.some((af) => af.field === esPath),
+      );
+
+      const [result, dynamicEntries] = await Promise.all([
+        dataSource.getAggregations(callParams, AGG_FIELDS, controller.signal, isFilterRequests, usageFilterRequests),
+        // Isolated, one field per request — never merged into the batch above.
+        // A non-aggregatable has: target must not take down the static facets.
+        Promise.all(dynamicFields.map(async ({ esPath }) => {
+          const buckets = await isolateAggregationFailure(
+            async () => (await dataSource.getAggregations(callParams, [{ field: esPath, size: AGG_DEFAULT_SIZE }], controller.signal)).fields[esPath]?.buckets,
+            undefined,
+          );
+          return [esPath, buckets] as const;
+        })),
+      ]);
+
+      const dynamicFacetBuckets: Record<string, AggregationBucket[]> = {};
+      for (const [esPath, buckets] of dynamicEntries) {
+        if (buckets?.length) dynamicFacetBuckets[esPath] = buckets;
+      }
+
+      const elapsed = performance.now() - startTime;
+
+      if (requestGeneration !== _aggRequestGeneration || controller.signal.aborted) return;
+
+      cancelExpandedAggregation();
+      set({
+        aggregations: result,
+        dynamicFacetBuckets,
+        aggTook: result.took ?? null,
+        aggFetchDuration: result.fetchDuration ?? null,
+        aggLoading: false,
+        _aggCacheKey: key,
+        aggCircuitOpen: elapsed > AGG_CIRCUIT_BREAKER_MS,
+        expandedAggs: {},
+        expandedAggsLoading: new Set(),
+        isFilterCounts: result.filters ?? null,
+        usageFilterCounts: result.usageFilters ?? null,
+      });
+    } catch (e) {
+      if (requestGeneration !== _aggRequestGeneration) return;
+      if (e instanceof DOMException && e.name === "AbortError") {
+        set({ aggLoading: false });
+        return;
+      }
+      set({ aggLoading: false });
+    } finally {
+      if (requestGeneration === _aggRequestGeneration) {
+        _aggAbortController = null;
+        _aggPending = null;
+      }
+      resolvePending();
+    }
+  },
+
+  fetchExpandedAgg: async (field: string) => {
+    const { dataSource, expandedAggs, expandedAggsLoading } = get();
+
+    if (expandedAggs[field] || expandedAggsLoading.has(field)) return;
+
+    // Abort any previous expanded agg request and create a fresh controller.
+    // Aborted by search() when a new search starts. See es-audit.md Issue #4.
+    cancelExpandedAggregation();
+    const params = aggregationParams(get);
+    const request = { field, key: aggCacheKey(params), controller: new AbortController() };
+    _expandedAggRequest = request;
+    const signal = request.controller.signal;
+    set({ expandedAggsLoading: new Set([field]) });
+
+    let fieldResult: AggregationResult | undefined;
+    try {
+      const result = params === null
+        ? { fields: { [field]: { buckets: [], total: 0 } } }
+        : await dataSource.getAggregations(params, [{ field, size: AGG_EXPANDED_SIZE }], signal);
+      fieldResult = result.fields[field];
+    } catch {
+      return;
+    } finally {
+      if (_expandedAggRequest === request) {
+        _expandedAggRequest = null;
+        const publish = !signal.aborted && request.key === aggCacheKey(aggregationParams(get));
+        set((state) => {
+          const newLoading = new Set(state.expandedAggsLoading);
+          newLoading.delete(field);
+          return {
+            expandedAggs: publish && fieldResult
+              ? { ...state.expandedAggs, [field]: fieldResult }
+              : state.expandedAggs,
+            expandedAggsLoading: newLoading,
+          };
+        });
+      }
+    }
+  },
+
+  collapseExpandedAgg: (field: string) => {
+    if (_expandedAggRequest?.field === field) cancelExpandedAggregation();
+    set((state) => {
+      const { [field]: _, ...rest } = state.expandedAggs;
+      const loading = new Set(state.expandedAggsLoading);
+      loading.delete(field);
+      return { expandedAggs: rest, expandedAggsLoading: loading };
+    });
+  },
+
+  fetchSortDistribution: () => {
+    const { dataSource, params, _sortDistCacheKey } = get();
+
+    // Check cache — skip if already fetched for this query + sort
+    const key = sortDistCacheKey(params);
+    if (_sortDistRequest && (_sortDistRequest.key !== key || _sortDistRequest.controller.signal.aborted)) {
+      _sortDistRequest.controller.abort();
+      _sortDistRequest = null;
+    }
+    if (key === _sortDistCacheKey) return Promise.resolve();
+
+    // Determine sort type — keyword or date
+    const kwInfo = resolveKeywordSortInfo(params.orderBy);
+    const dateInfo = resolveDateSortInfo(params.orderBy);
+    if (!kwInfo && !dateInfo) return Promise.resolve(); // Not a distributable sort (e.g. script sort)
+    if (_sortDistRequest) return _sortDistRequest.promise;
+
+    const controller = new AbortController();
+    const promise = Promise.resolve().then(async () => {
+      if (controller.signal.aborted) return;
+      try {
+        let dist: SortDistribution | null = null;
+
+        if (kwInfo && dataSource.getKeywordDistribution) {
+          dist = await dataSource.getKeywordDistribution(
+            params, kwInfo.field, kwInfo.direction, controller.signal,
+          );
+        } else if (dateInfo && dataSource.getDateDistribution) {
+          dist = await dataSource.getDateDistribution(
+            params, dateInfo.field, dateInfo.direction, controller.signal,
+          );
+        }
+
+        if (controller.signal.aborted || _sortDistRequest?.controller !== controller || sortDistCacheKey(get().params) !== key) return;
+
+        set({ sortDistribution: dist, _sortDistCacheKey: key });
+      } catch (error) {
+        if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
+        console.warn("[search-store] fetchSortDistribution failed:", error);
+      }
+    }).finally(() => {
+      if (_sortDistRequest?.controller === controller) _sortDistRequest = null;
+    });
+    _sortDistRequest = { key, controller, promise };
+    return promise;
+  },
+
+  fetchNullZoneDistribution: () => {
+    const { dataSource, params, sortDistribution, _nullZoneDistCacheKey } = get();
+
+    // Only fetch if there's a null zone (coveredCount < total)
+    if (!sortDistribution || sortDistribution.coveredCount >= get().total) return Promise.resolve();
+    // Only relevant for non-uploadTime sorts (uploadTime is universal — no null zone)
+    const sortKey = resolvePrimarySortKey(params.orderBy);
+    if (!sortKey || sortKey === "uploadTime") return Promise.resolve();
+    if (!dataSource.getDateDistribution) return Promise.resolve();
+
+    // Cache key: query params, uploadTime direction and the missing primary field
+    const dateInfo = resolveDateSortInfo(params.orderBy);
+    const kwInfo = resolveKeywordSortInfo(params.orderBy);
+    const direction = dateInfo?.direction ?? "desc";
+    const primaryField = dateInfo?.field ?? kwInfo?.field ?? undefined;
+    const key = nullZoneDistCacheKey(params);
+    if (_nullZoneDistRequest && (_nullZoneDistRequest.key !== key || _nullZoneDistRequest.controller.signal.aborted)) {
+      _nullZoneDistRequest.controller.abort();
+      _nullZoneDistRequest = null;
+    }
+    if (key === _nullZoneDistCacheKey) return Promise.resolve();
+    if (_nullZoneDistRequest) return _nullZoneDistRequest.promise;
+
+    const controller = new AbortController();
+    const promise = Promise.resolve().then(async () => {
+      if (controller.signal.aborted) return;
+      try {
+        const dist = await dataSource.getDateDistribution!(
+          params, "uploadTime", direction, controller.signal, primaryField,
+        );
+
+        if (controller.signal.aborted || _nullZoneDistRequest?.controller !== controller || nullZoneDistCacheKey(get().params) !== key) return;
+
+        if (dist) {
+          const nullZoneSize = get().total - (get().sortDistribution?.coveredCount ?? 0);
+
+          if (nullZoneSize > 0 && dist.coveredCount > 0) {
+            // The distribution is already filtered to null-zone docs only,
+            // so bucket positions are accurate — no scaling needed.
+            set({
+              nullZoneDistribution: {
+                buckets: dist.buckets,
+                coveredCount: dist.coveredCount,
+              },
+              _nullZoneDistCacheKey: key,
+            });
+          } else {
+            set({ nullZoneDistribution: null, _nullZoneDistCacheKey: key });
+          }
+        }
+      } catch (error) {
+        if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
+        console.warn("[search-store] fetchNullZoneDistribution failed:", error);
+      }
+    }).finally(() => {
+      if (_nullZoneDistRequest?.controller === controller) _nullZoneDistRequest = null;
+    });
+    _nullZoneDistRequest = { key, controller, promise };
+    return promise;
+  },
+}));
+
+// Expose store on window in dev mode for E2E test state inspection.
+// Playwright tests use window.__kupua_store__ to read buffer state,
+// focused image, and other internals without relying on DOM scraping.
+if (import.meta.env.DEV && typeof window !== "undefined") {
+  useSearchStore.subscribe((state) => {
+    const stateQuery = state.params.query ?? null;
+    const stateOrderBy = state.params.orderBy ?? null;
+    if (
+      _searchLifecycle.started === _searchGeneration
+      && _searchLifecycle.settled < _searchLifecycle.started
+      && stateQuery === _searchLifecycle.query
+      && stateOrderBy === _searchLifecycle.orderBy
+      && !state.loading
+      && state.sortAroundFocusStatus === null
+    ) {
+      _searchLifecycle = {
+        started: _searchLifecycle.started,
+        settled: _searchLifecycle.started,
+        query: stateQuery,
+        orderBy: stateOrderBy,
+      };
+    }
+  });
+  (window as unknown as Record<string, unknown>).__kupua_store__ = useSearchStore;
+  (window as unknown as Record<string, unknown>).__kupua_getSearchLifecycle__ = () => _searchLifecycle;
+}
+

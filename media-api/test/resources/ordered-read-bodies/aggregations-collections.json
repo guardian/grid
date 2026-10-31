@@ -1,0 +1,15 @@
+[
+  {
+    "path": "/images/aggregations",
+    "body": {
+      "q": "",
+      "free": true,
+      "fields": [
+        {
+          "field": "collections.pathId",
+          "size": 6000
+        }
+      ]
+    }
+  }
+]

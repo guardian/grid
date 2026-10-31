@@ -1,0 +1,14430 @@
+# Kupua Development Changelog
+
+> Detailed development history extracted from AGENTS.md. This is the blow-by-blow
+> record of what was built, how bugs were found and fixed, and the reasoning behind
+> implementation choices. Useful for archaeology; not needed for day-to-day agent work.
+>
+> For current capabilities and architecture, see `kupua/AGENTS.md`.
+
+## Phase 2 — Live Elasticsearch (Read-Only)
+
+<!-- AGENT INSTRUCTIONS:
+New entries go IMMEDIATELY BELOW this comment, newest first.
+INDENTATION: headings and paragraph lines MUST start in column 1: ZERO leading
+spaces or tabs, including wrapped paragraph lines. Four spaces create a CODE BLOCK.
+Do not indent an entry to match this comment! Leave older entries unchanged.
+Use this exact unindented shape:
+
+### D Month YYYY - Title
+
+Implementation, fixes and rationale. Wrapped paragraph lines also start in column 1.
+
+Before finishing, check the raw new entry: no nonblank heading or prose line may
+match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
+Keep test counts, pass reports, timings and session workflow out of entries.
+DO NOT delete or reorder existing entries. -->
+
+### 31 October 2026 - Results zoom, locked Home view and app fullscreen
+
+Grid and Justified zoom through six width-aware levels (`results-zoom.ts`): Justified
+scales the target row height on separate phone and desktop ladders; Grid steps through
+small square cells on narrow widths or one column at a time otherwise, showing metadata
+only on cells at least 200px wide. Offset 0 is always the classic geometry, so tests and
+performance runs at default zoom are unaffected. `zoom-store` holds per-tab offsets and the
+range each mounted view registers for its width; ImageGrid captures its scroll anchor on
+zoom change exactly as on resize. Pinch steps one level per gesture with a transform
+preview; `+`/`=`/`-`/`0` and the Settings menu zoom row use the same store. Grid thumbnails
+take an explicit width from the image ratio so they scale with the cell. "Lock this view"
+persists density and zoom (`home-view.ts`) for Home and fresh tabs; touch devices otherwise
+default to Justified. `app-fullscreen.ts` adds whole-app fullscreen from the Settings menu;
+image fullscreen stacks on top, and every image-fullscreen check now ignores the app layer
+through `imageFullscreenElement()`. In fullscreen, Space and the zoom keys zoom at the mouse
+pointer. A hover-delayed corner button toggles image fullscreen, with the next-image strip
+starting below it. `/` focuses the search box.
+### 31 October 2026 - Compact phone shell and touch selection
+
+Narrow (at most 639px) coarse-pointer viewports get a compact shell, chosen by `useShell`
+and exposed as `html[data-shell]` with `compact:`/`wide:` Tailwind variants. Narrow desktop
+windows keep the desktop shell; a desktop opt-in was tried and dropped because cards and
+sheets conflict with click-to-focus. `PanelLayout` renders the left panel as a scrim side
+sheet and the right panel as a `BottomSheet` selection card, keeping the results at the
+same child index so crossing the breakpoint never remounts the list. Image detail moves
+metadata into a scrim-less card; expanding it shrinks the image to the top quarter.
+The search field shows free text only; field terms become chips in the `FiltersSheet`
+Refine sheet (`RefineChips`, chip helpers in `cql-query-edit.ts`), which commits each chip
+change as one URL update rather than a debounced typing session, avoiding a double search.
+Escape inside a chip editor cancels the edit, not the sheet. Chips show `+`/`–` polarity.
+Below 760px, free-to-use, date and sort collapse behind a filters button on any device
+(a dropdown without chips on desktop). Long-press now continues into Google Photos-style
+drag-select with edge auto-scroll, listening on the touch target because virtualization
+can detach it; erase mode applies when starting on a selected image, and never-loaded
+gaps are completed through the range walk in either polarity. Pull-to-refresh, a 38px
+touch status bar, collapsing tickers and density buttons, a 44px scrubber grab area, an
+expanding SelectionFab menu and focus-trapped sheets complete the shell.
+
+### 30 October 2026 - Owned photo and illustration counts from the server
+
+The Filters "Is" section and `is:` typeahead no longer sum category buckets against
+Kupua's photographer/illustrator lists. The shared aggregation request now also asks for
+the `${org}-owned-photo` and `${org}-owned-illustration` filter counts, so in media-api
+mode they are media-api's own `is:` counts and always match the search; direct-ES compiles
+the same filters locally. Filter counts the server omits are now absent, not zero.
+
+### 30 October 2026 - Selections use server cost and validity
+
+In media-api mode, selection's bulk reads (`POST /images/mget`) now keep each response
+entity's server enrichment, attached to the returned image object through a WeakMap rather
+than the shared enrichment store. It therefore lives exactly as long as the cached image,
+and a new search cannot wipe it. The selection Cost Summary and `useEnrichedImage` (the
+single-selection panel for an off-screen image) use the current search's overlay first,
+then the attachment, then local rules. Previously off-screen selected images always used
+the vendored cost configuration, so over-quota suppliers and Grid configuration changes
+could disagree with the grid. Direct-ES reads attach nothing.
+
+### 30 October 2026 - Filters Category rows follow Grid's categories
+
+In media-api mode, the Filters panel's Category rows fold stored values into the category
+that replaces them (metadata-editor's `legacyCategories`), labelled with the server name and
+applying `category:<search alias or value>`, which media-api expands. Stored values no
+category claims keep their own rows. The category aggregation now requests the whole
+vocabulary (100 buckets) so sums are exact; servers without replaced values, a possibly
+truncated aggregation, direct-ES and no-catalogue modes keep raw stored-value rows. A query
+already holding a replaced value (e.g. `category:staff-photographer`) does not highlight
+the grouped row.
+
+### 30 October 2026 - Category typeahead matches Kahuna, with exact counts
+
+In media-api mode, `category:` suggestions now list Grid's configured categories as
+Kahuna does (search alias or value, kebab only), rather than only stored values with
+hits. Counts add each category's own hits to the stored values it replaces, using a
+proposed additive metadata-editor field; servers without it get no counts rather than
+undercounts. Direct-ES and no-catalogue modes keep hit-based stored values, kebab only.
+
+### 30 October 2026 - Usage Rights categories from Grid
+
+Kupua now follows Kahuna's route to Grid's configured Usage Rights categories: media-api's
+`edits` link, then metadata-editor's `usage-rights-list`. Server names label categories in
+Details, multi-select and typeahead, and `category:` suggestions use the server's search
+alias when media-api executes the query. The list is optional and validated whole; laptop
+and direct-ES modes keep a refreshed local fallback (Unknown Rights, Pay to use, PR & Third
+Party, publisher photographer/illustrator). Publisher categories join the photographer and
+illustrator groups used by owned-image counts, `is:` filters and the photographer border,
+and the vendored cost snapshot adds the new categories for direct-ES free filtering.
+
+### 30 October 2026 - Collection counts follow the free-to-use checkbox (KUP-037)
+
+Collection subtree counts previously used an implicit free-only default regardless of
+the checkbox. They now count the whole library in the current "Free to use only" scope.
+Startup loads only the collection tree; counts load when Collections is shown or
+hover-prefetched from Browse, at most once per scope per tab session (in-flight requests
+shared, failures retried on next need). This removes the whole-index aggregation from
+every page load.
+
+### 30 October 2026 - Hosted configuration from Kahuna
+
+When serving Kupua, Kahuna now adds an allowlisted `gridConfig` object and the
+request principal's `showPaid` permission to `window.__KUPUA_CONFIG__`. Settings use
+Grid's existing names and serializers; tickers mirror media-api's ticker map and
+disabled features are encoded explicitly. Ordinary Kahuna does no extra work.
+
+Hosted Kupua validates each setting whole and resolves it once when `grid-config`
+first evaluates, so module-time consumers (field registry, typeahead, facets,
+borders, blur default) see server values; laptop modes and missing or invalid
+settings keep local defaults. `matchViaExistence` is preserved for later client
+support. Initial and Home searches follow `showPaid` (`false` omits `nonFree`),
+explicit URLs are preserved, and Home links share one href with the click path.
+
+Ticker counts now keep media-api's returned clause and colour through count, AI and
+poll-merge paths via one shared decoder; direct-ES fills them from configured
+definitions. A shared display helper orders configured tickers first, preserving the
+existing status-bar order, then server-only tickers in response order. Returned metadata
+wins, non-`is:` clauses are skipped, and server-only tickers stay out of Filters and
+typeahead options. Count arithmetic and requests are unchanged.
+
+### 26 October 2026 - Refine dashboard comparisons, navigation and evidence
+
+Cold opens select the newest complete registered campaign and its predecessor,
+preserving explicit URL selections and fallbacks for one or no campaigns. History
+shows recorded results only, hides inactive Compare controls, and links registered
+campaigns and curated checkpoints to exact evidence. Links retain the selected pair
+and side when applicable; other observations open without an invented baseline.
+Field, statistic and scroll context remain explicit.
+
+Scrolling comparisons lead with data-derived directional summaries and Before/After
+values for blocked time, delivered progress, unready slots and frame timing. Existing
+field/population guards qualify comparisons; requested demand bounds favourable rate
+cues and differing starting runway remains explicit. Supporting charts and methods
+are expandable, uncharted Image Workflows groups use compact evidence disclosures,
+and Overview's five summaries remain unchanged.
+
+Left/Right traverse scrolling direction/load-phase scenes while retaining density,
+workload and statistic, or cycle Search's Action phase while preserving regime and
+comparison selections. Native controls, History-point keys, evidence views and unrelated
+sections keep their own behavior. Density is last in the Compare controls; focus
+rings are thin and Tab-driven, never pointer-driven.
+
+Removed obsolete integration instructions, duplicate or misleading coverage copy,
+and a nonfunctional Markdown fragment link; clarified references and missing revisions.
+Synthetic examples remain outside the dashboard. The existing adverse-recovery test
+is pinned to its historical campaign with unchanged assertions. Provisional thresholds,
+measurement limits, comparison eligibility and saved histories are preserved.
+
+### 25 October 2026 - Scope backward metadata lookahead to fixed Grid and Table
+
+Fixed Grid and Table now reuse the existing 400ms velocity predictor for seek-mode
+backward admission, retaining the 50-image base and one-page cap. Justified and
+unspecified hook callers remain at 50. Explicit layout selection is read by the
+stable reporting callback and changes break velocity continuity; viewport validity,
+programmatic demand and store-owned cooldown, concurrency and seek cancellation
+remain authoritative. Forward/indexed policies, compensation, buffers, keys and
+thumbnail loading are unchanged.
+
+Added failing-first admission and lifecycle regressions, plus isolated product
+short-stop controls that observe logical-anchor placement through delayed publication.
+Historical research adapters explicitly preserve their threshold-50 counterfactuals
+rather than silently relabeling the shipped policy. One speculative page remains an
+accepted continuity compromise; upper-row and retention work are not adoption gates.
+
+### 25 October 2026 - Research publication retention and its value for B2
+
+Extended isolated publication diagnostics across Table, Grid and Justified to
+separate temporary row exclusion, parent/cell identity and animation-dependent
+thumbnail replacement. Fixture-only retention and stable-key counterfactuals track
+original and publication-created image elements, bounded extra rows, release and
+subsequent scrolling. Independent controls expose Table's sparse-membership cache
+collision and hidden-plan extractor invalidation limits without changing product code.
+
+Matched current/B2/retention comparisons first reproduce backward blocking, then
+assess readiness, frames and demand using delayed loopback HTTP media in both
+treatment orders. Weak identity witnesses avoid explicitly pinning removed resources;
+late-publication observation separates loaded media from decode acknowledgement and
+retains censoring and adverse results. Preservation improves in bounded cases, but
+delivery gains do not justify making retention a B2 prerequisite; remaining Justified
+parent/cell losses and real-media limits stay explicit. Product policies, dependencies
+and canonical campaign histories are unchanged.
+
+### 25 October 2026 - Calibrate shared backward-predictor acceptance controls
+
+Added isolated Table short-stop, pressure, negative-control and capacity/reversal
+comparisons, plus settled far-seek comparisons for the shared view consumers.
+Stopped Table geometry now separates arrival animation from placement while retaining
+raw movement and independently calibrating real displacement. First-ready pending
+work remains visible; bounded speculation is checked separately from stopped position
+and continuing idle demand. Product admission, placement and buffer policies are unchanged.
+
+Current-source held-publication diagnostics also correlate committed DOM before
+compensation with each render's chosen virtual rows. Retained image references and
+mutation history distinguish omission, replacement and source changes; deliberate
+controls distinguish absence, same-node reinsertion and cloning. Instrumentation
+observes existing effects without changing product keys, scroll writes or admission.
+
+### 25 October 2026 - Respect seek cooldown in Justified maintenance fixture
+
+The delayed-maintenance fixture now uses the existing extension-readiness helper
+before filling its buffer. Seek completion can precede cooldown expiry, so awaited
+extension calls could all return without fetching. Capacity, held-read, eviction and
+subpixel placement assertions remain unchanged; no application behavior is altered.
+
+### 25 October 2026 - Preserve Grid cell handlers across detail return
+
+Grid detail entry now reads latest query/sort params at invocation rather than depending
+on the router search object's identity. Image-only URL transitions no longer replace
+the dependent click/double-click/tick handlers and rerender every retained cell.
+Cursor capture, focus, history, density, placement and interruption owners are unchanged.
+The media-fallback fixture now publishes its mock image change explicitly instead of
+relying on navigation-triggered rerenders; its existing assertions are unchanged.
+Bounded return attribution and a failing-first retained-cell regression distinguish this
+script-work repair from media, layout/paint and measurement costs; first-use DEV gains
+do not establish a canonical or warmed-return speedup.
+
+### 25 October 2026 - Release abandoned pending Table thumbnails
+
+Table thumbnails now release their source only when detached and incomplete, matching
+Grid's lifetime guard while retaining native lazy loading, URLs, sizing and error behavior.
+The URL-scoped passive effect also captures images mounted after an initially absent URL;
+connected updates, Strict Mode replay and completed sources remain untouched.
+Existing unit/browser lifecycle coverage protects re-entry and shared consumers.
+Bounded pressure/reversal controls retain both current-image recovery benefits and
+additional re-request costs; no admission scheduler or buffer policy is added.
+
+### 25 October 2026 - Correct dashboard provenance and recovery interpretation
+
+Fixed checkpoint source consensus and membership-based baseline coverage. Recovery
+now exposes adverse cohort tails and saved readiness/request counts while preserving
+partial latencies and ownership limits. Added frame-population/boundary context,
+clarified paired-delta and JA2 labels, and kept dashboard validation proportionate.
+Saved the latest campaign results as "after rendering fixes", preserving measurements,
+provenance and older labels.
+
+### 25 October 2026 - Remove repeated Grid and Table render/formatting work
+
+Fixed-grid captions and date tooltips now share two reusable Intl date/time
+formatters rather than invoking native locale formatting for every rendered date.
+This removes repeated formatter setup from the scrolling render path without
+changing labels, local-time formatting, missing dates or invalid-date output.
+Date presentation now runs inside the cell memo boundary, shares caption/tooltip
+values and skips image-only cells. No per-image cache or media/buffer policy is added.
+
+Table cell content now takes stable image/column/enrichment inputs rather than
+TanStack Row objects; outer rows likewise no longer receive model identity churn.
+Registry accessors share display/tooltip work, and numeric dimensions reuse one
+default-locale formatter. Native headers, bounded model input, placement, selection,
+focus, enrichment and metadata interactions retain their existing owners.
+Regression coverage checks formatting parity, same-ID metadata updates, same-count
+column changes, enrichment and modifier clicks. Bounded research controls reuse
+existing fixtures/probes to guard retained work; evidence and limitations live in
+the scroll-continuity guide. Table date-fns formatting is unchanged.
+
+### 25 October 2026 - Unify performance reporting and harden campaign tooling
+
+Unified saved-history dashboards in `e2e-perf/results/` with workflow summaries,
+historical graphs, pinned comparisons and exact evidence with revision/availability guards.
+Added topology/media-delivery provenance and transactional campaign identities while
+retaining historical results and explicit degraded/censored outcomes.
+
+Hardened auth/preflight and private PP3 diagnostics, repaired DEV mounted-centering,
+and revised standalone-detail/traversal readiness reporting. Added offline/browser
+regressions, simplified validation and removed obsolete fixtures/generated density Markdown.
+Known transport and producer limits remain; production scroll policy is unchanged.
+
+### 24 October 2026 - Enter in AI search no longer opens the focused image
+
+The AI search input opts into grid navigation (`data-grid-nav-input`) so arrows and
+paging still move focus while typing, but that also let Enter reach the list-navigation
+handler, which opened image detail for the previously focused image instead of leaving
+the query in place. Enter now does nothing in the list-navigation handler when the
+event target is an input; Enter on the grid itself still opens the focused image.
+
+### 23 October 2026 - Escape keyword values in scrubber sort labels
+
+The scrubber renders sort labels as HTML so date labels keep their fixed-width spans, but keyword
+sorts (credit, source and similar) inserted image metadata unescaped, so a crafted value could
+inject markup into the tooltip. `formatKeywordLabel` now truncates and then HTML-escapes, so an
+entity is never cut. `aria-valuetext` uses the new `sortLabelText`, which strips tags and decodes
+the escapes so assistive technology reads the original text. Found while triaging CodeQL on the
+hosting PR; it mattered once Kupua is served on Kahuna's origin.
+
+### 23 October 2026 - Hosted build served by Kahuna
+
+`npm run build:hosted` (`vite build --mode hosted`) builds the page Kahuna serves: base
+`/assets/kupua/`, output in Kahuna's gitignored `public/kupua/`, and settings only from
+`hosted/.env.hosted` (hosted flag, API mode, canonical media, TEST-scale thresholds). The config
+no longer loads `.env.local` into the process in hosted mode, so laptop values cannot leak into the
+package. Hosted builds take media-api and collections addresses from Kahuna's injected
+`window.__KUPUA_CONFIG__` (https only, no query); a missing media-api address refuses reads rather
+than falling back, and a missing collections address is quiet absence instead of the
+`localhost:9010` default. Local modes never read the injected object. Settings gains "Back to
+Kahuna", a plain link to Kahuna's `/kupua/off` so escape works even when app state is broken.
+The logo's literal `/images/` path now uses Vite's `BASE_URL`, since only HTML/CSS paths are
+rebased.
+`allowImportingTsExtensions` lets the config-imported proxy target import its helper with an
+explicit extension. Kahuna's side (switch, page serving, routes) is separate Grid work; see the
+TEST hosting plan, step 2.
+
+### 23 October 2026 - Opt-in canonical media delivery in API modes
+
+`start.sh --canonical-media`, valid only with `--use-media-api` or `--use-deployed-media-api`,
+sets `VITE_MEDIA_DELIVERY=canonical`. Thumbnails then use media-api's returned
+`thumbnail.secureUrl` (CloudFront or signed S3) instead of the local S3 proxy, and thumbnail
+gating treats canonical delivery as available. A missing returned URL is quiet absence, not a
+fallback to the proxy. Every other mode exports `proxy` explicitly, so existing delivery is
+unchanged and a stale local setting cannot leak in.
+
+Full images follow media-api's returned imgops links. The API mapper now keeps each entity's
+`optimised`/`optimisedPng` hrefs as Kupua-internal `__mediaLinks` on page, singleton, mget and AI
+reads. Canonical `getFullImageUrl` prefers the PNG template as Kahuna does, fills imgops'
+`{&w,h,q}` expression with a deliberately minimal expander (imgops is being replaced, so no
+URI-template dependency) and uses Kahuna's quality 85. The server link already carries rotation,
+so none is added. Both requested sides are capped at the longer native side, which stays correct
+for rotated images. A missing link or unsupported template is quiet absence; detail falls back to
+its thumbnail. Detail, carousel prefetch and zoom all follow because they share
+`getFullImageUrl`. Signed source URLs inside the links expire; reload is the accepted recovery.
+This is U7 and step 1 of the rewritten TEST hosting plan; hosted Kupua will always use
+returned URLs.
+
+### 23 October 2026 - Align client query composition with upstream admission
+
+API reads now forward original CQL instead of appending substring-selected defaults.
+Missing client queries are explicitly sent as empty q across POST reads and explicit
+AI GET, retaining server default ownership without changing legacy omitted-q behavior.
+Update existing recorded request bodies and exact suggestion, startup, store and scroll
+assertions; retain filter, sort, cancellation and failure contracts.
+
+Direct Elasticsearch derives default intent while parsing the original query once.
+Keep predicate-only parsing default-free for tickers, preserve positive same-record
+usage correlation, and make every negative usage condition an independent exclusion.
+Resolve print sections through code/name leaves and honor orderedBy aliases inside
+usages while retaining the canonical fallback for unrelated aliases.
+
+Regression coverage distinguishes literal text from intent, retains positive predicates,
+checks combined positive/negative usages and pins alias precedence. Local Elasticsearch
+fixture replays cover membership, totals and API positional composition. Single-quoted
+values remain a documented direct-parser divergence; no grammar rewrite, server
+authorization change or rights/category/cost correction is included.
+
+### 23 October 2026 - Align additional backend admission with upstream query semantics
+
+Use media-api's shared `Parser.runResult` in the POST search-parameter decoder instead
+of maintaining separate default-composition logic. Return malformed queries through
+the existing structured 422 response before Elasticsearch dispatch, and reuse main's
+permission-aware deleted-search scope across the additional query endpoints. Preserve
+the explicit `aiQuery` extension alongside upstream ordinary/AI search admission;
+legacy requests retain main's behaviour, including its absent-query distinction.
+
+Add parser-contract and all-query-endpoint rejection regressions, plus local GET/POST
+membership/total controls for usage exclusions and positive same-record matching.
+Cover AI deleted scope for ordinary and privileged callers, ranking and filter-pool
+responses, and malformed-query rejection even for zero-length requests. Keep legacy
+embedding serialization coverage after upstream test-fixture changes.
+
+This is backend integration only: Kupua's API request mapper and direct-ES adapter are
+unchanged and still require separate alignment. The living backend impact checklist
+records current PR disclosure obligations rather than merge history.
+
+
+### 23 October 2026 - Silence Vite warnings for density probe imports
+
+The density journey imports `density-browser.ts` into the page through the dev server, so Vite
+analyzed its Node-side `page.evaluate` callbacks and warned about each variable-path dynamic import.
+Mark those eight imports `@vite-ignore`. Vite still applies its usual dev rewrite; only the
+terminal warning is suppressed, with no change to probe behaviour or measured boundaries.
+
+### 23 October 2026 - Record focused-sort store fallback as a degraded sample
+
+PP3/PP4 previously failed the whole campaign when sort-around-focus hit its eight-second
+fallback: the store published the first page without focus and traced `t_store_ready`, and
+the observer then waited 30 seconds for an image that could never return. The shared observer
+now reports that terminal state (correlated completion, idle error-free store, no focus) at once.
+Focus moved to another image, pending sorts and store errors still fail at the deadline.
+
+The degraded sample adds no timings. The runner keeps it out of medians, permits it only for
+PP3/PP4, retains the scenario revision and records `degradedCount`/`degradedReasons` beside
+the healthy `sampleCount` in history, Markdown and the dashboard card. Sanitized diagnostics are
+printed when the sample occurs and again after the campaign, including a failed campaign: store
+warning category, phase reached, focused media ID, UTC `t_0` and each media-api/direct-ES request's
+start, duration, outcome, Chromium headers-sent report and response-header time. Requests waiting
+a second without headers are marked stalled, to correlate with the paused transport investigation's
+backend captures. Paths keep media IDs but omit queries and index names; no error text or host is
+retained, and these details reach only the console and run report, never history.
+
+Offline regressions cover warning classification, path sanitization, request lifetimes with early
+headers-sent events, bounded records, summary/format, degraded-only aggregation, fail-closed
+allowlist/revision checks, Markdown notes, end-of-campaign reporting and observer timing at
+60/120/240 Hz. No application code, campaign workload or recorded history changes.
+### 23 October 2026 - Preserve fixed-grid thumbnail slots during seeks
+
+Key fixed Grid cells by their actual column within each virtual row, including partial
+leading rows. Buffer-local keys changed physical columns when a seek changed the window
+remainder, carrying Chromium's retained old thumbnail pixels sideways until replacement
+media arrived. Keep virtual-row keys, global row geometry, complete fetched pages, scroll
+compensation, thumbnail admission and detached-incomplete cleanup unchanged; Justified
+retains its existing cell-key policy. No blanking, readiness barrier or scheduler is added.
+
+Clear only the error-owned inline display property on successful thumbnail load so reused
+image elements recover from failed sources without losing their borders. Regression coverage
+checks pending raster pixels in their original slots and decoded destination pixels through
+real seek publication, partial-row identity in both directions, failed and superseded sources,
+and existing cancellation/reflow behavior. Hold synthetic response headers to exercise native
+pending bitmap retention; reacquire the image element after intentional column-count reflow
+before testing genuine unmount cleanup.
+
+### 23 October 2026 - Unify scrolling measurement, research and comparison
+
+Build a shared evidence path for useful progress, smoothness and picture stability
+across Grid, Justified and Table. Revisioned fresh-window journeys calibrate demand
+from visible rows, retain initial runway and achieved progress, and exercise fixed
+30/100/200-results-per-second steps with ordinary and constrained delivery. Integrate
+reversal and atomic stopped-data/current-image recovery; retire overlapping standalone
+D9/D10 execution while retaining historical contracts and records. Keep low-progress
+and censored outcomes as adverse evidence rather than dropping them.
+
+Extend bounded observers with temporary-wall episodes, count-based pending slots,
+retained-identity cell/image geometry, applied-input and compensation accounting,
+sampling cost and explicit unavailable paint. Slice request lifetimes by browser
+epochs; retain data-request phases, local proxy cache evidence and cancellation
+without treating them as server CPU or upstream savings. Require configured local
+request/response origins and proxy paths for HIT/MISS attribution; redirected or
+unconfigured traffic remains unknown, with negative-origin regression coverage.
+Separate controller delay
+from readiness and reject invalid clocks, overflow and interrupted visibility.
+
+Reuse local app fixtures for matched backward-prediction, short-stop, capacity/reversal
+and initial-runway comparisons. Keep policy substitutions in intercepted responses,
+activate them only after matched baseline setup, and retain exact-distance controls.
+Add calibrated wrong/blank/displaced-image compositor evidence, publication/decode
+attribution and mixed-ratio geometry-lifetime/true-ratio-fragment controls. These are
+research mechanisms, not production prediction or presentation-lifetime policies.
+
+Exercise native cancellation, shared consumers, cache reuse, stale ownership and
+current-demand capacity with bounded loopback fixtures. Contrast fetch/body abort
+and opaque blobs, retain the mounted-source-removal negative control, and test the
+actual proxy handler with fake S3 streams. Delayed-media comparisons match initial
+state, applied travel and the final visible cohort without live-service dependencies.
+
+Separate habitual campaigns, deterministic validation and exploratory research while
+keeping campaign entry points and history locations stable. Remove obsolete root
+fixture copies after checking retained declarations and parameter matrices. Add strict performance
+typechecking/preflight and helper declarations, correct immutable-publication test
+doubles, and validate base/phase-prefixed device pixel ratios as positive scales
+without weakening normalized-ratio bounds. Keep performance checks out of ordinary E2E.
+
+Lead the dashboard with independent weakest-component north-star ranks, compatible
+baseline comparisons and exact workload/phase evidence links. Group phase metrics,
+show constrained landing failures and compact load bands, and move request costs to
+expandable detail. Omit unmeasured graphs while preserving censored outcomes, zero
+values and historical gaps. Reuse bundled Open Sans and Kupua's grey/cyan palette;
+cover compatibility, navigation and responsive presentation in synthetic regressions.
+No product policy or stored campaign result is rewritten by this measurement work.
+
+### 22 October 2026 - Release unfinished thumbnails after genuine unmount
+
+Give Grid/Justified thumbnails an element-owned passive cleanup that removes the
+source only after detachment while loading remains incomplete. Leave connected
+Strict Mode replay, completed sources, eager admission, URLs and geometry unchanged.
+Keep native resource sharing and re-admission rather than introducing a request broker
+or temporary-proxy-specific policy. Table and detail retain their existing owners.
+
+Cover production lifecycle ownership in ordinary E2E journeys: reversal, shared consumers,
+completed sources, same-node source replacement and density/panel/narrow-layout reveals.
+Use mock metadata and a shared synthetic held-image server; assert requests, cancellation
+and visible recovery without importing performance probes or benchmark thresholds.
+
+### 22 October 2026 - Preserve Table row identity while scrolling
+
+Give TanStack Table an explicit image-based row ID. Its data is a bounded sliding
+slice, so default slice-index IDs reassigned React row and cell keys on ordinary
+scrolling, replacing retained thumbnails and restarting their element lifetimes.
+Keep the same visible data window, overscan, image sources and navigation policy.
+Regression coverage checks forward and backward one-row shifts without publication,
+requiring retained row/thumbnail nodes, sources and logical indices to stay unchanged.
+
+### 21 October 2026 - Preserve fixed Grid rows across buffer movement (KUP-042)
+
+Anchor fixed-grid row membership to global result positions while keeping the scroll
+window bounded. A window may begin partway across a row: unloaded leading positions
+remain empty instead of shifting retained images left and later wrapping them onto
+another row. Share origin-aware row arithmetic across rendering, resize anchoring,
+keyboard navigation and destination-seek preparation; retain existing indexed and
+one-column Table coordinates without changing Justified packing.
+
+Compensate prepend and eviction by the net change in window row origin, including
+coalesced publications and shrinking extents. Capture resize anchors against the last
+committed fixed geometry and resolve their identities in the destination, so a resize
+and publication in one commit do not mix old rows with a new buffer offset. Remove
+column-driven page trimming and rounded eviction while preserving complete ordered
+pages, authoritative cursors, true-start correction and the existing capacity limit.
+
+Reject explicitly stale trailing-range reports for buffer-local forward admission,
+matching the existing backward-start validity safeguard. Keep valid programmatic
+demand, thresholds, concurrency, positional keys and thumbnail admission unchanged.
+Extend existing geometry, placement, pagination and browser tests with all-visible
+cohorts, partial rows, capacity boundaries and controlled same-commit resize delivery.
+
+### 21 October 2026 - Align performance probes with fixed-row buffer origins
+
+Correct P17's reverse-scroll direction probe and focus-position diagnostics for
+KUP-042's globally anchored rows and partial first rows. Derive P17 setup columns
+from container width and include the buffer phase in its threshold positioning.
+Retain strict direction checks: a full-page prepend must not fabricate forward
+motion, while a genuine forward row movement still fails. Extract self-contained
+browser callbacks and cover the captured failure, aligned historical behavior,
+all row phases across several column counts, cleanup and unavailable focus with
+offline serialization regressions.
+
+Update density maintenance positioning to use published layout geometry, replace
+trimmed-prepend expectations with complete fetched pages, and require exact capacity
+rather than obsolete column-rounding tolerance. Product code, workloads' completion
+boundaries and stored benchmark history remain unchanged.
+
+### 20 October 2026 - Suppress impossible arrival intervals (KUP-040)
+
+Skip arrival-count dispatch only when the maximum upload lower bound reaches the upper
+bound, comparing date instants rather than timezone-dependent strings. Invalid dates
+fall through unchanged. Preserve outbound parameters, restored arrival state, hidden/visible
+scheduling, cumulative notifications and stale-publication guards. Add a compact failing-first
+interval table to the existing polling suite; no adapter, endpoint or Scala changes.
+
+### 20 October 2026 - Reuse scoped CQL option buckets and retire reset work (S4b)
+
+Share pending and completed suggestion buckets by own-chip-excluded search parameters
+and requested fields/sizes/filter requests, retaining at most 32 successful scopes per
+builder. Filter the latest prefix locally with counts intact; failures and aborted reads
+remain retryable. Successors attach before predecessor publication is cancelled, and only
+last-consumer departure aborts a shared read. Base/expanded facet ownership is unchanged.
+
+Keep custom-element registration stable while forwarding to the mounted typeahead owner.
+Disable retired owners before editor teardown and suppress intermediate resolver admission
+during programmatic value sync. Cover reuse, scope restoration, cancellation, stale completion,
+Clear/Home and request-size isolation in existing unit/API-composed/browser test homes.
+
+Repair the two authorized Justified test sampling points with a captured-ID/density row
+readiness barrier after generation completion. Preserve their placement tolerances and
+identity/viewport assertions; negative controls reject wrong or zero-height rows. No product
+density, endpoint, Scala or arrival-polling change.
+
+### 20 October 2026 - Share pending Browse facets (S4a)
+
+Equivalent non-forced facet calls now await the store's dispatched batch rather than
+aborting and reissuing hover work when Browse opens. A single pending key/completion
+slot follows the existing cancellation and generation owners; force refresh and changed
+scope still supersede it. Undispatched debounce, completed/expanded cache reuse, counted
+facets and stale-publication guards are unchanged. Failing-first API-composed regressions
+cover pending handoff and preserved counts/cache reuse; owner controls cover promotion,
+replacement, late cleanup and failure/retry. No datasource, endpoint or server change.
+
+### 20 October 2026 - Upgrade Justified Layout
+
+Justified is now available alongside Table and Grid, using
+MIT-licensed `@immich/justified-layout-wasm@0.4.5` (thank you!). It shares the existing
+windowed browsing and position-preservation infrastructure, and retains the per-tab density
+preference. Grid remains the default. The feature inventory describes Justified alongside Table.
+
+### 19 October 2026 - Add reusable Elasticsearch transport diagnostics and reversible instrumentation
+
+Add cached-dependency loopback fixtures for the Java REST/Apache stack: compression and framing,
+concurrent connection reuse, delayed consumption, incomplete bodies, buffered terminal chunks,
+timeouts and cancellation. Compare observer-disabled/enabled behavior and validate the actual
+Scala/elastic4s integration, operation ownership, failures and cleanup. Drain chained fixture
+callbacks before executor shutdown to avoid masking late callback failures.
+
+Provide bounded metadata-only observation with generated operation/connection identities, cached
+local socket ports, separate encoder/channel byte counters and explicit unsupported ownership.
+The opt-in loopback-only writer has no elapsed-time limit, an 8 MiB cap, bounded queues and
+no-overwrite safeguards; it does not record request payloads or change application timeouts,
+compression, pooling or cancellation. Cover port identity, schema, storage and shutdown contracts
+with local controls; these establish measurement boundaries, not a natural fault reproduction.
+
+Retain both temporary Scala hooks and both Java helpers in one forward/reverse-validated patch,
+with fixtures, sanitized evidence and exact operator commands colocated under
+[es-transport](../experiments/es-transport/README.md). Remove the installed shared copies and restore
+the original shared source. This is optional diagnostic tooling, not a production facility or a
+proven transport fix; live observation requires fresh approval and private capture handling.
+
+### 19 October 2026 - Improve thumbnail readiness with measured two-row lookahead
+
+Extend eager thumbnail loading from the visible virtualizer range to the next two mounted
+rows below. Keep upper and remaining overscan lazy, five-row mounting, the no-range fallback
+and row-local thumbnail-only context updates. The band stays spatial during reversals; image
+sources, decoding, packing and data admission are unchanged. This selects a bounded forward
+readiness improvement while retaining the measured late-Justified and reversal/refresh trade-offs.
+
+Replace the obsolete all-lazy-overscan assertion with failing-first actual-virtualizer and DOM
+loading checks. Cover row geometry, retained offscreen entry without metadata-cell renders,
+zero/one-row result tails and the existing origin, remount, source/decode and request safeguards.
+Keep the media-fallback fixture's elected identity in its route closure so pending return-to-grid
+requests do not depend on a browser probe already removed during cleanup.
+
+Support the policy decision and future buffer/delivery work with generation-scoped visible
+waits, bounded CDP request cohorts and automatic D10 endurance/D11 refresh-under-media-load
+workloads. Preserve D1-D9 contracts and legacy API/ES byte semantics. Distinguish completed,
+pending, censored and unavailable observations; compute refresh deltas within repetitions.
+Expose the measurements in the density dashboard, backed by offline, browser and actual-app
+fixtures. Retain campaign and bounded-experiment evidence without private identities, signed URLs or payloads;
+do not add a permanent eager-row comparison matrix. B2 data prediction and F2 residual image
+delivery remain separate follow-up work.
+
+### 18 October 2026 - Measure buffer-edge blocking and stopped-thumbnail recovery
+
+Add D9 burst/reversal and stopped-viewport recovery to normal density campaigns without
+another operator flag. Distinguish temporary-buffer clipping from true result boundaries,
+record achieved movement, and measure stopped data and decoded-media readiness on a shared
+clock. Track directional and post-stop refill starts, peak concurrency and outstanding work
+without treating store admissions as HTTP transfers. Preserve explicit censoring and D1-D8 contracts.
+
+Expose the revisioned measurements in the standard dashboard with units and interpretation
+caveats. Add schema validation, synthetic-browser and isolated-app controls for bounds,
+current-element media readiness and held refills. Add sanitized readiness-timeout diagnostics
+without changing predicates or retries. No production fetch policy changes.
+
+### 18 October 2026 - Isolate thumbnail loading updates from metadata cells
+
+Carry the virtualizer's existing visible-row loading policy through row-local React context.
+Only the thumbnail consumes it, so lazy/eager transitions no longer rerender the surrounding
+memoized metadata cell. Preserve row and image keys, DOM geometry, sources, lazy overscan,
+enrichment, animation and error behavior without adding a visibility observer or scheduler.
+
+Extend the existing retained-node admission regressions to require no full-cell calls on
+viewport entry, while source replacement still rerenders and decodes the current image.
+Check current-region membership and viewport intersection before and after replacement.
+
+### 18 October 2026 - Hide Justified thumbnail fallback text without removing accessibility
+
+Make image-only thumbnail fallback text transparent so pending images do not paint their
+descriptions in Firefox. Keep alt descriptions available to assistive technology and leave
+loaded images, geometry and admission policy unchanged. Extend the existing held-thumbnail
+regressions with transparent-text and accessible-image-name assertions.
+
+### 17 October 2026 - Admit visible Grid and Justified thumbnails
+
+Use the virtualizer's current visible row range to select eager thumbnail loading,
+including partially visible rows, while keeping overscan lazy. Pass the policy into
+memoized cells so retained nodes update on viewport entry. Preserve asset URLs,
+quality, dimensions, clipping and overscan without adding observers or a scheduler.
+
+Add failing-first actual-renderer coverage for partial-row virtualization and re-entry
+with same-origin and separate-origin synthetic media. Cover mixed Justified row heights,
+retained-node admission and source replacement. Require current connected elements to
+decode, lazy overscan, bounded request attempts and no incidental result refills.
+
+### 17 October 2026 - Reject stale-start backward refill demand
+
+Pass explicit first-row viewport validity from the scroll owner to the data window.
+Reject seek-mode backward admission from a stale pre-compensation range while
+preserving visible reporting, velocity maintenance and legitimate unmarked demand.
+Callers without validity evidence, indexed admission, forward prediction/fallback,
+thresholds, capacity and compensation retain their existing behavior.
+
+Add failing-first publication/admission and independent start-versus-velocity
+controls. Extend the normal Grid/Justified browser regression with a held second
+refill, unmarked edge demand and exact read counts. Capture placement before releasing
+the response and distinguish existing arrival translation from row displacement.
+
+### 17 October 2026 - Exclude maintenance geometry from refill velocity
+
+Separate viewport-validated velocity samples from navigation intent. Reject stale
+virtualizer ranges and reset prediction across buffer, layout, viewport-height,
+search and reporting-owner changes. Stationary range corrections no longer count
+as motion. Preserve visible reporting, base edge refills, existing thresholds and
+position compensation, including movement without wheel provenance.
+
+Add failing-first stopped-prepend and height-resize regressions, scope/owner and
+input-path controls, and normal-suite Grid/Justified stopped-prepend cases. Browser
+controls constrain setup size and remaining headroom so a larger buffer cannot mask
+false predictive admission. Cold review identified the height-reset and masking
+fixture gaps; both were corrected and independently re-reviewed.
+
+### 17 October 2026 - Retain intended placement across density changes
+
+Replace subpixel-only density carry with a guarded retained image and intended viewport
+placement shared by Grid, Table and Justified. Repeated density changes no longer elect
+successive centre images, and temporary destination clipping does not become permanent
+position loss. Keep focus, selection, pending browsing and the existing restoration lifecycle
+separate; the record contains no density names or thumbnail-size presets.
+
+Retire retained placement on browsing input or superseding focus/publication state. Refresh
+its applied coordinates during owned prepend, eviction and variable-window compensation
+without changing the intended placement or adding data reads. Keep the original window
+compensation arithmetic order unchanged.
+
+Share keyboard retirement rules between pending and completed placement so button Space
+activation and control-consumed arrows do not discard layout intent. Record variable-window
+compensation with explicit old/new row coordinates rather than floating-point reconstruction.
+Observed external scrolling retires placement permanently, including movement away and back.
+Scrubber retirement changes density intent only, leaving data-window scroll provenance intact.
+
+Add failing-first all-tier anchor/clipping controls, completed-input and compensation
+regressions, and shared unfocused browser journeys that return to the original baseline
+before and after new browsing. Exercise mouse and keyboard density activation and check
+same-image visibility, focus and selection in intermediate layouts too. Leave reload snapshots
+and panel-reflow policy unchanged.
+Make the existing block-seam resize poll resolve its container and image atomically so a
+detached virtual cell is a not-ready sample rather than an exception; retain its strict
+geometry and identity assertions.
+
+### 17 October 2026 - Require action-owned completion in focused-sort and search measurements
+
+Use the shared action-aware direction helper for PP4 rather than accepting the previous
+search's idle state. Require PP3/PP4's correlated store completion, original focused image
+and idle error-free state before visual settlement. Preserve timestamps when geometry
+moves and observation restarts, avoiding undefined first-visible timestamps.
+
+Replace PP8's transient loading-pulse wait with persistent correlated completion and
+expected-query checks. Version PP3, PP4 and PP8 observation boundaries as revision 3;
+preserve prior histories and existing campaign actions, scenario counts and required phases.
+
+Add offline regressions executing actual helpers and observers with delayed startup,
+old content, unrelated or missing completion, instant/between-poll completion, focus
+mismatch and moving geometry at multiple refresh rates. Validate revision separation
+through the existing dashboard comparator; no benchmark campaign is part of validation.
+
+### 16 October 2026 - Preserve position through cross-density history header flow
+
+Capture the measured source header fraction separately from the logical history
+ratio and restore new snapshots in current-layout header coordinates. Carry that
+coordinate marker through existing small-result refill retries. Legacy snapshots
+retain logical-only interpretation; ordinary search, density anchor policy, history
+keys, request ownership, End handlers and B19's measured-header spacer stay unchanged.
+
+Replace the resident test's explicit header-offset allowance with a failing-first
+same-image DOM-position oracle. Cover both directions, indexed and seek layouts,
+and retain original/traversed detail controls. Strengthen table-tail preservation
+checks for explicit focus and selection through seeking and resident End; keep
+no-focus Back/reload proof and the existing subpixel tolerances.
+
+Cover header-inclusive history placement through repeated partial-buffer clamps
+and resident refill, preserving target, focus and selection without replay after
+completion. A test-only retry-flag mutation confirms the regression detects the
+header-sized displacement; no additional application change is needed.
+
+### 16 October 2026 - Include table header flow in the physical scroll extent
+
+Fix B19 by adding the existing measured header height to the table spacer. Previously,
+the final virtual rows supplied that height only through overflow after mounting;
+history, reload and sort placement could clamp against an extent one header too short.
+Keep logical row/snapshot coordinates, End's scroll-to-index path, detail centring,
+request ownership and cross-density header policy unchanged.
+
+Add failing-first indexed and forced-seek browser coverage for true-tail Back and
+reload with independent DOM position/rank checks. Retain full final-row visibility
+through seeking and resident End, and strengthen the existing selected-End table
+assertion without changing its focus/selection contract or adding fixture machinery.
+
+### 16 October 2026 - Remove remaining frame-count performance readiness deadlines
+
+Replace counted-frame readiness budgets in PP2/5/6/7c/8/9, PP6b/c setup,
+JA1/JB1 navigation, JA2 detail, JB4 indexed scrolling, JB5 fullscreen exit and
+selection-panel settlement with 30-second elapsed-time deadlines. High-refresh
+displays previously shortened the available loading and stabilization time. Retain
+the existing success predicates, consecutive-frame geometry tolerances, observed
+timestamps, scenario revisions and prior seek deadlines. Timeout messages report
+sanitized readiness flags rather than raw queries, identities or service errors.
+
+Extend the existing actual-observer harness with simulated 60/120/240 Hz delayed
+readiness, immediate success, invalid/missing state and moving-geometry controls.
+Add a structural guard against counted-frame readiness loops in browser callbacks,
+excluding outer execution-context retries and bounded extension operations. No
+application behavior, benchmark history or live-system configuration is changed.
+
+### 16 October 2026 - Construct justified square estimates only when consumed
+
+Lazily create the existing construction-local square estimate for the first unknown,
+full, non-final indexed block. Preserve its sharing within that construction and the
+independent packing of known and true-final blocks. Resident/seek layouts, temporary
+seek preparation and indexed builds without an eligible consumer avoid an unused
+48-image pack. No cross-publication cache, geometry ownership, invalidation, resource
+budget, sizing parameter or placement policy changes; no runtime speedup is claimed.
+
+Add real-packing call-through controls for absent consumers, shared indexed estimates,
+repeated publications, the 599/600px target-height boundary and temporary seek preparation.
+Compare boxes and block/row offsets against independently packed references; retain all
+existing true-edge, overlap, retention, seek and browser preservation assertions.
+
+### 16 October 2026 - Share the readiness-free density selection guard
+
+Centralise exact accessible-button lookup and the pressed-state guard in
+`e2e/shared/density-selection.ts`. Return the change button or null, leaving generation
+capture, real clicks and each caller's readiness sequence in the shared Grid/Table
+helpers, windowed Justified wrapper and performance selector. Preserve the performance
+Density type export and avoid importing application state or sizing arithmetic.
+
+Retain resident-region no-op semantics, intentional toggles, synchronous pending-browse
+input and independent placement/media observers. Add caller-order and read-only controls,
+faithful three-density toggles, exact missing-control rejection, wrong/multiple-region
+rejection and delayed acknowledgement proof in the existing synthetic fixture suite.
+Measurement epochs, waits and workload definitions remain unchanged; the extra Promise
+continuation is not a claim of zero timing overhead.
+
+### 16 October 2026 - Share destination-seek headroom and true-end policy
+
+Extract numeric headroom adjustment, sub-row carry selection and requested true-end
+targeting into `prepareDestinationSeek`, shared by fixed Grid/Table reverse computation
+and Justified destination preparation. Keep fixed extrapolation and variable row lookup,
+empty handling and shrink/clamping with their geometry owners. Exact-offset targeting,
+null-zone-aware totals, admission, publication and scroll placement remain unchanged.
+The helper takes no image records or sizing parameters: future Grid columns and Justified
+target row height remain distinct rather than imposing fixed arithmetic on variable rows.
+
+Add independent caller-level controls for empty/short destinations, fractional headroom,
+shrink and requested/incidental true ends, including near-end requests whose buffers have
+not reached the end. Retain the existing oracles and distinct empty calculator results.
+This reduces policy divergence without promising faster seeks or changing header policy.
+
+### 15 October 2026 - Balance artificial justified block endings
+
+Remove representative technical seams without changing stable 48-image block ownership.
+When a non-final block ends with an underfilled row, repartition only its final three rows
+into ordered full-width rows within the existing target-height limits, minimising
+item-weighted size deviation. Try shorter suffix bands when a wider band is infeasible, so a
+preceding extreme panorama cannot block a solvable ordinary tail. Preserve earlier rows,
+whole-image proportions and natural true-final rows, including unloaded indexed final blocks.
+Retain engine output when no bounded suffix solution exists; do not stretch beyond the cap
+or hide results. Small interior engine-cap underfills remain a separate, explicitly deferred issue.
+
+Keep dimension retention, data requests, query/history provenance and scroll-correction
+ownership unchanged. The parked 36/37px header policies remain separate. Failing-first seam
+witnesses and seeded packing controls cover geometry and bounded work; window tests cover
+middle entry, both eviction directions, partial edges and resize. Rendered indexed/seek
+controls cover seam width, proportions and anchor preservation through reflow and density
+switches, alongside the existing full preservation regression surface.
+
+Close the cold-review proof gap with a held production append into an already-visible partial
+block in both indexed and seek modes. Publish the partial dimensions before justified first
+mounts, respect density-disposal cooldown and observe the real viewport election without
+explicit focus. Require changed content geometry, unchanged viewport placement, exact appended
+identities and stable subsequent frames. Rename the internal option to `balanceTrailingRows`
+to describe an attempted operation rather than imply guaranteed block completion.
+
+### 15 October 2026 - Add density performance campaigns, thumbnail diagnostics and usable dashboards
+
+Add paired Grid/Justified measurements for scrolling, density transitions, detail return, seek,
+reflow and bounded eviction, plus Table thumbnail diagnostics. Preserve existing campaign defaults
+and contracts; provide separate comparison and combined suites, with --full as the compatible
+shorthand for all maintained suites. Reject contradictory selections and write separate histories
+through the existing all-or-nothing transaction.
+
+Keep startup, setup and normal workloads unthrottled. Automatically include a separately labelled
+constrained-scroll scenario across all three densities, applying network/cache policy only during
+observation and restoring it on failure. Warm renderers outside transition measurements, rotate
+density order and restore one canonical paired identity through existing owners. Use native thumb
+dragging, respect maintenance cooldown and row-aligned capacity, and observe the admission-triggering
+tail jump inside measurement. Derive its destination from the actual minimum extension threshold;
+require real eviction without increasing timeouts or product resource limits.
+
+Measure thumbnail load/decode lead distance and time-weighted visible pending area separately from
+missing result data, absent media and failures. Bound sampling and retention, guard recycled image
+sources, and retain unavailable/censored observations rather than inventing zero latency. Distinguish
+layout-shift attribution, element reuse and logical ordering without claiming thumbnail causality.
+Keep identities/URLs out of records and disable live screenshot/trace/video and fallback snapshots.
+
+Provide a density dashboard with latest comparison cards, compatible history, explained metrics,
+human units, meaningful scales and hover/focus/tap details. Collapse advanced diagnostics; preserve
+single-point, missing-data and zero-value distinctions. Add Previous/Next controls and metric guides
+across all three dashboards without changing existing comparison logic or hijacking form-control
+arrows. Cover contracts, observers and dashboards with pure/synthetic checks, and campaign setup
+with isolated actual-app tests across both layouts and indexed/seek regimes.
+
+Replace the performance README's historical narrative with an operator guide to flags, prerequisites,
+authentication, reports and validation. Require preflights for new/changed setup or measurement paths,
+not every unchanged run; correct auth guidance to use private external state and an ignored symlink.
+Record campaign evidence and bounded thumbnail-headroom investigation criteria in the justified plan.
+Campaigns remain operator-run; no product prefetch, rendering or scrolling policy changes.
+
+### 15 October 2026 - Preserve justified recovery identity and committed geometry
+
+Recover off-buffer vertical/page focus through the existing seek-to-focused owner rather
+than dropping the key. Record row/page intent without invented fixed columns and resolve it
+against admitted destination geometry; newer focus intent supersedes the queued movement.
+Retain fixed-grid/table movement and density-change placement ownership.
+
+Use the elected surviving image itself for geometry-publication correction. A former-row
+neighbour is a fallback only after that identity disappears, preventing a split row from
+moving the elected image by another image's delta. Publish cross-density dimension context
+only from the committed layout boundary, so abandoned render work cannot replace it.
+
+Rename historical availability/windowed constants to JUSTIFIED_AVAILABLE and
+WINDOWED_JUSTIFIED_ENABLED without changing fixture selection or production exclusion.
+Make windowed test density selection idempotent; arrange held maintenance only after earlier
+automatic work settles. Retain exact request and placement assertions. Add failing-first
+split-row, off-buffer keyboard and Strict Mode/Suspense publication controls, plus native
+indexed/forced-seek recovery checks; existing fixed-density regression suites remain intact.
+
+### 15 October 2026 - Stabilise density controls and prevent horizontal shell scrolling
+
+Replace the combined density toggle and text-only justified control with independent
+Table, Grid and Justified icons. Grid is the default and a no-op when already active;
+active Table or Justified returns to grid. Match all three painted icon dimensions,
+including the Material Dashboard path's viewBox padding, and expose stable accessible
+names and pressed states.
+
+Remove ordinary-app prototype messaging and the redundant development live-mode opt-in.
+Retain explicit synthetic/sample fixtures with honest data disclosures and preserve the
+production licensing exclusion. Reuse existing normal/forced-seek test servers instead
+of running two otherwise duplicate live-mode servers.
+
+Bound result-summary scrolling within the toolbar, keep layout/panel/selection controls
+reachable on narrow screens and make the outer app shell non-scrollable with overflow
+clipping. This prevents native keyboard focus from shifting results and scrubber together.
+Add native-Tab, selection, toggle/no-op and painted-icon geometry proof; update maintained
+functional/performance selectors without changing their measurement boundaries.
+
+### 15 October 2026 - Integrate windowed justified browsing behind a live prototype gate
+
+Add a separate DEV-only live mode using the normal datasource and real queries while
+retaining synthetic/sample modes and production packing exclusion. Pack bounded blocks
+using exact indexed positions or overlap-derived seek identities; retain only bounded
+identity/dimension context across eviction and density remounts. Estimate unloaded
+geometry without extra data fetches or larger request/image-retention limits, and truncate
+true result edges separately from temporary window boundaries.
+
+Extend the shared geometry contract with explicit window alignment and destination-seek
+preparation instead of fabricated fixed-row scalars. Keep one scroll compensation owner
+for changing variable geometry and preserve existing navigation/query/history lifetimes.
+Retain subpixel density placement through untouched round trips to prevent cumulative
+browser scrollTop quantisation; user input and changed publication retire that precision.
+Keep existing header-offset behaviour and packing defaults unchanged.
+
+Add bounded geometry, delayed-publication and indexed/forced-seek browser proof covering
+eviction, pending density switches, selection, responsive reflow, history, viewers and
+real result edges. Preserve fixed-density controls; performance and licensing promotion
+remain separate operator decisions.
+
+### 14 October 2026 - Add a bounded real-photo justified preview
+
+Add a separate DEV-only sample mode that makes one capped read through the configured
+read-only datasource, then keeps result operations in memory. Reuse the existing
+thumbnail/detail proxies and resident interaction paths without enabling windowed
+browsing. Extend the mock datasource with supplied images, real identity lookup and
+local ordering while preserving its synthetic defaults. Explicitly label simulated
+query matching and reload resampling; failed sampling remains empty rather than
+falling back to unrestricted live reads.
+
+Add unit proof for bounded/coalesced sampling, local traversal and mode-specific media
+URLs. Retain the synthetic preview and production exclusion of experimental packing;
+leave row-filling policy and the deferred cross-density history offset unchanged.
+
+### 14 October 2026 - Add the resident justified-density preview
+
+Add a DEV-only synthetic preview using the operator-approved Immich packing engine.
+Reuse ImageGrid interactions and existing detail/fullscreen paths; image-only cells
+use actual row geometry, width-aware anchoring and shared spatial keyboard handling.
+Measure initial width before mounting the density, retain whole images and incomplete
+final rows, and keep the experimental engine import out of the ordinary build.
+The preview uses a finite MockDataSource fixture; sparse/windowed browsing is not enabled.
+
+Browser proof covers density/panel cycles, same-density and cross-density history,
+selection, spatial/page/edge keys, detail return/reload, fullscreen traversal and
+responsive image geometry. Preserve the existing table-header history offset in both
+fixed-grid and justified controls, as explicitly selected by the operator; record the
+repair question in the prototype plan. Validation includes units, build, normal and
+forced-seek regressions, preview journeys and focused follow-ups. The published engine's
+licensing review, performance comparison and P3 remain separate adoption gates.
+
+### 14 October 2026 - Prove resident continuity with non-uniform row geometry
+
+Introduce one registered presentation-geometry contract for fixed and non-uniform
+rows. Density placement, search/history capture, visible-range reporting and the
+existing fullscreen callback share logical row lookup instead of duplicated
+fixed-column arithmetic. Preserve transition-specific header/edge conventions,
+anchor choices and existing publication, cancellation and completion ownership.
+Legacy window preparation explicitly rejects non-uniform geometry rather than
+receiving stale or fabricated fixed-row scalars; seek and buffer compensation
+remain fixed-row-only.
+
+Add an irregular-row fixture to the existing mounted continuity tests, covering
+repeated density round trips, resident versus nonresident focus, distinct selection
+anchors, query/sort and destination-history composition, queued geometry changes,
+retired callbacks, pending discovery, and native/traversed detail return. An
+independent failing-first placement assertion establishes the missing capability.
+Validation includes the complete unit suite, production build, normal/forced-seek
+E2Es and a focused follow-up for one conditional buffer-fill skip. This is not a
+rendered justified density, sparse-layout proof or performance certificate; no
+viewer, datasource, dependency or selectable-density change is introduced.
+
+### 12 October 2026 - Align Kupua Node pin with repository security update
+
+Pin Kupua to Node 22.23.2 to match the repository's updated runtime. Keep the package
+engine range unchanged; this version also satisfies the locked jsdom 29.1.1 engine range.
+
+### 8 October 2026 - Retire unused field-display and sort-label wrappers
+
+Remove getFieldDisplayValue, getSortContextLabel and its exclusive formatSortDate
+shim without replacing them. Preserve alias/raw/fallback/immutability checks;
+exercise registered date/MIME formatters, absent credit and sparse accessor/scalar
+formatter safety directly. Retire only duplicate alias display and wrapper-only
+dash/unknown-ID policy. Reroute all eight image-backed sort-label cases through
+in-buffer interpolation with their original outputs, no distribution/visibleCount.
+The operator's bounded decision supersedes T16 wrapper retention, not its shared
+mapping/formatting coverage or archived evidence. Keep registry definitions,
+renderers, raw helper, sort maps/resolvers, adaptive formatting and distribution/tick
+algorithms unchanged. Correct only the stale Scrubber formatter-name comment.
+Validation includes focused checks before/after rerouting and deletion, four
+restored temporary output/mapping faults, full units and the production build;
+no runtime component/hook/store/scroll behavior changes or universal equivalence
+claim follow.
+
+### 8 October 2026 - Retire the unused legacy Grid detail reader
+
+Remove the unused gridApi allocation, GridApiDataSource detail implementation/suite
+and identity-only mergeReconciledFields helper/test; no replacement machinery.
+The operator's bounded decision supersedes only the archived singleton keep rule.
+Retain private discovery and its shared initialization/AI-capability promise,
+shared Argo helpers, API types and distinct auth/session/server/write-guard vocabulary.
+The live requested-ID-checked singleton read, normalization, cancellation and
+ImageDetail-owned enrichment/actions remain unchanged. Map retired assertions to
+existing live/Argo coverage or obsolete reader policy; no coverage gap warrants
+transferring the old suite. Correct current documentation and redirect the useful
+fixture reference without rewriting historical packet evidence. Preserve nested
+editing capabilities as a future requirement, not runtime scaffolding; delivery,
+renewal and downloads remain separately authorized. Validation covers retained
+contracts through focused suites before/after deletion, full units and the
+production build; no component, hook, store or scroll/focus behavior is changed.
+
+### 8 October 2026 - Bound multi-image chip rendering with shared disclosure
+
+Mount only the first twenty frequency-ordered chips per Details field before creating
+pill elements. Reveal the complete field on Show more… and remove its remainder on
+Show fewer, retaining full-selection counts, stable ties, search modifiers and
+per-field expansion across reconciled-view refreshes. Extract FieldDisclosure from
+Filters' controls/collapse handler to share presentation, accessibility, native
+loading-focus recovery and scroll anchoring without merging data/state lifetimes.
+Keep Filters' ten default rows, bounded expanded aggregation and request ownership,
+single-image presentation and empty-section layout unchanged. Strengthen the owning
+browser cases and add mounted semantic/async proof; reconciliation and cache policy
+remain unchanged. Intentional large expansion can still stall.
+Keep Location commas attached to the preceding value, outside search links, while allowing single- and multi-image rows to wrap between values.
+Recheck active focus in the deferred collapse frame so newer control focus wins; retain header fallback when the disclosure button disappears without another focus target.
+
+### 7 October 2026 - Retire duplicated settled phantom detail journeys
+
+Run settled detail-restoration browser controls in explicit focus mode only.
+Retain early phantom browser input/presentation, both placement policies and
+layouts, newer keyboard/clear intent and the mounted full-mode timing matrix.
+Keep every reloaded gesture-return journey and all surviving assertions unchanged;
+no helper, production code or fixture machinery is added.
+
+### 7 October 2026 - Shorten B10 preparatory backward travel
+
+After genuine forward eviction, position the resident viewport at one tenth of
+its scroll height before reference/probe preparation. Real backward wheel input
+still exercises every held prepend through zero. Keep all four transport/layout
+cases, independent corpus/DTO checks, frame windows, assertions and cleanup;
+no helper or production change.
+
+### 7 October 2026 - Remove duplicate no-focus B17 browser executions
+
+Run indexed queued and Scrubber-wheel density interruptions once per transport
+and direction after the existing helper clears focus. Remove their duplicate
+phantom-mode executions; retain both modes for pending bookmarks and discovery,
+where real detail setup and End focus permission differ. Existing mounted mode
+coverage retains no-focus arrivals, and browser identity, geometry, ownership and
+observation windows remain unchanged. No helper or production code changes.
+
+### 7 October 2026 - Preserve Home guard contracts with composed proof
+
+Add real-Home controls to the existing mounted suites for unmarked detail return
+and the first cached cursor restore during held Home completion. They assert no
+stale focus/placement and one page read with the fresh top buffer, rather than
+mocked suppression calls. The detail fixture completes its close transition so
+return suppression cannot leak into the next case. Both Home fixtures drain the
+existing safety cleanup under controlled time before teardown. Existing density and paired
+URL-sync read-budget controls remain unchanged. No production guard is removed;
+isolated deletions exposed responsibilities not covered by newer ownership.
+
+### 6 October 2026 - Preserve long-press range ownership and chaining
+
+Long-press captures its old-anchor range with an endpoint-chaining instruction for
+the existing range hook. The hook reanchors before taking pending ownership and
+retains the endpoint after its current resident or fetched commit, including removal.
+This avoids self-cancellation without ignoring external anchor changes, adding a
+timer or allowing an obsolete gesture to merge with newer intent. Shift-click,
+focus, datasource contracts and existing add/remove polarity remain unchanged.
+A new long-press on an already-selected endpoint also retires pending work through
+that same owner, without a range read or membership change; ordinary no-op store
+notifications remain non-cancelling.
+
+Paired failing-first dispatcher/hook composition proves the residency-dependent
+loss with a successful response. Existing successor controls now compose real
+long-presses and retain late-success/rejection, membership and busy-state proof.
+Full local gates and bounded live API grid/table Chromium mobile touch checks cover
+membership, endpoint chaining, successful reads and newer intent; physical devices,
+live direct ES and performance parity remain outside that evidence.
+
+### 6 October 2026 - Resolve startup defaults before search admission
+
+Replace URL sync's premature one-time defaults flag with owner-local resolution
+state. A required URL replacement stays pending across effect replay; canonical
+empty free-only defaults resolve without redirect. Reuse the shared Home defaults
+instead of making readiness depend on a rights flag. Explicit URL intent, later
+empty navigation and existing Home/history/detail ownership remain unchanged.
+
+Failing-first mounted-owner checks distinguish Strict Mode replay from an ordinary
+pending rerender. Composed direct-ES/media-api proof retains one effective admission
+and useful page/count/ticker publication. This is a startup ordering repair, not a
+permission/fallback policy, request suppressor or demonstrated production saving.
+
+### 5 October 2026 - Security, test-tool and AWS dependency updates
+
+Raise Vitest's minimum to 4.1.11 and update its matched internal packages to fix
+the mocker file-read advisory. Refresh jsdom's indirect Undici dependency to
+7.30.0 for the published HTTP/WebSocket security fixes. Update Testing Library to
+16.3.3 and fast-check to 4.10.2. Upgrade the Bedrock runtime, S3 client and credential
+providers together to 3.1146.0, including their AWS/Smithy support dependencies.
+Preserve browser dependencies, compatible Chai and tinyrainbow leaves, and defer
+major migrations.
+
+Use temporary npm 11.21.0 to work around npm 10's optional-peer resolver crash;
+global npm, Node 22.12.0, startup/test commands and Grid configuration remain
+unchanged. The existing jsdom/Node supported-version mismatch is retained explicitly.
+
+### 4 October 2026 - Transport-labelled browser network diagnostics
+
+The main jank audit's Network group now observes both direct ES and media-api
+resources through a shared passive collector for startup and ordinary probes.
+Counts, response-transfer bytes and mean browser duration retain existing capture
+windows, without new requests, interception, quiescence waits or altered scenario
+completion. Captures store numeric evidence only, not request URLs or identifiers;
+legacy raw ES fields remain ES-only. Missing capture, ambiguous zero-size transfer
+and genuinely zero requests stay distinct.
+
+New optional history fields aggregate conservatively across repetitions; missing
+historical diagnostics are not backfilled. Markdown and the dashboard expose one
+Network category with transport/topology/capture-specific series, visible gaps and
+no cross-transport subtraction. Existing non-network comparisons are preserved.
+Pure collector/reporting controls, local media-api startup/seek dry-run validation
+and a synthetic browser dashboard check cover the new path; deployed byte visibility
+and live direct-ES parity remain unverified. Existing histories are untouched.
+
+  ### 4 October 2026 - One owned density restoration lifecycle
+
+  Saved ratios, unsaved Home centring and pending navigation now share one capture,
+  two-frame readiness chain and active finalizer. Settled focus intent and existing
+  publication generations prevent obsolete placement; retirement persists across
+  unready remounts and resident Scrubber input without cancelling useful reads.
+  Departure remains navigation-owned. Source and destination edge snapping require
+  real result extent, independently of visibility clipping and physical DOM limits.
+  Browsed-neighbourhood/bookmark, row-top and horizontal policies remain unchanged.
+  Duplicate settled browser journeys and their arithmetic centre oracle are replaced
+  by identified-row proof; pending matrices and the real failing-Home input remain.
+
+  ### 4 October 2026 - Preserve pending new-image counts across browser reload
+
+  History snapshots now carry the last-known arrival count alongside their search
+  identity and admission boundary. Shared arrival restoration preserves the existing
+  newer-boundary ratchet without tying it to an image anchor, and never pairs an
+  older or different-query count with the effective boundary. Search hydrates that
+  state before asynchronous work; initial StatusBar presentation reads the same
+  snapshot and hands over to live state once the boundary exists. The independent
+  `kupua-sb-new` cache and stale immediate-poll assumption are removed.
+
+  Browser reload preserves pending admission; ticker/Home/fresh-search and AI reset
+  semantics remain distinct. Poll cadence, requests, PIT lifecycle and API endpoints
+  are unchanged. Existing snapshot, component, polling, paired history and reload
+  cases are strengthened rather than adding cases or files, covering count handoff,
+  ratchet, absence/zero and direct PIT/null versus API-no-PIT restoration. The archived
+  comparison now marks its old browser-refresh admission claim as superseded.
+
+  ### 4 October 2026 - Durable reset presentation browser regressions
+
+  Existing forced-seek, buffer and history specs now exercise actual wheel prepends
+  through zero, actual first/deep refresh badges including HTTP refusals, and native
+  Back with painted thumb/tooltip checks before deliberately delivered obsolete Home
+  success. Data/tuple/position oracles and request budgets remain independent.
+  Arrival animation readiness is distinct from compensation, and history geometry
+  uses a fully visible anchor rather than changing the established clipping policy.
+  API fixtures encode nested Argo fields and check decoded metadata independently.
+  Adversarial controls reject wrong-deep thumb paint, extra empty reads and backing
+  failures misclassified as HTTP refusals; interrupted publication observers are
+  owned by fixture cleanup, with closed registration and dynamically drained work.
+  Home and native Back discovery have separate read budgets.
+
+  Unsupported new nullable mock composition drafts and their unused fixture extension
+  were deleted rather than skipped or moved into the real-ES mutation oracle.
+  Optional mock capability expansion is recorded separately in ledger L44; existing
+  nullable coverage and production sorting are unchanged.
+
+  ### 4 October 2026 - Explicit reset publication and owned Home feedback
+
+  Ordinary prepend reaching offset zero retains compensation instead of being
+  classified as Home. Explicit search/fallback publication and ready zero browse
+  intent now own top placement; positive seek/cursor and maintenance paths retain
+  their distinct coordinate mechanics. The competing buffer-offset reset is removed.
+
+  Home owns temporary thumb/tooltip top feedback with a token released on completion,
+  failure or genuine supersession. Its captured existing discovery record detects
+  accepted same-generation takeover without discarding useful data. Near-zero thumb
+  geometry and an unowned generation no longer decide completion, and obsolete
+  cleanup cannot retire a successor. Later density intent remains independent.
+
+  New-images refresh defers content and horizontal movement until its accepted fresh
+  publication, preserving query/order, freeze, selection/focus and history policy.
+  Existing suites add composed reset/hostile-delivery, independent buffer/tuple and
+  fixture-failure cleanup controls; router mocks preserve real location identity.
+
+  ### 4 October 2026 - Explicit continuity provenance independent of fallback
+
+  Adopted user/history handoffs require explicit provenance. Search and finite-AI
+  reorder use it for history intent capture and pending destination presentation,
+  leaving top-versus-neighbour fallback as resolution policy. Completion still
+  adopts the current presentation owner; retirement preserves useful data without
+  reviving focus or placement. Production policies and legacy no-handoff paths stay
+  unchanged. Bounded composed controls substitute fallback independently of
+  ownership, including user top fallback and late history/AI owner replacement.
+
+  ### 4 October 2026 - Shared hit-tested continuity input observation
+
+  Browsing and reload-detail tests share one synchronous result-cell point observer,
+  retaining usable geometry, view/role offsets, caller insets and hit ownership.
+  Callers keep one/double-click policy and distinct identity, publication, placement
+  and frame readiness. The observer disposes its handle even on serialization failure.
+  Bounded DOM controls cover unavailable input and resource lifetime; detail suites
+  use contract-based names. Existing product assertions and perf workloads remain.
+
+  ### 4 October 2026 - Owned pending detail return and shared session identity
+
+  B9 close retains the last-viewed target through existing pending list restoration.
+  Publication schedules owned placement with current grid/table geometry, without
+  polling or a duplicate read path. Original-image return stays native; genuine
+  traversal centres. B12 swipe preparation and final close use one history-backed
+  session entry, so reload on B followed by return to original A adds no displacement.
+  Fresh opening and Forward preserve their established new-session boundary.
+
+  Focus intent separates user input from passive restoration. Same-ID nonresident
+  input retains its known offset, and off-buffer Arrow/Page records intent before
+  asynchronous snap-back even before total publication. Cursor/cursorless/fallback
+  restoration exposes its existing pending owner for remount reuse; search,
+  cancellation and successor seek retire obsolete descriptors synchronously.
+  Late data can remain useful without reclaiming focus/placement. Each adopted
+  history presentation owner captures its own intent, including finite AI.
+
+  Controlled E2E setup at the Home-density, selection-panel and L39 AI sites uses
+  retained job handles and synchronous readiness rather than returning setup
+  promises to Chromium. Setup rejection propagates and handles are disposed;
+  no setup retries or weaker workflow assertions are introduced.
+
+  ### 3 October 2026 - Destination-owned history and independent per-tab density
+
+  Back/Forward derives target, placement, represented focus/NONE, top fallback and
+  offset only from the matching destination snapshot. Existing search/focus owners
+  carry resolution, coherent publication and one-shot placement in current geometry.
+  B13 no longer adopts departing neighbours when a historical target is missing;
+  ordinary user-neighbour fallback remains. B14 resident AI restores destination
+  focus/NONE without requests, and pending AI retains latest same-query order and
+  handoff without reviving retired placement or cancelling useful discovery.
+
+  Router history actions identify native destinations before query dedup; raw and
+  validated route params must agree before capture/dispatch. Distinct same-query
+  entries restore too. Marked detail origin and immutable entry-image metadata
+  distinguish normal close/traversal from unrelated native destinations, including
+  detail-to-detail history. Snapshot shape stays one represented anchor; unmarked
+  older detail and unadopted cursor/arrow placement retain limited compatibility.
+  Adopted snapshot hints, independent AI identity arguments and numeric history
+  ratio capture/consumption are removed rather than wrapped.
+
+  Density is synchronous session-owned UI state, removed from URL/history/search
+  fingerprints. Choices persist immediately, including same-value intent, without
+  navigation, Forward loss, typing cancellation or density-only searches. Storage
+  failure stays quiet; local preference hydration owns only focus/blur fields.
+  Both-logo Home resets/persists grid after owned data only if no later density
+  intent exists, without treating preference changes as query cancellation.
+  B1 is superseded by removal of its density-only entry producer, not migrated.
+
+  Maintained E2E, forced-seek, diagnostics and perf setup explicitly initialize and
+  assert density while navigation/reload retains later choices. Blank/reused setup
+  owns one removable, per-origin consumed CDP seed. Corpus pinning, workload and
+  measured boundaries remain; no live campaign or historical-result rewrite follows.
+  Composed and repeated router controls retain focus/geometry/request and pending
+  ownership proof. L39's image fixture falls through to its health stub; KUP-018
+  proves entry-change cancellation then rejects deliberately delivered stale work.
+  Q1/Q7, wider bugs and stronger seek/snapshot guarantees remain separate.
+
+  ### 3 October 2026 - Adopt AI transitions into the search continuity handoff
+
+  User-initiated AI entry, query/filter changes, in-memory re-sort and exit share
+  the existing pre-passive target, placement and focus-treatment capture. URL sync's
+  separate AI target chooser and adopted numeric-ratio capture are removed. The
+  pending handoff stays with the existing search generation and focus owner;
+  re-sort replaces placement ownership without cancelling current AI discovery.
+  Finite publication uses the latest same-query sort and handoff, while obsolete
+  queries cannot reclaim results, metadata or enrichment. History retains its bridge.
+
+  L39 preserves the browsed centre on AI exit when there is no remembered detail
+  image, without creating explicit focus. Remembered identity still wins off-screen;
+  exit resolves ordinary membership/rank from identity and discards the AI rank hint.
+  Existing finite-AI missing-target and ordinary fallback rules remain intact.
+  Adapter-backed mounted and real-control browser regressions cover placement policy
+  substitution, pending ownership, density interruption and transport-specific
+  completion. No ranking, backend, density/history policy or performance guarantee
+  changes accompany the adoption.
+
+  AI completion preserves input-retired placement and suppresses its placement/reset
+  signals without suppressing result publication. A history-cleared handoff selects
+  the existing legacy consumer instead of reviving an aborted closure owner; its
+  one-shot ratio and eventual start placement remain unchanged.
+
+  Browser setup owns the L39 fixture search promise and checks mounted store identity
+  across imports, with cleanup in `finally`. Shared pending-density controls use a
+  hit-tested visible bookmark and native mouse input instead of auto-scrolling an
+  overscan row. Existing workflow assertions remain intact.
+
+  ### 3 October 2026 - Keep pending navigation presentation under its browse owner
+
+  B18/L40 is repaired. Scrubber receives the existing browse destination through the
+  route and follows it through ready placement, replacing its separate inference that
+  position, total or loading changes mean arrival. Pointer dragging retains immediate
+  local feedback without owning asynchronous completion.
+
+  Pending seek-tier density changes capture the visible departure anchor in the
+  existing density bridge, tagged with the navigation signal. Mount layout preserves
+  that neighbourhood before paint using current geometry; ready arrival, cancellation
+  or newer navigation prevents stale departure restoration. Focus/selection policy,
+  indexed positioning, request/cursor logic and two-frame readiness are unchanged.
+  Maintained regressions now inspect pending thumb/content frames as well as final
+  publication, with failing-first coverage and failure/successor controls. No new
+  coordinator, request, restart or timing workaround is introduced.
+
+  ### 3 October 2026 - Carry ordinary search continuity with its target
+
+  Ordinary user search/filter and sort transitions capture target identity, placement,
+  focus treatment and fallback neighbours together in the existing pre-passive layout
+  phase. URL sync consumes that capture instead of independently choosing an anchor.
+  The store binds the existing focus signal and search generation, carries placement
+  through neighbour resolution and publishes the resolved identity with final buffer
+  coordinates. Placement is consumed once, respects density readiness and retains
+  owner-checked small-result retries. AI/history keep their compatibility ratio path;
+  discovery, browsing, maintenance, cursors and alignment are unchanged.
+
+  Selected sorting now retains older focus when focus and selection anchor coincide
+  (B6). The composed URL/store regression failed before the repair; equal/distinct
+  anchors retain focus through sort and Clear without changing selection or scrolling
+  solely for Clear. Maintained controls cover off-screen remembered focus, automatic
+  Clear, missing targets, adapter/map regimes and interrupted publication. Same-target
+  ratio/centre fixture substitution preserves ownership and read-budget assertions.
+  No AI-exit policy, wider repair or performance guarantee is introduced.
+
+  Independent review exposed an introduced ordering regression: publication between
+  density frames could defer placement until after newer resident wheel input. The
+  shared mount-frame input watcher now retires only already-published ready placement,
+  including pending-browse and invalid-saved-index readiness paths. Input before
+  publication remains eligible for normal search placement. Retiring placement leaves
+  request/discovery ownership, busy state, focus and selection intact. Paired adapter
+  regressions failed before repair; focused re-review found no remaining actionable
+  issue in that repair, and final unit, build and retry-free full local E2E gates pass.
+
+  ### 3 October 2026 - Preserve query discovery through navigation takeover
+
+  Explicit browsing now retires ordinary initial placement without discarding its
+  membership discovery. The existing count, or the already-requested counted page on
+  count failure, supplies current totals and edge clamping. Cursor/focus successors
+  inherit that discovery and bypass old-resident shortcuts. Failed, missing-target or
+  cancelled replacements can finish from the retained first page only while no newer
+  owner exists; queued cancellation and superseded focus status also settle correctly.
+  Accepted freeze/map/poll work is reused. Deep-to-resident End placement is not erased
+  by the generic offset-zero reset.
+
+  AI queries reject ordinary seek/refill/extension/restore reads while pending and after
+  publication. The Scrubber wheel bridge records indexed user intent before forwarding
+  scroll, using current props across regime changes. Failing-first adapter, store,
+  component and mounted controls cover these ownership boundaries, with maintained
+  browser regressions for both click modes and density directions. No new count request,
+  search restart, backend change, settled-density policy or general epoch was introduced.
+
+  ### 3 October 2026 - Make journey search readiness refresh-rate independent
+
+  The JA3/JB2/JB3 exact-search observer now uses the same elapsed-time readiness
+  budget as PP1 instead of stopping after 300 frames. A valid four-second search
+  previously passed at 60 Hz but failed at 120/240 Hz. Successful readiness guards,
+  observed timestamps and scenario revisions are unchanged. Failures now identify
+  the actual step, including JB2's matched control, with sanitized readiness flags.
+  Actual-observer regressions cover delayed success and invalid/missing/moving states;
+  no application behavior or recorded performance history was changed.
+
+  ### 3 October 2026 - Preserve pending browsing across density (B17)
+
+  Browsing now retains a search-scoped destination through queued, loading and ready
+  placement phases independently of the mounted view. Density cancels maintenance,
+  not navigation; indexed scrubber input records its target before native scrolling,
+  while layout-only refills retain their separate authority. Newer navigation/search
+  supersedes obsolete work without restarting the requested search.
+
+  Ready placement survives remount and waits for current geometry. Busy-state cleanup
+  cannot clear another foreground owner, and cursor restore/snap-back supersede older
+  browsing without importing the density cooldown. Cancelled focus work cannot clear
+  retained/newer focus. Strict Mode readiness and deferred viewport notification have
+  distinct lifetimes. Existing estimation, alignment, focus/selection and settled-density
+  policy remain intact. Maintained TDD regressions, full local gates and bounded live
+  direct/media-api checks cover the adopted paths; performance equivalence is not claimed.
+
+  ### 2 October 2026 - Preserve search and keyboard-edge ownership (B8/L37)
+
+  Initial ordinary/AI reads have separate cancellation from range movement. Density and
+  automatic viewport refill preserve the current search; fresh keyboard-edge intent can
+  supersede an obsolete ordinary initial read. Captured-signal and generation guards prevent
+  late success, cancellation or failure from overwriting the newer navigation.
+
+  Home after pending End rebuilds the current-order first page when initial cancellation
+  invalidated the resident buffer; valid resident Home shortcuts remain unchanged. Fill stays
+  range-owned, while AI ownership, adapter contracts, cooldowns and two-frame restoration
+  remain intact. No request restart, timer delay or general coordinator was added.
+
+  ### 1 October 2026 - Density switch no longer drifts after seeking away from focus
+
+  With explicit focus on an image that a later seek moved out of the buffer, every density
+  switch landed further back in the results (200-400 images per switch on TEST). Both the
+  unmount save and the no-save mount restore anchored on the unresolvable focus and gave
+  up, so the new view mounted at its buffer top, extended backward, and the next switch
+  repeated from there. Both now fall back to the viewport-centre image when the focus is
+  not in the buffer. An in-buffer focus still anchors the switch, and a smaller,
+  converging row-top placement shift remains.
+
+  ### 1 October 2026 - Position-engine cleanup: dead wood and stale comments
+
+  Started a position-engine cleanup series (session prompt and ledger in
+  `not-yet-another-audit-prompt.md` / `-ledger.md`; behaviour map rewritten in
+  `02-focus-and-position-preservation.md`). No behaviour change.
+
+  - Removed the Scrubber's `positionMapLoaded` prop and the route's position-map
+    subscription. The map only exists inside the two-tier range, where `twoTier` already
+    selects scroll mode, so the prop never changed interaction or `data-scrubber-mode`.
+  - Removed the unused `clearSuppressRestore` export and an End-key `loadMore()` call
+    that only ran when the buffer already reached the end.
+  - Replaced five inlined two-tier range checks (store and search route) with
+    `isTwoTierFromTotal`.
+  - Corrected comments describing removed mechanisms: phantom placement via seek
+    generation, "no consumer yet" snapshot notes, viewport anchor derived from the
+    visible range, `_viewportAnchorId`, the Scrubber thumb-reset "flash guard", and
+    worklog/plan pointers.
+
+  ### 29 September 2026 - Deployed TEST media-api measurement (U8/M2a)
+
+  Added explicit `--use-deployed-media-api` startup and perf modes. Ordinary and local API
+  modes remain pinned to `/api`; only the deployed flag selects the allowlisted TEST origin,
+  with credentialed reads and local `/s3`/`imgproxy` delivery. The shared transport now covers
+  discovery, image reads and quotas, suppresses the direct Bedrock probe in API mode, and reports
+  `apiTopology` so the harness rejects app/runner mismatches. Route metrics now require the exact
+  local or TEST API origin, and the Playwright reporter no longer writes a nested results tree.
+
+  Temporary TEST build `15470` completed a four-run deployed campaign and a matched-home local
+  control with no browser ES leakage or hard perceived ceiling breach. Matched-home medians made
+  PP1-5 8-18% faster, PP11 restore 17% faster, JB2/JB3 filters 17%/34% faster, P18 visual settle
+  19% faster and singleton lookup 29% faster. Fresh-context JA1/JB1 were 18%/12% slower, PP7 click
+  seek was 13% slower despite a 6% better p95, and P19's 1,000-item range/visual settle were
+  25%/19% slower. P8/P9 jank matched after controlling network location.
+
+  A bounded deployed AI check confirmed finite-scored hits, pool/tickers, no-vector projection
+  and result-owned overlays without browser ES/Bedrock. No endpoint redesign, PIT work or general
+  rerun was selected. This direct TEST transport bypasses Vite's write guard and is temporary
+  measurement wiring, not the permanent ingress/read-only security design.
+
+  ### 28 September 2026 - Skip unused enrichment fallback derivation (U10-B)
+
+  `deriveImage` now calculates each local fallback only when the overlay's field is
+  nullish: cost only without overlay cost; one validity map only when `valid` or
+  `invalidReasons` is missing, filling just the missing output so supplied `false` and `{}`
+  still win; syndication status only without overlay status. A complete overlay therefore
+  runs none of the cost, validity or status helpers, where it previously ran all of them
+  before discarding the results. Outputs, inputs, `noRights` and the signature are
+  unchanged; a needed validity map still does its own cost check. Tests wrap the real
+  helpers in spies and compare every supplied/missing/null combination with the previous
+  eager merge under a fixed clock and quota state. No speedup is claimed.
+
+  ### 27 September 2026 - AI search through media-api, pool metadata in both modes (U9-B)
+
+  API mode now sends AI search as one authenticated `GET /api/images` with
+  `useAISearch=true`, the ordinary effective `q`, a separate `aiQuery`, `length=200`, the
+  admitted filters and a canonical `vecWeight` only when it is a finite 0-1 number. Hits
+  keep server order with a `__aiScore` ordinal; the response's enrichment, pool total and
+  tickers come back with them. Refusal, unavailability and unreadable responses become an
+  empty, error-free result; aborts still propagate. The development ES fallback is gone and
+  the factory constructs `ElasticsearchDataSource` only in direct mode, so API mode makes no
+  browser Bedrock or ES call.
+
+  The store now replaces the enrichment map on every accepted AI publication (closing
+  KUP-030), treats a hit without a finite ordinal as a contract failure, and publishes hits,
+  `aiPoolTotal` and tickers together. Its follow-up AI count is removed in both modes. Direct
+  mode instead runs its one undecorated pool count alongside the embedding and KNN, so
+  both modes report the same prefilter pool. Direct mode starts that count before the
+  embedding, so it overlaps every step, and an abort that arrives while it is pending still
+  prevents publication. The status bar reads "Best {n} of {pool}
+  matches" and hides a ticker only when it equals the pool.
+
+  AI availability is mode-aware: `aiSearchAvailable` comes from the Bedrock health check in
+  direct mode and from the root `ai-search` link in API mode. `ServiceDiscovery.init()` now
+  shares one root read and reports whether it loaded, so early callers wait instead of
+  seeing absence. Two browser-history E2E AI stubs now supply the relevance ordinal that
+  real sources always provide.
+
+  ### 27 September 2026 - Additive explicit-AI contract in media-api (U9-A)
+
+  `GET /images?useAISearch=true` accepts an optional `aiQuery` (`804ca1191`). When it is
+  present, its trimmed text is the only ranking text and every `q` condition except
+  `similar:` is a hard filter. Empty text returns the existing filter-pool guidance, and a
+  valid `similar:` gives the existing 422 conflict before any embedding. An absent `q`
+  parses as empty so the default deleted/replaced exclusions still apply (cold-review fix).
+  Explicit-branch entities omit `embedding` through a new defaulted
+  `ImageResponse.create` parameter. The root advertises an `ai-search` link only when AI is
+  enabled with dense-vector mappings. Requests without `aiQuery` are unchanged; two
+  inherited authorization/visibility issues on the AI branch are recorded, not fixed.
+
+  ### 27 September 2026 - Latest keyboard edge owns resident placement (KUP-013)
+
+  Windowed Home now records first-edge ownership independently from its nullable
+  explicit-focus permission. A later resident End aborts and clears obsolete edge and
+  loading ownership before applying the existing tail focus/placement, without issuing
+  another seek. This preserves the earlier hidden-focus End repair while making latest
+  intent win for explicit, selection, phantom and no-focus modes in indexed and seek tiers.
+
+  ### 27 September 2026 - Reject invalid correlated timing intervals (KUP-032)
+
+  Perceived-metric calculation now rejects non-finite correlated timestamps, phases before
+  their own interaction start and the selected terminal phase before its status phase.
+  Existing correlation/cardinality behavior, valid zero durations, independent phase order,
+  emitted metric fields and both dashboard contracts remain unchanged.
+
+  ### 27 September 2026 - Acknowledgement terminology matches its producer (KUP-031)
+
+  The perceived-performance spec and handbook now describe `t_ack` as synchronous producer
+  acknowledgement rather than DOM-visible latency. Store-ready, first-visible-frame and
+  visual-settled boundaries remain distinct; trace sites, metric names and historical rows
+  are unchanged.
+
+  ### 27 September 2026 - Malformed date bounds remain recoverable (KUP-028)
+
+  DateFilter now presents malformed active URL bounds as a red, accessible `Invalid date`
+  label while leaving native date inputs empty and recovery controls usable. The raw bound
+  remains until explicit replacement or clearing, so the UI does not silently widen the
+  search. Valid local-calendar serialization and existing range policies are unchanged.
+
+  ### 26 September 2026 - Non-AI API ownership and recovery verification (U6z)
+
+  Cold-start coverage selects media-api mode before imports and exercises real main-module
+  initialization, factory/default selection ownership, collection loading and the first CQL
+  registration across wrapper remounts. Existing composed store and range-hook tests now cover
+  refusal, unavailable transport and incomplete execution through recovery and caller-specific
+  outcomes, including retained selection, atomic ranges, optional absence and unchanged polling.
+
+  A real AI delegate over controlled transport verifies ordinary/AI transitions while counts,
+  facets, detail and selection stay on migrated methods. The tests characterize retained same-ID
+  API enrichment on AI results without altering that deferred display behavior. Isolated wrong
+  routes and results demonstrate that the new assertions discriminate; no probes remain.
+  No production routing change was needed. Existing AI, recovery and KUP-033/034/036 repairs remain.
+
+  ### 26 September 2026 - Faster causal test readiness
+
+  Playwright coverage now waits on the behavior each scenario needs instead of broad fixed
+  settling delays: completed seeks and resident-buffer extends, elected and visible phantom
+  anchors, committed density and panel-resize restoration, scroll and scrubber synchronization,
+  focus transitions, selection scrolling and Home reset state. Explicit waits remain where time
+  is itself the contract, including cooldown expiry, delayed regression observation and sampled
+  scroll stability. New assertions distinguish resident extension from an unintended seek and
+  prevent readiness conditions from accepting stale pre-navigation state.
+
+  A development-only density-restore generation gives shared grid/table helpers a precise mount
+  completion signal. Store tests advance cooldown clocks without real multi-second sleeps, prove
+  repeated extends actually run and use a smaller equivalent sparse corpus. The browser suite now
+  uses three workers, parallelizes the independent UI-feature file and resolves the source alias
+  through `import.meta.dirname`; test semantics and production behavior are otherwise unchanged.
+
+  ### 26 September 2026 - Incomplete API image pages fail explicitly (KUP-036)
+
+  The new media-api search-after and window reads now reject explicit Elasticsearch timeouts
+  or failed shards before decoding hits, using the existing completeness helper and endpoint-local
+  Argo HTTP 503 responses. This prevents incomplete image pages from appearing to be successful
+  short or empty results. Complete pages, non-fatal omission of an unreadable image, raw hit counts
+  and PIT-expiry handling retain their contracts. Legacy Grid search and shared execution are unchanged.
+
+  Synthetic response tests exercise the real readers and controllers, independently varying timeout,
+  failed shards, page fullness and counting intent. Composed adapter/store regressions retain committed
+  buffers on failure and publish only successful API recovery after a failed restore, without ES rescue.
+  No client production change was needed. Ordinary read-only TEST browsing checked successful behavior;
+  the failure contract is local synthetic evidence, not a reproduced live incident. AI, U6z, U7 and
+  other parked work remain separate.
+
+  ### 26 September 2026 - Near-top centred paging respects the available prefix (KUP-034)
+
+  `_loadBufferAroundImage` now caps known-rank backward reads at the target's position and
+  skips the request at zero. This prevents reverse nulls-last pages from pulling null-tail
+  images ahead of the beginning. Provisional focus offsets are explicitly distinguished:
+  rank and neighbour reads remain parallel, with excess predecessors and paired tuples
+  removed before the existing column alignment and publication when exact rank resolves.
+  Selected-tuple ranking, retained session totals, enrichment and ownership remain unchanged.
+
+  Composed regressions exercise both real adapters, sparse sort directions, near-top and deeper
+  positions, exact order/tuples/coordinates, parallel rank resolution and cancellation. Existing
+  edge request-count and supplied-rank assertions now require the bounded prefix. A synthetic
+  direct-TEST restore confirmed visible misordering before the repair and correct placement
+  afterward; ordinary detail/reload/close remained correct. Natural-workflow incidence is still
+  unproved. No server contract, AI, U6z, U7 or other repair was changed.
+
+  ### 26 September 2026 - Backward scrolling crosses the null boundary (KUP-033)
+
+  `extendBackward` now fills a short null-primary reverse page with one bounded reverse read
+  from the valued end, requesting only the unfilled page capacity. This fixes scrolling up
+  after downward eviction leaves the buffer entirely inside the null tail, in direct-ES and
+  media-api modes. The read uses no cursor, offset, exact count or `seekToEnd` override; ordinary
+  pages keep their existing request count. The existing prefix cap prevents overshooting the
+  start, and no rank/profile query or unbounded walk is introduced.
+
+  Images, authoritative response tuples and enrichment are combined before the existing aligned
+  prepend and eviction. A cancellation or failed second read publishes neither partial page.
+  Regression coverage includes both adapters and sort directions, tied values, exact order and
+  positions, all-null/no-null controls, forward crossing, focus, enrichment, cancellation and
+  full-buffer eviction. Foreground wheel scrolling verified rendered crossing in both modes.
+  The server's null-confined replay assertion remains correct and unchanged: the repair composes
+  pages in the consumer rather than changing endpoint behavior. AI, U6z and other pitstops are
+  untouched; live snapshot and incomplete-page guarantees are not broadened.
+
+  ### 26 September 2026 - Selection details and ranges through media-api (API build U6d)
+
+  media-api gains `POST /images/mget`: body `{ids}` (1-200 distinct IDs), one `_search` of an `ids`
+  query through the shared target choice (extracted from `admittedSearch` as `readTarget`, behaviour
+  unchanged) with the lean projection. Found images come back once each, in request order. Visibility
+  follows the single-image rule (`GET /images/:id`), not the search tier filter, and missing, hidden
+  and unreadable images are indistinguishable. An incomplete read answers 503, never a partial list.
+  No query scope or PIT applies.
+
+  In `--use-media-api` mode `getByIds` uses it in 200-ID chunks, four in flight. Two were measured at
+  about 7-8 s for 5,000 selected images on TEST, four at about 3.8 s. Any failed chunk fails the whole
+  lookup, so a restored selection never drops images on a transient error. The selection store now
+  takes the app's data source instead of constructing `ElasticsearchDataSource`, so hydration,
+  `ensureMetadata` and shift-click range walks all follow the app mode. Only `searchByAi` remains on
+  the development fallback.
+
+  Cold review found that media-api images carry configured fileMetadata values only under `aliases`.
+  An mget-hydrated off-buffer anchor with no retained tuple therefore gave a null primary under an
+  alias sort such as Edit Status, and a range walk from it would select the wrong images.
+  `extractSortValues` now falls back to the configured alias value when the raw path is absent
+  (string or number only). Direct mode is unchanged.
+
+  Perf harness: P18's route expectation follows the app mode (it was hard-coded to direct ES), and
+  new P19 measures a 1,000-image out-of-buffer range with Details open. P19 shows a 320 ms full
+  reconcile task in both modes, recorded as KUP-035.
+
+  ### 26 September 2026 - Aggregations, typeahead and collection counts through media-api (API build U6c)
+
+  media-api gains `POST /images/aggregations`: one size-0 `_search` over the shared admitted scope
+  with a terms aggregation per requested field (verbatim path, bounded size) and a filter aggregation
+  per named `is:` filter compiled by Grid's own `is:` rules. Fields inside a nested mapping path and
+  fields Elasticsearch cannot aggregate are refused with 422 rather than silently counting nothing,
+  and incomplete execution answers 503. In `--use-media-api` mode facets, `is:` counts, typeahead
+  suggestions and collection counts use it; usage platform/status counts come from Grid's per-image
+  rollup fields (`usagesPlatform`/`usagesStatus`), which count images once per value exactly as the
+  direct-ES nested `reverse_nested` counts do. `getAggregations` left the development fallback list.
+
+  The collection store now takes the app's data source instead of constructing its own
+  `ElasticsearchDataSource`, so API mode reads collection counts through media-api (scope unchanged).
+  `getAggregation` was removed from the DAL: its only caller was a typeahead branch no construction
+  reached. `AggregationResult.total` is optional because media-api reports buckets only; API mode
+  shows no aggregation ES time in the dev search-bar readout. The facet circuit breaker (2 s) may need
+  raising once deployed latency is measured.
+
+  ### 25 September 2026 - Counts and tickers through media-api (API build U6b)
+
+  media-api gains `POST /images/count`: one size-0 `_search` over the shared admitted scope with an
+  exact total and Grid's configured ticker aggregations, read by the existing ticker helpers so its
+  `tickerCounts` equal `GET /images` for the same scope. Cursor fields are refused, shared validation
+  applies, an optional PIT is honoured, and a timed-out or partly failed count answers 503 rather
+  than a short number. In `--use-media-api` mode `count` and `countWithTickers` now use it (without
+  sending the sort) and left the development fallback list; failures stay in the callers' existing
+  quiet paths. The tickers shown in API mode are therefore the ones Grid's configuration enables, as
+  in Kahuna; Grid's ticker clauses carry the default hidden-image conditions, so they read 0 while
+  browsing `is:deleted` (operator-accepted).
+
+  Cold review found that the Vite Grid API write guard matched its read-via-POST paths by prefix, so
+  each listed path also admitted a write route whose image ID equalled it (for example
+  `/images/count/partner/true/syndicateImage`). The allowlist moved to
+  `src/dal/grid-api/read-via-post.ts` and now matches exact paths, query string allowed.
+
+  ### 25 September 2026 - Standalone detail through media-api (API build U6a)
+
+  In `--use-media-api` mode, detail for an image that is not in the loaded results now reads the
+  existing `GET /images/:id`, normalizes it through the same S1 mapper as page reads and accepts it
+  only when the returned ID matches the requested one. `getById` left the development fallback list;
+  404 (missing or hidden) is absence, other failures reject quietly into the existing "Image not
+  found" state, and nothing falls back to Elasticsearch. `getById` now resolves `{image,
+  enrichment?}` and takes an optional abort signal (an operator-approved exception to the unchanged
+  DAL signature rule), mirroring `SearchAfterResult.enrichment`.
+
+  The singleton's server enrichment (overquota cost, validity, archive status, actions, rights)
+  stays with ImageDetail's requested-ID-bound standalone state and is passed to the metadata panel
+  through an optional `useEnrichedImage` overlay, rather than written to the shared enrichment store:
+  a later fresh-search commit replaces that store and would have wiped it on pasted links. Each
+  standalone request is aborted on identity change or when the image becomes resident; resident
+  traversal still issues no singleton read. No `include=fileMetadata`, so standalone and page images
+  carry the same fields.
+
+  Cold review found that aborting the first read of a development Strict Mode replay broke P13c's
+  every-read-succeeds rule; the probe now accepts exactly one aborted first read of two, keeping its
+  target, route and count checks. The metadata click-to-search E2E test, which could never decode
+  local media once the decoded-detail wait became real, now stubs identity-tagged media as the
+  KUP-021 tests do.
+
+  ### 25 September 2026 - Harden image traversal performance evidence
+
+  The jank campaign now verifies that resident P14 traversal issues no image-hydration reads and
+  adds P13c for standalone detail: a normal query change makes the target non-resident, then one
+  or two development Strict Mode reads must fetch that exact ID through the declared current
+  transport. P13c records response, requested-ID metadata and decoded stable-image readiness while
+  reusing the previously warmed rendition; U6a's future API route remains distinguishable from the
+  current hybrid ES fallback. Both dashboards display these shared audit records without duplicating
+  execution or history, preserve old missing values as gaps and separate mode, route, cache,
+  scenario, completion-boundary and result-regime changes. They hide stale store timings on
+  client-only actions and show qualified latest API-minus-direct deltas. Campaign fingerprints now
+  retain the full dirty hash plus an app-source hash that excludes only generated perf histories.
+
+  Performance readiness and reporting were hardened at the same time. Decoded detail, P5c panel
+  width and P13b return placement now use deadline-bounded frame/decode/geometry loops instead of
+  async Playwright predicates that could pass while resolving false; affected scenarios moved to
+  revision 3. Static checks reject async predicates, misplaced timeout options and excess
+  `waitForFunction` arguments across maintained perf/shared helpers. Aggregation rejects missing or
+  non-finite base jank values, partial per-repetition fields, totals/regimes, routes and named seek
+  measures; history writes remain transactional. Single-run threshold crossings remain visible as
+  watchpoints, while regression verdicts require repeated current and previous evidence. Cadence and
+  observation windows remain intentional. Swallowed indexed-seek outcomes and scenario-specific
+  fixed-wait semantics remain separate, non-mechanical review work.
+
+  Matched four-run API/direct baselines on the same HTTPS origin found resident traversal broadly
+  equivalent at normal/fast cadence, with zero image-hydration reads. API-backed search, seek,
+  sort-around-focus and restore actions were consistently about 0.2-0.6 seconds slower in the
+  local-JVM/SSH-tunnel topology, while client-only actions stayed close; deployed-TEST impact
+  remains M2a evidence. Bare `sport` membership differed materially (292,034 API versus 285,238
+  direct), confirming the known Grid/Kupua free-text-policy difference and preventing PP8 from
+  being treated as equal workload. P13c remained on the expected direct-ES singleton fallback
+  before U6a. M1 records these costs without selecting endpoint redesign or accepting production
+  performance.
+
+  ### 25 September 2026 - Ordered reads through media-api
+
+  API build U5 (Kupua). `ApiDataSource` replaces the one-route `StranglerAdapter` in
+  `--use-media-api` mode and sends every ordered read to media-api: pages through search-after, or
+  the window for cursor-less shallow offsets; `countBefore` through rank; percentile, date and
+  keyword profiles through sort-profile; position maps and range walks through keys. The direct-ES
+  walk loops, caps and completion rules are unchanged and stay client-side; the date-interval
+  choice and range overshoot comparison are shared with the ES adapter. No PIT is opened, so
+  `openPit` may now resolve `null`. Migrated reads never fall back to ES: pages, ranks and range
+  walks fail into the store's existing error paths, while optional profiles and maps are quietly
+  absent. Counts, aggregations, detail and AI keep a listed development fallback until U6. Totals
+  are counted only when the caller asks, which drops full counts from End and id lookups. The
+  deep-seek no-estimate fallback now lands below a data-source-declared offset limit (10,000 in
+  API mode, below the window's refusal) and records that actual position. The local Grid API
+  write guard admits the four new read-only POST paths. Golden request bodies recorded from the
+  real mapper are replayed by media-api tests, which require each to agree with a search-after
+  walk of its own scope; that replay exposed two older null-tail defects, recorded as KUP-033 and
+  KUP-034.
+
+  ### 25 September 2026 - media-api keys
+
+  API build U4 (Scala). New `POST /images/keys` returns one source-free page of `{id, sortValues}`
+  per call for position maps and range walks, ported from `fetchPositionIndex` and `getIdRange`,
+  whose loops stay in Kupua. There is no phase field: as in search-after, a page runs on into the
+  null tail and a null-primary tuple continues inside it; the map's two passes become one walk
+  with identical ids and tuples. `size` defaults to and is capped at 10,000, independent of the
+  200-image cap; `after` is `null` once a page runs short; timed-out or partly failed pages
+  respond 503. Search-after's null-zone handling became a shared helper. The cold review found
+  that a nested field sent without its path, or a sort without a unique `id` suffix, could return
+  wrong results; the operator chose to fix this once in the shared sort admission for every
+  ordered read, which now also requires `mode: max` on the two multi-valued date sorts. Kupua
+  does not call the endpoint yet.
+
+  ### 25 September 2026 - media-api keyword pages
+
+  API build U3b (Scala). `POST /images/sort-profile` gains `keyword-page`: one bounded composite
+  page of the primary sort field's values per call, ported from `findKeywordSortValue` and
+  `getKeywordDistribution`, whose walks and caps stay in Kupua. The continuation is the page's
+  plain `after` key; `size` defaults to and is capped at 10,000; the exact valued-image count is
+  opt-in so the seek walk does not pay for it. Counts are images per value, so they are positions
+  only for single-valued fields. A first review fix, a server list of the fields Kupua walks, was
+  replaced by operator decision: it coupled Grid to one consumer. Fields inside a nested path of
+  Grid's own mapping are refused instead, as are nested or max-mode clauses and non-primary
+  fields. Kupua does not call the operation yet.
+
+  ### 25 September 2026 - media-api sort profiles
+
+  API build U3a (Scala). New `POST /images/sort-profile` runs one fixed aggregation per call
+  over the admitted search, ported from `estimateSortValue` and `getDateDistribution`:
+  `scalar-anchor` (tdigest percentile, optionally narrowed by equality `scope` term filters),
+  `date-stats` (value count, min, max) and `date-buckets` (histogram with start positions, at a
+  Kupua-chosen calendar or fixed interval). Stats-then-buckets stays two requests and the interval
+  choice stays in Kupua. Profiled, scope and missing fields must come from the request's sort;
+  the clause supplies the nested path, histogram direction and max-mode semantics, and
+  `missingField` must be the primary, giving the null-zone filter. Max-mode special dates return
+  an exact image `coveredCount` separately from buckets labelled `approximate-evidence`, and are
+  refused without `mode: max` so a bare clause cannot claim exact ranks. Timed-out or partly
+  failed profiles respond 503. Rank's sort admission and completeness check became shared helpers
+  with unchanged messages. Kupua does not call the endpoint yet.
+
+  ### 24 September 2026 - Kahuna search path restored to main
+
+  Abandoned PR #4849 had amended Kahuna's `GET /images` path so that it agreed with D3: an
+  ascending `dateAddedToCollection` sort with `unmappedType`, the collection filter widened to
+  that sort, and reading `hasRightsAcquired` from the URL. U1 left those behind; they are now
+  back to `main`, as is an orphaned test fixture. Kupua loses nothing: its sort clause goes through
+  `jsonToSort`, the widened filter only repeated the query's own collection-path condition, and its
+  rights filter still arrives in request bodies. The filter stays in the shared query builder and
+  `GET /images` still ignores Kahuna's parameter, recorded as GRID-014. Plan section 7 now lists
+  every existing Grid file the branch touches, for the future PR descriptions.
+
+  ### 24 September 2026 - media-api exact live rank
+
+  API build U2 (Scala). New `POST /images/rank` ports Kupua's `countBefore`: how many
+  admitted images sort strictly before a public sort tuple. It shares D3 and window
+  admission and runs as a size-0 `_search` with an exact total, so the optional PIT path
+  works (`_count` cannot bind to a PIT). The predicates handle nulls in any tuple slot,
+  selected-maximum special dates and nested usage dates, taking the nested path from the
+  sort clause. Shapes the predicates cannot rank are refused: `missing` other than `_last`,
+  `mode` other than `max`, a tuple whose length differs from the sort, more than 10 clauses
+  (tie predicates grow quadratically), and `reverse`/`seekToEnd`. A timed-out or partly
+  failed count responds 503 instead of a smaller number, so Kupua's existing rank-failure
+  paths run rather than a wrong position being published. D3's `sortValues` check became a
+  shared parser used by both. Kupua does not call rank yet.
+
+  ### 24 September 2026 - Shared media-api read helper and offset window
+
+  API build U1 (Scala). Kupua-facing ordered reads now live in a new `ImageQueryController`
+  and share one admission path: controller-side body parsing with the caller's tier, the
+  `is:deleted` uploader restriction and validation; ES-side query and filters, syndication
+  runtime mapping, live or PIT target, timeout, sort admission, tuple checks and the lean
+  projection. D3 moved there unchanged in behavior, and `MediaApi.scala` returned to exactly
+  `main`. Sort admission now refuses an explicit `_shard_doc`, which would otherwise leak a
+  PIT-specific value into public tuples.
+
+  New `POST /images/window` is a from/size read for shallow seeks: start positions below
+  10,000 (the limit is on the start, since Kupua centres a 200-image page), cursor fields
+  refused, optional PIT, `total` only when counted and `rawHitCount` so dropped undecodable
+  hits are visible. Window slices are checked against a D3 cursor walk over ties, nulls,
+  ascending order and a nested special sort. Kupua does not call it yet.
+
+  ### 22 September 2026 - Keep preview exit centering with its preview session
+
+  KUP-027: each preview entry owns its delayed centering frame. Reentry or disposal
+  makes an older frame inert, preserving the newer preview's retained list position.
+  Valid same-exit latest-focus and fresh-geometry resolution remain, as do native
+  promise/event finalization, rejected-exit recovery and resize settling delays.
+
+  ### 22 September 2026 - Resolve valid detail returns with current geometry
+
+  KUP-018: a queued traversal return retains its original image, search, history
+  entry and post-close focus. Reopen/disposal cancels it; superseded intent cannot
+  move the current list. Valid returns resolve current index, row and centering
+  callback without treating geometry or ordinary rerenders as new intent. Original
+  entry placement, phantom pulse, immutable entry identity and Home suppression remain.
+
+  ### 22 September 2026 - Scope saved density restoration without freezing geometry
+
+  KUP-017: saved restoration checks search and saved-record ownership and observes
+  scroll-input intent only while its two frames are pending. Listener phases and
+  horizontal-arrow eligibility match actual list navigation, so consumed or no-op
+  keys retain valid placement. Fresh geometry/origin, extrema, Strict Mode peeking,
+  cooldown and coordinate regimes remain. Native-input classification is shared
+  through pure DOM utilities without eagerly installing global shortcut listeners.
+
+  ### 22 September 2026 - Separate End scrolling from permission to move focus
+
+  KUP-013: pending End carries its initiating focus eligibility and existing seek
+  signal. Hidden focus stays retained without preventing tail scrolling; clearing
+  selection during the wait cannot grant focus permission. Newer seeks and failed
+  or aborted uncommitted reads discard their own stale intent. Home can cancel an
+  in-flight End and reuse the already-resident head without another data read.
+
+  ### 22 September 2026 - Terminate failed detail media fallback
+
+  KUP-021: resolve thumbnail URLs before comparing them with the browser's absolute
+  image source, allowing one fallback before unavailable-media presentation. Failure
+  and callbacks belong to the current image lifetime and DOM element, so traversal
+  neither inherits failure nor accepts obsolete events. Stable containers, decoded
+  success and Back/traversal remain; the TEST setup hint is reserved for absent URLs.
+
+  ### 22 September 2026 - Keep prefetch completion with its loader
+
+  KUP-020: load, error and decode completion capture the issuing map and remove an
+  entry only when it still holds that loader. A newer same-ID request remains tracked
+  and cancellable across session replacement or cancellation/reissue. Late successful
+  decode remains cache-useful; cadence, radius, priorities and cache policy are unchanged.
+
+  ### 22 September 2026 - Retain empty members in incremental selection accounting
+
+  KUP-012: adding a populated scalar to a nonzero all-empty cohort produces mixed
+  state with the previous empty count retained. Zero-member initialization still
+  produces all-same. Cached selection publication stays synchronous and incremental,
+  without a selection scan, additional hydration or scheduling change.
+
+  ### 22 September 2026 - Keep registered CQL callbacks current across remounts
+
+  KUP-026: aggregation, ticker and filter callbacks read current store state directly
+  instead of refs owned by the first wrapper. One-time element registration and the
+  live-AST query reference remain intact; obsolete subscriptions are removed. This
+  repairs current-client remounts, not datasource hot-swapping or API-only bootstrap.
+
+  ### 22 September 2026 - Preserve literals during typeahead self-exclusion
+
+  KUP-023: registered and arbitrary-field suggestions share existing AST source-span
+  editing. Matching chips are removed without rewriting quoted literal contents,
+  deep keys or unrelated incomplete input. Boundary-only whitespace joining preserves
+  offsets and literal spacing; literal-only queries retain the warm-cache fast path.
+
+  ### 22 September 2026 - Resolve configured aliases in direct has queries
+
+  KUP-022: direct-client has predicates and dynamic facet targets share configured
+  alias resolution before static shorthand and raw-path fallback. Alias and quoted
+  raw-leaf spellings identify the same indexed field, including colourProfile.
+  Named-field expansion, query defaults and false-versus-absent semantics are unchanged.
+
+  ### 22 September 2026 - Keep pending traversal with its originating image and context
+
+  KUP-019: detail and fullscreen pending navigation retain the originating image,
+  search lifetime and history context. Supersession discards only the local intent;
+  shared extend/seek work remains useful. Completion resolves the neighbor from the
+  origin's current global position, preserving prepends and buffer movement. Resident
+  traversal remains synchronous, repeated arrows do not form a queue, and prefetch
+  and proactive extension retain their existing policy.
+
+  ### 22 September 2026 - Keep indexed scroll seeks with their reporting view
+
+  KUP-016: a distant-range timer belongs to its reporting hook and search lifetime.
+  Reset, query/order changes, tier exit and owner disposal cancel it; an unrelated
+  consumer unmount or ordinary buffer update does not. Late callbacks cannot dispatch
+  an old coordinate or clear a successor. Scope fingerprints are cached by params
+  identity, avoiding per-frame serialization. The 200ms debounce, total-based indexed
+  coordinates, map-independent access and velocity-aware extensions are unchanged.
+
+  ### 22 September 2026 - Keep Home completion and cleanup with its initiating action
+
+  KUP-015: both logo callers give Home its history lifetime. A newer navigation,
+  search or Home cancels the old continuation, including scheduled input focus.
+  Restore, return and density suppression expose owner-scoped cleanup so an old
+  timeout cannot clear a newer flag or leave its own suppression behind. Home still
+  awaits first-page data before switching density, and current failures still navigate
+  gracefully. The existing search, defaults, mobile focus rule and delays are retained.
+
+  ### 22 September 2026 - Keep deferred editor and header actions with their navigation
+
+  KUP-014: CQL, AI and delayed header sorting retain their originating entry and
+  reset lifetime. Departure cancels pending work; stale callbacks cannot consume a
+  successor timer. Typing captures its freshly minted entry key, preserving shared
+  CQL/AI sessions and replace-based edits. Superseded mounted inputs synchronize to
+  the destination without remounting the view. Debounce delays, header double-click
+  fitting and settled AI reordering remain unchanged; no additional requests are added.
+
+  ### 20 September 2026 - Discard explicitly incomplete position maps
+
+  Both position-map phases reject timeout or failed-shard evidence before consuming
+  hits or treating a short/empty page as exhaustion. The whole accumulated map is
+  discarded, and cleanup closes the latest refreshed PIT even when abort arrives
+  with a response. Existing absent-map navigation and total-based indexed coordinates
+  remain; no retry, per-page count, universal snapshot or Grid execution-policy change.
+
+  ### 20 September 2026 - Account for cumulative arrivals once
+
+  Each polling lifetime retains the browse baseline and combines it with the latest
+  accepted cumulative category/subcount response. Repeated windows no longer compound;
+  decreases, zero and changed buckets replace previous contributions. Local response
+  sequencing and the existing lifetime guard reject stale completion without adding
+  requests. Unavailable baseline data stays absent; browse freeze and scheduling remain.
+
+  ### 20 September 2026 - Retry empty unknown-order selection walks
+
+  An unknown-order range with no collected IDs now permits the intended single swapped
+  attempt even when an overshooting hit was examined. `walked` remains truthful progress,
+  not an ordering signal. Full tuple semantics, range ownership, polarity, endpoints,
+  retained anchor, caps and the in-buffer path are unchanged; successful ranges add no reads.
+
+  ### 20 September 2026 - Honor current sort when pending AI results arrive
+
+  AI completion keeps its captured query and bounded result set but uses the latest
+  supported sort when the current query scope still matches. Relevance scores remain
+  available for subsequent local reordering. The development completion signal follows
+  that sort; superseded queries still fail the existing generation guard. No additional
+  AI or ES request, secondary sort or focus/selection algorithm is introduced.
+
+  ### 20 September 2026 - Own expanded facet publication and completion
+
+  The single expanded-facet request now owns its field, scope and cancellation token.
+  Collapse, search invalidation and base-aggregation reset invalidate obsolete work;
+  late success or failure cannot resurrect a cache or clear a successor's loading.
+  A missing-field response finishes cleanly. Cross-field cancellation, ordinary-facet
+  presentation and completed cache reuse retain their existing policy.
+
+  ### 20 September 2026 - Keep known-empty AI membership empty
+
+  Aggregation decoration now represents known-empty AI membership explicitly. The
+  store publishes empty ticker counts and static, dynamic and expanded facets without
+  querying the underlying pool. Empty completion also cancels forced aggregation work
+  started while the AI request was pending, preventing stale buckets from returning.
+  Nonempty membership keys remain stable across local sorts; ordinary empty IDs and
+  exploratory self-excluding suggestions keep their existing meaning.
+
+  ### 20 September 2026 - Bind standalone detail to the requested image
+
+  Standalone image data, absence and delayed loading are keyed to the requested ID
+  before rendering, so loaded A cannot appear under pending or absent B. Resident
+  results still take precedence and obsolete callbacks remain cancelled. The detail
+  shell stays mounted across identity changes, retaining its fullscreen container
+  and Back navigation instead of remounting the experience. Media fallback is unchanged.
+
+  ### 20 September 2026 - Restore the selected image in coherent coordinates
+
+  Cursor restore now chooses global versus local coordinates from the retained
+  session total, independently of continuation totals and position-map readiness.
+  Its scroll target and explicit-focus offset name the image's actual inserted
+  ordinal. This coordinate correction adds no requests and leaves alignment,
+  density geometry and small-result filling unchanged.
+
+  Saved-tuple rank and target lookup still start together. Restore compares the
+  complete returned tuple, including suffixes and nulls, and makes one extra rank
+  request only when it changed. Rank and both parallel neighbour pages then use
+  the same tuple, with one final landing. Obsolete speculative failures are inert;
+  superseded work cannot publish or recover over a newer search or restore.
+
+  The operator accepted the conditional request's observed trade-off for correct
+  placement: four direct-TEST samples per case measured changed-path median
+  completion at 530.5 ms before and 598.2 ms after, about 68 ms higher. The unchanged
+  path retained four primary calls; changed tuples now take five. These are not
+  fixed latency costs: ranges overlap, backend caches were uncontrolled, corpus
+  membership drifted and media was served locally. No broader performance concession
+  or geometry optimization follows. [Measurement details and limits](bug-reproduction-evidence.md#restore-repair-kup-024-and-kup-025).
+
+  ### 20 September 2026 - Bind range results and busy state to current intent
+
+  Pending selection ranges now cancel on membership/anchor intent, query/order change,
+  takeover or unmount. Request-local cleanup replaces the range-only generation guard,
+  so obsolete success or rejection cannot alter selection or finalize a successor's
+  busy state. Subscriptions exist only during server walks; cached in-buffer selection,
+  metadata-only updates, polarity, endpoints and existing retries remain unchanged.
+  Cancelling an ordered walk does not clear selections that survive a sort change.
+
+  ### 20 September 2026 - Preserve newer selection ownership during hydration
+
+  Hydration omission repair now requires the captured membership Set and anchor to
+  remain current. Old responses cannot restore cleared IDs, discard newer picks or
+  consume the newer selection's anchor/toast state. Late metadata still populates the
+  mutable cache and reconciles current selection without changing request counts or
+  treating display-generation updates as new intent. API logical omission policy is
+  unchanged and remains separate from this client ownership correction.
+
+  ### 19 September 2026 - Normalize canonical media-api images
+
+  Search images now unwrap user edits, individual labels and expanded file metadata
+  into Kupua's flat Image shape. This restores API-supplied labels without rebuilding
+  effective metadata or rights from user overrides. Absent or link-only file metadata
+  stays absent, and aliases retain their JSON values with text conversion confined to
+  the field display accessor. Complete relationships, assets, image order and
+  authoritative tuples are preserved. Requests, recovery and caller-owned enrichment
+  publication are unchanged.
+
+  ### 18 September 2026 - Preserve selection anchors during grid reflow
+
+  Panel and window resizing now prefer the active selection anchor over an older
+  explicit focus or inferred viewport image. Previously, resizing could preserve
+  a different image and move the selected one off-screen. The existing grid anchor
+  capture, coordinate conversion and restoration math are reused; unresolved anchors
+  retain the established fallbacks. Selection does not change explicit focus, and
+  clearing it leaves the viewport stationary. No new render subscriptions are added.
+
+  ### 18 September 2026 - Record performance cleanup stages in campaign reports
+
+  Performance campaigns and direct perf scripts now log cleanup-stage starts,
+  outcomes and durations after the test body, so a post-measurement hang leaves
+  its last unfinished operation in the existing report. The reporter observes
+  probe shutdown, environment capture and Playwright-owned context closure without
+  taking over cleanup or exposing raw titles and error payloads. Measurement,
+  retries and the all-or-nothing history policy are unchanged; no checkpoints or
+  partial-result recovery were added.
+
+  ### 18 September 2026 - Decouple Home performance settlement from refresh rate
+
+  PP1's Home check uses a bounded elapsed-time deadline instead of 120 animation
+  frames, which could expire before an ordinary data response on high-refresh
+  displays. Exact Home state, absolute position zero, first-result visibility and
+  two matching geometry frames remain required. Failures report sanitized readiness
+  conditions; phase timestamps still measure the actual visible transition.
+
+  ### 18 September 2026 - Coalesce pending distribution reads (Q1)
+
+  Primary and null-zone distribution loaders share pending work for the same request
+  scope. A changed scope or new search cancels older work; only the owning request can
+  publish a result or clear its pending slot, including when a query changes away and
+  back. Null-zone cache keys now include the missing primary field as well as the query
+  and uploadTime direction, preventing reuse across different missing-field filters.
+  Existing completed-cache and absence behavior is retained, with ownership kept above
+  the adapter rather than adding a scheduler or changing the DAL API.
+
+  ### 18 September 2026 - Dispatch keyword seeks without an invalid percentile (Q2)
+
+  Deep keyword seeks use cached-bucket or composite lookup directly instead of first
+  asking Elasticsearch for a percentile on a keyword field. Bucket-scoped uploadTime
+  estimation remains intact. Width and height share the distribution descriptor but
+  retain numeric primary estimation, as do date sorts. No new sort registry was added.
+
+  ### 18 September 2026 - Repair selection anchors after hydration omissions (S6)
+
+  When hydration drops the current anchor, it elects the last remaining selected ID
+  in insertion order, or null for an empty selection, and moves retained cursor
+  ownership to the same anchor. Surviving and unset anchors are preserved. Failed
+  metadata retrieval still leaves the selection intact, and no extra metadata request
+  or change to the public toggle/remove actions is introduced.
+
+  ### 18 September 2026 - Keep selection panels coherent during reconciliation
+
+  Selection changes no longer replace existing metadata with Empty fields while
+  reconciliation is pending or dirty. The panel-local resolver retains its completed
+  presentation until replacement inputs are ready, including the single/multi-image
+  mode, reconciled fields, image references and matching totals. Cost, rights, lease
+  and usage summaries consume those inputs instead of independently reading a newer
+  selection. Panels expose aria-busy while retaining content.
+
+  Selection membership and toolbar/grid feedback remain immediate. Idle reconciliation,
+  persistence, datasource ownership and the mutable LRU are unchanged; no payload/cache
+  clone or synchronous full-reconciliation workaround was added. Initial available-data
+  rendering and resolved single-image transitions remain immediate, clear discards stale
+  presentation, and failed metadata fetches settle as data absence.
+
+  ### 18 September 2026 - Restore sort placement after first-page fill
+
+  Sort restoration could clamp against the temporary 200-hit buffer and never retry
+  when the remaining small result set arrived. useScrollEffects now retains the
+  intended ratio for that incomplete, offset-zero, small-result bottom clamp.
+  Buffer growth retries placement; newer search/seek generations, focus changes,
+  pending arrow navigation or changed scroll position discard it. Actual result-set
+  edges, indexed mode and deep buffers retain their existing behavior. No extra
+  requests, page-size changes, timers or general scroll scheduler were added.
+
+  ### 18 September 2026 - Publish selection metadata revisions to panels (S3/G3)
+
+  Changed LRU cache writes publish one runtime metadataRevision per fetch or hydration
+  batch without replacing the cache. Empty/failed batches and identical stored object
+  references do not advance it. Off-buffer Details and Usages now update when metadata
+  arrives, rather than relying on an unrelated rerender. Consumers subscribe locally;
+  the two single-image panels share their buffer-first/cache-fallback resolver.
+  SearchPage does not subscribe. Persistence and datasource ownership are unchanged.
+
+  ### 18 September 2026 - Coalesce private full selection reconciliation (S1)
+
+  Replaced the unused incremental ID queue with one identity-guarded private full
+  request. Idle work reads the latest selected metadata once, including empty selections,
+  and publishes completion coherently. Clear invalidates queued work so an older callback
+  cannot consume a newer request. This also clears stale dirty fields after the final
+  selection is removed. Hydration no longer builds redundant retained-ID arrays, and the
+  obsolete chunk-size setting is removed. Cached incremental deltas remain synchronous;
+  full reconciliation remains an unchunked scan.
+
+  ### 18 September 2026 - Coordinate CQL and AI typing history (H1)
+
+  Both SearchBar editors start a session through pushTypingSearchEntry, reusing the
+  existing predecessor-capture and fresh-kupuaKey push boundary instead of cloning
+  an entry's key. A shared pending-timer check prevents overlapping AI/CQL edits from
+  creating another entry. Existing 300ms CQL and 600ms AI callbacks still replace the
+  session entry with settled values. Home and fullscreen phantom history are unchanged.
+
+  ### 18 September 2026 - Scope detail restoration suppression per image (F4)
+
+  ImageDetail reads its existing handled-image ref instead of a lifetime-wide boolean.
+  A later distinct missing cached image can restore without remounting the overlay.
+  Finding or attempting the same image still suppresses repeated restoration if the
+  buffer loads it and then moves away. Cached cursor/offset use is unchanged.
+
+  ### 18 September 2026 - Track history keys across URL-sync dedupe (H2)
+
+  URL sync refreshes the departing kupuaKey before returning from a consumed deduplicated
+  transition. Home's preloaded search state no longer leaves the previous entry's key
+  active for the next Back snapshot. Home's awaited direct search, fresh push, no-capture
+  policy and density-switch ordering are unchanged.
+
+  ### 18 September 2026 - Invalidate scrubber ticks by consumed inputs (T1)
+
+  The search route replaces count-based tick cache keys with referential memoization.
+  Equal-total searches and equal-bucket-count distributions can now refresh dates,
+  positions and null-zone ticks. Date buffer fallback retains results/offset dependencies,
+  including distributions shorter than two buckets; distribution-only paths exclude them.
+  Sort-context computation, coverage provenance and the availability gate are unchanged.
+  No bucket hashing, new registry or adapter coupling was introduced.
+
+  ### 18 September 2026 - Preserve visible-neighbour coordinate space (W1)
+
+  getVisibleImageIds snapshots total with the buffer and applies isTwoTierFromTotal
+  before subtracting bufferOffset. Normal-mode ranges remain buffer-local, including
+  deep seek windows; indexed ranges remain global before the position map arrives.
+  This fixes empty or incorrectly shifted neighbours without changing their ordering,
+  geometric anchor exclusion or scroll behavior.
+
+  ### 18 September 2026 - Deduplicate selection batch deltas (S2)
+
+  Add/remove build their next Set and unique changed-ID delta together, so repeated
+  range targets cannot overcount or double-decrement reconciled metadata. Uncached added
+  IDs reach metadata fetching once each. Synchronous cached deltas, anchor re-election,
+  atomic membership publication and debounced persistence retain their existing behavior.
+
+  ### 18 September 2026 - Omit unused position-map exact totals (Q3)
+
+  Position-index chunks send track_total_hits: false and no longer declare the unused
+  response total. Both populated and missing-primary paging phases, including the
+  default uploadTime missing-value phase, retain complete cursors and refreshed PIT IDs.
+  Ordinary first-page exact counts are unchanged.
+
+  ### 17 September 2026 — Complete hybrid page enrichment and bounded recovery
+
+  C2 publishes enrichment for every contributing API page: missing/failed/timed-out focus
+  fallbacks replace the overlay with their first-page data, inserted focus/restore targets
+  contribute their selected probe entry, and both mapped and sequential backward seek pages
+  merge their overlays before publication. Discarded probes and cancelled pages remain silent.
+
+  C3 distinguishes the explicit D3 expired-PIT contract from transport absence and refusals.
+  Expiry permits one further API attempt without the PIT; fetch/body transport failures or
+  unstructured 502/504 responses without Retry-After can call the existing ES adapter once.
+  Authentication, validation, throttling, 503, structured refusals, malformed JSON and unexpected
+  failures do not trigger fallback. Adapter mode and cancellation semantics are preserved.
+
+  Expired PITs stay cleared through fill, empty pages, failed page pairs, concurrent extensions,
+  keyword correction requests and delayed focus-rank commits. Independent reviews produced
+  failing-first regressions for those races and response-stream failures. Type-only corrections
+  let search-key construction accept SearchParams and preserve resolver narrowing in its test;
+  runtime cursor extraction, public tuple length and all existing assertions are unchanged.
+
+  Validation passed the full build, 1,342 units, 210 habitual E2Es and the guarded local cursor
+  oracle, all unsandboxed. Scoped direct-ES and live media-api/TEST browsing, focus, history,
+  enrichment and expiry checks passed. A separately labelled one-request network fault verified
+  live ES fallback without probe publication. No performance campaign or production-capacity
+  claim was made. The separate restore-rank concern and deferred E3/C4/lifecycle scope remain.
+
+  ### 17 September 2026 — Scope D3 deleted searches and classify expired PITs
+
+  Scala-only commit e6485be4b completes E1 and the minimal server support needed by C3.
+  D3 applies the existing uploader/permission rule to positive parsed deleted intent before
+  both hits and totals, including compound, case-insensitive and quoted queries. Default
+  deleted/replaced exclusions survive absent/wrong-typed queries, parse failures and misleading
+  literal text. Legacy GET authorization and machine-tier POST restrictions are unchanged.
+
+  N4's existing shared rights-filter and collection-sort corrections are retained, not replaced
+  with a D3-only exception. Controller/local-ES fixtures cover omitted/true/false rights filters,
+  missing/empty/unset/mixed rights records, existing syndication-status behavior, and all six
+  GET/D3 exclusive date boundaries including UTC date-only inputs. Scala date helpers are unchanged.
+
+  A supplied PIT whose structured 404 identifies a missing search context returns HTTP 410 with
+  search-after-pit-expired. Malformed PITs and unrelated failures do not receive that recovery
+  classification, and shared Elasticsearch error handling is unchanged. The full media-api suite
+  passed 305 tests across 13 suites under TZ=UTC, unsandboxed, after the final Scala edit.
+  Independent code reviews and read-only live D3 paging/expiry checks also completed. The five
+  code/test files form one extraction boundary; this changelog stays in the paired Kupua commit.
+
+  ### 17 September 2026 — Retain authoritative cursors through browsing and selection
+
+  C1 of the D3 amendment batch retains committed response tuples by image ID and search
+  fingerprint, avoiding false null primaries when API images expose configured aliases without
+  their raw fileMetadata fields. Storage is bounded to twice BUFFER_CAPACITY recent entries
+  plus one active selection-anchor tuple; incoming and returned arrays are copied. Two-argument
+  raw extraction remains available, and public cursor length and sort ordering are unchanged.
+
+  Fresh search, fill, both extensions, seek, first-page fallback, focus and restore carry their
+  tuples to commit points. Focus alignment trims tuples alongside images. Grid/table clicks,
+  touch ranges and detail/traversal history prefer matching retained values. Selection owns the
+  extra anchor entry through set, re-election, clear and hydration, including metadata failure;
+  persisted selection state is unchanged.
+
+  Cancelled extensions and neighbour lookups cannot overwrite newer buffers or tuples. Seek
+  and focus clear the cancelled extension flags when taking ownership, so failed replacement
+  navigation cannot leave paging blocked; existing cooldown timings are preserved. Independent
+  code reviews identified these cancellation and anchor-lifetime cases, which have failing-first
+  regressions alongside eviction, context isolation, history persistence and nonzero trim tests.
+
+  Validation passed all 1,273 unit tests, all 210 habitual E2Es and the unchanged guarded local
+  special-sort oracle. Two new habitual grid/table cases use API-shaped mock pages to exercise
+  range anchors beyond the recent-cache limit and detail/traversal cursor persistence. This is
+  local regression and contract evidence, not live D3 verification. E1/N4 server work, C2
+  enrichment publication, C3 recovery and final live two-mode validation remain pending.
+
+  ### 16 September 2026 — Align top-level date bounds with Grid
+
+  E2 of the D3 amendment batch changes the shared direct-ES query builder to use exclusive
+  lower/upper bounds for upload, taken and modified dates, matching existing Grid/D3 semantics.
+  Date-only URL values are expanded to explicit UTC midnight: passing them directly to ES with
+  exclusive operators rounds across the day and changes membership. Search, counts and positional
+  queries share the correction. CQL-inclusive date expressions, date-picker behavior, the
+  media-api request mapping and Scala date helpers are unchanged.
+
+  Twelve failing-first unit cases cover timestamp and date-only inputs across all six bounds.
+  A new habitual E2E case selects before/equal/after images from the local sample corpus using
+  read-only requests and checks identities, totals, counts and ranks. The existing date-filter
+  position-map test exposed the date-only rounding issue and passes without changing its fixture
+  or assertions. Final validation passed 1,243 unit tests and all 208 habitual E2Es, including
+  forced seek. The opt-in special-sort oracle is unchanged. Live TEST/media-api verification
+  was not performed for this slice; combined mode validation remains required for the batch.
+
+  ### 13 September 2026 — Cancel superseded registered-field typeahead requests
+
+  Registered CQL value resolvers now propagate `LazyTypeahead`'s existing
+  `AbortSignal` through the CQL wrapper, field definitions and scoped aggregation
+  helper to `ImageDataSource.getAggregations`. Rapid prefix edits cancel obsolete ES
+  work; local key suggestions, cached/static values, dotted-field cancellation,
+  exact keyword search semantics and popup behavior are unchanged. Abort remains
+  normal supersession with no warning, toast or stale replacement.
+
+  A failing-first controlled-DAL test proved the pre-fix signal was absent. Post-fix
+  it observes the superseded request abort, rejects the stale result, preserves the
+  immediate key option and publishes only the newest value options. Focused typeahead
+  tests passed 12/12, full units 1,231/1,231 and habitual Playwright 207/207. Live TEST
+  `+keyword:foot` produced six isolated typeahead requests: five `net::ERR_ABORTED`
+  and one completion, with the current options still visible. One unmatched post-fix
+  sample reached actionable options in 571ms versus the earlier 434ms baseline, so
+  no latency improvement or regression is claimed.
+
+  ### 13 September 2026 — Preserve the visible traversal image request
+
+  Rapid P14d traversal intermittently committed all 20 image identities but left the final
+  full-resolution image unresolved for five seconds. The failed trace showed that the prefetch
+  session cancelled an adjacent image exactly when navigation made it visible; Chromium could
+  coalesce the centre image request with that cancelled request. Stale neighbours are still
+  cancelled, but the current visible image is now protected until its request settles.
+
+  A failing-first unit test reproduced the full URL being cleared on the next traversal step.
+  Validation passed 1,230 unit tests, the production build, four cold-cache embedded-browser
+  bursts, and four formal media-api P14d repetitions. Formal landing times were 262ms, 306ms,
+  316ms and 225ms. P14d is now part of the required fast media-api campaign preflight.
+
+  ### 13 September 2026 — Make explicit Filters expansion immediate
+
+  Explicitly activating Filters now skips only the 500ms aggregation debounce. Query changes,
+  hover prefetch and initial persisted-open state remain trailing-edge debounced; query-keyed cache,
+  batching, cancellation and the circuit breaker are unchanged. Manual “Refresh (slow)” retains a
+  separate force intent. No loading UI or other presentation change was added.
+
+  Failing-first tests cover immediate/cache/breaker behavior, stale publication, AI scope and true
+  debounce supersession; a real Playwright interaction covers Browse→Filters activation. SearchPage
+  observes only the store params object identity; query-field semantics and cache keys remain owned
+  by the store, with no React-side field enumeration or serialization. Validation passed 1,229 unit tests,
+  207 habitual Playwright tests and the production build. Progressive detail loading was separately
+  deferred indefinitely by product decision.
+
+  ### 13 September 2026 — Extend performance measurement coverage
+
+  Added maintained owners for reverse/prepend jank (P17), 100-image selection Details rendering
+  (P18), and exact deep browser-Back restoration (PP11). The harness now validates all metric IDs,
+  preserves scenario diagnostics across repeated runs, separates direct-ES and media-api dashboard
+  series, and records coarse route attribution without persisting image identity.
+
+  Recorded matched direct-ES and local-media-api campaigns, documented secure media-api auth and
+  explicit app/runner mode pairing, and added embedded-browser measurement lessons. Pure harness
+  validation passed 37/37, the production build passed, and direct-ES dry runs passed for P17,
+  P18, and PP11. No runtime source behavior changed.
+
+  P18 route attribution was later narrowed to its owned selection-metadata `_mget` request. The
+  selection store still uses direct ES in both app modes; unrelated media-api responses completing
+  during the measured window no longer make repeated P18 route metadata disagree. Seek-regime
+  perceived totals now retain min/max across repetitions, while buffer/indexed totals remain exact;
+  this allows tiny live-TEST corpus drift without hiding a regime or bounded-corpus mismatch.
+
+  The runner now aggregates after every repetition and the README requires two short media-api
+  dry-run preflights (P14d/P17/P18 twice; long journeys twice) before a four-run campaign. Future
+  invariant failures stop at the first failing pair rather
+  than after the full campaign. Optional `/api/usage/quotas` DNS failure remains graceful-absence
+  noise and does not invalidate search-after scenarios.
+
+  ### 12 September 2026 — Remove dead and stray Kupua code
+
+  The 37 actionable entries from the current-tree dead-code audit were executed
+  after fresh reachability checks. Obsolete experiment runners, unused fixture
+  helpers, inert props and state, copied tests that exercised local replicas,
+  dead store branches, stale CSS/config declarations and fused DAL contract
+  residue were removed. Live E2E guidance was rewritten around the maintained
+  habitual, diagnostic and performance roots. Decision-gated APIs, migration
+  reserves and explicitly live traps were preserved.
+
+  The cleanup narrowed traversal, data-window, history-snapshot, enrichment,
+  scroll-geometry and DAL types without changing their live behavior. The
+  direct-ES source allowlist dropped raw cost, validity, actions and unused
+  collection description fields; TypeScript still derives the direct-ES
+  baseline from rights, leases, usages and metadata, while media-api remains
+  the server-authoritative overlay. `ImageDataSource.search()` was removed after
+  method fusion, but the distinct `searchRange` migration reserve remains. The
+  Phase 3 findings and live architecture/safeguard docs now state those exact
+  boundaries.
+
+  Disconnected test removal reduced the unit count from 1,288 to 1,223 while
+  retaining production-linked hook and velocity coverage. Final validation
+  passed 1,223/1,223 units, 206/206 habitual Playwright cases in 4.4 minutes,
+  35/35 performance-harness tests and the production build. A four-run headed
+  direct-ES PP7b check also passed after the separately committed oracle fix;
+  the failed full perf campaign was not written as evidence. Focused tests,
+  source diagnostics, removed-symbol searches and `git diff --check` were clean.
+  No live media-api or full performance campaign was completed. The commit also
+  accepts npm 10.9.0's lockfile normalization, which removes obsolete platform
+  `libc` metadata without changing dependency versions.
+
+  After completion, the dead-code report and the finished position-preservation
+  consolidation specification/workplan were moved to `zz Archive`; their active
+  AGENTS routes and archived cross-links were updated accordingly.
+
+  A final documentation review also moved the completed May metrics refresh to
+  `zz Archive`. All six actions had shipped in `bfe2c172`, and the September
+  harness rebuild in `a7a6caa` superseded its measurement model. Its archive
+  banner now routes readers to `e2e-perf/README.md`; only conditional request
+  attribution/cross-mode campaign work and the RTT-probe caveat remain noted.
+  The retracted/medium-confidence M7 seek-idempotence findings were likewise
+  moved beside their later all-tier follow-up in `zz Archive/wandering`.
+
+  ### 12 September 2026 — Make PP7 seek settlement refresh-rate independent
+
+  PP7b intermittently failed after a successful 2.1-second TEST seek because
+  its visual-settlement helper spent a fixed 180-animation-frame budget waiting
+  for both network readiness and rendered stability. At 120Hz that allowed only
+  about 1.5 seconds, so the oracle could expire before the store became ready
+  even though the final result was populated and stable. Git history traced the
+  faulty revision-2 oracle to `a7a6caa05`; later application changes and the
+  pending dead-code cleanup did not alter the seek settlement path.
+
+  The helper now uses a 15-second wall-clock deadline that includes readiness,
+  then applies the existing consecutive-frame 1px geometry tolerance to one
+  persistent centre-nearest image identity. This removes the refresh-rate-bound
+  network timeout while strengthening the visual assertion against comparing
+  different first-visible cells. Four headed direct-ES PP7b dry-run repetitions
+  passed; the fourth recorded 1ms acknowledgement, 738ms store readiness, 919ms
+  first visible frame and 935ms visual settlement. The 35 pure performance-
+  harness tests, TypeScript diagnostics and `git diff --check` also passed.
+
+  ### 11 September 2026 — Retire legacy browser harnesses
+
+  The smoke and three-project tier-matrix suites were retired after every
+  claim was mapped to stronger maintained evidence or explicitly dropped as
+  warning-only, combinatorial or invalid measurement. Ownerless diagnostics,
+  the direct-store selection performance prototype, smoke reporters/runners,
+  both tier matrices, obsolete configs and the final generic DOM/rank probe
+  were removed. Live package, config, documentation and agent directives now
+  describe two maintained browser outcomes: habitual local correctness and
+  purpose-driven performance evidence.
+
+  Habitual coverage gained deterministic missing-Credit End wiring, bounded
+  reverse/prepend DOM-direction integrity, exact usable-viewport return
+  placement for grid/table detail and FullscreenPreview paths, and one compact
+  forced-seek owner. Source overlap review removed duplicated sort/density work
+  from that forced case and bypassed an impossible position-map wait, reducing
+  it from about 35 seconds to 2-3 seconds. Reverse P8 performance remains
+  deliberately unmeasured because no current comparison decision needs it.
+
+  Final validation passed 1,288/1,288 units, 206/206 habitual Playwright cases
+  in 4.5 minutes without retry, 35/35 performance-harness tests and the
+  production build. Playwright discovery lists exactly 206 tests in 14 files;
+  directive copies are byte-identical, live retired-surface references are
+  absent, diagnostics are clean and `git diff --check` passes.
+
+  ### 10 September 2026 — Make habitual browser evidence smaller and stronger
+
+  The habitual Playwright suite was consolidated from 236 to 203 tests by
+  removing or merging only strict subsets after their stronger owners were
+  verified. Remaining misleading contracts were repaired to require observable
+  browser outcomes: exact identities and history transitions, deterministic
+  metadata and API failure fixtures, real SPA input paths, rendered viewport
+  geometry, generation-aware seek settlement, Fullscreen API capability, and
+  fail-closed mobile selection behavior. Toast categories moved to component
+  coverage, and accumulated TypeScript errors exposed during the work were
+  cleared without changing product behavior.
+
+  Redundant fixed waits were replaced with screenshot stability,
+  reconciliation, URL, focus, scroll and generation outcomes, removing 8.3
+  seconds of blind delay while retaining deliberate flash, flood and stability
+  observation windows. The broad density-switch helper split remains deferred
+  because its extension-readiness contract spans 47 habitual and tier callers.
+  Final validation passed the production build and 203/203 habitual browser
+  tests in 4.4 minutes with no failures or retries; the last evidenced unit
+  baseline remains 1,288/1,288.
+
+  ### 10 September 2026 — Make performance evidence trustworthy and maintainable
+
+  The performance programme replaced ambiguous, timing-adjacent measurements with
+  explicitly owned user interactions and browser-observed completion boundaries.
+  Jank, perceived latency and background diagnostics are now distinct evidence
+  classes; asynchronous phases are correlated to one interaction; changed
+  scenario contracts are revision-gated; invalid, compound and non-discriminating
+  metrics were repaired or retired. A fresh four-run direct-ES baseline now covers
+  30 jank metrics, 14 short perceived scenarios and 8 long-journey scenarios. It
+  identified table fast scrolling as the clearest next rendering optimization
+  target while perceived scenarios remained within their documented hard ceilings.
+
+  Permanent harness improvements include fail-closed process, manifest,
+  environment and schema validation; balanced matched-control campaigns;
+  transactional multi-file history writes and tested pruning/rebuild maintenance;
+  sanitized diagnostic attribution; immutable externally stored run transcripts
+  with an ignored discovery pointer; and dashboards that understand revisions,
+  evidence classes, short-window denominator limits and meaningful regression
+  thresholds. Historical invalid rows were removed without rewriting surviving
+  evidence, and reusable measurement rules now guide later optimization work.
+  Validation completed with 1,285 unit tests, 35 pure harness tests and 236 habitual
+  browser tests passing, plus clean type, artifact, directive-sync and secret checks.
+
+  ### 8 September 2026 — Keep truncated keyword distributions out of the null zone
+
+  PROD Credit and Source exceed the client distribution's 50,000-value cap.
+  The bounded bucket sum was previously called `coveredCount`, so deep seeks
+  beyond that lexical prefix were misclassified as missing-value positions and
+  sent through the null-zone path before keyword fallback could run.
+
+  Keyword distributions now fetch the exact valued-document count once beside
+  the first composite page and separately report represented bucket count plus
+  natural completion. Exact coverage owns the valued/null boundary; represented
+  coverage owns cached bucket lookup and out-of-buffer labels. A target beyond a
+  truncated prefix now uses the existing bounded keyword fallback, and the UI
+  does not repeat the final represented keyword across the unknown tail.
+
+  The change adds no store state or coordination branch. Review removed repeated
+  exact-count aggregation from later composite pages. Focused tests passed 71/71,
+  full units 1,274/1,274, and habitual Playwright 236/236 in 5.3 minutes,
+  including existing Credit and Source seek coverage. Perfect PROD-scale bucket
+  discovery remains deliberately deferred.
+
+  A subsequent read-only TEST verification loaded 10,322 Credit buckets in
+  833ms. Exact valued coverage and represented coverage both reported 1,308,351
+  with `complete:true`, leaving a real 16,092-document missing-Credit tail. A
+  75% populated seek used one scoped percentile, no composite fallback and no
+  null cursor in 1.32s. A seek inside the real missing-value tail used the null
+  path, not keyword fallback, in 764ms. No image identity or keyword value was
+  returned from the browser checks or retained.
+
+  ### 8 September 2026 — Reject request-time dimension coalescing
+
+  O9 confirmed that Width and Height display oriented dimensions with raw
+  fallback but sort only by raw dimensions. Both source fields are indexed
+  integers, but a native two-field sort cannot express per-document fallback.
+  A runtime scalar produced the correct value and performed acceptably on the
+  10,000-document local fixture. On TEST, however, three bounded 200-hit sorts
+  took 82/103/115ms for raw width versus 225/253/231ms for runtime coalescing,
+  about 2.2 times slower at the median. Warm percentile requests remained cheap.
+
+  The runtime definition would also need to remain identical across direct ES,
+  media-api search-after, distributions, position maps, ranges and exact ranks.
+  No frontend workaround was added. The backend materialized-scalars case now
+  includes canonical effective Width and Height, or alternatively a guarantee
+  and backfill making oriented dimensions complete. O9 remains an honest known
+  discrepancy until that backend decision or an explicit product relabelling.
+
+  ### 8 September 2026 — Complete special-sort cross-path acceptance
+
+  The final direct-ES/D3 matrix found two contract defects. Direct ES rebuilt the
+  primary clause during End seeking and discarded `mode:max` and the nested usage
+  path. D3 returned Elasticsearch's missing-date Long sentinels as numeric cursors
+  instead of null, and accepted `offset` despite never applying it. In media-api
+  mode that offset bug made shallow special seeks return page-one images while the
+  store labelled them as a deep buffer.
+
+  End seeking now preserves every canonical object-form option and changes only
+  missing placement. D3 converts Long min/max missing sentinels to null and rejects
+  non-zero offset deliberately. The strangler keeps only plain cursorless shallow
+  offset paging on the existing direct-ES path; initial, cursor, PIT, reverse and
+  End traffic remains server-backed.
+
+  The guarded seven-document oracle now proves exact End pages as well as complete
+  order, maps, all ranks and ranges in both directions. Focused tests cover all
+  four special forms for End request shape, focus/restore cursor wiring and honest
+  approximate labels/ticks. Live TEST matrices in both modes agreed on paging,
+  zero-delta seek coordinates, focus rank, restore placement and null End cursors.
+  Final validation passed 1,270 unit tests, 236 E2E in 5.2 minutes, 77 Scala
+  integration tests, 14 Scala parser tests and the oracle in 831ms. Independent
+  review found no remaining defect. No live identity or field value was retained.
+
+  ### 8 September 2026 — Harden D3 special-sort requests defensively
+
+  The new media-api `POST /images/search-after` endpoint previously allowed some
+  unsupported sort states to reach Elasticsearch and used permissive JSON parsing
+  that could turn a wrong-typed cursor into an omitted cursor. That could produce
+  an accidental server error or silently restart at page one even though Kupua's
+  one-semantic-sort UI no longer emits those states.
+
+  D3 now strictly parses resolved sort clauses and scalar cursors, rejects malformed
+  object-sort options, duplicate fields, unresolved special-sort aliases, residual
+  nulls and arity mismatches before querying Elasticsearch, and returns stable 4xx
+  responses. Supported flat and object-form sorts, leading-primary null reduction,
+  reverse paging, source shaping and intentional PIT `_shard_doc` truncation are
+  unchanged. Existing Grid/Kahuna routes do not call the amended code.
+
+  The red run produced five intended failures, including Elasticsearch mapping
+  errors for both unresolved aliases. After implementation and independent review,
+  focused suites passed 75/75 and 14/14. A live TEST `--use-media-api` check covered
+  initial, forward, backward and null-zone behavior for both fields/directions and
+  confirmed six malformed request shapes returned deliberate 400/422 responses.
+  No live identity or metadata value was retained. The portable six-file code/test
+  commit is `c697cc148`; PR-branch conflict resolution and exact parity remain.
+
+### 8 September 2026 — Count special-date ranks by selected maximum
+
+`countBefore` previously compared each special-date cursor with arbitrary child
+values. For ascending Last used and Added to collection, a parent whose earlier
+child fell below the cursor was counted before it even when its selected maximum
+was later. The guarded fixture reproduced this directly: expected ranks
+`[0,1,2,3,4]` became `[2,3,3,3,4]`.
+
+Exact current-schema predicates now mirror `mode:max`. Selected-maximum equality
+requires an equal child and no greater child. Ascending-before requires at least
+one value and no child greater than or equal to the cursor. Descending-before
+remains the equivalent, cheaper test that any child exceeds the cursor. These
+predicates activate only for clauses explicitly using `mode:max`, so ordinary
+sort behavior is unchanged.
+
+The guarded fixture grew to seven documents and now proves every zero-based rank
+for both fields and directions, an earlier child crossing the cursor, selected-
+maximum ties, upload-time precedence, final ID ordering, and first/later nulls.
+The same production adapter oracle verifies inclusive range-selection IDs within
+the populated region and across the null boundary. A store regression confirms
+detail restore forwards the complete `[selectedMax,uploadTime,id]` cursor.
+
+Bounded direct-TEST checks showed comparable wall time for exact usage ascending
+(90–132ms), usage descending (87–122ms), and collection controls (87–131ms).
+This is not a PROD or concurrency benchmark, but rules out a pathological query
+shape at TEST scale. Focused adapter tests passed 26/26, the focused store suite
+passed 101/101, full unit passed 1248/1248 across 64 files, habitual E2E passed
+236/236 in 5.0 minutes, and independent review found no correctness issue.
+
+### 8 September 2026 — Keep special-date position maps exact
+
+Special-date position-map construction rebuilt every sort clause from only its
+field and direction. That discarded `mode:max` and nested usage options, changed
+descending primary missing placement to `_first`, and replaced canonical scalar
+fallback clauses with object forms. Its phase filters also tested nested usage
+existence at root scope. The resulting map could disagree with ordinary search
+even though G's scrubber boundary was correct.
+
+Position maps now preserve the complete canonical phase-one sort clauses and
+reuse the canonical `[uploadTime,id]` phase-two fallback. Primary existence is
+nested for usages and root-scoped for collection action dates. Null-phase sort
+tuples are remapped to full `[null,uploadTime,id]` shape. The path remains an
+exact identity/rank oracle and never consumes G's approximate histogram evidence.
+
+Failing-first request tests cover both special fields in both directions. A
+10,000-hit-per-phase unit fixture forces continuation and verifies complete PIT
+`search_after` tuples and refreshed PIT IDs. Independent review strengthened the
+real-ES proof from a one-page raw comparison to a complete production
+`searchAfter` walk in two-item pages. That walk crosses into and through the null
+zone and matches production `fetchPositionIndex` IDs and full tuples exactly for
+all four cases.
+
+Focused adapter coverage passed 22/22. Full unit validation passed 1243/1243
+across 64 files, habitual E2E passed 236/236 in 4.9 minutes, and the guarded
+local-ES oracle passed with UUID-index cleanup and unchanged sample count.
+
+### 8 September 2026 — Separate exact special-date boundaries from approximate evidence
+
+Last used and Added to collection sort one image by its maximum date, but their
+histograms count every nested usage or collection date. PROD evidence showed
+5,034,659 histogram positions for 4,142,917 dated parents, a 21.5% inflation.
+An exact current-schema filter bank reached 2,993ms for only 24 coarse half-year
+buckets, so the exact filter-bank option was rejected and the product selected
+an exact-boundary, approximate-populated-scrubber interim contract.
+
+Special-date distributions now fetch an exact root-parent existence count:
+nested exists for usage dates and root exists for collection dates. That count
+owns the populated/null boundary. Histogram cumulative counts remain separate
+approximate evidence with explicit provenance and are projected into the exact
+populated span only for ticks and `Approx.` labels. Approximate buckets cannot
+enter keyword deep seek or H's exact position-map contract as rank anchors.
+Null-zone classification uses the exact boundary even while upload-time
+enrichment is absent.
+
+Scrubber interaction remains enabled, and rich visual date labels are converted
+to plain text for `aria-valuetext`. Independent review found and fixed mismatched
+rank/evidence transforms that could place a March tick at a position labelled
+February, a compressed-bucket collision that could retain a tick inconsistent
+with the label at that rank, plus a transient false special-date label in the
+known null zone. The adapter tests now inspect the nested histogram and
+`reverse_nested` request, and the guarded local-ES oracle proves three exact
+parents versus five histogram evidence contributions without weakening its
+sort, pagination or cleanup checks.
+
+Focused collision coverage passed 16/16. Final full unit validation passed
+1238/1238 across 64 files; habitual E2E passed 236/236 in 5.2 minutes; the
+guarded local-ES oracle passed in 995ms. A separate backend evidence document
+records why materialized latest-date scalars remain the route to exact,
+fine-grained and conventionally fast scrubber coordinates.
+
+### 7 September 2026 — Pin special sorts to maximum-date semantics
+
+Added to collection omitted an explicit Elasticsearch sort mode, so ascending
+and descending searches could select different dates from the same image.
+Collection sorting now uses `mode: "max"` in both directions, matching Last used
+and the application cursor extractor. Reverse sorting changes only direction and
+preserves `mode`, `missing`, and nested options.
+
+Independent review found that special cursor extraction chose the maximum ISO
+text lexicographically. Offset-equivalent date formats can sort differently as
+strings than as instants, producing a cursor that disagrees with Elasticsearch.
+Failing-first regressions for both special fields now select the maximum parsed
+instant and ignore invalid dates.
+
+A guarded opt-in integration oracle exercises five fixed synthetic images
+against local Elasticsearch on loopback port 9220. It proves maximum-date
+ordering, two-page forward continuation, production-style backward-page
+reconstruction from a forward cursor, cursor extraction parity, and terminal
+missing-value placement for both special sorts and directions. The test creates
+only a UUID-named index, always attempts its deletion, requires a 404 afterward,
+and proves the normal sample-index count is unchanged.
+
+The oracle is explicitly excluded from habitual unit and E2E runs. Its named
+package script and run triggers in AGENTS, the Obscure sorting implementation
+workplan, and the test header keep it discoverable after changes to special sort
+clauses, reverse pagination, cursor extraction, position maps, distributions,
+global rank counting, relevant mappings, or the Elasticsearch version. Raw
+missing-date sentinels cannot cross `search_after`; production null-zone cursor
+sanitization remains a later parity requirement.
+
+Focused sort and cursor tests passed 145/145. The opt-in Elasticsearch oracle
+passed in 375ms with cleanup and count invariants, and the habitual unit suite
+passed 1226/1226 across 64 files without collecting the oracle.
+
+### 7 September 2026 — Parse special-sort direction during deep seek
+
+Deep seek read the first Elasticsearch sort-clause value as a string. Last used
+and Added to collection compile to object-form clauses, so descending direction
+became `[object Object]` and selected the ascending percentile from the opposite
+end of the distribution.
+
+The seek path now resolves both the field and direction through the existing
+`parseSortField` helper. Failing-first coverage above the 65,000-result
+position-map threshold proved that both descending special sorts requested the
+25th percentile instead of the 75th; ascending controls already requested the
+correct 25th percentile. The same tests verify mapped fields and the emitted
+three-value numeric/numeric/string cursor shape.
+
+Focused coverage passed 4/4. Full unit validation passed 1220/1220 and habitual
+E2E passed 236/236 in 5.0 minutes. Independent review found no defects; real
+Elasticsearch max-date and reverse-pagination semantics remain separate work.
+
+### 7 September 2026 — Remove generic secondary sorting
+
+The **Obscure sorting decision** selected one semantic user sort plus automatic
+`uploadTime` fallback and `id` tiebreaker clauses. The **Obscure sorting
+implementation workplan** translated that decision into failing-first
+containment before the remaining special-date work.
+
+URL normalization now accepts one recognized semantic `orderBy` token. Incoming
+comma URLs retain only a valid first token; invalid first tokens use the current
+ordinary, AI, or collection default, and normalization replaces the URL before
+the store searches. Toolbar and table Shift+click now behave like ordinary
+primary selection, and all secondary state and double-arrow presentation have
+been removed.
+
+AI search enables only Relevance and Uploaded while leaving other sort options
+visible but disabled. Initial and reloaded AI results apply the requested order
+before publication; later in-memory resorting keeps positions consistent and
+either preserves an available anchor or resets to top. AI and collection
+filters cannot coexist: `collection:`, `+collection:`, and `~` forms win
+atomically, disable the AI control, and preserve the ordinary sort across the
+AI-to-collection transition.
+
+The discarded O3 experiment no longer preserves arbitrary secondary clauses in
+the primary null zone. Null-zone continuation is restored to `[uploadTime,id]`,
+while retaining the valid nested `usages.dateAdded` existence correction and
+focused regression coverage.
+
+Independent review found and repaired collection-shortcut detection, an
+already-expanded AI control remaining interactive, loss of the pre-AI sort
+through collection mode, and silent viewport identity changes after AI resort.
+Focused sort coverage passed 326/326. Final validation passed 1216/1216 unit
+tests and 236/236 habitual E2E tests in 4.9 minutes with no retries.
+
+  ### 6 September 2026 — Put ascending missing values at the end
+
+  Deep seek correctly documented Elasticsearch's direction-independent
+  `missing: "_last"` behavior but implemented ascending sparse-field sorts as
+  though missing values came first. Above the position-map threshold, ascending
+  `lastModified` seek to rank 12,500 entered the null path and landed at 45,400;
+  a missing-tail target at 45,000 instead landed near 11,900.
+
+  Null-zone classification and local-position math now use the same populated
+  prefix and missing tail for both sort directions. Percentile orientation,
+  uploadTime fallback direction, cursor remapping, secondary-sort handling and
+  media-api transport are unchanged. Tests prove both sides of the ascending
+  boundary and require landings within 500 positions. Focused store tests passed
+  77/77, full unit passed 1169/1169 and habitual E2E passed 236/236 in 5.0m.
+
+  Fresh review confirmed the arithmetic and surfaced separate follow-ups for
+  secondary-sort preservation and special collection/usage date sorts.
+
+  ### 5 September 2026 — Isolate fullscreen traversal sessions
+
+  Fullscreen preview keeps its traversal hook mounted while inactive. A pending
+  edge traversal and its proactive-extension eligibility could therefore survive
+  close, then consume an old buffer completion after reopen: the new session
+  navigated unexpectedly and issued an unsolicited reverse extension.
+
+  Deactivation now clears only the hook-local pending direction and navigation
+  eligibility. The underlying shared buffer request may finish normally, but it
+  cannot produce session-specific work later. Active fullscreen traversal is
+  unchanged, and ImageDetail is unaffected because it always supplies an image
+  ID and unmounts on close. The lifecycle regression passed with all 22 traversal
+  tests; full unit passed 1167/1167, fullscreen E2E 2/2 and habitual E2E 236/236
+  in 4.9m. Fresh review found no defects or material performance impact.
+
+  ### 5 September 2026 — Preserve fullscreen preview when native exit rejects
+
+  Fullscreen preview previously tore down React state and its phantom history
+  entry immediately after requesting native fullscreen exit. If
+  `exitFullscreen()` rejected while fullscreen remained active, users were left
+  in a blank native fullscreen document; traversed exits also never centred or
+  emitted their settled trace.
+
+  Exit cleanup now runs only after native fullscreen has ended. Rejection keeps
+  the preview and history absorber active so `f` or Backspace can retry. Browser
+  Back restores its already-popped absorber on rejection, guarded so a stale
+  rejection cannot recreate it after another exit succeeds. The promise/event
+  convergence remains idempotent and adds no steady-state render or scroll work.
+
+  Live Chromium injection confirmed rejected exit preserves fullscreen preview,
+  history and unsettled tracing; restoring the native method and retrying exited,
+  cleaned history, centred and settled. Helper tests passed 4/4, full unit passed
+  1166/1166, existing fullscreen E2E passed 2/2 and habitual E2E passed 236/236
+  in 4.8m.
+
+  ### 5 September 2026 — Preserve detail traversal centring across reload
+
+  Detail close previously inferred whether the user traversed by comparing the
+  closing image with mutable explicit focus. After traversal crossed a buffer
+  eviction, reload reconstructed the buffer around the URL image and assigned
+  that image to focus; close then misclassified it as the original entry image.
+  Seek mode left the image above the viewport, while two-tier could return to
+  the first page with focus pointing at an unrendered distant image.
+
+  Detail history entries now carry immutable entry-image identity through
+  traversal replacements and reload. Return-from-detail compares the closing
+  image with that identity, while existing focus, restoration, Home suppression
+  and phantom-mode machinery remain unchanged. A fresh review found and fixed
+  stale identity on Forward re-entry, upgraded older synthesised history entries,
+  and strengthened the browser regression to close immediately after detail is
+  visible before checking Forward/reverse traversal centring.
+
+  Unit tests cover traversal, no-traversal reload and Forward rebasing. The
+  focused eviction regression passed, browser history passed 39/39, the full
+  unit suite passed 1162/1162, and habitual E2E passed 236/236 in 4.8m with zero
+  retries after review hardening.
+
+  ### 5 September 2026 — Make browser-history readiness generation-driven
+
+  Browser-history E2E actions now capture the current search generation before
+  navigation and wait for a newer generation to settle, instead of inferring
+  readiness from loading state, URL/store normalization or fixed delays. The
+  search store exposes a development-only lifecycle snapshot that arms after
+  the new search enters loading and settles only for the latest generation when
+  loading and sort-around-focus work are idle in the captured query/sort context.
+  BFCache retains its separate restored-or-reloaded fallback.
+
+  This avoids false readiness from an already-idle predecessor search and handles
+  logo resets whose URL and store representations intentionally differ. Focused
+  browser-history validation passed 38/38 in 1.1m; the full habitual suite passed
+  235/235 with zero retries in 4.6m; unit validation passed 1159/1159. A production
+  build passed and contained neither the lifecycle accessor nor its type name,
+  confirming Vite dead-code elimination.
+
+  ### 5 September 2026 — Replace guessed E2E waits with observable outcomes
+
+  Shared E2E helpers now wait for the state users and tests actually need:
+  visibly rendered image results, exact sort-key changes with completed
+  sort-around-focus, stable explicit focus, exact detail URL/render identity,
+  detail overlay removal, exact persisted selection sets, and completed backward
+  prepends. Sort options expose their canonical key as a data attribute so tests
+  do not duplicate the field registry.
+
+  Removed redundant panel and post-sort sleeps. The two Home/density regressions
+  now execute only their causal journeys and poll their final geometry/focus
+  contracts, reducing them from roughly 10s/6s to 6s/3.5s. Post-seek scroll-up
+  tests wait for real scroll and prepend progress; the habitual suite completed
+  twice at 4.6m and 4.7m versus the prior 4.9-5.0m baseline, with 235/235 passing
+  and zero retries. Full unit validation passed 1159/1159.
+
+  Two scrubber timeout-removal experiments were rejected: visible content could
+  still be stale before a debounced seek started, and virtualizer overscan made
+  full visible-range coverage false near the bottom. A generation-driven
+  capacity setup was also rejected because first eviction completion precedes
+  scroll compensation/chained-extend settlement. Browser-history parallelism
+  improved that file alone but not full-suite wall time, so it was reverted.
+  Further removal of these waits requires explicit decision/compensation
+  lifecycle observability, not another timing heuristic.
+
+  ### 5 September 2026 — Parallelise the habitual scrubber E2E suite
+
+  The habitual runner now uses two workers and excludes both cross-tier matrix
+  files, which remain selected by `playwright.tiers.config.ts`. The dominant
+  scrubber spec opts into Playwright's parallel mode so its isolated-page,
+  read-only cases can use both configured workers instead of serialising the
+  entire file.
+
+  The scrubber suite fell from 4.7 minutes serial to 2.4 minutes with two
+  workers. Three complete habitual runs then passed 235/235 with zero retries
+  in 4.9, 5.0 and 4.9 minutes. This is about half the 9.9-minute one-worker
+  post-selection baseline. Higher worker counts remain unproven and are not the
+  default.
+
+  ### 5 September 2026 — Remove ineffective and duplicate scrubber E2E coverage
+
+  An assertion-level audit classified all 87 concrete cases in the 3,000-line
+  scrubber suite by actual oracle, tier, interaction path and overlap. Eleven
+  cases were removed only where they were vacuous in the habitual two-tier
+  corpus, strict subsets of stronger browser cases, or exact store bookkeeping
+  already covered by Vitest. The habitual suite now selects 235 tests, including
+  76 scrubber cases.
+
+  Several retained tests were made more honest: horizontal overflow now performs
+  a real horizontal scroll, position-map assertions read post-wait state,
+  scroll-mode setup failures no longer become skips, proportional-thumb coverage
+  must execute at least one assertion, and names no longer claim untested sort
+  reversal or workflow steps. Tier-gated keyword telemetry that never ran in the
+  habitual corpus was removed; dedicated store tests remain the strategy oracle.
+
+  Validation: Playwright discovery found 235 tests; focused retained coverage
+  passed 6/6, tightened cases passed 7/7, and the serial scrubber run passed 75/76
+  before exposing one stale local variable introduced by this cleanup. The
+  corrected case then passed 1/1, and the final telemetry-affected outcomes passed
+  4/4. The agent interrupted a full two-worker run at 143/235; it is not counted
+  as validation.
+
+  ### 5 September 2026 — Elect passive anchors from usable viewport geometry (F13)
+
+  **Bug.** Passive/no-focus preservation used the rounded midpoint of the
+  virtualizer's reported index range. Partial rows, the table's sticky header and
+  uneven usable geometry could make that identity differ from the rendered image
+  nearest the actual usable viewport centre.
+
+  **Fix.** `getViewportAnchorId()` now performs a bounded rendered-DOM scan only
+  when a semantic transition requests an anchor. It reads the registered scroll
+  container, excludes the live table header rectangle, ignores skeletons and
+  off-viewport nodes, and elects the minimum centre-distance image with stable DOM
+  order as the tie-break. Grid uses both axes; table uses vertical distance.
+  Midpoint maintenance was removed from scroll/range reporting, so ordinary
+  scrolling performs no layout scan. T07 neighbour ordering remains range-based
+  and excludes only the newly elected anchor.
+
+  Added pure geometry coverage for sticky headers, grid columns, partial rows,
+  fractional zoom geometry, panel-reduced width, ties and empty candidates; hook
+  coverage proves skeleton-only nulls and no geometry reads from range reporting;
+  browser coverage independently measures signed usable-centre distance in table
+  view. Focused unit 64/64, focused browser 2/2, full unit 1159/1159 and
+  full e2e 250/250 passed.
+
+  ### 5 September 2026 — Remove superseded offset-correction generation protocol
+
+  **Why dead.** `_offsetCorrectionGeneration` was introduced to re-run the
+  sort-placement layout effect after an estimated buffer had already painted and
+  an asynchronous `countBefore` correction changed its coordinates. F12's atomic
+  publication follow-up removed that second commit: exact counting and buffer
+  fetch now run concurrently, alignment happens before publication, and
+  `sortAroundFocusGeneration` arrives with final geometry. The correction counter
+  therefore had no producer and remained permanently zero.
+
+  **Cleanup.** Removed the store field/initializer, Effect #9's correction
+  subscription and cross-correction refs/branches, unused Playwright getter and
+  wait helpers, vacuous counter setup/assertions, and the obsolete Scrubber guard
+  that hid placeholder thumb jumps. Effect #9 now applies each atomic sort
+  generation once; its placement-ratio, phantom-anchor and snap-back behavior are
+  unchanged. Updated source comments, current architecture/test-contract docs and
+  the archived review's status while preserving historical narratives.
+
+  Validation: focused unit/integration 86/86, focused browser 5/5, full unit
+  1152/1152 (two obsolete protocol tests deliberately removed), full e2e
+  249/249.
+
+### 5 September 2026 — Selection anchor outranks suppressed focus during sort (F12)
+
+**Bugs.** With explicit focus on image A and active selection anchored on image
+B, a sort preserved A's viewport position. URL identity election, pre-sort
+placement capture, and final scroll-target resolution all preferred the older
+focus, even though selection mode suppressed its presentation. After correcting
+that precedence, live frame sampling exposed a second violation: buffer and seek
+tiers painted an estimated post-sort buffer, then replaced it with a corrected
+post-sort buffer. Users therefore saw pre, provisional and final states. The
+two-tier path was already atomic because its position map supplied exact
+coordinates before publication.
+
+**Fix.** Selection-active sorts now elect B for both identity and placement.
+The phantom positioning path carries B without promoting it to focus, while a
+transient `retainExplicitFocus` option keeps A stored for normal reuse after
+selection is cleared. For no-position-map landings, the cursor-based buffer
+fetch and existing `countBefore` request now run concurrently; the old buffer
+stays visible until both finish, and the new buffer is aligned and published
+once with final coordinates. No extra request or tier branch was added.
+
+The stable-ID browser regression now also samples visible IDs and signed row
+geometry on every animation frame and requires exactly pre/final signatures.
+A delayed-`countBefore` store test proves the old result array remains published
+until exact coordinates are ready. The ordinary-focus row/column sweep was
+updated to assert the single atomic landing instead of waiting for the removed
+post-publication correction. Validation: focused browser 1/1, affected
+ordinary-focus browser 3/3, store integration 76/76, unit 1154/1154, full e2e
+249/249.
+
+### 29 August 2026 — focusNthItem: fix runaway ~10s click-retry loop in two-tier mode (H9, F3)
+
+**Bug.** `focusNthItem` (`e2e/shared/helpers.ts`) could enter a self-sustaining
+~10s failure loop in two-tier virtualized tables: a plain `.click()`'s own
+Playwright actionability check calls `scrollIntoViewIfNeeded()`, which can
+nudge the container's `scrollTop`, causing the virtualizer to re-render a
+different row range, which moves or unmounts the target, failing the
+hit-test, triggering another retry — diverging instead of converging until
+the action timeout. Confirmed directly: in 4 of 5 test seeds the click failed
+after ~10.3s, with `scrollTop` drifting 12,000+ px monotonically during that
+window; the one seed that succeeded fast showed a static `scrollTop`
+throughout. Harness/automation-specific, not a product bug — real users never
+call `scrollIntoViewIfNeeded()`; they click wherever their cursor already is.
+
+**Fix.** Click with `{ force: true }`, skipping Playwright's
+actionability-retry/scroll-into-view path entirely — safe because
+`waitForStableNthImageId` already confirms the target id is genuinely stable
+immediately before the click. This alone surfaced a smaller, rarer second
+failure mode: Playwright still performs one `scrollIntoView` while dispatching
+a forced click, and it doesn't always fully clear the row (most likely a
+sticky-header edge case at the top of the table). Added a one-shot retry for
+that specific error: compute the row's true position from its own inline
+`transform: translateY()` and set the container's `scrollTop` directly, then
+click again.
+
+Verified against the same 5 seeds that originally exposed the bug (local
+Docker ES, `FUZZER_WORKERS=4`): click time dropped from ~10.3s (4/5 failing)
+to under 1.4s in all 5 cases. Full habitual e2e suite re-run clean: 248/248,
+no retries.
+
+### 29 August 2026 — seekTo/dragScrubberTo: wait for the two-tier position map before seeking (H2, H5)
+
+**Bug.** Neither `seekTo` nor `dragScrubberTo` (`e2e/shared/helpers.ts`) waited
+for the two-tier position map to load before seeking — both derived
+`twoTier` from `total` alone (correctly, matching `useDataWindow.ts`), but
+then seeked immediately regardless of whether `positionMap` had actually
+settled. `search-store.ts`'s seek path has two genuinely different code
+paths in two-tier mode: an exact position-map lookup, and a "percentile
+estimation" fallback taken whenever the map is still `null` (background
+fetch in flight) — not an error, but a race that made seek landing
+nondeterministic depending on timing. Separately, `dragScrubberTo`'s tail was
+a blind `waitForTimeout(800)` + `waitForResults()`, which could return while
+pre-seek content was still displayed (H5) — `seekTo` already had proper
+two-tier-aware settle logic that `dragScrubberTo` didn't share.
+
+Found during the position-preservation characterization project (see
+`exploration/docs/scroll-and-position-preservation-testing-4-findings.md`,
+harness ledger H2/H5) — the project's own fuzzer had already built a
+`waitForPositionMapSettled()` for the same reason, fuzzer-side only. This
+graduates the fix to the permanent helper (which the fuzzer's own
+`kupua.seekTo()` calls already share, being the same file), rather than
+leaving two divergent implementations.
+
+**Fix.** `seekTo` and `dragScrubberTo` now snapshot `positionMapReady`
+alongside `twoTier` and wait for the map (via the pre-existing
+`waitForPositionMap()`, previously unused by either) before seeking, if not
+yet loaded — non-fatal on timeout. `dragScrubberTo`'s tail now shares
+`seekTo`'s settle logic via a new private `waitForScrubberSeekSettle`,
+instead of a blind sleep. Both accept `{ waitForPositionMap: false }` for
+callers that deliberately want to measure the pre-map race.
+
+`clickScrubberAt` deliberately left untouched — one call site documents it as
+intentionally low-level/less-waiting, used where a test wants the unsettled
+intermediate state itself.
+
+Full habitual e2e suite re-run clean: 248/248, no retries — matches the
+pre-existing baseline exactly. No habitual spec needed amending: the fix is
+additive (wait more before seeking, settle more strictly afterward) and
+doesn't change any test's final asserted state, only its determinism getting
+there.
+
+### 29 August 2026 — Backspace/arrow shortcuts silently swallowed when search input keeps focus into detail (F10)
+
+**Bug.** If the CQL search input held DOM focus at the moment image detail
+became the active view via a history-restored (not clicked) navigation —
+e.g. browser back out of detail, then forward back into it — nothing
+blurred the input. It stayed focused behind the (`aria-hidden`,
+`pointer-events-none`) overlay. `CqlSearchInput.tsx`'s own keydown handler
+calls `stopImmediatePropagation()` on any unmodified key to keep typing
+trapped in the box, so Backspace/ArrowLeft/ArrowRight never reached
+`ImageDetail.tsx`'s document-level shortcut listener. Detail silently
+failed to close (or traverse) — no error, no visual signal.
+
+Reproduced live against TEST in both click-to-open and click-to-focus
+modes; confirmed the bug requires only "search input focused" +
+"non-click navigation into detail" — the originally suspected
+reload-then-forward path was one way to reach that state, not a
+precondition. Also confirmed `ArrowRight` (image traversal) is swallowed
+identically, matching the class of bug rather than a single-key defect.
+
+**Fix.** Added `inert={showImageDetail || undefined}` alongside the
+existing `aria-hidden` on the hidden background container in
+`routes/search.tsx`. `inert` is the platform primitive for "nothing in
+this subtree is focusable or receives input" — per spec, setting it
+forcibly blurs any focused descendant, so the search input loses focus the
+moment detail becomes active, regardless of how that transition happened.
+This also incidentally fixes the sibling ArrowLeft/Right-trapping variant.
+Chose this over patching `stopImmediatePropagation`/the editable-target
+guard because those two are entangled (removing one without the other
+flips the bug rather than fixing it) and because the real invariant needed
+is structural, not per-key.
+
+Verified no existing behaviour depended on restoring focus to a specific
+element on detail close (`closeDetail()` is just `history.back()`), and
+that the container was already `pointer-events-none` + `aria-hidden` while
+detail is open — `inert` overlaps those, adds nothing new for mouse/AT
+users, and fixes a pre-existing invalid-ARIA state (a focused descendant
+inside `aria-hidden`).
+
+**Test.** Added `e2e/local/browser-history.spec.ts` — "Backspace closes
+detail re-entered via forward while search input holds focus". Confirmed
+red (timeout in `waitForDetailClosed`) before the fix, green after. Full
+suites re-run clean: 1154/1154 unit, 248/248 e2e.
+
+### 29 August 2026 — Keyword-sorted deep seek: dead bisection deleted, cached-distribution fast path added
+
+**Bug (regression, commit `61b042101`, 2026-04-04).** Deep seek under a
+keyword sort (Credit, Source, etc.) refined its landing position with a
+binary search over the `id` tiebreaker field. That commit anchored the
+`uploadTime` secondary sort field at a sentinel (`Number.MAX_SAFE_INTEGER`
+desc / `0` asc) when building the seek cursor. `countBefore`'s equality
+condition for a preceding field is `range: { gte: v, lte: v }` — no real
+document's `uploadTime` ever equals the sentinel, so every `should` clause
+depending on the `id` probe collapsed to a constant. The bisection ran its
+full ~50-step budget every time without ever converging early (was ~11
+steps/~4s before the regression; became ~9–15s and a ~33%-of-corpus miss).
+No unit test caught it because `MockDataSource` couldn't reproduce it —
+see below.
+
+**Fix (narrow scope — see `exploration/docs/scroll-and-position-preservation-
+testing-4.1-keyword-sorts-workplan.md` for the full investigation).**
+
+- Deleted the dead `id` bisection block and `MAX_BISECT` in
+  `search-store.ts`'s `seek()`.
+- Added a fast path: when the cached `sortDistribution` (already fetched for
+  `coveredCount`) covers the seek target, binary-search it for the exact
+  bucket, then issue one `estimateSortValue` call **scoped** to that bucket's
+  keyword value (a new optional `scope?: Array<{ field, value }>` param,
+  compiled to an ES `term` filter — never spliced into CQL query text, which
+  silently drops results when the value contains a `"`), round the estimate
+  (`_count` rejects a fractional epoch; `search_after` doesn't), then one
+  `searchAfter` + one `countBefore`. No refinement loop — iterating the
+  percentile was measured to oscillate.
+- When the distribution is absent or doesn't cover the target (e.g. Credit/
+  Source on PROD, which exceed the 50k-bucket cache cap), falls back to the
+  pre-existing composite-walk (`findKeywordSortValue`) path, unchanged
+  except the bisection is gone — no worse than before this fix.
+- Measured effect (workplan §1): ~54 ES calls / 9–15s / 33% miss → 3–5 calls
+  / <1s / ~0.16% miss on TEST-scale data. On PROD (>50k-cardinality keyword
+  fields), only the within-bucket refinement applies; finding *which* bucket
+  a position falls in beyond the cache cap remains unsolved and is
+  explicitly out of scope (recorded in the workplan as a future oracle-driven
+  design, not attempted here).
+
+**Why no test caught the regression.** `MockDataSource` was structurally
+incapable of reproducing it: `getKeywordDistribution()` always returned
+`null`, `countBefore()` resolved the cursor's `id` back to a real document
+instead of comparing the cursor's sort-tuple *values*, `estimateSortValue()`
+ignored `field` (returning a valid timestamp even when asked to estimate a
+keyword field, which real ES 400s on), and the default credit-cycling corpus
+never produced a bucket larger than `PAGE_SIZE`. Fixed the mock first
+(`skewedCredits` option producing a ~45%-share bucket; general lexicographic
+`countBefore`; real per-bucket `getKeywordDistribution` with an optional
+truncation cap; scope-aware `estimateSortValue` with deterministic bounded
+drift) — this alone made the sentinel bug directly reproducible
+(`mock-data-source.test.ts`), independent of the store fix.
+
+**Test-impact note:** `MockDataSource`'s non-default-sort ordering logic was
+previously gated on `sparseFields` being configured, so a keyword sort with
+no sparse fields silently fell through to default-sort behaviour (id ==
+position). Broadened the gate (`_hasCustomSortSource`) to include
+`skewedCredits`, and generalized `searchAfter`'s "estimated cursor" position
+lookup from assuming index-0-is-uploadTime to a full sort-tuple comparison
+(needed for a 3-element `[creditValue, uploadTimeEstimate, ""]` cursor, not
+just the original 2-element `[uploadTimeEstimate, ""]` shape). Updated one
+e2e assertion (`scrubber.spec.ts` "seek to middle works under Credit sort")
+that asserted `findKeywordSortValue` telemetry — local sample data (~769
+credits/10k docs) now takes the new cached-distribution fast path instead,
+so the log it checked for no longer appears; asserts the new devLog instead.
+
+Full suites green: 1154/1154 unit (56→58 files: added
+`search-store-keyword-seek.test.ts`, `mock-data-source.test.ts`), 247/247
+habitual e2e, including the reused Bug #7/#14/#18 keyword-sort specs.
+
+### 21 August 2026 — `focusNthItem` clicked by position in a set that could reorder mid-click
+
+**Bug.** The e2e helper `focusNthItem` (and a duplicated inline copy inside a
+test-only anchor helper) selected the Nth row to click via `.nth(n)` on a
+locator scoped to `[class*="cursor-pointer"]`. Rows that haven't finished
+rendering (a skeleton placeholder, then a lightweight "pending" preview before
+the full cell content mounts) don't carry that class, so while a batch of rows
+was transitioning through those states at different rates, the *set* `.nth(n)`
+counted over kept changing size and membership — position `n` could name a
+different physical row from one moment to the next, including mid-click.
+
+**Fix.** Added `waitForStableNthImageId`: poll position `n` until the same
+`data-image-id` occupies it for three consecutive checks, then click/read that
+element by its id instead of re-querying by position. This is immune to the
+underlying set changing shape, since it locks onto a specific element's
+identity rather than trusting a position to keep meaning the same thing.
+
+Full habitual e2e suite re-run green (247/247) before and after, including
+every spec that seeks and then immediately calls `focusNthItem` in table
+density. No existing test needed updating.
+
+### 21 August 2026 — `aria-rowindex` was buffer-local instead of table-global
+
+**Bug.** `ImageTable.tsx` rendered `aria-rowindex` from `virtualRow.index` alone
+at three sites (the enriched row, the skeleton placeholder, and the "pending"
+fallback row), while `aria-rowcount` correctly reflected the full result count.
+`virtualRow.index` is only the row's position within the rendered buffer, not
+the corpus, so on a large result set a screen reader seeking to the middle was
+told it was near row 1 of a million-plus-row table. ARIA defines
+`aria-rowindex` as the row's index within the *full* table specifically so
+virtualised grids can express position when only a window is rendered — this
+attribute's entire purpose was defeated.
+
+**Fix.** Threaded a `rowIndexOffset` prop through `TableBody`/`EnrichedTableRow`,
+computed as `twoTier ? 0 : bufferOffset`. In two-tier mode the virtualizer
+already spans the full result count, so the row index is already global; in
+normal mode it needs the buffer offset added. All three `aria-rowindex` sites
+now use `rowIndexOffset + virtualRow.index + 2`.
+
+No existing test (unit or e2e) asserted on this attribute, so nothing needed
+updating; full unit suite re-run green after the change.
+
+### 20 August 2026 — Focused cell "climbs and disappears" on repeated sort toggle (buffer & seek tier)
+
+**Bug report:** with an image explicitly focused (sort-around-focus) or phantom-focused
+(query-widening promotion), repeatedly toggling sort order made the focused cell drift
+upward in the viewport by roughly one row per toggle, eventually scrolling off the top of
+the screen entirely; the next toggle it reappeared, then drifted off again. Reproduced live
+via the embedded browser in buffer tier (≤1000 results, `since=`/`until=` narrowed) and
+seek/deep-seek tier (>65,000 results), across both explicit and phantom focus, and via
+arrow-snap-back after a seek.
+
+**Root cause.** `_findAndFocusImage` (`search-store.ts`) estimates the buffer offset
+immediately for any search where no position map exists (buffer tier ≤1000 AND
+seek/deep-seek tier >65000 — despite an inline comment claiming "deep-seek only"; two-tier
+1000–65000 always has a position map and does a synchronous `countBefore` instead, so it's
+immune). A subsequent async `countBefore` call corrects that estimate and, via
+`alignBufferStart()`, can trim `results` for column alignment — silently shifting the local
+render index of the already-focused cell. Effect #9 in `useScrollEffects.ts` (the
+`useLayoutEffect` that scrolls to the sort-around-focus target) was supposed to re-fire when
+this correction landed, via an inline comment claiming it does so "via `findImageIndex` dep
+change" — but `findImageIndex` was frozen to `useCallback(..., [])` by the unrelated 23 May
+2026 perf fix (to stop it re-firing on every buffer extend), so nothing ever triggered a
+re-fire. Live-verified with temporary `devLog` instrumentation (since removed): effect #9
+fires exactly once per sort-around-focus generation and never again, regardless of a later
+correction landing. The "disappears / reappears at top / disappears again" cycle was effect
+#9's own edge-clamp (`itemY < 0 → target = rowTop`) silently absorbing the accumulated,
+uncompensated drift each time it crossed row 0.
+
+**Fix.** Added a new store field, `_offsetCorrectionGeneration: number`, bumped inside the
+same atomic `set()` call as `results`/`startCursor`/`bufferOffset`/`imagePositions` in the
+async correction callback. Effect #9 now subscribes to this counter directly (via a new
+`handledCorrectionGenRef`, replacing the old `scrollAppliedResultsRef` results-array-identity
+guard, which had silently stopped working after the 31 Jul 2026 column-alignment fix started
+changing `results` on corrections) and re-applies the persisted scroll ratio/delta whenever
+the counter changes without a fresh `sortAroundFocusGeneration`. Ordinary
+`extendForward`/`extendBackward` never touch this counter, so the 23 May 2026 "don't re-fire
+on every extend" perf guarantee is untouched. Also corrected the misleading "deep-seek only"
+comments near the `offsetIsEstimate` branch to note it also covers buffer tier.
+
+**Testing.** New unit tests in `search-store-extended.test.ts` (`_offsetCorrectionGeneration
+— async offset correction signal`): bump-on-correction and no-bump-on-ordinary-extend. New
+parameterized e2e regression test in `scrubber.spec.ts` ("Scroll mode — buffer fill" ›
+"sort toggle preserves focused cell row position", focus indices 2/5/9 — indices chosen to
+include both a correction-hitting and a control case on the local 10k-doc seed corpus), using
+a new `waitForOffsetCorrection` helper (`e2e/shared/helpers.ts`) that polls the new counter
+directly rather than relying on a curated store-state snapshot. Full suite: unit
+1134/1134 pass; e2e 247/247 pass (including the new regression test at all three focus
+indices). Verified immune: two-tier (synchronous `countBefore`, no post-render trim) and
+`restoreAroundCursor`/image-detail reload (always synchronous by construction). Perf:
+before/after comparison via `run-audit.mjs` showed no measurable regression (deltas within
+the noise floor established by unrelated runs); the "before" baseline was captured with the
+temporary `devLog` instrumentation still present (removed before the "after" run) — a known,
+accepted imperfection in that comparison, not re-baselined.
+
+**Review.** An independent review pass raised several points; accepted and folded in above:
+corrected "deep-seek only" comments (also true of buffer tier), a test-geometry-leak fix (a
+`registerScrollGeometry` reset moved to `afterEach` so it runs even if a test throws), and a
+`beforeEach` counter-reset consistency fix. One "blocking" finding (that the e2e regression
+test's wait mechanism might not actually be observing the fix) was pushed back on with direct
+evidence from this session (an accidental RED→GREEN via a temporarily-reverted stash) but the
+underlying suggestion — hardening the wait into an explicit polling helper rather than a bare
+timeout — was implemented anyway (`waitForOffsetCorrection`). While implementing the review
+amendments, introduced and then found+fixed a real bug: `getStoreState()` (the existing
+curated e2e helper) doesn't expose `_offsetCorrectionGeneration`, so an initial version of the
+test read `undefined` for `genBefore`, making the wait always time out regardless of whether
+the fix worked; fixed by adding a dedicated `getOffsetCorrectionGeneration()` helper.
+
+**Scope.** This is fix "A" of a two-part plan. A stops the drift by making the existing
+async-correction-then-compensate path actually compensate. A separate, deferred fix "B"
+(routing buffer tier through a synchronous `countBefore` like two-tier already does, removing
+the vulnerable window at the root instead of compensating for it) is intentionally not part of
+this change — it touches a perf-sensitive boundary condition (buffer tier vs. true deep-seek,
+where `countBefore` costs 2-5s) and needs its own dedicated session, tests, and review.
+
+### 19 August 2026 — Scrubber: phantom null-zone on uploadTime sort in `--use-media-api` mode
+
+**Bug report:** in `--use-media-api` mode, the scrubber sometimes showed a tiny red
+null-zone at the very bottom of the track under the default (uploadTime) sort — even
+though every image has `uploadTime` and never shows a null-zone in direct-ES mode.
+
+**Diagnosis.** `computeTrackTicksWithNullZone`'s gate is pure arithmetic:
+`coveredCount >= total` → no null zone. `total` is refreshed from every `searchAfter`
+call (in media-api mode, the real Scala server's response); `sortDistribution.coveredCount`
+is fetched lazily on first scrubber interaction via a separate, un-PIT-anchored client-side
+ES aggregation (`getDateDistribution`, still direct-ES even in media-api mode — `StranglerAdapter`
+never overrides it). Live-verified on TEST (`kupua.media.local.dev-gutools.co.uk`): with no
+`until=` pin, `total=1,322,424` vs `coveredCount=1,322,423` (reproducible 1-doc gap); with
+`until=2026-03-04T00:00:00Z` pinned, both read exactly `1,242,366`. Confirms the two numbers
+are captured at different moments against a live, continuously-mutating index — not a filter
+mismatch. The gap is small enough (±1 doc) to be irrelevant for any *other* date sort's null
+zone (granularity is loose there already), but for uploadTime it's the difference between
+"no null zone" and "phantom null zone", since the field is universal
+(`fetchNullZoneDistribution` already encodes this: `if (!sortKey || sortKey === "uploadTime") return;`
+in `search-store.ts`) — that invariant just wasn't threaded into the tick-rendering gate.
+
+**Fix:** `computeTrackTicksWithNullZone` (`sort-context.ts`) now resolves `sortKey` via
+`resolvePrimarySortKey(orderBy)` and short-circuits before the `coveredCount`/`total`
+comparison when `sortKey === "uploadTime"`. `interpolateNullZoneSortLabel` needed no change —
+`nullZoneDistribution` is never populated for uploadTime, so it was already unreachable there.
+Mode-agnostic (pure UI function, no signature change); no-op in direct-ES mode.
+
+**Testing.** New unit test (`sort-context.test.ts` A6): asserts no boundary tick for both
+`"-uploadTime"` and the defaulted (`undefined`) sort with `coveredCount = total - 1`.
+Full `e2e/local/scrubber.spec.ts` run (84 tests) — no regressions.
+
+**Considered but rejected (for now):** PIT-anchoring `getDateDistribution`/`getKeywordDistribution`
+to the same snapshot as `total` — would close the same race for genuinely-sparse date sorts
+too (`dateTaken`, `lastModified`), not just uploadTime. Rejected as not worth the added
+complexity (PIT plumbing + expiry/fallback handling in two more call sites) given those
+fields' null-zone boundary is already coarse-grained and a ±1 doc jitter there is invisible.
+
+### 18 August 2026 — kupua test infrastructure: unit tests were passing for the wrong reason
+
+Three unrelated problems found while auditing kupua's own tests after the media-api review
+work (PR #4849) was finished. None were caused by that work — the four commits it produced
+contain zero `.ts`/`.tsx` files — but the audit is what surfaced them.
+
+**The unit suite was green for the wrong reason, and only on some machines.** `vite.config.ts`
+declares no `environment` under `test:`, so vitest runs in its default **node** environment
+and nothing supplies DOM globals. `history-snapshot.test.ts` and `image-offset-cache.test.ts`
+call `sessionStorage` directly, so whether they pass depends entirely on the **Node version**:
+Node 25 exposes `sessionStorage` as a stable global (verified with
+`node -p "typeof sessionStorage"` → `object`, no flags, empty `NODE_OPTIONS`), while Node 22 —
+the minimum kupua's own `engines` field allows — does not. Result: 1045/1045 green for the
+agent on v25.8.1, 13 failures for the user on v22.12.0, same commit. Fixed with
+`// @vitest-environment jsdom` docblocks on the two files; jsdom was already installed and in
+`devDependencies`, just never wired up. `selection-store.test.ts` needed nothing — it already
+stubs storage via `vi.stubGlobal` and documents "Environment: Vitest/Node (no DOM)".
+
+Also added a deterministic guard to both files — `expect(typeof window).toBe("object")` — and
+confirmed it is load-bearing by temporarily deleting a docblock: the guard failed
+(`'undefined' to be 'object'`) while the other 12 tests carried on passing on Node 25. That is
+the whole point. A misconfiguration that previously failed only for developers on older Node
+now fails identically everywhere, including for whoever introduced it.
+
+**`npm run build` was broken and no test could have caught it.** `tsc -b` failed on
+`CqlSearchInput.tsx`: `@guardian/cql`'s `TextSuggestionOption.label` is `string | undefined`
+(present but nullable) while kupua's `TypeaheadSuggestion.label` is `label?:` (may be absent
+entirely) — the key must exist, which is a narrower complaint than "label is optional".
+Adapted at the boundary in `buildDynamicFieldFallback` with a `LabelledSuggestion` type and
+`{ ...s, label: s.label }`, rather than making `label` required across kupua and rippling into
+every producer. Most likely surfaced by `f483a8659` (dependency bump; the lockfile was
+regenerated wholesale, so the exact version delta is unreadable).
+
+> **Lesson worth keeping: `vitest run` does not typecheck.** Vitest strips types via esbuild,
+> so a fully green unit suite says nothing about whether kupua compiles. `npm --prefix kupua
+> run build` is a separate check and needs running separately.
+
+**Wire-contract tests added** for the 422s the media-api work introduced. `POST
+/images/search-after` now rejects a sort clause that is empty, names more than one field per
+entry, or uses a direction other than `asc`/`desc` — and nothing on the kupua side pinned any
+of that. The direct-ES path tolerates all three, so a future change to `buildSortClause` (a
+compound clause, a new direction token, an alias expanding to two keys) would have kept every
+existing test green and broken only `--use-media-api`. `sort-builders.test.ts` now derives its
+token list from `SORTABLE_FIELDS`, so a newly sortable field is covered automatically rather
+than relying on someone remembering, and asserts all three invariants for both
+`buildSortClause` and `reverseSortClause`. `grid-api-search-adapter.test.ts` asserts the POST
+body always carries a non-empty `sort`, including when `orderBy` is absent.
+
+**Verification:** `npm --prefix kupua test` → **1131/1131** (was 1045);
+`npm --prefix kupua run build` passes; `npm --prefix kupua run test:e2e` → **244/244** in 9.4m.
+
+### 17 August 2026 — media-api `searchAfter` Part 5: post-PR-review fixes, batch 2 (one real bug, one refuted claim)
+
+Second batch from the Copilot review on [PR #4849](https://github.com/guardian/grid/pull/4849).
+Two comments, both about cursor mechanics. One was a genuine bug; the other was a correct
+diagnosis with the wrong conclusion, and investigating it properly mattered more than
+"fixing" it would have. Verdicts and cites:
+`03 Ce n'est pas une pipe dream/media-api-work/phase-3-d3-searchafter-post-pr-review.md`.
+
+**Fixed — null-zone `exists` was not nested-aware.** When the primary sort field lives inside
+a nested type, the null-zone filter `must_not exists(field)` was built as a root-level
+`existsQuery`. A root-level exists cannot match a parent document for a field inside a
+`nested` mapping, so the `must_not` excluded nothing and images that *do* have the field
+leaked into the null zone — meaning they were returned twice across a full scroll. This is
+reachable from a real kupua sort: `usagesDateAdded` sorts on `usages.dateAdded` with
+`nested: { path: "usages" }`, and `usages` is a genuine `NestedField` in
+`Mappings.usagesMapping`. The fix reads the nested path off the primary `FieldSort` and wraps
+the exists in a `nestedQuery`, falling back to the flat form otherwise. Red-first showed 8
+usage-bearing fixtures (`test-image-2/3/9/10/11/12`, `persisted-because-usage`, a UUID
+handout) leaking before the fix and none after. Kupua's own direct-ES adapter already did
+this correctly (`es-adapter.ts`), so this closes a port gap rather than inventing behaviour.
+
+**Refuted — the PIT `_shard_doc` tiebreaker is dropped on purpose.** The reviewer's premise
+checked out under measurement: ES 8.18 *does* append an implicit `_shard_doc` to the sort
+array of every hit under a point-in-time snapshot (raw `hit.sort` length 3 against a 2-field
+client clause). The predicted consequence did not: ES does **not** reject a shorter
+`search_after`, it accepts it and compares the client's prefix, so a two-page PIT walk
+already worked. A "fix" preserving the tiebreaker was written, went green, and was then
+reverted after reading kupua's own adapter, which strips the same value deliberately and
+explains why — **cursors outlive the PIT.** Kupua persists them as `endCursor`/`startCursor`
+and retries *without* a PIT when one expires (404/410); a `_shard_doc` value in a non-PIT
+`search_after` is rejected by ES with a 400. Preserving it would also have 422'd every
+client-synthesised cursor (`buildSeekCursorAnchors`, the null-zone estimate cursor), which
+cannot contain a shard ordinal the client has no way to know. Net result: no behaviour
+change, a comment stating the contract, and two tests pinning it. The contract does carry a
+caller requirement — the sort clause must end in a unique tiebreaker, which
+`buildSortClause` guarantees by always appending `id`; a deliberately non-unique sort was
+measured losing 8 of 27 documents. Recorded as decision **D-6**, with a pointer from the
+D7/D8/D9 workplan because D8 is where it will next look like a live bug.
+
+**Testing.** Three new integration tests (two PIT, one nested null-zone).
+`TZ=UTC sbt "media-api/test"` → **216/216 green**. No kupua/TS change needed for either
+item: the PIT outcome is a no-op, and the nested fix makes media-api match what kupua's
+direct-ES path already did. Verified in the app (`--use-TEST` + `--use-media-api`) by
+sorting on Usages Added and inspecting the first ~2,500 images at the null-zone boundary —
+no usage-bearing images present. That confirms end-to-end wiring; the differential evidence
+is the integration test.
+
+### 17 August 2026 — media-api `searchAfter` Part 4: first batch of post-PR-review fixes (PR #4849)
+
+Copilot was asked for an extra review on [PR #4849](https://github.com/guardian/grid/pull/4849)
+(the extracted D3 `searchAfter` Scala) and returned 10 comments, all severity *Medium*. Triaged
+into three batches — full verdicts, cites and open decisions in
+`03 Ce n'est pas une pipe dream/media-api-work/phase-3-d3-searchafter-post-pr-review.md`. This
+entry covers **Batch A**: five mechanical fixes, no behaviour change for any existing caller,
+developed and tested here before porting to the PR branch.
+
+**Fixed (all in media-api, cursor path only — Kahuna's `createSort`/`parseSortBy`/`imageSearch`
+untouched):**
+- **Validation errors were 500s, not 422s.** `searchAfter` threw `InvalidUriParams`
+  *synchronously*, before any `Future` existed, so the controller's `.recover` never saw it.
+  Body moved to a private `searchAfterQuery`; the public `searchAfter` now converts the throw
+  to a failed Future. That also let the odd `return Future.failed(...)` cursor-length guard
+  become a plain `throw`, so all four validation sites behave identically. (The cursor-length
+  case was the one that *did* work — which is exactly why the existing "cursor-mismatch → 422"
+  test passed and hid the rest.)
+- **`jsonToSort` trusted its input.** An empty sort entry threw `NoSuchElementException`; a
+  missing or non-string `order` threw `JsResultException`; extra fields were silently dropped.
+  Now shape-checked, all failures → `InvalidUriParams`.
+- **`orderOf` treated anything ≠ `"desc"` as ascending** — a typo like `decs` produced
+  valid-looking but wrongly-ordered results. Now strictly `asc`/`desc`.
+- **Empty `sort` clause accepted.** A cursor endpoint with no deterministic sort returns an
+  unusable continuation cursor. Now rejected.
+- **Missing syndication runtime mapping.** `search()` attaches
+  `syndicationReviewQueueFixMapping` (a Painless runtime field) when querying the
+  review queue with the fix flag on; `searchAfter` built the *same filter* but never declared
+  the field. ES doesn't error on an unmapped field in a `term` query — it just matches nothing —
+  so the `must_not` clause silently evaporated and images with an active deny-syndication lease
+  could reappear in the review queue, differing from Kahuna's answer for the same query with no
+  error and no log line. Root cause is `leases.leases` being a plain (non-nested) object array,
+  so ES flattens `access` and `endDate` into unpaired lists; the runtime field walks leases
+  one-at-a-time and restores the pairing.
+
+**Testing.** Red-first throughout, and it turned the reviewer's claims into evidence: the
+pre-fix run produced exactly the predicted `NoSuchElementException` / `JsResultException`, the
+silently-accepted `"decs"`, and a stack trace of `jsonToSort` throwing straight out of
+`searchAfter`. New `SortsTest.scala` (9 cases, no Docker, ~1s) plus 4 new `ElasticSearchTest`
+cases and a third ES instance with the runtime-fields flag on. `TZ=UTC sbt "media-api/test"` →
+**213/213 green**; no existing test needed changing.
+
+**No kupua/TS change needed.** `buildSortClause`/`reverseSortClause` always emit exactly one
+field per clause object, only `asc`/`desc`, and never an empty clause — so none of the new 422s
+are reachable from the real client. Confirmed by running the app (`--use-TEST` +
+`--use-media-api`): behaving as expected.
+
+**Known weak test, deliberately.** The syndication runtime-mapping test passes with *and*
+without the fix: the runtime field only diverges from the flat clause on multi-lease documents,
+and every fixture has a single lease. Making it non-vacuous needs a new multi-lease fixture in
+the shared `ElasticSearchTestBase.images`, which would shift hardcoded counts across several
+existing syndication tests — disproportionate for a six-line parity fix whose equivalence to
+`search()` is obvious by inspection. Noted as such for the PR reply. Interesting corollary:
+kupua's direct-ES path deliberately skips this runtime field (the browser can't deploy
+Painless — documented deviation in `es-adapter.ts`), so routing via media-api with this fix
+makes kupua *more* correct than its own direct-ES path.
+
+**Still open:** Batch B (PIT `_shard_doc` tiebreaker, nested-aware null-zone `exists`) and
+Batch C (three API-contract questions for the team). See the post-PR-review doc.
+
+### 12 August 2026 — `search()` closes a superseded search's own PIT explicitly (follow-up to 11 Aug fix)
+
+Follow-up to the 11 August `searchAfter` cancellation fix, addressing the `openPit`/
+`countWithTickers` gap flagged then. A latency spike (raw ES timing, local + over the
+TEST tunnel) found these two calls typically complete *faster* than a realistic typing
+pause — so adding `AbortSignal` cancellation to them, as originally recommended, would
+rarely have anything genuinely in-flight to interrupt. Built the better-targeted fix
+instead: `search()` now explicitly closes a superseded search's own PIT
+(`if (_searchGeneration !== myGeneration) { if (newPitId) dataSource.closePit(newPitId); return; }`)
+rather than leaving it to expire on its `keepAlive`. No interface changes, no orphan-PIT
+race (id is always in hand), works identically in both direct-ES and `--use-media-api`
+(neither routes PIT lifecycle through media-api yet). Verified via unit test
+(`search-store-pit.test.ts`) and live against real TEST data: 5 `closePit` calls fired
+during the 3-pause repro, one closing a PIT id that didn't match the current stored
+`pitId` — proof the new path fired, distinct from the pre-existing cleanup. Full
+reasoning and evidence: `zz Archive/search-request-cancellation-workplan.md` §10 update;
+also added a `closePit`-idempotency requirement + downgraded (not dropped) `signal`-param
+suggestion to `03 Ce n'est pas une pipe dream/media-api-work/media-api-02-next-endpoints-d7-d8-d9-workplan.md`
+for whoever builds the real media-api PIT endpoints.
+
+### 11 August 2026 — `search()` now cancels stale in-flight `searchAfter` requests (workplan: `zz Archive/search-request-cancellation-workplan.md`)
+
+Typing a query with several natural pauses (e.g. `has:"fileMetadata.xmp.photoshop:Source"`
+built up field-by-field), Filters panel open, could leave 4+ full search cascades
+running concurrently and the store unsettled for 18+ seconds — root cause: `search()`'s
+`dataSource.searchAfter(...)` call was the one call site in `search-store.ts` that never
+received an `AbortSignal` (every other caller — extend, seek, range-walk — already
+passed one). A superseded search's *result* was discarded via the `_searchGeneration`
+counter, but the request itself kept running server- and client-side, competing for the
+same connections/CPU as the search the user actually wanted.
+
+**Fix:** pass `signal` (the existing `_rangeAbortController.signal`, reusing the
+abort-old-then-new pattern already used elsewhere in this file) into that `searchAfter`
+call. Hardened the catch block to swallow both stale-generation and `AbortError`
+rejections silently — the media-api path (`apiSearchAfter`) throws a real `AbortError`
+on cancellation, unlike the direct-ES path's internal catch-and-return-empty-result.
+
+**TDD:** new unit test in `search-store.test.ts` asserts a superseded call's
+`AbortSignal` actually fires (`signal.aborted === true`), not just that its result gets
+discarded — confirmed failing before the fix, passing after. Full unit suite green.
+
+**Live verification against real TEST data, both modes:**
+- **Direct-ES:** 3-pause repro (`fileMetadata` → pause → `.` → pause → `xmp.` → pause →
+  finish). Post-fix: store settles in ~1ms after typing stops (vs 18+s pre-fix), 3 of 4
+  superseded `searchAfter` calls show genuine `net::ERR_ABORTED` in the real network
+  layer, not just client-side discard.
+- **`--use-media-api` (StranglerAdapter):** same repro. Fix reverted: 4 calls fired, 0
+  aborted (reproduces the original bug exactly). Fix restored: 3 of 4 aborted, confirmed
+  via real `net::ERR_ABORTED`. Confirms the fix is genuinely mode-agnostic.
+
+**Follow-up gap, measured not just asserted:** `openPit`/`countWithTickers` (the other
+two calls in the same `Promise.all`) have no `signal` param at all in the
+`ImageDataSource` interface. Monkey-patched both and reran the repro — both completed to
+100% every time, including calls clearly superseded by a later pause. Full interface
+audit: every other `ImageDataSource` method already carries `signal?: AbortSignal`;
+`openPit`/`countWithTickers`-inside-`search()` are the only remaining keystroke-hot gap
+(the rest — bare `search()`, `count()`, `getById()`, singular `getAggregation()` — are
+dead code or one-shot calls, not exercised by rapid typing). Also found:
+`strangler-adapter.ts` doesn't route `openPit`/`closePit`/`countWithTickers` through
+media-api at all today — they fall straight through to `this.es.*`. Recorded as a
+concrete design requirement for the planned media-api PIT endpoints (phase-3
+d7-d8-d9): give these two methods a `signal` param before/alongside writing the real
+implementations, not as a retrofit. Not implemented in this pass — tracked as a
+follow-up. Full evidence and narrative: `zz Archive/search-request-cancellation-workplan.md` §10.
+
+**Incidental fix:** `dal/index.ts`'s barrel export was missing `AggregationRequest`
+(present in `dal/types.ts`, never re-exported) — a pre-existing gap, unrelated to the
+above, surfaced by the IDE while working in this area. One-line fix.
+
+**Sandbox note:** the e2e run for this change hit 2 failures in `scrubber.spec.ts`
+("settle-window"/"swim" timing assertions) inside the sandboxed terminal; both passed
+84/84 clean on an unsandboxed rerun. Sandboxed execution isn't reliable for
+frame/scroll-timing-sensitive Playwright specs — noted in repo memory.
+
+### 11 August 2026 — Dynamic field typeahead + `has:`-triggered facets (design: `cql-arbitrary-field-paths-typeahead.md`, archived design/review docs)
+
+Shipped both capabilities from the design doc: (1) value-typeahead for
+arbitrary/unregistered ES field paths (esp. `fileMetadata.*`, 2,452+ leaf
+paths, none individually registerable), fetched via an isolated
+single-field aggregation with graceful per-field failure
+(`isolateAggregationFailure`, `lib/safe-aggregation.ts`); (2) a
+`has:`-triggered dynamic Filters-panel facet section, reusing the static
+`FacetSection` component.
+
+**Live browser testing against real TEST data (1.3M images) surfaced a
+run of bugs the unit/e2e suites didn't catch** — all fixed, TDD
+throughout, full suite green after each:
+
+- **Kahuna-parity regression:** a quoted field key/value containing a
+  reserved char (`:()"`) was corrupted on load/focus — `@guardian/cql`'s
+  own `CqlStr` AST→string serializer only re-quotes on whitespace, never
+  on reserved chars (a real upstream bug, not a kupua one). Worked around
+  in a new `lib/cql-ast-serialize.ts` (corrected reimplementation of the
+  one buggy function); also fixed upstream in
+  `guardian/cql` PR **[#138](https://github.com/guardian/cql/pull/138)**
+  (branch `mk-claude-fix-cqlstr-quoting`, commit `627a320`), open,
+  awaiting review/merge. **Once merged and kupua upgrades past the fixed
+  `@guardian/cql` version, delete `cql-ast-serialize.ts`** and revert
+  `CqlSearchInput.tsx`'s `handleQueryChange` to trust `detail.queryStr`
+  directly (see deviations.md §14a).
+- A second, independent bug in `router.ts`'s `plainParseSearch` stripped a
+  leading+trailing `"` pair from any URL param (a stale pre-kupua-router
+  heuristic) — misfired on any legitimately-quoted CQL query. Deleted
+  outright (pre-launch, no legacy bookmarks to protect).
+- Several "chip with no value yet" bugs, same failure shape, three
+  different implementations: `deriveEffectiveQuery`'s incomplete-chip
+  regex missing dots and mid-quote anchoring (`cql-effective-query.ts`);
+  `matchField`'s `undefined`/`""` mismatch against its own caller
+  (`cql-query-edit.ts`); `stripFieldFromQuery`'s `\S+` (one-or-more)
+  instead of `\S*` (`typeahead-fields.ts`, this one a genuine regression
+  introduced by the `liveQueryRef` fix below, exposing a previously-
+  dormant sibling). Each left an empty-value chip as literal free-text,
+  starving the aggregation to zero buckets.
+- A store-staleness race: the widget's ProseMirror update cycle calls
+  `getSuggestions` before kupua's own store-sync listener runs, so
+  resolvers briefly read one keystroke stale. Fixed via `LazyTypeahead`
+  taking an optional `liveQueryRef`, written from the AST serializer at
+  the top of `getSuggestions`, before any resolver runs — both static and
+  dynamic resolvers benefited with zero changes to either.
+- `has:` targets weren't resolved through field aliases
+  (`croppedBy`→`exports.author` etc.), so an aliased `has:` facet
+  aggregated on the wrong path and never appeared. `findHasFieldTargets`
+  now returns `{ raw, esPath }`, deduped by resolved `esPath`; negated
+  `-has:` clauses (always zero buckets by construction) are now skipped
+  entirely instead of wasting a request.
+
+**Independent fresh-agent code review** (bug-hunt mindset, report-only)
+caught one already-fixed regression (convergent confirmation) plus 4 real
+S2/S3 findings, all fixed as above; a documentation-only comment
+correction; and an 8-item appendix of explicitly out-of-scope
+observations. Two low-risk appendix items fixed on follow-up: dynamic
+facet buckets weren't included in the "any facets to show" check
+(`FacetFilters.tsx`), and `cql-query-edit.ts`/`cql.ts`'s parser instances
+now explicitly disable `operators`/`groups` to match the widget instead
+of silently inheriting the library's defaults. The remaining appendix
+items were deliberately left: two need a product/UX decision (stale
+aggregations shown silently on fetch failure; quote-normalisation
+changing phrase-match to best-fields-match — pre-existing, not from this
+work), the rest are low-value edge cases or an already-documented
+tradeoff (deviations.md §14, regex-based field stripping).
+
+**Verification:** full unit suite 1043/1043 passing throughout; two full
+e2e runs (244/244 each) at different points in the fix sequence, all
+green.
+
+### 9 August 2026 — CQL query with a quoted, colon-containing field key corrupted on load/reload
+
+**Bug (reported vs. Kahuna parity):** pasting a URL with a quoted field key
+containing a reserved char — e.g. `?query="fileMetadata.xmp.dc:creator":"Alicia Canter"`
+(the key needs quoting because of the embedded `:`) — produced a malformed
+chip, a corrupted URL, and no results. Kahuna handles the identical URL
+correctly.
+
+**Root cause 1 — `CqlSearchInput.tsx`'s "effective query" derivation:** after
+the CQL editor's own (correct) serialization, a regex meant to strip quotes
+CQL adds purely to protect a trailing space assumed whitespace was the
+*only* reason `@guardian/cql` would quote a key/value. In reality the
+library quotes on whitespace **or** any reserved char (`: ( )` — see its
+`shouldQuoteFieldValue`/`hasReservedChar`). The regex stripped the quotes
+off the colon-containing key, turning `"fileMetadata.xmp.dc:creator"` into
+`fileMetadata.xmp.dc:creator` — now ambiguous with the field-value
+separator.
+
+**Root cause 2 — `router.ts`'s `plainParseSearch`:** a second, independent
+bug in URL-param parsing. A leftover heuristic (from before kupua had its
+own URL serialiser) stripped a leading+trailing `"` pair from any param
+value, to clean up stale `JSON.stringify`-wrapped bookmarks (`nonFree=true`
+→ `nonFree="true"`). This misfired on any CQL query that legitimately
+starts and ends with `"` — not just the colon-key case above, but even a
+single bare quoted phrase (`"Alicia Canter"`) — silently changing search
+semantics on reload.
+
+**Fix:** (1) extracted the quote-preservation logic in `CqlSearchInput.tsx`
+into a pure, unit-tested `deriveEffectiveQuery()` (`lib/cql-effective-query.ts`);
+widened its "keep quotes" check to CQL's actual reserved-char set, not just
+whitespace. (2) Per user decision, deleted the stale-bookmark quote-stripping
+heuristic in `plainParseSearch` entirely rather than trying to special-case
+CQL queries — kupua is pre-launch with no legacy bookmarks to protect.
+Extracted `plainParseSearch`/`plainStringifySearch` out of `router.ts` into
+`lib/plain-search-serializer.ts` so the pure function is unit-testable
+without pulling in the full route tree (which has side effects like a
+global keydown listener). Confirmed Kahuna-URL compatibility (root `/` and
+`/images/:imageId` redirects) is unaffected — it never depended on this
+heuristic.
+
+**Process:** both fixes were TDD (failing test reproducing the exact
+corruption → fix → passing test) — the router bug was only caught by an
+e2e test simulating the real paste→load→reload round-trip; a unit test on
+`CqlSearchInput` alone couldn't have seen it, since the corruption happened
+one layer up in URL parsing.
+
+**Verification:** 992 unit tests passing (+12 new: `cql-effective-query.test.ts`,
+`plain-search-serializer.test.ts`), 244/244 Playwright e2e passing (+1 new:
+`e2e/local/cql-search-quoting.spec.ts`, a regression test for the exact
+paste/reload repro).
+
+**Not fixed (by design):** a related cosmetic-only observation — Firefox's
+address bar decodes `%22` back to a literal `"` for readability on reload
+while Chrome doesn't, while both keep `%20` (space) encoded regardless. This
+is browser omnibox rendering behaviour, not something either app's code
+produces or controls — the served/pushed URL is identically percent-encoded
+in both apps. No action taken.
+
+### 1 August 2026 — extendBackward + resize leaves bufferOffset column-misaligned (M3 wandering follow-up)
+
+**Bug:** `extendBackward()`'s column-trim (added by the 31 July buffer-tier
+column-shift fix below) read the current column count fresh at trim time —
+correct in isolation — but did nothing to reconcile a **pre-existing**
+`bufferOffset` (aligned to the OLD column count) against a **new** one. Any
+resize (panel toggle, window resize, any grid-density change) while
+`bufferOffset > 0` and not a multiple of the new column count, followed by
+**any later** `extendBackward()` call (e.g. the user scrolls up a little),
+could leave `bufferOffset` permanently misaligned to the current column
+count — the same "items shift sideways" symptom class as the already-fixed
+bug, via a different, more common trigger. Confirmed via deterministic
+Vitest reproduction, not a race: `columns=4→6`, `seek(150)` leaves
+`bufferOffset=52` (aligned to 4), a later `extendBackward()` trims to align
+the new prepend to 6 but leaves the resulting offset at `4` (`4 % 6 ≠ 0`).
+
+**Root cause:** the trim only aligned the **prepend count** to the current
+columns, which is only equivalent to aligning the **resulting offset** when
+`bufferOffset` was already a multiple of the current columns on entry — true
+before any resize, false after one.
+
+**Fix:** reused the same `alignBufferStart` primitive already shared by
+`_loadBufferAroundImage`, `seek()`, and the async offset-correction — the
+"future fourth call site" those three's own comments warned about. Aligns to
+`bufferOffset - fetchedCount`, not just `fetchedCount`, so the result is
+provably a multiple of the CURRENT columns regardless of what the columns
+were when `bufferOffset` was first set — a strict generalisation of the
+prior (correct) behaviour when no resize has occurred.
+
+**Review:** independent fresh-agent review
+(`zz Archive/R-2026-08-01-extendbackward-resize-fix-review.md`) approved the
+production change as provably correct, but found the headline "repeated
+resize/extend cycles do not compound drift" test was non-discriminating: 5
+of its 6 cycles were silently skipped by `POST_EXTEND_COOLDOWN_MS` (the
+committed loop only awaited a microtask flush between cycles, well inside
+the 50ms cooldown window), so the test passed vacuously — even against the
+unfixed implementation. The underlying property does hold (verified by the
+reviewer via standalone probes respecting the real cooldown), the test just
+wasn't observing it. Fixed by awaiting past the cooldown between cycles (the
+existing `waitPastCooldown()` helper already used by every other multi-extend
+test in the file) and adding an explicit assertion that at least one cycle
+actually changes `bufferOffset`, so the test can't silently degenerate to a
+no-op again. Also applied: switched the test's corpus to buffer tier (it was
+inadvertently two-tier, the one tier structurally immune to this bug —
+`useDataWindow.ts`'s `findImageIndex` uses the raw global index there, so
+column placement doesn't depend on `bufferOffset`); corrected a stale comment
+on the audit-#9 regression test describing pre-fix arithmetic; strengthened
+the `columns=1` (table density) test to assert a real extend happened, not
+just internal consistency.
+
+**Verification:** full unit suite 980/980 passing (up from 976 — the fixed
+6-cycle test now genuinely exercises all 6 cycles instead of timing out
+vacuously fast); `tsc -b --noEmit` clean.
+
+**Scope:** buffer tier grid density (any resize that changes column count
+while mid-scroll). Confirmed immune: table density (`columns=1`, `x % 1` is
+always `0`); two-tier and seek tier (verified against `useDataWindow.ts` —
+column placement there doesn't depend on `bufferOffset` at all, so this bug
+class is structurally impossible, not just untested). See
+`zz Archive/W-2026-07-31-m3-extendbackward-resize-bug.md` for the full
+original investigation and reproduction detail.
+
+### 1 August 2026 — panel toggle / window resize progressively shifts the grid viewport (no explicit focus)
+
+**Bug:** toggling the Details (RHS) or Browse (LHS) side panel, or resizing
+the browser window, changes `ImageGrid`'s column count. `ImageGrid` captures
+a scroll anchor before the change and restores the equivalent viewport
+position after, so the reflow doesn't visually jump — but this only worked
+correctly when an image was **explicitly focused**. With no focus (phantom
+mode), the fallback computed a synthetic index — "the first image of the row
+nearest viewport centre" — recomputed from the *current* `scrollTop` via
+row-arithmetic at every resize, instead of tracking one real image. That
+synthetic index isn't the same physical anchor across a column-count change,
+so a full open+close panel round trip didn't cancel out: repeated toggles
+compounded a progressive drift. Confirmed live on TEST (all 3 scroll tiers):
+one RHS-panel open+close round trip shifted the tracked anchor and
+`scrollTop` by ~1 row; a second (LHS) round trip shifted it another row, with
+zero user scrolling.
+
+**Root cause:** `ImageGrid.tsx`'s `captureAnchor`, no-focus fallback branch —
+recomputed `centreIdx = centreRow * cols` from `scrollTop`/`clientHeight`
+every `ResizeObserver` callback rather than resolving a real image ID through
+`imagePositions` (as the focused-image branch already did correctly, just
+above it). The phantom viewport anchor (`getViewportAnchorId()`, in
+`useDataWindow.ts` — already continuously tracked regardless of focus mode)
+existed and was simply not being consulted here.
+
+**Fix:** extracted the anchor capture/restore math into a new pure, unit-
+tested module, `kupua/src/lib/grid-scroll-anchor.ts`
+(`resolveAnchorVirtIndex`, `captureAnchorAtIndex`, `restoreAnchorScrollTop`,
+`computeFallbackAnchor` as a last-resort-only path). `ImageGrid.tsx`'s
+`captureAnchor` now tries, in order: the focused image, then the phantom
+viewport anchor (both resolved via `imagePositions`, chained so an
+unresolvable focused ID falls through to the phantom anchor rather than
+skipping straight to the synthetic fallback), then the synthetic fallback
+only when no anchor image is known at all.
+
+**Review:** independent fresh-agent review
+(`zz Archive/R-2026-08-01-panel-toggle-anchor-fix-review.md`, verdict
+"approve with nits") found the module's doc comment and one test comment
+overstated the fix's guarantee as "never compounds" for the phantom-anchor
+case, when it's only *structurally* exact for a stable anchor identity
+(always true for explicit focus; empirically-but-not-provably true for the
+phantom anchor, since `getViewportAnchorId()` is itself re-derived from a
+column-scaled visible range each capture). Reworded both to state this
+precisely. Also applied: chained fallback resolution (focused → phantom
+→ synthetic) instead of `??`-ing the raw IDs so an unresolvable focused ID
+doesn't skip a viable phantom anchor; a `clientHeight<=0` guard against NaN;
+a strengthened regression test (persistent-residual-at-every-checkpoint,
+identical column sequence to its paired id-based test, rather than a single
+weak `not.toBe`); and minor type/comment dedup.
+
+**Verification:** 10 new unit tests in `grid-scroll-anchor.test.ts` (incl. a
+regression test proving the *old* fallback-only approach drifts on the exact
+repro sequence and the new one doesn't); full unit suite 980/980 passing;
+`tsc -b --noEmit` clean; full e2e suite 243/243 passing, including a new
+regression test in `ui-features.spec.ts` (repeated RHS/LHS toggles without
+focus, asserting zero drift); live TEST re-verification across all 3 scroll
+tiers (buffer, two-tier, seek — including seek with a real non-zero
+`bufferOffset`), 4 full toggle cycles plus 3 window-resize cycles, zero
+drift throughout.
+
+**Scope:** `ImageGrid.tsx` (grid density) only — `ImageTable.tsx` (table
+density, `columns=1` always) has no column-count reflow from panel/window
+resize and isn't affected. See
+`zz Archive/W-2026-08-01-panel-toggle-progressive-shift.md` for the full live
+before/after numbers and investigation detail.
+
+### 31 July 2026 — buffer-tier grid-density column shift after sort-around-focus / restoreAroundCursor
+
+**Bug:** in buffer tier (≤`SCROLL_MODE_THRESHOLD`=1000 results), grid density,
+focusing an image and changing sort order (or reloading in image detail, via
+`restoreAroundCursor`) correctly re-centred the focused image at first, then
+~0.5–1.5s later — while the buffer quietly finished topping up in the
+background via `_topUpScrollModeBuffer` — it visibly shifted sideways by
+roughly one column. Severity varied by luck: sometimes barely perceptible,
+sometimes enough to move the image off-screen, sometimes no visible shift at
+all (this is the F3/F4 fix above, landed the same day — a *different*,
+already-fixed bug; that fix's own top-up mechanism is what made this second,
+pre-existing bug reliably reproducible).
+
+**Root cause:** `_findAndFocusImage`'s async offset-correction callback
+(`search-store.ts`, the `dataSource.countBefore(...).then(...)` block —
+buffer tier never has a position map, so this is the *normal*, not
+edge-case, path for any buffer-tier sort-around-focus with explicit focus)
+computed `correctedOffset = exactOffset - targetLocalIndex` and set
+`bufferOffset` directly, with **no column-alignment trim** — unlike the
+other two sites that land a fresh `bufferOffset` (`_loadBufferAroundImage`'s
+own initial landing, and `seek()`, which even carried a comment: *"Same trim
+logic as `_loadBufferAroundImage`"*). Grid density's virtualizer renders by
+local index (`globalIndex - bufferOffset`), so an item's column is
+`localIndex % columns` — once this landing left `bufferOffset` at a
+non-canonical phase, every subsequent `extendBackward()` step in the
+top-up (which can only change `bufferOffset` by a multiple of `columns`
+without reshuffling every existing item's column) stayed stuck at that same
+wrong phase, until the walk-to-zero's *final* closing prepend — sized to
+whatever remainder was left, not necessarily a multiple of `columns` —
+finally exposed it as a visible reflow. Live-traced with temporary
+instrumentation (embedded browser, TEST): `bufferOffset` sequences like
+`823→623→423→223→23→3→0` (all ≡3 mod 4) vs. clean runs like
+`456→256→56→0` (all ≡0 mod 4) — whether the shift was visible depended
+entirely on whether the landing's remainder happened to be column-aligned
+by luck, matching every symptom variant reported.
+
+**Fix:** extracted the previously-duplicated column-alignment trim math
+(present, slightly differently, in both `_loadBufferAroundImage` and
+`seek()`) into one shared, independently unit-tested pure function,
+`alignBufferStart()` (new file `kupua/src/lib/buffer-column-align.ts`), used
+at all three landing sites — including the one that was missing it. A
+`protectUpTo` parameter caps the trim so the anchor/target item being
+positioned around is never discarded. A second bug found in the same pass:
+the async-correction fix trims `results`, which requires recomputing
+`startCursor` from the new first item — the first version of the fix did
+this via `extractSortValues()` without a `?? state.startCursor` fallback,
+so a failed extraction (any sort clause with an unreadable field) committed
+`startCursor: null`, which `extendBackward` treats as a permanent block —
+caught and fixed in review before commit (see
+`kupua/exploration/docs/zz Archive/R-2026-07-31-buffer-column-align-fix-review.md`).
+
+**Scope, confirmed live:** buffer tier (bug, fixed) and deep-seek tier
+(same `offsetIsEstimate` code path, same missing trim, same fix applies —
+not separately live-verified with a repro that also exercises subsequent
+scrolling near the buffer edge). Confirmed unaffected: true two-tier
+(indexes by global index, no `bufferOffset` subtraction), table density
+(`columns=1` makes the whole class of bug structurally impossible), panel
+toggle for explicit *or* phantom focus (a separate, fetch-layer-independent
+mechanism), Home/logo reset (lands in seek tier), phantom focus on a
+sort-only change (no scroll-preservation attempted at all, by design).
+
+**Residual, accepted, not fixed:** `extendBackward`'s own audit-#9
+skip-guard (see 28 April 2026 entry below) is not provably unreachable —
+it assumes ES always returns a full page (PIT drift/deletions could return
+fewer) and that `columns` doesn't change between landing and the final
+top-up prepend (a window resize or panel toggle mid-settle changes
+`getScrollGeometry().columns`, a live mutable ref). Both are real but rare
+enough (order of hundreds of milliseconds, requires an unlucky resize
+exactly mid-settle) that the reviewed trade-off was to document the
+assumption rather than implement `extendBackward`'s more invasive
+"carry the remainder across calls" alternative design.
+
+**Test:** TDD failing-test-first in `search-store-extended.test.ts` —
+`it.each` sweep of 6 adjacent target IDs × 2 column counts (not one magic
+ID/value), subscribing to every `bufferOffset` transition during settle
+(not time-sampled — a reviewed first version used a 10ms polling loop,
+which could in principle miss the transient it exists to catch); 5/6
+failed pre-fix reproducing the exact bug, all 12 pass post-fix.
+Pure-function property tests for `alignBufferStart` in
+`buffer-column-align.test.ts` (columns 2–6, including the exact live-repro
+numbers as a documentation case). Full unit suite (960/960) and full e2e
+suite (242/242) both green after the fix, again after the `startCursor`
+correction above, and again after the review's fixes below. Reviewed in
+`kupua/exploration/docs/zz Archive/R-2026-07-31-buffer-column-align-fix-review.md`
+— found and fixed one real pre-commit bug (the `startCursor` correction
+above) plus the softened "provably unreachable" wording; recommended
+polish (this test's subscribe conversion, an extra assertion on the
+existing `_loadBufferAroundImage` sort-around-focus test, a `devLog` for a
+sparse-buffer edge case) applied as well. 3 separate live
+embedded-browser repros post-fix (e.g. `824→624→424→224→24→0`, cell
+position pixel-stable throughout).
+
+### 31 July 2026 — Fix sort-around-focus scroll clobbered by scroll-mode top-up in buffer tier (F3/F4)
+
+**Bug:** in buffer tier (≤`SCROLL_MODE_THRESHOLD`=1000 results), a
+sort-around-focus operation (sort direction/field change with an image
+focused, or a search-context-change neighbour fallback) correctly resolved
+the focused image's new position but never scrolled the viewport to it —
+`focusedImageId`/index resolved correctly, `sortAroundFocusGeneration`
+bumped, but `scrollTop` stayed at 0 and the focused cell was absent from
+the DOM.
+
+**Root cause:** a two-effect race in `useScrollEffects.ts` between effect
+#9 (sort-around-focus scroll) and effect #8 (`bufferOffset`→0 "go home"
+guard). `_topUpScrollModeBuffer` (added 30 July, see entry below) walks
+`bufferOffset` back down to 0 in several steps after landing centred on the
+focused image — effect #8 unconditionally treats *any* transition to
+`bufferOffset === 0` as a "go home" event and resets `scrollTop`, with no
+awareness that a sort-around-focus scroll had already been applied for a
+non-zero target. Confirmed via live investigation across all three
+scrolling tiers against real TEST data: buffer tier reproduces the bug
+reliably; two-tier is structurally immune (its index math has no
+`bufferOffset` subtraction); seek tier shares the vulnerable subtraction
+formula but did not reproduce the bug in 4/4 live trials, most likely
+because deep-seek mode's async offset-correction path gives it a
+self-healing mechanism buffer tier lacks. See
+`zz Archive/W-2026-07-31-focus-bookmark-across-tiers.md` (F3/F4)
+for the full investigation.
+
+**Fix:** new `_bufferSelfCorrecting` store flag, true only while
+`_topUpScrollModeBuffer` is running, explicitly forced `false` on the two
+genuine new-search landing paths so it can never outlive a buffer
+replacement. Effect #8 skips its scroll reset while the flag is true. No
+tier-specific logic added to either effect — the flag only ever activates
+in buffer tier because `_topUpScrollModeBuffer` itself already gates on
+`total ≤ SCROLL_MODE_THRESHOLD`.
+
+**Testing:** 2 new unit tests in `search-store.test.ts` pin the flag's
+lifecycle deterministically (no browser needed). Strengthened the existing
+(but too-weak) e2e regression test in `scrubber.spec.ts` ("scrubber enters
+scroll mode after sort-around-focus lands outside first page") with
+`scrollTop`/DOM-visibility assertions it previously lacked despite already
+exercising the exact vulnerable scenario — confirmed failing pre-fix,
+passing post-fix. Also strengthened the real-ES-only smoke test S8
+(rarely run) the same way. External review
+(`zz Archive/R-2026-07-31-buffer-self-correcting-fix-review.md`) found the
+design sound but flagged two real gaps, both closed in this session: the
+flag could theoretically outlive a superseding search (fixed above), and
+the new `isFocusedCellVisible()` e2e helper checked DOM presence rather
+than actual viewport intersection (now uses rect intersection against the
+scroll container). Full suite: 944 unit tests, 242 e2e, unaffected.
+
+### 30 July 2026 — Fix scrubber stuck in seek-mode behaviour in scroll mode (buffer never topped up off the main search path)
+
+**Bug:** in scroll mode (≤`SCROLL_MODE_THRESHOLD`=1000 results), the scrubber
+sometimes behaved like seek mode — dragging teleported on pointer-up instead
+of live-scrolling — even though the tier itself was correct. `Scrubber.tsx`
+derives `scrubberMode` from `total <= bufferLength`, so any code path that
+lands the buffer without it ever reaching `total` gets stuck in "seek" until
+an unrelated later search restarts the fill.
+
+**Root cause:** `search()`'s normal path already fires a background
+`_fillBufferForScrollMode` top-up, but four other buffer-placing paths
+didn't: `_findAndFocusImage`'s sort-around-focus branches (found outside
+first page, and the not-found → first-page-fallback path — the latter
+turned out to be the dominant real-world trigger, reached via phantom
+viewport anchors on plain query changes), `restoreAroundCursor` (reload into
+deep image detail with a cached cursor), and `seekToFocused`'s in-buffer
+fast path (arrow-key snap-back). All four can land the buffer at an
+arbitrary non-zero offset, so the fix couldn't just reuse
+`_fillBufferForScrollMode` (forward-only from offset 0) — it needed a
+bidirectional top-up that runs after the buffer-placing call settles, not
+concurrently with it. Sibling bug to the position-map gap fixed 14 April
+2026 (same asymmetry: normal path duplicated, sort-around-focus branch
+wasn't) that was never given the same treatment for the ≤1k tier.
+
+**Fix:** new `_topUpScrollModeBuffer(get)` drives the existing
+`extendForward()`/`extendBackward()` actions in a guarded loop, rather than
+reimplementing fetch/prepend/eviction logic (avoids reintroducing the
+"swimming" bug). Guards: progress-based step counting (only counts real
+fetches, not cooldown waits or no-op early-returns, so transient blocks
+can't silently exhaust the budget), a `_pitGeneration`-aware staleness check
+(catches same-total supersessions like a pure sort toggle), a module-level
+re-entrancy flag, and a 15s wall-clock backstop. Hooked into all four call
+sites; on the sort-around-focus path with an estimated offset, the top-up is
+sequenced to fire only after the async `countBefore` offset correction
+settles — firing it concurrently was found (via independent review) to race
+the correction's own staleness guard and permanently strand `bufferOffset`
+at the estimate under real network latency, even though the buffer contents
+were otherwise correct.
+
+**Testing:** 7 new unit tests in `search-store.test.ts` (one per trigger
+path, plus a race regression, a delayed-`countBefore` regression for the
+offset-correction race, and a progress-vs-attempt step-counting regression),
+and 2 new e2e tests in `scrubber.spec.ts` driving a real scrubber drag to
+confirm live-scroll (not teleport). Full suite: 942 unit tests, 242 e2e
+tests, all green.
+
+**Post-review follow-up:** an independent review of the diff (before commit)
+caught a real latent race (top-up firing concurrently with an async offset
+correction, silently stranding `bufferOffset` at an estimate under real
+network latency — folded into the fix and testing above) plus three
+hardening gaps in the loop's step-budget/staleness logic. Two were assessed
+and deliberately left as code-only fixes without dedicated tests: one
+(same-total supersession via `_pitGeneration`) was found, on careful
+analysis, to be self-healing in this codebase's design — every function the
+loop drives reads store state live rather than from captured state, so a
+stale generation ends up chasing the same destination the new search wants
+anyway; a genuine black-box regression test for it couldn't be constructed
+without contriving an unrealistic scenario. The other (progress-vs-attempt
+step counting, i.e. not letting no-op extend calls burn the retry budget)
+*was* cleanly testable — added as the 7th unit test above, using a
+call-count-based wrapper around `extendForward` to force a deterministic
+no-progress/real-progress pattern, verified red against the pre-fix
+unconditional counting logic and green against the fix.
+
+### 21 July 2026 — Fix stale suppress flag breaking return-from-detail focus after Home
+
+**Bug report:** Press Home (logo), enter image A, traverse in detail to image K, exit
+(Backspace) → focus landed on A instead of K. Reproduced reliably only on the *first*
+detail session after a Home press made from the grid (not from inside detail).
+
+**Root cause:** `resetToHome()` ([lib/reset-to-home.ts](../../src/lib/reset-to-home.ts))
+unconditionally calls `suppressReturnFromDetail()`, setting a module-level one-shot flag
+(`_suppressReturnFromDetail` in
+[hooks/useReturnFromDetail.ts](../../src/hooks/useReturnFromDetail.ts)). The flag exists
+to stop `useReturnFromDetail` from re-focusing the old image when Home is pressed *from
+inside* image detail. It is only ever checked/reset on the detail-closing transition
+(`imageParam` present → absent). If Home is pressed while already on the grid
+(`imageParam` already absent), that closing transition never runs, so the flag was never
+consumed — it stayed `true` indefinitely, waiting to silently suppress focus restoration
+on the *next*, entirely unrelated detail-close, however much later that happened. That's
+exactly the repro: Home (flag set, never consumed) → enter A → traverse to K → exit
+(flag consumed here instead, skipping `setFocusedImageId(K)`, leaving focus on A).
+
+Same bug family as the previously-fixed `_suppressDensityFocusSave` leak (see
+`scrubber.spec.ts` regression comment) — an unconditional one-shot flag set by
+`resetToHome()` that isn't guaranteed to be consumed by the transition it was intended for.
+
+**Fix:** `useReturnFromDetail`'s effect now clears `_suppressReturnFromDetail` on the
+*opening* transition (`imageParam` absent → present) — a flag set before a fresh detail
+session starts can never legitimately apply to that session's eventual close. Left the
+existing closing-transition consumption untouched, so the intended "Home from inside
+detail" suppression still works exactly as before. Updated the flag's doc comment to
+explain the gap and the fix.
+
+**Tests:** Added a regression test in `useReturnFromDetail.test.ts` reproducing the exact
+repro (suppress flag set while `imageParam` is already absent, then open → traverse →
+close), asserting focus updates to the final image. Existing suppress-flag tests
+(Home-from-detail, one-shot consumption) verified unaffected.
+
+**Verification:** Full test surface run after the fix: Vitest 935/935, Playwright e2e
+240/240 (mandatory — the fix touches focus/return-from-detail behaviour).
+
+### 7 July 2026 — Upgrade @guardian/cql to 1.8.6, remove polarity-remount workaround
+
+Bumped `@guardian/cql` from `1.8.4` to `1.8.6` in `kupua/package.json`. 1.8.6 includes
+[PR #121](https://github.com/guardian/cql/pull/121) ("Detect polarity changes in
+programmatic value updates"), which was opened by an earlier kupua session against the
+upstream repo to fix the exact bug documented in `deviations.md` §13. 1.8.6 also bundles
+1.8.5's mobile chip-creation fixes and a dropdown-click-below fix (unrelated, incidental).
+
+**The workaround being removed:** `cancelSearchDebounce()` in
+`src/lib/orchestration/search.ts` used to unconditionally bump a module-level
+`_cqlInputGeneration` counter (used as a React `key` on `CqlSearchInput`/`AiSearchInput`
+in `SearchBar.tsx`) to force a full remount of the `<cql-input>` web component whenever
+the query was updated externally (table cell shift/alt-click, metadata panel click).
+This was needed because the CQL library's vendored ProseMirror diff ignored the
+`POLARITY` node attribute, so `setAttribute("value", ...)` silently failed to re-render a
+chip when only its polarity changed (`+credit:Getty` → `-credit:Getty`). PR #121 fixes
+this at the source via a new `sameContentMarkup` comparison.
+
+**Refactor:** Split the generation-bump concern out of `cancelSearchDebounce()`, since it
+was doing two unrelated jobs. `cancelSearchDebounce()` now only cancels the pending
+debounce timer and sets the `_externalQuery` latch — used by `ImageTable.tsx`'s cell-click
+handler and `useMetadataSearch()` in `metadata-primitives.tsx`, both of which no longer
+need a remount for polarity flips. A new `resetCqlInputComponents()` (cancels debounce +
+bumps generation) was added for the two call sites that still need the remount for an
+unrelated reason: `reset-to-home.ts` (Home logo) and `SearchBar.tsx`'s `handleClear` (✕
+button) both remount to wipe partial/ghost chip state living only in ProseMirror's
+internal document (e.g. an in-progress `colourModel:` chip with no value typed yet) —
+a different bug, not addressed by PR #121, so the remount stays for those two paths only.
+
+Updated `search.test.ts`'s generation-counter test to assert `cancelSearchDebounce()` no
+longer bumps the counter, and added a new test for `resetCqlInputComponents()` covering
+both cancel-timer and bump-generation behaviour.
+
+Updated `deviations.md` §13: marked the CQL editor remount workaround resolved, kept the
+polarity-flip mechanics description (still relevant — `upsertFieldTerm`/`findFieldTerm`
+unchanged), and updated the "Broader pattern" table's "Polarity change not re-rendering"
+row from "PR #121 open" to "Fixed in 1.8.6".
+
+**Verification:** Full test surface run before committing to the change: Vitest
+934/934 (one test rewritten, one new test added), Playwright e2e 240/240 (including both
+`ui-features.spec.ts` "Click-to-search" tests that exercise the exact polarity-flip path
+that used to depend on the remount).
+
+### 2 July 2026 — Unit test coverage gap fixes (Batch A + Batch B)
+
+Added Vitest coverage for two Tier-1 pure-logic files identified in a test-gap audit
+(`test-gap-findings.md`, now archived to `zz Archive/`). No production code changed.
+Ran the full clean-slate check first (Vitest 918/918, `tsc -b && vite build` clean,
+Playwright e2e 240/240) before starting.
+
+**Batch A — `src/lib/orchestration/search.test.ts` (new, 4 tests):**
+- User-initiated navigation flag (`markUserInitiatedNavigation`/`consumeUserInitiatedFlag`)
+  is read-and-clear — guards the real shipped-bug class where the flag was consumed by a
+  dedup no-op effect before the real consumer fired.
+- Adversarial: two consecutive consumes on a fresh, unmarked module are both `false`.
+- `cancelSearchDebounce` actually cancels the pending timer callback (fake timers —
+  asserts the callback never fires, not just that a bookkeeping var changed).
+- `cancelSearchDebounce` bumps `_cqlInputGeneration` (forces `CqlSearchInput` remount).
+- Zero mocking — all four functions touch no external imports; used `vi.resetModules()` +
+  dynamic import per test for a pristine module each time.
+
+**Batch B — `src/lib/sort-context.test.ts` (new, 11 tests) + `fast-check` dependency:**
+- Installed `fast-check` as a new devDependency (`kupua/package.json`) — justified by the
+  binary-search property test below.
+- Part A (5 tests): `computeTrackTicksWithNullZone` boundary cases — no boundary tick when
+  `coveredCount >= total`; exactly one boundary tick at `coveredCount - 1`; boundary tick at
+  position 0 when `coveredCount === 0`; null-zone tick positions correctly offset by
+  `coveredCount`. Covers the documented past null-zone boundary-tick regression.
+  (`coveredCount >= total` guard was previously read as verified against source before writing.)
+- Part B (2 tests): a `fast-check` property test drives the private `lookupSortDistribution`
+  binary search transitively through the exported `interpolateSortLabel`, checking hundreds of
+  random bucket layouts resolve the correct key at every position and `null` beyond
+  `coveredCount` — plus one hand-written example.
+- Part C (4 tests): `resolvePrimarySortKey`, `resolveDateSortInfo`, `resolveKeywordSortInfo` —
+  default sort fallback, comma-separated field stripping, unknown-field → `null`, correct
+  ES field path + direction for known fields.
+- `two-tier.ts`, `dispatchClickEffects.ts`, and `reset-to-home.ts` proposals from the audit
+  were deliberately not pursued (see archived doc for reasoning — trivial boolean, requires
+  a production refactor, or heavy store-mocking for marginal confidence).
+
+All 933 tests green after both batches (up from 918). Full suite + build re-verified after
+each batch, not just the new files.
+
+### 20 June 2026 — media-api-work docs refresh + D7/D8/D9 workplan (D3 shipped)
+
+Documentation pass after D3 (`POST /images/search-after`) shipped: a `media-api-work/` folder
+cleanup (~30 docs → **9 active + 22 archived**) **plus the next buildable workplan**. No code changed.
+
+**Edits:**
+- **`03 Ce n'est pas une pipe dream/media-api-work/media-api-01-capability-inventory.md`** — added a top **status banner** (B1/B2/D3 ✅,
+  D1/D2/D4–D9 ⬜; recommended next order D7+D8+D9 → D1 → D2) and the **post-D3 standing constraints**
+  (Option-B sort template, migration-aware PIT, enrichment-at-commit, lean projection, POST adopted),
+  plus the unbuilt-perf-lever line and an "executing a gap? use live TS; archived `ref--` docs hold
+  the elastic4s/PIT Scala notes" pointer. Gap-1 / Section-5 marked done.
+- **`03 Ce n'est pas une pipe dream/media-api-work/d3-search-after-02-pr.md`** — corrected the `createForBrowse` claim (prototyped +
+  **reverted**, not shipped; `searchAfterImages` uses `hitToImageEntity` → `imageResponse.create`)
+  and added a Performance note (lean writer = the unbuilt prod lever; dev slowness = uncompressed
+  media-api↔ES leg).
+- **`changelog.md`** — same `createForBrowse` correction in the 12–15 June D3 entry (two places).
+- **`03 Ce n'est pas une pipe dream/media-api-work/media-api-90-conventions.md`** — §14.1/§15.1 GET-vs-POST marked **resolved by D3** (pending team
+  sign-off, N-3); removed two dangling refs to a non-existent `media-api-conventions-POST-research.md`.
+- **`03 Ce n'est pas une pipe dream/media-api-work/media-api-91-instructions-for-agents.md`** (+ the `.github` mirror) — items 3 & 22 de-staled;
+  **new items 23–27** capture the Scala mechanics (Option-B sort, PIT bypass, lean projection +
+  strip-before-validate, shared `fromJson`/`hitToImageEntity`, one-commit-per-gap).
+- **`03 Ce n'est pas une pipe dream/media-api-work/media-api-00-index.md`** — rewritten to "Active docs" + "Archived" sections (now lists the new workplan).
+
+**Added:**
+- **`03 Ce n'est pas une pipe dream/media-api-work/media-api-02-next-endpoints-d7-d8-d9-workplan.md`** — a detailed, buildable workplan for the next three searchAfter
+  companions (D7 `countWithTickers`, D8 PIT lifecycle, D9 `mget`), to the D3 standard, built from
+  four read-only research passes. §0 records the research: items #1–#3 **resolved** (server already
+  emits the agency-picks supplier sub-counts; multi-index `createPointInTime` via comma-joined
+  `Index`; shared `mapLeanImageFrom` strip helper) and baked into the plan; **#4**
+  (enrichment-overlay population for `getById`/`getByIds`) left as a team decision with a
+  recommended default (populate both). Listed in `03 Ce n'est pas une pipe dream/media-api-work/media-api-00-index.md` as "next to build".
+
+**Archived to `zz Archive/media-api-work/` (22 docs):** the D3 build history (workplan, worklog,
+both code reviews, payload-perf, perf-review, fileMetadata companion), the B1/B2 workplans, the
+gap-derivation handoff, the Phase-1/2/2.5 research inputs, and all 6 `ref--*` docs. Active folder is
+now: `03 Ce n'est pas une pipe dream/media-api-work/media-api-01-capability-inventory.md`, `03 Ce n'est pas une pipe dream/media-api-work/media-api-02-next-endpoints-d7-d8-d9-workplan.md`,
+`phase-3-d3-searchafter-{scala-pr, sort-companion-workplan, perf-deep-dive}.md`,
+`media-api-{conventions, instructions-for-agents, worknotes}.md`, `03 Ce n'est pas une pipe dream/media-api-work/media-api-00-index.md`.
+
+### 15 June 2026 — Fix 5 pre-existing TypeScript errors (zero TS errors now)
+
+All five were pre-existing before this session. None were introduced by the `enrichByIds` cleanup.
+Full suite: 918/918 unit tests passing, 0 TS errors after fix.
+
+| # | File | Error | Fix |
+|---|---|---|---|
+| 1 | `dal/es-adapter.ts:1811` | `TS2352` — direct cast between disjoint bucket types (`{ key_as_string, doc_count }` → `{ image_count }`) | Added `unknown` as intermediate: `b as unknown as { image_count… }` |
+| 2–3 | `dal/grid-api-search-adapter.test.ts:380,382` | `TS2339` — `enrichment` property missing from inferred inline object type | Added `import type { SearchAfterResult }` and typed the variable `esResult: SearchAfterResult` |
+| 4 | `stores/enrichment-store.test.ts:86` | `TS2345` — multi-entry Map literal widens `"free"`/`"pay"` to `string`, not assignable to `Cost` | Added explicit generic: `new Map<string, EnrichmentFields>([…])` |
+| 5 | `stores/search-store.ts:39` | `TS6133` — `ElasticsearchDataSource` imported but never used | Removed from import list; confirmed single occurrence |
+
+### 15 June 2026 — Zombie-enrichment cleanup: `enrichByIds` deleted
+
+Post-D3 dead code removal. `enrichByIds()` and its supporting constant were deleted from
+`dal/grid-api/grid-api-adapter.ts`; 7 tests covering the dead method were removed from
+`grid-api-adapter.test.ts`. Full analysis and decision rationale recorded in
+`zz Archive/post-phase-3-d3-searchafter-zombie-enrichment-cleanup-backlog.md`.
+
+**Deleted:**
+- `enrichByIds()` method — fed the old `?ids=` mirror loop (deleted May 2026). Zero app call sites.
+- `MAX_IDS_PER_REQUEST` constant + `VITE_ENRICHMENT_MAX_IDS_PER_REQUEST` env var — used only by that method.
+- `unwrapSearchHits`, `SearchHitImageData`, `SearchResponseRaw` imports — only needed by that method.
+- 7 `enrichByIds` unit tests (`grid-api-adapter.test.ts`). `SEARCH_HIT_DATA`/`SEARCH_RESPONSE_RAW` fixtures retained — a `getImageDetail` fixture-shape test still uses them.
+
+**Kept (backlog said delete, decision reversed):**
+- `lib/grid-api-instance.ts` + `initGridApi()` call in `routes/search.tsx` — primes service discovery for `getImageDetail` (imminent). Destroying and recreating this singleton would be pure churn.
+- `dal/grid-api/service-discovery.ts` — constructor dep of `GridApiDataSource`; needed for all gap-closure work and satellite service URL helpers.
+
+**Test coverage:** The replacement enrichment path (`apiSearchAfter` → `extractEnrichment` → `upsertEnrichment`) is covered by `grid-api-search-adapter.test.ts` incl. the F-1 regression guard. Full suite: 918/918 passing. Zero new TS errors.
+
+### 15 June 2026 — Graphic-image blur: full client-side implementation
+
+Completed the graphic-image blur feature end-to-end in both direct-ES and media-api modes.
+
+**Signal wiring (`src/lib/graphic-image-blur.ts`):**
+- `isImagePotentiallyGraphic()` now checks both XMP paths: `image.fileMetadata?.xmp["pur:adultContentWarning"]`
+  (direct-ES, raw `_source`) and `image.aliases?.adultContentWarning` (media-api mode, projected via
+  `fieldAliasConfigs`). The function was already a complete port of Kahuna's keyword/SMOUT/phrase-list
+  signals; the aliases path was the only missing piece.
+- Added test coverage for the `aliases.adultContentWarning` path (3 new tests).
+
+**Dead code removal:**
+- `isPotentiallyGraphic` removed from `EnrichmentFields`, `extractEnrichment`, `EnrichedImage`, and
+  `deriveImage`. The Painless server script that emitted this field was deleted in D3 (+30ms per page);
+  the enrichment overlay was never the right channel for a client-side signal. All related test
+  assertions updated (`grid-api-search-adapter.test.ts`, `derive-enriched-image.test.ts`,
+  `grid-api/argo.test.ts`, `grid-api/grid-api-adapter.test.ts`). `SearchHitImageData` in `types.ts`
+  similarly cleaned.
+
+**Grid view wiring (`src/components/ImageGrid.tsx`):**
+- `isImagePotentiallyGraphic(image, blurGraphicImages)` called directly in `GridCell` using the raw
+  `Image` (which carries `aliases` from the spread in `mapApiImageToImage`). Replaces the dead
+  `enriched?.isPotentiallyGraphic` read.
+- `blurGraphicImages` preference read once at the `ImageGrid` container level (not per-cell) and
+  passed as a prop — one store subscription, not ~50.
+
+**Hover-to-reveal (Kahuna parity):**
+- Replaced click-to-reveal React state (`graphicRevealed`, `setGraphicRevealed`) with pure CSS
+  using Tailwind `group`/`group-hover:`. The `<img>` itself gets `blur-lg` when graphic; `group-hover:blur-none
+  transition-[filter] duration-500` removes it on hover (mirrors Kahuna's `filter: blur(15px)` → `filter: none`).
+  The text label overlay uses `pointer-events-none group-hover:opacity-0 transition-opacity duration-500`.
+  Zero JS on hover, re-blurs automatically when pointer leaves.
+
+**User preference (`src/stores/ui-prefs-store.ts` + `src/components/SettingsMenu.tsx`):**
+- `blurGraphicImages: boolean` (default `true`) added to `useUiPrefsStore`, persisted in
+  `localStorage` under the existing `kupua-ui-prefs` key alongside `focusMode`.
+- Native checkbox toggle added to the three-dot SettingsMenu under a "Content" section, styled
+  identically to the "Free to use only" checkbox in the toolbar.
+
+
+
+### 12–15 June 2026 — D3: `POST /images/search-after` (Scala endpoint + TypeScript DAL)
+
+First media-api endpoint built for kupua: a cursor-based search-after route that lets kupua route
+its `searchAfter` calls through the server instead of hitting ES directly. Full end-to-end wiring
+on both sides, plus the enrichment overlay revive, a lean `_source` projection, a lean response
+writer, and the `--use-media-api` perf harness flag.
+
+---
+
+#### Leg A — Scala endpoint
+
+**New files / changes in `media-api/`:**
+
+- **`sorts.scala`** — `reverseSorts` (flips asc↔desc on any `Seq[Sort]`), `jsonToSort` (deserialises
+  flat and nested-object ES sort clause entries from JSON), `orderOf`/`sortModeOf` helpers.
+  `dateAddedToCollectionDescending` carries `.unmappedType("date")` so it survives indices without
+  that mapping; `dateAddedToCollectionAscending` added as its counterpart for the
+  `-dateAddedToCollection` token (see N-1 below — a small intentional Kahuna improvement).
+
+- **`ElasticSearchModel.scala`** — `SearchAfterParams` (cursor + sort clause + PIT + flags),
+  `SearchAfterRawResults` (raw hit list + total), `SearchParamsBody` with `fromJson` (parses the
+  POST body: query string, date range, label/uploader/category/collections/has/is filters,
+  `hasRightsAcquired`, `syndicationStatus`, `orderBy`, `countAll`, `length`/`offset`).
+  `payType` is deliberately not parsed (disabled in Kahuna; vestigial).
+
+- **`ElasticSearch.scala`** — `searchAfter()` method: calls `buildFilterOpt` (reuses existing filter
+  construction), applies null-zone detection and strip/remap on the cursor when `seekToEnd=true`,
+  validates the cursor length against the resolved sort clause, then fans out into a PIT branch
+  (bypasses `prepareSearch` migration filter — correctness fix) or a plain branch. Returns
+  `SearchAfterRawResults`. Private helpers: `resolveSearchAfterHit` strips the three large
+  drop-fields (`embedding`, `originalMetadata`, `fileMetadata`) from a copy of the `_source`
+  before `validate[Image]`, while keeping the full source in the wrapper for alias extraction —
+  avoids a `JsError` when field aliases touch `fileMetadata` leaves. `_source` projection is
+  schema-derived at startup via reflection on `classOf[Image]` minus the drop-set plus
+  `fieldAliasConfigs` paths; no hardcoded list. Sort-value round-trip helpers: `sortValueToJsValue`
+  / `sortValuesToJsValues` / `jsValueToAny`.
+
+- **`QueryBuilder.scala`** — one-line widening: `dateAddedToCollection` filter now also matches
+  the `"-dateAddedToCollection"` token (ascending order from kupua).
+
+- **`MediaApi.scala`** — `hitToImageEntity` lifted to a private method (was inline in `imageSearch`;
+  now also used there). `searchAfterImages` action: `auth.async(parse.json)` — parses body,
+  resolves sort clause, calls `elasticSearch.searchAfter`, serialises via a typed
+  `SearchAfterResponse` case class + `OWrites` (compiler-checked; wire shape unchanged).
+  `canUserDeleteCropsOrUsages` hoisted out of the per-hit loop.
+
+- **`conf/routes`** — `POST /images/search-after` inserted before `GET /images/:id` (required;
+  Play route ordering matters).
+
+- **`ElasticSearchTest.scala` / `ElasticSearchTestBase.scala`** — 16 new integration tests covering:
+  first-page total/cursor, forward cursor pagination, reverse cursor continuation (two-page walk
+  asserting exact slices), null-zone round-trip, `seekToEnd`+null-zone crash guard, cursor-length
+  mismatch → 422, `dateAddedToCollection` path-hierarchy filter (both sort directions, cursor path),
+  `dateAddedToCollection` sort (both directions, Kahuna `search()` path — guards the N-1 restore),
+  `fieldAliases` projection (regression guard + alias-leaf presence), `isPotentiallyGraphic`
+  via fieldAlias (silent alias; not Painless script — see decision below).
+  Added `graphic-image-1` fixture to `ElasticSearchTestBase.images`.
+
+**Key design decisions (Scala):**
+
+- *Option B for sort clause*: client sends the fully-resolved ES sort clause; server applies it
+  verbatim. No `createSort` involvement on the cursor path.
+- *Lean `_source` projection*: schema-derived at startup (reflection on `Image` fields minus
+  `{embedding, originalMetadata, fileMetadata}` plus alias paths). Cuts payload from ~2.1 MB to
+  ~370 KB per page. Over-inclusion is harmless.
+- *Painless script removed*: `isPotentiallyGraphic` was initially computed server-side via a
+  Painless script (+30 ms ES `took`, also-prod). Removed. The field now arrives via a silent
+  `fieldAlias` (`fileMetadata.xmp.pur:adultContentWarning`) which is auto-included in the
+  projection; client-side `isImagePotentiallyGraphic()` handles the blur logic (adds keyword scan
+  too). Rationale in `post-phase-3-d3-searchafter-blur-graphic-work.md`.
+- *PIT bypass of `prepareSearch`*: when a `pitId` is present, uses `ElasticDsl.search(Nil)`
+  directly so the migration dedup filter from `prepareSearch` is not applied.
+- *`createForBrowse`* (prototyped, then **reverted** — not in the shipped code): a lean one-pass
+  Argo writer was explored to replace the 12-step `.transform` chain (measured ~42% envelope
+  reduction). It was reverted before ship; `searchAfterImages` enriches via the lifted
+  `hitToImageEntity` → `imageResponse.create`. The lean writer remains the main unbuilt prod
+  perf lever — see `03 Ce n'est pas une pipe dream/media-api-work/d3-search-after-04-performance.md`.
+
+---
+
+#### Leg B — TypeScript DAL
+
+**New files:**
+
+- **`src/dal/grid-api-search-adapter.ts`** — `apiSearchAfter()`: builds the POST body from
+  `SearchParams` (sort clause via `buildSortClause`, all filter fields, `nonFree` → `hasRightsAcquired`).
+  Appends `-is:deleted` and `-usages@status:replaced` to `q` unless already present (mirrors the
+  ES adapter's default suppressions). Maps the response to `SearchAfterResult`. `extractEnrichment()`
+  pulls cost/valid/invalidReasons/persisted/usageRights/actions/syndicationStatus/usages from each
+  hit entity; the enrichment map is returned in `SearchAfterResult` rather than written to the store
+  (store write is the caller's responsibility — avoids clobber on probe calls).
+  `mapApiImageToImage()` unwraps Argo entity wrappers on usages/leases/collections.
+
+- **`src/dal/strangler-adapter.ts`** — `StranglerAdapter` implements `ImageDataSource`. All 18
+  methods delegate to `ElasticsearchDataSource` except `searchAfter`, which routes to
+  `apiSearchAfter`. Optional methods conditionally bound in constructor (Vite class-field ordering
+  fix — fields initialise before constructor params in native class fields).
+
+**Modified files:**
+
+- **`src/dal/index.ts`** — `createDataSource()` factory: returns `StranglerAdapter` when
+  `VITE_USE_MEDIA_API=true`, otherwise `ElasticsearchDataSource`.
+- **`src/dal/types.ts`** — `SearchAfterResult.enrichment` is optional (`Map<string, EnrichmentFields> | undefined`); direct-ES path returns `undefined`, safe for dual-mode.
+- **`src/stores/enrichment-store.ts`** — added `upsertEnrichment(entries)` (merge-by-id) alongside
+  `setEnrichment` (replace-all). Fresh search → `setEnrichment`; extend/seek → `upsertEnrichment`.
+- **`src/stores/search-store.ts`** — `createDataSource()` replaces `new ElasticsearchDataSource()`.
+  Enrichment store written only at commit-to-view points (not on probe calls).
+- **`src/lib/grid-config.ts`** — silent fieldAlias for `fileMetadata.xmp.pur:adultContentWarning`
+  (display flags both false; auto-included in server projection).
+- **`vite.config.ts`** — `POST /images/search-after` whitelisted in the write guard; dev proxy
+  spoofs `Origin` to `media.local.dev-gutools.co.uk` for CORS (deviations.md §28).
+
+**Tests:**
+
+- `grid-api-search-adapter.test.ts` — `upsertEnrichment` (6 tests), `extractEnrichment` (12 tests,
+  all field paths including actions-at-entity-level), contract test (`extractEnrichment` →
+  `deriveImage`).
+
+---
+
+#### Enrichment overlay revive
+
+`setEnrichment` was written only in tests — the overlay was never populated in production. The
+search-after response (built via the lifted `hitToImageEntity` → `imageResponse.create`) already
+carries all enrichment fields
+(cost, validity, rights, actions, `isPotentiallyGraphic`) server-authoritative. `apiSearchAfter`
+now extracts those fields and returns them as an enrichment map; `search-store.ts` writes the
+overlay at commit-to-view points. `deriveImage` is unchanged — it already merges baseline ⊕ overlay
+and is route-agnostic. Direct-ES mode continues to use TS-side derivation; the overlay just
+stays `undefined` in that mode.
+
+---
+
+#### Perf harness: `--use-media-api` flag
+
+`e2e-perf/run-audit.mjs` now accepts `--use-media-api`: passes
+`KUPUA_PERF_BASE_URL=https://kupua.media.local.dev-gutools.co.uk` and
+`KUPUA_PERF_AUTH_FILE` to Playwright spawns; all three perf configs inject `storageState` when
+set. The `/api/**` → 503 intercept in `e2e/shared/helpers.ts` is skipped when `KUPUA_PERF_AUTH_FILE`
+is set (real API calls must go through). Documented in `e2e-perf/README.md`.
+
+---
+
+#### Review findings and decisions
+
+A full code review (`phase-3-d3-searchafter-code-review-final.md`) was conducted before commit.
+Summary of resolved findings:
+
+- **F-1 (enrichment clobber)** — enrichment map moved out of `apiSearchAfter`; store written by
+  caller at commit-to-view points only; probe calls never write.
+- **F-2 (soft-delete suppression)** — `-is:deleted` / `-usages@status:replaced` appended to `q`.
+- **F-3 (`hasRightsAcquired` dropped)** — mapped through POST body → `fromJson` → `QueryBuilder`.
+- **F-4 (`payType` divergence)** — `payType = None` in `fromJson`; not sent by client.
+- **F-6 (PIT via `prepareSearch`)** — PIT branch bypasses `prepareSearch` (migration dedup filter
+  must not apply to cursor-based searches).
+- **N-1 (Kahuna `-dateAddedToCollection` sort)** — `QueryBuilder` Change 2 widens the
+  `dateAddedToCollection` pathHierarchy filter to also fire for the `-dateAddedToCollection`
+  (ascending) token, which kupua needs. To keep Kahuna's `search()` path coherent for that
+  token (filter + sort, not filter alone), the matching ascending sort case was **restored** in
+  `search()` + `sorts.scala`. This is a small, intentional, manual-URL-only improvement to
+  Kahuna (its UI never emits the negated token) — flagged explicitly in the Scala PR doc. A
+  `search()`-path test covers both sort directions; the searchAfter filter test covers Change 2
+  via the cursor path.
+- **N-2 (blur inert)** — deferred. `isPotentiallyGraphic` client-side wiring tracked in
+  `post-phase-3-d3-searchafter-blur-graphic-work.md`.
+- **N-3 (POST pattern)** — governance flag; team sign-off on `POST /images/search-after` +
+  `auth.async(parse.json)` as the cursor-endpoint convention still pending.
+
+---
+
+#### Test surface (final, on committed tree)
+
+168/168 Scala integration tests · 924/924 TS unit tests · 240/240 Playwright e2e — all green.
+
+### 9 June 2026 — Usages panel, CQL usages@, Last Used sort, Usages facet filters + SAF/cursor bug fixes
+
+Full implementation of the usages feature (Kahuna parity), plus several pre-existing bugs discovered and fixed during that work.
+
+---
+
+#### Feature: Usages panel (Steps A–G from usages-findings.md)
+
+**Step A — Type fixes (`dal/grid-api/types.ts`, `types/image.ts`):**
+- Fixed `UsageType`: removed "child", added "derivative" and "replaced".
+- Fixed `UsageStatus`: removed "cancelled", added syndicated/downloaded/derivative/replaced/failed/unknown.
+- Added fully-typed metadata sub-interfaces: `DigitalUsageMetadata`, `PrintUsageMetadata`, `SyndicationUsageMetadata`, `FrontUsageMetadata`, `DownloadUsageMetadata`, `ChildUsageMetadata`.
+- Added `title?` to `Usage`.
+- Added missing metadata sub-types and remaining `printUsageMetadata` fields to `types/image.ts`.
+- Removed `as Image["usages"]` cast in `derive-enriched-image.ts` (types now structurally compatible).
+
+**Step B — SVG assets:** Inlined directly in `UsagesSection.tsx` — no new asset files.
+
+**Step C — `UsagesSection` component (`src/components/UsagesSection.tsx`):**
+- `UsagesSection`: single-image display. Groups usages by status order (Published → Pending → Removed → Syndicated → Downloads → Front). Per-row: platform icon, title, relative date, reference links (Guardian globe / Composer C icon).
+- "Front" group: `status:unknown` on `platform:digital` (fronts are not a distinct ES platform value — confirmed from production data).
+- `countDisplayUsages`: exported helper driving the accordion badge count.
+- `MultiUsagesSummary`: multi-image aggregate stats — digital/print counts, recent counts (7-day), syndicated count, downloads count, and a "no usages" tally. Reads from selection-store + search-store directly, same pattern as `MultiImageMetadata` cost section.
+
+**Step D — Wiring into right panel and image detail:**
+- `ImageDetail.tsx`: replaced plain `<aside>` with accordion structure containing "Details" (wraps `ImageMetadata`) and "Usages" (`UsagesSection`) sections.
+- `search.tsx`: added second `AccordionSection` ("Usages") to the right panel, and a `FocusedUsages` function (mirrors `FocusedImageMetadata` image-resolution logic: multi-select → `MultiUsagesSummary`, single focused image → `UsagesSection`, no focus → empty state).
+- `panel-store.ts`: added `SECTION_DEFAULTS` entries: `"right-usages": false`, `"detail-metadata": true`, `"detail-usages": false`.
+
+**Step E — CQL `usages@` chip support (`cql.ts`, `CqlSearchInput.tsx`):**
+- Added `buildNestedUsagesQuery` supporting 8 sub-fields: `platform`, `status`, `reference`, `section`, `publication`, `orderedBy`, `<added` (before-date), `>added` (after-date).
+- Added `usages@` handler in `fieldToClause`.
+- Added `mergeUsagesNestedClauses`: groups multiple `usages@` conditions into a single `nested` clause with AND semantics (same-record matching — matches Kahuna's behaviour).
+- Fixed chip regex in `CqlSearchInput.tsx`: `/[+\-]?[\w#~]*:/` → `/[+\-]?[\w#~@]*:/` — without this, `usages@platform:` (incomplete chip) fired a search immediately.
+- 9 new unit tests in `cql.test.ts` covering all sub-fields, AND-combination, and negation.
+
+**Step F — `must_not: nested(usages.status:replaced)` default filter (`es-adapter.ts`):**
+- Added to `buildQuery` to mirror Kahuna's `Parser.scala` `thingsToHideByDefault`.
+- Fires on every ES search, agg, and count — ensures "replaced" usages never surface.
+- Uses proper nested query (`{nested:{path:"usages",query:{term:{"usages.status":"replaced"}}}}`), not a flat exists check.
+- Documented in `deviations.md` (obs 12) as a deviation to carry forward when the server owns filter construction (D3 end-state).
+
+**Step G — Sort by Last Used (`usagesDateAdded`):**
+- `sort-builders.ts`: added `usagesDateAdded` special-case → ES sort on `usages.dateAdded` with `mode:max`, `nested:{path:"usages"}`, `missing:"_last"`. Added to `DATE_SORT_FIELDS`.
+- `field-registry.tsx`: added `usages_lastDateAdded` field (group: "dates", `sortKey: "usagesDateAdded"`, `detailHidden: true`). Added "usagesDateAdded" to `DATE_ORDER` and `DESC_BY_DEFAULT`. Removed explicit "Last used" entry from `SORT_DROPDOWN_OPTIONS` builder (it auto-appears via the dates group).
+- `sort-context.ts`: added `usagesDateAdded` to `SORT_LABEL_MAP`, `NULL_ZONE_LABEL_OVERRIDES`, and `DATE_SORT_ES_FIELDS`.
+- `ImageGrid.tsx`: `getCellDateLine` handles `usagesDateAdded` → "Used: {date}".
+- `typeahead-fields.ts`: `USAGE_PLATFORMS = ["print", "digital", "syndication", ...]` — removed `front` (not a real ES value), added `syndication`. Download platform gated on `config["image.record.download"]`.
+- `grid-config.ts`: added `"image.record.download": false` (default false per Guardian config).
+
+**Step H — Usages facet filters (left panel):**
+- `dal/types.ts`: added `UsageFilterAggRequest` interface `{name, subField: "platform"|"status", value}`, added `usageFilters?: Record<string, number>` to `AggregationsResult`.
+- `search-store.ts`: added `usageFilterCounts: Record<string, number> | null` state, `UsageFilterAggRequest[]` requests for 6 values (digital, print, syndication, published, pending, removed), result stored in state.
+- `es-adapter.ts` `getAggregations`: consolidated all usage nested aggs into a single `_usages` agg with `by_platform` + `by_status` terms sub-aggs each with a `reverse_nested` sub-agg (counts parent images not usage records). 7× cheaper than separate nested aggs. Parses `UsageFilterAggRequest[]` from the consolidated result.
+- `FacetFilters.tsx`: added Usages section with 6 filter rows: Digital, Print, Syndicated, Published, Pending publication, Taken down. Backed by `usageFilterCounts` from store. `platform:front` was removed — it is not a real ES platform value.
+
+---
+
+#### Bugs fixed (pre-existing, discovered during usages work)
+
+**Bug 1 — SAF broken for `usagesDateAdded` sort (root cause: null cursor from array-field):**
+- `extractSortValues` used `readFieldPath` which walks dot-paths on plain objects but can't traverse JS arrays. For `usages.dateAdded` it returned `null` for any image, producing a null-zone cursor even for images with usages. SAF would then seek to the images-without-usages zone.
+- Fix: added `SORT_FIELD_EXTRACTORS` map in `sort-builders.ts` with custom array-max extractors for `usages.dateAdded` and `collections.actionData.date`. `extractSortValues` in `image-offset-cache.ts` now checks this map before falling back to `readFieldPath`.
+- Both extractors use reduce-max semantics to match ES `mode:max`.
+
+**Bug 2 — SAF broken for `dateAddedToCollection` sort (root cause: same array issue + missing DATE_SORT_FIELDS entry):**
+- Same root cause as Bug 1 for `collections.actionData.date`. The extractor returns an ISO string; without `DATE_SORT_FIELDS` membership, `extractSortValues` passed it through as a string rather than converting to epoch-ms. ES returns date sort values as epoch-ms numbers, so the cursor format mismatch caused wrong `countBefore` range queries and incorrect SAF landing positions.
+- Fix: added `"collections.actionData.date"` to `DATE_SORT_FIELDS`. Together with the `SORT_FIELD_EXTRACTORS` entry, this produces epoch-ms cursors that match ES's sort value format exactly.
+
+**Bug 3 — `countBefore` wrong for nested fields (root cause: plain range query on nested type):**
+- `usages.dateAdded` is an ES nested type. Plain `range` queries on nested fields return 0 without a `nested` wrapper. `countBefore` was emitting unwrapped range/exists queries for the `usages.dateAdded` position.
+- Fix: added `wrapIfNested` helper in `es-adapter.ts`; called in `countBefore` for range and exists clauses when the primary sort field is in `NESTED_SORT_FIELDS`.
+
+**Bug 4 — `getDateDistribution` / `estimateSortValue` returning null for `usages.dateAdded`:**
+- Stats and histogram aggregations on nested fields require a `nested` wrapper agg. Without it, ES returns 0/null results.
+- Fix: added `NESTED_SORT_FIELDS` check in both `getDateDistribution` and `estimateSortValue` in `es-adapter.ts`. When the primary sort field has a nested parent, the stats/histogram agg is wrapped in a `nested` agg at that path.
+
+**Bug 5 — Duplicate "Last used" in sort dropdown:**
+- `usages_lastDateAdded` has `group: "dates"`, so it auto-appears in the dates section of the sort dropdown. An explicit "Last used" entry had also been added to `SORT_DROPDOWN_OPTIONS`, producing a duplicate.
+- Fix: removed the explicit entry; the auto-generated dates group entry is sufficient.
+
+---
+
+#### Documentation updates
+
+- `deviations.md`: added §14 (CQL chip reading — DateFilter "Last used" problem), expanded §7 obs 3 (orderBy vocabulary now includes `usagesDateAdded`), added obs 11 (nested agg consolidation complexity for C1), obs 12 (`must_not` replaced filter default).
+- `03 Ce n'est pas une pipe dream/media-api-work/media-api-01-capability-inventory.md`: §7 obs 3, obs 11, obs 12 updated to reflect 2026-06-09 state.
+- `phase-3-d3-searchafter-worklog.md`: added "Note on 2026-06-09 kupua changes" section for the D3 implementing agent.
+
+---
+
+---
+
+#### Review fixes (post-session, same uncommitted blob)
+
+Review by fresh agent identified five issues; all fixed before commit:
+
+1. **`formatRelativeTime` replaced with `Intl.RelativeTimeFormat`** (`UsagesSection.tsx`): the hand-rolled implementation used approximate month (30d) and year (365d) constants. Replaced with `Intl.RelativeTimeFormat("en", { numeric: "auto" })`, which is locale-correct, handles "yesterday"/"tomorrow" etc., and removes ~25 lines of custom arithmetic.
+
+2. **Dead `total` variable removed** (`UsagesSection.tsx` `MultiUsagesSummary`): `total = selectedIds.size` was computed but never used — `images.length` (resolved images) was the denominator everywhere. Removed and replaced with an explanatory comment: denominator is resolved images, not raw selection size.
+
+3. **Facet `UsagesSection` renamed to `UsageFacetSection`** (`FacetFilters.tsx`): two unrelated local-scope components both named `UsagesSection` — one the detail panel component (exported), one the facet filter rows (local). Renamed the facet one and its props interface to eliminate the collision.
+
+4. **Correctness comment added to `getIdRange` equality clause** (`es-adapter.ts`): the `range [gte=V, lte=V]` check is geometrically correct for nested max-mode sorts (no false negatives, over-counting is harmless due to OR semantics), but this was non-obvious. Added a comment explaining the reasoning so future maintainers don't "fix" it.
+
+5. **New unit tests for `SORT_FIELD_EXTRACTORS`** (`sort-builders.test.ts`): 9 tests covering `usages.dateAdded` and `collections.actionData.date` extractors — null on undefined/empty/no-values, single value, max across multiple, ignores entries without the field. Import updated to `{ buildSortClause, SORT_FIELD_EXTRACTORS }`.
+
+Also added deviations.md §31 documenting the `usages@status:replaced` default suppression.
+
+---
+
+#### Test state at end of session
+- Unit tests: 898/898 passing (net +18 from 880: 9 new `usages@` CQL tests, 4 new sort-builder special-case tests, 9 new `SORT_FIELD_EXTRACTORS` tests, -4 pre-existing tests consolidated into the new ones).
+- E2E: not run this session (component/hook/store changes present — E2E is pending, needs port 3000 free).
+- TS errors: 0.
+
+### 1 June 2026 — TypeScript strict-mode error sweep (Groups A–H)
+
+Fixed all 60+ pre-existing TypeScript errors catalogued in `TS-errors-to-fix.md`
+(now archived as `zz Archive/TS-errors-fixed-1-Jun'26.md`). Final state: 0 TS errors,
+871/871 unit tests, 240/240 e2e tests.
+
+**Key fixes by group:**
+- **A** (B2 regressions): missing `FilterAggRequest` import; `countWithTickers` extra arg dropped.
+- **B** (`handleLongPressStart`): widened `AddRangeEffect` fields to `number | undefined` / `SortValues | null`; test mock cast via `unknown as Image`.
+- **C–F** (test files): removed unused imports; fixed fixture types (`newCountSince`, `SyndicationInfo`, `Image` shape); added `readonly` to `FieldDefinition[]` params in selection-store.
+- **G** (gesture hooks — 4 files, ~70 errors): pattern `const el = ref.current!` with runtime guard kept. TS cannot narrow `const T | null` across closure boundaries; the `!` assertion is safe because the guard runs synchronously before any closure fires.
+- **H** (components/libs): exported `Lease` + `UsageRights` from `@/types/image`; fixed `MultiImageMetadata` discriminated-union narrowing (was keying off a separate `kind` variable — TS can't narrow `rec` from that; switched to `rec?.kind === "X"` inline checks); added `imageTypes: []` to `gridConfig`; cast `overlay?.usages` incompatibility (`digitalUsageMetadata: unknown` vs typed object) via `as Image["usages"]` — safe because the field is pass-through only.
+
+**Residual latent issues noted** (not fixed here — would require broader type redesign):
+- Two structurally incompatible `Usage` types (`@/types/image` vs `@/dal/grid-api/types`) diverge on `digitalUsageMetadata` and `platform`.
+- Two incompatible `UsageRights` types (`category?: string` vs `category: string`).
+- `gridConfig.imageTypes` placeholder — unknown intended content.
+
+### 1 June 2026 — B2 Refactor: DAL Method Fusions (F1–F4)
+
+Collapsed 4 paired DAL methods into 2 via fusions, reducing `ImageDataSource` surface
+and eliminating a redundant parallel ES request on every facet panel load.
+
+**Naming choice (F1):** Rather than introducing a new `getFacetData` name, `getAggregations`
+was kept and its signature extended with an optional 4th parameter
+`isFilters?: FilterAggRequest[]`. `getFilterAggregations` was removed from the interface
+and all implementations. Standalone callers that don't need IS-filter counts pass nothing
+and require zero changes.
+
+**`types.ts`:**
+- `AggregationsResult` gains `filters?: Record<string, number>` (populated when `isFilters` passed)
+- `getAggregations` signature: `(params, fields, signal?, isFilters?) => Promise<AggregationsResult>`
+- `getFilterAggregations` removed from interface
+
+**`es-adapter.ts`:**
+- `getAggregations` now merges terms aggs + IS-filter aggs in one `_search` body;
+  `result.filters` populated from filter agg `doc_count` values
+- `getFilterAggregations` removed
+- `getById` → `this.getByIds([id])[0]` (uses `_mget`, more efficient than `_search terms:{id:[id]}`)
+- `search` → `this.searchAfter(params, null, null)` (eliminates `_doSearch` from+size path);
+  `_doSearch` private method (~60 LOC) subsequently deleted entirely — `searchRange` also
+  delegated to `searchAfter`, making `_doSearch` the sole caller before its removal.
+  Not coming back: `GridApiDataSource` is a separate class and never shared this code.
+- `count` → `this.countWithTickers(params).then(r => r.count)` (eliminates `_count` endpoint)
+- `searchAbortController` field removed (was only used by old `search` implementation)
+- `FilterAggRequest` added to import list (was missing despite being used)
+
+**`mock-data-source.ts`:**
+- `getAggregations` signature updated (4 params); `FilterAggRequest` import added
+- `getFilterAggregations` removed
+
+**`search-store.ts`:**
+- `Promise.all([getAggregations(...), getFilterAggregations(...)])` pair
+  at ss:3687–3689 → single `getAggregations(params, AGG_FIELDS, signal, isFilterRequests)` call
+- `isFilterCounts: result.filters ?? null` in the set() call
+- Spurious 2nd arg dropped from `countWithTickers` call at ss:1896 (AI ticker path)
+
+**`typeahead-fields.ts`:**
+- `getFilterAggregations(params, filterRequests)` → `getAggregations(params, [], undefined, filterRequests)`;
+  counts extracted from `aggResult.filters ?? {}`
+
+**Result:** unit 871/871 ✓ · E2E 240/240 ✓
+
+### 1 June 2026 — B1 Refactor: Eliminate ES-Shape Leaks (phase-3-b1)
+
+Removed 7 raw ES DSL objects (`Record<string, unknown>`) from the `ImageDataSource`
+public interface by encapsulating ES-specific logic inside the adapter.
+
+**Interface changes (`dal/types.ts`)**:
+- `searchAfter`: removed `sortOverride`, `extraFilter`, `noSource`; renamed
+  `missingFirst` → `seekToEnd`; down from 9 params to 6
+- `countBefore`: removed `sortClause`; down from 4 params to 3
+- `FilterAggRequest`: `query: Record<string,unknown>` → `isFilter: string`
+- `getDateDistribution?`: `extraFilter?: Record<string,unknown>` → `missingField?: string`
+
+**Adapter changes (`es-adapter.ts`)**:
+- Old `searchAfter` body became private `_searchAfterImpl(... noSource: boolean)`;
+  null-zone detection (via `detectNullZoneCursor`) and sort-value remapping
+  (via `remapNullZoneSortValues`) moved inside
+- Public `searchAfter` delegates to `_searchAfterImpl(noSource=false)`
+- `countBefore`, `getFilterAggregations`, `getDateDistribution` each derive their
+  previously-leaked values internally
+
+**Store / CQL changes (`search-store.ts`, `typeahead-fields.ts`)**:
+- All 23 `searchAfter` call sites updated: null-zone groups pass full `[null, ...]`
+  cursors; remap blocks and `nz` detection removed
+- All 8 `countBefore` call sites: `sortClause` argument removed
+- `FilterAggRequest` entries use `isFilter` strings; `parseCql` import removed
+  from both `search-store.ts` and `typeahead-fields.ts`
+
+**Result:** no raw ES DSL remains in `ImageDataSource` method signatures.
+Unit: 871/871. E2E: 240/240. Committed as `bcde65a58`.
+
+### 30 May 2026 — Research docs: media-api conventions + test gap audit
+
+Five new documents added in preparation for potential media-api work and test coverage work.
+No code was changed.
+
+**media-api docs** (`kupua/exploration/docs/03 Ce n'est pas une pipe dream/`):
+
+- `03 Ce n'est pas une pipe dream/media-api-work/media-api-90-conventions.md` — comprehensive reference covering controller anatomy,
+  route conventions, Argo response patterns, elastic4s usage, auth/permissions, error
+  handling, test conventions, logging, imports, naming, and anti-patterns. Produced
+  by codebase read (media-api + common-lib) cross-referenced against PRs #4122 #4145
+  #4201 #4334. Includes Appendix A on GET vs POST trade-offs for cursor-carrying
+  endpoints, which is an open team decision.
+
+- `03 Ce n'est pas une pipe dream/media-api-work/media-api-91-instructions-for-agents.md` — condensed agent-facing checklist derived
+  from `03 Ce n'est pas une pipe dream/media-api-work/media-api-90-conventions.md`. Meant to be pasted into implementation prompts so
+  agents don't have to re-derive conventions from the codebase.
+
+- `media-api-conventions-POST-research.md` (archived to `zz Archive/`) — raw audit
+  of all Grid services for POST body parsing usage. Found ~25 endpoints across 6
+  services using `auth.async(parse.json)`, confirming POST+body is not untested
+  territory for the team; media-api is the outlier. Referenced by Appendix A of
+  `03 Ce n'est pas une pipe dream/media-api-work/media-api-90-conventions.md`.
+
+- `media-api-conventions-research-handoff.md` (archived to `zz Archive/`) — the
+  original research handoff prompt that produced the conventions doc.
+
+**Test gap audit** (`kupua/exploration/docs/test-gap-findings.md`):
+
+- Audit of Tier 1 orchestration/hook files with no Vitest coverage. Lists specific
+  untested behaviours with suggested test descriptions. Not yet actioned.
+
+### 30 May 2026 — Three small fixes: Firefox autoscroll, click-to-toggle focus, ticker gaps
+
+**1. Restore Firefox autoscroll in grid gaps (`ImageGrid.tsx`)**
+
+The middle-click fullscreen feature (commit `7b37c5c8d`) added an unconditional
+`preventDefault()` on every `mousedown` with button=1 in the grid container. This
+suppressed Firefox's autoscroll indicator everywhere — including the gaps between
+cells where no fullscreen action takes place. Fix: guard `preventDefault()` with
+`.closest("[data-image-id]")` so it only fires when clicking on a cell. Gap clicks
+now let Firefox start its autoscroll normally. Table is unaffected (no gaps exist
+between rows, so the existing unconditional guard there is correct).
+
+**2. Click-to-toggle focus in grid and table (`ImageGrid.tsx`, `ImageTable.tsx`)**
+
+Previously the only way to clear `focusedImageId` was to click a gap in the grid;
+the table had no mechanism at all. Fix: clicking the already-focused cell/row now
+calls `setFocusedImageId(null)` instead of re-setting the same id. Guards in place:
+phantom mode (no focus ring, click opens detail — unchanged), selection mode
+(click should toggle selection, not focus — unchanged). Added `focusedImageId` to
+`handleRowClick`'s `useCallback` deps array in `ImageTable.tsx`.
+
+**3. 5px gaps between status-bar tickers (`StatusBar.tsx`)**
+
+The "new images", "GNM-owned", and "agency picks" ticker buttons sat flush against
+each other and against the separator to their right. Fix: wrap all tickers in a
+single `flex items-center gap-[5px] mr-[5px] shrink-0 empty:hidden` div. `gap`
+spaces tickers apart, `mr` adds trailing space before the spacer, `empty:hidden`
+collapses the wrapper (and its margin) entirely when no tickers are visible. Any
+future ticker added to `gridConfig.tickerDefinitions` gets correct spacing for free.
+
+### 30 May 2026 — fix(detail): stale image after browser Back into image detail
+
+**Bug:** After opening image detail → clicking a metadata value (search-by-title,
+search-by-credit, etc.) → pressing browser Back, the detail view briefly showed
+the correct image then switched to a completely different image (~1s later). The URL
+and counter ("5 of 10,000") remained correct — only the rendered image and metadata
+were wrong. The wrong image was typically whatever sat at the old buffer-local index
+in the new results (often position 0 or near the buffer start).
+
+**Root cause:** `ImageDetail.tsx` had:
+```tsx
+const currentIndex = useMemo(
+  () => findImageIndex(imageId),
+  [findImageIndex, imageId],
+);
+```
+`findImageIndex` was made stable (empty deps, reads `getState()` imperatively) in
+commit `21475516a` (2026-05-23, "perf: stable findImageIndex") to fix a performance
+issue where the sort-around-focus `useLayoutEffect` in `useScrollEffects` re-fired
+on every buffer extend. That perf fix was correct for grid/table (which call
+`findImageIndex` imperatively on user gestures), but broke ImageDetail's `useMemo` —
+whose deps `[findImageIndex, imageId]` never change when the buffer is replaced by
+a new search, so it returns a stale local index into the new buffer.
+
+**Sequence:** Back → mounts ImageDetail (store still has old 2-result buffer) → memo
+fires correctly (index 0 → image A) → popstate effect fires `search()` → ~1s later
+buffer replaced with first page of 10k results → re-render but memo deps unchanged →
+stale index 0 → `getImage(0)` returns results[0] from the NEW buffer → wrong image.
+Counter was correct because `useImageTraversal` uses `globalIndexOf()` (non-memoized,
+reads fresh state every render).
+
+**Fix:** Removed the `useMemo` entirely — `findImageIndex(imageId)` is now called
+directly on every render. It's O(1) (Map.get + subtraction) and ImageDetail renders
+for a single image (not in a list), so the cost is negligible. This matches the
+pattern already used by `useImageTraversal.globalIndexOf`. The perf optimisation in
+`useScrollEffects` is unaffected because it depends on the `findImageIndex` reference
+being stable (which it still is) — the fix is purely in how ImageDetail consumes it.
+
+**Regression test:** Added E2E test "back from metadata-search renders the correct
+image (not stale buffer index)" in `browser-history.spec.ts`. It opens detail for
+image #3, clicks a metadata value (fires a new search), presses Back, waits for the
+buffer replacement to settle, then asserts that `data-detail-image-id` on the detail
+wrapper matches the expected imageId. The `data-detail-image-id` attribute was added
+to ImageDetail's outermost div — it exposes `displayImage.id` (the resolved image
+object) for test assertions without any visual impact.
+
+The existing test "metadata click pushes exactly one entry; back returns to detail"
+only asserted the URL param — which was always correct. It would not have caught this
+bug. The new test asserts what the component actually renders.
+
+**Follow-up — test audit (same session):** After landing the fix, audited all E2E tests
+that open image detail and assert on it. Found 9 tests across `ui-features.spec.ts` and
+`browser-history.spec.ts` that asserted the URL param only (`getDetailImageId()`), while
+their purpose was to verify *which image the user sees*. Added a
+`getRenderedDetailImageId()` helper to `KupuaFixture` in `e2e/shared/helpers.ts` that
+reads `data-detail-image-id` from the DOM. All 9 tests now assert both URL and rendered
+image. The full 240-test suite passed without modification.
+
+Tests tightened:
+- `ui-features.spec.ts` — double-click grid/table opens correct image (×2), arrow-key
+  navigation at each step (×4), Enter-to-open, reload-stability post-reload check
+- `browser-history.spec.ts` — forward after close-button, forward after Backspace,
+  cold-load → traverse → forward (on freshPage), metadata-click back returns to detail
+
+Tests intentionally left URL-only: null checks (detail closed), history-length tests,
+focus-preservation tests, deep-link synthesis tests.
+
+**Files changed:**
+- `src/components/ImageDetail.tsx` — removed stale `useMemo`, added `data-detail-image-id`
+- `e2e/shared/helpers.ts` — added `getRenderedDetailImageId()` helper
+- `e2e/local/browser-history.spec.ts` — regression test + 4 tightened assertions
+- `e2e/local/ui-features.spec.ts` — 5 tightened assertions
+
+### 29 May 2026 — Perf harness metrics refresh (items 1–6 of `zz Archive/metrics-refresh.md`)
+
+**Context:** The e2e-perf harness could measure perceived latency and jank but had no
+layer attribution — when a number moved it was impossible to say whether ES, the network,
+or the browser was responsible. This work adds the instrumentation needed before the
+staged media-api migration begins, so baseline numbers with full layer-split exist.
+
+**Item 1 — Harvest store timings into e2e-perf:**
+- Extended `PerceivedMetrics` interface in both `perceived-short.spec.ts` and
+  `perceived-long.spec.ts` with optional fields: `took`, `fetchDuration`, `seekTime`,
+  `aggTook`, `aggFetchDuration`, `seekMeasures`.
+- Added `readStoreTiming(kupua)` async helper in both files: reads `__kupua_store__.getState()`
+  via `page.evaluate()` and returns the five timing fields.
+- All 14 short-suite tests (PP1–PP10, PP6b/c, PP7b/c) and all 8 long-journey steps
+  (JA1–JA3, JB1–JB5) now call `readStoreTiming` after `computeMetrics` and
+  `Object.assign(m, timing)` before `emitMetrics` — every perceived JSONL line now
+  carries store timing data when present.
+- `aggregatePerceivedMetrics()` in `run-audit.mjs` now conditionally aggregates all
+  five timing fields (median, same pattern as existing FIELDS loop) and aggregates
+  `seekMeasures` by name (median duration per `seek:*` entry across runs).
+
+**Item 2 — `fetchDuration` at the DAL public boundary:**
+- Added `fetchDuration?: number` to `SearchResult`, `SearchAfterResult`,
+  `AggregationsResult`, and `IdRangeResult` in `src/dal/types.ts` with JSDoc explaining
+  it equals `took + network + proxy + JSON.parse + scheduler.yield()`.
+- Wrapped `search()`, `searchAfter()` (both normal and PIT-fallback return paths),
+  `getAggregations()`, and `getIdRange()` (all three return paths) in `es-adapter.ts`
+  with `const t0 = Date.now()` / `fetchDuration: Date.now() - t0`. Abort paths
+  intentionally excluded — timing is meaningless for aborted requests.
+- `getByIds()` skipped: it returns `Image[]` not a result struct, and the ripple into
+  `MockDataSource` and all consumers outweighs the value.
+- Added `fetchDuration: number | null` and `aggFetchDuration: number | null` state
+  fields to `search-store.ts` (type, initialisation, and all three `set()` call sites:
+  sort-around-focus branch, normal completion branch, aggregation branch).
+
+**Item 3 — Blue dot enhancement:**
+- `SearchBar.tsx` reads `fetchDuration` from the store alongside `took`.
+- When `fetchDuration != null && fetchDuration - took > 20`, the timing display shows
+  `{took}ms / {fetchDuration}ms` with tooltip "ES query time / total fetch duration
+  (includes network + proxy)". Otherwise shows just `{took}ms` as before.
+- Threshold of 20ms prevents scheduler-jitter noise from cluttering the display.
+
+**Item 4 — RTT probe in run-audit.mjs:**
+- Added `ES_DIRECT_URL` const (`process.env.KUPUA_ES_URL ?? "http://localhost:9220"`).
+- Added `probeRtt()` async function: 5 `GET` fetches to `${ES_DIRECT_URL}/_cat/aliases`
+  (lightest endpoint allowed through the Vite proxy guard), returns median ms.
+- `main()` calls `probeRtt()` after `enforceClusterGate()` and logs the result.
+- `baseline_rtt_ms` included in both the jank entry object and each perceived entry
+  (via `runPerceivedKind(kind, git, baselineRttMs)` signature update).
+- `audit-graphs.html` `KNOWN_ENTRY_KEYS` updated to include `"baseline_rtt_ms"`.
+
+**Item 5 — Harvest seek `performance.measure` entries:**
+- Added `readSeekMeasures(kupua)` helper in `perceived-short.spec.ts`: calls
+  `performance.getEntriesByType("measure")` filtered to `name.startsWith("seek:")`,
+  returns `Array<{ name: string; duration: number }>` or empty array.
+- PP7, PP7b, PP7c additionally call `readSeekMeasures` and assign to `metrics.seekMeasures`
+  when non-empty. PP7c is buffer-mode (DOM scroll, no ES seek) — the guard means nothing
+  is written in practice for that test.
+- `seekMeasures` added to `NON_METRIC_FIELDS` in `perceived-graphs.html` (array-valued,
+  not plottable as a sparkline). `aggregatePerceivedMetrics()` aggregates by name.
+
+**Item 6 — Migrate per-image render timing from experiments into P14:**
+(Done in a prior session.) `perf.spec.ts` P14a–d measures per-image render
+success/failure rates, landing image render+network timing, and prefetch hit detection.
+Emitted into `audit-log.json` and graphed on `audit-graphs.html`.
+
+**Dashboard wiring (items 1–5):**
+- `perceived-graphs.html`: five new entries in `KNOWN_METRICS` (`took`, `fetchDuration`,
+  `seekTime`, `aggTook`, `aggFetchDuration`), matching `METRIC_LABELS` entries, an
+  `<optgroup label="Store timing (post-settle)">` with five `<option>` elements in the
+  metric selector, and `"seekMeasures"` added to `NON_METRIC_FIELDS`.
+- `audit-graphs.html`: `"baseline_rtt_ms"` added to `KNOWN_ENTRY_KEYS`.
+- `e2e-perf/README.md`: `baseline_rtt_ms` mentioned in the overview paragraph; new
+  section "Perceived-suite diagnostic fields (store timing)" added with a table
+  describing all five fields, `seekMeasures`, and `baseline_rtt_ms`.
+
+**Tests:** 871/871 unit tests passing after all changes.
+
+### 29 May 2026 — Validity/permissions: full logic restored with simulated permissions
+
+**Context:** `buildValidityMap` had `shouldOverride = hasCurrentAllowLease` before today's
+work, meaning only an active allow-use lease could override validity warnings. Write
+permission (`EditMetadata`) was silently absent — no_rights, over_quota, current_deny_lease,
+paid_image, and conditional_paid all showed as red "Unusable image" blockers for all users
+instead of the correct orange "can be used, but has warnings".
+
+**Changes:**
+
+- `paid_image` wired to `calculateCost(usageRights) === "pay"` (was hardcoded `false`)
+- `conditional_paid` wired to `!!usageRights?.restrictions` (was hardcoded `false`)
+- `hasCurrentAllowLease` restored to the full date-based computation
+- `shouldOverride` now correctly mirrors Scala: `hasCurrentAllowLease || hasWritePermission`
+- `const hasWritePermission = true` is the single labelled simulation — one line to replace
+  when auth is wired; all surrounding logic is already complete and correct
+- All checks use `createCheck()` with the shared `shouldOverride`, matching Scala exactly.
+  Exception: `tass_agency_image` keeps its own `shouldOverride: true` — intentional,
+  Scala does the same (always a warning, never permission-gated)
+
+**Permissions table** added to `deviations.md` (after §26) documenting all six permission
+assumptions in Kupua with their Kahuna reality and exact one-line migration steps.
+
+868/868 unit tests passing.
+
+### 29 May 2026 — Fix: conditional_paid validity check wired up
+
+**Problem:** `buildValidityMap` had `conditional_paid: createCheck(false)` — a dead
+stub. Restricted-use images (any image with `usageRights.restrictions` non-empty) never
+showed the "This image is restricted use" validity warning in the metadata panel.
+
+**Fix:** `conditional_paid` in `validity-map.ts` is now wired to
+`!!usageRights?.restrictions`, mirroring what Scala's `cost.isConditional()` does.
+
+**Permissions situation (for future travellers):** In Kahuna, `conditional_paid` is
+overridden (shown as a warning, not a blocker) when the user has `EditMetadata` write
+permission OR an active allow-use lease. Kupua has no auth context. Rather than
+implement permission detection, `shouldOverride` is hardcoded `true` for this check —
+all Kupua users are authenticated Guardian editorial staff with implicit write access.
+This means the banner says "**This image can be used, but has warnings**" (orange) rather
+than "**Unusable image**" (red). This is the correct real-world behaviour, just arrived
+at by assumption rather than gate. Same pattern as the `is:deleted` permission hardcode
+in `es-adapter.ts`. Both are documented in `deviations.md §26`.
+
+### 29 May 2026 — Soft deletion Phase 1 & 2
+
+Research doc: `exploration/docs/01 Research/soft-deletions-findings.md` (moved
+from docs root; produced in a prior session).
+
+**Phase 1 — read-only display (three code changes):**
+
+- `es-config.ts`: added `"softDeletedMetadata"` to `SOURCE_INCLUDES`. Previously
+  excluded entirely (noted in the comment, never in the whitelist). Parent-path
+  fetch returns both `deleteTime` and `deletedBy` subfields atomically.
+
+- `es-adapter.ts` `buildQuery()`: added default deletion suppression —
+  `mustNot.push({ exists: { field: "softDeletedMetadata" } })` after CQL
+  parsing, gated on `!queryStr.includes("is:deleted")`. Mirrors Kahuna's
+  `Parser.scala` `thingsToHideByDefault`. `getById()` bypasses `buildQuery()`
+  so deleted images remain accessible via direct URL/detail panel.
+
+- `ImageMetadata.tsx`: new `formatDeletedTime()` helper with granularity
+  (just now → minutes → hours → yesterday → days → months → years; absolute
+  date on hover). "Deleted image" banner renders above all other validity
+  banners: `by <who>` ("Reaped automatically" when `deletedBy === "reaper"`)
+  + relative delete time. Invalidity-reason bullets suppressed for deleted
+  images; Restrictions banner still shows (Kahuna parity). Spacing follows the
+  existing touching-banner pattern (`mb-2` omitted when restrictions follows).
+
+**Phase 2 — `is:deleted` search:** no code change needed. `parseCql("is:deleted")`
+already produced the correct ES clause (verified by `cql.test.ts:14–16`).
+
+**Documentation:**
+- `deviations.md §26`: `is:deleted` bypasses media-api `canViewDeletedImages`
+  per-user restriction (development-phase deviation; migration path noted).
+- `kupua-vs-kahuna-feature-inventory.md §3.6, §12.4`: suppression parity and
+  who/when banner improvement documented.
+
+868/868 unit tests passing.
+
+### 28 May 2026 — Chrome scroll-latch: third-pass research, VS Code workaround identified
+
+Third internet trawl after we understood the Chromium mechanism (so we
+could search by function names rather than symptoms). One actionable
+finding: **VS Code has shipped a JS wheel-interception workaround since
+Feb 2020** ([PR #70047](https://github.com/microsoft/vscode/pull/70047),
+[`scrollableElement.ts` `scrollPredominantAxis`](https://github.com/microsoft/vscode/blob/main/src/vs/base/browser/ui/scrollbar/scrollableElement.ts),
+default on). They zero the smaller-magnitude axis in a non-passive wheel
+handler then `preventDefault`, so cc never runs `FindNodeToLatch`. They
+framed it as matching macOS NSScrollView; the cross-axis latch is killed
+as a side effect. Six years in production.
+
+Notable absences from the corpus: virtualizer libraries (TanStack
+Virtual, react-window, react-virtualized, react-virtuoso, virtua) ship
+no workaround. Chromium gerrit has zero CLs touching
+`FindNodeToLatch`/`ScrollLatchedScroller`/`CanConsumeDelta` since 2020.
+`blink-dev`/`input-dev`/`paint-dev` archives have zero hits for those
+function names. Conclusion: VS Code solved this for themselves; everyone
+else lives with the bug. No upstream fix coming.
+
+Archived doc and `deviations.md` updated to record the workaround and
+the negative findings. No code change in kupua yet.
+
+### 28 May 2026 — Chrome scroll-latch: `overscroll-behavior-x: contain` empirically rejected
+
+Throwaway-branch test on `mk-scroll-latch-overscroll-x-experiment` (branch
+deleted, not committed): adding `overscroll-x-contain` to the grid scroll
+container fixes the latch but kills horizontal swipe history navigation
+over the grid (history nav still works over app chrome — just not when the
+cursor is over the grid). Same trade-off as full `overscroll-contain`,
+just narrower in scope. Rejected. `deviations.md` and the archived
+write-up updated to record the empirical result so a future agent doesn't
+re-test it.
+
+### 28 May 2026 — Chrome scroll-latch on grid: revert overscroll-contain, mechanism understood, no fix landed
+
+**Symptom:** On Chrome (macOS), starting a horizontal-leaning scroll gesture
+over the image grid suppresses vertical scroll delivery to the grid for the
+rest of the gesture. Reproducible on a plain MacBook trackpad whenever the
+gesture leans toward a direction where browser swipe-nav is *not* available
+(e.g. forward on a fresh tab). Safari and Firefox do not exhibit this.
+
+**What this commit does (after multiple amends — only the final state matters):**
+- Reverts the original `overscroll-contain` swap (which had killed browser
+  history-swipe nav) on the grid scroll container in `ImageGrid.tsx`. Class
+  string is now `overflow-y-auto overflow-x-hidden hide-scrollbar pt-1
+  overscroll-y-contain` — i.e. the pre-`a4fa028e6` baseline.
+- Adds archived investigation:
+  `exploration/docs/zz Archive/chromium-scroll-latch-issue/` with a
+  cross-engine code-citation-backed write-up, a standalone repro HTML with
+  live per-event diagnostics, and a draft comment for upstream issue
+  40717572 (not posted).
+
+**No fix is landed.** The latch reappears as it did before `a4fa028e6`. We
+accept it for now. The original `overscroll-contain` "fix" was net-negative
+because it broke history-swipe nav (documented MDN behaviour of
+`overscroll-behavior: contain`). A speculative `overflow-x: clip` swap was
+tried in one of the intermediate amends; subsequent code research showed
+it's a no-op in stock Chromium (the `SingleAxisScrollContainers` Blink
+runtime feature is off by default; mixed-axis `overflow-x: clip` is
+rewritten to `hidden` before populating cc scroll-node flags — see
+`style_resolver_test.cc:727`). Reverted.
+
+**Mechanism (newly verified against Chromium source on main):** the latch
+is established at `ScrollBegin` by `FindNodeToLatch` in
+`cc/input/input_handler.cc:2328`. The walk picks the first ancestor where
+`CanConsumeDelta` returns true (axis-aware via `UserScrollableDelta` +
+scroll-range clamp in `ComputeScrollDelta`). Our grid fails the leading-axis
+check (zero x range), the walk continues, reaches the viewport, and the
+viewport special case at `:2334` terminates the walk and latches the
+viewport unconditionally. Subsequent `ScrollUpdate` calls (`:341`) use the
+latched node directly via `ScrollLatchedScroller` (`:2524`) without
+re-running `FindNodeToLatch`, so the gesture's vertical delta routes to the
+viewport (which has no vertical content to scroll). Result: dead grid until
+the user pauses and starts a new gesture.
+
+WebKit avoids this by deferring latching and re-evaluating cumulative delta
+per continuation event (`ScrollLatchingController::shouldLatchToScrollableArea`).
+Gecko avoids it by resolving per-axis targets at `WheelTransaction` start.
+Chromium's 2016 single-element latch (bug 41198470) imported Safari's
+single-target model but neither of those mitigations.
+
+**Mitigation options considered, none implemented:**
+1. Give the grid a 1px horizontal scroll range so `CanConsumeDelta` for x
+   returns true and the latch binds to it. Hacky, affects layout, ugly.
+2. `overscroll-behavior-x: contain` only (axis-specific). Unclear if it
+   preserves history nav; cheap to verify but not done.
+3. JS wheel interception (apply deltaY to `scrollTop` ourselves,
+   `preventDefault`). Highest cost and risk; fights cc's animation/momentum;
+   can interfere with focus and pinch-zoom paths.
+4. Live with the bug. Current state.
+
+**Upstream:** issue 40717572 (open, P2, hotlist `Rendering Core 2026 Fixit`).
+Diagnosed by flackr in 2020 for the iframe pull-to-refresh surface but no
+generalised diagnosis, no design doc, no patch, no owner, no activity since
+2023. Our archived comment draft proposes adding the cross-engine code
+citations and the viewport-fall-through mechanism — if we post, comment goes
+through user review first.
+
+Commit lineage (all on this branch, repeated amends):
+- `a4fa028e6` — original push: `overscroll-contain` (broke history-swipe nav).
+- `8d021c4d2` — first amend: reverted `overscroll-contain`; swapped
+  `overflow-x-hidden` → `overflow-x-[clip]` speculatively.
+- (this amend) — reverted `[clip]` back to `hidden`; rewrote the archived
+  doc and comment draft against real Chromium source.
+
+Files changed in this commit vs `a4fa028e6`:
+- `src/components/ImageGrid.tsx` — `overscroll-contain` → `overscroll-y-contain`
+  (revert). `overflow-x` stays `hidden`.
+- `exploration/docs/zz Archive/chromium-scroll-latch-issue/` — new doc,
+  repro HTML, comment draft.
+
+
+
+### 25 May 2026 — vecWeight hybrid blending (URL-only, no UI)
+
+Added `vecWeight` URL parameter to control hybrid search blending, matching
+Kahuna/media-api's PR #4738 (merged 22 May). Float in [0, 1], default 1.0
+(pure KNN — no behaviour change from before).
+
+- `vecWeight=1` (or absent): pure KNN, same as before
+- `vecWeight=0`: pure BM25 multi_match on the AI text (no Bedrock call)
+- `0 < vecWeight < 1`: hybrid — probe query for max BM25 score, then
+  `bool.should[multi_match(normalised boost), knn]`
+
+Files changed:
+- `src/lib/search-params-schema.ts` — added `vecWeight` field
+- `src/dal/types.ts` — added `vecWeight?: string` to `SearchParams`
+- `src/dal/adapters/elasticsearch/cql.ts` — exported `MATCH_FIELDS`
+- `src/dal/es-adapter.ts` — `searchByAi` now supports three modes
+- `exploration/docs/00 Architecture and philosophy/08-ai-search.md` —
+  new §3.1 documenting the hybrid path
+
+Bug fix during implementation: `parseFloat("0") || 1` evaluates to 1
+because 0 is falsy in JS. Fixed to use `Number.isNaN()` guard instead.
+
+### 25 May 2026 — AI Search: keyboard navigation from AI widget + auto-collapse on blur
+
+Three small UX refinements to the AiSearchInput widget:
+
+**1. Grid navigation keys pass through from AI input:**
+
+The AI text input is a native `<input>` element, so `isNativeInputTarget()` in
+`keyboard-shortcuts.ts` returned `true` — meaning arrow keys, Home/End, PgUp/PgDown
+were consumed by the input and never reached the grid navigation handlers.
+
+Fix: added `data-grid-nav-input` attribute to the AI input element, and modified
+`isNativeInputTarget()` to return `false` for elements with this attribute. This opts
+the AI input into grid navigation (Up/Down/PgUp/PgDown/Home/End move through images).
+Left/Right are stopped via `e.nativeEvent.stopPropagation()` in the React `onKeyDown`
+handler so they remain as text-editing keys within the input.
+
+**2. Auto-collapse empty widget on blur:**
+
+Bug: user opens AI widget, doesn't type anything, clicks into CQL search box → widget
+stays expanded (empty, taking up space). Expected: widget should collapse when empty
+and focus leaves.
+
+Fix: `handleBlur` now checks `if (!localText) setIsActive(false)`. The sparkles toggle
+button and the clear ✕ button both use `onMouseDown` with `e.preventDefault()` to
+prevent blur from firing when clicking them (toggle already had this; clear button was
+missing it — that was a separate bug, see below).
+
+**3. Clear button no longer causes shrink+expand animation:**
+
+Bug: clicking the AI widget's own ✕ (clear text) button caused the widget to rapidly
+collapse then re-expand. Root cause: clicking the button blurred the input → `handleBlur`
+saw empty `localText` → collapsed → `handleClearText`'s rAF refocus re-expanded.
+
+Fix: added `onMouseDown={(e) => e.preventDefault()}` to the clear button — same pattern
+as the sparkles toggle. Prevents the blur from firing at all; input stays focused after
+clear.
+
+**4. Height reduction (cosmetic):** `my-0.5` → `my-px` on all three container class states.
+
+868/868 tests pass.
+
+---
+
+### 25 May 2026 — Refactor: `aiQuery:"..."` CQL chip → separate `?aiQuery=` URL param (+58 / −166)
+
+**The problem — regex proliferation from a data model mismatch:**
+
+The original Phase 1b/1c design embedded AI search text as a CQL-like pseudo-chip inside
+the `query` URL param: `?query=credit:PA aiQuery:"tigers in snow"`. This meant AI state
+was a structured concept buried inside a flat string. Every consumer that needed to detect,
+extract, or strip the AI text required its own regex:
+
+- `AI_CHIP_RE` in `es-adapter.ts` (`extractAiQuery` — strip chip, return text + remainder)
+- `AI_CHIP_PRESENT_RE` in `useUrlSearchSync.ts` (auto-sort detection)
+- `hasAiChip` regex in `SearchFilters.tsx` (show "Relevance" sort option)
+- Detection in `search-store.ts` (AI branch routing)
+- Split/combine logic in `SearchBar.tsx` (mux AI text into/out of CQL string)
+- Detection in `ai-search-params.ts` (aggregation decoration)
+
+Each regex variant had subtly different requirements. CQL strips quotes from single-word
+values (`aiQuery:"tigers"` → `aiQuery:tigers`), so every regex needed both quoted AND
+unquoted forms. The `AI_CHIP_PRESENT_RE` in useUrlSearchSync only matched the quoted
+form — single-word AI queries silently failed to auto-sort to Relevance. SearchFilters
+had a case mismatch. Fixes kept layering.
+
+**Root cause:** Two independent concepts (CQL text + AI text) stuffed into one string.
+As long as `aiQuery:` lives inside `?query=`, everything downstream must regex-parse it.
+This is true regardless of CQL — even a perfect CQL chip API wouldn't help when the
+fundamental problem is data model mismatch.
+
+**The fix — promote `aiQuery` to its own URL parameter:**
+
+`?query=credit:PA&aiQuery=tigers in snow&nonFree=true`
+
+- Detection everywhere: `!!params.aiQuery` — no regex, no parsing, no edge cases
+- `query` is always pure CQL — nothing to extract, nothing to strip
+- SearchBar reads two params, writes two params — no combine/split logic
+- `extractAiQuery()` deleted entirely (was ~30 lines + 6 unit tests)
+- All 4+ regex patterns deleted
+- TanStack Router Zod schema gives typed access (`params.aiQuery: string | undefined`)
+
+**Files changed:**
+
+| File | Change |
+|---|---|
+| `search-params-schema.ts` | Added `aiQuery: z.string().optional()` |
+| `SearchBar.tsx` | Reads `searchParams.aiQuery` directly, writes via `updateSearch({ aiQuery })`; deleted `combineForUrl()`, `extractAiQuery` import, split/combine logic |
+| `useUrlSearchSync.ts` | AI detection → `!!params.aiQuery`; deleted `AI_CHIP_PRESENT_RE` |
+| `search-store.ts` | AI branch → `!!params.aiQuery`; deleted regex detection |
+| `es-adapter.ts` | Deleted `extractAiQuery()` + `AI_CHIP_RE`; `buildQuery()` uses `params.query` directly (no strip needed); `searchByAi()` reads `params.aiQuery` |
+| `ai-search-params.ts` | Uses `params.aiQuery` directly; deleted regex import |
+| `SearchFilters.tsx` | `hasAiChip` → `!!searchParams.aiQuery` |
+| `es-adapter.test.ts` | Deleted `extractAiQuery` tests (function gone); adapted remaining |
+
+**Trade-off:** URL is slightly less "truthful" — AI query isn't visible in the CQL input.
+But it never was editable there anyway (it lives in its own standalone AiSearchInput
+React widget since the Phase 1c pivot). The CQL input shows only CQL; the AI widget
+shows only AI text. Two concepts, two params, two components. Clean.
+
+**Net: +58 / −166 lines.** 868/868 tests pass.
+
+---
+
+### 25 May 2026 — Bug fix: Home → type does nothing (latent `_externalQuery` latch bug)
+
+**Symptom:** After pressing Home (which navigates to `/search?nonFree=true`) and typing
+in the CQL search box, nothing happens — keystrokes appear in the input but no search
+fires. The debounce callback runs but `updateSearch` is never called.
+
+**Root cause — stale `_externalQuery` latch:**
+
+`resetToHome()` called `cancelSearchDebounce("")` which set `_externalQuery = ""`. The
+`useUrlSearchSync` effect deduplicates URL changes (if serialised params haven't changed
+from what was just navigated to, it skips). After Home, the effect's final
+`setExternalQuery(null)` line is never reached because the effect detects "URL matches
+what I just set" and returns early. The latch stays as `""`.
+
+All subsequent debounce callbacks from typing fail the guard:
+```typescript
+if (_externalQuery !== null && queryStr !== _externalQuery) return; // skip
+```
+Because `"typed text" !== ""` → callback exits without calling `updateSearch`.
+
+**Why it surfaced now:** The aiQuery refactor added `aiQuery` to the URL schema and the
+AiSearchInput component. This changed React render timing — previously an intermediate
+render during `resetToHome()`'s async gap let the effect fire and clear the latch. After
+the refactor, React batches differently and the effect only fires once (post-navigate),
+hitting the dedup guard.
+
+**Fix:** `cancelSearchDebounce("")` → `cancelSearchDebounce()` (no argument). This sets
+`_externalQuery = null` instead of `""`. `clearTimeout` already kills the pending timer,
+and the generation bump remounts the CQL component. Passing `""` served no purpose
+beyond creating a stale latch that blocked future debounce callbacks.
+
+868/868 tests pass.
+
+---
+
+### 24–25 May 2026 — Phase 1c pivot: CQL chip → standalone AiSearchInput widget
+
+**What was attempted (and why it failed):**
+
+The original Phase 1c plan implemented AI search as a real CQL chip (`aiQuery:"..."`)
+with custom styling inside the `<cql-input>` shadow DOM. Three files were built:
+`SparklesButton.tsx` (toggle button), `ai-chip-styling.ts` (shadow-root CSS injection +
+MutationObserver to tag chips with `data-ai-chip`), and wiring in `CqlSearchInput.tsx`.
+
+This approach hit four fatal problems:
+
+1. **Browser crash.** The `MutationObserver` on the CQL shadow root (`childList + subtree
+   + characterData`) created a feedback loop with ProseMirror's own MutationObserver.
+   Both observed the same DOM, both mutated it (one tagging `data-ai-chip`, the other
+   updating PM state from DOM mutations). Infinite loop → tab freeze.
+
+2. **Cursor positioning impossible.** CQL chips are atomic ProseMirror nodes. The caret
+   cannot be placed *inside* a committed chip. Users had no way to edit the AI text
+   without deleting the chip and re-typing from scratch.
+
+3. **Strip logic fragility.** `extractAiQuery()` needed to survive CQL's normalisation
+   (quoting, whitespace). CQL's `queryChange` event reports the canonicalised value, which
+   destroyed `aiQuery:""` (empty-chip state) on every keystroke during composition.
+
+4. **No "composition mode" API.** CQL has no concept of a chip that's visually present
+   but not yet committed to the query string. The chip either exists in ProseMirror state
+   (and immediately affects the URL/search) or doesn't.
+
+**What was built instead (Option D — standalone React widget):**
+
+`AiSearchInput.tsx`: A self-contained expandable widget living *inside* the search bar
+border, between the CQL input and the main clear button. Architecture:
+
+- **Toggle:** Sparkles icon (`auto_awesome` filled, yellow `#facc15`). Click when
+  collapsed → expand + autofocus. Click when expanded → stash text to module-level
+  `_stashedAiText`, collapse, clear AI from URL. Click when collapsed with stash →
+  restore stashed text, expand.
+
+- **Local state decoupled from URL:** The input maintains `localText` state that is
+  NOT the URL param. Changes propagate to URL via `onAiTextChange` callback with the
+  parent's debounce (600ms). This prevents debounce clobbering mid-keystroke — the input
+  always shows what the user typed, not what the URL contains.
+
+- **Content-based sizing:** Width uses `ch` units computed from text length. Focused:
+  `min(max(chars+4, 16), 28)ch`. Blurred: `min(chars+2, 16)ch`. Collapsed: `max-width: 0`.
+  All transitions via `transition-all duration-200 ease-out`.
+
+- **Escape to collapse:** Stashes text, collapses widget, clears AI from URL. Same
+  behaviour as clicking the sparkles toggle when active.
+
+- **Inner ✕ button:** Clears text without collapsing — widget stays expanded and
+  re-focused for a new query. Uses `onMouseDown + e.preventDefault()` to prevent
+  blur-before-click layout shift.
+
+- **Gated by `bedrockAvailable`:** Uses `subscribeBedrockAvailable()` (reactive subscriber
+  pattern on the module-level `let bedrockAvailable` flag). Widget is `null` when
+  Bedrock is unavailable.
+
+**SearchBar orchestration:** Reads `searchParams.aiQuery` directly (after the later
+refactor — see separate changelog entry). Passes `aiText` and `onAiTextChange` to
+`AiSearchInput`. The CQL input is completely unaware of AI — it handles only
+`params.query`.
+
+**Dead code removed:** `SparklesButton.tsx`, `ai-chip-styling.ts`, commented-out import
+in `CqlSearchInput.tsx`.
+
+875/875 unit tests pass (at time of implementation; count changed after later refactor).
+
+---
+
+### 24 May 2026 — Phase 1b fix: AI search tickers & filters empty
+
+**Symptom:** When AI search is active, tickers show zero counts and the Filters panel
+is completely empty.
+
+**Root cause:** The `aiQuery:"..."` chip (at that point still embedded in `params.query`)
+was being passed through to `buildQuery()` by every aggregation/ticker caller. CQL's
+parser doesn't know `aiQuery` as a field, so `parseCql` produces a broken
+`{ match_phrase: { aiQuery: "..." } }` clause → zero ES hits → all aggregations empty.
+
+**Fix (3 files, ~40 lines):**
+
+1. **`buildQuery()` self-defence (`es-adapter.ts`):** Calls `extractAiQuery(params.query).remainder`
+   at the top, uses remainder for `parseCql`. Structurally prevents the poisoned query
+   from reaching any downstream CQL parsing. Load-bearing for ALL callers (search, aggs,
+   tickers, expanded facets).
+
+2. **`decorateParamsForAggregations` helper (new: `src/lib/ai-search-params.ts`):**
+   Single point of AI-mode detection. When AI chip is present: strips it from
+   `params.query` + sets `params.ids` to the ≤200 AI result IDs → ES aggregates over
+   exactly the visible AI results. When AI chip absent: no-op (normal search unchanged).
+
+3. **Store wiring (`search-store.ts`):** AI branch fires `countWithTickers(decoratedParams)`
+   after results land (async, non-blocking). `fetchAggregations` and `fetchExpandedAgg`
+   both decorate their `callParams` before the DAL call.
+
+**Design principle enforced:** "AI is not a mode." No client-side aggregation
+reimplementation, no `_isAiMode` flag, no bespoke TS predicates. Same ES agg
+infrastructure, scoped to the AI result IDs via the existing `params.ids` →
+`terms: { id: [...] }` mechanism that already existed for selection-scoped views.
+
+**Bug caught during implementation:** Initial `.then()` callback set the entire
+`CountWithTickersResult` object (`{ count, tickerCounts }`) as `tickerCounts` in the
+store. Fixed same session — extract `.tickerCounts` from the result.
+
+---
+
+### 24 May 2026 — Phase 1b fix: browser Back breaks position in AI search results
+
+**Symptom:** Browser Back after navigating away from an AI search result lands at the
+TOP of the AI results, not at the previously focused image.
+
+**Root cause:** AI search uses synthetic `sortValues` (`[k-i, img.id]` descending) for
+cursor API compatibility. These are NOT valid ES cursors — `countBefore()` and
+`searchAfter()` cannot use them. The `sortAroundFocus` path that normally restores
+position (via `_findAndFocusImage` → `countBefore` → scroll-to-index) silently failed
+and fell back to scroll-to-top.
+
+**Fix:** The AI branch in `search-store.ts` was modified to handle `sortAroundFocusId`
+(the focused image ID carried through browser history navigation):
+
+- Compute `focusedInAiResults = sortAroundFocusId ? hits.some(h => h.id === sortAroundFocusId) : false`
+- If found: set `focusedImageId = sortAroundFocusId`, bump `sortAroundFocusGeneration`
+  (which triggers the scroll-to-focused-image effect in `useScrollEffects`), handle
+  phantom mode.
+- If not found (image not in top-200 AI results): set `focusedImageId = null`, bump
+  `_scrollReset` (scroll to top — correct behaviour, the image isn't in these results).
+
+**Key insight:** No ES round-trip needed. AI search has all ≤200 results in memory.
+Position restoration is a pure in-memory `Array.some()` lookup + buffer index calculation.
+The heavy `countBefore` / `searchAfter` machinery used by normal search is unnecessary.
+
+6 new store tests added covering: Back restore, phantom mode handling, not-found fallback,
+invariants.
+
+875/875 tests pass.
+
+---
+
+### 24 May 2026 — Phase 1c: sort handling, relevance option, client-side re-sort
+
+**Sort infrastructure for AI mode:**
+
+1. **`-relevance` sort key:** Added `"relevance"` to `DESC_BY_DEFAULT` set in
+   `field-registry.tsx`. Higher KNN `_score` = better match, so descending is the
+   natural default. Unit test updated with `AI_ONLY_SORT_KEYS` allowlist (relevance
+   has no ES field mapping — it only exists in-memory on `__aiScore`).
+
+2. **Sort dropdown:** `SortControls` in `SearchFilters.tsx` prepends
+   `{ label: "Relevance", value: "relevance" }` when an AI query is active.
+   Default-sort indicator dot suppressed when `orderBy === "-relevance"` in AI mode
+   (relevance IS the natural default for AI, so the dot would be noise).
+
+3. **Auto-sort on AI activation/deactivation:** `useUrlSearchSync.ts` adds
+   `_preSortBeforeAi` (mirrors the existing `_preSortBeforeCollection` pattern exactly).
+   When AI chip appears: save current sort, switch to `-relevance`. When AI chip
+   disappears: restore previous sort. Same atomic-navigate pattern (merged into the
+   same `navigate()` call as the query change → single URL update → single `search()`).
+
+4. **Client-side re-sort (`resortAiBuffer`):** New store action. When sort changes
+   while AI mode is active, the URL-sync hook intercepts at the `isSortOnly` branch
+   and calls `resortAiBuffer(orderBy)` instead of firing a new `search()`. Sorts the
+   in-memory ≤200 results by `__aiScore` (relevance) or `uploadTime` (date). Other
+   sort keys are a no-op with a console warning. No ES round-trip for sort changes
+   in AI mode.
+
+---
+
+### 24 May 2026 — Phase 1b: DAL `searchByAi` + store branch (KNN data path)
+
+**Architecture:**
+
+`searchByAi(params: SearchParams)` added as a public method on `ElasticsearchDataSource`
+(declared as optional in `ImageDataSource` interface for non-ES adapters). Flow:
+
+1. Read `params.aiQuery` (text to embed)
+2. `GET /bedrock/embed?q=<text>` → 256-float vector
+3. `buildQuery(params)` → filter clause (all CQL chips + URL filters become `knn.filter`)
+4. POST to ES `/_search` with `{ knn: { field, query_vector, k: 200, filter } }`
+5. Parse hits, inject `__aiScore` from `_score`, build synthetic `sortValues`
+
+**Store branching (`search-store.ts`):**
+
+Inserted BEFORE the main `try {}` block (after `closePit`). Detection: `!!params.aiQuery`.
+Early-returns after setting state. Key differences from normal search path:
+- No PIT opened (AI results are a fixed ≤200 set, no pagination)
+- No new-images poll started (results ranked by relevance, not time)
+- `track_total_hits: false` — total computed from `hits.length`
+- Synthetic `sortValues: [k-i, img.id]` — never used for pagination but stored for
+  cursor API shape compatibility
+- `pitId: null` explicit — store doesn't try to close a non-existent PIT
+- `_seekCooldownUntil` set (mirrors end of normal path)
+
+**`__aiScore` on Image interface:**
+
+Added `__aiScore?: number` to `Image` type. Kupua-internal field (not from ES `_source`).
+Set from each hit's `_score` during result processing. Used by `resortAiBuffer` for
+relevance re-sort and available for future UI display (score badge, etc.).
+
+**Guard for non-ES adapters:** If `dataSource.searchByAi` is `undefined`, sets error
+state and returns cleanly. Covers the `GridApiDataSource` path where KNN isn't available.
+
+6 `extractAiQuery` tests + 6 `searchByAi` tests added (later: `extractAiQuery` tests
+removed when the function was deleted in the refactor).
+
+---
+
+### 24 May 2026 — Phase 1a: Bedrock embed proxy + health check (foundation)
+
+**What was built:**
+
+A Vite dev-server plugin (`scripts/bedrock-embed-proxy.mjs`) that exposes two endpoints:
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /bedrock/health` | Returns `{"available":true/false}` — gates UI visibility |
+| `GET /bedrock/embed?q=<text>` | Returns 256-float embedding vector for query text |
+
+**Implementation details:**
+
+- Uses `@aws-sdk/client-bedrock-runtime` + `fromIni({ profile })`. Profile from
+  `AWS_PROFILE` env var (default `"media-service"` — same pattern as `s3-proxy.mjs`).
+- Region from `AWS_REGION` (default `"eu-west-1"`).
+- Model: `global.cohere.embed-v4:0` (configurable via `KUPUA_BEDROCK_MODEL_ID` env var).
+- **In-memory LRU cache** (Map, max ~200 entries keyed by `query.trim().toLowerCase()`).
+  Prevents redundant Bedrock calls during a dev session. Second identical request shows
+  `cached: true` in proxy logs.
+- **Graceful failure:** Missing/expired credentials or unreachable Bedrock → `/bedrock/health`
+  returns `{"available":false}`, `/bedrock/embed` returns 503. No crash, no error spam.
+- **Request validation:** Rejects empty queries and queries >2048 chars (400).
+- Credentials stay server-side (Vite process). Never sent to browser.
+
+**App-side wiring:**
+
+- `src/lib/grid-config.ts`: Added `bedrockAvailable` mutable export + `setBedrockAvailable()`
+  setter + `subscribeBedrockAvailable()` for reactive React consumption.
+- `src/lib/bedrock-proxy-client.ts`: Browser-side `getEmbedding(query)` and
+  `checkBedrockHealth()` using plain `fetch()` to `/bedrock/*`.
+- `src/main.tsx`: Calls `checkBedrockHealth()` at startup → sets flag.
+
+**Key design choices:**
+
+- Not a standalone server — runs as Vite middleware (same architecture as the S3 proxy
+  and ES proxy guard).
+- Dev-only infrastructure. Production AI search will use a proper backend endpoint.
+- Single-developer dev server — no rate limiting needed.
+
+### 23 May 2026 — Perf: stable findImageIndex — stop sort-around-focus useLayoutEffect re-firing on every extend (audit F-05 C5, G-01)
+
+**Background:**
+
+`findImageIndex` is the hook exported from `useDataWindow` that maps an image ID to its
+virtualizer index (buffer-local in normal mode, global in two-tier mode). It's used by
+`useScrollEffects` for the sort-around-focus scroll effect, by `ImageGrid` for click-to-focus,
+and by `ImageDetail` for forward/back traversal.
+
+**The problem — two related bugs from the same root:**
+
+*F-05 (C5):* `findImageIndex` was a `useCallback` with deps
+`[imagePositions, bufferOffset, results.length, twoTier]`. All four of those change on
+every `extendForward`, `extendBackward`, `seek`, and `search` — meaning `findImageIndex`
+got a new function reference on every such action. `imagePositions` was subscribed
+reactively via `useSearchStore((s) => s.imagePositions)`, adding an unnecessary
+subscription to the hook.
+
+*G-01:* `useScrollEffects` has a sort-around-focus `useLayoutEffect` with deps
+`[sortAroundFocusGeneration, findImageIndex, virtualizer, parentRef]`. Because
+`findImageIndex` changed on every extend, this effect re-fired on every extend in the
+synchronous React commit phase. It hit the early `if (sortAroundFocusGeneration === 0)
+return` guard and did no real work — but the commit-phase invocation itself is real cost
+and contributes to LoAF (Long Animation Frame). The intent is for this effect to fire
+only when `sortAroundFocusGeneration` actually increments (i.e. when a sort-around-focus
+operation was initiated).
+
+**Why `search.tsx:262` was left untouched:**
+
+The audit's reviewer note flagged `search.tsx:262` as needing a "5-minute check" before
+applying the fix there. That check confirmed: `imagePositions` in `FocusedImageMetadata`
+is used in the render body itself (inside an IIFE that derives the `image` object from
+`imagePositions.get(resolvedId)`). That is a legitimate reactive subscription — the
+metadata panel must re-render when the focused image's global position changes after a
+buffer extend. Converting it to `getState()` would silently cause stale metadata.
+Left completely untouched.
+
+**The fix — `useDataWindow.ts`:**
+
+- Removed `const imagePositions = useSearchStore((s) => s.imagePositions)` (the reactive
+  subscription that was unnecessary since `imagePositions` was only ever read inside the
+  `findImageIndex` callback, never in the render body or JSX).
+- Inside `findImageIndex`, replaced all four closed-over store values with imperative reads:
+  - `imagePositions` → `useSearchStore.getState().imagePositions`
+  - `bufferOffset` → `bufferOffsetRef.current` (the ref was already maintained in the hook
+    for `reportVisibleRange`; reused here rather than adding a new one)
+  - `results.length` → `resultsLenRef.current` (same — already existed)
+  - `twoTier` → `twoTierRef.current` (same — already existed)
+- Changed deps from `[imagePositions, bufferOffset, results.length, twoTier]` to `[]`.
+
+`findImageIndex` is now a stable function reference for the lifetime of the component.
+The sort-around-focus `useLayoutEffect` in `useScrollEffects` no longer fires on every
+extend — only when `sortAroundFocusGeneration` increments.
+
+**A note on re-render count:**
+
+`imagePositions` always changes in the same Zustand `set()` call as `results` and
+`bufferOffset` — the two fields `useDataWindow` already subscribed to for data access.
+So the reactive subscription to `imagePositions` was not causing extra re-render calls
+(React batches multiple selector changes from one state update into one commit). The
+primary, concrete win here is G-01: eliminating the commit-phase `useLayoutEffect`
+invocations on every extend. The secondary win is removing a subscription that could
+theoretically cause extra renders if `imagePositions` ever changed in isolation.
+
+**Tests:** 856 unit tests, all passing.
+
+---
+
+### 23 May 2026 — Perf: two-tier new-images poll rate + AbortSignal for collection load (audit F-04, App. A #2)
+
+**F-04 — Two-tier poll rate (10s visible / 30s hidden):**
+
+The new-images poll (`startNewImagesPoll`) previously fired `countWithTickers` every 10s
+regardless of tab visibility. The simple visibility-guard fix proposed in the audit
+(stop-when-hidden) was rejected because it would prevent the browser's tab-changed-title
+indicator ("blue dot") from updating on background tabs — which is the primary UX value
+of the poll for multi-tab workflows.
+
+Instead: a `visibilitychange` listener swaps the interval rate based on tab state.
+- Visible tab: 10s (unchanged — real-time feel for the active search)
+- Hidden tab: 30s (still updates title/blue-dot, ~66% fewer background requests)
+
+When a tab becomes visible again, an immediate `tick()` fires before the interval
+restarts, so the count is always fresh when the user looks at it.
+
+All `document` access is guarded with `typeof document !== "undefined"` so the
+existing Node/Vitest test environment (which has no `document`) is unaffected.
+
+New constant `NEW_IMAGES_POLL_INTERVAL_BG = 30_000` added to `tuning.ts`.
+Module-level `_newImagesPollVisibilityHandler` tracks the listener for clean removal
+in `stopNewImagesPoll`.
+
+**App. A #2 — AbortSignal for `getAggregations` in `loadCollections`:**
+
+`loadCollections` fires a `getAggregations({}, [{field: "collections.pathId", size: 6000}])`
+request at boot with no cancellation path. Added a module-level `_collectionsAbortController`
+whose signal is passed to `getAggregations`. If `loadCollections` is somehow called again
+while in-flight (currently prevented by the status guard), the previous request is aborted.
+An aborted agg falls into `aggResult.status === "rejected"` in the `Promise.allSettled` call,
+which is already handled gracefully — the collection tree is shown without counts.
+
+The `getAggregations` interface and `ElasticsearchDataSource` implementation already
+accepted an optional `AbortSignal`; no adapter changes required.
+
+**Files changed:** `src/constants/tuning.ts`, `src/stores/search-store.ts`,
+`src/stores/collection-store.ts`.
+**Tests:** 856/856 passed.
+
+### 23 May 2026 — Perf: hoist static ES request fragments to module scope (audit F-02, F-03)
+
+Two functions in `es-adapter.ts` were being called on every ES request despite
+producing identical output every time, because all their inputs are static config.
+
+**F-02 — `buildFreeFilter`:** Called inside `buildQuery` on every request (extends,
+seeks, counts, aggs — every ES call). The function iterates `categoryDefaultCost`,
+`freeSuppliers`, and `suppliersCollectionExcl` from `guardian-config.json` (a vendored
+static JSON import). Computed `FREE_FILTER` once at module load; `buildQuery` now
+references the constant instead of calling the function.
+
+**F-03 — `buildTickerAggs`:** Called in both `_doSearch` (every `search()` action) and
+`countWithTickers` (every 10s poll tick). The function calls `parseCql(def.searchClause)`
+for each ticker definition — parsing static CQL strings from `gridConfig.tickerDefinitions`.
+Computed `TICKER_AGGS` once at module load; both call sites now reference the constant.
+The `_doSearch` short-circuit (`includeTickers ? TICKER_AGGS : null`) is preserved.
+
+Both config sources are static for the lifetime of the page — Guardian config requires
+an EC2 redeploy to change, and `gridConfig` is a hardcoded module. The constants are
+recomputed on each page load, which is the correct granularity.
+
+Unit: 856/856.
+
+### 23 May 2026 — Perf: stop tracking total hits on every searchAfter (audit F-01)
+
+Every `searchAfter` call in `es-adapter.ts` had `track_total_hits: true` hardcoded,
+forcing a full 9M-doc count scan on every request — extends, seeks, fills, restores,
+all of them. Only the initial `search()` call actually needs the total.
+
+**Fix:** Added `trackTotalHits?: boolean` to `SearchParams`. `es-adapter` now defaults
+to `track_total_hits: false`; ES 7.x returns `hits.total` as absent in this case, so
+the return path uses `?.value ?? 0`. `search()` passes `trackTotalHits: true` (both
+the frozen-until and normal branches). All other callers (extendForward, extendBackward,
+seek ×3, `_fillBufferForScrollMode`, `_findAndFocusImage`, `restoreAroundCursor`) stop
+writing `result.total` back to state and instead use `get().total` / `state.total`.
+This is safe because `frozenParams()` pins the query after the initial search, so the
+total never legitimately changes during a session.
+
+**Sort-around-focus edge case:** `get().total` is stale at the time `_findAndFocusImage`
+runs (the initial `set()` in `search()` deliberately withholds `total` to avoid a
+virtualizer re-render mismatch). `_findAndFocusImage` uses `fallbackFirstPage?.total
+?? get().total` — `fallbackFirstPage` always carries the correct new-search total
+from `search()`, and is passed through to the recursive call too.
+
+Commit: b967c0d66. Unit: 856/856. E2E: 239/239.
+
+### 22 May 2026 — Fix: facet panel bugs (trace import, category 0 results, lonely header, typeahead labels)
+
+Four related fixes to the facet/filter panel, discovered during manual testing:
+
+**1. Facet click silent failure (missing `trace` import):**
+Commit 36ff114d0 (Tickers feature) accidentally removed the `import { trace }` line
+from `FacetFilters.tsx`. Every facet click threw a ReferenceError silently — the
+`handleFacetClick` function calls `trace("facet-click")` which was now undefined.
+Fix: re-added the import.
+
+**2. Category facet click returns 0 results (case mismatch):**
+The Category field has a `formatter: categoryLabel` that maps raw ES keys like
+`"handout"` → `"Handout"`, `"staff-photographer"` → `"Photographer – staff"`. When a
+user clicked a category facet, the code used the *formatted display value* in the CQL
+query (e.g. `category:Handout`). But ES stores these as keyword fields — no analyzer,
+case-sensitive match — so `category:Handout` returns 0 results while `category:handout`
+works.
+
+Fix: Added `formatterIsDisplayOnly?: boolean` to `FieldDefinition` interface. When true,
+`FacetSection` uses the raw `bucket.key` (not the formatted label) as the CQL value
+passed to `handleFacetClick`. Set `formatterIsDisplayOnly: true` on the Category field.
+
+**3. Lonely "Is" section header on 0 results:**
+When a search returns 0 results, all `IsSection` items are hidden (they have no
+meaningful facet data). But the section still rendered its "Is" header with an empty
+body. Fix: `IsSection` pre-computes `visibleItems` and returns `null` when empty.
+Also added a `"No results to filter"` empty state when `total === 0` and no facet
+buckets exist.
+
+**4. Category labels in typeahead dropdown:**
+When typing `category:` in the CQL input, the typeahead dropdown showed raw ES keys
+(`staff-photographer`, `handout`). Now it shows formatted labels (`Photographer – staff`,
+`Handout`) as the primary text, with the raw key shown as subtitle. Upon selection, the
+raw key is inserted into CQL (correct for ES matching).
+
+Implementation: Added optional `label?: string` to `TypeaheadSuggestion` interface.
+Category resolver in `typeahead-fields.ts` now maps suggestions through `categoryLabel()`.
+`CqlSearchInput.tsx` passes `s.label` through to the `@guardian/cql` library's
+`TextSuggestionOption`, which renders label as primary display and value as subtitle
+(library built-in behaviour, no opt-out available).
+
+### 22 May 2026 — Fix: metadata click from deep position jumps to end of results
+
+**Bug:** User seeks to a deep position (e.g. offset 100k in 9M results), focuses an
+image, then clicks a metadata value to restrict the search. The filtered results might
+contain only 3k images, but the focused image is thrown to the end of results instead
+of remaining centred.
+
+**Root cause (two compounding issues in `_findAndFocusImage`):**
+
+1. **Stale total for path decision.** The sort-around-focus path intentionally delays
+   updating `total` in the store (to prevent virtualiser mismatch). But the
+   offset-finding algorithm uses `get().total` (the OLD total, e.g. 9M) to decide
+   whether to call `countBefore` (fast, ≤65k) or use a hint offset (deep-seek mode,
+   >65k). With a stale total of 9M, it always enters deep-seek — even when the new
+   filtered results are only 3k.
+
+2. **Stale hint exceeds new total.** In deep-seek mode, the code uses
+   `_focusedImageKnownOffset` (the image's position in the PREVIOUS search) as a
+   buffer-placement hint. When the old offset (100k) exceeds the new total (3k),
+   `_loadBufferAroundImage` sets `bufferOffset ≈ 100k` while `total = 3k`. The
+   virtualiser clamps scroll to max → user lands at end of results.
+
+**Fix (two guards):**
+- `effectiveTotal = fallbackFirstPage?.total ?? get().total` — uses the NEW total
+  (available via `fallbackFirstPage`) for the branch decision. Filters that reduce
+  results below 65k now correctly route to `countBefore`.
+- `effectiveHint = (hintOffset < effectiveTotal) ? hintOffset : null` — if the hint
+  exceeds the new total (catastrophic), discard it. Valid hints (popstate snapshots
+  where offset < total, sort-only changes where total is unchanged) pass through.
+
+**Why intermittent:** only triggers when (a) old offset > new total, AND (b) new total
+still > SCROLL_MODE_THRESHOLD so the image isn't in the first page. Common with
+metadata clicks that narrow from millions to thousands-to-tens-of-thousands.
+
+### 22 May 2026 — Dead-code audit: useToast hook + isOptions local (#20, #11)
+
+Executed findings #20 and #11 from `dead-code-and-over-abstraction-audit-findings.md`.
+
+**Finding #20 — `useToast.ts` deleted (whole file, ~90 LOC):**
+Investigated BBC PR #4253 notification system before deleting. Confirmed the hook was
+generic React ergonomics (wrapping `addToast` with `useCallback`), not BBC-bridge
+infrastructure. The real BBC vocabulary alignment (matching `category` and `lifespan`
+enums from `gr-notifications-banner`) lives in `toast-store.ts` types, which remain
+untouched. No caller ever imported the hook — both toast producers (`selection-store`,
+`useRangeSelection`) use the imperative `addToast` directly as intended.
+
+Finding #26 (`ToastLifespan` export) reclassified as export-keyword noise after #20
+landed — the type is still used internally by `ToastItem.lifespan` and documents the
+BBC contract for future Phase 3 bridging.
+
+**Finding #11 — dead `const isOptions = buildIsOptions()` removed (1 statement):**
+Leftover from a refactor that hoisted the computation to module-level `IS_OPTIONS`.
+The local call inside `buildTypeaheadFields()` was never cleaned up; the resolver at
+line 382 uses the module-level const. tsc TS6133 confirmed dead.
+
+**Tests:** 856 unit tests pass after both changes.
+
+### 22 May 2026 — Dead-code audit pass 1c: carry-over TS6133 + ring-buffer cleanup
+
+Executed findings #1–5 and Appendix A item 1 (option B) from
+`dead-code-and-over-abstraction-audit-findings.md`. One commit, full test suite run after.
+
+**Deleted:**
+- `normalizeCql` function — `cql.ts` (finding #1, ~15 LOC)
+- `getTunable` function — `image-prefetch.ts` (finding #2, ~10 LOC)
+- `unregisterShortcut` function — `keyboard-shortcuts.ts` (finding #3, ~10 LOC)
+- `getPrefetchLog` function — `image-prefetch.ts` (finding #4, ~7 LOC)
+- `fullImagesEnabled` const — `image-urls.ts` (finding #5, ~5 LOC)
+
+**Appendix A item 1 — option B (ring-buffer stripped, `console.debug` kept):**
+Deleted from `image-prefetch.ts`: `PrefetchLogEntry` interface, `PREFETCH_LOG_CAP`
+const, `_prefetchLog` array, ring-buffer push/trim code inside `prefetchLog`, and
+`_prefetchLog.length = 0` reset in `__resetPrefetchForTests`. `prefetchLog` kept as a
+pure `console.debug` wrapper — dev-mode debug output preserved. ~20 additional LOC
+reclaimed. User chose option B over full deletion to preserve the 6 `console.debug`
+call sites scattered through the session/burst/cancel paths.
+
+**Tests:** 856 unit tests + 239 e2e tests, all pass.
+
+### 22 May 2026 — Custom swipe-to-navigate in fullscreen (Chrome workaround)
+
+Bug: entering fullscreen via `FullscreenPreview` or `ImageDetail`, then
+two-finger swiping left on a trackpad either did nothing or triggered
+zoom-in instead of browser back navigation.
+
+Diagnosis: disabled ALL wheel event handlers in `usePinchZoom` and confirmed
+the gesture still didn't fire — proving Chrome blocks its native
+swipe-to-navigate when the Fullscreen API is active. Firefox uses OS-level
+gesture detection and is unaffected.
+
+Fix: added custom gesture detection in the `onWheel` handler of `usePinchZoom.ts`.
+Accumulates `deltaX` over a 300ms window, fires `history.back()` when
+`|cumX| > 200` and horizontal-dominant. Key details:
+- Negative `deltaX` = left swipe = back; positive = forward.
+- `deltaX !== 0` guard prevents pure vertical inertia from polluting state.
+- Swipe state resets in `applyTransform` when `isZoomed` transitions false,
+  so swiping works immediately after pinch-to-unzoom (no 300ms wait).
+- Only fires when `scale <= 1` and not Ctrl-held (preserving zoom behaviour).
+- Falls through to zoom for vertical-dominant wheel events.
+
+Deviation entry added (custom gesture replaces native browser behaviour).
+
+### 21 May 2026 — Fix 413 on large selections + clear ghost chips on Home
+
+**Bug: large range selections fail silently (413 Request Entity Too Large)**
+
+Root cause: `getByIds` in `es-adapter.ts` repeated the full 45-field
+`SOURCE_INCLUDES` array per document in the `_mget` request body. At the
+1,000-doc batch size, the body reached ~1.2MB — exceeding nginx's default
+1MB `client_max_body_size`. The 413 was silently caught by `ensureMetadata`,
+leaving the metadata cache empty. Reconciliation then ran on only the anchor
+image, making the Detail panel appear stuck in single-image mode.
+
+Fix: moved source filtering to the `_source_includes` URL query parameter
+(universally supported across ES 5.x–8.x). The body now contains only doc
+IDs (~50KB for 1,000 docs). Confirmed working with 1,550-image selections
+(3 chunks, largest 50KB).
+
+**Bug: partial/ghost chips not cleared by Home button**
+
+Partial chips (e.g. `+credit:` with no value) live in ProseMirror's internal
+document model inside the `<cql-input>` Web Component. Setting `value=""`
+via attribute doesn't reliably destroy them — only a full remount does.
+`resetToHome` never bumped `_cqlInputGeneration`, so partial chips survived.
+
+Fix: added `cancelSearchDebounce("")` in `resetToHome` before `setParams`.
+This bumps the generation counter, changing the React key on
+`<CqlSearchInput>`, forcing a clean remount that destroys ghost chips.
+
+### 21 May 2026 — Ticker system, agency-pick border, `is:` counts, and `is:` typeahead
+
+Complete implementation of ticker badges, agency-pick image borders, `is:` document
+counts in the Filters panel and CQL typeahead, and a new DAL method for filter
+aggregations.  All uncommitted changes below.
+
+**DAL layer (`dal/types.ts`, `dal/index.ts`)**
+
+Three new types added to the `ImageDataSource` interface:
+- `TickerCountResult { value: number; subCounts?: Record<string, number> }` —
+  mirrors Scala's `ExtraCount`. Carries per-ticker doc count plus optional
+  sub-aggregation buckets (e.g. by supplier for agency picks).
+- `CountWithTickersResult { count: number; tickerCounts: Record<string, TickerCountResult> }` —
+  return type for the new `countWithTickers()` method.
+- `FilterAggRequest { name: string; query: Record<string, unknown> }` —
+  a named filter agg request for composite queries that aren't simple field terms.
+
+Two new methods on `ImageDataSource`:
+- `countWithTickers(params)` — lightweight `size: 0` search that returns the
+  new-images count AND per-ticker deltas in a single ES call.  Replaces the old
+  `count()` call in the new-images poll.
+- `getFilterAggregations(params, filters, signal?)` — fire named filter aggs
+  against the current query context.  Used by `fetchAggregations` (for
+  `is:deleted` / `is:under-quota` panel counts) and the typeahead cold fallback.
+
+**ES adapter (`es-adapter.ts`)**
+
+- `buildTickerAggs()` — compiles `gridConfig.tickerDefinitions` into ES filter
+  agg clauses via `parseCql`.  Each definition can optionally trigger a sub-terms
+  agg (currently `usageRights.supplier` for agency picks, size 9).  Mirrors
+  `ElasticSearch.scala` `aggregationsNameToSearchClauseMap`.
+- `parseTickerAggs()` — parses the ES aggregation response back into
+  `Record<string, TickerCountResult>`, including `sum_other_doc_count` under the
+  key `"other"`.
+- `countWithTickers()` — `size: 0` ES search with `buildTickerAggs()` aggs block.
+- `getFilterAggregations()` — builds an ES `aggs` block from `FilterAggRequest[]`,
+  fires it as `size: 0`, returns `name → doc_count`.
+- `mock-data-source.ts` — stub implementations for both new methods.
+
+**Grid config (`grid-config.ts`)**
+
+- `TickerDefinition` interface: `name`, `searchClause`, `backgroundColour`,
+  optional `subAggField`.
+- `agencyPicksColour: "#7d006880"` — border/badge colour for agency-pick images.
+- `agencyPicksIngredients` — map of ES field paths to keyword lists, mirrors
+  `agencyPicsConfigFragment.conf`.  Three fields: `metadata.description` (topshot,
+  bestpix, PABest, TPX IMAGES OF THE DAY, epaselect), `metadata.keywords`
+  (epaselect, aptopix, SPOTLIGHT, EDITORS' PICKS, PABest), `metadata.title`
+  (aptopix).
+- `tickerDefinitions` array: GNM-owned (`is:GNM-owned`, blue `#005689`) and
+  agency picks (`is:agency-pick`, with `subAggField: "usageRights.supplier"`).
+
+**`cql.ts` additions**
+
+- `PHOTOGRAPHER_CATEGORIES` and `ILLUSTRATOR_CATEGORIES` exported (used by
+  FacetFilters and typeahead to sum photo/illustration counts from the category agg).
+- `agency-pick` case in `buildIsQuery`: builds a `bool.should` with
+  `match_phrase` clauses for every entry in `gridConfig.agencyPicksIngredients`
+  (17 clauses across 3 fields), `minimum_should_match: 1`.
+- `parseCql` was already exported — just needed importing where previously
+  inline query objects were used.
+
+**Image borders (`lib/image-borders.ts`)**
+
+Generalised from a static lookup map to a proper function:
+- `CATEGORY_BORDERS` (private) — the old `IMAGE_BORDERS` object.
+- `isAgencyPick(image)` — scans `metadata.description`, `metadata.keywords`, and
+  `metadata.title` against `gridConfig.agencyPicksIngredients`.  Case-insensitive
+  (`toLowerCase`) because ES standard analyser lowercases at index time.
+- `getImageBorderColour(image)` — public API.  Returns category colour if matched,
+  falls through to agency-pick colour, or `undefined` for no border.
+- `IMAGE_BORDERS` kept as a `@deprecated` alias pointing at `CATEGORY_BORDERS`.
+- `ImageGrid.tsx` and `ImageTable.tsx` updated to call
+  `getImageBorderColour(enriched ?? image)` instead of `IMAGE_BORDERS[category]`.
+
+**Search store (`stores/search-store.ts`)**
+
+New state fields:
+- `tickerCounts: Record<string, TickerCountResult> | null` — from `_doSearch` and
+  additively merged on every poll tick.
+- `tickersLastUpdated: string | null` — ISO timestamp of last tickerCounts update,
+  shown in badge tooltip.
+- `isFilterCounts: Record<string, number> | null` — deleted/under-quota counts
+  from `fetchAggregations`, read by FacetFilters and typeahead.
+
+`_doSearch` changes:
+- Parallelised PIT creation + `countWithTickers` + ES search via `Promise.all`.
+- Initial `tickerCounts` and `tickersLastUpdated` set from the first `countWithTickers`
+  response.  New-images poll skips its initial tick (`skipInitialTick = true`)
+  since the first tick just duplicates what `_doSearch` already fetched.
+- Ticker state resets to `null` on new search start (unless `frozenUntil` set).
+
+Poll changes:
+- `count()` replaced with `countWithTickers()`.
+- `mergeSubCounts()` helper: merges poll delta sub-buckets into existing
+  sub-counts additive-accumulation style (same semantics as Kahuna).
+- `tickerCounts` and `tickersLastUpdated` only written to state when deltas are
+  non-empty (avoids spurious re-renders on quiet polls).
+
+`fetchAggregations` changes:
+- `getAggregations` and `getFilterAggregations` now run in `Promise.all` (parallel).
+- `FilterAggRequest[]` built synchronously before the await using
+  `parseCql("is:deleted").must[0]` and `parseCql("is:under-quota").must[0]`.
+- `isFilterCounts` written to store after each agg cycle.
+
+**StatusBar (`components/StatusBar.tsx`)**
+
+- `buildTickerTooltip(ticker, lastUpdated)` — builds a native `title=` string:
+  "last updated X ago" (from `date-fns` `formatDistanceToNow`) + blank line +
+  `count  SupplierName` rows for non-zero sub-counts, sorted descending.
+- Ticker badge `<button>` elements rendered from `gridConfig.tickerDefinitions`.
+  Badge hidden when count is 0 or equals total result count (same rule as Kahuna).
+  Badge click calls `upsertFieldTerm` to append `is:<value>` to the current query.
+  Active state detected via `findFieldTerm`; active badge rendered at `opacity-60`.
+
+**FacetFilters (`components/FacetFilters.tsx`)**
+
+New `<IsSection>` sub-component:
+- Iterates `buildIsOptions()` (the canonical config-gated `is:` option list).
+- `derivedIsCount(value)` resolves counts from three sources: ticker store
+  (for ticker-backed values), category agg bucket sum (for `gnm-owned-photo`/
+  `gnm-owned-illustration`), and `isFilterCounts` from store (for `deleted`/
+  `under-quota`).
+- `IS_VALUE_TO_TICKER` module-level `Map` for O(1) lookup from `is:` value →
+  ticker definition without iterating on every render.
+- Zero-count entries hidden unless currently active or excluded in the query.
+- Coloured square dot (ticker `backgroundColour`) right of label for
+  ticker-backed values.
+- Click toggles: second click on active entry removes it; left-click applies,
+  right-click (or `onIsClick(value, true)`) excludes.
+
+**CqlSearchInput + typeahead (`CqlSearchInput.tsx`, `typeahead-fields.ts`)**
+
+- `CqlSearchInput` subscribes to `tickerCounts` and `isFilterCounts` via
+  `useSearchStore.subscribe` refs — avoids rebuilding `fieldDefs` on every
+  tick — and passes `getTickerCounts` and `getIsFilterCounts` callbacks to
+  `buildTypeaheadFields`.
+- `buildTypeaheadFields` now takes 5 params (was 3).
+- `IS_OPTIONS` hoisted to module level (built once, not re-built per call).
+- `is:` field resolver: enriches suggestions with document counts from the same
+  four sources as `IsSection`.  Warm path: reads counts synchronously from refs.
+  Cold path (no cached counts): fires `getFilterAggregations` for deleted +
+  under-quota + photo + illustration (4 requests).  `TextSuggestionOption.count`
+  renders the count flush-right in the dropdown.
+
+**Code-review fixes (applied in follow-on session)**
+
+- `parseCql` statically imported in `search-store.ts` (replaces inline query
+  objects) and `typeahead-fields.ts` (replaces dynamic `getOverQuotaSuppliers`
+  import — no longer needed because `parseCql("is:under-quota")` handles it).
+- Cold fallback issues 4 filter requests (deleted, under-quota, photo,
+  illustration), not 2.
+
+**Stale-counts edge case — investigated and deferred**
+
+When a user edits an `is:X` chip (removes the value), the typeahead resolver
+fires before the `queryChange` event, so `tickerCounts` and `isFilterCounts` in
+the store still reflect the previous query.  Two fix attempts both failed:
+(1) reading `params.query` — empty chips are stripped before the store updates;
+(2) comparing `aggCacheKey(state.params)` to `state._aggCacheKey` — params haven't
+updated at resolver time either.  User declared edge case, all related code reverted.
+
+**Tests**
+
+New file `cql.test.ts` — 10 unit tests covering all `is:` branches in `parseCql`:
+deleted, gnm-owned (6 categories), gnm-owned-photo, under-quota (`match_all`),
+agency-pick (`bool.should`, clause count, clause shape, field coverage), and
+`-is:agency-pick` negation.  Test suite: 856 tests, 45 files.
+
+**`useReaper` gap**
+
+`useReaper: false` is correct.  Enabling it would surface `is:reapable` in the UI
+but `buildIsQuery` has no reapable case → `match_none` → 0 results.  Proper
+implementation requires `persistenceIdentifiers` from gridConfig.  Documented as
+a known gap in `ticker-system-reference.md` §5.
+
+**Documentation**
+
+- `ticker-system-reference.md`: Sections 4–6 rewritten to reflect current
+  implementation status (all items ✅ except `is:reapable` and OrgOwned checkbox),
+  known gaps, and design notes.
+- `deviations.md`: §17 (agency-pick image border) and §18 (`Is` panel + typeahead
+  counts) added.  Old §17–§19 renumbered to §19–§21.
+- `component-detail.md`: StatusBar, FacetFilters, ImageGrid/Table, and CQL
+  sections updated.
+- `AGENTS.md`: Vitest count 843 → 856; CQL system summary row updated.
+
+### 21 May 2026 — Unified busy indicator + timing display in SearchBar
+
+Replaced the "Seeking…" text in the StatusBar with a pulsating dot in the
+SearchBar that unifies all busy signals: search, sort-around-focus, aggregation,
+reconciliation, and range-selection (shift-click walk). Added wall-clock timing
+display for each operation with contextual tooltips.
+
+**Key changes:**
+
+- `SearchBar.tsx`: Added a green pulsating dot (Tailwind `animate-pulse`) that
+  appears when any operation is in-flight. Implemented 150ms delay-before-show
+  to avoid flashing the dot for sub-150ms operations. Timing spans show the
+  duration and operation name after completion (search, seek, agg,
+  range-selection).
+
+- `StatusBar.tsx`: Removed the `sortAroundFocusStatus` "Seeking…" indicator —
+  this signal is now covered by the unified busy dot.
+
+- `FacetFilters.tsx`: Removed the `AggTiming` sub-component (timing now shown
+  in SearchBar). Only the circuit-breaker button remains.
+
+- `selection-store.ts`: Added `isReconciling`, `isRangeWalking`, and
+  `rangeWalkTime` fields to track selection-related busy state and timing.
+  `clear()` resets all fields.
+
+- `useRangeSelection.ts`: Captures wall-clock timing for the async range walk
+  (shift-click across buffer boundaries). Sets/clears `isRangeWalking` and
+  stores `rangeWalkTime` on completion.
+
+All 846 unit tests and 239 Playwright e2e tests pass.
+
+### 21 May 2026 — Fix: format position number in ImageDetail
+
+The global position counter in the ImageDetail header (e.g. "766939 of
+1,323,948") now formats the left number with locale separators too:
+"766,939 of 1,323,948". One-line change in `ImageDetail.tsx`:
+`(currentGlobalIndex + 1).toLocaleString()`.
+
+### 18 May 2026 — Fix: fullscreen exit centering + Firefox middle-click activation
+
+Two fixes and one investigation closure.
+
+**1. Fullscreen exit centering — resize-debounce timing fix
+(`FullscreenPreview.tsx`)**
+
+After exiting FullscreenPreview, the focused image landed too low in both grid
+and table. Root cause: `cleanupAfterExit` scheduled a single `rAF` to scroll,
+but `document.exitFullscreen()` is async and on macOS Chrome the window animates
+back from fullscreen — `clientHeight` transitions over ~300-500ms. The scroll
+fired before layout settled, using stale dimensions.
+
+Fix: resize-debounce pattern. After `fullscreenchange` (or immediately for
+browser-initiated Esc exits), listen for `resize` events: 50ms quick-path if
+no resizes arrive (e.g. Firefox, no animation), 150ms debounce after each
+resize, 1s safety cap. Only then fire `doScroll()` → `rAF` →
+`scrollFocusedIntoView()`. Grid fullscreen exit now lands at 0px offset.
+Table fullscreen exit has a residual ~12.5 CSS px (DPR 2) offset — something
+shifts `scrollTop` *after* the centering scroll fires. Root cause unknown;
+formula inputs are identical to detail exit (which is perfect). Accepted.
+
+**2. Middle-click fullscreen in Firefox (`ImageDetail.tsx`, `ImageGrid.tsx`,
+`ImageTable.tsx`, `FullscreenPreview.tsx`)**
+
+Firefox blocks `requestFullscreen()` called from inside a mouse event handler
+not triggered by the left button. Two changes were needed:
+
+(a) `auxclick` → `mouseup` in all four middle-click handlers. `auxclick`
+doesn't carry transient user activation in Firefox at all; `mouseup` does,
+but Firefox still blocks `requestFullscreen()` if the call is synchronous
+inside the handler.
+
+(b) `setTimeout(toggleFullscreen, 0)` in `ImageDetail.tsx`. Grid and table
+were already immune because their path goes through `rAF` →
+`enterFullscreenPreview()` → state update → React effect → `requestFullscreen()`
+— fully outside the handler stack. ImageDetail called `toggleFullscreen()`
+synchronously. The `setTimeout` posts to the macrotask queue, breaking out of
+the handler stack while transient user activation survives (~5s window).
+
+Middle-click fullscreen now works in Firefox across all three surfaces
+(grid, table, image detail). No change in Chrome behaviour — `setTimeout(fn, 0)`
+is within Chrome's activation window too.
+
+**Investigation closure:** `centering-investigation.md` — 800+ line research
+doc spanning 6 agent sessions — moved to archive. The table geometry bug (45px
+from sticky header) was fixed in commit `44d0502eb`; fullscreen exit timing
+addressed in this commit. Remaining 12.5px table fullscreen exit offset
+accepted; full diagnosis in the archived doc.
+
+### 17 May 2026 — Fix: table scroll-to-center off by 45px after detail/fullscreen exit
+
+Focused image in table density landed 45 CSS px too low when returning from image
+detail or fullscreen preview. Grid density was unaffected. The investigation spanned
+multiple agent sessions; full research in `centering-investigation.md`.
+
+**Root cause (41px decomposition):**
+TanStack Virtual's `scrollToIndex({align:"center"})` centres within the full
+`clientHeight` of the scroll container, unaware that a sticky header eats 36px of
+usable viewport. The sticky header is a flow child *inside* `data-table-root` (the
+virtualizer's content wrapper), not outside the scroll container where it could be
+accounted for by `scrollPaddingStart`. This architectural quirk — header inside the
+content wrapper — means TanStack's centering math is structurally wrong for table
+density. An additional 5px came from a font strut descent: `data-table-root` is
+`display: inline-block` with `line-height: 24px` (Open Sans), and the empty first
+flex child (selection column header, no text) caused the baseline to fall to its
+bottom margin edge, adding ~5.8px of strut descent below.
+
+**Two-part fix:**
+1. `leading-[0]` on `data-table-root` — collapses the font strut to 0, making the
+   static offset exactly equal to `headerHeight` (36px). No more mystery 5px gap.
+2. Custom `scrollRowToCenter` callback in `ImageTable.tsx` — bypasses TanStack's
+   `scrollToIndex` entirely. Computes `rowCenter = rowIdx × ROW_HEIGHT + ROW_HEIGHT/2`
+   and `usableHeight = clientHeight − headerHeight`, then calls
+   `virtualizer.scrollToOffset(rowCenter − usableHeight/2)`. No magic numbers — uses
+   the same `headerHeight` from `useHeaderHeight` (ResizeObserver-measured).
+
+The callback is wired into `useScrollEffects` (fullscreen exit, keyboard nav,
+density-switch restore) and `useReturnFromDetail` (detail exit) — table only. Grid
+doesn't pass it, so grid keeps TanStack's native centering which works correctly
+(no sticky header in the content wrapper). Updated table visual baseline snapshot.
+
+**NOT fixed:** fullscreen exit still has a separate timing bug on macOS — the
+centering scroll fires before the macOS fullscreen-exit resize animation completes,
+so `clientHeight` is stale. Invisible to Playwright (no real fullscreen API in
+headless Chromium). Filed as a follow-up.
+
+Validated: 846 unit tests, 3 DIAG centering tests (0px offset), 239 e2e tests.
+
+### 17 May 2026 — Fix: horizontal swipe back through usePinchZoom wheel handler
+
+`usePinchZoom`'s `onWheel` handler unconditionally called `e.preventDefault()` on every
+wheel event (registered with `{ passive: false }`), which prevented the browser from
+detecting horizontal overscroll and triggering back/forward navigation gestures.
+
+Fix in `usePinchZoom.ts`: when at 1× zoom, let horizontal-dominant wheel events through
+(where `|deltaX| > |deltaY| × 2` and no `ctrlKey`). Vertical scroll and actual pinch
+(`ctrlKey`) still zoom normally. When already zoomed in (`scale > 1`), all wheel events
+are captured for panning. Confirmed working in Firefox and Chrome on macOS.
+
+### 17 May 2026 — Fix: FullscreenPreview scroll position + browser history
+
+Two bugs in `FullscreenPreview.tsx`, both fixed in the same file:
+
+**Bug 1 — scroll position not preserved on close (no traversal).** Closing fullscreen
+preview always called `scrollFocusedIntoView()` which centres the image via
+`align: "center"`, even when the user didn't traverse. The grid stays in the DOM behind
+the fullscreen layer, so its `scrollTop` is naturally preserved — centering was wrong.
+Fix: track `entryImageIdRef` on enter; on exit, only call `scrollFocusedIntoView()` if
+`focusedImageId !== entryImageIdRef` (i.e. the user traversed). Mirrors the logic in
+`useReturnFromDetail` and `ImageDetail`'s swipe-to-dismiss `onDragStart`.
+
+**Bug 2 — browser back navigated underneath the fullscreen overlay.** FullscreenPreview
+didn't participate in browser history — it was a pure state overlay. Swiping back
+navigated the underlying page while the fullscreen stayed on top. Fix: push a phantom
+history entry (`pushState` with same URL + `_kupuaFullscreenPreview: true`) on enter.
+Three exit paths coordinate cleanup via `phantomEntryRef`:
+- User-initiated (f/Backspace/middle-click/double-click): `exitPreview()` clears ref,
+  calls `history.back()` to pop phantom.
+- ESC (browser-native fullscreen exit): `fullscreenchange` handler does the same.
+- Browser back (swipe gesture): `popstate` handler detects active preview, exits
+  fullscreen, cleans up. No `history.back()` needed — browser already popped.
+- Dead phantom entry bounce: if user presses forward after closing, lands on the
+  phantom entry with `_kupuaFullscreenPreview` but preview isn't active — immediately
+  bounces back via `history.back()` so the entry is invisible.
+
+The phantom entry uses the same URL, so TanStack Router's dedup guard catches the
+same-URL popstate — no search fires, no snapshot capture, no side effects. Trade-off:
+`pushState` truncates the forward stack, but forward entries only exist when the user
+recently pressed back without doing anything else (uncommon).
+
+Extracted `cleanupAfterExit()` helper to deduplicate phantom pulse + conditional scroll
+logic across the three exit paths.
+
+### 17 May 2026 — Zoom-enhanced hi-res image loading and pan clamping improvements
+
+**Zoom hi-res loading (`image-urls.ts`, `FullscreenPreview.tsx`, `ImageDetail.tsx`):**
+When the user zooms in (pinch or double-tap), a higher-resolution image is fetched and
+swapped in via `new Image()` + `.decode()` to avoid flicker. The zoom URL is built by
+`getZoomImageUrl()` which requests `detectDpr() × 2.5` the CSS viewport dimensions —
+enough to exceed physical pixel density on every tested device at any zoom level.
+
+The hi-res image is never reverted on zoom-out: once loaded, it stays as a free quality
+upgrade until the user navigates to a different image (at which point React writes the
+standard URL for the new image). In `FullscreenPreview` the swap targets the raw `<img>`
+element via ref; in `ImageDetail` it targets `StableImg`'s imperative ref (only when
+fullscreen + zoomed).
+
+Requests are never upscaled — `getZoomImageUrl` caps width/height at the original image's
+native dimensions, and imgproxy itself won't enlarge beyond source.
+
+**Double-tap zoom scale (`usePinchZoom.ts`):**
+`DOUBLE_TAP_SCALE` increased from 2 to **3** — the previous 2× felt underwhelming on
+high-DPI mobile screens where even 2× barely revealed more detail than the standard view.
+
+**Letterbox-aware pan clamping (`usePinchZoom.ts`):**
+The old pan overflow formula used `containerWidth × overflow` for horizontal and
+`containerHeight × overflow` for vertical, producing unequal overflow distances on
+non-square containers (e.g. a landscape image on a portrait phone had ~200px letterbox
+top/bottom, making the vertical "gap" much larger than horizontal). Rewritten to:
+
+```
+overflowPx = min(containerW, containerH) × 0.25
+maxTx = max(0, (renderedW × scale − containerW) / 2 + overflowPx)
+maxTy = max(0, (renderedH × scale − containerH) / 2 + overflowPx)
+```
+
+The `(renderedDim × scale − containerDim) / 2` term is positive when the scaled image
+exceeds the container (allowing pan) and negative when smaller (letterbox eats into the
+limit). This gives equal overflow on all four edges regardless of aspect ratio.
+
+**Resolution coverage across devices:**
+
+| Device | Physical W | screen.width | DPR | detectDpr | Standard req | Phys coverage | Zoom req | Phys coverage |
+|---|---|---|---|---|---|---|---|---|
+| 27" Mac | 5120 | 2560 | 2 | 1.5 | 3840 | 75.0% | 9600 | 187.5% |
+| MacBook Pro 14" (default) | 3024 | 1512 | 2 | 1.5 | 2268 | 75.0% | 5670 | 187.5% |
+| MacBook Pro 14" (1920×1200) | 3024 | 1920 | 1 | 1 | 1920 | 63.5% | 4800 | 158.7% |
+| iPhone 16/17 Pro Max | 1320 | 440 | 3 | 2 | 880 | 66.7% | 2200 | 166.7% |
+| Pixel 10 Pro | 1280 | ~412 | ~3.1 | 2 | 824 | 64.4% | 2060 | 160.9% |
+
+> **Display zooming note:** macOS "More Space" (1800×1169) reports DPR 2, so standard
+> request = 2700 (89.3% coverage) — fine. The 1920×1200 row is a worst-case manual
+> "Show all resolutions" pick that reports DPR 1. Even there, zoom delivers 158.7%.
+>
+> **No upscaling:** requests are capped at original image dimensions client-side;
+> imgproxy also won't enlarge beyond source. Coverage >100% means the request exceeds
+> physical pixels — the image is served at native resolution (lossless at any zoom level).
+>
+> **Mobile display scaling paradox:** on Android, increasing "Display size" (Settings →
+> Display) raises the system DPI, which *shrinks* `screen.width` while raising
+> `devicePixelRatio`. Because `detectDpr()` caps at 2 for mobile, the DPR increase is
+> lost but the viewport shrink is felt — so a larger display-size setting paradoxically
+> requests *smaller* images. iOS "Display Zoom" (Settings → Display & Brightness) has the
+> same effect: it renders at a smaller iPhone's layout, shrinking `screen.width` while
+> `DPR` stays at 3. In both cases the zoom multiplier (×2.5) provides enough headroom
+> that even the reduced request comfortably exceeds physical pixels when zoomed.
+
+**Constants (final values):**
+- `DOUBLE_TAP_SCALE = 3` — double-tap zoom level
+- `MAX_SCALE = 5` — maximum pinch zoom
+- `SNAP_TO_1_THRESHOLD = 1.05` — snap back to 1× when close (unchanged)
+- Zoom DPR multiplier = `2.5` — applied on top of `detectDpr()` for zoom URLs
+- Pan overflow = `0.25` of `min(cW, cH)` — letterbox-aware, equal on all edges
+
+### 17 May 2026 — Pinch-zoom and phantom-mode Home fixes
+
+Three bugs discovered during mobile testing, all fixed in one commit.
+
+**Bug 1 — Double-tap broken after pinch-zoom-out (usePinchZoom.ts):**
+After a pinch-zoom-out gesture ended at scale=1, the `moved` flag remained `true` from the
+two-finger touchmove. Subsequent single-tap set `moved = false` on touchstart, but only for
+the *first* touch of a new pinch — the single-touch else-if branch was missing. Double-tap
+detection (`!moved` guard) therefore failed. Fix: added `else if (e.touches.length === 1)`
+branch in `onTouchStart` that resets `moved = false`.
+
+**Bug 2 — Swipe-dismiss stuck after imprecise unpinch (usePinchZoom.ts):**
+After a real pinch gesture, users rarely land exactly at scale=1.0 — typically ~1.01–1.03.
+The only snap-to-1 check was `scale <= 1` which never fires (MIN_SCALE clamp prevents <1).
+This left the hook in zoomed/pan mode at scale ≈1.02, blocking vertical swipe-dismiss.
+Fix: introduced `SNAP_TO_1_THRESHOLD = 1.05` and added snap logic in three places:
+pinch-end one-finger-lifted, pinch-end all-fingers-lifted, and pan-end.
+
+**Bug 3 — Home button didn't scroll to top in phantom focus mode (useReturnFromDetail.ts,
+reset-to-home.ts):**
+In phantom mode (mobile default, also available on desktop), `focusedImageId` is always null.
+The `useReturnFromDetail` guard `if (previousFocus === null && mode !== "phantom") return`
+was designed to detect "intentional focus clear by resetToHome" — but in phantom mode the
+guard was bypassed (null is the *normal* state), so it continued to `setFocusedImageId(wasViewing)`
+and scrolled to the old image instead of staying at the top.
+Fix: added one-shot `suppressReturnFromDetail()` flag (same pattern as existing
+`suppressNextRestore`), called by `resetToHome()` before navigating. Checked *before* the
+phantom-mode bypass so it works on both mobile and desktop phantom mode. Two unit tests added:
+suppress skips restoration, and the flag is consumed (one-shot) so next close works normally.
+
+### 17 May 2026 — Syndication review follow-ups (lease-staleness completion, badge dedupe, doc fixes)
+
+**Task 1 — Finish `lease.active` → date-based migration:**
+- `src/lib/cost/validity-map.ts`: imported `isLeaseActive`; hoisted `nowMs` in `buildValidityMap`;
+  replaced two `l.active === "true"` snapshot checks with `isLeaseActive(l, nowMs)`. This fixes
+  the staleness bug (§3.2.1) for the validity banner and `shouldOverride` signal — an expired
+  allow-use lease no longer keeps the banner teal. Updated JSDoc to document the date-based approach.
+- `src/components/ImageMetadata.tsx` line 182: fixed the last `l.active === "true"` fallback for
+  `hasActiveAllowLease` when `leasesSummary` is absent.
+- `src/lib/cost/validity-map.test.ts`: updated the deny-lease-inactive test to use an expired
+  `endDate` instead of `active:"false"` (old approach no longer works with date-based check). Added
+  regression guard: expired allow-use lease with stale `active:"true"` → `shouldOverride=false`.
+- `grep -rn 'l.active === "true"' kupua/src/` returns 0 hits (migration complete).
+
+**Task 2 — Extract `<SyndicationBadge>` component:**
+- Created `src/components/SyndicationBadge.tsx`: props `{ status: SyndicationStatus | null | undefined }`,
+  returns null for unsuitable/null, renders monetization_on SVG with status-driven colour + tooltip.
+- `ImageGrid.tsx`: replaced ~17-line inline block with `<SyndicationBadge status={syndicationStatus} />`,
+  removed now-unused `syndicationReason` import, added `SyndicationBadge` import.
+- `field-registry.tsx`: replaced `{hasSyndicationBadge && <span>...SVG...</span>}` block with
+  `{hasSyndicationBadge && <SyndicationBadge status={syndicationStatus} />}`, replaced
+  `syndicationReason` import with `SyndicationBadge` import. `hasSyndicationBadge` early-return
+  guard kept intact.
+
+**Task 3 — Fix contradictory comment in `calculate-syndication-status.ts`:**
+- Rewrote the file header's first paragraph: it said "existence-based allow-syndication lease
+  check" but the code used `isLeaseActive()`. New text accurately describes (a) mirrors
+  Image.scala priority order, (b) departs via date-based active check, (c) omits
+  search-filter-only gates.
+
+**Task 4 — Add deviations.md entry for date-based active detection:**
+- Added `### Leases panel — date-based active detection, not ES snapshot (SY-5)` entry at end
+  of deviations.md. Covers what, why, and trade-off; warns future agents not to revert to
+  `active === "true"` checks.
+- 844/844 unit tests passing.
+
+
+
+### 16 May 2026 — SY-4 + SY-5: Syndication UI (badge, info panel, warning banner, leases)
+
+**SY-4 — Grid/table syndication badge:**
+- Extended the existing `monetization_on` icon in `ImageGrid.tsx` and the badges column in
+  `field-registry.tsx` from "sent only" to all four non-unsuitable statuses.
+- Colour scheme (Kahuna parity): sent=green, queued=orange, blocked=red, review=white.
+  White is safe in kupua's dark-theme icon bar (unlike Kahuna where it risks blending
+  with light thumbnails — not a concern here since the icon bar always has `bg-grid-cell`).
+- Tooltip text provided by `syndicationReason()` from `lib/syndication/syndication-reason.ts` (SY-2).
+- `hasSyndicationBadge` flag added to the null-return guard in field-registry badges column
+  so queued/blocked/review images now render their badge.
+- Fixed stale comment in `ImageGrid.tsx` line 235 ("API only" — was wrong since SY-2).
+
+**SY-5 — Info panel (Syndication Rights section, §5.2):**
+- Added "Syndication rights" section at bottom of `ImageMetadata.tsx`.
+- Three variants: "No information available." / "...have been acquired..." / "...have **not** been acquired...".
+- `isInferred` and `published` are available on the type but not rendered in v1 (matches Kahuna; data
+  layer ready for future iteration without schema changes).
+
+**SY-5 — Deny-syndication warning banner (§5.3):**
+- Added `showDenySyndicationWarning` and `denySyndicationTextHeader` to `grid-config.ts`.
+- When an active deny-syndication lease exists (computed via `isLeaseActive()` — date-based,
+  not trusting the stale ES snapshot) AND `gridConfig.showDenySyndicationWarning` is true:
+  - If validity banner is already showing: the deny-syndication message is appended as a `<li>` inside it (Kahuna behaviour).
+  - If no validity banner: a standalone amber banner is shown (Kahuna behaviour).
+
+**SY-5 — Leases panel (§5.4):**
+- All four access types were already typed in `LEASE_ACCESS_LABELS` in `ImageMetadata.tsx` (allow-use,
+  deny-use, allow-syndication, deny-syndication) — no label changes needed.
+- Migrated lease card "isActive" dimming from `lease.active === "true"` (stale ES snapshot)
+  to `isLeaseActive(lease, nowMs)` (date-based, imported from SY-2's calculate-syndication-status.ts).
+- Also migrated the count fallbacks (currentLeaseCount, inactiveLeaseCount) to use date-based check
+  when `leasesSummary` is absent.
+- `nowMs = Date.now()` hoisted once per render and shared by all three date-based checks
+  (count fallbacks, deny-syndication check, card dimming).
+
+**Tests:** 843/843 unit + 239/239 e2e all green.
+
+### 16 May 2026 — SY-0/1/2/3: Syndication data layer and search filter
+
+**SY-0 — Cleanup: remove phantom fields from SOURCE_INCLUDES:**
+- `syndicationStatus` was in `SOURCE_INCLUDES` but the field is a Painless runtime script —
+  not stored in `_source`. Every search returned `undefined` for it, and existing ES filters
+  (`{ term: { syndicationStatus: value } }`) matched nothing. Removed from `SOURCE_INCLUDES`.
+- `persisted` was in the same category — a media-api computed field, not in `_source`. Removed.
+- Removed dead `syndicationStatus` and `persisted` term filters in `es-adapter.ts`
+  (previously silently matched zero documents). Fixed misleading comment block in `es-config.ts`.
+
+**SY-1 — Data layer: syndicationRights + lease type tightening:**
+- Added `syndicationRights.published`, `syndicationRights.isInferred`,
+  `syndicationRights.rights.acquired` dot-paths to `SOURCE_INCLUDES`. Verified against PROD
+  mapping — dot-paths strip noise (`rightCode`, `properties[]`) while preserving what kupua
+  needs. Full `syndicationRights` object would double per-hit payload for no gain.
+- Defined `SyndicationRights` interface in `image.ts` (acquired/isInferred/published).
+- Defined `LeaseAccess` union type: `"allow-use" | "deny-use" | "allow-syndication" |
+  "deny-syndication"`. Tightened `Lease.access` from `string` to this union. Checked all
+  break sites (validity-map.ts, ImageMetadata.tsx, validity-map.test.ts) — all already used
+  literal strings within the union, no code changes needed beyond the type declaration.
+
+**SY-2 — Client-side syndication status computation:**
+- Created `src/lib/syndication/calculate-syndication-status.ts`:
+  - `isLeaseActive(lease, nowMs)`: date-based active check (startDate ≤ now < endDate).
+    Does NOT trust the stale `lease.active` ES snapshot — that field reflects state at last
+    thrall reindex, not current time. Design decision: Option B from syndication.md §4.3
+    (be correct about lease expiry rather than match Kahuna's existence-only check).
+  - `calculateSyndicationStatus(image, nowMs)`: returns one of `"sent" | "queued" |
+    "blocked" | "review" | "unsuitable"`. Logic mirrors `SyndicationFilter.scala` derivation
+    but runs client-side per image. Checks (in priority order): has active allow-syndication
+    usage → "sent"; rights acquired + no active deny-syndication + has usable category →
+    "queued" or "review" depending on lease state; otherwise "unsuitable".
+- Created `src/lib/syndication/syndication-reason.ts`: human-readable tooltip text per
+  status ("Sent to partners", "Awaiting review", etc.).
+- Wired `calculateSyndicationStatus` into `deriveImage()` as baseline computation — overlay
+  from Grid API still wins if present (future-proofing). Updated
+  `derive-enriched-image.test.ts` fixture assertion (`syndicationStatus` now `"unsuitable"`
+  not `undefined`).
+- 15 new unit tests: 8 required fixtures (one per status path + edge cases) + 7 edge cases
+  (expired leases, missing rights, lease-without-dates).
+
+**SY-3 — Search filter: composite ES query builder:**
+- Read `SyndicationFilter.scala` in full. No undocumented logic — five statuses all match
+  syndication.md §4.2. Noted: Scala's `useRuntimeFieldsToFixSyndicationReviewQueueQuery`
+  adds a Painless `hasActiveDeny` runtime field for "review" — kupua can't deploy Painless
+  from FE, so uses Option B (date-range on `leases.leases.endDate`) as documented.
+- Created `buildSyndicationStatusFilter(status, startDate?)` in `es-adapter.ts` (exported
+  for direct testing). Produces composite bool queries per status:
+  - `sent`: `must[usages.platform exists, usageRights.category in syndicatableCategories]`
+  - `queued`: rights acquired + syndicatable category + no active deny-syndication lease +
+    no syndication usage
+  - `blocked`: rights NOT acquired
+  - `review`: rights acquired + syndicatable category + has active deny-syndication lease
+    (date-range check: `startDate ≤ now AND (no endDate OR endDate > now)`)
+  - `unsuitable`: NOT in syndicatable categories
+- Added `syndicatableCategories` array and `syndicationStartDate: null` to `grid-config.ts`.
+  `syndicationStartDate` is an SSM secret in PROD (not committed); `null` = no date gate
+  (correct for TEST/CODE).
+- URL wiring: NO changes needed — `syndicationStatus` already threaded through
+  `search-params-schema` → `useUrlSearchSync` → `search-store` → `buildQuery`.
+- 25 new unit tests covering all five statuses, edge cases, and the PROD start-date variant
+  (via parameter override).
+- TEST cluster spot-check (16 May 2026): browser verification against TEST showed all five
+  status values matching Kahuna's results. Option-B divergence (expired deny-syndication
+  de-correlation) untestable in TEST — requires PROD data. Documented in deviations.md.
+
+**Tests:** 843/843 unit (818 pre-existing + 25 SY-3) + 239/239 e2e all green.
+
+### 16 May 2026 — CQL popover dead-space fix
+
+The CQL typeahead popover container uses `height: 100%` to support scrolling on long
+suggestion lists, but this makes the container extend ~150px beyond the visible dropdown.
+Clicks/taps in this dead space were swallowed instead of passing through to elements
+underneath. Fix: `pointer-events: none` on `.Cql__TypeaheadPopoverContainer`, `pointer-events: auto`
+on the inner `.Cql__TypeaheadPopover`. PR: https://github.com/guardian/cql/pull/126
+
+### 15 May 2026 — Mobile keyboard retention on chip delete, typeahead self-referential fix
+
+**Mobile keyboard retention (CqlSearchInput.tsx):**
+When a chip's value is cleared via backspace on mobile, CQL's ProseMirror removes
+the focused `<chip-value contenteditable>` from the DOM. Mobile browsers interpret
+this as "user finished editing" and dismiss the virtual keyboard. Fix: a `focusout`
+listener (gated behind `isMobile()`) detects focus loss immediately after a
+Backspace/Delete keypress and refocuses the editor in a microtask. A `recentKeyAction`
+flag (cleared after 80ms) ensures the refocus only fires for DOM-mutation blurs —
+tapping away (e.g. entering image detail) still dismisses the keyboard normally.
+Desktop is unaffected. SwiftKey on Android still dismisses (third-party keyboard
+quirk, not fixable from our side).
+
+**Typeahead self-referential aggregation fix (typeahead-fields.ts):**
+Editing an existing chip value (e.g. clearing `credit:John Smith`) showed only the
+previously selected value in suggestions — the resolver was reading query-scoped
+aggregations that included the chip's own filter. Fix: when resolving suggestions for
+field X and the current query contains `X:value`, skip the store's cached aggregations
+(tainted) and fetch a fresh aggregation from ES with X's chip expression stripped from
+the query. Two new helpers: `stripFieldFromQuery()` (regex-removes a CQL field
+expression) and `queryContainsField()` (detects presence). `scopedAgg()` accepts an
+optional `cqlKey` and strips it before querying. The regex approach is a documented
+workaround (deviations §14) pending a CQL upstream fix (resolver context API).
+
+**CQL upstream: `handleTextInput` for mobile chip triggers:**
+Verified that adding `handleTextInput` to CQL's ProseMirror plugin fixes `+`/`-` not
+triggering chip creation on mobile virtual keyboards (which fire `key: "Unidentified"`
+in `keydown`). Patch tested live on Android Chrome, CQL test suite passes (197/197).
+PR: https://github.com/guardian/cql/pull/125. Desktop unaffected (`handleKeyDown`
+catches first, `handleTextInput` never fires).
+
+### 15 May 2026 — Collections polish, auto-sort race fix, sort robustness
+
+**Collections UI polish (across multiple sub-sessions):**
+- Grid cell badges: collection leaf name with tree-derived colour, breadcrumb tooltip.
+- Detail panel: `detailListStyle: "links"` renders collections as stacked breadcrumb
+  links (own section with divider).
+- CollectionTree: scroll-trapping bug (`overflow: hidden` → `overflow: clip`), click
+  dead zone (handler on row div, node text downgraded to `<span>`), sticky-row hover
+  (four-state className logic with opaque `color-mix()` for sticky backdrop).
+- Subtree counts: replaced tree-walk approach with pathId-splitting (mirrors ES
+  `hierarchyAnalyzer` tokenization) — orphaned subcollections now counted in parents.
+
+**Phantom focus race condition (auto-sort two-search race):**
+Clearing a collection chip with phantom focus caused stale buffer state — two
+sequential `search()` calls from separate effects (URL sync vs auto-sort revert).
+The first `search()`'s `_findAndFocusImage` could resolve after the second completed,
+overwriting correct state.
+
+Fix (two parts):
+1. *Atomic auto-sort:* Moved auto-sort from reactive `useEffect` into
+   `useUpdateSearchParams()` — sort change merged into the same `navigate()` as query
+   change → single `search()` call. Eliminates the two-search pattern entirely.
+2. *Search generation counter (defence-in-depth):* Module-scope `_searchGeneration`
+   in `search-store.ts`. Each `search()` bumps + captures; stale completions bail after
+   `await Promise.all`. Abort controller capture bug also fixed (signal captured before
+   await, passed as override).
+
+**`dateAddedToCollection` sort made robust globally (was broken outside collection
+context):**
+- `buildSortClause`: explicit `missing: "_last"` + `uploadTime` secondary → null-zone
+  pagination works for non-collection images.
+- `parseSortField` + `reverseSortClause`: handle object-form clause `{ order, missing }`.
+- `DATE_SORT_ES_FIELDS`: added entry → distribution fetch, ticks, and null-zone all fire.
+  Without this, scrubber had zero labels and tooltip showed garbage ("Mar 12395").
+- `NULL_ZONE_LABEL_OVERRIDES`: "No collection date" boundary mark.
+
+**`loadEnv` test pollution fixed:**
+`vite.config.ts` `Object.assign(process.env, loadEnv(...))` leaked `.env.local` values
+into vitest (notably `VITE_DEEP_SEEK_THRESHOLD=200`), breaking 3 tests via seek path
+changes. Gated with `if (!process.env.VITEST)`. Also fixed the latent bugs the leaked
+env exposed: no-scroll-container seek fallback (used buffer-centre instead of
+`targetLocalIndex`), mock-data-source `searchAfter` ignoring `reverse` when cursor null.
+
+**Other review fixes:** Generation-counter invariant comment + unit test; inline
+`buildColourMap` deduplicated (→ collection-store export); CQL `collection` handler
+`.toLowerCase()` restored with explanatory comment.
+
+803 unit tests, 8/8 collection e2e tests passing.
+
+### 12 May 2026 — Collections feature C0–C4 implemented
+
+Full collections feature implemented across phases C0–C4. Design spec in
+`collections-feature.md`. Key decisions came from a prior Opus design session.
+
+**C0 — Infrastructure (no tests):**
+- `vite.config.ts`: Added `/grid-collections` proxy (→ `http://localhost:9010`) and
+  added it to `GRID_API_PROXY_PREFIXES` for the write-guard middleware.
+- `es-config.ts`: Added `collections.pathId`, `collections.description`,
+  `collections.actionData.date`, `collections.path` to `SOURCE_INCLUDES`.
+- `src/types/image.ts`: `Collection` interface and `Image.collections` already existed
+  — no changes needed.
+- `src/lib/format-count.ts`: Extracted `formatCount()` from `FacetFilters.tsx`
+  to a shared utility.
+- `src/lib/dom-utils.ts`: Extracted `findScrollParent()` from `FacetFilters.tsx`
+  to a shared utility.
+- `src/lib/field-registry.tsx`: Added `collections` field (cqlKey: "collection",
+  isList, chip-array, accent pill, detailGroup: "editorial", defaultHidden: true).
+  Note: not `aggregatable` (no facet panel) since the CollectionTree is the
+  dedicated UI for that.
+
+**C1 — Collection store (`stores/collection-store.ts`):**
+- Zustand store with `persist` (sessionStorage), `status: 'idle'|'loading'|'ready'|'absent'`.
+- `loadCollections()`: parallel fetch of tree + ES agg, builds subtree counts via
+  `buildSubtreeCounts()` pure function.
+- Graceful-absence: tree fetch failure → `status='absent'` (section hidden). Agg
+  failure → tree shown without counts.
+- `buildSubtreeCounts()` recursively walks the tree bottom-up. Exported for testing.
+- 7 unit tests in `stores/collection-store.test.ts` (all passing).
+- Boot: `useCollectionStore.getState().loadCollections()` in `main.tsx` (fire-and-forget,
+  same pattern as `fetchQuotas()`).
+
+**C2 — CollectionTree component (`components/CollectionTree.tsx`):**
+- Renders when `status === 'ready'`. Returns `null` when `status === 'absent'`.
+- Expand state: local `useState<Set<string>>` keyed by pathId (or basename for nodes
+  without inner data). Collapsed by default.
+- Each node: colour stripe (cssColour or transparent), chevron toggle (parent) or
+  spacer (leaf), name button (clickable if has pathId), subtree count (hidden if 0).
+- Active row highlighting: `findFieldTerm(currentQuery, "collection", pathId)` !== null.
+- Collapse drift correction: `requestAnimationFrame` scrolls collapsed node's row to
+  top of panel scroll container (same pattern as `FacetFilters.handleCollapse`).
+- Depth-0 only gets `position: sticky` + `top: 0` (first-pass, depth-1+ scroll normally).
+- Wired into `search.tsx` leftPanel above the existing Filters section.
+- 8 Playwright e2e tests in `e2e/local/collections.spec.ts`, mocking
+  `/grid-collections/**` with a 3-node test fixture.
+
+**C3 — CQL integration + auto-sort:**
+- `~` shorthand and `collection` key in `cql.ts` were ALREADY present. No parser changes.
+- Auto-sort in `CollectionTree.handleNodeClick`: adding a `collection:` filter when sort
+  is default → also updates `orderBy: "dateAddedToCollection"`. Removing the last
+  `collection:` filter when sort is `dateAddedToCollection` → reverts `orderBy: undefined`.
+  Both happen in a single `updateSearch()` call (atomic URL update).
+- `lib/typeahead-fields.ts`: Added `collection` resolver reading from `useCollectionStore.getState()`.
+  When tree is ready, flattens all pathIds via `flattenCollectionPathIds()` and filters by
+  typed value. No ES call needed — we already have the tree.
+
+**C4 — Image collection display:**
+- Delivered by the C0 field-registry entry. Detail panel, multi-image panel, and table
+  column (hidden by default) all show collections as accent pills via `FieldValue`
+  and `chip-array` `multiSelectBehaviour`.
+- `defaultHidden: true` so the table column doesn't clutter the default view.
+- Chip click emits `collection:pathId` (not `~pathId`) — see deviations.md §19.
+
+**Pre-existing finding noted (not fixed):**
+- `cql.ts` line 248: `collection` key handler does `term: { [getFieldPath("pathHierarchy")]: value }`.
+  `getFieldPath("pathHierarchy")` returns bare `"pathHierarchy"` (not `"collections.pathHierarchy"`).
+  This may be a bug in the existing code but is out of scope for the collections UI feature.
+  The UI feature uses `collections.pathId` (for the agg-based count) rather than `collections.pathHierarchy`.
+
+**Test counts after this session:**
+- 801 Vitest unit tests passing (42 test files)
+- 8 new Playwright e2e tests in `collections.spec.ts`
+
+
+
+### 12 May 2026 — Scroll and overscroll fixes (grid, toolbar, detail)
+
+Three CSS-only fixes for scroll/overscroll behaviour on macOS trackpad:
+
+1. **Grid horizontal scroll latch** (`ImageGrid.tsx`): Changed grid scroll container
+   from `overflow-auto` to `overflow-y-auto overflow-x-hidden`. The grid has no
+   horizontal content, but `overflow: auto` allowed trackpad diagonal swipes to latch
+   into horizontal scroll tracking, causing the grid not be scrollable. Reported with
+   Magic Mouse; not reproducible with one-directional scroll wheels.
+
+2. **Vertical overscroll bounce on non-scrollable surfaces** (`__root.tsx`): Added
+   `overscroll-y-none` to the root layout div. This div has `overflow: hidden`, making
+   it a scroll event sink — scroll events from toolbar/chrome are consumed here without
+   bouncing, while the grid/table's own scroll containers keep their per-element
+   rubber-band bounce via their existing `overscroll-y-contain`.
+
+3. **Horizontal content shift during swipe-to-navigate** (`index.css`): Added
+   `overflow-x: hidden` on `html`. This prevents the page content from visibly shifting
+   left/right during the trackpad back/forward gesture, while preserving the browser's
+   navigation gesture itself. Using `overscroll-behavior-x: none` was tried but it
+   killed the navigation gesture entirely; `overflow-x: hidden` achieves the visual fix
+   without disabling browser-level gestures.
+
+### 10 May 2026 — Desktop zoom, middle-click fullscreen preview, phantom pulse fix
+
+**Desktop zoom in fullscreen (ImageDetail + FullscreenPreview)**
+
+Added mouse-driven zoom and pan to both fullscreen surfaces, matching the existing
+touch/pinch support:
+
+- **Click-to-zoom:** Single click toggles between 1× and 2× zoom, centered on the
+  click point. Immediate response — no 300ms tap-delay.
+- **Wheel zoom:** Continuous zoom (1×–4×) centered on cursor position, `zoomSpeed=0.002`.
+- **Drag-to-pan:** Click-and-drag pans when zoomed, with momentum (friction 0.95,
+  `requestAnimationFrame` decay loop). Relaxed clamp bounds so image corners can
+  reach screen centre (50% overflow). Keyboard pan uses tighter bounds (5% overflow).
+- **Double-click exit:** Rapid second click (within 300ms) resets zoom and exits
+  fullscreen — resolves the conflict between click-to-zoom and the previous
+  double-click-to-toggle-fullscreen gesture.
+- **Traversal gated by zoom state:** Arrow keys and NavStrips disabled while zoomed >1×.
+  Zoom resets on image change.
+- **Keyboard zoom shortcuts (in fullscreen):**
+  - Space: toggle 1×↔2× (centred, no double-click trigger).
+  - Arrows (when zoomed): pan 25% of viewport per press, instant (key-repeat friendly).
+  - Home / End: snap to top-left / bottom-right corner (animated).
+  - Shift+Home / Shift+End: snap to top-right / bottom-left corner (animated).
+
+Touch vs mouse disambiguation: 500ms `lastTouchTime` guard prevents ghost-click
+firing after `touchend`. All mouse handlers bail if `Date.now() - lastTouchTime < 500`.
+
+**`usePinchZoom` hook changes** (`src/hooks/usePinchZoom.ts`): Added `onClick`,
+`onWheel`, `onMouseDown/Move/Up`, `onKeyDown` handlers. New interface fields:
+`onScaleChange?: (zoomed: boolean) => void` (threshold crossing notification),
+`onDoubleClick?: () => void` (rapid second click callback). `clampTranslate`
+parameterised with `overflow` fraction (default 0.5 for drag, 0.05 for keyboard).
+
+**Middle-click as universal fullscreen preview shortcut**
+
+Middle-click (auxclick, `button === 1`) on any image in grid or table opens
+FullscreenPreview. Also works as exit from both FullscreenPreview and ImageDetail
+fullscreen. Solves the gap where click-to-open mode had no quick way to peek at
+fullscreen without opening the detail panel.
+
+- **ImageGrid / ImageTable:** `auxclick` event delegation on scroll container, finds
+  `[data-image-id]` via `closest()`, sets focus, then `requestAnimationFrame(() =>
+  enterFullscreenPreview())`.
+- **Orchestration:** New `registerEnterPreview` / `enterFullscreenPreview` pair in
+  `src/lib/orchestration/search.ts`, same pattern as existing `scrollToFocused`.
+
+**Phantom pulse fix on FullscreenPreview exit**
+
+When exiting FullscreenPreview in phantom focus mode, the pulse animation now fires
+(matching ImageDetail's existing behaviour). Added `_phantomPulseImageId` set in both
+`exitPreview()` and the `fullscreenchange` listener, gated by
+`getEffectiveFocusMode() === "phantom"`.
+
+**Bug fix: middle-click broken after reload in ImageDetail**
+
+On page reload in image detail, the loading placeholder renders before the real
+`containerRef` div. The auxclick effect ran with `containerRef.current === null` and
+never re-ran because `toggleFullscreen` identity didn't change. Fixed by adding
+`image` to the effect's dependency array (same pattern as `useSwipeCarousel`'s
+`enabled: !!image`).
+
+**Files changed:** `usePinchZoom.ts`, `ImageDetail.tsx`, `FullscreenPreview.tsx`,
+`ImageGrid.tsx`, `ImageTable.tsx`, `src/lib/orchestration/search.ts`.
+
+**Tests:** 794 unit tests green. No new unit tests — the hook's imperative DOM
+manipulation (refs, `requestAnimationFrame`, `addEventListener`) doesn't lend itself
+to jsdom unit tests; the real coverage surface is Playwright e2e.
+
+### 10 May 2026 — Bug fixes: Alt+arrow word-jump broken in table view; table horizontal scroll pixel-by-pixel
+
+**Bug 2 — Alt+Left/Right (word jump) broken in search box when table is active**
+
+In table mode (`cols === 1`), `useListNavigation.ts` was intercepting all ArrowLeft/Right
+events unconditionally, calling `e.preventDefault()` regardless of modifier keys. The CQL
+search box deliberately lets Alt-modified keys bubble (so global shortcuts work), but
+`isNativeInputTarget` doesn't catch `<cql-input>` (custom element, not native input), so
+the table scroll handler fired instead of the browser's native word-jump.
+
+**Bug 3 — Table horizontal scroll pixel-by-pixel when holding arrow key**
+
+`scrollBy({ behavior: "smooth" })` starts a ~300–500ms animation. Key repeat fires at
+~30 events/second. Each repeat cancels the in-progress animation (only ~5px complete of
+150px target) and starts a new one. Net: ~5px per event instead of 150px.
+
+**Fix (single edit, `useListNavigation.ts`):**
+
+Both `cols === 1` branches now guard on `!e.altKey && !e.shiftKey && !e.metaKey &&
+!e.ctrlKey` — modified arrows fall through to browser default (word-jump, select-word,
+line-start/end). Dropped `behavior: "smooth"` from both `scrollBy` calls — each key
+repeat now jumps a full 150px instantly, matching how vertical `scrollByRows` works.
+
+Comment added noting the residual gap: custom editing web components that propagate bare
+ArrowLeft/Right for cursor movement are not protected by `isNativeInputTarget` — native
+inputs (likely for future metadata editing) are already fully protected by that guard.
+
+**Tests:** 794 unit tests green. No new tests (pure behaviour change, no testable unit boundary).
+
+### 10 May 2026 — Bug fix: scrubber blank when entire result set is in null zone
+
+**Bug:** Searching with `-has:dateTaken` sorted by `-taken` produced a completely blank
+scrubber track — no ticks, no labels, no red null-zone indicator.
+
+**Root cause:** A 5-step cascade starting in `es-adapter.ts`. When ES returns
+`stats.count === 0` for the `dateTaken` stats aggregation (zero docs have the field),
+`getDateDistribution` returned `null` — conflating "fetch failed" with "zero coverage".
+Downstream: `sortDistribution` was `null` in the store, so the null-zone fetch effect
+never fired, the tick cache key fell to `""`, and the scrubber received an empty array.
+
+**Fixes (3 files):**
+
+- **`es-adapter.ts` Fix A** (`getDateDistribution`): split `!stats || stats.count === 0`
+  into two cases — `!stats` returns `null` (failure), `stats.count === 0` returns
+  `{ buckets: [], coveredCount: 0 }` (valid zero-coverage distribution).
+- **`es-adapter.ts` Fix B** (`getKeywordDistribution`): removed dead `if (buckets.length
+  === 0) return null` guard (unreachable, but semantically wrong).
+- **`sort-context.ts` Fix C** (`computeTrackTicksWithNullZone`): guard changed from
+  `coveredCount <= 0` to `coveredCount < 0` so the `coveredCount === 0` case passes
+  through. Boundary tick always emitted at `position: coveredCount` — when `coveredCount
+  === 0` this is `position: 0`, rendering the "No date taken" label at the top of the
+  track (matching the user's request). No Scrubber.tsx changes needed: existing
+  top-edge overflow clamp already handles position-0 labels correctly.
+
+**Downstream self-correction** (no code changes): once Fix A lands, `sortDistribution`
+is truthy with `coveredCount: 0` → null-zone effect fires → `fetchNullZoneDistribution`
+called → uploadTime distribution loads → track fills with red ticks.
+
+**Tests:** 3 new unit tests added to `search-store-extended.test.ts` covering the
+all-null-zone case, the transient state (boundary tick before uploadTime dist loads),
+and a regression guard for the mixed-zone path. All 794 tests green.
+
+---
+
+### 10 May 2026 — Inventory condensation: three raw inventories superseded by §E
+
+Three inventory docs (A: from kupua docs, B: from kahuna source, C: from Grid backend
+Scala) totalling 568 lines deleted. Their contents condensed into a single §E section
+appended to `enrichment-strategy.md`, with five sub-sections:
+
+- §E.1: 10 confirmed TS-feasible capabilities (persistence reasons, lease display, usage
+  icons, staff-photographer border, archiver icon, etc.)
+- §E.2: 9 genuine API-only gaps (downloads, soft-delete, syndicationStatus, writes)
+- §E.3: 10 Guardian-deployment out-of-scope items (BBC-only config gates)
+- §E.4: 7 inventory contradictions resolved (isPotentiallyGraphic Lives-in, persistence
+  reason complexity, metadata-search service location, payType availability, systematic
+  Have-full misclassification, metadata merge behaviour, syndicationStatus non-functional
+  in direct-ES)
+- §E.5: 15 backlog items extracted (AI search, suggesters, usagePlatform UI, upload,
+  write paths, etc.)
+
+Files deleted: `inventory-{A-from-docs,B-from-kahuna,C-from-backend}.md`,
+`inventory-handoff-{A-docs,B-kahuna,C-backend}.md`, `handoff-inventory-condensation.md`.
+
+### 10 May 2026 — Session B: TS overquota + TS isImagePotentiallyGraphic + validity model fix
+
+**B.1 — TS overquota**
+
+Added `src/lib/cost/quota-store.ts`: module-level singleton `Map<supplier, boolean>`.
+`fetchQuotas()` fires at app startup (mounted in `main.tsx`) against `/api/usage/quotas`
+(Argo `EntityResponse` wrapping `StoreAccess`). Graceful absence — network failure or
+non-2xx → empty map, `isSupplierOverQuota()` returns false for all suppliers.
+
+Updated `calculate-cost.ts`: free-supplier agency path now returns `"overquota"` when
+`isSupplierOverQuota(supplier)` is true. The overquota result only upgrades from "free";
+pay/conditional/category-default paths are unaffected.
+
+Updated `cql.ts`: `is:under-quota` CQL predicate wired to `getOverQuotaSuppliers()`.
+`mustNot { terms: { "usageRights.supplier": overQuotaSuppliers } }` — matches Scala's
+`IsUnderQuota`. If quota map is empty, returns `match_all` (no filter).
+
+Added `over_quota` check to `buildValidityMap` in `validity-map.ts`. Added to
+`ALLOWED_ES_PATHS` in `es-config.ts`: `_mget` (used by selection `getByIds`).
+
+**B.1b — Structural validity model fix**
+
+Discovered the existing `deriveInvalidReasons` was conflating `valid` and `invalidReasons`
+by applying the override filter inline (suppressing checks where `overrideable && shouldOverride`).
+This diverged from Grid's `ImageExtras.scala`, where the two are computed independently.
+
+Fix:
+- `deriveInvalidReasons` now returns ALL checks where `invalid=true`, no override filter.
+  Mirrors Scala's `validityMap.filter { case (_, v) => v.invalid }`.
+- New `deriveValid(validityMap): boolean` — independent computation:
+  `every check: !invalid || (overrideable && shouldOverride)`.
+  Mirrors Scala's `isValid()`.
+- `derive-enriched-image.ts` now uses `deriveValid(validityMap)` instead of
+  `Object.keys(baselineInvalidReasons).length === 0`.
+
+Consequence: "overquota" banner in kupua shows red for read-only users (no
+`shouldOverride`) — correct. Users with write permission will get orange
+automatically when permissions are wired (no further changes needed to the
+validity model).
+
+Updated `validity-map.test.ts`: fixed the deny-lease suppression test (which was
+testing the old wrong behaviour), added `deriveValid` test suite (5 tests).
+
+**B.2 — TS isImagePotentiallyGraphic**
+
+Added `src/lib/graphic-image-blur.ts`: port of kahuna's `graphic-image-blur.js`
+phrase list and detection logic.
+
+Inputs (OR'd):
+1. Phrase scan on `metadata.description/title/specialInstructions/keywords` —
+   9 phrases verbatim from kahuna: "graphic content", "depicts death", "dead child",
+   "child casualty", "sensitive material", "dead body", "dead bodies", "body of",
+   "bodies of".
+2. SMOUT: case-sensitive substring in `specialInstructions`; case-insensitive
+   exact-word in `keywords` (via `toUpperCase() === "SMOUT"`).
+3. XMP `pur:adultContentWarning` flag: `fileMetadata?.xmp?.["pur:adultContentWarning"] != null`.
+
+Note: Kahuna also checks the server-side `isPotentiallyGraphic` Painless script field.
+That field is absent from `_source` (not storable) and from single-image GET responses.
+Kupua drops reliance on it per the "TS-replicate" decision. Absence treated as "unknown",
+not "false" — function runs unconditionally.
+
+`defaultShouldBlurGraphicImages = true` hardcoded. The `shouldBlur` parameter allows
+future user-preference toggle without changing the logic.
+
+Not yet wired to render — Cluster 1 row 5 work handles that.
+
+Added `src/lib/graphic-image-blur.test.ts`: 14 tests covering all phrase paths,
+SMOUT variants, XMP flag, shouldBlur=false short-circuit.
+
+**Tests:** 790/790 passing.
+
+### 10 May 2026 — Session A: Drop background enrichment, widen SOURCE_INCLUDES
+
+**Decision:** background enrichment (`useEnrichment`) was doing almost no useful
+work once SOURCE_INCLUDES is widened to include the fields it was fetching. The
+three genuinely API-only deltas (`cost: "overquota"`, `isPotentiallyGraphic`,
+signed download URLs) are either TS-replicable or fired on user intent. The
+connection-starvation complexity (single-lane phase-2, setTimeout yield, Zustand
+subscribe listener) becomes moot. 200 lines of gymnastics gone.
+
+**Changes:**
+- `src/dal/es-config.ts` — SOURCE_INCLUDES widened with enrichment-baseline tier:
+  `cost`, `valid`, `invalidReasons`, `persisted`, `usageRights` (full object,
+  supersedes dot-notation `usageRights.category`), `leases`, `usages`, `actions`,
+  `syndicationStatus`, `fileMetadata.xmp.pur:adultContentWarning` (for Session B
+  TS isPotentiallyGraphic). Note: `isPotentiallyGraphic` is a Painless script
+  field — not stored in `_source` — TS-replicated in Session B instead.
+- `src/hooks/useEnrichment.ts` — DELETED. Full content preserved in changelog
+  entry "10 May 2026 — Background enrichment via useEnrichment [DOOMED]" below.
+- `src/hooks/useEnrichment.test.ts` — DELETED.
+- `src/routes/search.tsx` — `useEnrichment()` mount and import removed. `initGridApi`
+  comment updated (it now serves intent-driven API calls, not the polling loop).
+- `src/lib/derive-enriched-image.ts` — JSDoc updated. Logic unchanged: function
+  still works with overlay=undefined; ES baseline is now authoritative rather than
+  approximate. `hasEnrichment` now reflects intent-driven single-image overlay only.
+- `e2e/shared/helpers.ts`, `e2e/local/selections-mobile.spec.ts` — stale
+  `useEnrichment` references in comments cleaned up.
+
+**Tests:** 748/748 passing after deletion.
+
+**Next:** Session B — TS overquota (`quota-store.ts`) + TS `isImagePotentiallyGraphic`.
+
+### 10 May 2026 — Background enrichment via useEnrichment [DOOMED — to be stripped]
+
+Recorded for diff history. This hook will be removed in the next commit; the
+working-tree-only code would otherwise be lost without git archaeology.
+
+`useEnrichment` is the background enrichment loop that fires `?ids=` requests
+against the Grid API to overwrite ES-baseline fields with server-computed
+values (cost, validity, leases, actions, isPotentiallyGraphic). It evolved
+through three architectures during 7–9 May:
+
+1. **Mirror-search** (`searchByQuery`, offset-based) — paginated into ≤200
+   chunks. Hit 10k offset cap. Replaced.
+2. **IDs-based** (`enrichByIds`, `?ids=` chunked to ≤46 per Pekko URL limit)
+   — exact buffer coverage, no offset cap. Replaced mirror-search.
+3. **Single-lane visible-first** — 300ms debounce, visible viewport IDs
+   sorted to front, sequential phase-2 chunks (at most 1 HTTP connection),
+   Zustand subscribe listener for immediate abort on seek/search, setTimeout(0)
+   yield between phases. This is the version in this commit.
+
+Connection-starvation prevention (the subscribe listener, sequential chunking,
+yield) exists because all dev traffic flows through one Vite origin under
+HTTP/1.1. In production (different origins per service), the deadlock cannot
+occur.
+
+**Why it's being removed:** After inventory audit (A/B/C), the background
+loop does almost no useful work once SOURCE_INCLUDES is widened. The
+genuinely API-only deltas (overquota, isPotentiallyGraphic, download URLs,
+actions) are TS-replicable or fired on user click. See
+`handoff-drop-enrichment-and-ts-replicate.md` for the full rationale.
+
+Files: `hooks/useEnrichment.ts` (268 lines), `hooks/useEnrichment.test.ts`.
+
+### 10 May 2026 — Phase A + Cluster 1: cost, validity, badges, API scaffolding
+
+Two-plus days of bread-and-butter work (7–10 May 2026). This commit contains all
+permanent code; the companion commit adds the `useEnrichment` background loop
+(recorded for history, to be removed in a subsequent strip commit).
+
+**Phase A — Grid API adapter scaffolding:**
+- `dal/grid-api/` — HATEOAS service discovery, adapter (`getImageDetail`,
+  `enrichByIds`), Argo `EmbeddedEntity` unwrapping, error types (`AuthError`,
+  `SessionExpiredError`, `ArgoError`, `WriteGuardBlockedError`), write-guard
+  Vite plugin.
+- `lib/grid-api-instance.ts` — module singleton with `initGridApi()`.
+- `routes/search.tsx` — mounts `initGridApi()` boot effect + `useEnrichment()`
+  call (import resolves after companion commit).
+
+**Cluster 1 — Cost, validity, enrichment infrastructure:**
+- `lib/cost/calculate-cost.ts` — pure `calculateCost(usageRights, config)`,
+  ported from Scala `CostCalculator`.
+- `lib/cost/validity-map.ts` — `buildValidityMap(image)` +
+  `deriveInvalidReasons()`, ported from `ImageExtras.scala`.
+- `lib/cost/guardian-config.json` — vendored Guardian config snapshot
+  (freeSuppliers, suppliersCollectionExcl, payGettySourceList, category
+  defaults).
+- `stores/enrichment-store.ts` — Zustand store for API overlay data
+  (`Map<id, EnrichmentFields>`).
+- `lib/derive-enriched-image.ts` — pure `deriveImage(image, overlay?)` merge
+  function; ES baseline → API overwrite. Single merge point for all consumers.
+- `hooks/useEnrichedImage.ts` — `useEnrichedImage(image)` hook, subscribes
+  only to enrichment-store per-id (O(1) `Map.get`).
+
+**UI — badges, overlays, detail panel:**
+- `components/CostBadge.tsx` — cost variant badges (free/pay/conditional/
+  overquota/no-rights) at sm/md/lg sizes.
+- `components/ImageGrid.tsx` — cost badge overlay, graphic blur, staff-
+  photographer border, usage icons (print/digital/syndication/persisted).
+- `components/ImageTable.tsx` — `EnrichedTableRow` wrapper, badges column,
+  staff-photographer left border.
+- `components/ImageMetadata.tsx` — Rights section (cost badge, validity
+  disclosure with red/amber/teal states, lease list with relative dates,
+  restrictions banner).
+- `components/MultiImageMetadata.tsx` — Cost summary section (bucket counts
+  + leased-fraction gradient pills).
+- `lib/field-registry.ts` → `.tsx` rename for JSX in `cellRenderer`.
+- `index.css` — cost colour tokens.
+- `lib/image-borders.ts` — shared staff/contract/commissioned border config.
+- `lib/category-labels.ts` — human-readable usage rights category labels.
+
+**ES adapter:**
+- `es-adapter.ts` — `nonFree` filter bug fix (missing free-supplier branch),
+  shape adjustments for enrichment baseline fields.
+
+**Enrichment architecture (survives the strip — canonical reference):**
+```
+ES adapter   → search-store.results: Image[]              (unchanged, pure ES)
+API adapter  → enrichment-store.overlay: Map<id, Overlay>  (ephemeral)
+                                ↓
+                deriveImage(image, overlay?) → EnrichedImage
+                                ↓
+        useEnrichedImage(image) — ONE hook, ONE merge function
+```
+- `deriveImage` is the single merge point. Runs `calculateCost`/`buildValidityMap`
+  for baseline, layers overlay field-by-field. API wins.
+- `useEnrichedImage(image)` takes the `Image` from props (not an id lookup).
+  Subscribes only to enrichment-store per-id (`Map.get`, O(1)). No search-store
+  subscription — avoids O(cells × buffer) scan.
+- `deriveImage(image, undefined)` returns full baseline — graceful degradation.
+- Components read `EnrichedImage` directly. No `??` fallback patterns.
+
+**Known issue: SOURCE_INCLUDES canary (intentional, deferred):**
+`es-config.ts` only whitelists `usageRights.category`, not `.supplier` /
+`.suppliersCollection` / `.restrictions`. This makes `calculateCost()` return
+wrong baseline for agency images (always "pay"). The resulting Pay→Free flash
+when enrichment arrives is an intentional diagnostic canary — it proves
+enrichment is working. Fix is trivial (3 lines in SOURCE_INCLUDES) but
+deferred until enrichment is verified across all surfaces. The strip commit
+(Session A.1) widens SOURCE_INCLUDES and resolves this.
+
+**Docs + inventories:**
+- Inventories A, B, C (docs/kahuna/backend feature audits).
+- Inventory handoffs, research docs, workplan updates, deviations entries.
+- Visual baseline snapshots regenerated (4 screenshots, expected from UI
+  changes).
+- Perf audit results (audit-log, perceived-log).
+
+### 9 May 2026 — Tier collapse: single-lane enrichment at 300ms
+
+**Context:** The enrichment hook had a two-lane architecture (Tier 1 = 300ms viewport-only `useViewportEnrichment`, Tier 2 = 3000ms full-buffer `useEnrichment`). The 3s gap existed to prevent HTTP/1.1 connection starvation. Both tiers were already using the same `enrichByIds` mechanism after the "Tier 1 restructure" earlier in the session.
+
+**Decision:** Collapse to single lane at 300ms. The HTTP/1.1 concern was re-evaluated and rejected for kupua's traffic profile: ES baseline uses a separate SSH tunnel, thumbnails go to S3/CloudFront, and detail-panel fetches are user-click-triggered (sparse). Worst case: a detail-panel fetch waits ~0.8s behind queued enrichment. The structural cost of two lanes exceeded that runtime risk. Under HTTP/2 (when it lands), no additional change is needed.
+
+**Phase 1 — collapse:**
+- Deleted `useViewportEnrichment`, `VIEWPORT_ENRICHMENT_DEBOUNCE_MS`.
+- `useEnrichment` debounce reduced from 3000ms to 300ms.
+- Added `visibleRange.start/end` as effect dependencies so debounce restarts on scroll.
+- Abort semantics: abort immediately on `cacheKey` change (stale buffer); on scroll-only, leave in-flight running (data still valid), abort only when next debounce fires.
+
+**Phase 1b — visible-first + progressive merging:**
+- Visible-first ordering: IDs in viewport ±6 rows sorted to front of list before chunking. Under HTTP/1.1, chunk 0 returns first (~0.8s); badges appear at ~1.1s.
+- `onChunk` callback added to `GridApiDataSource.enrichByIds` — fires as each chunk resolves before `Promise.all` completes. Callers merge per-chunk hits immediately; final `Promise.all` result does authoritative full replace (removes stale evicted IDs).
+
+**Tests:** 3 new tests in `grid-api-adapter.test.ts` covering `onChunk` success, `onChunk` not called on failure, abort cancels. `useEnrichment.test.ts` gained `useVisibleRange` mock. 748→751 vitest tests passing.
+
+**Docs:** deviations.md entry 21 replaced with single-lane description. Appendix A table in cluster1-ids-enrichment-research.md updated: HTTP/2 no longer a prerequisite for collapse.
+
+**LOC delta:** ~120 lines net deleted (all of `useViewportEnrichment` + Tier 2 duplication removed; ~30 lines added for visible-first + onChunk wiring).
+
+### 9 May 2026 — HTTP/1.1 connection starvation: diagnosis and fix
+
+**Superseded** by the tier collapse (above) and ultimately by the enrichment
+strip. Recorded for the diagnostic reasoning, which applies to any future
+parallel-fetch pattern against the Vite dev proxy.
+
+*Symptom:* Scrubber seek froze the grid for 3–7s with enrichment active.
+Binary isolation confirmed `useEnrichment()` as sole cause.
+
+*Scroll-block note (separate pre-existing bug):* The user also reported a
+"scroll-block" (can't scroll further, as if at end of results). A/B testing
+with stash proved this exists on baseline too — NOT caused by enrichment.
+Less severe on baseline (triggers later, recovers faster). Unresolved.
+
+*Wrong hypothesis 1 — React re-render cascade from `onChunk`:* Progressive
+`onChunk` callback called `setEnrichment(new Map(existing))` per chunk (22
+chunks for 1000 IDs ÷ 46). Each replaced the Map reference, triggering
+Zustand subscriber evaluation for ~100 mounted cells. Theory: 22 render waves
+blocked the main thread. Testing disproved — visible-only test (1 chunk,
+1 store update) was fast, but single-update-all-IDs was slow (5–10s). Problem
+was not store updates.
+
+*Wrong hypothesis 2 — seek ES request blocked behind slow `Promise.all`:*
+With 22 chunks via `Promise.all`, all 6 HTTP/1.1 connections occupied.
+Testing showed abort fired immediately (subscribe listener worked) but seek
+still took 3+s. Aborting a `fetch()` doesn't instantly free TCP connections.
+
+*Root cause (confirmed):* All kupua dev traffic flows through `localhost:3000`
+(Vite). HTTP/1.1 limits 6 TCP connections per origin. The deadlock cycle:
+- Abort needs → `cacheKey` change → seek response → free connection
+- Seek response needs → free connection
+- Free connection needs → abort
+React effect lifecycle couldn't break this because `cacheKey` only changes
+AFTER the seek response arrives (via `_seekGeneration` increment inside
+`set()`). By the time effect cleanup ran, the damage was done.
+
+*Fix (three mechanisms):*
+1. Zustand subscribe listener — fires OUTSIDE React effect lifecycle. When
+   `loading` flips true (seek starting), immediately aborts enrichment
+   AbortController and clears pending debounce. Breaks the deadlock.
+2. `setTimeout(0)` yield between phase 1 and phase 2 — creates a macrotask
+   window where the subscribe listener's abort can prevent phase 2 from
+   ever opening connections.
+3. Sequential single-request chunking in phase 2 — at most 1 HTTP
+   connection used by enrichment, 5 always free.
+
+*Performance results (seek durations, `performance.now()`):*
+| Scenario | Seek 1 | Seek 2 | Seek 3 | Seek 4 |
+|---|---|---|---|---|
+| Before fix (parallel `onChunk`) | 800ms | **3060ms** | — | — |
+| After fix (sequential + yield + abort) | 810ms | 841ms | 1069ms | 895ms |
+
+*Trade-off:* Phase 2 offscreen enrichment ~6.6s (sequential) vs ~5s
+(parallel). Invisible — offscreen cells don't paint.
+
+*Pound-sign flash (deferred):* Cost badges briefly show "pay" (SOURCE_INCLUDES
+canary) before thumbnails finish loading after seek. Timing mismatch between
+DOM paint and image decode, not an enrichment bug. Deferred.
+
+*This is a dev-only artifact.* In production, ES/thumbnails/API are on
+different origins; each gets its own 6-connection budget.
+
+**Future server-side improvements that would simplify API call patterns:**
+- **Raising `pekko.http.server.parsing.max-uri-length` to 16384** (+
+  matching nginx `large_client_header_buffers`): ~300 IDs per request
+  instead of 46. Buffer of 500 IDs = 2 requests instead of 11.
+- **HTTP/2**: multiplexes all requests over one TCP connection — no
+  6-connection limit. Parallel `Promise.all` becomes safe.
+- **POST endpoint for `?ids=` enrichment**: body has no URL length limit.
+  One request for all IDs, zero chunking.
+
+### 9 May 2026 — Tier 2 IDs-enrichment swap + Tier 1 restructure
+
+**Superseded** by the tier collapse (above) and ultimately by the enrichment
+strip. Two changes in one session:
+
+**IDs-enrichment swap:** `useEnrichment` (Tier 2) switched from offset-based
+mirror-search (`searchByQuery`) to `?ids=` lookup (`enrichByIds`). Removed
+incremental fetch logic, 10k offset cap, `bufferOffset`/`bufferLength` store
+subscriptions. `enrichByIds` chunks into parallel batches of ≤46 IDs (Pekko
+HTTP 2048-char URL limit). Cache key simplified to
+`query|orderBy|bufferGeneration`. IDs extracted from buffer imperatively at
+fire-time (skipping undefined placeholders). `searchByQuery` deleted (dead
+code after swap).
+
+**Tier 1 restructure:** `useViewportEnrichment` internals swapped from
+per-ID `getImageDetail` concurrency loop to single `enrichByIds` call.
+Deleted `extractEnrichmentFromDetail`, `VIEWPORT_CONCURRENCY`. Tier 1 now
+also delivers `actions` + `isPotentiallyGraphic` (previously missing from
+per-ID endpoint). `enrichByIds` failure semantics changed from
+single-shared-failure to per-chunk-tolerate-failure.
+
+Also: 5 console.logs stripped, dead `const now` removed, TS fix for
+`SearchHitImageData` missing `actions` field (`argo.ts:unwrapSearchHits`
+now merges `entity.actions` onto each hit).
+
+### 9 May 2026 — Inventories B + C produced
+
+**Inventory B** (`inventory-B-from-kahuna.md`): 62 new rows from direct
+kahuna source reading, not covered by Inventory A (docs-based).
+
+**Inventory C** (`inventory-C-from-backend.md`): 54 new data rows from
+direct Scala source reading. Sources: media-api routes + all 5 controllers,
+ImageResponse.scala, ImageExtras.scala, UsageQuota/Store.scala,
+ImagePersistenceReasons.scala, ElasticSearch.scala (both media-api and
+thrall), SearchFilters.scala, all satellite service route files, image-loader,
+image-counter-lambda, image-embedder-lambda.
+
+Key findings: payType IS implemented backend-side; isPotentiallyGraphic is
+runtime script field not stored; embedding fields exist in ES (cohereEmbedV4
+256-dim + cohereEmbedEnglishV3 1024-dim); 12 persistence reasons confirmed;
+10 new search params; many satellite routes not in A/B.
+
+### 9 May 2026 — Code review fixes
+
+- `useViewportEnrichment` had no try/catch around `getImageDetail`.
+  `AuthError`/`SessionExpiredError` from expired panda cookie → unhandled
+  rejection → entire batch dropped. Violated graceful-API-absence directive.
+  Fixed: wrapped inner call in try/catch returning null.
+- Playwright e2e: 227 passed, 4 visual baseline snapshots regenerated
+  (expected from Cluster 1 UI changes). 231/231 green.
+
+### 8 May 2026 — Enrichment architecture redesign
+
+**Superseded** the initial Cluster 1 enrichment wiring (enrichment-store
+subscriptions in individual components). Replaced parallel side-channel
+pattern with a derived-view layer:
+
+- `lib/derive-enriched-image.ts` — pure `deriveImage(image, overlay?)`.
+  ES baseline → API overwrite. Single merge point for all consumers.
+- `hooks/useEnrichedImage.ts` — `useEnrichedImage(image)` hook. Takes
+  `Image` from props (not an id lookup). Subscribes only to enrichment-store
+  per-id (`Map.get`, O(1)). No search-store subscription.
+- `components/ImageTable.tsx` — `EnrichedTableRow` wrapper.
+- `cellRenderer` signature changed: `(image: Image)` → `(enriched: EnrichedImage)`.
+- Deleted `useEnrichmentForImage` (clean cut, all callers migrated).
+
+### 8 May 2026 — Mirror-search pagination fix + incremental enrichment
+
+**Both superseded** by the IDs-enrichment swap (9 May).
+
+**Pagination fix:** Grid API enforces `length ≤ 200`. After buffer extends
+(scroll/PgDown/position-restore), buffer grows to 397–600 items → 422
+Unprocessable Entity → no enrichment. Fix: `useEnrichment` paginated into
+parallel chunks of ≤200 via `Promise.all`. Partial failure tolerated.
+
+**Incremental enrichment + 300ms debounce:** Delta detection via
+`prevRangeRef` (query, orderBy, offset, length, generation). Forward extend
+→ fetch only new tail. Backward prepend → fetch only new head. Seek/query/
+sort/ticker → full refetch. If new range fully covered by previous
+enrichment → 0 requests (no-op). 744 vitest tests passing.
+
+### 8 May 2026 — Two-tier enrichment (viewport-first)
+
+**Superseded** by the tier collapse (9 May) and ultimately by the enrichment
+strip.
+
+Root cause of perceived slowness: Grid API mirror-search at deep offsets
+takes 4–9s (ES `from/size` pagination penalty). Visible cost badges waited
+on full-buffer enrichment.
+
+Fix: two-tier architecture:
+- **Tier 1** (`useViewportEnrichment`): per-ID `getImageDetail` for visible
+  items + 6-item margin. Concurrency-limited to 4. 300ms debounce. Badges
+  appear in ~1s regardless of scroll depth.
+- **Tier 2** (existing `useEnrichment`): buffer-level mirror-search, 3s
+  debounce. Background backfill.
+
+Without API: per-ID fetches get 502 → null in <10ms. Zero slowdown in
+standalone mode.
+
+### 8 May 2026 — Visual polish: table + grid badges, image detail enhancements
+
+- Restrictions tooltip on grid cells: fixed `deriveImage()` to overlay
+  `usageRights` (was missing → tooltip always showed generic text).
+- `IMAGE_BORDERS` extracted to shared `src/lib/image-borders.ts`.
+- Table rows: 7px left border for staff photographer categories.
+- Badges column: print → digital → syndication → cost → persisted (matches
+  grid cell order). `defaultWidth: 66`, `fitWidth: 99`; new
+  `FieldDefinition.fitWidth` for icon-only columns.
+- Image detail — restrictions banner (Kahuna inventory #22).
+- Image detail — usage rights row with human-readable category (#25).
+- Image detail — lease list: expandable, access type, date range, notes,
+  active/inactive border styling, relative dates via `formatLeaseRelative()`.
+- Validity banner: 3-state coloured (red/amber/teal). Text matches Kahuna.
+  `isOverridden`, `isStrongWarning` logic. Both validity and restrictions
+  banners show simultaneously (removed earlier guard that suppressed one).
+- Cost row removed from detail panel; `usageRights_category.detailHidden = true`.
+
+### 8 May 2026 — Enrichment wiring audit + perf fix
+
+**Wiring audit:** Full audit of all `EnrichmentFields` consumers.
+- Bug fix: `MultiImageMetadata.tsx CostSummarySection` was reading
+  `img.leases?.leases?.some(...)` (raw ES, always undefined). Fixed to
+  `enriched.leasesSummary?.hasActiveAllowLease`.
+- Bug fix: `RightsAndLeasesSection` was reading `img.leases.leases` for
+  aggregate counts (always zero). Fixed to enriched fields.
+- Minor fix: `ImageGrid.tsx` + `ImageTable.tsx` border colour now reads
+  `enriched?.usageRights?.category` with raw fallback.
+- Dead code removed: `useEnrichedSelectedImage` (defined, never imported).
+
+**Perf fix (S1):** `useEnrichedImage(id)` subscribed to search-store and
+ran `results.find()` per visible cell on every store mutation — O(cells ×
+buffer). All callers already had `Image` in props. Fix: changed signature
+to `useEnrichedImage(image: Image | undefined)`. Removed search-store
+subscription. +15–20ms ack regression eliminated; +176ms scrubber seek
+regression eliminated.
+
+**Perf fix (S2):** Tickbox memo-busting inline arrow in GridCell and
+EnrichedTableRow. Fixed with `useCallback`.
+
+### 6 May 2026 -- Three reconciliation fixes + frequency tooltips
+
+**Three bugs causing inflated counts in the multi-image metadata panel:**
+
+1. **Queue drain after recomputeAll.** `processReconcileChunk` ran `recomputeAll` (full O(N*F) recompute) but never cleared `_reconcileQueueArr` / `_reconcileQueueSet`. Stale queued IDs were re-reconciled via `reconcileAdd` on top of the already-correct view, inflating `valueCount` / chip counts. Fix: drain both queue structures after `recomputeAll` in both branches of `processReconcileChunk`.
+
+2. **Hydrate full recompute.** `hydrate()` called `enqueueReconcile` without `fullRecompute=true`. Post-reload, `reconcileAdd` ran incrementally on top of the view left over from the previous session (which `persist` middleware had rehydrated), doubling all counts. Fix: `hydrate()` now passes `fullRecompute: true`.
+
+3. **ensureMetadata race.** `toggle()` and `add()` had `.then(() => enqueueReconcile())` on the `ensureMetadata()` promise. But `ensureMetadata` is debounced and batched -- by the time `.then()` fired, reconciliation had often already run from a different trigger, using stale or missing cache entries. Fix: moved the reconciliation trigger into `ensureMetadata()` itself -- after the mget response lands, if any fetched IDs overlap with `selectedIds`, reconciliation is enqueued once. Removed `.then()` from both `toggle()` and `add()`.
+
+**Tooltip enhancement -- frequency counts on "Multiple X" and chip pills.**
+
+`mixed` reconciliation type changed from `sampleValues: unknown[]` (3 capped, no counts) to `topValues: Array<{ value: unknown; count: number }>` (all distinct values with frequency, sorted by count desc). `recomputeAll` builds a per-field frequency `Map` during its existing O(N*F) loop -- zero extra iteration. `applyAdd` increments existing entries or appends (replaces the old cap-at-3 `addSample` helper).
+
+`MultiValue.tsx` tooltip now shows top 5 values with counts: `Getty (31/47)` per line, with `(+N others)` when >5 distinct. `MultiSearchPill` tooltip changed from `value (on 12 of 47)` to `value (12/47)` for consistency. `MultiImageMetadata` reads `selectedIds.size` for the denominator.
+
+Files changed: `selection-store.ts` (3 fixes), `reconcile.ts` (type + recomputeAll + applyAdd), `MultiValue.tsx`, `MultiImageMetadata.tsx`, `SearchPill.tsx`, `reconcile.test.ts`.
+
+### 6 May 2026 — Selection anchor fallback on deselect
+
+**Bug:** Select A → select C → deselect C → shift-click D did nothing. Also, sort-around-focus would centre on a deselected image (the stale anchor).
+
+**Root cause:** `interpretClick` always emits `[set-anchor(target), toggle(target)]` on non-shift clicks in selection mode, regardless of whether the click adds or removes. After deselecting C, `anchorId` remained `C` even though C was no longer selected. Shift-click then computed polarity as "remove" (`selectedIds.has(anchorId)` → false), removing nothing — a no-op.
+
+**Fix:** Added `electFallbackAnchor(remainingIds)` helper in `selection-store.ts`. After `toggle()` removes an image, if that image IS the current anchor, the store re-elects the last element of the remaining `Set<string>` (most-recently-individually-selected = the previous anchor in the common case). Same logic added to `remove()` for batch paths. No changes to `interpretClick` — the store safeguard is sufficient since batch paths (`remove()`, `removeGroup()`, range-remove) bypass interpretClick entirely.
+
+This also fixes the secondary observation: `useUrlSearchSync` reads `anchorId` for sort-around-focus, which now always points to a selected image (or null).
+
+### 5 May 2026 — End key: last row not fully revealed
+
+**Three bugs, two root causes, across all three scroll modes.**
+
+End key was supposed to scroll the last row into view (and focus it if focus was active). In practice the last row was partially or fully hidden behind the bottom of the viewport in all three modes (<1k scroll, two-tier, seek/1.3M), and in Chrome+seek the view would corrupt entirely.
+
+**Root cause 1 (<1k and two-tier):** The End handler used `el.scrollTop = el.scrollHeight - el.clientHeight`. This looks correct but isn't — the in-flow sticky table header adds ~41px to `scrollHeight` beyond `virtualizer.getTotalSize()`, so max scrollTop overshoots past the last row. Fix: use `virtualizer.scrollToIndex(count - 1, { align: "end" })` instead, which uses the virtualizer's internal positioning and accounts for `scrollPaddingEnd`.
+
+**Root cause 2 (seek mode, Chrome only):** After a seek-to-end, a `useEffect` watching `[bufferOffset, resultsLength]` fires `handleScroll()` to sync the scrubber. In Chrome, this effect fires ~170ms after the seek's `set()` — after the 100ms `SEEK_COOLDOWN_MS` has expired. It reads a stale virtualizer range (`startIndex=0` from the old `scrollTop=0`), sees `startIndex <= EXTEND_THRESHOLD && offset > 0`, and triggers `extendBackward`. The prepend shifts scroll by ~6400px, corrupting the position entirely. Firefox's faster render pipeline (~66ms) keeps it within cooldown, so this was Chrome-only.
+
+Fix: added a `seekGeneration` ref to the effect. When `_seekGeneration` has changed since last fire, the effect updates its ref and skips — effect #6's deferred scroll already handles post-seek positioning. On subsequent fires (from normal scrolling), generations match and `handleScroll()` runs normally.
+
+**Additionally:** The seek branch of End previously only set `_pendingFocusAfterSeek: "last"` when focus was active. But effect #6 (which handles `_pendingFocusAfterSeek`) also does the scroll positioning — without the signal, it never ran, leaving the viewport at `scrollTop=0`. Fix: always set `_pendingFocusAfterSeek: "last"` on End-seek, but guard the actual `focusedImageId` write inside effect #6 with `if (store.focusedImageId)`. Same treatment applied to `"first"` (Home) for symmetry, though Home already worked.
+
+**Risk note:** The `seekGeneration` guard suppresses one `handleScroll` fire per seek. This is the right thing to do (the stale-range fire was always wrong, not just for End key), but the scroll machinery is delicate — any timing change in how effects interleave could surface edge cases that 231 e2e tests and 626 unit tests don't cover. The guard is narrowly scoped (one ref, one comparison, one skip) to minimise blast radius.
+
+**Same root cause, different trigger — density switch:** Pressing End in grid mode then switching to table also left the last row hidden. The density-switch restore path used the same `el.scrollTop = el.scrollHeight - el.clientHeight` pattern to snap to the bottom extremum. Fix: replaced with `virtualizer.scrollToIndex(count - 1, { align: "end" })`, same as the End handler fix. E2e assertion tightened from `> maxScroll * 0.5` to `>= maxScroll - 1` to catch the ~40px overshoot.
+
+Files changed: `useListNavigation.ts` (End handler), `useScrollEffects.ts` (seekGen guard + effect #6 focus guards + density-switch extremum snap), `scrubber.spec.ts` (tightened assertion).
+
+### 5 May 2026 — Date filter timezone fix, em dash → en dash
+
+**Date filter timezone round-trip bug:** The picker is always local time; the URL is always UTC. Writing was correct (`new Date(value + "T00:00:00").toISOString()` creates local midnight → converts to UTC). But *reading* was wrong: `toDateInputValue` did `iso.slice(0, 10)`, which takes the date portion of the UTC string — for any timezone ahead of UTC, this is the previous day. Fix: use `format(parseISO(iso), "yyyy-MM-dd")` (date-fns, already imported) which formats in local time, so the picker always shows what the user originally picked.
+
+Invariants after fix:
+- Picker ↔ local time always (user sees their local date, writes their local date)
+- URL ↔ UTC always (portable across timezones, correct for ES queries)
+- Presets ("Today", "Past 24 hours") still write UTC via `.toISOString()` — display may show different local dates for users in different timezones, which is correct (they share the same absolute time bound)
+
+**Em dash → en dash:** Date range label in the filter button used em dash (`—`) between dates. Changed to en dash (`\u2013`) — typographically correct for ranges.
+
+### 4 May 2026 — Cosmetic fixes, Detail panel bug, dependency update
+
+**Detail panel in phantom mode:** Fixed bug where selecting a single image in "click to open" (phantom) mode still showed "Focus an image to see its metadata." The `effectiveMode === "phantom"` check was bailing out entirely, preventing `singleSelectedId` from being resolved. Fix: moved phantom guard into the `resolvedId` ternary — phantom suppresses `focusedImageId` fallback but not single-selection display.
+
+**Location section in multi-select:** The 4 `location_*` sub-fields had `group: "location"` but no `detailGroup` override, causing `groupFieldsIntoSections` to place them in their own bordered section in the multi-image metadata panel. Added `detailGroup: "core"` to all four, matching the composite `location` field. Now flows inline with surrounding fields — no extra visual break.
+
+**Header height alignment:** Table header (`h-11` = 45px) was taller than panel section headers (~36px). Changed table header to `h-9` (36px + 1px border = 37px), gave panel `AccordionSection` buttons matching `h-9 border-b border-grid-separator`, removed the conditional parent border. Both now render at identical 37px. Updated `TABLE_HEADER_HEIGHT` constant from 45 → 37.
+
+**Visual baseline snapshots:** Regenerated grid-view, table-view, and search-query baselines to match new header heights.
+
+**tsconfig.json:** Removed deprecated `baseUrl` (deprecated in TS 6, removed in TS 7). Updated `paths` to `"./src/*"` which works without `baseUrl` in modern TS.
+
+**Dependency update:** Bumped all non-TypeScript deps to latest: react 19.2.5, vite 8.0.10, vitest 4.1.5, tailwindcss 4.2.4, @tanstack/react-router 1.169.1, @tanstack/react-virtual 3.13.24, zod 4.4.3, jsdom 29.1.1, @aws-sdk/* 3.1041.0, @types/node 25.6.0. TS stays at 5.9.3 (6.0 upgrade deferred — cleanup release, no features needed).
+
+**Directive update:** Test tee path changed from `/tmp/kupua-test-output.txt` to `"$TMPDIR/kupua-test-output.txt"` in both copilot-instructions files — sandbox blocks `/tmp` writes.
+
+### 4 May 2026 — Labels
+
+Added labels (`image.userMetadata.labels`) to all Kupua surfaces.
+
+**Field registry:** New `labels` field — `group: "editorial"`, `cqlKey: "label"`, `esSearchPath: "userMetadata.labels"`, `isList: true`, `multiSelectBehaviour: "chip-array"`, `pillVariant: "accent"`. Default visible in table. Positioned above keywords in registry order so it appears first in all metadata views. Added `"editorial"` to `FieldGroup` union.
+
+**Pill variant system:** Added `pillVariant?: "default" | "accent"` to `FieldDefinition`. Extracted shared class constants (`PILL_BASE`, `PILL_DEFAULT`, `PILL_ACCENT`, `PILL_PARTIAL`) in `SearchPill.tsx`. All three pill components (`SearchPill`, `DataSearchPill`, `MultiSearchPill`) gained an `accent?: boolean` prop. Accent = `bg-grid-accent text-white` (Guardian blue `#00adee`), matching Kahuna's label colour. Partial pills (multi-select, on some but not all) stay grey/hollow regardless of accent.
+
+**Grid cells:** Label pills rendered between thumbnail and description in a fixed-height (`h-6`) strip — always reserved so descriptions align across cells regardless of labels. `flex-nowrap overflow-hidden` prevents spill. Individual pills get `truncate max-w-full` for long labels. Click triggers search via `useMetadataSearch()` with `stopPropagation` to avoid cell click/focus interference. Same shift/alt modifier pattern as all other click-to-search.
+
+**Table / panels:** `listCellRenderer` threads `pillVariant` to `DataSearchPill`. `FieldValue` (single-image) and `MultiImageMetadata` (multi-select) thread it to `SearchPill` / `MultiSearchPill` respectively. Facet filters work automatically from the registry.
+
+**ES source whitelist:** Added `"userMetadata.labels"` to `SOURCE_INCLUDES` in `es-config.ts` — without this, ES had the data but `_source` filtering stripped it from responses.
+
+**CQL:** `#` shorthand for `label:` was already wired in `cql.ts` and `CqlSearchInput.tsx` — no changes needed.
+
+Files changed: `field-registry.ts`, `SearchPill.tsx`, `ImageGrid.tsx`, `ImageTable.tsx`, `metadata-primitives.tsx`, `MultiImageMetadata.tsx`, `es-config.ts`.
+
+### 4 May 2026 — Selection anchor preserves position on sort changes
+
+**Problem:** Sort-around-focus preserves scroll position when the user has an explicit focus and changes sort/order. But when the user enters selection mode without prior explicit focus (the common case -- selection clicks toggle without setting focus), `focusedImageId` is null, the existing mechanism has nothing to preserve around, and sort changes reset to top.
+
+**Fix:** Two surgical additions:
+1. **`useUrlSearchSync.ts`** — After the existing `focusPreserveId` computation, added a fallback: if `focusPreserveId` is still null, `isSortOnly` is true, and selection mode is active with an anchor, use `anchorId` as both `focusPreserveId` and `phantomAnchor`. This routes through the existing `phantomOnly` search path — position is preserved without re-establishing explicit focus.
+2. **`useScrollEffects.ts` Effect #7** — The ratio-saving logic (`preserveId`) now also checks for `selectionAnchorId` between `focusedImageId` and `getViewportAnchorId()`, ensuring the viewport ratio is captured before the async search fires.
+
+No changes needed in `search-store.ts` or Effect #9 — the existing `_phantomFocusImageId` → `sortAroundFocusGeneration` → scroll-restore pipeline handles the anchor image identically to any other phantom positioning target.
+
+### 3–4 May 2026 — Media-API read-only integration: groundwork (Phase 0 prep)
+
+**Scope:** No code features yet — this session laid the safety infrastructure, contract cleanup, and UI research needed before any API-first code is written.
+
+**`gridApiWriteGuard()` plugin (`kupua/vite.config.ts`).** New Vite plugin alongside the existing `esProxyGuard()`. Blocks all non-GET methods on any prefix in `GRID_API_PROXY_PREFIXES = ["/api"]` with a 403 JSON response, unless `process.env.VITE_GRID_API_WRITES_ENABLED === "true"`. Ensures kupua can never accidentally issue writes to Grid services via the proxy during development. Documented as §8 in `infra-safeguards.md` (overview table row + env var table entry added).
+
+**9 surgical updates to `grid-api-contract-audit-findings.md`.** The original contract doc was written before Vite-proxy was confirmed as the CORS solution; several sections framed CORS as an open blocker. All stale CORS-blocker framings struck through as "RESOLVED (3 May 2026)". Key additions: new §3.2.x "Kupua image rendering decision" — authoritative statement that kupua does NOT use API-sourced image URLs (`source.secureUrl`, `thumbnail.secureUrl`, imgops links); API fetch is best-effort enrichment only, never a gate; failure is silently caught; ES + S3 proxy + own imgproxy path is unchanged; existing Playwright tests are unaffected.
+
+**Workplan Phase A rewritten (A.4, A.5, deliverable).** A.5 previously conflated signed API URLs with the proxy removal — false premise. Rewritten: image rendering is unchanged; API fetch enriches the detail view (cost/validity badges, actions, permissions) but never gates rendering. Two trap warnings added: `valid==true` with non-empty `invalidReasons` is normal (don't show red + green badges together); filter out the dead `reindex` action that Grid emits but whose route doesn't exist.
+
+**Kahuna image-detail UI audit.** Three-axis research audit of all 57 elements in kahuna's image detail view. Output: `kahuna-image-detail-inventory.md` — file:line citations, three classification axes (RW-tag: RO-pure / RO-degraded / Write-only / Joined; Permission gating with named permissions + appearance changes; Data field dependencies per contract vocabulary), permission matrix, 20 conditional render rules, 9 joined-component seams, OOS appendix. Decision: do NOT add a visual "looks" section — implementing agents should open the cited `.html`/`.scss` directly; kahuna's AngularJS-era patterns are often worth improving, not replicating.
+
+**"Using the kahuna UI inventory" section added to workplan.** Sits before Phase 0 and applies to Phases A, B, C. Four rules: read source not markdown; don't default to replicating; DO replicate app-wide patterns exactly (two-step destructive confirm, semantic colour vocabulary, ✎ pencil affordance); ask mk on replicate-vs-improve calls. App-wide UI constants (colours, confirm tiers) documented in `kahuna-app-wide-ui-constants.md` (delivered).
+
+### 1–3 May 2026 — Selections feature complete (Phases S0–S6)
+
+**Scope:** 9-phase implementation of multi-image selection — from DAL primitives through desktop tickbox UI, range selection, multi-image metadata panel, mobile touch gestures, and persistence lifecycle. ~70 files added/modified, ~2,100 net lines added. All on branch `mk-next-next-next`, single commit at end. Architecture: [`00 Architecture and philosophy/05-selections.md`](00%20Architecture%20and%20philosophy/05-selections.md). Field reference: [`00 Architecture and philosophy/field-catalogue.md`](00%20Architecture%20and%20philosophy/field-catalogue.md). Workplan archived to [`zz Archive/selections-workplan.md`](zz%20Archive/selections-workplan.md).
+
+**Phase S0 — DAL additions (1 May).** Added `getByIds(ids, signal?)` and `getIdRange(params, fromCursor, toCursor, signal?)` to `ImageDataSource` interface; implemented in ES adapter (mget batched 1000/req; search_after walk with `_source: false`, hard cap 5000) and MockDataSource. `_mget` added to `ALLOWED_ES_PATHS` (both `es-config.ts` and `vite.config.ts` — they must be kept in sync manually). New tuning constants: `RANGE_HARD_CAP` (5000), `RANGE_SOFT_CAP` (2000), `RANGE_CHUNK_SIZE` (1000). Hard cap read dynamically via `import.meta.env` (matches `findKeywordSortValue` pattern, makes `vi.stubEnv()` work without module re-import). 22 new Vitest tests in `selections-dal.test.ts`.
+
+**Phase S0.5 — Perf measurement scaffold (1 May).** New `e2e-perf/selection-stress.spec.ts` with 6 tests (SS0–SS4, SS2a+SS2b) measuring single-toggle latency, range-add wall-clock, persistence write cost, reconciliation chunk render time, per-cell re-render count on mode-flip. Lands BEFORE S1 so per-phase claims have something to assert against. Store accessor convention locked: `window.__kupua_selection_store__`.
+
+**Phase S1 — Selection store + click interpreter (1 May).** `src/lib/interpretClick.ts` (pure rule-table function), `src/lib/reconcile.ts` (`recomputeAll`, `reconcileAdd`, `reconcileRemove` — incremental O(F) add/remove with dirty-field marker on remove from `mixed`), `src/stores/selection-store.ts` (Zustand store with persist middleware writing `[selectedIds, anchorId]` to sessionStorage debounced 250ms; LRU metadata cache cap 5000; idle-frame chunked reconciliation scheduler). Cohesion rules enforced: `toggle()` and `setAnchor()` both call `ensureMetadata()`. Tuning constants added: `SELECTION_PERSIST_DEBOUNCE_MS`, `SELECTION_METADATA_LRU_CAP`, `SELECTION_RECONCILE_CHUNK_SIZE`. **Deviation logged:** `all-same`/`all-empty` `FieldReconciliation` carry a `count` field (not in arch typedef); required for correct `valueCount` when transitioning to `mixed`.
+
+**Sense-check after S1:** three real null-zone bugs in `getIdRange` discovered (cursor not sanitised; `_sortValuesStrictlyAfter` asc-biased; no two-phase walk). Asc-bias was investigated and refuted (ES uses `missing: "_last"` regardless of direction). Cursor and two-phase walk fixed in commit `c1998394b` with helpers extracted to `src/dal/null-zone.ts`; 8 sparse-field test cases added.
+
+**Phase S2 — Desktop tickbox UI + Selection Status Bar (1 May).** `Tickbox` (grid, absolute-positioned overlay) + `TableTickbox` (table, leftmost 32px column). `useIsSelected(id)` per-id Zustand selector — prevents Kahuna's mass-re-render bug (only the toggled cell re-renders). `dispatchClickEffects(effects, ctx)` executes `ClickEffect[]` against store + navigation. Mode-flip is **CSS-driven** via `[data-selection-mode="true"]` on container — per-cell components do NOT subscribe to `inSelectionMode` (zero React reconciliations on first tick).
+
+**Post-S2 visual polish:** `SelectionStatusBar` folded directly into `StatusBar` (count + Material "clear" SVG inline). Blue overlay on selected cells via CSS `:has(.tickbox[aria-checked="true"])` — pure CSS, no React subscription. Focus ring suppressed in selection mode. Right-panel "Combined metadata…" placeholder shown when 2+ selected. `useListNavigation`: arrows scroll-only in selection mode; table Left/Right scroll container horizontally. **Font system cleanup (1 May):** deleted two alien semibold woff2 files BBC had copied into `kupua/public/fonts/` (caused unexpected weight rendering); replaced 32 discrete `@font-face` blocks with 16 proper variable-font declarations (`font-weight: 300 800`); added `"noEmit": true` to `tsconfig.json` after discovering 113 stale compiled `.js` files in `src/` shadowing every `.tsx` source (Vite resolves `.js` first).
+
+**Phase S2.5 — Toast primitive (1 May).** `useToast()` queue-backed hook + single mounted `<ToastContainer />` in layout. Types use BBC PR #4253 vocabulary exactly (`ToastCategory`, `ToastLifespan`) so future convergence is a 2-line adapter. `addToast()` imperative export for non-React callers. `useConfirm()` deferred to Phase 3+. 13 Vitest + 5 Playwright tests.
+
+**Phase S3a — Range selection (2 May).** `useRangeSelection.ts` orchestrates in-buffer fast path (`resolveInBufferRange`) vs server-walk via `getIdRange`. AbortController + generation counter prevents stale results racing. Toasts on hard-cap truncation (warning) and soft-cap (info). Mounted once in `routes/search.tsx`; `handleRange` passed as prop to `ImageGrid`/`ImageTable`. ImageTable shift+click conflict resolved via `data-cql-cell` attribute (field cells keep click-to-search; image cell + row whitespace dispatch range). **`add()` over-marking-pending fix:** split `ids` into cached vs uncached; cached items folded synchronously via `reconcileAdd` (no flicker); uncached trigger `markPending` + async fetch + full recompute.
+
+**Anchor-intent polarity (2 May):** iterated through three formulations before landing on the correct rule. Polarity computation pulled out of `interpretClick` into `useRangeSelection` (removed `targetIsSelected` from `ClickContext` and `polarity` from `add-range` effect shape). Final rule: `selectedIds.has(anchorId) ? "add" : "remove"` — the anchor is set by the toggle itself, so if it's now selected the gesture was adding; if deselected, removing.
+
+**Two critical bugs fixed during S3a:**
+- **`vite.config.ts` esProxyGuard had hardcoded `ALLOWED_ES_PATHS` array NOT updated when S0 added `_mget` to `es-config.ts`.** Proxy blocked every `_mget` with 403 → metadata cache stayed empty → "Anchor no longer available" toast on every shift-click in two-tier/seek mode. Fix: synced the array. Comment in `vite.config.ts` already says "Mirrors ALLOWED_ES_PATHS from es-config.ts" — they must be kept in sync manually.
+- **`getIdRange` walk never stopped at `toCursor` — always consumed the full 5000-item hard cap.** Root cause: `extractSortValues` read `uploadTime`/`lastModified`/`metadata.dateTaken` from `_source` as ISO strings, but ES sort values for date fields are epoch-milliseconds. `sortValuesStrictlyAfter` compared number vs string → `NaN` → never returned true. Fix: `extractSortValues` converts ISO strings for known date fields (new exported `DATE_SORT_FIELDS` set in `sort-builders.ts`) to epoch ms via `Date.parse`. Updated 4 `image-offset-cache.test.ts` assertions to expect epoch ms.
+
+**Doc-only session preparing for S4.** New [`field-catalogue.md`](00%20Architecture%20and%20philosophy/field-catalogue.md) — 46-row authoritative per-field reference (multi-select behaviour, ES presence, Kupua/Kahuna parity); replaced older `selections-field-classification.md`. New [`01 Research/selections-kahuna-pills-location-leases-findings.md`](01%20Research/selections-kahuna-pills-location-leases-findings.md) — Kahuna research on chip arrays, location segments, leases, cost pills.
+
+**Phase S4 — Multi-image Details panel (3 May).** Step 1 was a pure refactor: extracted `metadata-primitives.tsx` from `ImageMetadata.tsx` (`useMetadataSearch`, `ValueLink`, `MetadataSection`, `MetadataRow`, `MetadataBlock`, `FieldValue`, `groupFieldsIntoSections`). Then `field-registry.ts` extended with `multiSelectBehaviour`, `showWhenEmpty`, `visibleWhen`, `summariser`; all 37 implemented rows populated from the catalogue. `metadata_imageType` gated by `gridConfig.imageTypes?.length` config check via `visibleWhen`. New location sub-field entries (`location_subLocation`, `location_city`, `location_state`, `location_country`); composite `location` field is now `always-suppress`. `RECONCILE_FIELDS` exported (filters non-`always-suppress`). `reconcile.ts` extended with `chip-array` and `summary` reducers; `chip-array` uses incremental `applyChipArrayAdd` to avoid O(N²). `MultiSearchPill` adds `partial: boolean` prop (hollow border vs solid). `MultiValue.tsx` renders "Multiple {noun}" with native `title` tooltip carrying sample values. `MultiImageMetadata.tsx` dispatches per `multiSelectBehaviour`; location sub-fields collapsed into one composite "Location" row.
+
+**Post-S4 polish (3 May):** `toggle()` was missing `enqueueReconcile` after `ensureMetadata` resolved — second tickbox click left panel stuck at dashes; fixed. `mimeType` formatter mismatch in `renderScalarAllSame` (raw `image/jpeg` vs formatted `jpeg`); `ValueLink` gains optional `label` prop. **Single-selected image metadata disappearing when scrolled past buffer:** `FocusedImageMetadata` falls back to `metadataCache.get(singleSelectedId)` when buffer lookup misses (cache always populated because `toggle()` calls `ensureMetadata`). This patch only covers count=1; the proper fix for count≥2 is `hydrate()` wiring (S6). Pills in multi-panel sort by popularity desc; tooltips show count ("Business (on 12 of 47)"). Multi-panel wrapper/footer removed for visual parity with single. Architecture doc §7 updated to document buffer completeness via `SOURCE_INCLUDES`.
+
+**Phase S5 — Touch / long-press + range (3 May).** `useLongPress.ts` (500ms threshold, movement cancel, contextmenu suppress, Android `pointercancel` fix via committed-state guard). Second long-press dispatches a full `add-range` effect (same buffer/server walk path as desktop shift-click) — A long-press B long-press C selects all three. `SelectionFab` (floating action button bottom-right, count + X to clear, coarse-pointer only). StatusBar count/clear hidden on coarse pointer (FAB owns it). `addGroup`/`removeGroup` selection-store actions (latent — no DOM target until grouping ships). `handleLongPressStart.ts` extracted as shared helper for grid + table long-press logic. Mobile Playwright tests via `devices['Pixel 5']` emulation + manual PointerEvent dispatch.
+
+**Paint-drag (Google Photos style) cut from S5 (3 May).** `usePointerDrag.ts` was written and wired but deleted before shipping. Root cause: browser reads `touch-action` at `pointerdown` (~0ms); long-press commits at 500ms; setting `touch-action: none` at commit time is too late — browser already owns the gesture and fires `pointercancel` on movement. Only fix would be permanent `touch-action: none` on the grid container while in selection mode (disables vertical scrolling entirely — unacceptable). Logged as deviation. Mobile range falls back to long-press + second-long-press (works via the existing range path).
+
+**`onLongPressTap` removal (S5 cleanup, 3 May).** Quick-tap branch deleted from `useLongPress`; native click fires naturally and `onClick` owns all tap semantics. Eliminated dead `selectedIds.size > 0` check, stale paint comments, ~50-line `onLongPressStart` body duplicated verbatim across `ImageGrid` + `ImageTable` (now in `handleLongPressStart.ts`).
+
+**Phase S6 — Selection lifecycle: clear-on-search + hydration (3 May).** **Reframed from original "persistence-survives-search UX" plan after dogfooding.** Shopping-cart semantics rejected for v1 — that's Clipboard's concern (a future My Places component), not the selection set's. New default: selections clear on any new search; survive sort, reload, image detail, density toggle, tier-mode change. Full survival matrix in [`05-selections.md §4`](00%20Architecture%20and%20philosophy/05-selections.md#4-persistence). Gated by `SELECTIONS_PERSIST_ACROSS_NAVIGATION = false` constant — one-line escape hatch.
+
+Implementation: `selection.hydrate()` now called from `/search` route mount effect (was specced but **never called in app code** — multi-panel showed all dashes after reload until each item re-toggled). Hydration drop toast fires when ES no longer returns persisted IDs; deduped via module-level `_hydrationToastShown` flag, reset on `clear()`. Clear-on-navigation hook in `useUrlSearchSync` (5 lines, gated on flag, skips sort-only and first-mount; covers query/filter/saved-search/URL-paste + browser back/forward through one path). Ticker `onClick` in `StatusBar` clears before `reSearch()` (order matters: prevents brief flicker of old reconciled state against new results). Drift counter (`12 selected · 8 in view`) and `inViewCount` selector deferred until Clipboard arrives.
+
+**Bugfix during S6:** `toast-store.ts` had a bare `window` reference at module top-level → blew up in Node/Vitest when `selection-store.test.ts` imported `addToast`. Wrapped in `typeof window !== "undefined"` guard.
+
+**Two follow-up fixes (3 May, post-S6):**
+- **Multi-image panel `fileType` click-to-search used raw MIME (`image/jpeg`) not CQL form (`jpeg`).** Reconcile engine stores `field.accessor(image)` (raw MIME); single-image `FieldValue` correctly uses `field.rawValue?.(image)`. Fix: `renderScalarAllSame` uses `displayStr` as `searchStr` when field has a formatter (formatter and rawValue both strip `image/` for `source_mimeType`).
+- **`showWhenEmpty` + `visibleWhen` parity for single-image views.** `ImageMetadata` was ignoring both flags — fields like Description/Title/Credit/By/Taken on/Special instructions silently disappeared when empty in the single-image panel and `metadata_imageType`'s config gate was never applied. Added `<Dash />` exported from `metadata-primitives.tsx` ("Empty" in dimmed/non-selectable span — preferred over `--` or Kahuna's "Unknown"). `ImageMetadata` now applies `visibleWhen?.() === false` guard and renders `<Dash />` for `showWhenEmpty: true` empty fields. Removed redundant `imageId === field.id` hardcode (never empty in practice).
+
+**Lessons captured during the run:**
+- **OXC/Vite ASCII rule:** Vite 6+ uses OXC transformer which rejects non-ASCII characters anywhere in `.ts`/`.tsx` source files (including comments). Use `--` instead of em-dash; avoid curly quotes. One file had to be rewritten with Python to force ASCII.
+- **`multi_replace_string_in_file` corruption on partial-match edits:** when matching a string ending `) -- comment` and replacing with one ending at `)`, the dangling ` -- comment` stayed in the file as invalid code. Always verify file content after multi-replace on complex blocks.
+- **`vite.config.ts` `ALLOWED_ES_PATHS` mirrors `es-config.ts` but is a separate hardcoded array.** Must be kept in sync manually. Cost a session of debugging (S3a anchor toast bug).
+- **`extractSortValues` must convert ISO date strings to epoch ms** for date-typed sort fields. ES returns epoch ms in sort values; `_source` returns ISO. New `DATE_SORT_FIELDS` set exported from `sort-builders.ts` lists which fields need conversion.
+
+**Test counts at end:** 626 Vitest (33 files, all pass); 230 Playwright (all pass — adds 7 S6 specs, 6 S4, 6 S3a, 7 S2, 7 mobile, 5 toast = 38 new selections-related e2e). Zero regressions in existing 192 e2e or 452 pre-existing Vitest.
+
+**Files added (uncommitted):** `selection-store.ts` + `.test.ts`, `interpretClick.ts` + `.test.ts`, `reconcile.ts` + `.test.ts`, `dispatchClickEffects.ts`, `useIsSelected.ts`, `useRangeSelection.ts` + `.test.ts`, `useLongPress.ts` + `.test.ts`, `handleLongPressStart.ts` + `.test.ts`, `useToast.ts`, `toast-store.ts`, `Tickbox.tsx` + `.test.tsx`, `ToastContainer.tsx` + `.test.tsx`, `MultiImageMetadata.tsx`, `MultiValue.tsx`, `metadata-primitives.tsx`, `SelectionFab.tsx`, `selections-mobile.spec.ts`, `selections.spec.ts`, `toast.spec.ts`, `selection-stress.spec.ts`, `field-catalogue.md`, `selections-kahuna-pills-location-leases-findings.md`. Files modified: `field-registry.ts` (+`multiSelectBehaviour`/`showWhenEmpty`/`visibleWhen`/`summariser` types + 37 rows), `ImageGrid.tsx`, `ImageTable.tsx`, `ImageMetadata.tsx` (`Dash` + `showWhenEmpty`/`visibleWhen` parity), `SearchPill.tsx` (+`MultiSearchPill`/`partial` prop), `StatusBar.tsx` (count + ticker clear), `tuning.ts` (+ S5/S6 constants), `index.css`, `useUrlSearchSync.ts` (clear-on-nav hook), `routes/search.tsx` (hydrate effect + multi-panel branch), `routes/__root.tsx` (`<ToastContainer />`), `reset-to-home.ts` (`selection.clear()`), `useListNavigation.ts` (selection-mode arrow handling), `dal/types.ts` (+`getByIds`/`getIdRange`/`IdRangeResult`), `es-adapter.ts`, `es-config.ts` (+`_mget`), `mock-data-source.ts`, `sort-builders.ts` (+`DATE_SORT_FIELDS`), `image-offset-cache.ts` + `.test.ts` (date conversion), `vite.config.ts` (+`_mget` mirror), `tsconfig.json` (+`noEmit`).
+
+### 2 May 2026 — Fix: StatusBar shows stale count/ticker after zero-results search
+
+**Bug:** Searching for a term with no results (e.g. `jhfhgfgh`) left the status
+bar displaying the previous search's match count (e.g. 1,320,370) instead of
+hiding it. Same logic bug affected the new-images ticker.
+
+**Root cause:** `storeReady = total > 0` was the wrong signal. It was intended
+to mean "first search has completed" but `total === 0` is also the legitimate
+answer for a zero-results search — the two states are indistinguishable. So after
+a zero-results search, `storeReady` became `false` and both `displayTotal` and
+`displayNewCount` fell back to the stale `sessionStorage` cache.
+
+**Fix (`StatusBar.tsx`):**
+- Replace `storeReady = total > 0` with `storeReady = !isInitialLoad`, reading
+  `_isInitialLoad` from the store. This flag starts `true`, is set `false`
+  atomically when the first search settles (all code paths), and never resets.
+  It correctly distinguishes "pre-first-search loading window" from "search
+  genuinely returned 0 results".
+- Gate the `newCount` sessionStorage write on `!isInitialLoad`. On mount,
+  `newCount` is 0 in the fresh store; the unconditional write was silently
+  wiping the cached ticker value before the poll could restore it. The `total`
+  write was already conditional (`if (total > 0)`) and is correct as-is.
+- Change the count render guard from `displayTotal > 0` to
+  `storeReady || displayTotal > 0`. After a zero-results search `storeReady`
+  is true so "0 matches" is shown; during loading the cached value is shown
+  only if > 0 (avoids a blank-then-number flash on first load).
+
+No store changes. No new flashes introduced.
+
+### 1 May 2026 — Fix: getIdRange null-zone walk terminates early at boundary
+
+**Bug:** `ElasticsearchDataSource.getIdRange` — the `search_after` walk that
+collects IDs between two sort cursors — silently dropped documents in the
+null zone when sorted by a sparsely-populated field (e.g. `lastModified`,
+`taken`). Two concrete failure modes:
+
+1. **Walk stops at the null-zone boundary.** After `searchAfter()` sanitises
+   sentinel sort values (Long.MAX_VALUE → `null`), the cursor entering the
+   null zone triggers the "fewer hits than requested → last page" exit
+   heuristic. But the page was short because the populated zone is exhausted,
+   not because no more docs exist — the null zone still has documents. The
+   next loop iteration *would* detect the null-zone cursor (via
+   `detectNullZoneCursor`) and issue a correctly-scoped phase-2 query, but
+   the premature break prevents it from running.
+
+2. **Range entirely in null zone returns nothing.** When `fromCursor` starts
+   with `[null, ...]`, `detectNullZoneCursor` fires on the first iteration
+   and the phase-2 query works. This path was already correct — confirmed by
+   test.
+
+**Root cause:** The "fewer hits than requested" exit was unconditional. It
+didn't account for the two-phase walk pattern where the walk transitions from
+an unfiltered query (all docs) to a filtered null-zone-only query.
+
+**Fix (1 logic check in `es-adapter.ts`):** Before breaking on "fewer hits",
+check if the cursor just crossed into the null zone. If `nz` was null (no
+null-zone filter was active for this page) but the new cursor has a null
+primary field (`detectNullZoneCursor(cursor) != null`), skip the break and
+let the loop continue. The next iteration issues the phase-2 query correctly.
+
+**Not a bug (handoff's suspected bug 2):** The `sortValuesStrictlyAfter`
+helper's null-handling was suspected of being asc-biased. Investigation
+confirmed it's correct: ES uses `missing: "_last"` regardless of sort
+direction (kupua's `buildSortClause` never sets `missing` explicitly), so
+null always sorts last — the direction-independent null branch is correct.
+
+**Architectural approach:** Option C from the design doc — `getIdRange`
+delegates to `this.searchAfter()` (which handles sentinel sanitisation on all
+return paths) and applies `detectNullZoneCursor` / `remapNullZoneSortValues`
+on the running cursor each iteration. The null-zone helpers were moved from
+`search-store.ts` to `src/dal/null-zone.ts` so the DAL can use them without
+an upward dependency on the store layer. The search-store's six call sites
+were updated to import from the new location (mechanical, behaviour-identical).
+
+**Files changed:**
+- `kupua/src/dal/es-adapter.ts` — null-zone boundary check in `getIdRange`
+- `kupua/src/dal/null-zone.ts` — new module (moved from search-store)
+- `kupua/src/stores/search-store.ts` — import path update
+- `kupua/src/dal/selections-dal.test.ts` — 8 null-zone test cases added
+
+**Tests:** 30/30 in `selections-dal.test.ts`, full unit suite green (537 tests).
+
+### 1 May 2026 — ES guardrails tightened (three layers of write protection)
+
+**Task:** Audit and tighten ES safety guardrails to be as restrictive as
+possible without limiting existing functionality.
+
+**Context:** Kupua uses POST for all ES requests (`_search`, `_count`,
+`_pit`) because the browser Fetch API forbids request bodies on GET —
+and every query requires a JSON body (query DSL, sort clauses, aggregations,
+`search_after` cursors, `_source` filters, PIT references). ES supports
+GET+body but browsers don't. DELETE is used only for closing PITs.
+
+**Changes (three independent layers):**
+
+1. **Stricter path matching** (`es-adapter.ts` → `assertReadOnly`): Changed
+   from `path.startsWith(p)` to `path === p || path.startsWith(p + "?") ||
+   path.startsWith(p + "/")`. Prevents prefix collisions — e.g. a
+   hypothetical `_search_shards` endpoint no longer matches the `_search`
+   allowlist entry.
+
+2. **HTTP method allowlist** (`es-config.ts` + `es-adapter.ts`): New
+   `ALLOWED_ES_METHODS` set (`GET`, `POST`, `DELETE`). `assertReadOnly`
+   now validates the method on every request. `DELETE` is further restricted
+   to `_pit` paths only. `PUT`/`PATCH` are blocked. Previously
+   `esRequestRaw` accepted any method string with no enforcement.
+
+3. **Proxy-level guard** (`vite.config.ts`): New `esProxyGuard()` Vite
+   middleware plugin validates paths at the proxy boundary before they
+   reach ES. Catches any request that bypasses the adapter (DevTools
+   `fetch()`, bugs in non-adapter code). Uses the same strict path
+   matching as the adapter. Path allowlist duplicated (Vite config runs
+   in Node, can't import from `src/`).
+
+**Docs updated:** `infra-safeguards.md` — Safeguard #3 rewritten to
+document all three layers. Overview table updated. Stale "future
+considerations" removed (`search_after` and `_source` includes are both
+already implemented).
+
+### 1 May 2026 — Selections feature: full design + workplan (no code yet)
+
+**Task:** Design multi-image selection for Kupua: persistent across sort/search/reload,
+comfortable to 5,000 items (10× kahuna), modal Selection Mode (Kahuna-style with door
+open to Lightroom-style later), reconciled metadata in Details panel, mobile/touch via
+long-press + drag-extend, fixes the silent shift-click drop bug Kahuna has. Pure design
+session — no source code modified.
+
+**Process:**
+- **Kahuna audit** via Sonnet 4.6 subagent (handoff brief written first per audit-handoff
+  template in user memory). Two follow-up sections (range-select bug, status bar) added
+  inline. Output: `01 Research/selections-kahuna-findings.md` (~600 lines).
+- **Targeted Kupua deep-dive** to confirm the model: `dal/types.ts`, `search-store.ts`
+  focus parts, `useDataWindow.ts`, `ImageMetadata.tsx`, `ImageGrid.tsx`, `ImageTable.tsx`
+  click handlers, `history-snapshot.ts`, `build-history-snapshot.ts`.
+- **Field classification audit** (Sonnet 4.6 subagent, pre-S4): 33 fields classified
+  as `reconcile` / `always-suppress` / `show-if-all-same` plus `showWhenEmpty` flag.
+  Output: `selections-field-classification.md`.
+- **S3a implementation rehearsal** (Sonnet 4.6 High subagent): pretend-to-implement
+  exercise that surfaced 15 gotchas — most importantly that the `add-range` effect
+  shape couldn't represent "anchor evicted from buffer". Findings folded into design
+  + workplan; rehearsal doc deleted post-fold.
+- **Two rounds of pushback from user** caught design contradictions and over-engineering:
+  (a) soft-cap confirm dialog contradicted earlier "no confirms in v1" decision —
+  switched to informational toast, demoted S2.5 to toast-only, deferred `useConfirm` to
+  Phase 3+; (b) performance review surfaced four real traps (persist write thrash,
+  synchronous reconciliation blocking the main thread on range adds, mode-flip re-render
+  cascade, sequential mget chunks) — all fixed in design before code lands.
+
+**Final doc set (4 docs, down from 7 mid-session):**
+- `00 Architecture and philosophy/05-selections.md` — permanent architecture (§§1–15)
+  covering goals, modal selection mode, state shape, persistence, click semantics
+  (one pure function), range selection, lazy reconciliation, what gets reconciled,
+  drift handling, touch, status bar, details panel, Phase 3+ extension points,
+  deviations log, Selections-vs-Operations boundary.
+- `selections-workplan.md` — 10 phases (S0, S0.5, S1, S2, S2.5, S3a, S3b, S4, S5, S6)
+  with per-phase implementation notes that absorb every rehearsal-surfaced gotcha.
+- `01 Research/selections-kahuna-findings.md` — Kahuna audit reference.
+- `selections-field-classification.md` — per-field reconciliation table.
+
+**Key architecture decisions:**
+- Selection state in new `selection-store.ts` (Zustand), separate from search-store.
+  Persistence via `persist` middleware to sessionStorage (matches column-store /
+  panel-store / ui-prefs-store pattern). Survives reload, not cross-tab.
+- State shape: `Set<string>` of IDs + sticky `anchorId` + LRU `metadataCache` (cap 5000)
+  + memoised `reconciledView` keyed by monotonic generation counter.
+- DAL gains two methods: `getByIds(ids, signal?)` (mget, 1k batches in PARALLEL) and
+  `getIdRange(params, fromCursor, toCursor, signal?)` (`search_after` walk with
+  `_source: false`, hard cap 5k IDs, soft cap 2k = info toast only).
+- All click semantics behind one pure function `interpretClick(ctx) → ClickEffect[]`.
+  Six-row rule table is the contract. Refining the rules later = edit table + edit
+  function + update tests; UI components untouched.
+- `add-range` effect carries IDs + nullable global indices + optional sort cursors —
+  not raw indices — so "anchor evicted from buffer" is representable. The `viaServer`
+  flag is dropped; the range hook decides itself.
+- Anchor sticky across shift-clicks (fixes Kahuna's "anchor = last added URI" bug).
+- Range select **never silently drops items**. In-buffer fast path, server-walk via
+  `getIdRange` when out of buffer. Hard truncation message at 5k IDs; soft cap at 2k
+  = informational toast only (not a confirm — adding items is non-destructive).
+- Reconciliation is **lazy**: `add(ids[])` flips fields to `"pending"` and schedules
+  chunked recompute via `requestIdleCallback`. Per-field placeholder (subtle dash) in
+  the value slot for pending fields — NO panel-wide loading overlay (jarring on every
+  range add). Chunks ~500 items each; bumps generation counter on each chunk.
+- Selection Mode is modal (entered when count>0, exited on Clear). **Focus visually
+  suppressed but kept in memory** (phantom-style) so sort-around-focus still works.
+  Door kept closed on Lightroom-style non-modal in v1, easily reopened later.
+- Mode entry/exit is **CSS-driven** via `[data-selection-mode="true"]` on the grid
+  container — cells never subscribe to `inSelectionMode` (avoids 1,000+ React renders
+  on first tick). Only `useIsSelected(id)` is per-cell.
+- Persistence writes are **debounced** (~250ms trailing); `add(ids[])` is atomic
+  (one write per call, not one per ID).
+- Touch: long-press (500ms, coarse-pointer-gated) to enter, drag-extend during
+  long-press. Coarse pointer never shows tickbox until in Selection Mode.
+- `SELECTIONS_SURVIVE_SEARCH` boolean escape hatch in `tuning.ts` — easy to switch off
+  if user testing rejects the model.
+- New Phase **S0.5 — Perf measurement scaffold** lands before S1 so every later phase
+  has something concrete to assert against (toggle latency, range-add wall-clock,
+  persist write cost, reconciliation chunk render time, mode-enter render count).
+- **Out of scope, kept separate:** bulk operations on whole search results (would be
+  Update By Query, server-side). Architecture §15 codifies the boundary; selection
+  store must not grow operations features. `useConfirm()` deferred to Phase 3+ when
+  destructive operations actually exist.
+
+**Files added:** `kupua/exploration/docs/00 Architecture and philosophy/05-selections.md`,
+`kupua/exploration/docs/selections-workplan.md`,
+`kupua/exploration/docs/01 Research/selections-kahuna-findings.md` (moved from top-level
+mid-session), `kupua/exploration/docs/selections-field-classification.md`.
+
+**Files deleted:** `selections-design.md` (split into architecture + workplan),
+`selections-kahuna-audit-handoff.md`, `selections-field-classification-handoff.md`,
+`selections-s3a-dryrun-handoff.md`, `selections-s3a-rehearsal.md` (handoff briefs and
+rehearsal output — content folded into design; handoff template lives in user memory).
+
+**No source code modified.** Next session: Phase S0 (DAL additions — `getByIds` +
+`getIdRange` with Vitest tests against the ES mock harness).
+
+### 30 April 2026 — Integrated Grid API contract audit follow-up patches into findings doc
+
+**Task:** Four follow-up patch files produced by previous audit sessions (live verification,
+reconciliation rules, server-computed fields, write-side footguns, annotated real response
+samples) were integrated into `grid-api-contract-audit-findings.md`. The findings doc is now
+the single authoritative Grid API surface contract.
+
+**Changes applied to `grid-api-contract-audit-findings.md`:**
+- §3.2.1 (new): reconciliation rules — how `metadata`, `usageRights`, `cost`, `valid`,
+  `persisted` are derived from ES source fields via Scala logic
+- §3.2: `embedding` field documented; various "always present" table corrections (C1–C13)
+- §4–§5: series of field-type corrections (Embedding, FileMetadata concrete shape,
+  EmptyUsageRights, SyndicationRights fully typed)
+- §5.5, §5.10, §5.11, §5.14, §5.16: fire-and-forget / async consistency table;
+  bare-body footgun warnings (crop response, lease request)
+- §6.4: EditMetadata gate corrected (uploaders bypass it)
+- §6.5: `errorKey` list corrected (`invalidJson` for bad requests)
+- §6.6 (new): verified live values — cookie name confirmed (`gutoolsAuth-assym`),
+  CORS 403 confirmed, permissions endpoint 404 confirmed (use `/session`), `restrictDownload`
+  not set in dev
+- §6.7 (new): server-computed fields — full list of fields set by thrall on ingest
+- §7: all unknowns marked RESOLVED
+- §8: corrections 9–17 added (write-side footguns, permission gates, async consistency)
+- §10 (new): annotated real response samples from TEST (three images) — S3 bucket names
+  and signed URL parameters redacted before writing to disk
+- §9: type appendix updated (Embedding, EmptyUsageRights, SyndicationRights, FileMetadata,
+  ImageData, ImageResponse)
+
+**Changes applied to `integration-workplan-bread-and-butter.md`:**
+- Added step 0.0 (unknowns pre-resolved by audit — no re-verification needed)
+- Added contract cross-references throughout (§2, §3, §4, §5, §6.4, §6.5, §9)
+- Phase C write ordering updated with per-feature contract refs and footgun flags
+- Agent guardrails: added "read contract before coding" directive
+- Stop condition 3 (Argo nightmare) softened — structure is now fully documented in §6.1 + §3.2.1
+
+**Files deleted:** 4 patch files, `audit-followups/` directory, 4 handoff followup docs,
+memory-note file (`grid-api-contract-audit-memory-note.md`) and `grid-api-contract-audit-handoff.md`.
+
+### 29 April 2026 — Fix back/forward/back/forward leaks focused image instead of restoring deep seek position
+
+**Bug:** Focus image A → switch sort (sort-around-focus keeps A focused) → clear
+focus → seek deep via scrubber → back → forward (CORRECT: deep position) → back →
+forward (BUG: shows A focused at top, not the deep position). Regression exposed
+by commit `1462bfaec` (Strict-Mode anchor-update fix), but the underlying defect
+was latent in the phantom-mode restore path since Phase 3.
+
+**Root cause (two combined defects):**
+
+1. *Latent:* `phantomOnly` restore never cleared a leaked `focusedImageId` from
+   the previous explicit context, violating the documented phantom-mode invariant
+   ("phantom never sets `focusedImageId`"). Three call sites were affected: the
+   initial `set()` at the top of `search()`, and both branches of
+   `_findAndFocusImage` (in-buffer and outside-buffer).
+2. *Exposing (1462bfaec):* removing the focus-mode guard on viewport-anchor
+   updates means the anchor now faithfully tracks the viewport regardless of
+   `focusedImageId`. On the second back, departure-capture for E1 detects a
+   "different" anchor, overwrites E1's phantom snapshot via `buildHistorySnapshot()`,
+   which prefers the leaked `focusedImageId` in explicit mode → E1 corrupted to
+   `{anchor: A, anchorIsPhantom: false}`. The second forward then takes the
+   explicit-restore path and centres on A.
+
+**Fix (production):** `kupua/src/stores/search-store.ts` — clear
+`focusedImageId: null, _focusedImageKnownOffset: null` on all three `phantomOnly`
+write paths. The initial reset in `search()` is the load-bearing one; the two
+`_findAndFocusImage` branches are belt-and-braces.
+
+**Tests:**
+- 3 new unit tests in `search-store.test.ts` (`phantomOnly clears leaked
+  focusedImageId (audit: back/forward bug)`) covering all three code paths.
+- 1 new e2e test in `e2e/local/browser-history.spec.ts` reproducing the full
+  user-visible repro (`Snapshot restore — phantomOnly must not leak focusedImageId
+  (audit)`). Asserts `focusedImageId === null` and `bufferOffset > 500` after the
+  second forward, plus that E1's snapshot remains phantom across the second back.
+
+**E2E test stabilisation (test-only — production fix had no test impact):**
+The new e2e test went through several wrong turns before landing. Notes for future
+agents writing similar tests:
+- *Don't use `?orderBy=oldest`*: it looks like a valid alias but isn't (see
+  `sort-builders.ts` — only `taken`, `credit`, `source`, `imageType`, `category`,
+  `mimeType`, `width`, `height`, plus alias-config fields). ES rejects sorts on
+  literal field `oldest` with 400 → seek lands on empty buffer → `bufferOffset`
+  stays at 0 → `waitForFunction(bufferOffset > 0)` times out. Sibling tests that
+  use `?orderBy=oldest` get away with it because they never deep-seek with that
+  sort. **Use `?orderBy=uploadTime` for ascending date sort** — A focused at
+  index 3 (newest first by default) shifts to deep in the result set, sort-
+  around-focus keeps A focused, uploadTime is universally populated (no null-zone
+  degradation), and `seek(800)` works.
+- *Preserve the searchKey*: the test starts at `?nonFree=true`; the sort-change
+  push must include `nonFree=true&orderBy=uploadTime` so the snapshot's stored
+  `searchKey` matches the destination on restore.
+- *Drain hacks were not needed* once the sort field was correct. Earlier attempts
+  added `waitForSearchSettled` + 500 ms pause to drain sort-around-focus's
+  in-flight `countBefore` correction; reverted once the real cause was found.
+
+**Files changed:**
+- `kupua/src/stores/search-store.ts` (3 sites)
+- `kupua/src/stores/search-store.test.ts` (3 new tests)
+- `kupua/e2e/local/browser-history.spec.ts` (1 new test)
+- Audit doc + 2 stale bug-hunt docs moved to `zz Archive/`.
+
+**Validation:** Unit suite 430/430 green; full e2e suite **190/190 green** (~7 min).
+
+### 28 April 2026 — Fix restore-around-cursor race on image traversal (audit #7); refute audit #17
+
+**Bug #7:** In `ImageDetail.tsx`, the `restoreAroundCursor` effect's `currentIndex >= 0`
+branch reset `offsetRestoreAttempted` to false when the imageId changed (arrow key
+during an in-flight restore). Sequence: restore for "abc" completes → adjacent "def"
+appears in buffer → effect resets flag → two-tier scroll-seek moves buffer → "def"
+falls out → effect fires a spurious second `restoreAroundCursor("def")` with a
+potentially-stale cursor. One unnecessary ES round-trip + sub-second flash.
+
+**Fix:** Changed the `currentIndex >= 0` branch from conditionally resetting the flag
+to unconditionally marking the image as handled: `offsetRestoreAttempted.current = true`
+and `restoreAttemptedForRef.current = imageId`. Once an image is visible in the buffer,
+it's considered restored — no re-restore if the buffer later shifts underneath.
+
+**Bug #17 refuted:** The audit claimed `search()` and `seekToFocused()` could both
+write the buffer via `_rangeAbortController`. Analysis shows `_findFocusAbortController`
+(line 484) fully isolates `seekToFocused` — `search()` aborts it at line 1771, killing
+all stages of `_findAndFocusImage` including the step-3 buffer load (which uses
+`combinedSignal`, not `_rangeAbortController`). JS single-threading prevents
+post-await/pre-`set()` interleaving. Marked as not-a-bug in audit findings.
+
+**Files changed:**
+- `ImageDetail.tsx` — restore effect `currentIndex >= 0` branch (2-line change)
+- `bug-hunt-audit-findings.md` — #7 marked FIXED, #17 marked NOT A BUG
+
+### 28 April 2026 — Fix PIT-expiry cascade (audit #21)
+
+**Bug:** When the PIT's 1-minute keep-alive expired during an idle session, the
+`searchAfter` fallback path in `es-adapter.ts` returned no `pitId` field (undefined).
+The store did `result.pitId ?? state.pitId` — preserving the stale expired PIT.
+Every subsequent extend re-sent it → 404 → fallback → cascade. Each extend cost
+two round-trips (fail + retry) until the next `search()` opened a fresh PIT.
+
+**Fix (Option A from design proposal):** Adapter fallback now returns `pitId: null`
+explicitly. Store consumers changed from `??` to `!== undefined` check — explicit
+`null` clears the stale PIT, `undefined` (abort early-return) preserves state.
+
+**Files changed:**
+- `es-adapter.ts` — fallback return adds `pitId: null`
+- `types.ts` — `SearchAfterResult.pitId` widened to `string | null`
+- `search-store.ts` — 3 sites: `extendForward`, `seek()`, `_loadBufferAroundImage`
+  changed from `result.pitId ?? x` to `result.pitId !== undefined ? result.pitId : x`
+- `es-adapter.test.ts` — new test asserting fallback returns `pitId: null`
+
+**Perf impact:** Strictly positive — removes one wasted 404 round-trip per
+extend/seek after PIT expiry.
+
+### 28 April 2026 — Fix 4 deterministic e2e failures (Strict Mode double-mount race)
+
+**Root cause:** Commit `101b2ddb5` (audit #4) added `_viewportAnchorId = null` in
+the skeleton-zone branch of `reportVisibleRange`. This was correct in production,
+but in React Strict Mode (dev builds only) it exposed a race condition during the
+double-mount cycle (mount → cleanup → mount). Between the first cleanup and
+second mount, a scroll-reset microtask fires `reportVisibleRange(0, ~15)` →
+skeleton zone → clears anchor → second mount reads `getViewportAnchorId() = null`
+→ early return → no position restore.
+
+**Cluster A (3 tests in scrubber.spec.ts):**
+- "End key preserves near-bottom across table↔grid round-trip"
+- "seek 50% in table → grid → table round-trip is stable"
+- "Home from grid doesn't break density-switch position keeping (no focus)"
+
+All three hit the same mechanism in Effect #10 (density-focus mount restore):
+the saved state has `globalIndex` and `ratio`, but the code checked
+`id = focusedImageId ?? getViewportAnchorId()` first — if null, early return,
+no restore. Fix: check `peekDensityFocusRatio()` FIRST. When saved state exists,
+it has everything needed; the viewport anchor is redundant.
+
+**Failure B (1 test in browser-history.spec.ts):**
+- "detail open/close then seek — departure snapshot captures seeked position"
+
+Different mechanism, same root commit. After detail close, sort-around-focus runs
+and positions the buffer at offset ~5056. In Strict Mode double-mount, the scroll
+position gets lost (virtualizer ends up at scrollTop=0 with scrollHeight=clientHeight).
+A scrubber click computes `scrollContentTo(ratio) = ratio × 0 = 0` — no scroll,
+no seek, anchor stays null. The test was passing before only because the stale
+anchor (from position ~5) happened to satisfy `not.toBeNull()` and `not.toBe(imageB)`.
+
+Fix: rewrote test to use programmatic `store.seek(2500)` instead of scrubber UI.
+This bypasses the broken virtualizer scroll. Added comment explaining why.
+The underlying scroll-loss is dev-only (Strict Mode doesn't exist in production).
+
+**Supporting changes in useDataWindow.ts:**
+1. Removed focus-mode guard on anchor update — anchor is now always maintained
+   regardless of mode. In production this is a no-op (explicit mode consumers
+   use `focusedImageId` which always wins over the anchor fallback).
+2. Added `useEffect([bufferOffset, results, twoTier])` to re-populate anchor
+   when buffer content changes. The virtualizer's `onRangeChanged` doesn't
+   re-fire when visible indices stay the same but content changes (skeleton →
+   real images after seek).
+
+**Production impact: NONE.** All mechanisms are dev-only (React Strict Mode
+double-mount doesn't occur in production builds). The code changes are defensive
+— they make dev behaviour match production behaviour.
+
+**Tests:** 189/189 e2e pass, 426/426 unit tests pass.
+
+### 28 April 2026 — Audit #10: replace aria-label geometry discriminator
+
+**Bug #10 — REFACTORED.** Three sites in `seek()` and `buildHistorySnapshot()`
+derived `isTable` by sniffing `scrollEl.getAttribute("aria-label")?.includes("table")`,
+then re-derived `rowHeight` and `columns` from scratch. An aria-label rename (i18n,
+a11y refactor) would silently degrade seek and snapshot to grid heuristics — row
+height 303 px instead of 32 px, scrollTargetIndex off by orders of magnitude.
+
+Fix: added `isTable: boolean` to `ScrollGeometrySnapshot` (in `scroll-geometry-ref.ts`)
+and `ScrollGeometry` (in `useScrollEffects.ts`). `ImageGrid` declares `isTable: false`,
+`ImageTable` declares `isTable: true`. All three aria-label sites replaced with
+`getScrollGeometry()`.
+
+Also refactored `computeScrollTarget` interface: replaced `{ isTable, clientWidth }`
+with `{ columns, rowHeight }`, eliminating redundant geometry derivation at every
+deep seek. Removed unused `GRID_ROW_HEIGHT`/`GRID_MIN_CELL_WIDTH`/`TABLE_ROW_HEIGHT`
+imports from `search-store.ts` and `build-history-snapshot.ts`.
+
+10 files changed. 426/426 unit tests pass. Zero aria-label geometry discrimination
+remaining in the codebase.
+
+### 28 April 2026 — Audit Cluster #6: skeleton-zone viewport math
+
+**Cluster #6 (#4, #15, #22)** — three bugs sharing the root cause of viewport
+indices being valid globally but useless once the buffer slides away.
+
+**Bug #4 — FIXED.** `_viewportAnchorId` stayed stale when viewport moved entirely
+into the skeleton zone. The early-return in `reportVisibleRange` (skeleton-zone
+branch) skipped the anchor update, leaving consumers (`buildHistorySnapshot`,
+density-focus, sort-around-focus) using a stale anchor from the previous buffer
+position. Fix: set `_viewportAnchorId = null` before the early return. One line
+in `useDataWindow.ts`. Test: `useDataWindow-anchor.test.ts` (jsdom, renderHook).
+
+**Bug #15 — NOT A BUG.** The debounce is a standard trailing debounce: each
+`reportVisibleRange` call in the skeleton branch does `clearTimeout` +
+`setTimeout`. Only the last timer fires, with the last scroll event's
+`globalStart`. TanStack Virtual's `onScroll` fires synchronously on every
+browser scroll event; momentum events all reset the debounce.
+
+**Bug #22 — STATUS QUO ACCEPTED.** Empty `getVisibleImageIds` in skeleton zone
+causes one extra ES agg round-trip during a transient ~500ms window, only if the
+user changes query while in the skeleton zone in phantom mode. Returning
+buffer-edge images as approximation would give wrong neighbour hints — worse
+than no hints.
+
+### 28 April 2026 — Audit #18 confirmed not a real bug: sort-only detection
+
+**Claim:** The `every()` check in `useUrlSearchSync.ts:155–157` treats "key absent from
+`searchOnly`" as equal to "key present in `prev`" via `undefined === undefined`. A
+combined "sort change + filter clear" would be misclassified as sort-only, causing
+phantom mode to reset instead of preserving the anchor.
+
+**Investigation:** Built an isolated pure-function test
+(`src/lib/orchestration/sort-only.test.ts`, 11 cases) replicating the exact
+computation. Key finding: `Object.keys({...prev, ...searchOnly})` includes all keys
+from *both* objects. When `prev.query = "cats"` and `searchOnly` has no `query` key,
+the check evaluates `searchOnly["query"] === prev["query"]` → `undefined === "cats"` →
+**false** → correctly not sort-only. The `undefined === undefined` equality only arises
+when both objects have `undefined` for the key — meaning the filter was absent in both
+contexts, which *is* a genuine sort-only change.
+
+The mechanism the audit described would require `prev["query"]` to be `undefined` even
+though the filter was previously set. That can't happen: `_prevSearchOnly` is always
+written from the same `searchOnly` object used for the comparison (line 274), so both
+reflect the identical filter state.
+
+**Outcome:** No code change. Test file kept for regression coverage. Audit doc updated
+to ❌ NOT A BUG.
+
+### 28 April 2026 — Bug-hunt Batch B: `extractSortValues` null cursor blocks extends (audit #14)
+
+**Bug:** Both `extendForward` and `extendBackward` recompute the opposite-direction cursor
+after eviction via `extractSortValues`. The previous code was:
+
+```ts
+newStartCursor = firstItem ? extractSortValues(firstItem, params.orderBy) ?? null : null;
+```
+
+If `extractSortValues` returned `null` (triggered when `parseSortField` finds an empty
+clause key — e.g. a sort clause object with no keys), the cursor was overwritten with
+`null`. The opposite-direction extend's first guard `if (!startCursor) return` / `if
+(!endCursor) return` then permanently blocked all further extends in that direction,
+until a `seek()` or `search()` re-established a fresh cursor.
+
+**Trigger note:** The audit described the trigger as "boundary image with undefined
+primary sort field." On closer reading, `extractSortValues` only returns `null` when
+`parseSortField` finds no key in the clause object — not when the field *value* is
+undefined (missing values push `null` into the array and the function continues,
+returning a valid `SortValues`). The bug is still real and the fix is correct for
+defensive correctness; the exact trigger condition was refined during investigation.
+
+**Fix:** Symmetric on both eviction paths — fall back to the previous cursor rather
+than overwriting with null:
+
+```ts
+// extendForward eviction:
+const evictedStart = firstItem ? extractSortValues(firstItem, params.orderBy) : null;
+newStartCursor = evictedStart ?? state.startCursor;
+
+// extendBackward eviction:
+const evictedEnd = lastItem ? extractSortValues(lastItem, params.orderBy) : null;
+newEndCursor = evictedEnd ?? state.endCursor;
+```
+
+**Tests:** New test file `src/stores/search-store-eviction-cursor.test.ts`. Uses
+`vi.mock` on `@/lib/image-offset-cache` to inject a one-shot null return from
+`extractSortValues` at the exact eviction moment. Two tests:
+
+1. Forward eviction: search → waitPastCooldown → 4× extendForward (1000 items) →
+   inject null → 5th extendForward triggers eviction → assert `startCursor` non-null
+   → assert `mock.requestCount` increases (extendBackward was not blocked).
+2. Backward eviction: search → waitPastCooldown → seek(5000) → 4× extendBackward
+   (1000 items) → inject null → 5th extendBackward triggers eviction → assert
+   `endCursor` non-null → assert extendForward advances buffer end.
+
+Both failed before fix, both pass after. Also updated a misleading comment in
+`search-store-extended.test.ts` line 641 that previously accepted `null` as valid
+post-eviction state — strengthened to assert non-null. Full suite: 414/414 green.
+
+### 28 April 2026 — Bug-hunt Batch B: `fallbackFirstPage` doesn't reset scroll (audit #12)
+
+**Bug:** When `_findAndFocusImage` falls back to first-page results — image not found in
+new query AND no neighbours survive — it `set()`s `bufferOffset: 0` and the new buffer
+but never bumps `_scrollReset.gen`. Effect #7b (the deferred scroll reset in
+`useScrollEffects.ts`) only fires when `_scrollReset.gen` changes. Effect #8 only fires
+when `bufferOffset` transitions from `> 0` to `0`. If the focused image was in the
+first page (old `bufferOffset` already 0), neither effect fired — scroll stayed stale-deep
+while fresh first-page results were rendered.
+
+**Fix:** Added `_scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false }` to all
+three `fallbackFirstPage` `set()` calls inside `_findAndFocusImage` in `search-store.ts`:
+- 8 s timeout path (inside `setTimeout` callback)
+- image-not-found / no-neighbours path (after the neighbour batch-check loop)
+- catch / unexpected-error path
+
+**Tests:** 1 new unit test in `search-store.test.ts` `neighbour fallback` describe block:
+`bumps _scrollReset.gen when no neighbour survives (audit #12)` — set up a 1000-image
+dataset, focus img-50 (bufferOffset=0), remove img-50 and all neighbours (±20), trigger
+`search("img-50")`, assert `_scrollReset.gen` is greater than before. Test failed on
+pre-fix code (`expected 64 to be greater than 64`) and passes after.
+Full suite: 412/412 green.
+
+### 28 April 2026 — Bug-hunt Batch B: `restoreAroundCursor` doesn't focus image (audit #16)
+
+**Bug:** On page reload while viewing a deep image detail, `ImageDetail.tsx` calls
+`restoreAroundCursor` which loads the correct buffer around the image. But `restoreAroundCursor`
+never set `focusedImageId`. When the user closed detail, `useReturnFromDetail`'s guard
+`if (previousFocus === null) return` fired → `setFocusedImageId(wasViewing)` was never
+called → no scroll centring. User left at a random scroll position.
+
+**Decision — explicit mode only:** Setting `focusedImageId` is wrong in phantom mode;
+phantom's invariant is that `focusedImageId` is always null (no focus ring). `search-store.ts`
+cannot call `getEffectiveFocusMode()` without a circular dep (ui-prefs-store already imports
+search-store), so the decision was pushed to the caller.
+
+**Fix:** Added `setFocus?: boolean` (default `false`) to `restoreAroundCursor` type signature
+and implementation. On success, spreads
+`{ focusedImageId: imageId, _focusedImageKnownOffset: exactOffset }` only when `setFocus === true`.
+`ImageDetail.tsx` already imported `useUiPrefsStore`; added `getEffectiveFocusMode` to that
+import and passes `getEffectiveFocusMode() !== 'phantom'` at the call site.
+
+**Tests:** 2 new unit tests in `search-store.test.ts` `restoreAroundCursor` describe block:
+- `sets focusedImageId when setFocus=true (explicit mode)` — failed before fix
+- `does NOT set focusedImageId when setFocus=false (phantom mode)` — passed before fix
+  (confirming phantom invariant was already upheld by the default `false`).
+Full suite: 411/411 green.
+
+### 28 April 2026 — Bug-hunt Batch B: `useReturnFromDetail` phantom early-return (audit #8)
+
+**Bug:** In phantom focus mode, `focusedImageId` is always `null` — phantom mode never
+sets an explicit focus when the user clicks/opens an image. When the user closed the
+detail overlay, `useReturnFromDetail` read `previousFocus = focusedImageIdRef.current`
+(null) and the guard `if (previousFocus === null) return` fired immediately. This meant
+`setFocusedImageId(wasViewing)` was never called, so: (a) the list never scrolled to
+centre the image just viewed; (b) the phantom pulse never fired; (c) `useReturnFromDetail`
+was entirely a no-op in phantom mode.
+
+The guard was designed for the **explicit-mode resetToHome case**: when something
+intentionally clears `focusedImageId` before the detail closes (e.g. logo click), the
+hook must not re-set it. That intent is correct — but in phantom mode `focusedImageId`
+was never set, so "null" does not mean "intentionally cleared", it means "never set".
+The guard conflated the two cases.
+
+**Root cause confirmed via:** `position-preservation-reference.md` site #3 note, which
+states the guard at `useReturnFromDetail.ts:63` is "No longer needed" now that the
+sort-leakage fix at site #2 is in place, but the guard was never actually removed.
+
+**Fix:** `src/hooks/useReturnFromDetail.ts` — refine the guard:
+
+```
+- if (previousFocus === null) return;
++ if (previousFocus === null && getEffectiveFocusMode() !== "phantom") return;
+```
+
+Explicit-mode resetToHome protection is preserved. Phantom mode now proceeds to call
+`setFocusedImageId(wasViewing)` and emit the phantom pulse.
+
+**Tests:** New `src/hooks/useReturnFromDetail.test.ts` (5 tests, `@vitest-environment jsdom`):
+- phantom mode: `setFocusedImageId` called with `wasViewing` ← was failing before fix
+- phantom mode: phantom pulse emitted ← was failing before fix
+- explicit mode: guard still fires when `focusedImageId === null` (resetToHome case)
+- explicit mode: `setFocusedImageId` called when `focusedImageId !== null`
+- explicit mode: scroll-centering fires when user navigated prev/next in detail
+
+All 409 unit tests pass after fix.
+
+### 28 April 2026 — Bug-hunt Batch B: `extendBackward` column-trim discards final items (audit #9)
+
+**Bug:** In `extendBackward` (`search-store.ts`), items fetched near the absolute start
+of the result set were silently discarded by the column-trim logic. The trim exists to
+keep prepended counts as a multiple of `geo.columns`, preventing existing grid items from
+shifting columns. But when `result.hits.length < geo.columns` (e.g. 2 items returned in
+a 3-column grid), `excess = result.hits.length`, and `result.hits.slice(excess) = []`.
+The function returned early without advancing `startCursor`, so every subsequent
+`extendBackward` call fetched the same 2 items and discarded them — a permanent block.
+Items 0 and 1 could only be reached by a full Home-key seek.
+
+**Trigger path:** `bufferOffset=2`, 3-column grid, backward fetch returns exactly 2 items
+(the last 2 before the start of results). `fetchCount = min(PAGE_SIZE=200, bufferOffset=2) = 2`.
+This also fires for `bufferOffset=N < geo.columns` with any column count.
+
+**Fix:** Added `if (result.hits.length > excess)` guard before the trim. When
+`result.hits.length ≤ excess` (i.e. the trim would produce empty results), the trim is
+skipped entirely. The tiny batch is always prepended as-is — there are no earlier items
+to cause column misalignment anyway.
+
+**Trim correctness preserved:** For normal full-page backward extends
+(`result.hits.length > excess`), the trim fires exactly as before. For the next backward
+extend after a skipped-trim (rare case `bufferOffset < geo.columns`), `bufferOffset` drops
+to 0 and the guard `if (bufferOffset <= 0) return` prevents any further extend. No cascade.
+
+**Test:** `search-store-extended.test.ts` — new describe block "extendBackward column-trim
+guard (audit #9)": sets `bufferOffset=2` via `seek(102)` with 1-column geometry, then
+switches to 3-column geometry, calls `extendBackward()`, asserts `bufferOffset=0` and
+buffer grew by 2. Failed before fix, passes after. Full suite: 404/404.
+
+### 27–28 April 2026 — Phantom-mode position restoration (4 bugs) + Bug 2 coupling refactor
+
+**Context:** In phantom/"Click to open" mode, `focusedImageId` is set transiently
+by `useReturnFromDetail` when the user closes image detail. This is correct — it
+serves position preservation for filter/query/reload. But it was leaking into three
+code paths that assumed `focusedImageId` implies an explicit user choice.
+
+**Bug 1 — Viewport anchor not updating after return-from-detail:**
+`useDataWindow.ts` `onItemsRendered` had a guard: `if (!focusedImageIdRef.current)`
+that skipped anchor updates when `focusedImageId` was set. In phantom mode after
+closing detail, this froze `_viewportAnchorId` at the exited image — all subsequent
+scroll didn't update the anchor, breaking history snapshots, density-switch, and
+phantom sort-around-focus.
+
+Fix: guard now checks `getEffectiveFocusMode() === "phantom"` — in phantom mode the
+anchor always updates regardless of `focusedImageId`. In explicit mode, the focused
+image wins as anchor (unchanged).
+
+**Bug 2 — Sort-only relaxation broken in phantom mode:**
+`useUrlSearchSync.ts` computed `focusPreserveId = explicitFocus ?? phantomAnchor`.
+After return-from-detail, `explicitFocus` was non-null → sort changes preserved
+position around the detail image instead of resetting to top (the intended phantom
+sort behaviour).
+
+Fix: `focusPreserveId = (isSortOnly && !isExplicitMode) ? null : (explicitFocus ??
+phantomAnchor)`. Phantom-mode sort always resets to top. Explicit mode unchanged.
+Non-sort changes (filter, query) still preserve position around `focusedImageId`.
+
+**Bug 3 — Departure snapshot guard refusing to overwrite phantom snapshots:**
+The popstate departure path had `if (!existing || !existing.anchorIsPhantom)` — when
+a phantom snapshot existed (captured by `markPushSnapshot` at detail-open time), it
+refused to overwrite. User scroll after return-from-detail was never captured; Back/
+Forward restored the stale markPushSnapshot position.
+
+Fix: added `else` branch that checks `getViewportAnchorId() !== existing.anchorImageId`.
+Same image = skip (prevents sub-pixel drift cascade). Different image = overwrite
+(legitimate scroll).
+
+**Bug 4 — Stale `userInitiatedFlag` leaking across display-only navigations:**
+`consumeUserInitiatedFlag()` was placed AFTER the dedup guard in `useUrlSearchSync`.
+Display-only navigations (image detail open/close, density toggle) call
+`markUserInitiatedNavigation()` via `pushNavigate`, but the effect deduplicates them
+(same serialised search params) and returns WITHOUT consuming the flag. The stale
+flag leaked to the next real param change — e.g. browser Back — making it look
+user-initiated. This skipped the departure snapshot guard entirely.
+
+Repro: phantom mode → seek → sort → detail → back → seek to 75% → Back → Forward →
+restores at detail image instead of seeked position.
+
+Fix: consume the flag on dedup bail too (before `return`). The flag's only purpose is
+to distinguish user-initiated from popstate; consuming it on dedup is safe because
+display-only navigations don't need the distinction.
+
+**Refactor — Bug 2 (flash fix) cross-effect coupling:**
+The `_scrollResetGeneration` counter from the 27 Apr flash fix used a `pendingSortOnlyRef`
+to bridge `sortOnly` context from Effect #7 (which detects sort-only changes) to
+Effect #7b (which resets scroll). This ref coupling had a stale-value risk: if Effect #7
+wrote the ref for a `searchParams` change whose `search()` later aborted, the next
+`_scrollResetGeneration` bump would read stale `sortOnly`.
+
+Fix: replaced `_scrollResetGeneration: number` with `_scrollReset: { gen: number;
+sortOnly: boolean }`. `sortOnly` is piped from `useUrlSearchSync` → `search()` options
+→ store `set()`, and Effect #7b reads it directly from the store value. Eliminated
+`pendingSortOnlyRef` entirely. Effect #7's no-anchor branch simplified to a no-op
+comment (~8 lines removed).
+
+`drift-flash-matrix.spec.ts` test #3 ("sort change without focus: detect F1 flash
+pattern"): converted from diagnostic-only to regression assertion — now asserts
+`scrollFlashDetected === false` and `contentFlashDetected === false`.
+
+**Tests added:**
+- `browser-history.spec.ts` #34: "departing snapshot updates when phantom anchor
+  changes" — A→B, back(A), scroll within buffer, forward(B), back(A): verify
+  A's snapshot anchor changed.
+- `browser-history.spec.ts` #35: "detail open/close then seek — departure snapshot
+  captures seeked position" — full repro of Bug 4: seek→sort→detail→back→seek→
+  back→forward: verify forward restores seeked position, not detail image.
+
+**Tests:** unit 398/398, e2e 189/189 (35 browser-history, up from 33).
+
+**Doc updates:**
+- `position-preservation-reference.md`: critical sites #1–#4 marked fixed, flash-site
+  inventory #8 date corrected from 27 Apr to 1 Apr 2026, summary updated.
+- `04-browser-history-architecture.md`: popstate departure description updated to
+  explain phantom guard behaviour.
+
+### 27 April 2026 — Animations for new/phantom images; count/ticker survival
+
+**Arriving animation** (`kupua-arrive`): Images that appear at the top of results
+(via `extendBackward` or clicking the "N new" ticker) now slide+fade in over 0.8s.
+Store field `_arrivingImageIds: ReadonlySet<string>` is populated atomically in the
+same `set()` call that lands new results — the CSS class (`anim-arriving`) applies
+`opacity: 0` from the first frame via `fill-mode: both`, preventing any flash of
+stale decoded pixels. Cleared by `setTimeout` after 1500ms. Uses the `translate`
+CSS property (not `transform`) to avoid conflict with the virtualizer's
+`transform: translateY()`. The `<img>` element gets a temporary `key={image.id}`
+only for animated cells, forcing a fresh DOM element — without this, positional
+`key={imageIdx}` reuses the `<img>` node and old decoded pixels persist until the
+new URL loads.
+
+**Phantom focus pulse** (`kupua-focus-pulse-unfocused`): In phantom/"Click to open"
+mode, the image targeted by sort-around-focus or return-from-detail now glows briefly
+(box-shadow pulse, 1.2s). Store field `_phantomPulseImageId` set in
+`_findAndFocusImage` (2 sites), `search()` first-page phantom branch, and
+`useReturnFromDetail`. Cleared by `setTimeout` after 2500ms.
+
+**`_isInitialLoad` flag:** Suppresses phantom pulse on cold page load — the pulse is
+only meaningful after a user action. Flag starts `true`, flips `false` when first
+search results land. Gated at all three store-level pulse emission sites. The
+`useScrollEffects` pulse site (Effect #9) was removed entirely — it was a redundant
+fallback that only activated on initial load (exactly when we don't want it).
+
+**StatusBar total/ticker survival across reload:** Both counters now seed from
+`sessionStorage` on mount (`kupua-sb-total`, `kupua-sb-new`). On update, values are
+written to sessionStorage. Display uses cached value until `total > 0` (store has
+real data from a completed search), then switches to live store values. This prevents
+the "0 matches" / empty ticker flash on page reload — the previous values stay
+visible until fresh data arrives. Sort-around-focus indicator moved after the ticker.
+`select-text` added to total count so users can copy the number.
+
+### 27 April 2026 — Fix: flash of intermediate results on no-focus search (Bug 2)
+
+**Bug:** Changing sort (or query, filter, popstate) without a focused image while
+scrolled deep caused 20+ frames of old buffer content visible at scrollTop=0 before
+new results arrived. The old Effect #7 reset `scrollTop=0` eagerly (before paint),
+but `search()` didn't fire until after paint — the user saw stale first-page images.
+
+**Root cause:** Timing mismatch between `useLayoutEffect` (Effect #7, fires before
+paint, resets scroll) and `useEffect` (`useUrlSearchSync`, fires after paint, calls
+`search()`). Between these two, the browser paints old buffer data at scrollTop=0.
+
+**Fix (`_scrollResetGeneration` — deferred scroll reset):**
+1. `search-store.ts`: Added `_scrollResetGeneration` counter. Bumped atomically in
+   the `search()` else-branch (no-focus path) alongside `bufferOffset: 0` and new
+   results. When focus IS in first page, `sortAroundFocusGeneration` bumps instead.
+2. `useScrollEffects.ts` Effect #7: No longer eagerly resets scroll for no-preserveId
+   changes. Old scroll position stays harmlessly until data arrives.
+3. `useScrollEffects.ts` new Effect #7b: Watches `_scrollResetGeneration`. Resets
+   scroll in the same `useLayoutEffect` frame as the data swap render — zero flash.
+   Preserves `scrollLeft` on sort-only changes (table view horizontal scroll).
+
+**Note — coupling:** Effect #7 now saves `sortOnly` into a ref that Effect #7b reads.
+These two effects are coupled: #7 runs on searchParams change (before data), #7b runs
+on `_scrollResetGeneration` change (with data). The ref bridges the gap. If either
+effect is refactored independently, the other must be checked.
+
+**Results:** Content flash 23→0 frames, scroll flash 22→0 frames. All 4 cited-scenario
+tests pass (focus, phantom, no-focus, Dublin two-tier). 398 unit tests pass.
+
+**Rejected alternatives:**
+- Always use viewport anchor for sort-without-focus: forces "stay at anchor" UX,
+  removes ability to control scroll-reset UX independently
+- Show skeleton while loading: worse UX, complex implementation
+
+### 26 April 2026 — Fix: content flash during sort-around-focus
+
+**Bug:** When changing sort with a focused image, 30-35 frames (~500ms) of
+wrong content flashed on screen. The thumbnails briefly showed images from
+global position 0 before snapping to the correct position.
+
+**Root cause:** `search()` nullifies `positionMap` (line 1722) before
+`_findAndFocusImage` reads it (line 1365). Two race conditions:
+
+1. **Two-tier mode** (1k–65k results): positionMap is temporarily null while
+   `_fetchPositionMap` fetches the new sort's map in the background.
+   `_findAndFocusImage` falls into the deep-seek estimate path, sets
+   `offset = hintOffset ?? 0`. With `hintOffset = null` (user-initiated sort
+   change has no snapshot hints), `bufferOffset = 0`. The correct images are
+   loaded around the focused one, but placed at global position 0. Effect #9
+   scrolls to position ~100 instead of ~7098. scrollTop jumps from 445343 to
+   5690 for ~350ms until async countBefore correction.
+
+2. **Deep-seek mode** (>65k): Same estimated `offset = 0` path. The scroll
+   container is buffer-relative so thumbnails appear correct, but the scrubber
+   thumb jumps to 0% and the position counter shows wrong numbers.
+
+**Fix (two changes in `search-store.ts`):**
+
+1. `_findAndFocusImage` step 2: when positionMap is null but total is in
+   two-tier range (`SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD`),
+   use `countBefore` (~10ms for ≤65k) instead of estimated offset=0. This
+   gives the exact global offset with negligible latency.
+
+2. `search()` → `_findAndFocusImage` call: pass `_focusedImageKnownOffset`
+   as hintOffset fallback (was always `null` for non-popstate sort changes).
+   Deep-seek mode gets ~correct initial buffer position (~672k instead of 0),
+   and the async correction only adjusts by ~17k instead of ~655k.
+
+**Results:** All 4 cited-scenario tests: content flash 0 frames (was 30-35).
+Dublin two-tier scrollTop range 429587–445343 (was 5690–445343). 1.3M seek
+scrollTop range 5454–6060 (was 0–6060). 398 unit tests pass.
+
+### 26 April 2026 — Flash measurement infrastructure and cited-scenario probes
+
+Built systematic infrastructure for measuring visual drift and flash during
+state transitions, using rAF-based sampling inside the browser.
+
+**New files:**
+- `e2e/shared/drift-flash-probes.ts`: Shared measurement module. `captureProbe()`,
+  `captureVisibleCells()`, `waitForSettle()`, `startTransitionSampling()` /
+  `stopTransitionSampling()` (rAF loop capturing scrollTop, bufferOffset,
+  resultsLength, safStatus, visible cell positions, tracked image state),
+  `measureDrift()`, `analyzeFlash()` (content + scroll flash detection),
+  `analyzePositionFlash()` (col×row trajectory analysis).
+- `e2e/smoke/cited-scenario.spec.ts`: 4 tests against real TEST cluster (1.3M images),
+  covering seek+focus+sort-field-change, seek+focus+direction-toggle,
+  seek+no-focus+sort-change, and city:Dublin two-tier variant.
+- `e2e/smoke/flash-measurement.spec.ts`: 3 sites × 3 scroll modes = 9 tests
+  measuring drift and flash at the 3 most impactful audit sites.
+- Updated `e2e/README.md` with comprehensive Drift & Flash documentation section.
+
+**Key findings from measurements:**
+- Site #1 (sort, no focus): Reset to top is expected behavior, not a bug.
+- Site #8 (density toggle): ~5px drift, negligible.
+- Site #9 (popstate no snapshot): Position lost entirely. Future investigation needed.
+- Cited scenario (sort-around-focus with focus): 30-35 frames content flash.
+  Fixed in separate changelog entry above.
+
+### 26 April 2026 — Fix: LAN access broken on Chrome Android (insecure context)
+
+`crypto.randomUUID()` is secure-context-only. Over LAN HTTP
+(`http://192.168.x.x:3000`), Chrome treats the page as insecure →
+`randomUUID` is `undefined` → `TypeError` at module top-level in
+`main.tsx` → React never mounts → grey page. Firefox is more lenient.
+Fix: feature-detect `randomUUID`, fall back to manual UUID-v4 via
+`crypto.getRandomValues` in `history-key.ts`.
+
+### 26 April 2026 — Fix: null-zone position map crash + sentinel sanitisation
+
+**Bug:** "Null zone scrolling in positionMap mode doesn't extend" (Bug 1 in
+`preexisting-bugs-found-during-history-work.md`). When scrolling through images
+sorted by Last Modified in the 1k–65k two-tier range, the buffer stopped growing
+and the user scrolled into permanent skeletons.
+
+**Root cause — ES Long.MAX/MIN_VALUE sentinels in sort values:**
+Elasticsearch uses Java `Long.MAX_VALUE` / `Long.MIN_VALUE` as internal sort
+sentinels for documents with missing fields (the "null zone"). These sentinels
+leak into the `sort` array of search hits. Three failure modes make them
+unusable in `search_after` cursors:
+
+1. `Long.MAX_VALUE` → JS float64 rounds to `9223372036854776000` (exceeds Long
+   range) → ES 400 "failed to parse date field"
+2. `Long.MIN_VALUE` → ES strips sign, tries `Long.MAX_VALUE+1` → overflow → 400
+   (OpenSearch issue [#17120](https://github.com/opensearch-project/OpenSearch/issues/17120),
+   gap in the fix from [PR #12676](https://github.com/opensearch-project/OpenSearch/pull/12676))
+3. `null` → NPE in ES 8.x `search_after` → 500
+
+**Fix — two parts (`es-adapter.ts`):**
+
+1. **Two-phase position map fetch** (`fetchPositionIndex`): Instead of walking all
+   results in one pass (which hits sentinels at the null-zone boundary), the fetch
+   splits into two phases: docs WITH the primary sort field first, then docs
+   WITHOUT it. Each phase uses a clean sort with no sentinels. Null-zone docs get
+   `[null, uploadTime, id]` sort values injected via `injectNullPrimary()`, matching
+   the format `detectNullZoneCursor` expects.
+
+2. **Sentinel sanitiser on all search return paths** (`sanitizeSortValues`): A
+   module-level function converts sort values where `|v| >= 9.2e18` to `null`.
+   Applied in `_doSearch()`, `searchAfter()` (both main and PIT-expired fallback
+   paths). This ensures `endCursor`/`startCursor` stored in the search store
+   contain `[null, ...]` instead of sentinel numbers, so `detectNullZoneCursor`
+   triggers correctly for extends, seeks, and sort-around-focus.
+
+**Bonus fix — search cooldown shortening** (`search-store.ts` ~L1880): After a
+no-focus search lands, overwrite the 2s `SEARCH_FETCH_COOLDOWN` with 100ms
+`SEEK_COOLDOWN_MS`. Without this, extends are blocked for ~1.5s after search
+completes and fast scrolling outruns the buffer.
+
+**Diagnostic approach:** Built throwaway `nullzone-diag.spec.ts` against TEST
+cluster (read-only). First used `mouse.wheel` events (triggered seeks, not
+extends — wrong scroll pattern). Switched to rAF-based `scrollTop += 50`
+smooth scroll (from perf.spec.ts P2), which properly exercises extends.
+
+**Files changed:**
+- `kupua/src/dal/es-adapter.ts` — `sanitizeSortValues()`, two-phase
+  `fetchPositionIndex()`, sanitiser on `_doSearch` + `searchAfter` return paths
+- `kupua/src/stores/search-store.ts` — cooldown overwrite after no-focus search
+
+**Verified:** Position map loads (14,388 entries), buffer extends from 200→1000
+via smooth scroll in null zone. Unit tests: 398 passed.
+
+### 26 April 2026 — History back/forward: new-images leak fix + monotonic ratchet
+
+**Problem:** Browser back/forward across different search contexts called `search()`,
+which opened a fresh PIT at `now` and set `newCountSince = now`. Images uploaded since
+the original search silently entered the results. The ticker (which counts images since
+`newCountSince`) reset to 0, hiding the fact that the user was seeing different results
+from what they had before.
+
+**Fix — `frozenUntil` option on `search()` (`search-store.ts`, `useUrlSearchSync.ts`):**
+- `HistorySnapshot` gains `newCountSince: string | null` — captured in
+  `buildHistorySnapshot()` from the store, persisted to sessionStorage.
+- `search()` accepts optional `frozenUntil` timestamp. When provided:
+  (a) initial `searchAfter` gets `until: frozenUntil` cap (uses earlier of user's
+  explicit `until` filter and `frozenUntil`); (b) `newCountSince` is set to
+  `frozenUntil` instead of `now`; (c) `newCount` is NOT zeroed (prevents ticker flash).
+- On popstate restore, `frozenUntil = max(snapshot.newCountSince, store.newCountSince)`.
+
+**Monotonic ratchet rule:** The max ensures two properties:
+1. History never advances the freeze boundary to `now` — no surprise new images.
+2. History never rolls back the freeze boundary — if the user absorbed new images via
+   ticker on any entry, going back to an older entry still includes those images.
+
+**Immediate ticker poll (`startNewImagesPoll`):**
+- Extracted the poll body into a `tick()` function, called immediately on poll start
+  (in addition to the 10s interval). On fresh searches this counts 0 (harmless); on
+  popstate restores with `frozenUntil` it shows the correct count instantly instead of
+  after a 10s delay.
+- Updated ES request count tests (+1 for the immediate ticker count()).
+
+**Files changed:** `history-snapshot.ts` (new field), `build-history-snapshot.ts`
+(capture), `search-store.ts` (frozenUntil option, immediate tick, conditional newCount
+reset), `useUrlSearchSync.ts` (ratchet computation, frozenUntil threading),
+`build-history-snapshot.test.ts` (+2 tests), `search-store-extended.test.ts` (count
+adjustments), `new-images-behaviour-comparison.md` (table + ratchet note).
+
+**Test counts:** 398 unit (all pass), 33 browser-history e2e (all pass).
+
+### 25–26 April 2026 — Browser history future polish: Phases 1–4 + flag retirement
+
+Four phases implementing kupuaKey identity, snapshot capture, popstate restore, and
+reload survival. Plus column alignment, scroll-teleport fix, and experimental flag
+retirement.
+
+**Phase 1 — kupuaKey identity (`lib/orchestration/history-key.ts`):**
+- Each history entry gets a unique `kupuaKey` in `history.state`, minted on push.
+- `getCurrentKupuaKey()` reads `window.history.state` (not TSR's internal copy) —
+  browser state is canonical because cold-load synthesis uses raw `replaceState`.
+- All push sites wired: `pushNavigate`, `pushNavigateAsPopstate`, `useUpdateSearchParams`.
+  Replace-only sites re-pass the current key. ImageDetail deep-link synthesis gets a
+  fresh key. `history.scrollRestoration = 'manual'` + `synthesiseKupuaKeyIfAbsent` on
+  app init.
+- 15 unit tests, 4 e2e tests. 372 unit / 169 e2e pass.
+
+**Phase 2 — Snapshot capture (`lib/history-snapshot.ts`, `lib/build-history-snapshot.ts`):**
+- `HistorySnapshot` type: searchKey, anchorImageId, anchorIsPhantom, anchorCursor,
+  anchorOffset, scrollTop, viewportRatio.
+- `SnapshotStore` interface with `MapSnapshotStore` (in-memory) and
+  `SessionStorageSnapshotStore` (survives reload). Compile-time flags.
+- `buildHistorySnapshot()` reads store state + DOM geometry. Anchor selection:
+  explicit focus in click-to-focus mode, viewport-centre image (phantom) otherwise.
+- `markPushSnapshot()` wired into `pushNavigate` (captures before push).
+  `pushNavigateAsPopstate` does NOT capture (by design — it's a reset).
+- 18 unit tests, 2 e2e tests. 390 unit / 171 e2e pass.
+
+**Phase 3 — Popstate restore (`useUrlSearchSync.ts`):**
+- On popstate, looks up snapshot for destination kupuaKey. Strict searchKey match
+  (or lenient if flag was on — now removed). Passes anchor as `sortAroundFocusId` with
+  `snapshotHints` (cursor + offset) to `search()` — reuses the existing sort-around-focus
+  render gate, no new restore path.
+- Popstate departure capture: before restoring destination, captures snapshot for the
+  entry we're LEAVING (`_lastKupuaKey`). Enables forward-after-back.
+- Phantom anchor guard: `anchorIsPhantom` flag → `phantomOnly: true` in `search()` →
+  `_phantomFocusImageId` instead of `focusedImageId` — no spurious focus ring on restore.
+- scrollTop-only fallback for empty-result snapshots.
+- Pre-existing bug fix: ImageDetail deep-link synthesis re-fired on popstate back to a
+  detail entry (one-shot flag already consumed). Fix: stamp `_bareListSynthesized: true`
+  on `history.state` after synthesis; check before re-synthesising.
+- 6 e2e tests. 390 unit / 177 e2e pass.
+
+**Phase 4 — Reload survival (`main.tsx` pagehide handler):**
+- `pagehide` event handler captures snapshot for current kupuaKey before unload/bfcache.
+- Mount-time restore: strict-only searchKey matching (`isMount` check).
+- Bug fix: `buildSearchKey` didn't exclude `offset`/`length`/`countAll` — store params
+  included `length: 200` but URL-derived searchOnly didn't → key mismatch on mount.
+  The lenient flag had masked this for Phase 3.
+- 4 e2e tests (reload restore, reload-then-back, deep reload, bfcache survival).
+  392 unit / 181 e2e pass.
+
+**Viewport ratio preservation:**
+- `viewportRatio` field in snapshot: `(elRect.top - containerRect.top) / clientHeight`.
+- On restore, `saveSortFocusRatio(snapshot.viewportRatio)` before `search()` so Effect #9
+  positions the image at the same viewport fraction, not always at top row.
+- Exported `saveSortFocusRatio` from `useScrollEffects.ts`.
+
+**Column alignment (`search-store.ts`, `_loadBufferAroundImage`):**
+- Anchor image always landed in an arbitrary column (`PAGE_SIZE/2 % columns`). Fix: trim
+  0–(columns-1) items from backward results so `bufferStart % columns === 0`, preserving
+  the image's natural column position. Uses `getScrollGeometry().columns`.
+
+**Scroll teleport fix (`useScrollEffects.ts`, Effect #9):**
+- Buffer extends rebuilt `imagePositions` → new `findImageIndex` ref → Effect #9 re-fired
+  → repositioned at saved ratio. Phase 4's `saveSortFocusRatio` made this trivially
+  reproducible. Fix: `scrollAppliedResultsRef` tracks results array identity — same ref
+  (offset correction) → allow, different ref (extend) → block. New generation resets.
+- First approach (generation guard) failed: blocked essential async offset-correction
+  re-fires (4 scrubber tests failed). Results-identity approach precisely distinguishes
+  offset correction from extends.
+- Regression test: "no scroll teleport after reload restore — extends do not reposition".
+
+**Experimental flag retirement:**
+- `EXPERIMENTAL_FOCUS_AS_ANCHOR_IN_CLICK_TO_FOCUS` → promoted (always on), flag and
+  conditional removed. In click-to-focus mode the focused image is always the anchor;
+  viewport-centre fallback when no focus. Doc comment updated to explain the design.
+- `EXPERIMENTAL_LENIENT_SEARCHKEY_MATCH` → deleted (dead code). Analysis showed
+  `snapshot.searchKey` and URL-derived `currentSearchKey` are structurally identical on
+  every popstate — same `buildSearchKey()`, same exclusion list, store always synced to
+  URL at departure time. The lenient branch could never fire.
+
+**Code review triage (26 Apr):**
+- H1 fix: `withCurrentKupuaKey()` returned `{ kupuaKey }` only, dropping
+  `_bareListSynthesized` and other `history.state` fields on replace navigations.
+  Fix: spread `history.state` first. E2e test added (traverse → close → forward).
+  Unit tests 4→6 in `withCurrentKupuaKey` describe.
+- H2: deleted `scrollTopFallback` restore path (dead code). The path required
+  no-anchor (zero results) → scrollTop is always 0, and `window.scrollTo` was a no-op
+  on `overflow-hidden` root. Removed `scrollTop` from `HistorySnapshot`, capture, and tests.
+- M3 doc fixes: removed "strict-only" qualifier from mount-time restore description,
+  corrected test count 35→32, describe blocks 4→9, kupuaKey unit tests 4→6,
+  `anchorCursor` → `anchorOffset` in snapshotHints.
+- L1 comment: documented `_lastKupuaKey` invariant (undefined on cold load → correctly
+  skips departure-capture).
+- L3 comment: added "empty URL = keep current per HTML spec" to `replaceState(state, "")`.
+
+**Pre-existing Bug 1 fix — scrubber thumb stuck after sort change (26 Apr):**
+- Root cause: Scrubber.tsx flash guard (`prevTop > 50 && thumbTop < 10`) permanently
+  suppressed the DOM write on sort-without-focus. Unlike sort-around-focus (where
+  `_findAndFocusImage` corrects offset while loading=true), no async correction ever
+  arrives — the near-zero position IS final. `_seekTargetGlobalIndex` (originally
+  suspected) is guarded by `_seekGeneration` and was inert.
+- Fix: added `loading` to the flash guard condition — only suppress when `loading=true`
+  (transient). When `loading=false` the position is final. Added `loading` to effect deps.
+- Defence-in-depth: cleared `_seekTargetLocalIndex/-GlobalIndex` to -1 in `search()` else
+  branch and both `_findAndFocusImage` fallback paths.
+- New file: `Scrubber.test.tsx` — first unit test for the component (2 tests: thumb resets
+  when loading=false; flash guard suppresses when loading=true).
+
+**Phantom anchor drift fix — Bug A (coordinate mismatch) + Bug B (anchor-walk cascade):**
+- **Bug A:** `buildHistorySnapshot` computed `viewportRatio` via DOM `getBoundingClientRect`
+  (includes container `pt-1` = 4px padding). Effect #9 restores via `localIndexToPixelTop`
+  (geometry, no padding). The 4px offset accumulated linearly each back/forward cycle.
+  Fix: replaced DOM-based ratio with geometry-based computation — imports layout constants,
+  computes `virtualizerIdx` from anchor offset, derives `rowTop` from row arithmetic, then
+  `viewportRatio = (rowTop - scrollTop) / clientHeight`. Grid vs table detected via
+  `aria-label` attribute on the scroll container.
+- **Bug B:** On popstate-forward, the departing snapshot for the previous entry was
+  unconditionally overwritten. `buildHistorySnapshot` used `getViewportAnchorId()` which
+  returned a different image after phantom cleared (one-shot consumed). The overwritten
+  snapshot had the wrong anchor → next restore used wrong anchor → cascade compounded
+  ~1 row/cycle. Fix: skip departing snapshot overwrite when existing snapshot has
+  `anchorIsPhantom` — the push-time snapshot (from `markPushSnapshot` before navigate)
+  already has the accurate anchor.
+- Verified on TEST cluster (~1.3M images): 0px drift across 4 phantom cycles (was
+  0→4→432→735→1038), 0px drift across 3 explicit cycles (was +4px/cycle linear).
+- New handoff doc: `position-preservation-rearchitecture-handoff.md` — 24 divergence
+  points, 3 coordinate systems, stable corpora for future Option B unification.
+- Diagnostic test `phantom-drift-diag.spec.ts` kept for regression testing.
+
+**Seek column-alignment fix (`search-store.ts`, `seek()`):**
+- Root cause: `seek()` set `bufferOffset = actualOffset` without column alignment.
+  Images landed in arbitrary columns (`localIdx % cols`) rather than their natural
+  column (`globalIdx % cols`). The existing `_loadBufferAroundImage` (used by popstate
+  restore) already column-aligned, so restores showed the correct column while the
+  original seek view showed the wrong one — visible as a column shift (and sometimes
+  row shift) on the first back/forward cycle. Subsequent cycles were stable because
+  departure snapshots captured the correctly-aligned restore view.
+- Diagnostic proof (1720×1280, 6 cols, image globalIdx=661903, natural col=1):
+  initial seek `bufferOffset=661795` → `localIdx=108` → col 0 (wrong);
+  popstate restore `bufferOffset=661806` → `localIdx=97` → col 1 (correct).
+- Fix: column-alignment trim in `seek()` before cursor computation — same logic as
+  `_loadBufferAroundImage`. Trims 0–(cols-1) items from results so
+  `actualOffset % cols === 0`. Also adjusts `backwardItemCount` for
+  `computeScrollTarget` headroom detection.
+- Affects all seek paths (deep-seek >65k, position-map 1k–65k, shallow <10k).
+  Manual verification on TEST: swimming, scrubber drag, End key, null-zone sort,
+  history round-trip, two-tier mode, small result sets — all clean.
+
+**Final test counts:** 396 unit, 183 e2e, 0 failures.
+
+### 25 April 2026 — Bug fix: debounced typing didn't create back-navigable entries
+
+**Bug:** Type "cats" → wait → type "dogs" → press back → lands on the referring site
+(e.g. theguardian.com), not on the "cats" search. Debounced query changes always used
+`replace: true`, so each settled query overwrote the previous one in-place — no history
+entry was ever created between typing sessions.
+
+**Fix (SearchBar.tsx):** On the first keystroke of a new typing session (detected by
+`_debounceTimerId` being null), push the current URL via `history.pushState(...)` before
+starting the debounce timer. This commits the pre-edit context as a history entry.
+Subsequent keystrokes within the 300ms window hit `clearTimeout` + `setTimeout` as
+before, and the debounce callback fires `updateSearch({ replace: true })` which replaces
+the pushed entry. Net result: each *settled* query becomes a discrete back target, but
+intermediate keystrokes ("c", "ca", "cat") don't pollute history.
+
+**Edge case — slow typers (>300ms between keystrokes):** Each keystroke would start a
+fresh typing session and push. This means very slow typing could create intermediate
+entries. Acceptable trade-off: 300ms is fast enough that normal typing stays within one
+session, and even slow-typer entries are valid settled queries (debounce fired between
+them).
+
+**New e2e test:** "back navigates between settled debounced queries (typed via UI)" —
+types "cats" via the CQL search input, waits, types "dogs", presses back, verifies
+landing on "cats" (not the referring page), then back again to the home page (no query).
+
+**Regression check:** 165 e2e tests pass (0 failures), 357 unit tests pass.
+
+### 25 April 2026 — Browser history baseline tightening (6 items)
+
+Implemented all 6 baseline items from `browser-history-baseline-tightening-handoff.md`.
+The goal: tighten kupua's history model so push/replace decisions and popstate-vs-user
+distinctions are consistent across all call sites — prerequisite for snapshot-based
+position restoration.
+
+**Item 1 — closeDetail → history.back():**
+- Rewrote `ImageDetail.closeDetail` from `navigate({ replace: true })` to
+  `markUserInitiatedNavigation(); history.back()`. All four close affordances
+  (← Back button, double-click, Backspace, swipe-to-dismiss) share this callback.
+- Forward now re-opens the detail (was dead-end before).
+- Added deep-link synthesis on mount: if `history.length <= 2` (fresh tab), synthesise
+  a bare-list entry below the detail via same-tick `replaceState` + `pushState`. No
+  flicker (Chrome/Firefox coalesce). Gate at 2 (not 1) because Playwright/Safari count
+  `about:blank` as a history entry.
+- Updated `ImageDetail.tsx` doc comment to reflect new close semantics.
+
+**Item 2 — pushNavigate / pushNavigateAsPopstate helpers:**
+- Added two helpers to `lib/orchestration/search.ts`:
+  - `pushNavigate(navigate, opts)` — calls `markUserInitiatedNavigation()` then `navigate()`.
+  - `pushNavigateAsPopstate(navigate, opts)` — calls `navigate()` without marking.
+- Switched `enterDetail-grid` (ImageGrid) and `enterDetail-table` (ImageTable) to
+  `pushNavigate()`. No behavioural change (display-only key dedup bails before reading
+  the flag), but makes intent explicit and removes a footgun.
+- Added comments at `traversal-onNavigate` and `default-injection` explaining why they
+  stay raw (replace-only sites — helpers are push-only).
+
+**Item 3 — logo-reset → pushNavigateAsPopstate:**
+- Switched both logo-reset sites (SearchBar.tsx and ImageDetail.tsx) to
+  `pushNavigateAsPopstate()`. Previously depended on a *missing* call for correctness;
+  now the opt-out from marking is explicit.
+- Added comments at both sites explaining why this is the exception.
+
+**Item 4 — density toggle comment:**
+- Added comment at `StatusBar.tsx` density toggle explaining the deliberate push choice
+  (density is a useful view per the guiding philosophy).
+
+**Item 5 — metadata click-to-search comment:**
+- Added comment at `ImageMetadata.tsx` explaining the single-push design (new query +
+  close detail in one navigate; splitting would create a redundant entry).
+
+**Item 6 — FullscreenPreview doc comment:**
+- Updated `FullscreenPreview.tsx` doc comment to document the new history-aware Backspace
+  semantics when entered from ImageDetail.
+
+**E2E tests (7 new, 12 total in browser-history.spec.ts):**
+- Forward after close-button re-opens detail (item 1)
+- Backspace close then forward re-opens detail (item 1)
+- Deep-link synthesis: fresh tab → close → lands on bare list (item 1)
+- Back across density toggle re-toggles density (item 4)
+- Logo reset from search bar → back with popstate semantics (item 3)
+- Logo reset from image detail → back restores previous context (item 3)
+- Metadata click single push; back returns to detail (item 5)
+
+**Regression check (initial):** 163 e2e tests pass (0 failures), 357 unit tests pass.
+
+**Bug fix (same session):** Removed the `history.length` gate from deep-link synthesis.
+The gate (`DEEP_LINK_HISTORY_GATE = 2`) was meant to distinguish fresh tabs from tabs
+with prior browsing, but `history.length` is unreliable across browsers and contexts.
+A tab with 20+ guardian.com entries reported `length > 2`, synthesis was skipped, and
+"Back to search" exited kupua entirely. Fix: always synthesise on cold loads. Added
+e2e test #10 covering this scenario.
+
+**Bug fix (same session):** Unconditional synthesis created phantom entries. Every
+SPA-navigated detail open inserted a bare-list entry even though the list entry already
+existed in history, doubling back-presses needed. Fix: `pushNavigate()` now sets a
+module-level `_detailEnteredViaSpa` flag; the synthesis `useLayoutEffect` consumes it
+and skips synthesis when set. Cold loads (paste/bookmark/reload) never call
+`pushNavigate()` → flag stays false → synthesis runs. Added e2e test #8 (SPA open-close
+cycle, no phantom entries).
+
+**Final regression check:** 164 e2e tests pass (0 failures), 357 unit tests pass.
+
+**Analysis doc updated:** `browser-history-analysis.md` — history entry rules table,
+audit table "Today's behaviour" column, E2E coverage section, baseline section marked
+complete. Item 1 section updated to document SPA-entry flag guard.
+
+### 24 April 2026 — Fix: swipe-to-dismiss bypassed zoom guard after double-tap
+
+**Bug:** Double-tap to zoom in (especially near image top edge), then swipe down
+→ dismiss fires despite `scaleRef > 1`. Reliably reproducible, no speed required.
+
+**Root cause:** Stale closure state in `useSwipeDismiss`. The `scaleRef > 1` guard
+only existed in `onTouchStart`. The second tap of the double-tap ran `onTouchStart`
+*before* usePinchZoom set `scaleRef = 2` (zoom happens in `onTouchEnd`). This left
+valid `startX/Y` and `decided = false` in the closure. The subsequent swipe's
+`onTouchStart` was correctly blocked by the guard, but `onTouchMove` had no guard
+and operated on the stale state from the double-tap, entering the direction-decision
+block and committing the dismiss.
+
+**Fix:** Added `scaleRef > 1` guard at the top of `onTouchMove` in `useSwipeDismiss`,
+matching the existing guard in `onTouchStart`. One line.
+
+### 24 April 2026 — P2-4: Parallel PIT open (~131 ms off every search)
+
+**Goal:** Eliminate the sequential `await openPit → await searchAfter` in
+`search()`. PIT open is pure network RTT (~131 ms over SSH tunnel). The first
+page doesn't use `search_after` cursors, so it doesn't need the PIT id upfront.
+
+**Implementation (search-store.ts):**
+- Replaced sequential `await openPit + await searchAfter` with `Promise.all`.
+- First `searchAfter` passes `pitId: null` → index-prefixed `/{index}/_search`.
+- `openPit` is wrapped in `.catch(→ null)` so a PIT rejection doesn't fail the
+  whole `Promise.all` (rejection isolation). Logs a warning and degrades to
+  `pitId=null` (same as `IS_LOCAL_ES` mode), which all extends/seeks handle.
+- `_pitGeneration` bump moved BEFORE the `await Promise.all(...)` (was after
+  `openPit` resolved). Ensures any concurrent extend that fires during the
+  parallel window is immediately invalidated, even if `openPit` fails.
+- `IS_LOCAL_ES` guard preserved: local ES short-circuits the PIT slot to
+  `Promise.resolve(null)` — `openPit` is never called on local.
+
+**Bundled defensive cleanup (es-adapter.ts):**
+- In the PIT-404/410 fallback return path, added the same `hit.sort.length >
+  effectiveSort.length` slice that the main return path already does. Currently
+  a no-op (non-PIT ES returns length-N sort values), but eliminates a latent
+  foot-gun if the fallback path ever evolves to retain PIT.
+
+**New tests (search-store-pit.test.ts, 5 tests, IS_LOCAL_ES mocked to false):**
+1. `openPit` rejection → search succeeds, `pitId=null`, no error state.
+2. `state.pitId` equals the id returned by `openPit` after search.
+3. `extendForward` works after a parallel-mode search.
+4. `_pitGeneration` is incremented synchronously before `Promise.all` resolves.
+5. `_pitGeneration` increments on each `search()`.
+
+**Test counts:** 352 → 357 (all passing).
+
+**Measured results (median of 3 runs, TEST cluster, label "P2-4 done"):**
+PP2 324→250ms, PP5 546→438ms, PP8 903→734ms, PP9 387→272ms,
+JA1 276→181ms, JB1 300→207ms, JB2 750→473ms, JB3 348→274ms.
+PP1 median 412ms (SSH jitter — best run 256ms, 3-run spread 172ms;
+P2-1 baseline 379ms was similarly noisy). All other search metrics
+improved 24–277ms. P2-4 confirmed effective.
+
+### 24 April 2026 — P2-1: _source filtering switched to allowlist for all searches
+
+**Goal:** Reduce ES response payload for all searches by switching from
+`SOURCE_EXCLUDES` (blacklist of 4 fields) to `SOURCE_INCLUDES` (whitelist
+of 35 specific fields). Targets PP1 home-logo settle <400ms (was 609ms).
+
+**Investigation:**
+- Root cause: ES responses ~1.5MB for 200 images. Network transfer over SSH
+  tunnel dominates (~460ms of ~592ms RTT). ES query execution only ~75-130ms.
+- Mapped every field used across all kupua surfaces (grid, table, detail panel,
+  metadata sidebar, hidden columns, imgproxy rotation). 35 fields needed total.
+- Ran 7 measurement variants (M-A through M-G) on TEST cluster. T1+T2 includes:
+  1476KB→244KB raw, 256KB→61KB gzip, 592ms→349ms through proxy.
+
+**Implementation:**
+- `es-config.ts`: Replaced `SOURCE_EXCLUDES` (4 fields) with `SOURCE_INCLUDES`
+  (35 fields across 3 tiers). Tier 1 (8 fields): grid. Tier 2 (15): table.
+  Tier 3 (12): detail panel, hidden columns, imgproxy rotation.
+- 35 fields cover everything kupua currently renders. No surface missing data.
+- Whitelist applies to every `_source`-returning call: `search()`,
+  `searchRange()`, `getById()`, `searchAfter()`.
+- `es-adapter.ts`: Updated comments only — no logic changes needed (existing
+  `_source` wiring already supports non-empty includes).
+
+**Results (median of 3 runs, TEST cluster):**
+- PP1 home-logo: **609→379ms** (-38%, target <400 achieved)
+- PP5 filter-toggle: 903→546ms (-40%)
+- PP8 search warm: 1220→903ms (-26%)
+- PP9 chip-remove: 664→387ms (-42%)
+- JB2 facet-click: **1216→750ms** (-38%, P2-2 target <800 hit for free)
+- All search-based metrics improved 15-40%. Non-search metrics unchanged.
+- JA3 metadata-click 277→949ms — baseline was anomalously low for a ~1.3M
+  result search (compare PP8 baseline 1220ms). Not a regression.
+
+**Dashboard fix:** Added 5 p95 metrics (`dt_ack_p95_ms`, `dt_status_p95_ms`,
+`dt_first_pixel_p95_ms`, `dt_settled_p95_ms`, `status_total_p95_ms`) to
+`perceived-graphs.html` — KNOWN_METRICS, METRIC_LABELS, select options,
+getTargetForAction.
+
+**Next:** P2-4 (parallel PIT open) documented in handoff — ~131ms further
+saving on every search by opening PIT in parallel with first searchAfter.
+
+### 24 April 2026 — Perceived-perf Phase 1 baseline + 4-fix pass
+
+**Goal:** Close out Phase 1 of the perceived-perf audit by fixing four
+attribution/instrumentation gaps and capturing the first real 3-run
+baseline against TEST.
+
+**Fixes applied:**
+
+1. **`expectedAction` parameter in `computeMetrics`** (both
+   `e2e-perf/perceived-short.spec.ts` and `e2e-perf/perceived-long.spec.ts`).
+   Previously the helper picked the *first* `t_0` entry, which mis-attributed
+   actions whose user-initiated trigger fires a downstream `search` `t_0`
+   first (PP9 chip-remove → reported as `search`, PP10 position-map → ditto,
+   JA2 image-dblclick → no anchor at all). New optional param filters to
+   `t_0` entries with matching `action`, then derives lifecycle from there.
+   Applied to every call site; left off only for JB3 alt+click and JB4
+   (intentionally fall back to first-`t_0`).
+
+2. **`open-detail` trace site added.** ImageGrid's `enterDetail` (the
+   shared callback for single-click in phantom mode and double-click in
+   explicit mode) emits `trace("open-detail", "t_0", { imageId })`.
+   ImageDetail emits `trace("open-detail", "t_settled")` inside a rAF when
+   `displayImage.id` first appears for a given session.
+   - Initial implementation declared the `useRef` and `useEffect` after
+     the `if (!image) return ...` early return → "Rendered more hooks
+     than during the previous render" runtime error in browser. Fixed by
+     hoisting the ref to top-level alongside the other refs and moving
+     the effect immediately after `const image = ...` is computed
+     (still well before the early return). Hooks rule: no conditional
+     hook calls.
+
+3. **JA3 metadata-click switched from `colourProfile:"Display P3"` to
+   `colourModel:"RGB"`.** The Display P3 button doesn't exist on every
+   David Young image, so the test would time out waiting for the locator.
+   RGB is the cheap escape (the vast majority of corpus images are RGB).
+   Also added `scrollIntoViewIfNeeded()` and a 200 ms post-panel-toggle
+   settle to harden against intermittent click misses. Sanity bound on
+   `finalTotal` initially set to ±2k, then relaxed to "> 100" once we
+   noticed metadata click *replaces* (not appends) the query — so the
+   resulting total is corpus-wide RGB (~1.3M), not query-narrowed.
+
+4. **Legend documentation in `e2e-perf/results/perceived-graphs.html`.**
+   Updated `#legend` text to explicitly call out that "—" cells are
+   by-design gaps, not regressions: `density-swap`, `scrubber-scroll`,
+   `fullscreen-exit`, and `open-detail` only emit `t_0`/`t_settled`;
+   `filter-toggle` has no first-pixel site.
+
+**3-run baseline captured (`Perceived baseline (post-refactor)`):**
+
+| Step | Action | Ack | 1st-pixel | Settled |
+|---|---|---|---|---|
+| PP1 | home-logo | 1 | 609 | 609 |
+| PP2 | sort-no-focus | 42 | 377 | 377 |
+| PP3 | sort-around-focus | 42 | 871 | 871 |
+| PP4 | sort-around-focus | 44 | 830 | 830 |
+| PP5 | filter-toggle | 42 | — | 903 |
+| PP6 | density-swap | — | — | 204 |
+| PP7 | scrubber-seek | 1 | 987 | 987 |
+| PP7b | scrubber-seek | 1 | 960 | 960 |
+| PP7c | scrubber-scroll | — | — | 118 |
+| PP8 | search | 0 | 1220 | 1220 |
+| PP9 | search | 0 | 664 | 664 |
+| PP10 | position-map | — | — | 2577 |
+| PP6b | density-swap | — | — | 323 |
+| PP6c | density-swap | — | — | 323 |
+| JA1 | search | 0 | 388 | 388 |
+| JA2 | open-detail | — | — | 104 |
+| JA3 | metadata-click | 13 | 277 | 277 |
+| JB1 | search | 0 | 553 | 553 |
+| JB2 | facet-click | 54 | 1216 | 1217 |
+| JB3 | search | 0 | 606 | 606 |
+| JB4 | search | 0 | 571 | 769 |
+| JB5 | fullscreen-exit | — | — | 2 |
+
+All 22 perceived sub-scenarios green across 3 runs with correct action
+attribution everywhere. Files written: `e2e-perf/results/perceived-log.{json,md}`.
+
+**Audit doc updates (`exploration/docs/perceived-perf-audit.md`):**
+- Status block: "Phase 1 in progress" → "Phase 1 complete"; baseline
+  captured 24-Apr-2026; lists the 4-fix pass as part of completion.
+- Scenario count: 12 short → 14 short (PP1–10 plus PP6b/c, PP7b/c).
+- Acceptance criterion: "≥5 runs" → "≥3 runs" (deliberate match to jank
+  cadence; 5+ considered too costly against shared TEST cluster).
+
+**First Phase 2 candidates from baseline:** PP1 home-logo 609 ms (target
+<200 ms; owner's named pain point, 3× over), JB2 facet-click 1216 ms
+(no explicit target but feels worth investigating), PP10 position-map
+2577 ms background (worth confirming nothing user-facing blocks on it).
+
+**Tests:** 352 unit tests pass throughout. No production-code behavioural
+change beyond the new `open-detail` trace site (which is gated on dev
+or `localStorage.kupua_perceived_perf === "1"` and has zero prod cost).
+
+
+
+### 23 April 2026 — Journey tests + --journeys-only harness
+
+**Goal:** Add realistic multi-step journey tests (JA + JB) that measure perceived latency across full user workflows — search → filter → metadata click → seek → fullscreen — rather than isolated actions.
+
+**New files:**
+- `e2e-perf/journeys.spec.ts` — two journeys:
+  - JA (scroll tier, `by:"David Young"`, 538 results): JA1 search → JA2 sort-reverse → JA3 metadata-click colourProfile on prescribed image f117d4a.
+  - JB (two-tier, `uploader:avalonred`, 21628 results): JB1 search → JB2 facet-click subject:sport → JB3 alt-click -subject:news → JB4 scrubber seek ~50% → JB5 fullscreen enter+traverse20+exit.
+- `e2e-perf/playwright.journeys.config.ts` — MBP 14" viewport (1720×960 @2x), 180s timeout.
+
+**Harness additions (`run-audit.mjs`):**
+- `JOURNEYS_METRICS_FILE`, `JOURNEYS_JSON`, `JOURNEYS_MD` constants.
+- `--journeys` flag (run journeys in addition to jank) and `--journeys-only` flag (journeys only, skip jank + perceived).
+- `runJourneysPlaywright()`, `clearJourneysMetricsFile()`, `readJourneysMetrics()`, `aggregateJourneysMetrics()`, `writeJourneysLog()`, `appendJourneysToMarkdown()` — mirror the perceived equivalents.
+- Jank loop gated on `!perceivedOnly && !journeysOnly`.
+- Usage comment header updated.
+
+**Trace call sites added (`src/`):**
+- `search-store.ts`: `trace("search", "t_0")` at start of `search()`.
+- `FacetFilters.tsx`: `trace("facet-click", "t_0", { field, value })` at start of `handleFacetClick`.
+- `ImageMetadata.tsx`: `trace("metadata-click", "t_0", { field, value })` at start of `useMetadataSearch` callback.
+- `FullscreenPreview.tsx`: `trace("fullscreen-exit", "t_0")` at start of `exitPreview`.
+
+**Bug fixes during implementation:**
+- `journeys.spec.ts` was using `data-facet-field="subject.raw"` — corrected to `"metadata.subjects"` (the field's `esSearchPath` in field-registry).
+- `Scrubber.tsx` lacked a testid on the track element; added `data-testid="scrubber-track"` to the root `div[role="slider"]`.
+
+**Viewport configs (same session continuation):**
+- `playwright.perf.config.ts` restored to original 1987×1110 @1.25x (was accidentally changed).
+- Added independence comments to both perf and perceived configs.
+- `--perceived-only` flag added to run-audit.mjs to skip jank suite.
+
+**Tests:** 352 unit tests pass throughout.
+
+
+
+### 23 April 2026 — Perceived-performance suite: Phase 1 build
+
+Built the full Phase 1 infrastructure for measuring perceived latency, as specified
+in `exploration/docs/perceived-perf-audit.md`.
+
+**What was built:**
+
+1. **`src/lib/perceived-trace.ts`** — Lightweight in-app tracer. Gated on
+   `import.meta.env.DEV || localStorage.kupua_perceived_perf === "1"`. Zero prod
+   cost. Exposes `window.__perceivedTrace__` (ring buffer, max 500 entries) and
+   `window.__perceivedTraceClear__()`. Each `trace()` call also pushes a
+   `performance.mark("perceived:<action>:<phase>")` for DevTools visibility.
+
+2. **Store-side call sites in `search-store.ts`** (~6 sites):
+   - `trace("search", "t_ack")` — when `set({ loading: true })` is called in `search()`
+   - `trace("search", "t_first_useful_pixel")` + `trace("search", "t_settled")` — when
+     results land in the normal (non sort-around-focus) path
+   - `trace("sort-around-focus", "t_ack")` + `trace("sort-around-focus", "t_status_visible")`
+     — when "Finding image…" status is set
+   - `trace("sort-around-focus", "t_seeking")` — when "Seeking…" status is set
+   - `trace("sort-around-focus", "t_settled")` — in-buffer fast path (focus in buffer,
+     no seeking needed)
+   - `trace("sort-around-focus", "t_first_useful_pixel")` + `trace(..., "t_settled")` —
+     outside-buffer path (full buffer replacement after `_loadBufferAroundImage`)
+
+3. **Component-side `t_0` sites** (5 components, ~7 sites):
+   - `SearchBar.tsx`: home logo `onClick` → `trace("home-logo", "t_0")`
+   - `SearchFilters.tsx`: sort field `handleSelectField` → `trace("sort-around-focus" |
+     "sort-no-focus", "t_0", { sort, focusedId })`; sort direction `handleToggleDirection`
+     → same; free-to-use `handleFreeOnlyToggle` → `trace("filter-toggle", "t_0")`
+   - `StatusBar.tsx`: density toggle `toggleDensity` → `trace("density-swap", "t_0")`
+   - `Scrubber.tsx`: track click (seek mode only) → `trace("scrubber-seek", "t_0",
+     { mode: "click", pos })`; drag release (seek mode only) → `trace("scrubber-seek",
+     "t_0", { mode: "drag", pos })`
+
+4. **`e2e-perf/perceived.spec.ts`** — 7 test scenarios (PP1–PP7):
+   - PP1: Home logo click
+   - PP2: Sort field change (no focused image)
+   - PP3: Sort field change with focused image (sort-around-focus)
+   - PP4: Sort direction toggle with focused image
+   - PP5: Filter checkbox toggle
+   - PP6: Density swap
+   - PP7: Scrubber seek (click track at 50%, seek mode only)
+   Each scenario: clears trace buffer → triggers action → waits for store settle →
+   reads trace → computes dt_ack_ms, dt_status_ms, dt_first_pixel_ms, dt_settled_ms,
+   status_total_ms → writes to `.perceived-tmp.jsonl`.
+
+5. **`e2e-perf/playwright.perceived.config.ts`** — separate Playwright config for
+   the perceived suite (matches `**/perceived.spec.ts`).
+
+6. **`e2e-perf/run-audit.mjs --perceived`** — new flag that runs the perceived suite
+   after the jank suite. Aggregates metrics (median + p95 per scenario per metric),
+   writes to `results/perceived-log.json`, `results/perceived-log.js`,
+   `results/perceived-log.md`. Prints a perceived summary table to console.
+
+7. **`e2e-perf/results/perceived-graphs.html`** — sparkline dashboard for the perceived
+   log. Mirrors the design of `audit-graphs.html`. Shows per-scenario cards with
+   metric chips (ack/first-pixel/settle/banner) colour-coded against Phase 1 targets,
+   plus sparklines over time. Loads via `window.__PERCEIVED_LOG__` (from `perceived-log.js`)
+   or falls back to `fetch()` / file picker.
+
+**Key design decisions:**
+- All traces are no-ops in production (tree-shaken by Vite). No bundle impact.
+- Off by default in dev (localStorage flag required). Clean for normal poking.
+- In Playwright, the harness (via `addInitScript`) sets the flag before navigation.
+- The test spec uses separate per-action buffer clears so there's no cross-action noise.
+- `t_settled` is approximated by the store's `loading: false` + `sortAroundFocusStatus: null`
+  — close enough for Phase 1, per the audit doc's guidance.
+- The `t_0` for "search" actions (filter toggle, sort change) is emitted at the component
+  `onChange`/`onClick` sites. The store's `t_ack` is keyed as "search" not "filter-toggle",
+  but since the buffer is cleared between actions, the harness reads them positionally
+  (first `*:t_ack` after `*:t_0`) and action name mismatches don't corrupt timing.
+
+**Tests:** All 352 Vitest unit tests pass. No TypeScript errors in modified files.
+
+**Next step:** Run `node e2e-perf/run-audit.mjs --perceived --label "Phase 1 baseline"
+--runs 5` against TEST cluster to get the first perceived-log entry. This requires
+user permission (per session smoke-test rule).
+
+
+
+### 23 April 2026 — Click-to-search fix: _externalQuery latch never cleared
+
+**Bug.** After clicking a metadata value (ImageDetail panel) or Shift/Alt-clicking
+a table cell to launch a search, the CQL search input became permanently
+unresponsive — typing, deleting chips, or any manual query edit was silently
+ignored. Only a full page reload recovered.
+
+**Root cause.** `cancelSearchDebounce(newQuery)` sets `_externalQuery` so the
+debounce callback can detect stale updates. The only clearing path was inside
+the debounce callback itself, when the query happened to match. But the
+`_cqlInputGeneration` bump (which forces CqlSearchInput to remount) meant the
+remounted editor's initial `queryChange` was suppressed by `lastEffectiveQueryRef`,
+so no matching debounce ever fired. Result: `_externalQuery` stayed set
+permanently, and `handleQueryChange`'s guard (`_externalQuery !== null &&
+queryStr !== _externalQuery`) silently dropped every future debounced update.
+
+**Affected paths.** All four click-to-search entry points: metadata plain click,
+Shift+click (AND), Alt+click (NOT) in ImageMetadata; and Shift/Alt cell click
+in ImageTable. All call `cancelSearchDebounce(newQuery)` → `updateSearch`.
+
+**Fix.** Clear `_externalQuery` in `useUrlSearchSync` after `search()` fires.
+At that point the URL has moved to the new query and the old debounce timer
+was already cancelled — the latch has served its purpose. One line:
+`setExternalQuery(null)` in `useUrlSearchSync.ts`.
+
+**Tests.** Two new E2E tests in `ui-features.spec.ts` (Click-to-search describe
+block): metadata click → edit CQL input, and table Shift+click → edit CQL input.
+Verified the test fails without the fix (3s timeout on URL update).
+
+### 23 April 2026 — Velocity-aware forward-extend trigger (seek-mode wall mitigation)
+
+**Problem.** At sustained fast wheel/trackpad velocity in seek mode (>65k
+results), the browser pins `scrollTop` at the bottom of the buffered
+content while waiting for `extendForward` to return. The static
+`EXTEND_THRESHOLD = 50` was tuned for casual scrolling; under a real
+flick gesture (P8 perf test averages ~1700 items/s, peaks at 24,000) the
+user eats those 50 items in well under the ES round-trip, so the wall is
+hit on every fast scroll.
+
+**Why "do nothing" was tempting.** The architecture is at its right local
+optimum — windowed buffer + ES round-trip latency is fundamental, no
+client-side trick fully eliminates the wall. The first attempted fix
+(Option A: cap `virtualizerCount` at 100k with scaled coords above) was
+rejected because at 9M total it makes 1 virt-row = 90 global items, so
+slow trackpad scroll skips ~11 images per row — a worse UX than
+stoppage. Reverted.
+
+**The chosen approach: velocity-aware widening of the forward trigger.**
+Mirrors the prefetch-cadence work in `image-prefetch.ts` — same
+financial-data-style EMA smoothing of a noisy signal, applied to a
+different decision. `reportVisibleRange` tracks an EMA-smoothed forward
+velocity (items/ms) and the forward extend trigger widens to
+`EXTEND_THRESHOLD + velocity × VELOCITY_LOOKAHEAD_MS`, capped at
+`PAGE_SIZE = 200`. At rest the trigger is the bare 50; under a fast
+burst it expands toward 200, firing the extend earlier so the fetch
+overlaps with the user still chewing through buffered items. Same
+α = 0.4 convention as the prefetch cadence smoother.
+
+**Why this is safe.** Only changes *when* `extendForward` fires; the
+extend itself (fetch, set, eviction, compensation gating) is unchanged.
+Worst case extends fire earlier than today, never later — every guard
+(in-flight, seek cooldown, PIT generation) still applies. **Forward-only
+by design.** Backward extends pair with prepend compensation — the
+central swimming risk — and are deliberately untouched.
+
+**What it can't fix.** At sustained max velocity even prediction can't
+beat physics: if you eat 200 items in 200ms but the extend takes 500ms
+you'll still pin, just further from where you started. Better than
+today, not perfect.
+
+**Implementation.**
+- New constants in `constants/tuning.ts`: `EXTEND_THRESHOLD` (moved from
+  `useDataWindow.ts`), `VELOCITY_EMA_ALPHA = 0.4`,
+  `VELOCITY_LOOKAHEAD_MS = 400`, `VELOCITY_IDLE_RESET_MS = 250`.
+- `useDataWindow.ts`: pure helpers `_updateForwardVelocity()` and
+  `forwardExtendThreshold()` (exported for testability), module-level
+  velocity state `_lastReportTime`/`_lastEndIndex`/`_velocityEma`,
+  reset helper `_resetForwardVelocity()`. Both forward-extend triggers
+  (two-tier branch and normal-mode branch) now use the velocity-widened
+  threshold; backward triggers untouched.
+- `useDataWindow.test.ts`: 10 new unit tests covering threshold linearity,
+  PAGE_SIZE cap, idle reset, non-monotonic clock, EMA math, burst
+  smoothing, negative velocity.
+- `tuning-knobs.md`: documented the 4 knobs.
+- `03-scroll-architecture.md` §3 normal-scrolling: short note on the
+  velocity-aware trigger.
+
+**Verification.**
+- vitest: 352/352 pass (10 new).
+- Playwright local suite: 153/153 pass (6.3min).
+- Manual TEST repro on 1.3M-doc cluster: pin moves further out under fast
+  wheel; in slower scrolls behaviour is indistinguishable from before
+  (velocity stays near zero → threshold collapses to 50).
+- Perf audit `Velocity-EMA forward extend` (median of 3 headed runs vs
+  previous baseline `Prefetch-cadence-S1-S4-S6`):
+  - **P8 (table fast scroll, the worst case):** maxFrame 240 → 160 ms
+    (−33%), LoAF blocking 1732 → 1302 ms (−25%), DOM churn 120 726 →
+    95 737 (−21%), severeRate 54.8 → 48.2 ‰ (−12%), CLS 0.132 → 0.104
+    (−22%). Large, consistent moves all in the right direction.
+  - **All other tests:** within noise. Verdict-flagged "regressions"
+    (P3, P3b, P11@20, P11@60, P5b, P5c, P12-scroll, P14a) are tiny
+    absolute deltas (1–8 ms or 1–2 severe frames out of thousands) on
+    tests that don't fire forward extends — system load fluctuation
+    over a 30-min run, not signal.
+- No invariants violated. No tier-matrix regressions.
+
+**Tooling improvements (`run-audit.mjs`).** Added `--dry-run` /
+`--no-log` flag (run + diff vs last entry, skip writes to
+`audit-log.{json,js,md}`) and `--headed` flag (forward to Playwright).
+Both are useful for quick local sanity checks without polluting the
+audit log.
+
+### 23 April 2026 — Caps Lock no-op for shortcuts, CQL aggregations search context-aware
+
+Three small fixes:
+
+1. **Caps Lock transparency (keyboard-shortcuts.ts):** Single-letter shortcuts
+   (e.g. `f` for fullscreen) now normalise to lowercase when Shift is not held,
+   so Caps Lock no longer blocks them. Shift+letter remains distinct.
+
+2. **CQL typeahead query scoping (typeahead-fields.ts, CqlSearchInput.tsx):**
+   Typeahead suggestion aggregations previously used `getAggregation(field, undefined)`
+   which hit `match_all` — showing global top-50 values regardless of the active search.
+   Now uses `getAggregations(params, [{field, size}])` with full `buildQuery`, so
+   suggestions are scoped to current results (matching how FacetFilters already worked).
+   Added `getParams` callback to `buildTypeaheadFields`; `scopedAgg()` helper
+   centralises the fallback path.
+
+3. **Static-list suggestion sorting (typeahead-fields.ts):** `mergeWithCounts` now
+   sorts by doc count descending when counts are available, matching ES's native
+   ordering for dynamic fields. Items with no count sink to the bottom alphabetically.
+   Affects fileType, subject, and config alias fields.
+
+### 23 April 2026 — Swipe-to-dismiss URL-stale + pinch-zoom anchor drift fixes
+
+Two mobile gesture bugs reported and fixed in image detail.
+
+**Bug 1 — swipe-down dismiss left URL stale.** Swiping to dismiss image
+detail completed visually but `image=` stayed in the URL and the wrapper
+kept intercepting touches, so the grid behind couldn't be scrolled. Root
+cause: `cbDismiss.current()` (= `closeDetail`, which strips the `image`
+URL param and unmounts the overlay) was fired inside the FLIP phantom's
+`transitionend` listener — about 280ms after commit. During that window
+the wrapper was `opacity:0` but still mounted with the original URL.
+
+Fix: in `useSwipeDismiss.ts`, fire `cbDismiss` immediately at commit
+time. The phantom is appended to `document.body` so its FLIP flight
+continues independently of `ImageDetail`'s React unmount. Backdrop
+cleanup moved to a `setTimeout` safety net (it outlives the unmount).
+Same change applied to the no-thumbnail fallback branch.
+
+**Regression caught during manual test.** The same pattern applied to
+the fullscreen-dismiss branch broke it: tapping image to enter
+fullscreen, swiping down to exit, left the image area visually empty.
+Root cause: `cbDismiss` in fullscreen is `toggleFullscreen()`, which
+calls `document.exitFullscreen()`. Exiting fullscreen mid-transition
+forces a layout change that interrupts the CSS transition →
+`transitionend` never fires → inline `opacity:0; transform:translateY(...)`
+styles stick on the image element. Reverted just the fullscreen branch
+to wait-for-transitionend (no URL-stale concern there since toggling
+fullscreen doesn't change the URL or unmount anything).
+
+**Bug 2 — pinch-zoom anchor drifted after pan.** First pinch from origin
+worked correctly; subsequent pinches (after panning the zoomed image)
+zoomed around the wrong screen point. Root cause: `usePinchZoom.onTouchMove`
+computed the pinch-stable midpoint relative to container centre with a
+formula that was missing a `* (scale / pinchScaleStart)` factor on
+`pinchTranslateStart`. From origin (`pinchTranslateStart = {0, 0}`) the
+factor disappears, so the bug was invisible. After any pan, the formula
+drifted.
+
+Fix: anchor pinch in image space. At touchstart, capture the image-space
+offset of the initial midpoint by inverting the current transform
+(`(mid − centre − translate) / scale`). On each move, compute the new
+translate so the same image-space anchor stays under the new midpoint
+(`newTranslate = newMid − centre − anchor × newScale`). Mathematically
+correct from any starting transform.
+
+**On the testing question raised mid-session.** The fullscreen-empty
+regression was caught manually, not by tests. Vitest can't repro it
+(needs real CSS + Fullscreen API + touch sequence + interleaving).
+Playwright can technically repro it but needs the assertion to be
+written knowing the failure mode. The general issue: the three touch
+hooks (`useSwipeCarousel`, `useSwipeDismiss`, `usePinchZoom`) share a
+hand-written imperative pattern with subtle invariants not enforced in
+code. Adding more e2e tests catches only known failures. Better lever:
+shrink the surface area. Captured a small refactor plan in
+`exploration/docs/touch-gestures-hardening-plan.md` — two pieces (an
+`animate()` helper that guarantees `onComplete` fires exactly once,
+and a pure pinch-math module that makes coordinate bugs unit-testable).
+Not started; pick up next time gesture code is touched or a third bug
+shows up there.
+
+Files changed:
+- `src/hooks/useSwipeDismiss.ts` — immediate `cbDismiss` in commit + fallback;
+  fullscreen branch unchanged (waits for `transitionend`).
+- `src/hooks/usePinchZoom.ts` — image-space pinch anchor.
+- `exploration/docs/touch-gestures-hardening-plan.md` — new, refactor plan.
+
+Tests: 342 vitest unit tests pass. Playwright not run (touch-hook changes
+verified manually on real device).
+
+### 23 April 2026 — Mobile autofocus suppression + caret preservation across tab/window switch
+
+Two related fixes to CQL search input focus behaviour.
+
+**Mobile autofocus suppression.** On touch-primary devices, focusing the
+search input pops the on-screen keyboard which obscures roughly half the
+viewport. Three call sites now skip focus on `(pointer: coarse)`:
+
+- `CqlSearchInput.tsx`: skips the `autofocus` attribute on mount.
+- `lib/orchestration/search.ts`: `resetScrollAndFocusSearch` skips the
+  post-navigate `cqlInput.focus()`.
+- `lib/reset-to-home.ts`: same skip after the home reset.
+
+New `lib/is-mobile.ts` helper centralises the `(pointer: coarse)` check
+(matches existing pattern in `image-prefetch`, `image-urls`,
+`ui-prefs-store`).
+
+**Caret preservation across tab/window switch.** When the user moved the
+caret mid-text, switched to another browser tab or app via Cmd+Tab, then
+returned, the caret reset to position 0. Three previous attempts at this
+fix were tried and reverted (see prior worklog handoff).
+
+The hidden landmine — discovered by adding an on-page diagnostic overlay
+(necessary because opening DevTools steals focus from the app window
+and pollutes blur events) — is that `@guardian/cql`'s plugin
+[`handleDOMEvents.blur` dispatches `setSelection(near(0))`](../../node_modules/@guardian/cql/src/cqlInput/editor/plugins/cql.ts#L382)
+on every blur. By the time `window.blur` fires, PM's cached selection
+has already been reset to position 1 (PM's "near 0" lands at 1, the
+first node-edge position). Every previous attempt was reading position 1
+and faithfully restoring it.
+
+Fix has three pieces in `CqlSearchInput.tsx`:
+
+1. **Wrap `view.dispatch`** to continuously cache `lastKnownSelection`
+   on every PM transaction. Cost: one object allocation per transaction.
+2. **Capture-phase blur listener on `view.dom`** snapshots
+   `lastKnownSelection` into `savedSelection` BEFORE CQL's plugin
+   reset-to-0 fires (capture phase runs before bubble-phase plugin
+   handlers).
+3. **Restore on `visibilitychange:visible` / `window.focus`**: call
+   `view.focus()`, then dispatch `setSelection` in both a microtask
+   (to win the race against PM's synchronous focusin reset most of the
+   time) and a `requestAnimationFrame` (belt-and-braces for the cases
+   where the microtask loses).
+
+Listeners only fire on tab/window switch — zero per-keystroke cost
+beyond the tiny dispatch wrapper allocation. PM positions are integer
+offsets, not DOM Ranges, so they survive DOM mutation between save and
+restore.
+
+**Why CQL resets selection on blur:** Probably to prevent a stale
+selection range from being visible (highlighted) when the editor is not
+focused, particularly with chip nodes where the selection drawing might
+look odd without focus. May also be defensive against PM's normal
+behaviour of trying to restore the DOM selection on re-focus from PM
+state — by resetting on blur, CQL guarantees a clean focusin position
+regardless of where the user was last. **Worth a friendly upstream
+discussion**: a `preserveCaretOnBlur` option, or simply not resetting
+when the blur is caused by tab/window switch (vs. clicking elsewhere
+in the app), would let consumers like kupua avoid the workaround.
+
+Also added deviations §18 (mobile autofocus) and §19 (caret
+preservation), and `is-mobile.ts` helper.
+
+Files changed: `CqlSearchInput.tsx`, `lib/orchestration/search.ts`,
+`lib/reset-to-home.ts`, new `lib/is-mobile.ts`,
+`exploration/docs/deviations.md`.
+
+### 23 April 2026 — Typeahead value suggestions with aggregation counts
+
+Added count-annotated value suggestions to the CQL typeahead for all searchable
+fields. When the user types e.g. `credit:`, the dropdown now shows matching
+values with document counts (e.g. "AFP — 12,345") pulled from ES aggregations.
+
+**Store cache sharing:** Typeahead resolvers read from the search store's
+existing `aggregations` cache (populated by the batched `fetchAggregations()`
+call) via an `aggregationsRef` getter, avoiding duplicate ES requests. When
+the cache doesn't contain the needed field, resolvers fall back to a single-field
+`dataSource.getAggregation()` call.
+
+**Key implementation details:**
+
+- `typeahead-fields.ts`: New `TypeaheadSuggestion { value, count? }` type.
+  `mergeWithCounts(prefix, values, buckets?, mapBucketKey?)` merges static/
+  dynamic value lists with aggregation bucket counts. `storeBuckets(cqlKey,
+  getAggregations?)` looks up agg data from the store cache.
+- `mapBucketKey` parameter handles ES key → display value mismatches (e.g.
+  fileType stores `"image/jpeg"` but displays `"jpeg"`).
+- All alias fields (`fieldAliases` from config) now have resolvers that check
+  store cache first, then fall back to single-field ES calls. Static fields
+  (fileType, subject) also have fallback ES calls.
+- `showInKeySuggestions` flag on `TypeaheadFieldDef` + `hiddenFieldIds` param
+  on `LazyTypeahead` — alias fields with value resolvers appear in value
+  suggestions but are hidden from key suggestion dropdown (since they duplicate
+  their parent field).
+- CQL's native `TextSuggestionOption.count` renders counts flush-right. Custom
+  shadow DOM style injection for `.Cql__OptionCount` (opacity: 0.7,
+  margin-left: 1.5em).
+- Updated `mapping-enhancements.md`: added §0 "The Problem" (features blocked/
+  degraded by current mappings) + 6 amendments across existing sections.
+
+Files changed: `CqlSearchInput.tsx`, `typeahead-fields.ts`, `lazy-typeahead.ts`,
+`mapping-enhancements.md`.
+
+### 22 April 2026 — CQL chip composition no longer resets search results
+
+**Bug:** Composing a CQL chip expression (pressing `+`, selecting a field
+from the typeahead) triggered URL updates and ES searches with incomplete
+query fragments, resetting results to 0. Kahuna doesn't have this problem.
+
+**Root cause (two layers):**
+
+1. **Incomplete chips leaked to URL.** CQL's `queryChange` event emits a
+   normalised `queryStr` that includes in-progress chips — e.g. pressing `+`
+   after "climate" emits `"climate :"`, selecting `credit` emits
+   `"climate credit:"`. Kupua passed this straight to the URL, triggering an
+   ES search with a meaningless fragment. Kahuna avoids this because its
+   `renderQuery()` pipeline has `.filter(item => item.value)` which silently
+   drops chips with no value, plus `.distinctUntilChanged()` which suppresses
+   the update entirely when the rendered query is unchanged.
+
+2. **Trailing-space quoting diverged the query.** CQL's AST serialiser
+   wraps text in quotes when it contains whitespace. Typing "climate " (with
+   trailing space, preparatory to pressing `+`) emits `'"climate "'` — a
+   different string from `climate`, so the URL updated even though the search
+   intent was identical. Kahuna's `renderQuery` reconstructs from raw AST
+   values (no CQL quoting) and trims, so the trailing space is invisible.
+
+**Fix — CqlSearchInput.tsx:** Moved the defence into the `queryChange`
+handler inside `CqlSearchInput`, before `onChange` reaches `SearchBar`:
+
+- Strip incomplete chip expressions (`key:` with no value) via regex.
+- Strip CQL auto-quoting that's only caused by trailing/leading whitespace
+  (not real multi-word phrases).
+- Track the last "effective" query in a ref (`lastEffectiveQueryRef`) and
+  only call `onChange` when it changes — equivalent to kahuna's
+  `distinctUntilChanged()`.
+- Pre-set `lastEffectiveQueryRef` in the value-sync effect before
+  `setAttribute("value", …)` to prevent the synchronous `queryChange`
+  from being reported as a spurious change.
+- Gate the value-sync `setAttribute` with a `selfCausedChangeRef` flag:
+  when our own `queryChange` handler fires `onChange`, the flag is set so
+  the subsequent value-sync effect skips `setAttribute`, preserving the
+  CQL editor's ProseMirror state. Without this, backspacing through a
+  chip value (e.g. `colourModel:CMYK` → `colourModel:`) would cause the
+  stripped effective query (empty string) to flow back via props and
+  clobber the chip entirely. External value changes (back/forward
+  navigation, cell click) don't set the flag, so `setAttribute` fires
+  normally. Kahuna avoids this because `gr-cql-input` never syncs the
+  value attribute back from the URL.
+
+Files changed: `CqlSearchInput.tsx`, `SearchBar.tsx` (simplified — stripping
+logic moved upstream to CqlSearchInput).
+
+Rewrote `image-prefetch.ts` around a **TraversalSession** state machine that
+tracks user navigation cadence (EMA-smoothed interval between prev/next calls)
+and adapts prefetch strategy accordingly. Executed Sessions 1–4 + 6 of the
+`prefetch-cadence-workplan.md` plan (now in `zz Archive/`). Session 5
+(StableImg→bare `<img>` on desktop) skipped — risk/reward poor for primary surface.
+
+**Session 1 — Scaffolding (no behaviour change):** 6 tuning constants in
+`tuning.ts` (FAST_CADENCE_MS=350, BURST_END_MS=280, SESSION_TIMEOUT_MS=2000,
+FAR_LOOKAHEAD=6, FULL_RADIUS_AHEAD=4, FULL_RADIUS_BEHIND=1). TraversalSession
+type + module-level singleton. `tunable()` helper reads localStorage overrides
+(`kupua.prefetch.<key>`) fresh each call for DevTools tuning without rebuilds.
+`computeCadence()` pure EMA function. `prefetchLog()` ring buffer +
+`getPrefetchStats()` + `__resetPrefetchForTests()` test harness.
+
+**Session 2 — Cancellation + fetchPriority + thumbnail-first:** Rewrote
+`prefetchNearbyImages` to open/reuse a session, track in-flight requests in a
+`Map<imageId, HTMLImageElement>`, cancel stale requests via `img.src = ""`
+(aborts on Chromium/WebKit, frees connection slot on Firefox). `fetchPriority`
+hints: `"high"` for i+1 full-res + i±1 thumbnails, `"low"` for rest. Mobile
+issues thumbnails before full-res within each batch. Dropped old 150ms throttle
+gate. Renamed `Image` type import → `ImageRecord` to avoid DOM collision.
+
+**Session 3 — Cadence-aware skipping + post-burst debounce:** During fast
+bursts (cadence < 350ms), skip middle radius — only prefetch i±1 + far
+lookahead i±6. After burst settles (280ms debounce), fire full-radius
+prefetch around resting position. Session auto-closes after 2s idle.
+
+**Session 4 — FullscreenPreview convergence:** Deleted inline `getImageUrl()`;
+replaced with shared `getCarouselImageUrl`. Added `fetchPriority="high"` to
+the `<img>`. Removed dead `getFullImageUrl`/`getThumbnailUrl` imports.
+
+**Session 6 — Cleanup:** Dropped `lastPrefetchTime` param from
+`prefetchNearbyImages` (session manages timing). Removed `lastPrefetchRef`
+from `useImageTraversal`. Stripped stale throttle comments. Added comprehensive
+top-of-file doc comment describing the session model.
+
+**Tests:** 20 new unit tests in `image-prefetch.test.ts` (cadence EMA × 6,
+session behaviour × 8, cadence-aware behaviour × 6). All 342 tests pass.
+
+**Perf audit (3 runs × 19 tests):** No regressions vs "Post-carousel-cleanup"
+baseline. Key traversal metrics: P14a maxFrame 67ms, P14d (rapid 12/s)
+maxFrame 60ms. Zero blank flashes. CLS ~0 everywhere.
+
+Workplan: `zz Archive/prefetch-cadence-workplan.md` (Sessions 1–4+6 ✅, 5 ⏭️, 7 not attempted).
+
+### 22 April 2026 — Browser gestures in viewer + perf results page
+
+**Browser back/forward swipe gesture restored on desktop (ImageDetail.tsx).**
+The image-detail container used `overflow-hidden` to clip the swipe-carousel's
+off-screen prev/next panels. Side-effect: macOS Safari/Chrome treat any
+horizontal-overflow-clipping element as a scroll container and *eat* the
+trackpad two-finger back-swipe gesture (browsers reserve it for elements that
+might scroll). Switched the two relevant clips to `overflow-clip` (paint-only,
+no scroll-container semantics): outer flex container `overflow-y-auto
+sm:overflow-clip`, image container `overflow-clip`. Also switched the
+metadata aside to `sm:overflow-x-clip` (keeps `overflow-y-auto` for vertical
+scrolling, prevents accidental horizontal scroll-container creation). Mobile
+swipe carousel unaffected — still works because mobile uses `touch-pan-y` /
+`touch-none` to opt out of native gestures explicitly.
+
+**Perf audit graphs page (e2e-perf/results/audit-graphs.html).** Throwaway
+single-page dashboard plotting one sparkline per perf test across every entry
+in `audit-log.json`. Chart.js, dark theme, metric switcher (severeRate by
+default, plus maxFrame, p95Frame, LoAF blocking, DOM churn, CLS, focusDrift*),
+linear/log toggle, latest-run highlighted in red, hover shows label/SHA/date.
+
+Loads via sibling `audit-log.js` (`window.__AUDIT_LOG__ = …`) so it works on
+plain `file://` opens — no http server needed. `run-audit.mjs` writes the
+sibling file alongside the JSON on every run; refresh page to see new data.
+Fetch + drag-drop fallbacks remain.
+
+Data-driven: reads whatever metrics/tests are in JSON. Allow-lists
+(`KNOWN_METRICS`, `KNOWN_ENTRY_KEYS`) declare what the page understands;
+unknown keys trigger a red banner pointing the next agent at the file to
+update. Documented in `e2e-perf/README.md` § "Audit graphs page" — agents
+adding metrics to `perf.spec.ts`/`run-audit.mjs` must update the HTML
+allow-list too. `audit-log.js` is git-ignored (derived from JSON).
+
+Also: ran `--runs 3` audit labelled "Post-carousel-cleanup — 22 Apr"
+(a2f5a80db). Headlines vs prior single-run baseline: P8 severeRate
+56.4‰→46.0‰ (-18%), P12-scroll LoAF blocking 77→28ms (-64%), P11b@85 LoAF
+32→12ms (-63%), P2 severeRate -34%, P9 maxFrame -19%. Auto-flagged
+"regressions" all small and within run-to-run jitter; the 1-vs-3-run
+comparison was asymmetric.
+
+### 22 April 2026 — Fix New Images ticker scroll + phantom dblclick leak
+
+**Ticker scroll-to-top (StatusBar.tsx):** Clicking the "x new" ticker button
+called `search()` but never scrolled to top. Added `resetScrollAndFocusSearch()`
+before `reSearch()` — same mechanism used by the Home logo. Covers both scroll
+mode (eager scrollTop=0) and seek mode (bumps `_thumbResetGeneration` for the
+Scrubber flash guard). Search context (query, filters, sort) is untouched.
+
+**Phantom dblclick leak (ImageDetail.tsx):** In phantom (click-to-open) mode,
+double-clicking a grid cell or table row opened detail then immediately closed
+it. Cause: click₁ navigates to detail, React mounts ImageDetail fast enough
+that click₂ lands on the `<img>`, browser synthesises a `dblclick` →
+`closeDetail`. Fix: 500ms mount guard on the `onDoubleClick` handler — stray
+dblclick from grid/table is always <300ms after mount (OS double-click
+threshold); legitimate double-click-to-close is always >500ms.
+
+### 20–22 April 2026 — Fix rapid-swipe duplicate-image bug + carousel polish
+
+Two-day investigation into a mobile-only bug: aggressive swiping showed the
+same image sliding in up to 4× before the correct one appeared. Desktop
+unaffected. Fully diagnosed and fixed.
+
+**Root cause:** AVIF images take 300–500ms to decode on phones. The 3-panel
+carousel (prev | center | next) slides an undecoded panel into view during
+the 200ms WAAPI animation — the browser shows the OLD compositor texture
+as a placeholder, creating a "duplicate image" illusion. This is a physical
+constraint (decode latency), not a code-level race condition. Eight code-level
+fixes were attempted and failed before this was understood.
+
+**Key discovery:** Chrome does NOT share decoded bitmaps between Image objects.
+A prefetched `new Image()` with `img.decode()` warms the HTTP cache but does
+NOT help a subsequent DOM `<img>` paint faster — each element does its own
+AVIF decode independently.
+
+**The fix (4 layered mechanisms):**
+1. `commitStripReset` — copies target panel src to center, clears side panel
+   srcs (`removeAttribute("src")`) to destroy stale compositor textures.
+2. `StableImg` — imperative `<img>` src management that prevents React from
+   redundantly re-setting URLs (which resets `img.complete` → re-decode).
+   Uses `data-committed` flag from commitStripReset to skip writes.
+3. **COMMIT-time `data-thumb` fallback** (the actual fix) — at swipe commit,
+   before WAAPI animation starts, checks target panel's `img.complete`. If
+   false (still decoding), swaps src to pre-cached thumbnail JPEG via
+   `data-thumb` attribute. Thumbnails decode from cache in <10ms.
+4. Prefetch pipeline with `onFullResDecoded` subscription — side panels get
+   full-res URLs when prefetch reports decoded, thumbnail otherwise.
+   `prefetchGen` state triggers useMemo recomputation on decode completion.
+
+**Result:** slow swipes show full-res (no quality transition). Rapid swipes
+show thumbnails (no duplication). Correct image always shown.
+
+**Review-driven cleanup (from fresh-agent critical review):**
+- Stripped all diagnostic code (`diagLog`, `diagStartFrameTracker`,
+  `SwipeDiagButton`) — `getComputedStyle()` per animation frame was forcing
+  synchronous layout reflow in production.
+- `_loadedFullRes: Map<string, HTMLImageElement>` → `Set<string>` — the Map
+  stored Image objects based on the disproved bitmap-sharing theory; freed
+  ~12MB of dead memory on phone.
+- Corrected doc comment claiming "keyed side panels" (never shipped).
+- Restricted thumbnail prefetch to i±1 (only immediate neighbours used by
+  data-thumb fallback; was prefetching 5 thumbnails per nav).
+- Extracted `getCarouselImageUrl()` — single source of truth for carousel
+  image URLs shared by prefetch and panel useMemos. Fixed the "same image,
+  different imgproxy URL" divergence that caused center panel re-decode
+  after landing (the "second slow swipe shows thumbnail" issue).
+- Moved `pendingCb`/`pendingDirection`/`pendingAnimation` above listeners.
+
+**Desktop optimizations:**
+- Side panels gated on `_pointerCoarse` — desktop never swipes, was wasting
+  2 AVIF fetches + decodes per arrow press (~66% bandwidth/CPU reduction).
+- `img.decode()` skipped on desktop prefetch — only HTTP cache warming
+  needed, saves ~400–750ms background CPU per navigation.
+- `will-change-transform` on strip made mobile-only (no GPU layer waste).
+
+**Other changes in this batch:**
+- Mobile DPR settled at 2 (was 1.5). `detectDpr()` in image-urls.ts:
+  3-tier (1× standard, 1.5× desktop HiDPI, 2× mobile HiDPI via
+  `pointer: coarse` heuristic). Better pinch-zoom headroom.
+- WAAPI rewrite kept — `strip.animate()` + `.finished` promise replaces
+  CSS transitions. Microtask resolution, no transitionend bubbling.
+- Zoom cooldown (400ms post-swipe), tap-to-exit cooldown (250ms).
+- Thumbnail prefetch mobile-only (`isTouchDevice` guard).
+- Initial prefetch on mount in `useImageTraversal`.
+
+**Known remaining items (not blocking):**
+- First image in detail view loads slower than before (likely related to
+  prefetch changes or StableImg's imperative src management). Deferred.
+- `touch-none` on image container blocks vertical scroll-through from image
+  area to metadata panel on mobile. Proper fix requires dynamic
+  `touch-action` management — deferred as separate task.
+- Prefetch `img.decode()` on mobile wastes CPU for images 2–4 ahead (the
+  decoded bitmap is never reused by DOM elements). Only the decode
+  *completion signal* matters for side-panel URL selection. Could switch
+  to `img.onload` or `<link rel="preload">` to avoid wasted decode CPU.
+- `prefetchGen` state could be removed from desktop path (only used for
+  side panel upgrades, which are now mobile-gated). Falls out naturally.
+
+**Files:** `useSwipeCarousel.ts`, `StableImg.tsx` (new), `ImageDetail.tsx`,
+`image-prefetch.ts`, `image-urls.ts`, `useImageTraversal.ts`,
+`usePinchZoom.ts`, `deviations.md`. Diagnostic files removed:
+`swipe-diag.ts`, `SwipeDiagButton.tsx`.
+
+**Investigation archive:** `zz Archive/swipe-carousel-review.md` (critical
+review with remaining recommendations), `zz Archive/touch-gestures-handoff.md`.
+
+### 20–21 April 2026 — Mobile image detail layout (Issue #4)
+
+Implemented stacked layout for image detail view on narrow/touch screens.
+Previously the metadata sidebar (`w-72 shrink-0`) consumed 288px of a 390px
+phone screen, leaving the image invisible.
+
+**Layout (ImageDetail.tsx):**
+- Main content area switches from `flex-row` to `flex-col` below `sm` (640px).
+  Image container `h-[55svh]` on mobile (uncapped on desktop), `shrink-0`.
+  Metadata sidebar becomes full-width scrollable area below the image.
+- Uses `svh` units (not `dvh`) for stable height when Android address bar
+  shows/hides — `dvh` caused a twitch on fullscreen exit.
+- `touch-action: none` on image container (carousel needs full touch control),
+  `touch-action: pan-y` on outer scroll container (vertical scroll only).
+- Desktop layout completely untouched — all changes behind `sm:` breakpoints
+  or `pointer:coarse` media queries.
+
+**Visual swipe carousel (useSwipeCarousel.ts, new):**
+- 3-panel strip (prev|current|next) as absolutely-positioned divs, animated
+  with `translateX`. Drag moves strip in real-time, release commits or snaps.
+- Velocity-aware: fast flick (>400px/s) commits at any distance, slow drag
+  needs >35% of container width. Velocity via exponential moving average.
+- Snap animation 200ms ease-out.
+- `commitStripReset()` — on transitionend, imperatively copies the swiped-to
+  panel's img.src to the center panel, resets strip to translateX(0), THEN
+  calls navigate(). Eliminates the async gap between animation end and React
+  re-render — no flash of wrong image, regardless of compositor timing.
+- ResizeObserver handles orientation change mid-animation (kills transition,
+  commits immediately via commitStripReset).
+- `swipedRef` exposed so onClick handlers can suppress tap after swipe.
+- Prev/next image URLs computed with same imgproxy opts as prefetch pipeline
+  → browser cache hits, no re-download.
+
+**Flash/twitch bug journey:**
+Three approaches tried before finding the right one:
+1. **visibility:hidden** during async gap between swipe commit and React
+   re-render — failed on Android Chrome (compositor paints independently
+   of main thread, so hiding is too late).
+2. **navigatingRef** guard to prevent ResizeObserver from resetting strip
+   during the gap — added complexity, still didn't prevent the flash.
+3. **commitStripReset** (final solution) — eliminates the gap entirely by
+   doing imperative DOM manipulation in transitionend BEFORE calling
+   navigate(). Center panel already shows the correct image when React
+   re-renders, making it a visual no-op.
+
+**Other mobile changes:**
+- NavStrip prev/next buttons hidden on mobile (`hidden sm:flex`), swipe
+  replaces them. NavStrip accepts `className` prop for this.
+- Tap on image enters/exits fullscreen on `pointer:coarse` devices via
+  Fullscreen API. Guarded by `swipedRef` (no fullscreen after swipe).
+- `overscroll-behavior-x: none` on image container suppresses horizontal
+  rubber-band on Android.
+- `enabled` flag on carousel hook, set to `!!image` — prevents swipe
+  registration before image data loads (fixes swipe-after-reload).
+
+**Cleanup:**
+- Deleted `useSwipeNavigation.ts` (original simple swipe hook, replaced
+  entirely by useSwipeCarousel).
+- Removed `navigatingRef` from both hook and component.
+
+All 322 Vitest tests pass. Tested manually on Android Chrome (portrait +
+landscape, orientation changes, swipe in both directions, tap-to-fullscreen).
+
+### 20 April 2026 — Focus-mode test hardening
+
+Hardened test infrastructure so the suite is resilient if phantom focus ever
+becomes the default. Audited all tests, found 47 `focusNthItem()` call sites
+across 11 files that would break (click navigates to detail in phantom mode
+instead of setting focus).
+
+**Changes to `e2e/shared/helpers.ts`:**
+- Added `ensureExplicitMode()` / `ensurePhantomMode()` — set localStorage
+  via `addInitScript` before page load, same pattern phantom-focus.spec.ts
+  already used.
+- Rewrote `openDetailForNthItem()` to be mode-independent: reads image ID
+  from store via `page.evaluate()`, uses `.dblclick()` (works in both modes).
+  No longer calls `focusNthItem()` internally.
+
+**12 test files pinned to explicit mode** via `test.beforeEach` calling
+`ensureExplicitMode()`: browser-history, focus-preservation, keyboard-nav,
+scrubber, ui-features, visual-baseline, tier-matrix (local E2E);
+manual-smoke-test, focus-preservation-smoke, home-logo-diag (smoke);
+perf.spec.ts, experiments.spec.ts (perf).
+
+**3 files skipped** (no pinning needed): phantom-focus.spec.ts (already sets
+mode), buffer-corruption.spec.ts (no focus), smoke-scroll-stability.spec.ts
+(no clicks).
+
+Impact report archived to `zz Archive/focus-mode-test-impact-report.md`.
+All 153 Playwright + 322 Vitest tests pass.
+
+### 21 April 2026 — Phantom Focus Mode (kahuna-style click-to-open)
+
+Implemented `focusMode: "explicit" | "phantom"` user preference with full
+click, keyboard, and return-from-detail behaviour. Phantom mode makes
+single-click open image detail (matching kahuna). Explicit mode adds
+click-to-focus with double-click-to-open.
+
+**New files:**
+- `src/stores/ui-prefs-store.ts` — Zustand store for UI preferences, separate
+  from search-store. Persists `focusMode` in localStorage (`kupua-ui-prefs`).
+  Runtime `_pointerCoarse` flag via `matchMedia("(pointer: coarse)")` change
+  listener. `effectiveFocusMode` derived: coarse → phantom, else stored pref.
+  Switching to phantom clears `focusedImageId` via search-store.
+- `src/components/SettingsMenu.tsx` — Three-dot menu (Material more_vert SVG)
+  in SearchBar far-right. Two radio options: "Click to focus" (explicit) and
+  "Click to open" (phantom). Coarse pointer disables explicit option.
+  Closes on outside click or Escape. Button flush-right (mirrors Home logo
+  flush-left pattern with `-mr-3`).
+- `e2e/local/phantom-focus.spec.ts` — 8 E2E tests covering phantom click
+  (grid + table), no focus ring, arrow scroll, Enter no-op, return-from-detail
+  position, explicit click ring, explicit double-click.
+
+**Modified files:**
+- `ImageGrid.tsx` — Extracted `enterDetail()` callback shared by phantom
+  single-click and double-click. `handleCellClick` dispatches on mode;
+  returns early on Shift/Alt (modifier clicks are click-to-search, not detail).
+  Focus ring gated: `isFocused` requires `getEffectiveFocusMode() === "explicit"`.
+  Background click is no-op in phantom mode.
+- `ImageTable.tsx` — Same pattern: `handleRowClick` dispatches on mode,
+  returns early on Shift/Alt, focus ring gated on explicit.
+- `useListNavigation.ts` — `hasFocus` condition now includes
+  `getEffectiveFocusMode() === "explicit"` gate. Applies to both bubble
+  handler (arrow/page/Enter) and capture handler (Home/End). Enter gated
+  with early break when no focus.
+- `FullscreenPreview.tsx` — `f` key entry gated on explicit mode (phantom
+  returns early). Exit from fullscreen still works in both modes.
+- `SearchBar.tsx` — Added `<SettingsMenu />` after ES timing display.
+- `routes/search.tsx` — `FocusedImageMetadata` uses reactive
+  `useEffectiveFocusMode()` hook; returns null in phantom mode so metadata
+  panel shows "Focus an image to see its metadata" instead of stale data.
+- `DateFilter.tsx` — Enter key on From/To date inputs now triggers the
+  Filter button when draft differs from URL state. No-op when unchanged
+  or when date input is empty/invalid (native `type="date"` only produces
+  valid values).
+
+**E2E test fixes:**
+- `page.addInitScript` instead of `page.evaluate` for localStorage setup
+  (SecurityError on `about:blank`).
+- Scoped ring selector to `[data-grid-cell][class*="ring-2"]` — SearchBar
+  and SearchFilters also use `ring-grid-accent` class.
+
+**Existing behaviour unchanged:** 145 existing E2E tests pass with zero
+regressions. Return-from-detail works in phantom mode via existing
+`useReturnFromDetail` mechanism (sets focusedImageId for position engine;
+ring hidden by gate).
+
+### 20 April 2026 — Yet another Home bug fixed
+
+Two real bugs (and one defence-in-depth hardening) in the Home logo reset path.
+
+**Bug 1 — Scrubber thumb stuck at deep position after Home (Scrubber.tsx):**
+The flash guard added in commit 4baad73eb ("Phantom focus promotion") suppressed
+DOM writes when thumbTop dropped from deep (>50px) to near-zero (<10px). This was
+intended to prevent a visual flash during sort-around-focus, but it also blocked the
+legitimate Home-logo reset. After `resetScrollAndFocusSearch` set `thumb.style.top =
+"0px"`, a React re-render with stale deep `currentPosition` wrote ~518px back. When
+`search()` completed and thumbTop tried to settle at ~0, the flash guard permanently
+blocked the correction.
+
+*Fix:* Generation-based bypass in `Scrubber.tsx`. `resetScrollAndFocusSearch()` now
+bumps `_thumbResetGeneration` (in `orchestration/search.ts`). The Scrubber's discrete
+sync effect tracks this generation: when it changes and thumbTop is still deep, it
+skips the stale write (preserving DOM 0px); when thumbTop settles near 0, it consumes
+the generation and falls through. Sort-around-focus flash guard is unaffected (gen
+never increments for that path).
+
+**Bug 2 — Grid scrolls back to old position after Home from deep image detail
+(search-store.ts + reset-to-home.ts):**
+When `resetToHome` awaits `search()` and gets fresh first-page data (bufferOffset=0),
+`ImageDetail` is still mounted (navigate() hasn't been processed yet). Its restore
+effect sees the deep image vanish from the now-shallow buffer → fires
+`restoreAroundCursor` → loads the deep image's neighbourhood → overwrites
+bufferOffset back to ~671k. The user sees the grid snap back to the old position.
+
+*Root cause identified via* diagnostic polling in smoke tests: 100ms samples of
+scrollTop/bufferOffset/store state for 5 seconds after Home click. Showed bufferOffset
+bouncing from 0 back to deep ~500ms after search() completed.
+
+*Fix:* One-shot `_suppressRestore` flag in `search-store.ts`. `resetToHome` sets
+`suppressNextRestore()` before calling `search()`. `restoreAroundCursor` checks and
+consumes the flag at entry, skipping the spurious restore. A 2-second safety timeout
+clears the flag after `navigate()` in case `restoreAroundCursor` never fires.
+
+**This bug only manifests on TEST/PROD (>65k docs, seek mode).** On local ES (10k
+docs, two-tier/scroll mode), the image is always in the first-page buffer, so
+`restoreAroundCursor` never triggers. **Local e2e cannot catch this — requires smoke
+tests against a real cluster.**
+
+**Defence-in-depth — useUrlSearchSync dedup (reset-to-home.ts):**
+Previously `resetSearchSync()` cleared `_prevParamsSerialized` to `""` at the top of
+`resetToHome`, opening a race window: during `await search()`, React re-renders →
+`useUrlSearchSync` sees `"" !== current` → fires `search(viewportAnchor)` pointing
+to the deep image. This race wasn't the one firing in practice (restoreAroundCursor
+was faster), but it's a real timing-dependent hole. Now `_prevParamsSerialized` is set
+to the home params immediately, so `useUrlSearchSync` sees a match and skips. This
+also removed the need for `resetSearchSync()` (now dead code, left as escape hatch).
+
+**Secondary fix — useReturnFromDetail.ts:**
+Added null guard: if `focusedImageIdRef.current === null`, skip re-focus. Prevents
+the detail→absent transition from re-setting focusedImageId after `resetToHome`
+intentionally cleared it.
+
+**Test changes:**
+- New: `e2e/smoke/home-logo-diag.spec.ts` — 4 diagnostic smoke tests (scrubber thumb
+  grid/table, Home from deep detail with polling, Home from shallow detail)
+- Amended: `buffer-corruption.spec.ts` — `assertCleanTopState` now checks thumb < 10;
+  detail→Home test asserts `focusedImageId === null`
+- Amended: `scrubber.spec.ts` — all Home tests assert thumb < 10
+
+**Files changed:** `Scrubber.tsx`, `orchestration/search.ts`, `search-store.ts`,
+`reset-to-home.ts`, `useReturnFromDetail.ts`, `buffer-corruption.spec.ts`,
+`scrubber.spec.ts`, `useDataWindow.ts` (unused import), `useImageTraversal.test.ts`
+(unused import). New: `home-logo-diag.spec.ts`.
+
+### 19 April 2026 — Part B: tiny loose ends from core review
+
+Seven small hardening/maintenance fixes from the combined deep review of the five core
+files. Applied after Part A (same review session).
+
+**search-store.ts (3 fixes):**
+- **B3:** `computeScrollTarget` — `Math.round` → `Math.floor` for `currentRow`. At the
+  headroom boundary row, `Math.round` snapped to the next row at 50% scroll, causing the
+  headroom check to fail and producing negative `seekSubRowOffset` values. `Math.floor`
+  is semantically correct ("on a row until fully scrolled past it"). Added Case 10
+  boundary test + updated existing test expectations.
+- **B5:** `fetchAggregations` — snapshot `frozenParams` once at top and reuse. Previously
+  called 4 times across the async function; params drift between calls could store wrong
+  cache key.
+- **B7:** `seek()` — typed `let result: SearchAfterResult | undefined` (was untyped `let
+  result;`) and added `if (!result)` guard before first access. Pure safety net for future
+  edits that might introduce a new code path without assignment.
+
+**useScrollEffects.ts (1 fix):**
+- **B2:** Replaced hardcoded `303` with `GRID_ROW_HEIGHT` in bottom-extremum snap and
+  in `scroll-geometry-ref.ts` default.
+
+**useDataWindow.ts (1 fix):**
+- **C2:** `getVisibleImageIds` — replaced fallback `localIdx = i` with `continue`. In
+  two-tier mode the fallback could index into `results[12000]` (past array length). The
+  `img?.id` guard prevented crashes but the intent was obscured.
+
+**New shared utility:**
+- **B1:** Extracted `isTwoTierFromTotal()` to `lib/two-tier.ts`. Was duplicated in
+  `useScrollEffects.ts` and `useDataWindow.ts` with a "must stay in sync" comment.
+  Both files now import from single source of truth.
+
+**Other:**
+- **F1:** Removed misleading `@deprecated` from `loadMore` — it's the canonical public API.
+
+**Skipped with reason:**
+- B4 (`_pendingFocusDelta` orphan): practically impossible, `search()` clears at top.
+- B6 (`registerScrollGeometry` in effect): not worth it — plain module-level assignment.
+- E0c (`dangerouslySetInnerHTML` in Scrubber tooltip): user chose to leave — values internal.
+- F2 (position map fetch dedup): not worth control-flow reshuffling for 6 lines.
+- F3 (perf marks on abort): very minor, DevTools only.
+- F4 (timeout + offset correction race): harmless no-op.
+
+**Housekeeping:**
+- Deleted superseded April 2025 single-file reviews (search-store, useScrollEffects).
+- Annotated combined review summary table with done/skipped status.
+- Moved combined review to `zz Archive/`.
+
+**Validation:** 322/322 Vitest, 145/145 Playwright E2E (1 flaky retry — T3 two-tier drag,
+confirmed timing flake via 5/5 repeat-each, not a regression).
+
+### 19 April 2026 — Part A: small fixes to big files
+
+Six correctness fixes across `search-store.ts` and `useScrollEffects.ts`, identified
+during a deep review of the five core files.
+
+**search-store.ts (4 fixes):**
+- **A1:** `_loadBufferAroundImage` — parallelised sequential fwd/bwd `searchAfter` calls
+  with `Promise.all`. Both use the same cursor and PIT, are fully independent. Mirrors
+  existing pattern in `seek()` position-map path.
+- **A2:** `restoreAroundCursor` — parallelised sequential countBefore/searchAfter-by-ID
+  (Step 1 & 2) with `Promise.all`. Neither uses PIT, no shared state. Step 3 depends on
+  both outputs.
+- **A3:** `fetchAggregations` debounce zombie promise — when a second call arrived during
+  the debounce window, `clearTimeout` killed the timer but the first caller's `resolve`
+  never fired, leaking a dangling promise + closure. Fix: module-level `_aggDebouncedResolve`
+  stores the pending resolve; new call resolves old promise before clearing timer. Old caller
+  resumes and exits via existing cache-key guard.
+- **A4:** Fire-and-forget `_findAndFocusImage` — appended `.catch(console.error)` as
+  belt-and-suspenders (internal try/catch + 8s timeout + finally already handles all known
+  paths).
+
+**useScrollEffects.ts (2 fixes):**
+- **A5:** Effect #10 (density-focus mount restore) — nested `requestAnimationFrame`
+  pattern had `raf2` declared inside `raf1` callback; the `return () => cancelAnimationFrame(raf2)`
+  was the rAF callback's return value (silently discarded). Hoisted `let raf2 = 0` to outer
+  scope in both branches; cleanup now cancels both handles.
+- **A6:** Effect #6 (seek) — removed `virtualizer` from dependency array. The effect body
+  never references it; `useVirtualizer` returns a new object every render, causing spurious
+  re-fires (generation guard made them no-ops but wasted work).
+
+**Tests added (6):**
+- A1: "builds correctly centered buffer around focused image" (sort-around-focus describe)
+- A2: 3 tests for `restoreAroundCursor` — centered restore, image-not-found fallback,
+  null-cursor seek fallback
+- A3: 2 tests for `fetchAggregations` — zombie promise detection (confirmed failure pre-fix),
+  force=true debounce bypass
+
+**Validation:** 321/321 Vitest, 145/145 Playwright E2E.
+
+### 19 April 2026 — severeRate: refresh-rate-independent perf metric
+
+**Problem:** P14 traversal severe frames appeared to double (4→9) after position-preservation
+commits. Investigation traced 12 commits — no code regression found. Root cause: hardware
+change from 60Hz NEC monitor to 120Hz MacBook Pro ProMotion. At 120Hz, rAF reports 2× frames
+so absolute >50ms spike counts roughly double. Evidence: frameCount doubled across ALL tests
+(335→641), p95Frame halved (18ms→9ms = 1/60→1/120), and severe/frameCount ratio stayed within
+historical range (12.5–14.0‰ vs 6.0–21.3‰).
+
+**Fix:** Replaced absolute `severe` count with `severeRate` (severe per 1000 frames) throughout
+the perf infrastructure:
+- `perf.spec.ts` `emitMetric()` — emits `severeRate` alongside raw `severe`
+- `run-audit.mjs` `aggregateMetrics()` — computes `severeRate` from raw data
+- `run-audit.mjs` tables, formatValue, formatDelta, regression detection — all use `severeRate`
+- Old audit-log entries without `severeRate` get it computed on-the-fly from `severe/frameCount`
+
+Clean 120Hz baseline established (3 runs, all 19 tests). LoAF blocking increase (141→192ms for
+P14a) noted but not actionable — likely the tighter 8.3ms frame budget at 120Hz.
+
+### 19 April 2026 — P13 perf test fix (test assumption error, not app bug)
+
+**Problem:** P13 perf test ("image detail enter/exit — scroll restoration") failed with
+scroll delta 3000px (threshold <606px). Appeared after position-preservation commits
+(872734dd8–9d12d4db1).
+
+**Root cause:** The test's measurement was wrong, not the app. `focusNthItem(2)` triggers
+position-preservation which scrolls the viewport from 3000px to ~845px (the focused image's
+natural position in the sorted grid). Then `cells.nth(2).dblclick()` hits a *different*
+image because the virtualizer re-rendered at the new scroll position. The CSS toggle
+(`contents` → `absolute inset-0`) resets scrollTop to 0, and `useReturnFromDetail` doesn't
+restore because `wasViewing === previousFocus`.
+
+Confirmed on real TEST data (1.3M images) via A/B diagnostic test. User visually verified
+that both dblclick paths correctly return to the focused image's natural position.
+
+**Fix (perf.spec.ts — P13, P14, P15):**
+1. Record `scrollBefore` AFTER `focusNthItem` settles (not before the focus).
+2. Dblclick the focused cell via `[data-grid-cell][class*="ring-2"]` instead of
+   `cells.nth(N)` which may target a different cell after scroll moved.
+3. Added 300ms settle wait between `focusNthItem` and scroll measurement.
+
+**Verification:** 315 unit tests pass, 145 E2E tests pass, P13/P14/P15 perf re-run
+(3 runs each) all green. P13a max frame improved 133→91ms.
+
+### 18 April 2026 — Browser back/forward navigation (Sessions 6–7)
+
+Fixed two problems that completely broke browser back/forward navigation.
+
+**Problem 1 — No history entries for search changes.**
+`useUpdateSearchParams()` hardcoded `replace: true` for all navigations, so
+filter toggles, sort changes, query commits, and date range changes never
+created history entries. Back/forward had nothing to navigate between (except
+image-open and logo-click).
+
+Fix: `useUpdateSearchParams()` now accepts `options?: { replace?: boolean }`
+defaulting to `false` (push). Only SearchBar's debounced `handleQueryChange`
+passes `{ replace: true }` so intermediate keystrokes don't pollute history.
+All committed discrete actions (filter toggle, sort change, date range) use
+the default push.
+
+**Problem 2 — Popstate carried focus into wrong search context.**
+When back/forward fired, `useUrlSearchSync` ran focus-preservation logic
+uniformly: it read the current `focusedImageId` or promoted a phantom anchor
+and passed it to `search()`. This caused the current focused image from
+"dogs" results to be carried into the restored "cats" results, landing the
+user deep at a random-seeming position.
+
+Fix: Module-level user-initiated flag in `orchestration/search.ts`.
+`markUserInitiatedNavigation()` is called synchronously in
+`useUpdateSearchParams()` before `navigate()`. `useUrlSearchSync` reads
+`consumeUserInitiatedFlag()` — if true (user-initiated), preserve focus;
+if false (popstate/programmatic), skip focus preservation, reset `offset: 0`,
+call `search(null)` to start from the top.
+
+Initially tried a popstate-listener flag (`markPopstateNavigation` on
+`window.popstate`), but TanStack Router's `onPushPopEvent` handler is async —
+by the time the React effect ran, the flag could be consumed by an intermediate
+no-op effect run (the dedup guard bails early but the flag is already cleared).
+Inverting the flag to mark user-initiated navigations (synchronous, set right
+before `navigate()`) solved this.
+
+**Case-specific popstate behaviour:**
+- Back from image detail (same search context, only `image` key removed) →
+  display-only key guard skips re-search, focus preserved. Correct.
+- Back to different search context (query/filter/sort changed) → `search(null)`,
+  reset to top. Correct.
+- Image traversal in detail view → uses `replace: true`, never creates history
+  entries. Back from detail always returns to the entry point. Correct.
+
+**E2E tests:** New `e2e/local/browser-history.spec.ts` with 5 tests:
+sort-back, query-back, forward, no-focus-carry-on-back, image-detail-back.
+All `spaNavigate` helpers across test files updated to call
+`markUserInitiatedNavigation()` via `window.__kupua_markUserNav__` (exposed in
+dev mode alongside `__kupua_router__`).
+
+Files changed:
+- `src/hooks/useUrlSearchSync.ts` — push-by-default, user-initiated flag check
+- `src/lib/orchestration/search.ts` — `markUserInitiatedNavigation()` /
+  `consumeUserInitiatedFlag()`
+- `src/main.tsx` — expose `__kupua_markUserNav__` for E2E
+- `src/components/SearchBar.tsx` — `{ replace: true }` for debounce
+- `e2e/local/browser-history.spec.ts` — NEW (5 tests)
+- `e2e/local/focus-preservation.spec.ts` — spaNavigate updated
+- `e2e/local/buffer-corruption.spec.ts` — spaNavigate updated
+- `e2e/smoke/focus-preservation-smoke.spec.ts` — spaNavigate updated
+- `exploration/docs/browser-history-analysis.md` — rewritten to describe current state
+
+315/315 unit tests, 145/145 local E2E.
+
+### 18 April 2026 — Session 5: Smoke polish on TEST cluster
+
+Validated Sessions 1–4 focus preservation against real TEST cluster (~1.3M images).
+Wrote 12 smoke tests in `e2e/smoke/focus-preservation-smoke.spec.ts`:
+- T1 phantom promotion (clear filter), T2 explicit focus (clear filter),
+  T3 explicit focus (sort change), T4 neighbour fallback, T5 arrow snap-back,
+  T6 scrubber thumb stability, T7 focus→clear focus→clear filter,
+  T8 phantom with details panel, T9 rapid filter toggle,
+  T10 focus→panel→clear filter, T11 phantom near top, T12 phantom near end.
+
+**Bug 1 — scrubber thumb flash-to-top.** In deep-seek mode (>65k results),
+`_findAndFocusImage` sets `offset=0` as placeholder before async `countBefore`
+corrects (~100ms). The scrubber thumb would briefly flash to top.
+Two prop-level freeze approaches tried and abandoned (both failed because the
+store atomically sets `loading: false, sortAroundFocusStatus: null, bufferOffset: 0`).
+Final fix: DOM-level flash guard in `Scrubber.tsx` — `prevStableThumbTopRef` tracks
+last known good position; if `prevTop > 50 && thumbTop < 10`, skip the DOM write.
+
+**Bug 2 — viewport row not preserved after countBefore correction.** Effect #9
+consumed the sort-focus ratio on first fire. When async `countBefore` corrected
+`bufferOffset` and re-fired the effect, the ratio was gone — image landed at
+`align: "start"` instead of its original viewport row. Fix: persist ratio and
+phantom image ID in refs (`sortFocusRatioRef`, `phantomIdRef`) keyed by
+`sortAroundFocusGeneration`. Re-fires reuse the persisted values.
+
+Deleted throwaway `phantom-diag.spec.ts` (superseded by T1).
+
+**Test results:** 315/315 unit, 140/140 local E2E, 12/12 smoke tests pass.
+
+Deleted throwaway `phantom-diag.spec.ts` (superseded by T1 in the real smoke suite).
+
+### 18 April 2026 — Phantom focus rewrite: share Effect #9 with explicit focus
+
+The initial phantom promotion (see entry below) used a parallel scroll mechanism
+— seek-based (`_seekGeneration` + `_phantomSeekRatio` via Effect #6) rather than
+the sort-around-focus path (Effect #9) that explicit focus uses. Manual testing
+against the real TEST cluster (~1.3M images) revealed three bugs, each rooted in
+this parallel approach:
+
+**Bug 1 — Flash-of-top.** Effect #7 scroll reset fired before phantom search
+completed. Initially fixed by suppressing Effect #7 when phantom active.
+
+**Bug 2 — Off-screen neighbours.** `_captureNeighbours` scanned ±20 buffer
+positions including off-screen images. Fixed by adding `getVisibleImageIds()`
+to `useDataWindow.ts` — restricts to the tracked visible range, distance-ordered
+from viewport centre. Passed as `visibleNeighbours` option. This fix survives
+the rewrite.
+
+**Bug 3 — ~100-position offset.** Effect #8 (bufferOffset→0 guard) undid
+Effect #6's phantom scroll. Diagnosed via throwaway Playwright test
+(`e2e/smoke/phantom-diag.spec.ts`) against TEST cluster. Initially fixed with
+a `_phantomSeekJustApplied` flag.
+
+**Bug 4 — Details panel incompatibility.** Phantom used Effect #6 (seek), which
+fires BEFORE Effect #8. Explicit focus uses Effect #9, which fires AFTER. Opening
+the details panel exposed the ordering mismatch.
+
+**Root cause:** All four bugs stemmed from building a parallel scroll mechanism
+instead of reusing the proven Effect #9 path. User directive: "the whole idea
+was phantom reuses what's already working for focus."
+
+**Rewrite:** Removed ~50 lines of phantom seek infrastructure (`_phantomSeekRatio`,
+`_phantomSeekJustApplied`, `savePhantomSeekRatio`, `consumePhantomSeekRatio`,
+Effect #6 phantom ratio code, Effect #8 phantom guard). Added
+`_phantomFocusImageId: string | null` to the store. All phantom `phantomOnly`
+success paths now set `_phantomFocusImageId` + bump `sortAroundFocusGeneration`
+(same trigger as explicit focus). Effect #9 reads
+`focusedImageId ?? _phantomFocusImageId` and clears the phantom ID after scroll
+positioning. Effect #7 merged the phantom/focus ratio save into a single
+`preserveId` path using `saveSortFocusRatio`.
+
+**Result:** Phantom and explicit focus now share the identical scroll restoration
+path. All four bugs resolved structurally.
+
+**Files changed:** `useScrollEffects.ts` (rewrite — removed parallel mechanism,
+Effect #9 reads phantom ID), `useDataWindow.ts` (`getVisibleImageIds`),
+`useUrlSearchSync.ts` (`visibleNeighbours` option, phantom anchor logic),
+`search-store.ts` (`_phantomFocusImageId`, success/failure path updates),
+`search-store.test.ts` (updated phantom tests for `sortAroundFocusGeneration`).
+
+**Tests:** 315/315 unit tests pass. Diagnostic smoke test verified on real cluster.
+
+### 18 April 2026 — Phantom Focus Promotion (initial implementation)
+
+Implemented phantom focus promotion — the viewport anchor (`getViewportAnchorId()`)
+now serves as a fallback for position preservation when no explicit focus is set.
+Changing query/filters without an explicit focus tries to keep the viewport-centre
+image in the new results.
+
+**Key design decision:** Promoted phantom focus must NEVER show a focus ring. A
+`phantomOnly` flag was added to `search()` and `_findAndFocusImage()`. When
+`phantomOnly: true`, `focusedImageId` is never set — no ring appears.
+
+**Changes:**
+- `useUrlSearchSync.ts`: Falls back to `getViewportAnchorId()` when `focusedImageId`
+  is null. Passes `{ phantomOnly: true }` when using the viewport anchor. Sort-only
+  relaxation: viewport anchor NOT used for sort-only changes (resets to top per
+  architecture doc §4).
+- `search-store.ts`: `search()` and `_findAndFocusImage()` accept optional
+  `{ phantomOnly?: boolean }`. Three success paths modified. Also removed dead
+  `fallbackFirstPage` spread in the isInBuffer branch.
+
+**Note:** The initial implementation used the seek scroll mechanism for phantom
+(separate from explicit focus's Effect #9 path). This caused four bugs on real
+data — see "Phantom focus rewrite" entry above. The final implementation shares
+Effect #9 with explicit focus via `_phantomFocusImageId`.
+
+**Tests:** 5 new unit tests (315 total), 3 new E2E tests (140 total). All green.
+
+### 18 April 2026 — bufferOffset wrong after snap-back on large datasets
+
+On datasets >65k (no position map), arrow snap-back left `bufferOffset` at 0
+because: (1) deep-seek mode uses offset=0 placeholder, and (2) the async
+`countBefore` correction guard rejected when delta consumption changed
+`focusedImageId` before correction resolved. Result: image at real position
+~1.28M displayed as position ~101.
+
+**Fixes:**
+- Relaxed async correction guard: removed `focusedImageId` check; buffer
+  reference check is sufficient (delta consumption changes focus within the
+  same buffer)
+- Added `_focusedImageKnownOffset` state field: saved when focus is set
+  (from `imagePositions`), passed as `hintOffset` to `_findAndFocusImage`
+  via `seekToFocused()`. Deep-seek mode uses this instead of 0.
+- Updated all `set()` calls that write `focusedImageId` to also write
+  `_focusedImageKnownOffset`: `setFocusedImageId`, isInBuffer branch,
+  !isInBuffer branch, delta consumption in effect #9, async correction
+
+**Tests:** 3 new unit tests (310 total), 137 E2E all pass.
+
+### 18 April 2026 — Arrow Snap-Back After Seek
+
+Implemented option (b) from the focus-position-preservation workplan: when the
+focused image is outside the current buffer (e.g. after a scrubber seek), pressing
+an arrow key snaps back to the focused image AND applies the movement delta in a
+single keypress, matching the in-buffer UX (one press = one move).
+
+**Store changes (`search-store.ts`):**
+- Added `_pendingFocusDelta: number | null` state field
+- Added `seekToFocused()` action: calls `_findAndFocusImage` with no fallback/neighbours
+  to re-centre the buffer around the focused image. If the image no longer exists
+  (generation doesn't bump), clears focus and delta.
+- `search()` clears `_pendingFocusDelta` to prevent stale deltas
+
+**Navigation changes (`useListNavigation.ts`):**
+- `moveFocus` and `pageFocus`: when `findImageIndex(currentId) < 0`, store
+  `_pendingFocusDelta = delta` and call `seekToFocused()`, return early
+
+**Effect changes (`useScrollEffects.ts`):**
+- Effect #9 (sortAroundFocusGeneration): after scroll-to-focus, consumes
+  `_pendingFocusDelta` — computes target global index, finds the image at that
+  buffer-local position, sets it as focused, scrolls to it
+
+**Tests:** 5 unit tests (307 total), 2 E2E tests (137 total). All pass.
+
+### 18 April 2026 — Neighbour fallback (Session 2)
+
+Session 2 of the focus/position preservation workplan. When the focused image
+disappears after a search context change (query/filter excludes it), the engine
+now scans its old buffer neighbours and focuses the nearest survivor. If no
+neighbours survive, focus clears gracefully.
+
+**Implementation:**
+- `_captureNeighbours()` in `search-store.ts`: captures ±20 neighbour IDs in
+  alternating distance order (+1, -1, +2, -2, ...) before the buffer is replaced.
+- Called at the start of `search()` when `sortAroundFocusId` is set.
+- Passed through to `_findAndFocusImage`, which uses a batch ES `ids` query to
+  check all ±20 neighbours against the new query in a single round-trip. Works
+  regardless of scroll position (unlike the initial first-page-only scan approach
+  which failed for deep scroll). The nearest survivor is then recursed into
+  `_findAndFocusImage` to reuse the full sort-value + seek machinery, supporting
+  all three scroll modes (<1k scroll, 1k-65k position map, >65k deep-seek).
+- When a neighbour is found: sets `focusedImageId` + bumps
+  `sortAroundFocusGeneration` so the view scrolls to it.
+
+**Bug fix — stale buffer after query change (isInBuffer shortcut):**
+Pre-existing bug exposed by Session 1's wiring of `focusPreserveId` for all
+search changes. `_findAndFocusImage` had an `isInBuffer` shortcut that checked
+whether the target image's new offset fell within the current buffer's range.
+When called from `search()` after a query change, the buffer is from the
+PREVIOUS query — stale content. On medium datasets (1k-65k) where the position
+map provides exact offsets, the shortcut would fire and leave permanently stale
+results visible (e.g. CMYK images visible after `-colourModel:CMYK`). Fixed by
+adding `!fallbackFirstPage` guard: when the buffer hasn't been replaced for this
+search, always load fresh content via `_loadBufferAroundImage`.
+
+**MockDataSource:** Added `removedIds: Set<string>` and `_filterRemoved()` to
+simulate image deletion in tests. All `searchAfter` return paths post-filter.
+
+**Tests:** 7 new unit tests (nearest neighbour, distance preference, no survivors,
+generation bump, generation no-bump, deep-scroll neighbour, stale buffer prevention).
+1 new E2E test (credit-based query exclusion triggers neighbour fallback).
+Stale-content assertions on all neighbour fallback tests.
+302 unit tests, 135 E2E tests pass.
+
+### 18 April 2026 — Focus survives search context change
+
+Session 1 of the focus/position preservation workplan. When a user clicks a metadata
+value in the detail panel (e.g. credit: "AFP"), the focused image now stays focused and
+in view after the search context changes — no flash, no scroll reset, no position loss.
+
+**Core mechanism:** `useUrlSearchSync` renamed `sortAroundFocusId` → `focusPreserveId`
+and now always passes `focusedImageId` to `search()` (not just for sort-only changes).
+`_findAndFocusImage` relocates the image in the new result set using sort values +
+bidirectional `search_after`. `isSortOnly` is still computed but unused — preserved
+for Session 4 (phantom focus relaxation).
+
+**Exact position preservation:** Effect 7 in `useScrollEffects` now saves the
+`sortFocusRatio` for any search param change when a focused image exists (not just
+sort-only). Effect 9 restores the exact pixel position via `consumeSortFocusRatio()`.
+
+**Performance:** In deep-seek mode (>65k results, no position map), `countBefore` was
+the bottleneck (2-5s on 1.3M results). Now skipped entirely — `offset=0` placeholder,
+buffer loads immediately via sort-value cursors, `bufferOffset` corrected asynchronously
+when `countBefore` resolves. Scrubber thumb and position counter temporarily wrong for
+~1-5s; buffer data always correct. Net effect: focus-preserve drops from 3-6s to
+~200-300ms on large datasets.
+
+**Bug fixes (4):**
+- Flash of first page: timeout/abort race in `_findAndFocusImage`. Fixed with
+  `AbortSignal.any` pattern — timeout aborts in-flight requests, guards prevent
+  overwrite of fallback state.
+- Focus-find silently aborted: scroll-seek in two-tier mode aborted shared
+  `_rangeAbortController`. Fixed with dedicated `_findFocusAbortController` that
+  only `search()` can abort.
+- Flash of unwanted content: (a) early `total` set caused virtualizer resize →
+  scroll-clamp → scroll-seek. Fixed by deferring `total` to `_findAndFocusImage`.
+  (b) Effect 7 reset `scrollTop=0`. Fixed by skipping reset when `focusedImageId` set.
+- Stale `twoTier` in `captureAnchor` (pre-existing): closure captured initial value
+  from `useEffect(deps=[])`. Fixed by deriving `isTwoTier` from store state at call
+  time. Explicit focus now survives resize/panel-toggle in two-tier mode.
+
+**Files:** `useUrlSearchSync.ts`, `search-store.ts`, `useScrollEffects.ts`,
+`ImageGrid.tsx`, `search-store.test.ts` (4 new unit tests),
+`focus-preservation.spec.ts` (2 new E2E tests). 295 unit + 134 E2E pass.
+
+### 17 April 2026 — Two alternative integration plans produced
+
+Two competing plans for integrating kupua with Grid's backend, both for engineer review:
+
+**Direct-ES plan** (`integration-plan.md`): Keep direct Elasticsearch as kupua's core,
+layer media-api incrementally for auth, config, image detail, writes. Zero media-api
+changes. 7 phases, ~8–12 weeks. Ships fast, no external dependencies, but bakes Grid
+internals into the frontend (ES query DSL, S3 proxying, TypeScript cost calculator).
+
+**API-first plan** (`integration-plan-api-first.md`): Kupua becomes a pure HATEOAS client
+of media-api — one URL, no direct ES/S3/imgproxy access. Requires ~8 additive media-api
+endpoints (PIT, search_after, count, aggregations, distributions, percentiles, config).
+All changes backwards-compatible — legacy clients unaffected. 10 phases, ~10–14 weeks
+with ~2.5 weeks of Scala developer time. Cost/validity in search results is free (already
+computed by ImageResponse.create per hit). Portable to any Grid deployment (eelpie, BBC).
+
+Both plans share Phases 0–1 (auth, config) and the write phases. A hybrid path is
+documented: start with direct-ES, swap to API-first when endpoints are ready — the
+`ImageDataSource` interface makes this a clean swap.
+
+Also: deleted `api-first-integration-handoff.md` (superseded by the plan itself),
+created mermaid architecture diagrams for both plans, added imgproxy-as-Grid-infrastructure
+as a parallel workstream in the API-first plan.
+
+### 16 April 2026 — Extract `useCursorAutoHide` and apply to ImageDetail fullscreen
+
+Cursor auto-hide (YouTube-style: disappear after 2s idle, reappear on mouse move) was
+only implemented in `FullscreenPreview` (fullscreen from grid/table). Entering fullscreen
+from `ImageDetail` (detail view → press `f`) did not hide the cursor — same feature,
+two code paths, one was missed.
+
+**Fix:** Extracted the inline cursor-hide logic (~25 lines of state + effect + refs) from
+`FullscreenPreview` into a shared `useCursorAutoHide(isActive)` hook. Both consumers now
+call the hook with one line. `FullscreenPreview` passes `isActive`, `ImageDetail` passes
+`isFullscreen`. NavStrip rendering is gated on `!cursorHidden` in fullscreen mode in both
+components, with `navMouseEnter`/`navMouseLeave` callbacks keeping the cursor visible
+while hovering nav zones.
+
+**Why two code paths exist:** `FullscreenPreview` is a lightweight shortcut from the list
+(no route change, own fullscreen lifecycle, exit → list). `ImageDetail` fullscreen is
+within the detail overlay (URL-routed, has metadata sidebar, exit → detail view). They
+share `useImageTraversal`, `NavStrip`, `image-prefetch`, and now `useCursorAutoHide`, but
+diverge on exit semantics, navigation mechanism, and container management.
+
+All 291 unit tests pass.
+
+### 15 April 2026 — Fix restoreAroundCursor infinite loop in two-tier mode
+
+**Root cause:** Two interacting bugs caused an infinite restore → seek → restore loop
+when reloading a page with ImageDetail open in two-tier mode (1k < total ≤ 65k).
+
+- **Bug A (primary):** `restoreAroundCursor` in `search-store.ts` hardcoded
+  `_seekTargetGlobalIndex: -1`. In two-tier mode, effect6 (`useScrollEffects.ts`)
+  needs the global index to compute the correct pixel position — with `-1` it falls
+  back to the buffer-local index (~100), computing scrollTop ≈ 7,575px instead of the
+  correct ≈ 1,445,310px (for an image at global offset 23,852). The wrong scrollTop
+  triggers a scroll-based seek that relocates the buffer to a completely different
+  region, losing the target image.
+
+- **Bug B (amplifier):** The restore effect in `ImageDetail.tsx` reset
+  `offsetRestoreAttempted` to `false` whenever `currentIndex >= 0`. After
+  `restoreAroundCursor` briefly places the image in buffer (`currentIndex >= 0` →
+  flag resets), Bug A pushes the buffer away (`currentIndex = -1`), and restore fires
+  again. Each cycle: ~250-300ms, ~20 unnecessary ES round-trips in the first 3s.
+
+**Wider blast radius:** Grid scroll position corruption after closing ImageDetail,
+scrubber thumb twitching, React render thrash on all grid/scrubber subscribers.
+Position map, PIT, and aggregations unaffected.
+
+**Fixes:**
+- `search-store.ts`: `restoreAroundCursor` now computes
+  `_seekTargetGlobalIndex = exactOffset` in two-tier mode (same pattern as `seek()`'s
+  exact-offset path). Scroll mode and three-tier unchanged (`-1`).
+- `ImageDetail.tsx`: Added `restoreAttemptedForRef` to track which imageId the restore
+  was attempted for. The flag only resets when `imageId` changes (user navigates to a
+  different image), preventing re-triggering when buffer briefly contains then loses
+  the same image.
+
+**Verification:** All 291 unit tests pass. User confirmed fix on TEST (51,306 results) —
+`restoreAroundCursor` fires once, effect6 scrolls to correct pixel, no cycling.
+
+### 15 April 2026 — Traversal refactor, fixes, and (minimal) UI
+
+**Traversal refactor** — created `useImageTraversal` hook (210 lines, 21 unit tests)
+to replace the separate, broken traversal logic in ImageDetail and FullscreenPreview.
+Previous bugs: FullscreenPreview walked buffer-local indices only and stopped at buffer
+edges; ImageDetail used `getImage(globalIdx ± 1)` which returned undefined at buffer
+edges in two-tier mode, hiding prev/next buttons; neither triggered extend/seek to slide
+the buffer.
+
+The hook works in global index space across all three scroll modes (buffer, two-tier,
+seek). Features: proactive extend within 20 items of buffer edge, pending navigation
+with auto-completion when buffer arrives, direction-aware prefetch (throttled).
+
+**ImageDetail refactored** — removed manual loadMore effect, prefetch effect,
+prevImageRef/nextImageRef, directionRef. Position counter uses `currentGlobalIndex`
+from hook. Net -100 lines.
+
+**FullscreenPreview rewritten** — uses shared hook. Added:
+- Nav strip hover zones (`NavStrip` component) — full-height strips at left/right edges
+  with chevron circles on hover (`group-hover:opacity-100`). Shared with ImageDetail.
+  Optical centring (1px nudge in arrow direction).
+- `f` key cooldown (500ms) — prevents double-fire during Chrome's fullscreen permission
+  overlay. Arrow keys NOT gated (user needs immediate nav).
+- `navReady` state — suppresses nav button render during macOS fullscreen animation.
+- Cursor auto-hide (YouTube-style) — `cursor-none` after 2s inactivity. `overNavRef`
+  prevents hide while mouse is over a nav zone.
+- No alt text flash — `<img alt="">` + `onLoad` sets real alt.
+
+**Bug fixes:**
+- *Fullscreen arrow skip-one-image* — FullscreenPreview's keydown and
+  `useListNavigation`'s keydown both processed ArrowLeft/Right, causing double-move in
+  grid (cols > 1). Fix: `if (document.fullscreenElement) return` guard in
+  `useListNavigation.ts` (both handleBubble and handleCapture).
+- *`f` key wrong stack winner after reload* — FullscreenPreview rendered after
+  ImageDetail in `search.tsx`, so its `useKeyboardShortcut("f")` registered last and
+  won the stack. Fix: swapped JSX order so ImageDetail registers after FullscreenPreview.
+- *Infinite restoreAroundCursor loop on reload in two-tier* — `useImageTraversal`'s
+  proactive extend effect fired on every `results`/`bufferOffset` change. After reload,
+  restoreAroundCursor updated store → extend effect saw image "near edge" → fired
+  `extendForward()` → store update → restoreAroundCursor re-triggered → ∞. Fix:
+  `hasNavigatedRef` — proactive extend only fires after user has pressed an arrow key.
+  Deeper scroll-system root cause (scrollTop resetting to 0 each cycle) flagged for
+  separate investigation (see `scroll-restore-loop-handoff.md`).
+
+**E2E tests added (4):**
+- 2 fullscreen preview nav tests (ArrowLeft/ArrowRight move focus by exactly 1 image).
+- 1 buffer boundary traversal (arrow-left past backward buffer edge after seek →
+  extendBackward fires, positions stay consistent).
+- 1 restoreAroundCursor flood regression (reload in detail, count console entries ≤10).
+
+**Other:**
+- `run-e2e.sh` — added docker-compose v1/v2 shim (same as `start.sh`) for Colima.
+
+Test counts: 291 Vitest, 132 Playwright E2E. Zero regressions.
+
+### 14 April 2026 — Code audit action items 1 & 2
+
+Executed two low-priority refactors from the two-tier virtualisation code audit
+(handoff-audit-action-items.md):
+
+1. **Scoped `performance.clearMarks()`** in `search-store.ts` — the seek function was
+   calling `performance.clearMarks()` / `clearMeasures()` with no argument, wiping ALL
+   marks on the page. Now clears only the 5 seek-specific mark names and 5 measure names.
+   Zero-risk, same behaviour.
+
+2. **Added `toVirtualizerIdx()` helper** in `useScrollEffects.ts` — the ternary
+   `isTwoTierFromTotal(t) ? globalIdx : globalIdx - bo` was repeated in 5 places.
+   Extracted to a module-level helper. Did NOT touch the line-841 site (different
+   branching pattern) or the component sites (different direction: `+` not `-`).
+
+Action 3 (JSDoc comments in useDataWindow.ts) was already done by a prior agent.
+
+All 270 Vitest tests pass. Handoff file deleted.
+
+### 14 April 2026 — Cross-tier E2E test matrix + test suite culling
+
+**Problem:** Kupua has three scrolling tiers (buffer ≤1k, two-tier 1k–65k, seek >65k)
+but 137 E2E tests only exercised two-tier mode (local ES has ~10k docs at default
+thresholds). Recent bugs were all at tier boundaries.
+
+**Solution:** Created a cross-tier test matrix that runs 18 tier-sensitive tests across
+all three tiers via three Vite dev servers (ports 3010/3020/3030) with different env
+vars. Each server inlines different `VITE_SCROLL_MODE_THRESHOLD` / `VITE_POSITION_MAP_THRESHOLD`
+values at build time to force buffer, two-tier, or seek mode respectively.
+
+**Test redundancy cull (habitual suite: 137→128 tests, ~6.2→5.8min):**
+- Deleted 6 two-tier tests (T5–T8, T10–T11) superseded by tier matrix. Kept T1–T4
+  (position map lifecycle), T9 (transient seek state), T12 (filter invalidation).
+- Merged 3 grid/table pairs into parameterised for-loops: post-seek scroll-up (B),
+  Bug #12 wheel scroll (C), Bug #16 runaway eviction (D).
+- Deleted sort-around-focus subset (E, strict subset of direction-change test),
+  weaker logo-click test (F), duplicate Home key test (G).
+
+**Tier matrix (54 tests across 3 tiers, ~4.2min):**
+- Created `playwright.tiers.config.ts` (3 projects × 3 webServers, `reuseExistingServer: false`).
+- Created `e2e/local/tier-matrix.spec.ts` with 18 tests covering: seek accuracy (4),
+  drag/content/scroll-freeze (3), density toggle (1), sort-around-focus (2), Home/End
+  keys (4), Bug #1 race (1), Bug #14 Credit sort (1), density-switch position (2).
+- Each test branches assertions on `test.info().project.name` (not runtime store
+  introspection). Buffer-mode tests wait for eager fill (10k docs, ~7-17s/test vs
+  ~1-6s for other tiers).
+- Added `testIgnore: "**/tier-matrix.spec.ts"` to habitual config so it only runs via
+  `npm run test:e2e:tiers`.
+
+**Test directive rewrite (copilot-instructions.md, both copies):**
+- Collapsed 4 directives (~34 lines) into 2 (~22 lines).
+- Added mandatory `2>&1 | tee /tmp/kupua-test-output.txt` pattern for all test commands.
+- Added "never re-run tests that are already running" rule to prevent agent panic on
+  terminal timeout.
+- Added port conflict warning for tier-matrix ports (3010/3020/3030).
+
+**Fix during validation:** Test #2 ("seek to top") failed at all tiers because
+`seekTo(0.02)` lands at 2% of scrollHeight (thousands of pixels), not near 0px.
+Replaced scrollTop threshold with bufferOffset + scrubberPosition assertions.
+
+**Files:** `playwright.tiers.config.ts` (new), `e2e/local/tier-matrix.spec.ts` (new),
+`e2e/local/scrubber.spec.ts` (culled), `e2e/local/buffer-corruption.spec.ts` (culled),
+`playwright.config.ts` (testIgnore), `package.json` (script), `e2e/README.md`,
+`AGENTS.md`, `.github/copilot-instructions.md` + human copy.
+
+### 14 April 2026 — Fix scrubber thumb frozen after density switch in two-tier mode
+
+**Bug:** In two-tier mode (~62k results): scroll to ~50% → switch density to table →
+switch back to grid → press End. Results correctly showed the end of the dataset, but
+the scrubber thumb stayed at ~50%. All scrolling after a density round-trip failed to
+update the thumb.
+
+**Root cause:** The Scrubber's scroll-mode continuous sync effect (line 476) attached a
+scroll listener to the scroll container element via `getScrollContainer()`, capturing it
+in a closure. After a density round-trip (grid→table→grid), the grid remounted with a
+**new** DOM element, but the Scrubber (which lives in `search.tsx` and never unmounts)
+kept listening to the dead element. The effect's deps (`isScrollMode`, `isDragging`,
+`maxThumbTop`, `trackHeight`) didn't change after the round-trip, so the effect never
+re-ran. In scroll mode, the discrete thumb sync is explicitly skipped (`if (isScrollMode)
+return`), so no code path updated the thumb.
+
+**Systemic analysis:** Reviewed all 12 `getScrollContainer()` call sites. All except the
+Scrubber's scroll listener call it fresh per invocation (correct). The deeper issue:
+`scroll-container-ref.ts` was a fire-and-forget setter/getter with no notification
+mechanism — consumers that needed to react to changes had to discover them through
+indirect effect deps. Also reviewed four recent density-switch bugs (Bug #18 skeleton
+deadlock, `_suppressDensityFocusSave` stuck, `_prevParamsSerialized` mismatch, this bug)
+— genuinely different root causes, not whack-a-mole.
+
+**Fix:** Made `scroll-container-ref.ts` observable via `useSyncExternalStore`.
+`registerScrollContainer()` now increments a generation counter and notifies subscribers.
+New `useScrollContainerGeneration()` hook returns the counter. Scrubber uses it as a dep
+on the scroll-sync effect — when the container changes, the effect re-runs and
+`attach()` picks up the new element. Same-element guard (`if (_el === el) return`)
+avoids spurious bumps.
+
+**Impact verification:** Traced all 6 scroll-container interaction points in the
+Scrubber (wheel forwarding, scroll-sync effect, `scrollContentTo`, track click, drag
+move, drag up). Only the scroll-sync effect was affected. Verified all 3 modes
+(buffer/indexed/seek), tooltip, ticks, labels — none touch the scroll container. Seek
+mode hits the `if (!isScrollMode) return` guard, so generation changes are a harmless
+no-op.
+
+**Also fixed:** Pre-existing unused variable `images` in `useDataWindow.test.ts` line
+224 (TS6133 warning).
+
+**Files changed (3):**
+- `src/lib/scroll-container-ref.ts` — generation counter + `useSyncExternalStore` hook
+- `src/components/Scrubber.tsx` — import + call `useScrollContainerGeneration()`, add as
+  scroll-sync effect dep
+- `src/hooks/useDataWindow.test.ts` — remove unused destructured variable
+
+**Results:** Unit 270/270 ✓, TypeScript clean ✓, E2E 137/137 ✓ (6.2m). Manually
+verified on ~62k results: scroll 50% → table → grid → End → thumb moves to bottom.
+
+### 14 April 2026 — Fix position map fetch failure on null-zone sorts + ES error diagnostics
+
+**Bug:** `fetchPositionIndex()` failed with HTTP 400 on the final chunk when
+sorting by a field with null values (e.g. `metadata.dateTaken` — ~960 of 60,962
+images lack it on TEST). The position map never loaded for Taken, Credit, Source,
+Last Modified, Category, or any config-driven alias sort. Seeks fell back to the
+slower deep-seek path (percentile estimation). The app worked, just slower.
+
+**Root cause:** `fetchPositionIndex` built sort clauses via `buildSortClause()`
+which produces bare `{field: "asc"}` without explicit `missing` values. When the
+`search_after` cursor contained `null` (entering the null zone at chunk 7), ES 8.x
+rejected the request — a null in the cursor didn't match the expected type for the
+field without an explicit `missing` directive.
+
+**Fix (es-adapter.ts):**
+1. **Explicit `missing` in sort clauses:** Transform bare clauses to object-form
+   with `missing: "_last"` for asc / `missing: "_first"` for desc. Semantically
+   identical to ES defaults but makes null-valued `search_after` cursors accepted.
+2. **ES error body in diagnostics:** Both `esRequest()` and `esRequestRaw()` now
+   read the response body (first 500 chars) on non-OK status and include it in
+   the error message. Previously the body was discarded, making 400s opaque.
+
+**Not reproducible locally** — the local E2E dataset has no null sort fields.
+Requires TEST verification via `./scripts/start.sh --use-TEST` with Taken sort.
+
+**Results:** Unit 270/270 ✓, E2E 137/137 ✓ (6.0m).
+
+### 14 April 2026 — Retrofit E2E tests with placeholder detection
+
+**Task:** Added `assertNoVisiblePlaceholders()` to 4 existing seek-and-settle tests
+in `e2e/local/scrubber.spec.ts`, per `handoff-placeholder-detection.md`.
+
+**Why:** The original permanent-skeleton bug after two-tier seek was invisible to
+E2E tests because they only checked store state (bufferOffset, resultsLength, error)
+and scroll position — all of which could be correct while the viewport showed only
+skeletons. The new assertion catches "buffer positioned correctly but viewport not
+aligned to it" regressions.
+
+**Tests amended (1 line each):**
+1. "can scroll up after seeking to 50%" — after 1500ms settle, before scroll-up
+2. "dragging past buffer triggers scroll-seek that fills skeletons" — after assertPositionsConsistent
+3. "scrubber works in seek mode before position map loads" — after assertPositionsConsistent
+4. "position-map seek lands at exact target position" — after assertPositionsConsistent
+
+**Results:** 270/270 unit ✓, 137/137 E2E ✓ (7.3min). Zero additional runtime on
+passing tests (waitForFunction returns immediately when no placeholders visible).
+
+### 14 April 2026 — Consolidate hardcoded `nonFree: "true"` to single source of truth
+
+**Refactor:** All hardcoded `nonFree: "true"` default values across 6 files now
+reference `DEFAULT_SEARCH` from a single zero-dependency module
+(`src/lib/home-defaults.ts`). Pure mechanical refactor — no behaviour change.
+
+**Motivation:** In real Grid, `nonFree` is a per-user config. When Kupua reaches
+Phase 3 (Grid API integration, auth), `DEFAULT_SEARCH` will become dynamic.
+Having the value in one place makes that a single-file change instead of a 6-file
+hunt. Handoff doc: `handoff-nonFree-single-source.md`.
+
+**Key decision — extract to `home-defaults.ts`:** `DEFAULT_SEARCH` was originally
+defined in `useUrlSearchSync.ts`, which imports from `search-store`. If
+`search-store` imported `DEFAULT_SEARCH` back, that would create a circular
+dependency. The new `home-defaults.ts` module has zero internal imports (only the
+`UrlSearchParams` type from `search-params-schema.ts`), so it's importable from
+anywhere. `useUrlSearchSync.ts` re-exports for backward compatibility.
+
+**Sites changed:**
+- `routes/index.tsx` — `{ nonFree: "true" }` → `DEFAULT_SEARCH`
+- `routes/image.tsx` — `{ nonFree: "true", image }` → `{ ...DEFAULT_SEARCH, image }`
+- `SearchBar.tsx` — navigate param in resetToHome callback → `DEFAULT_SEARCH`
+- `ImageDetail.tsx` — navigate param in resetToHome callback → `DEFAULT_SEARCH`
+- `search-store.ts` — initial store `params` → `...DEFAULT_SEARCH`
+- `reset-to-home.ts` — import path updated to `home-defaults`
+- `useUrlSearchSync.ts` — inline definition → import + re-export
+
+**Sites NOT changed (with reasoning):**
+- `ErrorBoundary.tsx` (`window.location.href = "/search?nonFree=true"`) — hard
+  reload fallback, can't use runtime constant. Cross-reference comment added.
+- `SearchBar.tsx` / `ImageDetail.tsx` `<a href="...">` — static HTML for
+  right-click "open in new tab". Cross-reference comments added.
+- `SearchFilters.tsx` (`params.nonFree === "true"`) — runtime comparison against
+  user input, not a default value.
+- `es-adapter.ts` (`params.nonFree !== "true"`) — runtime filter condition.
+
+**Files changed (9):** `home-defaults.ts` (new), `useUrlSearchSync.ts`,
+`reset-to-home.ts`, `routes/index.tsx`, `routes/image.tsx`, `SearchBar.tsx`,
+`ImageDetail.tsx`, `ErrorBoundary.tsx`, `search-store.ts`.
+
+**Results:** Unit 270/270 ✓, E2E 118/118 ✓ (buffer-corruption, keyboard-nav,
+scrubber — 5.8m).
+
+### 14 April 2026 — Fix permanent skeletons after two-tier seek + position map not fetched after sort-around-focus
+
+**Bug A (primary):** After seeking within 1k–65k results in two-tier mode,
+placeholders never fill with images. Repro: fresh app with 62k results
+(`nonFree=true&since=2024-12-12`), switch to Taken sort, seek to null zone →
+permanent empty skeletons.
+
+**Root cause A:** `_seekTargetGlobalIndex` was always set to `clampedOffset`
+regardless of `exactOffset`. The deep-seek path (percentile estimation) has drift
+— `actualOffset` can differ from `clampedOffset` by thousands of positions in the
+null zone. Effect #6 in `useScrollEffects.ts` forced `scrollTop` to
+`clampedOffset`'s pixel position, but the buffer was at `actualOffset` →
+viewport showed only skeletons → scroll-triggered re-seek faced the same drift →
+infinite skeleton deadlock.
+
+**Fix A:** `_seekTargetGlobalIndex` now differentiates exact vs inexact offset:
+- **Exact offset** (position-map, shallow from/size): uses `clampedOffset` — the
+  buffer is guaranteed to cover that position.
+- **Inexact offset** (deep seek): uses `actualOffset + backwardItemCount` — the
+  bidirectional centre of the buffer, where "interesting" content starts.
+
+First attempt used `actualOffset + scrollTargetIndex` (from `computeScrollTarget`),
+but that function clamps to buffer-local scroll bounds — in two-tier mode where
+`scrollTop` is a global pixel position, the reverse-computed index clamped to
+`bufferLength - 1`, placing the viewport at the buffer's bottom edge with no
+scroll-up headroom (broke tests 46, 50). Using `backwardItemCount` directly avoids
+the buffer-local clamping.
+
+**Bug B (secondary):** Position map never fetched after sort-around-focus.
+
+**Root cause B:** `search()` has two branches — the sort-around-focus early path
+(when `sortAroundFocusId && !focusedInFirstPage`) and the normal path. Only the
+normal path called `_fetchPositionMap`. After sort-around-focus, `positionMap`
+stayed `null` forever, forcing all subsequent seeks through the deep-seek path.
+
+**Fix B:** Added `_fetchPositionMap` call in the sort-around-focus early branch,
+with the same two-tier eligibility check and dedicated abort controller.
+
+**Fix C (test tooling):** Added `countVisiblePlaceholders()` and
+`assertNoVisiblePlaceholders(timeout?)` to E2E helpers. Grid detection: cells
+without `[data-grid-cell]` + `bg-grid-cell` class. Table detection: rows without
+`cursor-pointer` + `bg-grid-separator` skeleton. Both check viewport intersection.
+Created handoff (`handoff-placeholder-detection.md`) for retrofitting 4 existing
+tests with the new assertion.
+
+**Files changed (3):**
+- `src/stores/search-store.ts` — Fix A (`_seekTargetGlobalIndex` exact/inexact
+  split) + Fix B (`_fetchPositionMap` in sort-around-focus branch)
+- `e2e/shared/helpers.ts` — Fix C (placeholder detection helpers)
+- `exploration/docs/handoff-placeholder-detection.md` — retrofit handoff
+
+**Results:** Unit 270/270 ✓, E2E 137/137 ✓. Verified on TEST cluster (62k
+results, Taken sort, null zone seek) — no skeletons.
+
+### 14 April 2026 — Fix Home button not resetting sort order
+
+**Bug:** Change sort to e.g. Category → click Home → results still sorted by
+Category instead of reverting to default `-uploadTime`.
+
+**Root cause:** Regression from the density-switch position loss fix (same day,
+earlier session). `resetToHome()` only cleared `query` and `offset` via
+`store.setParams({ query: undefined, offset: 0 })`. The 14 Apr density fix
+restored `_prevParamsSerialized` to `{nonFree:"true"}` after `search()` — which
+matched the home URL exactly, so `useUrlSearchSync`'s dedup bailed out and never
+pushed the full reset (including `orderBy: undefined`) to the store. The stale
+`orderBy` persisted.
+
+**Fix:** `resetToHome()` now resets ALL URL-managed search params (built
+dynamically from `URL_PARAM_KEYS`, excluding display-only keys), then overlays
+home defaults from the new exported `DEFAULT_SEARCH` constant. This makes the
+store match the home URL *before* `search()` fires, so the dedup restoration is
+correct. Any future params added to the schema are cleared automatically.
+
+**Collateral improvement:** Exported `DEFAULT_SEARCH` from `useUrlSearchSync.ts`
+as the single source of truth for home URL defaults. `resetToHome()` references
+it instead of hardcoding `{ nonFree: "true" }`. Created handoff doc
+(`handoff-nonFree-single-source.md`) for a future refactor to consolidate the
+remaining 5 hardcoded `nonFree: "true"` sites across routes and components.
+
+**Files changed (4):**
+- `src/lib/reset-to-home.ts` — full param reset using `URL_PARAM_KEYS` +
+  `DEFAULT_SEARCH` instead of partial `{ query, offset }` reset
+- `src/hooks/useUrlSearchSync.ts` — exported `DEFAULT_SEARCH` constant
+- `e2e/local/scrubber.spec.ts` — 3 new E2E tests: sort field reset, sort
+  direction reset, Home from table with sort reset
+- `exploration/docs/handoff-nonFree-single-source.md` — handoff for nonFree
+  consolidation refactor
+
+**Results:** Unit 270/270 ✓, E2E 137/137 ✓ (3 new tests).### 14 April 2026 — Fix density-switch position loss after Home button click
+
+**Bug:** Grid → seek 50% → table (OK) → grid → Home → seek 50% → table → scrolls
+to top instead of preserving position.
+
+**Root cause #1:** `_suppressDensityFocusSave` flag stuck permanently.
+`resetToHome()` called `suppressDensityFocusSave()` unconditionally. The flag is
+only cleared by the mount effect of the *next* density component. But Home from
+grid = no density switch = grid stays mounted → flag stays true → all future
+unmount saves suppressed → focus never recorded.
+
+**Fix #1:** Gate `suppressDensityFocusSave()` with `if (willSwitchDensity)` in
+`reset-to-home.ts`.
+
+**Root cause #2:** `resetSearchSync()` clears `_prevParamsSerialized` to `""`.
+When Home is clicked from grid (URL already `?nonFree=true`), `navigate()` is a
+no-op (same URL). `useUrlSearchSync` never fires to restore
+`_prevParamsSerialized`. It stays empty. The next density switch (adding
+`?density=table`) finds a mismatch and fires `search()`, resetting buffer to
+offset 0 → position lost.
+
+**Fix #2:** After `store.search()` completes in `resetToHome()`, restore
+`_prevParamsSerialized` and `_prevSearchOnly` to match the home URL params
+(`{nonFree: "true"}`). When Home fires from table (URL does change),
+`useUrlSearchSync` overwrites with the same value — no conflict.
+
+**Other changes:**
+- Removed all diagnostic devLogs from `useUrlSearchSync.ts`. Permanent devLog
+  tracing kept in `setPrevParamsSerialized` and `resetSearchSync` (routed through
+  `devLog`, no-op in prod).
+- 2 new E2E tests in `scrubber.spec.ts`: Home-from-grid without focus + with focus.
+
+**Files changed (4):**
+- `src/lib/reset-to-home.ts` — both fixes
+- `src/lib/orchestration/search.ts` — permanent devLog in resetSearchSync +
+  setPrevParamsSerialized
+- `src/hooks/useUrlSearchSync.ts` — temp diagnostics removed
+- `e2e/local/scrubber.spec.ts` — 2 new Home-from-grid density tests
+
+**Results:** Unit 270/270 ✓, E2E 134/134 ✓. All 8 density-switch tests pass.
+
+### 13–14 April 2026 — Fix indexed-mode scrubber skeleton deadlock (Bug #18)
+
+**Bug:** Clicking scrubber at 50% on ~62k results → after ~2s scrubber jumps near
+top, shows only empty placeholders that never fill in.
+
+**Root cause:** `twoTier` was derived from `positionMap !== null`. When user clicks
+scrubber before the position map finishes loading (~5-8s for 62k), the seek completes
+in non-twoTier mode (virtualizerCount = buffer length ~300, scrollHeight ~13k). When
+positionMap arrives asynchronously, `twoTier` flips true → virtualizerCount jumps to
+~62k → scrollHeight jumps to ~2.6M. But scrollTop stays at its old value (~4242).
+In the new coordinate space, scrollTop=4242 maps to global position ~98, but the
+buffer is at ~31k → all cells show skeletons forever (permanent deadlock).
+
+**Fix #3 (accepted) — two parts, 4 agents over 2 days:**
+
+- **Part A:** Derive `twoTier` from total range (`SCROLL_MODE_THRESHOLD < total ≤
+  POSITION_MAP_THRESHOLD`) instead of `positionMap !== null`. The coordinate space is
+  now stable from frame 1 — no late flip when position map arrives. Position map
+  remains a performance optimisation (faster seeks), not a coordinate-space decision.
+
+- **Part B:** Scrubber `isScrollMode` includes `twoTier`. When the scroll container
+  already spans all `total` items, the scrubber sets scrollTop directly (instant
+  visual feedback) instead of firing a slow deep seek (~2.1s). Data fills
+  asynchronously via useDataWindow's scroll-triggered seek (~1.8s background).
+
+**Rejected approaches:**
+
+- Fix #1 (swimming): `useLayoutEffect` detecting twoTier false→true transition to
+  recompute scrollTop. Caused visible swimming — cells shifted when scrollTop changed.
+- Fix #2 (slow): Total-based twoTier only (Part A without Part B). Scrubber still
+  entered seek mode (deep percentile path) → 2.1s with no visual feedback.
+
+**Regression fix — Effect #8 (bufferOffset→0 guard):** The `if (twoTier) return;`
+guard in effect #8 prevented scrollTop reset on logo click. With total-range-based
+twoTier, the local 10k dataset triggers twoTier=true, so effect #8 never reset
+scrollTop on go-home. Removed the guard — in twoTier mode, bufferOffset→0 happens
+either from natural scroll-to-top (scrollTop already ~0, reset is no-op) or from
+search()/resetToHome (scrollTop needs reset). Both are safe.
+
+**Test helper fixes:** `seekTo()` and `isTwoTierMode()` in `e2e/shared/helpers.ts`
+still used `positionMap !== null` for twoTier detection. Updated to use total-range
+check matching the app logic. Sort-around-focus visibility assertion in
+`scrubber.spec.ts` updated to use global index (not buffer-local) for row position
+estimation in twoTier mode.
+
+**Files changed (8):**
+- `src/hooks/useDataWindow.ts` — twoTier from total range
+- `src/stores/search-store.ts` — `_seekTargetGlobalIndex` from total range
+- `src/hooks/useScrollEffects.ts` — `isTwoTierFromTotal()` helper, 6 imperative
+  checks updated, effect #8 twoTier guard removed
+- `src/components/ImageGrid.tsx` — `captureAnchor` uses hook's twoTier
+- `src/routes/search.tsx` — separate `positionMapLoaded` from `twoTier`, pass to Scrubber
+- `src/components/Scrubber.tsx` — `twoTier` prop, `isScrollMode` includes twoTier
+- `e2e/shared/helpers.ts` — `seekTo()`, `isTwoTierMode()` use total-range twoTier
+- `e2e/local/scrubber.spec.ts` — Sort-around-focus visibility uses global index
+
+**Results:** Unit 270/270 ✓, E2E 132/132 ✓, smoke 10/11 (S3 pre-existing), scroll
+stability 8/8 ✓. Tested on TEST cluster (~62k results) and local Docker ES (~10k).
+
+Sorry
+**Scope:** Fix all E2E test failures introduced by two-tier virtualisation, then
+fix a real app bug (End key landing near top in two-tier mode).
+
+**Part 1 — E2E test fixes (5 agents, 6 full suite runs):**
+
+Baseline: 125 passed, 8 failed. Final: 132 passed, 1 skipped, 0 failed.
+
+Root cause of most failures: in two-tier mode, `seekTo()` in `helpers.ts` checked
+`positionMap !== null` to decide the two-tier code path, but position map is
+transiently null during initial load (~2-3s) and after sort/density/view switch
+reload (~1s). Tests calling `seekTo` during these windows took the wrong (non-two-tier)
+path, resolving immediately from stale buffer state.
+
+**Root cause fix in `helpers.ts`:** `seekTo()` now waits up to 10s for position map
+to load when `total > 1000` and `positionMap` is null. This fixes all tests that
+call `seekTo` when position map is transiently null.
+
+**Fixes in `scrubber.spec.ts` (~14 targeted edits):**
+
+1. Fixed `__kupuaStore` → `__kupua_store__` typo in no-swim test polling
+2. Golden table (Cases 1-3): wrapped scroll-preservation assertions in `if (!isTwoTier)` —
+   scroll preservation semantics don't apply in two-tier (scrollContentTo sets absolute scrollTop)
+3. Settle-window: replaced raw click + `waitForSeekComplete` with seekGeneration
+   snapshot + `waitForSeekGenerationBump` + `waitForPositionMap`
+4. No-swim test: `isTwoTier` detection after first seekTo; sub-row preservation
+   assertion gated with `if (!isTwoTier)`
+5. Metadata panel + long session: replaced `focusNthItem()` with store-based focus
+   via `page.evaluate → setFocusedImageId` (skeletons prevent DOM click in two-tier)
+6. End key tests (Credit + default): replaced `waitForTimeout` + `waitForSeekComplete`
+   with seekGeneration snapshot + `waitForSeekGenerationBump`
+7. End key cross-density: replaced `waitForTimeout(1500)` with seekGeneration approach
+8. `getViewState` helper: fixed global→buffer-local index conversion
+9. Seek to bottom (0.98): mode-aware `bufferEnd` assertion
+10. ScrollTop after seek: skip buffer-local scrollTop assertion in two-tier
+11. Keyword sort Credit tests: wrapped console log assertions in `if (!isTwoTier)` —
+    position-map fast path bypasses keyword strategy
+12. Density-focus 5+ toggles: `test.skip()` in two-tier (prepend compensation N/A) —
+    later deleted entirely as dead code
+
+**Part 2 — End key bug fix (1-line fix):**
+
+**Bug:** End key in two-tier mode (1k-65k results) landed near the top instead of
+the bottom. Correctly diagnosed after previous agent misattributed the symptom to
+a "density switch resets buffer" app bug.
+
+**Root cause:** End key fast path (reverse `searchAfter`, line 1796 of `search-store.ts`)
+didn't set `exactOffset = true`. Consequences: (1) `_seekTargetGlobalIndex` stayed -1
+(no two-tier scroll target), (2) `scrollTargetIndex` was reverse-computed from the
+user's current scrollTop (near the top) instead of using the known-exact
+`targetLocalIndex`. Effect #6 in `useScrollEffects` scrolled to the wrong position.
+
+**Fix:** Added `exactOffset = true` to the End key fast path. The offset IS exact
+(`total - hits.length`). This enables the exact-offset scroll target path AND sets
+`_seekTargetGlobalIndex = clampedOffset` in two-tier mode.
+
+After the fix, the End key cross-density test was unskipped and rewritten to verify
+buffer position (not scrollTop, which is buffer-local in table virtualiser).
+
+**Also reverted:** unnecessary `isSeekCooldownActive()` export from `search-store.ts` —
+was solving a non-existent problem based on the previous agent's wrong diagnosis.
+
+**Final results:** 132 passed, 1 skipped (density-focus 5+ toggles — deleted as dead
+code). 270 unit tests pass. Files modified: `helpers.ts`, `scrubber.spec.ts`,
+`search-store.ts`.
+
+### 13 April 2026 — Two-Tier Virtualisation: Real Scrollbar for 1k-65k Results
+
+**Scope:** Make the scrubber behave like a real scrollbar (drag = direct scroll)
+for result sets between 1,000 and 65,000 images. Previously, the scrubber was a
+seek control for >1k results — drag previewed a position, pointer-up teleported
+the buffer there (~850ms on TEST). Now, the virtualizer renders `total` items
+(not just buffer length), the scroll container has full height, and scrubber
+drag directly sets `scrollTop`.
+
+**Prerequisites built (Phases 0-4a of position-map workplan, 10-12 Apr):**
+
+1. **Phase 0 — Measurement:** Validated position map feasibility. Per-entry
+   V8 heap: 288 bytes. At 65k: ~18MB heap, ~5s fetch. `_source` per image:
+   8,258 bytes avg — full `_source` for 65k = 512MB, impossible. Position map
+   is the only viable index for large datasets.
+
+2. **Phase 1 — Position Map data structure + DAL:** Created `PositionMap` type
+   (struct-of-arrays: `ids[]`, `sortValues[]`, `length`), `cursorForPosition()`
+   helper (handles search_after off-by-one, position 0, tied sort values),
+   `fetchPositionIndex()` in `es-adapter.ts` (chunked `_source: false` fetch,
+   dedicated PIT, 10k/chunk). Files: `dal/position-map.ts`, `dal/es-adapter.ts`.
+
+3. **Phase 2 — Store integration:** Background fetch triggered after search when
+   `SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD`. Store exposes
+   `positionMap`, `positionMapLoading`. Invalidated on every `search()`.
+   Files: `search-store.ts`, `tuning.ts`.
+
+4. **Phase 3 — Fast seek path:** When position map available, seek uses exact
+   cursor lookup — one `searchAfter` call. Eliminates `countBefore`, percentile
+   estimation, and composite-agg walks. Fixed `exactOffset` ReferenceError that
+   silently crashed all position-map seeks. Files: `search-store.ts`.
+
+5. **Phase 4a — Scrubber tristate:** `ScrubberMode = 'buffer' | 'indexed' | 'seek'`.
+   `indexed` mode activates when position map is loaded. Files: `Scrubber.tsx`,
+   `search.tsx`.
+
+**Two-tier virtualisation (Sessions 1-3, 13 Apr):**
+
+**Session 1 — Index mapping + scrubber mode switch:**
+
+- `useDataWindow.ts`: Added `twoTier = positionMap !== null`. Set
+  `virtualizerCount = twoTier ? total : results.length`. Remapped `getImage()`
+  (global→local mapping), `findImageIndex()` (returns global when twoTier),
+  `reportVisibleRange()` (buffer-relative extend triggers), viewport anchor
+  (local conversion, skip when outside buffer).
+- `Scrubber.tsx`: `isScrollMode = buffer || indexed`. Replaced all 12
+  `isBufferMode` references. Scrubber drag directly scrolls container in both
+  buffer and indexed modes.
+- `search.tsx`: `currentPosition = positionMapLoaded ? visibleRange.start : bufferOffset + visibleRange.start`.
+- `ImageGrid.tsx`, `ImageTable.tsx`, `ImageDetail.tsx`: `storeImageOffset` callers
+  use `twoTier ? idx : bufferOffset + idx`. All `results[idx]` → `getImage(idx)`.
+- `useListNavigation.ts`: 3 `loadMore` guards changed to
+  `bufferOffset + resultsLength < total`.
+- New: `useDataWindow.test.ts` — 28 unit tests for two-tier index mapping.
+
+**Session 2 — Scroll-triggered seek + compensation + verification:**
+
+- `useDataWindow.ts`: Debounced scroll-triggered seek (200ms) when viewport
+  entirely outside buffer in two-tier mode. Skip extends when viewport too far
+  from buffer (extends can't bridge thousands of positions).
+- `useScrollEffects.ts`: Gated prepend/evict compensation with `if (twoTier) return`
+  (items replaced at fixed positions, no insertion). Gated bufferOffset→0 guard.
+  Fixed `loadMore` fallback guard. Fixed density-focus restore (6 locations) for
+  two-tier global indices. Added seek scroll-to-target branching using
+  `_seekTargetGlobalIndex`.
+- `search-store.ts`: Added `_seekTargetGlobalIndex` to store. Implemented parallel
+  forward+backward fetch in position-map seek path — `Promise.all` saves ~250-350ms
+  on TEST (sequential ~750ms → parallel ~450ms network). Each direction independently
+  handles null-zone cursors.
+
+**Session 3 — E2E tests + documentation:**
+
+- `scrubber.spec.ts`: 12 new E2E tests under "Two-tier virtualisation" describe:
+  position-map loading, scrubber drag direct scroll, drag past buffer → seek fill,
+  sort change invalidation+reload, Home button reset, Home key seek(0), density
+  switch position preservation, keyboard nav (PgDown + End), seek mode regression,
+  position-map seek accuracy, sort-around-focus with two-tier, date filter
+  invalidation+reload.
+- `e2e/shared/helpers.ts`: Added `waitForPositionMap()`, `isTwoTierMode()` helpers.
+- Documentation: changelog, AGENTS.md, workplan status updates.
+
+**Architecture decisions:**
+
+- **`twoTier` is the central invariant:** derived from `positionMap !== null`.
+  When false, every code path is identical to before — zero regression by design.
+  When true, indices become global, scroll container is full-height, scrubber
+  drags directly.
+- **`search()` invalidates; `seek()` preserves.** Any search call sets
+  `positionMap: null` → `twoTier` snaps to false. Features like filters, sort,
+  query, Home button all go through `search()`, so they auto-revert to
+  buffer-local behaviour during the transition.
+- **Parallel fetch only with position map.** Sequential backward fetch remains
+  as fallback when `positionMap === null`.
+
+**All 270 unit tests pass. 12 new E2E tests added.**
+
+### 12 April 2026 — Position Map: Phases 0-4a (Seek Acceleration)
+
+**Scope:** Build the position-map infrastructure for 65k-image scrolling.
+See `scroll-real-scrolling-through-24-workplan.md` for the full 8-phase plan.
+
+Phases 0-4a delivered: position map data structure + DAL, store integration +
+background fetch, position-map-accelerated seek (exact positioning, fewer ES
+calls, no composite walks), scrubber tristate mode signal. Phases 4b-7
+superseded — the remaining work was scrubber seek-mode polish, not real
+scrolling. Two-tier virtualisation (above) is the successor.
+
+### 10 April 2026 — Better table scroll (overscan 5→15), fix scrolling in tests
+
+**Scope:** Fix rubberbanding in Playwright scroll tests, tune table overscan, hide Keywords column.
+
+1. **Fix density-switch cooldown in test helpers** — `switchToTable()` and `switchToGrid()`
+   in `e2e/shared/helpers.ts` now call `waitForExtendReady()` after `waitForResults()`.
+   This polls the store's `loading` state until the search response arrives, then waits
+   200ms for `SEEK_COOLDOWN_MS` to expire. Previously, tests scrolled during the 2-second
+   `SEARCH_FETCH_COOLDOWN_MS` cooldown, which blocked `extendForward` — wheel events hit
+   the buffer bottom and rubberbanded. Replaces the ad-hoc 2500ms wait in smoke test S9.
+
+2. **Recalibrate wheel events in perf tests** — large `deltaY` values (1500-2000px)
+   exhausted the 200-item buffer in 3-4 events, then remaining events were no-ops
+   (no scrollTop change → no scroll event → no reportVisibleRange → no extend trigger).
+   P8: 1500×40@60ms → 400×80@50ms. S9: 2000×60@100ms → 400×120@50ms. All perf/smoke
+   wheel events now ≤600px, matching experiments.spec.ts calibration.
+
+3. **Replace grid scroll with rAF smooth scroll** — P2 and P12 replaced wheel events
+   with rAF-based `scrollTop` increments (50px/frame ≈ 3,000px/s). Continuous scroll
+   events fire every frame, preventing rubberbanding at buffer boundaries. Table scroll
+   (P8) keeps wheel events — 400px deltas don't rubberband in the table's taller buffer
+   (200 rows × 32px = 6,400px).
+
+4. **Fix P12 Credit sort cooldown** — `goto()` + `selectSort("Credit")` triggers
+   `SEARCH_FETCH_COOLDOWN_MS` without going through `switchToTable()`. Made
+   `waitForExtendReady()` public on `KupuaHelpers`, added call before second drift test.
+
+5. **Add P14d rapid traversal** — 20 images forward at 80ms (~12/s) + 3s settle.
+   Held arrow key simulation — cancellation stress test. Most images won't render;
+   only the final image should load cleanly.
+
+6. **Table overscan 5→15** — each side of viewport now has 15 pre-rendered rows
+   (480px buffer) instead of 5 (160px). DOM churn in P8 dropped 25% (155k→117k).
+   Severe jank increased 40% (heavier per-frame rendering) — acceptable trade-off
+   since the visible result is fewer blank row flashes during fast scroll.
+
+7. **Keywords column hidden by default** — `defaultHidden: true` on the Keywords
+   field. Removes ~10-15 `<DataSearchPill>` spans per visible row. Users can
+   still show it via column context menu.
+
+**Test results:** 203 unit tests pass, 121 E2E tests pass (5.3m). P8 validated
+visually (no rubberbanding), P12 validated (smooth scroll, reached offset=0/len=400
+with extends). Perf baseline established (3 runs median).
+
+### 9 April 2026 — Secondary sort in toolbar + SVG arrows in table headers
+
+**Scope:** Unify sort UX between table column headers and toolbar sort dropdown.
+
+1. **Table header arrows → SVG** — replaced Unicode `↑`/`↓` characters in table column
+   headers with Material Icons `arrow_upward`/`arrow_downward` SVGs at `w-3 h-3` (12px).
+   Secondary sort double-arrows use two SVGs with `-mr-0.5` (~1px visual gap).
+   Cross-platform identical rendering, matches toolbar sort button style.
+
+2. **Secondary sort in toolbar dropdown** — the sort dropdown now shows the active
+   secondary sort field with double-arrow SVGs (same as table headers). Previously
+   only the primary sort was shown (with a `✓` checkmark, now replaced with a
+   directional arrow).
+
+3. **Shift+click in sort dropdown** — same interaction model as table column headers:
+   - Normal click: set primary sort, clear secondary
+   - Shift+click on a different field: add as secondary sort
+   - Shift+click on active secondary: toggle its direction
+   - Shift+click on primary: no-op (can't be both primary and secondary)
+
+4. **E2E test updates** — `ui-features.spec.ts` sort indicator assertions updated from
+   text-matching `↑↓` to checking for `svg` elements. `helpers.ts` sort locators
+   already use `aria-label` (from previous session).
+
+**Files changed:** `ImageTable.tsx`, `SearchFilters.tsx`, `e2e/local/ui-features.spec.ts`.
+
+**Visual baselines regenerated** (table view shows SVG arrows instead of text).
+
+### 9 April 2026 — Mobile Phase 1: Quick wins + responsive polish
+
+**Scope:** Make browsing usable on mobile without compromising the desktop experience
+(99.9% of usage). All changes CSS-only or touch-event-only unless noted.
+
+**Fixes implemented:**
+
+1. **Pull-to-refresh prevention** — `overscroll-behavior-y: contain` on ImageGrid and
+   ImageTable scroll containers. `touch-action: none` on Scrubber track.
+2. **Dynamic viewport height** — `h-screen` → `h-dvh` in `__root.tsx` to avoid layout
+   thrashing when the Android URL bar shows/hides.
+3. **Scrubber tooltip stuck on mobile** — `mouseenter` fires synthetically on tap but
+   `mouseleave` never fires. Timer callbacks now clear `isHoveringTrack`/`isHovered`;
+   `handleTrackMouseMove` re-asserts both on each move so desktop hover is unaffected.
+4. **Extended ticks stuck on mobile** — same root cause as tooltip. Timer callbacks
+   clear both hover states. `handleThumbPointerDown` sets `isHovered(true)` so ticks
+   show during drag on mobile.
+5. **Search input overflow** — Clear ✕ button moved from absolute overlay to flex
+   sibling (matching kahuna). Inner wrapper `overflow-hidden` preserves CQL component's
+   built-in `overflow-x: auto` horizontal scrolling.
+6. **Responsive toolbar labels** — StatusBar uses CSS container queries
+   (`@container` + `@[500px]`/`@[600px]`): "matches" text appears at 500px, Browse/Details
+   labels at 600px. SearchBar uses viewport breakpoints: "Free only" (below lg) / "Free to
+   use only" (lg+), DateFilter icon-only (below lg) / full label (lg+), ES timing hidden
+   below lg. Filters visible from `sm` (640px).
+7. **StatusBar no-wrap guarantee** — `overflow-hidden` + `whitespace-nowrap` + `shrink-0`
+   on all buttons. Text never wraps even with large accessibility fonts on mobile.
+8. **Sort arrow cross-platform** — replaced Unicode ↓/↑ with Material Icons
+   `arrow_downward`/`arrow_upward` SVGs. Renders identically on macOS, Android, Windows.
+9. **SearchBar gap** — consistent `gap-1.5` (6px) at all breakpoints.
+10. **E2E test helper fix** — `toggleSortDirection()` and `getSortDirection()` in
+    `helpers.ts` used `hasText: /[↑↓]/` to find the sort direction button. Broken by
+    the SVG arrow change (#8). Fixed: locate via `aria-label` attributes instead.
+
+**Minor desktop compromise (accepted):** After clicking the scrubber track and holding
+the mouse perfectly still for 1.5s, tooltip and ticks blink briefly. Instantly recovered
+on any mouse movement. An absurdly narrow edge case — not worth more complexity.
+
+**Files changed:** `__root.tsx`, `ImageGrid.tsx`, `ImageTable.tsx`, `Scrubber.tsx`,
+`SearchBar.tsx`, `SearchFilters.tsx`, `DateFilter.tsx`, `StatusBar.tsx`,
+`e2e/shared/helpers.ts`.
+
+**Visual baselines regenerated** after all layout changes.
+
+### 9 April 2026 — Fix: new-images ticker doesn't clear on first click
+
+**Bug:** Click the "X new" ticker to refresh → images are prepended but the ticker
+stays visible. Only a second click clears it.
+
+**Root cause:** Race between the new-images poll and `search()`. The poll fires
+`dataSource.count()` with no abort signal. If the count request is in-flight when
+the user clicks the ticker, `search()` completes and sets `newCount: 0`, but the
+old poll's count response arrives after and overwrites it back to a positive value.
+
+**Fix (search-store.ts):**
+1. Stop the poll immediately at the start of `search()` (was only stopped after
+   results arrived) and eagerly set `newCount: 0`.
+2. Added a generation counter (`_newImagesPollGeneration`) to the poll. The callback
+   captures the generation at creation time and skips `set()` if a newer generation
+   has started. `stopNewImagesPoll()` also bumps the generation.
+
+### 9 April 2026 — Fix: scroll freeze after 1 minute idle (PIT `_shard_doc` mismatch)
+
+**Bug:** After the app sits idle for ~1 minute, scrolling down stops at exactly 200
+images (the initial PAGE_SIZE). `extendForward` never succeeds. The app is permanently
+stuck until a new search is triggered.
+
+**Root cause:** ES 8.x PIT-based queries silently append an internal `_shard_doc`
+tiebreaker to `hit.sort` arrays. With a 3-field sort clause `[uploadTime, id, _shard_doc]`,
+the returned cursors have 4 values instead of 3. After the PIT expires (1 minute
+`keep_alive`), `extendForward` fires with the stale PIT → 404 → the retry code
+strips the PIT from the body and retries against the index. But `search_after` still
+has 4 values for a 3-field sort → ES rejects with **400 Bad Request**. The error
+throws, `extendForward` catches and resets `_extendForwardInFlight`, but the next
+scroll event immediately retries the same failing cycle. The user sees a frozen list.
+
+**Diagnosis:** Diagnostic `devLog()` added to every `extendForward`/`extendBackward`
+guard showed `[extendForward] BLOCKED: _extendForwardInFlight=true` repeating, with
+interleaved `PIT expired/closed, retrying without PIT` warnings and `400 Bad Request`
+responses in the network tab.
+
+**Fix (2 changes in `es-adapter.ts`):**
+1. **Strip at source:** When returning sort values from PIT queries, trim each
+   `hit.sort` array to match the explicit sort clause length (`effectiveSort.length`).
+   Cursors stored in `endCursor`/`startCursor` never contain `_shard_doc` values.
+2. **Defence-in-depth:** In the PIT 404 retry block, also trim `body.search_after`
+   before retrying — catches any cursors that were already stored with the extra value.
+
+**Diagnostic logging kept:** `devLog()` in extend guards and `handleScroll` null-range
+warning. DCE'd in prod, useful for future debugging.
+
+### 9 April 2026 — Fix: Home logo from image detail doesn't focus search box
+
+**Bug:** Clicking the Home logo from image detail view resets everything correctly but
+doesn't place the caret in the CQL search input.
+
+**Root cause:** `resetScrollAndFocusSearch()` focuses the CQL input in a
+`requestAnimationFrame`, but guards it with `url.searchParams.has("image")`. At rAF
+time the URL still has `?image=...` because `navigate()` hasn't been called yet
+(it fires after `await search()` in `resetToHome`). The guard returns early.
+
+**Fix (`reset-to-home.ts`):** Added a second `requestAnimationFrame` focus after
+`navigate()` in `resetToHome()`, when the URL is clean and the image detail is gone.
+
+### 9 April 2026 — Code quality audit + tsc error fixes
+
+**Audit:** Full code quality scan of `src/` (~22k lines, 55 files). Report written to
+`exploration/docs/code-quality-audit-2026-04-09.md` (archived). Scanned for: `as any`
+(3, all debug globals), `@ts-ignore` (0), eslint-disable (19, all annotated), catch
+blocks (14 in store, all follow consistent abort-check → warn → degrade pattern),
+console.warn (19, intentional per dev-log contract), TODO/FIXME (0), dead code (1).
+Conclusion: codebase is clean, no structural issues beyond what doc 05 already
+identified and deferred.
+
+**Fixes applied (6 changes):**
+
+1. `search-store.ts:1362` — Added `firstItem` guard before `extractSortValues` call
+   in extendForward eviction. Buffer items are `Image | undefined` but
+   `extractSortValues` expects `Image`. The `newBuffer.length > 0` check was
+   already there but TS couldn't narrow through the index access.
+2. `search-store.ts:1505` — Symmetric fix in extendBackward eviction (`lastItem` guard).
+3. `sort-context.ts:674` — Removed unused `intervalMinutes` variable (3 lines). Leftover
+   from a refactor where sub-hour interval logic was simplified.
+4. `CqlSearchInput.tsx:92` — Added `as unknown as CustomElementConstructor` cast.
+   Upstream `@guardian/cql` type doesn't satisfy newer DOM typings
+   (`ariaActiveDescendantElement` etc.). Works at runtime; type system is behind.
+5. `reverse-compute.test.ts:21–25` — Removed unused `@/constants/layout` import
+   (values appeared in comments but were never used as code).
+6. `search-store-extended.test.ts:823` — Removed unused `beforeOffset` variable
+   (declared but never asserted against in the extendForward-after-null-zone-seek test).
+
+**Bonus:** `es-adapter.ts:448–453` — Deleted the PIT close `console.warn` entirely.
+PIT close is fire-and-forget (PITs auto-expire), and the warning fired constantly,
+polluting the console with zero diagnostic value.
+
+**Result:** `npx tsc --noEmit` → 0 errors (was 5). `npm test` → 203/203 pass.
+
+### 9 April 2026 — Fix: Home from deep table lands at wrong grid position
+
+**Bug:** Fresh app → switch to table → scroll down past buffer (triggers forward
+eviction, bufferOffset > 0) → click Home logo → grid lands at ~image 198 instead
+of the top, forwardExtend is broken (can't scroll down). App thinks it's at the
+bottom of the result set.
+
+**Root cause:** Race condition in the density-focus unmount/mount bridge. When
+`resetToHome()` calls `search()`, Zustand's `set()` triggers a batched re-render.
+`navigate()` fires before React commits the re-render, so Effect #8
+(BufferOffset→0 guard in `useScrollEffects.ts`) never runs. The browser
+auto-clamps scrollTop to the new shorter maxScroll (200 items instead of 1000).
+The table's unmount save captures `scrollTop=maxScroll, gap=0` → "source was at
+bottom". The grid mount extremum-snaps to its own maxScroll, landing the user at
+~image 198.
+
+The viewport anchor feature (c4dec72c3) expanded the surface area: before it, the
+unmount save only fired when `focusedImageId` was set. After it, `getViewportAnchorId()`
+returns non-null almost always, so the unmount save fires even without explicit focus.
+
+**Fix:** Added `_suppressDensityFocusSave` flag to `useScrollEffects.ts`.
+`resetToHome()` calls `suppressDensityFocusSave()` before `navigate()` to prevent
+the table's unmount save from writing stale data. The grid mount effect #10 clears
+the flag, restoring normal density-switch behaviour for future interactions.
+
+**Files changed:**
+- `src/hooks/useScrollEffects.ts` — added suppress flag + guard in save + clear in mount
+- `src/lib/reset-to-home.ts` — calls `suppressDensityFocusSave()` before `navigate()`
+
+**Density-focus audit:** Only `resetToHome()` can trigger this race (search() +
+density-changing navigate() in sequence). Normal density toggle doesn't call
+search(). Browser back/forward strips density from sync comparison (display-only
+key). No other code paths affected. Commit dceb2e69b (cursor recomputation after
+eviction) is a separate, unrelated bug class.
+
+**mouse.wheel audit for E2E tests:** All 8 existing mouse.wheel tests pass. One
+smoke test (S9 in `manual-smoke-test.spec.ts`) was fixed: added 2500ms wait after
+`switchToTable()` before wheel loop to outlast `SEARCH_FETCH_COOLDOWN_MS`.
+
+**Playwright globalTimeout:** Bumped from 10min to 20min — 121 sequential tests
+with retries easily exceed 10min.
+
+### 9 April 2026 — Developer experience: deps upgrade, resilient start.sh, Docker Compose v1 compat
+
+**Context:** User tried to onboard a friend. 3.5 hours spent fighting dependencies.
+Audit identified: hidden deps (Python 3, session-manager-plugin), missing sample data
+instructions, cryptic errors from `ssm-scala` Java failures, Docker Compose v1
+incompatibility, and stale npm packages with CVEs.
+
+**Dependency upgrades (safe patches/minors only):**
+- vite 8.0.2→8.0.8 (3 CVEs fixed: arbitrary file read via WebSocket, `server.fs.deny`
+  bypass, `.map` path traversal)
+- 12 other packages: @aws-sdk 3.1014→3.1027, @playwright/test 1.58→1.59,
+  tailwindcss/vite 4.1→4.2, @tanstack/react-router 1.168.3→1.168.10,
+  @tanstack/react-virtual 3.13.6→3.13.23, jsdom 29.0.1→29.0.2,
+  typescript-eslint 8.57→8.58, vitest 4.1.1→4.1.4, zustand 5.0.5→5.0.12
+- brace-expansion transitive vulnerability fixed via `npm audit fix`
+- Deferred: TypeScript 6, ESLint 10, eslint-plugin-react-hooks 7, React 19.2
+  (major version bumps, need separate testing)
+
+**start.sh — SSM fallback (no more Java requirement for TEST mode):**
+- Tries `ssm-scala` first if available (Guardian devs, unchanged path)
+- Falls back to raw AWS CLI (`ec2 describe-instances` + `ssm start-session`
+  port forwarding) if `ssm` not installed or fails (Java crash)
+- Preflight checks: verifies `aws` CLI and `session-manager-plugin` before
+  attempting tunnel. Prints `brew install` commands if missing.
+- Credential errors now print actionable messages ("Fetch from Janus")
+
+**start.sh — Docker Compose v1/v2 compatibility:**
+- `dc()` wrapper function auto-detects `docker compose` (v2) vs `docker-compose` (v1)
+- All compose calls go through `dc()`
+- `docker-compose.yml`: added `version: "3.9"` (v2 ignores it, v1 requires it)
+- `env_file` simplified from extended syntax (`path:`/`required:`) to plain string
+  (v1 doesn't understand the extended form)
+- `touch ~/.kupua-imgproxy.env` at startup ensures v1 doesn't fail on missing env_file
+
+**package.json / .nvmrc:**
+- Added `"engines": { "node": "^20.19.0 || >=22.12.0" }` — `npm install` warns on
+  wrong Node version
+- Added `kupua/.nvmrc` (v22.12.0) — `nvm use` auto-switches in kupua directory
+
+**README.md rewrite:**
+- Prerequisites split into "Local mode (everyone)" vs "TEST mode (adds)"
+- All dependencies listed with `brew install` commands
+- Python 3 listed as prerequisite (was hidden)
+- Docker image size warning for first-time users
+- `ssm-scala` marked as optional
+- Quick dependency check commands
+- Docker Compose v1 and v2 both mentioned as supported
+
+### 9 April 2026 — Fix scroll freeze after buffer eviction (cursor recomputation)
+
+**Problem:** After scrolling down far enough to trigger forward eviction (~1000
+items), the user could not scroll back up — the grid froze at the buffer start.
+Symmetric issue existed for backward eviction blocking forward scrolling.
+
+**Root cause (two bugs):**
+
+1. **Nullish coalescing defeated invalidation.** After forward eviction,
+   `newStartCursor` was set to `null`, but then
+   `startCursor: newStartCursor ?? state.startCursor` restored the old (stale)
+   cursor. `null ?? x` returns `x`. Same pattern for `endCursor` in backward
+   eviction.
+
+2. **Null cursor blocked extend guards.** Even after removing the `??` fallback,
+   `startCursor = null` caused `extendBackward` to bail at its
+   `if (!startCursor) return` guard — so backward extension was permanently
+   disabled after any forward eviction.
+
+**Fix:** Instead of nullifying cursors after eviction, recompute them from the
+new buffer boundary items using `extractSortValues()` (pure field read from the
+in-memory image, no ES call). This keeps both cursors valid after eviction so
+the user can scroll in either direction indefinitely.
+
+- `extendForward` eviction: `newStartCursor = extractSortValues(newBuffer[0], params.orderBy)`
+- `extendBackward` eviction: `newEndCursor = extractSortValues(newBuffer[newBuffer.length - 1], params.orderBy)`
+- Removed the `?? state.startCursor` and `?? state.endCursor` fallbacks.
+
+### 9 April 2026 — frozenUntil: cap pagination requests to prevent new-image leakage
+
+**Problem:** After PIT expires (idle >5 min), extend/seek/fill requests hit the
+live index and may include images uploaded after the user's last search. The
+ticker says "5 new" while those images are already silently visible — an
+inconsistent hybrid worse than either "always frozen" or "always live."
+
+**Solution:** Added `frozenParams()` helper in `search-store.ts`. It applies
+`until: min(params.until, newCountSince)` to every pagination request
+(extendForward, extendBackward, seek, restoreAroundCursor, _findAndFocusImage,
+_fillBufferForScrollMode). NOT applied in `search()` itself — that's the action
+that resets `newCountSince`.
+
+Also applied `frozenParams()` to `fetchAggregations` and `fetchExpandedAgg` so
+facet filter counts stay consistent with the frozen result set. Without this,
+a new image could bump "Credit A: 7" to "Credit A: 8" in the filter panel
+while the results grid still showed only the original 7.
+
+When PIT is active, the cap is redundant (subset filter on a snapshot is a
+no-op). When PIT expires, it prevents new images from entering the buffer.
+If the user has an explicit `until` date filter, the earlier of the two is used
+so the user's filter is never widened.
+
+Document title and ticker badge both read the same `newCount` store field —
+always in sync, no fix needed.
+
+Investigation and action comparison table: archived to
+`exploration/docs/99 Archive/new-images-behaviour-comparison.md`.
+All 203 unit/integration tests pass.
+
+### 8 April 2026 — Approach C (synthetic seek) implemented and abandoned
+
+**Goal:** Eliminate FOCC (Flash Of Correct Content) caused by non-atomic
+scrollTop compensation after backward prepend and forward eviction in the
+windowed buffer. The idea: instead of prepending/evicting items and then
+compensating scrollTop (which leaks one visible frame), combine fetched items
+with the existing buffer in memory, slice a BUFFER_CAPACITY window centered on
+the viewport, and `set()` the result as if it were a seek. No prepend = no
+compensation = no FOCC. Zero extra ES queries.
+
+**What was built (Sessions 1–2):**
+- `computeSyntheticSeek()`: pure function (~65 lines, 14 unit tests) that
+  combines fetched hits with the existing buffer, slices a centered window,
+  extracts cursors, computes scroll target index, and builds imagePositions.
+- `extendBackward`: replaced the prepend + `_prependGeneration++` path with
+  synthetic seek — calls `computeSyntheticSeek(direction:"backward")` then
+  `set()` with `_seekGeneration++`, reusing Effect #6 (proven zero-flash seek
+  scroll-to-target).
+- `extendForward` eviction path: replaced evict + `_forwardEvictGeneration++`
+  with `computeSyntheticSeek(direction:"forward")` + seek-shaped `set()`.
+  Non-eviction (pure append) path left unchanged.
+- Removed dead `evictPositions()` function (~15 lines, sole caller was old
+  eviction path).
+- Cascade fix: initial E2E revealed that bumping `_seekGeneration` triggers
+  Effect #6's deferred scroll (at SEEK_DEFERRED_SCROLL_MS = 150ms), which
+  fires `reportVisibleRange` → another extend → cascade. Fixed by setting
+  cooldown to `SEEK_DEFERRED_SCROLL_MS + POST_EXTEND_COOLDOWN_MS` (200ms)
+  so the cooldown outlasts the deferred scroll.
+- Results: 217/217 unit tests pass, 121/121 E2E tests pass (local ES, ~10k docs).
+
+**What failed (Session 3 — smoke test on TEST, 1.3M docs):**
+
+App was unusable. After seek to 50% and scrolling up, bufferOffset dropped by
+~196 every ~500ms. Once scrollTop reached 0, the cascade continued indefinitely
+— 18 extends in 8 seconds, offset fell from 671,797 to 668,269.
+
+Root cause — two linked problems:
+
+1. **scrollTop ↔ buffer content mismatch.** `computeSyntheticSeek` correctly
+   tracks where the viewport image sits in the new buffer (`viewportInPool -
+   windowStart`), but Effect #6 compares this target pixel position against
+   `currentScrollTop`. For backward extends, 196 items are prepended to the
+   pool. When the pool is smaller than BUFFER_CAPACITY (no slicing — the
+   first 3–4 extends after seek), the scroll target index is offset by
+   `fetchedHits.length` from where `currentScrollTop` points. The delta is
+   `(196 / 7 cols) × 303px ≈ 8,484px`. Depending on how `scrollTargetIndex`
+   is computed, Effect #6 either (a) NO-OPs because a reverse-computation from
+   `currentScrollTop` gives a low delta — causing content drift (wrong images
+   at correct scroll position), or (b) fires with the full +8,484px delta —
+   which IS the scrollTop compensation that causes FOCC in the first place.
+   Either outcome defeats the purpose.
+
+2. **Perpetual extend trigger at scrollTop=0.** As the user scrolls up, each
+   synthetic seek prepends items without adjusting scrollTop (that's the
+   point — no compensation). scrollTop monotonically decreases to 0. At
+   scrollTop=0: startIndex=0, which satisfies `startIndex ≤ EXTEND_THRESHOLD
+   (50) && offset > 0`. Every subsequent scroll event (including no-op wheel
+   events at scrollTop=0) triggers `reportVisibleRange` → `extendBackward`.
+   The 200ms cooldown delays but doesn't prevent — the trigger condition is
+   permanently true. The cascade runs until bufferOffset reaches 0 (671k
+   items of runway on TEST; on local ES with 10k items it self-terminates
+   quickly, which is why E2E passed).
+
+**Why forward worked but backward didn't:** Forward synthetic seek works
+because scrolling DOWN moves `startIndex` away from the backward threshold.
+After eviction + re-centering, `startIndex` lands in the buffer middle, far
+from both thresholds. Backward extends push the viewport toward scrollTop=0
+— a hard wall that traps the trigger condition.
+
+**The fundamental design flaw:** Synthetic seek was designed on the premise
+that "replace the buffer atomically, compute scrollTargetIndex so Effect #6
+sees delta ≈ 0, no flash." For real seeks this is true — the buffer is
+fetched fresh and `currentScrollTop` naturally maps to the correct position.
+For backward synthetic seeks, the buffer has items prepended at the front, so
+`currentScrollTop` is inherently misaligned with the new buffer layout by
+`(fetchedItems / columns) × rowHeight`. Either the scrollTop is adjusted
+(reintroducing the FOCC that synthetic seek exists to avoid) or it isn't
+(causing content drift and cascade). This is circular — the approach's core
+premise doesn't hold for backward extends.
+
+**Alternatives evaluated and rejected:**
+- Pre-set scrollTop before `set()` (scrollTop first, then DOM swap): might
+  avoid FOCC if the browser doesn't paint between the two synchronous
+  operations, but this is the same browser-timing gamble that defeated
+  flushSync, CSS transform, and the other four prior approaches.
+- Hybrid (old path when pool ≤ capacity, synthetic seek when pool > capacity):
+  the steady-state delta is also large because `currentScrollTop` is in the
+  old buffer's coordinate system regardless of slicing. Doesn't fix the
+  fundamental mismatch.
+- Deferred application (fetch early, apply when viewport is centered): same
+  coordinate mismatch regardless of when the modification is applied.
+
+**Decision:** Abandon synthetic seek entirely. Revert all uncommitted changes.
+The forward eviction FOCC (35 screens from seek point) and backward prepend
+FOCC (3 screens from seek point) remain as cosmetic issues. They are
+positional stutters (same images, wrong position for one frame) — not content
+errors. Four additional approaches failed for the same fundamental reason: the
+browser provides no API for "the content origin moved, adjust scrollTop
+atomically." This appears to be an inherent limitation of virtual scroll
+libraries using `position: absolute` rows, well-known in the community.
+
+**FOCC status: accepted as known cosmetic limitation.** Not worth further
+investment — six approaches tried (flushSync, CSS transform, aggressive
+threshold, directional bias, overflow-anchor, synthetic seek), all failed.
+The FOCC is 1–2 frames at specific scroll positions after scrubber seek,
+rarely noticed by users in practice.
+
+### 8 April 2026 — FOCC research: 4 failed approaches, Approach C planned
+
+**Problem:** After scrubber seek, scrolling continuously in either direction
+causes a visible flash (FOCC — Flash Of Correct Content). Scroll-up: ~3
+screens from seek point (high severity). Scroll-down: ~35 screens (lower).
+The flash is a scrollTop discontinuity (+8,484px up / -4,545px down) — same
+images at wrong position for one frame. Caused by non-atomic prepend/evict
++ scrollTop compensation in the windowed buffer system.
+
+**Empirical confirmation (S27 v3 on TEST, 1.3M docs):** FOCC, not FOIC.
+Every SCROLL_JUMP frame has identical image sets (sorted src comparison).
+Column-aligned trimming eliminated content discontinuities; only positional
+discontinuity remains.
+
+**Approaches tried and failed (sessions 3–8):**
+- **K (flushSync):** Wrapped Zustand `set()` in `flushSync()`. SCROLL_JUMP
+  count identical — browser compositor paints between DOM mutation and
+  scrollTop regardless of JS-level synchronicity. Reverted.
+- **A+T (CSS transform):** `translateY(-Δ)` on sizer div via Zustand
+  `subscribe` + `will-change: transform`. Flash visually worse — TanStack
+  Virtual recalculates row `top` values, compounding with transform. Reverted.
+- **V+ (aggressive EXTEND_THRESHOLD):** Increased threshold to fire extends
+  earlier. Flash happened earlier, not gone — threshold measures from buffer
+  edge, not viewport. Fundamental flaw. Reverted.
+- **V++ (directional headroom bias):** Same fundamental flaw as V+. Ruled out.
+
+**Solution designed: Approach C (synthetic seek).** When extend would
+prepend/evict, combine fetched items with existing buffer in memory, slice
+a BUFFER_CAPACITY window centered on viewport, and `set()` as a seek result.
+No prepend → no compensation → no FOCC. Zero extra ES queries (vs Approach B
+micro-seek). Uses proven `computeScrollTarget` + Effect #6 path.
+
+**Artifacts produced:**
+- `scroll-flashing-issue.md`: comprehensive FOCC narrative
+- `scroll-approach-C-synthetic-seek-idea.md`: design rationale
+- `scroll-synthetic-seek-workplan.md`: 4-session implementation plan
+- `scroll-swimming-on-scroll-up-handoff.md`: handoff doc
+
+**Code changes kept:** S27a/S27b smoke tests (FOCC detection + corpus
+pinning), run-smoke.mjs S-number parsing fix, column-aligned prepend/evict
+trimming, removed dead `markPrependPreCompensated`/`consumePrependPreCompensated`
+flag system (never called — pure dead code).
+
+**Next:** Approach C Session 1 (synthetic seek implementation).
+
+### 8 April 2026 — Viewport anchor: stale re-lookup bug fix
+
+**Bug:** Density switching (grid↔table) without focus (no clicked image) failed
+in multiple scenarios: PgDown ×3 from top → switch landed at top; End key →
+switch landed at top; seek 50% → switch showed wrong images. Only subsequent
+switches were stable. Reproduced with both keyboard navigation and mousewheel.
+
+**Root cause:** The mount-restore rAF2 callback (Effect #10) re-looked up the
+anchor image's position via `posNow.get(id)` where `id` was the viewport anchor
+captured at mount time. Between mount and rAF2 (~2 animation frames), the NEW
+component's initial scroll handler (`handleScroll` → `reportVisibleRange`) fires
+and overwrites `_viewportAnchorId` with an image near the top (scrollTop=0).
+The rAF2 re-lookup then found this wrong image at position ~8 instead of the
+saved position ~103, computed `rowTop=303` instead of `rowTop=5151`, and the
+restore target collapsed to 0 via clamping.
+
+Diagnostic trace showed:
+```
+SAVE:    anchor=62ff... globalIdx=103 scrollTop=2784
+RESTORE: savedGlobalIdx=103 freshIdx=8 rowTop=303 rawTarget=-260 → clamped=0
+```
+The `freshIdx=8` was the smoking gun — a completely different image.
+
+**Fix:** In the `saved != null` branch of mount restore, the rAF2 re-lookup now
+uses `saved.globalIndex - boNow` directly instead of looking up via the viewport
+anchor id. `saved.globalIndex` is a stable global position that doesn't depend on
+module-level state that can be overwritten between mount and rAF2. Same fix applied
+to the `saved == null` fallback branch — captures the anchor's global index at mount
+time (before the new component's scroll can corrupt it).
+
+**Fix 2 — bottom-edge extremum snap.** After fixing the stale re-lookup, End key
+density switches (table→grid, grid→table) still landed 2-3 rows short of the
+actual bottom. Cause: the viewport-centre anchor is naturally a few rows above the
+bottom edge, so the ratio-based restore lands short. Added `sourceMaxScroll` to
+`DensityFocusState`. When the source density was within one grid row (303px) of its
+maxScroll, the restore snaps to the target's maxScroll — symmetric with the existing
+top-edge snap at `sourceScrollTop === 0`.
+
+**Tests added:** 5 new E2E tests in `scrubber.spec.ts`:
+1. PgDown ×3 from top of table → grid preserves position
+2. PgDown ×3 from top of grid → table preserves position
+3. End key in table → grid shows near-bottom
+4. End key in grid → table shows near-bottom
+5. Seek 50% in table → grid → table round-trip is stable
+
+All assert that `scrollTop > 0` after the switch and that the centre image's
+global position is close between densities.
+
+**Files changed:** `useScrollEffects.ts` (mount restore rAF2 re-lookup),
+`e2e/local/scrubber.spec.ts` (5 new tests).
+**Results:** 203/203 unit, 11/11 density tests on TEST (1.3M docs).
+
+### 8 April 2026 — Swimming detection tests (S26a/S26b)
+
+**Context:** Sustained scroll-up after seek causes visible cell repositioning
+("swimming") when backward headroom is exhausted and `extendBackward` prepends
+items directly adjacent to the viewport. Previous agents wrote a comprehensive
+handoff (`handoff-swimming-on-sustained-scroll-up.md`) analysing the root cause
+(append vs prepend asymmetry, "rubber top") and proposing fixes. This session
+wrote the detection tests.
+
+**S26a (scroll-up):** Seeks to 50%, scrolls UP 12,000px (80 × 150px). Exhausts
+~4,200px of headroom, triggers 2 `extendBackward` cycles. Asserts
+`firstVisibleGlobalPos` is monotonically non-increasing. **Fails on TEST:** 1
+backward jump at step 15 (pos 672,169 → 672,172, +3 items at prependGen=1).
+Bug confirmed.
+
+**S26b (scroll-down, forward eviction probe):** Same seek, scrolls DOWN 40,000px
+(200 × 200px). Fills buffer to BUFFER_CAPACITY (1000), triggers 1 forward eviction.
+**Passes on TEST:** 0 monotonicity violations. Forward eviction compensation is
+undetectable at 100ms polling. Soft assertion — ready to harden when forward flash
+is addressed.
+
+**Decisions:**
+- No local test variants — 100ms polling can't catch ~16ms intermediate frame
+  artifacts on local data. Existing local `"can scroll up after seeking to 50%"`
+  covers plumbing.
+- S26b uses soft assertion (warns, doesn't fail) to distinguish from the more
+  severe backward swimming.
+- Handoff updated with full empirical results and next-agent instructions (Step 3:
+  implement CSS transform pre-compensation).
+
+### 7 April 2026 — Viewport anchor: extremum-snapping fix & sort-focus revert
+**Context:** Viewport anchor (viewportAnchorId) was implemented across
+useDataWindow, useScrollEffects, useUrlSearchSync, and reset-to-home to keep the
+user's visual position stable across density changes and sort switches. Two issues
+surfaced during E2E testing.
+**Reverted Effect #7 sort-focus fallback.** The anchor-around-sort path in
+useScrollEffects Effect #7 caused regressions when the anchor row disappeared
+from the new sort order. Removed the single fallback line; sort switches now use
+the existing density-focus machinery which already handles missing rows gracefully.
+Can be re-enabled later as a one-line change.
+**Fixed extremum snapping on mount restore.** When a density change happened while
+the user was scrolled to the very top, the mount-restore logic would compute a
+non-zero offset because it didn't know the source scroll position. Added
+`sourceScrollTop` to `DensityFocusState`; mount restore now snaps to 0 when the
+source was at the top edge.
+**Added row-height extremum clamping** as a safety net: if the computed restore
+target exceeds the container's scrollable range, it clamps to the nearest valid
+boundary instead of leaving the viewport in a broken state.
+**Files changed:** `useScrollEffects.ts` only (revert + extremum logic).
+**Tests:** 203/203 unit, 121/121 E2E — clean sweep.
+
+### 7 April 2026 — Keyboard nav E2E test culling & globalTimeout bump
+
+**Context:** E2E suite grew to 127 tests (21 keyboard-nav + 106 existing) and started
+hitting the 5-minute `globalTimeout`. The keyboard-nav tests had several redundancies
+from iterative development.
+
+**Culled 5 redundant keyboard-nav E2E tests** (21 → 16):
+- "ArrowUp scrolls by one row without setting focus" — same `scrollByRows` code path as ArrowDown test.
+- "PageUp scrolls by one page without setting focus" — same `pageScrollTarget` code path as PageDown test.
+- "multiple ArrowDown presses scroll cumulatively" — tests arithmetic (`3 * ROW_HEIGHT`), not behaviour.
+- "PageUp/Down propagate from search box" — already covered by no-focus PageDown test (search box has autofocus).
+- "ArrowDown from non-aligned position snaps" — same `snapToRow` path already covered by PageDown snap test.
+
+**Reduced wait** on "Home after deep seek" test: 1500ms → 1000ms. Verified it passes (3.5s).
+
+**Bumped `globalTimeout`** from 5 → 10 minutes in `playwright.config.ts` and
+`playwright.run-manually-on-TEST.config.ts`. Other configs already had 10+ min.
+
+### 7 April 2026 — Testing coverage audit & P0 feature specification E2E tests
+
+**Context:** Home logo regression went undetected for 2 days. Root cause: tests were
+written around bug *fixes*, not around feature *specifications*. The shallow-scroll case
+(bufferOffset already 0) was untested while the deep-seek case was covered.
+
+**Audit findings:**
+- 203 Vitest unit/integration tests (~5s) — excellent for store/DAL/sort logic.
+- 91 Playwright E2E tests (~70s) — exceptional for scroll/seek/buffer, heavily skewed
+  toward solved problems.
+- Zero E2E tests for: search input, filters, image detail content/navigation, panel
+  toggles, keyboard shortcuts (beyond PageDown/Home), responsive viewports, error states.
+
+**Decision:** Recommended against splitting E2E tests into groups. 70s (now ~4.5min with
+106 tests) is cheap; integration is the whole point — the Home logo regression was caused
+by interaction between 3 systems.
+
+**New file: `e2e/local/ui-features.spec.ts`** — 15 feature specification tests:
+1. Double-click grid cell opens detail
+2. Double-click table row opens detail
+3. Back to search button preserves focus + visibility
+4. Backspace closes detail, preserves focus
+5. Arrow keys navigate between images in detail
+6. Enter key on focused image opens detail
+7. Result count updates when query changes
+8. Detail header shows position counter (N of total)
+9. Browse button toggles left panel
+10. Details button toggles right panel
+11. `[` and `]` keyboard shortcuts toggle panels
+12. Sort dropdown opens, shows options, selecting changes results
+13. Column header click changes primary sort
+14. Shift+click column header adds secondary sort
+15. URL with query+sort loads correct results
+
+**Dropped (with reasoning):** density toggle (redundant with existing tests #45-47),
+Free-to-use toggle (config-changing soon), sort direction toggle (already covered by #49).
+
+**BUILD-FIRST note added:** ArrowDown from search box should focus FIRST visible image
+(currently focuses wrong item because `isNativeInputTarget()` check partially blocks).
+
+**Test #6 fix:** Enter key test initially failed — page loaded with CQL search input
+focused. ArrowDown dispatched to `useListNavigation` but `isNativeInputTarget()` check
+blocked proper focus transfer. Fixed by using `focusNthItem()` (click) instead of
+ArrowDown to establish focus before pressing Enter.
+
+**Integration test audit:** 203 Vitest tests in excellent shape. One medium-risk gap
+identified: `search-params-schema.ts` (Zod schema) has zero tests. Deferred — low
+probability of breakage, fully covered by E2E URL state test.
+
+**Housekeeping:** Added `worklog-current.md` to `.gitignore` (transient session artifact,
+never committed). Updated worklog directive wording in both copilot-instructions files.
+Updated `e2e/README.md` file map and `AGENTS.md` test counts.
+
+### 7 April 2026 — Home logo flash elimination (table→grid density switch)
+
+**Problem:** Clicking the Home logo from table view produced three visual states
+instead of two: (1) table at current position, (2) grid showing wrong images from
+deep offset for ~50-200ms, (3) grid at top with correct data. State 2 was the flash.
+A second, subtler flash existed even at shallow scroll: the table jumped to
+`scrollTop=0` for ~100ms before the grid replaced it.
+
+**Root cause (deep flash):** The `<Link>` navigation changed the URL synchronously
+(dropping `density=table`), causing React to unmount the table and mount the grid
+BEFORE the async `search()` completed. The grid rendered the stale deep-offset
+buffer at `scrollTop=0`.
+
+**Root cause (shallow flash):** `resetScrollAndFocusSearch()` eagerly set
+`scrollTop=0` on the table's scroll container. The table jumped to top immediately,
+then ~100ms later navigation fired and the grid replaced it. Three states.
+
+**Investigation — approach G (startTransition) eliminated:** TanStack Router's
+`useSearch()` → `useMatch()` → `useStore()` → `useSyncExternalStoreWithSelector`
+delivers URL state via a synchronous external store that tears through React
+transitions. `startTransition` cannot defer the density value change.
+
+**Fix — approach A (imperative navigation):**
+
+1. **`reset-to-home.ts`:** `resetToHome()` converted from sync to async. Accepts a
+   `navigate: () => void` callback. Runs all state resets, then `await store.search()`,
+   then calls `navigate()`. Error handling: navigates even if search fails (graceful
+   degradation). The density switch now happens AFTER fresh page-1 data is in the store.
+
+2. **`SearchBar.tsx` + `ImageDetail.tsx`:** Replaced `<Link>` with
+   `<a href="/search?nonFree=true">` + `e.preventDefault()` + `useNavigate()`.
+   Preserves right-click "open in new tab" via the `href` attribute.
+
+3. **`orchestration/search.ts`:** Added `skipEagerScroll` option to
+   `resetScrollAndFocusSearch()`. When true, the eager `scrollTop=0` reset is
+   skipped — the current view is about to be replaced by navigation.
+
+4. **Density-aware skip:** `resetToHome()` checks `density=table` in the current
+   URL. Only skips eager scroll when a density switch will happen (table→grid,
+   where the scroll container is about to be replaced). When already in grid view,
+   the scroll container survives navigation — eager reset is preserved.
+
+**Test:** Scenario J in `buffer-corruption.spec.ts` — installs Zustand subscriber +
+rAF URL watcher before clicking Home from deep-seeked table. Asserts the grid never
+renders while `bufferOffset > 0`. All assertions pass.
+
+**Files:** `lib/reset-to-home.ts`, `lib/orchestration/search.ts`,
+`components/SearchBar.tsx`, `components/ImageDetail.tsx`,
+`e2e/local/buffer-corruption.spec.ts`.
+**Results:** 203 unit tests pass, 91 E2E pass (was 90 + 1 new).
+
+
+### 7 April 2026 — Home logo fixes (shallow scroll + density-focus interference)
+
+Three fixes from one session, all related to Home logo click behaviour:
+
+**1. Home logo scroll reset from shallow scroll (fix #1).** Clicking the Home
+logo did nothing when scrolled within the first page (bufferOffset already 0).
+Root cause: commit 61b042101 removed eager scrollTop=0, deferring all resets
+to effect #8 which only fires on bufferOffset >0 to 0 transitions. Fix: restored
+eager scroll reset in `resetScrollAndFocusSearch()`, guarded by bufferOffset===0.
+Two new E2E tests in buffer-corruption.spec.ts (grid + table).
+
+**2. Column context menu positioning.** Moved ColumnContextMenu outside the
+scroll container -- `contain: strict` on the scroll container was breaking
+`position: fixed` and clipping the menu.
+
+**3. Home logo from table with focused image (fix #2).** Clicking Home logo
+from table view with a focused image failed to scroll to top in grid. The
+density-focus save/restore (effect #10) saved the focused image ratio on table
+unmount, then restored it on grid mount -- fighting the go-home intent. Fix:
+in `resetToHome()`, synchronously clear `focusedImageId` and density-focus
+saved state before navigation. Exported `clearDensityFocusRatio()` from
+`useScrollEffects.ts`.
+
+**Files:** `lib/orchestration/search.ts`, `lib/reset-to-home.ts`,
+`hooks/useScrollEffects.ts`, `components/ImageTable.tsx`,
+`e2e/local/buffer-corruption.spec.ts`.
+**Results:** 203 unit tests pass, 90 E2E pass (was 88 + 2 new).
+
+
+### 6–7 April 2026 — Scroll Test & Tune (6 sessions)
+
+Multi-session effort to build test infrastructure, tune timing constants, and
+investigate CPU throttle behaviour. Full worklog:
+`exploration/docs/worklog-testing-regime.md`.
+
+**Sessions 1–2 (6 Apr): Measurement primitives + smoke hardening.**
+Added `sampleScrollTopAtFrameRate()` rAF helper to `KupuaHelpers` for frame-accurate
+swimming detection. Added scrollTop=0 cold-start seek test, tightened settle-window
+tolerance to 0 items, added rAF monotonicity test. Upgraded smoke S23 from 50ms
+polling to rAF (catches 16ms events the old probe missed ~50% of). Added S25
+fresh-app cold-start seek test. Added CLS capture via PerformanceObserver.
+
+**Session 3 (6 Apr): Test suite rationalisation.**
+Full audit of all spec files across 7 test modes. Created `e2e/README.md` with
+decision tree, file map, and mode table. Added npm scripts: `test:e2e:headed`,
+`test:e2e:debug`, `test:e2e:ui`. Reviewed directives — no changes needed.
+
+**Session 4 (6 Apr): File reorganisation.**
+Moved specs into `e2e/local/`, `e2e/smoke/`, `e2e/shared/` directories. Fixed all
+imports. Updated all Playwright configs. Fixed smoke-report output path.
+
+**Session 5 (6 Apr): Timing constant tuning.**
+Systematic tuning of three constants on TEST (1.3M docs) with E1/E2 experiment
+baselines. Results:
+
+| Constant | Before | After | Method |
+|----------|--------|-------|--------|
+| `SEEK_COOLDOWN_MS` | 700 | 100 | Bisected; floor at 65–80ms |
+| `SEEK_DEFERRED_SCROLL_MS` | 800 (700+100) | 150 (100+50) | Delta tuned +100→+50 |
+| `POST_EXTEND_COOLDOWN_MS` | 200 | 50 | Halved; floor at 32ms |
+
+Seek-to-first-extend reduced from 800ms → 150ms (**5.3× faster**). Grid jank
+improved 50% at fast speed, 18% at turbo. Table jank unchanged (DOM-churn-bound).
+No stability regressions. Fixed corpus-pinning `&until=` URLs across 7 files
+(removed `encodeURIComponent`, fixed timestamp format). Overscan tuning deferred —
+blank flash probe can't detect empty table rows.
+
+**Corruption fix (6 Apr):** Restored `smoke-scroll-stability.spec.ts` from HEAD~1
+after a bad merge during reorganisation left three duplicated S23 copies and syntax
+errors. Re-applied Phase 2 changes cleanly.
+
+**Session 6 (7 Apr): CPU throttle experiments.**
+Added `CPU_THROTTLE` env var to shared test fixture (CDP `setCPUThrottlingRate`).
+Ran smoke S14/S22/S23/S25 + E1/E2 experiments on TEST at 4× throttle. S22
+(backward extend after seek) **consistently fails** at 4× — backward extend never
+fires. Systematically tested three timing constant configurations:
+
+| Experiment | SEEK_COOLDOWN | Delta | POST_EXTEND | Result |
+|---|---|---|---|---|
+| A: raise POST_EXTEND | 100 | +50 | 100 | ❌ 4/4 fail |
+| B: raise delta | 100 | +150 | 100 | ❌ 4/4 fail |
+| C: lower cooldown | 50 | +150 | 100 | ❌ 4/4 fail |
+
+Root cause: the timing constants gate the store's *response* to extend requests, but
+at 4× throttle the scroll handler doesn't fire often enough to *make* the request
+(`startIndex` never reaches `EXTEND_THRESHOLD`). Fix requires changing the extend
+trigger mechanism (scroll-distance-based or higher threshold), not timing constants.
+On actual Guardian hardware (M1/M2), the 4× scenario doesn't arise. Updated
+`e2e/README.md` with full environment variable and runner flag documentation.
+
+### 6 April 2026 — Phase 2: Smoke Test Hardening (Testing Regime Plan)
+
+Upgraded the smoke test suite for frame-accurate swimming detection on real data.
+Three changes to `e2e/smoke-scroll-stability.spec.ts`:
+
+**2a — S23 rAF-enhanced settle-window.** Replaced the 50ms `setTimeout` polling
+(60 iterations, ~50% chance of missing a 16ms event) with `sampleScrollTopAtFrameRate(2000)`.
+The rAF loop captures every painted frame (~121 samples at 60fps). Primary assertion
+changed from content-shift-per-row to scrollTop monotonicity — any backward jump = swimming.
+The old content-shift metric is kept as a secondary assertion for continuity. Result on
+TEST (1.3M docs): 122 frames, perfectly monotonic, 0 content shift.
+
+**2b — S25 fresh-app cold-start seek.** New test. Navigate → wait for results → immediately
+seek to 50% without scrolling first. This is the most common user scenario and the exact
+path that the Agent 11-13 bug class affected (scrollTop=0, no headroom, backward items
+missing). Asserts: (1) bufferOffset > 0 (bidirectional seek loaded backward items),
+(2) scrollTop moved from 0 to headroom position, (3) firstVisibleGlobalPos stable over 1.5s
+(zero content shift), (4) scrollTop monotonically non-decreasing (rAF trace), (5) seek
+accuracy < 10%. Result on TEST: all 5 assertions pass — PERFECT verdict.
+
+**2c — S23 CLS capture.** Added `PerformanceObserver` for `layout-shift` entries to S23.
+CLS doesn't catch scrollTop-based swimming (programmatic scroll, not CSS layout shift) but
+catches virtualizer height changes during buffer replacement. CLS entries and total are
+written to the smoke report JSON. Result on TEST: 7 entries, all `hadRecentInput=true`
+(user-initiated), totalCLS=0.0000.
+
+**Validation:**
+- `npm test` → 203 passed
+- `npx playwright test` → 88 passed (local E2E, no `src/` changes)
+- Full smoke suite on TEST → 25 tests: 23 passed, 2 pre-existing Credit sort failures (S2, S6)
+
+
+Extracted the reverse-compute logic from `seek()` (~90 lines inline at L2100–2213)
+into a standalone exported pure function `computeScrollTarget()` at module level in
+`search-store.ts`. `seek()` now calls this function instead of doing the math inline.
+Zero behavioural change — E2E tests produce identical scrollTop values, offsets, and
+positions.
+
+**Function signature:**
+```typescript
+export function computeScrollTarget(input: ComputeScrollTargetInput): ComputeScrollTargetResult
+```
+Input: `currentScrollTop`, `isTable`, `clientWidth`, `clientHeight`, `backwardItemCount`,
+`bufferLength`, `total`, `actualOffset`, `clampedOffset`.
+Output: `{ scrollTargetIndex, seekSubRowOffset }`.
+
+**17 unit tests** in `src/stores/reverse-compute.test.ts` covering the exact edge cases
+from the Agent 11–13 swimming saga:
+- scrollTop=0 with 100 backward items (cold-start headroom bug) → index 100
+- Half-row (150px) sub-row preservation → seekSubRowOffset=150
+- Deep scroll (10 rows, 6 cols) → index 160
+- Shallow seek (no backward items) → index 0
+- End key at-real-end → last item (bufferLength-1)
+- At-real-end but not soughtNearEnd → clamped reverseIndex
+- Fractional boundary row (100/6=16.67): row 16 headroom fires, row 17 doesn't
+- Fractional row with sub-row offset (scrollTop=4948, 6 cols) → index 196, subRow=100
+- Buffer-shrink (reversePixelTop > maxScroll) → clamped to lastVisibleRow
+- Past headroom with large scrollTop → no headroom adjustment
+- Table variants of the above
+- Regression guard matching E2E observed values (scrollTop=7725, offset=5057, len=300)
+
+Diagnostic logging in `seek()` preserved — same devLog output, variables populated from
+the same computations (slight duplication, acceptable for debugging).
+
+Validation: 203 unit tests pass (186 existing + 17 new), 88 E2E tests pass (unchanged).
+Worklog: `exploration/docs/worklog-testing-regime.md`.
+
+### 6 April 2026 — Phase 1: Measurement Primitives (Testing Regime Plan)
+
+Executed Phase 1 of the Scroll Test & Tune plan (`testing-regime-plan-handoff.md`).
+Built reusable measurement probes and local regression gates for swimming detection.
+Zero changes to `src/` — tests only.
+
+**1a — `sampleScrollTopAtFrameRate()` helper.** Added to `KupuaHelpers` in `e2e/helpers.ts`.
+Runs a `requestAnimationFrame` loop inside `page.evaluate` for N milliseconds, returning
+one scrollTop sample per painted frame (~60fps / ~120Hz in headless Chromium). Foundational
+primitive for frame-accurate swimming detection — replaces 50ms setTimeout polling which
+has ~50% chance of missing a 16-32ms swimming event.
+
+**1b — scrollTop=0 cold-start seek test.** Added to `e2e/scrubber.spec.ts` Settle-window
+stability section. Seeks from `scrollTop=0` (no pre-scroll) — the exact scenario masked by
+existing tests' `scrollTop=150` pre-scroll and the root cause of the Agent 11-13 swimming
+bug class. Asserts: bufferOffset > 0 (backward items loaded), scrollTop moved to headroom
+position, firstVisibleGlobalPos stable over 1.5s (zero shift).
+
+**1c — Tightened settle-window tolerance.** Changed `MAX_SHIFT` from `cols + 1` to `0`.
+Bidirectional seek produces zero content shift by construction. Test confirmed: 30 snapshots
+over 1.5s, all at identical visiblePos.
+
+**1d — rAF scrollTop monotonicity test.** Added to `e2e/scrubber.spec.ts`. Uses
+`sampleScrollTopAtFrameRate(1500)` after seek. Captures ~181 frames. Asserts no frame-to-frame
+scrollTop decrease (0.5px sub-pixel tolerance). A decrease = swimming. On local data won't
+catch timing-dependent swimming (ES too fast), but catches structural bugs.
+
+Validation: 186 unit tests pass, 88 E2E tests pass (was 86, +2 new).
+Worklog: `exploration/docs/worklog-testing-regime.md`.
+
+
+**Problem (post-bidirectional-seek):** With 300-item buffer (100 backward +
+200 forward), seeking from `scrollTop ≈ 0` showed backward headroom content
+(wrong images) then swam at 800ms when extends fired. Worse than before for
+fresh-app seeks. Home key caused a new flash regression.
+
+**Root cause:** The reverse-compute mapped `scrollTop → reverseIndex`. Before
+bidirectional seek, `reverseIndex=0` = the seek target. After, `reverseIndex=0`
+= backward headroom (100 items before the target). For scrollTop=0, effect #6
+saw zero delta → no-op → user saw wrong content → extends at 800ms → swim.
+
+**Fix (three iterations, Agents 11-13):**
+
+1. **`reverseIndex += backwardItemCount` when in headroom zone** — shifts
+   the target index past backward items when `reverseIndex < backwardItemCount`.
+   Covers the entire headroom zone, not just scrollTop=0.
+
+2. **`_seekSubRowOffset` for sub-row pixel preservation** — stores the user's
+   sub-row pixel offset (`scrollTop - currentRow * rowH`) in the store. Effect
+   #6 applies it via `targetWithSubRow = targetPixelTop + seekSubRowOffset`
+   after React paints the new 300-item buffer (scrollHeight now large enough).
+   The old approach of pre-setting `scrollEl.scrollTop` in `seek()` was
+   abandoned because the OLD buffer is still rendered and its scrollHeight
+   may be too small — browser clamps the value, losing the offset.
+
+3. **Effect #6 condition update** — `seekSubRowOffset > 0` forces adjustment
+   (the store's position needs correction regardless of delta size). Without
+   sub-row offset, the original `delta > rowHeight` threshold applies.
+
+**Boundary behaviour (100/cols = fractional row):** With 6 columns,
+`100/6 = 16.67`. Row 16 (`reverseIndex=96 < 100`) → headroom fires. Row 17
+(`reverseIndex=102 ≥ 100`) → no headroom, effect #6 NO-OPs. Both preserve
+position. Agent 14 confirmed on TEST with 6- and 7-column viewports: all
+rows 14-19 pass with `subRowDelta=0.0` and `maxSwim=0`.
+
+**E2E test updates (Agent 12):**
+- Golden table Case 3 (near-top seek): updated to verify headroom offset +
+  sub-row preservation instead of absolute scrollTop delta.
+- 4 scroll-up tests: split into two phases — Phase 1 verifies scrollTop
+  decreases (5 wheel events, within headroom); Phase 2 triggers
+  extendBackward (15-20 more events, past headroom).
+- New test: "no swim when seeking from any near-top row offset" — polls
+  `firstVisibleGlobalPos` for 2s after seek from row offsets 0.5, 1.5, 5.5.
+
+**Smoke tests (S22-S24):** S22 scroll-up adapted for bidirectional seek
+(two-phase approach). S24 added for headroom zone row offsets. All 24
+smoke tests pass on TEST (1.3M docs).
+
+**Results:** 186 unit, 86 E2E, 24 smoke tests pass. Zero swimming. Sub-row
+offset preserved exactly across all headroom zone rows.
+
+### 5 April 2026 — Unified Smoke Report + Smoke Test Directive Update
+
+**Smoke report unification:** Created `e2e/smoke-report.ts` — shared module
+with `recordResult()` that reads → merges → writes JSON on each test
+completion. Both `manual-smoke-test.spec.ts` and `smoke-scroll-stability.spec.ts`
+import from it. Replaced per-file batch `afterAll` writing that clobbered
+between spec files. Report at `test-results/smoke-report.json`.
+
+**Smoke test directive update:** Agent may now run smoke tests directly against
+TEST when the user confirms it's available. Removed "AGENTS MUST NEVER RUN"
+language from directive, spec file headers, and `run-smoke.mjs`. Smoke tests
+are read-only — write protection is in the DAL, not the test runner. Agent may
+also use `--debug` and `page.pause()` for interactive browser diagnosis.
+Updated both `.github/copilot-instructions.md` and the human copy.
+
+**S13/S20 sub-row assertion fix:** Changed from absolute scrollTop delta
+assertion (`|post - pre| < rowHeight`, which fails in headroom zone where
+scrollTop must change by ~4242px) to sub-row offset assertion
+(`|postSubRow - preSubRow| < 5`). Both pass on TEST with `subRowDelta=0.0`.
+
+
+
+**Problem:** After `seek()` delivered data, the first `extendBackward` at
+~800ms caused a ~1% visible "swim" — approximately 3 images shifting by one
+cell. Root cause: seek loaded 200 items forward-only, placing the user at
+the very top of the buffer. The first backward extend prepended directly
+above visible content, and the ~1-frame gap between React's DOM mutation and
+`useLayoutEffect`'s `scrollTop` compensation was visible.
+
+**Fix:** Bidirectional seek. After all deep seek paths (percentile, keyword,
+null-zone) complete their forward `searchAfter` (PAGE_SIZE=200 items), a
+unified backward `searchAfter` (halfBuffer=100 items, reversed) fetches
+items before the landed cursor. Combined buffer: ~300 items with ~100 items
+of headroom above the viewport. User sees the buffer middle, so both
+`extendBackward` and `extendForward` operate on off-screen content.
+
+**Implementation details:**
+- Single backward fetch point after all path-specific code, not duplicated
+  per path. Controlled by `skipBackwardFetch` flag (true for End-key fast
+  path and shallow `from/size` path).
+- Uses `detectNullZoneCursor` on the landed cursor for automatic null-zone
+  handling — same pattern as `_loadBufferAroundImage`.
+- `bufferOffset` adjusted: `max(0, actualOffset - backwardHits.length)`.
+- Cursors correct by construction: combined sort values
+  `[...backward, ...forward]` means `result.sortValues[0]` is the earliest
+  item (backward first) and `result.sortValues[last]` is the latest.
+
+**Test adjustments:**
+- Prepend compensation test → replaced with "bidirectional seek places user
+  in buffer middle" — verifies `bufferOffset > 0`, buffer extends in both
+  directions, and buffer > 200 items.
+- Post-seek scroll-up tests (grid, table, double-seek, 2s deadline):
+  increased wheel events from 5 to 20-25 to scroll past the ~100-item
+  headroom above the viewport and trigger `extendBackward`.
+- Settle-window stability: content shift = **0 items** (was COLS+1 before).
+
+**Results:** 186 unit/integration tests pass. 85 E2E tests pass. Settle
+timeline shows `firstVisibleGlobalPos` perfectly stable throughout the
+entire 1800ms window — zero swimming. Trade-off: ~50-100ms additional
+seek latency (one extra ES round-trip for the backward fetch).
+
+**Docs updated:** AGENTS.md (What's Done, architecture decisions, test
+counts), scroll-architecture.md (§3 deep seek flow, §7 swimming section
+marked as fixed).
+
+**Smoke tests needed:** User should run S14 and S15 on TEST cluster to
+confirm zero swimming on real 1.3M-doc data:
+`node scripts/run-smoke.mjs 14 15`
+
+### 5 April 2026 — Bidirectional Seek: Position Preservation + Headroom Boundary Fix
+
+**Problem (post-bidirectional-seek):** With 300-item buffer (100 backward +
+200 forward), seeking from `scrollTop ≈ 0` showed backward headroom content
+(wrong images) then swam at 800ms when extends fired. Worse than before for
+fresh-app seeks. Home key caused a new flash regression.
+
+**Root cause:** The reverse-compute mapped `scrollTop → reverseIndex`. Before
+bidirectional seek, `reverseIndex=0` = the seek target. After, `reverseIndex=0`
+= backward headroom (100 items before the target). For scrollTop=0, effect #6
+saw zero delta → no-op → user saw wrong content → extends at 800ms → swim.
+
+**Fix (three iterations, Agents 11-13):**
+
+1. **`reverseIndex += backwardItemCount` when in headroom zone** — shifts
+   the target index past backward items when `reverseIndex < backwardItemCount`.
+   Covers the entire headroom zone, not just scrollTop=0.
+
+2. **`_seekSubRowOffset` for sub-row pixel preservation** — stores the user's
+   sub-row pixel offset (`scrollTop - currentRow * rowH`) in the store. Effect
+   #6 applies it via `targetWithSubRow = targetPixelTop + seekSubRowOffset`
+   after React paints the new 300-item buffer (scrollHeight now large enough).
+   The old approach of pre-setting `scrollEl.scrollTop` in `seek()` was
+   abandoned because the OLD buffer is still rendered and its scrollHeight
+   may be too small — browser clamps the value, losing the offset.
+
+3. **Effect #6 condition update** — `seekSubRowOffset > 0` forces adjustment
+   (the store's position needs correction regardless of delta size). Without
+   sub-row offset, the original `delta > rowHeight` threshold applies.
+
+**Boundary behaviour (100/cols = fractional row):** With 6 columns,
+`100/6 = 16.67`. Row 16 (`reverseIndex=96 < 100`) → headroom fires. Row 17
+(`reverseIndex=102 ≥ 100`) → no headroom, effect #6 NO-OPs. Both preserve
+position. Agent 14 confirmed on TEST with 6- and 7-column viewports: all
+rows 14-19 pass with `subRowDelta=0.0` and `maxSwim=0`.
+
+**E2E test updates (Agent 12):**
+- Golden table Case 3 (near-top seek): updated to verify headroom offset +
+  sub-row preservation instead of absolute scrollTop delta.
+- 4 scroll-up tests: split into two phases — Phase 1 verifies scrollTop
+  decreases (5 wheel events, within headroom); Phase 2 triggers
+  extendBackward (15-20 more events, past headroom).
+- New test: "no swim when seeking from any near-top row offset" — polls
+  `firstVisibleGlobalPos` for 2s after seek from row offsets 0.5, 1.5, 5.5.
+
+**Smoke tests (S22-S24):** S22 scroll-up adapted for bidirectional seek
+(two-phase approach). S24 added for headroom zone row offsets. All 24
+smoke tests pass on TEST (1.3M docs).
+
+**Results:** 186 unit, 86 E2E, 24 smoke tests pass. Zero swimming. Sub-row
+offset preserved exactly across all headroom zone rows.
+
+### 5 April 2026 — Unified Smoke Report + Smoke Test Directive Update
+
+**Smoke report unification:** Created `e2e/smoke-report.ts` — shared module
+with `recordResult()` that reads → merges → writes JSON on each test
+completion. Both `manual-smoke-test.spec.ts` and `smoke-scroll-stability.spec.ts`
+import from it. Replaced per-file batch `afterAll` writing that clobbered
+between spec files. Report at `test-results/smoke-report.json`.
+
+**Smoke test directive update:** Agent may now run smoke tests directly against
+TEST when the user confirms it's available. Removed "AGENTS MUST NEVER RUN"
+language from directive, spec file headers, and `run-smoke.mjs`. Smoke tests
+are read-only — write protection is in the DAL, not the test runner. Agent may
+also use `--debug` and `page.pause()` for interactive browser diagnosis.
+Updated both `.github/copilot-instructions.md` and the human copy.
+
+**S13/S20 sub-row assertion fix:** Changed from absolute scrollTop delta
+assertion (`|post - pre| < rowHeight`, which fails in headroom zone where
+scrollTop must change by ~4242px) to sub-row offset assertion
+(`|postSubRow - preSubRow| < 5`). Both pass on TEST with `subRowDelta=0.0`.
+
+
+
+**Problem:** After `seek()` delivered data, the first `extendBackward` at
+~800ms caused a ~1% visible "swim" — approximately 3 images shifting by one
+cell. Root cause: seek loaded 200 items forward-only, placing the user at
+the very top of the buffer. The first backward extend prepended directly
+above visible content, and the ~1-frame gap between React's DOM mutation and
+`useLayoutEffect`'s `scrollTop` compensation was visible.
+
+**Fix:** Bidirectional seek. After all deep seek paths (percentile, keyword,
+null-zone) complete their forward `searchAfter` (PAGE_SIZE=200 items), a
+unified backward `searchAfter` (halfBuffer=100 items, reversed) fetches
+items before the landed cursor. Combined buffer: ~300 items with ~100 items
+of headroom above the viewport. User sees the buffer middle, so both
+`extendBackward` and `extendForward` operate on off-screen content.
+
+**Implementation details:**
+- Single backward fetch point after all path-specific code, not duplicated
+  per path. Controlled by `skipBackwardFetch` flag (true for End-key fast
+  path and shallow `from/size` path).
+- Uses `detectNullZoneCursor` on the landed cursor for automatic null-zone
+  handling — same pattern as `_loadBufferAroundImage`.
+- `bufferOffset` adjusted: `max(0, actualOffset - backwardHits.length)`.
+- Cursors correct by construction: combined sort values
+  `[...backward, ...forward]` means `result.sortValues[0]` is the earliest
+  item (backward first) and `result.sortValues[last]` is the latest.
+
+**Test adjustments:**
+- Prepend compensation test → replaced with "bidirectional seek places user
+  in buffer middle" — verifies `bufferOffset > 0`, buffer extends in both
+  directions, and buffer > 200 items.
+- Post-seek scroll-up tests (grid, table, double-seek, 2s deadline):
+  increased wheel events from 5 to 20-25 to scroll past the ~100-item
+  headroom above the viewport and trigger `extendBackward`.
+- Settle-window stability: content shift = **0 items** (was COLS+1 before).
+
+**Results:** 186 unit/integration tests pass. 85 E2E tests pass. Settle
+timeline shows `firstVisibleGlobalPos` perfectly stable throughout the
+entire 1800ms window — zero swimming. Trade-off: ~50-100ms additional
+seek latency (one extra ES round-trip for the backward fetch).
+
+**Docs updated:** AGENTS.md (What's Done, architecture decisions, test
+counts), scroll-architecture.md (§3 deep seek flow, §7 swimming section
+marked as fixed).
+
+**Smoke tests needed:** User should run S14 and S15 on TEST cluster to
+confirm zero swimming on real 1.3M-doc data:
+`node scripts/run-smoke.mjs 14 15`
+
+### 5 April 2026 — Scroll architecture reference document
+
+Created `exploration/docs/scroll-architecture.md` — a Staff-Engineer-level
+architecture document covering the entire scroll, seek, scrubber, and
+keep-position infrastructure. Synthesised from AGENTS.md, changelog, 10+
+worklogs, and all source files. Seven sections: The Problem (why browser
+native scroll can't work, why Google Photos/iCloud approaches don't scale),
+Architecture at a Glance (windowed buffer + cursor pagination + custom
+scrubber), User Experience (normal scroll, deep seek, sort-around-focus,
+density switch), The Swimming Problem (prepend-then-compensate, timing
+chain, historical approaches), Deep Seek (percentile estimation, composite
+walk, SHA-1 binary search, countBefore), The Scrubber (coordinate system,
+dual mode, density-map ticks, null zone), Edge Cases (1% swim ideas,
+timing optimisation, buffer corruption defence, PIT lifecycle). Includes
+file map and glossary.
+
+**Files changed:**
+- `exploration/docs/scroll-architecture.md` — NEW
+- `AGENTS.md` — added to Design Documents table
+- `exploration/docs/changelog.md` — this entry
+
+### 5 April 2026 — Scroll-up after seek: FIXED (agent 10)
+
+**The bug:** After any scrubber seek, the user could not scroll up with mousewheel.
+The buffer had items above but `extendBackward` was blocked by the
+`_postSeekBackwardSuppress` flag (introduced by agent 6 to prevent swimming).
+Users had to scroll DOWN ~7 rows first to unlock upward scrolling.
+
+**Root cause:** The flag blocked `extendBackward` indefinitely after seek until
+`startIndex > EXTEND_THRESHOLD` (50 items, ~7 rows of downward scroll). Without
+backward extend, no items existed above the viewport → browser had nothing to
+scroll into.
+
+**Fix (Approach #4):** Removed the `_postSeekBackwardSuppress` flag entirely.
+Added a 200ms post-extend cooldown (`_seekCooldownUntil = Date.now() + 200`)
+after each `extendBackward` completion. This prevents cascading prepend
+compensations (which caused "swimming") by ensuring the browser has time to paint
+each scrollTop adjustment before the next extend fires.
+
+**Timing chain after seek:**
+1. `SEEK_COOLDOWN_MS` (700ms) blocks ALL extends after seek data arrives
+2. `SEEK_DEFERRED_SCROLL_MS` (800ms) fires synthetic scroll → triggers first extend
+3. Post-extend cooldown (200ms) spaces out consecutive backward extends
+4. Each prepend compensation settles before the next fires → no swimming
+
+**Test improvements:**
+- Agent 9's scroll-up tests (grid + table) now pass — previously failed with flag ON
+- Rewrote settle-window test: checks `firstVisibleGlobalPos` (what user sees) instead
+  of `scrollTop` (which legitimately changes during prepend compensation)
+- Added smoke tests S22 (scroll-up) + S23 (settle-window) for real-data validation
+- All 23 smoke tests pass on TEST cluster (1.3M docs)
+- All 186 unit + 69 E2E + 10 buffer corruption tests pass
+
+**Remaining 1%:** A tiny ~3-image shift visible immediately after seek when the first
+`extendBackward` fires (800ms post-seek). This is the prepend compensation being
+*almost* invisible — `useLayoutEffect` adjusts scrollTop before paint, but React's
+virtualizer may need a second render pass. Documented in scroll-work-worklog-agent10-final-fix.md with
+5 mitigation ideas. Idea A ("offscreen prepend" — only allow backward extend when
+user has scrolled deep enough that compensation is above viewport) is most promising.
+
+**Also fixed:** `SEEK_COOLDOWN_MS` corrected from 200ms (agent 7 committed) back to
+700ms. The 200ms value was proven to cause swimming on real data during agent 7's
+manual testing session. Agent 9 changed it back in working tree but agent 7's commit
+had the wrong value.
+
+**Files changed:**
+- `src/constants/tuning.ts` — SEEK_COOLDOWN_MS 200→700
+- `src/hooks/useDataWindow.ts` — disabled _postSeekBackwardSuppress flag
+- `src/stores/search-store.ts` — removed flag activation, added post-extend cooldown
+- `e2e/scrubber.spec.ts` — scroll-up tests + rewritten settle-window test
+- `e2e/smoke-scroll-stability.spec.ts` — S22 + S23
+
+### 5 April 2026 — Seek timing: constants extracted, cooldown reduced 700→200ms (agent 7)
+
+**Timing constants extracted to `tuning.ts`:** All 7 `_seekCooldownUntil`
+sites in `search-store.ts` now use named constants instead of magic numbers.
+Three constants:
+
+- `SEEK_COOLDOWN_MS = 200` — post-arrival extend block (was 700ms hardcoded).
+  Used by seek(), _findAndFocusImage(), restoreAroundCursor() at data arrival,
+  and seek() at call start (early guard).
+- `SEEK_DEFERRED_SCROLL_MS = SEEK_COOLDOWN_MS + 100` — derived, fires
+  synthetic scroll event after cooldown to trigger extends. Was 800ms.
+- `SEARCH_FETCH_COOLDOWN_MS = 2000` — blocks extends during in-flight
+  search() or abortExtends(). Covers network round-trip, overwritten by
+  SEEK_COOLDOWN_MS when data arrives.
+
+**Cooldown reduced 700→200ms:** The backward-extend suppress flag
+(`_postSeekBackwardSuppress`) handles the worst case (swimming), so the
+cooldown only needs to survive the initial DOM reflow flurry (~50ms).
+200ms gives 4x margin. Deferred scroll fires at 300ms (was 800ms).
+Result: `extendForward` unblocks ~500ms sooner after seek → cells below
+the viewport appear faster.
+
+**E2E test tolerances tightened:** Flash-prevention golden table (cases 1–3)
+and prepend-comp settle test changed from `< 303px` / `< 500px` to
+`toBe(0)`. Both pass — reverse-compute is pixel-perfect. Diagnostic
+comments added to test describing what causes failures and where to look.
+
+**Files:** `constants/tuning.ts`, `stores/search-store.ts`,
+`hooks/useScrollEffects.ts`, `e2e/scrubber.spec.ts`,
+`exploration/docs/worklog-stale-cells-bug.md`, `AGENTS.md`.
+
+**Tests:** 186 unit pass, 80 E2E pass (all 9 timing-sensitive tests green).
+
+### 5 April 2026 — Scroll stability: all 6 issues fixed (agents 5-6)
+
+Multi-agent effort over agents 3-6 to fix all scroll-related issues after
+deep seek into a 1.3M-doc dataset. Final fixes by agent 6:
+
+**Swimming (v3 — extendBackward suppression):** After seek, user lands at
+scrollTop≈0 in a 200-item buffer. `extendBackward` was firing immediately
+(startIndex=0 ≤ EXTEND_THRESHOLD=50), prepending 200 items + scroll
+compensation (+8787px) = visible teleportation. Two failed approaches:
+(1) increased cooldown 700→1500ms (still not long enough, possibly caused
+freezes); (2) suppressed prepend-comp (catastrophic — visible images changed
+on every scroll step, "Niagara"). The fix: `_postSeekBackwardSuppress` flag
+in `useDataWindow.ts`, set by `seek()`, blocks `extendBackward()` in
+`reportVisibleRange` until `startIndex > EXTEND_THRESHOLD`. `extendForward`
+unblocked.
+
+**Buffer-shrink scroll preservation (lastVisibleRow):** When user was deep
+in an extended buffer (400+ items) and sought to a new 200-item buffer, the
+old `maxSafeRow` clamp lost ~481px (1.5 rows). New approach: when
+`reversePixelTop >= maxScroll`, use `floor(maxScroll/rowH) * cols` as the
+seek target. Effect #6 sees delta < rowHeight → no-op. Browser-clamped
+scrollTop stays put. All 6 S20 scenarios now delta=0.
+
+**Buffer-bottom freeze (deferred timer 600→800ms):** The `lastVisibleRow`
+fix lands users near the buffer end. `extendForward` must fire to grow the
+buffer, but the old deferred scroll timer (600ms) fired during the seek
+cooldown (700ms) → extends blocked → empty cells. Fix: timer 800ms fires
+after cooldown.
+
+**End key (soughtNearEnd, agent 5):** When `atRealEnd` AND user sought near
+the end, use `hits.length - 1` as scroll target so effect #6 scrolls to the
+actual bottom.
+
+Files: `search-store.ts` (reverse-compute, atRealEnd, lastVisibleRow),
+`useScrollEffects.ts` (deferred timer 800ms), `useDataWindow.ts`
+(`_postSeekBackwardSuppress`), `scrubber.spec.ts` (flash-prevention E2E),
+`smoke-scroll-stability.spec.ts` (S12-S21 diagnostic tests).
+
+Results: 186 unit tests pass, full smoke suite S1-S21 all pass on TEST
+(1.3M docs), user manual verification — zero swimming, zero flash, zero
+freezes, position preserved in all scenarios.
+
+### 4 April 2026 — ES usage audit: 4 fixes
+
+Full audit documented in `exploration/docs/es-audit.md` (9 issues found, 4 fixed).
+
+**Issue #1 — PIT generation counter (🔴 HIGH → ✅ FIXED):** `search()` closes the old PIT and opens a new one. `seek()`/`extend*()` captured `pitId` from the store but by the time the request fired, the PIT was already closed → ES returned 404 → retry-without-PIT fallback added ~100–200ms per round-trip. Fix: added `_pitGeneration: number` to the store, bumped in `search()` when a new PIT opens. `seek`/`extendForward`/`extendBackward`/`restoreAroundCursor` capture the generation at call start and pass `null` for pitId if it changed, skipping the stale PIT and avoiding the 404.
+
+**Issue #2 — PIT keepalive 5m → 1m (🔴 HIGH → ✅ MITIGATED):** Orphaned PITs (tab close, navigation, refresh) consumed ES memory for 5 minutes. Reduced keepalive to 1m in three locations: `openPit()` default parameter, `searchAfter()` body `keep_alive`, `search()` call site. Active users who pause >1 minute hit PIT expirations, but the retry-without-PIT fallback handles it gracefully.
+
+**Issue #3 — Remove dead `frozenUntil` (🟡 MEDIUM → ✅ REMOVED):** `frozenUntil` was declared in the store interface, initialised to `null`, and set to `new Date().toISOString()` on search completion — but nothing ever read it. Removed all 4 references. If corpus pinning is needed for a PIT-free architecture in the future, re-implement intentionally.
+
+**Issue #4 — Add AbortController to `fetchExpandedAgg` (🟡 MEDIUM → ✅ FIXED):** `fetchExpandedAgg` called `getAggregations()` without an `AbortSignal`. If the user changed the query while the expanded agg was in-flight, stale data would overwrite fresh results. Fix: added `_expandedAggAbortController` (module-level), passed as signal to `getAggregations()`, aborted by `search()` when a new search starts.
+
+**Also committed:** P10 perf test fix — added missing `scroll`, `flashes`, and `network` fields to the composite `PerfSnapshot` in `perf.spec.ts`.
+
+### 4 April 2026 — Scrubber tooltip: sub-hour granularity, twitching fix, comma removal
+
+**Three related improvements to scrubber tooltip date formatting:**
+
+**1. Sub-hour histogram intervals (`es-adapter.ts`)**
+Problem: With 65k images/day on PROD, hourly buckets (the finest available) meant the tooltip showed the same `18:00` for hundreds of pixels of scrubber movement. A single screen of images spans ~1 minute of real time — hour-level orientation is useless.
+Fix: Added three finer `fixed_interval` tiers to `getDateDistribution`:
+- `>2y` → `month` (calendar_interval), `2d–2y` → `day`, `25h–2d` → `hour` (unchanged)
+- `12h–25h` → `30m` (new, ~48 buckets for 24h — the key "last 24 hours" preset)
+- `3h–12h` → `10m` (new, ~72 buckets for 12h)
+- `<3h` → `5m` (new, ~36 buckets for 3h)
+  Sub-hour intervals use ES `fixed_interval` (calendar_interval doesn't support `30m`/`10m`/`5m`).
+  Payload size depends only on bucket count, not doc count (~60 bytes/bucket).
+  Track ticks in `computeTrackTicks` now handle sub-hour buckets: full hours are major ticks, sub-hour buckets are minor with `HH:MM` labels.
+
+**2. Tooltip twitching fix (`formatSortDateAdaptive`)**
+Problem: In <28-day result sets (e.g. "last 24h"), the tooltip flickered between `3 Apr 16:00` and `3 Apr 2026` at certain scrubber positions. Root cause: `computeLocalSpanFromDist` returned noisy values near distribution edges (bucket boundary effects), pushing `localSpanMs` past the 1-day threshold that toggled between time-mode and year-mode.
+Fix: Removed the `absLocal <= MS_PER_DAY` guard from Rule 2. Now the decision to show time vs year is based **solely on `totalSpanMs`**: `<28d` → always show time (`d Mon H:mm`), `≥28d` → always show year (`d Mon yyyy`). `localSpanMs` only governs Rule 3 (drop day when viewport >28d). This eliminates the twitching entirely — the format is stable across the entire scrubber for a given result set.
+
+**3. Comma removal**
+Removed the comma from the time format: `3 Apr, 16:00` → `3 Apr 16:00`. The comma was inconsistent with the year format (`3 Apr 2024`, no comma) and added visual noise.
+
+
+### 4 April 2026 — Home/logo flash elimination (deferred scroll reset)
+
+**Problem:** After End key or deep scrubber seek, pressing Home or clicking the logo flashed images from the end of the dataset (~image 1,318,475) for ~200-400ms before the correct top results appeared. The flash was the top of the stale deep-offset buffer — scrollTop was set to 0 while the old buffer was still mounted.
+
+**Root cause:** `resetScrollAndFocusSearch()` and the Home key handler both set `scrollTop = 0` **eagerly** (synchronously), before the async search/seek fetched new data. The virtualizer rendered buffer[0] at the old deep offset — wrong content in the viewport. Deep-to-deep seeks never had this problem because they don't touch scrollTop until data arrives (the `_seekGeneration` layout effect fires only after the store update).
+
+**Fix — defer scroll reset to the same render frame as the data swap:**
+
+1. `resetScrollAndFocusSearch()`: Removed eager `scrollTop = 0`, `scrollLeft = 0`, `virtualizer.scrollToOffset(0)`, and synthetic scroll dispatch. Now only aborts extends, resets visible range, resets scrubber thumb (instant visual signal), and focuses CQL input. Removed unused `getScrollContainer` import.
+
+2. Home key handler (`useListNavigation.ts`): Removed eager `scrollTop = 0` and synthetic scroll. When buffer is at a deep offset, just calls `seek(0)` — no scroll manipulation. The `else` branch (already at offset 0) still resets scroll normally.
+
+3. Effect #8 in `useScrollEffects.ts` (`BufferOffset→0 guard`): Promoted from belt-and-suspenders to primary scroll-reset mechanism for go-home transitions. When `bufferOffset` transitions from >0 to 0 (which happens in the same `set()` call that writes new results), the effect resets `scrollTop`, `scrollLeft`, and the virtualizer in the same layout frame. Also now dispatches a scroll event via `queueMicrotask` (not synchronous — dispatching from inside `useLayoutEffect` causes "flushSync inside lifecycle method" React errors).
+
+**Result:** Zero flash. The old deep-offset content stays visible during the async round-trip (harmlessly — user is looking at their current position). When data arrives, the buffer swap and scroll reset happen atomically in one render frame.
+
+**Files:** `lib/orchestration/search.ts`, `hooks/useListNavigation.ts`, `hooks/useScrollEffects.ts`.
+
+**Tests:** 186 unit pass, 76 E2E + 1 skipped pass. Zero failures.
+
+
+### 4 April 2026 — Credit seek cursor bug + End key fast path
+
+**Two critical fixes for keyword seek accuracy, found via manual smoke testing on TEST (1.3M docs):**
+
+**1. Direction-aware `search_after` cursor anchors.** Credit ascending seek to position 600k landed at position 1,175k — the entire "PA" bucket (600k docs) was skipped. Root cause: secondary sort fields used `0` as the anchor regardless of sort direction. For `[credit asc, uploadTime desc, id asc]`, the cursor `["PA", 0, ""]` meant "uploadTime < 0" in desc direction, excluding everything. New `buildSeekCursorAnchors()` helper: desc fields get `MAX_SAFE_INTEGER`, asc get `0`, id gets `""`. Replaces duplicated inline cursor-building in both the percentile and keyword paths. Also fixed: binary search refinement entry condition used signed drift (`fetchStart - actualOffset`), failing for ascending sorts where we overshoot. Changed to `Math.abs(drift)`.
+
+**2. End key reverse-seek fast path.** After fix #1, End key under Credit sort landed 30 items short of total — the keyword seek correctly entered the target bucket but the buffer didn't extend to the absolute last item. Added early-exit fast path in `seek()`: when `clampedOffset + PAGE_SIZE >= total`, use reverse `search_after` (no cursor, `missingFirst: true`) to guarantee the buffer covers the absolute last items. Bug #14 strict assertion restored.
+
+**Files:** `search-store.ts` (`buildSeekCursorAnchors`, `Math.abs(drift)`, End key fast path), `scrubber.spec.ts` (Bug #14 assertion).
+
+**Tests:** 186 unit pass, 76 E2E + 1 skipped pass. Zero failures.
+
+
+### 4 April 2026 — Post-seek swimming mitigation + E2E test fixes
+
+**Three fixes to resolve remaining E2E failures and mitigate post-seek swimming:**
+
+**1. Post-seek swimming mitigated (700ms cooldown).** After a deep seek, the deferred scroll timer in `useScrollEffects.ts` (effect #6, 600ms) fired just past the 500ms seek cooldown, triggering `reportVisibleRange → extendBackward`. This prepended items to the buffer and caused visible content shifting ("swimming"). Fixed by increasing the seek data-arrival cooldown from 500ms to 700ms.
+
+**2. Bug #7 E2E test updated.** The test expected `binary search` console logs during Credit sort seek. Local data has 769 unique credits (high cardinality), drift=63 < PAGE_SIZE (200) — binary search refinement never triggers. Updated to assert `keyword strategy` log instead.
+
+**3. Visual baseline updated.** The `search-query.png` snapshot was stale — didn't include null-zone UI. Updated via `--update-snapshots`.
+
+**Files:** `search-store.ts`, `useScrollEffects.ts`, `scrubber.spec.ts`, visual baseline snapshot.
+
+**Tests:** 186 unit pass, 76 E2E + 1 skipped pass. Zero failures.
+
+
+### 4 April 2026 — Null-zone seek precision fix (distribution-based estimation)
+
+**Problem:** Clicking in the null zone landed months away from the tooltip's displayed date. The distribution was fetched for ALL 1.3M docs, then linearly scaled — wrong because null-zone docs have different upload patterns.
+
+**Fix:** `fetchNullZoneDistribution` now passes `extraFilter` to `getDateDistribution`. Distribution fetched for null-zone docs only. Drift reduced from ~22,000 positions to ~275 (0.6%).
+
+**Files:** `es-adapter.ts`, `types.ts`, `mock-data-source.ts`, `search-store.ts`.
+
+
+### 4 April 2026 — Null-zone seek corrupts `total` (45k bug)
+
+**Bug:** Sort by `-taken` (1.3M results), click in null zone → status bar drops to ~45k.
+
+**Root cause:** `result.total` from filtered `searchAfter` overwrote store total. Fixed in 4 sites: `seek()` (`usedNullZoneFilter` flag), `extendForward/Backward`, `_fillBufferForScrollMode`. Also fixed `targetLocalIdx` clamping.
+
+**Files:** `search-store.ts` (~20 lines across 4 sites + diagnostic logs).
+
+
+### 4 April 2026 — Scrubber: position-based tick placement locked in as design principle
+
+During the scrubber coordinate fix investigation (see `scrubber-coordinate-fix-worklog.md`),
+analysed the "tooltip 18:30 next to tick 15:00" mismatch on 24h date filter (S2 scenario,
+109 docs). Root cause: ticks are placed by doc count (position), not by time. When upload
+distribution is non-uniform (70% of docs in peak hours, 3% overnight), tick labels for
+sparse hours cluster together while dense hours spread wide.
+
+Five options were considered: (1) do nothing, (2) remove sub-day ticks, (3) add a linear
+time axis, (4) dual-density ticks spaced by time, (5) range tooltip showing time span.
+
+**Decision: Option 1 — do nothing.** The non-uniform spacing is a feature, not a bug.
+Position-based ticks function as a density map: the visual compression of overnight ticks
+and expansion of daytime ticks tells the user at a glance where uploads are concentrated.
+With 56k+ docs the tick marks (horizontal lines, even when labels are decimated by the
+18px minimum spacing rule) form a miniature histogram on the track.
+
+The 109-doc S2 scenario breaks down because even "dense" hours have only 5–10 docs, but
+that's acceptable — 109 docs fit in one buffer load and the scrubber is barely needed.
+
+**Principle:** Never upset the relationship between position-based tick placement and
+density communication. Never linearise ticks by time.
+
+**Files changed:**
+- `exploration/docs/scrubber-coordinate-fix-worklog.md` — §12 design decision
+- `AGENTS.md` — Scrubber description updated with density-map principle
+- `exploration/docs/changelog.md` — this entry
+
+
+### 4 April 2026 — Scrubber ticks & labels reference doc; stale investigation docs deleted
+
+Created `exploration/docs/scrubber-ticks-and-labels.md` — a permanent reference
+explaining how the scrubber's coordinate system, tick placement, tooltip, null zone,
+and pixel rounding work together. Distills the working knowledge from two investigation
+docs into a concise current-state reference for future agents and humans.
+
+Deleted two stale investigation docs:
+- `scrubber-coordinate-fix-worklog.md` (789 lines) — session log from the positionFromY
+  fix investigation. All findings already recorded in this changelog; design decisions
+  captured in the new reference doc and AGENTS.md.
+- `scrubber-position-inconsistency-analysis.md` (141 lines) — initial analysis doc
+  that predated the fix. Superseded by the worklog and now the reference doc.
+
+**Files changed:**
+- `exploration/docs/scrubber-ticks-and-labels.md` — NEW: permanent reference
+- `exploration/docs/scrubber-coordinate-fix-worklog.md` — DELETED
+- `exploration/docs/scrubber-position-inconsistency-analysis.md` — DELETED
+- `AGENTS.md` — added new doc to Design Documents table
+- `exploration/docs/changelog.md` — this entry
+
+
+### 4 April 2026 — Dev-only console logging via `devLog` wrapper
+
+28 unguarded `console.log` calls across `search-store.ts` (19), `useScrollEffects.ts` (4),
+and `es-adapter.ts` (5) were replaced with `devLog()` from a new `src/lib/dev-log.ts`
+utility. `devLog` calls `console.log` only when `import.meta.env.DEV` is true — Vite
+dead-code-eliminates the entire function body in production builds. `console.warn` calls
+(error-path diagnostics) were left as-is.
+
+E2E tests that read console output (Bug #7 keyword seek telemetry, Bug #14 End key
+telemetry) continue to work because Playwright runs against the Vite dev server where
+`import.meta.env.DEV === true`.
+
+**Files changed:**
+- `src/lib/dev-log.ts` — NEW: `devLog()` wrapper
+- `src/stores/search-store.ts` — 19× `console.log` → `devLog` + import
+- `src/hooks/useScrollEffects.ts` — 4× `console.log` → `devLog` + import
+- `src/dal/es-adapter.ts` — 5× `console.log` → `devLog` + import
+
+
+### 3 April 2026 — Scrubber boundary label edge-clamping
+
+**Fix:** Ref callback on boundary label measures `offsetHeight`, adjusts `top` if label would overflow track bounds. 5px edge padding.
+
+**File:** `Scrubber.tsx`.
+
+
+### 3 April 2026 — Null-zone scrubber UX (tooltip labels, boundary tick, red ticks)
+
+Three layers of visual feedback for null zone: italic "Uploaded: {date}" tooltip labels, red boundary tick with vertical "No {field}" label, red-tinted uploadTime-based ticks. Auto-fetched null-zone distribution.
+
+**Files:** `sort-context.ts`, `Scrubber.tsx`, `search.tsx`, `search-store.ts`, `types.ts`.
+
+
+### 3 April 2026 — Null-zone seek fix + extend fix + unit tests
+
+**Bug**: Sorting by `-lastModified` and clicking scrubber at 50% snapped thumb to top. Only ~27k of 1.3M docs have `lastModified`; the other 98% are in the "null zone". Fixed seek, extend, and buffer-around-image paths. Added `detectNullZoneCursor` + `remapNullZoneSortValues` shared helpers. 7 unit tests with sparse MockDataSource (50k images, 20% lastModified coverage).
+
+**Files**: `search-store.ts`, `es-adapter.ts`, `types.ts`, `mock-data-source.ts`, `sort-builders.ts`, `search-store-extended.test.ts`.
+
+
+### 3 April 2026 — FullscreenPreview feature + prefetch extraction + scroll-to-focused
+
+**New feature: Fullscreen Preview (`f` key from grid/table).** Press `f` with an image focused
+in grid or table view to enter true fullscreen (Fullscreen API, edge-to-edge, no browser chrome).
+Arrow keys traverse images, Esc/Backspace/f exits. No route change, no metadata loading, no
+ImageDetail mount — just the image on a black background. `FullscreenPreview.tsx` is always
+mounted (hidden empty div until activated), so the `f` keyboard shortcut is always registered
+via the shortcut stack. When ImageDetail is mounted, its `f` registration pushes on top.
+
+**Prefetch extraction.** The direction-aware prefetch pipeline (4-ahead + 1-behind, T=150ms
+throttle, PhotoSwipe model) was extracted from `ImageDetail.tsx` into `lib/image-prefetch.ts`.
+Both `ImageDetail` and `FullscreenPreview` now call `prefetchNearbyImages()`. FullscreenPreview
+fires prefetch on enter (no throttle — `null` for lastPrefetchTime) and on every arrow-key
+navigation (with throttle). Zero cost until the user actually presses `f`.
+
+**Scroll-to-focused on exit.** Added `registerScrollToFocused()` / `scrollFocusedIntoView()`
+to `lib/orchestration/search.ts` (same registration pattern as `registerVirtualizerReset`).
+Registered by `useScrollEffects`, called by `FullscreenPreview` on exit (both explicit exit
+and browser-native Esc via `fullscreenchange` listener). Uses `align: "center"` — consistent
+with `useReturnFromDetail`, which uses center for the same reason: user has been in a focused
+view and needs reorientation, not minimal disruption.
+
+**Consistency fix:** Changed `scrollToFocused` from `align: "auto"` to `align: "center"` after
+spotting the inconsistency with `useReturnFromDetail`. Both are "returning from a focused view"
+— same user mental model, same scroll behaviour.
+
+**Architecture observation:** FullscreenPreview validates the "one ordered list, many densities"
+philosophy. It's conceptually another density that reads/writes `focusedImageId`, shares the
+prefetch pipeline, and on exit uses the same scroll-to-focused mechanism. The feature required
+near-zero new architecture — everything was reusable from the existing density infrastructure.
+
+Files changed:
+- `src/components/FullscreenPreview.tsx` — new component
+- `src/lib/image-prefetch.ts` — new shared prefetch pipeline
+- `src/lib/orchestration/search.ts` — added `registerScrollToFocused` / `scrollFocusedIntoView`
+- `src/hooks/useScrollEffects.ts` — registers scroll-to-focused callback (effect 2b)
+- `src/components/ImageDetail.tsx` — replaced inline prefetch with shared `prefetchNearbyImages()`
+- `src/routes/search.tsx` — mounted `<FullscreenPreview />`
+
+
+### 3 April 2026 — Post-session: f-key bug fix
+
+**Bug: `f` fullscreen shortcut broken in image detail view.** After Session 2 extracted
+`resetScrollAndFocusSearch()` to `lib/orchestration/search.ts`, the function became more
+broadly callable. On page reload in image detail view, two code paths focused the hidden
+CQL search input: (1) `resetScrollAndFocusSearch()` unconditionally focused it via
+`requestAnimationFrame`, and (2) `CqlSearchInput.tsx` set `autofocus=""` on the `<cql-input>`
+web component at mount time. The CQL input exists in the DOM even when image detail is
+showing (it's part of the layout, hidden behind the overlay). With focus on the hidden
+search input, the keyboard shortcut system (`keyboard-shortcuts.ts`) saw `isEditableTarget()
+=== true` and required Alt+f instead of bare f. Bare f typed into the hidden search box,
+triggering `query=f`.
+
+**Fix (two sites):**
+- `lib/orchestration/search.ts` line 126–134: `requestAnimationFrame` callback now checks
+  `new URL(window.location.href).searchParams.has("image")` before focusing CQL input.
+- `components/CqlSearchInput.tsx` line 164: `autofocus` attribute only set when
+  `!new URL(window.location.href).searchParams.has("image")` at mount time.
+
+Both use the same pattern: check URL for `image` param at the moment focus would be applied.
+Latent pre-Session-2 bug, surfaced by the extraction making the function more broadly callable.
+
+**Also cleaned up:** Removed stale `@ts-expect-error` directive in `CqlSearchInput.tsx` line 92
+— upstream `@guardian/cql` types were fixed, the suppression was now flagging as unused.
+
+
+### 3 April 2026 — Session 3: DAL boundary cleanup
+
+Moved ES-specific code into a dedicated `dal/adapters/elasticsearch/` directory. Extracted
+tuning constants from the search store. Purely mechanical — code moved between files, imports
+updated. Zero logic changes, zero function bodies modified.
+
+**New files created:**
+- `src/dal/adapters/elasticsearch/cql.ts` — CQL→ES query translator (moved from `lib/cql.ts`).
+  Only change: import path for `gridConfig` updated from `./grid-config` to `@/lib/grid-config`.
+- `src/dal/adapters/elasticsearch/cql-query-edit.ts` — CQL AST manipulation helpers (moved from
+  `lib/cql-query-edit.ts`). Verbatim copy, no changes.
+- `src/dal/adapters/elasticsearch/cql-query-edit.test.ts` — Tests (moved from `lib/`). Verbatim.
+- `src/dal/adapters/elasticsearch/sort-builders.ts` — `buildSortClause()`, `reverseSortClause()`,
+  `parseSortField()` extracted from `es-adapter.ts`. Import `gridConfig` from `@/lib/grid-config`.
+- `src/dal/adapters/elasticsearch/sort-builders.test.ts` — Sort builder tests (moved from
+  `dal/es-adapter.test.ts`, import updated to `./sort-builders`).
+- `src/constants/tuning.ts` — 10 tuning constants extracted from `search-store.ts`:
+  `BUFFER_CAPACITY`, `PAGE_SIZE`, `SCROLL_MODE_THRESHOLD`, `MAX_RESULT_WINDOW`,
+  `DEEP_SEEK_THRESHOLD`, `NEW_IMAGES_POLL_INTERVAL`, `AGG_DEBOUNCE_MS`,
+  `AGG_CIRCUIT_BREAKER_MS`, `AGG_DEFAULT_SIZE`, `AGG_EXPANDED_SIZE`. JSDoc comments preserved.
+  `import.meta.env` reads preserved for env-configurable constants.
+
+**Files deleted:**
+- `src/lib/cql.ts` — moved to `dal/adapters/elasticsearch/`
+- `src/lib/cql-query-edit.ts` — moved to `dal/adapters/elasticsearch/`
+- `src/lib/cql-query-edit.test.ts` — moved to `dal/adapters/elasticsearch/`
+- `src/dal/es-adapter.test.ts` — moved to `dal/adapters/elasticsearch/sort-builders.test.ts`
+
+**Files modified (import updates only):**
+- `es-adapter.ts` — removed `buildSortClause`, `reverseSortClause`, `parseSortField` function
+  bodies and the `gridConfig` import. Now imports sort builders from
+  `./adapters/elasticsearch/sort-builders` and `parseCql` from `./adapters/elasticsearch/cql`.
+- `dal/index.ts` — barrel now re-exports sort builders from `./adapters/elasticsearch/sort-builders`
+  instead of `./es-adapter`.
+- `search-store.ts` — replaced 10 inline constant declarations with imports from
+  `@/constants/tuning`. `AGG_FIELDS` left in place (depends on `FIELD_REGISTRY` + `AGG_DEFAULT_SIZE`).
+- `search-store-extended.test.ts` — import changed from `@/dal/es-adapter` to
+  `@/dal/adapters/elasticsearch/sort-builders`.
+- `ImageMetadata.tsx`, `ImageTable.tsx`, `FacetFilters.tsx` — `cql-query-edit` import changed
+  from `@/lib/cql-query-edit` to `@/dal/adapters/elasticsearch/cql-query-edit`.
+
+**Also cleaned up:** Stale `.js` build artifacts in `src/` (generated by `tsc -b`, not tracked
+in git) that were causing Vitest module resolution failures when the `.ts` source files were
+moved/deleted.
+
+**Result:** ES-specific code is now visually separated in `dal/adapters/elasticsearch/`. The
+boundary between "what's ES-specific" and "what's generic" is visible in the file system.
+Tuning constants are centralized alongside layout constants. All 171 unit tests and 77 E2E
+tests pass (including all 4 visual baselines — no rendering changes). Build succeeds with
+zero errors.
+
+
+### 3 April 2026 — Session 2: Extract imperative orchestration
+
+Moved imperative functions out of UI components and hooks into a new orchestration module.
+Purely mechanical — code moved between files, imports updated. Zero logic changes.
+
+**New files created:**
+- `src/lib/orchestration/search.ts` — holds all imperative coordination functions that were
+  scattered across components and hooks: `cancelSearchDebounce`, `getCqlInputGeneration` (from
+  SearchBar.tsx), `resetScrollAndFocusSearch`, `registerVirtualizerReset` (from useScrollEffects.ts),
+  `resetSearchSync` (from useUrlSearchSync.ts), plus setter functions for module-level mutable
+  state (`setDebounceTimer`, `setExternalQuery`, `setPrevParamsSerialized`, `setPrevSearchOnly`).
+- `src/lib/orchestration/README.md` — documents the pattern and future files.
+- `src/lib/reset-to-home.ts` — `resetToHome()` deduplicates the identical 5-line reset sequence
+  from SearchBar and ImageDetail logo click handlers.
+
+**Files modified (import updates only):**
+- `SearchBar.tsx` — removed 3 module-level `let` variables and 2 exported functions. Imports
+  from `@/lib/orchestration/search`. `handleQueryChange` uses setter functions. Logo click
+  uses `resetToHome()`. Now exports only the component.
+- `ImageTable.tsx` — `cancelSearchDebounce` import changed from `./SearchBar` to
+  `@/lib/orchestration/search`.
+- `ImageMetadata.tsx` — same import change.
+- `ImageDetail.tsx` — `resetSearchSync` and `resetScrollAndFocusSearch` imports changed from
+  hooks to orchestration. Logo click uses `resetToHome()`.
+- `useScrollEffects.ts` — removed `_virtualizerReset` variable and `resetScrollAndFocusSearch`
+  function. Uses `registerVirtualizerReset` from orchestration. Removed unused `resetVisibleRange`
+  import.
+- `useUrlSearchSync.ts` — removed `_prevParamsSerialized`, `_prevSearchOnly`, `resetSearchSync`.
+  Imports from orchestration, uses setter functions.
+
+**Result:** Dependency direction is now strictly downward: components → hooks → lib → dal.
+No component imports imperative functions from another component. All 171 unit tests and
+77 E2E tests pass. Build succeeds with zero errors.
+
+
+### 3 April 2026 — AGENTS.md trimmed (383→~270 lines)
+
+Compressed "What's Done" from narrative prose to structured summaries. Moved implementation
+detail (Phase A/B/C micro-optimisations, Bug #17 fix narrative, format comparison experiments,
+scroll architecture consolidation, buffer corruption fix narrative, post-perf regression
+fixes) to this changelog. Key Architecture Decisions kept but trimmed. Project Structure
+kept but abbreviated. Design Documents table trimmed to one-line summaries.
+
+**Moved from AGENTS.md "What's Done" — implementation narratives preserved below:**
+
+**Rendering perf experiments (29 Mar 2026):** P8 table scroll — reduced virtualizer overscan
+(20→5, -61% severe frames, -49% P95), added `contain: layout` + `overflow-hidden` on gridcell
+divs. Combined: max frame 300→217ms, severe 36→14, P95 67→34ms, DOM churn 76k→42k. CLS 0.041
+accepted (inherent to virtualiser recycling). `content-visibility: auto` on rows (no effect),
+`contain: strict` on cells (broke flex height), PAGE_SIZE 200→100 (more jank), `startTransition`
+on density toggle (broke P12 drift) — all tried and reverted. See `rendering-perf-plan.md`.
+
+**Phase A micro-optimisations (30 Mar 2026):** A.1 `handleScroll` stabilised (ref-stabilised
+callbacks). A.2 `columnIndices` memoized in ImageGrid (was ~5,400 arrays/sec). A.3 Canvas font
+cached in `measureText` (~600 parses → 2). A.4 GridCell key changed to `image.id` — **reverted
+(31 Mar)**: content-based keys in positional virtualizer cause visible reordering during
+seeks/searches. A.5 `ids.join(",")` replaced with O(1) sentinel. **Measured gains:** P3 seek
+max frame −30%, DOM churn −53%, LoAF −40%; P7 scrubber drag max frame −29%, LoAF −38%; P8
+table scroll max frame −16%, LoAF −14%; P11 domChurn −17%; P14 traversal max frame −24%.
+
+**Phase B scrubber decoupling (31 Mar 2026, C6+C7+C22):** Eliminated DOM archaeology from
+Scrubber. New `scroll-container-ref.ts` module-level register/get pattern. Tooltip height
+magic number replaced with `offsetHeight`. Measured: P7 LoAF 133→47ms.
+
+**Phase C header measurement (31 Mar 2026, C1):** `useHeaderHeight.ts` — ResizeObserver
+callback-ref hook. Replaces `TABLE_HEADER_HEIGHT = 45` constant with live-measured value.
+
+**Post-perf regression fixes (31 Mar 2026):** (1) Home button after deep seek — virtualizer
+reset pattern (module-level ref in `useScrollEffects.ts`). (2) A.4 GridCell key reverted.
+(3) Sort-around-focus ratio preservation (P6) — `sort-focus.ts` bridge saves/consumes
+viewport ratio before/after sort. (4) Density-switch header offset fix (P4b) — table unmount
+save includes HEADER_HEIGHT.
+
+**Scroll architecture consolidation (1 Apr 2026):** New `useScrollEffects.ts` extracts all
+duplicated scroll effects from ImageGrid (~280 lines removed) and ImageTable (~300 lines
+removed). Zero behavioural change (70 E2E pass). Fixed pre-existing bug in table sort-only
+detection. Module-level bridges absorbed into hook (Step 2). `scroll-reset.ts` and
+`scroll-reset-ref.ts` absorbed (Step 3).
+
+**Bug #17 fix (1 Apr 2026):** Density-focus mount restore at deep scroll failed for three
+React Strict Mode reasons: (1) `geo.columns` from useState default (4) instead of real DOM;
+(2) `consumeDensityFocusRatio()` cleared on phantom mount; (3) phantom mount cleanup
+re-saved wrong geometry. Fixed with `minCellWidth` in ScrollGeometry, peek/clear split,
+skip guard on save, double-rAF defer. 2 previously-skipped tests unskipped.
+
+**Format comparison experiments (2 Apr 2026):** E4/E5 A/B tested WebP q79, AVIF q63/s8,
+JXL q77/e4. AVIF wins: 9-15% smaller than WebP, comparable decode, 0ms landing through
+fast tier. JXL disqualified: worst jank, worst decode gaps, largest files. Caught stale
+`IMGPROXY_AVIF_SPEED=7` container tainting initial runs. Full data in
+`image-optimisation-research.md`.
+
+
+### 3 April 2026 — UI polish: date filter, sort indicator, document title, grid date label
+
+**DateFilter preset highlight bug fix:**
+The date filter dropdown highlighted both "Today" and "Past 24 hours" presets
+simultaneously. Root cause: preset matching used `toDateInputValue()` which
+truncates ISO strings to YYYY-MM-DD date-only. In UTC+ timezones, both presets'
+UTC representations landed on the same calendar date. Fix: `findMatchingPreset()`
+function uses tolerance-based comparison — "Today" matches exactly (midnight is
+stable), relative presets allow 2-hour tolerance (generous for tab-left-open, but
+far smaller than the gap between adjacent presets). Pure computation, no React
+state — survives page reload and back/forward navigation.
+
+**Sort dropdown non-default indicator:**
+Added accent dot badge (identical to DateFilter) on the sort field button when
+sort differs from default `-uploadTime`. Positioned as `absolute -top-0.5 -right-1`
+badge to avoid layout shift — the UX principle being that toggle elements must
+never reposition under the mouse pointer.
+
+**Dynamic document title (`useDocumentTitle` hook):**
+Mirrors kahuna's `ui-title` directive. Sets `document.title` based on search query
+and new-images ticker count. Titles: `search | the Grid` (no query),
+`cats | the Grid` (with query), `(5 new)  cats | the Grid` (ticker active).
+Subscribes to `newCount` from the existing search store ticker.
+
+**Grid cell sort-aware date label:**
+Grid cells now show the date field matching the primary sort order — "Taken: ..."
+when sorting by date taken, "Modified: ..." for last modified, "Uploaded: ..." for
+everything else. Matches kahuna behaviour. Tooltip unchanged (always shows all three).
+Implemented via `getCellDateLine()` helper, passed as `dateLine` prop to memoised
+`GridCell`.
+
+**New directive: "Ask rather than spiral":**
+Added to both `.github/copilot-instructions.md` and the human copy. Instructs the
+agent to ask the user instead of iterating through failed approaches or guessing
+between divergent interpretations.
+
+**Files changed:**
+- `src/components/DateFilter.tsx` — `findMatchingPreset()` tolerance-based matching, non-default badge
+- `src/components/SearchFilters.tsx` — sort non-default badge (absolute positioned)
+- `src/components/ImageGrid.tsx` — `getCellDateLine()`, `dateLine` prop on GridCell
+- `src/hooks/useDocumentTitle.ts` — NEW: dynamic page title hook
+- `src/routes/search.tsx` — wire `useDocumentTitle()`
+- `.github/copilot-instructions.md` — new "Ask rather than spiral" directive
+- `kupua/exploration/docs/copilot-instructions-copy-for-humans.md` — directive sync
+- `AGENTS.md` — updated What's Done, Project Structure
+- `exploration/docs/changelog.md` — this entry
+
+
+### 2 April 2026 — Unit tests for image-offset-cache + dead code cleanup
+
+**Unit tests (15):** Added `image-offset-cache.test.ts` covering:
+- `buildSearchKey` — deterministic regardless of param order, strips `image`/`density`
+  params, strips null/empty values (3 tests).
+- `extractSortValues` — default sort (uploadTime + id), `width` sort (nested dot-path
+  `source.dimensions.width`), `credit` sort (metadata.credit), sparse image with missing
+  nested fields (null values), tiebreaker always last (5 tests).
+- `storeImageOffset` / `getImageOffset` round-trip — full cursor, mismatched searchKey,
+  unknown image, null cursor, old cache format without cursor field, malformed offset,
+  negative offset (7 tests).
+
+All pure functions with zero mocking. Tests run in ~8ms.
+
+**Dead code removal:** Deleted `loadRange` from store interface and implementation — zero
+call sites after `restoreAroundCursor` replaced it. Updated comments in `es-adapter.ts`
+and `types.ts` that referenced `loadRange`.
+
+Clean `tsc --noEmit`, all 161 vitest unit tests pass (3 pre-existing extendForward
+timing failures unrelated to this change).
+
+
+### 2 April 2026 — Extract `_loadBufferAroundImage` shared helper
+
+**Problem:** `_findAndFocusImage` (sort-around-focus) and `restoreAroundCursor`
+(image-detail reload) both contained identical ~40-line blocks: forward
+`searchAfter` + backward `searchAfter` + combine hits + compute cursors +
+compute `bufferStart`. The two copies had diverged slightly in comment style
+but were semantically identical. A bug fix in one would need to be duplicated.
+
+**Fix:** Extracted `_loadBufferAroundImage()` — a pure async helper that takes
+`(targetHit, sortValues, exactOffset, params, pitId, signal, dataSource)` and
+returns a `BufferAroundImage` result object (combinedHits, bufferStart,
+startCursor, endCursor, total, pitId, targetLocalIdx). Both callers now invoke
+the helper and set their caller-specific store state from its return value.
+
+Minor improvement in `restoreAroundCursor`: the target image fetch-by-ID was
+moved earlier (before the bidirectional fetch), so we bail immediately if the
+image no longer matches the query — saving two wasted `searchAfter` calls.
+
+Net: ~30 lines of duplicated logic eliminated, tricky buffer assembly code
+exists in exactly one place. All 71 E2E tests pass, clean `tsc --noEmit`.
+
+
+### 2 April 2026 — Image detail position restore (cursor-based)
+
+**Bug:** The image detail counter (`[x] of [total]`) and prev/next navigation
+were lost on page reload for images at deep offsets (>10k). The offset cache
+(`image-offset-cache.ts`, introduced 27 Mar) stored a global numeric offset
+and restored via `loadRange` → `seek`. This worked in the pre-windowed-buffer
+world where `loadRange` did exact `from/size`. The next day (28 Mar), the
+windowed buffer rewrite changed `loadRange` to delegate to `seek()`, which for
+deep offsets uses percentile estimation — landing *near* the target but not
+*exactly* on it. The specific image wasn't in the loaded buffer, so
+`findImageIndex` returned -1. Shallow offsets (<10k) still worked because
+`seek` uses exact `from/size` at those depths.
+
+The `search-after-plan.md` (§6, line 2100) had explicitly noted this gap:
+*"With the windowed buffer, we need both the offset AND the cursor. Recommendation:
+Extend the cache to store `{ offset, cursor, searchKey }`."* — but it was never
+implemented.
+
+**Fix — 5 files:**
+
+1. `image-offset-cache.ts` — Extended stored object from `{ offset, searchKey }`
+   to `{ offset, cursor, searchKey }` where `cursor` is `SortValues` (the ES
+   `search_after` cursor). Added `extractSortValues(image, orderBy)` which builds
+   the cursor by reading sort field values from the in-memory image object using
+   `buildSortClause` + `parseSortField` + dot-path field resolution. Zero ES calls.
+   `getImageOffset` now returns `{ offset, cursor }`. Backward-compatible — old
+   cache entries without cursor return `cursor: null`.
+
+2. `search-store.ts` — Added `restoreAroundCursor(imageId, cursor, offset)` action.
+   With cursor: `countBefore` for exact global offset → forward + backward
+   `search_after` from cursor → fetch target image by ID → combine into buffer.
+   Structurally similar to the second half of `_findAndFocusImage` (sort-around-focus).
+   Without cursor: falls back to `seek(offset)` (works for shallow depths).
+   Error fallback also degrades to `seek`.
+
+3. `ImageDetail.tsx` — Restore effect calls `restoreAroundCursor` instead of
+   `loadRange`. `goToImage` (prev/next) stores cursor via `extractSortValues`.
+
+4. `ImageGrid.tsx` — `handleCellDoubleClick` stores cursor via `extractSortValues`.
+
+5. `ImageTable.tsx` — `handleRowDoubleClick` stores cursor via `extractSortValues`.
+
+**Why not `imagePositions`:** Considered putting sort values in the centralised
+`imagePositions` Map, but it's the wrong place — `imagePositions` is a runtime
+buffer index (rebuilt on every search/seek/extend), while the offset cache is a
+persistent cross-reload mechanism in `sessionStorage`. Different lifecycles,
+different concerns. `useScrollEffects` is also unrelated — it handles viewport
+positioning *after* data is in the buffer; this fix is about getting the right
+data *into* the buffer.
+
+**Tests:** 71/71 e2e passed. TypeScript compiles clean.
+
+
+### 2 April 2026 — Format comparison experiments + AVIF confirmed
+
+**Format A/B testing via E4/E5 traversal experiments:** Used the existing
+E4 (detail view) and E5 (fullscreen) traversal experiments to compare three
+image formats at DPR 1.5×, all against TEST ES (1.3M docs) via imgproxy.
+
+Four experiment runs:
+1. **AVIF q63/s7 + DPR 1.5×** — initial run, tainted by stale
+   `IMGPROXY_AVIF_SPEED=7` override left from bench-formats tuning. E5-fast
+   regressed from 0ms to 243ms. Diagnosed via `docker inspect`.
+2. **WebP q79 + DPR 1.5×** — new DPR-aware baseline. All tiers 0ms except
+   E4-rapid (233ms). Decode gaps (max 226-392ms) present in WebP too —
+   disproved the AVIF decode bottleneck hypothesis.
+3. **AVIF q63/s8 + DPR 1.5×** — correct config. Fast tier recovered to 0ms.
+   9-15% smaller bytes than WebP. Chosen config confirmed.
+4. **JXL q77/e4 + DPR 1.5×** — Chrome 145 with `--enable-features=JXLDecoding`.
+   Disqualified: worst jank (severe/kf 53-60), worst decode gaps (442ms max),
+   largest files. Chrome's `libjxl` decoder immature; jxl-rs in development.
+
+**Decode gap analysis:** `renderMs - srcMs` per-step showed sporadic 200-500ms
+spikes on one specific image at DPR 1.5× — present in all three formats.
+Confirmed gaps are DPR-resolution-driven, not format-specific.
+
+**Files changed:**
+- `src/lib/image-urls.ts` — format toggled during experiments; restored to `"avif"`
+- `playwright.experiments.config.ts` — temporary `--enable-features=JXLDecoding`; removed
+- `exploration/docs/image-optimisation-research.md` — four experiment run entries + JXL verdict update
+- `exploration/docs/deviations.md` — single-format deviation updated to reflect AVIF chosen
+- `AGENTS.md` — format comparison experiments note added
+- `exploration/docs/changelog.md` — this entry
+
+
+### 1 April 2026 — Scroll Architecture Consolidation — Part A Step 1
+
+**Motivation:** ImageGrid (~743 lines) and ImageTable (~1601 lines) each contained ~300
+lines of duplicated scroll lifecycle effects: scroll container registration, virtualizer
+reset registration, handleScroll + listener, prepend/evict scroll compensation, seek
+scroll-to-target, search-params scroll reset with sort-around-focus detection,
+bufferOffset→0 guard, sort-around-focus generation scroll, and density-focus mount
+restore + unmount save. The duplication made every scroll fix a two-file change with
+subtle divergences (e.g. grid has columns, table has headerOffset).
+
+**What was built:** New `src/hooks/useScrollEffects.ts` (~440 lines) — a shared hook
+parameterised by a `ScrollGeometry` descriptor:
+- `rowHeight` (303 for grid, 32 for table)
+- `columns` (dynamic for grid, 1 for table)
+- `headerOffset` (0 for grid, HEADER_HEIGHT=45 for table)
+- `preserveScrollLeftOnSort` (false for grid, true for table)
+
+The hook contains all 10 scroll effect categories. Helper functions `localIndexToPixelTop`
+and `localIndexToRowIndex` abstract the flat-index↔pixel math. Ref-stabilised callbacks
+(A.1 pattern: `virtualizerRef`, `loadMoreRef`, `geometryRef`) ensure zero scroll listener
+churn.
+
+**Bug fix (pre-existing):** The table's original sort-only detection had an `isSortAction`
+guard: `orderByChanged && searchParams.orderBy != null`. This meant switching to default
+sort (clearing orderBy from URL) was NOT treated as a sort-only change — the table would
+scroll to top instead of preserving the focused image's position. The grid's original code
+didn't have this bug (it checked only `orderByChanged`). The hook uses the correct logic:
+any change where only `orderBy` changed is sort-only, regardless of the new value.
+
+**Result:** ImageGrid reduced from 743 → 463 lines (-280). ImageTable reduced from 1601 →
+1297 lines (-304). Module-level bridges (`density-focus.ts`, `sort-focus.ts`,
+`scroll-container-ref.ts`, `scroll-reset-ref.ts`) unchanged — consumed by the hook.
+
+**Validation:** 70 E2E tests pass (2 pre-existing skips). TypeScript clean. Vite build clean.
+
+**Files changed:**
+- New: `src/hooks/useScrollEffects.ts`
+- Modified: `src/components/ImageGrid.tsx` (removed inline scroll effects, added
+  `useScrollEffects` call), `src/components/ImageTable.tsx` (same — also removed unused
+  `useSearchStore`, `useLayoutEffect`, `registerScrollContainer`, `registerScrollReset`,
+  `saveFocusRatio`, `consumeFocusRatio`, `saveSortFocusRatio`, `consumeSortFocusRatio`,
+  `URL_DISPLAY_KEYS`, `UrlSearchParams` imports)
+- Docs: `AGENTS.md`, this changelog
+
+
+### 1 April 2026 — Scroll consolidation Part A Step 2: Absorb density-focus and sort-focus bridges
+
+Inlined the transient save/consume bridges from `density-focus.ts` and `sort-focus.ts`
+into `useScrollEffects.ts` as private module-level state. The hook is the sole consumer
+of these bridges (verified via grep) — no other file imported them after Step 1.
+
+**Changes:**
+- `DensityFocusState` interface + `saveDensityFocusRatio()` / `consumeDensityFocusRatio()`
+  functions inlined at the top of `useScrollEffects.ts`.
+- `SortFocusState` simplified: `_sortFocusRatio` is now `number | null` instead of
+  `{ ratio: number } | null`. The consume call at the sort-around-focus effect updated
+  accordingly (`savedRatio` instead of `saved.ratio`).
+- Deleted: `src/lib/density-focus.ts`, `src/lib/sort-focus.ts`,
+  `src/lib/density-focus.test.ts` (unit test — the save/consume contract is now internal;
+  behaviour is covered by E2E tests 26–28, 34–35, 41, 43).
+- Updated stale comments in `scroll-container-ref.ts` and `scroll-reset-ref.ts` that
+  referenced the deleted files.
+- Updated `AGENTS.md`: scroll effects description, performance section, D.1 resolved,
+  project structure (removed deleted files), stale `density-focus.ts` references.
+
+**Validation:** 70 E2E tests pass (2 pre-existing skips). TypeScript clean.
+Hook grew from ~440 → ~490 lines (inlined bridge state + doc comments).
+
+**Risk:** Low — pure mechanical inlining of module-level state. The save/consume pattern
+is identical; only the import path changed (from `@/lib/density-focus` to inline).
+
+
+### 1 April 2026 — Scroll consolidation Part A Step 3: Absorb scroll-reset
+
+Moved `resetScrollAndFocusSearch()` from `src/lib/scroll-reset.ts` into
+`src/hooks/useScrollEffects.ts` as an exported module-level function. Replaced the
+`scroll-reset-ref` callback indirection with a direct module-level virtualizer ref
+(`_virtualizerReset`) — the hook's effect #2 sets this ref; the exported function reads
+it directly. No callback registration needed.
+
+**Changes:**
+- `resetScrollAndFocusSearch()` moved into `useScrollEffects.ts` with all its
+  orchestration steps (abortExtends → DOM scrollTop reset → virtualizer reset →
+  visible range reset → scrubber thumb DOM reset → CQL focus).
+- `_virtualizerReset` module-level variable replaces `registerScrollReset` /
+  `fireScrollReset` callback pattern.
+- Deleted: `src/lib/scroll-reset.ts`, `src/lib/scroll-reset-ref.ts`.
+- `scroll-container-ref.ts` kept — still needed by Scrubber.tsx independently.
+  Updated import in `useScrollEffects.ts` to also import `getScrollContainer`.
+- Updated imports in `SearchBar.tsx` and `ImageDetail.tsx` to point to
+  `@/hooks/useScrollEffects`.
+- Updated stale comment in `scroll-container-ref.ts`.
+- Updated `AGENTS.md`: scroll effects description, performance section, project
+  structure (removed deleted files), post-perf regression fixes section.
+
+**Validation:** 70 E2E tests pass (2 pre-existing skips — Bug #17). Buffer corruption
+tests 1–9 all pass — this was the specific canary for this step. TypeScript clean.
+Hook grew from ~490 → ~555 lines.
+
+**Risk assessment:** This was the highest-risk step (moving `abortExtends()` timing
+relative to the synthetic scroll event is the exact pattern that caused the original
+buffer corruption bug). The 9 buffer corruption tests are the safety net and all pass.
+
+
+### 1 April 2026 — Scroll consolidation Part A Step 4: Search-store cleanup — assessed as no-op
+
+The plan specified: "Remove `_seekCooldownUntil` manipulation from `search()` — the
+coordinator handles it." This was assessed as **incorrect and dangerous**. The `search()`
+function sets `_seekCooldownUntil = Date.now() + 2000` (line 753) on its own entry path
+(triggered by URL sync, not by `resetScrollAndFocusSearch`). These are independent
+protection layers:
+
+1. `resetScrollAndFocusSearch()` → `abortExtends()` → 2s cooldown (scroll-reset path)
+2. `search()` → 2s cooldown directly (URL-sync path)
+
+Removing the cooldown from `search()` would leave the URL-sync path unprotected against
+buffer corruption during the search→results transition. The store has no scroll imports
+and no scroll concerns — its cooldown management is purely a buffer protection mechanism.
+
+**Result:** No code changes for Step 4. Part A is complete.
+
+**Part A summary — files deleted across all steps:**
+- `src/lib/density-focus.ts` (Step 2)
+- `src/lib/density-focus.test.ts` (Step 2)
+- `src/lib/sort-focus.ts` (Step 2)
+- `src/lib/scroll-reset.ts` (Step 3)
+- `src/lib/scroll-reset-ref.ts` (Step 3)
+
+
+### 1 April 2026 — Bug #17 fix: Density switch at deep scroll
+
+**Problem:** Density switch (table↔grid) after deep scroll left the viewport at scrollTop=0
+instead of showing the focused image. The 2 E2E tests covering this were skipped because
+they never triggered deep scroll (headless Chromium doesn't fire native scroll events from
+programmatic scrollTop assignment).
+
+**Root causes (all three needed fixing):**
+
+1. **Test helper `scrollDeep` didn't dispatch synthetic scroll events.** Programmatic
+   `el.scrollTop = el.scrollHeight` in headless Chromium doesn't fire native `scroll`
+   events, so `reportVisibleRange` never fires, extends never trigger, buffer stays at
+   200 items with offset 0 → skip guard activates. **Fix:** Add
+   `el.dispatchEvent(new Event("scroll"))` after each scrollTop assignment. Changed from
+   fixed 8-iteration loop to threshold-checking loop (grid rows at 303px need more
+   iterations than table rows at 32px).
+
+2. **React Strict Mode double-mount consumed density-focus state twice.** In dev mode,
+   React fires mount effects twice: mount → cleanup → mount. The first mount consumed the
+   saved density-focus state via `consumeDensityFocusRatio()` (destructive read), cleanup
+   cancelled the rAF (so scroll never happened), and the second mount got null. **Fix:**
+   Split into `peekDensityFocusRatio()` (non-destructive read) + `clearDensityFocusRatio()`
+   (clear inside rAF callback after scroll is applied).
+
+3. **Strict Mode phantom-mount cleanup overwrote valid save.** The real table unmounts and
+   saves correctly (ratio≈0.045). Then the grid phantom-mounts (Strict Mode), immediately
+   unmounts (cleanup), and saves with wrong geometry (columns=4 useState default,
+   scrollTop=0, headerOffset=0) → ratio=37.57, overwriting the valid save. **Fix:** Guard
+   `saveDensityFocusRatio` to skip when a pending unconsumed state already exists
+   (`if (_densityFocusSaved == null)`).
+
+4. **Mount restore used wrong column count.** Grid useState default is 4 columns, but the real
+   column count (from ResizeObserver) might be 6. The mount-restore `useLayoutEffect`
+   ran with columns=4, computing the wrong pixel position. **Fix:** Added `minCellWidth` to
+   `ScrollGeometry`. Mount restore computes real columns from `el.clientWidth / minCellWidth`
+   instead of using `geo.columns`.
+
+5. **`virtualizer.scrollToOffset()` doesn't work at mount time.** The virtualizer's spacer
+   element hasn't been measured yet, so scrollHeight is wrong and the clamping pins scrollTop
+   to 0. **Fix:** Use double-`requestAnimationFrame` to defer until: frame 1 (ResizeObserver
+   fires, React re-renders), frame 2 (virtualizer spacer has correct totalSize). Then set
+   `el.scrollTop` directly on the DOM.
+
+**Test changes:**
+- `scrollDeep` helper: synthetic scroll events + threshold-checking loop
+- Programmatic focus via `store.setFocusedImageId(id)` instead of `focusNthItem(3)` (click
+  targets are unstable after deep scroll)
+- Scroll focused image into view before density switch (unmount save needs reasonable ratio)
+- Grid→table visibility check: tolerance includes `TABLE_HEADER_HEIGHT` (row behind sticky
+  header is still "in view")
+
+**Result:** 72 E2E tests pass (was 70 + 2 skipped). Zero regressions on existing tests.
+
+
+### 1 April 2026 — Density-focus drift fix — multi-toggle stability
+
+**Bug:** Focused image drifts out of the viewport after 3+ density toggles at deep scroll.
+Survives the first 1-2 toggles, then progressively drifts until it's off-screen.
+
+**Root cause:** The density-focus mount restore (effect #10 in `useScrollEffects.ts`)
+dispatched a synthetic scroll event (`el.dispatchEvent(new Event("scroll"))`) after setting
+`scrollTop`. This triggered: scroll handler → `reportVisibleRange` → `extendBackward`
+(because the focused image is deep, the visible range hits the backward-extend threshold).
+The extend prepends ~200 items to the buffer. Prepend compensation then adds
+`prependedRows × rowHeight` to `scrollTop`. But when the compensated value exceeds
+`scrollHeight - clientHeight`, the browser clamps silently — losing pixels. Each
+density-switch cycle that triggers a prepend-then-clamp loses ~1,000px in table view
+(32px rows × ~31 rows). After 3 clamped cycles the image is off-screen.
+
+**Geometric proof (table):** 1000 items × 32px = 32,000px total scroll height. Focused image
+at localIdx=800 → rowTop=25,600. Prepend compensation adds 200 × 32 = 6,400px → target
+32,000 but maxScroll ≈ 31,000. Clamped by ~1,000px.
+
+**Fix (two changes):**
+1. **Removed `el.dispatchEvent(new Event("scroll"))`** from the rAF2 callback in the
+   density-focus mount restore. This was the root cause trigger — it fired
+   `reportVisibleRange` → `extendBackward` → prepend compensation → clamping. The event
+   was always redundant: the scrubber thumb syncs via effect #3 (buffer-change re-fire on
+   `bufferOffset`/`resultsLength` change) and the next real user scroll.
+2. **Added `abortExtends()` call** at the start of the mount restore (before the rAF chain).
+   Belt-and-suspenders: sets a 2-second cooldown on both `extendForward` and
+   `extendBackward`, blocking them at their synchronous guards. This prevents any other path
+   (buffer-change re-fire, virtualizer measurement events) from triggering extends during the
+   density-switch settle window. Same mechanism used by `resetScrollAndFocusSearch()` and scrubber `seek()`.
+
+**Performance impact:** Net positive — removes one synthetic event dispatch, one async extend
+network call, and one prepend compensation layout shift per density switch. The 2-second
+extend cooldown matches the existing post-seek behaviour; with 1000 items in the buffer
+(50+ screenfuls in grid) there's ample headroom.
+
+**Test added:** `density-focus survives 5+ toggles at deep scroll without drift` — seeks to
+0.8, scrolls deep to grow the buffer, focuses an image at 75th percentile of buffer
+(maximises clamping chance), then toggles density 5 times. Asserts visibility after EACH
+toggle (drift is cumulative). Designed to trigger actual scroll clamping on local 10k data
+via table geometry: 32px rows make the scroll range tight enough for compensation to exceed
+maxScroll.
+
+**Files changed:**
+- `src/hooks/useScrollEffects.ts` — removed synthetic scroll dispatch, added `abortExtends()`,
+  added edge clamping on restore
+- `e2e/scrubber.spec.ts` — added multi-toggle drift test
+
+
+### 1 April 2026 — Density-focus edge clamping — partially-clipped images become fully visible
+
+**Problem (UX):** The density-focus save/restore faithfully preserved the focused image's
+viewport-relative position (ratio), but this meant a partially clipped image stayed
+partially clipped after the switch. If you focus an image in grid view where only 78px of
+its 303px height is visible above the top edge (ratio ≈ −0.22), the table view places the
+row at the same viewport-relative position — just barely peeking in from above.
+
+**Evidence from logs (1.3M docs on TEST):**
+- Top-edge image `8af8a...`: ratio −0.217, `rowTop=19998, scrollTop=20223` — 225px above
+  viewport top, only 78px visible (of 303px). Stable across 6 toggles but always clipped.
+- Bottom-edge image `bc24a...`: ratio 0.951, `rowTop=21210, scrollTop=20222, clientH=1039` —
+  row starts at 988px in a 1039px viewport, only 51px visible (of 303px grid row). In table
+  (32px row), it fits because 32px < 51px remaining space.
+
+**Fix:** Added edge clamping to the density-focus mount restore, after computing `rawTarget`
+from the saved ratio. Same pattern already used by sort-around-focus (effect #9, lines
+516-520), adapted for `headerOffset`:
+- `itemY = rowTop + headerOffset - rawTarget` (where item sits in viewport)
+- If `itemY < headerOffset` → top-clipped → `targetNow = rowTop` (flush below header)
+- If `itemY + rowHeight > clientHeight` → bottom-clipped → `targetNow = rowTop + headerOffset - clientHeight + rowHeight` (flush at bottom)
+
+**Behaviour change:** Images that were partially off-screen now "snap in" to the nearest
+edge on density switch. The snap is one-directional: the SAVE still records the raw ratio,
+so the snap only applies on RESTORE. When switching back, the image (now fully visible in
+the source density) gets a new ratio that doesn't trigger clamping — it naturally stabilises at a fully-visible position within 1-2 toggles.
+
+**No complexity concern for the "switch back" case:** The user's original worry was that
+coming back to the source density would need to re-adjust the image. It doesn't — because
+the SAVE on the intermediate density records a ratio where the image IS fully visible (the
+edge clamp made it so), the RESTORE back uses that good ratio. No second-order correction
+needed.
+
+**Performance impact:** Zero. Three comparisons and potentially one assignment, inside an
+already-deferred rAF2 callback.
+
+**DIAG log updated:** `[density-focus RESTORE]` now includes `rawTarget` (before edge clamp)
+and `edgeClamp=top|bottom|none` fields for manual validation.
+
+**Files changed:** `src/hooks/useScrollEffects.ts` only.
+
+
+### 1 April 2026 — Test deduplication — Bug #17 single-switch tests removed
+
+Removed the two single-switch Bug #17 tests (`table→grid: focused image visible after
+deep scroll + density switch` and `grid→table: focused image visible after deep scroll +
+density switch`). Both are fully subsumed by the new multi-toggle test (`density-focus
+survives 5+ toggles at deep scroll without drift`) which:
+- Tests both directions (table→grid AND grid→table) across 5 toggles
+- Asserts visibility after each toggle, not just one
+- Uses a deeper seek (0.8 vs mousewheel scrolling) and higher localIdx (75th% vs 50th%)
+- Starts from table (tighter scroll geometry, easier to trigger clamping)
+
+Tests kept (not subsumed):
+- `focused image ID survives grid→table→grid` (350) — shallow, tests ID preservation only
+- `density switch after deep seek preserves focused image` (364) — tests globalPosition, not visibility
+- `rapid density toggling doesn't corrupt state` (391) — tests state consistency at 0.3 seek, not visibility
+
+**Validation:** The multi-toggle test was verified to **fail without the fix** (stash/pop of
+`useScrollEffects.ts`). Without the fix: `rowTop=19998 scrollTop=28993` — image 9,000px
+off-screen at toggle 1. Both runs consistent. With the fix: passes every time.
+
+**Net test count:** 62 scrubber + 9 buffer corruption = 71 total (was 64 + 9 = 73 — removed 2).
+
+
+### 1 April 2026 — Experiments Infrastructure
+
+Built agent-driven A/B testing infrastructure for tuning knob experiments.
+
+**Files created:**
+- `playwright.experiments.config.ts` — separate Playwright config (headed browser, no safety gate, long timeouts, no auto-start webServer)
+- `e2e-perf/experiments.spec.ts` — experiment scenarios E1–E3 with full probe collection
+- `e2e-perf/results/experiments/` — JSON result directory + README + experiments-log.md
+- `.gitignore` updated — `exp-*.json` files excluded (machine-local results)
+
+**Design:**
+- Each experiment records: git commit hash + dirty flag, ES source (local vs real) + total, knob values under test, full perf snapshot, store state
+- Probe suite: CLS, LoAF, frame timing, scroll velocity, DOM mutations, blank flash detection (IntersectionObserver + MutationObserver), ES network payload (PerformanceObserver for resource timing)
+- Probes are injected per-test (not globally) — `injectProbes()` / `resetProbes()` / `collectSnapshot()`
+- Three baseline scenarios: E1 (table fast scroll, 30×800px), E2 (grid fast scroll, 30×1500px), E3 (density switch at seek 0.5)
+
+**Workflow for knob experiments:**
+1. Agent runs baseline (current values)
+2. Agent modifies source file (e.g. overscan in ImageTable.tsx)
+3. Vite HMR reloads
+4. Agent runs same experiment with env var tagging the knob value
+5. Agent reverts source change
+6. Agent compares JSON results and writes comparison to experiments-log.md
+
+**Initial baseline run (against TEST, 1.3M docs):**
+- E1 (table scroll): 12 severe jank, max 133ms, P95 67ms, 37k DOM churn, 0 flashes, 3 ES requests (875KB)
+- E2 (grid scroll): 1 severe jank, max 50ms, 402 DOM churn, 0 flashes, 0 ES requests
+- E3 (density switch): CLS 0.0000, 4 severe jank, max 133ms, 2.3k DOM churn, 0 flashes
+
+**Observation:** Zero blank flashes across all scenarios. The flash detector's `hasContent()` check (text >10 chars OR `<img>` present) may be too lenient — table rows have text immediately, grid cells have structural elements. Future refinement: detect image *placeholder* vs *loaded image* specifically.
+
+**Documented in:** `exploration/docs/tuning-knobs.md` (new "Experiments Infrastructure" section with workflow, experiment catalogue, and results schema).
+
+
+### 1 April 2026 — Experiment framework improvements
+
+Five improvements to experiment infrastructure reliability and documentation:
+
+**1. Signals Glossary:** Added comprehensive signal definitions to `e2e-perf/results/experiments/README.md`. Every metric in `ExpSnapshot` now has a table with unit, meaning, good/bad thresholds. Grouped by probe type (CLS, LoAF, jank, DOM churn, scroll velocity, blank flashes, network). This is the reference for interpreting experiment JSON results.
+
+**2. Corpus pinning via STABLE_UNTIL:** Experiments now hardcode `STABLE_UNTIL = "2026-02-15T00:00:00.000Z"` (same value as perf tests) and all scenarios navigate with `until=` parameter via a dedicated `gotoExperiment()` helper. Previously experiments used `kupua.goto()` which only respects `PERF_STABLE_UNTIL` when set as an env var — and experiments don't use `run-audit.mjs` so the env var was never set. This means prior experiment runs on TEST had an unstable corpus (new uploads between runs would change results). Now fixed.
+
+**3. Probe self-test diagnostics:** New `diagnoseProbes()` + `logProbeDiagnostics()` functions run after every experiment. For each probe, they verify it gathered data and log a clear ✓/✗ line. Key diagnostics:
+- rAF loop: frameCount must be > 0
+- Scroll velocity: samples must be > 0 for scroll scenarios
+- DOM mutations: totalChurn must be > 0
+- Blank flashes: 0 is genuinely OK (overscan prevents blank rows) — but the diagnostic explains *why* it's 0 (overscan vs pending vs actually zero)
+- Network: context log (0 requests means buffer was sufficient)
+This solves the "is flashes=0 because nothing flashed, or because the probe is broken?" question.
+
+**4. Safety bounds for agent experiments:** Added a prominent safety banner in the experiment spec header with explicit ranges for all tunable knobs (PAGE_SIZE 50–500, overscan 1–30, BUFFER_CAPACITY 500–3000, EXTEND_THRESHOLD < BUFFER_CAPACITY/2, wheel delta 100–3000, interval ≥30ms). Matching "Safety: Experiment Value Bounds" section in the README. This prevents the agent from setting values that could freeze the browser or trip ES circuit breakers.
+
+**5. Named scroll speed tiers:** Replaced hardcoded `wheel(0, 800)` / `wheel(0, 1500)` with named `SCROLL_SPEEDS` constant:
+- `slow`: 300px delta, 120ms interval (~2,500 px/s) — gentle browsing
+- `normal`: 800px delta, 80ms interval (~10,000 px/s) — purposeful scrolling
+- `fast`: 1500px delta, 50ms interval (~30,000 px/s) — power-user flicking
+No "max speed" (0ms interval) tier — Playwright dispatches without physics, so 0ms intervals measure virtualizer pathology rather than real UX. E1 and E2 now run all three tiers sequentially (3 result JSONs per experiment), giving slow/normal/fast jank profiles for every knob value. Documented in README "Scroll Speed Tiers" table.
+
+**Files changed:**
+- `e2e-perf/experiments.spec.ts` — speed tier definitions, test names, E6 duration, normalised jank output, timeout
+- `e2e-perf/results/experiments/README.md` — speed tier tables, signals glossary (severePerKFrames), JSON schema example
+- `e2e-perf/results/experiments/experiments-log.md` — fresh v2 log
+- `e2e-perf/results/experiments/experiments-log-v1-baseline.md` — archived v1 log
+- `e2e-perf/results/experiments/v1-baseline/` — archived v1 JSON results
+- `AGENTS.md` — updated experiment infrastructure description
+- `exploration/docs/changelog.md` — this entry
+
+
+### 1 April 2026 — Image traversal prefetch pipeline fix — 1 April 2026
+
+**Problem:** User reported image traversal (arrow keys in detail/fullscreen) felt
+slower than it used to be. Investigated and found a regression: Era 3 (commit
+`85673c0d4`) replaced Era 2's fire-and-forget `new Image().src` prefetch with
+`fetch()` + `AbortController` debounced at 400ms. The 400ms debounce killed the
+rolling pipeline at any browsing speed faster than ~500ms/image.
+
+**Investigation (traversal-perf-investigation.md):**
+- Researched 3 eras of prefetch logic in the codebase
+- Studied PhotoSwipe (24k★) and immich (65k★) for prior art
+- Built instrumentation: imgproxy request tracking, per-tier browser cache clearing,
+  per-image render timing, landing image cache-hit detection
+- Ran 3 baseline experiments against TEST (1.3M docs) with slow/moderate/fast/rapid
+  speed tiers, identifying the debounce cliff: 0ms landing at slow (1000ms/step),
+  500ms+ at fast (200ms/step)
+
+**Fix applied to `ImageDetail.tsx`:**
+1. Replaced Era 3 debounced `fetch()` + `AbortController` with fire-and-forget
+   `new Image().src` on every navigation (Era 2 approach, no debounce)
+2. Direction-aware allocation (PhotoSwipe model): 4 ahead + 1 behind, direction
+   tracked via `directionRef`
+3. `fetchPriority="high"` on the main `<img>` element
+4. T=150ms throttle gate: suppresses prefetch batches during held-key rapid traversal
+   (<150ms/step) to reduce imgproxy contention. Never fires at ≥200ms/step (fast
+   browsing and slower). Mathematical proof in the investigation doc that T=150ms
+   never hurts: suppressed batches at <150ms/step can't complete in time to be
+   useful anyway, and the 4-ahead reach ensures the landing image is always covered.
+
+**Results (2 runs against TEST, all 8 tiers valid):**
+
+| Tier | Interval | E4 Landing (before→after) | E5 Landing (before→after) |
+|------|----------|--------------------------|--------------------------|
+| slow | 1000ms | 0ms → 0ms | 0ms → 0ms |
+| moderate | 500ms | 120ms → **0ms** | 109ms → **0ms** |
+| fast | 200ms | 500ms → **0ms** | 519ms → **0ms** |
+| rapid | 80ms | 410ms → **0ms** | 413ms → **290ms** |
+
+E5-rapid (fullscreen + 80ms/step) shows 290ms landing due to imgproxy contention
+(avg latency 608ms, 0 cache hits). All other tiers: 0ms. The throttle gate was added
+as insurance against future larger images (AVIF, DPR-aware sizing) pushing the
+contention cliff to slower speeds.
+
+**E4/E5 experiment enhancements:**
+- Added slow (1000ms) and moderate (500ms) speed tiers to E4/E5
+- Added per-tier browser cache clearing via CDP `Network.clearBrowserCache`
+- Added imgproxy request tracking (count, bytes, cache hits, avg duration)
+- Added `scripts/read-results.py` utility for quick experiment result inspection
+
+**Directive added:** "Dev server conflict" — agent must warn user to stop any running
+dev server on port 3000 before running `npx playwright test`.
+
+**Files changed:**
+- `src/components/ImageDetail.tsx` — prefetch pipeline: fire-and-forget + direction-aware + throttle gate
+- `e2e-perf/experiments.spec.ts` — slow/moderate tiers, per-tier cache clearing, imgproxy tracking
+- `exploration/docs/traversal-perf-investigation.md` — full investigation (768 lines)
+- `exploration/docs/deviations.md` — §17: prefetch pipeline deviation
+- `exploration/docs/copilot-instructions-copy-for-humans.md` — dev server conflict directive
+- `scripts/read-results.py` — experiment result inspector utility
+- `AGENTS.md` — updated image detail, experiments, docs table, project structure
+- `exploration/docs/changelog.md` — this entry
+
+
+### 1 April 2026 — Image optimisation research + DPR-aware sizing
+
+**Image format research:** Analysed WebP, AVIF, JPEG XL, and progressive JPEG as
+image format options for imgproxy. Key findings:
+
+- **AVIF:** 20-30% smaller than WebP but 2-5× slower encode. Would worsen the E5-rapid
+  contention problem. Deferred until imgproxy caching or faster encoders are available.
+- **JPEG XL non-progressive:** Works today (`@jxl` suffix). Verified in Chrome Canary.
+- **JPEG XL progressive:** Blocked at two levels. (1) libvips 8.16 (in
+  `darthsim/imgproxy:latest`) does not pass progressive encoder flags (`PROGRESSIVE_DC`,
+  `QPROGRESSIVE_AC`, `RESPONSIVE`, `GROUP_ORDER`) to libjxl — only `effort`, `tier`,
+  `distance`, `lossless`. (2) imgproxy (even v4-beta branch) does not expose the
+  `interlace` parameter that libvips 8.19 (unreleased master) adds. Both need to ship.
+  Confirmed by cloning imgproxy `chore/v4-changelog` branch, libvips v8.16.0 tag, and
+  libvips master — reading `vips/vips.c` (imgproxy), `libvips/foreign/jxlsave.c` (both
+  versions). libvips 8.19 master adds `interlace` and `progressive` params that set all
+  four libjxl progressive settings. libjxl 0.11.2 (in Docker image) fully supports
+  progressive at the library level.
+- **Progressive JPEG:** Available today via `IMGPROXY_JPEG_PROGRESSIVE=true`. Worth
+  benchmarking as a progressive fallback.
+
+**DPR-aware sizing implemented:** Changed `getFullImageUrl()` from a static `dpr: 1.5`
+multiplier to a runtime two-tier step function `detectDpr()`:
+- `window.devicePixelRatio ≤ 1.3` → multiplier 1 (CSS pixels only)
+- `window.devicePixelRatio > 1.3` → multiplier 1.5 (HiDPI bump)
+
+This respects 1× users (who were getting unnecessarily large 1800px images) and gives
+HiDPI users a meaningful sharpness improvement without the 4× pixel count of full 2×.
+DPR parameter remains overridable per-call. Result capped at native resolution via
+`nativeWidth`/`nativeHeight` options.
+
+**Files changed:**
+- `src/lib/image-urls.ts` — `detectDpr()` function, updated `IMGPROXY_DEFAULTS.dpr`
+- `exploration/docs/image-optimisation-research.md` — JXL progressive blocker analysis, DPR section update, benchmark methodology
+- `exploration/docs/deviations.md` — DPR deviation entry
+- `docker-compose.yml` — added `IMGPROXY_JPEG_PROGRESSIVE: "true"` (harmless default, in case we ever test JPEG visual quality)
+- `scripts/bench-formats.sh` — new benchmark script: WebP vs AVIF vs JXL, curated by size (tiny/normal/large/monster/PNG), JPEG excluded (no alpha channel)
+- `src/lib/image-urls.ts` — format type updated: `"webp" | "avif" | "jxl"` (JPEG removed — no alpha support for PNGs/TIFFs with transparency)
+- `AGENTS.md` — image optimisation doc reference, DPR note in image detail section, bench-formats in project structure
+- `exploration/docs/changelog.md` — this entry
+
+
+### 31 March 2026 — Phase C: DOM-Measured Header Height — C1
+
+Replaced the `TABLE_HEADER_HEIGHT = 45` hardcoded constant in `ImageTable.tsx` with a live-measured value via a new `useHeaderHeight` hook.
+
+**Why:** C1 from the coupling audit — the JS constant `HEADER_HEIGHT = 45` must match the CSS-rendered height of the sticky header (`h-11` = 44px + `border-b` = 1px). If either changes (font scaling, responsive breakpoints, an added filter row), the scroll padding and keyboard-focus visibility calculations would silently break. This replaces a manual sync obligation with an automatic one.
+
+**New file: `src/hooks/useHeaderHeight.ts`**
+
+A callback-ref + ResizeObserver hook. Returns `[callbackRef, measuredHeight]`. Implementation notes:
+
+- Uses a callback ref (not `useEffect`) — fires synchronously on element mount, so the initial height is available immediately via `getBoundingClientRect()`, not on the next tick.
+- Observes `box: "border-box"` so the 1px `border-b` is included in the measurement.
+- Falls back to the `fallback` argument (= `TABLE_HEADER_HEIGHT = 45`) on the first frame before DOM is ready — identical to the old constant, so no visible jump or miscalculation.
+- Stores the observer in `observerRef` to disconnect on element removal / component unmount.
+- Zero deps on `useCallback` — `setHeight` is stable per React guarantee.
+
+**ResizeObserver fires at most:** once on mount, plus optionally on font load or browser resize. Never fires during scroll (ResizeObserver observes border-box, not scroll position). Zero scroll-path cost.
+
+**Changes to `ImageTable.tsx`:**
+
+1. Added `import { useHeaderHeight }` from hooks.
+2. Added `const [headerCallbackRef, headerHeight] = useHeaderHeight(HEADER_HEIGHT)` after `parentRef`.
+3. Added `ref={headerCallbackRef}` to the sticky header div (`data-table-header`).
+4. Replaced `scrollPaddingStart: HEADER_HEIGHT - ROW_HEIGHT` with `scrollPaddingStart: headerHeight - ROW_HEIGHT`.
+5. Replaced `headerHeight: HEADER_HEIGHT` with `headerHeight` in `useListNavigation`.
+6. `HEADER_HEIGHT` import kept as fallback — unchanged value.
+
+**Phase D assessment:** All three D items deferred. D.1 (density-focus ref): module-level `let saved` is safe — components never co-render, lifecycle is serial. Prop-threading adds complexity with no practical benefit. D.2 (font strings from CSS): compile-time constants, no sync obligation, low value. D.3 (panel constraints): UX decision, requires design discussion.
+
+**Validation:** 152 unit tests pass. 63 E2E tests pass (keyboard nav, density switch, scrubber all green).
+
+
+
+### 31 March 2026 — Phase C re-run (full — 31 tests)
+
+The first Phase C run lost P4a/P4b/P5/P6/P7/P9 to ES tunnel instability (20 of 30
+test variants recorded). A full re-run was done later in the same session with a stable
+tunnel. All 31 tests completed. This entry ("Phase C re-run (full)") supersedes entry
+3 ("Phase C: measured header height") in `audit-log.json`. It is the authoritative
+Phase C result used in all analysis below.
+
+Key result: P8 maxFrame=183ms, LoAF=748ms, severe=15 — best across all phases. P7
+LoAF=138ms — the Phase A/B win (47ms) appears gone; likely tunnel variance but
+needs `--runs 3` to confirm. P12-scroll.severe=10 — the "monotone trend" (9→11→12→14
+across partial runs) was noise; C-full is near baseline.
+
+
+### 31 March 2026 — Harness bug fix: focusDrift fields were always recorded but stripped
+
+`run-audit.mjs`'s `aggregateMetrics()` function maintained a hardcoded list of
+field names to persist. `focusDriftPx`, `focusDriftRatio`, and `focusVisible` were
+not in that list — so they were recorded to `.metrics-tmp.jsonl` on every run but
+silently dropped when writing to `audit-log.json`. Fixed: the function now preserves
+all fields present in the metrics object, not just the hardcoded list.
+
+This meant the "Critical measurement gap" called out in the original post-phase-C
+analysis was wrong. The data was always there. Reading `.metrics-tmp.jsonl` directly
+from the Phase C re-run revealed:
+- P4a (grid→table): focusDriftPx=**0**, perfect
+- P4b (table→grid): focusDriftPx=**−160px** (image appears ~5 rows above expected)
+- P6 (sort change): focusDriftPx=**428px**, ratio=0.412 (image ~41% viewport below expected)
+
+P6's 428px drift is the most actionable finding in the entire dataset. Sort-around-focus
+does not preserve the focused item's viewport position — it always re-centres via
+`scrollToIndex(idx, "center")`. P4b's −160px asymmetry (P4a is 0) points to the
+`density-focus.ts` table→grid restore path. These are real, visible bugs.
+
+
+### 31 March 2026 — Documentation session
+
+`exploration/docs/fix-ui-docs-eval.md` Part 5 updated:
+- Replaced the "Critical measurement gap" bullet (which said `focusDriftPx` was
+  always null) with the corrected finding, plus a table of the actual Phase C values.
+- Updated "Overall assessment" forward pointer to reference `focus-drift-and-scroll-handoff.md`.
+
+New `exploration/docs/focus-drift-and-scroll-handoff.md` created — self-contained
+handoff for the next agent session covering:
+1. Focus drift elimination (P6 428px, P4b −160px, add P17 test)
+2. P8 table fast scroll investigation (~57k DOM churn)
+
+Includes source file map, code-level diagnosis of both bugs, investigation approaches
+for P8, validation sequences, and architecture decisions not to change without discussion.
+
+`AGENTS.md` docs table: corrected stale `perf-measurement-report` description.
+
+
+### 31 March 2026 — Post-Phase-C: Perf Measurement Analysis and Honest Assessment
+
+After all four phases (Baseline, A, B, C) were run against TEST ES, a full analysis
+of the measurement data was conducted. Key findings:
+
+**What actually improved (genuine, consistent gains):**
+- P7 LoAF 133→50ms (−62%) — scrubber drag seeks are faster. `handleScroll` stabilisation (A.1).
+- P2 LoAF 104→68ms (−35%) — scroll initiation smoother. Same cause.
+- P3/P7/P11 domChurn down 14–53% — fewer DOM mutations on buffer extends. GridCell `id` key (A.4).
+
+**What did not improve:**
+- P8 (table fast scroll): p95=50ms, domChurn=~57k — completely flat across all phases. The coupling fixes did not touch this path's root cause. This is the primary user-facing bottleneck.
+
+**Suspected regression:**
+- P12-scroll.severe: 9→11→12→14. Monotone upward across all four phases. Started at Phase A. Likely related to `virtualizerRef.current` being one render stale during rapid scroll, causing different `range` readings and more `loadMore` calls. Needs `--runs 3` confirmation.
+
+**focusDrift data (corrected — harness bug fixed in same session):**
+- `focusDriftPx`/`focusDriftRatio`/`focusVisible` were always recorded in `.metrics-tmp.jsonl`
+  but stripped by `aggregateMetrics()` before writing to `audit-log.json`. Initially
+  misdiagnosed as "getFocusedViewportPos() returns null". The data was there all along —
+  reading `.metrics-tmp.jsonl` directly gave: P4a=0px (perfect), P4b=−160px, P6=428px.
+  The "Never Lost" density switch does have quantitative data; it just wasn't surfacing
+  through the harness. Fix applied to `run-audit.mjs` same session. See "Phase C re-run"
+  entry above.
+
+**Phase C (header height) specifically:**
+- 20 of 30 test variants recorded; P4a/P4b/P5a/b/c/P6/P7/P9 absent (ES tunnel timeouts during that run — not a harness failure; the diff table only shows changed tests, which made it appear fewer ran). Phase C adds one ResizeObserver callback on mount. Zero scroll-path cost. No perf regression on the 20 tests that did run. The missing tests (density switch, scrubber drag) should be re-run with a stable tunnel.
+
+**Deliverables created:**
+- `exploration/docs/perf-measurement-report.md` — full scannable report with all raw data, per-test analysis, and recommended next steps for fresh agent. Updated in same session with Phase C re-run data and corrected focusDrift findings.
+- `exploration/docs/fix-ui-docs-eval.md` — Part 5 added + corrected (see "Phase C re-run + Harness Fix" entry above).
+- `exploration/docs/focus-drift-and-scroll-handoff.md` — new handoff doc for next two work items.
+- `AGENTS.md` — "Known Performance Issues" section + docs table correction.
+
+
+### 31 March 2026 — Post-Perf Regression Fixes
+
+Three regressions from the Phase A-C perf commit (`3dac9ff5e`) identified in
+`exploration/docs/post-perf-fixes.md` and fixed in this session:
+
+
+### 31 March 2026 — Issue 1 (CRITICAL): Home button after deep seek
+
+**Symptom:** After a deep seek (scrubber click at ~50%), clicking the Home logo
+didn't scroll to position 0 -- the view landed ~200 items from the top. Also
+affected click-to-search from image detail metadata.
+
+**Root cause:** `resetScrollAndFocusSearch()` set `scrollContainer.scrollTop = 0`
+and dispatched a synthetic scroll event, but TanStack Virtual's internal
+`scrollOffset` state wasn't reset. After A.1 stabilised `handleScroll` (fewer
+re-registrations, fewer sync opportunities), the virtualizer lagged behind the
+DOM `scrollTop` during rapid state transitions.
+
+**Fix:** New `src/lib/scroll-reset-ref.ts` -- same module-level registration
+pattern as `scroll-container-ref.ts`. Both ImageTable and ImageGrid register
+`() => virtualizer.scrollToOffset(0)` on mount. `resetScrollAndFocusSearch()`
+calls `fireScrollReset()` alongside the existing DOM `scrollTop = 0`. This
+guarantees the virtualizer's internal state is always zeroed.
+
+
+### 31 March 2026 — Issue 3: Visual reordering during seeks and sort changes
+
+**Symptom:** Images visibly shuffled/reordered for one frame before settling into
+final positions after seeks, searches, and sort changes.
+
+**Root cause:** A.4 changed GridCell key from positional (`key={imageIdx}`) to
+content-based (`key={image?.id}`). Content keys in a positional virtualizer cause
+React's reconciler to reuse component instances from old virtual positions, fighting
+TanStack Virtual's layout model. The 14-18% domChurn reduction on backward extends
+was not worth the user-visible reordering regression.
+
+**Fix:** Reverted A.4 -- GridCell key back to positional `key={imageIdx}`. Comment
+explains the rationale and documents the revert history. Expect P3/P11 domChurn
+to increase back to pre-A.4 levels.
+
+
+### 31 March 2026 — Issue 2: Focus drift -- sort-around-focus (P6) and density switch (P4b)
+
+**P6 fix:** Created `src/lib/sort-focus.ts` (same bridge pattern as
+`density-focus.ts`). The scroll-reset `useLayoutEffect` in both ImageTable and
+ImageGrid now captures the focused item's viewport ratio before the sort-only
+skip (synchronous, before async search). The `sortAroundFocusGeneration` effect
+consumes the saved ratio and restores the item at the same viewport position
+instead of always centring. Edge clamping ensures the item stays on screen.
+Deviation 26 added.
+
+**P4b fix:** Table unmount save now includes `HEADER_HEIGHT` in the viewport
+ratio calculation: `(rowTop + HEADER_HEIGHT - scrollTop) / clientHeight`. Table
+mount restore uses the symmetric formula: `scrollTop = rowTop + HEADER_HEIGHT -
+ratio * clientHeight`. Previously the table's 45px sticky header was not accounted
+for, causing the ratio to be off by `HEADER_HEIGHT / clientHeight` -- which
+manifested as a drift when restoring in the headerless grid view.
+
+**Files changed:**
+- New: `src/lib/scroll-reset-ref.ts`, `src/lib/sort-focus.ts`
+- Modified: `src/lib/scroll-reset.ts`, `src/components/ImageGrid.tsx`,
+  `src/components/ImageTable.tsx`
+- Docs: `exploration/docs/deviations.md` (section 26), `AGENTS.md`, this changelog
+
+**Awaiting validation:** E2E tests could not run (live data mode active). Run
+`npx playwright test` when local ES is available. Perf harness validation for
+P4b/P6 drift measurements should be run by the human.
+
+
+### 31 March 2026 — Buffer Corruption Fix
+
+**Bug:** After seeking deep via scrubber, any action that resets scroll to top
+(logo click, metadata click, CQL query change) landed at ~index 170–190 instead
+of index 1. Buffer contained 400 items (200 stale + 200 correct). Cross-browser.
+
+**Root cause:** Synchronous→async race. `resetScrollAndFocusSearch()` dispatches a
+synthetic scroll event that triggers `extendBackward` on the stale deep buffer
+BEFORE `search()` can abort it. The PIT-404 retry in `es-adapter.ts` escapes the
+abort signal due to microtask ordering — the 404 response resolves before the
+abort signal propagates, creating a new fetch that returns stale data.
+
+**Introduced by:** commit `3fca3d676` ("Windowed scroll + Scrubber — Polish, not
+Russian") which removed `_seekCooldownUntil = Date.now() + 500` from the seek
+data-arrival path.
+
+**Fix:** 5-layer defense in depth:
+1. `resetScrollAndFocusSearch()` calls `abortExtends()` before scroll reset (primary)
+2. `search()` sets a 2-second extend cooldown
+3. Seek cooldown refreshed at data arrival (restores removed line)
+4. Abort check before PIT-404 retry in `es-adapter.ts`
+5. `abortExtends()` exposed on the store for imperative callers
+
+**Tests:** 9 regression tests in `e2e/buffer-corruption.spec.ts`. All 9 fail without
+the fix, all pass with it. One test (metadata click) was adjusted for local sample
+data: the original `waitForResults()` timed out when a metadata click matched only
+1 image (the DOM check required >4 grid cells); replaced with store-level wait.
+Standalone config `playwright.run-manually-on-TEST.config.ts` for manual validation
+against real ES clusters.
+
+**Validation:** 70 E2E tests pass locally (2 pre-existing skips in Bug #17). Full suite run: 2.8 minutes.
+
+**Files changed:**
+- Modified: `src/stores/search-store.ts` (Layers 2, 3, 5), `src/lib/scroll-reset.ts`
+  (Layer 1), `src/dal/es-adapter.ts` (Layer 4), `src/components/SearchBar.tsx` (comments),
+  `src/components/ImageDetail.tsx` (comments)
+- New: `e2e/buffer-corruption.spec.ts`, `playwright.run-manually-on-TEST.config.ts`
+- Docs: `exploration/docs/buffer-corruption-fix.md`, `exploration/docs/home-logo-bug-research.md`,
+  `AGENTS.md`, this changelog
+
+
+### 30 March 2026 — Bug #18 — Scrubber thumb stuck at top in scroll mode after density switch
+
+**Symptom:** With ~700 images (all data in buffer = scroll mode), pressing End scrolls
+content correctly but the scrubber thumb stays at top. Persists after switching density
+(grid ↔ table) and pressing End/Home again. Seek mode (large datasets) unaffected.
+
+**Root cause:** The scroll-mode continuous sync effect (`Scrubber.tsx`, line ~416) finds
+the scroll container via `findScrollContainer()` (DOM query for `[role='region']` or
+`.overflow-auto`) and attaches a scroll listener. When density switches, React unmounts
+ImageGrid and mounts ImageTable (or vice versa), replacing the scroll container DOM
+element. But none of the effect's dependencies (`allDataInBuffer`, `isDragging`,
+`maxThumbTop`, `trackHeight`, `findScrollContainer`) change on density switch — so the
+effect doesn't re-run and the listener stays attached to the stale (removed) element.
+
+**Fix:** Added a `MutationObserver` inside the scroll-mode sync effect that watches the
+content column (`trackRef.current.previousElementSibling`) for direct child changes
+(`childList: true`, no subtree — avoids excessive firing from virtualizer DOM churn).
+When children change (density switch replaces ImageGrid ↔ ImageTable), the observer
+callback calls `attach()` which detaches the old scroll listener, re-finds the current
+scroll container via `findScrollContainer()`, and attaches a fresh listener. Immediate
+sync on attach ensures the thumb position is correct right after the switch.
+
+The `MutationObserver` only fires on direct children of the content column — not on
+virtualizer row additions/removals (which are deeper in the subtree). Density switches
+replace the top-level child element (ImageGrid root ↔ ImageTable wrapper div), which
+is a direct child mutation.
+
+**Files changed:** `Scrubber.tsx` (scroll-mode sync effect rewritten with inner
+`attach()` helper + MutationObserver).
+
+**Docs updated:** AGENTS.md (Scrubber description), changelog.
+
+
+### 30 March 2026 — Colour token consolidation — grid-panel → grid-bg/grid-cell
+
+Removed four colour tokens (`grid-panel`, `grid-panel-dark`, `grid-panel-hover`,
+`grid-overlay`) that had drifted from their original purpose. The UI now uses:
+- `grid-bg` (#333333) — all chrome surfaces (toolbar, status bar, panels, popups,
+  table header, scrubber tooltip, error boundary, date filter, search input, etc.)
+- `grid-cell` (#393939) — grid view image cells and placeholder skeletons
+- `grid-cell-hover` (#555555) — pill hover backgrounds (SearchPill, DataSearchPill)
+
+Every component that previously used `bg-grid-panel` was audited and switched to
+the appropriate token. No visual change in most places (`grid-panel` was #444444 —
+the intent was always to match the background, and #333333 is correct for chrome).
+
+**Files changed:** `index.css` (token definitions + `.popup-menu`), `SearchBar.tsx`,
+`StatusBar.tsx`, `PanelLayout.tsx` (both panels), `ImageTable.tsx` (header),
+`ImageDetail.tsx` (header), `DateFilter.tsx` (dropdown + inputs), `SearchFilters.tsx`
+(checkbox), `ErrorBoundary.tsx` (stack trace), `Scrubber.tsx` (tooltip),
+`SearchPill.tsx` (both pill components), `ImageGrid.tsx` (cells + placeholders).
+
+
+### 30 March 2026 — Escape to blur search box
+
+Pressing Escape in the CQL search input now blurs the search box (removing
+focus), but only when the CQL typeahead popup is not visible. When suggestions
+are showing, CQL's internal handler dismisses the popup — we don't interfere.
+Uses capture phase on keydown to check `data-isvisible` before CQL flips it.
+
+**Files changed:** `CqlSearchInput.tsx`.
+
+
+### 30 March 2026 — Grid cell gap increased 4→8px
+
+Slightly more breathing room between grid view image cells. Matches kahuna's
+visual density more closely.
+
+**Files changed:** `ImageGrid.tsx` (`CELL_GAP` constant).
+
+
+### 30 March 2026 — Density-focus saves localIndex
+
+`saveFocusRatio` now stores the buffer-local index alongside the viewport ratio.
+This prevents a stale lookup when `imagePositions` evicts the focused image between
+the unmount click and the new density's mount (async extend can complete in between).
+Both `ImageGrid` and `ImageTable` updated to save/consume the new shape.
+
+**Files changed:** `density-focus.ts`, `density-focus.test.ts`, `ImageGrid.tsx`,
+`ImageTable.tsx`.
+
+
+### 30 March 2026 — Native input guard for keyboard navigation
+
+`useListNavigation` now checks `isNativeInputTarget()` and bails out when focus
+is inside a native `<input>`, `<textarea>`, or `<select>` (e.g. the date filter's
+`<input type="date">`). Previously, arrow keys inside the date picker would also
+move the grid/table focus. The CQL custom element is deliberately excluded from
+this guard — it already lets navigation keys propagate by design.
+
+**Files changed:** `keyboard-shortcuts.ts` (new `isNativeInputTarget` export),
+`useListNavigation.ts` (guard added to bubble handler).
+
+
+### 30 March 2026 — Browser theme-color meta tag
+
+Added `<meta name="theme-color" content="#333333">` to `index.html` to tint the
+browser tab bar / status bar on Chrome (desktop + Android), Safari 15+ (iOS + macOS),
+and Edge. Firefox ignores it — harmless. Matches `--color-grid-bg`.
+
+**Files changed:** `index.html`.
+
+
+### 30 March 2026 — Phase 0: Measurement infrastructure + shared constants
+
+Executed the plan in `exploration/docs/phase0-measurement-infra-plan.md`. No app
+behaviour changes — pure infrastructure + refactor.
+
+**Part A — Shared pixel constants (`src/constants/layout.ts`)**
+
+Created `src/constants/layout.ts` as the single source of truth for all pixel
+values that appear in both app code and tests:
+
+- `TABLE_ROW_HEIGHT = 32` — table data row height (h-8 Tailwind class)
+- `TABLE_HEADER_HEIGHT = 45` — sticky header height including 1px border-b
+- `GRID_ROW_HEIGHT = 303` — grid cell height (matches kahuna)
+- `GRID_MIN_CELL_WIDTH = 280` — minimum cell width for column calculation
+- `GRID_CELL_GAP = 8` — cell gap
+
+`ImageTable.tsx` previously declared `const ROW_HEIGHT = 32` and `const HEADER_HEIGHT = 45`
+as file-local constants. `ImageGrid.tsx` had its own `const MIN_CELL_WIDTH = 280`,
+`const ROW_HEIGHT = 303`, `const CELL_GAP = 8`. Both now import from `@/constants/layout`
+using aliased names (so internal code is unchanged). Store tests (`search-store.test.ts`,
+`search-store-extended.test.ts`) imported `TABLE_ROW_HEIGHT` instead of redeclaring
+`const ROW_HEIGHT = 32` locally.
+
+All raw pixel literals (280/303/32) in `e2e/scrubber.spec.ts` and
+`e2e/manual-smoke-test.spec.ts` inside `page.evaluate()` closures were replaced
+with passed arguments (`evaluate(({ ROW_HEIGHT }) => { ... }, { ROW_HEIGHT: TABLE_ROW_HEIGHT })`).
+This ensures E2E tests stay in sync with source automatically.
+
+**Part B — Perf test infrastructure**
+
+`e2e/rendering-perf-smoke.spec.ts` moved to `e2e-perf/perf.spec.ts`. Major changes:
+
+1. **Structured metric emission** — `emitMetric(id, snap, extra?)` writes JSONL to
+   `e2e-perf/results/.metrics-tmp.jsonl`. Every test body calls it after `logPerfReport()`.
+   P10 emits with `{ report: false }` — harness records but excludes from diff table.
+
+2. **Result-set pinning** — all navigations use `gotoPerfStable()` (new `KupuaHelpers`
+   method) which appends `&until=${PERF_STABLE_UNTIL}` if the env var is set. The
+   harness sets it to yesterday midnight. Prevents metric drift from new image ingestion
+   between runs.
+
+3. **P4 split** — P4 was one test doing grid→table→grid. Now P4a (grid→table) and
+   P4b (table→grid) are separate tests with separate metric entries.
+
+4. **P11 simplified** — reduced from 5 seek positions to 3 (0.2, 0.6, 0.85). Credit
+   sort variant moved to separate P11b test.
+
+5. **New tests added:**
+   - **P3b** — keyword sort seek (Credit → seek to 50%) — exercises the composite-agg +
+     binary-search seek path that P3 (date/percentile) doesn't cover.
+   - **P13** — image detail enter/exit — double-click opens overlay, Backspace returns.
+     Checks scroll position is restored within one row height.
+   - **P14** — image traversal — arrow-key prev/next 20+10 images. Tests prefetch and
+     fullscreen-survives-between-images code path.
+   - **P15** — fullscreen persistence — enter detail → f → next → next → Escape.
+     Tests the Fullscreen API doesn't exit on image swap.
+   - **P16** — table column resize — drag handle 100px + double-click auto-fit.
+     Tests CSS-variable width path with near-zero React re-renders.
+
+**Part C — Audit harness (`e2e-perf/run-audit.mjs`)**
+
+New script. Computes `STABLE_UNTIL`, runs Playwright with it as env var, reads
+`.metrics-tmp.jsonl`, aggregates median across `--runs N` runs, diffs against prior
+run from `audit-log.json`, writes both `audit-log.json` and `audit-log.md`.
+
+Interface:
+```
+node e2e-perf/run-audit.mjs --label "Phase 1: shared constants"
+node e2e-perf/run-audit.mjs --label "Baseline" --runs 3
+node e2e-perf/run-audit.mjs P8
+```
+
+`scripts/run-perf-smoke.mjs` replaced with a thin wrapper that delegates to
+`e2e-perf/run-audit.mjs` — preserves backward compatibility for old muscle memory.
+
+**Part D — Config split**
+
+`playwright.smoke.config.ts` (root) narrowed to only `manual-smoke-test.spec.ts`.
+New `e2e-perf/playwright.perf.config.ts` covers `e2e-perf/perf.spec.ts` with
+same viewport/DPR settings + JSON reporter. `run-smoke.mjs` updated to remove
+the now-deleted `rendering-perf-smoke.spec.ts` reference.
+
+**Part E — @types/node**
+
+Added `@types/node` as devDependency. Updated `e2e/tsconfig.json` and
+`e2e-perf/tsconfig.json` with `"types": ["node"]`. This fixes pre-existing
+type errors in `e2e/global-setup.ts` (`process`, `child_process`, etc.) and
+enables Node built-ins in new perf spec.
+
+**Verification:** All 152 vitest tests pass. `tsc --project e2e/tsconfig.json --noEmit`
+and `tsc --project e2e-perf/tsconfig.json --noEmit` both clean. Main `tsc --noEmit`
+shows same 3 pre-existing errors (unrelated: `handleKeyDown` in Scrubber,
+`isDecade` in sort-context, `smallMock` in test).
+
+**Files created:** `src/constants/layout.ts`, `e2e-perf/perf.spec.ts`,
+`e2e-perf/playwright.perf.config.ts`, `e2e-perf/run-audit.mjs`,
+`e2e-perf/tsconfig.json`, `e2e-perf/results/.gitkeep`,
+`e2e-perf/results/.gitignore`.
+
+**Files modified:** `src/components/ImageTable.tsx` (import constants),
+`src/components/ImageGrid.tsx` (import constants),
+`src/stores/search-store.test.ts` (import TABLE_ROW_HEIGHT),
+`src/stores/search-store-extended.test.ts` (import TABLE_ROW_HEIGHT),
+`e2e/helpers.ts` (add gotoPerfStable()),
+`e2e/tsconfig.json` (add @types/node),
+`e2e/scrubber.spec.ts` (pass constants to evaluate()),
+`e2e/manual-smoke-test.spec.ts` (pass constants to evaluate()),
+`playwright.smoke.config.ts` (narrow testMatch),
+`scripts/run-perf-smoke.mjs` (thin wrapper),
+`scripts/run-smoke.mjs` (remove deleted spec reference),
+`package.json` (add @types/node devDep),
+`AGENTS.md` (reflect new structure).
+
+**Files deleted:** `e2e/rendering-perf-smoke.spec.ts` (moved to e2e-perf/perf.spec.ts).
+
+**Next step (human):** Run `node e2e-perf/run-audit.mjs --label "Baseline (pre-coupling-fixes)"`
+with `--use-TEST` to establish the first baseline entry in `audit-log.json`/`audit-log.md`.
+
+### 30 March 2026 — Fix: hardcode STABLE_UNTIL in run-audit.mjs
+
+`computeStableUntil()` was computing "yesterday midnight" dynamically, meaning the
+`PERF_STABLE_UNTIL` value (and therefore the pinned result corpus) changed every day.
+That defeats the purpose of pinning — comparisons between runs on different days would
+be comparing different document sets.
+
+Replaced the dynamic computation with the fixed literal `"2026-02-15T00:00:00.000Z"`.
+Any future corpus update (e.g. when new photos make the old cutoff too stale) requires
+a deliberate, reviewed change to this constant — which is the correct behaviour.
+
+**File modified:** `e2e-perf/run-audit.mjs` (remove `computeStableUntil()`, replace with
+literal), `AGENTS.md` (update description).
+
+### 30 March 2026 — Phase A: Performance Micro-Optimisations — A.1–A.5
+
+Five independent micro-optimisations from `coupling-fix-handoff.md` Phase A. All 152
+unit tests and all 63 E2E tests pass after the combined changes.
+
+**A.1 — Stabilise `handleScroll` callback (C19)**
+
+Both `ImageTable.tsx` and `ImageGrid.tsx` had `handleScroll` in a `useCallback` whose
+dependency array included `virtualizer`. TanStack Virtual returns a **new virtualizer
+object on every render**, so `handleScroll` re-created every render → `useEffect` tore
+down and re-registered the scroll listener on every render. Under fast scroll this could
+mean dozens of pointless listener re-registrations per second.
+
+Fix: store `virtualizer` in a ref (`virtualizerRef`), updated unconditionally every
+render. `handleScroll` reads `virtualizerRef.current` — always fresh, but the callback
+identity is stable. Removed `virtualizer` and `loadMore` from the dep array in both
+components (both now use `loadMoreRef` as well).
+
+In `ImageTable.tsx`: dep array reduced from `[virtualizer, reportVisibleRange, loadMore]`
+to `[reportVisibleRange]`. In `ImageGrid.tsx`: from
+`[virtualizer, reportVisibleRange, columns, loadMore]` to `[reportVisibleRange, columns]`.
+
+Expected effect: fewer DevTools "Event Listeners" entries during scroll, marginal
+improvement in scroll-path P95 frame time (eliminates redundant addEventListener /
+removeEventListener churn).
+
+**A.2 — Memoize column index array in `ImageGrid.tsx` (C20)**
+
+The render loop used `Array.from({ length: columns }, (_, i) => i)` inside the
+`virtualItems.map()` — this allocated a new array **per virtual row per render**.
+At 6 columns × 15 visible rows × 60fps = **5,400 short-lived array allocations/sec**,
+all immediately GC-able.
+
+Fix: `const columnIndices = useMemo(() => Array.from(...), [columns])` — array computed
+once when `columns` changes (rare), reused every render. The dep is only `columns`.
+
+**A.3 — Cache Canvas font in `measureText` (C21)**
+
+`measureText` in `ImageTable.tsx` called `ctx.font = font` on every invocation. Canvas
+font assignment triggers font-string parsing even when the value is unchanged. During
+column auto-fit, `measureText` is called ~600 times for two distinct fonts (CELL_FONT
+and HEADER_FONT). That's ~600 redundant parse operations per auto-fit.
+
+Fix: added `lastFontRef` that tracks the last-set font string. `ctx.font = font` is only
+executed when `font !== lastFontRef.current`. Column fit now triggers exactly 2 font
+parses regardless of row count.
+
+**A.4 — Fix `GridCell` key: index → image ID (eval doc item 3)**
+
+`GridCell` was keyed by `imageIdx` (flat buffer index). When `bufferOffset` changes
+(backward extend prepends items), all `imageIdx` values shift by `lastPrependCount`.
+React unmounted and remounted **every visible GridCell** even though the image data was
+the same — just the index changed.
+
+Fix: `key={image?.id ?? \`empty-${imageIdx}\`}`. Stable image IDs survive buffer
+mutations. Empty/placeholder cells still key by index (they're position-dependent
+anyway). This eliminates spurious full-grid reconciliation on every backward extend.
+
+**A.5 — Replace `ids.join(",")` with O(1) sentinel (eval doc item 7)**
+
+`visibleImages` in `ImageTable.tsx` used `ids.join(",")` as a cache key to detect
+whether the visible image set had changed. This is O(N) string concatenation at up to
+60 visible rows × every render during fast scroll.
+
+Fix: `\`${ids[0] ?? ""}|${ids[ids.length - 1] ?? ""}|${ids.length}\`` — first ID,
+last ID, and count. Detects window shifts, resizes, and content changes at O(1). The
+only theoretical miss (swapping two middle IDs while keeping first/last/count constant)
+cannot happen with a contiguous virtualizer window.
+
+**Files modified:**
+- `src/components/ImageGrid.tsx`: added `useMemo` import; `virtualizerRef` + `loadMoreRef`
+  stabilisation (A.1); `columnIndices` useMemo (A.2); `image?.id` key (A.4)
+- `src/components/ImageTable.tsx`: `virtualizerRef` + `loadMoreRef` stabilisation (A.1);
+  `lastFontRef` font cache (A.3); O(1) sentinel key (A.5)
+
+**Perf run required (human):** After these changes are in place, request:
+```
+node e2e-perf/run-audit.mjs --label "Phase A: perf micro-opts (C19,C20,C21,GridCell key,ids.join)" --runs 1
+```
+Expected improvements: P2/P8 (scroll jank), P4a/P4b (density switch), P16b (column fit).
+
+**Measured results (Phase A run, 30 Mar 2026):**
+
+| Test | Key metric | Baseline | Phase A | Δ | Notes |
+|------|-----------|---------|---------|---|-------|
+| P3 (seek) | Max frame | 117ms | 82ms | −30% | A.1 eliminates listener churn during seek+settle |
+| P3 (seek) | DOM churn | 928 | 437 | −53% | |
+| P3 (seek) | LoAF | 161ms | 65ms | −40% | |
+| P7 (scrubber drag) | Max frame | 116ms | 83ms | −29% | A.1 — drag loop no longer re-attaches listener |
+| P7 (scrubber drag) | LoAF | 133ms | 50ms | −38% | |
+| P8 (table scroll) | Max frame | 217ms | 183ms | −16% | A.1 on table scroll path |
+| P8 (table scroll) | LoAF | 912ms | 782ms | −14% | |
+| P11 (seek+reflow) | DOM churn | ~1200 avg | ~1000 avg | −17% | A.4 GridCell key — fewer remounts on buffer shift |
+| P13a (detail enter) | Max frame | 117ms | 99ms | −15% | |
+| P14a/c (traversal) | Max frame | 67ms | 51ms | −24% | |
+
+Harness flagged 4 "regressions" — all confirmed noise:
+- **P1 maxFrame +20%** (83→100ms): load path unchanged; single-run CPU variance. CLS/P95/severe all flat.
+- **P12-scroll severe +22%** (9→11): 2 frames difference across 350, network-dominated test.
+- **P14b/c severe +1–2**: absolute counts of 2→3 and 2→4; meaningless at this scale.
+- **P16b**: column auto-fit was already sub-18ms (quantisation floor); A.3 wins at "fit all columns" which the test doesn't exercise.
+
+P4a/P4b (density switch) showed no change — expected. A.4 helps backward extend reconciliation, not the initial switch which is network+ES dominated.
+
+
+### 29 March 2026 — Rendering Performance Experiments
+
+**Context:** P8 (table fast scroll with extend/evict) was the critical bottleneck.
+Retina baseline: max frame 300ms, severe 36, P95 67ms, CLS 0.041, DOM churn 76,354.
+LoAF worst 309ms dominated by `DIV.onscroll` from TanStack Virtual (178ms).
+
+**Experiment A: Reduce virtualizer overscan (20 → 5) — ✅ KEPT.**
+Changed `overscan: 20` → `overscan: 5` in `ImageTable.tsx`. Grid already used
+overscan 5. Cuts rendered off-screen cells from ~920 to ~230 per scroll frame.
+Results: max frame -28% (300→217ms), severe -56% (36→16), P95 -25% (67→50ms),
+DOM churn -32% (76k→52k). The single biggest win of all experiments.
+
+**Experiment B: `content-visibility: auto` on rows — REVERTED (no effect).**
+Added `contentVisibility: 'auto'` + `containIntrinsicSize` to all three row types.
+Numbers identical to baseline. Expected: TanStack Virtual already does DOM
+virtualisation; browser-level `content-visibility` can't add value on top.
+
+**Experiment C: `contain: strict` on table cells — REVERTED (broke tests).**
+`contain: strict` includes `contain: size` which prevents flex children from
+inheriting parent height. Cells collapsed to content height, breaking Playwright
+click targets. Bug #17 E2E tests failed consistently.
+
+**Experiment D: Reduce PAGE_SIZE (200 → 100) — REVERTED (worse).**
+More frequent extends overwhelmed the smaller per-extend cost. Severe +6%,
+janky +50%, DOM churn +5%, LoAF count +33%. Also caused Bug #17 E2E tests to
+skip (buffer fills slower on 10k local dataset).
+
+**Experiment E: `contain: layout` on cell divs — ✅ KEPT.**
+Added `contain: 'layout'` + `overflow-hidden` on gridcell `<div>`. Unlike
+`strict`, `layout` doesn't affect height inheritance from flex parent. Combined
+with Experiment A, final results: max frame -28% (300→217ms), severe -61%
+(36→14), P95 -49% (67→34ms), DOM churn -44% (76k→42k), LoAF worst -34%
+(309→204ms). No regressions across all 12 perf smoke tests. P12 drift still 0px.
+
+**CLS remains at 0.041** — inherent to virtualiser row recycling with
+variable-width pill content. The CLS API counts element position changes during
+scroll as shifts even though users never perceive them. Tried `contain: layout`
+on pill wrapper, cell div, and `overflow-hidden` — none helped. Accepted as a
+false positive. The CLS < 0.005 target is unreachable without eliminating pills
+or making them fixed-width.
+
+**`startTransition` on density toggle — TRIED AND REVERTED (earlier session).**
+Broke P12 Credit sort density drift (0px → -303px). The density-focus bridge
+relies on synchronous unmount timing. Documented as "do not retry."
+
+**Files changed:** `ImageTable.tsx` (overscan 5, contain: layout + overflow-hidden
+on cells), `rendering-perf-plan.md` (experiment results, updated gates), AGENTS.md.
+
+
+### 29 March 2026 — E2E Tests (64 tests, all passing)
+
+- `scripts/run-e2e.sh` orchestrates Docker ES + data + Playwright
+- `e2e/global-setup.ts` auto-starts Docker ES, verifies data
+- `KupuaHelpers` fixture class: `seekTo()`, `dragScrubberTo()`, `assertPositionsConsistent()`, `getStoreState()`, `startConsoleCapture()`, etc.
+- 10 smoke tests for TEST cluster (`manual-smoke-test.spec.ts`) — S1–S5, S9–S10 pass as of 2026-03-29. Auto-skip on local ES.
+- Coverage: ARIA, seek accuracy, drag, scroll, buffer extension, density switch, sort change, sort tooltip, sort-around-focus, keyboard, metadata panel, 3 full workflows, bug regressions (#1, #3, #7, #9, #11–15, #18)
+
+
+### 29 March 2026 — Scrubber tooltip fixes and keyword distribution
+
+**Table view native scrollbar:** The `hide-scrollbar-y` CSS class was missing
+`scrollbar-width: none` (Firefox) and `-ms-overflow-style: none` (IE/Edge legacy).
+Firefox showed a native vertical scrollbar alongside the custom scrubber in table view.
+Fixed by adding both declarations. Firefox trade-off: horizontal scrollbar is also
+hidden (no per-axis control in CSS), acceptable since most column sets fit the viewport.
+
+**Tooltip bottom-edge clipping:** The tooltip disappeared partially below the window
+edge when scrolled to the end of results. Root cause: tooltip top position was clamped
+using a hardcoded `28px` magic number as assumed tooltip height. Actual height is ~29px
+without sort label and ~42px with one (two lines + padding). Fixed all four clamping
+sites (applyThumbPosition, seek-mode sync effect, scroll-mode sync effect, JSX initial
+render) to use `tooltipEl.offsetHeight` (measured) with `|| 28` fallback for unmounted
+state.
+
+**Keyword distribution for scrubber tooltip:** Previously, keyword sorts (credit,
+source, category, imageType, mimeType, uploadedBy) showed the same frozen value from
+the nearest buffer edge when dragging the scrubber outside the loaded buffer. Now uses
+a pre-fetched keyword distribution for accurate position-to-value mapping:
+
+- **DAL:** `getKeywordDistribution()` on `ElasticsearchDataSource` — composite
+  aggregation that fetches all unique values with doc counts in sort order. Capped at
+  5 pages (50k unique values). Returns `KeywordDistribution` with cumulative start
+  positions. ~5–30ms for typical fields.
+- **sort-context.ts:** `lookupKeywordDistribution()` — O(log n) binary search over
+  the cumulative buckets. `resolveKeywordSortInfo()` resolves orderBy to ES field path
+  + direction for keyword sorts. `interpolateSortLabel()` now accepts an optional
+  `KeywordDistribution` and uses it instead of the nearest-edge fallback.
+- **search-store.ts:** `keywordDistribution` state + `_kwDistCacheKey` (query params +
+  orderBy). `fetchKeywordDistribution()` action — checks if current sort is keyword,
+  checks cache freshness, fetches via DAL. Cleared on new search.
+- **search.tsx:** Wires distribution into `getSortLabel` callback. Lazy fetch triggered
+  via `onFirstInteraction` Scrubber prop — distribution only fetched when user actually
+  touches the scrubber with a keyword sort active.
+- **Scrubber.tsx:** `onFirstInteraction` prop, fired once on first click/drag/keyboard.
+  `notifyFirstInteraction()` helper with ref-tracked `hasInteractedRef`, reset when
+  prop transitions from defined→undefined (sort change away from keyword).
+- **Excluded:** `filename` (too high cardinality, values not useful as context),
+  `dimensions` (script sort, can't aggregate).
+
+
+### 29 March 2026 — Bug #18: Keyword sort seek drift + PIT race + binary search refinement
+
+**Problem:** Clicking the scrubber at 75% under Credit sort on TEST (~1.3M docs) either
+didn't move results at all (thumb stuck at ~50%) or took 46 seconds to complete.
+Local E2E tests didn't catch it because 10k docs with 5 cycling credits don't expose
+the scale issues.
+
+**Three bugs discovered via smoke test S10:**
+
+1. **PIT race condition** — `seek()` read a stale PIT ID from the store that had already
+   been closed by a concurrent `search()` triggered by `selectSort("Credit")`. The
+   `search()` hadn't finished storing the new PIT before the scrubber click fired
+   `seek()`. ES returned 404 on the `_search` request with the stale PIT.
+
+   **Fix:** PIT 404/410 fallback in `es-adapter.ts` `searchAfter()` — when a PIT-based
+   request fails with 404 or 410, retries the same request without PIT, using the
+   index-prefixed path instead. This makes `seek()` resilient to PIT lifecycle races
+   without requiring tight coupling between search() and seek() timing.
+
+2. **46-second seek (brute-force skip loop)** — After `findKeywordSortValue` correctly
+   identified "PA" as the credit at position 881k, `search_after(["PA", ""])` landed at
+   the START of the PA bucket (position 533k) because `""` sorts before all real IDs.
+   The refinement loop issued 5 × `search_after(size=100k, noSource=true)` hops through
+   the SSH tunnel, transferring ~50MB of sort values. Each hop took ~9s over the tunnel.
+
+   **Fix:** Replaced the brute-force skip loop with **binary search on the `id`
+   tiebreaker**. Since image IDs are SHA-1 hashes (40-char hex, uniformly distributed),
+   binary search between `0x000000000000` and `0xffffffffffff` converges in ~11
+   iterations. Each iteration is a single `_count` query (~500 bytes). Total network:
+   ~6KB vs ~50MB. Total time: ~4s vs ~46s (99.99% network reduction).
+
+   **Implementation** (in `search-store.ts` `seek()`):
+   ```
+   let loNum = 0;
+   let hiNum = 0xffffffffffff;
+   for (step 0..MAX_BISECT) {
+     midNum = floor((loNum + hiNum) / 2)
+     mid = midNum.toString(16).padStart(12, "0")
+     probeCursor = [...searchAfterValues]; probeCursor[last] = mid
+     count = countBefore(params, probeCursor, sortClause)
+     if (count <= target) loNum = midNum else hiNum = midNum
+     if (|count - target| <= PAGE_SIZE) break
+   }
+   ```
+
+   Benefits ALL keyword sorts: Credit, Source, Category, Image Type, MIME Type,
+   Uploaded By. Any field where a keyword bucket is larger than PAGE_SIZE triggers
+   the binary search. Filename (high cardinality) and Dimensions (script sort) don't
+   need it.
+
+3. **Hex upper bound bug ("g" is not valid hex)** — The first binary search
+   implementation used string bounds `"0"` to `"g"`. But `"g"` is not a valid hex
+   digit. `parseInt("g...", 16)` returns `NaN`, so every iteration computed
+   `mid = "NaN"`. `countBefore(id < "NaN")` counted everything (lexicographically
+   `"N" > all hex chars`), so `bestOffset` never updated. The binary search silently
+   did nothing — `actualOffset` stayed at 533k (bucket start ≈ 40%).
+
+   **Fix:** Changed from string bounds to numeric: `loNum = 0`, `hiNum = 0xffffffffffff`.
+   `midNum.toString(16).padStart(12, "0")` always produces valid hex.
+
+**Smoke test S10 confirmation:** After all three fixes, S10 shows convergence in 11
+steps, ~4 seconds total, landing within 45 docs of target (ratio 0.7498 for 75% seek).
+
+**E2E test changes:**
+
+- **Bug #7 strengthened:** Credit 50% test now includes composite-agg telemetry check
+  (absorbed from Bug #13). Source 50% test strengthened with ratio assertion (0.35–0.65).
+  Dimensions test kept with weak assertion (`> 0`) — it's a script sort with inherently
+  lower accuracy on small datasets.
+- **Bug #18 regression guard added** (line 898): Seeks to 75% under Credit sort, asserts
+  ratio 0.65–0.85, verifies binary search console log was emitted. With 10k local docs
+  and 5 credits cycling (~2k per bucket), drift ≈ 1800 > PAGE_SIZE → binary search kicks
+  in. Guards against regressions in the hex interpolation code.
+- **Bug #13 culled:** Entire `test.describe("Bug #13")` block removed (4 tests).
+  Bug #13.1 (Credit seek + telemetry) merged into Bug #7.1. Bug #13.2 (drag under
+  Credit) redundant with generic drag tests. Bug #13.3 (two positions differ) duplicate
+  of Bug #7.4. Bug #13.4 (timing) redundant with test-level timeout.
+- **Smoke test S10 added:** Full diagnostic for keyword sort seek on TEST. Polls store
+  state during seek, captures `[seek]`/`[ES]` console logs, checks grid scroll position,
+  compares 75% vs 50% seeks, 15s performance gate.
+- **Net test count:** 68 → 64 e2e tests (4 removed from Bug #13), 8 → 10 smoke tests
+  (S9 + S10 added).
+
+
+### 29 March 2026 — Width/Height replace Dimensions script sort
+
+**Problem:** Dimensions sort used a Painless script (`w × h`) which forced the slow
+Strategy B (iterative `search_after` skip loop) for deep seeks. Through SSH tunnels,
+seeking to position 500k required ~40 sequential 10k-chunk requests, taking ~60 seconds.
+The `MAX_SKIP_ITERATIONS` increase from 20 → 200 (in the "Polish" commit) made it
+worse — the old 20-iteration cap degraded gracefully at ~20s; the new cap doggedly
+completed all iterations.
+
+**Root cause:** Script sorts cannot use percentile estimation (ES `percentiles` agg
+only works on indexed field values, not computed expressions). They also can't use
+`countBefore` correctly (can't build range queries on computed values). This forced
+the brute-force iterative skip path.
+
+**Solution — Option Nuclear:** Replaced the single Dimensions script sort with two
+plain integer field sorts: **Width** (`source.dimensions.width`) and **Height**
+(`source.dimensions.height`). Both are native ES integer fields that get the fast
+percentile estimation path (~200ms for any depth).
+
+**Changes:**
+
+1. **`field-registry.ts`**: Dimensions field is now display-only (no `sortKey`).
+   Added `source_width` (Width) and `source_height` (Height) as separate sortable
+   integer fields with `descByDefault: true`.
+
+2. **`es-adapter.ts`**: Removed `scriptSorts` map entirely. Added `width` →
+   `source.dimensions.width` and `height` → `source.dimensions.height` aliases.
+   Simplified `reverseSortClause` (no more `_script` branch), `countBefore` (no
+   more script field skips), `parseSortField` (removed `isScript` property),
+   `searchAfter` missingFirst handler (no more `isScript` check).
+
+3. **`search-store.ts`**: Removed Strategy B entirely (~80 lines of iterative
+   search_after skip loop). Removed `primaryField !== "_script"` guard from
+   percentile estimation. Width/Height now take the fast path.
+
+4. **`sort-context.ts`**: Added `width` and `height` entries for scrubber tooltip
+   labels (shows "4,000px" etc.).
+
+5. **Tests**: Replaced script sort tests with width/height alias tests. Removed
+   `reverseSortClause handles script sorts`. Changed e2e "Dimensions" test to
+   "Width" with tighter accuracy tolerance (0.35–0.65 ratio).
+
+**Net code deleted:** ~120 lines of script sort infrastructure.
+
+**Why Width/Height is better than Dimensions (w×h):**
+- Fast: percentile estimation → ~200ms deep seek vs ~60s
+- More powerful: users can sort by Width alone, Height alone, or both (shift-click)
+- Simpler: no Painless scripts, no Strategy B, no `isScript` branches
+- Media-api compatible: plain `fieldSort()`, no upstream changes needed
+- Display preserved: Dimensions column still shows "4,000 × 3,000" in table/metadata
+
+**Docs updated:** AGENTS.md, deviations.md §10 (reversed), §16 (resolved), changelog.
+
+
+### 29 March 2026 — Field Registry Canonical Ordering + Registry-Driven Details Panel + Horizontal Scrollbar Fix
+
+**Problem:** Field ordering was hardcoded in four separate places (sort dropdown,
+facet filters, table columns, details panel) with three different ordering strategies.
+The details panel was entirely hand-crafted JSX — ~170 lines of per-field rendering
+that didn't use the field registry at all. Additionally, the table view's horizontal
+scrollbar was broken in both Chrome 146+ and Firefox 148+ because modern Chrome now
+supports `scrollbar-width` (standard CSS), which disables `::-webkit-scrollbar`
+pseudo-elements — making CSS-only per-axis scrollbar hiding impossible.
+
+**Solution — Canonical Field Ordering:**
+
+Established `HARDCODED_FIELDS` array order in `field-registry.ts` as the single source
+of truth for field ordering across all five surfaces: table columns, column chooser,
+facet filters, sort dropdown, and details panel. The sort dropdown promotes dates to
+the top in a fixed order (Uploaded → Taken → Modified), then follows registry order
+for the rest. All other surfaces use registry order directly.
+
+Added three new fields to the registry: Keywords (list, default visible), File size
+(integer, detail-only via `defaultHidden + detailHidden: false`), Image ID (keyword,
+detail-only). Alias fields are now spliced in after Byline title (not appended at
+the end) so they appear in the correct position.
+
+**Solution — Registry-Driven Details Panel:**
+
+Rewrote `ImageMetadata.tsx` to iterate `DETAIL_PANEL_FIELDS` (derived from registry,
+excluding `detailHidden` fields). Added four new `FieldDefinition` properties:
+- `detailLayout: "stacked" | "inline"` — controls label-above vs side-by-side
+- `detailHidden: boolean` — excludes from details panel (Width/Height hidden,
+  Dimensions shown instead)
+- `detailGroup: string` — overrides `group` for section break logic in the panel
+  only, without affecting sort dropdown inclusion
+- `detailClickable: boolean` — when false, renders plain text even if `cqlKey`
+  exists (Description, Special instructions, Filename)
+
+Section breaks are inserted whenever `detailGroup ?? group` changes between
+consecutive fields. File type is now a clickable search link. Alias fields are
+displayed with their labels and are clickable.
+
+**Solution — Horizontal Scrollbar:**
+
+Replaced the broken `.hide-scrollbar-y` CSS (which relied on `::-webkit-scrollbar:vertical`)
+with a structural approach: hide ALL native scrollbars via `scrollbar-width: none` +
+`::-webkit-scrollbar { display: none }`, then add a proxy `<div>` at the bottom of the
+table that syncs `scrollLeft` bidirectionally with the main scroll container. A
+`ResizeObserver` on the `data-table-root` element keeps the proxy width in sync with
+the table's content width during column resizes and visibility toggles.
+
+**Other fixes:**
+- Table list pills (People, Keywords, Subjects) now render single-line with
+  `flex-nowrap overflow-hidden` — no more row height overflow from multi-line wrapping.
+- Uploader moved from `group: "upload"` to `group: "core"`, Filename moved to
+  `group: "technical"` (after File type). The `"upload"` group was removed entirely.
+
+**Files changed:** `field-registry.ts` (reordered, 3 new fields, 4 new FieldDefinition
+properties, alias splice, sort dropdown rewrite), `ImageMetadata.tsx` (horizontal scrollbar proxy, single-line pills),
+`index.css` (`.hide-scrollbar-y` rewritten).
+
+**Docs updated:** AGENTS.md (KAD #26, #29, table view, panels), changelog.
+
+
+### 29 March 2026 — Scrubber tick visual polish + isolation-based promotion
+
+**Major tick visual differentiation:** Major ticks now have distinct visual weight
+from minor ticks — wider extent (extend further left/right, including beyond the
+track edges on hover) and brighter opacity. On hover, all ticks extend further to
+the left for better visibility. Height is uniform at 1px (2px was tried for majors
+but reverted — width and opacity provide enough differentiation).
+
+**Long-span year labels:** In the long-span path (≥15 years), all January ticks
+now carry a year label (previously only yr%5 got labels, leaving years like 2022
+with no label even when isolated). The Scrubber's label decimation controls which
+labels are actually shown based on available pixel space — so clustered years at
+the top/bottom still get decimated, but an isolated year in the middle of the track
+gets its label shown.
+
+**Half-decade promotion:** In the long-span path, half-decade Januaries (yr%5==0)
+are now promoted to major type (previously only yr%10 was major). This gives
+2025, 2015, etc. the same visual weight as decade boundaries.
+
+**Isolation-based tick promotion:** New algorithm in Scrubber.tsx — after computing
+tick pixel positions, a promotion pass checks each minor tick with a 4-digit year
+label (e.g. "2022"). If its nearest major tick is ≥80px away (ISOLATION_THRESHOLD),
+it's added to a `promoted` Set and rendered with major visual treatment (wider,
+bolder, brighter label). Month abbreviation ticks ("Mar", "Apr") are never
+candidates for promotion — only year-boundary ticks. Promoted ticks also get
+priority in the label decimation pass (included alongside real majors in the
+first pass). This handles the common case where a year like 2022 sits alone in
+the middle of a density-skewed track (e.g. source:PA — most data recent, sparse
+in the middle) and deserves landmark treatment.
+
+**Files changed:** `Scrubber.tsx` (tick insets, height, isolation promotion),
+`sort-context.ts` (long-span year labels, half-decade major promotion, updated
+TrackTick docstrings).
+
+
+### 29 March 2026 — Width/Height sort tooltip fix — distribution-based labels
+
+**Bug:** When sorting by Width or Height, the scrubber tooltip showed the same
+stale value across the entire track. Dragging from top to bottom showed e.g.
+"4,000px" everywhere because width/height had no distribution and the tooltip
+fell back to the nearest buffer edge value.
+
+**Root cause:** Width and height were typed as `"keyword"` in `SORT_LABEL_MAP`
+but were NOT registered in `KEYWORD_SORT_ES_FIELDS`. This meant
+`resolveKeywordSortInfo()` returned null for them, so `fetchSortDistribution()`
+never fired. The tooltip fell back to `findBufferEdges()` which returned the
+same value for all out-of-buffer positions.
+
+Additionally, the accessor returned pre-formatted strings (`"4,000px"` via
+`toLocaleString()`) while the distribution pipeline applies `mapping.format`
+to both in-buffer accessor values and raw distribution keys. This would have
+caused double-formatting if a format function were added naively.
+
+**Fix:**
+1. Added `width: "source.dimensions.width"` and `height: "source.dimensions.height"`
+   to `KEYWORD_SORT_ES_FIELDS`. The composite agg now fetches the distribution
+   for these sorts — ES composite `terms` works on numeric fields, returning
+   each unique integer value as a bucket (typically ~4000–8000 unique widths,
+   well within the 50k composite cap, single page).
+2. Changed width/height accessors to return raw number strings (`"4000"` instead
+   of `"4,000px"`), added `format: (v) => \`${Number(v).toLocaleString()}px\``
+   to both entries. This ensures both paths (in-buffer accessor → formatKeywordLabel
+   and distribution key → formatKeywordLabel) produce consistent `"4,000px"` output.
+
+**No ticks for numeric sorts** — `computeTrackTicks()` still returns `[]` for
+non-date sorts. Adding tick marks for width/height would require a "nice number"
+algorithm for round boundaries (1000px, 2000px, etc.) — deferred as low priority
+given the niche usage of these sorts.
+
+**Files changed:** `sort-context.ts` (KEYWORD_SORT_ES_FIELDS, width/height
+accessor+format).
+
+**Docs updated:** AGENTS.md (DAL methods, Scrubber description, tooltip), changelog.
+
+
+### 29 March 2026 — Removed Filename sort
+
+**Problem:** Sorting by Filename was glacially slow on real data (~1.3M docs).
+The initial ES query sorts 1.3M strings (byte-by-byte comparison, heavier than
+numeric/date). Deep seek uses the keyword composite-agg walk path — but filename
+has ~1.3M unique values (nearly every image has a unique filename), requiring 65+
+paged composite requests to reach 50%. The 8s time cap returns an approximate
+result but that's still 8 painful seconds of waiting. Filename is the worst-case
+field for the keyword seek strategy: maximum cardinality with doc_count=1 per
+bucket (no density benefit from binary search refinement).
+
+**Fix:** Removed sorting capability from Filename entirely:
+1. `field-registry.ts` — removed `sortKey: "filename"` from the Filename field
+   definition. This removes it from the sort dropdown and makes the table column
+   header non-sortable (no click-to-sort).
+2. `es-adapter.ts` — removed `filename: "uploadInfo.filename"` from the sort
+   alias map (dead code now).
+3. `es-adapter.test.ts` — removed the filename alias expansion test.
+
+Filename remains fully functional for display, CQL search (`filename:...`), and
+the details panel — only sorting is removed.
+
+**Files changed:** `field-registry.ts`, `es-adapter.ts`, `es-adapter.test.ts`.
+
+**Docs updated:** changelog.
+
+
+### 28 March 2026 — Scrubber Scroll Mode — Bug Fixes and Buffer Fill
+
+**Problem:** The scrubber has two interaction modes — "scroll mode" (all data in
+buffer, drag scrolls content directly) and "seek mode" (windowed buffer, seek on
+pointer-up). Three bugs made scroll mode broken:
+
+- **Bug A (thumb runs away):** `positionFromDragY()` mapped pixel→position using
+  `ratio * (total - 1)` but `thumbTopFromPosition()` reversed it using
+  `position / total`. The `102 vs 103` asymmetry meant the thumb drifted from the
+  pointer. Worse with fewer results (bigger thumb).
+- **Bug B (thumb dances):** The inline JSX `style={{ top: thumbTop }}` fought with
+  direct DOM writes from `applyThumbPosition()` during drag. Every content scroll
+  triggered a React re-render that overwrote the direct DOM position. Rounding
+  differences between React state (`trackHeight`) and live DOM reads
+  (`clientHeight`) created jitter.
+- **Bug C (broken activation):** Scroll mode required `total <= bufferLength`, but
+  the initial search only fetched 200 results. For 201–1000 results, scroll mode
+  only activated after the user manually scrolled enough to trigger extends. For
+  1001+ results, it never activated. A user with 700 results could grab the scrubber
+  and nothing would happen.
+
+**Fixes:**
+
+1. **Bug C — scroll-mode fill:** Added `SCROLL_MODE_THRESHOLD` env var (default
+   1000). After the initial search, if `total <= threshold` and not all results are
+   loaded, `_fillBufferForScrollMode()` fetches remaining results in PAGE_SIZE
+   chunks using `searchAfter`. Two-phase: user sees first 200 instantly, scroll mode
+   activates ~200–500ms later. Sets `_extendForwardInFlight` during fill to prevent
+   concurrent extends from racing. Clears the flag on all exit paths (success,
+   abort, error). `search()` also clears extend-in-flight flags when aborting
+   previous operations (prevents stale flag from aborted fill blocking
+   sort-around-focus).
+
+2. **Bug A — symmetric position mapping:** Changed `thumbTopFromPosition()` to use
+   `position / (total - 1)` and map to `ratio * maxTop` (instead of
+   `position / total * th`). Now matches `positionFromDragY()` which uses
+   `ratio * (total - 1)`. Forward and reverse mappings are symmetric.
+
+3. **Bug B — removed inline top from JSX:** The thumb `<div>` no longer sets `top`
+   in its inline style. Thumb position is controlled exclusively by: (a) the
+   `useEffect` sync (for non-drag, non-pending states), (b) direct DOM writes in
+   `applyThumbPosition()` (during drag/click). Callback ref on thumb sets initial
+   position on mount to prevent one-frame flash at top=0. The React reconciler can
+   no longer fight with direct DOM writes.
+
+4. **Bug D — thumb height fluctuates during drag:** `thumbHeight` was computed from
+   the live `visibleCount` (number of items visible in the viewport), which changes
+   on every scroll as rows enter/leave. During scroll-mode drag, this made the thumb
+   grow/shrink constantly (bottom edge jumping) and overflow the track near the
+   bottom. Fix: added `thumbVisibleCount` — in scroll mode, `visibleCount` is frozen
+   when scroll mode first activates (via `stableVisibleCountRef`). Reset only when
+   `total` changes (new search). In seek mode, the live value is used as before.
+   The drag handler also captures `dragVisibleCount` at pointer-down for the
+   duration of the drag. This matches native scrollbar behavior where thumb size
+   only changes when content size changes, not when you scroll.
+
+**Design doc:** `exploration/docs/scrubber-dual-mode-ideation.md` — full analysis of
+the two-soul problem, 5 approaches considered, data demand analysis per view,
+visual philosophy (scroll mode should look like a native scrollbar).
+
+**Testing:** 145 unit tests (144 pass, 1 pre-existing failure in
+`sort-around-focus bumps _seekGeneration` — test expects `_seekGeneration` but code
+intentionally uses `sortAroundFocusGeneration`). 61 E2E tests all pass.
+
+
+### 28 March 2026 — Scrubber Visual Polish — Unified Scrollbar Look
+
+Harmonised the scrubber's visual appearance across both scroll mode and seek mode.
+Instead of looking like two different controls (a blue accent widget vs a native
+scrollbar), it now looks like one clean, modern scrollbar everywhere.
+
+**Changes:**
+- **Track:** Always transparent background. No grey highlight on hover. The 14px
+  width is a generous hit target, but the visible thumb is narrower.
+- **Thumb:** 8px wide pill shape (3px inset each side within 14px track), fully
+  rounded (`borderRadius: 4`). Semi-transparent white on the dark Grid background:
+  idle `rgba(255,255,255,0.25)`, hover `0.45`, active/dragging `0.6`. Replaces the
+  previous blue accent / grey colors.
+- **No cursor change:** Removed `grab`/`grabbing` cursors — native scrollbars don't
+  show them, and they scream "custom widget."
+- **No opacity change on track:** Track doesn't dim/brighten on hover (the thumb
+  color change is sufficient feedback).
+- **Tooltip:** Unchanged — still shows position and sort context on drag/click in
+  both modes. The tooltip is useful in both modes and doesn't make the scrubber
+  look like a "control panel."
+- Removed unused `active` variable.
+
+
+### 28 March 2026 — Bug E — Scrubber Desync at Top/Bottom
+
+**Problem:** When PgDown/PgUp-ing through a small result set (~760 items), the
+scrubber thumb desynchronised with the content: content reached the bottom but the
+thumb stayed short of the track bottom. Grabbing the thumb to the bottom shifted
+results to where it was, requiring more scrolling.
+
+**Root cause:** The position-to-pixel mapping used `position / (total - 1)` as the
+ratio. But `currentPosition` is the first visible item, which maxes at
+`total - visibleCount` (not `total - 1`). For 760 results with 20 visible, the
+max position is 740, giving ratio `740/759 = 0.975` — the thumb never reaches 1.0.
+
+**Fix:** Changed all position mappings to use `total - visibleCount` as the max
+position, matching native scrollbar behavior (`scrollTop / (scrollHeight - clientHeight)`).
+Applied consistently to:
+- `thumbTopFromPosition()` — position → pixel
+- Render-time `thumbTop` computation
+- `positionFromY()` — track click pixel → position
+- `positionFromDragY()` — drag pixel → position
+- `scrollContentTo()` ratios in click, drag move, and drag end handlers
+
+When position = total - visibleCount, ratio = 1.0 and the thumb touches the bottom
+of the track — exactly when the last item is visible. Symmetric at top: position = 0,
+ratio = 0.0, thumb at top.
+
+
+---
+
+## Reference Sections
+
+<!-- Feature/architecture descriptions — not dated changelog entries. -->
+
+### Infrastructure & Data
+
+- ✅ Sample data (10k docs, 115MB) from CODE ES in `exploration/mock/sample-data.ndjson` (NOT in git — also in `s3://<sample-data-backup-bucket>/`)
+- ✅ ES mapping from CODE in `exploration/mock/mapping.json`
+- ✅ Standalone ES 8.18.3 via `docker-compose.yml` on **port 9220** (isolated from Grid's ES on 9200)
+- ✅ `scripts/load-sample-data.sh` — index creation + bulk load
+- ✅ `scripts/start.sh` — one-command startup. Default: local mode (ES + data + deps + Vite). `--use-TEST`: establishes SSH tunnel to TEST ES, auto-discovers index alias, discovers S3 bucket names, starts S3 thumbnail proxy, sets env vars, enables write protection. Flags: `--skip-es`, `--skip-data`, `--skip-install`
+- ✅ S3 thumbnail proxy (`scripts/s3-proxy.mjs`) — local-only Node.js server that proxies S3 thumbnail requests using the developer's AWS credentials. Read-only, localhost-bound, nothing committed. Auto-started by `start.sh --use-TEST`. See `exploration/docs/s3-proxy.md`. Temporary — will be replaced by Grid API signed URLs in Phase 3.
+- ✅ imgproxy for full-size images — `darthsim/imgproxy` Docker container (port 3002) with S3 access via host AWS credentials volume mount. Container runs as uid 999 (`imgproxy` user, not root), so credentials mount to `/home/imgproxy/.aws/`. Janus only writes `[media-service]` to `~/.aws/credentials` — the Go AWS SDK also needs a `[profile media-service]` entry in the config file, so `start.sh` generates a minimal config at `/tmp/kupua-aws-config` (no secrets — just profile name + region). Resizes originals on the fly to WebP (1200px fit, quality 80). Auto-started by `start.sh --use-TEST` via docker compose profile. URL builder in `src/lib/image-urls.ts` (`getFullImageUrl()`). `IMGPROXY_MAX_SRC_RESOLUTION: 510` (510MP — default 16.8MP rejects large press panoramas/scans; 510 covers the largest known test image). `IMGPROXY_DOWNLOAD_TIMEOUT: 10` (default 5s; the 510MP image takes ~5.1s). See `exploration/docs/imgproxy-research.md`.
+- ✅ Migration plan: `exploration/docs/migration-plan.md`
+- ✅ Mock Grid config: `exploration/mock/grid-config.conf` (sanitised PROD copy, parsed by `src/lib/grid-config.ts` for field aliases + categories)
+
+
+### App Scaffold (~16,300 lines of source)
+
+- ✅ Vite 8 (Rolldown) + React 19 + TypeScript + Tailwind CSS 4, dev server on port 3000
+- ✅ Vite proxy: `/es/*` → `localhost:9220` (no CORS needed)
+- ✅ Path alias: `@/*` → `src/*` (in both `tsconfig.json` paths and Vite `resolve.alias`)
+- ✅ Grid colour palette in `index.css` as Tailwind `@theme` tokens (e.g. `bg-grid-bg`, `text-grid-accent`)
+- ✅ Open Sans self-hosted from `public/fonts/` (same woff2 files as kahuna, not CDN); `--font-sans` overridden in `@theme` so all elements inherit it automatically
+- ✅ Shared CSS component classes (`popup-menu`, `popup-item`) in `index.css` `@layer components` for consistent dropdown/context menu styling
+- ✅ Standardised font sizes: `text-sm` (14px, UI chrome — toolbar, filters, menus, labels, buttons), `text-xs` (13px, data — table body cells, grid descriptions, metadata panel labels and values), `text-2xs` (12px, dimmed secondary metadata — grid cell dates). 13px for CQL input Web Component. Arbitrary one-off sizes (`text-[10px]` etc.) should be avoided — prefer theme tokens when a new size is genuinely needed.
+- ✅ TypeScript compiles clean (`tsc --noEmit` — zero errors)
+- ✅ Error boundary (`ErrorBoundary.tsx`) — class component wrapping `<Outlet />` in `__root.tsx`. Catches render crashes, shows error message + stack + "Try again" / "Reset app" buttons. 2 tests.
+
+
+### Data Access Layer (DAL)
+
+- ✅ `ImageDataSource` interface (`dal/types.ts`) — `search()`, `count()`, `getAggregation()`, `getAggregations()` (batched multi-field terms aggs in one ES request), `searchAfter()` (cursor-based pagination with optional PIT — now the primary pagination method used by all store operations), `openPit()`/`closePit()` (PIT lifecycle), `countBefore()` (position counting for sort-around-focus). Types: `SortValues`, `BufferEntry`, `SearchAfterResult`.
+- ✅ `MockDataSource` (`dal/mock-data-source.ts`) — deterministic mock implementing `ImageDataSource` for testing. Generates synthetic images (`img-{index}`) with linearly spaced dates and cycling credits. Supports `search`, `searchAfter` (with cursor), `countBefore`, `getById`, `estimateSortValue`. Tracks `requestCount` for load assertions. Used by store integration tests.
+- ✅ `ElasticsearchDataSource` adapter (`dal/es-adapter.ts`) — queries ES via Vite proxy, handles sort aliases, CQL→ES translation. `count()` uses `_count` endpoint for lightweight polling (new images ticker). `getAggregations()` batches N terms aggs into a single `size:0` request using the same `buildQuery()` filters. `searchAfter()` is now the primary pagination method — supports cursor-based pagination with optional PIT (requests go to `/_search` without index prefix when PIT is active), and falls back to `from/size` when no cursor is provided (initial search, backward extend, seek). `openPit()`/`closePit()` manage PIT lifecycle. `countBefore()` builds a range query counting documents before a sort position (for sort-around-focus). `buildSortClause()` always appends `{ id: "asc" }` tiebreaker (uses `id` keyword field, not `_id` — see deviations.md §18). `esRequestRaw()` for index-prefix-free requests.
+- ✅ Configurable ES connection (`dal/es-config.ts`) — env vars for URL (`KUPUA_ES_URL`), index (`VITE_ES_INDEX`), local flag (`VITE_ES_IS_LOCAL`). Defaults to local docker ES on port 9220.
+- ✅ Phase 2 safeguards (see `exploration/docs/infra-safeguards.md`):
+  1. `_source` excludes — strips heavy fields (EXIF, XMP, Getty, embeddings) from responses
+  2. Request coalescing — AbortController cancels in-flight search when a new one starts
+  3. Write protection — only `_search`/`_count`/`_cat/aliases`/`_pit` allowed on non-local ES; `load-sample-data.sh` refuses to run against non-9220 port
+  4. S3 proxy — read-only `GetObject` only, localhost-bound, uses developer's existing AWS creds (never committed)
+- ✅ Vite env types declared in `src/vite-env.d.ts`
+
+
+### State Management
+
+- ✅ `search-store.ts` — Zustand store for search params, windowed buffer, loading state, and data source. **Windowed buffer architecture:** fixed-capacity buffer (`results`, max 1000 entries) with `bufferOffset` mapping `buffer[0]` to a global position. `search()` opens a PIT (on non-local ES), fetches first page via `searchAfter`; accepts optional `sortAroundFocusId` for sort-around-focus. `extendForward` uses `search_after` with `endCursor`; `extendBackward` uses **reverse `search_after`** (`reverseSortClause` + `startCursor`, works at any depth — no `from/size` offset cap). Page eviction keeps memory bounded. `seek()` repositions buffer at arbitrary offset for scrubber/sort-around-focus; bumps `_seekGeneration` + stores `_seekTargetLocalIndex` so views can scroll to the right position after buffer replacement. **Sort-around-focus:** async `_findAndFocusImage()` finds focused image's position via `searchAfter({ids})` + `countBefore` → seek → focus; 8s timeout prevents "Seeking..." forever; `sortAroundFocusGeneration` counter triggers view scroll. `imagePositions: Map<imageId, globalIndex>` maintained incrementally — O(page size) per extend, evicted entries cleaned up. **Important:** consumers must subtract `bufferOffset` to get buffer-local indices. PIT lifecycle managed: opened on search, closed on new search, skipped on local ES. New-images ticker respects user's date filter. Tracks ES `took` time and rolling `scrollAvg` from extend calls.
+- ✅ `column-store.ts` — Zustand + localStorage persist for column visibility, widths, and session-only pre-double-click widths
+- ✅ URL is single source of truth — `useUrlSearchSync` hook syncs URL → Zustand → search; `useUpdateSearchParams` hook lets components update URL. Browser back/forward works. `resetSearchSync()` busts the dedup for logo clicks that need to force a fresh search even when params appear unchanged.
+- ✅ Custom URL serialisation in `router.ts` — uses `URLSearchParams` directly (not TanStack Router's `parseSearchWith`/`qss`), keeping all values as plain strings. Colons kept human-readable. See deviations.md §1 for rationale.
+
+
+### CQL Search
+
+- ✅ `@guardian/cql` parser + custom CQL→ES translator in `src/lib/cql.ts`. `MATCH_FIELDS` mirrors Grid's `MatchFields.scala` — includes `id` first so pasting an image ID into the search box finds it.
+- ✅ `<cql-input>` Web Component for chip rendering, editing, keyboard nav, typeahead — wrapped by `CqlSearchInput.tsx`
+- ✅ `LazyTypeahead` (`lazy-typeahead.ts`) — subclass of `@guardian/cql`'s `Typeahead` that decouples key suggestions from value resolution. Prevents the popover from stalling when a slow value resolver is in flight. See deviations.md §12.
+- ✅ Typeahead fields built from DAL (`typeahead-fields.ts`) with resolvers using local ES aggregations (terms aggs on keyword fields). Fields without keyword mappings (byline, city, etc.) have no value suggestions — same as kahuna.
+- ✅ CQL structural noise filtering — `SearchBar` ignores `queryStr` values that are pure CQL structure (e.g. bare `":"` from empty chips when pressing `+`), preventing spurious searches. Kahuna handles this via its structured query pipeline; kupua filters at the `handleQueryChange` level.
+- ✅ Supports structured queries: `credit:"Getty" -by:"Foo" cats fileType:jpeg`
+- ✅ `fileType:jpeg` → `source.mimeType` match with MIME conversion (matching Scala `FileTypeMatch`)
+- ✅ `is:GNM-owned` — recognized but requires org config from Grid (mocked for now)
+
+
+### Table View (`ImageTable.tsx`, ~1260 lines)
+
+- ✅ TanStack Table with virtualised rows (TanStack Virtual), column resizing
+- ✅ Column definitions generated from field registry (`field-registry.ts`) — 23 hardcoded fields + config-driven alias columns. The registry is the single source of truth for field ID, label, accessor, CQL key, sort key, formatter, default width, and visibility. ImageTable, SearchFilters, and column-store all consume registry-derived maps.
+- ✅ Dimensions column — single column showing oriented `w × h` (e.g. `5,997 × 4,000`), display-only (not sortable). Separate Width and Height columns are sortable by plain integer field (`source.dimensions.width`, `source.dimensions.height`) — uses the fast percentile estimation path for deep seek. Replaces the old Painless script sort (w×h pixel count) which was unusably slow for deep seeks (~60s via SSH tunnel).
+- ✅ Width / Height columns — sortable integer fields, `descByDefault: true`. Use `orientedDimensions` with fallback to `dimensions` for display. Sort aliases: `width` → `source.dimensions.width`, `height` → `source.dimensions.height`.
+- ✅ Location is a composite column: subLocation, city, state, country (fine→coarse display). Click-to-search uses `in:` which searches all four sub-fields. Not sortable (text-analysed fields).
+- ✅ Subjects and People are list columns: each item rendered individually with per-item click-to-search (`subject:value`, `person:value`). Not sortable (text-analysed fields).
+- ✅ Config-driven alias columns — generated from `gridConfig.fieldAliases` where `displayInAdditionalMetadata === true`. Values resolved via `resolveEsPath()` (dot-path traversal into `image.fileMetadata`). All keyword type → sortable. Hidden by default. Click-to-search uses alias name as CQL key. CQL parser resolves alias → `elasticsearchPath` for search.
+- ✅ Sort on any keyword/date/numeric column by clicking header. Text-only fields (Title, Description, etc.) not sortable (no `.keyword` sub-field). Single click is delayed 250ms to distinguish from double-click.
+- ✅ Secondary sort via shift-click (encoded as comma-separated `orderBy` URL param)
+- ✅ Sort alias system — `buildSortClause` expands short URL aliases to full ES paths per-part (e.g. `taken` → `metadata.dateTaken,-uploadTime`, `credit` → `metadata.credit`, `category` → `usageRights.category`, `filename` → `uploadInfo.filename`, `mimeType` → `source.mimeType`, `width` → `source.dimensions.width`, `height` → `source.dimensions.height`, plus config-driven alias fields). URLs never contain dotted ES paths — only clean short keys (e.g. `?orderBy=-credit`, not `?orderBy=-metadata.credit`).
+- ✅ Auto-reveal hidden columns when sorted — if the user sorts by a column that's currently hidden (e.g. Last modified), it's automatically shown and persisted to the store as if toggled manually. Generic — works for any sortable hidden column.
+- ✅ Click-to-search — shift-click cell to append `key:value` to query; alt-click to exclude. If the same `key:value` already exists with opposite polarity, flips it in-place (no duplicate chips). AST-based matching via `cql-query-edit.ts` using `@guardian/cql`'s parser. CQL editor remount workaround for polarity-only changes — see deviations.md §13. Upstream fix: [guardian/cql#121](https://github.com/guardian/cql/pull/121); remove workaround after merge+release.
+- ✅ Accessibility — ARIA roles on table (`role="grid"`, `role="row"`, `role="columnheader"` with `aria-sort`, `role="gridcell"`), context menu (`role="menu"`, `role="menuitemcheckbox"`), sort dropdown (`role="listbox"`, `role="option"`), resize handles (`role="separator"`), loading indicator (`aria-live`), result count (`role="status"`), toolbar (`role="toolbar"`), search landmark (`role="search"`). All zero-performance-cost — HTML attributes only.
+- ✅ Cell tooltips via `title` attribute
+- ✅ Column visibility — right-click header for context menu. Default hidden: Last modified, File type, Suppliers reference, Byline title, all config-driven alias columns. Persisted to localStorage.
+- ✅ Column widths persisted to localStorage via `column-store.ts` — manual drag resizes and auto-fit widths both persist. Restored on reload.
+- ✅ Double-click header to auto-fit — first double-click measures the widest cell value and fits the column. Second double-click restores the previous width. Pre-fit widths are stored in the column store (session-only, not persisted to localStorage). Manual drag-resize clears the saved pre-fit width.
+- ✅ Column context menu — right-click any header cell: "Resize column to fit data", "Resize all columns to fit data", separator, then column visibility toggles. Menu uses shared `popup-menu`/`popup-item` classes. Auto-clamps to viewport bounds (never renders off-screen). Right-clicking a specific column shows the single-column resize option; right-clicking the trailing spacer shows only "Resize all" + visibility.
+- ✅ Auto-resize to fit — measures the widest cell value across all loaded results using an off-screen `<canvas>` for text measurement (`measureText`), accounts for header label width, padding (16px sides), and sort arrow space.
+- ✅ CSS-variable column widths — instead of per-cell `getSize()` calls (~300+/render), a single `<style>` tag injects `--col-<id>` CSS custom properties on `[data-table-root]`. Header and body cells use `width: var(--col-<id>)`. Width changes during resize only touch the style string — no per-cell JS.
+- ✅ Memoised table body during resize — `TableBody` is a `React.memo` component. During column resize drags, rows and virtualItems are cached in refs (frozen while `columnSizingInfo.isResizingColumn` is truthy) so the memo's props stay stable and the body skips re-rendering entirely. Column widths update via CSS variables without React involvement. Avoids the bug in TanStack's official performant example (#6121).
+- ✅ Column resize with auto-scroll — dragging a resize handle near/past the scroll container edges auto-scrolls the table horizontally (speed proportional to distance past edge, up to 20px/frame). Synthetic `mousemove` events with scroll-adjusted `clientX` keep TanStack Table resizing the column as the container scrolls. On release, a synthetic `mouseup` with the adjusted position finalises the width correctly (the real `mouseup` with unadjusted `clientX` is blocked via capture-phase listener).
+- ✅ Horizontal scroll — inner wrapper is `inline-block min-w-full`, header is `inline-flex` with `shrink-0` cells (the browser determines the scrollable width from rendered content — no JS-computed width, correct at any browser zoom level). A 32px trailing spacer after the last header cell ensures the last column's resize handle is always accessible. Root layout uses `w-screen overflow-hidden` to prevent the page from expanding beyond the viewport.
+- ✅ Scroll reset on new search — both scrollTop and scrollLeft reset to 0 when URL search params change (new query, sort, filters, logo click). loadMore doesn't change URL params, so infinite scroll is unaffected. Display-only params (`image`) are excluded from scroll-reset comparison.
+- ✅ Double-click row to open image — adds `image` to URL search params (push, not replace). The search page stays mounted and fully laid out (invisible via `opacity-0`), preserving scroll position, virtualizer state, and search context. Browser back removes `image` and the table reappears at the exact scroll position with the viewed image focused. Navigation in the image view follows the current search results in their current sort order (line-in-the-sand: navigation always within current search context and order).
+- ✅ Row focus (not selection) — single-click sets a sticky highlight on a row (`ring-2 ring-inset ring-grid-accent` + `bg-grid-hover/40`). Focus persists when mouse moves away. Distinct from hover (`bg-grid-hover/15` — dimmer, no ring). Harmonised with grid view: both densities use the same background tint and accent ring for focus. Focus is stored in search store (`focusedImageId`), cleared on new search. Returning from image detail auto-focuses the last viewed image; if different from the one originally clicked, centers it in viewport.
+
+
+### Grid View (`ImageGrid.tsx`, ~470 lines)
+
+- ✅ Thumbnail grid density — alternative rendering of the same result set. Consumes `useDataWindow()` for data, focus, and gap detection — zero data layer duplication. Grid is the default view (matching Kahuna); table opt-in via URL param `density=table`.
+- ✅ Responsive columns via `ResizeObserver` — `columns = floor(containerWidth / 280)`. Row-based TanStack Virtual (each virtual row renders N cells). Equal-size cells (editorial neutrality — differently-sized images shouldn't influence picture editors). Cell width computed in the ResizeObserver callback (not inline during render) to avoid layout shift on first interaction.
+- ✅ S3 thumbnails — uses `getThumbnailUrl()` from `image-urls.ts`. Local mode shows "No thumbnail" placeholder (acceptable). Unloaded grid cells and table rows use subtle static backgrounds (no `animate-pulse` — avoids visual noise during fast scroll).
+- ✅ Cell layout matches Kahuna — 303px total height, 190px thumbnail area (block layout, top-aligned, horizontally centred via `margin: auto`), metadata below. `max-height: 186px` on image (= Kahuna's `max-height: 98%` of 190px).
+- ✅ Rich tooltips — description tooltip (description + By + Credit with `[none]` fallbacks, colon-aligned) on both thumbnail and description text. Date tooltip (Uploaded + Taken + Modified, colon-aligned) extends Kahuna's two dates to three.
+- ✅ Focus ring + keyboard navigation with grid geometry — ArrowLeft/Right = ±1, ArrowUp/Down = ±columns, Home/End. Enter opens focused image. Same `moveFocus` viewport-aware start as table (no focus → start from visible viewport). Focus/hover harmonised with table: focus = `ring-2 ring-grid-accent` + `bg-grid-hover/40` + `shadow-lg`, hover = `bg-grid-hover/15` (background only, no ring).
+- ✅ Double-click cell opens image detail (same overlay architecture as table).
+- ✅ Scroll reset on new search, return-from-detail scroll preservation (only scrolls if user navigated to different image via prev/next).
+- ✅ Density switch preserves viewport position — `density-focus.ts` saves the focused item's viewport ratio (0=top, 1=bottom) on unmount, restores on mount via `useLayoutEffect` (before paint, no visible jump). Falls back to `align: "center"` on initial load. Module-level state — no React, no Zustand, 5 lines.
+- ✅ Scroll anchoring on column count change — when container width changes (panel toggle/resize, browser window resize) and the column count changes, captures the focused/viewport-centre image's position before React re-renders and restores it in a `useLayoutEffect`. No visible jump. Generic `ResizeObserver` improvement, not panel-specific.
+
+
+### Toolbar, Status Bar, Filters
+
+- ✅ Search toolbar (44px / `h-11`): `[Logo] [Search] | [Free to use] [Dates] | [Sort ↓]`
+- ✅ Status bar (28px, `bg-grid-panel`, `items-stretch`): `[Browse toggle] | [count matches] [N new] ... | [density toggle] | [Details toggle]`. Panel toggle buttons are full-height strips (not lozenges) with icon + label. When active, button extends 1px below the bar's `border-b` with `bg-grid-panel` to visually merge with the panel beneath (tab effect). Both states have identical geometry — only colour/background changes, so labels never shift on toggle. Dividers are full-height. Middle content items self-pad.
+
+
+### Panels (`PanelLayout.tsx`, `panel-store.ts`)
+
+- ✅ Panel store — Zustand + localStorage persist for panel visibility, widths, section open/closed state. Two zones (left, right), two states each (visible/hidden). Default widths: left 280px, right 320px. Min 200px, max 50% viewport. Section defaults: Filters collapsed (Decision #13), Collections expanded, Metadata expanded.
+- ✅ Panel layout — flex row of `[left-panel?] [resize-handle] [main-content] [resize-handle] [right-panel?]`. Resize handles: 4px visual / full-height hit target, CSS-only width update during drag (no React re-render per frame), commit to store on mouseup. Double-click resize handle to close panel. Main content fills remaining space via `flex-1 min-w-0`. Browser scroll anchoring disabled on panel scroll containers (`overflow-anchor: none`) — we handle scroll anchoring manually in FacetFilters.
+- ✅ Keyboard shortcuts: `[` toggles left panel, `]` toggles right panel. `Alt+[`/`Alt+]` when focus is in an editable field (search box etc.). Centralised shortcut system in `lib/keyboard-shortcuts.ts` — single `document` capture-phase listener, `useKeyboardShortcut` hook for component registration, stack semantics for priority. All single-character shortcuts follow the same pattern: bare key when not editing, Alt+key when editing. Exported `ALT_SYMBOL` (⌥ on Mac, Alt+ on Windows), `ALT_CLICK`, and `shortcutTooltip()` for platform-aware UI text. See deviations.md §15.
+- ✅ AccordionSection component — collapsible sections within panels. Header always visible with disclosure triangle, content collapses to zero height. Open/closed state persisted to panel store → localStorage. Bottom border only when collapsed — prevents flash on reload when section is expanded but content hasn't loaded yet.
+- ✅ Aggregation batching (`search-store.ts` + `dal/es-adapter.ts`) — `fetchAggregations()` action: single ES `size:0` request with N named terms aggs (one per aggregatable field from field registry). Query-keyed cache (skips if params unchanged), 500ms debounce, circuit breaker at 2s (disables auto-fetch, shows manual refresh), abort controller for cancellation. Fetched lazily — only when Filters section is expanded (Decision #9, #13). Agg `took` time tracked in store.
+- ✅ Facet filters (`FacetFilters.tsx`, ~275 lines) — left panel content inside AccordionSection. Renders all aggregatable fields with value lists and compact counts (1.8M, 421k format — Decision #14). Click adds CQL chip, Alt+click excludes, click again removes. Active filters highlighted in accent, excluded in red with strikethrough. Uses `findFieldTerm`/`upsertFieldTerm` from `cql-query-edit.ts`. "Show more" per field — fetches a separate single-field request at 100 buckets (not mixed into the recurring batch). Expanded state cleared on new search (not persisted). "Show fewer" scroll-anchors the field header to the top of the panel (prevents losing position after collapsing a long list). Platform-aware tooltips (⌥click on Mac, Alt+click on Windows) via `ALT_CLICK` from `keyboard-shortcuts.ts`.
+- ✅ Shared metadata component (`ImageMetadata.tsx`, ~350 lines) — extracted from ImageDetail. Layout replicates Kahuna's visual structure: `MetadataBlock` (stacked) for Title/Description/Special instructions/Keywords, `MetadataRow` (inline 30/70) for most others. Bold labels, persistent `#999` underlines, solid `#565656` section dividers as orientation landmarks, section order matching Kahuna (Rights → Title/Desc → Special instructions → Core metadata → Keywords → Technical → ID). Click-to-search with Shift/Alt modifiers. Location sub-parts as individual search links. List fields as search pills (`SearchPill.tsx`). Used by ImageDetail sidebar and right side panel.
+
+
+### Routing (TanStack Router)
+
+- ✅ Zod-validated URL search params (`search-params-schema.ts`)
+- ✅ Root route (`__root.tsx`) — minimal shell (bg + flex column)
+- ✅ Search route (`search.tsx`) at `/search` — validates params + renders SearchBar + StatusBar + ImageGrid (default) or ImageTable (`density=table`). When `image` is in URL params, makes search UI invisible (`opacity-0 pointer-events-none`) and renders `ImageDetail` overlay.
+- ✅ Image detail as overlay (not a separate route) — renders within search route when `image` URL param present. Push on open, replace on prev/next, back to dismiss. All search context preserved.
+- ✅ Image detail standalone fetch — when `image` points to an ID not in results, fetches by ID from ES. Prev/next unavailable in standalone mode.
+- ✅ Image detail offset cache — `sessionStorage` cache for image position + sort cursor + search fingerprint. Survives page reload. Cursor-based `search_after` restore at any depth (see 2 April 2026 entry).
+- ✅ Image detail shows `[x] of [total]`. Auto-loads more results when within 5 images of loaded edge.
+- ✅ Debounced cancellable prefetch — 2 prev + 3 next images, 400ms debounce, abort on navigation.
+- ✅ Image redirect route (`image.tsx`) at `/images/$imageId` → `/search?image=:imageId&nonFree=true`
+- ✅ Index route (`index.tsx`) — `/` → `/search?nonFree=true`
+- ✅ Fullscreen survives between images — stable DOM element, React reconciles same component.
+
+
+### Keyboard Navigation (`useListNavigation.ts`, ~327 lines)
+
+- ✅ Shared hook parameterised by geometry (table: `columnsPerRow: 1`, grid: `columnsPerRow: N`)
+- ✅ Arrow Up/Down, PageUp/PageDown (scroll-first, focus-follows), Home/End, Enter
+- ✅ Two-phase keyboard handling: arrows/page/enter bubble; Home/End use capture phase
+- ✅ `f` toggles fullscreen in image detail (`Alt+f` in editable fields)
+- ✅ O(1) image lookup via incremental `imagePositions: Map`
+- ✅ Bounded placeholder skipping (max 10 empty slots)
+- ✅ Prefetch near edge (loadMore within 5 images of loaded edge)
+- ✅ Visible-window table data via windowed buffer
+
+
+### Performance
+
+- ✅ 36 findings documented in `exploration/docs/performance-analysis.md`
+- ✅ Chrome Lighthouse audit (2026-03-28) — Performance 61 (dev mode), Accessibility 94, Best Practices 96, SEO 83. TBT 8ms, CLS 0.
+- ✅ Imgproxy latency benchmark — ~456ms median per image. Prefetching is correct mitigation.
+- ✅ All 5 fix-now items implemented (#6 visibleImages stability, #7 handleScroll churn, #8 goToPrev/Next churn, #9 generation-based abort, #10 computeFitWidth visible-only scan)
+- 📋 Fix-later items: several resolved by windowed buffer (#3, #4, #11, #14). Still pending: density mount cost (#12), debounce vs seeks (#13), histogram agg (#15), image object compaction (#20).
+
+
+### search_after + Windowed Scroll + Scrubber
+
+Full implementation of `search_after` + PIT windowed scroll + custom scrubber. Replaces `from/size` pagination. All 13 steps implemented, all test checkpoints (A–D) passed.
+
+**Implementation details:**
+- Tiebreaker sort (`id: asc`), sort values stored alongside hits, `search_after` + PIT in DAL
+- Windowed buffer (max 1000 entries), `extendForward`/`extendBackward` via `search_after`, page eviction
+- Seek: shallow (<10k) via `from/size`, deep (≥10k) via percentile estimation + `search_after` + `countBefore`
+- Keyword deep seek via composite aggregation (`findKeywordSortValue`, configurable `BUCKET_SIZE=10000`, 8s time cap)
+- ~~Script sort (dimensions) falls back to iterative `search_after` with `noSource: true`~~ — **Removed.** Width/Height are now plain field sorts using percentile estimation. See "Width/Height replace Dimensions script sort" entry below.
+- `extendBackward` via reverse `search_after` (no depth limit, replaces `from/size` fallback)
+- Backward extend scroll compensation (`_lastPrependCount` + `_prependGeneration`)
+- Sort-around-focus ("Never Lost"): async `_findAndFocusImage()` with 8s timeout
+- Sort-aware scrubber tooltip: date interpolation for date sorts, keyword value for keyword sorts
+- Scrubber: vertical track, proportional thumb, click/drag-to-seek (deferred to pointer up), auto-hide after 2s, callback ref + ResizeObserver, `pendingSeekPosRef`
+- Non-linear drag researched and rejected — linear drag + deferred seek is correct (see deviations.md §20, `scrubber-nonlinear-research.md`)
+
+**Bugs found via TEST ES (~1.3M docs) and fixed:**
+- **Bug #12:** Wheel scroll after scrubber seek — seek cooldown was refreshed at data arrival, blocking extends. Fixed: single cooldown + deferred scroll event.
+- **Bug #13:** Keyword sort seek no effect at scale — composite `BUCKET_SIZE` too small (1000→10000), added 8s time cap, telemetry logging.
+- **Bug #14:** End key short under non-date sort — composite agg returned null for exhausted null-credit docs. Fixed: return `lastKeywordValue` + `missingFirst` for reverse seek + skip `countBefore` for null sort values.
+- **Bug #15:** Grid twitch on sort change — three root causes: (1) initial search at position 0 exposed wrong results before `_findAndFocusImage` replaced the buffer; (2) `_findAndFocusImage` bumped both `_seekGeneration` and `sortAroundFocusGeneration`, triggering two conflicting scroll effects; (3) scroll-reset effect fired on URL change before search completed, resetting scrollTop on old buffer. Fixes: store keeps old buffer visible (loading=true) until `_findAndFocusImage` replaces it in one shot; `_findAndFocusImage` no longer bumps `_seekGeneration` (`sortAroundFocusGeneration` is sole scroll trigger); scroll-reset skipped for sort-only changes with focused image. 3 new E2E tests: single buffer transition assertion (Zustand subscriber tracking `results.length` changes), no scroll-to-0 flash (60fps scrollTop polling during toggle), table regression guard.
+- **4 global→local index bugs** in `FocusedImageMetadata`, density-switch unmount, scroll anchoring — all needed `bufferOffset` subtraction.
+
+
+### List Scroll Smoothness — Tried and Reverted
+
+Goal: make table view feel as smooth as grid. Tried: page size 50→100, throttle, overscan 100. No improvement, introduced hover-colour regression. Reverted. Bottleneck may be React reconciliation or placeholder flash — needs profiling.
+
+

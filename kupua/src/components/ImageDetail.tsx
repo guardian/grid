@@ -1,0 +1,909 @@
+/**
+ * Image detail view — overlay within the search route.
+ *
+ * This is NOT a separate page. It renders on top of the search results when
+ * `image` is present in the URL search params. The search page stays
+ * mounted underneath (hidden via CSS), so:
+ * - Scroll position is preserved exactly
+ * - Search context (query, filters, sort) is preserved in the URL
+ * - Browser back removes `image` from params → table reappears at the
+ *   exact scroll position
+ * - No re-search is triggered (image is a display-only URL param)
+ *
+ * Architecture (Decision 5): "all views are one page — table, grid,
+ * side-by-side, detail are density levels of the same ordered list."
+ *
+ * Key architectural property:
+ * - **Fullscreen survives between images.** The fullscreened container is a
+ *   stable DOM element. When the imageId prop changes (prev/next), React
+ *   reconciles the same component — the DOM node persists, so the Fullscreen
+ *   API does not exit.
+ * - Keyboard shortcuts: `f` toggle fullscreen (`Alt+f` in text fields),
+ *   `←/→` prev/next image,
+ *   `Escape` exit fullscreen only (never navigates — close via the
+ *   "← Back" button in the UI).
+ * - "← Back" button calls `history.back()` to pop the detail entry.
+ *   Forward then re-opens the detail. All four close affordances (back
+ *   button, double-click, Backspace, swipe-to-dismiss) share the same
+ *   `closeDetail` callback which calls `markUserInitiatedNavigation()`
+ *   then `history.back()`.
+ * - On mount, a bare-list entry is always synthesised below the detail
+ *   so that `history.back()` lands on a kupua search page (not the
+ *   referring site or a blank tab). This costs one extra browser-back
+ *   to leave kupua, but guarantees the in-app "Back to search" button
+ *   always works — regardless of how the user arrived.
+ *   Exception: when entered via SPA navigation (pushNavigate from
+ *   grid/table), synthesis is skipped because the list entry already
+ *   exists in history.
+ * - Prev/next navigates through the search results stored in the Zustand
+ *   search store, replacing `imageId` in the URL with `replace: true`
+ *   (so back always returns to the table, not through every viewed image).
+ */
+
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useRouter, useSearch } from "@tanstack/react-router";
+import { getSearchGeneration, useSearchStore } from "@/stores/search-store";
+import { useDataWindow } from "@/hooks/useDataWindow";
+import { useImageTraversal } from "@/hooks/useImageTraversal";
+import { useFullscreen } from "@/hooks/useFullscreen";
+import { useCursorAutoHide } from "@/hooks/useCursorAutoHide";
+import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
+import { useSwipeCarousel } from "@/hooks/useSwipeCarousel";
+import { useSwipeDismiss } from "@/hooks/useSwipeDismiss";
+import { captureDetailEntry, chooseDetailReturn } from "@/lib/detail-return";
+import { usePinchZoom } from "@/hooks/usePinchZoom";
+import { getFullImageUrl, getThumbnailUrl, getZoomImageUrl } from "@/lib/image-urls";
+import { isFullResLoaded, markFullResLoaded, onFullResDecoded, getCarouselImageUrl } from "@/lib/image-prefetch";
+import { FullscreenCornerButton, NavStrip } from "@/components/NavStrip";
+import { StableImg } from "@/components/StableImg";
+import { resetToHome } from "@/lib/reset-to-home";
+import { scrollFocusedIntoView, markUserInitiatedNavigation, pushNavigateAsPopstate, consumeDetailEnteredViaSpaFlag } from "@/lib/orchestration/search";
+import { withCurrentKupuaKey, mintKupuaKey } from "@/lib/orchestration/history-key";
+import { DEFAULT_SEARCH, HOME_HREF } from "@/lib/home-defaults";
+import { storeImageOffset, getImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
+import { ImageMetadata } from "@/components/ImageMetadata";
+import { UsagesSection, countDisplayUsages } from "@/components/UsagesSection";
+import { AccordionSection, useIsCompact } from "@/components/PanelLayout";
+import { BottomSheet } from "@/components/BottomSheet";
+import { useUiPrefsStore, getEffectiveFocusMode } from "@/stores/ui-prefs-store";
+import { consumeTraceInteraction, traceInteraction } from "@/lib/perceived-trace";
+import type { Image } from "@/types/image";
+import type { EnrichmentFields } from "@/stores/enrichment-store";
+
+/** Delay before acting on single-tap in fullscreen — allows double-tap-to-zoom. */
+const DOUBLE_TAP_MS = 300;
+
+interface ImageDetailProps {
+  imageId: string;
+  /** Ref to the grid/list container behind the detail — animated during dismiss. */
+  gridContainerRef?: React.RefObject<HTMLElement | null>;
+}
+
+export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
+  const { total, findImageIndex, getImage } = useDataWindow();
+  const dataSource = useSearchStore((s) => s.dataSource);
+  const restoreAroundCursor = useSearchStore((s) => s.restoreAroundCursor);
+  const navigate = useNavigate();
+  const router = useRouter();
+  const searchParams = useSearch({ from: "/search" });
+  const searchKey = useMemo(() => buildSearchKey(searchParams), [searchParams]);
+
+  // Mount timestamp — used to suppress stray dblclick events that leak
+  // from the grid/table in phantom focus mode. In phantom mode, single-click
+  // opens detail; if the user double-clicks, React re-renders fast enough
+  // that the second click lands on ImageDetail's <img>, and the browser
+  // synthesises a dblclick → closeDetail. Suppressing dblclick for 500ms
+  // after mount blocks this without affecting legitimate double-click-to-close.
+  const mountTimeRef = useRef(Date.now());
+
+  // The fullscreen container ref — must be stable across imageId changes
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // ── Deep-link synthesis ────────────────────────────────────────────
+  //
+  // If the user landed directly on ?image=X (paste, bookmark, reload),
+  // synthesise a bare-list entry below the detail so closeDetail's
+  // history.back() has somewhere to go. Without this, history.back()
+  // would exit kupua (or the tab).
+  //
+  // Skip synthesis when the detail was entered via SPA navigation
+  // (pushNavigate from grid/table) — the list entry already exists in
+  // history. Without this check, every open-detail would insert a
+  // phantom bare-list entry, doubling the back-presses needed.
+  //
+  // Both replaceState + pushState fire in the same synchronous tick;
+  // Chrome and Firefox coalesce, so no rendered or URL-bar flicker.
+  //
+  // Result: stack goes from [...prior] [detail@A] to [...prior] [bare-list] [detail@A].
+  const hasSynthesizedRef = useRef(false);
+  useLayoutEffect(() => {
+    if (hasSynthesizedRef.current) return;
+    hasSynthesizedRef.current = true;
+
+    // SPA navigation (grid/table click) — list entry already in history.
+    if (consumeDetailEnteredViaSpaFlag()) {
+      // Stamp the entry so that browser back/forward to this entry
+      // (which remounts ImageDetail) knows a bare-list entry already
+      // exists below it. Without this, the one-shot consume flag is
+      // gone and the synthesis would re-fire, truncating forward entries.
+      if (!history.state?._bareListSynthesized || !history.state?._detailEntryImageId) {
+        history.replaceState({
+          ...history.state,
+          _bareListSynthesized: true,
+          _detailEntryImageId: history.state?._detailEntryImageId ?? imageId,
+        }, "");
+      }
+      return;
+    }
+
+    // Already synthesized on a previous mount (popstate back to this entry).
+    // The bare-list entry below us still exists — don't re-synthesize
+    // or we'll truncate forward history. Upgrade entries created before
+    // immutable detail-entry identity was introduced.
+    if (history.state?._bareListSynthesized) {
+      if (!history.state?._detailEntryImageId) {
+        history.replaceState({
+          ...history.state,
+          _detailEntryImageId: imageId,
+        }, "");
+      }
+      return;
+    }
+
+    // Save the current state and URL before replacing
+    const detailState = {
+      ...history.state,
+      _detailEntryImageId: history.state?._detailEntryImageId ?? imageId,
+    };
+    const detailUrl = window.location.href;
+
+    // Build the bare-list URL (current URL minus ?image=...)
+    const url = new URL(detailUrl);
+    url.searchParams.delete("image");
+    const bareListUrl = url.pathname + url.search;
+
+    // Step 1: replace current entry with bare-list. Mint a fresh kupuaKey
+    // so this synthesised entry can participate in the snapshot system.
+    const originKey = mintKupuaKey();
+    history.replaceState({ kupuaKey: originKey }, "", bareListUrl);
+    // Step 2: push the detail URL back with the original TSR state intact
+    // (including its kupuaKey, if any). Stamp it so re-mounts skip.
+    history.pushState({ ...detailState, _bareListSynthesized: true, _detailOriginKupuaKey: originKey }, "", detailUrl);
+  }, []);
+
+  // Wrapper around the entire detail view — animated during swipe-to-dismiss.
+  const detailWrapperRef = useRef<HTMLDivElement>(null);
+  // Carousel strip — the inner element translated by swipe gestures.
+  const stripRef = useRef<HTMLDivElement>(null);
+  // Center panel's <img> — transform target for pinch-zoom.
+  const imageRef = useRef<HTMLImageElement>(null);
+
+  // Tracks the imageId we have already emitted open-detail t_store_ready for.
+  // Must be declared at top level (before any early returns) to satisfy
+  // the rules of hooks. Paired effect lives further down once `image` is
+  // available; the ref itself is harmless to declare here.
+  const openDetailSettledRef = useRef<string | null>(null);
+  const openDetailInteractionRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const interactionId = consumeTraceInteraction("open-detail");
+    if (interactionId) openDetailInteractionRef.current = interactionId;
+  }, []);
+  // Mobile scroll container — the outer flex-col div that scrolls on narrow screens.
+  const mobileScrollRef = useRef<HTMLDivElement>(null);
+  const isCompact = useIsCompact();
+  const [cardExpanded, setCardExpanded] = useState(false);
+  const { isFullscreen, toggleFullscreen } = useFullscreen(containerRef);
+  const { cursorHidden, navMouseEnter, navMouseLeave } = useCursorAutoHide(isFullscreen);
+
+  // Find the current image in search results (handles sparse array).
+  // NOT memoized: findImageIndex is stable ([] deps, reads getState()
+  // imperatively), so a useMemo on [findImageIndex, imageId] would never
+  // recompute when the buffer changes — causing a stale index after
+  // popstate-triggered search() replaces the results array.
+  // This is O(1) (Map.get) and ImageDetail renders for one image, so
+  // computing on every render is negligible.
+  const currentIndex = findImageIndex(imageId);
+  const imageFromResults = currentIndex >= 0 ? getImage(currentIndex) : undefined;
+
+  // ── Restore search context from cached cursor ──────────────────────
+  //
+  // On page reload, the image may not be in the first page of results.
+  // If we have a cached cursor (stored when entering image detail or
+  // navigating prev/next), use search_after to load a page centered on
+  // the image. With a cursor this is exact at any depth. Without one
+  // (old cache format) falls back to approximate seek.
+  // Track which imageId the restore was attempted for — guards against
+  // re-triggering restore for the same image when the buffer briefly
+  // contains it then loses it (e.g. scroll-seek in two-tier mode).
+  const restoreAttemptedForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (currentIndex >= 0) {
+      // Image visible in buffer — mark as handled. Prevents a spurious
+      // re-restore if the image later falls out due to a background
+      // scroll-seek in two-tier mode. Without this, navigating to an
+      // adjacent image during an in-flight restore resets the flag, and
+      // a subsequent buffer shift triggers a wasteful second
+      // restoreAroundCursor call with a potentially-stale cursor.
+      // (Audit bug #7)
+      restoreAttemptedForRef.current = imageId;
+      return;
+    }
+    // Don't attempt restore until the initial search has returned —
+    // restoreAroundCursor needs total > 0 for countBefore to clamp correctly.
+    if (total === 0) return;
+    if (restoreAttemptedForRef.current === imageId) return; // already tried
+    const cached = getImageOffset(imageId, searchKey);
+    if (cached == null) return; // no cached position — standalone mode
+    restoreAttemptedForRef.current = imageId;
+    const pending = useSearchStore.getState()._cursorRestore;
+    if (pending?.imageId === imageId && pending.generation === getSearchGeneration() && !pending.signal.aborted) return;
+    restoreAroundCursor(imageId, cached.cursor, cached.offset, getEffectiveFocusMode() !== "phantom");
+  }, [imageId, currentIndex, restoreAroundCursor, searchKey, total]);
+
+  // Standalone fetch — when the imageId isn't in the search results
+  // (e.g. direct URL navigation, bookmark, /images/:id redirect),
+  // fetch it by ID from ES directly.  This eliminates the "Image not
+  // found" dead end — if the image exists in the index, we show it.
+  const [standalone, setStandalone] = useState<{
+    imageId: string;
+    image: Image | null;
+    enrichment?: EnrichmentFields;
+    failed: boolean;
+  } | null>(null);
+  const standaloneImage = standalone?.imageId === imageId ? standalone.image : null;
+  const standaloneEnrichment = standalone?.imageId === imageId ? standalone.enrichment : undefined;
+  const standaloneFetchFailed = standalone?.imageId === imageId && standalone.failed;
+
+  useEffect(() => {
+    // If the image is already in search results, no need to fetch
+    if (imageFromResults) {
+      setStandalone(null);
+      return;
+    }
+    // Fetch by ID
+    let cancelled = false;
+    const request = new AbortController();
+    setStandalone({ imageId, image: null, failed: false });
+    dataSource.getById(imageId, request.signal).then(
+      (found) => {
+        if (cancelled) return;
+        setStandalone({ imageId, image: found?.image ?? null, enrichment: found?.enrichment, failed: !found });
+      },
+      () => {
+        if (!cancelled) setStandalone({ imageId, image: null, failed: true });
+      },
+    );
+    return () => {
+      cancelled = true;
+      request.abort();
+    };
+  }, [imageId, imageFromResults, dataSource]);
+
+  // Use the image from results if available (preserves prev/next nav),
+  // otherwise fall back to the standalone fetch
+  const image = imageFromResults ?? standaloneImage;
+
+  // Emit open-detail store-ready the first time `image` is available for a
+  // given imageId. Pairs with the owned interaction from ImageGrid.enterDetail. Declared up
+  // here (before any early returns) to satisfy the rules of hooks.
+  useEffect(() => {
+    if (!image) return;
+    if (openDetailSettledRef.current === image.id) return;
+    openDetailSettledRef.current = image.id;
+    requestAnimationFrame(() => {
+      traceInteraction("open-detail", "t_store_ready", openDetailInteractionRef.current);
+    });
+  }, [image]);
+
+  // ── Traversal via shared hook ──────────────────────────────────
+  // The hook manages prev/next availability, buffer extension, seek,
+  // and prefetch. It works identically in all three scroll modes.
+  const searchParamsOrderBy = searchParams.orderBy;
+  const onNavigate = useCallback(
+    (img: Image, globalIndex: number) => {
+      // Store the target image's offset + sort cursor in sessionStorage so
+      // the counter and prev/next survive page reload.
+      const cursor = extractSortValues(img, searchParamsOrderBy, searchKey);
+      storeImageOffset(img.id, globalIndex, searchKey, cursor);
+
+      // Raw navigate — not pushNavigate(). Traversal uses replace: true
+      // (not a push), so the user-initiated flag is moot — the dedup guard
+      // bails on display-only-key-only changes. If this ever becomes a push,
+      // it must switch to pushNavigate().
+      navigate({
+        to: "/search",
+        search: (prev: Record<string, unknown>) => ({ ...prev, image: img.id }),
+        replace: true,
+        state: withCurrentKupuaKey(),
+      });
+    },
+    [navigate, searchKey, searchParamsOrderBy],
+  );
+
+  const {
+    prevImage, nextImage, goToPrev, goToNext, currentGlobalIndex,
+  } = useImageTraversal(imageId, onNavigate, router.history);
+
+  // Close image detail via history.back(). All four close affordances
+  // (← Back button, double-click, Backspace, swipe-to-dismiss) share this
+  // callback. Using history.back() instead of navigate({ replace: true })
+  // means the detail entry stays in the forward stack — forward re-opens
+  // the detail. Both close paths (explicit close and browser-back) now
+  // produce identical stacks.
+  //
+  // markUserInitiatedNavigation() before history.back() ensures the
+  // resulting popstate is treated as user-initiated by useUrlSearchSync,
+  // preserving focus/position. In the common case (only the display-only
+  // `image` key changed), the dedup guard bails before reading the flag,
+  // but the marking is belt-and-braces safety for edge cases.
+  const closeDetail = useCallback(() => {
+    markUserInitiatedNavigation();
+    history.back();
+  }, []);
+
+  // Keyboard shortcut: f = toggle fullscreen (via centralised shortcut system)
+  // Alt+f works when focus is in an editable field.
+  useKeyboardShortcut("f", toggleFullscreen);
+
+  // Shared scaleRef — written by usePinchZoom, read by useSwipeCarousel
+  // to suppress swipe when zoomed in. Created here to break the circular
+  // dependency (swipe needs scaleRef, zoom needs lastSwipeTimeRef from swipe).
+  const scaleRef = useRef(1);
+
+  // Swipe carousel: horizontal swipe with visual slide-in animation.
+  // Listens on the image container so swipe works in both normal and fullscreen.
+  // `enabled` toggles when the image loads — forces the effect to re-run after
+  // the container DOM element exists (on reload, the loading spinner renders first).
+  const { swipedRef, lastSwipeTimeRef } = useSwipeCarousel({
+    containerRef,
+    stripRef,
+    onSwipeLeft: nextImage ? goToNext : undefined,
+    onSwipeRight: prevImage ? goToPrev : undefined,
+    enabled: !!image,
+    scaleRef,
+  });
+
+  // Pinch-to-zoom (touch) + click/wheel/drag zoom (desktop). Fullscreen-only.
+  // Exposes scaleRef so carousel and dismiss can skip when zoomed.
+  // lastSwipeTimeRef: suppress zoom during post-swipe cooldown.
+  const [isZoomed, setIsZoomed] = useState(false);
+  usePinchZoom({
+    containerRef,
+    imageRef,
+    enabled: !!image && isFullscreen,
+    lastSwipeTimeRef,
+    scaleRef,
+    onScaleChange: setIsZoomed,
+    onDoubleClick: toggleFullscreen,
+  });
+
+  // Swipe-to-dismiss: pull down on the image to close detail view.
+  // Only on mobile, only outside fullscreen (tap exits fullscreen instead).
+  const _pointerCoarse = useUiPrefsStore((s) => s._pointerCoarse);
+  useSwipeDismiss({
+    containerRef,
+    wrapperRef: detailWrapperRef,
+    backdropRef: gridContainerRef,
+    onDismiss: closeDetail,
+    onDragStart: () => {
+      // Pre-scroll the hidden grid to the current image so it's in the
+      // right place as it fades in during the dismiss gesture.
+      // BUT: only if the user traversed to a different image. If they're
+      // still on the entry image, the grid's scroll position is already
+      // perfect (preserved via opacity:0). Scrolling would re-center the
+      // image when it was originally at a viewport edge.
+      if (chooseDetailReturn(captureDetailEntry(imageId), imageId).placement === "center") {
+        useSearchStore.getState().setFocusedImageId(imageId);
+        scrollFocusedIntoView();
+      }
+    },
+    enabled: !!image && _pointerCoarse && !isFullscreen,
+    scaleRef,
+    imageId,
+  });
+
+  // Swipe-to-dismiss in fullscreen: pull down to exit fullscreen.
+  // Same gesture, different target: animates the fullscreen container itself
+  // (the wrapper is outside the fullscreen viewport). No hero animation,
+  // no backdrop — just slide-down + exit. Disabled when zoomed (scaleRef > 1).
+  // dragTargetRef = imageRef: the image moves visually while the container bg
+  // goes transparent (without this, movement is invisible — black on black).
+  useSwipeDismiss({
+    containerRef,
+    wrapperRef: containerRef, // fullscreen container IS the animated element
+    onDismiss: toggleFullscreen,
+    enabled: !!image && _pointerCoarse && isFullscreen,
+    scaleRef,
+    dragTargetRef: imageRef,
+  });
+
+  // Tap-to-fullscreen handler for touch devices.
+  // On desktop: double-click toggles fullscreen (or closes detail).
+  // On mobile (non-fullscreen): single tap enters fullscreen instantly.
+  // In fullscreen: single tap exits after 300ms delay (to distinguish from
+  // double-tap-to-zoom). The delay on EXIT is acceptable — retreating feels
+  // natural with a slight pause. ENTERING fullscreen stays instant.
+  const fullscreenTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleImageClick = useCallback(() => {
+    if (swipedRef.current) return; // was a swipe, not a tap
+    // Post-swipe cooldown — suppress accidental taps shortly after swiping (250ms)
+    if (lastSwipeTimeRef.current && Date.now() - lastSwipeTimeRef.current < 250) return;
+    if (!useUiPrefsStore.getState()._pointerCoarse) return; // desktop: ignore click, use dblclick
+    if (isFullscreen) {
+      // In fullscreen: delay exit to allow double-tap-to-zoom.
+      // If double-tap fires (zooms in), scaleRef.current > 1 when the
+      // timer executes, so the exit is suppressed — no coupling needed.
+      if (fullscreenTapTimer.current) {
+        // Second tap arrived while waiting — cancel the exit timer.
+        // Double-tap-to-zoom is handled by usePinchZoom via touch events.
+        clearTimeout(fullscreenTapTimer.current);
+        fullscreenTapTimer.current = null;
+        return;
+      }
+      fullscreenTapTimer.current = setTimeout(() => {
+        fullscreenTapTimer.current = null;
+        // Guard: if a double-tap zoom happened between scheduling and firing,
+        // don't exit fullscreen — the user zoomed in, not tapped to exit.
+        if (scaleRef.current > 1) return;
+        toggleFullscreen();
+      }, DOUBLE_TAP_MS);
+    } else {
+      toggleFullscreen(); // enter fullscreen instantly
+    }
+  }, [swipedRef, lastSwipeTimeRef, toggleFullscreen, isFullscreen, scaleRef]);
+
+  // Reset carousel strip and zoom when imageId changes. The carousel's
+  // commitStripReset handles the visual transition imperatively (no flash),
+  // but React re-renders with new panel content — this ensures the strip is
+  // cleanly at translateX(0) for the new image. Also cancels any pending
+  // fullscreen-exit tap timer from the previous image.
+  useLayoutEffect(() => {
+    const strip = stripRef.current;
+    if (strip) {
+      strip.style.transition = "none";
+      strip.style.transform = "";
+    }
+    // Cancel pending fullscreen tap timer from previous image
+    if (fullscreenTapTimer.current) {
+      clearTimeout(fullscreenTapTimer.current);
+      fullscreenTapTimer.current = null;
+    }
+    // Reset pinch-zoom state — new image starts at 1x
+    scaleRef.current = 1;
+    setIsZoomed(false);
+    const img = imageRef.current;
+    if (img) {
+      img.style.transform = "";
+      img.style.willChange = "";
+      img.style.transition = "";
+    }
+  }, [imageId, scaleRef]);
+
+  // ── Zoom-enhanced hi-res loading ───────────────────────────────
+  // When the user zooms past 1× in fullscreen, load a higher-resolution
+  // image (2× the standard DPR) so pinch/wheel zoom reveals extra detail.
+  // On zoom-out or image change, cancel the in-flight fetch. StableImg's
+  // layoutEffect will revert to the standard-res URL on its next render.
+  useEffect(() => {
+    if (!isZoomed || !isFullscreen || !image) return;
+    const zoomUrl = getZoomImageUrl(image);
+    if (!zoomUrl) return;
+    const img = imageRef.current;
+    if (img && img.src === new URL(zoomUrl, window.location.href).href) return;
+
+    let cancelled = false;
+    const loader = new window.Image();
+    loader.src = zoomUrl;
+    loader.decode().then(() => {
+      if (cancelled) return;
+      const el = imageRef.current;
+      if (el) el.src = zoomUrl;
+    }).catch(() => { /* cancelled or decode error — ignore */ });
+
+    return () => {
+      cancelled = true;
+      loader.src = ""; // abort in-flight fetch
+    };
+  }, [isZoomed, isFullscreen, image?.id]);
+
+  // Navigation keyboard shortcuts (arrows, backspace) — these are NOT
+  // single-character shortcuts, so they don't go through the shortcut
+  // registry. They only work when not typing in an input.
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      )
+        return;
+
+      switch (e.key) {
+        case "Backspace":
+          e.preventDefault();
+          closeDetail();
+          break;
+        case "ArrowLeft":
+          e.preventDefault();
+          if (scaleRef.current <= 1) goToPrev();
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          if (scaleRef.current <= 1) goToNext();
+          break;
+        // Escape exits fullscreen — handled natively by the browser.
+        // When not in fullscreen, Escape does nothing. Close image detail
+        // via Backspace, the back button, or browser back.
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [closeDetail, goToPrev, goToNext]);
+
+  // Middle-click toggles fullscreen (undiscoverable power-user shortcut).
+  // Uses mouseup (not auxclick) because auxclick doesn't carry transient
+  // user activation in Firefox — requestFullscreen() fails silently.
+  // preventDefault on mousedown suppresses browser autoscroll mode.
+  // `image` in deps: on reload, the loading placeholder renders first (no
+  // containerRef div). When image arrives the real div mounts — we need the
+  // effect to re-run so it can bind to it.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onMiddleUp = (e: MouseEvent) => {
+      if (e.button !== 1) return;
+      e.preventDefault();
+      // setTimeout breaks out of the mouse-handler stack — Firefox blocks
+      // requestFullscreen() called from inside a non-left-button handler.
+      // Transient user activation survives ~5s, so the deferred call works.
+      setTimeout(toggleFullscreen, 0);
+    };
+    const onMiddleDown = (e: MouseEvent) => {
+      if (e.button === 1) e.preventDefault();
+    };
+    el.addEventListener("mouseup", onMiddleUp);
+    el.addEventListener("mousedown", onMiddleDown);
+    return () => {
+      el.removeEventListener("mouseup", onMiddleUp);
+      el.removeEventListener("mousedown", onMiddleDown);
+    };
+  }, [toggleFullscreen, image]);
+
+  // Image URL — prefer full-size via imgproxy, fall back to thumbnail.
+  // Request screen-sized image (not window-sized) so a single request covers
+  // both windowed and fullscreen display. Uses detectDpr() — 1× on standard
+  // displays, 1.5× on HiDPI (DPR > 1.3). See image-urls.ts for rationale.
+  // Capped at native resolution to avoid upscaling.
+  // screen.width/height are CSS pixels of the monitor — stable regardless of
+  // window size or fullscreen state. No re-request on resize/fullscreen toggle.
+  const imgproxyOpts = useMemo(
+    () => ({
+      width: window.screen.width,
+      height: window.screen.height,
+      // Native dimensions cap — prevents requesting larger than the original
+      nativeWidth: image?.source?.dimensions?.width,
+      nativeHeight: image?.source?.dimensions?.height,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally stable per image
+    [image?.id],
+  );
+  const fullUrl = image ? getFullImageUrl(image, imgproxyOpts) : undefined;
+  const thumbUrl = image ? getThumbnailUrl(image) : undefined;
+
+  // Prev/next image URLs for the swipe carousel.
+  // Use full-res AVIF when the prefetch pipeline has fully decoded it
+  // (img.decode() resolved → bitmap in Chrome's decoded-image cache).
+  // A new DOM <img> with the same URL finds the cached bitmap and
+  // paints immediately — no ⏳ window, no stale-compositor-texture
+  // duplication. When NOT decoded yet (rapid swipes outpace prefetch),
+  // fall back to thumbnail (~5KB JPEG, decodes in <10ms).
+  //
+  // prefetchGen triggers re-computation when a decode completes for one
+  // of the current side-panel images (upgrades THUMB → FULL-RES without
+  // waiting for a navigation-driven re-render).
+  const [prefetchGen, setPrefetchGen] = useState(0);
+  useEffect(() => {
+    return onFullResDecoded((id) => {
+      if (id === prevImage?.id || id === nextImage?.id) {
+        setPrefetchGen((g) => g + 1);
+      }
+    });
+  }, [prevImage?.id, nextImage?.id]);
+
+  const prevImageUrl = useMemo(() => {
+    if (!prevImage) return undefined;
+    if (isFullResLoaded(prevImage.id)) {
+      const fullRes = getCarouselImageUrl(prevImage);
+      if (fullRes) return fullRes;
+    }
+    return getThumbnailUrl(prevImage);
+  }, [prevImage?.id, prefetchGen]);
+
+  const nextImageUrl = useMemo(() => {
+    if (!nextImage) return undefined;
+    if (isFullResLoaded(nextImage.id)) {
+      const fullRes = getCarouselImageUrl(nextImage);
+      if (fullRes) return fullRes;
+    }
+    return getThumbnailUrl(nextImage);
+  }, [nextImage?.id, prefetchGen]);
+
+  // Failed media and callbacks belong to this rendered image lifetime.
+  const mediaOwner = useMemo(() => ({ imageId }), [imageId]);
+  const currentMediaOwnerRef = useRef(mediaOwner);
+  currentMediaOwnerRef.current = mediaOwner;
+  const [failedMediaOwner, setFailedMediaOwner] = useState<typeof mediaOwner | null>(null);
+
+  const imageUrl = failedMediaOwner === mediaOwner ? undefined : (fullUrl ?? thumbUrl);
+
+
+  // Delay showing the loading indicator so it doesn't flash on fast loads
+  // (tab reload, cached ES responses).  Only appears after 500ms of waiting.
+  const [loadingImageId, setLoadingImageId] = useState<string | null>(null);
+  useEffect(() => {
+    setLoadingImageId(null);
+    if (image) return;
+    const timer = setTimeout(() => setLoadingImageId(imageId), 500);
+    return () => clearTimeout(timer);
+  }, [imageId, image]);
+
+  const displayImage = image;
+
+  return (
+    <div ref={detailWrapperRef} className="flex flex-col flex-1 min-h-0 bg-grid-bg" data-detail-image-id={displayImage?.id}>
+      {/* Top bar — hidden in fullscreen */}
+      {!isFullscreen && (
+        <header className="flex items-center px-3 py-1.5 bg-grid-bg border-b border-grid-separator h-11 shrink-0">
+          {/* Logo + separator + back button — flush together, no gaps */}
+          <div className="flex items-center shrink-0 -ml-3">
+            {/* Logo — resets everything (query, filters, sort, scroll), same as SearchBar.
+                 Hit area is a square matching the full bar height (h-11 = 44px).
+                 Uses <a> (not <Link>) with e.preventDefault() so we can await
+                 search() before navigating — prevents table→grid flash. */}
+            <a
+              href={HOME_HREF}
+              title="Grid — clear all filters"
+              className="shrink-0 w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors"
+              onClick={(e) => {
+                e.preventDefault();
+                // pushNavigateAsPopstate — deliberately skips markUserInitiatedNavigation().
+                // Logo-reset should behave like a popstate: reset to offset 0, no focus
+                // carry. See SearchBar logo for the identical pattern.
+                resetToHome(() =>
+                  pushNavigateAsPopstate(navigate, { to: "/search", search: DEFAULT_SEARCH }),
+                  undefined,
+                  router.history,
+                );
+              }}
+            >
+              <img
+                src={`${import.meta.env.BASE_URL}images/grid-logo.svg`}
+                alt="Grid"
+                className="w-8 h-8"
+              />
+            </a>
+
+            <div className="w-px h-5 bg-grid-separator shrink-0" />
+
+            <button
+              onClick={closeDetail}
+              className="shrink-0 h-11 flex items-center gap-1.5 px-3 text-sm text-grid-text-muted hover:bg-grid-hover hover:text-grid-text transition-colors cursor-pointer"
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              Back to search
+            </button>
+          </div>
+
+          <span className="flex-1" />
+
+          {/* Image position in results */}
+          {currentGlobalIndex >= 0 && (
+            <span className="text-sm text-grid-text-muted">
+              {(currentGlobalIndex + 1).toLocaleString()} of {total.toLocaleString()}
+            </span>
+          )}
+        </header>
+      )}
+
+      {/* Main content area.
+          Desktop: flex-row (image fills left, metadata sidebar right). No scroll on outer.
+          Mobile: single scrollable column (image top, metadata below).
+          Fullscreen: image fills viewport, no sidebar. */}
+      <div
+        ref={mobileScrollRef}
+        className={
+          isFullscreen
+            ? "flex-1 flex min-h-0"
+            : "flex-1 flex min-h-0 overflow-y-auto wide:overflow-clip overscroll-y-contain overscroll-x-none flex-col wide:flex-row touch-pan-y wide:touch-auto"
+        }
+      >
+        {/* Image container — this div is fullscreened. overflow-clip clips
+            the carousel's off-screen prev/next panels without creating a scroll
+            container — overflow-hidden would eat the macOS trackpad back-swipe.
+            touch-action: none — we handle all gestures ourselves (swipe carousel).
+            h-[calc(100%-64px)] — compact image fills the screen above the metadata
+            card's peek strip; svh (small viewport height) is stable when address bar
+            shows/hides, avoiding the twitch on fullscreen exit. */}
+        <div
+          ref={containerRef}
+          className={`relative overflow-clip ${
+            isFullscreen
+              ? `w-full h-full touch-none${cursorHidden ? " cursor-none" : ""}`
+              : `bg-grid-bg shrink-0 wide:flex-1 min-w-0 ${
+                // Expanded card covers the bottom 75%: the image shrinks into the top quarter.
+                isCompact && cardExpanded ? "h-[calc(25svh-44px)]" : "h-[calc(100%-64px)]"
+              } wide:h-full touch-none wide:touch-auto transition-[height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`
+          }`}
+          onClickCapture={isCompact && cardExpanded ? (e) => { e.stopPropagation(); setCardExpanded(false); } : undefined}
+        >
+          {/* Carousel strip — three panels (prev | current | next).
+              Translated by useSwipeCarousel during horizontal swipe.
+              Prev/next are offset ±100% so only the current panel is visible at rest. */}
+          <div ref={stripRef} className={`absolute inset-0${_pointerCoarse ? " will-change-transform" : ""}`}>
+            {/* Previous image (off-screen left) — used by swipe animation on mobile.
+                Gated on _pointerCoarse: desktop never swipes, so rendering off-screen
+                panels wastes 2 AVIF fetches + decodes per navigation. */}
+            {_pointerCoarse && prevImageUrl && (
+              <div className="absolute inset-0 flex items-center justify-center" style={{ transform: "translateX(-100%)" }}>
+                <StableImg
+                  src={prevImageUrl}
+                  data-thumb={prevImage ? getThumbnailUrl(prevImage) : undefined}
+                  alt=""
+                  className={
+                    isFullscreen
+                      ? "w-full h-full object-contain select-none"
+                      : "max-w-full max-h-full object-contain select-none"
+                  }
+                  draggable={false}
+                />
+              </div>
+            )}
+
+            {/* Current image — full-res via imageUrl */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              {!displayImage ? (
+                <div className="text-grid-text-muted text-center">
+                  {standaloneFetchFailed ? (
+                    <p className="text-lg">Image not found</p>
+                  ) : loadingImageId === imageId ? (
+                    <p className="text-sm animate-pulse">Loading image…</p>
+                  ) : null}
+                </div>
+              ) : imageUrl ? (
+                <StableImg
+                  imgRef={imageRef}
+                  src={imageUrl}
+                  fetchPriority="high"
+                  alt={displayImage.metadata?.title ?? displayImage.metadata?.description ?? ""}
+                  className={
+                    isFullscreen
+                      ? "w-full h-full object-contain select-none"
+                      : "max-w-full max-h-full object-contain select-none"
+                  }
+                  draggable={false}
+                  onClick={handleImageClick}
+                  onLoad={(event) => {
+                    if (currentMediaOwnerRef.current !== mediaOwner || event.currentTarget !== imageRef.current) return;
+                    // Mark this image as loaded so side-panel probes can use
+                    // full-res instead of thumbnail on future swipes.
+                    if (imageId) markFullResLoaded(imageId);
+                  }}
+                  onDoubleClick={
+                    // Fullscreen: no dblclick — click-to-zoom handles interaction.
+                    // Non-fullscreen desktop: dblclick closes detail.
+                    // Mount guard: suppress stray dblclick from phantom-mode grid/table
+                    // click leaking through (see mountTimeRef).
+                    isFullscreen ? undefined
+                      : () => {
+                          if (Date.now() - mountTimeRef.current < 500) return;
+                          closeDetail();
+                        }
+                  }
+                  onError={(e) => {
+                    if (currentMediaOwnerRef.current !== mediaOwner || e.currentTarget !== imageRef.current) return;
+                    // imgproxy failed — try thumbnail as fallback
+                    const target = e.currentTarget;
+                    if (thumbUrl && target.src !== new URL(thumbUrl, window.location.href).href) {
+                      target.src = thumbUrl;
+                    } else {
+                      // Both imgproxy and thumbnail failed — show text fallback
+                      setFailedMediaOwner(mediaOwner);
+                    }
+                  }}
+                />
+              ) : (
+                <div className="text-grid-text-muted text-sm text-center p-4">
+                  <p>Image preview not available</p>
+                  {!fullUrl && !thumbUrl && (
+                    <p className="mt-1 text-grid-text-dim">
+                      Run with <code>--use-TEST</code> to enable image viewing
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Next image (off-screen right) — used by swipe animation on mobile. */}
+            {_pointerCoarse && nextImageUrl && (
+              <div className="absolute inset-0 flex items-center justify-center" style={{ transform: "translateX(100%)" }}>
+                <StableImg
+                  src={nextImageUrl}
+                  data-thumb={nextImage ? getThumbnailUrl(nextImage) : undefined}
+                  alt=""
+                  className={
+                    isFullscreen
+                      ? "w-full h-full object-contain select-none"
+                      : "max-w-full max-h-full object-contain select-none"
+                  }
+                  draggable={false}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Prev/next navigation strips — desktop only (mobile uses swipe).
+              Positioned on top of the carousel strip. */}
+          {!(isFullscreen && cursorHidden) && !isZoomed && prevImage && (
+            <NavStrip direction="prev" onClick={goToPrev} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} className="hidden wide:flex" />
+          )}
+          {!(isFullscreen && cursorHidden) && !isZoomed && nextImage && (
+            <NavStrip direction="next" onClick={goToNext} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} className="hidden wide:flex" />
+          )}
+          {!(isFullscreen && cursorHidden) && (
+            <FullscreenCornerButton isFullscreen={isFullscreen} onClick={toggleFullscreen} className="hidden wide:flex" />
+          )}
+        </div>
+
+        {/* Metadata — hidden in fullscreen.
+            Desktop: fixed-width right column, scrolls independently.
+            Compact: a card peeking over the image. */}
+        {!isFullscreen && displayImage && (() => {
+          const content = <>
+            <AccordionSection sectionId="detail-metadata" title="Details">
+              <div className="p-3">
+                <ImageMetadata image={displayImage} overlay={imageFromResults ? undefined : standaloneEnrichment} />
+              </div>
+            </AccordionSection>
+            <AccordionSection
+              sectionId="detail-usages"
+              title={`Usages${countDisplayUsages(displayImage.usages) > 0 ? ` (${countDisplayUsages(displayImage.usages)})` : ""}`}
+            >
+              <UsagesSection usages={displayImage.usages} />
+            </AccordionSection>
+          </>;
+          return isCompact ? (
+            <BottomSheet
+              label="Image details"
+              header={displayImage.metadata?.title ?? displayImage.metadata?.description ?? displayImage.metadata?.credit ?? "Details"}
+              expanded={cardExpanded}
+              onExpandedChange={setCardExpanded}
+              // The shrunken image stays live: swipe-down still dismisses the detail.
+              scrim={false}
+            >
+              {content}
+            </BottomSheet>
+          ) : (
+            <aside className="w-72 shrink-0 border-l border-grid-separator bg-grid-bg overflow-y-auto overflow-x-clip">
+              {content}
+            </aside>
+          );
+        })()}
+      </div>
+    </div>
+  );
+}
+

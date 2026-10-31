@@ -4,10 +4,39 @@ import com.gu.mediaservice.lib.auth.Authentication.{Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.Internal
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
+import lib.querysyntax.Parser
+import play.api.libs.json.Json
 import play.api.mvc.{AnyContentAsEmpty, Security}
 import play.api.test.FakeRequest
 
 class SearchParamsTest extends AnyFunSpec with Matchers {
+
+  describe("POST admission uses the shared query parser") {
+    Seq(
+      "", "keyword:fixture", "is:DELETED", "is:\"deleted\"", "-is:deleted",
+      "description:\"is:deleted\"", "usages@status:\"replaced\"",
+      "-description:\"usages@status:replaced\"", "-usages@status:replacedx",
+      "-usages@platform:print -usages@status:published", "credit:\"unfinished",
+      "usages@section:news usages@publication:guardian usages@orderedBy:editor"
+    ).foreach { query =>
+      it(s"uses exactly the upstream conditions for $query") {
+        val params = SearchParamsBody.fromJson(Json.obj("q" -> query), Internal).toOption.get
+        params.structuredQuery shouldBe Parser.runResult(query).toOption.get
+        params.queryParseError shouldBe None
+      }
+    }
+
+    it("applies shared defaults when q is absent") {
+      SearchParamsBody.fromJson(Json.obj(), Internal).toOption.get.structuredQuery shouldBe Parser.run("")
+    }
+
+    Seq("cats\tdogs", "is:deleted\t").foreach { query =>
+      it(s"returns a decoding failure rather than throwing for ${query.replace("\t", "<tab>")}") {
+        Parser.runResult(query).isLeft shouldBe true
+        SearchParamsBody.fromJson(Json.obj("q" -> query), Internal) shouldBe Left("Invalid query syntax")
+      }
+    }
+  }
 
   it("rejects a search query that failed parsing before validating other search parameters") {
     val params = SearchParams(

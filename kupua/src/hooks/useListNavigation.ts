@@ -1,0 +1,648 @@
+/**
+ * useListNavigation — shared keyboard navigation for all density views.
+ *
+ * Abstracts the common navigation logic parameterised by density geometry.
+ * Table passes `columnsPerRow: 1`, grid passes `columnsPerRow: N`.
+ *
+ * ## Two modes
+ *
+ * **No focus (focusedImageId === null):**
+ *   - Arrow Up/Down: scroll exactly one row, snapping to row boundary.
+ *   - PageUp/Down: scroll one page, snapping to row boundary, never skipping
+ *     a row that wasn't fully visible before the scroll.
+ *   - Home/End: scroll to absolute start/end.
+ *   - None of these keys set focus.
+ *
+ * **Has focus (focusedImageId !== null):**
+ *   - Arrow Up/Down: move focus by ±columnsPerRow items (one visual row).
+ *   - Arrow Left/Right (grid only): move focus by ±1 item.
+ *   - PageUp/Down: move focus by one page of rows, using the same row-aligned
+ *     principles as no-focus mode, but targeting the focused image.
+ *   - Home/End: scroll to start/end AND focus first/last image.
+ *   - Enter: open the focused image.
+ *
+ * ## Key propagation
+ *
+ * CqlSearchInput propagates ArrowUp/Down, PageUp/Down, Home/End (not Left/Right).
+ * Native inputs (date filters etc.) are excluded via `isNativeInputTarget`.
+ *
+ * ## What stays in the density component
+ *
+ * - Scroll reset on search param change
+ * - Density-switch viewport position preservation
+ * - All rendering
+ */
+
+import { useCallback, useEffect, useRef } from "react";
+import type { Virtualizer } from "@tanstack/react-virtual";
+import { isNativeInputTarget } from "@/lib/keyboard-shortcuts";
+import { imageFullscreenElement } from "@/lib/app-fullscreen";
+import { useSearchStore } from "@/stores/search-store";
+import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
+import { useSelectionStore } from "@/stores/selection-store";
+import { getFixedRowCount, getLayoutRow, type SpatialNavigation } from "@/lib/scroll-geometry-ref";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export type ListNavigationConfig = {
+
+  /** The virtualizer instance (row-based for grid, flat for table). */
+  virtualizer: Virtualizer<HTMLDivElement, Element>;
+
+  /** The scroll container element ref. */
+  scrollRef: React.RefObject<HTMLDivElement | null>;
+
+  /**
+   * Height of any fixed header inside the scroll container (px).
+   * Table has a sticky header; grid has none. Used for page calculation.
+   */
+  headerHeight: number;
+
+  /** Current focused image ID (from useDataWindow). */
+  focusedImageId: string | null;
+
+  /** Set the focused image ID (from useDataWindow). */
+  setFocusedImageId: (id: string | null) => void;
+
+  /** Total virtualizer row count. */
+  virtualizerCount: number;
+
+  /** Get image at a flat index (from useDataWindow). */
+  getImage: (index: number) => import("@/types/image").Image | undefined;
+
+  /** Find flat index of an image by ID (from useDataWindow). */
+  findImageIndex: (imageId: string) => number;
+
+  /** Loaded results length (for loadMore guard). */
+  resultsLength: number;
+
+  /** Total matching images in ES. */
+  total: number;
+
+  /** Load more results. */
+  loadMore: () => Promise<void>;
+
+  /** Handler for Enter key (open image detail). */
+  onEnter: (imageId: string) => void;
+
+  /** Current image URL param (when set, keyboard nav is disabled). */
+  imageParam: string | undefined;
+
+  /**
+   * Convert a flat image index to the virtualizer row index for scrolling.
+  * Uses the view's row mapping, including partial fixed-grid rows.
+   */
+  flatIndexToRow: (flatIndex: number) => number;
+
+  /** Whether Home should also reset horizontal scroll (table: yes). */
+  resetScrollLeftOnHome?: boolean;
+
+  /** Current buffer offset (for Home/End seek detection). */
+  bufferOffset?: number;
+
+  /** Seek to a global offset (for Home/End when buffer is windowed). */
+  seek?: (globalOffset: number) => Promise<void>;
+} & ({ columnsPerRow: number; rowHeight: number; itemOffset?: number; spatial?: undefined }
+  | { spatial: SpatialNavigation; columnsPerRow?: never; rowHeight?: never });
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Snap a scroll position to the nearest row boundary.
+ * Rounds to nearest so small drifts (sub-pixel, user drag) are corrected.
+ * Used by ArrowUp/Down (single-row steps where waste isn't a concern).
+ */
+function snapToRow(scrollTop: number, rowHeight: number): number {
+  return Math.round(scrollTop / rowHeight) * rowHeight;
+}
+
+/**
+ * Compute the target scrollTop for a page scroll that never re-shows a
+ * fully-visible row and never skips a partially-visible one.
+ *
+ * Two cases per direction, depending on whether the viewport edge in the
+ * direction of travel is exactly row-aligned:
+ *
+ * **PgDown:**
+ *   - Bottom edge NOT aligned: the partially-visible bottom row becomes the
+ *     new top row. `floor(bottom / rowHeight) * rowHeight`
+ *   - Bottom edge aligned: every visible row is fully visible (no partial at
+ *     bottom). The next unseen row starts at `bottom`. Target = `bottom`.
+ *
+ * **PgUp:**
+ *   - Top edge NOT aligned: the partially-visible top row's bottom edge
+ *     becomes the new viewport bottom. `ceil(top / rowHeight) * rowHeight - vh`
+ *   - Top edge aligned: every visible row is fully visible (no partial at
+ *     top). The previous unseen row ends at `top`. Target = `top - vh`.
+ *
+ * This guarantees perfect round-tripping: PgDown then PgUp returns to the
+ * same scrollTop (or clamped to 0 / scrollMax).
+ */
+function pageScrollTarget(
+  scrollTop: number,
+  rowHeight: number,
+  viewportHeight: number,
+  direction: "up" | "down",
+): number {
+  // Small epsilon for floating-point comparisons (clientHeight can be fractional).
+  const EPS = 0.5;
+
+  if (direction === "down") {
+    const bottomEdge = scrollTop + viewportHeight;
+    const remainder = bottomEdge % rowHeight;
+    if (remainder < EPS || rowHeight - remainder < EPS) {
+      // Bottom is row-aligned — all visible rows fully visible.
+      // Next unseen row starts at bottomEdge.
+      return Math.round(bottomEdge / rowHeight) * rowHeight;
+    }
+    // Bottom row is partial — it becomes the new top row.
+    return Math.floor(bottomEdge / rowHeight) * rowHeight;
+  }
+
+  // PgUp
+  const topEdge = scrollTop;
+  const remainder = topEdge % rowHeight;
+  if (remainder < EPS || rowHeight - remainder < EPS) {
+    // Top is row-aligned — all visible rows fully visible.
+    // Previous unseen row ends at topEdge.
+    return Math.round(topEdge / rowHeight) * rowHeight - viewportHeight;
+  }
+  // Top row is partial — its bottom edge becomes the new viewport bottom.
+  return Math.ceil(topEdge / rowHeight) * rowHeight - viewportHeight;
+}
+
+// ---------------------------------------------------------------------------
+// Hook
+// ---------------------------------------------------------------------------
+
+export function useListNavigation(config: ListNavigationConfig): void {
+  // Store everything in refs to avoid re-registering listeners on every render.
+  const configRef = useRef(config);
+  configRef.current = config;
+
+  // -------------------------------------------------------------------------
+  // scrollByRows — scroll-only mode (no focus changes)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Scroll by the given number of rows, snapping to row boundary.
+   * Positive = down, negative = up.
+   */
+  const scrollByRows = useCallback((rowDelta: number) => {
+    const config = configRef.current;
+    const el = config.scrollRef.current;
+    if (!el) return;
+    if (config.spatial) {
+      const row = config.spatial.rowAtOffset(el.scrollTop);
+      if (!row || config.virtualizerCount === 0) return;
+      const last = config.spatial.getItemRow(config.virtualizerCount - 1).index;
+      const nearest = row.index + (el.scrollTop - row.top > row.height / 2 ? 1 : 0);
+      const targetRow = config.spatial.getRow(Math.max(0, Math.min(last, nearest + rowDelta)));
+      el.scrollTop = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, targetRow.top));
+      el.dispatchEvent(new Event("scroll"));
+      return;
+    }
+    const { rowHeight } = config;
+    const snapped = snapToRow(el.scrollTop, rowHeight);
+    const target = snapped + rowDelta * rowHeight;
+    const clamped = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, target));
+    el.scrollTop = clamped;
+    el.dispatchEvent(new Event("scroll"));
+  }, []);
+
+  // -------------------------------------------------------------------------
+  // scrollByPage — scroll one page, never skip / never re-show
+  // -------------------------------------------------------------------------
+
+  /**
+   * Scroll by one page. The viewport-edge formula guarantees you never
+   * re-see a fully-visible row and never skip one you haven't fully seen.
+   */
+  const scrollByPage = useCallback((direction: "up" | "down") => {
+    const config = configRef.current;
+    const el = config.scrollRef.current;
+    if (!el || config.virtualizerCount === 0) return;
+    if (config.spatial) {
+      const height = el.clientHeight - config.headerHeight;
+      const edge = direction === "down" ? el.scrollTop + height : el.scrollTop;
+      const row = config.spatial.rowAtOffset(edge);
+      if (!row) return;
+      const aligned = Math.abs(row.top - edge) < 0.001;
+      let target = direction === "down"
+        ? aligned ? config.spatial.getRow(Math.max(0, row.index - 1)).top : row.top
+        : (aligned ? row.top : row.top + row.height) - height;
+      if (direction === "down" ? target <= el.scrollTop : target >= el.scrollTop) {
+        target = el.scrollTop + (direction === "down" ? height : -height);
+      }
+      el.scrollTop = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, target));
+      el.dispatchEvent(new Event("scroll"));
+      return;
+    }
+    const { rowHeight, headerHeight,
+      resultsLength, total, loadMore, virtualizerCount: count, columnsPerRow: cols,
+    } = config;
+
+    const viewportHeight = el.clientHeight - headerHeight;
+
+    // Compute target using viewport-edge-based formula: never re-shows a
+    // fully-visible row, never skips a partially-visible one.
+    const target = pageScrollTarget(el.scrollTop, rowHeight, viewportHeight, direction);
+    const clamped = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, target));
+    el.scrollTop = clamped;
+    el.dispatchEvent(new Event("scroll"));
+
+    // Load more when approaching the end
+    if (direction === "down") {
+      const lastVisibleRow = Math.floor((el.scrollTop + el.clientHeight - headerHeight) / rowHeight) - 1;
+      const lastVisibleIdx = Math.min(count - 1, getLayoutRow({ columns: cols, rowHeight,
+        itemOffset: config.itemOffset }, lastVisibleRow).firstItemIndex);
+      const bufOff = configRef.current.bufferOffset ?? 0;
+      if (count - lastVisibleIdx <= 5 && bufOff + resultsLength < total) loadMore();
+    }
+  }, []);
+
+  // -------------------------------------------------------------------------
+  // moveFocus — move focus by delta items (only called when focus exists)
+  // -------------------------------------------------------------------------
+
+  const moveFocus = useCallback((delta: number) => {
+    const {
+      virtualizerCount: count,
+      focusedImageId: currentId,
+      findImageIndex,
+      getImage,
+      setFocusedImageId,
+      virtualizer,
+      flatIndexToRow,
+      resultsLength,
+      total,
+      loadMore,
+    } = configRef.current;
+
+    if (!currentId) return;
+
+    const currentIdx = findImageIndex(currentId);
+    if (currentIdx < 0) {
+      // Focused image not in buffer (user seeked away via scrubber).
+      // Snap back: seek to the focused image, then apply the delta.
+      setFocusedImageId(currentId);
+      useSearchStore.setState({ _pendingFocusDelta: delta });
+      useSearchStore.getState().seekToFocused();
+      return;
+    }
+    if (count === 0) return;
+
+    const rawTarget = currentIdx + delta;
+    let nextIdx = Math.max(0, Math.min(count - 1, rawTarget));
+
+    // Skip placeholders (up to 10)
+    const step = delta > 0 ? 1 : -1;
+    if (!getImage(nextIdx)) {
+      for (let skip = 1; skip <= 10; skip++) {
+        const candidate = nextIdx + step * skip;
+        if (candidate < 0 || candidate >= count) break;
+        if (getImage(candidate)) {
+          nextIdx = candidate;
+          break;
+        }
+      }
+    }
+
+    const nextImage = getImage(nextIdx);
+    if (nextImage) {
+      setFocusedImageId(nextImage.id);
+    }
+
+    // Scroll to the row containing this index
+    virtualizer.scrollToIndex(flatIndexToRow(nextIdx), { align: "auto" });
+
+    // Load more when approaching the end
+    if (count - nextIdx <= 5 && (configRef.current.bufferOffset ?? 0) + resultsLength < total) {
+      loadMore();
+    }
+  }, []);
+
+  // -------------------------------------------------------------------------
+  // pageFocus — move focus by one page (only called when focus exists)
+  // -------------------------------------------------------------------------
+
+  const recoverSpatialFocus = useCallback((kind: "row" | "page", direction: 1 | -1) => {
+    const config = configRef.current;
+    const id = config.focusedImageId;
+    if (!id) return;
+    config.setFocusedImageId(id);
+    useSearchStore.setState({ _pendingFocusDelta: { kind, direction, id,
+      focusIntent: useSearchStore.getState()._focusIntent } });
+    useSearchStore.getState().seekToFocused();
+  }, []);
+
+  const pageFocus = useCallback((direction: "up" | "down") => {
+    const config = configRef.current;
+    if (config.spatial) {
+      const el = config.scrollRef.current;
+      const current = config.focusedImageId ? config.findImageIndex(config.focusedImageId) : -1;
+      if (!el) return;
+      if (current < 0) { recoverSpatialFocus("page", direction === "down" ? 1 : -1); return; }
+      if (config.virtualizerCount === 0) return;
+      const row = config.spatial.getItemRow(current);
+      const height = el.clientHeight - config.headerHeight;
+      const destination = config.spatial.rowAtOffset(row.top + (direction === "down" ? height : -height));
+      if (destination) moveFocus(config.spatial.neighbour(current, destination.index) - current);
+      return;
+    }
+    const {
+      scrollRef,
+      virtualizerCount: count,
+      rowHeight,
+      headerHeight,
+      columnsPerRow: cols,
+      focusedImageId: currentId,
+      findImageIndex,
+      getImage,
+      setFocusedImageId,
+      virtualizer,
+      flatIndexToRow,
+      resultsLength,
+      total,
+      loadMore,
+    } = config;
+
+    const el = scrollRef.current;
+    if (!el || !currentId) return;
+
+    const currentIdx = findImageIndex(currentId);
+    if (currentIdx < 0) {
+      // Focused image not in buffer — snap back with page-sized delta.
+      const viewportRowSpace = el.clientHeight - headerHeight;
+      const pageRows = Math.max(1, Math.floor(viewportRowSpace / rowHeight));
+      const pageDelta = direction === "down" ? pageRows * cols : -(pageRows * cols);
+      setFocusedImageId(currentId);
+      useSearchStore.setState({ _pendingFocusDelta: pageDelta });
+      useSearchStore.getState().seekToFocused();
+      return;
+    }
+    if (count === 0) return;
+
+    const viewportRowSpace = el.clientHeight - headerHeight;
+    const pageRows = Math.max(1, Math.floor(viewportRowSpace / rowHeight));
+
+    // Move focus by pageRows worth of visual rows
+    const currentRow = flatIndexToRow(currentIdx);
+    const targetRow = direction === "down"
+      ? Math.min(getFixedRowCount({ columns: cols, rowHeight, itemOffset: config.itemOffset }, count) - 1, currentRow + pageRows)
+      : Math.max(0, currentRow - pageRows);
+    let targetIdx = currentIdx + (targetRow - currentRow) * cols;
+    // Clamp to valid range
+    targetIdx = Math.max(0, Math.min(count - 1, targetIdx));
+
+    // Skip placeholders
+    const step = direction === "down" ? 1 : -1;
+    if (!getImage(targetIdx)) {
+      for (let skip = 1; skip <= 10; skip++) {
+        const candidate = targetIdx + step * skip;
+        if (candidate < 0 || candidate >= count) break;
+        if (getImage(candidate)) {
+          targetIdx = candidate;
+          break;
+        }
+      }
+    }
+
+    const img = getImage(targetIdx);
+    if (img) setFocusedImageId(img.id);
+
+    // Scroll so the focused row is visible
+    virtualizer.scrollToIndex(flatIndexToRow(targetIdx), { align: "auto" });
+
+    // Load more when approaching the end
+    if (direction === "down" && count - targetIdx <= 5 && (configRef.current.bufferOffset ?? 0) + resultsLength < total) {
+      loadMore();
+    }
+  }, [moveFocus, recoverSpatialFocus]);
+
+  const moveFocusByRow = useCallback((delta: number) => {
+    const config = configRef.current;
+    if (!config.spatial) { moveFocus(delta * config.columnsPerRow); return; }
+    const current = config.focusedImageId ? config.findImageIndex(config.focusedImageId) : -1;
+    if (current < 0) { recoverSpatialFocus("row", delta > 0 ? 1 : -1); return; }
+    moveFocus(config.spatial.neighbour(current, config.spatial.getItemRow(current).index + delta) - current);
+  }, [moveFocus, recoverSpatialFocus]);
+
+  // -------------------------------------------------------------------------
+  // Keyboard event listeners
+  // -------------------------------------------------------------------------
+
+  useEffect(() => {
+    /**
+     * Bubble-phase handler: arrows, PageUp/Down, Enter.
+     * Skipped for native inputs (date pickers, etc.) but NOT for the CQL
+     * custom element (which deliberately propagates the keys it wants us
+     * to handle).
+     */
+    const handleBubble = (e: KeyboardEvent) => {
+      const c = configRef.current;
+      if (c.imageParam) return;
+      // When FullscreenPreview is active (browser Fullscreen API), all keyboard
+      // navigation is handled by FullscreenPreview — bail out to prevent double-
+      // processing (e.g. ArrowLeft moving focus twice, skipping an image).
+      if (imageFullscreenElement()) return;
+      if (isNativeInputTarget(e)) return;
+
+      const isGrid = c.spatial !== undefined || c.columnsPerRow > 1;
+      // In selection mode, treat as if there is no focus: arrows scroll,
+      // never move focus. Read imperatively so no stale closures.
+      const inSelectionMode = useSelectionStore.getState().selectedIds.size > 0;
+      // In phantom mode, keyboard never enters focus mode — always scroll.
+      const hasFocus = !inSelectionMode && c.focusedImageId !== null && getEffectiveFocusMode() === "explicit";
+
+      switch (e.key) {
+        case "ArrowUp":
+          e.preventDefault();
+          if (hasFocus) {
+            moveFocusByRow(-1);
+          } else {
+            scrollByRows(-1);
+          }
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          if (hasFocus) {
+            moveFocusByRow(1);
+          } else {
+            scrollByRows(1);
+          }
+          break;
+        // ArrowLeft/Right: in multi-column grid with focus, move focus.
+        // In table (cols===1), scroll horizontally — works in and out of selection mode.
+        // Modified arrows (Alt=word-jump, Shift=select, Meta=line-start/end) are let
+        // through so native text-editing behaviour works in the CQL search box and
+        // future native input fields. Custom editing web components that propagate bare
+        // ArrowLeft/Right for cursor movement are not protected here — extend
+        // isNativeInputTarget to detect them if that becomes necessary.
+        case "ArrowLeft":
+          if (hasFocus && isGrid) {
+            e.preventDefault();
+            moveFocus(-1);
+          } else if (!isGrid && !e.altKey && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            c.scrollRef.current?.scrollBy({ left: -150 });
+          }
+          break;
+        case "ArrowRight":
+          if (hasFocus && isGrid) {
+            e.preventDefault();
+            moveFocus(1);
+          } else if (!isGrid && !e.altKey && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            c.scrollRef.current?.scrollBy({ left: 150 });
+          }
+          break;
+        case "PageUp":
+          e.preventDefault();
+          if (hasFocus) {
+            pageFocus("up");
+          } else {
+            scrollByPage("up");
+          }
+          break;
+        case "PageDown":
+          e.preventDefault();
+          if (hasFocus) {
+            pageFocus("down");
+          } else {
+            scrollByPage("down");
+          }
+          break;
+        case "Enter": {
+          // In phantom mode, Enter doesn't open detail (no visible focus to act on).
+          if (!hasFocus) break;
+          // Inputs opted in via data-grid-nav-input (AI search) want arrows/paging,
+          // but Enter there means "commit my text", not "open the focused image".
+          if ((e.target as HTMLElement | null)?.tagName === "INPUT") break;
+          const id = c.focusedImageId;
+          if (id) {
+            e.preventDefault();
+            c.onEnter(id);
+          }
+          break;
+        }
+        default:
+          return;
+      }
+    };
+
+    /**
+     * Capture-phase handler: Home/End.
+     * Must be capture phase so we intercept before the CQL web component's
+     * internal ProseMirror handlers. Native inputs are excluded so they
+     * keep their own Home/End behaviour.
+     */
+    const handleCapture = (e: KeyboardEvent) => {
+      const c = configRef.current;
+      if (c.imageParam) return;
+      if (imageFullscreenElement()) return;
+      if (isNativeInputTarget(e)) return;
+
+      const hasFocus = c.focusedImageId !== null && getEffectiveFocusMode() === "explicit" &&
+        useSelectionStore.getState().selectedIds.size === 0;
+
+      switch (e.key) {
+        case "Home":
+          e.preventDefault();
+          {
+            // If the buffer is windowed and not at the start, seek to 0.
+            // DON'T reset scrollTop eagerly — that would flash the top of
+            // the stale deep-offset buffer. Let seek(0) replace the buffer
+            // with fresh data; effect #6 consumes the owned zero destination
+            // in the same layout frame. Same pattern as deep-to-deep
+            // seeks which already have zero flash.
+            if (((c.bufferOffset && c.bufferOffset > 0) ||
+              !useSearchStore.getState().canReuseResidentResults() ||
+              useSearchStore.getState()._browseNavigation?.initialSearchSuperseded) && c.seek) {
+              useSearchStore.setState({
+                _pendingFocusAfterSeek: {
+                  edge: "first",
+                  focusedImageId: hasFocus ? c.focusedImageId : null,
+                },
+              });
+              c.seek(0);
+              // After seek, focus first image only if something was focused
+              // (seek resets buffer, so we can't focus immediately — the
+              // post-seek effect will handle scroll position)
+            } else {
+              // Already at the start — just scroll to top
+              if (useSearchStore.getState()._browseNavigation || useSearchStore.getState()._pendingFocusAfterSeek) void c.seek?.(0);
+              const el = c.scrollRef.current;
+              if (el) {
+                el.scrollTop = 0;
+                if (c.resetScrollLeftOnHome) el.scrollLeft = 0;
+                el.dispatchEvent(new Event("scroll"));
+              }
+              // Focus first image only if something was already focused
+              if (hasFocus) {
+                const firstImage = c.getImage(0);
+                if (firstImage) c.setFocusedImageId(firstImage.id);
+              }
+            }
+          }
+          break;
+        case "End":
+          e.preventDefault();
+          {
+            // If the buffer is windowed and not at the end, seek to the last position
+            const bufOff = c.bufferOffset ?? 0;
+            if (c.seek && (bufOff + c.resultsLength < c.total || !useSearchStore.getState().canReuseResidentResults())) {
+              // Always signal "last" so effect #6 scrolls to the end.
+              // Focus permission belongs to the initiating keyboard action.
+              useSearchStore.setState({ _pendingFocusAfterSeek: { edge: "last", focusedImageId: hasFocus ? c.focusedImageId : null } });
+              c.seek(Math.max(0, c.total - 1));
+            } else {
+              const store = useSearchStore.getState();
+              if (store._browseNavigation || store._pendingFocusAfterSeek) {
+                store.abortExtends();
+                useSearchStore.setState({ _pendingFocusAfterSeek: null, loading: false });
+              }
+              // Use virtualizer.scrollToIndex — raw el.scrollHeight includes
+              // the in-flow sticky header height, causing max scroll to
+              // overshoot past the last row.
+              const count = c.virtualizerCount;
+              c.virtualizer.scrollToIndex(count - 1, { align: "end" });
+              const el = c.scrollRef.current;
+              if (el) {
+                el.dispatchEvent(new Event("scroll"));
+              }
+              // Focus last image only if something was already focused
+              if (hasFocus) {
+                const scanFrom = Math.max(0, count - 50);
+                for (let i = count - 1; i >= scanFrom; i--) {
+                  const img = c.getImage(i);
+                  if (img) {
+                    c.setFocusedImageId(img.id);
+                    break;
+                  }
+                }
+              }
+            }
+          }
+          break;
+        default:
+          return;
+      }
+    };
+
+    document.addEventListener("keydown", handleBubble);
+    document.addEventListener("keydown", handleCapture, true);
+    return () => {
+      document.removeEventListener("keydown", handleBubble);
+      document.removeEventListener("keydown", handleCapture, true);
+    };
+  }, [moveFocus, moveFocusByRow, pageFocus, scrollByRows, scrollByPage]);
+}
+
+
+
+

@@ -1,0 +1,1261 @@
+/**
+ * Selections feature spec.
+ *
+ * Tests the core S2 UI: tickbox hover affordance, click-to-select,
+ * SelectionStatusBar, clear, and persistence across sort change.
+ *
+ * Run:
+ *   npm --prefix kupua run test:e2e -- selections.spec.ts
+ *   npm --prefix kupua run test:e2e -- selections.spec.ts --headed
+ */
+
+import { test, expect, waitForStableNthImageId, waitForFixtureSetup } from "../shared/helpers";
+
+// ---------------------------------------------------------------------------
+// Helpers — read selection store state
+// ---------------------------------------------------------------------------
+
+async function getSelectionCount(page: Parameters<typeof test>[1]["page"]): Promise<number> {
+  return page.evaluate(() => {
+    const store = (window as any).__kupua_selection_store__;
+    if (!store) return 0;
+    return store.getState().selectedIds.size;
+  });
+}
+
+async function clearSelection(page: Parameters<typeof test>[1]["page"]): Promise<void> {
+  await page.evaluate(() => {
+    const store = (window as any).__kupua_selection_store__;
+    store?.getState().clear();
+  });
+}
+
+async function getSelectionIds(page: Parameters<typeof test>[1]["page"]): Promise<string[]> {
+  return page.evaluate(() => {
+    const store = (window as any).__kupua_selection_store__;
+    if (!store) return [];
+    return Array.from(store.getState().selectedIds as Set<string>);
+  });
+}
+
+async function waitForSelectionPersisted(
+  page: Parameters<typeof test>[1]["page"],
+  expectedIds: string[],
+): Promise<void> {
+  await expect.poll(() => page.evaluate(() => {
+    const raw = sessionStorage.getItem("kupua-selection");
+    if (!raw) return [];
+    try {
+      return (JSON.parse(raw)?.state?.selectedIds ?? []).sort();
+    } catch {
+      return [];
+    }
+  })).toEqual([...expectedIds].sort());
+}
+
+async function getSignedUsablePlacement(
+  page: Parameters<typeof test>[1]["page"],
+  imageId: string,
+): Promise<number | null> {
+  return page.evaluate((id) => {
+    const container = document.querySelector('[aria-label="Image results grid"]');
+    const cell = document.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
+    if (!container || !cell) return null;
+    const containerRect = container.getBoundingClientRect();
+    const cellRect = cell.getBoundingClientRect();
+    if (cellRect.top < containerRect.top || cellRect.bottom > containerRect.bottom) return null;
+    const usableCenter = containerRect.top + containerRect.height / 2;
+    return (cellRect.top + cellRect.height / 2 - usableCenter) / containerRect.height;
+  }, imageId);
+}
+
+// ---------------------------------------------------------------------------
+// Setup — use explicit mode so single-click = focus (not navigate)
+// ---------------------------------------------------------------------------
+
+test.beforeEach(async ({ kupua }) => {
+  await kupua.ensureExplicitMode();
+});
+
+// ===========================================================================
+// Grid — hover affordance
+// ===========================================================================
+
+test.describe("Grid — tickbox hover affordance", () => {
+  test("hovering a grid cell reveals the tickbox button", async ({ kupua }) => {
+    await kupua.startSearch();
+
+    // Playwright Desktop Chrome uses pointer: fine by default.
+    // Hover the first grid cell.
+    const firstCell = kupua.page.locator('[data-grid-cell]').first();
+    await firstCell.hover();
+
+    // The tickbox button should now be visible (CSS hover rule).
+    const tickbox = firstCell.locator('button[aria-label="Select image"]');
+    await expect(tickbox).toBeVisible({ timeout: 3000 });
+  });
+});
+
+// ===========================================================================
+// Grid — click to select
+// ===========================================================================
+
+test.describe("Grid — click to enter/exit selection mode", () => {
+  test("clicking a tickbox enters selection mode and shows SelectionStatusBar", async ({ kupua }) => {
+    await kupua.startSearch();
+    await clearSelection(kupua.page);
+
+    const firstCell = kupua.page.locator('[data-grid-cell]').first();
+    await firstCell.hover();
+
+    // Click the tickbox
+    const tickbox = firstCell.locator('button[aria-label="Select image"]');
+    await tickbox.click();
+
+    // Selection count should be 1
+    const count = await getSelectionCount(kupua.page);
+    expect(count).toBe(1);
+
+    // SelectionStatusBar should appear with "1 selected"
+    const statusBar = kupua.page.locator('[role="status"]', { hasText: "selected" });
+    await expect(statusBar).toBeVisible({ timeout: 3000 });
+    await expect(statusBar).toContainText("1");
+  });
+
+  test("clicking a second tickbox adds to selection", async ({ kupua }) => {
+    await kupua.startSearch();
+    await clearSelection(kupua.page);
+
+    const cells = kupua.page.locator('[data-grid-cell]');
+
+    // Select first
+    await cells.nth(0).hover();
+    await cells.nth(0).locator('button').filter({ hasText: "" }).first().click();
+
+    // Select second — in selection mode, tickboxes are always visible
+    await cells.nth(1).locator('button[aria-checked]').click();
+
+    const count = await getSelectionCount(kupua.page);
+    expect(count).toBe(2);
+
+    const statusBar = kupua.page.locator('[role="status"]', { hasText: "selected" });
+    await expect(statusBar).toContainText("2");
+  });
+
+  for (const relationship of ["equal", "distinct"] as const) {
+  test(`selection anchor preserves ${relationship} older focus during sort`, async ({ kupua }) => {
+    await kupua.startSearch("since=2026-03-15&until=2026-03-20");
+    await clearSelection(kupua.page);
+
+    await kupua.focusNthItem(relationship === "equal" ? 8 : 0);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    const selectionAnchorId = await waitForStableNthImageId(
+      kupua.page,
+      "[data-grid-cell]",
+      8,
+    );
+    if (relationship === "equal") expect(selectionAnchorId).toBe(focusedId);
+    else expect(selectionAnchorId).not.toBe(focusedId);
+    const selectionCell = kupua.page.locator(
+      `[data-grid-cell][data-image-id="${selectionAnchorId}"]`,
+    );
+    await selectionCell.hover();
+    await selectionCell.locator('button[aria-label="Select image"]').click();
+    expect(await getSelectionIds(kupua.page)).toEqual([selectionAnchorId]);
+
+    const placementBefore = await getSignedUsablePlacement(kupua.page, selectionAnchorId);
+    expect(placementBefore).not.toBeNull();
+
+    const generationBefore = await kupua.page.evaluate(() =>
+      (window as any).__kupua_store__.getState().sortAroundFocusGeneration,
+    );
+    const paintedStateCount = kupua.page.evaluate(async (previousGeneration) => {
+      const signatures = new Set<string>();
+      let settledAt: number | null = null;
+      await new Promise<void>((resolve) => {
+        const sample = () => {
+          const container = document.querySelector('[aria-label="Image results grid"]');
+          const store = (window as any).__kupua_store__.getState();
+          if (container) {
+            const containerRect = container.getBoundingClientRect();
+            const signature = Array.from(container.querySelectorAll('[data-grid-cell][data-image-id]'))
+              .map((element) => {
+                const rect = element.getBoundingClientRect();
+                return {
+                  value: `${element.getAttribute("data-image-id")}:${Math.round(rect.top - containerRect.top)}`,
+                  visible: rect.bottom > containerRect.top && rect.top < containerRect.bottom,
+                };
+              })
+              .filter(({ visible }) => visible)
+              .map(({ value }) => value)
+              .join("|");
+            signatures.add(signature);
+          }
+          if (
+            store.sortAroundFocusGeneration > previousGeneration &&
+            !store.loading &&
+            !store.sortAroundFocusStatus
+          ) {
+            settledAt ??= performance.now();
+          }
+          if (settledAt != null && performance.now() - settledAt >= 700) {
+            resolve();
+          } else {
+            requestAnimationFrame(sample);
+          }
+        };
+        requestAnimationFrame(sample);
+      });
+      return signatures.size;
+    }, generationBefore);
+
+    await kupua.toggleSortDirection();
+    await kupua.waitForSortAroundFocus(15_000);
+    expect(await paintedStateCount, "sort must paint only pre and final states").toBe(2);
+
+    expect(await kupua.getFocusedImageId()).toBe(focusedId);
+    const placementAfter = await getSignedUsablePlacement(kupua.page, selectionAnchorId);
+    expect(placementAfter, "selection anchor B must remain fully visible after sort").not.toBeNull();
+    expect(
+      Math.abs(placementAfter! - placementBefore!),
+      `selection anchor B moved: before=${placementBefore}, after=${placementAfter}`,
+    ).toBeLessThan(0.05);
+
+    const scrollBeforeClear = await kupua.getScrollTop();
+    await kupua.page.locator('button[aria-label="Clear selection"]').click();
+    await kupua.page.evaluate(() => new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    }));
+
+    expect(await getSelectionCount(kupua.page)).toBe(0);
+    expect(await kupua.getFocusedImageId()).toBe(focusedId);
+    expect(await kupua.getScrollTop()).toBe(scrollBeforeClear);
+  });
+  }
+});
+
+// ===========================================================================
+// Table — selection column
+// ===========================================================================
+
+test.describe("Table — selection column", () => {
+  test("selection column is present (leftmost) in table view", async ({ kupua }) => {
+    await kupua.startSearch();
+    await kupua.switchToTable();
+
+    const firstHeader = kupua.page.locator('[aria-label="Image results table"] [role="columnheader"]').first();
+    await expect(firstHeader).toHaveAttribute("aria-label", "Selection");
+  });
+
+  test("hovering a table row reveals the tickbox in the selection column", async ({ kupua }) => {
+    await kupua.startSearch();
+    await kupua.switchToTable();
+    await clearSelection(kupua.page);
+
+    // Hover the first real data row
+    const firstRow = kupua.page.locator('[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]').first();
+    await firstRow.hover();
+
+    const tickbox = firstRow.locator('button[aria-label="Select image"]');
+    await expect(tickbox).toBeVisible({ timeout: 3000 });
+  });
+
+  test("clicking a table tickbox enters selection mode", async ({ kupua }) => {
+    await kupua.startSearch();
+    await kupua.switchToTable();
+    await clearSelection(kupua.page);
+
+    const firstRow = kupua.page.locator('[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]').first();
+    await firstRow.hover();
+    await firstRow.locator('button[aria-label="Select image"]').click();
+
+    expect(await getSelectionCount(kupua.page)).toBe(1);
+
+    const statusBar = kupua.page.locator('[role="status"]', { hasText: "selected" });
+    await expect(statusBar).toBeVisible({ timeout: 3000 });
+  });
+});
+
+// ===========================================================================
+// Grid — body click in selection mode toggles (doesn't navigate)
+// ===========================================================================
+
+test.describe("Grid — body click in selection mode", () => {
+  test("body click in selection mode toggles the image, not navigate", async ({ kupua }) => {
+    await kupua.startSearch();
+    await clearSelection(kupua.page);
+
+    const cells = kupua.page.locator('[data-grid-cell]');
+
+    // Enter selection mode via tick click on first cell
+    await cells.nth(0).hover();
+    await cells.nth(0).locator('button[aria-label="Select image"]').click();
+    expect(await getSelectionCount(kupua.page)).toBe(1);
+
+    // Single-click the image body of the second cell — should toggle, not navigate
+    await cells.nth(1).click();
+
+    // Should be 2 selected, NOT in detail view
+    expect(await getSelectionCount(kupua.page)).toBe(2);
+    const detailId = await kupua.getDetailImageId();
+    expect(detailId).toBeNull();
+  });
+});
+
+// ===========================================================================
+// S3a — Shift-click range selection (in-buffer fast path)
+// ===========================================================================
+
+test.describe("S3a — Grid: shift-click range selection", () => {
+  test("shift+click selects all images between anchor and target (grid)", async ({ kupua }) => {
+    await kupua.startSearch();
+    await clearSelection(kupua.page);
+
+    const cells = kupua.page.locator('[data-grid-cell]');
+
+    // Enter selection mode by ticking the first cell (sets anchor).
+    await cells.nth(0).hover();
+    await cells.nth(0).locator('button[aria-label="Select image"]').click();
+    expect(await getSelectionCount(kupua.page)).toBe(1);
+
+    // Shift+click the 4th cell (index 3) — should select cells 0–3 (4 items).
+    await cells.nth(3).click({ modifiers: ["Shift"] });
+
+    const count = await getSelectionCount(kupua.page);
+    expect(count).toBeGreaterThanOrEqual(4);
+
+    // All 4 image IDs in the range should be selected.
+    const ids = await getSelectionIds(kupua.page);
+    const allCellIds = await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      return store?.getState().results.slice(0, 4).map((img: any) => img?.id).filter(Boolean) ?? [];
+    });
+    for (const id of allCellIds) {
+      expect(ids).toContain(id);
+    }
+  });
+
+});
+
+test.describe("S3a — Table: shift-click range selection", () => {
+  test("shift+click tickbox range selects all rows between anchor and target (table)", async ({ kupua }) => {
+    await kupua.startSearch();
+    await kupua.switchToTable();
+    await clearSelection(kupua.page);
+
+    const rows = kupua.page.locator('[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]');
+
+    // Select first row via tickbox (anchor).
+    await rows.nth(0).hover();
+    await rows.nth(0).locator('button[aria-label="Select image"]').click();
+    expect(await getSelectionCount(kupua.page)).toBe(1);
+
+    // Shift+click the tickbox of the 4th row.
+    await rows.nth(3).locator('button[aria-label="Select image"]').click({ modifiers: ["Shift"] });
+
+    const count = await getSelectionCount(kupua.page);
+    expect(count).toBeGreaterThanOrEqual(4);
+  });
+
+  test("shift+click on field-value cell ranges instead of searching in selection mode", async ({ kupua }) => {
+    await kupua.startSearch();
+    await kupua.switchToTable();
+    await clearSelection(kupua.page);
+
+    const rows = kupua.page.locator('[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]');
+
+    // Enter selection mode.
+    await rows.nth(0).hover();
+    await rows.nth(0).locator('button[aria-label="Select image"]').click();
+    expect(await getSelectionCount(kupua.page)).toBe(1);
+
+    const expectedRangeIds = await rows.evaluateAll((visibleRows) =>
+      visibleRows.slice(0, 3)
+        .map((row) => row.getAttribute("data-image-id"))
+        .filter((id): id is string => id !== null),
+    );
+    expect(expectedRangeIds).toHaveLength(3);
+    const queryBefore = await kupua.page.evaluate(
+      () => new URL(location.href).searchParams.get("query"),
+    );
+
+    // Local mock data guarantees a Credit value on every row. In selection
+    // mode, modifier field-cell search is intentionally suppressed. The click
+    // bubbles to the row, where Shift retains its range-selection meaning.
+    const creditCell = rows.nth(2).locator(
+      '[role="gridcell"][data-cql-cell][style*="--col-metadata_credit"]',
+    );
+    await expect(creditCell).toHaveCount(1);
+    expect(await creditCell.getAttribute("title")).toBeTruthy();
+    await creditCell.click({ modifiers: ["Shift"] });
+
+    expect(await getSelectionIds(kupua.page)).toEqual(expectedRangeIds);
+    expect(await kupua.page.evaluate(
+      () => new URL(location.href).searchParams.get("query"),
+    )).toBe(queryBefore);
+  });
+});
+
+// ===========================================================================
+// S4 -- Multi-image Details panel
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// Helper: read reconciledView from the selection store
+// ---------------------------------------------------------------------------
+async function getReconciledField(
+  page: Parameters<typeof test>[1]["page"],
+  fieldId: string,
+): Promise<Record<string, unknown> | null> {
+  return page.evaluate((fid) => {
+    const store = (window as any).__kupua_selection_store__;
+    if (!store) return null;
+    const rv = store.getState().reconciledView;
+    if (!rv) return null;
+    const entry = rv.get(fid);
+    return entry ? JSON.parse(JSON.stringify(entry, (_k, v) => {
+      // JSON stringify doesn't handle undefined well; replace with null for unknown
+      if (v === undefined) return null;
+      return v;
+    })) : null;
+  }, fieldId);
+}
+
+// Helper: wait for reconciledView to be non-null (metadata has been hydrated)
+async function waitForReconcile(page: Parameters<typeof test>[1]["page"], timeout = 8000) {
+  await page.waitForFunction(
+    () => {
+      const store = (window as any).__kupua_selection_store__;
+      return store?.getState().reconciledView !== null;
+    },
+    { timeout },
+  );
+}
+
+test.describe("S4 -- multi-image Details panel", () => {
+  test("async fixture setup survives browser garbage collection", async ({ kupua, page }) => {
+    await kupua.startSearch();
+    let releaseModule!: () => void;
+    let moduleRequested!: () => void;
+    const moduleGate = new Promise<void>((resolve) => { releaseModule = resolve; });
+    const requested = new Promise<void>((resolve) => { moduleRequested = resolve; });
+    await page.route("**/src/dal/mock-data-source.ts?fixture-gc", async (route) => {
+      moduleRequested();
+      await moduleGate;
+      await route.continue();
+    });
+    const setup = await page.evaluateHandle(() => {
+      const job = { complete: false, error: null as string | null, pending: undefined as Promise<void> | undefined };
+      job.pending = (async () => {
+        const path = "/src/dal/mock-data-source.ts?fixture-gc";
+        const { MockDataSource } = await import(path);
+        (window as any).__fixtureGcImageId = (await new MockDataSource(1).getById("img-0")).image.id;
+      })();
+      job.pending.then(() => { job.complete = true; }, (error) => { job.error = String(error); });
+      return job;
+    });
+    await requested;
+    expect(await setup.evaluate((job) => job.complete)).toBe(false);
+    const session = await page.context().newCDPSession(page);
+    try {
+      await session.send("HeapProfiler.collectGarbage");
+    } finally {
+      releaseModule();
+      await session.detach();
+    }
+    await waitForFixtureSetup(page, setup);
+    expect(await page.evaluate(() => (window as any).__fixtureGcImageId)).toBe("img-0");
+    await expect(setup.evaluate((job) => job.complete)).rejects.toThrow("jsHandle.evaluate: Target page, context or browser has been closed");
+    expect(page.isClosed()).toBe(false);
+  });
+
+  test("async fixture setup reports rejection and releases its handle", async ({ page }) => {
+    const setup = await page.evaluateHandle(() => {
+      const job = { complete: false, error: null as string | null, pending: undefined as Promise<void> | undefined };
+      job.pending = Promise.reject(new Error("Controlled fixture setup failure"));
+      job.pending.then(() => { job.complete = true; }, (error) => { job.error = String(error); });
+      return job;
+    });
+    await expect(waitForFixtureSetup(page, setup)).rejects.toThrow("Controlled fixture setup failure");
+    await expect(setup.evaluate((job) => job.complete)).rejects.toThrow("jsHandle.evaluate: Target page, context or browser has been closed");
+    expect(page.isClosed()).toBe(false);
+  });
+
+  test("cached scalar add retains empty members in the published panel", async ({ kupua, page }) => {
+    await page.route("**/*", (route) => route.request().resourceType() === "image"
+      ? route.fulfill({ contentType: "image/png", body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aN2kAAAAASUVORK5CYII=", "base64") })
+      : route.fallback());
+    await kupua.startSearch();
+    await clearSelection(page);
+    await page.locator('button[aria-label*="Details panel"]').click();
+    try {
+      await page.evaluate(async () => {
+        const { MockDataSource } = await import("/src/dal/mock-data-source.ts");
+        const template = (await new MockDataSource(1).getById("img-0")).image;
+        const images = [0, 1, 2].map(index => ({
+          ...template, id: `cached-scalar-${index}`,
+          metadata: { ...template.metadata, credit: index === 2 ? "Synthetic cached credit" : undefined },
+        }));
+        const selection = (window as any).__kupua_selection_store__;
+        const previousSource = selection.getState().dataSource;
+        const probe = { reads: 0, previousSource };
+        (window as any).__cachedScalarProbe = probe;
+        selection.setState({ dataSource: { getByIds: async () => { probe.reads++; return images; } } });
+        await selection.getState().ensureMetadata(images.map(image => image.id));
+        selection.getState().add(images.slice(0, 2).map(image => image.id));
+      });
+      expect(await getReconciledField(page, "metadata_credit")).toEqual({ kind: "all-empty", count: 2 });
+      await page.evaluate(() => (window as any).__kupua_selection_store__.getState().add(["cached-scalar-2"]));
+      const mixed = page.getByText("Multiple credits", { exact: true });
+      await expect(mixed).toBeVisible();
+      await expect(mixed).toHaveAttribute("title", "Synthetic cached credit (1/3)");
+      expect(await getReconciledField(page, "metadata_credit")).toEqual({
+        kind: "mixed", topValues: [{ value: "Synthetic cached credit", count: 1 }], valueCount: 1, emptyCount: 2,
+      });
+      expect(await page.evaluate(() => ({
+        reads: (window as any).__cachedScalarProbe.reads,
+        selected: (window as any).__kupua_selection_store__.getState().selectedIds.size,
+      }))).toEqual({ reads: 1, selected: 3 });
+    } finally {
+      await page.evaluate(async () => {
+        const selection = (window as any).__kupua_selection_store__;
+        selection.getState().clear();
+        if ((window as any).__cachedScalarProbe) selection.setState({ dataSource: (window as any).__cachedScalarProbe.previousSource });
+        const { _resetMetadataCache } = await import("/src/stores/selection-store.ts");
+        _resetMetadataCache();
+        delete (window as any).__cachedScalarProbe;
+      });
+    }
+  });
+
+  for (const initialCount of [1, 2]) {
+    test(`keeps a coherent panel while changing ${initialCount} selected images`, async ({ kupua }) => {
+      await kupua.startSearch();
+      await kupua.waitForPositionMap();
+      await clearSelection(kupua.page);
+      await kupua.page.locator('button[aria-label*="Details panel"]').click();
+      await kupua.page.getByRole("button", { name: "Usages", exact: true }).click();
+
+      const setup = await kupua.page.evaluateHandle((initialCount) => {
+        const job = { complete: false, error: null as string | null, pending: undefined as Promise<void> | undefined };
+        job.pending = (async () => {
+          const { MockDataSource } = await import("/src/dal/mock-data-source.ts");
+          const template = (await new MockDataSource(1).getById("img-0")).image;
+          const images = Array.from({ length: initialCount + 1 }, (_, index) => ({
+            ...template,
+            id: `panel-snapshot-${index}`,
+            metadata: {
+              ...template.metadata,
+              description: "Stable selection description",
+              credit: index < initialCount ? "Shared selection credit" : "Different selection credit",
+            },
+            usages: index < initialCount ? [{
+              id: `panel-usage-${index}`, platform: "digital", status: "published",
+              title: "Selection panel usage", references: [], dateAdded: "2026-01-01T00:00:00.000Z",
+            }] : [],
+            leases: { leases: index < initialCount ? [{
+              id: `panel-lease-${index}`, access: "allow-use",
+              startDate: "2020-01-01T00:00:00.000Z", endDate: "2099-01-01T00:00:00.000Z",
+            }] : [] },
+          }));
+          const addedId = images[initialCount].id;
+          let releaseMetadata = () => {};
+          let settleLateFetch = () => {};
+          const metadataGate = new Promise<void>((resolve) => { releaseMetadata = resolve; });
+          const callbacks: IdleRequestCallback[] = [];
+          const originalIdle = window.requestIdleCallback;
+          const flush = () => {
+            for (const callback of callbacks.splice(0)) callback({ didTimeout: false, timeRemaining: () => 50 });
+          };
+          const selection = (window as any).__kupua_selection_store__;
+          selection.setState({ dataSource: {
+            ...selection.getState().dataSource,
+            getByIds: async (ids: string[]) => {
+              if (ids.includes(addedId)) await metadataGate;
+              return images.filter(image => ids.includes(image.id));
+            },
+          } });
+          (window as any).__selection_panel_fixture__ = {
+            addedId,
+            releaseMetadata,
+            flush,
+            hold: () => {
+              window.requestIdleCallback = (callback) => {
+                callbacks.push(callback);
+                return callbacks.length;
+              };
+            },
+            beginLateFetch: () => {
+              const fixture = (window as any).__selection_panel_fixture__;
+              const lateId = "panel-late-selection";
+              const request = new Promise<typeof images>((resolve, reject) => {
+                fixture.resolveLate = () => resolve([{ ...images[0], id: lateId }]);
+                fixture.rejectLate = () => reject(new Error("Expected metadata absence"));
+                settleLateFetch = () => resolve([]);
+              });
+              selection.setState({ dataSource: {
+                ...selection.getState().dataSource,
+                getByIds: () => request,
+              } });
+              selection.getState().add([lateId]);
+            },
+            cleanup: () => {
+              window.requestIdleCallback = originalIdle;
+              releaseMetadata();
+              settleLateFetch();
+              flush();
+              delete (window as any).__selection_panel_fixture__;
+            },
+          };
+          selection.getState().add(images.slice(0, initialCount).map(image => image.id));
+        })();
+        job.pending.then(() => { job.complete = true; }, (error) => { job.error = String(error); });
+        return job;
+      }, initialCount);
+      await waitForFixtureSetup(kupua.page, setup);
+
+      try {
+        await kupua.page.waitForFunction(() => {
+          const state = (window as any).__kupua_selection_store__.getState();
+          return state.pendingFetchIds.size === 0 && !state.isReconciling && state.reconciledView !== null;
+        });
+        await expect(kupua.page.getByText("Shared selection credit", { exact: true })).toBeVisible();
+        const beforeText = await kupua.page.locator("dl").allTextContents();
+        await kupua.page.evaluate(() => {
+          const fixture = (window as any).__selection_panel_fixture__;
+          fixture.hold();
+          (window as any).__kupua_selection_store__.getState().add([fixture.addedId]);
+        });
+        expect(await getSelectionCount(kupua.page)).toBe(initialCount + 1);
+        await expect.poll(() => kupua.page.locator("dl").allTextContents()).toEqual(beforeText);
+        if (initialCount === 2) {
+          await expect(kupua.page.getByText(/^2 (free|restricted|paid|over quota|no rights)$/)).toBeVisible();
+          await expect(kupua.page.getByText("Digital", { exact: true }).locator("..")).toContainText("2/2");
+        } else {
+          await expect(kupua.page.getByText("Selection panel usage", { exact: true })).toBeVisible();
+        }
+
+        await kupua.page.evaluate(() => (window as any).__selection_panel_fixture__.releaseMetadata());
+        await kupua.page.waitForFunction(() => (window as any).__kupua_selection_store__.getState().pendingFetchIds.size === 0);
+        await expect.poll(() => kupua.page.locator("dl").allTextContents()).toEqual(beforeText);
+        if (initialCount === 2) {
+          await expect(kupua.page.getByText(/^2 (free|restricted|paid|over quota|no rights)$/)).toBeVisible();
+          await expect(kupua.page.getByText("Digital", { exact: true }).locator("..")).toContainText("2/2");
+        }
+
+        await kupua.page.evaluate(() => (window as any).__selection_panel_fixture__.flush());
+        await expect(kupua.page.getByText("Digital", { exact: true }).locator("..")).toContainText(`${initialCount}/${initialCount + 1}`);
+        await expect(kupua.page.getByText("Allow use", { exact: true }).locator("..")).toContainText(`${initialCount} of ${initialCount + 1}`);
+        const expandedText = await kupua.page.locator("dl").allTextContents();
+        await kupua.page.evaluate(() => {
+          const fixture = (window as any).__selection_panel_fixture__;
+          (window as any).__kupua_selection_store__.getState().remove([fixture.addedId]);
+        });
+        expect(await getSelectionCount(kupua.page)).toBe(initialCount);
+        if (initialCount === 2) {
+          await expect.poll(() => kupua.page.locator("dl").allTextContents()).toEqual(expandedText);
+          await expect(kupua.page.getByText("Digital", { exact: true }).locator("..")).toContainText("2/3");
+        }
+        await kupua.page.evaluate(() => (window as any).__selection_panel_fixture__.flush());
+        await expect.poll(() => kupua.page.locator("dl").allTextContents()).toEqual(beforeText);
+
+        await kupua.page.evaluate(() => (window as any).__selection_panel_fixture__.beginLateFetch());
+        expect(await getSelectionCount(kupua.page)).toBe(initialCount + 1);
+        await expect.poll(() => kupua.page.locator("dl").allTextContents()).toEqual(beforeText);
+        const busyMetadata = kupua.page.locator('[aria-busy="true"]').filter({ has: kupua.page.locator("dl") });
+        await expect(busyMetadata).toHaveCount(1);
+        if (initialCount === 1) {
+          await clearSelection(kupua.page);
+          await expect(kupua.page.getByText("Focus an image to see its metadata.", { exact: true })).toBeVisible();
+          await kupua.page.evaluate(() => (window as any).__selection_panel_fixture__.resolveLate());
+          await kupua.page.waitForFunction(() => (window as any).__kupua_selection_store__.getState().pendingFetchIds.size === 0);
+          expect(await getSelectionCount(kupua.page)).toBe(0);
+          await expect(kupua.page.getByText("Focus an image to see its metadata.", { exact: true })).toBeVisible();
+        } else {
+          await kupua.page.evaluate(() => (window as any).__selection_panel_fixture__.rejectLate());
+          await kupua.page.waitForFunction(() => {
+            const state = (window as any).__kupua_selection_store__.getState();
+            return state.pendingFetchIds.size === 0 && state.isReconciling;
+          });
+          await kupua.page.evaluate(() => (window as any).__selection_panel_fixture__.flush());
+          expect(await getSelectionCount(kupua.page)).toBe(3);
+          await expect(busyMetadata).toHaveCount(0);
+          await expect(kupua.page.getByText("Digital", { exact: true }).locator("..")).toContainText("2/2");
+          await clearSelection(kupua.page);
+          await expect(kupua.page.getByText("Focus an image to see its metadata.", { exact: true })).toBeVisible();
+        }
+      } finally {
+        await kupua.page.evaluate(() => (window as any).__selection_panel_fixture__?.cleanup());
+      }
+    });
+  }
+
+  for (const count of [1, 2]) {
+    test(`publishes late off-buffer metadata to Details and Usages for ${count} selected images`, async ({ kupua }) => {
+      await kupua.startSearch();
+      await kupua.waitForPositionMap();
+      await clearSelection(kupua.page);
+      await kupua.page.locator('button[aria-label*="Details panel"]').click();
+      await kupua.page.getByRole("button", { name: "Usages", exact: true }).click();
+
+      await kupua.page.evaluate(async (count) => {
+        const mockPath = "/src/dal/mock-data-source.ts";
+        const { MockDataSource } = await import(mockPath);
+        const source = new MockDataSource(1);
+        const template = (await source.getById("img-0")).image;
+        const images = Array.from({ length: count }, (_, index) => ({
+          ...template,
+          id: `s3-off-buffer-${index}`,
+          metadata: { ...template.metadata, description: "S3 late metadata" },
+          usages: [{
+            id: `s3-usage-${index}`, platform: "digital", status: "published",
+            title: "S3 late usage", references: [], dateAdded: "2026-01-01T00:00:00.000Z",
+          }],
+          leases: { leases: [{
+            id: `s3-lease-${index}`, access: "allow-use",
+            startDate: "2020-01-01T00:00:00.000Z", endDate: "2099-01-01T00:00:00.000Z",
+          }] },
+        }));
+        const selection = (window as any).__kupua_selection_store__;
+        const search = (window as any).__kupua_store__;
+        const searchChanges = new Set<string>();
+        (window as any).__s3_unsubscribe__ = search.subscribe((next: any, previous: any) => {
+          for (const key of Object.keys(next)) {
+            if (next[key] !== previous[key]) searchChanges.add(key);
+          }
+        });
+        (window as any).__s3_search_changes__ = searchChanges;
+        selection.setState({
+          dataSource: {
+            ...selection.getState().dataSource,
+            getByIds: () => new Promise((resolve) => {
+              (window as any).__s3_release__ = () => resolve(images);
+            }),
+          },
+        });
+        if (count === 2) {
+          const callbacks: IdleRequestCallback[] = [];
+          const originalIdle = window.requestIdleCallback;
+          window.requestIdleCallback = (callback) => {
+            callbacks.push(callback);
+            return callbacks.length;
+          };
+          (window as any).__s3_finish_reconcile__ = () => {
+            window.requestIdleCallback = originalIdle;
+            for (const callback of callbacks) callback({ didTimeout: false, timeRemaining: () => 50 });
+          };
+        }
+        selection.getState().add(images.map((image) => image.id));
+        (window as any).__s3_before__ = {
+          cache: selection.getState().metadataCache,
+          ids: selection.getState().selectedIds,
+          results: search.getState().results,
+        };
+      }, count);
+      await expect(kupua.page.locator('[role="status"]', { hasText: "selected" })).toContainText(String(count));
+      if (count === 1) {
+        await expect(kupua.page.getByText("Focus an image to see its metadata.", { exact: true })).toBeVisible();
+        await expect(kupua.page.getByText("Focus an image to see its usages.", { exact: true })).toBeVisible();
+      } else {
+        await expect(kupua.page.getByText("No leases", { exact: true })).toBeVisible();
+      }
+      await kupua.page.evaluate(() => (window as any).__s3_release__());
+      await expect.poll(() => kupua.page.evaluate(() => {
+        const selection = (window as any).__kupua_selection_store__.getState();
+        const before = (window as any).__s3_before__;
+        return {
+          cached: [...selection.selectedIds].every((id) => selection.metadataCache.has(id)),
+          cacheUnchanged: selection.metadataCache === before.cache,
+          selectionUnchanged: selection.selectedIds === before.ids,
+          bufferUnchanged: (window as any).__kupua_store__.getState().results === before.results,
+          searchFieldsChanged: Array.from((window as any).__s3_search_changes__),
+        };
+      })).toEqual({ cached: true, cacheUnchanged: true, selectionUnchanged: true, bufferUnchanged: true, searchFieldsChanged: [] });
+      await kupua.page.evaluate(() => (window as any).__s3_unsubscribe__());
+
+      if (count === 1) {
+        await expect(kupua.page.getByText("S3 late metadata", { exact: true })).toBeVisible();
+        await expect(kupua.page.getByText("S3 late usage", { exact: true })).toBeVisible();
+      } else {
+        expect(await kupua.page.evaluate(() => (window as any).__kupua_selection_store__.getState().isReconciling)).toBe(true);
+        await expect(kupua.page.getByText(/^2 (free|restricted|paid|over quota|no rights)$/)).toBeVisible();
+        await expect(kupua.page.getByText("Digital", { exact: true }).locator("..")).toContainText("2/2");
+        await expect(kupua.page.getByText("No leases", { exact: true })).not.toBeVisible();
+        await expect(kupua.page.getByText("Allow use", { exact: true }).locator("..")).toContainText("All images");
+        await kupua.page.evaluate(() => (window as any).__s3_finish_reconcile__());
+      }
+    });
+  }
+
+  test("selecting 2+ images renders MultiImageMetadata (not the focus placeholder)", async ({ kupua }) => {
+    await kupua.startSearch();
+    await clearSelection(kupua.page);
+
+    // Open the Details panel (closed by default)
+    await kupua.page.locator('button[aria-label*="Details panel"]').click();
+
+    const cells = kupua.page.locator('[data-grid-cell]');
+
+    // Select first two images via tickbox
+    await cells.nth(0).hover();
+    await cells.nth(0).locator('button[aria-label="Select image"]').click();
+    await cells.nth(1).hover();
+    await cells.nth(1).locator('button[aria-label="Select image"]').click();
+
+    expect(await getSelectionCount(kupua.page)).toBe(2);
+    await waitForReconcile(kupua.page);
+
+    // MultiImageMetadata must render an actual combined metadata field.
+    await expect(
+      kupua.page.locator('text=Focus an image to see its metadata'),
+    ).not.toBeVisible({ timeout: 5000 });
+    await expect(kupua.page.locator("dt", { hasText: "File type" })).toBeVisible();
+    // Status bar confirms the count
+    const statusBar = kupua.page.locator('[role="status"]', { hasText: "selected" });
+    await expect(statusBar).toContainText("2");
+  });
+
+  test("chip disclosure bounds mounted values, preserves partial meaning and refresh, and collapses with keyboard focus", async ({ kupua }) => {
+    await kupua.startSearch();
+    await kupua.waitForPositionMap();
+    await clearSelection(kupua.page);
+
+    // Open the Details panel (closed by default)
+    await kupua.page.locator('button[aria-label*="Details panel"]').click();
+
+    const cells = kupua.page.locator('[data-grid-cell]');
+    const selectedIds = await cells.evaluateAll((visibleCells) =>
+      visibleCells.slice(0, 2)
+        .map((cell) => cell.getAttribute("data-image-id"))
+        .filter((id): id is string => id !== null),
+    );
+    expect(selectedIds).toHaveLength(2);
+
+    // Keep the real hydration path; synthetic values provide an independent oracle.
+    await kupua.page.evaluate((electedIds) => {
+      const store = (window as any).__kupua_selection_store__;
+      const source = store.getState().dataSource;
+      const fixture = { source, reads: 0, refreshed: false };
+      (window as any).__kup035ChipFixture = fixture;
+      store.setState({
+        dataSource: {
+          ...source,
+          getByIds: async (requestedIds: string[], signal?: AbortSignal) => {
+            fixture.reads++;
+            const images = await source.getByIds(requestedIds, signal);
+            return images.map((image: any) => ({
+              ...image,
+              metadata: {
+                ...image.metadata,
+                keywords: image.id === electedIds[0]
+                  ? ["shared", "partial", ...Array.from({ length: 24 }, (_, i) => `partial-${i + 1}`), ...(fixture.refreshed ? ["refreshed"] : [])]
+                  : ["shared"],
+                peopleInImage: Array.from({ length: 21 }, (_, i) => `person-${i}`),
+                subjects: Array.from({ length: 20 }, (_, i) => `subject-${i}`),
+                subLocation: "National Tennis Center",
+                city: "Beijing",
+                state: "Beijing",
+                country: "China",
+              },
+            }));
+          },
+        },
+      });
+    }, selectedIds);
+
+    for (const id of selectedIds) {
+      const cell = kupua.page.locator(`[data-grid-cell][data-image-id="${id}"]`);
+      await cell.hover();
+      await cell.locator('button[aria-label="Select image"]').click();
+    }
+    expect(await getSelectionIds(kupua.page)).toEqual(selectedIds);
+
+    // Wait for keywords field to be fully reconciled (not pending/dirty)
+    await kupua.page.waitForFunction(
+      () => {
+        const store = (window as any).__kupua_selection_store__;
+        if (!store) return false;
+        const rv = store.getState().reconciledView;
+        if (!rv) return false;
+        const kw = rv.get("keywords");
+        return kw && kw.kind !== "pending" && kw.kind !== "dirty";
+      },
+      { timeout: 8000 },
+    );
+
+    try {
+      const keywordRow = kupua.page.locator("dt", { hasText: /^Keywords$/ }).locator("..");
+      const peopleRow = kupua.page.locator("dt", { hasText: /^People$/ }).locator("..");
+      const subjectsRow = kupua.page.locator("dt", { hasText: /^Subjects$/ }).locator("..");
+      const locationRow = kupua.page.locator("dt", { hasText: /^Location$/ }).locator("..");
+      await expect(locationRow.locator(".inline-flex")).toHaveText(["National Tennis Center,", "Beijing,", "Beijing,", "China"]);
+      await expect(locationRow.locator("button")).toHaveText(["National Tennis Center", "Beijing", "Beijing", "China"]);
+      expect(await locationRow.evaluate(row => {
+        const groups = Array.from(row.querySelectorAll<HTMLElement>(".inline-flex"));
+        const commas = groups.slice(0, -1).map(group => group.lastElementChild!);
+        return commas.every((comma, i) =>
+          getComputedStyle(groups[i]).display === "inline-flex"
+          && comma.getBoundingClientRect().left > groups[i].getBoundingClientRect().left,
+        );
+      })).toBe(true);
+      const keywordPills = keywordRow.locator("button[title]");
+      const sharedChip = keywordRow.getByRole("button", { name: "shared", exact: true });
+      const partialChip = keywordRow.getByRole("button", { name: "partial", exact: true });
+      await expect(sharedChip).not.toHaveAttribute("data-partial", "true");
+      await expect(sharedChip).toHaveAttribute("title", /2\/2/);
+      await expect(partialChip).toHaveAttribute("data-partial", "true");
+      await expect(partialChip).toHaveAttribute("title", /1\/2/);
+      await expect(keywordPills).toHaveCount(20);
+      await expect(keywordRow.getByRole("button", { name: "partial-24", exact: true })).toHaveCount(0);
+      await expect(peopleRow.locator("button[title]")).toHaveCount(20);
+      await expect(subjectsRow.locator("button[title]")).toHaveCount(20);
+      await expect(subjectsRow.getByRole("button", { name: "Show more…" })).toHaveCount(0);
+
+      const reads = await kupua.page.evaluate(() => (window as any).__kup035ChipFixture.reads);
+      const dataRequests: string[] = [];
+      const observe = (request: import("@playwright/test").Request) => {
+        if (/\/(es|api)\//.test(request.url())) dataRequests.push(request.method());
+      };
+      kupua.page.on("request", observe);
+      try {
+        const more = keywordRow.getByRole("button", { name: "Show more…" });
+        await more.focus();
+        await more.press("Enter");
+        const fewer = keywordRow.getByRole("button", { name: "Show fewer" });
+        await expect(fewer).toBeFocused();
+        await expect(fewer).toHaveAttribute("aria-expanded", "true");
+        await expect(keywordPills).toHaveText(["shared", "partial", ...Array.from({ length: 24 }, (_, i) => `partial-${i + 1}`)]);
+        await expect(peopleRow.locator("button[title]")).toHaveCount(20);
+        await fewer.press("Space");
+        await expect(keywordPills).toHaveCount(20);
+        await expect(more).toBeFocused();
+        await expect(more).toHaveAttribute("aria-expanded", "false");
+        expect(dataRequests).toEqual([]);
+        expect(await kupua.page.evaluate(() => (window as any).__kup035ChipFixture.reads)).toBe(reads);
+      } finally {
+        kupua.page.off("request", observe);
+      }
+
+      await keywordRow.getByRole("button", { name: "Show more…" }).click();
+      await kupua.page.evaluate(async () => {
+        (window as any).__kup035ChipFixture.refreshed = true;
+        await (window as any).__kupua_selection_store__.getState().hydrate();
+      });
+      await expect(keywordRow.getByRole("button", { name: "refreshed", exact: true })).toBeAttached();
+      await expect(keywordRow.getByRole("button", { name: "Show fewer" })).toHaveCount(1);
+      await expect(peopleRow.locator("button[title]")).toHaveCount(20);
+      await keywordRow.getByRole("button", { name: "Show fewer" }).click();
+      await expect(keywordPills).toHaveCount(20);
+      await expect.poll(() => keywordRow.evaluate((row) => {
+        let scroller = row.parentElement;
+        while (scroller && !["auto", "scroll"].includes(getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement;
+        if (!scroller) throw new Error("Details scroll parent missing");
+        const rowRect = row.getBoundingClientRect();
+        const scrollRect = scroller.getBoundingClientRect();
+        const headerOffset = scroller.scrollTop + rowRect.top - scrollRect.top;
+        const anchoredScroll = Math.min(headerOffset, scroller.scrollHeight - scroller.clientHeight);
+        return {
+          anchored: Math.abs(scroller.scrollTop - anchoredScroll) < 2,
+          headerVisible: rowRect.top >= scrollRect.top - 1 && rowRect.top < scrollRect.bottom,
+        };
+      })).toEqual({ anchored: true, headerVisible: true });
+    } finally {
+      await kupua.page.evaluate(() => {
+        const store = (window as any).__kupua_selection_store__;
+        store.getState().clear();
+        store.setState({ dataSource: (window as any).__kup035ChipFixture.source });
+        delete (window as any).__kup035ChipFixture;
+      });
+    }
+  });
+
+  test("clearing selection removes MultiImageMetadata and restores focus placeholder", async ({ kupua }) => {
+    await kupua.startSearch();
+    await clearSelection(kupua.page);
+
+    // Open the Details panel (closed by default)
+    await kupua.page.locator('button[aria-label*="Details panel"]').click();
+
+    const cells = kupua.page.locator('[data-grid-cell]');
+
+    await cells.nth(0).hover();
+    await cells.nth(0).locator('button[aria-label="Select image"]').click();
+    await cells.nth(1).hover();
+    await cells.nth(1).locator('button[aria-label="Select image"]').click();
+
+    expect(await getSelectionCount(kupua.page)).toBe(2);
+    // Status bar confirms multi-selection is active
+    await expect(
+      kupua.page.locator('[role="status"]', { hasText: "selected" }),
+    ).toBeVisible({ timeout: 5000 });
+
+    // Clear
+    await kupua.page.locator('button[aria-label="Clear selection"]').click();
+    expect(await getSelectionCount(kupua.page)).toBe(0);
+
+    // Status bar gone (selection cleared)
+    await expect(
+      kupua.page.locator('[role="status"]', { hasText: "selected" }),
+    ).not.toBeVisible({ timeout: 3000 });
+
+    // Placeholder shown again
+    await expect(
+      kupua.page.locator('text=Focus an image to see its metadata'),
+    ).toBeVisible({ timeout: 3000 });
+  });
+
+  test("File type click-to-search uses CQL form (jpeg) not raw MIME (image/jpeg)", async ({ kupua }) => {
+    // Regression: multi-image panel was passing the raw accessor value "image/jpeg"
+    // to ValueLink instead of the formatter output "jpeg", so click produced
+    // fileType:image%2Fjpeg instead of fileType:jpeg.
+    await kupua.startSearch();
+    await clearSelection(kupua.page);
+
+    // Open Details panel
+    await kupua.page.locator('button[aria-label*="Details panel"]').click();
+
+    const cells = kupua.page.locator('[data-grid-cell]');
+
+    await cells.nth(0).hover();
+    await cells.nth(0).locator('button[aria-label="Select image"]').click();
+    await cells.nth(1).hover();
+    await cells.nth(1).locator('button[aria-label="Select image"]').click();
+
+    // Wait for source_mimeType to reach all-same (test data is expected to be homogenous)
+    await kupua.page.waitForFunction(
+      () => {
+        const store = (window as any).__kupua_selection_store__;
+        if (!store) return false;
+        const rv = store.getState().reconciledView;
+        if (!rv) return false;
+        const mt = rv.get("source_mimeType");
+        return mt && mt.kind === "all-same";
+      },
+      { timeout: 8000 },
+    );
+
+    // "File type" row should be visible in the details panel
+    const fileTypeRow = kupua.page.locator('dt', { hasText: "File type" });
+    await expect(fileTypeRow).toBeVisible({ timeout: 3000 });
+
+    // The displayed value should be the short form (e.g. "jpeg"), not the raw MIME
+    const fileTypeValue = fileTypeRow.locator('~ dd button');
+    const displayedText = await fileTypeValue.first().textContent();
+    expect(displayedText).not.toContain("image/");
+    expect(displayedText).not.toContain("%2F");
+
+    // Click the value — should navigate to fileType:<short> not fileType:image%2F<short>
+    await fileTypeValue.first().click();
+    await kupua.page.waitForURL((nextUrl) => {
+      const href = nextUrl.href;
+      return href.includes("fileType%3Ajpeg") || href.includes("fileType:jpeg");
+    });
+
+    const url = kupua.page.url();
+    // Must contain "fileType:jpeg" (or similar short form), NOT "fileType:image"
+    // The colon may appear encoded (%3A) or unencoded in the query string.
+    expect(url.includes("fileType%3Ajpeg") || url.includes("fileType:jpeg")).toBe(true);
+    expect(url).not.toContain("image%2F");
+    expect(url).not.toContain("image/");
+  });
+});
+
+// ===========================================================================
+// S6 — Selection lifecycle: clear-on-search + hydration
+// ===========================================================================
+
+/**
+ * SPA navigation helper — changes URL params within the current page session
+ * without a full reload. Simulates the user updating the URL via TanStack
+ * Router (e.g. typing a new query). Does NOT call markUserInitiatedNavigation,
+ * so the hook sees it as a popstate; that's fine — S6 clears for both kinds.
+ */
+async function spaNavigateSearch(
+  page: Parameters<typeof test>[1]["page"],
+  extraParams: Record<string, string>,
+): Promise<void> {
+  await page.evaluate((params) => {
+    const router = (window as any).__kupua_router__;
+    if (!router) throw new Error("__kupua_router__ not exposed on window");
+    const url = new URL(window.location.href);
+    const search: Record<string, string> = {};
+    url.searchParams.forEach((v, k) => { search[k] = v; });
+    Object.assign(search, params);
+    router.navigate({ to: url.pathname, search });
+  }, extraParams);
+}
+
+/**
+ * Select the first N visible grid cells and return their IDs.
+ */
+async function selectNGridCells(
+  page: Parameters<typeof test>[1]["page"],
+  n: number,
+): Promise<string[]> {
+  const cells = page.locator('[data-grid-cell]');
+
+  // Enter selection mode via first cell tickbox
+  await cells.nth(0).hover();
+  await cells.nth(0).locator('button[aria-label="Select image"]').click();
+
+  // Select remaining cells (tickboxes always visible in selection mode)
+  for (let i = 1; i < n; i++) {
+    await cells.nth(i).locator('button[aria-label="Select image"]').click();
+  }
+
+  return getSelectionIds(page);
+}
+
+test.describe("S6 — clear-on-search navigation", () => {
+  test("query change clears selection", async ({ kupua }) => {
+    await kupua.startSearch();
+    await clearSelection(kupua.page);
+    await selectNGridCells(kupua.page, 2);
+    expect(await getSelectionCount(kupua.page)).toBe(2);
+
+    // SPA navigate with a new query (in-session, not a page reload).
+    // Use query='' which matches everything — we just want the URL to change
+    // so useUrlSearchSync fires and clears.
+    await spaNavigateSearch(kupua.page, { query: "city:London" });
+    await kupua.waitForResults();
+
+    expect(await getSelectionCount(kupua.page)).toBe(0);
+  });
+
+  test("sort-only change preserves selection", async ({ kupua }) => {
+    await kupua.startSearch();
+    await clearSelection(kupua.page);
+    const selectedIds = await selectNGridCells(kupua.page, 2);
+    expect(selectedIds).toHaveLength(2);
+
+    // SPA navigate with only orderBy changing → isSortOnly=true → no clear.
+    await spaNavigateSearch(kupua.page, { orderBy: "-lastModified" });
+    await kupua.waitForResults();
+
+    expect(await getSelectionCount(kupua.page)).toBe(2);
+    expect(await getSelectionIds(kupua.page)).toEqual(selectedIds);
+  });
+
+  test("density toggle preserves selection", async ({ kupua }) => {
+    await kupua.startSearch();
+    await clearSelection(kupua.page);
+    await selectNGridCells(kupua.page, 2);
+    expect(await getSelectionCount(kupua.page)).toBe(2);
+
+    // Density toggle changes a display-only URL key → useUrlSearchSync deduplicates
+    // (same search params) → no clear.
+    await kupua.page.getByRole("button", { name: "Table view", exact: true }).click();
+    await kupua.waitForResults();
+
+    expect(await getSelectionCount(kupua.page)).toBe(2);
+  });
+
+  test("image detail open and close preserves selection", async ({ kupua }) => {
+    await kupua.startSearch();
+    await clearSelection(kupua.page);
+    await selectNGridCells(kupua.page, 2);
+    expect(await getSelectionCount(kupua.page)).toBe(2);
+
+    // Get the ID of the first selected image so we can open detail.
+    const ids = await getSelectionIds(kupua.page);
+    const firstId = ids[0];
+
+    // Open image detail (adds ?image=<id> display-only param — no search fires).
+    await spaNavigateSearch(kupua.page, { image: firstId });
+    await kupua.page.waitForFunction(
+      () => new URL(window.location.href).searchParams.has("image"),
+      { timeout: 5000 },
+    );
+
+    expect(await getSelectionIds(kupua.page)).toEqual(ids);
+
+    // Close image detail (remove image param).
+    await kupua.page.evaluate(() => {
+      const router = (window as any).__kupua_router__;
+      if (!router) throw new Error("__kupua_router__ not exposed");
+      const url = new URL(window.location.href);
+      const search: Record<string, string> = {};
+      url.searchParams.forEach((v, k) => { if (k !== "image") search[k] = v; });
+      router.navigate({ to: url.pathname, search });
+    });
+    await kupua.waitForDetailClosed();
+
+    expect(await getSelectionIds(kupua.page)).toEqual(ids);
+  });
+
+  test("reload preserves selection and populates multi-panel", async ({ kupua }) => {
+    await kupua.startSearch();
+    await clearSelection(kupua.page);
+
+    // Select 2 images.
+    const ids = await selectNGridCells(kupua.page, 2);
+    expect(ids.length).toBe(2);
+
+    await waitForSelectionPersisted(kupua.page, ids);
+
+    // Full page reload.
+    await kupua.page.reload();
+    await kupua.waitForResults();
+
+    // Selection should survive via persist middleware with exact identities.
+    await expect.poll(async () => (await getSelectionIds(kupua.page)).sort()).toEqual(
+      [...ids].sort(),
+    );
+
+    // hydrate() must fetch metadata, complete reconciliation and render the
+    // multi-image panel rather than merely restoring the status count.
+    await waitForReconcile(kupua.page);
+    await kupua.page.locator('button[aria-label*="Details panel"]').click();
+    await expect(
+      kupua.page.locator('text=Focus an image to see its metadata'),
+    ).not.toBeVisible({ timeout: 5000 });
+    expect(await getSelectionIds(kupua.page)).toEqual(ids);
+  });
+
+  test("new-images ticker click clears selection", async ({ kupua }) => {
+    await kupua.startSearch();
+    await clearSelection(kupua.page);
+    await selectNGridCells(kupua.page, 2);
+    expect(await getSelectionCount(kupua.page)).toBe(2);
+
+    // Mock newCount to make the ticker appear.
+    await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      if (!store) throw new Error("__kupua_store__ not exposed");
+      store.setState({ newCount: 5, newCountSince: new Date().toISOString() });
+    });
+
+    // Wait for the ticker button to appear.
+    const ticker = kupua.page.locator('button', { hasText: /new/ }).first();
+    await expect(ticker).toBeVisible({ timeout: 3000 });
+
+    // Click the ticker — triggers resetScrollAndFocusSearch + clearSelection + reSearch.
+    await ticker.click();
+    await kupua.waitForResults();
+
+    expect(await getSelectionCount(kupua.page)).toBe(0);
+  });
+
+  test("browser back clears selection", async ({ kupua }) => {
+    await kupua.startSearch();
+    await clearSelection(kupua.page);
+
+    // First navigate within the session to a different query so there is
+    // a history entry to go back to.
+    await spaNavigateSearch(kupua.page, { query: "city:London" });
+    await kupua.waitForResults();
+
+    // Select items in the current search context.
+    await selectNGridCells(kupua.page, 2);
+    expect(await getSelectionCount(kupua.page)).toBe(2);
+
+    // Browser back → returns to previous URL → useUrlSearchSync fires
+    // (isPopstate=true, _prevParamsSerialized != "", not sort-only) → clear.
+    await kupua.page.goBack();
+    await kupua.waitForResults();
+
+    expect(await getSelectionCount(kupua.page)).toBe(0);
+  });
+});
