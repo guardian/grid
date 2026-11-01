@@ -793,6 +793,40 @@ passing the pointer over them does not flash them. The next strip starts below t
 In the compact shell, metadata moves into a non-modal `BottomSheet` card (no scrim). Expanding
 the card shrinks the image into the top quarter; tapping the image collapses the card.
 
+## Crop Editor (`components/crop/`)
+
+`CropEditor` is lazy-loaded inside detail when `cropping=true`. Crop shows and logs the
+Kahuna-shaped request, never posts it; permission gating and backend writes are not implemented.
+`CropCanvas` owns one Cropper.js v2 instance per source/alt lifetime, tracks loading/absence,
+cancels callbacks/frames on teardown and preserves natural-pixel selection geometry on resize.
+Native image gestures are disabled; desktop fullscreen supplies controlled pan/zoom without
+changing crop coordinates. Rotation remains unavailable. Rendition coordinates map to
+oriented-original pixels; mock submission requires a current, finite, positive, in-bounds selection. Image/source, ratio and
+legacy-settings changes invalidate prior selection/output until the canvas reports readiness.
+
+Crop entry uses a fresh history key, retaining both its detail return marker and the detail's
+list origin. Cancel/Back/Forward/reload use those markers; a cold crop link replaces its URL on
+Cancel because it has no separate detail predecessor. Matching crop/detail history transitions
+leave the mounted search buffer untouched. Entering exits only image fullscreen, not app fullscreen.
+The editor focuses/traps its own controls, restricts letter shortcuts to current ratio options,
+leaves native Enter on controls alone and makes background detail controls inert. Native Cropper
+keyboard handling is enabled after connection and disabled at cleanup; cleared selection disables Crop.
+
+Root `beforeLoad` applies `cropType`, `customRatio=label,width,height` and `defaultCropType` on
+cold and SPA entries before redirects. These are display-only URL keys, persisted in per-tab
+`kupua.crop.*` session storage. Settings changes update an already-open editor. Fixed presets,
+the small-width warning and GNM square circle mask/guide follow Kahuna; malformed custom ratios
+are rejected and explicitly requested hidden presets remain selectable. Existing-crop `?crop=id`
+selection and 5:3 warning gutters are not implemented. Numeric inputs edit bounded original-pixel
+coordinates; ratio labels collapse at 1294px and below. The small-crop warning is persistent and
+local to the editor, including fullscreen, rather than part of the global toast queue.
+
+Alt+f toggles desktop crop fullscreen; ordinary dragging pans, Alt-drag/grip moves the crop,
+and edges/corners resize it. A sharper rendition loads on first zoom; Escape exits fullscreen
+without discarding the selection. A single validated session-storage draft restores ratio and
+frame (including cleared state) after reload. Resolved in-app departure discards it, so Forward
+starts fresh; full-document away/Back can retain it. Camera/fullscreen state is not persisted.
+
 ## Fullscreen Preview (`components/FullscreenPreview.tsx`)
 
 Fullscreen peek opened with `f` or middle-click, without a detail route or metadata. The component

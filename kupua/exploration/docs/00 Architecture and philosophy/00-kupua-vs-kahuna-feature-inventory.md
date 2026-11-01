@@ -1,6 +1,6 @@
 # Kupua vs Kahuna — Feature Inventory
 
-**Current implementation, 20 October 2026.** A product-facing comparison of
+**Current implementation, 1 November 2026.** A product-facing comparison of
 API-backed Kupua with Kahuna. Sections and entries put the larger editorial
 workflow improvements before supporting controls and polish. Shared capabilities
 are identified as such; the final section lists the remaining gaps. Selected
@@ -568,6 +568,44 @@ Sources: [image URL builders](../../../src/lib/image-urls.ts),
 [S3 thumbnail proxy](../../../scripts/s3-proxy.mjs),
 [Kahuna rendition selection](../../../../kahuna/public/js/imgops/service.js),
 [canonical delivery plan](<../03 Ce n'est pas une pipe dream/api-build/api-build-00-plan.md>).
+
+### 3.7 Crop framing with desktop fullscreen and reload recovery (mock-only)
+
+**Kahuna:** provides a backend-connected crop workflow on a separate page, with
+numeric coordinates, ratio presets and responsive labels. Numeric editing and
+ratio-only labels on narrower screens are shared capabilities, not Kupua inventions.
+
+**Kupua:** opens its crop editor inside the existing detail/search workspace and
+adds a desktop fullscreen framing view. Alt+f removes the chrome; pointer-centred
+zoom, inertial panning and a sharper rendition make small details easier to inspect
+without changing the crop coordinates. Ordinary dragging pans the view, Alt-drag
+or the grip moves the frame, and edges/corners resize it. Escape leaves fullscreen
+without discarding the crop.
+
+A tab-local draft restores the frame and chosen ratio after reload, including an
+intentionally cleared frame. Leaving through in-app navigation discards it, so
+Back then Forward starts fresh. Camera/fullscreen state is not restored, and
+full-document navigation away and Back can retain the draft.
+
+For narrower screens, ratio buttons collapse to ratios at 1294px and below, as in
+Kahuna. Inline coordinate controls wrap in pairs; local small-crop warnings pass
+pointer input through their body instead of covering frame controls. This is
+responsive treatment of the current editor, not a finished touch-specific crop
+workflow: mobile crop zoom and the proposed collapsible coordinate inspector are
+not implemented.
+
+**Boundary:** cropping is mock-only. Crop builds, displays and logs an original-pixel
+request; it does not submit it, create or save a crop, or produce an export. Kahuna's
+connected crop/export workflow remains a gap (§8.2).
+
+**New endpoints:** **none** for these editor interactions or local draft recovery.
+Backend crop creation is not connected.
+
+Sources: [CropEditor](../../../src/components/crop/CropEditor.tsx),
+[crop viewport](../../../src/lib/crop/crop-viewport.ts),
+[draft recovery](../../../src/lib/crop/crop-draft.ts),
+[Kahuna crop view](../../../../kahuna/public/js/crop/view.html),
+[Kahuna responsive ratio styling](../../../../kahuna/public/js/components/gr-radio-list/gr-radio-list.css).
 
 ---
 
@@ -1150,11 +1188,13 @@ Sources: [Kupua metadata](../../../src/components/ImageMetadata.tsx),
 
 ### 8.2 Upload and crop/export workflows
 
-Kahuna provides upload and crop workflows. Kupua does not upload images or provide
-a crop/image-operations editor. Its image-inspection zoom is not an editing tool.
+Kahuna provides upload and backend-connected crop/export workflows. Kupua does not
+upload images or create/save/export crops. Its mock crop editor (§3.7) supports
+framing and request inspection only; ordinary image-inspection zoom is not an editing tool.
 
 Sources: [Kahuna upload](../../../../kahuna/public/js/upload),
 [Kahuna crop](../../../../kahuna/public/js/crop),
+[Kupua mock crop editor](../../../src/components/crop/CropEditor.tsx),
 [Kupua detail](../../../src/components/ImageDetail.tsx).
 
 ### 8.3 Bulk actions, downloads and sharing selections

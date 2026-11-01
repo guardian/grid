@@ -9,8 +9,12 @@
 import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ToastContainer } from "@/components/ToastContainer";
+import { applyLegacyCropParams } from "@/lib/crop/crop-options";
 
 export const rootRoute = createRootRoute({
+  beforeLoad: ({ location }) => {
+    applyLegacyCropParams(new URLSearchParams(location.searchStr));
+  },
   component: RootLayout,
 });
 

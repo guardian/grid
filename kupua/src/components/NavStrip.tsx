@@ -28,14 +28,14 @@ export const FULLSCREEN_ICON = "M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2
 export const FULLSCREEN_EXIT_ICON = "M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z";
 
 /** Top-right corner toggle, revealed on hover like the nav chevrons. */
-export function FullscreenCornerButton({ isFullscreen, onClick, className }: { isFullscreen: boolean; onClick: () => void; className?: string }) {
+export function FullscreenCornerButton({ isFullscreen, onClick, className, shortcut = "f" }: { isFullscreen: boolean; onClick: () => void; className?: string; shortcut?: string }) {
   const label = isFullscreen ? "Exit full screen" : "Full screen";
   return (
     <button
       onClick={onClick}
       tabIndex={-1}
       className={`group absolute right-0 top-0 z-10 w-16 h-16 items-center justify-center cursor-pointer outline-none${className ? " " + className : " flex"}`}
-      title={`${label} (f)`}
+      title={`${label} (${shortcut})`}
       aria-label={label}
     >
       <div className="w-13 h-13 flex items-center justify-center rounded-full bg-black/40 text-white/80 opacity-0 group-hover:opacity-100 group-hover:delay-100 transition-opacity duration-150">

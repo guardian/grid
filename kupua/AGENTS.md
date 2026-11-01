@@ -40,6 +40,7 @@ Vite builds the app; Vitest and Playwright provide tests.
 | Fields | [Field registry](src/lib/field-registry.tsx) supplies shared definitions for columns, sorting, filters and metadata. Display consumers use registered accessors/formatters directly; `getFieldRawValue` supplies raw text. Fixed-grid captions/tooltips share [date formatting](src/lib/format-grid-date.ts) with reused local-time Intl formatters. |
 | Table content | [TableRowCells](src/components/TableRowCells.tsx) memoizes registry-based cells on stable image, columns and enrichment inputs; TanStack Row objects never cross the memoized row/content boundary. Placement, focus and selection stay in ImageTable; numeric fields reuse a default-locale formatter. Table thumbnails retain native lazy loading and release only detached incomplete sources; URL changes recapture conditionally mounted images without clearing connected consumers. |
 | Selection | [Selection store](src/stores/selection-store.ts) owns multi-image membership independently of focus. |
+| Crop editor | [CropEditor](src/components/crop/CropEditor.tsx) and [CropCanvas](src/components/crop/CropCanvas.tsx) own a read-only Cropper.js v2 editor inside detail. Crop builds a request without sending it; root-route entry applies legacy ratio options. See the component reference for history, geometry and keyboard ownership. |
 | Shell and zoom | [Shell](src/hooks/useShell.ts) selects the compact (touch phone) or desktop chrome over one shared engine; [results zoom](src/lib/results-zoom.ts) supplies width-aware Grid/Justified levels held in the [zoom store](src/stores/zoom-store.ts). |
 
 For subsystem internals, start with the relevant section of the
@@ -67,6 +68,7 @@ There is no need to read the whole documentation tree before working.
 | AI search | [AI compatibility workplan](exploration/docs/ai-search-catching-up-workplan.md) for contracts and [component reference](exploration/docs/00%20Architecture%20and%20philosophy/component-detail.md) for implementation entry points. |
 | Backend merges and future PRs | [Living impact checklist](exploration/docs/00-kupua-backend-merge-to-MAIN-impact-map.md): recheck and update relevant disclosure bullets for non-trivial shared-backend changes; no merge history. |
 | API integration | [API build plan](exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md) for sequence and decisions; [Scala conventions](exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/media-api-91-instructions-for-agents.md) for media-api work; [request lifetime and optimisation parity](exploration/docs/api-request-lifetime-and-performance-parity.md) for KUP-041 and client/server repair boundaries. |
+| Hosted rights, notices and capabilities | [Research for review](exploration/docs/hosted-rights-and-capabilities-review.md) maps server signals across search, detail and crop; KUP-044/045/046 retain shared findings, and KUP-047 defers crop notices/eligibility until reviewed common wiring. Not implementation approval. |
 | Runtime configuration and hosting by Kahuna | [README setup](README.md#quick-start) for modes; [Deployed via Kahuna](exploration/docs/00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md) for hosting, injected config, server data sources and media delivery. |
 | Known defects or intentional departures | [Bug backlog](exploration/docs/bug-backlog.md) and [deviations](exploration/docs/deviations.md). |
 
@@ -76,6 +78,7 @@ Start with the [README's Quick Start](README.md#quick-start) for local setup and
 its API-mode sections when relevant. The entry point is [start.sh](scripts/start.sh).
 
 Execution rules and required test surfaces belong to the standing directives.
+`npm --prefix kupua run typecheck:e2e` checks browser fixtures and their imported app contracts.
 Performance campaigns have a strict compiler preflight; `npm --prefix kupua run typecheck:perf`
 checks that surface independently without starting a browser or accessing live services.
 For task-specific details:

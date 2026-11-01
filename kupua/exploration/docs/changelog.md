@@ -33,6 +33,54 @@ regression covers both the absence of that refill and continued prediction for
 subsequent wheel scrolling; fixture setup also resets shared visible-range state.
 Existing E2E assertions are unchanged.
 
+### 1 November 2026 - Mock cropping
+
+Image detail gains a Crop action and `c` shortcut that open a lazy-loaded Cropper.js v2
+editor at `cropping=true`. Cropping is mock-only: Crop builds, displays and logs Kahuna's
+proposed cropper-service request in oriented-original pixels, but never submits it or
+creates or saves a crop. Backend crop creation is not connected.
+
+The editor provides bounded numeric coordinates, preset/freeform/custom ratios and
+Kahuna-compatible `cropType`, `customRatio` and `defaultCropType` restrictions on cold
+and SPA entry. Legacy `/images/:id/crop` links redirect into the editor; saved-crop
+selection via `?crop=` remains unsupported. Dedicated history entries preserve the
+detail/list return path without restarting search. The crop dialog owns focus and
+keyboard editing, excludes modified browser keys from Cropper, and retires stale
+selection callbacks and mock output when their image, source or ratio changes.
+
+Desktop Alt+f opens a black, chrome-free fullscreen workspace. Pointer-centred zoom
+and inertial panning leave crop coordinates unchanged; a sharper rendition loads on
+first zoom. Ordinary dragging pans, Alt-dragging or the grip moves the crop frame,
+and edges/corners resize it. Escape exits fullscreen without discarding the frame.
+GNM square crops retain a square outline around a circular mask or dashed guide;
+corner markers have enlarged hit areas. Icons use the existing inline-SVG convention.
+
+Crops under 1000 original pixels wide show a persistent, dismissible amber warning
+inside the editor/fullscreen tree. Its body passes pointer input through to the
+canvas, and dismissing its focused close button returns focus to the crop dialog.
+Equal-ratio initialization, cleared-frame recreation and rendition-edge mapping
+preserve valid native selection state.
+
+A single validated session-storage draft restores the chosen ratio and frame,
+including a deliberately cleared frame, after reload. Leaving cropping through
+in-app navigation discards it, so Back then Forward starts fresh. Camera/fullscreen
+state is not restored; full-document navigation away and Back can retain the draft.
+
+Coordinates use inline x/y/w/h labels aligned with Back. Ratio buttons follow
+Kahuna's compact labels at widths up to 1294px, lighter unselected fill and internal
+dividers; an inset cyan selection underline keeps divider ends square. A broader
+mobile toolbar redesign remains deferred.
+
+### 31 October 2026 - Restore the E2E TypeScript gate
+
+The browser-test compiler includes app ambient declarations, JSX, TypeScript import extensions
+and the browser's `/src/*` module paths. `typecheck:e2e` exposes the check as an npm script.
+Selection and toast helpers use Playwright's Page type instead of extracting a fixture from
+the overloaded test function. Panel helpers use KupuaHelpers and literal action names; URL
+predicates have explicit URL types. Sparse scrubber fixtures retain missing slots rather than
+constructing incomplete images, and selection fixtures check image presence before dereferencing.
+Runtime assertions are retained. No production behavior or styling changes are part of this repair.
+
 ### 31 October 2026 - Results zoom, locked Home view and app fullscreen
 
 Grid and Justified zoom through six width-aware levels (`results-zoom.ts`): Justified

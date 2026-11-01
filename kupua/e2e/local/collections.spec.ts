@@ -98,7 +98,7 @@ test.describe("CollectionTree — with mock service", () => {
     // (may be localhost:9010 in dev or a real TEST URL via .env.local).
     // fetchCollectionTree always appends "/collections" to the base.
     await page.route(
-      (url) => url.pathname === "/collections",
+      (url: URL) => url.pathname === "/collections",
       (route) => route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -150,7 +150,7 @@ test.describe("CollectionTree — with mock service", () => {
 
     // URL should include a collection filter AND sort switched to dateAddedToCollection
     await kupua.page.waitForURL(
-      (url) => url.href.includes("collection") && url.searchParams.get("orderBy") === "-dateAddedToCollection",
+      (url: URL) => url.href.includes("collection") && url.searchParams.get("orderBy") === "-dateAddedToCollection",
       { timeout: 5000 },
     );
     const url = new URL(kupua.page.url());
@@ -171,14 +171,14 @@ test.describe("CollectionTree — with mock service", () => {
     // Click collection → sort should auto-switch
     await travelNode.click();
     await kupua.page.waitForURL(
-      (url) => url.searchParams.get("orderBy") === "-dateAddedToCollection",
+      (url: URL) => url.searchParams.get("orderBy") === "-dateAddedToCollection",
       { timeout: 5000 },
     );
 
     // Clear query via the clear button → sort should revert
     await kupua.page.getByRole("button", { name: /clear/i }).click();
     await kupua.page.waitForURL(
-      (url) => !url.searchParams.get("query")?.includes("collection"),
+      (url: URL) => !url.searchParams.get("query")?.includes("collection"),
       { timeout: 5000 },
     );
 
@@ -195,7 +195,7 @@ test.describe("CollectionTree — with mock service", () => {
 
     // Add filter
     await travelNode.click();
-    await kupua.page.waitForURL((url) => url.href.includes("collection"), { timeout: 5000 });
+    await kupua.page.waitForURL((url: URL) => url.href.includes("collection"), { timeout: 5000 });
     const urlAfterFirstClick = kupua.page.url();
 
     // Click again — should be a no-op (active collection click does nothing)
@@ -213,7 +213,7 @@ test.describe("CollectionTree — with mock service", () => {
 test.describe("CollectionTree — graceful absence", () => {
   test("Collections section fully absent when service unavailable", async ({ kupua }) => {
     await kupua.page.route(
-      (url) => url.pathname === "/collections",
+      (url: URL) => url.pathname === "/collections",
       (route) => route.fulfill({ status: 503, body: "" }),
     );
     await kupua.startSearch();

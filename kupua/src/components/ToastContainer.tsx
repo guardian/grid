@@ -18,7 +18,7 @@
  * immediately. The dismiss button has aria-label.
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type MouseEventHandler, type ReactNode } from "react";
 import { useToastStore } from "@/stores/toast-store";
 import type { ToastItem, ToastCategory } from "@/stores/toast-store";
 import { registerShortcut } from "@/lib/keyboard-shortcuts";
@@ -97,31 +97,41 @@ function Toast({ toast }: { toast: ToastItem }) {
     };
   }, [toast.id, toast.lifespan, toast.durationMs, dismiss]);
 
+  return <ToastNotice category={toast.category} message={toast.message} onDismiss={() => dismiss(toast.id)} />;
+}
+
+export function ToastNotice({ category, message, onDismiss, className = "max-w-sm w-full" }: {
+  category: ToastCategory;
+  message: ReactNode;
+  onDismiss: MouseEventHandler<HTMLButtonElement>;
+  className?: string;
+}) {
   return (
     <div
       role="alert"
       aria-live="polite"
       data-testid="toast"
-      data-category={toast.category}
+      data-category={category}
       className={[
         "flex items-start gap-2 px-3 py-2.5 rounded border",
-        "text-xs shadow-lg max-w-sm w-full",
+        "text-xs shadow-lg",
         "animate-[kupua-toast-in_0.2s_ease-out]",
-        categoryClasses(toast.category),
+        categoryClasses(category),
+        className,
       ].join(" ")}
     >
       {/* Icon */}
-      <CategoryIcon category={toast.category} />
+      <CategoryIcon category={category} />
 
       {/* Message */}
-      <span className="flex-1 leading-snug">{toast.message}</span>
+      <span className="flex-1 min-w-0 leading-snug">{message}</span>
 
       {/* Dismiss */}
       <button
         type="button"
         aria-label="Dismiss notification"
-        onClick={() => dismiss(toast.id)}
-        className="shrink-0 ml-1 opacity-60 hover:opacity-100 transition-opacity leading-none"
+        onClick={onDismiss}
+        className="shrink-0 ml-1 opacity-60 hover:opacity-100 transition-opacity leading-none pointer-events-auto"
       >
         ✕
       </button>

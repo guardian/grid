@@ -26,7 +26,7 @@ vi.hoisted(() => {
 
 const fixture = vi.hoisted(() => ({
   resident: [] as Image[],
-  search: { nonFree: "true", orderBy: "-uploadTime" },
+  search: { nonFree: "true", orderBy: "-uploadTime" } as Record<string, string | undefined>,
   navigate: vi.fn(),
   cached: vi.fn(() => null as { cursor: [number, string] | null; offset: number } | null),
   markNavigation: vi.fn(),
@@ -44,7 +44,7 @@ vi.mock("@tanstack/react-router", () => ({
   useRouter: () => ({ history: { subscribe: () => () => {} } }),
   useSearch: () => fixture.search,
 }));
-vi.mock("@/hooks/useDataWindow", () => ({ useDataWindow: () => {
+vi.mock("@/hooks/useDataWindow", () => ({ getViewportAnchorId: () => null, useDataWindow: () => {
   const state = useSearchStore((state) => state);
   return fixture.composed ? {
     total: state.total,
@@ -90,6 +90,9 @@ vi.mock("@/components/ImageMetadata", () => ({ ImageMetadata: ({ image, overlay 
   <span data-testid="metadata">{image.id}: {image.metadata.title}{overlay?.cost ? ` [${overlay.cost}]` : ""}</span>
 ) }));
 vi.mock("@/components/UsagesSection", () => ({ UsagesSection: () => null, countDisplayUsages: () => 0 }));
+vi.mock("@/components/crop/CropEditor", () => ({ CropEditor: ({ onClose }: { onClose: () => void }) => (
+  <button onClick={onClose}>Cancel crop</button>
+) }));
 vi.mock("@/components/PanelLayout", () => ({ AccordionSection: ({ children }: { children: ReactNode }) => <section>{children}</section>, useIsCompact: () => false }));
 vi.mock("@/lib/reset-to-home", () => ({ resetToHome: vi.fn() }));
 vi.mock("@/lib/orchestration/search", async (importOriginal) => ({
@@ -145,6 +148,8 @@ describe("KUP-004 standalone detail identity", () => {
     fixture.mediaProps = [];
     fixture.cached.mockReset().mockReturnValue(null);
     fixture.markNavigation.mockClear();
+    fixture.navigate.mockClear();
+    fixture.search = { nonFree: "true", orderBy: "-uploadTime" };
     transitions = [];
     history.replaceState({}, "", "/search");
   });
@@ -154,6 +159,49 @@ describe("KUP-004 standalone detail identity", () => {
     useSearchStore.setState(initialState, true);
     vi.restoreAllMocks();
     vi.useRealTimers();
+  });
+
+  it("pushes a unique crop entry while preserving its detail and list origins", () => {
+    fixture.resident = [makeImage("A")];
+    history.replaceState({ kupuaKey: "detail", _detailOriginKupuaKey: "list", _bareListSynthesized: true,
+      _detailEntryImageId: "A" }, "", "/search?image=A");
+    render(<Detail imageId="A" />);
+    fireEvent.click(screen.getByRole("button", { name: "Crop image" }));
+    const options = fixture.navigate.mock.calls.at(-1)?.[0];
+    expect(options?.state).toMatchObject({ _cropOriginKupuaKey: "detail", _detailOriginKupuaKey: "list" });
+    expect(options.state.kupuaKey).not.toBe("detail");
+    expect(options.search({ image: "A", query: "city:Dublin" })).toMatchObject({ image: "A", query: "city:Dublin", cropping: "true" });
+  });
+
+  it("returns to detail from a reloaded crop entry using durable history state", async () => {
+    fixture.resident = [makeImage("A")];
+    fixture.search = { image: "A", cropping: "true" };
+    history.replaceState({ kupuaKey: "crop", _cropOriginKupuaKey: "detail", _bareListSynthesized: true }, "", "/search?image=A&cropping=true");
+    const back = vi.spyOn(history, "back").mockImplementation(() => {});
+    render(<Detail imageId="A" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel crop" }));
+    expect(back).toHaveBeenCalledOnce();
+    expect(fixture.navigate).not.toHaveBeenCalled();
+  });
+
+  it("preserves app fullscreen and waits for image fullscreen exit before opening Crop", async () => {
+    fixture.resident = [makeImage("A")];
+    const pending = deferred<void>();
+    const exit = vi.fn(() => pending.promise);
+    Object.defineProperty(document, "exitFullscreen", { configurable: true, value: exit });
+    Object.defineProperty(document, "fullscreenElement", { configurable: true, get: () => document.documentElement });
+    render(<Detail imageId="A" />);
+    fireEvent.click(screen.getByRole("button", { name: "Crop image" }));
+    expect(exit).not.toHaveBeenCalled();
+    fixture.navigate.mockClear();
+    Object.defineProperty(document, "fullscreenElement", { configurable: true, get: () => document.body });
+    fireEvent.click(screen.getByRole("button", { name: "Crop image" }));
+    expect(fixture.navigate).not.toHaveBeenCalled();
+    await act(async () => pending.resolve());
+    expect(exit).toHaveBeenCalledOnce();
+    expect(fixture.navigate).toHaveBeenCalledOnce();
+    delete (document as unknown as Record<string, unknown>).fullscreenElement;
+    delete (document as unknown as Record<string, unknown>).exitFullscreen;
   });
 
   it("terminates a relative thumbnail fallback after two media errors", () => {

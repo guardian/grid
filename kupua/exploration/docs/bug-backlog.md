@@ -17,8 +17,8 @@ synthetic direct-TEST reproduction and verification passed, but natural-workflow
 
 ## At a Glance
 
-**Current recorded status: 23 October 2026.** The 16 entries below have an open defect,
-approval/integration/review task or explicit residual; 43 additional IDs have completed bounded repairs or verification.
+**Current recorded status: 1 November 2026.** The tables below list open defects,
+approval/integration/review tasks or explicit residuals; completed bounded repairs and verification are listed separately.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
 not a fresh remote check. The 12 October update added GRID-017; the 19 October update adds
@@ -26,6 +26,9 @@ KUP-041's API cancellation/resource-lifetime gap. The 21 October update records 
 fixed-grid row-membership repair and reconciles the totals with the listed dispositions.
 The 23 October update closes GRID-001/002/008/015 for merged Grid repairs; remaining
 direct-to-ES parser divergence belongs to KUP-011 and does not reopen Grid work.
+The 1 November update extends KUP-044's shared capability scope, records KUP-045/046
+as source-verified shared-display findings awaiting review, and defers crop notices
+and eligibility under KUP-047 until the reviewed common wiring is implemented.
 Other dispositions have not been revalidated.
 Update this overview when a detailed disposition changes.
 
@@ -52,7 +55,11 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | --- | --- | --- | --- |
 | [KUP-011](#kup-011) | Parsed intent versus automatic defaults | Defaults aligned locally in both modes; open direct-to-ES grammar divergence | Remaining cross-mode syntax scope |
 | [KUP-041](#kup-041) | API cancellation does not reach outgoing Elasticsearch reads | Open; cancellation handle is not retained, backend work observed after browser cancellation | Independent resource-lifetime follow-up; not a proven PP3 cause or migration gate |
-| [KUP-043](#kup-043) | Image refresh and enrichment after a write | Parked design question | Prerequisite for future edits/deletions only |
+| [KUP-043](#kup-043) | Image refresh, enrichment and result stability after a write | Parked design question; stability analysis added 31 October | Prerequisite for future edits/deletions only |
+| [KUP-044](#kup-044) | Kupua drops per-image resource capabilities, including `edits` and `crops` | Open; source-verified, client-only; shared design awaiting review | Dependency for future capability-driven consumers; not a read-migration gate |
+| [KUP-045](#kup-045) | Lease summary has consumers but no current producer | Source-verified display gap; review and composed witness pending | Independent shared-display correction |
+| [KUP-046](#kup-046) | Known validity reasons replace server wording with local copy | Source-verified; previously unselected B3, review pending | Independent display-copy correction |
+| [KUP-047](#kup-047) | Crop notices and server eligibility are not wired | Deferred feature gap; blocked by reviewed common wiring and KUP-044 | Read-only crop follow-up, not a mock-cropping commit gate |
 
 KUP-038 is closed against the ledger's completed B8/L37/B17 repairs, not a new fix.
 KUP-042 is repaired locally with globally stable fixed-grid rows; Justified packing,
@@ -86,6 +93,8 @@ legacy-category expansion remains accepted lag.
 | [GRID-014](#grid-014) | `GET /images` ignores the rights-acquired filter | Open; legacy GET confirmed, U9-A explicit AI deliberately inherits it | Independent Grid fix; new POST endpoints already honor the filter |
 | [GRID-016](#grid-016) | Search results use a weaker syndication visibility rule than single-image reads | Open; source-only (U9-A cold review); private triage | Independent Grid data-exposure fix; same deployment caveat as GRID-015 |
 | [GRID-017](#grid-017) | Kahuna startup probes before the effective default scope settles | Open; recorded local browser evidence and source assessment | Independent frontend request efficiency; not a Kupua migration gate |
+| [GRID-018](#grid-018) | Upload dropped by a dynamic `fileMetadata` mapping conflict | Open; PROD log evidence (30 October) | Independent Grid ingest reliability; images invisible in search |
+| [GRID-019](#grid-019) | `Edits` DynamoDB table at a fixed 20 WCU, auto-scaling off | Open; operator-read PROD configuration | Independent capacity risk for any batch write (Kahuna, scripts, future Kupua) |
 
 <details>
 <summary>Completed bounded repairs and verification: 42 other IDs</summary>
@@ -580,7 +589,152 @@ set -o pipefail; npm --prefix kupua run test:e2e -- --project=chromium density-c
 **Image refresh and enrichment after a write (future edits/deletions)**
 - **Scope:** design question recorded 30 October at operator request; no code or evidence yet.
 - **Need:** once Kupua performs writes (gated by media-api's per-image action links, not shipped permissions), a changed or deleted image must update in the buffer, Details and selection without losing position, and must not be overwritten by stale enrichment or in-flight reads. KUP-030's closure covered only the AI overlay lifetime.
+- **Result stability after Kupua's own writes (analysis, 31 October; source-based, not executed):**
+  - **Cursor paging survives; offsets do not.** `search_after` continuations restart from sort
+    *values*, so removed or inserted images do not corrupt forward or backward extension. An
+    image whose sort value changed can appear twice or be skipped, so de-duplicate by ID.
+    Position-based reads (indexed position map, `POST /images/window` seeks, rank, scrubber
+    totals) are invalidated by every membership change: each removed image shifts all later
+    positions by one.
+  - **Writes change membership and order, not just content:**
+    - delete, and filters on `archived`, labels, usage rights or other edited fields, remove
+      images from the result set;
+    - edits bump the root `lastModified` (Thrall `updateLastModifiedScript`), so `lastModified`
+      sorting moves every edited image to the top;
+    - sorting by an edited field (for example `credit`) moves images. The default `-uploadTime`
+      is unaffected.
+  - **The frozen-until cap does not help:** it excludes new uploads, not changes to images
+    already inside the frozen set. A future PIT (build plan L1) would keep results stable but
+    *hide the user's own edits* until a new search. Stability and read-your-writes conflict
+    unless the client patches its buffer itself.
+  - **Selection drift reappears:** selections §9 relies on clearing selections on any new search,
+    so the selection always stays a subset of results. Writes that exclude images break that
+    without any new search.
+  - **Timing:** with UI-lane wait of about 0.3 s, processing of about 10 ms and ES refresh of
+    about 1 s, server convergence takes roughly 1–2 s. Reads issued before it return pre-write
+    data; `lastModified`/`userMetadataLastModified` (kept in the lean projection) can reject them.
+  - **Candidate direction (not a decision):** patch in place. After a write, replace affected
+    buffer entries with fresh `mget` documents, or tombstone removed ones, *without reflowing*.
+    Reject older documents by timestamp. Retain counts and position maps as known-stale with a
+    pending-refresh marker until the next explicit search. Write-side detail is in
+    [batch editing at scale](batch-editing-at-scale.md#90-first-iteration-prototype-no-real-users-what-is-actually-needed).
 - **Disposition:** OPEN, deliberately parked until edits/deletions are scoped. Not a current migration gate.
+
+#### KUP-044
+**Kupua drops per-image resource capabilities, including `edits` and `crops` (extended 1 November)**
+- **Component / owner:** Kupua API mapper ([`mapApiImageToImage`](../../src/dal/grid-api-search-adapter.ts#L53))
+  and shared enriched-image/capability consumers; human owner-to-confirm.
+- **Correction:** an earlier version of this entry said the new endpoints expose no write
+  capabilities. That was wrong. `search-after`, `window` and `mget` build every hit through
+  `hitToImageEntity` and `imageResponse.create`
+  ([controller](../../../media-api/app/controllers/ImageQueryController.scala#L253)).
+  Each hit therefore carries the same `links`/`actions` as `GET /images/:id` for Internal-tier
+  callers: the `edits` link when the caller has write permission, `delete` when `canBeDeleted`
+  (no usages or exports) holds *and* the caller is the uploader or has `DeleteImage`,
+  `add-lease`, `add-collection`, `delete-usages` and others.
+- **Actual gap (client-only):** Kupua already retains per-image `actions` in enrichment for
+  search/window pages *and* selection `mget`
+  ([`extractEnrichment`](../../src/dal/grid-api-search-adapter.ts#L91),
+  [mget](../../src/dal/grid-api-search-adapter.ts#L195)), so delete capability is available.
+  `mapApiImageToImage` keeps only the media links (`optimised`, `optimisedPng`). It discards the
+  `edits` link, which is the server's per-image edit permission, and normalization flattens the
+  nested metadata resources' links, as [grid-api README](../../src/dal/grid-api/README.md)
+  already warns.
+- **Same loss, not a second capability bug:** the validity-gated `crops` link and envelope
+  URI are also discarded. Singleton URI is optional; `ui:image` points to Kahuna, not the
+  media-api source. The image `crops` relation is not the crop-creation POST endpoint.
+- **Smallest shared direction, pending review:** retain relevant resource links/URI,
+  including `edits` and `crops`, alongside existing actions through the common normalizer
+  and enriched view. Preserve guarded page publication, requested-ID-owned standalone
+  enrichment and attached selection enrichment. Future edit UI may also need nested
+  resource links. No Scala change is presently indicated. Keep the README rule:
+  absence of an action is not permission to construct a write URL.
+- **Related, no new endpoint needed:** convergence after a write can use existing
+  `POST /images/count` with `ids` plus a predicate.
+- **Performance coupling:** these links and actions are produced by the Argo envelope, the main
+  per-request server cost (parity §8). Any lean browse writer must keep them.
+- **Review and dependencies:** [Hosted rights and capabilities review](hosted-rights-and-capabilities-review.md)
+  retains the source findings, UI ownership map, proposed boundary and open decisions.
+  Review/approve that common contract before implementation. KUP-047 follows verified
+  shared wiring; KUP-045/046 are separate selectable repairs, not automatic prerequisites.
+- **Disposition:** OPEN; capability-driven consumer preparation, not authorization for
+  writes, a new endpoint or a blocker for the current mock crop editor.
+
+#### KUP-045
+**Lease summary has consumers but no current producer**
+- **Component / owner:** shared enrichment/lease-display derivation, grid/table cost
+  badges and multi-image cost summary; human owner-to-confirm.
+- **Expected / actual:** the same returned active allow-use lease should have consistent
+  lease presentation across these consumers. Badges and multi-cost use only
+  `leasesSummary.hasActiveAllowLease`, but the current API extractor never supplies it.
+  Single metadata falls back to returned lease records instead. Absence of the summary
+  is not authoritative absence of a lease.
+- **Evidence:** [extractor](../../src/dal/grid-api-search-adapter.ts#L87),
+  [summary pass-through](../../src/lib/derive-enriched-image.ts#L114),
+  [grid badge](../../src/components/ImageGrid.tsx#L394),
+  [table badge](../../src/lib/field-registry.tsx#L387),
+  [multi-cost](../../src/components/MultiImageMetadata.tsx#L339) and
+  [single-image fallback](../../src/components/ImageMetadata.tsx#L223).
+  The archived ownership matrix row 13 and P22 F7 record the same split;
+  [review note](hosted-rights-and-capabilities-review.md#6-findings-and-review-dependency)
+  reconciles it with current producers. No live rendered incidence was measured.
+- **Smallest discriminating check:** feed a canonical API image with an allow-use lease
+  through the real mapper/derive path and render the affected existing consumers.
+  A manually injected `leasesSummary` fixture does not prove producer wiring.
+- **Scope:** review a common display summary using the existing lease-date policy,
+  not a new permission engine, server scalar or lease refresh system. Keep server
+  validity/crop capabilities authoritative; a lease tint is not authorization.
+- **Disposition:** OPEN, source-verified and awaiting review/composed regression.
+  Independent shared-display work; not a crop-mock or API-migration gate.
+
+#### KUP-046
+**Known validity reasons replace server wording with local copy**
+- **Component / owner:** ImageMetadata reason presentation; human owner-to-confirm.
+- **Expected / actual:** supplied server custom descriptions should survive display,
+  with local wording available when no description is supplied. The current renderer
+  uses `VALIDITY_DESCRIPTIONS[key]` before the returned description, replacing server
+  wording for recognized keys. The extractor/merge already retain the server strings.
+- **Evidence:** [reason renderer](../../src/components/ImageMetadata.tsx#L293),
+  [server custom description precedence](../../../media-api/app/lib/ImageExtras.scala#L79),
+  and [archived B3 finding](zz%20Archive/runtime-configuration-and-data-sources.md#L511).
+  Source-verified, not a measured production incident; see the
+  [review note](hosted-rights-and-capabilities-review.md#6-findings-and-review-dependency).
+- **Smallest discriminating check:** mount real metadata with a known key whose server
+  description differs, an unknown key and local-only fallback. Explicitly choose empty
+  description behavior. A stubbed detail metadata component cannot witness this.
+- **Scope:** wording precedence only; no changes to valid/reasons membership, warning
+  severity, server authorization, requests or direct-mode costing.
+- **Disposition:** OPEN, review pending; the previously unselected B3 correction is now
+  indexed, not approved for implementation or made a new migration prerequisite.
+
+#### KUP-047
+**Crop rights notices and server eligibility are not wired**
+- **Component / owner:** crop presentation and its shared enriched-image handoff from
+  detail; human owner-to-confirm.
+- **Current gap:** the mock editor receives raw image data but not standalone detail's
+  own enrichment, shows no Pay/Restricted use/Overquota notice and does not consume
+  server crop eligibility. This is deferred feature work, not a demonstrated write
+  authorization bypass: requests are displayed/logged only and never submitted.
+- **Evidence:** [crop handoff](../../src/components/ImageDetail.tsx#L696),
+  [mock editor](../../src/components/crop/CropEditor.tsx#L35),
+  [Kahuna notices](../../../kahuna/public/js/crop/view.html#L64) and the
+  [shared research/review note](hosted-rights-and-capabilities-review.md).
+- **Dependency / sequencing:** blocked until the hosted shared signal/capability
+  contract in that note has been reviewed, approved, implemented and verified,
+  including [KUP-044](#kup-044). Use that shared path across search, detail and crop;
+  do not add a crop-only API fetch, rights store or local permission calculation.
+  KUP-045/046 are related, separately selectable shared repairs, not automatic gates.
+- **Acceptance when selected:** reuse server cost/restrictions and reviewed crop
+  capability, including standalone/deep-link ownership; notices remain visible in
+  normal and fullscreen layouts. Do not infer eligibility from cost, nonempty reasons,
+  lease tint or EditMetadata alone. Choose explicitly whether ineligible images may
+  still be framed in the read-only mock; the recommendation to allow inspection is
+  not an approved gating decision.
+- **Boundary:** creation/saving/export and all service writes remain out of scope.
+  Keep current write guards. Direct-ES approximation is deferred with no added API
+  calls. Mock cropping can be committed before this follow-up is selected.
+- **Disposition:** DEFERRED, blocked by reviewed common wiring/KUP-044; no product
+  implementation or write authorization follows from recording this entry.
 
 ### Dependency Unresolved
 
@@ -750,6 +904,50 @@ set -o pipefail; npm --prefix kupua run test:e2e -- --project=chromium density-c
 - **Proposed smallest repair, not implementation approval:** establish one explicit initial-default-resolution boundary before counted-search admission, keeping URL, controls and request scope aligned. Likely work is in [query initialization](../../../kahuna/public/js/search/query.js) and [search routing](../../../kahuna/public/js/search/index.js), with a results-admission change only if resolution cannot finish before controller construction: roughly two or three frontend production files plus regression tests, not a confirmed patch size. Preserve existing explicit-URL/retained-setting/default precedence and later deliberate free-only navigation. No backend, endpoint, cache or probe/viewport redesign appears necessary. Fixed delays, post-dispatch cancellation and request-only default substitution do not establish the required ordering.
 - **Smallest discriminator / preservation:** hold session/default resolution pending through real initialization and its watcher passes; assert zero provisional counted probes, then one probe for the effective scope and the useful viewport read. Cover paid/free defaults, retained rights/uploader settings, explicit true/false, keyword-bearing entry, both filter modes, failure and newer navigation before resolution. Preserve settled filter actions, Home, history/detail return, position and useful total/ticker publication. Existing Kahuna helper unit tests and service-availability E2E do not prove this lifecycle. A bounded browser producer trace could select the exact coordination mechanism; it is not permission for a new live experiment or performance campaign.
 - **Scope / disposition: OPEN, independently parked (12 October).** A universal one-probe guarantee across Home and normalization would require broader coordination: [Home navigation](../../../kahuna/public/js/search/index.js#L112), the [sort listener](../../../kahuna/public/js/components/gr-sort-control/gr-sort-control.tsx#L58) and [timed default reapplication](../../../kahuna/public/js/search/query.js#L187) have separate navigation roles. That larger repair, explicit-false normalization duplicates, retired-controller polling and empty-interval polling are excluded from this item. No code change, implementation authorization, production-incidence claim or Kupua migration gate follows.
+
+#### GRID-018
+**Upload dropped by a dynamic `fileMetadata` mapping conflict**
+- **Component / owner:** ES image mapping (`fileMetadata.*` dynamic templates) and Thrall image
+  indexing; human owner-to-confirm.
+- **Trigger / expected / actual:** an uploaded file's XMP contains a key whose shape (scalar
+  versus object) differs from the type fixed by the first document that introduced that key.
+  Expected: the image is indexed, perhaps with the conflicting metadata omitted. Actual: ES
+  rejects the whole document (`document_parsing_exception: object mapping for
+  [fileMetadata.xmp.avm:Distance] tried to parse field [null] as object, but found a concrete
+  value`). Thrall makes two attempts and then logs `message will be ignored`. The image stays
+  out of search, and its embedding update then fails with `ElasticNotFoundException`.
+- **Evidence:** PROD Kibana, 30 October 2026, operator-run. There were five `ImageMessage`
+  failures for four images and four `UpdateEmbeddingMessage` failures for the same IDs:
+  `cc8fc914d8f1694675952618c0ef500e94af6297`, `9a4865f934301c5d37572a97d24204bfaa420cc7`,
+  `8533a736cfe90dafa756b2c4145718a68ec0754c`, `4fb77af82701f5c286500093e51420d636f620ac`.
+  Mechanism: [dynamic templates](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/Mappings.scala#L14),
+  [drop after retry](../../../thrall/app/lib/kinesis/ThrallEventConsumer.scala#L36). These were
+  the only drops in the 10-day window apart from their embedding consequences.
+- **Smallest discriminator:** index two fixture documents with `fileMetadata.xmp.<key>` as an
+  object, then as a scalar, against the production mapping; assert the second is accepted. Proposed, not run.
+- **Candidate fixes (not approved):** normalize XMP values to one shape in image-loader, or map
+  `fileMetadata.xmp` as `flattened`/non-indexed. On a parse error, retry once with the offending
+  subtree stripped rather than dropping the image. Alert on `message will be ignored`.
+  Reingestion currently fails the same way.
+- **Disposition:** OPEN, independent Grid ingest reliability. Not a Kupua migration gate.
+
+#### GRID-019
+**`Edits` DynamoDB table at a fixed 20 WCU with auto-scaling off**
+- **Component / owner:** metadata-editor `Edits` table capacity (infrastructure); human owner-to-confirm.
+- **Facts (operator-read, PROD, 31 October 2026):** provisioned at 20 RCU/20 WCU with auto-scaling
+  off; the `Photoshoots` GSI is 4/4, also off. There are about 6.68M items in 1.7 GB (about 250
+  bytes each, so 1 WCU per edit). No throttling appeared in the two-week metric window.
+- **Risk:** sustained capacity is 20 edits/s for the whole organisation. Burst credit (about
+  300 s of unused capacity) absorbs roughly 3,000–7,500 writes from a 30-way client batch. After
+  that, writes throttle for **all** users, not only the batch. Batch photoshoot edits are capped
+  by the 4 WCU GSI, whose throttling also blocks base-table writes. Kahuna batches, hand-run
+  scripts (for example `SupplierCleanUp` at 50-way concurrency) and any future Kupua batch share
+  this ceiling.
+- **Smallest fix (proposal):** on-demand capacity, or auto-scaling with a sensible maximum, for
+  the table and the GSI. The cost is a few dollars a month at current volume
+  ([batch editing at scale §11](batch-editing-at-scale.md#11-costs)).
+- **Disposition:** OPEN, independent operational capacity risk; precondition for any batch write
+  feature. Not a code defect.
 
 Cross-component raw default intent is canonical at [KUP-011](#kup-011), not duplicated here.
 Cross-layer recovery is canonical at [KUP-010](#kup-010), distinct from the legacy GET policy finding.

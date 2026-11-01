@@ -154,6 +154,7 @@ test.describe("Phantom focus mode — return from detail", () => {
 
     // The exact opened image should be painted inside the results viewport.
     await kupua.page.waitForFunction((expectedId) => {
+      if (!expectedId) return false;
       const container = document.querySelector('[aria-label="Image results grid"]');
       const cell = document.querySelector(`[data-image-id="${CSS.escape(expectedId)}"]`);
       if (!container || !cell) return false;

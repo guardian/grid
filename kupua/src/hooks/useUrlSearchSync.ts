@@ -52,6 +52,7 @@ import { traceActionsForNavigation } from "@/lib/orchestration/perceived-navigat
 let _lastKupuaKey: string | undefined;
 let _lastImage: string | undefined;
 let _lastDetailOriginKey: string | undefined;
+let _lastCropOriginKey: string | undefined;
 
 // ---------------------------------------------------------------------------
 // Collection auto-sort — atomically adjust sort when a `collection:` chip
@@ -172,9 +173,13 @@ export function useUrlSearchSync() {
     // Origin/detail transitions keep the native list. Other history entries
     // own their represented restoration, even with identical query params.
     const detailOriginKey = searchParams.image ? getDetailOriginKupuaKey() : _lastDetailOriginKey;
-    const nativeDetailTransition = searchParams.image
+    const cropOriginKey = history.state?._cropOriginKupuaKey as string | undefined;
+    const nativeCropTransition = !!searchParams.image && searchParams.image === _lastImage
+      && ((!!cropOriginKey && cropOriginKey === _lastKupuaKey)
+        || (!!_lastCropOriginKey && _lastCropOriginKey === currentKey));
+    const nativeDetailTransition = nativeCropTransition || (searchParams.image
       ? !detailOriginKey || detailOriginKey === _lastKupuaKey
-      : !!_lastImage && (!detailOriginKey || detailOriginKey === currentKey);
+      : !!_lastImage && (!detailOriginKey || detailOriginKey === currentKey));
     const sameQueryHistoryDestination = sameQuery && currentKey !== _lastKupuaKey
       && currentKey !== undefined && pendingPopKey.current === currentKey
       && !nativeDetailTransition;
@@ -190,6 +195,7 @@ export function useUrlSearchSync() {
       _lastKupuaKey = currentKey;
       _lastImage = searchParams.image;
       _lastDetailOriginKey = searchParams.image ? getDetailOriginKupuaKey() : undefined;
+      _lastCropOriginKey = cropOriginKey;
       return;
     }
 
@@ -308,6 +314,7 @@ export function useUrlSearchSync() {
     _lastKupuaKey = getCurrentKupuaKey();
     _lastImage = searchParams.image;
     _lastDetailOriginKey = searchParams.image ? getDetailOriginKupuaKey() : undefined;
+    _lastCropOriginKey = cropOriginKey;
 
     // Build a full replacement for URL-managed keys: start with all undefined,
     // then overlay what's actually in the URL. This ensures that params removed

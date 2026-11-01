@@ -130,6 +130,8 @@ describe("ToastContainer", () => {
     render(<ToastContainer />);
     const alert = screen.getByRole("alert");
     expect(alert).toBeDefined();
+    expect(alert.classList.contains("w-full")).toBe(true);
+    expect(alert.classList.contains("max-w-sm")).toBe(true);
     expect(alert.textContent).toContain("Range walk complete.");
   });
 

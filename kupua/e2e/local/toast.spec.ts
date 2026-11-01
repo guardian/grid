@@ -13,10 +13,11 @@
  */
 
 import { test, expect } from "../shared/helpers";
+import type { Page } from "@playwright/test";
 
 // Helper to fire a toast via the store (bypasses 5s timer for speed)
 async function fireToast(
-  page: Parameters<typeof test>[1]["page"],
+  page: Page,
   category: string,
   message: string,
 ): Promise<void> {
@@ -29,7 +30,7 @@ async function fireToast(
   );
 }
 
-async function getQueueLength(page: Parameters<typeof test>[1]["page"]): Promise<number> {
+async function getQueueLength(page: Page): Promise<number> {
   return page.evaluate(() => {
     const store = (window as any).__kupua_toast_store__;
     return store?._store?.getState().queue.length ?? 0;

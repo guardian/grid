@@ -21,11 +21,12 @@ export function useFullscreen(ref: RefObject<HTMLElement | null>) {
   // Listen for fullscreen changes (including user pressing Escape)
   useEffect(() => {
     const handleChange = () => {
-      setIsFullscreen(!!imageFullscreenElement());
+      setIsFullscreen(!!ref.current && document.fullscreenElement === ref.current);
     };
+    handleChange();
     document.addEventListener("fullscreenchange", handleChange);
     return () => document.removeEventListener("fullscreenchange", handleChange);
-  }, []);
+  }, [ref]);
 
   const toggleFullscreen = useCallback(() => {
     const el = ref.current;

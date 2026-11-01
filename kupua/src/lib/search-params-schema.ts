@@ -59,6 +59,11 @@ export const searchParamsSchema = z.object({
   /** Currently viewed image ID — when present, image detail overlay is shown.
    *  Named `image` (not `imageId`) to match Grid URL style: `?image=abc123`. */
   image: z.string().optional().catch(undefined),
+  /** "true" opens the crop editor over the image detail. */
+  cropping: z.string().optional().catch(undefined),
+  cropType: z.string().optional().catch(undefined),
+  customRatio: z.string().optional().catch(undefined),
+  defaultCropType: z.string().optional().catch(undefined),
 });
 
 export type UrlSearchParams = z.infer<typeof searchParamsSchema>;
@@ -171,6 +176,10 @@ export const URL_PARAM_KEYS = Object.keys(
  */
 export const URL_DISPLAY_KEYS: ReadonlySet<keyof UrlSearchParams> = new Set([
   "image",
+  "cropping",
+  "cropType",
+  "customRatio",
+  "defaultCropType",
 ]);
 
 /**

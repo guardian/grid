@@ -159,6 +159,35 @@ function UrlSyncHarness({ children }: PropsWithChildren) {
   return children;
 }
 
+it("crop subview history leaves the mounted search buffer untouched", () => {
+  const previousHistory = window.history.state;
+  try {
+    routeParams = { nonFree: "true", image: "image-400" };
+    setPrevParamsSerialized(JSON.stringify({ nonFree: "true" }));
+    setPrevSearchOnly({ nonFree: "true" });
+    window.history.replaceState({ kupuaKey: "crop-detail", _detailOriginKupuaKey: "crop-list" }, "");
+    const search = vi.spyOn(useSearchStore.getState(), "search").mockResolvedValue();
+    const results = useSearchStore.getState().results;
+    const view = renderHook(() => useUrlSearchSync());
+    act(() => {
+      routeParams = { ...routeParams, cropping: "true" };
+      window.history.replaceState({ kupuaKey: "crop-editor", _cropOriginKupuaKey: "crop-detail", _detailOriginKupuaKey: "crop-list" }, "");
+      router.notify("PUSH");
+      view.rerender();
+    });
+    act(() => {
+      routeParams = { nonFree: "true", image: "image-400" };
+      window.history.replaceState({ kupuaKey: "crop-detail", _detailOriginKupuaKey: "crop-list" }, "");
+      router.notify("BACK");
+      view.rerender();
+    });
+    expect(search).not.toHaveBeenCalled();
+    expect(useSearchStore.getState().results).toBe(results);
+  } finally {
+    window.history.replaceState(previousHistory, "");
+  }
+});
+
 describe("KUP-039 startup defaults", () => {
   it.each([
     { transport: "direct-ES", strict: false, defaults: { nonFree: "true" }, label: "all-rights" },

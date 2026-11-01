@@ -40,7 +40,7 @@
  *   (so back always returns to the table, not through every viewed image).
  */
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useRouter, useSearch } from "@tanstack/react-router";
 import { getSearchGeneration, useSearchStore } from "@/stores/search-store";
 import { useDataWindow } from "@/hooks/useDataWindow";
@@ -57,18 +57,22 @@ import { isFullResLoaded, markFullResLoaded, onFullResDecoded, getCarouselImageU
 import { FullscreenCornerButton, NavStrip } from "@/components/NavStrip";
 import { StableImg } from "@/components/StableImg";
 import { resetToHome } from "@/lib/reset-to-home";
-import { scrollFocusedIntoView, markUserInitiatedNavigation, pushNavigateAsPopstate, consumeDetailEnteredViaSpaFlag } from "@/lib/orchestration/search";
+import { scrollFocusedIntoView, markUserInitiatedNavigation, pushNavigate, pushNavigateAsPopstate, consumeDetailEnteredViaSpaFlag } from "@/lib/orchestration/search";
 import { withCurrentKupuaKey, mintKupuaKey } from "@/lib/orchestration/history-key";
-import { DEFAULT_SEARCH, HOME_HREF } from "@/lib/home-defaults";
+import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { storeImageOffset, getImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { ImageMetadata } from "@/components/ImageMetadata";
 import { UsagesSection, countDisplayUsages } from "@/components/UsagesSection";
 import { AccordionSection, useIsCompact } from "@/components/PanelLayout";
 import { BottomSheet } from "@/components/BottomSheet";
+import { DetailNavigation } from "@/components/DetailNavigation";
+import { imageFullscreenElement } from "@/lib/app-fullscreen";
 import { useUiPrefsStore, getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { consumeTraceInteraction, traceInteraction } from "@/lib/perceived-trace";
 import type { Image } from "@/types/image";
 import type { EnrichmentFields } from "@/stores/enrichment-store";
+
+const CropEditor = lazy(() => import("@/components/crop/CropEditor").then((m) => ({ default: m.CropEditor })));
 
 /** Delay before acting on single-tap in fullscreen — allows double-tap-to-zoom. */
 const DOUBLE_TAP_MS = 300;
@@ -160,6 +164,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     // Build the bare-list URL (current URL minus ?image=...)
     const url = new URL(detailUrl);
     url.searchParams.delete("image");
+    url.searchParams.delete("cropping");
     const bareListUrl = url.pathname + url.search;
 
     // Step 1: replace current entry with bare-list. Mint a fresh kupuaKey
@@ -341,9 +346,36 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     history.back();
   }, []);
 
+  // Crop editor: its own history entry (Kahuna's crop is a page), so Back leaves it.
+  // A deep link (legacy /images/:id/crop) has no entry below to go back to.
+  const cropping = searchParams.cropping === "true";
+  const openCrop = useCallback(() => {
+    const enter = () => pushNavigate(navigate, {
+      to: "/search",
+      search: (prev: Record<string, unknown>) => ({ ...prev, cropping: "true" }),
+      state: { ...history.state, _cropOriginKupuaKey: history.state?.kupuaKey },
+    });
+    if (imageFullscreenElement()) void document.exitFullscreen().then(enter).catch(() => {});
+    else enter();
+  }, [navigate]);
+  const closeCrop = useCallback(() => {
+    if (history.state?._cropOriginKupuaKey) {
+      markUserInitiatedNavigation();
+      history.back();
+      return;
+    }
+    navigate({
+      to: "/search",
+      search: (prev: Record<string, unknown>) => ({ ...prev, cropping: undefined }),
+      replace: true,
+      state: withCurrentKupuaKey(),
+    });
+  }, [navigate]);
+  useKeyboardShortcut("c", () => { if (!cropping && image) openCrop(); });
+
   // Keyboard shortcut: f = toggle fullscreen (via centralised shortcut system)
   // Alt+f works when focus is in an editable field.
-  useKeyboardShortcut("f", toggleFullscreen);
+  useKeyboardShortcut("f", () => { if (!cropping) toggleFullscreen(); });
 
   // Shared scaleRef — written by usePinchZoom, read by useSwipeCarousel
   // to suppress swipe when zoomed in. Created here to break the circular
@@ -510,6 +542,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   // single-character shortcuts, so they don't go through the shortcut
   // registry. They only work when not typing in an input.
   useEffect(() => {
+    if (cropping) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (
@@ -540,7 +573,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [closeDetail, goToPrev, goToNext]);
+  }, [closeDetail, goToPrev, goToNext, cropping]);
 
   // Middle-click toggles fullscreen (undiscoverable power-user shortcut).
   // Uses mouseup (not auxclick) because auxclick doesn't carry transient
@@ -637,6 +670,9 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const [failedMediaOwner, setFailedMediaOwner] = useState<typeof mediaOwner | null>(null);
 
   const imageUrl = failedMediaOwner === mediaOwner ? undefined : (fullUrl ?? thumbUrl);
+  const displayedAsset = imageRef.current;
+  const cropPreviewSrc = displayedAsset?.complete && displayedAsset.naturalWidth > 0 && thumbUrl
+    && displayedAsset.currentSrc === new URL(thumbUrl, window.location.href).href ? thumbUrl : imageUrl;
 
 
   // Delay showing the loading indicator so it doesn't flash on fast loads
@@ -650,71 +686,41 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   }, [imageId, image]);
 
   const displayImage = image;
+  const goHome = () => {
+    void resetToHome(() => pushNavigateAsPopstate(navigate, { to: "/search", search: DEFAULT_SEARCH }),
+      undefined, router.history);
+  };
 
   return (
     <div ref={detailWrapperRef} className="flex flex-col flex-1 min-h-0 bg-grid-bg" data-detail-image-id={displayImage?.id}>
+      {cropping && displayImage && <Suspense fallback={null}><CropEditor image={displayImage} previewSrc={cropPreviewSrc} onClose={closeCrop} onHome={goHome} /></Suspense>}
       {/* Top bar — hidden in fullscreen */}
       {!isFullscreen && (
-        <header className="flex items-center px-3 py-1.5 bg-grid-bg border-b border-grid-separator h-11 shrink-0">
-          {/* Logo + separator + back button — flush together, no gaps */}
-          <div className="flex items-center shrink-0 -ml-3">
-            {/* Logo — resets everything (query, filters, sort, scroll), same as SearchBar.
-                 Hit area is a square matching the full bar height (h-11 = 44px).
-                 Uses <a> (not <Link>) with e.preventDefault() so we can await
-                 search() before navigating — prevents table→grid flash. */}
-            <a
-              href={HOME_HREF}
-              title="Grid — clear all filters"
-              className="shrink-0 w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors"
-              onClick={(e) => {
-                e.preventDefault();
-                // pushNavigateAsPopstate — deliberately skips markUserInitiatedNavigation().
-                // Logo-reset should behave like a popstate: reset to offset 0, no focus
-                // carry. See SearchBar logo for the identical pattern.
-                resetToHome(() =>
-                  pushNavigateAsPopstate(navigate, { to: "/search", search: DEFAULT_SEARCH }),
-                  undefined,
-                  router.history,
-                );
-              }}
-            >
-              <img
-                src={`${import.meta.env.BASE_URL}images/grid-logo.svg`}
-                alt="Grid"
-                className="w-8 h-8"
-              />
-            </a>
-
-            <div className="w-px h-5 bg-grid-separator shrink-0" />
-
-            <button
-              onClick={closeDetail}
-              className="shrink-0 h-11 flex items-center gap-1.5 px-3 text-sm text-grid-text-muted hover:bg-grid-hover hover:text-grid-text transition-colors cursor-pointer"
-            >
-              <svg
-                className="w-3.5 h-3.5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              Back to search
-            </button>
-          </div>
+        <header inert={cropping} className="flex items-center px-3 py-1.5 bg-grid-bg border-b border-grid-separator h-11 shrink-0">
+          <DetailNavigation destination="search" onBack={closeDetail} onHome={goHome} />
+          <div className="w-px h-5 bg-grid-separator shrink-0" />
+          {currentGlobalIndex >= 0 && (
+            <span className="px-3 text-sm text-grid-text-muted">
+              {(currentGlobalIndex + 1).toLocaleString()} of {total.toLocaleString()}
+            </span>
+          )}
 
           <span className="flex-1" />
 
-          {/* Image position in results */}
-          {currentGlobalIndex >= 0 && (
-            <span className="text-sm text-grid-text-muted">
-              {(currentGlobalIndex + 1).toLocaleString()} of {total.toLocaleString()}
-            </span>
+          {displayImage && (
+            <>
+              <div className="w-px h-5 bg-grid-separator shrink-0" />
+              <button
+                onClick={openCrop}
+                title="Crop image [c]"
+                className="shrink-0 h-11 inline-flex items-center gap-1.5 px-3 text-sm text-grid-text-muted hover:bg-grid-hover hover:text-grid-text transition-colors cursor-pointer"
+              >
+                <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+                  <path d="M6 2v16h16M2 6h16v16" />
+                </svg>
+                Crop image
+              </button>
+            </>
           )}
         </header>
       )}
@@ -725,6 +731,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
           Fullscreen: image fills viewport, no sidebar. */}
       <div
         ref={mobileScrollRef}
+        inert={cropping}
         className={
           isFullscreen
             ? "flex-1 flex min-h-0"

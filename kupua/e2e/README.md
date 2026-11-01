@@ -31,6 +31,7 @@ Run commands from the repository root. Use the npm scripts rather than bare
 | Mode | Command | Data and purpose |
 | --- | --- | --- |
 | Unit | `npm --prefix kupua test` | In-memory fixtures; required after any `src/` change |
+| Browser types | `npm --prefix kupua run typecheck:e2e` | Typechecks browser specs and their imported app contracts without starting services |
 | Local E2E | `npm --prefix kupua run test:e2e -- --retries=0` | Local Docker ES and isolated fixtures; browser regression gate |
 | Local E2E with data setup | `npm --prefix kupua run test:e2e:full` | Runner-owned Docker and sample-data setup, then browser tests |
 | Performance | `npm --prefix kupua run test:perf` | Operator-run measurement for a specific question, not routine validation |
@@ -46,6 +47,8 @@ set -o pipefail; npm --prefix kupua run test:e2e -- --retries=0 2>&1 | tee "$TMP
 Use the same foreground/pipefail/tee pattern for other test and build commands.
 Do not pipe the live stream through `head`, `tail` or `grep`, poll an active run,
 or start another command in its terminal before completion.
+Terminal tool calls can reuse the active terminal: do not launch them in parallel with E2E.
+Finish unit/build/typechecks first; inspect a running suite through its saved log with `read_file`.
 
 ### Local Projects and Ports
 

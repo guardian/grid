@@ -10,12 +10,13 @@
  */
 
 import { test, expect, waitForStableNthImageId, waitForFixtureSetup } from "../shared/helpers";
+import type { Page } from "@playwright/test";
 
 // ---------------------------------------------------------------------------
 // Helpers — read selection store state
 // ---------------------------------------------------------------------------
 
-async function getSelectionCount(page: Parameters<typeof test>[1]["page"]): Promise<number> {
+async function getSelectionCount(page: Page): Promise<number> {
   return page.evaluate(() => {
     const store = (window as any).__kupua_selection_store__;
     if (!store) return 0;
@@ -23,14 +24,14 @@ async function getSelectionCount(page: Parameters<typeof test>[1]["page"]): Prom
   });
 }
 
-async function clearSelection(page: Parameters<typeof test>[1]["page"]): Promise<void> {
+async function clearSelection(page: Page): Promise<void> {
   await page.evaluate(() => {
     const store = (window as any).__kupua_selection_store__;
     store?.getState().clear();
   });
 }
 
-async function getSelectionIds(page: Parameters<typeof test>[1]["page"]): Promise<string[]> {
+async function getSelectionIds(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     const store = (window as any).__kupua_selection_store__;
     if (!store) return [];
@@ -39,7 +40,7 @@ async function getSelectionIds(page: Parameters<typeof test>[1]["page"]): Promis
 }
 
 async function waitForSelectionPersisted(
-  page: Parameters<typeof test>[1]["page"],
+  page: Page,
   expectedIds: string[],
 ): Promise<void> {
   await expect.poll(() => page.evaluate(() => {
@@ -54,7 +55,7 @@ async function waitForSelectionPersisted(
 }
 
 async function getSignedUsablePlacement(
-  page: Parameters<typeof test>[1]["page"],
+  page: Page,
   imageId: string,
 ): Promise<number | null> {
   return page.evaluate((id) => {
@@ -406,7 +407,7 @@ test.describe("S3a — Table: shift-click range selection", () => {
 // Helper: read reconciledView from the selection store
 // ---------------------------------------------------------------------------
 async function getReconciledField(
-  page: Parameters<typeof test>[1]["page"],
+  page: Page,
   fieldId: string,
 ): Promise<Record<string, unknown> | null> {
   return page.evaluate((fid) => {
@@ -424,7 +425,7 @@ async function getReconciledField(
 }
 
 // Helper: wait for reconciledView to be non-null (metadata has been hydrated)
-async function waitForReconcile(page: Parameters<typeof test>[1]["page"], timeout = 8000) {
+async function waitForReconcile(page: Page, timeout = 8000) {
   await page.waitForFunction(
     () => {
       const store = (window as any).__kupua_selection_store__;
@@ -493,7 +494,9 @@ test.describe("S4 -- multi-image Details panel", () => {
     try {
       await page.evaluate(async () => {
         const { MockDataSource } = await import("/src/dal/mock-data-source.ts");
-        const template = (await new MockDataSource(1).getById("img-0")).image;
+        const found = await new MockDataSource(1).getById("img-0");
+        if (!found) throw new Error("Selection fixture image unavailable");
+        const template = found.image;
         const images = [0, 1, 2].map(index => ({
           ...template, id: `cached-scalar-${index}`,
           metadata: { ...template.metadata, credit: index === 2 ? "Synthetic cached credit" : undefined },
@@ -542,7 +545,9 @@ test.describe("S4 -- multi-image Details panel", () => {
         const job = { complete: false, error: null as string | null, pending: undefined as Promise<void> | undefined };
         job.pending = (async () => {
           const { MockDataSource } = await import("/src/dal/mock-data-source.ts");
-          const template = (await new MockDataSource(1).getById("img-0")).image;
+          const found = await new MockDataSource(1).getById("img-0");
+          if (!found) throw new Error("Selection fixture image unavailable");
+          const template = found.image;
           const images = Array.from({ length: initialCount + 1 }, (_, index) => ({
             ...template,
             id: `panel-snapshot-${index}`,
@@ -1048,7 +1053,7 @@ test.describe("S4 -- multi-image Details panel", () => {
 
     // Click the value — should navigate to fileType:<short> not fileType:image%2F<short>
     await fileTypeValue.first().click();
-    await kupua.page.waitForURL((nextUrl) => {
+    await kupua.page.waitForURL((nextUrl: URL) => {
       const href = nextUrl.href;
       return href.includes("fileType%3Ajpeg") || href.includes("fileType:jpeg");
     });
@@ -1073,7 +1078,7 @@ test.describe("S4 -- multi-image Details panel", () => {
  * so the hook sees it as a popstate; that's fine — S6 clears for both kinds.
  */
 async function spaNavigateSearch(
-  page: Parameters<typeof test>[1]["page"],
+  page: Page,
   extraParams: Record<string, string>,
 ): Promise<void> {
   await page.evaluate((params) => {
@@ -1091,7 +1096,7 @@ async function spaNavigateSearch(
  * Select the first N visible grid cells and return their IDs.
  */
 async function selectNGridCells(
-  page: Parameters<typeof test>[1]["page"],
+  page: Page,
   n: number,
 ): Promise<string[]> {
   const cells = page.locator('[data-grid-cell]');

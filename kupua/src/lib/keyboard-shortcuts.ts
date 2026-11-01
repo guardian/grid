@@ -41,6 +41,16 @@ export interface Shortcut {
 
 /** Map from key → list of shortcuts (most-recent-first for stack semantics). */
 const registry = new Map<string, Shortcut[]>();
+const shortcutScopes: ReadonlySet<string>[] = [];
+
+export function restrictShortcuts(keys: readonly string[]): () => void {
+  const scope = new Set(keys);
+  shortcutScopes.push(scope);
+  return () => {
+    const index = shortcutScopes.indexOf(scope);
+    if (index >= 0) shortcutScopes.splice(index, 1);
+  };
+}
 
 /**
  * Register a keyboard shortcut. Returns an unregister function.
@@ -116,6 +126,8 @@ function handleKeyDown(e: KeyboardEvent): void {
     key = key.toLowerCase();
   }
 
+  const scope = shortcutScopes.at(-1);
+  if (scope && !scope.has(key)) return;
   const stack = registry.get(key);
   if (!stack || stack.length === 0) return;
 

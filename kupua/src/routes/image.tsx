@@ -21,3 +21,15 @@ export const imageRoute = createRoute({
   },
 });
 
+/** Kahuna's crop page. Its crop-type params are captured at boot (main.tsx). */
+export const imageCropRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/images/$imageId/crop",
+  beforeLoad: ({ params }) => {
+    throw redirect({
+      to: "/search",
+      search: { ...DEFAULT_SEARCH, image: params.imageId, cropping: "true" },
+    });
+  },
+});
+

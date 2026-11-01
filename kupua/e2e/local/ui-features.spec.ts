@@ -11,7 +11,7 @@
  *   npx playwright test e2e/local/ui-features.spec.ts --headed
  */
 
-import { test, expect } from "../shared/helpers";
+import { test, expect, type KupuaHelpers } from "../shared/helpers";
 import { Buffer as ThumbnailBuffer } from "node:buffer";
 import { getDensityChangeButton } from "../shared/density-selection";
 import { GRID_MIN_CELL_WIDTH } from "@/constants/layout";
@@ -362,6 +362,126 @@ test.describe("Image detail — opening", () => {
 // Image detail — closing and focus preservation
 // ===========================================================================
 
+test.describe("Crop editor dry run", () => {
+  test("keeps detail history, rejects cleared selections and applies SPA legacy options without writes", async ({ kupua, page }, testInfo) => {
+    const pixel = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800"><path fill="#6aa7b5" d="M0 0h1200v800H0z"/><path fill="#d4bb70" d="M0 400h1200v400H0z"/><path fill="#65966b" d="m0 650 300-450 320 450 230-310 350 310v150H0z"/><circle fill="#f5e8bd" cx="960" cy="150" r="75"/></svg>')}`;
+    await page.route("**/src/lib/image-urls.ts*", route => route.fulfill({
+      contentType: "application/javascript",
+      body: `export const thumbnailsEnabled = true;
+        export const getThumbnailUrl = () => ${JSON.stringify(pixel)};
+        export const getFullImageUrl = getThumbnailUrl;
+        export const getZoomImageUrl = getThumbnailUrl;`,
+    }));
+    await kupua.startSearch();
+    const id = await kupua.openDetailForNthItem(2);
+    const detailPreview = await page.locator(`[data-detail-image-id="${id}"] img[fetchpriority="high"]`).getAttribute("src");
+    const detailKey = await page.evaluate(() => history.state.kupuaKey);
+    await page.getByRole("button", { name: "Crop image", exact: true }).click();
+    const editor = page.getByRole("dialog", { name: "Crop image" });
+    const crop = editor.getByRole("button", { name: "Crop (dry run)" });
+    await expect(crop).toBeEnabled();
+    await expect(editor).toHaveCSS("outline-style", "none");
+    await expect(editor.getByRole("button", { name: "Back to image" })).toBeVisible();
+    await expect(editor.locator("cropper-canvas")).toHaveCSS("overflow", "visible");
+    await expect(editor.locator("cropper-shade")).toHaveCSS("clip-path", /^polygon\(/);
+    await testInfo.attach("crop-initial-frame", { body: await page.screenshot(), contentType: "image/png" });
+    expect(await editor.locator("cropper-image").getAttribute("src")).toBe(detailPreview);
+    expect(await page.evaluate(() => history.state.kupuaKey)).not.toBe(detailKey);
+    await editor.getByRole("radio", { name: "square (1:1)" }).click();
+    await expect(crop).toBeEnabled();
+    const widthInput = editor.getByRole("spinbutton", { name: "Crop width" });
+    const heightInput = editor.getByRole("spinbutton", { name: "Crop height" });
+    const xInput = editor.getByRole("spinbutton", { name: "Crop x" });
+    await widthInput.fill("400");
+    await heightInput.fill("300");
+    await expect(widthInput).toHaveValue("300");
+    const initialX = Number(await xInput.inputValue());
+    const initialFrame = await editor.locator("cropper-selection").boundingBox();
+    await xInput.press("Shift+ArrowUp");
+    await expect(xInput).toHaveValue(String(initialX + 10));
+    await expect.poll(async () => (await editor.locator("cropper-selection").boundingBox())!.x).toBeGreaterThan(initialFrame!.x);
+    const layout = () => editor.evaluate(element => {
+      const canvas = element.querySelector("cropper-canvas")!;
+      const canvasBox = canvas.getBoundingClientRect();
+      const area = canvas.parentElement!.parentElement!.getBoundingClientRect();
+      const controls = [...element.querySelectorAll<HTMLElement>("header button,header input,header a")];
+      return {
+        margins: [canvasBox.left - area.left, canvasBox.top - area.top, area.right - canvasBox.right, area.bottom - canvasBox.bottom],
+        controlsInside: controls.every(control => {
+          const box = control.getBoundingClientRect();
+          return box.left >= 0 && box.right <= innerWidth && box.top >= 0 && box.bottom <= innerHeight;
+        }),
+      };
+    });
+    for (const viewport of [{ width: 1400, height: 900 }, { width: 390, height: 844 }]) {
+      await page.setViewportSize(viewport);
+      await expect.poll(async () => (await layout()).controlsInside).toBe(true);
+      expect((await layout()).margins.every(margin => Math.abs(margin - 26) < 1)).toBe(true);
+      await testInfo.attach(`crop-layout-${viewport.width}`, { body: await page.screenshot(), contentType: "image/png" });
+    }
+    await page.setViewportSize({ width: 1400, height: 900 });
+    const writes: Array<{ method: string; path: string }> = [];
+    const onRequest = (request: import("@playwright/test").Request) => {
+      const method = request.method();
+      const path = new URL(request.url()).pathname;
+      const readOnlyEs = (method === "POST" && /^\/es\/(?:[^/]+\/)?_(?:search|count|pit)$/.test(path))
+        || (method === "DELETE" && path === "/es/_pit");
+      if (!["GET", "HEAD", "OPTIONS"].includes(method) && !readOnlyEs) writes.push({ method, path });
+    };
+    page.on("request", onRequest);
+    await crop.click();
+    await expect(editor.getByTestId("crop-dry-run")).toContainText('"type": "crop"');
+    page.off("request", onRequest);
+    expect(writes).toEqual([]);
+    await editor.focus();
+    await page.keyboard.press("Delete");
+    await expect(crop).toBeDisabled();
+    await expect(editor.getByTestId("crop-dry-run")).toHaveCount(0);
+    await editor.getByRole("radio", { name: "video (16:9)" }).click();
+    await expect(crop).toBeEnabled();
+    const editedWidth = String(Math.floor(Number(await widthInput.inputValue()) / 2));
+    await widthInput.fill(editedWidth);
+    const coordinates = () => Promise.all(["x", "y", "width", "height"].map(field =>
+      editor.getByRole("spinbutton", { name: `Crop ${field}` }).inputValue()));
+    const draftCoordinates = await coordinates();
+    await page.reload();
+    await expect(crop).toBeEnabled();
+    await expect(editor.getByRole("radio", { name: "video (16:9)" })).toHaveAttribute("aria-checked", "true");
+    expect(await coordinates()).toEqual(draftCoordinates);
+    await editor.focus();
+    await page.keyboard.press("Delete");
+    await expect(crop).toBeDisabled();
+    await page.reload();
+    await expect(editor).toBeVisible();
+    await expect(crop).toBeDisabled();
+    await expect(editor.locator('[data-ready="true"]')).toBeVisible();
+    await expect(editor.locator("cropper-selection")).toBeHidden();
+    await editor.getByRole("radio", { name: "video (16:9)" }).click();
+    await expect(crop).toBeEnabled();
+    await editor.getByRole("button", { name: "Back to image", exact: true }).click();
+    await expect(editor).toHaveCount(0);
+    expect(await page.evaluate(() => sessionStorage.getItem("kupua.crop.draft") === null)).toBe(true);
+    expect(await page.evaluate(() => history.state.kupuaKey)).toBe(detailKey);
+    await page.goForward();
+    await expect(crop).toBeEnabled();
+    await expect(editor.getByRole("radio", { name: "freeform" })).toHaveAttribute("aria-checked", "true");
+    await page.keyboard.press("Escape");
+    await expect(editor).toHaveCount(0);
+    await page.evaluate(async imageId => {
+      await (window as any).__kupua_router__.navigate({ to: "/images/$imageId/crop", params: { imageId },
+        search: { cropType: "banner", customRatio: "banner,3,1" } });
+    }, id);
+    await expect(editor.getByRole("radio", { name: "banner (3:1)" })).toHaveAttribute("aria-checked", "true");
+    await expect(editor.getByRole("radio")).toHaveCount(1);
+    await page.evaluate(async () => {
+      await (window as any).__kupua_router__.navigate({ to: "/search", replace: true,
+        search: (previous: Record<string, unknown>) => ({ ...previous, customRatio: "banner,2,1" }) });
+    });
+    await expect(editor.getByRole("radio", { name: "banner (2:1)" })).toHaveAttribute("aria-checked", "true");
+    await expect(crop).toBeEnabled();
+  });
+});
+
 test.describe("Image detail — closing", () => {
   test("Back to search button returns to grid with opened image focused and in view", async ({ kupua }) => {
     await kupua.startSearch();
@@ -535,7 +655,7 @@ test.describe("Panel toggles", () => {
     "Hide Browse panel": { selector: '[aria-label*="Resize left panel"]', visible: false },
   } as const;
 
-  async function waitForGridLayoutAfterResize(kupua: any, beforeWidth: number) {
+  async function waitForGridLayoutAfterResize(kupua: KupuaHelpers, beforeWidth: number) {
     await kupua.page.waitForFunction(
       ({ previousWidth, minCellWidth }) => {
         const grid = document.querySelector<HTMLElement>('[aria-label="Image results grid"]');
@@ -548,7 +668,7 @@ test.describe("Panel toggles", () => {
     );
   }
 
-  async function togglePanelAndWait(kupua: any, action: keyof typeof panelTransitions) {
+  async function togglePanelAndWait(kupua: KupuaHelpers, action: keyof typeof panelTransitions) {
     const beforeWidth = await kupua.page.locator('[aria-label="Image results grid"]').evaluate((grid) => grid.clientWidth);
     await kupua.page.getByRole("button", { name: action, exact: true }).click();
     const transition = panelTransitions[action];
@@ -558,7 +678,7 @@ test.describe("Panel toggles", () => {
     await waitForGridLayoutAfterResize(kupua, beforeWidth);
   }
 
-  async function resizeAndWait(kupua: any, width: number) {
+  async function resizeAndWait(kupua: KupuaHelpers, width: number) {
     const beforeWidth = await kupua.page.locator('[aria-label="Image results grid"]').evaluate((grid) => grid.clientWidth);
     await kupua.page.setViewportSize({ width, height: 960 });
     await waitForGridLayoutAfterResize(kupua, beforeWidth);
@@ -635,7 +755,7 @@ test.describe("Panel toggles", () => {
         expect(await kupua.getFocusedImageId()).toBe(expectedFocus);
       };
 
-      for (const button of ["Show Details panel", "Show Browse panel", "Hide Details panel", "Hide Browse panel"]) {
+      for (const button of ["Show Details panel", "Show Browse panel", "Hide Details panel", "Hide Browse panel"] as const) {
         await togglePanelAndWait(kupua, button);
         await assertPreserved(button);
       }
@@ -665,7 +785,7 @@ test.describe("Panel toggles", () => {
       const nextBefore = await readTarget(nextAnchorId);
       if (!nextBefore) throw new Error("New selection anchor is not rendered");
       expect(nextBefore.fullyVisible).toBe(true);
-      for (const button of ["Show Details panel", "Show Browse panel", "Hide Details panel", "Hide Browse panel"]) {
+      for (const button of ["Show Details panel", "Show Browse panel", "Hide Details panel", "Hide Browse panel"] as const) {
         await togglePanelAndWait(kupua, button);
         await assertPreserved(`new selection: ${button}`, nextAnchorId, nextBefore.top);
       }

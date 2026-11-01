@@ -382,7 +382,7 @@ export function pushNavigate(navigate: NavigateFn, opts: Parameters<NavigateFn>[
   // Mint a fresh kupuaKey for the new history entry. Shallow-merge with
   // any caller-supplied state so both survive.
   const state = withFreshKupuaKey({ ...opts.state,
-    ...(opts.state?._detailEntryImageId ? { _detailOriginKupuaKey: getCurrentKupuaKey() } : {}) });
+    ...(opts.state?._detailEntryImageId ? { _detailOriginKupuaKey: opts.state._detailOriginKupuaKey ?? getCurrentKupuaKey() } : {}) });
   navigate({ ...opts, state });
   return state.kupuaKey as string;
 }

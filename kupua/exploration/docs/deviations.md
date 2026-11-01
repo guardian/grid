@@ -14,6 +14,22 @@ Last updated: 2026-10-31
 
 ## From Grid / Kahuna
 
+### Crop Editor Inside Image Detail (31 October 2026)
+
+Kahuna crops on a separate `/images/:id/crop` page; Kupua opens the editor over the image
+detail with `cropping=true`, keeping the search context mounted. The legacy path redirects
+there, and Kahuna's crop-type URL params are stored under `kupua.crop.*` sessionStorage keys,
+not Kahuna's. The editor is a dry run on Cropper.js v2 (Kahuna uses v1).
+Trade-off: a deep-linked editor has no detail entry below it, so Cancel replaces the URL
+instead of going back.
+
+Legacy custom-ratio dimensions must be complete positive safe integers; malformed numeric
+prefixes are rejected rather than silently truncated as in Kahuna. Explicitly requested hidden
+presets remain selectable instead of leaving the editor with a hidden/unavailable choice.
+Cropper's native image gesture controls stay disabled; controlled resize and fullscreen pan/zoom
+temporarily enable transforms for projection. Selection coordinates remain precise and are
+rounded only at the original-pixel request boundary.
+
 ### Compact Phone Shell (31 October 2026)
 
 On narrow (≤639px) coarse-pointer viewports Kupua uses a phone shell: panels become sheets,

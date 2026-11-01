@@ -136,10 +136,10 @@ test.describe("Scrubber tick input identity", () => {
         const store = (window as unknown as { __kupua_store__: typeof useSearchStore }).__kupua_store__;
         const state = store.getState();
         const bufferBased = scenario === "buffer" || scenario === "single-bucket fallback";
-        const results = bufferBased ? state.results.slice(0, 21).map((image, index) => ({
+        const results = bufferBased ? state.results.slice(0, 21).map((image, index) => image ? ({
           ...image,
           uploadTime: new Date(Date.UTC(year, index * 3, 1)).toISOString(),
-        })) : state.results;
+        }) : undefined) : state.results;
         const coveredCount = scenario === "primary distribution" ? 2_000 : 1_000;
         const dateDistribution = {
           coveredCount,

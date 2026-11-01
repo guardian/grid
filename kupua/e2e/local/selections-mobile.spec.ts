@@ -24,7 +24,7 @@
  *   npm --prefix kupua run test:e2e -- selections-mobile.spec.ts --headed
  */
 
-import { test, expect, devices } from "@playwright/test";
+import { test, expect, devices, type Page } from "@playwright/test";
 
 // ---------------------------------------------------------------------------
 // Device emulation -- Pixel 5 sets pointer:coarse via hasTouch
@@ -41,7 +41,7 @@ test.beforeEach(async ({ page }) => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function getSelectionCount(page: Parameters<typeof test>[1]["page"]): Promise<number> {
+async function getSelectionCount(page: Page): Promise<number> {
   return page.evaluate(() => {
     const store = (window as any).__kupua_selection_store__;
     if (!store) return 0;
@@ -49,7 +49,7 @@ async function getSelectionCount(page: Parameters<typeof test>[1]["page"]): Prom
   });
 }
 
-async function getSelectionIds(page: Parameters<typeof test>[1]["page"]): Promise<string[]> {
+async function getSelectionIds(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     const store = (window as any).__kupua_selection_store__;
     if (!store) return [];
@@ -57,7 +57,7 @@ async function getSelectionIds(page: Parameters<typeof test>[1]["page"]): Promis
   });
 }
 
-async function clearSelection(page: Parameters<typeof test>[1]["page"]): Promise<void> {
+async function clearSelection(page: Page): Promise<void> {
   await page.evaluate(() => {
     const store = (window as any).__kupua_selection_store__;
     store?.getState().clear();
@@ -69,7 +69,7 @@ async function clearSelection(page: Parameters<typeof test>[1]["page"]): Promise
  * Returns the clientX/clientY of the dispatched event target.
  */
 async function dispatchPointer(
-  page: Parameters<typeof test>[1]["page"],
+  page: Page,
   type: string,
   x: number,
   y: number,
@@ -100,7 +100,7 @@ async function dispatchPointer(
  * Does NOT dispatch pointerup -- callers add their own cleanup or drag.
  */
 async function beginLongPress(
-  page: Parameters<typeof test>[1]["page"],
+  page: Page,
   x: number,
   y: number,
 ): Promise<void> {
@@ -111,7 +111,7 @@ async function beginLongPress(
 
 /** Complete a long-press with pointerup (no drag -- becomes a tap). */
 async function endPress(
-  page: Parameters<typeof test>[1]["page"],
+  page: Page,
   x: number,
   y: number,
 ): Promise<void> {
@@ -122,7 +122,7 @@ async function endPress(
  * Get the bounding rect of the nth visible grid cell.
  */
 async function getCellRect(
-  page: Parameters<typeof test>[1]["page"],
+  page: Page,
   n: number,
 ): Promise<{ x: number; y: number; width: number; height: number } | null> {
   return page.evaluate((n) => {
@@ -135,7 +135,7 @@ async function getCellRect(
 }
 
 async function getFirstTouchableCellRect(
-  page: Parameters<typeof test>[1]["page"],
+  page: Page,
 ): Promise<{ x: number; y: number; width: number; height: number }> {
   const rect = await page.locator("[data-grid-cell]").evaluateAll((cells) => {
     for (const cell of cells) {

@@ -9,6 +9,9 @@ validation are recorded below; KUP-040 is also repaired locally below. Server-si
 **Assessment target: local media-api mode.** Direct ES is a retiring source reference,
 not a performance baseline or repair target. The single deployed media-api campaign is a
 separate checkpoint, not a repeated deployed baseline or a substitute for local evidence.
+**31 October addition:** section 8 sizes the direct-versus-API gap from saved histories,
+gathers the envelope evidence, proposes attribution steps and assesses PIT. Completed repair
+validations are collapsed in section 6.
 
 ## 1. Decision Summary
 
@@ -462,7 +465,12 @@ The authorized browser used existing API-backed reads; no direct ES probe, AWS o
 deployment, packet/HAR capture, transport patch, benchmark, Git mutation or code repair was
 performed. No stronger PIT/migration/session guarantee is proposed.
 
-### S4a Repair Validation (20 October)
+### Completed Repair Validations
+
+<details>
+<summary>S4a, S4b and KUP-040: repaired and validated 20 October (commands, tests and reviews)</summary>
+
+#### S4a Repair Validation (20 October)
 
 The [store](../../src/stores/search-store.ts) retains one pending base-batch key/completion
 until its owner finishes or cancellation detaches it. Equivalent non-forced calls await it;
@@ -495,7 +503,7 @@ request efficiency/bounded work/cancellation/maintainability. Neither independen
 validation. No live system, app-driving instrumentation, Scala change or performance campaign
 was used for the repair; no measured ES CPU, latency or frame-time saving is claimed.
 
-### S4b Repair Validation (20 October)
+#### S4b Repair Validation (20 October)
 
 The [resolver](../../src/lib/typeahead-fields.ts) retains up to 32 successful option-read
 results per builder, keyed by the defined search parameters after own-chip removal plus
@@ -563,7 +571,7 @@ gates. New reuse coverage concentrates on credit/keyword/dynamic paths; existing
 controls and the shared reader additionally cover static/alias/filter-backed wiring. No live
 system access, Scala change or performance campaign was used for this repair.
 
-### KUP-040 Repair Validation (20 October)
+#### KUP-040 Repair Validation (20 October)
 
 A four-line shared poll-admission guard compares the maximum upload lower bound with
 the upper bound as instants. Invalid dates fall through; existing outbound parameters,
@@ -578,6 +586,8 @@ configured cases on unchanged code, not an uninterrupted full-suite pass. Two in
 cold reviews of the identical code/test snapshot found no issues. No live-system access,
 Scala work, endpoint/auth change or performance campaign was performed.
 
+</details>
+
 ## 7. Recommended Scope Decisions
 
 **The browser-verifiable selection questions are closed.** Warm/expanded reopen, resident
@@ -587,7 +597,7 @@ implementation gates, not another open-ended app-driving assignment.
 
 1. **Keep the three small Kupua fixes separate:** pending facet handoff (S4a) and scope-bound
   suggestions/reset admission (S4b) and impossible arrival polling (KUP-040) are repaired
-  and validated above in separate sessions. Keep KUP-040's commit separate. Their owners,
+  and validated in separate sessions (collapsed validation records above). Keep KUP-040's commit separate. Their owners,
   avoided reads and preservation controls are known; no endpoint/Scala change or general
   cache manager is needed.
 2. **Do not start a Scala performance refactor on this evidence.** F1's backend resource
@@ -601,3 +611,87 @@ implementation gates, not another open-ended app-driving assignment.
   checkpoint, and leave the rejected standalone work out of the build queue.
 
 This is a decision-ready assessment, not implementation approval or a new migration gate.
+
+## 8. Direct-Versus-API Latency Gap and PIT (31 October)
+
+**Operator question:** how to bring media-api latency closer to direct ES, and whether a PIT
+endpoint is worth adding. Direct ES remains a retiring *reference*, not a repair target (header).
+No new measurement, code change or campaign was performed for this section.
+
+### Size of the Gap (Saved Perceived Histories)
+
+The often-quoted "direct is twice as fast" is not what the saved histories show. Latest short
+suites, visual-settled medians, four runs each:
+- direct ES: 28 September, `fc4fb9469`, laptop to TEST ES over an SSH tunnel;
+- API: 30 October, "Fully server-led", `395fcb21f`, deployed TEST media-api.
+
+| Step | Direct (ms) | API (ms) | Gap |
+| --- | --- | --- | --- |
+| PP1 Home | 578 | 902 | +324 |
+| PP2 sort, no focus | 511 | 590 | +79 |
+| PP3 / PP4 sort around focus | 845 / 806 | 1093 / 1009 | about +230 |
+| PP5 filter toggle | 639 | 718 | +79 |
+| PP7 / PP7b scrubber seek | 741 / 677 | 1175 / 1085 | about +420 |
+| PP8 search | 868 | 1132 | +264 |
+| PP9 chip remove | 874 | 910 | +36 |
+| PP11 history back | 910 | 1054 | +144 |
+
+The gap is about 1.1–1.6×, or 36–434 ms. The pair differs in date, revision and topology, so it
+is an orientation, not a controlled comparison. The same-origin local M1 pair (build plan,
+25 September) gave the same picture: API actions 0.2–0.6 s slower, client-only actions equivalent.
+**Pattern:** single-read actions (PP2, PP5, PP9) are close; actions with several dependent reads
+(seek, Home, sort around focus) carry the largest gap. That points to per-request overhead
+multiplied by sequential reads, rather than one slow endpoint.
+
+### Known Per-Request Cost: the Argo Envelope
+
+Every image-returning Kupua endpoint (`search-after`, `window`, `mget`) builds each hit through
+the full `imageResponse.create` via `hitToImageEntity`
+([controller](../../../media-api/app/controllers/ImageQueryController.scala#L253)). Existing
+evidence ([D3 performance](03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/d3-search-after-04-performance.md),
+[P01](03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/api-boundary-09-p01-existing-performance.md)):
+- about **137 ms per 200-hit page** of envelope work, including about **29 ms of URL signing**;
+- a one-pass `createForBrowse` writer measured about **42%** (about 55 ms) less envelope work,
+  then was **reverted** and never shipped;
+- ES-client gzip, which saved about 440 ms of tunnelled transport, is already shipped.
+
+These are historical instrumentation figures, not current production latency. Before the
+envelope work, `resolveLeanHit` also fully decodes each hit into the `Image` model
+(`validate[Image]`), which is additional CPU on `t4g.small` media-api instances.
+
+Constraints any envelope optimization must respect:
+- the envelope produces each hit's server `cost`/`valid`/`persisted` overlays and its
+  HATEOAS `links`/`actions`, which Kupua uses for overlays and future editing (KUP-044);
+- canonical media delivery now consumes server media links, so re-check which signed URLs Kupua
+  actually uses before skipping signing for browse reads.
+
+### How to Attribute the Gap (Cheapest First)
+
+1. **Waterfall, no code.** Record one PP7 seek and one PP1 Home in DevTools in each mode. Count
+   dependent (serial) reads and note each read's time to first byte. If seek makes three serial
+   reads at about 120–140 ms extra each, that alone explains about 420 ms.
+2. **`Server-Timing` on Kupua's endpoints** (additive Scala in `ImageQueryController` only):
+   time spent in ES (round trip and `took`), lean decode, envelope and signing, and
+   serialization. DevTools shows it per request, and the perf harness can read it from
+   `PerformanceResourceTiming.serverTiming` with `Timing-Allow-Origin`. This turns guesses into
+   per-request attribution for every campaign.
+3. **Profiler on local media-api** (JFR or async-profiler) during a perf run, for a flame graph
+   of decode, envelope, auth and client.
+
+**Likely levers, ranked by expected value and not yet measured:**
+1. fewer dependent reads in seek, Home and sort around focus (fusing or parallelizing their
+   dependent reads);
+2. a lean envelope for browse reads that retains overlays, links and actions;
+3. connection reuse or HTTP/2 to the deployed origin.
+
+### PIT: Not Worth Adding Now
+
+| Benefit | Assessment |
+| --- | --- |
+| Performance | **None.** Direct mode opens its PIT in parallel, off the critical path; it is not why direct is faster. A PIT adds open/close reads and retains segments on the cluster. |
+| Stability | **Small.** M1 found no visible PIT-less drift in the pinned core and totals off by a handful. The frozen-until cap already excludes new uploads. Remaining drift is other users' edits to resident images. |
+| Index migrations | Marginal. Pinning one index avoids rare duplicates; migrations occur about every two years and last about two days ([batch editing §10](batch-editing-at-scale.md#10-index-migration)). |
+| Future editing | **Negative.** A PIT hides the user's own writes until the next search, conflicting with patch-in-place after writes ([KUP-043](bug-backlog.md#kup-043)). |
+
+Keep the endpoints PIT-ready (build plan decision 4) at no cost. Revisit only if real users
+report results moving while they browse.

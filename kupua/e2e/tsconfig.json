@@ -5,6 +5,9 @@
     "types": ["node"],
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
     "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
@@ -12,8 +15,9 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "paths": {
-      "@/*": ["../src/*"]
+      "@/*": ["../src/*"],
+      "/src/*": ["../src/*"]
     }
   },
-  "include": ["."]
+  "include": [".", "../src/vite-env.d.ts"]
 }
