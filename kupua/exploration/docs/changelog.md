@@ -24,6 +24,15 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 1 November 2026 - Rebase scroll velocity before focus centering
+
+Programmatic focus centering now resets the viewport velocity tracker before moving
+the scroll position. A recent sample could otherwise make upward centering look like
+fast backward browsing and trigger an unnecessary predictive buffer refill. The
+regression covers both the absence of that refill and continued prediction for
+subsequent wheel scrolling; fixture setup also resets shared visible-range state.
+Existing E2E assertions are unchanged.
+
 ### 31 October 2026 - Results zoom, locked Home view and app fullscreen
 
 Grid and Justified zoom through six width-aware levels (`results-zoom.ts`): Justified

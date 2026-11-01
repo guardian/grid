@@ -40,7 +40,7 @@ import { ElasticsearchDataSource } from "@/dal/es-adapter";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { parseSortField } from "@/dal/adapters/elasticsearch/sort-builders";
 import type { SortValues } from "@/dal/types";
-import { useDataWindow } from "./useDataWindow";
+import { resetVisibleRange, useDataWindow } from "./useDataWindow";
 import { Scrubber } from "@/components/Scrubber";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
@@ -75,6 +75,7 @@ const grid: ScrollGeometry & FixedRowGeometry = { columns: 4, rowHeight: 303, he
 
 beforeEach(() => {
   registerScrollGeometry(grid);
+  resetVisibleRange();
   vi.useFakeTimers();
   routeParams = { nonFree: "true" };
   routeLocation = undefined;
@@ -384,6 +385,40 @@ function mountDensity(initialGeometry: ScrollGeometry, strict = false, reportVie
 }
 
 describe("viewport-valid velocity reports", () => {
+  it("rebases velocity before centering focus without suppressing subsequent wheel prediction", () => {
+    const results = Array.from({ length: 201 }, (_, index) => ({ id: `image-${index + 200}` }) as Image);
+    const extendBackward = vi.fn().mockResolvedValue(undefined);
+    const extendForward = vi.fn().mockResolvedValue(undefined);
+    useSearchStore.setState({ results, total: 70000, bufferOffset: 28000, focusedImageId: "image-300",
+      imagePositions: new Map(results.map((image, index) => [image.id, index + 28000])), extendBackward, extendForward });
+    const view = mountDensity(grid, false, true);
+    frame(); frame();
+    act(() => vi.advanceTimersByTime(1000));
+    act(() => {
+      view.container.scrollTop = 7575;
+      view.virtualizer.range = { startIndex: 25, endIndex: 26 };
+      fireEvent.scroll(view.container);
+    });
+    extendBackward.mockClear(); extendForward.mockClear();
+    act(() => vi.advanceTimersByTime(5));
+    act(() => {
+      scrollFocusedIntoView();
+      view.virtualizer.range = { startIndex: 24, endIndex: 25 };
+      fireEvent.scroll(view.container);
+    });
+    expect(view.container.scrollTop).toBe(7275);
+    expect(extendBackward).not.toHaveBeenCalled();
+    expect(extendForward).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(5));
+    act(() => {
+      fireEvent.wheel(view.container, { deltaY: -303 });
+      view.container.scrollTop = 6972;
+      view.virtualizer.range = { startIndex: 23, endIndex: 24 };
+      fireEvent.scroll(view.container);
+    });
+    expect(extendBackward).toHaveBeenCalledOnce();
+  });
+
   it("separates backward admission validity from trailing-range velocity validity", () => {
     useSearchStore.setState({ focusedImageId: null });
     const view = mountDensity(table);

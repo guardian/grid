@@ -32,7 +32,7 @@ import { SCROLL_MODE_THRESHOLD, SEEK_DEFERRED_SCROLL_MS } from "@/constants/tuni
 import { GRID_ROW_HEIGHT } from "@/constants/layout";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
-import { getViewportAnchorId, type ViewportVelocitySample } from "@/hooks/useDataWindow";
+import { getViewportAnchorId, _resetForwardVelocity, type ViewportVelocitySample } from "@/hooks/useDataWindow";
 import { useSelectionStore } from "@/stores/selection-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { isNativeInputTarget } from "@/lib/dom-utils";
@@ -266,6 +266,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       if (localIdx < 0) return;
       const geo = geometryRef.current;
       const rowIdx = getItemLayoutRow(geo, localIdx).index;
+      _resetForwardVelocity();
       if (scrollRowToCenterRef.current) {
         scrollRowToCenterRef.current(rowIdx);
       } else {
