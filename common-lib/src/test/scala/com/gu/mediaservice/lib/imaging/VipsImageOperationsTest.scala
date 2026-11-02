@@ -75,6 +75,48 @@ class VipsImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures
     }
   }
 
+  describe("crop") {
+    it("should output cropped master image to file in chosen format") {
+      val image = fileAt("IMG_4403.jpg")
+
+      val eventualMasterCrop = vipsImageOperations.cropImage(image,
+        Some(Jpeg),
+        Bounds(1000, 600, 2000, 1000),
+        99.0,
+        tempDirForOutputFiles,
+        None,
+        None,
+        Jpeg,
+        isTransformedFromSource = false,
+        None
+      )
+
+      whenReady(eventualMasterCrop) { r =>
+        r.isFile should be(true)
+      }
+    }
+
+    it("should convert CMYK with no profile to sRGB") {
+      val image = fileAt("cmyk.jpg")
+
+      val eventualMasterCrop = vipsImageOperations.cropImage(image,
+        Some(Jpeg),
+        Bounds(0, 0, 5, 4),
+        99.0,
+        tempDirForOutputFiles,
+        None,
+        None,
+        Jpeg,
+        isTransformedFromSource = false,
+        None
+      )
+
+      whenReady(eventualMasterCrop) { r =>
+        r.isFile should be(true)
+      }
+    }
+  }
+
   describe("resize") {
     it("should output resized image to file in chosen format") {
       implicit val arena: Arena = Arena.ofConfined
