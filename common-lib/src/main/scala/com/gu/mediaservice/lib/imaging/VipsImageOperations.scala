@@ -323,11 +323,13 @@ class VipsImageOperations extends GridLogging with ImageOperations {
     val needsICCTransform = VipsHelper.image_get_typeof(arena, image.getUnsafeStructAddress, "icc-profile-data") != 0
     if (needsICCTransform) {
       image.iccTransform("srgb",
-        VipsOption.Enum("intent", VipsIntent.INTENT_PERCEPTUAL), // Helps with CMYK; see https://github.com/libvips/libvips/issues/1110
+        VipsOption.Enum("intent", VipsIntent.INTENT_PERCEPTUAL) // Helps with CMYK; see https://github.com/libvips/libvips/issues/1110
       )
     } else {
-      // LAB gets corrupted by a needless icc_transform
-      image
+      // LAB gets corrupted by a needless icc_transform but we will ignore this and hope it improves upstream
+      image.iccTransform("srgb",
+        VipsOption.Enum("intent", VipsIntent.INTENT_PERCEPTUAL)
+      )
     }
   }
 
