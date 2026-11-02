@@ -322,6 +322,18 @@ class VipsImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures
 
   }
 
+  describe("saveImageToFile") {
+    it("should quantise even if source image is 16bit") {
+      val arena = Arena.ofConfined
+      val image = VImage.newFromFile(arena, fileAt("schaik.com_pngsuite/basi2c16.png").getAbsolutePath)
+      val outputFile = tempFileNamed("quantised-from-16bit-input", ".png")
+
+      vipsImageOperations.saveImageToFile(image, Png, 99, outputFile, quantise = true)
+
+      arena.close()
+    }
+  }
+
   def fileAt(resourcePath: String): File = {
     new File(getClass.getResource(s"/$resourcePath").toURI)
   }
