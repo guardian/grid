@@ -21,6 +21,28 @@ export function waitForMetadataSave(page: Page): Promise<Response> {
   );
 }
 
+/**
+ * Run `save` and check the metadata editor accepted both requests a usage rights save makes:
+ * the rights, then the metadata derived from them. This confirms the requests succeeded, not
+ * what the server stored as a result.
+ */
+export async function expectUsageRightsSaveAccepted(
+  page: Page,
+  imageId: string,
+  save: () => Promise<void>,
+): Promise<void> {
+  const isRequest = (method: string, path: string) => (response: Response) =>
+    response.request().method() === method && new URL(response.url()).pathname === path;
+  const [rights, derivedMetadata] = await Promise.all([
+    page.waitForResponse(isRequest('PUT', `/metadata/${imageId}/usage-rights`)),
+    page.waitForResponse(isRequest('POST', `/metadata/${imageId}/metadata/set-from-usage-rights`)),
+    save(),
+  ]);
+  expect(rights.ok(), `saving the rights: ${await rights.text()}`).toBeTruthy();
+  expect(derivedMetadata.ok(), `deriving metadata from the rights: ${await derivedMetadata.text()}`)
+    .toBeTruthy();
+}
+
 async function mediaApiRootLinks(page: Page): Promise<string[]> {
   const response = await page.request.get(await getMediaApiUrl(page));
   const { links } = (await response.json()) as { links: { rel: string }[] };
