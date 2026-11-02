@@ -1,11 +1,15 @@
-import type { APIRequestContext, Page, Response } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
 import { Given, When, Then, KAHUNA_APP_URL, expect } from '../setup.ts';
 import { findSeededImage, findSeededImageId, hasNoUsageRights, loadImageFixtures } from '../../setup/image-fixtures.ts';
 import { usageRightsCategories } from '../utils/api/metadata-editor.queries.ts';
 import { setTestClientConfig } from '../utils/test-config.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { switchAccount } from '../utils/auth.ts';
-import { expectEditPermissionForImage, expectNoEditPermissionForImage } from '../utils/api/media-api.assertions.ts';
+import {
+  expectEditPermissionForImage,
+  expectNoEditPermissionForImage,
+  expectUsageRightsSaveAccepted,
+} from '../utils/api/media-api.assertions.ts';
 
 /** An image seeded into Elasticsearch from fixtures/elasticsearch/images.json. */
 const IMAGE_WITHOUT_RIGHTS = findSeededImage('with no usage rights category', hasNoUsageRights);
@@ -179,19 +183,12 @@ When('I save the {string} usage rights category', async ({ page }, category: str
     await editor.getByLabel(property, { exact: true }).selectOption({ label: value });
   }
 
-  // The editor closes whether or not the save succeeds, so check the requests themselves:
-  // the rights, then the metadata the metadata editor derives from them.
+  // The editor closes whether or not the save succeeds, so check the requests themselves.
   const imageId = new URL(page.url()).pathname.split('/').pop();
-  const isSaveRequest = (method: string, path: string) => (response: Response) =>
-    response.request().method() === method && new URL(response.url()).pathname === path;
-  const [rights, derivedMetadata] = await Promise.all([
-    page.waitForResponse(isSaveRequest('PUT', `/metadata/${imageId}/usage-rights`)),
-    page.waitForResponse(isSaveRequest('POST', `/metadata/${imageId}/metadata/set-from-usage-rights`)),
+  if (!imageId) throw new Error(`No image ID in the page URL "${page.url()}"`);
+  await expectUsageRightsSaveAccepted(page, imageId, () =>
     editor.getByRole('button', { name: 'Save usage rights', exact: true }).click(),
-  ]);
-  expect(rights.ok(), `saving the rights: ${await rights.text()}`).toBeTruthy();
-  expect(derivedMetadata.ok(), `deriving metadata from the rights: ${await derivedMetadata.text()}`)
-    .toBeTruthy();
+  );
 });
 
 Then('the rights editor closes', async ({ page }) => {
