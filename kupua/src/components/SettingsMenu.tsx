@@ -5,7 +5,7 @@
  * closes on outside click or Escape.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   useUiPrefsStore,
   useEffectiveFocusMode,
@@ -13,7 +13,7 @@ import {
 } from "@/stores/ui-prefs-store";
 import { isHostedBuild, KAHUNA_RETURN_PATH } from "@/lib/hosted-config";
 import { useZoomStore } from "@/stores/zoom-store";
-import { isAppFullscreen, toggleAppFullscreen } from "@/lib/app-fullscreen";
+import { imageFullscreenElement, isAppFullscreen, toggleAppFullscreen } from "@/lib/app-fullscreen";
 import { FULLSCREEN_EXIT_ICON, FULLSCREEN_ICON } from "@/components/NavStrip";
 import { readHomeView, writeHomeView, type HomeView } from "@/lib/home-view";
 
@@ -88,7 +88,13 @@ function LockViewRow() {
   );
 }
 
-export function SettingsMenu() {
+function subscribeFullscreen(change: () => void) {
+  document.addEventListener("fullscreenchange", change);
+  return () => document.removeEventListener("fullscreenchange", change);
+}
+
+export function SettingsMenu({ inset = false }: { inset?: boolean }) {
+  const fullscreen = useSyncExternalStore(subscribeFullscreen, () => !!imageFullscreenElement(), () => false);
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -100,11 +106,19 @@ export function SettingsMenu() {
   const toggleBlurGraphicImages = useUiPrefsStore((s) => s.toggleBlurGraphicImages);
 
   const toggle = useCallback(() => setOpen((v) => !v), []);
+  const closeWithFocus = useCallback(() => {
+    setOpen(false);
+    buttonRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (fullscreen) setOpen(false);
+  }, [fullscreen]);
 
   // Close on outside click
   useEffect(() => {
-    if (!open) return;
-    const handleClick = (e: MouseEvent) => {
+    if (!open || fullscreen) return;
+    const handleClick = (e: PointerEvent) => {
       if (
         menuRef.current &&
         !menuRef.current.contains(e.target as Node) &&
@@ -115,15 +129,19 @@ export function SettingsMenu() {
       }
     };
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        closeWithFocus();
+      }
     };
-    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("pointerdown", handleClick, true);
     document.addEventListener("keydown", handleEscape);
     return () => {
-      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("pointerdown", handleClick, true);
       document.removeEventListener("keydown", handleEscape);
     };
-  }, [open]);
+  }, [open, fullscreen, closeWithFocus]);
 
   const handleModeChange = useCallback(
     (mode: FocusMode) => {
@@ -132,8 +150,17 @@ export function SettingsMenu() {
     [setFocusMode],
   );
 
+  if (fullscreen) return null;
+
   return (
-    <div className="relative shrink-0 -mr-3">
+    <div className={`relative shrink-0${inset ? "" : " -mr-3"}`} onKeyDown={event => {
+      if (!open) return;
+      event.stopPropagation();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeWithFocus();
+      }
+    }}>
       <button
         ref={buttonRef}
         onClick={toggle}
@@ -160,7 +187,7 @@ export function SettingsMenu() {
         <div
           ref={menuRef}
           role="menu"
-          className="absolute right-[5px] top-full mt-1 w-56 bg-grid-bg border border-grid-border rounded shadow-lg z-50 py-1"
+          className="absolute right-[5px] top-full mt-1 w-56 max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain bg-grid-bg border border-grid-border rounded shadow-lg z-50 py-1"
         >
           <ZoomRow onFullscreen={() => { setOpen(false); toggleAppFullscreen(); }} />
 

@@ -2,7 +2,7 @@ import { useEffect, useImperativeHandle, useMemo, useReducer, useRef, useState, 
 import { createPortal } from "react-dom";
 import Cropper, { type CropperHandle, type CropperImage, type CropperSelection } from "cropperjs";
 import { isValidCropRect, type Rect, type Size } from "@/lib/crop/crop-request";
-import { bindCropViewport, type CropViewport } from "@/lib/crop/crop-viewport";
+import { bindCropTouchViewport, bindCropViewport, type CropViewport } from "@/lib/crop/crop-viewport";
 
 export type CropCanvasState = { status: "loading" | "unavailable" }
   | { status: "ready"; selection: Rect | null; rendition: Size };
@@ -26,6 +26,9 @@ interface CropCanvasProps {
   src: string;
   zoomSrc?: string;
   zoomEnabled?: boolean;
+  touchEnabled?: boolean;
+  panMode?: boolean;
+  onZoomChange?: (zoomed: boolean) => void;
   alt: string;
   /** width / height; null for freeform. Changing it refits a maximal centred selection. */
   aspect: number | null;
@@ -38,6 +41,8 @@ interface CropCanvasProps {
 
 export interface CropCanvasHandle {
   setSelection: (selection: Rect, coordinateSize: Size) => void;
+  zoomIn: () => void;
+  resetView: () => void;
 }
 
 type ShadeElement = HTMLElement & { borderRadius: string; $render(): void };
@@ -57,7 +62,7 @@ interface Session extends CropViewport {
   last?: Rect;
 }
 
-export function CropCanvas({ ref, src, zoomSrc, zoomEnabled = false, alt, aspect, initialSelection, onChange, circle }: CropCanvasProps) {
+export function CropCanvas({ ref, src, zoomSrc, zoomEnabled = false, touchEnabled = false, panMode = zoomEnabled, onZoomChange, alt, aspect, initialSelection, onChange, circle }: CropCanvasProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef<Session | null>(null);
   const initialSelectionRef = useRef(initialSelection);
@@ -71,8 +76,23 @@ export function CropCanvas({ ref, src, zoomSrc, zoomEnabled = false, alt, aspect
   onChangeRef.current = onChange;
   const zoomSrcRef = useRef(zoomSrc);
   zoomSrcRef.current = zoomSrc;
+  const touchEnabledRef = useRef(touchEnabled);
+  touchEnabledRef.current = touchEnabled;
+  const previousAspect = useRef(aspect);
+  const onZoomChangeRef = useRef(onZoomChange);
+  onZoomChangeRef.current = onZoomChange;
+  const panModeRef = useRef(panMode);
+  panModeRef.current = panMode;
 
   useImperativeHandle(ref, () => ({
+    resetView() { sessionRef.current?.resetView(); },
+    zoomIn() {
+      const session = sessionRef.current;
+      const host = hostRef.current;
+      if (!session || !host) return;
+      const bounds = host.getBoundingClientRect();
+      session.zoomAt(3, bounds.left + bounds.width / 2, bounds.top + bounds.height / 2);
+    },
     setSelection(selection, coordinateSize) {
       const session = sessionRef.current;
       if (!session?.box || !isValidCropRect(selection, coordinateSize)) return;
@@ -87,6 +107,7 @@ export function CropCanvas({ ref, src, zoomSrc, zoomEnabled = false, alt, aspect
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
+    onZoomChangeRef.current?.(false);
     onChangeRef.current({ status: "loading" });
     const img = document.createElement("img");
     img.src = src;
@@ -119,13 +140,34 @@ export function CropCanvas({ ref, src, zoomSrc, zoomEnabled = false, alt, aspect
     };
     let cancelled = false;
     let zoom = 1;
+    let reportedZoomed = false;
     let offsetX = 0;
     let offsetY = 0;
     let upgradeRequested = false;
     session.selection.keyboard = true;
     Object.assign(session.image.style, { position: "absolute", left: "0", top: "0", transformOrigin: "0 0" });
 
+    const resizeHandles = [...canvas.querySelectorAll<CropperHandle>('cropper-handle[action$="-resize"]')];
+    function sizeHandles(frame: Rect) {
+      const touch = touchEnabledRef.current;
+      for (const handle of resizeHandles) {
+        const direction = handle.getAttribute("action")!.split("-")[0];
+        if (direction.length === 2) {
+          const width = touch ? Math.min(44, frame.width / 2) : 20;
+          const height = touch ? Math.min(44, frame.height / 2) : 20;
+          Object.assign(handle.style, { width: `${width}px`, height: `${height}px`,
+            [direction.startsWith("n") ? "top" : "bottom"]: `${-height / 2}px`,
+            [direction.endsWith("e") ? "right" : "left"]: `${-width / 2}px` });
+        } else {
+          const horizontal = direction === "n" || direction === "s";
+          const thickness = Math.min(44, (horizontal ? frame.height : frame.width) / 2);
+          handle.style[horizontal ? "height" : "width"] = touch ? `${thickness}px` : "";
+          handle.style[direction === "n" ? "top" : direction === "s" ? "bottom" : direction === "e" ? "right" : "left"] = touch ? `${-thickness / 2}px` : "";
+        }
+      }
+    }
     function clipShade(s: Rect) {
+      sizeHandles(s);
       const { box, shade } = session;
       if (box && shade) {
         const left = box.x - s.x;
@@ -171,15 +213,20 @@ export function CropCanvas({ ref, src, zoomSrc, zoomEnabled = false, alt, aspect
       image.$setTransform(width / pixels.width, 0, 0, height / pixels.height, session.box.x, session.box.y);
       image.scalable = image.translatable = false;
       projectSelection();
+      const zoomed = zoom > 1;
+      if (zoomed !== reportedZoomed) {
+        reportedZoomed = zoomed;
+        onZoomChangeRef.current?.(zoomed);
+      }
     }
-    function zoomAt(factor: number, clientX: number, clientY: number) {
+    function zoomAt(factor: number, clientX: number, clientY: number, panX = 0, panY = 0) {
       if (!session.box || !Number.isFinite(factor)) return;
       const next = Math.max(1, Math.min(5, zoom * factor));
       const view = canvas.getBoundingClientRect();
       const anchorX = clientX - view.left - view.width / 2;
       const anchorY = clientY - view.top - view.height / 2;
-      offsetX = anchorX - (anchorX - offsetX) * next / zoom;
-      offsetY = anchorY - (anchorY - offsetY) * next / zoom;
+      offsetX = anchorX - (anchorX - offsetX) * next / zoom + panX;
+      offsetY = anchorY - (anchorY - offsetY) * next / zoom + panY;
       zoom = next;
       renderView();
       const sharp = zoomSrcRef.current;
@@ -208,7 +255,21 @@ export function CropCanvas({ ref, src, zoomSrc, zoomEnabled = false, alt, aspect
       session.last = isValidCropRect(rect, natural) ? rect : undefined;
       onChangeRef.current({ status: "ready", selection: session.last ?? null, rendition: natural });
     };
-    // v2 has no viewMode: reject changes leaving the image (documented boundary pattern).
+    let resizeStartRatio = NaN;
+    let shiftResizeRatio = NaN;
+    const onActionStart = () => {
+      resizeStartRatio = session.selection.width / session.selection.height;
+      shiftResizeRatio = NaN;
+    };
+    const onAction = (event: Event) => {
+      const { action, relatedEvent } = (event as CustomEvent<{ action: string; relatedEvent?: PointerEvent }>).detail;
+      shiftResizeRatio = action.endsWith("-resize") && relatedEvent?.shiftKey ? resizeStartRatio : NaN;
+    };
+    const onActionEnd = () => { shiftResizeRatio = NaN; };
+    canvas.addEventListener("actionstart", onActionStart, true);
+    canvas.addEventListener("action", onAction, true);
+    canvas.addEventListener("actionend", onActionEnd, true);
+    // v2 has no viewMode: constrain proposals without vetoing the other axis.
     const onSelectionChange = (event: Event) => {
       const d = (event as CustomEvent<Rect>).detail;
       const b = session.box;
@@ -220,9 +281,19 @@ export function CropCanvas({ ref, src, zoomSrc, zoomEnabled = false, alt, aspect
         return;
       }
       const eps = 0.5;
-      if (![d.x, d.y, d.width, d.height].every(Number.isFinite) || d.width <= 0 || d.height <= 0
-        || d.x < b.x - eps || d.y < b.y - eps || d.x + d.width > b.x + b.width + eps || d.y + d.height > b.y + b.height + eps) {
+      if (![d.x, d.y, d.width, d.height].every(Number.isFinite) || d.width <= 0 || d.height <= 0) {
         event.preventDefault();
+        return;
+      }
+      if (d.x < b.x - eps || d.y < b.y - eps || d.x + d.width > b.x + b.width + eps || d.y + d.height > b.y + b.height + eps) {
+        event.preventDefault();
+        const selection = session.selection;
+        const ratio = selection.aspectRatio > 0 ? selection.aspectRatio : shiftResizeRatio;
+        const bounded = constrainSelection(d, selection, b, ratio);
+        if (bounded && (bounded.x !== selection.x || bounded.y !== selection.y
+          || bounded.width !== selection.width || bounded.height !== selection.height)) {
+          selection.$change(bounded.x, bounded.y, bounded.width, bounded.height, NaN);
+        }
         return;
       }
       report(d);
@@ -277,6 +348,9 @@ export function CropCanvas({ ref, src, zoomSrc, zoomEnabled = false, alt, aspect
       media?.removeEventListener("error", onMediaError);
       session.selection.keyboard = false;
       session.selection.removeEventListener("change", onSelectionChange);
+      canvas.removeEventListener("actionstart", onActionStart, true);
+      canvas.removeEventListener("action", onAction, true);
+      canvas.removeEventListener("actionend", onActionEnd, true);
       cropper.destroy();
       host.replaceChildren();
     };
@@ -304,14 +378,28 @@ export function CropCanvas({ ref, src, zoomSrc, zoomEnabled = false, alt, aspect
     });
     session.selection.append(handle);
     setGrip(handle);
-    const unbind = bindCropViewport(host, session);
+    const unbind = bindCropViewport(host, session, () => panModeRef.current);
     return () => { unbind(); handle.remove(); setGrip(null); session.resetView(); };
   }, [zoomEnabled, readyTick]);
+
+  useEffect(() => {
+    const session = sessionRef.current;
+    const host = hostRef.current;
+    if (!touchEnabled || !session || !host) return;
+    const canvas = host.querySelector("cropper-canvas") as ReturnType<Cropper["getCropperCanvas"]>;
+    const unbind = bindCropTouchViewport(host, session, () => canvas?.$setAction("none"), () => panModeRef.current);
+    session.panBy(0, 0);
+    return () => { unbind(); session.resetView(); };
+  }, [touchEnabled, readyTick, owner]);
 
   // Ratio change (and first load): maximal centred selection, as Kahuna's autoCropArea 1.
   useEffect(() => {
     const session = sessionRef.current;
     if (!session?.box) return;
+    if (!Object.is(previousAspect.current, aspect) && touchEnabledRef.current) {
+      session.resetView();
+    }
+    previousAspect.current = aspect;
     const { box, selection } = session;
     selection.aspectRatio = aspect ?? NaN;
     const restored = !initializedRef.current ? initialSelectionRef.current : undefined;
@@ -365,7 +453,7 @@ export function CropCanvas({ ref, src, zoomSrc, zoomEnabled = false, alt, aspect
   }, [circle, readyTick]);
 
   return <>
-    <div ref={hostRef} tabIndex={-1} data-ready={readyOwner === owner} className="w-full h-full outline-none" style={{ visibility: readyOwner === owner ? "visible" : "hidden" }} />
+    <div ref={hostRef} tabIndex={-1} data-ready={readyOwner === owner} className="relative z-0 w-full h-full outline-none" style={{ visibility: readyOwner === owner ? "visible" : "hidden" }} />
     {grip && createPortal(
       <svg className="size-5 pointer-events-none" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
         <circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" />
@@ -373,6 +461,43 @@ export function CropCanvas({ ref, src, zoomSrc, zoomEnabled = false, alt, aspect
         <circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" />
       </svg>, grip)}
   </>;
+}
+
+function constrainSelection(proposed: Rect, current: Rect, bounds: Rect, aspectRatio: number): Rect | null {
+  const clamp = (value: number, minimum: number, maximum: number) => Math.max(minimum, Math.min(maximum, value));
+  if (proposed.width === current.width && proposed.height === current.height) {
+    const scale = Math.min(1, bounds.width / proposed.width, bounds.height / proposed.height);
+    const width = proposed.width * scale;
+    const height = proposed.height * scale;
+    return { x: clamp(proposed.x, bounds.x, bounds.x + bounds.width - width),
+      y: clamp(proposed.y, bounds.y, bounds.y + bounds.height - height), width, height };
+  }
+  const left = Math.max(proposed.x, bounds.x);
+  const top = Math.max(proposed.y, bounds.y);
+  const right = Math.min(proposed.x + proposed.width, bounds.x + bounds.width);
+  const bottom = Math.min(proposed.y + proposed.height, bounds.y + bounds.height);
+  let width = right - left;
+  let height = bottom - top;
+  if (width <= 0 || height <= 0) return null;
+  if (!Number.isFinite(aspectRatio) || aspectRatio <= 0) return { x: left, y: top, width, height };
+  const anchorFraction = (start: number, end: number, previousStart: number, previousEnd: number) => {
+    if (Math.abs(start - previousStart) < 0.000001) return 0;
+    if (Math.abs(end - previousEnd) < 0.000001) return 1;
+    return 0.5;
+  };
+  const horizontalAnchor = anchorFraction(proposed.x, proposed.x + proposed.width, current.x, current.x + current.width);
+  const verticalAnchor = anchorFraction(proposed.y, proposed.y + proposed.height, current.y, current.y + current.height);
+  const anchorX = proposed.x + proposed.width * horizontalAnchor;
+  const anchorY = proposed.y + proposed.height * verticalAnchor;
+  const availableSize = (anchor: number, fraction: number, minimum: number, maximum: number) => Math.min(
+    fraction === 0 ? Infinity : (anchor - minimum) / fraction,
+    fraction === 1 ? Infinity : (maximum - anchor) / (1 - fraction));
+  width = Math.min(width, height * aspectRatio,
+    availableSize(anchorX, horizontalAnchor, bounds.x, bounds.x + bounds.width),
+    availableSize(anchorY, verticalAnchor, bounds.y, bounds.y + bounds.height) * aspectRatio);
+  if (width <= 0) return null;
+  height = width / aspectRatio;
+  return { x: anchorX - width * horizontalAnchor, y: anchorY - height * verticalAnchor, width, height };
 }
 
 /** Dashed circle inscribed in the selection, slotted as light DOM (Kahuna's guideline). */

@@ -1,8 +1,8 @@
 /**
  * Selections Mobile spec (Phase S5).
  *
- * Tests long-press and drag-paint-toggle gestures on coarse-pointer
- * (touch) devices. Uses Pixel 5 device emulation which sets:
+ * Tests selection gestures, metadata wrapping and detail-panel swipes on
+ * coarse-pointer (touch) devices. Uses Pixel 5 device emulation which sets:
  *  - pointer: coarse  (triggers _pointerCoarse in ui-prefs-store)
  *  - hasTouch: true
  *  - viewport: 393 x 852
@@ -24,7 +24,7 @@
  *   npm --prefix kupua run test:e2e -- selections-mobile.spec.ts --headed
  */
 
-import { test, expect, devices, type Page } from "@playwright/test";
+import { test, expect, devices, type Page, type Locator } from "@playwright/test";
 
 // ---------------------------------------------------------------------------
 // Device emulation -- Pixel 5 sets pointer:coarse via hasTouch
@@ -35,6 +35,15 @@ test.use({ ...devices["Pixel 5"] });
 // Block Grid API calls — same rationale as the kupua fixture in helpers.ts.
 test.beforeEach(async ({ page }) => {
   await page.route("/api/**", (route) => route.fulfill({ status: 503, body: "" }));
+  await page.route("**/src/lib/image-urls.ts*", async route => {
+    const response = await route.fetch();
+    await route.fulfill({ response, body: `${await response.text()}\ngetFullImageUrl = getThumbnailUrl = image => '/__detail_media/' + image.id + '.svg';\n` });
+  });
+  await page.route("**/__detail_media/*", route => {
+    const imageId = new URL(route.request().url()).pathname.split("/").at(-1)!.slice(0, -4);
+    const hue = parseInt(imageId.slice(-6), 16) % 360;
+    return route.fulfill({ contentType: "image/svg+xml", body: `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="hsl(${hue} 55% 40%)"/><path d="M0 0L400 300M400 0L0 300" stroke="white" stroke-width="8"/></svg>` });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -166,6 +175,515 @@ test.beforeEach(async ({ page }) => {
   }, { timeout: 15_000 });
   // Ensure clean slate
   await clearSelection(page);
+});
+
+test("detail toolbar labels collapse without crowding navigation or the locator", async ({ page }) => {
+  const point = await getFirstTouchableCellRect(page);
+  await page.touchscreen.tap(point.x, point.y);
+  const toolbar = page.locator("[data-detail-image-id] > header");
+  const back = toolbar.getByRole("button", { name: "Back to search", exact: true });
+  const crop = toolbar.getByRole("button", { name: "Crop image", exact: true });
+  const position = toolbar.locator(":scope > span").first();
+  for (const [width, backText, cropText] of [[320, "", ""], [412, "Back", "Crop"], [900, "Back to search", "Crop image"]] as const) {
+    await page.setViewportSize({ width, height: 852 });
+    await expect(back).toBeVisible();
+    await expect(crop).toBeVisible();
+    await expect.poll(() => back.innerText()).toBe(backText);
+    await expect.poll(() => crop.innerText()).toBe(cropText);
+    await expect(position).toHaveCSS("font-variant-numeric", "tabular-nums");
+    await expect(position).toHaveCSS("flex-direction", width < 664 ? "column" : "row");
+    await expect.poll(() => position.evaluate((element, desktop) => {
+      const [current, total] = [...element.children].map(child => getComputedStyle(child));
+      return (desktop ? current.fontSize === total.fontSize : parseFloat(current.fontSize) > parseFloat(total.fontSize))
+        && Number(current.fontWeight) > Number(total.fontWeight) && current.color !== total.color;
+    }, width === 900)).toBe(true);
+    expect(await toolbar.evaluate(element => {
+      const bounds = element.getBoundingClientRect();
+      return element.scrollWidth <= element.clientWidth && [...element.children].every(child => {
+        const rect = child.getBoundingClientRect();
+        return rect.left >= bounds.left && rect.right <= bounds.right
+          && rect.top >= bounds.top - 1 && rect.bottom <= bounds.bottom + 1;
+      });
+    })).toBe(true);
+    expect((await back.boundingBox())!.width).toBeGreaterThanOrEqual(44);
+    expect((await crop.boundingBox())!.width).toBeGreaterThanOrEqual(44);
+  }
+  await page.setViewportSize({ width: 412, height: 852 });
+  const actionRightGuide = (await toolbar.getByRole("button", { name: "Settings", exact: true }).boundingBox())!.x;
+  await crop.click();
+  const cropBack = page.getByRole("dialog", { name: "Crop image" }).getByRole("button", { name: "Back to image", exact: true });
+  await expect(cropBack).toBeVisible();
+  const blueFace = (await page.getByRole("dialog", { name: "Crop image" }).getByRole("button", { name: "Crop", exact: true }).locator(":scope > span").boundingBox())!;
+  expect(Math.abs(blueFace.x + blueFace.width - actionRightGuide)).toBeLessThanOrEqual(1);
+  expect(await cropBack.innerText()).toBe("Back");
+  await cropBack.click();
+  await expect(back).toBeVisible();
+});
+
+test("detail metadata wraps long values without horizontal panel scrolling", async ({ page }) => {
+  const longValue = "VERYLONGWORDWITHOUTANYSPACES".repeat(8);
+  await page.evaluate(longValue => {
+    const store = (window as any).__kupua_store__;
+    store.setState({ results: store.getState().results.map((image: any) => ({
+      ...image,
+      metadata: { ...image.metadata, title: longValue, credit: longValue },
+      usageRights: { ...image.usageRights, restrictions: longValue },
+    })) });
+  }, longValue);
+  const point = await getFirstTouchableCellRect(page);
+  await page.touchscreen.tap(point.x, point.y);
+  const panel = page.getByRole("region", { name: "Image details", exact: true });
+  await expect(panel).toBeVisible();
+  await panel.getByRole("button", { name: "Expand Image details", exact: true }).click();
+  const credit = panel.locator('button[data-cql-key="credit"]').filter({ hasText: longValue });
+  await expect(credit).toHaveCSS("user-select", "text");
+  await expect(credit).toBeVisible();
+  expect(await credit.evaluate(element => element.getBoundingClientRect().width <= element.parentElement!.getBoundingClientRect().width)).toBe(true);
+  expect(await panel.evaluate(element => Array.from(element.querySelectorAll("dd")).every(value => value.scrollWidth <= value.clientWidth))).toBe(true);
+  const restriction = panel.getByText("Restricted use:", { exact: true }).locator("..");
+  expect(await restriction.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  const body = panel.locator(":scope > div").last();
+  expect(await body.evaluate(element => element.scrollWidth)).toBe(await body.evaluate(element => element.clientWidth));
+  await expect(body).toHaveCSS("overflow-x", "hidden");
+  await credit.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: test.info().outputPath("metadata-mobile.png") });
+
+  await page.setViewportSize({ width: 1024, height: 852 });
+  const sidebar = page.locator("aside").filter({ has: page.locator('button[data-cql-key="credit"]').filter({ hasText: longValue }) });
+  await expect(sidebar).toBeVisible();
+  expect(await sidebar.evaluate(element => Array.from(element.querySelectorAll("dd")).every(value => value.scrollWidth <= value.clientWidth))).toBe(true);
+  expect(await sidebar.getByText("Restricted use:", { exact: true }).locator("..").evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await sidebar.locator('button[data-cql-key="credit"]').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: test.info().outputPath("metadata-desktop.png") });
+});
+
+test.describe("detail metadata gestures", () => {
+  async function swipe(page: Page, target: Locator, dx: number, dy = 0, duringDrag?: () => Promise<void>, cancel = false) {
+    await target.scrollIntoViewIfNeeded();
+    const bounds = await target.boundingBox();
+    if (!bounds) throw new Error("Swipe target is not visible");
+    const x = bounds.x + bounds.width * (dx < 0 ? 0.8 : dx > 0 ? 0.2 : 0.5);
+    const y = Math.min(bounds.y + bounds.height * (dy < 0 ? 0.8 : 0.2), page.viewportSize()!.height - 30);
+    const session = await page.context().newCDPSession(page);
+    let active = false;
+    try {
+      await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+      active = true;
+      for (let step = 1; step <= 6; step++) {
+        await session.send("Input.dispatchTouchEvent", {
+          type: "touchMove", touchPoints: [{ x: x + dx * step / 6, y: y + dy * step / 6 }],
+        });
+      }
+      await duringDrag?.();
+      await session.send("Input.dispatchTouchEvent", { type: cancel ? "touchCancel" : "touchEnd", touchPoints: [] });
+      active = false;
+    } finally {
+      try {
+        if (active) await session.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+      } finally {
+        await session.detach();
+      }
+    }
+  }
+
+  test.beforeEach(async ({ page }) => {
+    await page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      store.setState({ results: store.getState().results.map((image: any, index: number) => ({
+        ...image, metadata: { ...image.metadata, title: `Swipe image ${index}`, credit: `Swipe credit ${index}` },
+      })) });
+    });
+    const point = await getFirstTouchableCellRect(page);
+    await page.touchscreen.tap(point.x, point.y);
+    await expect(page.getByRole("region", { name: "Image details", exact: true })).toBeVisible();
+  });
+
+  test("mobile Crop zooms and pans the view without changing the crop", async ({ page }) => {
+    await page.getByRole("button", { name: "Crop image", exact: true }).click();
+    const editor = page.getByRole("dialog", { name: "Crop image", exact: true });
+    await expect(editor.getByRole("button", { name: "Crop", exact: true })).toBeEnabled();
+    await expect(editor.getByRole("button", { name: "Fit image" })).toHaveCount(0);
+    await expect(editor.getByRole("button", { name: "Pan view" })).toHaveCount(0);
+    await editor.getByRole("radio", { name: "freeform", exact: true }).click();
+    await editor.getByRole("button", { name: "Edit crop coordinates" }).click();
+    for (const field of ["width", "height"]) {
+      const input = editor.getByRole("spinbutton", { name: `Crop ${field}` });
+      await input.fill(String(Math.floor(Number(await input.inputValue()) / 2)));
+      await input.blur();
+    }
+    await editor.getByRole("button", { name: "Done editing coordinates" }).click();
+    const canvas = editor.locator("cropper-canvas");
+    const rectangle = () => canvas.evaluate(element => {
+      const selection = element.querySelector("cropper-selection") as import("cropperjs").CropperSelection;
+      const image = element.querySelector("cropper-image") as import("cropperjs").CropperImage;
+      const media = image.$getShadowRoot().querySelector("img")!;
+      const [scaleX, , , scaleY, offsetX, offsetY] = image.$getTransform();
+      return [(selection.x - offsetX) / scaleX / media.naturalWidth, (selection.y - offsetY) / scaleY / media.naturalHeight,
+        selection.width / scaleX / media.naturalWidth, selection.height / scaleY / media.naturalHeight];
+    });
+    const ready = () => canvas.evaluate(element => {
+      const image = element.querySelector("cropper-image") as import("cropperjs").CropperImage;
+      const media = image.$getShadowRoot().querySelector("img")!;
+      return media.complete && media.naturalWidth > 0;
+    });
+    await expect.poll(ready).toBe(true);
+    const before = await rectangle();
+    const sameCrop = async () => (await rectangle()).every((value, index) => Number.isFinite(value) && Math.abs(value - before[index]) < 0.000001);
+    const bounds = (await canvas.boundingBox())!;
+    const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+    const session = await page.context().newCDPSession(page);
+    let active = false;
+    try {
+      await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [
+        { id: 1, x: center.x - 30, y: center.y }, { id: 2, x: center.x + 30, y: center.y },
+      ] });
+      active = true;
+      for (let step = 1; step <= 6; step++) {
+        await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [
+          { id: 1, x: center.x - 30 - step * 5 + step * 4, y: center.y + step * 2 },
+          { id: 2, x: center.x + 30 + step * 5 + step * 4, y: center.y + step * 2 },
+        ] });
+      }
+      await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      active = false;
+      await expect.poll(ready).toBe(true);
+      await expect.poll(sameCrop).toBe(true);
+      expect((await editor.locator("cropper-image").boundingBox())!.width).toBeGreaterThan(bounds.width * 1.5);
+      await expect(editor.getByText("Two-finger pan", { exact: true })).toBeVisible();
+      await expect(editor.locator('[data-category="success"] svg[data-icon="hand"]')).toHaveCount(1);
+      await expect(editor.locator("header").getByRole("button", { name: "Fit image" })).toBeVisible();
+      const pan = editor.getByRole("button", { name: "Pan view", exact: true });
+      await expect(pan).toHaveCSS("height", "44px");
+      await expect(pan.locator(":scope > span")).toHaveCSS("height", "32px");
+      const panFace = (await pan.locator(":scope > span").boundingBox())!;
+      const cropFace = (await editor.getByRole("button", { name: "Crop", exact: true }).locator(":scope > span").boundingBox())!;
+      expect(panFace.y).toBeCloseTo(cropFace.y, 0);
+      expect(panFace.height).toBe(cropFace.height);
+      await pan.click();
+      await expect(editor.getByText("Two-finger pan", { exact: true })).toHaveCount(0);
+      await swipe(page, canvas, 40, 0);
+      await expect.poll(sameCrop).toBe(true);
+      await editor.getByRole("button", { name: "Fit image" }).click();
+      await expect(editor.getByRole("button", { name: "Pan view", exact: true })).toHaveCount(0);
+      await expect(editor.getByRole("button", { name: "Crop", exact: true })).toBeFocused();
+      await expect(editor.getByRole("button", { name: "Fit image" })).toHaveCount(0);
+      await expect.poll(sameCrop).toBe(true);
+      await swipe(page, editor.locator('cropper-handle[action="move"]').first(), 40, 0);
+      await expect.poll(sameCrop).toBe(false);
+      const imageBounds = (await editor.locator("cropper-image").boundingBox())!;
+      const grip = (await editor.locator('cropper-handle[action="sw-resize"]').boundingBox())!;
+      const start = { x: grip.x + grip.width / 2, y: grip.y + grip.height / 2 };
+      const edge = { x: Math.max(1, imageBounds.x - 4), y: start.y + (imageBounds.y + imageBounds.height - start.y) * 0.3 };
+      const selection = editor.locator("cropper-selection");
+      await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ id: 1, ...start }] });
+      active = true;
+      for (let step = 1; step <= 6; step++) {
+        await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ id: 1,
+          x: start.x + (edge.x - start.x) * step / 6, y: start.y + (edge.y - start.y) * step / 6,
+        }] });
+      }
+      await expect.poll(async () => (await selection.boundingBox())!.x).toBeCloseTo(imageBounds.x, 0);
+      const pinned = (await selection.boundingBox())!;
+      for (let step = 1; step <= 6; step++) {
+        await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ id: 1,
+          x: edge.x, y: edge.y + (imageBounds.y + imageBounds.height + 4 - edge.y) * step / 6,
+        }] });
+      }
+      await expect.poll(async () => { const frame = (await selection.boundingBox())!; return frame.y + frame.height; })
+        .toBeCloseTo(imageBounds.y + imageBounds.height, 0);
+      const reached = (await selection.boundingBox())!;
+      expect(reached.y + reached.height).toBeGreaterThan(pinned.y + pinned.height + 10);
+      expect(reached.x).toBeCloseTo(imageBounds.x, 0);
+      expect(reached.x + reached.width).toBeCloseTo(pinned.x + pinned.width, 0);
+      await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      active = false;
+    } finally {
+      if (active) await session.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+      await session.detach();
+    }
+  });
+
+  test("mobile Crop separates its controls and preserves geometry through precision and Settings", async ({ page }) => {
+    const detail = page.locator("[data-detail-image-id]");
+    await detail.getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(detail.getByRole("menu")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await detail.getByRole("button", { name: "Crop image", exact: true }).click();
+    const editor = page.getByRole("dialog", { name: "Crop image", exact: true });
+    await expect(editor.getByRole("button", { name: "Crop", exact: true })).toBeEnabled();
+    expect((await editor.locator("header").boundingBox())!.height).toBeLessThanOrEqual(45);
+    expect(await editor.getByRole("button", { name: "Crop", exact: true }).evaluate(button => {
+      const face = button.firstElementChild!.getBoundingClientRect();
+      const header = button.closest("header")!.getBoundingClientRect();
+      return button.getBoundingClientRect().height >= 44 && face.top > header.top && face.bottom < header.bottom;
+    })).toBe(true);
+    await expect(editor.getByRole("spinbutton")).toHaveCount(0);
+    const canvas = editor.locator("cropper-canvas");
+    const ratios = editor.getByRole("radiogroup", { name: "Crop ratio" });
+    expect((await ratios.boundingBox())!.y).toBeGreaterThan((await canvas.boundingBox())!.y);
+    expect(await editor.locator("footer button").evaluateAll(buttons => buttons.every(button => {
+      const bounds = button.getBoundingClientRect();
+      return bounds.width >= 44 && bounds.height >= 44;
+    }))).toBe(true);
+    const precision = editor.getByRole("button", { name: "Edit crop coordinates" });
+    await precision.click();
+    const coordinates = () => Promise.all(["x", "y", "width", "height"].map(field =>
+      editor.getByRole("spinbutton", { name: `Crop ${field}` }).inputValue()));
+    const width = editor.getByRole("spinbutton", { name: "Crop width" });
+    await width.fill(String(Math.floor(Number(await width.inputValue()) / 2)));
+    await width.blur();
+    const edited = await coordinates();
+    await editor.getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(editor.getByRole("menu")).toBeVisible();
+    await editor.locator('cropper-selection cropper-handle[action="move"]').tap();
+    await expect(editor.getByRole("menu")).toHaveCount(0);
+    await expect(editor).toBeVisible();
+    await editor.getByRole("button", { name: "Settings", exact: true }).click();
+    await page.keyboard.press("Escape");
+    await expect(editor).toBeVisible();
+    await expect(precision).toHaveAttribute("aria-expanded", "true");
+    await page.screenshot({ path: test.info().outputPath("crop-mobile-precision.png") });
+    const panel = editor.getByTestId("crop-coordinate-panel");
+    const panelBeforeDrag = (await panel.boundingBox())!;
+    await expect(panel).toHaveCSS("border-top-width", "1px");
+    await expect(editor.locator("footer")).toHaveCSS("border-top-width", "0px");
+    await swipe(page, editor.getByTestId("crop-coordinate-handle"), 0, 100, async () => {
+      await expect.poll(async () => (await panel.boundingBox())!.y - panelBeforeDrag.y).toBeCloseTo(100, 0);
+      await expect(panel).toHaveCSS("border-top-width", "1px");
+      await expect(editor.locator("footer")).toHaveCSS("border-top-width", "0px");
+    });
+    await expect(precision).toBeFocused();
+    await precision.click();
+    expect(await coordinates()).toEqual(edited);
+    await editor.getByRole("button", { name: "Done editing coordinates" }).click();
+    await editor.getByRole("radio", { name: "square (1:1)" }).click();
+    const mask = editor.getByRole("checkbox", { name: "Apply mask", exact: true });
+    await expect(mask).toBeVisible();
+    expect(await mask.evaluate(input => !!input.closest("footer"))).toBe(true);
+    const maskBounds = (await mask.locator("..").boundingBox())!;
+    const dimensions = (await editor.locator("footer").getByText(/ × .* px$/).boundingBox())!;
+    expect(maskBounds.height).toBeGreaterThanOrEqual(44);
+    expect(maskBounds.x).toBeGreaterThanOrEqual(dimensions.x + dimensions.width);
+    expect(await editor.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath("crop-mobile-layout.png") });
+    await editor.getByRole("button", { name: "Back to image", exact: true }).click();
+    await expect(editor).toHaveCount(0);
+    await expect(detail.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
+  });
+
+  test("mobile Crop keeps fields above a reduced viewport and rejects invalid swipe dismissal", async ({ page }) => {
+    await page.getByRole("button", { name: "Crop image", exact: true }).click();
+    const editor = page.getByRole("dialog", { name: "Crop image", exact: true });
+    const crop = editor.getByRole("button", { name: "Crop", exact: true });
+    await expect(crop).toBeEnabled();
+    const precision = editor.getByRole("button", { name: "Edit crop coordinates" });
+    await precision.click();
+    const width = editor.getByRole("spinbutton", { name: "Crop width" });
+    const originalWidth = await width.inputValue();
+    const restoreViewport = await page.evaluateHandle(() => {
+      const viewport = window.visualViewport!;
+      const height = Object.getOwnPropertyDescriptor(viewport, "height");
+      const top = Object.getOwnPropertyDescriptor(viewport, "offsetTop");
+      Object.defineProperty(viewport, "height", { configurable: true, value: 280 });
+      Object.defineProperty(viewport, "offsetTop", { configurable: true, value: 12 });
+      viewport.dispatchEvent(new Event("resize"));
+      return () => {
+        if (height) Object.defineProperty(viewport, "height", height); else Reflect.deleteProperty(viewport, "height");
+        if (top) Object.defineProperty(viewport, "offsetTop", top); else Reflect.deleteProperty(viewport, "offsetTop");
+        viewport.dispatchEvent(new Event("resize"));
+      };
+    });
+    try {
+      await expect(editor).toHaveCSS("height", "280px");
+      await expect(editor).toHaveCSS("top", "12px");
+      expect(await page.getByTestId("crop-backdrop").evaluate(backdrop => {
+        const bounds = backdrop.getBoundingClientRect();
+        const hit = document.elementFromPoint(innerWidth / 2, 320);
+        return bounds.top === 0 && bounds.bottom === innerHeight
+          && getComputedStyle(backdrop).backgroundColor === "rgb(51, 51, 51)"
+          && !!hit && backdrop.contains(hit);
+      })).toBe(true);
+      await expect(editor.getByRole("radiogroup", { name: "Crop ratio" })).toHaveCount(0);
+      const height = editor.getByRole("spinbutton", { name: "Crop height" });
+      await height.focus();
+      expect(await height.evaluate(input => {
+        const bounds = input.getBoundingClientRect();
+        const panel = input.closest("section")!.getBoundingClientRect();
+        const header = input.closest("section")!.firstElementChild!.getBoundingClientRect();
+        return bounds.top >= header.bottom && bounds.bottom <= panel.bottom;
+      })).toBe(true);
+      await width.fill(String(Number(await width.getAttribute("max")) + 1));
+      await expect(width).toHaveAttribute("aria-invalid", "true");
+      await expect(width).toHaveCSS("border-color", "rgb(237, 89, 53)");
+      await expect(crop).toBeDisabled();
+      await swipe(page, editor.getByTestId("crop-coordinate-handle"), 0, 100);
+      await expect(editor.getByRole("button", { name: "Done editing coordinates" })).toBeVisible();
+      await expect(width).toHaveAttribute("aria-invalid", "true");
+      await width.fill(originalWidth);
+      await expect(crop).toBeEnabled();
+      await editor.getByRole("button", { name: "Done editing coordinates" }).click();
+      await expect(precision).toHaveAttribute("aria-expanded", "false");
+      await expect(precision).toBeFocused();
+    } finally {
+      await restoreViewport.evaluate(restore => restore());
+      await restoreViewport.dispose();
+    }
+    await expect(editor.getByRole("radiogroup", { name: "Crop ratio" })).toBeVisible();
+  });
+
+  test("peek swipes move image and details together while the top bar stays fixed", async ({ page }) => {
+    const detail = page.locator("[data-detail-image-id]");
+    const first = await detail.getAttribute("data-detail-image-id");
+    const panel = page.getByRole("region", { name: "Image details", exact: true });
+    const header = panel.getByRole("button", { name: "Expand Image details", exact: true });
+    await header.focus();
+    const imagePage = detail.locator('[data-detail-page="current"]');
+    await expect.poll(() => imagePage.locator('img[fetchpriority="high"]').evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
+    await expect.poll(() => detail.locator('[data-detail-page="next"] img').evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
+    const initialImage = (await imagePage.boundingBox())!;
+    const initialCard = (await panel.boundingBox())!;
+    const initialBar = (await detail.locator("header").boundingBox())!;
+    const nextTitle = await page.evaluate(() => {
+      const state = (window as any).__kupua_store__.getState();
+      const current = document.querySelector<HTMLElement>("[data-detail-image-id]")!.dataset.detailImageId;
+      const index = state.results.findIndex((image: any) => image.id === current);
+      return state.results[index + 1].metadata.title;
+    });
+    await page.evaluate(() => {
+      const titles = new Map((window as any).__kupua_store__.getState().results.map((image: any) => [image.id, image.metadata.title]));
+      const probe = { frames: 0, mismatches: [] as string[], frame: 0 };
+      const sample = () => {
+        probe.frames++;
+        for (const page of document.querySelectorAll<HTMLElement>("[data-detail-page]")) {
+          const bounds = page.getBoundingClientRect();
+          if (Math.min(bounds.right, innerWidth) - Math.max(bounds.left, 0) < 32) continue;
+          const image = page.querySelector<HTMLImageElement>("img");
+          const title = page.querySelector('[aria-label="Image details"] button[aria-expanded]');
+          if (probe.mismatches.length < 10 && image && new URL(image.currentSrc || image.src).pathname !== `/__detail_media/${page.dataset.detailPageId}.svg`) probe.mismatches.push("image identity");
+          if (probe.mismatches.length < 10 && title?.textContent !== titles.get(page.dataset.detailPageId)) probe.mismatches.push("metadata identity");
+        }
+        probe.frame = requestAnimationFrame(sample);
+      };
+      (window as any).__pairedSwipeProbe = probe;
+      probe.frame = requestAnimationFrame(sample);
+    });
+    let observations = { frames: 0, mismatches: [] as string[] };
+    try {
+      await swipe(page, header, -200, 12, async () => {
+        const movedImage = (await imagePage.boundingBox())!;
+        const movedCard = (await panel.boundingBox())!;
+        expect(movedImage.x - initialImage.x).toBeCloseTo(-200, 0);
+        expect(movedCard.x - initialCard.x).toBeCloseTo(movedImage.x - initialImage.x, 0);
+        expect(await detail.locator("header").boundingBox()).toEqual(initialBar);
+        await page.screenshot({ path: test.info().outputPath("detail-pages-during-swipe.png") });
+      });
+      await expect(detail).not.toHaveAttribute("data-detail-image-id", first!);
+    } finally {
+      observations = await page.evaluate(() => {
+        const probe = (window as any).__pairedSwipeProbe;
+        cancelAnimationFrame(probe.frame);
+        delete (window as any).__pairedSwipeProbe;
+        return { frames: probe.frames, mismatches: probe.mismatches };
+      });
+    }
+    expect(observations.frames).toBeGreaterThan(1);
+    expect(observations.mismatches).toEqual([]);
+    await expect(header).toHaveAttribute("aria-expanded", "false");
+    await expect(header).toHaveText(nextTitle);
+    await expect(header).toBeFocused();
+    await swipe(page, header, 200, -12);
+    await expect(detail).toHaveAttribute("data-detail-image-id", first!);
+    await expect(header).toHaveAttribute("aria-expanded", "false");
+    await expect(header).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(panel.getByRole("button", { name: "Collapse Image details", exact: true })).toBeVisible();
+  });
+
+  test("expanded values swipe without searching and retain vertical scrolling and taps", async ({ page }) => {
+    const detail = page.locator("[data-detail-image-id]");
+    const first = await detail.getAttribute("data-detail-image-id");
+    const query = new URL(page.url()).searchParams.get("query");
+    const panel = page.getByRole("region", { name: "Image details", exact: true });
+    await panel.getByRole("button", { name: "Expand Image details", exact: true }).click();
+    await expect.poll(async () => Math.round((await panel.boundingBox())!.y)).toBe(Math.round(page.viewportSize()!.height / 4));
+    const body = panel.locator(":scope > div").last();
+    await swipe(page, body, 0, 360);
+    await expect(panel.getByRole("button", { name: "Expand Image details", exact: true })).toBeVisible();
+    await panel.getByRole("button", { name: "Expand Image details", exact: true }).tap();
+    await expect.poll(async () => Math.round((await panel.boundingBox())!.y)).toBe(Math.round(page.viewportSize()!.height / 4));
+    const credit = panel.locator('button[data-cql-key="credit"]').first();
+    const initialCard = (await panel.boundingBox())!;
+    const imagePage = detail.locator('[data-detail-page="current"]');
+    const initialImage = (await imagePage.boundingBox())!;
+    await swipe(page, credit, -160, 18, async () => {
+      expect((await panel.boundingBox())!.x - initialCard.x).toBeCloseTo(-160, 0);
+      expect((await imagePage.boundingBox())!.x - initialImage.x).toBeCloseTo(-160, 0);
+      await page.screenshot({ path: test.info().outputPath("detail-pages-expanded-swipe.png") });
+    });
+    await expect(detail).not.toHaveAttribute("data-detail-image-id", first!);
+    expect(new URL(page.url()).searchParams.get("query")).toBe(query);
+    await expect(panel.getByRole("button", { name: "Collapse Image details", exact: true })).toBeVisible();
+    expect(await panel.locator(":scope > div").last().evaluate(element => element.scrollTop)).toBe(0);
+    await swipe(page, credit, 160, -18);
+    await expect(detail).toHaveAttribute("data-detail-image-id", first!);
+
+    await body.evaluate(element => { element.scrollTop = 0; });
+    await swipe(page, body, 0, -150);
+    await expect.poll(() => body.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+    await expect(detail).toHaveAttribute("data-detail-image-id", first!);
+
+    await credit.tap();
+    await expect(detail).toHaveCount(0);
+    expect(new URL(page.url()).searchParams.get("query")).not.toBe(query);
+  });
+
+  test("cancelled image swipes restore the whole page and fullscreen stays image-only", async ({ page }) => {
+    const detail = page.locator("[data-detail-image-id]");
+    const panel = page.getByRole("region", { name: "Image details", exact: true });
+    const imageSurface = page.getByTestId("detail-image-container");
+    const first = await detail.getAttribute("data-detail-image-id");
+    const initialCard = (await panel.boundingBox())!;
+    await swipe(page, imageSurface, -150, 0, async () => {
+      expect((await panel.boundingBox())!.x - initialCard.x).toBeCloseTo(-150, 0);
+    }, true);
+    await expect(detail).toHaveAttribute("data-detail-image-id", first!);
+    expect(await panel.boundingBox()).toEqual(initialCard);
+    await swipe(page, imageSurface, -200);
+    await expect(detail).not.toHaveAttribute("data-detail-image-id", first!);
+    const fullscreenEntry = await detail.getAttribute("data-detail-image-id");
+    await page.keyboard.press("f");
+    try {
+      await expect.poll(() => page.evaluate(() => Boolean(document.fullscreenElement))).toBe(true);
+      await expect(page.getByRole("region", { name: "Image details", exact: true })).toHaveCount(0);
+      await swipe(page, imageSurface, -200);
+      await expect(detail).not.toHaveAttribute("data-detail-image-id", fullscreenEntry!);
+      await expect.poll(() => page.evaluate(() => Boolean(document.fullscreenElement))).toBe(true);
+      await swipe(page, imageSurface, 200);
+      await expect(detail).toHaveAttribute("data-detail-image-id", fullscreenEntry!);
+      await expect(detail.getByRole("button", { name: "Settings", exact: true })).toHaveCount(0);
+    } finally {
+      if (await page.evaluate(() => Boolean(document.fullscreenElement))) await page.keyboard.press("f");
+    }
+    await expect.poll(() => page.evaluate(() => Boolean(document.fullscreenElement))).toBe(false);
+    await expect(panel).toBeVisible();
+  });
+
+  test("image swipe-up still tracks only the card before expanding", async ({ page }) => {
+    const detail = page.locator("[data-detail-image-id]");
+    const panel = page.getByRole("region", { name: "Image details", exact: true });
+    const imageSurface = page.getByTestId("detail-image-container");
+    const image = imageSurface.locator('img[fetchpriority="high"]');
+    await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth > 0)).toBe(true);
+    const initialImage = (await image.boundingBox())!;
+    const initialCard = (await panel.boundingBox())!;
+    const initialBar = (await detail.locator("header").boundingBox())!;
+    await swipe(page, imageSurface, 0, -360, async () => {
+      expect((await panel.boundingBox())!.y).toBeLessThan(initialCard.y - 100);
+      expect(await image.boundingBox()).toEqual(initialImage);
+      expect(await detail.locator("header").boundingBox()).toEqual(initialBar);
+    });
+    await expect(panel.getByRole("button", { name: "Collapse Image details", exact: true })).toBeVisible();
+  });
 });
 
 // ===========================================================================

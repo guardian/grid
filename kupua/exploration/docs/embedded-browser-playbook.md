@@ -1,5 +1,11 @@
 # Embedded Browser Playbook
 
+> **This browser is your playground, not the operator's personal browser.**
+> Use it freely for the authorised task. Do not save or restore drafts, filters,
+> selections, preferences or viewport just to protect the operator's previous state.
+> Leave a useful test state; preserve state only when the test requires it.
+> Live-system safeguards and cleanup of held input/instrumentation still apply.
+
 Operating guide for agents driving Kupua in VS Code's integrated browser.
 Read this short entry point before browser work, then only the reference sections
 needed for the task. Kahuna has its own optional reference.
@@ -32,14 +38,15 @@ needed for the task. Kahuna has its own optional reference.
   density, sort or detail drivers. Helpers are TypeScript test code, not necessarily
   pasteable into the browser bridge. Check current source rather than copying old
   internal action signatures.
-- **Establish the right baseline:** these browsers are agent-only. No operator
-  app-preference backup is required. Preserve history/cache state when it is the
+- **Establish the right baseline:** preserve history/cache state when it is the
   subject of the test; reset only relevant app state for independent controls.
   Never clear authentication data wholesale.
-- **Own cleanup:** use bounded jobs and `finally` to release holds, restore original
-  method descriptors, remove routes/listeners/observers and undo cache/emulation
-  changes. Verify cleanup before closing a page. Reload does not remove a
-  context/page init script; discard its owned context when needed.
+- **Own cleanup:** use bounded jobs and `finally` to release held input, restore
+  overridden methods, remove routes/listeners/observers and undo temporary cache
+  or fault overrides. Leave an intentional, verified viewport/input mode; restoring
+  ordinary UI state is not a cleanup requirement. Verify cleanup before closing a
+  page. Reload does not remove a context/page init script; discard its owned
+  context when needed.
 
 ## Find the Technique
 

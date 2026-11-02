@@ -100,9 +100,10 @@ function Toast({ toast }: { toast: ToastItem }) {
   return <ToastNotice category={toast.category} message={toast.message} onDismiss={() => dismiss(toast.id)} />;
 }
 
-export function ToastNotice({ category, message, onDismiss, className = "max-w-sm w-full" }: {
+export function ToastNotice({ category, message, icon, onDismiss, className = "max-w-sm w-full" }: {
   category: ToastCategory;
   message: ReactNode;
+  icon?: ReactNode;
   onDismiss: MouseEventHandler<HTMLButtonElement>;
   className?: string;
 }) {
@@ -121,7 +122,7 @@ export function ToastNotice({ category, message, onDismiss, className = "max-w-s
       ].join(" ")}
     >
       {/* Icon */}
-      <CategoryIcon category={category} />
+      {icon ?? <CategoryIcon category={category} />}
 
       {/* Message */}
       <span className="flex-1 min-w-0 leading-snug">{message}</span>

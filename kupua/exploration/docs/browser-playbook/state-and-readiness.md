@@ -95,6 +95,14 @@ Use bounded synchronous predicates or in-page async loops, not fixed sleeps.
 | Refresh/fill | First accepted publication separately from later background fill |
 | History | Destination key/query, focus/anchor and visible placement; length alone misses replaced forward branches |
 
+Before deriving geometry from image intrinsic dimensions, require positive
+`naturalWidth`/`naturalHeight` for the intended loaded source and finite results.
+A source/rendition replacement can temporarily clear those dimensions while the
+app's selection data remains unchanged. Treat that sample as unavailable, compare
+the underlying values separately, and use a bounded readiness wait before retrying
+the calculation. Loaded dimensions guard the maths; they do not prove decode or
+paint readiness.
+
 Capture counters before input. Subscribe before response release if first publication
 matters; a successor's busy flag can obscure an earlier publication. Recheck intended
 state after intervening awaits. Resident/no-op actions need not start new reads.
@@ -125,11 +133,15 @@ Measure the real scroll viewport. The table ARIA grid can span all virtual conte
 its scroll ancestor is the viewport. Exclude sticky headers using live rectangles.
 Re-read dimensions/columns after panel activation or resize.
 
-- **Mobile emulation:** `page.setViewportSize` only narrows the width. The pointer
-  stays fine, so `pointer-coarse:` styles and `_pointerCoarse` paths don't run. Use
-  a CDP session: call `Emulation.setDeviceMetricsOverride` with `mobile: true`, then
-  `Emulation.setTouchEmulationEnabled`, then reload. Check that
-  `matchMedia('(pointer: coarse)')` matches. Clear both overrides in cleanup.
+- **Mobile emulation:** width alone does not establish touch mode. Choose the
+  viewport/device metrics for the question and enable touch through CDP. In the
+  integrated browser, resize or reload can clear touch emulation: after the last
+  such action, verify `matchMedia('(pointer: coarse)')` and the app's effective
+  mode (`data-shell="compact"` for Kupua's phone shell). If the media query is
+  coarse but the shell is stale, toggle touch off, await fine, then on and await
+  both coarse and the intended shell. Do not set the shell attribute manually.
+  Before a different control, clear temporary overrides or explicitly establish
+  and verify its intended mode. Emulation is not physical-device proof.
 
 - Elect the app-owned viewport or selection anchor appropriate to the contract,
   not the nearest DOM item to centre. Record focus, selection and anchor separately.
@@ -155,6 +167,14 @@ Re-read dimensions/columns after panel activation or resize.
   Height-only and width-changing controls answer different questions.
 - Exclude timestamps from geometry equality signatures. Keep the first successful
   stability boundary instead of overwriting it each frame.
+
+For a suspected drag/clamp defect, compare the idle geometry, the first small
+in-bounds move and the boundary phase separately. Native controls may normalize
+aspect or subpixel geometry when a drag starts; an idle-to-final comparison can
+misattribute that change to the edge. Use the contract's coordinate space, such as
+original-image pixels versus transformed CSS rectangles. Keep a genuine first-move
+change visible in the evidence; do not silently relax source-value invariants to
+accommodate CSS rounding.
 
 ## Reloads and Recovery
 

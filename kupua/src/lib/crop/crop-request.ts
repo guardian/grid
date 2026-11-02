@@ -49,20 +49,29 @@ export function toOriginalRect(selection: Rect, rendition: Size, original: Size,
   return { x, y, width, height };
 }
 
+export function cropCoordinateLimits(rect: Rect, field: keyof Rect, original: Size, aspect: number | null): { min: number; max: number } {
+  if (field === "x") return { min: 0, max: original.width - rect.width };
+  if (field === "y") return { min: 0, max: original.height - rect.height };
+  const availableWidth = original.width - rect.x;
+  const availableHeight = original.height - rect.y;
+  return { min: 1, max: Math.max(1, field === "width"
+    ? aspect ? Math.min(availableWidth, Math.round(availableHeight * aspect)) : availableWidth
+    : aspect ? Math.min(availableHeight, Math.round(availableWidth / aspect)) : availableHeight) };
+}
+
 export function editCropRect(rect: Rect, field: keyof Rect, value: number, original: Size, aspect: number | null): Rect {
   if (!Number.isFinite(value)) return rect;
   const next = { ...rect };
   const availableWidth = original.width - rect.x;
   const availableHeight = original.height - rect.y;
-  if (field === "x") next.x = clamp(Math.round(value), 0, original.width - rect.width);
-  else if (field === "y") next.y = clamp(Math.round(value), 0, original.height - rect.height);
+  const { min, max } = cropCoordinateLimits(rect, field, original, aspect);
+  if (field === "x") next.x = clamp(Math.round(value), min, max);
+  else if (field === "y") next.y = clamp(Math.round(value), min, max);
   else if (field === "width") {
-    const max = aspect ? Math.min(availableWidth, Math.floor(availableHeight * aspect)) : availableWidth;
-    next.width = clamp(Math.round(value), 1, Math.max(1, max));
+    next.width = clamp(Math.round(value), min, max);
     if (aspect) next.height = clamp(Math.round(next.width / aspect), 1, availableHeight);
   } else {
-    const max = aspect ? Math.min(availableHeight, Math.floor(availableWidth / aspect)) : availableHeight;
-    next.height = clamp(Math.round(value), 1, Math.max(1, max));
+    next.height = clamp(Math.round(value), min, max);
     if (aspect) next.width = clamp(Math.round(next.height * aspect), 1, availableWidth);
   }
   return next;

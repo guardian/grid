@@ -11,6 +11,7 @@ import { ApiDataSource } from "@/dal/api-data-source";
 import { useSearchStore } from "@/stores/search-store";
 import { useEnrichmentStore } from "@/stores/enrichment-store";
 import { ImageDetail } from "./ImageDetail";
+import { SettingsMenu } from "./SettingsMenu";
 import { useReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
@@ -34,6 +35,9 @@ const fixture = vi.hoisted(() => ({
   mediaProps: [] as ComponentProps<"img">[],
   composed: false,
   realDismiss: false,
+  compact: false,
+  fullscreen: false,
+  swiped: false,
   spa: true,
   prepareScroll: vi.fn(),
   traverse: (_imageId: string) => {},
@@ -63,10 +67,10 @@ vi.mock("@/hooks/useImageTraversal", () => ({ useImageTraversal: () => ({
   prevImage: undefined, nextImage: undefined, currentGlobalIndex: -1,
   goToPrev: vi.fn(), goToNext: vi.fn(),
 }) }));
-vi.mock("@/hooks/useFullscreen", () => ({ useFullscreen: () => ({ isFullscreen: false, toggleFullscreen: vi.fn() }) }));
+vi.mock("@/hooks/useFullscreen", () => ({ useFullscreen: () => ({ isFullscreen: fixture.fullscreen, toggleFullscreen: vi.fn() }) }));
 vi.mock("@/hooks/useCursorAutoHide", () => ({ useCursorAutoHide: () => ({ cursorHidden: false }) }));
 vi.mock("@/hooks/useKeyboardShortcut", () => ({ useKeyboardShortcut: vi.fn() }));
-vi.mock("@/hooks/useSwipeCarousel", () => ({ useSwipeCarousel: () => ({ swipedRef: { current: false }, lastSwipeTimeRef: { current: 0 } }) }));
+vi.mock("@/hooks/useSwipeCarousel", () => ({ useSwipeCarousel: () => ({ swipedRef: { current: fixture.swiped }, lastSwipeTimeRef: { current: 0 } }) }));
 vi.mock("@/hooks/useSwipeDismiss", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/hooks/useSwipeDismiss")>();
   return { useSwipeDismiss: (options: Parameters<typeof actual.useSwipeDismiss>[0]) =>
@@ -93,7 +97,7 @@ vi.mock("@/components/UsagesSection", () => ({ UsagesSection: () => null, countD
 vi.mock("@/components/crop/CropEditor", () => ({ CropEditor: ({ onClose }: { onClose: () => void }) => (
   <button onClick={onClose}>Cancel crop</button>
 ) }));
-vi.mock("@/components/PanelLayout", () => ({ AccordionSection: ({ children }: { children: ReactNode }) => <section>{children}</section>, useIsCompact: () => false }));
+vi.mock("@/components/PanelLayout", () => ({ AccordionSection: ({ children }: { children: ReactNode }) => <section>{children}</section>, useIsCompact: () => fixture.compact }));
 vi.mock("@/lib/reset-to-home", () => ({ resetToHome: vi.fn() }));
 vi.mock("@/lib/orchestration/search", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/orchestration/search")>(),
@@ -123,6 +127,7 @@ function deferred<T>() {
 
 describe("KUP-004 standalone detail identity", () => {
   const initialState = useSearchStore.getState();
+  const initialPrefs = useUiPrefsStore.getState();
   let dataSource: MockDataSource;
   let transitions: { requested: string; displayed: string | null; text: string }[];
 
@@ -157,8 +162,170 @@ describe("KUP-004 standalone detail identity", () => {
   afterEach(() => {
     cleanup();
     useSearchStore.setState(initialState, true);
+    useUiPrefsStore.setState(initialPrefs, true);
+    fixture.compact = false;
+    fixture.fullscreen = false;
+    fixture.swiped = false;
     vi.restoreAllMocks();
     vi.useRealTimers();
+  });
+
+  it.each([false, true])("image swipe-up drags only the card with sheet snap rules (fullscreen=%s)", (fullscreen) => {
+    fixture.compact = true;
+    fixture.fullscreen = fullscreen;
+    fixture.realDismiss = true;
+    fixture.resident = [makeImage("A")];
+    useUiPrefsStore.setState({ _pointerCoarse: true });
+    const back = vi.spyOn(history, "back").mockImplementation(() => {});
+    render(<Detail imageId="A" />);
+    const image = screen.getByAltText("Title A");
+    const container = image.closest('[data-testid="detail-image-container"]')!;
+    const wrapper = document.querySelector<HTMLElement>("[data-detail-image-id]")!;
+    const card = screen.queryByRole("region", { name: "Image details" });
+    const peek = card?.style.translate;
+    const clock = vi.spyOn(performance, "now");
+    const touch = (type: string, vertical: number, timestamp: number) => {
+      clock.mockReturnValue(timestamp);
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperties(event, {
+        touches: { value: type === "touchend" ? [] : [{ clientX: 100, clientY: vertical }] },
+        changedTouches: { value: [{ clientX: 100, clientY: vertical }] },
+        timeStamp: { value: timestamp },
+      });
+      fireEvent(container, event);
+    };
+    touch("touchstart", 400, 0);
+    touch("touchmove", 350, 1000);
+    if (!fullscreen) expect(card!.style.translate).not.toBe(peek);
+    touch("touchend", 350, 1100);
+    if (!fullscreen) {
+      expect(card!.style.translate).toBe(peek);
+      expect(screen.getByRole("button", { name: "Expand Image details" }).getAttribute("aria-expanded")).toBe("false");
+    }
+    touch("touchstart", 400, 2000);
+    touch("touchmove", 100, 3000);
+    expect(image.style.transform).toBe("");
+    expect(wrapper.style.transform).toBe("");
+    if (!fullscreen) expect(card!.style.translate).not.toBe(peek);
+    touch("touchend", 100, 3100);
+    if (fullscreen) expect(screen.queryByRole("region", { name: "Image details" })).toBeNull();
+    else expect(screen.getByRole("button", { name: "Collapse Image details" }).getAttribute("aria-expanded")).toBe("true");
+    expect(image.style.transform).toBe("");
+    expect(wrapper.style.transform).toBe("");
+    expect(back).not.toHaveBeenCalled();
+  });
+
+  it("post-swipe suppression allows keyboard activation while rejecting pointer clicks", () => {
+    fixture.compact = true;
+    fixture.swiped = true;
+    fixture.resident = [makeImage("A")];
+    render(<Detail imageId="A" />);
+    const toggle = screen.getByRole("button", { name: "Expand Image details" });
+    fireEvent.click(toggle, { detail: 1 });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(toggle, { detail: 0 });
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("retains card focus while resetting incoming metadata scroll", () => {
+    fixture.compact = true;
+    fixture.resident = [makeImage("A"), makeImage("B")];
+    const mounted = render(<Detail imageId="A" />);
+    fireEvent.click(screen.getByRole("button", { name: "Expand Image details" }));
+    const toggle = screen.getByRole("button", { name: "Collapse Image details" });
+    const card = screen.getByRole("region", { name: "Image details" });
+    const content = card.lastElementChild as HTMLElement;
+    content.scrollTop = 100;
+    toggle.focus();
+    mounted.rerender(<Detail imageId="B" />);
+    expect(document.activeElement).toBe(toggle);
+    expect(content.scrollTop).toBe(0);
+    fireEvent.click(toggle);
+    expect(screen.getByRole("button", { name: "Expand Image details" })).toBe(toggle);
+  });
+
+  it.each([false, true])("keeps Settings outside fullscreen after a swipe, fullscreen=%s", fullscreen => {
+    fixture.compact = true;
+    fixture.fullscreen = fullscreen;
+    fixture.swiped = true;
+    fixture.resident = [makeImage("A")];
+    render(<Detail imageId="A" />);
+    if (fullscreen) {
+      expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
+      return;
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }), { detail: 1 });
+    expect(screen.getByRole("menu")).toBeTruthy();
+    fireEvent.keyDown(screen.getByRole("button", { name: "Settings" }), { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("keeps detail Settings usable in app fullscreen and closed on exit", () => {
+    let fullscreen: Element | null = null;
+    Object.defineProperty(document, "fullscreenElement", { configurable: true, get: () => fullscreen });
+    fixture.resident = [makeImage("A")];
+    render(<Detail imageId="A" />);
+    act(() => { fullscreen = document.documentElement; document.dispatchEvent(new Event("fullscreenchange")); });
+    expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(screen.getByRole("button", { name: "Exit full screen" })).toBeTruthy();
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+    act(() => { fullscreen = null; document.dispatchEvent(new Event("fullscreenchange")); });
+    expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
+    expect(screen.queryByRole("menu")).toBeNull();
+    Reflect.deleteProperty(document, "fullscreenElement");
+  });
+
+  it("keeps shared Settings usable in app fullscreen but hidden in image fullscreen", () => {
+    let fullscreen: Element | null = document.documentElement;
+    Object.defineProperty(document, "fullscreenElement", { configurable: true, get: () => fullscreen });
+    try {
+      render(<SettingsMenu />);
+      fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+      expect(screen.getByRole("button", { name: "Exit full screen" })).toBeTruthy();
+      fireEvent.pointerDown(document.body);
+      expect(screen.queryByRole("menu")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+      fireEvent.keyDown(document.body, { key: "Escape" });
+      expect(screen.queryByRole("menu")).toBeNull();
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Settings" }));
+      act(() => { fullscreen = document.body; document.dispatchEvent(new Event("fullscreenchange")); });
+      expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
+      act(() => { fullscreen = document.documentElement; document.dispatchEvent(new Event("fullscreenchange")); });
+      expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
+      expect(screen.queryByRole("menu")).toBeNull();
+    } finally {
+      cleanup();
+      Reflect.deleteProperty(document, "fullscreenElement");
+    }
+  });
+
+  it("a second finger cancels an owned content pull without collapsing the card", () => {
+    fixture.compact = true;
+    fixture.resident = [makeImage("A")];
+    render(<Detail imageId="A" />);
+    fireEvent.click(screen.getByRole("button", { name: "Expand Image details" }));
+    const card = screen.getByRole("region", { name: "Image details" });
+    const content = card.lastElementChild as HTMLElement;
+    const rest = card.style.translate;
+    const touch = (type: string, vertical: number, fingers = 1) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperties(event, {
+        touches: { value: type === "touchend" ? [] : Array.from({ length: fingers }, (_, index) => ({ clientX: 100 + index * 20, clientY: vertical })) },
+        changedTouches: { value: [{ clientX: 100, clientY: vertical }] },
+      });
+      fireEvent(content, event);
+    };
+    touch("touchstart", 100);
+    touch("touchmove", 130);
+    touch("touchmove", 200);
+    expect(card.style.translate).not.toBe(rest);
+    touch("touchstart", 200, 2);
+    touch("touchend", 200);
+    expect(card.style.translate).toBe(rest);
+    expect(content.style.overflowY).toBe("");
+    expect(screen.getByRole("button", { name: "Collapse Image details" }).getAttribute("aria-expanded")).toBe("true");
   });
 
   it("pushes a unique crop entry while preserving its detail and list origins", () => {
@@ -179,9 +346,21 @@ describe("KUP-004 standalone detail identity", () => {
     history.replaceState({ kupuaKey: "crop", _cropOriginKupuaKey: "detail", _bareListSynthesized: true }, "", "/search?image=A&cropping=true");
     const back = vi.spyOn(history, "back").mockImplementation(() => {});
     render(<Detail imageId="A" />);
+    expect(screen.getByTestId("crop-backdrop")).toBeTruthy();
     fireEvent.click(await screen.findByRole("button", { name: "Cancel crop" }));
     expect(back).toHaveBeenCalledOnce();
     expect(fixture.navigate).not.toHaveBeenCalled();
+  });
+
+  it("keeps Crop cancellable while its image is still loading", () => {
+    fixture.resident = [];
+    fixture.search = { image: "A", cropping: "true" };
+    history.replaceState({ kupuaKey: "crop", _cropOriginKupuaKey: "detail", _bareListSynthesized: true }, "", "/search?image=A&cropping=true");
+    const back = vi.spyOn(history, "back").mockImplementation(() => {});
+    render(<Detail imageId="A" />);
+    expect(screen.getByTestId("crop-backdrop")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Back to image" }));
+    expect(back).toHaveBeenCalledOnce();
   });
 
   it("preserves app fullscreen and waits for image fullscreen exit before opening Crop", async () => {

@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { createRef } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { CropCanvas, type CropCanvasHandle } from "./CropCanvas";
-import { bindCropViewport } from "@/lib/crop/crop-viewport";
+import { bindCropTouchViewport, bindCropViewport } from "@/lib/crop/crop-viewport";
 
 const fixture = vi.hoisted(() => ({
   templates: [] as string[],
@@ -17,7 +17,7 @@ const fixture = vi.hoisted(() => ({
 import type { Rect } from "@/lib/crop/crop-request";
 
 vi.mock("cropperjs", () => ({ default: class {
-  canvas = document.createElement("div");
+  canvas = Object.assign(document.createElement("cropper-canvas"), { $setAction: vi.fn() });
   media = document.createElement("img");
   shadow = document.createDocumentFragment();
   transform = vi.fn();
@@ -148,6 +148,62 @@ it("publishes a valid selection to a new ratio owner even when geometry is uncha
   expect(fixture.sessions).toHaveLength(1);
 });
 
+it("keeps resizing downward after the same corner drag crosses the image's left edge", async () => {
+  const onChange = vi.fn();
+  const canvasRef = createRef<CropCanvasHandle>();
+  render(<CropCanvas ref={canvasRef} src="/preview" alt="" aspect={null} onChange={onChange} />);
+  await act(async () => fixture.sessions[0].resolve({ naturalWidth: 1000, naturalHeight: 500 }));
+  act(() => { const frames = [...fixture.frames.values()]; fixture.frames.clear(); frames.forEach(frame => frame(0)); });
+  act(() => canvasRef.current!.setSelection({ x: 200, y: 100, width: 300, height: 200 }, { width: 1000, height: 500 }));
+  const session = fixture.sessions[0];
+  act(() => session.change(-40, 100, 540, 280));
+  expect(onChange).toHaveBeenLastCalledWith({ status: "ready", selection: { x: 0, y: 100, width: 500, height: 280 }, rendition: { width: 1000, height: 500 } });
+  act(() => session.change(-40, 100, 540, 350));
+  expect(onChange).toHaveBeenLastCalledWith({ status: "ready", selection: { x: 0, y: 100, width: 500, height: 350 }, rendition: { width: 1000, height: 500 } });
+  act(() => session.change(-40, 100, 540, 450));
+  expect(onChange).toHaveBeenLastCalledWith({ status: "ready", selection: { x: 0, y: 100, width: 500, height: 400 }, rendition: { width: 1000, height: 500 } });
+});
+
+it("slides a moving frame along the image edge without shrinking it", async () => {
+  const onChange = vi.fn();
+  const canvasRef = createRef<CropCanvasHandle>();
+  render(<CropCanvas ref={canvasRef} src="/preview" alt="" aspect={null} onChange={onChange} />);
+  await act(async () => fixture.sessions[0].resolve({ naturalWidth: 1000, naturalHeight: 500 }));
+  act(() => { const frames = [...fixture.frames.values()]; fixture.frames.clear(); frames.forEach(frame => frame(0)); });
+  act(() => canvasRef.current!.setSelection({ x: 200, y: 100, width: 300, height: 200 }, { width: 1000, height: 500 }));
+  act(() => fixture.sessions[0].change(-40, 130, 300, 200));
+  expect(onChange).toHaveBeenLastCalledWith({ status: "ready", selection: { x: 0, y: 130, width: 300, height: 200 }, rendition: { width: 1000, height: 500 } });
+  act(() => fixture.sessions[0].change(-1, 180, 300, 200));
+  expect(onChange).toHaveBeenLastCalledWith({ status: "ready", selection: { x: 0, y: 180, width: 300, height: 200 }, rendition: { width: 1000, height: 500 } });
+});
+
+it.each([false, true])("preserves the opposite corner and aspect ratio at a boundary, shift=%s", async shift => {
+  const onChange = vi.fn();
+  const canvasRef = createRef<CropCanvasHandle>();
+  render(<CropCanvas ref={canvasRef} src="/preview" alt="" aspect={shift ? null : 1} onChange={onChange} />);
+  await act(async () => fixture.sessions[0].resolve({ naturalWidth: 1000, naturalHeight: 500 }));
+  act(() => { const frames = [...fixture.frames.values()]; fixture.frames.clear(); frames.forEach(frame => frame(0)); });
+  act(() => canvasRef.current!.setSelection({ x: 200, y: 350, width: 100, height: 100 }, { width: 1000, height: 500 }));
+  const session = fixture.sessions[0];
+  act(() => {
+    session.canvas.dispatchEvent(new CustomEvent("actionstart", { detail: { action: "sw-resize" } }));
+    session.canvas.dispatchEvent(new CustomEvent("action", { detail: { action: "sw-resize", relatedEvent: new MouseEvent("pointermove", { shiftKey: shift }) } }));
+    session.change(100, 350, 200, 200);
+  });
+  expect(onChange).toHaveBeenLastCalledWith({ status: "ready", selection: { x: 150, y: 350, width: 150, height: 150 }, rendition: { width: 1000, height: 500 } });
+});
+
+it("preserves the orthogonal center when a ratio-locked side resize reaches the image edge", async () => {
+  const onChange = vi.fn();
+  const canvasRef = createRef<CropCanvasHandle>();
+  render(<CropCanvas ref={canvasRef} src="/preview" alt="" aspect={1} onChange={onChange} />);
+  await act(async () => fixture.sessions[0].resolve({ naturalWidth: 1000, naturalHeight: 500 }));
+  act(() => { const frames = [...fixture.frames.values()]; fixture.frames.clear(); frames.forEach(frame => frame(0)); });
+  act(() => canvasRef.current!.setSelection({ x: 200, y: 20, width: 200, height: 200 }, { width: 1000, height: 500 }));
+  act(() => fixture.sessions[0].change(200, -30, 300, 300));
+  expect(onChange).toHaveBeenLastCalledWith({ status: "ready", selection: { x: 200, y: 0, width: 240, height: 240 }, rendition: { width: 1000, height: 500 } });
+});
+
 it("handles failure, ignores obsolete loads and clears a removed selection", async () => {
   const onChange = vi.fn();
   const canvasRef = createRef<CropCanvasHandle>();
@@ -257,6 +313,127 @@ it("zooms at the pointer and drag-pans without changing the crop, including a sh
   expect(session.selection).toMatchObject(crop.selection);
   expect(onChange).not.toHaveBeenCalled();
   expect(fixture.sessions).toHaveLength(1);
+});
+
+it("navigates the mobile viewport without editing the crop or handing a remaining finger back to Cropper", async () => {
+  const onChange = vi.fn();
+  const onZoomChange = vi.fn();
+  const canvasRef = createRef<CropCanvasHandle>();
+  const props = { ref: canvasRef, src: "/preview", zoomSrc: "/sharp", alt: "", aspect: null, onChange, onZoomChange, touchEnabled: true };
+  const mounted = render(<CropCanvas {...props} />);
+  const host = mounted.container.firstElementChild as HTMLElement;
+  const flush = () => act(() => {
+    const frames = [...fixture.frames.values()]; fixture.frames.clear(); frames.forEach(frame => frame(0));
+  });
+  await act(async () => fixture.sessions[0].resolve({ naturalWidth: 1000, naturalHeight: 500 }));
+  flush();
+  const session = fixture.sessions[0];
+  act(() => canvasRef.current!.setSelection({ x: 400, y: 200, width: 100, height: 100 }, { width: 1000, height: 500 }));
+  onChange.mockClear();
+  onZoomChange.mockClear();
+  const touch = (type: string, pointerId: number, clientX: number, clientY = 250) => {
+    const event = new MouseEvent(type, { bubbles: true, cancelable: true, clientX, clientY });
+    Object.defineProperties(event, { pointerType: { value: "touch" }, pointerId: { value: pointerId } });
+    fireEvent(type === "pointerdown" ? host : window, event);
+  };
+  const cropAction = () => {
+    const event = new CustomEvent("actionstart", { bubbles: true, cancelable: true });
+    session.canvas.dispatchEvent(event);
+    return event.defaultPrevented;
+  };
+  touch("pointerdown", 1, 400);
+  expect(cropAction()).toBe(false);
+  touch("pointerdown", 2, 600);
+  expect(cropAction()).toBe(true);
+  touch("pointermove", 1, 300);
+  touch("pointermove", 2, 700);
+  flush();
+  expect(session.transform).toHaveBeenLastCalledWith(2, 0, 0, 2, -500, -250);
+  expect(session.image.src).toBe("/sharp");
+  expect(session.selection).toMatchObject({ x: 300, y: 150, width: 200, height: 200 });
+  touch("pointermove", 1, 360);
+  touch("pointermove", 2, 760);
+  flush();
+  expect(session.transform).toHaveBeenLastCalledWith(2, 0, 0, 2, -440, -250);
+  touch("pointerup", 2, 760);
+  const count = session.transform.mock.calls.length;
+  touch("pointermove", 1, 500);
+  flush();
+  expect(session.transform).toHaveBeenCalledTimes(count);
+  expect(cropAction()).toBe(true);
+  touch("pointerup", 1, 500);
+  expect(cropAction()).toBe(false);
+  expect(onChange).not.toHaveBeenCalled();
+  expect(onZoomChange.mock.calls).toEqual([[true]]);
+  mounted.rerender(<CropCanvas {...props} panMode />);
+  touch("pointerdown", 3, 500);
+  expect(cropAction()).toBe(true);
+  touch("pointermove", 3, 540);
+  flush();
+  expect(session.transform).toHaveBeenLastCalledWith(2, 0, 0, 2, -400, -250);
+  touch("pointerup", 3, 540);
+  act(() => canvasRef.current!.resetView());
+  expect(onZoomChange.mock.calls).toEqual([[true], [false]]);
+  mounted.rerender(<CropCanvas {...props} />);
+  expect(session.selection).toMatchObject({ x: 400, y: 200, width: 100, height: 100 });
+  expect(onChange).not.toHaveBeenCalled();
+  touch("pointerdown", 4, 400);
+  touch("pointerdown", 5, 600);
+  session.transform.mockClear();
+  touch("pointermove", 4, 450);
+  touch("pointermove", 5, 550);
+  flush();
+  expect(session.transform).toHaveBeenCalledExactlyOnceWith(1, 0, 0, 1, 0, 0);
+  touch("pointerup", 5, 550);
+  touch("pointerup", 4, 450);
+  expect(onChange).not.toHaveBeenCalled();
+  expect(session.selection.querySelector<HTMLElement>('cropper-handle[action="ne-resize"]')!.style.width).toBe("44px");
+  act(() => canvasRef.current!.setSelection({ x: 400, y: 200, width: 20, height: 20 }, { width: 1000, height: 500 }));
+  const smallCorner = session.selection.querySelector<HTMLElement>('cropper-handle[action="ne-resize"]')!;
+  expect(parseFloat(smallCorner.style.width)).toBeLessThan(session.selection.width);
+  expect(parseFloat(smallCorner.style.height)).toBeLessThan(session.selection.height);
+  mounted.rerender(<CropCanvas {...props} aspect={1} />);
+  expect(session.transform).toHaveBeenLastCalledWith(1, 0, 0, 1, 0, 0);
+  expect(onChange).toHaveBeenLastCalledWith({ status: "ready", selection: { x: 250, y: 0, width: 500, height: 500 }, rendition: { width: 1000, height: 500 } });
+  mounted.unmount();
+  expect(fixture.frames.size).toBe(0);
+});
+
+it("cancels mobile navigation on interrupted or outside contacts and removes queued work on teardown", () => {
+  const host = document.createElement("div");
+  document.body.append(host);
+  const viewport = { getZoom: () => 2, zoomAt: vi.fn(), panBy: vi.fn(() => ({ dx: 0, dy: 0 })), resetView: vi.fn() };
+  const unbind = bindCropTouchViewport(host, viewport, vi.fn(), () => false);
+  const touch = (type: string, pointerId: number, target: EventTarget = host) => {
+    const event = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: pointerId * 100, clientY: 200 });
+    Object.defineProperties(event, { pointerType: { value: "touch" }, pointerId: { value: pointerId } });
+    target.dispatchEvent(event);
+  };
+  touch("pointerdown", 1);
+  touch("pointerdown", 2, document.body);
+  touch("pointermove", 1);
+  expect(fixture.frames.size).toBe(0);
+  touch("pointerup", 2);
+  touch("pointerup", 1);
+  touch("pointerdown", 3);
+  touch("pointerdown", 4);
+  touch("pointermove", 3);
+  expect(fixture.frames.size).toBe(1);
+  touch("pointercancel", 4);
+  expect(fixture.frames.size).toBe(0);
+  touch("pointermove", 3);
+  expect(fixture.frames.size).toBe(0);
+  touch("pointerup", 3);
+  touch("pointerdown", 5);
+  touch("pointerdown", 6);
+  touch("pointermove", 5);
+  expect(fixture.frames.size).toBe(1);
+  unbind();
+  expect(fixture.frames.size).toBe(0);
+  touch("pointermove", 6);
+  expect(fixture.frames.size).toBe(0);
+  expect(viewport.zoomAt).not.toHaveBeenCalled();
+  host.remove();
 });
 
 it("retains the crop when the sharper source fails and does not request it again", async () => {

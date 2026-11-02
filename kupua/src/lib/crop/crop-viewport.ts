@@ -1,11 +1,11 @@
 export interface CropViewport {
   getZoom(): number;
-  zoomAt(factor: number, clientX: number, clientY: number): void;
+  zoomAt(factor: number, clientX: number, clientY: number, panX?: number, panY?: number): void;
   panBy(dx: number, dy: number, overflow?: number): { dx: number; dy: number };
   resetView(): void;
 }
 
-export function bindCropViewport(host: HTMLElement, viewport: CropViewport): () => void {
+export function bindCropViewport(host: HTMLElement, viewport: CropViewport, isPanMode: () => boolean = () => true): () => void {
   let alt = false;
   let panning = false;
   let editing = false;
@@ -48,10 +48,13 @@ export function bindCropViewport(host: HTMLElement, viewport: CropViewport): () 
   const titles = handles.map(handle => handle.getAttribute("title"));
   const previousCursor = host.style.cursor;
   const cursor = () => {
-    host.style.cursor = panning ? "grabbing" : "grab";
-    handles.forEach(handle => { handle.style.cursor = alt && !panning ? "move" : host.style.cursor; });
+    const pan = isPanMode();
+    host.style.cursor = panning ? "grabbing" : pan ? "grab" : "";
+    handles.forEach(handle => {
+      handle.style.cursor = (alt || !pan) && !panning ? "move" : host.style.cursor;
+      handle.title = pan ? "Drag to pan; Alt+drag to move crop frame" : "Drag to move crop frame";
+    });
   };
-  handles.forEach(handle => { handle.title = "Drag to pan; Alt+drag to move crop frame"; });
   cursor();
   const action = (event: Event) => event.composedPath()
     .find((node): node is Element => node instanceof Element && node.matches("cropper-handle"))?.getAttribute("action") ?? "";
@@ -116,7 +119,7 @@ export function bindCropViewport(host: HTMLElement, viewport: CropViewport): () 
     if (event.pointerType !== "mouse" || event.button !== 0) return;
     alt = event.altKey;
     host.focus({ preventScroll: true });
-    editing = isGrip(event) || action(event).endsWith("-resize") || (event.altKey && insideSelection(event));
+    editing = !isPanMode() || isGrip(event) || action(event).endsWith("-resize") || (event.altKey && insideSelection(event));
     suppressClick = editing;
     cursor();
     if (editing) return;
@@ -193,6 +196,116 @@ export function bindCropViewport(host: HTMLElement, viewport: CropViewport): () 
     window.removeEventListener("mousemove", onHover);
     window.removeEventListener("keydown", onKeyDown, true);
     window.removeEventListener("keyup", onKeyUp, true);
+    window.removeEventListener("blur", release);
+  };
+}
+
+export function bindCropTouchViewport(host: HTMLElement, viewport: CropViewport, cancelEdit: () => void, isPanMode: () => boolean): () => void {
+  type Point = { x: number; y: number };
+  const pointers = new Map<number, Point>();
+  let navigating = false;
+  let blocked = false;
+  let frame = 0;
+  let previous: Point = { x: 0, y: 0 };
+  let startDistance = 0;
+  let startZoom = 1;
+  const midpoint = (first: Point, second: Point) => ({ x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 });
+  const distance = (first: Point, second: Point) => Math.hypot(second.x - first.x, second.y - first.y);
+  const cancelFrame = () => { cancelAnimationFrame(frame); frame = 0; };
+  const render = () => {
+    frame = 0;
+    if (!navigating || blocked) return;
+    const [first, second] = [...pointers.values()];
+    if (!first) return;
+    if (second) {
+      const center = midpoint(first, second);
+      if (startDistance > 0) {
+        const zoom = Math.max(1, Math.min(5, startZoom * distance(first, second) / startDistance));
+        if (zoom === 1) viewport.resetView();
+        else viewport.zoomAt(zoom / viewport.getZoom(), previous.x, previous.y, center.x - previous.x, center.y - previous.y);
+      }
+      previous = center;
+    } else {
+      if (viewport.getZoom() > 1) viewport.panBy(first.x - previous.x, first.y - previous.y);
+      previous = first;
+    }
+  };
+  const flush = () => {
+    if (!frame) return;
+    cancelFrame();
+    render();
+  };
+  const down = (event: PointerEvent) => {
+    if (event.pointerType !== "touch") return;
+    const inside = event.target instanceof Node && host.contains(event.target);
+    if ((!inside && !pointers.size) || pointers.has(event.pointerId)) return;
+    flush();
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (!inside || pointers.size > 2 || blocked) {
+      blocked = true;
+      navigating = false;
+      cancelEdit();
+      return;
+    }
+    const [first, second] = [...pointers.values()];
+    if (second) {
+      navigating = true;
+      startDistance = distance(first, second);
+      startZoom = viewport.getZoom();
+      previous = midpoint(first, second);
+    } else if (isPanMode()) {
+      navigating = true;
+      previous = first;
+    }
+    if (navigating) {
+      cancelEdit();
+      event.preventDefault();
+    }
+  };
+  const move = (event: PointerEvent) => {
+    if (!pointers.has(event.pointerId)) return;
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (navigating && !blocked) {
+      event.preventDefault();
+      if (!frame) frame = requestAnimationFrame(render);
+    }
+  };
+  const end = (event: PointerEvent) => {
+    if (!pointers.has(event.pointerId)) return;
+    if (event.type === "pointerup") flush();
+    else cancelFrame();
+    pointers.delete(event.pointerId);
+    if (navigating || event.type === "pointercancel") {
+      cancelEdit();
+      navigating = false;
+      blocked = pointers.size > 0;
+    }
+    if (!pointers.size) blocked = false;
+  };
+  const preventCropAction = (event: Event) => {
+    if (navigating || blocked) event.preventDefault();
+  };
+  const release = () => {
+    cancelFrame();
+    pointers.clear();
+    navigating = false;
+    blocked = false;
+    cancelEdit();
+  };
+  const actions = ["actionstart", "actionmove", "action"];
+  actions.forEach(action => host.addEventListener(action, preventCropAction, true));
+  window.addEventListener("pointerdown", down, { capture: true, passive: false });
+  window.addEventListener("pointermove", move, { capture: true, passive: false });
+  window.addEventListener("pointerup", end, true);
+  window.addEventListener("pointercancel", end, true);
+  window.addEventListener("blur", release);
+  return () => {
+    release();
+    actions.forEach(action => host.removeEventListener(action, preventCropAction, true));
+    window.removeEventListener("pointerdown", down, true);
+    window.removeEventListener("pointermove", move, true);
+    window.removeEventListener("pointerup", end, true);
+    window.removeEventListener("pointercancel", end, true);
     window.removeEventListener("blur", release);
   };
 }

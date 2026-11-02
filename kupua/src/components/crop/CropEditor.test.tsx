@@ -12,17 +12,26 @@ import { useFullscreen } from "@/hooks/useFullscreen";
 import { useToastStore } from "@/stores/toast-store";
 import { clearCropDraft, discardCropDraftOutside } from "@/lib/crop/crop-draft";
 
-const fixture = vi.hoisted(() => ({ changes: [] as Array<(state: unknown) => void>, edits: [] as Rect[], sources: [] as string[], zoomEnabled: false,
+vi.hoisted(() => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+});
+
+const fixture = vi.hoisted(() => ({ changes: [] as Array<(state: unknown) => void>, edits: [] as Rect[], sources: [] as string[], zoomEnabled: false, compact: false,
+  onZoomChange: undefined as ((zoomed: boolean) => void) | undefined, resets: 0, panMode: false,
   initialSelection: undefined as { rect: Rect | null; size: Size } | undefined }));
-vi.mock("./CropCanvas", () => ({ CropCanvas: ({ onChange, ref, src, zoomEnabled, initialSelection }: { src: string; zoomEnabled?: boolean; onChange: (state: unknown) => void;
+vi.mock("@/hooks/useShell", () => ({ useIsCompact: () => fixture.compact }));
+vi.mock("./CropCanvas", () => ({ CropCanvas: ({ onChange, ref, src, zoomEnabled, initialSelection, onZoomChange, panMode }: { src: string; zoomEnabled?: boolean; onChange: (state: unknown) => void;
+  onZoomChange?: (zoomed: boolean) => void; panMode?: boolean;
   initialSelection?: { rect: Rect | null; size: Size };
-  ref?: Ref<{ setSelection: (selection: Rect, coordinateSize: Size) => void }> }) => {
+  ref?: Ref<{ setSelection: (selection: Rect, coordinateSize: Size) => void; resetView: () => void }> }) => {
   fixture.zoomEnabled = !!zoomEnabled;
+  fixture.onZoomChange = onZoomChange;
+  fixture.panMode = !!panMode;
   fixture.initialSelection = initialSelection;
   useImperativeHandle(ref, () => ({ setSelection: (selection, rendition) => {
     fixture.edits.push(selection);
     onChange({ status: "ready", selection, rendition });
-  } }));
+  }, resetView: () => { fixture.resets++; onZoomChange?.(false); } }));
   fixture.sources.push(src);
   fixture.changes.push(onChange);
   return <div data-testid="canvas" />;
@@ -34,12 +43,217 @@ vi.mock("@/lib/image-urls", () => ({ getFullImageUrl: (image: Image) => `/previe
 const image = (id: string) => ({ id, metadata: { title: id }, source: { dimensions: { width: 2000, height: 1000 } } }) as Image;
 const ready = { status: "ready", selection: { x: 10, y: 20, width: 100, height: 100 }, rendition: { width: 1000, height: 500 } };
 
-beforeEach(() => { fixture.changes = []; fixture.edits = []; fixture.sources = []; clearCropDraft(); sessionStorage.clear(); localStorage.clear(); });
+beforeEach(() => { fixture.changes = []; fixture.edits = []; fixture.sources = []; fixture.compact = false; fixture.resets = 0; clearCropDraft(); sessionStorage.clear(); localStorage.clear(); });
 afterEach(() => {
   cleanup(); clearCropDraft(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers();
   Reflect.deleteProperty(document, "fullscreenElement");
   Reflect.deleteProperty(document, "exitFullscreen");
   Reflect.deleteProperty(HTMLElement.prototype, "requestFullscreen");
+});
+
+it("edits mobile precision without replacing the canvas and closes nested controls before leaving Crop", () => {
+  fixture.compact = true;
+  const close = vi.fn();
+  render(<CropEditor image={image("A")} onClose={close} />);
+  act(() => fixture.changes.at(-1)!(ready));
+  const canvas = screen.getByTestId("canvas");
+  fireEvent.click(screen.getByRole("radio", { name: "square (1:1)" }));
+  const mask = screen.getByRole("checkbox", { name: "Apply mask" }) as HTMLInputElement;
+  expect(mask.closest("footer")).not.toBeNull();
+  fireEvent.click(mask);
+  expect(mask.checked).toBe(false);
+  expect(localStorage.getItem("kupua.crop.circularMask")).toBe("false");
+  fireEvent.click(screen.getByRole("radio", { name: "freeform" }));
+  expect(screen.queryByRole("checkbox", { name: "Apply mask" })).toBeNull();
+  act(() => fixture.changes.at(-1)!(ready));
+  expect(screen.queryByRole("spinbutton", { name: "Crop width" })).toBeNull();
+  const precision = screen.getByRole("button", { name: "Edit crop coordinates" });
+  fireEvent.click(precision);
+  const width = screen.getByRole("spinbutton", { name: "Crop width" });
+  expect(document.activeElement).toBe(screen.getByRole("spinbutton", { name: "Crop x" }));
+  fireEvent.change(width, { target: { value: "500" } });
+  expect(fixture.edits.at(-1)?.width).toBe(500);
+  fireEvent.keyDown(width, { key: "Escape" });
+  expect(screen.queryByRole("spinbutton", { name: "Crop width" })).toBeNull();
+  expect(document.activeElement).toBe(precision);
+  expect(screen.getByTestId("canvas")).toBe(canvas);
+  const settings = screen.getByRole("button", { name: "Settings" });
+  fireEvent.click(settings);
+  expect(screen.getByRole("menu")).toBeTruthy();
+  fireEvent.pointerDown(screen.getByRole("menu"));
+  expect(screen.getByRole("menu")).toBeTruthy();
+  canvas.addEventListener("pointerdown", event => event.stopPropagation(), { once: true });
+  fireEvent.pointerDown(canvas);
+  expect(screen.queryByRole("menu")).toBeNull();
+  fireEvent.click(settings);
+  fireEvent.keyDown(settings, { key: "Escape" });
+  expect(screen.queryByRole("menu")).toBeNull();
+  expect(close).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Back to image" }));
+  expect(close).toHaveBeenCalledOnce();
+});
+
+it("shows zoomed-only header tools and a once-per-opening pan hint with tap or timeout dismissal", () => {
+  vi.useFakeTimers();
+  vi.spyOn(console, "info").mockImplementation(() => {});
+  fixture.compact = true;
+  const mounted = render(<CropEditor image={image("A")} onClose={() => {}} />);
+  act(() => fixture.changes.at(-1)!(ready));
+  expect(screen.getByRole("button", { name: "Crop" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Fit image" })).toBeNull();
+  act(() => fixture.onZoomChange?.(true));
+  const fit = screen.getByRole("button", { name: "Fit image" });
+  const pan = screen.getByRole("button", { name: "Pan view" });
+  expect(fit.closest("header")).not.toBeNull();
+  expect(pan.closest("header")).toBe(fit.closest("header"));
+  expect(screen.queryByRole("button", { name: "View controls" })).toBeNull();
+  expect(screen.getByText("Two-finger pan")).toBeTruthy();
+  const hint = screen.getByText("Two-finger pan").closest('[data-testid="toast"]')!;
+  expect(hint.querySelector('svg[data-icon="hand"]')).not.toBeNull();
+  expect(hint.querySelectorAll("svg")).toHaveLength(1);
+  act(() => vi.advanceTimersByTime(3999));
+  expect(screen.getByText("Two-finger pan")).toBeTruthy();
+  act(() => vi.advanceTimersByTime(1));
+  expect(screen.queryByText("Two-finger pan")).toBeNull();
+  act(() => fixture.onZoomChange?.(false));
+  act(() => fixture.onZoomChange?.(true));
+  expect(screen.queryByText("Two-finger pan")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Pan view" }));
+  expect(fixture.panMode).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Fit image" }));
+  expect(fixture.resets).toBe(1);
+  expect(fixture.panMode).toBe(false);
+  expect(screen.queryByRole("button", { name: "Fit image" })).toBeNull();
+  mounted.unmount();
+  render(<CropEditor image={image("A")} onClose={() => {}} />);
+  act(() => fixture.changes.at(-1)!(ready));
+  act(() => fixture.onZoomChange?.(true));
+  expect(screen.getByText("Two-finger pan")).toBeTruthy();
+  const pointer = (target: HTMLElement, type: string, clientX: number) => {
+    const event = new MouseEvent(type, { bubbles: true, cancelable: true, clientX, clientY: 10 });
+    Object.defineProperties(event, { pointerId: { value: 1 }, isPrimary: { value: true } });
+    fireEvent(target, event);
+    expect(event.defaultPrevented).toBe(false);
+  };
+  const canvas = screen.getByTestId("canvas");
+  pointer(canvas, "pointerdown", 10);
+  pointer(canvas, "pointermove", 50);
+  pointer(canvas, "pointerup", 50);
+  expect(screen.getByText("Two-finger pan")).toBeTruthy();
+  const crop = screen.getByRole("button", { name: "Crop" });
+  pointer(crop, "pointerdown", 10);
+  pointer(crop, "pointerup", 10);
+  expect(screen.queryByText("Two-finger pan")).toBeNull();
+  fireEvent.click(crop);
+  expect(screen.getByTestId("crop-dry-run")).toBeTruthy();
+});
+
+it.each([false, true])("keeps rejected coordinates visible without changing the crop, compact=%s", compact => {
+  fixture.compact = compact;
+  render(<CropEditor image={image("A")} onClose={() => {}} />);
+  act(() => fixture.changes.at(-1)!(ready));
+  if (compact) fireEvent.click(screen.getByRole("button", { name: "Edit crop coordinates" }));
+  const width = screen.getByRole("spinbutton", { name: "Crop width" }) as HTMLInputElement;
+  const crop = screen.getByRole("button", { name: "Crop" }) as HTMLButtonElement;
+  width.focus();
+  fireEvent.change(width, { target: { value: "5000" } });
+  expect(width.getAttribute("aria-invalid")).toBe("true");
+  expect(fixture.edits).toHaveLength(0);
+  expect(crop.disabled).toBe(true);
+  fireEvent.blur(width);
+  expect(width.value).toBe("5000");
+  fireEvent.keyDown(document.body, { key: "Enter" });
+  expect(screen.queryByTestId("crop-dry-run")).toBeNull();
+  if (compact) {
+    fireEvent.click(screen.getByRole("button", { name: "Done editing coordinates" }));
+    expect(screen.getByRole("spinbutton", { name: "Crop width" })).toBe(width);
+    expect(screen.getByRole("button", { name: "Edit crop coordinates" }).getAttribute("aria-expanded")).toBe("true");
+  }
+  fireEvent.change(width, { target: { value: "" } });
+  expect(width.getAttribute("aria-invalid")).toBe("true");
+  fireEvent.change(width, { target: { value: "500" } });
+  expect(width.getAttribute("aria-invalid")).not.toBe("true");
+  expect(fixture.edits.at(-1)?.width).toBe(500);
+  expect(crop.disabled).toBe(false);
+  fireEvent.click(screen.getByRole("radio", { name: "square (1:1)" }));
+  act(() => fixture.changes.at(-1)!(ready));
+  const editCount = fixture.edits.length;
+  fireEvent.change(screen.getByRole("spinbutton", { name: "Crop width" }), { target: { value: "1000" } });
+  expect(screen.getByRole("spinbutton", { name: "Crop width" }).getAttribute("aria-invalid")).toBe("true");
+  expect(fixture.edits).toHaveLength(editCount);
+  fireEvent.click(screen.getByRole("radio", { name: "video (16:9)" }));
+  const videoWidth = 500 * 16 / 9;
+  act(() => fixture.changes.at(-1)!({ ...ready, selection: { x: (1000 - videoWidth) / 2, y: 0, width: videoWidth, height: 500 } }));
+  expect(width.value).toBe("1778");
+  fireEvent.change(width, { target: { value: "1779" } });
+  expect(width.getAttribute("aria-invalid")).toBe("true");
+  fireEvent.change(width, { target: { value: "1778" } });
+  expect(width.getAttribute("aria-invalid")).not.toBe("true");
+  expect(width.value).toBe("1778");
+  expect(crop.disabled).toBe(false);
+  if (compact) {
+    fireEvent.click(screen.getByRole("button", { name: "Done editing coordinates" }));
+    expect(screen.queryByRole("spinbutton", { name: "Crop width" })).toBeNull();
+  }
+});
+
+it("fits the keyboard viewport and finishes a deliberate header swipe without changing geometry", () => {
+  vi.useFakeTimers();
+  fixture.compact = true;
+  const viewport = Object.assign(new EventTarget(), { height: 800, width: 390, offsetTop: 0, scale: 1 });
+  vi.stubGlobal("visualViewport", viewport);
+  render(<CropEditor image={image("A")} onClose={() => {}} />);
+  act(() => fixture.changes.at(-1)!(ready));
+  const editor = screen.getByRole("dialog", { name: "Crop image" });
+  const precision = screen.getByRole("button", { name: "Edit crop coordinates" });
+  expect(editor.style.height).toBe("800px");
+  fireEvent.click(precision);
+  const canvas = screen.getByTestId("canvas");
+  act(() => { viewport.height = 400; viewport.offsetTop = 18; viewport.dispatchEvent(new Event("resize")); });
+  expect(editor.style.height).toBe("400px");
+  expect(editor.style.top).toBe("18px");
+  expect(screen.queryByRole("radiogroup", { name: "Crop ratio" })).toBeNull();
+  act(() => { viewport.height = 800; viewport.offsetTop = 0; viewport.dispatchEvent(new Event("resize")); });
+  expect(editor.style.height).toBe("400px");
+  act(() => screen.getByRole("spinbutton", { name: "Crop y" }).focus());
+  act(() => { viewport.height = 400; viewport.offsetTop = 18; viewport.dispatchEvent(new Event("resize")); });
+  act(() => vi.advanceTimersByTime(200));
+  expect(editor.style.height).toBe("400px");
+  expect(editor.style.top).toBe("18px");
+  act(() => { viewport.height = 800; viewport.offsetTop = 0; viewport.dispatchEvent(new Event("resize")); });
+  act(() => vi.advanceTimersByTime(200));
+  expect(editor.style.height).toBe("800px");
+  expect(screen.getByRole("radiogroup", { name: "Crop ratio" })).toBeTruthy();
+  act(() => { viewport.height = 400; viewport.offsetTop = 18; viewport.dispatchEvent(new Event("resize")); });
+  expect(editor.style.height).toBe("400px");
+  const handle = screen.getByTestId("crop-coordinate-handle");
+  const pointer = (type: string, vertical: number, timestamp: number) => {
+    const event = new Event(type, { bubbles: true, cancelable: true });
+    Object.defineProperties(event, {
+      clientX: { value: 100 }, clientY: { value: vertical }, pointerId: { value: 1 },
+      button: { value: 0 }, isPrimary: { value: true }, timeStamp: { value: timestamp },
+    });
+    fireEvent(handle, event);
+  };
+  pointer("pointerdown", 100, 0);
+  pointer("pointermove", 120, 1000);
+  pointer("pointerup", 120, 1100);
+  expect(precision.getAttribute("aria-expanded")).toBe("true");
+  pointer("pointerdown", 100, 1200);
+  pointer("pointermove", 180, 1500);
+  pointer("pointercancel", 180, 1600);
+  expect(precision.getAttribute("aria-expanded")).toBe("true");
+  pointer("pointerdown", 100, 2000);
+  pointer("pointermove", 180, 3000);
+  expect(handle.closest("section")!.style.transform).toBe("translateY(80px)");
+  pointer("pointerup", 180, 3100);
+  expect(precision.getAttribute("aria-expanded")).toBe("false");
+  expect(document.activeElement).toBe(precision);
+  expect(screen.getByTestId("canvas")).toBe(canvas);
+  expect(fixture.edits).toHaveLength(0);
+  act(() => { viewport.height = 800; viewport.offsetTop = 0; viewport.dispatchEvent(new Event("resize")); });
+  expect(editor.style.height).toBe("800px");
+  expect(screen.getByRole("radiogroup", { name: "Crop ratio" })).toBeTruthy();
 });
 
 it("restores the tab's draft ratio and frame and flushes edited or cleared geometry for reload", () => {
@@ -113,7 +327,7 @@ it("still edits crops when browser storage is unavailable", () => {
   render(<CropEditor image={image("A")} onClose={() => {}} />);
   act(() => fixture.changes.at(-1)!(ready));
   expect(() => fireEvent(window, new Event("pagehide"))).not.toThrow();
-  expect((screen.getByRole("button", { name: "Crop (dry run)" }) as HTMLButtonElement).disabled).toBe(false);
+  expect((screen.getByRole("button", { name: "Crop" }) as HTMLButtonElement).disabled).toBe(false);
 });
 
 it("keeps a two-sentence warning while the frame is small, respects dismissal and clears it when large enough", () => {
@@ -171,6 +385,22 @@ it("keeps a two-sentence warning while the frame is small, respects dismissal an
   expect(useToastStore.getState().queue).toHaveLength(0);
 });
 
+it("keeps Crop Settings usable in app fullscreen but hidden in crop fullscreen", () => {
+  let fullscreen: Element | null = null;
+  Object.defineProperty(document, "fullscreenElement", { configurable: true, get: () => fullscreen });
+  render(<CropEditor image={image("A")} onClose={() => {}} />);
+  act(() => { fullscreen = document.documentElement; document.dispatchEvent(new Event("fullscreenchange")); });
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  expect(screen.getByRole("button", { name: "Exit full screen" })).toBeTruthy();
+  fireEvent.pointerDown(screen.getByTestId("canvas"));
+  expect(screen.queryByRole("menu")).toBeNull();
+  act(() => { fullscreen = screen.getByRole("dialog"); document.dispatchEvent(new Event("fullscreenchange")); });
+  expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
+  act(() => { fullscreen = document.documentElement; document.dispatchEvent(new Event("fullscreenchange")); });
+  expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
+  expect(screen.queryByRole("menu")).toBeNull();
+});
+
 it("keeps freeform on f and preserves crop coordinates when Alt+f or Escape changes fullscreen", async () => {
   vi.stubGlobal("matchMedia", () => ({ matches: true, addEventListener() {}, removeEventListener() {} }));
   let fullscreen: Element | null = null;
@@ -204,11 +434,11 @@ it("keeps freeform on f and preserves crop coordinates when Alt+f or Escape chan
   expect(screen.queryByRole("group", { name: "Crop coordinates" })).toBeNull();
   expect(screen.queryByRole("radiogroup", { name: "Crop ratio" })).toBeNull();
   expect(screen.getByRole("dialog").classList.contains("bg-black")).toBe(true);
-  expect(screen.getAllByRole("button")).toHaveLength(2);
+  expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
   expect(screen.getByRole("dialog").contains(warning)).toBe(true);
   expect(screen.getByRole("alert")).toBe(warning);
-  expect(screen.getByRole("button", { name: "Crop (dry run)" }).parentElement?.className).toContain("right-4");
-  expect(screen.getByRole("button", { name: "Crop (dry run)" }).parentElement?.className).toContain("top-[6px]");
+  expect(screen.getByRole("button", { name: "Crop" }).parentElement?.className).toContain("right-4");
+  expect(screen.getByRole("button", { name: "Crop" }).parentElement?.className).toContain("top-[6px]");
   expect(screen.getByTestId("canvas").parentElement?.className).toContain("pt-[50px]");
   expect(screen.getByRole("radio", { name: "square (1:1)", hidden: true }).getAttribute("aria-checked")).toBe("true");
   expect(fixture.zoomEnabled).toBe(true);
@@ -251,6 +481,9 @@ it("edits numeric geometry and Shift steps using the already-displayed image ass
   expect(fixture.sources.at(-1)).toBe("/already-loaded.jpg");
   const width = screen.getByRole("spinbutton", { name: "Crop width" }) as HTMLInputElement;
   expect(width.disabled).toBe(true);
+  expect(width.autocomplete).toBe("off");
+  expect(width.name).toBe("crop-width");
+  expect(width.id).not.toBe("");
   act(() => fixture.changes.at(-1)!(ready));
   fireEvent.change(width, { target: { value: "500" } });
   expect(fixture.edits.at(-1)?.width).toBe(500);
@@ -260,13 +493,14 @@ it("edits numeric geometry and Shift steps using the already-displayed image ass
   expect(x.value).toBe("30");
   fireEvent.click(screen.getByRole("radio", { name: "square (1:1)" }));
   act(() => fixture.changes.at(-1)!(ready));
+  expect(screen.getByRole("checkbox", { name: "Apply circular mask" }).closest("footer")).toBeNull();
   fireEvent.change(screen.getByRole("spinbutton", { name: "Crop height" }), { target: { value: "300" } });
   expect(fixture.edits.at(-1)).toMatchObject({ width: 300, height: 300 });
 });
 
 it("requires a live valid selection and retires old output across ratio and image changes", async () => {
   const mounted = render(<CropEditor image={image("A")} onClose={() => {}} />);
-  const crop = screen.getByRole("button", { name: "Crop (dry run)" }) as HTMLButtonElement;
+  const crop = screen.getByRole("button", { name: "Crop" }) as HTMLButtonElement;
   expect(crop.disabled).toBe(true);
   const oldCallback = fixture.changes.at(-1)!;
   act(() => oldCallback(ready));
@@ -275,6 +509,7 @@ it("requires a live valid selection and retires old output across ratio and imag
   expect(screen.getByTestId("crop-dry-run").textContent).toContain('"width": 200');
   fireEvent.click(screen.getByRole("radio", { name: "square (1:1)" }));
   expect(crop.disabled).toBe(true);
+  expect(screen.queryByText("Loading image...")).toBeNull();
   expect(screen.queryByTestId("crop-dry-run")).toBeNull();
   act(() => oldCallback(ready));
   expect(crop.disabled).toBe(true);
@@ -284,6 +519,7 @@ it("requires a live valid selection and retires old output across ratio and imag
   expect(crop.disabled).toBe(true);
   mounted.rerender(<CropEditor image={image("B")} onClose={() => {}} />);
   expect(crop.disabled).toBe(true);
+  expect(screen.getByText("Loading image...")).toBeTruthy();
   act(() => fixture.changes.at(-1)!({ status: "unavailable" }));
   expect(screen.getByText("Image preview not available")).toBeTruthy();
   expect(crop.disabled).toBe(true);
@@ -343,7 +579,7 @@ it("owns shortcuts without submitting from focused controls or stealing browser 
 it("applies incoming legacy restrictions to an already-open editor and invalidates its selection", () => {
   render(<CropEditor image={image("A")} onClose={() => {}} />);
   act(() => fixture.changes.at(-1)!(ready));
-  const crop = screen.getByRole("button", { name: "Crop (dry run)" }) as HTMLButtonElement;
+  const crop = screen.getByRole("button", { name: "Crop" }) as HTMLButtonElement;
   expect(crop.disabled).toBe(false);
   act(() => applyLegacyCropParams(new URLSearchParams("cropType=custom&customRatio=custom,3,1")));
   expect(screen.getAllByRole("radio")).toHaveLength(1);

@@ -24,6 +24,40 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 2 November 2026 - Mobile image detail and crop interactions
+
+Compact image detail pages the image and matching metadata together, with a stationary
+toolbar and no mismatched intermediate page. The sheet retains focus and expansion
+state; each incoming image starts its metadata at the top. Image pulls share the
+sheet's drag/snap controller, while cancellation and multi-touch release gestures
+cleanly. Fullscreen keeps image-only paging.
+
+Long metadata and restrictions wrap without horizontal panel scrolling. Back and Crop
+labels collapse with available space, and the exact tabular locator stacks on narrow
+screens. Button labels are non-selectable; metadata and search values remain
+selectable.
+
+Mobile Crop places ratios, dimensions and precision access below the canvas, with
+Apply mask beside square-crop dimensions. Larger touch targets and adaptive handles
+preserve the frame's move area. A separate precision panel keeps the canvas mounted,
+follows the keyboard viewport and reveals the focused field. Done or a downward
+header drag finishes valid editing; invalid drafts remain visible with colour-only
+feedback and aria-invalid, leave the crop unchanged and block submission.
+
+Two-finger pinch and pan move image and frame together at 1-5x without changing source
+coordinates. One control switches between Zoom in and Fit. Pan is always available
+above the desktop fullscreen grabber, and while zoomed on phones. Phones show a once-per-opening
+Hand hint. Fit and ratio changes restore the fitted view; updates are coalesced per frame.
+Interrupted contacts cannot resume crop editing until released.
+
+Boundary corrections allow resizing along an edge without locking, preserve frame
+size during movement and retain ratio anchors and side-handle centers. Rounded
+coordinate limits match displayed dimensions. An opaque loading cover and separate
+media and selection ownership prevent underlying-detail flashes, spurious loading
+and stale geometry. Settings dismisses outside Cropper and hides in fullscreen;
+icons use local SVGs without another dependency. Crop remains mock-only: proposed
+requests are displayed and logged, never submitted or saved.
+
 ### 1 November 2026 - Rebase scroll velocity before focus centering
 
 Programmatic focus centering now resets the viewport velocity tracker before moving

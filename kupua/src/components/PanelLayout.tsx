@@ -51,13 +51,14 @@ interface PanelLayoutProps {
 
 interface AccordionSectionProps {
   sectionId: string;
+  contentId?: string;
   title: string;
   /** Optional content rendered on the right side of the header (e.g. timing). */
   headerRight?: ReactNode;
   children: ReactNode;
 }
 
-export function AccordionSection({ sectionId, title, headerRight, children }: AccordionSectionProps) {
+export function AccordionSection({ sectionId, contentId = `section-${sectionId}`, title, headerRight, children }: AccordionSectionProps) {
   const isOpen = usePanelStore((s) => s.isSectionOpen(sectionId));
   const toggleSection = usePanelStore((s) => s.toggleSection);
 
@@ -79,7 +80,7 @@ export function AccordionSection({ sectionId, title, headerRight, children }: Ac
           }
         }}
         aria-expanded={isOpen}
-        aria-controls={`section-${sectionId}`}
+        aria-controls={contentId}
       >
         {/* Material chevron_right (collapsed) / expand_more (expanded) */}
         <svg
@@ -108,7 +109,7 @@ export function AccordionSection({ sectionId, title, headerRight, children }: Ac
         )}
       </div>
       {isOpen && (
-        <div id={`section-${sectionId}`}>
+        <div id={contentId}>
           {children}
         </div>
       )}
@@ -232,7 +233,7 @@ function SideSheet({ side, onDismiss, children }: { side: PanelSide; onDismiss: 
   return (
     <div
       ref={ref}
-      className={`absolute inset-y-0 z-50 overflow-y-auto bg-grid-bg shadow-xl ${
+      className={`absolute inset-y-0 z-50 overflow-y-auto overflow-x-hidden bg-grid-bg shadow-xl ${
         side === "left" ? "left-0 border-r anim-sheet-left" : "right-0 border-l anim-sheet-right"
       } border-grid-separator`}
       style={{ width: "min(85vw, 360px)", overflowAnchor: "none", touchAction: "pan-y" }}
@@ -336,7 +337,7 @@ export function PanelLayout({ leftPanel, rightPanel, scrubber, children }: Panel
         <>
           <div
             ref={leftPanelRef}
-            className="shrink-0 overflow-y-auto bg-grid-bg border-r border-grid-separator"
+            className="shrink-0 overflow-y-auto overflow-x-hidden bg-grid-bg border-r border-grid-separator"
             style={{ width: leftWidth, overflowAnchor: "none" }}
           >
             {leftPanel}
@@ -362,7 +363,7 @@ export function PanelLayout({ leftPanel, rightPanel, scrubber, children }: Panel
           <ResizeHandle side="right" panelRef={rightPanelRef} />
           <div
             ref={rightPanelRef}
-            className="shrink-0 overflow-y-auto bg-grid-bg border-l border-grid-separator"
+            className="shrink-0 overflow-y-auto overflow-x-hidden bg-grid-bg border-l border-grid-separator"
             style={{ width: rightWidth }}
           >
             {rightPanel}

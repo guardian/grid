@@ -376,10 +376,37 @@ test.describe("Crop editor dry run", () => {
     const id = await kupua.openDetailForNthItem(2);
     const detailPreview = await page.locator(`[data-detail-image-id="${id}"] img[fetchpriority="high"]`).getAttribute("src");
     const detailKey = await page.evaluate(() => history.state.kupuaKey);
-    await page.getByRole("button", { name: "Crop image", exact: true }).click();
+    await page.locator(`[data-detail-image-id="${id}"]`).getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(page.getByRole("menu")).toBeVisible();
+    await page.keyboard.press("Escape");
+    let releaseCropEditor!: () => void;
+    const cropEditorGate = new Promise<void>(resolve => { releaseCropEditor = resolve; });
+    const cropEditorModule = "**/src/components/crop/CropEditor.tsx*";
+    await page.route(cropEditorModule, async route => { await cropEditorGate; await route.continue(); });
+    try {
+      await page.getByRole("button", { name: "Crop image", exact: true }).click();
+      const backdrop = page.getByTestId("crop-backdrop");
+      await expect(backdrop).toBeVisible();
+      await expect(backdrop.getByRole("button", { name: "Back to image" })).toBeVisible();
+      await expect(backdrop).toHaveCSS("background-color", "rgb(51, 51, 51)");
+      expect(await backdrop.evaluate(element => {
+        const bounds = element.getBoundingClientRect();
+        return bounds.top === 0 && bounds.left === 0 && bounds.width === innerWidth && bounds.height === innerHeight;
+      })).toBe(true);
+      await expect(page.getByRole("dialog", { name: "Crop image" })).toHaveCount(0);
+    } finally {
+      releaseCropEditor();
+      await page.unroute(cropEditorModule);
+    }
     const editor = page.getByRole("dialog", { name: "Crop image" });
-    const crop = editor.getByRole("button", { name: "Crop (dry run)" });
+    const crop = editor.getByRole("button", { name: "Crop", exact: true });
     await expect(crop).toBeEnabled();
+    await expect(crop).toHaveCSS("user-select", "none");
+    await expect(editor.getByRole("button", { name: "Back to image" })).toHaveCSS("user-select", "none");
+    await crop.hover();
+    await expect(crop.locator(":scope > span")).toHaveCSS("background-color", "rgb(0, 143, 197)");
+    await page.mouse.move(0, 0);
+    await expect(crop.locator(":scope > span")).toHaveCSS("background-color", "rgb(0, 173, 238)");
     await expect(editor).toHaveCSS("outline-style", "none");
     await expect(editor.getByRole("button", { name: "Back to image" })).toBeVisible();
     await expect(editor.locator("cropper-canvas")).toHaveCSS("overflow", "visible");
@@ -387,8 +414,26 @@ test.describe("Crop editor dry run", () => {
     await testInfo.attach("crop-initial-frame", { body: await page.screenshot(), contentType: "image/png" });
     expect(await editor.locator("cropper-image").getAttribute("src")).toBe(detailPreview);
     expect(await page.evaluate(() => history.state.kupuaKey)).not.toBe(detailKey);
-    await editor.getByRole("radio", { name: "square (1:1)" }).click();
-    await expect(crop).toBeEnabled();
+    const loadingObserver = await editor.evaluateHandle(element => {
+      let seen = false;
+      const observer = new MutationObserver(records => {
+        if (records.some(record => [...record.addedNodes].some(node => node instanceof HTMLElement
+          && node.getAttribute("role") === "status" && node.textContent === "Loading image..."))) seen = true;
+      });
+      observer.observe(element, { childList: true, subtree: true });
+      return () => { observer.disconnect(); return seen; };
+    });
+    let loadingFlashed = false;
+    try {
+      for (const ratio of ["landscape (5:4)", "portrait (4:5)", "square (1:1)"]) {
+        await editor.getByRole("radio", { name: ratio, exact: true }).click();
+      }
+      await expect(crop).toBeEnabled();
+    } finally {
+      loadingFlashed = await loadingObserver.evaluate(stop => stop());
+      await loadingObserver.dispose();
+    }
+    expect(loadingFlashed).toBe(false);
     const widthInput = editor.getByRole("spinbutton", { name: "Crop width" });
     const heightInput = editor.getByRole("spinbutton", { name: "Crop height" });
     const xInput = editor.getByRole("spinbutton", { name: "Crop x" });
@@ -417,9 +462,19 @@ test.describe("Crop editor dry run", () => {
       await page.setViewportSize(viewport);
       await expect.poll(async () => (await layout()).controlsInside).toBe(true);
       expect((await layout()).margins.every(margin => Math.abs(margin - 26) < 1)).toBe(true);
+      await editor.getByRole("button", { name: "Settings", exact: true }).click();
+      await expect(editor.getByRole("menu")).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(editor).toBeVisible();
       await testInfo.attach(`crop-layout-${viewport.width}`, { body: await page.screenshot(), contentType: "image/png" });
     }
     await page.setViewportSize({ width: 1400, height: 900 });
+    await page.keyboard.press("Alt+f");
+    await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(true);
+    await expect(editor.getByRole("button", { name: "Settings", exact: true })).toHaveCount(0);
+    await page.keyboard.press("Alt+f");
+    await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(false);
+    await expect(editor.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
     const writes: Array<{ method: string; path: string }> = [];
     const onRequest = (request: import("@playwright/test").Request) => {
       const method = request.method();

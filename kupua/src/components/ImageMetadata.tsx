@@ -248,7 +248,7 @@ export function ImageMetadata({ image, overlay }: ImageMetadataProps) {
     : null;
 
   return (
-    <dl>
+    <dl className="wrap-anywhere">
       {/* Deleted image banner — shown when the image has been soft-deleted.
           Trumps all other invalidity reasons; validity and restrictions banners are
           suppressed when this is shown. Shows who deleted it and when (relative

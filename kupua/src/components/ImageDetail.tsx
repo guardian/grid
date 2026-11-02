@@ -66,6 +66,7 @@ import { UsagesSection, countDisplayUsages } from "@/components/UsagesSection";
 import { AccordionSection, useIsCompact } from "@/components/PanelLayout";
 import { BottomSheet } from "@/components/BottomSheet";
 import { DetailNavigation } from "@/components/DetailNavigation";
+import { SettingsMenu } from "@/components/SettingsMenu";
 import { imageFullscreenElement } from "@/lib/app-fullscreen";
 import { useUiPrefsStore, getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { consumeTraceInteraction, traceInteraction } from "@/lib/perceived-trace";
@@ -180,6 +181,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const detailWrapperRef = useRef<HTMLDivElement>(null);
   // Carousel strip — the inner element translated by swipe gestures.
   const stripRef = useRef<HTMLDivElement>(null);
+  const imageSurfaceRef = useRef<HTMLDivElement>(null);
   // Center panel's <img> — transform target for pinch-zoom.
   const imageRef = useRef<HTMLImageElement>(null);
 
@@ -383,11 +385,12 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const scaleRef = useRef(1);
 
   // Swipe carousel: horizontal swipe with visual slide-in animation.
-  // Listens on the image container so swipe works in both normal and fullscreen.
+  // Compact detail shares gestures with metadata; fullscreen uses the image container.
   // `enabled` toggles when the image loads — forces the effect to re-run after
   // the container DOM element exists (on reload, the loading spinner renders first).
   const { swipedRef, lastSwipeTimeRef } = useSwipeCarousel({
     containerRef,
+    commitKey: isCompact && !isFullscreen ? `${searchKey}:${imageId}` : undefined,
     stripRef,
     onSwipeLeft: nextImage ? goToNext : undefined,
     onSwipeRight: prevImage ? goToPrev : undefined,
@@ -413,7 +416,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   // Only on mobile, only outside fullscreen (tap exits fullscreen instead).
   const _pointerCoarse = useUiPrefsStore((s) => s._pointerCoarse);
   useSwipeDismiss({
-    containerRef,
+    containerRef: imageSurfaceRef,
     wrapperRef: detailWrapperRef,
     backdropRef: gridContainerRef,
     onDismiss: closeDetail,
@@ -545,6 +548,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     if (cropping) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
+      if (detailWrapperRef.current?.querySelector('[role="menu"]')) return;
       if (
         target.tagName === "INPUT" ||
         target.tagName === "TEXTAREA" ||
@@ -690,18 +694,78 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     void resetToHome(() => pushNavigateAsPopstate(navigate, { to: "/search", search: DEFAULT_SEARCH }),
       undefined, router.history);
   };
+  const pairedPages = isCompact && !isFullscreen;
+  const imageSurfaceClass = `absolute inset-x-0 top-0 flex items-center justify-center ${
+    pairedPages
+      ? `${cardExpanded ? "h-[calc(25svh-44px)]" : "h-[calc(100%-64px)]"} transition-[height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`
+      : "h-full"
+  }${isFullscreen ? " touch-none" : " touch-none wide:touch-auto bg-grid-bg"}`;
+  const imageClass = isFullscreen ? "w-full h-full object-contain select-none" : "max-w-full max-h-full object-contain select-none";
+  const renderMetadata = (detailImage: Image, overlay?: EnrichmentFields) => <>
+    <AccordionSection sectionId="detail-metadata" contentId={`detail-metadata-${detailImage.id}`} title="Details">
+      <div className="p-3">
+        <ImageMetadata image={detailImage} overlay={overlay} />
+      </div>
+    </AccordionSection>
+    <AccordionSection
+      sectionId="detail-usages"
+      contentId={`detail-usages-${detailImage.id}`}
+      title={`Usages${countDisplayUsages(detailImage.usages) > 0 ? ` (${countDisplayUsages(detailImage.usages)})` : ""}`}
+    >
+      <UsagesSection usages={detailImage.usages} />
+    </AccordionSection>
+  </>;
+  const renderCard = (detailImage: Image, current = false) => <BottomSheet
+    contentKey={detailImage.id}
+    label="Image details"
+    position="absolute"
+    dragSurfaceRef={current ? imageSurfaceRef : undefined}
+    header={detailImage.metadata?.title ?? detailImage.metadata?.description ?? detailImage.metadata?.credit ?? "Details"}
+    expanded={cardExpanded}
+    onExpandedChange={setCardExpanded}
+    scrim={false}
+  >
+    {renderMetadata(detailImage, current && !imageFromResults ? standaloneEnrichment : undefined)}
+  </BottomSheet>;
+  const renderNeighbor = (detailImage: Image, src: string | undefined, slot: "previous" | "next") => <div
+    className="absolute inset-0"
+    data-detail-page={slot}
+    data-detail-page-id={detailImage.id}
+    style={{ transform: slot === "previous" ? "translateX(-100%)" : "translateX(100%)" }}
+    aria-hidden="true"
+    inert
+  >
+    <div className={imageSurfaceClass}>
+      <StableImg src={src} data-thumb={getThumbnailUrl(detailImage)} alt="" className={imageClass} draggable={false} />
+    </div>
+    {pairedPages && renderCard(detailImage)}
+  </div>;
+  const cropLoading = <div className="flex h-full flex-col" aria-busy="true">
+    <header className="@container/detail-toolbar flex h-11 shrink-0 items-center border-b border-grid-separator px-3">
+      <DetailNavigation destination="image" onBack={closeCrop} onHome={goHome} />
+      <span className="flex-1" />
+      <SettingsMenu />
+    </header>
+    {!displayImage && (standaloneFetchFailed || loadingImageId === imageId) && <p role="status" className="flex flex-1 items-center justify-center text-sm text-grid-text-muted">
+      {standaloneFetchFailed ? "Image not found" : "Loading image..."}
+    </p>}
+  </div>;
 
   return (
     <div ref={detailWrapperRef} className="flex flex-col flex-1 min-h-0 bg-grid-bg" data-detail-image-id={displayImage?.id}>
-      {cropping && displayImage && <Suspense fallback={null}><CropEditor image={displayImage} previewSrc={cropPreviewSrc} onClose={closeCrop} onHome={goHome} /></Suspense>}
+      {cropping && <div className="fixed inset-0 z-50 bg-grid-bg" data-testid="crop-backdrop">
+        {displayImage ? <Suspense fallback={cropLoading}><CropEditor image={displayImage} previewSrc={cropPreviewSrc} onClose={closeCrop} onHome={goHome} /></Suspense> : cropLoading}
+      </div>}
       {/* Top bar — hidden in fullscreen */}
       {!isFullscreen && (
-        <header inert={cropping} className="flex items-center px-3 py-1.5 bg-grid-bg border-b border-grid-separator h-11 shrink-0">
+        <header inert={cropping} className="@container/detail-toolbar relative z-30 flex items-center px-3 py-1.5 bg-grid-bg border-b border-grid-separator h-11 shrink-0">
           <DetailNavigation destination="search" onBack={closeDetail} onHome={goHome} />
           <div className="w-px h-5 bg-grid-separator shrink-0" />
           {currentGlobalIndex >= 0 && (
-            <span className="px-3 text-sm text-grid-text-muted">
-              {(currentGlobalIndex + 1).toLocaleString()} of {total.toLocaleString()}
+            <span className="flex shrink-0 flex-col items-center px-3 tabular-nums whitespace-nowrap @min-[640px]/detail-toolbar:flex-row @min-[640px]/detail-toolbar:gap-1">
+              <span className="text-sm leading-4 font-semibold text-grid-text-bright">{(currentGlobalIndex + 1).toLocaleString()}</span>
+              {" "}
+              <span className="text-2xs wide:text-sm leading-4 text-grid-text-muted">of {total.toLocaleString()}</span>
             </span>
           )}
 
@@ -712,16 +776,21 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
               <div className="w-px h-5 bg-grid-separator shrink-0" />
               <button
                 onClick={openCrop}
+                aria-label="Crop image"
                 title="Crop image [c]"
-                className="shrink-0 h-11 inline-flex items-center gap-1.5 px-3 text-sm text-grid-text-muted hover:bg-grid-hover hover:text-grid-text transition-colors cursor-pointer"
+                className="shrink-0 min-w-11 h-11 inline-flex items-center justify-center gap-1.5 px-3 text-sm text-grid-text-muted hover:bg-grid-hover hover:text-grid-text transition-colors cursor-pointer"
               >
-                <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+                <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
                   <path d="M6 2v16h16M2 6h16v16" />
                 </svg>
-                Crop image
+                <span className="hidden @min-[360px]/detail-toolbar:inline whitespace-nowrap">
+                  Crop<span className="hidden @min-[640px]/detail-toolbar:inline"> image</span>
+                </span>
               </button>
+              <div aria-hidden="true" className="w-px h-5 bg-grid-separator shrink-0" />
             </>
           )}
+          <SettingsMenu />
         </header>
       )}
 
@@ -732,30 +801,29 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       <div
         ref={mobileScrollRef}
         inert={cropping}
+        onClickCapture={isCompact ? (event) => {
+          if ((event.target as Element).closest('[aria-haspopup="menu"],[role="menu"]')) return;
+          if (swipedRef.current && event.detail > 0) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        } : undefined}
         className={
           isFullscreen
             ? "flex-1 flex min-h-0"
             : "flex-1 flex min-h-0 overflow-y-auto wide:overflow-clip overscroll-y-contain overscroll-x-none flex-col wide:flex-row touch-pan-y wide:touch-auto"
         }
       >
-        {/* Image container — this div is fullscreened. overflow-clip clips
-            the carousel's off-screen prev/next panels without creating a scroll
-            container — overflow-hidden would eat the macOS trackpad back-swipe.
-            touch-action: none — we handle all gestures ourselves (swipe carousel).
-            h-[calc(100%-64px)] — compact image fills the screen above the metadata
-            card's peek strip; svh (small viewport height) is stable when address bar
-            shows/hides, avoiding the twitch on fullscreen exit. */}
+        {/* Fullscreen container and horizontal page viewport. overflow-clip clips
+          neighbouring pages without creating a trackpad scroll container.
+          Compact pages contain both the image surface and its metadata card. */}
         <div
           ref={containerRef}
           className={`relative overflow-clip ${
             isFullscreen
               ? `w-full h-full touch-none${cursorHidden ? " cursor-none" : ""}`
-              : `bg-grid-bg shrink-0 wide:flex-1 min-w-0 ${
-                // Expanded card covers the bottom 75%: the image shrinks into the top quarter.
-                isCompact && cardExpanded ? "h-[calc(25svh-44px)]" : "h-[calc(100%-64px)]"
-              } wide:h-full touch-none wide:touch-auto transition-[height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`
+              : `wide:flex-1 min-w-0 ${isCompact ? "flex-1 min-h-0" : "shrink-0 h-[calc(100%-64px)] wide:h-full"} touch-pan-y wide:touch-auto`
           }`}
-          onClickCapture={isCompact && cardExpanded ? (e) => { e.stopPropagation(); setCardExpanded(false); } : undefined}
         >
           {/* Carousel strip — three panels (prev | current | next).
               Translated by useSwipeCarousel during horizontal swipe.
@@ -764,24 +832,18 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
             {/* Previous image (off-screen left) — used by swipe animation on mobile.
                 Gated on _pointerCoarse: desktop never swipes, so rendering off-screen
                 panels wastes 2 AVIF fetches + decodes per navigation. */}
-            {_pointerCoarse && prevImageUrl && (
-              <div className="absolute inset-0 flex items-center justify-center" style={{ transform: "translateX(-100%)" }}>
-                <StableImg
-                  src={prevImageUrl}
-                  data-thumb={prevImage ? getThumbnailUrl(prevImage) : undefined}
-                  alt=""
-                  className={
-                    isFullscreen
-                      ? "w-full h-full object-contain select-none"
-                      : "max-w-full max-h-full object-contain select-none"
-                  }
-                  draggable={false}
-                />
-              </div>
+            {_pointerCoarse && prevImage && (prevImageUrl || pairedPages) && (
+              renderNeighbor(prevImage, prevImageUrl, "previous")
             )}
 
             {/* Current image — full-res via imageUrl */}
-            <div className="absolute inset-0 flex items-center justify-center">
+            <div className="absolute inset-0" data-detail-page="current" data-detail-page-id={displayImage?.id}>
+              <div
+                ref={imageSurfaceRef}
+                data-testid="detail-image-container"
+                className={imageSurfaceClass}
+                onClickCapture={isCompact && cardExpanded ? (event) => { event.stopPropagation(); setCardExpanded(false); } : undefined}
+              >
               {!displayImage ? (
                 <div className="text-grid-text-muted text-center">
                   {standaloneFetchFailed ? (
@@ -796,11 +858,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
                   src={imageUrl}
                   fetchPriority="high"
                   alt={displayImage.metadata?.title ?? displayImage.metadata?.description ?? ""}
-                  className={
-                    isFullscreen
-                      ? "w-full h-full object-contain select-none"
-                      : "max-w-full max-h-full object-contain select-none"
-                  }
+                  className={imageClass}
                   draggable={false}
                   onClick={handleImageClick}
                   onLoad={(event) => {
@@ -842,23 +900,13 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
                   )}
                 </div>
               )}
+              </div>
+              {pairedPages && displayImage && renderCard(displayImage, true)}
             </div>
 
             {/* Next image (off-screen right) — used by swipe animation on mobile. */}
-            {_pointerCoarse && nextImageUrl && (
-              <div className="absolute inset-0 flex items-center justify-center" style={{ transform: "translateX(100%)" }}>
-                <StableImg
-                  src={nextImageUrl}
-                  data-thumb={nextImage ? getThumbnailUrl(nextImage) : undefined}
-                  alt=""
-                  className={
-                    isFullscreen
-                      ? "w-full h-full object-contain select-none"
-                      : "max-w-full max-h-full object-contain select-none"
-                  }
-                  draggable={false}
-                />
-              </div>
+            {_pointerCoarse && nextImage && (nextImageUrl || pairedPages) && (
+              renderNeighbor(nextImage, nextImageUrl, "next")
             )}
           </div>
 
@@ -871,44 +919,19 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
             <NavStrip direction="next" onClick={goToNext} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} className="hidden wide:flex" />
           )}
           {!(isFullscreen && cursorHidden) && (
-            <FullscreenCornerButton isFullscreen={isFullscreen} onClick={toggleFullscreen} className="hidden wide:flex" />
+            <div className={isFullscreen ? "absolute right-11 top-0 z-10" : "contents"}>
+              <FullscreenCornerButton isFullscreen={isFullscreen} onClick={toggleFullscreen} className="hidden wide:flex" />
+            </div>
           )}
         </div>
 
-        {/* Metadata — hidden in fullscreen.
-            Desktop: fixed-width right column, scrolls independently.
-            Compact: a card peeking over the image. */}
-        {!isFullscreen && displayImage && (() => {
-          const content = <>
-            <AccordionSection sectionId="detail-metadata" title="Details">
-              <div className="p-3">
-                <ImageMetadata image={displayImage} overlay={imageFromResults ? undefined : standaloneEnrichment} />
-              </div>
-            </AccordionSection>
-            <AccordionSection
-              sectionId="detail-usages"
-              title={`Usages${countDisplayUsages(displayImage.usages) > 0 ? ` (${countDisplayUsages(displayImage.usages)})` : ""}`}
-            >
-              <UsagesSection usages={displayImage.usages} />
-            </AccordionSection>
-          </>;
-          return isCompact ? (
-            <BottomSheet
-              label="Image details"
-              header={displayImage.metadata?.title ?? displayImage.metadata?.description ?? displayImage.metadata?.credit ?? "Details"}
-              expanded={cardExpanded}
-              onExpandedChange={setCardExpanded}
-              // The shrunken image stays live: swipe-down still dismisses the detail.
-              scrim={false}
-            >
-              {content}
-            </BottomSheet>
-          ) : (
+        {/* Desktop metadata stays outside the horizontal track; compact cards
+          belong to their pages and are absent in fullscreen. */}
+        {!isFullscreen && displayImage && !isCompact && (
             <aside className="w-72 shrink-0 border-l border-grid-separator bg-grid-bg overflow-y-auto overflow-x-clip">
-              {content}
+              {renderMetadata(displayImage, imageFromResults ? undefined : standaloneEnrichment)}
             </aside>
-          );
-        })()}
+        )}
       </div>
     </div>
   );

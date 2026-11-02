@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, type ReactNode, type TouchEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject, type TouchEvent } from "react";
 import { useContentPullToDrag } from "@/hooks/useContentPullToDrag";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 const PEEK_PX = 64;
 /** Expanded card leaves the top quarter of the viewport uncovered. */
 const EXPANDED_VH = 75;
+const SNAP_TRANSITION = "translate 0.28s cubic-bezier(0.22, 1, 0.36, 1)";
 
 interface BottomSheetProps {
   /** Shown in the always-visible peek strip next to the handle. */
@@ -17,18 +18,25 @@ interface BottomSheetProps {
   label: string;
   /** Dim and block the page behind the expanded card (tap collapses). */
   scrim?: boolean;
+  dragSurfaceRef?: RefObject<HTMLElement | null>;
+  position?: "fixed" | "absolute";
+  contentKey?: string;
 }
 
 /**
  * Compact-shell card: peeks from the bottom, expands to 75vh, swipe/tap to toggle.
  * Content scrolls only when expanded.
  */
-export function BottomSheet({ header, children, expanded, onExpandedChange, onDismiss, label, scrim = true }: BottomSheetProps) {
+export function BottomSheet({ header, children, expanded, onExpandedChange, onDismiss, label, scrim = true, dragSurfaceRef, position = "fixed", contentKey }: BottomSheetProps) {
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef<{ y: number; t: number; base: number } | null>(null);
   const lastTouchToggle = useRef(0);
   const contentRef = useRef<HTMLDivElement>(null);
   const [maxH, setMaxH] = useState(() => window.innerHeight * EXPANDED_VH / 100);
+
+  useLayoutEffect(() => {
+    if (contentRef.current) contentRef.current.scrollTop = 0;
+  }, [contentKey]);
 
   useEffect(() => {
     const onResize = () => setMaxH(window.innerHeight * EXPANDED_VH / 100);
@@ -41,32 +49,45 @@ export function BottomSheet({ header, children, expanded, onExpandedChange, onDi
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    el.style.transition = "translate 0.28s cubic-bezier(0.22, 1, 0.36, 1)";
+    el.style.transition = SNAP_TRANSITION;
     el.style.translate = `0 ${restOffset}px`;
   }, [restOffset]);
 
-  const onTouchStart = (e: TouchEvent) => {
-    drag.current = { y: e.touches[0].clientY, t: performance.now(), base: restOffset };
+  const startDrag = (y: number) => {
+    drag.current = { y, t: performance.now(), base: restOffset };
   };
-  const onTouchMove = (e: TouchEvent) => {
+  const cancelDrag = () => {
+    drag.current = null;
+    if (ref.current) {
+      ref.current.style.transition = SNAP_TRANSITION;
+      ref.current.style.translate = `0 ${restOffset}px`;
+    }
+  };
+  const moveDrag = (y: number, defaultPrevented: boolean) => {
     const el = ref.current;
     const d = drag.current;
     if (!d || !el) return;
-    const offset = Math.max(0, d.base + e.touches[0].clientY - d.y);
+    if (defaultPrevented) {
+      cancelDrag();
+      return;
+    }
+    const offset = Math.max(0, d.base + y - d.y);
     el.style.transition = "none";
     el.style.translate = `0 ${offset}px`;
   };
-  const onTouchEnd = (e: TouchEvent) => {
+  const endDrag = (y: number, toggleOnTap = true) => {
     const el = ref.current;
     const d = drag.current;
     drag.current = null;
     if (!d || !el) return;
-    const dy = e.changedTouches[0].clientY - d.y;
+    const dy = y - d.y;
     const v = dy / Math.max(1, performance.now() - d.t);
-    el.style.transition = "translate 0.28s cubic-bezier(0.22, 1, 0.36, 1)";
+    el.style.transition = SNAP_TRANSITION;
     if (Math.abs(dy) < 6) {
-      lastTouchToggle.current = performance.now();
-      onExpandedChange(!expanded);
+      if (toggleOnTap) {
+        lastTouchToggle.current = performance.now();
+        onExpandedChange(!expanded);
+      } else el.style.translate = `0 ${restOffset}px`;
       return;
     }
     const offset = d.base + dy;
@@ -79,8 +100,65 @@ export function BottomSheet({ header, children, expanded, onExpandedChange, onDi
     if (wantExpanded === expanded) el.style.translate = `0 ${restOffset}px`;
     else onExpandedChange(wantExpanded);
   };
+  const onTouchStart = (event: TouchEvent) => startDrag(event.touches[0].clientY);
+  const onTouchMove = (event: TouchEvent) => moveDrag(event.touches[0].clientY, event.defaultPrevented);
+  const onTouchEnd = (event: TouchEvent) => endDrag(event.changedTouches[0].clientY);
+  const dragActions = useRef({ startDrag, moveDrag, endDrag, cancelDrag });
+  dragActions.current = { startDrag, moveDrag, endDrag, cancelDrag };
+
+  useEffect(() => {
+    const surface = dragSurfaceRef?.current;
+    if (!surface || expanded) return;
+    let origin: { x: number; y: number } | null = null;
+    let decided = false;
+    let tracking = false;
+    const cancel = () => {
+      origin = null;
+      tracking = false;
+      dragActions.current.cancelDrag();
+    };
+    const start = (event: globalThis.TouchEvent) => {
+      if (event.touches.length !== 1) { cancel(); return; }
+      origin = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+      decided = false;
+      tracking = false;
+      dragActions.current.startDrag(origin.y);
+    };
+    const move = (event: globalThis.TouchEvent) => {
+      if (!origin) return;
+      if (event.touches.length !== 1) { cancel(); return; }
+      const dx = event.touches[0].clientX - origin.x;
+      const dy = event.touches[0].clientY - origin.y;
+      if (!decided) {
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+        decided = true;
+        tracking = Math.abs(dy) > Math.abs(dx) && dy < 0;
+      }
+      if (!tracking) return;
+      dragActions.current.moveDrag(event.touches[0].clientY, event.defaultPrevented);
+      event.preventDefault();
+    };
+    const end = (event: globalThis.TouchEvent) => {
+      origin = null;
+      if (tracking && event.changedTouches.length > 0) dragActions.current.endDrag(event.changedTouches[0].clientY, false);
+      else drag.current = null;
+      tracking = false;
+    };
+    surface.addEventListener("touchstart", start, { passive: true });
+    surface.addEventListener("touchmove", move, { passive: false });
+    surface.addEventListener("touchend", end, { passive: true });
+    surface.addEventListener("touchcancel", cancel, { passive: true });
+    return () => {
+      surface.removeEventListener("touchstart", start);
+      surface.removeEventListener("touchmove", move);
+      surface.removeEventListener("touchend", end);
+      surface.removeEventListener("touchcancel", cancel);
+      if (origin) cancel();
+    };
+  }, [dragSurfaceRef, expanded, restOffset]);
+
   const contentPull = useContentPullToDrag(contentRef,
-    { onTouchStart, onTouchMove, onTouchEnd, isDragging: () => drag.current !== null }, expanded);
+    { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: cancelDrag, isDragging: () => drag.current !== null }, expanded);
   // Modal only with a scrim; image detail's card leaves the image above interactive.
   useFocusTrap(ref, expanded && scrim);
 
@@ -99,7 +177,7 @@ export function BottomSheet({ header, children, expanded, onExpandedChange, onDi
       role="region"
       tabIndex={-1}
       aria-label={label}
-      className="fixed inset-x-0 bottom-0 z-40 flex flex-col bg-grid-bg rounded-t-2xl border-t border-grid-separator shadow-[0_-8px_24px_rgba(0,0,0,0.45)] outline-none"
+      className={`${position} inset-x-0 bottom-0 z-40 flex flex-col bg-grid-bg rounded-t-2xl border-t border-grid-separator shadow-[0_-8px_24px_rgba(0,0,0,0.45)] outline-none`}
       style={{ height: maxH, translate: `0 ${restOffset}px` }}
     >
       <div
@@ -108,7 +186,7 @@ export function BottomSheet({ header, children, expanded, onExpandedChange, onDi
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
-        onTouchCancel={onTouchEnd}
+        onTouchCancel={cancelDrag}
       >
         <div className="flex justify-center pt-2 pb-1.5">
           <span className="block w-10 h-1 rounded-full bg-grid-text-dim" />
@@ -129,7 +207,7 @@ export function BottomSheet({ header, children, expanded, onExpandedChange, onDi
       </div>
       <div
         ref={contentRef}
-        className={`flex-1 min-h-0 overscroll-contain ${expanded ? "overflow-y-auto" : "overflow-hidden"}`}
+        className={`flex-1 min-h-0 overflow-x-hidden overscroll-contain ${expanded ? "overflow-y-auto" : "overflow-hidden"}`}
         {...contentPull}
       >
         {children}

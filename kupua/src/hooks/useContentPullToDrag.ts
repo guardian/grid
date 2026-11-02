@@ -4,6 +4,7 @@ interface SheetDragHandlers {
   onTouchStart: (e: TouchEvent) => void;
   onTouchMove: (e: TouchEvent) => void;
   onTouchEnd: (e: TouchEvent) => void;
+  onTouchCancel: () => void;
 }
 
 /**
@@ -17,7 +18,7 @@ export function useContentPullToDrag(
   sheet: SheetDragHandlers & { isDragging: () => boolean },
   enabled = true,
 ) {
-  const pull = useRef<number | null>(null);
+  const pull = useRef<{ x: number; y: number } | null>(null);
   const release = () => {
     pull.current = null;
     if (contentRef.current) contentRef.current.style.overflowY = "";
@@ -26,23 +27,35 @@ export function useContentPullToDrag(
     if (pull.current !== null && sheet.isDragging()) sheet.onTouchEnd(e);
     release();
   };
+  const cancel = () => {
+    if (pull.current !== null && sheet.isDragging()) sheet.onTouchCancel();
+    release();
+  };
   return {
     onTouchStart: (e: TouchEvent) => {
+      if (e.touches.length !== 1) { cancel(); return; }
       const nested = (e.target as Element).closest("[data-own-scroll]");
-      pull.current = enabled && !nested && (contentRef.current?.scrollTop ?? 0) <= 0 ? e.touches[0].clientY : null;
+      pull.current = enabled && !nested && e.touches.length === 1 && (contentRef.current?.scrollTop ?? 0) <= 0
+        ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
     },
     onTouchMove: (e: TouchEvent) => {
-      const y0 = pull.current;
-      if (y0 === null) return;
+      const start = pull.current;
+      if (!start) return;
+      if (e.defaultPrevented || e.touches.length !== 1) {
+        cancel();
+        return;
+      }
       if (!sheet.isDragging()) {
-        const dy = e.touches[0].clientY - y0;
-        if (dy < 8) { if (dy < 0) pull.current = null; return; }
+        const dx = e.touches[0].clientX - start.x;
+        const dy = e.touches[0].clientY - start.y;
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+        if (Math.abs(dx) > Math.abs(dy) || dy < 0) { release(); return; }
         sheet.onTouchStart(e);
         if (contentRef.current) contentRef.current.style.overflowY = "hidden";
       }
       sheet.onTouchMove(e);
     },
     onTouchEnd: end,
-    onTouchCancel: end,
+    onTouchCancel: cancel,
   };
 }

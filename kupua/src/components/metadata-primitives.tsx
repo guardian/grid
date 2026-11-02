@@ -77,7 +77,7 @@ export function ValueLink({ cqlKey, value, label, onSearch, className }: ValueLi
   return (
     <button
       type="button"
-      className={`text-grid-text underline decoration-[#999] underline-offset-2 hover:text-grid-accent hover:decoration-grid-accent cursor-pointer bg-transparent border-none p-0 font-inherit text-left ${className ?? ""}`}
+      className={`max-w-full wrap-anywhere select-text text-grid-text underline decoration-[#999] underline-offset-2 hover:text-grid-accent hover:decoration-grid-accent cursor-pointer bg-transparent border-none p-0 font-inherit text-left ${className ?? ""}`}
       onClick={(e) => onSearch(cqlKey, value, e)}
       data-cql-key={cqlKey}
       data-cql-value={value}
@@ -130,10 +130,10 @@ export interface MetadataRowProps {
 export function MetadataRow({ label, children, ref, tabIndex }: MetadataRowProps) {
   return (
     <div ref={ref} tabIndex={tabIndex} className="flex gap-1 py-0.75 leading-snug">
-      <dt className="text-xs font-bold text-grid-text-dim shrink-0 w-[30%]">
+      <dt className="text-xs font-bold text-grid-text-dim shrink-0 w-[30%] wrap-anywhere">
         {label}
       </dt>
-      <dd className="text-xs text-grid-text wrap-break-word min-w-0">
+      <dd className="text-xs text-grid-text wrap-anywhere min-w-0">
         {children}
       </dd>
     </div>
@@ -155,10 +155,10 @@ export interface MetadataBlockProps {
 export function MetadataBlock({ label, children }: MetadataBlockProps) {
   return (
     <div className="py-0.75 leading-snug">
-      <dt className="text-xs font-bold text-grid-text-dim pb-0.5">
+      <dt className="text-xs font-bold text-grid-text-dim pb-0.5 wrap-anywhere">
         {label}
       </dt>
-      <dd className="text-xs text-grid-text wrap-break-word">
+      <dd className="text-xs text-grid-text wrap-anywhere">
         {children}
       </dd>
     </div>

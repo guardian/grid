@@ -53,7 +53,13 @@ export function FiltersSheet({ onClose, fields, onFieldsChange, dropdown = false
     }
   };
   const contentPull = useContentPullToDrag(contentRef,
-    { onTouchStart, onTouchMove, onTouchEnd, isDragging: () => drag.current !== null });
+    { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: () => {
+      drag.current = null;
+      if (sheetRef.current) {
+        sheetRef.current.style.transition = "translate 0.2s cubic-bezier(0.22, 1, 0.36, 1)";
+        sheetRef.current.style.translate = "0 0";
+      }
+    }, isDragging: () => drag.current !== null });
   const dropdownRef = useRef<HTMLDivElement>(null);
   useFocusTrap(dropdown ? dropdownRef : sheetRef, true);
 
@@ -69,7 +75,7 @@ export function FiltersSheet({ onClose, fields, onFieldsChange, dropdown = false
     return (
       <>
         <div className="fixed inset-x-0 top-11 bottom-0 z-[54] bg-black/20" aria-hidden="true" onClick={onClose} />
-        <div ref={dropdownRef} tabIndex={-1} role="dialog" aria-label="Filters and sort" className="outline-none fixed inset-x-0 top-11 z-[55] max-h-[calc(100vh-3rem)] overflow-y-auto bg-grid-bg border-b border-grid-separator shadow-lg px-4 py-3 flex flex-col gap-4">
+        <div ref={dropdownRef} tabIndex={-1} role="dialog" aria-label="Filters and sort" className="outline-none fixed inset-x-0 top-11 z-[55] max-h-[calc(100vh-3rem)] overflow-y-auto overflow-x-hidden bg-grid-bg border-b border-grid-separator shadow-lg px-4 py-3 flex flex-col gap-4">
           <div className="flex items-center justify-between gap-3">
             <SearchFilters inSheet />
             <SearchFilters.Sort inSheet />
@@ -107,7 +113,7 @@ export function FiltersSheet({ onClose, fields, onFieldsChange, dropdown = false
         </div>
         <div
           ref={contentRef}
-          className="flex-1 overflow-y-auto overscroll-contain px-4 pb-4 flex flex-col gap-5 pt-2"
+          className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-4 pb-4 flex flex-col gap-5 pt-2"
           {...contentPull}
         >
           <RefineChips fields={fields} onFieldsChange={onFieldsChange} />

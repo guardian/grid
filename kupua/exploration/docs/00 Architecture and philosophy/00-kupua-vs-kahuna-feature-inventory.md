@@ -1,6 +1,6 @@
 # Kupua vs Kahuna — Feature Inventory
 
-**Current implementation, 1 November 2026.** A product-facing comparison of
+**Current implementation, 2 November 2026.** A product-facing comparison of
 API-backed Kupua with Kahuna. Sections and entries put the larger editorial
 workflow improvements before supporting controls and polish. Shared capabilities
 are identified as such; the final section lists the remaining gaps. Selected
@@ -569,7 +569,7 @@ Sources: [image URL builders](../../../src/lib/image-urls.ts),
 [Kahuna rendition selection](../../../../kahuna/public/js/imgops/service.js),
 [canonical delivery plan](<../03 Ce n'est pas une pipe dream/api-build/api-build-00-plan.md>).
 
-### 3.7 Crop framing with desktop fullscreen and reload recovery (mock-only)
+### 3.7 Desktop and touch crop framing with reload recovery (mock-only)
 
 **Kahuna:** provides a backend-connected crop workflow on a separate page, with
 numeric coordinates, ratio presets and responsive labels. Numeric editing and
@@ -587,12 +587,34 @@ intentionally cleared frame. Leaving through in-app navigation discards it, so
 Back then Forward starts fresh. Camera/fullscreen state is not restored, and
 full-document navigation away and Back can retain the draft.
 
-For narrower screens, ratio buttons collapse to ratios at 1294px and below, as in
-Kahuna. Inline coordinate controls wrap in pairs; local small-crop warnings pass
-pointer input through their body instead of covering frame controls. This is
-responsive treatment of the current editor, not a finished touch-specific crop
-workflow: mobile crop zoom and the proposed collapsible coordinate inspector are
-not implemented.
+On phones, a compact top bar keeps navigation and Crop separate from the bottom
+ratio, dimensions and precision controls. Coordinates open in a collapsible panel
+without replacing the canvas or losing the frame; desktop coordinates stay directly
+available. The panel follows the keyboard's visible viewport, keeps the focused
+field in view and offers Done or a deliberate downward header drag to finish
+editing. Invalid coordinate drafts remain visible with colour and `aria-invalid`
+feedback, without changing the frame or allowing submission. Rounded coordinate
+limits agree with displayed dimensions, so re-entering a valid ratio width does not
+block Crop. An opaque loading cover prevents the underlying detail view showing
+through while the editor loads or the keyboard changes the viewport.
+
+Two-finger pinch and pan move the phone image and frame together at 1-5x zoom without
+changing source crop coordinates. One button switches between Zoom in at Fit and
+Fit when zoomed. Pan is always available on desktop and appears while zoomed on phones.
+Desktop fullscreen shows the same
+controls above the grabber; Hand toggles between its default view-panning and crop
+editing. A short-lived Hand hint appears once per phone editor opening. Fit and ratio
+changes restore the fitted view. Larger adaptive touch handles preserve a central frame-move
+area, and interrupted multi-touch gestures do not hand a remaining finger back to
+crop editing before release.
+
+Dragging a frame along an image edge preserves its size; resizing can continue along
+the other edge after reaching a boundary. Ratio-locked resizing preserves opposite
+anchors and the orthogonal center of side-handle drags. Square crops keep Apply mask
+alongside the dimensions on phones. Ratio labels retain Kahuna's compact treatment
+on narrower desktop widths, and local small-crop warnings pass pointer input through
+their body instead of covering frame controls. Fullscreen stays free of Settings
+menus. The view controls use local inline SVGs without an additional icon dependency.
 
 **Boundary:** cropping is mock-only. Crop builds, displays and logs an original-pixel
 request; it does not submit it, create or save a crop, or produce an export. Kahuna's
@@ -602,7 +624,9 @@ connected crop/export workflow remains a gap (§8.2).
 Backend crop creation is not connected.
 
 Sources: [CropEditor](../../../src/components/crop/CropEditor.tsx),
+[CropCanvas](../../../src/components/crop/CropCanvas.tsx),
 [crop viewport](../../../src/lib/crop/crop-viewport.ts),
+[coordinate limits and request mapping](../../../src/lib/crop/crop-request.ts),
 [draft recovery](../../../src/lib/crop/crop-draft.ts),
 [Kahuna crop view](../../../../kahuna/public/js/crop/view.html),
 [Kahuna responsive ratio styling](../../../../kahuna/public/js/components/gr-radio-list/gr-radio-list.css).
@@ -1190,7 +1214,8 @@ Sources: [Kupua metadata](../../../src/components/ImageMetadata.tsx),
 
 Kahuna provides upload and backend-connected crop/export workflows. Kupua does not
 upload images or create/save/export crops. Its mock crop editor (§3.7) supports
-framing and request inspection only; ordinary image-inspection zoom is not an editing tool.
+desktop and touch framing, numeric precision editing and local reload recovery, but
+only displays the proposed request. Ordinary image-inspection zoom is not an editing tool.
 
 Sources: [Kahuna upload](../../../../kahuna/public/js/upload),
 [Kahuna crop](../../../../kahuna/public/js/crop),

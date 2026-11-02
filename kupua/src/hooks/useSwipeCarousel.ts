@@ -28,7 +28,7 @@
  * See worklog-current.md for full investigation.
  */
 
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 
 /** Minimum movement before deciding horizontal vs vertical. */
 const DECIDE_THRESHOLD = 10;
@@ -51,7 +51,7 @@ const RUBBER_BAND = 0.3;
  * transition instant — the center panel shows the correct image BEFORE
  * navigate() is called. React's re-render becomes a visual no-op.
  */
-function commitStripReset(strip: HTMLElement, direction: "left" | "right") {
+function prepareStripCommit(strip: HTMLElement, direction: "left" | "right") {
   // Panels are the direct children of the strip: [prev, center, next]
   // (or fewer if prev/next are conditionally rendered).
   // Find center panel (no inline transform) and target panel.
@@ -84,6 +84,12 @@ function commitStripReset(strip: HTMLElement, direction: "left" | "right") {
       centerImg.style.transition = "";
     }
   }
+  return centerPanel;
+}
+
+function commitStripReset(strip: HTMLElement, direction: "left" | "right") {
+  const centerPanel = prepareStripCommit(strip, direction);
+  const panels = Array.from(strip.children) as HTMLElement[];
 
   // Clear side-panel bitmaps. The browser deprioritizes decoding off-screen
   // images (translateX(±100%)), so even cached thumbnails can remain ⏳ for
@@ -107,6 +113,7 @@ function commitStripReset(strip: HTMLElement, direction: "left" | "right") {
 interface UseSwipeCarouselOptions {
   /** Container element — listens for touch gestures here. */
   containerRef: RefObject<HTMLElement | null>;
+  commitKey?: string;
   /** Inner strip element — animated with translateX. */
   stripRef: RefObject<HTMLElement | null>;
   /** Called after successful left swipe (show next). Undefined = no next. */
@@ -131,6 +138,7 @@ interface UseSwipeCarouselReturn {
 
 export function useSwipeCarousel({
   containerRef,
+  commitKey,
   stripRef,
   onSwipeLeft,
   onSwipeRight,
@@ -149,6 +157,13 @@ export function useSwipeCarousel({
   const swipedRef = useRef(false);
   // Timestamp of last committed swipe — for cooldown guards.
   const lastSwipeTimeRef = useRef(0);
+  const commitKeyRef = useRef(commitKey);
+  commitKeyRef.current = commitKey;
+  const resetRef = useRef<(() => void) | null>(null);
+
+  useLayoutEffect(() => {
+    resetRef.current?.();
+  }, [commitKey]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -171,6 +186,21 @@ export function useSwipeCarousel({
     let pendingCb: (() => void) | null = null;
     let pendingDirection: "left" | "right" | null = null;
     let pendingAnimation: Animation | null = null;
+    let awaitingCommit = false;
+    const reset = () => {
+      if (pendingAnimation) pendingAnimation.cancel();
+      pendingAnimation = null;
+      pendingCb = null;
+      pendingDirection = null;
+      if (awaitingCommit) lastSwipeTimeRef.current = Date.now();
+      awaitingCommit = false;
+      animating = false;
+      tracking = false;
+      decided = false;
+      strip.style.transition = "none";
+      strip.style.transform = "";
+    };
+    resetRef.current = reset;
 
     function onTouchStart(e: TouchEvent) {
       // Always reset tracking state first — prevents stale flags from a
@@ -182,13 +212,17 @@ export function useSwipeCarousel({
       if (animating || e.touches.length !== 1) {
         return;
       }
+      swipedRef.current = false;
+      if ((e.target as Element).closest("input, textarea, select, [contenteditable=true], [data-own-scroll]")) {
+        decided = true;
+        return;
+      }
       if (scaleRef?.current && scaleRef.current > 1) return; // zoomed — let pinchZoom handle pan
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
       lastX = startX;
       lastTime = e.timeStamp;
       velocity = 0;
-      swipedRef.current = false;
       strip.style.transition = "none";
     }
 
@@ -294,6 +328,15 @@ export function useSwipeCarousel({
         pendingAnimation = anim;
 
         anim.finished.then(() => {
+          if (pendingAnimation !== anim) return;
+          if (commitKeyRef.current !== undefined) {
+            prepareStripCommit(strip, direction);
+            pendingCb = null;
+            pendingDirection = null;
+            awaitingCommit = true;
+            cb();
+            return;
+          }
           // .finished resolves as a microtask — no touch events can fire
           // between these lines. This closes the race window that
           // transitionend (macrotask) left open.
@@ -331,14 +374,25 @@ export function useSwipeCarousel({
       }
     }
 
+    const onTouchCancel = () => {
+      tracking = false;
+      decided = false;
+      if (!animating) strip.style.transform = "";
+    };
+
     container.addEventListener("touchstart", onTouchStart, { passive: true });
     container.addEventListener("touchmove", onTouchMove, { passive: false });
     container.addEventListener("touchend", onTouchEnd, { passive: true });
+    container.addEventListener("touchcancel", onTouchCancel, { passive: true });
 
     // Handle container resize during animation (orientation change mid-swipe).
     // Kill the animation and commit immediately.
     const ro = new ResizeObserver(() => {
       if (animating && pendingCb && pendingAnimation) {
+        if (commitKeyRef.current !== undefined) {
+          pendingAnimation.finish();
+          return;
+        }
         const cb = pendingCb;
         const dir = pendingDirection!;
         pendingAnimation.cancel(); // triggers .catch() (no-op)
@@ -356,7 +410,9 @@ export function useSwipeCarousel({
       container.removeEventListener("touchstart", onTouchStart);
       container.removeEventListener("touchmove", onTouchMove);
       container.removeEventListener("touchend", onTouchEnd);
-      if (pendingAnimation) pendingAnimation.cancel();
+      container.removeEventListener("touchcancel", onTouchCancel);
+      resetRef.current = null;
+      reset();
       ro.disconnect();
     };
   }, [containerRef, stripRef, swipedRef, enabled]);

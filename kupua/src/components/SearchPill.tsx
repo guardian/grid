@@ -54,8 +54,8 @@ export function SearchPill({ value, cqlKey, label, onSearch, accent }: SearchPil
     <button
       type="button"
       className={accent
-        ? PILL_ACCENT
-        : PILL_DEFAULT
+        ? PILL_ACCENT + " select-text"
+        : PILL_DEFAULT + " select-text"
       }
       onClick={(e) => onSearch(cqlKey, value, e)}
       title={`${label ?? value}\nShift+click to add, ${ALT_CLICK} to exclude`}
@@ -139,7 +139,7 @@ export function MultiSearchPill({
     <button
       type="button"
       data-partial={partial ? "true" : undefined}
-      className={cls}
+      className={cls + " select-text"}
       onClick={(e) => onSearch(cqlKey, value, e)}
       title={`${value} (${count.toLocaleString()}/${total.toLocaleString()})\nShift+click to add, ${ALT_CLICK} to exclude`}
     >

@@ -52,10 +52,11 @@ for a changed DPR with a bounded synchronous predicate, then await layout frames
 the action's own placement readiness. Do not batch zoom commands and label their
 immediate samples as settled zoom levels or preservation failures.
 
-Do not assume `Meta+0` resets zoom in this host. Restore with acknowledged inverse
-steps until the original DPR is reached, verify the original CSS viewport dimensions,
-and then restore any viewport override. If no DPR change occurs, stop rather than
-accumulating queued shortcuts. These checks concern zoom/layout, not performance.
+Do not assume `Meta+0` resets zoom in this host. When a comparison needs the starting
+zoom again, use acknowledged inverse steps until the original DPR is reached and
+verify the corresponding CSS viewport dimensions. If no DPR change occurs, stop
+rather than accumulating queued shortcuts. These checks concern zoom/layout, not
+performance.
 
 ### Wheel pacing under viewport emulation
 
@@ -70,7 +71,8 @@ movement across buffer compensation separately from raw `scrollTop` changes.
 Use elapsed-time pacing when cadence matters, report actual delivery, and allow the
 last event to settle before closing observation. Keep the observer active through
 pending refill completion when measuring the whole stall; an earlier cutoff gives
-only a lower bound. Restore emulation and verify both viewport and DPR afterward.
+only a lower bound. Set and verify the intended viewport, input mode and DPR before
+the next comparison.
 
 ## Locator Reference
 
@@ -175,16 +177,23 @@ contaminated samples. An owned capture listener can record `isTrusted` and focus
 selection equality without returning identities; remove it in `finally`.
 
 Chromium CDP touch emulation and a phone viewport can exercise mounted touch handlers.
-Verify coarse-pointer detection/effective mode after reload; emulation is not
-physical-device proof. Use native CDP touch for touch evidence; restore emulation/
-viewport afterward. If a click times out after applying, inspect before retrying.
+Use native CDP touch for touch evidence and verify effective mode after the final
+reload/resize; see the [geometry checks](state-and-readiness.md#geometry-and-identity).
+If a click times out after applying, inspect before retrying.
 Off-screen scroll-into-view can displace outer overflow containers: inspect ancestor
 scroll offsets before alleging app reflow.
 
+An acknowledged native mouse/touch move does not prove its last position has been
+rendered. For a held-drag assertion, poll the expected observable position while
+the pointer is still down, then sample the phase baseline or continue the gesture.
+Do not release to make the assertion settle: release can snap, cancel or commit
+the interaction and hide a held-state defect. Keep the sequence in a bounded job
+with input release in `finally`.
+
 Track whether a native touch sequence is still active: Chromium can reject
 `touchCancel` after `touchEnd`. Do not let a redundant cancel exception skip device
-metric/touch resets or CDP detachment; use nested cleanup where needed. Verify the
-restored pointer media query and dimensions even if the gesture or cleanup failed.
+override cleanup or CDP detachment; use nested cleanup where needed. Verify the
+intended pointer media query and dimensions even if the gesture or cleanup failed.
 
 ### Scrubber and Scroll
 
@@ -219,6 +228,10 @@ Use real app fullscreen controls; check `document.fullscreenElement` separately
 from preview state. Native fullscreen can stall integrated-tool sequencing. Discard
 unfinished cases, check installed instrumentation and recover/close the owned tab;
 repeated competing exit mechanisms do not make tooling failure product evidence.
+
+In headless Chromium, `page.keyboard.press('Escape')` can leave native fullscreen
+active. Prefer the app's fullscreen toggle for fixture teardown and assert that
+`document.fullscreenElement` is null before checking restored non-fullscreen UI.
 
 For rejected-exit fixtures, retain/restore the native method with its receiver and
 verify native exit in cleanup. Promise rejection is fault injection, not a naturally

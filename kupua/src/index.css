@@ -4,6 +4,13 @@
 @custom-variant compact (&:where([data-shell="compact"] *));
 @custom-variant wide (&:where([data-shell="wide"] *));
 
+@layer base {
+  button {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
 /* No browser pull-to-reload: the results have their own pull-to-refresh. */
 html, body { overscroll-behavior-y: none; }
 
