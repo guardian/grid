@@ -1,6 +1,6 @@
 Feature: Uploading images to the Grid
   This lets an authorised user get images into the Grid by selecting files,
-  dragging and dropping files or URLs, and
+  dragging and dropping files, and
   then completing the required metadata while tracking each upload's progress.
 
   Background:
@@ -137,12 +137,11 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 25-29, 131-154
   # Evidence: kahuna/public/js/upload/manager.js lines 68-83
 
-  Scenario: Dropping a URL loads the image from that URL
+  Scenario: Dropping a URL is ignored
     When I drop an image URL onto the page
-    Then the image at that URL should be loaded for upload
-    And I should be taken to the upload progress view
-  # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 33-35, 155-156
-  # Evidence: kahuna/public/js/upload/manager.js lines 86-96
+    Then the image at that URL should not be queued for upload
+    And the dropzone overlay should not appear
+  # Evidence: kahuna/public/js/upload/dnd-uploader.js isGridFriendly, performDropAction
 
   Scenario: Dragging a Grid image back onto the page is ignored
     When I drag an image that is already in the Grid over the page

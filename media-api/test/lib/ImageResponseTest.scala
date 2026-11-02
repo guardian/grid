@@ -72,49 +72,62 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
       (result \ "usageRights" \ "legacyCategory").toOption shouldBe None
     }
 
-    it("should map a legacy category's supplier field onto source when replaced by PRAndThirdParty") {
-      PRAndThirdParty.legacyCategories should contain(CommissionedAgency.category)
+    describe("legacy category field mapping") {
+      it("should map a legacy category's supplier field onto creator when replaced by PublisherPhotographer") {
+        PublisherPhotographer.legacyCategories should contain(CommissionedAgency.category)
 
-      val imageResponse = new ImageResponse(
-        mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PRAndThirdParty")),
-        null, null
-      )
-      val source = Json.obj("usageRights" -> Json.obj("category" -> CommissionedAgency.category, "supplier" -> "Corbis"))
-      val result = source.transform(imageResponse.updateUsageRights(source)).get
+        val imageResponse = new ImageResponse(
+          mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PublisherPhotographer")),
+          null, null
+        )
+        val source = Json.obj("usageRights" -> Json.obj("category" -> CommissionedAgency.category, "supplier" -> "Corbis"))
+        val result = source.transform(imageResponse.updateUsageRights(source)).get
 
-      (result \ "usageRights" \ "category").as[String] shouldBe PRAndThirdParty.category
-      (result \ "usageRights" \ "legacyCategory").as[String] shouldBe CommissionedAgency.category
-      (result \ "usageRights" \ "source").as[String] shouldBe "Corbis"
-    }
+        (result \ "usageRights" \ "category").as[String] shouldBe PublisherPhotographer.category
+        (result \ "usageRights" \ "legacyCategory").as[String] shouldBe CommissionedAgency.category
+        (result \ "usageRights" \ "creator").as[String] shouldBe "Corbis"
+      }
 
-    it("should map a legacy category's suppliers field onto source when replaced by PRAndThirdParty") {
-      PRAndThirdParty.legacyCategories should contain(Composite.category)
+      it("should still map a legacy photographer field onto creator when replaced by PublisherPhotographer") {
+        val imageResponse = new ImageResponse(
+          mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PublisherPhotographer")),
+          null, null
+        )
+        val source = Json.obj("usageRights" -> Json.obj("category" -> StaffPhotographer.category, "photographer" -> "Jane Doe"))
+        val result = source.transform(imageResponse.updateUsageRights(source)).get
 
-      val imageResponse = new ImageResponse(
-        mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PRAndThirdParty")),
-        null, null
-      )
-      val source = Json.obj("usageRights" -> Json.obj("category" -> Composite.category, "suppliers" -> "REX/Getty Images"))
-      val result = source.transform(imageResponse.updateUsageRights(source)).get
+        (result \ "usageRights" \ "creator").as[String] shouldBe "Jane Doe"
+      }
 
-      (result \ "usageRights" \ "category").as[String] shouldBe PRAndThirdParty.category
-      (result \ "usageRights" \ "legacyCategory").as[String] shouldBe Composite.category
-      (result \ "usageRights" \ "source").as[String] shouldBe "REX/Getty Images"
-    }
+      it("should map a legacy category's suppliers field onto source when replaced by PRAndThirdParty") {
+        PRAndThirdParty.legacyCategories should contain(Composite.category)
 
-    it("should pass a legacy category's own source field through untouched when replaced by PRAndThirdParty") {
-      PRAndThirdParty.legacyCategories should contain(Screengrab.category)
+        val imageResponse = new ImageResponse(
+          mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PRAndThirdParty")),
+          null, null
+        )
+        val source = Json.obj("usageRights" -> Json.obj("category" -> Composite.category, "suppliers" -> "REX/Getty Images"))
+        val result = source.transform(imageResponse.updateUsageRights(source)).get
 
-      val imageResponse = new ImageResponse(
-        mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PRAndThirdParty")),
-        null, null
-      )
-      val source = Json.obj("usageRights" -> Json.obj("category" -> Screengrab.category, "source" -> "BBC News"))
-      val result = source.transform(imageResponse.updateUsageRights(source)).get
+        (result \ "usageRights" \ "category").as[String] shouldBe PRAndThirdParty.category
+        (result \ "usageRights" \ "legacyCategory").as[String] shouldBe Composite.category
+        (result \ "usageRights" \ "source").as[String] shouldBe "REX/Getty Images"
+      }
 
-      (result \ "usageRights" \ "category").as[String] shouldBe PRAndThirdParty.category
-      (result \ "usageRights" \ "legacyCategory").as[String] shouldBe Screengrab.category
-      (result \ "usageRights" \ "source").as[String] shouldBe "BBC News"
+      it("should pass a legacy category's own source field through untouched when replaced by PRAndThirdParty") {
+        PRAndThirdParty.legacyCategories should contain(Screengrab.category)
+
+        val imageResponse = new ImageResponse(
+          mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PRAndThirdParty")),
+          null, null
+        )
+        val source = Json.obj("usageRights" -> Json.obj("category" -> Screengrab.category, "source" -> "BBC News"))
+        val result = source.transform(imageResponse.updateUsageRights(source)).get
+
+        (result \ "usageRights" \ "category").as[String] shouldBe PRAndThirdParty.category
+        (result \ "usageRights" \ "legacyCategory").as[String] shouldBe Screengrab.category
+        (result \ "usageRights" \ "source").as[String] shouldBe "BBC News"
+      }
     }
   }
 

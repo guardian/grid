@@ -295,30 +295,27 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
     }.flatMap(spec => spec.legacyCategories.map(_ -> spec)).toMap
 
   private[lib] def updateUsageRights(source: JsValue): Reads[JsObject] = {
-    (source \ "usageRights" \ "category") match {
-      case JsDefined(c) if legacyCategoryReplacements.get(c.as[String]).contains(PRAndThirdParty) =>
-        val supplier = (source \ "usageRights" \ "supplier").asOpt[String]
-        val suppliers = (source \ "usageRights" \ "suppliers").asOpt[String]
+    val usageRights = source \ "usageRights"
+    val legacyCategoryWithReplacement = (usageRights \ "category").asOpt[String]
+      .flatMap(category => legacyCategoryReplacements.get(category).map(category -> _))
+
+    legacyCategoryWithReplacement match {
+      case Some((legacyCategory, replacement)) =>
+        def stringField(name: String) = (usageRights \ name).asOpt[String]
+
+        val categoryFields = Json.obj("category" -> replacement.category, "legacyCategory" -> legacyCategory)
+
+        val translatedFields = replacement match {
+          case PRAndThirdParty =>
+            Seq(stringField("supplier"), stringField("suppliers")).flatten.map(s => Json.obj("source" -> s))
+          case PublisherPhotographer =>
+            Seq(stringField("photographer"), stringField("supplier")).flatten.map(s => Json.obj("creator" -> s))
+          case _ => Seq.empty
+        }
+
         (__ \ "usageRights").json.update(__.read[JsObject]
-          .map(_ ++ Json.obj("category" -> PRAndThirdParty.category, "legacyCategory" -> c.as[String])
-            ++ supplier.fold(Json.obj())(s => Json.obj("source" -> s))
-            ++ suppliers.fold(Json.obj())(s => Json.obj("source" -> s))
-          ))
-      case JsDefined(c) if legacyCategoryReplacements.get(c.as[String]).contains(PublisherPhotographer) =>
-        val photographer = (source \ "usageRights" \ "photographer").asOpt[String]
-        (__ \ "usageRights").json.update(__.read[JsObject]
-          .map(_ ++ Json.obj("category" -> PublisherPhotographer.category, "legacyCategory" -> c.as[String])
-            ++ photographer.fold(Json.obj())(s => Json.obj("creator" -> s))
-          ))
-      case JsDefined(c) if legacyCategoryReplacements.get(c.as[String]).contains(PublisherIllustrator) =>
-        (__ \ "usageRights").json.update(__.read[JsObject]
-          .map(_ ++ Json.obj("category" -> PublisherIllustrator.category, "legacyCategory" -> c.as[String])))
-      case JsDefined(c) if legacyCategoryReplacements.contains(c.as[String]) =>
-        val replacement = legacyCategoryReplacements(c.as[String])
-        (__ \ "usageRights").json.update(__.read[JsObject]
-          .map(_ ++ Json.obj("category" -> replacement.category, "legacyCategory" -> c.as[String])
-          ))
-      case _ => __.json.update(__.read[JsObject])
+          .map(_ ++ (categoryFields +: translatedFields).reduce(_ ++ _)))
+      case None => __.json.update(__.read[JsObject])
     }
   }
 
