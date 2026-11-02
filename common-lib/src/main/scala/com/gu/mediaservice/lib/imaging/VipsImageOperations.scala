@@ -301,6 +301,7 @@ class VipsImageOperations extends GridLogging with ImageOperations {
           image.pngsave(outputFile.getAbsolutePath,
             VipsOption.Boolean("palette", true),
             VipsOption.Int("Q", 70),
+            VipsOption.Int("bitdepth", 8),
             //VipsOption.Int("effort", 7),
             //VipsOption.Int("compression", 6),
             VipsOption.Int("keep", k)
