@@ -50,11 +50,11 @@ class Authentication(config: CommonConfig,
     }
 
     // Authenticate request. Try with inner service authenticator first, then with API authenticator, and finally with user authenticator
-    providers.innerServiceProvider.authenticateRequest(requestHeader) match {
-      case Authenticated(authedUser) => Right(authedUser)
-      case Invalid(message, throwable) => Left(unauthorised(message, throwable))
-      case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message")) // TODO: see if we can avoid repetition
-      case NotAuthenticated =>
+//    providers.innerServiceProvider.authenticateRequest(requestHeader) match {
+//      case Authenticated(authedUser) => Right(authedUser)
+//      case Invalid(message, throwable) => Left(unauthorised(message, throwable))
+//      case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message")) // TODO: see if we can avoid repetition
+//      case NotAuthenticated =>
         providers.apiProvider.authenticateRequest(requestHeader) match {
           case Authenticated(authedUser) => Right(authedUser)
           case Invalid(message, throwable) => Left(unauthorised(message, throwable))
@@ -70,7 +70,7 @@ class Authentication(config: CommonConfig,
               case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message"))
             }
         }
-    }
+//    }
   }
 
   override def invokeBlock[A](request: Request[A], block: Authentication.Request[A] => Future[Result]): Future[Result] = {
