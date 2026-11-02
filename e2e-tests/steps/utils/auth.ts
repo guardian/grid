@@ -38,19 +38,15 @@ export async function signIn(page: Page, account: TestAccount): Promise<void> {
 
 /**
  * Clearing cookies drops both the Panda and OIDC sessions, so we sign in afresh. Signing in
- * lands on the search page, so an open image is reopened for the scenario to carry on with.
+ * lands on the search page, so we return to the Kahuna page the scenario was on.
  */
 export async function switchAccount(page: Page, account: TestAccount): Promise<void> {
-  const current = new URL(page.url(), KAHUNA_APP_URL);
-  const imageUrl = current.origin === KAHUNA_APP_URL && current.pathname.startsWith('/images/')
-    ? current.href
-    : undefined;
+  const previousUrl = page.url();
 
   await page.context().clearCookies();
   await signIn(page, account);
 
-  if (imageUrl) {
-    await page.goto(imageUrl);
-    await expect(page.getByRole('complementary', { name: 'Image information' })).toBeVisible();
+  if (new URL(previousUrl).origin === KAHUNA_APP_URL && page.url() !== previousUrl) {
+    await page.goto(previousUrl);
   }
 }
