@@ -1,5 +1,16 @@
 # API Boundary 11: Provisional Migration Candidate
 
+> **Current-status correction, 2 November 2026:** this is the historical migration candidate,
+> not the next execution queue. API-only reads, bounded selection hydration, AI, hosted Kahuna
+> bootstrap and canonical delivery are implemented at the scopes recorded in the
+> [build plan](../api-build/api-build-00-plan.md) and
+> [hosted guide](../../00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md).
+> The [backlog](../../bug-backlog.md) supersedes old pending-merge/unfixed-status prose,
+> including the recorded PR #4957 merge and KUP-029/030 dispositions. The
+> [editing plan](../../gradually-growing-teeth.kupua-edits-steps.md) now routes write preparation;
+> its image-capability and on-demand session foundation is complete, not its write transport.
+> Original decisions, section 7, measurements and receipts below remain historical evidence.
+
 > **23 September 2026: build sequencing superseded.** Executing agents use the
 > [API build plan](../api-build/api-build-00-plan.md). This document remains the contracts and
 > invariants reference (sections 2, 3 and 5 especially). Operator decisions recorded there

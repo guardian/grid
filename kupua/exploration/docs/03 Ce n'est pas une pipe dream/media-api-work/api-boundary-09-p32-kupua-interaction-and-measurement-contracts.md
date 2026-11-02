@@ -5,6 +5,16 @@ Role: `evidence-completion`
 Execution class: `strong`  
 Status: **COMPLETE** for the assigned source-characterization boundaries. This is not runtime, migration, deployment, or API acceptance.
 
+> **Current-status correction, 2 November 2026:** the finding descriptions below are historical,
+> not an open-bug list. B1 became [KUP-029](../../bug-backlog.md#kup-029) and was refuted for
+> ordinary canonical API images; B3 became [KUP-030](../../bug-backlog.md#kup-030), repaired by
+> AI enrichment replacement. Do not reopen either from the old hypothetical mixed-source
+> examples. Selection now retains API enrichment, and read-only editing step 1 adds image
+> URI/edits/crops retention without changing display policy. The [backlog](../../bug-backlog.md)
+> owns the later date/measurement repairs and remaining qualifiers. B2's clock/quota discussion
+> is not an implemented freshness guarantee or a reason to treat cached capabilities as current
+> authorization; post-write behavior remains [KUP-043](../../bug-backlog.md#kup-043).
+
 ## 1 Decision
 
 Accept the packet with the corrections and bounded bug dispositions below. The current interaction paths are understandable end to end. Date controls have a timezone/boundary contract mismatch and an invalid-URL crash path. Enrichment has two effective-state freshness/precedence risks. Perceived tracing has a mislabeled acknowledgement phase and incomplete temporal validation. Chip deletion itself is not a new defect: the current completed input/query repairs remain the controlling contract.

@@ -2,6 +2,19 @@
 
 19 September 2026. Strong fresh-context migration-decision reviewer; explicit delegated authority under amended protocol 05. Report-only. Coordinator acceptance is pending.
 
+> **Current-status correction, 2 November 2026:** the body and receipts below describe the
+> September revision, not unfinished implementation. Shared normalization, standalone GET,
+> bounded API mget and caller-owned enrichment are implemented; selection reads attach their
+> own enrichment rather than publishing into the search map. Canonical media links are used.
+> Read-only editing step 1 additionally retains optional image URI and edits/crops relations;
+> nested write controls and download-link consumers remain future work. See the
+> [current API contract](../../../../src/dal/grid-api/README.md),
+> [hosted guide](../../00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md) and
+> [editing plan](../../gradually-growing-teeth.kupua-edits-steps.md).
+> F1/F2/F5 still matter: validity, downloadability and deletability differ, lean responses omit
+> original metadata, and cropper needs full expanded singleton data. No historical measurement
+> or receipt is promoted to new runtime/deployment evidence by this correction.
+
 ## 1. Deciding Answer and Decision Table
 
 **Accept this bounded review with the named corrections and unresolved contracts below.** Reuse Grid's image model, response writer, Argo entities and existing visibility policy. Add bounded ordinary-operation bulk image reads; do not invent a second image JSON format or treat raw ES hits as already-authorized, already-normalized images. Reuse existing single-image GET for standalone detail rather than requiring D9 to replace it. Kupua needs a real shared response normalizer and caller-owned overlay publication, not another cast to `Image`.

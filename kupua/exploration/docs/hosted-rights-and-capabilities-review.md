@@ -4,6 +4,12 @@
 implementation plan.** This retains the findings behind the deferred crop rights
 notices and eligibility work without expanding the mock-cropping feature.
 
+**2 November implementation:** the operator selected read-only step 1 of the
+[editing plan](gradually-growing-teeth.kupua-edits-steps.md). Image-level resource
+retention is implemented as described below; the [API contract](../../src/dal/grid-api/README.md)
+also records on-demand user-session permission snapshots. This does not select
+KUP-045/046, crop notices/eligibility or any write workflow.
+
 ## 1. Scope and Decisions
 
 - Hosted Kupua consumes media-api image responses. Do not introduce a crop-only
@@ -85,11 +91,12 @@ The new image endpoints already share `hitToImageEntity` and `ImageResponse.crea
 No server endpoint, projection or `include=` change is presently indicated for
 retaining crop capabilities. Do not modify legacy GET behavior to solve client loss.
 
-The common client mapper retains `optimised`/`optimisedPng` media links and the
-extractor retains envelope actions, but other envelope links and entity URI are
-discarded. This is [KUP-044](bug-backlog.md#kup-044), now including `crops` as well
-as `edits`. Preserve only the resource information needed by selected consumers;
-review the representation before implementation, using existing Argo types/helpers.
+The common mapper retains `optimised`/`optimisedPng` media links and the extractor
+retains envelope actions. Its `resource` descriptor now preserves optional image URI
+and only the `edits`/`crops` links, resolving [KUP-044](bug-backlog.md#kup-044)'s
+image-level loss. API omission produces an empty link list, unlike absent enrichment;
+replacement never unions removed capabilities back in. Nested resource controls stay
+deferred until an editing consumer needs them; no raw response cache is introduced.
 
 An embedded entity supplies `uri`; singleton `uri` is optional. Preserve it when
 supplied and retain the existing discovered image-template mechanism where needed.
@@ -138,9 +145,9 @@ Sources: [hook](../../src/hooks/useEnrichedImage.ts#L26),
 
 ## 6. Findings and Review Dependency
 
-- [KUP-044](bug-backlog.md#kup-044): common resource-link retention gap, including
-  `crops`/`edits`; source-verified, client-only. Future metadata writes may also need
-  nested resource controls that current value normalization flattens.
+- [KUP-044](bug-backlog.md#kup-044): image URI and `crops`/`edits` retention implemented
+  through common enrichment. Future metadata writes may need nested resource controls
+  that current value normalization still flattens.
 - [KUP-045](bug-backlog.md#kup-045): no current producer of `leasesSummary`, although
   grid/table and multi-cost use it; single metadata instead derives a raw-lease
   fallback. Existing injected-summary tests are not a producer-to-render witness.
@@ -149,8 +156,8 @@ Sources: [hook](../../src/hooks/useEnrichedImage.ts#L26),
 - [KUP-047](bug-backlog.md#kup-047): deferred crop notices and eligibility consumer.
   This is a recorded feature gap, not a claim that the mock editor bypasses write authorization.
 
-**Sequence:** review and approve the shared hosted signal/capability contract;
-implement and verify its common wiring under KUP-044; then select KUP-047.
+**Sequence:** KUP-044's image-level common wiring is implemented; select KUP-047
+separately to consume those facts in crop notices and eligibility.
 KUP-045/046 remain separately selectable shared-display repairs, not automatic
 prerequisites or new migration gates. Review decides whether to include them with
 the common work or keep them separate.

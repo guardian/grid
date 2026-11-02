@@ -1,5 +1,13 @@
 # Next endpoints: D7 counts, D8 PIT lifecycle, D9 image reads
 
+> **Current implementation correction, 2 November 2026:** D7 count/ticker reads and D9
+> singleton/bounded-mget integration are complete, including selection datasource wiring
+> and result-owned enrichment. D8/PIT remains deferred by decision, not an editing prerequisite.
+> The later [API build record](../api-build/api-build-00-plan.md) supersedes the unbuilt-status
+> language below; the [editing plan](../../gradually-growing-teeth.kupua-edits-steps.md) owns new
+> write preparation. Do not recreate the retired hybrid adapter or publish mget enrichment
+> into the shared search map; see the [current contract](../../../../src/dal/grid-api/README.md).
+
 > **Historical design input, not an active work queue.** The [index](media-api-00-index.md)
 > routes current work and [candidate 11](api-boundary-11-candidate-plan.md) owns provisional direction.
 > D7-first ordering, D8-before-live-range dependency, migration-aware bulk acceptance, alternative

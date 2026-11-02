@@ -17,7 +17,7 @@ Start with the implementation; use the linked guide for intent and broader contr
 | Area | Implementation entry points | Companion guide |
 |---|---|---|
 | App and routes | [main.tsx](../../../src/main.tsx), [search route](../../../src/routes/search.tsx) | [Frontend philosophy](01-frontend-philosophy.md) |
-| Data access | [DAL contract](../../../src/dal/types.ts), [API datasource](../../../src/dal/api-data-source.ts), [ES datasource](../../../src/dal/es-adapter.ts) | [Runtime configuration](../runtime-configuration-and-data-sources.md) |
+| Data access | [DAL contract](../../../src/dal/types.ts), [API datasource](../../../src/dal/api-data-source.ts), [ES datasource](../../../src/dal/es-adapter.ts) | [Hosted configuration and data sources](09-deployed-via-Kahuna.md) |
 | Search and scrolling | [Search store](../../../src/stores/search-store.ts), [data window](../../../src/hooks/useDataWindow.ts), [scroll effects](../../../src/hooks/useScrollEffects.ts) | [Scroll architecture](03-scroll-architecture.md) |
 | Focus and history | [Search continuity](../../../src/lib/search-continuity.ts), [URL sync](../../../src/hooks/useUrlSearchSync.ts), [detail return](../../../src/hooks/useReturnFromDetail.ts) | [Focus/position](02-focus-and-position-preservation.md), [history](04-browser-history-architecture.md) |
 | Selection | [Selection store](../../../src/stores/selection-store.ts), [range selection](../../../src/hooks/useRangeSelection.ts) | [Selections](05-selections.md) |
@@ -147,11 +147,22 @@ startup. Both await the same in-flight root read; failure leaves links unavailab
 Discovery does not load runtime client configuration. Shared Argo helpers,
 API types and the distinct auth/session/server/write-guard vocabulary remain explicitly reserved
 (see the [DAL README](../../../src/dal/grid-api/README.md)).
-Canonical delivery, signed-rendition renewal, downloads and editing remain separate authorized work.
+Signed-rendition renewal, downloads and editing remain separate authorized work.
 
-**Write guard:** `gridApiWriteGuard()` blocks non-GET requests unless explicitly enabled, except
+**User-session permissions:** `getGridSessionPermissions()` in
+[grid-api-instance.ts](../../../src/lib/grid-api-instance.ts) follows the discovered auth `session`
+link on demand in API mode. It retains only optional boolean `showPaid`, `canUpload` and
+`canDelete` facts, not identity data. Concurrent and later calls share one page-lifetime result,
+including quiet `null` after failure, invalid data or a non-user principal. Missing flags stay
+unknown. Direct-ES mode issues no request; no current UI/startup consumer is connected.
+This snapshot is separate from per-image capabilities: it neither grants edit access nor removes
+an uploader's advertised edit access. It is not fresh authorization for a future save.
+
+**Write guard:** the local Vite `gridApiWriteGuard()` blocks non-GET requests unless explicitly enabled, except
 the eight read-only POST routes listed in `grid-api/read-via-post.ts`. Admission matches the exact
 path (query string allowed), never an image-ID prefix; this prevents admitting nested write routes.
+Hosted direct-origin requests bypass this guard. Retaining capability information enables no
+write transport or editing controls; server authorization remains authoritative in both topologies.
 
 ## Enrichment System (`lib/cost/`, `stores/enrichment-store.ts`, `lib/derive-enriched-image.ts`)
 
@@ -170,6 +181,15 @@ its owned overlay to ImageMetadata only while displaying that standalone image.
 validity is built only when `valid` or `invalidReasons` is missing. Nullish fallback preserves
 meaningful `false`, empty-object and empty-array overlay values. Local fallback remains necessary
 for direct mode and partial overlays; it is not a background enrichment read.
+
+**Image capabilities:** `extractEnrichment` retains `resource: { uri?, links }` alongside
+existing `actions`; `deriveImage` exposes it without calculating permissions locally. The
+descriptor holds only the optional image URI and `edits`/`crops` links. An API entity without
+those links supplies an empty list; no API enrichment means no descriptor. Same-image
+replacement removes old capabilities instead of combining old and new lists. Search, owned
+standalone detail and attached selection use the ownership rules above, without extra reads.
+Media links keep their separate delivery path. Nested metadata controls remain deferred until
+a write consumer needs them; the `crops` link identifies the crop list, not a creation endpoint.
 
 Fresh API pages and committed first-page fallbacks replace the overlay map. Fill, extensions,
 focus/restore buffers and seeks merge their contributing overlays. An inserted target contributes
@@ -295,19 +315,20 @@ only select URLs. The API build plan owns the replacement delivery work.
 
 ## Grid Config (`lib/grid-config.ts`)
 
-Vendored Grid configuration (image types, usage rights categories, aliases and CQL field lists),
-derived from `exploration/mock/grid-config.conf`. CQL and sort builders depend on it. Runtime
-server-authoritative configuration is not yet wired: local media-api aliases must match the client
-configuration, checked by the documented API preflights. Root discovery is not a runtime
-configuration endpoint.
+`grid-config.ts` supplies local defaults for image types, aliases and query/display settings.
+Hosted builds use Kahuna's allowlisted runtime settings, injected before application modules
+run and validated by `hosted-config.ts`. Local modes retain their defaults; missing or invalid
+hosted display settings fall back locally. Usage Rights category names and search aliases come
+from the separately loaded metadata-editor catalogue when available. Root service discovery
+does not supply runtime client configuration.
 
 There are distinct configuration layers: compiled UI/CQL vocabulary in `grid-config.ts`, cost
 rules in `lib/cost/guardian-config.json`, Vite/start-script mode and proxy settings, and server
 configuration outside the client. `quota-store.ts` holds a one-time optional startup snapshot,
 not a subscribed or periodically refreshed store. Missing quotas leave local exceeded-supplier
 checks empty; they do not prove that quota is available. API-derived fields win where supplied.
-See the [runtime configuration guide](../runtime-configuration-and-data-sources.md) for ownership
-and limitations; do not read proposed work in that guide as implemented behaviour.
+See [Deployed via Kahuna](09-deployed-via-Kahuna.md) for current configuration ownership,
+server data sources and the differences between hosted and laptop modes.
 
 ## Development Services (`scripts/`, `vite.config.ts`, `docker-compose.yml`)
 

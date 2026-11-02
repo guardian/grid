@@ -234,6 +234,26 @@ describe("extractEnrichment", () => {
 // ---------------------------------------------------------------------------
 
 describe("contract: extractEnrichment → deriveImage overlay wins", () => {
+  it("retains image resource capabilities without inferring them from cost or validity", () => {
+    const links = [
+      { rel: "edits", href: "https://example.com/metadata/abc123" },
+      { rel: "crops", href: "https://example.com/crops/abc123" },
+    ];
+    const entity = {
+      ...makeEntity({ data: { cost: "pay", valid: false } }),
+      uri: "https://example.com/images/abc123",
+      links: [...links, { rel: "ui:image", href: "https://example.com/ui/abc123" }],
+    };
+    const [, overlay] = extractEnrichment(entity)!;
+    const image = makeBaselineImage();
+
+    expect(deriveImage(image, overlay)).toHaveProperty("resource", { uri: entity.uri, links });
+
+    const [, withoutCapabilities] = extractEnrichment(makeEntity())!;
+    expect(deriveImage(image, withoutCapabilities)).toHaveProperty("resource", { links: [] });
+    expect(deriveImage(image, undefined)).toHaveProperty("resource", undefined);
+  });
+
   it("all overlay fields land correctly on the EnrichedImage", () => {
     const actions: Action[] = [
       { name: "edit", href: "/images/abc123/edit", method: "PUT" },
@@ -551,6 +571,7 @@ describe("apiSearchAfter canonical image normalization", () => {
     expect(result.enrichment?.get(data.id)).toEqual({
       cost: data.cost, valid: data.valid, invalidReasons: data.invalidReasons,
       persisted: data.persisted, usageRights: data.usageRights, actions,
+      resource: { links: [] },
       syndicationStatus: data.syndicationStatus, usages,
     });
     expect(response).toEqual(before);
@@ -581,7 +602,7 @@ describe("apiSearchAfter canonical image normalization", () => {
   });
 });
 
-describe("returned media links", () => {
+describe("returned media links and capabilities", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   const optimised = "https://imgops.example.test/a/abc123?sig=1{&w,h,q}&r=0";
@@ -593,20 +614,31 @@ describe("returned media links", () => {
   ];
   const respond = (body: unknown) => vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => body }));
 
-  it("retains optimised links from page, singleton and mget entities", async () => {
+  it("retains media links and resource capabilities from page, singleton and mget entities", async () => {
     const data = makeCanonicalImage();
+    const resource = {
+      uri: "https://media.example.test/images/abc123",
+      links: [
+        { rel: "edits", href: "https://metadata.example.test/metadata/abc123" },
+        { rel: "crops", href: "https://cropper.example.test/crops/abc123" },
+      ],
+    };
+    const entity = { data, uri: resource.uri, links: [...links, ...resource.links] };
 
-    respond({ ...makeApiResponse(data.id), data: [{ data, links }] });
-    const { hits: [pageImage] } = await apiSearchAfter(probeParams, null, null, undefined, false, false);
+    respond({ ...makeApiResponse(data.id), data: [entity] });
+    const page = await apiSearchAfter(probeParams, null, null, undefined, false, false);
 
-    respond({ data, links });
+    respond(entity);
     const single = await apiGetImage(data.id);
 
-    respond({ data: [{ data, links }] });
+    respond({ data: [entity] });
     const [mgetImage] = await apiGetByIds([data.id]);
 
-    for (const image of [pageImage, single?.image, mgetImage]) {
+    for (const image of [page.hits[0], single?.image, mgetImage]) {
       expect(image?.__mediaLinks).toEqual({ optimised, optimisedPng });
+    }
+    for (const overlay of [page.enrichment?.get(data.id), single?.enrichment, attachedEnrichment(mgetImage)]) {
+      expect(overlay?.resource).toEqual(resource);
     }
   });
 

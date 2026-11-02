@@ -2,6 +2,19 @@
 
 20 September 2026. Strong delegated `evidence-completion`; one bounded pass, report only.
 
+> **Current-status correction, 2 November 2026:** Q2's Kupua bootstrap/hosting proposal is
+> now implemented through Kahuna's opt-in DEV/TEST page, pre-import validated configuration
+> and hosted asset build. Iframes deliberately remain on Kahuna; this does not certify PROD
+> or every satellite's write-method/CORS admission. Q3's canonical entity delivery is also
+> implemented, while general signed-URL renewal remains deferred. Use the
+> [hosted guide](../../00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md), not the
+> September "no Kupua entry" statements below, for current behavior.
+> Q1/Q4 and C2 retain useful constraints: service origins differ, startup/configuration has
+> operational consequences, loader discovery is permission-gated, and supplier-reference
+> resolution must not silently stop at one page. These are carried into the
+> [editing plan](../../gradually-growing-teeth.kupua-edits-steps.md); original receipts and
+> deployment-observation limits remain historical and unchanged.
+
 ## 1. Decision
 
 **Accept this packet with the named configuration and deployment qualifications below.** The six previously unread starting inputs are now read; the other five reuse their existing receipts with only actual rechecked ranges credited here. D023's remaining generator-source question and D025's selected caller-contract question have source answers. D024 retains P23-P25's producer/model findings and specific effective-configuration questions, not a requirement to reread those subsystems.

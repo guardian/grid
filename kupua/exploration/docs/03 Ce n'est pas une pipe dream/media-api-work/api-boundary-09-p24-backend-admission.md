@@ -4,6 +4,17 @@
 
 ## 1. Decision
 
+> **Current-status correction, 2 November 2026:** proposed additive count/key/window/rank/
+> aggregation/mget work and API-only client routing described below have been implemented;
+> the [build record](../api-build/api-build-00-plan.md) and [backlog](../../bug-backlog.md) own
+> their contracts and later repairs. Kahuna now supplies Kupua's pre-import hosted settings
+> ([hosted guide](../../00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md)).
+> F2/F3/F5/F8 remain important boundaries for editing: session facts are not a complete
+> permission catalogue, principal admission still applies, server startup can write to ES,
+> and shared canonical/cropper contracts must survive. Completed read-only step 1 does not
+> change any of those server rules. This note does not revalidate the original source receipts
+> or claim that every remaining deployment/query qualification has been resolved.
+
 **Accept this primary-inspection packet with named compatibility and deployment decisions, not as implementation or deployment approval.** All 32 assigned originals were read completely: **1,674 lines**. They were starting inputs. Supplemental inspection follows complete controller/ES execution, public configuration/loading, selected providers, quota refresh, mappings/settings, query prerequisites, response construction, original assertions and actual Kahuna/cropper callers. Section 3 separates primary reading from prior-report context.
 
 Keep candidate 11's additive operations, Option B physical sorts, canonical writer and client-owned interaction/publication. The consequential refinements are: existing loaders and Kahuna bootstrap already supply configuration facilities, but media-api's ConfigurationController is crop-only; public defaults do not universally select Guardian rights configuration; quota is a scheduled local snapshot distinct from ES usage counts; and new exact operations need separately approved admission/outcome contracts rather than shared GET/auth/execution changes.

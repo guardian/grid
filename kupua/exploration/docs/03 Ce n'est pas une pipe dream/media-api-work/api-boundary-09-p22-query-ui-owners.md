@@ -2,6 +2,18 @@
 
 19 September 2026. Strong delegated reviewer, `critical-path-review`. Report only; coordinator integration pending.
 
+> **Current-status correction, 2 November 2026:** F7's no-AI-overlay, ES-backed-AI,
+> eager-fallback and selection-without-owned-enrichment descriptions are historical.
+> API AI replaces its own enrichment, local fallback calculation is lazy, and selected images
+> retain mget enrichment. Editing step 1 carries image URI/edits/crops through these owners;
+> its user-session reader is on demand, not a background permission refresh. Current contracts:
+> [API infrastructure](../../../../src/dal/grid-api/README.md) and
+> [component reference](../../00%20Architecture%20and%20philosophy/component-detail.md).
+> KUP-030 is repaired; the unproduced lease summary remains KUP-045, and clock/quota freshness
+> must not be mistaken for live authorization. The [backlog](../../bug-backlog.md) and
+> [request-lifetime assessment](../../api-request-lifetime-and-performance-parity.md) own later
+> query/poll/facet repairs. The original source/assertion receipts below are not current failures.
+
 ## 1. Decision
 
 **Accept the primary-inspection packet with named corrections, not an unconditional migration guarantee.** All 21 assignments were read completely: 5,057 lines. The complete 4,312-line search store was also read, including every overlay publication owner. Supplemental originals join interaction, query scope, request/result, cancellation, publication, visible consumers and URL/history; exact partial-read complements remain below. Assertions were read, not executed.

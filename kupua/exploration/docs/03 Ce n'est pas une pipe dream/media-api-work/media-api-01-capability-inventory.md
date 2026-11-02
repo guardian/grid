@@ -2,6 +2,19 @@
 
 **Date:** 2026-05-31
 **Capability reference, not an execution plan.** Last capability-summary update: 17 September 2026.
+
+> **Current implementation correction, 2 November 2026:** the "current" checklist below is
+> the 17 September snapshot, not today's outstanding work. API-mode counts/tickers, contextual
+> aggregations, windows/ranks/profiles/keys, standalone GET, bounded mget, selection/collection
+> routing and AI are implemented. API mode has no direct-ES fallback; PIT remains deferred.
+> Kahuna hosting and canonical media delivery exist. Read-only editing step 1 additionally
+> retains image URI/edits/crops and supplies on-demand user-session facts, without enabling
+> writes or retaining all nested resources. Use the [build record](../api-build/api-build-00-plan.md),
+> [hosted guide](../../00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md),
+> [API contract](../../../../src/dal/grid-api/README.md) and
+> [editing plan](../../gradually-growing-teeth.kupua-edits-steps.md) for current decisions.
+> The dated detail and measurements remain evidence, not instructions to rebuild these features.
+
 The [index](media-api-00-index.md) routes current work and [candidate 11](api-boundary-11-candidate-plan.md)
 owns the current provisional direction under operator decisions. Its completed-work dispositions
 and sequencing supersede conflicting ownership, snapshot and acceptance prescriptions here.

@@ -24,6 +24,22 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 2 November 2026 - Read-only editing capability foundation
+
+API image enrichment now retains the optional source URI and edits/crops relations alongside
+existing actions, through search, standalone detail and selected-image reads. Authoritative
+empty capability lists replace older ones without inferring permission from cost or validity;
+media links and guarded publication remain unchanged. Nested write resources remain deferred
+until an editing consumer needs them.
+
+Added an on-demand, coalesced auth-session permission reader for API mode. It retains only
+explicit user permission booleans, preserves missingness and returns quiet absence on failure.
+There is no new startup request, identity persistence, direct-ES lookup, permission engine or
+enabled write path. Session facts do not override per-image uploader capabilities and are not
+a freshness guarantee for future mutations.
+Regression coverage distinguishes sharing a pending session request from reusing its completed
+successful result.
+
 ### 2 November 2026 - Justified tile zoom and gesture continuity
 
 Justified zoom animates bounded DOM tiles with row/slot movement, changing crops and per-photo

@@ -3013,3 +3013,57 @@ Mode: media-api | API topology: local | Media delivery: canonical | Base URL: ht
 | JB5 | fullscreen-exit | 4 | — | — | — | 112 | 121 | — |
 
 JB2 matched no-anchor control: first visible 1168ms; settled 1174ms; design alternating-ab-ba. Do not subtract sequential samples; compare balanced aggregates only.
+
+---
+
+## [short] latest direct-to-ES (a779ed098, 2026-11-03)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 4
+
+Mode: direct-es | API topology: none | Media delivery: proxy | Base URL: http://localhost:3000 | Browser: chromium 151.0.7922.34 | OS: darwin/arm64 25.6.0 | Viewport: 1720x960 | Screen: 1720x960 | DPR: 2 | Headed: true | CPU throttle: none | Cache: uncontrolled-browser-cache | Workers: 1 | Dirty state: e3b0c44298fc1c14 | App source: e3b0c44298fc1c14
+
+| Test | Action | Samples | Ack (ms) | Status (ms) | Store ready (ms) | First visible (ms) | Visual settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|---|---|
+| PP1 | home-logo | 4 | 2 | — | 508 | 586 | 593 | — |
+| PP2 | sort-no-focus | 4 | 48 | — | 365 | 429 | 438 | — |
+| PP3 | sort-around-focus | 4 | 47 | — | 586 | 685 | 692 | — |
+| PP4 | sort-around-focus | 4 | 47 | — | 591 | 662 | 671 | — |
+| PP5 | filter-toggle | 4 | 15 | — | 538 | 545 | 549 | — |
+| PP6 | density-swap | 4 | — | — | — | 227 | 230 | — |
+| PP7 | scrubber-seek | 4 | 2 | — | 448 | 574 | 585 | — |
+| PP7b | scrubber-seek | 4 | 2 | — | 560 | 676 | 686 | — |
+| PP7c | scrubber-scroll | 4 | — | — | — | 90 | 99 | — |
+| PP8 | search | 4 | 44 | — | 671 | 686 | 694 | — |
+| PP9 | chip-remove | 4 | 364 | — | 601 | 722 | 735 | — |
+| PP11 | history-back | 4 | 10 | — | 605 | 734 | 747 | — |
+| PP6b | density-swap | 4 | — | — | — | 251 | 267 | — |
+| PP6c | density-swap | 4 | — | — | — | 179 | 188 | — |
+
+### Background diagnostics
+
+Not ranked against user-action latency targets.
+
+| Test | Action | Samples | Store ready (ms) | Map entries |
+|------|--------|---|---|---|
+| PP10 | position-map | 4 | 2304 | 21627 |
+
+---
+
+## [long] latest direct-to-ES (a779ed098, 2026-11-03)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 4
+
+Mode: direct-es | API topology: none | Media delivery: proxy | Base URL: http://localhost:3000 | Browser: chromium 151.0.7922.34 | OS: darwin/arm64 25.6.0 | Viewport: 1720x960 | Screen: 1720x960 | DPR: 2 | Headed: true | CPU throttle: none | Cache: uncontrolled-browser-cache | Workers: 1 | Dirty state: e3b0c44298fc1c14 | App source: e3b0c44298fc1c14
+
+| Step | Action | Samples | Ack (ms) | Status (ms) | Store ready (ms) | First visible (ms) | Visual settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|---|---|
+| JA1 | navigation-search | 4 | — | — | 658 | 725 | 733 | — |
+| JA2 | open-detail | 4 | — | — | 94 | 778 | 786 | — |
+| JA3 | metadata-click | 4 | 42 | — | 727 | 804 | 819 | — |
+| JB1 | navigation-search | 4 | — | — | 605 | 666 | 669 | — |
+| JB2 | facet-click | 4 | 48 | — | 566 | 613 | 617 | — |
+| JB3 | facet-click | 4 | 42 | — | 298 | 351 | 353 | — |
+| JB4 | scrubber-scroll | 4 | — | — | — | 544 | 559 | — |
+| JB5 | fullscreen-exit | 4 | — | — | — | 109 | 117 | — |
+
+JB2 matched no-anchor control: first visible 891ms; settled 897ms; design alternating-ab-ba. Do not subtract sequential samples; compare balanced aggregates only.

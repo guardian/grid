@@ -5,8 +5,19 @@
  */
 
 import { ServiceDiscovery } from "@/dal/grid-api/service-discovery";
+import { z } from "zod";
 
 const discovery = new ServiceDiscovery();
+const sessionPermissionsSchema = z.object({
+  showPaid: z.boolean().optional(),
+  canUpload: z.boolean().optional(),
+  canDelete: z.boolean().optional(),
+});
+const sessionSchema = z.object({ data: z.object({ user: z.object({ permissions: sessionPermissionsSchema }) }) });
+
+export type GridSessionPermissions = z.infer<typeof sessionPermissionsSchema>;
+
+let sessionPermissionsRead: Promise<GridSessionPermissions | null> | undefined;
 
 /**
  * Initialise the Grid API service discovery.
@@ -27,4 +38,22 @@ export async function apiAiSearchAvailable(): Promise<boolean> {
 /** A media-api root relation's href, waiting for the shared root read; undefined when absent. */
 export async function serviceLink(rel: string): Promise<string | undefined> {
   return (await discovery.init()) ? discovery.getLink(rel) : undefined;
+}
+
+export function getGridSessionPermissions(): Promise<GridSessionPermissions | null> {
+  if (import.meta.env.VITE_USE_MEDIA_API !== "true") return Promise.resolve(null);
+  return sessionPermissionsRead ??= readSessionPermissions();
+}
+
+async function readSessionPermissions(): Promise<GridSessionPermissions | null> {
+  try {
+    const href = await serviceLink("session");
+    if (!href) return null;
+    const response = await fetch(href, { credentials: "include" });
+    if (!response.ok) return null;
+    const session = sessionSchema.safeParse(await response.json());
+    return session.success ? session.data.data.user.permissions : null;
+  } catch {
+    return null;
+  }
 }

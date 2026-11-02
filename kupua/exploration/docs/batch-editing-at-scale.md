@@ -7,6 +7,15 @@ implementation. Most infrastructure figures were read from Guardian PROD by the 
 **Audience:** the operator (not an engineer) and future agents. **Section 0 is the decision.**
 Everything after it is evidence and later options.
 
+**2 November corrections from the editing-plan cross-check:** references below to a
+"5,000 selection cap" mean the range-walk limit and metadata-cache capacity, not an enforced
+ceiling on all selected IDs. Add/toggle can accumulate more; write admission must count the
+actual target set, never the loaded metadata cohort. Also, current Kahuna's guided takedown
+does expose exceptional single-image hard deletion; ordinary batch editing must still exclude
+it. See [the editing plan](gradually-growing-teeth.kupua-edits-steps.md) for the separately gated
+takedown step and current capability preparation. These corrections do not approve larger
+write batches, hard deletion or any live operation.
+
 ---
 
 ## 0. Realistic Next Steps

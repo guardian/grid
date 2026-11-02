@@ -2,6 +2,20 @@
 
 20 September 2026. Strong delegated `critical-path-review`; report only, coordinator integration pending.
 
+> **Current-status correction, 2 November 2026:** F1-F3/F5/F6 include now-completed proposals.
+> Kahuna hosting, pre-import allowlisted configuration, canonical media delivery, shared
+> normalization, standalone owned enrichment, API-mode AI discovery and API-backed collection/
+> selection reads exist. The retired `GridApiDataSource`/identity-merge implementation cited
+> below is not the current singleton path. Editing step 1 retains image URI/edits/crops links
+> and adds on-demand user-session permission facts; it does not enable writes. Current owners:
+> [hosted guide](../../00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md) and
+> [API contract](../../../../src/dal/grid-api/README.md).
+> Signed-rendition renewal, write-time freshness, nested write controls and service-specific
+> mutation handling remain separate work. F6/F7's distinct empty-response contracts, lease
+> constraints, download side effects and cropper full-GET dependency remain relevant to the
+> [editing steps](../../gradually-growing-teeth.kupua-edits-steps.md). Historical bug claims
+> below take their present disposition from the [backlog](../../bug-backlog.md), not this receipt.
+
 ## 1. Decision
 
 **Accept the primary-inspection packet with explicit client work and external deployment decisions, not as API-only acceptance.** All 15 assigned files were read completely: **2,840 lines**. They were starting inputs, not the boundary of the review. Supplemental originals join startup, configuration consumption, canonical media/signing, visible and prefetched images, metadata publication, optional services and existing Kahuna/cropper callers. Exact partial rechecks and prior-packet reuse are separate below.

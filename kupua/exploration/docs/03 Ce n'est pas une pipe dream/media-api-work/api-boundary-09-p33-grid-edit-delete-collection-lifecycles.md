@@ -6,6 +6,19 @@ Execution class: strong
 Scope: report-only source characterization
 Source revision: `c0d659b8ab5b0ffe60644782b7fc6b61d952328b`
 
+> **Current-status correction, 2 November 2026:** this remains source-level write-lifecycle
+> evidence. Its source/event/projection separation, whole-metadata replacement and collection
+> concurrency warnings inform the [editing plan](../../gradually-growing-teeth.kupua-edits-steps.md).
+> Read-only step 1 now retains image URI/edits/crops capabilities and can read user-session
+> permission facts; no mutation path is enabled. PR #4957 is recorded as merged in the
+> [current backlog](../../bug-backlog.md); its old pending status below is historical.
+> Section B's soft-delete acknowledgement sentence is corrected below to the already-recorded
+> [GRID-012](../../bug-backlog.md#grid-012): the controller returns before awaiting its owned
+> persistence/publication chain. Current Kahuna also has a separately gated
+> [guided takedown](../../../../../kahuna/public/js/takedown/delete-from-grid-step.tsx), including
+> exceptional hard deletion; that is not ordinary batch-delete permission. No receipts,
+> private-admission findings or runtime/deployment claims are revalidated here.
+
 ## 1 Decision
 
 **COMPLETE for the assigned source characterization, with named corrections and
@@ -78,7 +91,7 @@ deletion lifecycle messages.
 
 | Operation | Actor/admission and request | Persistent/event path | Consumer, retry and ordering | Observable search/singleton outcome |
 | --- | --- | --- | --- | --- |
-| Soft delete `DELETE /images/:id` | Authenticated. Media-api reads the ES image, applies syndication visibility, requires `Image.canBeDeleted` (`exports` and `usages` both empty), then requires uploader or `DeleteImage`. | Writes `ImageStatusRecord(isDeleted=true, deletedBy, deleteTime)` to the soft-delete Dynamo table, then publishes `SoftDeleteImage` with `SoftDeletedMetadata`. Response is 202 after the Dynamo future and publish callback. | Thrall applies `softDeletedMetadata` to ES current/migration targets. The script does not compare a lifecycle version. Event processing gets the generic two-attempt retry and then acknowledgement/drop behavior. | Normal search excludes the soft-deleted field; singleton GET can still return the ES image to an ordinary visible accessor with the marker. The dedicated soft-deleted metadata route reads the Dynamo status record. There is no promise that 202 means the search index has changed. |
+| Soft delete `DELETE /images/:id` | Authenticated. Media-api reads the ES image, applies syndication visibility, requires `Image.canBeDeleted` (`exports` and `usages` both empty), then requires uploader or `DeleteImage`. | Starts writing `ImageStatusRecord(isDeleted=true, deletedBy, deleteTime)` to the soft-delete Dynamo table, with publication of `SoftDeleteImage` in its callback, but returns 202 without awaiting that chain ([GRID-012](../../bug-backlog.md#grid-012), corrected 2 November). Acceptance is not source-handoff completion. | Thrall applies `softDeletedMetadata` to ES current/migration targets. The script does not compare a lifecycle version. Event processing gets the generic two-attempt retry and then acknowledgement/drop behavior. | Normal search excludes the soft-deleted field; singleton GET can still return the ES image to an ordinary visible accessor with the marker. The dedicated soft-deleted metadata route reads the Dynamo status record. There is no promise that 202 means the search index has changed. |
 | Hard delete `DELETE /images/:id/hard-delete` | Authenticated, visible image, `canBeDeleted`, uploader or `DeleteImage`. It emits `DeleteImage` and returns 202; Thrall rechecks deletability before deleting each current/migration ES target. | Thrall deletes ES first, then deletes original, thumbnail and optimized PNG objects on successful ES delete. The metadata-editor Dynamo edit is intentionally retained for possible restore-from-replica use; the soft-delete status table is not cleared by this user route. | ES hard-delete admission can return `ImageNotDeletable` and the message is treated as processed. S3 cleanup follows each successful ES delete and is not one transaction with ES. | Missing from the ES singleton/search after processing; S3 availability depends on cleanup completion. A failed or protected event does not mean an HTTP-accepted operation completed. |
 | Undelete `PUT /images/:id/undelete` | Authenticated, visible image, and either uploader/`DeleteImage` or a marker showing the image was reaped by `reaper`. | First PUTs `archived=true` through metadata-editor to keep the image from immediate reaping, then sets Dynamo soft-delete `isDeleted=false`, then emits `UnSoftDeleteImage`; response is 202 after those futures and synchronous message publication. | Thrall removes `softDeletedMetadata` from ES without comparing a lifecycle version. The archive edit is a separate event and may arrive independently. | After both Thrall updates, singleton data has no soft-delete marker and archived user metadata. Search eligibility returns only after ES propagation. Restoration does not restore deleted exports/usages or deleted S3 assets. |
 | Scheduled soft reap | Thrall reaper selects eligible current-index IDs not already soft-deleted, bulk-applies the marker, writes Dynamo status records, and deletes embeddings. It persists a sanitized batch record. | This is a separate bulk lifecycle, not a user delete event. It is controlled by configured eligibility, count and pause file. | Bulk results return successful IDs and log failures; no per-record external event is emitted for normal soft reap. | Search excludes marked records; the reaper marker enables the special undelete admission. |

@@ -7,6 +7,15 @@ correctness is information for a decision, not automatic authorization to implem
 
 ## Authority and Reading Order
 
+**Current routing, 2 November 2026:** this folder preserves detailed migration research,
+not a list of unfinished features. The [hosted guide](../../00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md)
+describes the implemented deployment/data paths; the [editing plan](../../gradually-growing-teeth.kupua-edits-steps.md)
+owns future editing sequence. Its read-only step 1 is complete: image URI/edits/crops
+capabilities survive normalization, and user-session permission facts can be read on demand.
+See the [shared API contract](../../../../src/dal/grid-api/README.md) for exact limits.
+Nested write controls, crop notices and all mutation transport remain unimplemented.
+The September snapshots below do not reopen completed API adoption or authorize writes.
+
 **Active build, 23 September:** executing agents work from the
 [API build plan](../api-build/api-build-00-plan.md) and start each session with its
 [session prompt](../api-build/api-build-01-session-prompt.md). The operator decided to build locally
@@ -23,7 +32,7 @@ implementation. The [backlog overview](../../bug-backlog.md#at-a-glance) owns cu
 candidate sections 12-14 qualify earlier reports. Protocol/registers govern commissioned review
 administration, not product execution.
 
-**Core-first priority, 23 September:** get API-backed search, scrolling, position preservation and
+**Historical core-first priority, 23 September:** get API-backed search, scrolling, position preservation and
 traversal working. KUP-029/030 display/enrichment corrections, deferred at the time, have since
 been resolved (refuted/fixed 27 September). Authorization, data protection,
 existing workflows and performance safeguards still apply. The next bounded unit is
@@ -33,18 +42,39 @@ authorization; independently authorized fixes or characterization can continue m
 
 ## Current reality
 
-- `--use-TEST` accesses TEST Elasticsearch through an SSH tunnel.
-- `--use-media-api` uses locally running modified Grid media-api for qualifying `searchAfter`
-  requests; other paths still use direct ES. This is a transitional mode, not API-only.
-- The operator confirms that D3 has one caller: Kupua on their laptop. It was deployed to TEST
-  once and worked. PR #4849 now includes the agreed code amendments; human review remains.
-  Draft/ready status is the operator's choice, not a hold for known pending amendments.
-  Recorded Copilot review comments and local-media-api performance campaigns are different evidence.
-- B1/B2 and D3 are implemented. The remaining endpoints are not implemented merely because a
-  research document specifies them. Read current source before implementing a capability.
-- Grid-only usage-search [PR #4957](https://github.com/guardian/grid/pull/4957) is locally validated
-  and awaiting human review/merge. It has not been integrated into this prototype; new D3-specific
-  work waits for acceptance/merge and separate approval. This is not S2 or API-only completion.
+- API mode covers ordered browsing, detail, selection, counts, facets and AI without constructing
+  a direct-ES datasource or using an ES fallback. Direct-ES laptop mode remains separate.
+- Kahuna hosts the opt-in Kupua page in DEV/TEST, injects validated settings before modules run,
+  and leaves iframe pickers on Kahuna. Hosted media uses canonical entity links. This is not
+  approval for PROD, every external integration or stronger migration guarantees.
+- The [API build plan](../api-build/api-build-00-plan.md) records implementation and measurement
+  boundaries. Do not rebuild its completed endpoints from the inventory's older status tables.
+- PR #4957 is recorded as merged and client alignment implemented; KUP-011 retains the accepted
+  direct-parser grammar residual. This is the [backlog's recorded status](../../bug-backlog.md),
+  not a new remote/deployed check. PR #4849's former draft is historical, not the active build.
+- Read-only editing preparation retains image capabilities and provides an on-demand user-session
+  reader. It adds no startup request, edit UI, write permission or mutation path.
+
+## Research Still Relevant to Editing
+
+Use the named sections for their contracts, with the dated status corrections at each report's
+entry. This routing is based on a folder keyword scan and targeted reading, not a fresh whole-codebase
+audit, new test execution, deployment check or regenerated coverage register.
+
+| Research | Current consequence for the editing plan |
+| --- | --- |
+| [P16 F1/F2/F5](api-boundary-09-p16-image-response.md) | Image-level retention is implemented. Keep validity/downloadability/deletability separate; original-metadata edits and cropper cannot assume lean mget equals full GET. Steps 1, 8, 13, 14. |
+| [P21 F3/F4](api-boundary-09-p21-selection-collections.md) | 5,000 is a range-walk/cache bound, not a whole-selection ceiling. Count captured IDs and resolve unavailable target metadata before writes. Steps 3, 6. |
+| [P22 F7](api-boundary-09-p22-query-ui-owners.md), [P32 B](api-boundary-09-p32-kupua-interaction-and-measurement-contracts.md) | AI/selection enrichment work and KUP-029/030 dispositions supersede old proposals. Cache/clock freshness and missing lease-summary production are not silently solved by capability retention. Steps 2, 4, 9. |
+| [P23 F4/F5](api-boundary-09-p23-query-mapping-s1.md) | Root and user-metadata timestamps differ; a newer root clock alone is not proof of the intended edit. Policy/display inputs must not become client authorization. Steps 1, 4, 8. |
+| [P24 F2/F3/F5/F8](api-boundary-09-p24-backend-admission.md) | Hosting/read endpoints exist, but principal/service admission and full-GET compatibility remain. Starting a backend can mutate its ES target. Steps 2, 5, 13. |
+| [P25 F4-F7](api-boundary-09-p25-delivery-satellites.md) | Hosting/delivery/normalization are implemented, not universal renewal or write-time freshness. Keep distinct satellite absence, lease rules, download side effects and cropper dependencies. Steps 2, 9, 13, 14, 18. |
+| [P26 Q2-Q4/C2](api-boundary-09-p26-configuration-evidence.md) | Kahuna bootstrap is no longer speculative. Verify selected write origins/methods; supplier-reference resolution must account for all matching pages before mutation. Steps 2, 15, 21, 22. |
+| [P33 A-C](api-boundary-09-p33-grid-edit-delete-collection-lifecycles.md) | Source persistence, publication and ES visibility are separate. Its soft-delete acknowledgement wording is corrected to GRID-012; collections/syndication/lifecycle issues remain slice-local. Steps 8, 12, 16-19. |
+
+Administrative prompts, historical hashes/coverage receipts and performance records are preserved,
+not marked newly verified. Unrelated query, geometry and measurement findings remain routed by
+their current owners/backlog; this cross-check does not reopen them as editing gates.
 
 ## Boundaries
 
@@ -76,7 +106,8 @@ The resulting current planning baseline is candidate 11, not a future missing do
 recommendations and research acceptance do not grant blanket implementation authority, feature
 reductions or another D3 readiness programme. Older capability/endpoint material remains reference.
 
-**Current handoff, reconciled 23 September:** preserve S1 and the earlier client reconciliation;
+**Historical handoff, reconciled 23 September:** the following records that checkpoint,
+not current issue dispositions; use the backlog and build plan above. Preserve S1 and the earlier client reconciliation;
 Batch A's six and Batch B's four additional repairs are DONE only at the scopes recorded in the
 [canonical backlog](../../bug-backlog.md) and [completion evidence](../../bug-reproduction-evidence.md).
 Registers [06](api-boundary-06-coverage.json)/[07](api-boundary-07-evidence.json) and
@@ -90,7 +121,7 @@ Saved-density, original-return and cross-preview-centering repairs do not certif
 fallback, pre-native-entry fullscreen timing, physical Esc/macOS animation or broader availability.
 KUP-010 and future API/deployment acceptance remain. Historical reports, S1 and receipts are preserved.
 
-The [single usage investigation](../../grid-usage-search-investigation.md) records PR #4957 as
+The [single usage investigation](../../01%20Research/grid-usage-search-investigation.md) records PR #4957 as
 implemented/locally validated in a separate main-based checkout, awaiting human review/merge as
 documented on 22 September, not freshly checked remotely. Independent usage negatives, positive
 same-record matching, print code/name support and alias-preserving orderedBy fallback supersede
@@ -116,14 +147,16 @@ not scheduled. Kupua stays read-only; no new write API, metric rewrite, campaign
 
 | Purpose | Document | Authority |
 |---|---|---|
-| Current migration direction | [Candidate 11](api-boundary-11-candidate-plan.md) | Current provisional planning baseline; individual execution still needs authorization. |
-| Next bounded unit | [Post-merge query alignment](api-boundary-11-candidate-plan.md#15-post-merge-prototype-query-alignment-workplan) | Short workplan; blocked on accepted upstream merge and separate integration authority, not S2 completion. |
+| Implemented reads and historical build sequence | [API build plan](../api-build/api-build-00-plan.md) | Completion/decision record; hosted guide owns current hosting. |
+| Editing prerequisites and sequence | [Gradually growing teeth](../../gradually-growing-teeth.kupua-edits-steps.md) | Read-only step 1 complete; subsequent work requires separate approval. |
+| Migration contract background | [Candidate 11](api-boundary-11-candidate-plan.md) | Dated planning baseline, superseded by build decisions and current source. |
+| Historical query-alignment unit | [Post-merge query alignment](api-boundary-11-candidate-plan.md#15-post-merge-prototype-query-alignment-workplan) | Completed bounded alignment and residuals are recorded in the current backlog. |
 | Completed D3 amendments | [Findings and amendment workplan](d3-search-after-01-readiness-findings.md) | Agreed scope complete; Section 6 records the executed plan and Section 7 the verification. |
 | Assessment background | [Readiness prompt](d3-search-after-00-readiness-prompt.md) | Background for the completed assessment, not an instruction to restart it. |
 | Capability reference | [Capability inventory](media-api-01-capability-inventory.md) | Dated capability reference; not sequencing authority. |
 | Earlier endpoint sketches | [D7/D8/D9 workplan](media-api-02-next-endpoints-d7-d8-d9-workplan.md) | Historical design input; not an active work queue. |
-| Current D3 draft | [PR draft](d3-search-after-02-pr.md) | Implementation/evidence description; not declared ready by this docs pass. |
-| Usage-search upstream repair and follow-up | [Investigation and handoff](../../grid-usage-search-investigation.md) | PR #4957 pending review/merge; no prototype integration or migration-gate closure. |
+| Historical D3 draft | [PR draft](d3-search-after-02-pr.md) | Dated implementation/evidence description, not a current PR-status claim. |
+| Usage-search upstream repair and follow-up | [Investigation and handoff](../../01%20Research/grid-usage-search-investigation.md) | Historical evidence; the backlog records the merged repair and bounded client alignment. |
 | D3 sort alternatives | [Sort options](d3-search-after-03-sort-options.md) | Trade-offs; no automatic requirement to switch ownership. |
 | Existing D3 measurements | [Performance](d3-search-after-04-performance.md) | Dated evidence; distinguish local, deployed TEST and inferred PROD costs. |
 | Scala conventions | [Conventions](media-api-90-conventions.md) | Implementation reference. |

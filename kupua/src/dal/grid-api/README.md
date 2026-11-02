@@ -13,8 +13,8 @@ owns the current sequence, not the older hybrid workplan.
 Search pages carry server enrichment; the search store publishes it only when
 committing results. There is no mirror-search or per-image enrichment fan-out.
 API overlays take precedence over local baseline calculations; direct mode and
-partial overlays still need that baseline. Bulk selection lookup returns images
-without publishing enrichment.
+partial overlays still need that baseline. Bulk selection lookup attaches enrichment
+to each returned image without publishing into the shared search store.
 
 Standalone detail is `ImageDetail → ApiDataSource.getById → apiGetImage`, reusing
 `GET /images/:id`, normalizing once and checking the requested ID. Its enrichment
@@ -22,11 +22,17 @@ Standalone detail is `ImageDetail → ApiDataSource.getById → apiGetImage`, re
 not the shared enrichment store. Obsolete requests are cancelled; resident-image
 traversal makes no singleton request. No `include=fileMetadata` is added.
 
-Current normalization flattens nested metadata resources into values, discarding
-their resource links/actions. Future editing must deliberately retain the required
-nested links/actions and take standalone enrichment/actions from that same
-requested-ID-bound owner. Action availability is server/permission-aware; absence
-is not permission to construct a write URL or infer authorization.
+Enrichment retains `resource: { uri?, links }` alongside existing actions. Only the
+image's `edits` and `crops` relations are retained here; media links keep their existing
+path. An API entity with no such links has an empty list, while absent API enrichment
+has no resource descriptor. Replacements do not merge in older capabilities. The
+same requested-ID-bound standalone and attached-selection ownership applies.
+
+Nested metadata resources are still flattened into values. A future editing consumer
+must obtain its required nested controls from the authoritative resource; no general
+raw-envelope cache is introduced. An optional singleton URI is never manufactured from
+`ui:image`. The `crops` relation is a list, not the crop-creation endpoint. Capability
+absence is not permission to construct a write URL, and capabilities do not enable writes.
 
 ## Discovery and transport
 
@@ -35,6 +41,16 @@ is not permission to construct a write URL or infer authorization.
 Search-route initialization and API-mode AI startup share one in-flight root request.
 A failed root leaves capabilities unavailable until reload; discovery does not load
 runtime client configuration.
+
+`getGridSessionPermissions()` reads the discovered auth `session` relation on demand,
+only in API mode. Concurrent/repeated callers share one page-lifetime result, including
+quiet `null` absence after failure. Only the user's optional boolean `showPaid`,
+`canUpload` and `canDelete` fields survive validation; identities and unknown fields
+are discarded. Non-user principals are unavailable for this hosted-user helper.
+Missing flags remain unknown, not false or permission grants. No current UI/startup
+caller is added, no read defaults change, and direct-ES mode makes no session request.
+This is a display/preparation snapshot, not fresh authorization for a future write;
+it neither grants edit access nor overrides an uploader's per-image `edits` link.
 
 Existing image reads use URI-encoded paths through `mediaApiUrl`; `imageUrl` retains
 the same proxy/deployed-base helper. Neither expands the discovered image template.

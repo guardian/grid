@@ -2,6 +2,18 @@
 
 19 September 2026. Strong delegated reviewer, `critical-path-review`. Report only; coordinator integration pending.
 
+> **Current-status correction, 2 November 2026:** this is the inspected September snapshot.
+> Selection/collection datasource injection, API mget/range routing and bounded hydration/range
+> ownership repairs are implemented; use the [build record](../api-build/api-build-00-plan.md)
+> and [backlog](../../bug-backlog.md) for their exact scopes. Selected images carry their own
+> API enrichment; step 1 now also retains image URI/edits/crops through that same attachment
+> and the existing own/shared/attached precedence ([current contract](../../../../src/dal/grid-api/README.md)).
+> F3's limit distinction and F4's available-metadata qualification remain important: 5,000
+> bounds a range walk/cache, not the accumulated selected-ID set, and a panel summary may be
+> incomplete. The [editing plan](../../gradually-growing-teeth.kupua-edits-steps.md) now explicitly
+> counts the full captured set and resolves every write target. No new selection cap, generic
+> freshness guarantee or revalidation of the original receipts follows.
+
 ## 1. Decision
 
 **Accept this primary-inspection packet with named qualifications, not an unconditional migration guarantee.** All 28 assigned originals were read completely: 8,876 lines. The journeys below join actual interaction, request, result, membership/cache/anchor, presentation and navigation owners. Supplemental originals and necessary cross-owner gaps are accounted for separately. Tests were read, not run.

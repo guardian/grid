@@ -17,7 +17,7 @@ synthetic direct-TEST reproduction and verification passed, but natural-workflow
 
 ## At a Glance
 
-**Current recorded status: 1 November 2026.** The tables below list open defects,
+**Current recorded status: 2 November 2026.** The tables below list open defects,
 approval/integration/review tasks or explicit residuals; completed bounded repairs and verification are listed separately.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
@@ -29,6 +29,8 @@ direct-to-ES parser divergence belongs to KUP-011 and does not reopen Grid work.
 The 1 November update extends KUP-044's shared capability scope, records KUP-045/046
 as source-verified shared-display findings awaiting review, and defers crop notices
 and eligibility under KUP-047 until the reviewed common wiring is implemented.
+The 2 November step-1 implementation repairs KUP-044's image-level URI/edits/crops
+retention. Nested write resources and KUP-047's crop consumer remain deferred.
 Other dispositions have not been revalidated.
 Update this overview when a detailed disposition changes.
 
@@ -56,10 +58,10 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [KUP-011](#kup-011) | Parsed intent versus automatic defaults | Defaults aligned locally in both modes; open direct-to-ES grammar divergence | Remaining cross-mode syntax scope |
 | [KUP-041](#kup-041) | API cancellation does not reach outgoing Elasticsearch reads | Open; cancellation handle is not retained, backend work observed after browser cancellation | Independent resource-lifetime follow-up; not a proven PP3 cause or migration gate |
 | [KUP-043](#kup-043) | Image refresh, enrichment and result stability after a write | Parked design question; stability analysis added 31 October | Prerequisite for future edits/deletions only |
-| [KUP-044](#kup-044) | Kupua drops per-image resource capabilities, including `edits` and `crops` | Open; source-verified, client-only; shared design awaiting review | Dependency for future capability-driven consumers; not a read-migration gate |
+| [KUP-044](#kup-044) | Image-level capabilities and future nested write resources | Image URI/edits/crops retention repaired; nested controls deferred to their consumers | Shared facts available; no write activation |
 | [KUP-045](#kup-045) | Lease summary has consumers but no current producer | Source-verified display gap; review and composed witness pending | Independent shared-display correction |
 | [KUP-046](#kup-046) | Known validity reasons replace server wording with local copy | Source-verified; previously unselected B3, review pending | Independent display-copy correction |
-| [KUP-047](#kup-047) | Crop notices and server eligibility are not wired | Deferred feature gap; blocked by reviewed common wiring and KUP-044 | Read-only crop follow-up, not a mock-cropping commit gate |
+| [KUP-047](#kup-047) | Crop notices and server eligibility are not wired | Deferred consumer; common image-capability wiring now available | Read-only crop follow-up, not a mock-cropping commit gate |
 
 KUP-038 is closed against the ledger's completed B8/L37/B17 repairs, not a new fix.
 KUP-042 is repaired locally with globally stable fixed-grid rows; Justified packing,
@@ -632,7 +634,7 @@ set -o pipefail; npm --prefix kupua run test:e2e -- --project=chromium density-c
   callers: the `edits` link when the caller has write permission, `delete` when `canBeDeleted`
   (no usages or exports) holds *and* the caller is the uploader or has `DeleteImage`,
   `add-lease`, `add-collection`, `delete-usages` and others.
-- **Actual gap (client-only):** Kupua already retains per-image `actions` in enrichment for
+- **Original gap (client-only, image-level loss repaired below):** Kupua already retains per-image `actions` in enrichment for
   search/window pages *and* selection `mget`
   ([`extractEnrichment`](../../src/dal/grid-api-search-adapter.ts#L91),
   [mget](../../src/dal/grid-api-search-adapter.ts#L195)), so delete capability is available.
@@ -640,10 +642,10 @@ set -o pipefail; npm --prefix kupua run test:e2e -- --project=chromium density-c
   `edits` link, which is the server's per-image edit permission, and normalization flattens the
   nested metadata resources' links, as [grid-api README](../../src/dal/grid-api/README.md)
   already warns.
-- **Same loss, not a second capability bug:** the validity-gated `crops` link and envelope
-  URI are also discarded. Singleton URI is optional; `ui:image` points to Kahuna, not the
+- **Original related loss, not a second capability bug:** the validity-gated `crops` link and envelope
+  URI were also discarded. Singleton URI is optional; `ui:image` points to Kahuna, not the
   media-api source. The image `crops` relation is not the crop-creation POST endpoint.
-- **Smallest shared direction, pending review:** retain relevant resource links/URI,
+- **Selected shared direction (implemented below):** retain relevant resource links/URI,
   including `edits` and `crops`, alongside existing actions through the common normalizer
   and enriched view. Preserve guarded page publication, requested-ID-owned standalone
   enrichment and attached selection enrichment. Future edit UI may also need nested
@@ -655,10 +657,17 @@ set -o pipefail; npm --prefix kupua run test:e2e -- --project=chromium density-c
   per-request server cost (parity §8). Any lean browse writer must keep them.
 - **Review and dependencies:** [Hosted rights and capabilities review](hosted-rights-and-capabilities-review.md)
   retains the source findings, UI ownership map, proposed boundary and open decisions.
-  Review/approve that common contract before implementation. KUP-047 follows verified
-  shared wiring; KUP-045/046 are separate selectable repairs, not automatic prerequisites.
-- **Disposition:** OPEN; capability-driven consumer preparation, not authorization for
-  writes, a new endpoint or a blocker for the current mock crop editor.
+  The operator selected image-level common wiring as step 1. KUP-047 can now consume
+  those facts; KUP-045/046 are separate selectable repairs, not automatic prerequisites.
+- **Repair / disposition (2 November):** DONE for image-level source URI and edits/crops
+  link retention. `resource: { uri?, links }` follows existing search, standalone and
+  attached-selection enrichment; authoritative empty links replace older capabilities.
+  A failing-first extract/derive regression and amended real page/singleton/mget and
+  hook-ownership tests cover retention, replacement and own-overlay priority. No transport,
+  publication or media-link behavior changes. Nested write resources remain deferred to
+  their actual consumers, not an implemented general envelope cache. The separate on-demand
+  user-session helper retains only explicit permission flags and never grants image edit access.
+  No writes, new endpoint, live-system verification or crop consumer activation follows.
 
 #### KUP-045
 **Lease summary has consumers but no current producer**
@@ -719,9 +728,9 @@ set -o pipefail; npm --prefix kupua run test:e2e -- --project=chromium density-c
   [mock editor](../../src/components/crop/CropEditor.tsx#L35),
   [Kahuna notices](../../../kahuna/public/js/crop/view.html#L64) and the
   [shared research/review note](hosted-rights-and-capabilities-review.md).
-- **Dependency / sequencing:** blocked until the hosted shared signal/capability
-  contract in that note has been reviewed, approved, implemented and verified,
-  including [KUP-044](#kup-044). Use that shared path across search, detail and crop;
+- **Dependency / sequencing:** [KUP-044](#kup-044)'s image-level shared wiring is now
+  implemented under the operator-approved read-only step 1. Select this crop consumer
+  separately. Use that shared path across search, detail and crop;
   do not add a crop-only API fetch, rights store or local permission calculation.
   KUP-045/046 are related, separately selectable shared repairs, not automatic gates.
 - **Acceptance when selected:** reuse server cost/restrictions and reviewed crop
@@ -733,8 +742,8 @@ set -o pipefail; npm --prefix kupua run test:e2e -- --project=chromium density-c
 - **Boundary:** creation/saving/export and all service writes remain out of scope.
   Keep current write guards. Direct-ES approximation is deferred with no added API
   calls. Mock cropping can be committed before this follow-up is selected.
-- **Disposition:** DEFERRED, blocked by reviewed common wiring/KUP-044; no product
-  implementation or write authorization follows from recording this entry.
+- **Disposition:** DEFERRED consumer, with image-level common wiring available;
+  no crop implementation or write authorization follows from the shared repair.
 
 ### Dependency Unresolved
 

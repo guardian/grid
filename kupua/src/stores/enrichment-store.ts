@@ -14,7 +14,7 @@
  */
 
 import { create } from "zustand";
-import type { Cost, Action, SyndicationStatus, UsageRights, Usage } from "@/dal/grid-api/types";
+import type { Cost, Action, Link, SyndicationStatus, UsageRights, Usage } from "@/dal/grid-api/types";
 
 /**
  * API-sourced enrichment fields for a single image.
@@ -38,6 +38,7 @@ export interface EnrichmentFields {
   leasesSummary?: { currentCount: number; inactiveCount: number; hasActiveAllowLease: boolean };
   /** HATEOAS action descriptors (what this user can do with the image). */
   actions?: Action[];
+  resource?: { uri?: string; links: Link[] };
   /** Syndication status. */
   syndicationStatus?: SyndicationStatus;
   /** Usage list (for print/digital icon derivation on grid cells). */

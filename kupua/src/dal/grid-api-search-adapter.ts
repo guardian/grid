@@ -88,7 +88,7 @@ function mapApiImageToImage(raw: unknown, links?: Link[]): Image {
  *
  * Exported for unit testing.
  */
-export function extractEnrichment(entity: { data?: unknown; actions?: unknown }): [string, EnrichmentFields] | null {
+export function extractEnrichment(entity: { uri?: string; data?: unknown; actions?: unknown; links?: Link[] }): [string, EnrichmentFields] | null {
   const d = entity.data as Record<string, unknown> | undefined;
   const id = d?.id as string | undefined;
   if (!d || !id) return null;
@@ -104,6 +104,10 @@ export function extractEnrichment(entity: { data?: unknown; actions?: unknown })
     persisted: d.persisted as EnrichmentFields["persisted"],
     usageRights: d.usageRights as EnrichmentFields["usageRights"],
     actions: entity.actions as EnrichmentFields["actions"],
+    resource: {
+      uri: entity.uri,
+      links: entity.links?.filter((link) => link.rel === "edits" || link.rel === "crops") ?? [],
+    },
     syndicationStatus: d.syndicationStatus as EnrichmentFields["syndicationStatus"],
     usages: usages as EnrichmentFields["usages"],
   }];
