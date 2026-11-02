@@ -69,6 +69,18 @@ describe("KUP-016 indexed seek ownership", () => {
     expect(seek).toHaveBeenCalledExactlyOnceWith(3000, "seek", undefined, "refill");
   });
 
+  it("does not refill an indexed coordinate until both viewport edges match its range", () => {
+    const view = renderHook(() => useDataWindow());
+    for (const [startValid, endValid] of [[false, true], [true, false], [false, false]]) {
+      act(() => view.result.current.reportVisibleRange(3000, 3020, false, undefined, startValid, endValid));
+      act(() => vi.advanceTimersByTime(200));
+      expect(seek).not.toHaveBeenCalled();
+    }
+    act(() => view.result.current.reportVisibleRange(3000, 3020));
+    act(() => vi.advanceTimersByTime(200));
+    expect(seek).toHaveBeenCalledExactlyOnceWith(3000, "seek", undefined, "refill");
+  });
+
   it("ordinary buffer publication and an unrelated consumer unmount preserve valid work", () => {
     const view = renderHook(() => useDataWindow());
     const detail = renderHook(() => useDataWindow());

@@ -397,6 +397,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const input = scrollInputRef.current;
     const userInitiated = event !== undefined && input !== null &&
       input.search === getSearchGeneration() && input.seek === useSearchStore.getState()._seekGeneration;
+    if (!densityMountedReadyRef.current && !userInitiated) return;
 
     const range = virtualizerRef.current.range;
     if (range) {
@@ -481,13 +482,14 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     useSearchStore.getState()._seekGeneration,
   );
   useEffect(() => {
+    if (!densityReady) return;
     const gen = useSearchStore.getState()._seekGeneration;
     if (gen !== seekGenForHandleScrollRef.current) {
       seekGenForHandleScrollRef.current = gen;
       return;
     }
     handleScroll();
-  }, [bufferOffset, resultsLength, handleScroll]);
+  }, [bufferOffset, resultsLength, handleScroll, densityReady]);
 
   // -------------------------------------------------------------------------
   // 4. Prepend scroll compensation
@@ -1016,6 +1018,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       densityMountedReadyRef.current = true;
       setDensityReady(true);
       markDensityRestoreComplete();
+      // Cold mounts can already be ready in React state before focus placement finishes.
+      if (saved && densityReady) handleScroll();
     };
     let secondFrame = 0;
     let firstFrame = 0;

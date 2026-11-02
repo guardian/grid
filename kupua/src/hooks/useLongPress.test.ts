@@ -226,6 +226,38 @@ describe("useLongPress -- tickbox guard", () => {
   });
 });
 
+describe("useLongPress -- pinch handoff", () => {
+  it("stops selection auto-scroll before the second finger can zoom", () => {
+    const container = createContainer();
+    const first = createCell(container, "img-first");
+    const second = createCell(container, "img-second");
+    const onDragEnd = vi.fn();
+    renderHook(() => useLongPress({
+      containerRef: { current: container }, onLongPressStart: vi.fn(),
+      onDragEnterCell: vi.fn(), onDragEnd,
+    }));
+    const touch = (target: Element, type: string, count: number) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "touches", { value: Array.from({ length: count }, () => ({ clientX: 100, clientY: 198 })) });
+      target.dispatchEvent(event);
+    };
+    firePointer(first, "pointerdown");
+    touch(first, "touchstart", 1);
+    vi.advanceTimersByTime(LONG_PRESS_MS);
+    touch(first, "touchmove", 1);
+    expect(document.body.dataset.dragSelecting).toBe("true");
+    firePointer(second, "pointerdown", { pointerId: 2 });
+    touch(second, "touchstart", 2);
+    expect(onDragEnd).toHaveBeenCalledTimes(1);
+    expect(document.body.dataset.dragSelecting).toBeUndefined();
+    vi.advanceTimersByTime(34);
+    expect(container.scrollTop).toBe(0);
+    touch(first, "touchend", 1);
+    touch(second, "touchend", 0);
+    expect(onDragEnd).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("useLongPress -- pointercancel cleanup", () => {
   it("cancels on pointercancel without firing callbacks", () => {
     const container = createContainer();

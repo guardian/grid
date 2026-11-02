@@ -354,8 +354,12 @@ its wheel bridge, records its destination before native scrolling. Wheel/touch/n
 store-owned 200 ms queue survives density unmount and is superseded by newer browsing
 or search, not by the new view's initial range report.
 
-Layout-only reports retain a hook-owned refill timer. Reset, changed search generation,
-query/order, leaving the indexed tier or disposal of that reporter cancels it. An
+Layout-only reports retain a hook-owned refill timer. An outside-buffer indexed refill requires
+both reported range edges to match the physical viewport; stale geometry cancels rather than
+queues a coordinate. Implicit reports wait for density mount placement, while genuine browsing
+input can supersede that placement immediately. Completion reports the placed viewport even
+when the cold-mount ready state was already true.
+Reset, changed search generation, query/order, leaving the indexed tier or disposal of that reporter cancels it. An
 unrelated detail consumer's unmount and ordinary buffer publication do not. Obsolete
 callbacks cannot dispatch or clear their successor; refills cannot supersede pending
 user navigation or initial search. Their query fingerprints remain cached by params

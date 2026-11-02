@@ -9,7 +9,7 @@
  * calling `setParams` + `search`.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useRouter, useRouterState, useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
 import { getViewportAnchorId } from "@/hooks/useDataWindow";
@@ -87,7 +87,11 @@ function cleanParams(
 
 
 export function useUrlSearchSync() {
-  const searchParams = useSearch({ from: "/search" });
+  const routeSearch = useSearch({ from: "/search" });
+  // Router matches retain extra keys. Preserve known-key order for existing navigation dedup.
+  const searchParams = useMemo(() => Object.fromEntries(
+    Object.entries(routeSearch).filter(([key]) => Object.hasOwn(searchParamsSchema.shape, key))
+  ) as UrlSearchParams, [routeSearch]);
   const location = useRouterState({ select: (state) => state.location });
   const router = useRouter();
   const { setParams, search } = useSearchStore();

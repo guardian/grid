@@ -23,8 +23,9 @@ summarised at the end.
 | `gridConfig` | Kahuna's client settings: staff organisation, field aliases, image types, download-as-usage, reaper, agency picks (ingredients, colour), ticker definitions, deny-syndication warning, graphic-image blurring |
 
 Each value is validated ([hosted-config.ts](../../../src/lib/hosted-config.ts)); a missing or
-invalid setting falls back to [grid-config.ts](../../../src/lib/grid-config.ts) defaults. All
-requests send the user's session cookie (`credentials: "include"`).
+invalid setting falls back to [grid-config.ts](../../../src/lib/grid-config.ts) defaults. Service
+API fetches send the user's session cookie (`credentials: "include"`); thumbnail `<img>` requests
+follow the browser's separate image/CORS/cookie rules.
 
 ## Server data sources
 
@@ -63,8 +64,15 @@ are the server's own filter counts, so they always match what the `is:` search r
 where absence means `false`), are compiled by media-api, which also returns their values.
 
 **Media delivery.** Hosted Kupua always uses the URLs in each image (`VITE_MEDIA_DELIVERY=canonical`;
-laptop API modes opt in with `--canonical-media`). Full-image imgops links embed signed source
+laptop API modes opt in with `--canonical-media`). For thumbnails,
+[media-api](../../../../media-api/app/lib/ImageResponse.scala) supplies an HTTPS CloudFront path
+when a thumbnail domain is configured, otherwise a presigned S3 URL. The CloudFront branch does
+not append a signing query; `secureUrl` does not mean every thumbnail URL is presigned, nor does
+an unsigned-looking path establish public access. Full-image imgops links embed signed source
 URLs that expire after roughly 15-25 minutes; a page reload fetches fresh ones.
+
+Thumbnails use ordinary `<img>` elements without `crossOrigin`. Justified zoom reuses these
+images as DOM tiles; it requires no origin-clean pixel access, CORS change or media proxy.
 
 ## Still local in deployed mode
 

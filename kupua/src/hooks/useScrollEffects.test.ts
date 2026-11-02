@@ -159,6 +159,28 @@ function UrlSyncHarness({ children }: PropsWithChildren) {
   return children;
 }
 
+it("ignores unvalidated route extras without blocking initial search or later queries", () => {
+  routeParams = Object.assign({ nonFree: "true" }, { zoomAuditProbe: "1" });
+  window.history.replaceState({ kupuaKey: "unknown-route-extra" }, "", "/search?nonFree=true&zoomAuditProbe=1");
+  const search = vi.spyOn(useSearchStore.getState(), "search").mockResolvedValue(undefined);
+  const view = renderHook(() => useUrlSearchSync());
+  expect(search).toHaveBeenCalledTimes(1);
+  expect(useSearchStore.getState().params).not.toHaveProperty("zoomAuditProbe");
+  act(() => {
+    routeParams = Object.assign({ nonFree: "true", query: "changed-fixture" }, { zoomAuditProbe: "1" });
+    window.history.replaceState({ kupuaKey: "unknown-route-query" }, "", "/search?nonFree=true&query=changed-fixture&zoomAuditProbe=1");
+    view.rerender();
+  });
+  expect(search).toHaveBeenCalledTimes(2);
+  expect(useSearchStore.getState().params.query).toBe("changed-fixture");
+  act(() => {
+    routeParams = Object.assign({ nonFree: "true", query: "changed-fixture" }, { zoomAuditProbe: "2" });
+    window.history.replaceState({ kupuaKey: "unknown-route-query" }, "", "/search?nonFree=true&query=changed-fixture&zoomAuditProbe=2");
+    view.rerender();
+  });
+  expect(search).toHaveBeenCalledTimes(2);
+});
+
 it("crop subview history leaves the mounted search buffer untouched", () => {
   const previousHistory = window.history.state;
   try {
@@ -414,6 +436,34 @@ function mountDensity(initialGeometry: ScrollGeometry, strict = false, reportVie
 }
 
 describe("viewport-valid velocity reports", () => {
+  it("does not schedule an origin refill while indexed density placement is pending", () => {
+    const seek = vi.fn().mockResolvedValue(undefined);
+    useSearchStore.setState({ total: 5000, seek });
+    const view = mountDensity(grid, false, true);
+    act(() => vi.advanceTimersByTime(250));
+    expect(seek).not.toHaveBeenCalled();
+    frame(); frame();
+    act(() => vi.advanceTimersByTime(250));
+    expect(seek).not.toHaveBeenCalled();
+    act(() => {
+      view.virtualizer.range = { startIndex: 99, endIndex: 101 };
+      fireEvent.scroll(view.container);
+    });
+    act(() => vi.advanceTimersByTime(250));
+    expect(seek).not.toHaveBeenCalled();
+  });
+
+  it("admits an explicit wheel departure while indexed density placement is pending", () => {
+    const queueBrowsePosition = vi.fn();
+    useSearchStore.setState({ total: 5000, queueBrowsePosition });
+    const view = mountDensity(grid, false, true);
+    act(() => {
+      fireEvent.wheel(view.container, { deltaY: 120 });
+      fireEvent.scroll(view.container);
+    });
+    expect(queueBrowsePosition).toHaveBeenCalledExactlyOnceWith(0);
+  });
+
   it("rebases velocity before centering focus without suppressing subsequent wheel prediction", () => {
     const results = Array.from({ length: 201 }, (_, index) => ({ id: `image-${index + 200}` }) as Image);
     const extendBackward = vi.fn().mockResolvedValue(undefined);
@@ -2997,6 +3047,7 @@ describe("P1 non-uniform resident continuity", () => {
   });
 
   it("registers actual presentation geometry, reports irregular row ranges and rejects fixed window preparation", () => {
+    useSearchStore.getState().setFocusedImageId(null);
     const geometry = irregularGeometry();
     const view = mountDensity(geometry);
     frame(); frame();
@@ -3006,7 +3057,7 @@ describe("P1 non-uniform resident continuity", () => {
     expect(view.reportVisibleRange).toHaveBeenCalledWith(0, 6, false, undefined, true, false);
     act(() => { view.virtualizer.range = { startIndex: 2, endIndex: 3 };
       fireEvent.scroll(view.container); });
-    expect(view.reportVisibleRange).toHaveBeenLastCalledWith(7, 11, false, undefined, false, false);
+    expect(view.reportVisibleRange).toHaveBeenLastCalledWith(7, 11, false, undefined, false, true);
     view.unmount();
     const fixed = mountDensity(table);
     frame(); frame();

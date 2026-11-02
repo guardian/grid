@@ -24,6 +24,31 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 2 November 2026 - Justified tile zoom and gesture continuity
+
+Justified zoom animates bounded DOM tiles with row/slot movement, changing crops and per-photo
+fades. It reuses real neighbouring layouts, existing thumbnails and shared anchor ownership;
+per-frame work creates no nodes, media URLs, packing or React cell updates. Protected media,
+reduced motion, unavailable preparation and tile/raster limits use an ordinary anchored step.
+
+Native pinch retains locally owned contact identifiers and original targets through repacking,
+leaves one-finger scrolling native and commits at most one step per contact sequence. Progress
+is independent of layout density, reverses through the source pose and uses bounded catch-up.
+New destination thumbnails can finish loading behind the source cover while contacts are held;
+release cancels pending preparation and commits immediately. Cosmetic settling has one writer,
+independent semantic commit ownership and placement-acknowledged cleanup. Unchanged poses do not
+redraw; zero-distance releases skip cosmetic frames while still awaiting placement. Declined
+previews stay covered during rollback. Multitouch stops selection auto-scroll.
+
+URL sync ignores unknown router fields without changing known-key order. Indexed maintenance
+waits for density placement and viewport-valid ranges rather than refilling a transient origin;
+explicit user intent and cold-mount/Home/End semantics are preserved. Browser fixtures provide
+real synthetic thumbnails, retain asynchronous setup jobs and assert animation/resource bounds.
+
+Removed development inspection controls, diagnostic traces/counters, progress data writes,
+fragment-retention plumbing and their exclusive tests. Current architecture guidance describes
+the implemented feature; obsolete research/commissioning documents are removed.
+
 ### 2 November 2026 - Mobile image detail and crop interactions
 
 Compact image detail pages the image and matching metadata together, with a stationary

@@ -58,6 +58,17 @@ verify the corresponding CSS viewport dimensions. If no DPR change occurs, stop
 rather than accumulating queued shortcuts. These checks concern zoom/layout, not
 performance.
 
+### Native touch coordinate calibration
+
+Before a CDP pinch, calibrate delivered `Touch.clientX/clientY` against a known
+protocol point after setting the viewport and foregrounding the page. Use a temporary
+capture-phase `touchstart` probe that prevents defaults and propagation so calibration
+does not activate the application. Release the contact and remove the probe in `finally`.
+The protocol-to-CSS mapping can change with the integrated browser's viewport/emulation;
+neither a previous calibration nor DPR alone establishes it. Verify both intended pinch
+origins are inside results before treating native input as application evidence. Always
+release held contacts and detach the owned CDP session, including on failed assertions.
+
 ### Wheel pacing under viewport emulation
 
 After resizing or applying device metrics, verify actual `innerWidth`, `innerHeight`

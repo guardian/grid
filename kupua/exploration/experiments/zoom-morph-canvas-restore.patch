@@ -1,0 +1,189 @@
+--- a/kupua/src/lib/justified-zoom-morph-lab.ts
++++ b/kupua/src/lib/justified-zoom-morph-lab.ts
+@@ -14,7 +14,7 @@
+ export function createZoomMorphLab(callbacks: Callbacks) {
+   const requested = new URLSearchParams(location.hash.slice(1)).get("zoom-morph");
+   if (!import.meta.env.DEV || !["dom", "canvas", "dissolve"].includes(requested ?? "")) return;
+-  let mode: LabMode = requested === "canvas" ? "dom" : requested as LabMode;
++  let mode = requested as LabMode;
+   const panel = document.createElement("details");
+   panel.dataset.zoomMorphLab = "";
+   panel.open = true;
+@@ -28,7 +28,7 @@
+   const select = document.createElement("select");
+   select.setAttribute("aria-label", "Zoom morph renderer");
+   Object.assign(select.style, { background: "#333", color: "white", margin: "6px" });
+-  for (const [value, name] of [["dom", "DOM tiles"], ["dissolve", "Original dissolve"]]) {
++  for (const [value, name] of [["dom", "DOM tiles"], ["canvas", "Canvas2D"], ["dissolve", "Original dissolve"]]) {
+     const option = document.createElement("option");
+     option.value = value;
+     option.textContent = name;
+--- a/kupua/src/lib/justified-zoom-morph-renderer.test.ts
++++ b/kupua/src/lib/justified-zoom-morph-renderer.test.ts
+@@ -53,9 +53,50 @@
+     expect(source.src).not.toBe("");
+   });
+ 
+-  it("declines unloaded sources without touching borrowed nodes", () => {
++  it("draws at native backing scale, precomposes incoming margins and releases backings", () => {
++    readyImages();
++    const contexts: Array<Record<string, unknown>> = [];
++    const canvases: HTMLCanvasElement[] = [];
++    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(function (this: HTMLCanvasElement) {
++      const context = { setTransform: vi.fn(), fillRect: vi.fn(), drawImage: vi.fn(), globalAlpha: 1, fillStyle: "" };
++      contexts.push(context);
++      canvases.push(this);
++      return context as unknown as CanvasRenderingContext2D;
++    } as unknown as typeof HTMLCanvasElement.prototype.getContext);
++    const host = document.createElement("div");
++    const renderer = createMorphRenderer(host, [track()], "canvas", 400, 600, 2, "black")!;
++    expect(canvases[0].width).toBe(800);
++    expect(canvases[0].height).toBe(1200);
++    expect(renderer.ready()).toBe(true);
++    renderer.draw(0.5);
++    expect(contexts[0].drawImage).toHaveBeenCalledTimes(2);
++    expect(contexts[1].drawImage).toHaveBeenCalledTimes(1);
++    expect(contexts[0].globalAlpha).toBe(1);
++    renderer.dispose();
++    expect(canvases.every(canvas => canvas.width === 0 && canvas.height === 0)).toBe(true);
++    expect(host.children).toHaveLength(0);
++  });
++
++  it("reports context loss and removes the owned listener on disposal", () => {
++    readyImages();
++    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ setTransform: vi.fn(), fillRect: vi.fn(), drawImage: vi.fn() } as unknown as CanvasRenderingContext2D);
++    const host = document.createElement("div");
++    const failed = vi.fn();
++    const renderer = createMorphRenderer(host, [track()], "canvas", 400, 600, 1, "black", failed)!;
++    const canvas = host.querySelector("canvas")!;
++    canvas.dispatchEvent(new Event("contextlost"));
++    expect(failed).toHaveBeenCalledTimes(1);
++    renderer.dispose();
++    canvas.dispatchEvent(new Event("contextlost"));
++    expect(failed).toHaveBeenCalledTimes(1);
++  });
++
++  it("declines unloaded sources and unavailable canvas contexts without touching borrowed nodes", () => {
+     const host = document.createElement("div");
+     expect(createMorphRenderer(host, [track()], "dom", 400, 600, 1, "black")).toBeUndefined();
++    readyImages();
++    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
++    expect(createMorphRenderer(host, [track()], "canvas", 400, 600, 1, "black")).toBeUndefined();
+     expect(host.children).toHaveLength(0);
+   });
+ });
+--- a/kupua/src/lib/justified-zoom-morph-renderer.ts
++++ b/kupua/src/lib/justified-zoom-morph-renderer.ts
+@@ -1,6 +1,6 @@
+ import { morphPhotoFit, morphRect, type MorphTrack } from "./justified-zoom-morph";
+ 
+-export type MorphMode = "dom";
++export type MorphMode = "dom" | "canvas";
+ export interface MorphRenderer {
+   draw(progress: number): void;
+   ready(): boolean;
+@@ -11,17 +11,20 @@
+   return image.complete && image.naturalWidth > 0 && image.naturalHeight > 0;
+ }
+ 
+-export function createMorphRenderer(host: HTMLElement, tracks: readonly MorphTrack[], mode: MorphMode, _width: number, _height: number, _dpr: number, background: string): MorphRenderer | undefined {
++export function createMorphRenderer(host: HTMLElement, tracks: readonly MorphTrack[], mode: MorphMode, width: number, height: number, dpr: number, background: string, failed?: () => void): MorphRenderer | undefined {
+   if (tracks.some(track => [track.outgoing, track.incoming].some(image => image && !usable(image)))) return;
+   const root = document.createElement("div");
+   root.dataset.zoomMorphRenderer = mode;
+   Object.assign(root.style, { position: "absolute", inset: "0", overflow: "hidden", background, visibility: "hidden" });
+   let renderer: MorphRenderer | undefined;
+   try {
+-    renderer = domRenderer(root, tracks, background);
++    renderer = mode === "dom" ? domRenderer(root, tracks, background) : canvasRenderer(root, tracks, width, height, dpr, background);
++    if (!renderer) { root.remove(); return; }
+     host.appendChild(root);
++    const contextLost = () => failed?.();
++    root.addEventListener("contextlost", contextLost, true);
+     const owned = renderer;
+-    return { draw: p => owned.draw(Math.max(0, Math.min(1, p))), ready: () => { const ready = owned.ready(); if (ready) root.style.visibility = "visible"; return ready; }, dispose: () => { owned.dispose(); root.remove(); } };
++    return { draw: p => owned.draw(Math.max(0, Math.min(1, p))), ready: () => { const ready = owned.ready(); if (ready) root.style.visibility = "visible"; return ready; }, dispose: () => { root.removeEventListener("contextlost", contextLost, true); owned.dispose(); root.remove(); } };
+   } catch {
+     renderer?.dispose();
+     root.remove();
+@@ -83,3 +86,59 @@
+   };
+ }
+ 
++function canvasRenderer(root: HTMLElement, tracks: readonly MorphTrack[], width: number, height: number, dpr: number, background: string): MorphRenderer | undefined {
++  const canvas = document.createElement("canvas");
++  const scratch = document.createElement("canvas");
++  canvas.width = Math.ceil(width * dpr);
++  canvas.height = Math.ceil(height * dpr);
++  Object.assign(canvas.style, { width: `${width}px`, height: `${height}px` });
++  const context = canvas.getContext("2d", { alpha: false });
++  const mixed = tracks.filter(track => track.incoming !== track.outgoing);
++  scratch.width = Math.max(1, Math.ceil(Math.max(0, ...mixed.map(track => Math.max(track.from.width, track.to.width))) * dpr));
++  scratch.height = Math.max(1, Math.ceil(Math.max(0, ...mixed.map(track => Math.max(track.from.height, track.to.height))) * dpr));
++  const temporary = scratch.getContext("2d", { alpha: false });
++  if (!context || !temporary) { canvas.width = canvas.height = scratch.width = scratch.height = 0; return; }
++  root.appendChild(canvas);
++  const drawPhoto = (ctx: CanvasRenderingContext2D, image: HTMLImageElement | undefined, x: number, y: number, w: number, h: number, p: number) => {
++    ctx.fillStyle = background;
++    ctx.fillRect(x, y, w, h);
++    if (!image) return;
++    const fit = morphPhotoFit(image.naturalWidth, image.naturalHeight, w, h, p);
++    if (!fit.scale) return;
++    const dx = Math.max(0, fit.x);
++    const dy = Math.max(0, fit.y);
++    const dw = Math.min(w, fit.width);
++    const dh = Math.min(h, fit.height);
++    ctx.drawImage(image, Math.max(0, -fit.x) / fit.scale, Math.max(0, -fit.y) / fit.scale, dw / fit.scale, dh / fit.scale, x + dx, y + dy, dw, dh);
++  };
++  return {
++    ready: () => tracks.every(track => [track.outgoing, track.incoming].every(image => !image || usable(image))),
++    draw(p) {
++      context.setTransform(dpr, 0, 0, dpr, 0, 0);
++      context.globalAlpha = 1;
++      context.fillStyle = background;
++      context.fillRect(0, 0, width, height);
++      for (const track of tracks) {
++        const rect = morphRect(track, p);
++        if (rect.width <= 0 || rect.height <= 0) continue;
++        const radius = Math.min(rect.width / 2, rect.height / 2, (track.fromRadius ?? 0) * (1 - p) + (track.toRadius ?? 0) * p);
++        if (radius > 0) {
++          context.save();
++          context.beginPath();
++          context.roundRect(rect.x, rect.y, rect.width, rect.height, radius);
++          context.clip();
++        }
++        drawPhoto(context, track.outgoing, rect.x, rect.y, rect.width, rect.height, p);
++        if (track.incoming === track.outgoing || p === 0) { if (radius > 0) context.restore(); continue; }
++        // Flatten the entire incoming tile, including contain margins/transparency, before blending.
++        temporary.setTransform(dpr, 0, 0, dpr, 0, 0);
++        drawPhoto(temporary, track.incoming, 0, 0, rect.width, rect.height, p);
++        context.globalAlpha = p * p * (3 - 2 * p);
++        context.drawImage(scratch, 0, 0, rect.width * dpr, rect.height * dpr, rect.x, rect.y, rect.width, rect.height);
++        context.globalAlpha = 1;
++        if (radius > 0) context.restore();
++      }
++    },
++    dispose() { canvas.width = canvas.height = scratch.width = scratch.height = 0; },
++  };
++}
+--- a/kupua/src/lib/justified-zoom-transition.ts
++++ b/kupua/src/lib/justified-zoom-transition.ts
+@@ -176,7 +176,7 @@
+     const started = performance.now();
+     g.plan ??= planZoomMorph(g.outgoing.tiles, g.incoming.tiles, g.y, MAX_ZOOM_TILES);
+     if (!g.plan) { lab.state("Fallback: protected media or track budget", !!g.inspecting, true); return; }
+-    const renderer = createMorphRenderer(g.root, g.plan, mode, g.bounds.width, g.bounds.height, devicePixelRatio, getComputedStyle(g.root).backgroundColor);
++    const renderer = createMorphRenderer(g.root, g.plan, mode, g.bounds.width, g.bounds.height, devicePixelRatio, getComputedStyle(g.root).backgroundColor, () => { if (gesture === g) fallback(g, "canvas context was lost"); });
+     if (!renderer) { lab.state("Fallback: renderer unavailable", !!g.inspecting, true); return; }
+     g.renderer = renderer;
+     try { renderer.draw(g.inspectionProgress ?? g.progress ?? 0); }
+@@ -198,7 +198,8 @@
+       g.incoming!.layer.style.visibility = "hidden";
+       lab.state(`${mode.toUpperCase()} · ${g.plan!.length} tracks · setup ${(performance.now() - started).toFixed(1)}ms (not paint latency)`, !!g.inspecting, true);
+     };
+-    schedule(ready);
++    if (mode === "dom") schedule(ready);
++    else ready();
+   };
+ 
+   const draw = (g: Gesture, progress?: number) => {

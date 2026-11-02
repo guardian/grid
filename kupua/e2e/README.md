@@ -160,6 +160,14 @@ Use exact-ID filtering when identity matters; do not carry an ordinal locator
 across virtualization. Stable-nth identity, usable-placement and decoded-media
 helpers answer different questions and are not interchangeable.
 
+### Thumbnail Animation Fixtures
+
+Local ES mode normally has no thumbnail URLs. Animation fixtures must explicitly
+provide URLs, not only intercept image requests. The windowed Justified morph
+cases use loaded data-URI images with the blur preference off for those synthetic
+pictures, so they exercise real image clones and DOM bounds rather than protected-media
+refusal. They do not measure media delivery or native lazy-loading admission.
+
 ### Async Fixture Setup
 
 For asynchronous controlled setup, return a retained job from synchronous

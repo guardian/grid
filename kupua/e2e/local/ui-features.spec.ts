@@ -11,7 +11,7 @@
  *   npx playwright test e2e/local/ui-features.spec.ts --headed
  */
 
-import { test, expect, type KupuaHelpers } from "../shared/helpers";
+import { test, expect, waitForFixtureSetup, type KupuaHelpers } from "../shared/helpers";
 import { Buffer as ThumbnailBuffer } from "node:buffer";
 import { getDensityChangeButton } from "../shared/density-selection";
 import { GRID_MIN_CELL_WIDTH } from "@/constants/layout";
@@ -1722,18 +1722,24 @@ test.describe("KUP-019 mounted traversal consumers", () => {
   });
 
   async function openConsumer(page: import("@playwright/test").Page, consumer: "detail" | "fullscreen") {
-    await page.evaluate(async (kind) => {
-      const fixture = (window as any).__traversalWindow;
-      const store = (window as any).__kupua_store__;
-      store.getState().setFocusedImageId(fixture.origin);
-      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-      if (kind === "detail") {
-        const modulePath = "/src/lib/orchestration/search.ts";
-        const { pushNavigate } = await import(modulePath);
-        const router = (window as any).__kupua_router__;
-        pushNavigate(router.navigate, { to: "/search", search: { nonFree: "true", image: fixture.origin } });
-      }
+    const setup = await page.evaluateHandle((kind) => {
+      const job = { complete: false, error: null as string | null, pending: undefined as Promise<void> | undefined };
+      job.pending = (async () => {
+        const fixture = (window as any).__traversalWindow;
+        const store = (window as any).__kupua_store__;
+        store.getState().setFocusedImageId(fixture.origin);
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+        if (kind === "detail") {
+          const modulePath = "/src/lib/orchestration/search.ts";
+          const { pushNavigate } = await import(modulePath);
+          const router = (window as any).__kupua_router__;
+          pushNavigate(router.navigate, { to: "/search", search: { nonFree: "true", image: fixture.origin } });
+        }
+      })();
+      job.pending.then(() => { job.complete = true; }, (error) => { job.error = String(error); });
+      return job;
     }, consumer);
+    await waitForFixtureSetup(page, setup);
     if (consumer === "detail") {
       await expect(page.locator("[data-detail-image-id]")).toHaveAttribute("data-detail-image-id", await page.evaluate(() => (window as any).__traversalWindow.origin));
     } else {

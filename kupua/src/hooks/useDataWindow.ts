@@ -460,6 +460,10 @@ export function useDataWindow(layoutPolicy?: "grid" | "table" | "justified"): Da
             extendBackward();
           }
         } else {
+          if (!rangeStartMatchesViewport || !rangeEndMatchesViewport) {
+            _scrollSeek?.cancel();
+            return;
+          }
           // Viewport entirely outside buffer — debounced seek to reposition.
           // Skip extends — they work in PAGE_SIZE increments from buffer
           // edges and can't bridge a gap of thousands of positions.

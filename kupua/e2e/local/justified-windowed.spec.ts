@@ -69,6 +69,149 @@ async function density(page: Page, target: Density, imageId?: string) {
   if (imageId) await waitForDensityRow(page, target, imageId);
 }
 
+async function pinch(page: Page, type: "touchstart" | "touchmove" | "touchend" | "touchcancel", factor = 1) {
+  await region(page).evaluate((element, { type, factor }) => {
+    const bounds = element.getBoundingClientRect();
+    const x = bounds.left + bounds.width / 2;
+    const y = bounds.top + bounds.height / 2;
+    const event = new Event(type, { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "touches", { value: type === "touchend" || type === "touchcancel" ? [] : [
+      { identifier: 1, target: element, clientX: x - 100 * factor, clientY: y - 100 * factor },
+      { identifier: 2, target: element, clientX: x + 100 * factor, clientY: y + 100 * factor },
+    ] });
+    element.dispatchEvent(event);
+  }, { type, factor });
+}
+
+async function fixtureThumbnails(page: Page) {
+  await page.addInitScript(() => {
+    const prefs = JSON.parse(localStorage.getItem("kupua-ui-prefs") ?? '{"state":{}}');
+    localStorage.setItem("kupua-ui-prefs", JSON.stringify({ ...prefs, state: { ...prefs.state, blurGraphicImages: false } }));
+  });
+  const thumbnail = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="180" height="120"><rect width="180" height="120" fill="#678"/></svg>')}`;
+  await page.route("**/src/lib/image-urls.ts", route => route.fulfill({
+    contentType: "application/javascript",
+    body: `export const thumbnailsEnabled = true;
+      export const getThumbnailUrl = () => ${JSON.stringify(thumbnail)};
+      export const getFullImageUrl = getThumbnailUrl;
+      export const getZoomImageUrl = getThumbnailUrl;`,
+  }));
+}
+
+async function readyThumbnails(page: Page) {
+  await region(page).evaluate(element => {
+    for (const image of element.querySelectorAll("img")) image.loading = "eager";
+  });
+  await page.waitForFunction(() => {
+    const images = Array.from(document.querySelectorAll<HTMLImageElement>('[aria-label="Image results justified"] img'));
+    return images.length > 0 && images.every(image => image.complete && image.naturalWidth > 0 && image.naturalHeight > 0 && !image.classList.contains("blur-lg"));
+  });
+}
+
+test("Justified pinch previews continuously, cancels cleanly and preserves the focus anchor", async ({ kupua, page }, testInfo) => {
+  await fixtureThumbnails(page);
+  await start(kupua, page, testInfo.project.name);
+  await seek(page, 0.45);
+  const id = await focus(kupua, page);
+  const before = await placement(page, id);
+  const offset = await page.evaluate(() => Number(sessionStorage.getItem("kupua-justified-zoom") ?? 0));
+  const preview = page.locator("[data-justified-zoom-preview]");
+  await readyThumbnails(page);
+  try {
+    await pinch(page, "touchstart");
+    await pinch(page, "touchmove", 0.95);
+    const renderer = preview.locator("[data-zoom-morph-renderer=dom]");
+    await expect(renderer).toBeVisible();
+    const pose = () => renderer.evaluate(element => Array.from(element.children, tile => tile.getAttribute("style")).join("|"));
+    const initialPose = await pose();
+    await pinch(page, "touchmove", 0.8);
+    await expect.poll(pose).not.toBe(initialPose);
+    expect(await page.evaluate(() => Number(sessionStorage.getItem("kupua-justified-zoom") ?? 0))).toBe(offset);
+    await pinch(page, "touchcancel");
+    await expect(preview).toHaveCount(0);
+    expect(await kupua.getFocusedImageId()).toBe(id);
+    expect(Math.abs((await placement(page, id)).y - before.y)).toBeLessThanOrEqual(1);
+    expect(await page.evaluate(() => Number(sessionStorage.getItem("kupua-justified-zoom") ?? 0))).toBe(offset);
+    await readyThumbnails(page);
+    await pinch(page, "touchstart");
+    await pinch(page, "touchmove", 1.3);
+    await expect(preview.locator("[data-zoom-morph-renderer=dom]")).toBeVisible();
+    await pinch(page, "touchend");
+    await expect(preview).toHaveCount(0);
+    expect(await page.evaluate(() => Number(sessionStorage.getItem("kupua-justified-zoom") ?? 0))).toBe(offset + 1);
+    expect(await kupua.getFocusedImageId()).toBe(id);
+    expect(Math.abs((await placement(page, id)).y - before.y)).toBeLessThanOrEqual(1);
+  } finally {
+    await pinch(page, "touchcancel");
+  }
+});
+
+test("dense Retina Justified uses bounded DOM tiles without per-move node creation", async ({ kupua, page }, testInfo) => {
+  await fixtureThumbnails(page);
+  const cdp = await page.context().newCDPSession(page);
+  try {
+    await cdp.send("Emulation.setDeviceMetricsOverride", { width: 2560, height: 1440, deviceScaleFactor: 2, mobile: false });
+    await start(kupua, page, testInfo.project.name);
+    await page.evaluate(() => { (document.activeElement as HTMLElement)?.blur(); });
+    for (let n = 0; n < 2; n++) {
+      await page.keyboard.press("-");
+      await expect(page.locator("[data-justified-zoom-preview]")).toHaveCount(0);
+    }
+    expect(await page.evaluate(() => Number(sessionStorage.getItem("kupua-justified-zoom") ?? 0))).toBe(-2);
+    await readyThumbnails(page);
+    await pinch(page, "touchstart");
+    await pinch(page, "touchmove", 1.25);
+    await expect(page.locator("[data-zoom-morph-renderer=dom]")).toBeVisible();
+    const evidence = await page.evaluate(async () => {
+      const root = document.querySelector("[data-justified-zoom-preview]")!;
+      const clones = root.querySelectorAll("img").length;
+      let added = 0;
+      const observer = new MutationObserver(records => { for (const record of records) added += record.addedNodes.length; });
+      observer.observe(root, { childList: true, subtree: true });
+      try {
+        const container = document.querySelector('[aria-label="Image results justified"]')!;
+        const bounds = container.getBoundingClientRect();
+        for (let frame = 0; frame < 5; frame++) {
+          for (let n = 0; n < 12; n++) {
+            const event = new Event("touchmove", { bubbles: true, cancelable: true });
+            const d = 120 + frame;
+            Object.defineProperty(event, "touches", { value: [
+              { identifier: 1, target: container, clientX: bounds.left + 200 - d, clientY: bounds.top + 300 - d },
+              { identifier: 2, target: container, clientX: bounds.left + 200 + d, clientY: bounds.top + 300 + d },
+            ] });
+            container.dispatchEvent(event);
+          }
+          await new Promise(requestAnimationFrame);
+        }
+        return { width: innerWidth, height: innerHeight, dpr: devicePixelRatio, clones, added,
+          tracks: root.querySelector("[data-zoom-morph-renderer=dom]")!.children.length,
+          sourceClones: root.querySelectorAll("[data-zoom-source] img").length };
+      } finally { observer.disconnect(); }
+    });
+    expect(evidence).toMatchObject({ width: 2560, height: 1440, dpr: 2, added: 0 });
+    expect(evidence.clones).toBeGreaterThan(0);
+    expect(evidence.clones).toBeLessThanOrEqual(320 * 3);
+    expect(evidence.tracks).toBeGreaterThan(0);
+    expect(evidence.tracks).toBeLessThanOrEqual(320);
+    expect(evidence.sourceClones).toBeGreaterThan(0);
+    expect(evidence.sourceClones).toBeLessThanOrEqual(320);
+    await pinch(page, "touchend");
+    await expect(page.locator("[data-justified-zoom-preview]")).toHaveCount(0);
+    const prevented = await region(page).evaluate(element => {
+      const event = new WheelEvent("wheel", { bubbles: true, cancelable: true, ctrlKey: true, deltaY: -40, clientX: 500, clientY: 500 });
+      element.dispatchEvent(event);
+      return event.defaultPrevented;
+    });
+    expect(prevented).toBe(true);
+    await expect.poll(() => page.evaluate(() => Number(sessionStorage.getItem("kupua-justified-zoom") ?? 0))).toBe(0);
+    await expect(page.locator("[data-justified-zoom-preview]")).toHaveCount(0);
+  } finally {
+    await pinch(page, "touchcancel");
+    await cdp.send("Emulation.clearDeviceMetricsOverride");
+    await cdp.detach();
+  }
+});
+
 for (const layout of ["grid", "justified"] as const) {
   test(`stopped prepend does not predict forward travel (${layout})`, async ({ kupua, page }) => {
     await kupua.startSearch();

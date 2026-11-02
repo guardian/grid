@@ -8,7 +8,7 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-10-31
+Last updated: 2026-11-02
 
 ---
 
@@ -40,21 +40,30 @@ Kahuna has no phone layout. A narrow desktop window keeps the desktop shell; onl
 free-to-use/date/sort controls collapse behind a filters dropdown below 760px. Trade-off: two
 chrome paths to maintain, sharing one engine. See the [design](zz%20Archive/compact-shell-design.md).
 
-### Results Zoom and Locked Home View (31 October 2026)
+### Results Zoom and Locked Home View
 
 Grid and Justified zoom through six width-aware levels (pinch, `+`/`-`/`0`, Settings menu);
 offset 0 is Kahuna-comparable classic geometry. "Lock this view" persists a density and zoom as
 the Home default in localStorage. Kahuna has fixed thumbnail sizes. Trade-off: grid thumbnails
 upscale at large levels and look soft until a larger rendition exists.
 
+Justified uses row/slot correspondence rather than faithful image-identity travel. Temporary
+cover crops and per-photo fades favour local visual continuity; photographs can briefly appear
+in multiple slots. DOM work is capped at 320 tiles per capture, 320 tracks and an 18MP viewport.
+Only existing thumbnails are used. The trade-off is retained image memory and per-tile styling;
+these bounds are not a hardware frame-rate guarantee.
+
+Justified owns local two-finger contacts through repacking, leaves one-finger scrolling native
+and permits one committed step per contact sequence. Progress is independent of layout density;
+readiness can hold the source pose, but never delays release. Grid uses its simpler scaled preview.
+See [results zoom](00%20Architecture%20and%20philosophy/component-detail.md#results-zoom-libresults-zoomts-storeszoom-storets).
+
 ### Whole-App Fullscreen With Stacked Image Fullscreen (31 October 2026)
 
-The Settings menu can put the whole app into element fullscreen; image fullscreen then stacks
-on top and stepping out with `f`, Backspace or Escape returns to the fullscreen app (observed in
-Chrome and Firefox; the spec allows browsers to exit fully on Escape). Kupua has no shortcut of
-its own: the browser's window fullscreen (⌃⌘F / F11) is the standard and the menu advertises
-it. Pages cannot detect browser window fullscreen, so the menu shows "Full screen" there. iOS
-Safari has no element fullscreen; the controls do nothing.
+The Settings menu puts the document root into element fullscreen; preview, detail and crop
+fullscreen can stack above it. Dots remain available with app chrome, not in the black image
+presentations. Browser-window fullscreen and Escape handling are distinct; see
+[From browsers](#from-browsers). iOS Safari has no element fullscreen; the controls do nothing.
 
 ### Scoped Backward Metadata Lookahead (25 October 2026)
 
@@ -802,6 +811,27 @@ assumption for when permissions are wired up.
 | `grid-config.ts` `syndicationStartDate` | Syndication review queue cutoff | **null** (TEST/CODE behaviour) | PROD has a date cutoff | Read from runtime config endpoint |
 
 ---
+
+## From browsers
+
+### Whole-App Fullscreen and Escape (2 November 2026)
+
+Menu fullscreen uses the web Fullscreen API, not browser-window fullscreen (⌃⌘F / F11).
+Native Escape can clear the entire web fullscreen stack; `document.exitFullscreen()` instead
+pops its top layer. Kupua therefore requests `navigator.keyboard.lock(["Escape"])` after menu
+fullscreen entry: in supporting Chrome, short Escape dismisses only the inner black view and
+leaves app fullscreen intact, including subsequent presses. Menu exit still works; held Escape
+remains Chrome's emergency exit. Existing menu/crop Escape handlers keep ownership, and the
+lock is released on full exit.
+
+Firefox lacks Keyboard Lock. Unsupported or rejected locking retains native behavior, so Escape
+may exit both layers; use browser-window fullscreen for reliable outer-window preservation.
+A webpage cannot invoke or exit that browser-owned mode, and synthetic shortcut events are
+untrusted. There is no reliable cross-browser detection/control API for it: the menu controls
+only web fullscreen and may add a second layer when the browser is already fullscreen. Thus
+three-dot fullscreen cannot fully impersonate ⌃⌘F / F11; Firefox's small resize in that case is
+not evidence of browser-window exit. See the [Fullscreen API guide](https://developer.mozilla.org/en-US/docs/Web/API/Fullscreen_API/Guide#Getting_out_of_full_screen_mode)
+and [Keyboard Lock](https://developer.chrome.com/docs/capabilities/web-apis/keyboard-lock).
 
 ## From library defaults / conventions
 

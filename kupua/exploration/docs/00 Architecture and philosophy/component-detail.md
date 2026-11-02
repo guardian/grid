@@ -361,7 +361,10 @@ Cooldowns, deferred scroll notification and generation guards prevent transient 
 from triggering stale or cascading extends. Density handoff distinguishes settled placement from
 a pending browse departure and checks target identity, search/publication generations and focus
 intent. New user input retires obsolete placement; destination placement waits for density readiness.
-Cancelling old-view maintenance must not cancel the store-owned browse destination.
+Implicit viewport reports wait for mount placement, then resume from that placement. Indexed
+outside-buffer maintenance also requires viewport-matching range edges, preventing a transient
+origin or stale virtualizer range from becoming a refill destination. Genuine browsing input
+remains immediate. Cancelling old-view maintenance must not cancel the store-owned browse destination.
 
 Shared geometry primitives live in `grid-scroll-anchor.ts`, `viewport-anchor-geometry.ts`
 and the scroll-container/geometry refs. `scroll-geometry-ref.ts` supplies origin-aware fixed
@@ -764,10 +767,27 @@ Ladders are width-aware and have six levels:
 `zoom-store` holds the offsets (sessionStorage per tab, falling back to the locked Home view),
 the valid range registered by the mounted view for its current width (re-clamping on change),
 and `step`/`reset`/`resetToHome`. ImageGrid subscribes to offset changes and captures the scroll
-anchor before re-laying out, using the same anchor path as resize. Pinch on results uses passive
-listeners; `pinchStep` turns one deliberate pinch into one level, previewed with a transform only
-when the target level changes. Keyboard `+`/`=`/`-`/`0` and the Settings menu use the same store;
-the keys are inactive while image detail or an image fullscreen is showing.
+anchor before re-laying out, using the same anchor path as resize. `pinchStep` commits at most
+one neighbouring level per touch-contact sequence. Fixed Grid uses a passive, thresholded
+scale preview and release-time relayout.
+
+Justified uses decorative DOM tiles to animate row/slot movement, crop changes and per-photo
+fades (`justified-zoom-transition.ts`, `justified-zoom-morph.ts`, `justified-zoom-morph-renderer.ts`).
+Pinch progress is independent of layout density; one frame writer bounds catch-up, and reversal
+passes through the original pose. Native contacts must originate in results and retain their
+identifiers and original targets through repacking. Single-finger scrolling stays native;
+multitouch stops selection auto-scroll.
+
+A static source cover holds the initial pose while the neighbouring layout and existing
+thumbnails become ready. Native destination readiness uses image events, without extra requests
+or per-move layout reads. Release cancels pending preparation and commits immediately, followed
+by a 160ms cosmetic settle when needed. Covers wait for matching endpoint placement or an 800ms abort.
+A fresh pinch can interrupt settling immediately.
+
+Work is bounded to 320 tiles per capture, 320 tracks and an 18MP viewport allowance. Existing
+thumbnail URLs work without CORS or delivery changes. Protected media, reduced motion, budget
+limits or unavailable preparation use an ordinary anchored step. Focus and position remain
+owned by the shared layout/anchor path; the decorative animation never changes result ordering.
 
 ## Image Detail (`components/ImageDetail.tsx`)
 

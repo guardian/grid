@@ -46,6 +46,8 @@ import { dispatchClickEffects, type AddRangeEffect } from "@/lib/dispatchClickEf
 import { useTouchSelection } from "@/hooks/useTouchSelection";
 import { GRID_CLASSIC, GRID_DATE_LINE_HEIGHT, gridOffsetRange, gridRowHeight, gridSpec, justifiedOffsetRange, justifiedRowScale, pinchStep } from "@/lib/results-zoom";
 import { useZoomStore } from "@/stores/zoom-store";
+import { createJustifiedZoomTransition, type JustifiedZoomTransition } from "@/lib/justified-zoom-transition";
+import { bindJustifiedZoomGestures } from "@/lib/justified-zoom-gestures";
 import { Tickbox } from "@/components/Tickbox";
 import { PILL_ACCENT, PILL_BASE } from "@/components/SearchPill";
 import { useMetadataSearch } from "@/components/metadata-primitives";
@@ -461,8 +463,10 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
   const [cellWidth, setCellWidth] = useState<number>(GRID_CLASSIC.minCellWidth);
   const [containerWidth, setContainerWidth] = useState(initialWidth);
   const justifiedOffset = useZoomStore((s) => s.justifiedOffset);
-  const justifiedOffsetRef = useRef(justifiedOffset);
-  justifiedOffsetRef.current = justifiedOffset;
+  const [pinchOffset, setPinchOffset] = useState<number | null>(null);
+  const pinchOffsetRef = useRef<number | null>(null);
+  const zoomTransition = useRef<JustifiedZoomTransition | null>(null);
+  const effectiveJustifiedOffset = pinchOffset ?? justifiedOffset;
   const storeGridOffset = useZoomStore((s) => s.gridOffset);
   const gridOffset = justified ? 0 : storeGridOffset;
   const gridOffsetRef = useRef(gridOffset);
@@ -477,7 +481,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
   widthRef.current = containerWidth;
   const committedLayout = useRef<ImageLayout | undefined>(undefined);
   const layoutSearchKey = buildSearchKey(searchParams);
-  const rowScale = justifiedRowScale(justifiedOffset, containerWidth);
+  const rowScale = justifiedRowScale(effectiveJustifiedOffset, containerWidth);
   const justifiedLayout = useMemo(() => {
     if (!layoutFactory) return undefined;
     if (RESIDENT_PREVIEW_ENABLED && (bufferOffset !== 0 || twoTier || results.some(image => !image) ||
@@ -548,8 +552,10 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     const el = parentRef.current;
     if (!el) return;
     if (justified ? next.justifiedOffset === prev.justifiedOffset : next.gridOffset === prev.gridOffset) return;
+    if (justified && pinchOffsetRef.current === next.justifiedOffset) return;
     const anchor = captureAnchor(el, columnsRef.current);
     if (anchor) anchorRef.current = anchor;
+    if (justified) zoomTransition.current?.external(next.justifiedOffset, prev.justifiedOffset);
     if (!justified) {
       const width = el.clientWidth;
       const cols = Math.max(1, Math.floor(width / gridSpec(next.gridOffset, width).minCellWidth));
@@ -566,9 +572,9 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       justified ? justifiedOffsetRange(containerWidth) : gridOffsetRange(containerWidth));
   }, [justified, containerWidth]);
 
-  // Pinch: live CSS scale preview of the next level, then one anchored relayout on
-  // release (justified row height, or grid zoom level).
+  // Fixed Grid retains its existing threshold preview and release-time zoom.
   useEffect(() => {
+    if (justified) return;
     const el = parentRef.current;
     const sizer = el?.firstElementChild as HTMLElement | null;
     if (!el || !sizer) return;
@@ -594,9 +600,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       // Preview the level the release will commit, not the raw finger spread.
       const w = el.clientWidth;
       const step = pinchStep(factor);
-      const preview = justified
-        ? justifiedRowScale(justifiedOffsetRef.current + step, w) / justifiedRowScale(justifiedOffsetRef.current, w)
-        : gridSpec(gridOffsetRef.current + step, w).minCellWidth / gridSpec(gridOffsetRef.current, w).minCellWidth;
+      const preview = gridSpec(gridOffsetRef.current + step, w).minCellWidth / gridSpec(gridOffsetRef.current, w).minCellWidth;
       if (preview === shownPreview) return;
       shownPreview = preview;
       sizer.style.transform = `scale(${preview})`;
@@ -606,7 +610,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       startDist = 0;
       sizer.style.transition = "";
       sizer.style.transform = "";
-      useZoomStore.getState().step(justified ? "justified" : "grid", pinchStep(factor));
+      useZoomStore.getState().step("grid", pinchStep(factor));
     };
     el.addEventListener("touchstart", onStart, { passive: true });
     el.addEventListener("touchmove", onMove, { passive: true });
@@ -752,6 +756,41 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       el.clientHeight, el.scrollHeight, fixedGeometry.itemOffset);
     virtualizer.scrollToOffset(clamped);
   }, [columns, rowHeight, rowCount, justifiedLayout, virtualizer, fixedGeometry, findImageIndex]);
+
+  useEffect(() => {
+    const el = parentRef.current;
+    if (!justified || !el || !containerWidth) return;
+    let sourceAnchor: CapturedAnchor | null = null;
+    const transition = createJustifiedZoomTransition({
+      element: el,
+      offset: () => useZoomStore.getState().justifiedOffset,
+      range: () => useZoomStore.getState().ranges.justified,
+      scale: offset => justifiedRowScale(offset, containerWidth),
+      preview: offset => {
+        const current = pinchOffsetRef.current;
+        if (current === offset) return;
+        if (current === null) sourceAnchor = captureAnchor(el, columnsRef.current);
+        const committed = useZoomStore.getState().justifiedOffset;
+        if ((current ?? committed) !== (offset ?? committed) && sourceAnchor) anchorRef.current = sourceAnchor;
+        pinchOffsetRef.current = offset;
+        setPinchOffset(offset);
+        if (offset === null) sourceAnchor = null;
+      },
+      commit: offset => useZoomStore.getState().setOffset("justified", offset),
+    });
+    zoomTransition.current = transition;
+    const unbindGestures = bindJustifiedZoomGestures(el, transition);
+    return () => {
+      unbindGestures();
+      transition.dispose();
+      if (zoomTransition.current === transition) zoomTransition.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- geometry is read through refs; reinitialize on a new layout scope
+  }, [justified, containerWidth, layoutSearchKey]);
+
+  useLayoutEffect(() => {
+    if (justified) zoomTransition.current?.layout(effectiveJustifiedOffset);
+  });
 
   // -------------------------------------------------------------------------
   // Selection mode — subscribe once at container level.

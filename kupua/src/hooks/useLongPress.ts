@@ -141,6 +141,7 @@ export function useLongPress({
     // Non-passive, attached only once a long-press commits, so it can claim the touch from native scrolling.
     function onTouchMove(e: TouchEvent): void {
       if (!committed || !dragRef.current) return;
+      if (e.touches.length !== 1) { cancel(); stopDrag(); detachTarget(); return; }
       e.preventDefault();
       dragging = true;
       document.body.dataset.dragSelecting = "true";
@@ -176,8 +177,8 @@ export function useLongPress({
     }
     function onTouchStart(e: TouchEvent): void {
       activeTouches = e.touches.length;
-      // A second finger (pinch) is never a long-press.
-      if (activeTouches > 1) { cancel(); return; }
+      // A second finger hands ownership to pinch before its staged layout can move cells.
+      if (activeTouches > 1) { cancel(); stopDrag(); detachTarget(); return; }
       pendingTarget = e.target;
     }
     function onContainerTouchEnd(e: TouchEvent): void {
