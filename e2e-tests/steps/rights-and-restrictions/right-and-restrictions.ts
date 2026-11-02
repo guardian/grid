@@ -5,7 +5,7 @@ import { usageRightsCategories } from '../utils/api/metadata-editor.queries.ts';
 import { setTestClientConfig } from '../utils/test-config.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { switchAccount } from '../utils/auth.ts';
-import { expectEditPermissionForImage } from '../utils/api/media-api.assertions.ts';
+import { expectEditPermissionForImage, expectUsageRightsSaveAccepted } from '../utils/api/media-api.assertions.ts';
 import { E2E_RIGHTS_TEMPLATE } from '../../setup/config.ts';
 
 /** An image seeded into Elasticsearch from fixtures/elasticsearch/images.json. */
