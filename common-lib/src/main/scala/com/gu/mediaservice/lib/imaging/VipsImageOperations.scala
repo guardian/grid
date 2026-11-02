@@ -19,6 +19,8 @@ class VipsImageOperations extends GridLogging with ImageOperations {
   Vips.init()
   VipsHelper.cache_set_max(0)
 
+  private val thumbnailBackground: java.util.List[java.lang.Double] = java.util.List.of(0x33.toDouble, 0x33.toDouble, 0x33.toDouble)
+
   def cropImage(
                  sourceFile: File,
                  sourceMimeType: Option[MimeType],
@@ -167,7 +169,13 @@ class VipsImageOperations extends GridLogging with ImageOperations {
           inMemoryCopy
         }
 
-        saveImageToFile(rotated, ImageOperations.thumbMimeType, qual, outputFile)
+        val flattened = if (rotated.hasAlpha) {
+          rotated.flatten(VipsOption.ArrayDouble("background", thumbnailBackground))
+        } else {
+          rotated
+        }
+
+        saveImageToFile(flattened, ImageOperations.thumbMimeType, qual, outputFile)
         (outputFile, thumbMimeType)
       } catch {
         case e: Exception =>
