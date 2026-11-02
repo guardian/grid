@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import { defineBddConfig } from 'playwright-bdd';
+import { cucumberReporter, defineBddConfig } from 'playwright-bdd';
 import { AUTH_STATE_PATH, KAHUNA_PORT } from './setup/constants.ts';
 
 /* Generate Playwright test files from the Gherkin feature files and step definitions.
@@ -26,7 +26,15 @@ export default defineConfig({
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: 'html',
+  reporter: [
+    ['list', { printFailuresInline: true }],
+    ...(process.env.CI ? [['github'] as ['github']] : []),
+    ['html', { outputFolder: 'playwright-report', open: 'never' }],
+    cucumberReporter('html', {
+      outputFile: 'cucumber-report/index.html',
+      externalAttachments: true,
+    }),
+  ],
   /* Boot the Grid stack with Testcontainers before tests, and tear it down after. */
   globalSetup: './setup/global-setup.ts',
   globalTeardown: './setup/global-teardown.ts',
@@ -41,7 +49,7 @@ export default defineConfig({
     ignoreHTTPSErrors: true,
 
     video: {
-      mode: process.env.GRID_RECORD_VIDEO === 'true' ? 'on' : 'off',
+      mode: process.env.GRID_RECORD_VIDEO === 'true' ? 'on' : 'on-first-retry',
       size: { width: 1280, height: 720 },
       show: {
         actions: {
@@ -54,6 +62,7 @@ export default defineConfig({
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
   },
 
   /* Configure projects for major browsers */

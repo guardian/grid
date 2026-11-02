@@ -63,6 +63,23 @@ npm run test:ui         # open browser and test suite, run tests at your leisure
 Videos are saved under `test-results/` and attached to the HTML report. Playwright
 clears previous test results on the next run, so move recordings elsewhere to archive them.
 
+### Reports
+
+Every test run prints list output and generates a Playwright HTML report in
+`playwright-report/` and a Cucumber HTML report at `cucumber-report/index.html`.
+Keep each report's complete directory, including its attachment files. Serve the
+Cucumber report over HTTP to use its embedded trace viewer.
+
+Traces and videos are captured on the first retry, and screenshots only on failure.
+Local runs have no retries by default; use `npm test -- --retries=1` to capture
+first-retry traces and videos, or `npm run test:video` to record all tests.
+Open the Playwright report with `npm run test:report`.
+
+CI also adds GitHub failure annotations. Both reports and their captured attachments
+are uploaded together as `e2e-report`, retained for 14 days after successful or failed
+runs, excluding cancelled runs. Failures before report generation may leave no reports
+to upload.
+
 ### Feature library
 
 For architecture, source ownership, extension recipes and troubleshooting, see the
@@ -118,9 +135,6 @@ format and fails explicitly if a future format cannot be read.
 
 Exports include feature text and captured browser contents. Review recordings for
 sensitive data and use an appropriately restricted host before sharing them.
-
-Traces are captured `on-first-retry` (see [`playwright.config.ts`](playwright.config.ts)),
-so a failed test on CI leaves a trace you can open with `npx playwright show-trace`.
 
 ## Running the stack without the tests
 

@@ -6,9 +6,9 @@
   "type": "module",
   "scripts": {
     "dev:e2e": "node --experimental-strip-types --disable-warning=ExperimentalWarning setup/dev.ts",
-    "test": "bddgen && playwright test --reporter=list,html",
-    "test:headed": "bddgen && playwright test --headed --reporter=list,html",
-    "test:video": "bddgen && GRID_RECORD_VIDEO=true playwright test --reporter=list,html",
+    "test": "bddgen && playwright test",
+    "test:headed": "bddgen && playwright test --headed",
+    "test:video": "bddgen && GRID_RECORD_VIDEO=true playwright test",
     "test:report": "playwright show-report --host 0.0.0.0",
     "features:build": "npm run features:typecheck && tsx feature-library/build.ts",
     "features:serve": "npm run features:typecheck && tsx feature-library/serve.ts",
