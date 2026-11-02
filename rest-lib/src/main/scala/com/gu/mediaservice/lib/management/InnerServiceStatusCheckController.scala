@@ -57,7 +57,7 @@ class InnerServiceStatusCheckController(
     }
   }
 
-  def statusCheck(depth: Int) = Action.async {
+  def statusCheck(depth: Int) = auth.async {
     if (depth < 1 || depth > 3) { Future.successful(BadRequest("'depth' query param must be at least 1 and no more than 3"))}
     else callAllInternalServices(
       depth,

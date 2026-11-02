@@ -135,7 +135,7 @@ class MagickImageOperations(playPath: String) extends GridLogging with ImageOper
     }
   }
 
-  def optimiseImage(resizedFile: File, mediaType: MimeType)(implicit logMarker: LogMarker): File = mediaType match {
+  def optimiseCrop(resizedFile: File, mediaType: MimeType)(implicit logMarker: LogMarker): File = mediaType match {
     case Png =>
       val fileName: String = resizedFile.getAbsolutePath
 

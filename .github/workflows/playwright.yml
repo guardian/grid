@@ -89,7 +89,7 @@ jobs:
     # cache. GITHUB_TOKEN is read-only on fork PRs, which is fine: those runs
     # only read the cache (see cache-to condition below).
     - name: Log in to GHCR
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: ghcr.io
         username: ${{ github.actor }}

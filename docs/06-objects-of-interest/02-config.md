@@ -38,6 +38,12 @@ Service-specific configs. These will override all other config files.
 </thead>
 <tbody>
   <tr>
+    <td><code>authentication.providers.machine.config.enabled</code><br>Set to false in common.conf to disable API-key access across services using ApiKeyAuthenticationProvider. Requests with an X-Gu-Media-Key header receive HTTP 403. Browser requests without that header and internal-service authentication are unchanged. Restart services after changing this setting.</td>
+    <td>True</td>
+    <td>boolean</td>
+    <td>true</td>
+  </tr>
+  <tr>
     <td><code>auth.useLocal</code><br>If true, the AWS client will be configured to be localstack aware <br>Only used in The Guardian’s PermissionsAuthorisationProvider and PandaAuthenticationProvider</td>
     <td>True (not needed if using another authentication + authorisation providers)</td>
     <td>boolean</td>

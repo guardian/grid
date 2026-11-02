@@ -5,7 +5,7 @@ import { usageRightsCategories } from '../utils/api/metadata-editor.queries.ts';
 import { setTestClientConfig } from '../utils/test-config.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { switchAccount } from '../utils/auth.ts';
-import { expectEditPermissionForImage, expectNoEditPermissionForImage } from '../utils/api/media-api.assertions.ts';
+import { expectEditPermissionForImage } from '../utils/api/media-api.assertions.ts';
 import { E2E_RIGHTS_TEMPLATE } from '../../setup/config.ts';
 
 /** An image seeded into Elasticsearch from fixtures/elasticsearch/images.json. */
@@ -253,21 +253,12 @@ async function expectProperty(page: Page, property: string, value: string): Prom
 }
 
 async function saveRights(page: Page): Promise<void> {
-  const editor = rightsEditor(page);
-  // The editor closes whether or not the save succeeds, so check the requests themselves:
-  // the rights, then the metadata the metadata editor derives from them.
+  // The editor closes whether or not the save succeeds, so check the requests themselves.
   const imageId = imageIdFromUrl(page);
-  const [rights, derivedMetadata] = await Promise.all([
-    page.waitForResponse(isUsageRightsSave(imageId)),
-    page.waitForResponse((response) =>
-      response.request().method() === 'POST' &&
-      new URL(response.url()).pathname === `/metadata/${imageId}/metadata/set-from-usage-rights`,
-    ),
-    editor.getByRole('button', { name: 'Save usage rights', exact: true }).click(),
-  ]);
-  expect(rights.ok(), `saving the rights: ${await rights.text()}`).toBeTruthy();
-  expect(derivedMetadata.ok(), `deriving metadata from the rights: ${await derivedMetadata.text()}`)
-    .toBeTruthy();
+  if (!imageId) throw new Error(`No image ID in the page URL "${page.url()}"`);
+  await expectUsageRightsSaveAccepted(page, imageId, () =>
+    rightsEditor(page).getByRole('button', { name: 'Save usage rights', exact: true }).click(),
+  );
 }
 
 When('I save the {string} usage rights category', async ({ page }, category: string) => {
@@ -336,9 +327,7 @@ Then(
     if (required !== 'required' && required !== 'optional') {
       throw new Error(`Expected "required" or "optional", got "${required}"`);
     }
-    const control = await propertyControl(page, property);
-    // Every radio in a group carries the property's required attribute.
-    const field = control.kind === 'radio' ? control.radios.first() : control.field;
+    const field = rightsProperty(page, property);
     await expect(field).toBeVisible();
     if (required === 'required') {
       await expect(field).toHaveAttribute('required');
