@@ -45,6 +45,17 @@ export const E2E_METADATA_TEMPLATE = {
 };
 
 /**
+ * A template that only sets usage rights, kept separate from `E2E_METADATA_TEMPLATE` so the
+ * upload page's metadata template scenarios don't also open a rights preview. Pay to use has
+ * no required properties, so the template's rights are complete: templates can't set the
+ * `supplier` that Agency requires (only `suppliers`), and the metadata editor would reject it.
+ */
+export const E2E_RIGHTS_TEMPLATE = {
+  templateName: 'E2E Pay to use rights',
+  usageRights: { category: 'pay-to-use', restrictions: 'E2E template restriction' },
+};
+
+/**
  * media-api derives `usageInstructions` from an image's usageRights category via this map, so
  * an image whose category is `agency` (see the AAP-credited fixture) shows this text.
  */
@@ -73,6 +84,10 @@ function kahunaE2eConfig(): string {
     '    metadataFields = [',
     metadataFields,
     '    ]',
+    '  },',
+    '  {',
+    `    templateName = "${E2E_RIGHTS_TEMPLATE.templateName}"`,
+    `    usageRights = ${JSON.stringify(E2E_RIGHTS_TEMPLATE.usageRights)}`,
     '  }',
     ']',
     '',
