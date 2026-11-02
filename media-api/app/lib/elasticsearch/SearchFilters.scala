@@ -50,7 +50,10 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
   val maybeFreeFilter: Option[Query] = filterOrFilter(freeFilter, Some(filters.not(hasRightsCategoryFilter)))
 
   lazy val freeToUseCategories: List[String] =
-    usageRights.filter(ur => ur.defaultCost.exists(cost => cost == Free || cost == Conditional)).map(ur => ur.category)
+    usageRights.filter(ur => ur.defaultCost.exists(cost => cost == Free || cost == Conditional)).flatMap {
+      case replacementCategory: ReplacementUsageRightsSpec => replacementCategory.allCategories.list.toList
+      case ur => List(ur.category)
+    }
 
   val persistedReasons: List[PersistenceReason] = ImagePersistenceReasons(config.maybePersistOnlyTheseCollections, config.persistenceIdentifiers).allReasons
 
