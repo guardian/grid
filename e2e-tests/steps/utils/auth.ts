@@ -36,8 +36,17 @@ export async function signIn(page: Page, account: TestAccount): Promise<void> {
   await authenticate(page, account);
 }
 
-/** Clearing cookies drops both the Panda and OIDC sessions, so we sign in afresh. */
+/**
+ * Clearing cookies drops both the Panda and OIDC sessions, so we sign in afresh. Signing in
+ * lands on the search page, so we return to the Kahuna page the scenario was on.
+ */
 export async function switchAccount(page: Page, account: TestAccount): Promise<void> {
+  const previousUrl = page.url();
+
   await page.context().clearCookies();
   await signIn(page, account);
+
+  if (new URL(previousUrl).origin === KAHUNA_APP_URL && page.url() !== previousUrl) {
+    await page.goto(previousUrl);
+  }
 }
