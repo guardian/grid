@@ -27,8 +27,8 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
-    ['list', { printFailuresInline: true }],
     ...(process.env.CI ? [['github'] as ['github']] : []),
+    ['list', { printFailuresInline: true }],
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
     cucumberReporter('html', {
       outputFile: 'cucumber-report/index.html',
