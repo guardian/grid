@@ -1,7 +1,8 @@
 package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.auth.{Authentication, Authorisation}
+import com.gu.mediaservice.lib.auth.Permissions.EditMetadata
 import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound}
 import play.api.mvc.{Action, AnyContent}
 import com.gu.mediaservice.model._
@@ -14,6 +15,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 
 class SyndicationController(auth: Authentication,
+                            authorisation: Authorisation,
                             val editsStore: EditsStore,
                             val syndicationStore: SyndicationStore,
                             val notifications: Notifications,
@@ -22,6 +24,7 @@ class SyndicationController(auth: Authentication,
   extends BaseController with Syndication with MessageSubjects with ArgoHelpers with EditsResponse {
 
   override val metadataBaseUri: String = config.services.metadataBaseUri
+  private val AuthenticatedAndAuthorisedToEditMetadata = auth andThen authorisation.actionFilterFor(EditMetadata)
 
   def getPhotoshoot(id: String) = auth.async {
     editsStore.get(id).map(dynamoEntry => {
@@ -34,7 +37,7 @@ class SyndicationController(auth: Authentication,
     }
   }
 
-  def setPhotoshoot(id: String) = auth.async(parse.json) { req => {
+  def setPhotoshoot(id: String) = AuthenticatedAndAuthorisedToEditMetadata.async(parse.json) { req => {
     (req.body \ "data").asOpt[Photoshoot].map(photoshoot =>
       setPhotoshootAndPublish(id, photoshoot)
         .map(photoshoot => respond(photoshoot))
@@ -44,7 +47,7 @@ class SyndicationController(auth: Authentication,
     )
   }}
 
-  def deletePhotoshoot(id: String) = auth.async {
+  def deletePhotoshoot(id: String) = AuthenticatedAndAuthorisedToEditMetadata.async {
     deletePhotoshootAndPublish(id).map(_ => Accepted)
   }
 
@@ -57,16 +60,15 @@ class SyndicationController(auth: Authentication,
       }
   }
 
-  def setSyndication(id: String): Action[JsValue] = auth.async(parse.json) { req => {
+  def setSyndication(id: String): Action[JsValue] = AuthenticatedAndAuthorisedToEditMetadata.async(parse.json) { req => {
     (req.body \ "data").asOpt[SyndicationRights].map(syndicationRight => {
       setSyndicationAndPublish(id, syndicationRight)
         .map(syndicationRight => respond(syndicationRight))
     }).getOrElse(Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data")))
   }}
 
-  def deleteSyndication(id: String): Action[AnyContent] = auth.async {
+  def deleteSyndication(id: String): Action[AnyContent] = AuthenticatedAndAuthorisedToEditMetadata.async {
     deleteSyndicationAndPublish(id).map(_ => Accepted)
   }
 
 }
-
