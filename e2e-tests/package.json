@@ -10,6 +10,7 @@
     "test:headed": "bddgen && playwright test --headed",
     "test:video": "bddgen && GRID_RECORD_VIDEO=true playwright test",
     "test:report": "playwright show-report --host 0.0.0.0",
+    "test:report:cucumber": "playwright show-report cucumber-report --host 0.0.0.0 --port 9324",
     "features:build": "npm run features:typecheck && tsx feature-library/build.ts",
     "features:serve": "npm run features:typecheck && tsx feature-library/serve.ts",
     "features:test": "tsx --test feature-library/library.test.ts",
