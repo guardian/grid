@@ -21,15 +21,6 @@ upload.factory('uploadManager',
             resourcePromise: fileUploader.upload(file, mediaId, preSignedUrl)
         };
     }
-    function createUriJobItem(fileUri) {
-        var request = fileUploader.loadUriImage(fileUri);
-
-        return {
-            name: fileUri,
-            dataUrl: fileUri,
-            resourcePromise: request
-        };
-    }
 
     async function createJobItems(_files){
 
@@ -83,18 +74,6 @@ upload.factory('uploadManager',
         });
     }
 
-    function uploadUri(uri) {
-        var jobItem = createUriJobItem(uri);
-        var promise = jobItem.resourcePromise;
-        var job = [jobItem];
-
-        jobs.add(job);
-
-        // once all `jobItems` in a job are complete, remove it
-        // TODO: potentially move these to a `completeJobs` `Set`
-        promise.finally(() => jobs.delete(job));
-    }
-
     function getLatestRunningJob() {
         return jobs.values().next().value;
     }
@@ -109,7 +88,6 @@ upload.factory('uploadManager',
 
     return {
         upload,
-        uploadUri,
         getLatestRunningJob,
         getJobs,
         getCompletedJobs
@@ -152,10 +130,6 @@ upload.factory('fileUploader',
         return loaderApi.load(file, uploadInfo);
     }
 
-    function loadUriImage(fileUri) {
-        return loaderApi.import(fileUri);
-    }
-
     function buildUploadStatusEndpoint(mediaId) {
       return loaderApi.getLoaderRoot().follow('uploadStatus', {id: mediaId});
     }
@@ -170,7 +144,6 @@ upload.factory('fileUploader',
 
     return {
         prepare,
-        upload,
-        loadUriImage
+        upload
     };
 }]);

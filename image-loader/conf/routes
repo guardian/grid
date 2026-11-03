@@ -2,7 +2,6 @@ GET     /                                             controllers.ImageLoaderCon
 POST    /prepare                                      controllers.ImageLoaderController.getPreSignedUploadUrlsAndTrack
 POST    /images                                       controllers.ImageLoaderController.loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String])
 POST    /enqueueDerivativeImage                       controllers.ImageLoaderController.enqueueDerivativeImage(derivativeOfMediaIds: String, filename: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String])
-POST    /imports                                      controllers.ImageLoaderController.importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String])
 POST    /images/restore                               controllers.ImageLoaderController.restoreFromReplica
 GET     /images/project/:imageId                      controllers.ImageLoaderController.projectImageBy(imageId: String)
 

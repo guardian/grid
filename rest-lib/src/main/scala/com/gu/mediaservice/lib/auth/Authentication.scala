@@ -112,14 +112,19 @@ object Authentication {
   case class UserPrincipal(firstName: String, lastName: String, email: String, attributes: TypedMap = TypedMap.empty) extends Principal {
     def accessor: ApiAccessor = ApiAccessor(identity = email, tier = Internal)
 
-    override def toString: String = s"UserPrincipal(${(firstName, lastName, email)})"
+    override def toString: String = s"UserPrincipal($firstName, $lastName, $email)"
   }
+
   /** A machine user doing work automatically for its human programmers */
-  case class MachinePrincipal(accessor: ApiAccessor, attributes: TypedMap = TypedMap.empty) extends Principal
+  case class MachinePrincipal(accessor: ApiAccessor, attributes: TypedMap = TypedMap.empty) extends Principal {
+    override def toString: String = s"MachinePrincipal($accessor)"
+  }
 
   /** A different Grid microservice (e.g. a call to media-api originating from thrall) */
   case class InnerServicePrincipal(identity: String, attributes: TypedMap = TypedMap.empty) extends Principal {
     def accessor: ApiAccessor = ApiAccessor(identity, tier = Internal)
+
+    override def toString: String = s"InnerServicePrincipal($identity)"
   }
 
   type Request[A] = AuthenticatedRequest[A, Principal]

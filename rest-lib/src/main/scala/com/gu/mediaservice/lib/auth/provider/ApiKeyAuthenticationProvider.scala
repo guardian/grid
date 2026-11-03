@@ -15,6 +15,7 @@ object ApiKeyAuthenticationProvider extends ApiKeyAuthentication {
 
 class ApiKeyAuthenticationProvider(configuration: Configuration, resources: AuthenticationProviderResources) extends MachineAuthenticationProvider with StrictLogging {
   implicit val executionContext: ExecutionContext = resources.controllerComponents.executionContext
+  private val enabled = configuration.getOptional[Boolean]("enabled").getOrElse(true)
   var keyStorePlaceholder: Option[KeyStore] = _
 
   override def initialise(): Unit = {
@@ -39,6 +40,7 @@ class ApiKeyAuthenticationProvider(configuration: Configuration, resources: Auth
     */
   override def authenticateRequest(request: RequestHeader): ApiAuthenticationStatus = {
     request.headers.get(ApiKeyAuthenticationProvider.apiKeyHeaderName) match {
+      case Some(_) if !enabled => NotAuthorised("API key access is disabled")
       case Some(key) =>
         keyStore.lookupIdentity(key) match {
           // api key provided
