@@ -1,6 +1,6 @@
 package com.gu.mediaservice.scripts
 
-import com.gu.mediaservice.helpers.CsvFile
+import com.gu.mediaservice.common.CsvFile
 import com.gu.mediaservice.model.leases.MediaLease
 import play.api.libs.json.Json
 

@@ -10,7 +10,7 @@ import java.net.http.{HttpClient, HttpRequest}
 import java.util.concurrent.{CompletableFuture, TimeUnit}
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.jdk.FutureConverters._
-import com.gu.mediaservice.helpers.CsvFile
+import com.gu.mediaservice.common.CsvFile
 
 object SupplierRefsToImageIds extends App {
   implicit val executionContext: ExecutionContext = ExecutionContext.global
