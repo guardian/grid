@@ -7,13 +7,16 @@ correctness is information for a decision, not automatic authorization to implem
 
 ## Authority and Reading Order
 
-**Current routing, 2 November 2026:** this folder preserves detailed migration research,
+**Current routing, 4 November 2026:** this folder preserves detailed migration research,
 not a list of unfinished features. The [hosted guide](../../00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md)
 describes the implemented deployment/data paths; the [editing plan](../../gradually-growing-teeth.kupua-edits-steps.md)
 owns future editing sequence. Its read-only step 1 is complete: image URI/edits/crops
 capabilities survive normalization, and user-session permission facts can be read on demand.
 See the [shared API contract](../../../../src/dal/grid-api/README.md) for exact limits.
-Nested write controls, crop notices and all mutation transport remain unimplemented.
+Step 2 adds a separate default-off `add-labels` command boundary, validated session
+routing, local guarded proxies and Kahuna-hosted rollout/origin settings. Its labels
+resource is read on demand, not retained in a general raw-envelope cache. No UI caller,
+live activation, crop notices or post-write publication is implemented.
 The September snapshots below do not reopen completed API adoption or authorize writes.
 
 **Active build, 23 September:** executing agents work from the
@@ -53,7 +56,8 @@ authorization; independently authorized fixes or characterization can continue m
   direct-parser grammar residual. This is the [backlog's recorded status](../../bug-backlog.md),
   not a new remote/deployed check. PR #4849's former draft is historical, not the active build.
 - Read-only editing preparation retains image capabilities and provides an on-demand user-session
-  reader. It adds no startup request, edit UI, write permission or mutation path.
+  reader. The separate step-2 mutation boundary is default-off and fixture-verified;
+  it adds no startup command, edit UI, write permission or live activation.
 
 ## Research Still Relevant to Editing
 

@@ -74,6 +74,7 @@ throughout a run: even comment edits can trigger a browser reload.
 | Need | Command |
 | --- | --- |
 | One spec | `npm --prefix kupua run test:e2e -- --project=chromium browser-history.spec.ts --retries=0` |
+| Command boundary | `npm --prefix kupua run test:e2e -- --project=chromium grid-mutations.spec.ts --retries=0` |
 | Title filter | `npm --prefix kupua run test:e2e -- --grep "table tail" --retries=0` |
 | Visible browser | `npm --prefix kupua run test:e2e:headed` |
 | Step-through debugger | `npm --prefix kupua run test:e2e:debug` |

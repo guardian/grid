@@ -6,6 +6,12 @@ writes, safeguard changes or deployment. Each step is a separately selectable wo
 larger steps should be split at the named operation boundaries. No product code was changed
 or live services contacted to prepare it.
 
+**Policy update, 3 November 2026:** explicit data modes and failure handling replace
+the migration-era graceful-absence directive. Hosted is the future API-only app;
+direct-ES remains temporary laptop support, intended for separately authorized
+removal and never an API fallback. This documentation decision enables no writes
+and does not mark step 2 implemented.
+
 ## 0. The Recommendation
 
 **Build a real editor with a disconnected submission path, then connect one complete operation.
@@ -123,11 +129,15 @@ Sources: [P16 policy distinctions](03%20Ce%20n'est%20pas%20une%20pipe%20dream/me
 [media-api root](../../../media-api/app/controllers/MediaApi.scala),
 [auth session](../../../auth/app/auth/AuthController.scala).
 
-**Policy decision before live writes:** the standing graceful-absence rule is appropriate for
-optional enrichment, but cannot silently swallow a user-requested save. Obtain approval for
-a narrow write-outcome exception: pending, rejected, partly completed and unknown outcomes
-are visible beside the operation, with drafts retained. Keep ordinary optional reads quiet.
-Do not silently rewrite the directive; an approved directive change must update both copies.
+**Write-outcome policy:** the standing directive now requires explicit acknowledgement,
+rejection and uncertainty, not silent `null` on mutation failure. Transport loss after
+dispatch is unknown; server acknowledgement does not prove search visibility. Never
+automatically replay a mutation after authentication or transport failure. Step 2 owns
+the small transport outcome contract; step 3 owns visible pending/rejected/unknown
+outcomes and retained drafts, with partial completion handled when multi-step work is
+introduced. Required-read failures remain distinguishable from empty results; optional
+enrichment may be omitted. No ES fallback, general retry framework or live-write approval
+follows from this policy.
 
 **Executor pointers:** [mapper](../../src/dal/grid-api-search-adapter.ts),
 [Argo helpers](../../src/dal/grid-api/argo.ts), [API types](../../src/dal/grid-api/types.ts),
@@ -146,6 +156,27 @@ common facts needed by crop notices; it does not itself enable cropping.
 ### Step 2. Establish a Default-Off Mutation Boundary in Both Topologies
 
 **Depends on:** step 1; explicit permission for any host/shared-service file changes.
+
+**Complete for the default-off, fixture-verified boundary, 4 November 2026.** One
+named `add-labels` operation now uses the authoritative edits/labels resource,
+with default-off global/per-operation rollout, validated metadata/auth origins,
+local guarded proxies and Kahuna-injected hosted settings. No UI caller or live
+activation is present. [The API contract](../../src/dal/grid-api/README.md#step-2-command-boundary)
+owns exact outcomes, reload policy and fixture/deployment limits. The temporary
+rollout gates are intended to be removable once editing is verified, not a permanent
+configuration framework. The requirements below define the implemented boundary;
+steps 3/4 and actual shared-service writes remain separate authorization.
+
+Failing-first regressions, independent correctness/security, test-simplicity and
+hosted-integration reviews, full units, browser types, laptop/hosted builds, Kahuna
+page tests and full local E2E passed. Review follow-ups bounded shared discovery,
+pinned the local fixture's API target, and added direct guard/read-POST and HTTP
+outcome witnesses. Local fixtures exercise real Vite proxying; the hosted fixture
+loads a compiled page with synthetic configuration, cookies and service responses.
+Deployed preflight/CORS/CSRF, cookie and login-return behavior remain unverified;
+the existing backend label-authorization concern remains a live-activation boundary.
+No editor UI, queue, post-write refresh, shared mutation, deployment or later step
+was implemented or authorized by this completion.
 
 Add a small command transport distinct from the read DAL. It executes only named, implemented
 operations using authoritative resources, the expected method and an admitted service origin.
@@ -186,7 +217,8 @@ Never send credentials to an unvalidated discovered origin or log signed resourc
 
 **Done when:** fake local and hosted transports prove disabled/unknown actions dispatch nothing,
 only the selected enabled operation can dispatch, reads retain their exceptions, and expiry
-stops the queue. Verify a built hosted page, not just Vite middleware. `build:hosted` writes
+stops pending/new submissions (step 2 introduces no queue). Verify a built hosted page,
+not just Vite middleware. `build:hosted` writes
 outside Kupua into Kahuna and therefore needs explicit scope permission. No shared writes yet.
 
 ### Step 3. Build One Useful Disconnected Editor and an Operation Receipt

@@ -6,6 +6,7 @@
 
 import { ServiceDiscovery } from "@/dal/grid-api/service-discovery";
 import { z } from "zod";
+import { gridServiceOrigin, gridServiceUrl } from "@/dal/grid-api/proxy-target";
 
 const discovery = new ServiceDiscovery();
 const sessionPermissionsSchema = z.object({
@@ -18,6 +19,16 @@ const sessionSchema = z.object({ data: z.object({ user: z.object({ permissions: 
 export type GridSessionPermissions = z.infer<typeof sessionPermissionsSchema>;
 
 let sessionPermissionsRead: Promise<GridSessionPermissions | null> | undefined;
+let sessionInvalidated = false;
+
+export function invalidateGridSession(): void {
+  sessionInvalidated = true;
+  sessionPermissionsRead = Promise.resolve(null);
+}
+
+export function isGridSessionInvalidated(): boolean {
+  return sessionInvalidated;
+}
 
 /**
  * Initialise the Grid API service discovery.
@@ -41,18 +52,21 @@ export async function serviceLink(rel: string): Promise<string | undefined> {
 }
 
 export function getGridSessionPermissions(): Promise<GridSessionPermissions | null> {
-  if (import.meta.env.VITE_USE_MEDIA_API !== "true") return Promise.resolve(null);
+  if (import.meta.env.VITE_USE_MEDIA_API !== "true" || sessionInvalidated) return Promise.resolve(null);
   return sessionPermissionsRead ??= readSessionPermissions();
 }
 
 async function readSessionPermissions(): Promise<GridSessionPermissions | null> {
   try {
+    if (!gridServiceOrigin("auth")) return null;
     const href = await serviceLink("session");
-    if (!href) return null;
-    const response = await fetch(href, { credentials: "include" });
+    const url = gridServiceUrl("auth", href, "/session");
+    if (!url || sessionInvalidated) return null;
+    const response = await fetch(url, { credentials: "include", redirect: "error", signal: AbortSignal.timeout(15_000) });
+    if (response.status === 401 || response.status === 419) invalidateGridSession();
     if (!response.ok) return null;
     const session = sessionSchema.safeParse(await response.json());
-    return session.success ? session.data.data.user.permissions : null;
+    return session.success && !sessionInvalidated ? session.data.data.user.permissions : null;
   } catch {
     return null;
   }

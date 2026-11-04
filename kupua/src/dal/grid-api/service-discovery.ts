@@ -49,7 +49,8 @@ export class ServiceDiscovery {
     try {
       const resp = await fetch(mediaApiUrl(""), {
         credentials: "include",
-        signal,
+        redirect: "error",
+        signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000),
       });
       if (!resp.ok) return false; // 401/403/5xx — leave links empty, graceful absence
 

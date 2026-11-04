@@ -1,8 +1,23 @@
 # Deployed via Kahuna
 
 How Kupua runs when Kahuna serves it, and where every piece of server-owned data comes from.
-This describes the current state only. Laptop modes (direct-ES, local `--use-media-api`) are
-summarised at the end.
+The implementation sections describe the current state. Laptop modes (direct-ES,
+local `--use-media-api`) are summarised at the end.
+
+## Data-mode policy
+
+Hosted Kupua is the future application and always uses media-api, never the
+direct-Elasticsearch datasource or direct ES requests. API failure, empty results
+or missing/invalid hosted configuration must not select ES. Direct-ES remains
+temporary laptop support intended for eventual removal under separate authorization;
+it is not an alternative hosted architecture.
+
+Failure must not crash the shell, but required API data is not optional enrichment
+over an ES baseline. Distinguish failed requests from successful empty results and
+show an appropriate unavailable/error state at the owning UI. Genuinely optional
+enrichment may be omitted. Do not build alternate data paths or retry machinery
+merely to conceal API failure. Existing display defaults and calculations on
+already-returned fields are not datasource fallback.
 
 ## Serving and configuration
 
@@ -19,13 +34,30 @@ summarised at the end.
 |---|---|
 | `mediaApiUri` | Base for every media-api call; satellite services are discovered from its root links |
 | `collectionsUri` | Collections tree |
+| `metadataEditorUri`, `authUri` | Trusted origins for command resources and session reads |
+| `mutations` | Default-off `{ enabled, operations }` rollout; currently only `add-labels` is implemented |
 | `showPaid` | Initial and Home search defaults (`nonFree`) |
 | `gridConfig` | Kahuna's client settings: staff organisation, field aliases, image types, download-as-usage, reaper, agency picks (ingredients, colour), ticker definitions, deny-syndication warning, graphic-image blurring |
 
-Each value is validated ([hosted-config.ts](../../../src/lib/hosted-config.ts)); a missing or
-invalid setting falls back to [grid-config.ts](../../../src/lib/grid-config.ts) defaults. Service
+Each value is validated ([hosted-config.ts](../../../src/lib/hosted-config.ts)); missing or
+invalid display settings use [grid-config.ts](../../../src/lib/grid-config.ts) defaults.
+An absent or invalid media-api address prevents API dispatch, never selecting ES. Service
 API fetches send the user's session cookie (`credentials: "include"`); thumbnail `<img>` requests
 follow the browser's separate image/CORS/cookie rules.
+
+Hosted builds pin hosted/API mode even if the invoking shell has laptop-mode flags.
+Kahuna reads `kupua.mutations.enabled` and `kupua.mutations.operations`; absent or
+invalid values admit no writes. These settings affect only the Kupua page, not
+ordinary Kahuna. Existing pages receive server config changes only after reload.
+The rollout gates are temporary; server authorization and named-resource validation
+are not. No editor UI is connected and no live enablement is approved.
+
+The shared [command boundary](../../../src/dal/grid-api/README.md#step-2-command-boundary)
+owns admission, emergency stop and explicit outcomes. Session expiry/account changes
+require a full reload after authentication; mutations are never automatically replayed.
+Built-page fixtures use synthetic origins, cookies and browser-policy responses, not
+the deployed ingress. Actual credentialed preflight, CSRF and login-return behavior
+remain deployment verification boundaries. No global CSP/CORS/CSRF policy was relaxed.
 
 ## Server data sources
 
@@ -63,13 +95,18 @@ are the server's own filter counts, so they always match what the `is:` search r
 **Field aliases.** Searches on configured aliases, including `matchViaExistence` ones (e.g. C2PA,
 where absence means `false`), are compiled by media-api, which also returns their values.
 
-**Media delivery.** Hosted Kupua always uses the URLs in each image (`VITE_MEDIA_DELIVERY=canonical`;
-laptop API modes opt in with `--canonical-media`). For thumbnails,
+**Media delivery.** With the default hosted `VITE_MEDIA_DELIVERY=canonical` setting,
+Kupua uses the URLs in each image. Laptop API modes opt in with `--canonical-media`. For thumbnails,
 [media-api](../../../../media-api/app/lib/ImageResponse.scala) supplies an HTTPS CloudFront path
 when a thumbnail domain is configured, otherwise a presigned S3 URL. The CloudFront branch does
 not append a signing query; `secureUrl` does not mean every thumbnail URL is presigned, nor does
 an unsigned-looking path establish public access. Full-image imgops links embed signed source
 URLs that expire after roughly 15-25 minutes; a page reload fetches fresh ones.
+
+An existing build-environment limitation remains: unlike the pinned hosted/API mode
+flags, an explicit shell `VITE_MEDIA_DELIVERY` can override the hosted env file.
+Do not build hosted assets with a laptop proxy-delivery override. Step 2 does not
+change image delivery or certify that conflicting configuration.
 
 Thumbnails use ordinary `<img>` elements without `crossOrigin`. Justified zoom reuses these
 images as DOM tiles; it requires no origin-clean pixel access, CORS change or media proxy.
@@ -83,7 +120,8 @@ images as DOM tiles; it requires no origin-clean pixel access, CORS change or me
 
 ## Laptop modes
 
-Direct-ES mode computes everything above locally from Elasticsearch documents: cost, validity,
+The explicitly selected laptop direct-ES mode computes image policy and query inputs
+locally from Elasticsearch documents: cost, validity,
 `is:` filters, free-to-use, category expansion and sort aliases mirror Grid's Scala code and can
 lag it. It does not support `matchViaExistence` aliases. Local `--use-media-api` mode uses the same server sources as deployed mode through Vite
 proxies, with `grid-config.ts` defaults in place of Kahuna's settings and local imgproxy for

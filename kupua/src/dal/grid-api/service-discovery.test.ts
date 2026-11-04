@@ -22,7 +22,7 @@ describe("ServiceDiscovery readiness", () => {
     await Promise.resolve();
 
     expect(fetchMock).toHaveBeenCalledOnce();
-    expect(fetchMock.mock.calls[0]).toEqual(["/api", expect.objectContaining({ credentials: "include" })]);
+    expect(fetchMock.mock.calls[0]).toEqual(["/api", expect.objectContaining({ credentials: "include", redirect: "error" })]);
     expect(settled).toEqual([]);
 
     release(root([aiSearch]));

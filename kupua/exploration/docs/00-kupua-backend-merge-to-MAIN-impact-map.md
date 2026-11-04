@@ -16,6 +16,11 @@ tests before making any claim; old branch commits are not the review boundary.
 
 ## Must disclose when included in the PR
 
+- **Kupua-only hosting configuration:** [KupuaPage](../../../kahuna/app/lib/KupuaPage.scala)
+  injects default-off mutation rollout plus metadata/auth origins only into the Kupua
+  page. Ordinary Kahuna configuration, server authorization and CSP/CORS/CSRF policy
+  are unchanged. Explain invalid-setting rejection, existing-page reload requirements
+  and fixture-only validation; do not describe frontend gates as server enforcement.
 - **Existing AI/API surface:** [MediaApi](../../../media-api/app/controllers/MediaApi.scala)
   adds conditional `ai-search` discovery and opt-in `aiQuery` ranking text to
   `GET /images`. Explain ranking-text versus filter-query meaning, response embedding

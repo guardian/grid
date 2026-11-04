@@ -3,15 +3,20 @@
  * Kupua's page. Only hosted builds (VITE_HOSTED=true) read it; local modes never do.
  */
 
+import { parseMutationRollout } from "./grid-mutation-policy.ts";
+
 export interface HostedConfig {
   mediaApiUri?: string;
   collectionsUri?: string;
+  metadataEditorUri?: string;
+  authUri?: string;
+  mutations?: unknown;
   /** The user's `show_paid` permission; drives initial/Home defaults only. */
   showPaid?: unknown;
   gridConfig?: unknown;
 }
 
-type ServiceUriKey = "mediaApiUri" | "collectionsUri";
+type ServiceUriKey = "mediaApiUri" | "collectionsUri" | "metadataEditorUri" | "authUri";
 
 export interface HostedFieldAlias {
   elasticsearchPath: string;
@@ -69,7 +74,7 @@ export function hostedServiceUri(key: ServiceUriKey): string | undefined {
   if (typeof value !== "string") return undefined;
   try {
     const url = new URL(value);
-    if (url.protocol !== "https:" || url.search || url.hash) return undefined;
+    if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) return undefined;
     return `${url.origin}${url.pathname}`.replace(/\/+$/, "");
   } catch {
     return undefined;
@@ -79,6 +84,10 @@ export function hostedServiceUri(key: ServiceUriKey): string | undefined {
 function injected(): HostedConfig | undefined {
   if (!isHostedBuild() || typeof window === "undefined") return undefined;
   return window.__KUPUA_CONFIG__;
+}
+
+export function hostedMutationRollout() {
+  return parseMutationRollout(injected()?.mutations);
 }
 
 /** Undefined when absent or invalid: callers keep their compatibility default. */

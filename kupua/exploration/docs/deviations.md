@@ -8,11 +8,25 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-11-02
+Last updated: 2026-11-04
 
 ---
 
 ## From Grid / Kahuna
+
+### Default-Off Commands and Explicit Reload (4 November 2026)
+
+Kupua's command transport accepts only named, enabled operations, currently label
+addition, with no UI caller. This temporary rollout gate is additional to server
+authentication/authorization and can later be removed without generalizing the
+transport. It does not change Kahuna's editing flows or repair backend policy gaps.
+
+Unlike Fetch's redirect-following default, discovery and command/session requests
+refuse redirects. Observed 401/419 invalidates the page-scoped session snapshot and
+blocks later submissions until reload; account changes require reload too. No login
+automation, background renewal, identity cache or mutation replay is introduced.
+The trade-off is explicit recovery rather than silent continuation; an already
+dispatched write may have an unknown outcome and cannot be undone by stopping.
 
 ### Crop Editor Inside Image Detail (31 October 2026)
 

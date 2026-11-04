@@ -1,4 +1,5 @@
 import { hostedServiceUri, isHostedBuild } from "../../lib/hosted-config.ts";
+import { serviceOrigin } from "../../lib/grid-mutation-policy.ts";
 
 export const LOCAL_MEDIA_API_BASE_URL = "/api";
 export const DEPLOYED_TEST_MEDIA_API_BASE_URL = "https://api.media.test.dev-gutools.co.uk";
@@ -22,4 +23,18 @@ export function mediaApiUrl(path: string, configuredBaseUrl: string | undefined 
 
 export function shouldEnableDirectBedrockProxy(useMediaApi: string | undefined, isVitest = false): boolean {
   return useMediaApi !== "true" && !isVitest;
+}
+
+export function gridServiceOrigin(service: "metadata" | "auth"): string | undefined {
+  const hosted = isHostedBuild();
+  const configured = hosted
+    ? hostedServiceUri(service === "metadata" ? "metadataEditorUri" : "authUri")
+    : service === "metadata" ? import.meta.env.VITE_GRID_METADATA_ORIGIN : import.meta.env.VITE_GRID_AUTH_ORIGIN;
+  return serviceOrigin(configured, !hosted);
+}
+
+export function gridServiceUrl(service: "metadata" | "auth", href: unknown, expectedPath: string): string | undefined {
+  const origin = gridServiceOrigin(service);
+  if (!origin || href !== `${origin}${expectedPath}`) return undefined;
+  return isHostedBuild() ? href as string : `/grid-${service}${expectedPath}`;
 }

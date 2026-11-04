@@ -14,6 +14,7 @@
     "build:hosted": "tsc -b && vite build --mode hosted",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:hosted-config": "cd .. && sbt 'kahuna/testOnly lib.KupuaPageTest'",
     "test:watch": "vitest",
     "test:special-sort-es": "vitest run --config vitest.special-sort-es.config.ts",
     "test:e2e": "playwright test",

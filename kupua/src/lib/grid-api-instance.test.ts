@@ -44,7 +44,10 @@ describe("getGridSessionPermissions", () => {
   const sessionHref = "https://auth.example.test/session";
   const sessionRoot = () => Response.json({ links: [{ rel: "session", href: sessionHref }] });
 
-  beforeEach(() => vi.stubEnv("VITE_USE_MEDIA_API", "true"));
+  beforeEach(() => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.stubEnv("VITE_GRID_AUTH_ORIGIN", "https://auth.example.test");
+  });
 
   it("reads the discovered session once on demand and retains only explicit permission facts", async () => {
     let release!: (response: Response) => void;
@@ -68,8 +71,8 @@ describe("getGridSessionPermissions", () => {
       await expect(request).resolves.toEqual({ showPaid: false, canUpload: true });
     }
     await expect(getGridSessionPermissions()).resolves.toEqual({ showPaid: false, canUpload: true });
-    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(["/api", sessionHref]);
-    expect(fetchMock).toHaveBeenLastCalledWith(sessionHref, expect.objectContaining({ credentials: "include" }));
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(["/api", "/grid-auth/session"]);
+    expect(fetchMock).toHaveBeenLastCalledWith("/grid-auth/session", expect.objectContaining({ credentials: "include", redirect: "error" }));
   });
 
   it("does not request root or session in direct-ES mode", async () => {
@@ -79,6 +82,15 @@ describe("getGridSessionPermissions", () => {
     const { getGridSessionPermissions } = await import("./grid-api-instance");
     await expect(getGridSessionPermissions()).resolves.toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("does not send credentials to an unconfigured discovered session origin", async () => {
+    vi.stubEnv("VITE_GRID_AUTH_ORIGIN", "https://other.example.test");
+    const fetchMock = vi.fn().mockResolvedValueOnce(sessionRoot());
+    vi.stubGlobal("fetch", fetchMock);
+    const { getGridSessionPermissions } = await import("./grid-api-instance");
+    await expect(getGridSessionPermissions()).resolves.toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it.each([

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { hostedGridConfig, hostedServiceUri, hostedShowPaid } from "./hosted-config";
+import { hostedGridConfig, hostedMutationRollout, hostedServiceUri, hostedShowPaid } from "./hosted-config";
 import { mediaApiUrl } from "@/dal/grid-api/proxy-target";
 
 afterEach(() => {
@@ -10,6 +10,18 @@ afterEach(() => {
 });
 
 describe("hosted configuration", () => {
+  it("fails closed for missing or malformed mutation rollout without affecting display defaults", () => {
+    vi.stubEnv("VITE_HOSTED", "true");
+    for (const mutations of [undefined, { enabled: true }, { enabled: "true", operations: ["add-labels"] },
+      { enabled: true, operations: ["delete"] }]) {
+      window.__KUPUA_CONFIG__ = { mutations };
+      expect(hostedMutationRollout()).toBeUndefined();
+      expect(hostedGridConfig()).toEqual({});
+    }
+    window.__KUPUA_CONFIG__ = { mutations: { enabled: false, operations: ["add-labels"] } };
+    expect(hostedMutationRollout()).toEqual({ enabled: false, operations: ["add-labels"] });
+  });
+
   it("is ignored outside hosted builds, leaving local media-api routing unchanged", () => {
     window.__KUPUA_CONFIG__ = { mediaApiUri: "https://api.media.example.test" };
     expect(hostedServiceUri("mediaApiUri")).toBeUndefined();
@@ -28,6 +40,7 @@ describe("hosted configuration", () => {
     undefined,
     "http://api.media.example.test",
     "https://api.media.example.test?x=1",
+    "https://user:password@api.media.example.test",
     "not a url",
   ])("refuses hosted media-api reads with address %j instead of falling back", (mediaApiUri) => {
     vi.stubEnv("VITE_HOSTED", "true");

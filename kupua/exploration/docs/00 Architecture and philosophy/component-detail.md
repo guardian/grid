@@ -87,6 +87,12 @@ ladders) use width breakpoints instead, because a narrow desktop window keeps th
 `ImageDataSource` (`dal/types.ts`) is selected by `createDataSource()` (`dal/index.ts`):
 `ApiDataSource` when `VITE_USE_MEDIA_API=true`, otherwise `ElasticsearchDataSource`.
 
+**Mode invariant:** hosted builds must always select media-api. API mode must never
+construct/invoke the direct-ES datasource or issue direct ES requests, including
+after API failure, empty results or invalid hosted configuration. Direct-ES remains
+temporary, explicitly selected laptop support intended for separately authorized
+removal. Keep mode enforcement at selection/transport boundaries, not in each view.
+
 **API mode:** pages use `search-after`/`window`; ranks use `rank`; scalar/date/keyword profiles
 use `sort-profile`; maps and range walks use `keys`. Walk loops and caps stay client-side.
 Counts/tickers use `count`; facets, typeahead and collection counts use `aggregations`;
@@ -96,8 +102,9 @@ at most four in flight). `getById(id, signal?)` returns `{image, enrichment?} | 
 `offsetReadLimit` is 10,000, so an estimate-less deep seek lands at 9,800 with its actual position.
 AI search uses `GET /images` with `useAISearch=true` and a separate `aiQuery`. There is
 no ES fallback, and the factory constructs no ES datasource in API mode.
-The shared URL resolver defaults every mode to local `/api`; only `--use-deployed-media-api`
-selects the allowlisted absolute TEST base and credentialed cross-origin reads. That temporary
+The shared URL resolver uses Kahuna's validated media-api address in hosted mode;
+local API mode defaults to `/api`, while `--use-deployed-media-api` selects the
+allowlisted absolute TEST base and credentialed cross-origin reads. That temporary
 measurement mode bypasses Vite's Grid API write guard and is not the permanent ingress design.
 
 **Direct/local mode:** `ElasticsearchDataSource` retains cursor paging/PIT recovery, aggregations,
@@ -112,6 +119,14 @@ ES-specific code in `dal/adapters/elasticsearch/`: CQL→ES translator, sort cla
 - **`ALLOWED_ES_PATHS`** lives in **both** `es-config.ts` and `vite.config.ts` (separate hardcoded arrays that must be kept manually in sync).
 
 ## Grid API Adapter (`dal/grid-api/`, `dal/grid-api-search-adapter.ts`)
+
+**Failure policy:** the migration-era blanket graceful-absence rule is retired.
+Required-data failures must remain distinguishable from successful empty results,
+with the owning caller keeping the shell usable; genuinely optional enrichment may
+be omitted. Do not introduce alternate sources, parallel caches or retry layers to
+conceal failure. The contracts below describe current behavior, not a request to
+rewrite every reader. Mutation outcomes have their own explicit contract under the
+standing directive; the default-off command boundary is separate from this read DAL.
 
 **Search path (both media-api modes):** `grid-api-search-adapter.ts` builds the shared request body
 (`buildReadBody`), posts reads (`postImageRead`) and maps Argo-wrapped pages (`apiSearchAfter`,
@@ -156,20 +171,28 @@ link on demand in API mode. It retains only optional boolean `showPaid`, `canUpl
 including quiet `null` after failure, invalid data or a non-user principal. Missing flags stay
 unknown. Direct-ES mode issues no request; no current UI/startup consumer is connected.
 This snapshot is separate from per-image capabilities: it neither grants edit access nor removes
-an uploader's advertised edit access. It is not fresh authorization for a future save.
+an uploader's advertised edit access. It is not fresh authorization for a save. Its discovered
+session URI must match the configured auth origin and exact path; local requests use the auth
+proxy. `invalidateGridSession()` clears and latches the snapshot until full reload, including
+pending responses. Expiry/reauthentication and account changes require reload, with no automatic
+replay or cross-tab identity detection.
 
-**Write guard:** the local Vite `gridApiWriteGuard()` blocks non-GET requests unless explicitly enabled, except
-the eight read-only POST routes listed in `grid-api/read-via-post.ts`. Admission matches the exact
-path (query string allowed), never an image-ID prefix; this prevents admitting nested write routes.
-Hosted direct-origin requests bypass this guard. Retaining capability information enables no
-write transport or editing controls; server authorization remains authoritative in both topologies.
+**Command boundary:** `lib/grid-commands.ts` admits only configured `add-labels`, using the
+image's edits relation and the owning resource's concrete labels URI. It validates origin and
+resource identity, uses fixed POST, and returns explicit outcomes without retries or UI callers.
+Vite's local `/api` keeps the eight exact read-POST exceptions; `/grid-metadata` admits only
+the selected label POST plus metadata reads, and `/grid-auth` only session GET. Hosted calls
+bypass Vite and use the same frontend command gate with Kahuna-injected rollout and origins.
+Both global and per-operation enablement are required; an in-page stop or observed expiry blocks
+new submissions until reload. Server authorization remains separate and mandatory. See the
+[API contract](../../../src/dal/grid-api/README.md#step-2-command-boundary) for outcomes and limits.
 
 ## Enrichment System (`lib/cost/`, `stores/enrichment-store.ts`, `lib/derive-enriched-image.ts`)
 
 Three-layer merge model:
 
 1. **ES baseline inputs** — `SOURCE_INCLUDES` in `es-config.ts` requests rights/leases/usages/labels/syndicationRights/XMP fields. Individual records may omit fields; no Grid service call is needed for these direct-mode inputs.
-2. **TS cost+validity calculation** — `calculateCost` (port of Scala `CostCalculator`), `buildValidityMap` + `deriveValid` (mirrors Scala's two-pass override model), `isImagePotentiallyGraphic`, quota-store (`fetchQuotas()` at startup, graceful absence). `guardian-config.json` is a vendored config snapshot.
+2. **TS cost+validity calculation** — `calculateCost` (port of Scala `CostCalculator`), `buildValidityMap` + `deriveValid` (mirrors Scala's two-pass override model), `isImagePotentiallyGraphic`, quota-store (`fetchQuotas()` at startup, optional quota absence). `guardian-config.json` is a vendored config snapshot.
 3. **API overlay** — `enrichment-store` (Zustand, no persistence) receives committed ordinary and AI search enrichment. `deriveImage(image, overlay?)` merges server fields over the baseline; direct ES supplies no overlay. Ordinary pages, AI results and standalone detail map baseline images and enrichment from their response entities. Selection bulk lookup (`POST /images/mget`) attaches each entity's enrichment to the returned image object (`attachEnrichment`, a WeakMap), so it lives exactly as long as that object in selection's metadata cache and never enters the shared store.
 
 **Consuming enriched data:** `useEnrichedImage(image, ownOverlay?)` subscribes per-ID to the
@@ -181,6 +204,8 @@ its owned overlay to ImageMetadata only while displaying that standalone image.
 validity is built only when `valid` or `invalidReasons` is missing. Nullish fallback preserves
 meaningful `false`, empty-object and empty-array overlay values. Local fallback remains necessary
 for direct mode and partial overlays; it is not a background enrichment read.
+These calculations use already-returned data; they do not construct or query an ES
+datasource in API mode and do not establish a second source for missing API data.
 
 **Image capabilities:** `extractEnrichment` retains `resource: { uri?, links }` alongside
 existing `actions`; `deriveImage` exposes it without calculating permissions locally. The

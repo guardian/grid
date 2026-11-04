@@ -24,6 +24,21 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 4 November 2026 - Default-off mutation boundary
+
+Added a command boundary separate from reads, limited to label addition using the
+image's edits relation and its authoritative labels resource. Global and per-operation
+rollout, resource identity and trusted origins are checked before dispatch. The former
+blanket Vite write bypass is replaced by exact metadata/session routes; media-api's
+read-POST exceptions and ES safeguards are unchanged. Kahuna injects default-off
+Kupua-only settings, and hosted builds pin API mode against inherited laptop flags.
+
+Session reads now validate and route their auth origin, retaining only permission
+facts. Observed expiry clears the cached snapshot and stops pending/new submissions
+until reload. Commands reject redirects, never replay automatically and distinguish
+acknowledgement, rejection and uncertain outcomes. The rollout gates are temporary;
+no editor UI, queue, publication/refresh path or live write activation is added.
+
 ### 2 November 2026 - Read-only editing capability foundation
 
 API image enrichment now retains the optional source URI and edits/crops relations alongside

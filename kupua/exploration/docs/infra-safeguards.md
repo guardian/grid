@@ -268,25 +268,23 @@ through the Vite proxy is the only reliable way to detect the connection target.
 
 ## 8. Grid API write protection — method guard at proxy boundary
 
-**Problem:** The `/api` Vite proxy forwards requests to the Grid media-api
-(and in future, satellite proxies like `/grid-leases`, `/grid-usage` will
-reach other Grid services). These services support write operations
-(POST/PUT/DELETE) that could edit image metadata, delete images, or modify
-collections. Until Phase C explicitly enables writes, they must be
-physically impossible.
+**Problem:** Grid services mutate shared data. Kupua must not accidentally submit
+an unfinished or unselected operation, including against TEST. Step 2 introduces
+only a default-off label-add command with no UI caller or live activation.
 
-**Topology boundary:** The guard protects requests that traverse Vite's local
-`/api` proxy. It is not a universal browser boundary: temporary
-`--use-deployed-media-api` mode sends credentialed cross-origin requests directly
-to the allowlisted TEST media-api, whose CORS policy admits the Kupua local origin.
-That mode bypasses this guard by design and is not transport-enforced read-only;
-it exists only for operator-run TEST measurement pending the permanent ingress
-design. Current Kupua code issues reads, but server permissions remain authoritative.
+**Topology boundary:** Vite protects only local `/api`, `/grid-metadata` and
+`/grid-auth` requests. Hosted and deployed-origin requests bypass it. Hosted Kupua
+uses the shared command boundary plus Kahuna's explicit rollout/origin payload;
+these frontend gates prevent accidental app writes, not arbitrary authenticated
+requests. Server authorization remains mandatory. GET is not a general guarantee
+of no side effects: download and administrative GETs must not be used as probes.
 
-**Safeguard:** The `gridApiWriteGuard()` middleware plugin in
-`vite.config.ts` blocks all non-GET HTTP methods on Grid API proxy
-prefixes (currently `/api`, extensible via `GRID_API_PROXY_PREFIXES`
-array). Requests are rejected with 403 and a descriptive message.
+**Safeguard:** `/api` retains existing GET access and the exact read-POST exceptions
+below. `/grid-metadata` permits only `GET /metadata/:id` and, when explicitly enabled,
+`POST /metadata/:id/labels`. `/grid-auth` permits only `GET /session`. Other requests
+are rejected with 403. The new satellite proxies exist only with valid configured
+origins; they never accept a request-supplied upstream target or follow redirects.
+TLS verification is retained for them. Local development certificates must be trusted.
 
 **Read-only POST exception:** media-api's ordered image reads take their
 compound sort clauses and cursors in a JSON body, so they are POST. The
@@ -296,27 +294,37 @@ guard admits exactly those paths via `GRID_API_READ_VIA_POST`:
 `/images/aggregations` and `/images/mget`. Each is a read on the server side; add a path
 here only when its server handler performs no write.
 
-**Env-var gate:** Set `VITE_GRID_API_WRITES_ENABLED=true` in the
-environment (NOT in `.env` — only pass it explicitly when running Phase C
-write features) to allow writes through. Without this var, writes are
-blocked unconditionally.
+**Local rollout:** both `VITE_GRID_API_WRITES_ENABLED=true` and
+`VITE_GRID_API_OPERATIONS=add-labels` are required; the global flag alone admits no
+writes. Keep enablement explicit in the invocation, not persistent `.env` settings.
+`VITE_GRID_METADATA_ORIGIN` and `VITE_GRID_AUTH_ORIGIN` must name exact service origins,
+not paths or credential-bearing URLs. HTTPS is required except loopback HTTP fixtures.
+Do not derive them from an unvalidated discovered link. No shared-system invocation
+is authorized by documenting these settings.
 
-**Config:**
-- `GRID_API_PROXY_PREFIXES` in `vite.config.ts` — list of proxy path
-  prefixes to protect (currently `["/api"]`)
-- `VITE_MEDIA_API_BASE_URL` — `/api` in ordinary/local API modes; only
-  `--use-deployed-media-api` selects the exact TEST origin
-- `VITE_GRID_API_WRITES_ENABLED` — env var to relax the guard (default:
-  unset = writes blocked)
+**Hosted rollout:** Kahuna injects service origins and `mutations: { enabled,
+operations }` from `kupua.mutations.enabled` / `kupua.mutations.operations`. Absent,
+malformed or unknown operation configuration fails closed. Hosted builds ignore
+laptop rollout settings and pin hosted/API mode. Server config changes reach an
+existing page only on reload; `stopGridMutations()` is the in-page emergency stop.
 
-**To extend:** When adding satellite proxy prefixes (Phase B), add them to
-the `GRID_API_PROXY_PREFIXES` array. They automatically inherit the same
-method guard.
+**Session/outcomes:** commands check a validated session snapshot but do not claim
+fresh authorization. 401/419 invalidate it and prevent subsequent dispatch until
+reload. Reload is required after reauthentication or account changes; no identity
+tracking, automatic login or replay is implemented. A stop cannot undo in-flight
+work; lost write responses are unknown, not proof that no write occurred.
 
-**To relax (Phase C):** Run with `VITE_GRID_API_WRITES_ENABLED=true`. Do
-NOT set this in `.env` or `.env.local` unless actively developing write
-features. When Phase C ships, consider removing the guard entirely or
-converting it to a per-operation allowlist (like the ES path guard).
+**Limits:** isolated loopback proxy and built-hosted fixtures verify admission;
+synthetic browser policies do not prove deployed preflight, CSRF or login-return
+behavior. The label handler currently authenticates without the uploader/EditMetadata
+filter used by metadata replacement; frontend checks do not repair that gap. Live
+enablement needs separate authorization and server-policy review. See the
+[command contract](../../src/dal/grid-api/README.md#step-2-command-boundary).
+
+**To extend or retire:** add another named operation and its exact resource/method
+only with its feature. The temporary rollout gates may later be removed explicitly;
+do not replace them with unrestricted forwarding. Origin/resource validation,
+server authorization and truthful outcomes remain. All ES safeguards are unchanged.
 
 ---
 
@@ -331,7 +339,10 @@ converting it to a per-operation allowlist (like the ES path guard).
 | `VITE_ES_INDEX` | `images` | `.env` | ES index or alias to query |
 | `VITE_ES_IS_LOCAL` | `true` | `.env` | Set to `false` when connecting to non-local ES (enables write protection) |
 | `VITE_MEDIA_API_BASE_URL` | `/api` | `start.sh` | Media-api request base; only deployed TEST mode sets the allowlisted absolute TEST origin |
-| `VITE_GRID_API_WRITES_ENABLED` | (unset) | Shell | Set to `true` to allow non-GET requests through Grid API proxy (Phase C) |
+| `VITE_GRID_API_WRITES_ENABLED` | (unset) | Shell | Global command rollout gate; insufficient without selected operations |
+| `VITE_GRID_API_OPERATIONS` | (unset) | Shell | Comma-separated implemented operations; currently only `add-labels` |
+| `VITE_GRID_METADATA_ORIGIN` | (unset) | Shell | Trusted metadata-editor origin for local command routing |
+| `VITE_GRID_AUTH_ORIGIN` | (unset) | Shell | Trusted auth origin for local session routing |
 | `VITE_S3_PROXY_ENABLED` | `false` | `start.sh` | Set to `true` when S3 thumbnail proxy is running |
 | `VITE_IMGPROXY_ENABLED` | `false` | `start.sh` | Set to `true` when imgproxy container is running |
 | `VITE_IMAGE_BUCKET` | (none) | `start.sh` | S3 bucket for full-size images (for imgproxy URL generation) |

@@ -155,13 +155,29 @@ repairs remain coordinator-owned. No product implementation, live-system work, G
 or wider write permissions follow. All other safeguards remain. These temporary amendments
 may be removed together after the review with operator approval; keep both directive copies synced.
 
-**Directive: Graceful API absence.** All code that fetches from Grid services —
-whether via the `/api` proxy (media-api) or satellite proxies (`/grid-leases`,
-`/grid-usage`, etc.) — must treat failure as a data-absence condition, not an error
-condition. Network error, timeout, or non-2xx → caller receives `null` → UI renders
-without that data section. No error toasts, no broken layouts, no console warnings in
-normal operation. This ensures kupua works standalone (Setup C, Playwright, existing
-workflow) without any Grid dependency. ES-sourced data is always the baseline; Grid
-API data is optional enrichment. This is a development-phase rule — when kupua ships
-to real users behind real infrastructure, API failure becomes a real error worth
-surfacing, and this directive will be revisited.
+**Directive: Explicit data modes and failure handling.** Hosted Kupua is the future
+application and always uses media-api. Laptop builds use their explicitly selected
+data mode. Direct-to-ES is temporary laptop support intended for eventual removal,
+not a fallback or an alternative hosted architecture. Its removal requires separate
+authorization; preserve its current safeguards until then.
+
+In media-api mode, including hosted mode, Kupua must never construct or invoke the
+direct-Elasticsearch datasource, issue direct ES requests, or switch to ES because
+an API request fails or returns no data. Missing or invalid hosted configuration
+must not select direct-ES mode. Keep this invariant at mode selection and transport
+boundaries, with focused tests, rather than scattering checks through components.
+
+Handle failures at the owning boundary without crashing the application shell.
+Distinguish successful empty results from failed requests. Required-data failures
+must remain recognizable and support an appropriate unavailable/error state;
+genuinely optional enrichment may be omitted. Preserve usable existing state where
+appropriate without presenting it as freshly loaded. Do not blanket-convert failures
+to `null`, require global error toasts, or add substitute data sources, parallel
+caches, retry systems or compatibility layers merely to conceal API failure.
+Existing display defaults and calculations on already-returned data are not ES
+fallbacks; this rule does not authorize a wholesale rewrite of read callers.
+
+Mutation outcomes must distinguish acknowledgement, rejection and uncertainty.
+Never automatically replay a mutation after authentication or transport failure.
+Server acknowledgement does not prove search visibility. This policy does not
+enable editing in direct-ES mode or authorize any live mutation.
