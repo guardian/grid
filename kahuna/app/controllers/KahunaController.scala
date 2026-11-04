@@ -106,7 +106,8 @@ class KahunaController(
       val html = try Source.fromInputStream(stream, "UTF-8").mkString finally stream.close()
       KupuaPage.render(html, KupuaPage.pageConfig(
         config.services.apiBaseUri, config.services.collectionsBaseUri, kupuaSiteSettings, showPaid
-      ))
+      ) ++ KupuaPage.mutationConfig(configuration = config.configuration,
+        metadataEditorUri = config.services.metadataBaseUri, authUri = config.services.authBaseUri))
     }
 
   def kupuaOn: Action[AnyContent] = Action {

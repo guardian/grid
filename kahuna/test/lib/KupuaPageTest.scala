@@ -139,4 +139,25 @@ class KupuaPageTest extends AnyFreeSpec with Matchers {
   "the switch cookie matches Kahuna's feature-switch convention" in {
     KupuaPage.SwitchCookie shouldBe "feature-switch-use-kupua"
   }
+
+  "mutation configuration is default-off and only admits the implemented operation" in {
+    def payload(configuration: play.api.Configuration) =
+      KupuaPage.mutationConfig(configuration, "https://metadata.example.test", "https://auth.example.test")
+    val absent = payload(play.api.Configuration.empty)
+    (absent \ "mutations" \ "enabled").as[Boolean] shouldBe false
+    (absent \ "mutations" \ "operations").as[Seq[String]] shouldBe empty
+    (absent \ "metadataEditorUri").as[String] shouldBe "https://metadata.example.test"
+    (absent \ "authUri").as[String] shouldBe "https://auth.example.test"
+    val selected = payload(play.api.Configuration.from(Map(
+      "kupua.mutations.enabled" -> true, "kupua.mutations.operations" -> Seq("add-labels"))))
+    (selected \ "mutations" \ "enabled").as[Boolean] shouldBe true
+    (selected \ "mutations" \ "operations").as[Seq[String]] shouldBe Seq("add-labels")
+    for (operations <- Seq(Seq("delete"), "not-a-list")) {
+      val invalid = payload(play.api.Configuration.from(Map(
+        "kupua.mutations.enabled" -> true, "kupua.mutations.operations" -> operations)))
+      (invalid \ "mutations" \ "enabled").as[Boolean] shouldBe false
+    }
+    val rendered = KupuaPage.render("<html><head></head></html>", selected).get
+    rendered should include ("\"mutations\":{\"enabled\":true")
+  }
 }
