@@ -55,7 +55,16 @@ class UploadStatusController(auth: Authentication,
   def getUploadsBy(user:String): Action[AnyContent] = getUploads(Some(user))
 
   private def getUploads(maybeUser: Option[String]): Action[AnyContent] = auth.async { req =>
-    store.queryByUser(maybeUser.getOrElse(req.user.accessor.identity))
-      .map(list => respond(list))
+    val identity = req.user.accessor.identity
+    maybeUser match {
+      case Some(user) if !user.equalsIgnoreCase(identity) =>
+        Future.successful(respondError(
+          Forbidden,
+          "permission-denied",
+          "You do not have permission to view uploads for another user"
+        ))
+      case _ =>
+        store.queryByUser(identity).map(list => respond(list))
+    }
   }
 }

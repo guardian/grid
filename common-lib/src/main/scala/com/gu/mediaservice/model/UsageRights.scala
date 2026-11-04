@@ -683,7 +683,7 @@ object ProgrammesAcquisitions extends UsageRightsSpec {
     UsageRights.subtypeFormat(ProgrammesAcquisitions.category)(Json.format[ProgrammesAcquisitions])
 }
 
-final case class PublisherPhotographer(creator: String, publication: Option[String] = None, restrictions: Option[String] = None, legacyCategory: Option[String] = None) extends UsageRights {
+final case class PublisherPhotographer(creator: String, publication: Option[String] = None, restrictions: Option[String] = None) extends UsageRights {
 
   override val defaultCost: Option[Cost] = PublisherPhotographer.defaultCost
 }
@@ -714,7 +714,7 @@ object PublisherPhotographer extends ReplacementUsageRightsSpec {
 }
 
 
-final case class PublisherIllustrator(creator: String, publication: Option[String] = None, restrictions: Option[String] = None, legacyCategory: Option[String] = None) extends UsageRights {
+final case class PublisherIllustrator(creator: String, publication: Option[String] = None, restrictions: Option[String] = None) extends UsageRights {
 
   override val defaultCost: Option[Cost] = PublisherIllustrator.defaultCost
 }
