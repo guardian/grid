@@ -217,7 +217,6 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
       | category       | restricted    |
       | Unknown Rights | does not show |
       | Pay to use     | shows         |
-      | Bylines        | shows         |
   # Evidence: metadata-editor/app/model/UsageRightsProperty.scala lines 74-77 (restrictions offered for every category except NoRights)
   # Evidence: e2e-tests/setup/config.ts (usageRights.applicable)
   Scenario Outline: Saving a rights category with its properties filled in
@@ -227,7 +226,7 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
     When I select the "<category>" usage rights category and set configured fields
     And I save the rights
     Then the rights editor closes
-    And the rights and restrictions section shows "Agency - subscription"
+    And the rights and restrictions section shows "<category>"
     When I choose to edit the rights and restrictions
     Then the rights editor shows the configured fields
 

@@ -182,13 +182,14 @@ const RESTRICTIONS_PLACEHOLDER = 'What restrictions apply to this image?';
 
 const rightsProperty = (page: Page, property: string) =>
   rightsEditor(page).getByLabel(property, { exact: true });
+const rightsPropertyGroup = (page: Page, property: string) =>
+  rightsEditor(page)
+    .locator('.form-property')
+    .filter({ hasText: property });
 /**
  * A property with three or fewer options is rendered as radios, which its label isn't linked
  * to, so they're picked by option name. Only one category's radios are shown at a time.
  */
-const rightsRadios = (page: Page) => rightsEditor(page).getByRole('radio');
-const rightsRadio = (page: Page, option: string) =>
-  rightsEditor(page).getByRole('radio', { name: option, exact: true });
 const restrictedCheckbox = (page: Page) =>
   rightsEditor(page).getByRole('checkbox', { name: 'Restricted', exact: true });
 // The restrictions textarea has no label of its own, only a placeholder.
@@ -206,15 +207,16 @@ async function selectCategory(page: Page, category: string): Promise<void> {
 }
 
 type PropertyControl =
-  | { kind: 'radio'; radios: Locator }
+  | { kind: 'radio'; group: Locator }
   | { kind: 'select' | 'text'; field: Locator; suggestions: boolean };
 
 /** Find the control the editor renders for a category property. */
 async function propertyControl(page: Page, property: string): Promise<PropertyControl> {
   const field = rightsProperty(page, property);
-  const radios = rightsRadios(page);
+  const group = rightsPropertyGroup(page, property);
+  const radios = group.getByRole('radio');
   await expect(field.or(radios).first()).toBeVisible();
-  if ((await field.count()) === 0) return { kind: 'radio', radios };
+  if ((await field.count()) === 0) return { kind: 'radio', group };
 
   const tagName = await field.evaluate((element) => element.tagName);
   // Properties with options keyed on another property offer them as gr-datalist suggestions.
@@ -226,7 +228,7 @@ async function propertyControl(page: Page, property: string): Promise<PropertyCo
 async function setProperty(page: Page, property: string, value: string): Promise<void> {
   const control = await propertyControl(page, property);
   if (control.kind === 'radio') {
-    await rightsRadio(page, value).check();
+    await control.group.getByRole('radio', { name: value, exact: true }).check();
   } else if (control.kind === 'select') {
     await control.field.selectOption({ label: value });
   } else if (control.suggestions) {
@@ -243,7 +245,7 @@ async function setProperty(page: Page, property: string, value: string): Promise
 async function expectProperty(page: Page, property: string, value: string): Promise<void> {
   const control = await propertyControl(page, property);
   if (control.kind === 'radio') {
-    await expect(rightsRadio(page, value)).toBeChecked();
+    await expect(control.group.getByRole('radio', { name: value, exact: true })).toBeChecked();
   } else if (control.kind === 'select') {
     // Angular's ng-options values are internal ("string:AP"), so check the chosen option's text.
     await expect(control.field.locator('option:checked')).toHaveText(value);
@@ -327,7 +329,8 @@ Then(
     if (required !== 'required' && required !== 'optional') {
       throw new Error(`Expected "required" or "optional", got "${required}"`);
     }
-    const field = rightsProperty(page, property);
+    const control = await propertyControl(page, property);
+    const field = control.kind === 'radio' ? control.group.getByRole('radio').first() : control.field;
     await expect(field).toBeVisible();
     if (required === 'required') {
       await expect(field).toHaveAttribute('required');
