@@ -98,13 +98,12 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
   }
 
 
-  def isOwnDomainAndSecure(uri: URI): Boolean = {
-    val domainRoot = config.domainRoot.toLowerCase(Locale.ROOT)
-    val subdomainSuffix = if (domainRoot.startsWith(".")) domainRoot else s".$domainRoot"
-    uri.getScheme == "https" && Option(uri.getHost).exists { host =>
+  def isOwnDomainAndSecure(uri: URI): Boolean = (uri.getScheme, uri.getHost) match {
+    case ("https", host) if host != null =>
+      val domainRoot = config.domainRoot.toLowerCase(Locale.ROOT)
       val normalizedHost = host.toLowerCase(Locale.ROOT)
-      normalizedHost == domainRoot || normalizedHost.endsWith(subdomainSuffix)
-    }
+      normalizedHost == domainRoot || normalizedHost.endsWith(s".${domainRoot.stripPrefix(".")}")
+    case _ => false
   }
   def isValidDomain(inputUri: String): Boolean = {
     val success = Try(URI.create(inputUri)).filter(isOwnDomainAndSecure).isSuccess
