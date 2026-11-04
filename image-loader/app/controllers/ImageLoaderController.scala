@@ -64,6 +64,39 @@ class ImageLoaderController(auth: Authentication,
 
   private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForUpload
 
+  private def authenticatedDigestBodyParser(logMarker: LogMarker): BodyParser[DigestedFile] =
+    BodyParser("authenticated image upload") { request =>
+      auth.authenticationStatus(request, gracePeriodCountsAsAuthenticated = true) match {
+        case Left(result) =>
+          Accumulator.done(result.map(response => Left(response): Either[Result, DigestedFile]))
+        case Right(principal) if !authorisation.hasPermissionTo(UploadImages)(principal) =>
+          Accumulator.done(Future.successful(Left(authorisation.forbidden(UploadImages))))
+        case Right(_) =>
+          val tempFile = createTempFile("requestBody")(logMarker)
+          val parser = DigestBodyParser.create(tempFile)(ec)(request).mapFuture {
+            case Right(digestedFile) => Future.successful(Right(digestedFile))
+            case Left(result) => deleteTempFile(tempFile)(logMarker).map(_ => Left(result))
+          }
+          parser.recoverWith {
+            case error => cleanupTempFile(tempFile, logMarker)(Future.failed(error))
+          }
+      }
+    }
+
+  private def cleanupTempFile[A](file: File, logMarker: LogMarker)(result: Future[A]): Future[A] =
+    result.transformWith { completed =>
+      deleteTempFile(file)(logMarker).transform {
+        case Success(_) => completed
+        case Failure(cleanupError) =>
+          completed match {
+            case Success(_) => Failure(cleanupError)
+            case Failure(operationError) =>
+              operationError.addSuppressed(cleanupError)
+              Failure(operationError)
+          }
+      }
+    }
+
   private val activeProcessingMessage = new AtomicReference[Option[SQSMessage]](None)
 
   // when shutting down, make best efforts to make currently processing image available on the queue again
@@ -282,12 +315,10 @@ class ImageLoaderController(auth: Authentication,
     )
     logger.info(initialContext, "loadImage request start")
 
-    // synchronous write to file
-    val tempFile = createTempFile("requestBody")(initialContext)
-    logger.info(initialContext, "body parsed")
-    val bodyParser = DigestBodyParser.create(tempFile)
+    val bodyParser = authenticatedDigestBodyParser(initialContext)
 
     AuthenticatedAndAuthorised.async(bodyParser) { req =>
+      logger.info(initialContext, "body parsed")
       val uploadedByToRecord = uploadedBy.getOrElse(Authentication.getIdentity(req.user))
 
       implicit val context: LogMarker =
@@ -310,9 +341,7 @@ class ImageLoaderController(auth: Authentication,
         _ <- uploadStatusTable.setStatus(record)
         result <- quarantineOrStoreImage(uploadRequest)
       } yield result
-      result.onComplete( _ => Try { deleteTempFile(tempFile) } )
-
-      result map { r =>
+      cleanupTempFile(req.body.file, context)(result).map { r =>
         val result = Accepted(r).as(ArgoMediaType)
         logger.info(context, "loadImage request end")
         result
@@ -342,23 +371,7 @@ class ImageLoaderController(auth: Authentication,
     )
     logger.info(initialContext, "enqueueDerivativeImage request start")
 
-    val bodyParser = BodyParser("authenticated derivative image upload") { request =>
-      auth.authenticationStatus(request, gracePeriodCountsAsAuthenticated = true) match {
-        case Left(result) =>
-          Accumulator.done(result.map(response => Left(response): Either[Result, DigestedFile]))
-        case Right(principal) if !authorisation.hasPermissionTo(UploadImages)(principal) =>
-          Accumulator.done(Future.successful(Left(authorisation.forbidden(UploadImages))))
-        case Right(_) =>
-          val tempFile = createTempFile("requestBody")(initialContext)
-          val parser = DigestBodyParser.create(tempFile)(ec)(request).mapFuture {
-            case Right(digestedFile) => Future.successful(Right(digestedFile))
-            case Left(result) => deleteTempFile(tempFile)(initialContext).map(_ => Left(result))
-          }
-          parser.recoverWith {
-            case error => deleteTempFile(tempFile)(initialContext).flatMap(_ => Future.failed(error))
-          }
-      }
-    }
+    val bodyParser = authenticatedDigestBodyParser(initialContext)
 
     AuthenticatedAndAuthorised.async(bodyParser) { req =>
 
@@ -381,18 +394,7 @@ class ImageLoaderController(auth: Authentication,
         // return just the new media ID for now, though perhaps in future we could track these in the upload status table and provide the URI to the relevant entry
         Accepted(newMediaId)
       }
-      queued.transformWith { result =>
-        deleteTempFile(req.body.file)(initialContext).transform {
-          case Success(_) => result
-          case Failure(cleanupError) =>
-            result match {
-              case Success(_) => Failure(cleanupError)
-              case Failure(operationError) =>
-                operationError.addSuppressed(cleanupError)
-                Failure(operationError)
-            }
-        }
-      }
+      cleanupTempFile(req.body.file, initialContext)(queued)
     }
   }
 

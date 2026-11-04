@@ -22,7 +22,7 @@ import org.scalatestplus.mockito.MockitoSugar
 import play.api.libs.crypto.CookieSigner
 import play.api.libs.ws.WSRequest
 import play.api.mvc.RequestHeader
-import play.api.test.Helpers.{ACCEPTED, BAD_REQUEST, FORBIDDEN, POST, call, status, stubControllerComponents}
+import play.api.test.Helpers.{ACCEPTED, BAD_REQUEST, FORBIDDEN, POST, UNSUPPORTED_MEDIA_TYPE, call, status, stubControllerComponents}
 import play.api.test.FakeRequest
 import play.api.inject.ApplicationLifecycle
 
@@ -44,7 +44,9 @@ class DerivativeUploadAuthTest extends AnyFunSuite with Matchers with MockitoSug
   private def controllerFor(
     temporaryDirectory: java.nio.file.Path,
     canUpload: Boolean,
-    store: ImageLoaderStore = mock[ImageLoaderStore]
+    store: ImageLoaderStore = mock[ImageLoaderStore],
+    uploader: Uploader = mock[Uploader],
+    config: ImageLoaderConfig = mock[ImageLoaderConfig]
   ): ImageLoaderController = {
     val controllerComponents = stubControllerComponents()
 
@@ -74,7 +76,6 @@ class DerivativeUploadAuthTest extends AnyFunSuite with Matchers with MockitoSug
       override def hasBasicAccess(userEmail: String): Boolean = false
     }
     val authorisation = new Authorisation(authorisationProvider, executionContext)
-    val config = mock[ImageLoaderConfig]
     when(config.tempDir).thenReturn(temporaryDirectory.toFile)
 
     new ImageLoaderController(
@@ -85,7 +86,7 @@ class DerivativeUploadAuthTest extends AnyFunSuite with Matchers with MockitoSug
       mock[UploadStatusTable],
       mock[Notifications],
       config,
-      mock[Uploader],
+      uploader,
       None,
       mock[Projector],
       controllerComponents,
@@ -126,6 +127,24 @@ class DerivativeUploadAuthTest extends AnyFunSuite with Matchers with MockitoSug
     }
   }
 
+  test("loadImage does not create a tempfile when the user lacks upload permission") {
+    withTemporaryDirectory { temporaryDirectory =>
+      val request = FakeRequest(POST, "/images")
+        .withBody(ByteString.empty)
+        .withHeaders("Content-Length" -> "0")
+      val result = call(
+        controllerFor(temporaryDirectory, canUpload = false)
+          .loadImage(None, None, None, Some("image.jpg")),
+        request
+      )
+
+      status(result) shouldBe FORBIDDEN
+      val files = Files.list(temporaryDirectory)
+      try files.count() shouldBe 0L
+      finally files.close()
+    }
+  }
+
   test("deletes the tempfile when request body validation fails") {
     withTemporaryDirectory { temporaryDirectory =>
       val request = FakeRequest(POST, "/enqueueDerivativeImage")
@@ -138,6 +157,52 @@ class DerivativeUploadAuthTest extends AnyFunSuite with Matchers with MockitoSug
       )
 
       status(result) shouldBe BAD_REQUEST
+      val files = Files.list(temporaryDirectory)
+      try files.count() shouldBe 0L
+      finally files.close()
+    }
+  }
+
+  test("loadImage deletes the tempfile when request body validation fails") {
+    withTemporaryDirectory { temporaryDirectory =>
+      val request = FakeRequest(POST, "/images")
+        .withBody(ByteString("x"))
+        .withHeaders("Content-Length" -> "2")
+      val result = call(
+        controllerFor(temporaryDirectory, canUpload = true)
+          .loadImage(None, None, None, Some("image.jpg")),
+        request
+      )
+
+      status(result) shouldBe BAD_REQUEST
+      val files = Files.list(temporaryDirectory)
+      try files.count() shouldBe 0L
+      finally files.close()
+    }
+  }
+
+  test("loadImage deletes the tempfile when processing fails") {
+    withTemporaryDirectory { temporaryDirectory =>
+      val uploader = mock[Uploader]
+      when(uploader.loadFile(
+        any[DigestedFile],
+        anyString(),
+        any[Map[String, String]],
+        any[org.joda.time.DateTime],
+        any[Option[String]]
+      )(any[ExecutionContext], any[LogMarker])).thenReturn(Future.failed(new java.io.IOException("upload failed")))
+      val config = mock[ImageLoaderConfig]
+      when(config.tempDir).thenReturn(temporaryDirectory.toFile)
+      when(config.maybeQuarantineBucket).thenReturn(None)
+      when(config.uploadStatusExpiry).thenReturn(1.hour)
+
+      val controller = controllerFor(temporaryDirectory, canUpload = true, uploader = uploader, config = config)
+      val request = FakeRequest(POST, "/images")
+        .withBody(ByteString("x"))
+        .withHeaders("Content-Length" -> "1")
+      val result = call(controller.loadImage(None, None, None, Some("image.jpg")), request)
+
+      status(result) shouldBe UNSUPPORTED_MEDIA_TYPE
       val files = Files.list(temporaryDirectory)
       try files.count() shouldBe 0L
       finally files.close()
