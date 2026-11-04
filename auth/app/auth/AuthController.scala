@@ -12,6 +12,7 @@ import play.api.mvc.{BaseController, ControllerComponents, Result}
 
 import java.net.URI
 import java.time.Instant
+import java.util.Locale
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -98,7 +99,12 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
 
 
   def isOwnDomainAndSecure(uri: URI): Boolean = {
-    uri.getHost.endsWith(config.domainRoot) && uri.getScheme == "https"
+    val domainRoot = config.domainRoot.toLowerCase(Locale.ROOT)
+    val subdomainSuffix = if (domainRoot.startsWith(".")) domainRoot else s".$domainRoot"
+    uri.getScheme == "https" && Option(uri.getHost).exists { host =>
+      val normalizedHost = host.toLowerCase(Locale.ROOT)
+      normalizedHost == domainRoot || normalizedHost.endsWith(subdomainSuffix)
+    }
   }
   def isValidDomain(inputUri: String): Boolean = {
     val success = Try(URI.create(inputUri)).filter(isOwnDomainAndSecure).isSuccess
