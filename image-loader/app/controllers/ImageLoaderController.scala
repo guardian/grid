@@ -10,6 +10,7 @@ import com.gu.mediaservice.lib.ImageIngestOperations.fileKeyFromId
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.OnBehalfOfPrincipal
+import com.gu.mediaservice.lib.auth.Permissions.UploadImages
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{S3Ops, SimpleSqsMessageConsumer, SqsHelpers}
 import com.gu.mediaservice.lib.formatting.printDateTime
@@ -28,6 +29,7 @@ import play.api.data.Form
 import play.api.data.Forms._
 import play.api.inject.ApplicationLifecycle
 import play.api.libs.json.Json
+import play.api.libs.streams.Accumulator
 import play.api.mvc._
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
@@ -340,8 +342,23 @@ class ImageLoaderController(auth: Authentication,
     )
     logger.info(initialContext, "enqueueDerivativeImage request start")
 
-    val tempFile = createTempFile("requestBody")(initialContext)
-    val bodyParser = DigestBodyParser.create(tempFile)
+    val bodyParser = BodyParser("authenticated derivative image upload") { request =>
+      auth.authenticationStatus(request, gracePeriodCountsAsAuthenticated = true) match {
+        case Left(result) =>
+          Accumulator.done(result.map(response => Left(response): Either[Result, DigestedFile]))
+        case Right(principal) if !authorisation.hasPermissionTo(UploadImages)(principal) =>
+          Accumulator.done(Future.successful(Left(authorisation.forbidden(UploadImages))))
+        case Right(_) =>
+          val tempFile = createTempFile("requestBody")(initialContext)
+          val parser = DigestBodyParser.create(tempFile)(ec)(request).mapFuture {
+            case Right(digestedFile) => Future.successful(Right(digestedFile))
+            case Left(result) => deleteTempFile(tempFile)(initialContext).map(_ => Left(result))
+          }
+          parser.recoverWith {
+            case error => deleteTempFile(tempFile)(initialContext).flatMap(_ => Future.failed(error))
+          }
+      }
+    }
 
     AuthenticatedAndAuthorised.async(bodyParser) { req =>
 
@@ -353,16 +370,28 @@ class ImageLoaderController(auth: Authentication,
         (s"${ImageStorageProps.identifierMetadataKeyPrefix}$k", v)
       }
 
-      store.queueS3Object(
+      val queued = store.queueS3Object(
         uploader = uploadedBy.getOrElse(Authentication.getIdentity(req.user)),
         filename = filename,
         s3Meta = s3UserMetaMap,
-        file =  tempFile
+        file = req.body.file
       ).map {_ =>
         val newMediaId: String = req.body.digest
 
         // return just the new media ID for now, though perhaps in future we could track these in the upload status table and provide the URI to the relevant entry
         Accepted(newMediaId)
+      }
+      queued.transformWith { result =>
+        deleteTempFile(req.body.file)(initialContext).transform {
+          case Success(_) => result
+          case Failure(cleanupError) =>
+            result match {
+              case Success(_) => Failure(cleanupError)
+              case Failure(operationError) =>
+                operationError.addSuppressed(cleanupError)
+                Failure(operationError)
+            }
+        }
       }
     }
   }
