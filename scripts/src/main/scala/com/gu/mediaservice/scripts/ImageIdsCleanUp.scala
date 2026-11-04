@@ -130,9 +130,9 @@ object ImageIdsCleanUp {
       }
   }
 
-  def cleanUpImageIds(imageIds: Seq[String], dryRun: Boolean): Future[Seq[ProcessResult]] = {
+  def cleanUpImageIds(imageIds: Set[String], dryRun: Boolean): Future[Seq[ProcessResult]] = {
     println(s"Found ${imageIds.size} ids, now running deletion")
-    traverseBatched(imageIds.zipWithIndex, MaxConcurrentRequests) { case (mediaId, index) =>
+    traverseBatched(imageIds.toSeq.zipWithIndex, MaxConcurrentRequests) { case (mediaId, index) =>
       if (dryRun) {
         println(s"[DRY MODE] Would process $mediaId (${index + 1} of ${imageIds.size})")
         Future.successful(ProcessResult(mediaId, true, "dry-run-skipped"))
@@ -149,7 +149,7 @@ object ImageIdsCleanUp {
     val csvPath = args.headOption.getOrElse {
       throw new IllegalArgumentException("To run the script pass in a path to a csv file as an argument")
     }
-    val imageIds = CsvFile.readFirstColumn(csvPath)
+    val imageIds = CsvFile.readFirstColumn(csvPath).toSet
     println(s"Found ${imageIds.size} image ids to process")
     if (imageIds.isEmpty) {
       println("No image ids found in supplied csv, exiting script")
