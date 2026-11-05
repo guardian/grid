@@ -213,7 +213,7 @@ class EditsController(
     }
   }
 
-  def setUsageRights(id: String) = auth.async(parse.json) { req =>
+  def setUsageRights(id: String) = (auth andThen authorisedForEditMetadataOrUploader(id)).async(parse.json) { req =>
     (req.body \ "data").asOpt[UsageRights].map(usageRight => {
       editsStore.jsonAdd(id, Edits.UsageRights, DynamoDB.caseClassToMap(usageRight))
         .map(publish(id, UpdateImageUserMetadata))
@@ -222,7 +222,7 @@ class EditsController(
   }
 
   //TODO - remove as a second step
-  def deleteUsageRights(id: String) = auth.async { req =>
+  def deleteUsageRights(id: String) = (auth andThen authorisedForEditMetadataOrUploader(id)).async { req =>
     editsStore.removeKey(id, Edits.UsageRights).map(publish(id, UpdateImageUserMetadata)).map(edits => Accepted)
   }
 
