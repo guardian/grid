@@ -105,7 +105,7 @@ class EditsController(
     )
   }
 
-  def unsetArchived(id: String) = auth.async {
+  def unsetArchived(id: String) = AuthenticatedAndAuthorised.async {
     editsStore.removeKey(id, Edits.Archived)
       .map(publish(id, UpdateImageUserMetadata))
       .map(_ => respond(false))

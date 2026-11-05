@@ -132,4 +132,21 @@ class EditsControllerUsageRightsAuthTest extends AnyFunSpec with Matchers with M
       verify(f.store).removeKey(anyString(), anyString())(any())
     }
   }
+
+  describe("DELETE /metadata/:id/archived") {
+    it("is forbidden for a user without ArchiveImages") {
+      val f = new Fixture(hasEditMetadata = false, uploadedBy = None)
+      val result = f.controller.unsetArchived(imageId)(FakeRequest())
+      status(result) shouldBe FORBIDDEN
+      verify(f.store, never()).removeKey(anyString(), anyString())(any())
+    }
+
+    it("is allowed for a user with ArchiveImages") {
+      val f = new Fixture(hasEditMetadata = true, uploadedBy = None)
+      when(f.store.removeKey(anyString(), anyString())(any())).thenReturn(Future.successful(JsObject.empty))
+      val result = f.controller.unsetArchived(imageId)(FakeRequest())
+      status(result) should not be FORBIDDEN
+      verify(f.store).removeKey(anyString(), anyString())(any())
+    }
+  }
 }
