@@ -8,9 +8,9 @@ class SearchFiltersTest extends AnyFunSpec with Matchers with Fixtures {
 
   describe("freeToUseCategories") {
     it("should include the legacy categories of a free replacement category in config.applicableUsageRights") {
-      val searchFilters = new SearchFilters(mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PublisherPhotographer")))
+      val searchFilters = new SearchFilters(mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PublisherPhotography")))
 
-      searchFilters.freeToUseCategories shouldEqual PublisherPhotographer.allCategories.list.toList
+      searchFilters.freeToUseCategories shouldEqual PublisherPhotography.allCategories.list.toList
     }
 
     it("should include the legacy categories of a conditional replacement category in config.applicableUsageRights") {
