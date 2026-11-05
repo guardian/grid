@@ -2,12 +2,16 @@ package controllers
 
 import java.util.UUID
 
+import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth._
+import com.gu.mediaservice.lib.auth.Authentication.Principal
+import com.gu.mediaservice.lib.auth.Permissions.EditMetadata
 import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
 import lib.{LeaseNotifier, LeaseStore, LeasesConfig}
 import play.api.libs.json._
+import play.api.libs.ws.WSClient
 import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -20,10 +24,25 @@ object AppIndex {
 }
 
 class MediaLeaseController(auth: Authentication, store: LeaseStore, config: LeasesConfig, notifications: LeaseNotifier,
+                          authorisation: Authorisation, ws: WSClient,
                           override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
   private val notFound = respondNotFound("MediaLease not found")
+  private val gridClient = GridClient(config.services, config.rootUri)(ws)
+
+  private def getUploader(imageId: String, user: Principal): Future[Option[String]] =
+    gridClient.getUploadedBy(imageId, auth.getOnBehalfOfPrincipal(user))
+
+  private def authorisedForMedia[A](mediaId: String, request: Authentication.Request[A])
+                                   (block: => Future[Result]): Future[Result] =
+    authorisation.actionFilterForUploaderOr(mediaId, EditMetadata, getUploader)
+      .invokeBlock(request, _ => block)
+
+  private def validateMediaIds(mediaLeases: List[MediaLease], mediaId: String)
+                              (block: => Future[Result]): Future[Result] =
+    if (mediaLeases.forall(_.mediaId == mediaId)) block
+    else Future.successful(respondError(BadRequest, "validation-error", "Lease mediaId must match the URL image ID"))
 
   private val indexResponse = {
     val appIndex = AppIndex("media-leases", "Media leases service", Map())
@@ -86,7 +105,9 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
   def postLease = auth.async(parse.json) { implicit request =>
     request.body.validate[MediaLease] match {
       case JsSuccess(mediaLease, _) =>
-        addLease(mediaLease, Some(Authentication.getIdentity(request.user))).map(_ => Accepted)
+        authorisedForMedia(mediaLease.mediaId, request) {
+          addLease(mediaLease, Some(Authentication.getIdentity(request.user))).map(_ => Accepted)
+        }
 
       case JsError(errors) =>
         Future.successful(badRequest(errors))
@@ -96,14 +117,27 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
   def addLeasesForMedia(id: String) = auth.async(parse.json) { implicit request =>
     request.body.validate[List[MediaLease]] match {
       case JsSuccess(mediaLeases, _) =>
-        addLeases(mediaLeases, Some(Authentication.getIdentity(request.user))).map(_ => Accepted)
+        validateMediaIds(mediaLeases, id) {
+          authorisedForMedia(id, request) {
+            addLeases(mediaLeases, Some(Authentication.getIdentity(request.user))).map(_ => Accepted)
+          }
+        }
       case JsError(errors) =>
         Future.successful(badRequest(errors))
     }
   }
 
   def deleteLease(id: String) = auth.async { implicit request =>
-    for { _ <- clearLease(id) } yield Accepted
+    store.get(id).flatMap {
+      case Some(lease) =>
+        authorisedForMedia(lease.mediaId, request) {
+          store.delete(id).map { _ =>
+            notifications.sendRemoveLease(lease.mediaId, id)
+            Accepted
+          }
+        }
+      case None => Future.successful(notFound)
+    }
   }
 
   def getLease(id: String) = auth.async { _ =>
@@ -119,25 +153,30 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
   }
 
 
-  def deleteLeasesForMedia(id: String) = auth.async { _ =>
-    for { _ <- clearLeases(id) } yield Accepted
+  def deleteLeasesForMedia(id: String) = auth.async { implicit request =>
+    authorisedForMedia(id, request) {
+      clearLeases(id).map(_ => Accepted)
+    }
   }
 
   def validateLeases(leases: List[MediaLease]) = leases.count { _.isSyndication } <= 1
 
-  def replaceLeasesForMedia(id: String) = auth.async(parse.json) { implicit request => Future {
+  def replaceLeasesForMedia(id: String) = auth.async(parse.json) { implicit request =>
     request.body.validate[List[MediaLease]].fold(
-      badRequest,
+      errors => Future.successful(badRequest(errors)),
       mediaLeases => {
         if (validateLeases(mediaLeases)) {
-          replaceLeases(mediaLeases, id, Some(Authentication.getIdentity(request.user)))
-          Accepted
+          validateMediaIds(mediaLeases, id) {
+            authorisedForMedia(id, request) {
+              replaceLeases(mediaLeases, id, Some(Authentication.getIdentity(request.user))).map(_ => Accepted)
+            }
+          }
         } else {
-          respondError(BadRequest, "validation-error", "No more than one syndication lease per image")
+          Future.successful(respondError(BadRequest, "validation-error", "No more than one syndication lease per image"))
         }
       }
     )
-  }}
+  }
 
   def getLeasesForMedia(id: String) = auth.async { _ =>
     for { leases <- store.getForMedia(id) } yield {
