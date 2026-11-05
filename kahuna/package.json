@@ -2,7 +2,7 @@
   "dependencies": {
     "@babel/polyfill": "7.12.1",
     "@emotion/react": "^11.14.0",
-    "@guardian/cql": "1.8.6",
+    "@guardian/cql": "^1.8.7",
     "@guardian/stand": "^0.0.73",
     "@guardian/user-telemetry-client": "1.2.3",
     "@sentry/browser": "7.119.1",
