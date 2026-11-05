@@ -9,7 +9,7 @@
  * "effective query" derivation, corrupting the chip and the URL.
  *
  * Run:
- *   npx playwright test e2e/local/cql-search-quoting.spec.ts
+ *   npm --prefix kupua run test:e2e -- --project=chromium cql-search-quoting.spec.ts --retries=0
  */
 
 import { test, expect } from "../shared/helpers";
@@ -52,6 +52,51 @@ test("preserves a quoted key:value chip (key contains a colon) across load and r
     return !!store && !store.getState().loading;
   });
   await assertCorrect();
+});
+
+test.describe("CQL focus ownership", () => {
+  for (const selection of ["caret", "range"] as const) {
+    test(`preserves the ${selection} across editor blur and refocus`, async ({ kupua, page }) => {
+      await kupua.startSearch();
+      const editor = page.locator(".ProseMirror.Cql__ContentEditable");
+      await editor.fill("alpha omega");
+      await expect(page).toHaveURL(/query=alpha(?:\+|%20)omega/);
+      for (let index = 0; index < 5; index++) {
+        await editor.press(selection === "range" ? "Shift+ArrowLeft" : "ArrowLeft");
+      }
+
+      await expect.poll(() => page.locator("cql-input").evaluate((el: any) => {
+        const { doc, selection: range } = el.editorView.state;
+        return {
+          before: doc.textBetween(0, range.from),
+          selected: doc.textBetween(range.from, range.to),
+        };
+      })).toEqual({ before: "alpha ", selected: selection === "range" ? "omega" : "" });
+      await page.getByRole("toolbar", { name: "Search and filter controls" }).getByRole("link").focus();
+      // Hidden tabs can lose DOM selection; the editor must retain its own selection.
+      await page.evaluate(() => window.getSelection()?.removeAllRanges());
+      await editor.focus();
+      await page.keyboard.type("X");
+
+      const expected = selection === "range" ? "alpha X" : "alpha Xomega";
+      await expect(editor).toHaveText(expected);
+      await expect.poll(() => page.evaluate(() => new URL(location.href).searchParams.get("query"))).toBe(expected);
+    });
+  }
+
+  test("window focus does not reclaim focus after the user leaves the editor", async ({ kupua, page }) => {
+    await kupua.startSearch();
+    await page.locator(".ProseMirror.Cql__ContentEditable").fill("alpha omega");
+    await expect(page).toHaveURL(/query=alpha(?:\+|%20)omega/);
+    const logo = page.getByRole("toolbar", { name: "Search and filter controls" }).getByRole("link");
+    await logo.focus();
+    await page.evaluate(async () => {
+      window.dispatchEvent(new Event("blur"));
+      window.dispatchEvent(new Event("focus"));
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    });
+    await expect(logo).toBeFocused();
+  });
 });
 
 test.describe("CQL resolver ownership", () => {

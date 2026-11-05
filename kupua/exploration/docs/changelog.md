@@ -24,6 +24,33 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 5 November 2026 - Retire upstream-fixed CQL integration workarounds
+
+Upgraded @guardian/cql to 1.8.7, including upstream blur-selection preservation,
+constructor typing, optional field descriptions and inert clipboard inspection.
+Removed the local ProseMirror dispatch wrapper, selection snapshots, capture-blur
+snapshot listener, visibility/window restoration listeners and scheduled selection
+repairs. Registration now uses the library's constructor type directly; fields omit
+dummy descriptions and use the default text suggestion type.
+
+Selection remains upstream-owned after blur, including when a hidden tab loses DOM
+selection. Returning window focus no longer reclaims the editor after the user has
+focused another control. The separate mobile chip-deletion keyboard-refocus guard
+retains its existing behaviour and only needs the editor's DOM/focus surface.
+
+Regression-first browser cases exercise caret insertion, selected-text replacement
+and focus ownership. The existing CQL quoting, Clear/Home owner lifetime, scoped
+suggestions and click-to-search checks remain in place; unit, application build,
+browser typechecking and full local E2E validation cover the retained integration.
+The range fixture waits for the editor to observe native selectionchange before
+blurring rather than racing the browser's asynchronous selection update.
+
+The release does not fix reserved-character phrase serialization, provide resolver
+query context or replace Kupua's suggestion/reset policies. Keep those workarounds,
+the mobile refocus guard and direct-mode parser. Updated deviation guidance to
+separate those retained contracts from upstream fixes and correct stale mobile,
+popover, AST-scope, aggregation-mode and Home/End descriptions.
+
 ### 5 November 2026 - Disconnected label editing and shared suggestions
 
 Added an API-mode label editor for single-image and selected-image metadata, with

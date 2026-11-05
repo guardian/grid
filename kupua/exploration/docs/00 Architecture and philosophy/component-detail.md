@@ -693,6 +693,12 @@ Registration forwards to the current mounted owner; teardown disables its sugges
 before destroying the editor. External value sync suppresses intermediate resolver admission,
 while self-caused edits retain the live AST and latest-prefix counts.
 
+Blur selection belongs to @guardian/cql (1.8.7+); there is no local dispatch wrapper,
+selection snapshot or window/visibility restoration. Window focus cannot reclaim the
+editor from another control. The mobile chip-deletion keyboard-refocus guard remains
+separate. Registration uses the upstream constructor type, and descriptions may be
+omitted; neither change removes the remaining quoting or typeahead integration.
+
 ---
 
 # UI Components — Views

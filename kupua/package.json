@@ -52,7 +52,7 @@
     "test:perf-research": "playwright test --config=e2e-perf/research/playwright.config.ts"
   },
   "dependencies": {
-    "@guardian/cql": "^1.8.6",
+    "@guardian/cql": "^1.8.7",
     "@immich/justified-layout-wasm": "0.4.5",
     "@tanstack/react-router": "^1.170.41",
     "@tanstack/react-table": "^8.21.3",

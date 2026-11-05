@@ -289,17 +289,15 @@ Kahuna serves Open Sans from its own Play Framework asset pipeline
 URLs.  The font files are byte-identical to kahuna's — they are the same
 modified builds, not vanilla Google Fonts downloads.
 
-### 8. CQL typeahead uses ES aggregations instead of Grid API endpoints
+### 8. CQL typeahead uses DAL aggregations instead of Kahuna's suggestion endpoints
 
 Kahuna's CQL typeahead resolvers call the Grid media-api's
-`/suggest/metadata/{field}` and `/edits/labels` endpoints.  Kupua has no
-Grid API connection.  Instead, `typeahead-fields.ts` builds resolvers that
-query ES directly via terms aggregations on keyword fields (e.g.
-`metadata.credit`, `metadata.keywords`, `exports.author`).
-
-The `buildTypeaheadFields` function takes the `ImageDataSource` as input.
-When/if the DAL switches to `GridApiDataSource`, the resolvers will
-automatically use live API suggestions with no CQL component changes.
+`/suggest/metadata/{field}` and `/edits/labels` endpoints. Kupua instead uses
+`ImageDataSource.getAggregations()` through `typeahead-fields.ts`: media-api
+aggregations in API/hosted mode, or guarded ES aggregations in explicit laptop
+direct mode. Keyword paths include `metadata.credit`, `metadata.keywords` and
+`exports.author`. This is application-owned suggestion policy, not a workaround
+removed by @guardian/cql 1.8.7; API failures never switch to direct ES.
 
 ### 9. Date filter UI improvements over kahuna
 
@@ -336,7 +334,7 @@ seek, script handling in `reverseSortClause`, `countBefore`, and
 **Migration impact:** No longer a concern — Width/Height are plain field
 sorts that work with `fieldSort()` in media-api's `sorts.scala`.
 
-### 11. CQL free-text search uses simpler `cross_fields` strategy
+### 11. Direct-ES CQL free-text search uses simpler `cross_fields` strategy
 
 Kahuna's Scala `QueryBuilder` constructs free-text queries with
 field-specific boosting, `minimum_should_match`, and other tuning.
@@ -369,9 +367,11 @@ Kahuna's CQL typeahead has resolvers for some keyword fields (`credit`,
 and `photoshoot`.
 
 Kupua replaces all of these with **terms aggregations** on the
-corresponding keyword fields in ES.  This is simpler (one strategy instead
-of two) and shows all values ranked by popularity immediately when the user
-types `:` — completion suggesters require at least one character.
+corresponding keyword fields through the selected DAL adapter. This is simpler
+(one strategy instead of two) and shows a bounded popularity-ranked shortlist
+immediately when the user types `:` — completion suggesters require at least one
+character. It does not enumerate every value. @guardian/cql 1.8.7 does not replace
+this application-owned aggregation policy.
 
 Additional keyword fields that kahuna left without resolvers (`croppedBy`,
 `keyword`) now also have terms-aggregation resolvers.  `filename` is
@@ -440,6 +440,12 @@ Centralised in `lib/keyboard-shortcuts.ts` with a single `document`
 capture-phase listener. Components register via `useKeyboardShortcut` hook.
 
 ### 16. Direct ES access bypasses media-api — migration surface
+
+**Current scope:** the analysis below is historical migration input, not the active
+architecture. Hosted/API mode now uses media-api exclusively, including query parsing
+and aggregations; explicit laptop direct-ES mode retains its local CQL translator and
+safeguards. The historical dual-path recommendation is superseded. A CQL editor release
+does not authorize removing that mode or changing the server grammar.
 
 Kupua talks to Elasticsearch directly for all read operations, bypassing
 Grid's `media-api` entirely. Kahuna never touches ES — it calls
@@ -633,40 +639,18 @@ current sort is NOT captured as the revert target. Leaving
 condition with phantom focus. The atomic approach eliminates the race by
 construction — zero throwaway ES queries.
 
-### 19. Caret position preserved across tab/window switch
+### 19. ~~Caret restoration across tab/window switch~~ — RESOLVED (@guardian/cql 1.8.7)
 
-**What:** When the user moves focus away from the kupua tab/window
-(Cmd+Tab, browser tab switch, etc.) and returns, the caret in the CQL
-search input is restored to its pre-blur position. Implementation in
-[CqlSearchInput.tsx](../../src/components/CqlSearchInput.tsx) wraps
-`view.dispatch` to continuously cache the latest selection, snapshots
-it in a capture-phase `blur` listener (which runs **before** CQL's own
-plugin blur handler — see "Why" below), then restores via
-`view.dispatch(setSelection(...))` in both a microtask and a rAF on
-return.
+Upstream [guardian/cql#135](https://github.com/guardian/cql/pull/135) removes the
+blur-time selection reset ([guardian/cql#122](https://github.com/guardian/cql/issues/122))
+and hides selected-chip styling while unfocused instead. Kupua now relies on that
+selection ownership rather than wrapping every ProseMirror transaction, caching
+selections or restoring them through window/visibility listeners and scheduled work.
+Returning to the window must not reclaim focus from another control.
 
-**Why:** Default behaviour reset the caret to position 0 on return.
-Two compounding causes:
-1. Browsers clear the DOM selection when the tab hides; on return,
-   `focusin` fires, ProseMirror's `selectionFromDOM` reads position 0
-   from the cleared DOM, and writes it to PM state.
-2. `@guardian/cql`'s own plugin dispatches `setSelection(near(0))` in
-   its `handleDOMEvents.blur` ([cql.ts L382](../../node_modules/@guardian/cql/src/cqlInput/editor/plugins/cql.ts#L382)).
-   This means by the time `window.blur` fires, PM's cached selection has
-   already been reset by the plugin — so the obvious "save on
-   visibilitychange:hidden" approach captures position 0.
-
-The fix uses **capture-phase** DOM blur to snapshot before the plugin
-reset transaction lands, plus continuous `lastKnownSelection` caching
-via a `view.dispatch` wrapper so we always have an authoritative
-position even if the plugin reset has already fired.
-
-**Trade-off:** Adds a small wrapper around every PM transaction (one
-object allocation per transaction — negligible). Reaches into CQL
-internals via the public `editorView` field on the custom element —
-brittle if CQL changes its API, but `editorView` is part of the public
-surface. See "Should this be upstreamed?" discussion in the
-23 April 2026 changelog entry.
+The mobile Backspace/Delete refocus guard remains: removing a focused chip's DOM
+node can dismiss the virtual keyboard, a different problem not fixed by preserving
+selection on blur.
 
 ### 20. Two-phase position map fetch to avoid ES sort sentinels
 
@@ -976,7 +960,7 @@ and [cost model](00%20Architecture%20and%20philosophy/03-scroll-architecture.md#
 > | `inline-block` / `inline-flex` layout instead of JS-computed widths | `ImageTable.tsx` table root + header | Browser rounds each cell's pixel width independently at non-100% zoom; JS sum diverges from rendered total — see §9 below |
 > | CSS custom properties (`--col-<id>`) via `dangerouslySetInnerHTML` `<style>` tag | `ImageTable.tsx` | Avoids 300+ `getSize()` calls per render; browser applies widths via CSS — see §10 below |
 > | Single-value CSS padding in CQL theme (not shorthand) | `CqlSearchInput.tsx` | Multi-value shorthand (e.g. `"2px 6px"`) breaks `calc()` inside the `@guardian/cql` shadow DOM |
-> | Capture-phase `document` listener for Home/End keys | `keyboard-shortcuts.ts`, `ImageTable.tsx` | ProseMirror inside the CQL web component's shadow DOM swallows Home/End before bubble-phase handlers fire — see §7 below |
+> | Capture-phase `document` listener for Home/End keys | `useListNavigation.ts` | Intercepts Home/End before ProseMirror changes the CQL selection — see §7 below |
 > | `customElements.define()` one-shot guard with module-level flag | `CqlSearchInput.tsx` | Browser API is one-shot — cannot re-register an element name — see §6 below |
 > | `requestAnimationFrame` for post-seek focus | `ImageTable.tsx` scroll-reset | Ensures the CQL input focus happens after the browser has flushed layout from the `scrollTop` change |
 > | `useLayoutEffect` for backward/forward extend scroll compensation | `ImageTable.tsx` | Must adjust `scrollTop` before paint to prevent one-frame content shift; `useEffect` would flicker — see §23 (Grid/Kahuna) |
@@ -1081,18 +1065,17 @@ the small bridge and disable guards are Kupua-owned library integration.
 
 ### 7. Two-phase keyboard handling for Home/End vs arrows
 
-**What:** `ImageTable.tsx` registers two `document` keydown listeners:
+**What:** `useListNavigation.ts` registers two `document` keydown listeners:
 a **bubble-phase** handler for arrows and PageUp/PageDown, and a
 **capture-phase** handler for Home/End.
 
 **Why:** The CQL search input uses `@guardian/cql`'s `<cql-input>` Web
 Component, which contains a ProseMirror editor inside shadow DOM.
-Arrow and Page keys are listed in `keysToPropagate` inside
-`CqlSearchInput.tsx`, so they bubble out of the custom element
-normally and reach the bubble-phase handler.  Home/End are NOT in
-`keysToPropagate` — the CQL input's `stopUnhandled` listener would
-swallow them.  But even if we propagated them, ProseMirror would have
-already moved the cursor before our bubble-phase handler fires.
+ArrowUp/Down, PageUp/Down and Home/End are all listed in `keysToPropagate`
+in `CqlSearchInput.tsx`. Home/End still require capture-phase interception:
+waiting for the bubble phase would let ProseMirror move the editor's cursor
+before list navigation handled the key. The 1.8.7 blur fix does not change
+this navigation policy.
 
 Using capture phase on `document` lets us intercept Home/End *before*
 the event reaches the shadow DOM.  `preventDefault()` then stops
@@ -1246,12 +1229,11 @@ the fields array (`_fields`, `_fieldOptions`) because the parent's are
 private.  If `@guardian/cql` changes its AST shape or suggestion types,
 our override may break.
 
-**Upstream fix:** The eager evaluation is a library design issue.  The
-fix belongs in `Typeahead.suggestCqlField()` in `@guardian/cql` — don't
-fire value resolvers via `Promise.all` with key suggestions; return key
-suggestions immediately and resolve values independently.  An issue / PR
-should be opened on `@guardian/cql` with this fix.  Once merged,
-`LazyTypeahead` can be deleted and replaced with the stock `Typeahead`.
+**Upstream status:** @guardian/cql 1.8.7 still waits for value resolution before
+publishing a field's key suggestions. Fixing that belongs in the library, but
+would not alone make `LazyTypeahead` removable: hidden keys, arbitrary dotted-field
+fallback, live-AST scope and mounted-owner/read-publication lifetimes also need to
+be preserved. No replacement of these behaviours ships in 1.8.7.
 
 ### 13. Click-to-search flips polarity instead of adding duplicates
 
@@ -1354,10 +1336,12 @@ and kupua upgrades past the fixed version, delete `cql-ast-serialize.ts`
 and its test, and revert `CqlSearchInput.tsx` to reading `detail.queryStr`
 directly.
 
-**Status:** Not filed upstream yet — planned.
+**Status:** Still present in the 1.8.7 release source; retain the serializer and
+its tests in both the input wrapper and live-AST typeahead scope. Upstream fix
+remains planned.
 
 
-### 14. Typeahead resolver strips own field from query via regex (workaround for missing CQL context)
+### 14. Typeahead resolver removes its own field using AST source spans (missing CQL context)
 
 **What:** When the user edits a chip value (e.g. clears `credit:John Smith`
 to re-pick a different credit), the typeahead resolver needs aggregations
@@ -1366,46 +1350,44 @@ self-referential (only "John Smith" is returned). CQL's resolver API is
 `(value: string) => Suggestion[]` — it provides no context about which
 chip is being edited or what the query looks like without it.
 
-**Workaround:** `stripFieldFromQuery()` and `queryContainsField()` in
-`typeahead-fields.ts` use regex to detect and remove chip expressions
-(e.g. `credit:"John Smith"`) from the serialised query string before
-passing it to ES for aggregations. This is fragile string manipulation
-of a structured language.
+**Integration:** `stripFieldFromQuery()` and `queryContainsField()` in
+`typeahead-fields.ts` delegate to parser-based `removeAllFieldTerms()`. AST token
+spans remove every expression for the requested field while preserving quoted
+literals, unrelated fields and incomplete input. Resolvers use the live AST query
+rather than the lagging committed search; the resulting own-field-excluded scope
+also keys bounded bucket reuse.
 
-**Why it's a hack:** CQL already has the ProseMirror document state and
-knows exactly which chip the user is editing. It could trivially serialize
-"everything except the chip at cursor" and pass it to the resolver. Regex
-parsing duplicates (badly) what CQL's own parser already does.
+**Why local code remains:** CQL's resolver signature still provides only text and
+an optional abort signal in 1.8.7, not the query scope or chip identity. Its
+ProseMirror state could supply structured context, but that API is not shipped.
+Removing only the current chip would also differ from Kupua's current all-terms-for-
+this-field policy; any upstream replacement must preserve that intended scope.
 
-**Upstream fix:** Extend the resolver callback signature:
-```typescript
-// Current:  resolver(value: string) => Suggestion[]
-// Proposed: resolver(value: string, context: ResolverContext) => Suggestion[]
-// where ResolverContext = { fieldName: string; queryWithoutCurrentChip: string }
-```
-Backward-compatible — existing resolvers that don't use the second arg
-are unaffected. Once available, `stripFieldFromQuery` and
-`queryContainsField` can be deleted and `scopedAgg` can use
-`context.queryWithoutCurrentChip` directly.
+**Potential upstream fix:** Add structured scope without replacing the existing
+optional `AbortSignal` argument; an additional context argument could include the
+field name and query with that field's terms excluded. Only retire
+`stripFieldFromQuery` and `queryContainsField` once the shipped API preserves the
+same scope and cancellation contracts. No such context is present in 1.8.7.
 
 **Broader pattern — CQL treats consumers as text-in/text-out:**
 
 | Problem | Kupua workaround | Upstream fix | Status |
 |---|---|---|---|
 | Polarity change not re-rendering | ~~Remount component (§13)~~ | Fix internal diff (`sameContentMarkup`) | **Fixed in 1.8.6** ([#121](https://github.com/guardian/cql/pull/121)) |
-| Resolver gets self-referential aggs | Regex-strip field from query (this §) | Resolver receives `ResolverContext` | Not filed |
+| Resolver gets self-referential aggs | Remove own-field AST spans from live query (this §) | Resolver receives equivalent structured scope | Not shipped in 1.8.7 |
 | Quoted phrase with `:`/`(`/`)`/`"` loses quotes on serialise, mis-parsed as a chip next read | Reimplement AST→string serialiser (§14a) | One-line fix: use `shouldQuoteFieldValue` not `hasWhitespace` for `CqlStr` in `interpreter.ts` | Planned, not filed |
-| `+`/`-` not triggering on mobile | — | Add `handleTextInput` fallback | PR #125 open |
-| Popover dead space below suggestions | — | `pointer-events: none` on container | PR #126 open |
-| Blur resets caret to position 0 | Capture-phase blur + microtask restore (§19 lib) | `preserveCaretOnBlur` option | Not filed |
+| `+`/`-` not triggering on mobile | None | `handleTextInput` fallback | **Fixed in 1.8.5** ([guardian/cql#125](https://github.com/guardian/cql/pull/125)) |
+| Popover dead space below suggestions | None | Upstream popover hit-testing fix | **Fixed in 1.8.6** ([guardian/cql#126](https://github.com/guardian/cql/pull/126)) |
+| Blur resets caret to position 0 | ~~Dispatch wrapper, blur snapshot and scheduled restore (§19 above)~~ | Preserve selection; scope selected-chip styling to focused editor | **Fixed in 1.8.7** ([guardian/cql#135](https://github.com/guardian/cql/pull/135)); local repair removed |
+| Constructor type requires unsafe cast; field descriptions require empty strings | ~~Constructor double cast and dummy description~~ | `CustomElementConstructor` return type and optional description | **Fixed in 1.8.7** ([guardian/cql#135](https://github.com/guardian/cql/pull/135)); wrapper uses upstream types/defaults |
 | Eager `Promise.all` stalls popover | `LazyTypeahead` override (§12 lib) | Decouple key/value resolution in `suggestCqlField` | Not filed |
 | Mobile keyboard dismiss on chip delete | `focusout` + `recentKeyAction` refocus | Shift focus to stable node before chip removal | Not filed |
 | `setAttribute` clobbers in-progress chip | `selfCausedChangeRef` guard | Smarter internal reconciliation (ignore attr if matches effective state) | Not filed |
 | No `::part` / theme key for internal elements | Style injection into `shadowRoot` | Expose CSS parts or extend theme schema | Not filed |
-| Home/End swallowed by shadow DOM | Capture-phase `document` listener (§7 lib) | Propagate nav keys from `stopUnhandled` | Architectural |
+| Home/End must navigate results before the editor handles them | Capture-phase `document` listener (§7 lib) | Already propagated by wrapper; capture preserves ordering | Application navigation policy; unchanged by 1.8.7 |
 | Multi-value padding breaks `calc()` in shadow DOM | Single-value padding only | Use `padding-*` longhand internally | Not filed |
 | Stale debounce after remount | `setExternalQuery` latch | — (was a consequence of §13's remount) | Still needed for the Home/Clear remount case (§13); the polarity-flip remount it originally guarded is gone |
-| No API to extract a chip's value or reconstruct the query without a specific chip | Regex on raw query string (typeahead `stripFieldFromQuery`) | Expose `getChipValue(field)` + `queryWithoutChip(field)` on `<cql-input>` element | Not filed |
+| No API to extract a chip's value or reconstruct the query without a specific chip | Parse AST and splice source spans (typeahead `stripFieldFromQuery`) | Expose structured field-value/query-exclusion helpers | Not shipped in 1.8.7 |
 
 Three consumers exist (kahuna, kupua, CQL demo page). Exposing minimal
 structured context is not speculative API surface.
@@ -1416,8 +1398,9 @@ The DateFilter panel reflects its three active date fields via dedicated URL par
 which round-trip cleanly. Adding "Last used" as a fourth option could write
 `usages@>added:...` / `usages@<added:...` chips into `params.query` — but
 DateFilter would then need to read those chips back to show active state.
-Without `getChipValue` / `queryWithoutChip`, the only option is regex on the raw
-string, which creates a two-class system and is fragile. Decision (2026-06-08):
+Without upstream field-value/query-exclusion helpers, DateFilter would need local
+parsing and synchronization (AST/source-span helpers now exist; regex is not the
+only option). The release does not add that integration. Decision (2026-06-08):
 use dedicated params (`usagesAddedSince`/`usagesAddedUntil`) if/when this is built;
 for now the `usages@>added` / `usages@<added` CQL chips already work and cover
 the need without DateFilter integration.

@@ -98,7 +98,7 @@ function ensureRegistered() {
     theme,
     lang: cqlParserSettings,
   });
-  customElements.define("cql-input", CqlInput as unknown as CustomElementConstructor);
+  customElements.define("cql-input", CqlInput);
   registered = true;
 }
 
@@ -195,9 +195,8 @@ export function CqlSearchInput({
       return new TypeaheadField(
         fieldName,
         fieldName,
-        "",
+        undefined,
         cqlResolver,
-        "TEXT"
       );
     });
     const dynamicFieldFallback = buildDynamicFieldFallback(dataSource, getParams);
@@ -330,185 +329,49 @@ export function CqlSearchInput({
       el.shadowRoot.appendChild(style);
     }
 
-    // ---------------------------------------------------------------------
-    // Caret preservation across tab/window switch.
-    //
-    // Problem: when the tab hides (or the window blurs via Cmd/Alt+Tab),
-    // the browser clears the DOM selection. On return, the browser
-    // refocuses the editable, ProseMirror's focusin handler runs
-    // selectionFromDOM, reads position 0 from the cleared DOM, and writes
-    // it to PM state — resetting the caret to the start of the field.
-    //
-    // Mechanism (three pieces):
-    //
-    //   1. Wrap view.dispatch to continuously cache the latest selection
-    //      (`lastKnownSelection`). PM positions are cheap integers — zero
-    //      per-keystroke cost beyond an object allocation.
-    //
-    //   2. Capture the editor DOM's `blur` event in the CAPTURE phase,
-    //      BEFORE CQL's own plugin blur handler fires. CQL dispatches
-    //      `setSelection(near(0))` on blur (cqlInput/editor/plugins/cql.ts
-    //      L382), which would otherwise clobber `lastKnownSelection`. By
-    //      snapshotting in the capture phase we record the real position.
-    //
-    //   3. On `visibilitychange:visible` / window `focus`, dispatch the
-    //      saved selection in a microtask AND in a rAF (belt-and-braces:
-    //      the microtask wins the race against PM's focusin reset most of
-    //      the time; the rAF re-dispatches if anything else interferes).
-    //
-    // Listeners only fire on tab/window switch (not on every keystroke or
-    // selection change), so per-keystroke cost is the dispatch wrapper's
-    // single object allocation.
-    // ---------------------------------------------------------------------
-    let savedSelection: { from: number; to: number } | null = null;
-    let lastKnownSelection: { from: number; to: number } | null = null;
+    // Chip deletion can remove the focused contenteditable and dismiss the
+    // mobile keyboard. This refocus is separate from upstream blur selection.
+    // connectedCallback creates editorView synchronously before appendChild returns.
+    const view = (el as HTMLElement & {
+      editorView?: { dom: HTMLElement; focus(): void };
+    }).editorView;
+    if (isMobile() && view) {
+      let recentKeyAction = false;
+      let keyActionTimer: ReturnType<typeof setTimeout> | undefined;
 
-    type CqlEditorView = {
-      hasFocus(): boolean;
-      focus(): void;
-      dispatch(tr: unknown): void;
-      state: {
-        selection: {
-          from: number;
-          to: number;
-          constructor: { create(doc: unknown, from: number, to: number): unknown };
-        };
-        doc: { content: { size: number } };
-        tr: { setSelection(sel: unknown): unknown };
-      };
-      dom: HTMLElement;
-    };
-    const getView = (): CqlEditorView | undefined =>
-      (el as unknown as { editorView?: CqlEditorView }).editorView;
-
-    // Wire dispatch wrapper + editor-blur snapshot. CQL's connectedCallback
-    // creates editorView synchronously, but appendChild is async-ish in
-    // some browsers, so we retry once via rAF.
-    let dispatchWrapped = false;
-    const tryWrapDispatch = () => {
-      if (dispatchWrapped) return;
-      const view = getView();
-      if (!view) return;
-      const original = view.dispatch.bind(view);
-      view.dispatch = (tr: unknown) => {
-        original(tr);
-        lastKnownSelection = {
-          from: view.state.selection.from,
-          to: view.state.selection.to,
-        };
-      };
-      // Snapshot in capture phase, BEFORE CQL's plugin reset-to-0 fires.
-      view.dom.addEventListener("blur", () => {
-        // Only save if there's a meaningful position (skip empty editor).
-        if (lastKnownSelection && lastKnownSelection.from > 1) {
-          savedSelection = { ...lastKnownSelection };
+      view.dom.addEventListener("keydown", (e: KeyboardEvent) => {
+        if (e.key === "Backspace" || e.key === "Delete") {
+          recentKeyAction = true;
+          clearTimeout(keyActionTimer);
+          // Clear after a frame — any DOM-mutation blur from this keypress
+          // will fire synchronously or in the same microtask.
+          keyActionTimer = setTimeout(() => { recentKeyAction = false; }, 80);
         }
       }, true);
 
-      // Mobile keyboard retention: when a chip is deleted, ProseMirror
-      // removes the focused <chip-value contenteditable> from the DOM.
-      // Mobile browsers interpret this as "user finished editing" and
-      // dismiss the virtual keyboard. Re-focus the editor in the focusout
-      // handler to prevent dismissal — but ONLY when focus was lost as a
-      // side effect of a keyboard action (Backspace/Delete removing a chip
-      // node). If the user tapped away (entering image detail, etc.), the
-      // keyboard should dismiss normally.
-      if (isMobile()) {
-        let recentKeyAction = false;
-        let keyActionTimer: ReturnType<typeof setTimeout> | undefined;
-
-        view.dom.addEventListener("keydown", (e: KeyboardEvent) => {
-          if (e.key === "Backspace" || e.key === "Delete") {
-            recentKeyAction = true;
-            clearTimeout(keyActionTimer);
-            // Clear after a frame — any DOM-mutation blur from this keypress
-            // will fire synchronously or in the same microtask.
-            keyActionTimer = setTimeout(() => { recentKeyAction = false; }, 80);
-          }
-        }, true);
-
-        view.dom.addEventListener("focusout", (e: FocusEvent) => {
-          if (!recentKeyAction) return;
-          const related = e.relatedTarget as Node | null;
-          // If focus moved to another element outside the editor, don't interfere
-          if (related && !el.contains(related) && !el.shadowRoot?.contains(related)) {
-            return;
-          }
-          // Focus left because the DOM node was removed (chip deletion).
-          // Refocus to keep the keyboard open.
-          queueMicrotask(() => {
-            const active = document.activeElement;
-            // Only refocus if nothing else grabbed focus in the meantime
-            if (!active || active === document.body || active === el || el.contains(active)) {
-              view.focus();
-            }
-          });
-        });
-      }
-
-      lastKnownSelection = {
-        from: view.state.selection.from,
-        to: view.state.selection.to,
-      };
-      dispatchWrapped = true;
-    };
-    tryWrapDispatch();
-    if (!dispatchWrapped) requestAnimationFrame(tryWrapDispatch);
-
-    const handleHide = () => {
-      // savedSelection is normally already populated by the editor-blur
-      // capture listener. Fall back to lastKnownSelection only if the
-      // editor never received a blur (e.g. page hidden via OS while editor
-      // had focus — some browsers fire visibilitychange without blur).
-      if (savedSelection) return;
-      if (lastKnownSelection && lastKnownSelection.from > 1) {
-        savedSelection = { ...lastKnownSelection };
-      }
-    };
-
-    const handleShow = () => {
-      const saved = savedSelection;
-      if (!saved) return;
-      savedSelection = null;
-      const view = getView();
-      if (!view) return;
-      const docSize = view.state.doc.content.size;
-      const from = Math.min(saved.from, docSize);
-      const to = Math.min(saved.to, docSize);
-      view.focus();
-
-      const dispatchSelection = () => {
-        const v = getView();
-        if (!v || v.state.selection.from === from) return;
-        try {
-          const SelCtor = v.state.selection.constructor;
-          const newSel = SelCtor.create(v.state.doc, from, to);
-          v.dispatch(v.state.tr.setSelection(newSel));
-        } catch {
-          // Defensive: doc may have changed shape; leave caret alone.
+      view.dom.addEventListener("focusout", (e: FocusEvent) => {
+        if (!recentKeyAction) return;
+        const related = e.relatedTarget as Node | null;
+        // If focus moved to another element outside the editor, don't interfere
+        if (related && !el.contains(related) && !el.shadowRoot?.contains(related)) {
+          return;
         }
-      };
-      // Microtask wins the race vs PM's synchronous focusin reset most of
-      // the time; rAF re-dispatch covers the remaining cases.
-      queueMicrotask(dispatchSelection);
-      requestAnimationFrame(dispatchSelection);
-    };
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "hidden") handleHide();
-      else handleShow();
-    };
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    window.addEventListener("blur", handleHide);
-    window.addEventListener("focus", handleShow);
+        // Focus left because the DOM node was removed (chip deletion).
+        // Refocus to keep the keyboard open.
+        queueMicrotask(() => {
+          const active = document.activeElement;
+          // Only refocus if nothing else grabbed focus in the meantime
+          if (!active || active === document.body || active === el || el.contains(active)) {
+            view.focus();
+          }
+        });
+      });
+    }
 
     return () => {
       typeahead.setEnabled(false);
       if (activeTypeahead === typeahead) activeTypeahead = undefined;
       cqlInputRef.current = null;
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-      window.removeEventListener("blur", handleHide);
-      window.removeEventListener("focus", handleShow);
       el.removeEventListener("queryChange", handleQueryChange);
       el.removeEventListener("click", handleChipDelete, true);
       el.removeEventListener("keydown", handleEscape, true);

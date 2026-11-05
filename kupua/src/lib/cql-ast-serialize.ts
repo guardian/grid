@@ -1,5 +1,5 @@
 /**
- * Workaround for a bug in @guardian/cql (present as of 1.8.6): its own
+ * Workaround for a bug in @guardian/cql (present as of 1.8.7): its own
  * AST→string serialiser (`interpreter.ts`'s `cqlQueryStrFromQueryAst`, used
  * to compute `queryChange`'s `detail.queryStr`) only re-quotes a plain
  * phrase (`CqlStr`) when it contains whitespace — it never checks for `:`,
