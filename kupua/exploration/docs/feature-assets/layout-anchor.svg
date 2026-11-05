@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="440" viewBox="0 0 1040 440" role="img" aria-labelledby="title desc">
+  <title id="title">The layout changes; the anchor image stays at the same height</title>
+  <desc id="desc">Illustrative before-and-after diagram, not an app screenshot. A four-column grid becomes a three-column grid when a panel opens. The scroll position compensates so highlighted image 11 remains at the same viewport height. Other visible images change as the grid reflows.</desc>
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+      .heading { fill: #edf1f6; font-size: 23px; font-weight: 650; }
+      .label { fill: #cbd5e1; font-size: 14px; font-weight: 600; }
+      .note { fill: #94a3b8; font-size: 12px; }
+      .num { fill: #bac5d3; font-size: 11px; }
+    </style>
+    <g id="tile">
+      <rect width="96" height="64" rx="5" fill="#283544" stroke="#3c4b5c"/>
+      <path d="M12 48L33 26L49 40L65 18L84 48Z" fill="#435369"/>
+      <circle cx="23" cy="19" r="5" fill="#6c7b90"/>
+    </g>
+    <g id="anchor">
+      <rect width="96" height="64" rx="5" fill="#62491c" stroke="#ffc860" stroke-width="3"/>
+      <path d="M12 48L33 26L49 40L65 18L84 48Z" fill="#b98a36"/>
+      <circle cx="23" cy="19" r="5" fill="#ffdc91"/>
+      <rect x="62" y="5" width="29" height="19" rx="4" fill="#ffc860"/>
+      <text x="76" y="19" text-anchor="middle" fill="#33220a" font-size="13" font-weight="700">11</text>
+    </g>
+    <clipPath id="before-clip"><rect x="42" y="127" width="424" height="264" rx="4"/></clipPath>
+    <clipPath id="after-clip"><rect x="692" y="127" width="312" height="264" rx="4"/></clipPath>
+  </defs>
+  <rect width="1040" height="440" rx="12" fill="#111c2a"/>
+  <text x="24" y="36" class="heading">Change the workspace. Keep your place.</text>
+  <text x="24" y="60" class="note">Panel open / close · panel width · browser width</text>
+
+  <rect x="24" y="83" width="464" height="318" rx="9" fill="#192636" stroke="#425167"/>
+  <text x="42" y="109" class="label">Before · four columns</text>
+  <g clip-path="url(#before-clip)">
+    <use href="#tile" x="42" y="133"/><text x="122" y="148" class="num">1</text>
+    <use href="#tile" x="148" y="133"/><text x="228" y="148" class="num">2</text>
+    <use href="#tile" x="254" y="133"/><text x="334" y="148" class="num">3</text>
+    <use href="#tile" x="360" y="133"/><text x="440" y="148" class="num">4</text>
+    <use href="#tile" x="42" y="208"/><text x="122" y="223" class="num">5</text>
+    <use href="#tile" x="148" y="208"/><text x="228" y="223" class="num">6</text>
+    <use href="#tile" x="254" y="208"/><text x="334" y="223" class="num">7</text>
+    <use href="#tile" x="360" y="208"/><text x="440" y="223" class="num">8</text>
+    <use href="#tile" x="42" y="283"/><text x="122" y="298" class="num">9</text>
+    <use href="#tile" x="148" y="283"/><text x="220" y="298" class="num">10</text>
+    <use href="#anchor" x="254" y="283"/>
+    <use href="#tile" x="360" y="283"/><text x="432" y="298" class="num">12</text>
+    <use href="#tile" x="42" y="358"/><text x="114" y="373" class="num">13</text>
+    <use href="#tile" x="148" y="358"/><text x="220" y="373" class="num">14</text>
+    <use href="#tile" x="254" y="358"/><text x="326" y="373" class="num">15</text>
+    <use href="#tile" x="360" y="358"/><text x="432" y="373" class="num">16</text>
+  </g>
+
+  <path d="M504 216H534M526 208L534 216L526 224" fill="none" stroke="#94a3b8" stroke-width="2"/>
+  <rect x="552" y="83" width="464" height="318" rx="9" fill="#192636" stroke="#425167"/>
+  <text x="570" y="109" class="label">After · panel open, three columns</text>
+  <rect x="566" y="127" width="112" height="264" rx="4" fill="#2c3848"/>
+  <text x="578" y="150" class="label">Panel</text>
+  <path d="M578 170H665M578 184H650M578 212H665M578 226H638M578 254H665M578 268H654" stroke="#5d6c80" stroke-width="5" stroke-linecap="round"/>
+  <g clip-path="url(#after-clip)">
+    <use href="#tile" x="692" y="133"/><text x="772" y="148" class="num">4</text>
+    <use href="#tile" x="798" y="133"/><text x="878" y="148" class="num">5</text>
+    <use href="#tile" x="904" y="133"/><text x="984" y="148" class="num">6</text>
+    <use href="#tile" x="692" y="208"/><text x="772" y="223" class="num">7</text>
+    <use href="#tile" x="798" y="208"/><text x="878" y="223" class="num">8</text>
+    <use href="#tile" x="904" y="208"/><text x="984" y="223" class="num">9</text>
+    <use href="#tile" x="692" y="283"/><text x="764" y="298" class="num">10</text>
+    <use href="#anchor" x="798" y="283"/>
+    <use href="#tile" x="904" y="283"/><text x="976" y="298" class="num">12</text>
+    <use href="#tile" x="692" y="358"/><text x="764" y="373" class="num">13</text>
+    <use href="#tile" x="798" y="358"/><text x="870" y="373" class="num">14</text>
+    <use href="#tile" x="904" y="358"/><text x="976" y="373" class="num">15</text>
+  </g>
+  <path d="M350 315H798" stroke="#ffc860" stroke-width="1.5" stroke-dasharray="5 5"/>
+  <rect x="472" y="297" width="187" height="36" rx="6" fill="#111c2a" stroke="#ffc860"/>
+  <text x="565" y="319" text-anchor="middle" fill="#ffda91" font-size="13" font-weight="600">Same image, same height</text>
+  <text x="24" y="425" class="note">Illustrative sequence · image identity is preserved; scroll offset adjusts to the new layout.</text>
+</svg>

@@ -1,0 +1,2763 @@
+/**
+ * Browser back/forward navigation tests.
+ *
+ * Verifies that:
+ * 1. User-initiated search changes (filter toggle, query) push history entries.
+ * 2. Browser back restores the previous search context.
+ * 3. Browser forward re-applies the search context.
+ * 4. Focus is NOT carried across search context changes on back/forward
+ *    (popstate skips focus-preservation to avoid landing at a random position).
+ * 5. Closing image detail via browser back preserves the focused image
+ *    (only display-only keys changed — search context is the same).
+ *
+ * Run:
+ *   npx playwright test e2e/local/browser-history.spec.ts
+ *   npx playwright test e2e/local/browser-history.spec.ts --headed
+ */
+
+import { test, expect, waitForFixtureSetup } from "../shared/helpers";
+
+const PHANTOM_HISTORY_DESCRIBE = "Snapshot restore — phantom mode departure update";
+
+for (const coordinates of ["indexed", "seek"] as const) {
+  test.describe(`B19 ${coordinates} table tail`, () => {
+    test.use({ baseURL: coordinates === "seek" ? "http://localhost:3030" : "http://localhost:3000" });
+
+    test("End reveals the last row and Back/reload preserve its viewport", async ({ kupua, page }) => {
+      await kupua.ensureExplicitMode();
+      await kupua.startSearch("", "table");
+      const indexed = await page.evaluate(async () => {
+        const configPath = "/src/dal/es-config.ts";
+        if (!(await import(configPath)).IS_LOCAL_ES) throw new Error("B19 requires local ES");
+        const tierPath = "/src/lib/two-tier.ts";
+        return (await import(tierPath)).isTwoTierFromTotal((window as any).__kupua_store__.getState().total);
+      });
+      expect(indexed).toBe(coordinates === "indexed");
+
+      const tail = () => page.evaluate(() => {
+        const state = (window as any).__kupua_store__.getState();
+        const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+        const image = state.results.at(-1);
+        const cell = image && container.querySelector(`[data-image-id="${CSS.escape(image.id)}"]`);
+        const bounds = container.getBoundingClientRect();
+        const header = container.querySelector("[data-table-header]")!.getBoundingClientRect();
+        const rect = cell?.getBoundingClientRect();
+        return {
+          id: image?.id,
+          final: image && state.imagePositions.get(image.id) === state.total - 1,
+          fullyVisible: !!rect && rect.top >= header.bottom && rect.bottom <= bounds.top + container.clientHeight + 0.5,
+          bottomGap: rect ? bounds.top + container.clientHeight - rect.bottom : null,
+          focus: state.focusedImageId,
+          selected: (window as any).__kupua_selection_store__.getState().selectedIds.size,
+          seekGeneration: state._seekGeneration,
+        };
+      });
+      await page.evaluate(() => { (document.activeElement as HTMLElement | null)?.blur(); });
+      await page.keyboard.press("End");
+      await expect.poll(async () => {
+        const current = await tail();
+        return current.final && current.fullyVisible;
+      }).toBe(true);
+      const initialTail = await tail();
+      expect(initialTail).toMatchObject({ focus: null, selected: 0 });
+      expect(Math.abs(initialTail.bottomGap!)).toBeLessThan(1);
+      const departure = await page.evaluate(() => {
+        const state = (window as any).__kupua_store__.getState();
+        const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+        const id = (window as any).__kupua_getViewportAnchorId__();
+        const cell = container.querySelector(`[data-image-id="${CSS.escape(id)}"]`)!;
+        return { id, key: (window as any).__kupua_getKupuaKey__(), rank: state.imagePositions.get(id),
+          top: cell.getBoundingClientRect().top - container.getBoundingClientRect().top };
+      });
+      expect(departure.key).toBeTruthy();
+      await kupua.toggleSortDirection();
+      expect(await page.evaluate(key => (window as any).__kupua_inspectSnapshot__(key)?.anchorImageId, departure.key)).toBe(departure.id);
+      await page.goBack();
+
+      for (const reload of [false, true]) {
+        if (reload) await page.reload();
+        await page.waitForFunction(({ key, id }) => {
+          const state = (window as any).__kupua_store__?.getState();
+          return state && (window as any).__kupua_getKupuaKey__() === key && !state.loading &&
+            state._searchContinuity?.phase === "placed" && state._searchContinuity.targetId === id;
+        }, departure);
+        const placement = await page.evaluate(async ({ id, rank, top }) => {
+          const frames = [];
+          for (let frame = 0; frame < 12; frame++) {
+            await new Promise(requestAnimationFrame);
+            const state = (window as any).__kupua_store__.getState();
+            const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+            const cell = container.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
+            frames.push({ delta: cell ? cell.getBoundingClientRect().top - container.getBoundingClientRect().top - top : null,
+              sameRank: state.imagePositions.get(id) === rank });
+          }
+          return frames;
+        }, departure);
+        expect(placement.every(frame => frame.sameRank)).toBe(true);
+        expect(placement.every(frame => frame.delta !== null && Math.abs(frame.delta) < 1), JSON.stringify(placement)).toBe(true);
+        expect(await tail()).toMatchObject({ id: initialTail.id, final: true, fullyVisible: true, focus: null, selected: 0 });
+      }
+
+      const residentGeneration = (await tail()).seekGeneration;
+      await page.getByRole("region", { name: "Image results table", exact: true }).evaluate(element => { element.scrollTop -= 128; });
+      await page.evaluate(() => { (document.activeElement as HTMLElement | null)?.blur(); });
+      await page.keyboard.press("End");
+      await expect.poll(async () => (await tail()).fullyVisible).toBe(true);
+      expect(await tail()).toMatchObject({ id: initialTail.id, final: true, seekGeneration: residentGeneration, focus: null, selected: 0 });
+      expect(Math.abs((await tail()).bottomGap!)).toBeLessThan(1);
+
+      for (const selected of [false, true]) {
+        await kupua.seekTo(0.4, undefined, { waitForPositionMap: coordinates === "indexed" });
+        const point = await kupua.waitForHitTestedImagePoint({ view: "table", topInset: 100 });
+        await page.mouse.click(point.x, point.y);
+        const focus = await kupua.getFocusedImageId();
+        expect(focus).toBeTruthy();
+        if (selected) {
+          const cell = page.locator(`[data-image-id="${focus}"]`);
+          await cell.hover();
+          await cell.getByRole("button", { name: "Select image", exact: true }).click();
+        }
+        for (const resident of [false, true]) {
+          const generation = (await tail()).seekGeneration;
+          if (resident) await page.getByRole("region", { name: "Image results table", exact: true })
+            .evaluate(element => { element.scrollTop -= 128; });
+          await page.evaluate(() => { (document.activeElement as HTMLElement | null)?.blur(); });
+          await page.keyboard.press("End");
+          await expect.poll(async () => {
+            const current = await tail();
+            return current.final && current.fullyVisible && current.focus === (selected ? focus : current.id);
+          }).toBe(true);
+          expect(await tail()).toMatchObject({ id: initialTail.id, selected: selected ? 1 : 0 });
+          expect(Math.abs((await tail()).bottomGap!)).toBeLessThan(1);
+          if (resident) expect((await tail()).seekGeneration).toBe(generation);
+          expect(await page.evaluate(id => (window as any).__kupua_selection_store__.getState().selectedIds.has(id), focus)).toBe(selected);
+        }
+      }
+    });
+  });
+}
+
+test.describe("B11 native Back retires Home presentation", () => {
+  for (const view of ["grid", "table"] as const) {
+    test(`${view} restores painted destination before obsolete Home delivery`, async ({ kupua, page }) => {
+      await kupua.ensureExplicitMode();
+      await kupua.startSearch("", view);
+      await kupua.seekTo(0.4);
+      const anchorId = await page.evaluate(view => {
+        const container = document.querySelector<HTMLElement>(`[aria-label="Image results ${view}"]`)!;
+        const bounds = container.getBoundingClientRect();
+        const top = container.querySelector('[data-table-header]')?.getBoundingClientRect().bottom ?? bounds.top;
+        return Array.from(container.querySelectorAll<HTMLElement>('[data-image-id]')).find(cell => {
+          const rect = cell.getBoundingClientRect();
+          return rect.top >= top && rect.bottom <= bounds.bottom;
+        })?.dataset.imageId;
+      }, view);
+      expect(anchorId).toBeTruthy();
+      const point = await kupua.waitForHitTestedImagePoint({ view, imageId: anchorId });
+      await page.mouse.click(point.x, point.y);
+      const departure = await page.evaluate(async ({ view, identity }) => {
+        for (let frame = 0; frame < 12; frame++) await new Promise(requestAnimationFrame);
+        const configPath = "/src/dal/es-config.ts";
+        if (!(await import(configPath)).IS_LOCAL_ES) throw new Error("B11 requires local ES");
+        const state = (window as any).__kupua_store__.getState();
+        if (state.focusedImageId !== identity || !state.positionMap) throw new Error("B11 departure has no focused map anchor");
+        const container = document.querySelector<HTMLElement>(`[aria-label="Image results ${view}"]`)!;
+        const cell = container.querySelector<HTMLElement>(`[data-image-id="${CSS.escape(identity)}"]`)!;
+        const track = document.querySelector<HTMLElement>('[data-testid="scrubber-track"]')!;
+        const tooltip = track.querySelector<HTMLElement>('[data-sort-label]')!.parentElement!;
+        (window as any).__b11Departure = { map: state.positionMap, params: state.params, identity,
+          top: cell.getBoundingClientRect().top, left: cell.getBoundingClientRect().left,
+          scrollTop: container.scrollTop, key: (window as any).__kupua_getKupuaKey__(),
+          logical: Number(track.getAttribute("aria-valuenow")),
+          thumbTop: track.querySelector<HTMLElement>('[data-scrubber-thumb]')!.getBoundingClientRect().top - track.getBoundingClientRect().top,
+          tooltipTop: tooltip.getBoundingClientRect().top - track.getBoundingClientRect().top };
+        return { scrollTop: container.scrollTop, key: (window as any).__kupua_getKupuaKey__() };
+      }, { view, identity: point.imageId });
+      expect(departure.scrollTop).toBeGreaterThan(1000);
+      await runSearchAction(page, () => page.getByRole("button", { name: "Sort descending, click to sort ascending", exact: true }).click());
+      await kupua.seekTo(0.6);
+      expect(await page.evaluate(() => (window as any).__kupua_getKupuaKey__())).not.toBe(departure.key);
+      await page.evaluate(() => {
+        const store = (window as any).__kupua_store__;
+        const source = store.getState().dataSource;
+        const original = source.searchAfter;
+        const own = Object.getOwnPropertyDescriptor(source, "searchAfter");
+        let release!: () => void;
+        const held = new Promise<void>(resolve => { release = resolve; });
+        const probe = { ready: false, delivered: false, calls: 0, destinationCalls: 0, signal: null as AbortSignal | null,
+          entryKey: (window as any).__kupua_getKupuaKey__(),
+          deadlineReleased: false, timer: 0, work: null as Promise<unknown> | null,
+          previousThumbTop: document.querySelector<HTMLElement>('[data-scrubber-thumb]')!.getBoundingClientRect().top - document.querySelector<HTMLElement>('[data-testid="scrubber-track"]')!.getBoundingClientRect().top,
+          release: () => { clearTimeout(probe.timer); release(); }, cleanup: async () => {} };
+        source.searchAfter = function (...args: any[]) {
+          if (!args[0].trackTotalHits || args[1] || args[0].ids) return original.apply(this, args);
+          if (probe.signal && args[3] !== probe.signal && (window as any).__kupua_getKupuaKey__() !== probe.entryKey) {
+            probe.destinationCalls += 1;
+            return original.apply(this, args);
+          }
+          probe.calls += 1;
+          if (probe.work) return original.apply(this, args);
+          probe.signal = args[3];
+          probe.work = (async () => {
+            const result = await original.apply(this, args);
+            probe.ready = true;
+            probe.timer = window.setTimeout(() => { probe.deadlineReleased = true; release(); }, 6000);
+            await held;
+            probe.delivered = true;
+            return result;
+          })();
+          return probe.work;
+        };
+        probe.cleanup = async () => {
+          probe.release();
+          await probe.work?.catch(() => {});
+          if (own) Object.defineProperty(source, "searchAfter", own);
+          else delete source.searchAfter;
+          delete (window as any).__b11;
+          delete (window as any).__b11Departure;
+        };
+        (window as any).__b11 = probe;
+      });
+      try {
+        await page.locator('header[role="toolbar"] a[title*="Grid"]').click();
+        await page.waitForFunction(() => (window as any).__b11.ready);
+        await page.evaluate(async () => { for (let frame = 0; frame < 12; frame++) await new Promise(requestAnimationFrame); });
+        const pending = await page.evaluate(() => {
+          const track = document.querySelector<HTMLElement>('[data-testid="scrubber-track"]')!;
+          const thumb = track.querySelector<HTMLElement>('[data-scrubber-thumb]')!;
+          return { logical: Number(track.getAttribute("aria-valuenow")), painted: thumb.getBoundingClientRect().top - track.getBoundingClientRect().top,
+            delivered: (window as any).__b11.delivered };
+        });
+        expect(pending.logical).toBe(0);
+        expect(pending.painted).toBeLessThan(1);
+        expect(pending.delivered).toBe(false);
+        await goBackSearchAndWait(page);
+        const restoredDiagnostic = await page.evaluate(async ({ view, identity }) => {
+          for (let frame = 0; frame < 12; frame++) await new Promise(requestAnimationFrame);
+          const state = (window as any).__kupua_store__.getState();
+          const departure = (window as any).__b11Departure;
+          const container = document.querySelector<HTMLElement>(`[aria-label="Image results ${view}"]`)!;
+          const cell = container.querySelector<HTMLElement>(`[data-image-id="${CSS.escape(identity)}"]`);
+          const snapshot = (window as any).__kupua_inspectSnapshot__(departure.key);
+          return { focused: state.focusedImageId === identity, cell: !!cell,
+            delta: cell ? cell.getBoundingClientRect().top - departure.top : null,
+            scrollDelta: container.scrollTop - departure.scrollTop, loading: state.loading,
+            error: state.error, status: state.sortAroundFocusStatus, keyMatches: (window as any).__kupua_getKupuaKey__() === departure.key,
+            snapshot: snapshot ? { anchorMatches: snapshot.anchorImageId === identity, viewportRatio: snapshot.viewportRatio, globalOffset: snapshot.anchorOffset } : null,
+            deadlineReleased: (window as any).__b11.deadlineReleased };
+        }, { view, identity: point.imageId });
+        expect(restoredDiagnostic, JSON.stringify(restoredDiagnostic)).toMatchObject({ focused: true, cell: true, loading: false, error: null, keyMatches: true, deadlineReleased: false });
+        expect(Math.abs(restoredDiagnostic.delta ?? Infinity), JSON.stringify(restoredDiagnostic)).toBeLessThan(1);
+        await page.waitForFunction(({ view, identity }) => {
+          const state = (window as any).__kupua_store__.getState();
+          const cell = document.querySelector<HTMLElement>(`[aria-label="Image results ${view}"] [data-image-id="${CSS.escape(identity)}"]`);
+          return !state.loading && state.focusedImageId === identity && cell && Math.abs(cell.getBoundingClientRect().top - (window as any).__b11Departure.top) < 1;
+        }, { view, identity: point.imageId });
+        await kupua.scrubber.locator('[data-scrubber-thumb]').hover();
+        const proof = await page.evaluate(async ({ view, identity }) => {
+          const cachePath = "/src/lib/image-offset-cache.ts";
+          const cache = await import(cachePath);
+          const store = (window as any).__kupua_store__;
+          const departure = (window as any).__b11Departure;
+          const probe = (window as any).__b11;
+          const container = document.querySelector<HTMLElement>(`[aria-label="Image results ${view}"]`)!;
+          const track = document.querySelector<HTMLElement>('[data-testid="scrubber-track"]')!;
+          const thumb = track.querySelector<HTMLElement>('[data-scrubber-thumb]')!;
+          const tooltip = track.querySelector<HTMLElement>('[data-sort-label]')!.parentElement!;
+          const state = store.getState();
+          const key = cache.buildSearchKey(state.params);
+          for (const [index, image] of state.results.entries()) {
+            const rank = state.bufferOffset + index;
+            if (image.id !== departure.map.ids[rank] || state.imagePositions.get(image.id) !== rank || JSON.stringify(cache.getRetainedSortValues(image.id, key)) !== JSON.stringify(departure.map.sortValues[rank])) throw new Error("B11 restored membership/position/tuple mismatch");
+          }
+          const sample = () => {
+            const cell = container.querySelector<HTMLElement>(`[data-image-id="${CSS.escape(identity)}"]`)!;
+            const logical = Number(track.getAttribute("aria-valuenow"));
+            const rect = cell.getBoundingClientRect();
+            const text = Array.from(tooltip.childNodes).find(node => node.nodeType === Node.TEXT_NODE)?.textContent?.trim();
+            const observed = { logical, thumbTop: thumb.getBoundingClientRect().top - track.getBoundingClientRect().top,
+              tooltipTop: tooltip.getBoundingClientRect().top - track.getBoundingClientRect().top, text,
+              deltaTop: rect.top - departure.top, deltaLeft: rect.left - departure.left };
+            if (Math.abs(observed.deltaTop) >= 1 || Math.abs(observed.deltaLeft) >= 1 || logical !== departure.logical || Math.abs(observed.thumbTop - departure.thumbTop) >= 1 || Math.abs(observed.tooltipTop - departure.tooltipTop) >= 1 || text !== `${(departure.logical + 1).toLocaleString()} of ${state.total.toLocaleString()}`) throw new Error(`B11 restored geometry/painted thumb/tooltip mismatch: ${JSON.stringify({ observed, expected: { logical: departure.logical, thumbTop: departure.thumbTop, tooltipTop: departure.tooltipTop } })}`);
+          };
+          sample();
+          const originalStyle = thumb.style.cssText;
+          let wrongDestinationRejected = false;
+          try {
+            thumb.style.transition = "none";
+            thumb.style.top = `${probe.previousThumbTop}px`;
+            try { sample(); } catch { wrongDestinationRejected = true; }
+          } finally {
+            thumb.style.cssText = originalStyle;
+            thumb.style.transition = "none";
+            thumb.getBoundingClientRect();
+            thumb.style.cssText = originalStyle;
+          }
+          if (!wrongDestinationRejected) throw new Error("B11 predicate accepted B paint with A logical destination");
+          sample();
+          for (let frame = 0; frame < 12; frame++) {
+            await new Promise(requestAnimationFrame);
+            if (document.visibilityState !== "visible" || probe.delivered || probe.deadlineReleased) throw new Error("B11 stale delivery escaped held paint proof");
+            sample();
+          }
+          const before = store.getState();
+          probe.release();
+          await probe.work;
+          for (let frame = 0; frame < 12; frame++) { await new Promise(requestAnimationFrame); sample(); }
+          const after = store.getState();
+          return { delivered: probe.delivered, aborted: probe.signal?.aborted, calls: probe.calls,
+            destinationCalls: probe.destinationCalls,
+            deadlineReleased: probe.deadlineReleased, key: (window as any).__kupua_getKupuaKey__(),
+            retained: after.results === before.results && after.imagePositions === before.imagePositions && after.focusedImageId === identity && after.params === before.params && after._scrollReset === before._scrollReset,
+            loading: after.loading, error: after.error };
+        }, { view, identity: point.imageId });
+        expect(proof).toEqual({ delivered: true, aborted: true, calls: 1, deadlineReleased: false,
+          destinationCalls: 1, key: departure.key, retained: true, loading: false, error: null });
+      } finally {
+        await page.evaluate(async () => { await (window as any).__b11?.cleanup(); });
+      }
+    });
+  }
+});
+
+test.describe("KUP-015 Home completion ownership", () => {
+  test.afterEach(async ({ page }) => {
+    await page.evaluate(() => {
+      const fixture = (window as any).__homeCompletion;
+      if (!fixture) return;
+      fixture.pending.forEach((pending: any) => pending.resolve());
+      (window as any).__kupua_store__.setState({ search: fixture.search });
+      delete (window as any).__homeCompletion;
+    });
+  });
+
+  async function setup(kupua: import("../shared/helpers").KupuaHelpers, caller: "search" | "detail") {
+    const page = kupua.page;
+    await kupua.startSearch("", "table");
+    if (caller === "detail") {
+      const image = await page.evaluate(() => (window as any).__kupua_store__.getState().results[5].id);
+      await spaNavigate(page, `/search?nonFree=true&image=${image}`);
+      await expect(page.locator("[data-detail-image-id]")).toHaveAttribute("data-detail-image-id", image);
+    }
+    await page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      const search = store.getState().search;
+      const fixture = { search, pending: [] as any[], calls: 0, holdNext: true };
+      (window as any).__homeCompletion = fixture;
+      store.setState({ search: async (...args: any[]) => {
+        fixture.calls++;
+        const hold = fixture.holdNext;
+        fixture.holdNext = false;
+        const result = search(...args);
+        if (!hold) return result;
+        await result;
+        await new Promise<void>((resolve, reject) => fixture.pending.push({ resolve, reject }));
+      } });
+    });
+  }
+
+  async function clickHome(page: import("@playwright/test").Page, caller: "search" | "detail") {
+    const logos = page.locator('a[title="Grid — clear all filters"]');
+    await (caller === "search" ? logos.first() : logos.last()).click();
+    await page.waitForFunction(() => (window as any).__homeCompletion.pending.length > 0);
+  }
+
+  async function releaseHome(page: import("@playwright/test").Page, outcome: "resolve" | "abort" | "reject", index = 0) {
+    await page.evaluate(({ outcome, index }) => {
+      const pending = (window as any).__homeCompletion.pending[index];
+      if (outcome === "resolve") pending.resolve();
+      else pending.reject(outcome === "abort" ? new DOMException("superseded", "AbortError") : new Error("controlled completion failure"));
+    }, { outcome, index });
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  }
+
+  for (const caller of ["search", "detail"] as const) {
+    for (const outcome of ["resolve", "abort", "reject"] as const) {
+      test(`${caller} logo: newer navigation survives obsolete ${outcome}`, async ({ kupua, page }) => {
+        await setup(kupua, caller);
+        await clickHome(page, caller);
+        await spaNavigateAndWait(page, "/search?nonFree=true&query=credit%3APA");
+        const key = await page.evaluate(() => (window as any).__kupua_getKupuaKey__());
+        await releaseHome(page, outcome);
+        expect(await getUrlQuery(page)).toBe("credit:PA");
+        expect(await page.evaluate(() => (window as any).__kupua_store__.getState().params.query)).toBe("credit:PA");
+        expect(await page.evaluate(() => (window as any).__kupua_getKupuaKey__())).toBe(key);
+        await expect(page.locator(".ProseMirror.Cql__ContentEditable")).toContainText("PA");
+      });
+    }
+
+    for (const outcome of ["resolve", "reject"] as const) {
+      test(`${caller} logo: current ${outcome} waits before the density switch`, async ({ kupua, page }) => {
+        await setup(kupua, caller);
+        const key = await page.evaluate(() => (window as any).__kupua_getKupuaKey__());
+        await clickHome(page, caller);
+        await kupua.assertDensity("table");
+        expect(await page.evaluate(() => sessionStorage.getItem("kupua-density"))).toBe("table");
+        expect(await page.evaluate(() => (window as any).__kupua_getKupuaKey__())).toBe(key);
+        await releaseHome(page, outcome);
+        await kupua.assertDensity("grid");
+        expect(await page.evaluate(() => sessionStorage.getItem("kupua-density"))).toBe("grid");
+        expect(new URL(page.url()).searchParams.get("image")).toBeNull();
+        expect(await page.evaluate(() => (window as any).__kupua_store__.getState().bufferOffset)).toBe(0);
+        expect(await page.evaluate(() => (window as any).__homeCompletion.calls)).toBe(1);
+        await kupua.waitForResults();
+      });
+    }
+
+    for (const choices of [["grid"], ["grid", "table"]] as const) {
+      test(`${caller} logo: later density choices ${choices.join(" then ")} survive Home`, async ({ kupua, page }) => {
+        await setup(kupua, caller);
+        await clickHome(page, caller);
+        const preferenceSetup = await page.evaluateHandle((choices) => {
+          const job = { complete: false, error: null as string | null, pending: undefined as Promise<void> | undefined };
+          job.pending = (async () => {
+            const path = "/src/stores/ui-prefs-store.ts";
+            const { useUiPrefsStore } = await import(path);
+            (window as any).__homeCompletion.preferences = useUiPrefsStore;
+            for (const choice of choices) useUiPrefsStore.getState().setDensity(choice);
+          })();
+          job.pending.then(() => { job.complete = true; }, (error) => { job.error = String(error); });
+          return job;
+        }, choices);
+        await waitForFixtureSetup(page, preferenceSetup);
+        const last = choices.at(-1)!;
+        await kupua.assertDensity(last);
+        const intent = await page.evaluate(() => (window as any).__homeCompletion.preferences.getState()._densityIntent);
+        await releaseHome(page, "resolve");
+        await expect.poll(() => new URL(page.url()).searchParams.has("image")).toBe(false);
+        await kupua.assertDensity(last);
+        expect(await page.evaluate(() => sessionStorage.getItem("kupua-density"))).toBe(last);
+        expect(await page.evaluate(() => (window as any).__homeCompletion.preferences.getState()._densityIntent)).toBe(intent);
+        expect(await page.evaluate(() => (window as any).__kupua_store__.getState().params.query ?? null)).toBeNull();
+        expect(await page.evaluate(() => (window as any).__homeCompletion.calls)).toBe(1);
+      });
+    }
+  }
+
+  test("overlapping logo requests only commit the latest Home", async ({ kupua, page }) => {
+    await setup(kupua, "search");
+    await clickHome(page, "search");
+    await page.evaluate(() => { (window as any).__homeCompletion.holdNext = true; });
+    await clickHome(page, "search");
+    await page.waitForFunction(() => (window as any).__homeCompletion.pending.length === 2);
+    const key = await page.evaluate(() => (window as any).__kupua_getKupuaKey__());
+    await releaseHome(page, "resolve", 0);
+    expect(await page.evaluate(() => (window as any).__kupua_getKupuaKey__())).toBe(key);
+    await kupua.assertDensity("table");
+    await releaseHome(page, "resolve", 1);
+    await kupua.assertDensity("grid");
+    expect(await page.evaluate(() => (window as any).__homeCompletion.calls)).toBe(2);
+  });
+});
+
+test.describe("KUP-014 deferred producer ownership", () => {
+  type Producer = "cql" | "ai" | "header";
+
+  async function getKupuaKey(page: import("@playwright/test").Page): Promise<string> {
+    return page.evaluate(() => (window as any).__kupua_getKupuaKey__());
+  }
+
+  test.beforeEach(async ({ kupua, page }) => {
+    await page.route("**/*", (route) => route.request().resourceType() === "image"
+      ? route.fulfill({ contentType: "image/gif", body: Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64") })
+      : route.fallback());
+    await page.route("**/bedrock/**", (route) => route.fulfill({ json: { available: true } }));
+    await kupua.startSearch();
+    await page.evaluate(async () => {
+      const mockPath = "/src/dal/mock-data-source.ts";
+      const { MockDataSource } = await import(mockPath);
+      const source = new MockDataSource(20);
+      let aiCalls = 0;
+      source.searchByAi = async () => {
+        aiCalls++;
+        const hits = (await source.getByIds(Array.from({ length: 20 }, (_, index) => `img-${index}`)))
+          .map((image: any, index: number) => ({ ...image, __aiScore: 20 - index }));
+        return { hits, total: hits.length, sortValues: hits.map((image: any) => [1, image.id]) };
+      };
+      const store = (window as any).__kupua_store__;
+      (window as any).__deferredProducer = { originalSource: store.getState().dataSource, aiCalls: () => aiCalls };
+      store.setState({ dataSource: source, focusedImageId: null });
+      await store.getState().search();
+    });
+    await kupua.waitForResults();
+  });
+
+  test.afterEach(async ({ page }) => {
+    await page.evaluate(() => {
+      const fixture = (window as any).__deferredProducer;
+      if (!fixture) return;
+      if (fixture.originalSet) {
+        for (const record of fixture.records) fixture.originalClear.call(window, record.timer);
+        window.setTimeout = fixture.originalSet;
+        window.clearTimeout = fixture.originalClear;
+      }
+      (window as any).__kupua_store__.setState({ dataSource: fixture.originalSource, results: [], total: 0, imagePositions: new Map() });
+      delete (window as any).__deferredProducer;
+    });
+  });
+
+  async function prepare(page: import("@playwright/test").Page, producer: Producer) {
+    if (producer === "header") {
+      await page.getByRole("button", { name: "Table view", exact: true }).click();
+      await spaNavigate(page, "/search?nonFree=true");
+      await expect(page.getByRole("columnheader", { name: /Uploaded/ }).first()).toBeVisible();
+    } else if (producer === "ai") {
+      await page.getByRole("button", { name: "Enable AI image search", exact: true }).click();
+    }
+    await page.evaluate((kind) => {
+      const fixture = (window as any).__deferredProducer;
+      fixture.originalSet = window.setTimeout;
+      fixture.originalClear = window.clearTimeout;
+      fixture.records = [];
+      fixture.editor = document.querySelector("cql-input");
+      fixture.header = document.querySelector("header[role=toolbar]");
+      fixture.initialKey = (window as any).__kupua_getKupuaKey__();
+      fixture.initialLength = history.length;
+      const delay = kind === "cql" ? 300 : kind === "ai" ? 600 : 250;
+      const marker = kind === "cql" ? "debounced-input" : kind === "ai" ? "aiQuery" : "handleSort";
+      window.setTimeout = ((callback: TimerHandler, milliseconds?: number, ...args: any[]) => {
+        if (milliseconds !== delay || typeof callback !== "function" || !String(callback).includes(marker)) {
+          return fixture.originalSet.call(window, callback, milliseconds, ...args);
+        }
+        const record = { callback, args, cancelled: false, released: false, due: false, timer: 0 };
+        record.timer = fixture.originalSet.call(window, () => { record.due = true; }, milliseconds);
+        fixture.records.push(record);
+        return record.timer;
+      }) as typeof window.setTimeout;
+      window.clearTimeout = ((timer: number) => {
+        const record = fixture.records.find((candidate: any) => candidate.timer === timer);
+        if (record) record.cancelled = true;
+        fixture.originalClear.call(window, timer);
+      }) as typeof window.clearTimeout;
+    }, producer);
+  }
+
+  async function edit(page: import("@playwright/test").Page, producer: Producer, text = "obsolete") {
+    if (producer === "header") await page.getByRole("columnheader", { name: /Uploaded/ }).first().click();
+    else if (producer === "ai") await page.getByRole("searchbox", { name: "AI image search query" }).fill(text);
+    else {
+      await page.locator(".ProseMirror.Cql__ContentEditable").fill(text);
+    }
+    await page.waitForFunction(() => (window as any).__deferredProducer.records.length > 0);
+  }
+
+  async function release(page: import("@playwright/test").Page, obsolete = false, index?: number) {
+    await page.waitForFunction(() => (window as any).__deferredProducer.records.every((record: any) => record.cancelled || record.due));
+    await page.evaluate(({ force, index }) => {
+      const records = (window as any).__deferredProducer.records;
+      for (const record of index === undefined ? records : [records[index]]) {
+        if (record.released || (record.cancelled && !force)) continue;
+        record.released = true;
+        record.callback(...record.args);
+      }
+    }, { force: obsolete, index });
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  }
+
+  async function intent(page: import("@playwright/test").Page) {
+    return page.evaluate(() => {
+      const params = new URL(location.href).searchParams;
+      const store = (window as any).__kupua_store__.getState();
+      return { query: params.get("query"), aiQuery: params.get("aiQuery"), orderBy: params.get("orderBy"),
+        storeQuery: store.params.query ?? null, storeAi: store.params.aiQuery ?? null, storeSort: store.params.orderBy ?? null,
+        key: (window as any).__kupua_getKupuaKey__(), length: history.length };
+    });
+  }
+
+  for (const producer of ["cql", "ai", "header"] as const) {
+    test(`${producer}: departed entry cannot revive a pending action on return`, async ({ page }) => {
+      await prepare(page, producer);
+      await edit(page, producer);
+      const pendingKey = await getKupuaKey(page);
+      await spaNavigate(page, "/search?nonFree=true&query=Test");
+      await expect.poll(() => getUrlQuery(page)).toBe("Test");
+      await page.goBack();
+      await expect.poll(() => getKupuaKey(page)).toBe(pendingKey);
+      const destination = await intent(page);
+      await release(page, true);
+      expect(await intent(page)).toEqual(destination);
+    });
+
+    test(`${producer}: obsolete callback cannot consume the successor timer`, async ({ page }) => {
+      await prepare(page, producer);
+      await edit(page, producer, "first");
+      await edit(page, producer, "Test");
+      const pending = await intent(page);
+      await release(page, true, 0);
+      expect(await intent(page)).toEqual(pending);
+      const generation = await getSearchGeneration(page);
+      await release(page);
+      await waitForNewSearchSettled(page, generation);
+      const current = await intent(page);
+      expect(producer === "cql" ? current.query : producer === "ai" ? current.aiQuery : current.orderBy)
+        .toBe(producer === "header" ? "uploadTime" : "Test");
+    });
+
+    test(`${producer}: owner unmount clears its pending timer`, async ({ page }) => {
+      await prepare(page, producer);
+      await edit(page, producer);
+      await spaNavigate(page, "/missing-producer-test-route");
+      await expect(page.locator("header[role=toolbar]")).toHaveCount(0);
+      expect(await page.evaluate(() => (window as any).__deferredProducer.records.every((record: any) => record.cancelled))).toBe(true);
+      const destination = page.url();
+      await release(page, true);
+      expect(page.url()).toBe(destination);
+      expect(await page.evaluate(() => (window as any).__deferredProducer.aiCalls())).toBe(0);
+    });
+
+    for (const destination of ["back", "home", "newer"] as const) {
+      test(`${producer}: ${destination} supersedes a mounted pending producer`, async ({ page }) => {
+        if (producer === "header" && destination === "back") await spaNavigate(page, "/search?nonFree=true&query=Test");
+        await prepare(page, producer);
+        await edit(page, producer);
+        const initialKey = await page.evaluate(() => (window as any).__deferredProducer.initialKey);
+        if (producer !== "header") await expect.poll(() => getKupuaKey(page)).not.toBe(initialKey);
+        const pendingKey = await getKupuaKey(page);
+        if (destination === "back") {
+          await page.goBack();
+          await expect.poll(() => getKupuaKey(page)).not.toBe(pendingKey);
+          if (producer !== "header") expect(await getKupuaKey(page)).toBe(initialKey);
+        } else if (destination === "home") {
+          await page.locator('header[role="toolbar"] a[title*="Grid"]').click();
+          await expect.poll(() => getKupuaKey(page)).not.toBe(pendingKey);
+        } else {
+          await spaNavigate(page, "/search?nonFree=true&query=Test");
+          await expect.poll(() => getUrlQuery(page)).toBe("Test");
+        }
+        const destinationIntent = await intent(page);
+        expect(await page.evaluate(() => document.querySelector("header[role=toolbar]") === (window as any).__deferredProducer.header)).toBe(true);
+        await release(page);
+        expect(await intent(page)).toEqual(destinationIntent);
+        if (destination !== "home") expect(await page.evaluate(() => document.querySelector("cql-input") === (window as any).__deferredProducer.editor)).toBe(true);
+        await expect(page.locator(".ProseMirror.Cql__ContentEditable")).not.toContainText("obsolete");
+        expect(await page.evaluate(() => (window as any).__deferredProducer.aiCalls())).toBe(0);
+      });
+    }
+
+    test(`${producer}: ordinary latest edit completes within its typing entry`, async ({ page }) => {
+      await prepare(page, producer);
+      await edit(page, producer, "first");
+      const typingKey = await getKupuaKey(page);
+      await edit(page, producer, "Test");
+      const generation = await getSearchGeneration(page);
+      await release(page);
+      await waitForNewSearchSettled(page, generation);
+      const state = await intent(page);
+      if (producer === "header") expect(state.orderBy).toBe("uploadTime");
+      else {
+        expect(producer === "cql" ? state.query : state.aiQuery).toBe("Test");
+        expect(state.key).toBe(typingKey);
+        expect(state.length).toBe(await page.evaluate(() => (window as any).__deferredProducer.initialLength + 1));
+      }
+      if (producer === "cql") await expect(page.locator(".ProseMirror.Cql__ContentEditable")).toContainText("Test");
+      if (producer === "ai") await expect(page.getByRole("searchbox", { name: "AI image search query" })).toHaveValue("Test");
+    });
+    if (producer !== "header") {
+      test(`${producer}: density keeps pending typing and its history entry`, async ({ page, kupua }) => {
+        await prepare(page, producer);
+        await edit(page, producer, "Test");
+        const before = await intent(page);
+        const generation = await getSearchGeneration(page);
+        await kupua.switchToTable();
+        expect(await intent(page)).toEqual(before);
+        expect(await getSearchGeneration(page)).toBe(generation);
+        expect(await page.evaluate(() => (window as any).__deferredProducer.records.every((record: any) => record.cancelled === false))).toBe(true);
+        await release(page);
+        await waitForNewSearchSettled(page, generation);
+        const completed = await intent(page);
+        expect(completed.key).toBe(before.key);
+        expect(completed.length).toBe(before.length);
+        expect(producer === "cql" ? completed.query : completed.aiQuery).toBe("Test");
+        await kupua.assertDensity("table");
+      });
+    }
+  }
+
+  test("Clear invalidates both children and subsequent CQL editing works", async ({ page }) => {
+    await prepare(page, "ai");
+    await edit(page, "ai");
+    await page.locator(".ProseMirror.Cql__ContentEditable").click();
+    await page.keyboard.insertText("Test");
+    await page.getByRole("button", { name: "Clear search", exact: true }).click();
+    const cleared = await intent(page);
+    await release(page, true);
+    expect(await intent(page)).toEqual(cleared);
+    expect(cleared.query).toBeNull();
+    expect(cleared.aiQuery).toBeNull();
+    const generation = await getSearchGeneration(page);
+    await page.locator(".ProseMirror.Cql__ContentEditable").click();
+    await page.keyboard.insertText("Test");
+    await waitForNewSearchSettled(page, generation);
+    expect(await getUrlQuery(page)).toBe("Test");
+  });
+
+  test("header double-click fits without committing a semantic sort", async ({ page }) => {
+    await prepare(page, "header");
+    const before = await intent(page);
+    await page.getByRole("columnheader", { name: /Uploaded/ }).first().dblclick();
+    await release(page, true);
+    expect(await intent(page)).toEqual(before);
+  });
+});
+
+// Register exactly one focus-mode writer for each test context.
+test.beforeEach(async ({ kupua }, testInfo) => {
+  if (testInfo.titlePath.includes(PHANTOM_HISTORY_DESCRIBE)) {
+    await kupua.ensurePhantomMode();
+  } else {
+    await kupua.ensureExplicitMode();
+  }
+});
+
+/**
+ * Navigate via TanStack Router (user-initiated, NOT popstate).
+ * This creates a history entry (push) because the router uses pushState.
+ */
+async function spaNavigate(page: import("@playwright/test").Page, path: string) {
+  await page.evaluate((p) => {
+    const router = (window as any).__kupua_router__;
+    if (!router) throw new Error("Router not exposed on window");
+    // Mirror what pushNavigate/useUpdateSearchParams do in production:
+    // 1. Capture snapshot for the predecessor entry.
+    const markSnap = (window as any).__kupua_markPushSnapshot__;
+    if (markSnap) markSnap();
+    // 2. Mark as user-initiated.
+    const markUserNav = (window as any).__kupua_markUserNav__;
+    if (markUserNav) markUserNav();
+    // 3. Navigate with a fresh kupuaKey.
+    const url = new URL(p, window.location.origin);
+    const search: Record<string, string> = {};
+    url.searchParams.forEach((v, k) => { search[k] = v; });
+    router.navigate({ to: url.pathname, search, state: { kupuaKey: crypto.randomUUID() } });
+  }, path);
+}
+
+/** BFCache may restore settled state without starting a new search. */
+async function waitForRestoredOrReloadedSearch(page: import("@playwright/test").Page) {
+  await page.waitForFunction(
+    () => {
+      const store = (window as any).__kupua_store__;
+      if (!store) return false;
+      const s = store.getState();
+      return s.sortAroundFocusStatus === null && !s.loading && s.results.length > 0;
+    },
+    { timeout: 15_000 },
+  );
+}
+
+async function getSearchGeneration(page: import("@playwright/test").Page): Promise<number> {
+  return page.evaluate(() => {
+    const getLifecycle = (window as any).__kupua_getSearchLifecycle__;
+    if (typeof getLifecycle !== "function") throw new Error("Search lifecycle not exposed");
+    return getLifecycle().started;
+  });
+}
+
+async function waitForNewSearchSettled(
+  page: import("@playwright/test").Page,
+  previousGeneration: number,
+) {
+  await page.waitForFunction(
+    (previous) => {
+      const getLifecycle = (window as any).__kupua_getSearchLifecycle__;
+      if (typeof getLifecycle !== "function") return false;
+      const lifecycle = getLifecycle();
+      return lifecycle.started > previous
+        && lifecycle.settled === lifecycle.started;
+    },
+    previousGeneration,
+    { timeout: 15_000 },
+  );
+}
+
+async function runSearchAction(
+  page: import("@playwright/test").Page,
+  action: () => Promise<unknown>,
+) {
+  const generation = await getSearchGeneration(page);
+  await action();
+  await waitForNewSearchSettled(page, generation);
+}
+
+async function spaNavigateAndWait(page: import("@playwright/test").Page, path: string) {
+  await runSearchAction(page, () => spaNavigate(page, path));
+}
+
+async function goBackSearchAndWait(page: import("@playwright/test").Page) {
+  await runSearchAction(page, () => page.goBack());
+}
+
+async function goForwardSearchAndWait(page: import("@playwright/test").Page) {
+  await runSearchAction(page, () => page.goForward());
+}
+
+async function reloadSearchAndWait(page: import("@playwright/test").Page) {
+  await page.reload();
+  await page.waitForFunction(
+    () => {
+      const getLifecycle = (window as any).__kupua_getSearchLifecycle__;
+      if (typeof getLifecycle !== "function") return false;
+      const lifecycle = getLifecycle();
+      return lifecycle.started > 0 && lifecycle.settled === lifecycle.started;
+    },
+    { timeout: 15_000 },
+  );
+}
+
+test.describe("KUP-008 pending AI sort ownership", () => {
+  const relevance = ["img-0", "img-1", "img-2"];
+  const uploaded = ["img-1", "img-2", "img-0"];
+  const path = (orderBy: string, query = "bounded-sort") =>
+    `/search?nonFree=true&aiQuery=${query}&orderBy=${orderBy}`;
+
+  test.beforeEach(async ({ kupua, page }) => {
+    await page.route("**/*", (route) => {
+      if (route.request().resourceType() === "image") {
+        return route.fulfill({ contentType: "image/gif", body: Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64") });
+      }
+      return route.continue();
+    });
+    await page.route("**/bedrock/**", (route) => route.fulfill({ json: { available: true } }));
+    await kupua.startSearch();
+    await page.evaluate(async () => {
+      const mockPath = "/src/dal/mock-data-source.ts";
+      const { MockDataSource } = await import(mockPath);
+      const store = (window as any).__kupua_store__;
+      const originalSource = store.getState().dataSource;
+      const source = new MockDataSource(3);
+      const images = await source.getByIds(["img-0", "img-1", "img-2"]);
+      const days = [1, 3, 2];
+      const hits = images.map((image: any, index: number) => ({
+        ...image, __aiScore: 3 - index, uploadTime: `2026-01-0${days[index]}T00:00:00Z`,
+      }));
+      const pending: { release: () => void; signal?: AbortSignal }[] = [];
+      let countCalls = 0;
+      source.countWithTickers = async () => { countCalls++; return { count: hits.length, tickerCounts: {} }; };
+      source.searchByAi = (params: any, signal?: AbortSignal) => new Promise((resolve, reject) => {
+        pending.push({ signal, release: () => {
+          if (signal?.aborted) { reject(new DOMException("superseded", "AbortError")); return; }
+          const selected = params.aiQuery === "successor" ? hits.slice(0, 2) : hits;
+          resolve({ hits: selected, total: selected.length, sortValues: selected.map((image: any) => [image.__aiScore, image.id]), took: 1 });
+        } });
+      });
+      (window as any).__kupua_pendingAiTest__ = { pending, originalSource, counts: () => countCalls };
+      store.setState({ dataSource: source, focusedImageId: null });
+      await store.getState().search();
+    });
+    await kupua.waitForResults();
+  });
+
+  test.afterEach(async ({ page }) => {
+    await page.evaluate(() => {
+      const fixture = (window as any).__kupua_pendingAiTest__;
+      if (!fixture) return;
+      const store = (window as any).__kupua_store__;
+      store.setState({ dataSource: fixture.originalSource, results: [], total: 0, imagePositions: new Map() });
+      delete (window as any).__kupua_pendingAiTest__;
+    });
+  });
+
+  async function pendingSort(page: import("@playwright/test").Page, orderBy: string) {
+    await spaNavigate(page, path(orderBy));
+    await expect.poll(() => page.evaluate(() => (window as any).__kupua_store__.getState().params.orderBy)).toBe(orderBy);
+  }
+
+  async function begin(page: import("@playwright/test").Page) {
+    await spaNavigate(page, path("-relevance"));
+    await page.waitForFunction(() => (window as any).__kupua_pendingAiTest__.pending.length === 1);
+    expect(await page.evaluate(() => (window as any).__kupua_store__.getState().loading)).toBe(true);
+  }
+
+  async function release(page: import("@playwright/test").Page, index = 0) {
+    await page.evaluate((requestIndex) => (window as any).__kupua_pendingAiTest__.pending[requestIndex].release(), index);
+  }
+
+  async function assertOrder(page: import("@playwright/test").Page, orderBy: string, expected: string[]) {
+    await expect.poll(() => page.evaluate(() => {
+      const state = (window as any).__kupua_store__.getState();
+      const lifecycle = (window as any).__kupua_getSearchLifecycle__();
+      return {
+        url: new URL(location.href).searchParams.get("orderBy"), store: state.params.orderBy,
+        ids: state.results.map((image: any) => image.id), loading: state.loading,
+        complete: lifecycle.started === lifecycle.settled,
+        total: state.total, bufferOffset: state.bufferOffset,
+      };
+    })).toEqual({ url: orderBy, store: orderBy, ids: expected, loading: false, complete: true, total: expected.length, bufferOffset: 0 });
+    await expect.poll(() => page.locator('[aria-label="Image results grid"] [data-image-id], [aria-label="Image results table"] [data-image-id]')
+      .evaluateAll((elements) => [...new Set(elements.map((element) => element.getAttribute("data-image-id")))])).toEqual(expected);
+  }
+
+  test("pending completion honors Uploaded and settled reorders make no requests", async ({ kupua, page }) => {
+    await begin(page);
+    await pendingSort(page, "-uploadTime");
+    await release(page);
+    await assertOrder(page, "-uploadTime", uploaded);
+    await kupua.assertPositionsConsistent();
+    expect(await page.evaluate(() => (window as any).__kupua_getSearchLifecycle__().orderBy)).toBe("-uploadTime");
+    const counts = await page.evaluate(() => (window as any).__kupua_pendingAiTest__.counts());
+    await pendingSort(page, "-relevance");
+    await assertOrder(page, "-relevance", relevance);
+    await pendingSort(page, "-uploadTime");
+    await assertOrder(page, "-uploadTime", uploaded);
+    await kupua.assertPositionsConsistent();
+    expect(await page.evaluate(() => ({
+      requests: (window as any).__kupua_pendingAiTest__.pending.length,
+      counts: (window as any).__kupua_pendingAiTest__.counts(),
+    }))).toEqual({ requests: 1, counts });
+  });
+
+  test("repeated pending sorts and Back/Forward retain the last URL intent", async ({ kupua, page }) => {
+    await begin(page);
+    await pendingSort(page, "-uploadTime");
+    await pendingSort(page, "-relevance");
+    await page.goBack();
+    await expect.poll(() => getUrlOrderBy(page)).toBe("-uploadTime");
+    await page.goForward();
+    await expect.poll(() => getUrlOrderBy(page)).toBe("-relevance");
+    await page.goBack();
+    await expect.poll(() => page.evaluate(() => (window as any).__kupua_store__.getState().params.orderBy)).toBe("-uploadTime");
+    await release(page);
+    await assertOrder(page, "-uploadTime", uploaded);
+    await kupua.assertPositionsConsistent();
+    expect(await page.evaluate(() => (window as any).__kupua_pendingAiTest__.pending.length)).toBe(1);
+  });
+
+  for (const mode of ["explicit", "phantom"] as const) {
+    test(`B14 represented focus and ring agree through repeated AI history in ${mode} mode`, async ({ kupua, page }) => {
+      await page.evaluate(async mode => {
+        const path = "/src/stores/ui-prefs-store.ts";
+        (await import(path)).useUiPrefsStore.getState().setFocusMode(mode);
+      }, mode);
+      await begin(page);
+      await release(page);
+      await assertOrder(page, "-relevance", relevance);
+      const keyA = await page.evaluate(() => history.state.kupuaKey);
+      await pendingSort(page, "-uploadTime");
+      await assertOrder(page, "-uploadTime", uploaded);
+      const keyB = await page.evaluate(() => history.state.kupuaKey);
+      await page.locator('[data-grid-cell][data-image-id="img-1"]').click();
+      if (mode === "phantom") {
+        await expect.poll(() => new URL(page.url()).searchParams.get("image")).toBe("img-1");
+        await page.goBack();
+        await expect.poll(() => new URL(page.url()).searchParams.has("image")).toBe(false);
+      }
+      await expect.poll(() => kupua.getFocusedImageId()).toBe("img-1");
+      for (let cycle = 0; cycle < 3; cycle++) {
+        await page.goBack();
+        await assertOrder(page, "-relevance", relevance);
+        expect(await page.evaluate(() => history.state.kupuaKey)).toBe(keyA);
+        expect(await kupua.getFocusedImageId()).toBeNull();
+        await expect(page.locator('[data-grid-cell][class*="ring-2"]')).toHaveCount(0);
+        const anchorA = await page.evaluate(key => (window as any).__kupua_inspectSnapshot__(key).anchorImageId, keyA);
+        await expect(page.locator(`[data-grid-cell][data-image-id="${anchorA}"]`)).toBeInViewport();
+        await page.goForward();
+        await assertOrder(page, "-uploadTime", uploaded);
+        expect(await page.evaluate(() => history.state.kupuaKey)).toBe(keyB);
+        expect(await kupua.getFocusedImageId()).toBe(mode === "explicit" ? "img-1" : null);
+        await expect(page.locator('[data-grid-cell][class*="ring-2"]')).toHaveCount(mode === "explicit" ? 1 : 0);
+        const anchorB = await page.evaluate(key => (window as any).__kupua_inspectSnapshot__(key).anchorImageId, keyB);
+        await expect(page.locator(`[data-grid-cell][data-image-id="${anchorB}"]`)).toBeInViewport();
+      }
+      expect(await page.evaluate(() => (window as any).__kupua_pendingAiTest__.pending.length)).toBe(1);
+    });
+  }
+
+  for (const kind of ["ordinary", "AI"] as const) {
+    for (const layout of ["grid", "table"] as const) {
+      const entryCases = [false, true].flatMap(focusedA => [
+        { focusedA, viaDetail: false, directDetail: false },
+        { focusedA, viaDetail: true, directDetail: false },
+        { focusedA, viaDetail: true, directDetail: true },
+      ]);
+      for (const { focusedA, viaDetail, directDetail } of entryCases) {
+        test(`entry-only ${kind} history restores ${layout} destinations, A focused=${focusedA}, via detail=${viaDetail}, direct detail=${directDetail}`, async ({ kupua, page }) => {
+          if (kind === "AI") {
+            await begin(page);
+            await release(page);
+            await assertOrder(page, "-relevance", relevance);
+          }
+          if (layout === "table") await kupua.switchToTable();
+          if (focusedA) await page.locator('[data-image-id="img-0"]').first().click();
+          const keyA = await page.evaluate(() => history.state.kupuaKey);
+          const generationBefore = await getSearchGeneration(page);
+          const sameQueryPath = kind === "AI" ? path("-relevance") : "/search?nonFree=true";
+          if (viaDetail) {
+            for (const target of [sameQueryPath.replace("nonFree=true", "nonFree=false"), sameQueryPath]) {
+              if (kind === "AI") {
+                const before = await getSearchGeneration(page);
+                const requests = await page.evaluate(() => (window as any).__kupua_pendingAiTest__.pending.length);
+                await spaNavigate(page, target);
+                await page.waitForFunction(previous => (window as any).__kupua_pendingAiTest__.pending.length > previous, requests);
+                await release(page, requests);
+                await waitForNewSearchSettled(page, before);
+              } else await spaNavigateAndWait(page, target);
+            }
+          } else await spaNavigate(page, sameQueryPath);
+          await page.waitForFunction(key => history.state.kupuaKey !== key
+            && (window as any).__kupua_router__.state.resolvedLocation?.state.kupuaKey === history.state.kupuaKey, keyA);
+          const keyB = await page.evaluate(() => history.state.kupuaKey);
+          const generation = await getSearchGeneration(page);
+          expect(generation).toBe(generationBefore + (viaDetail ? 2 : 0));
+          const snapshotA = await page.evaluate(key => (window as any).__kupua_inspectSnapshot__(key), keyA);
+          expect(snapshotA.anchorIsPhantom).toBe(!focusedA);
+          const topA = await page.locator(`[data-image-id="${snapshotA.anchorImageId}"]`).first().evaluate(element => element.getBoundingClientRect().top);
+          await page.locator('[data-image-id="img-1"]').first().click();
+          await expect.poll(() => kupua.getFocusedImageId()).toBe("img-1");
+          const topB = await page.locator('[data-image-id="img-1"]').first().evaluate(element => element.getBoundingClientRect().top);
+          const focusIndicator = page.locator(layout === "grid"
+            ? '[data-image-id][class*="ring-2"]'
+            : '[data-image-id][aria-selected="true"][class*="outline-2"]');
+          const openDetail = async () => {
+            await page.locator('[data-image-id="img-1"]').first().dblclick();
+            await expect.poll(() => new URL(page.url()).searchParams.get("image")).toBe("img-1");
+          };
+          if (viaDetail) {
+            await openDetail();
+            await page.goBack();
+            await expect.poll(() => new URL(page.url()).searchParams.has("image")).toBe(false);
+            expect(await kupua.getFocusedImageId()).toBe("img-1");
+            expect(await getSearchGeneration(page)).toBe(generation);
+            await openDetail();
+          }
+          const detailKey = viaDetail ? await page.evaluate(() => history.state.kupuaKey) : undefined;
+          let snapshotB: any;
+          for (let cycle = 0; cycle < 3; cycle++) {
+            await page.evaluate(() => { (window as any).__entryOnlyDepartureOwner = (window as any).__kupua_store__.getState()._searchContinuity?.owner; });
+            if (viaDetail) await page.evaluate(() => history.go(-3));
+            else await page.goBack();
+            await page.waitForFunction(key => history.state.kupuaKey === key
+              && (window as any).__kupua_store__.getState()._searchContinuity?.phase === "placed"
+              && (window as any).__kupua_store__.getState()._searchContinuity?.owner !== (window as any).__entryOnlyDepartureOwner, keyA);
+            expect(await kupua.getFocusedImageId()).toBe(focusedA ? "img-0" : null);
+            await expect(focusIndicator).toHaveCount(focusedA ? 1 : 0);
+            const currentSnapshotA = await page.evaluate(key => (window as any).__kupua_inspectSnapshot__(key), keyA);
+            const { newCountSince: savedSince, ...representedA } = snapshotA;
+            const { newCountSince: currentSince, ...currentRepresentedA } = currentSnapshotA;
+            expect(currentRepresentedA).toEqual(representedA);
+            expect(currentSince >= savedSince).toBe(true);
+            const positionedA = page.locator(`[data-image-id="${snapshotA.anchorImageId}"]`).first();
+            await expect(positionedA).toBeInViewport();
+            expect(Math.abs(await positionedA.evaluate(element => element.getBoundingClientRect().top) - topA)).toBeLessThanOrEqual(2);
+            const capturedB = await page.evaluate(key => (window as any).__kupua_inspectSnapshot__(key), keyB);
+            if (snapshotB) expect(capturedB).toEqual(snapshotB);
+            snapshotB = capturedB;
+            expect(snapshotB.anchorImageId).toBe("img-1");
+            expect(snapshotB.anchorIsPhantom).toBe(false);
+            await page.evaluate(() => { (window as any).__entryOnlyDepartureOwner = (window as any).__kupua_store__.getState()._searchContinuity?.owner; });
+            if (directDetail) {
+              await page.evaluate(() => history.go(3));
+              await page.waitForFunction(key => history.state.kupuaKey === key
+                && new URL(location.href).searchParams.get("image") === "img-1"
+                && (window as any).__kupua_store__.getState()._searchContinuity?.phase === "placed"
+                && (window as any).__kupua_store__.getState()._searchContinuity?.owner !== (window as any).__entryOnlyDepartureOwner, detailKey);
+              expect(await kupua.getFocusedImageId()).toBe("img-1");
+              const beforeClose = await getSearchGeneration(page);
+              await page.goBack();
+              await expect.poll(() => new URL(page.url()).searchParams.has("image")).toBe(false);
+              expect(await getSearchGeneration(page)).toBe(beforeClose);
+            } else if (viaDetail) await page.evaluate(() => history.go(2));
+            else await page.goForward();
+            await page.waitForFunction(key => history.state.kupuaKey === key
+              && (window as any).__kupua_store__.getState()._searchContinuity?.phase === "placed"
+              && (window as any).__kupua_store__.getState()._searchContinuity?.owner !== (window as any).__entryOnlyDepartureOwner, keyB);
+            expect(await kupua.getFocusedImageId()).toBe("img-1");
+            await expect(focusIndicator).toHaveCount(1);
+            const positionedB = page.locator('[data-image-id="img-1"]').first();
+            await expect(positionedB).toBeInViewport();
+            expect(Math.abs(await positionedB.evaluate(element => element.getBoundingClientRect().top) - topB)).toBeLessThanOrEqual(2);
+            expect(await getSearchGeneration(page)).toBe(generation + (kind === "ordinary" ? 2 * (cycle + 1) : 0));
+            if (viaDetail && cycle < 2) {
+              await page.goForward();
+              await expect.poll(() => new URL(page.url()).searchParams.get("image")).toBe("img-1");
+            }
+          }
+          await page.evaluate(() => { delete (window as any).__entryOnlyDepartureOwner; });
+          if (kind === "AI") expect(await page.evaluate(() => (window as any).__kupua_pendingAiTest__.pending.length)).toBe(viaDetail ? 3 : 1);
+        });
+      }
+    }
+  }
+
+  test("a genuinely superseding query owns completion and membership", async ({ kupua, page }) => {
+    await begin(page);
+    await pendingSort(page, "-uploadTime");
+    await spaNavigate(page, path("-uploadTime", "successor"));
+    await page.waitForFunction(() => (window as any).__kupua_pendingAiTest__.pending.length === 2);
+    await release(page, 1);
+    await assertOrder(page, "-uploadTime", ["img-1", "img-0"]);
+    await release(page, 0);
+    await assertOrder(page, "-uploadTime", ["img-1", "img-0"]);
+    await kupua.assertPositionsConsistent();
+    expect(await page.evaluate(() => ({
+      query: (window as any).__kupua_store__.getState().params.aiQuery,
+      aborted: (window as any).__kupua_pendingAiTest__.pending[0].signal.aborted,
+    }))).toEqual({ query: "successor", aborted: true });
+  });
+
+  test("settled sort retains the current selection anchor without promoting phantom focus", async ({ kupua, page }) => {
+    await begin(page);
+    await release(page);
+    await assertOrder(page, "-relevance", relevance);
+    const selectionCell = page.locator('[data-image-id="img-1"]');
+    await selectionCell.hover();
+    await selectionCell.locator('[aria-label="Select image"]').click();
+    const positioning = await page.evaluate(() => (window as any).__kupua_store__.getState().sortAroundFocusGeneration);
+    await pendingSort(page, "-uploadTime");
+    await assertOrder(page, "-uploadTime", uploaded);
+    await kupua.assertPositionsConsistent();
+    expect(await page.evaluate(() => {
+      const state = (window as any).__kupua_store__.getState();
+      const selection = (window as any).__kupua_selection_store__.getState();
+      return { focused: state.focusedImageId, selected: [...selection.selectedIds], anchor: selection.anchorId };
+    })).toEqual({ focused: null, selected: ["img-1"], anchor: "img-1" });
+    expect(await page.evaluate(() => (window as any).__kupua_store__.getState().sortAroundFocusGeneration)).toBeGreaterThan(positioning);
+    await expect(selectionCell).toBeInViewport();
+  });
+});
+
+/** Get the current query param from the URL. */
+async function getUrlQuery(page: import("@playwright/test").Page): Promise<string | null> {
+  return page.evaluate(() => new URL(window.location.href).searchParams.get("query"));
+}
+
+/** Get the current orderBy param from the URL. */
+async function getUrlOrderBy(page: import("@playwright/test").Page): Promise<string | null> {
+  return page.evaluate(() => new URL(window.location.href).searchParams.get("orderBy"));
+}
+
+test.describe("Browser back/forward — search context changes", () => {
+  test("back restores previous search after query change", async ({ kupua }) => {
+    await kupua.startSearch();
+
+    const initialFirstImage = await kupua.getFirstVisibleImageId();
+    expect(initialFirstImage).not.toBeNull();
+
+    // Navigate to a query that narrows results
+    await spaNavigateAndWait(
+      kupua.page,
+      `/search?nonFree=true&query=${encodeURIComponent("credit:PA")}`,
+    );
+
+    expect(await getUrlQuery(kupua.page)).toBe("credit:PA");
+
+    // Press browser back
+    await goBackSearchAndWait(kupua.page);
+
+    // Should be back to no query
+    expect(await getUrlQuery(kupua.page)).toBeNull();
+
+    // Buffer should be at offset 0 (reset to top, not carried over)
+    const state = await kupua.getStoreState();
+    expect(state.bufferOffset).toBe(0);
+    expect(state.resultsLength).toBeGreaterThan(0);
+  });
+
+  test("forward re-applies search after back", async ({ kupua }) => {
+    await kupua.startSearch();
+
+    // Navigate to a sort change
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=uploadTime");
+    expect(await getUrlOrderBy(kupua.page)).toBe("uploadTime");
+
+    // Back
+    await goBackSearchAndWait(kupua.page);
+    expect(await getUrlOrderBy(kupua.page)).toBeNull();
+    const restored = await kupua.getStoreState();
+    expect(restored.bufferOffset).toBe(0);
+    expect(restored.resultsLength).toBeGreaterThan(0);
+
+    // Forward
+    await goForwardSearchAndWait(kupua.page);
+    expect(await getUrlOrderBy(kupua.page)).toBe("uploadTime");
+  });
+
+  test("back navigates between settled debounced queries (typed via UI)", async ({ kupua }) => {
+    // Regression test: debounced typing used replace for all navigations,
+    // so "cats" was overwritten by "dogs" and back skipped past kupua
+    // entirely. Fix: first keystroke of each typing session pushes the
+    // pre-edit URL via pushState.
+    await kupua.startSearch();
+
+    // Focus the search input
+    const searchArea = kupua.page.locator('[role="search"]');
+    await searchArea.click();
+
+    // Type "cats" and wait for debounce to settle
+    let generation = await getSearchGeneration(kupua.page);
+    await kupua.page.keyboard.press("Meta+a");
+    await kupua.page.keyboard.type("cats", { delay: 30 });
+    await waitForNewSearchSettled(kupua.page, generation);
+
+    // Wait well past the debounce (300ms) so next keystroke starts fresh
+    await kupua.page.waitForTimeout(500);
+
+    // Type "dogs" — this should commit "cats" as a history entry
+    await searchArea.click();
+    generation = await getSearchGeneration(kupua.page);
+    await kupua.page.keyboard.press("Meta+a");
+    await kupua.page.keyboard.type("dogs", { delay: 30 });
+    await waitForNewSearchSettled(kupua.page, generation);
+
+    // Back should land on "cats", not on the pre-kupua page
+    await goBackSearchAndWait(kupua.page);
+    expect(await getUrlQuery(kupua.page)).toBe("cats");
+
+    // Back again should land on the home page (no query)
+    await goBackSearchAndWait(kupua.page);
+    expect(await getUrlQuery(kupua.page)).toBeNull();
+  });
+});
+
+test.describe("Browser back/forward — image detail", () => {
+  test("back from image detail preserves focused image", async ({ kupua }) => {
+    await kupua.startSearch();
+
+    // Focus the 3rd image and open it in detail view
+    await kupua.focusNthItem(2);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    // Double-click to open detail (this pushes a history entry — no replace)
+    if (await kupua.isGridView()) {
+      const cells = kupua.page.locator(
+        '[aria-label="Image results grid"] [class*="cursor-pointer"]'
+      );
+      await cells.nth(2).dblclick();
+    } else {
+      const rows = kupua.page.locator(
+        '[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]'
+      );
+      await rows.nth(2).dblclick();
+    }
+
+    // Wait for image detail to appear
+    await kupua.page.waitForFunction(
+      () => new URL(window.location.href).searchParams.has("image"),
+      { timeout: 5000 },
+    );
+
+    // Press browser back — should close detail, NOT navigate away
+    await kupua.page.goBack();
+    await kupua.page.waitForFunction(
+      () => !new URL(window.location.href).searchParams.has("image"),
+      { timeout: 5000 },
+    );
+
+    // Focus should be preserved (same image that was focused before detail)
+    const focusAfterBack = await kupua.getFocusedImageId();
+    expect(focusAfterBack).toBe(focusedId);
+  });
+
+  test("forward after close-button re-opens image detail", async ({ kupua }) => {
+    await kupua.startSearch();
+
+    // Focus 3rd image and open detail
+    await kupua.focusNthItem(2);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    // Double-click to open detail
+    if (await kupua.isGridView()) {
+      await kupua.page.locator(
+        '[aria-label="Image results grid"] [class*="cursor-pointer"]'
+      ).nth(2).dblclick();
+    } else {
+      await kupua.page.locator(
+        '[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]'
+      ).nth(2).dblclick();
+    }
+    await kupua.page.waitForFunction(
+      () => new URL(window.location.href).searchParams.has("image"),
+      { timeout: 5000 },
+    );
+    const imageId = await kupua.page.evaluate(
+      () => new URL(window.location.href).searchParams.get("image"),
+    );
+    expect(imageId).not.toBeNull();
+
+    // Close detail via the "Back to search" button (not browser back)
+    await kupua.page.locator("button", { hasText: "Back to search" }).click();
+    await kupua.page.waitForFunction(
+      () => !new URL(window.location.href).searchParams.has("image"),
+      { timeout: 5000 },
+    );
+
+    // Forward should re-open the same image detail
+    await kupua.page.goForward();
+    await kupua.page.waitForFunction(
+      () => new URL(window.location.href).searchParams.has("image"),
+      { timeout: 5000 },
+    );
+    const imageAfterForward = await kupua.page.evaluate(
+      () => new URL(window.location.href).searchParams.get("image"),
+    );
+    expect(imageAfterForward).toBe(imageId);
+    expect(await kupua.getRenderedDetailImageId()).toBe(imageId);
+  });
+
+  test("Backspace close then forward re-opens detail", async ({ kupua }) => {
+    await kupua.startSearch();
+
+    // Focus 3rd image and open detail
+    await kupua.focusNthItem(2);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    // Double-click to open detail
+    if (await kupua.isGridView()) {
+      await kupua.page.locator(
+        '[aria-label="Image results grid"] [class*="cursor-pointer"]'
+      ).nth(2).dblclick();
+    } else {
+      await kupua.page.locator(
+        '[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]'
+      ).nth(2).dblclick();
+    }
+    await kupua.page.waitForFunction(
+      () => new URL(window.location.href).searchParams.has("image"),
+      { timeout: 5000 },
+    );
+    const imageId = await kupua.page.evaluate(
+      () => new URL(window.location.href).searchParams.get("image"),
+    );
+
+    // Close via Backspace
+    await kupua.page.keyboard.press("Backspace");
+    await kupua.page.waitForFunction(
+      () => !new URL(window.location.href).searchParams.has("image"),
+      { timeout: 5000 },
+    );
+
+    // Forward should re-open the same detail
+    await kupua.page.goForward();
+    await kupua.page.waitForFunction(
+      () => new URL(window.location.href).searchParams.has("image"),
+      { timeout: 5000 },
+    );
+    const imageAfterForward = await kupua.page.evaluate(
+      () => new URL(window.location.href).searchParams.get("image"),
+    );
+    expect(imageAfterForward).toBe(imageId);
+    expect(await kupua.getRenderedDetailImageId()).toBe(imageId);
+  });
+
+  test("Backspace closes detail re-entered via forward while search input holds focus", async ({ kupua }) => {
+    // Regression test: if the search input already has focus when a
+    // history-restored (not clicked) navigation re-enters image detail,
+    // nothing blurs it — Backspace was swallowed by the search input's own
+    // keydown trap before ever reaching ImageDetail's close handler.
+    await kupua.startSearch();
+
+    const imageId = await kupua.openDetailForNthItem(0);
+    await kupua.page.goBack();
+    await kupua.waitForDetailClosed();
+
+    // Simulate the search input already holding focus (e.g. from typing,
+    // or autofocus-on-reload) at the moment detail reopens.
+    await kupua.page.locator("cql-input").click();
+
+    await kupua.page.goForward();
+    await kupua.page.waitForFunction(
+      () => new URL(window.location.href).searchParams.has("image"),
+      { timeout: 5000 },
+    );
+    expect(await kupua.getDetailImageId()).toBe(imageId);
+
+    await kupua.closeDetailViaBackspace();
+    expect(await kupua.getDetailImageId()).toBeNull();
+  });
+
+  test("SPA open-close cycle does not accumulate phantom history entries", async ({ kupua }) => {
+    // Regression test: unconditional deep-link synthesis was inserting a
+    // bare-list entry on every SPA-navigated detail open, creating phantom
+    // entries that doubled the back-presses needed. With the SPA-entry
+    // flag, synthesis is skipped for in-app navigations.
+    await kupua.startSearch();
+
+    const histLenBefore = await kupua.page.evaluate(() => history.length);
+
+    // Open and close 3 different images via SPA navigation
+    for (let i = 0; i < 3; i++) {
+      await kupua.focusNthItem(i);
+      if (await kupua.isGridView()) {
+        await kupua.page.locator(
+          '[aria-label="Image results grid"] [class*="cursor-pointer"]'
+        ).nth(i).dblclick();
+      } else {
+        await kupua.page.locator(
+          '[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]'
+        ).nth(i).dblclick();
+      }
+      await kupua.page.waitForFunction(
+        () => new URL(window.location.href).searchParams.has("image"),
+        { timeout: 5000 },
+      );
+      const openState = await kupua.page.evaluate(() => ({
+        length: history.length,
+        urlImageId: new URL(window.location.href).searchParams.get("image"),
+        entryImageId: history.state?._detailEntryImageId ?? null,
+      }));
+      expect(openState.length).toBe(histLenBefore + 1);
+      expect(openState.entryImageId).toBe(openState.urlImageId);
+
+      // Close via "Back to search" button
+      await kupua.page.locator("button", { hasText: "Back to search" }).click();
+      await kupua.waitForDetailClosed();
+      const closeState = await kupua.page.evaluate(() => ({
+        length: history.length,
+        hasImageParam: new URL(window.location.href).searchParams.has("image"),
+        entryImageId: history.state?._detailEntryImageId ?? null,
+      }));
+      expect(closeState).toEqual({
+        length: histLenBefore + 1,
+        hasImageParam: false,
+        entryImageId: null,
+      });
+    }
+
+    const histLenAfter = await kupua.page.evaluate(() => history.length);
+    expect(histLenAfter).toBe(histLenBefore + 1);
+
+    // More importantly: a single back from the list should reach the
+    // previous search context, not a phantom bare-list page.
+    // Navigate to a different search context first, then back.
+    await spaNavigate(kupua.page, "/search?nonFree=true&query=test");
+    await kupua.page.goBack();
+    await kupua.page.waitForFunction(
+      () => !new URL(window.location.href).searchParams.has("query"),
+      { timeout: 5000 },
+    );
+    // Should be on the home search page (nonFree=true only), not a phantom
+    const url = kupua.page.url();
+    expect(url).toContain("/search");
+    expect(url).not.toContain("query=");
+  });
+});
+
+test.describe("Browser back/forward — deep-link synthesis", () => {
+  test("cold load ?image=X with fresh tab → close → lands on bare list", async ({ kupua }) => {
+    // Navigate directly to a detail URL — simulates pasting a link.
+    // First, find an image ID from the results.
+    await kupua.startSearch();
+    const firstImage = await kupua.getFirstVisibleImageId();
+    expect(firstImage).not.toBeNull();
+
+    // Open a new page (fresh tab context — history.length starts at 1)
+    const freshPage = await kupua.page.context().newPage();
+    // Pin explicit mode on the fresh page too
+    await freshPage.addInitScript(() => {
+      localStorage.setItem(
+        "kupua-ui-prefs",
+        JSON.stringify({ state: { focusMode: "explicit" }, version: 0 }),
+      );
+    });
+
+    // Navigate directly to the detail URL
+    await freshPage.goto(`/search?nonFree=true&image=${firstImage}`);
+    await freshPage.waitForFunction(
+      () => new URL(window.location.href).searchParams.has("image"),
+      { timeout: 10000 },
+    );
+
+    // Close detail via Backspace — should land on bare list, not exit tab
+    await freshPage.keyboard.press("Backspace");
+    await freshPage.waitForFunction(
+      () => !new URL(window.location.href).searchParams.has("image"),
+      { timeout: 5000 },
+    );
+
+    // Should be on the search page, not a blank page
+    const url = freshPage.url();
+    expect(url).toContain("/search");
+    expect(url).not.toContain("image=");
+
+    await freshPage.close();
+  });
+
+  test("paste ?image=X into tab with prior history → close → lands on bare list (not referring site)", async ({ kupua }) => {
+    // Simulates: user is on theguardian.com (or any non-kupua page),
+    // pastes a kupua detail URL. The tab has 20+ history entries.
+    // Close detail should land on the bare kupua list, not go back to
+    // the prior site. This is the scenario that broke when we gated
+    // synthesis on history.length.
+
+    // Build up some prior history in the same page context.
+    // We use the kupua page itself for multiple navigations to inflate
+    // history.length beyond any reasonable gate threshold.
+    await kupua.startSearch();
+    const firstImage = await kupua.getFirstVisibleImageId();
+    expect(firstImage).not.toBeNull();
+
+    // Navigate through a few SPA states to grow history.length
+    await spaNavigate(kupua.page, "/search?nonFree=true&query=test");
+    await spaNavigate(kupua.page, "/search?nonFree=true&query=cats");
+    await spaNavigate(kupua.page, "/search?nonFree=true&query=dogs");
+
+    // Now simulate "pasting" a detail URL — full page navigation
+    await kupua.page.goto(`/search?nonFree=true&image=${firstImage}`);
+    await kupua.page.waitForFunction(
+      () => new URL(window.location.href).searchParams.has("image"),
+      { timeout: 10000 },
+    );
+
+    // Verify history.length is well above 2 (the old gate)
+    const histLen = await kupua.page.evaluate(() => history.length);
+    expect(histLen).toBeGreaterThan(2);
+
+    // Close detail via Backspace
+    await kupua.page.keyboard.press("Backspace");
+    await kupua.page.waitForFunction(
+      () => !new URL(window.location.href).searchParams.has("image"),
+      { timeout: 5000 },
+    );
+
+    // Should be on the kupua search page (synthesised bare-list), not
+    // back at the prior history entry
+    const url = kupua.page.url();
+    expect(url).toContain("/search");
+    expect(url).not.toContain("image=");
+  });
+
+  test("cold load → traverse → close → forward does not re-synthesise (no phantom entry)", async ({ kupua }) => {
+    // Regression test for H1: withCurrentKupuaKey() was dropping
+    // _bareListSynthesized from history.state on traversal replace,
+    // causing re-synthesis (phantom bare-list entry + forward truncation)
+    // when the user navigated forward back to the detail entry.
+    await kupua.startSearch();
+    const firstImage = await kupua.getFirstVisibleImageId();
+    expect(firstImage).not.toBeNull();
+
+    // Cold-load a detail URL (triggers bare-list synthesis)
+    const freshPage = await kupua.page.context().newPage();
+    await freshPage.addInitScript(() => {
+      localStorage.setItem(
+        "kupua-ui-prefs",
+        JSON.stringify({ state: { focusMode: "explicit" }, version: 0 }),
+      );
+    });
+    await freshPage.goto(`/search?nonFree=true&image=${firstImage}`);
+    await freshPage.waitForFunction(
+      () => new URL(window.location.href).searchParams.has("image"),
+      { timeout: 10000 },
+    );
+
+    // Wait for search results to load so traversal (prev/next) is available.
+    // On cold load, the image may need restoreAroundCursor before it appears
+    // in the buffer and ArrowRight can find a next image.
+    await freshPage.waitForFunction(
+      () => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const s = store.getState();
+        return s.sortAroundFocusStatus === null && !s.loading && s.results.length > 0;
+      },
+      { timeout: 15000 },
+    );
+
+    const histLenAfterLoad = await freshPage.evaluate(() => history.length);
+
+    // Traverse to the next image (replace navigation — this is where
+    // withCurrentKupuaKey() was dropping _bareListSynthesized)
+    await freshPage.keyboard.press("ArrowRight");
+    await freshPage.waitForFunction(
+      (prev) => new URL(window.location.href).searchParams.get("image") !== prev,
+      firstImage,
+      { timeout: 5000 },
+    );
+    const secondImage = await freshPage.evaluate(
+      () => new URL(window.location.href).searchParams.get("image"),
+    );
+
+    // Close detail
+    await freshPage.keyboard.press("Backspace");
+    await freshPage.waitForFunction(
+      () => !new URL(window.location.href).searchParams.has("image"),
+      { timeout: 5000 },
+    );
+
+    // Forward — re-opens detail. With the bug, this would re-synthesise
+    // (inserting a phantom bare-list entry and growing history.length).
+    await freshPage.goForward();
+    await freshPage.waitForFunction(
+      () => new URL(window.location.href).searchParams.has("image"),
+      { timeout: 5000 },
+    );
+
+    // The image should be the one we traversed to
+    const imageAfterForward = await freshPage.evaluate(
+      () => new URL(window.location.href).searchParams.get("image"),
+    );
+    expect(imageAfterForward).toBe(secondImage);
+    const renderedAfterForward = await freshPage.evaluate(
+      () =>
+        document
+          .querySelector("[data-detail-image-id]")
+          ?.getAttribute("data-detail-image-id") ?? null,
+    );
+    expect(renderedAfterForward).toBe(secondImage);
+
+    // History length should NOT have grown — no phantom entry inserted.
+    // With the bug, re-synthesis does replaceState + pushState, growing
+    // history.length by 1 on each forward-to-detail cycle.
+    const histLenAfterForward = await freshPage.evaluate(() => history.length);
+    expect(histLenAfterForward).toBe(histLenAfterLoad);
+
+    await freshPage.close();
+  });
+});
+
+test.describe("Marked detail entry destination geometry", () => {
+  for (const sourceLayout of ["grid", "table"] as const) {
+    test(`${sourceLayout} saved detail entry keeps its represented ratio after a detail-to-detail jump and close`, async ({ kupua, page }) => {
+      await kupua.startSearch("", sourceLayout);
+      await kupua.focusNthItem(6);
+      const anchorId = await kupua.getFocusedImageId();
+      if (!anchorId) throw new Error("Expected a focused local fixture anchor");
+      await page.evaluate(imageId => {
+        const container = document.querySelector<HTMLElement>('[aria-label="Image results grid"], [aria-label="Image results table"]')!;
+        const item = container.querySelector<HTMLElement>(`[data-image-id="${CSS.escape(imageId)}"]`)!;
+        container.scrollTop += item.getBoundingClientRect().top - container.getBoundingClientRect().top - 120;
+      }, anchorId);
+      await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+      await page.locator(`[data-image-id="${anchorId}"]`).first().dblclick();
+      await expect.poll(() => new URL(page.url()).searchParams.get("image")).toBe(anchorId);
+      const entryKey = await page.evaluate(() => history.state.kupuaKey);
+      await reloadSearchAndWait(page);
+      await page.waitForFunction(imageId => (window as any).__kupua_store__.getState().focusedImageId === imageId
+        && (window as any).__kupua_store__.getState()._searchContinuity?.phase === "placed", anchorId);
+      const snapshot = await page.evaluate(key => (window as any).__kupua_inspectSnapshot__(key), entryKey);
+      expect(snapshot.anchorImageId).toBe(anchorId);
+      const readPose = () => page.evaluate(imageId => {
+        const container = document.querySelector<HTMLElement>('[aria-label^="Image results "]')!;
+        const item = container.querySelector<HTMLElement>(`[data-image-id="${CSS.escape(imageId)}"]`)!;
+        const padding = parseFloat(getComputedStyle(container).paddingTop);
+        const y = item.getBoundingClientRect().top - container.getBoundingClientRect().top - padding;
+        return { top: container.scrollTop, height: container.clientHeight, ratio: y / container.clientHeight };
+      }, anchorId);
+      const sourcePose = await readPose();
+
+      await page.locator('a[title="Grid — clear all filters"]').last().click();
+      await expect.poll(() => new URL(page.url()).searchParams.has("image")).toBe(false);
+      await kupua.assertDensity("grid");
+      await kupua.waitForResults();
+      await kupua.focusNthItem(0);
+      const otherId = await kupua.getFocusedImageId();
+      expect(otherId).not.toBe(anchorId);
+      await page.locator(`[data-image-id="${otherId}"]`).first().dblclick();
+      await expect.poll(() => new URL(page.url()).searchParams.get("image")).toBe(otherId);
+      await page.evaluate(() => history.go(-2));
+      await page.waitForFunction(({ key, imageId }) => history.state.kupuaKey === key
+        && (window as any).__kupua_store__.getState().focusedImageId === imageId
+        && (window as any).__kupua_store__.getState()._searchContinuity?.phase === "placed", { key: entryKey, imageId: anchorId });
+      const restored = await readPose();
+      expect(Math.abs(restored.ratio - sourcePose.ratio) * restored.height).toBeLessThanOrEqual(2);
+      const generation = await getSearchGeneration(page);
+      await page.goBack();
+      await expect.poll(() => new URL(page.url()).searchParams.has("image")).toBe(false);
+      await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+      const closed = await readPose();
+      expect(Math.abs(closed.top - restored.top)).toBeLessThanOrEqual(2);
+      expect(await kupua.getFocusedImageId()).toBe(anchorId);
+      expect(await getSearchGeneration(page)).toBe(generation);
+      await kupua.assertDensity("grid");
+    });
+  }
+});
+
+test.describe("Browser back/forward — density toggle", () => {
+  test("immediate reload retains each choice and its first-mounted view", async ({ kupua, page }) => {
+    await kupua.startSearch();
+    await page.addInitScript(() => {
+      (window as any).__densityMounts = [];
+      const observer = new MutationObserver(() => {
+        const grid = document.querySelector('[aria-label="Image results grid"]');
+        const table = document.querySelector('[aria-label="Image results table"]');
+        if (grid || table) {
+          (window as any).__densityMounts.push(table ? "table" : "grid");
+          observer.disconnect();
+        }
+      });
+      observer.observe(document, { childList: true, subtree: true });
+    });
+    for (const density of ["table", "grid"] as const) {
+      await page.getByRole("button", { name: `${density[0].toUpperCase()}${density.slice(1)} view`, exact: true }).click();
+      expect(await page.evaluate(() => sessionStorage.getItem("kupua-density"))).toBe(density);
+      await page.reload();
+      await kupua.waitForResults();
+      await kupua.assertDensity(density);
+      expect(await page.evaluate(() => (window as any).__densityMounts[0])).toBe(density);
+      expect(new URL(page.url()).searchParams.has("density")).toBe(false);
+    }
+  });
+
+  test("navigation retains table, a reused independent case explicitly starts grid, and a fresh tab defaults grid", async ({ kupua, page }) => {
+    await kupua.initializeDensity("grid");
+    await kupua.startSearch("", "table");
+    await kupua.goto();
+    await kupua.assertDensity("table");
+    await page.reload();
+    await kupua.waitForResults();
+    await kupua.assertDensity("table");
+    const fresh = await page.context().newPage();
+    try {
+      await fresh.route("/api/**", route => route.fulfill({ status: 503, body: "" }));
+      await fresh.goto("/search?nonFree=true");
+      await expect(fresh.getByLabel("Image results grid", { exact: true })).toBeVisible();
+      expect(await fresh.evaluate(() => sessionStorage.getItem("kupua-density"))).toBeNull();
+    } finally { await fresh.close(); }
+    await page.goto("about:blank");
+    await kupua.startSearch();
+    await kupua.assertDensity("grid");
+    await kupua.switchToTable();
+    await page.reload();
+    await kupua.waitForResults();
+    await kupua.assertDensity("table");
+  });
+
+  test("density creates no entry, keeps identity and Forward, and history keeps current layout", async ({ kupua, page }) => {
+    await kupua.startSearch();
+    await spaNavigateAndWait(page, "/search?nonFree=true&query=credit%3APA");
+    await goBackSearchAndWait(page);
+    const before = await page.evaluate(() => ({ length: history.length, key: history.state.kupuaKey,
+      generation: (window as any).__kupua_getSearchLifecycle__().started }));
+    await kupua.switchToTable();
+    const after = await page.evaluate(() => ({ length: history.length, key: history.state.kupuaKey,
+      generation: (window as any).__kupua_getSearchLifecycle__().started }));
+    expect(after).toEqual(before);
+    expect(new URL(page.url()).searchParams.has("density")).toBe(false);
+    await goForwardSearchAndWait(page);
+    expect(await getUrlQuery(page)).toBe("credit:PA");
+    await kupua.assertDensity("table");
+    await goBackSearchAndWait(page);
+    await kupua.assertDensity("table");
+  });
+});
+
+test.describe("Browser back/forward — metadata click-to-search", () => {
+  test("metadata search pushes once; Back restores the exact rendered detail image", async ({ kupua }) => {
+    // Local mode builds no media URLs; serve an identity-tagged pixel so the detail can decode.
+    await kupua.page.route("**/src/lib/image-urls.ts", (route) => route.fulfill({
+      contentType: "application/javascript",
+      body: `export const thumbnailsEnabled = true;
+        const pixel = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+        export const getThumbnailUrl = image => pixel + "#" + image.id;
+        export const getFullImageUrl = getThumbnailUrl;
+        export const getZoomImageUrl = getFullImageUrl;`,
+    }));
+    await kupua.startSearch();
+
+    // Use a non-first image so stale buffer-local index 0 cannot accidentally
+    // render the correct identity after Back.
+    const imageId = await kupua.openDetailForNthItem(3);
+    const credit = await kupua.page.evaluate((expectedId) => {
+      const state = (window as any).__kupua_store__?.getState();
+      return state?.results.find((image: any) => image.id === expectedId)?.metadata?.credit ?? null;
+    }, imageId);
+    expect(credit).toBeTruthy();
+
+    const detailMetadataBtn = kupua.page.locator(
+      'button[aria-controls="section-detail-metadata"][aria-expanded="false"]',
+    );
+    if (await detailMetadataBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await detailMetadataBtn.click();
+    }
+    const metadataLink = kupua.page.locator(
+      `dl button[data-cql-key="credit"][data-cql-value="${credit}"]`,
+    );
+    await expect(metadataLink).toHaveCount(1);
+    await metadataLink.scrollIntoViewIfNeeded();
+
+    const histLenBefore = await kupua.page.evaluate(() => history.length);
+    await runSearchAction(kupua.page, () => metadataLink.click());
+
+    expect(await getUrlQuery(kupua.page)).toBe(`credit:${credit}`);
+    expect(await kupua.getDetailImageId()).toBeNull();
+    const histLenAfter = await kupua.page.evaluate(() => history.length);
+    expect(histLenAfter).toBe(histLenBefore + 1);
+
+    await goBackSearchAndWait(kupua.page);
+    await kupua.waitForDecodedDetailImage(imageId);
+    expect(await kupua.getDetailImageId()).toBe(imageId);
+    expect(await kupua.getRenderedDetailImageId()).toBe(imageId);
+  });
+});
+
+// ===========================================================================
+// kupuaKey infrastructure — per-entry identity
+// ===========================================================================
+
+test.describe("kupuaKey — per-entry identity", () => {
+  /** Read kupuaKey from the current history entry via the dev global. */
+  async function getKupuaKey(page: import("@playwright/test").Page): Promise<string | undefined> {
+    return page.evaluate(() => {
+      const fn = (window as any).__kupua_getKupuaKey__;
+      return fn ? fn() : undefined;
+    });
+  }
+
+  test("cold load synthesises a kupuaKey on the initial entry", async ({ kupua }) => {
+    await kupua.startSearch();
+    const key = await getKupuaKey(kupua.page);
+    expect(key).toBeDefined();
+    expect(key).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+  });
+
+  test("kupuaKey is stable across replace then restored on back", async ({ kupua }) => {
+    await kupua.startSearch();
+    const keyA = await getKupuaKey(kupua.page);
+
+    // Push → new entry B
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=uploadTime");
+    const keyB = await getKupuaKey(kupua.page);
+    expect(keyB).not.toBe(keyA);
+
+    // Replace on B (like traversal) — key should stay as B
+    await kupua.page.evaluate(() => {
+      const router = (window as any).__kupua_router__;
+      router.navigate({
+        to: "/search",
+        search: { nonFree: "true", orderBy: "uploadTime" },
+        replace: true,
+        state: { kupuaKey: router.history.location.state?.kupuaKey },
+      });
+    });
+    expect(await getKupuaKey(kupua.page)).toBe(keyB);
+
+    // Back to A — should have A's original key
+    await goBackSearchAndWait(kupua.page);
+    const keyAfterBack = await getKupuaKey(kupua.page);
+    expect(keyAfterBack).toBe(keyA);
+  });
+
+  test("push captures a snapshot for the predecessor entry", async ({ kupua }) => {
+    await kupua.startSearch();
+    const keyA = await getKupuaKey(kupua.page);
+    expect(keyA).toBeDefined();
+
+    // Focus the 3rd image so the snapshot has an anchor.
+    await kupua.focusNthItem(2);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    // Push a new search — this should capture a snapshot for entry A.
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=uploadTime");
+
+    // Inspect the snapshot captured for A's kupuaKey.
+    const snapshot = await kupua.page.evaluate((key) => {
+      const inspect = (window as any).__kupua_inspectSnapshot__;
+      return inspect ? inspect(key) : null;
+    }, keyA!);
+
+    expect(snapshot).not.toBeNull();
+    expect(snapshot.searchKey).toBeDefined();
+    expect(snapshot.searchKey).toContain("nonFree");
+    // The anchor should be the focused image.
+    expect(snapshot.anchorImageId).toBe(focusedId);
+    expect(snapshot.anchorOffset).toBeGreaterThanOrEqual(0);
+  });
+
+  test("logo-reset push does NOT capture a snapshot", async ({ kupua }) => {
+    await kupua.startSearch();
+    const keyA = await getKupuaKey(kupua.page);
+    expect(keyA).toBeDefined();
+
+    // Navigate to a different sort (creates a history entry B)
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=uploadTime");
+    const keyB = await getKupuaKey(kupua.page);
+
+    // Click the logo (reset to home) — uses pushNavigateAsPopstate,
+    // which should NOT capture a snapshot for B.
+    await runSearchAction(
+      kupua.page,
+      () => kupua.page.locator('header[role="toolbar"] a[title*="Grid"]').click(),
+    );
+
+    // There should be no snapshot for B (logo-reset skips capture)
+    const snapshot = await kupua.page.evaluate((key) => {
+      const inspect = (window as any).__kupua_inspectSnapshot__;
+      return inspect ? inspect(key) : null;
+    }, keyB!);
+
+    expect(snapshot).toBeUndefined();
+  });
+
+  test("typed CQL sessions keep distinct keys and predecessor snapshots", async ({ kupua }) => {
+    await kupua.startSearch();
+    await kupua.focusNthItem(2);
+    const initialAnchor = await kupua.getFocusedImageId();
+    const initialKey = await getKupuaKey(kupua.page);
+    const initialLength = await kupua.page.evaluate(() => history.length);
+    expect(initialAnchor).not.toBeNull();
+    expect(initialKey).toBeDefined();
+
+    const searchArea = kupua.page.locator('[role="search"]');
+    await searchArea.click();
+    let generation = await getSearchGeneration(kupua.page);
+    await kupua.page.keyboard.type("credit:PA", { delay: 20 });
+    await waitForNewSearchSettled(kupua.page, generation);
+    const typedKey = await getKupuaKey(kupua.page);
+    expect(typedKey).toBeDefined();
+    expect(typedKey).not.toBe(initialKey);
+    expect(await kupua.page.evaluate(() => history.length)).toBe(initialLength + 1);
+    const predecessor = await kupua.page.evaluate(
+      (key) => (window as any).__kupua_inspectSnapshot__(key), initialKey!,
+    );
+    expect(predecessor.anchorImageId).toBe(initialAnchor);
+    expect(predecessor.searchKey).not.toContain("credit:PA");
+
+    await kupua.focusNthItem(3);
+    const typedAnchor = await kupua.getFocusedImageId();
+    expect(typedAnchor).not.toBeNull();
+    await searchArea.click();
+    generation = await getSearchGeneration(kupua.page);
+    await kupua.page.keyboard.press("Meta+a");
+    await kupua.page.keyboard.type("credit:Reuters", { delay: 20 });
+    await waitForNewSearchSettled(kupua.page, generation);
+    expect(await getKupuaKey(kupua.page)).not.toBe(typedKey);
+    expect(await kupua.page.evaluate(() => history.length)).toBe(initialLength + 2);
+
+    await goBackSearchAndWait(kupua.page);
+    expect(await getKupuaKey(kupua.page)).toBe(typedKey);
+    expect(await getUrlQuery(kupua.page)).toBe("credit:PA");
+    expect(await kupua.getFocusedImageId()).toBe(typedAnchor);
+    await goBackSearchAndWait(kupua.page);
+    expect(await getKupuaKey(kupua.page)).toBe(initialKey);
+    expect(await kupua.getFocusedImageId()).toBe(initialAnchor);
+  });
+
+  test.describe("AI typing sessions", () => {
+    test.beforeEach(async ({ kupua, page }) => {
+      await page.route("**/bedrock/**", (route) => route.fulfill({
+        json: route.request().url().endsWith("/health")
+          ? { available: true } : { embedding: Array(256).fill(0) },
+      }));
+      await kupua.startSearch();
+      await page.evaluate(async () => {
+        const mockPath = "/src/dal/mock-data-source.ts";
+        const { MockDataSource } = await import(mockPath);
+        const source = new MockDataSource(20);
+        source.searchByAi = async () => {
+          const hits = (await source.getByIds(Array.from({ length: 20 }, (_, index) => `img-${index}`)))
+            .map((image: any, index: number) => ({ ...image, __aiScore: 20 - index }));
+          return {
+            hits,
+            total: hits.length,
+            sortValues: hits.map((image: any) => [Date.parse(image.uploadTime), image.id]),
+          };
+        };
+        const store = (window as any).__kupua_store__;
+        store.setState({ dataSource: source, focusedImageId: null });
+        await store.getState().search();
+      });
+      await kupua.waitForResults();
+    });
+
+    test("settled AI edits own distinct keys and restore their predecessor", async ({ kupua, page }) => {
+      await kupua.focusNthItem(2);
+      const initialAnchor = await kupua.getFocusedImageId();
+      const initialKey = await getKupuaKey(page);
+      const initialLength = await page.evaluate(() => history.length);
+      await page.getByRole("button", { name: "Enable AI image search", exact: true }).click();
+      const input = page.getByRole("searchbox", { name: "AI image search query" });
+      let generation = await getSearchGeneration(page);
+      await input.fill("fixture sea");
+      await waitForNewSearchSettled(page, generation);
+      const typedKey = await getKupuaKey(page);
+      expect(typedKey).toBeDefined();
+      expect(typedKey).not.toBe(initialKey);
+      expect(await page.evaluate(() => history.length)).toBe(initialLength + 1);
+
+      await kupua.focusNthItem(3);
+      const typedAnchor = await kupua.getFocusedImageId();
+      generation = await getSearchGeneration(page);
+      await input.fill("fixture city");
+      await waitForNewSearchSettled(page, generation);
+      expect(await getKupuaKey(page)).not.toBe(typedKey);
+      expect(await page.evaluate(() => history.length)).toBe(initialLength + 2);
+
+      await goBackSearchAndWait(page);
+      expect(await getKupuaKey(page)).toBe(typedKey);
+      expect(await input.inputValue()).toBe("fixture sea");
+      expect(await kupua.getFocusedImageId()).toBe(typedAnchor);
+      await goBackSearchAndWait(page);
+      expect(await getKupuaKey(page)).toBe(initialKey);
+      expect(await kupua.getFocusedImageId()).toBe(initialAnchor);
+    });
+
+    test("overlapping AI and CQL edits share one fresh typing entry", async ({ kupua, page }) => {
+      await kupua.focusNthItem(2);
+      const initialAnchor = await kupua.getFocusedImageId();
+      const initialKey = await getKupuaKey(page);
+      const initialLength = await page.evaluate(() => history.length);
+      await page.getByRole("button", { name: "Enable AI image search", exact: true }).click();
+      const input = page.getByRole("searchbox", { name: "AI image search query" });
+      await expect(input).toBeVisible();
+      const now = new Date();
+      await page.clock.install({ time: now });
+      await page.clock.pauseAt(new Date(now.getTime() + 1_000));
+      const generation = await getSearchGeneration(page);
+
+      await input.fill("fixture overlapping");
+      await page.clock.runFor(20);
+      const typingKey = await getKupuaKey(page);
+      expect(typingKey).toBeDefined();
+      expect(typingKey).not.toBe(initialKey);
+      await page.locator("cql-input").evaluate((element: HTMLElement) => element.focus());
+      await page.keyboard.insertText("Test");
+      await page.clock.runFor(20);
+      expect(await getKupuaKey(page)).toBe(typingKey);
+      expect(await page.evaluate(() => history.length)).toBe(initialLength + 1);
+
+      await page.clock.runFor(700);
+      await page.clock.resume();
+      await waitForNewSearchSettled(page, generation);
+      await expect.poll(() => page.evaluate(() => {
+        const params = new URL(location.href).searchParams;
+        return { query: params.get("query"), aiQuery: params.get("aiQuery") };
+      })).toEqual({ query: "Test", aiQuery: "fixture overlapping" });
+      expect(await getKupuaKey(page)).toBe(typingKey);
+      expect(await page.evaluate(() => history.length)).toBe(initialLength + 1);
+      const predecessor = await page.evaluate(
+        (key) => (window as any).__kupua_inspectSnapshot__(key), initialKey!,
+      );
+      expect(predecessor.anchorImageId).toBe(initialAnchor);
+      await goBackSearchAndWait(page);
+      expect(await getKupuaKey(page)).toBe(initialKey);
+      expect(await kupua.getFocusedImageId()).toBe(initialAnchor);
+    });
+  });
+
+  test("Home departure keeps its own key when Back restores an existing snapshot", async ({ kupua }) => {
+    await kupua.startSearch();
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&query=credit%3APA");
+    await kupua.focusNthItem(2);
+    const previousAnchor = await kupua.getFocusedImageId();
+    const previousKey = await getKupuaKey(kupua.page);
+    expect(previousKey).toBeDefined();
+    expect(previousAnchor).not.toBeNull();
+
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&query=credit%3AReuters");
+    await goBackSearchAndWait(kupua.page);
+    expect(await kupua.getFocusedImageId()).toBe(previousAnchor);
+    const previousSnapshot = await kupua.page.evaluate(
+      (key) => (window as any).__kupua_inspectSnapshot__(key), previousKey!,
+    );
+    expect(previousSnapshot.anchorImageId).toBe(previousAnchor);
+
+    await runSearchAction(
+      kupua.page,
+      () => kupua.page.locator('header[role="toolbar"] a[title*="Grid"]').click(),
+    );
+    await expect.poll(() => getKupuaKey(kupua.page)).not.toBe(previousKey);
+    const homeKey = await getKupuaKey(kupua.page);
+    expect(homeKey).toBeDefined();
+    expect(await getUrlQuery(kupua.page)).toBeNull();
+    await kupua.focusNthItem(3);
+    const homeAnchor = await kupua.getFocusedImageId();
+    expect(homeAnchor).not.toBeNull();
+
+    await goBackSearchAndWait(kupua.page);
+    const snapshots = await kupua.page.evaluate(({ previousKey, homeKey }) => ({
+      previous: (window as any).__kupua_inspectSnapshot__(previousKey),
+      home: (window as any).__kupua_inspectSnapshot__(homeKey),
+    }), { previousKey: previousKey!, homeKey: homeKey! });
+    expect(snapshots.home?.anchorImageId).toBe(homeAnchor);
+    expect(snapshots.previous).toEqual(previousSnapshot);
+    expect(await kupua.getFocusedImageId()).toBe(previousAnchor);
+
+    await goForwardSearchAndWait(kupua.page);
+    expect(await getKupuaKey(kupua.page)).toBe(homeKey);
+    expect(await kupua.getFocusedImageId()).toBe(homeAnchor);
+  });
+});
+
+// ===========================================================================
+// Phase 3: Snapshot-based position restoration on popstate
+// ===========================================================================
+
+test.describe("Snapshot restore — position restoration on back/forward", () => {
+  test("back after query change restores focused image", async ({ kupua }) => {
+    // Initial query (entry A). Focus the 3rd image.
+    await kupua.startSearch();
+    await spaNavigateAndWait(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:PA")}`);
+    await kupua.focusNthItem(2);
+    const anchorId = await kupua.getFocusedImageId();
+    expect(anchorId).not.toBeNull();
+
+    // Push a different query (entry B).
+    await spaNavigateAndWait(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:Reuters")}`);
+
+    // Back to entry A — snapshot should restore.
+    await goBackSearchAndWait(kupua.page);
+
+    const restoredFocus = await kupua.getFocusedImageId();
+    expect(restoredFocus).toBe(anchorId);
+  });
+
+  test("forward after back still finds snapshot (not deleted on read)", async ({ kupua }) => {
+    // Entry A: default sort. Focus image 3.
+    await kupua.startSearch();
+    await kupua.focusNthItem(2);
+    const anchorA = await kupua.getFocusedImageId();
+    expect(anchorA).not.toBeNull();
+
+    // Entry B: ascending upload-time sort (Never Lost carries anchorA, that's fine).
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=uploadTime");
+
+    // Back to A — restores anchorA from snapshot.
+    await goBackSearchAndWait(kupua.page);
+    expect(await kupua.getFocusedImageId()).toBe(anchorA);
+
+    // Forward to B — then immediately back to A again.
+    // Tests that A's snapshot was not deleted on the first read.
+    await goForwardSearchAndWait(kupua.page);
+
+    await goBackSearchAndWait(kupua.page);
+    expect(await kupua.getFocusedImageId()).toBe(anchorA);
+  });
+
+  test("logo-reset back still resets, then back from reset restores", async ({ kupua }) => {
+    // Entry A: query. Focus image 3.
+    await kupua.startSearch();
+    await spaNavigateAndWait(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:PA")}`);
+    await kupua.focusNthItem(2);
+
+    // Logo-reset (entry B) — pushNavigateAsPopstate, no snapshot for A.
+    await runSearchAction(
+      kupua.page,
+      () => kupua.page.locator('header[role="toolbar"] a[title*="Grid"]').click(),
+    );
+    expect(await getUrlQuery(kupua.page)).toBeNull();
+
+    // Back to A — logo-reset doesn't capture a snapshot for A (by design).
+    // So A has NO snapshot → back should reset to top (offset 0).
+    await goBackSearchAndWait(kupua.page);
+    expect(await getUrlQuery(kupua.page)).toBe("credit:PA");
+
+    const state = await kupua.getStoreState();
+    expect(state.bufferOffset).toBe(0);
+  });
+
+  test("back without snapshot falls through to reset-to-top", async ({ kupua }) => {
+    await kupua.startSearch();
+
+    // Push WITHOUT calling markPushSnapshot (simulate missing snapshot).
+    await runSearchAction(kupua.page, () => kupua.page.evaluate(() => {
+        const router = (window as any).__kupua_router__;
+        const markUserNav = (window as any).__kupua_markUserNav__;
+        if (markUserNav) markUserNav();
+        router.navigate({
+          to: "/search",
+          search: { nonFree: "true", orderBy: "uploadTime" },
+          state: { kupuaKey: crypto.randomUUID() },
+        });
+      }));
+
+    // Back — no snapshot exists → should reset to top.
+    await goBackSearchAndWait(kupua.page);
+
+    const state = await kupua.getStoreState();
+    expect(state.bufferOffset).toBe(0);
+    expect(state.focusedImageId).toBeNull();
+  });
+
+  test("back restores deep position (~800) after query change", async ({ kupua }) => {
+    // Entry A: default sort. Seek to offset ~800 (well past first page).
+    await kupua.startSearch();
+
+    // Seek deep via the store.
+    await kupua.page.evaluate(async () => {
+      const store = (window as any).__kupua_store__;
+      await store.getState().seek(800);
+    });
+    // Wait for seek to settle (loading=false, buffer around 800).
+    await kupua.page.waitForFunction(
+      () => {
+        const s = (window as any).__kupua_store__?.getState();
+        return s && !s.loading && s.bufferOffset > 0 && s.results.length > 0;
+      },
+      { timeout: 15_000 },
+    );
+
+    // Focus an image from the deep buffer.
+    await kupua.focusNthItem(0);
+    const deepAnchor = await kupua.getFocusedImageId();
+    expect(deepAnchor).not.toBeNull();
+    const preState = await kupua.getStoreState();
+    const deepOffset = preState.bufferOffset;
+    expect(deepOffset).toBeGreaterThan(500); // sanity: we're deep
+
+    // Push a query change (entry B) — the deep image won't exist in
+    // the filtered results, so Never Lost falls back to first page.
+    // This isolates the snapshot restore test from Never Lost carrying
+    // focus across contexts.
+    await spaNavigateAndWait(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:Reuters")}`);
+    // New query → first page at offset 0.
+    const queryState = await kupua.getStoreState();
+    expect(queryState.bufferOffset).toBe(0);
+
+    // Back to A — should restore near the deep position.
+    await goBackSearchAndWait(kupua.page);
+
+    // The anchor image should be focused and the buffer should be deep.
+    expect(await kupua.getFocusedImageId()).toBe(deepAnchor);
+    const restoredState = await kupua.getStoreState();
+    expect(restoredState.bufferOffset).toBeGreaterThan(500);
+  });
+});
+
+// ===========================================================================
+// Phase 4: Reload survival — snapshot-based position restoration on reload
+// ===========================================================================
+
+test.describe("Reload survival — position restoration on reload", () => {
+  test("traversal across eviction → reload → close centres the traversed image", async ({ kupua }) => {
+    await kupua.startSearch();
+    await kupua.seekTo(0.5);
+
+    const entryImageId = await kupua.openDetailForNthItem(2);
+    await kupua.detailNextAndWait();
+    const traversedImageId = (await kupua.getDetailImageId())!;
+    expect(traversedImageId).not.toBe(entryImageId);
+
+    await kupua.page.evaluate(async (targetImageId) => {
+      const store = (window as any).__kupua_store__;
+      for (let i = 0; i < 10; i++) {
+        await store.getState().extendForward();
+        if (!store.getState().imagePositions.has(targetImageId)) return;
+      }
+      throw new Error("Traversed target remained in the buffer after forward eviction");
+    }, traversedImageId);
+
+    await reloadSearchAndWait(kupua.page);
+    await expect(
+      kupua.page.locator(`[data-detail-image-id="${traversedImageId}"]`),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await kupua.closeDetailViaButton();
+    const placement = await kupua.waitForUsableViewportPlacement(traversedImageId);
+    expect(placement).toMatchObject({ imageId: traversedImageId, visible: true });
+    expect(Math.abs(placement.signedCenterDistance)).toBeLessThan(50);
+
+    await kupua.page.goForward();
+    await expect(
+      kupua.page.locator(`[data-detail-image-id="${traversedImageId}"]`),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect.poll(
+      () => kupua.page.evaluate(() => history.state?._detailEntryImageId),
+    ).toBe(traversedImageId);
+
+    await kupua.detailPrevAndWait();
+    const reverseTraversedImageId = (await kupua.getDetailImageId())!;
+    await kupua.closeDetailViaButton();
+    const reversePlacement = await kupua.waitForUsableViewportPlacement(reverseTraversedImageId);
+    expect(reversePlacement).toMatchObject({ imageId: reverseTraversedImageId, visible: true });
+    expect(Math.abs(reversePlacement.signedCenterDistance)).toBeLessThan(50);
+  });
+
+  test("reload restores current entry via pagehide snapshot", async ({ kupua }) => {
+    // Entry A: default sort. Seek deep and focus an image.
+    await kupua.startSearch();
+
+    // Seek to offset ~800 (well past first page).
+    await kupua.page.evaluate(async () => {
+      const store = (window as any).__kupua_store__;
+      await store.getState().seek(800);
+    });
+    await kupua.page.waitForFunction(
+      () => {
+        const s = (window as any).__kupua_store__?.getState();
+        return s && !s.loading && s.bufferOffset > 0 && s.results.length > 0;
+      },
+      { timeout: 15_000 },
+    );
+
+    // Focus an image from the deep buffer.
+    await kupua.focusNthItem(0);
+    const deepAnchor = await kupua.getFocusedImageId();
+    expect(deepAnchor).not.toBeNull();
+    const preState = await kupua.getStoreState();
+    const deepOffset = preState.bufferOffset;
+    expect(deepOffset).toBeGreaterThan(500);
+
+    await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      store.setState({ newCount: 134 });
+    });
+    await expect(kupua.page.getByRole("button", { name: "134 new", exact: true })).toBeVisible();
+    const boundary = await kupua.page.evaluate(() => (window as any).__kupua_store__.getState().newCountSince);
+    await kupua.page.addInitScript(() => {
+      const observations = { sawBadge: false, lostBadge: false, stopped: false };
+      (window as any).__tickerReloadFrames = observations;
+      const deadline = performance.now() + 15000;
+      const sample = () => {
+        const statusBar = document.querySelector('button[aria-label$="Browse panel"]')?.parentElement;
+        const mounted = !!statusBar && statusBar.getBoundingClientRect().height > 0;
+        const badge = statusBar && [...statusBar.querySelectorAll("button")].find(button => button.textContent?.trim() === "134 new");
+        const present = !!badge && badge.getBoundingClientRect().width > 0 && badge.getBoundingClientRect().height > 0
+          && getComputedStyle(badge).visibility !== "hidden" && getComputedStyle(badge).opacity !== "0";
+        if (mounted && !present) observations.lostBadge = true;
+        observations.sawBadge ||= present;
+        const state = (window as any).__kupua_store__?.getState();
+        if ((mounted && state && !state._isInitialLoad && !state.loading) || performance.now() > deadline) {
+          observations.stopped = true;
+          return;
+        }
+        requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    });
+
+    // Reload — pagehide captures snapshot for current entry's kupuaKey.
+    // On mount, the popstate path finds the snapshot and restores.
+    await reloadSearchAndWait(kupua.page);
+
+    // The anchor image should be focused and the buffer should be deep.
+    expect(await kupua.getFocusedImageId()).toBe(deepAnchor);
+    const restoredState = await kupua.getStoreState();
+    expect(restoredState.bufferOffset).toBeGreaterThan(500);
+    await expect(kupua.page.getByRole("button", { name: "134 new", exact: true })).toBeVisible();
+    await expect(kupua.page).toHaveTitle(/^\(134 new\)/);
+    await kupua.page.waitForFunction(() => (window as any).__tickerReloadFrames?.stopped);
+    expect(await kupua.page.evaluate(() => ({
+      ...((window as any).__tickerReloadFrames),
+      count: (window as any).__kupua_store__.getState().newCount,
+      boundary: (window as any).__kupua_store__.getState().newCountSince,
+    }))).toEqual({ sawBadge: true, lostBadge: false, stopped: true, count: 134, boundary });
+  });
+
+  test("reload then back still restores previous entry", async ({ kupua }) => {
+    // Entry A: default sort, shallow.
+    await kupua.startSearch();
+    await kupua.focusNthItem(2);
+    const anchorA = await kupua.getFocusedImageId();
+    expect(anchorA).not.toBeNull();
+
+    // Push to entry B (query change — isolates from Never Lost).
+    await spaNavigateAndWait(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:Reuters")}`);
+
+    // Reload on entry B. A's snapshot was captured on the push;
+    // B's snapshot is captured by pagehide.
+    await reloadSearchAndWait(kupua.page);
+    expect(await getUrlQuery(kupua.page)).toBe("credit:Reuters");
+
+    // Back to A — A's snapshot (captured on push) should restore.
+    await goBackSearchAndWait(kupua.page);
+    expect(await getUrlQuery(kupua.page)).toBeNull();
+    expect(await kupua.getFocusedImageId()).toBe(anchorA);
+  });
+
+  test("cross-origin round-trip preserves session snapshots and restores anchor", async ({ kupua }) => {
+    // Verify that sessionStorage-backed snapshots survive a cross-origin
+    // round-trip. sessionStorage persists per-origin across navigations;
+    // bfcache may additionally preserve the in-memory JS heap.
+    await kupua.startSearch();
+    await kupua.focusNthItem(3);
+    const anchorId = await kupua.getFocusedImageId();
+    expect(anchorId).not.toBeNull();
+
+    // Push a query change — captures snapshot for current entry's key.
+    const keyBefore = await kupua.page.evaluate(() => {
+      const fn = (window as any).__kupua_getKupuaKey__;
+      return fn ? fn() : undefined;
+    });
+    expect(keyBefore).toBeDefined();
+    await spaNavigateAndWait(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:Reuters")}`);
+
+    // Navigate to a different origin (triggers pagehide/bfcache).
+    await kupua.page.goto("about:blank");
+
+    // Navigate back — bfcache may restore the page, or reload it.
+    await kupua.page.goBack();
+    await kupua.page.waitForFunction(
+      () => window.location.pathname === "/search",
+      { timeout: 10_000 },
+    );
+    await waitForRestoredOrReloadedSearch(kupua.page);
+
+    // Now we're back on the kupua origin — check sessionStorage.
+    const snapshotSurvived = await kupua.page.evaluate((key) => {
+      try {
+        const raw = sessionStorage.getItem(`kupua:histSnap:${key}`);
+        return raw !== null;
+      } catch { return false; }
+    }, keyBefore!);
+    expect(snapshotSurvived).toBe(true);
+
+    // The snapshot should be queryable via the store's snapshotStore.
+    const snapshotAfterBack = await kupua.page.evaluate((key) => {
+      const inspect = (window as any).__kupua_inspectSnapshot__;
+      return inspect ? inspect(key) : null;
+    }, keyBefore!);
+    expect(snapshotAfterBack).not.toBeNull();
+    expect(snapshotAfterBack.anchorImageId).toBe(anchorId);
+  });
+
+  test("no scroll teleport after reload restore — extends do not reposition", async ({ kupua }) => {
+    // Regression: Effect #9's sortFocusRatioRef survived across re-fires
+    // within the same generation. Buffer extends (from normal scrolling)
+    // rebuild imagePositions → new findImageIndex ref → Effect #9 re-fires
+    // → teleports back to the focused image's saved viewport ratio.
+    await kupua.startSearch();
+
+    // Seek deep, focus an image.
+    await kupua.page.evaluate(async () => {
+      const store = (window as any).__kupua_store__;
+      await store.getState().seek(800);
+    });
+    await kupua.page.waitForFunction(
+      () => {
+        const s = (window as any).__kupua_store__?.getState();
+        return s && !s.loading && s.bufferOffset > 0 && s.results.length > 0;
+      },
+      { timeout: 15_000 },
+    );
+    await kupua.focusNthItem(0);
+    const anchorId = await kupua.getFocusedImageId();
+    expect(anchorId).not.toBeNull();
+
+    // Reload — triggers pagehide snapshot + mount-time restore.
+    await reloadSearchAndWait(kupua.page);
+    expect(await kupua.getFocusedImageId()).toBe(anchorId);
+
+    // Record the scroll position after restore.
+    const scrollAfterRestore = await kupua.getScrollTop();
+
+    // Scroll far enough to trigger a buffer extend. Repeat multiple times
+    // to ensure extends fire and imagePositions rebuilds.
+    for (let i = 0; i < 5; i++) {
+      await kupua.scrollBy(2000);
+    }
+    await expect.poll(() => kupua.getScrollTop()).toBeGreaterThan(scrollAfterRestore + 3000);
+
+    // The scroll position should be well past the restore point.
+    const scrollAfterScroll = await kupua.getScrollTop();
+    expect(scrollAfterScroll).toBeGreaterThan(scrollAfterRestore + 3000);
+
+    // Wait a bit more for any deferred re-fires.
+    await kupua.page.waitForTimeout(1000);
+    const scrollFinal = await kupua.getScrollTop();
+
+    // Should NOT have teleported back to the restore position.
+    // Allow small tolerance for momentum/rounding, but not a full teleport.
+    expect(scrollFinal).toBeGreaterThan(scrollAfterRestore + 3000);
+  });
+});
+
+// ===========================================================================
+// Phantom mode — departing snapshot update after scroll
+// ===========================================================================
+
+test.describe("Snapshot restore — phantom mode departure update", () => {
+  test("departing snapshot updates when phantom anchor changes", async ({ kupua }) => {
+    // Entry A: default sort.
+    await kupua.startSearch();
+    const keyA = await kupua.page.evaluate(() => {
+      const fn = (window as any).__kupua_getKupuaKey__;
+      return fn ? fn() : undefined;
+    });
+
+    // Push a sort change (entry B) — this captures A's snapshot via
+    // markPushSnapshot. In phantom mode, A's anchor is the viewport centre
+    // (anchorIsPhantom: true).
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=uploadTime");
+
+    // Verify A's snapshot is phantom.
+    const snapA = await kupua.page.evaluate((key) => {
+      const inspect = (window as any).__kupua_inspectSnapshot__;
+      return inspect ? inspect(key) : null;
+    }, keyA!);
+    expect(snapA).not.toBeNull();
+    expect(snapA.anchorIsPhantom).toBe(true);
+    const originalAnchor = snapA.anchorImageId;
+
+    // Back to A — this triggers a departing snapshot for B (no phantom
+    // issue — B has no snapshot yet). Also restores A from its phantom
+    // snapshot. After restore, scroll far within the buffer.
+    await goBackSearchAndWait(kupua.page);
+
+    // Scroll within the buffer so the viewport centre changes from
+    // the restored anchor.
+    const grid = kupua.page.locator('[aria-label="Image results grid"]');
+    const gridBox = await grid.boundingBox();
+    if (gridBox) {
+      await kupua.page.mouse.move(gridBox.x + gridBox.width / 2, gridBox.y + gridBox.height / 2);
+    }
+    for (let i = 0; i < 5; i++) {
+      await kupua.page.mouse.wheel(0, 400);
+      await kupua.page.waitForTimeout(100);
+    }
+    await kupua.page.waitForFunction((previousAnchor) => {
+      const getAnchor = (window as Window & {
+        __kupua_getViewportAnchorId__?: () => string | null;
+      }).__kupua_getViewportAnchorId__;
+      const grid = document.querySelector('[aria-label="Image results grid"]');
+      const anchorId = typeof getAnchor === "function" ? getAnchor() : null;
+      if (!previousAnchor || !anchorId || anchorId === previousAnchor || !grid) return false;
+      return grid.scrollTop > 200;
+    }, originalAnchor, { timeout: 10_000 });
+    expect(await kupua.getScrollTop()).toBeGreaterThan(200);
+
+    // Forward to B — this is the popstate that should update A's
+    // departing snapshot. A has anchorIsPhantom: true, and we scrolled
+    // to a different image.
+    await goForwardSearchAndWait(kupua.page);
+
+    // Back to A again — should restore at the SCROLLED position,
+    // not the original anchor.
+    await goBackSearchAndWait(kupua.page);
+
+    // Inspect A's snapshot — should have been updated on the forward
+    // departure with the new viewport anchor.
+    const snapAAfter = await kupua.page.evaluate((key) => {
+      const inspect = (window as any).__kupua_inspectSnapshot__;
+      return inspect ? inspect(key) : null;
+    }, keyA!);
+
+    // KEY ASSERTION: A's snapshot anchor should have changed from the
+    // original (restored) anchor to the scroll-away anchor.
+    expect(snapAAfter).not.toBeNull();
+    expect(snapAAfter.anchorImageId).not.toBe(originalAnchor);
+  });
+
+  test("detail open/close then seek — departure snapshot captures seeked position", async ({ kupua }) => {
+    // Repro: phantom mode → sort → detail → back → seek → back → forward
+    // Bug: stale user-initiated flag from detail open leaked into the Back
+    // popstate, making it skip the departure snapshot. Forward restored the
+    // markPushSnapshot anchor (top-of-results) instead of the seeked position.
+    //
+    // NOTE: The seek step uses store.seek() directly instead of scrubber
+    // UI (kupua.seekTo). In React Strict Mode (dev builds), the sort-around-
+    // focus that runs after detail-close loses its scroll position during
+    // the double-mount cycle, leaving the virtualizer at scrollTop=0 with
+    // scrollHeight=clientHeight. A scrubber click computes
+    // scrollContentTo(ratio) = ratio * 0 = 0 — no scroll change, no seek.
+    // Programmatic seek bypasses this by repositioning the buffer directly.
+    // This is dev-only; production builds mount once and don't have this
+    // issue. See changelog for full analysis.
+
+    await kupua.startSearch();
+
+    // Change sort (creates history entry)
+    await spaNavigateAndWait(kupua.page, "/search?orderBy=uploadTime");
+    const keySorted = await kupua.page.evaluate(() => {
+      const fn = (window as any).__kupua_getKupuaKey__;
+      return fn ? fn() : undefined;
+    });
+
+    // Open detail on image B (click-to-open mode)
+    const imageB = await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      return store?.getState().results[3]?.id ?? null;
+    });
+    expect(imageB).not.toBeNull();
+    const cells = kupua.page.locator('[aria-label="Image results grid"] [class*="cursor-pointer"]');
+    await cells.nth(3).click();
+    await kupua.page.waitForFunction(
+      () => new URL(window.location.href).searchParams.has("image"),
+      { timeout: 10_000 },
+    );
+
+    // Back from detail
+    await kupua.page.goBack();
+    await kupua.waitForDetailClosed();
+    await kupua.page.waitForTimeout(500);
+
+    // Programmatic seek to offset 2500 (~25%). See NOTE above for why we
+    // don't use kupua.seekTo() here.
+    await kupua.page.evaluate(async () => {
+      const store = (window as any).__kupua_store__;
+      await store.getState().seek(2500, "test-seek");
+    });
+
+    // The buffer should now be centred around offset 2500. Verify a rendered
+    // viewport anchor can be elected lazily from the new buffer.
+    const anchorHandle = await kupua.page.waitForFunction(() => {
+      const store = (window as any).__kupua_store__;
+      const getAnchor = (window as any).__kupua_getViewportAnchorId__;
+      if (!store || typeof getAnchor !== "function") return false;
+      const state = store.getState();
+      const anchorId = getAnchor();
+      if (state.loading || !anchorId || !state.imagePositions.has(anchorId)) return false;
+      const container = document.querySelector('[aria-label="Image results grid"]');
+      const cell = container?.querySelector(`[data-image-id="${CSS.escape(anchorId)}"]`);
+      if (!container || !cell) return false;
+      const containerRect = container.getBoundingClientRect();
+      const cellRect = cell.getBoundingClientRect();
+      return cellRect.bottom > containerRect.top && cellRect.top < containerRect.bottom
+        ? anchorId
+        : false;
+    }, { timeout: 10_000 });
+    const anchorAtSeek = await anchorHandle.jsonValue() as string;
+    expect(anchorAtSeek).not.toBeNull();
+
+    // Back (sorted → initial) — departure should capture the seeked anchor
+    await goBackSearchAndWait(kupua.page);
+
+    // Inspect the snapshot — should have the seeked anchor, not markPushSnapshot's
+    const snapAfterBack = await kupua.page.evaluate((key) => {
+      const inspect = (window as any).__kupua_inspectSnapshot__;
+      return inspect ? inspect(key) : null;
+    }, keySorted!);
+    expect(snapAfterBack).not.toBeNull();
+    expect(snapAfterBack.anchorImageId).toBe(anchorAtSeek);
+    expect(snapAfterBack.anchorImageId).not.toBe(imageB);
+
+    // Forward (initial → sorted) — should restore at seeked position
+    await goForwardSearchAndWait(kupua.page);
+
+    await kupua.page.waitForFunction((expectedAnchor) => {
+      const getAnchor = (window as any).__kupua_getViewportAnchorId__;
+      if (getAnchor?.() !== expectedAnchor) return false;
+      const container = document.querySelector('[aria-label="Image results grid"]');
+      const cell = document.querySelector(`[data-image-id="${CSS.escape(expectedAnchor)}"]`);
+      if (!container || !cell) return false;
+      const containerRect = container.getBoundingClientRect();
+      const cellRect = cell.getBoundingClientRect();
+      return cellRect.bottom > containerRect.top && cellRect.top < containerRect.bottom;
+    }, anchorAtSeek, { timeout: 10_000 });
+  });
+});
+
+// ===========================================================================
+// Audit regression — phantom focusedImageId leak across phantomOnly restore
+// ===========================================================================
+
+test.describe("Snapshot restore — phantomOnly must not leak focusedImageId (audit)", () => {
+  test("focus → sort → clear focus → seek → back/forward/back/forward stays at deep position", async ({ kupua }) => {
+    // Regression for `audit-history-back-forward-back-forward-bug.md`.
+    //
+    // Repro (explicit / Click-to-focus mode — uses file-level beforeEach):
+    //   1. Focus image A
+    //   2. Switch sort (sort-around-focus keeps A focused)
+    //   3. Clear focus
+    //   4. Seek deep
+    //   5. Back, Forward → CORRECT: deep position visible
+    //   6. Back, Forward → BUG (pre-fix): shows A focused at top
+    //
+    // Mechanism:
+    //   - Step 5 forward restores E1 with phantomOnly=true. Pre-fix,
+    //     `focusedImageId` from the previous explicit context (= A) leaked
+    //     across the phantom restore, violating the phantom-mode invariant.
+    //   - Step 6 back triggers departure-capture for E1. Post-commit
+    //     1462bfaec, the viewport anchor faithfully tracks the deep buffer
+    //     (no longer guarded off by focusedImageId). The anchor differs from
+    //     E1's stored phantom anchor → guard overwrites E1.
+    //   - The overwrite calls buildHistorySnapshot, which prefers leaked
+    //     focusedImageId=A in explicit mode → E1's snapshot becomes
+    //     {anchor: A, anchorIsPhantom: false}.
+    //   - Step 6 forward reads the corrupted snapshot, takes the explicit
+    //     restore path, and centres on A.
+
+    await kupua.startSearch();
+
+    // Step 1: focus image A.
+    await kupua.focusNthItem(3);
+    const imageA = await kupua.getFocusedImageId();
+    expect(imageA).not.toBeNull();
+
+    // Step 2: switch sort. sort-around-focus should keep A focused.
+    // Use `uploadTime` (asc — oldest first). The default page sort is
+    // `-uploadTime` (desc, newest first), so A (focused at idx 3) sits
+    // near the very end in asc order; sort-around-focus seeks deep to
+    // find it. uploadTime is universally populated → A stays focused
+    // (no null-zone degradation). Importantly this is a REAL alias
+    // (see sort-builders.ts) — `?orderBy=oldest` looks like the obvious
+    // choice but `oldest` is NOT a valid alias; ES rejects sorts on a
+    // literal field called "oldest" and seek(800) below ends up empty.
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=uploadTime");
+    expect(await kupua.getFocusedImageId()).toBe(imageA);
+
+    const keySorted = await kupua.page.evaluate(() => {
+      const fn = (window as any).__kupua_getKupuaKey__;
+      return fn ? fn() : undefined;
+    });
+    expect(keySorted).toBeTruthy();
+
+    // Step 3: clear focus directly (clicking the gap is fragile across grid
+    // layouts; setFocusedImageId(null) exercises the same store path and
+    // the rest of the repro is independent of how focus was cleared).
+    await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      store.getState().setFocusedImageId(null);
+    });
+    expect(await kupua.getFocusedImageId()).toBeNull();
+
+    // Step 4: deep seek. Use programmatic store.seek() — same reason as the
+    // sibling test "detail open/close then seek" (Strict Mode dev double-
+    // mount can collapse the virtualizer scroll). seek(800) matches the
+    // sibling "back restores deep position (~800)" test which is known
+    // to push bufferOffset > 0 against the e2e sample dataset.
+    await kupua.page.evaluate(async () => {
+      const store = (window as any).__kupua_store__;
+      await store.getState().seek(800, "test-seek");
+    });
+    await kupua.page.waitForFunction(
+      () => {
+        const s = (window as any).__kupua_store__?.getState();
+        return s && !s.loading && s.bufferOffset > 0 && s.results.length > 0;
+      },
+      { timeout: 15_000 },
+    );
+
+    const deepAnchor = await kupua.page.evaluate(() => {
+      const getAnchor = (window as any).__kupua_getViewportAnchorId__;
+      return getAnchor ? getAnchor() : null;
+    });
+    expect(deepAnchor).not.toBeNull();
+    expect(deepAnchor).not.toBe(imageA);
+    const deepBufferOffset = (await kupua.getStoreState()).bufferOffset;
+    expect(deepBufferOffset).toBeGreaterThan(500);
+
+    // Step 5: back, forward — should restore the deep position.
+    await goBackSearchAndWait(kupua.page);
+    await goForwardSearchAndWait(kupua.page);
+    await kupua.page.waitForTimeout(300); // let restore + buffer-change effect populate anchor
+
+    // After the first forward we're back on E1 with the phantom restore.
+    // Phantom invariant: focusedImageId must be null.
+    const focusAfterFirstForward = await kupua.getFocusedImageId();
+    expect(focusAfterFirstForward, "phantomOnly restore must not leak focusedImageId").toBeNull();
+
+    const offsetAfterFirstForward = (await kupua.getStoreState()).bufferOffset;
+    expect(offsetAfterFirstForward).toBeGreaterThan(500);
+
+    // Step 6: back, forward — the cycle that previously corrupted E1.
+    await goBackSearchAndWait(kupua.page);
+
+    // Inspect E1's snapshot AFTER the back. Pre-fix this was clobbered to
+    // {anchor: A, anchorIsPhantom: false}. Post-fix it must remain phantom.
+    const snapAfterSecondBack = await kupua.page.evaluate((key) => {
+      const inspect = (window as any).__kupua_inspectSnapshot__;
+      return inspect ? inspect(key) : null;
+    }, keySorted!);
+    expect(snapAfterSecondBack, "E1 snapshot must exist after second back").not.toBeNull();
+    expect(
+      snapAfterSecondBack.anchorImageId,
+      "E1 snapshot anchor must NOT be the previously-focused A",
+    ).not.toBe(imageA);
+    expect(
+      snapAfterSecondBack.anchorIsPhantom,
+      "E1 snapshot must remain phantom after departure-capture",
+    ).toBe(true);
+
+    await goForwardSearchAndWait(kupua.page);
+    await kupua.page.waitForTimeout(300);
+
+    // The actual user-visible assertions: focus must still be null, and
+    // the buffer must still be at the deep offset (not reset to top).
+    const focusAfterSecondForward = await kupua.getFocusedImageId();
+    expect(
+      focusAfterSecondForward,
+      "second forward must not re-introduce leaked focus on A",
+    ).toBeNull();
+
+    const offsetAfterSecondForward = (await kupua.getStoreState()).bufferOffset;
+    expect(
+      offsetAfterSecondForward,
+      "second forward must restore deep position, not top",
+    ).toBeGreaterThan(500);
+  });
+});

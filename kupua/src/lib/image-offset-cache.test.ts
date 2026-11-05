@@ -1,0 +1,350 @@
+// @vitest-environment jsdom
+// storeImageOffset/getImageOffset need a real Storage. Node only exposes sessionStorage as a
+// global from v25; kupua supports ^20.19 || >=22.12, where these tests would otherwise fail.
+import { describe, it, expect, beforeEach } from "vitest";
+import {
+  buildSearchKey,
+  extractSortValues,
+  getRetainedSortValues,
+  retainSortValues,
+  storeImageOffset,
+  getImageOffset,
+} from "./image-offset-cache";
+import type { Image } from "@/types/image";
+import type { SortValues } from "@/dal/types";
+import { BUFFER_CAPACITY } from "@/constants/tuning";
+import { gridConfig } from "@/lib/grid-config";
+
+// ---------------------------------------------------------------------------
+// Fixture — same shape as field-registry.test.ts
+// ---------------------------------------------------------------------------
+const IMAGE: Image = {
+  id: "test-img-001",
+  uploadTime: "2026-03-20T14:30:00.000Z",
+  uploadedBy: "jane.doe@guardian.co.uk",
+  lastModified: "2026-03-21T09:15:00.000Z",
+  source: {
+    mimeType: "image/jpeg",
+    dimensions: { width: 4000, height: 3000 },
+  },
+  metadata: {
+    title: "A cat",
+    dateTaken: "2026-03-19T10:00:00.000Z",
+    credit: "Getty Images",
+    source: "Rex Features",
+    imageType: "Photograph",
+  },
+  usageRights: { category: "staff-photographer" },
+  uploadInfo: { filename: "cat.jpg" },
+};
+
+const SPARSE_IMAGE: Image = {
+  id: "sparse-001",
+  uploadTime: "2026-01-01T00:00:00Z",
+  uploadedBy: "test",
+  source: { mimeType: "image/png", dimensions: { width: 100, height: 100 } },
+  metadata: {},
+};
+
+// ---------------------------------------------------------------------------
+// buildSearchKey
+// ---------------------------------------------------------------------------
+describe("buildSearchKey", () => {
+  it("produces deterministic key regardless of param order", () => {
+    const a = buildSearchKey({ query: "cats", orderBy: "width" });
+    const b = buildSearchKey({ orderBy: "width", query: "cats" });
+    expect(a).toBe(b);
+  });
+
+  it("strips image params", () => {
+    const with_ = buildSearchKey({ query: "cats", image: "abc" });
+    const without = buildSearchKey({ query: "cats" });
+    expect(with_).toBe(without);
+  });
+
+  it("strips offset param (position within results, not search context)", () => {
+    const with_ = buildSearchKey({ query: "cats", offset: 0 });
+    const without = buildSearchKey({ query: "cats" });
+    expect(with_).toBe(without);
+  });
+
+  it("strips internal pagination length", () => {
+    const with_ = buildSearchKey({ query: "cats", length: 200 });
+    const without = buildSearchKey({ query: "cats" });
+    expect(with_).toBe(without);
+  });
+
+  it("strips null and empty-string values", () => {
+    const key = buildSearchKey({ query: "cats", orderBy: null, nonFree: "" });
+    expect(key).toBe(JSON.stringify([["query", "cats"]]));
+  });
+});
+
+describe("retained sort values", () => {
+  const alias = gridConfig.fieldAliases.find((field) => field.elasticsearchPath.startsWith("fileMetadata."))!;
+  const image = { ...SPARSE_IMAGE, aliases: { [alias.alias]: "fixture-value" } };
+  const searchKey = buildSearchKey({ query: "fixture", orderBy: alias.alias });
+  const cursor: SortValues = ["fixture-value", Date.parse(image.uploadTime), image.id];
+
+  beforeEach(() => {
+    retainSortValues(searchKey, [], [], true);
+    sessionStorage.clear();
+  });
+
+  it("prefers the authoritative tuple for an API-shaped image in the same search", () => {
+    const retained: SortValues = ["retained-value", cursor[1], image.id];
+    retainSortValues(searchKey, [image], [retained]);
+    expect(extractSortValues(image, alias.alias, searchKey)).toEqual(retained);
+    expect(extractSortValues(image, alias.alias)).toEqual(cursor);
+  });
+
+  it("reads a configured alias from an API-shaped image without a tuple, and null when it is missing", () => {
+    expect(extractSortValues(image, alias.alias)).toEqual(cursor);
+    expect(extractSortValues(image, `-${alias.alias}`)?.[0]).toBe("fixture-value");
+    expect(extractSortValues({ ...SPARSE_IMAGE, aliases: {} }, alias.alias)).toEqual([null, cursor[1], image.id]);
+    expect(extractSortValues({ ...SPARSE_IMAGE, aliases: { [alias.alias]: false } }, alias.alias)?.[0]).toBeNull();
+  });
+
+  it("does not reuse a tuple from another query or sort", () => {
+    retainSortValues(searchKey, [image], [["retained-value", cursor[1], image.id]]);
+    for (const params of [
+      { query: "other", orderBy: alias.alias },
+      { query: "fixture", orderBy: `-${alias.alias}` },
+    ]) {
+      const otherKey = buildSearchKey(params);
+      expect(getRetainedSortValues(image.id, otherKey)).toBeNull();
+      expect(extractSortValues(image, params.orderBy, otherKey)?.[0]).toBe("fixture-value");
+    }
+  });
+
+  it("copies incoming and returned tuples without changing public length", () => {
+    const incoming = [...cursor];
+    retainSortValues(searchKey, [image], [incoming]);
+    incoming[0] = "changed-input";
+    const returned = getRetainedSortValues(image.id, searchKey)!;
+    expect(returned).toEqual(cursor);
+    returned[0] = "changed-output";
+    expect(getRetainedSortValues(image.id, searchKey)).toEqual(cursor);
+  });
+
+  it("bounds storage and retains recently used entries", () => {
+    const images = Array.from({ length: BUFFER_CAPACITY * 2 }, (_, index) => ({
+      ...image, id: `cursor-${index}`,
+    }));
+    retainSortValues(searchKey, images, images.map((entry) => ["fixture-value", cursor[1], entry.id]));
+    expect(getRetainedSortValues(images[0].id, searchKey)).not.toBeNull();
+    const newest = { ...image, id: "cursor-newest" };
+    retainSortValues(searchKey, [newest], [["fixture-value", cursor[1], newest.id]]);
+    expect(getRetainedSortValues(images[0].id, searchKey)).not.toBeNull();
+    expect(getRetainedSortValues(images[1].id, searchKey)).toBeNull();
+    expect(getRetainedSortValues(newest.id, searchKey)).not.toBeNull();
+  });
+
+  it("persists the authoritative history cursor independently of in-memory retention", () => {
+    retainSortValues(searchKey, [image], [cursor]);
+    storeImageOffset(image.id, 500, searchKey, extractSortValues(image, alias.alias, searchKey));
+    retainSortValues(searchKey, [], [], true);
+    expect(getImageOffset(image.id, searchKey)).toEqual({ offset: 500, cursor });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractSortValues
+// ---------------------------------------------------------------------------
+describe("extractSortValues", () => {
+  it("extracts default sort (uploadTime desc, id asc)", () => {
+    const sv = extractSortValues(IMAGE);
+    expect(sv).toEqual([Date.parse("2026-03-20T14:30:00.000Z"), "test-img-001"]);
+  });
+
+  it("extracts width sort (source.dimensions.width asc, uploadTime desc, id asc)", () => {
+    const sv = extractSortValues(IMAGE, "width");
+    expect(sv).toEqual([4000, Date.parse("2026-03-20T14:30:00.000Z"), "test-img-001"]);
+  });
+
+  it("extracts credit sort (metadata.credit asc, uploadTime desc, id asc)", () => {
+    const sv = extractSortValues(IMAGE, "credit");
+    expect(sv).toEqual(["Getty Images", Date.parse("2026-03-20T14:30:00.000Z"), "test-img-001"]);
+  });
+
+  it("returns null values for missing nested fields", () => {
+    // SPARSE_IMAGE has no metadata.dateTaken
+    // taken -> metadata.dateTaken, then uploadTime fallback (asc for date sort), id
+    const sv = extractSortValues(SPARSE_IMAGE, "taken");
+    // dateTaken is missing -> null, uploadTime present (as epoch ms), id present
+    expect(sv).toEqual([null, Date.parse("2026-01-01T00:00:00Z"), "sparse-001"]);
+  });
+
+  it("always has id as the last value", () => {
+    const sv = extractSortValues(IMAGE, "width");
+    expect(sv?.[sv.length - 1]).toBe(IMAGE.id);
+  });
+
+  // -----------------------------------------------------------------------
+  // Array-max fields: usagesDateAdded and dateAddedToCollection
+  // These use SORT_FIELD_EXTRACTORS and require array-max semantics to
+  // match what ES computes. Regression for: range selection returning only
+  // 2 images (anchor + target) when sorted by these fields.
+  // -----------------------------------------------------------------------
+
+  it("extracts usagesDateAdded — returns max dateAdded across usages as epoch ms", () => {
+    const imageWithUsages: typeof IMAGE = {
+      ...IMAGE,
+      usages: [
+        { id: "u1", platform: "digital", status: "published", media: "image",
+          lastModified: "2026-01-01T00:00:00Z", dateAdded: "2026-01-01T00:00:00Z" },
+        { id: "u2", platform: "print", status: "published", media: "image",
+          lastModified: "2026-03-15T12:00:00Z", dateAdded: "2026-03-15T12:00:00Z" },
+        { id: "u3", platform: "digital", status: "removed", media: "image",
+          lastModified: "2026-02-10T08:00:00Z", dateAdded: "2026-02-10T08:00:00Z" },
+      ],
+    };
+    const sv = extractSortValues(imageWithUsages, "-usagesDateAdded");
+    // Primary: max dateAdded = 2026-03-15 (epoch ms), then uploadTime, then id
+    expect(sv).toEqual([
+      Date.parse("2026-03-15T12:00:00Z"),
+      Date.parse("2026-03-20T14:30:00.000Z"),
+      IMAGE.id,
+    ]);
+  });
+
+  it("extracts usagesDateAdded max by instant rather than ISO text order", () => {
+    const imageWithOffsets: typeof IMAGE = {
+      ...IMAGE,
+      usages: [
+        { id: "u1", platform: "digital", status: "published", media: "image",
+          lastModified: "2024-03-01T00:30:00+02:00", dateAdded: "2024-03-01T00:30:00+02:00" },
+        { id: "u2", platform: "digital", status: "published", media: "image",
+          lastModified: "2024-02-29T23:30:00Z", dateAdded: "2024-02-29T23:30:00Z" },
+      ],
+    };
+
+    expect(extractSortValues(imageWithOffsets, "-usagesDateAdded")?.[0]).toBe(
+      Date.parse("2024-02-29T23:30:00Z"),
+    );
+  });
+
+  it("extracts usagesDateAdded — returns null when image has no usages", () => {
+    const imageNoUsages: typeof IMAGE = { ...IMAGE, usages: [] };
+    const sv = extractSortValues(imageNoUsages, "-usagesDateAdded");
+    // No usages → primary sort value is null (null-zone), uploadTime present, id present
+    expect(sv).toEqual([null, Date.parse("2026-03-20T14:30:00.000Z"), IMAGE.id]);
+  });
+
+  it("extracts dateAddedToCollection — returns max actionData.date across memberships as epoch ms", () => {
+    const imageInCollections: typeof IMAGE = {
+      ...IMAGE,
+      collections: [
+        { path: ["sports"], pathId: "sports", description: "",
+          actionData: { author: "jane", date: "2025-06-01T00:00:00Z" } },
+        { path: ["news"], pathId: "news", description: "",
+          actionData: { author: "john", date: "2026-01-20T00:00:00Z" } },
+      ],
+    };
+    const sv = extractSortValues(imageInCollections, "-dateAddedToCollection");
+    // Primary: max date = 2026-01-20, then uploadTime desc, then id
+    expect(sv).toEqual([
+      Date.parse("2026-01-20T00:00:00Z"),
+      Date.parse("2026-03-20T14:30:00.000Z"),
+      IMAGE.id,
+    ]);
+  });
+
+  it("extracts collection action max by instant rather than ISO text order", () => {
+    const imageWithOffsets: typeof IMAGE = {
+      ...IMAGE,
+      collections: [
+        { path: ["one"], pathId: "one", description: "",
+          actionData: { author: "fixture", date: "2024-03-01T00:30:00+02:00" } },
+        { path: ["two"], pathId: "two", description: "",
+          actionData: { author: "fixture", date: "2024-02-29T23:30:00Z" } },
+      ],
+    };
+
+    expect(extractSortValues(imageWithOffsets, "-dateAddedToCollection")?.[0]).toBe(
+      Date.parse("2024-02-29T23:30:00Z"),
+    );
+  });
+
+  it("extracts dateAddedToCollection — returns null when image has no collection memberships", () => {
+    const imageNoCollections: typeof IMAGE = { ...IMAGE, collections: [] };
+    const sv = extractSortValues(imageNoCollections, "-dateAddedToCollection");
+    expect(sv).toEqual([null, Date.parse("2026-03-20T14:30:00.000Z"), IMAGE.id]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sessionStorage round-trip
+// ---------------------------------------------------------------------------
+describe("storeImageOffset / getImageOffset", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
+
+  // See the jsdom docblock at the top of this file: without it these tests pass
+  // only on Node >=25, silently skipping coverage for supported Node versions.
+  it("runs in a DOM environment rather than relying on Node globals", () => {
+    expect(typeof window).toBe("object");
+  });
+
+  it("round-trips offset + cursor + searchKey", () => {
+    const key = buildSearchKey({ query: "cats", orderBy: "width" });
+    const cursor = [4000, "test-img-001"];
+    storeImageOffset("img-1", 500, key, cursor);
+
+    const result = getImageOffset("img-1", key);
+    expect(result).toEqual({ offset: 500, cursor: [4000, "test-img-001"] });
+  });
+
+  it("returns null for mismatched searchKey", () => {
+    const key1 = buildSearchKey({ query: "cats" });
+    const key2 = buildSearchKey({ query: "dogs" });
+    storeImageOffset("img-1", 42, key1, null);
+
+    expect(getImageOffset("img-1", key2)).toBeNull();
+  });
+
+  it("returns null for unknown image", () => {
+    const key = buildSearchKey({ query: "cats" });
+    expect(getImageOffset("nonexistent", key)).toBeNull();
+  });
+
+  it("handles null cursor (backward compat with old cache format)", () => {
+    const key = buildSearchKey({ query: "cats" });
+    storeImageOffset("img-1", 99, key, null);
+
+    const result = getImageOffset("img-1", key);
+    expect(result).toEqual({ offset: 99, cursor: null });
+  });
+
+  it("handles old cache format without cursor field", () => {
+    // Simulate old format stored before cursor was added
+    const key = buildSearchKey({ query: "cats" });
+    sessionStorage.setItem(
+      "kupua:imgOffset:img-old",
+      JSON.stringify({ offset: 200, searchKey: key }),
+    );
+
+    const result = getImageOffset("img-old", key);
+    expect(result).toEqual({ offset: 200, cursor: null });
+  });
+
+  it("rejects malformed offset", () => {
+    const key = buildSearchKey({ query: "cats" });
+    sessionStorage.setItem(
+      "kupua:imgOffset:bad",
+      JSON.stringify({ offset: "not-a-number", searchKey: key }),
+    );
+    expect(getImageOffset("bad", key)).toBeNull();
+  });
+
+  it("rejects negative offset", () => {
+    const key = buildSearchKey({ query: "cats" });
+    sessionStorage.setItem(
+      "kupua:imgOffset:neg",
+      JSON.stringify({ offset: -5, searchKey: key }),
+    );
+    expect(getImageOffset("neg", key)).toBeNull();
+  });
+});
+

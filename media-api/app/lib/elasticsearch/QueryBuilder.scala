@@ -227,6 +227,11 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
 
     val hasRightsCategory = params.hasRightsCategory.filter(_ == true).map(_ => searchFilters.hasRightsCategoryFilter)
 
+    val hasRightsAcquiredFilter = params.hasRightsAcquired.map { v =>
+      if (v) termQuery("syndicationRights.rights.acquired", true)
+      else boolQuery().not(termQuery("syndicationRights.rights.acquired", true))
+    }
+
     val validityFilter = params.valid.map(valid => if (valid) searchFilters.validFilter else searchFilters.invalidFilter)
 
     val persistFilter = params.persisted map {
@@ -273,6 +278,7 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
         ++ dateFilter.toOption
         ++ usageFilter
         ++ hasRightsCategory
+        ++ hasRightsAcquiredFilter
         ++ searchFilters.tierFilter(params.tier)
         ++ syndicationStatusFilter
         ++ dateAddedToCollectionFilter

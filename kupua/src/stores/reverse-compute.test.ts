@@ -1,0 +1,432 @@
+/**
+ * Unit tests for computeScrollTarget() — the reverse-compute pure function
+ * extracted from seek() in search-store.ts.
+ *
+ * These test the exact edge cases from the Agent 11–13 swimming saga:
+ * - scrollTop=0 with backward headroom (the cold-start bug)
+ * - Half-row sub-pixel preservation
+ * - Deep scroll (10+ rows)
+ * - Shallow seek (no backward items)
+ * - End key (at-real-end path)
+ * - Fractional boundary row (100/6 = 16.67)
+ * - Buffer-shrink clamping
+ *
+ */
+
+import { describe, it, expect } from "vitest";
+import {
+  computeScrollTarget,
+  type ComputeScrollTargetInput,
+} from "./search-store";
+import { GRID_ROW_HEIGHT, TABLE_ROW_HEIGHT, GRID_MIN_CELL_WIDTH } from "@/constants/layout";
+
+// ---------------------------------------------------------------------------
+// Helpers — common input shapes
+// ---------------------------------------------------------------------------
+
+/** Standard grid viewport: 1280px wide → floor(1280/280) = 4 cols. */
+const GRID_COLS_4 = Math.max(1, Math.floor(1280 / GRID_MIN_CELL_WIDTH));
+/** Wide grid viewport: 1680px wide → floor(1680/280) = 6 cols. */
+const GRID_COLS_6 = Math.max(1, Math.floor(1680 / GRID_MIN_CELL_WIDTH));
+/** Standard viewport height. */
+const VIEWPORT_HEIGHT = 800;
+
+function gridInput(overrides: Partial<ComputeScrollTargetInput> = {}): ComputeScrollTargetInput {
+  return {
+    currentScrollTop: 0,
+    rowHeight: GRID_ROW_HEIGHT,
+    columns: GRID_COLS_4,
+    clientHeight: VIEWPORT_HEIGHT,
+    backwardItemCount: 100,
+    bufferLength: 300,
+    total: 10000,
+    actualOffset: 5000,
+    clampedOffset: 5100,
+    ...overrides,
+  };
+}
+
+function tableInput(overrides: Partial<ComputeScrollTargetInput> = {}): ComputeScrollTargetInput {
+  return {
+    currentScrollTop: 0,
+    rowHeight: TABLE_ROW_HEIGHT,
+    columns: 1,
+    clientHeight: VIEWPORT_HEIGHT,
+    backwardItemCount: 100,
+    bufferLength: 300,
+    total: 10000,
+    actualOffset: 5000,
+    clampedOffset: 5100,
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe("computeScrollTarget", () => {
+  it("reverse-computes the actual first item of a globally aligned partial-row window", () => {
+    expect(computeScrollTarget(gridInput({ columns: 6, actualOffset: 1001, backwardItemCount: 0,
+      currentScrollTop: 1515.25, clientHeight: 300 })))
+      .toEqual({ scrollTargetIndex: 25, seekSubRowOffset: 0 });
+  });
+
+  it("clamps a short destination using its partial first row", () => {
+    expect(computeScrollTarget(gridInput({ columns: 6, actualOffset: 1001, backwardItemCount: 0,
+      bufferLength: 7, currentScrollTop: 15000, clientHeight: 300 })))
+      .toEqual({ scrollTargetIndex: 1, seekSubRowOffset: 0 });
+  });
+
+  it.each([0, 1, 3])("preserves fixed-row empty/short destination behaviour (%i items)", bufferLength => {
+    for (const makeInput of [gridInput, tableInput]) {
+      expect(computeScrollTarget(makeInput({
+        bufferLength, currentScrollTop: 15000, backwardItemCount: 0,
+      }))).toEqual({ scrollTargetIndex: bufferLength === 0 ? -1 : 0, seekSubRowOffset: 0 });
+      expect(computeScrollTarget(makeInput({
+        bufferLength, actualOffset: 10000 - bufferLength, clampedOffset: 10000,
+        currentScrollTop: 0, backwardItemCount: 0,
+      }))).toEqual({ scrollTargetIndex: bufferLength - 1, seekSubRowOffset: 0 });
+    }
+  });
+
+  it("keeps headroom carry when a requested true end replaces the reverse index", () => {
+    expect(computeScrollTarget(gridInput({
+      currentScrollTop: 15.25, actualOffset: 9700, clampedOffset: 9800,
+    }))).toEqual({ scrollTargetIndex: 299, seekSubRowOffset: 15.25 });
+  });
+
+  it("does not treat a near-end request as proof that the buffer reached the end", () => {
+    expect(computeScrollTarget(gridInput({
+      currentScrollTop: 15.25, actualOffset: 5000, clampedOffset: 9700,
+    }))).toEqual({ scrollTargetIndex: 100, seekSubRowOffset: 15.25 });
+  });
+
+  // -------------------------------------------------------------------------
+  // Case 1: scrollTop=0 with backward headroom (the cold-start bug)
+  //
+  // The user is at scrollTop=0 (fresh app or Home key) and seeks to 50%.
+  // Bidirectional seek prepends 100 backward items. Without the headroom
+  // offset, reverseIndex=0 → user sees backward items (wrong content).
+  // With the fix, reverseIndex += backwardItemCount → reverseIndex=100.
+  // -------------------------------------------------------------------------
+
+  it("scrollTop=0 with 100 backward items → index 100, no sub-row offset", () => {
+    const result = computeScrollTarget(gridInput({
+      currentScrollTop: 0,
+      backwardItemCount: 100,
+    }));
+
+    expect(result.scrollTargetIndex).toBe(100);
+    expect(result.seekSubRowOffset).toBe(0);
+  });
+
+  it("scrollTop=0 with 100 backward items in table → index 100", () => {
+    const result = computeScrollTarget(tableInput({
+      currentScrollTop: 0,
+      backwardItemCount: 100,
+    }));
+
+    expect(result.scrollTargetIndex).toBe(100);
+    expect(result.seekSubRowOffset).toBe(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // Case 2: Half-row sub-pixel preservation
+  //
+  // User at scrollTop=150 (half a grid row of 303px). floor(150/303)=0,
+  // so reverseIndex=0 < backwardItemCount=100 → headroom fires.
+  // Sub-row offset = 150 - 0*303 = 150.
+  // reverseIndex = 0 + 100 = 100.
+  // -------------------------------------------------------------------------
+
+  it("scrollTop=150 (half-row) preserves sub-row offset", () => {
+    const result = computeScrollTarget(gridInput({
+      currentScrollTop: 150,
+      backwardItemCount: 100,
+    }));
+
+    expect(result.scrollTargetIndex).toBe(100);
+    expect(result.seekSubRowOffset).toBe(150);
+  });
+
+  it("scrollTop=150 in table preserves sub-row offset", () => {
+    // TABLE_ROW_HEIGHT=32. floor(150/32)=4. reverseIndex=4*1=4.
+    // 4 < 100 → headroom fires. subRow = 150 - 4*32 = 22.
+    const result = computeScrollTarget(tableInput({
+      currentScrollTop: 150,
+      backwardItemCount: 100,
+    }));
+
+    // reverseIndex = floor(150/32) * 1 = 4. 4 < 100 → headroom.
+    // target = 4 + 100 = 104.
+    expect(result.scrollTargetIndex).toBe(104);
+    // subRow = 150 - 4*32 = 22
+    expect(result.seekSubRowOffset).toBe(22);
+  });
+
+  // -------------------------------------------------------------------------
+  // Case 3: Deep scroll (10 rows deep, 6 cols)
+  //
+  // scrollTop=3030. Grid 6-col: floor(3030/303)=10. reverseIndex=10*6=60.
+  // 60 < 100 → headroom fires. subRow = 3030 - 10*303 = 0.
+  // reverseIndex = 60 + 100 = 160.
+  // -------------------------------------------------------------------------
+
+  it("scrollTop=3030 (10 rows deep, 6 cols, phase 2) → index 158", () => {
+    const result = computeScrollTarget(gridInput({
+      currentScrollTop: 3030,
+      columns: GRID_COLS_6,
+      backwardItemCount: 100,
+    }));
+
+    expect(result.scrollTargetIndex).toBe(158);
+    expect(result.seekSubRowOffset).toBe(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // Case 4: Shallow seek (no backward items)
+  //
+  // When DEEP_SEEK_THRESHOLD isn't reached, no backward fetch happens.
+  // backwardItemCount=0. scrollTop=0 → reverseIndex=0.
+  // No headroom adjustment. scrollTargetIndex = reverseIndex = 0.
+  // -------------------------------------------------------------------------
+
+  it("scrollTop=0 with no backward items (shallow seek) → index 0", () => {
+    const result = computeScrollTarget(gridInput({
+      currentScrollTop: 0,
+      backwardItemCount: 0,
+    }));
+
+    expect(result.scrollTargetIndex).toBe(0);
+    expect(result.seekSubRowOffset).toBe(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // Case 5: End key (at-real-end path)
+  //
+  // actualOffset + bufferLength >= total → atRealEnd=true.
+  // clampedOffset >= total - bufferLength → soughtNearEnd=true.
+  // scrollTargetIndex = bufferLength - 1.
+  // -------------------------------------------------------------------------
+
+  it("End key: at-real-end with soughtNearEnd → last item", () => {
+    const result = computeScrollTarget(gridInput({
+      currentScrollTop: 0,
+      backwardItemCount: 100,
+      bufferLength: 300,
+      total: 10000,
+      actualOffset: 9700,  // 9700 + 300 = 10000 ≥ 10000 → atRealEnd
+      clampedOffset: 9800, // 9800 ≥ 10000 - 300 = 9700 → soughtNearEnd
+    }));
+
+    expect(result.scrollTargetIndex).toBe(299); // bufferLength - 1
+    // seekSubRowOffset still set because headroom fires (reverseIndex=0 < 100)
+    expect(result.seekSubRowOffset).toBe(0);
+  });
+
+  it("End key in table: at-real-end → last item", () => {
+    const result = computeScrollTarget(tableInput({
+      currentScrollTop: 0,
+      backwardItemCount: 100,
+      bufferLength: 300,
+      total: 10000,
+      actualOffset: 9700,
+      clampedOffset: 9800,
+    }));
+
+    expect(result.scrollTargetIndex).toBe(299);
+  });
+
+  // -------------------------------------------------------------------------
+  // Case 5b: at-real-end but NOT soughtNearEnd — use reverse-compute
+  //
+  // This covers a mid-range seek that happens to land at the end
+  // (shouldn't normally happen, but the function handles it).
+  // -------------------------------------------------------------------------
+
+  it("at-real-end but not soughtNearEnd → clamp reverseIndex", () => {
+    const result = computeScrollTarget(gridInput({
+      currentScrollTop: 0,
+      backwardItemCount: 100,
+      bufferLength: 300,
+      total: 10000,
+      actualOffset: 9700,  // atRealEnd
+      clampedOffset: 5000, // 5000 < 9700 → NOT soughtNearEnd
+    }));
+
+    // reverseIndex = 0 + 100 = 100 (headroom). clamped to [0, 299].
+    expect(result.scrollTargetIndex).toBe(100);
+  });
+
+  // -------------------------------------------------------------------------
+  // Case 6: Fractional boundary row (100/cols not integer)
+  //
+  // 6 cols, 100 backward items. 100/6 = 16.67.
+  // Offset 5000 has phase 2: row 16 starts at 94, row 17 at 100.
+  // Row 16 admits headroom; row 17 is exactly its boundary.
+  // Both should produce correct positions.
+  // -------------------------------------------------------------------------
+
+  it("fractional boundary: row 16 (94 < 100) → headroom fires", () => {
+    // scrollTop for row 16 = 16 * 303 = 4848
+    const result = computeScrollTarget(gridInput({
+      currentScrollTop: 4848,
+      columns: GRID_COLS_6,
+      backwardItemCount: 100,
+    }));
+
+    expect(result.scrollTargetIndex).toBe(194);
+    expect(result.seekSubRowOffset).toBe(0); // exactly on row boundary
+  });
+
+  it("fractional boundary: row 17 (100 >= 100) → no headroom", () => {
+    // scrollTop for row 17 = 17 * 303 = 5151
+    const result = computeScrollTarget(gridInput({
+      currentScrollTop: 5151,
+      columns: GRID_COLS_6,
+      backwardItemCount: 100,
+    }));
+
+    expect(result.scrollTargetIndex).toBe(100);
+    expect(result.seekSubRowOffset).toBe(0);
+  });
+
+  it("fractional boundary: row 16 with sub-row offset (sub-row preserved)", () => {
+    const result = computeScrollTarget(gridInput({
+      currentScrollTop: 4948,
+      columns: GRID_COLS_6,
+      backwardItemCount: 100,
+    }));
+
+    expect(result.scrollTargetIndex).toBe(194);
+    expect(result.seekSubRowOffset).toBe(100);
+  });
+
+  // -------------------------------------------------------------------------
+  // Case 7: Buffer-shrink clamping
+  //
+  // When the user's scroll position exceeds the new buffer's maxScroll
+  // (e.g. buffer went from 1000 to 200 items), the function clamps to
+  // the last visible row.
+  // -------------------------------------------------------------------------
+
+  it("buffer-shrink: reversePixelTop exceeds maxScroll → clamp", () => {
+    // Grid 4 cols, 200 items = 50 rows. scrollHeight = 50 * 303 = 15150.
+    // viewport 800 → maxScroll = 15150 - 800 = 14350.
+    // User at scrollTop = 15000 (row ~49.5). floor(15000/303) = 49.
+    // reverseIndex = 49 * 4 = 196. No backward items.
+    // reversePixelTop = floor(196/4)*303 = 49*303 = 14847 ≥ 14350 → clamp.
+    // lastVisibleRow = floor(14350/303) = floor(47.36) = 47.
+    // scrollTargetIndex = min(47*4, 199) = min(188, 199) = 188.
+    const result = computeScrollTarget(gridInput({
+      currentScrollTop: 15000,
+      backwardItemCount: 0,
+      bufferLength: 200,
+    }));
+
+    expect(result.scrollTargetIndex).toBe(188);
+    expect(result.seekSubRowOffset).toBe(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // Case 8: Past headroom with large scrollTop (second seek)
+  //
+  // After the first seek, the user scrolled down. scrollTop is large,
+  // reverseIndex >= backwardItemCount. No headroom adjustment needed.
+  // -------------------------------------------------------------------------
+
+  it("large scrollTop past headroom → no headroom adjustment", () => {
+    // 4 cols. scrollTop = 10000. floor(10000/303) = 33.
+    // reverseIndex = 33*4 = 132. 132 ≥ 100 → no headroom.
+    const result = computeScrollTarget(gridInput({
+      currentScrollTop: 10000,
+      backwardItemCount: 100,
+    }));
+
+    expect(result.scrollTargetIndex).toBe(132);
+    expect(result.seekSubRowOffset).toBe(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // Table-specific edge cases
+  // -------------------------------------------------------------------------
+
+  it("table: deep scroll past headroom", () => {
+    // TABLE_ROW_HEIGHT=32. scrollTop=5000. floor(5000/32)=156.
+    // reverseIndex=156*1=156. 156 ≥ 100 → no headroom.
+    const result = computeScrollTarget(tableInput({
+      currentScrollTop: 5000,
+      backwardItemCount: 100,
+    }));
+
+    expect(result.scrollTargetIndex).toBe(156);
+    expect(result.seekSubRowOffset).toBe(0);
+  });
+
+  it("table: buffer-shrink clamp", () => {
+    // 1 col, 200 items. scrollHeight = 200 * 32 = 6400.
+    // viewport 800 → maxScroll = 5600.
+    // scrollTop = 6000. floor(6000/32)=187.
+    // reverseIndex = 187. No backward items.
+    // reversePixelTop = 187*32 = 5984 ≥ 5600 → clamp.
+    // lastVisibleRow = floor(5600/32) = 175.
+    // scrollTargetIndex = min(175, 199) = 175.
+    const result = computeScrollTarget(tableInput({
+      currentScrollTop: 6000,
+      backwardItemCount: 0,
+      bufferLength: 200,
+    }));
+
+    expect(result.scrollTargetIndex).toBe(175);
+    expect(result.seekSubRowOffset).toBe(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // Regression guard: the exact values from the E2E test
+  // -------------------------------------------------------------------------
+
+  it("retains headroom carry when the historical offset begins mid-row", () => {
+    const result = computeScrollTarget(gridInput({
+      currentScrollTop: 7725,
+      backwardItemCount: 100,
+      bufferLength: 300,
+      actualOffset: 5057,
+      clampedOffset: 5157,
+    }));
+
+    expect(result.scrollTargetIndex).toBe(199);
+    expect(result.seekSubRowOffset).toBe(150);
+  });
+
+  // -------------------------------------------------------------------------
+  // Case 10: Headroom boundary — past 50% of last headroom row
+  //
+  // This is the case that caught the Math.round bug. With 6 cols and 100
+  // backward items, the last headroom row is 16 (reverseIndex=96 < 100).
+  // At scrollTop = 16*303 + 152 = 5000 (past 50% of row 16):
+  //   Math.round would give row 17 → reverseIndex=102 ≥ 100 → headroom
+  //   SKIPPED → wrong content.
+  //   Math.floor gives row 16 → reverseIndex=96 < 100 → headroom FIRES
+  //   → correct adjustment.
+  // -------------------------------------------------------------------------
+
+  it("headroom boundary: past 50% of last headroom row → headroom still fires", () => {
+    const result = computeScrollTarget({
+      currentScrollTop: 5000, // row 16 + 152px (past 50% of 303px row)
+      rowHeight: GRID_ROW_HEIGHT,
+      columns: GRID_COLS_6,
+      clientHeight: VIEWPORT_HEIGHT,
+      backwardItemCount: 100,
+      bufferLength: 300,
+      total: 10000,
+      actualOffset: 5000,
+      clampedOffset: 5100,
+    });
+
+    expect(result.scrollTargetIndex).toBe(194);
+    expect(result.seekSubRowOffset).toBe(152);
+  });
+});
+
+

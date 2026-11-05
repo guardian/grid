@@ -1,0 +1,689 @@
+/**
+ * @vitest-environment jsdom
+ */
+
+/**
+ * Tests for the in-buffer helper and mounted range-request ownership.
+ */
+
+import { cleanup, renderHook } from "@testing-library/react";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+vi.hoisted(() => {
+  vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: vi.fn() }));
+});
+import type { Image } from "@/types/image";
+import { MockDataSource } from "@/dal/mock-data-source";
+import { ElasticsearchDataSource } from "@/dal/es-adapter";
+import { ApiDataSource } from "@/dal/api-data-source";
+import type { SortValues } from "@/dal/types";
+import { gridConfig } from "@/lib/grid-config";
+import { useSearchStore } from "@/stores/search-store";
+import { useUiPrefsStore } from "@/stores/ui-prefs-store";
+import { useSelectionStore, _resetMetadataCache, _resetDebounceState, _resetReconcileQueue } from "@/stores/selection-store";
+import { useToastStore } from "@/stores/toast-store";
+import { RANGE_HARD_CAP, RANGE_SOFT_CAP } from "@/constants/tuning";
+import type { AddRangeEffect } from "@/lib/dispatchClickEffects";
+import { handleLongPressStart } from "@/lib/handleLongPressStart";
+import { resolveInBufferRange, useRangeSelection } from "./useRangeSelection";
+
+// ---------------------------------------------------------------------------
+// Minimal Image stub
+// ---------------------------------------------------------------------------
+
+function makeImage(id: string): Image {
+  return { id } as unknown as Image;
+}
+
+// ---------------------------------------------------------------------------
+// resolveInBufferRange
+// ---------------------------------------------------------------------------
+
+describe("resolveInBufferRange", () => {
+  it("returns ids in order when anchor < target and all loaded", () => {
+    const results: (Image | undefined)[] = [
+      makeImage("a"),
+      makeImage("b"),
+      makeImage("c"),
+      makeImage("d"),
+      makeImage("e"),
+    ];
+    const ids = resolveInBufferRange(1, 3, 0, results);
+    expect(ids).toEqual(["b", "c", "d"]);
+  });
+
+  it("returns ids in order when target < anchor (reversed range)", () => {
+    const results: (Image | undefined)[] = [
+      makeImage("a"),
+      makeImage("b"),
+      makeImage("c"),
+      makeImage("d"),
+      makeImage("e"),
+    ];
+    // anchor=3, target=1 → min=1, max=3 → same range
+    const ids = resolveInBufferRange(3, 1, 0, results);
+    expect(ids).toEqual(["b", "c", "d"]);
+  });
+
+  it("includes single item when anchor === target", () => {
+    const results: (Image | undefined)[] = [
+      makeImage("a"),
+      makeImage("b"),
+      makeImage("c"),
+    ];
+    const ids = resolveInBufferRange(1, 1, 0, results);
+    expect(ids).toEqual(["b"]);
+  });
+
+  it("respects bufferOffset — uses global indices", () => {
+    const results: (Image | undefined)[] = [
+      makeImage("x"),
+      makeImage("y"),
+      makeImage("z"),
+    ];
+    // Buffer starts at global index 10. Image "y" is at global 11.
+    const ids = resolveInBufferRange(10, 12, 10, results);
+    expect(ids).toEqual(["x", "y", "z"]);
+  });
+
+  it("returns null when anchor is before buffer start", () => {
+    const results: (Image | undefined)[] = [makeImage("a"), makeImage("b")];
+    // bufferOffset=5, anchorGlobal=4 (before buffer)
+    const ids = resolveInBufferRange(4, 6, 5, results);
+    expect(ids).toBeNull();
+  });
+
+  it("returns null when target is after buffer end", () => {
+    const results: (Image | undefined)[] = [makeImage("a"), makeImage("b")];
+    // bufferOffset=0, length=2, targetGlobal=2 (out of range)
+    const ids = resolveInBufferRange(0, 2, 0, results);
+    expect(ids).toBeNull();
+  });
+
+  it("returns null when anchor is after buffer end", () => {
+    const results: (Image | undefined)[] = [makeImage("a"), makeImage("b")];
+    const ids = resolveInBufferRange(5, 0, 0, results);
+    expect(ids).toBeNull();
+  });
+
+  it("returns null when any item in range is a skeleton (undefined)", () => {
+    const results: (Image | undefined)[] = [
+      makeImage("a"),
+      undefined, // skeleton
+      makeImage("c"),
+    ];
+    const ids = resolveInBufferRange(0, 2, 0, results);
+    expect(ids).toBeNull();
+  });
+
+  it("returns null when skeleton is at the start of the range", () => {
+    const results: (Image | undefined)[] = [
+      undefined,
+      makeImage("b"),
+      makeImage("c"),
+    ];
+    const ids = resolveInBufferRange(0, 2, 0, results);
+    expect(ids).toBeNull();
+  });
+
+  it("returns null when skeleton is at the end of the range", () => {
+    const results: (Image | undefined)[] = [
+      makeImage("a"),
+      makeImage("b"),
+      undefined,
+    ];
+    const ids = resolveInBufferRange(0, 2, 0, results);
+    expect(ids).toBeNull();
+  });
+
+  it("handles empty results array", () => {
+    const ids = resolveInBufferRange(0, 2, 0, []);
+    expect(ids).toBeNull();
+  });
+
+  it("handles single-item buffer", () => {
+    const results: (Image | undefined)[] = [makeImage("solo")];
+    const ids = resolveInBufferRange(5, 5, 5, results);
+    expect(ids).toEqual(["solo"]);
+  });
+
+  it("full range: returns all ids when range spans entire buffer", () => {
+    const results: (Image | undefined)[] = [
+      makeImage("a"),
+      makeImage("b"),
+      makeImage("c"),
+    ];
+    const ids = resolveInBufferRange(0, 2, 0, results);
+    expect(ids).toEqual(["a", "b", "c"]);
+  });
+});
+
+function deferred<Value>() {
+  let resolve!: (value: Value) => void;
+  let reject!: (reason: Error) => void;
+  const promise = new Promise<Value>((done, fail) => { resolve = done; reject = fail; });
+  return { promise, resolve, reject };
+}
+
+function rangePage(tuples: SortValues[]): Response {
+  return {
+    ok: true,
+    json: async () => ({ hits: { total: { value: tuples.length }, hits: tuples.map(sort => ({ _id: sort.at(-1), sort })) } }),
+  } as Response;
+}
+
+describe("mounted range ownership", () => {
+  let source: MockDataSource;
+  let images: Image[];
+  const effect: AddRangeEffect = {
+    op: "add-range",
+    anchorId: "img-0",
+    anchorGlobalIndex: 0,
+    anchorSortValues: [0, "img-0"],
+    targetId: "img-2",
+    targetGlobalIndex: 2,
+    targetSortValues: [2, "img-2"],
+  };
+  const completed = { ids: ["img-1", "img-2"], walked: 2, truncated: false };
+
+  function press(cellId: string, handleRange: (range: AddRangeEffect) => Promise<void>) {
+    let pending = Promise.resolve();
+    handleLongPressStart({
+      cellId,
+      handleRange: range => { pending = handleRange(range); },
+      findImageIndex: id => useSearchStore.getState().results.findIndex(image => image?.id === id),
+      getImage: index => useSearchStore.getState().results[index],
+      orderBy: useSearchStore.getState().params.orderBy,
+    });
+    return pending;
+  }
+
+  beforeEach(async () => {
+    vi.stubGlobal("requestIdleCallback", vi.fn(() => 0));
+    vi.stubGlobal("scheduler", { yield: () => Promise.resolve() });
+    source = new MockDataSource(10);
+    images = await source.getByIds(["img-0", "img-1", "img-2", "img-3", "img-4"]);
+    useSearchStore.setState(useSearchStore.getInitialState());
+    useSearchStore.setState({ results: images.slice(1, 3), bufferOffset: 1, total: 10 });
+    useSelectionStore.getState().clear();
+    _resetMetadataCache();
+    useSelectionStore.setState({ dataSource: source, pendingFetchIds: new Set() });
+    for (const image of images) useSelectionStore.getState().metadataCache.set(image.id, image);
+    useSelectionStore.getState().add(["img-0"]);
+    useSelectionStore.getState().setAnchor("img-0");
+    useToastStore.setState({ queue: [] });
+  });
+
+  afterEach(() => {
+    cleanup();
+    useSelectionStore.getState().clear();
+    _resetReconcileQueue();
+    _resetDebounceState();
+    useToastStore.getState().queue.forEach(toast => useToastStore.getState().dismiss(toast.id));
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it.each(["add", "remove"] as const)("publishes a current %s walk with inclusive target and unchanged anchor", async (polarity) => {
+    if (polarity === "remove") {
+      useSelectionStore.getState().add(["img-1", "img-2", "img-3"]);
+      useSelectionStore.getState().remove(["img-0"]);
+      useSelectionStore.getState().setAnchor("img-0");
+    }
+    const response = deferred<typeof completed>();
+    const walk = vi.spyOn(source, "getIdRange").mockReturnValue(response.promise);
+    const metadata = vi.spyOn(source, "getByIds");
+    const { result } = renderHook(() => useRangeSelection());
+    const pending = result.current({ ...effect, targetGlobalIndex: -1 });
+    expect(useSelectionStore.getState().isRangeWalking).toBe(true);
+    expect(walk).toHaveBeenCalledExactlyOnceWith(useSearchStore.getState().params, effect.targetSortValues, effect.anchorSortValues, expect.any(AbortSignal));
+    response.resolve({ ...completed, ids: ["img-1", "img-1"] });
+    await pending;
+
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(polarity === "add" ? ["img-0", "img-1", "img-2"] : ["img-3"]));
+    expect(useSelectionStore.getState().anchorId).toBe("img-0");
+    expect(useSelectionStore.getState().isRangeWalking).toBe(false);
+    expect(useSelectionStore.getState().rangeWalkTime).toEqual(expect.any(Number));
+    expect(metadata).not.toHaveBeenCalled();
+    expect(useToastStore.getState().queue).toEqual([]);
+  });
+
+  it.each(
+    (["clear", "add", "remove", "toggle", "anchor", "query", "order", "filter", "unmount"] as const)
+      .flatMap(change => ["add", "remove"].map(polarity => ({ change, polarity }))),
+  )("cancels $polarity publication and busy state on $change without clearing newer membership", async ({ change, polarity }) => {
+    if (polarity === "remove") {
+      useSelectionStore.getState().add(["img-1", "img-2"]);
+      useSelectionStore.getState().remove(["img-0"]);
+      useSelectionStore.getState().setAnchor("img-0");
+    }
+    const response = deferred<typeof completed>();
+    const walk = vi.spyOn(source, "getIdRange").mockReturnValue(response.promise);
+    const { result, unmount } = renderHook(() => useRangeSelection());
+    const pending = result.current(effect);
+    const signal = walk.mock.calls[0][3]!;
+    expect(signal.aborted).toBe(false);
+    expect(useSelectionStore.getState().isRangeWalking).toBe(true);
+
+    if (change === "clear") useSelectionStore.getState().clear();
+    if (change === "add") useSelectionStore.getState().add(["img-3"]);
+    if (change === "remove") useSelectionStore.getState().remove([polarity === "add" ? "img-0" : "img-1"]);
+    if (change === "toggle") useSelectionStore.getState().toggle("img-3");
+    if (change === "anchor") useSelectionStore.getState().setAnchor("img-3");
+    if (change === "query") useSearchStore.getState().setParams({ query: "new query" });
+    if (change === "order") useSearchStore.getState().setParams({ orderBy: "uploadTime" });
+    if (change === "filter") useSearchStore.getState().setParams({ nonFree: "false" });
+    if (change === "unmount") unmount();
+    const current = useSelectionStore.getState();
+    response.resolve(completed);
+    await pending;
+
+    expect.soft(useSelectionStore.getState().selectedIds).toBe(current.selectedIds);
+    expect.soft(current.isRangeWalking).toBe(false);
+    expect.soft(useSelectionStore.getState().rangeWalkTime).toBeNull();
+    expect(useSelectionStore.getState().anchorId).toBe(current.anchorId);
+    expect(signal.aborted).toBe(true);
+    expect(walk).toHaveBeenCalledTimes(1);
+    expect(useToastStore.getState().queue).toEqual([]);
+  });
+
+  it.each(["resident", "asynchronous"] as const)("long-press selects the exact %s range and chains without changing focus", async (residency) => {
+    useSearchStore.setState({
+      results: residency === "resident" ? images : images.slice(1, 3),
+      bufferOffset: residency === "resident" ? 0 : 1,
+      imagePositions: new Map(images.map((image, index) => [image.id, index])),
+      focusedImageId: "img-4",
+    });
+    const response = deferred<typeof completed>();
+    const walk = vi.spyOn(source, "getIdRange").mockReturnValue(response.promise);
+    const { result } = renderHook(() => useRangeSelection());
+    const pending = press("img-2", result.current);
+    expect(useSelectionStore.getState().anchorId).toBe("img-2");
+    expect(useSearchStore.getState().focusedImageId).toBe("img-4");
+    if (residency === "asynchronous") {
+      expect(walk).toHaveBeenCalledTimes(1);
+      expect.soft(walk.mock.calls[0][3]?.aborted).toBe(false);
+      expect.soft(useSelectionStore.getState().isRangeWalking).toBe(true);
+      expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0"]));
+    } else expect(walk).not.toHaveBeenCalled();
+    response.resolve(completed);
+    await pending;
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-1", "img-2"]));
+    expect(useSelectionStore.getState().anchorId).toBe("img-2");
+    expect(useSelectionStore.getState().isRangeWalking).toBe(false);
+    expect(useSearchStore.getState().focusedImageId).toBe("img-4");
+    if (residency === "asynchronous") return;
+    useSearchStore.setState({ results: images, bufferOffset: 0 });
+    await press("img-4", result.current);
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(images.map(image => image.id)));
+    expect(useSelectionStore.getState().anchorId).toBe("img-4");
+    expect(useSearchStore.getState().focusedImageId).toBe("img-4");
+    expect(walk).toHaveBeenCalledTimes(residency === "resident" ? 0 : 1);
+    useSelectionStore.getState().remove(["img-4"]);
+    useSelectionStore.getState().setAnchor("img-4");
+    await press("img-2", result.current);
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-1"]));
+    expect(useSelectionStore.getState().anchorId).toBe("img-2");
+    expect(useSearchStore.getState().focusedImageId).toBe("img-4");
+  });
+
+  it("a new long-press on the selected pending endpoint retires the old walk without another read", async () => {
+    useSelectionStore.getState().add(["img-2"]);
+    useSearchStore.setState({ imagePositions: new Map([["img-1", 1], ["img-2", 2]]), focusedImageId: "img-4" });
+    const response = deferred<typeof completed>();
+    const walk = vi.spyOn(source, "getIdRange").mockReturnValue(response.promise);
+    const { result } = renderHook(() => useRangeSelection());
+    const obsolete = press("img-2", result.current);
+    expect(walk.mock.calls[0][3]?.aborted).toBe(false);
+    expect(useSelectionStore.getState().isRangeWalking).toBe(true);
+    await press("img-2", result.current);
+    const current = useSelectionStore.getState();
+    expect.soft(walk.mock.calls[0][3]?.aborted).toBe(true);
+    expect.soft(current.isRangeWalking).toBe(false);
+    response.resolve(completed);
+    await obsolete;
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-2"]));
+    expect(useSelectionStore.getState().selectedIds).toBe(current.selectedIds);
+    expect(useSelectionStore.getState().anchorId).toBe("img-2");
+    expect(useSelectionStore.getState().rangeWalkTime).toBeNull();
+    expect(useSearchStore.getState().focusedImageId).toBe("img-4");
+    expect(walk).toHaveBeenCalledTimes(1);
+    expect(useToastStore.getState().queue).toEqual([]);
+  });
+
+  it.each(["success", "failure"] as const)("keeps the long-press successor busy when a superseded walk settles with %s", async (outcome) => {
+    const first = deferred<typeof completed>();
+    const second = deferred<typeof completed>();
+    const walk = vi.spyOn(source, "getIdRange").mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    const { result } = renderHook(() => useRangeSelection());
+    useSelectionStore.getState().add(["img-3", "img-4"]);
+    const initial = useSelectionStore.getState().selectedIds;
+    useSearchStore.setState({ results: images.slice(2), bufferOffset: 2, imagePositions: new Map(images.map((image, index) => [image.id, index])), focusedImageId: "img-3" });
+    const obsolete = press("img-2", result.current);
+    useSearchStore.setState({ results: images.slice(4), bufferOffset: 4 });
+    const current = press("img-4", result.current);
+    expect(walk.mock.calls[0][3]?.aborted).toBe(true);
+    expect.soft(walk.mock.calls[1][3]?.aborted).toBe(false);
+    if (outcome === "failure") first.reject(new Error("obsolete failure"));
+    else first.resolve(completed);
+    await obsolete;
+
+    expect.soft(useSelectionStore.getState().isRangeWalking).toBe(true);
+    expect(useSelectionStore.getState().rangeWalkTime).toBeNull();
+    expect(useSelectionStore.getState().selectedIds).toBe(initial);
+    expect(useSelectionStore.getState().anchorId).toBe("img-4");
+    expect(useSearchStore.getState().focusedImageId).toBe("img-3");
+    expect(useToastStore.getState().queue).toEqual([]);
+    second.resolve({ ...completed, ids: ["img-3", "img-4"] });
+    await current;
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0"]));
+    expect(useSelectionStore.getState().anchorId).toBe("img-4");
+    expect(useSearchStore.getState().focusedImageId).toBe("img-3");
+    expect(useSelectionStore.getState().isRangeWalking).toBe(false);
+    expect(useSelectionStore.getState().rangeWalkTime).toEqual(expect.any(Number));
+  });
+
+  it("does not erase a successor's completed timing on stale rejection", async () => {
+    const first = deferred<typeof completed>();
+    vi.spyOn(source, "getIdRange").mockReturnValueOnce(first.promise).mockResolvedValueOnce(completed);
+    const { result } = renderHook(() => useRangeSelection());
+    const obsolete = result.current(effect);
+    await result.current(effect);
+    const current = useSelectionStore.getState();
+    expect(current.rangeWalkTime).toEqual(expect.any(Number));
+    first.reject(new Error("late obsolete failure"));
+    await obsolete;
+    expect(useSelectionStore.getState().rangeWalkTime).toBe(current.rangeWalkTime);
+    expect(useSelectionStore.getState().selectedIds).toBe(current.selectedIds);
+    expect(useToastStore.getState().queue).toEqual([]);
+  });
+
+  it.each(["buffer", "missing anchor"] as const)("retires a server walk on %s takeover", async (takeover) => {
+    const response = deferred<typeof completed>();
+    const walk = vi.spyOn(source, "getIdRange").mockReturnValue(response.promise);
+    const { result } = renderHook(() => useRangeSelection());
+    const obsolete = result.current(effect);
+    if (takeover === "buffer") {
+      useSearchStore.setState({ results: images, bufferOffset: 0 });
+      const current = result.current(effect);
+      expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-1", "img-2"]));
+      await current;
+    } else {
+      await result.current({ ...effect, anchorId: "missing", anchorSortValues: null, anchorGlobalIndex: null });
+    }
+    expect.soft(useSelectionStore.getState().isRangeWalking).toBe(false);
+    expect(useSelectionStore.getState().rangeWalkTime).toBeNull();
+    const current = useSelectionStore.getState();
+    response.resolve({ ...completed, ids: ["img-4"], truncated: true });
+    await obsolete;
+    expect(useSelectionStore.getState().selectedIds).toBe(current.selectedIds);
+    expect(walk).toHaveBeenCalledTimes(1);
+    expect(useToastStore.getState().queue).toHaveLength(takeover === "buffer" ? 0 : 1);
+  });
+
+  it.each(["current", "clear", "query", "unmount", "abort"] as const)("handles %s rejection without stale publication or feedback", async (context) => {
+    const response = deferred<typeof completed>();
+    vi.spyOn(source, "getIdRange").mockReturnValue(response.promise);
+    const { result, unmount } = renderHook(() => useRangeSelection());
+    const pending = result.current(effect);
+    if (context === "clear") useSelectionStore.getState().clear();
+    if (context === "query") useSearchStore.getState().setParams({ query: "replacement" });
+    if (context === "unmount") unmount();
+    const current = useSelectionStore.getState();
+    response.reject(context === "abort" ? Object.assign(new Error("aborted"), { name: "AbortError" }) : new Error("fixture failure"));
+    await pending;
+    expect(useSelectionStore.getState().selectedIds).toBe(current.selectedIds);
+    expect(useSelectionStore.getState().isRangeWalking).toBe(false);
+    expect(useSelectionStore.getState().rangeWalkTime).toBeNull();
+    expect(useToastStore.getState().queue.map(toast => toast.category)).toEqual(context === "current" ? ["error"] : []);
+  });
+
+  it("preserves a walk through metadata, no-op membership, display and buffer changes", async () => {
+    const response = deferred<typeof completed>();
+    const walk = vi.spyOn(source, "getIdRange").mockReturnValue(response.promise);
+    const { result, rerender } = renderHook(() => useRangeSelection());
+    const pending = result.current(effect);
+    const initial = useSelectionStore.getState();
+    initial.add(["img-0"]);
+    initial.remove(["absent"]);
+    initial.setAnchor("img-0");
+    await initial.ensureMetadata(["img-9"]);
+    await useSelectionStore.getState().hydrate();
+    useUiPrefsStore.getState().setDensity("table");
+    const params = { ...useSearchStore.getState().params, image: "img-1", offset: 20, length: 10 };
+    useSearchStore.setState({ params, results: images.slice(3), bufferOffset: 3, focusedImageId: "img-3" });
+    rerender();
+    expect(useSelectionStore.getState().selectedIds).toBe(initial.selectedIds);
+    expect(useSelectionStore.getState().generationCounter).toBeGreaterThan(initial.generationCounter);
+    expect(useSelectionStore.getState().metadataRevision).toBeGreaterThan(initial.metadataRevision);
+    expect(walk.mock.calls[0][3]?.aborted).toBe(false);
+    expect(useSelectionStore.getState().isRangeWalking).toBe(true);
+    response.resolve(completed);
+    await pending;
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-1", "img-2"]));
+    expect(walk).toHaveBeenCalledTimes(1);
+  });
+
+  it.each((["add", "remove"] as const).flatMap(polarity =>
+    (["upload", "tied", "null"] as const).map(tupleKind => ({ polarity, tupleKind })),
+  ))("includes the interior after real collector overshoot during unknown-direction $polarity with $tupleKind tuples", async ({ polarity, tupleKind }) => {
+    const realSource = new ElasticsearchDataSource();
+    useSelectionStore.setState({ dataSource: realSource });
+    useSearchStore.setState({ params: { orderBy: tupleKind === "upload" ? "-uploadTime" : "-lastModified" } });
+    if (polarity === "remove") {
+      useSelectionStore.getState().add(["img-1", "img-2", "img-3"]);
+      useSelectionStore.getState().remove(["img-0"]);
+      useSelectionStore.getState().setAnchor("img-0");
+    }
+    const tuple = (time: number, id: string): SortValues => tupleKind === "upload" ? [time, id] : [tupleKind === "null" ? null : 900, time, id];
+    const rawTuple = (time: number, id: string): SortValues => tupleKind === "null" ? [time, id] : tuple(time, id);
+    const transport = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(rangePage([rawTuple(50, "img-4")]))
+      .mockResolvedValueOnce(rangePage([rawTuple(200, "img-1"), rawTuple(100, "img-0"), rawTuple(50, "img-4")]));
+    const walk = vi.spyOn(realSource, "getIdRange");
+    const { result } = renderHook(() => useRangeSelection());
+    await result.current({ ...effect, anchorGlobalIndex: null, anchorSortValues: tuple(100, "img-0"), targetSortValues: tuple(300, "img-2") });
+
+    expect(await walk.mock.results[0].value).toEqual({ ids: [], walked: 1, truncated: false });
+    expect.soft(useSelectionStore.getState().selectedIds).toEqual(new Set(polarity === "add" ? ["img-0", "img-1", "img-2"] : ["img-3"]));
+    expect(walk).toHaveBeenCalledTimes(2);
+    expect(walk.mock.calls[1].slice(1, 3)).toEqual([tuple(300, "img-2"), tuple(100, "img-0")]);
+    expect(transport).toHaveBeenCalledTimes(2);
+    expect(useSelectionStore.getState().anchorId).toBe("img-0");
+    expect(useSelectionStore.getState().isRangeWalking).toBe(false);
+  });
+
+  it.each(["correct", "empty"] as const)("preserves real collector %s range behavior", async (outcome) => {
+    const realSource = new ElasticsearchDataSource();
+    useSelectionStore.setState({ dataSource: realSource });
+    useSearchStore.setState({ params: { orderBy: "-uploadTime" } });
+    const tuples: SortValues[] = outcome === "correct" ? [[200, "img-1"], [100, "img-2"]] : [];
+    const transport = vi.spyOn(globalThis, "fetch").mockResolvedValue(rangePage(tuples));
+    const { result } = renderHook(() => useRangeSelection());
+    await result.current({ ...effect, anchorGlobalIndex: null, anchorSortValues: [300, "img-0"], targetSortValues: [100, "img-2"] });
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(outcome === "correct" ? ["img-0", "img-1", "img-2"] : ["img-0", "img-2"]));
+    expect(transport).toHaveBeenCalledTimes(outcome === "correct" ? 1 : 2);
+    expect(useSelectionStore.getState().anchorId).toBe("img-0");
+  });
+
+  it.each((["clear", "successor"] as const).flatMap(context =>
+    (["success", "failure"] as const).map(outcome => ({ context, outcome })),
+  ))("retires a real reverse attempt on $context before obsolete $outcome", async ({ context, outcome }) => {
+    const realSource = new ElasticsearchDataSource();
+    useSelectionStore.setState({ dataSource: realSource });
+    useSearchStore.setState({ params: { orderBy: "-uploadTime" } });
+    const reverseStarted = deferred<void>();
+    const reversePage = deferred<Response>();
+    const successorResult = deferred<typeof completed>();
+    const transport = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(rangePage([[50, "img-4"]]))
+      .mockImplementationOnce(() => { reverseStarted.resolve(); return reversePage.promise; });
+    const walk = vi.spyOn(realSource, "getIdRange");
+    const { result } = renderHook(() => useRangeSelection());
+    const obsolete = result.current({ ...effect, anchorGlobalIndex: null, anchorSortValues: [100, "img-0"], targetSortValues: [300, "img-2"] });
+    await reverseStarted.promise;
+    let successor: Promise<void> | undefined;
+    if (context === "clear") useSelectionStore.getState().clear();
+    else {
+      vi.spyOn(source, "getIdRange").mockReturnValue(successorResult.promise);
+      useSelectionStore.setState({ dataSource: source });
+      successor = result.current(effect);
+    }
+    const current = useSelectionStore.getState();
+    if (outcome === "failure") reversePage.reject(new Error("obsolete transport failure"));
+    else reversePage.resolve(rangePage([[200, "img-1"], [100, "img-0"]]));
+    await obsolete;
+    expect(walk.mock.calls[1][3]?.aborted).toBe(true);
+    expect(transport).toHaveBeenCalledTimes(2);
+    expect(useSelectionStore.getState().selectedIds).toBe(current.selectedIds);
+    expect(useSelectionStore.getState().isRangeWalking).toBe(context === "successor");
+    expect(useSelectionStore.getState().rangeWalkTime).toBeNull();
+    expect(useToastStore.getState().queue).toEqual([]);
+    if (successor) {
+      successorResult.resolve(completed);
+      await successor;
+      expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-1", "img-2"]));
+      expect(useSelectionStore.getState().isRangeWalking).toBe(false);
+    }
+  });
+
+  it.each([
+    { name: "populated", aliasValue: "fixture-status" as string | undefined },
+    { name: "missing", aliasValue: undefined },
+  ])("walks from a media-api-hydrated off-buffer anchor's $name alias without a retained tuple", async ({ aliasValue }) => {
+    const alias = gridConfig.fieldAliases.find((field) => field.elasticsearchPath.startsWith("fileMetadata."))!;
+    const uploadTime = "2026-01-01T00:00:00Z";
+    const transport = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data: [{ data: {
+      id: "img-0", uploadTime, ...(aliasValue === undefined ? {} : { aliases: { [alias.alias]: aliasValue } }),
+    } }] })));
+    const apiSource = new ApiDataSource();
+    _resetMetadataCache();
+    useSearchStore.setState({ params: { orderBy: alias.alias } });
+    useSelectionStore.setState({ dataSource: apiSource });
+    await useSelectionStore.getState().ensureMetadata(["img-0"]);
+    expect(transport.mock.calls.map(([url]) => url)).toEqual(["/api/images/mget"]);
+
+    const walk = vi.spyOn(apiSource, "getIdRange").mockResolvedValue(completed);
+    const { result } = renderHook(() => useRangeSelection());
+    await result.current({ ...effect, anchorGlobalIndex: null, anchorSortValues: null });
+
+    const fromCursor = walk.mock.calls[0][1];
+    expect(fromCursor[0]).toBe(aliasValue ?? null);
+    expect(fromCursor.at(-1)).toBe("img-0");
+    expect(fromCursor).toContain(Date.parse(uploadTime));
+  });
+
+  it.each((["refused", "unavailable", "incomplete"] as const).flatMap(kind =>
+    (["current", "clear"] as const).map(owner => ({ kind, owner })),
+  ))("U6z publishes no partial API range after a later $kind page with $owner ownership", async ({ kind, owner }) => {
+    const fallbackWalk = vi.spyOn(source, "getIdRange");
+    const fallbackHydration = vi.spyOn(source, "getByIds");
+    useSelectionStore.setState({ dataSource: new ApiDataSource() });
+    useSearchStore.setState({ params: { orderBy: "-uploadTime", nonFree: "true" } });
+    const secondPage = deferred<Response>();
+    const secondStarted = deferred<void>();
+    const paths: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (path: string) => {
+      paths.push(path);
+      expect(path).toBe("/api/images/keys");
+      if (paths.length === 1) return Response.json({
+        keys: [{ id: "img-1", sortValues: [200, "img-1"] }], after: [200, "img-1"],
+      });
+      secondStarted.resolve();
+      return secondPage.promise;
+    }));
+    const { result } = renderHook(() => useRangeSelection());
+    const initial = useSelectionStore.getState().selectedIds;
+    const pending = result.current({ ...effect, anchorSortValues: [300, "img-0"], targetSortValues: [100, "img-2"] });
+    await secondStarted.promise;
+    expect(useSelectionStore.getState().selectedIds).toBe(initial);
+    expect(useSelectionStore.getState().isRangeWalking).toBe(true);
+    if (owner === "clear") useSelectionStore.getState().clear();
+    const current = useSelectionStore.getState();
+    if (kind === "unavailable") secondPage.reject(new TypeError("synthetic transport unavailable"));
+    else secondPage.resolve(Response.json({ errorKey: kind === "incomplete" ? "keys-incomplete" : "forbidden" },
+      { status: kind === "incomplete" ? 503 : 403 }));
+    await pending;
+
+    expect(useSelectionStore.getState().selectedIds).toBe(current.selectedIds);
+    expect(useSelectionStore.getState().anchorId).toBe(current.anchorId);
+    expect(useSelectionStore.getState().isRangeWalking).toBe(false);
+    expect(useSelectionStore.getState().rangeWalkTime).toBeNull();
+    expect(useToastStore.getState().queue.map(toast => toast.category)).toEqual(owner === "current" ? ["error"] : []);
+    expect(paths).toEqual(["/api/images/keys", "/api/images/keys"]);
+    expect(fallbackWalk).not.toHaveBeenCalled();
+    expect(fallbackHydration).not.toHaveBeenCalled();
+  });
+
+  it("does not retry an empty known-direction collector result", async () => {
+    const realSource = new ElasticsearchDataSource();
+    useSelectionStore.setState({ dataSource: realSource });
+    const transport = vi.spyOn(globalThis, "fetch").mockResolvedValue(rangePage([]));
+    const { result } = renderHook(() => useRangeSelection());
+    await result.current(effect);
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-2"]));
+  });
+
+  it.each([0, 1])("preserves unknown-direction retry for walked=%s", async (walked) => {
+    const walk = vi.spyOn(source, "getIdRange").mockResolvedValueOnce({ ids: [], walked, truncated: false }).mockResolvedValueOnce(completed);
+    const { result } = renderHook(() => useRangeSelection());
+    await result.current({ ...effect, anchorGlobalIndex: null });
+    expect(walk).toHaveBeenCalledTimes(2);
+    expect(walk.mock.calls[1].slice(1, 3)).toEqual([effect.targetSortValues, effect.anchorSortValues]);
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-1", "img-2"]));
+  });
+
+  it("guards cancellation while the existing reverse retry is pending", async () => {
+    const response = deferred<typeof completed>();
+    const walk = vi.spyOn(source, "getIdRange").mockResolvedValueOnce({ ids: [], walked: 0, truncated: false }).mockReturnValueOnce(response.promise);
+    const { result } = renderHook(() => useRangeSelection());
+    const pending = result.current({ ...effect, anchorGlobalIndex: null });
+    await vi.waitFor(() => expect(walk).toHaveBeenCalledTimes(2));
+    useSelectionStore.getState().clear();
+    response.resolve(completed);
+    await pending;
+    expect(useSelectionStore.getState().selectedIds.size).toBe(0);
+    expect(useSelectionStore.getState().rangeWalkTime).toBeNull();
+    expect(walk.mock.calls[1][3]?.aborted).toBe(true);
+  });
+
+  it.each(["hard", "soft"] as const)("preserves %s cap feedback", async (cap) => {
+    const ids = cap === "hard" ? ["img-1"] : Array.from({ length: RANGE_SOFT_CAP }, (_, index) => `range-${index}`);
+    vi.spyOn(source, "getIdRange").mockResolvedValue({ ids, walked: ids.length, truncated: cap === "hard" });
+    vi.spyOn(source, "getByIds").mockResolvedValue([]);
+    const { result } = renderHook(() => useRangeSelection());
+    await result.current(effect);
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-2", ...ids]));
+    expect(useToastStore.getState().queue.map(toast => toast.message)).toEqual([
+      cap === "hard" ? `Selection was limited to ${RANGE_HARD_CAP.toLocaleString()} images.` : `Added ${(RANGE_SOFT_CAP + 1).toLocaleString()} images to your selection.`,
+    ]);
+  });
+
+  it.each(["success", "failure", "unmount"] as const)("releases both store subscriptions after %s", async (outcome) => {
+    const subscribeSelection = useSelectionStore.subscribe;
+    const subscribeSearch = useSearchStore.subscribe;
+    const releaseSelection = vi.fn();
+    const releaseSearch = vi.fn();
+    vi.spyOn(useSelectionStore, "subscribe").mockImplementation(listener => {
+      const unsubscribe = subscribeSelection(listener);
+      return () => { releaseSelection(); unsubscribe(); };
+    });
+    vi.spyOn(useSearchStore, "subscribe").mockImplementation(listener => {
+      const unsubscribe = subscribeSearch(listener);
+      return () => { releaseSearch(); unsubscribe(); };
+    });
+    const response = deferred<typeof completed>();
+    const walk = vi.spyOn(source, "getIdRange").mockReturnValue(response.promise);
+    const { result, unmount } = renderHook(() => useRangeSelection());
+    const pending = result.current(effect);
+    if (outcome === "unmount") unmount();
+    if (outcome === "failure") response.reject(new Error("fixture failure"));
+    else response.resolve(completed);
+    await pending;
+    expect(releaseSelection).toHaveBeenCalledTimes(1);
+    expect(releaseSearch).toHaveBeenCalledTimes(1);
+    useSelectionStore.getState().clear();
+    useSearchStore.getState().setParams({ query: "after settlement" });
+    expect(walk.mock.calls[0][3]?.aborted).toBe(outcome === "unmount");
+  });
+});

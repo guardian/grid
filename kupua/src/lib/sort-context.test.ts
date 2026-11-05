@@ -1,0 +1,315 @@
+/**
+ * Tests for kupua/src/lib/sort-context.ts — the boundary arithmetic behind
+ * the null-zone scrubber tick offset and the binary-search bucket lookup.
+ *
+ * Part A: computeTrackTicksWithNullZone boundary cases (documented past
+ *         regression — null-zone boundary tick, changelog.md ~line 1998).
+ * Part B: fast-check property covering the private lookupSortDistribution
+ *         binary search, driven transitively via interpolateSortLabel.
+ * Part C: enumerated pure-function cases for the small sort-key resolvers.
+ *
+ * All functions under test are pure — no mocking needed.
+ */
+
+import { describe, it, expect } from "vitest";
+import * as fc from "fast-check";
+import {
+  computeTrackTicksWithNullZone,
+  interpolateNullZoneSortLabel,
+  interpolateSortLabel,
+  resolvePrimarySortKey,
+  resolveDateSortInfo,
+  resolveKeywordSortInfo,
+  sortLabelText,
+} from "@/lib/sort-context";
+import type { Image } from "@/types/image";
+import type { SortDistribution } from "@/dal/types";
+
+describe("computeTrackTicksWithNullZone — boundary cases (Part A)", () => {
+  it("A1: coveredCount >= total → no boundary tick (keyword orderBy, empty result)", () => {
+    const sortDist: SortDistribution = { buckets: [], coveredCount: 10 };
+    const result = computeTrackTicksWithNullZone("credit", 10, 0, [], sortDist, null);
+    expect(result).toEqual([]);
+    expect(result.some((t) => t.boundary)).toBe(false);
+  });
+
+  it("A2: sortDist === null → returns covered ticks unchanged (keyword orderBy → [])", () => {
+    const result = computeTrackTicksWithNullZone("credit", 10, 0, [], null, null);
+    expect(result).toEqual([]);
+  });
+
+  it("A3: coveredCount = total - 1 → exactly one boundary tick at position = coveredCount", () => {
+    const sortDist: SortDistribution = { buckets: [], coveredCount: 9 };
+    const result = computeTrackTicksWithNullZone("credit", 10, 0, [], sortDist, null);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ position: 9, type: "major", boundary: true });
+  });
+
+  it("A4: coveredCount = 0 → boundary tick at position 0 (entire set is null zone)", () => {
+    const sortDist: SortDistribution = { buckets: [], coveredCount: 0 };
+    const result = computeTrackTicksWithNullZone("credit", 10, 0, [], sortDist, null);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ position: 0, boundary: true });
+  });
+
+  it("A5: null-zone tick positions are offset by coveredCount", () => {
+    const sortDist: SortDistribution = { buckets: [], coveredCount: 5 };
+    const nullZoneDist: SortDistribution = {
+      coveredCount: 20,
+      buckets: [
+        { key: "2024-01-01T00:00:00.000Z", count: 10, startPosition: 0 },
+        { key: "2024-02-01T00:00:00.000Z", count: 10, startPosition: 10 },
+      ],
+    };
+    const result = computeTrackTicksWithNullZone(
+      "credit", 100, 0, [], sortDist, nullZoneDist,
+    );
+    // Second bucket (startPosition 10) offset into global space by coveredCount (5) = 15
+    const nonBoundary = result.find((t) => !t.boundary && t.position === 15);
+    expect(nonBoundary).toBeDefined();
+  });
+
+  it("A6: uploadTime sort never shows a boundary tick, even when coveredCount < total " +
+     "(total/coveredCount are fetched independently and can drift by a doc or two " +
+     "on a live index — uploadTime is universal, so this must never render as a null zone)", () => {
+    const sortDist: SortDistribution = { buckets: [], coveredCount: 9 };
+    const explicit = computeTrackTicksWithNullZone("-uploadTime", 10, 0, [], sortDist, null);
+    expect(explicit.some((t) => t.boundary)).toBe(false);
+
+    const defaulted = computeTrackTicksWithNullZone(undefined, 10, 0, [], sortDist, null);
+    expect(defaulted.some((t) => t.boundary)).toBe(false);
+  });
+
+  it.each([
+    "-usagesDateAdded",
+    "usagesDateAdded",
+    "-dateAddedToCollection",
+    "dateAddedToCollection",
+  ])("projects %s evidence ticks into the exact populated span", (orderBy) => {
+    const sortDist: SortDistribution = {
+      coveredCount: 3,
+      evidenceCount: 5,
+      bucketPositionKind: "approximate-evidence",
+      buckets: [
+        { key: "2024-01-01T00:00:00.000Z", count: 2, startPosition: 0 },
+        { key: "2024-02-01T00:00:00.000Z", count: 2, startPosition: 2 },
+        { key: "2024-03-01T00:00:00.000Z", count: 1, startPosition: 4 },
+      ],
+    };
+
+    const ticks = computeTrackTicksWithNullZone(
+      orderBy,
+      10,
+      0,
+      [],
+      sortDist,
+      null,
+    );
+
+    expect(ticks.filter((tick) => !tick.boundary).map((tick) => tick.position))
+      .toEqual([0, 1, 2]);
+    expect(ticks.find((tick) => tick.boundary)?.position).toBe(3);
+  });
+
+  it("keeps the bucket that label lookup resolves when evidence ticks collide", () => {
+    const sortDist: SortDistribution = {
+      coveredCount: 2,
+      evidenceCount: 3,
+      bucketPositionKind: "approximate-evidence",
+      buckets: [
+        { key: "2024-01-01T00:00:00.000Z", count: 1, startPosition: 0 },
+        { key: "2024-02-01T00:00:00.000Z", count: 1, startPosition: 1 },
+        { key: "2024-03-01T00:00:00.000Z", count: 1, startPosition: 2 },
+      ],
+    };
+
+    const ticks = computeTrackTicksWithNullZone(
+      "-usagesDateAdded",
+      10,
+      0,
+      [],
+      sortDist,
+      null,
+    ).filter((tick) => !tick.boundary);
+
+    expect(ticks.map((tick) => ({ position: tick.position, label: tick.label })))
+      .toEqual([
+        { position: 0, label: "2024" },
+        { position: 1, label: "Mar" },
+      ]);
+  });
+});
+
+describe("interpolateSortLabel — binary search property (Part B)", () => {
+  const img = { id: "x" } as unknown as Image;
+
+  it("resolves the correct bucket key for every covered position (and null beyond)", () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.integer({ min: 1, max: 20 }), { minLength: 1, maxLength: 7 }),
+        fc.integer({ min: 1, max: 50 }),
+        (gaps, tail) => {
+          const starts = gaps.reduce<number[]>((acc, g) => {
+            acc.push(acc[acc.length - 1] + g);
+            return acc;
+          }, [0]);
+          const buckets = starts.map((startPosition, i) => ({
+            key: `k${i}`,
+            count: 1,
+            startPosition,
+          }));
+          const coveredCount = starts[starts.length - 1] + tail;
+          const dist: SortDistribution = { buckets, coveredCount };
+          const total = coveredCount + 10;
+
+          for (let p = 0; p <= coveredCount + 5; p++) {
+            const label = interpolateSortLabel(
+              "credit", p, total, 1_000_000, [img], dist,
+            );
+            if (p >= coveredCount) {
+              expect(label).toBe(null);
+            } else {
+              let idx = 0;
+              for (let b = 0; b < buckets.length; b++) {
+                if (buckets[b].startPosition <= p) idx = b;
+                else break;
+              }
+              expect(label).toBe(`k${idx}`);
+            }
+          }
+        },
+      ),
+    );
+  });
+
+  it("example: buckets at [0,5,10], coveredCount 15", () => {
+    const dist: SortDistribution = {
+      coveredCount: 15,
+      buckets: [
+        { key: "k0", count: 1, startPosition: 0 },
+        { key: "k1", count: 1, startPosition: 5 },
+        { key: "k2", count: 1, startPosition: 10 },
+      ],
+    };
+    expect(interpolateSortLabel("credit", 5, 25, 1_000_000, [img], dist)).toBe("k1");
+    expect(interpolateSortLabel("credit", 14, 25, 1_000_000, [img], dist)).toBe("k2");
+    expect(interpolateSortLabel("credit", 15, 25, 1_000_000, [img], dist)).toBe(null);
+  });
+
+  it("escapes metadata in keyword labels, which the scrubber renders as HTML", () => {
+    const hostile = { id: "x", metadata: { credit: `<img src=x onerror=alert(1)>` } } as unknown as Image;
+    expect(interpolateSortLabel("credit", 0, 1, 0, [hostile])).toBe("&lt;img src=x onerror=alert(1)&gt;");
+
+    const dist: SortDistribution = { coveredCount: 1, buckets: [{ key: `a&"b'<`, count: 1, startPosition: 0 }] };
+    expect(interpolateSortLabel("credit", 0, 5, 1_000_000, [hostile], dist)).toBe("a&amp;&quot;b&#39;&lt;");
+  });
+
+  it("reads escaped keyword and date labels back as plain text for assistive technology", () => {
+    expect(sortLabelText("&lt;img src=x&gt; A&amp;B &quot;q&quot; &#39;s")).toBe(`<img src=x> A&B "q" 's`);
+    expect(sortLabelText('<span style="x">3</span> Mar <span>2024</span>')).toBe("3 Mar 2024");
+  });
+
+  it("truncates long keyword labels before escaping, so entities are never cut", () => {
+    const long = { id: "x", metadata: { credit: "&".repeat(40) } } as unknown as Image;
+    expect(interpolateSortLabel("credit", 0, 1, 0, [long])).toBe("&amp;".repeat(27) + "…");
+  });
+
+  it("does not repeat the final keyword across an unrepresented valued tail", () => {
+    const dist = {
+      coveredCount: 10,
+      representedCount: 4,
+      complete: false,
+      buckets: [
+        { key: "represented", count: 4, startPosition: 0 },
+      ],
+    } as SortDistribution & { representedCount: number; complete: boolean };
+
+    expect(interpolateSortLabel(
+      "credit",
+      5,
+      12,
+      1_000_000,
+      [img],
+      dist,
+    )).toBe(null);
+  });
+
+  it.each([
+    "-usagesDateAdded",
+    "usagesDateAdded",
+    "-dateAddedToCollection",
+    "dateAddedToCollection",
+  ])("marks projected %s evidence labels approximate", (orderBy) => {
+    const dist: SortDistribution = {
+      coveredCount: 3,
+      evidenceCount: 5,
+      bucketPositionKind: "approximate-evidence",
+      buckets: [
+        { key: "2024-01-01T00:00:00.000Z", count: 2, startPosition: 0 },
+        { key: "2024-02-01T00:00:00.000Z", count: 2, startPosition: 2 },
+        { key: "2024-03-01T00:00:00.000Z", count: 1, startPosition: 4 },
+      ],
+    };
+
+    const label = interpolateSortLabel(
+      orderBy, 2, 10, 1_000_000, [img], dist,
+    );
+    expect(label?.replace(/<[^>]+>/g, "")).toBe("Approx. 1 Mar 2024");
+  });
+
+  it("does not invent a special-date label for a known null-zone position", () => {
+    const dist: SortDistribution = {
+      coveredCount: 3,
+      evidenceCount: 5,
+      bucketPositionKind: "approximate-evidence",
+      buckets: [
+        { key: "2024-01-01T00:00:00.000Z", count: 5, startPosition: 0 },
+      ],
+    };
+
+    const datedImage = {
+      id: "dated",
+      usages: [{ dateAdded: "2024-06-01T00:00:00.000Z" }],
+    } as unknown as Image;
+
+    expect(interpolateNullZoneSortLabel(
+      "-usagesDateAdded",
+      3,
+      10,
+      3,
+      [datedImage],
+      dist,
+      null,
+    )).toBe(null);
+  });
+});
+
+describe("sort-key resolvers — enumerated cases (Part C)", () => {
+  it("C1: resolvePrimarySortKey strips leading '-' and takes the first comma-separated field", () => {
+    expect(resolvePrimarySortKey("-uploadTime,taken")).toBe("uploadTime");
+    expect(resolvePrimarySortKey(undefined)).toBe("uploadTime"); // default -uploadTime
+  });
+
+  it("C2: interpolateSortLabel returns null (not throw) for a date sort with missing dateTaken", () => {
+    const imageWithNoDateTaken = { id: "y", metadata: {} } as unknown as Image;
+    expect(
+      interpolateSortLabel("-taken", 0, 100, 0, [imageWithNoDateTaken]),
+    ).toBe(null);
+  });
+
+  it("C3: unknown sort field resolves to null for both date and keyword info", () => {
+    expect(resolveDateSortInfo("unknownField")).toBe(null);
+    expect(resolveKeywordSortInfo("unknownField")).toBe(null);
+  });
+
+  it("C4: known sort fields resolve to their ES field path and direction", () => {
+    expect(resolveDateSortInfo("-taken")).toEqual({
+      field: "metadata.dateTaken",
+      direction: "desc",
+    });
+    expect(resolveKeywordSortInfo("credit")).toEqual({
+      field: "metadata.credit",
+      direction: "asc",
+    });
+  });
+});

@@ -1,0 +1,397 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { splitFieldTerms, joinFieldTerms, parseFieldChips, serializeFieldChips } from "@/dal/adapters/elasticsearch/cql-query-edit";
+import { useIsCompact } from "./PanelLayout";
+import { usePanelStore } from "@/stores/panel-store";
+import { useNavigate, useRouter } from "@tanstack/react-router";
+import { useUrlSearchSync, useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
+import { useSearch } from "@tanstack/react-router";
+import { useSearchStore } from "@/stores/search-store";
+import { SearchFilters } from "./SearchFilters";
+import { CqlSearchInput } from "./CqlSearchInput";
+import { FiltersSheet } from "./FiltersSheet";
+import { AiSearchInput } from "./AiSearchInput";
+import {
+  _debounceTimerId,
+  setDebounceTimer,
+  _externalQuery,
+  setExternalQuery,
+  resetCqlInputComponents,
+  getCqlInputGeneration,
+  pushNavigateAsPopstate,
+  pushTypingSearchEntry,
+} from "@/lib/orchestration/search";
+import { resetToHome } from "@/lib/reset-to-home";
+import { DEFAULT_SEARCH, HOME_HREF } from "@/lib/home-defaults";
+import { SettingsMenu } from "./SettingsMenu";
+import { useSelectionStore } from "@/stores/selection-store";
+import { beginTraceInteraction } from "@/lib/perceived-trace";
+import { hasCollectionFilter } from "@/lib/search-params-schema";
+import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
+
+export function SearchBar() {
+  const searchParams = useSearch({ from: "/search" });
+  const updateSearch = useUpdateSearchParams();
+  const navigate = useNavigate();
+  const router = useRouter();
+  const [externalInputRevision, setExternalInputRevision] = useState(0);
+  const took = useSearchStore((s) => s.took);
+  const fetchDuration = useSearchStore((s) => s.fetchDuration);
+  const seekTime = useSearchStore((s) => s.seekTime);
+  const aggTook = useSearchStore((s) => s.aggTook);
+  const aggLoading = useSearchStore((s) => s.aggLoading);
+  const loading = useSearchStore((s) => s.loading);
+  const isReconciling = useSelectionStore((s) => s.isReconciling);
+  const isRangeWalking = useSelectionStore((s) => s.isRangeWalking);
+  const rangeWalkTime = useSelectionStore((s) => s.rangeWalkTime);
+  const busy = loading || aggLoading || isReconciling || isRangeWalking;
+
+  // Delay-before-show: dot only appears if busy persists for 150ms+.
+  // Prevents imperceptible flashes for fast operations.
+  const [showDot, setShowDot] = useState(false);
+  const busyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (busy) {
+      busyTimerRef.current = setTimeout(() => setShowDot(true), 150);
+    } else {
+      if (busyTimerRef.current) clearTimeout(busyTimerRef.current);
+      busyTimerRef.current = null;
+      setShowDot(false);
+    }
+    return () => { if (busyTimerRef.current) clearTimeout(busyTimerRef.current); };
+  }, [busy]);
+
+  // Track whether the CQL editor has content (for showing the clear button)
+  const [hasEditorContent, setHasEditorContent] = useState(
+    !!(searchParams.query)
+  );
+
+  // Sync URL → store → search (single place for the whole app)
+  useUrlSearchSync();
+
+  // Cancel any pending debounce timer when SearchBar unmounts.
+  // Without this, navigating away (e.g. double-click → image detail) leaves
+  // a pending setTimeout that calls updateSearch() → navigate({ to: "/search" }),
+  // bouncing the user back to the search page.
+  useEffect(() => {
+    return () => {
+      if (cqlDebounceRef.current && _debounceTimerId === cqlDebounceRef.current) {
+        clearTimeout(cqlDebounceRef.current);
+        setDebounceTimer(null);
+      }
+      cqlDebounceRef.current = null;
+      if (aiDebounceRef.current) clearTimeout(aiDebounceRef.current);
+      aiDebounceRef.current = null;
+    };
+  }, []);
+
+  // --- AI query lives in its own URL param (searchParams.aiQuery) ---
+  const urlAiText = searchParams.aiQuery ?? null;
+  const urlQuery = searchParams.query ?? "";
+  const isCompact = useIsCompact();
+  // Compact shell: the search bar edits free text only; chips live in Refine.
+  const split = useMemo(() => splitFieldTerms(urlQuery), [urlQuery]);
+  const splitRef = useRef(split);
+  splitRef.current = split;
+  const handleBarChange = useCallback(
+    (q: string) => {
+      if (!isCompact) return handleQueryChangeRef.current(q);
+      // Chips typed in the bar stay there until blur; merge without duplicating ones already committed.
+      const typed = splitFieldTerms(q);
+      const seen = new Set<string>();
+      const chips = parseFieldChips(joinFieldTerms(splitRef.current.fields, typed.fields)).filter((chip) => {
+        const key = `${chip.negated}|${chip.key.toLowerCase()}|${chip.value}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      handleQueryChangeRef.current(joinFieldTerms(serializeFieldChips(chips), typed.text));
+    },
+    [isCompact],
+  );
+  // Refine edits are discrete commits: one history entry and one search, not a debounced typing session.
+  const handleFieldsChange = useCallback(
+    (f: string) => {
+      if (_debounceTimerId) clearTimeout(_debounceTimerId);
+      setDebounceTimer(null);
+      cqlDebounceRef.current = null;
+      const query = joinFieldTerms(f, splitRef.current.text);
+      beginTraceInteraction("search", { source: "refine" });
+      updateSearch({ query: query || undefined });
+    },
+    [updateSearch],
+  );
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const chipCount = split.fields ? split.fields.split(/\s+(?=[+-]?[^\s:]+:|[#~])/).length : 0;
+  const closeFilters = useCallback(() => setFiltersOpen(false), []);
+  const hasNonDefaultFilters =
+    searchParams.nonFree !== "true" || !!searchParams.since || !!searchParams.until ||
+    !!searchParams.takenSince || !!searchParams.takenUntil ||
+    !!searchParams.modifiedSince || !!searchParams.modifiedUntil ||
+    (!!searchParams.orderBy && searchParams.orderBy !== "-uploadTime");
+  const cqlDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const aiDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingEntryRef = useRef<{ key: string; generation: number } | null>(null);
+  useEffect(() => router.history.subscribe(({ location }) => {
+    const owner = typingEntryRef.current;
+    if (!owner || (location.state as { kupuaKey?: string }).kupuaKey === owner.key) return;
+    typingEntryRef.current = null;
+    if (!cqlDebounceRef.current && !aiDebounceRef.current) return;
+    if (cqlDebounceRef.current && _debounceTimerId === cqlDebounceRef.current) {
+      clearTimeout(cqlDebounceRef.current);
+      setDebounceTimer(null);
+    }
+    cqlDebounceRef.current = null;
+    if (aiDebounceRef.current) clearTimeout(aiDebounceRef.current);
+    aiDebounceRef.current = null;
+    setExternalInputRevision((revision) => revision + 1);
+  }), [router]);
+  const beginTypingSession = useCallback(() => {
+    const owner = typingEntryRef.current;
+    if (owner && (_debounceTimerId || aiDebounceRef.current) && owner.key === getCurrentKupuaKey()
+      && owner.generation === getCqlInputGeneration()) return owner;
+    if (_debounceTimerId) clearTimeout(_debounceTimerId);
+    setDebounceTimer(null);
+    cqlDebounceRef.current = null;
+    if (aiDebounceRef.current) clearTimeout(aiDebounceRef.current);
+    aiDebounceRef.current = null;
+    const nextOwner = { key: pushTypingSearchEntry(navigate, searchParams), generation: getCqlInputGeneration() };
+    typingEntryRef.current = nextOwner;
+    return nextOwner;
+  }, [navigate, searchParams]);
+
+  const handleQueryChange = useCallback(
+    (queryStr: string) => {
+      // First keystroke of a new typing session: commit the current URL
+      // as a history entry so the pre-edit context is reachable via back.
+      const owner = beginTypingSession();
+
+      if (_debounceTimerId) clearTimeout(_debounceTimerId);
+      const timer = setTimeout(() => {
+        if (_debounceTimerId !== timer || cqlDebounceRef.current !== timer) return;
+        cqlDebounceRef.current = null;
+        setDebounceTimer(null);
+        if (owner.key !== getCurrentKupuaKey() || owner.generation !== getCqlInputGeneration()) return;
+
+        // If an external update (e.g. cell click) set a different query
+        // after this timer was scheduled, this debounce is stale — skip.
+        if (_externalQuery !== null && queryStr !== _externalQuery) {
+          return;
+        }
+        setExternalQuery(null);
+
+        // Only update the URL when there's real query content.
+        const meaningful = queryStr.replace(/[+\-:\s]+/g, "");
+        const cqlPart = meaningful ? queryStr : "";
+        beginTraceInteraction("search", { source: "debounced-input" });
+        updateSearch({ query: cqlPart || undefined }, { replace: true });
+      }, 300);
+      cqlDebounceRef.current = timer;
+      setDebounceTimer(timer);
+    },
+    [beginTypingSession, updateSearch]
+  );
+  const handleQueryChangeRef = useRef(handleQueryChange);
+  handleQueryChangeRef.current = handleQueryChange;
+
+  // AI text change handler — debounced like CQL changes.
+  const handleAiTextChange = useCallback(
+    (text: string | null) => {
+      // Push history entry on first edit of a session (same as CQL).
+      const owner = beginTypingSession();
+
+      if (aiDebounceRef.current) clearTimeout(aiDebounceRef.current);
+      const timer = setTimeout(() => {
+        if (aiDebounceRef.current !== timer) return;
+        aiDebounceRef.current = null;
+        if (owner.key !== getCurrentKupuaKey() || owner.generation !== getCqlInputGeneration()) return;
+        updateSearch({ aiQuery: text || undefined }, { replace: true });
+      }, 600);
+      aiDebounceRef.current = timer;
+    },
+    [beginTypingSession, updateSearch],
+  );
+
+  const handleClear = useCallback(() => {
+    // Force CqlSearchInput/AiSearchInput to remount so partial/ghost chip
+    // state living only in ProseMirror's internal document is fully wiped.
+    resetCqlInputComponents();
+    if (aiDebounceRef.current) { clearTimeout(aiDebounceRef.current); aiDebounceRef.current = null; }
+    setHasEditorContent(false);
+    // Compact: × clears the typed text; chips are managed (and reset) in Refine.
+    const keep = isCompact ? splitRef.current.fields : "";
+    updateSearch({ query: keep || undefined, aiQuery: undefined });
+  }, [updateSearch, isCompact]);
+
+  // Show clear button only when there's CQL content (not just AI).
+  // When only AI is active, the AI widget has its own ✕.
+  const hasCqlContent = hasEditorContent || !!urlQuery;
+  const showClear = hasCqlContent;
+
+  return (
+    <header
+      role="toolbar"
+      aria-label="Search and filter controls"
+      className="flex items-center gap-1.5 px-3 py-1.5 bg-grid-bg border-b border-grid-separator h-11"
+    >
+      {/* Logo — always visible, resets state and focuses search box.
+           Hit area is a square matching the full bar height (h-11 = 44px).
+           -ml-3 eats the bar's px-3 so the click target sits flush left.
+           Uses <a> (not <Link>) with e.preventDefault() so we can await
+           search() before navigating. This prevents the table→grid flash:
+           the density switch only happens after fresh page-1 data is ready. */}
+      <a
+        href={HOME_HREF}
+        title="Grid — clear all filters"
+        className="shrink-0 -ml-3 w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors"
+        onClick={(e) => {
+          e.preventDefault();
+          const interactionId = beginTraceInteraction("home-logo");
+          // pushNavigateAsPopstate — deliberately skips markUserInitiatedNavigation().
+          // Logo-reset should behave like a popstate: reset to offset 0, no focus
+          // carry. The flag-defaults-to-false rule gives these semantics for free.
+          resetToHome(
+            () => pushNavigateAsPopstate(navigate, { to: "/search", search: DEFAULT_SEARCH }),
+            interactionId,
+            router.history,
+          );
+        }}
+      >
+        <img src={`${import.meta.env.BASE_URL}images/grid-logo.svg`} alt="Grid" className="w-8 h-8" />
+      </a>
+
+      {/* CQL search input with chips — grows to fill available space.
+           Layout mirrors kahuna: [magnifier] [query (flex-1 overflow-hidden)] [clear ✕].
+           The CQL Web Component has built-in overflow-x:auto with hidden scrollbars,
+           so the query area scrolls horizontally when content overflows.
+           The clear button is a normal flex child (not an absolute overlay),
+           so it never covers text/chips. */}
+      <div role="search" className="relative flex items-center flex-1 min-w-0 max-w-2xl border border-grid-border rounded focus-within:border-grid-accent focus-within:ring-1 focus-within:ring-grid-accent bg-grid-bg">
+        {/* Search icon — non-selectable, matches Grid's magnifier */}
+        <svg
+          className="shrink-0 w-4 h-4 ml-2 text-grid-text-muted pointer-events-none select-none"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <div
+          className="flex-1 min-w-0 overflow-hidden"
+          onBlur={isCompact ? () => {
+            // Chips typed into the bar move to Refine once editing ends.
+            setTimeout(() => setExternalInputRevision((r) => r + 1), 400);
+          } : undefined}
+        >
+          <CqlSearchInput
+            key={getCqlInputGeneration()}
+            value={isCompact ? split.text : urlQuery}
+            externalRevision={externalInputRevision}
+            onChange={handleBarChange}
+            onHasContentChange={setHasEditorContent}
+            placeholder={isCompact ? "Search for images…" : undefined}
+          />
+        </div>
+        <AiSearchInput
+          key={getCqlInputGeneration()}
+          aiText={urlAiText}
+          externalRevision={externalInputRevision}
+          onAiTextChange={handleAiTextChange}
+          collectionDisabled={hasCollectionFilter(urlQuery)}
+        />
+        <button
+          onClick={handleClear}
+          aria-label="Clear search"
+          className={`shrink-0 text-grid-text-muted hover:text-grid-text text-sm px-1.5 py-0.5 rounded hover:bg-grid-hover transition-colors ${showClear ? "" : "invisible"}`}
+          title="Clear search"
+        >
+          <span aria-hidden="true">✕</span>
+        </button>
+      </div>
+
+
+      {/* Separator */}
+      <div className="hidden min-[760px]:block w-px h-5 bg-grid-separator shrink-0" />
+
+      {/* Narrow screens: filters + sort move behind this button (sheet on touch phones, dropdown on desktop) */}
+      <button
+        type="button"
+        onClick={() => setFiltersOpen((v) => {
+          if (!v && usePanelStore.getState().config.left.visible) usePanelStore.getState().togglePanel("left");
+          return !v;
+        })}
+        aria-label="Filters and sort"
+        aria-expanded={filtersOpen}
+        className="min-[760px]:hidden relative shrink-0 w-10 h-10 -mr-1 flex items-center justify-center text-grid-text-muted"
+      >
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z" />
+        </svg>
+        {isCompact && chipCount > 0 ? (
+          <span className="absolute top-0.5 right-0 min-w-4 h-4 px-1 rounded-full bg-grid-accent text-white text-[10px] leading-4 text-center tabular-nums">
+            +{chipCount}
+          </span>
+        ) : hasNonDefaultFilters && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-grid-accent" />}
+      </button>
+      {filtersOpen && <FiltersSheet onClose={closeFilters} fields={split.fields} onFieldsChange={handleFieldsChange} dropdown={!isCompact} />}
+
+      {/* Filters (free-to-use, dates) — hidden on phones, visible from sm */}
+      <SearchFilters />
+
+      {/* Separator */}
+      <div className="hidden min-[760px]:block w-px h-5 bg-grid-separator shrink-0" />
+
+      {/* Sort controls — right-aligned, rendered by SearchFilters.SortControls */}
+      <SearchFilters.Sort />
+
+      {/* ES timing — far right. Hidden below lg. Always rendered to avoid layout shift. */}
+      <span className="hidden lg:block text-sm text-grid-text-dim shrink-0 ml-auto tabular-nums min-w-[7ch] text-right">
+        {(took != null || fetchDuration != null) && (
+          <span title={
+            took != null && fetchDuration != null && fetchDuration - took > 20
+              ? "ES query time / total fetch duration (includes network + proxy)"
+              : took != null
+                ? "Elasticsearch query time (last search)"
+                : "Total fetch duration (includes network, proxy + server processing)"
+          }>
+            {took != null
+              ? `${took}ms${fetchDuration != null && fetchDuration - took > 20 ? ` / ${fetchDuration}ms` : ""}`
+              : `~${fetchDuration}ms`}
+          </span>
+        )}
+        {seekTime != null && (
+          <span title="Wall-clock time of last scrubber seek (includes all ES round-trips)">
+            {" / "}{seekTime < 1000 ? `${seekTime}ms` : `${(seekTime / 1000).toFixed(1)}s`}
+          </span>
+        )}
+        {aggTook != null && (
+          <span title="Elasticsearch query time (filter aggregations)">
+            {" / "}{aggTook}ms
+          </span>
+        )}
+        {rangeWalkTime != null && (
+          <span title="Wall-clock time of last range-selection server walk">
+            {" / "}{rangeWalkTime < 1000 ? `${rangeWalkTime}ms` : `${(rangeWalkTime / 1000).toFixed(1)}s`}
+          </span>
+        )}
+      </span>
+
+      {/* Busy dot — pulsates when app is working (search, seek, reconciliation).
+          Always in DOM; visibility-toggled to avoid layout shift.
+          150ms delay-before-show prevents flashes for fast operations. */}
+      <span
+        className="hidden lg:block text-grid-accent animate-pulse shrink-0 text-sm"
+        style={{ visibility: showDot ? "visible" : "hidden" }}
+        aria-hidden="true"
+      >●</span>
+
+      {/* Settings menu — three-dot, far right */}
+      <SettingsMenu />
+    </header>
+  );
+}
+

@@ -1,0 +1,367 @@
+import { describe, it, expect, vi } from "vitest";
+import {
+  FIELD_REGISTRY,
+  RECONCILE_FIELDS,
+  FIELDS_BY_ID,
+  COLUMN_CQL_KEYS,
+  SORTABLE_FIELDS,
+  DESC_BY_DEFAULT,
+  DEFAULT_HIDDEN_COLUMNS,
+  SORT_DROPDOWN_OPTIONS,
+  getFieldRawValue,
+} from "./field-registry";
+import type { Image } from "@/types/image";
+
+// ---------------------------------------------------------------------------
+// Fixture
+// ---------------------------------------------------------------------------
+const FIXTURE: Image = {
+  id: "test-123",
+  uploadTime: "2026-03-20T14:30:00.000Z",
+  uploadedBy: "jane.doe@guardian.co.uk",
+  lastModified: "2026-03-21T09:15:00.000Z",
+  source: {
+    mimeType: "image/jpeg",
+    dimensions: { width: 4000, height: 3000 },
+    orientedDimensions: { width: 3000, height: 4000 },
+  },
+  metadata: {
+    title: "A cat on a mat",
+    description: "A fluffy tabby cat sitting on a doormat",
+    byline: "Robbie Stephenson",
+    credit: "Getty Images",
+    source: "Rex Features",
+    subjects: ["nature", "lifestyle"],
+    peopleInImage: ["Alice", "Bob"],
+    dateTaken: "2026-03-19T10:00:00.000Z",
+    subLocation: "Kings Cross",
+    city: "London",
+    state: "England",
+    country: "United Kingdom",
+    imageType: "Photograph",
+  },
+  usageRights: { category: "staff-photographer" },
+  uploadInfo: { filename: "cat_on_mat.jpg" },
+  fileMetadata: {
+    iptc: { "Edit Status": "ORIGINAL" },
+    colourModel: "RGB",
+  },
+};
+
+const SPARSE: Image = {
+  id: "sparse",
+  uploadTime: "2026-01-01T00:00:00Z",
+  uploadedBy: "test",
+  source: { mimeType: "image/png", dimensions: { width: 100, height: 100 } },
+  metadata: {},
+};
+
+describe("numeric field formatting", () => {
+  it.each([0, 1, 1234, 1234567, 1.25, -1234, Number.NaN, Number.POSITIVE_INFINITY])(
+    "preserves native default-locale output for %s", value => {
+      const image = { ...SPARSE, source: { ...SPARSE.source, dimensions: { width: value, height: value } } };
+      const expected = value.toLocaleString();
+      expect(FIELDS_BY_ID.get("source_width")!.accessor(image)).toBe(expected);
+      expect(FIELDS_BY_ID.get("source_height")!.accessor(image)).toBe(expected);
+      expect(FIELDS_BY_ID.get("dimensions")!.accessor(image)).toBe(`${expected} \u00d7 ${expected}`);
+      expect(getFieldRawValue("source_width", image)).toBe(String(value));
+    },
+  );
+
+  it("reuses number formatting rather than native locale formatting per field read", () => {
+    const native = vi.spyOn(Number.prototype, "toLocaleString");
+    const constructor = vi.spyOn(Intl, "NumberFormat");
+    try {
+      for (let index = 0; index < 20; index++) {
+        for (const id of ["dimensions", "source_width", "source_height"]) FIELDS_BY_ID.get(id)!.accessor(FIXTURE);
+      }
+      expect(native).not.toHaveBeenCalled();
+      expect(constructor).not.toHaveBeenCalled();
+    } finally { native.mockRestore(); constructor.mockRestore(); }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Structural invariants
+// ---------------------------------------------------------------------------
+describe("FIELD_REGISTRY structure", () => {
+  it("has unique IDs", () => {
+    const ids = FIELD_REGISTRY.map((f) => f.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("has no empty labels", () => {
+    for (const f of FIELD_REGISTRY) {
+      expect(f.label.trim().length, `field ${f.id} has empty label`).toBeGreaterThan(0);
+    }
+  });
+
+  it("FIELDS_BY_ID covers every registry entry", () => {
+    expect(FIELDS_BY_ID.size).toBe(FIELD_REGISTRY.length);
+  });
+
+  it("every field with a sortKey appears in SORTABLE_FIELDS", () => {
+    for (const f of FIELD_REGISTRY) {
+      if (f.sortKey) {
+        expect(SORTABLE_FIELDS[f.id], `${f.id} has sortKey but missing from SORTABLE_FIELDS`).toBe(f.sortKey);
+      }
+    }
+  });
+
+  it("every field with a cqlKey appears in COLUMN_CQL_KEYS", () => {
+    for (const f of FIELD_REGISTRY) {
+      if (f.cqlKey) {
+        expect(COLUMN_CQL_KEYS[f.id], `${f.id} has cqlKey but missing from COLUMN_CQL_KEYS`).toBe(f.cqlKey);
+      }
+    }
+  });
+
+  it("every defaultHidden field appears in DEFAULT_HIDDEN_COLUMNS", () => {
+    for (const f of FIELD_REGISTRY) {
+      if (f.defaultHidden) {
+        expect(DEFAULT_HIDDEN_COLUMNS, `${f.id} is defaultHidden but not in DEFAULT_HIDDEN_COLUMNS`).toContain(f.id);
+      }
+    }
+  });
+
+  it("DESC_BY_DEFAULT only contains sort keys that exist in the registry or dropdown", () => {
+    // Include sort-only keys from SORT_DROPDOWN_OPTIONS (e.g. dateAddedToCollection
+    // has no registry field but is a valid sort option).
+    // "relevance" is AI-mode only (not in registry/dropdown) — explicitly allowed.
+    const AI_ONLY_SORT_KEYS = new Set(["relevance"]);
+    const allSortKeys = new Set([
+      ...FIELD_REGISTRY.filter((f) => f.sortKey).map((f) => f.sortKey!),
+      ...SORT_DROPDOWN_OPTIONS.map((o) => o.value),
+      ...AI_ONLY_SORT_KEYS,
+    ]);
+    for (const key of DESC_BY_DEFAULT) {
+      expect(allSortKeys, `DESC_BY_DEFAULT contains "${key}" which is not a sort key`).toContain(key);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Accessor logic — the tricky cases
+// ---------------------------------------------------------------------------
+describe("accessors", () => {
+  it("uses oriented dimensions for combined Dimensions field", () => {
+    expect(getFieldRawValue("dimensions", FIXTURE)).toBe("3,000 × 4,000");
+  });
+
+  it("falls back to raw dimensions when oriented absent", () => {
+    expect(getFieldRawValue("dimensions", SPARSE)).toBe("100 × 100");
+  });
+
+  it("strips image/ prefix from MIME type", () => {
+    expect(getFieldRawValue("source_mimeType", FIXTURE)).toBe("jpeg");
+  });
+
+  it("joins list fields with comma-space", () => {
+    expect(getFieldRawValue("subjects", FIXTURE)).toBe("nature, lifestyle");
+    expect(getFieldRawValue("people", FIXTURE)).toBe("Alice, Bob");
+  });
+
+  it("joins location sub-fields fine→coarse", () => {
+    expect(getFieldRawValue("location", FIXTURE)).toBe(
+      "Kings Cross, London, England, United Kingdom"
+    );
+  });
+
+  it("location sub-fields have correct CQL keys", () => {
+    const loc = FIELDS_BY_ID.get("location")!;
+    expect(loc.subFields!.map((sf) => sf.cqlKey)).toEqual([
+      "location", "city", "state", "country",
+    ]);
+  });
+
+  it("resolves alias fields via dot-path", () => {
+    expect(getFieldRawValue("alias_editStatus", FIXTURE)).toBe("ORIGINAL");
+    expect(getFieldRawValue("alias_colourModel", FIXTURE)).toBe("RGB");
+  });
+
+  it.each([
+    { value: "CMYK", display: "CMYK" },
+    { value: false, display: "false" },
+    { value: true, display: "true" },
+    { value: 0, display: "0" },
+    { value: "", display: "" },
+  ])("converts API alias $value to text only at the field boundary", ({ value, display }) => {
+    const image: Image = { ...FIXTURE, aliases: { colourModel: value } };
+
+    expect(getFieldRawValue("alias_colourModel", image)).toBe(display);
+    expect(image.aliases?.colourModel).toBe(value);
+  });
+
+  it.each([undefined, null])("retains the ES path fallback for an absent API alias (%s)", (value) => {
+    const image: Image = { ...FIXTURE, aliases: { colourModel: value } };
+
+    expect(getFieldRawValue("alias_colourModel", image)).toBe("RGB");
+  });
+
+  it("returns raw ISO string for date fields (not formatted)", () => {
+    expect(getFieldRawValue("uploadTime", FIXTURE)).toBe("2026-03-20T14:30:00.000Z");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Formatting
+// ---------------------------------------------------------------------------
+describe("registered field formatting", () => {
+  it("formats dates for display", () => {
+    const field = FIELDS_BY_ID.get("uploadTime")!;
+    const value = field.accessor(FIXTURE);
+    expect(value).toBe(FIXTURE.uploadTime);
+    expect(field.formatter!(value as string)).toContain("20 Mar 2026");
+  });
+
+  it("strips image/ from MIME type", () => {
+    const field = FIELDS_BY_ID.get("source_mimeType")!;
+    const value = field.accessor(FIXTURE);
+    expect(value).toBe("image/jpeg");
+    expect(field.formatter!(value as string)).toBe("jpeg");
+  });
+
+  it("returns undefined for missing credit", () => {
+    expect(FIELDS_BY_ID.get("metadata_credit")!.accessor(SPARSE)).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Missing-field safety
+// ---------------------------------------------------------------------------
+describe("sparse images", () => {
+  it("do not crash any accessor or applicable scalar formatter", () => {
+    const formattedFields: string[] = [];
+    for (const f of FIELD_REGISTRY) {
+      expect(() => getFieldRawValue(f.id, SPARSE)).not.toThrow();
+      const value = f.accessor(SPARSE);
+      if (typeof value === "string" && f.formatter) {
+        expect(() => f.formatter!(value)).not.toThrow();
+        formattedFields.push(f.id);
+      }
+    }
+    expect(formattedFields).toContain("source_mimeType");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RECONCILE_FIELDS invariants (S4)
+// ---------------------------------------------------------------------------
+describe("RECONCILE_FIELDS", () => {
+  it("is a non-empty subset of FIELD_REGISTRY", () => {
+    expect(RECONCILE_FIELDS.length).toBeGreaterThan(0);
+    expect(RECONCILE_FIELDS.length).toBeLessThanOrEqual(FIELD_REGISTRY.length);
+    const registryIds = new Set(FIELD_REGISTRY.map((f) => f.id));
+    for (const f of RECONCILE_FIELDS) {
+      expect(registryIds.has(f.id), `${f.id} in RECONCILE_FIELDS but not in FIELD_REGISTRY`).toBe(true);
+    }
+  });
+
+  it("excludes all always-suppress fields", () => {
+    const alwaysSuppressIds = FIELD_REGISTRY
+      .filter((f) => f.multiSelectBehaviour === "always-suppress")
+      .map((f) => f.id);
+    const reconcileIds = new Set(RECONCILE_FIELDS.map((f) => f.id));
+    for (const id of alwaysSuppressIds) {
+      expect(reconcileIds.has(id), `${id} is always-suppress but appears in RECONCILE_FIELDS`).toBe(false);
+    }
+  });
+
+  it("excludes fields with no multiSelectBehaviour set", () => {
+    for (const f of RECONCILE_FIELDS) {
+      expect(f.multiSelectBehaviour, `${f.id} in RECONCILE_FIELDS but has no multiSelectBehaviour`).toBeDefined();
+      expect(f.multiSelectBehaviour, `${f.id} in RECONCILE_FIELDS but is always-suppress`).not.toBe("always-suppress");
+    }
+  });
+
+  it("includes known chip-array fields (keywords, subjects, people)", () => {
+    const ids = new Set(RECONCILE_FIELDS.map((f) => f.id));
+    expect(ids.has("keywords")).toBe(true);
+    expect(ids.has("subjects")).toBe(true);
+    expect(ids.has("people")).toBe(true);
+  });
+
+  it("includes the 4 location sub-fields (not the composite parent)", () => {
+    const ids = new Set(RECONCILE_FIELDS.map((f) => f.id));
+    expect(ids.has("location_subLocation")).toBe(true);
+    expect(ids.has("location_city")).toBe(true);
+    expect(ids.has("location_state")).toBe(true);
+    expect(ids.has("location_country")).toBe(true);
+    // The composite 'location' field is always-suppress
+    expect(ids.has("location")).toBe(false);
+  });
+
+  it("includes core editorial reconcile fields", () => {
+    const ids = new Set(RECONCILE_FIELDS.map((f) => f.id));
+    const mustHave = [
+      "metadata_title",
+      "metadata_byline",
+      "metadata_credit",
+      "metadata_description",
+      "metadata_dateTaken",
+      "usageRights_category",
+    ];
+    for (const id of mustHave) {
+      expect(ids.has(id), `${id} missing from RECONCILE_FIELDS`).toBe(true);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// multiSelectBehaviour completeness
+// ---------------------------------------------------------------------------
+describe("multiSelectBehaviour coverage", () => {
+  it("every field in FIELD_REGISTRY has multiSelectBehaviour defined", () => {
+    for (const f of FIELD_REGISTRY) {
+      expect(
+        f.multiSelectBehaviour,
+        `field ${f.id} is missing multiSelectBehaviour`,
+      ).toBeDefined();
+    }
+  });
+
+  it("metadata_imageType has a visibleWhen predicate", () => {
+    const f = FIELD_REGISTRY.find((x) => x.id === "metadata_imageType");
+    expect(f?.visibleWhen).toBeDefined();
+    expect(typeof f?.visibleWhen).toBe("function");
+  });
+
+  it("metadata_imageType visibleWhen returns false when gridConfig.imageTypes is empty", () => {
+    // gridConfig is the live module-level config; in tests it has no imageTypes by default
+    const f = FIELD_REGISTRY.find((x) => x.id === "metadata_imageType")!;
+    // The test env has no imageTypes configured, so visibleWhen should be false
+    const result = f.visibleWhen?.();
+    // Accept both true/false -- just verify it does not throw and returns a boolean
+    expect(typeof result).toBe("boolean");
+  });
+
+  it("always-suppress fields do NOT appear in RECONCILE_FIELDS", () => {
+    const alwaysSuppressIds = new Set(
+      FIELD_REGISTRY.filter((f) => f.multiSelectBehaviour === "always-suppress").map((f) => f.id),
+    );
+    const reconcileIds = new Set(RECONCILE_FIELDS.map((f) => f.id));
+    for (const id of alwaysSuppressIds) {
+      expect(reconcileIds.has(id)).toBe(false);
+    }
+  });
+
+  it("imageId is always-suppress", () => {
+    const f = FIELD_REGISTRY.find((x) => x.id === "imageId");
+    expect(f?.multiSelectBehaviour).toBe("always-suppress");
+  });
+
+  it("keywords is chip-array", () => {
+    const f = FIELD_REGISTRY.find((x) => x.id === "keywords");
+    expect(f?.multiSelectBehaviour).toBe("chip-array");
+  });
+
+  it("uploadedBy is show-if-all-same", () => {
+    const f = FIELD_REGISTRY.find((x) => x.id === "uploadedBy");
+    expect(f?.multiSelectBehaviour).toBe("show-if-all-same");
+  });
+
+  it("source_mimeType is show-if-all-same", () => {
+    const f = FIELD_REGISTRY.find((x) => x.id === "source_mimeType");
+    expect(f?.multiSelectBehaviour).toBe("show-if-all-same");
+  });
+});

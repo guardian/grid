@@ -1,0 +1,1476 @@
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
+import { useNavigate, useRouter, useSearch } from "@tanstack/react-router";
+import {
+  createColumnHelper,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+  type ColumnDef,
+  type ColumnSizingState,
+  type Row,
+} from "@tanstack/react-table";
+import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
+import { useDataWindow } from "@/hooks/useDataWindow";
+import { useHeaderHeight } from "@/hooks/useHeaderHeight";
+import { useListNavigation } from "@/hooks/useListNavigation";
+import { useReturnFromDetail } from "@/hooks/useReturnFromDetail";
+import { useScrollEffects } from "@/hooks/useScrollEffects";
+import { useColumnStore } from "@/stores/column-store";
+import { useSearchStore } from "@/stores/search-store";
+import { useSelectionStore } from "@/stores/selection-store";
+import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
+import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
+import { ColumnContextMenu, type ColumnContextMenuHandle } from "./ColumnContextMenu";
+import { TableTickbox } from "./Tickbox";
+import type { Image } from "@/types/image";
+import { upsertFieldTerm } from "@/dal/adapters/elasticsearch/cql-query-edit";
+import { cancelSearchDebounce, pushNavigate, enterFullscreenPreview, getCqlInputGeneration } from "@/lib/orchestration/search";
+import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
+import { thumbnailsEnabled } from "@/lib/image-urls";
+import { storeImageOffset, buildSearchKey, extractSortValues, getRetainedSortValues } from "@/lib/image-offset-cache";
+import { interpretClick, type Modifier } from "@/lib/interpretClick";
+import { dispatchClickEffects, type AddRangeEffect } from "@/lib/dispatchClickEffects";
+import { useTouchSelection } from "@/hooks/useTouchSelection";
+import { useEnrichedImage } from "@/hooks/useEnrichedImage";
+import { getImageBorderColour } from "@/lib/image-borders";
+import { renderTableField, TableRowCells, TableThumbnail } from "./TableRowCells";
+import {
+  FIELD_REGISTRY,
+  FIELDS_BY_ID,
+  COLUMN_CQL_KEYS,
+  SORTABLE_FIELDS as REGISTRY_SORTABLE_FIELDS,
+  DESC_BY_DEFAULT,
+  getFieldRawValue,
+  type FieldDefinition,
+} from "@/lib/field-registry";
+import {
+  TABLE_ROW_HEIGHT as ROW_HEIGHT,
+  TABLE_HEADER_HEIGHT as HEADER_HEIGHT,
+} from "@/constants/layout";
+
+const columnHelper = createColumnHelper<Image>();
+
+// ---------------------------------------------------------------------------
+// Build TanStack column defs from the field registry
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate a TanStack column def from a FieldDefinition.
+ *
+ * NOTE: `field.cellRenderer` (enrichment-aware) is NOT baked into the column def.
+ * Body cells receive the row's enriched image through `TableRowCells`.
+ * Column definitions retain the native model/header contracts.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function fieldToColumnDef(field: FieldDefinition): ColumnDef<Image, any> {
+  return columnHelper.accessor(
+    (row) => {
+      const val = field.accessor(row);
+      if (Array.isArray(val)) return val.join(", ");
+      return val;
+    },
+    {
+      id: field.id,
+      header: field.label,
+      size: field.defaultWidth,
+      cell: info => renderTableField(field, info.row.original,
+        field.isList ? field.accessor(info.row.original) : info.getValue()),
+    }
+  );
+}
+
+/** All data columns generated from the field registry. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const registryColumnDefs: ColumnDef<Image, any>[] = FIELD_REGISTRY.map(fieldToColumnDef);
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const allColumns: ColumnDef<Image, any>[] = [
+  // Thumbnail column — only included when S3 proxy is running (TEST mode)
+  ...(thumbnailsEnabled
+    ? [
+        columnHelper.display({
+          id: "thumbnail",
+          header: "Pic",
+          size: 48,
+          enableResizing: false,
+          cell: info => <TableThumbnail image={info.row.original} />,
+        }),
+      ]
+    : []),
+  ...registryColumnDefs,
+];
+
+
+/**
+ * Fields whose natural first-sort direction is descending (newest first).
+ * All other sortable fields default to ascending (A→Z for text, 0→∞ for numbers).
+ * Derived from the field registry.
+ */
+
+/** Return the default orderBy token for a field's first sort click. */
+function defaultSortFor(field: string): string {
+  return DESC_BY_DEFAULT.has(field) ? `-${field}` : field;
+}
+
+/**
+ * Resolve the column ID that TanStack Table will generate.
+ * Dot-path accessors get dots replaced with underscores;
+ * columns with an explicit `id` keep it as-is.
+ */
+function getColumnId(col: ColumnDef<Image, unknown>): string {
+  if ("id" in col && col.id) return col.id;
+  if ("accessorKey" in col && typeof col.accessorKey === "string") {
+    return col.accessorKey.replace(/\./g, "_");
+  }
+  return "";
+}
+
+// ---------------------------------------------------------------------------
+// (C) CSS-variable column widths
+//
+// Instead of every header cell and body cell calling header.getSize() /
+// cell.column.getSize() (which walks TanStack's state tree ~300+ times per
+// render), we compute the sizes once and inject them as CSS custom properties
+// on a <style> tag.  Header and body cells reference
+//   width: var(--col-<columnId>)
+// This means width changes (from resize drag) only touch the <style> tag's
+// textContent — the body cells pick up the new widths through CSS without
+// React re-rendering them.
+// ---------------------------------------------------------------------------
+
+/** Build a CSS string setting `--col-<id>` for every column. */
+function buildColumnSizeVars(
+  colIds: string[],
+  colSizing: ColumnSizingState,
+  defaultSizes: Record<string, number>
+): string {
+  return colIds
+    .map((id) => {
+      const w = colSizing[id] ?? defaultSizes[id] ?? 150;
+      return `--col-${id}:${w}px`;
+    })
+    .join(";");
+}
+
+// ---------------------------------------------------------------------------
+// (D2) EnrichedTableRow — one useEnrichedImage hook per row
+//
+// Wraps the per-row rendering so that each row calls useEnrichedImage(id)
+// exactly once. Fields with a cellRenderer receive the EnrichedImage
+// (with computed cost, validity, etc.) rather than the raw ES Image.
+// TableRowCells memoizes registry-based content independently of row placement.
+// ---------------------------------------------------------------------------
+
+interface EnrichedTableRowProps {
+  columns: readonly ColumnDef<Image, any>[];
+  image: Image;
+  virtualRow: VirtualItem;
+  isFocused: boolean;
+  animClass: string;
+  handleCellClick: (columnId: string, image: Image, e: React.MouseEvent) => void;
+  handleRowDoubleClick: (imageId: string) => void;
+  handleRowClick: (imageId: string, e: React.MouseEvent) => void;
+  handleTickClick: (imageId: string, e: React.MouseEvent) => void;
+  /** Busts memo when column visibility changes. */
+  visibleColumnCount: number;
+  /** Added to virtualRow.index for aria-rowindex — 0 in two-tier mode (already global), else bufferOffset. */
+  rowIndexOffset: number;
+}
+
+const EnrichedTableRow = memo(function EnrichedTableRow({
+  columns,
+  image,
+  virtualRow,
+  isFocused,
+  animClass,
+  handleCellClick,
+  handleRowDoubleClick,
+  handleRowClick,
+  handleTickClick,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- only used to bust memo
+  visibleColumnCount: _visColCount,
+  rowIndexOffset,
+}: EnrichedTableRowProps) {
+  const enriched = useEnrichedImage(image);
+  const handleTickBound = useCallback(
+    (e: React.MouseEvent) => handleTickClick(image.id, e),
+    [image.id, handleTickClick],
+  );
+  const rowBorderColor = getImageBorderColour(enriched ?? image);
+
+  return (
+    <div
+      key={image.id}
+      role="row"
+      data-image-id={image.id}
+      data-cell-id={image.id}
+      aria-rowindex={rowIndexOffset + virtualRow.index + 2}
+      aria-selected={isFocused}
+      className={`absolute left-0 right-0 flex border-b border-grid-separator/30 cursor-pointer select-none ${
+        isFocused
+          ? "bg-grid-hover/40 outline-2 -outline-offset-2 outline-grid-accent"
+          : "hover:bg-grid-hover/15"
+      } ${animClass}`}
+      style={{
+        height: `${virtualRow.size}px`,
+        transform: `translateY(${virtualRow.start}px)`,
+      }}
+      onClick={(e) => handleRowClick(image.id, e)}
+      onDoubleClick={() => handleRowDoubleClick(image.id)}
+    >
+      {/* Selection column — also carries the category accent border on its left edge */}
+      <div
+        role="gridcell"
+        className="flex items-center justify-center shrink-0 border-r border-grid-separator/20"
+        style={{ width: 32, height: "100%", borderLeft: rowBorderColor ? `7px solid ${rowBorderColor}` : undefined }}
+      >
+        <TableTickbox
+          imageId={image.id}
+          onTickClick={handleTickBound}
+        />
+      </div>
+      <TableRowCells image={image} columns={columns} enriched={enriched} handleCellClick={handleCellClick} />
+    </div>
+  );
+});
+
+// ---------------------------------------------------------------------------
+// (D) Memoised table body — zero re-renders while dragging
+//
+// During a column resize drag, TanStack Table updates columnSizingInfo on
+// every mousemove, which would re-render the entire component tree.  By
+// extracting the virtualised body into a React.memo component, we skip
+// body re-renders entirely during drag — the body cells get their new
+// widths from the CSS variables above (pure CSS, no React involvement).
+//
+// The official TanStack "performant" column-resizing example shows this
+// pattern but has a bug (#6121) where the memo condition uses the wrong
+// comparison.  We avoid it by simply memoising on the props that matter
+// to the body: rows and virtualItems.
+// ---------------------------------------------------------------------------
+
+interface TableBodyProps {
+  virtualItems: VirtualItem[];
+  rows: Row<Image>[];
+  columns: readonly ColumnDef<Image, any>[];
+  handleCellClick: (columnId: string, image: Image, e: React.MouseEvent) => void;
+  handleRowDoubleClick: (imageId: string) => void;
+  handleRowClick: (imageId: string, e: React.MouseEvent) => void;
+  handleTickClick: (imageId: string, e: React.MouseEvent) => void;
+  focusedImageId: string | null;
+  inSelectionMode: boolean;
+  /** Number of visible columns — used to bust memo when column visibility changes. */
+  visibleColumnCount: number;
+  /** Look up the image at a global index (may be undefined if not loaded). */
+  getImage: (index: number) => Image | undefined;
+  /** Added to virtualRow.index for aria-rowindex — 0 in two-tier mode (already global), else bufferOffset. */
+  rowIndexOffset: number;
+}
+
+const TableBody = memo(function TableBody({
+  virtualItems,
+  rows,
+  columns,
+  handleCellClick,
+  handleRowDoubleClick,
+  handleRowClick,
+  handleTickClick,
+  focusedImageId,
+  inSelectionMode,
+  visibleColumnCount,
+  getImage,
+  rowIndexOffset,
+}: TableBodyProps) {
+  // Animation state
+  const arrivingImageIds = useSearchStore((s) => s._arrivingImageIds);
+  const phantomPulseImageId = useSearchStore((s) => s._phantomPulseImageId);
+  // Build a lookup map: imageId → TanStack Row for O(1) access.
+  // TanStack Table only has loaded rows; we match by image ID rather
+  // than by index (which would require offset translation).
+  const rowsById = useMemo(() => {
+    const map = new Map<string, Row<Image>>();
+    for (const row of rows) {
+      if (row.original?.id) {
+        map.set(row.original.id, row);
+      }
+    }
+    return map;
+  }, [rows]);
+
+  return (
+    <>
+      {virtualItems.map((virtualRow) => {
+        const image = getImage(virtualRow.index);
+
+        // Placeholder skeleton for unloaded rows
+        if (!image) {
+          return (
+            <div
+              key={`placeholder-${virtualRow.index}`}
+              role="row"
+              aria-rowindex={rowIndexOffset + virtualRow.index + 2}
+              className="absolute left-0 right-0 flex items-center border-b border-grid-separator/30"
+              style={{
+                height: `${virtualRow.size}px`,
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
+            >
+              {/* Selection column placeholder */}
+              <div className="flex items-center justify-center shrink-0 border-r border-grid-separator/20" style={{ width: 32, height: "100%" }} />
+              <div className="bg-grid-separator/10 h-3 mx-4 rounded flex-1 max-w-xs" />
+            </div>
+          );
+        }
+
+        // Real row — find the matching TanStack Row for cell rendering
+        const row = rowsById.get(image.id);
+        if (!row) {
+          // Image loaded but not yet in TanStack Table's row model
+          // (can happen briefly during the render between store update
+          // and Table re-render). Show a lightweight preview using the
+          // image's description so the row doesn't flash as a skeleton.
+          const preview =
+            image.metadata.description ??
+            image.metadata.title ??
+            image.metadata.byline ??
+            image.id;
+          return (
+            <div
+              key={`pending-${virtualRow.index}`}
+              role="row"
+              aria-rowindex={rowIndexOffset + virtualRow.index + 2}
+              className="absolute left-0 right-0 flex items-center border-b border-grid-separator/30 text-xs text-grid-text-dim truncate"
+              style={{
+                height: `${virtualRow.size}px`,
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
+            >
+              {/* Selection column placeholder */}
+              <div className="flex items-center justify-center shrink-0 border-r border-grid-separator/20" style={{ width: 32, height: "100%" }} />
+              <span className="px-2 truncate">{preview}</span>
+            </div>
+          );
+        }
+
+        const isFocused = image.id === focusedImageId && getEffectiveFocusMode() === "explicit" && !inSelectionMode;
+
+        // ── Animation: arriving images + phantom focus pulse ──
+        const animClass = arrivingImageIds.has(image.id)
+          ? "anim-arriving"
+          : (phantomPulseImageId && image.id === phantomPulseImageId)
+            ? "anim-focus-here-unfocused"
+            : "";
+
+        return (
+          <EnrichedTableRow
+            key={row.id}
+            columns={columns}
+            image={image}
+            virtualRow={virtualRow}
+            isFocused={isFocused}
+            animClass={animClass}
+            handleCellClick={handleCellClick}
+            handleRowDoubleClick={handleRowDoubleClick}
+            handleRowClick={handleRowClick}
+            handleTickClick={handleTickClick}
+            visibleColumnCount={visibleColumnCount}
+            rowIndexOffset={rowIndexOffset}
+          />
+        );
+      })}
+    </>
+  );
+});
+
+export interface ImageTableProps {
+  /** S3a: range-select handler from useRangeSelection, mounted in search.tsx. */
+  handleRange?: (effect: AddRangeEffect) => void;
+}
+
+export function ImageTable({ handleRange }: ImageTableProps = {}) {
+  const {
+    results, total, bufferOffset, virtualizerCount, loading, loadMore, seek,
+    focusedImageId, setFocusedImageId,
+    reportVisibleRange, getImage, findImageIndex,
+    twoTier,
+  } = useDataWindow("table");
+  const {
+    config,
+    toggleVisibility,
+    setWidths,
+    setPreDoubleClickWidths,
+    clearPreDoubleClickWidth,
+  } = useColumnStore();
+  const updateSearch = useUpdateSearchParams();
+  const searchParams = useSearch({ from: "/search" });
+  const searchParamsRef = useRef(searchParams);
+  searchParamsRef.current = searchParams;
+  const parentRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+
+  // C.1: Measure the actual rendered header height via ResizeObserver.
+  // Falls back to TABLE_HEADER_HEIGHT (36) on the first frame before the DOM
+  // is ready — same value as the constant, so no visible jump. Fires at most
+  // once per session (mount) plus optionally on font load or resize.
+  // Does NOT fire during scroll (ResizeObserver tracks border-box, not scrollTop).
+  const [headerCallbackRef, headerHeight] = useHeaderHeight(HEADER_HEIGHT);
+
+  // Middle-click on a row → focus that image + enter fullscreen preview.
+  // Uses mouseup (not auxclick) because auxclick doesn't carry transient
+  // user activation in Firefox — requestFullscreen() fails silently.
+  // Event delegation on the scroll container; find nearest [data-image-id].
+  useEffect(() => {
+    const el = parentRef.current;
+    if (!el) return;
+    const onMiddleUp = (e: MouseEvent) => {
+      if (e.button !== 1) return;
+      const row = (e.target as HTMLElement).closest("[data-image-id]");
+      if (!row) return;
+      const id = row.getAttribute("data-image-id");
+      if (!id) return;
+      e.preventDefault();
+      setFocusedImageId(id);
+      requestAnimationFrame(() => enterFullscreenPreview());
+    };
+    const onMiddleDown = (e: MouseEvent) => {
+      if (e.button === 1) e.preventDefault();
+    };
+    el.addEventListener("mouseup", onMiddleUp);
+    el.addEventListener("mousedown", onMiddleDown);
+    return () => {
+      el.removeEventListener("mouseup", onMiddleUp);
+      el.removeEventListener("mousedown", onMiddleDown);
+    };
+  }, [setFocusedImageId]);
+
+  // Double-click a row → show image detail overlay by adding image to URL.
+  // Also sets focus so returning from image detail highlights this row.
+  // Uses push (not replace) so browser back returns to the table at the
+  // exact scroll position.
+  // Also used by single-click in phantom mode.
+  const handleRowDoubleClick = useCallback(
+    (imageId: string) => {
+      setFocusedImageId(imageId);
+      const idx = findImageIndex(imageId);
+      if (idx >= 0) {
+        const img = getImage(idx);
+        const searchKey = buildSearchKey(searchParamsRef.current);
+        const cursor = img ? extractSortValues(img, searchParamsRef.current.orderBy, searchKey) : null;
+        // In two-tier mode, idx from findImageIndex is already global.
+        // In normal mode, add bufferOffset to get global position.
+        const globalOffset = twoTier ? idx : bufferOffset + idx;
+        storeImageOffset(imageId, globalOffset, searchKey, cursor);
+      }
+      pushNavigate(navigate, {
+        to: "/search",
+        search: (prev: Record<string, unknown>) => ({ ...prev, image: imageId }),
+        state: { _detailEntryImageId: imageId },
+      });
+    },
+    [navigate, setFocusedImageId, findImageIndex, getImage, bufferOffset, twoTier],
+  );
+
+  // Single-click a row → set focus (explicit) or enter detail (phantom).
+  // In selection mode: toggle the image instead.
+  // Shift/Alt+click are click-to-search gestures (table).
+  // Both are suppressed in selection mode (shift conflicts with range-select;
+  // alt is suppressed for consistency). handleCellClick guards that case.
+  const handleRowClick = useCallback(
+    (imageId: string, e: React.MouseEvent) => {
+      const selState = useSelectionStore.getState();
+      const inMode = selState.selectedIds.size > 0;
+
+      if (inMode) {
+        const modifier: Modifier =
+          e.metaKey || e.ctrlKey ? "meta-or-ctrl" : e.shiftKey ? "shift" : "none";
+        const searchState = useSearchStore.getState();
+        const searchKey = buildSearchKey(searchParamsRef.current);
+        const idx = findImageIndex(imageId);
+        const image = idx >= 0 ? getImage(idx) : undefined;
+        const anchorId = selState.anchorId;
+        const anchorGlobalIndex = anchorId
+          ? (searchState.imagePositions.get(anchorId) ?? undefined)
+          : undefined;
+        const anchorSortValues = (() => {
+          if (!anchorId) return null;
+          const anchorImg = selState.metadataCache.get(anchorId);
+          return getRetainedSortValues(anchorId, searchKey) ?? (anchorImg
+            ? extractSortValues(anchorImg, searchParamsRef.current.orderBy)
+            : null);
+        })();
+        const effects = interpretClick({
+          targetId: imageId,
+          kind: "image-body",
+          modifier,
+          inSelectionMode: true,
+          anchorId,
+          targetGlobalIndex: searchState.imagePositions.get(imageId),
+          anchorGlobalIndex,
+          targetSortValues: image
+            ? extractSortValues(image, searchParamsRef.current.orderBy, searchKey)
+            : null,
+          anchorSortValues,
+        });
+
+        dispatchClickEffects(effects, {
+          setFocusedImageId,
+          enterDetail: handleRowDoubleClick,
+          handleRange,
+        });
+        return;
+      }
+
+      // Not in selection mode: existing behavior.
+      if (e.shiftKey || e.altKey) {
+        // Let handleCellClick (click-to-search) handle it; don't enter detail or set focus.
+        return;
+      }
+      if (getEffectiveFocusMode() === "phantom") {
+        handleRowDoubleClick(imageId);
+        return;
+      }
+      // Click-to-toggle: clicking the already-focused row clears focus.
+      // Phantom guard above means we're in explicit mode here.
+      setFocusedImageId(imageId === focusedImageId ? null : imageId);
+    },
+    [setFocusedImageId, handleRowDoubleClick, findImageIndex, getImage, handleRange, focusedImageId],
+  );
+
+  /**
+   * Handle tick-column clicks — goes through interpretClick like cell clicks.
+   */
+  const handleTickClick = useCallback(
+    (imageId: string, e: React.MouseEvent) => {
+      const selState = useSelectionStore.getState();
+      const searchState = useSearchStore.getState();
+      const searchKey = buildSearchKey(searchParamsRef.current);
+      const idx = findImageIndex(imageId);
+      const image = idx >= 0 ? getImage(idx) : undefined;
+      const modifier: Modifier =
+        e.metaKey || e.ctrlKey ? "meta-or-ctrl" : e.shiftKey ? "shift" : "none";
+      const anchorId = selState.anchorId;
+      const anchorGlobalIndex = anchorId
+        ? (searchState.imagePositions.get(anchorId) ?? undefined)
+        : undefined;
+      const anchorSortValues = (() => {
+        if (!anchorId) return null;
+        const anchorImg = selState.metadataCache.get(anchorId);
+        return getRetainedSortValues(anchorId, searchKey) ?? (anchorImg
+          ? extractSortValues(anchorImg, searchParamsRef.current.orderBy)
+          : null);
+      })();
+      const effects = interpretClick({
+        targetId: imageId,
+        kind: "tick",
+        modifier,
+        inSelectionMode: selState.selectedIds.size > 0,
+        anchorId,
+        targetGlobalIndex: searchState.imagePositions.get(imageId),
+        anchorGlobalIndex,
+        targetSortValues: image
+          ? extractSortValues(image, searchParamsRef.current.orderBy, searchKey)
+          : null,
+        anchorSortValues,
+      });
+      dispatchClickEffects(effects, {
+        setFocusedImageId,
+        enterDetail: handleRowDoubleClick,
+        handleRange,
+      });
+    },
+    [setFocusedImageId, handleRowDoubleClick, findImageIndex, getImage, handleRange],
+  );
+
+  // Column context menu -- imperative handle; the component manages its own
+  // open/close state, viewport clamping, and dismiss behaviour.
+  const columnMenuRef = useRef<ColumnContextMenuHandle>(null);
+
+  // Filter columns by visibility from store
+  const visibleColumns = useMemo(
+    () =>
+      allColumns.filter((col) => {
+        const id = getColumnId(col);
+        return !config.hidden.includes(id);
+      }),
+    [config.hidden]
+  );
+
+  // Build initial column sizing from store (persisted widths override defaults)
+  const initialColumnSizing = useMemo(() => {
+    const sizing: Record<string, number> = {};
+    for (const col of allColumns) {
+      const id = getColumnId(col);
+      if (config.widths[id] !== undefined) {
+        sizing[id] = config.widths[id];
+      }
+    }
+    return sizing;
+  }, []); // Only on mount — runtime changes go through table.setColumnSizing
+
+  // ---------------------------------------------------------------------------
+  // Virtualizer — created BEFORE the table so we can use the visible range
+  // to determine which images to feed TanStack Table.
+  // ---------------------------------------------------------------------------
+
+  const virtualizer = useVirtualizer({
+    count: virtualizerCount,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 15,
+    // Account for sticky header — without this, scrollToIndex considers
+    // rows behind the header as "visible" and won't scroll to them.
+    // Subtract one ROW_HEIGHT because the padding is additive with the
+    // virtualizer's own item-boundary snapping.
+    // C.1: headerHeight is the ResizeObserver-measured value (falls back to
+    // TABLE_HEADER_HEIGHT = 36 on first frame). Stays accurate if the header
+    // ever changes size (e.g. font scale, added filter row).
+    scrollPaddingStart: headerHeight - ROW_HEIGHT,
+    // Buffer at the bottom so the focused row is never clipped by the
+    // viewport edge at any zoom level.
+    scrollPaddingEnd: ROW_HEIGHT * 2,
+  });
+
+  // -------------------------------------------------------------------------
+  // Shared scroll effects (scroll container registration, scroll handler,
+  // scroll compensation, seek, search-params reset, density/sort focus, etc.)
+  // -------------------------------------------------------------------------
+
+  // Custom centering for table: bypass TanStack's scrollToIndex({align:"center"})
+  // which doesn't account for the sticky header inside the scroll container.
+  // The header's flow height shifts virtual rows down by headerHeight pixels;
+  // TanStack centres within the full clientHeight, not the usable area below
+  // the header.  This callback computes the correct scrollTop directly.
+  const scrollRowToCenter = useCallback(
+    (rowIdx: number) => {
+      const el = parentRef.current;
+      if (!el) return;
+      const rowCenter = rowIdx * ROW_HEIGHT + ROW_HEIGHT / 2;
+      const usableHeight = el.clientHeight - headerHeight;
+      const target = Math.max(0, rowCenter - usableHeight / 2);
+      virtualizer.scrollToOffset(target);
+    },
+    [virtualizer, headerHeight],
+  );
+
+  useScrollEffects({
+    virtualizer,
+    parentRef,
+    scrollRowToCenter,
+    geometry: useMemo(
+      () => ({
+        rowHeight: ROW_HEIGHT,
+        columns: 1,
+        headerOffset: headerHeight,
+        preserveScrollLeftOnSort: true,
+      }),
+      [headerHeight],
+    ),
+    reportVisibleRange,
+    resultsLength: results.length,
+    total,
+    bufferOffset,
+    loadMore,
+    focusedImageId,
+    findImageIndex,
+    twoTier,
+  });
+
+
+  // TanStack Table only receives images visible in the current virtualizer
+  // window. This keeps getCoreRowModel at O(~60 visible rows) instead of
+  // O(all loaded images), preventing the 246ms → 2920ms → OOM stalls that
+  // occurred when feeding all loaded data.
+  //
+  // The virtualizer's getVirtualItems() returns the indices currently rendered
+  // (visible + overscan). We extract loaded images at those indices and feed
+  // only those to TanStack Table. The render loop then looks up TanStack Rows
+  // by image ID via a Map.
+  const virtualItems = virtualizer.getVirtualItems();
+
+  // Stable visible-image extraction: off-screen loadRange calls create a new
+  // `results` array reference, but the images at the *visible* indices haven't
+  // changed. We compare resolved image IDs before/after — if the set of visible
+  // images is identical, we return the cached array. This prevents cascading
+  // getCoreRowModel → TableBody reconciliation on every off-screen load.
+  const prevVisibleImagesRef = useRef<Image[]>([]);
+  const prevVisibleKeyRef = useRef<string>("");
+
+  const visibleImages = useMemo(() => {
+    const images: Image[] = [];
+    const ids: string[] = [];
+    for (const vItem of virtualItems) {
+      const img = getImage(vItem.index);
+      if (img) {
+        images.push(img);
+        ids.push(img.id);
+      }
+    }
+
+    // A.5: O(1) sentinel instead of ids.join(","). The join is O(N) string
+    // concatenation executed at up to 60fps during fast scroll (60 visible
+    // rows × every render). First ID + last ID + count detects all meaningful
+    // changes: window shift, resize, content change. The only theoretical
+    // miss is swapping two *middle* IDs while keeping first/last/count the
+    // same — impossible with a contiguous virtualizer window.
+    const key = `${ids[0] ?? ""}|${ids[ids.length - 1] ?? ""}|${ids.length}`;
+    if (key === prevVisibleKeyRef.current) {
+      return prevVisibleImagesRef.current;
+    }
+
+    prevVisibleKeyRef.current = key;
+    prevVisibleImagesRef.current = images;
+    return images;
+  }, [virtualItems, getImage]);
+
+  const table = useReactTable({
+    data: visibleImages,
+    columns: visibleColumns,
+    getRowId: image => image.id,
+    getCoreRowModel: getCoreRowModel(),
+    columnResizeMode: "onChange",
+    initialState: {
+      columnSizing: initialColumnSizing,
+    },
+    onColumnSizingChange: (updater) => {
+      // Let TanStack apply the update first
+      table.setState((prev) => {
+        const next =
+          typeof updater === "function"
+            ? updater(prev.columnSizing)
+            : updater;
+        // Persist to store
+        setWidths(next);
+        return { ...prev, columnSizing: next };
+      });
+    },
+  });
+
+  // ---------------------------------------------------------------------------
+  // (C) CSS-variable column widths — compute once per sizing change
+  // ---------------------------------------------------------------------------
+
+  // Default sizes from column defs (stable — only depends on allColumns)
+  const defaultColSizes = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const col of allColumns) {
+      const id = getColumnId(col);
+      map[id] = col.size ?? 150;
+    }
+    return map;
+  }, []);
+
+  // Visible column IDs (changes when visibility changes)
+  const visibleColIds = useMemo(
+    () => visibleColumns.map((c) => getColumnId(c)),
+    [visibleColumns]
+  );
+
+  // CSS variable string — recomputed when column sizing or visibility changes.
+  // During a resize drag TanStack updates columnSizing on every mousemove,
+  // but only this string (injected via <style>) changes — the memoised
+  // TableBody below does NOT re-render.
+  const columnSizeVars = useMemo(
+    () =>
+      buildColumnSizeVars(
+        visibleColIds,
+        table.getState().columnSizing,
+        defaultColSizes
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- we intentionally read table state
+    [visibleColIds, table.getState().columnSizing, defaultColSizes]
+  );
+
+  const { rows } = table.getRowModel();
+
+  // (D) Cache rows + virtualItems during resize to keep TableBody stable.
+  // While a resize drag is in progress, the only thing that changes is
+  // column widths — which come from CSS variables, not React props.
+  // We freeze the body's input to prevent re-renders.
+  const isResizing = !!table.getState().columnSizingInfo.isResizingColumn;
+  const cachedRowsRef = useRef(rows);
+  const cachedVirtualItemsRef = useRef(virtualItems);
+  if (!isResizing) {
+    cachedRowsRef.current = rows;
+    cachedVirtualItemsRef.current = virtualItems;
+  }
+
+  // Selection mode — subscribe once at container level.
+  // Per-cell components do NOT subscribe to this (would cause 1000+ re-renders
+  // on mode flip). CSS handles tickbox visibility via data-selection-mode.
+  const inSelectionMode = useSelectionStore((s) => s.selectedIds.size > 0);
+
+  // -------------------------------------------------------------------------
+  // Long-press gestures (S5 -- coarse pointer / touch selection)
+  // Same logic as ImageGrid -- shared via handleLongPressStart helper.
+  // -------------------------------------------------------------------------
+
+  useTouchSelection({
+    containerRef: parentRef, handleRange, findImageIndex, getImage,
+    getOrderBy: () => searchParamsRef.current.orderBy,
+  });
+
+  // Restore focus and scroll when returning from image detail overlay.
+  useReturnFromDetail({
+    imageParam: searchParams.image,
+    setFocusedImageId,
+    findImageIndex,
+    virtualizer,
+    flatIndexToRow: (idx) => idx,
+    scrollRowToCenter,
+  });
+
+
+  // ---------------------------------------------------------------------------
+  // Keyboard navigation — delegated to shared hook
+  // ---------------------------------------------------------------------------
+
+  useListNavigation({
+    columnsPerRow: 1,
+    virtualizer,
+    scrollRef: parentRef,
+    rowHeight: ROW_HEIGHT,
+    headerHeight, // C.1: ResizeObserver-measured; same value as HEADER_HEIGHT on steady state
+    focusedImageId,
+    setFocusedImageId,
+    virtualizerCount,
+    getImage,
+    findImageIndex,
+    resultsLength: results.length,
+    total,
+    loadMore,
+    onEnter: handleRowDoubleClick,
+    imageParam: searchParams.image,
+    flatIndexToRow: (idx) => idx, // table: flat index IS the row index
+    resetScrollLeftOnHome: true,
+    bufferOffset,
+    seek,
+  });
+
+  // Clean up sort delay timer on unmount
+  useEffect(() => {
+    return () => {
+      if (sortTimerRef.current) clearTimeout(sortTimerRef.current);
+      sortTimerRef.current = null;
+    };
+  }, []);
+
+  // Right-click on header cell → show column context menu
+  const handleHeaderContextMenu = useCallback(
+    (e: React.MouseEvent, columnId?: string) => {
+      e.preventDefault();
+      columnMenuRef.current?.open(e.clientX, e.clientY, columnId);
+    },
+    []
+  );
+
+  // Measure the pixel width needed to display a string at the table's
+  // font.  Uses an off-screen canvas (cached) for speed.
+  const measureCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  // A.3: Cache last-set font string. ctx.font assignment triggers font-string
+  // parsing even when the value is unchanged — expensive at ~600 calls per
+  // column-fit. Skipping the assignment when the font hasn't changed avoids
+  // re-parsing entirely (column-fit typically uses only 2 distinct fonts).
+  const lastFontRef = useRef<string>("");
+  const measureText = useCallback((text: string, font: string): number => {
+    if (!measureCtxRef.current) {
+      const canvas = document.createElement("canvas");
+      measureCtxRef.current = canvas.getContext("2d");
+    }
+    const ctx = measureCtxRef.current!;
+    if (font !== lastFontRef.current) {
+      ctx.font = font;
+      lastFontRef.current = font;
+    }
+    return Math.ceil(ctx.measureText(text).width);
+  }, []);
+
+  // Compute the ideal width for a column based on visible data.
+  // Scans only the current virtualizer window (visible + overscan, ~60 rows)
+  // instead of all loaded results — at 50k+ loaded images the old full scan
+  // would freeze the main thread. Visible-window fit is also better UX:
+  // you're fitting to what you can actually see.
+  const computeFitWidth = useCallback(
+    (colId: string): number => {
+      const col = allColumns.find((c) => getColumnId(c) === colId);
+      if (!col) return 100;
+
+      // Icon/component-only columns define a fixed fitWidth (no text to measure)
+      const fieldDef0 = FIELDS_BY_ID.get(colId);
+      if (fieldDef0?.fitWidth) return fieldDef0.fitWidth;
+
+      // px-2 = 8px each side, plus 4px for sort arrow, plus a little breathing room
+      const PADDING = 8 + 8 + 16;
+      // ⚠️ SYNC: these must match the font sizes rendered by CSS.
+      //   Cell font  → text-xs  → --text-xs in index.css  (currently 13px)
+      //   Header font → text-sm → Tailwind default         (currently 14px)
+      // If you change font sizes in the theme, update these too.
+      const CELL_FONT = "13px 'Open Sans', sans-serif";
+      const HEADER_FONT = "600 14px 'Open Sans', sans-serif";
+
+      // Header label width
+      const headerLabel = typeof col.header === "string" ? col.header : colId;
+      let maxW = measureText(headerLabel, HEADER_FONT);
+
+      // Cell values — scan only the visible virtualizer window
+      const vItems = virtualizer.getVirtualItems();
+      const fieldDef = FIELDS_BY_ID.get(colId);
+      // Pill columns (isList) render each value as a <DataSearchPill> with
+      // px-1.5 (12px) inline padding per pill and gap-0.5 (2px) between pills.
+      // Measuring the comma-joined string misses this overhead entirely —
+      // the rendered pills are significantly wider than plain text.
+      const PILL_PADDING = 12; // px-1.5 = 6px × 2
+      const PILL_GAP = 2;     // gap-0.5 = 0.125rem ≈ 2px
+
+      for (const vItem of vItems) {
+        const image = getImage(vItem.index);
+        if (!image) continue;
+
+        let w: number;
+        if (fieldDef?.isList) {
+          // Sum individual pill widths instead of measuring joined string
+          const values = fieldDef.accessor(image);
+          if (!Array.isArray(values) || values.length === 0) continue;
+          w = values.reduce(
+            (sum, v) => sum + measureText(v, CELL_FONT) + PILL_PADDING,
+            0
+          ) + PILL_GAP * (values.length - 1);
+        } else {
+          const raw = getFieldRawValue(colId, image);
+          if (!raw || raw === "—") continue;
+          w = measureText(raw, CELL_FONT);
+        }
+        if (w > maxW) maxW = w;
+      }
+
+      return Math.max(50, maxW + PADDING);
+    },
+    [virtualizer, getImage, measureText]
+  );
+
+  // Resize a single column to fit its data
+  const resizeColumnToFit = useCallback(
+    (colId: string) => {
+      const width = computeFitWidth(colId);
+      table.setColumnSizing((prev) => ({ ...prev, [colId]: width }));
+    },
+    [computeFitWidth, table]
+  );
+
+  // Resize all visible columns to fit their data
+  const resizeAllColumnsToFit = useCallback(() => {
+    const sizing: Record<string, number> = {};
+    for (const col of visibleColumns) {
+      const id = getColumnId(col);
+      sizing[id] = computeFitWidth(id);
+    }
+    table.setColumnSizing((prev) => ({ ...prev, ...sizing }));
+  }, [computeFitWidth, visibleColumns, table]);
+
+  // ---------------------------------------------------------------------------
+  // Double-click header → auto-fit / restore
+  //
+  // First double-click: saves current width, then auto-fits.
+  // Second double-click: restores the saved width.
+  // Uses a 250ms timer to delay single-click (sort) so it doesn't fire
+  // when the user is actually double-clicking.
+  // ---------------------------------------------------------------------------
+  const sortTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sortEntryRef = useRef<string | undefined>(undefined);
+  const router = useRouter();
+  useEffect(() => router.history.subscribe(({ location }) => {
+    if (!sortTimerRef.current || (location.state as { kupuaKey?: string }).kupuaKey === sortEntryRef.current) return;
+    clearTimeout(sortTimerRef.current);
+    sortTimerRef.current = null;
+  }), [router]);
+
+  /** Handle double-click on a column header: fit ↔ restore. */
+  const handleHeaderDoubleClick = useCallback(
+    (colId: string) => {
+      const savedWidth = config.preDoubleClickWidths[colId];
+      if (savedWidth !== undefined) {
+        // Second double-click → restore previous width
+        table.setColumnSizing((prev) => ({ ...prev, [colId]: savedWidth }));
+        clearPreDoubleClickWidth(colId);
+      } else {
+        // First double-click → save current width, then auto-fit
+        const currentWidth = table.getColumn(colId)?.getSize();
+        if (currentWidth !== undefined) {
+          setPreDoubleClickWidths({ [colId]: currentWidth });
+        }
+        const fitWidth = computeFitWidth(colId);
+        table.setColumnSizing((prev) => ({ ...prev, [colId]: fitWidth }));
+      }
+    },
+    [config.preDoubleClickWidths, table, computeFitWidth, clearPreDoubleClickWidth, setPreDoubleClickWidths]
+  );
+
+  // Column header click to sort
+  const handleSort = useCallback(
+    (field: string) => {
+      const orderBy = searchParams.orderBy ?? "-uploadTime";
+      const primary = orderBy.split(",", 1)[0].trim();
+
+      const primaryBare = primary.startsWith("-")
+        ? primary.slice(1)
+        : primary;
+
+      if (primaryBare === field) {
+        const newPrimary = primary.startsWith("-") ? field : `-${field}`;
+        updateSearch({ orderBy: newPrimary });
+      } else {
+        updateSearch({ orderBy: defaultSortFor(field) });
+      }
+    },
+    [searchParams.orderBy, updateSearch]
+  );
+
+  /**
+   * Delayed click handler for sortable header cells.
+   * Waits 250ms before triggering sort so a double-click can cancel it.
+   */
+  const handleDelayedSort = useCallback(
+    (field: string) => {
+      // Clear any pending sort timer (e.g. from the first click of a double-click)
+      if (sortTimerRef.current) {
+        clearTimeout(sortTimerRef.current);
+        sortTimerRef.current = null;
+      }
+      const key = getCurrentKupuaKey();
+      sortEntryRef.current = key;
+      const generation = getCqlInputGeneration();
+      const timer = setTimeout(() => {
+        if (sortTimerRef.current !== timer) return;
+        sortTimerRef.current = null;
+        if (key !== getCurrentKupuaKey() || generation !== getCqlInputGeneration()) return;
+        handleSort(field);
+      }, 250);
+      sortTimerRef.current = timer;
+    },
+    [handleSort]
+  );
+
+  // Map column IDs to their orderBy key for the URL.
+  // Derived from the field registry — see field-registry.ts.
+  const sortableFields = REGISTRY_SORTABLE_FIELDS;
+
+  // Parse the primary sort from the orderBy param.
+  const orderBy = searchParams.orderBy ?? "-uploadTime";
+  const primarySort = orderBy.split(",", 1)[0].trim();
+  const primaryBare = primarySort.startsWith("-")
+    ? primarySort.slice(1)
+    : primarySort;
+  const primaryDesc = primarySort.startsWith("-");
+
+  // Auto-reveal: if the user sorts by a column that's currently hidden,
+  // show it.  Uses toggleVisibility (same as the context menu) so the
+  // store persists it as if the user toggled it manually.
+  // Only fires when the primary sort field changes — not on direction toggles.
+  useEffect(() => {
+    // Build reverse map: orderBy key → column ID
+    const orderByToColId: Record<string, string> = {};
+    for (const [colId, orderByKey] of Object.entries(sortableFields)) {
+      orderByToColId[orderByKey] = colId;
+    }
+    const colId = orderByToColId[primaryBare];
+    if (colId && config.hidden.includes(colId)) {
+      toggleVisibility(colId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to sort field changes
+  }, [primaryBare]);
+
+  // Cell click: shift-click adds key:value, alt-click adds -key:value to query.
+  // If the same key:value already exists with opposite polarity, flips it in-place.
+  // If it already exists with the same polarity, does nothing (no-op).
+  // Both gestures are suppressed in selection mode (shift = range-select; alt suppressed for consistency).
+  const handleCellClick = useCallback(
+    (columnId: string, image: Image, e: React.MouseEvent) => {
+      if (!e.shiftKey && !e.altKey) return;
+      if (useSelectionStore.getState().selectedIds.size > 0) return;
+
+      // Check for per-sub-field CQL key on the click target (e.g. Location column)
+      const target = e.target as HTMLElement;
+      const subFieldKey = target.closest<HTMLElement>("[data-cql-key]");
+
+      let cqlKey: string | undefined;
+      let rawValue: string | undefined;
+
+      if (subFieldKey) {
+        cqlKey = subFieldKey.dataset.cqlKey;
+        rawValue = subFieldKey.dataset.cqlValue;
+      } else {
+        cqlKey = COLUMN_CQL_KEYS[columnId];
+        rawValue = getFieldRawValue(columnId, image);
+      }
+
+      if (!cqlKey || !rawValue || rawValue === "—") return;
+
+      const currentQuery = searchParamsRef.current.query ?? "";
+      const newQuery = upsertFieldTerm(currentQuery, cqlKey, rawValue, e.altKey);
+
+      if (newQuery !== currentQuery) {
+        // Cancel any pending debounce from the CQL editor's queryChange flow
+        // so it doesn't revert the query back to its previous value. (No
+        // remount needed: @guardian/cql 1.8.6+ correctly re-renders
+        // polarity-only changes via setAttribute — see deviations.md §13.)
+        cancelSearchDebounce(newQuery);
+
+        updateSearch({ query: newQuery });
+      }
+    },
+    [updateSearch]
+  );
+
+  // ---------------------------------------------------------------------------
+  // Horizontal scrollbar proxy — a thin native-scrollbar div at the bottom
+  // that mirrors scrollLeft of the main (all-scrollbars-hidden) container.
+  // This is the only cross-browser way to show a horizontal scrollbar while
+  // hiding the vertical one: hide everything, then add an explicit proxy.
+  // ---------------------------------------------------------------------------
+  const hScrollRef = useRef<HTMLDivElement>(null);
+  const hScrollInnerRef = useRef<HTMLDivElement>(null);
+  const syncingRef = useRef(false); // guard against infinite scroll loops
+
+  // Sync scrollLeft: main → proxy, proxy → main
+  useEffect(() => {
+    const main = parentRef.current;
+    const proxy = hScrollRef.current;
+    if (!main || !proxy) return;
+
+    const syncMainToProxy = () => {
+      if (syncingRef.current) return;
+      syncingRef.current = true;
+      proxy.scrollLeft = main.scrollLeft;
+      syncingRef.current = false;
+    };
+    const syncProxyToMain = () => {
+      if (syncingRef.current) return;
+      syncingRef.current = true;
+      main.scrollLeft = proxy.scrollLeft;
+      syncingRef.current = false;
+    };
+
+    main.addEventListener("scroll", syncMainToProxy, { passive: true });
+    proxy.addEventListener("scroll", syncProxyToMain, { passive: true });
+    return () => {
+      main.removeEventListener("scroll", syncMainToProxy);
+      proxy.removeEventListener("scroll", syncProxyToMain);
+    };
+  }, []);
+
+  // Keep the proxy's inner width in sync with the main container's scrollWidth.
+  // Uses ResizeObserver on the data-table-root element (the inline-block that
+  // shrink-wraps to header width) to detect content width changes from column
+  // resizes and visibility toggles.
+  useEffect(() => {
+    const main = parentRef.current;
+    const inner = hScrollInnerRef.current;
+    if (!main || !inner) return;
+
+    const tableRoot = main.querySelector("[data-table-root]");
+    if (!tableRoot) return;
+
+    const sync = () => {
+      inner.style.width = `${main.scrollWidth}px`;
+    };
+    sync();
+
+    const ro = new ResizeObserver(sync);
+    ro.observe(tableRoot);
+    // Also watch the main container itself — its clientWidth changes on
+    // panel resize, which affects whether the proxy scrollbar is needed.
+    ro.observe(main);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div className="flex-1 min-w-0 flex flex-col">
+      <div
+        ref={parentRef}
+        role="region"
+        aria-label="Image results table"
+        className="flex-1 min-w-0 overflow-auto hide-scrollbar-y overscroll-y-contain"
+        data-selection-mode={inSelectionMode ? "true" : undefined}
+      >
+      {/* (C) CSS-variable column widths — a single <style> tag sets
+          --col-<id> for every visible column.  Header and body cells
+          reference these variables, so width changes during resize
+          only touch this style string — the memoised body below
+          does NOT re-render. */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `[data-table-root]{${columnSizeVars}}`,
+        }}
+      />
+      {/* Inner wrapper: inline-block so it shrink-wraps to the header
+          width (the width anchor).  min-w-full keeps it at least
+          viewport-wide.  Rows are absolute and stretch via left-0/right-0. */}
+      <div
+        data-table-root
+        role="grid"
+        aria-label="Image search results"
+        aria-rowcount={total}
+        style={{ height: virtualizer.getTotalSize() + headerHeight }}
+        className="relative inline-block min-w-full leading-[0]"
+      >
+        {/* Header: inline-flex so the browser sizes it from its children
+            — no JS-computed width, correct at any browser zoom level. */}
+        <div
+          ref={headerCallbackRef}
+          data-table-header
+          role="row"
+          className="sticky top-0 z-10 inline-flex bg-grid-bg border-b border-grid-separator h-9"
+          onContextMenu={(e) => handleHeaderContextMenu(e)}
+        >
+          {/* Selection column header — always present, not sortable, not resizable */}
+          <div
+            role="columnheader"
+            aria-label="Selection"
+            className="relative flex items-center justify-center shrink-0 border-r border-grid-separator"
+            style={{ width: 32 }}
+          />
+          {table.getHeaderGroups().map((headerGroup) =>
+            headerGroup.headers.map((header) => {
+              const sortField = sortableFields[header.column.id];
+              const isPrimary = sortField && primaryBare === sortField;
+
+              // ARIA sort direction for screen readers
+              const ariaSort: React.AriaAttributes["aria-sort"] = isPrimary
+                ? primaryDesc
+                  ? "descending"
+                  : "ascending"
+                : sortField
+                  ? "none"
+                  : undefined;
+
+              return (
+                <div
+                  key={header.id}
+                  role="columnheader"
+                  aria-sort={ariaSort}
+                  className={`relative flex items-center shrink-0 px-2 py-1.5 text-sm font-medium text-grid-text-muted tracking-wider select-none border-r border-grid-separator ${
+                    sortField
+                      ? "cursor-pointer hover:text-grid-text-bright hover:bg-grid-hover/50"
+                      : ""
+                  } ${isPrimary ? "text-grid-accent" : ""}`}
+                  style={{ width: `var(--col-${header.column.id})` }}
+                  onClick={
+                    sortField
+                      ? () => handleDelayedSort(sortField)
+                      : undefined
+                  }
+                  onDoubleClick={(e) => {
+                    e.preventDefault();
+                    // Cancel any pending single-click sort
+                    if (sortTimerRef.current) {
+                      clearTimeout(sortTimerRef.current);
+                      sortTimerRef.current = null;
+                    }
+                    handleHeaderDoubleClick(header.column.id);
+                  }}
+                  onContextMenu={(e) => {
+                    e.stopPropagation();
+                    handleHeaderContextMenu(e, header.column.id);
+                  }}
+                >
+                  {flexRender(
+                    header.column.columnDef.header,
+                    header.getContext()
+                  )}
+                  {isPrimary && (
+                    <span className="ml-0.5 inline-flex shrink-0" aria-hidden="true">
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                        {primaryDesc
+                          ? <path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" />
+                          : <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" />
+                        }
+                      </svg>
+                    </span>
+                  )}
+                  {/* Resize handle — pointer capture keeps events flowing
+                      even outside the window; auto-scroll kicks in when
+                      the cursor reaches the edges of the scroll container
+                      and synthesizes mousemove events so TanStack keeps
+                      resizing the column as the container scrolls. */}
+                  <div
+                    role="separator"
+                    aria-orientation="vertical"
+                    aria-label={`Resize ${typeof header.column.columnDef.header === "string" ? header.column.columnDef.header : header.column.id} column`}
+                    onPointerDown={(e) => {
+                      const handle = e.currentTarget;
+                      handle.setPointerCapture(e.pointerId);
+
+                      // Manual resize invalidates any saved pre-fit width
+                      clearPreDoubleClickWidth(header.column.id);
+
+                      // Let TanStack set up its resize state
+                      header.getResizeHandler()(e);
+
+                      const scrollEl = parentRef.current;
+                      if (!scrollEl) return;
+
+                      let rafId = 0;
+                      let lastClientX = e.clientX;
+                      const scrollAtStart = scrollEl.scrollLeft;
+                      const EDGE = 40; // px from edge where scroll starts
+                      const MAX_SPEED = 20; // px per frame at maximum
+
+                      const autoScroll = () => {
+                        if (!scrollEl) return;
+                        const rect = scrollEl.getBoundingClientRect();
+                        const distFromLeft = lastClientX - rect.left;
+                        const distFromRight = rect.right - lastClientX;
+
+                        let speed = 0;
+                        if (distFromLeft < EDGE) {
+                          speed = -MAX_SPEED * Math.max(0, (EDGE - distFromLeft) / EDGE);
+                        } else if (distFromRight < EDGE) {
+                          speed = MAX_SPEED * Math.max(0, (EDGE - distFromRight) / EDGE);
+                        }
+
+                        if (speed !== 0) {
+                          scrollEl.scrollLeft += speed;
+                        }
+
+                        // How far the container has scrolled since the drag
+                        // started.  Shift the virtual clientX by this amount
+                        // so TanStack sees the cursor "moving" with the scroll.
+                        // Scroll left → scrollDelta < 0 → virtual clientX
+                        // decreases → column shrinks.  Vice versa for right.
+                        const scrollDelta = scrollEl.scrollLeft - scrollAtStart;
+                        if (scrollDelta !== 0) {
+                          document.dispatchEvent(
+                            new MouseEvent("mousemove", {
+                              clientX: lastClientX + scrollDelta,
+                              clientY: 0,
+                              bubbles: true,
+                            })
+                          );
+                        }
+
+                        rafId = requestAnimationFrame(autoScroll);
+                      };
+                      rafId = requestAnimationFrame(autoScroll);
+
+                      const onMove = (ev: PointerEvent) => {
+                        lastClientX = ev.clientX;
+                      };
+                      const onUp = (ev: PointerEvent) => {
+                        cancelAnimationFrame(rafId);
+
+                        // If scrolling happened during the drag, dispatch a
+                        // final synthetic mouseup with the scroll-adjusted
+                        // clientX so TanStack finalises at the correct width.
+                        const scrollDelta = scrollEl.scrollLeft - scrollAtStart;
+                        if (scrollDelta !== 0) {
+                          // Prevent the real mouseup (from pointer capture
+                          // compatibility) from reaching TanStack with the
+                          // unadjusted clientX.
+                          const blockRealMouseUp = (me: MouseEvent) => {
+                            if (!me.isTrusted) return; // let our synthetic through
+                            me.stopImmediatePropagation();
+                          };
+                          document.addEventListener("mouseup", blockRealMouseUp, true);
+
+                          document.dispatchEvent(
+                            new MouseEvent("mouseup", {
+                              clientX: ev.clientX + scrollDelta,
+                              clientY: ev.clientY,
+                              bubbles: true,
+                            })
+                          );
+
+                          // Remove the blocker after the real event has been
+                          // suppressed (it fires synchronously after pointerup)
+                          requestAnimationFrame(() => {
+                            document.removeEventListener("mouseup", blockRealMouseUp, true);
+                          });
+                        }
+
+                        handle.removeEventListener("pointermove", onMove);
+                        handle.removeEventListener("pointerup", onUp);
+                        handle.removeEventListener("pointercancel", onUp);
+                      };
+                      handle.addEventListener("pointermove", onMove);
+                      handle.addEventListener("pointerup", onUp);
+                      handle.addEventListener("pointercancel", onUp);
+                    }}
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-grid-accent/50"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+              );
+            })
+          )}
+          {/* Trailing spacer — gives the last column's resize handle room
+              and prevents content from being flush against the table edge */}
+          <div className="shrink-0 w-8" aria-hidden="true" />
+        </div>
+
+        {/* (D) Memoised body — does not re-render during resize drag.
+            Column widths come from CSS variables, updated by the <style>
+            tag above without any React involvement.  Rows and virtualItems
+            are cached in refs during resize so props stay stable. */}
+        <TableBody
+          columns={visibleColumns}
+          virtualItems={cachedVirtualItemsRef.current}
+          rows={cachedRowsRef.current}
+          handleCellClick={handleCellClick}
+          handleRowDoubleClick={handleRowDoubleClick}
+          handleRowClick={handleRowClick}
+          handleTickClick={handleTickClick}
+          focusedImageId={focusedImageId}
+          inSelectionMode={inSelectionMode}
+          visibleColumnCount={visibleColIds.length}
+          getImage={getImage}
+          rowIndexOffset={twoTier ? 0 : bufferOffset}
+        />
+      </div>
+
+      {/* Loading indicator at bottom */}
+      {loading && results.length > 0 && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="sticky bottom-0 flex items-center justify-center py-2 bg-grid-bg/80 text-sm text-grid-accent"
+        >
+          Loading more…
+        </div>
+      )}
+
+    </div>
+
+    {/* Horizontal scrollbar proxy — native scrollbar on a thin div that
+        syncs scrollLeft with the main container above. This is the only
+        cross-browser way to show a horizontal scrollbar while hiding the
+        vertical one (scrollbar-width:none hides both in all modern browsers). */}
+    <div
+      ref={hScrollRef}
+      className="shrink-0 overflow-x-auto overflow-y-hidden"
+      style={{ height: 12 }}
+      aria-hidden="true"
+    >
+      <div ref={hScrollInnerRef} style={{ height: 1 }} />
+    </div>
+
+    {/* Column context menu — rendered outside the scroll container because
+        its `contain: strict` (hide-scrollbar-y) creates a new containing
+        block that breaks position:fixed and clips overflow. */}
+    <ColumnContextMenu
+      ref={columnMenuRef}
+      columns={allColumns}
+      getColumnId={getColumnId}
+      hiddenColumnIds={config.hidden}
+      onToggleVisibility={toggleVisibility}
+      onResizeColumnToFit={resizeColumnToFit}
+      onResizeAllColumnsToFit={resizeAllColumnsToFit}
+    />
+  </div>
+  );
+}
+
