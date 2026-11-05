@@ -83,17 +83,6 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
 
   def index = auth { _ => indexResponse }
 
-  def reindex = auth.async { _ =>
-    for {
-      reindexRequests <- store.forEach { leases =>
-        leases
-          .foldLeft(Set[String]())((ids, lease) => ids + lease.mediaId)
-          .map(notifications.sendReindexLeases)
-      }
-      _ <- Future.sequence(reindexRequests)
-    } yield Accepted
-  }
-
   def postLease = auth.async(parse.json) { implicit request =>
     request.body.validate[MediaLease] match {
       case JsSuccess(mediaLease, _) =>
