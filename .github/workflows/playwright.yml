@@ -110,9 +110,13 @@ jobs:
         cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main,mode=max' || '' }}
     - name: Run Playwright tests
       run: npm test
-    - uses: actions/upload-artifact@v7
+    - name: Upload e2e reports
+      uses: actions/upload-artifact@v7
       if: ${{ !cancelled() }}
       with:
-        name: playwright-report
-        path: e2e-tests/playwright-report/
-        retention-days: 30
+        name: e2e-report
+        path: |
+          e2e-tests/playwright-report/
+          e2e-tests/cucumber-report/
+        retention-days: 14
+        if-no-files-found: ignore
