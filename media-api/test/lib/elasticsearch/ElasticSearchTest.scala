@@ -150,6 +150,34 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     }
   }
 
+  describe("usage timestamp comparisons") {
+    val cutoff = DateTime.parse("2020-06-15T14:30:45.123Z")
+    val fixtures = Seq("before" -> cutoff.minusMillis(1), "equal" -> cutoff, "after" -> cutoff.plusMillis(1))
+      .map { case (position, date) =>
+        createImage(s"usage-timestamp-$position", Handout(), usages = List(
+          createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, date)
+        ))
+      }
+
+    Seq(">" -> Set("equal", "after"), "<" -> Set("before", "equal")).foreach {
+      case (operator, expected) =>
+        it(s"preserves millisecond precision and includes equality for $operator") {
+          withQuotaImages(fixtures) {
+            Seq("2020-06-15T14:30:45.123Z", "2020-06-15T15:30:45.123+01:00").foreach { value =>
+              val params = SearchParams(
+                tier = Internal,
+                ids = Some(fixtures.map(_.id).toList),
+                structuredQuery = Parser.run(s"usages@${operator}added:\"$value\"")
+              )
+              whenReady(ES.search(params), timeout, interval) { result =>
+                result.hits.map(_._1).toSet shouldBe expected.map(position => s"usage-timestamp-$position")
+              }
+            }
+          }
+        }
+    }
+  }
+
   describe("usages for supplier") {
     it("can count published agency images within the last number of days") {
       implicit val logMarker: LogMarker = MarkerMap()
