@@ -229,28 +229,77 @@ test.describe("Seek accuracy", () => {
     await kupua.assertPositionsConsistent();
   });
 
-  test("seek to bottom (0.98) lands near the end", async ({ kupua }) => {
-    await kupua.startSearch();
-    const total = (await kupua.getStoreState()).total;
-
-    await kupua.seekTo(0.98);
-    const store = await kupua.getStoreState();
-
-    expect(store.error).toBeNull();
-    // In two-tier mode, seekTo(0.98) scrolls to near-bottom of the virtualizer.
-    // The debounced scroll-seek repositions the buffer, but the buffer may not
-    // cover the absolute end (it centers around the viewport position).
-    // In seek mode, the seek directly targets position 9800+ and the buffer covers it.
-    const isTwoTier = await kupua.isTwoTierMode();
-    if (isTwoTier) {
-      // Just verify the seek didn't error and buffer moved
-      expect(store.bufferOffset).toBeGreaterThan(0);
-    } else {
-      // Buffer should contain images near the end
-      const bufferEnd = store.bufferOffset + store.resultsLength;
-      expect(bufferEnd).toBeGreaterThan(total - 1000);
+  test("indexed bottom jump preserves the exact tail through one held page read", async ({ kupua }) => {
+    await kupua.startSearch("", "table");
+    await kupua.waitForPositionMap();
+    await kupua.seekTo(0.15);
+    expect(await kupua.isTwoTierMode()).toBe(true);
+    const before = await kupua.getStoreState();
+    const probe = await kupua.page.evaluateHandle(() => {
+      const source = ((window as any).__kupua_store__ as typeof useSearchStore).getState().dataSource;
+      const original = source.searchAfter;
+      const descriptor = Object.getOwnPropertyDescriptor(source, "searchAfter");
+      let release!: () => void;
+      const held = new Promise<void>(resolve => { release = resolve; });
+      const probe = { calls: 0, pending: [] as Array<ReturnType<typeof original>>, release,
+        restore: () => {
+          if (descriptor) Object.defineProperty(source, "searchAfter", descriptor);
+          else Reflect.deleteProperty(source, "searchAfter");
+        } };
+      source.searchAfter = (...args) => {
+        probe.calls++;
+        const work = held.then(() => {
+          args[3]?.throwIfAborted();
+          return original.apply(source, args);
+        });
+        probe.pending.push(work);
+        return work;
+      };
+      return probe;
+    });
+    try {
+      const immediateReads = await probe.evaluate(probe => {
+        const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+        container.scrollTop = container.scrollHeight;
+        container.dispatchEvent(new Event("scroll"));
+        return probe.calls;
+      });
+      expect(immediateReads, "indexed jumps must not sequentially fill from the departure window").toBe(0);
+      await kupua.page.waitForFunction(probe => probe.calls > 0, probe);
+      await kupua.page.waitForTimeout(350);
+      expect(await probe.evaluate(probe => probe.calls)).toBe(1);
+      await probe.evaluate(probe => probe.release());
+      await kupua.waitForSeekGenerationBump(before.seekGeneration);
+      const tail = await kupua.page.evaluate(() => {
+        const state = ((window as any).__kupua_store__ as typeof useSearchStore).getState();
+        return { actual: state.results.map(image => image?.id), expected: state.positionMap!.ids.slice(-200) };
+      });
+      expect(tail.actual).toEqual(tail.expected);
+      const finalRowVisible = () => kupua.page.evaluate(imageId => {
+        const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+        const header = container.querySelector("[data-table-header]")!.getBoundingClientRect();
+        const row = container.querySelector(`[data-image-id="${CSS.escape(imageId)}"]`)?.getBoundingClientRect();
+        const bounds = container.getBoundingClientRect();
+        return !!row && row.height > 0 && row.top >= header.bottom &&
+          row.bottom <= bounds.top + container.clientHeight + 0.5;
+      }, tail.expected.at(-1)!);
+      await expect.poll(finalRowVisible).toBe(true);
+      await kupua.page.waitForTimeout(300);
+      expect(await finalRowVisible()).toBe(true);
+      expect(await probe.evaluate(probe => probe.calls)).toBe(1);
+      const after = await kupua.getStoreState();
+      expect(after.seekGeneration).toBe(before.seekGeneration + 1);
+      expect(after.bufferOffset + after.resultsLength).toBe(after.total);
+      expect(after.error).toBeNull();
+      await kupua.assertPositionsConsistent();
+    } finally {
+      await probe.evaluate(async probe => {
+        probe.release();
+        await Promise.allSettled(probe.pending);
+        probe.restore();
+      });
+      await probe.dispose();
     }
-    await kupua.assertPositionsConsistent();
   });
 
   test("consecutive seeks produce different buffers", async ({ kupua }) => {
@@ -2210,10 +2259,9 @@ test.describe("Bug #16 — no runaway self-scroll after forward-extend eviction"
       const beforeFill = await kupua.getStoreState();
       const afterFill = await kupua.scrollToBufferCapacity();
 
-      if (afterFill.resultsLength < 800) {
-        test.skip();
-        return;
-      }
+      expect(afterFill.resultsLength, "preparation must reach buffer capacity").toBe(1000);
+      expect(afterFill.bufferOffset + afterFill.resultsLength,
+        "drift observation must retain at least one buffer of forward runway").toBeLessThanOrEqual(afterFill.total - 1000);
 
       expect(
         afterFill.forwardEvictGeneration,

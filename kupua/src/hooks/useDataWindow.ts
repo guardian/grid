@@ -141,7 +141,7 @@ export function _resetForwardVelocity(): void {
 const SCROLL_SEEK_DEBOUNCE_MS = 200;
 
 /** Module-level debounce timer for the reporting view's maintenance refill. */
-let _scrollSeek: { owner: object; cancel: () => void } | null = null;
+let _scrollSeek: { owner: object; targetOffset: number; isCurrent: () => boolean; cancel: () => void } | null = null;
 
 // ---------------------------------------------------------------------------
 // Viewport anchor — image nearest the usable viewport centre.
@@ -467,6 +467,8 @@ export function useDataWindow(layoutPolicy?: "grid" | "table" | "justified"): Da
           // Viewport entirely outside buffer — debounced seek to reposition.
           // Skip extends — they work in PAGE_SIZE increments from buffer
           // edges and can't bridge a gap of thousands of positions.
+            if (_scrollSeek?.owner === ownerRef.current && _scrollSeek.targetOffset === globalStart &&
+              _scrollSeek.isCurrent()) return;
           _scrollSeek?.cancel();
           const params = useSearchStore.getState().params;
           if (scopeRef.current?.params !== params) scopeRef.current = { params, key: buildSearchKey(params) };
@@ -475,6 +477,8 @@ export function useDataWindow(layoutPolicy?: "grid" | "table" | "justified"): Da
           let unsubscribe = () => {};
           const pending = {
             owner: ownerRef.current,
+            targetOffset: globalStart,
+            isCurrent: (): boolean => isCurrent(),
             cancel: () => {
               clearTimeout(timer);
               unsubscribe();

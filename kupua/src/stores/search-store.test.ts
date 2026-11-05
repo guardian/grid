@@ -1512,6 +1512,131 @@ describe("buffer eviction", () => {
 // ---------------------------------------------------------------------------
 
 describe("abort / concurrent safety", () => {
+  it.each(["navigation", "refill", "focus", "cursor", "search"] as const)("blocks old-window extensions throughout a held %s replacement", async (purpose) => {
+    await actions().search();
+    await actions().seek(1500, "seek", undefined, "refill");
+    const departure = state().results;
+    const targetCursor = purpose === "cursor"
+      ? (await mock.searchAfter({ ...state().params, ids: "img-4000", length: 1 }, null)).sortValues[0]
+      : undefined;
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    const searchAfter = mock.searchAfter.bind(mock);
+    const pages = vi.spyOn(mock, "searchAfter").mockImplementationOnce(async (...args) => {
+      await held;
+      return searchAfter(...args);
+    });
+    vi.useFakeTimers();
+    let replacement: Promise<void>;
+    if (purpose === "focus") {
+      actions().setFocusedImageId("img-4000");
+      replacement = actions().seekToFocused();
+    } else if (purpose === "cursor") {
+      replacement = actions().restoreAroundCursor("img-4000", targetCursor!, 4000);
+    } else if (purpose === "search") {
+      actions().setParams({ query: "replacement-query" });
+      replacement = actions().search();
+    } else {
+      replacement = actions().seek(4000, "seek", undefined, purpose);
+    }
+    const assertOrderedWindow = () => {
+      expect(state().results.map((image) => image?.id)).toEqual(
+        state().results.map((_, index) => `img-${state().bufferOffset + index}`),
+      );
+      assertPositionsConsistent("after held replacement");
+      expect(state().error).toBeNull();
+    };
+    try {
+      await vi.waitFor(() => expect(pages).toHaveBeenCalledTimes(1));
+      vi.setSystemTime(Date.now() + 2100);
+      await actions().extendForward();
+      await actions().extendBackward();
+      expect(pages).toHaveBeenCalledTimes(1);
+      expect(state().results).toBe(departure);
+      release();
+      await replacement;
+      expect(state().results).not.toBe(departure);
+      const target = purpose === "search" ? 0 : 4000;
+      expect(state().imagePositions.get(`img-${target}`)).toBe(target);
+      assertOrderedWindow();
+      const extensions = purpose === "search" ? [actions().extendForward]
+        : [actions().extendForward, actions().extendBackward];
+      for (const extend of extensions) {
+        vi.setSystemTime(Date.now() + 2100);
+        const length = state().results.length;
+        pages.mockClear();
+        await extend();
+        expect(pages).toHaveBeenCalledTimes(1);
+        expect(state().results).toHaveLength(length + 200);
+        assertOrderedWindow();
+      }
+    } finally {
+      release();
+      await replacement;
+      pages.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    { direction: "forward", evict: false, outcome: "page" },
+    { direction: "forward", evict: true, outcome: "page" },
+    { direction: "backward", evict: true, outcome: "page" },
+    { direction: "forward", evict: true, outcome: "failure" },
+  ] as const)("validates a held $direction $outcome after opposite-end eviction=$evict", async ({ direction, evict, outcome }) => {
+    await actions().search();
+    await actions().seek(4000, "seek", undefined, "refill");
+    await runAfterCooldown(async () => {
+      if (evict) {
+        for (let page = 0; page < 4; page++) await actions().extendForward();
+        expect(state().results).toHaveLength(1000);
+      }
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => { release = resolve; });
+      let heldPage: SearchAfterResult | undefined;
+      const searchAfter = mock.searchAfter.bind(mock);
+      const pages = vi.spyOn(mock, "searchAfter").mockImplementationOnce(async (...args) => {
+        heldPage = await searchAfter(...args);
+        await held;
+        if (outcome === "failure") throw new TypeError("Obsolete page failed");
+        return { ...heldPage, enrichment: new Map(heldPage.hits.map(image => [image.id, { valid: false }])) };
+      });
+      const extend = direction === "forward" ? actions().extendForward : actions().extendBackward;
+      const opposite = direction === "forward" ? actions().extendBackward : actions().extendForward;
+      const pending = extend();
+      try {
+        await vi.waitFor(() => expect(heldPage).toBeDefined());
+        await opposite();
+        if (!evict) useSearchStore.setState({ endCursor: [...state().endCursor!] });
+        const receiving = state().results;
+        release();
+        await pending;
+        if (evict) {
+          expect(state().results).toBe(receiving);
+          expect(useEnrichmentStore.getState().data.has(heldPage!.hits[0].id)).toBe(false);
+          expect(direction === "forward" ? state()._extendForwardInFlight : state()._extendBackwardInFlight).toBe(false);
+          vi.setSystemTime(Date.now() + 2100);
+          pages.mockClear();
+          await extend();
+          expect(pages).toHaveBeenCalledTimes(1);
+          expect(state().results).not.toBe(receiving);
+        } else {
+          expect(state().results).toHaveLength(receiving.length + 200);
+          expect(useEnrichmentStore.getState().data.get(heldPage!.hits[0].id)?.valid).toBe(false);
+        }
+        expect(state().results.map(image => image?.id)).toEqual(
+          state().results.map((_, index) => `img-${state().bufferOffset + index}`),
+        );
+        assertPositionsConsistent("after opposite-direction publication");
+        expect(state().error).toBeNull();
+      } finally {
+        release();
+        await pending;
+        pages.mockRestore();
+      }
+    });
+  });
+
   it("seek aborts previous seek", async () => {
     await actions().search();
 

@@ -23,12 +23,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSearch } from "@tanstack/react-router";
 import type { Virtualizer } from "@tanstack/react-virtual";
-import { getSearchGeneration, useSearchStore } from "@/stores/search-store";
+import { getSearchGeneration, getWindowMaintenanceDelay, useSearchStore } from "@/stores/search-store";
 import { registerScrollContainer } from "@/lib/scroll-container-ref";
 import { registerScrollGeometry, getItemLayoutRow, getLayoutRow, requireFixedRowGeometry, type LayoutGeometry } from "@/lib/scroll-geometry-ref";
 import { registerVirtualizerReset, registerScrollToFocused, isUserInitiatedNavigation } from "@/lib/orchestration/search";
 import { captureSearchContinuity, saveSearchContinuity } from "@/lib/search-continuity";
-import { SCROLL_MODE_THRESHOLD, SEEK_DEFERRED_SCROLL_MS } from "@/constants/tuning";
+import { EXTEND_THRESHOLD, SCROLL_MODE_THRESHOLD, SEEK_DEFERRED_SCROLL_MS } from "@/constants/tuning";
 import { GRID_ROW_HEIGHT } from "@/constants/layout";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
@@ -355,6 +355,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     sort: publication.sortAroundFocusGeneration, reset: publication._scrollReset.gen, bufferOffset,
     prepend: publication._prependGeneration, evict: publication._forwardEvictGeneration };
   const committedLayout = useRef(layoutPublication);
+  const renderedLayout = useRef(layoutPublication);
+  renderedLayout.current = layoutPublication;
   const beforeLayout = committedLayout.current;
   const beforeScroll = parentRef.current?.scrollTop ?? 0;
   const layoutAnchor = beforeLayout.geometry !== geometry && "layout" in geometry && geometry.window
@@ -423,11 +425,10 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       devLog(`[handleScroll] WARNING: virtualizer.range is null — reportVisibleRange skipped`);
     }
 
-    // Fallback loadMore near bottom — guard with buffer coverage check.
-    // In two-tier mode, resultsLength < total is always true (buffer is 1000,
-    // total is 12k), so we check bufferOffset + resultsLength < total instead.
+    // Fallback near the physical buffer end, not the indexed corpus end.
     const scrollBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    if (scrollBottom < 500 && bufferOffsetRef.current + resultsLengthRef.current < totalRef.current) {
+    if (!isTwoTierFromTotal(totalRef.current) && scrollBottom < 500 &&
+      bufferOffsetRef.current + resultsLengthRef.current < totalRef.current) {
       loadMoreRef.current();
     }
   }, [reportVisibleRange, parentRef]);
@@ -490,6 +491,47 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     }
     handleScroll();
   }, [bufferOffset, resultsLength, handleScroll, densityReady]);
+
+  const windowRecovery = useSearchStore((state) => state._windowRecovery);
+  const consumedRecoveryRef = useRef(windowRecovery);
+  const recoverWindowRef = useRef(() => {});
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const results = useSearchStore.getState().results;
+    const recover = () => {
+      clearTimeout(timer);
+      const state = useSearchStore.getState();
+      if (!windowRecovery || consumedRecoveryRef.current === windowRecovery ||
+          state._windowRecovery !== windowRecovery || windowRecovery.signal.aborted ||
+          windowRecovery.searchGeneration !== getSearchGeneration()) return;
+      if (!densityMountedReadyRef.current || committedLayout.current !== renderedLayout.current ||
+          state.results !== results) return;
+      const delay = getWindowMaintenanceDelay();
+      if (delay > 0) {
+        timer = setTimeout(recover, delay);
+        return;
+      }
+      if (windowRecovery.retainedOnly) {
+        const range = virtualizerRef.current.range;
+        if (!range) return;
+        const origin = isTwoTierFromTotal(state.total) ? 0 : state.bufferOffset;
+        const start = getLayoutRow(geometryRef.current, range.startIndex).firstItemIndex + origin;
+        const end = getLayoutRow(geometryRef.current, range.endIndex).lastItemIndex + origin;
+        if (end <= state.bufferOffset - EXTEND_THRESHOLD || start >= state.bufferOffset + state.results.length + EXTEND_THRESHOLD) {
+          consumedRecoveryRef.current = windowRecovery;
+          return;
+        }
+      }
+      consumedRecoveryRef.current = windowRecovery;
+      handleScroll();
+    };
+    recoverWindowRef.current = recover;
+    recover();
+    return () => {
+      clearTimeout(timer);
+      recoverWindowRef.current = () => {};
+    };
+  });
 
   // -------------------------------------------------------------------------
   // 4. Prepend scroll compensation
@@ -1018,6 +1060,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       densityMountedReadyRef.current = true;
       setDensityReady(true);
       markDensityRestoreComplete();
+      recoverWindowRef.current();
       // Cold mounts can already be ready in React state before focus placement finishes.
       if (saved && densityReady) handleScroll();
     };

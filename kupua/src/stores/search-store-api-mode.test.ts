@@ -11,7 +11,7 @@ import { MockDataSource } from "@/dal/mock-data-source";
 import { ApiDataSource } from "@/dal/api-data-source";
 import { ElasticsearchDataSource } from "@/dal/es-adapter";
 import { useEnrichmentStore } from "./enrichment-store";
-import { buildSearchKey, getRetainedSortValues } from "@/lib/image-offset-cache";
+import { buildSearchKey, getRetainedSortValues, retainSortValues } from "@/lib/image-offset-cache";
 import { getScrollGeometry, registerScrollGeometry } from "@/lib/scroll-geometry-ref";
 import { parseSortField } from "@/dal/adapters/elasticsearch/sort-builders";
 import type { SearchParams, SortValues } from "@/dal/types";
@@ -341,6 +341,7 @@ describe.each(["direct-ES", "media-api"] as const)("KUP-033 %s backward boundary
       }
     }
     const initial = await corpus.searchAfter({ ...params, offset, length }, null);
+    retainSortValues(buildSearchKey(params), initial.hits, initial.sortValues, true);
     const fetchCount = Math.min(200, offset);
     const firstPage = await corpus.searchAfter({ ...params, length: fetchCount }, initial.sortValues[0], null, undefined, true);
     const remaining = fetchCount - firstPage.hits.length;
@@ -525,6 +526,43 @@ describe.each(["direct-ES", "media-api"] as const)("KUP-033 %s backward boundary
     expect(state()._prependGeneration).toBe(0);
     expect(state()._extendBackwardInFlight).toBe(false);
     expect(useEnrichmentStore.getState().data.size).toBe(0);
+  });
+
+  it("rejects an un-aborted second backward page after forward eviction and permits fresh loading", async () => {
+    const { transport, requests } = await setup("-lastModified", defaultBoundary + 40, 0.2, 1000);
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let capturedSignal: AbortSignal | null | undefined;
+    transport.beforeReply = async (number, signal) => {
+      if (number !== 2) return;
+      capturedSignal = signal;
+      await held;
+    };
+    const source = state().dataSource;
+    const original = source.searchAfter.bind(source);
+    const reads = vi.spyOn(source, "searchAfter").mockImplementation((...args) =>
+      args[4] ? original(...args) : corpus.searchAfter(...args));
+    const pending = state().extendBackward();
+    try {
+      await vi.waitFor(() => expect(requests).toHaveLength(2));
+      await state().extendForward();
+      await expectBuffer(defaultBoundary + 240, 1000);
+      const published = state().results;
+      expect(capturedSignal?.aborted).toBe(false);
+      release();
+      await pending;
+      expect(state().results).toBe(published);
+      expect(state()._extendBackwardInFlight).toBe(false);
+      expect(state()._prependGeneration).toBe(0);
+      expect(useEnrichmentStore.getState().data.size).toBe(0);
+      reads.mockImplementation((...args) => corpus.searchAfter(...args));
+      await state().extendBackward();
+      await expectBuffer(defaultBoundary + 40, 1000);
+      expect(state()._extendBackwardInFlight).toBe(false);
+    } finally {
+      release();
+      await pending;
+    }
   });
 });
 

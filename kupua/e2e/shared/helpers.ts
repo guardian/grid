@@ -1275,33 +1275,63 @@ export class KupuaHelpers {
   // -------------------------------------------------------------------------
 
   /**
-   * Scroll the current view to near-bottom repeatedly to trigger
-   * extend+evict cycles until the buffer reaches capacity or we give up.
-   * Seeks to `seekRatio` first to ensure there is data ahead.
-   *
-   * Returns the store state after scrolling settles.
+   * Advance to the loaded window's trailing edge until its first forward
+   * eviction. Return that publication's snapshot without waiting away drift.
    */
   async scrollToBufferCapacity(seekRatio = 0.15) {
     await this.seekTo(seekRatio);
-    // Grid rows are tall (303px) so we may need more iterations than table
-    // (32px) to scroll far enough to trigger extend+evict cycles.
-    // We also dispatch a synthetic scroll event because headless Chromium
-    // doesn't reliably fire native scroll events for programmatic scrollTop
-    // changes.
-    for (let i = 0; i < 15; i++) {
-      await this.page.evaluate(() => {
-        const grid = document.querySelector('[aria-label="Image results grid"]');
-        const table = document.querySelector('[aria-label="Image results table"]');
-        const el = grid ?? table;
-        if (el) {
-          el.scrollTop = el.scrollHeight;
-          el.dispatchEvent(new Event("scroll"));
+    const preparation = await this.page.evaluateHandle(() => {
+      const store = (window as any).__kupua_store__;
+      const generation = store.getState()._forwardEvictGeneration;
+      const probe = {
+        first: null as null | { bufferOffset: number; resultsLength: number; total: number;
+          forwardEvictGeneration: number; error: string | null },
+        unsubscribe: () => {},
+      };
+      probe.unsubscribe = store.subscribe((state: any) => {
+        if (!probe.first && state._forwardEvictGeneration > generation) {
+          probe.first = { bufferOffset: state.bufferOffset, resultsLength: state.results.length,
+            total: state.total, forwardEvictGeneration: state._forwardEvictGeneration, error: state.error };
         }
       });
-      await this.page.waitForTimeout(400);
+      return probe;
+    });
+    const deadline = Date.now() + 15_000;
+    try {
+      while (Date.now() < deadline) {
+        const first = await preparation.evaluate(probe => probe.first);
+        if (first) return first;
+        const before = await preparation.evaluate(async probe => {
+          const geometryPath = "/src/lib/scroll-geometry-ref.ts";
+          const modePath = "/src/lib/two-tier.ts";
+          const { getLayoutGeometry, getItemLayoutRow } = await import(geometryPath);
+          const { isTwoTierFromTotal } = await import(modePath);
+          if (probe.first) return null;
+          const state = (window as any).__kupua_store__.getState();
+          if (state.error) throw new Error(state.error);
+          if (state.bufferOffset + state.results.length >= state.total) throw new Error("Eviction setup reached the corpus end");
+          const container = document.querySelector<HTMLElement>('[aria-label="Image results grid"], [aria-label="Image results table"]');
+          if (!container) throw new Error("Eviction setup has no results container");
+          const geometry = getLayoutGeometry();
+          const index = state.results.length - 1 + (isTwoTierFromTotal(state.total) ? state.bufferOffset : 0);
+          const row = getItemLayoutRow(geometry, index);
+          container.scrollTop = Math.max(0, row.top + row.height + (geometry.headerOffset ?? 0) - container.clientHeight);
+          container.dispatchEvent(new Event("scroll"));
+          return { length: state.results.length, generation: state._seekGeneration };
+        });
+        if (!before) continue;
+        await this.page.waitForFunction(({ probe, before }) => {
+          const state = (window as any).__kupua_store__.getState();
+          if (state.error) throw new Error(state.error);
+          if (state._seekGeneration !== before.generation) throw new Error("Eviction setup unexpectedly replaced the window");
+          return probe.first !== null || state.results.length > before.length;
+        }, { probe: preparation, before }, { timeout: Math.max(1, deadline - Date.now()) });
+      }
+      throw new Error("Eviction setup did not produce a forward eviction within 15 seconds");
+    } finally {
+      await preparation.evaluate(probe => probe.unsubscribe());
+      await preparation.dispose();
     }
-    await this.page.waitForTimeout(1000);
-    return this.getStoreState();
   }
 
   // -------------------------------------------------------------------------

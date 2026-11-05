@@ -283,6 +283,14 @@ during seek replacement, without changing virtual-row keys or adding a media-rea
 Justified retains its existing cell-key policy. Page/concurrency limits, overscan, thumbnail
 admission and fetch horizons have separate owners and configuration.
 
+Captioned Grid thumbnail fitting uses the last successfully loaded resource's
+intrinsic aspect ratio, retained on the image element across pending source changes.
+Incoming metadata supplies the initial ratio for a new element; the native load
+handler updates it for each replacement. Current cell width, thumbnail height and
+border policy still determine the available space, while containment preserves
+image proportions. This avoids applying a destination ratio to retained departure
+pixels without adding React state, requests or a separate loading scheduler.
+
 ---
 
 ## §3 The User Experience — What It Feels Like
@@ -301,6 +309,32 @@ prediction can widen it as described below.
 Headroom aims to hide refill latency, but its physical size depends on density.
 A finite buffer can still stop scrolling when a refill misses the edge; earlier
 admission cannot overcome sustained consumption above delivery throughput.
+
+**Window integrity and recovery.** Pending replacement blocks extensions from its
+departure window, independently of elapsed cooldown. Each extension validates its
+captured boundary again before publishing rows, cursors or enrichment; opposite-end
+eviction can invalidate a response even when its signal remains live. Backward reads
+crossing a null/valued boundary validate again after the continuation read.
+
+An obsolete response release can issue one owned recovery notice. The mounted scroll
+owner re-evaluates current demand after commit and any remaining existing cooldown;
+it does not replay the old cursor or synthesize user input. New range/search owners
+invalidate obsolete notices, and disposal cancels their pending delivery. Failed
+focus/refill completion can similarly reconsider demand near the retained window,
+without retrying a failed distant destination. Same-query focus survives density
+changes, so its terminal recovery belongs to the surviving focus owner and current
+view, not the departed view's range signal.
+
+Initial search and automatic indexed refill remain separate owners. A successfully
+accepted current-search refill can extend before initial search settles; if the
+initial page subsequently replaces it, provisional range requests are cancelled at
+that publication boundary. Recovery uses the ordinary maintenance cooldowns and
+prediction policy; page size and buffer capacity are governed by their tuning
+constants. Rejected-response counts alone establish neither useful-image latency
+nor upstream work savings.
+Earlier cancellation of already-dispatched obsolete reads is a separately scoped
+[optional performance follow-up](../bug-backlog.md#earlier-cancellation-of-obsolete-window-reads),
+not permission to weaken publication checks or assume upstream work was stopped.
 
 **Velocity-aware directional triggers.** `reportVisibleRange` tracks signed,
 EMA-smoothed velocity in items/ms. Forward admission uses
@@ -359,6 +393,8 @@ both reported range edges to match the physical viewport; stale geometry cancels
 queues a coordinate. Implicit reports wait for density mount placement, while genuine browsing
 input can supersede that placement immediately. Completion reports the placed viewport even
 when the cold-mount ready state was already true.
+Repeated reports of the same valid target by the same owner keep its original
+deadline; changed targets retain the existing debounce behavior.
 Reset, changed search generation, query/order, leaving the indexed tier or disposal of that reporter cancels it. An
 unrelated detail consumer's unmount and ordinary buffer publication do not. Obsolete
 callbacks cannot dispatch or clear their successor; refills cannot supersede pending

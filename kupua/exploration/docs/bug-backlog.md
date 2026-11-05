@@ -78,6 +78,28 @@ Filters panel fold replaced values into their category. The vendored cost config
 a fallback only in media-api mode (search, detail and selections carry server cost); direct-ES
 legacy-category expansion remains accepted lag.
 
+### Optional Performance Follow-ups
+
+#### Earlier Cancellation of Obsolete Window Reads
+
+- **Candidate, recorded 4 November 2026:** cancel already-dispatched window reads
+  earlier once their boundary becomes obsolete, rather than merely rejecting their
+  eventual response. The [scroll integrity contract](00%20Architecture%20and%20philosophy/03-scroll-architecture.md)
+  and [extension owners](../../src/stores/search-store.ts) remain authoritative.
+- **Evidence limit:** controlled opposite-eviction cases establish obsolete
+  responses, not production incidence, material decoding cost or measured savings.
+  The current repair prevents invalid publication and restores useful demand;
+  more aggressive cancellation is optional, not a remaining acceptance blocker.
+- **Before implementation:** identify the exact retiring request and demonstrate
+  avoidable work or useful-image delay in the relevant deployment topology. Compare
+  useful-image arrival and recovery as well as request counts; preserve current
+  viewport demand, separate request owners, cooldowns and valid concurrent growth.
+  Do not weaken integrity or replay obsolete work to reduce request counts.
+- **Boundary:** browser abort cannot undo completed work or prove that upstream ES
+  stopped. [KUP-041](#kup-041) separately owns API-to-ES cancellation propagation.
+  Any broader transport/backend or decoding optimization requires its own evidence
+  and authorization; performance campaigns remain operator-run.
+
 ### Open Grid Work
 
 | ID | Topic | Current status | Migration relevance |

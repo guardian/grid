@@ -527,17 +527,21 @@ describe("L37 explicit navigation versus viewport refill", () => {
     }
   });
 
-  it("does not let an automatic indexed refill cancel the pending initial search", async () => {
+  it("keeps an accepted indexed refill extensible without cancelling the pending initial search", async () => {
     const fixture = await mountNavigation(true, "none");
     const dataWindow = renderHook(() => useDataWindow());
     const original = fixture.source.searchAfter.bind(fixture.source);
     let release!: () => void;
     const held = new Promise<void>(resolve => { release = resolve; });
     let initialSignal: AbortSignal | undefined;
-    vi.spyOn(fixture.source, "searchAfter").mockImplementation(async (...args) => {
+    let holdExtensions = false;
+    const extensions: Array<{ release: () => void; signal: AbortSignal | undefined }> = [];
+    const reads = vi.spyOn(fixture.source, "searchAfter").mockImplementation(async (...args) => {
       if (args[0].trackTotalHits) {
         initialSignal = args[3];
         await held;
+      } else if (holdExtensions) {
+        await new Promise<void>(resolve => { extensions.push({ release: resolve, signal: args[3] }); });
       }
       return original(...args);
     });
@@ -554,13 +558,54 @@ describe("L37 explicit navigation versus viewport refill", () => {
       expect(initialSignal).toBeDefined();
       expect(initialSignal?.aborted).toBe(false);
       expect(useSearchStore.getState().loading).toBe(true);
+      const accepted = useSearchStore.getState();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(150);
+        const edge = accepted.bufferOffset + accepted.results.length;
+        dataWindow.result.current.reportVisibleRange(edge - 10, edge + 10);
+      });
+      expect(useSearchStore.getState().results.map(image => image?.id)).toEqual([
+        ...accepted.results.map(image => image?.id),
+        ...Array.from({ length: 200 }, (_, index) => `img-${accepted.bufferOffset + accepted.results.length + index}`),
+      ]);
+      expect(initialSignal?.aborted).toBe(false);
+      expect(useSearchStore.getState().loading).toBe(true);
+      holdExtensions = true;
+      await act(async () => {
+        const current = useSearchStore.getState();
+        const edge = current.bufferOffset + current.results.length;
+        dataWindow.result.current.reportVisibleRange(edge - 10, edge + 10);
+      });
+      expect(extensions).toHaveLength(1);
+      const obsolete = reads.mock.results.at(-1)!.value;
       await act(async () => { release(); await pending; });
       const state = useSearchStore.getState();
       const firstPage = await original({ ...state.params, length: 200 }, null);
       expect(state.results.map(image => image?.id)).toEqual(firstPage.hits.map(image => image.id));
       expect(state).toMatchObject({ bufferOffset: 0, total: 12000, loading: false, error: null });
+      expect(extensions[0].signal?.aborted).toBe(true);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(150);
+        dataWindow.result.current.reportVisibleRange(190, 210);
+      });
+      expect(extensions).toHaveLength(2);
+      const successor = reads.mock.results.at(-1)!.value;
+      await act(async () => {
+        extensions[0].release();
+        await expect(obsolete).rejects.toMatchObject({ name: "AbortError" });
+      });
+      expect(useSearchStore.getState()._extendForwardInFlight).toBe(true);
+      expect(extensions).toHaveLength(2);
+      await act(async () => { extensions[1].release(); await successor; });
+      expect(useSearchStore.getState().results.map(image => image?.id)).toEqual(
+        Array.from({ length: 400 }, (_, index) => `img-${index}`),
+      );
+      expect(useSearchStore.getState()._extendForwardInFlight).toBe(false);
     } finally {
-      await act(async () => { release(); await pending; });
+      await act(async () => {
+        release(); extensions.forEach(extension => extension.release());
+        await pending; await Promise.allSettled(reads.mock.results.map(result => result.value));
+      });
     }
   });
 });

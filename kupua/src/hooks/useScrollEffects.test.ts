@@ -47,7 +47,7 @@ import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import { useSelectionStore } from "@/stores/selection-store";
 import { useEnrichmentStore } from "@/stores/enrichment-store";
 import type { Image } from "@/types/image";
-import { SEEK_DEFERRED_SCROLL_MS } from "@/constants/tuning";
+import { POST_EXTEND_COOLDOWN_MS, SEEK_DEFERRED_SCROLL_MS } from "@/constants/tuning";
 import { clearDensityFocusRatio, useScrollEffects, type ScrollGeometry } from "./useScrollEffects";
 import { useUrlSearchSync } from "./useUrlSearchSync";
 import { consumeUserInitiatedFlag, markUserInitiatedNavigation, setPrevParamsSerialized, setPrevSearchOnly } from "@/lib/orchestration/search";
@@ -431,11 +431,257 @@ function mountDensity(initialGeometry: ScrollGeometry, strict = false, reportVie
       resultsLength: state.results.length, total: state.total, bufferOffset: state.bufferOffset,
       focusedImageId: state.focusedImageId, findImageIndex, twoTier, chooseDensityAnchor });
   }, { initialProps: { geometry }, wrapper: syncUrl ? UrlSyncHarness : strict ? StrictMode : undefined });
-  return { ...view, container, dimensions, scrollToIndex, virtualizer, reportVisibleRange,
+  return { ...view, container, dimensions, scrollToIndex, virtualizer, reportVisibleRange, loadMore,
     changeGeometry: (next: ScrollGeometry) => view.rerender({ geometry: next }) };
 }
 
 describe("viewport-valid velocity reports", () => {
+  async function indexedRecoveryFixture() {
+    const dataSource = new MockDataSource(12000);
+    const params = { nonFree: "true", orderBy: "-uploadTime" };
+    const initial = await dataSource.searchAfter({ ...params, offset: 1000, length: 1000 }, null);
+    useSearchStore.setState({ dataSource, params, results: initial.hits, total: 12000, bufferOffset: 1000,
+      startCursor: initial.sortValues[0], endCursor: initial.sortValues.at(-1)!,
+      focusedImageId: null, pitId: null, positionMap: null,
+      imagePositions: new Map(initial.hits.map((image, index) => [image.id, index + 1000])) });
+    useSearchStore.getState().cancelWindowMaintenance();
+    const view = mountDensity(table, false, true);
+    frame(); frame();
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    return { dataSource, view };
+  }
+
+  it.each(["lookup", "window", "lookup-after-density"])("resumes stationary retained-window demand after failed focus %s without retrying focus", async (failureStage) => {
+    const fixture = await indexedRecoveryFixture();
+    const { dataSource } = fixture;
+    let view = fixture.view;
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let heldRead = false;
+    const original = dataSource.searchAfter.bind(dataSource);
+    const reads = vi.spyOn(dataSource, "searchAfter").mockImplementation(async (...args) => {
+      if (!heldRead && (failureStage !== "window" || !args[0].ids)) {
+        heldRead = true;
+        await held;
+        throw new Error("Focus read unavailable");
+      }
+      return original(...args);
+    });
+    let pending!: Promise<void>;
+    act(() => {
+      useSearchStore.getState().setFocusedImageId("img-5000");
+      pending = useSearchStore.getState().seekToFocused();
+    });
+    try {
+      await vi.waitFor(() => expect(heldRead).toBe(true));
+      const beforeReads = reads.mock.calls.length;
+      expect(reads.mock.calls[0][0].ids).toBe("img-5000");
+      if (failureStage === "lookup-after-density") {
+        anchor.viewportId = "img-1500";
+        view.container.scrollTop = 1500 * table.rowHeight;
+        view.virtualizer.range = { startIndex: 1500, endIndex: 1518 } as typeof view.virtualizer.range;
+        view.unmount();
+        view.container.remove();
+        view = mountDensity(grid, false, true);
+        view.virtualizer.range = { startIndex: 375, endIndex: 376 } as typeof view.virtualizer.range;
+        frame(); frame();
+        await act(async () => { await vi.advanceTimersByTimeAsync(2100); });
+      }
+      act(() => {
+        const geometry = failureStage === "lookup-after-density" ? grid : table;
+        const start = Math.floor(1996 / geometry.columns);
+        view.container.scrollTop = start * geometry.rowHeight;
+        view.virtualizer.range = { startIndex: start,
+          endIndex: start + Math.ceil(view.container.clientHeight / geometry.rowHeight) - 1 } as typeof view.virtualizer.range;
+        fireEvent.scroll(view.container);
+      });
+      expect(reads).toHaveBeenCalledTimes(beforeReads);
+      const stoppedAt = view.container.scrollTop;
+      await act(async () => { release(); await pending; });
+      expect(reads).toHaveBeenCalledTimes(beforeReads + 1);
+      expect(reads.mock.calls.filter(args => args[0].ids)).toHaveLength(1);
+      expect(reads.mock.calls.at(-1)![0].ids).toBeUndefined();
+      expect(useSearchStore.getState().results.map(image => image?.id)).toEqual(
+        Array.from({ length: 1000 }, (_, index) => `img-${1200 + index}`),
+      );
+      expect(view.container.scrollTop).toBe(stoppedAt);
+      await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+      expect(reads).toHaveBeenCalledTimes(beforeReads + 1);
+    } finally {
+      view.unmount();
+      await act(async () => { release(); await pending; });
+    }
+  });
+
+  it.each([
+    { releaseDelay: 0, afterRelease: "stationary" },
+    { releaseDelay: 100, afterRelease: "stationary" },
+    { releaseDelay: 0, afterRelease: "interior" },
+    { releaseDelay: 0, afterRelease: "cancelled" },
+    { releaseDelay: 0, afterRelease: "unmounted" },
+  ])("reconsiders current demand after discarding an opposite-evicted page ($releaseDelay ms, $afterRelease)", async ({ releaseDelay, afterRelease }) => {
+    const { dataSource, view } = await indexedRecoveryFixture();
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const searchAfter = dataSource.searchAfter.bind(dataSource);
+    const reads = vi.spyOn(dataSource, "searchAfter").mockImplementationOnce(async (...args) => {
+      await held;
+      args[3]?.throwIfAborted();
+      return searchAfter(...args);
+    });
+    const scroll = (start: number) => act(() => {
+      view.container.scrollTop = start * table.rowHeight;
+      view.virtualizer.range = { startIndex: start, endIndex: start + 18 } as typeof view.virtualizer.range;
+      fireEvent.scroll(view.container);
+    });
+    try {
+      scroll(1990);
+      expect(reads).toHaveBeenCalledOnce();
+      scroll(1010);
+      expect(reads).toHaveBeenCalledTimes(2);
+      await act(async () => { await reads.mock.results[1].value; });
+      expect(useSearchStore.getState()).toMatchObject({ bufferOffset: 800, _extendForwardInFlight: true });
+      expect(useSearchStore.getState().results.at(-1)?.id).toBe("img-1799");
+      scroll(1790);
+      await act(async () => { await vi.advanceTimersByTimeAsync(releaseDelay); });
+      expect(reads).toHaveBeenCalledTimes(2);
+      const stoppedAt = view.container.scrollTop;
+      await act(async () => { release(); await reads.mock.results[0].value; });
+      if (afterRelease === "interior") scroll(1400);
+      if (afterRelease === "cancelled") act(() => useSearchStore.getState().cancelWindowMaintenance());
+      if (afterRelease === "unmounted") view.unmount();
+      if (releaseDelay === 0) {
+        await act(async () => { await vi.advanceTimersByTimeAsync(POST_EXTEND_COOLDOWN_MS - 1); });
+        expect(reads).toHaveBeenCalledTimes(2);
+        await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+      }
+      if (afterRelease !== "stationary") {
+        await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+        expect(reads).toHaveBeenCalledTimes(2);
+        expect(useSearchStore.getState().results.map(image => image?.id)).toEqual(
+          Array.from({ length: 1000 }, (_, index) => `img-${800 + index}`),
+        );
+        expect(useSearchStore.getState()._extendForwardInFlight).toBe(false);
+        return;
+      }
+      expect(reads).toHaveBeenCalledTimes(3);
+      expect(useSearchStore.getState().results.map(image => image?.id)).toEqual(
+        Array.from({ length: 1000 }, (_, index) => `img-${1000 + index}`),
+      );
+      expect(useSearchStore.getState()).toMatchObject({ bufferOffset: 1000, error: null, _extendForwardInFlight: false });
+      expect(view.container.scrollTop).toBe(stoppedAt);
+    } finally {
+      view.unmount();
+      await act(async () => { release(); await Promise.all(reads.mock.results.map(result => result.value)); });
+    }
+  });
+
+  it.each(["retained-edge", "failed-destination"])("reconsiders %s after refill failure without retrying its destination", async (destination) => {
+    const { dataSource, view } = await indexedRecoveryFixture();
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const reads = vi.spyOn(dataSource, "searchAfter").mockImplementationOnce(async () => {
+      await held;
+      throw new Error("Refill unavailable");
+    });
+    const seeks = vi.spyOn(useSearchStore.getState(), "seek");
+    act(() => view.changeGeometry(table));
+    try {
+      act(() => {
+        view.container.scrollTop = 5000 * table.rowHeight;
+        view.virtualizer.range = { startIndex: 5000, endIndex: 5018 } as typeof view.virtualizer.range;
+        fireEvent.scroll(view.container);
+      });
+      await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+      expect(seeks).toHaveBeenCalledOnce();
+      expect(reads).toHaveBeenCalledOnce();
+      if (destination === "retained-edge") act(() => {
+        view.container.scrollTop = 1990 * table.rowHeight;
+        view.virtualizer.range = { startIndex: 1990, endIndex: 2008 } as typeof view.virtualizer.range;
+        fireEvent.scroll(view.container);
+      });
+      await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+      expect(reads).toHaveBeenCalledOnce();
+      const stoppedAt = view.container.scrollTop;
+      await act(async () => { release(); await seeks.mock.results[0].value; });
+      await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+      expect(seeks).toHaveBeenCalledOnce();
+      expect(reads).toHaveBeenCalledTimes(destination === "retained-edge" ? 2 : 1);
+      expect(useSearchStore.getState().results.map(image => image?.id)).toEqual(
+        Array.from({ length: 1000 }, (_, index) => `img-${(destination === "retained-edge" ? 1200 : 1000) + index}`),
+      );
+      expect(useSearchStore.getState().error).toBe("Refill unavailable");
+      expect(view.container.scrollTop).toBe(stoppedAt);
+    } finally {
+      view.unmount();
+      await act(async () => { release(); await Promise.all(seeks.mock.results.map(result => result.value)); });
+    }
+  });
+
+  it("routes an indexed bottom jump through one held refill without old-window fallback reads", async () => {
+    const dataSource = new MockDataSource(12000);
+    const params = { nonFree: "true", orderBy: "-uploadTime" };
+    const firstPage = await dataSource.searchAfter({ ...params, length: 200 }, null);
+    useSearchStore.setState({ dataSource, params, results: firstPage.hits, total: 12000, bufferOffset: 0,
+      startCursor: firstPage.sortValues[0], endCursor: firstPage.sortValues.at(-1)!,
+      focusedImageId: null, pitId: null, positionMap: null,
+      imagePositions: new Map(firstPage.hits.map((image, index) => [image.id, index])) });
+    const view = mountDensity(table, false, true);
+    view.loadMore.mockImplementation(() => useSearchStore.getState().loadMore());
+    frame(); frame();
+    await act(async () => { await useSearchStore.getState().seek(1500); });
+    view.virtualizer.range = { startIndex: 1500, endIndex: 1518 } as typeof view.virtualizer.range;
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const searchAfter = dataSource.searchAfter.bind(dataSource);
+    const reads = vi.spyOn(dataSource, "searchAfter").mockImplementationOnce(async (...args) => {
+      await held;
+      args[3]?.throwIfAborted();
+      return searchAfter(...args);
+    });
+    try {
+      act(() => {
+        view.virtualizer.range = null;
+        view.container.scrollTop = view.container.scrollHeight - view.container.clientHeight;
+        fireEvent.scroll(view.container);
+      });
+      expect(reads).not.toHaveBeenCalled();
+      act(() => {
+        view.virtualizer.range = { startIndex: 11982, endIndex: 11999 } as typeof view.virtualizer.range;
+        fireEvent.scroll(view.container);
+      });
+      await act(async () => { await vi.advanceTimersByTimeAsync(199); });
+      expect(reads).not.toHaveBeenCalled();
+      await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+      expect(reads).toHaveBeenCalledOnce();
+      await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+      expect(reads).toHaveBeenCalledOnce();
+      await act(async () => { release(); await reads.mock.results[0].value; });
+      expect(useSearchStore.getState()).toMatchObject({ bufferOffset: 11800, loading: false, error: null });
+      expect(useSearchStore.getState().results.map(image => image?.id)).toEqual(
+        Array.from({ length: 200 }, (_, index) => `img-${11800 + index}`),
+      );
+      await act(async () => { await vi.advanceTimersByTimeAsync(SEEK_DEFERRED_SCROLL_MS); });
+      expect(reads).toHaveBeenCalledOnce();
+    } finally {
+      view.unmount();
+      await act(async () => { release(); await Promise.all(reads.mock.results.map(result => result.value)); });
+    }
+  });
+
+  it("retains the buffer-local bottom fallback when the virtualizer range is absent", () => {
+    const view = mountDensity(table);
+    frame(); frame();
+    view.loadMore.mockClear();
+    act(() => {
+      view.virtualizer.range = null;
+      view.container.scrollTop = view.container.scrollHeight - view.container.clientHeight;
+      fireEvent.scroll(view.container);
+    });
+    expect(view.loadMore).toHaveBeenCalledOnce();
+  });
+
   it("does not schedule an origin refill while indexed density placement is pending", () => {
     const seek = vi.fn().mockResolvedValue(undefined);
     useSearchStore.setState({ total: 5000, seek });
@@ -3412,18 +3658,28 @@ describe("B17 placement completion ownership", () => {
     expect(useSearchStore.getState()._browseNavigation).toBeNull();
   });
 
-  it("retains the post-seek notification after consuming ready placement", async () => {
+  it("retains automatic post-seek extension after consuming ready placement", async () => {
     const dataSource = new MockDataSource(12000);
+    const reads = vi.spyOn(dataSource, "searchAfter");
     useSearchStore.setState({ dataSource, total: 12000, focusedImageId: null, pitId: null });
-    const view = mountDensity(table);
+    const view = mountDensity(table, false, true);
+    view.loadMore.mockImplementation(() => useSearchStore.getState().loadMore());
+    view.dimensions.height = 4800;
     frame();
     frame();
     const onScroll = vi.fn();
     view.container.addEventListener("scroll", onScroll);
     await act(async () => { await useSearchStore.getState().seek(5000); });
+    view.virtualizer.range = { startIndex: 5000, endIndex: 5149 } as typeof view.virtualizer.range;
     expect(useSearchStore.getState()._browseNavigation).toBeNull();
+    expect(reads).toHaveBeenCalledOnce();
     await act(async () => { await vi.advanceTimersByTimeAsync(SEEK_DEFERRED_SCROLL_MS); });
     expect(onScroll).toHaveBeenCalledOnce();
+    expect(reads).toHaveBeenCalledTimes(2);
+    expect(useSearchStore.getState().bufferOffset).toBe(4900);
+    expect(useSearchStore.getState().results.map(image => image?.id)).toEqual(
+      Array.from({ length: 400 }, (_, index) => `img-${4900 + index}`),
+    );
   });
 });
 

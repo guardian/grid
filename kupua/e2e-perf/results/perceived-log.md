@@ -3067,3 +3067,57 @@ Mode: direct-es | API topology: none | Media delivery: proxy | Base URL: http://
 | JB5 | fullscreen-exit | 4 | — | — | — | 109 | 117 | — |
 
 JB2 matched no-anchor control: first visible 891ms; settled 897ms; design alternating-ab-ba. Do not subtract sequential samples; compare balanced aggregates only.
+
+---
+
+## [short] after amazing bug (13e000e80 (dirty), 2026-11-05)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 4
+
+Mode: media-api | API topology: local | Media delivery: canonical | Base URL: https://kupua.media.local.dev-gutools.co.uk | Browser: chromium 151.0.7922.34 | OS: darwin/arm64 25.6.0 | Viewport: 1720x960 | Screen: 1720x960 | DPR: 2 | Headed: true | CPU throttle: none | Cache: uncontrolled-browser-cache | Workers: 1 | Dirty state: def74dd9280f5023 | App source: def74dd9280f5023
+
+| Test | Action | Samples | Ack (ms) | Status (ms) | Store ready (ms) | First visible (ms) | Visual settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|---|---|
+| PP1 | home-logo | 4 | 1 | — | 945 | 1036 | 1043 | — |
+| PP2 | sort-no-focus | 4 | 46 | — | 703 | 764 | 773 | — |
+| PP3 | sort-around-focus | 4 | 48 | — | 1139 | 1226 | 1234 | — |
+| PP4 | sort-around-focus | 4 | 47 | — | 1107 | 1169 | 1177 | — |
+| PP5 | filter-toggle | 4 | 15 | — | 814 | 821 | 823 | — |
+| PP6 | density-swap | 4 | — | — | — | 183 | 191 | — |
+| PP7 | scrubber-seek | 4 | 2 | — | 1133 | 1251 | 1255 | — |
+| PP7b | scrubber-seek | 4 | 2 | — | 1041 | 1160 | 1165 | — |
+| PP7c | scrubber-scroll | 4 | — | — | — | 78 | 86 | — |
+| PP8 | search | 4 | 46 | — | 1397 | 1412 | 1420 | — |
+| PP9 | chip-remove | 4 | 373 | — | 965 | 1083 | 1089 | — |
+| PP11 | history-back | 4 | 15 | — | 1212 | 1332 | 1338 | — |
+| PP6b | density-swap | 4 | — | — | — | 200 | 207 | — |
+| PP6c | density-swap | 4 | — | — | — | 187 | 195 | — |
+
+### Background diagnostics
+
+Not ranked against user-action latency targets.
+
+| Test | Action | Samples | Store ready (ms) | Map entries |
+|------|--------|---|---|---|
+| PP10 | position-map | 4 | 2386 | 21627 |
+
+---
+
+## [long] after amazing bug (13e000e80 (dirty), 2026-11-05)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 4
+
+Mode: media-api | API topology: local | Media delivery: canonical | Base URL: https://kupua.media.local.dev-gutools.co.uk | Browser: chromium 151.0.7922.34 | OS: darwin/arm64 25.6.0 | Viewport: 1720x960 | Screen: 1720x960 | DPR: 2 | Headed: true | CPU throttle: none | Cache: uncontrolled-browser-cache | Workers: 1 | Dirty state: def74dd9280f5023 | App source: def74dd9280f5023
+
+| Step | Action | Samples | Ack (ms) | Status (ms) | Store ready (ms) | First visible (ms) | Visual settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|---|---|
+| JA1 | navigation-search | 4 | — | — | 979 | 1043 | 1045 | — |
+| JA2 | open-detail | 4 | — | — | 97 | 12028 | 12038 | — |
+| JA3 | metadata-click | 4 | 44 | — | 1412 | 1487 | 1494 | — |
+| JB1 | navigation-search | 4 | — | — | 924 | 991 | 993 | — |
+| JB2 | facet-click | 4 | 41 | — | 1224 | 1276 | 1279 | — |
+| JB3 | facet-click | 4 | 49 | — | 756 | 799 | 802 | — |
+| JB4 | scrubber-scroll | 4 | — | — | — | 792 | 795 | — |
+| JB5 | fullscreen-exit | 4 | — | — | — | 122 | 130 | — |
+
+JB2 matched no-anchor control: first visible 1420ms; settled 1423ms; design alternating-ab-ba. Do not subtract sequential samples; compare balanced aggregates only.

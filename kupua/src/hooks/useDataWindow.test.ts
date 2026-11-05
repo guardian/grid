@@ -57,13 +57,14 @@ describe("KUP-016 indexed seek ownership", () => {
     });
   }
 
-  it("seeks exactly once after 200ms without requiring a position map", () => {
+  it("preserves the original refill deadline when the same viewport is reported again", () => {
     const view = renderHook(() => ({ data: useDataWindow(), visible: useVisibleRange() }));
     act(() => view.result.current.data.reportVisibleRange(3000, 3020));
     expect(view.result.current.visible).toEqual({ start: 3000, end: 3020 });
     expect(view.result.current.data.twoTier).toBe(true);
     expect(view.result.current.data.virtualizerCount).toBe(5000);
     act(() => vi.advanceTimersByTime(199));
+    act(() => view.result.current.data.reportVisibleRange(3000, 3020));
     expect(seek).not.toHaveBeenCalled();
     act(() => vi.advanceTimersByTime(1));
     expect(seek).toHaveBeenCalledExactlyOnceWith(3000, "seek", undefined, "refill");

@@ -273,16 +273,22 @@ const GridCell = memo(function GridCell({
             key={animationClass ? image.id : undefined}
             src={thumbUrl}
             alt={imageOnlyHeight !== undefined ? description : ""}
-            className={`${imageOnlyHeight !== undefined ? "w-full h-full object-contain text-transparent" : "max-w-full"} pointer-events-none${isPotentiallyGraphic ? " blur-lg group-hover:blur-none transition-[filter] duration-500" : ""}`}
+            className={`${imageOnlyHeight !== undefined ? "w-full h-full object-contain text-transparent" : "max-w-full object-contain"} pointer-events-none${isPotentiallyGraphic ? " blur-lg group-hover:blur-none transition-[filter] duration-500" : ""}`}
             style={imageOnlyHeight === undefined
               ? {
                   maxHeight: thumbHeight - 4,
                   // Explicit width so thumbs upscale with the cell instead of stopping at natural size.
-                  width: `min(100%, ${(thumbHeight - 4 - (imageBorderColor ? 20 : 0)) * imageRatio(image) + (imageBorderColor ? 20 : 0)}px)`,
+                  width: `min(100%, calc(${thumbHeight - 4 - (imageBorderColor ? 20 : 0)}px * var(--loaded-thumbnail-ratio, ${imageRatio(image)}) + ${imageBorderColor ? 20 : 0}px))`,
                   ...(imageBorderColor ? { border: `10px solid ${imageBorderColor}` } : {}),
                 }
               : undefined}
-            onLoad={(e) => e.currentTarget.style.removeProperty("display")}
+            onLoad={(e) => {
+              const thumbnail = e.currentTarget;
+              if (thumbnail.naturalWidth > 0 && thumbnail.naturalHeight > 0) {
+                thumbnail.style.setProperty("--loaded-thumbnail-ratio", String(thumbnail.naturalWidth / thumbnail.naturalHeight));
+              }
+              thumbnail.style.removeProperty("display");
+            }}
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";
             }}

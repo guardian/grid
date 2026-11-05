@@ -4,7 +4,7 @@ import { heldImageServer } from "../shared/held-image-fixture";
 test.use({ viewport: { width: 1720, height: 960 } });
 
 async function prepareThumbnailFixture(page: Page, context: BrowserContext, baseURL: string, origin: string,
-  density: "grid" | "justified" | "table", totalImages = 343) {
+  density: "grid" | "justified" | "table", totalImages = 343, mixedAspectRatios = false) {
   const appOrigin = new URL(baseURL).origin;
   await context.route("**/*", route => {
     const url = new URL(route.request().url());
@@ -23,16 +23,23 @@ async function prepareThumbnailFixture(page: Page, context: BrowserContext, base
   await page.addInitScript(density => sessionStorage.setItem("kupua-density", density), density);
   await page.goto("/search?nonFree=true");
   await page.waitForFunction(() => Boolean((window as any).__kupua_store__));
-  await page.evaluate(async totalImages => {
+  await page.evaluate(async ({ totalImages, mixedAspectRatios }) => {
     const configPath = "/src/dal/es-config.ts";
     if (!(await import(configPath)).IS_LOCAL_ES) throw new Error("Thumbnail lifetime fixture requires local mode");
     const path = "/src/dal/mock-data-source.ts";
     const { MockDataSource } = await import(path);
     const store = (window as any).__kupua_store__;
-    store.setState({ dataSource: new MockDataSource(totalImages) });
+    store.setState({ dataSource: new MockDataSource(totalImages, undefined, {
+      transformImage: (image: import("../../src/types/image").Image) => {
+        if (!mixedAspectRatios) return image;
+        const portrait = Math.floor(Number(image.id.slice(4)) / 2000) % 2 === 1;
+        return { ...image, source: { ...image.source,
+          dimensions: { width: portrait ? 90 : 180, height: portrait ? 180 : 90 } } };
+      },
+    }) });
     await store.getState().search();
     await store.getState().extendForward();
-  }, totalImages);
+  }, { totalImages, mixedAspectRatios });
 }
 
 async function expectVisibleThumbnail(page: Page, density: "grid" | "justified" | "table", source: string) {
@@ -192,22 +199,29 @@ async function paintedColours(page: Page, png: Buffer, points: { x: number; y: n
 }
 
 for (const columns of [3, 4, 6]) {
-  test(`Grid seek preserves painted thumbnail slots across remainder changes (${columns} columns)`, async ({ page, context, baseURL }) => {
+  test(`Grid seek preserves painted thumbnail slots and proportions across remainder changes (${columns} columns)`, async ({ page, context, baseURL }) => {
     await page.setViewportSize({ width: columns * 280 + 40, height: 960 });
     let holding = false;
     const colours = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ff8000', '#8000ff'];
     const rasters = await page.evaluate(colours => {
       const canvas = document.createElement('canvas');
-      canvas.width = canvas.height = 100;
       const ctx = canvas.getContext('2d')!;
-      return colours.map(colour => { ctx.fillStyle = colour; ctx.fillRect(0, 0, 100, 100); return canvas.toDataURL('image/png').split(',')[1]; });
+      return [false, true].map(portrait => {
+        canvas.width = portrait ? 90 : 180;
+        canvas.height = portrait ? 180 : 90;
+        return colours.map(colour => {
+          ctx.fillStyle = colour;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          return canvas.toDataURL('image/png').split(',')[1];
+        });
+      });
     }, colours);
     const server = await heldImageServer({ hold: () => holding, holdHeaders: true, limit: 4096, imageContentType: 'image/png', imageBody: path => {
       const index = Number(path.match(/img-(\d+)/)?.[1]);
-      return Buffer.from(rasters[index % rasters.length], 'base64');
+      return Buffer.from(rasters[Math.floor(index / 2000) % 2][index % colours.length], 'base64');
     } });
     try {
-      await prepareThumbnailFixture(page, context, baseURL!, server.origin, 'grid', 80_003);
+      await prepareThumbnailFixture(page, context, baseURL!, server.origin, 'grid', 80_003, true);
       const region = page.getByRole('region', { name: 'Image results grid', exact: true });
       expect(await region.evaluate(element => Math.floor(element.clientWidth / 280))).toBe(columns);
       const target = (base: number, remainder: number) => base + ((100 + remainder - base) % columns + columns) % columns;
@@ -225,15 +239,20 @@ for (const columns of [3, 4, 6]) {
           const bounds = region.getBoundingClientRect();
           return { region, scrollTop: region.scrollTop, cells: [...region.querySelectorAll<HTMLElement>('[data-grid-cell]')]
             .filter(cell => { const rect = cell.getBoundingClientRect(); return rect.top >= bounds.top && rect.bottom <= bounds.bottom; })
-            .map(cell => { const rect = cell.getBoundingClientRect(); return { cell, image: cell.querySelector('img')!,
+            .map(cell => { const rect = cell.getBoundingClientRect(); const image = cell.querySelector('img')!;
+              const imageRect = image.getBoundingClientRect();
+              return { cell, image,
               id: cell.dataset.imageId, left: rect.left, top: rect.top,
-              point: { x: rect.left + rect.width / 2 - bounds.left, y: rect.top + 95 - bounds.top } }; }) };
+              point: { x: rect.left + rect.width / 2 - bounds.left, y: rect.top + 95 - bounds.top },
+              edgePoints: [imageRect.left - 2, imageRect.left + 2, imageRect.right - 2, imageRect.right + 2]
+                .map(left => ({ x: left - bounds.left, y: imageRect.top + imageRect.height / 2 - bounds.top })) }; }) };
         });
         try {
-          const points = await snapshot.evaluate(snapshot => snapshot.cells.map(cell => cell.point));
-          expect(points.length).toBeGreaterThanOrEqual(columns * 2);
+          const points = await snapshot.evaluate(snapshot => snapshot.cells.flatMap(cell => [cell.point, ...cell.edgePoints]));
+          expect(await snapshot.evaluate(snapshot => snapshot.cells.length)).toBeGreaterThanOrEqual(columns * 2);
           const before = await paintedColours(page, await region.screenshot({ scale: 'css' }), points);
-          expect(new Set(before.map(colour => colour.join(','))).size).toBeGreaterThanOrEqual(columns);
+          const centreColours = before.filter((_, index) => index % 5 === 0);
+          expect(new Set(centreColours.map(colour => colour.join(','))).size).toBeGreaterThanOrEqual(columns);
           holding = true;
           const previousGeneration = await page.evaluate(() => (window as any).__kupua_store__.getState()._seekGeneration);
           await page.evaluate(async offset => { await (window as any).__kupua_store__.getState().seek(offset); }, target(base, remainder));
@@ -243,7 +262,7 @@ for (const columns of [3, 4, 6]) {
           await page.evaluate(async () => { await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame); });
           for (let frame = 0; frame < 3; frame++) {
             expect(await paintedColours(page, await region.screenshot({ scale: 'css' }), points),
-              'Pending replacement must retain pre-seek pixels in their original slots').toEqual(before);
+              'Pending replacement must retain departure pixels in their original slots and proportions').toEqual(before);
           }
           const retained = await snapshot.evaluate(snapshot => ({ scrollTop: snapshot.region.scrollTop,
             cells: snapshot.cells.map(({ cell, image, id, left, top }) => ({ connected: cell.isConnected && image.isConnected,
@@ -264,13 +283,28 @@ for (const columns of [3, 4, 6]) {
             const rect = cell.getBoundingClientRect(); return rect.top >= bounds.top && rect.bottom <= bounds.bottom;
           }).map(cell => {
             const rect = cell.getBoundingClientRect();
-            const colour = colours[Number(cell.dataset.imageId!.slice(4)) % colours.length];
+            const index = Number(cell.dataset.imageId!.slice(4));
+            const colour = colours[index % colours.length];
+            const image = cell.querySelector('img')!;
+            const imageRect = image.getBoundingClientRect();
+            const area = image.parentElement!.getBoundingClientRect();
+            const style = getComputedStyle(image);
+            const horizontalBorder = parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
+            const verticalBorder = parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+            const ratio = Math.floor(index / 2000) % 2 === 1 ? 0.5 : 2;
+            const fittedWidth = Math.min(area.width - horizontalBorder, (area.height - 4 - verticalBorder) * ratio);
             return { point: { x: rect.left + rect.width / 2 - bounds.left, y: rect.top + 95 - bounds.top },
-              colour: [1, 3, 5].map(index => parseInt(colour.slice(index, index + 2), 16)).concat(255) };
+              colour: [1, 3, 5].map(index => parseInt(colour.slice(index, index + 2), 16)).concat(255),
+              widthError: Math.abs(imageRect.width - fittedWidth - horizontalBorder),
+              heightError: Math.abs(imageRect.height - fittedWidth / ratio - verticalBorder) };
           });
         }, colours);
         expect(await paintedColours(page, await region.screenshot({ scale: 'css' }), destination.map(cell => cell.point)))
           .toEqual(destination.map(cell => cell.colour));
+        for (const cell of destination) {
+          expect(cell.widthError, 'Loaded destination fits the thumbnail area').toBeLessThan(1);
+          expect(cell.heightError, 'Loaded destination keeps its own proportions').toBeLessThan(1);
+        }
       }
       expect(changedRemainders, 'Exercise a changed row remainder, not only same-slot replacement').toBeGreaterThan(0);
     } finally { await server.close(); }

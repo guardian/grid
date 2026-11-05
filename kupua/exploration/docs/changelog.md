@@ -24,6 +24,37 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 4 November 2026 - Window integrity and stationary scrolling recovery
+
+Extensions cannot start from a departure window while its replacement is pending.
+Responses must still match the receiving boundary before publishing rows, retained
+sort tuples or enrichment, including the second read across a backward null boundary.
+Indexed corpus-bottom input uses viewport admission instead of sequentially filling
+from the old buffer through the physical-bottom fallback.
+
+Obsolete response release and non-publishing focus/refill completion can request a
+bounded reconsideration of current viewport demand. The mounted view respects the
+existing cooldown, committed geometry and cancellation ownership without fabricating
+user input. Failure recovery is restricted to the retained window, not a retry of
+the failed destination. Focus ownership survives density changes; identical valid
+refill demand preserves its pending deadline.
+
+A useful accepted refill remains extensible while initial search is pending. When
+the initial page replaces it, provisional range work is retired before it can clear
+a successor's in-flight flag. Existing timing, page size and buffer capacity remain
+unchanged. Regression coverage now observes the first interior eviction without
+conditional skips, exact ordered publication, stationary recovery and full tail-row
+visibility; the second backward publication guard has a discriminating mutation check.
+The pending-sort/density browser fixture retains asynchronous import setup through
+the existing owned-handle helper, preventing collection before the scenario begins
+without retries or relaxed assertions.
+
+Captioned Grid thumbnails retain the loaded resource's aspect ratio while a reused
+image element awaits its destination source. Native load updates a node-local CSS
+ratio, and containment preserves proportions without extra requests or React state.
+Held portrait/landscape pixel witnesses preserve departure edges and verify the
+destination's fitted size instead of checking only uniformly shaped thumbnail centres.
+
 ### 4 November 2026 - Default-off mutation boundary
 
 Added a command boundary separate from reads, limited to label addition using the

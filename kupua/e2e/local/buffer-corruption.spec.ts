@@ -28,7 +28,7 @@
  *   npx playwright test e2e/local/buffer-corruption.spec.ts --headed
  */
 
-import { test, expect } from "../shared/helpers";
+import { test, expect, waitForFixtureSetup } from "../shared/helpers";
 import type { Route } from "@playwright/test";
 
 // ---------------------------------------------------------------------------
@@ -310,44 +310,50 @@ test.describe("B8 pending sort survives saved density", () => {
           await page.waitForFunction(() => !(window as any).__kupua_store__.getState().loading);
           const initial = await kupua.getStoreState();
           expect(initial.total).toBeGreaterThan(1000);
-          await page.evaluate(async ({ transport, focusMode }) => {
-            const configPath = "/src/dal/es-config.ts";
-            if (!(await import(configPath)).IS_LOCAL_ES) throw new Error("B8 fixture requires local ES");
-            const prefsPath = "/src/stores/ui-prefs-store.ts";
-            const { useUiPrefsStore, getEffectiveFocusMode } = await import(prefsPath);
-            useUiPrefsStore.getState().setFocusMode(focusMode);
-            if (getEffectiveFocusMode() !== focusMode) throw new Error("B8 focus mode mismatch");
-            const store = (window as any).__kupua_store__;
-            const originalSource = store.getState().dataSource;
-            const apiPath = "/src/dal/api-data-source.ts";
-            const source = transport === "media-api-fixture"
-              ? new (await import(apiPath)).ApiDataSource() : originalSource;
-            const originalPage = source.searchAfter;
-            const ownPage = Object.getOwnPropertyDescriptor(source, "searchAfter");
-            const originalAbort = store.getState().cancelWindowMaintenance;
-            const probe = { originalSource, rangeAborts: 0, emptyPublications: 0,
-              signal: null as AbortSignal | null, cleanup: () => {} };
-            source.searchAfter = function (...args: any[]) {
-              if (args[0].trackTotalHits && !args[1]) probe.signal = args[3];
-              return originalPage.apply(this, args);
-            };
-            store.setState({ dataSource: source, cancelWindowMaintenance: () => {
-              probe.rangeAborts += 1;
-              originalAbort();
-            } });
-            const unsubscribe = store.subscribe((state: any) => {
-              if (!state.loading && state.error === null && state.total === 0 && state.results.length === 0) {
-                probe.emptyPublications += 1;
-              }
-            });
-            probe.cleanup = () => {
-              unsubscribe();
-              if (ownPage) Object.defineProperty(source, "searchAfter", ownPage);
-              else delete source.searchAfter;
-              store.setState({ dataSource: originalSource, cancelWindowMaintenance: originalAbort });
-            };
-            (window as any).__b8 = probe;
+          const setup = await page.evaluateHandle(({ transport, focusMode }) => {
+            const job = { complete: false, error: null as string | null, pending: undefined as Promise<void> | undefined };
+            job.pending = (async () => {
+              const configPath = "/src/dal/es-config.ts";
+              if (!(await import(configPath)).IS_LOCAL_ES) throw new Error("B8 fixture requires local ES");
+              const prefsPath = "/src/stores/ui-prefs-store.ts";
+              const { useUiPrefsStore, getEffectiveFocusMode } = await import(prefsPath);
+              useUiPrefsStore.getState().setFocusMode(focusMode);
+              if (getEffectiveFocusMode() !== focusMode) throw new Error("B8 focus mode mismatch");
+              const store = (window as any).__kupua_store__;
+              const originalSource = store.getState().dataSource;
+              const apiPath = "/src/dal/api-data-source.ts";
+              const source = transport === "media-api-fixture"
+                ? new (await import(apiPath)).ApiDataSource() : originalSource;
+              const originalPage = source.searchAfter;
+              const ownPage = Object.getOwnPropertyDescriptor(source, "searchAfter");
+              const originalAbort = store.getState().cancelWindowMaintenance;
+              const probe = { originalSource, rangeAborts: 0, emptyPublications: 0,
+                signal: null as AbortSignal | null, cleanup: () => {} };
+              source.searchAfter = function (...args: any[]) {
+                if (args[0].trackTotalHits && !args[1]) probe.signal = args[3];
+                return originalPage.apply(this, args);
+              };
+              store.setState({ dataSource: source, cancelWindowMaintenance: () => {
+                probe.rangeAborts += 1;
+                originalAbort();
+              } });
+              const unsubscribe = store.subscribe((state: any) => {
+                if (!state.loading && state.error === null && state.total === 0 && state.results.length === 0) {
+                  probe.emptyPublications += 1;
+                }
+              });
+              probe.cleanup = () => {
+                unsubscribe();
+                if (ownPage) Object.defineProperty(source, "searchAfter", ownPage);
+                else delete source.searchAfter;
+                store.setState({ dataSource: originalSource, cancelWindowMaintenance: originalAbort });
+              };
+              (window as any).__b8 = probe;
+            })();
+            job.pending.then(() => { job.complete = true; }, (error) => { job.error = String(error); });
+            return job;
           }, { transport, focusMode });
+          await waitForFixtureSetup(page, setup);
 
           let release!: () => void;
           const held = new Promise<void>(resolve => { release = resolve; });

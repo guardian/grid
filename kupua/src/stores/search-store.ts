@@ -335,6 +335,7 @@ interface SearchState {
   // Track in-flight extend operations to avoid duplicates
   _extendForwardInFlight: boolean;
   _extendBackwardInFlight: boolean;
+  _windowRecovery: { signal: AbortSignal; searchGeneration: number; retainedOnly: boolean } | null;
 
   /**
    * Number of items prepended by the most recent backward extend.
@@ -600,6 +601,7 @@ let _newImagesPollGeneration = 0;
 
 let _searchAbortController = new AbortController();
 let _pendingInitialSearchSignal: AbortSignal | null = null;
+let _acceptedRefillSearchGeneration = -1;
 let _browseAbortController = new AbortController();
 let _pendingWindowReadSignal: AbortSignal | null = null;
 let _initialSearchDiscovery: InitialSearchDiscovery | null = null;
@@ -636,6 +638,24 @@ function hasPendingSearch(state: SearchState): boolean {
 function hasPendingForegroundRead(state: SearchState): boolean {
   return hasPendingSearch(state) || (state._browseNavigation !== null &&
     !state._browseNavigation.signal.aborted && state._browseNavigation.phase !== "ready");
+}
+
+function hasPendingWindowReplacement(state: SearchState): boolean {
+  return (_pendingInitialSearchSignal !== null && !_pendingInitialSearchSignal.aborted &&
+      _acceptedRefillSearchGeneration !== _searchGeneration) ||
+    state.sortAroundFocusStatus !== null ||
+    (state._browseNavigation !== null && !state._browseNavigation.signal.aborted && state._browseNavigation.phase !== "ready") ||
+    (_pendingWindowReadSignal !== null && !_pendingWindowReadSignal.aborted) ||
+    (state._cursorRestore !== null && !state._cursorRestore.signal.aborted);
+}
+
+function sameBoundaryCursor(first: SortValues | null, second: SortValues | null): boolean {
+  return first === second || (first !== null && second !== null && first.length === second.length &&
+    first.every((value, index) => value === second[index]));
+}
+
+function windowRecovery(signal: AbortSignal, retainedOnly = false): NonNullable<SearchState["_windowRecovery"]> {
+  return { signal, searchGeneration: _searchGeneration, retainedOnly };
 }
 
 function cancelBrowseNavigation(get: () => SearchState, set: (state: Partial<SearchState>) => void): void {
@@ -770,6 +790,10 @@ let _searchLifecycle: SearchLifecycleSnapshot = {
  * The cooldown gives the view time to settle at the correct position.
  */
 let _seekCooldownUntil = 0;
+
+export function getWindowMaintenanceDelay(): number {
+  return Math.max(0, _seekCooldownUntil - Date.now());
+}
 
 /**
  * Re-entrancy guard for _topUpScrollModeBuffer — several call sites can fire
@@ -1687,6 +1711,9 @@ async function _findAndFocusImage(
   continuity?: OwnedSearchContinuity,
 ): Promise<void> {
   const { dataSource } = get();
+  const recoveryResults = get().results;
+  const recoveryPlacement = get().sortAroundFocusGeneration;
+  const recoveryGeneration = _searchGeneration;
   // Apply frozen-until cap — sort-around-focus should not include new images.
   const fp = frozenParams(params, get);
   const presentationCurrent = () => continuity?.historyFocusIntent === undefined
@@ -2112,6 +2139,11 @@ async function _findAndFocusImage(
     }
   } finally {
     clearTimeout(timeoutId);
+    if (!fallbackFirstPage && discoveredTotal === undefined && !findFocusSignal.aborted &&
+        recoveryGeneration === _searchGeneration && get().results === recoveryResults &&
+        get().sortAroundFocusGeneration === recoveryPlacement && get().sortAroundFocusStatus === null) {
+      set({ _windowRecovery: windowRecovery(_rangeAbortController.signal, true) });
+    }
   }
 }
 
@@ -2159,6 +2191,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   aiPoolTotal: null,
   _extendForwardInFlight: false,
   _extendBackwardInFlight: false,
+  _windowRecovery: null,
   _lastPrependCount: 0,
   _prependGeneration: 0,
   _arrivingImageIds: new Set(),
@@ -2695,6 +2728,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         // Commit-to-view (fresh search): replace the enrichment overlay.
         // setEnrichment replaces all — fresh search is the only commit that uses set (not upsert).
         if (result.enrichment) useEnrichmentStore.getState().setEnrichment(result.enrichment);
+        if (_acceptedRefillSearchGeneration === myGeneration) cancelWindowReads(get, set);
         set({
           results: result.hits,
           bufferOffset: 0,
@@ -2813,7 +2847,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   },
 
   extendForward: async () => {
-    if (get().params.aiQuery) return;
+    if (get().params.aiQuery || hasPendingWindowReplacement(get())) return;
     const {
       dataSource, params: rawParams, results, bufferOffset, total,
       endCursor, pitId, _extendForwardInFlight, _pitGeneration,
@@ -2856,6 +2890,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
       if (signal.aborted) return;
       if (result.pitId === null) set({ pitId: null });
+      if (!sameBoundaryCursor(endCursor, get().endCursor)) {
+        set({ _extendForwardInFlight: false, _windowRecovery: windowRecovery(signal) });
+        return;
+      }
       if (result.hits.length === 0) {
         set({ _extendForwardInFlight: false });
         return;
@@ -2918,6 +2956,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       });
     } catch (e) {
       if (signal.aborted) return;
+      if (!sameBoundaryCursor(endCursor, get().endCursor)) {
+        set({ _extendForwardInFlight: false, _windowRecovery: windowRecovery(signal) });
+        return;
+      }
       if (e instanceof DOMException && e.name === "AbortError") {
         set({ _extendForwardInFlight: false });
         return;
@@ -2940,7 +2982,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   },
 
   extendBackward: async () => {
-    if (get().params.aiQuery) return;
+    if (get().params.aiQuery || hasPendingWindowReplacement(get())) return;
     const {
       dataSource, params: rawParams, bufferOffset, startCursor, pitId,
       _extendBackwardInFlight, _pitGeneration,
@@ -2986,6 +3028,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
       if (signal.aborted) return;
       if (result.pitId === null) set({ pitId: null });
+      if (!sameBoundaryCursor(startCursor, get().startCursor)) {
+        set({ _extendBackwardInFlight: false, _windowRecovery: windowRecovery(signal) });
+        return;
+      }
       if (startCursor[0] === null && result.hits.length < fetchCount) {
         const valuedPage = await createExpiryAwareSearchAfter(dataSource, get, set)(
           { ...params, offset: 0, length: fetchCount - result.hits.length, trackTotalHits: false },
@@ -2996,6 +3042,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         );
         if (signal.aborted) return;
         if (valuedPage.pitId === null) set({ pitId: null });
+        if (!sameBoundaryCursor(startCursor, get().startCursor)) {
+          set({ _extendBackwardInFlight: false, _windowRecovery: windowRecovery(signal) });
+          return;
+        }
         result = {
           ...result,
           hits: [...valuedPage.hits, ...result.hits],
@@ -3078,6 +3128,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       _seekCooldownUntil = Date.now() + POST_EXTEND_COOLDOWN_MS;
     } catch (e) {
       if (signal.aborted) return;
+      if (!sameBoundaryCursor(startCursor, get().startCursor)) {
+        set({ _extendBackwardInFlight: false, _windowRecovery: windowRecovery(signal) });
+        return;
+      }
       if (e instanceof DOMException && e.name === "AbortError") {
         set({ _extendBackwardInFlight: false });
         return;
@@ -4082,6 +4136,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       const publishedTotal = discovery ? total : get().total;
       finishSearchDiscovery(discovery);
       committed = true;
+      if (purpose === "refill") _acceptedRefillSearchGeneration = _searchGeneration;
       set({
         ...discoveredState,
         results: result.hits,
@@ -4198,7 +4253,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       }
       if (_pendingWindowReadSignal === signal) {
         _pendingWindowReadSignal = null;
-        if (!committed) set({ loading: hasPendingForegroundRead(get()) });
+        if (!committed) set({ loading: hasPendingForegroundRead(get()),
+          ...(!signal.aborted && { _windowRecovery: windowRecovery(signal, true) }) });
       }
       if (!committed && get()._pendingFocusAfterSeek?.signal === signal) {
         set({ _pendingFocusAfterSeek: null });
