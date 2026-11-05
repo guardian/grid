@@ -3,7 +3,7 @@ package lib.elasticsearch
 import org.apache.pekko.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.elasticsearch.filters
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchExecutions, ReapableEligibility, Running}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchError, ElasticSearchExecutions, ReapableEligibility, Running}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
@@ -17,7 +17,7 @@ import com.sksamuel.elastic4s.requests.searches.queries.Query
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
 import com.sksamuel.elastic4s.requests.update.UpdateRequest
-import com.sksamuel.elastic4s.{ElasticDsl, Executor, Functor, Handler, Response}
+import com.sksamuel.elastic4s.{ElasticDsl, ElasticError, Executor, Functor, Handler, Response}
 import lib.{BatchDeletionIds, ThrallMetrics}
 import org.joda.time.DateTime
 import play.api.libs.json.JsValue.jsValueToJsLookup
@@ -26,6 +26,7 @@ import play.api.libs.json._
 import scala.annotation.nowarn
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
 
@@ -83,13 +84,75 @@ class ElasticSearch(
     if (includeDenseVectorMappings) json
     else json - "embedding"
 
-  def directInsert(image: Image, indexName: String)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[ElasticSearchInsertResponse] =
-    executeAndLog(
-      indexInto(indexName).id(image.id).source(Json.stringify(prepareImageJson(Json.toJson(image).as[JsObject]))),
-      s"ES6 indexing image ${image.id} into index '$indexName'"
-    ).map(indexResponse =>
-      ElasticSearchInsertResponse(indexResponse.result.index)
+  private val XmpObjectMappingConflict =
+    """object mapping for \[([^\]]+)\] tried to parse field \[[^\]]*\] as object, but found a concrete value""".r
+  private val XmpFieldParsingFailure = """failed to parse field \[([^\]]+)\]""".r
+
+  private def elasticErrorDetails(error: ElasticError): Seq[(String, String)] = {
+    def causedByDetails(cause: ElasticError.CausedBy): Seq[(String, String)] =
+      (cause.`type` -> cause.reason) +: cause.causedBy.toSeq.flatMap(causedByDetails)
+
+    (error.`type` -> error.reason) +: (
+      error.rootCause.flatMap(elasticErrorDetails) ++
+        error.causedBy.toSeq.flatMap(causedByDetails)
     )
+  }
+
+  private def conflictingXmpField(error: Throwable): Option[String] = error match {
+    case elasticSearchError: ElasticSearchError =>
+      elasticErrorDetails(elasticSearchError.error).iterator.flatMap { case (errorType, reason) =>
+        XmpObjectMappingConflict.findFirstMatchIn(reason).map(_.group(1)).orElse {
+          if (Set("document_parsing_exception", "mapper_parsing_exception").contains(errorType))
+            XmpFieldParsingFailure.findFirstMatchIn(reason).map(_.group(1))
+          else None
+        }
+      }.find(_.startsWith("fileMetadata.xmp."))
+    case _ => None
+  }
+
+  private def dropXmpField(source: JsObject, fieldPath: String): Option[(JsObject, String)] = {
+    val xmpFieldPath = fieldPath.stripPrefix("fileMetadata.xmp.")
+    val possibleKeys = Seq(xmpFieldPath, xmpFieldPath.takeWhile(_ != '.')).filter(_.nonEmpty).distinct
+
+    for {
+      fileMetadata <- (source \ "fileMetadata").asOpt[JsObject]
+      xmp <- fileMetadata.value.get("xmp").collect { case value: JsObject => value }
+      key <- possibleKeys.find(xmp.keys.contains)
+    } yield {
+      val updatedFileMetadata = fileMetadata + ("xmp" -> (xmp - key))
+      (source + ("fileMetadata" -> updatedFileMetadata), key)
+    }
+  }
+
+  def directInsert(image: Image, indexName: String)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[ElasticSearchInsertResponse] = {
+    val logMessage = s"ES6 indexing image ${image.id} into index '$indexName'"
+
+    def insert(source: JsObject): Future[ElasticSearchInsertResponse] =
+      executeAndLog(
+        indexInto(indexName).id(image.id).source(Json.stringify(source)),
+        logMessage
+      ).map(indexResponse =>
+        ElasticSearchInsertResponse(indexResponse.result.index)
+      ).recoverWith {
+        case NonFatal(error) =>
+          conflictingXmpField(error).flatMap { fieldPath =>
+            dropXmpField(source, fieldPath).map { case (sourceWithoutField, field) =>
+              (sourceWithoutField, field, fieldPath)
+            }
+          } match {
+            case Some((sourceWithoutField, field, fieldPath)) =>
+              logger.warn(
+                logMarker,
+                s"Retrying image ${image.id} without XMP field '$field' after mapping conflict on '$fieldPath'",
+                error
+              )
+              insert(sourceWithoutField)
+            case None => Future.failed(error)
+          }
+      }
+
+    insert(prepareImageJson(Json.toJson(image).as[JsObject]))
+  }
 
 
   def migrationAwareIndexImage(id: String, image: Image, lastModified: DateTime)
