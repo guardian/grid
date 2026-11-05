@@ -6,9 +6,10 @@
 > ⚠️ These changes require modifying `Mappings.scala` in Grid's common-lib —
 > a Grid-wide change, not kupua-only. Needs team buy-in and a re-index.
 >
-> **Kupua coupling:** `src/lib/field-registry.ts` statically declares `fieldType` and
+> **Kupua coupling:** `src/lib/field-registry.tsx` statically declares `fieldType` and
 > `aggregatable` per field based on the current mapping. When these enhancements ship,
-> the registry must be updated to match (or replaced with dynamic `_mapping` introspection).
+> update the registry and relevant suggestion/sort consumers. Keep analysed search
+> paths distinct from keyword aggregation/sort paths.
 >
 > **Related scalar proposal:** `materialized-scalars-for-lastUsed-lastAddedToCollection.md`
 > records why root latest-date fields would unlock exact and performant special-sort
@@ -19,9 +20,11 @@
 ## 0. The Problem — Features Blocked or Degraded by Current Mappings
 
 Nine name/place fields in Grid's ES index are mapped as `text` (analysed)
-without a `keyword` sub-field. This means they support free-text search but
-**cannot** support aggregations, sorting, exact match, or wildcards. These
-are: `byline`, `city`, `country`, `state`, `subLocation`, `copyright`,
+without a `keyword` sub-field. They support free-text search but lack the
+whole-value representation needed for ordinary terms aggregations, doc-value
+sorting and exact whole-value matching. Wildcard queries can match indexed text
+tokens, but that is not equivalent to matching the original full name or value.
+These fields are: `byline`, `city`, `country`, `state`, `subLocation`, `copyright`,
 `peopleInImage`, `suppliersReference`, and `usageRights.photographer`.
 
 Two stemmed fields (`description`, `title`) lack an unstemmed sub-field,
@@ -38,16 +41,35 @@ These gaps block or degrade the following Kupua features:
 | Feature | What works today | What's blocked |
 |---|---|---|
 | **Filters panel** | Facets with counts for all keyword fields (credit, source, category, uploader, subjects, keywords, file type, all `fileMetadata.*` aliases) | No facets for byline, city, country, state, copyright, peopleInImage — the most useful editorial facets ("who shot this?", "where?"). These fields are `text`, which can't produce terms aggregations. |
-| **CQL typeahead suggestions with counts** | Value suggestions with query-scoped counts for every keyword and alias field. Infrastructure in place: resolvers check the store's aggregation cache, fall back to independent ES calls, and thread `count` through to CQL's `TextSuggestionOption` (which renders counts flush-right in the popover). | No suggestions at all for `by:`, `city:`, `country:`, `person:`, `state:`, `copyright:`, `illustrator:`, `location:`, `suppliersReference:`. These are listed in `typeahead-fields.ts` as resolver-less entries because there's no keyword field to aggregate on. Adding `.keyword` sub-fields would close this gap with one-line changes per field in the field registry — the typeahead infrastructure already handles it. |
+| **CQL typeahead suggestions with counts** | Configured keyword/alias resolvers filter bounded popularity buckets locally, using cached counts or an independent DAL aggregation request. API mode goes through media-api. Counts appear in the CQL popover; matches outside the fetched buckets are not discovered. | Text-only fields need aggregatable sub-fields plus corresponding resolver/registry wiring. Adding `.keyword` alone does not register a resolver or provide server-side partial-name filtering. Preserve the analysed parent for ordinary text searches. |
 | **Column sorting in image table** | Sort by credit, source, upload date, file type, all alias fields | Can't sort by byline, city, country, copyright — fields users would naturally want to sort by. Text fields don't support doc-value sorting. |
 
-### Future features — enabled by mapping changes
+### Existing label suggestions do not require new mappings
 
-| Feature | What it enables | Mapping dependency |
+`userMetadata.labels` is already a keyword field. Kupua's search-box label
+resolver filters existing buckets by case-insensitive prefix: normally up to 50
+from its own request, or the cached facet buckets (normally 10). This is useful
+suggestion behaviour, not a search of every label name. An empty suggestion
+list does not prove that a label is absent. See [the resolver](../../src/lib/typeahead-fields.ts),
+[facet sizes](../../src/constants/tuning.ts) and [the API datasource](../../src/dal/api-data-source.ts).
+
+Mapping support, API query support and frontend suggestion wiring are separate.
+The existing media-api aggregation endpoint accepts field/size and image-search
+scope, but no bucket-name predicate. Its `keyword-page` sort-profile operation
+also supplies bounded key-ordered value/count pages. Neither these reads nor
+reusing the label resolver requires the text-field enhancements proposed here.
+See [aggregation and profile execution](../../../media-api/app/lib/elasticsearch/ElasticSearch.scala).
+The [suggestion endpoint proposal](better-suggestions-aggregation-endpoint-enhancement.md)
+separately describes matching before popularity limiting, reuse across keyword
+fields, and the unresolved case/accent and performance decisions.
+
+### Future features — mapping and query dependencies
+
+| Feature | What it enables | Mapping/query dependency |
 |---|---|---|
-| **Wildcard search** | `by:Rob*` finds all photographers starting with "Rob". `suppliersReference:REX-2024*` finds all Rex references from 2024. | Wildcards only work on `keyword` fields. Currently impossible on text-analysed fields. `.keyword` sub-fields enable it. |
-| **Accent-insensitive field search** | `by:Jose` finds `José Oliva`. `city:Munster` finds `Münster`. `credit:Jurgen` finds `Jürgen Schwarz`. | Requires the proposed `standard_folding` analyser (§2c) on text fields, and `lowercase_asciifolding` normalizer on keyword fields. Currently, 10 of 12 text fields lack folding. |
-| **Exact phrase search (no stemming)** | `description:"running man"` finds exactly that phrase, not documents about "a man who runs". | Requires `.exact` sub-field on `description` and `title` (§2b). Currently, stemmed fields can only do stemmed search. |
+| **Whole-value wildcard search** | With query-builder support, `by:Rob*` could match names starting with "Rob", and `suppliersReference:REX-2024*` could match references with that prefix. | `.keyword` supplies the whole-value index. media-api must also emit a prefix/wildcard query: its current CQL builder emits `match`/`match_phrase`, so adding the mapping alone does not enable these examples. Case handling must match the chosen mapping. |
+| **Accent-insensitive field search** | `by:Jose` finds `José Oliva`; `city:Munster` finds `Münster`. A whole-value query such as `credit:"jurgen schwarz"` can match `Jürgen Schwarz`. | Requires `standard_folding` on text fields and `lowercase_asciifolding` on keyword fields. A keyword normalizer does not turn a partial name into a whole-value match. |
+| **Phrase search without stemming** | Distinguish phrases such as `"cars race"` and `"car race"` that minimal English stemming can conflate. | Requires `.exact` sub-fields on `description` and `title` (§2b), plus query routing. Phrase matching still follows token order; the proposed analyser still lowercases and folds accents. |
 | **Grouping / deduplication** | Group results by photographer, by location, by copyright holder — useful for editorial workflows ("show me one image per photographer from this event"). | Needs keyword sub-fields for `terms` aggregation with `top_hits`. |
 | **Exact collection subtree counts** | CollectionTree needs per-node counts that include all descendants. Currently uses a `terms` agg on `collections.pathId` + client-side tree walk to sum children — overcounts when a document belongs to multiple sibling collections (~4% on TEST). A `terms` agg on `collections.pathHierarchy` would give exact subtree counts directly (the `hierarchyAnalyzer` tokenizes each pathId into all ancestor prefixes, so the bucket for `culture` naturally includes all `culture/*` docs). | `pathHierarchy` is `text` — terms aggs require `fielddata: true` (§2d). |
 
@@ -59,15 +81,18 @@ Every string field in Grid's ES mapping uses one of four strategies:
 
 | Mapping type | What it does | Supports | Can't do |
 |---|---|---|---|
-| **`keyword`** | Stores exact string, no analysis | Terms aggs ✅, exact match ✅, sorting ✅, wildcards ✅ | Fuzzy/partial text search ❌, case-insensitive match ❌ |
-| **`text` (standard)** | Tokenises on whitespace/punctuation, lowercases | Full-text search ✅, case-insensitive ✅ | Aggs ❌, sorting ❌, exact match ❌ |
-| **`text` (english_s_stemmer)** | Standard + ASCII folding + possessive stripping + stopwords + light English stemming | Broad full-text search ✅ | Everything standard can't do ❌, plus stems distort original words |
-| **`completion`** | FST-based prefix suggester | Sub-ms autocomplete ✅ | Everything else ❌ |
+| **`keyword`** | Stores a whole value; a configured normalizer can fold it | Terms aggs ✅, whole-value match ✅, sorting ✅; prefix/wildcard queries at the ES layer ✅ | No token-based full-text search; existing unnormalised fields are case-sensitive |
+| **`text` (standard)** | Tokenises on whitespace/punctuation, lowercases | Full-text search ✅, case-insensitive token matching ✅ | No ordinary terms aggs/doc-value sorting or exact original whole-value matching |
+| **`text` (english_s_stemmer)** | Standard + ASCII folding + possessive stripping + stopwords + light English stemming | Broad full-text search ✅ | Same whole-value limitations as standard text; stemming also changes tokens |
+| **`completion`** | FST-based prefix suggester | Prefix autocomplete ✅ | Not a general replacement for search or usage-count aggregations |
 
-**The problem:** text fields and keyword fields are mutually exclusive in
-capability. `standardAnalysed("byline")` can find "Robbie Stephenson" when
-you search "robbie", but can't tell you the top 50 bylines, can't sort by
-byline, and can't do `byline:Robbie*`.
+**The problem:** the current text-only mappings preserve tokens rather than a
+separately searchable whole value. `standardAnalysed("byline")` can find
+"Robbie Stephenson" when you search "robbie", but cannot supply ordinary
+whole-byline buckets or doc-value sorting. Multi-fields supply both forms.
+Separately, current CQL does not translate `byline:Robbie*` into a wildcard
+query; mapping changes do not change that translation. See
+[QueryBuilder](../../../media-api/app/lib/elasticsearch/QueryBuilder.scala).
 
 ### The `englishAnalysedCatchAll` field and `copy_to`
 
@@ -137,12 +162,15 @@ ES multi-fields let a single source field be indexed multiple ways:
 - `metadata.byline` → text search ("robbie" finds "Robbie Stephenson")
 - `metadata.byline.keyword` → exact match, aggs, sort, wildcards
 
-No data duplication — both paths point to the same `_source` value.
+No duplication in `_source`; each sub-field adds its own indexed representation
+and associated storage (§6 and §10).
 
 ### 2b. Add `.exact` sub-fields to stemmed fields
 
-The `english_s_stemmer` analyser stems words: `description:"running man"`
-matches "a man who runs". Sometimes you want the exact words:
+The `english_s_stemmer` analyser uses minimal English stemming, including
+plural reduction: `description:"cars race"` can also match "car race".
+It does not generally equate "running" with "runs", and phrase queries still
+require token order. Sometimes the unstemmed distinction matters:
 
 ```json
 "description": {
@@ -156,10 +184,11 @@ matches "a man who runs". Sometimes you want the exact words:
 
 - `metadata.description` → stemmed (broad search), with asciifolding
 - `metadata.description.exact` → unstemmed but still lowercased and
-  ASCII-folded (phrase-exact search — `"running man"` won't match "runs"
-  but `"chateau"` will still match `"Château"`)
+  ASCII-folded (unstemmed phrase search — `"cars race"` stays distinct from
+  `"car race"`, but `"chateau"` still matches `"Château"`)
 
-The CQL parser can route quoted field values to `.exact` automatically.
+Using `.exact` for quoted field values would also require query-path routing;
+current media-api does not select that sub-field automatically.
 
 ### 2c. Add ASCII folding and Unicode normalisation
 
@@ -252,8 +281,10 @@ analysis chain applied to keyword fields at both index and query time:
 }
 ```
 
-This means `credit:jurgen` matches `"Jürgen Schwarz/Avalon"` — both
-case-insensitive and accent-insensitive. The original value is preserved in
+This means `credit:"jurgen schwarz/avalon"` can match
+`"Jürgen Schwarz/Avalon"` case-insensitively and accent-insensitively.
+`credit:jurgen` still does not match that whole keyword: normalization does
+not add prefix or substring matching. The original value is preserved in
 `_source`; only the indexed/queried form is normalised.
 
 **⚠️ Trade-off for keyword normalizers:** Aggregations return the
@@ -261,10 +292,16 @@ case-insensitive and accent-insensitive. The original value is preserved in
 on credit would return `"afp/getty images"` instead of `"AFP/Getty Images"`.
 If display-quality agg results matter, there are two options:
 
-1. Use `_source` values for display (look up from the top agg bucket keys)
-2. Add a second un-normalised keyword sub-field for display-quality aggs
+1. Obtain representative `_source` values for display. This needs a separate
+   read or an explicitly supported aggregation response; bucket keys alone
+   cannot recover the original spelling or choose between merged variants.
+2. Keep an un-normalised keyword representation for display-quality buckets.
+   Those buckets retain separate case/accent variants rather than the merged
+   counts of the normalised field.
 
-Option 1 is simpler and usually sufficient.
+Choose display spelling and count semantics explicitly. For existing label
+suggestions, frontend case-insensitive filtering can preserve the returned
+label spelling without changing indexed values or merging their counts.
 
 **For new `.keyword` sub-fields on text parents:**
 
@@ -286,7 +323,8 @@ collapse into one bucket instead of appearing twice:
 }
 ```
 
-Same trade-off: agg results are normalised. Use `_source` for display.
+Same trade-off: agg results are normalised. Displaying original spellings
+requires an explicit representative-value read and a policy for merged variants.
 
 ### 2d. Enable `fielddata` on `collections.pathHierarchy` for subtree aggregation
 
@@ -387,7 +425,7 @@ a re-index.
 
 | Field | Current | Observation |
 |---|---|---|
-| **`metadata.credit`** | `keyword` | Correct type. But case-sensitive and no folding. `credit:Jurgen` doesn't find `"Jürgen Schwarz"`. Normalizer would fix. |
+| **`metadata.credit`** | `keyword` | Correct type, but case-sensitive and no folding. A normalizer would let `credit:"jurgen schwarz"` match `"Jürgen Schwarz"`; partial `credit:Jurgen` still needs a different query. |
 | **`metadata.source`** | `keyword` | Same. |
 
 ### Fields that should get `fielddata: true`
@@ -616,10 +654,10 @@ EXISTING KEYWORD FIELDS — add lowercase_asciifolding normalizer:
 
 | Capability | Before | After |
 |---|---|---|
-| **Typeahead suggestions** for byline, city, country… | ❌ Text fields can't agg | ✅ Terms agg on `.keyword` |
-| **Sorting** by byline, city, country, copyright | ❌ | ✅ Sort on `.keyword` |
-| **Wildcard search** `byline:Rob*` | ❌ | ✅ On `.keyword` |
-| **Exact phrase search** without stemming | ❌ `"running man"` matches "runs" | ✅ `match_phrase` on `.exact` |
+| **Typeahead suggestions** for byline, city, country… | No ordinary whole-value aggs | Terms agg on populated `.keyword`, plus resolver/registry wiring; candidate limits still apply |
+| **Sorting** by byline, city, country, copyright | No doc-value sort on the text parent | Sort on populated `.keyword`, with caller sort-path changes |
+| **Wildcard search** `byline:Rob*` | CQL does not emit wildcard queries | `.keyword` provides the whole-value index; CQL/query-builder support is also required |
+| **Exact phrase search** without stemming | Phrase queries use analysed/stemmed tokens | `match_phrase` on `.exact`, with explicit query-path routing |
 | **Accent-insensitive search** `by:Jose` → José | ❌ standard doesn't fold | ✅ standard_folding does |
 | **Unicode normalisation** NFC/NFD matching | ❌ | ✅ asciifolding handles both |
 | **Case-insensitive keyword match** `credit:afp` | ❌ keyword is case-sensitive | ✅ With normalizer |
@@ -774,19 +812,26 @@ would collapse these into single canonical entries at zero disk cost.
 
 ---
 
-## 11. Where This Fits in the Migration Plan
+## 11. Dependencies and Delivery
 
-This is a **Grid platform change** — benefits kahuna and any future consumer.
+This is a **Grid platform proposal**, not a prerequisite for existing label
+suggestions or authorization to change mappings. The
+[API build plan](03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md)
+owns the active migration sequence.
 
-- **Phase 2** (connect to live ES): Add mapping changes to `Mappings.scala` +
-  `IndexSettings.scala`. Test with a CODE re-index.
-- **Phase 3** (Grid API): API endpoints automatically benefit. No API changes.
-- **Kupua**: Typeahead resolvers become simple terms aggs on `.keyword`
-  fields. CQL parser routes quoted values to `.exact`. The infrastructure
-  is already built: `FIELDS_BY_CQL_KEY` maps CQL keys → ES paths,
-  `storeBuckets()` resolves counts from the store's aggregation cache,
-  and `buildTypeaheadFields()` wires resolvers to the CQL popover.
-  When a text field gains a `.keyword` sub-field, updating `esSearchPath`
-  (or adding an `esAggPath`) in the field registry lights up both the
-  Filters panel and CQL typeahead automatically — one-line change per field.
+- **Mappings and index population:** approve the Grid-wide changes to
+  `Mappings.scala` and `IndexSettings.scala`, then deploy and populate the new
+  indexed representations. Adding sub-fields alone does not populate existing
+  documents; the `fielddata` change has different requirements (§2d).
+- **Media-api reads:** existing field-based aggregation/profile endpoints can
+  read populated keyword paths without a new route. Mapping changes do not
+  add wildcard CQL, automatic `.exact` routing or a bucket-name filter before
+  popularity limiting. Those require separate query/contract decisions.
+- **Kupua consumers:** wire the relevant typeahead resolvers, facet registry
+  and sort paths to the new keyword fields. Preserve analysed search paths
+  rather than replacing them indiscriminately with `.keyword`. Existing
+  `storeBuckets()` and `buildTypeaheadFields()` provide reusable infrastructure,
+  not automatic support for every newly mapped field. Keep API-mode reads
+  through media-api, and define original-spelling display and merged-count
+  behaviour if normalizers are adopted.
 

@@ -236,7 +236,11 @@ The refactoring plan moves significant logic between files. Without tests, there
 
 SVG icons are inlined directly in JSX across 5+ components. The search magnifier is copy-pasted between `SearchBar` and `ImageDetail`.
 
-**Recommendation:** Create `components/icons/` with named icon components, or adopt a tree-shakeable icon library (e.g. `lucide-react`).
+**Recommendation:** Consolidate repeated inline SVGs in shared components where useful.
+
+**Operator decision, 5 November 2026:** the icon-library option was rejected.
+Do not introduce Lucide or another icon library. New dependencies require explicit
+operator approval; reuse Kupua's existing inline SVG approach.
 
 ### Finding 11: `getState()` Outside Store 🟡 MODERATE
 

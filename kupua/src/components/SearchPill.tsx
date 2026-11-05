@@ -17,6 +17,76 @@
 
 import { ALT_CLICK } from "@/lib/keyboard-shortcuts";
 
+const PILL_ACTION_ICONS = {
+  close: "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z",
+  confirm: "M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z",
+  add: "M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z",
+  addBox: "M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z",
+  applyAll: "M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6z",
+} as const;
+
+export function containPillActivation(event: React.KeyboardEvent) {
+  if (event.key === "Enter" || event.key === " ") event.stopPropagation();
+}
+
+export function PillActionButton({ action, label, title = label, attached = false, compact = false, disabled, onClick, ref }: {
+  action: "add" | "remove" | "apply-all" | "confirm" | "cancel";
+  label: string;
+  title?: string;
+  attached?: boolean;
+  compact?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  ref?: React.Ref<HTMLButtonElement>;
+}) {
+  return <button ref={ref} type="button" aria-label={label} title={title} disabled={disabled} onClick={onClick} onKeyDown={containPillActivation}
+    className={`inline-flex shrink-0 cursor-pointer items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-grid-accent ${attached
+      ? "w-4.5 self-stretch pointer-coarse:w-11 first:rounded-l-sm last:rounded-r-sm"
+      : action === "confirm" || action === "cancel"
+        ? `h-6 w-6.5 pointer-coarse:size-11 text-white ${action === "confirm" ? "bg-grid-accent enabled:hover:bg-grid-accent-hover" : "bg-[#898989] enabled:hover:bg-grid-hover"}`
+      : compact ? "size-4 self-start pointer-coarse:size-11 text-grid-text enabled:hover:text-white"
+      : "size-8 pointer-coarse:size-11 rounded-sm bg-grid-cell-hover text-grid-text hover:bg-grid-accent/20 hover:text-grid-accent"}`}>
+    <svg className={attached ? "size-3.5" : "size-4"} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d={action === "confirm" ? PILL_ACTION_ICONS.confirm
+        : action === "cancel" || action === "remove" ? PILL_ACTION_ICONS.close
+        : action === "apply-all" ? PILL_ACTION_ICONS.applyAll
+        : compact ? PILL_ACTION_ICONS.addBox : PILL_ACTION_ICONS.add} />
+    </svg>
+  </button>;
+}
+
+export function EditableSearchPill({ value, cqlKey, onSearch, accent, count, total, coverageKnown = true, disabled, onAdd, onRemove }: {
+  value: string;
+  cqlKey: string;
+  onSearch: SearchPillProps["onSearch"];
+  accent?: boolean;
+  count: number;
+  total: number;
+  coverageKnown?: boolean;
+  disabled?: boolean;
+  onAdd: () => void;
+  onRemove: () => void;
+}) {
+  const partial = !coverageKnown || count < total;
+  const pillClass = partial
+    ? `${PILL_BASE} bg-white ${accent ? "text-grid-accent" : "text-[#222]"}`
+    : `${PILL_BASE} ${accent ? "bg-grid-accent text-white" : "bg-[#222] text-[#aaa]"}`;
+  const hoverClass = accent
+    ? "[&_button:enabled:hover]:bg-[#b3e5fc] [&_button:enabled:hover]:text-grid-accent-dark"
+    : "[&_button:enabled:hover]:bg-grid-text-muted [&_button:enabled:hover]:text-[#222]";
+  return <span data-editable-pill className={`${pillClass} ${hoverClass} max-w-full p-0! items-stretch! pointer-coarse:min-h-11`} onKeyDown={containPillActivation}>
+    {partial && <PillActionButton action="apply-all" attached title={`Apply ${cqlKey} to all`}
+      label={`Apply ${value} to all selected images`} disabled={disabled} onClick={onAdd} />}
+    <span className="min-w-0 flex [&>button]:rounded-none [&>button]:border-0 [&>button]:ring-0 [&>button]:bg-transparent [&>button]:text-inherit [&>button]:max-w-full [&>button]:text-left [&>button]:wrap-anywhere">
+      {coverageKnown
+        ? <MultiSearchPill value={value} cqlKey={cqlKey} count={count} total={total} partial={count < total} accent={accent} onSearch={onSearch} />
+        : <SearchPill value={value} cqlKey={cqlKey} onSearch={onSearch} accent={accent} />}
+    </span>
+    <PillActionButton action="remove" attached title={`Remove ${cqlKey}${coverageKnown && count > 1 ? " from all" : ""}`}
+      label={`Remove ${value}${total > 1 ? " from all selected images" : ""}`} disabled={disabled} onClick={onRemove} />
+  </span>;
+}
+
 // ---------------------------------------------------------------------------
 // Shared Tailwind class strings for pill variants
 // ---------------------------------------------------------------------------
@@ -30,7 +100,7 @@ const PILL_ACCENT = `${PILL_BASE} bg-grid-accent text-white hover:bg-grid-accent
 /** Exported for direct use in grid cell label rendering. */
 export { PILL_ACCENT, PILL_BASE };
 
-const PILL_PARTIAL = `${PILL_BASE} border border-grid-cell-hover text-grid-text-dim bg-transparent hover:border-grid-accent hover:text-grid-accent`;
+const PILL_PARTIAL = `${PILL_BASE} ring-1 ring-inset ring-grid-cell-hover text-grid-text-dim bg-transparent hover:ring-grid-accent hover:text-grid-accent`;
 
 // ---------------------------------------------------------------------------
 // SearchPill -- for use in ImageMetadata (direct callback)

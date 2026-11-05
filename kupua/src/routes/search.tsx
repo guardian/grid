@@ -52,6 +52,10 @@ import { isTwoTierFromTotal } from "@/lib/two-tier";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { initGridApi } from "@/lib/grid-api-instance";
 import type { Image } from "@/types/image";
+import { attachedEnrichment, useEnrichmentStore } from "@/stores/enrichment-store";
+import type { LabelEditContext } from "@/lib/label-operation";
+import { LabelOperationReceipts } from "@/components/LabelEditor";
+import { useIsCompact } from "@/hooks/useShell";
 
 export const searchRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -294,6 +298,7 @@ function SearchPage() {
               <AccordionSection sectionId="right-usages" title="Usages">
                 <FocusedUsages />
               </AccordionSection>
+              {!showImageDetail && <CompactLabelActivity />}
             </>
           }
           scrubber={scrubberElement}
@@ -371,13 +376,39 @@ function useFocusedOrSelectedImage() {
   return { ...(isPending && completed ? completed : presentation), isPending };
 }
 
+function CompactLabelActivity() {
+  const compact = useIsCompact();
+  const expanded = usePanelStore(state => state.config.right.visible);
+  return compact && expanded ? <LabelOperationReceipts inline /> : null;
+}
+
+function currentPanelLabelEditing(): LabelEditContext {
+  const selection = useSelectionStore.getState();
+  const search = useSearchStore.getState();
+  const overlays = useEnrichmentStore.getState().data;
+  const targetIds = selection.selectedIds.size ? [...selection.selectedIds] : search.focusedImageId ? [search.focusedImageId] : [];
+  const targets = new Map(targetIds.map(imageId => {
+    const ordinal = search.imagePositions.get(imageId);
+    const image = selection.metadataCache.get(imageId) ?? (ordinal === undefined ? undefined : search.results[ordinal - search.bufferOffset]);
+    return [imageId, { resource: (overlays.get(imageId) ?? (image && attachedEnrichment(image)))?.resource,
+      pending: selection.pendingFetchIds.has(imageId) }];
+  }));
+  const pending = selection.selectedIds.size > 1 && (selection.isReconciling || !selection.reconciledView
+    || [...selection.reconciledView.values()].some(field => field.kind === "pending" || field.kind === "dirty"));
+  return { targetIds, targets, pending };
+}
+
 function FocusedImageMetadata() {
   const { image, isMultiSelection, metadataImages, reconciledView, total, isPending } = useFocusedOrSelectedImage();
+  useEnrichmentStore(state => state.data);
+  const labelEditing = currentPanelLabelEditing();
+  labelEditing.pending ||= isPending;
 
   if (isMultiSelection) {
     return (
       <div className="p-3" aria-busy={isPending}>
-        <MultiImageMetadata images={metadataImages} reconciledView={reconciledView} total={total} />
+        <MultiImageMetadata images={metadataImages} reconciledView={reconciledView} total={total}
+          labelEditing={labelEditing} resolveLabelEditing={currentPanelLabelEditing} />
       </div>
     );
   }
@@ -392,7 +423,7 @@ function FocusedImageMetadata() {
 
   return (
     <div className="p-3" aria-busy={isPending}>
-      <ImageMetadata image={image} />
+      <ImageMetadata image={image} labelEditing={labelEditing} resolveLabelEditing={currentPanelLabelEditing} />
     </div>
   );
 }

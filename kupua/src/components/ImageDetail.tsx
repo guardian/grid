@@ -704,7 +704,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const renderMetadata = (detailImage: Image, overlay?: EnrichmentFields) => <>
     <AccordionSection sectionId="detail-metadata" contentId={`detail-metadata-${detailImage.id}`} title="Details">
       <div className="p-3">
-        <ImageMetadata image={detailImage} overlay={overlay} />
+        <ImageMetadata image={detailImage} overlay={overlay} editingPending={detailImage.id !== imageId} />
       </div>
     </AccordionSection>
     <AccordionSection

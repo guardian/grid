@@ -24,6 +24,53 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 5 November 2026 - Disconnected label editing and shared suggestions
+
+Added an API-mode label editor for single-image and selected-image metadata, with
+separate searchable values, removal and partial-value apply-to-all actions. Each
+action captures immutable intent and all target IDs; missing or pending capabilities
+block the complete operation instead of silently choosing an eligible subset.
+Ordinary actions remain disconnected even with rollout enabled, and direct-ES
+metadata remains read-only. Removal transport and live activation remain unwired.
+
+An in-memory owner outside selection state retains target-bound drafts and bounded,
+newest-first dry-run receipts across SPA navigation. Per-target outcomes distinguish
+acknowledgement, rejection, uncertainty and separate simulated visibility without
+replay or optimistic image updates. Repeated gestures reopen the existing receipt;
+unfinished input or uncertain/in-flight simulation warns on document exit without
+promising reload recovery. An injected addition executor supports controlled partial
+outcomes; root and compact-sheet activity surfaces preserve the appropriate focus scope.
+
+Shared inline SVG pill controls retain compact, equal full/partial heights, Kahuna's
+label palette and field-based tooltips, with stronger segment-local hover feedback
+and hand cursors. A right-aligned boxed Plus reveals compact label entry and stays
+hidden in its fixed slot while editing. Kahuna's placeholder, grey Close and blue
+checkmark are retained; Escape cancels unsent input, while Enter prepares trimmed,
+deduplicated comma-separated additions. Internal eligibility checks remain without
+the diagnostic summary or target disclosure beneath the field.
+
+Entry and CQL search share one replaceable label provider backed by the existing
+DAL aggregation read. Case-insensitive prefix matching preserves popularity within
+the bounded shortlist; omissions are accepted. Entry uses accessible-library scope,
+not selected IDs or browsing filters, while search retains its own scope. Selecting
+a suggestion replaces only the active comma token and preserves neighbouring input.
+Debounced reads cancel obsolete work, and the bounded dropdown overlays following
+metadata without adding document-flow height or extra scope/status copy.
+
+Existing component and local/compiled-hosted fixtures cover the settled controls,
+target ownership, draft/receipt lifecycle, suggestion scope/order, comma replacement,
+overlay geometry, touch safeguards and mutation restrictions. Vitest's test mode
+skips unused Tailwind compilation while importing the real application entry point;
+assertions, module graph, concurrency and timeout budget are unchanged. Development,
+production and hosted browser fixtures continue compiling real CSS.
+
+The existing detail reload/early-close fixture now attaches failure-only pending
+lookup/rank/range and restoration state without exposing image identities. Owned
+wrappers are restored in cleanup; these diagnostics do not repair the historical
+failure or change its assertions/deadlines. Mobile editing UX and improved suggestion
+discovery remain separately scoped. No backend/mapping changes or icon dependency
+are introduced, and new runtime/development dependencies require explicit approval.
+
 ### 4 November 2026 - Window integrity and stationary scrolling recovery
 
 Extensions cannot start from a departure window while its replacement is pending.

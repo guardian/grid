@@ -2117,6 +2117,7 @@ test.describe("Detail close during list restoration", () => {
           await page.addInitScript((target) => {
             let store: any;
             const probe = (window as any).__detailReload = { ready: 0, targetReads: 0, released: false,
+              pending: [] as Array<{ operation: string; stage: string; signal?: AbortSignal }>,
               release: () => {}, cleanup: () => {} };
             Object.defineProperty(window, "__kupua_store__", { configurable: true,
               get: () => store,
@@ -2124,19 +2125,33 @@ test.describe("Detail close during list restoration", () => {
                 store = value;
                 const source = store.getState().dataSource;
                 const original = source.searchAfter;
+                const originalCount = source.countBefore;
                 let release!: () => void;
                 const pending = new Promise<void>(resolve => { release = resolve; });
                 probe.release = () => { probe.released = true; release(); };
                 source.searchAfter = async function (...args: any[]) {
-                  const result = await original.apply(this, args);
-                  if (args[0].ids && args[0].length === 1) {
-                    if (args[0].ids === target) probe.targetReads += 1;
-                    probe.ready += 1;
-                    await pending;
+                  const read = { operation: args[0].ids ? "lookup" : "range", stage: "request", signal: args[3] };
+                  probe.pending.push(read);
+                  try {
+                    const result = await original.apply(this, args);
+                    if (args[0].ids && args[0].length === 1) {
+                      if (args[0].ids === target) probe.targetReads += 1;
+                      probe.ready += 1;
+                      read.stage = "held";
+                      await pending;
+                    }
+                    return result;
+                  } finally {
+                    probe.pending.splice(probe.pending.indexOf(read), 1);
                   }
-                  return result;
                 };
-                probe.cleanup = () => { probe.release(); source.searchAfter = original; };
+                source.countBefore = async function (...args: any[]) {
+                  const read = { operation: "rank", stage: "request", signal: args[2] };
+                  probe.pending.push(read);
+                  try { return await originalCount.apply(this, args); }
+                  finally { probe.pending.splice(probe.pending.indexOf(read), 1); }
+                };
+                probe.cleanup = () => { probe.release(); source.searchAfter = original; source.countBefore = originalCount; };
               },
             });
           }, target);
@@ -2227,6 +2242,18 @@ test.describe("Detail close during list restoration", () => {
             await expect(rings).toHaveCount(mode === "explicit" ? 1 : 0);
             if (mode === "explicit") await expect(rings).toHaveAttribute("data-image-id", target);
             await kupua.assertPositionsConsistent();
+          } catch (error) {
+            const diagnostic = await page.evaluate(() => {
+              const probe = (window as any).__detailReload;
+              const state = (window as any).__kupua_store__?.getState();
+              return { released: probe?.released, ready: probe?.ready,
+                pending: probe?.pending.map(({ operation, stage, signal }: any) => ({ operation, stage, aborted: signal?.aborted })),
+                loading: state?.loading, results: state?.results.length,
+                cursorRestore: state?._cursorRestore ? { aborted: state._cursorRestore.signal.aborted } : null,
+                navigation: state?._browseNavigation?.phase, hasError: Boolean(state?.error) };
+            });
+            await test.info().attach("restoration-state", { body: JSON.stringify(diagnostic), contentType: "application/json" });
+            throw error;
           } finally {
             await page.evaluate(() => (window as any).__detailReload?.cleanup());
           }

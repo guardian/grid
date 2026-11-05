@@ -146,7 +146,23 @@ session and prevent later submissions; 403/422 reject the write. Other post-disp
 HTTP failures, including 400/5xx, and transport loss are conservatively unknown:
 persistence/publication may already have happened. Argo error keys are reused for
 explicit rejection; signed URLs and response bodies are not logged. There is no
-automatic login, replay, queue, receipt UI or post-write publication.
+automatic login, replay, queue or post-write publication in this boundary.
+
+The separate [label operation owner](../../lib/label-operation.ts) consumes the
+exported command types, never the production executor. It captures one confirmed
+add/remove intent and all target IDs, distinguishing unavailable capabilities from
+explicit absence. Normal preparation remains disconnected regardless of rollout.
+An explicitly injected fixture executor can exercise addition outcomes; removal is
+unsupported there. Receipts distinguish submitted, accepted-awaiting-visibility,
+rejected, unknown and blocked/not-started; only matching explicit simulated evidence
+can establish observed state. [LabelEditor](../../components/LabelEditor.tsx) and
+its [in-memory store](../../stores/label-editor-store.ts) prepare these operations,
+retaining target-bound input and receipts across SPA navigation. They never import
+or invoke the production executor. Selection-panel editing uses current membership
+and pending metadata, not the retained completed display; detail uses its owned
+overlay. There is no additional permission cache, service read, publication, cancel
+or undo path. The owner does not refresh capabilities or session facts, and fixture
+outcomes do not certify deployed behaviour. Direct-ES exposes no editor controls.
 
 This prevents accidental Kupua writes, not arbitrary authenticated browser requests.
 Server authorization remains mandatory. The inspected `addLabels` handler authenticates

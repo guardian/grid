@@ -122,6 +122,12 @@ export function queryContainsField(cqlKey: string, query: string | undefined): b
   return query ? removeAllFieldTerms(query, cqlKey) !== query : false;
 }
 
+function aggregationScope(params: SearchParams, cqlKey?: string): SearchParams {
+  if (!cqlKey || !params.query) return params;
+  const stripped = stripFieldFromQuery(cqlKey, params.query);
+  return stripped !== params.query ? { ...params, query: stripped || undefined } : params;
+}
+
 /** Merge a static value list with optional store-cached agg counts.
  *  `mapBucketKey` transforms the ES bucket key to match the static value
  *  (e.g. strip "image/" prefix from MIME types). */
@@ -233,6 +239,24 @@ function createOptionReader(dataSource: ImageDataSource) {
   };
 }
 
+export function createLabelSuggestionProvider(
+  dataSource: ImageDataSource,
+  getAggregations?: () => AggregationsResult | null,
+  getParams?: () => SearchParams,
+): (value: string, signal?: AbortSignal) => Promise<TypeaheadSuggestion[]> {
+  const readOptions = createOptionReader(dataSource);
+  return async (value, signal) => {
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    const params = getParams?.() ?? {};
+    if (!queryContainsField("label", params.query)) {
+      const cached = storeBuckets("label", getAggregations);
+      if (cached) return bucketFilter(value, cached);
+    }
+    const result = await readOptions(aggregationScope(params, "label"), [{ field: "userMetadata.labels", size: 50 }], signal);
+    return bucketFilter(value, result.fields["userMetadata.labels"]?.buckets ?? []);
+  };
+}
+
 export function buildTypeaheadFields(
   dataSource: ImageDataSource,
   getAggregations?: () => AggregationsResult | null,
@@ -241,6 +265,7 @@ export function buildTypeaheadFields(
   getIsFilterCounts?: () => Record<string, number> | null,
 ): TypeaheadFieldDef[] {
   const readOptions = createOptionReader(dataSource);
+  const labelSuggestions = createLabelSuggestionProvider(dataSource, getAggregations, getParams);
 
   /** Fetch a single field's agg scoped to the current query, excluding the
    *  field's own filter to avoid self-referential results. When `cqlKey` is
@@ -255,12 +280,7 @@ export function buildTypeaheadFields(
   ): Promise<AggregationResult> {
     const params = getParams?.() ?? {};
     return isolateAggregationFailure(async () => {
-      let adjustedParams = params;
-      if (cqlKey && params.query) {
-        const stripped = stripFieldFromQuery(cqlKey, params.query);
-        if (stripped !== params.query) adjustedParams = { ...params, query: stripped || undefined };
-      }
-      const result = await readOptions(adjustedParams, [{ field, size }], signal);
+      const result = await readOptions(aggregationScope(params, cqlKey), [{ field, size }], signal);
       return result.fields[field] ?? { buckets: [], total: 0 };
     }, { buckets: [], total: 0 });
   }
@@ -336,15 +356,7 @@ export function buildTypeaheadFields(
     },
     {
       fieldName: "label",
-      resolver: async (value: string, signal?: AbortSignal) => {
-        const query = getParams?.()?.query;
-        if (!queryContainsField("label", query)) {
-          const cached = storeBuckets("label", getAggregations);
-          if (cached) return bucketFilter(value, cached);
-        }
-        const { buckets } = await scopedAgg("userMetadata.labels", 50, "label", signal);
-        return bucketFilter(value, buckets);
-      },
+      resolver: (value, signal) => isolateAggregationFailure(() => labelSuggestions(value, signal), []),
     },
     {
       fieldName: "photoshoot",

@@ -125,15 +125,16 @@ export interface MetadataRowProps {
   children: React.ReactNode;
   ref?: React.Ref<HTMLDivElement>;
   tabIndex?: number;
+  fill?: boolean;
 }
 
-export function MetadataRow({ label, children, ref, tabIndex }: MetadataRowProps) {
+export function MetadataRow({ label, children, ref, tabIndex, fill }: MetadataRowProps) {
   return (
     <div ref={ref} tabIndex={tabIndex} className="flex gap-1 py-0.75 leading-snug">
       <dt className="text-xs font-bold text-grid-text-dim shrink-0 w-[30%] wrap-anywhere">
         {label}
       </dt>
-      <dd className="text-xs text-grid-text wrap-anywhere min-w-0">
+      <dd className={`text-xs text-grid-text wrap-anywhere min-w-0${fill ? " flex-1" : ""}`}>
         {children}
       </dd>
     </div>

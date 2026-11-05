@@ -28,6 +28,8 @@ import {
   Dash,
 } from "./metadata-primitives";
 import { MultiSearchPill } from "./SearchPill";
+import { LabelEditor } from "./LabelEditor";
+import type { LabelEditContext } from "@/lib/label-operation";
 import { MultiValue } from "./MultiValue";
 import { isLeaseActive } from "@/lib/syndication/calculate-syndication-status";
 import { deriveImage } from "@/lib/derive-enriched-image";
@@ -331,6 +333,8 @@ const COST_COLOR: Record<Cost | "no-rights", string> = {
 const LEASE_GRADIENT_BUCKETS = new Set<Cost | "no-rights">(["pay", "overquota", "conditional"]);
 
 interface MultiImageMetadataProps {
+  labelEditing?: LabelEditContext;
+  resolveLabelEditing?: () => LabelEditContext;
   images: readonly Image[];
   reconciledView: ReconciledView | null;
   total: number;
@@ -533,7 +537,7 @@ function RightsAndLeasesSection({ images, reconciledView, total }: MultiImageMet
 // Component
 // ---------------------------------------------------------------------------
 
-export function MultiImageMetadata({ images, reconciledView, total }: MultiImageMetadataProps) {
+export function MultiImageMetadata({ images, reconciledView, total, labelEditing, resolveLabelEditing }: MultiImageMetadataProps) {
   const onSearch = useMetadataSearch();
   const [expandedFields, setExpandedFields] = useState<ReadonlySet<string>>(() => new Set());
   const toggleField = (id: string, expanded: boolean) => setExpandedFields((current) => {
@@ -551,7 +555,11 @@ export function MultiImageMetadata({ images, reconciledView, total }: MultiImage
       {MULTI_SECTIONS.map((sectionFields, si) => (
         <MetadataSection key={si}>
           {sectionFields.map((field) =>
-            field.id === "__location__"
+            field.id === "labels" && labelEditing && import.meta.env.VITE_USE_MEDIA_API === "true"
+              ? <LabelEditor key={field.id} context={labelEditing} resolveContext={resolveLabelEditing} onSearch={onSearch}
+                  values={reconciledView?.get(field.id)?.kind === "chip-array"
+                    ? (reconciledView.get(field.id) as Extract<FieldReconciliation, { kind: "chip-array" }>).chips : []} />
+              : field.id === "__location__"
               ? renderLocationGroup(reconciledView, onSearch, total)
               : field.multiSelectBehaviour === "chip-array"
                 ? renderChipField(field, reconciledView?.get(field.id), onSearch, expandedFields.has(field.id), (expanded) => toggleField(field.id, expanded))

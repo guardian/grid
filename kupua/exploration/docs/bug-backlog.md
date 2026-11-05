@@ -17,7 +17,7 @@ synthetic direct-TEST reproduction and verification passed, but natural-workflow
 
 ## At a Glance
 
-**Current recorded status: 2 November 2026.** The tables below list open defects,
+**Current recorded status: 5 November 2026.** The tables below list open defects,
 approval/integration/review tasks or explicit residuals; completed bounded repairs and verification are listed separately.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
@@ -31,6 +31,9 @@ as source-verified shared-display findings awaiting review, and defers crop noti
 and eligibility under KUP-047 until the reviewed common wiring is implemented.
 The 2 November step-1 implementation repairs KUP-044's image-level URI/edits/crops
 retention. Nested write resources and KUP-047's crop consumer remain deferred.
+The 5 November validation investigation records KUP-048's reproduced table
+render-time update warning and KUP-049's unresolved Settings-click timeout.
+These are separate from the optional obsolete-read cancellation follow-up.
 Other dispositions have not been revalidated.
 Update this overview when a detailed disposition changes.
 
@@ -62,6 +65,8 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [KUP-045](#kup-045) | Lease summary has consumers but no current producer | Source-verified display gap; review and composed witness pending | Independent shared-display correction |
 | [KUP-046](#kup-046) | Known validity reasons replace server wording with local copy | Source-verified; previously unselected B3, review pending | Independent display-copy correction |
 | [KUP-047](#kup-047) | Crop notices and server eligibility are not wired | Deferred consumer; common image-capability wiring now available | Read-only crop follow-up, not a mock-cropping commit gate |
+| [KUP-048](#kup-048) | Table column sizing writes store state during React update | Reproduced warning with current and committed scrolling modules; unfixed | Independent table-state defect; does not require the scrolling repair |
+| [KUP-049](#kup-049) | Detail Settings click stalls during browser validation | One full-run timeout; click reached menu, cause unestablished | Full browser acceptance remains unresolved; relation to scrolling unproved |
 
 KUP-038 is closed against the ledger's completed B8/L37/B17 repairs, not a new fix.
 KUP-042 is repaired locally with globally stable fixed-grid rows; Justified packing,
@@ -766,6 +771,54 @@ set -o pipefail; npm --prefix kupua run test:e2e -- --project=chromium density-c
   calls. Mock cropping can be committed before this follow-up is selected.
 - **Disposition:** DEFERRED consumer, with image-level common wiring available;
   no crop implementation or write authorization follows from the shared repair.
+
+#### KUP-048
+**Table column sizing updates shared state inside a React state updater**
+- **Component / responsibility:** [column-sizing callback](../../src/components/ImageTable.tsx#L742)
+  calls `setWidths(next)` inside `table.setState`'s updater. React can execute that
+  updater during rendering, notifying another subscriber while rendering is active.
+- **Observed behavior (5 November):** the existing
+  [header double-click case](../../e2e/local/browser-history.spec.ts#L694) emits
+  `Cannot update a component (ImageTable) while rendering a different component (ImageTable)`.
+  The behavioral assertions still pass; they do not assert absence of this warning.
+- **Causal check / limits:** reproduced in focused current-source and committed-HEAD
+  controls for `search-store`, `useScrollEffects` and `useDataWindow`. Other worktree
+  code and the toolchain were retained. The scrolling repair is not necessary for
+  the warning; this does not date its first occurrence or quantify user-visible cost.
+- **Next discriminator:** retain column-fit, resize persistence and semantic-sort
+  assertions while checking that column sizing produces no render-time store write.
+  Keep persistence out of the render-executed updater; do not silence the warning
+  or change column-fit behavior merely to make the test green.
+- **Disposition:** OPEN, separately scoped. No table implementation change has been
+  made for this finding, and no connection to KUP-049 has been established.
+
+#### KUP-049
+**Detail Settings click times out after becoming actionable**
+- **Component / responsibility:** [detail Settings interaction](../../e2e/local/ui-features.spec.ts#L379)
+  and its browser action lifecycle; application versus automation ownership remains
+  unestablished. [SettingsMenu](../../src/components/SettingsMenu.tsx) opens by toggling
+  local React state. The failing action precedes entry into the crop editor.
+- **Observed behavior (5 November):** one unretried full local E2E run timed out at
+  the existing 10-second click deadline. The button was visible, enabled and stable;
+  the trace stopped reporting action progress after `performing click action`.
+  The failure snapshot showed Settings expanded and its menu visible, so input
+  reached the application. Recorded frames and application logs have a roughly
+  ten-second gap around the action, resuming near the timeout.
+- **Evidence limits:** a browser/main-thread stall is a hypothesis, not an established
+  cause. The same case passed in one focused current-source run and one focused run
+  with the three scrolling modules loaded from committed HEAD. Neither reproduces
+  the stall, proves it unrelated to scrolling or constitutes a fix. This is distinct
+  from the repaired B8 setup-promise collection failure. The original full-run log
+  and extracted trace observations were retained; subsequent normal test runs replaced
+  the Playwright trace artifacts.
+- **Next discriminator:** capture input dispatch/completion, main-thread responsiveness
+  and relevant browser lifecycle events in this exact interaction. Preserve the
+  existing action, deadline and menu/history assertions; no retries, forced clicks,
+  timeout increase or passing-rerun acceptance. Do not infer causation from a coincident
+  warning or broaden into crop-editor changes without evidence.
+- **Disposition:** OPEN observed validation failure, cause unresolved. No Settings or
+  crop implementation/test change was made. The full browser gate remains unaccepted;
+  recording this item does not waive it or establish a production incident.
 
 ### Dependency Unresolved
 

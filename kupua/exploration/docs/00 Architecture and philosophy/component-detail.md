@@ -919,6 +919,79 @@ Rights presentation includes cost, validity, leases and restrictions. `SearchPil
 metadata search helpers turn values into queries, retaining Shift/Alt modifiers. Image resolution
 and selection precedence belong to the calling detail/panel owner, not this renderer.
 
+In API mode, the label row uses `LabelEditor` with the same owned enrichment. Shared
+`EditableSearchPill`/`PillActionButton` controls separate value search from addition,
+removal and apply-to-all; other fields remain read-only. The search panel supplies
+current selected IDs and capabilities separately from its retained completed display,
+rechecking that ownership at the action boundary. Pending metadata blocks editing.
+Detail disables outgoing-image controls and supplies its requested-ID-owned overlay.
+Eligibility counts and target IDs remain internal to admission and receipts; the
+label row does not show a diagnostic summary or Target images disclosure.
+
+Editable pills retain the shared compact construction, with joined close and
+stacked-plus controls rather than separate button blocks. Icons use shared inline
+SVG paths in `SearchPill`, not an icon-library dependency. Editing colours follow
+Kahuna: full labels are blue/white and partial labels white/blue. Only the hovered
+enabled segment changes, using a blue-tinted background with darker blue text/icons
+for labels, or light grey with dark grey text/icons for neutral editing pills.
+This deliberately strengthens Kahuna's subtle hover feedback. Enabled action buttons
+use the hand cursor; disabled actions retain the unavailable cursor and do not highlight.
+Read-only pill colours are retained; their partial outline is inset so full and
+partial pills share the same height rather than adding a border to partial values.
+Action tooltips name the
+field, with remove-from-all based on known occurrences rather than selection size.
+Desktop pills retain their compact height; coarse-pointer actions retain 44px
+targets while mobile metadata-editing UX is explicitly deferred. These safeguards
+are not a finished mobile interaction model. Search modifier tooltips remain.
+
+Label entry is hidden behind the shared action button's compact boxed-Plus variant.
+Its 16px desktop control sits flush right without a separate background block; an
+opt-in filling MetadataRow value area leaves other metadata rows unchanged. Pills
+align at the start rather than stretching. The Plus stays mounted and invisible in
+its fixed slot during entry. The entry field is 24px tall on desktop, with Kahuna's
+placeholder and grey Close then blue checkmark controls; coarse-pointer targets remain
+44px. Opening entry focuses its input. Escape and Close
+discard unsent input and close entry; Enter prepares deduplicated, trimmed comma-separated
+additions and closes on success. Focus returns to Plus. This is draft cancellation,
+not cancellation of recorded or in-flight operations.
+
+The entry combobox and CQL search share `createLabelSuggestionProvider` in
+`typeahead-fields.ts`, backed by the existing DAL aggregation read. Prefix matching
+is case-insensitive and preserves backend popularity order within the 50-value
+shortlist; missing less-popular matches is accepted for this version. The editor
+passes only `nonFree: "true"`, with no query, selection IDs, browsing filters or
+search-store facet cache, so suggestions cover the accessible library rather than
+the selected images. Scope remains explicit in provider parameters and the accessible
+listbox name; the dropdown shows values/counts without a visible scope heading.
+Query suggestions retain their existing current-search scope and own-field exclusion.
+The dropdown is absolutely positioned beneath the entry form and layered above
+following metadata; opening suggestions does not add height to document flow.
+Its bounded list scrolls independently, without new layout observers or measurements.
+
+Entry reads are debounced and cancelled on ownership changes, blur or close;
+obsolete responses cannot publish. Selection replaces the active comma token,
+preserving other tokens and surrounding whitespace, and restores the caret without
+committing. Arrow keys highlight choices; Enter accepts a highlighted choice or
+otherwise prepares the draft as before. Pending, unavailable and empty results stay
+distinct internally without extra visible status copy; none prevents free entry.
+Input validation uses the field's native/ARIA state rather than a separate message.
+No backend, mapping, paging
+or catalogue change is part of this implementation.
+
+`label-editor-store` keeps target-set-bound input and immutable operation receipts in
+memory, independently of selection clearing or route unmounts. Root-mounted
+`LabelOperationReceipts` shows bounded, newest-first dry-run previews and retains
+the complete target set internally. Expanded compact selection sheets host the same
+receipt state inside their focus scope; the root display serves other states.
+Native pill/disclosure activation keys do not bubble into grid navigation. Pending
+cohorts retain searchable values without stale coverage fractions. Repeated gestures
+reopen their existing receipt and complete input preparation without resubmission.
+Unfinished input and in-flight/uncertain fake
+outcomes install a document-exit warning, not reload recovery. Normal actions are
+always disconnected; a fixture can inject only addition execution. No real command
+caller, image publication, permission fetch, extra confirmation, operation cancellation or
+undo is introduced. Identical action/label/target-set gestures are deduplicated.
+
 ## Multi-Image Metadata (`components/MultiImageMetadata.tsx`)
 
 Renders the supplied reconciled view according to registry `multiSelectBehaviour`, with cost

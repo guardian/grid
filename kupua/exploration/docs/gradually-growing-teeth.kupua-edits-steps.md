@@ -225,10 +225,113 @@ outside Kupua into Kahuna and therefore needs explicit scope permission. No shar
 
 **Depends on:** steps 1-2. Start with adding/removing a label on one image.
 
-Build input, validation, permission-aware presentation, target preview and submit/cancel UX.
+**Complete at the agreed disconnected desktop-prototype scope, 5 November 2026.**
+The agreed common interaction for editable pills covers adding a value, removing one, applying a partially covered
+value to every selected image, and remove a value from every selected image.
+Labels are the first consumer; this does not enable other field families. All four
+label interactions prepare disconnected intent. Fake execution remains limited to
+the existing `add-labels` command contract; removal transport is explicitly deferred.
+Small partial-outcome fixtures do not introduce production batch scheduling.
+Kahuna is a visual and functional reference, not a wiring or architectural template.
+The operator approved implementation after consultation on shared behaviour and
+theming. Other editable fields retain their existing read-only presentation.
+
+**Interaction decisions:** ordinary add, remove and apply-to-all gestures are the
+action boundary, not entry to a separate confirmation dialog or accumulated-change
+review workflow. There is no temporary confirmation dialog for the prototype.
+The operator's 5 November adjustment supersedes the earlier no-discard decision:
+Plus reveals entry, Escape or Close cancels unsent input, and Enter prepares each
+comma-separated label. Do not introduce operation cancellation, undo or speculative
+rollback. Large-edit warnings and future cancellation/compensation designs require
+separate selection.
+Preserve unfinished input rather than silently abandoning it during navigation.
+The disconnected output should follow the crop mock's small formatted-data panel
+and `Not sent` wording. Clearly truncate long display output only, never the
+captured intent or target set. Share a small presenter if useful, not a generic
+mock framework; do not copy crop console logging or expose resource URLs.
+
+**Implemented:** `src/lib/label-operation.ts` owns one immutable
+confirmed intent and observable in-memory receipt, with all target IDs counted,
+pending/absent capabilities unresolved, and no eligible-subset selection. Normal
+preparation has no executor, independent of rollout flags. An injected fixture
+executor supports held addition outcomes, duplicate-confirmation protection and
+explicit simulated observation; acknowledgement alone never establishes observation.
+Direct-ES preparation is blocked. The owner imports only the command types, not
+the production executor, and creates no reads, queues, polling or image updates.
+
+`LabelEditor` supplies the shared pill search/action split, input validation and
+capability-gated controls for API-mode single and multi-image metadata. Counts and
+target identity remain in admission and receipts, not a diagnostic block in the row.
+Its right-aligned compact Plus reveals a reduced-height field; full and partial pills
+share their height. Enter prepares trimmed, deduplicated comma-separated additions;
+Escape or Close clears only the unsent draft and returns focus to Plus.
+The operator authorized existing-quality label suggestions on 5 November, without
+backend changes. The editor and CQL search reuse one extracted label provider:
+case-insensitive prefix matching preserves popularity within the bounded shortlist.
+Editor scope is explicitly the accessible library, not selected IDs or browsing
+filters. Selection replaces only the active comma token without submitting other
+labels; unavailable suggestions leave free entry usable. Shortlist omissions are
+accepted. The longer-term matching plan is in
+[Better suggestions](better-suggestions-aggregation-endpoint-enhancement.md), not a
+backend-change prerequisite for this version.
+The route supplies current selection ownership separately from its retained panel;
+cold detail supplies its requested-ID-owned overlay. No permission reads are added.
+`label-editor-store` retains target-bound input and receipts in memory across SPA
+navigation. The root activity panel shows newest-first formatted dry-run data with
+explicitly shortened previews and warns on document exit with unfinished input or
+uncertain/in-flight simulation. No operation cancellation, undo, extra
+confirmation or automatic replay is implemented. Identical action/label/target-set
+gestures share their existing receipt rather than resubmitting.
+
+Receipt presentation follows the active compact selection sheet's focus scope and
+otherwise remains at the root. Native activation keys stay with the pill controls;
+pending selection changes withhold stale coverage fractions. Repeated actions
+explicitly resurface their existing receipt instead of leaving apparently failed input.
+
+Local and compiled-hosted fixtures exercise the production editor and its injected
+executor, while the compiled app also exercises cold detail, off-screen selection
+and a held metadata replacement. These synthetic fixtures are not live-system or
+deployed browser-policy certification.
+
+**Validation and limits:** all 109 unit files / 3,562 tests and all 523 standard
+browser tests passed, with zero retries or skips. App build and browser typecheck
+passed. Existing local and compiled-hosted fixtures cover the settled editor,
+shared-provider scope/order, comma-token replacement, overlay geometry, capability
+guards and mutation restrictions. Synthetic fixtures are not live-system or deployed
+browser-policy certification; no performance campaign or live write was performed.
+
+**Mobile editing UX is explicitly deferred.** Current touch-target and focus-scope
+safeguards are retained, not accepted as the final mobile interaction model.
+Phone access to an API-backed or isolated synthetic preview and the general mobile
+metadata-editing interaction need separate design work. This does not enable editing
+in direct-ES mode or block desktop prototype closeout.
+
+### Step-3 Closeout and Deferred-Work Schedule
+
+| Work | When it is tackled | Boundary |
+| --- | --- | --- |
+| Mobile metadata-editing UX and phone preview access | Separately scheduled design work | Keep existing touch safeguards; do not claim the desktop pill model is a finished mobile design or enable direct-ES editing. |
+| Improved suggestion discovery beyond the popularity shortlist | Separate proposal | Current entry reuses search suggestions; [Better suggestions](better-suggestions-aggregation-endpoint-enhancement.md) owns the longer-term plan. No backend or mapping change is required for this step. |
+| Removal command support and fake-executor lifecycle coverage | At the start of step 5, before connecting any live editing | Explicitly authorize the bounded transport extension; keep it default-off and verify the same editor/receipt path with fixtures first. The step-3 removal UI currently prepares intent only. |
+| Post-write publication and visibility | Step 4, after step-3 validation closes | Initially use simulated addition. Removal transport is not a new gate for beginning this work. |
+| Real single-image addition and removal | Step 5, after its preparation and steps 1-4 pass | Separate target/session/action authorization and live-activation safeguards still apply. |
+| Production multi-image scheduling and progress | Step 6, after step 5 | Small step-3 partial-outcome fixtures do not implement a batch scheduler or a production progress workflow. |
+| Other editable pill fields | Their respective feature-family steps after the shared foundation | Reuse the common controls; do not expand label transport into a universal editing command. |
+
+Operation cancellation, undo and extra confirmation are not unfinished step-3
+requirements: they remain explicitly excluded. Escape-to-discard unsent input was
+separately authorized on 5 November; it does not cancel an operation. Further
+reconsideration is a new operator decision, not an implicit backlog commitment.
+
+This schedule does not authorize steps 4-6, transport/safeguard changes, shared-system
+writes, deployment, staging, commit or push. Commit preparation follows successful
+validation and operator discussion; committing still requires explicit approval.
+
+Build input, validation, permission-aware presentation, target preview and action UX.
 The disconnected mode computes intent but does not call a service or claim a save. Capture a
-fixed target ID list and intended change when the user confirms; later selection changes must
-not retarget the operation. Show selected, eligible, ineligible and unresolved counts. Do not
+fixed target ID list and intended change at the user's action; later selection changes must
+not retarget the operation. Retain selected, eligible, ineligible and unresolved counts
+in the operation receipt, not a diagnostic block below the label field. Do not
 silently operate on only the eligible subset: require an explicit subset choice or block.
 Count targets from the captured selected-ID set, not loaded rows or the metadata summary.
 That summary may cover only cached/available images after eviction or a failed read;
@@ -236,9 +339,9 @@ unresolved target capabilities must remain unresolved until checked, not silentl
 
 Use a small in-memory operation owner outside selection state. Track per-item/substep
 not-started, submitted, accepted-awaiting-visibility, observed, rejected and unknown states.
-Transport loss after dispatch is unknown, not proof of no write. "Stop remaining" prevents
-new submissions; it cannot undo dispatched work. Route changes must not silently orphan the
-operation. Warn before closing with unfinished work; do not promise reload recovery.
+Transport loss after dispatch is unknown, not proof of no write. No stop/cancel or undo
+control is selected for this step. Route changes must not silently orphan the operation.
+Warn before closing with unfinished work; do not promise reload recovery.
 
 Use the same executor interface with a fake transport, not a second mock-only UI implementation.
 Hold responses and simulate partial failure, expiry and duplicate clicks. No automatic retry
@@ -253,14 +356,20 @@ because persistence and event publication are not transactional.
 [Kahuna labels](../../../kahuna/public/js/services/label.js),
 [Kahuna batch tracking](../../../kahuna/public/js/util/batch-tracking.js).
 
-**Done when:** keyboard/touch submission, cancel and selection changes work, exactly one fake
-command is admitted per confirmation, partial outcomes remain accessible, and network assertions
+**Done when:** desktop keyboard actions, retained touch safeguards and selection changes work, exactly one fake
+command per captured target is admitted per action, partial outcomes remain accessible, and network assertions
 prove zero mutations, including side-effecting GETs. Do not reproduce Kahuna's allSettled-as-success
 behavior. Keep receipts in memory initially; no generic job system or signed-URL diagnostics.
+Required validation passes unretried and unskipped at this scope. The deferred
+mobile UX is not a claim of mobile completion, and closeout does not enable saving.
 
 ### Step 4. Resolve KUP-043 With Simulated Writes Before Enabling Real Ones
 
 **Depends on:** steps 1-3 and operator agreement on the following proposed browsing policy.
+
+Begin only after step 3's closeout. Use simulated label
+addition initially; the deferred removal command is scheduled for step-5 preparation,
+not a prerequisite that silently expands this step.
 
 This is the hardest common prerequisite, not a cosmetic refresh button. Use the disconnected
 label operation plus delayed canonical fixtures to implement one shared publication path.
@@ -328,6 +437,17 @@ invalidation flag. No PIT, universal external-edit freshness service or live mut
 
 **Depends on:** steps 1-4 passing; explicit target/session/action authorization.
 
+**First: complete the removal preparation deferred from step 3.** Obtain explicit
+authorization for a bounded, default-off removal command using the authoritative
+resource and existing origin/method policy. Exercise its lifecycle through the same
+editor and receipt owner with isolated local and compiled-hosted fixtures, including
+blocked, rejected, uncertain and held outcomes. Verify its postcondition through
+the step-4 publication path before any live activation. Do not manufacture a removal
+URL from missing capabilities, silently extend the add-only transport, or treat the
+already-present disconnected remove control as evidence that execution exists.
+Any required safeguard changes still need separate permission.
+
+Only after this preparation passes may the separately authorized live connection begin.
 Connect the existing metadata-editor label resource to the real command transport for **one
 image only**. First use isolated local services or a deterministic service fixture; test the
 hosted build against fixtures as well. Then request a bounded operator-run/authorized TEST

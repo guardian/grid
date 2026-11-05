@@ -1,12 +1,16 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { RECONCILE_FIELDS } from "@/lib/field-registry";
 import { recomputeAll } from "@/lib/reconcile";
 import type { Image } from "@/types/image";
 import { MultiImageMetadata } from "./MultiImageMetadata";
+import { ImageMetadata } from "./ImageMetadata";
+import { LabelEditorContext, LabelOperationReceipts } from "./LabelEditor";
+import { createLabelEditorStore } from "@/stores/label-editor-store";
+import type { GridCommandResult } from "@/lib/grid-commands";
 import { attachEnrichment, useEnrichmentStore } from "@/stores/enrichment-store";
 
 const fixture = vi.hoisted(() => {
@@ -39,6 +43,7 @@ beforeEach(async () => {
 });
 afterEach(() => {
   cleanup();
+  vi.unstubAllEnvs();
   useEnrichmentStore.getState().setEnrichment(new Map());
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -54,6 +59,110 @@ describe("multi-image cost summary", () => {
     expect(screen.getByText("1 over quota")).toBeTruthy();
     expect(screen.getByText("1 restricted")).toBeTruthy();
     expect(screen.queryByText(/free/)).toBeNull();
+  });
+});
+
+describe("disconnected label editing", () => {
+  it("cancels unsent input on Escape and retains navigation drafts, using the owned overlay without service calls", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.stubEnv("VITE_GRID_API_WRITES_ENABLED", "true");
+    const transport = vi.spyOn(globalThis, "fetch");
+    const store = createLabelEditorStore();
+    const overlay = { resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${images[0].id}` }] } };
+    useEnrichmentStore.getState().setEnrichment(new Map([[images[0].id, { resource: { links: [] } }]]));
+    const editor = () => <LabelEditorContext value={store}><ImageMetadata image={images[0]} overlay={overlay} /><LabelOperationReceipts /></LabelEditorContext>;
+    const first = render(editor());
+    fireEvent.click(screen.getByRole("button", { name: "Add label" }));
+    let input = screen.getByRole("combobox", { name: "Add label" });
+    fireEvent.submit(input.closest("form")!);
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+    fireEvent.change(input, { target: { value: "new label" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(screen.queryByRole("combobox", { name: "Add label" })).toBeNull();
+    expect(store.getState().drafts.size).toBe(0);
+    fireEvent.click(screen.getByRole("button", { name: "Add label" }));
+    input = screen.getByRole("combobox", { name: "Add label" });
+    fireEvent.change(input, { target: { value: "new label" } });
+    first.unmount();
+    render(editor());
+    fireEvent.click(screen.getByRole("button", { name: "Add label" }));
+    input = screen.getByRole("combobox", { name: "Add label" });
+    expect((input as HTMLInputElement).value).toBe("new label");
+    fireEvent.submit(input.closest("form")!);
+    expect(screen.getByText("Not sent - dry run")).toBeTruthy();
+    expect(store.getState().receipts[0].intent.targetIds).toEqual([images[0].id]);
+    expect(store.getState().receipts[0].items[0].state).toBe("not-started");
+    expect(screen.queryByRole("combobox", { name: "Add label" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Add label" }));
+    input = screen.getByRole("combobox", { name: "Add label" });
+    fireEvent.change(input, { target: { value: "second-label" } });
+    fireEvent.submit(input.closest("form")!);
+    const activity = screen.getByRole("complementary", { name: "Label activity" }).textContent!;
+    expect(activity.indexOf("second-label")).toBeLessThan(activity.indexOf("new label"));
+    fireEvent.click(screen.getByRole("button", { name: "Add label" }));
+    input = screen.getByRole("combobox", { name: "Add label" });
+    fireEvent.change(input, { target: { value: "new label" } });
+    fireEvent.submit(input.closest("form")!);
+    expect(store.getState().receipts).toHaveLength(2);
+    expect(screen.queryByRole("combobox", { name: "Add label" })).toBeNull();
+    expect(screen.getByText("Operation already recorded.")).toBeTruthy();
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it("uses the same editor for held fake outcomes and rejects a changed target at the action boundary", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    let release!: (result: GridCommandResult) => void;
+    const executor = vi.fn()
+      .mockImplementationOnce(() => new Promise<GridCommandResult>(resolve => { release = resolve; }))
+      .mockResolvedValueOnce({ outcome: "unknown" });
+    const store = createLabelEditorStore(executor);
+    const editing = { targetIds: images.map(image => image.id), targets: new Map(images.map(image => [image.id, {
+      resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${image.id}` }] },
+    }])) };
+    let current = editing;
+    const view = recomputeAll(images, RECONCILE_FIELDS);
+    view.set("labels", { kind: "chip-array", total: 2, chips: [{ value: "partial", count: 1 }] });
+    render(<LabelEditorContext value={store}><MultiImageMetadata images={images} total={2} reconciledView={view}
+      labelEditing={editing} resolveLabelEditing={() => current} /><LabelOperationReceipts /></LabelEditorContext>);
+    const add = screen.getByRole("button", { name: "Apply partial to all selected images" });
+    current = { targetIds: ["changed"], targets: new Map([["changed", {
+      resource: { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/changed" }] },
+    }]]) };
+    fireEvent.click(add);
+    expect(executor).not.toHaveBeenCalled();
+    expect(store.getState().receipts).toHaveLength(0);
+    current = editing;
+    await act(async () => { fireEvent.click(add); fireEvent.click(add); });
+    expect(executor).toHaveBeenCalledTimes(2);
+    expect(store.getState().receipts[0].items.map(item => item.state)).toEqual(["submitted", "unknown"]);
+    current = { ...editing, targetIds: ["changed"] };
+    await act(async () => { release({ outcome: "acknowledged" }); });
+    expect(store.getState().receipts[0].intent.targetIds).toEqual(editing.targetIds);
+    expect(store.getState().receipts[0].items.map(item => item.state)).toEqual(["accepted-awaiting-visibility", "unknown"]);
+    expect(screen.getByText("Simulated - no service calls")).toBeTruthy();
+  });
+
+  it("offers separate search, apply-to-all and remove controls, blocking unresolved selected IDs", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const view = recomputeAll(images, RECONCILE_FIELDS);
+    view.set("labels", { kind: "chip-array", total: 2, chips: [{ value: "news", count: 1 }] });
+    const editing = {
+      targetIds: [...images.map(image => image.id), "unloaded"],
+      targets: new Map(images.map(image => [image.id, { resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${image.id}` }] } }])),
+    };
+    const { rerender } = render(<MultiImageMetadata images={images} reconciledView={view} total={2} labelEditing={editing} />);
+    const row = within(fieldRow("Labels"));
+    expect(row.getByRole("button", { name: "Apply news to all selected images" }).hasAttribute("disabled")).toBe(true);
+    expect(row.queryByText(/selected:.*eligible/)).toBeNull();
+    fireEvent.click(row.getByRole("button", { name: "news" }), { shiftKey: true });
+    expect(fixture.updateSearch).toHaveBeenLastCalledWith({ query: "credit:Reuters label:news", image: undefined });
+    view.set("labels", { kind: "chip-array", total: 5, chips: [{ value: "news", count: 5 }] });
+    rerender(<MultiImageMetadata images={images} reconciledView={view} total={5}
+      labelEditing={{ ...editing, targetIds: [images[0].id], pending: true }} />);
+    expect(row.getByRole("button", { name: "Remove news" }).hasAttribute("disabled")).toBe(true);
+    expect(row.getByRole("button", { name: "news" }).getAttribute("title")).not.toContain("5/1");
+    expect(row.getByRole("button", { name: "Add label" }).hasAttribute("disabled")).toBe(true);
+    expect(row.queryByRole("combobox", { name: "Add label" })).toBeNull();
   });
 });
 

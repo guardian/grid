@@ -8,11 +8,43 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-11-04
+Last updated: 2026-11-05
 
 ---
 
 ## From Grid / Kahuna
+
+### Disconnected Label Actions (4 November 2026)
+
+Kahuna's label controls write immediately. Kupua uses the familiar searchable value,
+remove and partial-value apply-to-all controls, but ordinary gestures only prepare
+immutable intent. A crop-style formatted preview explicitly says the data was not
+sent; current image labels are never optimistically changed. There is no additional
+confirmation, operation cancellation or undo workflow. Uncancelled input and receipts
+survive SPA navigation in memory, not reloads. Escape or Close explicitly cancels the
+unsent entry only; Enter prepares comma-separated additions. Direct-ES remains read-only.
+
+The trade-off is a usable but deliberately non-saving prototype. Missing or pending
+capabilities block the complete target set rather than choosing an eligible subset.
+Only isolated addition simulations exercise command outcomes; acknowledgement is
+not observation. Removal transport and real publication remain separately scoped.
+
+Entry suggestions reuse Kupua's shared label provider rather than Kahuna's legacy
+label-search endpoint. They use an explicitly library-wide DAL aggregation and
+case-insensitive prefix filtering within the existing popularity shortlist. Missing
+less-popular matches is an accepted prototype limitation, not a backend-change gate.
+Query-chip suggestions keep their existing search scope; both consumers share the
+provider so a later improvement can replace the shortlist implementation together.
+
+The joined editing controls follow Kahuna's placement, tooltip vocabulary and full/partial
+colours. Hover feedback is intentionally stronger: only the hovered enabled segment
+gets a blue tint with dark blue text/icons for labels, or light grey with dark grey
+text/icons for neutral editing pills. This makes partial-pill hover visible where
+Kahuna's white-on-white background barely changes. Remove, apply-to-all, boxed Plus
+and confirmation icons use shared inline SVGs, matching Kupua's existing approach
+without an icon-library dependency. Coarse-pointer controls retain 44px
+targets instead of copying desktop-sized Kahuna targets. Mobile metadata-editing
+UX is explicitly deferred; these safeguards are not a claim of desktop/mobile parity.
 
 ### Default-Off Commands and Explicit Reload (4 November 2026)
 

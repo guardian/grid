@@ -13,6 +13,8 @@ const commandSchema = z.object({
 }).strict();
 const labelsResourceSchema = z.object({ data: z.object({ labels: z.object({ uri: z.string() }) }) });
 
+export type AddLabelsCommand = z.infer<typeof commandSchema>;
+
 export type GridCommandResult =
   | { outcome: "blocked"; reason: "disabled" | "invalid-command" | "unavailable" | "reload-required" }
   | { outcome: "acknowledged" }

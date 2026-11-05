@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { buildDynamicFieldFallback, buildTypeaheadFields, stripFieldFromQuery, queryContainsField } from "./typeahead-fields";
+import { buildDynamicFieldFallback, buildTypeaheadFields, createLabelSuggestionProvider, stripFieldFromQuery, queryContainsField } from "./typeahead-fields";
 import { MockDataSource } from "@/dal/mock-data-source";
 import type {
   SearchParams,
@@ -90,6 +90,28 @@ describe("literal-safe typeahead scope", () => {
       vi.unstubAllEnvs();
       useUsageRightsCatalogue.setState({ categories: null });
     }
+  });
+
+  it("shares label matching and popularity while keeping library and search scopes separate", async () => {
+    const dataSource = new MockDataSource(0);
+    const aggregation = vi.spyOn(dataSource, "getAggregations").mockResolvedValue({ fields: {
+      "userMetadata.labels": { buckets: [
+        { key: "Newspaper", count: 20 }, { key: "News", count: 5 }, { key: "Football", count: 2 },
+      ] },
+    } });
+    const scoped = buildTypeaheadFields(dataSource, undefined, () => ({
+      query: "city:London label:ne", ids: "search-image", nonFree: "false",
+    })).find(field => field.fieldName === "label")!.resolver;
+    if (typeof scoped !== "function") throw new Error("Expected label resolver");
+    const expected = [{ value: "Newspaper", count: 20 }, { value: "News", count: 5 }];
+    expect(await scoped("nE")).toEqual(expected);
+    expect(aggregation.mock.calls[0][0]).toEqual({ query: "city:London", ids: "search-image", nonFree: "false" });
+    const library = createLabelSuggestionProvider(dataSource, undefined, () => ({ nonFree: "true" }));
+    expect(await library("NE")).toEqual(expected);
+    expect(aggregation.mock.calls[1][0]).toEqual({ nonFree: "true" });
+    expect(aggregation.mock.calls[1][1]).toEqual([{ field: "userMetadata.labels", size: 50 }]);
+    expect(await library("newsp")).toEqual([{ value: "Newspaper", count: 20 }]);
+    expect(aggregation).toHaveBeenCalledTimes(2);
   });
 
   it("reuses completed equivalent buckets while filtering the latest prefix", async () => {

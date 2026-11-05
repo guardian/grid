@@ -52,6 +52,8 @@ import { isLeaseActive } from "@/lib/syndication/calculate-syndication-status";
 import type { Lease } from "@/types/image";
 import { gridConfig } from "@/lib/grid-config";
 import { useCategoryLabel } from "@/lib/category-labels";
+import { LabelEditor } from "./LabelEditor";
+import type { LabelEditContext } from "@/lib/label-operation";
 
 
 const SECTIONS = groupFieldsIntoSections(DETAIL_PANEL_FIELDS);
@@ -187,11 +189,14 @@ function formatDeletedTime(iso: string): { relative: string; absolute: string } 
 
 interface ImageMetadataProps {
   image: Image;
+  labelEditing?: LabelEditContext;
+  resolveLabelEditing?: () => LabelEditContext;
+  editingPending?: boolean;
   /** Server enrichment the caller fetched with this image itself; wins over the shared store. */
   overlay?: EnrichmentFields;
 }
 
-export function ImageMetadata({ image, overlay }: ImageMetadataProps) {
+export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditing, editingPending }: ImageMetadataProps) {
   const onSearch = useMetadataSearch();
   const categoryLabel = useCategoryLabel();
   const enriched = useEnrichedImage(image, overlay);
@@ -398,6 +403,11 @@ export function ImageMetadata({ image, overlay }: ImageMetadataProps) {
             if (field.visibleWhen?.() === false) return null;
 
             const raw = field.accessor(image);
+            if (field.id === "labels" && import.meta.env.VITE_USE_MEDIA_API === "true") {
+              return <LabelEditor key={field.id} onSearch={onSearch} resolveContext={resolveLabelEditing}
+                context={labelEditing ?? { targetIds: [image.id], targets: new Map([[image.id, { resource: enriched?.resource }]]), pending: editingPending }}
+                values={Array.isArray(raw) ? raw.map(value => ({ value: String(value), count: 1 })) : []} />;
+            }
             const hasValue = Array.isArray(raw) ? raw.length > 0 : raw != null && raw !== "";
 
             if (!hasValue) {

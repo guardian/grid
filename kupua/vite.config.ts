@@ -149,7 +149,7 @@ return {
     },
     build: { outDir: path.resolve(import.meta.dirname, "../kahuna/public/kupua"), emptyOutDir: true },
   }),
-  plugins: [react(), tailwindcss(), esProxyGuard(), gridApiWriteGuard(), perfEnvironment(), ...directBedrockPlugins],
+  plugins: [react(), ...(mode === "test" && process.env.VITEST ? [] : [tailwindcss()]), esProxyGuard(), gridApiWriteGuard(), perfEnvironment(), ...directBedrockPlugins],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "./src"),
