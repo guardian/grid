@@ -24,7 +24,7 @@
     "javascript-detect-element-resize": "0.5.3",
     "jszip": "3.10.2",
     "moment": "2.31.0",
-    "p-queue": "6.6.2",
+    "p-queue": "10.0.0",
     "panda-session": "0.1.6",
     "pandular": "0.1.6",
     "pikaday": "1.8.2",
