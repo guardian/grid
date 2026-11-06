@@ -152,12 +152,12 @@ object UsageRightsProperty {
       requiredStringField("source", "Source", examples = Some("Getty Images, Corbis, Reuters")),
     )
 
-    case PublisherPhotographer => List(
+    case PublisherPhotography => List(
       publicationField(required = true, optionsFromPublicationList(p.allPhotographers)),
       creatorField(sortPublicationList(p.allPhotographers), "publication")
     )
 
-    case PublisherIllustrator => List(
+    case PublisherIllustration => List(
       publicationField(required = true, optionsFromPublicationList(p.allIllustrators)),
       creatorField(sortPublicationList(p.allIllustrators), "publication")
     )

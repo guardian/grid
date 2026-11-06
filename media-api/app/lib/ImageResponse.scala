@@ -307,7 +307,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
         val translatedFields = replacement match {
           case PRAndThirdParty =>
             Seq(stringField("supplier"), stringField("suppliers")).flatten.map(s => Json.obj("source" -> s))
-          case PublisherPhotographer =>
+          case PublisherPhotography =>
             Seq(stringField("photographer"), stringField("supplier")).flatten.map(s => Json.obj("creator" -> s))
           case _ => Seq.empty
         }

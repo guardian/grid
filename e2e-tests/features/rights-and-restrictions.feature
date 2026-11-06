@@ -192,10 +192,10 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
       | Agency - subscription       | Supplier      | required | unticked          |
       | Agency - subscription       | Collection    | optional | unticked          |
       | PR & Third Party            | Source        | required | ticked and locked |
-      | GNM Photographer            | Publication   | required | unticked          |
-      | GNM Photographer            | Creator       | required | unticked          |
-      | GNM Illustrator             | Publication   | required | unticked          |
-      | GNM Illustrator             | Creator       | required | unticked          |
+      | GNM Photography             | Publication   | required | unticked          |
+      | GNM Photography             | Creator       | required | unticked          |
+      | GNM Illustration            | Publication   | required | unticked          |
+      | GNM Illustration            | Creator       | required | unticked          |
   # Evidence: metadata-editor/app/model/UsageRightsProperty.scala lines 74-77 (restrictions required when defaultCost is Conditional)
   # Evidence: metadata-editor/app/model/UsageRightsProperty.scala lines 155-163 (publisher publication and creator properties)
   # Evidence: common-lib/src/main/scala/com/gu/mediaservice/model/UsageRights.scala (defaultCost per category; publisher names use branding.staffPhotographerOrganisation, default "GNM")
@@ -234,8 +234,8 @@ Feature: Viewing and editing an image's rights and restrictions in the single im
     Examples:
       | category              |
       | Agency - subscription |
-      | GNM Photographer      |
-      | GNM Illustrator       |
+      | GNM Photography      |
+      | GNM Illustration       |
 
   # Evidence: metadata-editor/app/model/UsageRightsProperty.scala lines 74-77 (restrictions offered for every category except NoRights)
   # Evidence: metadata-editor/app/model/UsageRightsProperty.scala lines 155-163 (publisher publication and creator properties)
