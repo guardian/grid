@@ -50,6 +50,12 @@ or start another command in its terminal before completion.
 Terminal tool calls can reuse the active terminal: do not launch them in parallel with E2E.
 Finish unit/build/typechecks first; inspect a running suite through its saved log with `read_file`.
 
+Vite servers created inside a test must use their own `cacheDir`, preferably
+`testInfo.outputPath("vite-cache")`. Sharing `node_modules/.vite` with the main
+runner server lets fixture dependency optimization remove modules that concurrent
+tests are importing. Preserve unresolved failure traces outside `test-results/`
+before a later run; even a focused run clears that directory.
+
 ### Local Projects and Ports
 
 [playwright.config.ts](../playwright.config.ts) starts the required servers.

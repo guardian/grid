@@ -1,28 +1,484 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type JSHandle, type Page } from "@playwright/test";
 import { createServer as createHttpServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { resolve, extname } from "node:path";
-import { build, createServer, type Plugin } from "vite";
+import { build, createServer } from "vite";
 import type * as Commands from "../../src/lib/grid-commands";
 import type { labelEditorFixture } from "../shared/label-editor-fixture";
 import { GRID_API_READ_VIA_POST } from "../../src/dal/grid-api/read-via-post";
+import { labelEditorPlugin, virtualEntry } from "../shared/label-editor-plugin";
+import { getDensityChangeButton } from "../shared/density-selection";
+import type { useSearchStore } from "../../src/stores/search-store";
 
-type CommandWindow = typeof window & { commandFixture: typeof Commands; editorFixture: typeof labelEditorFixture };
-const virtualEntry = "virtual:kupua-commands";
-const fixturePlugin: Plugin = {
-  name: "isolated-command-fixture",
-  resolveId(id) { if (id === virtualEntry) return id; },
-  load(id) {
-    if (id === virtualEntry) return `import * as commands from ${JSON.stringify(resolve("src/lib/grid-commands.ts"))}; window.commandFixture = commands;
-      import {labelEditorFixture} from ${JSON.stringify(resolve("e2e/shared/label-editor-fixture.tsx"))}; window.editorFixture = labelEditorFixture;`;
-  },
-  configureServer(server) {
-    server.middlewares.use("/__commands", async (_request, response) => {
-      response.setHeader("Content-Type", "text/html");
-      response.end(await server.transformIndexHtml("/__commands", `<html><head></head><body><script type="module" src="/@id/${virtualEntry}"></script></body></html>`));
+type CommandWindow = typeof window & { commandFixture: typeof Commands; editorFixture: typeof labelEditorFixture;
+  __kupua_store__: typeof useSearchStore };
+const fixturePlugin = labelEditorPlugin();
+
+async function isolatePublicationFixture(page: Page, origin: string) {
+  const escaped: string[] = [];
+  await page.route("**/*", route => {
+    const url = new URL(route.request().url());
+    if (url.origin === origin && url.pathname === "/fixture-collections/collections" && route.request().method() === "GET") {
+      return route.fulfill({ json: { data: { basename: "root", children: [] } } });
+    }
+    if (url.origin === origin && ["/api", "/api/", "/api/usage/quotas"].includes(url.pathname) && route.request().method() === "GET") {
+      return route.fulfill({ json: { data: {}, links: [] } });
+    }
+    if (url.origin === origin && !/^\/(es|api|bedrock|grid-metadata|grid-auth)(\/|$)/.test(url.pathname)) return route.continue();
+    escaped.push(url.pathname);
+    return route.abort();
+  });
+  return escaped;
+}
+
+test("buffer publication uses the normal API app without fixture transforms", async ({ page }, testInfo) => {
+  const env = { VITEST: "true", VITE_USE_MEDIA_API: "true", VITE_HOSTED: "false", VITE_MEDIA_API_BASE_URL: "/api",
+    VITE_MEDIA_DELIVERY: "canonical", VITE_COLLECTIONS_URL: "/fixture-collections", VITE_GRID_API_WRITES_ENABLED: "false" };
+  const previous = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]));
+  Object.assign(process.env, env);
+  const vite = await createServer({ configFile: resolve("vite.config.ts"), cacheDir: testInfo.outputPath("vite-cache"),
+    server: { host: "127.0.0.1", port: 0 } });
+  const escaped: string[] = [];
+  let pageReads = 0;
+  try {
+    await vite.listen();
+    const origin = vite.resolvedUrls!.local[0].replace(/\/$/, "");
+    const media = await readFile(resolve("../e2e-tests/fixtures/images/test.jpg"));
+    const images = Array.from({ length: 120 }, (_, index) => ({
+      uri: `${origin}/api/images/local-${index}`, links: [{ rel: "optimised", href: `${origin}/__trial-media.jpg` }],
+      data: { id: `local-${index}`, uploadTime: new Date(Date.UTC(2026, 0, 1) - index * 1000).toISOString(),
+        metadata: { description: `Original local image ${index}`, credit: "Fixture" },
+        cost: "free", valid: true, invalidReasons: {}, usageRights: { category: "staff-photographer" },
+        userMetadata: { data: { labels: { data: [{ data: "original label" }] }, archived: { data: false },
+          metadata: {}, usageRights: {}, photoshoot: {} } },
+        source: { dimensions: { width: 700, height: 576 }, mimeType: "image/jpeg" },
+        thumbnail: { secureUrl: `${origin}/__trial-media.jpg`, dimensions: { width: 700, height: 576 } },
+        usages: { data: [] }, leases: { data: { leases: [] } }, collections: [] },
+    }));
+    await page.route("**/*", async route => {
+      const request = route.request();
+      const url = new URL(request.url());
+      const path = url.pathname;
+      if (url.origin === origin) {
+        if (request.method() === "POST" && path === "/api/images/search-after") {
+          pageReads++;
+          return route.fulfill({ json: { data: images, total: images.length,
+            sortValues: images.map(image => [Date.parse(image.data.uploadTime), image.data.id]) } });
+        }
+        if (request.method() === "POST" && path === "/api/images/count") {
+          return route.fulfill({ json: { total: images.length } });
+        }
+        if (request.method() === "POST" && path === "/api/images/aggregations") {
+          return route.fulfill({ json: { fields: {}, isFilterCounts: {} } });
+        }
+        if (request.method() === "GET") {
+          if (path === "/__trial-media.jpg") return route.fulfill({ contentType: "image/jpeg", body: media });
+          if (["/api", "/api/", "/api/usage/quotas"].includes(path)) return route.fulfill({ json: { data: {}, links: [] } });
+          if (path === "/fixture-collections/collections") return route.fulfill({ json: { data: { basename: "root", children: [] } } });
+          if (!/^\/(es|api|bedrock|grid-metadata|grid-auth)(\/|$)/.test(path)) return route.continue();
+        }
+      }
+      escaped.push(`${request.method()} ${path}`);
+      return route.abort();
     });
-  },
-};
+    await page.goto(`${origin}/search`);
+    const region = page.getByRole("region", { name: "Image results grid", exact: true });
+    await expect(region.locator("[data-cell-id]").first()).toBeVisible();
+    expect(await page.evaluate(async () => {
+      const path = "/src/dal/api-data-source.ts";
+      const { ApiDataSource } = await import(path);
+      return (window as CommandWindow).__kupua_store__.getState().dataSource instanceof ApiDataSource
+        && !(window as Partial<CommandWindow>).editorFixture;
+    })).toBe(true);
+    await expect.poll(() => region.locator("img").first().evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth === 700)).toBe(true);
+    await page.evaluate(async () => {
+      const path = "/src/lib/image-publication.ts";
+      const { publishImage } = await import(path);
+      const image = (window as CommandWindow).__kupua_store__.getState().results[0]!;
+      publishImage({ ...image, metadata: { ...image.metadata, description: "Published API image" } }, { resource: { links: [] } });
+    });
+    await expect(region.getByText("Published API image", { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(region.locator("[data-cell-id]").first()).toBeVisible();
+    await expect(region.getByText("Published API image", { exact: true })).toHaveCount(0);
+    expect(pageReads).toBe(2);
+    expect(escaped).toEqual([]);
+  } finally {
+    await page.goto("about:blank");
+    await page.unrouteAll({ behavior: "wait" });
+    await vite.close();
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  }
+});
+
+test.describe("buffer publication", () => {
+  let vite: Awaited<ReturnType<typeof createServer>>;
+  let origin: string;
+  const env = { VITEST: "true", VITE_USE_MEDIA_API: "true", VITE_HOSTED: "false", VITE_MEDIA_API_BASE_URL: "/api",
+    VITE_GRID_METADATA_ORIGIN: "https://metadata.example.test", VITE_MEDIA_DELIVERY: "canonical",
+    VITE_COLLECTIONS_URL: "/fixture-collections", VITE_GRID_API_WRITES_ENABLED: "false" };
+  let previous: Record<string, string | undefined>;
+
+  test.beforeAll(async ({}, testInfo) => {
+    previous = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]));
+    Object.assign(process.env, env);
+    vite = await createServer({ configFile: resolve("vite.config.ts"), cacheDir: testInfo.outputPath("vite-cache"), plugins: [labelEditorPlugin(true)],
+      server: { host: "127.0.0.1", port: 0 } });
+    await vite.listen();
+    origin = vite.resolvedUrls!.local[0].replace(/\/$/, "");
+  });
+  test.afterAll(async () => {
+    await vite?.close();
+    for (const [key, value] of Object.entries(previous ?? {})) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  });
+
+  for (const density of ["grid", "table", "justified"] as const) {
+      test(`in ${density}: stable boxes and current consumers`, async ({ page }) => {
+        const escaped = await isolatePublicationFixture(page, origin);
+        try {
+          await page.goto(`${origin}/__publication?density=${density}`);
+          const region = page.getByRole("region", { name: `Image results ${density}`, exact: true });
+          await expect(region).toBeVisible();
+          await expect(region.locator("[data-cell-id]").first()).toBeVisible();
+          await region.evaluate(element => { element.scrollTop = 1800; });
+          await expect.poll(() => region.evaluate(element => element.scrollTop)).toBeGreaterThan(1000);
+          let imageId = "";
+          await expect.poll(async () => {
+            imageId = await region.evaluate(element => {
+              const bounds = element.getBoundingClientRect();
+              const topInset = element.getAttribute("aria-label") === "Image results table" ? 40 : 0;
+              const cell = [...element.querySelectorAll<HTMLElement>("[data-cell-id]")].find(cell => {
+                const box = cell.getBoundingClientRect();
+                return box.top >= bounds.top + topInset && box.bottom < bounds.bottom - 8;
+              });
+              return cell?.dataset.cellId ?? "";
+            });
+            return imageId;
+          }).not.toBe("");
+          await page.evaluate(imageId => (window as CommandWindow).editorFixture.select([imageId]), imageId);
+          const snapshot = () => page.evaluate(imageId => (window as CommandWindow).editorFixture.publicationSnapshot(imageId), imageId);
+          await expect.poll(async () => (await snapshot()).selected).toBe(`Original ${imageId}`);
+          await expect.poll(async () => (await snapshot()).reconciling).toBe(false);
+          const cell = region.locator(`[data-cell-id="${imageId}"]`);
+          await cell.scrollIntoViewIfNeeded();
+          const observation = await page.evaluate(async ({ imageId, density }) => {
+            const fixture = (window as CommandWindow).editorFixture;
+            const path = "/src/lib/scroll-geometry-ref.ts";
+            const { getLayoutGeometry } = await import(path);
+            const region = document.querySelector<HTMLElement>(`[aria-label="Image results ${density}"]`)!;
+            const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+            for (let count = 0; count < 8; count++) await frame();
+            const regionBox = region.getBoundingClientRect();
+            const visible = [...region.querySelectorAll<HTMLElement>("[data-cell-id]")].filter(cell => {
+              const box = cell.getBoundingClientRect();
+              return box.bottom > regionBox.top + 40 && box.top < regionBox.bottom;
+            }).map(cell => cell.dataset.cellId!);
+            const boxes = () => visible.map(id => {
+              const cell = region.querySelector(`[data-cell-id="${CSS.escape(id)}"]`);
+              if (!cell) throw new Error("A visible cell disappeared");
+              const { x, y, width, height } = cell.getBoundingClientRect();
+              return { id, x, y, width, height };
+            });
+            const before = boxes();
+            const geometry = getLayoutGeometry();
+            fixture.publish(imageId);
+            const frames = [];
+            for (let count = 0; count < 12; count++) { await frame(); frames.push(boxes()); }
+            const deadline = performance.now() + 3000;
+            while (fixture.publicationSnapshot(imageId).reconciling && performance.now() < deadline) {
+              await frame();
+              frames.push(boxes());
+            }
+            if (fixture.publicationSnapshot(imageId).reconciling) throw new Error("Publication reconciliation did not finish");
+            return { before, frames, retainedGeometry: getLayoutGeometry() === geometry };
+          }, { imageId, density });
+          expect(observation.before.length).toBeGreaterThan(1);
+          for (const frame of observation.frames) expect(frame).toEqual(observation.before);
+          expect(observation.retainedGeometry).toBe(true);
+          if (density === "justified") await expect(cell.locator("[title]").first()).toHaveAttribute("title", /A2 published description/);
+          else await expect(cell).toContainText("A2 published description");
+          await expect.poll(async () => (await snapshot()).selected).toBe("A2 published description");
+          expect((await snapshot()).selectedIds).toEqual([imageId]);
+          expect((await snapshot()).links).toBe(0);
+          await expect(page.getByRole("button", { name: "Remove A2 published label", exact: true })).toBeDisabled();
+          await cell.dblclick();
+          await expect(page.getByText("Back to search", { exact: true })).toBeVisible();
+          await expect(page.getByText("A2 published description", { exact: true }).filter({ visible: true }).first()).toBeVisible();
+          await page.getByText("Back to search", { exact: true }).click();
+          await page.evaluate(imageId => (window as CommandWindow).editorFixture.revealPublicationTarget(imageId), imageId);
+          await page.keyboard.press("f");
+          await page.waitForFunction(() => document.fullscreenElement !== null);
+          await expect(page.locator('[data-fullscreen-preview="active"] img')).toHaveAttribute("alt", "A2 published description");
+          await page.evaluate(() => document.exitFullscreen());
+          await expect(page.locator('[data-fullscreen-preview="active"]')).toHaveCount(0);
+          const destination = density === "grid" ? "table" : "grid";
+          const densityButton = await getDensityChangeButton(page, destination);
+          await densityButton?.click();
+          const nextRegion = page.getByRole("region", { name: `Image results ${destination}`, exact: true });
+          await expect(nextRegion.locator(`[data-cell-id="${imageId}"]`)).toContainText("A2 published description");
+          await page.evaluate(imageId => (window as CommandWindow).editorFixture.select([imageId]), imageId);
+          await page.evaluate(imageId => (window as CommandWindow).editorFixture.acceptNewerPage(imageId), imageId);
+          await expect.poll(async () => (await snapshot()).resident).toBe("A2 newer page description");
+          await expect.poll(async () => (await snapshot()).selected).toBe("A2 newer page description");
+          await expect.poll(async () => (await snapshot()).reconciling).toBe(false);
+          expect((await snapshot()).links).toBe(1);
+          await expect(page.getByRole("button", { name: "Remove A2 newer page label", exact: true })).toBeEnabled();
+          expect((await snapshot()).selectedIds).toEqual([imageId]);
+          const newerCell = nextRegion.locator(`[data-cell-id="${imageId}"]`);
+          await page.evaluate(imageId => (window as CommandWindow).editorFixture.revealPublicationTarget(imageId), imageId);
+          await expect(newerCell).toContainText("A2 newer page description");
+          await newerCell.dblclick();
+          await expect(page.getByText("Back to search", { exact: true })).toBeVisible();
+          await expect(page.getByText("A2 newer page description", { exact: true }).filter({ visible: true }).first()).toBeVisible();
+          await page.getByText("Back to search", { exact: true }).click();
+          await page.evaluate(imageId => (window as CommandWindow).editorFixture.select([imageId, "img-0"]), imageId);
+          await expect.poll(async () => (await snapshot()).reconciling).toBe(false);
+          await expect(page.getByRole("button", { name: "Remove A2 newer page label from all selected images", exact: true })).toBeEnabled();
+          expect(escaped).toEqual([]);
+        } finally {
+          await page.evaluate(async () => { if (document.fullscreenElement) await document.exitFullscreen(); }).catch(() => {});
+          await page.unrouteAll({ behavior: "wait" });
+        }
+      });
+  }
+
+  for (const density of ["grid", "table", "justified"] as const) {
+    test(`preserves ${density} browsing during publication`, async ({ page }) => {
+      const escaped = await isolatePublicationFixture(page, origin);
+      let probe: Awaited<ReturnType<typeof page.evaluateHandle<{ stop: () => unknown }>>> | undefined;
+      try {
+        await page.goto(`${origin}/__publication?density=${density}`);
+        const region = page.getByRole("region", { name: `Image results ${density}`, exact: true });
+        await expect(region.locator("[data-cell-id]").first()).toBeVisible();
+        await region.evaluate(element => { element.scrollTop = 1600; });
+        await expect.poll(() => region.evaluate(element => {
+          const bounds = element.getBoundingClientRect();
+          const images = [...element.querySelectorAll("img")].filter(image => {
+            const box = image.getBoundingClientRect();
+            return box.bottom > bounds.top && box.top < bounds.bottom;
+          });
+          return images.length > 0 && images.every(image => image.complete && image.naturalWidth >= 700);
+        })).toBe(true);
+        const bounds = (await region.boundingBox())!;
+        await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+        const initialScroll = await region.evaluate(element => element.scrollTop);
+        await page.mouse.wheel(0, 200);
+        await expect.poll(() => region.evaluate(element => element.scrollTop)).toBeGreaterThan(initialScroll);
+        probe = await page.evaluateHandle(density => {
+          const region = document.querySelector<HTMLElement>(`[aria-label="Image results ${density}"]`)!;
+          const store = (window as CommandWindow).__kupua_store__;
+          const startScroll = region.scrollTop;
+          let frames = 0;
+          let comparisons = 0;
+          let jumps = 0;
+          let wheelEvents = 0;
+          let publicationDuringScroll = false;
+          let scrollWrites = 0;
+          let reverseMovement = 0;
+          let lastMovement = -Infinity;
+          let lastScroll = startScroll;
+          const ownTop = Object.getOwnPropertyDescriptor(region, "scrollTop");
+          const ownScrollTo = Object.getOwnPropertyDescriptor(region, "scrollTo");
+          const nativeTop = Object.getOwnPropertyDescriptor(Element.prototype, "scrollTop")!;
+          const nativeScrollTo = region.scrollTo;
+          Object.defineProperty(region, "scrollTop", { configurable: true,
+            get: () => nativeTop.get!.call(region) as number,
+            set: (value: number) => { scrollWrites++; nativeTop.set!.call(region, value); } });
+          region.scrollTo = (...args: unknown[]) => { scrollWrites++; Reflect.apply(nativeScrollTo, region, args); };
+          region.scrollTop = startScroll;
+          region.scrollTo({ top: startScroll });
+          if (scrollWrites !== 2) throw new Error("Scroll-write detector missed its controls");
+          scrollWrites = 0;
+          let frameId = 0;
+          let previous = new Map<string, { x: number; y: number; width: number; height: number }>();
+          const wheel = () => { wheelEvents++; };
+          region.addEventListener("wheel", wheel, { passive: true });
+          const unsubscribe = store.subscribe((state, prior) => {
+            if (state.results !== prior.results && state.results.some(image => image?.metadata.description === "A2 published description")) {
+              publicationDuringScroll = wheelEvents > 2 && region.scrollTop > startScroll && performance.now() - lastMovement < 200;
+            }
+          });
+          const sample = () => {
+            frames++;
+            const scroll = region.scrollTop;
+            if (scroll > lastScroll) lastMovement = performance.now();
+            if (scroll < lastScroll - 1) reverseMovement++;
+            lastScroll = scroll;
+            const bounds = region.getBoundingClientRect();
+            const current = new Map<string, { x: number; y: number; width: number; height: number }>();
+            for (const cell of region.querySelectorAll<HTMLElement>("[data-cell-id]")) {
+              const box = cell.getBoundingClientRect();
+              if (box.bottom <= bounds.top || box.top >= bounds.bottom) continue;
+              const next = { x: box.x + region.scrollLeft, y: box.y + region.scrollTop, width: box.width, height: box.height };
+              const before = previous.get(cell.dataset.cellId!);
+              if (before) {
+                comparisons++;
+                if (Math.abs(next.x - before.x) > 1 || Math.abs(next.y - before.y) > 1
+                  || Math.abs(next.width - before.width) > 1 || Math.abs(next.height - before.height) > 1) jumps++;
+              }
+              current.set(cell.dataset.cellId!, next);
+            }
+            previous = current;
+            frameId = requestAnimationFrame(sample);
+          };
+          frameId = requestAnimationFrame(sample);
+          const bounds = region.getBoundingClientRect();
+          const target = [...region.querySelectorAll<HTMLElement>("[data-cell-id]")].find(cell => {
+            const box = cell.getBoundingClientRect();
+            return box.top >= bounds.top && box.bottom <= bounds.bottom;
+          });
+          if (!target) throw new Error("Visible publication target unavailable");
+          const timer = setTimeout(() => (window as CommandWindow).editorFixture.publish(target.dataset.cellId!), 400);
+          return { stop() {
+            clearTimeout(timer);
+            cancelAnimationFrame(frameId);
+            unsubscribe();
+            region.removeEventListener("wheel", wheel);
+            if (ownTop) Object.defineProperty(region, "scrollTop", ownTop);
+            else delete (region as Partial<HTMLElement>).scrollTop;
+            if (ownScrollTo) Object.defineProperty(region, "scrollTo", ownScrollTo);
+            else delete (region as Partial<HTMLElement>).scrollTo;
+            return { frames, comparisons, jumps, wheelEvents, publicationDuringScroll, scrollWrites, reverseMovement };
+          } };
+        }, density);
+        await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+        for (let step = 0; step < 8; step++) {
+          await page.mouse.wheel(0, 40);
+          await page.waitForTimeout(80);
+        }
+        const result = await probe.evaluate(probe => probe.stop()) as { frames: number; comparisons: number; jumps: number;
+          publicationDuringScroll: boolean; scrollWrites: number; reverseMovement: number };
+        await probe.dispose();
+        probe = undefined;
+        expect(result.frames).toBeGreaterThan(12);
+        expect(result.comparisons).toBeGreaterThan(12);
+        expect(result.jumps).toBe(0);
+        expect(result.publicationDuringScroll).toBe(true);
+        expect(result.scrollWrites).toBe(0);
+        expect(result.reverseMovement).toBe(0);
+        expect(escaped).toEqual([]);
+      } finally {
+        await probe?.evaluate(probe => probe.stop()).catch(() => {});
+        await probe?.dispose();
+        await page.unrouteAll({ behavior: "wait" });
+      }
+    });
+  }
+
+  test("buffer publication preserves mounted Justified early demand", async ({ page }) => {
+    for (const retainGeometry of [true, false]) {
+      const escaped = await isolatePublicationFixture(page, origin);
+      let probe: JSHandle<{ delta: number; snapshot: () => { reads: number[]; published: boolean; publicationHeadroom: number };
+        stop: () => Promise<void> }> | undefined;
+      try {
+        await page.goto(`${origin}/__publication?density=justified`);
+        const region = page.getByRole("region", { name: "Image results justified", exact: true });
+        await expect(region.locator('[data-cell-id="img-0"]')).toBeVisible();
+        await page.waitForFunction(() => !(window as CommandWindow).__kupua_store__.getState().loading);
+        await region.hover();
+        for (let step = 0; step < 3; step++) {
+          const before = await region.evaluate(element => element.scrollTop);
+          await page.mouse.wheel(0, 100);
+          await expect.poll(() => region.evaluate(element => element.scrollTop)).toBeGreaterThan(before);
+        }
+        probe = await page.evaluateHandle(async retainGeometry => {
+          const path = "/src/lib/scroll-geometry-ref.ts";
+          const { getLayoutGeometry, getItemLayoutRow } = await import(path);
+          const store = (window as CommandWindow).__kupua_store__;
+          const state = store.getState();
+          if (state.results.length !== 200 || state._extendForwardInFlight) throw new Error("Early-demand setup already extended");
+          const container = document.querySelector<HTMLElement>('[aria-label="Image results justified"]')!;
+          const source = state.dataSource;
+          const original = source.searchAfter;
+          const ownSearch = Object.getOwnPropertyDescriptor(source, "searchAfter");
+          const reads: number[] = [];
+          const pending: Promise<unknown>[] = [];
+          let release!: () => void;
+          const held = new Promise<void>(resolve => { release = resolve; });
+          const headroom = () => {
+            const geometry = getLayoutGeometry();
+            const row = "layout" in geometry && geometry.window?.rowAtOffset(container.scrollTop + container.clientHeight - 0.01);
+            if (!row) throw new Error("Mounted Justified viewport unavailable");
+            return store.getState().bufferOffset + store.getState().results.length - row.lastItemIndex - 1;
+          };
+          source.searchAfter = (...args) => {
+            reads.push(headroom());
+            const work = held.then(() => original.apply(source, args));
+            pending.push(work);
+            return work;
+          };
+          let published = false;
+          let publicationHeadroom = 0;
+          const publish = () => {
+            publicationHeadroom = headroom();
+            (window as CommandWindow).editorFixture.publish("img-0");
+            if (!retainGeometry) store.setState({ results: [...store.getState().results] });
+            published = true;
+          };
+          container.addEventListener("scroll", publish, { capture: true, once: true });
+          const destination = getItemLayoutRow(getLayoutGeometry(), 120).top - container.clientHeight;
+          return { delta: destination - container.scrollTop, snapshot: () => ({ reads, published, publicationHeadroom }),
+            async stop() {
+              container.removeEventListener("scroll", publish, true);
+              if (ownSearch) Object.defineProperty(source, "searchAfter", ownSearch);
+              else delete (source as Partial<typeof source>).searchAfter;
+              release();
+              await Promise.all(pending);
+            } };
+        }, retainGeometry);
+        const delta = await probe.evaluate(probe => probe.delta);
+        expect(delta).toBeGreaterThan(0);
+        await page.mouse.wheel(0, delta);
+        await expect.poll(() => probe!.evaluate(probe => probe.snapshot().published)).toBe(true);
+        const result = await probe.evaluate(async probe => {
+          for (let frame = 0; frame < 8; frame++) await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+          return probe.snapshot();
+        });
+        expect(result.publicationHeadroom).toBeGreaterThan(50);
+        if (retainGeometry) {
+          expect(result.reads).toHaveLength(1);
+          expect(result.reads[0]).toBeGreaterThan(50);
+        } else expect(result.reads).toEqual([]);
+        expect(escaped).toEqual([]);
+      } finally {
+        await probe?.evaluate(probe => probe.stop());
+        await probe?.dispose();
+        await page.unrouteAll({ behavior: "wait" });
+      }
+    }
+  });
+
+  test("buffer publication still rebuilds genuine Justified geometry", async ({ page }) => {
+    const escaped = await isolatePublicationFixture(page, origin);
+    try {
+      await page.goto(`${origin}/__publication?density=justified`);
+      const region = page.getByRole("region", { name: "Image results justified", exact: true });
+      await expect(region.locator('[data-cell-id="img-0"]')).toBeVisible();
+      const result = await page.evaluate(async () => {
+        const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        for (let count = 0; count < 8; count++) await frame();
+        const fixture = (window as CommandWindow).editorFixture;
+        const path = "/src/lib/scroll-geometry-ref.ts";
+        const { getLayoutGeometry } = await import(path);
+        const cell = document.querySelector('[data-cell-id="img-0"]')!;
+        const before = cell.getBoundingClientRect().width;
+        const geometry = getLayoutGeometry();
+        fixture.publishGeometryChange("img-0");
+        for (let count = 0; count < 12; count++) await frame();
+        return { before, after: cell.getBoundingClientRect().width, changedGeometry: getLayoutGeometry() !== geometry };
+      });
+      expect(result.after).not.toBe(result.before);
+      expect(result.changedGeometry).toBe(true);
+      expect(escaped).toEqual([]);
+    } finally {
+      await page.unrouteAll({ behavior: "wait" });
+    }
+  });
+});
 
 function labelCommand(origin: string) {
   return { operation: "add-labels", imageId: "fixture", labels: ["fixture label"],
@@ -156,7 +612,7 @@ async function exerciseLabelEditor(page: Page) {
   }
 }
 
-test("local commands cross the actual guarded Vite proxy only for the selected operation", async ({ page }) => {
+test("local commands cross the actual guarded Vite proxy only for the selected operation", async ({ page }, testInfo) => {
   const received: Array<{ method: string; path: string; body: string }> = [];
   let origin = "";
   const upstream = createHttpServer(async (request, response) => {
@@ -185,7 +641,7 @@ test("local commands cross the actual guarded Vite proxy only for the selected o
   let vite: Awaited<ReturnType<typeof createServer>> | undefined;
   try {
     vite = await createServer({
-      configFile: resolve("vite.config.ts"), plugins: [fixturePlugin],
+      configFile: resolve("vite.config.ts"), cacheDir: testInfo.outputPath("vite-cache"), plugins: [fixturePlugin],
       server: { host: "127.0.0.1", port: 0, proxy: { "/api": { target: origin, secure: true } } },
     });
     await vite.listen();

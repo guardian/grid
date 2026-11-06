@@ -565,8 +565,10 @@ following costs before accepting an implementation:
 | Exact targeting/recovery | Existing bounded action-owned reads where meaning requires them; no global dirty-state tax or successor recovery loop |
 | New retained facts | At most 1,000 distinct touched IDs, no full bodies or signed URLs; no catalogue-wide tracking |
 
-Known source costs: result-array replacement rebuilds Justified layout and calls
-virtualizer `measure()`; it also resets the velocity baseline. Full selection
+Initial A2 source costs: raw result-array replacement rebuilt Justified layout,
+called virtualizer `measure()` and reset the velocity baseline. The corrected A2
+buffer route below preserves geometry identity for unchanged-ratio, same-slot
+publication only; ordinary page and genuine geometry invalidations remain. Full selection
 reconciliation is coalesced but runs in one task and traverses selected membership.
 Enrichment upsert copies an accumulated map whose size is not bounded by the current
 1,000-image buffer. Existing receipts also accumulate. Do not claim the whole heap
@@ -616,8 +618,8 @@ with retries disabled. Failing-first regressions and consumer negative controls
 cover deduplication and continued demand; cold correctness/performance reviews led
 to the compound-page and traversal ownership repairs below. No performance campaign
 was run; runtime performance qualification remains operator-owned.
-A2 has not started and still requires its operator checkpoint. No editing transport
-or publication machinery is connected.
+A2's comparison and selected buffer route are recorded below.
+No editing transport or production publication caller is connected.
 
 The original `extendForward`/`extendBackward` paths concatenated incoming
 pages without an ID check. Under an edited sort key (for example `lastModified`)
@@ -660,7 +662,7 @@ Raw page cursors remain separate from those retained display bodies. Per-page fi
 adds bounded scratch arrays/set and resident-map lookups, not new rank/count/map reads.
 These are source/work-count conclusions, not measured frame-time or smoothness claims.
 
-### A2: Publication Route Comparison (Authorized)
+### A2: Publication Route Comparison (Complete: Buffer Selected)
 
 Grid cells read labels, description
 and dates from the raw `image` prop; Justified cells skip enrichment; table rows
@@ -668,7 +670,7 @@ memoize on `image`. So published content must reach the `image` the cell renders
 
 | Route | How | Cost/risk |
 | --- | --- | --- |
-| Buffer replacement | New `results` array with edited bodies at the same indices | Simple, one source of truth; rebuilds Justified layout, calls `measure()` and resets velocity baseline (section 6) |
+| Buffer replacement | New `results` array with edited bodies at the same indices | Simple, one source of truth; the initial avoidable packing/measurement and velocity reset are corrected in the current A2 trial below; mounted content still does more render-phase work |
 | Per-cell publication | Cells select a published body by ID (like `useEnrichedImage`); buffer untouched | May reduce cell/layout work, but needs a coherent body/lifetime contract for other consumers; leaving their displayed content stale is not an accepted performance trade-off |
 
 Prototype both behind a test-only publish call on one existing fixture, in Grid,
@@ -693,6 +695,230 @@ latency or smoothness.
 **Done when:** both candidates' consumer/lifetime behavior and work counts are
 reported, any correctness gap is explicit, and the operator has chosen a route
 meeting the shared publication contract. No observer, readback or editor wiring yet.
+
+#### A2 Comparison Checkpoint
+
+**Final decision, 6 November: the operator selected corrected buffer replacement
+after the normal-media trial, then explicitly authorized retirement of the other
+implementation and temporary tooling. A2 is complete with the validation caveat
+below. A3 has not started and requires a separate operator confirmation.**
+
+The retained [publisher](../../src/lib/image-publication.ts) is
+`publishImage(image, overlay)`: one resident lookup and same-slot array copy,
+unchanged-ratio geometry retention, authoritative enrichment replacement and
+deliberate selected-metadata publication. Normal editing and readback remain
+disconnected. This is a single-image foundation, not grouped observation or
+freshness protection; ordinary later reads and selected caches are not universally
+reconciled by this work.
+
+Removed the per-cell body map, listener/React resolver machinery, comparison work
+counters and all exact-match source transforms. Removed the interactive trial UI,
+its timer, plugin and startup flag. Retained nine publication browser regressions
+on untransformed components: three density consumer journeys, three moving-layout
+checks, mounted early-demand discrimination, genuine geometry change and real-API
+composition. Deleted only the three duplicate per-cell journeys and two tests for
+the now-absent trial guards; the API-composition and scrolling tests no longer need
+trial controls. The equivalent per-cell unit parameter was also removed. The
+comparison and trial observations below remain historical evidence, not executable
+alternative routes or a performance qualification.
+
+**Final cleaned-candidate validation:** 3,581 units, application build, browser
+typecheck and all 535 local E2E tests pass with retries disabled. A final independent
+cleanup review found no blocking regression. Existing WASM-path and bundle-size
+warnings remain. No performance campaign, live mutation or Git mutation occurred.
+The operator stopped the frontend before cleanup; restart uses the normal
+`--use-media-api --canonical-media` command, without the retired trial flag.
+
+**Retained validation caveat:** the first cleaned full run had 533 passes and two
+failures. The same-commit resize case received a React dependency module as 200 and
+later 404 during fixture optimization: the fixtures were sharing the main Vite
+cache. Their caches are now isolated under test output; the resize case and ten
+related fixture cases pass together, and the final full run passes. The separate
+`clicking a sortable column header changes the primary sort` timeout remains
+unexplained: the command reached Credit but did not satisfy the five-second
+completion assertion. Bounded source/trace investigation and an unchanged isolated
+diagnostic found no demonstrated product defect. The original full-run trace was
+lost when the focused runner cleared test output; its failure log and extracted
+request observations remained, and the later diagnostic trace was preserved.
+The operator explicitly accepted proceeding with this unresolved caveat. No sort
+code, assertion or timeout was changed, and the later pass is not claimed to explain
+the earlier failure. Ignored evidence is under
+`kupua/node_modules/.cache/a2-validation/`: `selected-e2e.txt`,
+`cache-isolation.txt`, `sort-diagnostic.txt`, `sort-diagnostic-trace.zip`, and
+`selected-isolated-e2e.txt`.
+
+##### Corrected Buffer Trial (Before Final Selection)
+
+**Trial checkpoint, 6 November: corrected buffer replacement was preferred, pending the
+operator's normal-browser trial. Per-cell remains retained and inactive in that
+trial. Neither route is performance-qualified; A3 has not started.** The operator
+is judging whether browsing feels unchanged, not choosing an architecture from
+render counts. Recommendation: retain the simpler buffer route if that experience
+is acceptable; no measured speed advantage is claimed.
+
+**Correction:** [geometry identity](../../src/lib/result-geometry.ts) is a WeakMap
+from result arrays to empty tokens, without image bodies or predecessor references.
+Same-slot publication shares a token only when the effective image ratio is
+unchanged. Justified packing and velocity continuity use it while keeping their
+other geometry, ownership and navigation invalidations. Ordinary page replacements
+remain unmarked. No ordinary-page scanner or additional render subscription was
+introduced; the comparison's old page-scanning subscriber has been removed.
+
+**Current evidence:** the same comparison corpus now uses local JPEG test cards
+(700x576 and 767x561), with a 40px control strip outside result geometry. Both routes
+still pass the six consumer journeys. Corrected buffer publication records zero
+layout builds and explicit `measure()` calls in all three densities, zero prototype
+subscribers and zero cached-page scans. It still executes 78 Grid cell bodies
+(39 identities), 98 Table row bodies plus two content bodies (44 registry cells),
+and 120 Justified cell bodies (60 identities), including StrictMode repeats. Per-cell
+still executes two affected cell/row bodies and uses 40/50/61 mounted subscriptions
+for Grid/Table/Justified. Each route reconciles the single selected member once.
+These are work counts, not timings; the changed media and viewport mean they are
+not pooled with the original comparison below.
+
+The [browser suite](../../e2e/local/grid-mutations.spec.ts) additionally exercises
+the actual immediate/armed/reset controls during native wheel browsing in all three
+densities, stable document-space packing, no observed programmatic scroll writes
+or sampled reverse jumps, and recent actual movement at publication. Its scroll-write
+detector has explicit positive controls. A mounted Justified witness admits the next
+page with more than the base 50 items remaining across publication; deliberately
+losing geometry identity suppresses that admission. These are bounded correctness
+witnesses, not every-frame compositor or throughput guarantees. Genuine ratio
+change still rebuilds and measures Justified. Hidden-detail and delayed-fullscreen
+failures were reproduced before their trial-only dispatch guards were added.
+One separate case loads the untransformed app with the real API adapter, nested
+Argo responses and local JPEGs, exercising immediate/armed/reset with only declared
+reads. Local test cards are not a photographic performance corpus.
+
+**Historical trial and limits:** the now-retired startup controls used the normal
+media-api/canonical-media workflow and browser-local metadata only.
+There is no mutation, observer, readback or freshness fence. The trial does not
+activate per-cell resolution or comparison instrumentation. Normal later reads
+can replace a simulation while selection metadata still retains it; the comparison
+fixture's explicit newer-page selection publication is not production integration.
+Reset discards local simulation state. No universal detail/fullscreen update contract
+or A3 guarantee follows from refusing dispatch while those presentations own the view.
+
+Cold correctness and performance/evidence reviews found no blocking issue in the
+repaired scope. Final corrected-source gates pass: 3,582 units, application build,
+browser typecheck and all 540 local E2E tests with retries disabled. Existing WASM-path
+and bundle-size warnings remain. No performance campaign has run.
+
+**Operator trial, 6 November:** the operator reported "This feels great. I can't
+feel any difference." A subsequent bounded agent rehearsal in the operator-started
+normal app verified the API datasource, matching served source and absence of
+comparison instrumentation. One stationary Grid update changed one body, showed
+its description/label and preserved nine visible boxes over twelve frames without
+network traffic. One armed Justified update arrived during native wheel scrolling:
+sampled document-space packing stayed unchanged, with no sampled reverse movement,
+unexpected writes or direct-ES requests. All fifteen visible images were loaded at
+the end. Temporary listeners/observers were removed, no update was left armed, and
+the trial remained available. This supports the simpler route but is not a subtle
+smoothness benchmark or independent backend deployment certification. The operator
+retains server ownership. Final confirmation and removal were subsequently authorized
+as recorded in the final decision above; that does not start A3.
+
+##### Original Comparison (Before the Correction)
+
+The following is historical evidence, not the current implementation or gate status.
+
+**Initial 6 November checkpoint: both prototypes were retained for the operator's choice. Neither was
+selected or performance-qualified.** Normal application components do not import
+the prototype. The existing [label-editor fixture](../../e2e/shared/label-editor-fixture.tsx)
+activates it explicitly; its [Vite plugin](../../e2e/shared/label-editor-plugin.ts)
+inserts exact-match consumer hooks and counters only for the comparison server.
+The [prototype](../../src/lib/image-publication.ts) has no editor, observer,
+readback, freshness-fence or live-transport caller.
+
+**Controlled workload:** the same synthetic 1,200-result indexed corpus, a
+200-body resident buffer, one selected mid-buffer target, production Grid/Table/
+Justified components and a 1280-by-720 Chromium viewport. Publication changes
+description, labels and capabilities, not dimensions or media URLs. Images are
+loaded one-pixel data-URL placeholders, intentionally appearing as empty boxes;
+this is not photographic delivery/decode evidence.
+
+| Publication work | Buffer replacement | Per-cell publication |
+| --- | ---: | ---: |
+| Grid cell-body executions / distinct identities | 84 / 42 | 2 / 1 |
+| Table row-body executions | 102 | 2 |
+| Table content executions / emitted registry cells | 2 / 44 | 2 / 44 |
+| Justified cell-body executions / distinct identities | 120 / 60 | 2 / 1 |
+| Justified layout-factory executions | 2 | 0 |
+| Justified explicit `measure()` calls | 1 | 0 |
+| Grid/Table geometry rebuilds or explicit `measure()` calls | 0 | 0 |
+| Completed selection reconciliations / selected members traversed | 1 / 1 | 1 / 1 |
+| Extra publication subscriptions: Grid / Table / Justified | 0 / 0 / 0 | 43 / 52 / 61 |
+| Body notifications to affected consumers | 0 | 2 |
+| Shared cached-page checks during the publication | 200 | 0 |
+
+These are development work counts, including React StrictMode's repeated
+render-phase executions, not committed-render counts, browser layout counts,
+latency, frame time or smoothness measurements. The stationary no-publication
+controls recorded none of the counted work. The selected reconciliation must
+finish before capture ends. Later detail/fullscreen/density/page/multi-selection
+work is captured separately as `A2 lifecycle work` attachments by the
+[existing browser suite](../../e2e/local/grid-mutations.spec.ts), not folded into
+the single-publication numbers. Packing suboperations, parent renders, selector
+evaluations and resource/GC costs are not comprehensively counted.
+
+**Equivalent correctness witnessed for both:** changed rendered description and
+labels, withdrawn action admission, unchanged selected membership at publication,
+current resident detail and fullscreen entry, density switching, and a subsequent
+accepted page restoring newer content and positive capabilities. The newer page
+is checked in the rendered result cell, reopened detail and multi-selection panel,
+not only store snapshots. Unit witnesses additionally cover existing cached but
+unselected metadata and selected offscreen capability replacement. No stale-read
+ordering, standalone full-read projection or observer claim follows; those remain A3.
+
+All initially visible outer boxes remained exactly equal on every sampled frame
+(at least twelve): Grid 9, Table 19, Justified 16 boxes per route. This does not
+prove absence of remounts, media blanking, unsampled movement or active-scroll jank.
+The foreground integrated-browser rehearsal independently showed stable Justified
+boxes and current detail, Grid, Table and newer-page consumers for both routes.
+Its viewport/panel state differed, so its work counts are not pooled with the
+controlled automated comparison. Owned subscriptions, wrappers and the local
+fixture server were disposed afterward.
+
+**State and lifetime trade-offs:**
+
+- Buffer replacement owns the accepted body in `results`, makes one shallow
+  array copy, preserves other bodies/slots and needs no body-resolution cache or
+  publication subscriptions. Its changed array still invalidates Justified
+  packing/measurement and the existing velocity-continuity reference check.
+- Per-cell publication leaves scan bodies/coordinates untouched and stores the
+  accepted body in a WeakMap keyed by the original resident object. Cells, detail,
+  metadata presentation and fullscreen entry/traversal must resolve that body.
+  A distinct accepted page object bypasses the old key; cached selection metadata
+  is refreshed separately, so the override cannot mask that page. The old body
+  and accepted full body coexist while the original key remains reachable. This
+  is not a body-free freshness registry, an explicit capacity bound or a GC proof.
+- Both routes scan the resident buffer to find a target, attach its authoritative
+  overlay, update only resident or already-retained shared overlays, and use one
+  deliberate selection-cache publication/reconciliation action without hydration
+  or membership changes. Enrichment upsert still copies its accumulated map.
+- The shared fixture page-acceptance subscriber scans changed result arrays to
+  refresh existing selection-cache entries, including currently unselected ones.
+  That work also occurs on buffer-route publication. It is comparison integration
+  code, not an approved new ordinary-browsing service. Selection caching retains
+  its existing LRU/lifetime; instrumentation now releases virtualizers on unmount.
+
+**Prerequisites remain explicit:** the per-cell prototype installs extra mounted
+subscriptions before its first publication, and the active fixture page listener
+adds work to later pages. They must not be copied into the normal no-edit path as
+is. The buffer route's velocity invalidation and avoidable Justified work also
+remain material risks. No e2e-perf campaign was run, and these counts do not certify
+either candidate's performance. Current production browsing does not activate
+either prototype. Choosing a route does not itself waive section 6 or authorize A3.
+
+Cold correctness and performance subagents identified the cached-unselected,
+fullscreen-entry, instrumentation-lifetime and evidence-boundary issues above.
+Failing-first witnesses reproduced the body, selection-cache and fullscreen
+defects; the repaired six-case comparison passes. Full final regression gates
+also pass: 3,580 unit tests, application build, browser typecheck and all 532 local
+E2E tests with retries disabled. The foreground fixture rehearsal is complete.
+Build output retains WASM-path and bundle-size warnings; none of these gates
+qualifies publication performance. **Stop here for the operator's route choice;
+remove only the losing prototype after that decision.**
 
 ### A3: Readback, Freshness and Publication (Authorized After A2's Choice)
 
@@ -1056,12 +1282,29 @@ prerequisite for step 4, and none may be folded silently into a unit.
 
 | Area | Observation | Possible direction |
 | --- | --- | --- |
-| Search store size | `search-store.ts` is about 4,800 lines; `extendForward` and `extendBackward` are near-mirror implementations | One shared page-publication helper owning dedup, eviction and cursor recomputation for both directions |
-| Cell data sources | Grid cells read some fields from raw `image`, others from `useEnrichedImage`; Justified skips enrichment | One per-cell image view so publication and enrichment arrive the same way |
-| Image copies | Buffer, selection LRU, enrichment map, attached enrichment and standalone detail each hold image data | A single publish entry point that updates every owner, rather than a shared cache |
+| Search store size | The large search store's `extendForward` and `extendBackward` paths remain near-mirror implementations | One shared page-publication helper owning dedup, eviction and cursor recomputation for both directions; separate from the selected metadata publisher |
+| Cell data sources | Grid cells read some fields from raw `image`, others from `useEnrichedImage`; Justified skips enrichment | Broad per-cell unification is not justified by A2: the buffer route reaches current consumers without it. Revisit only for a demonstrated remaining body/authority inconsistency |
+| Image copies | Buffer, selection LRU, enrichment map, attached enrichment and standalone detail have different owners/lifetimes | A2 supplies a small [publication entry point](../../src/lib/image-publication.ts) for resident bodies, retained enrichment and selection metadata. Full-detail projection and read ownership remain A3, not a reason to add a general entity cache |
 | Enrichment upsert | Copies an accumulated map not bounded by the 1,000-image buffer | Bound or prune by residency, with a perf check |
 | Timer-gated scroll | Seek and post-extend cooldowns gate spurious extends by elapsed time | Event-based readiness, only if campaigns show the timers cost smoothness |
 | Historical comments | Code comments cite past agents and audits (for example "APPROACH #4 (Agent 10)") | Replace with one-line statements of the current invariant when the code is next touched |
+| Grouped publication | The selected [publisher](../../src/lib/image-publication.ts) handles one image and copies resident/enrichment state per call; [selected metadata](../../src/stores/selection-store.ts#L591) already accepts an array | When A3 introduces a verified group, publish it with one resident copy, one enrichment update and one selected-metadata action. Do not call the single-image path once per target; no generic event bus or new cache is needed |
+| Accepted reads and selected metadata | Ordinary result replacement and selected-cache publication remain separate; the [regression fixture](../../e2e/shared/label-editor-fixture.tsx) explicitly performs both for its newer page | Complete acceptance coherently at the existing response owners under A3's freshness rules. Do not restore the rejected permanent page-scanning subscriber or use hydration as post-write refresh |
+
+**Post-A2 assessment, 6 November:** no additional Section-10 refactor is folded
+into A2. The small shared publisher is already part of the selected implementation;
+grouping and accepted-read integration belong to the separately started A3 contract,
+not speculative optimizations. Paging deduplication/refactoring, enrichment pruning
+and replacing scroll cooldowns have wider ownership/performance consequences and
+no demonstrated benefit necessary for this choice. Broad per-cell normalization
+would reintroduce coordination complexity the accepted buffer route avoids.
+
+The only additional repair during cleanup was test-fixture dependency-cache
+isolation, justified by the recorded React-module 404 during parallel validation.
+It does not change application caching or scrolling. The unexplained table-sort
+timeout is retained in A2's validation caveat, not promoted to a known product bug
+or used to justify speculative sorting changes. This is a bounded assessment of
+opportunities exposed by A2, not a fresh whole-store audit or performance study.
 
 ## Appendix A: Reading Guide for Independent Review
 

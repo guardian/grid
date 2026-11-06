@@ -43,6 +43,7 @@ import { buildSearchKey } from "@/lib/image-offset-cache";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
 import { electViewportAnchor } from "@/lib/viewport-anchor-geometry";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
+import { resultsGeometryIdentity } from "@/lib/result-geometry";
 import {
   PAGE_SIZE,
   EXTEND_THRESHOLD,
@@ -410,7 +411,8 @@ export function useDataWindow(layoutPolicy?: "grid" | "table" | "justified"): Da
         const state = useSearchStore.getState();
         const generation = getSearchGeneration();
         const previous = _velocityContext;
-        const continuous = previous?.owner === ownerRef.current && previous.layoutPolicy === layoutPolicyRef.current && previous.results === state.results &&
+        const continuous = previous?.owner === ownerRef.current && previous.layoutPolicy === layoutPolicyRef.current &&
+          (previous.results === state.results || resultsGeometryIdentity(previous.results) === resultsGeometryIdentity(state.results)) &&
           previous.generation === generation && previous.total === t && previous.offset === offset &&
           previous.sample.viewportHeight === velocitySample.viewportHeight &&
           previous.sample.layout === velocitySample.layout;

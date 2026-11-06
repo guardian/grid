@@ -316,6 +316,17 @@ captured boundary again before publishing rows, cursors or enrichment; opposite-
 eviction can invalidate a response even when its signal remains live. Backward reads
 crossing a null/valued boundary validate again after the continuation read.
 
+Incoming extension pages exclude IDs already in the retained window and repeated
+IDs within the combined response. Accepted bodies, sort tuples and enrichment stay
+paired; discarded duplicates neither replace resident content nor refresh its
+authority or retained tuple. Existing slots do not compact. Raw response cursors
+advance independently of accepted additions, including across null/valued boundaries
+and later eviction. A duplicate-only page that advances its cursor issues an owned
+demand-recovery notice without replacing the result array. The mounted viewport
+and pending detail/fullscreen traversal reconsider demand through existing cooldowns;
+there is no store-level fill loop. An empty page stops automatic continuation without
+inventing a smaller total or preventing a later explicit attempt.
+
 An obsolete response release can issue one owned recovery notice. The mounted scroll
 owner re-evaluates current demand after commit and any remaining existing cooldown;
 it does not replay the old cursor or synthesize user input. New range/search owners
@@ -352,10 +363,13 @@ readiness or change page size, buffer capacity, retention or scroll compensation
 Velocity samples are separate from navigation intent. `useScrollEffects` admits a
 sample only when the reported first/last rows match the current scroll viewport
 (with a one-pixel boundary tolerance and an explicit last-row allowance).
-`useDataWindow` resets the baseline across reporting-owner, result-publication,
-buffer-offset, search-generation, total, layout-policy, geometry or viewport-height changes. Invalid
-samples also reset it. A stationary range correction rebases the end index without
-counting it as movement. Sampling does not scan the buffer or own viewport placement.
+`useDataWindow` resets the baseline across reporting-owner, result-geometry,
+buffer-offset, search-generation, total, layout-policy, geometry or viewport-height
+changes. An explicit same-slot metadata publication retains result-geometry identity
+when the effective image ratio is unchanged; ordinary page replacements do not.
+Invalid samples also reset the baseline. A stationary range correction rebases the
+end index without counting it as movement. Sampling does not scan the buffer or own
+viewport placement.
 
 Visible-range reporting and base edge admission still run without a velocity sample.
 Prediction therefore does not depend on wheel/touch/key provenance: valid scrollbar
@@ -683,7 +697,7 @@ Resident/indexed thresholds (1,000/65,000) and buffer capacity (1,000) remain co
 
 At most three trailing suffix searches each evaluate m(m+1)/2 intervals: conservative
 bounds are 3,528 per affected block and 81,144 per default-capacity construction. Full
-endings exit early. Construction occurs on publication/reflow; ordinary scroll renders
+endings exit early. Construction occurs on geometry-changing publication/reflow; ordinary scroll renders
 reuse layout. Rebuilding intersecting blocks, measuring from zero and preparing temporary
 seek geometry can amplify that work, but these are static bounds and hypotheses, not
 measured jank or leaks. Prefer removing demonstrated redundant work or narrowing

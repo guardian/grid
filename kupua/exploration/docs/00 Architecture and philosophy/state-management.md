@@ -67,6 +67,16 @@ publication of results, positions, cursors and contributing API enrichment.
 Supplied server fields override local fallbacks; absent overlay fields retain them.
 **Data arrival, accepted publication and presentation completion are distinct.**
 
+**Content-only publication.** [Image publication](../../../src/lib/image-publication.ts)
+replaces a resident body at its existing slot, preserves other body references and
+coordinates, replaces its authoritative enrichment, and explicitly updates selected
+or cached metadata without changing selection membership. Equal image ratios retain
+[geometry identity](../../../src/lib/result-geometry.ts), so content changes do not
+invalidate Justified packing or scrolling prediction. Ordinary page replacements
+have their own geometry identity. This path does not order competing reads, refresh
+server ranks or publish to a separately owned standalone detail response; editing
+and readback do not invoke it.
+
 Ordinary searches use three result-count regimes: small sets fill to residency,
 intermediate sets use global virtual coordinates with a background position map,
 and large sets seek between bounded windows. The map accelerates lookup; it is

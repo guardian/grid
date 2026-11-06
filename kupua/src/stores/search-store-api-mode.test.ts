@@ -6,7 +6,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useSearchStore } from "./search-store";
-import { useSelectionStore, _resetMetadataCache, _resetHydrationToastShown } from "./selection-store";
+import { useSelectionStore, _resetMetadataCache, _resetHydrationToastShown, _resetReconcileQueue } from "./selection-store";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { ApiDataSource } from "@/dal/api-data-source";
 import { ElasticsearchDataSource } from "@/dal/es-adapter";
@@ -17,6 +17,7 @@ import { parseSortField } from "@/dal/adapters/elasticsearch/sort-builders";
 import type { SearchParams, SortValues } from "@/dal/types";
 import { NEW_IMAGES_POLL_INTERVAL } from "@/constants/tuning";
 import { deriveImage } from "@/lib/derive-enriched-image";
+import { publishImage } from "@/lib/image-publication";
 
 vi.mock("@/dal/es-config", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/dal/es-config")>(),
@@ -186,6 +187,53 @@ async function expectCoherentBuffer() {
 
 const paths = () => calls.map((c) => c.path);
 const bodiesFor = (path: string) => calls.filter((c) => c.path === path).map((c) => c.body);
+
+it("buffer publication replaces resident content without changing its slot", async () => {
+  try {
+    useApiMode(20);
+    const page = await corpus.searchAfter({ length: 20, nonFree: "true" }, null);
+    const original = page.hits[5];
+    const positions = new Map(page.hits.map((image, index) => [image.id, index]));
+    useSearchStore.setState({ results: page.hits, imagePositions: positions, total: 20 });
+    _resetMetadataCache();
+    const selectedIds = new Set([original.id]);
+    useSelectionStore.setState({ selectedIds, anchorId: original.id });
+    useSelectionStore.getState().metadataCache.set(original.id, original);
+    const revision = useSelectionStore.getState().metadataRevision;
+    const updated = { ...original, metadata: { ...original.metadata, description: "A2 published description" },
+      userMetadata: { ...original.userMetadata, labels: ["A2 published label"] } };
+    publishImage(updated, { resource: { links: [] }, actions: [] });
+    const accepted = state().results[5]!;
+    expect(accepted.metadata.description).toBe("A2 published description");
+    expect(accepted.userMetadata?.labels).toEqual(["A2 published label"]);
+    expect(state().imagePositions).toBe(positions);
+    expect(state().results[4]).toBe(page.hits[4]);
+    expect(state().results.map(image => image?.id)).toEqual(page.hits.map(image => image.id));
+    expect(useSelectionStore.getState().metadataCache.get(original.id)).toBe(updated);
+    expect(useSelectionStore.getState().metadataRevision).toBe(revision + 1);
+    expect(useSelectionStore.getState().selectedIds).toBe(selectedIds);
+    expect(useSelectionStore.getState().anchorId).toBe(original.id);
+    expect(useEnrichmentStore.getState().data.get(original.id)).toEqual({ resource: { links: [] }, actions: [] });
+    useSelectionStore.setState({ selectedIds: new Set() });
+    const newer = { ...updated, metadata: { ...updated.metadata, description: "A2 newer page" } };
+    const nextPage = page.hits.map(image => image.id === newer.id ? newer : image);
+    useSearchStore.setState({ results: nextPage });
+    useSelectionStore.getState().publishSelectedMetadata([newer]);
+    expect(state().results[5]!).toBe(newer);
+    expect(useSelectionStore.getState().metadataCache.get(original.id)).toBe(newer);
+    useSelectionStore.setState({ selectedIds });
+    const offscreenResults = state().results.filter(image => image?.id !== original.id);
+    useSearchStore.setState({ results: offscreenResults, imagePositions: new Map(offscreenResults.map((image, index) => [image!.id, index])) });
+    useEnrichmentStore.getState().upsertEnrichment(new Map([[original.id, { resource: { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/fixture" }] } }]]));
+    publishImage(updated, { resource: { links: [] }, actions: [] });
+    expect(state().results).toBe(offscreenResults);
+    expect(useSelectionStore.getState().metadataCache.get(original.id)).toBe(updated);
+    expect(useEnrichmentStore.getState().data.get(original.id)?.resource?.links).toEqual([]);
+  } finally {
+    _resetReconcileQueue();
+    useSelectionStore.getState().clear();
+  }
+});
 
 describe.each(["direct-ES", "media-api"] as const)("KUP-034 %s centred prefix", (mode) => {
   const originalGeometry = getScrollGeometry();

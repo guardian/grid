@@ -15,6 +15,7 @@ import { useSearchStore } from "@/stores/search-store";
 import type { Image } from "@/types/image";
 import { MockDataSource } from "@/dal/mock-data-source";
 import type { SearchAfterResult } from "@/dal/types";
+import { publishImage } from "@/lib/image-publication";
 
 describe("KUP-016 indexed seek ownership", () => {
   const initial = useSearchStore.getState();
@@ -316,6 +317,27 @@ describe("maintenance-safe forward velocity", () => {
     });
     act(() => view.result.current.reportVisibleRange(100, 140, true, { scrollTop: 1500, viewportHeight: 600, layout }));
     expect(extendForward).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])("A2 preserves metadata-only lookahead but invalidates changed geometry=%s", changedGeometry => {
+    const results = [...useSearchStore.getState().results];
+    const original: Image = { ...results[5]!, metadata: { description: "Before publication" },
+      source: { dimensions: { width: 400, height: 300 }, mimeType: "image/jpeg" } };
+    results[5] = original;
+    useSearchStore.setState({ results });
+    const view = renderHook(() => useDataWindow("justified"));
+    const layout = {};
+    act(() => vi.advanceTimersByTime(1000));
+    act(() => view.result.current.reportVisibleRange(10, 40, true, { scrollTop: 500, viewportHeight: 600, layout }));
+    act(() => {
+      publishImage({ ...original, metadata: { description: "After publication" },
+        source: changedGeometry ? { ...original.source, dimensions: { width: 800, height: 300 } } : original.source },
+      { resource: { links: [] } });
+      vi.advanceTimersByTime(50);
+    });
+    act(() => view.result.current.reportVisibleRange(100, 140, true, { scrollTop: 1500, viewportHeight: 600, layout }));
+    if (changedGeometry) expect(extendForward).not.toHaveBeenCalled();
+    else expect(extendForward).toHaveBeenCalledOnce();
   });
 
   it("preserves prediction in indexed coordinates without navigation intent", () => {

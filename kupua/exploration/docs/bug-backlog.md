@@ -17,7 +17,7 @@ synthetic direct-TEST reproduction and verification passed, but natural-workflow
 
 ## At a Glance
 
-**Current recorded status: 5 November 2026.** The tables below list open defects,
+**Current recorded status: 6 November 2026.** The tables below list open defects,
 approval/integration/review tasks or explicit residuals; completed bounded repairs and verification are listed separately.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
@@ -34,20 +34,11 @@ retention. Nested write resources and KUP-047's crop consumer remain deferred.
 The 5 November validation investigation records KUP-048's reproduced table
 render-time update warning and KUP-049's unresolved Settings-click timeout.
 These are separate from the optional obsolete-read cancellation follow-up.
+The 6 November update records extension deduplication and the selected same-slot
+buffer-publication foundation under KUP-043; readback, stale-read protection and
+coordinate/lifecycle handling remain open. It does not close that whole ID.
 Other dispositions have not been revalidated.
 Update this overview when a detailed disposition changes.
-
-**KUP-029/030 (rights display versus server data): resolved, 27 September.** They were deferred
-on 23 September until after a working API-backed app; that deferral is spent. KUP-029 (rights
-label and no-rights badge disagreeing) was refuted: ordinary API images carry one consistent set
-of rights. KUP-030 (AI results reusing an earlier search's server cost/validity for the same
-image) was fixed by U9-B: AI results replace that data with their own. On 30 October selections
-also gained server cost and validity; off-screen selected images previously used local rules.
-
-**Operator amendment, 26 September:** U6z covered non-AI media-api reads, including recovery;
-AI was then the deliberate ES exception, since converged by U9. KUP-033/034/036 are DONE as
-separate repairs; KUP-010/026 are closed at their demonstrated scope, not as absolute API-only
-completion.
 
 **Migration relevance:** a prerequisite blocks its named slice's acceptance, not all migration work.
 Related obligations matter to the selected integration but do not automatically mandate a standalone
@@ -60,7 +51,7 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | --- | --- | --- | --- |
 | [KUP-011](#kup-011) | Parsed intent versus automatic defaults | Defaults aligned locally in both modes; open direct-to-ES grammar divergence | Remaining cross-mode syntax scope |
 | [KUP-041](#kup-041) | API cancellation does not reach outgoing Elasticsearch reads | Open; cancellation handle is not retained, backend work observed after browser cancellation | Independent resource-lifetime follow-up; not a proven PP3 cause or migration gate |
-| [KUP-043](#kup-043) | Image refresh, enrichment and result stability after a write | Parked design question; stability analysis added 31 October | Prerequisite for future edits/deletions only |
+| [KUP-043](#kup-043) | Image refresh, enrichment and result stability after a write | A1-A2 complete; readback, freshness and coordinate/lifecycle work remain open | Prerequisite for future edits/deletions only |
 | [KUP-044](#kup-044) | Image-level capabilities and future nested write resources | Image URI/edits/crops retention repaired; nested controls deferred to their consumers | Shared facts available; no write activation |
 | [KUP-045](#kup-045) | Lease summary has consumers but no current producer | Source-verified display gap; review and composed witness pending | Independent shared-display correction |
 | [KUP-046](#kup-046) | Known validity reasons replace server wording with local copy | Source-verified; previously unselected B3, review pending | Independent display-copy correction |
@@ -68,13 +59,7 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [KUP-048](#kup-048) | Table column sizing writes store state during React update | Reproduced warning with current and committed scrolling modules; unfixed | Independent table-state defect; does not require the scrolling repair |
 | [KUP-049](#kup-049) | Detail Settings click stalls during browser validation | One full-run timeout; click reached menu, cause unestablished | Full browser acceptance remains unresolved; relation to scrolling unproved |
 
-KUP-038 is closed against the ledger's completed B8/L37/B17 repairs, not a new fix.
-KUP-042 is repaired locally with globally stable fixed-grid rows; Justified packing,
-thumbnail arrival and B2 prediction remain separate work.
-KUP-011 has no closure evidence from continuity work and remains separately scoped;
-KUP-037 is DONE (30 October, counts follow the checkbox).
-KUP-035 is DONE for default-collapsed chip rendering; intentional large expansion remains
-an accepted cost, not an open repair requirement.
+KUP-011 has no closure evidence from continuity work and remains separately scoped.
 
 Usage Rights compatibility (30 October): Kupua now reads Grid's configured categories
 from metadata-editor, with a refreshed local fallback for direct-ES/laptop modes. Its additive
@@ -126,7 +111,7 @@ legacy-category expansion remains accepted lag.
 | [GRID-019](#grid-019) | `Edits` DynamoDB table at a fixed 20 WCU, auto-scaling off | Open; operator-read PROD configuration | Independent capacity risk for any batch write (Kahuna, scripts, future Kupua) |
 
 <details>
-<summary>Completed bounded repairs and verification: 42 other IDs</summary>
+<summary>Completed bounded repairs and verification: 44 IDs</summary>
 
 | Group | Completed IDs |
 | --- | --- |
@@ -146,6 +131,8 @@ legacy-category expansion remains accepted lag.
 | Search discovery versus density/keyboard browsing, covered by ledger B8/L37/B17 | [KUP-038](#kup-038) |
 | Startup defaults resolved before search admission | [KUP-039](#kup-039) |
 | Impossible upload-arrival intervals suppressed | [KUP-040](#kup-040) |
+| Collection counts follow the current rights checkbox | [KUP-037](#kup-037) |
+| Globally stable fixed-grid row membership | [KUP-042](#kup-042) |
 | Grid independent usage exclusions and print-field resolution | [GRID-001](#grid-001), [GRID-008](#grid-008) |
 | Grid ordinary/AI deleted-search admission | [GRID-002](#grid-002), [GRID-015](#grid-015) |
 
@@ -153,78 +140,28 @@ DONE refers to the repaired or verified scope, not every adjacent behavior or fu
 In particular, no-saved density fallback and wider native-fullscreen timing remain uncertified,
 not automatically known bugs. S1 normalization is complete and is not one of these bug IDs.
 
-#### KUP-010
-**Restore recovery can bypass the intended refusal boundary (E017)**
-- **Historical finding:** a refusal in the former transitional hybrid adapter could reach another store operation whose dispatch chose ES. P18 F3 / E017 was qualified source inference, not observed unauthorized access, a deployed incident or an exploit demonstration. The earlier [permission boundary](bug-reproduction-evidence.md#permission-blocked-routes) remains historical; expanded security investigation still requires private maintainer triage.
-- **Why closed now:** U5 removed the ordinary page fallback and U6a-d migrated the remaining non-AI methods. The current `ApiDataSource` has no non-AI ES rescue. Legitimate recovery through another admitted API read remains supported; no new refusal policy or store repair is needed.
-- **Executed evidence (U6z, 26 September):** [real store/adapter/mapper tests](../../src/stores/search-store-api-mode.test.ts) cover refusal, unavailable transport and 503 incomplete execution during search, seek and restore rank/target/forward/backward reads, successful and failed follow-up API windows, empty-target success and superseding searches. They assert final buffers, coordinates, errors, publication ownership and zero non-AI delegation. Deliberate wrong results fail the checks and are removed. Unit/build/direct-ES E2E gates, bounded ordinary API browsing and operator-reported API dry-run preflights passed; [the build plan](03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md) records the evidence and limits.
-- **Disposition: CLOSED by verification (26 September).** The boundary is the current application's non-AI media-api-mode recovery, not absolute API-only operation: `searchByAi` remains the sole deliberate ES delegation. No runtime datasource switching, historical security-triage closure, live refusal probing or new authorization guarantee is claimed. U6z changes tests only; existing recovery behavior is preserved.
+**KUP-029/030 (rights display versus server data): resolved, 27 September.** They were deferred
+on 23 September until after a working API-backed app; that deferral is spent. KUP-029 (rights
+label and no-rights badge disagreeing) was refuted: ordinary API images carry one consistent set
+of rights. KUP-030 (AI results reusing an earlier search's server cost/validity for the same
+image) was fixed by U9-B: AI results replace that data with their own. On 30 October selections
+also gained server cost and validity; off-screen selected images previously used local rules.
 
-#### KUP-026
-**CQL remount can retain the first resolver's callbacks and datasource**
-- **Historical repair:** the once-registered resolver retained wrapper-owned cache callbacks after Home/Clear unmounted that wrapper. The 20 September mounted reproduction and [bounded repair evidence](bug-reproduction-evidence.md#bounded-client-repairs-kup-022023026012020021) remain valid. Commit `384855da3` (22 September) fixed cache callbacks with live-store getters; it did not implement datasource rebinding.
-- **Closure boundary:** the mode is selected before app/store initialization, so the September fixed-mode startup verification remains valid. It did not certify absence of reset-time suggestion work. The separately authorized [S4b repair](api-request-lifetime-and-performance-parity.md#s4b-repair-validation-20-october) later replaces first-owner capture with mounted-owner forwarding and explicit retirement; it does not add a runtime mode-switching workflow.
-- **Executed evidence (U6z, 26 September):** [cold-start tests](../../src/main.test.tsx) execute real main-module initialization with API mode selected before imports, preserving the first real CQL registration across keyed wrapper remounts. Cold registered, alias and dotted-field suggestions assert returned values/counts and API requests; cache counts change between remounts. The top-level app render is held back in this unit fixture. The fully mounted browser separately exercised cold credit/alias/dotted suggestions and current `is:` counts through Clear -> Home -> Clear in one document, with the same registered constructor and no ES traffic. The deliberate wrong aggregation route failed the tests before restoration; full gates and operator API preflights passed.
-- **Disposition: CLOSED for fixed-mode API initialization and remounts (26 September).** S4b additionally gives mounted suggestion owners explicit lifetimes and scope-bound reuse. Runtime switching is neither a supported workflow nor certified here. This is not proof of every resolver's backend policy, every failure combination or eventual removal of AI's ES dependency.
+**Operator amendment, 26 September:** U6z covered non-AI media-api reads, including recovery;
+AI was then the deliberate ES exception, since converged by U9. KUP-033/034/036 are DONE as
+separate repairs; KUP-010/026 are closed at their demonstrated scope, not as absolute API-only
+completion.
 
-#### KUP-040
-**Arrival polling dispatches even when its effective upload interval is empty**
-- **Component / responsibility:** [arrival poll admission](../../src/stores/search-store.ts#L924), independent of KUP-006's completed cumulative accounting repair and ledger B20's retained-arrivals repair.
-- **Trigger / expected / actual:** effective lower upload bound `max(params.since, newCountSince)` is at or after `params.until`. The shared date predicate is strictly after/before, so no image can match. Nevertheless, the historical local API control issued four such reads in 35 seconds. They supplied zero arrival deltas and advanced the ticker timestamp, but did not refresh rows, deletions or browse totals.
-- **Evidence / limits:** [historical polling eligibility](zz%20Archive/not-yet-another-audit-L19-network-measurmenets.md#historical-polling-eligibility), 5 October at `31d5deda0`, and [strict date bounds](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/filters.scala#L42). This establishes useless requests for the measured contradictory interval, not broken ordinary arrival detection or quantified server load. Kahuna's related findings remain separately scoped in the report.
-- **User contract:** preserve foreground/background polling for searches that can receive arrivals, the tab title/icon and badge notifications, useful baseline/cumulative tickers, and already-known arrivals restored with their matching browse boundary. Do not disable polling merely because a tab is hidden, has an upper date bound or returned zero. A future upper bound, or a restored freeze earlier than the upper bound, can still leave an eligible interval. These upload-arrival polls do not promise detection of later metadata edits to older pictures.
-- **Smallest discriminator:** use existing fake-timer/store fixtures to compare lower-before-upper, equal and lower-after-upper instants; only impossible intervals should issue no datasource count. Retain open-ended/future-bound positive arrivals, visibility transitions, restored count/boundary, query replacement and stale-publication controls. Compare date instants, including supported timezone representations; do not weaken invalid-date handling.
-- **Repair / disposition (20 October):** repaired locally with a four-line poll-admission guard comparing `max(since, newCountSince)` and `until` as date instants. Invalid dates fall through; request construction, scheduling, restored state and stale guards are unchanged. Five impossible cases failed first on redundant reads; nine compact interval cases and existing polling controls pass. Full unit/build gates pass; all 485 E2E cases have passing evidence across the interrupted run (467 completed) and the operator-approved remaining-case run (18 passed without retries), not one uninterrupted full run. Two independent cold code/test reviews found no issues. No live-system access or server change; this remains request-efficiency work, not a new refresh guarantee.
+KUP-038 is closed against the ledger's completed B8/L37/B17 repairs, not a new fix.
+KUP-042 is repaired locally with globally stable fixed-grid rows; Justified packing,
+thumbnail arrival and B2 prediction remain separate work.
+KUP-037 is DONE (30 October, counts follow the checkbox).
+KUP-035 is DONE for default-collapsed chip rendering; intentional large expansion remains
+an accepted cost, not an open repair requirement.
 
-</details>
+### Completed Kupua Details
 
-## Reading and Disposition Rules
-
-- IDs are stable: retain them when an entry moves, is corrected or is closed; never reuse an ID.
-  Cross-component findings have one canonical entry. Links from another section are not extra issues.
-- **Migration prerequisite** means the named candidate slice cannot claim its stated behavior until
-  the listed defect/contract is resolved. It is not a requirement to fix it now, or before every slice.
-  Resolution can be an approved implementation, a scoped containment, or characterization that
-  refutes the suspected defect. Characterization alone does not certify a known-broken final path.
-- **Independent backlog** is parked and may remain so indefinitely. Relevance to migration does not
-  establish a dependency. **Dependency unresolved** explicitly leaves validity or slice coupling open.
-- Expected behavior below comes from the existing caller contract or stated slice obligation, not
-  an invented universal snapshot, freshness guarantee or performance target. Candidate slices remain
-  provisional. A prerequisite classification does not approve its proposed behavior or implementation.
-- Source-supported and test-read evidence is not an executed reproduction. Unless explicitly noted,
-  no listed failure has been runtime-reproduced by this research or observed in a deployed system.
-  Historical S1 gates and report 04's synthetic check have their narrower stated scope.
-- Every human owner is **owner-to-confirm**. Responsible components below identify code ownership,
-  not invented people, teams or deadlines. Linked PRs record actual upstream work, not merge,
-  deployment or whole-ID resolution.
-- Access-control-sensitive entries require **private maintainer/security triage** before expanding
-  reproduction details or publishing an issue. This document does not authorize new contact,
-  publication or live checks.
-
-### Slice-Local Resolution Index
-
-| Slice / claimed behavior | Canonical prerequisite | Resolution boundary |
-| --- | --- | --- |
-| S2 admitted query/default composition | [KUP-011](#kup-011); completed [GRID-001](#grid-001), [GRID-008](#grid-008) | Grid repairs and supported client-query alignment are implemented locally; preserve common read scope and mapped fields. Remaining direct-parser syntax scope belongs to KUP-011, not an open Grid gate. |
-| Migrated restore consumer using S3a/S5, and S10 restore acceptance | [KUP-024](#kup-024), [KUP-025](#kup-025) | Current-client repairs DONE; preserve retained-total placement and selected-tuple composition when connecting new APIs. Migrated acceptance remains open, not a gate on standalone rank/window methods. |
-| S3b live range selection | [KUP-002](#kup-002), [KUP-003](#kup-003) | Current-client ownership and bounded unknown-order retry are DONE; migrated collector acceptance remains open. |
-| S4 complete-or-absent map | [KUP-009](#kup-009) | Current-client explicit-incompleteness discard is DONE; migrated execution contract and acceptance remain open, not universal snapshots. |
-| S6a singleton detail | [KUP-004](#kup-004) | Current-client identity repair DONE; retain ID-bound image/overlay publication through future singleton GET composition. |
-| S6b hydration | [KUP-001](#kup-001) | Current client ownership fix DONE, accepted and committed; complete-logical-read/API omission policy remains open. |
-| S7 polling | [KUP-006](#kup-006) | Current-client baseline-plus-latest cumulative accounting is DONE; preserve lifetime/response ownership in API composition. |
-| S8 expanded / AI-scoped aggregates | [KUP-007](#kup-007), [KUP-005](#kup-005) | Current-client ownership/empty-membership repairs DONE; future API composition must preserve them. Ordinary-only work is not gated by AI. |
-| S9 AI publication | [KUP-005](#kup-005), [KUP-008](#kup-008) | Current-client loaded-set scope/current-sort repairs DONE; migrated producer and caller acceptance remain open. |
-| S10 current non-AI API recovery | [KUP-010](#kup-010) | CLOSED by U6z composition tests and existing API wiring; AI remains the sole ES exception, not absolute API-only completion. |
-
-CQL fixed-mode initialization is closed by U6z; runtime rebinding is not supported. Preview-exit
-ownership retains its explicit limits below. P29's
-source-backed C2/C3 assessment narrows GRID-008 and E013/E014 to the activation gates named above;
-those gates remain open. The current usage-search dispositions below supersede P30's grouped-negative
-and browse-only repair direction; they do not approve wider API implementation or activation.
-
-## Kupua
-
-### Migration Prerequisites
+<a id="dependency-unresolved"></a>
 
 #### KUP-001
 **Hydration can overwrite a newer selection**
@@ -324,39 +261,12 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Disposition: DONE (20 September)** for explicit-incompleteness handling. [Shared gates and independent review](bug-reproduction-evidence.md#bounded-client-repairs-kup-003006009). E033 needs the bounded coordinator qualification in that evidence, not unconditional snapshot/whole-file verification. No automatic retry or fallback redesign; fallback cost/parity is unmeasured.
 - **Commit:** `0efb6e225ea62a5bc33c7fdf9cd92726ccda7196` (KUP-009 only).
 
-#### KUP-011
-**Parsed query defaults and remaining direct-to-ES grammar divergence**
-- **Component / responsibility:** direct Kupua query defaults, D3 request mapper and analogous legacy Grid Parser default construction; one cross-component entry. Human owner-to-confirm. Visibility-sensitive forms warrant private maintainer/security triage before expanded public detail.
-- **Trigger:** supported quoted/case-varied positive intent, or ordinary literal text containing a special query substring.
-- **Expected / historical defect:** automatic defaults should follow actual parsed intent. Raw substring checks added contradictory exclusions or omitted intended defaults. API mode now forwards original q (absent becomes empty); direct mode derives intent from its parsed fields before grouping, without reparsing. Predicate-only ticker parsing remains default-free.
-- **Evidence / reproduction:** [direct defaults](../../src/dal/es-adapter.ts#L470), [mapper](../../src/dal/grid-api-search-adapter.ts#L115), [P28 Q2/Q4][p28], E047. **20 September synthetic direct-builder reproduction in Kupua:** non-sensitive replaced-intent and literal-text cases produced wrong predicates at a capturing transport boundary. [Evidence](bug-reproduction-evidence.md#kup-011). A later one-hit live D3 read found no replaced witness, leaving that comparison inconclusive; no deleted/visibility probe or mounted result claim.
-- **Current status, 23 October:** [PR #4957](https://github.com/guardian/grid/pull/4957) is merged. API mapper and direct-default repairs are implemented locally, with failing-first transport regressions and synthetic local-ES membership checks. Actual API bodies were replayed across search/window/rank/profile/keys/count/aggregation reads. [Earlier investigation](grid-usage-search-investigation.md) records pre-merge evidence, not the current contract.
-- **Remaining direct-to-ES divergence (operator accepted):** `@guardian/cql` treats single quotes as literal value characters, unlike media-api's parser. For example, `usages@status:'replaced'` differs from its double-quoted form in direct mode. Preserve the existing parser/editor grammar for now; [adapter regressions](../../src/dal/es-adapter.test.ts) pin this limitation. API forwarding is not a promise of whole-editor or whole-grammar parity, and direct malformed-input handling has not been aligned with the server's structured 422 rejection.
-- **Smallest test:** after the Grid merge, pair actual mapper bodies with the accepted D3 intent/membership/total contract, retaining separate authorization controls. The Grid-only tests are not execution credit for this composed prototype path; do not expand visibility-sensitive examples here.
-- **Dependency / resolution:** preserve shared admitted meaning across API first pages, continuations and positional reads. Grid's parser/admission, exclusion and field repairs are complete under GRID-001/002/008/015. This Kupua item owns the remaining direct-parser divergence; it does not reopen those Grid fixes or grant broader parser-work approval.
-- **Disposition: OPEN for remaining cross-mode syntax scope.** Substring-default insertion is removed from both adapters. Single-quote compatibility and wider grammar parity require a separate decision; direct mode's lack of per-user server authorization remains the existing prototype compromise, not a query-default guarantee.
-
-#### KUP-024
-**Restore placement uses a page total while publishing the session total (E013)**
-- **Component / responsibility:** centred-window result, restore target selection and indexed view; human owner-to-confirm.
-- **Trigger:** retained indexed-tier total with nonempty continuation pages whose total is zero/untracked or subset-sized.
-- **Expected / historical defect:** placement uses the coordinate regime of the published session. Before the repair, restore chose its global/local target from the forward-page total while retaining the session total, leaving the scroll consumer a wrong buffer-local target.
-- **Evidence / reproduction:** [centred result](../../src/stores/search-store.ts#L1393), [restore](../../src/stores/search-store.ts#L3919), [P18 F3][p18], [P29 C3][p29], E013. **20 September controlled store reproduction in Kupua UI, direct Elasticsearch, TEST cluster:** a real cached cursor, total 4,166, rank 2,343 and zero-total neighbour pages published global target -1/local target 99; the grid settled at offset 0 with the target absent. A fresh-PIT control also reproduced with successful responses. Ordinary detail reload/close passed; the failing probe explicitly invoked `restoreAroundCursor`, so natural-workflow incidence and an infinite loop remain unproved.
-- **Validation:** failing-first coordinate regressions reproduced eight failures with four controls; all 12 pass after correction. Zero/subset/misleading page totals, both map states, non-indexed tiers, actual identity/ordinal and clamp placement are covered in [store tests](../../src/stores/search-store.test.ts). Edge/column/map-arrival and existing fill tests also pass. [Gates and limits](bug-reproduction-evidence.md#restore-repair-kup-024-and-kup-025).
-- **Dependency / resolution:** current-client placement is repaired. The S3a/S5-connected consumer and S10 must preserve this contract under their selected APIs; no standalone rank/window gate or per-page counting requirement follows.
-- **Disposition:** **DONE (20 September), committed as `3975f07f6`.** Restore samples the retained total once, reuses `isTwoTierFromTotal` and targets `bufferStart + targetLocalIndex`, including explicit focus. No extra request; helper geometry, page-count policy and map authority are unchanged.
-
-#### KUP-025
-**Saved-tuple rank and refreshed-tuple neighbours can describe different landings (E014)**
-- **Component / responsibility:** restoreAroundCursor rank/target/neighbour composition; human owner-to-confirm.
-- **Trigger:** sorted metadata changes between the saved cursor and current target lookup.
-- **Expected / historical defect:** rank and neighbours refer to the selected landing tuple. Before the repair, rank used the saved tuple while neighbours could use a refreshed tuple; ordinary live drift itself is not the defect.
-- **Evidence / reproduction:** [restore composition](../../src/stores/search-store.ts#L3877), [saved-cursor assertion](../../src/stores/search-store.test.ts#L2408), [P18 F3][p18], [P29 C3][p29], E014. **20 September synthetic read-boundary reproduction through Kupua's real restore action:** changed tuple used refreshed neighbours but published the saved rank; unchanged control passed. [Evidence](bug-reproduction-evidence.md#kup-025). No metadata mutation or visible-mislanding claim. Media was not isolated and made real proxy reads; those denials are a probe-isolation issue, not an application authorization finding.
-- **Validation:** clean failing-first run reproduced 46 failures with 18 controls; deferred full-tuple/null/suffix, concurrency, missing-target, selected/obsolete failure and supersession regressions now pass. The full restore/PIT slice passes 120 checks. A bounded real-read TEST diagnostic reproduced wrong ordinal 783 versus 802 before and correct 802 after, without metadata mutation. [Measurements, gates and limits](bug-reproduction-evidence.md#restore-repair-kup-024-and-kup-025).
-- **Dependency / resolution:** current-client composition is repaired. Future S3a/S5/S10 integration must retain selected-query/tuple/ownership contracts; standalone rank algorithms and KUP-010's composed API-only recovery gate remain separate.
-- **Disposition:** **DONE (20 September), committed as `3975f07f6`.** Parallel saved-rank/lookup and full-tuple comparison preserve four primary calls when unchanged; changed tuples take exactly one additional rank before parallel neighbours and one landing. Immediately handled obsolete outcomes cannot delay/recover/publish. The operator accepted the measured changed-path trade-off (about 68 ms higher median completion in four-sample direct-TEST diagnostics), with variability and topology limits; this is not a fixed cost or wider performance approval.
-
-### Independent Backlog: Parked
+#### KUP-010
+**Restore recovery can bypass the intended refusal boundary (E017)**
+- **Historical finding:** a refusal in the former transitional hybrid adapter could reach another store operation whose dispatch chose ES. P18 F3 / E017 was qualified source inference, not observed unauthorized access, a deployed incident or an exploit demonstration. The earlier [permission boundary](bug-reproduction-evidence.md#permission-blocked-routes) remains historical; expanded security investigation still requires private maintainer triage.
+- **Why closed now:** U5 removed the ordinary page fallback and U6a-d migrated the remaining non-AI methods. The current `ApiDataSource` has no non-AI ES rescue. Legitimate recovery through another admitted API read remains supported; no new refusal policy or store repair is needed.
+- **Executed evidence (U6z, 26 September):** [real store/adapter/mapper tests](../../src/stores/search-store-api-mode.test.ts) cover refusal, unavailable transport and 503 incomplete execution during search, seek and restore rank/target/forward/backward reads, successful and failed follow-up API windows, empty-target success and superseding searches. They assert final buffers, coordinates, errors, publication ownership and zero non-AI delegation. Deliberate wrong results fail the checks and are removed. Unit/build/direct-ES E2E gates, bounded ordinary API browsing and operator-reported API dry-run preflights passed; [the build plan](03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md) records the evidence and limits.
+- **Disposition: CLOSED by verification (26 September).** The boundary is the current application's non-AI media-api-mode recovery, not absolute API-only operation: `searchByAi` remains the sole deliberate ES delegation. No runtime datasource switching, historical security-triage closure, live refusal probing or new authorization guarantee is claimed. U6z changes tests only; existing recovery behavior is preserved.
 
 #### KUP-012
 **Incremental scalar reconciliation disagrees with full recomputation**
@@ -469,6 +379,43 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Evidence / reproduction:** [static removal](../../src/lib/typeahead-fields.ts#L115), [P23 F2][p23], [P22 F4][p22]. **20 September synthetic actual-resolver reproduction in Kupua, no backend:** quoted field-like text was removed in both orderings; ordinary-chip control passed. [Evidence](bug-reproduction-evidence.md#kup-023). This establishes resolver behavior, not a mounted menu consequence or failure of every quoted value.
 - **Regression coverage:** actual aggregation scopes for literal-before/after-chip, literal-only cache controls, repeated/negative/quoted/empty chips, boundaries and incomplete input; quoted arbitrary deep fields retain literal spacing. Visible editor/menu selection and quoted-value/deep-key URL round-trips were also checked with synthetic suggestion data.
 - **Disposition: DONE (22 September), committed as `489bf05a3`** for shared AST-scoped self-exclusion. [Batch validation and limits](bug-reproduction-evidence.md#bounded-client-repairs-kup-022023026012020021). Existing double-quote grammar, cache/abort/absence and visible editor composition remain; no second parser, mapping repair or backend query-policy change.
+
+#### KUP-024
+**Restore placement uses a page total while publishing the session total (E013)**
+- **Component / responsibility:** centred-window result, restore target selection and indexed view; human owner-to-confirm.
+- **Trigger:** retained indexed-tier total with nonempty continuation pages whose total is zero/untracked or subset-sized.
+- **Expected / historical defect:** placement uses the coordinate regime of the published session. Before the repair, restore chose its global/local target from the forward-page total while retaining the session total, leaving the scroll consumer a wrong buffer-local target.
+- **Evidence / reproduction:** [centred result](../../src/stores/search-store.ts#L1393), [restore](../../src/stores/search-store.ts#L3919), [P18 F3][p18], [P29 C3][p29], E013. **20 September controlled store reproduction in Kupua UI, direct Elasticsearch, TEST cluster:** a real cached cursor, total 4,166, rank 2,343 and zero-total neighbour pages published global target -1/local target 99; the grid settled at offset 0 with the target absent. A fresh-PIT control also reproduced with successful responses. Ordinary detail reload/close passed; the failing probe explicitly invoked `restoreAroundCursor`, so natural-workflow incidence and an infinite loop remain unproved.
+- **Validation:** failing-first coordinate regressions reproduced eight failures with four controls; all 12 pass after correction. Zero/subset/misleading page totals, both map states, non-indexed tiers, actual identity/ordinal and clamp placement are covered in [store tests](../../src/stores/search-store.test.ts). Edge/column/map-arrival and existing fill tests also pass. [Gates and limits](bug-reproduction-evidence.md#restore-repair-kup-024-and-kup-025).
+- **Dependency / resolution:** current-client placement is repaired. The S3a/S5-connected consumer and S10 must preserve this contract under their selected APIs; no standalone rank/window gate or per-page counting requirement follows.
+- **Disposition:** **DONE (20 September), committed as `3975f07f6`.** Restore samples the retained total once, reuses `isTwoTierFromTotal` and targets `bufferStart + targetLocalIndex`, including explicit focus. No extra request; helper geometry, page-count policy and map authority are unchanged.
+
+#### KUP-025
+**Saved-tuple rank and refreshed-tuple neighbours can describe different landings (E014)**
+- **Component / responsibility:** restoreAroundCursor rank/target/neighbour composition; human owner-to-confirm.
+- **Trigger:** sorted metadata changes between the saved cursor and current target lookup.
+- **Expected / historical defect:** rank and neighbours refer to the selected landing tuple. Before the repair, rank used the saved tuple while neighbours could use a refreshed tuple; ordinary live drift itself is not the defect.
+- **Evidence / reproduction:** [restore composition](../../src/stores/search-store.ts#L3877), [saved-cursor assertion](../../src/stores/search-store.test.ts#L2408), [P18 F3][p18], [P29 C3][p29], E014. **20 September synthetic read-boundary reproduction through Kupua's real restore action:** changed tuple used refreshed neighbours but published the saved rank; unchanged control passed. [Evidence](bug-reproduction-evidence.md#kup-025). No metadata mutation or visible-mislanding claim. Media was not isolated and made real proxy reads; those denials are a probe-isolation issue, not an application authorization finding.
+- **Validation:** clean failing-first run reproduced 46 failures with 18 controls; deferred full-tuple/null/suffix, concurrency, missing-target, selected/obsolete failure and supersession regressions now pass. The full restore/PIT slice passes 120 checks. A bounded real-read TEST diagnostic reproduced wrong ordinal 783 versus 802 before and correct 802 after, without metadata mutation. [Measurements, gates and limits](bug-reproduction-evidence.md#restore-repair-kup-024-and-kup-025).
+- **Dependency / resolution:** current-client composition is repaired. Future S3a/S5/S10 integration must retain selected-query/tuple/ownership contracts; standalone rank algorithms and KUP-010's composed API-only recovery gate remain separate.
+- **Disposition:** **DONE (20 September), committed as `3975f07f6`.** Parallel saved-rank/lookup and full-tuple comparison preserve four primary calls when unchanged; changed tuples take exactly one additional rank before parallel neighbours and one landing. Immediately handled obsolete outcomes cannot delay/recover/publish. The operator accepted the measured changed-path trade-off (about 68 ms higher median completion in four-sample direct-TEST diagnostics), with variability and topology limits; this is not a fixed cost or wider performance approval.
+
+#### KUP-026
+**CQL remount can retain the first resolver's callbacks and datasource**
+- **Historical repair:** the once-registered resolver retained wrapper-owned cache callbacks after Home/Clear unmounted that wrapper. The 20 September mounted reproduction and [bounded repair evidence](bug-reproduction-evidence.md#bounded-client-repairs-kup-022023026012020021) remain valid. Commit `384855da3` (22 September) fixed cache callbacks with live-store getters; it did not implement datasource rebinding.
+- **Closure boundary:** the mode is selected before app/store initialization, so the September fixed-mode startup verification remains valid. It did not certify absence of reset-time suggestion work. The separately authorized [S4b repair](api-request-lifetime-and-performance-parity.md#s4b-repair-validation-20-october) later replaces first-owner capture with mounted-owner forwarding and explicit retirement; it does not add a runtime mode-switching workflow.
+- **Executed evidence (U6z, 26 September):** [cold-start tests](../../src/main.test.tsx) execute real main-module initialization with API mode selected before imports, preserving the first real CQL registration across keyed wrapper remounts. Cold registered, alias and dotted-field suggestions assert returned values/counts and API requests; cache counts change between remounts. The top-level app render is held back in this unit fixture. The fully mounted browser separately exercised cold credit/alias/dotted suggestions and current `is:` counts through Clear -> Home -> Clear in one document, with the same registered constructor and no ES traffic. The deliberate wrong aggregation route failed the tests before restoration; full gates and operator API preflights passed.
+- **Disposition: CLOSED for fixed-mode API initialization and remounts (26 September).** S4b additionally gives mounted suggestion owners explicit lifetimes and scope-bound reuse. Runtime switching is neither a supported workflow nor certified here. This is not proof of every resolver's backend policy, every failure combination or eventual removal of AI's ES dependency.
+
+#### KUP-027
+**Preview-exit centering can move a newer session's retained list**
+- **Component / responsibility:** FullscreenPreview exit promise/resize/frame work and centring callback; human owner-to-confirm.
+- **Trigger:** a new preview session begins while the older exit's centering frame is pending.
+- **Expected / actual:** preserve the new session's native list placement. Before repair, the old frame could center under the new preview. Fresh focus/geometry within the same valid exit is intentional and passed its control; it is not itself an actionable defect.
+- **Evidence / reproduction:** [exit work](../../src/components/FullscreenPreview.tsx), [P20 F2][p20]. The blocked 20 September integrated-browser attempt is retained. On 22 September native Chromium with isolated local media separated promise delivery from centering: the old frame moved a new preview's retained list from 0 to 100 while native preview, history and focus stayed correct. [Evidence](bug-reproduction-evidence.md#kup-027).
+- **Regression coverage:** ordinary/latest-focus settlement, different/same-image reentry, resize, native-event exit and rejected/non-traversed retry in real Chromium; explicitly mocked mounted disposal, resize quiet period, safety cap and duplicate completion controls.
+- **Dependency / resolution:** pre-native-entry promise timing, physical Esc/macOS animation and wider S10/gesture composition remain uncertified. The tested late-promise/new-active-preview path was already safe; no wholesale exit-lifecycle refutation or session-manager redesign is claimed.
+- **Disposition: DONE (22 September), committed as `6718aebd0`**, for centering crossing preview sessions. [Validation and limits](bug-reproduction-evidence.md#bounded-focus-repairs-kup-013017018027). Existing native finalization, fresh-focus resolution and settling delays remain.
 
 #### KUP-028
 **Malformed URL dates can throw when the date dropdown opens**
@@ -585,17 +532,14 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Live verification (6 October, operator-shared browser):** visible `ApiDataSource` DEV tab, served URL-sync SHA-256 equal to workspace and Strict Mode retained. Bare entry issued one successful all-rights page/count pair, no provisional free-only read, and one 200-row publication. Explicit all-rights/free-only controls and actual Home from free-only each supplied one intended pair/publication; projected baseline ticker values matched the count response in all four controls. Pass-through pre-navigation observation did not hold or replace responses; cleanup removed activation/probe/subscription and restored fetch/store-global ownership. This extends proof to the served native API path only; no live direct-ES, production, backend-cancellation or late-router supersession certificate follows.
 - **Validation / disposition: DONE locally (6 October), based on `31d5deda06844904991a9bccba419747ef765500`.** Full local gates pass: 2,920 unit tests/83 files, TypeScript/Vite build and 453 retry-free E2E including forced-seek. Two independent complete-snapshot cold reviews and final proof re-reviews accept without findings. This replaces premature default authority, not a code-subtraction exercise: production grows three lines; tests grow 138 lines/nine cases. The preliminary two cases were replaced, with no redundant baseline proof found to delete. No polling, rights-policy, permissions fetching, optional-service wait, tiers, Kahuna, global suppression or new measurement campaign is included. Local composed adapters do not certify native media-api, backend cancellation, production incidence/savings or actual late-router transition supersession; the explicit-intent control models observed owner intent only.
 
-#### KUP-041
-**API cancellation does not reach outgoing Elasticsearch reads**
-- **Component / responsibility:** Kupua's API-backed read lifecycle across [browser signals](../../src/dal/grid-api-search-adapter.ts), [ordered-read controllers](../../../media-api/app/controllers/ImageQueryController.scala), and the [shared ES execution/client](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/ElasticSearchExecutions.scala). API integration ownership, with shared-client changes requiring explicit permission and review of other Grid consumers.
-- **Trigger / actual:** a search, focus operation or aggregation is superseded, times out or loses its browser context after media-api has started an ES read. The browser request is aborted, but the Play action returns a Scala Future and the installed elastic4s `JavaClient.send(...): Unit` discards the Java REST client's `Cancellable` handle. No examined incoming-disconnect path cancels that upstream read. Independent frontend controllers and generation guards still protect current UI state; they do not establish backend resource release.
-- **Expected direction, not a stronger guarantee:** explicitly own the lifetime of supported read-only API work and provide best-effort cancellation or a justified bounded-work alternative when its consumer disappears. Direct-to-ES mode has no intervening Play/Future boundary, but closing its browser request is not proof that every ES task immediately stops. Do not promise universal server cancellation or change accepted presentation semantics.
-- **Evidence / limits:** [transport investigation and cancellation evidence](../experiments/es-transport/README.md#separate-issues-not-this-transport-diagnosis), 19 October. Captured focus reads continued until a roughly 30-second backend socket timeout after browser cancellation at about eight seconds. This demonstrates continued upstream request lifetime, not 22 seconds of proven ES computation. Aggregation cancellation was also present in passing campaigns, and no direct path from one aggregation abort to a different Java request was found. The facet-specific backend savings and production incidence are unmeasured. **This is not an established cause of PP3's incomplete-request failures.**
-- **Smallest discriminator:** isolate the actual API/Future/client boundary with a held synthetic ES response, cancel the incoming consumer, and observe the outgoing handle/connection lifetime. Cover cancellation before dispatch, during send, while awaiting response, and after completion, plus an unrelated concurrent read and a successor using the same client. Mocked browser `signal.aborted` alone is insufficient. Preserve noncancelled success, refusal/error behavior, response compression, routing/authentication and stale-publication guards; verify callback cleanup and no shared-pool shutdown or cross-request cancellation.
-- **20 October investigation:** [request-lifetime and performance-parity assessment](api-request-lifetime-and-performance-parity.md) inventories datasource operations, retained optimisations, Kahuna applicability and Scala boundaries. Its bounded authorized local-API browser follow-up reproduces equal-body facet replacement on hover/open and repeated suggestion reads during value typing, including already-completed reads. These establish client-side request-efficiency candidates, not measured backend savings. Server cancellation remains unproved and unfixed; no product implementation follows.
-- **20 October S4a repair:** equivalent dispatched base-facet reads now survive hover/open handoff in Kupua; force refresh and changed-scope cancellation remain. See the [assessment's repair validation](api-request-lifetime-and-performance-parity.md#s4a-repair-validation-20-october). This removes the reproduced redundant client dispatch, not KUP-041's server-lifetime gap; S4b and KUP-040 remain separate work.
-- **Scope decision before implementation:** identify an appropriate Play disconnect/cancellation hook and the narrow set of owned read operations; assess whether retaining client handles or a bounded alternative is worth the complexity. Exclude writes and unrelated legacy consumers by default. Do not add a global cancellation manager, retries, new failure UI or longer timeouts as substitutes. If upstream cancellation is supported, describe its actual boundary rather than infer ES task termination from a closed socket.
-- **Dependency / disposition:** OPEN as an independent performance/resource-lifetime follow-up, recorded at operator request on 19 October. Not an initial API migration gate, a production incident claim, or permission to change shared/server code. Investigate and fix this scope separately from the unresolved transport failure.
+#### KUP-040
+**Arrival polling dispatches even when its effective upload interval is empty**
+- **Component / responsibility:** [arrival poll admission](../../src/stores/search-store.ts#L924), independent of KUP-006's completed cumulative accounting repair and ledger B20's retained-arrivals repair.
+- **Trigger / expected / actual:** effective lower upload bound `max(params.since, newCountSince)` is at or after `params.until`. The shared date predicate is strictly after/before, so no image can match. Nevertheless, the historical local API control issued four such reads in 35 seconds. They supplied zero arrival deltas and advanced the ticker timestamp, but did not refresh rows, deletions or browse totals.
+- **Evidence / limits:** [historical polling eligibility](zz%20Archive/not-yet-another-audit-L19-network-measurmenets.md#historical-polling-eligibility), 5 October at `31d5deda0`, and [strict date bounds](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/filters.scala#L42). This establishes useless requests for the measured contradictory interval, not broken ordinary arrival detection or quantified server load. Kahuna's related findings remain separately scoped in the report.
+- **User contract:** preserve foreground/background polling for searches that can receive arrivals, the tab title/icon and badge notifications, useful baseline/cumulative tickers, and already-known arrivals restored with their matching browse boundary. Do not disable polling merely because a tab is hidden, has an upper date bound or returned zero. A future upper bound, or a restored freeze earlier than the upper bound, can still leave an eligible interval. These upload-arrival polls do not promise detection of later metadata edits to older pictures.
+- **Smallest discriminator:** use existing fake-timer/store fixtures to compare lower-before-upper, equal and lower-after-upper instants; only impossible intervals should issue no datasource count. Retain open-ended/future-bound positive arrivals, visibility transitions, restored count/boundary, query replacement and stale-publication controls. Compare date instants, including supported timezone representations; do not weaken invalid-date handling.
+- **Repair / disposition (20 October):** repaired locally with a four-line poll-admission guard comparing `max(since, newCountSince)` and `until` as date instants. Invalid dates fall through; request construction, scheduling, restored state and stale guards are unchanged. Five impossible cases failed first on redundant reads; nine compact interval cases and existing polling controls pass. Full unit/build gates pass; all 485 E2E cases have passing evidence across the interrupted run (467 completed) and the operator-approved remaining-case run (18 passed without retries), not one uninterrupted full run. Two independent cold code/test reviews found no issues. No live-system access or server change; this remains request-efficiency work, not a new refresh guarantee.
 
 #### KUP-042
 **Fixed-grid buffer realignment moved retained visible images**
@@ -614,40 +558,131 @@ To rerun the focused contract, follow the [local E2E setup/port rules](../../e2e
 set -o pipefail; npm --prefix kupua run test:e2e -- --project=chromium density-controls.spec.ts --grep 'fixed-row publication' --retries=0 2>&1 | tee "$TMPDIR/kupua-test-output.txt"
 ```
 
+### Completed Query Repairs
+
+#### GRID-001
+**Usage exclusions can weaken one another**
+- **Component / responsibility:** media-api QueryBuilder and default insertion, with Kupua request-mapper participation; human owner-to-confirm. One canonical cross-component entry, distinct from raw intent detection in [KUP-011](#kup-011).
+- **Trigger:** negative usage conditions are combined with other user exclusions or automatic replaced suppression. The 20 September direct-Kupua comparison worked for the single print exclusion; that is not proof that its deliberate multiple-negative grouping already matches the selected contract.
+- **Expected / actual:** every negative usage condition independently excludes an image if any usage matches it; positive conditions must still match the same usage record. Both the integrated upstream builder and direct-ES builder now follow that rule for supported syntax.
+- **Evidence / reproduction:** **20 September controlled live-data reproduction on Kahuna -> media-api GET -> TEST and Kupua -> local media-api D3 -> TEST:** a known positive witness survived platform and published-status exclusions. GET rendered one match; D3 also rendered the witness cell. [GET evidence](bug-reproduction-evidence.md#grid-001-kahuna-get), [D3 evidence](bug-reproduction-evidence.md#grid-001-and-grid-008-kupua-d3). [Grouping source](../../../media-api/app/lib/elasticsearch/QueryBuilder.scala#L120) and [P28 Q3][p28] support the proposed cause, not the deployed revision. The earlier direct-Kupua check was comparison only; not every usage field or production deployment was tested.
+- **Current status, 23 October:** [PR #4957](https://github.com/guardian/grid/pull/4957) is merged. API requests preserve original q and direct ES emits independent negative nested queries. Local fixture replays of both clients distinguish independent exclusions from grouped negatives and retain positive same-record controls. [Earlier evidence](grid-usage-search-investigation.md) describes the pre-merge characterization.
+- **Smallest test:** after merge, verify the accepted contract through actual mapper/D3 bodies, exact IDs and totals, then the affected positional consumers. Preserve positive correlation and intentionally replace grouped-negative expectations with independent image-level exclusions. The standalone Grid regressions do not establish this prototype join.
+- **Dependency / resolution:** preserve independent exclusion and positive same-record correlation in Grid's shared builder and callers. Kupua composition and parser compatibility are client responsibilities, tracked separately under KUP-011.
+- **Disposition: DONE (Grid repair).** PR #4957 supplies the merged exclusion rule, covered by local server regressions. The client paths are also aligned locally for supported syntax; their residual grammar differences do not reopen this Grid item. No deployed or universal grammar-parity claim follows.
+
+#### GRID-002
+**Equivalent deleted-read intent is not consistently admitted by legacy GET**
+- **Component / responsibility:** media-api legacy search admission; human owner-to-confirm. **Private maintainer/security triage** before additional reproduction detail or public issue.
+- **Trigger:** equivalent supported query formulations under an authenticated ordinary principal subject to deleted-read restrictions.
+- **Expected / historical defect:** the same query-dependent authorization scope should apply before hits/totals. The old legacy condition recognized a narrower formulation than the parsed D3 path. Main now supplies parsed admission for both ordinary and AI search; this was not a missing-authentication defect.
+- **Evidence / reproduction:** [legacy admission](../../../media-api/app/controllers/MediaApi.scala#L584), [P28 Q5 and complementary guards][p28]; **qualified production-source inference only**. The browser campaign did not have private principal/security-test scope and made no probe. [Blocker](bug-reproduction-evidence.md#permission-blocked-routes). No deployed revision, disclosure or live reproduction established; details are not expanded here.
+- **Smallest test:** private/isolated controller and ES authorization contract for equivalent intent and principal classes, checking hits/totals and no unauthorized dispatch; no live probing.
+- **Upstream disposition, 23 October:** accepted [PR #4957](https://github.com/guardian/grid/pull/4957) now includes parsed deleted-intent admission for ordinary and AI searches. The local integration retains that implementation and reuses its scope helper for POST reads, with isolated ordinary/privileged-principal and explicit-AI controls. No live probe or deployed validation is claimed. KUP-011's remaining direct-parser syntax scope is separate from the upstream authorization repair.
+- **Disposition: DONE (Grid repair).** The merged parsed admission and local authorization controls close the server defect. Direct mode's missing user-permission context remains its existing prototype limitation, not an open Grid defect.
+
+#### GRID-008
+**Supported nested print-usage keys resolve to different leaves**
+- **Component / responsibility:** media-api CQL field resolution/QueryBuilder and mapped usage vocabulary; human owner-to-confirm.
+- **Trigger:** currently supported code-valued section/publication input against the populated print-usage leaf; include the selected orderedBy path in the discriminator.
+- **Expected / historical defect:** preserve the admitted mapped attribute. The integrated upstream resolver and direct client now use print section code/name and publication name/code leaves. Direct nested orderedBy honors configured usages paths, falling back to the canonical print leaf for absent or unrelated aliases; ordinary top-level alias resolution is unchanged.
+- **Evidence / reproduction:** [client fields](../../src/dal/adapters/elasticsearch/cql.ts#L250), [nested fields](../../../media-api/app/lib/querysyntax/QuerySyntax.scala#L142), [P28 Q10][p28], [P29 C2][p29]. **20 September controlled live-data reproduction on Kahuna/GET/TEST and Kupua/local-D3/TEST:** populated section/publication-code witnesses returned zero; positive platform/status controls returned them. [GET](bug-reproduction-evidence.md#grid-008-kahuna-get), [D3](bug-reproduction-evidence.md#grid-001-and-grid-008-kupua-d3). This tests positive resolution, not exclusion or production incidence. Per [P30][p30], orderedBy still depends on its SingleField alias path; no universal orderedBy failure or effective-alias conclusion.
+- **Current status, 23 October:** merged [PR #4957](https://github.com/guardian/grid/pull/4957) supplies the accepted field resolution. API mode forwards those queries unchanged; direct mode aligns section leaves and nested orderedBy alias precedence. Local fixture replays check code/name membership and unit controls distinguish absent, canonical, nested and unrelated aliases. Section-name support is intentional; digital section IDs are not added.
+- **Smallest test:** after merge, verify the accepted mapped fields through actual mapper/admission/D3 and the selected new path, asserting emitted fields and exact IDs/totals. Retain independent code-only/name-only witnesses, positive/negative controls, same-record correlation and absent/canonical/conflicting orderedBy aliases.
+- **Dependency / resolution:** preserve the accepted mapped leaves and alias precedence in Grid; client grammar compatibility belongs to KUP-011 rather than this completed server repair.
+- **Disposition: DONE (Grid repair).** PR #4957 supplies the merged field-resolution fix, covered by code/name and alias controls. API/direct clients are aligned locally for supported syntax. This supersedes P30's browse-only normalization; no deployed or whole-grammar parity is claimed.
+
+#### GRID-015
+**AI search did not apply the deleted-search admission that ordinary GET applied**
+- **Component / owner:** media-api `MediaApi.imageSearch` AI branch, including legacy and explicit `aiQuery` requests. Historical authorization finding; no deployed incident was established.
+- **Historical defect:** AI ranking and pool counting bypassed the uploader restriction applied to ordinary deleted-image searches. This is distinct from GRID-002's recognition of equivalent query forms.
+- **Repair / evidence:** merged [PR #4957](https://github.com/guardian/grid/pull/4957) applies parsed uploader scoping before ordinary/AI dispatch. [AI controller/ES controls](../../../media-api/test/controllers/MediaApiAiSearchTest.scala) cover ordinary/privileged principals, legacy/explicit ranking, pool responses and malformed input including zero-length requests. These passed against disposable local Elasticsearch; no live probe or deployment claim follows.
+- **Disposition: DONE (Grid deleted-search admission).** Server authorization and query-syntax validation are applied before AI work. This does not claim that every ordinary-search parameter-validation rule applies to AI, or that direct ES has Grid's permission context.
+
+</details>
+
+## Reading and Disposition Rules
+
+- IDs are stable: retain them when an entry moves, is corrected or is closed; never reuse an ID.
+  Cross-component findings have one canonical entry. Links from another section are not extra issues.
+- **Migration prerequisite** means the named candidate slice cannot claim its stated behavior until
+  the listed defect/contract is resolved. It is not a requirement to fix it now, or before every slice.
+  Resolution can be an approved implementation, a scoped containment, or characterization that
+  refutes the suspected defect. Characterization alone does not certify a known-broken final path.
+- **Independent backlog** is parked and may remain so indefinitely. Relevance to migration does not
+  establish a dependency. **Dependency unresolved** explicitly leaves validity or slice coupling open.
+- Expected behavior below comes from the existing caller contract or stated slice obligation, not
+  an invented universal snapshot, freshness guarantee or performance target. Candidate slices remain
+  provisional. A prerequisite classification does not approve its proposed behavior or implementation.
+- Source-supported and test-read evidence is not an executed reproduction. Unless explicitly noted,
+  no listed failure has been runtime-reproduced by this research or observed in a deployed system.
+  Historical S1 gates and report 04's synthetic check have their narrower stated scope.
+- Every human owner is **owner-to-confirm**. Responsible components below identify code ownership,
+  not invented people, teams or deadlines. Linked PRs record actual upstream work, not merge,
+  deployment or whole-ID resolution.
+- Access-control-sensitive entries require **private maintainer/security triage** before expanding
+  reproduction details or publishing an issue. This document does not authorize new contact,
+  publication or live checks.
+
+### Slice-Local Resolution Index
+
+| Slice / claimed behavior | Canonical prerequisite | Resolution boundary |
+| --- | --- | --- |
+| S2 admitted query/default composition | [KUP-011](#kup-011); completed [GRID-001](#grid-001), [GRID-008](#grid-008) | Grid repairs and supported client-query alignment are implemented locally; preserve common read scope and mapped fields. Remaining direct-parser syntax scope belongs to KUP-011, not an open Grid gate. |
+| Migrated restore consumer using S3a/S5, and S10 restore acceptance | [KUP-024](#kup-024), [KUP-025](#kup-025) | Current-client repairs DONE; preserve retained-total placement and selected-tuple composition when connecting new APIs. Migrated acceptance remains open, not a gate on standalone rank/window methods. |
+| S3b live range selection | [KUP-002](#kup-002), [KUP-003](#kup-003) | Current-client ownership and bounded unknown-order retry are DONE; migrated collector acceptance remains open. |
+| S4 complete-or-absent map | [KUP-009](#kup-009) | Current-client explicit-incompleteness discard is DONE; migrated execution contract and acceptance remain open, not universal snapshots. |
+| S6a singleton detail | [KUP-004](#kup-004) | Current-client identity repair DONE; retain ID-bound image/overlay publication through future singleton GET composition. |
+| S6b hydration | [KUP-001](#kup-001) | Current client ownership fix DONE, accepted and committed; complete-logical-read/API omission policy remains open. |
+| S7 polling | [KUP-006](#kup-006) | Current-client baseline-plus-latest cumulative accounting is DONE; preserve lifetime/response ownership in API composition. |
+| S8 expanded / AI-scoped aggregates | [KUP-007](#kup-007), [KUP-005](#kup-005) | Current-client ownership/empty-membership repairs DONE; future API composition must preserve them. Ordinary-only work is not gated by AI. |
+| S9 AI publication | [KUP-005](#kup-005), [KUP-008](#kup-008) | Current-client loaded-set scope/current-sort repairs DONE; migrated producer and caller acceptance remain open. |
+| S10 current non-AI API recovery | [KUP-010](#kup-010) | CLOSED by U6z composition tests and existing API wiring; AI remains the sole ES exception, not absolute API-only completion. |
+
+CQL fixed-mode initialization is closed by U6z; runtime rebinding is not supported. Preview-exit
+ownership retains its explicit limits below. P29's
+source-backed C2/C3 assessment narrows GRID-008 and E013/E014 to the activation gates named above;
+those gates remain open. The current usage-search dispositions below supersede P30's grouped-negative
+and browse-only repair direction; they do not approve wider API implementation or activation.
+
+## Kupua
+
+### Migration Prerequisites
+
+#### KUP-011
+**Parsed query defaults and remaining direct-to-ES grammar divergence**
+- **Component / responsibility:** direct Kupua query defaults, D3 request mapper and analogous legacy Grid Parser default construction; one cross-component entry. Human owner-to-confirm. Visibility-sensitive forms warrant private maintainer/security triage before expanded public detail.
+- **Trigger:** supported quoted/case-varied positive intent, or ordinary literal text containing a special query substring.
+- **Expected / historical defect:** automatic defaults should follow actual parsed intent. Raw substring checks added contradictory exclusions or omitted intended defaults. API mode now forwards original q (absent becomes empty); direct mode derives intent from its parsed fields before grouping, without reparsing. Predicate-only ticker parsing remains default-free.
+- **Evidence / reproduction:** [direct defaults](../../src/dal/es-adapter.ts#L470), [mapper](../../src/dal/grid-api-search-adapter.ts#L115), [P28 Q2/Q4][p28], E047. **20 September synthetic direct-builder reproduction in Kupua:** non-sensitive replaced-intent and literal-text cases produced wrong predicates at a capturing transport boundary. [Evidence](bug-reproduction-evidence.md#kup-011). A later one-hit live D3 read found no replaced witness, leaving that comparison inconclusive; no deleted/visibility probe or mounted result claim.
+- **Current status, 23 October:** [PR #4957](https://github.com/guardian/grid/pull/4957) is merged. API mapper and direct-default repairs are implemented locally, with failing-first transport regressions and synthetic local-ES membership checks. Actual API bodies were replayed across search/window/rank/profile/keys/count/aggregation reads. [Earlier investigation](grid-usage-search-investigation.md) records pre-merge evidence, not the current contract.
+- **Remaining direct-to-ES divergence (operator accepted):** `@guardian/cql` treats single quotes as literal value characters, unlike media-api's parser. For example, `usages@status:'replaced'` differs from its double-quoted form in direct mode. Preserve the existing parser/editor grammar for now; [adapter regressions](../../src/dal/es-adapter.test.ts) pin this limitation. API forwarding is not a promise of whole-editor or whole-grammar parity, and direct malformed-input handling has not been aligned with the server's structured 422 rejection.
+- **Smallest test:** after the Grid merge, pair actual mapper bodies with the accepted D3 intent/membership/total contract, retaining separate authorization controls. The Grid-only tests are not execution credit for this composed prototype path; do not expand visibility-sensitive examples here.
+- **Dependency / resolution:** preserve shared admitted meaning across API first pages, continuations and positional reads. Grid's parser/admission, exclusion and field repairs are complete under GRID-001/002/008/015. This Kupua item owns the remaining direct-parser divergence; it does not reopen those Grid fixes or grant broader parser-work approval.
+- **Disposition: OPEN for remaining cross-mode syntax scope.** Substring-default insertion is removed from both adapters. Single-quote compatibility and wider grammar parity require a separate decision; direct mode's lack of per-user server authorization remains the existing prototype compromise, not a query-default guarantee.
+
+### Independent Backlog: Parked
+
+#### KUP-041
+**API cancellation does not reach outgoing Elasticsearch reads**
+- **Component / responsibility:** Kupua's API-backed read lifecycle across [browser signals](../../src/dal/grid-api-search-adapter.ts), [ordered-read controllers](../../../media-api/app/controllers/ImageQueryController.scala), and the [shared ES execution/client](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/ElasticSearchExecutions.scala). API integration ownership, with shared-client changes requiring explicit permission and review of other Grid consumers.
+- **Trigger / actual:** a search, focus operation or aggregation is superseded, times out or loses its browser context after media-api has started an ES read. The browser request is aborted, but the Play action returns a Scala Future and the installed elastic4s `JavaClient.send(...): Unit` discards the Java REST client's `Cancellable` handle. No examined incoming-disconnect path cancels that upstream read. Independent frontend controllers and generation guards still protect current UI state; they do not establish backend resource release.
+- **Expected direction, not a stronger guarantee:** explicitly own the lifetime of supported read-only API work and provide best-effort cancellation or a justified bounded-work alternative when its consumer disappears. Direct-to-ES mode has no intervening Play/Future boundary, but closing its browser request is not proof that every ES task immediately stops. Do not promise universal server cancellation or change accepted presentation semantics.
+- **Evidence / limits:** [transport investigation and cancellation evidence](../experiments/es-transport/README.md#separate-issues-not-this-transport-diagnosis), 19 October. Captured focus reads continued until a roughly 30-second backend socket timeout after browser cancellation at about eight seconds. This demonstrates continued upstream request lifetime, not 22 seconds of proven ES computation. Aggregation cancellation was also present in passing campaigns, and no direct path from one aggregation abort to a different Java request was found. The facet-specific backend savings and production incidence are unmeasured. **This is not an established cause of PP3's incomplete-request failures.**
+- **Smallest discriminator:** isolate the actual API/Future/client boundary with a held synthetic ES response, cancel the incoming consumer, and observe the outgoing handle/connection lifetime. Cover cancellation before dispatch, during send, while awaiting response, and after completion, plus an unrelated concurrent read and a successor using the same client. Mocked browser `signal.aborted` alone is insufficient. Preserve noncancelled success, refusal/error behavior, response compression, routing/authentication and stale-publication guards; verify callback cleanup and no shared-pool shutdown or cross-request cancellation.
+- **20 October investigation:** [request-lifetime and performance-parity assessment](api-request-lifetime-and-performance-parity.md) inventories datasource operations, retained optimisations, Kahuna applicability and Scala boundaries. Its bounded authorized local-API browser follow-up reproduces equal-body facet replacement on hover/open and repeated suggestion reads during value typing, including already-completed reads. These establish client-side request-efficiency candidates, not measured backend savings. Server cancellation remains unproved and unfixed; no product implementation follows.
+- **20 October S4a repair:** equivalent dispatched base-facet reads now survive hover/open handoff in Kupua; force refresh and changed-scope cancellation remain. See the [assessment's repair validation](api-request-lifetime-and-performance-parity.md#s4a-repair-validation-20-october). This removes the reproduced redundant client dispatch, not KUP-041's server-lifetime gap; S4b and KUP-040 remain separate work.
+- **Scope decision before implementation:** identify an appropriate Play disconnect/cancellation hook and the narrow set of owned read operations; assess whether retaining client handles or a bounded alternative is worth the complexity. Exclude writes and unrelated legacy consumers by default. Do not add a global cancellation manager, retries, new failure UI or longer timeouts as substitutes. If upstream cancellation is supported, describe its actual boundary rather than infer ES task termination from a closed socket.
+- **Dependency / disposition:** OPEN as an independent performance/resource-lifetime follow-up, recorded at operator request on 19 October. Not an initial API migration gate, a production incident claim, or permission to change shared/server code. Investigate and fix this scope separately from the unresolved transport failure.
+
 #### KUP-043
 **Image refresh and enrichment after a write (future edits/deletions)**
-- **Scope:** design question recorded 30 October at operator request; no code or evidence yet.
-- **Need:** once Kupua performs writes (gated by media-api's per-image action links, not shipped permissions), a changed or deleted image must update in the buffer, Details and selection without losing position, and must not be overwritten by stale enrichment or in-flight reads. KUP-030's closure covered only the AI overlay lifetime.
-- **Result stability after Kupua's own writes (analysis, 31 October; source-based, not executed):**
-  - **Cursor paging survives; offsets do not.** `search_after` continuations restart from sort
-    *values*, so removed or inserted images do not corrupt forward or backward extension. An
-    image whose sort value changed can appear twice or be skipped, so de-duplicate by ID.
-    Position-based reads (indexed position map, `POST /images/window` seeks, rank, scrubber
-    totals) are invalidated by every membership change: each removed image shifts all later
-    positions by one.
-  - **Writes change membership and order, not just content:**
-    - delete, and filters on `archived`, labels, usage rights or other edited fields, remove
-      images from the result set;
-    - edits bump the root `lastModified` (Thrall `updateLastModifiedScript`), so `lastModified`
-      sorting moves every edited image to the top;
-    - sorting by an edited field (for example `credit`) moves images. The default `-uploadTime`
-      is unaffected.
-  - **The frozen-until cap does not help:** it excludes new uploads, not changes to images
-    already inside the frozen set. A future PIT (build plan L1) would keep results stable but
-    *hide the user's own edits* until a new search. Stability and read-your-writes conflict
-    unless the client patches its buffer itself.
-  - **Selection drift reappears:** selections §9 relies on clearing selections on any new search,
-    so the selection always stays a subset of results. Writes that exclude images break that
-    without any new search.
-  - **Timing:** with UI-lane wait of about 0.3 s, processing of about 10 ms and ES refresh of
-    about 1 s, server convergence takes roughly 1–2 s. Reads issued before it return pre-write
-    data; `lastModified`/`userMetadataLastModified` (kept in the lean projection) can reject them.
-  - **Candidate direction (not a decision):** patch in place. After a write, replace affected
-    buffer entries with fresh `mget` documents, or tombstone removed ones, *without reflowing*.
-    Reject older documents by timestamp. Retain counts and position maps as known-stale with a
-    pending-refresh marker until the next explicit search. Write-side detail is in
-    [batch editing at scale](batch-editing-at-scale.md#90-first-iteration-prototype-no-real-users-what-is-actually-needed).
-- **Disposition:** OPEN, deliberately parked until edits/deletions are scoped. Not a current migration gate.
+- **Scope:** authoritative image refresh, stale-read exclusion, selection/detail ownership and stable browsing after writes. KUP-030's closure covers the AI overlay lifetime, not this contract. The [Step-4 plan](gradually-growing-teeth.step-4-publication-plan.md) owns the selected policy and remaining execution gates; its current decisions supersede the original October design sketch.
+- **Implemented foundation, A1 (6 November):** incoming extension duplicates are excluded with their paired tuples and overlays while raw scan frontiers advance. Resident slots are preserved; duplicate-only progress can resume viewport or pending traversal demand through existing ownership/cooldowns. This is bounded retained-window exclusion, not exactly-once enumeration of a changing catalogue.
+- **Implemented foundation, A2 (6 November):** the operator selected same-slot buffer replacement after a normal-media trial. The shared publisher replaces resident bodies, retained authority and selected/cached metadata without moving membership or coordinates. Unchanged effective image ratios preserve Justified packing and scrolling prediction. Per-cell alternatives and temporary trial/counter machinery are removed; normal editing remains disconnected.
+- **Evidence:** the [A2 checkpoint](gradually-growing-teeth.step-4-publication-plan.md#a2-comparison-checkpoint) records failing-first regressions, consumer/geometry checks, operator and agent trials, final full validation and the explicitly accepted unresolved table-sort timeout. That timeout is not classified as a post-write publication defect. No measured speed win or deployed write behavior is certified.
+- **Remaining:** bounded simulated readback, operation/projection freshness, competing-read omission and capability handling, full standalone-detail projection, stable continuation with invalid rank knowledge, unavailable/deleted entries and integrated acceptance. Ordinary later result replacement does not automatically refresh selection metadata. Root `lastModified` is not a universal freshness version, and a frozen upload bound does not exclude later edits.
+- **Disposition:** OPEN. A1-A2 complete only the deduplication and selected publication foundations; they do not close KUP-043 or enable live edits/deletions. A3 requires operator confirmation; the later units retain their separate authority gates.
 
 #### KUP-044
 **Kupua drops per-image resource capabilities, including `edits` and `crops` (extended 1 November)**
@@ -820,60 +855,7 @@ set -o pipefail; npm --prefix kupua run test:e2e -- --project=chromium density-c
   crop implementation/test change was made. The full browser gate remains unaccepted;
   recording this item does not waive it or establish a production incident.
 
-### Dependency Unresolved
-
-#### KUP-027
-**Preview-exit centering can move a newer session's retained list**
-- **Component / responsibility:** FullscreenPreview exit promise/resize/frame work and centring callback; human owner-to-confirm.
-- **Trigger:** a new preview session begins while the older exit's centering frame is pending.
-- **Expected / actual:** preserve the new session's native list placement. Before repair, the old frame could center under the new preview. Fresh focus/geometry within the same valid exit is intentional and passed its control; it is not itself an actionable defect.
-- **Evidence / reproduction:** [exit work](../../src/components/FullscreenPreview.tsx), [P20 F2][p20]. The blocked 20 September integrated-browser attempt is retained. On 22 September native Chromium with isolated local media separated promise delivery from centering: the old frame moved a new preview's retained list from 0 to 100 while native preview, history and focus stayed correct. [Evidence](bug-reproduction-evidence.md#kup-027).
-- **Regression coverage:** ordinary/latest-focus settlement, different/same-image reentry, resize, native-event exit and rejected/non-traversed retry in real Chromium; explicitly mocked mounted disposal, resize quiet period, safety cap and duplicate completion controls.
-- **Dependency / resolution:** pre-native-entry promise timing, physical Esc/macOS animation and wider S10/gesture composition remain uncertified. The tested late-promise/new-active-preview path was already safe; no wholesale exit-lifecycle refutation or session-manager redesign is claimed.
-- **Disposition: DONE (22 September), committed as `6718aebd0`**, for centering crossing preview sessions. [Validation and limits](bug-reproduction-evidence.md#bounded-focus-repairs-kup-013017018027). Existing native finalization, fresh-focus resolution and settling delays remain.
-
 ## Grid
-
-### Completed Query Repairs
-
-#### GRID-001
-**Usage exclusions can weaken one another**
-- **Component / responsibility:** media-api QueryBuilder and default insertion, with Kupua request-mapper participation; human owner-to-confirm. One canonical cross-component entry, distinct from raw intent detection in [KUP-011](#kup-011).
-- **Trigger:** negative usage conditions are combined with other user exclusions or automatic replaced suppression. The 20 September direct-Kupua comparison worked for the single print exclusion; that is not proof that its deliberate multiple-negative grouping already matches the selected contract.
-- **Expected / actual:** every negative usage condition independently excludes an image if any usage matches it; positive conditions must still match the same usage record. Both the integrated upstream builder and direct-ES builder now follow that rule for supported syntax.
-- **Evidence / reproduction:** **20 September controlled live-data reproduction on Kahuna -> media-api GET -> TEST and Kupua -> local media-api D3 -> TEST:** a known positive witness survived platform and published-status exclusions. GET rendered one match; D3 also rendered the witness cell. [GET evidence](bug-reproduction-evidence.md#grid-001-kahuna-get), [D3 evidence](bug-reproduction-evidence.md#grid-001-and-grid-008-kupua-d3). [Grouping source](../../../media-api/app/lib/elasticsearch/QueryBuilder.scala#L120) and [P28 Q3][p28] support the proposed cause, not the deployed revision. The earlier direct-Kupua check was comparison only; not every usage field or production deployment was tested.
-- **Current status, 23 October:** [PR #4957](https://github.com/guardian/grid/pull/4957) is merged. API requests preserve original q and direct ES emits independent negative nested queries. Local fixture replays of both clients distinguish independent exclusions from grouped negatives and retain positive same-record controls. [Earlier evidence](grid-usage-search-investigation.md) describes the pre-merge characterization.
-- **Smallest test:** after merge, verify the accepted contract through actual mapper/D3 bodies, exact IDs and totals, then the affected positional consumers. Preserve positive correlation and intentionally replace grouped-negative expectations with independent image-level exclusions. The standalone Grid regressions do not establish this prototype join.
-- **Dependency / resolution:** preserve independent exclusion and positive same-record correlation in Grid's shared builder and callers. Kupua composition and parser compatibility are client responsibilities, tracked separately under KUP-011.
-- **Disposition: DONE (Grid repair).** PR #4957 supplies the merged exclusion rule, covered by local server regressions. The client paths are also aligned locally for supported syntax; their residual grammar differences do not reopen this Grid item. No deployed or universal grammar-parity claim follows.
-
-#### GRID-008
-**Supported nested print-usage keys resolve to different leaves**
-- **Component / responsibility:** media-api CQL field resolution/QueryBuilder and mapped usage vocabulary; human owner-to-confirm.
-- **Trigger:** currently supported code-valued section/publication input against the populated print-usage leaf; include the selected orderedBy path in the discriminator.
-- **Expected / historical defect:** preserve the admitted mapped attribute. The integrated upstream resolver and direct client now use print section code/name and publication name/code leaves. Direct nested orderedBy honors configured usages paths, falling back to the canonical print leaf for absent or unrelated aliases; ordinary top-level alias resolution is unchanged.
-- **Evidence / reproduction:** [client fields](../../src/dal/adapters/elasticsearch/cql.ts#L250), [nested fields](../../../media-api/app/lib/querysyntax/QuerySyntax.scala#L142), [P28 Q10][p28], [P29 C2][p29]. **20 September controlled live-data reproduction on Kahuna/GET/TEST and Kupua/local-D3/TEST:** populated section/publication-code witnesses returned zero; positive platform/status controls returned them. [GET](bug-reproduction-evidence.md#grid-008-kahuna-get), [D3](bug-reproduction-evidence.md#grid-001-and-grid-008-kupua-d3). This tests positive resolution, not exclusion or production incidence. Per [P30][p30], orderedBy still depends on its SingleField alias path; no universal orderedBy failure or effective-alias conclusion.
-- **Current status, 23 October:** merged [PR #4957](https://github.com/guardian/grid/pull/4957) supplies the accepted field resolution. API mode forwards those queries unchanged; direct mode aligns section leaves and nested orderedBy alias precedence. Local fixture replays check code/name membership and unit controls distinguish absent, canonical, nested and unrelated aliases. Section-name support is intentional; digital section IDs are not added.
-- **Smallest test:** after merge, verify the accepted mapped fields through actual mapper/admission/D3 and the selected new path, asserting emitted fields and exact IDs/totals. Retain independent code-only/name-only witnesses, positive/negative controls, same-record correlation and absent/canonical/conflicting orderedBy aliases.
-- **Dependency / resolution:** preserve the accepted mapped leaves and alias precedence in Grid; client grammar compatibility belongs to KUP-011 rather than this completed server repair.
-- **Disposition: DONE (Grid repair).** PR #4957 supplies the merged field-resolution fix, covered by code/name and alias controls. API/direct clients are aligned locally for supported syntax. This supersedes P30's browse-only normalization; no deployed or whole-grammar parity is claimed.
-
-#### GRID-002
-**Equivalent deleted-read intent is not consistently admitted by legacy GET**
-- **Component / responsibility:** media-api legacy search admission; human owner-to-confirm. **Private maintainer/security triage** before additional reproduction detail or public issue.
-- **Trigger:** equivalent supported query formulations under an authenticated ordinary principal subject to deleted-read restrictions.
-- **Expected / historical defect:** the same query-dependent authorization scope should apply before hits/totals. The old legacy condition recognized a narrower formulation than the parsed D3 path. Main now supplies parsed admission for both ordinary and AI search; this was not a missing-authentication defect.
-- **Evidence / reproduction:** [legacy admission](../../../media-api/app/controllers/MediaApi.scala#L584), [P28 Q5 and complementary guards][p28]; **qualified production-source inference only**. The browser campaign did not have private principal/security-test scope and made no probe. [Blocker](bug-reproduction-evidence.md#permission-blocked-routes). No deployed revision, disclosure or live reproduction established; details are not expanded here.
-- **Smallest test:** private/isolated controller and ES authorization contract for equivalent intent and principal classes, checking hits/totals and no unauthorized dispatch; no live probing.
-- **Upstream disposition, 23 October:** accepted [PR #4957](https://github.com/guardian/grid/pull/4957) now includes parsed deleted-intent admission for ordinary and AI searches. The local integration retains that implementation and reuses its scope helper for POST reads, with isolated ordinary/privileged-principal and explicit-AI controls. No live probe or deployed validation is claimed. KUP-011's remaining direct-parser syntax scope is separate from the upstream authorization repair.
-- **Disposition: DONE (Grid repair).** The merged parsed admission and local authorization controls close the server defect. Direct mode's missing user-permission context remains its existing prototype limitation, not an open Grid defect.
-
-#### GRID-015
-**AI search did not apply the deleted-search admission that ordinary GET applied**
-- **Component / owner:** media-api `MediaApi.imageSearch` AI branch, including legacy and explicit `aiQuery` requests. Historical authorization finding; no deployed incident was established.
-- **Historical defect:** AI ranking and pool counting bypassed the uploader restriction applied to ordinary deleted-image searches. This is distinct from GRID-002's recognition of equivalent query forms.
-- **Repair / evidence:** merged [PR #4957](https://github.com/guardian/grid/pull/4957) applies parsed uploader scoping before ordinary/AI dispatch. [AI controller/ES controls](../../../media-api/test/controllers/MediaApiAiSearchTest.scala) cover ordinary/privileged principals, legacy/explicit ranking, pool responses and malformed input including zero-length requests. These passed against disposable local Elasticsearch; no live probe or deployment claim follows.
-- **Disposition: DONE (Grid deleted-search admission).** Server authorization and query-syntax validation are applied before AI work. This does not claim that every ordinary-search parameter-validation rule applies to AI, or that direct ES has Grid's permission context.
 
 ### Independent Backlog: Parked
 

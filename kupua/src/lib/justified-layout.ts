@@ -1,6 +1,8 @@
 import { JustifiedLayout as ImmichLayout } from "@immich/justified-layout-wasm";
 import type { Image } from "@/types/image";
 import type { LayoutRow } from "@/lib/scroll-geometry-ref";
+import { imageRatio } from "@/lib/result-geometry";
+export { imageRatio } from "@/lib/result-geometry";
 
 export interface ImageBox { top: number; left: number; width: number; height: number; aspectRatio: number }
 
@@ -17,13 +19,6 @@ export interface ImageLayout {
 export interface JustifiedLayout extends ImageLayout {
   boxes: ImageBox[];
   rows: LayoutRow[];
-}
-
-export function imageRatio(image: Image): number {
-  const dimensions = image.source?.orientedDimensions ?? image.source?.dimensions;
-  const { width, height } = dimensions ?? {};
-  return typeof width === "number" && typeof height === "number" && Number.isFinite(width) && Number.isFinite(height)
-    && width > 0 && height > 0 ? width / height : 1;
 }
 
 export function buildJustifiedLayout(images: readonly Image[], width: number): JustifiedLayout {

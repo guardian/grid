@@ -317,6 +317,7 @@ export interface SelectionState {
    * requests), populate `metadataCache`, then enqueue reconciliation.
    */
   ensureMetadata(ids: string[]): Promise<void>;
+  publishSelectedMetadata(images: readonly Image[]): void;
   /**
    * Run on mount: batch-fetch metadata for any IDs already in `selectedIds`
    * (restored from sessionStorage). Silently drops IDs that ES returns nothing
@@ -585,6 +586,23 @@ export const useSelectionStore = create<SelectionState>()(
         if (needed.some((id) => currentSelected.has(id))) {
           requestFullReconcile();
         }
+      },
+
+      publishSelectedMetadata(images: readonly Image[]): void {
+        const { selectedIds, metadataCache } = get();
+        let changed = false;
+        let selectedChanged = false;
+        for (const image of images) {
+          if ((selectedIds.has(image.id) || metadataCache.has(image.id)) && metadataCache.get(image.id) !== image) {
+            if (metadataCache.set(image.id, image)) {
+              changed = true;
+              selectedChanged ||= selectedIds.has(image.id);
+            }
+          }
+        }
+        if (!changed) return;
+        set(state => ({ metadataRevision: state.metadataRevision + 1 }));
+        if (selectedChanged) requestFullReconcile();
       },
 
       async hydrate(): Promise<void> {

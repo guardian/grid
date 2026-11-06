@@ -54,6 +54,7 @@ import { useMetadataSearch } from "@/components/metadata-primitives";
 import { CostBadge, buildCostTooltip } from "@/components/CostBadge";
 import { SyndicationBadge } from "@/components/SyndicationBadge";
 import { useEnrichedImage } from "@/hooks/useEnrichedImage";
+import { resultsGeometryIdentity } from "@/lib/result-geometry";
 import { isImagePotentiallyGraphic } from "@/lib/graphic-image-blur";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
 import { getGridDatePresentation } from "@/lib/format-grid-date";
@@ -488,6 +489,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
   const committedLayout = useRef<ImageLayout | undefined>(undefined);
   const layoutSearchKey = buildSearchKey(searchParams);
   const rowScale = justifiedRowScale(effectiveJustifiedOffset, containerWidth);
+  const geometryIdentity = justified ? resultsGeometryIdentity(results) : results;
   const justifiedLayout = useMemo(() => {
     if (!layoutFactory) return undefined;
     if (RESIDENT_PREVIEW_ENABLED && (bufferOffset !== 0 || twoTier || results.some(image => !image) ||
@@ -496,7 +498,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     }
     return layoutFactory(results, containerWidth, { bufferOffset, total, indexed: twoTier, searchKey: layoutSearchKey, rowScale },
       committedLayout.current);
-  }, [layoutFactory, results, bufferOffset, twoTier, total, containerWidth, layoutSearchKey, rowScale]);
+  }, [layoutFactory, geometryIdentity, bufferOffset, twoTier, total, containerWidth, layoutSearchKey, rowScale]);
   useLayoutEffect(() => {
     committedLayout.current = justifiedLayout;
     if (justifiedLayout) onLayoutCommit?.(justifiedLayout);

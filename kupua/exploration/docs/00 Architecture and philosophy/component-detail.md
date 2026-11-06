@@ -239,10 +239,30 @@ behind. Pending browse navigation survives view changes independently of window 
 final commits from resurrecting a cleared PIT. Direct mode opens PIT/page one in parallel; API
 mode opens no PIT, so its position maps are live, not a stronger snapshot guarantee.
 
+Extension acceptance excludes resident and within-response duplicate IDs, keeping
+each accepted body paired with its tuple and enrichment. Raw cursor progress is
+separate from displayed additions; duplicate-only progress can notify current
+viewport/traversal demand without republishing the buffer or compacting survivors.
+
 Restore uses the selected full cursor tuple for rank and neighbours, conditionally reranking if
 the refreshed tuple changed, while preserving the session total. The store also owns new-image
 polling, aggregation caching/circuit breaking and ordinary/null-zone sort distributions. Their
 UI consumers must not create competing fetch or publication lifetimes.
+
+## Image Publication (`lib/image-publication.ts`)
+
+`publishImage(image, overlay)` replaces a resident image at its existing slot and
+preserves unrelated bodies, coordinates, cursors and placement signals. It attaches
+the authoritative overlay to the new body, replaces resident or already-retained
+shared enrichment, and calls selection's metadata-publication action. Empty resource
+links replace older grants; offscreen targets do not create arbitrary shared entries.
+
+Equal effective aspect ratios retain a weak, body-free result-geometry identity.
+Justified packing and velocity continuity use that identity independently of content
+references. Changed ratios and ordinary result replacements invalidate it. There is
+no per-cell body cache, extra render subscription or page-scanning subscriber.
+The helper has no editor/readback caller and does not resolve competing reads,
+server ordering or standalone-detail projection ownership.
 
 ## Position and Cursor Caches (`dal/position-map.ts`, `lib/image-offset-cache.ts`)
 
@@ -385,7 +405,10 @@ horizon, from a 50-image base to a one-page cap of 200. Fixed Grid and Table exp
 select the same predictor with negated velocity for buffer-local backward admission;
 Justified, unspecified callers and indexed backward admission retain threshold 50.
 The stable reporting callback reads current layout policy, and policy changes break
-velocity continuity. Buffer-local admission rejects an explicitly stale trailing range for
+velocity continuity. Explicit unchanged-ratio metadata publication preserves the
+result-geometry identity; ordinary result replacement resets continuity. Reporting
+owner, search generation, offset, extent, layout and viewport height must also match.
+Buffer-local admission rejects an explicitly stale trailing range for
 forward demand and an explicitly stale first row for backward demand; each edge is independent
 of navigation intent and of full-range velocity validity. Callers without that evidence retain
 base admission; indexed views use global-range admission. View-owned indexed maintenance refills debounce for 200ms. User browse
@@ -438,6 +461,10 @@ Owns shared prev/next navigation for detail and preview in global coordinates. R
 navigate immediately; buffer-edge traversal retains a pending target while requesting extension;
 absolute boundaries are no-ops. Successful navigation feeds direction-aware prefetch. Consumers
 gate traversal while zoomed so navigation does not compete with panning.
+
+Duplicate-only cursor progress can resume pending traversal through the existing
+maintenance cooldown. Repeated input for the same origin and direction retains
+that owner; a changed target/direction or departure retires its subscription and wait.
 
 ## Return from Detail (`hooks/useReturnFromDetail.ts`)
 
@@ -781,8 +808,10 @@ records, visited-history cache or catalogue-wide layout are retained by the snap
 Packing uses oriented dimensions with square fallback, 48-image technical blocks, 4px spacing
 and target row height 190px at widths >=600px or 130px below that boundary, with 0.5 tolerance.
 Blocks are not dates, network pages or semantic groups. Unknown full, non-final indexed blocks
-share a square estimate created on first use per construction, never cached across publications
-or widths. Known and true-final blocks retain independent packing. Indexed boundaries are exact;
+share a square estimate created on first use per construction, never cached across geometry
+changes or widths. Explicit same-slot metadata publication with an unchanged effective ratio
+reuses the layout without packing or measuring; width, row scale, offset, extent and search
+identity retain their own invalidations. Known and true-final blocks retain independent packing. Indexed boundaries are exact;
 seek ordinals come from overlapping identities,
 not estimated ranks. Temporary buffer edges do not authorise true-end truncation or imply
 globally exact pixels at arbitrary entry points.

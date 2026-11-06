@@ -195,6 +195,15 @@ Lives in `constants/tuning.ts`. Default `false`. When `true`, the four "NO" rows
 
 **Relationship to position preservation:** The flag controls whether selection *survives* a navigation — it has no effect on position preservation logic. For search navigation, preservation via the selection anchor fires **only on sort-only changes** regardless of flag state. With flag=true and a non-sort change (query, filter), the selection survives but position is handled by the viewport-anchor mechanism (existing phantom-focus path), not by the selection anchor. This is deliberate: on a query change the anchor image may not exist in the new results, making it an unreliable position target. Sort changes merely reorder the same result set, so the anchor is always findable. Grid layout reflow is separate from search navigation and uses the selection anchor independently of this flag.
 
+### Metadata publication
+
+`publishSelectedMetadata(images)` accepts image bodies for selected or already-cached
+IDs without changing membership, anchor or persistence. A changed batch advances one
+metadata revision and requests the existing coalesced reconciliation only when a
+currently selected body changes. It does not hydrate the selection or acquire metadata.
+Resident buffer replacement alone is not selected-cache publication, and this action
+does not order competing read completions.
+
 ### Hydration on mount
 
 - `useSelectionStore.getState().hydrate()` called once from the `/search` route's mount effect. (The persist middleware repopulates `selectedIds` synchronously before mount; `hydrate()` is what kicks the metadata fetch so the multi-image panel renders reconciled values rather than dashes.)

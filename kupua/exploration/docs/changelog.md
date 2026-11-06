@@ -24,6 +24,34 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 6 November 2026 - Prepare stable buffer publication for future editing
+
+Added `publishImage(image, overlay)` to replace resident image bodies at the same
+slots while preserving unrelated references, coordinates and placement signals.
+Authoritative enrichment replaces older capabilities, including empty grants,
+without inserting arbitrary offscreen entries. A deliberate selection-metadata
+action updates selected or already-cached bodies without hydration or membership
+changes, advances one revision and coalesces reconciliation for affected members.
+
+Unchanged effective aspect ratios retain a weak, body-free result-geometry identity.
+Justified packing and velocity continuity use it while preserving width, layout,
+query, offset, extent and navigation invalidations. Metadata-only publication avoids
+repacking and measurement; genuine geometry changes and ordinary page replacements
+retain their invalidation behavior.
+
+Selected buffer replacement for its simpler ownership after comparison with a
+per-cell route and a normal-media trial. Removed the alternative body cache and
+subscriptions, comparison counters/source transforms, and temporary trial UI and
+startup wiring. Retained buffer regressions for current consumers, authority,
+geometry, active scrolling, early demand and real API composition with local JPEGs.
+Fixture Vite servers use independent dependency caches under test output so their
+optimization cannot remove modules used by the concurrent main test server.
+
+This is publication groundwork, not a connected editing workflow. Readback,
+freshness fencing, grouped publication and ordinary-read selection coherence remain
+unwired; newer-page selected-cache refresh in the fixture is explicit assistance.
+No general entity cache, permanent page scanner or production editing caller is added.
+
 ### 6 November 2026 - Deduplicate extension pages without stranding browsing
 
 Forward and backward extension exclude incoming resident IDs before publishing
