@@ -268,7 +268,17 @@ export function useListNavigation(config: ListNavigationConfig): void {
   // moveFocus — move focus by delta items (only called when focus exists)
   // -------------------------------------------------------------------------
 
-  const moveFocus = useCallback((delta: number) => {
+  const recoverFocus = useCallback((kind: "item" | "row" | "page", direction: 1 | -1) => {
+    const config = configRef.current;
+    const id = config.focusedImageId;
+    if (!id) return;
+    config.setFocusedImageId(id);
+    useSearchStore.setState({ _pendingFocusDelta: { kind, direction, id,
+      focusIntent: useSearchStore.getState()._focusIntent } });
+    useSearchStore.getState().seekToFocused();
+  }, []);
+
+  const moveFocus = useCallback((delta: number, kind: "item" | "row" = "item") => {
     const {
       virtualizerCount: count,
       focusedImageId: currentId,
@@ -287,10 +297,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
     const currentIdx = findImageIndex(currentId);
     if (currentIdx < 0) {
       // Focused image not in buffer (user seeked away via scrubber).
-      // Snap back: seek to the focused image, then apply the delta.
-      setFocusedImageId(currentId);
-      useSearchStore.setState({ _pendingFocusDelta: delta });
-      useSearchStore.getState().seekToFocused();
+      recoverFocus(kind, delta > 0 ? 1 : -1);
       return;
     }
     if (count === 0) return;
@@ -323,21 +330,11 @@ export function useListNavigation(config: ListNavigationConfig): void {
     if (count - nextIdx <= 5 && configRef.current.bufferOffset + resultsLength < total) {
       loadMore();
     }
-  }, []);
+  }, [recoverFocus]);
 
   // -------------------------------------------------------------------------
   // pageFocus — move focus by one page (only called when focus exists)
   // -------------------------------------------------------------------------
-
-  const recoverSpatialFocus = useCallback((kind: "row" | "page", direction: 1 | -1) => {
-    const config = configRef.current;
-    const id = config.focusedImageId;
-    if (!id) return;
-    config.setFocusedImageId(id);
-    useSearchStore.setState({ _pendingFocusDelta: { kind, direction, id,
-      focusIntent: useSearchStore.getState()._focusIntent } });
-    useSearchStore.getState().seekToFocused();
-  }, []);
 
   const pageFocus = useCallback((direction: "up" | "down") => {
     const config = configRef.current;
@@ -345,7 +342,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
       const el = config.scrollRef.current;
       const current = config.focusedImageId ? config.findImageIndex(config.focusedImageId) : -1;
       if (!el) return;
-      if (current < 0) { recoverSpatialFocus("page", direction === "down" ? 1 : -1); return; }
+      if (current < 0) { recoverFocus("page", direction === "down" ? 1 : -1); return; }
       if (config.virtualizerCount === 0) return;
       const row = config.spatial.getItemRow(current);
       const height = el.clientHeight - config.headerHeight;
@@ -375,13 +372,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
 
     const currentIdx = findImageIndex(currentId);
     if (currentIdx < 0) {
-      // Focused image not in buffer — snap back with page-sized delta.
-      const viewportRowSpace = el.clientHeight - headerHeight;
-      const pageRows = Math.max(1, Math.floor(viewportRowSpace / rowHeight));
-      const pageDelta = direction === "down" ? pageRows * cols : -(pageRows * cols);
-      setFocusedImageId(currentId);
-      useSearchStore.setState({ _pendingFocusDelta: pageDelta });
-      useSearchStore.getState().seekToFocused();
+      recoverFocus("page", direction === "down" ? 1 : -1);
       return;
     }
     if (count === 0) return;
@@ -421,15 +412,15 @@ export function useListNavigation(config: ListNavigationConfig): void {
     if (direction === "down" && count - targetIdx <= 5 && configRef.current.bufferOffset + resultsLength < total) {
       loadMore();
     }
-  }, [moveFocus, recoverSpatialFocus]);
+  }, [moveFocus, recoverFocus]);
 
   const moveFocusByRow = useCallback((delta: number) => {
     const config = configRef.current;
-    if (!config.spatial) { moveFocus(delta * config.columnsPerRow); return; }
+    if (!config.spatial) { moveFocus(delta * config.columnsPerRow, "row"); return; }
     const current = config.focusedImageId ? config.findImageIndex(config.focusedImageId) : -1;
-    if (current < 0) { recoverSpatialFocus("row", delta > 0 ? 1 : -1); return; }
+    if (current < 0) { recoverFocus("row", delta > 0 ? 1 : -1); return; }
     moveFocus(config.spatial.neighbour(current, config.spatial.getItemRow(current).index + delta) - current);
-  }, [moveFocus, recoverSpatialFocus]);
+  }, [moveFocus, recoverFocus]);
 
   // -------------------------------------------------------------------------
   // Keyboard event listeners

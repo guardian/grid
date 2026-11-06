@@ -3030,6 +3030,20 @@ describe("KUP-017 saved density geometry and input lifetime", () => {
     });
   }
 
+  it("does not replay earlier sort or reset publications on remount", async () => {
+    useSearchStore.setState({ sortAroundFocusGeneration: 1, _scrollReset: { gen: 1, sortOnly: false } });
+    const target = transition();
+    const scrolls = vi.fn();
+    target.container.addEventListener("scroll", scrolls);
+    expect(target.scrollToIndex).not.toHaveBeenCalled();
+    expect(target.container.scrollTop).toBe(0);
+    await Promise.resolve();
+    expect(scrolls).not.toHaveBeenCalled();
+    frame();
+    frame();
+    expect(target.container.scrollTop).toBe(6136);
+  });
+
   it("uses current columns and viewport size without cancelling a valid restore", () => {
     const target = transition(table, grid);
     frame();

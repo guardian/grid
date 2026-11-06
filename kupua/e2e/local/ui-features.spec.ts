@@ -2195,7 +2195,8 @@ test.describe("Detail close during list restoration", () => {
                 await page.waitForFunction(target => (window as any).__kupua_store__.getState().focusedImageId === target, target);
                 await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
                 await page.keyboard.press("ArrowDown");
-                expect(await page.evaluate(() => (window as any).__kupua_store__.getState()._pendingFocusDelta)).toBeGreaterThan(0);
+                expect(await page.evaluate(() => (window as any).__kupua_store__.getState()._pendingFocusDelta))
+                  .toMatchObject({ kind: "row", direction: 1 });
               }
               if (variant === "early-clear") {
                 await page.waitForFunction(target => (window as any).__kupua_store__.getState().focusedImageId === target, target);

@@ -24,6 +24,17 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 6 November 2026 - Density remount no longer replays sort/reset; one snap-back delta shape
+
+A Grid/Table switch remounted the scroll effects, which re-applied the last sort-around-focus
+publication (focused row jumped to the top for two frames before density placement) and the last
+scroll reset (synthetic scroll event). Both effects now start their handled-generation markers at
+the mount-time value; a ready or pending search continuity still places on mount. The reset effect
+tracks its generation instead of relying on object identity. Keyboard snap-back to off-buffer focus
+now records one guarded `{kind, direction, id, focusIntent}` intent in every layout (fixed layouts
+gained `item`); the numeric form and its keypress-time page arithmetic are gone. Fixed layouts now
+drop a stale move if focus changed during the snap-back seek, matching Justified.
+
 ### 6 November 2026 - End initial load on focus fallback; drop dormant API PIT client
 
 Sort-around-focus failures (not found, timeout, error) now share one degrade path that

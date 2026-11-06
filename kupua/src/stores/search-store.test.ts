@@ -2717,8 +2717,9 @@ describe("seekToFocused (arrow snap-back)", () => {
   });
 
   it("clears pending delta on search", async () => {
-    useSearchStore.setState({ _pendingFocusDelta: 4 });
-    expect(state()._pendingFocusDelta).toBe(4);
+    const delta = { kind: "row" as const, direction: 1 as const, id: "img-0", focusIntent: 0 };
+    useSearchStore.setState({ _pendingFocusDelta: delta });
+    expect(state()._pendingFocusDelta).toBe(delta);
 
     await actions().search();
 
@@ -3916,7 +3917,7 @@ describe("pending-intent cleanup on search() and seek() (audit #1, #2)", () => {
 
     // Set the stale delta — simulates an arrow-key snap-back intent that
     // should not survive a concurrent scrubber seek.
-    useSearchStore.setState({ _pendingFocusDelta: 2 });
+    useSearchStore.setState({ _pendingFocusDelta: { kind: "item", direction: 1, id: "img-0", focusIntent: 0 } });
 
     await actions().seek(100);
 

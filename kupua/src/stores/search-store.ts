@@ -417,12 +417,13 @@ interface SearchState {
 
   /**
    * Pending movement for keyboard snap-back to off-buffer focus.
-   * Fixed layouts record an item delta; spatial layouts record a guarded
-   * row/page intent that can only be resolved against admitted geometry.
+   * Records item/row/page intent for the focus it was taken from; the
+   * scroll effect resolves it against current geometry and drops it if focus
+   * or focus intent changed meanwhile.
    * Effect #9 (sortAroundFocusGeneration) consumes it before final placement.
    * Cleared by search() and consumed by the scroll effect.
    */
-  _pendingFocusDelta: number | { kind: "row" | "page"; direction: 1 | -1; id: string; focusIntent: number } | null;
+  _pendingFocusDelta: { kind: "item" | "row" | "page"; direction: 1 | -1; id: string; focusIntent: number } | null;
 
   /**
    * Last known global offset of the focused image. Saved when focus is set

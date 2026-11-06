@@ -728,8 +728,13 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   const scrollReset = useSearchStore(
     (s) => s._scrollReset,
   );
+  // A remount must not replay a reset that the previous view already applied.
+  const [mountResetGen] = useState(() => useSearchStore.getState()._scrollReset.gen);
+  const handledResetGenRef = useRef(mountResetGen);
 
   useLayoutEffect(() => {
+    if (scrollReset.gen === handledResetGenRef.current) return;
+    handledResetGenRef.current = scrollReset.gen;
     if (scrollReset.gen === 0) return;
     const el = parentRef.current;
     if (!el) return;
@@ -753,8 +758,13 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   const sortAroundFocusGeneration = useSearchStore(
     (s) => s.sortAroundFocusGeneration,
   );
-  // Guard against unrelated rerenders if a dependency identity ever changes.
-  const handledSortFocusGenRef = useRef(0);
+  // Remounts skip already-placed publications; a ready or pending continuity still places here.
+  const [mountSortFocusGen] = useState(() => {
+    const state = useSearchStore.getState();
+    const phase = state._searchContinuity?.phase;
+    return phase === "ready" || phase === "pending" ? 0 : state.sortAroundFocusGeneration;
+  });
+  const handledSortFocusGenRef = useRef(mountSortFocusGen);
   const pendingSortFocusRef = useRef<{
     imageId: string;
     focusedImageId: string | null;
@@ -836,12 +846,11 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       useSearchStore.setState({ _pendingFocusDelta: null });
       const state = useSearchStore.getState();
       const focusId = state.focusedImageId;
-      if (focusId && (typeof pendingDelta === "number" ||
-          (pendingDelta.id === focusId && pendingDelta.focusIntent === state._focusIntent))) {
+      if (focusId && pendingDelta.id === focusId && pendingDelta.focusIntent === state._focusIntent) {
         const globalIdx = state.imagePositions.get(focusId);
         if (globalIdx != null) {
           let delta: number;
-          if (typeof pendingDelta === "number") delta = pendingDelta;
+          if (pendingDelta.kind === "item") delta = pendingDelta.direction;
           else if ("layout" in geo && geo.spatial) {
             const current = twoTier ? globalIdx : globalIdx - state.bufferOffset;
             const row = geo.spatial.getItemRow(current);
