@@ -185,8 +185,6 @@ export interface UseScrollEffectsConfig {
    * for the sticky header.  When absent, falls back to scrollToIndex.
    */
   scrollRowToCenter?: (rowIdx: number) => void;
-
-  chooseDensityAnchor?: (residentFocus: string | null, viewportAnchor: () => string | null) => string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -216,8 +214,6 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   const densityPlacementRef = useRef<{ saved: DensityFocusState; focusId: string | null;
     scrollTop: number; rowTop: number; height: number; header: number } | null>(null);
   const densityMountHadReadyPublicationRef = useRef(useSearchStore.getState()._searchContinuity?.phase === "ready");
-  const densityAnchorPolicyRef = useRef(config.chooseDensityAnchor);
-  densityAnchorPolicyRef.current = config.chooseDensityAnchor;
 
   // Ref-stabilise the optional centering callback so closures in
   // mount-only effects always see the latest version.
@@ -713,7 +709,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     if (isUserInitiatedNavigation()) {
       saveSearchContinuity(searchParams, sortOnly, captureSearchContinuity(sortOnly, el, geometryRef.current));
     }
-  }, [searchParams, virtualizer, focusedImageId, parentRef]);
+  }, [searchParams, parentRef]);
 
   // -------------------------------------------------------------------------
   // 7b. Deferred scroll reset — atomic with data swap (Bug 2 fix)
@@ -936,9 +932,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       const target = resolve(retained.saved.target.id);
       if (target) return { ...retained.saved, target };
     }
-    const target = resolve(navigation ? getViewportAnchorId() : densityAnchorPolicyRef.current
-      ? densityAnchorPolicyRef.current(focus?.id ?? null, getViewportAnchorId)
-      : focus?.id ?? getViewportAnchorId());
+    const target = resolve(navigation ? getViewportAnchorId() : focus?.id ?? getViewportAnchorId());
     if (!target) return null;
     const geo = geometryRef.current;
     const index = toVirtualizerIdx(target.globalIndex, state.bufferOffset, indexed);

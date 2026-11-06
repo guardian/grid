@@ -1381,7 +1381,7 @@ describe("atomic sort-around-focus complete windows (buffer tier)", () => {
           "sortAroundFocusStatus clears",
         );
         await waitFor(
-          () => state().results.length === state().total && !state()._bufferSelfCorrecting,
+          () => state().results.length === state().total,
           3000,
           "scroll-mode top-up settles",
         );

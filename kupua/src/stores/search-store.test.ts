@@ -2081,35 +2081,7 @@ describe("scroll mode — buffer fill", () => {
     assertPositionsConsistent("after sort-around-focus scroll-mode fill");
   });
 
-  it("_bufferSelfCorrecting is true only while the post-sort-around-focus top-up is in flight", async () => {
-    setupSmallDataset(700);
-    await actions().search();
-
-    actions().setFocusedImageId("img-500");
-    await actions().search("img-500");
-    await waitFor(
-      () => state().sortAroundFocusStatus === null,
-      3000,
-      "sortAroundFocusStatus clears",
-    );
-
-    // Landed centred on img-500 (bufferOffset > 0) — top-up hasn't reached
-    // 0 yet, so maintenance remains in flight.
-    expect(state().bufferOffset).toBeGreaterThan(0);
-    expect(state()._bufferSelfCorrecting).toBe(true);
-
-    await waitFor(
-      () => state().results.length === state().total,
-      3000,
-      "buffer fill to full total",
-    );
-
-    // Top-up complete — bufferOffset settled at 0, flag must have cleared.
-    expect(state().bufferOffset).toBe(0);
-    expect(state()._bufferSelfCorrecting).toBe(false);
-  });
-
-  it("_bufferSelfCorrecting cannot outlive a genuine new search landing (review 4.1)", async () => {
+  it("a new search landing while top-up is in flight lands at the top", async () => {
     setupSmallDataset(700);
     await actions().search();
     actions().setFocusedImageId("img-500");
@@ -2119,13 +2091,7 @@ describe("scroll mode — buffer fill", () => {
       3000,
       "sortAroundFocusStatus clears",
     );
-    // Don't wait for the top-up to finish — fire a brand new search while
-    // it's still in flight (the scenario review §1.4/§3 flagged as only
-    // "safe by accident"). The new landing's own `set()` must force the
-    // flag false itself, not rely on the superseded top-up's `finally`.
-    expect(state()._bufferSelfCorrecting).toBe(true);
     await actions().search();
-    expect(state()._bufferSelfCorrecting).toBe(false);
     expect(state().bufferOffset).toBe(0);
 
     // Let both the new search's own fill AND the superseded top-up's

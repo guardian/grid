@@ -381,7 +381,7 @@ function fixtureLayout(geometry: ScrollGeometry) {
 }
 
 function mountDensity(initialGeometry: ScrollGeometry, strict = false, reportViewport = false, syncUrl = false,
-  chooseDensityAnchor?: Parameters<typeof useScrollEffects>[0]["chooseDensityAnchor"], windowCoordinates = false) {
+  windowCoordinates = false) {
   const dimensions = { width: 1120, height: 600 };
   let geometry = initialGeometry;
   const container = document.createElement("div");
@@ -430,7 +430,7 @@ function mountDensity(initialGeometry: ScrollGeometry, strict = false, reportVie
       : getFixedRowCount(geometry, count);
     useScrollEffects({ virtualizer, parentRef, geometry, reportVisibleRange: reportViewport ? dataWindow.reportVisibleRange : reportVisibleRange, loadMore,
       resultsLength: state.results.length, total: state.total, bufferOffset: state.bufferOffset,
-      focusedImageId: state.focusedImageId, findImageIndex, twoTier, chooseDensityAnchor });
+      focusedImageId: state.focusedImageId, findImageIndex, twoTier });
   }, { initialProps: { geometry }, wrapper: syncUrl ? UrlSyncHarness : strict ? StrictMode : undefined });
   return { ...view, container, dimensions, scrollToIndex, virtualizer, reportVisibleRange, loadMore,
     changeGeometry: (next: ScrollGeometry) => view.rerender({ geometry: next }) };
@@ -2153,7 +2153,7 @@ describe("L43 reset publication versus buffer bookkeeping", () => {
     useSearchStore.setState({ results: initial, bufferOffset: offset, total: 70000, focusedImageId: null,
       imagePositions: new Map(initial.map((image, index) => [image.id, offset + index])) });
     const geometry = { ...grid, columns };
-    const view = mountDensity(geometry, false, false, false, undefined, true);
+    const view = mountDensity(geometry, false, false, false, true);
     frame(); frame();
     const scrollTop = 30 * geometry.rowHeight + 17.25;
     view.container.scrollTop = scrollTop;
@@ -2870,11 +2870,10 @@ describe("KUP-017 saved density geometry and input lifetime", () => {
     expect(read).not.toHaveBeenCalled();
   });
 
-  it.each(["focus-A", "viewport-B"] as const)("fixture %s policy changes only capture, retaining publication ownership and read budget", (policy) => {
+  it("focused density capture retains publication ownership and read budget", () => {
     const read = vi.spyOn(useSearchStore.getState().dataSource, "searchAfter");
     anchor.viewportId = "image-600";
-    const source = mountDensity(grid, false, false, false,
-      (focus, viewport) => policy === "focus-A" ? focus : viewport());
+    const source = mountDensity(grid);
     frame();
     frame();
     source.container.scrollTop = 30000;
@@ -2882,7 +2881,7 @@ describe("KUP-017 saved density geometry and input lifetime", () => {
     const target = mountDensity(table, true);
     frame();
     frame();
-    expect(target.container.scrollTop).toBe(policy === "focus-A" ? 6400 : 12536);
+    expect(target.container.scrollTop).toBe(6400);
     expect(useSearchStore.getState().focusedImageId).toBe("image-400");
     target.unmount();
     const successor = mountDensity(grid, true);

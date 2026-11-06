@@ -309,13 +309,6 @@ interface SearchState {
    * Views watch this to scroll to the focused image at its new position.
    */
   sortAroundFocusGeneration: number;
-  /**
-   * True while `_topUpScrollModeBuffer` is walking the buffer back to
-   * `bufferOffset: 0` after a sort-around-focus/restoreAroundCursor landing
-  * centred it elsewhere. Tracks maintenance completion, not top-reset
-  * authority: scroll placement follows explicit publication/navigation.
-   */
-  _bufferSelfCorrecting: boolean;
 
   // New images ticker
   newCount: number;
@@ -1392,7 +1385,6 @@ async function _topUpScrollModeBuffer(
   if (myTotal > BUFFER_CAPACITY) return;
   if (_topUpInFlight) return;
   _topUpInFlight = true;
-  useSearchStore.setState({ _bufferSelfCorrecting: true });
 
   const myPitGeneration = get()._pitGeneration;
   const maxSteps = Math.ceil(myTotal / PAGE_SIZE) + 2;
@@ -1450,7 +1442,6 @@ async function _topUpScrollModeBuffer(
     }
   } finally {
     _topUpInFlight = false;
-    useSearchStore.setState({ _bufferSelfCorrecting: false });
   }
 }
 
@@ -2221,7 +2212,6 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
   _searchContinuity: null,
   sortAroundFocusStatus: null,
   sortAroundFocusGeneration: 0,
-  _bufferSelfCorrecting: false,
 
   newCount: 0,
   newCountSince: null,
@@ -2531,7 +2521,6 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
           _pendingFocusAfterSeek: null,
           ...(aiHits.length === 0 ? emptyAggregationState() : {}),
           bufferOffset: 0,
-          _bufferSelfCorrecting: false,
           total: aiHits.length, // KEY invariant: total === buffer size → no pagination
           aiPoolTotal: aiResult.aiPoolTotal ?? null,
           loading: false,
@@ -2771,7 +2760,6 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         set({
           results: result.hits,
           bufferOffset: 0,
-          _bufferSelfCorrecting: false,
           total: result.total,
           loading: false,
           took: result.took ?? null,
@@ -4068,7 +4056,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
           committed = true;
           set({ ...discoveredState, results: [], total, bufferOffset: 0, imagePositions: new Map(),
             startCursor: null, endCursor: null, pitId: null, loading: false, _browseNavigation: null,
-            _pendingFocusAfterSeek: null, _bufferSelfCorrecting: false,
+            _pendingFocusAfterSeek: null,
             _seekTargetLocalIndex: -1, _seekTargetGlobalIndex: -1, _seekSubRowOffset: 0,
             _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false } });
           if (discovery.phase === "initial-read") startNewImagesPoll(get, set);

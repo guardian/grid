@@ -24,6 +24,13 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 6 November 2026 - Remove unread scroll-maintenance state
+
+Removed the `_bufferSelfCorrecting` store field, which no view read after placement
+moved to explicit publication; small-result top-ups now make two fewer store writes.
+Removed the `chooseDensityAnchor` option that no view passed, and two unused
+dependencies from the search-params layout effect, so focus changes no longer rerun it.
+
 ### 6 November 2026 - Derive detail-entry decisions from history origin
 
 Removed the module-level SPA-entry flag, the `_bareListSynthesized` history marker
