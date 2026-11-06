@@ -753,8 +753,6 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   const sortAroundFocusGeneration = useSearchStore(
     (s) => s.sortAroundFocusGeneration,
   );
-  // Track which generation was handled by snap-back delta consumption.
-  const snapBackHandledGenRef = useRef(0);
   // Guard against unrelated rerenders if a dependency identity ever changes.
   const handledSortFocusGenRef = useRef(0);
   const pendingSortFocusRef = useRef<{
@@ -771,7 +769,6 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
 
   useLayoutEffect(() => {
     if (sortAroundFocusGeneration === 0) return;
-    if (snapBackHandledGenRef.current === sortAroundFocusGeneration) return;
     const store = useSearchStore.getState();
     const continuity = store._searchContinuity;
     if (continuity?.phase === "pending") return;
@@ -873,7 +870,6 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
           }
         }
       }
-      snapBackHandledGenRef.current = sortAroundFocusGeneration;
       return; // skip the normal scroll-to-focus below
     }
 

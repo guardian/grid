@@ -392,7 +392,7 @@ describe("apiSearchAfter canonical image normalization", () => {
       json: async () => ({ ...makeApiResponse(data.id), data: [{ data }] }),
     }));
 
-    const result = await apiSearchAfter(probeParams, null, null, undefined, false, false);
+    const result = await apiSearchAfter(probeParams, null, undefined, false, false);
     const image = result.hits[0];
 
     expect(image.userMetadata).toEqual({
@@ -425,7 +425,7 @@ describe("apiSearchAfter canonical image normalization", () => {
       json: async () => ({ ...makeApiResponse(data.id), data: [{ data }] }),
     }));
 
-    const { hits: [image] } = await apiSearchAfter(probeParams, null, null, undefined, false, false);
+    const { hits: [image] } = await apiSearchAfter(probeParams, null, undefined, false, false);
 
     expect(image.userMetadata).toEqual({
       archived: false, labels, metadata: {},
@@ -456,7 +456,7 @@ describe("apiSearchAfter canonical image normalization", () => {
       json: async () => ({ ...makeApiResponse(data.id), data: [{ data }] }),
     }));
 
-    const { hits: [image] } = await apiSearchAfter(probeParams, null, null, undefined, false, false);
+    const { hits: [image] } = await apiSearchAfter(probeParams, null, undefined, false, false);
 
     expect(image.fileMetadata).toEqual(expected);
   });
@@ -472,7 +472,7 @@ describe("apiSearchAfter canonical image normalization", () => {
       json: async () => ({ ...makeApiResponse(data.id), data: [{ data }] }),
     }));
 
-    const { hits: [image] } = await apiSearchAfter(probeParams, null, null, undefined, false, false);
+    const { hits: [image] } = await apiSearchAfter(probeParams, null, undefined, false, false);
 
     expect(image.aliases).toBe(aliases);
     expect(image.aliases).toEqual(aliases);
@@ -553,7 +553,7 @@ describe("apiSearchAfter canonical image normalization", () => {
     const before = structuredClone(response);
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => response }));
 
-    const result = await apiSearchAfter(probeParams, null, null, undefined, false, false);
+    const result = await apiSearchAfter(probeParams, null, undefined, false, false);
     const image = result.hits[0];
 
     expect(image).toMatchObject({
@@ -589,7 +589,7 @@ describe("apiSearchAfter canonical image normalization", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => response }));
 
     const result = await apiSearchAfter(
-      { ...probeParams, orderBy: "-lastModified", length: 3 }, [40, 500, "cursor-id"], "request-pit", undefined, reverse, false,
+      { ...probeParams, orderBy: "-lastModified", length: 3 }, [40, 500, "cursor-id"], undefined, reverse, false,
     );
 
     expect(result.hits.map((image) => image.id)).toEqual(response.data.map(({ data }) => data.id));
@@ -597,7 +597,7 @@ describe("apiSearchAfter canonical image normalization", () => {
     expect(result.sortValues).toBe(response.sortValues);
     expect(result.sortValues).toEqual(response.sortValues);
     expect(result.total).toBe(response.total);
-    expect(result.pitId).toBe(response.pitId);
+    expect(result.pitId).toBeNull();
     expect([...result.enrichment!.keys()]).toEqual(result.hits.map((image) => image.id));
   });
 });
@@ -626,7 +626,7 @@ describe("returned media links and capabilities", () => {
     const entity = { data, uri: resource.uri, links: [...links, ...resource.links] };
 
     respond({ ...makeApiResponse(data.id), data: [entity] });
-    const page = await apiSearchAfter(probeParams, null, null, undefined, false, false);
+    const page = await apiSearchAfter(probeParams, null, undefined, false, false);
 
     respond(entity);
     const single = await apiGetImage(data.id);
@@ -653,9 +653,9 @@ describe("returned media links and capabilities", () => {
   it("leaves media links absent when an entity has none", async () => {
     const data = makeCanonicalImage();
     respond({ ...makeApiResponse(data.id), data: [{ data, links: [{ rel: "usages", href: "https://usages.example.test/x" }] }] });
-    const { hits: [withoutMedia] } = await apiSearchAfter(probeParams, null, null, undefined, false, false);
+    const { hits: [withoutMedia] } = await apiSearchAfter(probeParams, null, undefined, false, false);
     respond({ ...makeApiResponse(data.id), data: [{ data }] });
-    const { hits: [withoutLinks] } = await apiSearchAfter(probeParams, null, null, undefined, false, false);
+    const { hits: [withoutLinks] } = await apiSearchAfter(probeParams, null, undefined, false, false);
 
     expect(withoutMedia.__mediaLinks).toBeUndefined();
     expect(withoutLinks.__mediaLinks).toBeUndefined();
@@ -692,7 +692,6 @@ describe("F-1 regression: apiSearchAfter must not write enrichment store", () =>
     await apiSearchAfter(
       { ...probeParams, ids: "probe-target", length: 1 },
       null,  // null cursor — the distinguishing feature of a probe
-      null,
       undefined,
       false,
       false,
@@ -710,7 +709,6 @@ describe("F-1 regression: apiSearchAfter must not write enrichment store", () =>
 
     const result = await apiSearchAfter(
       { ...probeParams, length: 1 },
-      null,
       null,
       undefined,
       false,
@@ -765,7 +763,7 @@ describe("apiSearchAfter request body — media-api wire contract", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await apiSearchAfter(probeParams, null, null, undefined, false, false);
+    await apiSearchAfter(probeParams, null, undefined, false, false);
 
     const init = fetchMock.mock.calls[0][1] as { body: string };
     const body = JSON.parse(init.body) as { sort?: unknown };
@@ -782,7 +780,7 @@ describe("apiSearchAfter request body — media-api wire contract", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { orderBy: _orderBy, ...noOrderBy } = probeParams;
-    await apiSearchAfter(noOrderBy, null, null, undefined, false, false);
+    await apiSearchAfter(noOrderBy, null, undefined, false, false);
 
     const init = fetchMock.mock.calls[0][1] as { body: string };
     const body = JSON.parse(init.body) as { sort?: unknown };
@@ -800,7 +798,7 @@ describe("apiSearchAfter request body — media-api wire contract", () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => makeApiResponse("img-1") });
     vi.stubGlobal("fetch", fetchMock);
 
-    await apiSearchAfter({ ...probeParams, trackTotalHits }, cursor, null, undefined, reverse, reverse);
+    await apiSearchAfter({ ...probeParams, trackTotalHits }, cursor, undefined, reverse, reverse);
 
     const body = JSON.parse((fetchMock.mock.calls[0][1] as { body: string }).body) as { countAll?: unknown };
     expect(body.countAll).toBe(countAll);
@@ -811,7 +809,6 @@ describe("apiSearchAfter recovery classification", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it.each([
-    { status: 410, errorKey: "search-after-pit-expired", kind: "pit-expired" },
     { status: 410, errorKey: "different-refusal", kind: "refused" },
     { status: 404, errorKey: "search-after-pit-expired", kind: "refused" },
     { status: 502, errorKey: "maintenance", kind: "refused" },
@@ -823,7 +820,7 @@ describe("apiSearchAfter recovery classification", () => {
       errorKey ? JSON.stringify({ errorKey }) : "gateway response", { status },
     )));
 
-    await expect(apiSearchAfter(probeParams, null, "pit-id", undefined, undefined, undefined)).rejects.toMatchObject({ kind, status });
+    await expect(apiSearchAfter(probeParams, null, undefined, undefined, undefined)).rejects.toMatchObject({ kind, status });
   });
 
   it("does not bypass gateway Retry-After refusals", async () => {
@@ -831,20 +828,20 @@ describe("apiSearchAfter recovery classification", () => {
       status: 502, headers: { "Retry-After": "60" },
     })));
 
-    await expect(apiSearchAfter(probeParams, null, undefined, undefined, undefined, undefined)).rejects.toMatchObject({ kind: "refused", status: 502 });
+    await expect(apiSearchAfter(probeParams, null, undefined, undefined, undefined)).rejects.toMatchObject({ kind: "refused", status: 502 });
   });
 
   it("classifies a fetch network failure as unavailable", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
 
-    await expect(apiSearchAfter(probeParams, null, undefined, undefined, undefined, undefined)).rejects.toMatchObject({ kind: "unavailable" });
+    await expect(apiSearchAfter(probeParams, null, undefined, undefined, undefined)).rejects.toMatchObject({ kind: "unavailable" });
   });
 
   it("preserves unexpected failures instead of making them recoverable", async () => {
     const error = new Error("unexpected fixture error");
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(error));
 
-    await expect(apiSearchAfter(probeParams, null, undefined, undefined, undefined, undefined)).rejects.toBe(error);
+    await expect(apiSearchAfter(probeParams, null, undefined, undefined, undefined)).rejects.toBe(error);
   });
 
   it("classifies a response-body transport failure as unavailable", async () => {
@@ -853,14 +850,14 @@ describe("apiSearchAfter recovery classification", () => {
     });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body)));
 
-    await expect(apiSearchAfter(probeParams, null, undefined, undefined, undefined, undefined))
+    await expect(apiSearchAfter(probeParams, null, undefined, undefined, undefined))
       .rejects.toMatchObject({ kind: "unavailable" });
   });
 
   it("does not classify malformed response JSON as availability", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{")));
 
-    await expect(apiSearchAfter(probeParams, null, undefined, undefined, undefined, undefined))
+    await expect(apiSearchAfter(probeParams, null, undefined, undefined, undefined))
       .rejects.toBeInstanceOf(SyntaxError);
   });
 
@@ -870,7 +867,7 @@ describe("apiSearchAfter recovery classification", () => {
     const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify(makeApiResponse("late"))));
     vi.stubGlobal("fetch", fetch);
 
-    await expect(apiSearchAfter(probeParams, null, null, controller.signal, undefined, undefined)).rejects.toBe(controller.signal.reason);
+    await expect(apiSearchAfter(probeParams, null, controller.signal, undefined, undefined)).rejects.toBe(controller.signal.reason);
     expect(fetch).not.toHaveBeenCalled();
   });
 });

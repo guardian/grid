@@ -2135,6 +2135,22 @@ describe("scroll mode — buffer fill", () => {
     await waitPastCooldown();
   });
 
+  it("ends the initial load when sort-around-focus falls back to the first page", async () => {
+    const smallMock = setupSmallDataset(700);
+    await actions().search();
+    useSearchStore.setState({ _isInitialLoad: true });
+    const searchAfter = smallMock.searchAfter.bind(smallMock);
+    vi.spyOn(smallMock, "searchAfter").mockImplementation(async (...args) =>
+      args[0].ids === "img-500" ? { hits: [], sortValues: [], total: 0, took: 0 } : searchAfter(...args));
+
+    actions().setFocusedImageId("img-500");
+    await actions().search("img-500");
+    await waitFor(() => state().results.length === state().total, 3000, "fallback fills");
+
+    expect(state()._isInitialLoad).toBe(false);
+    await waitPastCooldown();
+  });
+
   it("corrects bufferOffset before topping up when countBefore is slow (review M2 regression)", async () => {
     setupSmallDataset(700);
     await actions().search();

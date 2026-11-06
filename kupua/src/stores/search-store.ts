@@ -701,7 +701,7 @@ function adoptDiscoveryMetadata(discovery: InitialSearchDiscovery, metadata: Sea
   startNewImagesPoll(get, set);
   if (isTwoTierFromTotal(metadata.total)) {
     _positionMapAbortController = new AbortController();
-    _fetchPositionMap(discovery.dataSource, discovery.params, _positionMapAbortController.signal, get, set);
+    _fetchPositionMap(discovery.dataSource, discovery.params, metadata.total, _positionMapAbortController.signal, set);
   }
 }
 
@@ -1461,8 +1461,8 @@ async function _topUpScrollModeBuffer(
 async function _fetchPositionMap(
   dataSource: ImageDataSource,
   params: SearchParams,
+  total: number,
   signal: AbortSignal,
-  get: () => SearchState,
   set: (partial: Partial<SearchState> | ((s: SearchState) => Partial<SearchState>)) => void,
 ): Promise<void> {
   if (!dataSource.fetchPositionIndex) {
@@ -1471,18 +1471,15 @@ async function _fetchPositionMap(
     return;
   }
 
-  devLog(`[position-map] Starting background fetch for ${get().total} positions...`);
-  const total = get().total;
+  devLog(`[position-map] Starting background fetch for ${total} positions...`);
   const traceInteractionId = beginTraceInteraction("position-map", { total });
   set({ positionMapLoading: true, positionMap: null });
 
   try {
     const map = await dataSource.fetchPositionIndex(params, signal);
 
-    if (signal.aborted) {
-      set({ positionMapLoading: false });
-      return;
-    }
+    // Superseded: the aborting search() already reset map state for its successor.
+    if (signal.aborted) return;
 
     if (map) {
       devLog(`[position-map] Complete — ${map.length} entries loaded`);
@@ -1496,10 +1493,7 @@ async function _fetchPositionMap(
       set({ positionMap: null, positionMapLoading: false });
     }
   } catch (e) {
-    if (e instanceof DOMException && e.name === "AbortError") {
-      set({ positionMapLoading: false });
-      return;
-    }
+    if (signal.aborted) return;
     console.warn("[position-map] Background fetch failed:", e);
     set({ positionMap: null, positionMapLoading: false });
   }
@@ -1521,7 +1515,6 @@ interface BufferAroundImage {
   bufferStart: number;
   startCursor: SortValues | null;
   endCursor: SortValues | null;
-  total: number;
   pitId: string | null;
   /** Buffer-local index of the target image. */
   targetLocalIndex: number;
@@ -1606,7 +1599,6 @@ async function _loadBufferAroundImage(
     bufferStart,
     startCursor,
     endCursor,
-    total: forwardResult.total,
     // Use !== undefined so explicit null (PIT-expiry fallback, audit #21)
     // clears the stale PIT instead of preserving it via ??.
     pitId: backwardResult.pitId === null ? null : forwardResult.pitId !== undefined ? forwardResult.pitId : pitId,
@@ -1672,7 +1664,6 @@ async function _findAndFocusImage(
     enrichment?: Map<string, EnrichmentFields>;
     startCursor: SortValues | null;
     endCursor: SortValues | null;
-    pitId: string | null;
     /** The correct total for the new query. _findAndFocusImage sets this
      *  atomically with the new buffer so the virtualizer never sees a
      *  total/buffer mismatch (which triggers scroll-clamp → seek → flash). */
@@ -1727,7 +1718,12 @@ async function _findAndFocusImage(
   const combinedSignal = AbortSignal.any
     ? AbortSignal.any([findFocusSignal, timeoutController.signal])
     : findFocusSignal; // Fallback for environments without AbortSignal.any
-  const showFallbackFirstPage = (page: NonNullable<typeof fallbackFirstPage>) => {
+  const degrade = () => {
+    if (!fallbackFirstPage) {
+      set({ sortAroundFocusStatus: null, loading: false, _isInitialLoad: false });
+      return;
+    }
+    const page = fallbackFirstPage;
     retainSortValues(buildSearchKey(params), page.hits, page.sortValues, true);
     if (page.enrichment) useEnrichmentStore.getState().setEnrichment(page.enrichment);
     set({
@@ -1735,6 +1731,7 @@ async function _findAndFocusImage(
       bufferOffset: 0,
       total: page.total,
       loading: false,
+      _isInitialLoad: false,
       imagePositions: buildPositions(page.hits, 0),
       startCursor: page.startCursor,
       endCursor: page.endCursor,
@@ -1753,11 +1750,7 @@ async function _findAndFocusImage(
     if (findFocusSignal.aborted) return;
     console.warn("[sort-around-focus] Timed out after 8s");
     timeoutController.abort();
-    if (fallbackFirstPage) {
-      showFallbackFirstPage(fallbackFirstPage);
-    } else {
-      set({ sortAroundFocusStatus: null, loading: false });
-    }
+    degrade();
   }, 8000);
 
   try {
@@ -1816,10 +1809,8 @@ async function _findAndFocusImage(
         }
 
         if (combinedSignal.aborted) return;
-        showFallbackFirstPage(fallbackFirstPage);
-      } else {
-        set({ sortAroundFocusStatus: null, loading: false });
       }
+      degrade();
       return;
     }
 
@@ -2087,11 +2078,7 @@ async function _findAndFocusImage(
     if (e instanceof DOMException && e.name === "AbortError") return;
     // Any failure → degrade gracefully
     console.warn("[sort-around-focus] Failed to find image:", e);
-    if (fallbackFirstPage) {
-      showFallbackFirstPage(fallbackFirstPage);
-    } else {
-      set({ sortAroundFocusStatus: null, loading: false });
-    }
+    degrade();
   } finally {
     clearTimeout(timeoutId);
     if (!fallbackFirstPage && discoveredTotal === undefined && !findFocusSignal.aborted &&
@@ -2658,7 +2645,6 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
           enrichment: result.enrichment,
           startCursor,
           endCursor,
-          pitId: result.pitId ?? newPitId,
           total: result.total,
         }, prevNeighbours, continuity?.anchorOffset ?? (options?.discardOffsetHint ? null : get()._focusedImageKnownOffset) ?? null, options?.phantomOnly, options?.retainExplicitFocus, findFocusSignal, undefined, continuity)
           .then(() => {
@@ -2691,8 +2677,8 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         if (isTwoTierFromTotal(result.total)) {
           _positionMapAbortController = new AbortController();
           _fetchPositionMap(
-            dataSource, params,
-            _positionMapAbortController.signal, get, set,
+            dataSource, params, result.total,
+            _positionMapAbortController.signal, set,
           );
         }
       } else {
@@ -2810,8 +2796,8 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         if (isTwoTierFromTotal(result.total)) {
           _positionMapAbortController = new AbortController();
           _fetchPositionMap(
-            dataSource, params,
-            _positionMapAbortController.signal, get, set,
+            dataSource, params, result.total,
+            _positionMapAbortController.signal, set,
           );
         }
       }
@@ -3319,7 +3305,6 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
 
       let result: SearchAfterResult | undefined;
       let actualOffset = fetchStart;
-      let usedNullZoneFilter = false;
       // True when the seek path gives an exact offset (position-map, shallow).
       // When true, use targetLocalIndex directly for scroll positioning instead
       // of reverse-computing from the user's current scrollTop. This prevents
@@ -3431,7 +3416,6 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
             effectivePitId,
             signal,
           );
-          if (forwardCursor[0] === null) usedNullZoneFilter = true;
 
           // Run in parallel
           const [forwardResult, backwardResult] = await Promise.all([
@@ -3639,7 +3623,6 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
             // and remaps returned sort values back to full shape.
             const nullZoneCursor: SortValues = [null, uploadTimeEstimate, ""];
 
-            usedNullZoneFilter = true;
             result = await searchAfter(
               { ...params, length: PAGE_SIZE },
               nullZoneCursor,
@@ -3881,21 +3864,12 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
                   actualOffset = Math.max(0, total - reverseResult.hits.length);
                 }
               }
-            } else {
-              // findKeywordSortValue returned null (field not aggregatable,
-              // exceeded page limit, or target past end). Fall back to
-              // from/size at the capped position.
-              const cappedStart = Math.min(fetchStart, offsetReadLimit - PAGE_SIZE);
-              result = await searchAfter(
-                { ...params, offset: Math.max(0, cappedStart), length: PAGE_SIZE },
-                null,
-                null,
-                signal,
-              );
-              actualOffset = Math.max(0, cappedStart);
             }
-          } else {
-            // No keyword seek available — fall back to from/size at capped position.
+          }
+          if (!result) {
+            // No keyword seek, or findKeywordSortValue returned null (field not
+            // aggregatable, exceeded page limit, or target past end): from/size
+            // at the capped position.
             const cappedStart = Math.min(fetchStart, offsetReadLimit - PAGE_SIZE);
             result = await searchAfter(
               { ...params, offset: Math.max(0, cappedStart), length: PAGE_SIZE },
@@ -4069,13 +4043,6 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
       let scrollTargetIndex: number;
       let _seekSubRowOffset = 0;
 
-      // Diagnostic variables for the devLog below
-      let _diagReverseIndex: number | string = 'N/A';
-      let _diagOrigScrollTop: number | string = 'N/A';
-      let _diagCurrentRow: number | string = 'N/A';
-      let _diagCols: number | string = 'N/A';
-      let _diagHeadroomFired = false;
-
       if (scrollEl) {
         if (exactOffset) {
           // EXACT-OFFSET PATH (position-map, shallow from/size):
@@ -4119,20 +4086,6 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
           scrollTargetIndex = computed.scrollTargetIndex;
           _seekSubRowOffset = computed.seekSubRowOffset;
         }
-
-        // Populate diagnostics for the devLog
-        const geo = getLayoutGeometry();
-        _diagOrigScrollTop = scrollEl.scrollTop;
-        if (!("layout" in geo)) {
-          _diagCurrentRow = Math.floor(scrollEl.scrollTop / geo.rowHeight);
-          _diagCols = geo.columns;
-          let reverseIndex = _diagCurrentRow * geo.columns;
-          if (backwardItemCount > 0 && reverseIndex < backwardItemCount) {
-            _diagHeadroomFired = true;
-            reverseIndex += backwardItemCount;
-          }
-          _diagReverseIndex = reverseIndex;
-        }
       } else {
         // No scroll container (tests, SSR). For exact-offset seeks the target
         // index is known-correct; for inexact paths fall back to buffer centre.
@@ -4149,8 +4102,6 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
 
       devLog(
         `[seek-scroll-target] exactOffset=${exactOffset}, scrollTop=${scrollEl?.scrollTop.toFixed(1)}, ` +
-        `origScrollTop=${_diagOrigScrollTop}, currentRow=${_diagCurrentRow}, cols=${_diagCols}, ` +
-        `reverseIndex=${_diagReverseIndex}, headroomFired=${_diagHeadroomFired}, ` +
         `scrollTargetIndex=${scrollTargetIndex}, ` +
         `rawTargetLocalIndex=${rawTargetLocalIndex}, targetLocalIndex=${targetLocalIndex}, ` +
         `bufferLen=${result.hits.length}, actualOffset=${actualOffset}, clampedOffset=${clampedOffset}, ` +
@@ -4230,7 +4181,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
           startNewImagesPoll(get, set);
           if (isTwoTierFromTotal(publishedTotal)) {
             _positionMapAbortController = new AbortController();
-            _fetchPositionMap(dataSource, params, _positionMapAbortController.signal, get, set);
+            _fetchPositionMap(dataSource, params, publishedTotal, _positionMapAbortController.signal, set);
           }
         }
       }
@@ -4241,13 +4192,10 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
 
       performance.mark('seek-set-done');
 
-      const writtenTotal = get().total;
-
       devLog(
         `[seek] COMPLETE: target=${clampedOffset}, actualOffset=${actualOffset}, ` +
         `hits=${result.hits.length}, targetLocalIndex=${targetLocalIndex}, ` +
-        `ratio=${(actualOffset / (writtenTotal || 1)).toFixed(4)}` +
-        (usedNullZoneFilter ? ` (null-zone seek, result.total=${result.total} filtered, kept storeTotal=${writtenTotal})` : '') +
+        `ratio=${(actualOffset / (get().total || 1)).toFixed(4)}` +
         (targetWasClamped ? ` CLAMPED→center=${scrollTargetIndex}` : ''),
       );
 

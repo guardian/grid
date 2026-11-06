@@ -24,6 +24,17 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 6 November 2026 - End initial load on focus fallback; drop dormant API PIT client
+
+Sort-around-focus failures (not found, timeout, error) now share one degrade path that
+also ends the initial load, so the status bar stops showing the cached total. A
+superseded position-map fetch no longer clears its successor's loading flag, and its
+trace records the current search's total. The media-api client no longer sends,
+retries or adopts point-in-time ids: `openPit` returns null in API mode, so that code
+could not run; reinstate it if hosted PIT is activated. Removed seek diagnostics used
+only in dev logs, a duplicated keyword-seek fallback, unread buffer fields and a
+redundant sort-focus snap-back guard.
+
 ### 6 November 2026 - Fix backward PIT refresh, failed focus fallback and Table detail trace
 
 Backward extensions now adopt a refreshed point-in-time id, as forward extensions

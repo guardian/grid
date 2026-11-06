@@ -147,23 +147,15 @@ export class ApiDataSource implements ImageDataSource {
   async searchAfter(
     params: SearchParams,
     searchAfterValues: SortValues | null,
-    pitId?: string | null,
+    _pitId?: string | null,
     signal?: AbortSignal,
     reverse?: boolean,
     seekToEnd?: boolean,
   ): Promise<SearchAfterResult> {
-    const read = (pit: string | null | undefined) =>
-      !searchAfterValues && !reverse && !seekToEnd && (params.offset ?? 0) > 0
-        ? apiImageWindow(params, pit, signal)
-        : apiSearchAfter(params, searchAfterValues, pit, signal, reverse, seekToEnd);
-    try {
-      return await read(pitId);
-    } catch (error) {
-      signal?.throwIfAborted();
-      if (!(error instanceof SearchAfterApiError) || error.kind !== "pit-expired" || !pitId) throw error;
-      const result = await read(null);
-      return { ...result, pitId: null };
-    }
+    // media-api PIT support is dormant: openPit() returns null, so no PIT is ever sent.
+    return !searchAfterValues && !reverse && !seekToEnd && (params.offset ?? 0) > 0
+      ? apiImageWindow(params, signal)
+      : apiSearchAfter(params, searchAfterValues, signal, reverse, seekToEnd);
   }
 
   async countBefore(params: SearchParams, sortValues: SortValues, signal?: AbortSignal): Promise<number> {

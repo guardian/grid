@@ -179,18 +179,6 @@ describe("ApiDataSource PIT", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("retries an expired PIT once without it and reports the PIT cleared", async () => {
-    const calls = stubMediaApi({
-      "/images/search-after": (body) => body.pitId
-        ? failure(410, "search-after-pit-expired")
-        : { data: [entity("img-2")], total: 0, sortValues: [[2, "img-2"]] },
-    });
-    const result = await new ApiDataSource().searchAfter(params, [1, "img-1"], "old-pit");
-
-    expect(calls.map((c) => c.body.pitId)).toEqual(["old-pit", undefined]);
-    expect(result.pitId).toBeNull();
-    expect(result.hits.map((h) => h.id)).toEqual(["img-2"]);
-  });
 });
 
 describe("ApiDataSource page routing", () => {
@@ -217,27 +205,6 @@ describe("ApiDataSource page routing", () => {
 
     expect(calls[0].body.countAll).toBe(true);
     expect(result.total).toBe(1234);
-  });
-
-  it("keeps both the offset and a supplied PIT on a window read", async () => {
-    const calls = stubMediaApi({ "/images/window": () => ({ ...page, offset: 400, pitId: "refreshed-pit" }) });
-    const result = await new ApiDataSource().searchAfter({ ...params, offset: 400 }, null, "pit");
-
-    expect(calls.map((c) => c.path)).toEqual(["/images/window"]);
-    expect(calls[0].body).toMatchObject({ offset: 400, pitId: "pit" });
-    expect(result.pitId).toBe("refreshed-pit");
-  });
-
-  it("retries an expired PIT on a window read once without it", async () => {
-    const calls = stubMediaApi({
-      "/images/window": (body) => body.pitId ? failure(410, "search-after-pit-expired") : { ...page, offset: 400 },
-    });
-    const result = await new ApiDataSource().searchAfter({ ...params, offset: 400 }, null, "old-pit");
-
-    expect(calls.map((c) => [c.path, c.body.offset, c.body.pitId])).toEqual([
-      ["/images/window", 400, "old-pit"], ["/images/window", 400, undefined],
-    ]);
-    expect(result.pitId).toBeNull();
   });
 
   it.each([

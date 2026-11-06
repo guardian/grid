@@ -281,6 +281,27 @@ describe("position map — background fetch lifecycle", () => {
     expect(state().positionMapLoading).toBe(false);
   });
 
+  it("a superseded map fetch that settles late leaves the newer fetch loading", async () => {
+    resetStore(SCROLL_MODE_THRESHOLD + 500);
+    const real = mock.fetchPositionIndex.bind(mock);
+    const settles: (() => void)[] = [];
+    vi.spyOn(mock, "fetchPositionIndex").mockImplementation((params, signal) =>
+      new Promise((resolve) => settles.push(() => void real(params, new AbortController().signal)
+        .then((map) => resolve(signal?.aborted ? null : map)))));
+
+    await actions().search();
+    await waitFor(() => settles.length === 1, 3000, "first map fetch");
+    await actions().search();
+    await waitFor(() => settles.length === 2, 3000, "second map fetch");
+    settles[0]();
+    await flush();
+    expect(state().positionMapLoading).toBe(true);
+
+    settles[1]();
+    await waitFor(() => state().positionMap !== null, 3000, "second map");
+    expect(state().positionMapLoading).toBe(false);
+  });
+
   it("position map has correct structure (parallel arrays, sorted)", async () => {
     const total = SCROLL_MODE_THRESHOLD + 100;
     resetStore(total);

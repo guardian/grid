@@ -20,7 +20,6 @@ import { captureImageRead, stampImageRead } from "@/lib/image-read-freshness";
 type ImagePageResponse = {
   data: Array<{ data?: unknown; actions?: unknown; links?: Link[] }>;
   sortValues: SortValues[];
-  pitId?: string | null;
 };
 
 type SearchAfterApiResponse = ImagePageResponse & { total: number };
@@ -115,7 +114,7 @@ export function extractEnrichment(entity: { uri?: string; data?: unknown; action
 }
 
 export class SearchAfterApiError extends Error {
-  readonly kind: "unavailable" | "pit-expired" | "refused";
+  readonly kind: "unavailable" | "refused";
   readonly status?: number;
 
   constructor(kind: SearchAfterApiError["kind"], status?: number) {
@@ -240,13 +239,9 @@ async function fetchImageRead(path: string, init: RequestInit, signal?: AbortSig
 async function readFailure(res: Response, signal?: AbortSignal): Promise<SearchAfterApiError> {
   const errorBody: unknown = await res.json().catch(() => undefined);
   signal?.throwIfAborted();
-  const errorKey = errorBody && typeof errorBody === "object" && "errorKey" in errorBody
-    ? errorBody.errorKey : undefined;
-  const kind = res.status === 410 && errorKey === "search-after-pit-expired"
-    ? "pit-expired"
-    : (res.status === 502 || res.status === 504) && errorBody === undefined && !res.headers.has("Retry-After")
-      ? "unavailable"
-      : "refused";
+  const kind = (res.status === 502 || res.status === 504) && errorBody === undefined && !res.headers.has("Retry-After")
+    ? "unavailable"
+    : "refused";
   return new SearchAfterApiError(kind, res.status);
 }
 
@@ -279,7 +274,6 @@ function decodeImagePage(data: ImagePageResponse["data"], issued: number): { hit
 export async function apiSearchAfter(
   params: SearchParams,
   searchAfterValues: SortValues | null,
-  pitId: string | null | undefined,
   signal: AbortSignal | undefined,
   reverse: boolean | undefined,
   seekToEnd: boolean | undefined,
@@ -294,7 +288,6 @@ export async function apiSearchAfter(
     countAll: params.trackTotalHits === true,
   };
   if (searchAfterValues) body.sortValues = searchAfterValues;
-  if (pitId) body.pitId = pitId;
 
   const json = await postImageRead("/images/search-after", body, signal) as SearchAfterApiResponse;
   const { hits, enrichment } = decodeImagePage(json.data, issued);
@@ -302,14 +295,14 @@ export async function apiSearchAfter(
     hits,
     total: json.total,
     sortValues: json.sortValues ?? [],
-    pitId: json.pitId ?? null,
+    pitId: null,
     fetchDuration: Date.now() - t0,
     enrichment,
   };
 }
 
 /** One page at a shallow offset through POST /images/window (offsets below media-api's window limit). */
-export async function apiImageWindow(params: SearchParams, pitId: string | null | undefined, signal?: AbortSignal): Promise<SearchAfterResult> {
+export async function apiImageWindow(params: SearchParams, signal?: AbortSignal): Promise<SearchAfterResult> {
   const issued = captureImageRead();
   const t0 = Date.now();
   const body: Record<string, unknown> = {
@@ -318,7 +311,6 @@ export async function apiImageWindow(params: SearchParams, pitId: string | null 
     length: params.length ?? 200,
     countAll: params.trackTotalHits === true,
   };
-  if (pitId) body.pitId = pitId;
 
   const json = await postImageRead("/images/window", body, signal) as ImageWindowApiResponse;
   const { hits, enrichment } = decodeImagePage(json.data, issued);
@@ -326,7 +318,7 @@ export async function apiImageWindow(params: SearchParams, pitId: string | null 
     hits,
     total: json.total ?? 0,
     sortValues: json.sortValues ?? [],
-    pitId: json.pitId ?? null,
+    pitId: null,
     fetchDuration: Date.now() - t0,
     enrichment,
   };
