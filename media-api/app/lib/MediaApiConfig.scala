@@ -2,6 +2,7 @@ package lib
 
 import com.gu.mediaservice.lib.config.{CommonConfigWithElastic, GridConfigResources}
 import com.gu.mediaservice.lib.elasticsearch.filters
+import com.gu.mediaservice.lib.imgproxy.ImgProxySigning
 import com.sksamuel.elastic4s.ElasticApi.{matchPhraseQuery, should}
 import com.sksamuel.elastic4s.ElasticDsl.matchQuery
 import com.sksamuel.elastic4s.requests.searches.queries.Query
@@ -10,6 +11,7 @@ import org.joda.time.DateTime
 import scalaz.NonEmptyList
 
 import scala.collection.immutable
+import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 case class StoreConfig(
@@ -51,6 +53,18 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val loaderUri: String = services.loaderBaseUri
   val metadataUri: String = services.metadataBaseUri
   val imgopsUri: String = services.imgopsBaseUri
+  val imgproxyUri: String = services.imgproxyBaseUri
+  val useImgProxy: Boolean = boolean("images.imgproxy.enabled")
+  val imgproxySigning: Option[ImgProxySigning] = for {
+    key <- stringOpt("images.imgproxy.key")
+    salt <- stringOpt("images.imgproxy.salt")
+  } yield ImgProxySigning(key, salt)
+  // Pass imgproxy a stable s3://bucket/key source (fetched with imgproxy's own IAM role) instead of a
+  // pre-signed S3 URL, so imgproxy URLs are cacheable and don't leak credentials. Always pair this with
+  // signing (images.imgproxy.key/salt) - unsigned, anyone could read any object in the bucket via imgproxy.
+  val imgproxyUseS3Source: Boolean = boolean("images.imgproxy.s3Source.enabled")
+  val imgproxySignedUrlTtlSeconds: Option[Long] =
+    configuration.getOptional[FiniteDuration]("images.imgproxy.signedUrlTtl").map(_.toSeconds).filter(_ > 0)
   val usageUri: String = services.usageBaseUri
   val leasesUri: String = services.leasesBaseUri
   val authUri: String = services.authBaseUri

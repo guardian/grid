@@ -30,6 +30,13 @@
     corsAllowedOrigins: [ 'integration-tests' ]
   },
 
+  // Hex key and salt that media-api signs imgproxy URLs with. Local dev only - they must match
+  // IMGPROXY_KEY and IMGPROXY_SALT on the imgproxy service in docker-compose.yml.
+  imgproxy: {
+    key: '52dd317a9689351c1af9c069677d8c0e7e5c061ab70c521fa6ec870f042f7bc0',
+    salt: '24cb8c5df205cefd31e667da2cea1ed56ee45c8f3c54b0e81065ee84690c493b'
+  },
+
   // Guardian specific properties for the Usage service
   guardian: {
     capi: {

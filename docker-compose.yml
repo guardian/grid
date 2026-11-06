@@ -14,6 +14,28 @@ services:
       - "9008:80"
     volumes:
       - "./dev/imgops/nginx.conf:/etc/nginx/nginx.conf"
+  imgproxy:
+    image: darthsim/imgproxy:latest
+    ports:
+      - "9016:8080"
+    environment:
+      # Only accept URLs signed by media-api. Must match imgproxy.key/salt in dev/script/generate-config/config.json5
+      IMGPROXY_KEY: "52dd317a9689351c1af9c069677d8c0e7e5c061ab70c521fa6ec870f042f7bc0"
+      IMGPROXY_SALT: "24cb8c5df205cefd31e667da2cea1ed56ee45c8f3c54b0e81065ee84690c493b"
+      IMGPROXY_HEALTH_CHECK_PATH: /health
+      IMGPROXY_ENABLE_WEBP_DETECTION: "true"
+      IMGPROXY_STRIP_METADATA: "true"
+      IMGPROXY_KEEP_COPYRIGHT: "true"
+      IMGPROXY_ALLOW_ORIGIN: "*"
+      IMGPROXY_ALLOWED_SOURCES: "http://localstack:4566/,s3://"
+      # Read s3:// sources from localstack (in AWS this is the container's IAM role)
+      IMGPROXY_USE_S3: "true"
+      IMGPROXY_S3_ENDPOINT: "http://localstack:4566"
+      IMGPROXY_S3_REGION: "eu-west-1"
+      AWS_ACCESS_KEY_ID: "test"
+      AWS_SECRET_ACCESS_KEY: "test"
+    depends_on:
+      - localstack
   cerebro:
     image: lmenezes/cerebro
     ports:

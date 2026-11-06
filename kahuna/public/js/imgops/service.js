@@ -39,16 +39,18 @@ imgops.factory('imgops', ['$window', function($window) {
     }
 
     function getOptimisedUri(image, options) {
+        const rel = image.data.optimisedPng ? 'optimisedPng' : 'optimised';
 
-        if (image.data.optimisedPng) {
-            return image.follow('optimisedPng', options).getUri().catch(() => {
-                return image.optimisedPng.secureUrl || image.optimisedPng.file;
-            });
-        } else {
-            return image.follow('optimised', options).getUri().catch(() => {
-                return image.source.secureUrl || image.source.file;
-            });
-        }
+        // Signed imgproxy URLs can't be templated, so media-api signs one for exactly this size,
+        // leaving quality to imgproxy's default
+        const uri = image.data.optimisedUrlsRequireResolution ?
+            image.follow(rel, { w: options.w, h: options.h }).get().then(resolved => resolved.data.url) :
+            image.follow(rel, options).getUri();
+
+        return uri.catch(() => {
+            const asset = image.data.optimisedPng ? image.optimisedPng : image.source;
+            return asset.secureUrl || asset.file;
+        });
     }
 
     function getOptimisedDownloadUri(image, options) {
