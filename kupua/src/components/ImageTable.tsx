@@ -481,43 +481,46 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   // Shift/Alt+click are click-to-search gestures (table).
   // Both are suppressed in selection mode (shift conflicts with range-select;
   // alt is suppressed for consistency). handleCellClick guards that case.
-  const handleRowClick = useCallback(
+  const buildClickContext = useCallback(
     (imageId: string, e: React.MouseEvent) => {
       const selState = useSelectionStore.getState();
-      const inMode = selState.selectedIds.size > 0;
+      const searchState = useSearchStore.getState();
+      const searchKey = buildSearchKey(searchParamsRef.current);
+      const idx = findImageIndex(imageId);
+      const image = idx >= 0 ? getImage(idx) : undefined;
+      const modifier: Modifier =
+        e.metaKey || e.ctrlKey ? "meta-or-ctrl" : e.shiftKey ? "shift" : "none";
+      const anchorId = selState.anchorId;
+      const anchorGlobalIndex = anchorId
+        ? (searchState.imagePositions.get(anchorId) ?? undefined)
+        : undefined;
+      const anchorSortValues = (() => {
+        if (!anchorId) return null;
+        const anchorImg = selState.metadataCache.get(anchorId);
+        return getRetainedSortValues(anchorId, searchKey) ?? (anchorImg
+          ? extractSortValues(anchorImg, searchParamsRef.current.orderBy)
+          : null);
+      })();
+      return {
+        targetId: imageId,
+        modifier,
+        inSelectionMode: selState.selectedIds.size > 0,
+        anchorId,
+        targetGlobalIndex: searchState.imagePositions.get(imageId),
+        anchorGlobalIndex,
+        targetSortValues: image
+          ? extractSortValues(image, searchParamsRef.current.orderBy, searchKey)
+          : null,
+        anchorSortValues,
+      };
+    },
+    [findImageIndex, getImage],
+  );
 
-      if (inMode) {
-        const modifier: Modifier =
-          e.metaKey || e.ctrlKey ? "meta-or-ctrl" : e.shiftKey ? "shift" : "none";
-        const searchState = useSearchStore.getState();
-        const searchKey = buildSearchKey(searchParamsRef.current);
-        const idx = findImageIndex(imageId);
-        const image = idx >= 0 ? getImage(idx) : undefined;
-        const anchorId = selState.anchorId;
-        const anchorGlobalIndex = anchorId
-          ? (searchState.imagePositions.get(anchorId) ?? undefined)
-          : undefined;
-        const anchorSortValues = (() => {
-          if (!anchorId) return null;
-          const anchorImg = selState.metadataCache.get(anchorId);
-          return getRetainedSortValues(anchorId, searchKey) ?? (anchorImg
-            ? extractSortValues(anchorImg, searchParamsRef.current.orderBy)
-            : null);
-        })();
-        const effects = interpretClick({
-          targetId: imageId,
-          kind: "image-body",
-          modifier,
-          inSelectionMode: true,
-          anchorId,
-          targetGlobalIndex: searchState.imagePositions.get(imageId),
-          anchorGlobalIndex,
-          targetSortValues: image
-            ? extractSortValues(image, searchParamsRef.current.orderBy, searchKey)
-            : null,
-          anchorSortValues,
-        });
-
+  const handleRowClick = useCallback(
+    (imageId: string, e: React.MouseEvent) => {
+      if (useSelectionStore.getState().selectedIds.size > 0) {
+        const effects = interpretClick({ ...buildClickContext(imageId, e), kind: "image-body" });
         dispatchClickEffects(effects, {
           setFocusedImageId,
           enterDetail: handleRowDoubleClick,
@@ -539,7 +542,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
       // Phantom guard above means we're in explicit mode here.
       setFocusedImageId(imageId === focusedImageId ? null : imageId);
     },
-    [setFocusedImageId, handleRowDoubleClick, findImageIndex, getImage, handleRange, focusedImageId],
+    [setFocusedImageId, handleRowDoubleClick, buildClickContext, handleRange, focusedImageId],
   );
 
   /**
@@ -547,44 +550,14 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
    */
   const handleTickClick = useCallback(
     (imageId: string, e: React.MouseEvent) => {
-      const selState = useSelectionStore.getState();
-      const searchState = useSearchStore.getState();
-      const searchKey = buildSearchKey(searchParamsRef.current);
-      const idx = findImageIndex(imageId);
-      const image = idx >= 0 ? getImage(idx) : undefined;
-      const modifier: Modifier =
-        e.metaKey || e.ctrlKey ? "meta-or-ctrl" : e.shiftKey ? "shift" : "none";
-      const anchorId = selState.anchorId;
-      const anchorGlobalIndex = anchorId
-        ? (searchState.imagePositions.get(anchorId) ?? undefined)
-        : undefined;
-      const anchorSortValues = (() => {
-        if (!anchorId) return null;
-        const anchorImg = selState.metadataCache.get(anchorId);
-        return getRetainedSortValues(anchorId, searchKey) ?? (anchorImg
-          ? extractSortValues(anchorImg, searchParamsRef.current.orderBy)
-          : null);
-      })();
-      const effects = interpretClick({
-        targetId: imageId,
-        kind: "tick",
-        modifier,
-        inSelectionMode: selState.selectedIds.size > 0,
-        anchorId,
-        targetGlobalIndex: searchState.imagePositions.get(imageId),
-        anchorGlobalIndex,
-        targetSortValues: image
-          ? extractSortValues(image, searchParamsRef.current.orderBy, searchKey)
-          : null,
-        anchorSortValues,
-      });
+      const effects = interpretClick({ ...buildClickContext(imageId, e), kind: "tick" });
       dispatchClickEffects(effects, {
         setFocusedImageId,
         enterDetail: handleRowDoubleClick,
         handleRange,
       });
     },
-    [setFocusedImageId, handleRowDoubleClick, findImageIndex, getImage, handleRange],
+    [setFocusedImageId, handleRowDoubleClick, buildClickContext, handleRange],
   );
 
   // Column context menu -- imperative handle; the component manages its own

@@ -24,6 +24,12 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 6 November 2026 - Share duplicated click and fallback publication code
+
+ImageTable's row and tick handlers now share one click-context builder, matching
+ImageGrid. The identical timeout and not-found sort-around-focus fallbacks share one
+publisher; the error path remains separate. Removed two more unchanged total writes.
+
 ### 6 November 2026 - Remove unused selection group actions and dead navigation guards
 
 Removed the latent `addGroup`/`removeGroup` selection actions, which had no caller.

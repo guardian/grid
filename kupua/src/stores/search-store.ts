@@ -1313,10 +1313,6 @@ async function _fillBufferForScrollMode(
           results: newBuffer,
           imagePositions: newPositions,
           endCursor: newEndCursor,
-          // Total is stable within a search session (frozen params) — always
-          // use the store's known total rather than the result total, which
-          // is 0 when track_total_hits is disabled (audit F-01).
-          total: state.total,
         };
       });
 
@@ -1731,31 +1727,34 @@ async function _findAndFocusImage(
   const combinedSignal = AbortSignal.any
     ? AbortSignal.any([findFocusSignal, timeoutController.signal])
     : findFocusSignal; // Fallback for environments without AbortSignal.any
+  const showFallbackFirstPage = (page: NonNullable<typeof fallbackFirstPage>) => {
+    retainSortValues(buildSearchKey(params), page.hits, page.sortValues, true);
+    if (page.enrichment) useEnrichmentStore.getState().setEnrichment(page.enrichment);
+    set({
+      results: page.hits,
+      bufferOffset: 0,
+      total: page.total,
+      loading: false,
+      imagePositions: buildPositions(page.hits, 0),
+      startCursor: page.startCursor,
+      endCursor: page.endCursor,
+      pitId: get().pitId,
+      sortAroundFocusStatus: null,
+      _seekTargetLocalIndex: -1,
+      _seekTargetGlobalIndex: -1,
+      // Explicit top intent for Effect #7b, even if the old buffer was at offset zero.
+      ...(presentationCurrent() && { focusedImageId: null, _phantomFocusImageId: null,
+        _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false } }),
+    });
+    // Only the first page landed — top up small result sets.
+    void _topUpScrollModeBuffer(get);
+  };
   const timeoutId = setTimeout(() => {
     if (findFocusSignal.aborted) return;
     console.warn("[sort-around-focus] Timed out after 8s");
     timeoutController.abort();
     if (fallbackFirstPage) {
-      retainSortValues(buildSearchKey(params), fallbackFirstPage.hits, fallbackFirstPage.sortValues, true);
-      if (fallbackFirstPage.enrichment) useEnrichmentStore.getState().setEnrichment(fallbackFirstPage.enrichment);
-      set({
-        results: fallbackFirstPage.hits,
-        bufferOffset: 0,
-        total: fallbackFirstPage.total,
-        loading: false,
-        imagePositions: buildPositions(fallbackFirstPage.hits, 0),
-        startCursor: fallbackFirstPage.startCursor,
-        endCursor: fallbackFirstPage.endCursor,
-        pitId: get().pitId,
-        sortAroundFocusStatus: null,
-        _seekTargetLocalIndex: -1,
-        _seekTargetGlobalIndex: -1,
-        ...(presentationCurrent() && { focusedImageId: null, _phantomFocusImageId: null,
-          _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false } }),
-      });
-      // Only the first page landed — top up for small result sets (see
-      // _topUpScrollModeBuffer doc above _fillBufferForScrollMode).
-      void _topUpScrollModeBuffer(get);
+      showFallbackFirstPage(fallbackFirstPage);
     } else {
       set({ sortAroundFocusStatus: null, loading: false });
     }
@@ -1817,31 +1816,7 @@ async function _findAndFocusImage(
         }
 
         if (combinedSignal.aborted) return;
-        retainSortValues(buildSearchKey(params), fallbackFirstPage.hits, fallbackFirstPage.sortValues, true);
-        if (fallbackFirstPage.enrichment) useEnrichmentStore.getState().setEnrichment(fallbackFirstPage.enrichment);
-        set({
-          results: fallbackFirstPage.hits,
-          bufferOffset: 0,
-          total: fallbackFirstPage.total,
-          loading: false,
-          imagePositions: buildPositions(fallbackFirstPage.hits, 0),
-          startCursor: fallbackFirstPage.startCursor,
-          endCursor: fallbackFirstPage.endCursor,
-          pitId: get().pitId,
-          sortAroundFocusStatus: null,
-          _seekTargetLocalIndex: -1,
-          _seekTargetGlobalIndex: -1,
-          // Bump _scrollReset.gen so Effect #7b resets scroll to top.
-          // The fallback publishes an explicit top intent regardless of
-          // whether the departing buffer was already at offset zero.
-          ...(presentationCurrent() && { focusedImageId: null, _phantomFocusImageId: null,
-            _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false } }),
-        });
-        // Only the first page landed (target not found, no surviving
-        // neighbour) — top up for small result sets. This is the dominant
-        // real-world trigger: a phantom/explicit focus from an unrelated
-        // prior query almost never survives into a new filtered query.
-        void _topUpScrollModeBuffer(get);
+        showFallbackFirstPage(fallbackFirstPage);
       } else {
         set({ sortAroundFocusStatus: null, loading: false });
       }
@@ -3177,9 +3152,6 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
           bufferOffset: newOffset,
           startCursor: newStartCursor,
           endCursor: newEndCursor,
-          // Total is stable within a search session (frozen params) — always
-          // use the store's known total (audit F-01).
-          total: state.total,
           imagePositions: newPositions,
           _extendBackwardInFlight: false,
           _lastPrependCount: acceptedHits.length,
