@@ -41,7 +41,7 @@
  */
 
 import { useCallback, useEffect, useRef } from "react";
-import { getSearchGeneration, useSearchStore } from "@/stores/search-store";
+import { getSearchGeneration, getWindowMaintenanceDelay, useSearchStore } from "@/stores/search-store";
 import { prefetchNearbyImages } from "@/lib/image-prefetch";
 import { buildSearchKey } from "@/lib/image-offset-cache";
 import type { Image } from "@/types/image";
@@ -260,39 +260,60 @@ export function useImageTraversal(
       }
     } else {
       // Target is outside the buffer — request a buffer slide and pend.
-      pendingRef.current?.cancel();
-      const generation = getSearchGeneration();
-      let params = useSearchStore.getState().params;
-      const scope = buildSearchKey(params);
-      let currentScope = scope;
-      let unsubscribe = () => {};
-      let unsubscribeHistory = () => {};
-      const pending = {
-        imageId: imgId,
-        direction,
-        isCurrent: () => {
-          if (currentImageIdRef.current !== imgId || generation !== getSearchGeneration()) return false;
-          const currentParams = useSearchStore.getState().params;
-          if (params !== currentParams) {
-            params = currentParams;
-            currentScope = buildSearchKey(params);
-          }
-          return currentScope === scope;
-        },
-        cancel: () => {
-          unsubscribe();
-          unsubscribeHistory();
-          if (pendingRef.current === pending) pendingRef.current = null;
-        },
-      };
-      pendingRef.current = pending;
-      unsubscribe = useSearchStore.subscribe(() => {
-        if (!pending.isCurrent()) { pending.cancel(); hasNavigatedRef.current = false; }
-      });
-      unsubscribeHistory = historyRef.current?.subscribe(() => {
-        pending.cancel();
-        hasNavigatedRef.current = false;
-      }) ?? (() => {});
+      const existing = pendingRef.current;
+      if (!existing || existing.imageId !== imgId || existing.direction !== direction || !existing.isCurrent()) {
+        existing?.cancel();
+        const generation = getSearchGeneration();
+        let params = useSearchStore.getState().params;
+        const scope = buildSearchKey(params);
+        let currentScope = scope;
+        let unsubscribe = () => {};
+        let unsubscribeHistory = () => {};
+        let recoveryTimer: ReturnType<typeof setTimeout> | undefined;
+        const pending = {
+          imageId: imgId,
+          direction,
+          isCurrent: () => {
+            if (currentImageIdRef.current !== imgId || generation !== getSearchGeneration()) return false;
+            const currentParams = useSearchStore.getState().params;
+            if (params !== currentParams) {
+              params = currentParams;
+              currentScope = buildSearchKey(params);
+            }
+            return currentScope === scope;
+          },
+          cancel: () => {
+            clearTimeout(recoveryTimer);
+            unsubscribe();
+            unsubscribeHistory();
+            if (pendingRef.current === pending) pendingRef.current = null;
+          },
+        };
+        pendingRef.current = pending;
+        unsubscribe = useSearchStore.subscribe((state, previous) => {
+          if (!pending.isCurrent()) { pending.cancel(); hasNavigatedRef.current = false; return; }
+          const recovery = state._windowRecovery;
+          if (!recovery || recovery === previous._windowRecovery || recovery.signal.aborted ||
+              recovery.searchGeneration !== generation || state.results !== previous.results) return;
+          if (direction === "forward"
+            ? !state.endCursor || state.endCursor === previous.endCursor
+            : !state.startCursor || state.startCursor === previous.startCursor) return;
+          const resume = () => {
+            clearTimeout(recoveryTimer);
+            if (pendingRef.current !== pending || !pending.isCurrent() || recovery.signal.aborted) return;
+            const delay = getWindowMaintenanceDelay();
+            if (delay > 0) { recoveryTimer = setTimeout(resume, delay); return; }
+            const current = useSearchStore.getState();
+            if (direction === "forward") current.extendForward();
+            else current.extendBackward();
+          };
+          resume();
+        });
+        unsubscribeHistory = historyRef.current?.subscribe(() => {
+          pending.cancel();
+          hasNavigatedRef.current = false;
+        }) ?? (() => {});
+      }
 
       const { extendForward, extendBackward, seek, bufferOffset: bo, results: res } = useSearchStore.getState();
       const bufferEnd = bo + res.length;

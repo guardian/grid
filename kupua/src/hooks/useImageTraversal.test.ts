@@ -4,13 +4,16 @@
  * Session lifecycle regression test for useImageTraversal.
  */
 
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { useSearchStore } from "@/stores/search-store";
 import type { Image } from "@/types/image";
 import { useImageTraversal } from "./useImageTraversal";
 import { prefetchNearbyImages } from "@/lib/image-prefetch";
 import { createMemoryHistory } from "@tanstack/react-router";
+import { MockDataSource } from "@/dal/mock-data-source";
+import type { SortValues } from "@/dal/types";
+import { POST_EXTEND_COOLDOWN_MS } from "@/constants/tuning";
 
 vi.mock("@/lib/image-prefetch", () => ({
   prefetchNearbyImages: vi.fn(),
@@ -111,6 +114,94 @@ describe("useImageTraversal — session lifecycle", () => {
     expect(onNavigate).not.toHaveBeenCalled();
     expect(extendBackward).not.toHaveBeenCalled();
   });
+});
+
+describe("traversal through duplicate-only extension", () => {
+  afterEach(() => {
+    cleanup();
+    useSearchStore.getState().abortExtends();
+    useSearchStore.setState(useSearchStore.getInitialState(), true);
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    { direction: "forward", duringCooldown: false, depart: false, repeat: false },
+    { direction: "backward", duringCooldown: false, depart: false, repeat: false },
+    { direction: "forward", duringCooldown: true, depart: false, repeat: false },
+    { direction: "forward", duringCooldown: true, depart: true, repeat: false },
+    { direction: "forward", duringCooldown: true, depart: false, repeat: true },
+  ] as const)(
+    "keeps $direction duplicate-only continuation owned through cooldown $duringCooldown, departure $depart and repeat $repeat",
+    async ({ direction, duringCooldown, depart, repeat }) => {
+      const dataSource = new MockDataSource(10_000);
+      const params = { orderBy: "-uploadTime", nonFree: "true" };
+      const initial = await dataSource.searchAfter({ ...params, offset: 2000, length: 200 }, null);
+      const boundary = (direction === "forward" ? initial.sortValues.at(-1) : initial.sortValues[0])!;
+      const fresh = await dataSource.searchAfter({ ...params, length: 200 }, boundary, null, undefined, direction === "backward");
+      const backward = duringCooldown
+        ? await dataSource.searchAfter({ ...params, length: 200 }, initial.sortValues[0], null, undefined, true)
+        : undefined;
+      const duplicate = initial.hits[100];
+      const progressedCursor: SortValues = [Number(boundary[0]) + (direction === "forward" ? -1 : 1), duplicate.id];
+      let release!: () => void;
+      const held = new Promise<void>(resolve => { release = resolve; });
+      const read = vi.spyOn(dataSource, "searchAfter")
+        .mockRejectedValue(new Error("Unexpected extra extension"))
+        .mockImplementationOnce(async () => {
+          await held;
+          return { hits: [duplicate], sortValues: [progressedCursor], total: 10_000 };
+        });
+      if (backward) read.mockResolvedValueOnce(backward);
+      read.mockResolvedValueOnce(fresh);
+      useSearchStore.setState({
+        ...useSearchStore.getInitialState(), dataSource, params,
+        results: initial.hits, bufferOffset: 2000, total: 10_000,
+        imagePositions: new Map(initial.hits.map((image, index) => [image.id, 2000 + index])),
+        startCursor: initial.sortValues[0], endCursor: initial.sortValues.at(-1)!,
+      }, true);
+      vi.useFakeTimers({ toFake: ["Date"] });
+      useSearchStore.getState().abortExtends();
+      vi.setSystemTime(Date.now() + 2100);
+      const navigate = vi.fn();
+      const origin = direction === "forward" ? initial.hits.at(-1)!.id : initial.hits[0].id;
+      const view = renderHook(({ imageId }: { imageId: string | null }) => useImageTraversal(imageId, navigate),
+        { initialProps: { imageId: origin as string | null } });
+
+      try {
+        await act(async () => {
+          if (direction === "forward") view.result.current.goToNext();
+          else view.result.current.goToPrev();
+        });
+        if (duringCooldown) await act(async () => { await useSearchStore.getState().extendBackward(); });
+        await act(async () => { release(); await read.mock.results[0].value; });
+        if (duringCooldown) {
+          expect(read).toHaveBeenCalledTimes(2);
+          if (repeat) act(() => view.result.current.goToNext());
+          if (depart) view.rerender({ imageId: null });
+          vi.setSystemTime(Date.now() + POST_EXTEND_COOLDOWN_MS);
+        }
+        if (depart) {
+          await act(async () => { await new Promise(resolve => setTimeout(resolve, POST_EXTEND_COOLDOWN_MS + 10)); });
+          expect(read).toHaveBeenCalledTimes(2);
+          expect(navigate).not.toHaveBeenCalled();
+          return;
+        }
+
+        await waitFor(() => expect(navigate).toHaveBeenCalledExactlyOnceWith(
+          expect.objectContaining({ id: direction === "forward" ? fresh.hits[0].id : fresh.hits.at(-1)!.id }),
+          direction === "forward" ? 2200 : 1999,
+        ));
+        expect(read).toHaveBeenCalledTimes(duringCooldown ? 3 : 2);
+        expect(read.mock.calls[duringCooldown ? 2 : 1][1]).toEqual(progressedCursor);
+        for (const image of initial.hits) {
+          expect(useSearchStore.getState().results.find((candidate) => candidate?.id === image.id)).toBe(image);
+        }
+      } finally {
+        release();
+      }
+    },
+  );
 });
 
 describe("KUP-019 pending traversal ownership", () => {

@@ -365,7 +365,26 @@ mobile UX is not a claim of mobile completion, and closeout does not enable savi
 
 ### Step 4. Resolve KUP-043 With Simulated Writes Before Enabling Real Ones
 
-**Depends on:** steps 1-3 and operator agreement on the following proposed browsing policy.
+**Depends on:** completed steps 1-3 and the bounded execution authority below.
+
+**Execution scope, 5 November:** the [implementation plan](gradually-growing-teeth.step-4-publication-plan.md)
+records accepted section-1 choices and authorization for Unit A's three sessions:
+A1 extension dedup, A2 publication-route comparison, and A3 simulated readback and
+publication after A2's choice. Each session retains its operator checkpoint; do not
+start the next without confirmation. The Unit B feasibility spike and Units B-D
+are not authorized. The plan owns rationale, freshness, performance and proof details.
+Home, New images ticker and existing refresh behavior remain unchanged, with no
+new refresh-view control or compulsory reload. No live writes or later editing
+steps are enabled by Unit A or by this documentation update.
+
+**UX clarification, 5 November:** distant changes in a millions-image search must
+not interrupt local scrolling just to reconcile imperceptible rank/count drift.
+Stable display positions and approximate navigation remain useful without exact
+global ordinals; identities, permissions, operation outcomes and exact range targets
+remain strict. Ordinary continuation is not automatically a rebase trigger. The
+detailed proposal now includes a testing sub-plan with a nine-million logical-result
+fixture, a five-image counterexample and mandatory agent-driven embedded-browser
+rehearsal. None of those tests has been implemented or run by this planning update.
 
 Begin only after step 3's closeout. Use simulated label
 addition initially; the deferred removal command is scheduled for step-5 preparation,
@@ -374,7 +393,10 @@ not a prerequisite that silently expands this step.
 This is the hardest common prerequisite, not a cosmetic refresh button. Use the disconnected
 label operation plus delayed canonical fixtures to implement one shared publication path.
 Keep the current viewport stable: update affected images in place, retain surviving boxes,
-and represent confirmed deleted/unavailable entries without immediately compacting the list.
+and represent confirmed deleted/unavailable entries without immediately compacting
+a scrolling list. The detailed plan's section 5.6 owns the accepted exception for
+confirmed deletions when the whole result set fits the viewport; its implementation
+belongs to Unit C, which is not yet authorized, rather than Unit A.
 Update buffer, requested-ID-owned detail, selected metadata, reconciliation and capabilities
 together. Do not globally refresh search after each completed item.
 
@@ -393,11 +415,16 @@ The policy must explicitly cover these cases:
   every relevant write can move an image under `lastModified` sorting. Preserve the current
   mounted order until an explicit rebase, but mark affected totals/maps/distributions stale.
   Do not use stale ordinals for seeks, range walks or history restoration as though still exact.
-- **Rebase:** explicit Refresh, a new search, or an action needing invalidated coordinates
-  establishes a fresh ordering before completing that action. Preserve the current image and
-  its visual anchor where it survives; choose a documented nearest survivor otherwise. Never
-  silently send an old offset into new membership. Keep safe cursor extension where possible,
-  deduplicate IDs, and preserve row geometry when filtering duplicates.
+- **Rebase:** an action whose meaning requires current membership or precise target
+   resolution obtains it under its own destination and placement policy; ordinary
+   cursor continuation need not rerank merely because global coordinates are stale.
+   Home logo, New images
+   ticker, pull-to-refresh, new query/sort and history retain their existing behavior;
+   preserving a departing anchor is not a universal override. No new refresh-view
+   control or required browser reload. The detailed proposal distinguishes identity,
+   fraction, ordinal and true-edge intent, including failed reacquisition. Never
+   silently send an old rank hint into new membership or compact retained rows to
+   remove duplicates. Safe cursor continuation and boundary recovery need composed proof.
 - **Selection:** edits may put selected IDs outside the current query without a new search.
   Retain the operation's original targets and make this distinction visible; do not silently
   shrink them mid-flight. Confirmed deletion disables further actions for that image. Failed
@@ -407,7 +434,7 @@ The policy must explicitly cover these cases:
   maps. Finite AI result membership stays stable until rerun; editing a result must not trigger
   an automatic AI rerank. Standalone detail must remain usable without a resident search buffer.
 
-For convergence, use bounded `POST /images/count` over the **captured operation IDs** plus a
+The original convergence direction uses bounded `POST /images/count` over the **captured operation IDs** plus a
 supported exact postcondition, independent of the browsing query/default free filter/frozen
 upload boundary. This may require an operation-specific body rather than blindly reusing
 the defaulted browse mapper. No empty-ID request may become a corpus-wide poll. Stop on
@@ -416,6 +443,13 @@ documents in existing 200-ID mget chunks for publication and bounded failure rec
 For unsupported predicates or service-owned substeps, use bounded owning-resource reads.
 Do not add N concurrent singleton polling loops, and do not treat zero results as proof of
 successful deletion or lost permission as successful convergence.
+
+The 5 November review found literal-label predicate and projection limits. The
+[detailed plan](gradually-growing-teeth.step-4-publication-plan.md#52-readback-documents-first-for-the-initial-label-proof)
+records the accepted mget-first observation path for the initial label proof,
+with count remaining a separately justified optimization. Implementation follows
+the Unit-A session checkpoints above; this choice authorizes no backend repair
+or later unit.
 
 **Executor pointers:** [KUP-043](bug-backlog.md#kup-043),
 [search store](../../src/stores/search-store.ts),
@@ -431,7 +465,9 @@ with representative delayed-read, off-screen selection, filter-exit, changed-sor
 cases. Witness retained visible boxes in Grid, Table and Justified; cover resident/indexed/seek
 boundaries, history and cold detail without multiplying every combination. Identify assertions
 of the old behavior before editing them. Prove the resulting user behavior, not just a map
-invalidation flag. No PIT, universal external-edit freshness service or live mutations needed.
+invalidation flag. Complete the detailed proposal's adversarial fixture checks and
+agent-driven embedded-browser rehearsal, including undisturbed distant-change browsing
+and the small-set UX. No PIT, universal external-edit freshness service or live mutations needed.
 
 ### Step 5. Give One Label Operation Real Teeth
 

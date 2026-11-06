@@ -24,6 +24,28 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 6 November 2026 - Deduplicate extension pages without stranding browsing
+
+Forward and backward extension exclude incoming resident IDs before publishing
+their bodies, paired sort tuples or enrichment. Raw response cursors still advance;
+accepted images alone determine eviction, positions and prepend compensation.
+Surviving bodies and authoritative boundary tuples remain paired through eviction
+and reverse browsing. Backward null/valued composition also excludes overlap between
+its two responses, keeping the valued body, tuple and overlay together.
+
+Duplicate-only progress preserves result/position references and placement signals,
+then notifies existing demand owners. The mounted viewport re-evaluates its current
+range; pending detail/fullscreen traversal continues without another gesture and
+honours the existing maintenance cooldown. Repeated same-direction input retains
+that pending owner; departure cancels its wait. Empty responses stop automatic
+continuation without permanently disabling later explicit demand.
+
+The change adds page-bounded filtering, not a refill loop, rank refresh, entity cache
+or permanent render subscription. Regression coverage includes cursor/overlay pairing,
+capacity eviction and reversal, compound-page overlap, stationary scrolling, traversal,
+cooldown and cancellation; a removed progress notification reproduces both consumer
+stalls. Editing and authoritative publication remain disconnected.
+
 ### 5 November 2026 - Retire upstream-fixed CQL integration workarounds
 
 Upgraded @guardian/cql to 1.8.7, including upstream blur-selection preservation,

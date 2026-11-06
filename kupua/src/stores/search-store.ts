@@ -2899,15 +2899,36 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         return;
       }
 
-      retainSortValues(buildSearchKey(rawParams), result.hits, result.sortValues);
+      const residentPositions = get().imagePositions;
+      const acceptedSortValues: SortValues[] = [];
+      const acceptedHits = result.hits.filter((image, index) => {
+        if (residentPositions.has(image.id)) return false;
+        acceptedSortValues.push(result.sortValues[index]);
+        return true;
+      });
+      if (acceptedHits.length === 0) {
+        set((state) => ({
+          endCursor: result.sortValues.at(-1) ?? state.endCursor,
+          pitId: state.pitId === null ? null : result.pitId !== undefined ? result.pitId : state.pitId,
+          _extendForwardInFlight: false,
+          ...(!sameBoundaryCursor(endCursor, result.sortValues.at(-1) ?? endCursor)
+            ? { _windowRecovery: windowRecovery(signal, true) } : {}),
+        }));
+        return;
+      }
+
+      retainSortValues(buildSearchKey(rawParams), acceptedHits, acceptedSortValues);
       // Commit-to-view (extend-forward): merge enrichment.
-      if (result.enrichment) useEnrichmentStore.getState().upsertEnrichment(result.enrichment);
+      if (result.enrichment) useEnrichmentStore.getState().upsertEnrichment(
+        acceptedHits.length === result.hits.length ? result.enrichment
+          : new Map([...result.enrichment].filter(([id]) => !residentPositions.has(id))),
+      );
       set((state) => {
-        const newBuffer = [...state.results, ...result.hits];
+        const newBuffer = [...state.results, ...acceptedHits];
         let newOffset = state.bufferOffset;
         let newStartCursor = state.startCursor;
         let newPositions = buildPositions(
-          result.hits,
+          acceptedHits,
           state.bufferOffset + state.results.length,
           state.imagePositions,
         );
@@ -3051,7 +3072,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           hits: [...valuedPage.hits, ...result.hits],
           sortValues: [...valuedPage.sortValues, ...result.sortValues],
           enrichment: result.enrichment || valuedPage.enrichment
-            ? new Map([...valuedPage.enrichment ?? [], ...result.enrichment ?? []])
+            ? new Map([...result.enrichment ?? [], ...valuedPage.enrichment ?? []])
             : undefined,
         };
       }
@@ -3060,16 +3081,38 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         return;
       }
 
-      retainSortValues(buildSearchKey(rawParams), result.hits, result.sortValues);
+      const residentPositions = get().imagePositions;
+      const acceptedIds = new Set<string>();
+      const acceptedSortValues: SortValues[] = [];
+      const acceptedHits = result.hits.filter((image, index) => {
+        if (residentPositions.has(image.id) || acceptedIds.has(image.id)) return false;
+        acceptedIds.add(image.id);
+        acceptedSortValues.push(result.sortValues[index]);
+        return true;
+      });
+      if (acceptedHits.length === 0) {
+        set((state) => ({
+          startCursor: result.sortValues[0] ?? state.startCursor,
+          _extendBackwardInFlight: false,
+          ...(!sameBoundaryCursor(startCursor, result.sortValues[0] ?? startCursor)
+            ? { _windowRecovery: windowRecovery(signal, true) } : {}),
+        }));
+        return;
+      }
+
+      retainSortValues(buildSearchKey(rawParams), acceptedHits, acceptedSortValues);
       // Commit-to-view (extend-backward): merge enrichment.
-      if (result.enrichment) useEnrichmentStore.getState().upsertEnrichment(result.enrichment);
+      if (result.enrichment) useEnrichmentStore.getState().upsertEnrichment(
+        acceptedHits.length === result.hits.length ? result.enrichment
+          : new Map([...result.enrichment].filter(([id]) => acceptedIds.has(id))),
+      );
       set((state) => {
         // result.hits are already in correct (forward) order after reversal
-        const newBuffer = [...result.hits, ...state.results];
-        const newOffset = Math.max(0, state.bufferOffset - result.hits.length);
+        const newBuffer = [...acceptedHits, ...state.results];
+        const newOffset = Math.max(0, state.bufferOffset - acceptedHits.length);
         let newEndCursor = state.endCursor;
         let newPositions = buildPositions(
-          result.hits,
+          acceptedHits,
           newOffset,
           state.imagePositions,
         );
@@ -3109,11 +3152,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           total: state.total,
           imagePositions: newPositions,
           _extendBackwardInFlight: false,
-          _lastPrependCount: result.hits.length,
+          _lastPrependCount: acceptedHits.length,
           _prependGeneration: state._prependGeneration + 1,
           // Atomic with results — no one-frame flash (fill-mode: both
           // applies opacity: 0 from the same render).
-          _arrivingImageIds: new Set(result.hits.map((h) => h.id)),
+          _arrivingImageIds: new Set(acceptedHits.map((image) => image.id)),
         };
       });
 

@@ -451,6 +451,62 @@ describe("viewport-valid velocity reports", () => {
     return { dataSource, view };
   }
 
+  it.each([
+    { direction: "forward", remainAtEdge: true },
+    { direction: "backward", remainAtEdge: true },
+    { direction: "forward", remainAtEdge: false },
+  ] as const)("reconsiders duplicate-only $direction progress for current viewport demand (edge: $remainAtEdge)", async ({ direction, remainAtEdge }) => {
+    const { dataSource, view } = await indexedRecoveryFixture();
+    const before = useSearchStore.getState();
+    const boundary = (direction === "forward" ? before.endCursor : before.startCursor)!;
+    const fresh = await dataSource.searchAfter({ ...before.params, length: 200 }, boundary, null, undefined, direction === "backward");
+    const duplicate = before.results[500]!;
+    const progressedCursor: SortValues = [Number(boundary[0]) + (direction === "forward" ? -1 : 1), duplicate.id];
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const reads = vi.spyOn(dataSource, "searchAfter")
+      .mockImplementationOnce(async (...args) => {
+        await held;
+        args[3]?.throwIfAborted();
+        return { hits: [duplicate], sortValues: [progressedCursor], total: before.total };
+      })
+      .mockImplementationOnce(async () => {
+        expect(useSearchStore.getState().results).toBe(before.results);
+        expect(useSearchStore.getState().imagePositions).toBe(before.imagePositions);
+        return fresh;
+      });
+    const scroll = (start: number) => act(() => {
+      view.container.scrollTop = start * table.rowHeight;
+      view.virtualizer.range = { startIndex: start, endIndex: start + 18 } as typeof view.virtualizer.range;
+      fireEvent.scroll(view.container);
+    });
+    try {
+      scroll(direction === "forward" ? 1990 : 1010);
+      expect(reads).toHaveBeenCalledOnce();
+      if (!remainAtEdge) scroll(1500);
+      const stoppedAt = view.container.scrollTop;
+      await act(async () => { release(); await reads.mock.results[0].value; });
+      await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+      expect(reads).toHaveBeenCalledTimes(remainAtEdge ? 2 : 1);
+      expect(view.container.scrollTop).toBe(stoppedAt);
+      if (remainAtEdge) {
+        expect(reads.mock.calls[1][1]).toEqual(progressedCursor);
+        const expectedOffset = direction === "forward" ? 1200 : 800;
+        expect(useSearchStore.getState().results.map(image => image?.id)).toEqual(
+          Array.from({ length: 1000 }, (_, index) => `img-${expectedOffset + index}`),
+        );
+        for (const image of before.results.filter(image => useSearchStore.getState().imagePositions.has(image!.id))) {
+          expect(useSearchStore.getState().imagePositions.get(image!.id)).toBe(before.imagePositions.get(image!.id));
+        }
+      } else {
+        expect(useSearchStore.getState().results).toBe(before.results);
+      }
+    } finally {
+      view.unmount();
+      await act(async () => { release(); await Promise.all(reads.mock.results.map(result => result.value)); });
+    }
+  });
+
   it.each(["lookup", "window", "lookup-after-density"])("resumes stationary retained-window demand after failed focus %s without retrying focus", async (failureStage) => {
     const fixture = await indexedRecoveryFixture();
     const { dataSource } = fixture;

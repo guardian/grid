@@ -446,6 +446,33 @@ describe.each(["direct-ES", "media-api"] as const)("KUP-033 %s backward boundary
     expect(requests).toHaveLength(1);
   });
 
+  it("admits one paired body and tuple when an image crosses between the two backward responses", async () => {
+    const { initial, firstPage, valuedPage, params } = await setup("lastModified", defaultBoundary + 40);
+    const original = firstPage.hits[0];
+    const movedTuple: SortValues = [...valuedPage.sortValues[0].slice(0, -1), original.id];
+    const moved: typeof original = {
+      ...original, lastModified: new Date(Number(movedTuple[0])).toISOString(),
+      usageRights: { ...original.usageRights, category: original.usageRights?.category === "handout" ? "agency" : "handout" },
+    };
+    valuedPage.hits[0] = moved;
+    valuedPage.sortValues[0] = movedTuple;
+
+    await state().extendBackward();
+
+    const accepted = [...valuedPage.hits, ...firstPage.hits.slice(1)];
+    expect(state().results.map(image => image?.id)).toEqual([...accepted, ...initial.hits].map(image => image.id));
+    expect(state().results.filter(image => image?.id === original.id)).toHaveLength(1);
+    expect(state().results.find(image => image?.id === original.id)?.lastModified).toBe(moved.lastModified);
+    if (mode === "media-api") expect(useEnrichmentStore.getState().data.get(original.id)?.usageRights).toEqual(moved.usageRights);
+    expect(getRetainedSortValues(original.id, buildSearchKey(params))).toEqual(movedTuple);
+    expect(state().startCursor).toEqual(valuedPage.sortValues[0]);
+    expect(state()._lastPrependCount).toBe(199);
+    expect(state().bufferOffset).toBe(defaultBoundary + 40 - 199);
+    for (const [index, image] of initial.hits.entries()) {
+      expect(state().imagePositions.get(image.id)).toBe(defaultBoundary + 40 + index);
+    }
+  });
+
   it("keeps complete pages, full-buffer eviction and focus coherent across the boundary", async () => {
     const { initial } = await setup("-lastModified", defaultBoundary + 40, 0.2, 1000, 3);
     await state().extendBackward();
@@ -636,6 +663,102 @@ describe("API mode: routing and counting", () => {
     expect(state().total).toBe(120_000);
     expect(state().tickerCounts).toBeNull();
   });
+});
+
+describe("API mode: extension duplicate exclusion", () => {
+  it.each(["forward", "backward"] as const)(
+    "advances %s duplicate-only and short pages without republishing residents or disabling later demand",
+    async (direction) => {
+      let response: unknown;
+      useApiMode(10_000, { routes: { "/images/search-after": () => response } });
+      const initial = await corpus.searchAfter({ ...state().params, offset: 2000, length: 200 }, null);
+      const searchKey = buildSearchKey(state().params);
+      retainSortValues(searchKey, initial.hits, initial.sortValues, true);
+      useSearchStore.setState({
+        results: initial.hits, bufferOffset: 2000, total: 10_000,
+        imagePositions: new Map(initial.hits.map((image, index) => [image.id, 2000 + index])),
+        startCursor: initial.sortValues[0], endCursor: initial.sortValues.at(-1)!,
+      });
+      const duplicate = initial.hits[1];
+      const originalOverlay = { valid: true };
+      useEnrichmentStore.getState().setEnrichment(new Map([[duplicate.id, originalOverlay]]));
+      const before = state();
+      const overlays = useEnrichmentStore.getState().data;
+      const boundary = (direction === "forward" ? before.endCursor : before.startCursor)!;
+      const step = direction === "forward" ? -1000 : 1000;
+      const duplicateTuple: SortValues = [Number(boundary[0]) + step, duplicate.id];
+      const duplicateEntity = { data: { ...duplicate, valid: false, lastModified: "2026-11-06T12:00:00Z" } };
+      response = { data: [duplicateEntity], sortValues: [duplicateTuple], total: 0 };
+      const extend = direction === "forward" ? state().extendForward : state().extendBackward;
+      vi.useFakeTimers({ toFake: ["Date"] });
+      state().abortExtends();
+      await waitPastCooldown();
+
+      await extend();
+
+      expect(paths()).toEqual(["/images/search-after"]);
+      expect(state().results).toBe(before.results);
+      expect(state().imagePositions).toBe(before.imagePositions);
+      expect(state()._arrivingImageIds).toBe(before._arrivingImageIds);
+      expect(state()._prependGeneration).toBe(before._prependGeneration);
+      expect(state()._forwardEvictGeneration).toBe(before._forwardEvictGeneration);
+      expect(state().bufferOffset).toBe(before.bufferOffset);
+      expect(useEnrichmentStore.getState().data).toBe(overlays);
+      expect(getRetainedSortValues(duplicate.id, searchKey)).toEqual(initial.sortValues[1]);
+      expect(direction === "forward" ? state().endCursor : state().startCursor).toEqual(duplicateTuple);
+
+      const fresh = await corpus.searchAfter(
+        { ...state().params, length: 1 }, boundary, null, undefined, direction === "backward",
+      );
+      const freshTuple: SortValues = [Number(boundary[0]) + step * 2, fresh.hits[0].id];
+      const nextDuplicateTuple: SortValues = [Number(boundary[0]) + step * 3, duplicate.id];
+      const freshEntity = { data: { ...fresh.hits[0], valid: false } };
+      response = {
+        data: direction === "forward" ? [freshEntity, duplicateEntity] : [duplicateEntity, freshEntity],
+        sortValues: direction === "forward" ? [freshTuple, nextDuplicateTuple] : [nextDuplicateTuple, freshTuple],
+        total: 0,
+      };
+      await extend();
+
+      expect(bodiesFor("/images/search-after")).toHaveLength(2);
+      expect(bodiesFor("/images/search-after")[1]).toMatchObject({ sortValues: duplicateTuple, reverse: direction === "backward" });
+      expect(state().results).toHaveLength(201);
+      expect(state().results.find((image) => image?.id === duplicate.id)).toBe(duplicate);
+      expect(useEnrichmentStore.getState().data.get(duplicate.id)).toBe(originalOverlay);
+      expect(useEnrichmentStore.getState().data.get(fresh.hits[0].id)?.valid).toBe(false);
+      expect(getRetainedSortValues(fresh.hits[0].id, searchKey)).toEqual(freshTuple);
+      expect(getRetainedSortValues(duplicate.id, searchKey)).toEqual(initial.sortValues[1]);
+      for (const image of initial.hits) {
+        expect(state().imagePositions.get(image.id)).toBe(before.imagePositions.get(image.id));
+      }
+      if (direction === "backward") {
+        expect(state()._lastPrependCount).toBe(1);
+        expect(state()._arrivingImageIds).toEqual(new Set([fresh.hits[0].id]));
+      }
+
+      const published = state();
+      response = { data: [], sortValues: [], total: 0 };
+      await waitPastCooldown();
+      await extend();
+      expect(bodiesFor("/images/search-after")[2]).toMatchObject({ sortValues: nextDuplicateTuple });
+      expect(paths()).toEqual(Array(3).fill("/images/search-after"));
+      expect(state().results).toBe(published.results);
+      expect(state().imagePositions).toBe(published.imagePositions);
+      expect(state()._windowRecovery).toBe(published._windowRecovery);
+      expect(direction === "forward" ? state().endCursor : state().startCursor).toEqual(nextDuplicateTuple);
+      expect(state().total).toBe(before.total);
+      expect(state().error).toBeNull();
+      const later = await corpus.searchAfter({
+        ...state().params, offset: direction === "forward" ? 2201 : 1998, length: 1,
+      }, null);
+      response = { data: later.hits.map(data => ({ data })), sortValues: later.sortValues, total: 0 };
+      await extend();
+      expect(bodiesFor("/images/search-after")).toHaveLength(4);
+      expect(bodiesFor("/images/search-after")[3]).toMatchObject({ sortValues: nextDuplicateTuple });
+      expect(state().results.some(image => image?.id === later.hits[0].id)).toBe(true);
+      state().abortExtends();
+    },
+  );
 });
 
 describe("API mode: browsing the seek tier", () => {

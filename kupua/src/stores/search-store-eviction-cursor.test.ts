@@ -143,6 +143,131 @@ function mockApiAliasPages() {
   return responseCursors;
 }
 
+describe("extension duplicate exclusion", () => {
+  it.each(["forward", "backward"] as const)(
+    "keeps resident bodies and tuples while advancing the raw %s cursor",
+    async (direction) => {
+      mockApiAliasPages();
+      await actions().search();
+      await withVirtualCooldowns(async (advance) => {
+        if (direction === "backward") {
+          await actions().seek(5000);
+          advance(200);
+        }
+        const before = state();
+        const boundary = direction === "forward" ? before.endCursor : before.startCursor;
+        const duplicate = before.results[1]!;
+        const searchKey = buildSearchKey(before.params);
+        const retainedTuple = getRetainedSortValues(duplicate.id, searchKey);
+        const fresh = await mock.searchAfter(
+          { ...before.params, length: 2 }, boundary, null, undefined, direction === "backward",
+        );
+        const duplicateTuple: SortValues = ["changed-duplicate", Date.parse(duplicate.uploadTime), duplicate.id];
+        const duplicateBody = { ...duplicate, lastModified: "2026-11-06T12:00:00Z" };
+        const incoming = direction === "forward"
+          ? { hits: [...fresh.hits, duplicateBody], sortValues: [...fresh.sortValues, duplicateTuple] }
+          : { hits: [duplicateBody, ...fresh.hits], sortValues: [duplicateTuple, ...fresh.sortValues] };
+        vi.mocked(mock.searchAfter).mockClear().mockResolvedValueOnce({ ...fresh, ...incoming });
+
+        if (direction === "forward") await actions().extendForward();
+        else await actions().extendBackward();
+
+        const after = state();
+        expect(mock.searchAfter).toHaveBeenCalledTimes(1);
+        expect(after.results.map((image) => image?.id)).toEqual(
+          direction === "forward"
+            ? [...before.results, ...fresh.hits].map((image) => image?.id)
+            : [...fresh.hits, ...before.results].map((image) => image?.id),
+        );
+        for (const image of before.results) {
+          expect(after.results.find((candidate) => candidate?.id === image!.id)).toBe(image);
+          expect(after.imagePositions.get(image!.id)).toBe(before.imagePositions.get(image!.id));
+        }
+        expect(getRetainedSortValues(duplicate.id, searchKey)).toEqual(retainedTuple);
+        fresh.hits.forEach((image, index) => {
+          expect(getRetainedSortValues(image.id, searchKey)).toEqual(fresh.sortValues[index]);
+          expect(after.imagePositions.get(image.id)).toBe(
+            direction === "forward"
+              ? before.bufferOffset + before.results.length + index
+              : before.bufferOffset - fresh.hits.length + index,
+          );
+        });
+        expect(direction === "forward" ? after.endCursor : after.startCursor).toEqual(duplicateTuple);
+        expect(after.total).toBe(before.total);
+        if (direction === "backward") expect(after._lastPrependCount).toBe(2);
+      });
+    },
+  );
+});
+
+describe("extension duplicate eviction and reversal", () => {
+  it.each(["forward", "backward"] as const)(
+    "does not poison the surviving boundary after %s eviction and readmits evicted IDs on reversal",
+    async (direction) => {
+      mockApiAliasPages();
+      await actions().search();
+      await withVirtualCooldowns(async (advance) => {
+        const initial = await mock.searchAfter({ ...state().params, offset: 2000, length: 1000 }, null);
+        const searchKey = buildSearchKey(state().params);
+        retainSortValues(searchKey, initial.hits, initial.sortValues, true);
+        useSearchStore.setState({
+          results: initial.hits, bufferOffset: 2000,
+          imagePositions: new Map(initial.hits.map((image, index) => [image.id, 2000 + index])),
+          startCursor: initial.sortValues[0], endCursor: initial.sortValues.at(-1)!,
+        });
+        const before = state();
+        const duplicateIndex = direction === "forward" ? 2 : 997;
+        const duplicate = initial.hits[duplicateIndex];
+        const fresh = await mock.searchAfter(
+          { ...before.params, length: 2 }, direction === "forward" ? before.endCursor : before.startCursor,
+          null, undefined, direction === "backward",
+        );
+        const changedTuple: SortValues = ["changed-duplicate", Date.parse(duplicate.uploadTime), duplicate.id];
+        vi.mocked(mock.searchAfter).mockClear().mockResolvedValueOnce({
+          ...fresh,
+          hits: direction === "forward" ? [...fresh.hits, { ...duplicate }] : [{ ...duplicate }, ...fresh.hits],
+          sortValues: direction === "forward" ? [...fresh.sortValues, changedTuple] : [changedTuple, ...fresh.sortValues],
+        });
+
+        if (direction === "forward") await actions().extendForward();
+        else await actions().extendBackward();
+
+        expect(state().results).toHaveLength(1000);
+        expect(state().bufferOffset).toBe(direction === "forward" ? 2002 : 1998);
+        const survivors = direction === "forward" ? initial.hits.slice(2) : initial.hits.slice(0, -2);
+        const evicted = direction === "forward" ? initial.hits.slice(0, 2) : initial.hits.slice(-2);
+        for (const image of survivors) {
+          expect(state().results.find((candidate) => candidate?.id === image.id)).toBe(image);
+          expect(state().imagePositions.get(image.id)).toBe(before.imagePositions.get(image.id));
+        }
+        for (const image of evicted) expect(state().imagePositions.has(image.id)).toBe(false);
+        expect(direction === "forward" ? state().startCursor : state().endCursor).toEqual(initial.sortValues[duplicateIndex]);
+        expect(getRetainedSortValues(duplicate.id, searchKey)).toEqual(initial.sortValues[duplicateIndex]);
+        if (direction === "forward") expect(state()._lastForwardEvictCount).toBe(2);
+        else expect(state()._lastPrependCount).toBe(2);
+
+        advance(60);
+        const reversedOffset = direction === "forward" ? 1802 : 2198;
+        const reversed = await mock.searchAfter({ ...state().params, offset: reversedOffset, length: 1000 }, null);
+        vi.mocked(mock.searchAfter).mockClear();
+        if (direction === "forward") await actions().extendBackward();
+        else await actions().extendForward();
+
+        expect(mock.searchAfter).toHaveBeenCalledTimes(1);
+        expect(vi.mocked(mock.searchAfter).mock.calls[0][1]).toEqual(initial.sortValues[duplicateIndex]);
+        expect(state().results.map((image) => image?.id)).toEqual(reversed.hits.map((image) => image.id));
+        expect(state().bufferOffset).toBe(reversedOffset);
+        expect(state().startCursor).toEqual(reversed.sortValues[0]);
+        expect(state().endCursor).toEqual(reversed.sortValues.at(-1));
+        for (const image of initial.hits.filter((image) => state().imagePositions.has(image.id))) {
+          expect(state().imagePositions.get(image.id)).toBe(before.imagePositions.get(image.id));
+        }
+        for (const image of evicted) expect(state().imagePositions.get(image.id)).toBe(before.imagePositions.get(image.id));
+      });
+    },
+  );
+});
+
 describe("authoritative alias cursors", () => {
   it.each(["forward", "backward"] as const)(
     "retains the boundary tuple after %s eviction of API-shaped images",
