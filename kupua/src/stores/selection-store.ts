@@ -326,18 +326,6 @@ export interface SelectionState {
    * for. Drift toast is S3b -- not wired here yet.
    */
   hydrate(): Promise<void>;
-  /**
-   * (S5) Select all images in a group atomically.
-   * Latent -- no DOM target wired until grouping ships.
-   * Semantics identical to add(ids) but distinct for telemetry/debuggability.
-   */
-  addGroup(ids: string[]): void;
-  /**
-   * (S5) Deselect all images in a group atomically.
-   * Latent -- no DOM target wired until grouping ships.
-   * Semantics identical to remove(ids) but distinct for telemetry/debuggability.
-   */
-  removeGroup(ids: string[]): void;
 }
 
 // ---------------------------------------------------------------------------
@@ -669,20 +657,6 @@ export const useSelectionStore = create<SelectionState>()(
         }
 
         if (ownsSelection || get().selectedIds.size > 0) requestFullReconcile();
-      },
-
-      addGroup(ids: string[]): void {
-        // Latent (S5): no DOM target yet -- wired when grouping ships.
-        // Delegates to add() for identical semantics; distinct method for
-        // telemetry / future divergence.
-        get().add(ids);
-      },
-
-      removeGroup(ids: string[]): void {
-        // Latent (S5): no DOM target yet -- wired when grouping ships.
-        // Delegates to remove() for identical semantics; distinct method for
-        // telemetry / future divergence.
-        get().remove(ids);
       },
     }),
     {

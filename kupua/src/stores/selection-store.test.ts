@@ -948,45 +948,6 @@ describe("reconcile scheduling", () => {
 });
 
 // ---------------------------------------------------------------------------
-// addGroup / removeGroup (S5 -- latent group actions)
-// ---------------------------------------------------------------------------
-
-describe("addGroup", () => {
-  it("adds all group IDs atomically (delegates to add)", () => {
-    useSelectionStore.getState().addGroup(["img-0", "img-1", "img-2"]);
-    const { selectedIds } = useSelectionStore.getState();
-    expect(selectedIds.has("img-0")).toBe(true);
-    expect(selectedIds.has("img-1")).toBe(true);
-    expect(selectedIds.has("img-2")).toBe(true);
-  });
-
-  it("bumps generationCounter once (single write, not per-id)", () => {
-    const before = useSelectionStore.getState().generationCounter;
-    useSelectionStore.getState().addGroup(["img-0", "img-1", "img-2"]);
-    // generationCounter must be >= before+1; the important thing is it changes.
-    expect(useSelectionStore.getState().generationCounter).toBeGreaterThan(before);
-  });
-
-  it("deduplicates against existing selection", () => {
-    useSelectionStore.setState({ selectedIds: new Set(["img-0"]) });
-    const before = useSelectionStore.getState().generationCounter;
-    // All IDs already selected -- no-op
-    useSelectionStore.getState().addGroup(["img-0"]);
-    expect(useSelectionStore.getState().generationCounter).toBe(before);
-  });
-
-  it("calls ensureMetadata for the added IDs", async () => {
-    const spy = vi.spyOn(mock, "getByIds");
-    useSelectionStore.getState().addGroup(["img-0", "img-1"]);
-    await vi.waitFor(() => expect(spy).toHaveBeenCalled());
-    // The call should include the IDs (order not guaranteed across chunks)
-    const called = spy.mock.calls.flatMap(([ids]) => ids);
-    expect(called).toContain("img-0");
-    expect(called).toContain("img-1");
-  });
-});
-
-// ---------------------------------------------------------------------------
 // S6 -- hydrate() toast + dedup
 // ---------------------------------------------------------------------------
 
@@ -1045,37 +1006,6 @@ describe("hydrate() — toast on missing IDs", () => {
     expect(useToastStore.getState().queue.length).toBe(1);
   });
 });
-
-describe("removeGroup", () => {
-  it("removes all group IDs atomically (delegates to remove)", () => {
-    useSelectionStore.setState({
-      selectedIds: new Set(["img-0", "img-1", "img-2"]),
-    });
-    useSelectionStore.getState().removeGroup(["img-0", "img-2"]);
-    const { selectedIds } = useSelectionStore.getState();
-    expect(selectedIds.has("img-0")).toBe(false);
-    expect(selectedIds.has("img-1")).toBe(true);
-    expect(selectedIds.has("img-2")).toBe(false);
-  });
-
-  it("is a no-op when none of the IDs are in the selection", () => {
-    useSelectionStore.setState({ selectedIds: new Set(["img-0"]) });
-    const before = useSelectionStore.getState().generationCounter;
-    useSelectionStore.getState().removeGroup(["img-99", "img-98"]);
-    expect(useSelectionStore.getState().generationCounter).toBe(before);
-  });
-
-  it("bumps generationCounter when IDs are removed", () => {
-    useSelectionStore.setState({ selectedIds: new Set(["img-0", "img-1"]) });
-    const before = useSelectionStore.getState().generationCounter;
-    useSelectionStore.getState().removeGroup(["img-0"]);
-    expect(useSelectionStore.getState().generationCounter).toBeGreaterThan(before);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Anchor fallback on deselect
-// ---------------------------------------------------------------------------
 
 describe("anchor fallback on deselect", () => {
   describe("toggle() re-elects anchor", () => {

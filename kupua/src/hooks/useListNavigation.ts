@@ -100,10 +100,10 @@ export type ListNavigationConfig = {
   resetScrollLeftOnHome?: boolean;
 
   /** Current buffer offset (for Home/End seek detection). */
-  bufferOffset?: number;
+  bufferOffset: number;
 
   /** Seek to a global offset (for Home/End when buffer is windowed). */
-  seek?: (globalOffset: number) => Promise<void>;
+  seek: (globalOffset: number) => Promise<void>;
 } & ({ columnsPerRow: number; rowHeight: number; itemOffset?: number; spatial?: undefined }
   | { spatial: SpatialNavigation; columnsPerRow?: never; rowHeight?: never });
 
@@ -260,8 +260,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
       const lastVisibleRow = Math.floor((el.scrollTop + el.clientHeight - headerHeight) / rowHeight) - 1;
       const lastVisibleIdx = Math.min(count - 1, getLayoutRow({ columns: cols, rowHeight,
         itemOffset: config.itemOffset }, lastVisibleRow).firstItemIndex);
-      const bufOff = configRef.current.bufferOffset ?? 0;
-      if (count - lastVisibleIdx <= 5 && bufOff + resultsLength < total) loadMore();
+      if (count - lastVisibleIdx <= 5 && configRef.current.bufferOffset + resultsLength < total) loadMore();
     }
   }, []);
 
@@ -321,7 +320,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
     virtualizer.scrollToIndex(flatIndexToRow(nextIdx), { align: "auto" });
 
     // Load more when approaching the end
-    if (count - nextIdx <= 5 && (configRef.current.bufferOffset ?? 0) + resultsLength < total) {
+    if (count - nextIdx <= 5 && configRef.current.bufferOffset + resultsLength < total) {
       loadMore();
     }
   }, []);
@@ -419,7 +418,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
     virtualizer.scrollToIndex(flatIndexToRow(targetIdx), { align: "auto" });
 
     // Load more when approaching the end
-    if (direction === "down" && count - targetIdx <= 5 && (configRef.current.bufferOffset ?? 0) + resultsLength < total) {
+    if (direction === "down" && count - targetIdx <= 5 && configRef.current.bufferOffset + resultsLength < total) {
       loadMore();
     }
   }, [moveFocus, recoverSpatialFocus]);
@@ -560,9 +559,9 @@ export function useListNavigation(config: ListNavigationConfig): void {
             // with fresh data; effect #6 consumes the owned zero destination
             // in the same layout frame. Same pattern as deep-to-deep
             // seeks which already have zero flash.
-            if (((c.bufferOffset && c.bufferOffset > 0) ||
+            if (c.bufferOffset > 0 ||
               !useSearchStore.getState().canReuseResidentResults() ||
-              useSearchStore.getState()._browseNavigation?.initialSearchSuperseded) && c.seek) {
+              useSearchStore.getState()._browseNavigation?.initialSearchSuperseded) {
               useSearchStore.setState({
                 _pendingFocusAfterSeek: {
                   edge: "first",
@@ -575,7 +574,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
               // post-seek effect will handle scroll position)
             } else {
               // Already at the start — just scroll to top
-              if (useSearchStore.getState()._browseNavigation || useSearchStore.getState()._pendingFocusAfterSeek) void c.seek?.(0);
+              if (useSearchStore.getState()._browseNavigation || useSearchStore.getState()._pendingFocusAfterSeek) void c.seek(0);
               const el = c.scrollRef.current;
               if (el) {
                 el.scrollTop = 0;
@@ -594,8 +593,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
           e.preventDefault();
           {
             // If the buffer is windowed and not at the end, seek to the last position
-            const bufOff = c.bufferOffset ?? 0;
-            if (c.seek && (bufOff + c.resultsLength < c.total || !useSearchStore.getState().canReuseResidentResults())) {
+            if (c.bufferOffset + c.resultsLength < c.total || !useSearchStore.getState().canReuseResidentResults()) {
               // Always signal "last" so effect #6 scrolls to the end.
               // Focus permission belongs to the initiating keyboard action.
               useSearchStore.setState({ _pendingFocusAfterSeek: { edge: "last", focusedImageId: hasFocus ? c.focusedImageId : null } });

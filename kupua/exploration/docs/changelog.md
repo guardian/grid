@@ -24,6 +24,14 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 6 November 2026 - Remove unused selection group actions and dead navigation guards
+
+Removed the latent `addGroup`/`removeGroup` selection actions, which had no caller.
+`useListNavigation` now requires `bufferOffset` and `seek`, which every view passes,
+so their fallback guards are gone. AI resort no longer writes the same focus twice,
+its gap filter now matches the buffer's `undefined` slots, and forward extension no
+longer rewrites an unchanged total.
+
 ### 6 November 2026 - Remove unread scroll-maintenance state
 
 Removed the `_bufferSelfCorrecting` store field, which no view read after placement

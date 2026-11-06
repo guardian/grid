@@ -2988,9 +2988,6 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         return {
           results: newBuffer,
           bufferOffset: newOffset,
-          // Total is stable within a search session (frozen params) — always
-          // use the store's known total (audit F-01).
-          total: state.total,
           endCursor: newEndCursor,
           startCursor: newStartCursor,
           // Use !== undefined so explicit null (PIT-expiry fallback, audit #21)
@@ -4531,7 +4528,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
       return;
     }
     const { results } = get();
-    const populated = results.filter((image): image is Image => image !== null);
+    const populated = results.filter((image): image is Image => image !== undefined);
     const sorted = sortAiResults(populated, orderBy);
     const preserveFound = preserveImageId
       ? sorted.some((image) => image.id === preserveImageId)
@@ -4548,9 +4545,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
       ...(preserveFound
         ? {
             sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
-            ...(phantomOnly
-              ? { _phantomFocusImageId: preserveImageId }
-              : { focusedImageId: preserveImageId }),
+            ...(phantomOnly && { _phantomFocusImageId: preserveImageId }),
           }
         : { _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: true } }),
     });
