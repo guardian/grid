@@ -34,10 +34,10 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
   private def getUploader(imageId: String, user: Principal): Future[Option[String]] =
     gridClient.getUploadedBy(imageId, auth.getOnBehalfOfPrincipal(user))
 
-  private def authorisedForMedia[A](mediaId: String, request: Authentication.Request[A])
+  private def authorisedForEditMetadataOrIsUploader[A](mediaId: String, request: Authentication.Request[A])
                                    (block: => Future[Result]): Future[Result] =
     authorisation.actionFilterForUploaderOr(mediaId, EditMetadata, getUploader)
-      .invokeBlock(request, _ => block)
+      .invokeBlock(request, (_: Authentication.Request[A]) => block)
 
   private def validateMediaIds(mediaLeases: List[MediaLease], mediaId: String)
                               (block: => Future[Result]): Future[Result] =
@@ -105,7 +105,7 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
   def postLease = auth.async(parse.json) { implicit request =>
     request.body.validate[MediaLease] match {
       case JsSuccess(mediaLease, _) =>
-        authorisedForMedia(mediaLease.mediaId, request) {
+        authorisedForEditMetadataOrIsUploader(mediaLease.mediaId, request) {
           addLease(mediaLease, Some(Authentication.getIdentity(request.user))).map(_ => Accepted)
         }
 
@@ -118,7 +118,7 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
     request.body.validate[List[MediaLease]] match {
       case JsSuccess(mediaLeases, _) =>
         validateMediaIds(mediaLeases, id) {
-          authorisedForMedia(id, request) {
+          authorisedForEditMetadataOrIsUploader(id, request) {
             addLeases(mediaLeases, Some(Authentication.getIdentity(request.user))).map(_ => Accepted)
           }
         }
@@ -130,7 +130,7 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
   def deleteLease(id: String) = auth.async { implicit request =>
     store.get(id).flatMap {
       case Some(lease) =>
-        authorisedForMedia(lease.mediaId, request) {
+        authorisedForEditMetadataOrIsUploader(lease.mediaId, request) {
           store.delete(id).map { _ =>
             notifications.sendRemoveLease(lease.mediaId, id)
             Accepted
@@ -154,7 +154,7 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
 
 
   def deleteLeasesForMedia(id: String) = auth.async { implicit request =>
-    authorisedForMedia(id, request) {
+    authorisedForEditMetadataOrIsUploader(id, request) {
       clearLeases(id).map(_ => Accepted)
     }
   }
@@ -167,7 +167,7 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
       mediaLeases => {
         if (validateLeases(mediaLeases)) {
           validateMediaIds(mediaLeases, id) {
-            authorisedForMedia(id, request) {
+            authorisedForEditMetadataOrIsUploader(id, request) {
               replaceLeases(mediaLeases, id, Some(Authentication.getIdentity(request.user))).map(_ => Accepted)
             }
           }
