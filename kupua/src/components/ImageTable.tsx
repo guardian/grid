@@ -32,6 +32,7 @@ import type { Image } from "@/types/image";
 import { upsertFieldTerm } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { cancelSearchDebounce, pushNavigate, enterFullscreenPreview, getCqlInputGeneration } from "@/lib/orchestration/search";
 import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
+import { beginTraceInteraction } from "@/lib/perceived-trace";
 import { thumbnailsEnabled } from "@/lib/image-urls";
 import { storeImageOffset, buildSearchKey, extractSortValues, getRetainedSortValues } from "@/lib/image-offset-cache";
 import { interpretClick, type Modifier } from "@/lib/interpretClick";
@@ -456,6 +457,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   // Also used by single-click in phantom mode.
   const handleRowDoubleClick = useCallback(
     (imageId: string) => {
+      beginTraceInteraction("open-detail", { imageId });
       setFocusedImageId(imageId);
       const idx = findImageIndex(imageId);
       if (idx >= 0) {

@@ -12,6 +12,7 @@
  */
 
 import { test, expect, waitForFixtureSetup, type KupuaHelpers } from "../shared/helpers";
+import type { Page } from "@playwright/test";
 import { Buffer as ThumbnailBuffer } from "node:buffer";
 import { getDensityChangeButton } from "../shared/density-selection";
 import { GRID_MIN_CELL_WIDTH } from "@/constants/layout";
@@ -306,6 +307,12 @@ test.describe("API-shaped cursors", () => {
 // ===========================================================================
 
 test.describe("Image detail — opening", () => {
+  const openDetailTraceIds = (page: Page) => page.evaluate(() =>
+    ((window as unknown as { __perceivedTrace__?: { action: string; phase: string; payload?: { imageId?: string } }[] })
+      .__perceivedTrace__ ?? [])
+      .filter((entry) => entry.action === "open-detail" && entry.phase === "t_0")
+      .map((entry) => entry.payload?.imageId));
+
   test("double-click on grid cell opens image detail with correct image", async ({ kupua }) => {
     await kupua.startSearch();
 
@@ -325,6 +332,7 @@ test.describe("Image detail — opening", () => {
     expect(imageId).toBe(targetImage);
     // The rendered image must also match (not just the URL param)
     expect(await kupua.getRenderedDetailImageId()).toBe(targetImage);
+    expect(await openDetailTraceIds(kupua.page)).toContain(targetImage);
 
     // The "Back to search" button should be visible
     const backButton = kupua.page.locator("button", { hasText: "Back to search" });
@@ -351,6 +359,7 @@ test.describe("Image detail — opening", () => {
     expect(imageId).toBe(targetImage);
     // The rendered image must also match (not just the URL param)
     expect(await kupua.getRenderedDetailImageId()).toBe(targetImage);
+    expect(await openDetailTraceIds(kupua.page)).toContain(targetImage);
 
     // The "Back to search" button should be visible
     const backButton = kupua.page.locator("button", { hasText: "Back to search" });

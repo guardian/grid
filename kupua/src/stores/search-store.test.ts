@@ -2112,6 +2112,29 @@ describe("scroll mode — buffer fill", () => {
     await waitPastCooldown();
   });
 
+  it("tops up the first-page fallback after a failed sort-around-focus lookup", async () => {
+    const smallMock = setupSmallDataset(700);
+    await actions().search();
+    const searchAfter = smallMock.searchAfter.bind(smallMock);
+    vi.spyOn(smallMock, "searchAfter").mockImplementation(async (...args) => {
+      if (args[0].ids === "img-500") throw new Error("lookup unavailable");
+      return searchAfter(...args);
+    });
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    actions().setFocusedImageId("img-500");
+    await actions().search("img-500");
+    await waitFor(
+      () => state().results.length === state().total,
+      3000,
+      "fallback fills to full total",
+    );
+
+    expect(state().bufferOffset).toBe(0);
+    warning.mockRestore();
+    await waitPastCooldown();
+  });
+
   it("corrects bufferOffset before topping up when countBefore is slow (review M2 regression)", async () => {
     setupSmallDataset(700);
     await actions().search();

@@ -24,6 +24,14 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 6 November 2026 - Fix backward PIT refresh, failed focus fallback and Table detail trace
+
+Backward extensions now adopt a refreshed point-in-time id, as forward extensions
+already did, so a later page does not reuse an expired id; a cleared id stays cleared.
+A failed sort-around-focus lookup now publishes the same first-page fallback as the
+timeout and not-found paths, including the small-result top-up. Opening detail from
+the Table now begins the `open-detail` trace interaction, as the Grid does.
+
 ### 6 November 2026 - Share duplicated click and fallback publication code
 
 ImageTable's row and tick handlers now share one click-context builder, matching

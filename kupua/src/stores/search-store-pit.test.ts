@@ -182,6 +182,24 @@ describe("PIT expiry recovery", () => {
     expect(state().pitId).toBeNull();
   });
 
+  it.each(["accepted", "resident"] as const)("adopts a refreshed PIT from a backward extension (%s page)", async (page) => {
+    await actions().search();
+    await actions().seek(5000);
+    await waitPastCooldown();
+    expect(state().pitId).toBe("mock-pit-id");
+    const searchAfter = mock.searchAfter.bind(mock);
+    vi.spyOn(mock, "searchAfter").mockImplementation(async (...args) => {
+      const result = await searchAfter(...args);
+      if (page === "accepted") return { ...result, pitId: "refreshed-pit" };
+      const resident = state().results.slice(0, result.hits.length) as typeof result.hits;
+      return { ...result, hits: resident, sortValues: result.sortValues.slice(0, resident.length), pitId: "refreshed-pit" };
+    });
+
+    await actions().extendBackward();
+
+    expect(state().pitId).toBe("refreshed-pit");
+  });
+
   it("does not resurrect a PIT from a concurrent forward extension after backward recovery", async () => {
     await actions().search();
     await actions().seek(5000);

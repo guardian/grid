@@ -2088,21 +2088,7 @@ async function _findAndFocusImage(
     // Any failure → degrade gracefully
     console.warn("[sort-around-focus] Failed to find image:", e);
     if (fallbackFirstPage) {
-      retainSortValues(buildSearchKey(params), fallbackFirstPage.hits, fallbackFirstPage.sortValues, true);
-      if (fallbackFirstPage.enrichment) useEnrichmentStore.getState().setEnrichment(fallbackFirstPage.enrichment);
-      set({
-        results: fallbackFirstPage.hits,
-        bufferOffset: 0,
-        total: fallbackFirstPage.total,
-        loading: false,
-        imagePositions: buildPositions(fallbackFirstPage.hits, 0),
-        startCursor: fallbackFirstPage.startCursor,
-        endCursor: fallbackFirstPage.endCursor,
-        pitId: get().pitId,
-        sortAroundFocusStatus: null,
-        ...(presentationCurrent() && { focusedImageId: null, _phantomFocusImageId: null,
-          _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false } }),
-      });
+      showFallbackFirstPage(fallbackFirstPage);
     } else {
       set({ sortAroundFocusStatus: null, loading: false });
     }
@@ -3098,6 +3084,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         );
         set((state) => ({
           startCursor: result.sortValues[0] ?? state.startCursor,
+          pitId: state.pitId === null ? null : result.pitId !== undefined ? result.pitId : state.pitId,
           _extendBackwardInFlight: false,
           ...(!sameBoundaryCursor(startCursor, result.sortValues[0] ?? startCursor)
             ? { _windowRecovery: windowRecovery(signal, true) } : {}),
@@ -3152,6 +3139,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
           bufferOffset: newOffset,
           startCursor: newStartCursor,
           endCursor: newEndCursor,
+          pitId: state.pitId === null ? null : result.pitId !== undefined ? result.pitId : state.pitId,
           imagePositions: newPositions,
           _extendBackwardInFlight: false,
           _lastPrependCount: acceptedHits.length,
