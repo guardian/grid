@@ -1,7 +1,8 @@
 # Step 4: Fresh Edits Without Losing Your Place
 
 **Implementation plan, 5 November 2026. Section 1 choices accepted; Unit A
-(sessions A1-A3, section 7) is authorized. The Unit B spike and Units B-D are not.**
+(sessions A1-A3, section 7) is complete at the 6 November A3 checkpoint.
+The Unit B spike and Units B-D are not authorized.**
 This expands [editing Step 4](gradually-growing-teeth.kupua-edits-steps.md#step-4-resolve-kup-043-with-simulated-writes-before-enabling-real-ones)
 and [KUP-043](bug-backlog.md#kup-043), after the completed disconnected desktop editor.
 It rests on independent read-only source reviews, not executed regression tests,
@@ -922,6 +923,11 @@ remove only the losing prototype after that decision.**
 
 ### A3: Readback, Freshness and Publication (Authorized After A2's Choice)
 
+**Implementation status, 6 November:** A3 is complete. Full units, application
+build, browser typecheck, unretried local E2E and the embedded demonstration pass.
+The checkpoint below records the retained contract, reviews and the earlier
+default-worker unit-timeout caveat. No later unit is authorized.
+
 Implement one simulated label addition with bounded
 readback and an owned per-ID publication through the chosen route. Use an existing API-composed fixture with
 one resident and one off-screen/standalone witness across representative cases.
@@ -949,6 +955,141 @@ comma-separated preparation.
 no-regression check on cold detail; full gates pass. A short agent-driven embedded
 browser demo of one simulated label appearing in Grid, Table and Justified lets
 the operator see it; the full section 8.5 rehearsal belongs to Unit D.
+
+#### A3 Checkpoint
+
+The selected buffer route now publishes a verified group with one resident copy,
+one grouped enrichment update and one selected-metadata action. Geometry identity,
+unchanged references, AI relevance, selection membership and placement signals are
+preserved. No per-cell route, body cache, permanent page scanner or rank-repair work
+was introduced. Ordinary accepted touched reads reconcile selected metadata through
+the same existing owner; duplicate-only pages can withdraw touched authority without
+republishing resident bodies or changing raw scan progress.
+
+The injected observer owns one single-label group of at most 200 IDs, up to three
+mget attempts at least one second apart, at most one current standalone full read
+and a ten-second deadline starting before fake dispatch. Verified peers publish even
+with a held command. Late outcomes update receipts without restarting observation;
+submitted/unknown same-ID work continues to block conflicting simulation. Exact
+returned labels establish observation, never acknowledgement or causation. Required
+read failures, deadline, unavailable and superseded evidence remain distinct from
+transport outcomes. Multi-label simulation refuses the entire submit and retains
+its draft; normal disconnected multi-label preparation remains unchanged.
+
+Read issuance and metadata-projection evidence are attached to returned objects;
+the document-lifetime registry retains only bounded facts for 1,000 distinct admitted
+IDs. Pre-operation/below-floor bodies and stale hydration omissions cannot undo
+accepted state. Contradictory equal/missing clocks remain unresolved; strictly newer
+metadata can change the label again. Current denial is accepted even when no body
+can be retained. Resource evidence is checked at prepare/confirm, so a captured grant
+cannot bypass withdrawal merely because its component did not rerender. Staged old
+presentation is marked stale for editing, including explicitly supplied contexts.
+Standalone delivery uses the current effect's inert identity token; one guarded full
+follow-up preserves original/file metadata, while departure releases surviving owners.
+
+Independent correctness reviews drove regressions and repairs for stale omission,
+duplicate-only authority, no-body denial, newer selected bodies, AI ordinals,
+standalone departure/re-entry and captured-context admission. The final targeted
+correctness review reports no blocker. The independent performance/complexity review
+also reports no blocker based on source/work counts, not measured timing. Same-turn
+command outcomes are coalesced: a 200-target immediate-outcome control emits four
+receipt notifications instead of 403. Existing enrichment, reconciliation and receipt
+lifetimes are not claimed to be bounded by the observer's limits.
+
+Completed evidence on the A2 baseline plus the uncommitted A3 implementation:
+
+- T4: captured old API payload actually delivered after publication; later-query,
+  evicted-body, selected hydration body/omission and standalone same-ID controls.
+- T5/T15: acknowledged/unknown/rejected outcomes, held peer and independent deadline,
+  actual late read release, exact labels, admission/resource limits and zero-dispatch
+  multi-label refusal. Disconnected controls remain unchanged.
+- T11: full original/file metadata, bounded follow-up and departed/re-entered ownership.
+- Full units: 3,597 pass with `--maxWorkers=2`, without changed assertions/timeouts.
+  The earlier default-worker run had 3,594 passes and one API-bootstrap timeout;
+  the unchanged bootstrap suite passes alone. Cause remains unproved, and the later
+  passes do not explain it. Evidence: ignored `node_modules/.cache/a3-validation/full-units-first.txt`.
+- Final application build and browser typecheck pass. All 536 local E2E tests pass
+  with `--retries=0`, including normal, forced-seek, Justified and compiled-hosted
+  fixtures. Existing WASM-path and bundle-size build warnings remain. The full browser
+  log is retained under ignored `node_modules/.cache/a3-validation/full-e2e-final.txt`.
+- API-composed browser journey: one resident plus one off-screen selected target,
+  one buffer replacement/revision, retained unrelated references, at most one-pixel
+  visible geometry tolerance, released stale page and Grid/Table/Justified consumers.
+  A negative control proves undeclared ES traffic is blocked and recorded.
+- Embedded demonstration: foreground, local API fixture, 120 resident results and
+  local JPEG media; one two-target simulation appeared in all three densities.
+  Two observation mget reads, one released stale page, one buffer copy/revision and
+  zero observed target-box displacement. A real Justified wheel scroll progressed.
+  No unexpected transport occurred. Held work and probes were released, routes and
+  the synthetic document discarded, and the owned server stopped. This agent-paced
+  demonstration is not a latency, compositor-paint or performance qualification.
+
+The shared test-only launcher is `npm --prefix kupua run demo:readback`, serving
+`http://127.0.0.1:3067/__readback` on a strict loopback port. It uses production
+components/adapters and the same fixture controls as the automated journey, not
+source transforms or a live-backed app. It does not model arbitrary filter exit.
+
+Normal editing remains disconnected. During implementation, the agent performed
+no live access/write, backend change, dependency addition, outside-Kupua edit,
+Git mutation or performance campaign. The subsequent operator campaign is assessed below.
+KUP-043 is not closed; coordinate reacquisition, unavailable slots and later units
+remain outside this checkpoint.
+
+##### Operator Performance Checkpoint (6 November 2026)
+
+The operator's `growing teeth after A3` campaign
+(`a247639a-987a-4e8a-94ed-a1a51934dacb`, completed 19:29 UTC) is complete:
+four repetitions and 78/78 records across rendering, short/long responsiveness and
+density. The closest matching baseline is `after amazing bug`
+(`b6460be5-db01-467b-bfdc-cd57e6791c06`, completed 5 November, 02:15 UTC).
+Both use local media-api, canonical media and matching recorded browser, viewport,
+screen, DPR, cutoff and execution settings. The 31 October `compact shell + zoom ladders`
+and 2 November `fancu transitions` campaigns supply older matching context. The
+3 November direct-ES/proxy campaign is not the matching baseline.
+
+The existing dashboard adapter verifies complete membership, agreeing member source
+fingerprints and valid current records. Sixteen legacy rendering records have no
+recorded scenario revision and are excluded from formal record-pair comparisons;
+62 primary record pairs qualify. The baseline and current source markers are dirty
+`13e000e80` and `d04df4cf4`, respectively. Fingerprints do not cover untracked file
+contents. The operator confirms the interval includes all editing work; this is not
+an isolated A3 comparison. Content and browser/proxy/CDN warmth remain uncontrolled.
+
+Representative recorded medians, not population-tail estimates:
+
+| Observation | 5 November -> 6 November | Interpretation |
+| --- | --- | --- |
+| Grid forward/backward reference-load frame-p95 | 16.75/16.75 -> 16.70/16.70 ms | Reference progress remains about 101-102 results/s; no loss of useful progress hidden by these frame values |
+| Table backward reference-load frame-p95 | 25.1 -> 29.9 ms | A slower observation at essentially unchanged 99.2 results/s; close to 31 October's 29.5 ms, not a demonstrated new causal regression |
+| Justified forward reference delivered rate | 92.5 -> 77.8 results/s | Adverse delivered-demand result, not a throughput improvement; lower pending work must not be called a win |
+| Justified initial forward calibration | 3033 -> 2609 px/s; 31.5 -> 37.5 initially visible images | Same container dimensions, different initial packing/calibration. The normalized driver estimates from that packing; these are not fixed-input/content-matched arms |
+| P14b fast-forward final image arrival | 3557 -> 6185 ms, all 4/4 complete | Slower than the immediate baseline, near 31 October's 6218 ms and above 2 November's 4811 ms. Current saved image-arrival/network clock is 6178 ms, frame-p95 10 ms and metadata lookup count zero |
+| P14d rapid-forward final image arrival | 6860 -> 8152 ms, all 4/4 complete | Within older matching 6753-10695 ms observations; still a visible wait, not excused by smooth frames |
+| P13c returned-media detail readiness | 2979 -> 1897 ms, all 4/4 complete | Improved in this comparison, but older matching values were 1232-1562 ms; not an isolated editing speedup |
+| Home / deep-anchor Back settlement | 1043 / 1338 -> 1261 / 1588 ms | Slower; reported fetch and store-ready clocks also rise. These aggregates do not isolate frontend overhead or establish backend causation |
+| Focused sort / click seek settlement | 1234 / 1255 -> 1340 / 1118 ms | Mixed navigation changes rather than a uniform slowdown |
+| Constrained stopped-media recovery, Grid / Justified / Table | 1839 / 2614 / 1611 -> 1550 / 1914 / 1372 ms | All 4/4 complete in both campaigns. Justified also did less moving work, so the recovery gain is not equal-work proof |
+
+All nine current density motion groups retain complete refill coverage and 4/4
+stopped-media recovery. Stress still exposes substantial pending media, backward
+Justified boundary blocking and nonzero sampled displacement already present in
+matching history. Those are not newly resolved by this campaign. In particular,
+lower Justified delivered demand prevents interpreting its lower waiting/read counts
+as a free improvement, even though capture and workload-contract checks pass.
+
+**Disposition:** retain this as the post-editing ordinary-browsing checkpoint, with
+Justified calibration/delivered demand, slower forward image arrival and navigation
+latency as explicit watches. The evidence does not establish a broad browsing collapse
+or justify a speculative runtime fix, but it is not a blanket no-regression claim.
+The campaign does not dispatch a simulated edit or exercise active touched-ID floors:
+publication-under-scroll performance remains distinct from the local correctness,
+work-count and embedded demonstration evidence above. No additional campaign was run
+by the agent and no simplification target is selected from these aggregates alone.
+
+Canonical evidence is in the [campaign manifest](../../e2e-perf/results/campaign-log.json),
+[rendering history](../../e2e-perf/results/audit-log.json),
+[responsiveness history](../../e2e-perf/results/perceived-log.json) and
+[density history](../../e2e-perf/results/density-log.json), under the two campaign IDs above.
 
 ### Feasibility Spike Before Unit B (Not Authorized)
 
@@ -1284,12 +1425,12 @@ prerequisite for step 4, and none may be folded silently into a unit.
 | --- | --- | --- |
 | Search store size | The large search store's `extendForward` and `extendBackward` paths remain near-mirror implementations | One shared page-publication helper owning dedup, eviction and cursor recomputation for both directions; separate from the selected metadata publisher |
 | Cell data sources | Grid cells read some fields from raw `image`, others from `useEnrichedImage`; Justified skips enrichment | Broad per-cell unification is not justified by A2: the buffer route reaches current consumers without it. Revisit only for a demonstrated remaining body/authority inconsistency |
-| Image copies | Buffer, selection LRU, enrichment map, attached enrichment and standalone detail have different owners/lifetimes | A2 supplies a small [publication entry point](../../src/lib/image-publication.ts) for resident bodies, retained enrichment and selection metadata. Full-detail projection and read ownership remain A3, not a reason to add a general entity cache |
+| Image copies | Buffer, selection LRU, enrichment map, attached enrichment and standalone detail retain different owners/lifetimes | A3's [grouped publisher](../../src/lib/image-publication.ts) includes current full-detail delivery and touched-read acceptance. No general entity cache or broader owner unification is selected |
 | Enrichment upsert | Copies an accumulated map not bounded by the 1,000-image buffer | Bound or prune by residency, with a perf check |
 | Timer-gated scroll | Seek and post-extend cooldowns gate spurious extends by elapsed time | Event-based readiness, only if campaigns show the timers cost smoothness |
 | Historical comments | Code comments cite past agents and audits (for example "APPROACH #4 (Agent 10)") | Replace with one-line statements of the current invariant when the code is next touched |
-| Grouped publication | The selected [publisher](../../src/lib/image-publication.ts) handles one image and copies resident/enrichment state per call; [selected metadata](../../src/stores/selection-store.ts#L591) already accepts an array | When A3 introduces a verified group, publish it with one resident copy, one enrichment update and one selected-metadata action. Do not call the single-image path once per target; no generic event bus or new cache is needed |
-| Accepted reads and selected metadata | Ordinary result replacement and selected-cache publication remain separate; the [regression fixture](../../e2e/shared/label-editor-fixture.tsx) explicitly performs both for its newer page | Complete acceptance coherently at the existing response owners under A3's freshness rules. Do not restore the rejected permanent page-scanning subscriber or use hydration as post-write refresh |
+| Grouped publication | A3 publishes each verified group with one resident copy, one enrichment update and one selected-metadata action; the single-image helper delegates to it | No further abstraction is selected. Do not reintroduce per-target copies, a generic event bus or another body cache |
+| Accepted reads and selected metadata | A3 integrates accepted touched-ID reads with selected metadata at existing response owners; ordinary untouched late-read behavior remains | Do not broaden this into universal freshness, a permanent page-scanning subscriber or hydration as post-write refresh |
 
 **Post-A2 assessment, 6 November:** no additional Section-10 refactor is folded
 into A2. The small shared publisher is already part of the selected implementation;

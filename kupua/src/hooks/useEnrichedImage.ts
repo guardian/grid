@@ -16,6 +16,7 @@ import { useRef } from "react";
 import { attachedEnrichment, useEnrichmentStore, type EnrichmentFields } from "@/stores/enrichment-store";
 import { deriveImage, type EnrichedImage } from "@/lib/derive-enriched-image";
 import type { Image } from "@/types/image";
+import { isImageMetadataCurrent, resolveImageOverlay } from "@/lib/image-read-freshness";
 
 /**
  * Returns an `EnrichedImage` merging the raw ES `Image` with the API overlay.
@@ -26,21 +27,24 @@ import type { Image } from "@/types/image";
  */
 export function useEnrichedImage(image: Image | undefined, ownOverlay?: EnrichmentFields): EnrichedImage | undefined {
   const storedOverlay = useEnrichmentStore((s) => image ? s.data.get(image.id) : undefined);
-  const overlay = ownOverlay ?? storedOverlay ?? (image && attachedEnrichment(image));
+  const overlay = image ? resolveImageOverlay(image, ownOverlay, storedOverlay, attachedEnrichment(image)) : undefined;
+  const metadataStale = image ? !isImageMetadataCurrent(image, ownOverlay, storedOverlay, attachedEnrichment(image)) : false;
 
   // Memoise: only recompute when image or overlay reference changes.
-  const prevRef = useRef<{ image: typeof image; overlay: typeof overlay; result: EnrichedImage | undefined }>({
+  const prevRef = useRef<{ image: typeof image; overlay: typeof overlay; metadataStale: boolean; result: EnrichedImage | undefined }>({
     image: undefined,
     overlay: undefined,
     result: undefined,
+    metadataStale: false,
   });
 
-  if (image === prevRef.current.image && overlay === prevRef.current.overlay) {
+  if (image === prevRef.current.image && overlay === prevRef.current.overlay && metadataStale === prevRef.current.metadataStale) {
     return prevRef.current.result;
   }
 
   const result = image ? deriveImage(image, overlay) : undefined;
-  prevRef.current = { image, overlay, result };
+  if (result && metadataStale) result.metadataStale = true;
+  prevRef.current = { image, overlay, metadataStale, result };
   return result;
 }
 

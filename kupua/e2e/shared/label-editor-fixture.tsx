@@ -9,8 +9,9 @@ import { createLabelEditorStore } from "../../src/stores/label-editor-store";
 import type { LabelEditContext } from "../../src/lib/label-operation";
 import type { GridCommandResult } from "../../src/lib/grid-commands";
 import { MockDataSource } from "../../src/dal/mock-data-source";
-import { attachEnrichment, useEnrichmentStore } from "../../src/stores/enrichment-store";
-import { publishImage } from "../../src/lib/image-publication";
+import { attachedEnrichment, attachEnrichment, useEnrichmentStore } from "../../src/stores/enrichment-store";
+import { createLabelReadback, publishImage } from "../../src/lib/image-publication";
+import { resolveImageOverlay } from "../../src/lib/image-read-freshness";
 import type { Image } from "../../src/types/image";
 import { scrollFocusedIntoView } from "../../src/lib/orchestration/search";
 import "../../src/index.css";
@@ -20,6 +21,8 @@ let store = createLabelEditorStore();
 let context: LabelEditContext;
 let release: ((result: GridCommandResult) => void) | undefined;
 let calls = 0;
+let oldSearch: Promise<void> | undefined;
+let readbackOutcome: "acknowledged" | "unknown" = "acknowledged";
 const pageBodies = new Map<string, Image>();
 const media = [
   { file: "test.jpg", dimensions: { width: 700, height: 576 } },
@@ -49,7 +52,68 @@ function render(show = true) {
   </LabelEditorContext>);
 }
 
+async function readbackControl(body: Record<string, unknown>) {
+  const response = await fetch("/__readback-control", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!response.ok) throw new Error("Synthetic control failed");
+}
+
+function renderReadbackControls() {
+  root.render(<LabelEditorContext value={store}>
+    <style>{`body { display: flex; flex-direction: column; height: 100dvh; margin: 0; }
+      #root { flex: 1; min-height: 0; } #root > .h-dvh { height: 100%; }
+      #a3-fixture-controls { order: -1; height: 32px; flex: none; }`}</style>
+    <section aria-label="A3 synthetic readback" className="flex h-full items-center gap-3 overflow-x-auto whitespace-nowrap bg-black px-3 text-xs text-white [&>button]:shrink-0">
+      <span>A3 synthetic readback</span>
+      <button onClick={() => { void labelEditorFixture.holdReadbackSearch(); }}>Hold old search</button>
+      <button onClick={() => labelEditorFixture.simulateReadback()}>Simulate label</button>
+      <button onClick={() => { void labelEditorFixture.releaseReadbackSearch(); }}>Release old search</button>
+      <span role="status" className="min-w-0 truncate">{store.getState().receipts.at(-1)?.items.map(item => `${item.state}: ${item.observation ?? "pending"}`).join(", ") ?? "Ready"}</span>
+    </section>
+  </LabelEditorContext>);
+}
+
 export const labelEditorFixture = {
+  async prepareReadback() {
+    const density = new URLSearchParams(location.search).get("density");
+    if (density === "grid" || density === "table" || density === "justified") useUiPrefsStore.getState().setDensity(density);
+    useUiPrefsStore.setState({ blurGraphicImages: false, focusMode: "explicit" });
+    history.replaceState(null, "", "/search?nonFree=true");
+    useSelectionStore.getState().clear();
+    store = createLabelEditorStore(async command => {
+      await readbackControl({ action: "project", imageId: command.imageId, label: command.labels[0] });
+      return { outcome: readbackOutcome };
+    }, createLabelReadback(useSearchStore.getState().dataSource));
+    const container = document.createElement("div");
+    container.id = "a3-fixture-controls";
+    document.body.append(container);
+    root = createRoot(container);
+    store.subscribe(renderReadbackControls);
+    renderReadbackControls();
+  },
+  async holdReadbackSearch() {
+    await readbackControl({ action: "hold" });
+    oldSearch = useSearchStore.getState().search();
+  },
+  async releaseReadbackSearch() {
+    await readbackControl({ action: "release" });
+    await oldSearch;
+    oldSearch = undefined;
+  },
+  simulateReadback(targetIds?: string[], outcome: "acknowledged" | "unknown" = "acknowledged") {
+    readbackOutcome = outcome;
+    const state = useSearchStore.getState();
+    const selected = useSelectionStore.getState();
+    const ids = targetIds ?? (selected.selectedIds.size ? [...selected.selectedIds] : state.results.filter(image => image !== undefined).slice(0, 1).map(image => image.id));
+    return store.getState().prepare("add", "A3 observed label", { targetIds: ids, targets: new Map(ids.map(id => {
+      const image = state.results.find(image => image?.id === id) ?? selected.metadataCache.get(id);
+      return [id, { resource: image ? resolveImageOverlay(image, useEnrichmentStore.getState().data.get(id), attachedEnrichment(image))?.resource : undefined }];
+    })) });
+  },
+  readbackSnapshot() {
+    return { receipts: store.getState().receipts,
+      selected: [...useSelectionStore.getState().selectedIds].map(id => ({ id, labels: useSelectionStore.getState().metadataCache.get(id)?.userMetadata?.labels })) };
+  },
+  async disposeReadback() { store.getState().dispose(); await this.releaseReadbackSearch(); },
   async preparePublication() {
     const params = new URLSearchParams(location.search);
     const density = params.get("density");

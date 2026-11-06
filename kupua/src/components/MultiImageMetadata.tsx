@@ -35,6 +35,7 @@ import { isLeaseActive } from "@/lib/syndication/calculate-syndication-status";
 import { deriveImage } from "@/lib/derive-enriched-image";
 import { useCategoryLabel } from "@/lib/category-labels";
 import { attachedEnrichment, useEnrichmentStore } from "@/stores/enrichment-store";
+import { resolveImageOverlay } from "@/lib/image-read-freshness";
 import type { Cost } from "@/dal/grid-api/types";
 
 
@@ -348,7 +349,7 @@ function CostSummarySection({ images }: Pick<MultiImageMetadataProps, "images">)
   const leasedCounts = new Map<Cost | "no-rights", number>();
 
   for (const img of images) {
-    const enriched = deriveImage(img, enrichmentData.get(img.id) ?? attachedEnrichment(img));
+    const enriched = deriveImage(img, resolveImageOverlay(img, enrichmentData.get(img.id), attachedEnrichment(img)));
     const bucket: Cost | "no-rights" = enriched.noRights
       ? "no-rights"
       : enriched.cost;

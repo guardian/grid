@@ -16,12 +16,14 @@ interface LabelEditorState {
   activityRevision: number;
   activeReceipt: number;
   repeated: boolean;
+  refusal: "multiple-labels" | LabelReceipt["blocked"] | undefined;
   setDraft: (targetIds: readonly string[], value: string) => void;
   prepare: (action: LabelIntent["action"], label: string, context: LabelEditContext) => boolean;
-  observeSimulated: (index: number, evidence: { imageId: string; label: string; present: boolean }) => boolean;
+  prepareLabels: (labels: readonly string[], context: LabelEditContext) => boolean;
+  dispose: () => void;
 }
 
-export function createLabelEditorStore(simulate?: Parameters<typeof createLabelOperation>[0]) {
+export function createLabelEditorStore(simulate?: Parameters<typeof createLabelOperation>[0], observation?: Parameters<typeof createLabelOperation>[1]) {
   const operations = new Map<string, ReturnType<typeof createLabelOperation>>();
   const ordered: ReturnType<typeof createLabelOperation>[] = [];
   return createStore<LabelEditorState>((set, get) => ({
@@ -30,12 +32,20 @@ export function createLabelEditorStore(simulate?: Parameters<typeof createLabelO
     activityRevision: 0,
     activeReceipt: -1,
     repeated: false,
+    refusal: undefined,
     setDraft(targetIds, value) {
       const key = labelTargetKey(targetIds);
       const drafts = new Map(get().drafts);
       if (value) drafts.set(key, { targetIds: Object.freeze([...targetIds]), value });
       else drafts.delete(key);
-      set({ drafts });
+      set({ drafts, refusal: undefined });
+    },
+    prepareLabels(labels, context) {
+      if (simulate && labels.length !== 1) {
+        set({ refusal: "multiple-labels" });
+        return false;
+      }
+      return labels.length > 0 && labels.every(label => get().prepare("add", label, context));
     },
     prepare(action, label, context) {
       const counts = labelTargetCounts(context);
@@ -45,9 +55,9 @@ export function createLabelEditorStore(simulate?: Parameters<typeof createLabelO
       const existing = operations.get(key);
       if (existing) {
         set({ activeReceipt: ordered.indexOf(existing), activityRevision: get().activityRevision + 1, repeated: true });
-        return true;
+        return !existing.getSnapshot()?.blocked;
       }
-      const operation = createLabelOperation(simulate);
+      const operation = createLabelOperation(simulate, observation);
       const index = ordered.length;
       operations.set(key, operation);
       ordered.push(operation);
@@ -60,10 +70,12 @@ export function createLabelEditorStore(simulate?: Parameters<typeof createLabelO
         set({ receipts });
       });
       void operation.confirm({ action, label, targetIds: context.targetIds }, context.targets);
-      return Boolean(operation.getSnapshot());
+      const receipt = operation.getSnapshot();
+      set({ refusal: receipt?.blocked });
+      return Boolean(receipt && !receipt.blocked);
     },
-    observeSimulated(index, evidence) {
-      return ordered[index]?.observeSimulated(evidence) ?? false;
+    dispose() {
+      for (const operation of ordered) operation.cancelObservation();
     },
   }));
 }

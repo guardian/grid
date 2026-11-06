@@ -72,6 +72,10 @@ import { useUiPrefsStore, getEffectiveFocusMode } from "@/stores/ui-prefs-store"
 import { consumeTraceInteraction, traceInteraction } from "@/lib/perceived-trace";
 import type { Image } from "@/types/image";
 import type { EnrichmentFields } from "@/stores/enrichment-store";
+import { acceptEnrichedImage, attachedEnrichment, attachEnrichment } from "@/stores/enrichment-store";
+import { captureImageRead, ensureImageRead, hasImageFence, protectsImageOmission, withholdImageAuthority } from "@/lib/image-read-freshness";
+import { ownStandalonePublication } from "@/lib/image-publication";
+import { useSelectionStore } from "@/stores/selection-store";
 
 const CropEditor = lazy(() => import("@/components/crop/CropEditor").then((m) => ({ default: m.CropEditor })));
 
@@ -256,10 +260,12 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     image: Image | null;
     enrichment?: EnrichmentFields;
     failed: boolean;
+    unresolved?: boolean;
   } | null>(null);
   const standaloneImage = standalone?.imageId === imageId ? standalone.image : null;
   const standaloneEnrichment = standalone?.imageId === imageId ? standalone.enrichment : undefined;
   const standaloneFetchFailed = standalone?.imageId === imageId && standalone.failed;
+  const standaloneFailureText = standalone?.imageId === imageId && standalone.unresolved ? "Image unavailable" : "Image not found";
 
   useEffect(() => {
     // If the image is already in search results, no need to fetch
@@ -270,19 +276,55 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     // Fetch by ID
     let cancelled = false;
     const request = new AbortController();
+    let current: Image | undefined;
+    const publish = (image: Image) => {
+      if (cancelled) return;
+      current = image;
+      setStandalone({ imageId, image, enrichment: attachedEnrichment(image), failed: false });
+    };
+    const releaseOwner = ownStandalonePublication({
+      imageId,
+      isCurrent: () => !cancelled,
+      read: async signal => {
+        const issued = captureImageRead();
+        const found = await dataSource.getById(imageId, AbortSignal.any([signal, request.signal]));
+        if (found) {
+          ensureImageRead(found.image, issued, "full", found.enrichment);
+          if (found.enrichment) attachEnrichment(found.image, found.enrichment);
+        }
+        return found?.image;
+      },
+      publish,
+      unavailable: () => {
+        if (cancelled) return;
+        withholdImageAuthority(imageId);
+        setStandalone(previous => previous?.imageId === imageId
+          ? { ...previous, enrichment: { resource: { links: [] }, actions: [] } } : previous);
+      },
+    });
     setStandalone({ imageId, image: null, failed: false });
+    const issued = captureImageRead();
     dataSource.getById(imageId, request.signal).then(
       (found) => {
         if (cancelled) return;
-        setStandalone({ imageId, image: found?.image ?? null, enrichment: found?.enrichment, failed: !found });
+        if (found) {
+          ensureImageRead(found.image, issued, "full", found.enrichment);
+          if (found.enrichment) attachEnrichment(found.image, found.enrichment);
+          const accepted = hasImageFence(imageId)
+            ? acceptEnrichedImage(found.image, current ?? useSelectionStore.getState().metadataCache.get(imageId)) : found.image;
+          if (accepted && (accepted === found.image || current)) publish(accepted);
+          else setStandalone({ imageId, image: null, enrichment: undefined, failed: true, unresolved: true });
+        } else if (!protectsImageOmission(imageId, issued)) setStandalone({ imageId, image: null, failed: true });
       },
       () => {
-        if (!cancelled) setStandalone({ imageId, image: null, failed: true });
+        if (!cancelled && !protectsImageOmission(imageId, issued)) setStandalone({ imageId, image: null, failed: true });
       },
     );
     return () => {
       cancelled = true;
       request.abort();
+      current = undefined;
+      releaseOwner();
     };
   }, [imageId, imageFromResults, dataSource]);
 
@@ -747,7 +789,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       <SettingsMenu />
     </header>
     {!displayImage && (standaloneFetchFailed || loadingImageId === imageId) && <p role="status" className="flex flex-1 items-center justify-center text-sm text-grid-text-muted">
-      {standaloneFetchFailed ? "Image not found" : "Loading image..."}
+      {standaloneFetchFailed ? standaloneFailureText : "Loading image..."}
     </p>}
   </div>;
 
@@ -847,7 +889,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
               {!displayImage ? (
                 <div className="text-grid-text-muted text-center">
                   {standaloneFetchFailed ? (
-                    <p className="text-lg">Image not found</p>
+                    <p className="text-lg">{standaloneFailureText}</p>
                   ) : loadingImageId === imageId ? (
                     <p className="text-sm animate-pulse">Loading image…</p>
                   ) : null}

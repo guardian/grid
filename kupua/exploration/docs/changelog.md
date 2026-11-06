@@ -24,6 +24,35 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 6 November 2026 - Observe simulated additions and publish fresh image groups
+
+Added injected single-label observation with grouped canonical mget reads, exact
+returned-label comparison and one owned full-detail follow-up. A ten-second deadline
+starts before fake dispatch and settles independently of held commands. Verified
+peers publish together; transport outcomes remain separate from observation, unknown
+commands are not replayed, and late command results do not restart expired readback.
+Admission bounds active groups, target count and document-lifetime touched IDs.
+Multi-label simulation now refuses before dispatch while retaining the draft;
+ordinary disconnected comma-separated preparation is unchanged.
+
+API read issuance, metadata floors and resource evidence protect touched images
+through search, hydration and singleton ownership. Old body and omission completions
+cannot undo newer publication; current denial still withholds editing when metadata
+is older or no body survives. Captured grants are rechecked at action admission,
+and explicit editing contexts cannot override stale displayed metadata. Full-detail
+delivery uses its current effect identity without retaining owner callbacks on bodies.
+Equal metadata can upgrade lean to full projection without defaulting full-only fields.
+
+Extended the selected publisher to one buffer copy and grouped enrichment/selection
+updates, preserving geometry, unrelated references, membership and AI relevance.
+Touched ordinary reads refresh selected metadata; duplicate-only pages retain A1's
+body/cursor rules while accepting current authority. Same-turn command outcomes
+are coalesced, rejected overlay upserts avoid unnecessary map copies, and search and
+selection share an explicit initial datasource without circular store initialization.
+Added shared isolated API fixture controls for stale delivery and visible rehearsal.
+Normal editing and production command transport remain disconnected; coordinate
+reacquisition and unavailable-slot policy are not implemented by this change.
+
 ### 6 November 2026 - Prepare stable buffer publication for future editing
 
 Added `publishImage(image, overlay)` to replace resident image bodies at the same

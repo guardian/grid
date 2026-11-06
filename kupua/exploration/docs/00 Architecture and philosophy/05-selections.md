@@ -202,13 +202,17 @@ IDs without changing membership, anchor or persistence. A changed batch advances
 metadata revision and requests the existing coalesced reconciliation only when a
 currently selected body changes. It does not hydrate the selection or acquire metadata.
 Resident buffer replacement alone is not selected-cache publication, and this action
-does not order competing read completions.
+does not itself order competing read completions. Grouped image publication and accepted
+ordinary touched-ID reads invoke it explicitly through the existing owners. Read acceptance
+applies the document-lifetime metadata floor before updating the cache; an older resident
+body cannot displace a newer retained selected body. No permanent buffer-scanning subscriber
+or post-write hydration is involved. See [state management](state-management.md).
 
 ### Hydration on mount
 
 - `useSelectionStore.getState().hydrate()` called once from the `/search` route's mount effect. (The persist middleware repopulates `selectedIds` synchronously before mount; `hydrate()` is what kicks the metadata fetch so the multi-image panel renders reconciled values rather than dashes.)
-- `hydrate()` calls `getByIds(selectedIds)`. Successful omissions are dropped only while the captured selected Set and anchor still own the selection. Clear or newer membership/anchor intent prevents the old response from repairing membership, changing the retained cursor anchor or consuming toast deduplication.
-- Late metadata may still populate the same mutable LRU, publish a changed-batch revision and request coalesced reconciliation of current selection. An obsolete completion leaves an empty cleared view untouched. Display/reconciliation `generationCounter` changes are not selection intent; no last-started metadata freshness or future API logical-omission policy is implied.
+- `hydrate()` calls `getByIds(selectedIds)`. Successful omissions are dropped only while the captured selected Set and anchor still own the selection. Clear or newer membership/anchor intent prevents the old response from repairing membership, changing the retained cursor anchor or consuming toast deduplication. For touched IDs, captured read issuance additionally prevents an old omission from undoing newer canonical publication; fresh cold-hydration omission behavior remains.
+- Ordinary late metadata may still populate the same mutable LRU, publish a changed-batch revision and request coalesced reconciliation of current selection. Touched-ID body acceptance additionally checks issuance and the metadata floor, independently accepting current negative authority. An obsolete completion leaves an empty cleared view untouched. Display/reconciliation `generationCounter` changes are not selection intent; this is not a global last-started-read-wins policy.
 - If hydration removes the current anchor, `electFallbackAnchor` chooses the last remaining ID in insertion order, or null when empty; retained cursor ownership follows that same ID. Surviving and unset anchors are preserved, and failed metadata retrieval does not change selection membership or the anchor.
 - A one-time **information toast** — *"N items from your previous selection are no longer available."* — fires when drift is detected. Deduped via a module-level flag, reset on `clear()`.
 - **Cap:** if persisted set exceeds 5,000 items on hydration, log a warning and truncate to the most-recently-added 5,000 (defensive guard, not an expected path).

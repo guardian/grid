@@ -8,7 +8,7 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-11-05
+Last updated: 2026-11-06
 
 ---
 
@@ -27,7 +27,8 @@ unsent entry only; Enter prepares comma-separated additions. Direct-ES remains r
 The trade-off is a usable but deliberately non-saving prototype. Missing or pending
 capabilities block the complete target set rather than choosing an eligible subset.
 Only isolated addition simulations exercise command outcomes; acknowledgement is
-not observation. Removal transport and real publication remain separately scoped.
+not observation. Normal mutation transport remains disconnected; injected canonical
+observation and grouped publication are described below. Removal remains separately scoped.
 
 Entry suggestions reuse Kupua's shared label provider rather than Kahuna's legacy
 label-search endpoint. They use an explicitly library-wide DAL aggregation and
@@ -45,6 +46,24 @@ and confirmation icons use shared inline SVGs, matching Kupua's existing approac
 without an icon-library dependency. Coarse-pointer controls retain 44px
 targets instead of copying desktop-sized Kahuna targets. Mobile metadata-editing
 UX is explicitly deferred; these safeguards are not a claim of desktop/mobile parity.
+
+### Bounded Simulated Readback (6 November 2026)
+
+Unlike Kahuna's per-image polling after writes, Kupua's injected addition simulation
+uses at most three grouped mget reads, one current standalone full follow-up and a
+ten-second observation deadline independent of held command outcomes. Exact returned
+labels establish observation, not a count query or a boolean fixture assertion.
+One group of up to 200 IDs is admitted; multi-label simulated input is refused before
+any dispatch, while disconnected comma-separated preparation is unchanged.
+
+Touched-ID issuance fences and metadata floors survive query replacement, with a
+1,000-ID document-lifetime admission bound and no canonical body cache. Current
+permission withdrawal is independent of metadata age; captured grants are checked
+again at admission. Grouped same-slot publication preserves browsing geometry and
+selection membership. The trade-off is bounded prototype observation and explicit
+uncertainty, not production write capacity, cross-tab freshness or exact rank repair.
+Normal editing is still disconnected. The [A3 checkpoint](gradually-growing-teeth.step-4-publication-plan.md#a3-checkpoint)
+owns evidence and remaining limits.
 
 ### Default-Off Commands and Explicit Reload (4 November 2026)
 

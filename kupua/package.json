@@ -28,6 +28,7 @@
     "test:perf-harness:focus": "node --test",
     "typecheck:perf": "tsc --noEmit --project e2e-perf/tsconfig.json",
     "typecheck:e2e": "tsc --project e2e/tsconfig.json",
+    "demo:readback": "node --experimental-strip-types e2e/shared/label-editor-plugin.ts --serve-readback",
     "test:perf-dashboard": "node --test e2e-perf/validation/dashboard-data.test.mjs",
     "test:perf-fixtures": "playwright test --config=e2e-perf/playwright.density-fixtures.config.ts",
     "test:perf-app": "playwright test --config=e2e-perf/playwright.density-app.config.ts",

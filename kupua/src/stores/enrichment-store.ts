@@ -14,6 +14,8 @@
  */
 
 import { create } from "zustand";
+import { acceptImageOverlay, acceptImageRead, copyImageRead, ensureImageRead, hasImageFences } from "@/lib/image-read-freshness";
+import type { Image } from "@/types/image";
 import type { Cost, Action, Link, SyndicationStatus, UsageRights, Usage } from "@/dal/grid-api/types";
 
 /**
@@ -68,14 +70,20 @@ interface EnrichmentState {
 export const useEnrichmentStore = create<EnrichmentState>()((set) => ({
   data: new Map(),
 
-  setEnrichment: (entries) => set({ data: entries }),
+  setEnrichment: (entries) => set(state => ({ data: hasImageFences()
+    ? new Map([...entries].map(([id, fields]) => [id, acceptImageOverlay(id, fields, state.data.get(id))])) : entries })),
 
   upsertEnrichment: (entries) =>
     set((state) => {
       if (entries.size === 0) return state;
-      const merged = new Map(state.data);
-      for (const [id, fields] of entries) merged.set(id, fields);
-      return { data: merged };
+      let merged: Map<string, EnrichmentFields> | undefined;
+      for (const [id, fields] of entries) {
+        const accepted = acceptImageOverlay(id, fields, state.data.get(id));
+        if (accepted === state.data.get(id)) continue;
+        merged ??= new Map(state.data);
+        merged.set(id, accepted);
+      }
+      return merged ? { data: merged } : state;
     }),
 }));
 
@@ -89,4 +97,26 @@ export function attachEnrichment(image: object, fields: EnrichmentFields): void 
 
 export function attachedEnrichment(image: object): EnrichmentFields | undefined {
   return attached.get(image);
+}
+
+export function acceptEnrichedImage(image: Image, current?: Image, issued?: number): Image | undefined {
+  if (issued !== undefined) ensureImageRead(image, issued);
+  const accepted = acceptImageRead(image, current);
+  const incoming = attachedEnrichment(image);
+  if (!accepted) {
+    if (incoming) {
+      const store = useEnrichmentStore.getState();
+      const overlay = acceptImageOverlay(image.id, incoming, store.data.get(image.id));
+      if (store.data.has(image.id)) store.upsertEnrichment(new Map([[image.id, overlay]]));
+    }
+    return undefined;
+  }
+  if (!incoming) return accepted;
+  const previous = attachedEnrichment(accepted);
+  const overlay = acceptImageOverlay(image.id, incoming, previous);
+  if (overlay === previous) return accepted;
+  const body = accepted === current ? { ...accepted } : accepted;
+  if (body !== accepted) copyImageRead(accepted, body);
+  attachEnrichment(body, overlay);
+  return body;
 }

@@ -55,6 +55,7 @@ export type { EnrichmentFields } from "@/stores/enrichment-store";
  * Extends the raw ES `Image` with computed baseline and API overlay fields.
  */
 export interface EnrichedImage extends Image, ComputedBaseline {
+  metadataStale?: boolean;
   /**
    * Lease summary — API overlay only. Undefined when API is unavailable.
    * ES baseline leases are available on the raw `image.leases` field.

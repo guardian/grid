@@ -377,14 +377,18 @@ Home, New images ticker and existing refresh behavior remain unchanged, with no
 new refresh-view control or compulsory reload. No live writes or later editing
 steps are enabled by Unit A or by this documentation update.
 
-**Implemented through A2, 6 November:** extension acceptance excludes duplicate
+**Implemented through A3, 6 November:** extension acceptance excludes duplicate
 incoming IDs while retaining raw cursor progress and useful demand. Same-slot
 buffer replacement is the selected publication route; unchanged-ratio metadata
 updates preserve geometry and scrolling prediction. The per-cell experiment and
-interactive trial tooling are removed, while regression coverage remains. Editing
-and readback are still disconnected. The [A2 checkpoint](gradually-growing-teeth.step-4-publication-plan.md#a2-comparison-checkpoint)
-records the operator decision, trial results, final validation and accepted caveat.
-A3 has not started; KUP-043 remains open for its remaining contracts.
+interactive trial tooling are removed, while regression coverage remains. Normal
+editing remains disconnected. Injected single-label simulation now has bounded
+canonical observation, touched-ID freshness and grouped publication through existing
+owners, including selected metadata and current full standalone projection.
+The [A3 checkpoint](gradually-growing-teeth.step-4-publication-plan.md#a3-checkpoint)
+records validation, independent review and the isolated browser demonstration.
+KUP-043 remains open for coordinate reacquisition and unavailable-slot behavior;
+the Unit B spike and Units B-D are not authorized.
 
 **UX clarification, 5 November:** distant changes in a millions-image search must
 not interrupt local scrolling just to reconcile imperceptible rank/count drift.

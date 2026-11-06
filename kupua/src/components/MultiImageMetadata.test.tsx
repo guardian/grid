@@ -11,7 +11,8 @@ import { ImageMetadata } from "./ImageMetadata";
 import { LabelEditorContext, LabelOperationReceipts } from "./LabelEditor";
 import { createLabelEditorStore } from "@/stores/label-editor-store";
 import type { GridCommandResult } from "@/lib/grid-commands";
-import { attachEnrichment, useEnrichmentStore } from "@/stores/enrichment-store";
+import { acceptEnrichedImage, attachEnrichment, useEnrichmentStore } from "@/stores/enrichment-store";
+import { acceptObservedImages, admitLabelObservation, captureImageRead, resetImageFreshnessForTests, stampImageRead } from "@/lib/image-read-freshness";
 
 const fixture = vi.hoisted(() => {
   vi.stubGlobal("matchMedia", vi.fn(() => ({
@@ -32,6 +33,7 @@ function fieldRow(label: string) {
 }
 
 beforeEach(async () => {
+  resetImageFreshnessForTests();
   vi.clearAllMocks();
   frames = [];
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { frames.push(callback); return frames.length; });
@@ -63,6 +65,64 @@ describe("multi-image cost summary", () => {
 });
 
 describe("disconnected label editing", () => {
+  it("rechecks captured standalone authority at submit without requiring a parent rerender", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const operation = admitLabelObservation([images[0].id]);
+    if (typeof operation !== "number") throw new Error(operation);
+    const image = { ...images[0], userMetadata: { labels: ["news"], lastModified: "2026-11-02T00:00:00Z" } };
+    const positive = { resource: { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/img-0" }] } };
+    stampImageRead(image, positive, captureImageRead(), "full");
+    acceptObservedImages([image], operation);
+    const executor = vi.fn().mockResolvedValue({ outcome: "acknowledged" });
+    const store = createLabelEditorStore(executor);
+    render(<LabelEditorContext value={store}><ImageMetadata image={image} overlay={positive} /></LabelEditorContext>);
+    fireEvent.click(screen.getByRole("button", { name: "Add label" }));
+    const input = screen.getByRole("combobox", { name: "Add label" });
+    fireEvent.change(input, { target: { value: "another label" } });
+    const stale = { ...image, userMetadata: { labels: [], lastModified: "2026-11-01T00:00:00Z" } };
+    const denied = { resource: { links: [] }, actions: [] };
+    stampImageRead(stale, denied, captureImageRead(), "lean");
+    attachEnrichment(stale, denied);
+    expect(acceptEnrichedImage(stale)).toBeUndefined();
+    fireEvent.submit(input.closest("form")!);
+    expect(executor).not.toHaveBeenCalled();
+    expect(store.getState().receipts).toEqual([]);
+  });
+
+  it("does not admit editing a stale displayed body using a newer explicit context", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const operation = admitLabelObservation([images[0].id]);
+    if (typeof operation !== "number") throw new Error(operation);
+    const old = { ...images[0], userMetadata: { labels: ["old"], lastModified: "2026-11-01T00:00:00Z" } };
+    const current = { ...old, userMetadata: { labels: ["current"], lastModified: "2026-11-02T00:00:00Z" } };
+    const positive = { resource: { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/img-0" }] } };
+    stampImageRead(current, positive, captureImageRead(), "lean");
+    acceptObservedImages([current], operation);
+    render(<ImageMetadata image={old} labelEditing={{ targetIds: [old.id], targets: new Map([[old.id, { resource: positive.resource }]]) }} />);
+    expect(screen.getByRole("button", { name: "Add label" }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it.each([false, true])("preflights the entire comma-separated input before dispatch (simulated=%s)", (simulated) => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const executor = vi.fn().mockResolvedValue({ outcome: "acknowledged" });
+    const store = createLabelEditorStore(simulated ? executor : undefined);
+    const overlay = { resource: { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/img-0" }] } };
+    render(<LabelEditorContext value={store}><ImageMetadata image={images[0]} overlay={overlay} /><LabelOperationReceipts /></LabelEditorContext>);
+    fireEvent.click(screen.getByRole("button", { name: "Add label" }));
+    const input = screen.getByRole("combobox", { name: "Add label" });
+    fireEvent.change(input, { target: { value: "first label, second label" } });
+    fireEvent.submit(input.closest("form")!);
+    expect(executor).not.toHaveBeenCalled();
+    if (simulated) {
+      expect(store.getState().receipts).toHaveLength(0);
+      expect(store.getState().refusal).toBe("multiple-labels");
+      expect((screen.getByRole("combobox", { name: "Add label" }) as HTMLInputElement).value).toBe("first label, second label");
+    } else {
+      expect(store.getState().receipts.map(receipt => receipt.intent.label)).toEqual(["first label", "second label"]);
+      expect(screen.queryByRole("combobox", { name: "Add label" })).toBeNull();
+    }
+  });
+
   it("cancels unsent input on Escape and retains navigation drafts, using the owned overlay without service calls", () => {
     vi.stubEnv("VITE_USE_MEDIA_API", "true");
     vi.stubEnv("VITE_GRID_API_WRITES_ENABLED", "true");

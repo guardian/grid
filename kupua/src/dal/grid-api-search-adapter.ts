@@ -15,6 +15,7 @@ import { unwrapEntity } from "./grid-api/argo";
 import type { ImageData, Link } from "./grid-api/types";
 import { MGET_CHUNK_SIZE, MGET_CONCURRENCY } from "@/constants/tuning";
 import { mediaApiUrl } from "./grid-api/proxy-target";
+import { captureImageRead, stampImageRead } from "@/lib/image-read-freshness";
 
 type ImagePageResponse = {
   data: Array<{ data?: unknown; actions?: unknown; links?: Link[] }>;
@@ -171,12 +172,17 @@ export async function postImageRead(path: string, body: Record<string, unknown>,
 
 /** Reads one image through GET /images/:id; undefined when media-api has no visible image with that ID. */
 export async function apiGetImage(id: string, signal?: AbortSignal): Promise<ImageByIdResult | undefined> {
+  const issued = captureImageRead();
   const res = await fetchImageRead(`/images/${encodeURIComponent(id)}`, {}, signal);
   if (res.status === 404) return undefined;
   if (!res.ok) throw await readFailure(res, signal);
   const json = await readJson(res, signal) as { data?: { id?: unknown }; actions?: unknown; links?: Link[] };
   if (json.data?.id !== id) return undefined;
-  return { image: mapApiImageToImage(json.data, json.links), enrichment: extractEnrichment(json)?.[1] };
+  const image = mapApiImageToImage(json.data, json.links);
+  const enrichment = extractEnrichment(json)?.[1];
+  stampImageRead(image, enrichment, issued, "full");
+  if (enrichment) attachEnrichment(image, enrichment);
+  return { image, enrichment };
 }
 
 /**
@@ -185,6 +191,7 @@ export async function apiGetImage(id: string, signal?: AbortSignal): Promise<Ima
  * inferred from a partial read.
  */
 export async function apiGetByIds(ids: string[], signal?: AbortSignal): Promise<Image[]> {
+  const issued = captureImageRead();
   signal?.throwIfAborted();
   const chunks: string[][] = [];
   for (let i = 0; i < ids.length; i += MGET_CHUNK_SIZE) chunks.push(ids.slice(i, i + MGET_CHUNK_SIZE));
@@ -201,6 +208,7 @@ export async function apiGetByIds(ids: string[], signal?: AbortSignal): Promise<
         if (entity.data == null) continue;
         const image = mapApiImageToImage(entity.data, entity.links);
         const enrichment = extractEnrichment(entity);
+        stampImageRead(image, enrichment?.[1], issued, "lean");
         if (enrichment) attachEnrichment(image, enrichment[1]);
         images.push(image);
       }
@@ -252,13 +260,18 @@ async function readJson(res: Response, signal?: AbortSignal): Promise<unknown> {
   return json;
 }
 
-function decodeImagePage(data: ImagePageResponse["data"]): { hits: Image[]; enrichment: Map<string, EnrichmentFields> } {
+function decodeImagePage(data: ImagePageResponse["data"], issued: number): { hits: Image[]; enrichment: Map<string, EnrichmentFields> } {
   const enrichment = new Map<string, EnrichmentFields>();
   const hits: Image[] = [];
   for (const entity of data) {
     const entry = extractEnrichment(entity);
     if (entry) enrichment.set(entry[0], entry[1]);
-    if (entity.data != null) hits.push(mapApiImageToImage(entity.data, entity.links));
+    if (entity.data != null) {
+      const image = mapApiImageToImage(entity.data, entity.links);
+      stampImageRead(image, entry?.[1], issued, "lean");
+      if (entry) attachEnrichment(image, entry[1]);
+      hits.push(image);
+    }
   }
   return { hits, enrichment };
 }
@@ -271,6 +284,7 @@ export async function apiSearchAfter(
   reverse: boolean | undefined,
   seekToEnd: boolean | undefined,
 ): Promise<SearchAfterResult> {
+  const issued = captureImageRead();
   const t0 = Date.now();
   const body: Record<string, unknown> = {
     ...buildReadBody(params),
@@ -283,7 +297,7 @@ export async function apiSearchAfter(
   if (pitId) body.pitId = pitId;
 
   const json = await postImageRead("/images/search-after", body, signal) as SearchAfterApiResponse;
-  const { hits, enrichment } = decodeImagePage(json.data);
+  const { hits, enrichment } = decodeImagePage(json.data, issued);
   return {
     hits,
     total: json.total,
@@ -296,6 +310,7 @@ export async function apiSearchAfter(
 
 /** One page at a shallow offset through POST /images/window (offsets below media-api's window limit). */
 export async function apiImageWindow(params: SearchParams, pitId: string | null | undefined, signal?: AbortSignal): Promise<SearchAfterResult> {
+  const issued = captureImageRead();
   const t0 = Date.now();
   const body: Record<string, unknown> = {
     ...buildReadBody(params),
@@ -306,7 +321,7 @@ export async function apiImageWindow(params: SearchParams, pitId: string | null 
   if (pitId) body.pitId = pitId;
 
   const json = await postImageRead("/images/window", body, signal) as ImageWindowApiResponse;
-  const { hits, enrichment } = decodeImagePage(json.data);
+  const { hits, enrichment } = decodeImagePage(json.data, issued);
   return {
     hits,
     total: json.total ?? 0,
@@ -345,6 +360,7 @@ function aiSearchQuery(params: SearchParams): URLSearchParams {
  * `null` when media-api refuses (any non-2xx) or is unreachable; never falls back elsewhere.
  */
 export async function apiSearchByAi(params: SearchParams, signal?: AbortSignal): Promise<AiSearchResult | null> {
+  const issued = captureImageRead();
   const t0 = Date.now();
   let json: AiSearchApiResponse;
   try {
@@ -357,8 +373,13 @@ export async function apiSearchByAi(params: SearchParams, signal?: AbortSignal):
     throw error;
   }
 
-  const { hits, enrichment } = decodeImagePage(json.data);
+  const { hits, enrichment } = decodeImagePage(json.data, issued);
   const ranked = hits.map((image, index) => ({ ...image, __aiScore: hits.length - index }));
+  for (const image of ranked) {
+    stampImageRead(image, enrichment.get(image.id), issued, "lean");
+    const overlay = enrichment.get(image.id);
+    if (overlay) attachEnrichment(image, overlay);
+  }
   const tickerCounts = decodeTickerCounts(json.actions?.tickerCounts);
   return {
     hits: ranked,

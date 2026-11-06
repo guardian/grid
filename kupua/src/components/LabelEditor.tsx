@@ -19,6 +19,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext }: {
   const store = useContext(LabelEditorContext);
   const key = labelTargetKey(context.targetIds);
   const value = useStore(store, state => state.drafts.get(key)?.value ?? "");
+  const refusal = useStore(store, state => state.refusal);
   const [expanded, setExpanded] = useState(false);
   const [adding, setAdding] = useState(false);
   const [invalid, setInvalid] = useState(false);
@@ -92,7 +93,9 @@ export function LabelEditor({ context, values, onSearch, resolveContext }: {
   const commit = () => {
     const labels = [...new Set(value.split(",").map(label => label.trim()).filter(Boolean))];
     setInvalid(!labels.length);
-    if (labels.length && labels.every(label => act("add", label))) {
+    const current = resolveContext?.() ?? context;
+    if (!disabled && !current.pending && labelTargetKey(current.targetIds) === key
+      && labels.length && store.getState().prepareLabels(labels, current)) {
       store.getState().setDraft(context.targetIds, "");
       setAdding(false);
     }
@@ -183,6 +186,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext }: {
         </ul>
       </div>}
     </form>}
+    {refusal && <p role="status" className="text-xs text-grid-error">Simulation refused: {refusal}.</p>}
   </MetadataRow>;
 }
 
@@ -199,7 +203,8 @@ export function LabelOperationReceipts({ inline = false, hidden = false }: { inl
     receiptOrder.unshift(activeReceipt);
   }
   const unfinished = [...drafts.values()].some(draft => Boolean(draft.value.trim()))
-    || receipts.some(receipt => receipt.items.some(item => ["submitted", "accepted-awaiting-visibility", "unknown"].includes(item.state)));
+    || receipts.some(receipt => receipt.items.some(item => item.state === "submitted" || item.state === "unknown"
+      || (item.state === "accepted-awaiting-visibility" && item.observation !== "observed")));
   useEffect(() => {
     if (inline || !unfinished) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
@@ -228,7 +233,8 @@ export function LabelOperationReceipts({ inline = false, hidden = false }: { inl
             items: receipt.items.slice(0, 8),
           }, null, 2);
           return <div key={index}>
-            <p className="text-xs mb-1" role="status">{receipt.mode === "disconnected" ? "Not sent - dry run" : "Simulated - no service calls"}</p>
+            <p className="text-xs mb-1" role="status">{receipt.mode === "disconnected" ? "Not sent - dry run"
+              : receipt.items.some(item => item.observation) ? "Simulated command - readback only" : "Simulated - no service calls"}</p>
             <pre className="text-xs whitespace-pre-wrap wrap-anywhere">{data.slice(0, 1800)}{data.length > 1800 || receipt.intent.label.length > 240 ? "\n[Preview truncated]" : ""}</pre>
           </div>;
         })}

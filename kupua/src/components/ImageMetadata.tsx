@@ -405,7 +405,8 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
             const raw = field.accessor(image);
             if (field.id === "labels" && import.meta.env.VITE_USE_MEDIA_API === "true") {
               return <LabelEditor key={field.id} onSearch={onSearch} resolveContext={resolveLabelEditing}
-                context={labelEditing ?? { targetIds: [image.id], targets: new Map([[image.id, { resource: enriched?.resource }]]), pending: editingPending }}
+                context={{ ...(labelEditing ?? { targetIds: [image.id], targets: new Map([[image.id, { resource: enriched?.resource }]]) }),
+                  pending: labelEditing?.pending || editingPending || enriched?.metadataStale }}
                 values={Array.isArray(raw) ? raw.map(value => ({ value: String(value), count: 1 })) : []} />;
             }
             const hasValue = Array.isArray(raw) ? raw.length > 0 : raw != null && raw !== "";

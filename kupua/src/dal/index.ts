@@ -42,3 +42,5 @@ export function createDataSource() {
   return SAMPLED_PREVIEW_ENABLED ? new ResidentSampleDataSource(source) : source;
 }
 
+export const appDataSource = createDataSource();
+

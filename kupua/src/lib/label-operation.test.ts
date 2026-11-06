@@ -1,15 +1,68 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLabelOperation, type LabelTarget } from "./label-operation";
 import type { GridCommandResult } from "./grid-commands";
+import type { Image } from "@/types/image";
+import { captureImageRead, resetImageFreshnessForTests, stampImageRead } from "./image-read-freshness";
 
 const resource = { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/first" }] };
 const intent = { action: "add" as const, label: "news", targetIds: ["first"] };
 const targets = new Map<string, LabelTarget>([["first", { resource }]]);
+const observedImage = (imageId = "first", label = "news"): Image => ({
+  id: imageId, uploadTime: "2026-11-01T00:00:00Z", uploadedBy: "fixture",
+  source: { mimeType: "image/jpeg", dimensions: { width: 400, height: 300 } },
+  metadata: {}, userMetadata: { labels: [label], lastModified: "2026-11-06T00:00:00Z" },
+});
 
-beforeEach(() => { vi.stubEnv("VITE_USE_MEDIA_API", "true"); });
+beforeEach(() => { resetImageFreshnessForTests(); vi.stubEnv("VITE_USE_MEDIA_API", "true"); });
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("disconnected label operation", () => {
+  it("publishes verified readback at the deadline without waiting for a held command", async () => {
+    vi.useFakeTimers();
+    let release!: (result: GridCommandResult) => void;
+    const executor = vi.fn()
+      .mockResolvedValueOnce({ outcome: "acknowledged" })
+      .mockImplementationOnce(() => new Promise<GridCommandResult>((resolve) => { release = resolve; }));
+    const image = observedImage();
+    const readImages = vi.fn().mockResolvedValue([image]);
+    const publishImages = vi.fn();
+    const operation = createLabelOperation(executor, { readImages, publishImages });
+    const completion = operation.confirm({ ...intent, targetIds: ["first", "held"] }, new Map([
+      ...targets, ["held", { resource }],
+    ]));
+    try {
+      const busyExecutor = vi.fn();
+      const busy = createLabelOperation(busyExecutor, { readImages, publishImages });
+      await busy.confirm({ ...intent, targetIds: ["busy-peer"] }, new Map([["busy-peer", { resource }]]));
+      expect(busy.getSnapshot()?.blocked).toBe("busy");
+      expect(busyExecutor).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(readImages).toHaveBeenCalledTimes(1);
+      expect(readImages.mock.calls[0][0]).toEqual(["first"]);
+      expect(publishImages).toHaveBeenCalledExactlyOnceWith([image]);
+      expect(operation.getSnapshot()?.items).toMatchObject([
+        { imageId: "first", state: "accepted-awaiting-visibility", observation: "observed" },
+        { imageId: "held", state: "submitted", observation: "deadline" },
+      ]);
+      const conflict = createLabelOperation(busyExecutor, { readImages, publishImages });
+      const currentResource = structuredClone(resource);
+      stampImageRead(observedImage("held"), { resource: currentResource }, captureImageRead(), "lean");
+      await conflict.confirm({ ...intent, targetIds: ["held"] }, new Map([["held", { resource: currentResource }]]));
+      expect(conflict.getSnapshot()?.blocked).toBe("conflict");
+      const otherExecutor = vi.fn().mockResolvedValue({ outcome: "rejected", status: 403 });
+      const other = createLabelOperation(otherExecutor, { readImages, publishImages });
+      await other.confirm({ ...intent, targetIds: ["other"] }, new Map([["other", { resource }]]));
+      expect(other.getSnapshot()?.blocked).toBeUndefined();
+      expect(otherExecutor).toHaveBeenCalledTimes(1);
+    } finally {
+      release({ outcome: "unknown" });
+      await completion;
+      vi.useRealTimers();
+    }
+    expect(executor).toHaveBeenCalledTimes(2);
+    expect(readImages).toHaveBeenCalledTimes(1);
+  });
+
   it("captures immutable intent without calling a service even when rollout is enabled", async () => {
     vi.stubEnv("VITE_GRID_API_WRITES_ENABLED", "true");
     vi.stubEnv("VITE_GRID_API_OPERATIONS", "add-labels");
@@ -114,20 +167,75 @@ describe("disconnected label operation", () => {
     expect(executor).toHaveBeenCalledTimes(2);
   });
 
-  it("requires explicit matching simulated evidence after acknowledgement to mark an item observed", async () => {
-    const evidence = { imageId: "first", label: "news", present: true };
-    const operation = createLabelOperation(async () => ({ outcome: "acknowledged" }));
-    expect(operation.observeSimulated(evidence)).toBe(false);
-    await operation.confirm(intent, targets);
-    expect(operation.getSnapshot()?.items[0].state).toBe("accepted-awaiting-visibility");
-    expect(operation.observeSimulated({ ...evidence, imageId: "other" })).toBe(false);
-    expect(operation.observeSimulated({ ...evidence, label: "other" })).toBe(false);
-    expect(operation.observeSimulated({ ...evidence, present: false })).toBe(false);
-    expect(operation.observeSimulated(evidence)).toBe(true);
-    expect(operation.getSnapshot()?.items[0].state).toBe("observed");
-    const disconnected = createLabelOperation();
-    await disconnected.confirm(intent, targets);
-    expect(disconnected.observeSimulated(evidence)).toBe(false);
-    expect(disconnected.getSnapshot()?.items[0].state).toBe("not-started");
+  it.each(["acknowledged", "unknown"] as const)("observes exact canonical labels without changing the %s command outcome", async outcome => {
+    vi.useFakeTimers();
+    const label = 'Added to Photo Sales, literal "quoted"';
+    const readImages = vi.fn()
+      .mockResolvedValueOnce([observedImage("first", label.toUpperCase())])
+      .mockResolvedValueOnce([observedImage("first", `${label} suffix`)])
+      .mockResolvedValueOnce([observedImage("first", label)]);
+    const publishImages = vi.fn();
+    const operation = createLabelOperation(async () => ({ outcome }), { readImages, publishImages });
+    try {
+      await operation.confirm({ ...intent, label }, targets);
+      await vi.advanceTimersByTimeAsync(999);
+      expect(readImages).toHaveBeenCalledTimes(1);
+      expect(publishImages).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(readImages).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(readImages).toHaveBeenCalledTimes(3);
+      expect(publishImages).toHaveBeenCalledExactlyOnceWith([observedImage("first", label)]);
+      expect(operation.getSnapshot()?.items[0]).toMatchObject({
+        state: outcome === "unknown" ? "unknown" : "accepted-awaiting-visibility", observation: "observed", result: { outcome },
+      });
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(readImages).toHaveBeenCalledTimes(3);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it.each(["failure", "deadline"] as const)("stops readback on %s and rejects actual late delivery", async reason => {
+    vi.useFakeTimers();
+    let release!: (images: Image[]) => void;
+    let reject!: (error: Error) => void;
+    const readImages = vi.fn((_ids: string[], _signal: AbortSignal) => new Promise<Image[]>((resolve, fail) => { release = resolve; reject = fail; }));
+    const publishImages = vi.fn();
+    const executor = vi.fn().mockResolvedValue({ outcome: "unknown" });
+    const operation = createLabelOperation(executor, { readImages, publishImages });
+    try {
+      await operation.confirm(intent, targets);
+      if (reason === "failure") reject(new Error("required read failed"));
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(operation.getSnapshot()?.items[0]).toMatchObject({ state: "unknown", observation: reason === "failure" ? "unavailable" : "deadline" });
+      expect(readImages.mock.calls[0][1].aborted).toBe(true);
+      release([observedImage()]);
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(publishImages).not.toHaveBeenCalled();
+      expect(readImages).toHaveBeenCalledTimes(1);
+      expect(executor).toHaveBeenCalledTimes(1);
+    } finally { release([]); vi.useRealTimers(); }
+  });
+
+  it("refuses target and document-lifetime capacity overflow without truncation or dispatch", async () => {
+    const readImages = vi.fn();
+    const publishImages = vi.fn();
+    const executor = vi.fn().mockResolvedValue({ outcome: "rejected", status: 403 });
+    const submit = async (ids: string[]) => {
+      const operation = createLabelOperation(executor, { readImages, publishImages });
+      const notifications = vi.fn();
+      operation.subscribe(notifications);
+      await operation.confirm({ ...intent, targetIds: ids }, new Map(ids.map(id => [id, { resource }])));
+      expect(notifications.mock.calls.length).toBeLessThanOrEqual(4);
+      return operation.getSnapshot();
+    };
+    expect((await submit(Array.from({ length: 201 }, (_, index) => `too-many-${index}`)))?.blocked).toBe("target-limit");
+    expect(executor).not.toHaveBeenCalled();
+    for (let group = 0; group < 5; group++) {
+      expect((await submit(Array.from({ length: 200 }, (_, index) => `target-${group * 200 + index}`)))?.blocked).toBeUndefined();
+    }
+    expect(executor).toHaveBeenCalledTimes(1_000);
+    expect((await submit(["over-capacity"]))?.blocked).toBe("freshness-capacity");
+    expect(executor).toHaveBeenCalledTimes(1_000);
+    expect(readImages).not.toHaveBeenCalled();
   });
 });

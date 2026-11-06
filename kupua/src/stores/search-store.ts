@@ -39,7 +39,7 @@ import type { PositionMap } from "@/dal/position-map";
 import { useEnrichmentStore } from "@/stores/enrichment-store";
 import type { EnrichmentFields } from "@/stores/enrichment-store";
 import { cursorForPosition } from "@/dal/position-map";
-import { buildSortClause, parseSortField, createDataSource } from "@/dal";
+import { buildSortClause, parseSortField, appDataSource } from "@/dal";
 import { IS_LOCAL_ES } from "@/dal/es-config";
 import { decorateParamsForAggregations } from "@/lib/ai-search-params";
 import { FIELD_REGISTRY } from "@/lib/field-registry";
@@ -74,6 +74,9 @@ import {
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { beginTraceInteraction, trace, traceInteraction } from "@/lib/perceived-trace";
 import type { SearchContinuity, OwnedSearchContinuity } from "@/lib/search-continuity";
+import { copyImageRead, hasImageFence, hasImageFences, isImageMetadataCurrent } from "@/lib/image-read-freshness";
+import { acceptEnrichedImage, attachedEnrichment, attachEnrichment } from "@/stores/enrichment-store";
+import { useSelectionStore } from "@/stores/selection-store";
 
 interface SearchOptions {
   continuity?: SearchContinuity;
@@ -2151,8 +2154,44 @@ async function _findAndFocusImage(
 // Store
 // ---------------------------------------------------------------------------
 
-export const useSearchStore = create<SearchState>((set, get) => ({
-  dataSource: createDataSource(),
+export const useSearchStore = create<SearchState>((rawSet, get, api) => {
+  const set: typeof rawSet = (partial, replace?: boolean) => {
+    const current = get();
+    let update = typeof partial === "function" ? partial(current) : partial;
+    if (hasImageFences() && update.results && update.results !== current.results) {
+      let accepted: SearchState["results"] | undefined;
+      const selected = useSelectionStore.getState();
+      const selectedImages: Image[] = [];
+      for (let index = 0; index < update.results.length; index++) {
+        const image = update.results[index];
+        if (!image || !hasImageFence(image.id)) continue;
+        const position = current.imagePositions.get(image.id);
+        const cached = selected.metadataCache.get(image.id);
+        const resident = position === undefined ? undefined : current.results[position - current.bufferOffset];
+        const previous = resident && isImageMetadataCurrent(resident) ? resident : cached;
+        let body = acceptEnrichedImage(image, previous);
+        if (body && body !== image && body.__aiScore !== image.__aiScore) {
+          const canonical = body;
+          body = { ...canonical, __aiScore: image.__aiScore };
+          copyImageRead(canonical, body);
+          const overlay = attachedEnrichment(canonical);
+          if (overlay) attachEnrichment(body, overlay);
+        }
+        if (body && body !== cached && (cached || selected.selectedIds.has(image.id))) selectedImages.push(body);
+        if (body !== image) {
+          accepted ??= update.results.slice();
+          accepted[index] = body;
+        }
+      }
+      if (accepted) update = { ...update, results: accepted };
+      if (selectedImages.length) selected.publishSelectedMetadata(selectedImages);
+    }
+    if (replace) rawSet(update as SearchState, true);
+    else rawSet(update, false);
+  };
+  api.setState = set;
+  return ({
+  dataSource: appDataSource,
 
   params: {
     query: undefined,
@@ -2907,6 +2946,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         return true;
       });
       if (acceptedHits.length === 0) {
+        if (hasImageFences() && result.enrichment) useEnrichmentStore.getState().upsertEnrichment(
+          new Map([...result.enrichment].filter(([id]) => hasImageFence(id))),
+        );
         set((state) => ({
           endCursor: result.sortValues.at(-1) ?? state.endCursor,
           pitId: state.pitId === null ? null : result.pitId !== undefined ? result.pitId : state.pitId,
@@ -2921,7 +2963,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // Commit-to-view (extend-forward): merge enrichment.
       if (result.enrichment) useEnrichmentStore.getState().upsertEnrichment(
         acceptedHits.length === result.hits.length ? result.enrichment
-          : new Map([...result.enrichment].filter(([id]) => !residentPositions.has(id))),
+          : new Map([...result.enrichment].filter(([id]) => !residentPositions.has(id) || hasImageFence(id))),
       );
       set((state) => {
         const newBuffer = [...state.results, ...acceptedHits];
@@ -3091,6 +3133,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         return true;
       });
       if (acceptedHits.length === 0) {
+        if (hasImageFences() && result.enrichment) useEnrichmentStore.getState().upsertEnrichment(
+          new Map([...result.enrichment].filter(([id]) => hasImageFence(id))),
+        );
         set((state) => ({
           startCursor: result.sortValues[0] ?? state.startCursor,
           _extendBackwardInFlight: false,
@@ -3104,7 +3149,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // Commit-to-view (extend-backward): merge enrichment.
       if (result.enrichment) useEnrichmentStore.getState().upsertEnrichment(
         acceptedHits.length === result.hits.length ? result.enrichment
-          : new Map([...result.enrichment].filter(([id]) => acceptedIds.has(id))),
+          : new Map([...result.enrichment].filter(([id]) => acceptedIds.has(id) || hasImageFence(id))),
       );
       set((state) => {
         // result.hits are already in correct (forward) order after reversal
@@ -4811,7 +4856,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     _nullZoneDistRequest = { key, controller, promise };
     return promise;
   },
-}));
+});
+});
 
 // Expose store on window in dev mode for E2E test state inspection.
 // Playwright tests use window.__kupua_store__ to read buffer state,

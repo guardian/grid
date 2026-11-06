@@ -10,14 +10,16 @@ import { useSelectionStore, _resetMetadataCache, _resetHydrationToastShown, _res
 import { MockDataSource } from "@/dal/mock-data-source";
 import { ApiDataSource } from "@/dal/api-data-source";
 import { ElasticsearchDataSource } from "@/dal/es-adapter";
-import { useEnrichmentStore } from "./enrichment-store";
+import { attachedEnrichment, useEnrichmentStore } from "./enrichment-store";
 import { buildSearchKey, getRetainedSortValues, retainSortValues } from "@/lib/image-offset-cache";
 import { getScrollGeometry, registerScrollGeometry } from "@/lib/scroll-geometry-ref";
 import { parseSortField } from "@/dal/adapters/elasticsearch/sort-builders";
 import type { SearchParams, SortValues } from "@/dal/types";
 import { NEW_IMAGES_POLL_INTERVAL } from "@/constants/tuning";
 import { deriveImage } from "@/lib/derive-enriched-image";
-import { publishImage } from "@/lib/image-publication";
+import { publishImage, publishImages } from "@/lib/image-publication";
+import { createLabelOperation } from "@/lib/label-operation";
+import { acceptObservedImages, admitLabelObservation, captureImageRead, resetImageFreshnessForTests, stampImageRead } from "@/lib/image-read-freshness";
 
 vi.mock("@/dal/es-config", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/dal/es-config")>(),
@@ -188,6 +190,134 @@ async function expectCoherentBuffer() {
 const paths = () => calls.map((c) => c.path);
 const bodiesFor = (path: string) => calls.filter((c) => c.path === path).map((c) => c.body);
 
+it("keeps the freshest retained owner and the incoming AI ordinal when rejecting a projection", async () => {
+  useApiMode(2);
+  const [original, unrelated] = await corpus.getByIds(["img-0", "img-1"]);
+  const resource = { resource: { links: [] }, actions: [] };
+  const observed = { ...original, metadata: { description: "Observed" },
+    userMetadata: { labels: ["news"], lastModified: "2026-11-02T00:00:00Z" } };
+  const operation = admitLabelObservation([original.id]);
+  if (typeof operation !== "number") throw new Error(operation);
+  stampImageRead(observed, resource, captureImageRead(), "lean");
+  acceptObservedImages([observed], operation);
+  useSearchStore.setState({ results: [observed, unrelated], imagePositions: new Map([[observed.id, 0], [unrelated.id, 1]]) });
+  _resetMetadataCache();
+  useSelectionStore.setState({ selectedIds: new Set([original.id]), anchorId: original.id });
+  useSelectionStore.getState().publishSelectedMetadata([observed]);
+  const newer = { ...observed, metadata: { description: "Newer selected projection" },
+    userMetadata: { labels: ["external"], lastModified: "2026-11-03T00:00:00Z" } };
+  const previousSource = useSelectionStore.getState().dataSource;
+  vi.spyOn(corpus, "getByIds").mockResolvedValue([newer]);
+  useSelectionStore.setState({ dataSource: corpus });
+  try {
+    await useSelectionStore.getState().hydrate();
+    expect(useSelectionStore.getState().metadataCache.get(original.id)).toBe(newer);
+    useSearchStore.setState({ results: [...state().results] });
+    expect(state().results[0]).toBe(newer);
+    expect(state().results[1]).toBe(unrelated);
+    const aiHit = { ...original, __aiScore: 17, userMetadata: { labels: [], lastModified: "2026-11-01T00:00:00Z" } };
+    stampImageRead(aiHit, undefined, captureImageRead(), "lean");
+    useSearchStore.setState({ results: [aiHit, unrelated] });
+    expect(state().results[0]?.metadata).toBe(newer.metadata);
+    expect(state().results[0]?.__aiScore).toBe(17);
+    const equalClock = { ...aiHit, userMetadata: { labels: ["contradiction"], lastModified: newer.userMetadata.lastModified } };
+    stampImageRead(equalClock, undefined, captureImageRead(), "lean");
+    useSearchStore.setState({ results: [equalClock, unrelated] });
+    expect(state().results[0]?.userMetadata?.labels).toEqual(["external"]);
+  } finally {
+    useSelectionStore.getState().clear();
+    useSelectionStore.setState({ dataSource: previousSource });
+  }
+});
+
+it("releases an old API response after readback without restoring metadata or editing authority", async () => {
+  vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+  vi.stubEnv("VITE_USE_MEDIA_API", "true");
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  const resource = { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/touched" }] };
+  const original = {
+    id: "touched", uploadTime: "2026-11-01T00:00:00Z", uploadedBy: "fixture",
+    source: { mimeType: "image/jpeg", dimensions: { width: 400, height: 300 } },
+    metadata: { description: "Before" },
+  };
+  const envelope = (version: number, labels: string[], permitted = false) => ({
+    ...resource, links: permitted ? resource.links : [], actions: [],
+    data: { ...original, metadata: { description: `Projection ${version}` },
+      userMetadata: { data: { lastModified: `2026-11-0${version}T00:00:00Z`,
+        archived: { data: false }, metadata: { data: {} }, usageRights: {}, photoshoot: {},
+        labels: { data: labels.map(label => ({ data: label })) } } } },
+  });
+  const stalePayload = structuredClone({ data: [envelope(1, [], true), {
+    data: { ...original, id: "unrelated", metadata: { description: "Unrelated current body" } },
+  }], total: 2, sortValues: [[200, "touched"], [100, "unrelated"]] });
+  let pageReads = 0;
+  let excluded = false;
+  let currentProjection = envelope(2, ["news"]);
+  useApiMode(2, { routes: {
+    "/images/search-after": async () => {
+      if (pageReads++ === 0) { await held; return stalePayload; }
+      return excluded ? { data: [], total: 0, sortValues: [] }
+        : { data: [currentProjection], total: 1, sortValues: [[200, "touched"]] };
+    },
+    "/images/mget": () => ({ data: [currentProjection] }),
+  } });
+  useSearchStore.setState({ results: [original], total: 1, imagePositions: new Map([["touched", 0]]) });
+  _resetMetadataCache();
+  useSelectionStore.setState({ selectedIds: new Set([original.id]), anchorId: original.id });
+  useEnrichmentStore.getState().setEnrichment(new Map([["touched", { resource }]]));
+  const oldRead = state().search();
+  const operation = createLabelOperation(async () => ({ outcome: "acknowledged" }), {
+    readImages: (ids, signal) => state().dataSource.getByIds(ids, signal),
+    publishImages: images => publishImages(images.map(image => ({ image, enrichment: attachedEnrichment(image) }))),
+  });
+  try {
+    await operation.confirm({ action: "add", label: "news", targetIds: ["touched"] }, new Map([["touched", { resource }]]));
+    await waitFor(() => operation.getSnapshot()?.items[0].observation === "observed", "owned publication");
+    const accepted = state().results[0];
+    expect(accepted?.userMetadata?.labels).toEqual(["news"]);
+    release();
+    await oldRead;
+    expect(state().results[0]).toBe(accepted);
+    expect(state().results[1]?.metadata.description).toBe("Unrelated current body");
+    expect(useEnrichmentStore.getState().data.get("touched")?.resource?.links).toEqual([]);
+    currentProjection = envelope(1, [], true);
+    useSearchStore.setState({ params: { ...state().params, query: "subsequent" }, focusedImageId: null, _phantomFocusImageId: null });
+    await state().search();
+    await waitFor(() => !state().loading && state().sortAroundFocusStatus === null, "subsequent query");
+    expect(state().results[0]?.metadata).toBe(accepted?.metadata);
+    expect(state().results[0]?.userMetadata).toBe(accepted?.userMetadata);
+    expect(useEnrichmentStore.getState().data.get("touched")?.resource?.links).toEqual([]);
+    currentProjection = envelope(3, [], true);
+    useSearchStore.setState({ params: { ...state().params, query: "newer" }, focusedImageId: null, _phantomFocusImageId: null });
+    await state().search();
+    await waitFor(() => !state().loading && state().sortAroundFocusStatus === null, "newer query");
+    expect(state().results[0]?.userMetadata?.labels).toEqual([]);
+    expect(state().results[0]?.metadata.description).toBe("Projection 3");
+    expect(useSelectionStore.getState().metadataCache.get(original.id)).toBe(state().results[0]);
+    expect(useEnrichmentStore.getState().data.get("touched")?.resource?.links).toEqual(resource.links);
+    useSelectionStore.getState().clear();
+    _resetMetadataCache();
+    excluded = true;
+    await state().search();
+    expect(state().results).toEqual([]);
+    excluded = false;
+    currentProjection = envelope(1, [], true);
+    await state().search();
+    expect(state().results).toEqual([undefined]);
+    expect(useEnrichmentStore.getState().data.get("touched")?.resource?.links).toEqual([]);
+    currentProjection = envelope(4, [], true);
+    await state().search();
+    expect(state().results[0]?.metadata.description).toBe("Projection 4");
+  } finally {
+    release();
+    await oldRead;
+    useSelectionStore.getState().clear();
+    vi.clearAllTimers();
+    vi.unstubAllEnvs();
+  }
+});
+
 it("buffer publication replaces resident content without changing its slot", async () => {
   try {
     useApiMode(20);
@@ -202,7 +332,22 @@ it("buffer publication replaces resident content without changing its slot", asy
     const revision = useSelectionStore.getState().metadataRevision;
     const updated = { ...original, metadata: { ...original.metadata, description: "A2 published description" },
       userMetadata: { ...original.userMetadata, labels: ["A2 published label"] } };
-    publishImage(updated, { resource: { links: [] }, actions: [] });
+    const peer = { ...page.hits[6], userMetadata: { labels: ["A3 grouped label"] } };
+    const notifications: unknown[] = [];
+    const unsubscribe = useSearchStore.subscribe((next, previous) => {
+      if (next.results !== previous.results) notifications.push(next.results);
+    });
+    const enrichmentUpdates = vi.spyOn(useEnrichmentStore.getState(), "upsertEnrichment");
+    const selectionUpdates = vi.spyOn(useSelectionStore.getState(), "publishSelectedMetadata");
+    publishImages([
+      { image: updated, enrichment: { resource: { links: [] }, actions: [] } },
+      { image: peer, enrichment: { resource: { links: [] }, actions: [] } },
+    ]);
+    unsubscribe();
+    expect(notifications).toHaveLength(1);
+    expect(enrichmentUpdates).toHaveBeenCalledTimes(1);
+    expect(selectionUpdates).toHaveBeenCalledTimes(1);
+    expect(state().results[6]).toBe(peer);
     const accepted = state().results[5]!;
     expect(accepted.metadata.description).toBe("A2 published description");
     expect(accepted.userMetadata?.labels).toEqual(["A2 published label"]);
@@ -642,6 +787,7 @@ describe.each(["direct-ES", "media-api"] as const)("KUP-033 %s backward boundary
 });
 
 beforeEach(() => {
+  resetImageFreshnessForTests();
   rescues = [];
   vi.spyOn(console, "warn").mockImplementation(() => {});
 });
@@ -804,6 +950,19 @@ describe("API mode: extension duplicate exclusion", () => {
       expect(bodiesFor("/images/search-after")).toHaveLength(4);
       expect(bodiesFor("/images/search-after")[3]).toMatchObject({ sortValues: nextDuplicateTuple });
       expect(state().results.some(image => image?.id === later.hits[0].id)).toBe(true);
+      const operation = admitLabelObservation([duplicate.id]);
+      if (typeof operation !== "number") throw new Error(operation);
+      const observed = { ...duplicate, userMetadata: { labels: ["news"], lastModified: "2026-11-06T00:00:00Z" } };
+      const positive = { resource: { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/fixture" }] } };
+      stampImageRead(observed, positive, captureImageRead(), "lean");
+      acceptObservedImages([observed], operation);
+      publishImage(observed, positive);
+      const retained = state().results;
+      response = { data: [duplicateEntity], sortValues: [nextDuplicateTuple], total: 0 };
+      await waitPastCooldown();
+      await extend();
+      expect(state().results).toBe(retained);
+      expect(useEnrichmentStore.getState().data.get(duplicate.id)?.resource?.links).toEqual([]);
       state().abortExtends();
     },
   );

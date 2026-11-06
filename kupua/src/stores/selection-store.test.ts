@@ -26,6 +26,8 @@ import { BUFFER_CAPACITY, SELECTION_PERSIST_DEBOUNCE_MS } from "@/constants/tuni
 import { RECONCILE_FIELDS } from "@/lib/field-registry";
 import { recomputeAll } from "@/lib/reconcile";
 import type { Image } from "@/types/image";
+import { createLabelOperation } from "@/lib/label-operation";
+import { resetImageFreshnessForTests } from "@/lib/image-read-freshness";
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -53,6 +55,7 @@ const cancelIdleCallbackMock = vi.fn();
 let mock: MockDataSource;
 
 beforeEach(() => {
+  resetImageFreshnessForTests();
   setRetainedCursorAnchor(null);
   // Stub browser globals.
   vi.stubGlobal("sessionStorage", sessionStorageMock);
@@ -525,6 +528,42 @@ describe("ensureMetadata", () => {
 // ---------------------------------------------------------------------------
 
 describe("hydrate", () => {
+  it.each(["body", "omission"] as const)("released pre-operation hydration %s cannot undo selected publication", async (response) => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const [original] = await mock.getByIds(["img-0"]);
+    const updated = { ...original, userMetadata: { labels: ["news"], lastModified: "2026-11-06T00:00:00Z" } };
+    const selectedIds = new Set([original.id]);
+    useSelectionStore.setState({ selectedIds, anchorId: original.id });
+    let release!: (images: Image[]) => void;
+    const reads = vi.spyOn(mock, "getByIds").mockReturnValueOnce(new Promise<Image[]>(resolve => { release = resolve; }));
+    const hydration = useSelectionStore.getState().hydrate();
+    const resource = { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/img-0" }] };
+    const operation = createLabelOperation(async () => ({ outcome: "acknowledged" }), {
+      readImages: async () => [updated],
+      publishImages: images => useSelectionStore.getState().publishSelectedMetadata(images),
+    });
+    try {
+      await operation.confirm({ action: "add", label: "news", targetIds: [original.id] }, new Map([[original.id, { resource }]]));
+      await vi.waitFor(() => expect(operation.getSnapshot()?.items[0].observation).toBe("observed"));
+      const revision = useSelectionStore.getState().metadataRevision;
+      release(response === "body" ? [original] : []);
+      await hydration;
+      expect(useSelectionStore.getState().metadataCache.get(original.id)).toBe(updated);
+      expect(useSelectionStore.getState().metadataRevision).toBe(revision);
+      expect(useSelectionStore.getState().selectedIds).toBe(selectedIds);
+      expect(useSelectionStore.getState().anchorId).toBe(original.id);
+      expect(useToastStore.getState().queue).toEqual([]);
+      reads.mockResolvedValue([]);
+      await useSelectionStore.getState().hydrate();
+      expect(useSelectionStore.getState().selectedIds.size).toBe(0);
+      expect(useToastStore.getState().queue).toHaveLength(1);
+    } finally {
+      release([]);
+      await hydration;
+      vi.unstubAllEnvs();
+    }
+  });
+
   it.each(["Error", "AbortError"])("does not repair membership, anchors or revisions after %s", async (name) => {
     vi.spyOn(mock, "getByIds").mockRejectedValue(Object.assign(new Error("fixture failure"), { name }));
     useSelectionStore.setState({ selectedIds: new Set(["img-0", "img-1"]), anchorId: "img-1" });

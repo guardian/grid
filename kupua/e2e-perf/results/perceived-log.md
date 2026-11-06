@@ -3121,3 +3121,57 @@ Mode: media-api | API topology: local | Media delivery: canonical | Base URL: ht
 | JB5 | fullscreen-exit | 4 | — | — | — | 122 | 130 | — |
 
 JB2 matched no-anchor control: first visible 1420ms; settled 1423ms; design alternating-ab-ba. Do not subtract sequential samples; compare balanced aggregates only.
+
+---
+
+## [short] growing teeth after A3 (d04df4cf4 (dirty), 2026-11-06)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 4
+
+Mode: media-api | API topology: local | Media delivery: canonical | Base URL: https://kupua.media.local.dev-gutools.co.uk | Browser: chromium 151.0.7922.34 | OS: darwin/arm64 25.6.0 | Viewport: 1720x960 | Screen: 1720x960 | DPR: 2 | Headed: true | CPU throttle: none | Cache: uncontrolled-browser-cache | Workers: 1 | Dirty state: 790c6da813c39916 | App source: 790c6da813c39916
+
+| Test | Action | Samples | Ack (ms) | Status (ms) | Store ready (ms) | First visible (ms) | Visual settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|---|---|
+| PP1 | home-logo | 4 | 2 | — | 1159 | 1252 | 1261 | — |
+| PP2 | sort-no-focus | 4 | 49 | — | 776 | 845 | 855 | — |
+| PP3 | sort-around-focus | 4 | 49 | — | 1230 | 1332 | 1340 | — |
+| PP4 | sort-around-focus | 4 | 48 | — | 1155 | 1227 | 1236 | — |
+| PP5 | filter-toggle | 4 | 15 | — | 868 | 875 | 880 | — |
+| PP6 | density-swap | 4 | — | — | — | 214 | 223 | — |
+| PP7 | scrubber-seek | 4 | 2 | — | 982 | 1108 | 1118 | — |
+| PP7b | scrubber-seek | 4 | 2 | — | 1132 | 1259 | 1270 | — |
+| PP7c | scrubber-scroll | 4 | — | — | — | 94 | 101 | — |
+| PP8 | search | 4 | 47 | — | 1270 | 1283 | 1291 | — |
+| PP9 | chip-remove | 4 | 358 | — | 974 | 1108 | 1123 | — |
+| PP11 | history-back | 4 | 11 | — | 1435 | 1571 | 1588 | — |
+| PP6b | density-swap | 4 | — | — | — | 226 | 263 | — |
+| PP6c | density-swap | 4 | — | — | — | 216 | 224 | — |
+
+### Background diagnostics
+
+Not ranked against user-action latency targets.
+
+| Test | Action | Samples | Store ready (ms) | Map entries |
+|------|--------|---|---|---|
+| PP10 | position-map | 4 | 2034 | 21627 |
+
+---
+
+## [long] growing teeth after A3 (d04df4cf4 (dirty), 2026-11-06)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 4
+
+Mode: media-api | API topology: local | Media delivery: canonical | Base URL: https://kupua.media.local.dev-gutools.co.uk | Browser: chromium 151.0.7922.34 | OS: darwin/arm64 25.6.0 | Viewport: 1720x960 | Screen: 1720x960 | DPR: 2 | Headed: true | CPU throttle: none | Cache: uncontrolled-browser-cache | Workers: 1 | Dirty state: 790c6da813c39916 | App source: 790c6da813c39916
+
+| Step | Action | Samples | Ack (ms) | Status (ms) | Store ready (ms) | First visible (ms) | Visual settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|---|---|
+| JA1 | navigation-search | 4 | — | — | 1109 | 1177 | 1183 | — |
+| JA2 | open-detail | 4 | — | — | 100 | 12695 | 12704 | — |
+| JA3 | metadata-click | 4 | 45 | — | 1355 | 1437 | 1455 | — |
+| JB1 | navigation-search | 4 | — | — | 1089 | 1165 | 1174 | — |
+| JB2 | facet-click | 4 | 56 | — | 1371 | 1398 | 1404 | — |
+| JB3 | facet-click | 4 | 36 | — | 801 | 859 | 865 | — |
+| JB4 | scrubber-scroll | 4 | — | — | — | 820 | 841 | — |
+| JB5 | fullscreen-exit | 4 | — | — | — | 125 | 133 | — |
+
+JB2 matched no-anchor control: first visible 1395ms; settled 1401ms; design alternating-ab-ba. Do not subtract sequential samples; compare balanced aggregates only.

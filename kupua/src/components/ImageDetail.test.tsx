@@ -18,6 +18,10 @@ import { isTwoTierFromTotal } from "@/lib/two-tier";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { chooseDetailReturn, type DetailReturnTarget, type DetailEntry } from "@/lib/detail-return";
 import { historySearchContinuity } from "@/lib/search-continuity";
+import { createLabelOperation } from "@/lib/label-operation";
+import { createLabelReadback } from "@/lib/image-publication";
+import { resetImageFreshnessForTests } from "@/lib/image-read-freshness";
+import { useSelectionStore, _resetMetadataCache } from "@/stores/selection-store";
 
 vi.hoisted(() => {
   vi.stubGlobal("matchMedia", vi.fn(() => ({
@@ -91,7 +95,8 @@ vi.mock("@/components/StableImg", () => ({ StableImg: ({ imgRef, ...props }: Com
   return <img ref={imgRef} {...props} />;
 } }));
 vi.mock("@/components/ImageMetadata", () => ({ ImageMetadata: ({ image, overlay }: { image: Image; overlay?: EnrichmentFields }) => (
-  <span data-testid="metadata">{image.id}: {image.metadata.title}{overlay?.cost ? ` [${overlay.cost}]` : ""}</span>
+  <><span data-testid="metadata">{image.id}: {image.metadata.title}{overlay?.cost ? ` [${overlay.cost}]` : ""}</span>
+    <span data-testid="original-metadata">{image.originalMetadata?.title} {String(image.fileMetadata?.fixture ?? "")}</span></>
 ) }));
 vi.mock("@/components/UsagesSection", () => ({ UsagesSection: () => null, countDisplayUsages: () => 0 }));
 vi.mock("@/components/crop/CropEditor", () => ({ CropEditor: ({ onClose }: { onClose: () => void }) => (
@@ -500,6 +505,85 @@ describe("KUP-004 standalone detail identity", () => {
     await act(async () => requests[3].resolve(found("A")));
     expect(screen.getByTestId("metadata").textContent).toBe("A: Title A");
     expect(lookup).toHaveBeenCalledTimes(4);
+  });
+
+  it("publishes full standalone readback and actually rejects a released older same-ID completion", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    resetImageFreshnessForTests();
+    const oldRead = deferred<ImageByIdResult | undefined>();
+    const full = { ...makeImage("A"), metadata: { title: "Accepted title" },
+      originalMetadata: { title: "Original camera title" }, fileMetadata: { fixture: "EXIF retained" },
+      userMetadata: { labels: ["news"], lastModified: "2026-11-06T00:00:00Z" } };
+    const lean = { ...full, originalMetadata: undefined, fileMetadata: undefined };
+    const lookup = vi.spyOn(dataSource, "getById").mockReturnValueOnce(oldRead.promise)
+      .mockResolvedValueOnce({ image: full, enrichment: { resource: { links: [] }, actions: [] } });
+    vi.spyOn(dataSource, "getByIds").mockResolvedValue([lean]);
+    const view = render(<Detail imageId="A" />);
+    const resource = { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/A" }] };
+    const operation = createLabelOperation(async () => ({ outcome: "acknowledged" }), createLabelReadback(dataSource));
+    try {
+      await act(async () => {
+        await operation.confirm({ action: "add", label: "news", targetIds: ["A"] }, new Map([["A", { resource }]]));
+      });
+      expect(screen.getByTestId("metadata").textContent).toBe("A: Accepted title");
+      expect(screen.getByTestId("original-metadata").textContent).toContain("Original camera title EXIF retained");
+      expect(operation.getSnapshot()?.items[0].observation).toBe("observed");
+      expect(lookup).toHaveBeenCalledTimes(2);
+      expect(lookup.mock.calls[0][1]?.aborted).toBe(false);
+      await act(async () => oldRead.resolve(found("A", { resource })));
+      expect(screen.getByTestId("metadata").textContent).toBe("A: Accepted title");
+      expect(screen.getByTestId("original-metadata").textContent).toContain("Original camera title EXIF retained");
+      expect(lookup).toHaveBeenCalledTimes(2);
+      lookup.mockResolvedValueOnce(found("A", { resource }));
+      await act(async () => view.rerender(<Detail key="new-owner" imageId="A" />));
+      expect(screen.queryByText("Image not found")).toBeNull();
+      expect(screen.getByText("Image unavailable")).toBeTruthy();
+    } finally {
+      await act(async () => oldRead.resolve(undefined));
+      view.unmount();
+      resetImageFreshnessForTests();
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("publishes to surviving selection after standalone departure and same-ID re-entry", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    resetImageFreshnessForTests();
+    _resetMetadataCache();
+    useSelectionStore.setState({ selectedIds: new Set(["A"]), anchorId: "A" });
+    const fullRead = deferred<ImageByIdResult | undefined>();
+    const returningRead = deferred<ImageByIdResult | undefined>();
+    const image = { ...makeImage("A"), metadata: { title: "Readback" },
+      userMetadata: { labels: ["news"], lastModified: "2026-11-06T00:00:00Z" } };
+    const lookup = vi.spyOn(dataSource, "getById").mockResolvedValueOnce(found("A"))
+      .mockReturnValueOnce(fullRead.promise).mockResolvedValueOnce(found("B")).mockReturnValueOnce(returningRead.promise);
+    vi.spyOn(dataSource, "getByIds").mockResolvedValue([image]);
+    const view = render(<Detail imageId="A" />);
+    await act(async () => {});
+    const resource = { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/A" }] };
+    const operation = createLabelOperation(async () => ({ outcome: "acknowledged" }), createLabelReadback(dataSource));
+    try {
+      await act(async () => { await operation.confirm({ action: "add", label: "news", targetIds: ["A"] }, new Map([["A", { resource }]])); });
+      expect(lookup).toHaveBeenCalledTimes(2);
+      view.rerender(<Detail imageId="B" />);
+      view.rerender(<Detail imageId="A" />);
+      expect(lookup.mock.calls[1][1]?.aborted).toBe(true);
+      await act(async () => fullRead.resolve({ image }));
+      expect(useSelectionStore.getState().metadataCache.get("A")?.userMetadata?.labels).toEqual(["news"]);
+      expect(operation.getSnapshot()?.items[0].observation).toBe("observed");
+      expect(screen.queryByTestId("metadata")).toBeNull();
+      await act(async () => returningRead.resolve({ image: { ...image, originalMetadata: { title: "Returned full projection" } } }));
+      expect(screen.getByTestId("metadata").textContent).toBe("A: Readback");
+      expect(screen.getByTestId("original-metadata").textContent).toContain("Returned full projection");
+      expect(lookup).toHaveBeenCalledTimes(4);
+    } finally {
+      await act(async () => { fullRead.resolve(undefined); returningRead.resolve(undefined); });
+      operation.cancelObservation();
+      view.unmount();
+      useSelectionStore.getState().clear();
+      resetImageFreshnessForTests();
+      vi.unstubAllEnvs();
+    }
   });
 
   it("gives resident B precedence over pending standalone completion and keeps the detail mounted", async () => {

@@ -53,6 +53,7 @@ import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { initGridApi } from "@/lib/grid-api-instance";
 import type { Image } from "@/types/image";
 import { attachedEnrichment, useEnrichmentStore } from "@/stores/enrichment-store";
+import { isImageMetadataCurrent, resolveImageOverlay } from "@/lib/image-read-freshness";
 import type { LabelEditContext } from "@/lib/label-operation";
 import { LabelOperationReceipts } from "@/components/LabelEditor";
 import { useIsCompact } from "@/hooks/useShell";
@@ -390,8 +391,8 @@ function currentPanelLabelEditing(): LabelEditContext {
   const targets = new Map(targetIds.map(imageId => {
     const ordinal = search.imagePositions.get(imageId);
     const image = selection.metadataCache.get(imageId) ?? (ordinal === undefined ? undefined : search.results[ordinal - search.bufferOffset]);
-    return [imageId, { resource: (overlays.get(imageId) ?? (image && attachedEnrichment(image)))?.resource,
-      pending: selection.pendingFetchIds.has(imageId) }];
+    return [imageId, { resource: (image ? resolveImageOverlay(image, overlays.get(imageId), attachedEnrichment(image)) : overlays.get(imageId))?.resource,
+      pending: selection.pendingFetchIds.has(imageId) || Boolean(image && !isImageMetadataCurrent(image, overlays.get(imageId), attachedEnrichment(image))) }];
   }));
   const pending = selection.selectedIds.size > 1 && (selection.isReconciling || !selection.reconciledView
     || [...selection.reconciledView.values()].some(field => field.kind === "pending" || field.kind === "dirty"));

@@ -9,10 +9,114 @@ import { GRID_API_READ_VIA_POST } from "../../src/dal/grid-api/read-via-post";
 import { labelEditorPlugin, virtualEntry } from "../shared/label-editor-plugin";
 import { getDensityChangeButton } from "../shared/density-selection";
 import type { useSearchStore } from "../../src/stores/search-store";
+import type { useSelectionStore } from "../../src/stores/selection-store";
 
 type CommandWindow = typeof window & { commandFixture: typeof Commands; editorFixture: typeof labelEditorFixture;
-  __kupua_store__: typeof useSearchStore };
+  __kupua_store__: typeof useSearchStore; __kupua_selection_store__: typeof useSelectionStore };
 const fixturePlugin = labelEditorPlugin();
+
+test("A3 canonical readback survives a released stale API page across all densities", async ({ page }, testInfo) => {
+  const env = { VITEST: "true", VITE_USE_MEDIA_API: "true", VITE_HOSTED: "false", VITE_MEDIA_API_BASE_URL: "/api",
+    VITE_MEDIA_DELIVERY: "canonical", VITE_COLLECTIONS_URL: "/fixture-collections", VITE_GRID_API_WRITES_ENABLED: "false" };
+  const previous = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]));
+  Object.assign(process.env, env);
+  const vite = await createServer({ configFile: resolve("vite.config.ts"), cacheDir: testInfo.outputPath("vite-cache"),
+    plugins: [labelEditorPlugin("readback")], server: { host: "127.0.0.1", port: 0 } });
+  const escaped: string[] = [];
+  try {
+    await vite.listen();
+    const origin = vite.resolvedUrls!.local[0].replace(/\/$/, "");
+    await page.route("**/*", route => {
+      const url = new URL(route.request().url());
+      if (url.origin === origin) return route.continue();
+      escaped.push(url.pathname);
+      return route.abort();
+    });
+    await page.goto(`${origin}/__readback`);
+    const grid = page.getByRole("region", { name: "Image results grid", exact: true });
+    await expect(grid.locator('[data-cell-id="local-0"]')).toBeVisible();
+    await page.evaluate(() => (window as CommandWindow).editorFixture.select(["local-0", "local-offscreen"]));
+    const snapshot = () => page.evaluate(() => (window as CommandWindow).editorFixture.readbackSnapshot());
+    await expect.poll(async () => (await snapshot()).selected.map(image => image.labels)).toEqual([["original label"], ["original label"]]);
+    await expect.poll(() => page.evaluate(() => (window as CommandWindow).__kupua_selection_store__.getState().isReconciling)).toBe(false);
+    await page.getByRole("button", { name: "Hold old search", exact: true }).click();
+    const counts = () => page.evaluate(async () => (await fetch("/__readback-control")).json()) as Promise<{
+      searchReads: number; mgetReads: number; fakeDispatches: number; staleDelivered: number; held: number; unexpected: string[];
+    }>;
+    await expect.poll(async () => (await counts()).held).toBe(1);
+    const beforeReads = (await counts()).mgetReads;
+    const publication = await page.evaluate(async () => {
+      const app = window as CommandWindow;
+      const source = app.__kupua_store__;
+      const selected = app.__kupua_selection_store__;
+      const before = source.getState();
+      const selection = selected.getState();
+      const geometryPath = "/src/lib/scroll-geometry-ref.ts";
+      const { getLayoutGeometry } = await import(geometryPath);
+      const geometry = getLayoutGeometry();
+      const region = document.querySelector<HTMLElement>('[aria-label="Image results grid"]')!;
+      const bounds = region.getBoundingClientRect();
+      const visible = [...region.querySelectorAll<HTMLElement>("[data-cell-id]")].filter(cell => {
+        const box = cell.getBoundingClientRect();
+        return box.top >= bounds.top && box.bottom <= bounds.bottom;
+      }).map(cell => ({ id: cell.dataset.cellId!, box: cell.getBoundingClientRect() }));
+      let copies = 0;
+      let displacement = 0;
+      const unsubscribe = source.subscribe((next, previous) => { if (next.results !== previous.results) copies++; });
+      try {
+        if (!app.editorFixture.simulateReadback()) throw new Error("Simulation refused");
+        const deadline = performance.now() + 12_000;
+        let observed = false;
+        while (!observed && performance.now() < deadline) {
+          await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+          for (const { id, box } of visible) {
+            const cell = region.querySelector(`[data-cell-id="${id}"]`);
+            if (!cell) throw new Error("Visible cell disappeared");
+            const next = cell.getBoundingClientRect();
+            displacement = Math.max(displacement, Math.abs(next.x - box.x), Math.abs(next.y - box.y), Math.abs(next.width - box.width), Math.abs(next.height - box.height));
+          }
+          observed = app.editorFixture.readbackSnapshot().receipts[0]?.items.every(item => item.observation === "observed") ?? false;
+        }
+        return { observed, copies, displacement, visible: visible.length, geometryRetained: getLayoutGeometry() === geometry,
+          unchangedReferences: before.results.every((image, index) => image?.id === "local-0" || source.getState().results[index] === image),
+          selectedRevision: selected.getState().metadataRevision - selection.metadataRevision,
+          membershipRetained: selected.getState().selectedIds === selection.selectedIds && selected.getState().anchorId === selection.anchorId };
+      } finally { unsubscribe(); }
+    });
+    expect(publication).toMatchObject({ observed: true, copies: 1, geometryRetained: true, unchangedReferences: true, selectedRevision: 1, membershipRetained: true });
+    expect(publication.visible).toBeGreaterThan(1);
+    expect(publication.displacement).toBeLessThanOrEqual(1);
+    await page.getByRole("button", { name: "Release old search", exact: true }).click();
+    await expect.poll(async () => (await counts()).staleDelivered).toBe(1);
+    await expect.poll(() => page.evaluate(() => (window as CommandWindow).__kupua_store__.getState().loading)).toBe(false);
+    expect((await snapshot()).selected.map(image => image.labels)).toEqual([["A3 observed label"], ["A3 observed label"]]);
+    for (const density of ["grid", "table", "justified"] as const) {
+      await (await getDensityChangeButton(page, density))?.click();
+      const region = page.getByRole("region", { name: `Image results ${density}`, exact: true });
+      await expect(region.locator('[data-cell-id="local-0"]')).toBeVisible();
+      if (density === "justified") await expect(region.locator('[data-cell-id="local-0"] [title]').first()).toHaveAttribute("title", /Readback local-0/);
+      else await expect(region.locator('[data-cell-id="local-0"]')).toContainText("Readback local-0");
+      await expect(page.getByRole("button", { name: "Remove A3 observed label from all selected images", exact: true })).toBeDisabled();
+    }
+    const after = await counts();
+    expect(after.fakeDispatches).toBe(2);
+    expect(after.mgetReads - beforeReads).toBeGreaterThanOrEqual(1);
+    expect(after.mgetReads - beforeReads).toBeLessThanOrEqual(3);
+    expect(after.held).toBe(0);
+    expect(after.unexpected).toEqual([]);
+    expect(escaped).toEqual([]);
+    expect(await page.evaluate(async () => (await fetch("/es/_search", { method: "POST", body: "{}" })).status)).toBe(403);
+    expect((await counts()).unexpected).toEqual(["POST /es/_search"]);
+  } finally {
+    await page.evaluate(() => (window as Partial<CommandWindow>).editorFixture?.disposeReadback()).catch(() => {});
+    await page.goto("about:blank");
+    await page.unrouteAll({ behavior: "wait" });
+    await vite.close();
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  }
+});
 
 async function isolatePublicationFixture(page: Page, origin: string) {
   const escaped: string[] = [];

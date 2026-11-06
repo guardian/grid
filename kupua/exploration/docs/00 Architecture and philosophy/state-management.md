@@ -31,6 +31,7 @@ by transition, rather than promising identical placement everywhere.
 | Browsing data and work | [Search store](../../../src/stores/search-store.ts): results, global buffer offset, total, ID-to-position lookup, cursors, focus, seek/restore intent and asynchronous ownership. It also contains polling, facet caches and sort distributions; it is not a narrowly isolated result cache. |
 | Selection and summaries | [Selection store](../../../src/stores/selection-store.ts): selected IDs, range anchor, bounded metadata cache, hydration and reconciliation. Membership does not depend on resident rows. Sort/density changes preserve it; new search/Home clears it by default. |
 | Server fields and image capabilities | [Enrichment store](../../../src/stores/enrichment-store.ts): per-image API overlays, including resource links/actions, for committed search results. Standalone detail owns its overlay; selection reads attach theirs to cached image objects. |
+| Simulated editing and freshness | [Label operations](../../../src/lib/label-operation.ts) own immutable targets, transport receipts and injected bounded observation. [Touched-ID facts](../../../src/lib/image-read-freshness.ts) retain issuance fences, metadata floors and authority ownership, not image bodies. Normal editing dispatches neither commands nor observation reads. |
 | General user permissions | [Grid API instance](../../../src/lib/grid-api-instance.ts): one on-demand, page-lifetime permission read in API mode, shared between callers. No separate store, identity persistence or startup request; these facts do not replace per-image capabilities or server authorization. |
 | Viewport and presentation | [Data window](../../../src/hooks/useDataWindow.ts) exposes indexed access and visible-range reporting; [scroll effects](../../../src/hooks/useScrollEffects.ts) applies placement to the virtualizer/DOM. Components and hooks retain local disclosure, gesture and pending-presentation state. |
 
@@ -68,14 +69,45 @@ Supplied server fields override local fallbacks; absent overlay fields retain th
 **Data arrival, accepted publication and presentation completion are distinct.**
 
 **Content-only publication.** [Image publication](../../../src/lib/image-publication.ts)
-replaces a resident body at its existing slot, preserves other body references and
-coordinates, replaces its authoritative enrichment, and explicitly updates selected
-or cached metadata without changing selection membership. Equal image ratios retain
+stages one accepted group, replaces resident bodies at existing slots with at most
+one buffer copy, groups authoritative enrichment and explicitly updates selected
+or cached metadata without changing selection membership. It preserves unrelated
+references, coordinates and list-owned AI relevance. Equal image ratios retain
 [geometry identity](../../../src/lib/result-geometry.ts), so content changes do not
 invalidate Justified packing or scrolling prediction. Ordinary page replacements
-have their own geometry identity. This path does not order competing reads, refresh
-server ranks or publish to a separately owned standalone detail response; editing
-and readback do not invoke it.
+have their own geometry identity. Off-screen-only publication does not replace the
+buffer. Selection advances one metadata revision and requests at most one existing
+reconciliation. Store notifications are sequential, not a transaction supplied by
+React batching: staged freshness facts identify old presentation, and stale metadata
+cannot admit editing even when an explicit context supplies newer capabilities.
+
+API reads capture issuance before awaiting, including reads whose IDs are not yet
+known. Existing request owners still control cancellation and publication. For
+touched IDs, search, selection hydration and singleton acceptance additionally
+reject pre-operation or below-floor metadata. Hydration omissions cannot undo a
+newer publication's membership or anchor. A newer accepted metadata projection can
+change the label again; equal/missing clocks do not resolve contradictions. A full
+projection can replace a retained lean one when their metadata agrees exactly.
+After every body is evicted, an older projection stays unresolved, not fresh or
+deleted. Current negative authority is handled independently of body rejection;
+captured grants are checked again at action admission without requiring a rerender.
+Ordinary accepted touched reads refresh selected metadata through its existing action.
+
+Standalone detail registers its current requested-ID effect, not another body cache.
+Matching lean readback can request one full singleton follow-up for that owner.
+Publication retains full-only metadata and rejects obsolete same-ID completions.
+A departed detail no longer gates surviving owners; a newly mounted owner uses its
+own guarded full read. Failure leaves editing unavailable without inventing absence.
+
+Simulation permits one active single-label group of at most 200 targets, three
+grouped mget attempts at least a second apart and a ten-second deadline beginning
+before fake dispatch. Commands and observation settle independently: a held command
+does not block verified partial publication, and unknown outcomes are never promoted
+to acknowledgements or replayed. Document-lifetime protection retains at most 1,000
+distinct admitted IDs; admission refuses overflow rather than evicting facts.
+There is no new polling or buffer scan without retained fences, no permanent
+page-scanning subscription and no rank/map refresh attached to metadata publication.
+Coordinate reacquisition and unavailable-slot policy remain separate work.
 
 Ordinary searches use three result-count regimes: small sets fill to residency,
 intermediate sets use global virtual coordinates with a background position map,

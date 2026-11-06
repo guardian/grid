@@ -23,7 +23,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { Image } from "@/types/image";
 import type { ImageDataSource } from "@/dal/types";
-import { useSearchStore } from "@/stores/search-store";
+import { appDataSource } from "@/dal";
 import { RECONCILE_FIELDS } from "@/lib/field-registry";
 import type { FieldDefinition } from "@/lib/field-registry";
 import {
@@ -39,6 +39,8 @@ import {
 } from "@/constants/tuning";
 import { addToast } from "@/stores/toast-store";
 import { setRetainedCursorAnchor } from "@/lib/image-offset-cache";
+import { captureImageRead, hasImageFence, protectsImageOmission } from "@/lib/image-read-freshness";
+import { acceptEnrichedImage } from "@/stores/enrichment-store";
 
 // ---------------------------------------------------------------------------
 // LRU cache — colocated because it's an implementation detail of this store
@@ -356,7 +358,7 @@ export const useSelectionStore = create<SelectionState>()(
       isReconciling: false,
       isRangeWalking: false,
       rangeWalkTime: null,
-      dataSource: useSearchStore.getState().dataSource,
+      dataSource: appDataSource,
 
       // --- Actions ---
 
@@ -552,6 +554,7 @@ export const useSelectionStore = create<SelectionState>()(
         });
 
         let images: Image[] = [];
+        const issued = captureImageRead();
         try {
           images = await dataSource.getByIds(needed);
         } catch {
@@ -563,7 +566,8 @@ export const useSelectionStore = create<SelectionState>()(
         const { metadataCache: cache } = get();
         let metadataChanged = false;
         for (const img of images) {
-          if (cache.set(img.id, img)) metadataChanged = true;
+          const accepted = hasImageFence(img.id) ? acceptEnrichedImage(img, cache.get(img.id), issued) : img;
+          if (accepted && cache.set(img.id, accepted)) metadataChanged = true;
         }
 
         set((s) => {
@@ -612,6 +616,7 @@ export const useSelectionStore = create<SelectionState>()(
 
         const ids = Array.from(selectedIds);
         let images: Image[] = [];
+        const issued = captureImageRead();
         try {
           images = await dataSource.getByIds(ids);
         } catch {
@@ -619,13 +624,14 @@ export const useSelectionStore = create<SelectionState>()(
         }
 
         const fetchedIds = new Set(images.map((img) => img.id));
-        const missingIds = ids.filter((id) => !fetchedIds.has(id));
+        const missingIds = ids.filter((id) => !fetchedIds.has(id) && !protectsImageOmission(id, issued));
 
         // Populate cache.
         const { metadataCache: cache } = get();
         let metadataChanged = false;
         for (const img of images) {
-          if (cache.set(img.id, img)) metadataChanged = true;
+          const accepted = hasImageFence(img.id) ? acceptEnrichedImage(img, cache.get(img.id), issued) : img;
+          if (accepted && cache.set(img.id, accepted)) metadataChanged = true;
         }
 
         const ownsSelection = get().selectedIds === selectedIds && get().anchorId === anchorId;

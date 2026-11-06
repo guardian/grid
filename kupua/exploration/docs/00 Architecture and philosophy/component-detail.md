@@ -193,13 +193,15 @@ Three-layer merge model:
 
 1. **ES baseline inputs** — `SOURCE_INCLUDES` in `es-config.ts` requests rights/leases/usages/labels/syndicationRights/XMP fields. Individual records may omit fields; no Grid service call is needed for these direct-mode inputs.
 2. **TS cost+validity calculation** — `calculateCost` (port of Scala `CostCalculator`), `buildValidityMap` + `deriveValid` (mirrors Scala's two-pass override model), `isImagePotentiallyGraphic`, quota-store (`fetchQuotas()` at startup, optional quota absence). `guardian-config.json` is a vendored config snapshot.
-3. **API overlay** — `enrichment-store` (Zustand, no persistence) receives committed ordinary and AI search enrichment. `deriveImage(image, overlay?)` merges server fields over the baseline; direct ES supplies no overlay. Ordinary pages, AI results and standalone detail map baseline images and enrichment from their response entities. Selection bulk lookup (`POST /images/mget`) attaches each entity's enrichment to the returned image object (`attachEnrichment`, a WeakMap), so it lives exactly as long as that object in selection's metadata cache and never enters the shared store.
+3. **API overlay** — `enrichment-store` (Zustand, no persistence) receives committed ordinary and AI search enrichment. `deriveImage(image, overlay?)` merges server fields over the baseline; direct ES supplies no overlay. Ordinary pages, AI results and standalone detail map baseline images and enrichment from their response entities. Selection bulk lookup (`POST /images/mget`) attaches each entity's enrichment to the returned image object (`attachEnrichment`, a WeakMap), so it lives with that object in selection's metadata cache. Ordinary lookup does not populate the shared map; touched-ID acceptance can update already-retained authority without inserting arbitrary offscreen entries.
 
 **Consuming enriched data:** `useEnrichedImage(image, ownOverlay?)` subscribes per-ID to the
-enrichment store (O(1) `Map.get`); an owned standalone overlay takes precedence, then the shared
-store, then enrichment attached to the image object. Non-React callers use `deriveImage`
-directly; the selection Cost Summary uses the same store-then-attached order. ImageDetail passes
-its owned overlay to ImageMetadata only while displaying that standalone image.
+enrichment store (O(1) `Map.get`). Untouched images prefer an owned standalone overlay,
+then shared data, then attached enrichment. For touched IDs, `resolveImageOverlay` qualifies
+those candidates by read ownership and metadata floor; old positive grants cannot outrank
+current denial. The hook marks stale metadata explicitly. Non-React consumers, including
+the selection Cost Summary, resolve the owned overlay before calling `deriveImage`.
+ImageDetail supplies its own overlay only for its current standalone image.
 `deriveImage` uses field-wise lazy fallback: supplied cost/status skip local calculation;
 validity is built only when `valid` or `invalidReasons` is missing. Nullish fallback preserves
 meaningful `false`, empty-object and empty-array overlay values. Local fallback remains necessary
@@ -213,6 +215,10 @@ descriptor holds only the optional image URI and `edits`/`crops` links. An API e
 those links supplies an empty list; no API enrichment means no descriptor. Same-image
 replacement removes old capabilities instead of combining old and new lists. Search, owned
 standalone detail and attached selection use the ownership rules above, without extra reads.
+Touched resource descriptors retain issuance evidence, checked again by label admission
+at prepare/confirm. Neither a missed rerender nor a newer explicit editing context permits
+editing stale displayed metadata. Current negative authority remains meaningful when the
+metadata body is below its floor or has no retained replacement.
 Media links keep their separate delivery path. Nested metadata controls remain deferred until
 a write consumer needs them; the `crops` link identifies the crop list, not a creation endpoint.
 
@@ -251,18 +257,33 @@ UI consumers must not create competing fetch or publication lifetimes.
 
 ## Image Publication (`lib/image-publication.ts`)
 
-`publishImage(image, overlay)` replaces a resident image at its existing slot and
-preserves unrelated bodies, coordinates, cursors and placement signals. It attaches
-the authoritative overlay to the new body, replaces resident or already-retained
-shared enrichment, and calls selection's metadata-publication action. Empty resource
+`publishImages(entries)` publishes one accepted group with at most one same-slot resident
+buffer copy, one grouped enrichment update and one selected-metadata action.
+`publishImage(image, overlay)` delegates to it. Unrelated references, coordinates,
+cursors, placement signals and list-owned AI relevance are preserved. Empty resource
 links replace older grants; offscreen targets do not create arbitrary shared entries.
+Freshness is staged before sequential store notifications; stale presentation cannot
+admit editing while the applicable body/authority owners catch up.
 
 Equal effective aspect ratios retain a weak, body-free result-geometry identity.
 Justified packing and velocity continuity use that identity independently of content
 references. Changed ratios and ordinary result replacements invalidate it. There is
 no per-cell body cache, extra render subscription or page-scanning subscriber.
-The helper has no editor/readback caller and does not resolve competing reads,
-server ordering or standalone-detail projection ownership.
+Injected single-label simulation uses this path; ordinary editor gestures remain
+disconnected. [Touched-ID facts](../../../src/lib/image-read-freshness.ts) add read-issuance
+fences and document-lifetime metadata floors to existing response owners, without storing
+bodies. Search acceptance and hydration preserve newer selected metadata and protect
+omission side effects; duplicate-only extensions can accept current touched authority
+without republishing resident bodies. Untouched reads retain their existing behavior.
+
+Standalone detail registers its current requested-ID effect. Matching lean observation
+can perform one bounded full follow-up, and only that effect receives standalone delivery.
+Departure does not block surviving owners; re-entry uses its own guarded full read.
+Equal metadata can upgrade lean to full projection without defaulting original/file fields.
+Below-floor data with no usable body remains unavailable, not a confirmed deletion.
+The observer's bounds and independent command/read lifetimes are described in
+[state management](state-management.md). Server ordering and coordinate reacquisition
+are not repaired by metadata publication.
 
 ## Position and Cursor Caches (`dal/position-map.ts`, `lib/image-offset-cache.ts`)
 
@@ -1023,9 +1044,12 @@ cohorts retain searchable values without stale coverage fractions. Repeated gest
 reopen their existing receipt and complete input preparation without resubmission.
 Unfinished input and in-flight/uncertain fake
 outcomes install a document-exit warning, not reload recovery. Normal actions are
-always disconnected; a fixture can inject only addition execution. No real command
-caller, image publication, permission fetch, extra confirmation, operation cancellation or
-undo is introduced. Identical action/label/target-set gestures are deduplicated.
+always disconnected; a fixture can inject addition execution and bounded canonical
+observation. Multi-label simulated input is refused before any dispatch, retaining the
+draft; disconnected comma-separated preparation is unchanged. Transport outcomes and
+observation remain separate, and observer disposal does not cancel or replay commands.
+No real command caller, permission fetch, extra confirmation or undo is introduced.
+Identical action/label/target-set gestures remain deduplicated.
 
 ## Multi-Image Metadata (`components/MultiImageMetadata.tsx`)
 
