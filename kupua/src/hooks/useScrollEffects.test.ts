@@ -125,8 +125,9 @@ function frame() {
   });
 }
 
-it("Home from unmarked detail does not reinstate its return focus", async () => {
-  window.history.replaceState({ kupuaKey: "unmarked-detail" }, "", "/search?nonFree=true&image=image-400");
+it("Home from detail does not reinstate its return focus", async () => {
+  window.history.replaceState({ kupuaKey: "detail", _detailOriginKupuaKey: "list", _detailEntryImageId: "image-400" },
+    "", "/search?nonFree=true&image=image-400");
   useUiPrefsStore.setState({ density: "grid" });
   useSearchStore.setState({ dataSource: new MockDataSource(100), params: { nonFree: "true" }, pitId: null });
   const setFocus = vi.spyOn(useSearchStore.getState(), "setFocusedImageId");

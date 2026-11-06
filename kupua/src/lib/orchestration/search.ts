@@ -331,38 +331,14 @@ export function markPushSnapshot(): void {
 type NavigateFn = (opts: any) => any;
 
 /**
- * Module-level flag: true when the current detail was entered via SPA
- * navigation (pushNavigate from grid/table), false when cold-loaded
- * (paste, bookmark, reload). Consumed once by ImageDetail's deep-link
- * synthesis effect to decide whether to synthesise a bare-list entry.
- *
- * SPA entry: the list entry already exists in history — no synthesis needed.
- * Cold load: no prior kupua entry exists — synthesis is required so
- * closeDetail's history.back() stays inside kupua.
- */
-let _detailEnteredViaSpa = false;
-
-function markDetailEnteredViaSpa(): void {
-  _detailEnteredViaSpa = true;
-}
-
-/** Consume (read-and-clear) the SPA-entry flag. */
-export function consumeDetailEnteredViaSpaFlag(): boolean {
-  const was = _detailEnteredViaSpa;
-  _detailEnteredViaSpa = false;
-  return was;
-}
-
-/**
  * Push-navigate with user-initiated semantics (the default for most sites).
  *
  * Calls `markUserInitiatedNavigation()` immediately before `navigate()` so
  * the resulting `useUrlSearchSync` effect knows this was a user action and
  * preserves focus/position ("Never Lost").
  *
- * Also marks the navigation as SPA-initiated so that ImageDetail's
- * deep-link synthesis knows not to insert a redundant bare-list entry
- * (the list entry already exists from the pre-detail page).
+ * Detail opens (`_detailEntryImageId` in state) also record their list
+ * origin, which tells ImageDetail not to synthesise a bare-list entry.
  *
  * Use this for every raw `navigate()` push call **except** logo-reset
  * (which deliberately opts out — see `pushNavigateAsPopstate`).
@@ -378,7 +354,6 @@ export function pushNavigate(navigate: NavigateFn, opts: Parameters<NavigateFn>[
   // The store is still showing pre-navigate state at this point.
   markPushSnapshot();
   markUserInitiatedNavigation();
-  markDetailEnteredViaSpa();
   // Mint a fresh kupuaKey for the new history entry. Shallow-merge with
   // any caller-supplied state so both survive.
   const state = withFreshKupuaKey({ ...opts.state,

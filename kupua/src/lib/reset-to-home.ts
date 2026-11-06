@@ -19,7 +19,6 @@
 
 import { resetScrollAndFocusSearch, holdHomeThumbAtTop, setPrevParamsSerialized, setPrevSearchOnly, resetCqlInputComponents } from "@/lib/orchestration/search";
 import { useSearchStore, suppressNextRestore, getSearchGeneration, getInitialSearchPresentation } from "@/stores/search-store";
-import { suppressReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { clearDensityFocusRatio, suppressDensityFocusSave } from "@/hooks/useScrollEffects";
 import { URL_PARAM_KEYS, URL_DISPLAY_KEYS } from "@/lib/search-params-schema";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
@@ -105,13 +104,6 @@ export async function resetToHome(navigate: () => void | string, traceInteractio
   // fires restoreAroundCursor, overwriting bufferOffset with the deep
   // offset. This one-shot flag prevents that.
   releases.push(suppressNextRestore());
-
-  // Suppress the next useReturnFromDetail scroll restoration. In phantom
-  // mode (mobile default), focusedImageId is always null, so the
-  // "intentional clear" guard in useReturnFromDetail can't distinguish
-  // resetToHome from normal phantom state — it re-sets focus to the old
-  // image and scrolls to it instead of staying at the top.
-  releases.push(suppressReturnFromDetail());
 
   // Clear focus BEFORE the density switch — the table unmount saves the
   // focused image's viewport ratio, and the grid mount restores it —

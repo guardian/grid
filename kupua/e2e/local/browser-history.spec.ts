@@ -1520,7 +1520,7 @@ test.describe("Browser back/forward — deep-link synthesis", () => {
 
   test("cold load → traverse → close → forward does not re-synthesise (no phantom entry)", async ({ kupua }) => {
     // Regression test for H1: withCurrentKupuaKey() was dropping
-    // _bareListSynthesized from history.state on traversal replace,
+    // the synthesis marker from history.state on traversal replace,
     // causing re-synthesis (phantom bare-list entry + forward truncation)
     // when the user navigated forward back to the detail entry.
     await kupua.startSearch();
@@ -1557,7 +1557,7 @@ test.describe("Browser back/forward — deep-link synthesis", () => {
     const histLenAfterLoad = await freshPage.evaluate(() => history.length);
 
     // Traverse to the next image (replace navigation — this is where
-    // withCurrentKupuaKey() was dropping _bareListSynthesized)
+    // withCurrentKupuaKey() was dropping the synthesis marker)
     await freshPage.keyboard.press("ArrowRight");
     await freshPage.waitForFunction(
       (prev) => new URL(window.location.href).searchParams.get("image") !== prev,

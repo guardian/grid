@@ -64,7 +64,7 @@ export function getDetailOriginKupuaKey(): string | undefined {
  * typing follow-ups, default-injection) use this so the key survives.
  *
  * Preserves the entire existing `history.state` — not just kupuaKey —
- * so that flags stamped by other code (e.g. `_bareListSynthesized` from
+ * so that flags stamped by other code (e.g. `_detailOriginKupuaKey` from
  * ImageDetail synthesis) survive across replace navigations.
  *
  * If `extraState` is provided, it is shallow-merged over the existing

@@ -24,6 +24,16 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 6 November 2026 - Derive detail-entry decisions from history origin
+
+Removed the module-level SPA-entry flag, the `_bareListSynthesized` history marker
+and Home's return-from-detail suppression flag. Deep-link synthesis now skips any
+entry that already records `_detailOriginKupuaKey`; grid/table opens stamp it, cold
+synthesis creates it and crop entries inherit it. Home lands on a fresh history key,
+so the existing origin-key check already prevents return placement. The SPA flag was
+set by every push, including typing, so it could be stale when consumed. Entries
+saved before origin keys existed synthesise once more.
+
 ### 6 November 2026 - Observe simulated additions and publish fresh image groups
 
 Added injected single-label observation with grouped canonical mget reads, exact

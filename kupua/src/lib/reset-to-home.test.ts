@@ -6,7 +6,7 @@ import { createMemoryHistory } from "@tanstack/react-router";
 const fixture = vi.hoisted(() => {
   const listeners = new Set<() => void>();
   const operation = vi.fn<() => Promise<void>>();
-  const flags = { restore: null as symbol | null, density: null as symbol | null, detail: null as symbol | null };
+  const flags = { restore: null as symbol | null, density: null as symbol | null };
   const suppress = (field: keyof typeof flags) => {
     const owner = Symbol(field);
     flags[field] = owner;
@@ -53,7 +53,6 @@ vi.mock("@/stores/selection-store", () => ({
 }));
 vi.mock("@/stores/ui-prefs-store", () => ({ defaultDensity: () => "grid", useUiPrefsStore: { getState: () => fixture.preferences } }));
 
-vi.mock("@/hooks/useReturnFromDetail", () => ({ suppressReturnFromDetail: () => fixture.suppress("detail") }));
 vi.mock("@/hooks/useScrollEffects", () => ({
   clearDensityFocusRatio: vi.fn(),
   suppressDensityFocusSave: vi.fn(() => fixture.suppress("density")),
@@ -73,7 +72,7 @@ describe("resetToHome", () => {
     vi.useFakeTimers();
     fixture.operation.mockReset().mockResolvedValue(undefined);
     fixture.mobile = true;
-    fixture.flags.restore = fixture.flags.density = fixture.flags.detail = null;
+    fixture.flags.restore = fixture.flags.density = null;
     fixture.listeners.clear();
     fixture.preferences.density = "grid";
     fixture.preferences._densityIntent = 0;
@@ -120,7 +119,7 @@ describe("resetToHome", () => {
         expect(navigate).not.toHaveBeenCalled();
         expect(fixture.preferences.density).toBe("table");
         expect(sessionStorage.getItem("kupua-density")).toBe("table");
-        expect(fixture.flags).toEqual({ restore: null, density: null, detail: null });
+        expect(fixture.flags).toEqual({ restore: null, density: null });
         expect(fixture.listeners.size).toBe(0);
       });
     }

@@ -74,10 +74,10 @@ describe("history-key", () => {
       expect(result).toEqual({ kupuaKey: "existing-key", other: "value", foo: "bar" });
     });
 
-    it("preserves _bareListSynthesized across replace (H1 regression)", () => {
-      setMockHistoryState({ kupuaKey: "k1", _bareListSynthesized: true, __TSR_key: "tsr-1" });
+    it("preserves _detailOriginKupuaKey across replace (H1 regression)", () => {
+      setMockHistoryState({ kupuaKey: "k1", _detailOriginKupuaKey: "list", __TSR_key: "tsr-1" });
       const result = withCurrentKupuaKey();
-      expect(result._bareListSynthesized).toBe(true);
+      expect(result._detailOriginKupuaKey).toBe("list");
       expect(result.kupuaKey).toBe("k1");
     });
 

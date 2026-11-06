@@ -57,7 +57,7 @@ import { isFullResLoaded, markFullResLoaded, onFullResDecoded, getCarouselImageU
 import { FullscreenCornerButton, NavStrip } from "@/components/NavStrip";
 import { StableImg } from "@/components/StableImg";
 import { resetToHome } from "@/lib/reset-to-home";
-import { scrollFocusedIntoView, markUserInitiatedNavigation, pushNavigate, pushNavigateAsPopstate, consumeDetailEnteredViaSpaFlag } from "@/lib/orchestration/search";
+import { scrollFocusedIntoView, markUserInitiatedNavigation, pushNavigate, pushNavigateAsPopstate } from "@/lib/orchestration/search";
 import { withCurrentKupuaKey, mintKupuaKey } from "@/lib/orchestration/history-key";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { storeImageOffset, getImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
@@ -115,9 +115,8 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   // history.back() has somewhere to go. Without this, history.back()
   // would exit kupua (or the tab).
   //
-  // Skip synthesis when the detail was entered via SPA navigation
-  // (pushNavigate from grid/table) — the list entry already exists in
-  // history. Without this check, every open-detail would insert a
+  // Skip synthesis when the entry already records its list origin
+  // (`_detailOriginKupuaKey`), otherwise every open-detail would insert a
   // phantom bare-list entry, doubling the back-presses needed.
   //
   // Both replaceState + pushState fire in the same synchronous tick;
@@ -129,28 +128,10 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     if (hasSynthesizedRef.current) return;
     hasSynthesizedRef.current = true;
 
-    // SPA navigation (grid/table click) — list entry already in history.
-    if (consumeDetailEnteredViaSpaFlag()) {
-      // Stamp the entry so that browser back/forward to this entry
-      // (which remounts ImageDetail) knows a bare-list entry already
-      // exists below it. Without this, the one-shot consume flag is
-      // gone and the synthesis would re-fire, truncating forward entries.
-      if (!history.state?._bareListSynthesized || !history.state?._detailEntryImageId) {
-        history.replaceState({
-          ...history.state,
-          _bareListSynthesized: true,
-          _detailEntryImageId: history.state?._detailEntryImageId ?? imageId,
-        }, "");
-      }
-      return;
-    }
-
-    // Already synthesized on a previous mount (popstate back to this entry).
-    // The bare-list entry below us still exists — don't re-synthesize
-    // or we'll truncate forward history. Upgrade entries created before
-    // immutable detail-entry identity was introduced.
-    if (history.state?._bareListSynthesized) {
-      if (!history.state?._detailEntryImageId) {
+    // A list entry already exists below: grid/table open, an earlier
+    // synthesis, or a crop entry inheriting its detail's origin.
+    if (history.state?._detailOriginKupuaKey) {
+      if (!history.state._detailEntryImageId) {
         history.replaceState({
           ...history.state,
           _detailEntryImageId: imageId,
@@ -178,7 +159,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     history.replaceState({ kupuaKey: originKey }, "", bareListUrl);
     // Step 2: push the detail URL back with the original TSR state intact
     // (including its kupuaKey, if any). Stamp it so re-mounts skip.
-    history.pushState({ ...detailState, _bareListSynthesized: true, _detailOriginKupuaKey: originKey }, "", detailUrl);
+    history.pushState({ ...detailState, _detailOriginKupuaKey: originKey }, "", detailUrl);
   }, []);
 
   // Wrapper around the entire detail view — animated during swipe-to-dismiss.

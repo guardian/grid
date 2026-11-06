@@ -53,7 +53,6 @@ vi.mock("@/stores/search-store", () => ({
 // ---------------------------------------------------------------------------
 
 import { useReturnFromDetail } from "./useReturnFromDetail";
-import { suppressReturnFromDetail } from "./useReturnFromDetail";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -335,100 +334,22 @@ describe("useReturnFromDetail — explicit mode", () => {
   });
 });
 
-describe("useReturnFromDetail — suppressReturnFromDetail (resetToHome)", () => {
-  it("skips scroll restoration in phantom mode when suppressReturnFromDetail was called", () => {
-    // Regression: on mobile (phantom mode), pressing Home from image detail
-    // cleared focusedImageId, but useReturnFromDetail re-set focus to the
-    // old image and scrolled to it instead of staying at the top.
+describe("useReturnFromDetail — Home from detail", () => {
+  it.each([true, false])("phantom close restores only into the origin entry (home=%s)", (home) => {
+    // Regression: in phantom mode Home from detail must stay at the top.
     mockFocusMode = "phantom";
+    history.replaceState({ kupuaKey: "detail", _detailOriginKupuaKey: "list", _detailEntryImageId: "img-1" }, "", "/search?image=img-1");
     const setFocusedImageId = vi.fn();
     const props = makeProps({ imageParam: "img-1", focusedImageId: null, setFocusedImageId });
-
-    const { rerender } = renderHook((p: Props) => useReturnFromDetail(p), {
-      initialProps: props,
-    });
-
-    suppressReturnFromDetail();
+    const { rerender } = renderHook((p: Props) => useReturnFromDetail(p), { initialProps: props });
 
     act(() => {
+      history.replaceState({ kupuaKey: home ? "home" : "list" }, "", "/search");
       rerender({ ...props, imageParam: undefined });
     });
 
-    expect(setFocusedImageId).not.toHaveBeenCalled();
-  });
-
-  it("suppress flag is consumed (one-shot) — next close works normally", () => {
-    mockFocusMode = "phantom";
-    const setFocusedImageId = vi.fn();
-    const props = makeProps({ imageParam: "img-1", focusedImageId: null, setFocusedImageId });
-
-    const { rerender } = renderHook((p: Props) => useReturnFromDetail(p), {
-      initialProps: props,
-    });
-
-    // First close: suppressed
-    suppressReturnFromDetail();
-    act(() => {
-      rerender({ ...props, imageParam: undefined });
-    });
-    expect(setFocusedImageId).not.toHaveBeenCalled();
-
-    // Re-enter detail
-    act(() => {
-      rerender({ ...props, imageParam: "img-2" });
-    });
-
-    // Second close: NOT suppressed — normal phantom restore fires
-    act(() => {
-      rerender({ ...props, imageParam: undefined });
-    });
-    expect(setFocusedImageId).toHaveBeenCalledOnce();
-    expect(setFocusedImageId).toHaveBeenCalledWith("img-2", false);
-  });
-
-  it("stale flag from Home-on-grid must not suppress a later, unrelated detail close", () => {
-    // Regression: Home pressed while already on the grid (no detail open)
-    // still calls suppressReturnFromDetail() — but the closing-transition
-    // branch never runs (no wasViewing), so the flag was never consumed.
-    // It then leaked into the NEXT, entirely unrelated detail session:
-    //   Home -> enter image A -> traverse to image K -> exit
-    // produced focus stuck on A instead of updating to K.
-    mockFocusMode = "explicit";
-    const setFocusedImageId = vi.fn();
-    // Mount already on the grid — no detail open.
-    const props = makeProps({ imageParam: undefined, focusedImageId: null, setFocusedImageId });
-
-    const { rerender } = renderHook((p: Props) => useReturnFromDetail(p), {
-      initialProps: props,
-    });
-
-    // Home clicked from the grid: sets the flag, but there's no closing
-    // transition here to consume it (imageParam stays undefined).
-    suppressReturnFromDetail();
-    act(() => {
-      rerender({ ...props, imageParam: undefined });
-    });
-    expect(setFocusedImageId).not.toHaveBeenCalled();
-
-    // Enter image A — fresh detail session opens. This must clear the
-    // stale flag left over from the Home click above.
-    act(() => {
-      rerender({ ...props, imageParam: "img-A", focusedImageId: "img-A" });
-    });
-
-    // Traverse to image K.
-    act(() => {
-      rerender({ ...props, imageParam: "img-K", focusedImageId: "img-A" });
-    });
-
-    // Exit: focus must update to the last-viewed image (K), not be
-    // suppressed by the stale flag.
-    act(() => {
-      rerender({ ...props, imageParam: undefined, focusedImageId: "img-A" });
-    });
-
-    expect(setFocusedImageId).toHaveBeenCalledOnce();
-    expect(setFocusedImageId).toHaveBeenCalledWith("img-K", false);
+    if (home) expect(setFocusedImageId).not.toHaveBeenCalled();
+    else expect(setFocusedImageId).toHaveBeenCalledExactlyOnceWith("img-1", false);
   });
 });
 

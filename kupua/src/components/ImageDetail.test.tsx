@@ -42,7 +42,6 @@ const fixture = vi.hoisted(() => ({
   compact: false,
   fullscreen: false,
   swiped: false,
-  spa: true,
   prepareScroll: vi.fn(),
   traverse: (_imageId: string) => {},
 }));
@@ -107,7 +106,7 @@ vi.mock("@/lib/reset-to-home", () => ({ resetToHome: vi.fn() }));
 vi.mock("@/lib/orchestration/search", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/orchestration/search")>(),
   scrollFocusedIntoView: fixture.prepareScroll, markUserInitiatedNavigation: fixture.markNavigation,
-  pushNavigateAsPopstate: vi.fn(), consumeDetailEnteredViaSpaFlag: () => fixture.spa,
+  pushNavigateAsPopstate: vi.fn(),
 }));
 vi.mock("@/lib/image-offset-cache", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/image-offset-cache")>(),
@@ -153,7 +152,6 @@ describe("KUP-004 standalone detail identity", () => {
     fixture.resident = [];
     fixture.composed = false;
     fixture.realDismiss = false;
-    fixture.spa = true;
     fixture.relativeMedia = false;
     fixture.mediaProps = [];
     fixture.cached.mockReset().mockReturnValue(null);
@@ -335,7 +333,7 @@ describe("KUP-004 standalone detail identity", () => {
 
   it("pushes a unique crop entry while preserving its detail and list origins", () => {
     fixture.resident = [makeImage("A")];
-    history.replaceState({ kupuaKey: "detail", _detailOriginKupuaKey: "list", _bareListSynthesized: true,
+    history.replaceState({ kupuaKey: "detail", _detailOriginKupuaKey: "list",
       _detailEntryImageId: "A" }, "", "/search?image=A");
     render(<Detail imageId="A" />);
     fireEvent.click(screen.getByRole("button", { name: "Crop image" }));
@@ -348,7 +346,7 @@ describe("KUP-004 standalone detail identity", () => {
   it("returns to detail from a reloaded crop entry using durable history state", async () => {
     fixture.resident = [makeImage("A")];
     fixture.search = { image: "A", cropping: "true" };
-    history.replaceState({ kupuaKey: "crop", _cropOriginKupuaKey: "detail", _bareListSynthesized: true }, "", "/search?image=A&cropping=true");
+    history.replaceState({ kupuaKey: "crop", _cropOriginKupuaKey: "detail", _detailOriginKupuaKey: "list" }, "", "/search?image=A&cropping=true");
     const back = vi.spyOn(history, "back").mockImplementation(() => {});
     render(<Detail imageId="A" />);
     expect(screen.getByTestId("crop-backdrop")).toBeTruthy();
@@ -360,7 +358,7 @@ describe("KUP-004 standalone detail identity", () => {
   it("keeps Crop cancellable while its image is still loading", () => {
     fixture.resident = [];
     fixture.search = { image: "A", cropping: "true" };
-    history.replaceState({ kupuaKey: "crop", _cropOriginKupuaKey: "detail", _bareListSynthesized: true }, "", "/search?image=A&cropping=true");
+    history.replaceState({ kupuaKey: "crop", _cropOriginKupuaKey: "detail", _detailOriginKupuaKey: "list" }, "", "/search?image=A&cropping=true");
     const back = vi.spyOn(history, "back").mockImplementation(() => {});
     render(<Detail imageId="A" />);
     expect(screen.getByTestId("crop-backdrop")).toBeTruthy();
@@ -690,7 +688,6 @@ describe("bounded detail return composition", () => {
   beforeEach(() => {
     fixture.composed = true;
     fixture.realDismiss = false;
-    fixture.spa = true;
     fixture.cached.mockReset().mockReturnValue(null);
     fixture.prepareScroll.mockReset();
     center.mockReset();
@@ -703,7 +700,7 @@ describe("bounded detail return composition", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", (handle: number) => frames.delete(handle));
     vi.spyOn(history, "back").mockImplementation(() => close());
-    history.replaceState({ kupuaKey: "detail", _bareListSynthesized: true,
+    history.replaceState({ kupuaKey: "detail",
       _detailOriginKupuaKey: "list", _detailEntryImageId: "A" }, "", "/search?image=B");
   });
 
@@ -1021,7 +1018,6 @@ describe("bounded detail return composition", () => {
   });
 
   it("cold synthesis retains its finalized origin and does not return into unrelated native history", () => {
-    fixture.spa = false;
     fixture.composed = false;
     fixture.resident = [makeImage("B")];
     history.replaceState({ kupuaKey: "detail", _detailEntryImageId: "A" }, "", "/search?image=B");
@@ -1033,7 +1029,6 @@ describe("bounded detail return composition", () => {
     flushFrames();
     expect(useSearchStore.getState().focusedImageId).toBe("unrelated-focus");
     expect(center).not.toHaveBeenCalled();
-    fixture.spa = true;
   });
 
   it.each(["different", "same-id"])("late failure keeps useful fallback data but retires placement after %s focus intent", async (intent) => {
@@ -1073,7 +1068,7 @@ describe("bounded detail return composition", () => {
     useSearchStore.setState({ ...initialState, dataSource, results: [], total: 0,
       imagePositions: new Map(), focusedImageId: null, params: {} });
     useUiPrefsStore.setState({ focusMode: "explicit", _pointerCoarse: false });
-    history.replaceState({ kupuaKey: "detail", _bareListSynthesized: true,
+    history.replaceState({ kupuaKey: "detail",
       _detailEntryImageId: "img-2500", _detailOriginKupuaKey: "list" }, "", "/search?image=img-2499");
     render(<List imageId="img-2499" />);
     const continuity = historySearchContinuity({ searchKey: "detail-test", anchorImageId: "img-2500",
