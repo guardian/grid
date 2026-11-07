@@ -1,9 +1,10 @@
 # Step 4: Fresh Edits Without Losing Your Place
 
-**Implementation plan, 5 November 2026. Section 1 choices accepted; Units A-B
-are complete at their operator checkpoints. Unit C was separately authorized on
-7 November and is ready for its operator checkpoint below. Unit D, Step-4 completion
-and live activation remain unauthorized. Earlier blocked/spike narratives are historical.**
+**Implementation plan, 5 November 2026. The operator accepted Unit D and the
+Step-4 simulated foundation on 7 November after integrated validation and independent
+review. Units A-D are complete within the documented scope and limits. Step 5 and
+live activation require separate authorization. Earlier blocked/spike narratives
+and historical checkpoint authority statements are superseded by this acceptance.**
 This expands [editing Step 4](gradually-growing-teeth.kupua-edits-steps.md#step-4-resolve-kup-043-with-simulated-writes-before-enabling-real-ones)
 and [KUP-043](bug-backlog.md#kup-043), after the completed disconnected desktop editor.
 The original proposal rested on independent read-only source reviews. Implementation
@@ -1552,7 +1553,12 @@ Unit D handoff, including the documented contextual deletion clarification. The 
 worklog is reset to its scaffold before staging. No push or Unit D execution follows
 from this closeout; the next agent must confirm its Unit D-only assignment.
 
-### Unit D: Integrated Gates and Closeout (Not Authorized)
+### Unit D: Integrated Gates and Closeout (Accepted)
+
+Operator explicitly confirmed this Unit D-only assignment on 7 November 2026,
+after fresh-agent review of baseline `49340bf7b1c2179e82fa4c8adf5b2afbfcd5ab37`.
+Execution stops at the Unit D operator checkpoint; no later editing step, live
+activation, performance campaign or Git mutation is authorized.
 
 Validate the implemented plumbing, not the future Delete-button workflow. Section 5.6's
 contextual direction does not authorize C-type command compaction, B-type offscreen
@@ -1576,6 +1582,84 @@ Update current architecture/API/selection guides and KUP-043 only for implemente
 validated behavior; append the code-change changelog and any deliberate deviations
 then. No planning-only changelog entry. Step 5 remains separately authorized, including
 removal preparation, server-policy and target/session/action permission.
+
+#### Unit D Evidence and Review
+
+**7 November: integration, reviews, foreground rehearsal and final full gates complete.** Baseline
+`49340bf7` supplied 109 unit files / 3,633 tests and 550 E2E passes. Those saved logs
+were inspected, not rerun for orientation. Historical failure directories remain evidence.
+
+| Requirement | Reused evidence and Unit D addition |
+| --- | --- |
+| T1/T2/T6-T8 continuation, tiers, nulls and exact targeting | Final B checkpoint and existing API-mode, cursor, map, range and special-sort suites; original coherent-buffer and normal Justified assertions unchanged. T1 foreground control/edit each used three browsing pages, zero rank/count/map repair reads and preserved survivors. |
+| T3/T10/T12 lifecycle, selections and finite AI | Final C checkpoint and existing lifecycle/detail/range/AI suites. Foreground five-to-four deletion retained surviving focus with no reads; uncertain membership retained metadata. No Delete workflow or offscreen compactor added. |
+| T4/T5/T11/T14/T15 freshness, outcomes and bounds | A3/C suites retained. Unit D added failing-first authority-withdrawal and empty cold-detail regressions. Existing local editor/API and compiled-hosted fixtures now check exact fake-command arguments, selected publication, two captured-ID mget reads and truthful partial/unknown outcomes. |
+| T9/T13 presentation ownership and history | Existing pending-density/history/Home/ticker suites retained. Four fixed seeds (17, 43, 101, 211), 24 valid actions each, mix wheel/edge keys, selection, density, simulation, actual stale release and native detail Back. Independent modeled identities/positions, reference/geometry ownership, per-publication request budgets and captured receipts are asserted. |
+| Sort inventory | Registry/builders supply uploadTime, taken, lastModified, credit, source, imageType, category, mimeType, width, height, uploadedBy, usagesDateAdded, configured aliases and dateAddedToCollection. Existing sort-builders wire-contract cases enumerate both directions and reversal; special-date/max/null and API tuple cases supply distinct algorithms. No sort/layout/topology Cartesian expansion. |
+
+The named End/Home reduction proves that a shallow End acquisition can validly hold
+the tail window instead of permanent full residency. Earlier seed failures were driver
+errors (pointer-inert image target, selection-mutating setup click, edge-read budget,
+full-residency assumption, virtualized ordinal locator), not product regressions. Their
+traces are retained under ignored `node_modules/.cache/unit-d-validation/`. No existing
+geometry tolerance, ownership check or ordinary-buffer assertion was weakened.
+
+Independent correctness review found two defects and both were reproduced before repair:
+nonmatching readback ignored current authority withdrawal; failed cold detail with no
+published body stayed unsettled behind an operation fence. The repairs use existing
+authority and requested-ID owners, with no extra read, retry or cache. The full owning
+operation/detail suites pass. Review gaps in fake-command capture, consumer publication,
+observer-local counters and edge input were closed. Correctness and performance/complexity
+follow-up reviews report no remaining blocker in those inspected repairs; neither is
+whole-system certification or measured performance evidence.
+
+**Foreground rehearsal:** isolated `demo:readback -- --continuation`, ApiDataSource,
+current served repairs, local JPEG media and self-only CSP were verified before input.
+T1 control/edit captured 144/148 visible frames and 1,500/1,544 retained-box comparisons,
+with zero displacement; the interrupted-lookahead control failed its detector. Indexed
+T4/T9 delivered the old response after observation and kept the unknown outcome; Table
+recorded 288 comparisons over twelve frames without movement, with a four-pixel negative
+control. Grid, Table and Justified were exercised. A separate pending End read, density
+change, publication and newer Home ended at the Table top. Cold detail used one full
+follow-up with usable local media. At 412px, actual coarse-pointer emulation selected the
+compact shell without overflow; native touch Home cleared focus/selection at the top.
+The compact shell's Justified presentation is not a desktop Grid failure.
+
+Invalid setup attempts (unsupported embedded request-context API, wheel pointer over
+the fixture strip, ambiguous Home locator and a desktop-layout assertion in compact mode)
+are excluded. No hidden capture or failsafe-released capture counts as proof. The fixture's
+declared optional date-profile 503 remains a failure path, not successful histogram coverage.
+Input/holds/probes were released, isolation remained until unmount, the owned page closed
+and server stopped. The live-backed tab was untouched.
+
+**Costs and exclusions:** authority acceptance adds constant-time existing-fact work per
+returned captured target; detail settlement adds no work. Observer limits, variable-sized
+comparison metadata, enrichment copying, selection reconciliation and growing indexed
+extent retain A-C's qualifications. The extra-read negative control changes the counter
+fed to the assertion, not transport. No live mutations, backend/safeguard/dependency changes,
+performance campaigns or Git mutations occurred during implementation/validation. Functional browser proof is not compositor,
+backend-scale, deployed-policy or frame-time certification. Step-17 deletion interaction,
+optional small-set query rerun and all later activation decisions remain outside this
+acceptance.
+
+**Final gates:** 109 unit files / 3,635 tests, application build, browser typecheck and
+all 555 local E2E tests passed sequentially with normal runner settings and browser
+retries disabled. The full E2E run completed in 8.3 minutes with files frozen, covering
+normal, forced-seek, resident/indexed/seek Justified and compiled-hosted fixtures.
+No acceptance retries, skipped cases or widened timeouts/tolerances were used. Existing
+WASM-path and bundle-size build warnings remain. Logs are retained under ignored
+`node_modules/.cache/unit-d-validation/{full-units,build,browser-types,full-e2e}.txt`.
+New coverage consists of two focused unit regressions, four bounded browser sequences
+and one named tail-window control; existing topology cases were amended rather than
+duplicated. Earlier A-C regressions and ordinary coherence/repacking checks remain intact.
+
+**Operator acceptance, 7 November:** Unit D and the Step-4 simulated foundation are
+accepted, with no demonstrated in-scope blocker remaining. KUP-043 is closed for that
+tested contract, not as deployed-write or universal external-freshness certification.
+The operator separately authorized a Kupua-only commit. The worklog is reset and
+unrelated work remains untouched; no push is authorized. Step 5's first prospective
+assignment is synthetic label-removal preparation, requiring fresh-agent confirmation.
+No later execution or live-edit activation follows from this acceptance.
 
 ## 8. Representative Proof and Existing Assertions
 

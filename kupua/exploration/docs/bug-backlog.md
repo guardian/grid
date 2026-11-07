@@ -17,7 +17,7 @@ synthetic direct-TEST reproduction and verification passed, but natural-workflow
 
 ## At a Glance
 
-**Current recorded status: 6 November 2026.** The tables below list open defects,
+**Current recorded status: 7 November 2026.** The tables below list open defects,
 approval/integration/review tasks or explicit residuals; completed bounded repairs and verification are listed separately.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
@@ -34,9 +34,9 @@ retention. Nested write resources and KUP-047's crop consumer remain deferred.
 The 5 November validation investigation records KUP-048's reproduced table
 render-time update warning and KUP-049's unresolved Settings-click timeout.
 These are separate from the optional obsolete-read cancellation follow-up.
-The 6 November update records extension deduplication and the selected same-slot
-buffer-publication foundation under KUP-043; readback, stale-read protection and
-coordinate/lifecycle handling remain open. It does not close that whole ID.
+The 7 November update closes KUP-043 for the operator-accepted Step-4 simulated
+contract after integrated validation and independent review. Live activation and
+the real Delete workflow remain separately gated.
 Other dispositions have not been revalidated.
 Update this overview when a detailed disposition changes.
 
@@ -51,7 +51,6 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | --- | --- | --- | --- |
 | [KUP-011](#kup-011) | Parsed intent versus automatic defaults | Defaults aligned locally in both modes; open direct-to-ES grammar divergence | Remaining cross-mode syntax scope |
 | [KUP-041](#kup-041) | API cancellation does not reach outgoing Elasticsearch reads | Open; cancellation handle is not retained, backend work observed after browser cancellation | Independent resource-lifetime follow-up; not a proven PP3 cause or migration gate |
-| [KUP-043](#kup-043) | Image refresh, enrichment and result stability after a write | A1-A2 complete; readback, freshness and coordinate/lifecycle work remain open | Prerequisite for future edits/deletions only |
 | [KUP-044](#kup-044) | Image-level capabilities and future nested write resources | Image URI/edits/crops retention repaired; nested controls deferred to their consumers | Shared facts available; no write activation |
 | [KUP-045](#kup-045) | Lease summary has consumers but no current producer | Source-verified display gap; review and composed witness pending | Independent shared-display correction |
 | [KUP-046](#kup-046) | Known validity reasons replace server wording with local copy | Source-verified; previously unselected B3, review pending | Independent display-copy correction |
@@ -111,7 +110,7 @@ legacy-category expansion remains accepted lag.
 | [GRID-019](#grid-019) | `Edits` DynamoDB table at a fixed 20 WCU, auto-scaling off | Open; operator-read PROD configuration | Independent capacity risk for any batch write (Kahuna, scripts, future Kupua) |
 
 <details>
-<summary>Completed bounded repairs and verification: 44 IDs</summary>
+<summary>Completed bounded repairs and verification: 45 IDs</summary>
 
 | Group | Completed IDs |
 | --- | --- |
@@ -133,6 +132,7 @@ legacy-category expansion remains accepted lag.
 | Impossible upload-arrival intervals suppressed | [KUP-040](#kup-040) |
 | Collection counts follow the current rights checkbox | [KUP-037](#kup-037) |
 | Globally stable fixed-grid row membership | [KUP-042](#kup-042) |
+| Accepted simulated readback, freshness and stable publication | [KUP-043](#kup-043) |
 | Grid independent usage exclusions and print-field resolution | [GRID-001](#grid-001), [GRID-008](#grid-008) |
 | Grid ordinary/AI deleted-search admission | [GRID-002](#grid-002), [GRID-015](#grid-015) |
 
@@ -558,6 +558,16 @@ To rerun the focused contract, follow the [local E2E setup/port rules](../../e2e
 set -o pipefail; npm --prefix kupua run test:e2e -- --project=chromium density-controls.spec.ts --grep 'fixed-row publication' --retries=0 2>&1 | tee "$TMPDIR/kupua-test-output.txt"
 ```
 
+#### KUP-043
+**Image refresh and enrichment after a write (future edits/deletions)**
+- **Scope:** authoritative image refresh, stale-read exclusion, selection/detail ownership and stable browsing after writes. KUP-030's closure covers the AI overlay lifetime, not this contract. The [Step-4 plan](gradually-growing-teeth.step-4-publication-plan.md) owns the selected policy and remaining execution gates; its current decisions supersede the original October design sketch.
+- **Implemented foundation, A1 (6 November):** incoming extension duplicates are excluded with their paired tuples and overlays while raw scan frontiers advance. Resident slots are preserved; duplicate-only progress can resume viewport or pending traversal demand through existing ownership/cooldowns. This is bounded retained-window exclusion, not exactly-once enumeration of a changing catalogue.
+- **Implemented foundation, A2 (6 November):** the operator selected same-slot buffer replacement after a normal-media trial. The shared publisher replaces resident bodies, retained authority and selected/cached metadata without moving membership or coordinates. Unchanged effective image ratios preserve Justified packing and scrolling prediction. Per-cell alternatives and temporary trial/counter machinery are removed; normal editing remains disconnected.
+- **Evidence:** the [A2 checkpoint](gradually-growing-teeth.step-4-publication-plan.md#a2-comparison-checkpoint) records failing-first regressions, consumer/geometry checks, operator and agent trials, final full validation and the explicitly accepted unresolved table-sort timeout. That timeout is not classified as a post-write publication defect. No measured speed win or deployed write behavior is certified.
+- **Implemented A3-C:** bounded simulated readback, touched-ID freshness and omission protection, selected metadata/full standalone delivery, stable retained-coordinate continuation and action-owned exact acquisition, plus explicit unavailable/deleted slots and complete-fitting-set compaction. Final checkpoints in the publication plan own evidence and limits. Root `lastModified` is not a universal freshness version; frozen upload bounds do not exclude later edits. Touched facts retain variable-sized exact comparison metadata within a 1,000-ID cap, not a byte bound.
+- **Unit D evidence:** integrated gates, seeded sequences, local/compiled-hosted observer composition, foreground rehearsal and independent reviews are complete at the [operator checkpoint](gradually-growing-teeth.step-4-publication-plan.md#unit-d-evidence-and-review). Review reproduced and repaired nonmatching-read authority withdrawal and empty cold-detail failure settlement; normal editing remains disconnected.
+- **Disposition:** CLOSED for the Step-4 simulated contract after explicit operator acceptance on 7 November. The documented approximation/resource limits remain. This does not certify deployed writes, authorize Step 5 or implement the real Delete workflow; live activation remains separately gated.
+
 ### Completed Query Repairs
 
 #### GRID-001
@@ -674,15 +684,6 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **20 October S4a repair:** equivalent dispatched base-facet reads now survive hover/open handoff in Kupua; force refresh and changed-scope cancellation remain. See the [assessment's repair validation](api-request-lifetime-and-performance-parity.md#s4a-repair-validation-20-october). This removes the reproduced redundant client dispatch, not KUP-041's server-lifetime gap; S4b and KUP-040 remain separate work.
 - **Scope decision before implementation:** identify an appropriate Play disconnect/cancellation hook and the narrow set of owned read operations; assess whether retaining client handles or a bounded alternative is worth the complexity. Exclude writes and unrelated legacy consumers by default. Do not add a global cancellation manager, retries, new failure UI or longer timeouts as substitutes. If upstream cancellation is supported, describe its actual boundary rather than infer ES task termination from a closed socket.
 - **Dependency / disposition:** OPEN as an independent performance/resource-lifetime follow-up, recorded at operator request on 19 October. Not an initial API migration gate, a production incident claim, or permission to change shared/server code. Investigate and fix this scope separately from the unresolved transport failure.
-
-#### KUP-043
-**Image refresh and enrichment after a write (future edits/deletions)**
-- **Scope:** authoritative image refresh, stale-read exclusion, selection/detail ownership and stable browsing after writes. KUP-030's closure covers the AI overlay lifetime, not this contract. The [Step-4 plan](gradually-growing-teeth.step-4-publication-plan.md) owns the selected policy and remaining execution gates; its current decisions supersede the original October design sketch.
-- **Implemented foundation, A1 (6 November):** incoming extension duplicates are excluded with their paired tuples and overlays while raw scan frontiers advance. Resident slots are preserved; duplicate-only progress can resume viewport or pending traversal demand through existing ownership/cooldowns. This is bounded retained-window exclusion, not exactly-once enumeration of a changing catalogue.
-- **Implemented foundation, A2 (6 November):** the operator selected same-slot buffer replacement after a normal-media trial. The shared publisher replaces resident bodies, retained authority and selected/cached metadata without moving membership or coordinates. Unchanged effective image ratios preserve Justified packing and scrolling prediction. Per-cell alternatives and temporary trial/counter machinery are removed; normal editing remains disconnected.
-- **Evidence:** the [A2 checkpoint](gradually-growing-teeth.step-4-publication-plan.md#a2-comparison-checkpoint) records failing-first regressions, consumer/geometry checks, operator and agent trials, final full validation and the explicitly accepted unresolved table-sort timeout. That timeout is not classified as a post-write publication defect. No measured speed win or deployed write behavior is certified.
-- **Remaining:** bounded simulated readback, operation/projection freshness, competing-read omission and capability handling, full standalone-detail projection, stable continuation with invalid rank knowledge, unavailable/deleted entries and integrated acceptance. Ordinary later result replacement does not automatically refresh selection metadata. Root `lastModified` is not a universal freshness version, and a frozen upload bound does not exclude later edits.
-- **Disposition:** OPEN. A1-A2 complete only the deduplication and selected publication foundations; they do not close KUP-043 or enable live edits/deletions. A3 requires operator confirmation; the later units retain their separate authority gates.
 
 #### KUP-044
 **Kupua drops per-image resource capabilities, including `edits` and `crops` (extended 1 November)**

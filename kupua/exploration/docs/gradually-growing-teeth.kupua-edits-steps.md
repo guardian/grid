@@ -370,8 +370,10 @@ mobile UX is not a claim of mobile completion, and closeout does not enable savi
 **Execution scope, 7 November:** the [implementation plan](gradually-growing-teeth.step-4-publication-plan.md)
 owns accepted choices, rationale, freshness, performance and proof details. Units A-B
 have completed their checkpoints; separately authorized Unit C is implemented and
-validated at its operator checkpoint. Unit D requires its own confirmed assignment;
-do not start the next unit merely because a previous unit passed or was committed.
+validated at its operator checkpoint. Unit D was separately confirmed on 7 November
+for integrated proof and closeout only. After its gates, rehearsal and independent reviews,
+the operator accepted Unit D and the Step-4 simulated foundation on 7 November.
+Do not start another step merely because its predecessor passed.
 Home, New images ticker and existing refresh behavior remain unchanged, with no
 new refresh-view control or compulsory reload. No live writes or later editing
 steps are enabled by these units or by this documentation update.
@@ -387,8 +389,8 @@ owners, including selected metadata and current full standalone projection.
 Unit B separates retained display positions, raw scan frontiers and action-owned rank
 authority. Unit C adds explicit unavailable/deleted slots, local complete-set deletion
 when the mounted viewport fits, and cross-view acceptance. The detailed plan's checkpoints
-record their evidence and limits. KUP-043 remains open pending integrated acceptance;
-Unit D, real deletion and live activation are not implied by these implementations.
+record their evidence and limits. KUP-043 is closed for the accepted simulated contract;
+real deletion and live activation are not implied by these implementations.
 
 **UX clarification, 5 November:** distant changes in a millions-image search must
 not interrupt local scrolling just to reconcile imperceptible rank/count drift.

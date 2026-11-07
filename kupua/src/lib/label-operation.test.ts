@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLabelOperation, type LabelTarget } from "./label-operation";
 import type { GridCommandResult } from "./grid-commands";
 import type { Image } from "@/types/image";
-import { captureImageRead, recordImageAvailability, resetImageFreshnessForTests, stampImageRead } from "./image-read-freshness";
+import { acceptImageOverlay, captureImageRead, isLabelAuthorityCurrent, recordImageAvailability, resetImageFreshnessForTests, stampImageRead } from "./image-read-freshness";
+import { attachEnrichment } from "@/stores/enrichment-store";
 
 const resource = { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/first" }] };
 const intent = { action: "add" as const, label: "news", targetIds: ["first"] };
@@ -17,6 +18,38 @@ beforeEach(() => { resetImageFreshnessForTests(); vi.stubEnv("VITE_USE_MEDIA_API
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("disconnected label operation", () => {
+  it("nonmatching readback withdraws a post-dispatch grant", async () => {
+    vi.useFakeTimers();
+    const currentResource = structuredClone(resource);
+    const readImages = vi.fn().mockImplementation(async () => {
+      if (readImages.mock.calls.length === 1) {
+        const positive = { resource: currentResource };
+        stampImageRead(observedImage("first", "old"), positive, captureImageRead(), "lean");
+        acceptImageOverlay("first", positive);
+        expect(isLabelAuthorityCurrent("first", currentResource)).toBe(true);
+      }
+      const image = observedImage("first", "old");
+      const denied = { resource: { links: [] }, actions: [] };
+      stampImageRead(image, denied, captureImageRead(), "lean");
+      attachEnrichment(image, denied);
+      return [image];
+    });
+    const publishImages = vi.fn();
+    const operation = createLabelOperation(async () => ({ outcome: "acknowledged" }), { readImages, publishImages });
+    try {
+      await operation.confirm(intent, targets);
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(operation.getSnapshot()?.items[0]).toMatchObject({ state: "accepted-awaiting-visibility", observation: "deadline" });
+      expect(publishImages).not.toHaveBeenCalled();
+      expect(isLabelAuthorityCurrent("first", currentResource)).toBe(false);
+      const executor = vi.fn();
+      const subsequent = createLabelOperation(executor);
+      await subsequent.confirm({ ...intent, label: "later" }, new Map([["first", { resource: currentResource }]]));
+      expect(subsequent.getSnapshot()?.blocked).toBe("capabilities");
+      expect(executor).not.toHaveBeenCalled();
+    } finally { operation.cancelObservation(); vi.useRealTimers(); }
+  });
+
   it("accounts for unavailable captured targets without dispatching an eligible subset", async () => {
     const executor = vi.fn();
     const operation = createLabelOperation(executor);

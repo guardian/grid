@@ -112,6 +112,10 @@ Matching lean readback can request one full singleton follow-up for that owner.
 Publication retains full-only metadata and rejects obsolete same-ID completions.
 A departed detail no longer gates surviving owners; a newly mounted owner uses its
 own guarded full read. Failure leaves editing unavailable without inventing absence.
+An empty owner settles a failed or absent initial read even after an operation fence;
+the fence protects a newer published body, not an indefinitely empty loading state.
+Observation accepts returned authority independently of matching the intended label,
+so a nonmatching response can withdraw a captured grant without publishing its metadata.
 
 Simulation permits one active single-label group of at most 200 targets, three
 grouped mget attempts at least a second apart and a ten-second deadline beginning

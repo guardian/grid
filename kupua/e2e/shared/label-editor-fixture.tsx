@@ -8,7 +8,7 @@ import { useUiPrefsStore } from "../../src/stores/ui-prefs-store";
 import { LabelEditor, LabelEditorContext, LabelOperationReceipts } from "../../src/components/LabelEditor";
 import { createLabelEditorStore } from "../../src/stores/label-editor-store";
 import type { LabelEditContext } from "../../src/lib/label-operation";
-import type { GridCommandResult } from "../../src/lib/grid-commands";
+import type { AddLabelsCommand, GridCommandResult } from "../../src/lib/grid-commands";
 import { MockDataSource } from "../../src/dal/mock-data-source";
 import { attachedEnrichment, attachEnrichment, useEnrichmentStore } from "../../src/stores/enrichment-store";
 import { createLabelReadback, publishImage, publishUnavailableImages } from "../../src/lib/image-publication";
@@ -22,6 +22,7 @@ let store = createLabelEditorStore();
 let context: LabelEditContext;
 let release: ((result: GridCommandResult) => void) | undefined;
 let calls = 0;
+let commands: AddLabelsCommand[] = [];
 let oldSearch: Promise<void> | undefined;
 let continuation = false;
 let dispatchHadLookahead = false;
@@ -232,19 +233,22 @@ export const labelEditorFixture = {
     useSelectionStore.getState().add(targetIds);
     if (!usePanelStore.getState().config.right.visible) usePanelStore.getState().togglePanel("right");
   },
-  mount(simulated = false) {
+  mount(simulated = false, observed = false) {
     if (!root) {
       const container = document.createElement("div");
       document.body.append(container);
       root = createRoot(container);
     }
     calls = 0;
+    commands = [];
     release = undefined;
-    store = createLabelEditorStore(simulated ? async () => {
+    store = createLabelEditorStore(simulated ? async command => {
       calls++;
+      commands.push(command);
+      if (observed) return { outcome: calls === 1 ? "acknowledged" : "unknown" };
       if (calls === 1) return new Promise<GridCommandResult>(resolve => { release = resolve; });
       return { outcome: "unknown" };
-    } : undefined);
+    } : undefined, observed ? createLabelReadback(useSearchStore.getState().dataSource) : undefined);
     this.targets(["fixture", "other"]);
   },
   targets(targetIds: string[], pending = false) {
@@ -255,5 +259,5 @@ export const labelEditorFixture = {
   },
   show: render,
   release(result: GridCommandResult) { release?.(result); release = undefined; },
-  snapshot() { return { calls, receipts: store.getState().receipts }; },
+  snapshot() { return { calls, commands, receipts: store.getState().receipts }; },
 };

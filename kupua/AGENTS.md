@@ -69,6 +69,8 @@ holes. Scrollable slots retain dimensions without media/actions; the mounted vie
 alone proves when a complete set fits and confirmed deletions can compact locally.
 No delete/restore command or live lifecycle caller is connected. Current contracts
 live in the state-management and selections guides.
+Injected readback handles authority independently of label matching; failed cold-detail
+reads settle empty owners without discarding newer published content.
 
 Use the closest topic below, then follow its relevant code and documentation links.
 There is no need to read the whole documentation tree before working.

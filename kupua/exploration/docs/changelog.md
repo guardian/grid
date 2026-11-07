@@ -24,6 +24,23 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 7 November 2026 - Integrated readback authority and cold-detail settlement
+
+Injected readback now accepts authority evidence for captured returned targets before
+testing the intended label. A nonmatching projection can therefore withdraw a newer
+captured grant without publishing unverified metadata or changing the command outcome.
+Cold detail settles a failed or absent initial read when no newer image was published;
+operation fences continue protecting already-published content against stale completions.
+Both defects have failing-first regressions in their existing owning suites.
+
+Existing browser fixtures now compose the production editor and injected observer in
+local API and compiled-hosted paths, checking exact executor arguments, selected metadata,
+partial observation and retained uncertainty. Bounded replayable sequences combine
+browsing, selection, density, publication, stale delivery and history with independent
+identity, geometry, ownership and request checks. A named End/Home control distinguishes
+valid tail-window acquisition from the mistaken assumption of permanent full residency.
+The publication plan owns validation evidence and remaining acceptance gates.
+
 ### 7 November 2026 - Explicit unavailable slots and local small-set deletion
 
 Synthetic lifecycle publication now uses bounded freshness facts and payload-free

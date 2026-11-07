@@ -296,7 +296,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       if (cancelled) return;
       const availability = getImageAvailability(imageId);
       if (availability) publish(unavailableImage(imageId, availability, current));
-      else if (!protectsImageOmission(imageId, issued)) setStandalone({ imageId, image: null, failed: true, readFailed });
+      else if (!current || !protectsImageOmission(imageId, issued)) setStandalone({ imageId, image: null, failed: true, readFailed });
     };
     dataSource.getById(imageId, request.signal).then(
       (found) => {

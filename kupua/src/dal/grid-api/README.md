@@ -160,9 +160,13 @@ its [in-memory store](../../stores/label-editor-store.ts) prepare these operatio
 retaining target-bound input and receipts across SPA navigation. They never import
 or invoke the production executor. Selection-panel editing uses current membership
 and pending metadata, not the retained completed display; detail uses its owned
-overlay. There is no additional permission cache, service read, publication, cancel
-or undo path. The owner does not refresh capabilities or session facts, and fixture
-outcomes do not certify deployed behaviour. Direct-ES exposes no editor controls.
+overlay. Normal editing dispatches no command or observation read. Injected single-label
+simulation uses bounded mget observation and grouped publication through existing owners;
+returned authority is accepted independently of the label postcondition. Required-read
+failure may leave a verified partial publication while other targets remain unavailable,
+and an unknown command outcome stays unknown. No session refresh, replay, undo or general
+permission cache is added. Fixture outcomes do not certify deployed behaviour.
+Direct-ES exposes no editor controls.
 
 This prevents accidental Kupua writes, not arbitrary authenticated browser requests.
 Server authorization remains mandatory. The inspected `addLabels` handler authenticates

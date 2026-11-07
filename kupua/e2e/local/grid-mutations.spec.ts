@@ -24,6 +24,7 @@ test.describe("Unit B isolated continuation", () => {
   let previous: Record<string, string | undefined>;
   const counts = (page: Page) => page.evaluate(async () => (await fetch("/__readback-control")).json()) as Promise<{
     pageReads: number; rankReads: number; countReads: number; mapReads: number; held: number; aborted: number; unexpected: string[];
+    mgetReads: number; fullReads: number; fakeDispatches: number; staleDelivered: number;
   }>;
   test.beforeAll(async ({}, testInfo) => {
     previous = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]));
@@ -48,6 +49,159 @@ test.describe("Unit B isolated continuation", () => {
     await page.goto("about:blank");
     await page.unrouteAll({ behavior: "wait" });
   });
+
+  test("Unit D End reacquires a tail window and Home recovers observed bodies", async ({ page }) => {
+    await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 120 } });
+    await page.goto(`${origin}/__readback?density=grid`);
+    const region = page.getByRole("region", { name: "Image results grid", exact: true });
+    await expect(region.locator('[data-cell-id="local-0"]')).toBeVisible();
+    expect(await page.evaluate(() => (window as CommandWindow).editorFixture.simulateReadback(["local-0"], "unknown"))).toBe(true);
+    await expect.poll(() => page.evaluate(() => (window as CommandWindow).editorFixture.readbackSnapshot().receipts[0]?.items[0].observation)).toBe("observed");
+    await page.evaluate(() => (window as CommandWindow).__kupua_store__.getState().seek(119));
+    await expect(region.locator('[data-cell-id="local-119"]')).toBeVisible();
+    expect(await page.evaluate(() => {
+      const state = (window as CommandWindow).__kupua_store__.getState();
+      return { offset: state.bufferOffset, ids: state.results.map(image => image?.id), total: state.total };
+    })).toEqual({ offset: 19, ids: Array.from({ length: 101 }, (_, index) => `local-${index + 19}`), total: 120 });
+    await page.keyboard.press("Home");
+    await expect(region.locator('[data-cell-id="local-0"]')).toBeVisible();
+    await expect(region.locator('[data-cell-id="local-0"]')).toContainText("Readback local-0");
+    expect(await page.evaluate(() => (window as CommandWindow).editorFixture.readbackSnapshot().receipts[0].items[0].state)).toBe("unknown");
+    expect((await counts(page)).unexpected).toEqual([]);
+  });
+
+  for (const seed of [17, 43, 101, 211]) {
+    test(`Unit D bounded sequence seed ${seed}`, async ({ page }) => {
+      await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 120 } });
+      await page.goto(`${origin}/__readback?density=grid`);
+      let density: "grid" | "table" | "justified" = "grid";
+      const region = () => page.getByRole("region", { name: `Image results ${density}`, exact: true });
+      await expect(region().locator('[data-cell-id="local-0"]')).toBeVisible();
+      await expect.poll(() => page.evaluate(() => (window as CommandWindow).__kupua_store__.getState().results.length)).toBe(120);
+      const expectedIds = Array.from({ length: 120 }, (_, index) => `local-${index}`);
+      let selected: string[] = [];
+      const published: string[] = [];
+      const trace: string[] = [];
+      let exactActions = 0;
+      let random = seed;
+      const next = (limit: number) => { random = (Math.imul(random, 1664525) + 1013904223) >>> 0; return random % limit; };
+      const initialReads = await counts(page);
+      try {
+        for (let cycle = 0; cycle < 4; cycle++) {
+          const actions = ["scroll", "edge", "selection", "density", "publication", "history"];
+          for (let index = actions.length - 1; index > 0; index--) {
+            const swap = next(index + 1);
+            [actions[index], actions[swap]] = [actions[swap], actions[index]];
+          }
+          for (const action of actions) {
+            trace.push(`${trace.length + 1}:${action}`);
+            if (action === "scroll") {
+              const box = (await region().boundingBox())!;
+              await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+              await page.mouse.wheel(0, next(2) ? 420 : -420);
+            } else if (action === "edge") {
+              await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+              const key = next(2) ? "Home" : "End";
+              trace[trace.length - 1] += `:${key}`;
+              await page.keyboard.press(key);
+              exactActions++;
+              await expect.poll(() => page.evaluate(() => (window as CommandWindow).__kupua_store__.getState().loading)).toBe(false);
+              await expect(region().locator(`[data-cell-id="local-${key === "Home" ? 0 : 119}"]`)).toBeInViewport();
+            } else if (action === "selection") {
+              selected = [`local-${100 + next(10)}`, `local-${110 + next(10)}`];
+              trace[trace.length - 1] += `:${selected.join(",")}`;
+              await page.evaluate(ids => (window as CommandWindow).editorFixture.select(ids), selected);
+              await expect.poll(() => page.evaluate(() => (window as CommandWindow).__kupua_selection_store__.getState().isReconciling)).toBe(false);
+            } else if (action === "density") {
+              density = (["grid", "table", "justified"] as const)[next(3)];
+              const button = await getDensityChangeButton(page, density);
+              if (button) await button.click();
+              await expect(region()).toBeVisible();
+            } else if (action === "publication") {
+              const id = `local-${60 + cycle}`;
+              trace[trace.length - 1] += `:${id}`;
+              await page.evaluate(() => (window as CommandWindow).editorFixture.holdReadbackSearch());
+              await expect.poll(async () => (await counts(page)).held).toBe(1);
+              const beforeReads = await counts(page);
+              const before = await page.evaluateHandle(() => {
+                const state = (window as CommandWindow).__kupua_store__.getState();
+                const region = document.querySelector('[role="region"][aria-label^="Image results"]')!;
+                const bounds = region.getBoundingClientRect();
+                return { results: state.results, positions: state.imagePositions, offset: state.bufferOffset,
+                  seek: state._seekGeneration, reset: state._scrollReset, focus: state.focusedImageId,
+                  boxes: [...region.querySelectorAll<HTMLElement>("[data-cell-id]")].filter(cell => {
+                    const box = cell.getBoundingClientRect(); return box.bottom > bounds.top && box.top < bounds.bottom;
+                  }).map(cell => ({ id: cell.dataset.cellId!, box: cell.getBoundingClientRect().toJSON() })) };
+              });
+              try {
+                expect(await page.evaluate(id => (window as CommandWindow).editorFixture.simulateReadback([id], "unknown"), id)).toBe(true);
+                await expect.poll(() => page.evaluate(() => (window as CommandWindow).editorFixture.readbackSnapshot().receipts.at(-1)?.items[0].observation)).toBe("observed");
+                const stable = await before.evaluate((before, id) => {
+                  const state = (window as CommandWindow).__kupua_store__.getState();
+                  return { references: before.results.every((image, index) => image?.id === id || image === state.results[index]),
+                    positions: state.imagePositions === before.positions, offset: state.bufferOffset === before.offset,
+                    seek: state._seekGeneration === before.seek, reset: state._scrollReset === before.reset,
+                    focus: state.focusedImageId === before.focus,
+                    boxes: before.boxes.length > 0 && before.boxes.every(({ id, box }) => {
+                      const current = document.querySelector(`[data-cell-id="${id}"]`)?.getBoundingClientRect();
+                      return current && ["x", "y", "width", "height"].every(axis => Math.abs(current[axis as "x"] - box[axis]) <= 1);
+                    }) };
+                }, id);
+                expect(stable).toEqual({ references: true, positions: true, offset: true, seek: true, reset: true, focus: true, boxes: true });
+                const afterReads = await counts(page);
+                const observerBudget = (reads: typeof afterReads) => expect([
+                  reads.mgetReads - beforeReads.mgetReads, reads.fakeDispatches - beforeReads.fakeDispatches,
+                  reads.fullReads - beforeReads.fullReads, reads.pageReads - beforeReads.pageReads,
+                  reads.rankReads - beforeReads.rankReads, reads.mapReads - beforeReads.mapReads,
+                  reads.countReads - beforeReads.countReads,
+                ]).toEqual([1, 1, 0, 0, 0, 0, 0]);
+                observerBudget(afterReads);
+                if (cycle === 0) expect(() => observerBudget({ ...afterReads, mgetReads: afterReads.mgetReads + 1 })).toThrow();
+              } finally { await before.dispose(); }
+              await page.evaluate(() => (window as CommandWindow).editorFixture.releaseReadbackSearch());
+              await expect.poll(() => page.evaluate(() => (window as CommandWindow).__kupua_store__.getState().loading)).toBe(false);
+              expect((await counts(page)).staleDelivered - beforeReads.staleDelivered).toBe(1);
+              published.push(id);
+            } else {
+              await page.evaluate(() => (window as CommandWindow).__kupua_selection_store__.getState().clear());
+              selected = [];
+              const target = region().locator('[data-cell-id] img').first();
+              await target.scrollIntoViewIfNeeded();
+              const id = await target.evaluate(image => image.closest<HTMLElement>("[data-cell-id]")!.dataset.cellId!);
+              await region().locator(`[data-cell-id="${id}"] img`).locator("..").dblclick();
+              await expect(page.locator("[data-detail-image-id]")).toHaveAttribute("data-detail-image-id", id);
+              await page.goBack();
+              await expect(page.locator("[data-detail-image-id]")).toHaveCount(0);
+              await expect(region()).toBeVisible();
+            }
+            await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+            const actual = await page.evaluate(() => {
+              const app = window as CommandWindow;
+              const state = app.__kupua_store__.getState();
+              return { offset: state.bufferOffset, ids: state.results.map(image => image?.id), positions: state.results.map(image => image && state.imagePositions.get(image.id)),
+                total: state.total, selected: [...app.__kupua_selection_store__.getState().selectedIds],
+                published: state.results.filter(image => image?.userMetadata?.labels?.includes("A3 observed label")).map(image => image!.id),
+                receipts: app.editorFixture.readbackSnapshot().receipts.map(receipt => receipt.items.map(item => ({ id: item.imageId, state: item.state, observation: item.observation }))) };
+            });
+            expect([0, 19]).toContain(actual.offset);
+            expect(actual).toEqual({ offset: actual.offset, ids: expectedIds.slice(actual.offset), positions: expectedIds.map((_, index) => index).slice(actual.offset), total: 120, selected,
+              published, receipts: published.map(id => [{ id, state: "unknown", observation: "observed" }]) });
+            const reads = await counts(page);
+            expect(reads.unexpected).toEqual([]);
+            expect(reads.held).toBe(0);
+            expect(reads.pageReads - initialReads.pageReads).toBeGreaterThanOrEqual(published.length);
+            expect(reads.pageReads - initialReads.pageReads).toBeLessThanOrEqual(published.length + exactActions * 2);
+            expect([reads.rankReads, reads.mapReads]).toEqual([0, 0]);
+            expect(reads.countReads - initialReads.countReads).toBeLessThanOrEqual(published.length + exactActions);
+          }
+        }
+        console.log(`Unit D seed ${seed}: ${trace.join(" | ")}`);
+      } catch (error) {
+        console.error(`Unit D failed seed ${seed}: ${trace.join(" | ")}`);
+        throw error;
+      }
+    });
+  }
 
   test("Unit C T3 removes explicit deletion from five images fitting the viewport", async ({ page }) => {
     await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 5 } });
@@ -1101,6 +1255,62 @@ async function exerciseLabelEditor(page: Page) {
   }
 }
 
+async function exerciseObservedEditor(page: Page) {
+  const reads: string[][] = [];
+  let observing = false;
+  const routePattern = "**/images/mget";
+  await page.route(routePattern, async route => {
+    const ids = route.request().postDataJSON().ids as string[];
+    if (observing) reads.push(ids);
+    if (reads.length > 1) {
+      await route.fulfill({ status: 503, json: { error: "synthetic-required-read-failure" } });
+      return;
+    }
+    await route.fulfill({ json: { data: ids.map(id => ({
+      uri: `https://api.example.test/images/${id}`, links: [], actions: [],
+      data: { id, uploadTime: "2026-01-01T00:00:00Z", lastModified: "2026-11-07T00:00:00Z",
+        metadata: { description: `Observed ${id}` }, cost: "free", valid: true, invalidReasons: {},
+        usageRights: { category: "staff-photographer" }, source: { dimensions: { width: 800, height: 600 } },
+        userMetadata: { data: { lastModified: observing ? "2026-11-07T00:00:00Z" : "2026-11-01T00:00:00Z", labels: { data: [{ data: observing && id === "fixture" ? "Unit D label" : "news" }] },
+          metadata: {}, usageRights: {}, archived: { data: false }, photoshoot: {} } },
+        usages: { data: [] }, leases: { data: { leases: [] } }, collections: [] },
+    })) } });
+  });
+  try {
+    await page.evaluate(() => (window as CommandWindow).editorFixture.select(["fixture", "other"]));
+    await expect.poll(() => page.evaluate(() => (window as CommandWindow).editorFixture.readbackSnapshot().selected.map(image => image.labels))).toEqual([["news"], ["news"]]);
+    observing = true;
+    await page.evaluate(() => (window as CommandWindow).editorFixture.mount(true, true));
+    const fixture = page.getByRole("region", { name: "Label editor fixture", exact: true });
+    await fixture.getByRole("button", { name: "Add label", exact: true }).click();
+    const input = fixture.getByRole("combobox", { name: "Add label", exact: true });
+    await input.fill("Unit D label");
+    await input.press("Enter");
+    const snapshot = () => page.evaluate(() => (window as CommandWindow).editorFixture.snapshot());
+    await expect.poll(async () => (await snapshot()).calls).toBe(2);
+    await page.evaluate(() => (window as CommandWindow).editorFixture.targets(["new-selection"], true));
+    await expect.poll(async () => (await snapshot()).receipts[0]?.items.map(item => item.observation)).toEqual(["observed", "unavailable"]);
+    const receipt = (await snapshot()).receipts[0];
+    expect(receipt.intent.targetIds).toEqual(["fixture", "other"]);
+    expect(receipt.items.map(item => ({ id: item.imageId, state: item.state }))).toEqual([
+      { id: "fixture", state: "accepted-awaiting-visibility" }, { id: "other", state: "unknown" },
+    ]);
+    expect(reads).toEqual([["fixture", "other"], ["other"]]);
+    expect((await snapshot()).calls).toBe(2);
+    expect((await snapshot()).commands.map(command => ({ operation: command.operation, id: command.imageId, labels: command.labels }))).toEqual([
+      { operation: "add-labels", id: "fixture", labels: ["Unit D label"] },
+      { operation: "add-labels", id: "other", labels: ["Unit D label"] },
+    ]);
+    expect(await page.evaluate(() => (window as CommandWindow).editorFixture.readbackSnapshot().selected)).toEqual([
+      { id: "fixture", labels: ["Unit D label"] }, { id: "other", labels: ["news"] },
+    ]);
+    await expect(fixture).toBeVisible();
+  } finally {
+    await page.evaluate(() => (window as CommandWindow).editorFixture.release({ outcome: "unknown" }));
+    await page.unroute(routePattern);
+  }
+}
+
 test("local commands cross the actual guarded Vite proxy only for the selected operation", async ({ page }, testInfo) => {
   const received: Array<{ method: string; path: string; body: string }> = [];
   let origin = "";
@@ -1139,6 +1349,7 @@ test("local commands cross the actual guarded Vite proxy only for the selected o
     await page.goto(`${localOrigin}/__commands`);
     await page.waitForFunction(() => Boolean((window as CommandWindow).commandFixture));
     await exerciseLabelEditor(page);
+    await exerciseObservedEditor(page);
     expect(received).toEqual([]);
     const result = await page.evaluate((command) => (window as CommandWindow).commandFixture.executeGridCommand(command), labelCommand(origin));
     expect(result.outcome).toBe("acknowledged");
@@ -1285,6 +1496,8 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     await page.waitForFunction(() => Boolean((window as CommandWindow).commandFixture));
     await page.evaluate(() => { window.__KUPUA_CONFIG__!.mutations = { enabled: true, operations: ["add-labels"] }; });
     await exerciseLabelEditor(page);
+    assertEditorReads();
+    await exerciseObservedEditor(page);
     assertEditorReads();
     page.once("dialog", dialog => dialog.accept());
     await page.goto(appOrigin);

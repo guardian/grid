@@ -1,8 +1,8 @@
-import type { EnrichmentFields } from "@/stores/enrichment-store";
+import { attachedEnrichment, type EnrichmentFields } from "@/stores/enrichment-store";
 import type { AddLabelsCommand, GridCommandResult } from "./grid-commands";
 import { findLink } from "@/dal/grid-api/argo";
 import type { Image } from "@/types/image";
-import { acceptObservedImages, admitLabelObservation, captureImageRead, ensureImageRead, fullProjectionMatches, getImageAvailability, isLabelAuthorityCurrent, recordLabelOutcome, releaseLabelObservation } from "./image-read-freshness";
+import { acceptImageOverlay, acceptObservedImages, admitLabelObservation, captureImageRead, ensureImageRead, fullProjectionMatches, getImageAvailability, isLabelAuthorityCurrent, recordLabelOutcome, releaseLabelObservation } from "./image-read-freshness";
 
 export interface LabelTarget {
   resource?: EnrichmentFields["resource"];
@@ -170,8 +170,11 @@ export function createLabelOperation(
       void observation!.readImages(ids, controller.signal).then(async images => {
         if (settled || !receipt) return;
         for (const image of images) {
-          if (ids.includes(image.id) && image.userMetadata?.labels?.includes(receipt.intent.label)) {
-            ensureImageRead(image, issued);
+          if (!ids.includes(image.id)) continue;
+          const overlay = attachedEnrichment(image);
+          ensureImageRead(image, issued, "lean", overlay);
+          if (overlay) acceptImageOverlay(image.id, overlay);
+          if (image.userMetadata?.labels?.includes(receipt.intent.label)) {
             const owner = observation!.standalone?.();
             if (owner?.imageId === image.id && owner.isCurrent()) {
               if (!fullAttempted) {

@@ -547,6 +547,32 @@ describe("KUP-004 standalone detail identity", () => {
     }
   });
 
+  it("settles cold-detail failure after unsuccessful observation", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    resetImageFreshnessForTests();
+    const oldRead = deferred<ImageByIdResult | undefined>();
+    vi.spyOn(dataSource, "getById").mockReturnValueOnce(oldRead.promise);
+    vi.spyOn(dataSource, "getByIds").mockRejectedValue(new Error("Synthetic observation failure"));
+    const view = render(<Detail imageId="A" />);
+    const resource = { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/A" }] };
+    const operation = createLabelOperation(async () => ({ outcome: "unknown" }), createLabelReadback(dataSource));
+    try {
+      await act(async () => {
+        await operation.confirm({ action: "add", label: "news", targetIds: ["A"] }, new Map([["A", { resource }]]));
+      });
+      expect(operation.getSnapshot()?.items[0]).toMatchObject({ state: "unknown", observation: "unavailable" });
+      await act(async () => oldRead.reject(new Error("Synthetic singleton failure")));
+      expect(screen.queryByText(/Loading image/)).toBeNull();
+      expect(screen.getByText("Image could not be loaded")).toBeTruthy();
+      expect(screen.queryByTestId("metadata")).toBeNull();
+    } finally {
+      operation.cancelObservation();
+      view.unmount();
+      resetImageFreshnessForTests();
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("publishes full standalone readback and actually rejects a released older same-ID completion", async () => {
     vi.stubEnv("VITE_USE_MEDIA_API", "true");
     resetImageFreshnessForTests();
