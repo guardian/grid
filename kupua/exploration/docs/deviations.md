@@ -12,6 +12,17 @@
 
 ## From Grid / Kahuna
 
+### Retained Unavailable Slots
+
+Kahuna removes confirmed deletions from every result list. Kupua removes them locally
+only when the mounted view proves the complete set fits without scrolling. Scrollable
+lists keep explicit unavailable/deleted slots and their dimensions to avoid moving
+survivors, especially in Justified packing. Media/actions are withheld and traversal
+skips those slots; selected IDs and operation targets remain. Uncertain filter membership
+does not trigger a query rerun. The trade-off is visible terminal slots until deliberate
+reacquisition, rather than immediate compaction. Lifecycle evidence is synthetic only;
+neither successful omission nor singleton 404 is deletion evidence.
+
 ### Disconnected Label Actions (4 November 2026)
 
 Kahuna's label controls write immediately. Kupua uses the familiar searchable value,

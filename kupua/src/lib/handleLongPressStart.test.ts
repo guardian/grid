@@ -107,6 +107,13 @@ beforeEach(() => {
 });
 
 describe("handleLongPressStart -- no anchor (mode entry)", () => {
+  it("does not select or re-anchor an unavailable cell", () => {
+    const { ctx, selState } = makeCtx();
+    ctx.getImage.mockReturnValue({ id: ctx.cellId, __availability: "unavailable" } as Image);
+    handleLongPressStart(ctx);
+    expect(selState.toggle).not.toHaveBeenCalled();
+    expect(selState.setAnchor).not.toHaveBeenCalled();
+  });
   it("toggles + sets anchor when no anchor exists", () => {
     const { ctx, selState } = makeCtx({ cellId: "img-1", anchorId: null });
 

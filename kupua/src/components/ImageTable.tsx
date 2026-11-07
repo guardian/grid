@@ -205,6 +205,15 @@ const EnrichedTableRow = memo(function EnrichedTableRow({
   );
   const rowBorderColor = getImageBorderColour(enriched ?? image);
 
+  if (image.__availability) return (
+    <div role="row" data-image-id={image.id} data-cell-id={image.id} data-unavailable={image.__availability}
+      aria-rowindex={rowIndexOffset + virtualRow.index + 2}
+      className="absolute left-0 right-0 flex items-center border-b border-grid-separator/30 text-sm text-grid-text-muted"
+      style={{ height: `${virtualRow.size}px`, transform: `translateY(${virtualRow.start}px)` }}>
+      <div role="gridcell" className="px-3">{image.__availability === "deleted" ? "Image deleted" : "Image unavailable"}</div>
+    </div>
+  );
+
   return (
     <div
       key={image.id}

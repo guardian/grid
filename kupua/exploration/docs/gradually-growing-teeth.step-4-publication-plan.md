@@ -1,14 +1,14 @@
 # Step 4: Fresh Edits Without Losing Your Place
 
-**Implementation plan, 5 November 2026. Section 1 choices accepted; Unit A
-(sessions A1-A3, section 7) is complete at the 6 November A3 checkpoint.
-The separately authorized Unit B spike completed the 7 November feasibility checkpoint
-below. Unit B has a retained-end continuation blocker and is not complete;
-Units C-D remain unauthorized.**
+**Implementation plan, 5 November 2026. Section 1 choices accepted; Units A-B
+are complete at their operator checkpoints. Unit C was separately authorized on
+7 November and is ready for its operator checkpoint below. Unit D, Step-4 completion
+and live activation remain unauthorized. Earlier blocked/spike narratives are historical.**
 This expands [editing Step 4](gradually-growing-teeth.kupua-edits-steps.md#step-4-resolve-kup-043-with-simulated-writes-before-enabling-real-ones)
 and [KUP-043](bug-backlog.md#kup-043), after the completed disconnected desktop editor.
-It rests on independent read-only source reviews, not executed regression tests,
-deployed-service certification or measurements of the proposed design.
+The original proposal rested on independent read-only source reviews. Implementation
+checkpoints below record subsequent executed evidence, not deployed-service certification
+or performance qualification.
 
 All work stays inside `kupua/`. No live writes, service/safeguard changes,
 deployment, dependency addition, staging, commit or push follows from this plan.
@@ -17,8 +17,9 @@ is the acceptance baseline, not an aspiration.
 
 ### UX Invariants (Operator, Non-Negotiable)
 
-- Scrolling stays as smooth as now. Cells never twitch, dance or swim because of
-  an edit, a late read or bookkeeping repair.
+- Scrolling stays as smooth as now. Background publication, late reads and bookkeeping
+  must not move the visible neighbourhood. Deliberate deletion may authorize visible
+  removal and reflow under section 5.6; late completion must respect newer browsing input.
 - Seeks need not land with Swiss-watch precision (the scrubber is approximate),
   but must never land nowhere, millions away, or crash the app.
 - Where the user can see the whole result set, show the truth: deleted or
@@ -84,7 +85,8 @@ and test discriminator, not approval for an indefinite frozen enumeration.
 
 ### Accepted Choices
 
-Accepted by the operator; revisit after seeing Unit A rather than by rereading:
+Accepted plumbing choices. Section 5.6 separately records the contextual deletion
+workflow direction; that direction is not permission to implement the later Delete UI.
 
 | Choice | Recommendation | Consequence |
 | --- | --- | --- |
@@ -92,7 +94,7 @@ Accepted by the operator; revisit after seeing Unit A rather than by rereading:
 | Global rank stale during ordinary browsing | Continue from retained scan frontiers in stable display coordinates; keep useful lookahead | No rank/count/rebase tax solely for distant changes or an unresolved receipt; prove overlaps, exhaustion and eviction separately |
 | Scrubber input across invalidation | Preserve track/drag fraction; preserve an explicitly requested numeric ordinal as an ordinal, never as an image identity | A changed total can change the resulting numeric position; existing approximate deep landing remains approximate |
 | Range endpoint leaves the query | Refuse that off-window range without changing the current selection | Never substitute a different endpoint or silently choose a subset |
-| Unavailable slots | Compact when the whole result set fits the viewport; otherwise keep layout space (section 5.6 options for scrollable resident sets); skip confirmed unavailable slots during traversal/range actions, while an already-open detail can show unavailable | No loading skeleton for a terminal unavailable entry; no inferred deletion from a failed/omitted read |
+| Unavailable slots | Current plumbing compacts confirmed deletion when the whole set fits; otherwise retains slots and skips terminal traversal targets. Section 5.6 distinguishes future deliberate deletion, background publication and harmless offscreen cleanup | No loading skeleton or inferred deletion; current plumbing is not the final Delete-button experience |
 | Initial resource budget | One active single-label simulated observation group, at most 200 captured IDs; three mget attempts, at least one second apart, ten-second deadline starting immediately before first fake dispatch | Prototype proof bounds, not a write-capacity certificate or a production batch scheduler; disconnected comma-separated preparation is unchanged |
 | Freshness-fact lifetime | Document-lifetime metadata floors for at most 1,000 distinct touched IDs; refuse new simulation admission at capacity | No silent eviction of freshness protection; browsing stays usable, no compulsory reload |
 
@@ -108,9 +110,10 @@ must not trust stale authority; ordinary cursor browsing can continue with retai
 display positions. No indefinite polling, repeated rank refresh per page, disabled
 prefetch or compulsory reload may be justified only by that uncertainty.
 
-If Unit B is later authorized, a feasibility spike (section 7) first proves the minimal separation of scan frontiers,
-display slots and trusted ranks in existing owners. If it needs a second enumeration
-engine, unbounded visited IDs or a material browsing cost, stop for a design decision.
+The completed Unit B feasibility spike and implementation (section 7) establish the
+separation of scan frontiers, display slots and trusted ranks in existing owners.
+Further work needing a second enumeration engine, unbounded visited IDs or material
+browsing cost must stop for a design decision.
 Do not fall back to rebasing at every dirty boundary.
 
 ## 2. Why This Work Is Needed
@@ -526,12 +529,16 @@ Only explicit authoritative lifecycle evidence can establish confirmed deletion.
 Step 4 uses synthetic lifecycle evidence to test publication and retained geometry;
 it introduces no delete/restore command or new live endpoint caller.
 
+This is a response to evidence, not deletion discovery. No real Delete button or
+cross-browser deletion notification is wired. A fresh search may naturally omit an
+image deleted elsewhere, but that omission alone cannot certify its lifecycle state.
+
 Retain selected IDs and operation targets. Disable actions for confirmed unavailable
 or deleted targets. If a range contains such slots, its admitted target set and
 unavailable accounting must be explicit, not a hidden eligible-subset execution.
 Existing operation admission continues to block unresolved/ineligible targets.
 
-**Small sets show the truth.** When the whole result set fits the viewport (no
+**Implemented small-set plumbing.** When the whole result set fits the viewport (no
 scrolling is possible), there is no position to protect. Remove confirmed deleted
 images locally and decrement the count: no request is needed, because the client
 already holds the evidence. Kahuna does exactly this for all deletions. Images whose
@@ -543,13 +550,39 @@ fits-viewport fact belongs to the mounted view, not the store.
 query once after publication, so filter-exited images also disappear. One ordinary
 search for at most a screenful; the operator decides after seeing local removal.
 
-**Scrollable sets: undecided, operator chooses after seeing Unit C.**
+#### Contextual Deletion Policy
 
-| Option | Behavior | Risk |
+**Operator clarification, 7 November 2026:** A/B/C are useful in different circumstances,
+not mutually exclusive global choices. Product direction is agreed; the interaction
+details and implementation of the later deletion workflow are not commissioned here.
+
+| Context | Intended user-visible behaviour | Boundary |
 | --- | --- | --- |
-| A (default for first implementation) | Keep unavailable/filter-exited slots until the next deliberate transition | Stale entries remain visible; zero movement |
-| B | Compact entries outside the viewport; keep visible ones until the user scrolls away | No visible movement in Grid/Table; Justified rows below may repack when reached; needs offset/cursor bookkeeping |
-| C | Compact everywhere with anchor compensation | Visible rows shift or Justified repacks in view: violates the no-twitch invariant unless proven otherwise |
+| Deliberate deletion in this browser (C-type behaviour) | After successful deletion of one image, an open detail image or multiple selected images, remove confirmed targets from the displayed results and let neighbours close the gaps | This movement is the intended command result, not an accidental background jump. Pending, failed and uncertain targets must not be presented as confirmed deletions |
+| Background/external change during browsing (A-type behaviour) | Withhold inaccessible media/actions while preserving the visible neighbourhood and slot dimensions | Do not impose movement merely because new evidence arrived; this policy adds no external-change detection mechanism |
+| Offscreen change with no observable disruption (B-type behaviour) | Remove offscreen entries when that cannot disturb what the user is viewing or doing | Offscreen is not automatically harmless: removal can change visible row membership, Justified packing, position, traversal or selection. Defer cleanup when those effects cannot be excluded |
+
+An asynchronous result from the user's own command can arrive after they resume scrolling
+or navigate elsewhere. Command origin alone does not authorize a late jump: completion
+must respect newer presentation intent. Removing result entries is distinct from changing
+selection; background cleanup must not silently discard selected IDs or rewrite captured
+operation targets. B is a permitted optimization where harmlessness is established, not
+a requirement to scan or compact the whole library.
+
+**Current implementation remains conservative:** Unit C retains scrollable unavailable
+slots and performs local confirmed-deletion compaction only for a complete fitting set.
+Metadata-only publication never removes those retained slots merely because a later
+density change or resize makes the set fit. The C-type explicit-command workflow and
+B-type offscreen cleanup are not implemented or authorized by this clarification.
+
+**Paired interaction walkthrough, deferred:** before implementing/enabling the real
+Delete workflow in the wider plan's Step 17, the operator and an agent should walk
+through single-image, open-detail and multi-selection deletion; partial failure and
+uncertainty; completion after resumed browsing; and offscreen changes affecting visible
+rows or selection. Decide concretely what remains selected, which image detail shows
+next, and where the surviving neighbourhood lands. An earlier design-only walkthrough
+can be separately commissioned. Unit D validates the existing plumbing; it must not
+absorb this interaction design or its implementation as an unannounced gate.
 
 ## 6. Performance Budget and Stop Conditions
 
@@ -1425,7 +1458,10 @@ read settles or its existing owner is cancelled. Range direction-swap fallback c
 produce three walk invocations across two ordering attempts; it is not an unbounded
 retry. These remaining bounded costs are not ordinary-continuation repair work.
 
-### Unit C: Unavailable Slots and Cross-View Acceptance (Not Authorized)
+### Unit C: Unavailable Slots and Cross-View Acceptance (Ready for Operator Checkpoint)
+
+Operator authorized Unit C on 7 November 2026 after fresh-agent confirmation of
+committed baseline `4bbfd2796aff9d12693da9f4f8479d853c256b32`. Unit D remains unauthorized.
 
 Add the minimum explicit unavailable/deleted publication state needed by synthetic
 fixtures, with stable boxes and disabled actions. Cover surviving/missing anchors,
@@ -1437,7 +1473,90 @@ box in Grid, Table and Justified. Rebase asserts its elected destination/anchor 
 the selected action policy. Existing normal Justified repacking assertions remain
 intact rather than being reclassified as new Step-4 failures.
 
+#### Unit C Checkpoint
+
+**7 November 2026: implemented and validated within the confirmed Unit C-only assignment.**
+Lifecycle publication uses explicit unavailable/deleted bodies through the existing
+result, enrichment, selection and standalone owners. Bodies retain identity, dimensions
+and AI relevance without inaccessible media/metadata. Availability shares the existing
+1,000-ID facts; old reads/grants cannot undo it. A later admitted positive read can recover
+unavailable content only if its metadata passes the floor. Ordinary reads cannot refute
+confirmed deletion. Failed reads, mget omissions and singleton 404 remain distinct from
+lifecycle evidence. Normal editing stays disconnected; no delete/restore command or
+new live caller was introduced.
+
+T3 failed first because deletion left five cells. The mounted container now proves
+complete residency and actual non-scrollable fit before local removal/count adjustment.
+Surviving focus stays; removed focus clears. A stronger zero-read witness caught an
+automatic continuation after lifecycle invalidation; the existing terminal boundary
+now settles stationary demand without suppressing later explicit traversal. Scrollable
+sets retain slots under Option A. Grid, Table and Justified withhold media/actions and
+preserve dimensions. Detail may remain open as terminal content; traversal and keyboard
+focus skip terminal slots. Selected IDs and captured operation targets remain, range
+interiors report unavailable accounting, unavailable endpoints refuse unchanged, and
+operations never execute an eligible subset. Cold-detail missing/failed reacquisition
+of an already-unavailable target settles explicitly rather than waiting forever.
+
+**Final gates:** 109 unit files / 3,633 tests, application build, browser typecheck and
+all 550 local E2E tests passed sequentially, with browser retries disabled. Existing
+WASM-path and bundle-size warnings remain. The first build caught a nullable terminal
+cursor; its guard was repaired before the final full sequence. Pre-commit review also
+reproduced metadata-only compaction after viewport growth; incoming explicit deletion
+evidence is now required, and the full sequence passed again after that repair. Existing ordinary buffer
+coherence, metadata-only all-visible-box checks, AI ordinals, freshness conflicts,
+Home/ticker/history, useful lookahead and normal Justified repacking assertions remain.
+New coverage extends existing suites only, including five browser journeys and a
+controlled four-pixel displacement detector. Evidence and failing-first traces are in
+`node_modules/.cache/unit-c-validation/` (`full-units.txt`, `build.txt`,
+`browser-types.txt`, `full-e2e.txt` and the named failure directories).
+
+**Foreground demonstration:** isolated loopback API fixture, real loaded local media
+and foreground clicks/wheel/density controls. Five images fit; deletion produced four
+with surviving focus, zero additional reads and no unexpected traffic. In scrollable
+Justified, 300 retained-box comparisons across twelve frames had zero displacement;
+the unavailable slot had no media/loading placeholder and total stayed 120. Table
+retained its terminal row. Open detail changed to deleted without media/crop actions;
+Previous skipped an unavailable neighbour. A 412px coarse-pointer compact shell showed
+unavailable detail within the viewport. A declared optional date-profile 503 left
+detail usable. The initial hidden attempt and an earlier undeclared-profile capture
+are excluded; the latter prompted an explicit synthetic failure handler, not histogram
+machinery. Automated proof covers the held-read/density race and cold-detail paths;
+the foreground rehearsal does not claim every such interleaving or frame-time evidence.
+
+**Costs and limits:** lifecycle work is event-driven, with bounded resident scans and
+one grouped publication, not a new body cache, polling loop, scrolling engine or global
+compaction. Fit checking reads the registered container and rendered IDs only when
+deletion publication may compact a complete set. Availability adds constant-size facts
+per touched ID within the shared cap; existing exact comparison metadata remains
+variable-sized, not byte-bounded. Selection reconciliation keeps its existing cost.
+No performance campaign or live-system work was performed. The fixture's optional
+profile failure does not certify successful histogram delivery.
+
+**Contextual direction agreed; workflow deferred:** section 5.6 now distinguishes
+deliberate-action removal, background stability and harmless offscreen cleanup rather
+than asking for one universal A/B/C choice. Unit C's conservative plumbing is unchanged;
+the later Delete interaction walkthrough and B/C-type implementation remain separately
+scoped. Uncertain filter membership still retains fresh content without local CQL
+evaluation or automatic rerun; the optional small-set rerun is a separate decision.
+Unit D's seeded integrated programme,
+complete observer/topology rehearsal and independent complete-candidate reviews are
+deferred, not claimed by these passing compatibility gates. Step 4 is not declared
+complete and live editing remains disabled.
+
+**Cleanup:** held fixture work and browser probes/routes were released; the synthetic
+page returned to blank and the owned fixture server stopped. Ports 3000/3030/3040/3067
+were clear after validation. The unrelated live-backed tab and pre-existing external
+changes were untouched. No Git mutations occurred during implementation/validation.
+The operator subsequently requested a Kupua-only Unit C commit and a fresh-agent
+Unit D handoff, including the documented contextual deletion clarification. The session
+worklog is reset to its scaffold before staging. No push or Unit D execution follows
+from this closeout; the next agent must confirm its Unit D-only assignment.
+
 ### Unit D: Integrated Gates and Closeout (Not Authorized)
+
+Validate the implemented plumbing, not the future Delete-button workflow. Section 5.6's
+contextual direction does not authorize C-type command compaction, B-type offscreen
+cleanup, external-change delivery or the deferred paired interaction walkthrough here.
 
 Use the production editor and injected observer through existing local API and
 compiled-hosted fixtures. Assert zero real mutations, exact captured IDs, request

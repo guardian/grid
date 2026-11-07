@@ -16,6 +16,7 @@ interface ImageFact {
   acceptedRead: number;
   authorityRead: number;
   projection?: string;
+  availability?: { state: NonNullable<Image["__availability"]>; issued: number };
 }
 
 const facts = new Map<string, ImageFact>();
@@ -31,6 +32,31 @@ export function hasImageFence(id: string): boolean { return facts.has(id); }
 export function getOrderingRevision(): number { return orderingRevision; }
 export function hasOrderingUncertainty(): boolean { return facts.size > 0; }
 
+export function getImageAvailability(id: string): Image["__availability"] { return facts.get(id)?.availability?.state; }
+
+export function recordImageAvailability(ids: readonly string[], state: NonNullable<Image["__availability"]>): void {
+  const unique = new Set(ids);
+  if (facts.size + [...unique].filter(id => !facts.has(id)).length > 1_000) throw new Error("Image freshness capacity exceeded");
+  const issued = ++sequence;
+  for (const id of unique) {
+    const fact = facts.get(id) ?? { operation: 0, command: "blocked", hasFloor: false, acceptedRead: 0, authorityRead: 0 };
+    fact.availability = { state: fact.availability?.state === "deleted" ? "deleted" : state, issued };
+    fact.authorityRead = issued;
+    facts.set(id, fact);
+  }
+  if (unique.size) orderingRevision++;
+}
+
+export function unavailableImage(id: string, state: NonNullable<Image["__availability"]>, previous?: Image): Image {
+  if (previous?.__availability === state) return previous;
+  const image: Image = { id, __availability: state, uploadTime: previous?.uploadTime ?? "", uploadedBy: "",
+    metadata: {}, __aiScore: previous?.__aiScore,
+    source: { mimeType: previous?.source?.mimeType ?? "", dimensions: previous?.source?.dimensions ?? { width: 1, height: 1 },
+      orientedDimensions: previous?.source?.orientedDimensions } };
+  if (previous) copyImageRead(previous, image);
+  return image;
+}
+
 export function stampImageRead(image: Image, overlay: EnrichmentFields | undefined, issued: number, projection: ReadEvidence["projection"]): void {
   const parsed = Date.parse(image.userMetadata?.lastModified ?? "");
   const stamp = { issued, projection, version: Number.isFinite(parsed) ? parsed : undefined };
@@ -42,6 +68,7 @@ export function stampImageRead(image: Image, overlay: EnrichmentFields | undefin
 export function isLabelAuthorityCurrent(id: string, resource: NonNullable<EnrichmentFields["resource"]>): boolean {
   const fact = facts.get(id);
   if (!fact) return true;
+  if (fact.availability) return false;
   const stamp = evidence.get(resource);
   return Boolean(stamp && stamp.issued >= Math.max(fact.operation, fact.authorityRead)
     && (!fact.hasFloor || stamp.issued === fact.acceptedRead
@@ -99,11 +126,12 @@ export function releaseLabelObservation(operation: number): void {
 
 export function protectsImageOmission(id: string, issued: number): boolean {
   const fact = facts.get(id);
-  return Boolean(fact && issued < Math.max(fact.operation, fact.acceptedRead));
+  return Boolean(fact && (fact.availability || issued < Math.max(fact.operation, fact.acceptedRead)));
 }
 
 export function isImageMetadataCurrent(image: Image, ...overlays: (EnrichmentFields | undefined)[]): boolean {
   const fact = facts.get(image.id);
+  if (image.__availability || fact?.availability) return false;
   if (!fact?.hasFloor) return true;
   const stamp = evidence.get(image);
   const atFloor = stamp?.issued === fact.acceptedRead
@@ -118,8 +146,12 @@ export function acceptImageRead(image: Image, current?: Image): Image | undefine
   const fact = facts.get(image.id);
   if (!fact) return image;
   const stamp = evidence.get(image);
+  if (fact.availability && (fact.availability.state === "deleted" || !stamp || stamp.issued <= fact.availability.issued)) {
+    return unavailableImage(image.id, fact.availability.state, current ?? image);
+  }
   const currentStamp = current && evidence.get(current);
-  const retained = !fact.hasFloor || currentStamp?.issued === fact.acceptedRead
+  const retained = fact.availability ? unavailableImage(image.id, fact.availability.state, current ?? image)
+    : !fact.hasFloor || currentStamp?.issued === fact.acceptedRead
     || (currentStamp?.version !== undefined && fact.floor !== undefined && currentStamp.version >= fact.floor)
     ? current : undefined;
   if (!stamp || stamp.issued < fact.operation) return retained;
@@ -134,6 +166,7 @@ export function acceptImageRead(image: Image, current?: Image): Image | undefine
   fact.floor = stamp.version;
   fact.acceptedRead = stamp.issued;
   fact.projection = projection;
+  fact.availability = undefined;
   return image;
 }
 
@@ -144,6 +177,7 @@ export function acceptObservedImages(images: Image[], operation: number): Image[
 export function acceptImageOverlay(id: string, overlay: EnrichmentFields, current?: EnrichmentFields): EnrichmentFields {
   const fact = facts.get(id);
   if (!fact) return overlay;
+  if (fact.availability) return unavailableAuthority;
   const stamp = evidence.get(overlay);
   if (!stamp || stamp.issued < Math.max(fact.operation, fact.authorityRead)) return current ?? unavailableAuthority;
   fact.authorityRead = stamp.issued;
@@ -157,6 +191,7 @@ export function acceptImageOverlay(id: string, overlay: EnrichmentFields, curren
 
 export function resolveImageOverlay(image: Image, ...overlays: (EnrichmentFields | undefined)[]): EnrichmentFields | undefined {
   const fact = facts.get(image.id);
+  if (image.__availability || fact?.availability) return unavailableAuthority;
   if (!fact) return overlays.find(overlay => overlay !== undefined);
   if (!isImageMetadataCurrent(image)) return unavailableAuthority;
   let accepted: EnrichmentFields | undefined;

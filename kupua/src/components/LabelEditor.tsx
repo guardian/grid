@@ -78,7 +78,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext }: {
     if (activeSuggestion >= 0) suggestionListRef.current?.children[activeSuggestion]?.scrollIntoView({ block: "nearest" });
   }, [activeSuggestion]);
   const counts = labelTargetCounts(context);
-  const disabled = import.meta.env.VITE_USE_MEDIA_API !== "true" || !counts.selected || Boolean(counts.ineligible || counts.unresolved);
+  const disabled = import.meta.env.VITE_USE_MEDIA_API !== "true" || !counts.selected || Boolean(counts.ineligible || counts.unresolved || counts.unavailable);
   const chips = [...values].sort((first, second) => second.count - first.count);
   const act = (action: "add" | "remove", label: string) => {
     const current = resolveContext?.() ?? context;
@@ -118,7 +118,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext }: {
     <div className="flex items-start gap-1 pt-0.5">
       <div id={valuesId} className="min-w-0 flex-1 flex flex-wrap items-start gap-1">
       {(expanded ? chips : chips.slice(0, 20)).map(chip => <EditableSearchPill key={chip.value} value={chip.value} cqlKey="label" accent
-        count={chip.count} total={counts.selected} coverageKnown={!context.pending && counts.unresolved === 0} disabled={disabled} onSearch={onSearch}
+        count={chip.count} total={counts.selected} coverageKnown={!context.pending && counts.unresolved === 0 && counts.unavailable === 0} disabled={disabled} onSearch={onSearch}
         onAdd={() => act("add", chip.value)} onRemove={() => act("remove", chip.value)} />)}
       </div>
       <span className={`shrink-0${adding ? " invisible" : ""}`} aria-hidden={adding || undefined}>
@@ -186,6 +186,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext }: {
         </ul>
       </div>}
     </form>}
+    {counts.unavailable > 0 && <p role="status" className="text-xs text-grid-text-muted">{counts.unavailable} selected {counts.unavailable === 1 ? "image is" : "images are"} unavailable.</p>}
     {refusal && <p role="status" className="text-xs text-grid-error">Simulation refused: {refusal}.</p>}
   </MetadataRow>;
 }

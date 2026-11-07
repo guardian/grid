@@ -11,7 +11,7 @@ import type { LabelEditContext } from "../../src/lib/label-operation";
 import type { GridCommandResult } from "../../src/lib/grid-commands";
 import { MockDataSource } from "../../src/dal/mock-data-source";
 import { attachedEnrichment, attachEnrichment, useEnrichmentStore } from "../../src/stores/enrichment-store";
-import { createLabelReadback, publishImage } from "../../src/lib/image-publication";
+import { createLabelReadback, publishImage, publishUnavailableImages } from "../../src/lib/image-publication";
 import { resolveImageOverlay } from "../../src/lib/image-read-freshness";
 import type { Image } from "../../src/types/image";
 import { scrollFocusedIntoView } from "../../src/lib/orchestration/search";
@@ -71,6 +71,10 @@ function renderReadbackControls() {
       <button onClick={() => { void (continuation ? readbackControl({ action: "hold" }) : labelEditorFixture.holdReadbackSearch()); }}>{continuation ? "Hold next page" : "Hold old search"}</button>
       <button onClick={() => { void (continuation ? labelEditorFixture.simulateContinuation() : labelEditorFixture.simulateReadback()); }}>{continuation ? "Simulate distant edit" : "Simulate label"}</button>
       <button onClick={() => { void labelEditorFixture.releaseReadbackSearch(); }}>Release old search</button>
+      <button onClick={() => { const state = useSearchStore.getState(); const id = state.focusedImageId ?? state.results[0]?.id;
+        if (id) labelEditorFixture.publishUnavailable(id, "deleted"); }}>Publish deleted</button>
+      <button onClick={() => { const state = useSearchStore.getState(); const id = state.focusedImageId ?? state.results[0]?.id;
+        if (id) labelEditorFixture.publishUnavailable(id, "unavailable"); }}>Publish unavailable</button>
       <span role="status" className="min-w-0 truncate">{store.getState().receipts.at(-1)?.items.map(item => `${item.state}: ${item.observation ?? "pending"}`).join(", ") ?? "Ready"}</span>
     </section>
   </LabelEditorContext>);
@@ -171,14 +175,17 @@ export const labelEditorFixture = {
     useSelectionStore.setState({ dataSource: corpus });
     useSearchStore.setState({ dataSource: corpus });
   },
-  publish(imageId: string) {
+  publish(imageId: string, label = "A2 published label") {
     const state = useSearchStore.getState();
     const original = state.results.find(image => image?.id === imageId);
     if (!original) throw new Error("Publication target is not resident");
     const current = original;
     const updated = { ...current, metadata: { ...current.metadata, description: "A2 published description" },
-      userMetadata: { ...current.userMetadata, labels: ["A2 published label"] } };
+      userMetadata: { ...current.userMetadata, labels: [label] } };
     publishImage(updated, { resource: { links: [] }, actions: [] });
+  },
+  publishUnavailable(imageId: string, availability: "deleted" | "unavailable" = "deleted") {
+    publishUnavailableImages([imageId], availability);
   },
   async acceptNewerPage(imageId: string) {
     const image = useSearchStore.getState().results.find(candidate => candidate?.id === imageId);

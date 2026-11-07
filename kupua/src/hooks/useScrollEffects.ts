@@ -638,7 +638,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
         getEffectiveFocusMode() === "explicit" && useSelectionStore.getState().selectedIds.size === 0;
       if (pendingFocus.edge === "first") {
         if (mayMoveFocus) {
-          const firstImg = store.results[0];
+          const firstImg = store.results.find(image => image && !image.__availability);
           if (firstImg) useSearchStore.setState({ focusedImageId: firstImg.id });
         }
         virtualizerRef.current.scrollToIndex(0, { align: "start" });
@@ -646,7 +646,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
         if (mayMoveFocus) {
           for (let i = store.results.length - 1; i >= Math.max(0, store.results.length - 50); i--) {
             const img = store.results[i];
-            if (img) {
+            if (img && !img.__availability) {
               useSearchStore.setState({ focusedImageId: img.id });
               break;
             }
@@ -869,8 +869,12 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
               : Math.max(1, Math.floor(((el?.clientHeight ?? 0) - geo.headerOffset) / geo.rowHeight));
             delta = pendingDelta.direction * rows * geo.columns;
           } else delta = 0;
-          const targetGlobalIdx = Math.max(0, Math.min(getDisplayEnd(state) - 1, globalIdx + delta));
-          const targetLocalIdx = targetGlobalIdx - state.bufferOffset;
+          let targetGlobalIdx = Math.max(0, Math.min(getDisplayEnd(state) - 1, globalIdx + delta));
+          let targetLocalIdx = targetGlobalIdx - state.bufferOffset;
+          while (state.results[targetLocalIdx]?.__availability) {
+            targetGlobalIdx += pendingDelta.direction;
+            targetLocalIdx += pendingDelta.direction;
+          }
           if (targetLocalIdx >= 0 && targetLocalIdx < state.results.length) {
             const nextImage = state.results[targetLocalIdx];
             if (nextImage) {

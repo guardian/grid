@@ -36,6 +36,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
+import { getImageAvailability } from "@/lib/image-read-freshness";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { useImageTraversal } from "@/hooks/useImageTraversal";
 import { useCursorAutoHide } from "@/hooks/useCursorAutoHide";
@@ -80,6 +81,7 @@ export function FullscreenPreview() {
   const [currentImage, setCurrentImage] = useState<Image | null>(null);
   const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
   const [isZoomed, setIsZoomed] = useState(false);
+  const availability = isActive && currentImage ? getImageAvailability(currentImage.id) : undefined;
 
   // Track whether we initiated the fullscreen (vs. ImageDetail's fullscreen)
   const initiatedRef = useRef(false);
@@ -135,7 +137,7 @@ export function FullscreenPreview() {
 
   const enterPreview = useCallback(() => {
     const image = resolveFocusedImage();
-    if (!image) return;
+    if (!image || image.__availability || getImageAvailability(image.id)) return;
     const el = containerRef.current;
     if (!el) return;
 
@@ -315,7 +317,7 @@ export function FullscreenPreview() {
   // The old bitmap stays as the compositor texture while the new one
   // decodes — no flash, no layout disruption.
   useEffect(() => {
-    if (!isZoomed || !currentImage) return;
+    if (!isZoomed || !currentImage || availability) return;
     const zoomUrl = getZoomImageUrl(currentImage);
     if (!zoomUrl) return;
     // Don't reload if already showing this URL
@@ -335,7 +337,7 @@ export function FullscreenPreview() {
       cancelled = true;
       loader.src = ""; // abort in-flight fetch
     };
-  }, [isZoomed, currentImage?.id]);
+  }, [isZoomed, currentImage?.id, availability]);
 
   // Middle-click exits fullscreen preview (matches ImageDetail's middle-click toggle).
   // Uses mouseup (not auxclick) for Firefox compatibility — see ImageDetail.tsx.
@@ -483,7 +485,9 @@ export function FullscreenPreview() {
     >
       {isActive && (
         <>
-          {imageUrl ? (
+          {availability ? (
+            <div role="status" className="text-white/60 text-sm">{availability === "deleted" ? "Image deleted" : "Image unavailable"}</div>
+          ) : imageUrl ? (
             <img
               ref={imageRef}
               src={imageUrl}

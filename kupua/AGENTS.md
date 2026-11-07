@@ -54,7 +54,7 @@ owns this policy; the [API contract](src/dal/grid-api/README.md) describes curre
 | Thumbnail admission | [ImageGrid](src/components/ImageGrid.tsx) eagerly loads visible virtual rows plus two rows below in Grid and Justified; upper and remaining overscan stay lazy. Row-local context updates only the thumbnail. Fixed Grid keys preserve physical column slots through seeks; captioned thumbnails retain the loaded resource's aspect ratio during pending replacement. Passive cleanup releases detached incomplete thumbnail sources, leaving connected/completed elements alone. URL/quality and geometry ownership are unchanged; no separate observer or scheduler. Justified hides visual fallback text without removing alt accessibility. |
 | Fields | [Field registry](src/lib/field-registry.tsx) supplies shared definitions for columns, sorting, filters and metadata. Display consumers use registered accessors/formatters directly; `getFieldRawValue` supplies raw text. Fixed-grid captions/tooltips share [date formatting](src/lib/format-grid-date.ts) with reused local-time Intl formatters. |
 | Table content | [TableRowCells](src/components/TableRowCells.tsx) memoizes registry-based cells on stable image, columns and enrichment inputs; TanStack Row objects never cross the memoized row/content boundary. Placement, focus and selection stay in ImageTable; numeric fields reuse a default-locale formatter. Table thumbnails retain native lazy loading and release only detached incomplete sources; URL changes recapture conditionally mounted images without clearing connected consumers. |
-| Selection | [Selection store](src/stores/selection-store.ts) owns multi-image membership independently of focus. |
+| Selection | [Selection store](src/stores/selection-store.ts) owns multi-image membership independently of focus. Lifecycle publication retains selected IDs and operation targets; unavailable counts block whole-target editing, while ranges report skipped unavailable interiors and refuse unavailable endpoints. |
 | Crop editor | [CropEditor](src/components/crop/CropEditor.tsx) and [CropCanvas](src/components/crop/CropCanvas.tsx) own a read-only Cropper.js v2 editor inside detail. Crop builds a request without sending it; root-route entry applies legacy ratio options. See the component reference for history, geometry and keyboard ownership. |
 | Shell and zoom | [Shell](src/hooks/useShell.ts) selects compact (touch phone) or desktop chrome over one shared engine; [results zoom](src/lib/results-zoom.ts) supplies width-aware levels held in the [zoom store](src/stores/zoom-store.ts). Justified uses bounded DOM tile morphs with gesture-owned image readiness, layout-independent pinch progress and [origin-owned native contacts](src/lib/justified-zoom-gestures.ts). Grid retains its threshold preview. |
 
@@ -63,6 +63,12 @@ For subsystem internals, start with the relevant section of the
 It is the detailed map, not compulsory reading in full.
 
 ## Read for the Task
+
+Synthetic lifecycle publication uses explicit unavailable/deleted bodies, not loading
+holes. Scrollable slots retain dimensions without media/actions; the mounted view
+alone proves when a complete set fits and confirmed deletions can compact locally.
+No delete/restore command or live lifecycle caller is connected. Current contracts
+live in the state-management and selections guides.
 
 Use the closest topic below, then follow its relevant code and documentation links.
 There is no need to read the whole documentation tree before working.

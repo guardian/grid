@@ -172,6 +172,22 @@ async function mountNavigation(windowed: boolean, mode: "explicit" | "selection"
   };
 }
 
+it("skips unavailable arrow and page targets without seeking or opening their media", async () => {
+  const fixture = await mountNavigation(false, "explicit");
+  const results = useSearchStore.getState().results.slice();
+  for (const index of [1, 2, 18, 19]) results[index] = { ...results[index]!, __availability: "unavailable" };
+  act(() => useSearchStore.setState({ results }));
+  act(() => fixture.dispatchKey("ArrowDown"));
+  expect(useSearchStore.getState().focusedImageId).toBe(results[3]!.id);
+  act(() => useSearchStore.getState().setFocusedImageId(results[0]!.id));
+  act(() => fixture.dispatchKey("PageDown"));
+  expect(useSearchStore.getState().focusedImageId).toBe(results[20]!.id);
+  act(() => useSearchStore.getState().setFocusedImageId(results[1]!.id));
+  act(() => fixture.dispatchKey("Enter"));
+  expect(fixture.onEnter).not.toHaveBeenCalled();
+  expect(fixture.seek).not.toHaveBeenCalled();
+});
+
 it.each(["PageDown", "PageUp"])("Unit B %s keeps focus visible at a confirmed terminal span", async key => {
   const fixture = await mountNavigation(true, "explicit");
   const results = useSearchStore.getState().results;

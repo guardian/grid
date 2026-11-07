@@ -19,7 +19,7 @@ import type { Virtualizer } from "@tanstack/react-virtual";
 import { chooseDetailReturn, type DetailReturnTarget, type DetailEntry } from "@/lib/detail-return";
 import { historySearchContinuity } from "@/lib/search-continuity";
 import { createLabelOperation } from "@/lib/label-operation";
-import { createLabelReadback } from "@/lib/image-publication";
+import { createLabelReadback, publishUnavailableImages } from "@/lib/image-publication";
 import { resetImageFreshnessForTests } from "@/lib/image-read-freshness";
 import { useSelectionStore, _resetMetadataCache } from "@/stores/selection-store";
 
@@ -459,7 +459,7 @@ describe("KUP-004 standalone detail identity", () => {
       expect(screen.getByTestId("metadata").textContent).toBe("B: Title B");
       expect(screen.getByAltText("Title B").getAttribute("src")).toContain("#B");
     } else {
-      expect(screen.getByText("Image not found")).toBeTruthy();
+      expect(screen.getByText(outcome === "reject" ? "Image could not be loaded" : "Image unavailable")).toBeTruthy();
       const back = vi.spyOn(history, "back").mockImplementation(() => {});
       fireEvent.click(screen.getByRole("button", { name: /Back to search/ }));
       expect(back).toHaveBeenCalledOnce();
@@ -473,9 +473,9 @@ describe("KUP-004 standalone detail identity", () => {
     const view = render(<Detail imageId="A" />);
     await act(async () => {});
     act(() => vi.advanceTimersByTime(500));
-    expect(screen.getByText("Image not found")).toBeTruthy();
+    expect(screen.getByText("Image unavailable")).toBeTruthy();
     view.rerender(<Detail imageId="B" />);
-    expect(transitions.at(-1)?.text).not.toContain("Image not found");
+    expect(transitions.at(-1)?.text).not.toContain("Image unavailable");
     expect(transitions.at(-1)?.text).not.toContain("Loading image");
     act(() => vi.advanceTimersByTime(500));
     expect(screen.getByText(/Loading image/)).toBeTruthy();
@@ -499,10 +499,52 @@ describe("KUP-004 standalone detail identity", () => {
       requests[2].resolve(undefined);
     });
     expect(screen.queryByTestId("metadata")).toBeNull();
-    expect(screen.queryByText("Image not found")).toBeNull();
+    expect(screen.queryByText("Image unavailable")).toBeNull();
     await act(async () => requests[3].resolve(found("A")));
     expect(screen.getByTestId("metadata").textContent).toBe("A: Title A");
     expect(lookup).toHaveBeenCalledTimes(4);
+  });
+
+  it.each(["absent", "failed"] as const)("settles cold unavailable detail after a %s read", async outcome => {
+    resetImageFreshnessForTests();
+    publishUnavailableImages(["A"], "unavailable");
+    const lookup = vi.spyOn(dataSource, "getById");
+    if (outcome === "absent") lookup.mockResolvedValue(undefined);
+    else lookup.mockRejectedValue(new Error("Synthetic required read failure"));
+    const view = render(<Detail imageId="A" />);
+    try {
+      await act(async () => {});
+      expect(screen.getByText("Image unavailable")).toBeTruthy();
+      expect(screen.queryByText(/Loading image/)).toBeNull();
+      expect(lookup).toHaveBeenCalledOnce();
+    } finally {
+      view.unmount();
+      resetImageFreshnessForTests();
+    }
+  });
+
+  it.each([false, true])("withholds standalone media after lifecycle publication (loaded=%s)", async loaded => {
+    resetImageFreshnessForTests();
+    const pending = deferred<ImageByIdResult | undefined>();
+    const lookup = vi.spyOn(dataSource, "getById").mockReturnValue(pending.promise);
+    const view = render(<Detail imageId="A" />);
+    try {
+      if (loaded) await act(async () => pending.resolve(found("A")));
+      act(() => publishUnavailableImages(["A"], "deleted"));
+      expect(screen.getByText("Image deleted")).toBeTruthy();
+      expect(screen.getByTestId("detail-image-container").querySelector("img")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Crop image" })).toBeNull();
+      await act(async () => pending.resolve(found("A")));
+      expect(screen.getByText("Image deleted")).toBeTruthy();
+      expect(screen.getByTestId("detail-image-container").querySelector("img")).toBeNull();
+      view.unmount();
+      render(<Detail imageId="A" />);
+      expect(screen.getByText("Image deleted")).toBeTruthy();
+      expect(lookup).toHaveBeenCalledOnce();
+    } finally {
+      view.unmount();
+      resetImageFreshnessForTests();
+    }
   });
 
   it("publishes full standalone readback and actually rejects a released older same-ID completion", async () => {

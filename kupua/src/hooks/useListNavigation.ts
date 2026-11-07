@@ -308,13 +308,17 @@ export function useListNavigation(config: ListNavigationConfig): void {
 
     // Skip placeholders (up to 10)
     const step = delta > 0 ? 1 : -1;
+    while (getImage(nextIdx)?.__availability) {
+      nextIdx += step;
+      if (nextIdx < 0 || nextIdx >= count) return;
+    }
     if (!getImage(nextIdx)) {
       const position = useSearchStore.getState().imagePositions.get(currentId);
       if (position !== undefined && getTerminalDirection(position + nextIdx - currentIdx)) return;
       for (let skip = 1; skip <= 10; skip++) {
         const candidate = nextIdx + step * skip;
         if (candidate < 0 || candidate >= count) break;
-        if (getImage(candidate)) {
+        if (getImage(candidate) && !getImage(candidate)?.__availability) {
           nextIdx = candidate;
           break;
         }
@@ -322,7 +326,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
     }
 
     const nextImage = getImage(nextIdx);
-    if (nextImage) {
+    if (nextImage && !nextImage.__availability) {
       setFocusedImageId(nextImage.id);
     }
 
@@ -394,13 +398,17 @@ export function useListNavigation(config: ListNavigationConfig): void {
 
     // Skip placeholders
     const step = direction === "down" ? 1 : -1;
+    while (getImage(targetIdx)?.__availability) {
+      targetIdx += step;
+      if (targetIdx < 0 || targetIdx >= count) return;
+    }
     if (!getImage(targetIdx)) {
       const position = useSearchStore.getState().imagePositions.get(currentId);
       if (position !== undefined && getTerminalDirection(position + targetIdx - currentIdx)) return;
       for (let skip = 1; skip <= 10; skip++) {
         const candidate = targetIdx + step * skip;
         if (candidate < 0 || candidate >= count) break;
-        if (getImage(candidate)) {
+        if (getImage(candidate) && !getImage(candidate)?.__availability) {
           targetIdx = candidate;
           break;
         }
@@ -408,7 +416,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
     }
 
     const img = getImage(targetIdx);
-    if (img) setFocusedImageId(img.id);
+    if (img && !img.__availability) setFocusedImageId(img.id);
 
     // Scroll so the focused row is visible
     virtualizer.scrollToIndex(flatIndexToRow(targetIdx), { align: "auto" });
@@ -519,6 +527,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
           // but Enter there means "commit my text", not "open the focused image".
           if ((e.target as HTMLElement | null)?.tagName === "INPUT") break;
           const id = c.focusedImageId;
+          if (id && c.getImage(c.findImageIndex(id))?.__availability) return;
           if (id) {
             e.preventDefault();
             c.onEnter(id);
@@ -579,7 +588,9 @@ export function useListNavigation(config: ListNavigationConfig): void {
               }
               // Focus first image only if something was already focused
               if (hasFocus) {
-                const firstImage = c.getImage(0);
+                let first = 0;
+                while (first < c.virtualizerCount && c.getImage(first)?.__availability) first++;
+                const firstImage = c.getImage(first);
                 if (firstImage) c.setFocusedImageId(firstImage.id);
               }
             }
@@ -614,7 +625,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
                 const scanFrom = Math.max(0, count - 50);
                 for (let i = count - 1; i >= scanFrom; i--) {
                   const img = c.getImage(i);
-                  if (img) {
+                  if (img && !img.__availability) {
                     c.setFocusedImageId(img.id);
                     break;
                   }

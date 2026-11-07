@@ -217,6 +217,14 @@ const GridCell = memo(function GridCell({
     );
   }
 
+  if (image.__availability) return (
+    <div data-grid-cell data-cell-id={image.id} data-image-id={image.id} data-unavailable={image.__availability}
+      className="shrink-0 flex items-center justify-center bg-grid-cell rounded text-sm text-grid-text-muted"
+      style={{ width: cellWidth, height: imageOnlyHeight !== undefined && dateLineOnly ? imageOnlyHeight + GRID_DATE_LINE_HEIGHT : imageOnlyHeight ?? cellHeight }}>
+      {image.__availability === "deleted" ? "Image deleted" : "Image unavailable"}
+    </div>
+  );
+
   const thumbUrl = thumbnailsEnabled ? getThumbnailUrl(image) : undefined;
   const descTooltip = buildDescriptionTooltip(image);
   const dates = imageOnlyHeight === undefined || dateLineOnly ? getGridDatePresentation(image, dateOrderBy) : undefined;

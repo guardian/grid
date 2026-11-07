@@ -37,7 +37,7 @@ import { buildSearchKey, extractSortValues, getRetainedSortValues } from "@/lib/
 import { addToast } from "@/stores/toast-store";
 import { RANGE_HARD_CAP, RANGE_SOFT_CAP } from "@/constants/tuning";
 import type { AddRangeEffect } from "@/lib/dispatchClickEffects";
-import { getOrderingRevision, hasOrderingUncertainty } from "@/lib/image-read-freshness";
+import { getImageAvailability, getOrderingRevision, hasOrderingUncertainty } from "@/lib/image-read-freshness";
 
 // ---------------------------------------------------------------------------
 // Pure helper -- exported for unit testing
@@ -111,13 +111,26 @@ export function useRangeSelection() {
       // an "adding" gesture → add range.
       // If the anchor is NOT in selectedIds → the click removed it → remove range.
       const polarity = selStore.selectedIds.has(anchorId) ? "add" : "remove";
+      const unavailableIds = new Set(searchState.results.filter(image => image?.__availability).map(image => image!.id));
+      const unavailable = (id: string) => getImageAvailability(id) || unavailableIds.has(id);
+      if (unavailable(anchorId) || unavailable(targetId)) {
+        addToast({ category: "warning", message: "A range endpoint is unavailable. Selection unchanged." });
+        return;
+      }
       if (effect.reanchorToTarget) {
         selStore.setAnchor(targetId);
         if (anchorId === targetId) return;
       }
       const commitRange = (ids: string[]) => {
-        if (polarity === "remove") selStore.remove(ids);
-        else selStore.add(ids);
+        if (unavailable(anchorId) || unavailable(targetId)) {
+          addToast({ category: "warning", message: "A range endpoint is unavailable. Selection unchanged." });
+          return;
+        }
+        const eligible = ids.filter(id => !unavailable(id));
+        const unavailableCount = new Set(ids.filter(id => unavailable(id))).size;
+        if (unavailableCount) addToast({ category: "information", message: `${unavailableCount} unavailable ${unavailableCount === 1 ? "image" : "images"} skipped. Existing selection retained for those images.` });
+        if (polarity === "remove") selStore.remove(eligible);
+        else selStore.add(eligible);
         if (effect.reanchorToTarget) selStore.setAnchor(targetId);
       };
 

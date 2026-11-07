@@ -81,6 +81,20 @@ reconciliation. Store notifications are sequential, not a transaction supplied b
 React batching: staged freshness facts identify old presentation, and stale metadata
 cannot admit editing even when an explicit context supplies newer capabilities.
 
+**Unavailable content.** Explicit lifecycle publication replaces retained content with
+an identity/dimensions-only body marked unavailable or deleted. It shares the existing
+1,000-ID fact capacity, fences old bodies and grants, and retains list-owned AI scores.
+A newer admitted read can recover unavailable content only if its metadata passes the
+existing floor; ordinary reads cannot refute explicit deletion. Failed reads, omissions
+and singleton 404s never establish deletion. No lifecycle endpoint or command is wired.
+The registered mounted container checks complete residency and actual non-scrollable
+geometry only on deletion publication. A fitting set compacts locally, updates count
+and positions, preserves surviving focus and settles stationary end demand without a
+read. Otherwise slots keep their dimensions, without media or actions. Uncertain filter
+membership keeps fresh content in place; there is no local CQL evaluation or query rerun.
+Metadata-only publication never compacts retained deleted slots, even if a density
+change or resize has since made the complete set fit.
+
 API reads capture issuance before awaiting, including reads whose IDs are not yet
 known. Existing request owners still control cancellation and publication. For
 touched IDs, search, selection hydration and singleton acceptance additionally

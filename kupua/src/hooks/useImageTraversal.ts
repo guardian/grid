@@ -94,6 +94,12 @@ function globalIndexOf(imageId: string): number {
   return imagePositions.get(imageId) ?? -1;
 }
 
+function adjacentAvailableIndex(index: number, step: number): number {
+  let target = index + step;
+  while (getImageAtGlobal(target)?.__availability) target += step;
+  return target;
+}
+
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
@@ -154,9 +160,9 @@ export function useImageTraversal(
   const currentGlobalIndex = currentImageId ? globalIndexOf(currentImageId) : -1;
 
   // Compute prev/next images (may be null if outside buffer)
-  const prevGlobalIdx = currentGlobalIndex > 0 ? currentGlobalIndex - 1 : -1;
+  const prevGlobalIdx = currentGlobalIndex > 0 ? adjacentAvailableIndex(currentGlobalIndex, -1) : -1;
   const nextGlobalIdx = currentGlobalIndex >= 0 && currentGlobalIndex < total - 1
-    ? currentGlobalIndex + 1
+    ? adjacentAvailableIndex(currentGlobalIndex, 1)
     : -1;
 
   const prevImage = prevGlobalIdx >= 0 ? getImageAtGlobal(prevGlobalIdx) : null;
@@ -213,7 +219,8 @@ export function useImageTraversal(
     const gIdx = globalIndexOf(imgId);
     if (gIdx < 0) { pending.cancel(); return; }
 
-    const targetGlobalIdx = dir === "forward" ? gIdx + 1 : gIdx - 1;
+    const targetGlobalIdx = adjacentAvailableIndex(gIdx, dir === "forward" ? 1 : -1);
+    if (targetGlobalIdx < 0 || (targetGlobalIdx >= getDisplayEnd() && !canExtendForward())) { pending.cancel(); return; }
     const targetImage = getImageAtGlobal(targetGlobalIdx);
 
     if (targetImage) {
@@ -241,7 +248,7 @@ export function useImageTraversal(
     if (gIdx < 0) return;
 
     const state = useSearchStore.getState();
-    const targetGlobalIdx = direction === "forward" ? gIdx + 1 : gIdx - 1;
+    const targetGlobalIdx = adjacentAvailableIndex(gIdx, direction === "forward" ? 1 : -1);
 
     // Boundary check
     if (targetGlobalIdx < 0 || (targetGlobalIdx >= getDisplayEnd(state) && !canExtendForward(state))) return;
@@ -295,7 +302,7 @@ export function useImageTraversal(
           if (!pending.isCurrent()) { pending.cancel(); hasNavigatedRef.current = false; return; }
           const position = state.imagePositions.get(imgId);
           const completed = direction === "forward" ? state._terminalEnd !== previous._terminalEnd : state._terminalStart !== previous._terminalStart;
-          if (completed && position !== undefined && getTerminalDirection(position + (direction === "forward" ? 1 : -1))) {
+          if (completed && position !== undefined && getTerminalDirection(adjacentAvailableIndex(position, direction === "forward" ? 1 : -1))) {
             pending.cancel();
             return;
           }

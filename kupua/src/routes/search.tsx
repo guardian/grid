@@ -407,6 +407,12 @@ function FocusedImageMetadata() {
   const labelEditing = currentPanelLabelEditing();
   labelEditing.pending ||= isPending;
 
+  if (!isMultiSelection && image?.__availability) return (
+    <div role="status" className="px-3 py-4 text-xs text-grid-text-muted">
+      {image.__availability === "deleted" ? "Image deleted" : "Image unavailable"}
+    </div>
+  );
+
   if (isMultiSelection) {
     return (
       <div className="p-3" aria-busy={isPending}>

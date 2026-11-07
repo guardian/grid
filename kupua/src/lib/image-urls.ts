@@ -49,6 +49,7 @@ const CANONICAL_MEDIA = import.meta.env.VITE_MEDIA_DELIVERY === "canonical";
  * the S3 proxy is running (TEST mode), or undefined when unavailable.
  */
 export function getThumbnailUrl(image: Image): string | undefined {
+  if (image.__availability) return undefined;
   if (SYNTHETIC_PREVIEW_ENABLED) return previewImageUrl(image);
   if (CANONICAL_MEDIA) return image.thumbnail?.secureUrl;
   if (!S3_PROXY_ENABLED) return undefined;
@@ -245,6 +246,7 @@ export function getFullImageUrl(
   image: Image,
   options?: FullImageOptions,
 ): string | undefined {
+  if (image.__availability) return undefined;
   if (SYNTHETIC_PREVIEW_ENABLED) return previewImageUrl(image);
   if (CANONICAL_MEDIA) return getCanonicalFullImageUrl(image, options);
   if (!IMGPROXY_ENABLED || !IMAGE_BUCKET) return undefined;

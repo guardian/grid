@@ -24,6 +24,24 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 7 November 2026 - Explicit unavailable slots and local small-set deletion
+
+Synthetic lifecycle publication now uses bounded freshness facts and payload-free
+unavailable/deleted bodies through existing result, enrichment, selection and detail
+owners. Grid, Table and Justified retain slot dimensions while withholding media and
+actions. Detail distinguishes unavailable content from failed reads; traversal and
+keyboard focus skip terminal slots. Selection retains IDs and captured targets, reports
+unavailable range interiors, refuses unavailable endpoints and blocks whole-target edits.
+
+The mounted scroll container proves complete-set fit before local confirmed-deletion
+compaction. Surviving focus remains; a removed focus clears. The existing terminal record
+settles stationary demand after compaction, preventing an ordering-invalidation read.
+Compaction requires incoming explicit deletion evidence: later metadata-only updates
+cannot remove retained deleted slots after a density change or viewport growth.
+Tests cover actual viewport fit, zero-request removal, retained boxes, stale reads,
+below-floor re-entry, cold detail and density changes during held reacquisition. Normal
+editing remains disconnected; no lifecycle command or live caller was added.
+
 ### 7 November 2026 - Preserve field-like text inside quoted searches
 
 Incomplete-chip cleanup could delete text such as `Credit: ` from the middle of a

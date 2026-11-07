@@ -49,6 +49,119 @@ test.describe("Unit B isolated continuation", () => {
     await page.unrouteAll({ behavior: "wait" });
   });
 
+  test("Unit C T3 removes explicit deletion from five images fitting the viewport", async ({ page }) => {
+    await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 5 } });
+    await page.goto(`${origin}/__continuation?density=grid`);
+    const region = page.getByRole("region", { name: "Image results grid", exact: true });
+    await expect(region.locator("[data-cell-id]")).toHaveCount(5);
+    await expect.poll(() => region.evaluate(region => {
+      const bounds = region.getBoundingClientRect();
+      return region.scrollHeight <= region.clientHeight && [...region.querySelectorAll("[data-cell-id]")].every(cell => {
+        const box = cell.getBoundingClientRect();
+        const image = cell.querySelector("img");
+        return box.top >= bounds.top && box.bottom <= bounds.bottom && image?.complete && image.naturalWidth > 0;
+      });
+    })).toBe(true);
+    await region.locator('[data-cell-id="local-3"] div[title^="Original "]').click();
+    await expect.poll(() => page.evaluate(() => (window as CommandWindow).__kupua_store__.getState().focusedImageId)).toBe("local-3");
+    const before = await counts(page);
+    const retained = (await region.locator('[data-cell-id="local-2"]').boundingBox())!;
+    await page.evaluate(() => (window as CommandWindow).editorFixture.publish("local-2", "reviewed"));
+    await expect(region.locator('[data-cell-id="local-2"]')).toContainText("A2 published description");
+    await expect(region.locator("[data-cell-id]")).toHaveCount(5);
+    expect(await region.locator('[data-cell-id="local-2"]').boundingBox()).toEqual(retained);
+    await page.evaluate(() => (window as CommandWindow).editorFixture.publishUnavailable("local-1"));
+    await expect(region.locator("[data-cell-id]")).toHaveCount(4);
+    expect(await page.evaluate(() => {
+      const state = (window as CommandWindow).__kupua_store__.getState();
+      return { ids: state.results.map(image => image?.id), total: state.total, focus: state.focusedImageId };
+    })).toEqual({ ids: ["local-0", "local-2", "local-3", "local-4"], total: 4, focus: "local-3" });
+    expect(await counts(page)).toEqual(before);
+    await page.evaluate(() => (window as CommandWindow).editorFixture.publishUnavailable("local-3"));
+    await expect(region.locator("[data-cell-id]")).toHaveCount(3);
+    expect(await page.evaluate(() => {
+      const state = (window as CommandWindow).__kupua_store__.getState();
+      return { total: state.total, focus: state.focusedImageId };
+    })).toEqual({ total: 3, focus: null });
+    expect(await counts(page)).toEqual(before);
+  });
+
+  for (const density of ["grid", "table", "justified"] as const) {
+    test(`Unit C retains unavailable slot geometry in ${density}`, async ({ page }) => {
+      await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 120 } });
+      await page.goto(`${origin}/__continuation?density=${density}`);
+      const region = page.getByRole("region", { name: `Image results ${density}`, exact: true });
+      const target = region.locator('[data-cell-id="local-1"]');
+      await expect(target.locator("img")).toBeVisible();
+      expect(await region.evaluate(region => region.scrollHeight > region.clientHeight)).toBe(true);
+      const beforeReads = await counts(page);
+      const boxes = await region.evaluate(region => {
+        const bounds = region.getBoundingClientRect();
+        return [...region.querySelectorAll<HTMLElement>("[data-cell-id]")].filter(cell => {
+          const box = cell.getBoundingClientRect();
+          return box.bottom > bounds.top && box.top < bounds.bottom;
+        }).map(cell => ({ id: cell.dataset.cellId!, box: cell.getBoundingClientRect().toJSON() }));
+      });
+      if (density === "grid") {
+        const original = (await target.boundingBox())!;
+        await target.evaluate(target => { target.style.transform = "translateX(4px)"; });
+        expect(Math.abs((await target.boundingBox())!.x - original.x)).toBeGreaterThan(1);
+        await target.evaluate(target => { target.style.transform = ""; });
+      }
+      await page.evaluate(() => (window as CommandWindow).editorFixture.publishUnavailable("local-1", "unavailable"));
+      await expect(target).toContainText("Image unavailable");
+      await expect(target.locator("img, button, input, [data-loading-placeholder]")).toHaveCount(0);
+      for (const retained of boxes) {
+        const actual = (await region.locator(`[data-cell-id="${retained.id}"]`).boundingBox())!;
+        for (const axis of ["x", "y", "width", "height"] as const) expect(Math.abs(actual[axis] - retained.box[axis])).toBeLessThanOrEqual(1);
+      }
+      expect(await page.evaluate(() => {
+        const state = (window as CommandWindow).__kupua_store__.getState();
+        return { total: state.total, length: state.results.length, position: state.imagePositions.get("local-1") };
+      })).toEqual({ total: 120, length: 120, position: 1 });
+      expect(await counts(page)).toEqual(beforeReads);
+    });
+  }
+
+  test("Unit C keeps detail truthful and density stable across held reacquisition", async ({ page }) => {
+    await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 120 } });
+    await page.goto(`${origin}/__continuation?density=grid`);
+    const grid = page.getByRole("region", { name: "Image results grid", exact: true });
+    await expect(grid.locator('[data-cell-id="local-0"]')).toBeVisible();
+    await grid.locator('[data-cell-id="local-0"] div[title^="Original "]').dblclick();
+    await expect(page.locator("[data-detail-image-id]")).toHaveAttribute("data-detail-image-id", "local-0");
+    await page.evaluate(() => {
+      const fixture = (window as CommandWindow).editorFixture;
+      fixture.publishUnavailable("local-0", "deleted");
+      fixture.publishUnavailable("local-1", "unavailable");
+    });
+    const detail = page.locator("[data-detail-image-id]");
+    await expect(detail.getByText("Image deleted", { exact: true })).toBeVisible();
+    await expect(detail.getByTestId("detail-image-container").locator("img")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Crop image", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Next image", exact: true }).click();
+    await expect(detail).toHaveAttribute("data-detail-image-id", "local-2");
+    await expect(detail.getByTestId("detail-image-container").locator("img")).toBeVisible();
+    await page.getByRole("button", { name: "Back to search", exact: true }).click();
+    await page.evaluate(() => (window as CommandWindow).editorFixture.holdReadbackSearch());
+    await expect.poll(async () => (await counts(page)).held).toBe(1);
+    const tableButton = await getDensityChangeButton(page, "table");
+    await tableButton!.click();
+    const table = page.getByRole("region", { name: "Image results table", exact: true });
+    await expect(table.locator('[data-cell-id="local-3"]')).toBeVisible();
+    await page.evaluate(() => (window as CommandWindow).editorFixture.publishUnavailable("local-3", "unavailable"));
+    await expect(table.locator('[data-cell-id="local-3"]')).toContainText("Image unavailable");
+    await page.getByRole("button", { name: "Release old search", exact: true }).click();
+    await expect.poll(async () => (await counts(page)).held).toBe(0);
+    await expect.poll(() => page.evaluate(() => (window as CommandWindow).__kupua_store__.getState().loading)).toBe(false);
+    await expect(table.locator('[data-cell-id="local-3"]')).toContainText("Image unavailable");
+    await expect(table.locator('[data-cell-id="local-0"]')).toContainText("Image deleted");
+    const justified = await getDensityChangeButton(page, "justified");
+    await justified!.click();
+    await expect(page.getByRole("region", { name: "Image results justified", exact: true }).locator('[data-cell-id="local-3"]')).toContainText("Image unavailable");
+    expect((await counts(page)).unexpected).toEqual([]);
+  });
+
   for (const arm of ["unchanged", "distant edit", "interrupted detector"] as const) {
     test(`preserves active lookahead: ${arm}`, async ({ page }) => {
       await page.goto(`${origin}/__continuation?density=grid`);

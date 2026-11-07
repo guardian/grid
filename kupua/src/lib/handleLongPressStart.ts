@@ -19,6 +19,7 @@ import { useSelectionStore } from "@/stores/selection-store";
 import { useSearchStore } from "@/stores/search-store";
 import { buildSearchKey, extractSortValues, getRetainedSortValues } from "@/lib/image-offset-cache";
 import type { AddRangeEffect } from "@/lib/dispatchClickEffects";
+import { getImageAvailability } from "@/lib/image-read-freshness";
 
 export interface LongPressStartContext {
   cellId: string;
@@ -58,6 +59,7 @@ export function createDragSelect(
       primed = { id: originId, erase: wasSelected };
     },
     enter(originId, cellId) {
+      if (getImageAvailability(originId) || getImageAvailability(cellId)) return;
       const sel = useSelectionStore.getState();
       const search = useSearchStore.getState();
       if (!origin) {
@@ -81,7 +83,7 @@ export function createDragSelect(
       for (const [id, pos] of added) if (pos < lo || pos > hi) { leaving.push(id); added.delete(id); }
       const entering: string[] = [];
       for (const image of search.results) {
-        if (!image || added.has(image.id) || before.has(image.id) !== erase) continue;
+        if (!image || image.__availability || getImageAvailability(image.id) || added.has(image.id) || before.has(image.id) !== erase) continue;
         const pos = search.imagePositions.get(image.id);
         if (pos !== undefined && pos >= lo && pos <= hi) { entering.push(image.id); added.set(image.id, pos); }
       }
@@ -100,6 +102,7 @@ export function createDragSelect(
       if (origin && last && handleRange) {
         const search = useSearchStore.getState();
         const loaded = search.results.filter((image) => {
+          if (image?.__availability || (image && getImageAvailability(image.id))) return false;
           const pos = image && search.imagePositions.get(image.id);
           return pos !== undefined && pos !== null &&
             pos >= Math.min(origin!.global, last!.global) && pos <= Math.max(origin!.global, last!.global);
@@ -131,7 +134,7 @@ export function createDragSelect(
 }
 
 export function handleLongPressStart(ctx: LongPressStartContext): void {
-  if (!ctx.cellId) return;
+  if (!ctx.cellId || getImageAvailability(ctx.cellId) || ctx.getImage(ctx.findImageIndex(ctx.cellId))?.__availability) return;
 
   const selState = useSelectionStore.getState();
   const { anchorId } = selState;

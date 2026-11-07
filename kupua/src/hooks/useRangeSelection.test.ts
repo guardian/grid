@@ -25,7 +25,7 @@ import { RANGE_HARD_CAP, RANGE_SOFT_CAP } from "@/constants/tuning";
 import type { AddRangeEffect } from "@/lib/dispatchClickEffects";
 import { handleLongPressStart } from "@/lib/handleLongPressStart";
 import { resolveInBufferRange, useRangeSelection } from "./useRangeSelection";
-import { admitLabelObservation, recordLabelOutcome, releaseLabelObservation, resetImageFreshnessForTests } from "@/lib/image-read-freshness";
+import { admitLabelObservation, recordImageAvailability, recordLabelOutcome, releaseLabelObservation, resetImageFreshnessForTests } from "@/lib/image-read-freshness";
 
 // ---------------------------------------------------------------------------
 // Minimal Image stub
@@ -224,6 +224,23 @@ describe("mounted range ownership", () => {
     useToastStore.getState().queue.forEach(toast => useToastStore.getState().dismiss(toast.id));
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  it("accounts for unavailable resident slots and refuses an unavailable remote endpoint", async () => {
+    useSearchStore.setState({ results: images, bufferOffset: 0, imagePositions: new Map(images.map((image, index) => [image.id, index])) });
+    recordImageAvailability(["img-1"], "unavailable");
+    const walk = vi.spyOn(source, "getIdRange");
+    const { result } = renderHook(() => useRangeSelection());
+    await result.current(effect);
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-2"]));
+    expect(useToastStore.getState().queue.at(-1)?.message).toContain("1 unavailable image skipped");
+    const selected = useSelectionStore.getState().selectedIds;
+    recordImageAvailability(["img-0"], "deleted");
+    useSearchStore.setState({ results: images.slice(1), bufferOffset: 1, imagePositions: new Map() });
+    await result.current(effect);
+    expect(useSelectionStore.getState().selectedIds).toBe(selected);
+    expect(walk).not.toHaveBeenCalled();
+    expect(useToastStore.getState().queue.at(-1)?.message).toContain("Selection unchanged");
   });
 
   it.each(["current", "missing", "failed"] as const)("Unit B resolves both uncertain remote endpoints: %s", async outcome => {

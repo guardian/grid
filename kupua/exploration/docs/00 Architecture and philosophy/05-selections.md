@@ -210,6 +210,15 @@ or post-write hydration is involved. See [state management](state-management.md)
 
 ### Hydration on mount
 
+Explicit lifecycle publication retains selected IDs, their anchor and captured operation
+targets, replacing cached content with unavailable/deleted bodies. Unavailable target
+counts are separate from unresolved reads and missing capabilities; an operation blocks
+its complete target set rather than executing an eligible subset. Resident ranges skip
+terminal interiors with explicit feedback and retain any existing selection of those
+IDs. Unavailable endpoints refuse the range without changing selection. Touch admission
+and drag selection follow the same unavailable-target rule. Lifecycle facts protect
+selected IDs from later hydration omissions; ordinary cold-hydration rules below remain.
+
 - `useSelectionStore.getState().hydrate()` called once from the `/search` route's mount effect. (The persist middleware repopulates `selectedIds` synchronously before mount; `hydrate()` is what kicks the metadata fetch so the multi-image panel renders reconciled values rather than dashes.)
 - `hydrate()` calls `getByIds(selectedIds)`. Successful omissions are dropped only while the captured selected Set and anchor still own the selection. Clear or newer membership/anchor intent prevents the old response from repairing membership, changing the retained cursor anchor or consuming toast deduplication. For touched IDs, captured read issuance additionally prevents an old omission from undoing newer canonical publication; fresh cold-hydration omission behavior remains.
 - Ordinary late metadata may still populate the same mutable LRU, publish a changed-batch revision and request coalesced reconciliation of current selection. Touched-ID body acceptance additionally checks issuance and the metadata floor, independently accepting current negative authority. An obsolete completion leaves an empty cleared view untouched. Display/reconciliation `generationCounter` changes are not selection intent; this is not a global last-started-read-wins policy.

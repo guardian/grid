@@ -11,7 +11,7 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
   const projections = new Map<string, string>();
   const held = new Set<() => void>();
   let holdNext = false;
-  const counts = { searchReads: 0, pageReads: 0, mgetReads: 0, fullReads: 0, rankReads: 0, mapReads: 0, countReads: 0,
+  const counts = { searchReads: 0, pageReads: 0, mgetReads: 0, fullReads: 0, rankReads: 0, mapReads: 0, countReads: 0, profileFailures: 0,
     generated: 0, aborted: 0, fakeDispatches: 0, staleDelivered: 0, unexpected: [] as string[] };
   let logicalTotal = continuation ? 9_000_000 : 120;
   let matchingPrefix: number | null = null;
@@ -115,6 +115,10 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
               } else return send({ error: "invalid-fixture-control" }, 400);
             }
             return send({ ...counts, held: held.size });
+          }
+          if (request.method === "POST" && pathname === "/api/images/sort-profile" && body.operation === "date-stats") {
+            counts.profileFailures++;
+            return send({ error: "synthetic-optional-profile-unavailable" }, 503);
           }
           if (continuation && request.method === "POST" && pathname === "/api/images/rank") {
             counts.rankReads++;

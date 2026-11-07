@@ -43,6 +43,15 @@ export function getScrollContainer(): HTMLElement | null {
   return _el;
 }
 
+export function mountedResultsFitViewport(ids: readonly string[]): boolean {
+  const container = _el;
+  if (!container?.isConnected || container.clientHeight === 0 || container.scrollHeight > container.clientHeight) return false;
+  const cells = container.querySelectorAll<HTMLElement>("[data-cell-id]");
+  if (cells.length !== ids.length) return false;
+  const rendered = new Set(Array.from(cells, cell => cell.dataset.cellId));
+  return ids.every(id => rendered.has(id));
+}
+
 // ---------------------------------------------------------------------------
 // React hook — subscribe to container changes
 // ---------------------------------------------------------------------------

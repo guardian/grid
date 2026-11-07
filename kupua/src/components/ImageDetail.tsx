@@ -75,6 +75,7 @@ import type { EnrichmentFields } from "@/stores/enrichment-store";
 import { acceptEnrichedImage, attachedEnrichment, attachEnrichment } from "@/stores/enrichment-store";
 import { captureImageRead, ensureImageRead, hasImageFence, protectsImageOmission, withholdImageAuthority } from "@/lib/image-read-freshness";
 import { ownStandalonePublication } from "@/lib/image-publication";
+import { getImageAvailability, unavailableImage } from "@/lib/image-read-freshness";
 import { useSelectionStore } from "@/stores/selection-store";
 
 const CropEditor = lazy(() => import("@/components/crop/CropEditor").then((m) => ({ default: m.CropEditor })));
@@ -242,16 +243,21 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     enrichment?: EnrichmentFields;
     failed: boolean;
     unresolved?: boolean;
+    readFailed?: boolean;
   } | null>(null);
   const standaloneImage = standalone?.imageId === imageId ? standalone.image : null;
   const standaloneEnrichment = standalone?.imageId === imageId ? standalone.enrichment : undefined;
   const standaloneFetchFailed = standalone?.imageId === imageId && standalone.failed;
-  const standaloneFailureText = standalone?.imageId === imageId && standalone.unresolved ? "Image unavailable" : "Image not found";
+  const standaloneFailureText = standalone?.imageId === imageId && standalone.readFailed ? "Image could not be loaded" : "Image unavailable";
 
   useEffect(() => {
     // If the image is already in search results, no need to fetch
     if (imageFromResults) {
       setStandalone(null);
+      return;
+    }
+    if (getImageAvailability(imageId) === "deleted") {
+      setStandalone({ imageId, image: unavailableImage(imageId, "deleted"), failed: false });
       return;
     }
     // Fetch by ID
@@ -276,6 +282,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
         return found?.image;
       },
       publish,
+      publishUnavailable: availability => publish(unavailableImage(imageId, availability, current)),
       unavailable: () => {
         if (cancelled) return;
         withholdImageAuthority(imageId);
@@ -285,6 +292,12 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     });
     setStandalone({ imageId, image: null, failed: false });
     const issued = captureImageRead();
+    const settleAbsence = (readFailed: boolean) => {
+      if (cancelled) return;
+      const availability = getImageAvailability(imageId);
+      if (availability) publish(unavailableImage(imageId, availability, current));
+      else if (!protectsImageOmission(imageId, issued)) setStandalone({ imageId, image: null, failed: true, readFailed });
+    };
     dataSource.getById(imageId, request.signal).then(
       (found) => {
         if (cancelled) return;
@@ -293,13 +306,11 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
           if (found.enrichment) attachEnrichment(found.image, found.enrichment);
           const accepted = hasImageFence(imageId)
             ? acceptEnrichedImage(found.image, current ?? useSelectionStore.getState().metadataCache.get(imageId)) : found.image;
-          if (accepted && (accepted === found.image || current)) publish(accepted);
+          if (accepted && (accepted === found.image || current || accepted.__availability)) publish(accepted);
           else setStandalone({ imageId, image: null, enrichment: undefined, failed: true, unresolved: true });
-        } else if (!protectsImageOmission(imageId, issued)) setStandalone({ imageId, image: null, failed: true });
+        } else settleAbsence(false);
       },
-      () => {
-        if (!cancelled && !protectsImageOmission(imageId, issued)) setStandalone({ imageId, image: null, failed: true });
-      },
+      () => settleAbsence(true),
     );
     return () => {
       cancelled = true;
@@ -311,7 +322,9 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
 
   // Use the image from results if available (preserves prev/next nav),
   // otherwise fall back to the standalone fetch
-  const image = imageFromResults ?? standaloneImage;
+  const resolvedImage = imageFromResults ?? standaloneImage;
+  const availability = resolvedImage?.__availability;
+  const image = availability ? null : resolvedImage;
 
   // Emit open-detail store-ready the first time `image` is available for a
   // given imageId. Pairs with the owned interaction from ImageGrid.enterDetail. Declared up
@@ -769,13 +782,13 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       <span className="flex-1" />
       <SettingsMenu />
     </header>
-    {!displayImage && (standaloneFetchFailed || loadingImageId === imageId) && <p role="status" className="flex flex-1 items-center justify-center text-sm text-grid-text-muted">
-      {standaloneFetchFailed ? standaloneFailureText : "Loading image..."}
+    {!displayImage && (availability || standaloneFetchFailed || loadingImageId === imageId) && <p role="status" className="flex flex-1 items-center justify-center text-sm text-grid-text-muted">
+      {availability ? availability === "deleted" ? "Image deleted" : "Image unavailable" : standaloneFetchFailed ? standaloneFailureText : "Loading image..."}
     </p>}
   </div>;
 
   return (
-    <div ref={detailWrapperRef} className="flex flex-col flex-1 min-h-0 bg-grid-bg" data-detail-image-id={displayImage?.id}>
+    <div ref={detailWrapperRef} className="flex flex-col flex-1 min-h-0 bg-grid-bg" data-detail-image-id={resolvedImage?.id}>
       {cropping && <div className="fixed inset-0 z-50 bg-grid-bg" data-testid="crop-backdrop">
         {displayImage ? <Suspense fallback={cropLoading}><CropEditor image={displayImage} previewSrc={cropPreviewSrc} onClose={closeCrop} onHome={goHome} /></Suspense> : cropLoading}
       </div>}
@@ -869,7 +882,9 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
               >
               {!displayImage ? (
                 <div className="text-grid-text-muted text-center">
-                  {standaloneFetchFailed ? (
+                  {availability ? (
+                    <p role="status" className="text-lg">{availability === "deleted" ? "Image deleted" : "Image unavailable"}</p>
+                  ) : standaloneFetchFailed ? (
                     <p className="text-lg">{standaloneFailureText}</p>
                   ) : loadingImageId === imageId ? (
                     <p className="text-sm animate-pulse">Loading image…</p>

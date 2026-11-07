@@ -367,17 +367,16 @@ mobile UX is not a claim of mobile completion, and closeout does not enable savi
 
 **Depends on:** completed steps 1-3 and the bounded execution authority below.
 
-**Execution scope, 5 November:** the [implementation plan](gradually-growing-teeth.step-4-publication-plan.md)
-records accepted section-1 choices and authorization for Unit A's three sessions:
-A1 extension dedup, A2 publication-route comparison, and A3 simulated readback and
-publication after A2's choice. Each session retains its operator checkpoint; do not
-start the next without confirmation. The Unit B feasibility spike and Units B-D
-are not authorized. The plan owns rationale, freshness, performance and proof details.
+**Execution scope, 7 November:** the [implementation plan](gradually-growing-teeth.step-4-publication-plan.md)
+owns accepted choices, rationale, freshness, performance and proof details. Units A-B
+have completed their checkpoints; separately authorized Unit C is implemented and
+validated at its operator checkpoint. Unit D requires its own confirmed assignment;
+do not start the next unit merely because a previous unit passed or was committed.
 Home, New images ticker and existing refresh behavior remain unchanged, with no
 new refresh-view control or compulsory reload. No live writes or later editing
-steps are enabled by Unit A or by this documentation update.
+steps are enabled by these units or by this documentation update.
 
-**Implemented through A3, 6 November:** extension acceptance excludes duplicate
+**Implemented plumbing:** extension acceptance excludes duplicate
 incoming IDs while retaining raw cursor progress and useful demand. Same-slot
 buffer replacement is the selected publication route; unchanged-ratio metadata
 updates preserve geometry and scrolling prediction. The per-cell experiment and
@@ -385,10 +384,11 @@ interactive trial tooling are removed, while regression coverage remains. Normal
 editing remains disconnected. Injected single-label simulation now has bounded
 canonical observation, touched-ID freshness and grouped publication through existing
 owners, including selected metadata and current full standalone projection.
-The [A3 checkpoint](gradually-growing-teeth.step-4-publication-plan.md#a3-checkpoint)
-records validation, independent review and the isolated browser demonstration.
-KUP-043 remains open for coordinate reacquisition and unavailable-slot behavior;
-the Unit B spike and Units B-D are not authorized.
+Unit B separates retained display positions, raw scan frontiers and action-owned rank
+authority. Unit C adds explicit unavailable/deleted slots, local complete-set deletion
+when the mounted viewport fits, and cross-view acceptance. The detailed plan's checkpoints
+record their evidence and limits. KUP-043 remains open pending integrated acceptance;
+Unit D, real deletion and live activation are not implied by these implementations.
 
 **UX clarification, 5 November:** distant changes in a millions-image search must
 not interrupt local scrolling just to reconcile imperceptible rank/count drift.
@@ -397,7 +397,7 @@ global ordinals; identities, permissions, operation outcomes and exact range tar
 remain strict. Ordinary continuation is not automatically a rebase trigger. The
 detailed proposal now includes a testing sub-plan with a nine-million logical-result
 fixture, a five-image counterexample and mandatory agent-driven embedded-browser
-rehearsal. None of those tests has been implemented or run by this planning update.
+rehearsal. The detailed plan's checkpoints record executed evidence and its limits.
 
 Begin only after step 3's closeout. Use simulated label
 addition initially; the deferred removal command is scheduled for step-5 preparation,
@@ -407,9 +407,11 @@ This is the hardest common prerequisite, not a cosmetic refresh button. Use the 
 label operation plus delayed canonical fixtures to implement one shared publication path.
 Keep the current viewport stable: update affected images in place, retain surviving boxes,
 and represent confirmed deleted/unavailable entries without immediately compacting
-a scrolling list. The detailed plan's section 5.6 owns the accepted exception for
-confirmed deletions when the whole result set fits the viewport; its implementation
-belongs to Unit C, which is not yet authorized, rather than Unit A.
+a scrolling list. The detailed plan's section 5.6 owns the implemented complete-set
+exception and the contextual deletion direction: deliberate command removal, background
+stability and harmless offscreen cleanup. Unit C supplies conservative plumbing, not
+the completed real Delete-button experience. The latter belongs to Step 17's separately
+commissioned interaction walkthrough and implementation, not an expansion of Unit D.
 Update buffer, requested-ID-owned detail, selected metadata, reconciliation and capabilities
 together. Do not globally refresh search after each completed item.
 
@@ -854,6 +856,19 @@ and review [GRID-014](bug-backlog.md#grid-014) if relying on rights-filtered GET
 ### Step 17. Soft Delete and Restore
 
 **Depends on:** steps 4-6; a slice-local GRID-012 repair and GRID-010 decision.
+
+**Interaction design before implementation/activation:** use the
+[contextual deletion policy](gradually-growing-teeth.step-4-publication-plan.md#56-unavailable-and-deleted-entries).
+The operator and an agent must walk through what the user sees after deleting a single
+image, the open detail image or a multi-selection, including partial failure, uncertainty
+and delayed completion after browsing resumes. Successful deliberate deletion should
+remove confirmed targets and close the gaps; unsolicited changes should not disturb
+visible browsing. Offscreen cleanup is permitted only when it leaves visible geometry,
+navigation and selection undisturbed. Agree detail's next image, surviving placement
+and post-delete selection explicitly; do not silently prune immutable operation targets.
+This walkthrough can be separately commissioned earlier, but is not part of Unit D
+and is not authorized merely by documenting this direction. No external-change delivery
+or offscreen-compaction engine is commissioned here.
 
 Keep ordinary Delete strictly soft. Preview exact IDs/count, require deliberate confirmation,
 recheck per-image deletion capability and refuse protected images. Do not remove usages/crops

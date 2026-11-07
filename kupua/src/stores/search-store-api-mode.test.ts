@@ -19,13 +19,14 @@ import { ElasticsearchDataSource } from "@/dal/es-adapter";
 import { attachedEnrichment, useEnrichmentStore } from "./enrichment-store";
 import { buildSearchKey, getRetainedSortValues, retainSortValues } from "@/lib/image-offset-cache";
 import { getScrollGeometry, registerScrollGeometry } from "@/lib/scroll-geometry-ref";
+import { registerScrollContainer } from "@/lib/scroll-container-ref";
 import { parseSortField } from "@/dal/adapters/elasticsearch/sort-builders";
 import type { SearchParams, SortValues } from "@/dal/types";
 import { NEW_IMAGES_POLL_INTERVAL } from "@/constants/tuning";
 import { deriveImage } from "@/lib/derive-enriched-image";
-import { publishImage, publishImages } from "@/lib/image-publication";
+import { publishImage, publishImages, publishUnavailableImages } from "@/lib/image-publication";
 import { createLabelOperation } from "@/lib/label-operation";
-import { acceptObservedImages, admitLabelObservation, captureImageRead, recordLabelOutcome, releaseLabelObservation, resetImageFreshnessForTests, stampImageRead } from "@/lib/image-read-freshness";
+import { acceptImageRead, acceptImageOverlay, acceptObservedImages, admitLabelObservation, captureImageRead, getImageAvailability, isLabelAuthorityCurrent, protectsImageOmission, recordLabelOutcome, releaseLabelObservation, resetImageFreshnessForTests, stampImageRead } from "@/lib/image-read-freshness";
 
 vi.mock("@/lib/image-prefetch", () => ({ prefetchNearbyImages: vi.fn() }));
 
@@ -711,6 +712,87 @@ it("releases an old API response after readback without restoring metadata or ed
     useSelectionStore.getState().clear();
     vi.clearAllTimers();
     vi.unstubAllEnvs();
+  }
+});
+
+it("lifecycle publication retains slots and selection while fencing stale bodies and authority", async () => {
+  useApiMode(20);
+  const page = await corpus.searchAfter({ length: 20, nonFree: "true" }, null);
+  const original = { ...page.hits[1], __aiScore: 0.75 };
+  const overlay = { resource: { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/fixture" }] } };
+  const issued = captureImageRead();
+  stampImageRead(original, overlay, issued, "full");
+  const results = page.hits.map((image, index) => index === 1 ? original : image);
+  const positions = new Map(results.map((image, index) => [image.id, index]));
+  useSearchStore.setState({ results, imagePositions: positions, total: 20, bufferOffset: 0 });
+  const selectedIds = new Set([original.id]);
+  useSelectionStore.setState({ selectedIds, anchorId: original.id });
+  useSelectionStore.getState().metadataCache.set(original.id, original);
+  try {
+    publishUnavailableImages([original.id], "deleted");
+    const unavailable = state().results[1]!;
+    expect(unavailable).toMatchObject({ id: original.id, __availability: "deleted", __aiScore: 0.75 });
+    expect(unavailable.source.dimensions).toEqual(original.source.dimensions);
+    expect(unavailable.thumbnail).toBeUndefined();
+    expect(unavailable.metadata).toEqual({});
+    expect(state().results[0]).toBe(results[0]);
+    expect(state().imagePositions).toBe(positions);
+    expect(state().total).toBe(20);
+    expect(useSelectionStore.getState().selectedIds).toBe(selectedIds);
+    expect(useSelectionStore.getState().anchorId).toBe(original.id);
+    expect(useSelectionStore.getState().metadataCache.get(original.id)).toBe(unavailable);
+    expect(acceptImageRead(original, unavailable)).toBe(unavailable);
+    expect(acceptImageOverlay(original.id, overlay).resource?.links).toEqual([]);
+    expect(isLabelAuthorityCurrent(original.id, overlay.resource)).toBe(false);
+    expect(protectsImageOmission(original.id, issued)).toBe(true);
+    const later = { ...original };
+    stampImageRead(later, overlay, captureImageRead(), "full");
+    expect(acceptImageRead(later)?.__availability).toBe("deleted");
+    const peer = results[2];
+    publishUnavailableImages([peer.id], "unavailable");
+    const accessible = { ...peer, userMetadata: { lastModified: "2026-11-07T00:00:00Z" } };
+    stampImageRead(accessible, undefined, captureImageRead(), "full");
+    expect(acceptImageRead(accessible, state().results[2])).toBe(accessible);
+    expect(getImageAvailability(peer.id)).toBeUndefined();
+    publishUnavailableImages([peer.id], "unavailable");
+    const stale = { ...peer, userMetadata: { lastModified: "2026-11-06T00:00:00Z" } };
+    stampImageRead(stale, undefined, captureImageRead(), "full");
+    expect(acceptImageRead(stale)?.__availability).toBe("unavailable");
+    expect(getImageAvailability(peer.id)).toBe("unavailable");
+  } finally {
+    _resetReconcileQueue();
+    useSelectionStore.getState().clear();
+  }
+});
+
+it("metadata-only publication does not compact retained deletion after the viewport grows", async () => {
+  useApiMode(5);
+  registerScrollContainer(null);
+  const page = await corpus.searchAfter({ length: 5, nonFree: "true" }, null);
+  const positions = new Map(page.hits.map((image, index) => [image.id, index]));
+  useSearchStore.setState({ results: page.hits, imagePositions: positions, total: 5, bufferOffset: 0 });
+  publishUnavailableImages([page.hits[1].id], "deleted");
+  const container = document.createElement("div");
+  Object.defineProperties(container, { clientHeight: { value: 1000 }, scrollHeight: { value: 1000 } });
+  for (const image of page.hits) {
+    const cell = document.createElement("div");
+    cell.dataset.cellId = image.id;
+    container.append(cell);
+  }
+  document.body.append(container);
+  registerScrollContainer(container);
+  try {
+    const retained = state().results;
+    const updated = { ...page.hits[2], metadata: { description: "Fresh metadata after density change" } };
+    publishImage(updated, {});
+    expect(state().results.map(image => image?.id)).toEqual(page.hits.map(image => image.id));
+    expect(state().results[1]).toBe(retained[1]);
+    expect(state().results[2]).toBe(updated);
+    expect(state().imagePositions).toBe(positions);
+    expect(state().total).toBe(5);
+  } finally {
+    registerScrollContainer(null);
+    container.remove();
   }
 });
 

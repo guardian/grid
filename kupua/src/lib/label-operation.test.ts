@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLabelOperation, type LabelTarget } from "./label-operation";
 import type { GridCommandResult } from "./grid-commands";
 import type { Image } from "@/types/image";
-import { captureImageRead, resetImageFreshnessForTests, stampImageRead } from "./image-read-freshness";
+import { captureImageRead, recordImageAvailability, resetImageFreshnessForTests, stampImageRead } from "./image-read-freshness";
 
 const resource = { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/first" }] };
 const intent = { action: "add" as const, label: "news", targetIds: ["first"] };
@@ -17,6 +17,15 @@ beforeEach(() => { resetImageFreshnessForTests(); vi.stubEnv("VITE_USE_MEDIA_API
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("disconnected label operation", () => {
+  it("accounts for unavailable captured targets without dispatching an eligible subset", async () => {
+    const executor = vi.fn();
+    const operation = createLabelOperation(executor);
+    recordImageAvailability(["missing"], "unavailable");
+    await operation.confirm({ ...intent, targetIds: ["first", "missing"] }, new Map([...targets, ["missing", { resource }]]));
+    expect(operation.getSnapshot()).toMatchObject({ blocked: "capabilities",
+      intent: { targetIds: ["first", "missing"] }, counts: { selected: 2, eligible: 1, unavailable: 1 } });
+    expect(executor).not.toHaveBeenCalled();
+  });
   it("publishes verified readback at the deadline without waiting for a held command", async () => {
     vi.useFakeTimers();
     let release!: (result: GridCommandResult) => void;

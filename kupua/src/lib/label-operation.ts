@@ -2,7 +2,7 @@ import type { EnrichmentFields } from "@/stores/enrichment-store";
 import type { AddLabelsCommand, GridCommandResult } from "./grid-commands";
 import { findLink } from "@/dal/grid-api/argo";
 import type { Image } from "@/types/image";
-import { acceptObservedImages, admitLabelObservation, captureImageRead, ensureImageRead, fullProjectionMatches, isLabelAuthorityCurrent, recordLabelOutcome, releaseLabelObservation } from "./image-read-freshness";
+import { acceptObservedImages, admitLabelObservation, captureImageRead, ensureImageRead, fullProjectionMatches, getImageAvailability, isLabelAuthorityCurrent, recordLabelOutcome, releaseLabelObservation } from "./image-read-freshness";
 
 export interface LabelTarget {
   resource?: EnrichmentFields["resource"];
@@ -23,10 +23,11 @@ export interface LabelEditContext {
 
 export function labelTargetCounts(context: LabelEditContext) {
   const ids = [...new Set(context.targetIds)];
-  const counts = { selected: ids.length, eligible: 0, ineligible: 0, unresolved: 0 };
+  const counts = { selected: ids.length, eligible: 0, ineligible: 0, unresolved: 0, unavailable: 0 };
   for (const imageId of ids) {
     const target = context.targets.get(imageId);
-    if (context.pending || target?.pending || !target?.resource) counts.unresolved++;
+    if (getImageAvailability(imageId)) counts.unavailable++;
+    else if (context.pending || target?.pending || !target?.resource) counts.unresolved++;
     else if (findLink(target.resource, "edits")) {
       if (isLabelAuthorityCurrent(imageId, target.resource)) counts.eligible++;
       else counts.unresolved++;
@@ -39,7 +40,7 @@ export function labelTargetCounts(context: LabelEditContext) {
 export interface LabelReceipt {
   readonly intent: Readonly<LabelIntent>;
   readonly mode: "disconnected" | "simulated";
-  readonly counts: Readonly<{ selected: number; eligible: number; ineligible: number; unresolved: number }>;
+  readonly counts: Readonly<{ selected: number; eligible: number; ineligible: number; unresolved: number; unavailable: number }>;
   readonly blocked?: "read-only" | "capabilities" | "unsupported" | "busy" | "target-limit" | "freshness-capacity" | "conflict";
   readonly items: readonly Readonly<LabelItem>[];
 }
@@ -221,7 +222,7 @@ export function createLabelOperation(
       const intent = Object.freeze({ ...input, label, targetIds: Object.freeze([...new Set(input.targetIds)]) });
       const counts = labelTargetCounts({ targetIds: intent.targetIds, targets });
       let blocked: LabelReceipt["blocked"] = import.meta.env.VITE_USE_MEDIA_API !== "true" ? "read-only"
-        : counts.ineligible || counts.unresolved ? "capabilities"
+        : counts.ineligible || counts.unresolved || counts.unavailable ? "capabilities"
         : simulate && intent.action === "remove" ? "unsupported" : undefined;
       if (simulate && observation && !blocked) {
         const admission = admitLabelObservation(intent.targetIds);

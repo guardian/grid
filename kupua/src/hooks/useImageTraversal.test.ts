@@ -88,6 +88,29 @@ describe("useImageTraversal — session lifecycle", () => {
     useSearchStore.setState(useSearchStore.getInitialState());
   });
 
+  it("skips unavailable slots in both directions and settles an unavailable tail", () => {
+    const { images } = setupBuffer({ bufferOffset: 0, bufferSize: 5, total: 5 });
+    images[1].__availability = "unavailable";
+    images[2].__availability = "deleted";
+    images[4].__availability = "deleted";
+    const extendForward = vi.fn();
+    useSearchStore.setState({ extendForward });
+    const onNavigate = vi.fn();
+    const view = renderHook(({ id }) => useImageTraversal(id, onNavigate), { initialProps: { id: "img-0" } });
+    expect(view.result.current.nextImage?.id).toBe("img-3");
+    act(() => view.result.current.goToNext());
+    expect(onNavigate).toHaveBeenLastCalledWith(images[3], 3);
+    view.rerender({ id: "img-3" });
+    expect(view.result.current.prevImage?.id).toBe("img-0");
+    expect(view.result.current.canGoNext).toBe(false);
+    act(() => view.result.current.goToNext());
+    expect(onNavigate).toHaveBeenCalledOnce();
+    expect(extendForward).not.toHaveBeenCalled();
+    act(() => view.result.current.goToPrev());
+    expect(onNavigate).toHaveBeenLastCalledWith(images[0], 0);
+    view.unmount();
+  });
+
   it("does not resolve an old pending traversal in a reopened preview session", () => {
     setupBuffer({ bufferOffset: 100, bufferSize: 200, total: 1000 });
     const extendForward = vi.fn();
