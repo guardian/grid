@@ -38,8 +38,19 @@ Scroll tiers (ยง3.1) select coordinate mechanics, not anchor policy.
 
 Anchor precedence depends on the transition; there is no settled universal rule.
 Settled density reuses its valid last placement while browsing is unchanged; a fresh capture
-prefers a buffer-resident resolvable focus, then viewport centre. Grid reflow
-prefers selection, then focus, then viewport centre. History capture prefers
+prefers an eligible buffer-resident resolvable focus, then viewport centre. Grid reflow
+and thumbnail zoom prefer selection, then eligible focus, then viewport centre.
+`chooseDensityAnchor` and `chooseReflowAnchor` in `lib/layout-anchor-policy.ts`
+own these distinct precedence decisions and elect the viewport only when needed.
+Their callers still validate candidates, capture source geometry and retain placement
+and navigation ownership; search/history policies are not part of these choosers.
+For these layout transitions only, Click-to-Open hidden focus is eligible only while its
+source row intersects the usable viewport (any partial visibility counts, excluding the
+sticky header). Its origin does not matter: detail, fullscreen, retained search identity
+and restored explicit-history focus follow the same rule. Offscreen explicit focus remains
+eligible in Click-to-Focus. The shared `isFocusEligibleForLayoutAnchor` decision in
+`lib/grid-scroll-anchor.ts` does not clear remembered identity, change pulse behaviour,
+restrict selection anchors or run on each scroll frame. History capture prefers
 explicit focus in explicit mode, otherwise viewport centre.
 
 History restoration derives focus (including no focus) and placement from the
@@ -231,8 +242,8 @@ their separate rules; detail-return identity and cancellation are described in ย
 | Scrubber seek | Viewport goes where asked; explicit focus stays a bookmark | none |
 | Home / End | Viewport at the edge; explicit focus moves to first/last only if it existed | none |
 | Buffer extend / evict / estimate correction | Old/new row-top delta preserves the elected surviving identity, even when its old row splits | Use an old-row neighbour only when the elected identity is evicted |
-| Density switch | Pending browsing destination wins. Once settled: retain valid density placement; otherwise capture resident focus or viewport centre. Preserve intended row-top ratio with header flow, destination visibility clipping and true-edge policy | New browsing supersedes retained placement. Resident offscreen focus can pull the view back; nonresident focus cannot. Selection is not a separate chooser |
-| Browser resize / panel toggle | Capture resolvable selection, then focus, then viewport anchor before reflow; retain that operation's anchor | Current fixed/variable geometry determines placement; offscreen selection is not promised visibility |
+| Density switch | Pending browsing destination wins. Once settled: retain valid density placement; otherwise capture eligible resident focus or viewport centre. Preserve intended row-top ratio with header flow, destination visibility clipping and true-edge policy | New browsing supersedes retained placement. Offscreen hidden focus is ignored in Click-to-Open; explicit resident offscreen focus can pull the view back. Nonresident focus cannot. Selection is not a separate chooser |
+| Browser resize / panel toggle / thumbnail zoom | Capture resolvable selection, then eligible focus, then viewport anchor before reflow; retain that operation's anchor | Click-to-Open ignores offscreen hidden focus; partially visible focus stays eligible. Explicit focus and selection retain existing policy; offscreen selection is not promised visibility |
 | Detail / preview close | Entry image: native placement. After traversal: last viewed image centred | Click-to-Open pulses without a ring; remembered detail identity remains eligible for later query/filter and AI-exit anchoring |
 | Browser Back / Forward | Destination snapshot supplies represented anchor, placement and focus/NONE in CURRENT density; distinct same-query native entries restore too | Missing/mismatched/null snapshot or genuine missing anchor: top/no focus, no departing neighbour. Marked origin/detail transition retains native list |
 | Logo (Home) | none | Top of default search; focus/selection cleared, grid reset after owned data unless newer density intent wins |

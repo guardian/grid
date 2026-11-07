@@ -1,11 +1,53 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import { chooseDensityAnchor, chooseReflowAnchor } from "./layout-anchor-policy";
 import { getFixedRowCount, getItemColumn, getItemLayoutRow, getLayoutRow } from "./scroll-geometry-ref";
 import {
   resolveAnchorVirtIndex,
+  isFocusEligibleForLayoutAnchor,
   captureAnchorAtIndex,
   computeFallbackAnchor,
   restoreAnchorScrollTop,
 } from "./grid-scroll-anchor";
+
+describe("layout anchor policy", () => {
+  it("retains density intent without electing a new viewport image", () => {
+    const retained = { id: "retained", globalIndex: 40 };
+    const viewport = vi.fn(() => ({ id: "centre", globalIndex: 80 }));
+    expect(chooseDensityAnchor({ retained, focus: { id: "focus", globalIndex: 20 },
+      browsingDeparture: false, viewport })).toBe(retained);
+    expect(viewport).not.toHaveBeenCalled();
+  });
+
+  it("uses only the departure viewport, never the focus, while browsing is pending", () => {
+    const viewport = vi.fn<() => { id: string; globalIndex: number } | null>().mockReturnValue(null);
+    expect(chooseDensityAnchor({ retained: null, focus: { id: "bookmark", globalIndex: 20 },
+      browsingDeparture: true, viewport })).toBeNull();
+    expect(viewport).toHaveBeenCalledOnce();
+  });
+
+  it.each(["selection", "focus"] as const)("keeps reflow's resolved %s at index zero without a viewport read", candidate => {
+    const viewport = vi.fn(() => 80);
+    expect(chooseReflowAnchor({ selection: candidate === "selection" ? 0 : null,
+      focus: candidate === "focus" ? 0 : 20, viewport })).toBe(0);
+    expect(viewport).not.toHaveBeenCalled();
+  });
+});
+
+describe("layout focus eligibility", () => {
+  it.each([
+    { top: 68, visible: false },
+    { top: 69, visible: true },
+    { top: 100, visible: true },
+    { top: 663, visible: true },
+    { top: 664, visible: false },
+  ])("requires partial intersection with the usable viewport for hidden focus, top=$top", ({ top, visible }) => {
+    expect(isFocusEligibleForLayoutAnchor("phantom", { top, height: 32 }, 100, 600, 36)).toBe(visible);
+  });
+
+  it.each([-500, 1000])("keeps an offscreen explicit bookmark eligible, top=%s", top => {
+    expect(isFocusEligibleForLayoutAnchor("explicit", { top, height: 32 }, 100, 600, 36)).toBe(true);
+  });
+});
 
 describe("fixed-row window coordinates", () => {
   it.each([1, 3, 4, 5, 6, 7])("preserves every surviving row through arbitrary prepends and evictions with %i columns", columns => {

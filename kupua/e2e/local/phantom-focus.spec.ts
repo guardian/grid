@@ -165,6 +165,70 @@ test.describe("Phantom focus mode — return from detail", () => {
   });
 });
 
+for (const change of ["density", "panel", "zoom"] as const) {
+  test(`Click-to-open ${change} preserves the browsed image instead of offscreen hidden focus`, async ({ kupua, page }) => {
+    await setPhantomMode(page);
+    await kupua.startSearch("", "grid");
+    await page.evaluate(async () => {
+      const configPath = "/src/dal/es-config.ts";
+      if (!(await import(configPath)).IS_LOCAL_ES) throw new Error("Layout anchor fixture requires local ES");
+      const sourcePath = "/src/dal/mock-data-source.ts";
+      const { MockDataSource } = await import(sourcePath);
+      const store = (window as any).__kupua_store__;
+      store.setState({ dataSource: new MockDataSource(343) });
+      await store.getState().search();
+    });
+    await page.waitForFunction(() => {
+      const state = (window as any).__kupua_store__.getState();
+      return state.results.length === 343 && !state.loading && !state._extendForwardInFlight;
+    });
+    const point = await kupua.waitForHitTestedImagePoint({ view: "grid" });
+    await page.mouse.click(point.x, point.y);
+    await expect(page.locator("[data-detail-image-id]")).toBeVisible();
+    await kupua.closeDetailViaBackspace();
+    const remembered = await kupua.getFocusedImageId();
+    expect(remembered).toBeTruthy();
+    const region = page.getByRole("region", { name: "Image results grid", exact: true });
+    await region.evaluate(element => { element.scrollTop = 2400; });
+    await expect.poll(() => region.evaluate(element => element.scrollTop)).toBe(2400);
+    const before = await page.evaluate(async id => {
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      const container = document.querySelector<HTMLElement>('[aria-label="Image results grid"]')!;
+      const bounds = container.getBoundingClientRect();
+      const focus = container.querySelector<HTMLElement>(`[data-image-id="${CSS.escape(id!)}"]`);
+      if (focus && focus.getBoundingClientRect().bottom > bounds.top && focus.getBoundingClientRect().top < bounds.bottom) {
+        throw new Error("Remembered image must be offscreen");
+      }
+      const anchorId = (window as any).__kupua_getViewportAnchorId__() as string;
+      const cell = container.querySelector<HTMLElement>(`[data-image-id="${CSS.escape(anchorId)}"]`)!;
+      return { id: anchorId, top: cell.getBoundingClientRect().top - bounds.top, width: container.clientWidth };
+    }, remembered);
+    if (change === "density") {
+      await page.getByRole("button", { name: "Table view", exact: true }).click();
+    } else if (change === "panel") {
+      await page.getByRole("button", { name: "Show Browse panel", exact: true }).click();
+      await expect.poll(() => region.evaluate(element => element.clientWidth)).toBeLessThan(before.width);
+    } else {
+      await page.evaluate(async () => {
+        const path = "/src/stores/zoom-store.ts";
+        (await import(path)).useZoomStore.getState().step("grid", 1);
+      });
+    }
+    await expect.poll(() => page.evaluate(before => {
+      const container = document.querySelector<HTMLElement>('[aria-label^="Image results "]')!;
+      const cell = container.querySelector<HTMLElement>(`[data-image-id="${CSS.escape(before.id)}"]`);
+      if (!cell) return Infinity;
+      const bounds = container.getBoundingClientRect();
+      const rect = cell.getBoundingClientRect();
+      const header = container.querySelector("[data-table-header]")?.getBoundingClientRect();
+      const usableTop = header ? header.bottom - bounds.top : 0;
+      const desired = Math.max(usableTop, Math.min(before.top, container.clientHeight - rect.height));
+      return Math.abs(rect.top - bounds.top - desired);
+    }, before)).toBeLessThan(2);
+    expect(await kupua.getFocusedImageId()).toBe(remembered);
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Explicit mode: existing behaviour unchanged
 // ---------------------------------------------------------------------------

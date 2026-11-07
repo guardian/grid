@@ -32,7 +32,8 @@ import { EXTEND_THRESHOLD, SCROLL_MODE_THRESHOLD, SEEK_DEFERRED_SCROLL_MS } from
 import { GRID_ROW_HEIGHT } from "@/constants/layout";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
-import { placeRow } from "@/lib/grid-scroll-anchor";
+import { isFocusEligibleForLayoutAnchor, placeRow } from "@/lib/grid-scroll-anchor";
+import { chooseDensityAnchor } from "@/lib/layout-anchor-policy";
 import { getViewportAnchorId, _resetForwardVelocity, type ViewportVelocitySample } from "@/hooks/useDataWindow";
 import { useSelectionStore } from "@/stores/selection-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
@@ -937,15 +938,21 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       return id && globalIndex !== undefined && state.results[globalIndex - state.bufferOffset]?.id === id
         ? { id, globalIndex } : null;
     };
-    const focus = resolve(state.focusedImageId);
-    const retained = placement === "ratio" ? retainedDensityPlacement(geometryRef.current) : null;
-    if (retained) {
-      const target = resolve(retained.saved.target.id);
-      if (target) return { ...retained.saved, target };
-    }
-    const target = resolve(navigation ? getViewportAnchorId() : focus?.id ?? getViewportAnchorId());
-    if (!target) return null;
     const geo = geometryRef.current;
+    const focus = resolve(state.focusedImageId);
+    const eligibleFocus = focus && isFocusEligibleForLayoutAnchor(getEffectiveFocusMode(),
+      getItemLayoutRow(geo, toVirtualizerIdx(focus.globalIndex, state.bufferOffset, indexed)),
+      el.scrollTop, el.clientHeight, geo.headerOffset) ? focus : null;
+    const retained = placement === "ratio" ? retainedDensityPlacement(geo) : null;
+    const retainedTarget = retained ? resolve(retained.saved.target.id) : null;
+    const target = chooseDensityAnchor({
+      retained: retainedTarget,
+      focus: eligibleFocus,
+      browsingDeparture: navigation !== null,
+      viewport: () => resolve(getViewportAnchorId()),
+    });
+    if (!target) return null;
+    if (retained && target === retainedTarget) return { ...retained.saved, target };
     const index = toVirtualizerIdx(target.globalIndex, state.bufferOffset, indexed);
     const maxScroll = el.scrollHeight - el.clientHeight;
     const edge = (indexed || state.bufferOffset === 0) && el.scrollTop === 0 ? "start"

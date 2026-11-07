@@ -58,8 +58,10 @@ import { resultsGeometryIdentity } from "@/lib/result-geometry";
 import { isImagePotentiallyGraphic } from "@/lib/graphic-image-blur";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
 import { getGridDatePresentation } from "@/lib/format-grid-date";
+import { chooseReflowAnchor } from "@/lib/layout-anchor-policy";
 import {
   resolveAnchorVirtIndex,
+  isFocusEligibleForLayoutAnchor,
   captureAnchorAtIndex,
   computeFallbackAnchor,
   restoreAnchorScrollTop,
@@ -654,8 +656,9 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
    * Capture the anchor image and its viewport position.
    * Called from ResizeObserver when column count is about to change.
    *
-   * Anchor preference: the active selection anchor, then the focused image,
-   * then the phantom viewport anchor (nearest rendered image to usable viewport
+   * Anchor preference: the active selection anchor, then eligible focus
+   * (hidden focus must intersect the viewport), then the phantom viewport anchor
+   * (nearest rendered image to usable viewport
    * centre, elected lazily). These are stable image identities resolved via
    * `imagePositions`. Recomputing a synthetic "first image of the centre
    * row" index from scrollTop/row arithmetic every resize (the old
@@ -672,12 +675,16 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     // which is stale inside the ResizeObserver closure (useEffect deps=[]).
     const isTwoTier = isTwoTierFromTotal(total);
     const itemOffset = justified ? (isTwoTier ? 0 : bufferOffset) : committedFixedGeometry.current.itemOffset;
-    // An active selection outranks older focus; unresolved identities fall
-    // through to the next candidate, including after buffer eviction.
-    const virtIdx =
-      resolveAnchorVirtIndex(selectionAnchorId, imagePositions, itemOffset, isTwoTier) ??
-      resolveAnchorVirtIndex(focusedImageIdRef.current, imagePositions, itemOffset, isTwoTier) ??
-      resolveAnchorVirtIndex(getViewportAnchorId(), imagePositions, itemOffset, isTwoTier);
+    const focusIndex = resolveAnchorVirtIndex(focusedImageIdRef.current, imagePositions, itemOffset, isTwoTier);
+    const focusRow = focusIndex === null ? null : layoutRef.current?.getItemRow(focusIndex) ??
+      getItemLayoutRow({ columns: cols, rowHeight: rowHeightRef.current, itemOffset }, focusIndex);
+    const eligibleFocusIndex = focusRow && isFocusEligibleForLayoutAnchor(getEffectiveFocusMode(),
+      focusRow, el.scrollTop, viewHeight) ? focusIndex : null;
+    const virtIdx = chooseReflowAnchor({
+      selection: resolveAnchorVirtIndex(selectionAnchorId, imagePositions, itemOffset, isTwoTier),
+      focus: eligibleFocusIndex,
+      viewport: () => resolveAnchorVirtIndex(getViewportAnchorId(), imagePositions, itemOffset, isTwoTier),
+    });
     const imageId = virtIdx == null ? undefined : results[virtIdx + itemOffset - bufferOffset]?.id;
     const visible = (top: number, height: number) => top + height > el.scrollTop && top < el.scrollTop + viewHeight;
     if (layoutRef.current) {

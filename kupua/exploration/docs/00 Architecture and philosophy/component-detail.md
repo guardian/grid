@@ -456,8 +456,18 @@ outside-buffer maintenance also requires viewport-matching range edges, preventi
 origin or stale virtualizer range from becoming a refill destination. Genuine browsing input
 remains immediate. Cancelling old-view maintenance must not cancel the store-owned browse destination.
 
+`layout-anchor-policy.ts` exposes only `chooseDensityAnchor` (valid retained target,
+then pending-browse viewport or eligible focus/viewport) and `chooseReflowAnchor`
+(selection, eligible focus, viewport). Viewport election is lazy. Callers keep candidate
+validation, source geometry, retained ratio/edge state and placement/cancellation ownership;
+the module does not read stores or DOM, subscribe, or unify search/history policies.
+
 Shared geometry primitives live in `grid-scroll-anchor.ts`, `viewport-anchor-geometry.ts`
-and the scroll-container/geometry refs. `scroll-geometry-ref.ts` supplies origin-aware fixed
+and the scroll-container/geometry refs. `isFocusEligibleForLayoutAnchor` is shared by
+fresh density capture and Grid/Justified resize, panel and thumbnail-zoom capture:
+hidden focus must at least partially intersect the usable source viewport; explicit
+focus and selection precedence are unchanged. It reads transition-time geometry,
+not per-scroll DOM visibility, and does not clear the remembered identity. `scroll-geometry-ref.ts` supplies origin-aware fixed
 row bounds, count and item/column mapping. Data-window buffering is independent of column count.
 Timing knobs belong in
 `constants/tuning.ts`; transition policy belongs in the focus/position guide.

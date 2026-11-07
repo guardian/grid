@@ -1754,6 +1754,16 @@ back to phantom (kahuna-like) behaviour. The default was chosen as explicit
 because the focus infrastructure (ring, keyboard nav, sort-around-focus)
 provides significant value on desktop that kahuna lacks.
 
+**Click-to-Open layout anchoring:** Kupua can remember an image identity after detail,
+fullscreen or history even without a visible focus ring. Density switching, panel/width
+reflow and thumbnail zoom use that hidden focus only while its source row is at least
+partially visible below any sticky header; otherwise they use the ordinary viewport-centre
+fallback (reflow/zoom still prefer an active selection). Explicit focus remains an offscreen
+bookmark. This deliberately favours the current browsing neighbourhood over an invisible
+bookmark, while preserving remembered identity for other transitions. Eligibility can change
+at the viewport boundary; partial visibility counts. The [focus/position guide](00%20Architecture%20and%20philosophy/02-focus-and-position-preservation.md)
+owns the policy, implemented by `isFocusEligibleForLayoutAnchor` in `src/lib/grid-scroll-anchor.ts`.
+
 ### 28. Alias and Additional-Metadata fields promoted to main panel; reconciled in multi-select
 
 **What:** Kahuna shows config-driven alias fields (e.g. `alias_colourModel`,

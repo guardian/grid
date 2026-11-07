@@ -1476,6 +1476,7 @@ describe.each(["direct-ES", "media-api"] as const)("AI continuity %s through the
       expect(fixture.ai.mock.calls[0][1]?.aborted).toBe(false);
       expect(useSearchStore.getState().loading).toBe(true);
       let owner = useSearchStore.getState()._searchContinuity!.owner;
+      anchor.viewportId = "img-70";
       source.unmount();
       source.container.remove();
       const target = mountDensity(grid, true, false, interrupted === "before");
@@ -2612,6 +2613,34 @@ describe("L43 reset publication versus buffer bookkeeping", () => {
 });
 
 describe("KUP-017 saved density geometry and input lifetime", () => {
+  it.each([
+    { mode: "phantom", position: "above", scrollTop: 6432, centre: "image-410", expected: 15459, returnedTop: 6432 },
+    { mode: "phantom", position: "below", scrollTop: 5836, centre: "image-390", expected: 13961, returnedTop: 5836 },
+    { mode: "phantom", position: "partially under header", scrollTop: 6416, centre: "image-410", expected: 15130, returnedTop: 6400 },
+    { mode: "phantom", position: "partially at bottom", scrollTop: 5837, centre: "image-390", expected: 14853, returnedTop: 5868 },
+    { mode: "explicit", position: "above", scrollTop: 6432, centre: "image-410", expected: 15146, returnedTop: 6400 },
+  ] as const)("$mode density anchor with focus $position the viewport", ({ mode, scrollTop, centre, expected, returnedTop }) => {
+    useUiPrefsStore.setState({ focusMode: mode, _pointerCoarse: false });
+    anchor.viewportId = centre;
+    const source = mountDensity(table);
+    frame(); frame();
+    act(() => {
+      source.container.scrollTop = scrollTop;
+      fireEvent.scroll(source.container);
+    });
+    source.unmount();
+    const target = mountDensity(grid, true);
+    frame(); frame();
+    expect(target.container.scrollTop).toBe(expected);
+    expect(useSearchStore.getState().focusedImageId).toBe("image-400");
+    // Retain the elected placement rather than drifting to a different centre on the return.
+    anchor.viewportId = "image-450";
+    target.unmount();
+    const returned = mountDensity(table, true);
+    frame(); frame();
+    expect(returned.container.scrollTop).toBe(returnedTop);
+  });
+
   it.each([true, false].flatMap(complete => ["space", "consumed-arrow"].map(input => ({ complete, input }))))(
     "preserves density intent for control activation, complete=$complete input=$input", ({ complete, input }) => {
       const source = mountDensity(table);

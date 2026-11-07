@@ -19,14 +19,27 @@
  *
  * Resolving from a real anchor image ID via `imagePositions` fixes this
  * EXACTLY whenever the same ID is resolved at both ends of a cycle — true
- * by construction for the focused image, since it doesn't change across a
- * resize. For the phantom (no-explicit-focus) case, `getViewportAnchorId()`
+ * by construction for explicit focus, since it doesn't change across a
+ * resize. Hidden focus is eligible only while visible. Otherwise `getViewportAnchorId()`
  * re-elects the rendered image nearest the viewport centre each time, so
  * the resolved ID can differ between the two ends of a cycle — this is
  * NOT structurally guaranteed to be identity-stable.
  */
 
-import { getItemLayoutRow, getLayoutRow } from "./scroll-geometry-ref";
+import { getItemLayoutRow, getLayoutRow, type LayoutRow } from "./scroll-geometry-ref";
+import type { FocusMode } from "@/stores/ui-prefs-store";
+
+/** Hidden focus anchors layout changes only while at least partially visible below the header. */
+export function isFocusEligibleForLayoutAnchor(
+  mode: FocusMode,
+  row: Pick<LayoutRow, "top" | "height">,
+  scrollTop: number,
+  viewportHeight: number,
+  headerOffset = 0,
+): boolean {
+  return mode === "explicit" ||
+    (row.top + row.height > scrollTop && row.top + headerOffset < scrollTop + viewportHeight);
+}
 
 export interface CapturedAnchor {
   /** Fixed-row global ordinal, or variable-layout item index. */

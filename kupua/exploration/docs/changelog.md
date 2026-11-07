@@ -24,6 +24,29 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 7 November 2026 - Named density and reflow target choosers
+
+Extracted the two existing precedence decisions into `lib/layout-anchor-policy.ts`:
+density keeps a valid retained target before the departure-viewport or eligible-focus
+path; reflow/thumbnail zoom prefer selection, then eligible focus, then viewport.
+Viewport election remains lazy. Residency and visibility checks, source geometry,
+retained intended ratio/edge state and navigation/placement ownership stay in their
+original callers. This is a behaviour-preserving extraction, not a shared anchor
+manager. Focused policy regressions check lazy election, departure without a usable
+viewport target and reflow index zero; existing integration/browser coverage owns
+capture, placement and lifecycle behaviour.
+
+### 7 November 2026 - Visible-only hidden focus for layout changes
+
+Click-to-Open density switching, panel/width reflow and thumbnail zoom now ignore
+remembered focus outside the usable source viewport, regardless of its origin.
+Any partial visibility keeps it eligible. A shared transition-time eligibility
+decision falls through to existing viewport-centre preservation without clearing
+the remembered identity, changing pulse feedback or adding per-scroll tracking.
+Explicit offscreen focus, selection precedence, retained density placement, result
+edges and navigation ownership keep their existing policies. Focused geometry,
+density round-trip and browser regressions cover the relaxation and its boundaries.
+
 ### 7 November 2026 - Integrated readback authority and cold-detail settlement
 
 Injected readback now accepts authority evidence for captured returned targets before
