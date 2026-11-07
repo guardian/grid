@@ -24,6 +24,14 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 7 November 2026 - Density edge snapping uses only the true source edge
+
+Density restoration snapped any target within one destination row of the top or bottom to that
+edge. A near-top interior position (e.g. 120px down in Grid) that Table could only show at its
+top then returned to Grid at the top, dropping the focused image by 120px. Only a captured
+true source edge now snaps; End still records the bottom edge. Interior positions round-trip
+exactly.
+
 ### 6 November 2026 - Density remount no longer replays sort/reset; one snap-back delta shape
 
 A Grid/Table switch remounted the scroll effects, which re-applied the last sort-around-focus

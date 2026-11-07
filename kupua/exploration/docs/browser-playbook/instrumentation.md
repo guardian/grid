@@ -28,6 +28,12 @@ Validate console/event collectors against a known operation first; bridge delive
 is not always reliable. Use an owned page-memory buffer where needed. Source-level
 temporary instrumentation requires authorisation and removal before completion.
 
+To show the operator a placement difference, measure the target relative to the
+scroll viewport (minus live sticky-header height), then draw a `position: fixed`,
+`pointer-events: none` outline at the before rectangle and screenshot after the
+action. Use one owned element ID and remove it afterwards. A fixed overlay records
+viewport position, so it stays valid across scrolling and remounts.
+
 ## Response Gates and Cancellation
 
 Gate the smallest owning boundary. A real completed response held before publication

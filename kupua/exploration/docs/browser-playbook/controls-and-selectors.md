@@ -182,6 +182,10 @@ from focused-image movement; table Left/Right may be horizontal while grid has
 different applicability. Ensure the right element owns focus and no editor/menu
 consumes the key. Home/End and other list keys can have different event phases.
 
+Density buttons toggle: clicking the already-active Table (or Justified) button
+returns to Grid. Read the current view (or `aria-pressed`) before clicking, and
+assert the rendered view afterwards.
+
 Keep immediate preconditions, trusted input and outcome collection in one tool call
 when interleaving matters. Chat typing can reach the integrated browser; discard
 contaminated samples. An owned capture listener can record `isTrusted` and focus/

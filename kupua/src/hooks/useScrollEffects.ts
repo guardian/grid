@@ -994,8 +994,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight);
       let offset = Math.max(0, Math.min(maxScroll, rowTop + geo.headerOffset - placement));
       if (saved.mode.kind === "settled") {
-        if (start && (saved.mode.edge === "start" || offset < row.height)) offset = 0;
-        else if (end && maxScroll - offset < row.height) offset = maxScroll;
+        if (start && saved.mode.edge === "start") offset = 0;
       }
       el.scrollTop = offset;
     }

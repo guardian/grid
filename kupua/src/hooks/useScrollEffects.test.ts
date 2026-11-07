@@ -3097,6 +3097,28 @@ describe("KUP-017 saved density geometry and input lifetime", () => {
     });
   }
 
+  it("returns a near-top interior position exactly after a round trip that clamps at the top", () => {
+    const results = Array.from({ length: 800 }, (_, index) => ({ id: `near-${index}` }) as Image);
+    useSearchStore.setState({ results, bufferOffset: 0, focusedImageId: "near-4",
+      imagePositions: new Map(results.map((image, index) => [image.id, index])) });
+    const source = mountDensity(grid);
+    frame();
+    frame();
+    source.container.scrollTop = 120;
+    source.unmount();
+    source.container.remove();
+    const middle = mountDensity(table, true);
+    frame();
+    frame();
+    expect(middle.container.scrollTop).toBe(0);
+    middle.unmount();
+    middle.container.remove();
+    const returned = mountDensity(grid, true);
+    frame();
+    frame();
+    expect(returned.container.scrollTop).toBe(120);
+  });
+
   for (const input of ["wheel", "touch", "keyboard"] as const) {
     it(`respects newer ${input} input between frames`, () => {
       const target = transition();
