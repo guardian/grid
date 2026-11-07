@@ -36,6 +36,8 @@ export interface CapturedAnchor {
   viewportRatio: number;
   /** Captured at the actual result start; restore keeps the start. */
   atStart?: boolean;
+  /** Row was on screen at capture; restore keeps it fully on screen. */
+  visible?: boolean;
 }
 
 /**
@@ -101,6 +103,13 @@ export function computeFallbackAnchor(
     atStart: scrollTop === 0 && itemOffset === 0 };
 }
 
+/** scrollTop putting a row `offset` px below the container top, kept between the header and the bottom edge. */
+export function placeRow(rowTop: number, rowHeight: number, offset: number, header: number,
+  clientHeight: number, scrollHeight: number): number {
+  const y = offset < header ? header : offset > clientHeight - rowHeight ? clientHeight - rowHeight : offset;
+  return Math.max(0, Math.min(scrollHeight - clientHeight, rowTop - y));
+}
+
 /** Compute the scrollTop that restores a captured anchor after a column-count change. */
 export function restoreAnchorScrollTop(
   anchor: CapturedAnchor,
@@ -112,6 +121,12 @@ export function restoreAnchorScrollTop(
 ): number {
   if (anchor.atStart) return 0;
   const newRowTop = getItemLayoutRow({ columns: cols, rowHeight, itemOffset }, anchor.imageIndex - itemOffset).top;
-  const target = newRowTop - anchor.viewportRatio * clientHeight;
-  return Math.max(0, Math.min(scrollHeight - clientHeight, target));
+  return placeAnchor(anchor, newRowTop, rowHeight, clientHeight, scrollHeight);
+}
+
+export function placeAnchor(anchor: CapturedAnchor, rowTop: number, rowHeight: number,
+  clientHeight: number, scrollHeight: number): number {
+  const offset = anchor.viewportRatio * clientHeight;
+  return anchor.visible ? placeRow(rowTop, rowHeight, offset, 0, clientHeight, scrollHeight)
+    : Math.max(0, Math.min(scrollHeight - clientHeight, rowTop - offset));
 }

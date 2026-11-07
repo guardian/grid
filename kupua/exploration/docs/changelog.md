@@ -24,6 +24,16 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 7 November 2026 - One row-placement function; resize keeps a visible anchor on screen
+
+Sort-around-focus and density placement each carried their own copy of the "keep the row between
+header and bottom edge" maths; both now call `placeRow` (`grid-scroll-anchor.ts`), behaviour
+unchanged. Grid/Justified column/width/zoom anchors record whether the anchor row was on screen
+(using the pre-resize height); such anchors are restored fully visible via the same function, so
+shrinking the window no longer leaves the focused image below the fold. Accepted trade-off: growing
+back does not return it to its former spot (repeat cycles are stable). Off-screen anchors keep the
+old unclamped ratio. Height-only resizes and Table are unchanged.
+
 ### 7 November 2026 - Resize/panel anchor keeps the true result start
 
 At the true top, a panel toggle that reflowed columns clamped the anchor at scrollTop 0, and the

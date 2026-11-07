@@ -63,6 +63,7 @@ import {
   captureAnchorAtIndex,
   computeFallbackAnchor,
   restoreAnchorScrollTop,
+  placeAnchor,
   type CapturedAnchor,
 } from "@/lib/grid-scroll-anchor";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
@@ -525,14 +526,17 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     // ratio that the scroll-anchoring effect then uses to scroll to the wrong
     // position (Bug #17).
     let isFirstUpdate = true;
+    let height = el.clientHeight;
 
     const update = (width: number) => {
       const cols = Math.max(1, Math.floor(width / specFor(gridOffsetRef.current, width).minCellWidth));
       const prevCols = columnsRef.current;
+      const prevHeight = height;
+      height = el.clientHeight;
 
       // Capture anchor BEFORE setting state (before React re-renders)
       if ((justified ? width !== widthRef.current : cols !== prevCols) && !isFirstUpdate) {
-        const anchor = captureAnchor(el, prevCols);
+        const anchor = captureAnchor(el, prevCols, prevHeight);
         if (anchor) {
           anchorRef.current = anchor;
         }
@@ -648,7 +652,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
    * one-row-ish drift per cycle. See `@/lib/grid-scroll-anchor` and
    * `wandering-findings/W-2026-08-01-panel-toggle-progressive-shift.md`.
    */
-  function captureAnchor(el: HTMLElement, cols: number): CapturedAnchor | null {
+  function captureAnchor(el: HTMLElement, cols: number, viewHeight = el.clientHeight): CapturedAnchor | null {
     const { imagePositions, bufferOffset, total, results } = useSearchStore.getState();
     const { selectedIds, anchorId } = useSelectionStore.getState();
     const selectionAnchorId = selectedIds.size > 0 ? anchorId : null;
@@ -663,16 +667,17 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       resolveAnchorVirtIndex(focusedImageIdRef.current, imagePositions, itemOffset, isTwoTier) ??
       resolveAnchorVirtIndex(getViewportAnchorId(), imagePositions, itemOffset, isTwoTier);
     const imageId = virtIdx == null ? undefined : results[virtIdx + itemOffset - bufferOffset]?.id;
+    const visible = (top: number, height: number) => top + height > el.scrollTop && top < el.scrollTop + viewHeight;
     if (layoutRef.current) {
       const row = virtIdx != null ? layoutRef.current.getItemRow(virtIdx)
         : layoutRef.current.rowAtOffset(el.scrollTop + el.clientHeight / 2);
       return row ? { imageIndex: virtIdx ?? row.firstItemIndex, imageId,
         viewportRatio: el.clientHeight > 0 ? (row.top - el.scrollTop) / el.clientHeight : 0,
-        atStart: el.scrollTop === 0 && (isTwoTier || bufferOffset === 0) } : null;
+        atStart: el.scrollTop === 0 && (isTwoTier || bufferOffset === 0), visible: visible(row.top, row.height) } : null;
     }
     if (virtIdx != null) {
-      return { ...captureAnchorAtIndex(virtIdx, cols, rowHeightRef.current, el.scrollTop, el.clientHeight,
-        itemOffset), imageId };
+      const anchor = captureAnchorAtIndex(virtIdx, cols, rowHeightRef.current, el.scrollTop, el.clientHeight, itemOffset);
+      return { ...anchor, imageId, visible: visible(el.scrollTop + anchor.viewportRatio * el.clientHeight, rowHeightRef.current) };
     }
 
     // Last-resort fallback: no known anchor image yet (e.g. before the first
@@ -758,8 +763,8 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       if (sizer) sizer.style.height = `${rowCount * rowHeight}px`;
     }
     const clamped = anchor.atStart ? 0 : justifiedLayout
-      ? Math.max(0, Math.min(el.scrollHeight - el.clientHeight,
-        justifiedLayout.getItemRow(resolved ?? anchor.imageIndex).top - anchor.viewportRatio * el.clientHeight))
+      ? placeAnchor(anchor, justifiedLayout.getItemRow(resolved ?? anchor.imageIndex).top,
+        justifiedLayout.getItemRow(resolved ?? anchor.imageIndex).height, el.clientHeight, el.scrollHeight)
       : restoreAnchorScrollTop(resolved === undefined ? anchor
         : { ...anchor, imageIndex: resolved + fixedGeometry.itemOffset }, columns, rowHeight,
       el.clientHeight, el.scrollHeight, fixedGeometry.itemOffset);

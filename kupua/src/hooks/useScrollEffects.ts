@@ -32,6 +32,7 @@ import { EXTEND_THRESHOLD, SCROLL_MODE_THRESHOLD, SEEK_DEFERRED_SCROLL_MS } from
 import { GRID_ROW_HEIGHT } from "@/constants/layout";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
+import { placeRow } from "@/lib/grid-scroll-anchor";
 import { getViewportAnchorId, _resetForwardVelocity, type ViewportVelocitySample } from "@/hooks/useDataWindow";
 import { useSelectionStore } from "@/stores/selection-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
@@ -886,12 +887,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       // Restore the focused item at the same viewport ratio — "Never Lost".
       const headerOffset = includesHeader ? geo.headerOffset : 0;
       const rowTop = row.top + headerOffset;
-      let target = rowTop - savedRatio * el.clientHeight;
-      // Edge clamping
-      const itemY = rowTop - target;
-      if (itemY < headerOffset) target = rowTop - headerOffset;
-      else if (itemY > el.clientHeight - row.height)
-        target = rowTop - el.clientHeight + row.height;
+      const target = placeRow(rowTop, row.height, savedRatio * el.clientHeight, headerOffset, el.clientHeight, Infinity);
       const clamped = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, target));
       virtualizer.scrollToOffset(clamped);
       if (
@@ -987,16 +983,9 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     } else if (saved.mode.kind === "settled" && saved.mode.edge === "end" && end) {
       virtualizerRef.current.scrollToIndex(virtualizerRef.current.options.count - 1, { align: "end" });
     } else {
-      const rowTop = row.top;
-      let placement = saved.placement.ratio * el.clientHeight;
-      if (placement < geo.headerOffset) placement = geo.headerOffset;
-      else if (placement + row.height > el.clientHeight) placement = el.clientHeight - row.height;
-      const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight);
-      let offset = Math.max(0, Math.min(maxScroll, rowTop + geo.headerOffset - placement));
-      if (saved.mode.kind === "settled") {
-        if (start && saved.mode.edge === "start") offset = 0;
-      }
-      el.scrollTop = offset;
+      el.scrollTop = saved.mode.kind === "settled" && start && saved.mode.edge === "start" ? 0
+        : placeRow(row.top + geo.headerOffset, row.height, saved.placement.ratio * el.clientHeight, geo.headerOffset,
+          el.clientHeight, el.scrollHeight);
     }
     densityPlacementRef.current = saved.mode.kind === "settled" && saved.placement.kind === "ratio"
       ? { saved, focusId: state.focusedImageId, scrollTop: el.scrollTop, rowTop: row.top,
