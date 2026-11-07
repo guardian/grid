@@ -1,10 +1,16 @@
 /**
+ * @vitest-environment jsdom
+ *
  * The search store driven through the real ApiDataSource and request mapper, against a stand-in
  * media-api that answers each endpoint from MockDataSource. The Scala tests own the endpoints'
  * semantics; this suite proves the client wiring keeps the store's browsing contracts.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, renderHook } from "@testing-library/react";
+import { useDataWindow } from "@/hooks/useDataWindow";
+import { useImageTraversal } from "@/hooks/useImageTraversal";
+import { isTwoTierFromTotal } from "@/lib/two-tier";
 import { useSearchStore } from "./search-store";
 import { useSelectionStore, _resetMetadataCache, _resetHydrationToastShown, _resetReconcileQueue } from "./selection-store";
 import { MockDataSource } from "@/dal/mock-data-source";
@@ -19,7 +25,9 @@ import { NEW_IMAGES_POLL_INTERVAL } from "@/constants/tuning";
 import { deriveImage } from "@/lib/derive-enriched-image";
 import { publishImage, publishImages } from "@/lib/image-publication";
 import { createLabelOperation } from "@/lib/label-operation";
-import { acceptObservedImages, admitLabelObservation, captureImageRead, resetImageFreshnessForTests, stampImageRead } from "@/lib/image-read-freshness";
+import { acceptObservedImages, admitLabelObservation, captureImageRead, recordLabelOutcome, releaseLabelObservation, resetImageFreshnessForTests, stampImageRead } from "@/lib/image-read-freshness";
+
+vi.mock("@/lib/image-prefetch", () => ({ prefetchNearbyImages: vi.fn() }));
 
 vi.mock("@/dal/es-config", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/dal/es-config")>(),
@@ -190,6 +198,388 @@ async function expectCoherentBuffer() {
 const paths = () => calls.map((c) => c.path);
 const bodiesFor = (path: string) => calls.filter((c) => c.path === path).map((c) => c.body);
 
+it.each([{ removedCount: 0, expired: false }, { removedCount: 1, expired: false }, { removedCount: 332, expired: false },
+  { removedCount: 1, expired: true }])("Unit B continues active browsing after $removedCount distant filter exits (expired=$expired)", async ({ removedCount, expired }) => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.stubEnv("VITE_USE_MEDIA_API", "true");
+  useApiMode(2);
+  const offset = 4_000_000;
+  const total = 9_000_000;
+  const firstTouched = offset - 650_000;
+  const epoch = Date.parse("2026-11-01T00:00:00Z");
+  const removed = new Set<number>();
+  const [template] = await corpus.getByIds(["img-0"]);
+  let generated = 0;
+  const imageAt = (ordinal: number) => {
+    generated++;
+    return { ...template, id: `logical-${ordinal}`, uploadTime: new Date(epoch - ordinal * 1000).toISOString() };
+  };
+  const tupleAt = (ordinal: number): SortValues => [epoch - ordinal * 1000, `logical-${ordinal}`];
+  const ordinalOf = (id: string) => Number(id.replace("logical-", ""));
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  let pageReads = 0;
+  calls = standInMediaApi(corpus, {
+    "/images/search-after": async body => {
+      const ordinal = ordinalOf(String((body.sortValues as SortValues)[1]));
+      const indices: number[] = [];
+      let candidate = body.reverse ? ordinal - 1 : ordinal + 1;
+      while (indices.length < Number(body.length) && candidate >= 0 && candidate < total) {
+        if (!removed.has(candidate)) indices.push(candidate);
+        candidate += body.reverse ? -1 : 1;
+      }
+      if (body.reverse) indices.reverse();
+      const payload = { data: indices.map(ordinal => ({ data: imageAt(ordinal) })), total: 0, sortValues: indices.map(tupleAt) };
+      if (pageReads++ === 0) await held;
+      return payload;
+    },
+    "/images/mget": body => ({ data: (body.ids as string[]).map(id => ({ data: {
+      ...imageAt(ordinalOf(id)), userMetadata: { data: {
+        lastModified: "2026-11-07T00:00:00Z", metadata: { data: {} },
+        archived: { data: false }, usageRights: {}, photoshoot: {}, labels: { data: [{ data: "reviewed" }] },
+      } },
+    } })) }),
+  });
+  const initial = Array.from({ length: 1000 }, (_, index) => imageAt(offset + index));
+  const params = { ...state().params, query: "-label:reviewed" };
+  retainSortValues(buildSearchKey(params), initial, initial.map((_, index) => tupleAt(offset + index)), true);
+  state().abortExtends();
+  useSearchStore.setState({ params, results: initial, total, bufferOffset: offset,
+    imagePositions: new Map(initial.map((image, index) => [image.id, offset + index])),
+    startCursor: tupleAt(offset), endCursor: tupleAt(offset + 999) });
+  await waitPastCooldown();
+  const view = renderHook(() => useDataWindow("grid"));
+  const layout = {};
+  let clock = 1000;
+  vi.spyOn(performance, "now").mockImplementation(() => clock);
+  const report = async (start: number, end: number) => {
+    clock += 100;
+    await act(async () => view.result.current.reportVisibleRange(start, end, true,
+      { scrollTop: start * 100, viewportHeight: 600, layout }));
+  };
+  const operations: ReturnType<typeof createLabelOperation>[] = [];
+  try {
+    await report(700, 740);
+    expect(pageReads).toBe(0);
+    await report(810, 850);
+    expect(pageReads).toBe(1);
+    expect(state()._extendForwardInFlight).toBe(true);
+    const retained = state();
+    if (expired) vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    for (let first = 0; first < removedCount; first += 200) {
+      const ids = Array.from({ length: Math.min(200, removedCount - first) }, (_, index) => `logical-${firstTouched + first + index}`);
+      const operation = createLabelOperation(async command => {
+        if (!expired) removed.add(ordinalOf(command.imageId));
+        return { outcome: expired ? "unknown" : "acknowledged" };
+      }, {
+        readImages: (ids, signal) => expired ? Promise.resolve([]) : state().dataSource.getByIds(ids, signal),
+        publishImages: images => publishImages(images.map(image => ({ image, enrichment: attachedEnrichment(image) }))),
+      });
+      operations.push(operation);
+      await act(async () => { await operation.confirm({ action: "add", label: "reviewed", targetIds: ids },
+        new Map(ids.map(id => [id, { resource: { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/fixture" }] } }]))); });
+      if (expired) {
+        await act(async () => { await vi.advanceTimersByTimeAsync(10_001); });
+        expect(operation.getSnapshot()?.items[0]).toMatchObject({ state: "unknown", observation: "deadline" });
+        const expiredClock = Date.now();
+        vi.useRealTimers();
+        vi.useFakeTimers({ toFake: ["Date"] });
+        vi.setSystemTime(expiredClock);
+        ids.forEach(id => removed.add(ordinalOf(id)));
+        await act(async () => {
+          const images = await state().dataSource.getByIds(ids);
+          publishImages(images.map(image => ({ image, enrichment: attachedEnrichment(image) })));
+        });
+      }
+      await flush();
+      expect(operation.getSnapshot()?.blocked).toBeUndefined();
+      expect(operation.getSnapshot()?.items.every(item => item.observation === (expired ? "deadline" : "observed"))).toBe(true);
+    }
+    expect(removed.size).toBe(removedCount);
+    expect(state().results).toBe(retained.results);
+    expect(state().imagePositions).toBe(retained.imagePositions);
+    expect(calls[0].signal?.aborted).toBe(false);
+    await act(async () => { release(); await waitFor(() => !state()._extendForwardInFlight, "held continuation"); });
+    expect(state().bufferOffset).toBe(offset + 200);
+    await report(950, 990);
+    await act(async () => { await waitFor(() => !state()._extendForwardInFlight, "forward continuation"); });
+    expect(state().bufferOffset).toBe(offset + 400);
+    for (const original of initial.slice(400)) {
+      expect(state().results.find(image => image?.id === original.id)).toBe(original);
+      expect(state().imagePositions.get(original.id)).toBe(retained.imagePositions.get(original.id));
+      expect(ordinalOf(original.id) - removedCount).toBe(retained.imagePositions.get(original.id)! - removedCount);
+    }
+    await report(10, 50);
+    await act(async () => { await waitFor(() => !state()._extendBackwardInFlight, "reverse continuation"); });
+    expect(state().bufferOffset).toBe(offset + 200);
+    expect(state().startCursor).toEqual(tupleAt(offset + 200));
+    expect(state().endCursor).toEqual(tupleAt(offset + 1199));
+    expect(state().results).toHaveLength(1000);
+    expect(state().imagePositions.size).toBe(1000);
+    expect(state().total).toBe(total);
+    expect(generated).toBe(1600 + removedCount);
+    expect(bodiesFor("/images/search-after").map(body => body.sortValues)).toEqual([
+      tupleAt(offset + 999), tupleAt(offset + 1199), tupleAt(offset + 400),
+    ]);
+    expect(paths().filter(path => path !== "/images/search-after")).toEqual(Array(Math.ceil(removedCount / 200)).fill("/images/mget"));
+  } finally {
+    release();
+    operations.forEach(operation => operation.cancelObservation());
+    view.unmount();
+    state().abortExtends();
+    vi.unstubAllEnvs();
+  }
+});
+
+it("Unit B restores an identity despite a missing cursor and invalid numeric hint", async () => {
+  useApiMode(120_000);
+  await state().search();
+  calls.length = 0;
+  await state().restoreAroundCursor("img-80000", null, 5, true);
+  expect(state().focusedImageId).toBe("img-80000");
+  expect(state().imagePositions.get("img-80000")).toBe(80_000);
+  expect(state().results[state()._seekTargetLocalIndex]?.id).toBe("img-80000");
+  expect(paths()).not.toContain("/images/window");
+  expect(bodiesFor("/images/rank")).toHaveLength(1);
+});
+
+it.each([1001, 65001])("Unit B retains the %s tier until a deliberate action publishes bounds and window together", async total => {
+  let changed = false;
+  let counted = false;
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  useApiMode(total, { routes: { "/images/count": async () => {
+    if (changed) { counted = true; await held; }
+    return { total: total - Number(changed), tickerCounts: {} };
+  } } });
+  await state().search();
+  const before = state();
+  const operation = admitLabelObservation([`img-${total - 1}`]);
+  if (typeof operation !== "number") throw new Error(operation);
+  recordLabelOutcome(operation, `img-${total - 1}`, "unknown");
+  releaseLabelObservation(operation);
+  changed = true;
+  expect(state().total).toBe(total);
+  expect(state().results).toBe(before.results);
+  expect(isTwoTierFromTotal(state().total)).toBe(isTwoTierFromTotal(total));
+  const publications: ReturnType<typeof state>[] = [];
+  const unsubscribe = useSearchStore.subscribe(next => { if (next.total !== total) publications.push(next); });
+  const pending = state().seek(0);
+  try {
+    await flush();
+    expect(counted).toBe(true);
+    expect(state().total).toBe(total);
+    expect(state().results).toBe(before.results);
+    release();
+    await pending;
+    expect(state().total).toBe(total - 1);
+    expect(state().results).not.toBe(before.results);
+    expect(state().bufferOffset).toBe(0);
+    expect(publications.length).toBeGreaterThan(0);
+    expect(publications.every(next => next.results !== before.results && next._seekGeneration > before._seekGeneration)).toBe(true);
+    expect(isTwoTierFromTotal(state().total)).toBe(isTwoTierFromTotal(total - 1));
+  } finally { release(); await pending; unsubscribe(); }
+});
+
+it("Unit B lets newer near-buffer browsing retire an in-flight indexed refill", async () => {
+  useApiMode(30_000);
+  await state().search();
+  await waitFor(() => state().positionMap !== null, "map");
+  await state().seek(1000);
+  state().abortExtends();
+  await waitPastCooldown();
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  calls = standInMediaApi(corpus, { "/images/search-after": async body => {
+    const page = await corpus.searchAfter(toParams(body), body.sortValues as SortValues, null, undefined, body.reverse as boolean);
+    await held;
+    return { data: page.hits.map(data => ({ data })), sortValues: page.sortValues };
+  } });
+  const view = renderHook(() => useDataWindow("table"));
+  const retained = state();
+  let pending!: Promise<void>;
+  await act(async () => { pending = state().seek(15_000, "seek", undefined, "refill"); await flush(); });
+  try {
+    expect(bodiesFor("/images/search-after")).toHaveLength(2);
+    await act(async () => view.result.current.reportVisibleRange(1000, 1020, true));
+    expect(calls.every(call => call.signal?.aborted)).toBe(true);
+    await act(async () => { release(); await pending; });
+    expect(state().results).toBe(retained.results);
+    expect(state().imagePositions).toBe(retained.imagePositions);
+    expect(state()._seekGeneration).toBe(retained._seekGeneration);
+    expect(state().loading).toBe(false);
+  } finally { release(); await pending; view.unmount(); state().abortExtends(); }
+});
+
+it("Unit B cancels superseded exact bounds at the transport without publishing old completion", async () => {
+  useApiMode(120_000);
+  await state().search();
+  const operation = admitLabelObservation(["distant"]);
+  if (typeof operation !== "number") throw new Error(operation);
+  recordLabelOutcome(operation, "distant", "unknown");
+  releaseLabelObservation(operation);
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  let counts = 0;
+  calls = standInMediaApi(corpus, { "/images/count": async () => {
+    if (counts++ === 0) { await held; return { total: 120_000 }; }
+    return { total: 119_999 };
+  } });
+  const obsolete = state().seek(7000);
+  try {
+    await waitFor(() => counts === 1, "held bounds");
+    await state().seek(500);
+    const successor = state();
+    expect(calls.find(call => call.path === "/images/count")?.signal?.aborted).toBe(true);
+    expect(successor.total).toBe(119_999);
+    expect(successor.imagePositions.get("img-500")).toBe(500);
+    release();
+    await obsolete;
+    expect(state().results).toBe(successor.results);
+    expect(state()._seekGeneration).toBe(successor._seekGeneration);
+    expect(state().loading).toBe(false);
+    expect(state().error).toBeNull();
+  } finally { release(); await obsolete; }
+});
+
+it.each([1000, 65000])("Unit B continues from an uncertain retained end at the %i tier boundary", async (total) => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  useApiMode(total + 1);
+  const params = { ...state().params, query: "label:reviewed" };
+  const offset = total - 1000;
+  const initial = await corpus.searchAfter({ ...params, offset, length: 1000 }, null);
+  const resident = initial.hits.map(image => ({ ...image, lastModified: "2026-11-01T00:00:00Z",
+    userMetadata: { labels: ["reviewed"], lastModified: "2026-11-01T00:00:00Z" } }));
+  const newlyMatchingId = `img-${total}`;
+  let projected = false;
+  calls = standInMediaApi(corpus, { "/images/search-after": async body => {
+    const page = await corpus.searchAfter(toParams(body), body.sortValues as SortValues, null, undefined, body.reverse as boolean);
+    const selected = page.hits.flatMap((image, index) => image.id === newlyMatchingId && !projected ? [] : [{ image, tuple: page.sortValues[index] }]);
+    return { total: 0, sortValues: selected.map(hit => hit.tuple), data: selected.map(({ image }) => ({ data: {
+      ...image, lastModified: "2026-11-07T00:00:00Z", userMetadata: { data: {
+        lastModified: "2026-11-07T00:00:00Z", archived: { data: false }, metadata: { data: {} }, usageRights: {}, photoshoot: {},
+        labels: { data: [{ data: "reviewed" }] },
+      } },
+    } })) };
+  } });
+  state().abortExtends();
+  retainSortValues(buildSearchKey(params), resident, initial.sortValues, true);
+  useSearchStore.setState({ params, results: resident, bufferOffset: offset, total,
+    newCountSince: "2026-11-01T00:00:00Z", imagePositions: new Map(resident.map((image, index) => [image.id, index + offset])),
+    startCursor: initial.sortValues[0], endCursor: initial.sortValues.at(-1)!, _terminalEnd: null });
+  const operation = admitLabelObservation([newlyMatchingId]);
+  if (typeof operation !== "number") throw new Error(operation);
+  recordLabelOutcome(operation, newlyMatchingId, "unknown");
+  releaseLabelObservation(operation);
+  projected = true;
+  const observed = await state().dataSource.searchAfter({ ...params, ids: newlyMatchingId, length: 1 }, null);
+  expect(acceptObservedImages(observed.hits, operation)).toHaveLength(1);
+  calls.length = 0;
+  await waitPastCooldown();
+  const onNavigate = vi.fn();
+  const view = renderHook(() => useDataWindow("table"));
+  const traversal = renderHook(() => useImageTraversal(`img-${total - 1}`, onNavigate));
+  try {
+    await act(async () => { traversal.result.current.goToNext(); await flush(); });
+    expect(bodiesFor("/images/search-after")).toHaveLength(2);
+    expect(bodiesFor("/images/search-after")[0]).toMatchObject({ q: "label:reviewed", until: "2026-11-01T00:00:00Z",
+      sortValues: initial.sortValues.at(-1) });
+    expect(onNavigate).toHaveBeenCalledWith(expect.objectContaining({ id: newlyMatchingId }), total);
+    expect(state().total).toBe(total);
+    expect(state().results).toHaveLength(1000);
+    expect(state().imagePositions.get(resident.at(-1)!.id)).toBe(total - 1);
+    expect(state().results.at(-2)).toBe(resident.at(-1));
+    expect(view.result.current.twoTier).toBe(total > 1000);
+    expect(view.result.current.virtualizerCount).toBe(total > 1000 ? total + 1 : 1000);
+    const endIndex = total > 1000 ? total : 999;
+    expect(view.result.current.getImage(endIndex)?.id).toBe(newlyMatchingId);
+    expect(state()._terminalEnd?.position).toBe(total + 1);
+    traversal.unmount();
+    await act(async () => { await state().extendBackward(); });
+    expect(view.result.current.virtualizerCount).toBe(total > 1000 ? total + 1 : 1000);
+    expect(view.result.current.twoTier).toBe(total > 1000);
+    expect(state().results.at(0)?.id).toBe(`img-${Math.max(0, offset + 1 - 200)}`);
+    expect(calls.every(call => call.path === "/images/search-after")).toBe(true);
+    act(() => state().queueBrowsePosition(total));
+    expect(state()._browseNavigation?.targetOffset).toBe(total);
+    act(() => state().abortExtends());
+    await act(async () => { await state().seek(total, "seek", undefined, "refill"); });
+    expect(state().imagePositions.get(newlyMatchingId)).toBe(total);
+    expect(view.result.current.twoTier).toBe(total > 1000);
+    expect(calls.some(call => ["/images/count", "/images/rank", "/images/keys"].includes(call.path))).toBe(false);
+  } finally { traversal.unmount(); view.unmount(); state().abortExtends(); }
+});
+
+it("Unit B reacquires a held rank after dispatch without losing its identity destination", async () => {
+  useApiMode(120_000);
+  await state().search();
+  const target = await corpus.searchAfter({ ...state().params, ids: "img-5000", length: 1 }, null);
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  let ranks = 0;
+  calls = standInMediaApi(corpus, { "/images/rank": async () => {
+    if (ranks++ === 0) { await held; return { rank: 4999 }; }
+    return { rank: 5000 };
+  } });
+  const pending = state().restoreAroundCursor("img-5000", target.sortValues[0], 4999, true);
+  try {
+    await waitFor(() => ranks === 1, "held rank");
+    const operation = admitLabelObservation(["distant"]);
+    if (typeof operation !== "number") throw new Error(operation);
+    recordLabelOutcome(operation, "distant", "unknown");
+    releaseLabelObservation(operation);
+    release();
+    await pending;
+    expect(ranks).toBe(2);
+    expect(state().focusedImageId).toBe("img-5000");
+    expect(state().imagePositions.get("img-5000")).toBe(5000);
+    expect(state().results[state()._seekTargetLocalIndex]?.id).toBe("img-5000");
+    expect(state().loading).toBe(false);
+  } finally { release(); await pending; }
+});
+
+it("Unit B reconciles a restoring identity that moves into its neighbour page after observation stops", async () => {
+  useApiMode(2, { orderBy: "lastModified" });
+  const [template] = await corpus.getByIds(["img-0"]);
+  const epoch = Date.parse("2026-11-01T00:00:00Z");
+  const before = Array.from({ length: 100 }, (_, index) => ({ id: `before-${index}`, time: epoch - 1000 + index }));
+  const middle = { id: "middle", time: epoch + 100 };
+  const after = Array.from({ length: 99 }, (_, index) => ({ id: `after-${index}`, time: epoch + 1000 + index }));
+  let projected = false;
+  const target = () => ({ id: "target", time: epoch + (projected ? 200 : 0) });
+  const tuple = (image: { id: string; time: number }): SortValues => [image.time, epoch - 86_400_000, image.id];
+  const payload = (images: { id: string; time: number }[]) => ({ total: 10_000, sortValues: images.map(tuple),
+    data: images.map(image => ({ links: [], actions: [], data: { ...template, id: image.id,
+      uploadTime: new Date(epoch - 86_400_000).toISOString(), lastModified: new Date(image.time).toISOString(),
+      userMetadata: { data: { lastModified: new Date(image.time).toISOString(), archived: { data: false },
+        metadata: { data: {} }, usageRights: {}, photoshoot: {},
+        labels: { data: image.id === "target" && projected ? [{ data: "reviewed" }] : [] } } },
+    } })) });
+  const operation = admitLabelObservation(["target"]);
+  if (typeof operation !== "number") throw new Error(operation);
+  recordLabelOutcome(operation, "target", "unknown");
+  releaseLabelObservation(operation);
+  calls = standInMediaApi(corpus, {
+    "/images/rank": body => ({ rank: Number((body.sortValues as SortValues)[0]) === epoch ? 5000 : 5001 }),
+    "/images/search-after": body => {
+      if (body.ids) return payload([target()]);
+      const cursor = body.sortValues as SortValues;
+      if (!body.reverse) projected = true;
+      const ordered = [...before, middle, target(), ...after];
+      const matching = ordered.filter(image => body.reverse ? image.time < Number(cursor[0]) : image.time > Number(cursor[0]));
+      return payload(body.reverse ? matching.slice(-Number(body.length)) : matching.slice(0, Number(body.length)));
+    },
+  });
+  useSearchStore.setState({ total: 10_000, results: [template], imagePositions: new Map([[template.id, 0]]) });
+  await state().restoreAroundCursor("target", tuple(target()), 5000, true);
+  expect(state().results.filter(image => image?.id === "target")).toHaveLength(1);
+  expect(state().results[state()._seekTargetLocalIndex]?.id).toBe("target");
+  expect(state().imagePositions.get("target")).toBe(5001);
+  expect(state().results[state()._seekTargetLocalIndex]?.userMetadata?.labels).toEqual(["reviewed"]);
+  expect(getRetainedSortValues("target", buildSearchKey(state().params))).toEqual(tuple(target()));
+  expect(bodiesFor("/images/rank")).toHaveLength(2);
+});
+
 it("keeps the freshest retained owner and the incoming AI ordinal when rejecting a projection", async () => {
   useApiMode(2);
   const [original, unrelated] = await corpus.getByIds(["img-0", "img-1"]);
@@ -306,6 +696,12 @@ it("releases an old API response after readback without restoring metadata or ed
     await state().search();
     expect(state().results).toEqual([undefined]);
     expect(useEnrichmentStore.getState().data.get("touched")?.resource?.links).toEqual([]);
+    currentProjection = envelope(3, ["conflicting equal-version projection"], true);
+    await state().search();
+    expect(state().results).toEqual([undefined]);
+    currentProjection = envelope(3, [], true);
+    await state().search();
+    expect(state().results[0]?.metadata.description).toBe("Projection 3");
     currentProjection = envelope(4, [], true);
     await state().search();
     expect(state().results[0]?.metadata.description).toBe("Projection 4");
@@ -938,7 +1334,7 @@ describe("API mode: extension duplicate exclusion", () => {
       expect(paths()).toEqual(Array(3).fill("/images/search-after"));
       expect(state().results).toBe(published.results);
       expect(state().imagePositions).toBe(published.imagePositions);
-      expect(state()._windowRecovery).toBe(published._windowRecovery);
+      expect(state()._windowRecovery).toMatchObject({ terminal: true, retainedOnly: true });
       expect(direction === "forward" ? state().endCursor : state().startCursor).toEqual(nextDuplicateTuple);
       expect(state().total).toBe(before.total);
       expect(state().error).toBeNull();
@@ -1178,9 +1574,8 @@ describe("API mode: failures", () => {
   });
 
   it.each(FAILURE_KINDS.flatMap(kind =>
-    (["rank", "target", "forward", "backward"] as const).flatMap(stage =>
-      [false, true].map(recoveryFails => ({ kind, stage, recoveryFails }))),
-  ))("U6z/KUP-036 restore $stage $kind with recovery failure=$recoveryFails stays on API without partial publication", async ({ kind, stage, recoveryFails }) => {
+    (["rank", "target", "forward", "backward"] as const).map(stage => ({ kind, stage })),
+  ))("U6z/KUP-036 restore $stage $kind retains the view without numeric substitution", async ({ kind, stage }) => {
     useApiMode(120_000);
     await state().search();
     await flush();
@@ -1190,7 +1585,6 @@ describe("API mode: failures", () => {
       "/images/rank": async (body) => stage === "rank"
         ? failedRead(kind, "rank")
         : { rank: await corpus.countBefore(toParams(body), body.sortValues as SortValues) },
-      ...(recoveryFails ? { "/images/window": () => failedRead(kind, "window") } : {}),
       "/images/search-after": async (body) => {
         const isTarget = body.ids === "img-5000";
         if ((stage === "target" && isTarget)
@@ -1215,20 +1609,14 @@ describe("API mode: failures", () => {
     }
 
     expect(state().loading).toBe(false);
-    expect(bodiesFor("/images/window").map((body) => body.offset)).toEqual([4_900]);
+    expect(bodiesFor("/images/window")).toEqual([]);
     expect(bodiesFor("/images/search-after")).toHaveLength(stage === "target" || stage === "rank" ? 1 : 3);
     expect(calls.every((call) => call.path.startsWith("/images/") && !("pitId" in call.body))).toBe(true);
-    if (recoveryFails) {
-      expect(state().error).not.toBeNull();
-      expect(state().results).toBe(before.results);
-      expect(state().imagePositions).toBe(before.imagePositions);
-      expect(state().bufferOffset).toBe(before.bufferOffset);
-      expect(publications).toEqual([]);
-    } else {
-      expect(state().error).toBeNull();
-      expect(state().results).not.toBe(before.results);
-      expect(publications).toEqual([state().results]);
-    }
+    expect(state().error).not.toBeNull();
+    expect(state().results).toBe(before.results);
+    expect(state().imagePositions).toBe(before.imagePositions);
+    expect(state().bufferOffset).toBe(before.bufferOffset);
+    expect(publications).toEqual([]);
     await expectCoherentBuffer();
   });
 
@@ -1410,12 +1798,10 @@ describe("U6z API recovery lifetime", () => {
     const held = new Promise<void>((resolve) => { release = resolve; });
     const started = new Promise<void>((resolve) => { entered = resolve; });
     calls = standInMediaApi(corpus, {
-      "/images/rank": () => failedRead(kind, "rank"),
-      "/images/window": async (body) => {
+      "/images/rank": async () => {
         entered();
         await held;
-        const page = await corpus.searchAfter({ ...toParams(body), offset: body.offset as number }, null);
-        return { data: page.hits.map(data => ({ data })), sortValues: page.sortValues };
+        return failedRead(kind, "rank");
       },
     });
     const pending = state().restoreAroundCursor("img-5000", target.sortValues[0], 5_000);
@@ -1426,7 +1812,8 @@ describe("U6z API recovery lifetime", () => {
     const overlay = useEnrichmentStore.getState().data;
     release();
     await pending;
-    expect(calls.find(call => call.path === "/images/window")?.signal?.aborted).toBe(true);
+    expect(calls.find(call => call.path === "/images/rank")?.signal?.aborted).toBe(true);
+    expect(paths()).not.toContain("/images/window");
     expect(state().results).toBe(current.results);
     expect(state().imagePositions).toBe(current.imagePositions);
     expect(state().bufferOffset).toBe(0);

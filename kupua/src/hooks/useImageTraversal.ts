@@ -41,7 +41,7 @@
  */
 
 import { useCallback, useEffect, useRef } from "react";
-import { getSearchGeneration, getWindowMaintenanceDelay, useSearchStore } from "@/stores/search-store";
+import { canExtendForward, getDisplayEnd, getSearchGeneration, getTerminalDirection, getWindowMaintenanceDelay, useSearchStore } from "@/stores/search-store";
 import { prefetchNearbyImages } from "@/lib/image-prefetch";
 import { buildSearchKey } from "@/lib/image-offset-cache";
 import type { Image } from "@/types/image";
@@ -67,6 +67,7 @@ export interface ImageTraversalResult {
   prevImage: Image | null;
   /** The image after the current one, or null if at boundary / not loaded yet. */
   nextImage: Image | null;
+  canGoNext: boolean;
   /** Navigate to the previous image. No-op if at boundary. */
   goToPrev: () => void;
   /** Navigate to the next image. No-op if at boundary. */
@@ -147,7 +148,7 @@ export function useImageTraversal(
   // exactly when we need to check for pending navigations.
   const results = useSearchStore((s) => s.results);
   const bufferOffset = useSearchStore((s) => s.bufferOffset);
-  const total = useSearchStore((s) => s.total);
+  const total = useSearchStore(getDisplayEnd);
 
   // Resolve current position
   const currentGlobalIndex = currentImageId ? globalIndexOf(currentImageId) : -1;
@@ -169,15 +170,15 @@ export function useImageTraversal(
   useEffect(() => {
     if (!hasNavigatedRef.current) return;
     if (currentGlobalIndex < 0) return;
-    const { extendForward, extendBackward, bufferOffset: bo, results: res, total: t } = useSearchStore.getState();
+    const { extendForward, extendBackward, bufferOffset: bo, results: res } = useSearchStore.getState();
     const bufferEnd = bo + res.length;
 
     // Near forward edge → extend forward
-    if (currentGlobalIndex >= bufferEnd - EXTEND_AHEAD && bufferEnd < t) {
+    if (currentGlobalIndex >= bufferEnd - EXTEND_AHEAD && canExtendForward() && !getTerminalDirection(bufferEnd)) {
       extendForward();
     }
     // Near backward edge → extend backward
-    if (currentGlobalIndex <= bo + EXTEND_AHEAD && bo > 0) {
+    if (currentGlobalIndex <= bo + EXTEND_AHEAD && bo > 0 && !getTerminalDirection(bo - 1)) {
       extendBackward();
     }
   }, [currentGlobalIndex, results, bufferOffset]);
@@ -239,11 +240,11 @@ export function useImageTraversal(
     const gIdx = globalIndexOf(imgId);
     if (gIdx < 0) return;
 
-    const { total: t } = useSearchStore.getState();
+    const state = useSearchStore.getState();
     const targetGlobalIdx = direction === "forward" ? gIdx + 1 : gIdx - 1;
 
     // Boundary check
-    if (targetGlobalIdx < 0 || targetGlobalIdx >= t) return;
+    if (targetGlobalIdx < 0 || (targetGlobalIdx >= getDisplayEnd(state) && !canExtendForward(state))) return;
 
     const targetImage = getImageAtGlobal(targetGlobalIdx);
 
@@ -292,6 +293,12 @@ export function useImageTraversal(
         pendingRef.current = pending;
         unsubscribe = useSearchStore.subscribe((state, previous) => {
           if (!pending.isCurrent()) { pending.cancel(); hasNavigatedRef.current = false; return; }
+          const position = state.imagePositions.get(imgId);
+          const completed = direction === "forward" ? state._terminalEnd !== previous._terminalEnd : state._terminalStart !== previous._terminalStart;
+          if (completed && position !== undefined && getTerminalDirection(position + (direction === "forward" ? 1 : -1))) {
+            pending.cancel();
+            return;
+          }
           const recovery = state._windowRecovery;
           if (!recovery || recovery === previous._windowRecovery || recovery.signal.aborted ||
               recovery.searchGeneration !== generation || state.results !== previous.results) return;
@@ -338,6 +345,7 @@ export function useImageTraversal(
   return {
     prevImage,
     nextImage,
+    canGoNext: nextImage !== null || (currentGlobalIndex >= 0 && canExtendForward()),
     goToPrev,
     goToNext,
     currentGlobalIndex,

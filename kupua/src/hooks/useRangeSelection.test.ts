@@ -25,6 +25,7 @@ import { RANGE_HARD_CAP, RANGE_SOFT_CAP } from "@/constants/tuning";
 import type { AddRangeEffect } from "@/lib/dispatchClickEffects";
 import { handleLongPressStart } from "@/lib/handleLongPressStart";
 import { resolveInBufferRange, useRangeSelection } from "./useRangeSelection";
+import { admitLabelObservation, recordLabelOutcome, releaseLabelObservation, resetImageFreshnessForTests } from "@/lib/image-read-freshness";
 
 // ---------------------------------------------------------------------------
 // Minimal Image stub
@@ -198,6 +199,7 @@ describe("mounted range ownership", () => {
   }
 
   beforeEach(async () => {
+    resetImageFreshnessForTests();
     vi.stubGlobal("requestIdleCallback", vi.fn(() => 0));
     vi.stubGlobal("scheduler", { yield: () => Promise.resolve() });
     source = new MockDataSource(10);
@@ -215,12 +217,80 @@ describe("mounted range ownership", () => {
 
   afterEach(() => {
     cleanup();
+    resetImageFreshnessForTests();
     useSelectionStore.getState().clear();
     _resetReconcileQueue();
     _resetDebounceState();
     useToastStore.getState().queue.forEach(toast => useToastStore.getState().dismiss(toast.id));
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  it.each(["current", "missing", "failed"] as const)("Unit B resolves both uncertain remote endpoints: %s", async outcome => {
+    const operation = admitLabelObservation(["distant"]);
+    if (typeof operation !== "number") throw new Error(operation);
+    recordLabelOutcome(operation, "distant", "unknown");
+    releaseLabelObservation(operation);
+    useSearchStore.setState({ dataSource: source, newCountSince: "2026-11-01T00:00:00Z",
+      params: { query: "-label:reviewed", orderBy: "lastModified", nonFree: "true", until: "2026-11-07T00:00:00Z" } });
+    const freshTarget: SortValues = [10, "img-2"];
+    const freshAnchor: SortValues = [30, "img-0"];
+    const endpoints = vi.spyOn(source, "searchAfter").mockResolvedValue({
+      hits: outcome === "missing" ? [images[2]] : [images[2], images[0]],
+      sortValues: outcome === "missing" ? [freshTarget] : [freshTarget, freshAnchor], total: 2,
+    });
+    if (outcome === "failed") endpoints.mockRejectedValue(new Error("required endpoint read failed"));
+    const walk = vi.spyOn(source, "getIdRange").mockResolvedValue(completed);
+    const metadata = vi.spyOn(source, "getByIds");
+    const before = useSelectionStore.getState().selectedIds;
+    const { result } = renderHook(() => useRangeSelection());
+    await result.current(effect);
+    expect(endpoints).toHaveBeenCalledOnce();
+    expect(endpoints.mock.calls[0][0]).toMatchObject({ query: "-label:reviewed", ids: "img-0,img-2", length: 2, until: "2026-11-01T00:00:00Z" });
+    expect(metadata).not.toHaveBeenCalled();
+    if (outcome === "current") {
+      expect(walk).toHaveBeenCalledExactlyOnceWith({ ...useSearchStore.getState().params, until: "2026-11-01T00:00:00Z" }, freshTarget, freshAnchor, expect.any(AbortSignal));
+      expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-1", "img-2"]));
+    } else {
+      expect(walk).not.toHaveBeenCalled();
+      expect(useSelectionStore.getState().selectedIds).toBe(before);
+    }
+    expect(useSelectionStore.getState().isRangeWalking).toBe(false);
+  });
+
+  it("Unit B checks captured identities before the resident range fast path", async () => {
+    useSearchStore.setState({ dataSource: source, results: images.slice(1, 4), bufferOffset: 0 });
+    const endpoints = vi.spyOn(source, "searchAfter").mockResolvedValue({ hits: [images[2]], sortValues: [[2, "img-2"]], total: 1 });
+    const walk = vi.spyOn(source, "getIdRange");
+    const before = useSelectionStore.getState().selectedIds;
+    const { result } = renderHook(() => useRangeSelection());
+    await result.current(effect);
+    expect(endpoints).toHaveBeenCalledOnce();
+    expect(walk).not.toHaveBeenCalled();
+    expect(useSelectionStore.getState().selectedIds).toBe(before);
+  });
+
+  it("Unit B keeps range intent through one invalidated walk and commits only current endpoint resolution", async () => {
+    useSearchStore.setState({ dataSource: source });
+    const pendingRead = deferred<typeof completed>();
+    const walk = vi.spyOn(source, "getIdRange").mockReturnValueOnce(pendingRead.promise)
+      .mockResolvedValue({ ids: ["img-3", "img-2"], walked: 2, truncated: false });
+    const endpoints = vi.spyOn(source, "searchAfter").mockResolvedValue({ hits: [images[0], images[2]],
+      sortValues: [[10, "img-0"], [20, "img-2"]], total: 2 });
+    const { result } = renderHook(() => useRangeSelection());
+    const work = result.current(effect);
+    const operation = admitLabelObservation(["distant"]);
+    if (typeof operation !== "number") throw new Error(operation);
+    recordLabelOutcome(operation, "distant", "unknown");
+    releaseLabelObservation(operation);
+    pendingRead.resolve(completed);
+    await work;
+    expect(walk).toHaveBeenCalledTimes(2);
+    expect(endpoints).toHaveBeenCalledOnce();
+    expect(walk.mock.calls[1].slice(1, 3)).toEqual([[10, "img-0"], [20, "img-2"]]);
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-3", "img-2"]));
+    expect(useSelectionStore.getState().anchorId).toBe("img-0");
+    expect(useSelectionStore.getState().isRangeWalking).toBe(false);
   });
 
   it.each(["add", "remove"] as const)("publishes a current %s walk with inclusive target and unchanged anchor", async (polarity) => {

@@ -2,7 +2,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { router } from "../../src/router";
 import { useSelectionStore } from "../../src/stores/selection-store";
 import { usePanelStore } from "../../src/stores/panel-store";
-import { useSearchStore } from "../../src/stores/search-store";
+import { getWindowMaintenanceDelay, useSearchStore } from "../../src/stores/search-store";
+import { buildSearchKey, retainSortValues } from "../../src/lib/image-offset-cache";
 import { useUiPrefsStore } from "../../src/stores/ui-prefs-store";
 import { LabelEditor, LabelEditorContext, LabelOperationReceipts } from "../../src/components/LabelEditor";
 import { createLabelEditorStore } from "../../src/stores/label-editor-store";
@@ -22,6 +23,8 @@ let context: LabelEditContext;
 let release: ((result: GridCommandResult) => void) | undefined;
 let calls = 0;
 let oldSearch: Promise<void> | undefined;
+let continuation = false;
+let dispatchHadLookahead = false;
 let readbackOutcome: "acknowledged" | "unknown" = "acknowledged";
 const pageBodies = new Map<string, Image>();
 const media = [
@@ -63,9 +66,10 @@ function renderReadbackControls() {
       #root { flex: 1; min-height: 0; } #root > .h-dvh { height: 100%; }
       #a3-fixture-controls { order: -1; height: 32px; flex: none; }`}</style>
     <section aria-label="A3 synthetic readback" className="flex h-full items-center gap-3 overflow-x-auto whitespace-nowrap bg-black px-3 text-xs text-white [&>button]:shrink-0">
-      <span>A3 synthetic readback</span>
-      <button onClick={() => { void labelEditorFixture.holdReadbackSearch(); }}>Hold old search</button>
-      <button onClick={() => labelEditorFixture.simulateReadback()}>Simulate label</button>
+      <span>{continuation ? "Unit B synthetic continuation" : "A3 synthetic readback"}</span>
+      {continuation && <button onClick={() => { void labelEditorFixture.seedContinuation(); }}>Seed deep view</button>}
+      <button onClick={() => { void (continuation ? readbackControl({ action: "hold" }) : labelEditorFixture.holdReadbackSearch()); }}>{continuation ? "Hold next page" : "Hold old search"}</button>
+      <button onClick={() => { void (continuation ? labelEditorFixture.simulateContinuation() : labelEditorFixture.simulateReadback()); }}>{continuation ? "Simulate distant edit" : "Simulate label"}</button>
       <button onClick={() => { void labelEditorFixture.releaseReadbackSearch(); }}>Release old search</button>
       <span role="status" className="min-w-0 truncate">{store.getState().receipts.at(-1)?.items.map(item => `${item.state}: ${item.observation ?? "pending"}`).join(", ") ?? "Ready"}</span>
     </section>
@@ -74,12 +78,17 @@ function renderReadbackControls() {
 
 export const labelEditorFixture = {
   async prepareReadback() {
+    continuation = location.pathname === "/__continuation";
+    dispatchHadLookahead = false;
     const density = new URLSearchParams(location.search).get("density");
     if (density === "grid" || density === "table" || density === "justified") useUiPrefsStore.getState().setDensity(density);
     useUiPrefsStore.setState({ blurGraphicImages: false, focusMode: "explicit" });
-    history.replaceState(null, "", "/search?nonFree=true");
+    history.replaceState(null, "", continuation
+      ? new URLSearchParams(location.search).has("tail") ? "/search?nonFree=true&query=label%3Areviewed" : "/search?nonFree=true&query=-label%3Areviewed"
+      : "/search?nonFree=true");
     useSelectionStore.getState().clear();
     store = createLabelEditorStore(async command => {
+      if (continuation) dispatchHadLookahead = useSearchStore.getState()._extendForwardInFlight;
       await readbackControl({ action: "project", imageId: command.imageId, label: command.labels[0] });
       return { outcome: readbackOutcome };
     }, createLabelReadback(useSearchStore.getState().dataSource));
@@ -89,6 +98,34 @@ export const labelEditorFixture = {
     root = createRoot(container);
     store.subscribe(renderReadbackControls);
     renderReadbackControls();
+  },
+  async seedContinuation(offset = 4_000_000, ordinal = offset, length = 1000, targetLocalIndex = 650) {
+    const state = useSearchStore.getState();
+    state.abortExtends();
+    const cursor = ordinal > 0 ? [Date.UTC(2026, 10, 1) - (ordinal - 1) * 1000, `local-${ordinal - 1}`] : null;
+    const page = await state.dataSource.searchAfter({ ...state.params, length }, cursor, null);
+    retainSortValues(buildSearchKey(state.params), page.hits, page.sortValues, true);
+    if (page.enrichment) useEnrichmentStore.getState().setEnrichment(page.enrichment);
+    useSearchStore.setState({ results: page.hits, bufferOffset: offset, imagePositions: new Map(page.hits.map((image, index) => [image.id, offset + index])),
+      startCursor: page.sortValues[0], endCursor: page.sortValues.at(-1)!, _terminalStart: null, _terminalEnd: null,
+      _seekGeneration: state._seekGeneration + 1, _seekTargetLocalIndex: targetLocalIndex,
+      _seekTargetGlobalIndex: state.total > 1000 && state.total <= 65_000 ? offset + targetLocalIndex : -1,
+      loading: false, focusedImageId: null, _browseNavigation: null });
+    const deadline = performance.now() + 5000;
+    while (getWindowMaintenanceDelay() > 0 && performance.now() < deadline) {
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    }
+    if (getWindowMaintenanceDelay() > 0) throw new Error("Fixture placement did not settle");
+  },
+  async simulateContinuation(count = 1, interruptLookahead = false, firstOrdinal = 3_350_000) {
+    const ids = Array.from({ length: count }, (_, index) => `local-${firstOrdinal + index}`);
+    if (ids.length === 0) return;
+    const images = await useSearchStore.getState().dataSource.getByIds(ids);
+    if (interruptLookahead) useSearchStore.getState().abortExtends();
+    if (!store.getState().prepare("add", "reviewed", { targetIds: ids,
+      targets: new Map(images.map(image => [image.id, { resource: attachedEnrichment(image)?.resource }])) })) {
+      throw new Error("Synthetic continuation operation refused");
+    }
   },
   async holdReadbackSearch() {
     await readbackControl({ action: "hold" });
@@ -110,7 +147,7 @@ export const labelEditorFixture = {
     })) });
   },
   readbackSnapshot() {
-    return { receipts: store.getState().receipts,
+    return { receipts: store.getState().receipts, dispatchHadLookahead,
       selected: [...useSelectionStore.getState().selectedIds].map(id => ({ id, labels: useSelectionStore.getState().metadataCache.get(id)?.userMetadata?.labels })) };
   },
   async disposeReadback() { store.getState().dispose(); await this.releaseReadbackSearch(); },

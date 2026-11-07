@@ -37,7 +37,8 @@ import { useCallback, useEffect, useRef } from "react";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { isNativeInputTarget } from "@/lib/keyboard-shortcuts";
 import { imageFullscreenElement } from "@/lib/app-fullscreen";
-import { useSearchStore } from "@/stores/search-store";
+import { hasOrderingUncertainty } from "@/lib/image-read-freshness";
+import { getTerminalDirection, useSearchStore } from "@/stores/search-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { useSelectionStore } from "@/stores/selection-store";
 import { getFixedRowCount, getLayoutRow, type SpatialNavigation } from "@/lib/scroll-geometry-ref";
@@ -260,7 +261,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
       const lastVisibleRow = Math.floor((el.scrollTop + el.clientHeight - headerHeight) / rowHeight) - 1;
       const lastVisibleIdx = Math.min(count - 1, getLayoutRow({ columns: cols, rowHeight,
         itemOffset: config.itemOffset }, lastVisibleRow).firstItemIndex);
-      if (count - lastVisibleIdx <= 5 && configRef.current.bufferOffset + resultsLength < total) loadMore();
+      if (count - lastVisibleIdx <= 5 && (configRef.current.bufferOffset + resultsLength < total || hasOrderingUncertainty())) loadMore();
     }
   }, []);
 
@@ -308,6 +309,8 @@ export function useListNavigation(config: ListNavigationConfig): void {
     // Skip placeholders (up to 10)
     const step = delta > 0 ? 1 : -1;
     if (!getImage(nextIdx)) {
+      const position = useSearchStore.getState().imagePositions.get(currentId);
+      if (position !== undefined && getTerminalDirection(position + nextIdx - currentIdx)) return;
       for (let skip = 1; skip <= 10; skip++) {
         const candidate = nextIdx + step * skip;
         if (candidate < 0 || candidate >= count) break;
@@ -327,7 +330,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
     virtualizer.scrollToIndex(flatIndexToRow(nextIdx), { align: "auto" });
 
     // Load more when approaching the end
-    if (count - nextIdx <= 5 && configRef.current.bufferOffset + resultsLength < total) {
+    if (count - nextIdx <= 5 && (configRef.current.bufferOffset + resultsLength < total || hasOrderingUncertainty())) {
       loadMore();
     }
   }, [recoverFocus]);
@@ -392,6 +395,8 @@ export function useListNavigation(config: ListNavigationConfig): void {
     // Skip placeholders
     const step = direction === "down" ? 1 : -1;
     if (!getImage(targetIdx)) {
+      const position = useSearchStore.getState().imagePositions.get(currentId);
+      if (position !== undefined && getTerminalDirection(position + targetIdx - currentIdx)) return;
       for (let skip = 1; skip <= 10; skip++) {
         const candidate = targetIdx + step * skip;
         if (candidate < 0 || candidate >= count) break;
@@ -409,7 +414,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
     virtualizer.scrollToIndex(flatIndexToRow(targetIdx), { align: "auto" });
 
     // Load more when approaching the end
-    if (direction === "down" && count - targetIdx <= 5 && configRef.current.bufferOffset + resultsLength < total) {
+    if (direction === "down" && count - targetIdx <= 5 && (configRef.current.bufferOffset + resultsLength < total || hasOrderingUncertainty())) {
       loadMore();
     }
   }, [moveFocus, recoverFocus]);
@@ -550,7 +555,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
             // with fresh data; effect #6 consumes the owned zero destination
             // in the same layout frame. Same pattern as deep-to-deep
             // seeks which already have zero flash.
-            if (c.bufferOffset > 0 ||
+            if (c.bufferOffset > 0 || hasOrderingUncertainty() ||
               !useSearchStore.getState().canReuseResidentResults() ||
               useSearchStore.getState()._browseNavigation?.initialSearchSuperseded) {
               useSearchStore.setState({
@@ -584,7 +589,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
           e.preventDefault();
           {
             // If the buffer is windowed and not at the end, seek to the last position
-            if (c.bufferOffset + c.resultsLength < c.total || !useSearchStore.getState().canReuseResidentResults()) {
+            if (c.bufferOffset + c.resultsLength < c.total || hasOrderingUncertainty() || !useSearchStore.getState().canReuseResidentResults()) {
               // Always signal "last" so effect #6 scrolls to the end.
               // Focus permission belongs to the initiating keyboard action.
               useSearchStore.setState({ _pendingFocusAfterSeek: { edge: "last", focusedImageId: hasFocus ? c.focusedImageId : null } });

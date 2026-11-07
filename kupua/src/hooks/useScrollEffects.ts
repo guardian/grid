@@ -23,7 +23,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSearch } from "@tanstack/react-router";
 import type { Virtualizer } from "@tanstack/react-virtual";
-import { getSearchGeneration, getWindowMaintenanceDelay, useSearchStore } from "@/stores/search-store";
+import { canExtendForward, getDisplayEnd, getSearchGeneration, getTerminalDirection, getWindowMaintenanceDelay, useSearchStore } from "@/stores/search-store";
 import { registerScrollContainer } from "@/lib/scroll-container-ref";
 import { registerScrollGeometry, getItemLayoutRow, getLayoutRow, requireFixedRowGeometry, type LayoutGeometry } from "@/lib/scroll-geometry-ref";
 import { registerVirtualizerReset, registerScrollToFocused, isUserInitiatedNavigation } from "@/lib/orchestration/search";
@@ -425,7 +425,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     // Fallback near the physical buffer end, not the indexed corpus end.
     const scrollBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     if (!isTwoTierFromTotal(totalRef.current) && scrollBottom < 500 &&
-      bufferOffsetRef.current + resultsLengthRef.current < totalRef.current) {
+      canExtendForward() &&
+      !getTerminalDirection(bufferOffsetRef.current + resultsLengthRef.current)) {
       loadMoreRef.current();
     }
   }, [reportVisibleRange, parentRef]);
@@ -438,7 +439,12 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       scrollInputRef.current = { search: getSearchGeneration(), seek: useSearchStore.getState()._seekGeneration };
     };
     const captureInput = () => { densityPlacementRef.current = null; markInput(); };
-    const onWheel = (event: WheelEvent) => { if (!event.ctrlKey && event.deltaY !== 0) captureInput(); };
+    const onWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.deltaY === 0) return;
+      captureInput();
+      if (event.deltaY > 0 && el.scrollHeight - el.scrollTop - el.clientHeight <= 1 && canExtendForward() &&
+          !getTerminalDirection(bufferOffsetRef.current + resultsLengthRef.current)) handleScroll(event);
+    };
     const onKey = (event: KeyboardEvent) => {
       if (!isNativeInputTarget(event) && ["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)) markInput();
       if ((event.key === "Home" || event.key === "End") && isDensityNavigationKey(event)) densityPlacementRef.current = null;
@@ -498,7 +504,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const recover = () => {
       clearTimeout(timer);
       const state = useSearchStore.getState();
-      if (!windowRecovery || consumedRecoveryRef.current === windowRecovery ||
+      if (!windowRecovery || windowRecovery.terminal || consumedRecoveryRef.current === windowRecovery ||
           state._windowRecovery !== windowRecovery || windowRecovery.signal.aborted ||
           windowRecovery.searchGeneration !== getSearchGeneration()) return;
       if (!densityMountedReadyRef.current || committedLayout.current !== renderedLayout.current ||
@@ -863,7 +869,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
               : Math.max(1, Math.floor(((el?.clientHeight ?? 0) - geo.headerOffset) / geo.rowHeight));
             delta = pendingDelta.direction * rows * geo.columns;
           } else delta = 0;
-          const targetGlobalIdx = Math.max(0, Math.min(state.total - 1, globalIdx + delta));
+          const targetGlobalIdx = Math.max(0, Math.min(getDisplayEnd(state) - 1, globalIdx + delta));
           const targetLocalIdx = targetGlobalIdx - state.bufferOffset;
           if (targetLocalIdx >= 0 && targetLocalIdx < state.results.length) {
             const nextImage = state.results[targetLocalIdx];
@@ -939,7 +945,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const index = toVirtualizerIdx(target.globalIndex, state.bufferOffset, indexed);
     const maxScroll = el.scrollHeight - el.clientHeight;
     const edge = (indexed || state.bufferOffset === 0) && el.scrollTop === 0 ? "start"
-      : (indexed || state.bufferOffset + state.results.length >= state.total) && maxScroll > 0 &&
+      : (indexed || state.bufferOffset + state.results.length >= getDisplayEnd(state)) && maxScroll > 0 &&
         maxScroll - el.scrollTop < GRID_ROW_HEIGHT ? "end" : "none";
     const rowTop = getItemLayoutRow(geo, index).top;
     return { target, placement: placement === "centre" ? { kind: "centre" }
@@ -976,7 +982,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const indexed = isTwoTierFromTotal(state.total);
     const row = getItemLayoutRow(currentGeometry, toVirtualizerIdx(saved.target.globalIndex, state.bufferOffset, indexed));
     const start = indexed || state.bufferOffset === 0;
-    const end = indexed || state.bufferOffset + state.results.length >= state.total;
+    const end = indexed || state.bufferOffset + state.results.length >= getDisplayEnd(state);
     if (saved.placement.kind === "centre") {
       if (scrollRowToCenterRef.current) scrollRowToCenterRef.current(row.index);
       else virtualizerRef.current.scrollToIndex(row.index, { align: "center" });

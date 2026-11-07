@@ -2,7 +2,9 @@
 
 **Implementation plan, 5 November 2026. Section 1 choices accepted; Unit A
 (sessions A1-A3, section 7) is complete at the 6 November A3 checkpoint.
-The Unit B spike and Units B-D are not authorized.**
+The separately authorized Unit B spike completed the 7 November feasibility checkpoint
+below. Unit B has a retained-end continuation blocker and is not complete;
+Units C-D remain unauthorized.**
 This expands [editing Step 4](gradually-growing-teeth.kupua-edits-steps.md#step-4-resolve-kup-043-with-simulated-writes-before-enabling-real-ones)
 and [KUP-043](bug-backlog.md#kup-043), after the completed disconnected desktop editor.
 It rests on independent read-only source reviews, not executed regression tests,
@@ -1091,7 +1093,7 @@ Canonical evidence is in the [campaign manifest](../../e2e-perf/results/campaign
 [responsiveness history](../../e2e-perf/results/perceived-log.json) and
 [density history](../../e2e-perf/results/density-log.json), under the two campaign IDs above.
 
-### Feasibility Spike Before Unit B (Not Authorized)
+### Feasibility Spike Before Unit B
 
 A short, throwaway investigation answering one question: can the existing search
 store keep "where the user is scrolling" (display slots, scan frontier) separate from
@@ -1108,7 +1110,162 @@ contracts and retained restrictions; otherwise section 9's full completion gate
 stands. Existing deliberate navigation remains usable, not a substitute for the
 unproved continuation contract.
 
-### Unit B: Stable Continuation and Coordinate Trust (Not Authorized)
+#### Spike Checkpoint (7 November 2026)
+
+**YES: bounded continuation is feasible within the existing owners.** The executable
+prototype preserves ordinary browsing without a second enumeration engine, a global
+visited-ID set, or a rank/count/map/rebase request merely because distant ordering
+changed. Its indexed refill keeps parallel loading and handles bounded incoming
+overlap. This is feasibility evidence and a proposed Unit B change set, not a shipped
+coordinate-trust implementation or a claim that all Unit B obligations are complete.
+
+The operator authorized the spike and this alternative investigation, not Unit B.
+Starting HEAD remained `26dcbedea3`, after A1 `69135d79e`, A2 `d04df4cf4` and A3
+`feecf097f`. No reset, staging, commit or push occurred. All runtime/test prototypes
+were removed after validation. The separate simplification session and Section 10
+are not prerequisites.
+
+**Corrections to the initial assessment:** the original nine-million witness removed
+one image located 650,000 positions above the viewport, not 650,000 images. The
+separate 400-image move fixture had incompatible metadata/root timestamps and did
+not establish a normal label-edit blocker. That finding is withdrawn following
+[producer-provenance review](03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/api-boundary-09-p23-query-mapping-s1.md#f4-identity-and-edited-date-provenance-are-now-joined).
+Likewise, two manually supplied viewport reports did not prove an automatic
+empty-page loop; a later user action is already allowed to try again. The mounted
+recovery test below refutes that blocker. Earlier diagnostic artifacts are retained
+locally as superseded evidence, not acceptance criteria.
+
+##### Executed Proof
+
+| Witness | Outcome and scope |
+| --- | --- |
+| Nine million logical results; 0, 1 or 332 distant filter exits | All three pass through the real API mapper, search store, simulated operation and mounted `useDataWindow`. A 1,000-image buffer starts at 4,000,000; affected IDs start 650,000 places above it. Predictive loading is already in flight before dispatch. The 332 targets use sequential 200/132 groups within the existing admission bound. |
+| Ordinary continuation and no-operation control | Every arm completes the held page, a second forward page with eviction, then reverse browsing using exactly three page reads. Resident IDs, surviving references/slots and raw cursors are checked. Current ranks differ from retained slots by 0/1/332. Generated bodies total 1,600/1,601/1,932, not millions. Edit readback adds zero/one/two mgets, not navigation-repair reads. |
+| Detector and exact-action contrast | The earlier dispatch-time abort mutant fails the useful-read assertion. Separately, identity restoration resolves a captured image at its current rank with one rank and three page reads, no count. Neither result certifies all range/history paths. |
+| Indexed boundary, real API transport and store publication | Eight cases cover large ties, one delayed label projection, projection between response snapshots in both sort directions, valued-to-null, a near-null short page, all-null results and prefix IDs. Both page requests start while held; normal results contain 100 backward plus 200 forward hits with no rank/profile/count/map request. |
+| Cross-response overlap and A3 | Failing-first races initially duplicate an image or leave a rejected duplicate slot. The bounded merge publishes 299 unique images without topping up. The current label and matching retained tuple survive; a later-issued permission denial remains effective even with older metadata. Admission reuses A3, not another timestamp policy. |
+| Short page, bridge, eviction and reversal | A near-null response legitimately has 40 backward plus 200 forward hits. Later reverse demand uses the existing two-read valued/null bridge, without a compulsory initial top-up. The delayed-label case then extends four pages, evicts at 1,000 residents and reverses; surviving positions remain unchanged. |
+| Empty completion through mounted scroll effects | Each direction issues one empty read, then remains quiescent for five seconds and subsequent frames. Scrolling away and back permits one new attempt. No new timer, permanent end lock, fabricated smaller total or retry engine is needed to obtain that behavior. |
+| Browser compatibility | The frozen prototype passes all 536 local E2E tests with retries disabled, including normal, forced-seek, Justified and existing API/compiled-hosted fixtures. This is regression evidence, not a new nine-million active-publication browser campaign. |
+
+The delayed cases model a known dispatched operation whose projection appears after
+an older map is captured; later metadata timestamps and root ordering are consistent.
+They do not rely on an unnoticed external change as the sole intervention. The map
+fixture retains only 30,000 lightweight keys, within the existing indexed regime,
+and generates bounded page bodies. Its ordering oracle compares complete UTF-8
+tuples independently of the store's join. A3 still owns timer/deadline semantics.
+
+##### Proven Continuation Mechanism
+
+Ordinary extension already separates raw response progress from accepted display
+additions. Keep that path and its useful lookahead. In the indexed-map path, use one
+old predecessor tuple `P` as a hint, with complementary query bounds:
+
+- Forward reads strictly after `P`, unchanged.
+- Backward reads strictly before a copy of `P` whose final ascending ID has a NUL
+  appended. Under the existing keyword byte ordering this includes `P` and excludes
+  every tuple after it. Both requests remain parallel.
+
+This is not the earlier empty-ID cut, which can jump to the beginning of a large
+tie. It also does not require NUL-free IDs: an actual `P + NUL` ID belongs to the
+forward page rather than being omitted from both sides. No new backend snapshot,
+inclusive-range endpoint or stricter image-ID guarantee is assumed.
+
+Different response snapshots can still return an image twice. The prototype merges
+only their incoming candidates: reuse `acceptImageRead` for touched duplicates,
+keep the selected body with its response tuple, preserve the selected untouched
+overlay, and independently admit touched negative authority through A3. Capture
+both raw scan frontiers before filtering; do not reconstruct them from refreshed
+display fields. Derive backward placement from accepted hits, not the raw count.
+Do not issue another read merely to fill 200 or 300 accepted slots.
+
+PIT-less reads can also omit an image that crosses between both snapshots. The merge
+cannot recover a document neither response contains. This preserves the existing
+current-at-read contract, not exact complete enumeration during arbitrary changes.
+It proves neither deletion nor mutation settlement; an identity-dependent action
+must resolve its requested identity. No stronger backend guarantee is selected.
+
+##### Minimal Proposed Unit B
+
+These changes require separate implementation authorization:
+
+| Existing owner | Proposed bounded responsibility |
+| --- | --- |
+| [Search store](../../src/stores/search-store.ts) and operation/publication admission | Add constant-size ordering revision/uncertainty at admitted dispatch and newly accepted canonical projection. Qualify map/profile/rank/refill completions under their existing action owners; an obsolete completion must not publish exact authority or clear successor state. Preserve captured destinations and useful cursor work; do not call `abortExtends()` globally. Observation/deadline does not settle ordering. |
+| Search store's indexed refill | Apply the proven complementary boundary and incoming merge. Retain map entries as acquisition hints and existing offsets/extent as display coordinates, not current server ranks. Keep the current placement mathematics: merely setting `exactOffset = false` would choose a different placement path. Publish data, extent and placement coherently when an actual action reacquires them. |
+| [Response tuple retention](../../src/lib/image-offset-cache.ts) | Preserve response-owned tuples across eviction and reversal independently of body refresh. Reuse the bounded cache where its lifetime suffices; prove reachable retention/miss behavior before adding storage. Do not clear local positions or permanently exclude touched IDs from legitimate reverse re-entry. |
+| [Data window](../../src/hooks/useDataWindow.ts), [scroll effects](../../src/hooks/useScrollEffects.ts) and [traversal](../../src/hooks/useImageTraversal.ts) | Keep current demand, geometry and placement ownership. Overlapping/near-buffer demand uses extension; valid outside-buffer maintenance uses refill. Empty completion remains quiescent, with a later action allowed to try again. Add only boundary-scoped completion facts if needed to settle terminal traversal/presentation, not indefinite polling or a permanent frozen end. |
+| [Range selection](../../src/hooks/useRangeSelection.ts) | Validate both captured identities before the wholly resident displayed-order fast path. For an uncertain off-window range, resolve both endpoints through the current query and then walk their returned tuples under the existing range owner. Mget alone is not membership evidence. Absence/failure changes no selection. |
+| [History/identity restoration](../../src/lib/search-continuity.ts) and existing seek callers | Keep destination identity, placement ratio and numeric/fraction intent distinct. Reuse existing owned identity/rank reads when needed; a missing-cursor/error numeric fallback cannot certify that the requested identity was restored. Preserve Home/ticker policies and newer-input ownership. |
+
+Map-unavailable navigation remains its existing path. The earlier local control used
+two page calls, one rank and one estimate; it is not permission to clear a stale map
+and impose that cost merely because an edit occurred. The display regime stays based
+on the admitted extent, not map arrival or an independently changed count. Small-set
+truth and unavailable-slot policy remain Unit C, not a solution to stale authority.
+
+##### Cost And Remaining Proof
+
+The prototype adds one copied boundary tuple, a backward-ID map of at most 100
+entries and at most 200 forward candidate checks per indexed refill. Duplicate-only
+scratch is page-bounded; no additional image bodies, persistent visited IDs, render
+subscription or frame-time scan is introduced. It keeps the same parallel 100/200
+request budget and the 1,000-image resident cap. Near-null bridging is existing useful
+demand, not an edit tax. Exact remote actions may require bounded endpoint reads;
+ordinary continuation does not inherit that work.
+
+The proposed revision is constant-size. Existing tuple retention is bounded at 2,000
+entries plus an anchor and A3 facts at 1,000 touched IDs. Existing A3 result freshness
+scans, enrichment accumulation, selection reconciliation and receipts remain separate
+costs: neither this spike nor those bounds certify the whole heap or measured speed.
+
+Unit B still must prove held exact acquisitions across dispatch/publication and
+expired observation, both tier thresholds, newer input during in-flight refill,
+terminal traversal/placeholder presentation, remote endpoint exit, invalid history
+hints and the complete view-placement composition. These are implementation obligations,
+not evidence that a second engine or rank-first ordinary continuation is necessary.
+The spike does not install their guards or declare them complete.
+
+Independent read-only correctness and performance/complexity challenges supported the
+bounded design, identified the cross-response duplicate race, and led to its
+failing-first repair. Final correctness review found no candidate blocker. Concerns
+about direct manual overlapping refills were qualified against the actual caller:
+near-buffer reports use extends and cancel queued refills; geometry-invalid reports
+cannot admit maintenance. In-flight newer-input protection remains a named Unit B
+proof. Existing no-rank/map-survival, A1 pairing, A3 freshness, eviction/re-admission,
+Home/ticker/history and normal Justified assertions were not weakened.
+
+##### Validation And Cleanup
+
+The final prototype passes 3,604 unit tests, application build, browser typecheck and
+all 536 local E2E tests without retries. One earlier full-unit failure exposed the
+mock's ID-lookup shortcut for non-document cursors; a temporary tuple-comparison
+fallback corrected the fixture, retaining the original enrichment assertion. That
+mock adaptation is archived with the prototype, not shipped as unrelated cleanup.
+
+All five modified source/test files were restored. The original paging suites pass
+216 tests; the restored full suite passes 3,591. Build and browser typecheck pass
+again, and normal build output was regenerated. Existing WASM-path and bundle-size
+warnings remain. The full E2E result above was obtained with the prototype present;
+no second E2E run is claimed after exact source restoration.
+
+Reproducible local evidence is under the ignored
+`node_modules/.cache/unit-b-spike-2026-11-07/follow-up/`: `prototype.patch`, final
+prototype unit/build/type logs, `prototype-e2e.txt`, and restored-source logs.
+All commands used repo-root `npm --prefix kupua run ...`, foreground pipefail and
+live tee. Held responses/observers were released and hooks unmounted; browser test
+contexts and runner-owned servers completed. Only this checkpoint remains as a
+tracked change, with the worklog reset. No planning-only changelog entry was added.
+
+No shared live-backed browser, live mutation, backend/dependency/outside-Kupua edit,
+Git mutation or performance campaign was used. The A3 campaign remains ordinary-
+browsing evidence with its mixed results and Justified calibration limits, not active
+edit-publication measurement or isolated A3 causation. This spike does not certify
+production frame times, backend scale or deployed transport policy. Normal editing
+remains disconnected. Unit B needs an operator decision; Units C-D, Step-4 completion
+and step-5/live editing remain outside this authorization.
+
+### Unit B: Stable Continuation and Coordinate Trust (Ready for Operator Checkpoint)
 
 Start with the section-8 distant-change discriminator, then add the
 smallest coordinate-trust/scan-frontier contract to existing store/navigation owners.
@@ -1129,6 +1286,144 @@ Continue scrolling through forward eviction and reverse prepend: current identit
 and boxes must survive with ordinary cursor reads, not repeated rank/count requests.
 Then exercise an exact off-window range or identity restoration separately: those
 must not promote stale display positions to current server rank.
+
+#### Unit B Checkpoint
+
+**7 November 2026: candidate implemented after explicit fresh-agent confirmation.** Retained
+display positions, response-owned scan frontiers and rank authority now have separate
+roles in existing owners. No ordinary editing caller or live transport is connected.
+Independent correctness and performance re-reviews cleared their earlier findings.
+A subsequent retained-end check found the admission gap below; the operator confirmed
+that Next must discover new matches, and its bounded repair is now implemented.
+Implementation and whole-candidate validation are complete for this checkpoint.
+No later unit is authorized.
+
+<a id="open-retained-end-blocker"></a>
+
+##### Retained-End Resolution
+
+The failing zero-read witness was extended to both 1,000 and 65,000 boundaries.
+Next and viewport demand now reach the retained raw frontier with the frozen upload
+cutoff. Actual accepted rows raise one display high-water mark; admitted total/tier
+stay unchanged. Reversal, queued browsing and refills retain the new extent without
+count/rank/map repair. Pinned wheel demand reports through the existing owner.
+An empty response stays quiescent, while a later explicit attempt or viewport
+excursion remains eligible. Focused page keys now share the arrow terminal guard.
+
+Justified preserves former terminal packing boundaries in its existing bounded
+dimension snapshot, including density remounts. The real browser witnesses require
+actual rendered images, not only position-map entries: one exercises Next at 1,000,
+the other wheel continuation and a Justified/Table/Grid/Justified round trip at
+65,000. Retained boxes stay within one pixel, with one data page and at most one
+empty lookahead page before the separate density journey, and no repair reads.
+
+Browser proof also exposed an A3 re-entry gap: after off-buffer observation, a later
+identical equal-version page had no retained body to compare and became a blank slot.
+Existing touched-ID facts now retain the exact serialized comparison projection
+(metadata, userMetadata, usageRights). Matching re-entry does not advance ordering;
+conflicting equal-version and below-floor reads remain rejected, independently of
+permission withdrawal. This is bounded by 1,000 identities, not constant bytes, and
+retains comparison metadata rather than complete images or an alternative read path.
+
+Dispatch and newly accepted metadata projection advance one revision in the existing
+touched-ID facts. Matching labels, command acknowledgement and observer expiry never
+settle ordering. Held exact acquisitions are qualified under their existing owners;
+useful cursor reads and prefetch continue. Stale maps remain hints, including a map
+delivered after dispatch, rather than being cleared into the more expensive no-map path.
+Uncertain deliberate ordinal/edge actions publish fresh bounds, data and placement
+together; scrubber fractions and queued indexed browsing retain display intent.
+
+Indexed refill uses the proven `P` / final-ID-`P + NUL` partition with parallel 100/200
+reads. Centred identity loading shares incoming-only overlap admission. A3 chooses
+bodies with their response tuples and independently admits negative authority; raw
+frontiers precede filtering and no read tops up omitted duplicates. A moving target
+in a neighbour response is reconciled before exact acquisition completes. A bounded
+reacquisition can retain its accepted target locally; no persistent body cache is added.
+
+Resident ranges verify both displayed endpoint identities. Uncertain remote ranges
+resolve both endpoints under the current query and walk that same upload-admission
+scope. Missing endpoints or required-read failure changes no selection. History keeps
+destination identity and placement despite invalid numeric hints; genuine absence
+uses destination top/no-focus. Failed cursor restoration no longer silently seeks to
+its cached number, and uncertain focus-position failure keeps the bookmark with an error.
+Home logo, Home/End keys, ticker, query/sort and history remain distinct policies.
+
+Two bounded terminal facts settle empty-frontier traversal without reviving old demand
+or cancelling a new explicit attempt. Empty completion stays quiescent; a viewport
+excursion can try again. Indexed terminal slots retain their dimensions and packing
+without loading skeletons; a wholly terminal viewport shows Start/End of results.
+**Physical indexed space and the estimated count remain.** Clipping that space or
+repacking survivors is not implemented. This does not infer deletion or implement
+Unit C's unavailable-image policy.
+
+**Final validation:** 109 unit files / 3,619 tests, application build, browser
+typecheck and all 545 local E2E tests pass, with retries disabled for E2E.
+The first full browser run found two stale tooltip text-node selectors; only their
+selector changed, preserving exact text, geometry, ownership and negative-control
+assertions. The full rerun is green. Existing WASM-path and bundle-size build
+warnings remain. Failing-first witnesses cover incoming overlap, held ranks/profiles,
+map hint qualification, both tier thresholds, newer input during refill, resident and
+remote endpoints, actual observer expiry followed by projection, and terminal demand.
+Normal Home/ticker/Justified and direct-ES/API/compiled-hosted compatibility gates pass.
+The history browser journey restores one identity within one pixel despite an invalid
+hint, then verifies missing-anchor top/no-focus. Superseded numeric-fallback assertions
+were replaced with explicit failure/ownership assertions; redundant recovery-outcome
+variants were removed, not replaced with weaker identity checks.
+
+The isolated browser control and distant-edit arms preserve active lookahead, forward
+eviction and reversal with three browsing page reads and a 1,000-image buffer. The
+interruption control is rejected by the detector. A separate foreground embedded
+capture recorded 170 frames and 1,808 retained-box comparisons with no displacement,
+no rank/count/map repair read and no hidden interval. An earlier hidden capture expired
+and is excluded. Grid/Table/Justified round-trip and invalid-hint Back restoration had
+zero vertical drift; an unknown transport outcome remained unknown after observation.
+Terminal presentation and unchanged Home behavior were shown. Holds, probes, listeners,
+routes and owned server were cleaned up; no live-backed browser was used.
+
+The final retained-end foreground rehearsal displayed the newly matching image via
+Next at 1,000 without changing count or mode. At 65,000, the old Justified tail box
+was identical before/after discovery, and the new image returned to the identical
+box after a Justified/Table/Grid/Justified round trip. A 412px coarse-pointer detail
+check retained usable media and position text. These are functional geometry checks,
+not frame-time measurements. Owned probes, held work and fixture servers are stopped.
+
+**Costs and limits:** the join uses page-bounded scratch (at most 300 indexed candidates,
+201 centred candidates); tuple retention remains 2,000 entries plus an anchor and
+touched facts remain capped at 1,000 IDs. Their exact comparison projections retain
+variable-sized metadata and require admission-time serialization; the cap is not a
+whole-heap or byte bound. Two terminal records, one revision and one display high-water
+mark add no enumeration engine or per-cell scan. Justified terminal partitions remain
+within current buffer/boundary blocks; indexed descriptors still scale with display
+extent, which may grow beyond the original tier threshold.
+Exact actions can add a count, a two-endpoint query, or identity/rank/neighbour reads;
+each identity acquisition permits one ordering reacquisition, with existing neighbour
+fallback separately bounded. Existing enrichment/selection/receipt lifetimes are not
+claimed to be bounded by those figures. PIT-less snapshots can still omit a moving
+image from both halves. These are correctness/work-count observations, not measured
+smoothness or backend-scale qualification. A3's ordinary-browsing campaign and its
+mixed observations are not an isolated A3 verdict or active-publication measurement.
+
+First independent correctness/performance challenges found moving-target overlap,
+range cutoff mismatch and old terminal completion cancelling new traversal. Each was
+reproduced and repaired in existing suites. Ignored evidence is under
+`node_modules/.cache/unit-b-validation/`; the reusable launcher is
+`npm --prefix kupua run demo:readback -- --continuation` on strict loopback port 3067.
+Final correctness and performance reviews cleared the repaired candidate. The
+retained-end review also caught focused page keys entering terminal placeholders;
+both directions were reproduced and repaired. Cross-density terminal packing had
+failing-first component and browser witnesses and a clear follow-up review. Exact
+projection retention and growing indexed extent retain the cost qualifications above.
+
+Stop here at the Unit B operator checkpoint. Units C-D, Step-4 completion and
+step-5 or live-edit activation remain unauthorized; section 10 is not a prerequisite.
+
+The final performance challenge also caught missing cancellation on exact-bound
+counts. The navigation signal now reaches both existing client count transports,
+with a held-count/newer-destination regression. This does not certify upstream
+backend cancellation. One unused speculative rank may remain in flight until its
+read settles or its existing owner is cancelled. Range direction-swap fallback can
+produce three walk invocations across two ordering attempts; it is not an unbounded
+retry. These remaining bounded costs are not ordinary-continuation repair work.
 
 ### Unit C: Unavailable Slots and Cross-View Acceptance (Not Authorized)
 

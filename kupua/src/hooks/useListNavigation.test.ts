@@ -172,6 +172,27 @@ async function mountNavigation(windowed: boolean, mode: "explicit" | "selection"
   };
 }
 
+it.each(["PageDown", "PageUp"])("Unit B %s keeps focus visible at a confirmed terminal span", async key => {
+  const fixture = await mountNavigation(true, "explicit");
+  const results = useSearchStore.getState().results;
+  const focus = key === "PageDown" ? results.at(-1)!.id : results[0]!.id;
+  act(() => useSearchStore.setState({ bufferOffset: 1000, focusedImageId: focus,
+    imagePositions: new Map(results.map((image, index) => [image!.id, index + 1000])) }));
+  vi.spyOn(fixture.source, "searchAfter").mockResolvedValue({ hits: [], sortValues: [], total: 0 });
+  useSearchStore.getState().cancelWindowMaintenance();
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(2100);
+    if (key === "PageDown") await useSearchStore.getState().extendForward();
+    else await useSearchStore.getState().extendBackward();
+  });
+  fixture.scrollToIndex.mockClear();
+  const scrollTop = fixture.container.scrollTop;
+  act(() => { fixture.dispatchKey(key); });
+  expect(useSearchStore.getState().focusedImageId).toBe(focus);
+  expect(fixture.scrollToIndex).not.toHaveBeenCalled();
+  expect(fixture.container.scrollTop).toBe(scrollTop);
+});
+
 it("Page Down reaches the partial last row of an unaligned fixed-row window", async () => {
   const fixture = await mountNavigation(true, "explicit", 70000, "-uploadTime", false, 5);
   const results = useSearchStore.getState().results;

@@ -135,7 +135,8 @@ describe("PIT expiry recovery", () => {
         expect(state().pitId).toBeNull();
         expect(ranks).toHaveBeenCalledTimes(2);
         expect(pages).toHaveBeenCalledTimes(3);
-        expect(recovery).toHaveBeenCalledTimes(siblingFails ? 1 : 0);
+        expect(recovery).not.toHaveBeenCalled();
+        expect(state().error !== null).toBe(siblingFails);
         if (!siblingFails) {
           expect(state().imagePositions.get("img-5000")).toBe(5_000);
           expect(state().results[state()._seekTargetLocalIndex]?.id).toBe("img-5000");

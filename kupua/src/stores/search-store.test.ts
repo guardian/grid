@@ -2992,7 +2992,7 @@ describe("restoreAroundCursor", () => {
     expect(state().loading).toBe(false);
   });
 
-  it("falls back to seek when cursor is null", async () => {
+  it("resolves the requested identity when its cached cursor is null", async () => {
     mock = new MockDataSource(1000);
     useSearchStore.setState({ dataSource: mock });
 
@@ -3001,8 +3001,8 @@ describe("restoreAroundCursor", () => {
     const seekGenBefore = state()._seekGeneration;
     await actions().restoreAroundCursor("img-500", null, 500);
 
-    // Should have used seek() fallback — seekGeneration bumped
     expect(state()._seekGeneration).toBeGreaterThan(seekGenBefore);
+    expect(state().results[state()._seekTargetLocalIndex]?.id).toBe("img-500");
     assertPositionsConsistent("restoreAroundCursor null cursor");
   });
 
@@ -3241,12 +3241,16 @@ describe("KUP-025 restore tuple ownership", () => {
     expect(test.ranks.mock.calls.every(call => call[0].orderBy === orderBy)).toBe(true);
   });
 
-  it("keeps the saved tuple fallback when the lookup omits its tuple", async () => {
+  it("does not promote the saved tuple when current lookup omits its tuple", async () => {
     const test = await fixture([null, 100, "img-6100"]);
+    const before = state();
     test.targetResult.sortValues = [];
     test.release();
     await actions().restoreAroundCursor("img-6100", test.saved, 123, true);
-    assertLanding(test, 1);
+    expect(state().results).toBe(before.results);
+    expect(state()._seekGeneration).toBe(test.generation);
+    expect(state().error).not.toBeNull();
+    expect(recovery).not.toHaveBeenCalled();
   });
 
   it("keeps retained-total coordinates when the map arrives during lookup", async () => {
@@ -3356,7 +3360,7 @@ describe("KUP-025 restore tuple ownership", () => {
     }
   });
 
-  it.each(["lookup", "saved rank", "effective rank", "forward", "backward"])("preserves current recovery for selected %s failure without partial publication", async (failed) => {
+  it.each(["lookup", "saved rank", "effective rank", "forward", "backward"])("retains the view after selected %s failure without claiming identity restoration", async (failed) => {
     const changed = failed === "effective rank";
     const test = await fixture([100, "img-6100"], [changed ? 200 : 100, "img-6100"]);
     const initial = state();
@@ -3376,7 +3380,8 @@ describe("KUP-025 restore tuple ownership", () => {
       if (failed === "backward") test.backwardPage.reject(new Error("selected backward page"));
       else test.backwardPage.resolve(test.backwardResult);
       await operation;
-      expect(recovery).toHaveBeenCalledExactlyOnceWith(123, "seek", undefined, "navigation", initial._focusIntent);
+      expect(recovery).not.toHaveBeenCalled();
+      expect(state().error).not.toBeNull();
       expect(state().results).toBe(initial.results);
       expect(state()._seekGeneration).toBe(test.generation);
       expect(state().focusedImageId).toBeNull();

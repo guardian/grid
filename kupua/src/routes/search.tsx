@@ -36,7 +36,7 @@ import { ImageMetadata } from "@/components/ImageMetadata";
 import { MultiImageMetadata } from "@/components/MultiImageMetadata";
 import { UsagesSection, MultiUsagesSummary } from "@/components/UsagesSection";
 import { FullscreenPreview } from "@/components/FullscreenPreview";
-import { useSearchStore } from "@/stores/search-store";
+import { getDisplayEnd, useSearchStore } from "@/stores/search-store";
 import { useSelectionStore, useSelectionMetadataRevision } from "@/stores/selection-store";
 import { usePanelStore } from "@/stores/panel-store";
 import { useEffectiveFocusMode, useUiPrefsStore } from "@/stores/ui-prefs-store";
@@ -161,6 +161,7 @@ function SearchPage() {
 
   // Two-tier is the coordinate-space decision, derived from total only.
   const twoTier = useSearchStore((s) => isTwoTierFromTotal(s.total));
+  const displayEnd = useSearchStore(getDisplayEnd);
 
   const currentPosition = twoTier
     ? visibleRange.start           // two-tier: already global
@@ -233,6 +234,7 @@ function SearchPage() {
   const scrubberElement = (
     <Scrubber
       total={total}
+      displayEnd={displayEnd}
       currentPosition={currentPosition}
       visibleCount={visibleCount}
       bufferLength={bufferLength}

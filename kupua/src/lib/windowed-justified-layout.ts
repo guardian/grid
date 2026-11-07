@@ -30,6 +30,8 @@ export interface JustifiedWindowSnapshot {
   searchKey: string;
   indexed: boolean;
   dimensions: ReadonlyMap<number, Dimension>;
+  terminalEnd?: number;
+  retainedEnds?: readonly number[];
 }
 
 export interface WindowedJustifiedLayout extends ImageLayout, JustifiedWindowSnapshot {
@@ -58,6 +60,12 @@ export function buildWindowedJustifiedLayout(
   }
   const firstBlock = Math.floor(origin / size) * size;
   const lastBlock = Math.floor((origin + Math.max(0, images.length - 1)) / size) * size;
+  const end = context.indexed ? context.total : origin + images.length;
+  const terminalEnd = context.indexed || context.bufferOffset + images.length >= context.total ? end : undefined;
+  const retainedEnds = overlap && previous ? [...new Set([
+    ...previous.retainedEnds ?? [],
+    ...(previous.terminalEnd !== undefined && previous.terminalEnd < end ? [previous.terminalEnd] : []),
+  ])].filter(boundary => boundary > firstBlock && boundary <= lastBlock + size && boundary <= end).sort((first, second) => first - second) : [];
   const dimensions = new Map<number, Dimension>();
   if (overlap && previous) {
     for (const [ordinal, value] of previous.dimensions) {
@@ -77,17 +85,19 @@ export function buildWindowedJustifiedLayout(
   });
   const blocks: Block[] = [];
   const begin = context.indexed ? 0 : firstBlock;
-  const end = context.indexed ? context.total : origin + images.length;
   let estimated: JustifiedLayout | undefined;
   let rowCount = 0;
   let height = 0;
-  for (let blockStart = begin; blockStart < end; blockStart += size) {
+  let boundaryIndex = 0;
+  for (let blockStart = begin; blockStart < end;) {
+    while (boundaryIndex < retainedEnds.length && retainedEnds[boundaryIndex] <= blockStart) boundaryIndex++;
+    const nextBlock = Math.min((Math.floor(blockStart / size) + 1) * size, retainedEnds[boundaryIndex] ?? Infinity);
     const start = !context.indexed && context.bufferOffset === 0 ? Math.max(blockStart, origin) : blockStart;
     const blockEnd = context.indexed || context.bufferOffset + images.length >= context.total
-      ? Math.min(blockStart + size, end) : blockStart + size;
+      ? Math.min(nextBlock, end) : nextBlock;
     const count = blockEnd - start;
-    const known = blockStart >= firstBlock && blockStart <= lastBlock;
-    const trueEnd = blockEnd === end && (context.indexed || context.bufferOffset + images.length >= context.total);
+    const known = blockStart >= firstBlock && blockStart < lastBlock + size;
+    const trueEnd = blockEnd === terminalEnd || blockEnd === retainedEnds[boundaryIndex];
     const packed = !known && count === size && !trueEnd ? (estimated ??= buildRatioLayout(Array(size).fill(1), width, true, context.rowScale))
       : buildRatioLayout(Array.from({ length: count }, (_, index) => dimensions.get(start + index)?.ratio ?? 1), width, !trueEnd, context.rowScale);
     const first = context.indexed ? 0 : Math.max(0, origin - start);
@@ -99,11 +109,12 @@ export function buildWindowedJustifiedLayout(
     blocks.push({ start, firstRow: rowCount, top: height, packed, fromRow, rowCount: toRow - fromRow + 1, cropTop });
     rowCount += toRow - fromRow + 1;
     height += blockHeight + 4;
+    blockStart = nextBlock;
   }
   height = Math.max(0, height - 4);
   const itemCount = context.indexed ? context.total : images.length;
   const toItem = (ordinal: number) => context.indexed ? ordinal : ordinal - origin;
-  const findBlock = (value: number, field: "firstRow" | "top") => {
+  const findBlock = (value: number, field: "firstRow" | "top" | "start") => {
     let low = 0;
     let high = blocks.length - 1;
     while (low < high) {
@@ -122,7 +133,7 @@ export function buildWindowedJustifiedLayout(
   });
   const itemBlock = (index: number) => {
     const ordinal = context.indexed ? index : index + origin;
-    return { ordinal, block: blocks[Math.floor((ordinal - begin) / size)] };
+    return { ordinal, block: retainedEnds.length ? findBlock(ordinal, "start") : blocks[Math.floor((ordinal - begin) / size)] };
   };
   const getRow = (index: number) => {
     const block = findBlock(index, "firstRow");
@@ -147,7 +158,7 @@ export function buildWindowedJustifiedLayout(
       block.firstRow + row.index - block.fromRow)));
   };
   const layout: WindowedJustifiedLayout = {
-    origin, searchKey: context.searchKey, indexed: context.indexed, dimensions,
+    origin, searchKey: context.searchKey, indexed: context.indexed, dimensions, terminalEnd, retainedEnds,
     rowCount, height, getRow, getItemRow, getBox, rowAtOffset,
     neighbour(index, targetRow) {
       const box = getBox(index);

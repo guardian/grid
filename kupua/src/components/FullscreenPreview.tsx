@@ -119,7 +119,7 @@ export function FullscreenPreview() {
     [],
   );
 
-  const { prevImage, nextImage, goToPrev, goToNext } = useImageTraversal(
+  const { prevImage, canGoNext, goToPrev, goToNext } = useImageTraversal(
     isActive ? focusedImageId : null,
     onNavigate,
     router.history,
@@ -501,7 +501,7 @@ export function FullscreenPreview() {
           {navReady && !cursorHidden && !isZoomed && prevImage && (
             <NavStrip direction="prev" onClick={goToPrev} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} />
           )}
-          {navReady && !cursorHidden && !isZoomed && nextImage && (
+          {navReady && !cursorHidden && !isZoomed && canGoNext && (
             <NavStrip direction="next" onClick={goToNext} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} />
           )}
           {navReady && !cursorHidden && <FullscreenCornerButton isFullscreen onClick={exitPreview} />}

@@ -37,6 +37,7 @@ import { buildSearchKey, extractSortValues, getRetainedSortValues } from "@/lib/
 import { addToast } from "@/stores/toast-store";
 import { RANGE_HARD_CAP, RANGE_SOFT_CAP } from "@/constants/tuning";
 import type { AddRangeEffect } from "@/lib/dispatchClickEffects";
+import { getOrderingRevision, hasOrderingUncertainty } from "@/lib/image-read-freshness";
 
 // ---------------------------------------------------------------------------
 // Pure helper -- exported for unit testing
@@ -127,7 +128,8 @@ export function useRangeSelection() {
       //           (2) positionMap.ids.indexOf -- two-tier mode fallback.
       // ------------------------------------------------------------------
       let resolvedAnchorIdx: number | undefined =
-        anchorIdxFromEffect ?? undefined;
+        searchState.imagePositions.get(anchorId) ?? anchorIdxFromEffect ?? undefined;
+      const resolvedTargetIdx = searchState.imagePositions.get(targetId) ?? targetGlobalIndex;
 
       if (resolvedAnchorIdx === undefined) {
         const pm = searchState.positionMap;
@@ -140,10 +142,18 @@ export function useRangeSelection() {
       // ------------------------------------------------------------------
       // 2. Try in-buffer fast path.
       // ------------------------------------------------------------------
-      if (resolvedAnchorIdx !== undefined) {
+      const hasResidentEndpoints = resolvedAnchorIdx !== undefined
+        && searchState.results[resolvedAnchorIdx - searchState.bufferOffset]?.id === anchorId
+        && searchState.results[resolvedTargetIdx - searchState.bufferOffset]?.id === targetId;
+      const conflictsWithResident = (index: number | undefined, id: string) => index !== undefined
+        && index >= searchState.bufferOffset && index < searchState.bufferOffset + searchState.results.length
+        && searchState.results[index - searchState.bufferOffset]?.id !== id;
+      const requiresCurrentEndpoints = hasOrderingUncertainty()
+        || conflictsWithResident(resolvedAnchorIdx, anchorId) || conflictsWithResident(resolvedTargetIdx, targetId);
+      if (hasResidentEndpoints && resolvedAnchorIdx !== undefined) {
         const ids = resolveInBufferRange(
           resolvedAnchorIdx,
-          targetGlobalIndex,
+          resolvedTargetIdx,
           searchState.bufferOffset,
           searchState.results,
         );
@@ -172,7 +182,7 @@ export function useRangeSelection() {
         }
       }
 
-      if (!anchorSV) {
+      if (!anchorSV && !requiresCurrentEndpoints) {
         // All fallbacks exhausted -- anchor metadata unavailable.
         addToast({
           category: "warning",
@@ -203,17 +213,17 @@ export function useRangeSelection() {
         directionKnown = true;
         if (resolvedAnchorIdx < targetGlobalIndex) {
           // Anchor sorts earlier in the result set.
-          fromCursor = anchorSV;
+          fromCursor = anchorSV ?? [];
           toCursor = targetSortValues;
         } else {
           // Target sorts earlier.
           fromCursor = targetSortValues;
-          toCursor = anchorSV;
+          toCursor = anchorSV ?? [];
         }
       } else {
         // Unknown order (anchor index unavailable) -- guess anchor -> target.
         // Swap-and-retry logic in step 6 handles the wrong-direction case.
-        fromCursor = anchorSV;
+        fromCursor = anchorSV ?? [];
         toCursor = targetSortValues;
       }
 
@@ -222,6 +232,9 @@ export function useRangeSelection() {
       // ------------------------------------------------------------------
       const controller = new AbortController();
       const searchKey = buildSearchKey(searchState.params);
+      const boundary = searchState.newCountSince;
+      const rangeParams = boundary && (!searchState.params.until || boundary < searchState.params.until)
+        ? { ...searchState.params, until: boundary } : searchState.params;
       const finish = (rangeWalkTime: number | null) => {
         if (cancelRef.current !== cancel) return;
         cancelRef.current = null;
@@ -244,12 +257,37 @@ export function useRangeSelection() {
       useSelectionStore.setState({ isRangeWalking: true, rangeWalkTime: null });
       let result;
       try {
-        result = await selStore.dataSource.getIdRange(
-          searchState.params,
-          fromCursor,
-          toCursor,
-          controller.signal,
-        );
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const revision = getOrderingRevision();
+          if (requiresCurrentEndpoints || attempt > 0) {
+            const scopedIds = searchState.params.ids?.split(",");
+            if (scopedIds && (!scopedIds.includes(anchorId) || !scopedIds.includes(targetId))) {
+              throw new Error("A range endpoint no longer matches the query");
+            }
+            const endpoints = await searchState.dataSource.searchAfter(
+              { ...rangeParams, ids: [anchorId, targetId].join(","), length: 2 }, null, null, controller.signal,
+            );
+            if (cancelRef.current !== cancel) return;
+            if (revision !== getOrderingRevision()) continue;
+            const anchorIndex = endpoints.hits.findIndex(image => image.id === anchorId);
+            const targetIndex = endpoints.hits.findIndex(image => image.id === targetId);
+            if (anchorIndex < 0 || targetIndex < 0 || !endpoints.sortValues[anchorIndex] || !endpoints.sortValues[targetIndex]) {
+              throw new Error("A range endpoint no longer matches the query");
+            }
+            fromCursor = endpoints.sortValues[Math.min(anchorIndex, targetIndex)];
+            toCursor = endpoints.sortValues[Math.max(anchorIndex, targetIndex)];
+            directionKnown = true;
+          }
+          result = await selStore.dataSource.getIdRange(rangeParams, fromCursor, toCursor, controller.signal);
+          if (cancelRef.current !== cancel) return;
+          if (!directionKnown && result.ids.length === 0 && revision === getOrderingRevision()) {
+            result = await selStore.dataSource.getIdRange(rangeParams, toCursor, fromCursor, controller.signal);
+            if (cancelRef.current !== cancel) return;
+          }
+          if (revision === getOrderingRevision()) break;
+          result = undefined;
+        }
+        if (!result) throw new Error("Ordering changed during range selection");
       } catch (e) {
         if (cancelRef.current !== cancel) return;
         finish(null);
@@ -262,33 +300,6 @@ export function useRangeSelection() {
       }
 
       if (cancelRef.current !== cancel) return;
-
-      // ------------------------------------------------------------------
-      // 6. Swap-and-retry for unknown direction.
-      //
-      // An empty unknown-order walk may have examined an overshooting hit.
-      // Swap cursors and try once more, independently of progress accounting.
-      // ------------------------------------------------------------------
-      if (!directionKnown && result.ids.length === 0) {
-        try {
-          result = await selStore.dataSource.getIdRange(
-            searchState.params,
-            toCursor,
-            fromCursor,
-            controller.signal,
-          );
-        } catch (e) {
-          if (cancelRef.current !== cancel) return;
-          finish(null);
-          if (e instanceof Error && e.name === "AbortError") return;
-          addToast({
-            category: "error",
-            message: "Range selection failed. Please try again.",
-          });
-          return;
-        }
-        if (cancelRef.current !== cancel) return;
-      }
 
       finish(Date.now() - rangeWalkStart);
 

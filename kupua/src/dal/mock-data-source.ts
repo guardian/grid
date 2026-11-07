@@ -173,7 +173,10 @@ function compareSortValue(
   if (cursorVal == null) return -1; // any real value sorts before a null cursor
   const raw =
     typeof imgVal === "string" && typeof cursorVal === "string"
-      ? imgVal.localeCompare(cursorVal)
+      ? imgVal === cursorVal ? 0
+        : imgVal.startsWith(cursorVal) ? 1
+        : cursorVal.startsWith(imgVal) ? -1
+        : imgVal.localeCompare(cursorVal)
       : (imgVal as number) - (cursorVal as number);
   if (raw === 0) return 0;
   const before = direction === "desc" ? raw > 0 : raw < 0;
@@ -569,17 +572,18 @@ export class MockDataSource implements ImageDataSource {
       }
     } else {
       const [, cursorOrigIndex] = this.findById(cursorId);
-
-      if (sortedIndices) {
-        cursorSortedPos = sortedIndices.indexOf(cursorOrigIndex);
-        if (cursorSortedPos < 0) {
-          return { hits: [], total: this.totalImages, sortValues: [] };
+      cursorSortedPos = sortedIndices ? sortedIndices.indexOf(cursorOrigIndex) : cursorOrigIndex;
+      if (cursorSortedPos < 0) {
+        let low = 0;
+        let high = effectiveTotal;
+        while (low < high) {
+          const middle = Math.floor((low + high) / 2);
+          const image = this.getImageAt(sortedIndices ? sortedIndices[middle] : middle)!;
+          const comparison = compareSortTuples(sortValuesForImage(image, sortClause), effectiveCursor, sortClause);
+          if (reverse ? comparison < 0 : comparison <= 0) low = middle + 1;
+          else high = middle;
         }
-      } else {
-        if (cursorOrigIndex < 0) {
-          return { hits: [], total: this.totalImages, sortValues: [] };
-        }
-        cursorSortedPos = cursorOrigIndex;
+        cursorSortedPos = reverse ? low : low - 1;
       }
     }
 

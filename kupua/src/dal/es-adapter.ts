@@ -688,12 +688,12 @@ export class ElasticsearchDataSource implements ImageDataSource {
     return this.searchAfter(params, null, null, signal);
   }
 
-  async count(params: SearchParams): Promise<number> {
-    const { count } = await this.countWithTickers(params);
+  async count(params: SearchParams, signal?: AbortSignal): Promise<number> {
+    const { count } = await this.countWithTickers(params, signal);
     return count;
   }
 
-  async countWithTickers(params: SearchParams): Promise<CountWithTickersResult> {
+  async countWithTickers(params: SearchParams, signal?: AbortSignal): Promise<CountWithTickersResult> {
     // Use _search with size:0 instead of _count so we can attach filter aggs.
     // Cost vs _count: negligible — the since: window typically has 0–20 docs,
     // and running 2 filter aggs over that set is sub-millisecond.
@@ -704,7 +704,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
       track_total_hits: true,
       ...(tickerAggs ? { aggs: tickerAggs } : {}),
     };
-    const result = (await this.esRequest("_search", body)) as {
+    const result = (await this.esRequest("_search", body, signal)) as {
       hits: { total: { value: number } };
       aggregations?: Record<string, unknown>;
     };

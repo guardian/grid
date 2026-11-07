@@ -79,9 +79,10 @@ This observation is the origin of kupua's **three-tier architecture**.
 
 ## §2 The Three Tiers
 
-The architecture has three distinct modes, selected automatically based on
-the size of the current result set. Each mode represents a different
-trade-off between data coverage and interaction fidelity.
+The architecture selects three modes from the admitted result count. Each trades
+data coverage against interaction fidelity. Ordinary continuation retains that mode
+even if it discovers rows beyond the count; a fresh coordinate acquisition publishes
+its count, replacement window and placement together.
 
 ```
  Result count     Mode                     Scrubber behaviour
@@ -106,7 +107,7 @@ crash the browser.
 **Indexed scroll mode (1k–65k)** can't download all the data, but it
 *can* download a lightweight index of every image's position — just IDs and
 sort values, ~288 bytes/entry instead of ~8KB. This position map lets the
-virtualizer render `total` items (not just the ~1,000 in the buffer), giving
+virtualizer span the display extent (initially `total`, not just the ~1,000 in the buffer), giving
 the scroll container full physical height. The scrubber works exactly like a
 real scrollbar — drag directly scrolls the content. Cells outside the
 ~1,000-item buffer show skeleton placeholders that fill in as the buffer
@@ -216,6 +217,12 @@ directly), even before the position map reloads — skeletons appear at the
 correct position, and a scroll-triggered seek fills them within ~1-2s.
 `seek()` does not invalidate the position map — the data is still valid
 (same PIT, same sort order).
+
+Under ordering uncertainty, retained map tuples remain browsing hints, not exact
+identity ranks. The `exactOffset` seek branch selects display-placement mathematics;
+it does not certify current rank. Identity-dependent actions resolve current query
+positions, while deliberate ordinal/edge acquisition publishes fresh bounds with
+its replacement window and placement.
 
 ### Fixed-Row Window Policy
 
@@ -327,6 +334,31 @@ and pending detail/fullscreen traversal reconsider demand through existing coold
 there is no store-level fill loop. An empty page stops automatic continuation without
 inventing a smaller total or preventing a later explicit attempt.
 
+Indexed refill partitions a shared predecessor tuple `P`: forward is strictly
+after `P`; backward is strictly before `P` with NUL appended only to its final
+ascending ID. Both requests remain parallel, including ties and null boundaries.
+Centred identity restoration shares the same incoming-only freshness admission.
+A moving image absent from both PIT-less snapshots is not inferred deleted.
+
+Raw emptiness records a terminal boundary qualified by search, ordering revision,
+cursor and display edge. It settles pending traversal without reviving old demand
+or cancelling a later explicit attempt. Terminal slots retain geometry without
+loading skeletons; a wholly terminal viewport shows Start/End of results. Focused
+arrows and page keys stop before those slots. Ordinary scrolling there does not
+become a replacement seek, while an excursion permits a later boundary attempt.
+
+An uncertain count is not exhaustion: Next, near-edge reports and pinned downward
+wheel input can request the usual cursor page beyond it. Accepted rows raise a
+display high-water mark used by indexed virtualizers, browsing refills and scrubber
+destinations, without changing count or tier or adding count/rank/map repair reads.
+It survives reversal and resets with fresh coordinate acquisition. Position text
+beyond the reported count omits that denominator rather than inventing a query count.
+
+Justified preserves natural terminal packing boundaries and places later arrivals
+after them. The dimension snapshot carries these boundaries across density remounts
+and prunes them outside its buffer/boundary-block span. Ordinary item lookup is
+constant-time; layouts with retained partitions use binary search.
+
 An obsolete response release can issue one owned recovery notice. The mounted scroll
 owner re-evaluates current demand after commit and any remaining existing cooldown;
 it does not replay the old cursor or synthesize user input. New range/search owners
@@ -415,6 +447,9 @@ callbacks cannot dispatch or clear their successor; refills cannot supersede pen
 user navigation or initial search. Their query fingerprints remain cached by params
 identity. Position-map readiness remains independent of either lifetime and of the
 coordinate regime.
+
+Near-buffer user input cancels an obsolete viewport refill through the maintenance
+owner. With no pending refill, it leaves useful cursor lookahead alone.
 
 When browsing overlaps an ordinary query change, the old visible total is not used
 as current membership. Navigation retains the existing count/first-page discovery,
@@ -689,8 +724,10 @@ For a buffer of N images, dimensions are bounded by N+94 and each ID map by N. A
 capacity 1,000, up to 22 known technical blocks intersect the buffer. Unknown full, non-final
 indexed blocks share one square estimate, created only on first use within that construction.
 Builds without eligible blocks do not create it; subsequent constructions never reuse it.
-Known and true-final blocks are packed independently. Indexed block descriptors are O(ceil(total/48)), up to 1,355 at
-the default 65,000 threshold. Virtualizer storage is O(row count), with high-water capacity.
+Known and true-final blocks are packed independently. Retained terminal boundaries
+can subdivide blocks within that same bounded span. Indexed block descriptors scale
+with `ceil(displayExtent/48)` plus those partitions: 1,355 blocks at an initial
+65,000 results is not a lifetime ceiling. Virtualizer storage is O(row count), with high-water capacity.
 Mounted old/new layouts, temporary seek geometry and committed dimension snapshots can
 coexist: the dimension bound is not an aggregate heap bound on JS, typed arrays and WASM.
 Resident/indexed thresholds (1,000/65,000) and buffer capacity (1,000) remain configurable.

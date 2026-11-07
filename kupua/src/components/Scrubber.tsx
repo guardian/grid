@@ -102,14 +102,11 @@ function applyTooltipContent(
 
   // Update the position text — find the text node that contains "X of Y"
   // It's after the sort label span in the new layout.
-  const label = `${Math.min(position + 1, total).toLocaleString()} of ${total.toLocaleString()}`;
-  // Walk child nodes looking for the text node with position info
-  for (const node of tooltipEl.childNodes) {
-    if (node.nodeType === Node.TEXT_NODE && node.textContent?.includes("of")) {
-      node.textContent = label;
-      break;
-    }
-  }
+  const reportedTotal = Number(tooltipEl.dataset.resultCount ?? total);
+  const label = position < reportedTotal ? `${(position + 1).toLocaleString()} of ${reportedTotal.toLocaleString()}`
+    : (position + 1).toLocaleString();
+  const positionEl = tooltipEl.querySelector("[data-position-label]");
+  if (positionEl) positionEl.textContent = label;
 }
 
 /** Set thumb + tooltip DOM positions and text for instant visual feedback. */
@@ -154,6 +151,7 @@ type ScrubberMode = "buffer" | "indexed" | "seek";
 interface ScrubberProps {
   /** Total number of matching results in the full result set. */
   total: number;
+  displayEnd?: number;
   /** Current global position (bufferOffset + first visible index within buffer). */
   currentPosition: number;
   /** Number of items visible in the viewport (for proportional thumb sizing). */
@@ -197,7 +195,8 @@ interface ScrubberProps {
 // ---------------------------------------------------------------------------
 
 export function Scrubber({
-  total,
+  total: reportedTotal,
+  displayEnd = reportedTotal,
   currentPosition,
   visibleCount,
   bufferLength,
@@ -210,6 +209,7 @@ export function Scrubber({
   trackTicks,
   twoTier = false,
 }: ScrubberProps) {
+  const total = displayEnd;
   const trackRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -222,7 +222,7 @@ export function Scrubber({
   // sets scrollTop directly. In two-tier the container spans all `total`
   // items, so skeletons appear at once and useDataWindow's scroll-triggered
   // seek loads data behind them. Only the seek regime seeks on click/release.
-  const inBuffer = total <= bufferLength;
+  const inBuffer = reportedTotal <= bufferLength;
   const isScrollMode = inBuffer || twoTier;
   const interactionRegime: ScrubberMode = inBuffer
     ? "buffer"
@@ -1031,7 +1031,9 @@ export function Scrubber({
   // Render
   // -------------------------------------------------------------------------
 
-  const positionLabel = `${Math.min(effectivePosition + 1, total).toLocaleString()} of ${total.toLocaleString()}`;
+  const positionLabel = effectivePosition < reportedTotal
+    ? `${(effectivePosition + 1).toLocaleString()} of ${reportedTotal.toLocaleString()}`
+    : (effectivePosition + 1).toLocaleString();
   const sortLabel = getSortLabel?.(effectivePosition) ?? null;
   const accessibleSortLabel = sortLabel ? sortLabelText(sortLabel) : null;
 
@@ -1109,6 +1111,7 @@ export function Scrubber({
           less-visible left edge while the right edge stays locked to the scrubber. */}
       <div
         ref={tooltipRef}
+        data-result-count={reportedTotal}
         className="absolute right-full mr-2 px-2 py-1 rounded text-xs text-white whitespace-nowrap pointer-events-none z-20"
         style={{
           top: Math.max(0, Math.min(trackHeight - (tooltipRef.current?.offsetHeight || 28), thumbTop)),
@@ -1129,8 +1132,7 @@ export function Scrubber({
             style={sortLabel ? undefined : { display: "none" }}
             dangerouslySetInnerHTML={sortLabel ? { __html: sortLabel } : undefined}
           />
-          {/* Position text — secondary, must be the first text node child for live DOM updates */}
-          {positionLabel}
+          <span data-position-label="">{positionLabel}</span>
           {/* Loading dot — always in the DOM to prevent width twitch on load
               state changes. Visibility toggled, not presence. */}
           <span

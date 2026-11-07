@@ -22,7 +22,7 @@ import { useListNavigation } from "@/hooks/useListNavigation";
 import { useReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { useScrollEffects } from "@/hooks/useScrollEffects";
 import { useColumnStore } from "@/stores/column-store";
-import { useSearchStore } from "@/stores/search-store";
+import { getTerminalDirection, useSearchStore } from "@/stores/search-store";
 import { useSelectionStore } from "@/stores/selection-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
@@ -272,6 +272,8 @@ interface TableBodyProps {
   getImage: (index: number) => Image | undefined;
   /** Added to virtualRow.index for aria-rowindex — 0 in two-tier mode (already global), else bufferOffset. */
   rowIndexOffset: number;
+  terminalStart: number | null;
+  terminalEnd: number | null;
 }
 
 const TableBody = memo(function TableBody({
@@ -287,6 +289,8 @@ const TableBody = memo(function TableBody({
   visibleColumnCount,
   getImage,
   rowIndexOffset,
+  terminalStart,
+  terminalEnd,
 }: TableBodyProps) {
   // Animation state
   const arrivingImageIds = useSearchStore((s) => s._arrivingImageIds);
@@ -311,9 +315,15 @@ const TableBody = memo(function TableBody({
 
         // Placeholder skeleton for unloaded rows
         if (!image) {
+          const position = rowIndexOffset + virtualRow.index;
+          if ((terminalStart !== null && position < terminalStart) || (terminalEnd !== null && position >= terminalEnd)) {
+            return <div key={`terminal-${virtualRow.index}`} aria-hidden="true" className="absolute left-0 right-0"
+              style={{ height: virtualRow.size, transform: `translateY(${virtualRow.start}px)` }} />;
+          }
           return (
             <div
               key={`placeholder-${virtualRow.index}`}
+              data-loading-placeholder
               role="row"
               aria-rowindex={rowIndexOffset + virtualRow.index + 2}
               className="absolute left-0 right-0 flex items-center border-b border-grid-separator/30"
@@ -1163,6 +1173,13 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
     return () => ro.disconnect();
   }, []);
 
+  const terminalStart = getTerminalDirection(bufferOffset - 1) ? bufferOffset : null;
+  const terminalEnd = getTerminalDirection(bufferOffset + results.length) ? bufferOffset + results.length : null;
+  const visibleRange = virtualizer.range;
+  const origin = twoTier ? 0 : bufferOffset;
+  const terminalView = visibleRange && terminalStart !== null && visibleRange.endIndex + origin < terminalStart ? "start"
+    : visibleRange && terminalEnd !== null && visibleRange.startIndex + origin >= terminalEnd ? "end" : null;
+
   return (
     <div className="flex-1 min-w-0 flex flex-col">
       <div
@@ -1404,7 +1421,14 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
           visibleColumnCount={visibleColIds.length}
           getImage={getImage}
           rowIndexOffset={twoTier ? 0 : bufferOffset}
+          terminalStart={terminalStart}
+          terminalEnd={terminalEnd}
         />
+        {terminalView && <div role="status" className="absolute text-center text-sm leading-normal text-grid-text-muted pointer-events-none"
+          style={{ top: (parentRef.current?.scrollTop ?? 0) + (parentRef.current?.clientHeight ?? 0) / 2,
+            left: parentRef.current?.scrollLeft ?? 0, width: parentRef.current?.clientWidth }}>
+          {terminalView === "start" ? "Start of results" : "End of results"}
+        </div>}
       </div>
 
       {/* Loading indicator at bottom */}

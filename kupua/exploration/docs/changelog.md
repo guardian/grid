@@ -52,6 +52,40 @@ placement. Only the selected view mounts; no hidden views or extra data reads ar
 Existing remount and round-trip tests now check placement from the first frame rather
 than accepting a zero-position interval before the final restore.
 
+### 7 November 2026 - Stable continuation and action-owned coordinate trust
+
+Own-write ordering revisions now qualify exact navigation and selection work without
+clearing display positions, rebuilding maps or cancelling useful cursor lookahead.
+Indexed refill uses complementary bounds around one predecessor and shares bounded
+incoming-page admission with centred identity restoration, preserving body/tuple
+pairing and independently withheld authority. Stale maps remain browsing hints;
+ordinal/edge bounds are published with their replacement window and placement.
+Their count reads carry owner cancellation through both client datasource adapters.
+
+Resident ranges verify both displayed endpoints; uncertain remote ranges resolve
+both identities and walk the same frozen query. Held acquisitions preserve current
+intent through bounded reacquisition and reject obsolete completion. Missing cursor
+hints resolve the requested identity, while required-read failure no longer replaces
+it with a numeric seek. Response-owned terminal facts settle traversal and replace
+exhausted skeletons with directional status without shrinking indexed space or
+changing tiers. New explicit traversal remains eligible after an empty response.
+Normal editing remains disconnected; unavailable-image policy and later units remain
+separately scoped.
+
+Continuation admits newly matching existing images beyond a stale numeric end.
+A scalar discovered extent, distinct from admitted count/tier, keeps new rows
+renderable through reverse eviction and retained-coordinate refills. Next controls,
+scrubber destinations and pinned wheel input use the existing owners; confirmed
+terminal spans stop focused page-key movement as well as arrows. Justified retains
+former terminal partitions in its bounded cross-density snapshot, avoiding survivor
+repacking after growth or remount. Count text does not fabricate a replacement total.
+
+Off-buffer observed images can re-enter at the same metadata version using exact
+serialized projection evidence in the existing touched-ID facts. Conflicting equal
+versions, older reads and stale editing authority remain rejected. This adds
+metadata-size-dependent retention and admission work within the existing ID cap,
+not another image-body cache or navigation repair read.
+
 ### 7 November 2026 - One row-placement function; resize keeps a visible anchor on screen
 
 Sort-around-focus and density placement each carried their own copy of the "keep the row between

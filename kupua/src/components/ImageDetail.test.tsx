@@ -995,7 +995,8 @@ describe("bounded detail return composition", () => {
         flushFrames();
         expect(requests).toHaveLength(before);
       } else {
-        expect(requests.filter(request => request.path === "/api/images/window")).toHaveLength(1);
+        expect(requests.filter(request => request.path === "/api/images/window")).toHaveLength(0);
+        expect(useSearchStore.getState().error).not.toBeNull();
         expect(useSearchStore.getState()._cursorRestore).toBeNull();
       }
     });
@@ -1031,7 +1032,7 @@ describe("bounded detail return composition", () => {
     expect(center).not.toHaveBeenCalled();
   });
 
-  it.each(["different", "same-id"])("late failure keeps useful fallback data but retires placement after %s focus intent", async (intent) => {
+  it.each(["different", "same-id"])("late identity failure preserves newer %s focus without a numeric substitute", async (intent) => {
     const dataSource = new MockDataSource(5000);
     const target = await dataSource.searchAfter({ ids: "img-2500", length: 1 }, null);
     const pending = deferred<typeof target>();
@@ -1046,7 +1047,9 @@ describe("bounded detail return composition", () => {
     act(() => useSearchStore.getState().setFocusedImageId(intent === "different" ? "new-focus" : "img-2500"));
     await act(async () => pending.reject(new Error("late restore failure")));
     flushFrames();
-    expect(useSearchStore.getState().results.length).toBeGreaterThan(0);
+    expect(useSearchStore.getState().results).toEqual([]);
+    expect(useSearchStore.getState().error).not.toBeNull();
+    expect(useSearchStore.getState().focusedImageId).toBe(intent === "different" ? "new-focus" : "img-2500");
     expect(useSearchStore.getState().loading).toBe(false);
     expect(useSearchStore.getState()._seekGeneration).toBe(seekGeneration);
     expect(useSearchStore.getState()._browseNavigation).toBeNull();
@@ -1096,7 +1099,7 @@ describe("bounded detail return composition", () => {
     expect(center).not.toHaveBeenCalled();
   });
 
-  it.each(["different", "same-id"])("newer %s focus during fallback retains data but not old presentation", async (intent) => {
+  it.each(["different", "same-id"])("newer %s focus during neighbour loading retains data but not old presentation", async (intent) => {
     const dataSource = new MockDataSource(5000);
     const target = await dataSource.searchAfter({ ids: "img-2500", length: 1 }, null);
     const lookup = deferred<typeof target>();
@@ -1110,8 +1113,8 @@ describe("bounded detail return composition", () => {
     render(<List imageId="img-2500" />);
     await act(async () => {});
     fireEvent.click(screen.getByRole("button", { name: /Back to search/ }));
-    await act(async () => lookup.reject(new Error("fixture restore failure")));
-    expect(read).toHaveBeenCalledTimes(2);
+    await act(async () => lookup.resolve(target));
+    expect(read).toHaveBeenCalledTimes(3);
     const generation = useSearchStore.getState()._seekGeneration;
     const nextFocus = intent === "same-id" ? "img-2500" : "new-focus";
     act(() => useSearchStore.getState().setFocusedImageId(nextFocus));
@@ -1123,10 +1126,10 @@ describe("bounded detail return composition", () => {
     expect(useSearchStore.getState()._seekGeneration).toBe(generation);
     expect(useSearchStore.getState()._browseNavigation).toBeNull();
     expect(center).not.toHaveBeenCalled();
-    expect(read).toHaveBeenCalledTimes(2);
+    expect(read).toHaveBeenCalledTimes(3);
   });
 
-  it("cursorless pending restoration is reused on re-entry without another window read", async () => {
+  it("cursorless pending identity restoration is reused on re-entry without a second lookup", async () => {
     const dataSource = new MockDataSource(5000);
     const pending = deferred<void>();
     const originalRead = dataSource.searchAfter.bind(dataSource);
@@ -1148,7 +1151,9 @@ describe("bounded detail return composition", () => {
     flushFrames();
     expect(useSearchStore.getState().loading).toBe(false);
     expect(useSearchStore.getState()._cursorRestore).toBeNull();
-    expect(read).toHaveBeenCalledOnce();
+    expect(read).toHaveBeenCalledTimes(3);
+    expect(read.mock.calls.filter(([params]) => params.ids === "img-2500")).toHaveLength(1);
+    expect(useSearchStore.getState().imagePositions.get("img-2500")).toBe(2500);
     expect(center).not.toHaveBeenCalled();
   });
 

@@ -74,7 +74,7 @@ import {
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { beginTraceInteraction, trace, traceInteraction } from "@/lib/perceived-trace";
 import type { SearchContinuity, OwnedSearchContinuity } from "@/lib/search-continuity";
-import { copyImageRead, hasImageFence, hasImageFences, isImageMetadataCurrent } from "@/lib/image-read-freshness";
+import { acceptImageOverlay, acceptImageRead, copyImageRead, getOrderingRevision, hasImageFence, hasImageFences, hasOrderingUncertainty, isImageMetadataCurrent } from "@/lib/image-read-freshness";
 import { acceptEnrichedImage, attachedEnrichment, attachEnrichment } from "@/stores/enrichment-store";
 import { useSelectionStore } from "@/stores/selection-store";
 
@@ -249,6 +249,13 @@ interface BrowseNavigation {
   discovery?: InitialSearchDiscovery;
 }
 
+interface TerminalBoundary {
+  cursor: SortValues;
+  position: number;
+  searchGeneration: number;
+  orderingRevision: number;
+}
+
 interface SearchState {
   // Data source (swappable between ES and Grid API)
   dataSource: ImageDataSource;
@@ -264,6 +271,7 @@ interface SearchState {
   /** Global offset of buffer[0] in the full result set. */
   bufferOffset: number;
   total: number;
+  _displayEnd: number;
   loading: boolean;
   error: string | null;
 
@@ -331,7 +339,9 @@ interface SearchState {
   // Track in-flight extend operations to avoid duplicates
   _extendForwardInFlight: boolean;
   _extendBackwardInFlight: boolean;
-  _windowRecovery: { signal: AbortSignal; searchGeneration: number; retainedOnly: boolean } | null;
+  _windowRecovery: { signal: AbortSignal; searchGeneration: number; retainedOnly: boolean; terminal?: boolean } | null;
+  _terminalStart: TerminalBoundary | null;
+  _terminalEnd: TerminalBoundary | null;
 
   /**
    * Number of items prepended by the most recent backward extend.
@@ -509,25 +519,23 @@ interface SearchState {
   * instead so changing the view does not abandon its pending destination.
    */
   abortExtends: () => void;
-  cancelWindowMaintenance: () => void;
+  cancelWindowMaintenance: (onlyRefill?: boolean) => void;
   queueBrowsePosition: (globalOffset: number) => void;
   canReuseResidentResults: () => boolean;
   /**
   * Replace the buffer at a global destination. Navigation owns that destination
   * across views; a refill is layout maintenance and cannot supersede it.
    */
-  seek: (globalOffset: number, traceAction?: string, traceInteractionId?: string, purpose?: "navigation" | "refill", restoreFocusIntent?: number) => Promise<void>;
+  seek: (globalOffset: number, traceAction?: string, traceInteractionId?: string, purpose?: "navigation" | "refill", restoreFocusIntent?: number, orderingAttempts?: number) => Promise<void>;
 
   /**
-   * Restore the buffer around a specific image using its cached sort cursor.
+  * Restore the buffer around a specific image, resolving its current query tuple.
    * Used by ImageDetail on page reload to recover the counter + prev/next.
    *
-   * With a cursor: `search_after` forward + backward from the cursor, then
-   * `countBefore` for exact bufferOffset. Guaranteed to land the image in
-   * the buffer regardless of depth.
-   *
-   * Without a cursor (old cache, missing fields): falls back to `seek(offset)`
-   * which works for shallow offsets (<10k) and degrades gracefully for deep ones.
+  * A usable saved cursor permits speculative rank lookup alongside identity
+  * resolution. Missing or uncertain hints use the returned tuple instead.
+  * Neighbour pages retain their paired bodies and tuples; failure does not
+  * substitute a numeric destination for the requested identity.
    */
   restoreAroundCursor: (
     imageId: string,
@@ -649,6 +657,26 @@ function hasPendingWindowReplacement(state: SearchState): boolean {
 function sameBoundaryCursor(first: SortValues | null, second: SortValues | null): boolean {
   return first === second || (first !== null && second !== null && first.length === second.length &&
     first.every((value, index) => value === second[index]));
+}
+
+export function getDisplayEnd(state = useSearchStore.getState()): number {
+  return Math.max(state.total, state._displayEnd, state.bufferOffset + state.results.length);
+}
+
+export function canExtendForward(state = useSearchStore.getState()): boolean {
+  return !state.params.aiQuery && (state.bufferOffset + state.results.length < getDisplayEnd(state) || hasOrderingUncertainty());
+}
+
+export function getTerminalDirection(globalIndex: number): "start" | "end" | null {
+  const state = useSearchStore.getState();
+  const valid = (boundary: TerminalBoundary | null, cursor: SortValues | null, position: number) => boundary
+    && boundary.searchGeneration === _searchGeneration && boundary.orderingRevision === getOrderingRevision()
+    && boundary.position === position && sameBoundaryCursor(boundary.cursor, cursor);
+  if (state._terminalStart && globalIndex < state._terminalStart.position
+    && valid(state._terminalStart, state.startCursor, state.bufferOffset)) return "start";
+  if (state._terminalEnd && globalIndex >= state._terminalEnd.position
+    && valid(state._terminalEnd, state.endCursor, state.bufferOffset + state.results.length)) return "end";
+  return null;
 }
 
 function windowRecovery(signal: AbortSignal, retainedOnly = false): NonNullable<SearchState["_windowRecovery"]> {
@@ -1523,6 +1551,48 @@ interface BufferAroundImage {
   enrichment?: Map<string, EnrichmentFields>;
 }
 
+function mergeIncomingPages(pages: SearchAfterResult[]): { pages: SearchAfterResult[]; enrichment?: Map<string, EnrichmentFields> } {
+  const candidates = new Map<string, { image: Image; page: number; index: number }>();
+  const excluded = pages.map(() => new Set<number>());
+  const state = useSearchStore.getState();
+  for (const [pageIndex, page] of pages.entries()) {
+    for (const [index, image] of page.hits.entries()) {
+      const previous = candidates.get(image.id);
+      if (previous) {
+        let accepted: Image | undefined = image;
+        if (hasImageFence(image.id)) {
+          const position = state.imagePositions.get(image.id);
+          const resident = position === undefined ? undefined : state.results[position - state.bufferOffset];
+          const retained = resident && isImageMetadataCurrent(resident) ? resident : useSelectionStore.getState().metadataCache.get(image.id);
+          accepted = acceptImageRead(image, acceptImageRead(previous.image, retained));
+        }
+        if (accepted === previous.image) { excluded[pageIndex].add(index); continue; }
+        excluded[previous.page].add(previous.index);
+        if (accepted !== image) excluded[pageIndex].add(index);
+      }
+      candidates.set(image.id, { image, page: pageIndex, index });
+    }
+  }
+  const enrichment = new Map<string, EnrichmentFields>();
+  for (const [pageIndex, page] of pages.entries()) {
+    for (const [id, overlay] of page.enrichment ?? []) {
+      if (hasImageFence(id)) {
+        enrichment.set(id, acceptImageOverlay(id, overlay, enrichment.get(id) ?? useEnrichmentStore.getState().data.get(id)));
+      } else if (candidates.get(id)?.page === pageIndex) enrichment.set(id, overlay);
+    }
+  }
+  return { enrichment: enrichment.size ? enrichment : undefined, pages: pages.map((page, pageIndex) => {
+    if (excluded[pageIndex].size === 0) return page;
+    const sortValues: SortValues[] = [];
+    const hits = page.hits.filter((_, index) => {
+      if (excluded[pageIndex].has(index)) return false;
+      sortValues.push(page.sortValues[index]);
+      return true;
+    });
+    return { ...page, hits, sortValues };
+  }) };
+}
+
 /**
  * Given a target image, its sort values, and its exact global offset,
  * fetch a buffer page centered on the image via bidirectional search_after.
@@ -1570,29 +1640,15 @@ async function _loadBufferAroundImage(
   ]);
   if (signal.aborted) return null;
 
-  const bufferStart = Math.max(0, exactOffset - backwardResult.hits.length);
-  const bwHits = backwardResult.hits;
-  const bwSortValues = backwardResult.sortValues;
-
-  // Combine: backward hits + target image + forward hits
-  // The target image itself is NOT in either result (search_after is exclusive).
-  const combinedHits: (Image | undefined)[] = [
-    ...bwHits,
-    targetHit,
-    ...forwardResult.hits,
-  ];
-  const combinedSortValues: SortValues[] = [
-    ...bwSortValues,
-    sortValues,
-    ...forwardResult.sortValues,
-  ];
-
-  const startCursor = combinedSortValues.length > 0
-    ? combinedSortValues[0]
-    : null;
-  const endCursor = combinedSortValues.length > 0
-    ? combinedSortValues[combinedSortValues.length - 1]
-    : null;
+  const startCursor = backwardResult.sortValues[0] ?? sortValues;
+  const endCursor = forwardResult.sortValues.at(-1) ?? sortValues;
+  const merged = mergeIncomingPages([backwardResult, { hits: [targetHit], sortValues: [sortValues], total: 0,
+    enrichment: targetEnrichment ? new Map([[targetHit.id, targetEnrichment]]) : undefined }, forwardResult]);
+  const combinedHits = merged.pages.flatMap(page => page.hits);
+  const combinedSortValues = merged.pages.flatMap(page => page.sortValues);
+  const targetLocalIndex = combinedHits.findIndex(image => image.id === targetHit.id);
+  if (targetLocalIndex < 0) throw new Error("Image position is unavailable");
+  const bufferStart = Math.max(0, exactOffset - targetLocalIndex);
 
   return {
     combinedHits,
@@ -1604,17 +1660,8 @@ async function _loadBufferAroundImage(
     // clears the stale PIT instead of preserving it via ??.
     pitId: backwardResult.pitId === null ? null : forwardResult.pitId !== undefined ? forwardResult.pitId : pitId,
     /** Buffer-local index of the target image. */
-    targetLocalIndex: bwHits.length,
-    // Merge enrichment from forward + backward results (both carry enrichment on the
-    // media-api path; undefined on direct-ES path). Forward wins on id conflict (harmless
-    // — same image can't be in both directions of a bidirectional search_after).
-    enrichment: (forwardResult.enrichment || backwardResult.enrichment || targetEnrichment)
-      ? new Map<string, EnrichmentFields>([
-          ...(backwardResult.enrichment ?? []),
-          ...(forwardResult.enrichment ?? []),
-          ...(targetEnrichment ? [[targetHit.id, targetEnrichment] as const] : []),
-        ])
-      : undefined,
+    targetLocalIndex,
+    enrichment: merged.enrichment,
   };
 }
 
@@ -1691,6 +1738,8 @@ async function _findAndFocusImage(
   findFocusSignalOverride?: AbortSignal,
   discoveredTotal?: number,
   continuity?: OwnedSearchContinuity,
+  orderingAttempts = 1,
+  retainedTarget?: Image,
 ): Promise<void> {
   const { dataSource } = get();
   const recoveryResults = get().results;
@@ -1703,7 +1752,7 @@ async function _findAndFocusImage(
 
   trace("sort-around-focus", "t_ack");
   trace("sort-around-focus", "t_status_visible", { status: "Finding image\u2026" });
-  set({ sortAroundFocusStatus: "Finding image…" });
+  set({ sortAroundFocusStatus: "Finding image…", error: null });
 
   // Use the caller-provided signal when available (search() captures the
   // signal BEFORE its await, so concurrent searches don't cross-contaminate).
@@ -1751,8 +1800,20 @@ async function _findAndFocusImage(
     if (findFocusSignal.aborted) return;
     console.warn("[sort-around-focus] Timed out after 8s");
     timeoutController.abort();
+    if (hasOrderingUncertainty()) set({ error: "Image position is unavailable" });
     degrade();
   }, 8000);
+  const orderingRevision = getOrderingRevision();
+  let latestTarget = retainedTarget;
+  const reacquireOrdering = async () => {
+    if (orderingRevision === getOrderingRevision()) return false;
+    if (combinedSignal.aborted) return true;
+    if (orderingAttempts === 0) throw new Error("Image ordering changed during restoration. Please try again.");
+    clearTimeout(timeoutId);
+    await _findAndFocusImage(imageId, params, get, set, fallbackFirstPage, prevNeighbours, hintOffset,
+      phantomOnly, retainExplicitFocus, findFocusSignal, discoveredTotal, continuity, orderingAttempts - 1, latestTarget);
+    return true;
+  };
 
   try {
     // Step 1: Search for this specific image with the current sort to get
@@ -1766,6 +1827,7 @@ async function _findAndFocusImage(
     );
 
     if (combinedSignal.aborted) return;
+    if (orderingRevision !== getOrderingRevision() && await reacquireOrdering()) return;
     if (sortResult.hits.length === 0 || sortResult.sortValues.length === 0) {
       // Image not in results (maybe filtered out) — degrade gracefully.
       // If we have first-page results, show them (query/filter changes leave
@@ -1816,6 +1878,8 @@ async function _findAndFocusImage(
     }
 
     const targetHit = sortResult.hits[0];
+    if (latestTarget && acceptImageRead(targetHit, latestTarget) !== targetHit) throw new Error("Current image projection is unavailable");
+    latestTarget = targetHit;
     const imageSortValues = sortResult.sortValues[0];
 
     // Step 2: Determine the image's global offset.
@@ -1851,7 +1915,10 @@ async function _findAndFocusImage(
       : null;
 
     const posMap = get().positionMap;
-    if (posMap) {
+    if (hasOrderingUncertainty()) {
+      offset = effectiveHint ?? 0;
+      offsetIsEstimate = true;
+    } else if (posMap) {
       const idx = posMap.ids.indexOf(imageId);
       if (idx !== -1) {
         offset = idx;
@@ -1912,7 +1979,8 @@ async function _findAndFocusImage(
     const { bufferOffset, results } = get();
     const bufferEnd = bufferOffset + results.length;
     const isInBuffer = !fallbackFirstPage && discoveredTotal === undefined && !offsetIsEstimate &&
-      offset >= bufferOffset && offset < bufferEnd;
+      offset >= bufferOffset && offset < bufferEnd && results[offset - bufferOffset]?.id === imageId;
+    if (orderingRevision !== getOrderingRevision() && await reacquireOrdering()) return;
 
     if (isInBuffer) {
       // Image is in the buffer — just focus it (or scroll to it in phantom mode).
@@ -1993,9 +2061,12 @@ async function _findAndFocusImage(
         offsetIsEstimate,
       );
       if (!buf) return; // aborted
+      latestTarget = buf.combinedHits.find(image => image?.id === imageId);
 
       const exactOffset = await exactOffsetPromise;
       if (combinedSignal.aborted) return;
+      if (orderingRevision !== getOrderingRevision() && await reacquireOrdering()) return;
+      if (offsetIsEstimate && exactOffset === null && hasOrderingUncertainty()) throw new Error("Image position is unavailable");
 
       let finalResults = buf.combinedHits;
       let finalSortValues = buf.sortValues;
@@ -2079,6 +2150,7 @@ async function _findAndFocusImage(
     if (e instanceof DOMException && e.name === "AbortError") return;
     // Any failure → degrade gracefully
     console.warn("[sort-around-focus] Failed to find image:", e);
+    if (hasOrderingUncertainty()) set({ error: e instanceof Error ? e.message : "Image position is unavailable" });
     degrade();
   } finally {
     clearTimeout(timeoutId);
@@ -2098,6 +2170,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
   const set: typeof rawSet = (partial, replace?: boolean) => {
     const current = get();
     let update = typeof partial === "function" ? partial(current) : partial;
+    if (update.total !== undefined && update._displayEnd === undefined) update = { ...update, _displayEnd: 0 };
     if (hasImageFences() && update.results && update.results !== current.results) {
       let accepted: SearchState["results"] | undefined;
       const selected = useSelectionStore.getState();
@@ -2143,6 +2216,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
   results: [],
   bufferOffset: 0,
   total: 0,
+  _displayEnd: 0,
   loading: false,
   error: null,
   took: null,
@@ -2170,6 +2244,8 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
   _extendForwardInFlight: false,
   _extendBackwardInFlight: false,
   _windowRecovery: null,
+  _terminalStart: null,
+  _terminalEnd: null,
   _lastPrependCount: 0,
   _prependGeneration: 0,
   _arrivingImageIds: new Set(),
@@ -2268,7 +2344,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         set({ _isInitialLoad: false });
       }
       if (get().focusedImageId !== focusedImageId) return;
-      if (get().sortAroundFocusGeneration === genBefore && !discovery) {
+      if (get().sortAroundFocusGeneration === genBefore && !discovery && !get().error) {
         devLog(`[seekToFocused] image ${focusedImageId} not found — clearing focus`);
         set({ focusedImageId: null, _pendingFocusDelta: null, _focusedImageKnownOffset: null });
       }
@@ -2843,12 +2919,13 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
       return;
     }
     const globalEnd = bufferOffset + results.length;
-    if (globalEnd >= total) {
+    if (!canExtendForward()) {
       devLog(`[extendForward] BLOCKED: at end (globalEnd=${globalEnd} >= total=${total}, bufferOffset=${bufferOffset}, results.length=${results.length})`);
       return;
     }
 
     const signal = _rangeAbortController.signal;
+    const orderingRevision = getOrderingRevision();
     set({ _extendForwardInFlight: true });
 
     try {
@@ -2870,7 +2947,10 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         return;
       }
       if (result.hits.length === 0) {
-        set({ _extendForwardInFlight: false });
+        set({ _extendForwardInFlight: false,
+          _terminalEnd: { cursor: endCursor, position: get().bufferOffset + get().results.length,
+            searchGeneration: _searchGeneration, orderingRevision },
+          _windowRecovery: { ...windowRecovery(signal, true), terminal: true } });
         return;
       }
 
@@ -2936,6 +3016,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         return {
           results: newBuffer,
           bufferOffset: newOffset,
+          _displayEnd: Math.max(state._displayEnd, newOffset + newBuffer.length),
           endCursor: newEndCursor,
           startCursor: newStartCursor,
           // Use !== undefined so explicit null (PIT-expiry fallback, audit #21)
@@ -2972,9 +3053,10 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
     cancelBrowseNavigation(get, set);
   },
 
-  cancelWindowMaintenance: () => {
+  cancelWindowMaintenance: (onlyRefill = false) => {
+    if (onlyRefill && _pendingWindowReadSignal !== _rangeAbortController.signal) return;
     cancelWindowReads(get, set);
-    _seekCooldownUntil = Date.now() + SEARCH_FETCH_COOLDOWN_MS;
+    _seekCooldownUntil = onlyRefill ? 0 : Date.now() + SEARCH_FETCH_COOLDOWN_MS;
   },
 
   extendBackward: async () => {
@@ -3003,6 +3085,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
     const fetchCount = Math.min(PAGE_SIZE, bufferOffset);
 
     const signal = _rangeAbortController.signal;
+    const orderingRevision = getOrderingRevision();
     set({ _extendBackwardInFlight: true });
 
     try {
@@ -3052,7 +3135,10 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         };
       }
       if (result.hits.length === 0) {
-        set({ _extendBackwardInFlight: false });
+        set({ _extendBackwardInFlight: false,
+          _terminalStart: { cursor: startCursor, position: get().bufferOffset,
+            searchGeneration: _searchGeneration, orderingRevision },
+          _windowRecovery: { ...windowRecovery(signal, true), terminal: true } });
         return;
       }
 
@@ -3168,7 +3254,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
   queueBrowsePosition: (globalOffset) => {
     const state = get();
     if (state.params.aiQuery) return;
-    const targetOffset = Math.max(0, Math.min(globalOffset, Math.max(0, state.total - 1)));
+    const targetOffset = Math.max(0, Math.min(globalOffset, Math.max(0, getDisplayEnd(state) - 1)));
     const pending = state._browseNavigation;
     if (pending?.targetOffset === targetOffset && !pending.signal.aborted) return;
     const navigation = startBrowseNavigation(state, targetOffset);
@@ -3196,7 +3282,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
     navigation.signal.addEventListener("abort", cancel, { once: true });
   },
 
-  seek: async (globalOffset: number, traceAction: string = "seek", traceInteractionId?: string, purpose = "navigation", restoreFocusIntent?: number) => {
+  seek: async (globalOffset: number, traceAction: string = "seek", traceInteractionId?: string, purpose = "navigation", restoreFocusIntent?: number, orderingAttempts = 1) => {
     if (get().params.aiQuery) {
       set({ _pendingFocusAfterSeek: null });
       return;
@@ -3211,12 +3297,18 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
 
     // Clamp to valid range
     let { total } = get();
-    let clampedOffset = Math.max(0, Math.min(globalOffset, Math.max(0, total - 1)));
+    const displayEnd = getDisplayEnd(get());
+    let clampedOffset = Math.max(0, Math.min(globalOffset, Math.max(0, displayEnd - 1)));
 
     const previousNavigation = get()._browseNavigation;
     const queuedNavigation = previousNavigation?.phase === "queued" &&
       previousNavigation.targetOffset === clampedOffset && !previousNavigation.signal.aborted
       ? previousNavigation : null;
+    const displayCoordinates = purpose === "refill" || queuedNavigation !== null || traceAction === "scrubber-seek";
+    if (displayCoordinates) total = displayEnd;
+    else clampedOffset = Math.max(0, Math.min(globalOffset, Math.max(0, total - 1)));
+    const orderingRevision = getOrderingRevision();
+    const requestedFraction = traceAction === "scrubber-seek" && total > 1 ? globalOffset / (total - 1) : null;
     let navigation = purpose === "navigation" && presentationCurrent()
       ? { ...(queuedNavigation ?? startBrowseNavigation(get(), clampedOffset)), phase: "loading" as const }
       : null;
@@ -3233,7 +3325,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
     if (restoreFocusIntent === undefined && get()._cursorRestore?.signal.aborted) set({ _cursorRestore: null });
     _pendingWindowReadSignal = purpose === "refill" ? signal : null;
 
-    const reuseResidentStart = (pendingFocus?.signal !== undefined || previousNavigation !== null) &&
+    const reuseResidentStart = !hasOrderingUncertainty() && (pendingFocus?.signal !== undefined || previousNavigation !== null) &&
       !navigation?.initialSearchSuperseded && clampedOffset === 0 &&
       get().bufferOffset === 0 && get().results.length > 0;
     if (reuseResidentStart) {
@@ -3282,6 +3374,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
 
     let committed = false;
     const discovery = navigation?.discovery;
+    const acquireBounds = !displayCoordinates && !discovery && hasOrderingUncertainty();
     try {
       let metadata: SearchDiscoveryMetadata | null = null;
       if (discovery) {
@@ -3293,10 +3386,20 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         total = metadata.total;
         params = discovery.phase === "metadata-published" ? frozenParams(discovery.params, get) : discovery.params;
         effectivePitId = discovery.phase === "metadata-published" ? get().pitId : null;
-        const requested = pendingFocus && !pendingFocus.signal && pendingFocus.edge === "last" ? total - 1 : globalOffset;
+        const requested = pendingFocus && !pendingFocus.signal && pendingFocus.edge === "last" ? total - 1
+          : requestedFraction !== null && hasOrderingUncertainty() ? Math.round(requestedFraction * Math.max(0, total - 1)) : globalOffset;
         clampedOffset = Math.max(0, Math.min(requested, Math.max(0, total - 1)));
         navigation = { ...navigation!, targetOffset: clampedOffset };
         set({ _browseNavigation: navigation });
+      } else if (acquireBounds) {
+        total = await dataSource.count(params, signal);
+        if (signal.aborted) return;
+        const requested = pendingFocus?.edge === "last" ? total - 1 : globalOffset;
+        clampedOffset = Math.max(0, Math.min(requested, Math.max(0, total - 1)));
+        if (navigation) {
+          navigation = { ...navigation, targetOffset: clampedOffset };
+          set({ _browseNavigation: navigation });
+        }
       }
       const discoveredState = metadata && discovery
         ? { ...discoveryMetadataState(discovery, metadata), _isInitialLoad: false } : {};
@@ -3319,6 +3422,8 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
       // Track how many backward items were prepended. Used by the reverse-compute
       // to offset scrollTargetIndex past the backward headroom.
       let backwardItemCount = 0;
+      let mapScanStart: SortValues | undefined;
+      let mapScanEnd: SortValues | undefined;
 
       // ---------------------------------------------------------------
       // Fast path: End key — target is within PAGE_SIZE of the end.
@@ -3327,7 +3432,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
       // Without this, the keyword/percentile estimation path may land
       // slightly short of the end and the buffer won't reach total.
       // ---------------------------------------------------------------
-      if (total === 0 && discovery) {
+      if (total === 0 && (discovery || acquireBounds)) {
         result = { hits: [], total: 0, sortValues: [] };
         exactOffset = true;
         skipBackwardFetch = true;
@@ -3391,14 +3496,11 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         } else {
           // --- Parallel forward + backward fetch ---
 
-          // Backward: fetch halfBuffer items before clampedOffset.
-          // The backward cursor is the entry AT the target position — with
-          // reverse: true, search_after returns items strictly before it.
           const skipBackward = clampedOffset < halfBuffer;
           let backwardPromise: Promise<SearchAfterResult | null> | null = null;
 
           if (!skipBackward) {
-            const backwardCursor = posMap.sortValues[clampedOffset];
+            const backwardCursor: SortValues = [...forwardCursor.slice(0, -1), `${forwardCursor.at(-1)}\u0000`];
             if (backwardCursor) {
               backwardPromise = searchAfter(
                 { ...params, length: halfBuffer },
@@ -3419,12 +3521,19 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
           );
 
           // Run in parallel
-          const [forwardResult, backwardResult] = await Promise.all([
+          let [forwardResult, backwardResult] = await Promise.all([
             forwardPromise,
             backwardPromise ?? Promise.resolve(null),
           ]);
 
           if (signal.aborted) return;
+          mapScanStart = backwardResult?.sortValues[0] ?? forwardResult.sortValues[0];
+          mapScanEnd = forwardResult.sortValues.at(-1) ?? backwardResult?.sortValues.at(-1);
+          if (backwardResult?.hits.length) {
+            const merged = mergeIncomingPages([backwardResult, forwardResult]);
+            backwardResult = { ...merged.pages[0], enrichment: undefined };
+            forwardResult = { ...merged.pages[1], enrichment: merged.enrichment };
+          }
 
           // Combine results
           result = backwardResult?.pitId === null ? { ...forwardResult, pitId: null } : forwardResult;
@@ -3964,6 +4073,13 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
       // If this seek was superseded by a newer one, our signal is aborted.
       // Don't overwrite the store with stale results.
       if (signal.aborted) return;
+      if (!displayCoordinates && orderingRevision !== getOrderingRevision()) {
+        if (orderingAttempts === 0) throw new Error("Image ordering changed during navigation. Please try again.");
+        if (pendingFocus && get()._pendingFocusAfterSeek?.signal === signal) {
+          set({ _pendingFocusAfterSeek: { edge: pendingFocus.edge, focusedImageId: pendingFocus.focusedImageId } });
+        }
+        return await get().seek(globalOffset, traceAction, traceInteractionId, purpose, restoreFocusIntent, orderingAttempts - 1);
+      }
 
       // Safety net: all branches above should assign result, but guard
       // against a future edit that introduces a path without assignment.
@@ -3983,7 +4099,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         backwardItemCount = 0;
       }
       if (result.hits.length === 0) {
-        if (discovery) {
+        if (discovery || acquireBounds) {
           finishSearchDiscovery(discovery);
           committed = true;
           set({ ...discoveredState, results: [], total, bufferOffset: 0, imagePositions: new Map(),
@@ -3991,7 +4107,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
             _pendingFocusAfterSeek: null,
             _seekTargetLocalIndex: -1, _seekTargetGlobalIndex: -1, _seekSubRowOffset: 0,
             _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false } });
-          if (discovery.phase === "initial-read") startNewImagesPoll(get, set);
+          if (discovery?.phase === "initial-read") startNewImagesPoll(get, set);
           traceInteraction(traceAction, "t_store_ready", traceInteractionId, { total, targetOffset: clampedOffset });
           return;
         }
@@ -4058,7 +4174,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
           const geometry = getLayoutGeometry();
           if (!("layout" in geometry) || !geometry.window) throw new Error("Window preparation requires supported geometry");
           const computed = geometry.window.prepareSeek({ images: result.hits, bufferOffset: actualOffset,
-            total: discovery ? total : get().total, backwardItemCount, clampedOffset,
+            total: discovery || acquireBounds ? total : get().total, backwardItemCount, clampedOffset,
             scrollTop: scrollEl.scrollTop, clientHeight: scrollEl.clientHeight });
           scrollTargetIndex = computed.scrollTargetIndex;
           _seekSubRowOffset = computed.seekSubRowOffset;
@@ -4070,7 +4186,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
           const geo = requireFixedRowGeometry(getLayoutGeometry());
           // Total is stable within a search session (frozen params) — always
           // use the store's known total (audit F-01).
-          const effectiveTotal = discovery ? total : get().total;
+          const effectiveTotal = discovery || acquireBounds ? total : get().total;
 
           const computed = computeScrollTarget({
             currentScrollTop: scrollEl.scrollTop,
@@ -4118,7 +4234,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         if (discovery) useEnrichmentStore.getState().setEnrichment(result.enrichment);
         else useEnrichmentStore.getState().upsertEnrichment(result.enrichment);
       }
-      const publishedTotal = discovery ? total : get().total;
+      const publishedTotal = discovery || acquireBounds ? total : get().total;
       finishSearchDiscovery(discovery);
       committed = true;
       if (purpose === "refill") _acceptedRefillSearchGeneration = _searchGeneration;
@@ -4130,10 +4246,11 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         // Total is stable within a search session (frozen params) — always
         // use the store's known total (audit F-01).
         total: publishedTotal,
+        _displayEnd: displayCoordinates && !discovery ? Math.max(get()._displayEnd, actualOffset + result.hits.length) : 0,
         loading: hasPendingSearch(get()),
         imagePositions: buildPositions(result.hits, actualOffset),
-        startCursor,
-        endCursor,
+        startCursor: mapScanStart ?? startCursor,
+        endCursor: mapScanEnd ?? endCursor,
         // Use !== undefined so explicit null (PIT-expiry fallback, audit #21)
         // clears the stale PIT instead of preserving it via ??.
         pitId: get().pitId === null ? null : result.pitId !== undefined ? result.pitId : effectivePitId,
@@ -4270,18 +4387,6 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
     if (get().params.aiQuery) return;
     const focusIntent = get()._focusIntent;
 
-    // Without a cursor, fall back to the approximate seek. This covers
-    // old cache entries and images with missing sort fields. Shallow
-    // offsets (<DEEP_SEEK_THRESHOLD) will still work perfectly.
-    if (!cursor) {
-      const work = get().seek(cachedOffset, "seek", undefined, "navigation", focusIntent);
-      const pending = { imageId, generation: _searchGeneration,
-        signal: get()._browseNavigation?.signal ?? _rangeAbortController.signal };
-      set({ _cursorRestore: pending });
-      try { return await work; }
-      finally { if (get()._cursorRestore === pending) set({ _cursorRestore: null }); }
-    }
-
     const { dataSource, params: rawParams, pitId, _pitGeneration } = get();
     const searchGeneration = _searchGeneration;
     const discovery = currentSearchDiscovery(get());
@@ -4312,46 +4417,43 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         params = frozenParams(discovery.params, get);
         effectivePitId = get().pitId;
       }
-      // Steps 1 + 2 are independent — run in parallel.
-      // Step 1: countBefore for exact global offset.
-      // Step 2: Fetch the target image by ID for its hit object + fresh sort values.
-      const savedRank = dataSource.countBefore(params, cursor, signal).then(
-        (offset) => ({ ok: true as const, offset }),
-        (error: unknown) => ({ ok: false as const, error }),
-      );
-      const targetResult = await dataSource.searchAfter(
-        { ...params, ids: imageId, length: 1 },
-        null, null, signal,
-      );
-      if (signal.aborted || _searchGeneration !== searchGeneration) return;
-
-      const targetHit = targetResult.hits[0];
-      if (!targetHit) {
-        if (discovery) return;
-        // Image no longer matches the query — degrade to standalone mode
-        console.warn("[restoreAroundCursor] Image not found in results, falling back");
-        set({ loading: false });
-        return;
+      let buf: BufferAroundImage | null = null;
+      let exactOffset = 0;
+      let retainedTarget: Image | undefined;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const revision = getOrderingRevision();
+        const savedRank = cursor && !hasOrderingUncertainty() ? dataSource.countBefore(params, cursor, signal).then(
+          offset => ({ ok: true as const, offset }),
+          (error: unknown) => ({ ok: false as const, error }),
+        ) : null;
+        const targetResult = await dataSource.searchAfter({ ...params, ids: imageId, length: 1 }, null, null, signal);
+        if (signal.aborted || _searchGeneration !== searchGeneration) return;
+        if (revision !== getOrderingRevision()) continue;
+        const targetHit = targetResult.hits.find(image => image.id === imageId);
+        if (!targetHit) {
+          if (!discovery) set({ loading: false });
+          return;
+        }
+        if (retainedTarget && acceptImageRead(targetHit, retainedTarget) !== targetHit) throw new Error("Current image projection is unavailable");
+        retainedTarget = targetHit;
+        const targetSortValues = targetResult.sortValues[targetResult.hits.indexOf(targetHit)];
+        if (!targetSortValues) throw new Error("Image position is unavailable");
+        const tupleUnchanged = cursor && targetSortValues.length === cursor.length
+          && targetSortValues.every((value, index) => value === cursor[index]);
+        const selectedRank = tupleUnchanged && savedRank ? await savedRank
+          : { ok: true as const, offset: await dataSource.countBefore(params, targetSortValues, signal) };
+        if (signal.aborted || _searchGeneration !== searchGeneration) return;
+        if (revision !== getOrderingRevision()) continue;
+        if (!selectedRank.ok) throw selectedRank.error;
+        exactOffset = selectedRank.offset;
+        buf = await _loadBufferAroundImage(targetHit, targetSortValues, exactOffset,
+          params, effectivePitId, signal, createExpiryAwareSearchAfter(dataSource, get, set), targetResult.enrichment?.get(targetHit.id));
+        retainedTarget = buf?.combinedHits.find(image => image?.id === imageId);
+        if (signal.aborted || _searchGeneration !== searchGeneration) return;
+        if (revision === getOrderingRevision()) break;
+        buf = null;
       }
-
-      // Use fresh sort values if available, fall back to cached cursor
-      const targetSortValues = targetResult.sortValues[0] ?? cursor;
-      const tupleUnchanged = targetSortValues.length === cursor.length
-        && targetSortValues.every((value, index) => value === cursor[index]);
-      const selectedRank = tupleUnchanged
-        ? await savedRank
-        : { ok: true as const, offset: await dataSource.countBefore(params, targetSortValues, signal) };
-      if (signal.aborted || _searchGeneration !== searchGeneration) return;
-      if (!selectedRank.ok) throw selectedRank.error;
-      const exactOffset = selectedRank.offset;
-
-      // Step 3: Load a buffer centered on the target image
-      const buf = await _loadBufferAroundImage(
-        targetHit, targetSortValues, exactOffset,
-        params, effectivePitId, signal, createExpiryAwareSearchAfter(dataSource, get, set),
-        targetResult.enrichment?.get(targetHit.id),
-      );
-      if (!buf || signal.aborted || _searchGeneration !== searchGeneration) return;
+      if (!buf) throw new Error("Image ordering changed during restoration. Please try again.");
 
       _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
 
@@ -4388,7 +4490,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
       });
 
       devLog(
-        `[restoreAroundCursor] OK: imageId=${imageId}, exactOffset=${exactOffset}, ` +
+        `[restoreAroundCursor] OK: imageId=${imageId}, exactOffset=${exactOffset}, hint=${cachedOffset}, ` +
         `bufferStart=${buf.bufferStart}, targetLocal=${buf.targetLocalIndex}, ` +
         `hits=${buf.combinedHits.length}`,
       );
@@ -4400,16 +4502,8 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
     } catch (e) {
       if (signal.aborted || _searchGeneration !== searchGeneration) return;
       if (e instanceof DOMException && e.name === "AbortError") return;
-      console.warn("[restoreAroundCursor] Failed, falling back to seek:", e);
-      // Fall back to approximate seek on any error
-      set({ loading: false });
-      try {
-        const work = get().seek(cachedOffset, "seek", undefined, "navigation", focusIntent);
-        cursorRestore.signal = get()._browseNavigation?.signal ?? _rangeAbortController.signal;
-        return await work;
-      } catch {
-        // Both paths failed — standalone mode
-      }
+      console.warn("[restoreAroundCursor] Identity restoration failed:", e);
+      set({ loading: false, error: e instanceof Error ? e.message : "Image position is unavailable" });
     } finally {
       await finishAbandonedDiscovery(discovery ?? undefined, signal, imageId, get, set);
       if (get()._cursorRestore === cursorRestore) set({ _cursorRestore: null });
@@ -4643,6 +4737,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
 
   fetchSortDistribution: () => {
     const { dataSource, params, _sortDistCacheKey } = get();
+    const orderingRevision = getOrderingRevision();
 
     // Check cache — skip if already fetched for this query + sort
     const key = sortDistCacheKey(params);
@@ -4674,7 +4769,8 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
           );
         }
 
-        if (controller.signal.aborted || _sortDistRequest?.controller !== controller || sortDistCacheKey(get().params) !== key) return;
+        if (controller.signal.aborted || _sortDistRequest?.controller !== controller || sortDistCacheKey(get().params) !== key
+          || orderingRevision !== getOrderingRevision()) return;
 
         set({ sortDistribution: dist, _sortDistCacheKey: key });
       } catch (error) {
@@ -4690,6 +4786,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
 
   fetchNullZoneDistribution: () => {
     const { dataSource, params, sortDistribution, _nullZoneDistCacheKey } = get();
+    const orderingRevision = getOrderingRevision();
 
     // Only fetch if there's a null zone (coveredCount < total)
     if (!sortDistribution || sortDistribution.coveredCount >= get().total) return Promise.resolve();
@@ -4719,7 +4816,8 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
           params, "uploadTime", direction, controller.signal, primaryField,
         );
 
-        if (controller.signal.aborted || _nullZoneDistRequest?.controller !== controller || nullZoneDistCacheKey(get().params) !== key) return;
+        if (controller.signal.aborted || _nullZoneDistRequest?.controller !== controller || nullZoneDistCacheKey(get().params) !== key
+          || orderingRevision !== getOrderingRevision()) return;
 
         if (dist) {
           const nullZoneSize = get().total - (get().sortDistribution?.coveredCount ?? 0);

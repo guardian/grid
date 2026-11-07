@@ -119,14 +119,14 @@ export class ApiDataSource implements ImageDataSource {
     };
   }
 
-  async count(params: SearchParams): Promise<number> {
-    return (await this.countWithTickers(params)).count;
+  async count(params: SearchParams, signal?: AbortSignal): Promise<number> {
+    return (await this.countWithTickers(params, signal)).count;
   }
 
-  async countWithTickers(params: SearchParams): Promise<CountWithTickersResult> {
+  async countWithTickers(params: SearchParams, signal?: AbortSignal): Promise<CountWithTickersResult> {
     const body = buildReadBody(params);
     delete body.sort;
-    const json = await postImageRead("/images/count", body) as CountResponse;
+    const json = await postImageRead("/images/count", body, signal) as CountResponse;
     return { count: json.total, tickerCounts: decodeTickerCounts(json.tickerCounts) };
   }
 

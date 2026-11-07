@@ -91,6 +91,22 @@ function getThumbTop(container: HTMLElement): number | null {
 // ---------------------------------------------------------------------------
 
 describe("B17 scrubber navigation intent", () => {
+  it.each([1000, 65000])("uses discovered extent without changing the admitted %i mode or count", total => {
+    const scrollContainer = document.createElement("div");
+    Object.defineProperties(scrollContainer, { scrollHeight: { value: 320000 }, clientHeight: { value: 600 } });
+    scrolling.container = scrollContainer;
+    const onBrowsePosition = vi.fn();
+    render(<Scrubber {...seekModeProps({ total, displayEnd: total + 200, currentPosition: total + 50,
+      bufferLength: 1000, twoTier: total > 1000, onBrowsePosition })} />);
+    const slider = screen.getByRole("slider");
+    expect(slider.getAttribute("data-scrubber-mode")).toBe(total > 1000 ? "indexed" : "buffer");
+    expect(slider.getAttribute("aria-valuemax")).toBe(String(total + 199));
+    expect(slider.getAttribute("aria-valuetext")).toBe((total + 51).toLocaleString());
+    fireEvent.wheel(slider, { deltaY: 500000 });
+    if (total > 1000) expect(onBrowsePosition).toHaveBeenCalledExactlyOnceWith(total + 150);
+    else expect(onBrowsePosition).not.toHaveBeenCalled();
+  });
+
   it.each(["buffer", "indexed", "seek"] as const)("classifies %s wheel input before forwarding scroll", (regime) => {
     const container = document.createElement("div");
     Object.defineProperties(container, { scrollHeight: { value: 320000 }, clientHeight: { value: 600 } });

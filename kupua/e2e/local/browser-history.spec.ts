@@ -274,7 +274,7 @@ test.describe("B11 native Back retires Home presentation", () => {
             const cell = container.querySelector<HTMLElement>(`[data-image-id="${CSS.escape(identity)}"]`)!;
             const logical = Number(track.getAttribute("aria-valuenow"));
             const rect = cell.getBoundingClientRect();
-            const text = Array.from(tooltip.childNodes).find(node => node.nodeType === Node.TEXT_NODE)?.textContent?.trim();
+            const text = tooltip.querySelector("[data-position-label]")?.textContent?.trim();
             const observed = { logical, thumbTop: thumb.getBoundingClientRect().top - track.getBoundingClientRect().top,
               tooltipTop: tooltip.getBoundingClientRect().top - track.getBoundingClientRect().top, text,
               deltaTop: rect.top - departure.top, deltaLeft: rect.left - departure.left };

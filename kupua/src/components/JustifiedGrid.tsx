@@ -16,7 +16,8 @@ const commitLayout: NonNullable<ImageGridProps["onLayoutCommit"]> = layout => {
   if (RESIDENT_PREVIEW_ENABLED) return;
   const snapshot = layout as WindowedJustifiedLayout;
   windowSnapshot = { origin: snapshot.origin, searchKey: snapshot.searchKey,
-    indexed: snapshot.indexed, dimensions: snapshot.dimensions };
+    indexed: snapshot.indexed, dimensions: snapshot.dimensions,
+    terminalEnd: snapshot.terminalEnd, retainedEnds: snapshot.retainedEnds };
 };
 
 /** Mount with real container geometry so an admitted restore never consumes a guessed width. */

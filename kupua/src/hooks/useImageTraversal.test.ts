@@ -125,6 +125,46 @@ describe("traversal through duplicate-only extension", () => {
     vi.restoreAllMocks();
   });
 
+  it.each([{ direction: "forward", retry: false }, { direction: "backward", retry: false }, { direction: "forward", retry: true }] as const)("Unit B settles $direction terminal demand and preserves a later explicit retry=$retry", async ({ direction, retry }) => {
+    const source = new MockDataSource(10_000);
+    const params = { orderBy: "-uploadTime", nonFree: "true" };
+    const initial = await source.searchAfter({ ...params, offset: 2000, length: 200 }, null);
+    const boundary = (direction === "forward" ? initial.sortValues.at(-1) : initial.sortValues[0])!;
+    const later = await source.searchAfter({ ...params, length: 200 }, boundary, null, undefined, direction === "backward");
+    const read = vi.spyOn(source, "searchAfter").mockResolvedValueOnce({ hits: [], sortValues: [], total: 0 }).mockResolvedValue(later);
+    useSearchStore.setState({ ...useSearchStore.getInitialState(), dataSource: source, params,
+      results: initial.hits, bufferOffset: 2000, total: 10_000,
+      imagePositions: new Map(initial.hits.map((image, index) => [image.id, 2000 + index])),
+      startCursor: initial.sortValues[0], endCursor: initial.sortValues.at(-1)!,
+    }, true);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    useSearchStore.getState().abortExtends();
+    vi.setSystemTime(Date.now() + 2100);
+    const navigate = vi.fn();
+    const origin = direction === "forward" ? initial.hits.at(-1)!.id : initial.hits[0].id;
+    const view = renderHook(() => useImageTraversal(origin, navigate));
+    await act(async () => {
+      if (direction === "forward") view.result.current.goToNext();
+      else view.result.current.goToPrev();
+    });
+    expect(read).toHaveBeenCalledOnce();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(useSearchStore.getState().total).toBe(10_000);
+    await act(async () => {
+      if (retry) view.result.current.goToNext();
+      else if (direction === "forward") await useSearchStore.getState().extendForward();
+      else await useSearchStore.getState().extendBackward();
+    });
+    expect(navigate).toHaveBeenCalledTimes(retry ? 1 : 0);
+    if (!retry) act(() => {
+      if (direction === "forward") view.result.current.goToNext();
+      else view.result.current.goToPrev();
+    });
+    expect(navigate).toHaveBeenCalledOnce();
+    expect(navigate.mock.calls[0][0].id).toBe(direction === "forward" ? later.hits[0].id : later.hits.at(-1)!.id);
+    view.unmount();
+  });
+
   it.each([
     { direction: "forward", duringCooldown: false, depart: false, repeat: false },
     { direction: "backward", duringCooldown: false, depart: false, repeat: false },

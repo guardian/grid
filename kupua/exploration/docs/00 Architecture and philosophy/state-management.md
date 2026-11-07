@@ -31,7 +31,7 @@ by transition, rather than promising identical placement everywhere.
 | Browsing data and work | [Search store](../../../src/stores/search-store.ts): results, global buffer offset, total, ID-to-position lookup, cursors, focus, seek/restore intent and asynchronous ownership. It also contains polling, facet caches and sort distributions; it is not a narrowly isolated result cache. |
 | Selection and summaries | [Selection store](../../../src/stores/selection-store.ts): selected IDs, range anchor, bounded metadata cache, hydration and reconciliation. Membership does not depend on resident rows. Sort/density changes preserve it; new search/Home clears it by default. |
 | Server fields and image capabilities | [Enrichment store](../../../src/stores/enrichment-store.ts): per-image API overlays, including resource links/actions, for committed search results. Standalone detail owns its overlay; selection reads attach theirs to cached image objects. |
-| Simulated editing and freshness | [Label operations](../../../src/lib/label-operation.ts) own immutable targets, transport receipts and injected bounded observation. [Touched-ID facts](../../../src/lib/image-read-freshness.ts) retain issuance fences, metadata floors and authority ownership, not image bodies. Normal editing dispatches neither commands nor observation reads. |
+| Simulated editing and freshness | [Label operations](../../../src/lib/label-operation.ts) own immutable targets, transport receipts and injected bounded observation. [Touched-ID facts](../../../src/lib/image-read-freshness.ts) retain issuance fences, metadata comparison evidence and authority ownership, not complete images. Normal editing dispatches neither commands nor observation reads. |
 | General user permissions | [Grid API instance](../../../src/lib/grid-api-instance.ts): one on-demand, page-lifetime permission read in API mode, shared between callers. No separate store, identity persistence or startup request; these facts do not replace per-image capabilities or server authorization. |
 | Viewport and presentation | [Data window](../../../src/hooks/useDataWindow.ts) exposes indexed access and visible-range reporting; [scroll effects](../../../src/hooks/useScrollEffects.ts) applies placement to the virtualizer/DOM. Components and hooks retain local disclosure, gesture and pending-presentation state. |
 
@@ -105,15 +105,44 @@ before fake dispatch. Commands and observation settle independently: a held comm
 does not block verified partial publication, and unknown outcomes are never promoted
 to acknowledgements or replayed. Document-lifetime protection retains at most 1,000
 distinct admitted IDs; admission refuses overflow rather than evicting facts.
+Each fact retains an exact serialized comparison of metadata, userMetadata and
+usageRights, permitting identical equal-version re-entry after body eviction while
+rejecting conflicts. Retention and admission-time serialization depend on metadata
+size: the identity cap is not a byte bound.
 There is no new polling or buffer scan without retained fences, no permanent
 page-scanning subscription and no rank/map refresh attached to metadata publication.
-Coordinate reacquisition and unavailable-slot policy remain separate work.
+An ordering revision advances at dispatch and accepted metadata changes. Exact
+acquisitions capture it without cancelling cursor work or clearing display positions.
+Acknowledgement, matching labels and observer expiry do not settle ordering.
 
 Ordinary searches use three result-count regimes: small sets fill to residency,
 intermediate sets use global virtual coordinates with a background position map,
 and large sets seek between bounded windows. The map accelerates lookup; it is
 not permission to render. AI results instead form a finite loaded pool with local
 sorting. These are different data strategies behind the browsing experience.
+
+Display positions, raw response scan frontiers and current rank have distinct roles.
+Stale maps guide indexed browsing; exact identity actions resolve current query
+tuples and rank. Page admission pairs bodies with response tuples, handles negative
+authority independently and captures raw frontiers before filtering. Response tuples
+have a 2,000-entry cache plus an anchor, independent of image-body lifetimes.
+
+An exact acquisition can restart once per identity after an ordering revision,
+under the same request owner; neighbour fallback is separately bounded. Count reads
+carry that owner's cancellation to both client transports. Deliberate ordinal/edge
+actions publish bounds, data and placement together, while scrubber and queued
+browsing positions retain display intent. [Range selection](05-selections.md#6-range-selection--never-silently-drop)
+verifies endpoints under its own membership and cancellation owner.
+
+Under ordering uncertainty, cursor continuation can discover matches beyond a
+retained count without admitting newer uploads. Accepted rows raise a scalar display
+high-water mark, preserved across eviction and browsing refills until a fresh
+coordinate acquisition. The admitted count still selects the tier. Two terminal
+facts, qualified by search, revision, cursor and display boundary, settle raw-empty
+traversal without inferring deletion or shrinking indexed space. Later explicit
+demand can try again; PIT-less pages do not promise exact enumeration.
+[Scroll architecture](03-scroll-architecture.md#normal-scrolling-all-tiers) owns
+extent presentation, edge reporting and retained Justified packing.
 
 Cancellation is consequently not one global reset. A density change may cancel a
 view-owned refill or obsolete placement while a useful search or user-requested

@@ -13,6 +13,13 @@ import { MockDataSource } from "@/dal/mock-data-source";
 import { ElasticsearchDataSource } from "@/dal/es-adapter";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
 import { SCROLL_MODE_THRESHOLD, POSITION_MAP_THRESHOLD } from "@/constants/tuning";
+import { Buffer } from "node:buffer";
+import { ApiDataSource } from "@/dal/api-data-source";
+import type { SortValues } from "@/dal/types";
+import { buildSortClause, parseSortField } from "@/dal/adapters/elasticsearch/sort-builders";
+import { acceptObservedImages, admitLabelObservation, captureImageRead, isLabelAuthorityCurrent, recordLabelOutcome, releaseLabelObservation, resetImageFreshnessForTests, stampImageRead } from "@/lib/image-read-freshness";
+import { useEnrichmentStore } from "./enrichment-store";
+import { buildSearchKey, getRetainedSortValues } from "@/lib/image-offset-cache";
 
 const traceMocks = vi.hoisted(() => ({
   beginTraceInteraction: vi.fn(() => "position-map:test:1"),
@@ -97,6 +104,218 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("position map — background fetch lifecycle", () => {
+  it("Unit B keeps a map held across dispatch as a browsing hint, never as current identity rank", async () => {
+    resetImageFreshnessForTests();
+    resetStore(30_000);
+    const map = await mock.fetchPositionIndex(state().params, new AbortController().signal);
+    let release!: (value: typeof map) => void;
+    const held = new Promise<typeof map>(resolve => { release = resolve; });
+    const collect = vi.spyOn(mock, "fetchPositionIndex").mockReturnValue(held);
+    await actions().search();
+    expect(state().positionMap).toBeNull();
+    const rank = vi.spyOn(mock, "countBefore").mockResolvedValue(14_999);
+    const operation = admitLabelObservation(["img-100"]);
+    if (typeof operation !== "number") throw new Error(operation);
+    recordLabelOutcome(operation, "img-100", "unknown");
+    releaseLabelObservation(operation);
+    try {
+      release(map);
+      await waitFor(() => state().positionMap !== null);
+      const pages = vi.spyOn(mock, "searchAfter");
+      await actions().seek(15_000, "seek", undefined, "refill");
+      expect(pages).toHaveBeenCalledTimes(2);
+      expect(rank).not.toHaveBeenCalled();
+      actions().setFocusedImageId("img-15000");
+      await actions().seekToFocused();
+      expect(rank).toHaveBeenCalledOnce();
+      expect(state().imagePositions.get("img-15000")).toBe(14_999);
+      expect(state().positionMap).toBe(map);
+      expect(collect).toHaveBeenCalledOnce();
+      const retained = state().results;
+      rank.mockRejectedValue(new Error("Current rank unavailable"));
+      await actions().seekToFocused();
+      expect(state().error).toBe("Image position is unavailable");
+      expect(state().focusedImageId).toBe("img-15000");
+      expect(state().results).toBe(retained);
+    } finally { release(map); resetImageFreshnessForTests(); vi.restoreAllMocks(); }
+  });
+
+  it.each(["primary dispatch", "null projection"])("Unit B fences held %s distribution authority", async scenario => {
+    resetImageFreshnessForTests();
+    resetStore(10);
+    const projection = scenario === "null projection";
+    const [image] = await mock.getByIds(["img-0"]);
+    const begin = () => {
+      const operation = admitLabelObservation([image.id]);
+      if (typeof operation !== "number") throw new Error(operation);
+      recordLabelOutcome(operation, image.id, "unknown");
+      releaseLabelObservation(operation);
+      return operation;
+    };
+    const operation = projection ? begin() : undefined;
+    const distribution = await mock.getDateDistribution(state().params, "uploadTime", "desc");
+    let release!: (value: typeof distribution) => void;
+    const held = new Promise<typeof distribution>(resolve => { release = resolve; });
+    vi.spyOn(mock, "getDateDistribution").mockReturnValue(held);
+    if (projection) useSearchStore.setState({ params: { ...state().params, orderBy: "lastModified" }, total: 10,
+      sortDistribution: { buckets: [], coveredCount: 5 }, nullZoneDistribution: null, _nullZoneDistCacheKey: null });
+    const previous = state();
+    const pending = projection ? actions().fetchNullZoneDistribution() : actions().fetchSortDistribution();
+    try {
+      await flush();
+      if (operation !== undefined) {
+        const current = { ...image, userMetadata: { labels: ["reviewed"], lastModified: "2026-11-07T00:00:00Z" } };
+        stampImageRead(current, undefined, captureImageRead(), "lean");
+        acceptObservedImages([current], operation);
+      } else begin();
+      release(distribution);
+      await pending;
+      expect(state().sortDistribution).toBe(previous.sortDistribution);
+      expect(state().nullZoneDistribution).toBe(previous.nullZoneDistribution);
+      expect(state()._sortDistCacheKey).toBe(previous._sortDistCacheKey);
+      expect(state()._nullZoneDistCacheKey).toBe(previous._nullZoneDistCacheKey);
+    } finally { release(distribution); await pending; resetImageFreshnessForTests(); vi.restoreAllMocks(); }
+  });
+
+  it.each(["delayed label", "projection between pages", "reverse projection between pages", "near null edge", "all null", "prefix IDs"])("Unit B joins parallel response candidates for %s", async scenario => {
+    resetImageFreshnessForTests();
+    resetStore(2);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const epoch = Date.parse("2026-11-07T00:00:00Z");
+    const total = 30_000;
+    const target = scenario === "near null edge" ? 16_040 : 15_000;
+    const idAt = (ordinal: number) => scenario === "prefix IDs" && ordinal === 15_000
+      ? "image-14999\u0000" : `image-${String(ordinal).padStart(5, "0")}`;
+    const [template] = await mock.getByIds(["img-0"]);
+    let projected = false;
+    const crossing = scenario.includes("between pages");
+    const reverseCrossing = scenario === "reverse projection between pages";
+    const touched = crossing ? 14_950 : 1000;
+    const tupleAt = (ordinal: number): SortValues => {
+      const primary = scenario === "all null" || (scenario === "near null edge" && ordinal >= 16_000) ? null
+        : reverseCrossing ? ordinal === touched ? epoch + (projected ? 1000 : 0) : epoch + (ordinal <= 15_050 ? 1000 : 0)
+        : crossing ? ordinal === touched ? epoch + (projected ? 500 : 0) : epoch + (ordinal >= target ? 1000 : 0)
+        : scenario === "delayed label" ? ordinal === 1000 ? epoch + (projected ? 500 : -1000) : epoch + (ordinal >= target ? 1000 : 0)
+        : epoch;
+      return [primary, epoch - 5000, idAt(ordinal)];
+    };
+    const params = { ...state().params, orderBy: reverseCrossing ? "-lastModified" : "lastModified" };
+    const clauses = buildSortClause(params.orderBy);
+    const compare = (left: SortValues, right: SortValues) => {
+      for (let index = 0; index < right.length; index++) {
+        const before = left[index];
+        const after = right[index];
+        if (before === after) continue;
+        if (before === null) return 1;
+        if (after === null) return -1;
+        const difference = typeof before === "string" && typeof after === "string"
+          ? Buffer.compare(Buffer.from(before), Buffer.from(after)) : Number(before) - Number(after);
+        if (difference) return difference * (parseSortField(clauses[index]).direction === "desc" ? -1 : 1);
+      }
+      return 0;
+    };
+    const ordinals = Array.from({ length: total }, (_, ordinal) => ordinal);
+    const previousOrder = [...ordinals].sort((left, right) => compare(tupleAt(left), tupleAt(right)));
+    const map = { length: total, ids: previousOrder.map(idAt), sortValues: previousOrder.map(tupleAt) };
+    let generated = 0;
+    const imageAt = (ordinal: number) => {
+      generated++;
+      const tuple = tupleAt(ordinal);
+      return { ...template, id: idAt(ordinal), uploadTime: new Date(epoch - 5000).toISOString(),
+        lastModified: tuple[0] === null ? undefined : new Date(Number(tuple[0])).toISOString(),
+        userMetadata: { labels: projected && ordinal === touched ? ["reviewed"] : [],
+          lastModified: new Date(epoch + (projected && ordinal === touched ? reverseCrossing ? 1000 : 500 : -1000)).toISOString() } };
+    };
+    const initial = previousOrder.slice(target - 1000, target - 800).map(imageAt);
+    if (scenario === "delayed label" || crossing) {
+      const operation = admitLabelObservation([idAt(touched)]);
+      if (typeof operation !== "number") throw new Error(operation);
+      recordLabelOutcome(operation, idAt(touched), "unknown");
+      releaseLabelObservation(operation);
+    }
+    state().abortExtends();
+    useSearchStore.setState({ dataSource: new ApiDataSource(), params, total, results: initial, bufferOffset: target - 1000,
+      imagePositions: new Map(initial.map((image, index) => [image.id, target - 1000 + index])),
+      startCursor: map.sortValues[target - 1000], endCursor: map.sortValues[target - 801], positionMap: map });
+    projected = scenario === "delayed label";
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let releaseBackward!: () => void;
+    const backwardSnapshot = new Promise<void>(resolve => { releaseBackward = resolve; });
+    const transport = vi.fn(async (url: string, init: RequestInit) => {
+      if (url !== "/api/images/search-after") throw new Error(`Unexpected transport: ${url}`);
+      const body = JSON.parse(String(init.body)) as { length: number; sortValues?: SortValues; reverse: boolean };
+      if (reverseCrossing && body.reverse) await backwardSnapshot;
+      const order = [...ordinals].sort((left, right) => compare(tupleAt(left), tupleAt(right)));
+      const matching = order.filter(ordinal => {
+        const tuple = tupleAt(ordinal);
+        if (!body.sortValues) return body.reverse && tuple[0] !== null;
+        if (body.sortValues[0] === null && tuple[0] !== null) return false;
+        const difference = compare(tuple, body.sortValues);
+        return body.reverse ? difference < 0 : difference > 0;
+      });
+      const page = body.reverse ? matching.slice(-body.length) : matching.slice(0, body.length);
+      const payload = { total: 0, sortValues: page.map(tupleAt), data: page.map(ordinal => {
+        const image = imageAt(ordinal);
+        return { links: image.id === idAt(touched) && !(reverseCrossing && !image.userMetadata.labels.includes("reviewed"))
+          ? [{ rel: "edits", href: "https://metadata.example.test/metadata/fixture" }] : [],
+        data: { ...image, userMetadata: { data: { lastModified: image.userMetadata.lastModified,
+          archived: { data: false }, metadata: { data: {} }, usageRights: {}, photoshoot: {},
+          labels: { data: image.userMetadata.labels.map(label => ({ data: label })) },
+        } } } };
+      }) };
+      if (crossing && Boolean(body.reverse) !== reverseCrossing) { projected = true; releaseBackward(); }
+      await held;
+      init.signal?.throwIfAborted();
+      return new Response(JSON.stringify(payload));
+    });
+    vi.stubGlobal("fetch", transport);
+    const pending = state().seek(target, "seek", undefined, "refill");
+    try {
+      await flush();
+      expect(transport).toHaveBeenCalledTimes(2);
+      expect(state().results).toBe(initial);
+      release();
+      await pending;
+      const backwardCount = scenario === "near null edge" ? 40 : crossing && !reverseCrossing ? 99 : 100;
+      const expected = scenario === "delayed label"
+        ? [...previousOrder.slice(target - 100, target), 1000, ...previousOrder.slice(target, target + 199)]
+        : reverseCrossing ? Array.from({ length: 299 }, (_, index) => 14_901 + index)
+        : crossing ? [...previousOrder.slice(target - 100, target).filter(ordinal => ordinal !== touched), touched, ...previousOrder.slice(target, target + 199)]
+        : previousOrder.slice(target - backwardCount, target + 200);
+      expect(state().error).toBeNull();
+      expect(state().results.map(image => image?.id)).toEqual(expected.map(idAt));
+      expect(state().imagePositions.size).toBe(expected.length);
+      expect(state().bufferOffset).toBe(target - backwardCount);
+      expect(state().total).toBe(total);
+      expect(state().positionMap).toBe(map);
+      expect(state().startCursor).toEqual(tupleAt(expected[0]));
+      expect(state().endCursor).toEqual(tupleAt(expected.at(-1)!));
+      expect(generated).toBe(scenario === "near null edge" ? 440 : 500);
+      if (crossing) {
+        expect(state().results.find(image => image?.id === idAt(touched))?.userMetadata?.labels).toEqual(["reviewed"]);
+        expect(getRetainedSortValues(idAt(touched), buildSearchKey(params))).toEqual(tupleAt(touched));
+        const resource = useEnrichmentStore.getState().data.get(idAt(touched))?.resource;
+        expect(resource?.links).toEqual(reverseCrossing ? [] : [{ rel: "edits", href: "https://metadata.example.test/metadata/fixture" }]);
+        expect(resource && isLabelAuthorityCurrent(idAt(touched), resource)).toBe(!reverseCrossing);
+      }
+      if (scenario === "near null edge") {
+        vi.setSystemTime(Date.now() + 2100);
+        await state().extendBackward();
+        expect(transport).toHaveBeenCalledTimes(4);
+        expect(state().results.map(image => image?.id)).toEqual(previousOrder.slice(15_800, 16_240).map(idAt));
+      }
+    } finally {
+      release(); releaseBackward();
+      await pending;
+      state().abortExtends();
+      resetImageFreshnessForTests();
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+      vi.useRealTimers();
+    }
+  });
+
   it.each(["timeout", "shards"] as const)("KUP-009 discards an explicitly incomplete %s map and keeps deep no-map navigation usable", async (kind) => {
     resetStore(30_000);
     vi.stubGlobal("scheduler", { yield: () => Promise.resolve() });

@@ -234,6 +234,26 @@ describe("boundary geometry lifetime research", () => {
 });
 
 describe("bounded windowed justified geometry", () => {
+  it.each([1000, 65000])("keeps existing tail boxes when continuation grows beyond %i", total => {
+    const indexed = total > 1000;
+    const offset = total - 1000;
+    const before = build(corpus.slice(0, 1000), 1120, context(indexed, offset, total));
+    let previous = before;
+    for (const added of [1, 201]) {
+      const after = build(corpus.slice(added, added + 1000), 1120, context(indexed, offset + added, total + added), previous);
+      const oldAnchor = before.getBox(indexed ? offset + 900 : 900)!;
+      const newAnchor = after.getBox(indexed ? offset + 900 : 900 - added)!;
+      for (let index = 900; index < 1000; index++) {
+        const oldBox = before.getBox(indexed ? offset + index : index)!;
+        const newBox = after.getBox(indexed ? offset + index : index - added)!;
+        expect({ ...newBox, top: 0 }).toEqual({ ...oldBox, top: 0 });
+        expect(newBox.top - newAnchor.top).toBeCloseTo(oldBox.top - oldAnchor.top, 6);
+      }
+      expect(after.window.getItemId(indexed ? total + added - 1 : 999)).toBe(`photo-${999 + added}`);
+      previous = after;
+    }
+  });
+
   it.each([true, false])("fills artificial block-ending rows without cropping or changing order (indexed=%s)", indexed => {
     for (const width of [320, 390, 900, 1120, 1720]) {
       const model = build(seamCorpus.slice(0, 96), width, context(indexed, 0));

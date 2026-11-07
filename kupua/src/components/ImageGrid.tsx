@@ -33,7 +33,7 @@ import { imageRatio, type ImageLayout } from "@/lib/justified-layout";
 import type { LayoutWindow } from "@/lib/windowed-justified-layout";
 import { getFixedRowCount, getItemColumn, getItemLayoutRow, getLayoutRow, type WindowGeometry } from "@/lib/scroll-geometry-ref";
 import { RESIDENT_PREVIEW_ENABLED } from "@/lib/resident-preview";
-import { useSearchStore } from "@/stores/search-store";
+import { getTerminalDirection, useSearchStore } from "@/stores/search-store";
 import { useSelectionStore } from "@/stores/selection-store";
 import { useCollectionStore, buildColourMap } from "@/stores/collection-store";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
@@ -149,6 +149,7 @@ function GridThumbnail(props: Omit<ImgHTMLAttributes<HTMLImageElement>, "loading
 
 interface GridCellProps {
   image: Image | undefined;
+  terminal?: boolean;
   isFocused: boolean;
   cellWidth: number;
   imageOnlyHeight?: number;
@@ -178,6 +179,7 @@ interface GridCellProps {
 
 const GridCell = memo(function GridCell({
   image,
+  terminal,
   isFocused,
   cellWidth,
   imageOnlyHeight,
@@ -207,7 +209,9 @@ const GridCell = memo(function GridCell({
     // Placeholder skeleton — no Tickbox because there is no image identity.
     return (
       <div
-        className="shrink-0 bg-grid-cell/30 rounded"
+        className={terminal ? "shrink-0" : "shrink-0 bg-grid-cell/30 rounded"}
+        aria-hidden={terminal || undefined}
+        data-loading-placeholder={!terminal || undefined}
         style={{ width: cellWidth, height: imageOnlyHeight ?? cellHeight }}
       />
     );
@@ -446,7 +450,7 @@ export interface ImageGridProps {
 export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialWidth = 0 }: ImageGridProps = {}) {
   const justified = layoutFactory !== undefined;
   const {
-    results, total, bufferOffset, virtualizerCount, loadMore, seek,
+    results, total, displayEnd, bufferOffset, virtualizerCount, loadMore, seek,
     focusedImageId, setFocusedImageId,
     reportVisibleRange, getImage, findImageIndex,
     twoTier,
@@ -497,9 +501,9 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
         (results.length > 0 && results.length !== total))) {
       throw new Error("Justified preview requires the complete resident fixture");
     }
-    return layoutFactory(results, containerWidth, { bufferOffset, total, indexed: twoTier, searchKey: layoutSearchKey, rowScale },
+    return layoutFactory(results, containerWidth, { bufferOffset, total: displayEnd, indexed: twoTier, searchKey: layoutSearchKey, rowScale },
       committedLayout.current);
-  }, [layoutFactory, geometryIdentity, bufferOffset, twoTier, total, containerWidth, layoutSearchKey, rowScale]);
+  }, [layoutFactory, geometryIdentity, bufferOffset, twoTier, total, displayEnd, containerWidth, layoutSearchKey, rowScale]);
   useLayoutEffect(() => {
     committedLayout.current = justifiedLayout;
     if (justifiedLayout) onLayoutCommit?.(justifiedLayout);
@@ -1074,6 +1078,14 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
 
   const virtualItems = virtualizer.getVirtualItems();
   const visibleRange = virtualizer.range;
+  const terminalStart = getTerminalDirection(bufferOffset - 1) ? bufferOffset : null;
+  const terminalEnd = getTerminalDirection(bufferOffset + results.length) ? bufferOffset + results.length : null;
+  const firstVisible = visibleRange
+    ? (justifiedLayout?.getRow(visibleRange.startIndex) ?? getLayoutRow(fixedGeometry, visibleRange.startIndex)).firstItemIndex + (twoTier ? 0 : bufferOffset) : -1;
+  const lastVisible = visibleRange
+    ? (justifiedLayout?.getRow(visibleRange.endIndex) ?? getLayoutRow(fixedGeometry, visibleRange.endIndex)).lastItemIndex + (twoTier ? 0 : bufferOffset) : -1;
+  const terminalView = visibleRange && terminalStart !== null && lastVisible < terminalStart ? "start"
+    : visibleRange && terminalEnd !== null && firstVisible >= terminalEnd ? "end" : null;
 
   // A.2: Memoize the column index array. Without this, Array.from allocates a
   // new array on every virtual row during every render pass — at 6 cols × 15
@@ -1138,6 +1150,8 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
                     <GridCell
                       key={justified ? imageIdx : getItemColumn(fixedGeometry, imageIdx)}
                       image={image}
+                      terminal={!image && ((terminalStart !== null && imageIdx + (twoTier ? 0 : bufferOffset) < terminalStart)
+                        || (terminalEnd !== null && imageIdx + (twoTier ? 0 : bufferOffset) >= terminalEnd))}
                       isFocused={!!image && image.id === focusedImageId && getEffectiveFocusMode() === "explicit" && !inSelectionMode}
                       cellWidth={justifiedLayout?.getBox(imageIdx)?.width ?? cellWidth}
                       imageOnlyHeight={justifiedLayout ? justifiedLayout.getBox(imageIdx)?.height
@@ -1162,6 +1176,10 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
             </ThumbnailLoadingContext.Provider>
           );
         })}
+        {terminalView && <div role="status" className="absolute inset-x-0 text-center text-sm text-grid-text-muted pointer-events-none"
+          style={{ top: (parentRef.current?.scrollTop ?? 0) + (parentRef.current?.clientHeight ?? 0) / 2 }}>
+          {terminalView === "start" ? "Start of results" : "End of results"}
+        </div>}
       </div>
     </div>
   );

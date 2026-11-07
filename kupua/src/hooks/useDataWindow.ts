@@ -38,7 +38,7 @@
  */
 
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
-import { getSearchGeneration, useSearchStore } from "@/stores/search-store";
+import { canExtendForward, getDisplayEnd, getSearchGeneration, getTerminalDirection, useSearchStore } from "@/stores/search-store";
 import { buildSearchKey } from "@/lib/image-offset-cache";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
 import { electViewportAnchor } from "@/lib/viewport-anchor-geometry";
@@ -268,6 +268,7 @@ interface DataWindow {
   bufferOffset: number;
   /** Total number of matching images in ES (may be >> buffer size). */
   total: number;
+  displayEnd: number;
   /** Number of items the virtualizer should render. In two-tier mode = total; otherwise = buffer length. */
   virtualizerCount: number;
   /** Whether a search or seek is currently in flight. */
@@ -323,6 +324,7 @@ interface DataWindow {
  */
 export function useDataWindow(layoutPolicy?: "grid" | "table" | "justified"): DataWindow {
   const ownerRef = useRef({ mounted: true });
+  const nearEndRef = useRef(false);
   const layoutPolicyRef = useRef(layoutPolicy);
   layoutPolicyRef.current = layoutPolicy;
   const scopeRef = useRef<{ params: object; key: string } | null>(null);
@@ -338,6 +340,7 @@ export function useDataWindow(layoutPolicy?: "grid" | "table" | "justified"): Da
   const results = useSearchStore((s) => s.results);
   const bufferOffset = useSearchStore((s) => s.bufferOffset);
   const total = useSearchStore((s) => s.total);
+  const displayEnd = useSearchStore(getDisplayEnd);
   const loading = useSearchStore((s) => s.loading);
   const extendForward = useSearchStore((s) => s.extendForward);
   const extendBackward = useSearchStore((s) => s.extendBackward);
@@ -375,7 +378,7 @@ export function useDataWindow(layoutPolicy?: "grid" | "table" | "justified"): Da
 
   // In two-tier mode, the virtualizer spans all items. In normal mode, just
   // the buffer length.
-  const virtualizerCount = twoTier ? total : results.length;
+  const virtualizerCount = twoTier ? displayEnd : results.length;
 
   // Use refs for values needed in the callback to keep it stable
   const bufferOffsetRef = useRef(bufferOffset);
@@ -427,6 +430,10 @@ export function useDataWindow(layoutPolicy?: "grid" | "table" | "justified"): Da
         _resetForwardVelocity();
       }
       const fwdThreshold = forwardExtendThreshold(_velocityEma);
+      const wasNearEnd = nearEndRef.current;
+      const nearEnd = isTwoTier ? endIndex > offset + len - fwdThreshold : endIndex >= len - fwdThreshold;
+      nearEndRef.current = nearEnd;
+      const forwardAllowed = canExtendForward() && (!getTerminalDirection(offset + len) || !wasNearEnd);
 
       if (isTwoTier) {
         // --- Two-tier mode: indices are global (0..total-1) ---
@@ -436,6 +443,11 @@ export function useDataWindow(layoutPolicy?: "grid" | "table" | "justified"): Da
         // seek to reposition the buffer — extends can't bridge the gap.
         const globalStart = startIndex;
         const globalEnd = endIndex;
+        const terminal = getTerminalDirection(globalStart);
+        if (terminal && terminal === getTerminalDirection(globalEnd) && !useSearchStore.getState()._browseNavigation) {
+          _scrollSeek?.cancel();
+          return;
+        }
 
         const viewportOverlapsOrNearBuffer =
           globalEnd > offset - EXTEND_THRESHOLD &&
@@ -450,11 +462,12 @@ export function useDataWindow(layoutPolicy?: "grid" | "table" | "justified"): Da
         if (navigation) return;
 
         if (viewportOverlapsOrNearBuffer) {
+          if (userInitiated) useSearchStore.getState().cancelWindowMaintenance(true);
           // Cancel any pending scroll-triggered seek — the viewport is
           // back near the buffer, extends can handle it.
           _scrollSeek?.cancel();
           // Near the end of the buffer → extend forward
-          if (globalEnd > offset + len - fwdThreshold && offset + len < t) {
+          if (nearEnd && forwardAllowed) {
             extendForward();
           }
           // Near the start of the buffer → extend backward
@@ -507,7 +520,7 @@ export function useDataWindow(layoutPolicy?: "grid" | "table" | "justified"): Da
         _scrollSeek?.cancel();
         // --- Normal mode: indices are buffer-local ---
         // Near the end of the buffer → extend forward (velocity-widened)
-        if (rangeEndMatchesViewport && endIndex >= len - fwdThreshold && offset + len < t) {
+        if (rangeEndMatchesViewport && nearEnd && forwardAllowed) {
           extendForward();
         }
 
@@ -566,6 +579,7 @@ export function useDataWindow(layoutPolicy?: "grid" | "table" | "justified"): Da
     results,
     bufferOffset,
     total,
+    displayEnd,
     virtualizerCount,
     loading,
     seek,

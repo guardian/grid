@@ -8,8 +8,6 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-11-06
-
 ---
 
 ## From Grid / Kahuna
@@ -64,6 +62,27 @@ selection membership. The trade-off is bounded prototype observation and explici
 uncertainty, not production write capacity, cross-tab freshness or exact rank repair.
 Normal editing is still disconnected. The [A3 checkpoint](gradually-growing-teeth.step-4-publication-plan.md#a3-checkpoint)
 owns evidence and remaining limits.
+
+### Stable Display Coordinates During Simulated Editing
+
+Like Kahuna, Kupua retains the current neighbourhood through filter/sort drift.
+Exact identity and range actions resolve current facts separately; ordinary cursor
+continuation does not pay for rank or count repair. Discovered rows can extend
+display space without changing the admitted count or tier. Empty frontiers retain
+physical space with directional status rather than loading skeletons. PIT-less
+responses still do not provide exact enumeration or deletion evidence.
+
+Justified preserves natural terminal rows through append and density remounts.
+Later arrivals can start a new row instead of filling and resizing the previous
+one. The retained partitions are buffer-bounded, but indexed layout descriptors
+grow with display extent.
+
+Touched-ID facts retain exact comparison metadata so identical equal-version reads
+can re-enter after body eviction without admitting conflicting projections. The
+1,000-ID cap is not a byte limit: storage and serialization depend on metadata size.
+[State ownership](00%20Architecture%20and%20philosophy/state-management.md) and
+[scroll architecture](00%20Architecture%20and%20philosophy/03-scroll-architecture.md)
+describe these lifetimes and presentation rules. Normal editing remains disconnected.
 
 ### Default-Off Commands and Explicit Reload (4 November 2026)
 

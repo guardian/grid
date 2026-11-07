@@ -351,7 +351,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   );
 
   const {
-    prevImage, nextImage, goToPrev, goToNext, currentGlobalIndex,
+    prevImage, nextImage, canGoNext, goToPrev, goToNext, currentGlobalIndex,
   } = useImageTraversal(imageId, onNavigate, router.history);
 
   // Close image detail via history.back(). All four close affordances
@@ -415,7 +415,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     containerRef,
     commitKey: isCompact && !isFullscreen ? `${searchKey}:${imageId}` : undefined,
     stripRef,
-    onSwipeLeft: nextImage ? goToNext : undefined,
+    onSwipeLeft: canGoNext ? goToNext : undefined,
     onSwipeRight: prevImage ? goToPrev : undefined,
     enabled: !!image,
     scaleRef,
@@ -788,7 +788,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
             <span className="flex shrink-0 flex-col items-center px-3 tabular-nums whitespace-nowrap @min-[640px]/detail-toolbar:flex-row @min-[640px]/detail-toolbar:gap-1">
               <span className="text-sm leading-4 font-semibold text-grid-text-bright">{(currentGlobalIndex + 1).toLocaleString()}</span>
               {" "}
-              <span className="text-2xs wide:text-sm leading-4 text-grid-text-muted">of {total.toLocaleString()}</span>
+              {currentGlobalIndex < total && <span className="text-2xs wide:text-sm leading-4 text-grid-text-muted">of {total.toLocaleString()}</span>}
             </span>
           )}
 
@@ -938,7 +938,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
           {!(isFullscreen && cursorHidden) && !isZoomed && prevImage && (
             <NavStrip direction="prev" onClick={goToPrev} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} className="hidden wide:flex" />
           )}
-          {!(isFullscreen && cursorHidden) && !isZoomed && nextImage && (
+          {!(isFullscreen && cursorHidden) && !isZoomed && canGoNext && (
             <NavStrip direction="next" onClick={goToNext} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} className="hidden wide:flex" />
           )}
           {!(isFullscreen && cursorHidden) && (

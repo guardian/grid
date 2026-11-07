@@ -452,6 +452,32 @@ describe("viewport-valid velocity reports", () => {
     return { dataSource, view };
   }
 
+  it.each(["forward", "backward"] as const)("Unit B empty %s frontier waits for a viewport excursion", async direction => {
+    const { dataSource, view } = await indexedRecoveryFixture();
+    const before = useSearchStore.getState();
+    const reads = vi.spyOn(dataSource, "searchAfter").mockResolvedValue({ hits: [], sortValues: [], total: 0 });
+    const scroll = (start: number) => act(() => {
+      view.container.scrollTop = start * table.rowHeight;
+      view.virtualizer.range = { startIndex: start, endIndex: start + 18 } as typeof view.virtualizer.range;
+      fireEvent.scroll(view.container);
+    });
+    try {
+      const edge = direction === "forward" ? 1990 : 1010;
+      scroll(edge);
+      await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+      frame(); frame();
+      expect(reads).toHaveBeenCalledOnce();
+      expect(useSearchStore.getState().results).toBe(before.results);
+      expect(useSearchStore.getState().imagePositions).toBe(before.imagePositions);
+      expect(view.container.scrollTop).toBe(edge * table.rowHeight);
+      scroll(1500);
+      scroll(edge);
+      await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+      expect(reads).toHaveBeenCalledTimes(2);
+      expect(reads.mock.calls[1][1]).toEqual(reads.mock.calls[0][1]);
+    } finally { view.unmount(); }
+  });
+
   it.each([
     { direction: "forward", remainAtEdge: true },
     { direction: "backward", remainAtEdge: true },

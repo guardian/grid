@@ -290,7 +290,18 @@ Kahuna's bug was that range expansion was bounded by *loaded-and-rendered images
 
 **In-buffer fast path.** When both anchor and target are inside the current windowed buffer (`bufferOffset ≤ idx < bufferOffset + results.length`), resolve the range from `results[]` directly. No network, microsecond cost. This is the common case at <1k results and the typical case for adjacent shift-clicks.
 
-**Server-walk path.** When either end is outside the buffer (or both are), call new DAL method `getIdRange(params, fromCursor, toCursor, signal?)` which walks `search_after` between two cursors with `_source: false`. Returns the full ID list with a `truncated: boolean` flag.
+Both captured endpoint identities must match their current displayed slots before
+this fast path commits. It follows displayed order even while global ranks are
+uncertain; it does not perform a membership read merely to select resident images.
+
+**Server-walk path.** When either end is outside the buffer (or both are), `getIdRange(params, fromCursor, toCursor, signal?)` walks `search_after` between two cursors with `_source: false`. It returns the ID list with a `truncated: boolean` flag.
+
+Ordering uncertainty or a conflicting resident hint requires one current-query
+search for both endpoint identities and tuples; mget/cache presence is not membership
+evidence. Verification and walking share the query scope and upload cutoff. Missing
+endpoints or required-read failure leave selection unchanged. The range owner covers
+verification, walking and commit, allowing one ordering reacquisition while newer
+range, selection, query or anchor intent takes precedence.
 
 **Unknown endpoint order:** an empty first result permits exactly one swapped attempt.
 `walked` counts examined hits, including overshoot and cap lookahead, so positive progress

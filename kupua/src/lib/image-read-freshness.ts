@@ -15,6 +15,7 @@ interface ImageFact {
   floor?: number;
   acceptedRead: number;
   authorityRead: number;
+  projection?: string;
 }
 
 const facts = new Map<string, ImageFact>();
@@ -22,10 +23,13 @@ const evidence = new WeakMap<object, ReadEvidence>();
 const unavailableAuthority: EnrichmentFields = { resource: { links: [] }, actions: [] };
 let sequence = 0;
 let activeGroup: number | undefined;
+let orderingRevision = 0;
 
 export function captureImageRead(): number { return ++sequence; }
 export function hasImageFences(): boolean { return facts.size > 0; }
 export function hasImageFence(id: string): boolean { return facts.has(id); }
+export function getOrderingRevision(): number { return orderingRevision; }
+export function hasOrderingUncertainty(): boolean { return facts.size > 0; }
 
 export function stampImageRead(image: Image, overlay: EnrichmentFields | undefined, issued: number, projection: ReadEvidence["projection"]): void {
   const parsed = Date.parse(image.userMetadata?.lastModified ?? "");
@@ -80,6 +84,7 @@ export function admitLabelObservation(ids: readonly string[]): number | "busy" |
       operation, command: "submitted" });
   }
   activeGroup = operation;
+  if (ids.length > 0) orderingRevision++;
   return operation;
 }
 
@@ -119,15 +124,16 @@ export function acceptImageRead(image: Image, current?: Image): Image | undefine
     ? current : undefined;
   if (!stamp || stamp.issued < fact.operation) return retained;
   if (stamp.issued === fact.acceptedRead) return image;
+  const projection = JSON.stringify([image.metadata, image.userMetadata, image.usageRights]);
   if (fact.hasFloor && (stamp.version === undefined || fact.floor === undefined || stamp.version <= fact.floor)) {
-    const sameProjection = retained && stamp.issued >= fact.acceptedRead && stamp.version === fact.floor
-      && JSON.stringify([image.metadata, image.userMetadata, image.usageRights])
-        === JSON.stringify([retained.metadata, retained.userMetadata, retained.usageRights]);
+    const sameProjection = stamp.issued >= fact.acceptedRead && stamp.version === fact.floor && projection === fact.projection;
     if (!sameProjection) return retained;
   }
+  if (!fact.hasFloor || stamp.version !== fact.floor) orderingRevision++;
   fact.hasFloor = true;
   fact.floor = stamp.version;
   fact.acceptedRead = stamp.issued;
+  fact.projection = projection;
   return image;
 }
 
@@ -169,4 +175,5 @@ export function resolveImageOverlay(image: Image, ...overlays: (EnrichmentFields
 export function resetImageFreshnessForTests(): void {
   facts.clear();
   activeGroup = undefined;
+  orderingRevision = 0;
 }

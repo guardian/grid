@@ -304,7 +304,7 @@ export interface ImageDataSource {
   searchRange(params: SearchParams, signal?: AbortSignal): Promise<SearchResult>;
 
   /** Count documents matching params (lightweight — no hits returned). */
-  count(params: SearchParams): Promise<number>;
+  count(params: SearchParams, signal?: AbortSignal): Promise<number>;
 
   /**
    * Count new documents (size: 0 _search with ticker filter aggs).
@@ -313,7 +313,7 @@ export interface ImageDataSource {
    * Returns both the raw count (for newCount) and per-ticker deltas (for
    * additive merge into tickerCounts).
    */
-  countWithTickers(params: SearchParams): Promise<CountWithTickersResult>;
+  countWithTickers(params: SearchParams, signal?: AbortSignal): Promise<CountWithTickersResult>;
 
   /** Fetch a single image by ID. Returns undefined if not found. */
   getById(id: string, signal?: AbortSignal): Promise<ImageByIdResult | undefined>;

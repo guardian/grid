@@ -344,6 +344,17 @@ retirement does not cancel useful query discovery. Cursor restoration and pendin
 placement retain separate consumers. Snapshots represent one anchor, not independent
 focus and viewport identities.
 
+Numeric offsets and saved cursors are hints, not proof of the destination identity.
+Under ordering uncertainty, owned current-query lookup and rank reads resolve the
+target while preserving placement intent. A missing cursor still permits identity
+resolution. Held acquisitions are revision-qualified; centred-page overlap retains
+one paired body/tuple for the target. Bounded reacquisition may hold that body for
+the action's lifetime, not in a persistent entity cache.
+
+Required-read failure preserves existing data and the focus bookmark with an error;
+it does not substitute a numeric seek or imply absence. Genuine history absence
+uses destination top/no-focus, never departing neighbours.
+
 **Mount-time restore (reload):** The same restore path fires on mount
 (because `consumeUserInitiatedFlag()` returns `false` on a fresh load).
 On reload, the URL IS the source of truth — stale snapshots from a
