@@ -18,7 +18,80 @@ beforeEach(() => { resetImageFreshnessForTests(); vi.stubEnv("VITE_USE_MEDIA_API
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("disconnected label operation", () => {
-  it("nonmatching readback withdraws a post-dispatch grant", async () => {
+  it("keeps rejected removal separate from observation and never reads or publishes it", async () => {
+    const readImages = vi.fn();
+    const publishImages = vi.fn();
+    const executor = vi.fn().mockResolvedValue({ outcome: "rejected", status: 403, errorKey: "permission-denied" });
+    const operation = createLabelOperation(executor, { readImages, publishImages });
+    await operation.confirm({ ...intent, action: "remove" }, targets);
+    expect(operation.getSnapshot()?.items[0]).toMatchObject({ state: "rejected", observation: "unavailable" });
+    expect(executor).toHaveBeenCalledTimes(1);
+    expect(readImages).not.toHaveBeenCalled();
+    expect(publishImages).not.toHaveBeenCalled();
+  });
+
+  it("does not observe removal from missing labels or a failed required read", async () => {
+    vi.useFakeTimers();
+    const readImages = vi.fn().mockResolvedValueOnce([{ ...observedImage(), userMetadata: undefined }])
+      .mockRejectedValueOnce(new Error("Synthetic access failure"));
+    const publishImages = vi.fn();
+    const operation = createLabelOperation(async () => ({ outcome: "acknowledged" }), { readImages, publishImages });
+    try {
+      await operation.confirm({ ...intent, action: "remove" }, targets);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(operation.getSnapshot()?.items[0]).toMatchObject({ state: "accepted-awaiting-visibility", observation: "unavailable" });
+      expect(publishImages).not.toHaveBeenCalled();
+      expect(readImages).toHaveBeenCalledTimes(2);
+    } finally { operation.cancelObservation(); vi.useRealTimers(); }
+  });
+
+  it("retains the exact existing label and immutable target through held removal", async () => {
+    vi.useFakeTimers();
+    let release!: (result: GridCommandResult) => void;
+    const executor = vi.fn(() => new Promise<GridCommandResult>(resolve => { release = resolve; }));
+    const readImages = vi.fn();
+    const publishImages = vi.fn();
+    const operation = createLabelOperation(executor, { readImages, publishImages });
+    const input = { action: "remove" as const, label: " news ", targetIds: ["first"] };
+    const completion = operation.confirm(input, targets);
+    try {
+      input.targetIds[0] = "other";
+      input.label = "changed";
+      expect(executor).toHaveBeenCalledExactlyOnceWith({ operation: "remove-label", imageId: "first", label: " news ", resource });
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(operation.getSnapshot()?.intent).toEqual({ action: "remove", label: " news ", targetIds: ["first"] });
+      expect(operation.getSnapshot()?.items[0]).toMatchObject({ state: "submitted", observation: "deadline" });
+      release({ outcome: "unknown" });
+      await completion;
+      expect(operation.getSnapshot()?.items[0]).toMatchObject({ state: "unknown", observation: "deadline" });
+      expect(readImages).not.toHaveBeenCalled();
+      expect(publishImages).not.toHaveBeenCalled();
+      expect(executor).toHaveBeenCalledTimes(1);
+    } finally { operation.cancelObservation(); release({ outcome: "unknown" }); await completion; vi.useRealTimers(); }
+  });
+
+  it("observes single-image removal only from returned exact-label absence, retaining uncertainty", async () => {
+    vi.useFakeTimers();
+    const remaining = observedImage("first", "news suffix");
+    const readImages = vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([observedImage()]).mockResolvedValueOnce([remaining]);
+    const publishImages = vi.fn();
+    const executor = vi.fn().mockResolvedValue({ outcome: "unknown" });
+    const operation = createLabelOperation(executor, { readImages, publishImages });
+    try {
+      await operation.confirm({ ...intent, action: "remove" }, targets);
+      expect(executor).toHaveBeenCalledExactlyOnceWith({ operation: "remove-label", imageId: "first", label: "news", resource });
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(readImages).toHaveBeenCalledTimes(2);
+      expect(publishImages).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(publishImages).toHaveBeenCalledExactlyOnceWith([remaining]);
+      expect(operation.getSnapshot()?.items[0]).toMatchObject({ state: "unknown", observation: "observed" });
+      expect(await operation.confirm({ ...intent, action: "remove" }, targets)).toBe(false);
+      expect(executor).toHaveBeenCalledTimes(1);
+    } finally { operation.cancelObservation(); vi.useRealTimers(); }
+  });
+
+  it.each(["add", "remove"] as const)("nonmatching %s readback withdraws a post-dispatch grant", async action => {
     vi.useFakeTimers();
     const currentResource = structuredClone(resource);
     const readImages = vi.fn().mockImplementation(async () => {
@@ -28,7 +101,7 @@ describe("disconnected label operation", () => {
         acceptImageOverlay("first", positive);
         expect(isLabelAuthorityCurrent("first", currentResource)).toBe(true);
       }
-      const image = observedImage("first", "old");
+      const image = observedImage("first", action === "remove" ? "news" : "old");
       const denied = { resource: { links: [] }, actions: [] };
       stampImageRead(image, denied, captureImageRead(), "lean");
       attachEnrichment(image, denied);
@@ -37,7 +110,7 @@ describe("disconnected label operation", () => {
     const publishImages = vi.fn();
     const operation = createLabelOperation(async () => ({ outcome: "acknowledged" }), { readImages, publishImages });
     try {
-      await operation.confirm(intent, targets);
+      await operation.confirm({ ...intent, action }, targets);
       await vi.advanceTimersByTimeAsync(2000);
       expect(operation.getSnapshot()?.items[0]).toMatchObject({ state: "accepted-awaiting-visibility", observation: "deadline" });
       expect(publishImages).not.toHaveBeenCalled();
@@ -148,8 +221,8 @@ describe("disconnected label operation", () => {
     expect(operation.getSnapshot()).toMatchObject({ mode: "disconnected", items: [{ state: "not-started" }] });
     const executor = vi.fn();
     const unsupported = createLabelOperation(executor);
-    await unsupported.confirm({ ...intent, action: "remove" }, targets);
-    expect(unsupported.getSnapshot()?.blocked).toBe("unsupported");
+    await unsupported.confirm({ ...intent, action: "remove", targetIds: ["first", "second"] }, new Map([...targets, ["second", { resource }]]));
+    expect(unsupported.getSnapshot()?.blocked).toBe("target-limit");
     expect(executor).not.toHaveBeenCalled();
   });
 

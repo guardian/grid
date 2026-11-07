@@ -270,7 +270,8 @@ through the Vite proxy is the only reliable way to detect the connection target.
 
 **Problem:** Grid services mutate shared data. Kupua must not accidentally submit
 an unfinished or unselected operation, including against TEST. Step 2 introduces
-only a default-off label-add command with no UI caller or live activation.
+the default-off label-add boundary; Step 5 adds named single-label removal and connects
+ordinary controls only under explicit API-mode rollout, valid origins and one-image scope.
 
 **Topology boundary:** Vite protects only local `/api`, `/grid-metadata` and
 `/grid-auth` requests. Hosted and deployed-origin requests bypass it. Hosted Kupua
@@ -281,7 +282,9 @@ of no side effects: download and administrative GETs must not be used as probes.
 
 **Safeguard:** `/api` retains existing GET access and the exact read-POST exceptions
 below. `/grid-metadata` permits only `GET /metadata/:id` and, when explicitly enabled,
-`POST /metadata/:id/labels`. `/grid-auth` permits only `GET /session`. Other requests
+`POST /metadata/:id/labels` for `add-labels` or `DELETE /metadata/:id/labels/:encodedLabel`
+for `remove-label`. Removal excludes empty, malformed and dot segments, query strings
+and extra path segments. `/grid-auth` permits only `GET /session`. Other requests
 are rejected with 403. The new satellite proxies exist only with valid configured
 origins; they never accept a request-supplied upstream target or follow redirects.
 TLS verification is retained for them. Local development certificates must be trusted.
@@ -295,7 +298,8 @@ guard admits exactly those paths via `GRID_API_READ_VIA_POST`:
 here only when its server handler performs no write.
 
 **Local rollout:** both `VITE_GRID_API_WRITES_ENABLED=true` and
-`VITE_GRID_API_OPERATIONS=add-labels` are required; the global flag alone admits no
+the selected operation in `VITE_GRID_API_OPERATIONS` (`add-labels` or `remove-label`)
+are required; the global flag alone admits no
 writes. Keep enablement explicit in the invocation, not persistent `.env` settings.
 `VITE_GRID_METADATA_ORIGIN` and `VITE_GRID_AUTH_ORIGIN` must name exact service origins,
 not paths or credential-bearing URLs. HTTPS is required except loopback HTTP fixtures.
@@ -307,6 +311,11 @@ operations }` from `kupua.mutations.enabled` / `kupua.mutations.operations`. Abs
 malformed or unknown operation configuration fails closed. Hosted builds ignore
 laptop rollout settings and pin hosted/API mode. Server config changes reach an
 existing page only on reload; `stopGridMutations()` is the in-page emergency stop.
+Kahuna admits only the implemented `add-labels` and `remove-label` names. The
+[hosted configuration guide](00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md#where-the-write-configuration-lives)
+owns file locations and precedence: local enabled settings can survive Grid's
+`--use-TEST` startup when its downloaded configuration omits those keys. Absence
+means absence from the effective merged configuration, not merely the TEST file.
 
 **Session/outcomes:** commands check a validated session snapshot but do not claim
 fresh authorization. 401/419 invalidate it and prevent subsequent dispatch until
@@ -316,9 +325,11 @@ work; lost write responses are unknown, not proof that no write occurred.
 
 **Limits:** isolated loopback proxy and built-hosted fixtures verify admission;
 synthetic browser policies do not prove deployed preflight, CSRF or login-return
-behavior. The label handler currently authenticates without the uploader/EditMetadata
-filter used by metadata replacement; frontend checks do not repair that gap. Live
-enablement needs separate authorization and server-policy review. See the
+behavior. The addition and removal handlers currently authenticate without the uploader/EditMetadata
+filter used by metadata replacement; frontend checks do not repair that gap. The authorized
+local operator add/remove trial restored the original label set and disabled temporary
+rollout afterward. Shared enablement still needs separate authorization and server-policy
+review; actual Kahuna-hosted editing is not certified by the local Vite trial. See the
 [command contract](../../src/dal/grid-api/README.md#step-2-command-boundary).
 
 **To extend or retire:** add another named operation and its exact resource/method
@@ -330,6 +341,13 @@ server authorization and truthful outcomes remain. All ES safeguards are unchang
 
 ## Configuration
 
+`start.sh --use-media-api --canonical-media` uses the already-running local Grid API
+without Kupua creating/checking/killing ES tunnels, probing ES, managing Docker or
+discovering media buckets. It disables Kupua's media proxies and leaves the unused
+direct-ES transport write-protected. This does not certify the API's backing services
+as local: Grid's own flags/configuration control those. Noncanonical API startup,
+explicit Kupua `--use-TEST`, and deployed-API startup retain their previous setup.
+
 ### Environment variables
 
 | Variable | Default | Where set | Description |
@@ -340,7 +358,7 @@ server authorization and truthful outcomes remain. All ES safeguards are unchang
 | `VITE_ES_IS_LOCAL` | `true` | `.env` | Set to `false` when connecting to non-local ES (enables write protection) |
 | `VITE_MEDIA_API_BASE_URL` | `/api` | `start.sh` | Media-api request base; only deployed TEST mode sets the allowlisted absolute TEST origin |
 | `VITE_GRID_API_WRITES_ENABLED` | (unset) | Shell | Global command rollout gate; insufficient without selected operations |
-| `VITE_GRID_API_OPERATIONS` | (unset) | Shell | Comma-separated implemented operations; currently only `add-labels` |
+| `VITE_GRID_API_OPERATIONS` | (unset) | Shell | Comma-separated implemented operations: `add-labels`, `remove-label`; explicit trial authorization required |
 | `VITE_GRID_METADATA_ORIGIN` | (unset) | Shell | Trusted metadata-editor origin for local command routing |
 | `VITE_GRID_AUTH_ORIGIN` | (unset) | Shell | Trusted auth origin for local session routing |
 | `VITE_S3_PROXY_ENABLED` | `false` | `start.sh` | Set to `true` when S3 thumbnail proxy is running |

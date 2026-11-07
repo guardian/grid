@@ -8,7 +8,7 @@ import { useUiPrefsStore } from "../../src/stores/ui-prefs-store";
 import { LabelEditor, LabelEditorContext, LabelOperationReceipts } from "../../src/components/LabelEditor";
 import { createLabelEditorStore } from "../../src/stores/label-editor-store";
 import type { LabelEditContext } from "../../src/lib/label-operation";
-import type { AddLabelsCommand, GridCommandResult } from "../../src/lib/grid-commands";
+import type { LabelCommand, GridCommandResult } from "../../src/lib/grid-commands";
 import { MockDataSource } from "../../src/dal/mock-data-source";
 import { attachedEnrichment, attachEnrichment, useEnrichmentStore } from "../../src/stores/enrichment-store";
 import { createLabelReadback, publishImage, publishUnavailableImages } from "../../src/lib/image-publication";
@@ -22,7 +22,7 @@ let store = createLabelEditorStore();
 let context: LabelEditContext;
 let release: ((result: GridCommandResult) => void) | undefined;
 let calls = 0;
-let commands: AddLabelsCommand[] = [];
+let commands: LabelCommand[] = [];
 let oldSearch: Promise<void> | undefined;
 let continuation = false;
 let dispatchHadLookahead = false;
@@ -93,6 +93,7 @@ export const labelEditorFixture = {
       : "/search?nonFree=true");
     useSelectionStore.getState().clear();
     store = createLabelEditorStore(async command => {
+      if (command.operation !== "add-labels") throw new Error("Continuation fixture supports addition only");
       if (continuation) dispatchHadLookahead = useSearchStore.getState()._extendForwardInFlight;
       await readbackControl({ action: "project", imageId: command.imageId, label: command.labels[0] });
       return { outcome: readbackOutcome };
@@ -152,7 +153,7 @@ export const labelEditorFixture = {
     })) });
   },
   readbackSnapshot() {
-    return { receipts: store.getState().receipts, dispatchHadLookahead,
+    return { receipts: store.getState().receipts, dispatchHadLookahead, loading: useSearchStore.getState().loading,
       selected: [...useSelectionStore.getState().selectedIds].map(id => ({ id, labels: useSelectionStore.getState().metadataCache.get(id)?.userMetadata?.labels })) };
   },
   async disposeReadback() { store.getState().dispose(); await this.releaseReadbackSearch(); },
@@ -233,7 +234,7 @@ export const labelEditorFixture = {
     useSelectionStore.getState().add(targetIds);
     if (!usePanelStore.getState().config.right.visible) usePanelStore.getState().togglePanel("right");
   },
-  mount(simulated = false, observed = false) {
+  mount(simulated = false, observed = false, held = false) {
     if (!root) {
       const container = document.createElement("div");
       document.body.append(container);
@@ -242,10 +243,11 @@ export const labelEditorFixture = {
     calls = 0;
     commands = [];
     release = undefined;
+    store.getState().dispose();
     store = createLabelEditorStore(simulated ? async command => {
       calls++;
       commands.push(command);
-      if (observed) return { outcome: calls === 1 ? "acknowledged" : "unknown" };
+      if (observed && !held) return { outcome: calls === 1 ? "acknowledged" : "unknown" };
       if (calls === 1) return new Promise<GridCommandResult>(resolve => { release = resolve; });
       return { outcome: "unknown" };
     } : undefined, observed ? createLabelReadback(useSearchStore.getState().dataSource) : undefined);

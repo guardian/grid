@@ -6,7 +6,7 @@ import path from "path";
 import type { Plugin } from "vite";
 import { bedrockEmbedProxy } from "./scripts/bedrock-embed-proxy.mjs";
 import { isGridApiReadViaPost } from "./src/dal/grid-api/read-via-post.ts";
-import { admitsLabelAdd, isLabelAddRequest, mutationRolloutFromEnv, serviceOrigin } from "./src/lib/grid-mutation-policy.ts";
+import { admitsLabelAdd, admitsLabelRemoval, isLabelAddRequest, isLabelRemovalRequest, mutationRolloutFromEnv, serviceOrigin } from "./src/lib/grid-mutation-policy.ts";
 import {
   DEPLOYED_TEST_MEDIA_API_BASE_URL,
   shouldEnableDirectBedrockProxy,
@@ -78,7 +78,8 @@ function gridApiWriteGuard(): Plugin {
             || (prefix === "/grid-auth" ? req.url === "/session" : /^\/metadata\/[a-zA-Z0-9_-]+$/.test(req.url ?? "")));
           const isSelectedWrite = prefix === "/grid-metadata"
             && Boolean(serviceOrigin(process.env.VITE_GRID_METADATA_ORIGIN, true))
-            && admitsLabelAdd(mutationRolloutFromEnv(process.env)) && isLabelAddRequest(req.method, req.url);
+            && ((admitsLabelAdd(mutationRolloutFromEnv(process.env)) && isLabelAddRequest(req.method, req.url))
+              || (admitsLabelRemoval(mutationRolloutFromEnv(process.env)) && isLabelRemovalRequest(req.method, req.url)));
           if (!isRead && !isReadViaPost && !isSelectedWrite) {
             res.writeHead(403, { "Content-Type": "text/plain" });
             res.end(

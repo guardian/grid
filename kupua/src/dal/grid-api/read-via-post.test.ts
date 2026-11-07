@@ -33,8 +33,23 @@ it("does not let the global rollout switch bypass the Vite operation guard", asy
     next.mockClear();
     for (const request of [
       { method: "DELETE", url: "/metadata/fixture/labels" },
+      { method: "DELETE", url: "/metadata/fixture/labels/news" },
       { method: "POST", url: "/metadata/fixture/labels/extra" },
       { method: "POST", url: "/images/count" },
+    ]) metadataGuard(request as never, response as never, next);
+    expect(next).not.toHaveBeenCalled();
+    vi.stubEnv("VITE_GRID_API_OPERATIONS", "remove-label");
+    metadataGuard({ method: "DELETE", url: "/metadata/fixture/labels/news+%2F+%2B" } as never, response as never, next);
+    expect(next).toHaveBeenCalledOnce();
+    next.mockClear();
+    for (const request of [
+      { method: "POST", url: "/metadata/fixture/labels" },
+      { method: "DELETE", url: "/metadata/fixture" },
+      { method: "DELETE", url: "/metadata/fixture/labels" },
+      { method: "DELETE", url: "/metadata/fixture/labels/news/extra" },
+      { method: "DELETE", url: "/metadata/fixture/labels/news?extra=true" },
+      { method: "DELETE", url: "/metadata/fixture/labels/%2E%2E" },
+      { method: "DELETE", url: "/metadata/fixture/labels/%broken" },
     ]) metadataGuard(request as never, response as never, next);
     expect(next).not.toHaveBeenCalled();
     vi.stubEnv("VITE_GRID_API_OPERATIONS", "");

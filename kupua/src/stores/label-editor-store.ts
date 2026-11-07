@@ -11,6 +11,7 @@ interface LabelDraft {
 }
 
 interface LabelEditorState {
+  executionMode: "simulated" | "connected";
   drafts: ReadonlyMap<string, LabelDraft>;
   receipts: readonly LabelReceipt[];
   activityRevision: number;
@@ -23,10 +24,11 @@ interface LabelEditorState {
   dispose: () => void;
 }
 
-export function createLabelEditorStore(simulate?: Parameters<typeof createLabelOperation>[0], observation?: Parameters<typeof createLabelOperation>[1]) {
+export function createLabelEditorStore(simulate?: Parameters<typeof createLabelOperation>[0], observation?: Parameters<typeof createLabelOperation>[1], executionMode: "simulated" | "connected" = "simulated") {
   const operations = new Map<string, ReturnType<typeof createLabelOperation>>();
   const ordered: ReturnType<typeof createLabelOperation>[] = [];
   return createStore<LabelEditorState>((set, get) => ({
+    executionMode,
     drafts: new Map(),
     receipts: [],
     activityRevision: 0,
@@ -51,13 +53,17 @@ export function createLabelEditorStore(simulate?: Parameters<typeof createLabelO
       const counts = labelTargetCounts(context);
       if (import.meta.env.VITE_USE_MEDIA_API !== "true" || context.pending || !label.trim()
         || !counts.selected || counts.unresolved || counts.ineligible) return false;
-      const key = JSON.stringify([action, label.trim(), labelTargetKey(context.targetIds)]);
+      const key = JSON.stringify([action, action === "remove" ? label : label.trim(), labelTargetKey(context.targetIds)]);
       const existing = operations.get(key);
-      if (existing) {
+      const previous = existing?.getSnapshot();
+      const settled = executionMode === "connected" && previous && (previous.blocked || previous.items.every(item =>
+        item.state === "rejected" || item.result?.outcome === "blocked"
+          || item.state === "accepted-awaiting-visibility" && item.observation === "observed"));
+      if (existing && !settled) {
         set({ activeReceipt: ordered.indexOf(existing), activityRevision: get().activityRevision + 1, repeated: true });
         return !existing.getSnapshot()?.blocked;
       }
-      const operation = createLabelOperation(simulate, observation);
+      const operation = createLabelOperation(simulate, observation, executionMode);
       const index = ordered.length;
       operations.set(key, operation);
       ordered.push(operation);

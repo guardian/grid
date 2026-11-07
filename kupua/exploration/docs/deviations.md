@@ -23,21 +23,23 @@ does not trigger a query rerun. The trade-off is visible terminal slots until de
 reacquisition, rather than immediate compaction. Lifecycle evidence is synthetic only;
 neither successful omission nor singleton 404 is deletion evidence.
 
-### Disconnected Label Actions (4 November 2026)
+### Default-Off Label Actions (4 November 2026; connected scope 7 November)
 
 Kahuna's label controls write immediately. Kupua uses the familiar searchable value,
-remove and partial-value apply-to-all controls, but ordinary gestures only prepare
-immutable intent. A crop-style formatted preview explicitly says the data was not
-sent; current image labels are never optimistically changed. There is no additional
+remove and partial-value apply-to-all controls, but default-off gestures only prepare
+immutable intent and explicitly say the data was not sent. Opt-in API-mode editing
+connects one image and one label per submission; multi-image and comma-separated
+execution are refused before dispatch. Current labels are never optimistically changed. There is no additional
 confirmation, operation cancellation or undo workflow. Uncancelled input and receipts
 survive SPA navigation in memory, not reloads. Escape or Close explicitly cancels the
 unsent entry only; Enter prepares comma-separated additions. Direct-ES remains read-only.
 
-The trade-off is a usable but deliberately non-saving prototype. Missing or pending
+The trade-off is deliberately bounded editing rather than Kahuna's full workflow. Missing or pending
 capabilities block the complete target set rather than choosing an eligible subset.
-Only isolated addition simulations exercise command outcomes; acknowledgement is
-not observation. Normal mutation transport remains disconnected; injected canonical
-observation and grouped publication are described below. Removal remains separately scoped.
+Acknowledgement is not observation. Connected and simulated execution use the same
+canonical observation and publication owners below. Pending/unknown attempts cannot
+replay; a new explicit intent may follow rejection, pre-dispatch refusal or acknowledged,
+observed success. Receipts remain in session history. Shared activation remains separately scoped.
 
 Entry suggestions reuse Kupua's shared label provider rather than Kahuna's legacy
 label-search endpoint. They use an explicitly library-wide DAL aggregation and
@@ -56,14 +58,19 @@ without an icon-library dependency. Coarse-pointer controls retain 44px
 targets instead of copying desktop-sized Kahuna targets. Mobile metadata-editing
 UX is explicitly deferred; these safeguards are not a claim of desktop/mobile parity.
 
-### Bounded Simulated Readback (6 November 2026)
+### Bounded Label Readback (6 November 2026)
 
-Unlike Kahuna's per-image polling after writes, Kupua's injected addition simulation
+Unlike Kahuna's per-image polling after writes, Kupua's connected and simulated label execution
 uses at most three grouped mget reads, one current standalone full follow-up and a
 ten-second observation deadline independent of held command outcomes. Exact returned
 labels establish observation, not a count query or a boolean fixture assertion.
-One group of up to 200 IDs is admitted; multi-label simulated input is refused before
-any dispatch, while disconnected comma-separated preparation is unchanged.
+One group of up to 200 IDs is admitted for synthetic multi-image addition; connected
+editing is restricted to one image. Supplied-executor multi-label input is refused
+before dispatch, while disconnected comma-separated preparation is unchanged.
+Removal is limited to one image and uses exact label absence in returned authoritative
+data, rather than equality with the whole write-response label list. Unrelated labels
+may change concurrently without blocking this postcondition. Missing data is not absence;
+matching state establishes neither causation nor a known command outcome.
 
 Touched-ID issuance fences and metadata floors survive query replacement, with a
 1,000-ID document-lifetime admission bound and no canonical body cache. Current
@@ -71,8 +78,9 @@ permission withdrawal is independent of metadata age; captured grants are checke
 again at admission. Grouped same-slot publication preserves browsing geometry and
 selection membership. The trade-off is bounded prototype observation and explicit
 uncertainty, not production write capacity, cross-tab freshness or exact rank repair.
-Normal editing is still disconnected. The [A3 checkpoint](gradually-growing-teeth.step-4-publication-plan.md#a3-checkpoint)
-owns evidence and remaining limits.
+Editing remains disconnected unless explicitly enabled. The [A3 checkpoint](gradually-growing-teeth.step-4-publication-plan.md#a3-checkpoint)
+owns the simulated foundation; [Step 5](gradually-growing-teeth.kupua-edits-steps.md#step-5-give-one-label-operation-real-teeth)
+owns the connected scope and selected local-topology evidence.
 
 ### Stable Display Coordinates During Simulated Editing
 
@@ -93,12 +101,13 @@ can re-enter after body eviction without admitting conflicting projections. The
 1,000-ID cap is not a byte limit: storage and serialization depend on metadata size.
 [State ownership](00%20Architecture%20and%20philosophy/state-management.md) and
 [scroll architecture](00%20Architecture%20and%20philosophy/03-scroll-architecture.md)
-describe these lifetimes and presentation rules. Normal editing remains disconnected.
+describe these lifetimes and presentation rules. Enabled one-image editing reuses them.
 
 ### Default-Off Commands and Explicit Reload (4 November 2026)
 
 Kupua's command transport accepts only named, enabled operations, currently label
-addition, with no UI caller. This temporary rollout gate is additional to server
+addition and single-label removal, with startup wiring only under explicit API-mode rollout.
+This temporary rollout gate is additional to server
 authentication/authorization and can later be removed without generalizing the
 transport. It does not change Kahuna's editing flows or repair backend policy gaps.
 

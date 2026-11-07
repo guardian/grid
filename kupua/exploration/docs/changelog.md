@@ -24,6 +24,61 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 7 November 2026 - Hosted label operation admission alignment
+
+Kahuna's configuration producer now recognises single-label removal alongside
+addition, individually or together, while keeping absent/disabled rollout off and
+rejecting unknown or malformed operation lists. The existing producer regression
+first exposed the add-only mismatch, then covered the aligned runtime payload.
+This removes a code-only difference between API frontends without enabling editing,
+changing backend authorization or extending hosting stages. The hosted guide owns
+the configuration sources, distinct launcher flags and effective local/TEST precedence.
+
+### 7 November 2026 - Opt-in single-image connected label editing
+
+API-mode startup supplies the existing production executor and bounded canonical
+readback owner only under valid service origins and explicit global/named rollout.
+Connected add and remove require one image and one label per submission; defaults
+remain disconnected and direct-ES remains read-only. Connected receipts distinguish
+real commands from simulations. Pending and unknown attempts retain their receipts,
+while explicit new intent can follow safe settlement, including add/remove/add.
+Failing-first coverage exposed session-wide receipt reuse preventing that third action.
+
+Local-proxy and compiled-hosted fixtures exercise ordinary controls, exact mutation
+budgets and retained geometry. Fixture setup hydration is counted separately from
+post-submission observation; synthetic edit bodies retain the mapper's required wrappers.
+An authorized operator-run local Grid trial added and removed two labels separately,
+including Unicode and a space, restored the original label set and disabled temporary
+rollout. Shared activation, backend policy and Kahuna's add-only allowlist are unchanged.
+
+### 7 November 2026 - Local API canonical startup without TEST discovery
+
+`start.sh --use-media-api --canonical-media` now starts Vite without Kupua managing
+Elasticsearch, SSH tunnels, Docker or S3/imgproxy delivery. It clears inherited proxy
+enablement and keeps the unused ES transport write-protected. Explicit Kupua `--use-TEST`,
+noncanonical local-API delivery and deployed-API startup retain their existing setup.
+Startup messages and the README distinguish Kupua's connection/delivery choices from
+Grid's independent choice of local or TEST backing services; no image sample is needed
+to start against an empty local Grid. The canonical path retains the existing WOPR
+typing/skip interaction, coloured banner, dependency progress and media summary without
+irrelevant infrastructure messages. Isolated launcher tests stub infrastructure commands.
+
+### 7 November 2026 - Synthetic single-image label removal
+
+Extended the default-off command boundary with `remove-label`, admitting DELETE only
+for the exact advertised label resource under the captured image and configured origin.
+The local proxy requires the separate operation opt-in. Existing labels retain their
+exact whitespace identity instead of inheriting new-label trimming. Missing resources
+block dispatch; expiry, rejection and uncertainty reuse existing handling without replay.
+
+Injected editor execution now admits one-image removal and verifies exact absence in
+returned authoritative labels through the existing bounded observer and grouped publication.
+Authority withdrawal remains independent of the postcondition, including nonmatching
+readback; standalone full projection and cold-detail failure settlement retain their
+owners. Existing local/compiled-hosted fixtures cover held captured targets and truthful
+outcomes. Normal editing and multi-label preparation remain disconnected; no real-service
+activation, image deletion or production batch scheduling is introduced.
+
 ### 7 November 2026 - Named density and reflow target choosers
 
 Extracted the two existing precedence decisions into `lib/layout-anchor-policy.ts`:

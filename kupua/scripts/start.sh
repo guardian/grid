@@ -13,6 +13,7 @@
 #   ./kupua/scripts/start.sh                     # local mock data (default)
 #   ./kupua/scripts/start.sh --use-TEST          # connect to TEST ES via SSH tunnel
 #   ./kupua/scripts/start.sh --use-media-api     # all image reads through local media-api
+#   ./kupua/scripts/start.sh --use-media-api --canonical-media # local API, no Kupua ES/tunnel setup
 #   ./kupua/scripts/start.sh --use-deployed-media-api # all image reads through deployed TEST media-api
 #   ./kupua/scripts/start.sh --use-deployed-media-api --canonical-media # plus media URLs returned by media-api
 #
@@ -21,9 +22,10 @@
 #                   Requires: media-service AWS profile credentials.
 #                   Skips local ES startup and sample data loading.
 #                   Sets VITE_ES_IS_LOCAL=false (enables write protection).
-#   --use-media-api Same as --use-TEST plus VITE_USE_MEDIA_API=true.
-#                   Routes all image reads through local media-api (port 9001 via nginx).
-#                   Requires media-api to be running in --use-TEST mode. Implies --use-TEST.
+#   --use-media-api Routes image reads through the already-running local media-api.
+#                   Grid independently chooses its own local or TEST backing services.
+#                   Without --canonical-media, retains TEST setup for Kupua's media proxies.
+#                   With --canonical-media, skips that setup unless --use-TEST is explicit.
 #   --use-deployed-media-api
 #                   Routes all image reads through media-api deployed in TEST. Retains the TEST
 #                   ES tunnel only for local image-delivery setup. Implies --use-TEST.
@@ -118,7 +120,7 @@ SKIP_INSTALL=false
 for arg in "$@"; do
   case "$arg" in
     --use-TEST)     USE_TEST=true ;;
-    --use-media-api) USE_MEDIA_API=true; USE_TEST=true ;;
+    --use-media-api) USE_MEDIA_API=true ;;
     --use-deployed-media-api) USE_DEPLOYED_MEDIA_API=true; USE_TEST=true ;;
     --canonical-media) CANONICAL_MEDIA=true ;;
     --skip-es)      SKIP_ES=true ;;
@@ -141,6 +143,10 @@ if [ "$CANONICAL_MEDIA" = true ] && [ "$USE_MEDIA_API" = false ] && [ "$USE_DEPL
   echo -e "${red}ERROR: --canonical-media requires --use-media-api or --use-deployed-media-api.${plain}"
   echo "  Direct Elasticsearch modes have no media URLs returned by media-api."
   exit 1
+fi
+
+if [ "$USE_MEDIA_API" = true ] && [ "$CANONICAL_MEDIA" = false ]; then
+  USE_TEST=true
 fi
 
 if [ "$CANONICAL_MEDIA" = true ]; then
@@ -184,6 +190,48 @@ if [ "$NODE_OK" = false ]; then
   echo "  Update via fnm:  fnm install --lts"
   echo "  Update via brew: brew upgrade node"
   exit 1
+fi
+
+if [ "$USE_MEDIA_API" = true ] && [ "$CANONICAL_MEDIA" = true ] && [ "$USE_TEST" = false ]; then
+  export VITE_USE_MEDIA_API="true"
+  export VITE_S3_PROXY_ENABLED="false"
+  export VITE_IMGPROXY_ENABLED="false"
+  export VITE_ES_IS_LOCAL="false"
+  if lsof -i:3000 -sTCP:LISTEN -t > /dev/null 2>&1; then
+    echo -e "${red}ERROR: Port 3000 is already in use. Stop the existing Kupua server before starting another.${plain}"
+    exit 1
+  fi
+  wopr_intro
+  echo -e "${cyan}╔══════════════════════════════════════╗${plain}"
+  echo -e "${cyan}║  Starting Kupua (local media-api)    ║${plain}"
+  echo -e "${cyan}╚══════════════════════════════════════╝${plain}"
+  echo
+  echo -e "${cyan}  Using the already-running local Grid API.${plain}"
+  echo -e "${yellow}  Grid's own configuration selects its backing data.${plain}"
+  echo
+  cd "$KUPUA_DIR"
+  if [ "$SKIP_INSTALL" = false ]; then
+    echo -e "${yellow}[1/2] Checking dependencies...${plain}"
+    if [ ! -d "node_modules" ] || [ "package.json" -nt "node_modules/.package-lock.json" ] \
+      || [ ! -d "node_modules/vite" ] || [ ! -d "node_modules/vitest" ] || [ ! -d "node_modules/react" ]; then
+      echo -e "${yellow}      Installing npm dependencies...${plain}"
+      npm install
+      echo -e "${green}      Dependencies installed ✓${plain}"
+    else
+      echo -e "${green}      Dependencies up to date ✓${plain}"
+    fi
+  else
+    echo -e "${yellow}[1/2] Skipping dependency check (--skip-install)${plain}"
+  fi
+  echo
+  echo -e "${yellow}[2/2] Starting Vite dev server...${plain}"
+  echo -e "${cyan}      → http://localhost:3000${plain}"
+  echo -e "${cyan}      → https://kupua.media.local.dev-gutools.co.uk${plain}"
+  echo -e "${cyan}      → media-api: LOCAL (all image reads via /api)${plain}"
+  echo -e "${cyan}      → Thumbnails: ON (URLs returned by media-api)${plain}"
+  echo -e "${cyan}      → Full images: ON (imgops links returned by media-api)${plain}"
+  echo
+  exec npm run dev
 fi
 
 # ---------------------------------------------------------------------------

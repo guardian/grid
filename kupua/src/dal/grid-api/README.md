@@ -117,12 +117,22 @@ authorized work. The retirement above added no replacement adapter or write clie
 ## Step-2 command boundary
 
 [`grid-commands.ts`](../../lib/grid-commands.ts) is separate from the read DAL and
-has no UI/startup caller. `executeGridCommand` accepts only `add-labels`, a captured
-image ID, its retained resource links, and a nonempty label list. It requires the
+is connected at startup only under explicit API-mode rollout. `executeGridCommand` accepts `add-labels` or `remove-label`, a captured
+image ID, its retained resource links, and a nonempty label list or one exact label. It requires the
 matching per-image `edits` link, reads that metadata resource, and posts `{ data:
 labels }` only to its advertised labels URI on the configured metadata origin.
 Missing capabilities are never synthesized. These resources use concrete URIs,
 not URI templates; unrelated media-template handling remains unchanged.
+
+Step 5 adds single-image `remove-label`. The same prerequisite
+GET must return the labels collection and exactly one embedded `{ uri, data }` entry
+whose value equals the captured label. Its advertised URI must match the configured
+metadata origin, captured image and server form-style label encoding; only that URI
+receives DELETE, without a body. Missing/foreign/mismatched resources block, never
+become a constructed target or an acknowledged no-op. Removal preserves whitespace
+in existing label identity; only new-label entry is trimmed. Unsafe dot path segments
+are blocked. The local guard admits this exact resource shape only under the separate
+`remove-label` opt-in plus the global gate. No image-delete endpoint is admitted.
 
 Both the global rollout boolean and the selected operation must be enabled. Missing,
 invalid or unknown configuration/commands, direct-ES mode and invalid origins dispatch
@@ -149,29 +159,52 @@ explicit rejection; signed URLs and response bodies are not logged. There is no
 automatic login, replay, queue or post-write publication in this boundary.
 
 The separate [label operation owner](../../lib/label-operation.ts) consumes the
-exported command types, never the production executor. It captures one confirmed
+exported command types and an injected executor. It captures one confirmed
 add/remove intent and all target IDs, distinguishing unavailable capabilities from
-explicit absence. Normal preparation remains disconnected regardless of rollout.
-An explicitly injected fixture executor can exercise addition outcomes; removal is
-unsupported there. Receipts distinguish submitted, accepted-awaiting-visibility,
-rejected, unknown and blocked/not-started; only matching explicit simulated evidence
+explicit absence. Startup supplies the production executor and existing readback owner
+only when API mode, valid service origins and global/named rollout permit editing.
+Otherwise the editor remains disconnected. Connected addition and removal both require
+exactly one image; supplied-executor comma-separated input is refused before dispatch.
+Simulated multi-image addition remains fixture-only; removal is single-image in all execution modes.
+Receipts distinguish submitted, accepted-awaiting-visibility,
+rejected, unknown and blocked/not-started; only matching explicit canonical evidence
 can establish observed state. [LabelEditor](../../components/LabelEditor.tsx) and
 its [in-memory store](../../stores/label-editor-store.ts) prepare these operations,
 retaining target-bound input and receipts across SPA navigation. They never import
 or invoke the production executor. Selection-panel editing uses current membership
 and pending metadata, not the retained completed display; detail uses its owned
-overlay. Normal editing dispatches no command or observation read. Injected single-label
-simulation uses bounded mget observation and grouped publication through existing owners;
+overlay. Default-off editing dispatches no command or observation read. Enabled single-label
+execution uses bounded mget observation and grouped publication through existing owners;
 returned authority is accepted independently of the label postcondition. Required-read
 failure may leave a verified partial publication while other targets remain unavailable,
 and an unknown command outcome stays unknown. No session refresh, replay, undo or general
 permission cache is added. Fixture outcomes do not certify deployed behaviour.
 Direct-ES exposes no editor controls.
 
+Pending and uncertain attempts retain their receipts rather than replaying. A new
+explicit connected submission may follow rejection, pre-dispatch refusal or an
+acknowledged-and-observed result, permitting add/remove/add without treating an old
+receipt as a new command. Observation alone never clears an unknown command outcome.
+
+Removal observation requires the exact label to be absent from an explicit label list
+in a successfully returned authoritative image. Omitted images, missing label data,
+404, denied access and failed reads are not successful removal. A current standalone
+detail still requires its matching full projection. Authority withdrawal is accepted
+before testing the label postcondition; cold-detail failure settlement is unchanged.
+Command outcome, observation and grouped publication remain separate. Disconnected
+multi-label preparation and the existing observation/deadline/freshness bounds remain.
+
 This prevents accidental Kupua writes, not arbitrary authenticated browser requests.
-Server authorization remains mandatory. The inspected `addLabels` handler authenticates
-but does not apply the uploader/EditMetadata filter used by metadata replacement;
-client capability checks are not a repair for that server-policy gap. No live
+Server authorization remains mandatory. The inspected `addLabels` and `removeLabel` handlers authenticate
+but do not apply the uploader/EditMetadata filter used by metadata replacement;
+client capability checks are not a repair for that server-policy gap. No shared-system
 activation is approved. Isolated local-proxy and compiled-hosted fixtures exercise
 dispatch/cookies/expiry, with synthetic CSP/CORS responses; deployed preflight,
 CSRF, cookie policy and login-return integration are not certified by those fixtures.
+An authorized operator-driven local Grid trial added and removed two labels separately,
+including Unicode and whitespace, with acknowledged/observed receipts and exact restoration
+of the original label set. Temporary rollout was disabled afterward. Kahuna's producer
+recognises both implemented operation names, while retaining default-off and fail-closed
+configuration. Real hosted/shared activation remains separately authorized and unverified;
+no backend authorization policy changed. The [hosted guide](../../../exploration/docs/00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md#where-the-write-configuration-lives)
+owns configuration locations, launcher distinctions and local-to-TEST precedence.

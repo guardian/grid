@@ -547,7 +547,7 @@ describe("KUP-004 standalone detail identity", () => {
     }
   });
 
-  it("settles cold-detail failure after unsuccessful observation", async () => {
+  it.each(["add", "remove"] as const)("settles cold-detail failure after unsuccessful %s observation", async action => {
     vi.stubEnv("VITE_USE_MEDIA_API", "true");
     resetImageFreshnessForTests();
     const oldRead = deferred<ImageByIdResult | undefined>();
@@ -558,7 +558,7 @@ describe("KUP-004 standalone detail identity", () => {
     const operation = createLabelOperation(async () => ({ outcome: "unknown" }), createLabelReadback(dataSource));
     try {
       await act(async () => {
-        await operation.confirm({ action: "add", label: "news", targetIds: ["A"] }, new Map([["A", { resource }]]));
+        await operation.confirm({ action, label: "news", targetIds: ["A"] }, new Map([["A", { resource }]]));
       });
       expect(operation.getSnapshot()?.items[0]).toMatchObject({ state: "unknown", observation: "unavailable" });
       await act(async () => oldRead.reject(new Error("Synthetic singleton failure")));
@@ -573,13 +573,13 @@ describe("KUP-004 standalone detail identity", () => {
     }
   });
 
-  it("publishes full standalone readback and actually rejects a released older same-ID completion", async () => {
+  it.each(["add", "remove"] as const)("publishes full standalone %s readback and actually rejects a released older same-ID completion", async action => {
     vi.stubEnv("VITE_USE_MEDIA_API", "true");
     resetImageFreshnessForTests();
     const oldRead = deferred<ImageByIdResult | undefined>();
     const full = { ...makeImage("A"), metadata: { title: "Accepted title" },
       originalMetadata: { title: "Original camera title" }, fileMetadata: { fixture: "EXIF retained" },
-      userMetadata: { labels: ["news"], lastModified: "2026-11-06T00:00:00Z" } };
+      userMetadata: { labels: action === "remove" ? [] : ["news"], lastModified: "2026-11-06T00:00:00Z" } };
     const lean = { ...full, originalMetadata: undefined, fileMetadata: undefined };
     const lookup = vi.spyOn(dataSource, "getById").mockReturnValueOnce(oldRead.promise)
       .mockResolvedValueOnce({ image: full, enrichment: { resource: { links: [] }, actions: [] } });
@@ -589,7 +589,7 @@ describe("KUP-004 standalone detail identity", () => {
     const operation = createLabelOperation(async () => ({ outcome: "acknowledged" }), createLabelReadback(dataSource));
     try {
       await act(async () => {
-        await operation.confirm({ action: "add", label: "news", targetIds: ["A"] }, new Map([["A", { resource }]]));
+        await operation.confirm({ action, label: "news", targetIds: ["A"] }, new Map([["A", { resource }]]));
       });
       expect(screen.getByTestId("metadata").textContent).toBe("A: Accepted title");
       expect(screen.getByTestId("original-metadata").textContent).toContain("Original camera title EXIF retained");

@@ -1,5 +1,5 @@
 import { attachedEnrichment, type EnrichmentFields } from "@/stores/enrichment-store";
-import type { AddLabelsCommand, GridCommandResult } from "./grid-commands";
+import type { LabelCommand, GridCommandResult } from "./grid-commands";
 import { findLink } from "@/dal/grid-api/argo";
 import type { Image } from "@/types/image";
 import { acceptImageOverlay, acceptObservedImages, admitLabelObservation, captureImageRead, ensureImageRead, fullProjectionMatches, getImageAvailability, isLabelAuthorityCurrent, recordLabelOutcome, releaseLabelObservation } from "./image-read-freshness";
@@ -39,7 +39,7 @@ export function labelTargetCounts(context: LabelEditContext) {
 
 export interface LabelReceipt {
   readonly intent: Readonly<LabelIntent>;
-  readonly mode: "disconnected" | "simulated";
+  readonly mode: "disconnected" | "simulated" | "connected";
   readonly counts: Readonly<{ selected: number; eligible: number; ineligible: number; unresolved: number; unavailable: number }>;
   readonly blocked?: "read-only" | "capabilities" | "unsupported" | "busy" | "target-limit" | "freshness-capacity" | "conflict";
   readonly items: readonly Readonly<LabelItem>[];
@@ -67,8 +67,9 @@ export interface LabelStandaloneOwner {
 }
 
 export function createLabelOperation(
-  simulate?: (command: AddLabelsCommand) => Promise<GridCommandResult>,
+  simulate?: (command: LabelCommand) => Promise<GridCommandResult>,
   observation?: LabelObservation,
+  mode: "simulated" | "connected" = "simulated",
 ) {
   let receipt: LabelReceipt | undefined;
   const listeners = new Set<() => void>();
@@ -76,6 +77,12 @@ export function createLabelOperation(
   let cancelObservation = () => {};
   let operationId: number | undefined;
   const outcomes = new Map<string, GridCommandResult>();
+
+  function matchesLabel(image: Image): boolean {
+    const labels = image.userMetadata?.labels;
+    return Array.isArray(labels) && (receipt!.intent.action === "remove"
+      ? !labels.includes(receipt!.intent.label) : labels.includes(receipt!.intent.label));
+  }
 
   function publish(next: LabelReceipt) {
     receipt = Object.freeze(next);
@@ -174,7 +181,7 @@ export function createLabelOperation(
           const overlay = attachedEnrichment(image);
           ensureImageRead(image, issued, "lean", overlay);
           if (overlay) acceptImageOverlay(image.id, overlay);
-          if (image.userMetadata?.labels?.includes(receipt.intent.label)) {
+          if (matchesLabel(image)) {
             const owner = observation!.standalone?.();
             if (owner?.imageId === image.id && owner.isCurrent()) {
               if (!fullAttempted) {
@@ -195,7 +202,7 @@ export function createLabelOperation(
           if (settled || !receipt) return;
           fullPending = undefined;
           if (!pending.owner.isCurrent()) verified.set(pending.image.id, pending.image);
-          else if (full && full.id === pending.image.id && full.userMetadata?.labels?.includes(receipt.intent.label)
+          else if (full && full.id === pending.image.id && matchesLabel(full)
             && fullProjectionMatches(full, pending.image)) verified.set(full.id, full);
           else {
             unavailable.add(pending.image.id);
@@ -220,25 +227,26 @@ export function createLabelOperation(
     cancelObservation: () => cancelObservation(),
     async confirm(input: LabelIntent, targets: ReadonlyMap<string, LabelTarget>): Promise<boolean> {
       if (receipt) return false;
-      const label = input.label.trim();
-      if (!label || !input.targetIds.length || input.targetIds.some((id) => !/^[a-zA-Z0-9_-]+$/.test(id))) return false;
+      const label = input.action === "remove" ? input.label : input.label.trim();
+      if (!label.trim() || !input.targetIds.length || input.targetIds.some((id) => !/^[a-zA-Z0-9_-]+$/.test(id))) return false;
       const intent = Object.freeze({ ...input, label, targetIds: Object.freeze([...new Set(input.targetIds)]) });
       const counts = labelTargetCounts({ targetIds: intent.targetIds, targets });
       let blocked: LabelReceipt["blocked"] = import.meta.env.VITE_USE_MEDIA_API !== "true" ? "read-only"
         : counts.ineligible || counts.unresolved || counts.unavailable ? "capabilities"
-        : simulate && intent.action === "remove" ? "unsupported" : undefined;
+        : simulate && (mode === "connected" || intent.action === "remove") && intent.targetIds.length !== 1 ? "target-limit" : undefined;
       if (simulate && observation && !blocked) {
         const admission = admitLabelObservation(intent.targetIds);
         if (typeof admission === "number") operationId = admission;
         else blocked = admission;
       }
-      const commands: AddLabelsCommand[] = simulate && !blocked ? intent.targetIds.map((imageId) => ({
-        operation: "add-labels", imageId, labels: [label],
+      const commands: LabelCommand[] = simulate && !blocked ? intent.targetIds.map((imageId) => ({
+        ...(intent.action === "remove" ? { operation: "remove-label" as const, label }
+          : { operation: "add-labels" as const, labels: [label] }), imageId,
         resource: { links: targets.get(imageId)!.resource!.links.map(({ rel, href }) => ({ rel, href })) },
       })) : [];
       publish({
         intent,
-        mode: simulate ? "simulated" : "disconnected",
+        mode: simulate ? mode : "disconnected",
         counts: Object.freeze(counts),
         blocked,
         items: Object.freeze(intent.targetIds.map((imageId) => Object.freeze({ imageId,

@@ -23,6 +23,49 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("Grid command admission", () => {
+  it("connects the editor only with API mode, valid origins and an enabled named operation", async () => {
+    const transport = vi.fn();
+    vi.stubGlobal("fetch", transport);
+    const { gridLabelEditingEnabled } = await import("./grid-commands");
+    expect(gridLabelEditingEnabled()).toBe(true);
+    vi.stubEnv("VITE_GRID_API_WRITES_ENABLED", "false");
+    expect(gridLabelEditingEnabled()).toBe(false);
+    vi.stubEnv("VITE_GRID_API_WRITES_ENABLED", "true");
+    vi.stubEnv("VITE_GRID_API_OPERATIONS", "unknown");
+    expect(gridLabelEditingEnabled()).toBe(false);
+    vi.stubEnv("VITE_GRID_API_OPERATIONS", "remove-label");
+    expect(gridLabelEditingEnabled()).toBe(true);
+    vi.stubEnv("VITE_GRID_METADATA_ORIGIN", "");
+    expect(gridLabelEditingEnabled()).toBe(false);
+    vi.stubEnv("VITE_GRID_METADATA_ORIGIN", metadataOrigin);
+    vi.stubEnv("VITE_USE_MEDIA_API", "false");
+    expect(gridLabelEditingEnabled()).toBe(false);
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it("removes only the exact advertised label resource and refuses absent or mismatched capabilities", async () => {
+    vi.stubEnv("VITE_GRID_API_OPERATIONS", "remove-label");
+    const label = "news / + % ? #";
+    const uri = `${metadataOrigin}/metadata/fixture/labels/news+%2F+%2B+%25+%3F+%23`;
+    const removal = { operation: "remove-label", imageId: command.imageId, resource: command.resource, label };
+    const response = (data: unknown[]) => Response.json({ data: { labels: { uri: `${metadataOrigin}/metadata/fixture/labels`, data } } });
+    const transport = vi.fn().mockResolvedValueOnce(root()).mockResolvedValueOnce(session())
+      .mockResolvedValueOnce(response([{ uri, data: label }])).mockResolvedValueOnce(new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", transport);
+    const { executeGridCommand } = await import("./grid-commands");
+    await expect(executeGridCommand(removal)).resolves.toEqual({ outcome: "acknowledged" });
+    expect(transport).toHaveBeenLastCalledWith(uri.replace(metadataOrigin, "/grid-metadata"), expect.objectContaining({
+      method: "DELETE", credentials: "include", redirect: "error",
+    }));
+    expect(transport.mock.calls.at(-1)?.[1].body).toBeUndefined();
+    for (const data of [[], [{ data: label }], [{ uri, data: `${label} suffix` }],
+      [{ uri: uri.replace("/fixture/", "/other/"), data: label }], [{ uri: uri.replace(metadataOrigin, "https://other.example.test"), data: label }]]) {
+      transport.mockResolvedValueOnce(response(data));
+      await expect(executeGridCommand(removal)).resolves.toMatchObject({ outcome: "blocked" });
+    }
+    expect(transport.mock.calls.filter(([, init]) => init?.method === "DELETE")).toHaveLength(1);
+  });
+
   it("bounds discovery already started by the page without replay or late dispatch", async () => {
     const deadline = new AbortController();
     const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(deadline.signal);
@@ -122,12 +165,15 @@ describe("Grid command admission", () => {
     [503, { outcome: "unknown" }],
     [403, { outcome: "rejected", status: 403, errorKey: "permission-denied" }],
   ])("classifies HTTP %s without replaying the submitted write", async (status, expected) => {
+    vi.stubEnv("VITE_GRID_API_OPERATIONS", "remove-label");
     const transport = vi.fn().mockResolvedValueOnce(root()).mockResolvedValueOnce(session())
-      .mockResolvedValueOnce(edits()).mockResolvedValueOnce(Response.json({ errorKey: "permission-denied" }, { status: status as number }));
+      .mockResolvedValueOnce(Response.json({ data: { labels: { uri: `${metadataOrigin}/metadata/fixture/labels`,
+        data: [{ uri: `${metadataOrigin}/metadata/fixture/labels/news`, data: "news" }] } } }))
+      .mockResolvedValueOnce(Response.json({ errorKey: "permission-denied" }, { status: status as number }));
     vi.stubGlobal("fetch", transport);
     const { executeGridCommand } = await import("./grid-commands");
-    await expect(executeGridCommand(command)).resolves.toEqual(expected);
-    expect(transport.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
+    await expect(executeGridCommand({ operation: "remove-label", imageId: command.imageId, resource: command.resource, label: "news" })).resolves.toEqual(expected);
+    expect(transport.mock.calls.filter(([, init]) => init?.method === "DELETE")).toHaveLength(1);
     expect(transport).toHaveBeenCalledTimes(4);
   });
 

@@ -9,7 +9,11 @@ import { buildHistorySnapshot } from "./lib/build-history-snapshot";
 import { fetchQuotas } from "./lib/cost/quota-store";
 import { useCollectionStore } from "./stores/collection-store";
 import { loadUsageRightsCatalogue } from "./lib/usage-rights-catalogue";
-import "./stores/search-store";
+import { useSearchStore } from "./stores/search-store";
+import { createLabelEditorStore, labelEditorStore } from "./stores/label-editor-store";
+import { LabelEditorContext } from "./components/LabelEditor";
+import { executeGridCommand, gridLabelEditingEnabled } from "./lib/grid-commands";
+import { createLabelReadback } from "./lib/image-publication";
 import { checkBedrockHealth } from "./lib/bedrock-proxy-client";
 import { setAiSearchAvailable } from "./lib/grid-config";
 import { apiAiSearchAvailable } from "./lib/grid-api-instance";
@@ -72,7 +76,11 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <LabelEditorContext value={gridLabelEditingEnabled()
+      ? createLabelEditorStore(executeGridCommand, createLabelReadback(useSearchStore.getState().dataSource), "connected")
+      : labelEditorStore}>
+      <RouterProvider router={router} />
+    </LabelEditorContext>
   </StrictMode>
 );
 

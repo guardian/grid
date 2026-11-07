@@ -1297,7 +1297,7 @@ async function exerciseObservedEditor(page: Page) {
     ]);
     expect(reads).toEqual([["fixture", "other"], ["other"]]);
     expect((await snapshot()).calls).toBe(2);
-    expect((await snapshot()).commands.map(command => ({ operation: command.operation, id: command.imageId, labels: command.labels }))).toEqual([
+    expect((await snapshot()).commands.map(command => ({ operation: command.operation, id: command.imageId, labels: command.operation === "add-labels" ? command.labels : undefined }))).toEqual([
       { operation: "add-labels", id: "fixture", labels: ["Unit D label"] },
       { operation: "add-labels", id: "other", labels: ["Unit D label"] },
     ]);
@@ -1311,9 +1311,95 @@ async function exerciseObservedEditor(page: Page) {
   }
 }
 
+async function exerciseObservedRemoval(page: Page, outcome: "acknowledged" | "unknown") {
+  const reads: string[][] = [];
+  let observing = false;
+  const routePattern = "**/images/mget";
+  await page.route(routePattern, async route => {
+    const ids = route.request().postDataJSON().ids as string[];
+    if (observing) reads.push(ids);
+    await route.fulfill({ json: { data: ids.map(id => ({
+      uri: `https://api.example.test/images/${id}`, links: [], actions: [],
+      data: { id, uploadTime: "2026-01-01T00:00:00Z", lastModified: "2026-11-07T00:00:00Z",
+        metadata: { description: `Removal ${id}` }, cost: "free", valid: true, invalidReasons: {},
+        usageRights: { category: "staff-photographer" }, source: { dimensions: { width: 800, height: 600 } },
+        userMetadata: { data: { lastModified: observing ? "2026-11-07T00:00:00Z" : "2026-11-01T00:00:00Z",
+          labels: { data: (reads.length >= 2 ? ["news suffix"] : ["news"]).map(data => ({ data })) },
+          metadata: {}, usageRights: {}, archived: { data: false }, photoshoot: {} } },
+        usages: { data: [] }, leases: { data: { leases: [] } }, collections: [] },
+    })) } });
+  });
+  try {
+    await page.evaluate(() => (window as CommandWindow).editorFixture.select(["fixture"]));
+    await expect.poll(() => page.evaluate(() => (window as CommandWindow).editorFixture.readbackSnapshot().selected.map(image => image.labels))).toEqual([["news"]]);
+    await page.evaluate(() => {
+      const fixture = (window as CommandWindow).editorFixture;
+      fixture.mount(true, true, true);
+      fixture.targets(["fixture"]);
+    });
+    observing = true;
+    const fixture = page.getByRole("region", { name: "Label editor fixture", exact: true });
+    await fixture.getByRole("button", { name: "Remove news", exact: true }).dblclick();
+    const snapshot = () => page.evaluate(() => (window as CommandWindow).editorFixture.snapshot());
+    expect((await snapshot()).calls).toBe(1);
+    expect((await snapshot()).receipts[0].items[0].state).toBe("submitted");
+    expect(reads).toEqual([]);
+    await page.evaluate(outcome => {
+      const fixture = (window as CommandWindow).editorFixture;
+      fixture.targets(["new-selection"], true);
+      fixture.release({ outcome });
+    }, outcome);
+    await expect.poll(async () => (await snapshot()).receipts[0].items[0].observation).toBe("observed");
+    expect((await snapshot()).commands).toEqual([{ operation: "remove-label", imageId: "fixture", label: "news",
+      resource: { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/fixture" }] } }]);
+    expect((await snapshot()).receipts[0]).toMatchObject({ intent: { action: "remove", label: "news", targetIds: ["fixture"] },
+      items: [{ imageId: "fixture", state: outcome === "unknown" ? "unknown" : "accepted-awaiting-visibility", observation: "observed" }] });
+    expect(reads).toEqual([["fixture"], ["fixture"]]);
+    expect(await page.evaluate(() => (window as CommandWindow).editorFixture.readbackSnapshot().selected)).toEqual([{ id: "fixture", labels: ["news suffix"] }]);
+    expect((await snapshot()).calls).toBe(1);
+  } finally {
+    await page.evaluate(() => (window as CommandWindow).editorFixture.release({ outcome: "unknown" }));
+    await page.unroute(routePattern);
+  }
+}
+
+async function exerciseConnectedEditor(page: Page, beforeDispatch: () => void) {
+  await page.evaluate(() => (window as CommandWindow).editorFixture.select(["fixture"]));
+  await expect.poll(() => page.evaluate(() => (window as CommandWindow).__kupua_selection_store__.getState().metadataCache.has("fixture"))).toBe(true);
+  const original = await page.evaluate(() => (window as CommandWindow).editorFixture.readbackSnapshot().selected[0].labels);
+  await expect.poll(() => page.evaluate(() => (window as CommandWindow).editorFixture.readbackSnapshot().loading)).toBe(false);
+  await page.evaluate(() => {
+    const fixture = (window as CommandWindow).editorFixture;
+    fixture.focus("fixture");
+    fixture.select(["fixture"]);
+  });
+  const cell = page.getByRole("region", { name: "Image results grid", exact: true }).locator('[data-cell-id="fixture"]');
+  await expect(cell).toBeVisible();
+  const originalBox = await cell.boundingBox();
+  await page.getByRole("button", { name: "Add label", exact: true }).click();
+  const input = page.getByRole("combobox", { name: "Add label", exact: true });
+  await input.fill("connected fixture label");
+  beforeDispatch();
+  await input.press("Enter");
+  const activity = page.getByRole("complementary", { name: "Label activity", exact: true });
+  await expect(activity.getByText("Label change", { exact: true })).toHaveCount(1);
+  await expect(activity.locator("pre")).toContainText('"observation": "observed"');
+  await expect.poll(() => page.evaluate(() => (window as CommandWindow).editorFixture.readbackSnapshot().selected[0].labels)).toEqual([...original!, "connected fixture label"]);
+  const remove = page.getByRole("button", { name: "Remove connected fixture label", exact: true });
+  await expect(remove).toBeEnabled();
+  await remove.click();
+  await expect(activity.getByText("Label change", { exact: true })).toHaveCount(2);
+  await expect(activity.locator("pre").first()).toContainText('"observation": "observed"');
+  await expect.poll(() => page.evaluate(() => (window as CommandWindow).editorFixture.readbackSnapshot().selected[0].labels)).toEqual(original);
+  await expect(remove).toHaveCount(0);
+  expect(await cell.boundingBox()).toEqual(originalBox);
+}
+
 test("local commands cross the actual guarded Vite proxy only for the selected operation", async ({ page }, testInfo) => {
   const received: Array<{ method: string; path: string; body: string }> = [];
   let origin = "";
+  let labels = ["fixture label"];
+  let version = 0;
   const upstream = createHttpServer(async (request, response) => {
     let body = "";
     for await (const chunk of request) body += chunk;
@@ -1321,9 +1407,27 @@ test("local commands cross the actual guarded Vite proxy only for the selected o
     response.setHeader("Content-Type", "application/json");
     if (request.url === "/") response.end(JSON.stringify({ links: [{ rel: "session", href: `${origin}/session` }] }));
     else if (request.url === "/session") response.end(JSON.stringify({ data: { user: { permissions: {} } } }));
+    else if (request.url === "/images/mget") response.end(JSON.stringify({ data: [{
+      uri: `${origin}/images/fixture`, links: [{ rel: "edits", href: `${origin}/metadata/fixture` }], actions: [],
+      data: { id: "fixture", uploadTime: "2026-01-01T00:00:00Z", metadata: {},
+        source: { dimensions: { width: 800, height: 600 } },
+        userMetadata: { data: { lastModified: new Date(Date.UTC(2026, 10, 7) + version * 1000).toISOString(),
+          labels: { data: labels.map(data => ({ data })) }, archived: { data: false },
+          metadata: {}, usageRights: {}, photoshoot: {} } } },
+    }] }));
     else if (request.url === "/metadata/fixture" && request.method === "GET") {
-      response.end(JSON.stringify({ data: { labels: { uri: `${origin}/metadata/fixture/labels` } } }));
-    } else if (request.url === "/metadata/fixture/labels" && request.method === "POST") response.end("{}");
+      response.end(JSON.stringify({ data: { labels: { uri: `${origin}/metadata/fixture/labels`,
+        data: labels.map(label => ({ uri: `${origin}/metadata/fixture/labels/${new URLSearchParams({ label }).toString().slice(6)}`, data: label })) } } }));
+    } else if (request.url === "/metadata/fixture/labels" && request.method === "POST") {
+      labels = [...new Set([...labels, ...(JSON.parse(body).data as string[])])];
+      version++;
+      response.end("{}");
+    } else if (request.url?.startsWith("/metadata/fixture/labels/") && request.method === "DELETE") {
+      const label = decodeURIComponent(request.url.slice("/metadata/fixture/labels/".length).replace(/\+/g, " "));
+      labels = labels.filter(value => value !== label);
+      version++;
+      response.end("{}");
+    }
     else { response.statusCode = 404; response.end("{}"); }
   });
   await new Promise<void>((done) => upstream.listen(0, "127.0.0.1", done));
@@ -1333,7 +1437,7 @@ test("local commands cross the actual guarded Vite proxy only for the selected o
   const env = {
     VITEST: "true", VITE_USE_MEDIA_API: "true", VITE_HOSTED: "false", VITE_MEDIA_API_BASE_URL: "/api",
     VITE_GRID_METADATA_ORIGIN: origin, VITE_GRID_AUTH_ORIGIN: origin,
-    VITE_GRID_API_WRITES_ENABLED: "true", VITE_GRID_API_OPERATIONS: "add-labels",
+    VITE_GRID_API_WRITES_ENABLED: "true", VITE_GRID_API_OPERATIONS: "add-labels,remove-label",
   };
   const previous = Object.fromEntries(Object.keys(env).map((key) => [key, process.env[key]]));
   Object.assign(process.env, env);
@@ -1350,6 +1454,10 @@ test("local commands cross the actual guarded Vite proxy only for the selected o
     await page.waitForFunction(() => Boolean((window as CommandWindow).commandFixture));
     await exerciseLabelEditor(page);
     await exerciseObservedEditor(page);
+    page.once("dialog", dialog => dialog.accept());
+    await page.reload();
+    await page.waitForFunction(() => Boolean((window as CommandWindow).commandFixture));
+    await exerciseObservedRemoval(page, "acknowledged");
     expect(received).toEqual([]);
     const result = await page.evaluate((command) => (window as CommandWindow).commandFixture.executeGridCommand(command), labelCommand(origin));
     expect(result.outcome).toBe("acknowledged");
@@ -1364,9 +1472,27 @@ test("local commands cross the actual guarded Vite proxy only for the selected o
       ["/grid-auth/session", "POST"], ["/api/images/fixture", "DELETE"],
     ].map(async ([path, method]) => (await fetch(path, { method })).status)));
     expect(refused).toEqual([403, 403, 403, 403]);
+    const removal = { operation: "remove-label", imageId: "fixture", label: "fixture label", resource: labelCommand(origin).resource };
+    expect((await page.evaluate(command => (window as CommandWindow).commandFixture.executeGridCommand(command), removal)).outcome).toBe("acknowledged");
+    expect(received.slice(4)).toEqual([{ method: "GET", path: "/metadata/fixture", body: "" },
+      { method: "DELETE", path: "/metadata/fixture/labels/fixture+label", body: "" }]);
+    process.env.VITE_GRID_API_OPERATIONS = "add-labels";
+    expect(await page.evaluate(async () => (await fetch("/grid-metadata/metadata/fixture/labels/fixture+label", { method: "DELETE" })).status)).toBe(403);
     process.env.VITE_GRID_API_WRITES_ENABLED = "false";
     expect(await page.evaluate(async () => (await fetch("/grid-metadata/metadata/fixture/labels", { method: "POST" })).status)).toBe(403);
-    expect(received).toHaveLength(4);
+    expect(received).toHaveLength(6);
+    process.env.VITE_GRID_API_WRITES_ENABLED = "true";
+    process.env.VITE_GRID_API_OPERATIONS = "add-labels,remove-label";
+    page.once("dialog", dialog => dialog.accept());
+    await page.goto(`${localOrigin}/__connected`);
+    await page.waitForFunction(() => Boolean((window as CommandWindow).editorFixture));
+    let beforeConnected = received.length;
+    await exerciseConnectedEditor(page, () => { beforeConnected = received.length; });
+    expect(received.slice(beforeConnected).filter(request => request.path.startsWith("/metadata/") && request.method !== "GET")).toEqual([
+      { method: "POST", path: "/metadata/fixture/labels", body: JSON.stringify({ data: ["connected fixture label"] }) },
+      { method: "DELETE", path: "/metadata/fixture/labels/connected+fixture+label", body: "" },
+    ]);
+    expect(received.slice(beforeConnected).filter(request => request.path === "/images/mget")).toHaveLength(2);
   } finally {
     await page.unrouteAll({ behavior: "wait" });
     await vite?.close();
@@ -1393,6 +1519,9 @@ test("built hosted commands fail closed, use direct service origins and stop aft
   const config = { mediaApiUri: "https://api.example.test", metadataEditorUri: metadataOrigin, authUri: authOrigin };
   const requests: Array<{ method: string; origin: string; path: string; cookie: string }> = [];
   let writeStatus = 200;
+  let connected = false;
+  let connectedLabels = ["news"];
+  let connectedVersion = 0;
   let releaseMetadata: (() => void) | undefined;
   let heldMetadata: Promise<void> | undefined;
   const imageEntity = (imageId: string) => ({
@@ -1401,7 +1530,8 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     data: { id: imageId, uploadTime: "2026-01-01T00:00:00Z", lastModified: "2026-01-01T00:00:00Z",
       metadata: { title: `Fixture ${imageId}`, credit: "Fixture", description: "Synthetic image" },
       cost: "free", valid: true, invalidReasons: {}, usageRights: { category: "staff-photographer" },
-      userMetadata: { data: { labels: { data: [{ data: "news" }] }, archived: { data: false },
+      userMetadata: { data: { lastModified: new Date(Date.UTC(2026, 10, 7) + connectedVersion * 1000).toISOString(),
+        labels: { data: (connected ? connectedLabels : ["news"]).map(data => ({ data })) }, archived: { data: false },
         metadata: {}, usageRights: {}, photoshoot: {} } },
       source: { dimensions: { width: 800, height: 600 }, mimeType: "image/jpeg" },
       thumbnail: { secureUrl: "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", dimensions: { width: 1, height: 1 } },
@@ -1419,7 +1549,8 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     if (url.origin === appOrigin) {
       if (url.pathname === "/") {
         const html = (await readFile(resolve(outDir, "index.html"), "utf8"))
-          .replace("<head>", `<head><script>window.__KUPUA_CONFIG__=${JSON.stringify(config)}</script>`)
+          .replace("<head>", `<head><script>window.__KUPUA_CONFIG__=${JSON.stringify({ ...config,
+            ...(connected && { mutations: { enabled: true, operations: ["add-labels", "remove-label"] } }) })}</script>`)
           .replace("</body>", '<script type="module" src="/assets/kupua/assets/commands.js"></script></body>');
         await route.fulfill({ contentType: "text/html", body: html, headers: {
           "Content-Security-Policy": `default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.example.test ${metadataOrigin} ${authOrigin}`,
@@ -1442,10 +1573,19 @@ test("built hosted commands fail closed, use direct service origins and stop aft
       body = { data: (request.postDataJSON().ids as string[]).map(imageEntity) };
     }
     if (url.origin === authOrigin) body = { data: { user: { permissions: {} } } };
-    if (url.origin === metadataOrigin) body = { data: { labels: { uri: `${metadataOrigin}/metadata/fixture/labels` } } };
-    const status = url.origin === metadataOrigin && request.method() === "POST" ? writeStatus : 200;
+    if (url.origin === metadataOrigin) body = { data: { labels: { uri: `${metadataOrigin}/metadata/fixture/labels`,
+      data: (connected ? connectedLabels : ["fixture label"]).map(label => ({
+        uri: `${metadataOrigin}/metadata/fixture/labels/${new URLSearchParams({ label }).toString().slice(6)}`, data: label,
+      })) } } };
+    const status = url.origin === metadataOrigin && ["POST", "DELETE"].includes(request.method()) ? writeStatus : 200;
+    if (connected && url.origin === metadataOrigin && status === 200 && ["POST", "DELETE"].includes(request.method())) {
+      connectedLabels = request.method() === "POST"
+        ? [...new Set([...connectedLabels, ...(request.postDataJSON().data as string[])])]
+        : connectedLabels.filter(label => label !== decodeURIComponent(url.pathname.split("/").at(-1)!.replace(/\+/g, " ")));
+      connectedVersion++;
+    }
     await route.fulfill({ status, json: status === 419 ? { errorKey: "authentication-expired" } : body,
-      headers: { "Access-Control-Allow-Origin": appOrigin, "Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "content-type" } });
+      headers: { "Access-Control-Allow-Origin": appOrigin, "Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", "Access-Control-Allow-Headers": "content-type" } });
   });
   try {
     await page.goto(appOrigin);
@@ -1502,6 +1642,11 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     page.once("dialog", dialog => dialog.accept());
     await page.goto(appOrigin);
     await page.waitForFunction(() => Boolean((window as CommandWindow).commandFixture));
+    await exerciseObservedRemoval(page, "unknown");
+    assertEditorReads();
+    page.once("dialog", dialog => dialog.accept());
+    await page.goto(appOrigin);
+    await page.waitForFunction(() => Boolean((window as CommandWindow).commandFixture));
     await page.evaluate(() => { window.__KUPUA_CONFIG__!.mutations = { enabled: true, operations: ["add-labels"] }; });
     await page.setViewportSize({ width: 390, height: 844 });
     const touch = await context.newCDPSession(page);
@@ -1535,12 +1680,40 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     expect((await execute()).outcome).toBe("acknowledged");
     const writes = () => requests.filter((request) => request.origin === metadataOrigin && request.method === "POST");
     expect(writes()).toEqual([{ method: "POST", origin: metadataOrigin, path: "/metadata/fixture/labels", cookie: "fixture-session=synthetic" }]);
+    const removal = { operation: "remove-label", imageId: "fixture", label: "fixture label", resource: labelCommand(metadataOrigin).resource };
+    const executeRemoval = () => page.evaluate(command => (window as CommandWindow).commandFixture.executeGridCommand(command), removal);
+    expect((await executeRemoval()).outcome).toBe("blocked");
+    await page.evaluate(() => { window.__KUPUA_CONFIG__!.mutations = { enabled: true, operations: ["add-labels", "remove-label"] }; });
+    expect((await executeRemoval()).outcome).toBe("acknowledged");
+    writeStatus = 503;
+    expect((await executeRemoval()).outcome).toBe("unknown");
+    expect(requests.filter(request => request.method === "DELETE")).toEqual(Array.from({ length: 2 }, () => ({
+      method: "DELETE", origin: metadataOrigin, path: "/metadata/fixture/labels/fixture+label", cookie: "fixture-session=synthetic",
+    })));
     writeStatus = 419;
     expect((await execute()).outcome).toBe("rejected");
     const afterExpiry = requests.length;
     expect((await execute()).outcome).toBe("blocked");
     expect(requests).toHaveLength(afterExpiry);
     expect(writes()).toHaveLength(2);
+    expect(escaped).toEqual([]);
+    connected = true;
+    writeStatus = 200;
+    await page.evaluate(() => (window as CommandWindow).editorFixture.select([]));
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const desktop = await context.newCDPSession(page);
+    await desktop.send("Emulation.setTouchEmulationEnabled", { enabled: false });
+    await desktop.detach();
+    page.once("dialog", dialog => dialog.accept());
+    await page.goto(appOrigin);
+    await page.waitForFunction(() => Boolean((window as CommandWindow).editorFixture));
+    let beforeConnected = requests.length;
+    await exerciseConnectedEditor(page, () => { beforeConnected = requests.length; });
+    expect(requests.slice(beforeConnected).filter(request => request.origin === metadataOrigin && ["POST", "DELETE"].includes(request.method)))
+      .toEqual(["POST", "DELETE"].map(method => ({ method, origin: metadataOrigin, cookie: "fixture-session=synthetic",
+        path: method === "POST" ? "/metadata/fixture/labels" : "/metadata/fixture/labels/connected+fixture+label" })));
+    expect(requests.slice(beforeConnected).filter(request => request.path === "/images/mget")).toHaveLength(2);
+    expect(connectedLabels).toEqual(["news"]);
     expect(escaped).toEqual([]);
   } finally {
     releaseMetadata?.();

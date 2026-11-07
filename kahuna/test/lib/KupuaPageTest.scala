@@ -140,7 +140,7 @@ class KupuaPageTest extends AnyFreeSpec with Matchers {
     KupuaPage.SwitchCookie shouldBe "feature-switch-use-kupua"
   }
 
-  "mutation configuration is default-off and only admits the implemented operation" in {
+  "mutation configuration is default-off and only admits the implemented operations" in {
     def payload(configuration: play.api.Configuration) =
       KupuaPage.mutationConfig(configuration, "https://metadata.example.test", "https://auth.example.test")
     val absent = payload(play.api.Configuration.empty)
@@ -148,16 +148,22 @@ class KupuaPageTest extends AnyFreeSpec with Matchers {
     (absent \ "mutations" \ "operations").as[Seq[String]] shouldBe empty
     (absent \ "metadataEditorUri").as[String] shouldBe "https://metadata.example.test"
     (absent \ "authUri").as[String] shouldBe "https://auth.example.test"
-    val selected = payload(play.api.Configuration.from(Map(
-      "kupua.mutations.enabled" -> true, "kupua.mutations.operations" -> Seq("add-labels"))))
-    (selected \ "mutations" \ "enabled").as[Boolean] shouldBe true
-    (selected \ "mutations" \ "operations").as[Seq[String]] shouldBe Seq("add-labels")
-    for (operations <- Seq(Seq("delete"), "not-a-list")) {
+    val disabled = payload(play.api.Configuration.from(Map(
+      "kupua.mutations.enabled" -> false, "kupua.mutations.operations" -> Seq("add-labels", "remove-label"))))
+    (disabled \ "mutations" \ "enabled").as[Boolean] shouldBe false
+    (disabled \ "mutations" \ "operations").as[Seq[String]] shouldBe Seq("add-labels", "remove-label")
+    for (operations <- Seq(Seq("add-labels"), Seq("remove-label"), Seq("add-labels", "remove-label"))) {
+      val selected = payload(play.api.Configuration.from(Map(
+        "kupua.mutations.enabled" -> true, "kupua.mutations.operations" -> operations)))
+      (selected \ "mutations" \ "enabled").as[Boolean] shouldBe true
+      (selected \ "mutations" \ "operations").as[Seq[String]] shouldBe operations
+      val rendered = KupuaPage.render("<html><head></head></html>", selected).get
+      rendered should include ("\"mutations\":{\"enabled\":true")
+    }
+    for (operations <- Seq(Seq("delete"), Seq("add-labels", "remove-label", "delete"), "not-a-list")) {
       val invalid = payload(play.api.Configuration.from(Map(
         "kupua.mutations.enabled" -> true, "kupua.mutations.operations" -> operations)))
       (invalid \ "mutations" \ "enabled").as[Boolean] shouldBe false
     }
-    val rendered = KupuaPage.render("<html><head></head></html>", selected).get
-    rendered should include ("\"mutations\":{\"enabled\":true")
   }
 }

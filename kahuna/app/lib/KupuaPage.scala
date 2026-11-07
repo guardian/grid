@@ -50,7 +50,7 @@ object KupuaPage {
     val rollout = Try {
       val enabled = configuration.getOptional[Boolean]("kupua.mutations.enabled").getOrElse(false)
       val operations = configuration.getOptional[Seq[String]]("kupua.mutations.operations").getOrElse(Seq.empty)
-      if (operations.forall(_ == "add-labels")) (enabled, operations) else (false, Seq.empty[String])
+      if (operations.forall(operation => operation == "add-labels" || operation == "remove-label")) (enabled, operations) else (false, Seq.empty[String])
     }.getOrElse((false, Seq.empty[String]))
     Json.obj(
       "metadataEditorUri" -> metadataEditorUri,

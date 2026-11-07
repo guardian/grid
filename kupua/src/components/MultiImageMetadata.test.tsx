@@ -65,6 +65,63 @@ describe("multi-image cost summary", () => {
 });
 
 describe("disconnected label editing", () => {
+  it("allows a new explicit connected add after observed add and removal without replaying pending or unknown commands", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const resource = { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/img-0" }] };
+    const context = { targetIds: [images[0].id], targets: new Map([[images[0].id, { resource }]]) };
+    let labels: string[] = [];
+    let version = 0;
+    const executor = vi.fn(async (command: import("@/lib/grid-commands").LabelCommand): Promise<GridCommandResult> => {
+      labels = command.operation === "add-labels" ? command.labels : [];
+      version++;
+      return { outcome: version === 3 ? "unknown" : "acknowledged" };
+    });
+    const store = createLabelEditorStore(executor, {
+      readImages: async () => {
+        const image = { ...images[0], userMetadata: { labels, lastModified: new Date(Date.UTC(2026, 10, 7) + version * 1000).toISOString() } };
+        attachEnrichment(image, { resource });
+        return [image];
+      },
+      publishImages: vi.fn(),
+    }, "connected");
+    try {
+      await act(async () => {
+        store.getState().prepare("add", "again", context);
+        store.getState().prepare("add", "again", context);
+      });
+      expect(executor).toHaveBeenCalledTimes(1);
+      expect(store.getState().receipts[0].items[0].observation).toBe("observed");
+      await act(async () => { store.getState().prepare("remove", "again", context); });
+      expect(store.getState().receipts[1].items[0].observation).toBe("observed");
+      await act(async () => { store.getState().prepare("add", "again", context); });
+      expect(executor).toHaveBeenCalledTimes(3);
+      expect(store.getState().receipts[2].items[0]).toMatchObject({ state: "unknown", observation: "observed" });
+      await act(async () => { store.getState().prepare("add", "again", context); });
+      expect(executor).toHaveBeenCalledTimes(3);
+    } finally { store.getState().dispose(); }
+  });
+
+  it("labels connected receipts truthfully and refuses multi-image execution", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const executor = vi.fn().mockResolvedValue({ outcome: "rejected", status: 403, errorKey: "permission-denied" });
+    const store = createLabelEditorStore(executor, undefined, "connected");
+    const resource = { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/img-0" }] };
+    render(<LabelEditorContext value={store}><ImageMetadata image={images[0]} overlay={{ resource }} /><LabelOperationReceipts /></LabelEditorContext>);
+    fireEvent.click(screen.getByRole("button", { name: "Add label" }));
+    const input = screen.getByRole("combobox", { name: "Add label" });
+    fireEvent.change(input, { target: { value: "connected label" } });
+    await act(async () => fireEvent.submit(input.closest("form")!));
+    expect(executor).toHaveBeenCalledTimes(1);
+    expect(store.getState().receipts[0]).toMatchObject({ mode: "connected", items: [{ state: "rejected" }] });
+    expect(screen.getByText("Label change", { exact: true })).toBeTruthy();
+    expect(screen.queryByText(/Simulated/)).toBeNull();
+    act(() => { store.getState().prepare("add", "another label", {
+      targetIds: images.map(image => image.id), targets: new Map(images.map(image => [image.id, { resource }])),
+    }); });
+    expect(store.getState().receipts[1]).toMatchObject({ blocked: "target-limit", items: [{ state: "not-started" }, { state: "not-started" }] });
+    expect(executor).toHaveBeenCalledTimes(1);
+  });
+
   it("rechecks captured standalone authority at submit without requiring a parent rerender", () => {
     vi.stubEnv("VITE_USE_MEDIA_API", "true");
     const operation = admitLabelObservation([images[0].id]);

@@ -50,7 +50,8 @@ All image access is read-only and uses your existing developer AWS credentials. 
 
 ```bash
 ./kupua/scripts/start.sh --use-TEST        # Connect to TEST ES cluster via SSH tunnel
-./kupua/scripts/start.sh --use-media-api   # All image reads via local media-api (implies local Grid’s --use-TEST)
+./kupua/scripts/start.sh --use-media-api --canonical-media # Local Grid API; no Kupua ES/tunnel/proxy setup
+./kupua/scripts/start.sh --use-media-api   # Local Grid API plus legacy TEST setup for Kupua's image proxies
 ./kupua/scripts/start.sh --use-deployed-media-api # All image reads via deployed TEST media-api
 ./kupua/scripts/start.sh --skip-es         # Skip starting Elasticsearch
 ./kupua/scripts/start.sh --skip-data       # Skip sample data check
@@ -192,7 +193,14 @@ Then run `dev-nginx setup-app dev/nginx-mappings.yml.template` from the Grid roo
 
 **Authentication:** Visit `https://media.test.dev-gutools.co.uk` to get the cookie needed for eg. Collections tree.
 
-**To run the minimum Grid services needed** (from Grid repo root):
+**Grid chooses its backing services independently of Kupua.** Start Grid in the mode
+you need; Kupua's local API mode neither restarts nor reconfigures it. For example,
+Grid's `dev/script/start.sh --use-TEST` selects TEST-backed Grid services, whereas
+Grid's no-flag startup selects its local development stack. Check the actual Grid
+configuration before any write trial; a local API hostname alone proves no isolation.
+
+**Existing TEST-backed Grid setup** (from Grid repo root; not needed merely to start
+Kupua against an already-running local stack):
 
 ```bash
 dev/script/setup.sh                  # provisions Docker, localstack, nginx, config
@@ -201,17 +209,32 @@ dev/script/start.sh --use-TEST       # starts auth + media-api with TEST domain 
 
 ### `--use-media-api` flag
 
-This flag routes every image-data read through a locally running Grid media-api. It implies
-`--use-TEST` for the API's Elasticsearch target and local image-delivery setup, and requires Grid
-to be running locally via `dev/script/start.sh --use-TEST`.
+This flag routes every image-data read through an already-running local Grid media-api.
+It does not select that API's Elasticsearch target. Grid may serve local data or TEST
+data according to Grid's own startup/configuration.
 
 ```bash
-./kupua/scripts/start.sh --use-media-api
+./kupua/scripts/start.sh --use-media-api --canonical-media
 ```
+
+This combination starts Vite without Kupua checking or managing Elasticsearch, SSH,
+Docker, S3/imgproxy processes or bucket discovery. Returned API URLs supply the media;
+an empty Grid needs no startup image or bucket sample. Existing services and tunnels
+are left alone. The unused direct-ES transport remains write-protected.
+
+Without `--canonical-media`, `--use-media-api` retains its legacy TEST tunnel/index/bucket
+setup for Kupua's S3/imgproxy delivery. Explicitly adding Kupua's `--use-TEST` also retains
+that setup. Neither changes the backing data of the already-running Grid API.
 
 `ApiDataSource` owns the API path; it has no Elasticsearch fallback and API mode constructs no ES
 datasource. Browser requests use relative `/api` URLs, so Vite supplies the local-domain cookie and
 enforces the Grid API write guard.
+
+Label editing is off by default. Explicit global/named rollout and valid metadata/auth
+origins connect ordinary controls for one image and one label per submission; direct-ES
+editing and batches remain disabled. See the [command contract](src/dal/grid-api/README.md#step-2-command-boundary)
+for settings and outcome handling. Do not persist trial enablement in `.env` files.
+The completed local trial does not authorize shared TEST/PROD activation.
 
 ### `--use-deployed-media-api` flag
 
@@ -225,7 +248,7 @@ reads directly to the deployed TEST media-api:
 Only this flag selects the allowlisted absolute TEST API base. Direct browser requests use the
 TEST-domain Panda cookie, so first sign in to `https://media.test.dev-gutools.co.uk`; TEST must
 allow the Kupua local origin through CORS. The Vite `/api` write guard is not on this direct path:
-Kupua implements reads only, but this is not a transport-enforced read-only guarantee and is not a
+Kupua defaults to reads only, but this is not a transport-enforced read-only guarantee and is not a
 permanent hosting/ingress design. The TEST ES tunnel remains startup-only bucket discovery for the
 local image proxies. For automated authentication and performance commands, see
 [the performance handbook](e2e-perf/README.md#authentication-state).
@@ -241,7 +264,9 @@ signed S3), full images from the imgops `optimisedPng`/`optimised` link template
 ```
 
 The imgops links embed signed source URLs that expire after roughly 15-25 minutes; reload to
-recover. Without the flag every mode keeps its existing delivery. Hosted Kupua will always use returned URLs; see
+recover. Local API canonical startup skips the legacy TEST setup described above; the
+deployed-API launcher retains its existing setup in this bounded change. Without the
+flag every mode keeps its existing delivery. Hosted Kupua will always use returned URLs; see
 [Deployed via Kahuna](exploration/docs/00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md).
 
 ### Hosted build (Kupua served by Kahuna)
@@ -273,7 +298,7 @@ and reload to see Kupua changes; Kahuna re-reads the page per request.
 
 ## Current Status
 
-**Phase 3 – media-api migration (read-only prototype)**
+**Phase 3 – media-api migration (default-off single-image label editing)**
 
 Grid/table views with three-tier scroll architecture (≤1k/1k–65k/>65k), multi-image selection,
 CQL search, keyboard navigation, touch gestures and image detail with zoom. API mode now routes all

@@ -187,7 +187,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext }: {
       </div>}
     </form>}
     {counts.unavailable > 0 && <p role="status" className="text-xs text-grid-text-muted">{counts.unavailable} selected {counts.unavailable === 1 ? "image is" : "images are"} unavailable.</p>}
-    {refusal && <p role="status" className="text-xs text-grid-error">Simulation refused: {refusal}.</p>}
+    {refusal && <p role="status" className="text-xs text-grid-error">{store.getState().executionMode === "connected" ? "Change not sent" : "Simulation refused"}: {refusal}.</p>}
   </MetadataRow>;
 }
 
@@ -235,6 +235,7 @@ export function LabelOperationReceipts({ inline = false, hidden = false }: { inl
           }, null, 2);
           return <div key={index}>
             <p className="text-xs mb-1" role="status">{receipt.mode === "disconnected" ? "Not sent - dry run"
+              : receipt.mode === "connected" ? "Label change"
               : receipt.items.some(item => item.observation) ? "Simulated command - readback only" : "Simulated - no service calls"}</p>
             <pre className="text-xs whitespace-pre-wrap wrap-anywhere">{data.slice(0, 1800)}{data.length > 1800 || receipt.intent.label.length > 240 ? "\n[Preview truncated]" : ""}</pre>
           </div>;

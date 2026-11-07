@@ -527,6 +527,42 @@ readback through the real chosen topology; unavailable/denied/unknown cases are 
 No other action becomes live. **This is the common-blockers-removed milestone.** Later feature
 work reuses this path rather than reopening infrastructure design each time.
 
+**Selected local checkpoint (7 November 2026):** default-off startup wiring now connects
+the existing executor, editor/receipt and bounded readback/publication owners for one
+image and one label per submission. Local-proxy and compiled-hosted fixtures exercise
+ordinary connected controls with two writes, one observation read per write and unchanged
+retained-cell geometry. Existing synthetic cases retain blocked/rejected/unknown/held,
+authority-withdrawal and standalone failure coverage. Explicit connected add/remove/add
+is permitted after acknowledged observation; pending/unknown outcomes are not replayed.
+
+The operator manually added two labels separately to the one authorized local Grid image,
+including a label containing Unicode and a space, then removed only those additions.
+All four actions were acknowledged and observed. Kupua retained cell geometry and the
+original label; a bounded read of the advertised local Grid resource confirmed the exact
+original label set. Temporary enablement was disabled after the trial. No backend policy,
+shared TEST/PROD service or image deletion was changed. This is local-topology evidence,
+not deployed CSP/CORS/CSRF/login-return certification. Hosted activation and production
+batching require separate authorization.
+The brief existing-label colour flash reported during the trial is a separate
+[KUP-050 follow-up](bug-backlog.md#kup-050), not a demonstrated persistence defect.
+
+**API-topology admission alignment:** implementing a named operation includes aligning
+the shared client, Vite guard and Kahuna configuration producer, with focused tests,
+so supported API frontends do not require an additional code change merely to select
+that operation. This is part of the operation's integration, not something deferred
+until Step 21. It must not enable editing by default, admit unimplemented names, extend
+hosting stages or add direct-ES editing. Live/configuration activation and deployment
+verification remain separately authorized; code support is not evidence of deployed
+cookie/CORS/CSRF or backend policy correctness.
+
+The authorized label follow-up aligns Kahuna's producer with `add-labels` and
+`remove-label`, preserving absent/disabled and invalid-setting refusal. Its existing
+Scala suite covers both names individually/together and rejects unknown mixtures;
+the compiled-hosted fixture already exercises ordinary add/remove controls. See the
+[hosted guide](00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md#editing-support-by-frontend)
+for the current support matrix, exact script flags and configuration locations.
+No real hosted/shared-system activation follows from this alignment.
+
 ### Step 6. Expand to Bounded, Paced Multi-Image Operations
 
 **Depends on:** step 5; capacity decision before shared batch activation.

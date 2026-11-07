@@ -188,7 +188,8 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
           return;
         }
         const publicationPage = publication && ["/__publication", "/__readback", "/__continuation", "/search", "/"].includes(pathname ?? "");
-        if (pathname !== "/__commands" && !publicationPage) return next();
+        const connectedPage = pathname === "/__connected";
+        if (pathname !== "/__commands" && !publicationPage && !connectedPage) return next();
         response.setHeader("Content-Type", "text/html");
         if (publicationPage) {
           response.setHeader("Content-Security-Policy", `default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws://${request.headers.host}`);
@@ -196,7 +197,7 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
         const html = pathname === "/__commands"
           ? `<html><head></head><body><script type="module" src="/@id/${virtualEntry}"></script></body></html>`
           : (await readFile(resolve(root, "index.html"), "utf8")).replace('<script type="module" src="/src/main.tsx"></script>',
-            `<script type="module">import "${virtualEntry}"; await window.editorFixture.${readback ? "prepareReadback" : "preparePublication"}(); await import("/src/main.tsx");</script>`);
+            `<script type="module">import "${virtualEntry}"; ${connectedPage ? 'history.replaceState(null, "", "/search");' : `await window.editorFixture.${readback ? "prepareReadback" : "preparePublication"}();`} await import("/src/main.tsx");</script>`);
         response.end(await server.transformIndexHtml(pathname, html));
       });
     },

@@ -57,6 +57,7 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [KUP-047](#kup-047) | Crop notices and server eligibility are not wired | Deferred consumer; common image-capability wiring now available | Read-only crop follow-up, not a mock-cropping commit gate |
 | [KUP-048](#kup-048) | Table column sizing writes store state during React update | Reproduced warning with current and committed scrolling modules; unfixed | Independent table-state defect; does not require the scrolling repair |
 | [KUP-049](#kup-049) | Detail Settings click stalls during browser validation | One full-run timeout; click reached menu, cause unestablished | Full browser acceptance remains unresolved; relation to scrolling unproved |
+| [KUP-050](#kup-050) | Existing label pills briefly show partial-membership colour after submission | Operator-observed local add-label flash; final labels/readback correct, cause unestablished | Independent presentation follow-up; not a Step-5 persistence blocker |
 
 KUP-011 has no closure evidence from continuity work and remains separately scoped.
 
@@ -855,6 +856,21 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Disposition:** OPEN observed validation failure, cause unresolved. No Settings or
   crop implementation/test change was made. The full browser gate remains unaccepted;
   recording this item does not waive it or establish a production incident.
+
+#### KUP-050
+**Existing labels briefly display partial-membership styling after label submission**
+- **Observed behavior (7 November):** during the operator-driven one-image local
+  label trial, existing pills changed colour as though absent from part of the
+  selection, then corrected when the new label rendered.
+- **Evidence limits:** operator observation, not a captured frame sequence or proven
+  cause. All additions/removals had acknowledged and observed receipts; local Grid
+  confirmed exact restoration of the original labels. No persistence loss was observed.
+- **Next discriminator:** reproduce one ordinary label addition while observing pill
+  count/total props through submission and grouped publication. Preserve selection
+  identity, pending-edit admission and the canonical observation contract; do not mask
+  stale capability or unavailable states merely to stabilize colour.
+- **Disposition:** OPEN, separate presentation follow-up. No implementation repair
+  attempted and no shared-system reproduction authorized by this record.
 
 ## Grid
 
