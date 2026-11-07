@@ -4187,3 +4187,93 @@ Browser network diagnostics: per-run medians, not server load. Missing capture s
 | P15c | 4 | media-api | local | 1 | 0 | 0 | unavailable | unavailable | 0 |
 | P16a | 4 | media-api | local | 1 | 0 | 0 | unavailable | unavailable | 0 |
 | P16b | 4 | media-api | local | 1 | 0 | 0 | unavailable | unavailable | 0 |
+
+---
+
+## before step 5 (4f21eceeb (dirty), 2026-11-07)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 4
+
+Mode: media-api | API topology: local | Media delivery: canonical | Base URL: https://kupua.media.local.dev-gutools.co.uk | Browser: chromium 151.0.7922.34 | OS: darwin/arm64 25.6.0 | Viewport: 1720x960 | Screen: 1720x960 | DPR: 2 | Headed: true | CPU throttle: none | Cache: uncontrolled-browser-cache | Workers: 1 | Dirty state: 6e547ed9ce761432 | App source: 6e547ed9ce761432
+
+| Test | Samples | CLS (Δ) | Max frame (Δ) | Severe/1k frames (Δ) | P95 frame (Δ) | DOM churn (Δ) | LoAF blocking (Δ) |
+|------|---|---|---|---|---|---|---|
+| P1 | 4 | 0.0009 (not comparable) | 72ms (not comparable) | 25.8‰ (not comparable) | 10ms (not comparable) | 151 (not comparable) | 30ms (not comparable) |
+| P2 | 4 | 0.0014 (+0.0014) | 59ms (+1ms) | 0.8‰ (-0.7‰) | 16ms (0) | 2806 (+7) | 12ms (-2ms) |
+| P3 | 4 | 0.0000 (0) | 117ms (-4ms) | 1.5‰ (-1.6‰) | 10ms (0) | 1579 (+9) | 72ms (-20ms) |
+| P3b | 4 | 0.0000 (0) | 121ms (+4ms) | 1.4‰ (0) | 10ms (0) | 1345 (+1) | 71ms (-4ms) |
+| P4a | 4 | 0.0000 (0) | 100ms (-13ms) | 10.2‰ (0) | 10ms (0) | 130 (0) | 53ms (-11ms) |
+| P4b | 4 | 0.0000 (0) | 42ms (-9ms) | 0.0‰ (-6.6‰) | 10ms (0) | 128 (0) | 0ms (-7ms) |
+| P5a | 4 | 0.0000 (0) | 34ms (+1ms) | 0.0‰ (0) | 10ms (0) | 343 (0) | 0ms (0) |
+| P5b | 4 | 0.0000 (0) | 10ms (-24ms) | 0.0‰ (0) | 10ms (0) | 207 (-23) | 0ms (0) |
+| P5c | 4 | 0.0000 (not comparable) | 21ms (not comparable) | n/a (<30 frames) | 21ms (not comparable) | 219 (not comparable) | 0ms (not comparable) |
+| P6 | 4 | 0.0001 (0) | 100ms (-1ms) | 1.3‰ (-0.7‰) | 10ms (0) | 544 (+11) | 55ms (-9ms) |
+| P7 | 4 | 0.0018 (not comparable) | 10ms (not comparable) | 0.0‰ (not comparable) | 10ms (not comparable) | 502 (not comparable) | 0ms (not comparable) |
+| P8 | 4 | 0.0000 (0) | 134ms (-30ms) | 3.2‰ (-1.4‰) | 17ms (-1ms) | 3992 (-22) | 84ms (-29ms) |
+| P17 | 4 | 0.0000 (not comparable) | 129ms (not comparable) | 5.8‰ (not comparable) | 17ms (not comparable) | 1311 (not comparable) | 78ms (not comparable) |
+| P18 | 4 | 0.0000 (0) | 14ms (-19ms) | 0.0‰ (0) | 9ms (-4ms) | 139 (-7) | 0ms (0) |
+| P19 | 4 | 0.0000 (0) | 25ms (-8ms) | 0.0‰ (0) | 10ms (0) | 166 (0) | 0ms (0) |
+| P9 | 4 | 0.0147 (0) | 58ms (-1ms) | 4.4‰ (-0.4‰) | 10ms (0) | 491 (0) | 17ms (-8ms) |
+| P11@20 | 4 | 0.0000 (0) | 130ms (-19ms) | 2.2‰ (-0.7‰) | 10ms (0) | 1568 (-66) | 90ms (-10ms) |
+| P11@60 | 4 | 0.0153 (+0.0153) | 84ms (-62ms) | 1.5‰ (0) | 10ms (0) | 2564 (-165) | 39ms (-63ms) |
+| P11@85 | 4 | 0.0000 (-0.0091) | 129ms (+62ms) | 1.5‰ (0) | 10ms (0) | 2708 (+188) | 85ms (+65ms) |
+| P11b@20 | 4 | 0.0000 (0) | 109ms (-8ms) | 1.3‰ (-0.1‰) | 10ms (0) | 1368 (+12) | 67ms (-5ms) |
+| P11b@60 | 4 | 0.0000 (-0.0070) | 118ms (+23ms) | 1.5‰ (0) | 10ms (0) | 1794 (+102) | 75ms (+22ms) |
+| P11b@85 | 4 | 0.0069 (+0.0018) | 58ms (-24ms) | 1.5‰ (0) | 10ms (0) | 1609 (-86) | 12ms (-25ms) |
+| P13a | 4 | 0.0000 (not comparable) | 67ms (not comparable) | 8.5‰ (not comparable) | 10ms (not comparable) | 52 (not comparable) | 22ms (not comparable) |
+| P13b | 4 | 0.0000 (not comparable) | 17ms (not comparable) | n/a (<30 frames) | 17ms (not comparable) | 22 (not comparable) | 0ms (not comparable) |
+| P13c | 4 | 0.0000 (0) | 42ms (+24ms) | 0.0‰ (0) | 10ms (0) | 33 (0) | 0ms (0) |
+| P14a | 4 | 0.0000 (0) | 34ms (0) | 0.0‰ (0) | 10ms (0) | 600 (0) | 0ms (0) |
+| P14b | 4 | 0.0000 (-0.1405) | 22ms (-5ms) | 0.0‰ (0) | 10ms (0) | 862 (0) | 0ms (0) |
+| P14c | 4 | 0.0021 (+0.0010) | 25ms (0) | 0.0‰ (0) | 10ms (0) | 600 (0) | 0ms (0) |
+| P14d | 4 | 0.0846 (+0.0846) | 18ms (-4ms) | 0.0‰ (0) | 10ms (0) | 1136 (0) | 0ms (0) |
+| P15a | 4 | 0.0000 (not comparable) | 9ms (not comparable) | n/a (<30 frames) | 9ms (not comparable) | 12 (not comparable) | 0ms (not comparable) |
+| P15b | 4 | 0.0000 (not comparable) | 10ms (not comparable) | n/a (<30 frames) | 10ms (not comparable) | 32 (not comparable) | 0ms (not comparable) |
+| P15c | 4 | 0.0000 (not comparable) | 10ms (not comparable) | n/a (<30 frames) | 10ms (not comparable) | 12 (not comparable) | 0ms (not comparable) |
+| P16a | 4 | 0.0000 (not comparable) | 10ms (not comparable) | 0.0‰ (not comparable) | 10ms (not comparable) | 60 (not comparable) | 0ms (not comparable) |
+| P16b | 4 | 0.0000 (not comparable) | 13ms (not comparable) | n/a (<30 frames) | 13ms (not comparable) | 3 (not comparable) | 0ms (not comparable) |
+
+Not compared across scenario revision/cache changes: P1, P5c, P7, P17, P13a, P13b, P15a, P15b, P15c, P16a, P16b.
+
+Verdict: ⚠️ Possible regressions: P11@85.maxFrame: 67 → 129 (+93%), P11b@60.maxFrame: 95 → 118 (+24%), P13c.maxFrame: 18 → 42 (+133%)
+
+### Network
+
+Browser network diagnostics: per-run medians, not server load. Missing capture stays unavailable; bytes are unavailable when any transfer size is zero (restricted or ambiguous). Lower is not necessarily better across differing capture, transport or topology. No cross-mode deltas.
+
+| Test | Samples | Transport | API topology | Capture revision | Requests | Bytes | Avg bytes/request | Avg duration (ms) | Zero-transfer requests (coverage) |
+|------|---|---|---|---|---|---|---|---|---|
+| P1 | 4 | media-api | local | 1 | 4 | 182668 | 45667 | 203.28750005364418 | 0 |
+| P2 | 4 | media-api | local | 1 | 2 | 346428.5 | 173214.25 | 641.6249999403954 | 0 |
+| P3 | 4 | media-api | local | 1 | 6 | 181381 | 30230.166666666668 | 253.55833329757056 | 0 |
+| P3b | 4 | media-api | local | 1 | 8 | 271032.5 | 33879.0625 | 288.6875 | 0 |
+| P4a | 4 | media-api | local | 1 | 0 | 0 | unavailable | unavailable | 0 |
+| P4b | 4 | media-api | local | 1 | 0 | 0 | unavailable | unavailable | 0 |
+| P5a | 4 | media-api | local | 1 | 1 | 927 | 927 | 124.10000014305115 | 0 |
+| P5b | 4 | media-api | local | 1 | 0 | 0 | unavailable | unavailable | 0 |
+| P5c | 4 | media-api | local | 1 | 0 | 0 | unavailable | unavailable | 0 |
+| P6 | 4 | media-api | local | 1 | 6 | 212697.5 | 35449.58333333333 | 286.10000002384186 | 0 |
+| P7 | 4 | media-api | local | 1 | 0 | 0 | unavailable | unavailable | 0 |
+| P8 | 4 | media-api | local | 1 | 5 | 873395.5 | 174679.1 | 617.8900000095368 | 0 |
+| P17 | 4 | media-api | local | 1 | 1 | 102070.5 | 102070.5 | 556.3999998569489 | 0 |
+| P18 | 4 | media-api | local | 1 | 1 | 92423.5 | 92423.5 | 330.4499999284744 | 0 |
+| P19 | 4 | media-api | local | 1 | 6 | 888108.5 | 148018.0833333333 | 576.508333325386 | 0 |
+| P9 | 4 | media-api | local | 1 | 2 | 134202 | 67101 | 355.625 | 0 |
+| P11@20 | 4 | media-api | local | 1 | 6 | 260653.5 | 43442.25 | 283.67500001192093 | 0 |
+| P11@60 | 4 | media-api | local | 1 | 4 | 167839.5 | 41959.875 | 314.3875000178814 | 0 |
+| P11@85 | 4 | media-api | local | 1 | 4 | 165499.5 | 41374.875 | 332.82499995827675 | 0 |
+| P11b@20 | 4 | media-api | local | 1 | 8 | 238226.5 | 29778.3125 | 284.7250000089407 | 0 |
+| P11b@60 | 4 | media-api | local | 1 | 4 | 159411 | 39852.75 | 352.85000002384186 | 0 |
+| P11b@85 | 4 | media-api | local | 1 | 4 | 161666 | 40416.5 | 331.13749995827675 | 0 |
+| P13a | 4 | media-api | local | 1 | 0 | 0 | unavailable | unavailable | 0 |
+| P13b | 4 | media-api | local | 1 | 0 | 0 | unavailable | unavailable | 0 |
+| P13c | 4 | media-api | local | 1 | 2 | unavailable | unavailable | 62.97500002384186 | 1 |
+| P14a | 4 | media-api | local | 1 | 0 | 0 | unavailable | unavailable | 0 |
+| P14b | 4 | media-api | local | 1 | 0 | 0 | unavailable | unavailable | 0 |
+| P14c | 4 | media-api | local | 1 | 0 | 0 | unavailable | unavailable | 0 |
+| P14d | 4 | media-api | local | 1 | 0 | 0 | unavailable | unavailable | 0 |
+| P15a | 4 | media-api | local | 1 | 0 | 0 | unavailable | unavailable | 0 |
+| P15b | 4 | media-api | local | 1 | 0 | 0 | unavailable | unavailable | 0 |
+| P15c | 4 | media-api | local | 1 | 0 | 0 | unavailable | unavailable | 0 |
+| P16a | 4 | media-api | local | 1 | 0 | 0 | unavailable | unavailable | 0 |
+| P16b | 4 | media-api | local | 1 | 0 | 0 | unavailable | unavailable | 0 |
