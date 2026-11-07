@@ -24,6 +24,34 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 7 November 2026 - Preserve field-like text inside quoted searches
+
+Incomplete-chip cleanup could delete text such as `Credit: ` from the middle of a
+quoted title. A metadata click first searched the intact title, then the editor
+published the shortened value and replaced a valid result with an empty search.
+Cleanup now consumes complete quoted spans unchanged while still removing genuine
+unfinished fields outside quotes. Existing normalization coverage includes quoted
+phrases, field values and a quoted value followed by an unfinished field.
+
+### 7 November 2026 - Offscreen thumbnails no longer block Justified zoom animation
+
+One unavailable thumbnail in the offscreen capture margin could reject the whole
+Justified zoom morph, making keyboard zoom appear to need repeated warm-up steps.
+Snapshots now omit unavailable tiles entirely outside the viewport. Loaded margin
+tiles still participate, and unavailable visible photos retain the ordinary anchored
+step. No readiness delay, extra image request or protection bypass is introduced.
+
+### 7 November 2026 - Density switches place the destination before paint
+
+Grid, Table and Justified switches briefly displayed the destination at the start of
+its buffer before restoring the saved position. Saved density placement now runs in
+the pre-paint layout pass, and Grid measures its initial width in that phase so its
+columns and scroll extent are ready before display. The existing two-frame lifecycle
+still guards scroll bookkeeping and input ownership, but no longer delays visible
+placement. Only the selected view mounts; no hidden views or extra data reads are added.
+Existing remount and round-trip tests now check placement from the first frame rather
+than accepting a zero-position interval before the final restore.
+
 ### 7 November 2026 - One row-placement function; resize keeps a visible anchor on screen
 
 Sort-around-focus and density placement each carried their own copy of the "keep the row between

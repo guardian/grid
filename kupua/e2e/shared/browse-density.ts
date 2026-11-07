@@ -21,23 +21,53 @@ export async function unfocusedDensityRoundTrips(kupua: KupuaHelpers) {
       for (const mode of ["table", "grid", "justified"] as const) {
         const generation = await page.evaluate(() => (window as any).__kupua_getDensityRestoreGeneration__());
         const button = (await getDensityChangeButton(page, mode))!;
-        if (cycle % 2 === 0) await button.click();
-        else await button.press("Space");
-        await page.waitForFunction(generation => (window as any).__kupua_getDensityRestoreGeneration__() > generation, generation);
-        await expect.poll(() => page.evaluate(id => {
-          const container = document.querySelector('[aria-label^="Image results "]');
-          const cell = container?.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
-          const bounds = container?.getBoundingClientRect();
-          const rect = cell?.getBoundingClientRect();
-          const header = container?.querySelector("[data-table-header]")?.getBoundingClientRect();
-          return {
-            visible: Boolean(bounds && rect && rect.top >= Math.max(bounds.top, header?.bottom ?? bounds.top) - 1 &&
-              rect.bottom <= bounds.bottom + 1),
-            focused: (window as any).__kupua_store__.getState().focusedImageId !== null,
-            selected: (window as any).__kupua_selection_store__.getState().selectedIds.size,
+        const paintedPositions = await page.evaluateHandle(({ mode, id }) => {
+          const samples: (number | null)[] = [];
+          let frame = 0;
+          const sample = () => {
+            const container = document.querySelector(`[aria-label="Image results ${mode}"]`);
+            if (container) {
+              const cell = container.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
+              samples.push(cell ? cell.getBoundingClientRect().top - container.getBoundingClientRect().top : null);
+            }
+            frame = requestAnimationFrame(sample);
           };
-        }, baseline.id), { message: `Retained image remains usable in ${mode}` })
-          .toEqual({ visible: true, focused: false, selected: 0 });
+          frame = requestAnimationFrame(sample);
+          return { samples, stop: () => cancelAnimationFrame(frame) };
+        }, { mode, id: baseline.id });
+        try {
+          if (cycle % 2 === 0) await button.click();
+          else await button.press("Space");
+          await page.waitForFunction(generation => (window as any).__kupua_getDensityRestoreGeneration__() > generation, generation);
+          await expect.poll(() => page.evaluate(id => {
+            const container = document.querySelector('[aria-label^="Image results "]');
+            const cell = container?.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
+            const bounds = container?.getBoundingClientRect();
+            const rect = cell?.getBoundingClientRect();
+            const header = container?.querySelector("[data-table-header]")?.getBoundingClientRect();
+            return {
+              visible: Boolean(bounds && rect && rect.top >= Math.max(bounds.top, header?.bottom ?? bounds.top) - 1 &&
+                rect.bottom <= bounds.bottom + 1),
+              focused: (window as any).__kupua_store__.getState().focusedImageId !== null,
+              selected: (window as any).__kupua_selection_store__.getState().selectedIds.size,
+            };
+          }, baseline.id), { message: `Retained image remains usable in ${mode}` })
+            .toEqual({ visible: true, focused: false, selected: 0 });
+          const finalTop = await page.evaluate(id => {
+            const container = document.querySelector('[aria-label^="Image results "]')!;
+            return container.querySelector(`[data-image-id="${CSS.escape(id)}"]`)!.getBoundingClientRect().top -
+              container.getBoundingClientRect().top;
+          }, baseline.id);
+          const samples = await paintedPositions.evaluate(probe => probe.samples);
+          expect(samples.length).toBeGreaterThan(0);
+          for (const top of samples) {
+            expect(top, `${mode} must contain the retained image from its first frame`).not.toBeNull();
+            expect(Math.abs(top! - finalTop), `${mode} must not paint an intermediate position`).toBeLessThan(1);
+          }
+        } finally {
+          await paintedPositions.evaluate(probe => probe.stop());
+          await paintedPositions.dispose();
+        }
       }
       await expect.poll(() => page.evaluate(({ id, top }) => {
         const container = document.querySelector('[aria-label="Image results justified"]')!;

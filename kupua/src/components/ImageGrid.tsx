@@ -514,7 +514,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
   // Anchor state: captured in ResizeObserver, consumed in useLayoutEffect
   const anchorRef = useRef<CapturedAnchor | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = parentRef.current;
     if (!el) return;
 

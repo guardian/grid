@@ -733,7 +733,8 @@ agency sub-counts. These pool counts must not be confused with loaded-AI-set fac
 
 Wraps the `<cql-input>` Web Component from `@guardian/cql`. `LazyTypeahead` supplies non-blocking
 suggestions. `cql-effective-query.ts` strips unfinished chip expressions from the query reported
-to SearchBar without erasing the richer editor state. AST serialization preserves quoting;
+to SearchBar without erasing the richer editor state or field-like text inside quoted content.
+AST serialization preserves quoting;
 self-caused updates do not echo a stripped value back into the editor. External query revisions
 allow Clear/Home/history to replace it deliberately. `cql-chip-delete.ts` distinguishes chip
 deletion events. Autofocus is skipped for touch devices and an already-open detail overlay.
@@ -885,6 +886,10 @@ thumbnails become ready. Native destination readiness uses image events, without
 or per-move layout reads. Release cancels pending preparation and commits immediately, followed
 by a 160ms cosmetic settle when needed. Covers wait for matching endpoint placement or an 800ms abort.
 A fresh pinch can interrupt settling immediately.
+
+Unavailable thumbnails entirely outside the viewport are omitted from the capture
+margin instead of vetoing the animation. Loaded margin tiles still participate;
+unavailable visible thumbnails retain the ordinary anchored-step fallback.
 
 Work is bounded to 320 tiles per capture, 320 tracks and an 18MP viewport allowance. Existing
 thumbnail URLs work without CORS or delivery changes. Protected media, reduced motion, budget

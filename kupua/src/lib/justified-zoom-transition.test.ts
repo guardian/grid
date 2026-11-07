@@ -314,6 +314,29 @@ describe("default Justified DOM tile transition", () => {
     f.transition.dispose();
   });
 
+  it("ignores unloaded margin images but still declines a partially visible unloaded image", () => {
+    const f = fixture(2);
+    const cell = f.element.querySelectorAll<HTMLElement>("[data-grid-cell]")[1];
+    cell.getBoundingClientRect = () => rect(0, 30, 100, 40);
+    Object.defineProperty(cell.querySelector("img")!, "complete", { configurable: true, value: false });
+    f.commit(-1);
+    f.transition.external(-1, 0);
+    frames(4);
+    expect(overlay()?.querySelector("[data-zoom-morph-renderer=dom]")).toBeTruthy();
+    expect(draws).toHaveBeenCalled();
+    frames(12);
+    expect(overlay()).toBeNull();
+    expect(f.offset()).toBe(-1);
+
+    cell.getBoundingClientRect = () => rect(0, 60, 100, 40);
+    f.commit(0);
+    f.transition.external(0, -1);
+    frames(4);
+    expect(overlay()).toBeNull();
+    expect(f.offset()).toBe(0);
+    f.transition.dispose();
+  });
+
   it("keeps the source covered until a declined destination has been restored", () => {
     const f = fixture();
     const layout = f.transition.layout;

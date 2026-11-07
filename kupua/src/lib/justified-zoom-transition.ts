@@ -98,6 +98,7 @@ export function createJustifiedZoomTransition(options: Options): JustifiedZoomTr
       const id = cell.dataset.imageId ?? "";
       const source = loadedImage(current) ? current : g.sources.get(id);
       if (current && !loadedImage(source)) {
+        if (bounds.bottom <= g.bounds.top || bounds.top >= g.bounds.bottom) continue;
         if (!pending || current.complete) {
           return;
         }

@@ -993,7 +993,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   };
 
   useLayoutEffect(() => {
-    if (!densityReady && _densityFocusSaved?.mode.kind === "departure") placeDensity(_densityFocusSaved);
+    if (!densityMountedReadyRef.current) placeDensity(_densityFocusSaved);
   });
 
   useLayoutEffect(() => {

@@ -22,13 +22,9 @@ export function deriveEffectiveQuery(queryStr: string): string {
     // fileMetadata.xmp.dc:subject, quoted because it contains a colon) —
     // without it, only the bare trailing colon matched here, leaving the
     // quoted key behind as an orphaned free-text phrase instead of being
-    // stripped like the unquoted case. The leading `(?<=^|\s)` lookbehind
-    // anchors the match to a token boundary — without it, the pattern can
-    // match "word:" starting mid-quote (e.g. "note:" inside the phrase
-    // `"note: hello"`, since the lookahead only checks for a trailing
-    // space/end, which an ordinary phrase containing "word: " also
-    // satisfies) — silently turning a phrase search into free text.
-    .replace(/(?<=^|\s)[+\-]?(?:"[^"]*"|[\w#~@.]*):(?=\s|$)/g, "")
+    // stripped like the unquoted case.
+    .replace(/(?<=^|\s)[+\-]?(?:"[^"]*"|[\w#~@.]*):(?=\s|$)|("[^"]*")/g,
+      (_match: string, quoted: string | undefined) => quoted ?? "")
     // CQL wraps a key/value in quotes when it contains whitespace or one of
     // its reserved chars (`:`, `(`, `)` — see @guardian/cql's
     // shouldQuoteFieldValue/hasReservedChar). A trailing space alone (e.g.

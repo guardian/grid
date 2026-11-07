@@ -8,16 +8,17 @@ describe("deriveEffectiveQuery", () => {
 
   it("strips an incomplete chip mid-query", () => {
     expect(deriveEffectiveQuery("cats credit: dogs")).toBe("cats dogs");
+    expect(deriveEffectiveQuery('title:"A photo Credit: Photographer" credit:')).toBe(
+      'title:"A photo Credit: Photographer"',
+    );
   });
 
-  it("does NOT strip a colon+space that appears INSIDE a quoted phrase (review finding F2)", () => {
-    // Bug: the incomplete-chip regex isn't anchored to a token boundary, so
-    // it can match "note:" starting mid-quote (offset 1) in `"note: hello"`
-    // — the lookahead only checks for trailing whitespace/end, which a
-    // colon-then-space inside an ordinary phrase also satisfies. This
-    // silently turns a phrase search into free text, dropping "note:"
-    // entirely.
-    expect(deriveEffectiveQuery('"note: hello"')).toBe('"note: hello"');
+  it.each([
+    '"note: hello"',
+    '"A photo Credit: Photographer"',
+    'title:"A photo Credit: Photographer"',
+  ])("preserves colon-space text inside quoted content: %s", query => {
+    expect(deriveEffectiveQuery(query)).toBe(query);
   });
 
   it("unwraps quotes added only to protect a trailing space", () => {

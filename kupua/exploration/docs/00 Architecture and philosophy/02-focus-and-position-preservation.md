@@ -108,7 +108,9 @@ not covered by this fixed-row guarantee. See the
 coordinates, physical-boundary limits and the accepted UX trade-off.
 
 Placement completion records a scroll write, not ongoing geometry stabilization.
-Density has one capture slot, geometry calculation and two-frame readiness lifecycle.
+Density has one capture slot and geometry calculation. Saved placement runs in the
+pre-paint layout pass; Grid also measures its initial width before paint. The two-frame
+readiness lifecycle guards scroll bookkeeping and input ownership, not first placement.
 Settled captures retain focus intent and existing search/publication generations;
 newer input retires presentation without cancelling useful discovery. The shared
 chooser admits either an unmount ratio or Home's unsaved centre input once. A retired

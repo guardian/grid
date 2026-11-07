@@ -2810,10 +2810,11 @@ describe("KUP-017 saved density geometry and input lifetime", () => {
     target.unmount();
     target.container.scrollTop = 777;
     const successor = mountDensity(table, true);
+    expect(successor.container.scrollTop).toBe(6136);
     frame();
     act(() => obsolete(performance.now()));
     expect(target.container.scrollTop).toBe(777);
-    expect(successor.container.scrollTop).toBe(0);
+    expect(successor.container.scrollTop).toBe(6136);
     frame();
     expect(successor.container.scrollTop).toBe(6136);
     successor.unmount();
@@ -3021,25 +3022,27 @@ describe("KUP-017 saved density geometry and input lifetime", () => {
   for (const direction of ["grid-table", "table-grid"] as const) {
     it(`preserves the source ratio across ${direction} and Strict Mode replay`, () => {
       const target = direction === "grid-table" ? transition() : transition(table, grid);
+      expect(target.container.scrollTop).toBe(direction === "grid-table" ? 6136 : 14853);
       expect(frames.size).toBe(1);
       frame();
-      expect(target.container.scrollTop).toBe(0);
+      expect(target.container.scrollTop).toBe(direction === "grid-table" ? 6136 : 14853);
       frame();
       expect(target.container.scrollTop).toBe(direction === "grid-table" ? 6136 : 14853);
       expect(frames.size).toBe(0);
     });
   }
 
-  it("does not replay earlier sort or reset publications on remount", async () => {
+  it("places density before paint without replaying earlier sort or reset publications", async () => {
     useSearchStore.setState({ sortAroundFocusGeneration: 1, _scrollReset: { gen: 1, sortOnly: false } });
     const target = transition();
     const scrolls = vi.fn();
     target.container.addEventListener("scroll", scrolls);
     expect(target.scrollToIndex).not.toHaveBeenCalled();
-    expect(target.container.scrollTop).toBe(0);
+    expect(target.container.scrollTop).toBe(6136);
     await Promise.resolve();
     expect(scrolls).not.toHaveBeenCalled();
     frame();
+    expect(target.container.scrollTop).toBe(6136);
     frame();
     expect(target.container.scrollTop).toBe(6136);
   });
@@ -3163,6 +3166,7 @@ describe("KUP-017 saved density geometry and input lifetime", () => {
   it("still observes Home in capture phase before a control consumes the key", () => {
     const target = transition();
     frame();
+    target.container.scrollTop = 0;
     const control = document.createElement("button");
     control.addEventListener("keydown", (event) => event.stopPropagation());
     target.container.appendChild(control);
@@ -3186,6 +3190,7 @@ describe("KUP-017 saved density geometry and input lifetime", () => {
   it("does not apply a record cleared by a newer reset", () => {
     const target = transition();
     frame();
+    target.container.scrollTop = 0;
     clearDensityFocusRatio();
     frame();
     expect(target.container.scrollTop).toBe(0);
