@@ -1,6 +1,6 @@
 package lib.elasticsearch
 
-import com.gu.mediaservice.model.{Agency, Chargeable, PayToUse, PublisherIllustrator, UsageRights}
+import com.gu.mediaservice.model.{Agency, Chargeable, PayToUse, PublisherIllustration, UsageRights}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.searches.queries._
@@ -470,22 +470,22 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
     }
 
     it("should resolve an organisation-specific category search alias before expanding it into a terms query across its legacy categories") {
-      val qBuilder = new QueryBuilder(matchFields, () => Nil, mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PublisherIllustrator")))
+      val qBuilder = new QueryBuilder(matchFields, () => Nil, mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PublisherIllustration")))
       // config.staffPhotographerOrganisation defaults to "GNM" when not overridden
-      val query = qBuilder.makeQuery(List(Match(SingleField("usageRights.category"), Words("gnm-illustrator")))).asInstanceOf[BoolQuery]
+      val query = qBuilder.makeQuery(List(Match(SingleField("usageRights.category"), Words("gnm-illustration")))).asInstanceOf[BoolQuery]
 
       val termsQuery = query.must.head.asInstanceOf[TermsQuery[String]]
       termsQuery.field shouldBe "usageRights.category"
-      termsQuery.values shouldEqual PublisherIllustrator.allCategories.list.toList
+      termsQuery.values shouldEqual PublisherIllustration.allCategories.list.toList
     }
 
     it("should not resolve an organisation-specific category search alias when that category is not in config.applicableUsageRights") {
       val qBuilder = new QueryBuilder(matchFields, () => Nil, mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.Chargeable")))
-      val query = qBuilder.makeQuery(List(Match(SingleField("usageRights.category"), Words("gnm-illustrator")))).asInstanceOf[BoolQuery]
+      val query = qBuilder.makeQuery(List(Match(SingleField("usageRights.category"), Words("gnm-illustration")))).asInstanceOf[BoolQuery]
 
       val termQuery = query.must.head.asInstanceOf[MatchQuery]
       termQuery.field shouldBe "usageRights.category"
-      termQuery.value shouldBe "gnm-illustrator"
+      termQuery.value shouldBe "gnm-illustration"
     }
 
     it("should return the match none query on an invalid is query") {
