@@ -24,6 +24,14 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 7 November 2026 - Resize/panel anchor keeps the true result start
+
+At the true top, a panel toggle that reflowed columns clamped the anchor at scrollTop 0, and the
+reverse reflow restored that clamped ratio, leaving the view 28px down with a cut-off first row.
+Column/width anchors now record a true-start capture and restore to the start (fixed and
+Justified). Live-verified round trips hold position; placement contract added to
+`02-focus-and-position-preservation.md` §3.3.
+
 ### 7 November 2026 - Density edge snapping uses only the true source edge
 
 Density restoration snapped any target within one destination row of the top or bottom to that

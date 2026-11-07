@@ -121,6 +121,24 @@ follows the destination, and only ready placement consumes that navigation.
 
 ### 3.3 Placement Values
 
+**Placement contract (operator, 7 November 2026).** Section 2 decides *when* and *which*
+anchor is preserved; these rules decide *where* it lands, in every view, zoom, viewport
+size and scroll tier:
+
+1. **True edge:** if the source view was at the actual result top/bottom, stay there.
+   A destination-geometry proximity to an edge never counts as an edge.
+2. **Anchor keeps its place:** otherwise the anchor cell keeps its viewport position,
+   clamped only to remain fully visible below the live-measured header.
+3. **Middle:** "centred" means the cell's vertical middle at the midpoint between the
+   top (below any header) and bottom of the results area. Never assume a header height.
+4. **No drift:** repeated do/undo, density/panel/sort switching, Back/Forward and detail
+   open/close return to the same pixel every round; a one-time visibility clamp is
+   allowed, accumulation is a bug. Live-verified 7 November across Grid/Table/Justified.
+
+Deliberate navigation (Home/End, scrubber, new search, logo) goes where asked and is
+not preservation. Differing per-writer ratio formulas below are implementation debt to
+converge on this contract, not product policy.
+
 A placement is an anchor plus a viewport ratio. Four captures exist:
 
 - **Search/sort ratio** `(rowTop − scrollTop) / clientHeight`, without header.
@@ -163,8 +181,8 @@ no density name or thumbnail-size preset; future sizing controls can reuse its p
 but still require integration with the mounted reflow owner.
 
 Edge rules: header/full-row visibility clipping and physical DOM clamping are
-independent of semantic result edges. Density's source/destination snapping requires
-the actual start/end: indexed geometry spans the result set; local geometry reaches
+independent of semantic result edges. Density snaps only when the captured source edge
+was the actual start/end: indexed geometry spans the result set; local geometry reaches
 start only at offset zero and end only when the buffer covers the total. Temporary
 buffer limits cannot elect an unrelated tail. Target choices and row-top placement
 remain provisional; density retains the browsed neighbourhood and offscreen bookmark

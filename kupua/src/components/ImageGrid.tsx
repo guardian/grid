@@ -667,7 +667,8 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       const row = virtIdx != null ? layoutRef.current.getItemRow(virtIdx)
         : layoutRef.current.rowAtOffset(el.scrollTop + el.clientHeight / 2);
       return row ? { imageIndex: virtIdx ?? row.firstItemIndex, imageId,
-        viewportRatio: el.clientHeight > 0 ? (row.top - el.scrollTop) / el.clientHeight : 0 } : null;
+        viewportRatio: el.clientHeight > 0 ? (row.top - el.scrollTop) / el.clientHeight : 0,
+        atStart: el.scrollTop === 0 && (isTwoTier || bufferOffset === 0) } : null;
     }
     if (virtIdx != null) {
       return { ...captureAnchorAtIndex(virtIdx, cols, rowHeightRef.current, el.scrollTop, el.clientHeight,
@@ -756,7 +757,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       const sizer = el.firstElementChild as HTMLElement | null;
       if (sizer) sizer.style.height = `${rowCount * rowHeight}px`;
     }
-    const clamped = justifiedLayout
+    const clamped = anchor.atStart ? 0 : justifiedLayout
       ? Math.max(0, Math.min(el.scrollHeight - el.clientHeight,
         justifiedLayout.getItemRow(resolved ?? anchor.imageIndex).top - anchor.viewportRatio * el.clientHeight))
       : restoreAnchorScrollTop(resolved === undefined ? anchor

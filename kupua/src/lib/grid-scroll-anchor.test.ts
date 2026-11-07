@@ -129,6 +129,17 @@ describe("captureAnchorAtIndex + restoreAnchorScrollTop", () => {
     expect(scrollTop).toBe(518435);
   });
 
+  it("keeps the true result start across a column round trip that clamps the anchor", () => {
+    let scrollTop = 0;
+    let prevCols = 7;
+    for (const cols of [8, 7, 8, 7]) {
+      const anchor = captureAnchorAtIndex(7, prevCols, 196, scrollTop, 900);
+      scrollTop = restoreAnchorScrollTop(anchor, cols, 196, 900, 100_000);
+      prevCols = cols;
+      expect(scrollTop).toBe(0);
+    }
+  });
+
   it("regression: the OLD fallback (row-arithmetic, no stable identity) leaves a PERSISTENT residual at every checkpoint — not a one-off blip that self-corrects", () => {
     // This reproduces the actual bug: computeFallbackAnchor invents a fresh
     // "first image of the centre row" index from the CURRENT scrollTop at

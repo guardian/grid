@@ -34,6 +34,8 @@ export interface CapturedAnchor {
   imageId?: string;
   /** Fraction of `clientHeight` between `scrollTop` and the anchor row's top. */
   viewportRatio: number;
+  /** Captured at the actual result start; restore keeps the start. */
+  atStart?: boolean;
 }
 
 /**
@@ -75,7 +77,7 @@ export function captureAnchorAtIndex(
   // transition) — division would otherwise produce a NaN/Infinity ratio
   // that later corrupts restoreAnchorScrollTop's result.
   const viewportRatio = clientHeight > 0 ? (rowTop - scrollTop) / clientHeight : 0;
-  return { imageIndex: virtIdx + itemOffset, viewportRatio };
+  return { imageIndex: virtIdx + itemOffset, viewportRatio, atStart: scrollTop === 0 && itemOffset === 0 };
 }
 
 /**
@@ -95,7 +97,8 @@ export function computeFallbackAnchor(
   const centreScroll = scrollTop + clientHeight / 2;
   const centreRow = Math.floor(centreScroll / rowHeight);
   const viewportRatio = clientHeight > 0 ? (centreRow * rowHeight - scrollTop) / clientHeight : 0;
-  return { imageIndex: itemOffset + getLayoutRow({ columns: cols, rowHeight, itemOffset }, centreRow).firstItemIndex, viewportRatio };
+  return { imageIndex: itemOffset + getLayoutRow({ columns: cols, rowHeight, itemOffset }, centreRow).firstItemIndex, viewportRatio,
+    atStart: scrollTop === 0 && itemOffset === 0 };
 }
 
 /** Compute the scrollTop that restores a captured anchor after a column-count change. */
@@ -107,6 +110,7 @@ export function restoreAnchorScrollTop(
   scrollHeight: number,
   itemOffset = 0,
 ): number {
+  if (anchor.atStart) return 0;
   const newRowTop = getItemLayoutRow({ columns: cols, rowHeight, itemOffset }, anchor.imageIndex - itemOffset).top;
   const target = newRowTop - anchor.viewportRatio * clientHeight;
   return Math.max(0, Math.min(scrollHeight - clientHeight, target));
