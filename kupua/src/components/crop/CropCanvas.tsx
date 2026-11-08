@@ -1,7 +1,7 @@
 import { useEffect, useImperativeHandle, useMemo, useReducer, useRef, useState, type Ref } from "react";
 import { createPortal } from "react-dom";
 import Cropper, { type CropperHandle, type CropperImage, type CropperSelection } from "cropperjs";
-import { isValidCropRect, type Rect, type Size } from "@/lib/crop/crop-request";
+import { defaultCropRect, isValidCropRect, type Rect, type Size } from "@/lib/crop/crop-request";
 import { bindCropTouchViewport, bindCropViewport, type CropViewport } from "@/lib/crop/crop-viewport";
 
 export type CropCanvasState = { status: "loading" | "unavailable" }
@@ -415,14 +415,9 @@ export function CropCanvas({ ref, src, zoomSrc, zoomEnabled = false, touchEnable
       setReadyOwner(owner);
       return;
     }
-    let width = box.width;
-    let height = box.height;
-    if (aspect) {
-      if (width / height > aspect) width = height * aspect;
-      else height = width / aspect;
-    }
-    selection.$change(box.x + (box.width - width) / 2, box.y + (box.height - height) / 2, width, height, selection.aspectRatio, true);
-    if (width > 0 && height > 0) setReadyOwner(owner);
+    const frame = defaultCropRect(box, aspect);
+    selection.$change(box.x + frame.x, box.y + frame.y, frame.width, frame.height, selection.aspectRatio, true);
+    if (frame.width > 0 && frame.height > 0) setReadyOwner(owner);
   }, [aspect, readyTick, onChange, owner]);
 
   useEffect(() => {

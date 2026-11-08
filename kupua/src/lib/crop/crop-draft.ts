@@ -3,14 +3,17 @@ import { isValidCropRect, type Size } from "./crop-request";
 import type { CropSettings } from "./crop-options";
 
 const STORAGE_KEY = "kupua.crop.draft";
+const rectSchema = z.object({ x: z.number().nonnegative(), y: z.number().nonnegative(),
+  width: z.number().positive(), height: z.number().positive() });
 const draftSchema = z.object({
   version: z.literal(1),
   imageId: z.string(),
   size: z.object({ width: z.number().positive(), height: z.number().positive() }),
   cropKey: z.string(),
   ratio: z.number().positive().nullable(),
-  rect: z.object({ x: z.number().nonnegative(), y: z.number().nonnegative(),
-    width: z.number().positive(), height: z.number().positive() }).nullable(),
+  rect: rectSchema.nullable(),
+  defaultRect: rectSchema.optional(),
+  priorFrameEdits: z.boolean().optional(),
 });
 
 export type CropDraft = z.infer<typeof draftSchema>;
@@ -31,7 +34,8 @@ export function readCropDraft(imageId: string, size: Size | undefined, settings:
   const draft = storedDraft();
   if (!draft || !size || draft.imageId !== imageId || draft.size.width !== size.width || draft.size.height !== size.height
     || !settings.options.some(option => option.key === draft.cropKey && option.ratio === draft.ratio)
-    || (draft.rect !== null && !isValidCropRect(draft.rect, size))) return undefined;
+    || (draft.rect !== null && !isValidCropRect(draft.rect, size))
+    || (draft.defaultRect && !isValidCropRect(draft.defaultRect, size))) return undefined;
   return draft;
 }
 

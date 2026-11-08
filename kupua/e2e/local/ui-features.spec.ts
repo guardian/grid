@@ -508,10 +508,34 @@ test.describe("Crop editor dry run", () => {
     const coordinates = () => Promise.all(["x", "y", "width", "height"].map(field =>
       editor.getByRole("spinbutton", { name: `Crop ${field}` }).inputValue()));
     const draftCoordinates = await coordinates();
-    await page.reload();
-    await expect(crop).toBeEnabled();
-    await expect(editor.getByRole("radio", { name: "video (16:9)" })).toHaveAttribute("aria-checked", "true");
-    expect(await coordinates()).toEqual(draftCoordinates);
+    let warnings = 0;
+    const dismissDeparture = (dialog: import("@playwright/test").Dialog) => {
+      expect(dialog.type()).toBe("confirm");
+      warnings++;
+      void dialog.dismiss();
+    };
+    page.on("dialog", dismissDeparture);
+    try {
+      for (const leave of [
+        () => editor.getByRole("button", { name: "Back to image", exact: true }).click(),
+        () => editor.getByRole("link", { name: "Grid" }).click(),
+        () => page.evaluate(() => history.back()),
+      ]) {
+        const expected = warnings + 1;
+        await leave();
+        await expect.poll(() => warnings).toBe(expected);
+        await expect(editor).toBeVisible();
+        await expect.poll(() => page.evaluate(() => new URLSearchParams(location.search).get("cropping"))).toBe("true");
+        expect(await coordinates()).toEqual(draftCoordinates);
+      }
+      await page.reload();
+      await expect(crop).toBeEnabled();
+      await expect(editor.getByRole("radio", { name: "video (16:9)" })).toHaveAttribute("aria-checked", "true");
+      expect(await coordinates()).toEqual(draftCoordinates);
+      expect(warnings).toBe(3);
+    } finally {
+      page.off("dialog", dismissDeparture);
+    }
     await editor.focus();
     await page.keyboard.press("Delete");
     await expect(crop).toBeDisabled();
@@ -522,7 +546,11 @@ test.describe("Crop editor dry run", () => {
     await expect(editor.locator("cropper-selection")).toBeHidden();
     await editor.getByRole("radio", { name: "video (16:9)" }).click();
     await expect(crop).toBeEnabled();
-    await editor.getByRole("button", { name: "Back to image", exact: true }).click();
+    await widthInput.fill(String(Math.floor(Number(await widthInput.inputValue()) / 2)));
+    await Promise.all([
+      page.waitForEvent("dialog").then(async dialog => { expect(dialog.type()).toBe("confirm"); await dialog.accept(); }),
+      editor.getByRole("button", { name: "Back to image", exact: true }).click(),
+    ]);
     await expect(editor).toHaveCount(0);
     expect(await page.evaluate(() => sessionStorage.getItem("kupua.crop.draft") === null)).toBe(true);
     expect(await page.evaluate(() => history.state.kupuaKey)).toBe(detailKey);

@@ -231,7 +231,7 @@ export function SearchBar() {
     <header
       role="toolbar"
       aria-label="Search and filter controls"
-      className="flex items-center gap-1.5 px-3 py-1.5 bg-grid-bg border-b border-grid-separator h-11"
+      className="results-toolbar flex items-center gap-1.5 px-3 py-1.5 bg-grid-bg border-b border-grid-separator h-11"
     >
       {/* Logo — always visible, resets state and focuses search box.
            Hit area is a square matching the full bar height (h-11 = 44px).
@@ -242,7 +242,7 @@ export function SearchBar() {
       <a
         href={HOME_HREF}
         title="Grid — clear all filters"
-        className="shrink-0 -ml-3 w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors"
+        className="results-home shrink-0 -ml-3 w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors"
         onClick={(e) => {
           e.preventDefault();
           const interactionId = beginTraceInteraction("home-logo");
@@ -265,7 +265,7 @@ export function SearchBar() {
            so the query area scrolls horizontally when content overflows.
            The clear button is a normal flex child (not an absolute overlay),
            so it never covers text/chips. */}
-      <div role="search" className="relative flex items-center flex-1 min-w-0 max-w-2xl border border-grid-border rounded focus-within:border-grid-accent focus-within:ring-1 focus-within:ring-grid-accent bg-grid-bg">
+      <div role="search" className="results-query relative flex items-center flex-1 min-w-0 max-w-2xl border border-grid-border rounded focus-within:border-grid-accent focus-within:ring-1 focus-within:ring-grid-accent bg-grid-bg">
         {/* Search icon — non-selectable, matches Grid's magnifier */}
         <svg
           className="shrink-0 w-4 h-4 ml-2 text-grid-text-muted pointer-events-none select-none"
@@ -326,7 +326,7 @@ export function SearchBar() {
         })}
         aria-label="Filters and sort"
         aria-expanded={filtersOpen}
-        className="min-[760px]:hidden relative shrink-0 w-10 h-10 -mr-1 flex items-center justify-center text-grid-text-muted"
+        className="results-filters min-[760px]:hidden relative shrink-0 w-10 h-10 -mr-1 flex items-center justify-center text-grid-text-muted"
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z" />
@@ -390,7 +390,9 @@ export function SearchBar() {
       >●</span>
 
       {/* Settings menu — three-dot, far right */}
-      <SettingsMenu showViewControls={!searchParams.image} />
+      <div className="results-settings shrink-0">
+        <SettingsMenu showViewControls={!searchParams.image} />
+      </div>
     </header>
   );
 }

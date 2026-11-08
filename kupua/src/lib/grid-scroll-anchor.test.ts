@@ -7,6 +7,7 @@ import {
   captureAnchorAtIndex,
   computeFallbackAnchor,
   restoreAnchorScrollTop,
+  placeAnchor,
 } from "./grid-scroll-anchor";
 
 describe("layout anchor policy", () => {
@@ -220,6 +221,20 @@ describe("captureAnchorAtIndex + restoreAnchorScrollTop", () => {
 // ---------------------------------------------------------------------------
 // computeFallbackAnchor — last-resort path, no known anchor image
 // ---------------------------------------------------------------------------
+
+describe("pinch point placement", () => {
+  const anchor = { imageIndex: 42, viewportRatio: 0.25, point: { ratio: 0.35, inset: 4 } };
+
+  it("keeps the same fractional thumbnail point rather than the row top", () => {
+    expect(placeAnchor(anchor, 1000, 200, 800, 10000)).toBe(874);
+    expect(placeAnchor(anchor, 1200, 300, 800, 10000)).toBe(1109);
+  });
+
+  it("clamps the pinned point only at physical scroll boundaries", () => {
+    expect(placeAnchor(anchor, 0, 200, 800, 10000)).toBe(0);
+    expect(placeAnchor(anchor, 9900, 200, 800, 10000)).toBe(9200);
+  });
+});
 
 describe("computeFallbackAnchor", () => {
   it("picks the first image of the row nearest viewport centre", () => {

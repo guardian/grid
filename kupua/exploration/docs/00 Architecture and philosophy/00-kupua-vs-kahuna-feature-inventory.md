@@ -1,6 +1,6 @@
 # Kupua vs Kahuna — Feature Inventory
 
-**Current implementation, 2 November 2026.** A product-facing comparison of
+**Current implementation, 8 November 2026.** A product-facing comparison of
 API-backed Kupua with Kahuna. Sections and entries put the larger editorial
 workflow improvements before supporting controls and polish. Shared capabilities
 are identified as such; the final section lists the remaining gaps. Selected
@@ -568,7 +568,7 @@ Sources: [image URL builders](../../../src/lib/image-urls.ts),
 [Kahuna rendition selection](../../../../kahuna/public/js/imgops/service.js),
 [canonical delivery plan](<../03 Ce n'est pas une pipe dream/api-build/api-build-00-plan.md>).
 
-### 3.7 Desktop and touch crop framing with reload recovery (mock-only)
+### 3.7 Desktop and touch crop framing with reload recovery
 
 **Kahuna:** provides a backend-connected crop workflow on a separate page, with
 numeric coordinates, ratio presets and responsive labels. Numeric editing and
@@ -581,10 +581,13 @@ without changing the crop coordinates. Ordinary dragging pans the view, Alt-drag
 or the grip moves the frame, and edges/corners resize it. Escape leaves fullscreen
 without discarding the crop.
 
-A tab-local draft restores the frame and chosen ratio after reload, including an
-intentionally cleared frame. Leaving through in-app navigation discards it, so
-Back then Forward starts fresh. Camera/fullscreen state is not restored, and
-full-document navigation away and Back can retain the draft.
+A tab-local draft restores the frame and chosen ratio after prompt-free reload,
+including an intentionally cleared frame. Adjusted or cleared frames ask before Home,
+Back, Escape or same-document history departure. Preset changes alone and view-only
+zoom/pan do not warn, but changing ratio after adjusting the frame keeps the warning.
+Accepting departure discards the draft, so Back then Forward starts fresh; cancellation
+retains it. Camera/fullscreen state is not restored, and full-document navigation away
+and Back can retain the draft without a warning.
 
 On phones, a compact top bar keeps navigation and Crop separate from the bottom
 ratio, dimensions and precision controls. Coordinates open in a collapsible panel
@@ -629,6 +632,33 @@ Sources: [CropEditor](../../../src/components/crop/CropEditor.tsx),
 [draft recovery](../../../src/lib/crop/crop-draft.ts),
 [Kahuna crop view](../../../../kahuna/public/js/crop/view.html),
 [Kahuna responsive ratio styling](../../../../kahuna/public/js/components/gr-radio-list/gr-radio-list.css).
+
+### 3.8 Installed app (PWA) with cutout-aware phone controls
+
+**Kupua:** can open from the home screen in a dedicated fullscreen app window,
+without the browser's address and tab controls taking space from images. On supported
+phones, the app uses the area beside the camera cutout instead of leaving a full-width
+blank strip.
+
+Home and Settings stay in matching corner positions across results, image detail and
+crop. Results move Filters into the upper row and give search its own full-width line.
+Detail keeps its counter beside Back; crop groups Back, Zoom/Fit and Hand when zoomed,
+with Crop immediately before Settings. Compact Back spacing also benefits ordinary
+mobile tabs. These are adaptations of the same browsing and editing workspace, not a
+separate application with different data or navigation rules.
+
+**Boundary:** installation, fullscreen and cutout coverage depend on browser and OS
+support. This adds no offline cache or offline browsing; ordinary browser and desktop
+views retain their existing overall layout.
+
+**New endpoints:** **none** for installation or these layout adaptations.
+
+Sources: [app manifest](../../../public/manifest.webmanifest),
+[shell and installed viewport](../../../src/hooks/useShell.ts),
+[search controls](../../../src/components/SearchBar.tsx),
+[image detail](../../../src/components/ImageDetail.tsx),
+[crop editor](../../../src/components/crop/CropEditor.tsx),
+[shared layout styling](../../../src/index.css).
 
 ---
 

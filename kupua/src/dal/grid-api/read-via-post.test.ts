@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import { resolve } from "node:path";
 import type { Connect } from "vite";
 import { GRID_API_READ_VIA_POST, isGridApiReadViaPost } from "./read-via-post";
 
@@ -8,8 +10,12 @@ it("does not let the global rollout switch bypass the Vite operation guard", asy
   vi.stubEnv("VITE_GRID_API_WRITES_ENABLED", "true");
   vi.stubEnv("VITE_GRID_METADATA_ORIGIN", "https://metadata.example.test");
   const { createServer } = await import("vite");
+  // A middleware-only test must not invalidate a concurrently running app's optimizer cache.
+  const cacheDir = await mkdtemp(resolve("node_modules/.vite-read-guard-"));
   const server = await createServer({
     configFile: "vite.config.ts",
+    cacheDir,
+    optimizeDeps: { noDiscovery: true, include: [] },
     server: { middlewareMode: true },
   });
   try {
@@ -57,6 +63,7 @@ it("does not let the global rollout switch bypass the Vite operation guard", asy
     expect(next).not.toHaveBeenCalled();
   } finally {
     await server.close();
+    await rm(cacheDir, { recursive: true, force: true });
   }
 });
 

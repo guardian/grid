@@ -884,8 +884,19 @@ anchor before re-laying out, using the same anchor path as resize. `pinchStep` c
 one neighbouring level per touch-contact sequence. Fixed Grid uses a passive, thresholded
 scale preview and release-time relayout.
 
+In the compact phone shell, a native pinch captures the visible image nearest its initial
+midpoint and the fractional vertical point within its thumbnail block. That temporary anchor
+overrides selection/focus for this gesture only, through preview, commit or cancellation.
+Placement clamps only to physical scroll bounds; column repacking may change horizontal position.
+No focus or selection is changed. The capture scans rendered cells once, not on each move.
+Desktop trackpad, menu and keyboard zoom retain normal reflow anchoring. If no image can
+be captured, pinch retains that existing fallback too. Fixed Grid clears previews on cancellation,
+blur and visibility changes without committing a cancelled step.
+
 Justified uses decorative DOM tiles to animate row/slot movement, crop changes and per-photo
 fades (`justified-zoom-transition.ts`, `justified-zoom-morph.ts`, `justified-zoom-morph-renderer.ts`).
+The phone pinch image alone uses an identity-preserving track across row breaks; other images
+retain slot correspondence, within the same track budget.
 Pinch progress is independent of layout density; one frame writer bounds catch-up, and reversal
 passes through the original pose. Native contacts must originate in results and retain their
 identifiers and original targets through repacking. Single-finger scrolling stays native;

@@ -51,6 +51,7 @@ export interface CapturedAnchor {
   atStart?: boolean;
   /** Row was on screen at capture; restore keeps it fully on screen. */
   visible?: boolean;
+  point?: { ratio: number; inset: number };
 }
 
 /**
@@ -140,6 +141,8 @@ export function restoreAnchorScrollTop(
 export function placeAnchor(anchor: CapturedAnchor, rowTop: number, rowHeight: number,
   clientHeight: number, scrollHeight: number): number {
   const offset = anchor.viewportRatio * clientHeight;
+  if (anchor.point) return Math.max(0, Math.min(scrollHeight - clientHeight,
+    rowTop + anchor.point.inset + anchor.point.ratio * rowHeight - offset));
   return anchor.visible ? placeRow(rowTop, rowHeight, offset, 0, clientHeight, scrollHeight)
     : Math.max(0, Math.min(scrollHeight - clientHeight, rowTop - offset));
 }

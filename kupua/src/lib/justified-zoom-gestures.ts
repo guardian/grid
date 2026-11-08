@@ -1,6 +1,7 @@
 import type { JustifiedZoomTransition } from "./justified-zoom-transition";
 
-export function bindJustifiedZoomGestures(element: HTMLElement, transition: JustifiedZoomTransition): () => void {
+export function bindJustifiedZoomGestures(element: HTMLElement, transition: JustifiedZoomTransition,
+  pinchAnchor?: { capture: (x: number, y: number) => void; clear: () => void }): () => void {
   let startDistance = 0;
   let contactIds: readonly [number, number] | undefined;
   let used = false;
@@ -55,6 +56,7 @@ export function bindJustifiedZoomGestures(element: HTMLElement, transition: Just
         ended = true;
         startDistance = 0;
         transition.interrupt();
+        pinchAnchor?.clear();
       }
       return;
     }
@@ -70,6 +72,7 @@ export function bindJustifiedZoomGestures(element: HTMLElement, transition: Just
     if (event.cancelable) event.preventDefault();
     trackOrigins(event);
     transition.begin((event.touches[0].clientX + event.touches[1].clientX) / 2, (event.touches[0].clientY + event.touches[1].clientY) / 2);
+    pinchAnchor?.capture((first.clientX + second.clientX) / 2, (first.clientY + second.clientY) / 2);
   };
   function onMove(event: TouchEvent) {
     if (event === lastEvent) return;
@@ -80,6 +83,7 @@ export function bindJustifiedZoomGestures(element: HTMLElement, transition: Just
       ended = true;
       startDistance = 0;
       transition.end(true);
+      pinchAnchor?.clear();
       return;
     }
     if (event.cancelable) event.preventDefault();
@@ -99,6 +103,7 @@ export function bindJustifiedZoomGestures(element: HTMLElement, transition: Just
       ended = true;
       startDistance = 0;
       transition.end(event.type === "touchcancel" || event.touches.length >= 2);
+      pinchAnchor?.clear();
     }
     // A recontact while one finger remains is still the same gesture, not a
     // second zoom level. Keep listening until every contact has been released.
@@ -108,7 +113,7 @@ export function bindJustifiedZoomGestures(element: HTMLElement, transition: Just
     }
   }
   const onWheel = (event: WheelEvent) => {
-    if (!event.ctrlKey) { transition.interrupt(); return; }
+    if (!event.ctrlKey) { transition.interrupt(); pinchAnchor?.clear(); return; }
     event.preventDefault();
     if (used) return;
     if (!wheelTimer) { wheelFactor = 1; transition.begin(event.clientX, event.clientY); }
@@ -126,6 +131,7 @@ export function bindJustifiedZoomGestures(element: HTMLElement, transition: Just
     wheelTimer = 0;
     releaseOrigins();
     transition.interrupt();
+    pinchAnchor?.clear();
   };
   element.addEventListener("touchstart", onStart, { passive: false });
   element.addEventListener("wheel", onWheel, { passive: false });

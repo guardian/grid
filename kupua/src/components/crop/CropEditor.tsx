@@ -6,6 +6,7 @@
 
 import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent, type RefObject } from "react";
 import type { Image } from "@/types/image";
+import { useBlocker } from "@tanstack/react-router";
 import { DetailNavigation } from "@/components/DetailNavigation";
 import { FullscreenCornerButton } from "@/components/NavStrip";
 import { ToastNotice } from "@/components/ToastContainer";
@@ -16,7 +17,7 @@ import { getCropSettings, getCropSettingsRevision, subscribeCropSettings, SQUARE
 import { flushCropDraft, queueCropDraft, readCropDraft } from "@/lib/crop/crop-draft";
 import { gridConfig } from "@/lib/grid-config";
 import {
-  buildCropRequest, cropCoordinateLimits, editCropRect, isValidCropRect, MIN_RECOMMENDED_CROP_WIDTH, originalCropSize, toOriginalRect,
+  buildCropRequest, cropCoordinateLimits, defaultCropRect, editCropRect, isValidCropRect, MIN_RECOMMENDED_CROP_WIDTH, originalCropSize, toOriginalRect,
   type CropRequest, type Rect,
 } from "@/lib/crop/crop-request";
 import { serviceLink } from "@/lib/grid-api-instance";
@@ -217,15 +218,39 @@ export function CropEditor({ image, previewSrc, onClose, onHome }: CropEditorPro
     return text.trim() === "" || !Number.isInteger(value) || value < min || value > max || value !== rect[field];
   };
   const invalidCoordinates = (["x", "y", "width", "height"] as const).some(invalidCoordinate);
+  const departureScope = useMemo(() => ({}), [image.id, src, cropKey, revision, original?.width, original?.height]);
+  const initialScope = useRef(departureScope);
+  const departureFrame = useRef<{ scope: object; mediaOwner: object; defaultRect: Rect; signature: string | null;
+    priorFrameEdits: boolean }>(undefined);
+  const restoredDraft = initialScope.current === departureScope ? draft : undefined;
+  const inheritedEdits = departureFrame.current?.mediaOwner === mediaOwner
+    && departureFrame.current.scope !== departureScope && departureFrame.current.signature !== null;
+  const initialSignature = restoredDraft && original
+    ? cropDepartureSignature(image.id, cropKey, restoredDraft.rect,
+      restoredDraft.defaultRect ?? toOriginalRect(defaultCropRect(original, option.ratio), original, original, cropKey),
+      restoredDraft.priorFrameEdits) : null;
+  const signature = departureFrame.current?.scope === departureScope ? departureFrame.current.signature
+    : inheritedEdits ? JSON.stringify([image.id, cropKey, "prior-frame-edits"]) : initialSignature;
+  const confirmDeparture = useCropDepartureGuard(image.id, signature);
+  const close = useCallback(() => { if (confirmDeparture()) onClose(); }, [confirmDeparture, onClose]);
+  const home = useCallback(() => { if (confirmDeparture()) onHome?.(); }, [confirmDeparture, onHome]);
   const onSelection = useCallback((value: CropCanvasState) => {
     if (currentOwner.current !== owner) return;
     if (!editingCoordinate.current) setCoordinateDrafts(undefined);
     setCanvasState({ owner, mediaOwner, value });
     if (original && value.status === "ready" && (value.selection === null || isValidCropRect(value.selection, value.rendition))) {
-      queueCropDraft({ version: 1, imageId: image.id, size: original, cropKey, ratio: option.ratio,
-        rect: value.selection === null ? null : toOriginalRect(value.selection, value.rendition, original, cropKey) });
+      const rect = value.selection === null ? null : toOriginalRect(value.selection, value.rendition, original, cropKey);
+      // Capture the actual initial frame: re-deriving it can round to a neighbouring original pixel.
+      const defaultRect = departureFrame.current?.scope === departureScope ? departureFrame.current.defaultRect
+        : restoredDraft?.defaultRect ?? (restoredDraft || rect === null
+          ? toOriginalRect(defaultCropRect(value.rendition, option.ratio), value.rendition, original, cropKey) : rect);
+      const priorFrameEdits = departureFrame.current?.scope === departureScope ? departureFrame.current.priorFrameEdits
+        : inheritedEdits || restoredDraft?.priorFrameEdits === true;
+      departureFrame.current = { scope: departureScope, mediaOwner, defaultRect, priorFrameEdits,
+        signature: cropDepartureSignature(image.id, cropKey, rect, defaultRect, priorFrameEdits) };
+      queueCropDraft({ version: 1, imageId: image.id, size: original, cropKey, ratio: option.ratio, rect, defaultRect, priorFrameEdits });
     }
-  }, [owner, mediaOwner]);
+  }, [owner, mediaOwner, departureScope]);
 
   useEffect(() => {
     const onVisibility = () => { if (document.visibilityState === "hidden") flushCropDraft(); };
@@ -380,7 +405,7 @@ export function CropEditor({ image, previewSrc, onClose, onHome }: CropEditorPro
           finishPrecision();
         } else if (fullscreenRef.current || document.fullscreenElement === editorRef.current) {
           void document.exitFullscreen().catch(() => {});
-        } else if (performance.now() >= escapeGuardUntil.current) onClose();
+        } else if (performance.now() >= escapeGuardUntil.current) close();
       }
       else if (e.key === "Enter" && !t.closest("button,[role='button'],input,select,textarea,[contenteditable]")) {
         e.preventDefault(); e.stopPropagation(); submit();
@@ -388,7 +413,7 @@ export function CropEditor({ image, previewSrc, onClose, onHome }: CropEditorPro
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose, submit, toggleFullscreen, settings, selectType, isCompact, precisionOpen, finishPrecision]);
+  }, [close, submit, toggleFullscreen, settings, selectType, isCompact, precisionOpen, finishPrecision]);
 
   // Kahuna: each option's initial selects it (later duplicates win, as in Kahuna).
   const firstLetters = useMemo(() => [...new Set(settings.options.map((o) => o.key.charAt(0).toLowerCase()))], [settings]);
@@ -494,17 +519,17 @@ export function CropEditor({ image, previewSrc, onClose, onHome }: CropEditorPro
   return (
     <div ref={editorRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Crop image" onPointerDownCapture={isCompact ? event => { if (event.isPrimary === false && precisionDrag.current) cancelPrecisionDrag(); } : undefined} style={isCompact && !isFullscreen && viewport ? { top: viewport.top, height: viewport.height, bottom: "auto" } : undefined} className={`fixed inset-0 z-50 flex flex-col text-grid-text outline-none ${isFullscreen ? "bg-black" : "bg-grid-bg"}`} data-testid="crop-editor" data-keyboard-open={keyboardOpen || undefined}>
       {firstLetters.map((l) => <LetterShortcut key={l} letter={l} action={byLetter(l)} />)}
-      <header hidden={isFullscreen} className={`@container/detail-toolbar relative z-30 ${isFullscreen ? "hidden" : "flex"} items-center px-3 min-h-11 border-b border-grid-separator shrink-0 text-sm ${isCompact ? "h-11 gap-1" : "flex-wrap gap-x-3 gap-y-2"}`}>
-        <DetailNavigation destination="image" onBack={onClose} onHome={onHome} />
-        {isCompact && !isFullscreen && <div className="min-w-22 flex-1 flex justify-center">{viewControls}</div>}
-        <div className="ml-auto flex flex-wrap items-center justify-end max-w-full">
+      <header hidden={isFullscreen} className={`crop-toolbar @container/detail-toolbar relative z-30 ${isFullscreen ? "hidden" : "flex"} items-center px-3 min-h-11 border-b border-grid-separator shrink-0 text-sm ${isCompact ? "h-11 gap-1" : "flex-wrap gap-x-3 gap-y-2"}`}>
+        <DetailNavigation destination="image" onBack={close} onHome={onHome ? home : undefined} />
+        {isCompact && !isFullscreen && <div className="crop-view-controls min-w-22 flex-1 flex justify-center">{viewControls}</div>}
+        <div className="crop-toolbar-actions ml-auto flex flex-wrap items-center justify-end max-w-full">
           {!isCompact && <div className="mr-1 flex flex-wrap items-center justify-end gap-3 max-w-full">
             {coordinates}
             <div aria-hidden="true" className="w-px h-5 bg-grid-separator shrink-0" />
             {ratios}
           </div>}
           {cropAction}
-          <SettingsMenu />
+          <div className="detail-settings shrink-0"><SettingsMenu /></div>
         </div>
       </header>
       <div className={`relative flex-1 min-h-0 flex items-center justify-center overflow-hidden ${isFullscreen ? "px-10 pb-10 pt-[50px]" : isCompact ? "p-3" : "p-[26px]"}`}>
@@ -557,6 +582,34 @@ export function CropEditor({ image, previewSrc, onClose, onHome }: CropEditorPro
       </footer>}
     </div>
   );
+}
+
+function cropDepartureSignature(imageId: string, cropKey: string, rect: Rect | null, defaultRect: Rect,
+  priorFrameEdits = false): string | null {
+  return !priorFrameEdits && rect && (["x", "y", "width", "height"] as const).every(field => rect[field] === defaultRect[field])
+    ? null : JSON.stringify([imageId, cropKey, rect]);
+}
+
+function useCropDepartureGuard(imageId: string, signature: string | null): () => boolean {
+  const current = useRef(signature);
+  const approved = useRef<string | null>(null);
+  if (current.current !== signature) approved.current = null;
+  current.current = signature;
+  const confirmDeparture = useCallback(() => {
+    const frame = current.current;
+    if (frame === null || approved.current === frame) return true;
+    if (!window.confirm("Abandon the adjusted crop? Leaving this editor will discard it.")) return false;
+    approved.current = frame;
+    return true;
+  }, []);
+  const shouldBlockFn = useCallback(({ next }: { next: { pathname: string; search: unknown } }) => {
+    const search = next.search as { image?: string; cropping?: string };
+    if (next.pathname === "/search" && search.image === imageId && search.cropping === "true") return false;
+    return !confirmDeparture();
+  }, [imageId, confirmDeparture]);
+  // Reload restores the draft; deliberately do not register an unload warning.
+  useBlocker({ shouldBlockFn, enableBeforeUnload: false });
+  return confirmDeparture;
 }
 
 function SmallCropWarning({ width, cleared }: { width?: number; cleared: boolean }) {

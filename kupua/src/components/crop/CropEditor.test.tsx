@@ -11,6 +11,7 @@ import type { Rect, Size } from "@/lib/crop/crop-request";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import { useToastStore } from "@/stores/toast-store";
 import { clearCropDraft, discardCropDraftOutside } from "@/lib/crop/crop-draft";
+import type { UseBlockerOpts } from "@tanstack/react-router";
 
 vi.hoisted(() => {
   vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
@@ -18,7 +19,9 @@ vi.hoisted(() => {
 
 const fixture = vi.hoisted(() => ({ changes: [] as Array<(state: unknown) => void>, edits: [] as Rect[], sources: [] as string[], zoomEnabled: false, compact: false,
   onZoomChange: undefined as ((zoomed: boolean) => void) | undefined, resets: 0, panMode: false,
-  initialSelection: undefined as { rect: Rect | null; size: Size } | undefined }));
+  initialSelection: undefined as { rect: Rect | null; size: Size } | undefined,
+  blocker: undefined as UseBlockerOpts | undefined }));
+vi.mock("@tanstack/react-router", () => ({ useBlocker: (options: UseBlockerOpts) => { fixture.blocker = options; } }));
 vi.mock("@/hooks/useShell", () => ({ useIsCompact: () => fixture.compact }));
 vi.mock("./CropCanvas", () => ({ CropCanvas: ({ onChange, ref, src, zoomEnabled, initialSelection, onZoomChange, panMode }: { src: string; zoomEnabled?: boolean; onChange: (state: unknown) => void;
   onZoomChange?: (zoomed: boolean) => void; panMode?: boolean;
@@ -43,12 +46,127 @@ vi.mock("@/lib/image-urls", () => ({ getFullImageUrl: (image: Image) => `/previe
 const image = (id: string) => ({ id, metadata: { title: id }, source: { dimensions: { width: 2000, height: 1000 } } }) as Image;
 const ready = { status: "ready", selection: { x: 10, y: 20, width: 100, height: 100 }, rendition: { width: 1000, height: 500 } };
 
-beforeEach(() => { fixture.changes = []; fixture.edits = []; fixture.sources = []; fixture.compact = false; fixture.resets = 0; clearCropDraft(); sessionStorage.clear(); localStorage.clear(); });
+beforeEach(() => {
+  fixture.changes = []; fixture.edits = []; fixture.sources = []; fixture.compact = false; fixture.resets = 0;
+  fixture.blocker = undefined;
+  clearCropDraft(); sessionStorage.clear(); localStorage.clear();
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+});
 afterEach(() => {
   cleanup(); clearCropDraft(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers();
   Reflect.deleteProperty(document, "fullscreenElement");
   Reflect.deleteProperty(document, "exitFullscreen");
   Reflect.deleteProperty(HTMLElement.prototype, "requestFullscreen");
+});
+
+function blockDeparture(search: Record<string, string> = { image: "A" }) {
+  return fixture.blocker!.shouldBlockFn({ next: { pathname: "/search", search }, action: "BACK" } as never);
+}
+
+it("does not warn for default frames, preset changes or view-only zoom", () => {
+  const close = vi.fn();
+  const home = vi.fn();
+  render(<CropEditor image={image("A")} onClose={close} onHome={home} />);
+  act(() => fixture.changes.at(-1)!({ ...ready, selection: { x: 0, y: 0, width: 1000, height: 500 } }));
+  act(() => fixture.onZoomChange?.(true));
+  expect(blockDeparture()).toBe(false);
+  fireEvent.click(screen.getByRole("radio", { name: "portrait (4:5)" }));
+  act(() => fixture.changes.at(-1)!({ ...ready, selection: { x: 300, y: 0, width: 400, height: 500 } }));
+  fireEvent.click(screen.getByRole("button", { name: "Back to image" }));
+  fireEvent.click(screen.getByRole("link", { name: "Grid" }));
+  expect(close).toHaveBeenCalledOnce();
+  expect(home).toHaveBeenCalledOnce();
+  expect(window.confirm).not.toHaveBeenCalled();
+});
+
+it.each([false, true])("guards adjusted frames before Home, Back and history without double prompting, compact=%s", compact => {
+  fixture.compact = compact;
+  const close = vi.fn();
+  const home = vi.fn();
+  vi.mocked(window.confirm).mockReturnValue(false);
+  render(<CropEditor image={image("A")} onClose={close} onHome={home} />);
+  act(() => fixture.changes.at(-1)!({ ...ready, selection: { x: 0, y: 0, width: 1000, height: 500 } }));
+  act(() => fixture.changes.at(-1)!(ready));
+  fireEvent.click(screen.getByRole("button", { name: "Back to image" }));
+  fireEvent.click(screen.getByRole("link", { name: "Grid" }));
+  expect(close).not.toHaveBeenCalled();
+  expect(home).not.toHaveBeenCalled();
+  expect(blockDeparture()).toBe(true);
+  expect(window.confirm).toHaveBeenCalledTimes(3);
+  expect(blockDeparture({ image: "A", cropping: "true" })).toBe(false);
+  expect(window.confirm).toHaveBeenCalledTimes(3);
+  act(() => fixture.changes.at(-1)!({ ...ready, selection: { x: 0, y: 0, width: 1000, height: 500 } }));
+  expect(blockDeparture()).toBe(false);
+  expect(window.confirm).toHaveBeenCalledTimes(3);
+  act(() => fixture.changes.at(-1)!(ready));
+  vi.mocked(window.confirm).mockReturnValue(true);
+  fireEvent.click(screen.getByRole("link", { name: "Grid" }));
+  expect(home).toHaveBeenCalledOnce();
+  expect(blockDeparture({})).toBe(false);
+  expect(window.confirm).toHaveBeenCalledTimes(4);
+  act(() => fixture.changes.at(-1)!({ ...ready, selection: null }));
+  vi.mocked(window.confirm).mockReturnValue(false);
+  expect(blockDeparture()).toBe(true);
+  expect(window.confirm).toHaveBeenCalledTimes(5);
+});
+
+it("keeps an existing frame adjustment guarded after ratio changes and reload", () => {
+  vi.mocked(window.confirm).mockReturnValue(false);
+  const close = vi.fn();
+  const mounted = render(<CropEditor image={image("A")} onClose={close} />);
+  act(() => fixture.changes.at(-1)!({ ...ready, selection: { x: 0, y: 0, width: 1000, height: 500 } }));
+  act(() => fixture.changes.at(-1)!(ready));
+  fireEvent.click(screen.getByRole("radio", { name: "portrait (4:5)" }));
+  expect(blockDeparture()).toBe(true);
+  const portrait = { ...ready, selection: { x: 300, y: 0, width: 400, height: 500 } };
+  act(() => fixture.changes.at(-1)!(portrait));
+  fireEvent.click(screen.getByRole("button", { name: "Back to image" }));
+  expect(close).not.toHaveBeenCalled();
+  expect(window.confirm).toHaveBeenLastCalledWith("Abandon the adjusted crop? Leaving this editor will discard it.");
+  fireEvent(window, new Event("pagehide"));
+  mounted.unmount();
+  render(<CropEditor image={image("A")} onClose={close} />);
+  expect(blockDeparture()).toBe(true);
+  act(() => fixture.changes.at(-1)!(portrait));
+  expect(blockDeparture()).toBe(true);
+});
+
+it("retains the actual default through reload without hiding a one-pixel adjustment", () => {
+  const source = { ...image("A"), source: { dimensions: { width: 7388, height: 4925 } } } as Image;
+  const frame = { x: 49.99999999999999, y: 0, width: 300, height: 300 };
+  const rendition = { width: 400, height: 300 };
+  const mounted = render(<CropEditor image={source} onClose={() => {}} />);
+  fireEvent.click(screen.getByRole("radio", { name: "square (1:1)" }));
+  act(() => fixture.changes.at(-1)!({ status: "ready", selection: frame, rendition }));
+  expect(blockDeparture()).toBe(false);
+  fireEvent(window, new Event("pagehide"));
+  mounted.unmount();
+  render(<CropEditor image={source} onClose={() => {}} />);
+  expect(blockDeparture()).toBe(false);
+  act(() => fixture.changes.at(-1)!({ status: "ready", selection: frame, rendition }));
+  expect(blockDeparture()).toBe(false);
+  act(() => fixture.changes.at(-1)!({ status: "ready", selection: { ...frame, x: frame.x + 400 / 7388 }, rendition }));
+  vi.mocked(window.confirm).mockReturnValue(false);
+  expect(blockDeparture()).toBe(true);
+});
+
+it("keeps restored adjustments guarded while reload stays prompt-free", () => {
+  const draft = { version: 1, imageId: "A", size: { width: 2000, height: 1000 }, cropKey: "freeform", ratio: null,
+    rect: { x: 100, y: 80, width: 400, height: 500 } };
+  sessionStorage.setItem("kupua.crop.draft", JSON.stringify(draft));
+  vi.mocked(window.confirm).mockReturnValue(false);
+  const mounted = render(<CropEditor image={image("A")} onClose={() => {}} />);
+  expect(blockDeparture()).toBe(true);
+  act(() => fixture.changes.at(-1)!({ status: "ready", selection: draft.rect, rendition: draft.size }));
+  fireEvent(window, new Event("pagehide"));
+  expect(fixture.blocker!.enableBeforeUnload).toBe(false);
+  expect(JSON.parse(sessionStorage.getItem("kupua.crop.draft")!).rect).toEqual(draft.rect);
+  expect(window.confirm).toHaveBeenCalledOnce();
+  mounted.unmount();
+  render(<CropEditor image={image("A")} onClose={() => {}} />);
+  expect(fixture.initialSelection?.rect).toEqual(draft.rect);
+  expect(blockDeparture()).toBe(true);
+  expect(window.confirm).toHaveBeenCalledTimes(2);
 });
 
 it("edits mobile precision without replacing the canvas and closes nested controls before leaving Crop", () => {

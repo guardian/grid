@@ -786,10 +786,10 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     {pairedPages && renderCard(detailImage)}
   </div>;
   const cropLoading = <div className="flex h-full flex-col" aria-busy="true">
-    <header className="@container/detail-toolbar flex h-11 shrink-0 items-center border-b border-grid-separator px-3">
+    <header className="crop-toolbar @container/detail-toolbar flex h-11 shrink-0 items-center border-b border-grid-separator px-3">
       <DetailNavigation destination="image" onBack={closeCrop} onHome={goHome} />
       <span className="flex-1" />
-      <SettingsMenu />
+      <div className="detail-settings shrink-0"><SettingsMenu /></div>
     </header>
     {!displayImage && (availability || standaloneFetchFailed || loadingImageId === imageId) && <p role="status" className="flex flex-1 items-center justify-center text-sm text-grid-text-muted">
       {availability ? availability === "deleted" ? "Image deleted" : "Image unavailable" : standaloneFetchFailed ? standaloneFailureText : "Loading image..."}
@@ -803,11 +803,11 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       </div>}
       {/* Top bar — hidden in fullscreen */}
       {!isFullscreen && (
-        <header inert={cropping} className="@container/detail-toolbar relative z-30 flex items-center px-3 py-1.5 bg-grid-bg border-b border-grid-separator h-11 shrink-0">
+        <header inert={cropping} className="detail-toolbar @container/detail-toolbar relative z-30 flex items-center px-3 py-1.5 bg-grid-bg border-b border-grid-separator h-11 shrink-0">
           <DetailNavigation destination="search" onBack={closeDetail} onHome={goHome} />
           <div className="w-px h-5 bg-grid-separator shrink-0" />
           {currentGlobalIndex >= 0 && (
-            <span className="flex shrink-0 flex-col items-center px-3 tabular-nums whitespace-nowrap @min-[640px]/detail-toolbar:flex-row @min-[640px]/detail-toolbar:gap-1">
+            <span className="detail-position flex shrink-0 flex-col items-center px-3 tabular-nums whitespace-nowrap @min-[640px]/detail-toolbar:flex-row @min-[640px]/detail-toolbar:gap-1">
               <span className="text-sm leading-4 font-semibold text-grid-text-bright">{(currentGlobalIndex + 1).toLocaleString()}</span>
               {" "}
               {currentGlobalIndex < total && <span className="text-2xs wide:text-sm leading-4 text-grid-text-muted">of {total.toLocaleString()}</span>}
@@ -823,7 +823,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
                 onClick={openCrop}
                 aria-label="Crop image"
                 title="Crop image [c]"
-                className="shrink-0 min-w-11 h-11 inline-flex items-center justify-center gap-1.5 px-3 text-sm text-grid-text-muted hover:bg-grid-hover hover:text-grid-text transition-colors cursor-pointer"
+                className="detail-crop shrink-0 min-w-11 h-11 inline-flex items-center justify-center gap-1.5 px-3 text-sm text-grid-text-muted hover:bg-grid-hover hover:text-grid-text transition-colors cursor-pointer"
               >
                 <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
                   <path d="M6 2v16h16M2 6h16v16" />
@@ -835,7 +835,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
               <div aria-hidden="true" className="w-px h-5 bg-grid-separator shrink-0" />
             </>
           )}
-          <SettingsMenu />
+          <div className="detail-settings shrink-0"><SettingsMenu /></div>
         </header>
       )}
 

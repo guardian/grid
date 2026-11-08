@@ -44,6 +44,20 @@ describe("bounded zoom morph plan", () => {
     expect(morphRect(tracks[0], 2)).toEqual(tracks[0].to);
   });
 
+  it("keeps the pinned image on one identity track across a row break", () => {
+    const image = document.createElement("img");
+    const source = [tile("a", 0, 0, 100, 100), { ...tile("pinned", 104, 0, 100, 100), image }];
+    const destination = [tile("a", 0, -120, 200, 200), { ...tile("pinned", 0, -35, 200, 200), image }];
+    const tracks = planZoomMorph(source, destination, 35, 10, "pinned")!;
+    const pinned = tracks.filter(track => track.outgoing === image || track.incoming === image);
+    expect(pinned).toHaveLength(1);
+    expect(pinned[0]).toMatchObject({ outgoing: image, incoming: image, from: source[1], to: destination[1] });
+    for (const progress of [0, 0.5, 1]) {
+      const box = morphRect(pinned[0], progress);
+      expect(box.y + box.height * 0.35).toBeCloseTo(35);
+    }
+  });
+
   it("rejects protected inputs, bad geometry and over-budget plans", () => {
     const source = [tile("a", 0, 0, 100, 100)];
     expect(planZoomMorph(source, source, 0, 0)).toBeUndefined();

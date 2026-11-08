@@ -177,6 +177,191 @@ test.beforeEach(async ({ page }) => {
   await clearSelection(page);
 });
 
+test("installed phone moves controls above a full-width search without changing browser layout", async ({ page }) => {
+  const toolbar = page.getByRole("toolbar", { name: "Search and filter controls" });
+  const search = toolbar.getByRole("search");
+  const browserBox = await search.boundingBox();
+  expect(browserBox).not.toBeNull();
+  expect(browserBox!.y).toBeLessThan(44);
+  await page.addInitScript(() => {
+    const matchMedia = window.matchMedia.bind(window);
+    window.matchMedia = query => {
+      const result = matchMedia(query);
+      if (query.includes("display-mode:")) Object.defineProperty(result, "matches", { value: true });
+      return result;
+    };
+  });
+  await page.reload();
+  await expect(search).toBeVisible();
+  const installedBox = (await search.boundingBox())!;
+  expect(installedBox.x).toBeCloseTo(12, 0);
+  expect(installedBox.width).toBeCloseTo(page.viewportSize()!.width - 24, 0);
+  for (const control of [toolbar.getByRole("link", { name: "Grid" }),
+    toolbar.getByRole("button", { name: "Filters and sort" }), toolbar.getByRole("button", { name: "Settings", exact: true })]) {
+    const box = (await control.boundingBox())!;
+    expect(box.y + box.height).toBeLessThanOrEqual(installedBox.y);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+  }
+  await toolbar.getByRole("button", { name: "Settings", exact: true }).tap();
+  await expect(page.getByRole("menu")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await toolbar.getByRole("button", { name: "Filters and sort" }).tap();
+  await expect(page.getByRole("dialog", { name: "Refine search" })).toBeVisible();
+  await page.getByRole("button", { name: "Close filters" }).tap();
+  const homeBox = await toolbar.getByRole("link", { name: "Grid" }).boundingBox();
+  const settingsBox = await toolbar.getByRole("button", { name: "Settings", exact: true }).boundingBox();
+  await expect.poll(() => page.locator("[data-grid-cell]").count()).toBeGreaterThan(3);
+  const point = await getFirstTouchableCellRect(page);
+  await page.touchscreen.tap(point.x, point.y);
+  const detailToolbar = page.locator(".detail-toolbar");
+  await expect(detailToolbar).toBeVisible();
+  expect(await detailToolbar.getByRole("link", { name: "Grid" }).boundingBox()).toEqual(homeBox);
+  expect(await detailToolbar.getByRole("button", { name: "Settings", exact: true }).boundingBox()).toEqual(settingsBox);
+  const detailBackBox = (await detailToolbar.getByRole("button", { name: "Back to search", exact: true }).boundingBox())!;
+  const counterBox = (await detailToolbar.locator(".detail-position").boundingBox())!;
+  expect(counterBox.x).toBe(detailBackBox.x + detailBackBox.width);
+  expect(counterBox.x + counterBox.width / 2).toBeLessThan(page.viewportSize()!.width / 2);
+  await expect(page.locator('meta[name="viewport"]')).toHaveAttribute("content", /viewport-fit=cover/);
+  await detailToolbar.getByRole("button", { name: "Crop image", exact: true }).tap();
+  const crop = page.getByRole("dialog", { name: "Crop image", exact: true });
+  await expect(crop).toBeVisible();
+  expect(await crop.getByRole("link", { name: "Grid" }).boundingBox()).toEqual(homeBox);
+  expect(await crop.getByRole("button", { name: "Settings", exact: true }).boundingBox()).toEqual(settingsBox);
+  const zoom = crop.getByRole("button", { name: "Zoom in", exact: true });
+  await expect(zoom).toBeVisible();
+  const backBox = (await crop.getByRole("button", { name: "Back to image", exact: true }).boundingBox())!;
+  const zoomBox = (await zoom.boundingBox())!;
+  expect(zoomBox.x).toBe(backBox.x + backBox.width);
+  expect(zoomBox.y).toBe(backBox.y);
+  const action = crop.getByRole("button", { name: "Crop", exact: true });
+  await expect(action).toBeEnabled();
+  const actionBox = (await action.boundingBox())!;
+  expect(actionBox.x + actionBox.width).toBe(settingsBox!.x);
+  expect(actionBox.y).toBe(settingsBox!.y);
+  await zoom.tap();
+  const fit = crop.getByRole("button", { name: "Fit image", exact: true });
+  const pan = crop.getByRole("button", { name: "Pan view", exact: true });
+  await expect(fit).toBeVisible();
+  await expect(pan).toBeVisible();
+  const fitBox = (await fit.boundingBox())!;
+  const panBox = (await pan.boundingBox())!;
+  expect(panBox.x).toBe(fitBox.x + fitBox.width);
+  expect(panBox.y).toBe(fitBox.y);
+  expect(panBox.x + panBox.width).toBeLessThanOrEqual(actionBox.x);
+  await expect(page.locator('meta[name="viewport"]')).toHaveAttribute("content", /viewport-fit=cover/);
+});
+
+for (const density of ["grid", "justified"] as const) {
+  test(`phone ${density} pinch pins the touched image instead of the selection anchor`, async ({ page }) => {
+    await page.route("**/src/lib/image-urls.ts*", route => route.fulfill({ contentType: "application/javascript", body: `
+      export const thumbnailsEnabled = true;
+      export const getThumbnailUrl = image => '/__detail_media/' + image.id + '.svg';
+      export const getFullImageUrl = getThumbnailUrl;
+      export const getZoomImageUrl = getThumbnailUrl;
+    ` }));
+    await page.reload();
+    await page.evaluate(async density => {
+      const prefsPath = "/src/stores/ui-prefs-store.ts";
+      const zoomPath = "/src/stores/zoom-store.ts";
+      const { useUiPrefsStore } = await import(prefsPath);
+      const { useZoomStore } = await import(zoomPath);
+      useUiPrefsStore.setState({ blurGraphicImages: false });
+      useUiPrefsStore.getState().setDensity(density);
+      if (density === "grid") useZoomStore.getState().setOffset("grid", -2);
+    }, density);
+    const region = page.getByRole("region", { name: `Image results ${density}`, exact: true });
+    await expect(region).toBeVisible();
+    await region.evaluate(element => { element.scrollTop = 1500; });
+    const readCandidates = () => region.evaluate(element => {
+      const container = element.getBoundingClientRect();
+      return [...element.querySelectorAll("[data-grid-cell]")].filter(cell => {
+        const bounds = cell.getBoundingClientRect();
+        return bounds.top > container.top + 40 && bounds.bottom < container.bottom - 40;
+      }).map(cell => cell.getAttribute("data-image-id")!);
+    });
+    await expect.poll(async () => (await readCandidates()).length).toBeGreaterThan(1);
+    const candidates = await readCandidates();
+    const id = candidates[0];
+    const selectedId = candidates.at(-1)!;
+    await page.evaluate(selectedId => {
+      const store = (window as any).__kupua_selection_store__.getState();
+      store.add([selectedId]);
+      store.setAnchor(selectedId);
+    }, selectedId);
+    const cell = region.locator(`[data-image-id="${id}"]`);
+    const readPoint = () => cell.evaluate(element => {
+      const image = element.querySelector(":scope > div")!;
+      const bounds = image.getBoundingClientRect();
+      return { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height * 0.35,
+        spread: Math.min(20, bounds.width * 0.15) };
+    });
+    const before = await readPoint();
+    const readFocus = () => page.evaluate(async () => {
+      const path = "/src/stores/search-store.ts";
+      return (await import(path)).useSearchStore.getState().focusedImageId;
+    });
+    const focusedId = await readFocus();
+    await expect.poll(() => region.evaluate(element => {
+      const bounds = element.getBoundingClientRect();
+      return [...element.querySelectorAll("img")].filter(image => {
+        const rect = image.getBoundingClientRect();
+        return rect.bottom > bounds.top && rect.top < bounds.bottom;
+      }).every(image => image.complete && image.naturalWidth > 0);
+    })).toBe(true);
+    const key = `kupua-${density}-zoom`;
+    const offset = await page.evaluate(key => Number(sessionStorage.getItem(key) ?? 0), key);
+    const cdp = await page.context().newCDPSession(page);
+    let contactsActive = false;
+    const touch = async (type: "touchStart" | "touchMove" | "touchEnd" | "touchCancel", factor = 1, point = before) => {
+      await cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" || type === "touchCancel" ? [] : [
+        { id: 1, x: point.x - point.spread * factor, y: point.y },
+        { id: 2, x: point.x + point.spread * factor, y: point.y },
+      ] });
+      contactsActive = type === "touchStart" || type === "touchMove";
+    };
+    try {
+      await touch("touchStart");
+      await touch("touchMove", 1.3);
+      if (density === "justified") {
+        const renderer = page.locator("[data-zoom-morph-renderer=dom]");
+        await expect(renderer).toBeVisible();
+        await expect(renderer.locator(`img[src$="/${id}.svg"]`)).toHaveCount(1);
+      }
+      await touch("touchEnd");
+      await expect.poll(() => page.evaluate(key => Number(sessionStorage.getItem(key) ?? 0), key)).toBe(offset + 1);
+      await expect(page.locator("[data-justified-zoom-preview]")).toHaveCount(0);
+      await expect.poll(() => cell.evaluate(element => {
+        const bounds = element.querySelector(":scope > div")!.getBoundingClientRect();
+        return bounds.top + bounds.height * 0.35;
+      })).toBeCloseTo(before.y, 0);
+      const cancelPoint = await readPoint();
+      await touch("touchStart", 1, cancelPoint);
+      await touch("touchMove", 0.8, cancelPoint);
+      if (density === "justified") await expect(page.locator("[data-zoom-morph-renderer=dom]")).toBeVisible();
+      await touch("touchCancel");
+      await expect(page.locator("[data-justified-zoom-preview]")).toHaveCount(0);
+      expect(await page.evaluate(key => Number(sessionStorage.getItem(key)), key)).toBe(offset + 1);
+      await expect.poll(async () => (await readPoint()).y).toBeCloseTo(before.y, 0);
+      const selectedCell = region.locator(`[data-image-id="${selectedId}"]`);
+      const selectedTop = await selectedCell.evaluate(element => element.getBoundingClientRect().top);
+      await page.evaluate(async density => {
+        const path = "/src/stores/zoom-store.ts";
+        (await import(path)).useZoomStore.getState().step(density, -1);
+      }, density);
+      await expect(page.locator("[data-justified-zoom-preview]")).toHaveCount(0);
+      await expect.poll(() => selectedCell.evaluate(element => element.getBoundingClientRect().top)).toBeCloseTo(selectedTop, 0);
+      expect(await getSelectionIds(page)).toEqual([selectedId]);
+      expect(await readFocus()).toBe(focusedId);
+    } finally {
+      try {
+        if (contactsActive) await cdp.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+      } finally {
+        await cdp.detach();
+      }
+    }
+  });
+}
+
 test("detail toolbar labels collapse without crowding navigation or the locator", async ({ page }) => {
   const point = await getFirstTouchableCellRect(page);
   await page.touchscreen.tap(point.x, point.y);
@@ -184,7 +369,7 @@ test("detail toolbar labels collapse without crowding navigation or the locator"
   const back = toolbar.getByRole("button", { name: "Back to search", exact: true });
   const crop = toolbar.getByRole("button", { name: "Crop image", exact: true });
   const position = toolbar.locator(":scope > span").first();
-  for (const [width, backText, cropText] of [[320, "", ""], [412, "Back", "Crop"], [900, "Back to search", "Crop image"]] as const) {
+  for (const [width, backText, cropText] of [[320, "", ""], [412, "", "Crop"], [900, "Back to search", "Crop image"]] as const) {
     await page.setViewportSize({ width, height: 852 });
     await expect(back).toBeVisible();
     await expect(crop).toBeVisible();
@@ -205,7 +390,7 @@ test("detail toolbar labels collapse without crowding navigation or the locator"
           && rect.top >= bounds.top - 1 && rect.bottom <= bounds.bottom + 1;
       });
     })).toBe(true);
-    expect((await back.boundingBox())!.width).toBeGreaterThanOrEqual(44);
+    expect((await back.boundingBox())!.width).toBeGreaterThanOrEqual(width < 640 ? 32 : 44);
     expect((await crop.boundingBox())!.width).toBeGreaterThanOrEqual(44);
   }
   await page.setViewportSize({ width: 412, height: 852 });
@@ -215,7 +400,7 @@ test("detail toolbar labels collapse without crowding navigation or the locator"
   await expect(cropBack).toBeVisible();
   const blueFace = (await page.getByRole("dialog", { name: "Crop image" }).getByRole("button", { name: "Crop", exact: true }).locator(":scope > span").boundingBox())!;
   expect(Math.abs(blueFace.x + blueFace.width - actionRightGuide)).toBeLessThanOrEqual(1);
-  expect(await cropBack.innerText()).toBe("Back");
+  expect(await cropBack.innerText()).toBe("");
   await cropBack.click();
   await expect(back).toBeVisible();
 });
@@ -466,7 +651,13 @@ test.describe("detail metadata gestures", () => {
     expect(maskBounds.x).toBeGreaterThanOrEqual(dimensions.x + dimensions.width);
     expect(await editor.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.screenshot({ path: test.info().outputPath("crop-mobile-layout.png") });
-    await editor.getByRole("button", { name: "Back to image", exact: true }).click();
+    await Promise.all([
+      page.waitForEvent("dialog").then(async dialog => {
+        expect(dialog.message()).toBe("Abandon the adjusted crop? Leaving this editor will discard it.");
+        await dialog.accept();
+      }),
+      editor.getByRole("button", { name: "Back to image", exact: true }).click(),
+    ]);
     await expect(editor).toHaveCount(0);
     await expect(detail.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
   });

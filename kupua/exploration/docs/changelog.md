@@ -24,6 +24,45 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 8 November 2026 - Phone pinch anchoring, installed layouts and crop protection
+
+Grid and Justified capture the visible image nearest a compact-shell pinch's initial
+midpoint and preserve the fractional vertical point within its thumbnail block.
+The gesture-local anchor overrides selection/focus without changing either; it expires
+after commit, cancellation or interruption. Physical scroll bounds constrain placement,
+and horizontal column repacking remains free. Desktop, keyboard/menu zoom and the zoom
+ladders are unchanged. Fixed Grid cancels its preview without committing on touch cancellation.
+
+Justified gives only the pinned image one identity-preserving track across row breaks,
+keeping other tiles on the existing bounded slot animation. Native-touch regressions
+cover loaded thumbnails, a different selected image, cancellation and the next non-touch
+zoom; geometry and animation coverage retain the touched point and identity.
+
+Installed compact windows opt into cutout coverage without changing ordinary browser
+or desktop viewports. Results place Home, Filters and Settings above a full-width
+search field. Detail and crop keep Home and Settings in matching corner positions;
+compact Back spacing leaves the counter or Zoom/Fit and conditional Hand controls
+beside navigation, with Crop immediately before Settings. Crop's loading cover uses
+the same installed layout, and image fullscreen continues to hide its toolbar.
+
+Adjusted or cleared crop frames ask before Home, Back, Escape or same-document
+history departure. Preset changes alone and view-only zoom/pan do not warn, but a
+ratio change preserves an existing adjustment warning. Confirmation precedes Home's
+reset side effects; cancellation retains the frame and draft. Reload stays prompt-free
+and restores the frame, its actual default baseline and prior adjustment state;
+recording the rendered baseline avoids false warnings from original-pixel rounding.
+Full-document departures are deliberately outside this guard.
+
+The middleware-only API guard test now owns an isolated dependency cache with discovery
+disabled and cleanup on completion. It no longer invalidates a running Vite app's
+optimized Cropper dependency, which caused lazy crop entry to fail with an outdated
+optimization response. This fixes that cache collision rather than adding import retries.
+
+Publication-continuity regression coverage now triggers its fixture update from observed
+native scrolling instead of a fixed timer. It acknowledges the actual store publication
+before continuing the gesture, preserving the geometry/write checks and explicitly
+requiring movement after publication rather than relying on input scheduling speed.
+
 ### 8 November 2026 - Restore explicit detail-entry synthesis guards
 
 Detail entry again uses the one-shot SPA-navigation flag and persistent

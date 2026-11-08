@@ -160,6 +160,12 @@ these bounds are not a hardware frame-rate guarantee.
 Justified owns local two-finger contacts through repacking, leaves one-finger scrolling native
 and permits one committed step per contact sequence. Progress is independent of layout density;
 readiness can hold the source pose, but never delays release. Grid uses its simpler scaled preview.
+Phone-shell native pinches deliberately override selection/focus anchoring for their lifetime:
+the image nearest the starting midpoint keeps its vertical thumbnail point, clamped to physical
+scroll bounds rather than whole-cell visibility or a sticky result edge. Its Justified animation
+uses one identity track instead of slot crossfading. Horizontal repacking can still move it;
+desktop, menu and keyboard zoom keep existing anchor and animation policies. This trades exact
+two-dimensional pinning for predictable vertical placement without focus/selection changes.
 See [results zoom](00%20Architecture%20and%20philosophy/component-detail.md#results-zoom-libresults-zoomts-storeszoom-storets).
 
 ### Scoped Backward Metadata Lookahead (25 October 2026)

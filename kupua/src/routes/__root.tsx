@@ -10,7 +10,7 @@ import { createRootRoute, Outlet, useRouterState } from "@tanstack/react-router"
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ToastContainer } from "@/components/ToastContainer";
 import { LabelOperationReceipts } from "@/components/LabelEditor";
-import { useIsCompact } from "@/hooks/useShell";
+import { useAppCutout, useIsCompact } from "@/hooks/useShell";
 import { useSelectionStore } from "@/stores/selection-store";
 import { usePanelStore } from "@/stores/panel-store";
 import { applyLegacyCropParams } from "@/lib/crop/crop-options";
@@ -27,6 +27,7 @@ function RootLayout() {
   const selected = useSelectionStore(state => state.selectedIds.size > 0);
   const expanded = usePanelStore(state => state.config.right.visible);
   const image = useRouterState({ select: state => (state.location.search as { image?: string }).image });
+  useAppCutout(compact);
   return (
     <div className="h-dvh w-screen overflow-clip flex flex-col bg-grid-bg text-grid-text overscroll-y-none">
       <ErrorBoundary>

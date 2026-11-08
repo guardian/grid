@@ -892,7 +892,7 @@ test.describe("buffer publication", () => {
   for (const density of ["grid", "table", "justified"] as const) {
     test(`preserves ${density} browsing during publication`, async ({ page }) => {
       const escaped = await isolatePublicationFixture(page, origin);
-      let probe: Awaited<ReturnType<typeof page.evaluateHandle<{ stop: () => unknown }>>> | undefined;
+      let probe: JSHandle<{ published: () => boolean; stop: () => unknown }> | undefined;
       try {
         await page.goto(`${origin}/__publication?density=${density}`);
         const region = page.getByRole("region", { name: `Image results ${density}`, exact: true });
@@ -919,7 +919,10 @@ test.describe("buffer publication", () => {
           let comparisons = 0;
           let jumps = 0;
           let wheelEvents = 0;
+          let publicationRequested = false;
+          let publicationObserved = false;
           let publicationDuringScroll = false;
+          let movementAfterPublication = false;
           let scrollWrites = 0;
           let reverseMovement = 0;
           let lastMovement = -Infinity;
@@ -941,14 +944,20 @@ test.describe("buffer publication", () => {
           const wheel = () => { wheelEvents++; };
           region.addEventListener("wheel", wheel, { passive: true });
           const unsubscribe = store.subscribe((state, prior) => {
-            if (state.results !== prior.results && state.results.some(image => image?.metadata.description === "A2 published description")) {
+            if (!publicationObserved && state.results !== prior.results
+              && state.results.some(image => image?.id === targetId && image.metadata.description === "A2 published description")) {
+              publicationObserved = true;
               publicationDuringScroll = wheelEvents > 2 && region.scrollTop > startScroll && performance.now() - lastMovement < 200;
             }
           });
           const sample = () => {
             frames++;
             const scroll = region.scrollTop;
-            if (scroll > lastScroll) lastMovement = performance.now();
+            const movedForward = scroll > lastScroll;
+            if (movedForward) {
+              lastMovement = performance.now();
+              if (publicationObserved) movementAfterPublication = true;
+            }
             if (scroll < lastScroll - 1) reverseMovement++;
             lastScroll = scroll;
             const bounds = region.getBoundingClientRect();
@@ -966,6 +975,10 @@ test.describe("buffer publication", () => {
               current.set(cell.dataset.cellId!, next);
             }
             previous = current;
+            if (!publicationRequested && wheelEvents > 2 && movedForward) {
+              publicationRequested = true;
+              (window as CommandWindow).editorFixture.publish(targetId);
+            }
             frameId = requestAnimationFrame(sample);
           };
           frameId = requestAnimationFrame(sample);
@@ -975,9 +988,8 @@ test.describe("buffer publication", () => {
             return box.top >= bounds.top && box.bottom <= bounds.bottom;
           });
           if (!target) throw new Error("Visible publication target unavailable");
-          const timer = setTimeout(() => (window as CommandWindow).editorFixture.publish(target.dataset.cellId!), 400);
-          return { stop() {
-            clearTimeout(timer);
+          const targetId = target.dataset.cellId!;
+          return { published: () => publicationObserved, stop() {
             cancelAnimationFrame(frameId);
             unsubscribe();
             region.removeEventListener("wheel", wheel);
@@ -985,22 +997,25 @@ test.describe("buffer publication", () => {
             else delete (region as Partial<HTMLElement>).scrollTop;
             if (ownScrollTo) Object.defineProperty(region, "scrollTo", ownScrollTo);
             else delete (region as Partial<HTMLElement>).scrollTo;
-            return { frames, comparisons, jumps, wheelEvents, publicationDuringScroll, scrollWrites, reverseMovement };
+            return { frames, comparisons, jumps, wheelEvents, publicationDuringScroll, movementAfterPublication, scrollWrites, reverseMovement };
           } };
         }, density);
         await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
         for (let step = 0; step < 8; step++) {
           await page.mouse.wheel(0, 40);
+          // Observe publication during real movement before driving the remaining scroll.
+          if (step === 2) await expect.poll(() => probe!.evaluate(probe => probe.published())).toBe(true);
           await page.waitForTimeout(80);
         }
         const result = await probe.evaluate(probe => probe.stop()) as { frames: number; comparisons: number; jumps: number;
-          publicationDuringScroll: boolean; scrollWrites: number; reverseMovement: number };
+          publicationDuringScroll: boolean; movementAfterPublication: boolean; scrollWrites: number; reverseMovement: number };
         await probe.dispose();
         probe = undefined;
         expect(result.frames).toBeGreaterThan(12);
         expect(result.comparisons).toBeGreaterThan(12);
         expect(result.jumps).toBe(0);
-        expect(result.publicationDuringScroll).toBe(true);
+        expect(result.publicationDuringScroll, JSON.stringify(result)).toBe(true);
+        expect(result.movementAfterPublication, JSON.stringify(result)).toBe(true);
         expect(result.scrollWrites).toBe(0);
         expect(result.reverseMovement).toBe(0);
         expect(escaped).toEqual([]);

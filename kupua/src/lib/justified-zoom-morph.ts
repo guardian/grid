@@ -53,29 +53,41 @@ function slot(row: Row, index: number, fallbackX: number): MorphRect {
 }
 
 // Row/slot order is deliberately preferred over long identity flights across row breaks.
-export function planZoomMorph(source: readonly MorphTile[], destination: readonly MorphTile[], anchorY: number, maxTracks: number): MorphTrack[] | undefined {
+export function planZoomMorph(source: readonly MorphTile[], destination: readonly MorphTile[], anchorY: number, maxTracks: number,
+  pinnedId?: string): MorphTrack[] | undefined {
   if (!source.length || !destination.length || [...source, ...destination].some(tile => tile.protected || ![tile.x, tile.y, tile.width, tile.height].every(Number.isFinite) || tile.width <= 0 || tile.height <= 0)) return;
   const a = rows(source);
   const b = rows(destination);
   const ai = anchorRow(a, anchorY);
   const bi = anchorRow(b, anchorY);
+  const pinnedSource = pinnedId ? source.find(tile => tile.id === pinnedId) : undefined;
+  const pinnedDestination = pinnedSource ? destination.find(tile => tile.id === pinnedId) : undefined;
+  const pinned = pinnedSource && pinnedDestination ? pinnedId : undefined;
   const tracks: MorphTrack[] = [];
   for (let relative = Math.min(-ai, -bi); relative < Math.max(a.length - ai, b.length - bi); relative++) {
     const from = rowAt(a, ai + relative);
     const to = rowAt(b, bi + relative);
     for (let index = 0; index < Math.max(from.tiles.length, to.tiles.length); index++) {
-      if (tracks.length >= maxTracks) return;
       const outgoing = from.tiles[index];
       const incoming = to.tiles[index];
+      if (pinned && outgoing?.id === pinned && incoming?.id === pinned) continue;
+      if (tracks.length >= maxTracks) return;
       tracks.push({
         from: slot(from, index, to.tiles[0]?.x ?? 0),
         to: slot(to, index, from.tiles[0]?.x ?? 0),
-        outgoing: outgoing?.image,
-        incoming: outgoing?.id === incoming?.id && outgoing?.image ? outgoing.image : incoming?.image,
+        outgoing: pinned && outgoing?.id === pinned ? undefined : outgoing?.image,
+        incoming: pinned && incoming?.id === pinned ? undefined
+          : outgoing?.id === incoming?.id && outgoing?.image ? outgoing.image : incoming?.image,
         fromRadius: outgoing?.radius ?? incoming?.radius ?? 0,
         toRadius: incoming?.radius ?? outgoing?.radius ?? 0,
       });
     }
+  }
+  if (pinned && pinnedSource && pinnedDestination) {
+    if (tracks.length >= maxTracks) return;
+    tracks.push({ from: pinnedSource, to: pinnedDestination,
+      outgoing: pinnedSource.image, incoming: pinnedSource.image ?? pinnedDestination.image,
+      fromRadius: pinnedSource.radius, toRadius: pinnedDestination.radius });
   }
   return tracks;
 }

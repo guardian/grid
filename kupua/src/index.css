@@ -14,6 +14,95 @@
 /* No browser pull-to-reload: the results have their own pull-to-refresh. */
 html, body { overscroll-behavior-y: none; }
 
+/* Installed phones reserve the middle of the cutout band, not a full-width blank strip. */
+:root[data-shell="compact"][data-app-cutout="true"] .results-toolbar {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px 44px;
+  grid-template-rows: max(44px, env(safe-area-inset-top, 0px)) 36px;
+  gap: 0;
+  height: auto;
+  padding: 0 env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
+
+  .results-home {
+    grid-area: 1 / 1;
+    margin: 0;
+  }
+
+  .results-filters {
+    grid-area: 1 / 3;
+    width: 44px;
+    height: 44px;
+    margin: 0;
+  }
+
+  .results-settings {
+    grid-area: 1 / 4;
+
+    > div { margin: 0; }
+  }
+
+  .results-query {
+    grid-area: 2 / 1 / 3 / -1;
+    max-width: none;
+    margin: 0 12px;
+    translate: 0 -2px;
+  }
+}
+
+:root[data-shell="compact"] {
+  --detail-back-width: 32px;
+
+  .detail-navigation > .w-px { display: none; }
+  .detail-back {
+    width: var(--detail-back-width);
+    min-width: var(--detail-back-width);
+    padding: 0;
+    > span { display: none; }
+  }
+  .detail-position { padding-inline: 6px; }
+  .crop-view-controls { flex: none; min-width: 0; justify-content: flex-start; }
+}
+
+:root[data-shell="compact"][data-app-cutout="true"] :is(.detail-toolbar, .crop-toolbar:not([hidden])) {
+  display: grid;
+  grid-template-columns: 44px var(--detail-back-width) minmax(0, 1fr) 44px 44px;
+  grid-template-rows: max(44px, env(safe-area-inset-top, 0px));
+  gap: 0;
+  height: auto;
+  padding: 0 env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
+
+  .detail-navigation { display: contents; }
+  > .w-px, .detail-navigation > .w-px, > span.flex-1 { display: none; }
+  .detail-home { grid-area: 1 / 1; }
+  .detail-back { grid-area: 1 / 2; min-width: 0; padding: 0; }
+  .detail-position { grid-area: 1 / 3; justify-self: start; min-width: 0; padding: 0; }
+  .detail-crop { grid-area: 1 / 4; min-width: 0; padding: 0; }
+  .detail-back > span, .detail-crop > span { display: none; }
+  .detail-settings {
+    grid-area: 1 / 5;
+    > div { margin: 0; }
+  }
+}
+
+:root[data-shell="compact"][data-app-cutout="true"] .crop-toolbar:not([hidden]) {
+  grid-template-columns: 44px var(--detail-back-width) minmax(0, 1fr) 64px 44px;
+
+  .crop-toolbar-actions { display: contents; }
+  .crop-view-controls {
+    grid-area: 1 / 3;
+    display: flex;
+    justify-self: start;
+    min-width: 0;
+  }
+  .crop-toolbar-actions > button {
+    grid-area: 1 / 4;
+    justify-self: stretch;
+    padding: 0;
+
+    > span { justify-content: center; gap: 4px; padding-inline: 6px; }
+  }
+}
+
 /*
  * Grid colour palette — extracted from kahuna/public/stylesheets/main.css.
  * Registered as Tailwind theme tokens so they can be used as utility classes

@@ -40,6 +40,10 @@ Anchor precedence depends on the transition; there is no settled universal rule.
 Settled density reuses its valid last placement while browsing is unchanged; a fresh capture
 prefers an eligible buffer-resident resolvable focus, then viewport centre. Grid reflow
 and thumbnail zoom prefer selection, then eligible focus, then viewport centre.
+Native pinches in the compact phone shell instead capture the image nearest the initial
+pinch midpoint and keep that fractional thumbnail point at the same vertical position.
+This gesture-local identity does not change focus/selection and expires on release or
+interruption; menu, keyboard and desktop trackpad zoom keep the ordinary precedence.
 `chooseDensityAnchor` and `chooseReflowAnchor` in `lib/layout-anchor-policy.ts`
 own these distinct precedence decisions and elect the viewport only when needed.
 Their callers still validate candidates, capture source geometry and retain placement
@@ -243,7 +247,8 @@ their separate rules; detail-return identity and cancellation are described in Â
 | Home / End | Viewport at the edge; explicit focus moves to first/last only if it existed | none |
 | Buffer extend / evict / estimate correction | Old/new row-top delta preserves the elected surviving identity, even when its old row splits | Use an old-row neighbour only when the elected identity is evicted |
 | Density switch | Pending browsing destination wins. Once settled: retain valid density placement; otherwise capture eligible resident focus or viewport centre. Preserve intended row-top ratio with header flow, destination visibility clipping and true-edge policy | New browsing supersedes retained placement. Offscreen hidden focus is ignored in Click-to-Open; explicit resident offscreen focus can pull the view back. Nonresident focus cannot. Selection is not a separate chooser |
-| Browser resize / panel toggle / thumbnail zoom | Capture resolvable selection, then eligible focus, then viewport anchor before reflow; retain that operation's anchor | Click-to-Open ignores offscreen hidden focus; partially visible focus stays eligible. Explicit focus and selection retain existing policy; offscreen selection is not promised visibility |
+| Browser resize / panel toggle / non-pinch thumbnail zoom | Capture resolvable selection, then eligible focus, then viewport anchor before reflow; retain that operation's anchor | Click-to-Open ignores offscreen hidden focus; partially visible focus stays eligible. Explicit focus and selection retain existing policy; offscreen selection is not promised visibility |
+| Phone pinch | Capture the image nearest the initial midpoint; preserve its fractional vertical thumbnail point through preview and release without changing focus/selection | Physical scroll bounds clamp placement, including at the true start/end; horizontal position may change with columns. No resolvable image: ordinary reflow anchor. Non-phone pinch retains ordinary reflow policy |
 | Detail / preview close | Entry image: native placement. After traversal: last viewed image centred | Click-to-Open pulses without a ring; remembered detail identity remains eligible for later query/filter and AI-exit anchoring |
 | Browser Back / Forward | Destination snapshot supplies represented anchor, placement and focus/NONE in CURRENT density; distinct same-query native entries restore too | Missing/mismatched/null snapshot or genuine missing anchor: top/no focus, no departing neighbour. Marked origin/detail transition retains native list |
 | Logo (Home) | none | Top of default search; focus/selection cleared, grid reset after owned data unless newer density intent wins |

@@ -32,6 +32,16 @@ export function isValidCropRect(rect: Rect, size: Size): boolean {
     && rect.x + rect.width <= size.width && rect.y + rect.height <= size.height;
 }
 
+/** Maximal centred frame, matching the crop canvas's initial selection. */
+export function defaultCropRect(size: Size, aspect: number | null): Rect {
+  let { width, height } = size;
+  if (aspect) {
+    if (width / height > aspect) width = height * aspect;
+    else height = width / aspect;
+  }
+  return { x: (size.width - width) / 2, y: (size.height - height) / 2, width, height };
+}
+
 export function originalCropSize(image: Image): Size | undefined {
   const dims = image.source?.orientedDimensions ?? image.source?.dimensions;
   return dims && isValidCropRect({ x: 0, y: 0, ...dims }, dims) ? dims : undefined;

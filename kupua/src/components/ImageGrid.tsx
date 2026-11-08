@@ -44,6 +44,7 @@ import { beginTraceInteraction } from "@/lib/perceived-trace";
 import { interpretClick, type Modifier } from "@/lib/interpretClick";
 import { dispatchClickEffects, type AddRangeEffect } from "@/lib/dispatchClickEffects";
 import { useTouchSelection } from "@/hooks/useTouchSelection";
+import { isCompactNow } from "@/hooks/useShell";
 import { GRID_CLASSIC, GRID_DATE_LINE_HEIGHT, gridOffsetRange, gridRowHeight, gridSpec, justifiedOffsetRange, justifiedRowScale, pinchStep } from "@/lib/results-zoom";
 import { useZoomStore } from "@/stores/zoom-store";
 import { createJustifiedZoomTransition, type JustifiedZoomTransition } from "@/lib/justified-zoom-transition";
@@ -527,6 +528,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
 
   // Anchor state: captured in ResizeObserver, consumed in useLayoutEffect
   const anchorRef = useRef<CapturedAnchor | null>(null);
+  const pinchAnchorRef = useRef<CapturedAnchor | null>(null);
 
   useLayoutEffect(() => {
     const el = parentRef.current;
@@ -608,14 +610,24 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     let factor = 1;
     let shownPreview = 1;
     const dist = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const clearPinch = () => {
+      startDist = 0;
+      sizer.style.transition = "";
+      sizer.style.transform = "";
+      pinchAnchorRef.current = null;
+    };
     const onStart = (e: TouchEvent) => {
-      if (e.touches.length !== 2) return;
+      if (e.touches.length !== 2) {
+        if (e.touches.length > 2) clearPinch();
+        return;
+      }
       startDist = dist(e.touches);
       factor = 1;
       shownPreview = 1;
       const r = el.getBoundingClientRect();
       const mx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left;
       const my = (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top + el.scrollTop;
+      pinchAnchorRef.current = capturePinchAnchor(el, mx + r.left, my + r.top - el.scrollTop);
       sizer.style.transformOrigin = `${mx}px ${my}px`;
       sizer.style.transition = "transform 0.18s cubic-bezier(0.22, 1, 0.36, 1)";
     };
@@ -636,18 +648,23 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       startDist = 0;
       sizer.style.transition = "";
       sizer.style.transform = "";
-      useZoomStore.getState().step("grid", pinchStep(factor));
+      if (e.type !== "touchcancel") useZoomStore.getState().step("grid", pinchStep(factor));
+      clearPinch();
     };
     el.addEventListener("touchstart", onStart, { passive: true });
     el.addEventListener("touchmove", onMove, { passive: true });
     el.addEventListener("touchend", onEnd);
     el.addEventListener("touchcancel", onEnd);
+    window.addEventListener("blur", clearPinch);
+    document.addEventListener("visibilitychange", clearPinch);
     return () => {
-      sizer.style.transform = "";
+      clearPinch();
       el.removeEventListener("touchstart", onStart);
       el.removeEventListener("touchmove", onMove);
       el.removeEventListener("touchend", onEnd);
       el.removeEventListener("touchcancel", onEnd);
+      window.removeEventListener("blur", clearPinch);
+      document.removeEventListener("visibilitychange", clearPinch);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refs + stable setters
   }, [justified]);
@@ -668,6 +685,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
    * `wandering-findings/W-2026-08-01-panel-toggle-progressive-shift.md`.
    */
   function captureAnchor(el: HTMLElement, cols: number, viewHeight = el.clientHeight): CapturedAnchor | null {
+    if (pinchAnchorRef.current) return pinchAnchorRef.current;
     const { imagePositions, bufferOffset, total, results } = useSearchStore.getState();
     const { selectedIds, anchorId } = useSelectionStore.getState();
     const selectionAnchorId = selectedIds.size > 0 ? anchorId : null;
@@ -702,6 +720,32 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     // Last-resort fallback: no known anchor image yet (e.g. before the first
     // reportVisibleRange call).
     return computeFallbackAnchor(cols, rowHeightRef.current, el.scrollTop, el.clientHeight, itemOffset);
+  }
+
+  function capturePinchAnchor(el: HTMLElement, x: number, y: number): CapturedAnchor | null {
+    if (!isCompactNow()) return null;
+    const container = el.getBoundingClientRect();
+    let nearest: CapturedAnchor | null = null;
+    let distance = Infinity;
+    for (const cell of el.querySelectorAll<HTMLElement>("[data-grid-cell][data-image-id]")) {
+      const bounds = (cell.querySelector(":scope > div") ?? cell).getBoundingClientRect();
+      if (!bounds.height || bounds.bottom <= container.top || bounds.top >= container.bottom) continue;
+      const deltaX = Math.max(bounds.left - x, 0, x - bounds.right);
+      const deltaY = Math.max(bounds.top - y, 0, y - bounds.bottom);
+      const nextDistance = deltaX * deltaX + deltaY * deltaY;
+      if (nextDistance >= distance) continue;
+      const imageId = cell.dataset.imageId!;
+      const index = findImageIndex(imageId);
+      if (index < 0) continue;
+      const geometry = committedFixedGeometry.current;
+      const row = layoutRef.current?.getItemRow(index) ?? getItemLayoutRow(geometry, index);
+      nearest = { imageId, imageIndex: justified ? index : index + geometry.itemOffset,
+        viewportRatio: (y - container.top) / el.clientHeight,
+        point: { ratio: Math.max(0, Math.min(1, (y - bounds.top) / bounds.height)),
+          inset: bounds.top - container.top + el.scrollTop - row.top } };
+      distance = nextDistance;
+    }
+    return nearest;
   }
 
   // -------------------------------------------------------------------------
@@ -781,14 +825,18 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       const sizer = el.firstElementChild as HTMLElement | null;
       if (sizer) sizer.style.height = `${rowCount * rowHeight}px`;
     }
-    const clamped = anchor.atStart ? 0 : justifiedLayout
+    const pointIndex = resolved ?? (justifiedLayout ? anchor.imageIndex : anchor.imageIndex - fixedGeometry.itemOffset);
+    const clamped = anchor.point
+      ? placeAnchor(anchor, (justifiedLayout?.getItemRow(pointIndex) ?? getItemLayoutRow(fixedGeometry, pointIndex)).top,
+        justifiedLayout?.getBox(pointIndex)?.height ?? level.thumbHeight, el.clientHeight, el.scrollHeight)
+      : anchor.atStart ? 0 : justifiedLayout
       ? placeAnchor(anchor, justifiedLayout.getItemRow(resolved ?? anchor.imageIndex).top,
         justifiedLayout.getItemRow(resolved ?? anchor.imageIndex).height, el.clientHeight, el.scrollHeight)
       : restoreAnchorScrollTop(resolved === undefined ? anchor
         : { ...anchor, imageIndex: resolved + fixedGeometry.itemOffset }, columns, rowHeight,
       el.clientHeight, el.scrollHeight, fixedGeometry.itemOffset);
     virtualizer.scrollToOffset(clamped);
-  }, [columns, rowHeight, rowCount, justifiedLayout, virtualizer, fixedGeometry, findImageIndex]);
+  }, [columns, rowHeight, rowCount, justifiedLayout, virtualizer, fixedGeometry, findImageIndex, level.thumbHeight]);
 
   useEffect(() => {
     const el = parentRef.current;
@@ -810,9 +858,13 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
         if (offset === null) sourceAnchor = null;
       },
       commit: offset => useZoomStore.getState().setOffset("justified", offset),
+      pinnedImage: () => pinchAnchorRef.current?.imageId,
     });
     zoomTransition.current = transition;
-    const unbindGestures = bindJustifiedZoomGestures(el, transition);
+    const unbindGestures = bindJustifiedZoomGestures(el, transition, {
+      capture: (x, y) => { pinchAnchorRef.current = capturePinchAnchor(el, x, y); },
+      clear: () => { pinchAnchorRef.current = null; },
+    });
     return () => {
       unbindGestures();
       transition.dispose();

@@ -30,6 +30,7 @@ interface Options {
   scale: (offset: number) => number;
   preview: (offset: number | null) => void;
   commit: (offset: number) => void;
+  pinnedImage?: () => string | undefined;
 }
 
 interface Gesture {
@@ -196,7 +197,7 @@ export function createJustifiedZoomTransition(options: Options): JustifiedZoomTr
     g.pendingRenderer?.dispose();
     g.pendingRenderer = undefined;
     if (g.sourceLayer) g.sourceLayer.style.visibility = "visible";
-    g.plan ??= planZoomMorph(g.outgoing, g.incoming, g.y, MAX_ZOOM_TILES);
+    g.plan ??= planZoomMorph(g.outgoing, g.incoming, g.y, MAX_ZOOM_TILES, options.pinnedImage?.());
     if (!g.plan) { fallback(g); return; }
     const renderer = createMorphRenderer(g.root, g.plan, getComputedStyle(g.root).backgroundColor);
     if (!renderer) { fallback(g); return; }

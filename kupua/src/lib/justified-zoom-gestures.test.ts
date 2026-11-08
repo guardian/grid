@@ -9,7 +9,8 @@ function fixture() {
   container.append(first, second);
   document.body.append(container);
   const transition = { begin: vi.fn(), update: vi.fn(), end: vi.fn(), layout: vi.fn(), interrupt: vi.fn(), external: vi.fn(), dispose: vi.fn() };
-  const dispose = bindJustifiedZoomGestures(container, transition);
+  const pinchAnchor = { capture: vi.fn(), clear: vi.fn() };
+  const dispose = bindJustifiedZoomGestures(container, transition, pinchAnchor);
   const touch = (target: EventTarget, x: number, y: number, identifier = target === second ? 2 : 1) => ({ target, clientX: x, clientY: y, identifier });
   const a = touch(first, 100, 200);
   const b = touch(second, 300, 400);
@@ -19,7 +20,7 @@ function fixture() {
     target.dispatchEvent(event);
     return event;
   };
-  return { container, first, second, transition, dispose, touch, a, b, send };
+  return { container, first, second, transition, pinchAnchor, dispose, touch, a, b, send };
 }
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); document.body.replaceChildren(); });
 
@@ -31,12 +32,15 @@ describe("native-touch contact ownership", () => {
     expect(f.transition.begin).not.toHaveBeenCalled();
     expect(f.send(f.second, "touchstart", [f.a, f.b]).defaultPrevented).toBe(true);
     expect(f.transition.begin).toHaveBeenCalledExactlyOnceWith(200, 300);
+    expect(f.pinchAnchor.capture).toHaveBeenCalledExactlyOnceWith(200, 300);
+    expect(f.pinchAnchor.clear).not.toHaveBeenCalled();
     const move = f.send(f.first, "touchmove", [f.touch(f.first, 120, 220), f.touch(f.second, 280, 380)]);
     expect(move.defaultPrevented).toBe(true);
     expect(f.transition.update).toHaveBeenCalledExactlyOnceWith(0.8);
     f.send(f.first, "touchend", [f.b]);
     f.send(f.second, "touchend", []);
     expect(f.transition.end).toHaveBeenCalledExactlyOnceWith(false);
+    expect(f.pinchAnchor.clear.mock.invocationCallOrder[0]).toBeGreaterThan(f.transition.end.mock.invocationCallOrder[0]);
     f.dispose();
   });
 
@@ -184,9 +188,11 @@ describe("native-touch contact ownership", () => {
     f.send(f.second, "touchstart", [f.a, f.b]);
     f.send(f.first, "touchcancel", []);
     expect(f.transition.end).toHaveBeenCalledExactlyOnceWith(true);
+    expect(f.pinchAnchor.clear).toHaveBeenCalledOnce();
     f.send(f.second, "touchstart", [f.a, f.b]);
     f.container.replaceChildren();
     window.dispatchEvent(new Event("blur"));
+    expect(f.pinchAnchor.clear).toHaveBeenCalledTimes(2);
     f.send(f.first, "touchmove", [f.a, f.b]);
     expect(f.transition.update).not.toHaveBeenCalled();
     f.dispose();
@@ -222,6 +228,7 @@ describe("native-touch contact ownership", () => {
     expect(wheel.defaultPrevented).toBe(true);
     expect(f.transition.begin).toHaveBeenCalledTimes(1);
     expect(f.transition.update).toHaveBeenCalledTimes(1);
+    expect(f.pinchAnchor.capture).not.toHaveBeenCalled();
     vi.advanceTimersByTime(140);
     expect(f.transition.end).toHaveBeenCalledTimes(1);
     f.dispose();
