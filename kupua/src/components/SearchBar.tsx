@@ -390,7 +390,7 @@ export function SearchBar() {
       >●</span>
 
       {/* Settings menu — three-dot, far right */}
-      <SettingsMenu />
+      <SettingsMenu showViewControls={!searchParams.image} />
     </header>
   );
 }

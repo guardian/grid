@@ -489,9 +489,8 @@ Leaving a preview on its entry image preserves list placement; after traversal,
 return placement brings the current image into view. Fullscreen is a presentation
 capability; traversal is separate (§3.4).
 
-The whole app can also go fullscreen from the Settings menu; image fullscreen then
-stacks on top and stepping out returns to the fullscreen app. A hover-revealed corner
-button in detail and preview enters or exits image fullscreen.
+A hover-revealed top-right corner button in detail and preview enters or exits image
+fullscreen, aligned with the Next navigation icon.
 
 **New endpoints:** **none**. Browser fullscreen, preview state and dismissal are
 client-side. Fetching image bytes is not a new media-api image-data endpoint.

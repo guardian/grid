@@ -20,12 +20,21 @@ describe("orchestration/search.ts — module-level state", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it("consumeUserInitiatedFlag is read-and-clear", () => {
     mod.markUserInitiatedNavigation();
     expect(mod.consumeUserInitiatedFlag()).toBe(true);
     expect(mod.consumeUserInitiatedFlag()).toBe(false);
+  });
+
+  it("marks pushed navigation as SPA entry and consumes it once", () => {
+    vi.stubGlobal("history", { state: null });
+    expect(mod.consumeDetailEnteredViaSpaFlag()).toBe(false);
+    mod.pushNavigate(vi.fn(), { to: "/search", search: { image: "img-1" }, state: { _detailEntryImageId: "img-1" } });
+    expect(mod.consumeDetailEnteredViaSpaFlag()).toBe(true);
+    expect(mod.consumeDetailEnteredViaSpaFlag()).toBe(false);
   });
 
   it("adversarial: two consecutive consumes on a fresh (unmarked) module are both false", () => {

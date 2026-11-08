@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { useImperativeHandle, useRef, type Ref } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Image } from "@/types/image";
@@ -385,18 +385,20 @@ it("keeps a two-sentence warning while the frame is small, respects dismissal an
   expect(useToastStore.getState().queue).toHaveLength(0);
 });
 
-it("keeps Crop Settings usable in app fullscreen but hidden in crop fullscreen", () => {
+it("keeps Crop Settings free of results controls and hides it in crop fullscreen", () => {
   let fullscreen: Element | null = null;
   Object.defineProperty(document, "fullscreenElement", { configurable: true, get: () => fullscreen });
   render(<CropEditor image={image("A")} onClose={() => {}} />);
-  act(() => { fullscreen = document.documentElement; document.dispatchEvent(new Event("fullscreenchange")); });
   fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-  expect(screen.getByRole("button", { name: "Exit full screen" })).toBeTruthy();
+  const menu = within(screen.getByRole("menu"));
+  expect(menu.queryByRole("button", { name: /full screen/i })).toBeNull();
+  expect(menu.queryByRole("button", { name: "Smaller thumbnails" })).toBeNull();
+  expect(menu.queryByRole("menuitemcheckbox", { name: /Lock this view|View locked as Home/ })).toBeNull();
   fireEvent.pointerDown(screen.getByTestId("canvas"));
   expect(screen.queryByRole("menu")).toBeNull();
   act(() => { fullscreen = screen.getByRole("dialog"); document.dispatchEvent(new Event("fullscreenchange")); });
   expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
-  act(() => { fullscreen = document.documentElement; document.dispatchEvent(new Event("fullscreenchange")); });
+  act(() => { fullscreen = null; document.dispatchEvent(new Event("fullscreenchange")); });
   expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
   expect(screen.queryByRole("menu")).toBeNull();
 });

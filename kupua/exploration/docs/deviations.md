@@ -162,13 +162,6 @@ and permits one committed step per contact sequence. Progress is independent of 
 readiness can hold the source pose, but never delays release. Grid uses its simpler scaled preview.
 See [results zoom](00%20Architecture%20and%20philosophy/component-detail.md#results-zoom-libresults-zoomts-storeszoom-storets).
 
-### Whole-App Fullscreen With Stacked Image Fullscreen (31 October 2026)
-
-The Settings menu puts the document root into element fullscreen; preview, detail and crop
-fullscreen can stack above it. Dots remain available with app chrome, not in the black image
-presentations. Browser-window fullscreen and Escape handling are distinct; see
-[From browsers](#from-browsers). iOS Safari has no element fullscreen; the controls do nothing.
-
 ### Scoped Backward Metadata Lookahead (25 October 2026)
 
 Kupua's seek-mode buffer admission deliberately uses layout-specific prediction:
@@ -899,27 +892,6 @@ assumption for when permissions are wired up.
 | `grid-config.ts` `syndicationStartDate` | Syndication review queue cutoff | **null** (TEST/CODE behaviour) | PROD has a date cutoff | Read from runtime config endpoint |
 
 ---
-
-## From browsers
-
-### Whole-App Fullscreen and Escape (2 November 2026)
-
-Menu fullscreen uses the web Fullscreen API, not browser-window fullscreen (⌃⌘F / F11).
-Native Escape can clear the entire web fullscreen stack; `document.exitFullscreen()` instead
-pops its top layer. Kupua therefore requests `navigator.keyboard.lock(["Escape"])` after menu
-fullscreen entry: in supporting Chrome, short Escape dismisses only the inner black view and
-leaves app fullscreen intact, including subsequent presses. Menu exit still works; held Escape
-remains Chrome's emergency exit. Existing menu/crop Escape handlers keep ownership, and the
-lock is released on full exit.
-
-Firefox lacks Keyboard Lock. Unsupported or rejected locking retains native behavior, so Escape
-may exit both layers; use browser-window fullscreen for reliable outer-window preservation.
-A webpage cannot invoke or exit that browser-owned mode, and synthetic shortcut events are
-untrusted. There is no reliable cross-browser detection/control API for it: the menu controls
-only web fullscreen and may add a second layer when the browser is already fullscreen. Thus
-three-dot fullscreen cannot fully impersonate ⌃⌘F / F11; Firefox's small resize in that case is
-not evidence of browser-window exit. See the [Fullscreen API guide](https://developer.mozilla.org/en-US/docs/Web/API/Fullscreen_API/Guide#Getting_out_of_full_screen_mode)
-and [Keyboard Lock](https://developer.chrome.com/docs/capabilities/web-apis/keyboard-lock).
 
 ## From library defaults / conventions
 
@@ -2180,7 +2152,7 @@ zoomed in. This replaces the browser's native swipe-to-navigate gesture, which
 Chrome disables when the Fullscreen API is active.
 
 **Why:** Chrome completely blocks its native swipe-to-navigate gesture when a
-page uses `document.documentElement.requestFullscreen()`. The wheel events ARE
+page uses the Fullscreen API. The wheel events ARE
 delivered to the page — Chrome just refuses to interpret them as navigation.
 Diagnostic testing confirmed this: disabling ALL wheel handlers still didn't
 restore the gesture. Firefox is unaffected because it uses OS-level gesture
@@ -2192,10 +2164,10 @@ navigation when `|cumX| > 200px` and horizontal-dominant (`|cumX| > |cumY| × 2`
 Swipe state resets on zoom transition (so swiping works immediately after
 pinch-to-unzoom) and ignores pure-vertical inertia events (`deltaX !== 0` guard).
 
-**Trade-off:** On Firefox, both the custom gesture AND the native OS gesture
-fire — this produces a harmless double `history.back()` that's absorbed because
-there's only one history entry to go back to (navigating back twice from the
-same page is a no-op). The custom gesture fires even if the user has disabled
+**Trade-off:** The existing image-level recognizer also runs on Firefox, where custom
+and native navigation can overlap; duplicate Back calls are not generally harmless
+when several history entries exist.
+The custom gesture fires even if the user has disabled
 OS/browser swipe navigation in system preferences — this is arguably a feature
 (consistent behaviour regardless of OS settings) but may surprise users who
 deliberately disabled swipe navigation.

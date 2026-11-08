@@ -330,6 +330,18 @@ export function markPushSnapshot(): void {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type NavigateFn = (opts: any) => any;
 
+let _detailEnteredViaSpa = false;
+
+function markDetailEnteredViaSpa(): void {
+  _detailEnteredViaSpa = true;
+}
+
+export function consumeDetailEnteredViaSpaFlag(): boolean {
+  const wasEnteredViaSpa = _detailEnteredViaSpa;
+  _detailEnteredViaSpa = false;
+  return wasEnteredViaSpa;
+}
+
 /**
  * Push-navigate with user-initiated semantics (the default for most sites).
  *
@@ -337,8 +349,8 @@ type NavigateFn = (opts: any) => any;
  * the resulting `useUrlSearchSync` effect knows this was a user action and
  * preserves focus/position ("Never Lost").
  *
- * Detail opens (`_detailEntryImageId` in state) also record their list
- * origin, which tells ImageDetail not to synthesise a bare-list entry.
+ * Marks SPA entry so ImageDetail does not synthesise another list entry.
+ * Detail opens also retain their list origin for return-position ownership.
  *
  * Use this for every raw `navigate()` push call **except** logo-reset
  * (which deliberately opts out — see `pushNavigateAsPopstate`).
@@ -354,6 +366,7 @@ export function pushNavigate(navigate: NavigateFn, opts: Parameters<NavigateFn>[
   // The store is still showing pre-navigate state at this point.
   markPushSnapshot();
   markUserInitiatedNavigation();
+  markDetailEnteredViaSpa();
   // Mint a fresh kupuaKey for the new history entry. Shallow-merge with
   // any caller-supplied state so both survive.
   const state = withFreshKupuaKey({ ...opts.state,

@@ -2104,6 +2104,42 @@ async function openVisibleDetail(kupua: import("../shared/helpers").KupuaHelpers
   return point.imageId;
 }
 
+test("results Settings stays scoped and image fullscreen aligns with Next", async ({ kupua, page }) => {
+  await kupua.startSearch("", "grid");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const menu = page.getByRole("menu");
+  await expect(menu.getByRole("button", { name: "Smaller thumbnails", exact: true })).toBeVisible();
+  await expect(menu.getByRole("menuitemcheckbox", { name: /Lock this view|View locked as Home/ })).toBeVisible();
+  await expect(menu.getByRole("button", { name: /full screen/i })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await openVisibleDetail(kupua, "explicit");
+  const detail = page.locator("[data-detail-image-id]");
+  await detail.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(menu.getByRole("button", { name: "Smaller thumbnails", exact: true })).toHaveCount(0);
+  await expect(menu.getByRole("menuitemcheckbox", { name: /Lock this view|View locked as Home/ })).toHaveCount(0);
+  await expect(menu.getByRole("button", { name: /full screen/i })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  try {
+    for (const fullscreen of [false, true]) {
+      if (fullscreen) {
+        await page.keyboard.press("f");
+        await page.waitForFunction(() => document.fullscreenElement?.closest("[data-detail-image-id]") !== null
+          && document.fullscreenElement !== null);
+      }
+      await page.mouse.move(200, 200);
+      const corner = detail.getByRole("button", { name: fullscreen ? "Exit full screen" : "Full screen", exact: true }).locator("svg");
+      const next = detail.getByRole("button", { name: "Next image", exact: true }).locator("svg");
+      await expect(corner).toBeVisible();
+      await expect(next).toBeVisible();
+      const cornerBox = (await corner.boundingBox())!;
+      const nextBox = (await next.boundingBox())!;
+      expect(Math.abs(cornerBox.x + cornerBox.width / 2 - nextBox.x - nextBox.width / 2)).toBeLessThan(0.5);
+    }
+  } finally {
+    await page.evaluate(async () => { if (document.fullscreenElement) await document.exitFullscreen(); });
+  }
+});
+
 test.describe("Detail close during list restoration", () => {
   for (const view of ["grid", "table"] as const) {
     for (const mode of ["explicit", "phantom"] as const) {

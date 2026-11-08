@@ -24,6 +24,48 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 8 November 2026 - Restore explicit detail-entry synthesis guards
+
+Detail entry again uses the one-shot SPA-navigation flag and persistent
+`_bareListSynthesized` marker to distinguish in-app opens from already-synthesized
+reload/Back/Forward entries. Cold synthesis retains the detail origin key alongside
+the restored marker. Origin-based return placement, Home handling and later
+publication/UI changes remain intact; this restores the former entry-decision path
+without reverting the combined refactor commit. Native browser-Back behavior remains
+distinct from the application's History API commands. The restored cold-link path is
+retained for Chrome's native Back behavior; the equivalent Firefox case remains a
+known limitation.
+
+Operator verification used a direct image URL pasted over another site: Chrome's
+native Back/swipe returns to results without first clicking the page, while Firefox
+still returns to the referring site. This browser-specific compromise is accepted;
+the application's Back command and browser-native navigation remain distinct.
+
+### 7 November 2026 - Retire menu fullscreen and scope results controls
+
+The Settings menu no longer offers whole-app Fullscreen API entry, whose browser
+gesture and stacked-exit behavior did not preserve the intended browsing experience.
+The newly added app-level history-swipe fallback is removed; the established
+image-fullscreen gesture recognizer and its tuning remain unchanged. Installed-window
+fullscreen remains configured by the manifest.
+
+Results zoom and Lock View now appear only in search results, not image detail or
+crop. Shared Settings retains its other preferences. The image fullscreen corner
+control uses the same right-edge and optical alignment as the Next navigation icon.
+
+### 7 November 2026 - Installed fullscreen launch and Chrome app history swipes
+
+The Vite entry links a minimal fullscreen manifest with a search launch, same-origin
+scope, existing Grid name/SVG and matching dark launch colours. It adds no offline
+cache, sharing capability or explicit application ID. The fullscreen menu stays
+available rather than confusing native browser fullscreen with an installed window.
+
+Menu-entered whole-app fullscreen now supplies desktop Chrome's missing history
+swipe through a passive wheel listener using the established image gesture thresholds.
+Editors, horizontal scrollers, menus/dialogs and existing wheel owners retain their
+gestures. Nested fullscreen owns its own handling; full exit removes the listener.
+Native shortcut fullscreen, Firefox, Android and image zoom behavior are unchanged.
+
 ### 7 November 2026 - Hosted label operation admission alignment
 
 Kahuna's configuration producer now recognises single-label removal alongside

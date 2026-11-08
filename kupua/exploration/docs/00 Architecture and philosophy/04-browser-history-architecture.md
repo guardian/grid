@@ -100,10 +100,20 @@ Current implementation:
 | Debounced CQL/AI edits | **Push** (session start) then **Replace** (settlement) | Yes | Settled edits use `{ replace: true }` | `pushTypingSearchEntry` captures the predecessor and pushes its URL with a fresh key. Overlapping CQL/AI edits share that entry; settled values replace it. |
 | Density toggle (grid ↔ table) | **Neither** | No navigation | No | `setDensity` changes/persists per-tab UI state. Entry key, Forward branch, typing and query generation stay intact. |
 | Open image detail (click / double-click) | **Push** | Yes (via `pushNavigate`) | No — `pushNavigate()` from `ImageGrid` / `ImageTable` | Display-only `image` key; marked origin/detail pair preserves the laid-out list without a search. |
-| Close image detail (all affordances) | **history.back()** | Yes (inline `markUserInitiatedNavigation`) | No — `history.back()` in `ImageDetail.closeDetail` | Pops the detail entry; forward re-opens detail. On cold loads (paste/bookmark/reload), deep-link synthesis on mount inserts a bare-list entry so `history.back()` stays inside kupua. Skipped when the entry already records `_detailOriginKupuaKey` (grid/table opens, earlier synthesis, crop entries). |
+| Close image detail (all affordances) | **history.back()** | Yes (inline `markUserInitiatedNavigation`) | No — `history.back()` in `ImageDetail.closeDetail` | Pops the detail entry; forward re-opens detail. On cold loads (paste/bookmark/reload), deep-link synthesis on mount inserts a bare-list entry so `history.back()` stays inside kupua. The one-shot SPA-entry flag skips synthesis after an in-app push and stamps `_bareListSynthesized`; that persisted marker guards reload/Back/Forward. Origin keys remain separate return-position metadata. |
 | Prev/next image in detail (traversal) | **Replace** | **No** | No — raw `navigate()` from `useImageTraversal.onNavigate` | Traversal is divorced from history — user doesn't want 50 back-presses. |
 | Logo → reset to home | **Push** | **No** (via `pushNavigateAsPopstate`) | No — `pushNavigateAsPopstate()` after `resetToHome()` | Explicit opt-out from marking. Popstate semantics reset to top with no focus carry — desired "start over" behaviour. |
 | Default-injection redirect (`/` → `/search`) | **Replace** | No (one-off mount) | No — direct `navigate()` in `useUrlSearchSync` | Invisible URL normalisation. |
+
+These entry guards govern application-triggered `history.back()`. Browser Back UI may
+apply additional history-skipping rules, including Chromium's
+[history manipulation intervention](https://chromium.googlesource.com/chromium/src/+/main/docs/history_manipulation_intervention.md).
+Keyboard-driven app-close tests do not establish untouched-page browser-Back behavior.
+
+The restored guard's cold-link case is operator-verified in desktop Chrome: opening a
+direct image URL over another site, then using native Back/swipe without a page click,
+returns to search. The equivalent Firefox case still returns to the referring site;
+this remains an accepted prototype limitation, not a cross-browser guarantee.
 
 The mechanism: `useUpdateSearchParams()` in `useUrlSearchSync.ts` accepts
 `options?: { replace?: boolean }` defaulting to `false` (push). Only SearchBar's
@@ -471,6 +481,6 @@ Query dedup is not permission to skip a distinct native destination's restoratio
 | `src/lib/reset-to-home.ts` | `resetToHome()`; owns reset continuation and scoped suppression releases |
 | `src/lib/image-offset-cache.ts` | `buildSearchKey`, `extractSortValues`, per-image offset cache |
 | `src/main.tsx` | `pagehide` handler, `scrollRestoration = 'manual'`, `synthesiseKupuaKeyIfAbsent`, dev globals |
-| `src/components/ImageDetail.tsx` | `closeDetail` (`history.back()`), deep-link synthesis, skipped when `_detailOriginKupuaKey` is present |
+| `src/components/ImageDetail.tsx` | `closeDetail` (`history.back()`), deep-link synthesis, guarded by SPA-entry intent and `_bareListSynthesized` |
 | `src/stores/ui-prefs-store.ts` | Synchronous per-tab density initialization, prompt persistence and intent ownership |
 | `src/routes/search.tsx` | Reads preference density to swap grid/table; URL image controls detail |

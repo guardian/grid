@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { useLayoutEffect, useState, type ComponentProps, type ReactNode } from "react";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Image } from "@/types/image";
 import type { AiSearchResult, ImageByIdResult, SearchParams, SortValues } from "@/dal/types";
@@ -41,6 +41,7 @@ const fixture = vi.hoisted(() => ({
   realDismiss: false,
   compact: false,
   fullscreen: false,
+  spa: true,
   swiped: false,
   prepareScroll: vi.fn(),
   traverse: (_imageId: string) => {},
@@ -106,7 +107,7 @@ vi.mock("@/lib/reset-to-home", () => ({ resetToHome: vi.fn() }));
 vi.mock("@/lib/orchestration/search", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/orchestration/search")>(),
   scrollFocusedIntoView: fixture.prepareScroll, markUserInitiatedNavigation: fixture.markNavigation,
-  pushNavigateAsPopstate: vi.fn(),
+  pushNavigateAsPopstate: vi.fn(), consumeDetailEnteredViaSpaFlag: () => fixture.spa,
 }));
 vi.mock("@/lib/image-offset-cache", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/image-offset-cache")>(),
@@ -152,6 +153,7 @@ describe("KUP-004 standalone detail identity", () => {
     fixture.resident = [];
     fixture.composed = false;
     fixture.realDismiss = false;
+    fixture.spa = true;
     fixture.relativeMedia = false;
     fixture.mediaProps = [];
     fixture.cached.mockReset().mockReturnValue(null);
@@ -171,6 +173,19 @@ describe("KUP-004 standalone detail identity", () => {
     fixture.swiped = false;
     vi.restoreAllMocks();
     vi.useRealTimers();
+  });
+
+  it.each(["spa", "synthesized"] as const)("retains the old %s detail-entry guard without adding another list entry", entry => {
+    fixture.spa = entry === "spa";
+    fixture.resident = [makeImage("A")];
+    history.replaceState({ kupuaKey: "detail", _detailEntryImageId: "A",
+      ...(entry === "spa" ? { _detailOriginKupuaKey: "list" } : { _bareListSynthesized: true }),
+    }, "", "/search?image=A");
+    const push = vi.spyOn(history, "pushState");
+    render(<Detail imageId="A" />);
+    expect(push).not.toHaveBeenCalled();
+    expect(history.state._bareListSynthesized).toBe(true);
+    expect(history.state._detailEntryImageId).toBe("A");
   });
 
   it.each([false, true])("image swipe-up drags only the card with sheet snap rules (fullscreen=%s)", (fullscreen) => {
@@ -263,30 +278,43 @@ describe("KUP-004 standalone detail identity", () => {
     expect(screen.queryByRole("menu")).toBeNull();
   });
 
-  it("keeps detail Settings usable in app fullscreen and closed on exit", () => {
-    let fullscreen: Element | null = null;
-    Object.defineProperty(document, "fullscreenElement", { configurable: true, get: () => fullscreen });
+  it("keeps detail Settings usable without results controls or the app fullscreen command", () => {
     fixture.resident = [makeImage("A")];
     render(<Detail imageId="A" />);
-    act(() => { fullscreen = document.documentElement; document.dispatchEvent(new Event("fullscreenchange")); });
     expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    expect(screen.getByRole("button", { name: "Exit full screen" })).toBeTruthy();
+    const menu = within(screen.getByRole("menu"));
+    expect(menu.queryByRole("button", { name: /full screen/i })).toBeNull();
+    expect(menu.queryByRole("button", { name: "Smaller thumbnails" })).toBeNull();
+    expect(menu.queryByRole("button", { name: "Bigger thumbnails" })).toBeNull();
+    expect(menu.queryByRole("menuitemcheckbox", { name: /Lock this view|View locked as Home/ })).toBeNull();
     fireEvent.keyDown(document.body, { key: "Escape" });
     expect(screen.queryByRole("menu")).toBeNull();
-    act(() => { fullscreen = null; document.dispatchEvent(new Event("fullscreenchange")); });
     expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
-    expect(screen.queryByRole("menu")).toBeNull();
-    Reflect.deleteProperty(document, "fullscreenElement");
   });
 
-  it("keeps shared Settings usable in app fullscreen but hidden in image fullscreen", () => {
-    let fullscreen: Element | null = document.documentElement;
+  it("offers results zoom and Lock View only when the menu is opted in", () => {
+    useUiPrefsStore.setState({ density: "grid" });
+    const mounted = render(<SettingsMenu showViewControls />);
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    const menu = within(screen.getByRole("menu"));
+    expect(menu.getByRole("button", { name: "Smaller thumbnails" })).toBeTruthy();
+    expect(menu.getByRole("button", { name: "Bigger thumbnails" })).toBeTruthy();
+    expect(menu.getByRole("menuitemcheckbox", { name: /Lock this view|View locked as Home/ })).toBeTruthy();
+    expect(menu.queryByRole("button", { name: /full screen/i })).toBeNull();
+    mounted.rerender(<SettingsMenu />);
+    expect(menu.queryByRole("button", { name: "Smaller thumbnails" })).toBeNull();
+    expect(menu.queryByRole("button", { name: "Bigger thumbnails" })).toBeNull();
+    expect(menu.queryByRole("menuitemcheckbox", { name: /Lock this view|View locked as Home/ })).toBeNull();
+  });
+
+  it("keeps shared Settings dismissal and focus handling but hides it in image fullscreen", () => {
+    let fullscreen: Element | null = null;
     Object.defineProperty(document, "fullscreenElement", { configurable: true, get: () => fullscreen });
     try {
       render(<SettingsMenu />);
       fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-      expect(screen.getByRole("button", { name: "Exit full screen" })).toBeTruthy();
+      expect(screen.getByRole("menu")).toBeTruthy();
       fireEvent.pointerDown(document.body);
       expect(screen.queryByRole("menu")).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: "Settings" }));
@@ -295,7 +323,7 @@ describe("KUP-004 standalone detail identity", () => {
       expect(document.activeElement).toBe(screen.getByRole("button", { name: "Settings" }));
       act(() => { fullscreen = document.body; document.dispatchEvent(new Event("fullscreenchange")); });
       expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
-      act(() => { fullscreen = document.documentElement; document.dispatchEvent(new Event("fullscreenchange")); });
+      act(() => { fullscreen = null; document.dispatchEvent(new Event("fullscreenchange")); });
       expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
       expect(screen.queryByRole("menu")).toBeNull();
     } finally {
@@ -756,6 +784,7 @@ describe("bounded detail return composition", () => {
   beforeEach(() => {
     fixture.composed = true;
     fixture.realDismiss = false;
+    fixture.spa = true;
     fixture.cached.mockReset().mockReturnValue(null);
     fixture.prepareScroll.mockReset();
     center.mockReset();
@@ -1087,6 +1116,7 @@ describe("bounded detail return composition", () => {
   });
 
   it("cold synthesis retains its finalized origin and does not return into unrelated native history", () => {
+    fixture.spa = false;
     fixture.composed = false;
     fixture.resident = [makeImage("B")];
     history.replaceState({ kupuaKey: "detail", _detailEntryImageId: "A" }, "", "/search?image=B");

@@ -60,7 +60,7 @@ Some compact-shell ideas apply to all widths and pointers:
 
 - Below 760px, free-to-use, date and sort collapse behind the filters button into a dropdown under
   the search bar (no chips; the editor already shows the full query).
-- Results zoom, the Settings zoom row, Lock this view and whole-app fullscreen.
+- Results zoom, the Settings zoom row and Lock this view.
 
 ## Not pursued
 

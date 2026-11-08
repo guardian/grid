@@ -88,8 +88,8 @@ inside them.
 
 Image zoom keys anchor at the mouse pointer when it is over the image, otherwise the centre.
 Results-zoom keys are inactive while detail or an image fullscreen is showing, so each key
-has one meaning at a time. Whole-app fullscreen has no Kupua shortcut; the browser's own
-(⌃⌘F on macOS, F11 elsewhere) is the standard, and the Settings menu names it.
+has one meaning at a time. Browser-window fullscreen uses the browser's own shortcut
+(⌃⌘F on macOS, F11 elsewhere), separately from `f` for image fullscreen.
 
 ## Key Propagation from the Search Box
 

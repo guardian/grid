@@ -944,7 +944,7 @@ legacy-settings changes invalidate prior selection/output until the canvas repor
 Crop entry uses a fresh history key, retaining both its detail return marker and the detail's
 list origin. Cancel/Back/Forward/reload use those markers; a cold crop link replaces its URL on
 Cancel because it has no separate detail predecessor. Matching crop/detail history transitions
-leave the mounted search buffer untouched. Entering exits only image fullscreen, not app fullscreen.
+leave the mounted search buffer untouched. Entering exits image fullscreen first.
 The editor focuses/traps its own controls, restricts letter shortcuts to current ratio options,
 leaves native Enter on controls alone and makes background detail controls inert. Native Cropper
 keyboard handling is enabled after connection and disabled at cleanup; cleared selection disables Crop.
@@ -976,11 +976,14 @@ Exit preserves list placement when still on the entry image. After traversal, it
 fullscreen/layout settlement before centring the current focus, guarded against a newer preview.
 Phantom mode adds a pulse. Prefetch, zoom and cursor hiding are shared with detail.
 
-`lib/app-fullscreen.ts` adds whole-app fullscreen (the Settings menu toggle) on the document
-element. Image fullscreen stacks on top of it through the native fullscreen stack, so leaving an
-image returns to the fullscreen app. All image-fullscreen checks use `imageFullscreenElement()`,
-which ignores app-level fullscreen; with app fullscreen off, behaviour is identical to plain
-`document.fullscreenElement`.
+Image detail and preview share a top-right corner control aligned with the Next navigation
+icon. Results zoom and Lock View appear only in the results page's Settings menu, not in detail
+or crop. The existing image-level zoom/history gesture handling is unchanged.
+
+The Vite entry links `public/manifest.webmanifest`: fullscreen installed-window presentation,
+`/search` launch, same-origin `/` scope, existing Grid SVG/name and matching dark launch colours.
+No service worker, offline cache, sharing handler or explicit app ID is supplied. This installed
+window presentation is separate from image fullscreen through the Fullscreen API.
 
 ## Image Metadata (`components/ImageMetadata.tsx`)
 

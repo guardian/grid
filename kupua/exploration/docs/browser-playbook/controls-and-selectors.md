@@ -239,13 +239,13 @@ on the first change, not an arbitrary arrow count. At a table tail, sticky-heade
 geometry can leave the last row out of view; open a visible loaded row and traverse
 to the tail instead of clicking off-screen.
 
-Use real app fullscreen controls; check `document.fullscreenElement` separately
+Use real image/crop fullscreen controls; check `document.fullscreenElement` separately
 from preview state. Native fullscreen can stall integrated-tool sequencing. Discard
 unfinished cases, check installed instrumentation and recover/close the owned tab;
 repeated competing exit mechanisms do not make tooling failure product evidence.
 
 In headless Chromium, `page.keyboard.press('Escape')` can leave native fullscreen
-active. Prefer the app's fullscreen toggle for fixture teardown and assert that
+active. Prefer the image/crop fullscreen toggle for fixture teardown and assert that
 `document.fullscreenElement` is null before checking restored non-fullscreen UI.
 
 For rejected-exit fixtures, retain/restore the native method with its receiver and

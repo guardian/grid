@@ -39,7 +39,7 @@ export function FullscreenCornerButton({ isFullscreen, onClick, className, short
       aria-label={label}
     >
       <div className="w-13 h-13 flex items-center justify-center rounded-full bg-black/40 text-white/80 opacity-0 group-hover:opacity-100 group-hover:delay-100 transition-opacity duration-150">
-        <svg className="w-6.5 h-6.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <svg className={`w-6.5 h-6.5 ${CHEVRON.next.nudge}`} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d={isFullscreen ? FULLSCREEN_EXIT_ICON : FULLSCREEN_ICON} />
         </svg>
       </div>
