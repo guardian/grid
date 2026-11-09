@@ -109,7 +109,7 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
                          (implicit ec: ExecutionContext): Future[Response] = {
     val request: WSRequest = wsClient.url(url.toString).withQueryStringParameters(queryStringParameters.getOrElse(Seq.empty): _*)
     val requestWithTimeout = requestTimeout.fold(request)(request.withRequestTimeout)
-    val authorisedRequest = authFn(requestWithTimeout)
+    val authorisedRequest = authFn(requestWithTimeout.withMethod("GET"))
     authorisedRequest.get().map { response => validateResponse(response, url) }
   }
 
@@ -267,13 +267,13 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
   def postUsage(usageType: String, data: JsObject, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext) = {
     val url = URI.create(s"${services.usageBaseUri}/usages/$usageType").toURL
     val request: WSRequest = wsClient.url(url.toString)
-    val authorisedRequest = authFn(request)
+    val authorisedRequest = authFn(request.withMethod("POST"))
     authorisedRequest.post(Json.obj("data" -> data)).map { response => validateResponse(response, url)}
   }
 
   def putArchived(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext) = {
     val url = URI.create(s"${services.metadataBaseUri}/metadata/$mediaId/archived").toURL
-    val request = authFn(wsClient.url(url.toString))
+    val request = authFn(wsClient.url(url.toString).withMethod("PUT"))
     request.put(Json.obj("data" -> JsTrue)).map { response => validateResponse(response, url)}
   }
 }
