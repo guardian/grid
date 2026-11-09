@@ -64,6 +64,7 @@ needed for the task. Kahuna has its own optional reference.
 | Local fixture isolation; synthetic IDs; failure injection | [Fixtures](browser-playbook/instrumentation.md#isolated-fixtures-and-media) |
 | Attribute requests, bytes, cache or backend work | [Network](browser-playbook/network-and-performance.md#request-observation) |
 | Frame timings, profiling or matched comparisons | [Performance](browser-playbook/network-and-performance.md#performance-comparisons) |
+| Actual phone stutter, ADB, native traces, renderer attribution or flag cleanup | [Mobile performance](browser-playbook/mobile-performance.md) |
 | Bounded direct datasource queries; exact rank checks | [DAL probes](browser-playbook/network-and-performance.md#bounded-dal-probes) |
 | Operate or compare the legacy frontend | [Kahuna only](browser-playbook/kahuna.md) |
 

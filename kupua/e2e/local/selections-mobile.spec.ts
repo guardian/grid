@@ -343,6 +343,8 @@ for (const density of ["grid", "justified"] as const) {
       expect(await page.evaluate(key => Number(sessionStorage.getItem(key)), key)).toBe(offset + 1);
       await expect.poll(async () => (await readPoint()).y).toBeCloseTo(before.y, 0);
       const selectedCell = region.locator(`[data-image-id="${selectedId}"]`);
+      await selectedCell.scrollIntoViewIfNeeded();
+      await expect(selectedCell).toBeInViewport();
       const selectedTop = await selectedCell.evaluate(element => element.getBoundingClientRect().top);
       await page.evaluate(async density => {
         const path = "/src/stores/zoom-store.ts";

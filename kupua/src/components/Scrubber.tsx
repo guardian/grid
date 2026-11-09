@@ -75,6 +75,11 @@ function thumbTopFromPosition(
   return Math.min(maxTop, ratio * maxTop);
 }
 
+function setThumbOffset(thumbEl: HTMLElement, top: number): void {
+  thumbEl.style.setProperty("--scrubber-motion-duration", top === 0 ? "0ms" : "100ms");
+  thumbEl.style.transform = `translateY(${top}px)`;
+}
+
 /** Update tooltip DOM position and text content (no thumb movement). */
 function applyTooltipContent(
   position: number,
@@ -85,7 +90,7 @@ function applyTooltipContent(
   sortLabel?: string | null,
 ): void {
   const tipH = tooltipEl.offsetHeight || 28;
-  tooltipEl.style.top = `${Math.max(0, Math.min(trackEl.clientHeight - tipH, topPx))}px`;
+  tooltipEl.style.transform = `translateY(${Math.max(0, Math.min(trackEl.clientHeight - tipH, topPx))}px)`;
 
   // Update the sort context label (first child span, data-sort-label).
   // Uses innerHTML because date labels contain a fixed-width <span> for
@@ -121,7 +126,7 @@ function applyThumbPosition(
 ): void {
   if (!thumbEl || !trackEl || total <= 0) return;
   const top = thumbTopFromPosition(position, total, visibleCount, trackEl);
-  thumbEl.style.top = `${top}px`;
+  setThumbOffset(thumbEl, top);
   if (tooltipEl) {
     applyTooltipContent(position, total, top, trackEl, tooltipEl, sortLabel);
   }
@@ -244,7 +249,7 @@ export function Scrubber({
     (thumbRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
     if (el && trackRef.current && total > 0) {
       const top = thumbTopFromPosition(currentPosition, total, stableVisibleCountRef.current || visibleCount, trackRef.current);
-      el.style.top = `${top}px`;
+      setThumbOffset(el, top);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Intentionally empty — only runs on mount
@@ -406,8 +411,8 @@ export function Scrubber({
 
   // Sync thumb DOM position with the owned destination or visible position
   // when not dragging. This is the ONLY path that sets
-  // thumb.style.top outside of drag/click handlers — the inline JSX
-  // style intentionally omits `top` to prevent the React reconciler
+  // thumb.style.transform outside of drag/click handlers — the inline JSX
+  // style intentionally omits `transform` to prevent the React reconciler
   // from fighting direct DOM writes.
   //
   // In scroll mode, the continuous sync effect below handles positioning
@@ -418,11 +423,11 @@ export function Scrubber({
     if (isScrollMode) return; // scroll mode — handled by scroll listener below
 
     const thumbEl = thumbRef.current;
-    if (thumbEl) thumbEl.style.top = `${thumbTop}px`;
+    if (thumbEl) setThumbOffset(thumbEl, thumbTop);
     const tipEl = tooltipRef.current;
     if (tipEl) {
       const tipH = tipEl.offsetHeight || 28;
-      tipEl.style.top = `${Math.max(0, Math.min(trackHeight - tipH, thumbTop))}px`;
+      tipEl.style.transform = `translateY(${Math.max(0, Math.min(trackHeight - tipH, thumbTop))}px)`;
     }
   }, [thumbTop, isDragging, trackHeight, isScrollMode, homeThumbReset]);
 
@@ -467,11 +472,11 @@ export function Scrubber({
         const clampedRatio = Math.max(0, Math.min(1, ratio));
         const top = homeThumbReset ? 0 : clampedRatio * maxThumbTop;
 
-        thumbEl.style.top = `${top}px`;
+        setThumbOffset(thumbEl, top);
         const tipEl = tooltipRef.current;
         if (tipEl) {
           const tipH = tipEl.offsetHeight || 28;
-          tipEl.style.top = `${Math.max(0, Math.min(trackHeight - tipH, top))}px`;
+          tipEl.style.transform = `translateY(${Math.max(0, Math.min(trackHeight - tipH, top))}px)`;
         }
       };
 
@@ -1083,13 +1088,14 @@ export function Scrubber({
 
       {/* Thumb — narrow pill inset within the track. Position controlled
           exclusively via DOM writes (useEffect + applyThumbPosition).
-          Inline style omits `top` to prevent React reconciler fighting. */}
+          Inline style omits `transform` to prevent React reconciler fighting. */}
       <div
         ref={thumbCallbackRef}
         data-scrubber-thumb="true"
         // Coarse pointers: invisible ~44px hit area around the 8px pill.
         className="absolute pointer-coarse:before:absolute pointer-coarse:before:content-[''] pointer-coarse:before:-left-8 pointer-coarse:before:-right-1 pointer-coarse:before:-top-3 pointer-coarse:before:-bottom-3"
         style={{
+          top: 0,
           left: THUMB_INSET,
           right: THUMB_INSET,
           height: thumbHeight,
@@ -1097,7 +1103,7 @@ export function Scrubber({
           backgroundColor: thumbColor,
           transition: isDragging
             ? "background-color 80ms"
-            : "top 100ms, height 100ms, background-color 200ms",
+            : "transform var(--scrubber-motion-duration, 100ms), height 100ms, background-color 200ms",
         }}
         onPointerDown={handleThumbPointerDown}
       />
@@ -1114,7 +1120,8 @@ export function Scrubber({
         data-result-count={reportedTotal}
         className="absolute right-full mr-2 px-2 py-1 rounded text-xs text-white whitespace-nowrap pointer-events-none z-20"
         style={{
-          top: Math.max(0, Math.min(trackHeight - (tooltipRef.current?.offsetHeight || 28), thumbTop)),
+          top: 0,
+          transform: `translateY(${Math.max(0, Math.min(trackHeight - (tooltipRef.current?.offsetHeight || 28), thumbTop))}px)`,
           textAlign: "right",
           backgroundColor: "var(--color-grid-bg)",
           border: "1px solid var(--color-grid-border)",

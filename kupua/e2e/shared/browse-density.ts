@@ -234,7 +234,11 @@ export async function pendingBrowseAcrossDensity(
       });
       if (regime === "seek") await page.evaluate(() => {
         const probe = (window as any).__b17;
-        probe.thumbTop = parseFloat(document.querySelector<HTMLElement>('[data-scrubber-thumb]')!.style.top);
+        const readThumbTop = () => {
+          const thumb = document.querySelector<HTMLElement>('[data-scrubber-thumb]')!;
+          return parseFloat(thumb.style.transform.match(/^translateY\((.+)\)$/)?.[1] ?? thumb.style.top);
+        };
+        probe.thumbTop = readThumbTop();
         const sample = () => {
           if (!probe.released) {
             const state = (window as any).__kupua_store__.getState();
@@ -247,7 +251,7 @@ export async function pendingBrowseAcrossDensity(
               const rect = cell?.getBoundingClientRect();
               probe.samples += 1;
               if (!rect || rect.bottom <= top || rect.top >= bounds.bottom) probe.missingDeparture += 1;
-              const thumb = parseFloat(document.querySelector<HTMLElement>('[data-scrubber-thumb]')!.style.top);
+              const thumb = readThumbTop();
               if (Math.abs(thumb - probe.thumbTop) > 1) probe.rolledBack += 1;
             }
             probe.frame = requestAnimationFrame(sample);

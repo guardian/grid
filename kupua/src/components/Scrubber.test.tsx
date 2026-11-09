@@ -82,7 +82,7 @@ function fireResizeObserver(height: number) {
 function getThumbTop(container: HTMLElement): number | null {
   const thumb = container.querySelector<HTMLElement>("[data-scrubber-thumb]");
   if (!thumb) return null;
-  const raw = thumb.style.top;
+  const raw = thumb.style.transform.match(/^translateY\((.+)\)$/)?.[1] ?? thumb.style.top;
   return raw ? parseFloat(raw) : null;
 }
 
@@ -162,6 +162,24 @@ describe("B17 scrubber navigation intent", () => {
 describe("Scrubber seek-mode position sync", () => {
   const TRACK_HEIGHT = 600;
 
+  it.each(["seek", "buffer"] as const)("moves %s indicators without animating layout position", mode => {
+    const scrollContainer = document.createElement("div");
+    Object.defineProperties(scrollContainer, { scrollHeight: { value: 10000 }, clientHeight: { value: 600 } });
+    scrollContainer.scrollTop = 3000;
+    scrolling.container = scrollContainer;
+    const view = render(<Scrubber {...seekModeProps(mode === "seek"
+      ? { currentPosition: 650000 } : { total: 800, bufferLength: 800 })} />);
+    act(() => fireResizeObserver(TRACK_HEIGHT));
+    const thumb = view.container.querySelector<HTMLElement>("[data-scrubber-thumb]")!;
+    const tooltip = view.container.querySelector<HTMLElement>("[data-position-label]")!.parentElement!;
+    expect(getThumbTop(view.container)).toBeGreaterThan(100);
+    expect(thumb.style.top).toBe("0px");
+    expect(thumb.style.transition).toContain("transform var(--scrubber-motion-duration");
+    expect(thumb.style.getPropertyValue("--scrubber-motion-duration")).toBe("100ms");
+    expect(tooltip.style.top).toBe("0px");
+    expect(tooltip.style.transform).toBe(`translateY(${Math.max(0, Math.min(TRACK_HEIGHT - 28, getThumbTop(view.container)!))}px)`);
+  });
+
   it("B18 follows the current owner through supersession and cancellation", () => {
     const view = render(<Scrubber {...seekModeProps({ currentPosition: 650000, pendingPosition: 1040000, loading: true })} />);
     act(() => fireResizeObserver(TRACK_HEIGHT));
@@ -223,6 +241,7 @@ describe("Scrubber seek-mode position sync", () => {
 
     const resetTop = getThumbTop(container);
     expect(resetTop).toBe(0);
+    expect(container.querySelector<HTMLElement>("[data-scrubber-thumb]")!.style.getPropertyValue("--scrubber-motion-duration")).toBe("0ms");
   });
 
   it("remains clickable and exposes approximate date text without HTML", () => {

@@ -285,7 +285,7 @@ test.describe("B11 native Back retires Home presentation", () => {
           let wrongDestinationRejected = false;
           try {
             thumb.style.transition = "none";
-            thumb.style.top = `${probe.previousThumbTop}px`;
+            thumb.style.transform = `translateY(${probe.previousThumbTop}px)`;
             try { sample(); } catch { wrongDestinationRejected = true; }
           } finally {
             thumb.style.cssText = originalStyle;

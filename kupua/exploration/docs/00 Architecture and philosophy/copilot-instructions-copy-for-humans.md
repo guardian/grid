@@ -18,13 +18,15 @@ before writing to disk** — over-redaction is cheap, leakage is permanent and m
 require credential rotation. If unsure whether a value is sensitive, redact. If a
 secret has already been written, stop, alert the user, and do not commit.
 
-**Directive: AGENTS.md is a living snapshot, not a history log.** After completing any
-task that adds, removes, or changes features, architecture, files, or key decisions:
-(1) Update `kupua/AGENTS.md` — keep it lean (~130 lines). Update the Component Summary
-table, Context Routing table, Backlog, Known Issues, Key Architecture Decisions, or
-Tech Stack as needed. For detailed component descriptions, update
-`exploration/docs/00 Architecture and philosophy/component-detail.md` instead.
-(2) For code changes, append implementation, fixes, relevant rationale and validation to
+**Directive: AGENTS.md is orientation, not a completion record.** Most tasks must leave
+`kupua/AGENTS.md` unchanged. Update it only when a future agent needs a different project
+mental model, ownership map or documentation entry point. A completed implementation,
+fix or validation run is not itself a reason to edit it. Keep entries to responsibility,
+essential boundary and a link; update existing entries rather than appending accomplishments.
+Put component mechanics in `kupua/exploration/docs/00 Architecture and philosophy/component-detail.md`
+or the owning guide, and temporary task status in the worklog. Do not add tuning constants,
+test totals, latest run results, commit hashes, completed-repair narratives or next-task instructions.
+For code changes, append implementation, fixes, relevant rationale and validation to
 `kupua/exploration/docs/changelog.md` under the current phase heading at top (after the
 `DO NOT delete or reorder existing entries. -->` line). Do not add planning-only, audit-only,
 document-reorganization or session narratives there. Keep current decisions in the owning guide

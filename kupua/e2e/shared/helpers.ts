@@ -782,7 +782,7 @@ export class KupuaHelpers {
     return this.page.evaluate(() => {
       const thumb = document.querySelector('[data-scrubber-thumb="true"]') as HTMLElement;
       if (!thumb) return 0;
-      return parseFloat(thumb.style.top) || 0;
+      return parseFloat(thumb.style.transform.match(/^translateY\((.+)\)$/)?.[1] ?? thumb.style.top) || 0;
     });
   }
 

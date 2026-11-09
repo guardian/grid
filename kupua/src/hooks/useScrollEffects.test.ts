@@ -125,6 +125,10 @@ function frame() {
   });
 }
 
+function getThumbTargetTop(thumb: HTMLElement): number {
+  return Number.parseFloat(thumb.style.transform.match(/^translateY\((.+)\)$/)?.[1] ?? thumb.style.top);
+}
+
 it("Home from detail does not reinstate its return focus", async () => {
   window.history.replaceState({ kupuaKey: "detail", _detailOriginKupuaKey: "list", _detailEntryImageId: "image-400" },
     "", "/search?nonFree=true&image=image-400");
@@ -2310,20 +2314,20 @@ describe("L43 reset publication versus buffer bookkeeping", () => {
     const scrubber = render(createElement(Scrubber, { total: 70000, currentPosition: 35000, visibleCount: 20,
       bufferLength: 200, loading: true, onSeek: vi.fn() }));
     const thumb = scrubber.container.querySelector<HTMLElement>("[data-scrubber-thumb]")!;
-    const deepTop = Number.parseFloat(thumb.style.top);
+    const deepTop = getThumbTargetTop(thumb);
     expect(deepTop).toBeGreaterThan(200);
     const history = createMemoryHistory({ initialEntries: ["/search?query=A", "/search?query=B"], initialIndex: 1 });
     const navigateHome = vi.fn();
     let home!: Promise<void>;
     act(() => { home = resetToHome(navigateHome, undefined, history); });
     try {
-      expect(thumb.style.top).toBe("0px");
+      expect(getThumbTargetTop(thumb)).toBe(0);
       expect(scrubber.container.textContent).toContain("1 of 70,000");
       act(() => {
         if (supersession === "history") history.back();
         else useSearchStore.getState().queueBrowsePosition(5000);
       });
-      expect(Number.parseFloat(thumb.style.top)).toBe(deepTop);
+      expect(getThumbTargetTop(thumb)).toBe(deepTop);
       expect(scrubber.container.textContent).toContain("35,001 of 70,000");
     } finally {
       await act(async () => { release(); await home; });
@@ -2331,7 +2335,7 @@ describe("L43 reset publication versus buffer bookkeeping", () => {
     expect(read).toHaveBeenCalledOnce();
     expect(delivered).toBe(true);
     expect(navigateHome).not.toHaveBeenCalled();
-    expect(Number.parseFloat(thumb.style.top)).toBe(deepTop);
+    expect(getThumbTargetTop(thumb)).toBe(deepTop);
     expect(scrubber.container.textContent).toContain("35,001 of 70,000");
   });
 
@@ -2375,10 +2379,10 @@ describe("L43 reset publication versus buffer bookkeeping", () => {
       expect(obsoleteNavigation).not.toHaveBeenCalled();
       expect(currentNavigation).not.toHaveBeenCalled();
       expect(useSearchStore.getState()).toMatchObject({ loading: true, _pitGeneration: successor });
-      expect(thumb.style.top).toBe("0px");
+      expect(getThumbTargetTop(thumb)).toBe(0);
       scrubber.rerender(createElement(Scrubber, { ...props, currentPosition: 0 }));
       scrubber.rerender(createElement(Scrubber, props));
-      expect(thumb.style.top).toBe("0px");
+      expect(getThumbTargetTop(thumb)).toBe(0);
       expect(scrubber.container.textContent).toContain("1 of 70,000");
     } finally {
       await act(async () => { releaseSecond(); await secondHome; });
@@ -2386,7 +2390,7 @@ describe("L43 reset publication versus buffer bookkeeping", () => {
     expect(reads).toHaveBeenCalledTimes(2);
     expect(currentNavigation).toHaveBeenCalledOnce();
     expect(useSearchStore.getState().loading).toBe(false);
-    expect(Number.parseFloat(thumb.style.top)).toBeGreaterThan(200);
+    expect(getThumbTargetTop(thumb)).toBeGreaterThan(200);
   });
 
   it.each(["success", "failure", "fixture-rejection"] as const)("B11 current Home %s retires only its hold; later density remains independent", async (outcome) => {
@@ -2415,7 +2419,7 @@ describe("L43 reset publication versus buffer bookkeeping", () => {
           act(() => useUiPrefsStore.getState().setDensity("table"));
           scrubber.rerender(createElement(Scrubber, { ...props, currentPosition: 0 }));
           scrubber.rerender(createElement(Scrubber, props));
-          expect(thumb.style.top).toBe("0px");
+          expect(getThumbTargetTop(thumb)).toBe(0);
           expect(navigateHome).not.toHaveBeenCalled();
           if (outcome === "fixture-rejection") throw fixtureInterruption;
         } finally {
@@ -2428,7 +2432,7 @@ describe("L43 reset publication versus buffer bookkeeping", () => {
       expect(navigateHome).toHaveBeenCalledOnce();
       expect(reads).toHaveBeenCalledOnce();
       expect(useUiPrefsStore.getState().density).toBe("table");
-      expect(Number.parseFloat(thumb.style.top)).toBeGreaterThan(200);
+      expect(getThumbTargetTop(thumb)).toBeGreaterThan(200);
       expect(scrubber.container.textContent).toContain("35,001 of 70,000");
     } finally {
       await act(async () => { release(); await home; });
@@ -2574,7 +2578,7 @@ describe("L43 reset publication versus buffer bookkeeping", () => {
       let home!: Promise<void>;
       act(() => { home = resetToHome(navigateHome, undefined, router.history as Parameters<typeof resetToHome>[2]); });
       try {
-        expect(thumb.style.top).toBe("0px");
+        expect(getThumbTargetTop(thumb)).toBe(0);
         act(() => {
           window.history.replaceState({ kupuaKey: entry }, "");
           routeParams = destination;
@@ -2591,7 +2595,7 @@ describe("L43 reset publication versus buffer bookkeeping", () => {
         const currentPosition = accepted.bufferOffset + Math.floor(view.container.scrollTop / geometry.rowHeight) * geometry.columns;
         scrubber.rerender(createElement(Scrubber, { ...props, currentPosition, loading: false }));
         const expectedTop = currentPosition / (70000 - 20) * 580;
-        expect(Number.parseFloat(thumb.style.top)).toBeCloseTo(expectedTop);
+        expect(getThumbTargetTop(thumb)).toBeCloseTo(expectedTop);
         expect(scrubber.container.textContent).toContain(`${(currentPosition + 1).toLocaleString()} of 70,000`);
         const reads = fixture.pages.mock.calls.length;
         await act(async () => { release(); await home; });
@@ -2603,7 +2607,7 @@ describe("L43 reset publication versus buffer bookkeeping", () => {
         expect(useSearchStore.getState()._scrollReset).toBe(accepted._scrollReset);
         expect(useSearchStore.getState()).toMatchObject({ focusedImageId: targetId, loading: false, error: null });
         expect(view.container.scrollTop).toBe(Math.floor(targetIndex / geometry.columns) * geometry.rowHeight - 180);
-        expect(Number.parseFloat(thumb.style.top)).toBeCloseTo(expectedTop);
+        expect(getThumbTargetTop(thumb)).toBeCloseTo(expectedTop);
       } finally {
         await act(async () => { release(); await home; });
         snapshotStore.delete(entry);

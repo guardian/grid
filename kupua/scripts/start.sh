@@ -197,6 +197,8 @@ if [ "$USE_MEDIA_API" = true ] && [ "$CANONICAL_MEDIA" = true ] && [ "$USE_TEST"
   export VITE_S3_PROXY_ENABLED="false"
   export VITE_IMGPROXY_ENABLED="false"
   export VITE_ES_IS_LOCAL="false"
+  export VITE_MAX_RESULT_WINDOW="${VITE_MAX_RESULT_WINDOW:-100000}"
+  export VITE_DEEP_SEEK_THRESHOLD="${VITE_DEEP_SEEK_THRESHOLD:-10000}"
   if lsof -i:3000 -sTCP:LISTEN -t > /dev/null 2>&1; then
     echo -e "${red}ERROR: Port 3000 is already in use. Stop the existing Kupua server before starting another.${plain}"
     exit 1

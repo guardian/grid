@@ -8,6 +8,7 @@ import type { labelEditorFixture } from "../shared/label-editor-fixture";
 import { GRID_API_READ_VIA_POST } from "../../src/dal/grid-api/read-via-post";
 import { labelEditorPlugin, virtualEntry } from "../shared/label-editor-plugin";
 import { getDensityChangeButton } from "../shared/density-selection";
+import { waitForFixtureSetup } from "../shared/helpers";
 import type { useSearchStore } from "../../src/stores/search-store";
 import type { useSelectionStore } from "../../src/stores/selection-store";
 
@@ -158,7 +159,15 @@ test.describe("Unit B isolated continuation", () => {
                 observerBudget(afterReads);
                 if (cycle === 0) expect(() => observerBudget({ ...afterReads, mgetReads: afterReads.mgetReads + 1 })).toThrow();
               } finally { await before.dispose(); }
-              await page.evaluate(() => (window as CommandWindow).editorFixture.releaseReadbackSearch());
+              const release = await page.evaluateHandle(() => {
+                const job = { complete: false, error: null as string | null, pending: Promise.resolve() };
+                job.pending = (window as CommandWindow).editorFixture.releaseReadbackSearch().then(
+                  () => { job.complete = true; },
+                  error => { job.error = String(error); },
+                );
+                return job;
+              });
+              await waitForFixtureSetup(page, release);
               await expect.poll(() => page.evaluate(() => (window as CommandWindow).__kupua_store__.getState().loading)).toBe(false);
               expect((await counts(page)).staleDelivered - beforeReads.staleDelivered).toBe(1);
               published.push(id);

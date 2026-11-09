@@ -24,6 +24,37 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 9 November 2026 - Reduce scrolling overhead and preserve mobile profiling tools
+
+Scrubber thumb and position tooltip now move with translateY from a fixed layout
+origin instead of changing top. This removes widget-induced layout work from
+scroll callbacks without changing position arithmetic, clamping, seek/drag intent,
+tick labels or content-range publication. Non-origin movement remains animated;
+actual zero-offset placements snap based on the written DOM target rather than
+logical props that can temporarily lag continuous scrolling.
+
+Memoized StatusBar so visible-range updates in the search page do not rebuild
+unchanged result controls and ticker tooltips. Store, router, media-query and
+component-state subscriptions still update the bar independently; no scroll,
+thumbnail-admission or ticker-publication policy changes.
+
+Preserved reusable Android Chrome instrumentation in a standalone research kit
+with a practical how-to and a Scrubber case study. The bounded, opt-in native
+recorder stores raw traces privately outside the checkout and sends no gestures
+or server commands. Offline analysis requires explicit renderer selection,
+attributes layout to callbacks and separates overlapping phase costs from
+presentation-gap candidates, retaining source-coverage and integrity limits.
+The kit adds no dependency, binary or historical capture and is separate from
+the application and habitual performance campaigns.
+
+Updated position readers and stabilized readback/mobile zoom test setup while
+preserving existing behavioral assertions and position tolerances.
+
+Restored API/canonical startup defaults of 100000 for the result window and 10000
+for deep seeking, retaining explicit environment overrides. Skipping TEST discovery
+no longer inherits the small mock-data settings; startup still makes no direct ES,
+SSH or bucket-discovery requests.
+
 ### 8 November 2026 - Phone pinch anchoring, installed layouts and crop protection
 
 Grid and Justified capture the visible image nearest a compact-shell pinch's initial

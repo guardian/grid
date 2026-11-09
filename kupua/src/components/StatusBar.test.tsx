@@ -8,7 +8,12 @@ vi.hoisted(() => {
 });
 vi.mock("@tanstack/react-router", () => ({ useSearch: () => ({}) }));
 vi.mock("@/hooks/useUrlSearchSync", () => ({ useUpdateSearchParams: () => vi.fn() }));
+vi.mock("date-fns", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("date-fns")>();
+  return { ...actual, formatDistanceToNow: vi.fn(actual.formatDistanceToNow) };
+});
 
+import { formatDistanceToNow } from "date-fns";
 import { StatusBar } from "./StatusBar";
 import { useSearchStore } from "@/stores/search-store";
 import { gridConfig } from "@/lib/grid-config";
@@ -51,6 +56,25 @@ describe("StatusBar AI totals", () => {
     useSearchStore.setState({ total: 0, aiPoolTotal: 0 });
     render(<StatusBar />);
     expect(resultCount()).toBe("0\u00a0matches");
+  });
+
+  it("skips unchanged parent-driven ticker formatting while keeping store updates fresh", () => {
+    useSearchStore.setState({ tickerCounts: { [ticker.name]: { value: 5 } },
+      tickersLastUpdated: new Date(Date.now() - 120_000).toISOString() });
+    const view = render(<StatusBar />);
+    const previousTitle = tickerBadge()?.getAttribute("title");
+    expect(formatDistanceToNow).toHaveBeenCalled();
+    vi.mocked(formatDistanceToNow).mockClear();
+
+    view.rerender(<StatusBar />);
+    expect(formatDistanceToNow).not.toHaveBeenCalled();
+
+    act(() => useSearchStore.setState({ total: 201, tickerCounts: { [ticker.name]: { value: 6 } },
+      tickersLastUpdated: new Date().toISOString() }));
+    expect(resultCount()).toBe("201\u00a0matches");
+    expect(tickerBadge()?.getAttribute("aria-label")).toBe(`6 ${ticker.name}`);
+    expect(tickerBadge()?.getAttribute("title")).not.toBe(previousTitle);
+    expect(formatDistanceToNow).toHaveBeenCalled();
   });
 
   it("shows absolute pool ticker counts, hiding only a ticker equal to the pool", () => {

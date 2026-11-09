@@ -222,7 +222,12 @@ test.describe("B16 refresh owns fresh publication", () => {
                     const final = store.getState();
                     const thumb = document.querySelector<HTMLElement>('[data-scrubber-thumb]')!;
                     const track = document.querySelector<HTMLElement>('[data-testid="scrubber-track"]')!;
-                    if (Math.abs(thumb.getBoundingClientRect().top - track.getBoundingClientRect().top) >= 1) throw new Error("B16 painted thumb is not top");
+                    const paintedTop = thumb.getBoundingClientRect().top - track.getBoundingClientRect().top;
+                    if (Math.abs(paintedTop) >= 1) throw new Error(`B16 painted thumb is not top: ${JSON.stringify({
+                      paintedTop, logical: Number(track.getAttribute("aria-valuenow")), inlineTop: thumb.style.top,
+                      targetTransform: thumb.style.transform, computedTransform: getComputedStyle(thumb).transform,
+                      offsetTop: thumb.offsetTop, trackScrollTop: track.scrollTop,
+                    })}`);
                     if (final.focusedImageId !== null || selection.getState().selectedIds.size !== 0 || JSON.stringify(final.params) !== context.params || history.state?.kupuaKey !== context.key || history.length !== context.length || prefs.getState().density !== context.density || prefs.getState()._densityIntent !== context.intent || !(final.newCountSince >= context.freeze) || final.loading || final.error) throw new Error("B16 final policy/context mismatch");
                     probe.done = true;
                   })().catch(error => { probe.error = String(error); });

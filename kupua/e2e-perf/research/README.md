@@ -19,6 +19,15 @@ three fast repetitions and one completion-paced pass each. The original two arms
 are unchanged; `threeArmComparison` holds the expanded summary. HTTP-cache bypass, uncontrolled decoded/
 upstream caches, different codecs/quality and per-image sample counts are explicit.
 
+## Physical Android Chrome Measurements
+
+The [measurement kit](mobile-perf-measurement/README.md) provides an explicit native
+recorder, offline cost/motion analyzer and a step-by-step usage guide. The
+[Scrubber case study](mobile-perf-measurement/case-study.md) preserves the reasoning
+and reviewed aggregates, not recordings or a future benchmark baseline.
+These standalone commands are not selected by any campaign or `test:perf-research`.
+No binary, captured data, device-specific driver or new dependency is bundled.
+
 ## Local Comparisons
 
 `npm --prefix kupua run test:perf-research` runs the app-backed research controls

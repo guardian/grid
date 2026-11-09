@@ -485,6 +485,130 @@ visible. Lifetime research establishes that constraint, not an implementation re
 <a id="active-pressure-campaign"></a>
 ## Campaign Evidence That Changes the Plan
 
+### 9 November Local-API Checkpoint
+
+**Verdict:** retain the phone optimizations, but do not call this a general desktop
+speedup. The phone's source-attributed layout reduction and operator success report
+are independent evidence. This campaign records better ordinary forward media
+delivery, mixed frame results, persistent constrained-delivery limits and distinct
+adverse indexed-navigation signals. It does not isolate StatusBar/Scrubber changes.
+
+#### Matching and Populations
+
+The complete **after mobile perf investigation** campaign
+(`246ed318-407b-4b30-aed7-722b35a6c603`, completed 9 November, 03:01 UTC) contains
+34 rendering, 15 short-response, 8 long-journey and 21 density records, each with
+four observations. All four members agree on source `0342485a2`, dirty-source
+fingerprint `d80fac7aa1fa2492`. No short-response sort degraded. Histories are
+[rendering](../../e2e-perf/results/audit-log.json),
+[responsiveness](../../e2e-perf/results/perceived-log.json),
+[density](../../e2e-perf/results/density-log.json) and
+[manifest](../../e2e-perf/results/campaign-log.json).
+
+The nearest full comparison is **before step 5**
+(`5ad50d0d-46af-480e-a64e-1e880a61220a`, 7 November), with **after reafctors 1**
+(`465b4494-f742-42b8-affa-1bfcea3998f0`, 6 November) as a second recent reference.
+These share local API, canonical delivery, laptop development origin, Chromium
+151.0.7922.34, macOS 25.6.0, 1720x960 viewport/screen, DPR2, headed mode, one
+worker, no CPU throttle and the same corpus cutoff. They are not hosted Android
+production measurements. Source snapshots differ, and other changes intervene.
+Content/cache warmth is uncontrolled; the density source total changed from a
+median 1,202,529.5 to 1,201,797. Justified packing/calibration also changes.
+
+The existing dashboard adapter accepts 62 primary comparisons. Sixteen older
+rendering records have no explicit scenario revision and fail its contract gate;
+their raw frame history below is diagnostic context, not a qualified numeric delta.
+All 21 current density records pass the adapter's capture validity checks. Four
+observations do not establish population tails or statistical significance.
+Earlier deployed-TEST/canonical checkpoints remain topology-changed context, not
+the preferred baseline. The 3 November direct-ES/proxy campaign fails the current
+environment match and is not mixed into this comparison.
+
+#### Scrolling, Demand and Landing
+
+The following are phase medians, **7 November -> 9 November**. Pending is the
+count-based fraction of unready visible slots; walls are blocked commanded input.
+Read these together, not as independent success scores.
+
+| Strongest ordinary step | Achieved results/s | Pending slots | Walls ms | Frame-p95 ms |
+| --- | --- | --- | --- | --- |
+| Forward Grid | 199.1 -> 199.7 | 63.3% -> 22.4% | 0 -> 0 | 17.0 -> 18.0 |
+| Forward Justified | 205.3 -> 211.5 | 86.5% -> 36.0% | 0 -> 0 | 24.5 -> 25.8 |
+| Forward Table | 191.3 -> 179.4 | 79.8% -> 61.8% | 106 -> 280 | 25.9 -> 33.6 |
+| Backward Grid | 199.6 -> 198.9 | 80.6% -> 92.5% | 0 -> 0 | 18.0 -> 20.4 |
+| Backward Justified | 154.8 -> 157.8 | 49.0% -> 40.5% | 619 -> 608 | 20.5 -> 24.2 |
+| Backward Table | 180.4 -> 188.3 | 62.1% -> 74.0% | 272 -> 154 | 33.3 -> 45.7 |
+
+Forward stopped-media recovery improves from 332/379/340ms to 49/62/88ms for
+Grid/Justified/Table, all 4/4 complete with stable cohorts and no media failures.
+This is useful but not unprecedented: 6 November already recorded 33/119/102ms.
+Forward stress pending requests fall from 66/79.5/44 to 16.5/22.5/15.5 while
+completed requests rise; this is compatible with improved delivery in this run,
+not proof of client causality or upstream savings. Backward recovery stays quick
+at 23/24/34ms after reversal, which revisits recent content.
+
+At constrained 100 results/s, current median pending slots are 89.8/86.5/94.3%;
+the strongest step reaches 100% in all three layouts. Grid/Table recover 4/4 at
+1961/1669ms, versus 1834/1544ms previously. Justified is 3/4, with one changed
+stopped cohort; its aggregate recovery latency correctly remains unavailable.
+The previous campaign was also 3/4, and 6 November was 1/4. This is retained
+adverse behavior, not evidence that the phone change newly broke recovery.
+Good metadata progress and few walls do not make missing pictures usable.
+
+The existing weakest-component indices explain why forward improvement does not
+produce an overall win: progress is Grid 19.4 -> 7.5, Justified 13.5 -> 59.5,
+Table 20.2 -> 26.0; smoothness is 92.9 -> 81.7, 68.2 -> 64.7, 50.1 -> 36.5.
+These are descriptive reference indices, not satisfaction percentages. Sampled
+stability remains 0.5/0.1/3.2, with no retained source changes. Grid resize and
+Justified backward displacement remain material raw geometry observations;
+Justified forward displacement has a 1329px worst repetition despite a 0.11px
+median. Arrival animation, sizing and origin movement are included, so neither
+those values nor unchanged scores prove wrong-image paint. Pixels remain unmeasured.
+
+#### Navigation, Frames and Images
+
+| Qualified response/readiness boundary | 7 November | 9 November | Interpretation |
+| --- | --- | --- | --- |
+| PP11 deep browser Back settled | 1543ms | 1317ms | Favorable restoration observation |
+| D5 Grid / Justified seek placement | 1482 / 1519ms | 1373 / 1290ms | Favorable arbitrary-position access |
+| PP7 click seek / PP7b drag release | 1400 / 1249ms | 1427 / 1229ms | Broadly similar, not a seek-wide speedup |
+| PP6 / PP6b / PP6c density settled | 186 / 189 / 197ms | 229 / 241 / 245ms | Slower than the prior run; closer to earlier history |
+| JA1 / JB1 cold journey settled | 1126 / 1092ms | 1295 / 1346ms | Slower; fetch clocks also rise |
+| PP10 background map publication | 2433ms | 6122ms | Clear adverse checkpoint signal, not foreground completion |
+| JB4 indexed scrubber settled | 892ms | 1420ms | Adverse indexed-navigation signal |
+
+PP10 is not one outlier: all four observations are 5519-6493ms for the same
+21,627-entry context, versus recent same-environment medians 2034-2453ms. Its
+reported search-fetch diagnostic (560 -> 616ms) is not the map request's transport
+clock and cannot attribute the extra delay. JB4's prior recent medians were
+795-894ms; this run's observed maximum is 1492ms. Its generic store fetch timing
+does not decompose the scrubber action. Both warrant separate attribution if
+selected; neither establishes that transform motion caused the delay.
+
+Most rendering frame-p95 values are 9-10ms in this desktop environment. Versioned
+continuous thumb tracking P7 is 10 -> 9ms, with no severe intervals. Versioned
+backward-prepend P17 remains 17ms with one severe interval. In unversioned raw
+Table fast-scroll P8, frame-p95 is 17 -> 34ms and severe aggregate 3 -> 10, while
+worst-frame falls 134 -> 108ms and frame count 787 -> 704. Recent Table p95 history
+was 17-21ms. The density Table frame deterioration supports watching this signal;
+one lower maximum does not cancel more frequent missed intervals. Do not report
+a formal P8 delta through the dashboard's failed revision gate.
+
+P13b retains zero focus drift, frame-p95 17 -> 22ms over only 10 -> 11 frames.
+P13c returned-media decode improves 2012 -> 1643ms, all 4/4 complete without
+failures, although lookup grows 131 -> 197ms. P14 final landing medians for
+normal/fast-forward/fast-backward/rapid traversal are 425/2693/2397/5834ms,
+versus 428/6126/3359/10079ms, all 4/4 complete. Within-cadence loaded counts are
+10/3/1/3, versus 10/5/1/3: a faster final landing does not mean every intermediate
+image kept up. JA2 still waits 9738ms for loaded/stable detail despite store-ready
+103ms; this is better than 12575ms, not a solved full-image delivery problem.
+The historical resource/cache flags do not certify actual cache hits.
+
+**Action:** keep the measured phone improvement; repair the separately retained
+flaky tests. Do not expand that repair into map/navigation or delivery tuning.
+PP10, JB4 and Table frame evidence are explicit follow-up candidates, not grounds
+for reverting a locally qualified optimization or launching another campaign.
+
 ### Historical Revision-4 Diagnosis
 
 **Scroll load and recovery v4**, timestamp `2026-10-22T23:01:03.116Z`, HEAD

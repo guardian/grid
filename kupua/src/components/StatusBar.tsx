@@ -18,7 +18,7 @@ import { useSelectionStore } from "@/stores/selection-store";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { useSearch } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { shortcutTooltip } from "@/lib/keyboard-shortcuts";
 import { refreshResults } from "@/lib/refresh-results";
@@ -75,7 +75,7 @@ function useNarrow() {
   return narrow;
 }
 
-export function StatusBar() {
+export const StatusBar = memo(function StatusBar() {
   const total = useSearchStore((s) => s.total);
   const aiPoolTotal = useSearchStore((s) => s.aiPoolTotal);
   const newCount = useSearchStore((s) => s.newCount);
@@ -324,6 +324,6 @@ export function StatusBar() {
       </button>
     </div>
   );
-}
+});
 
 
