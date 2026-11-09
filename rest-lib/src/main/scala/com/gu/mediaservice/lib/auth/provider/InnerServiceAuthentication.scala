@@ -99,8 +99,8 @@ trait InnerServiceAuthentication {
         identity <- requestHeader.headers.get(innerServiceIdentityHeaderName)
         uuid <- requestHeader.headers.get(innerServiceUUIDHeaderName)
         timestamp <- requestHeader.headers.get(innerServiceTimestampHeaderName)
+        target <- Try(java.net.URI.create(requestHeader.uri).getRawPath).toOption
         method = requestHeader.method
-        target = java.net.URI.create(requestHeader.uri).getRawPath
       } yield SigningData(identity, uuid, timestamp, method, target)
   }
 }
