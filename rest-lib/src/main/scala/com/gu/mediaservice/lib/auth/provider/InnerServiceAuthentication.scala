@@ -48,10 +48,6 @@ trait InnerServiceAuthentication {
   }
 
   def verifyRequest(request: RequestHeader)(signatureFromHeader: String) = {
-    // 1: check IP, can we do this without accidentally finding the LB?
-    // 2: check timestamp is recent
-    // 3: work up through call chain replacing wth Request[A] to allow body signing
-    // 4: extract InnerServiceAuth into something we can mixini
 
     val signingData = SigningData.from(request)
 
