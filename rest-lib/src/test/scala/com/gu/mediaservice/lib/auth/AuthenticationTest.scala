@@ -326,7 +326,7 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
     )
     val auth: Authentication = makeAuthenticationInstance(testProviders)
 
-    "match raw request paths when signing and verifying" in {
+    "match raw request paths and methods when signing and verifying" in {
       val contentSigner = new CookieSigner {
         override def sign(message: String, key: Array[Byte]): String = message
         override def sign(message: String): String = message
@@ -334,12 +334,18 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
       val provider = new InnerServiceAuthenticationProvider(contentSigner, "tests")
       WsTestClient.withClient { client =>
         val path = "/images/a%2Fb?include=fileMetadata"
-        val signed = provider.signRequest(client.url(s"https://example.com$path"))
+        val signed = provider.signRequest(client.url(s"https://example.com$path").withMethod("GET"))
         val headers = signed.headers.toSeq.flatMap { case (name, values) => values.map(name -> _) }
 
         provider.authenticateRequest(FakeRequest("GET", path).withHeaders(headers: _*)) shouldBe a[Authenticated]
         provider.authenticateRequest(
           FakeRequest("GET", "/images/different?include=fileMetadata").withHeaders(headers: _*)
+        ) shouldBe Invalid("Invalid inner service signature")
+        provider.authenticateRequest(
+          FakeRequest("POST", path).withHeaders(headers: _*)
+        ) shouldBe Invalid("Invalid inner service signature")
+        provider.authenticateRequest(
+          FakeRequest("GET", path).withHeaders(headers.filterNot(_._1 == "X-Inner-Service-Identity"): _*)
         ) shouldBe Invalid("Invalid inner service signature")
       }
     }
