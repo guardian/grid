@@ -1,6 +1,7 @@
 package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.lib.management.ElasticSearchHealthCheck
 import lib._
@@ -9,8 +10,8 @@ import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class HealthCheck(elasticsearch: ElasticSearch, streamRunning: => Boolean, config: ThrallConfig, override val controllerComponents: ControllerComponents)(implicit override val ec: ExecutionContext)
-  extends ElasticSearchHealthCheck(controllerComponents, elasticsearch) with ArgoHelpers {
+class HealthCheck(elasticsearch: ElasticSearch, streamRunning: => Boolean, config: ThrallConfig, override val controllerComponents: ControllerComponents, auth: Authentication)(implicit override val ec: ExecutionContext)
+  extends ElasticSearchHealthCheck(controllerComponents, auth, elasticsearch) with ArgoHelpers {
 
   override def healthCheck = Action.async {
     elasticHealth.map { esHealth =>
