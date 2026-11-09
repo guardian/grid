@@ -9,6 +9,7 @@ import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, Internal}
 import com.gu.mediaservice.lib.guardian.auth.PandaAuthenticationProvider
 import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents, Result}
+import play.filters.csrf.RequireCSRFCheck
 
 import java.net.URI
 import java.time.Instant
@@ -33,6 +34,7 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
     respond(indexData, indexLinks)
   }
 
+  @RequireCSRFCheck
   def cookieMonster = auth { request =>
     providers.userProvider match {
       case panda: PandaAuthenticationProvider =>
