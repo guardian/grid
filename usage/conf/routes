@@ -11,7 +11,7 @@ POST    /usages/front                                   controllers.UsageApi.set
 POST    /usages/download                                controllers.UsageApi.setDownloadUsages()
 POST    /usages/child                                   controllers.UsageApi.setChildUsages()
 PUT     /usages/status/update/:mediaId/*usageId         controllers.UsageApi.updateUsageStatus(mediaId: String, usageId: String)
-GET     /usages/digital/content/*contentId/reindex      controllers.UsageApi.reindexForContent(contentId: String)
+POST     /usages/digital/content/*contentId/reindex      controllers.UsageApi.reindexForContent(contentId: String)
 
 # Management
 GET     /management/healthcheck                         com.gu.mediaservice.lib.management.Management.healthCheck

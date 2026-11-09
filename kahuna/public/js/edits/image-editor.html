@@ -90,25 +90,28 @@
             </gr-archiver-status>
         </div>
 
-        <div class="result-editor__info-item">
-            <a ng-if="ctrl.canUndelete && ctrl.isDeleted"
-               role="button"
-               tabindex="0"
-               aria-label="Undelete"
-               class="gr-archiver-status__button inner-clickable result-editor__status status"
-               title="Undelete"
-               ng-click="ctrl.undelete()">
-                <gr-library-add-icon class="gr-archiver-status__icon"></gr-library-add-icon>
-                Undelete
-            </a>
-        </div>
+        <div ng-if="ctrl.isDeleted" role="group" aria-label="Deletion status">
+            <div class="result-editor__info-item">
+                <button type="button"
+                        class="gr-archiver-status__button inner-clickable result-editor__status status"
+                        ng-class="{'inner-clickable--disabled': !ctrl.canUndelete}"
+                        title="Undelete"
+                        ng-disabled="!ctrl.canUndelete"
+                        aria-describedby="deletion-status-{{ctrl.image.data.id}}"
+                        ng-click="ctrl.undelete()">
+                    <gr-library-add-icon class="gr-archiver-status__icon"></gr-library-add-icon>
+                    Undelete
+                </button>
+            </div>
 
-        <div ng-if="ctrl.isDeleted" class="job-status status deleted_image_warning"
-             ng-class="{
-                         'status--invalid': !ctrl.canUndelete
-                     }">
-            <span ng-if="ctrl.canUndelete && ctrl.isDeleted">Image deleted (this image already exists but has been deleted. Click Undelete to recover it)</span>
-            <span ng-if="!ctrl.canUndelete">Image deleted (this image already exists but has been deleted. Click View image to see details)</span>
+            <div id="deletion-status-{{ctrl.image.data.id}}"
+                 class="job-status status deleted_image_warning"
+                 ng-class="{
+                             'status--invalid': !ctrl.canUndelete
+                         }">
+                <span ng-if="ctrl.canUndelete">Image deleted (this image already exists but has been deleted. Click Undelete to recover it)</span>
+                <span ng-if="!ctrl.canUndelete">Image deleted (this image already exists but has been deleted). Only the uploader or a user with delete permission can undelete this image. Click View image to see details.</span>
+            </div>
         </div>
 
         <div class="image-actions-container" ng-if="ctrl.displayMetadataTemplates">

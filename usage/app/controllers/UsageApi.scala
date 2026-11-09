@@ -36,7 +36,7 @@ class UsageApi(
   implicit val ec: ExecutionContext
 ) extends BaseController with MessageSubjects with ArgoHelpers {
 
-  private val AuthenticatedAndAuthorisedToDelete = auth andThen authorisation.CommonActionFilters.authorisedForDeleteCropsOrUsages
+  private val AuthenticatedAndAuthorisedToDeleteCropsOrUsages = auth andThen authorisation.CommonActionFilters.authorisedForDeleteCropsOrUsages
 
   private def wrapUsage(usage: Usage): EntityResponse[Usage] = {
     EntityResponse(
@@ -283,7 +283,8 @@ class UsageApi(
     )
   }}
 
-  def updateUsageStatus(mediaId: String, usageId: String) = auth.async(parse.json) {req => {
+  def updateUsageStatus(mediaId: String, usageId: String) =
+    AuthenticatedAndAuthorisedToDeleteCropsOrUsages.async(parse.json) { req => {
     val request = (req.body \ "data").validate[UsageStatus]
     request.fold(
       e => Future.successful(
@@ -304,7 +305,7 @@ class UsageApi(
         logger.info(logMarker, "recording usage status  update")
 
         usageTable.queryByUsageId(usageId).map {
-          case Some(mediaUsage) =>
+          case Some(mediaUsage) if mediaUsage.mediaId == mediaId =>
             val updatedStatusMediaUsage = mediaUsage.copy(status = usageStatus)
             usageTable.update(updatedStatusMediaUsage)
             val usageNotice = UsageNotice(mediaId,
@@ -315,14 +316,14 @@ class UsageApi(
             )
             notifications.publish(updateMessage)
             Ok
-          case None =>
+          case _ =>
             NotFound
         }
       }
     )
   }}
 
-  def deleteSingleUsage(mediaId: String, usageId: String) = AuthenticatedAndAuthorisedToDelete.async { req =>
+  def deleteSingleUsage(mediaId: String, usageId: String) = AuthenticatedAndAuthorisedToDeleteCropsOrUsages.async { req =>
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "delete-usage",
       "requestId" -> RequestLoggingFilter.getRequestId(req),
@@ -342,7 +343,7 @@ class UsageApi(
 
   }
 
-  def deleteUsagesByIds(mediaId: String) = AuthenticatedAndAuthorisedToDelete.async(parse.json) { req =>
+  def deleteUsagesByIds(mediaId: String) = AuthenticatedAndAuthorisedToDeleteCropsOrUsages.async(parse.json) { req =>
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "delete-usages-by-ids",
       "requestId" -> RequestLoggingFilter.getRequestId(req),
@@ -404,7 +405,7 @@ class UsageApi(
     )
   }
 
-  def deleteUsages(mediaId: String) = AuthenticatedAndAuthorisedToDelete.async { req =>
+  def deleteUsages(mediaId: String) = AuthenticatedAndAuthorisedToDeleteCropsOrUsages.async { req =>
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "delete-usages",
       "requestId" -> RequestLoggingFilter.getRequestId(req),

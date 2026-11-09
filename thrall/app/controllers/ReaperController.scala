@@ -2,7 +2,7 @@ package controllers
 
 import org.apache.pekko.actor.Scheduler
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
-import com.gu.mediaservice.lib.auth.Permissions.DeleteImage
+import com.gu.mediaservice.lib.auth.Permissions.{DeleteImage, DeveloperAdmin}
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, BaseControllerWithLoginRedirects}
 import com.gu.mediaservice.lib.aws.S3Vectors
 import com.gu.mediaservice.lib.config.Services
@@ -219,18 +219,26 @@ class ReaperController(
       }
   }}
 
-  def pauseReaper = auth { config.maybeReaperBucket match {
-    case None => NotImplemented("Reaper bucket not configured")
-    case Some(reaperBucket) =>
-      store.putString(reaperBucket, CONTROL_FILE_NAME, "")
-      Redirect(routes.ReaperController.index)
-  }}
+  def pauseReaper = auth { request =>
+    if (!authorisation.hasPermissionTo(DeveloperAdmin)(request.user)) {
+      authorisation.forbidden(DeveloperAdmin)
+    } else config.maybeReaperBucket match {
+      case None => NotImplemented("Reaper bucket not configured")
+      case Some(reaperBucket) =>
+        store.putString(reaperBucket, CONTROL_FILE_NAME, "")
+        Redirect(routes.ReaperController.index)
+    }
+  }
 
-  def resumeReaper = auth { config.maybeReaperBucket match {
-    case None => NotImplemented("Reaper bucket not configured")
-    case Some(reaperBucket) =>
-      store.client.deleteObject(DeleteObjectRequest.builder().bucket(reaperBucket).key(CONTROL_FILE_NAME).build())
-      Redirect(routes.ReaperController.index)
-  }}
+  def resumeReaper = auth { request =>
+    if (!authorisation.hasPermissionTo(DeveloperAdmin)(request.user)) {
+      authorisation.forbidden(DeveloperAdmin)
+    } else config.maybeReaperBucket match {
+      case None => NotImplemented("Reaper bucket not configured")
+      case Some(reaperBucket) =>
+        store.client.deleteObject(DeleteObjectRequest.builder().bucket(reaperBucket).key(CONTROL_FILE_NAME).build())
+        Redirect(routes.ReaperController.index)
+    }
+  }
 
 }
