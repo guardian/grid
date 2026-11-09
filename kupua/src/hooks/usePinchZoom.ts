@@ -23,7 +23,7 @@ import { useEffect, useRef, type RefObject } from "react";
 
 /** Scale bounds. */
 const MIN_SCALE = 1;
-const MAX_SCALE = 5;
+const MAX_SCALE = 9;
 
 /** Double-tap detection. */
 const DOUBLE_TAP_MS = 300;

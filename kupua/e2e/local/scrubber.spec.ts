@@ -1183,9 +1183,11 @@ test.describe("KUP-017 queued density restoration", () => {
           });
         }
         if (scenario === "wheel") {
-          await page.locator('[aria-label="Image results table"]').hover();
+          const table = page.locator('[aria-label="Image results table"]');
+          await table.hover();
+          const beforeWheel = await table.evaluate(element => element.scrollTop);
           await page.mouse.wheel(0, 320);
-          await page.waitForFunction(() => document.querySelector('[aria-label="Image results table"]')!.scrollTop > 0);
+          await expect.poll(() => table.evaluate(element => element.scrollTop)).toBeGreaterThan(beforeWheel);
         }
         if (scenario === "order") {
           await kupua.toggleSortDirection();

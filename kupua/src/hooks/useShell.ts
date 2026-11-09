@@ -1,7 +1,7 @@
 import { useLayoutEffect, useSyncExternalStore } from "react";
 
 // Touch phones only: narrow desktop windows keep the desktop shell (cards make no sense with a mouse).
-const compactMql = typeof window !== "undefined" ? window.matchMedia?.("(max-width: 639px) and (pointer: coarse)") : undefined;
+const compactMql = typeof window !== "undefined" ? window.matchMedia?.("(max-width: 639px) and (pointer: coarse), (max-height: 639px) and (pointer: coarse)") : undefined;
 const installedMql = typeof window !== "undefined" ? window.matchMedia?.("(display-mode: standalone), (display-mode: fullscreen)") : undefined;
 
 function isCompactNow(): boolean {
@@ -44,7 +44,6 @@ export function useAppCutout(enabled: boolean) {
   }, [enabled, installed]);
 }
 
-/** Phone shell: narrow viewport on a touch device. */
 export function useIsCompact(): boolean {
   return useSyncExternalStore(subscribe, isCompactNow, () => false);
 }

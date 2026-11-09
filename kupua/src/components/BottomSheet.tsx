@@ -21,15 +21,20 @@ interface BottomSheetProps {
   dragSurfaceRef?: RefObject<HTMLElement | null>;
   position?: "fixed" | "absolute";
   contentKey?: string;
+  visible?: boolean;
+  gestureEnabledRef?: RefObject<boolean>;
+  onRevealDrag?: () => void;
+  overlay?: boolean;
 }
 
 /**
  * Compact-shell card: peeks from the bottom, expands to 75vh, swipe/tap to toggle.
  * Content scrolls only when expanded.
  */
-export function BottomSheet({ header, children, expanded, onExpandedChange, onDismiss, label, scrim = true, dragSurfaceRef, position = "fixed", contentKey }: BottomSheetProps) {
+export function BottomSheet({ header, children, expanded, onExpandedChange, onDismiss, label, scrim = true, dragSurfaceRef, position = "fixed", contentKey, visible = true, gestureEnabledRef, onRevealDrag, overlay = false }: BottomSheetProps) {
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef<{ y: number; t: number; base: number } | null>(null);
+  const touchOrigin = useRef<{ x: number; y: number } | null>(null);
   const lastTouchToggle = useRef(0);
   const contentRef = useRef<HTMLDivElement>(null);
   const [maxH, setMaxH] = useState(() => window.innerHeight * EXPANDED_VH / 100);
@@ -100,15 +105,31 @@ export function BottomSheet({ header, children, expanded, onExpandedChange, onDi
     if (wantExpanded === expanded) el.style.translate = `0 ${restOffset}px`;
     else onExpandedChange(wantExpanded);
   };
-  const onTouchStart = (event: TouchEvent) => startDrag(event.touches[0].clientY);
-  const onTouchMove = (event: TouchEvent) => moveDrag(event.touches[0].clientY, event.defaultPrevented);
-  const onTouchEnd = (event: TouchEvent) => endDrag(event.changedTouches[0].clientY);
-  const dragActions = useRef({ startDrag, moveDrag, endDrag, cancelDrag });
-  dragActions.current = { startDrag, moveDrag, endDrag, cancelDrag };
+  const onTouchStart = (event: TouchEvent) => {
+    touchOrigin.current = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+    startDrag(event.touches[0].clientY);
+  };
+  const onTouchMove = (event: TouchEvent) => {
+    const origin = touchOrigin.current;
+    if (origin && Math.abs(event.touches[0].clientX - origin.x) > 10
+      && Math.abs(event.touches[0].clientX - origin.x) > Math.abs(event.touches[0].clientY - origin.y)) {
+      touchOrigin.current = null;
+      cancelDrag();
+      return;
+    }
+    moveDrag(event.touches[0].clientY, event.defaultPrevented);
+  };
+  const onTouchEnd = (event: TouchEvent) => {
+    if (!touchOrigin.current) return;
+    touchOrigin.current = null;
+    endDrag(event.changedTouches[0].clientY);
+  };
+  const dragActions = useRef({ startDrag, moveDrag, endDrag, cancelDrag, onRevealDrag });
+  dragActions.current = { startDrag, moveDrag, endDrag, cancelDrag, onRevealDrag };
 
   useEffect(() => {
     const surface = dragSurfaceRef?.current;
-    if (!surface || expanded) return;
+    if (!surface) return;
     let origin: { x: number; y: number } | null = null;
     let decided = false;
     let tracking = false;
@@ -118,7 +139,7 @@ export function BottomSheet({ header, children, expanded, onExpandedChange, onDi
       dragActions.current.cancelDrag();
     };
     const start = (event: globalThis.TouchEvent) => {
-      if (event.touches.length !== 1) { cancel(); return; }
+      if (event.touches.length !== 1 || gestureEnabledRef?.current === false) { cancel(); return; }
       origin = { x: event.touches[0].clientX, y: event.touches[0].clientY };
       decided = false;
       tracking = false;
@@ -126,13 +147,14 @@ export function BottomSheet({ header, children, expanded, onExpandedChange, onDi
     };
     const move = (event: globalThis.TouchEvent) => {
       if (!origin) return;
-      if (event.touches.length !== 1) { cancel(); return; }
+      if (event.touches.length !== 1 || gestureEnabledRef?.current === false) { cancel(); return; }
       const dx = event.touches[0].clientX - origin.x;
       const dy = event.touches[0].clientY - origin.y;
       if (!decided) {
         if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
         decided = true;
-        tracking = Math.abs(dy) > Math.abs(dx) && dy < 0;
+        tracking = Math.abs(dy) > Math.abs(dx) && (expanded ? dy > 0 : dy < 0);
+        if (tracking && !expanded) dragActions.current.onRevealDrag?.();
       }
       if (!tracking) return;
       dragActions.current.moveDrag(event.touches[0].clientY, event.defaultPrevented);
@@ -155,7 +177,7 @@ export function BottomSheet({ header, children, expanded, onExpandedChange, onDi
       surface.removeEventListener("touchcancel", cancel);
       if (origin) cancel();
     };
-  }, [dragSurfaceRef, expanded, restOffset]);
+  }, [dragSurfaceRef, expanded, restOffset, gestureEnabledRef]);
 
   const contentPull = useContentPullToDrag(contentRef,
     { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: cancelDrag, isDragging: () => drag.current !== null }, expanded);
@@ -177,8 +199,10 @@ export function BottomSheet({ header, children, expanded, onExpandedChange, onDi
       role="region"
       tabIndex={-1}
       aria-label={label}
-      className={`${position} inset-x-0 bottom-0 z-40 flex flex-col bg-grid-bg rounded-t-2xl border-t border-grid-separator shadow-[0_-8px_24px_rgba(0,0,0,0.45)] outline-none`}
-      style={{ height: maxH, translate: `0 ${restOffset}px` }}
+      aria-hidden={!visible || undefined}
+      inert={!visible}
+      className={`${position} inset-x-0 bottom-0 z-40 flex flex-col ${overlay && !expanded ? "bg-grid-bg/85" : "bg-grid-bg"} rounded-t-2xl border-t border-grid-separator shadow-[0_-8px_24px_rgba(0,0,0,0.45)] outline-none`}
+      style={{ height: maxH, translate: `0 ${restOffset}px`, visibility: visible ? "visible" : "hidden" }}
     >
       <div
         className="shrink-0 touch-none select-none"

@@ -365,6 +365,7 @@ for (const density of ["grid", "justified"] as const) {
 }
 
 test("detail toolbar labels collapse without crowding navigation or the locator", async ({ page }) => {
+  await page.evaluate(() => { document.documentElement.requestFullscreen = () => Promise.reject(new Error("Fullscreen unavailable")); });
   const point = await getFirstTouchableCellRect(page);
   await page.touchscreen.tap(point.x, point.y);
   const toolbar = page.locator("[data-detail-image-id] > header");
@@ -408,6 +409,7 @@ test("detail toolbar labels collapse without crowding navigation or the locator"
 });
 
 test("detail metadata wraps long values without horizontal panel scrolling", async ({ page }) => {
+  await page.evaluate(() => { document.documentElement.requestFullscreen = () => Promise.reject(new Error("Fullscreen unavailable")); });
   const longValue = "VERYLONGWORDWITHOUTANYSPACES".repeat(8);
   await page.evaluate(longValue => {
     const store = (window as any).__kupua_store__;
@@ -444,13 +446,95 @@ test("detail metadata wraps long values without horizontal panel scrolling", asy
   await page.screenshot({ path: test.info().outputPath("metadata-desktop.png") });
 });
 
+test("installed phone retains black image-only detail when rotated", async ({ page }) => {
+  await page.addInitScript(() => {
+    const matchMedia = window.matchMedia.bind(window);
+    window.matchMedia = query => {
+      const result = matchMedia(query);
+      if (query.includes("display-mode:")) Object.defineProperty(result, "matches", { value: true });
+      return result;
+    };
+  });
+  await page.reload();
+  await expect.poll(() => page.locator('[data-grid-cell]').count()).toBeGreaterThan(3);
+  const point = await getFirstTouchableCellRect(page);
+  await page.touchscreen.tap(point.x, point.y);
+  const detail = page.locator("[data-detail-image-id]");
+  const image = page.getByTestId("detail-image-container").locator('img[fetchpriority="high"]');
+  const imageId = await detail.getAttribute("data-detail-image-id");
+  await image.tap();
+  await expect(detail.locator(":scope > header")).toBeHidden();
+  await page.setViewportSize({ width: 852, height: 393 });
+  await expect(page.locator("html")).toHaveAttribute("data-shell", "compact");
+  await expect(detail).toHaveAttribute("data-detail-image-id", imageId!);
+  await expect(detail.locator(":scope > header")).toBeHidden();
+  await expect(detail.locator("aside")).toHaveCount(0);
+  await expect(page.getByTestId("detail-image-container")).toHaveCSS("background-color", "rgb(0, 0, 0)");
+  const imageBox = (await image.boundingBox())!;
+  const surfaceBox = (await page.getByTestId("detail-image-container").boundingBox())!;
+  await expect(image).toHaveCSS("object-fit", "contain");
+  expect(imageBox.width).toBeCloseTo(surfaceBox.width, 0);
+  expect(imageBox.height).toBeCloseTo(surfaceBox.height, 0);
+  expect(imageBox.x).toBeGreaterThanOrEqual(surfaceBox.x);
+  expect(imageBox.y).toBeGreaterThanOrEqual(surfaceBox.y);
+  expect(imageBox.x + imageBox.width).toBeLessThanOrEqual(surfaceBox.x + surfaceBox.width);
+  expect(imageBox.y + imageBox.height).toBeLessThanOrEqual(surfaceBox.y + surfaceBox.height);
+  await image.tap();
+  await expect(detail.locator(":scope > header")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Image details", exact: true })).toBeVisible();
+  await image.tap();
+  await expect(detail.locator(":scope > header")).toBeHidden();
+  await page.setViewportSize({ width: 393, height: 852 });
+  await expect(detail).toHaveAttribute("data-detail-image-id", imageId!);
+  await expect(detail.locator(":scope > header")).toBeHidden();
+});
+
+test("installed mobile detail does not request native fullscreen", async ({ page }) => {
+  await page.addInitScript(() => {
+    const matchMedia = window.matchMedia.bind(window);
+    window.matchMedia = query => {
+      const result = matchMedia(query);
+      if (query.includes("display-mode:")) Object.defineProperty(result, "matches", { value: true });
+      return result;
+    };
+    const request = Element.prototype.requestFullscreen;
+    Element.prototype.requestFullscreen = function(...args) {
+      (window as any).__fullscreenRequests = ((window as any).__fullscreenRequests ?? 0) + 1;
+      return request.apply(this, args);
+    };
+  });
+  await page.reload();
+  await expect.poll(() => page.locator('[data-grid-cell]').count()).toBeGreaterThan(3);
+  const point = await getFirstTouchableCellRect(page);
+  await page.touchscreen.tap(point.x, point.y);
+  await expect(page.getByRole("region", { name: "Image details", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => (window as any).__fullscreenRequests ?? 0)).toBe(0);
+  expect(await page.evaluate(() => document.fullscreenElement)).toBeNull();
+});
+
+test("mobile detail remains usable when browser fullscreen is rejected", async ({ page }) => {
+  await page.addInitScript(() => {
+    Element.prototype.requestFullscreen = () => Promise.reject(new Error("Fullscreen unavailable"));
+  });
+  await page.reload();
+  await expect.poll(() => page.locator('[data-grid-cell]').count()).toBeGreaterThan(3);
+  const point = await getFirstTouchableCellRect(page);
+  await page.touchscreen.tap(point.x, point.y);
+  const detail = page.locator("[data-detail-image-id]");
+  await expect(page.getByRole("region", { name: "Image details", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.fullscreenElement)).toBeNull();
+  await detail.locator('img[fetchpriority="high"]').tap();
+  await expect(page.getByRole("region", { name: "Image details", exact: true })).toHaveCount(0);
+  await expect(detail).toBeVisible();
+});
+
 test.describe("detail metadata gestures", () => {
-  async function swipe(page: Page, target: Locator, dx: number, dy = 0, duringDrag?: () => Promise<void>, cancel = false) {
+  async function swipe(page: Page, target: Locator, dx: number, dy = 0, duringDrag?: () => Promise<void>, cancel = false, startYFraction?: number) {
     await target.scrollIntoViewIfNeeded();
     const bounds = await target.boundingBox();
     if (!bounds) throw new Error("Swipe target is not visible");
     const x = bounds.x + bounds.width * (dx < 0 ? 0.8 : dx > 0 ? 0.2 : 0.5);
-    const y = Math.min(bounds.y + bounds.height * (dy < 0 ? 0.8 : 0.2), page.viewportSize()!.height - 30);
+    const y = Math.min(bounds.y + bounds.height * (startYFraction ?? (dy < 0 ? 0.8 : 0.2)), page.viewportSize()!.height - 30);
     const session = await page.context().newCDPSession(page);
     let active = false;
     try {
@@ -483,6 +567,50 @@ test.describe("detail metadata gestures", () => {
     const point = await getFirstTouchableCellRect(page);
     await page.touchscreen.tap(point.x, point.y);
     await expect(page.getByRole("region", { name: "Image details", exact: true })).toBeVisible();
+  });
+
+  test("browser detail enters fullscreen and native exit returns to results", async ({ page }) => {
+    const detail = page.locator("[data-detail-image-id]");
+    await expect.poll(() => page.evaluate(() => document.fullscreenElement === document.documentElement)).toBe(true);
+    await page.evaluate(() => document.exitFullscreen());
+    await expect(detail).toHaveCount(0);
+    expect(new URL(page.url()).searchParams.has("image")).toBe(false);
+    await expect(page.getByRole("region", { name: "Image results justified" })).toBeVisible();
+  });
+
+  test("browser fullscreen keeps image-only detail on phone rotation", async ({ page }) => {
+    const detail = page.locator("[data-detail-image-id]");
+    const imageId = await detail.getAttribute("data-detail-image-id");
+    const image = page.getByTestId("detail-image-container").locator('img[fetchpriority="high"]');
+    await expect.poll(() => page.evaluate(() => document.fullscreenElement === document.documentElement)).toBe(true);
+    await image.tap();
+    await expect(detail.locator(":scope > header")).toBeHidden();
+    const session = await page.context().newCDPSession(page);
+    try {
+      await session.send("Emulation.setDeviceMetricsOverride", {
+        width: 852, height: 393, deviceScaleFactor: 2.75, mobile: true,
+        screenOrientation: { type: "landscapePrimary", angle: 90 },
+      });
+      await expect.poll(() => page.evaluate(() => innerWidth)).toBe(852);
+      await expect(page.locator("html")).toHaveAttribute("data-shell", "compact");
+      await expect(detail).toHaveAttribute("data-detail-image-id", imageId!);
+      await expect(detail.locator(":scope > header")).toBeHidden();
+      await expect(detail.locator("aside")).toHaveCount(0);
+      await expect.poll(() => page.evaluate(() => document.fullscreenElement === document.documentElement)).toBe(true);
+    } finally {
+      await session.send("Emulation.clearDeviceMetricsOverride");
+      await session.detach();
+    }
+  });
+
+  test("browser history Back leaves fullscreen detail without an extra navigation", async ({ page }) => {
+    const detail = page.locator("[data-detail-image-id]");
+    await expect.poll(() => page.evaluate(() => document.fullscreenElement === document.documentElement)).toBe(true);
+    await page.goBack();
+    await expect(detail).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Image results justified" })).toBeVisible();
+    expect(new URL(page.url()).searchParams.has("image")).toBe(false);
+    expect(new URL(page.url()).pathname).toBe("/search");
   });
 
   test("mobile Crop zooms and pans the view without changing the crop", async ({ page }) => {
@@ -724,6 +852,175 @@ test.describe("detail metadata gestures", () => {
     await expect(editor.getByRole("radiogroup", { name: "Crop ratio" })).toBeVisible();
   });
 
+  test("mobile detail keeps image geometry and coordinates zoom, chrome and swipes", async ({ page }) => {
+    const detail = page.locator("[data-detail-image-id]");
+    const surface = page.getByTestId("detail-image-container");
+    const image = surface.locator('img[fetchpriority="high"]');
+    const drawer = page.getByRole("region", { name: "Image details", exact: true });
+    const toolbar = detail.locator(":scope > header");
+    await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth > 0)).toBe(true);
+    const before = await image.boundingBox();
+    await image.tap();
+    await expect(drawer).toHaveCount(0);
+    await expect(toolbar).toBeHidden();
+    expect(await image.boundingBox()).toEqual(before);
+
+    const first = await detail.getAttribute("data-detail-image-id");
+    await swipe(page, surface, -200);
+    await expect(detail).not.toHaveAttribute("data-detail-image-id", first!);
+    const second = await detail.getAttribute("data-detail-image-id");
+    await page.waitForTimeout(450);
+    await image.tap();
+    await expect(drawer).toBeVisible();
+    await swipe(page, drawer, 200);
+    await expect(detail).toHaveAttribute("data-detail-image-id", first!);
+
+    await page.waitForTimeout(450);
+    await image.tap();
+    await image.tap();
+    await expect.poll(() => image.evaluate(element => element.style.transform)).toContain("scale3d");
+    await expect(drawer).toHaveCount(0);
+    await swipe(page, surface, 0, -200);
+    await swipe(page, surface, -200);
+    await swipe(page, surface, 0, 200);
+    await expect(detail).toHaveAttribute("data-detail-image-id", first!);
+    await expect(drawer).toHaveCount(0);
+
+    await image.tap();
+    await image.tap();
+    await expect.poll(() => image.evaluate(element => element.style.transform)).toBe("");
+    await expect(toolbar).toBeHidden();
+    await swipe(page, surface, 0, -200);
+    await expect(drawer.getByRole("button", { name: "Collapse Image details" })).toBeVisible();
+    expect(second).not.toBe(first);
+  });
+
+  test("double-tapping drawer content does not zoom the image", async ({ page }) => {
+    const drawer = page.getByRole("region", { name: "Image details", exact: true });
+    await drawer.getByRole("button", { name: "Expand Image details" }).tap();
+    const body = drawer.locator(":scope > div").last();
+    await expect.poll(async () => (await body.boundingBox())!.y).toBeLessThan(page.viewportSize()!.height / 2);
+    const bounds = (await body.boundingBox())!;
+    const point = { x: bounds.x + 5, y: bounds.y + 80 };
+    const session = await page.context().newCDPSession(page);
+    let active = false;
+    try {
+      for (let tap = 0; tap < 2; tap++) {
+        await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
+        active = true;
+        await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        active = false;
+      }
+      await expect(drawer).toBeVisible();
+      await expect(page.getByTestId("detail-image-container").locator('img[fetchpriority="high"]')).not.toHaveCSS("transform", /matrix/);
+    } finally {
+      if (active) await session.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+      await session.detach();
+    }
+  });
+
+  test("a second finger cancels a pending downward dismissal before zoom", async ({ page }) => {
+    const detail = page.locator("[data-detail-image-id]");
+    const image = page.getByTestId("detail-image-container").locator('img[fetchpriority="high"]');
+    const first = await detail.getAttribute("data-detail-image-id");
+    const bounds = (await image.boundingBox())!;
+    const start = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+    const session = await page.context().newCDPSession(page);
+    let active = false;
+    try {
+      await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ id: 1, ...start }] });
+      active = true;
+      await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ id: 1, x: start.x, y: start.y + 160 }] });
+      await expect.poll(() => detail.evaluate(element => element.style.transform)).toContain("translateY");
+      await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [
+        { id: 1, x: start.x, y: start.y + 160 }, { id: 2, x: start.x + 35, y: start.y + 160 },
+      ] });
+      await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [
+        { id: 1, x: start.x - 40, y: start.y + 160 }, { id: 2, x: start.x + 100, y: start.y + 160 },
+      ] });
+      await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      active = false;
+      await expect(detail).toHaveAttribute("data-detail-image-id", first!);
+      await expect.poll(() => image.evaluate(element => element.style.transform)).toContain("scale3d");
+      expect(await detail.evaluate(element => element.style.transform)).toBe("");
+    } finally {
+      if (active) await session.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+      await session.detach();
+    }
+  });
+
+  test("a second finger cancels a pending image swipe before zoom", async ({ page }) => {
+    const detail = page.locator("[data-detail-image-id]");
+    const image = page.getByTestId("detail-image-container").locator('img[fetchpriority="high"]');
+    const first = await detail.getAttribute("data-detail-image-id");
+    const bounds = (await image.boundingBox())!;
+    const start = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+    const strip = detail.locator('[data-detail-page="current"]').locator("..");
+    const session = await page.context().newCDPSession(page);
+    let active = false;
+    try {
+      await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ id: 1, ...start }] });
+      active = true;
+      await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ id: 1, x: start.x - 90, y: start.y }] });
+      await expect.poll(() => strip.evaluate(element => element.style.transform)).toContain("translateX");
+      await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [
+        { id: 1, x: start.x - 90, y: start.y }, { id: 2, x: start.x - 55, y: start.y },
+      ] });
+      await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [
+        { id: 1, x: start.x - 130, y: start.y }, { id: 2, x: start.x + 10, y: start.y },
+      ] });
+      await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      active = false;
+      await expect(detail).toHaveAttribute("data-detail-image-id", first!);
+      await expect.poll(() => image.evaluate(element => element.style.transform)).toContain("scale3d");
+      expect(await strip.evaluate(element => element.style.transform)).toBe("");
+    } finally {
+      if (active) await session.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+      await session.detach();
+    }
+  });
+
+  test("pinching back to fit restores image swipes without restoring chrome", async ({ page }) => {
+    const detail = page.locator("[data-detail-image-id]");
+    const surface = page.getByTestId("detail-image-container");
+    const image = surface.locator('img[fetchpriority="high"]');
+    const drawer = page.getByRole("region", { name: "Image details", exact: true });
+    const first = await detail.getAttribute("data-detail-image-id");
+    const bounds = (await image.boundingBox())!;
+    const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+    const session = await page.context().newCDPSession(page);
+    let active = false;
+    const pinch = async (start: number, end: number) => {
+      const points = (distance: number) => [
+        { id: 1, x: center.x - distance, y: center.y },
+        { id: 2, x: center.x + distance, y: center.y },
+      ];
+      await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: points(start) });
+      active = true;
+      for (let step = 1; step <= 6; step++) await session.send("Input.dispatchTouchEvent", {
+        type: "touchMove", touchPoints: points(start + (end - start) * step / 6),
+      });
+      await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      active = false;
+    };
+    try {
+      await pinch(30, 90);
+      await expect.poll(() => image.evaluate(element => element.style.transform)).toContain("scale3d");
+      await expect(drawer).toHaveCount(0);
+      await swipe(page, surface, 0, -180);
+      await expect(drawer).toHaveCount(0);
+      await expect(detail).toHaveAttribute("data-detail-image-id", first!);
+      await pinch(90, 25);
+      await expect.poll(() => image.evaluate(element => element.style.transform)).toBe("");
+      await expect(detail.locator(":scope > header")).toBeHidden();
+      await swipe(page, surface, 0, -180);
+      await expect(drawer.getByRole("button", { name: "Collapse Image details" })).toBeVisible();
+    } finally {
+      if (active) await session.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+      await session.detach();
+    }
+  });
+
   test("peek swipes move image and details together while the top bar stays fixed", async ({ page }) => {
     const detail = page.locator("[data-detail-image-id]");
     const first = await detail.getAttribute("data-detail-image-id");
@@ -763,6 +1060,7 @@ test.describe("detail metadata gestures", () => {
     let observations = { frames: 0, mismatches: [] as string[] };
     try {
       await swipe(page, header, -200, 12, async () => {
+        await expect.poll(async () => (await imagePage.boundingBox())!.x - initialImage.x).toBeCloseTo(-200, 0);
         const movedImage = (await imagePage.boundingBox())!;
         const movedCard = (await panel.boundingBox())!;
         expect(movedImage.x - initialImage.x).toBeCloseTo(-200, 0);
@@ -809,7 +1107,7 @@ test.describe("detail metadata gestures", () => {
     const imagePage = detail.locator('[data-detail-page="current"]');
     const initialImage = (await imagePage.boundingBox())!;
     await swipe(page, credit, -160, 18, async () => {
-      expect((await panel.boundingBox())!.x - initialCard.x).toBeCloseTo(-160, 0);
+      await expect.poll(async () => (await panel.boundingBox())!.x - initialCard.x).toBeCloseTo(-160, 0);
       expect((await imagePage.boundingBox())!.x - initialImage.x).toBeCloseTo(-160, 0);
       await page.screenshot({ path: test.info().outputPath("detail-pages-expanded-swipe.png") });
     });
@@ -821,7 +1119,7 @@ test.describe("detail metadata gestures", () => {
     await expect(detail).toHaveAttribute("data-detail-image-id", first!);
 
     await body.evaluate(element => { element.scrollTop = 0; });
-    await swipe(page, body, 0, -150);
+    await swipe(page, body, 0, -150, undefined, false, 0.5);
     await expect.poll(() => body.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
     await expect(detail).toHaveAttribute("data-detail-image-id", first!);
 
@@ -830,7 +1128,7 @@ test.describe("detail metadata gestures", () => {
     expect(new URL(page.url()).searchParams.get("query")).not.toBe(query);
   });
 
-  test("cancelled image swipes restore the whole page and fullscreen stays image-only", async ({ page }) => {
+  test("cancelled image swipes restore the whole page and traversal retains fullscreen", async ({ page }) => {
     const detail = page.locator("[data-detail-image-id]");
     const panel = page.getByRole("region", { name: "Image details", exact: true });
     const imageSurface = page.getByTestId("detail-image-container");
@@ -844,21 +1142,38 @@ test.describe("detail metadata gestures", () => {
     await swipe(page, imageSurface, -200);
     await expect(detail).not.toHaveAttribute("data-detail-image-id", first!);
     const fullscreenEntry = await detail.getAttribute("data-detail-image-id");
-    await page.keyboard.press("f");
-    try {
-      await expect.poll(() => page.evaluate(() => Boolean(document.fullscreenElement))).toBe(true);
-      await expect(page.getByRole("region", { name: "Image details", exact: true })).toHaveCount(0);
-      await swipe(page, imageSurface, -200);
-      await expect(detail).not.toHaveAttribute("data-detail-image-id", fullscreenEntry!);
-      await expect.poll(() => page.evaluate(() => Boolean(document.fullscreenElement))).toBe(true);
-      await swipe(page, imageSurface, 200);
-      await expect(detail).toHaveAttribute("data-detail-image-id", fullscreenEntry!);
-      await expect(detail.getByRole("button", { name: "Settings", exact: true })).toHaveCount(0);
-    } finally {
-      if (await page.evaluate(() => Boolean(document.fullscreenElement))) await page.keyboard.press("f");
-    }
-    await expect.poll(() => page.evaluate(() => Boolean(document.fullscreenElement))).toBe(false);
+    await expect.poll(() => page.evaluate(() => document.fullscreenElement === document.documentElement)).toBe(true);
+    await swipe(page, imageSurface, -200);
+    await expect(detail).not.toHaveAttribute("data-detail-image-id", fullscreenEntry!);
+    await expect.poll(() => page.evaluate(() => document.fullscreenElement === document.documentElement)).toBe(true);
+    await swipe(page, imageSurface, 200);
+    await expect(detail).toHaveAttribute("data-detail-image-id", fullscreenEntry!);
+    await expect(detail.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
     await expect(panel).toBeVisible();
+  });
+
+  test("image swipe down collapses expanded details before closing the image", async ({ page }) => {
+    const detail = page.locator("[data-detail-image-id]");
+    const imageId = await detail.getAttribute("data-detail-image-id");
+    const panel = page.getByRole("region", { name: "Image details", exact: true });
+    const surface = page.getByTestId("detail-image-container");
+    await panel.getByRole("button", { name: "Expand Image details" }).tap();
+    await expect(panel.getByRole("button", { name: "Collapse Image details" })).toBeVisible();
+    await expect.poll(async () => (await panel.boundingBox())!.y).toBeCloseTo(await page.evaluate(() => innerHeight / 4), 0);
+    const initialTop = (await panel.boundingBox())!.y;
+    await swipe(page, surface, 0, 100, undefined, true, 0.5);
+    await expect(panel.getByRole("button", { name: "Collapse Image details" })).toBeVisible();
+    await expect.poll(async () => (await panel.boundingBox())!.y).toBeCloseTo(initialTop, 0);
+    await expect(detail).toHaveAttribute("data-detail-image-id", imageId!);
+    await swipe(page, surface, 0, 160, async () => {
+      await expect.poll(async () => (await panel.boundingBox())!.y).toBeGreaterThan(initialTop + 100);
+      await expect(detail).toHaveAttribute("data-detail-image-id", imageId!);
+    }, false, 0.5);
+    await expect(panel.getByRole("button", { name: "Expand Image details" })).toBeVisible();
+    await expect(detail).toHaveAttribute("data-detail-image-id", imageId!);
+    await swipe(page, surface, 0, 180);
+    await expect(detail).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Image results justified" })).toBeVisible();
   });
 
   test("image swipe-up still tracks only the card before expanding", async ({ page }) => {

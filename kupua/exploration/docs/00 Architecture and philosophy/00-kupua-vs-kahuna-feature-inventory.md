@@ -414,7 +414,7 @@ Sources: [ImageDetail](../../../src/components/ImageDetail.tsx),
 [legacy image route](../../../src/routes/image.tsx),
 [Kahuna image view](../../../../kahuna/public/js/image/view.html).
 
-### 3.2 Phone-friendly browsing and portrait inspection
+### 3.2 Phone-friendly browsing and image inspection
 
 **Kahuna:** its desktop-oriented image page and search controls do not provide
 Kupua's integrated phone browsing, swipe traversal and portrait inspection workflow.
@@ -427,17 +427,18 @@ desktop interface ([compact shell](component-detail.md#compact-shell-hooksuseshe
   add) alongside free-to-use, sort and dates, with a live "Show N results" count.
 - **Sheets instead of panels:** the Browse panel slides in over a scrim and swipes away;
   selection details appear in a peek-and-expand card instead of a side panel.
-- **Portrait detail:** the image fills the screen above a peek card holding metadata and
-  Usages; expanding the card shrinks the image into the top quarter, and tapping the
-  image collapses it.
+- **Image-first detail:** portrait and landscape share one image view with a peek card
+  holding metadata and Usages. Expanding the card shrinks the image into the top
+  quarter; tapping or swiping down on the image collapses it.
 - **Swipe through the result set:** horizontal touch swipes move between images in
-  detail and fullscreen, with the same prefetch and off-buffer traversal as desktop.
-- **Return naturally:** swipe down from ordinary detail to return to the grid;
-  after traversal, return placement brings the last-viewed image into view.
-- **Tap for fullscreen; pinch for detail:** a tap enters fullscreen, where pinch
-  zoom and panning support closer inspection. Zoomed panning takes precedence over
-  navigation gestures. Detail fullscreen also supports downward swipe to exit when
-  unzoomed, rather than requiring desktop keyboard controls.
+  detail, with the same prefetch and off-buffer traversal as desktop.
+- **Return naturally:** swipe down on the unzoomed image to return to the grid; an
+  expanded card collapses first. After traversal, return placement brings the
+  last-viewed image into view.
+- **Tap for controls; pinch for detail:** tapping the image toggles its controls;
+  pinch zoom and panning work directly in detail. Zoomed panning takes precedence
+  over navigation gestures. Installed apps use their existing window presentation;
+  browser detail can request native fullscreen when opened.
 - **Pinch the results:** one pinch steps one zoom level (§4.8); pull down at the top
   to refresh.
 - **Touch selection:** long-press, drag-select and a floating selection menu make
@@ -520,15 +521,16 @@ Sources: [image traversal](../../../src/hooks/useImageTraversal.ts),
 [image prefetch](../../../src/lib/image-prefetch.ts),
 [Kahuna image controller](../../../../kahuna/public/js/image/controller.js).
 
-### 3.5 Interactive fullscreen zoom and pan
+### 3.5 Interactive image zoom and pan
 
 **Kahuna:** requests image renditions for display, but its image page does not
 provide Kupua's combined fullscreen zoom/pan interaction.
 
 **Kupua:** supports pinch, wheel, click/tap and keyboard zoom, with panning and
-momentum. Wheel, Space and `+`/`-` zoom at the mouse pointer. Higher-resolution media can be requested as zoom increases. Zoomed
-panning takes precedence over swipe traversal, so inspecting a detail does not
-accidentally navigate to another image.
+momentum in compact detail and desktop fullscreen. The initial click or double-tap
+zooms to 3x the fitted image; continuous zoom reaches 9x. Wheel, Space and `+`/`-`
+zoom at the mouse pointer. A higher-resolution rendition can be requested on zoom;
+zoomed panning takes precedence over swipe traversal.
 
 **New endpoints:** none. Zoom/pan is client-side; rendition fetching is media
 delivery, not one of the new image-data endpoints.
@@ -648,8 +650,12 @@ mobile tabs. These are adaptations of the same browsing and editing workspace, n
 separate application with different data or navigation rules.
 
 **Boundary:** installation, fullscreen and cutout coverage depend on browser and OS
-support. This adds no offline cache or offline browsing; ordinary browser and desktop
-views retain their existing overall layout.
+support. On Android, system bars can reappear and reduce the viewport after returning
+to an installed fullscreen app; the browser can still report fullscreen. Similar
+behavior was observed in independent demos and is tracked in a related
+[Chromium issue](https://issues.chromium.org/issues/407420295); the exact cause and a
+web-only fix remain unconfirmed. This adds no offline cache or offline browsing;
+ordinary browser and desktop views retain their existing overall layout.
 
 **New endpoints:** **none** for installation or these layout adaptations.
 

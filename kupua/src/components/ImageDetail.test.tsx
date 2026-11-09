@@ -188,6 +188,20 @@ describe("KUP-004 standalone detail identity", () => {
     expect(history.state._detailEntryImageId).toBe("A");
   });
 
+  it("hides mobile detail controls on an image tap without leaving detail", () => {
+    vi.useFakeTimers();
+    fixture.compact = true;
+    fixture.resident = [makeImage("A")];
+    useUiPrefsStore.setState({ _pointerCoarse: true });
+    render(<Detail imageId="A" />);
+    const image = screen.getByAltText("Title A");
+    expect(screen.getByRole("region", { name: "Image details" })).toBeTruthy();
+    fireEvent.click(image);
+    act(() => { vi.advanceTimersByTime(350); });
+    expect(screen.queryByRole("region", { name: "Image details" })).toBeNull();
+    expect(screen.getByAltText("Title A")).toBe(image);
+  });
+
   it.each([false, true])("image swipe-up drags only the card with sheet snap rules (fullscreen=%s)", (fullscreen) => {
     fixture.compact = true;
     fixture.fullscreen = fullscreen;
@@ -214,23 +228,51 @@ describe("KUP-004 standalone detail identity", () => {
     };
     touch("touchstart", 400, 0);
     touch("touchmove", 350, 1000);
-    if (!fullscreen) expect(card!.style.translate).not.toBe(peek);
+    expect(card!.style.translate).not.toBe(peek);
     touch("touchend", 350, 1100);
-    if (!fullscreen) {
-      expect(card!.style.translate).toBe(peek);
-      expect(screen.getByRole("button", { name: "Expand Image details" }).getAttribute("aria-expanded")).toBe("false");
-    }
+    expect(card!.style.translate).toBe(peek);
+    expect(screen.getByRole("button", { name: "Expand Image details" }).getAttribute("aria-expanded")).toBe("false");
     touch("touchstart", 400, 2000);
     touch("touchmove", 100, 3000);
     expect(image.style.transform).toBe("");
     expect(wrapper.style.transform).toBe("");
-    if (!fullscreen) expect(card!.style.translate).not.toBe(peek);
+    expect(card!.style.translate).not.toBe(peek);
     touch("touchend", 100, 3100);
-    if (fullscreen) expect(screen.queryByRole("region", { name: "Image details" })).toBeNull();
-    else expect(screen.getByRole("button", { name: "Collapse Image details" }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("button", { name: "Collapse Image details" }).getAttribute("aria-expanded")).toBe("true");
     expect(image.style.transform).toBe("");
     expect(wrapper.style.transform).toBe("");
     expect(back).not.toHaveBeenCalled();
+  });
+
+  it("collapses the expanded drawer before a second image swipe closes detail", () => {
+    fixture.compact = true;
+    fixture.realDismiss = true;
+    fixture.resident = [makeImage("A")];
+    useUiPrefsStore.setState({ _pointerCoarse: true });
+    const back = vi.spyOn(history, "back").mockImplementation(() => {});
+    const clock = vi.spyOn(performance, "now");
+    render(<Detail imageId="A" />);
+    fireEvent.click(screen.getByRole("button", { name: "Expand Image details" }));
+    const surface = screen.getByAltText("Title A").closest('[data-testid="detail-image-container"]')!;
+    const touch = (type: string, vertical: number, timestamp: number) => {
+      clock.mockReturnValue(timestamp);
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperties(event, {
+        touches: { value: type === "touchend" ? [] : [{ clientX: 100, clientY: vertical }] },
+        changedTouches: { value: [{ clientX: 100, clientY: vertical }] },
+        timeStamp: { value: timestamp },
+      });
+      fireEvent(surface, event);
+    };
+    touch("touchstart", 100, 1000);
+    touch("touchmove", 260, 1100);
+    touch("touchend", 260, 1150);
+    expect(back).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Expand Image details" }).getAttribute("aria-expanded")).toBe("false");
+    touch("touchstart", 100, 2000);
+    touch("touchmove", 260, 2100);
+    touch("touchend", 260, 2150);
+    expect(back).toHaveBeenCalledOnce();
   });
 
   it("post-swipe suppression allows keyboard activation while rejecting pointer clicks", () => {
@@ -262,16 +304,12 @@ describe("KUP-004 standalone detail identity", () => {
     expect(screen.getByRole("button", { name: "Expand Image details" })).toBe(toggle);
   });
 
-  it.each([false, true])("keeps Settings outside fullscreen after a swipe, fullscreen=%s", fullscreen => {
+  it.each([false, true])("keeps compact Settings usable after a swipe, fullscreen=%s", fullscreen => {
     fixture.compact = true;
     fixture.fullscreen = fullscreen;
     fixture.swiped = true;
     fixture.resident = [makeImage("A")];
     render(<Detail imageId="A" />);
-    if (fullscreen) {
-      expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
-      return;
-    }
     fireEvent.click(screen.getByRole("button", { name: "Settings" }), { detail: 1 });
     expect(screen.getByRole("menu")).toBeTruthy();
     fireEvent.keyDown(screen.getByRole("button", { name: "Settings" }), { key: "Escape" });

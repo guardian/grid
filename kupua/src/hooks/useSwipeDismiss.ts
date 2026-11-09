@@ -112,9 +112,34 @@ export function useSwipeDismiss({
       if (backdrop) backdrop.style.opacity = opacity;
     }
 
+    function cancelDrag() {
+      tracking = false;
+      decided = false;
+      if (dragTarget) {
+        dragTarget.style.transition = "";
+        if (!scaleRef?.current || scaleRef.current <= 1) dragTarget.style.transform = "";
+        dragTarget.style.opacity = "";
+        container.style.background = "";
+      } else {
+        wrapper.style.transition = "";
+        wrapper.style.transform = "";
+        wrapper.style.backgroundColor = "";
+        if (headerEl) { headerEl.style.transition = ""; headerEl.style.opacity = ""; }
+        if (asideEl) { asideEl.style.transition = ""; asideEl.style.opacity = ""; }
+        container.style.transition = "";
+        container.style.opacity = "";
+        container.style.backgroundColor = "";
+        if (scrollEl) scrollEl.style.overflow = "";
+      }
+      if (backdrop) { backdrop.style.transition = ""; backdrop.style.opacity = ""; }
+    }
+
     function onTouchStart(e: TouchEvent) {
-      if (animating || e.touches.length !== 1) return;
-      if (scaleRef?.current && scaleRef.current > 1) return; // zoomed — pan, not dismiss
+      if (animating) return;
+      if (e.touches.length !== 1 || (scaleRef?.current && scaleRef.current > 1)) {
+        if (tracking) cancelDrag();
+        return;
+      }
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
       lastY = startY;
@@ -125,8 +150,11 @@ export function useSwipeDismiss({
     }
 
     function onTouchMove(e: TouchEvent) {
-      if (animating || e.touches.length !== 1) return;
-      if (scaleRef?.current && scaleRef.current > 1) return; // zoomed — pan, not dismiss
+      if (animating) return;
+      if (e.touches.length !== 1 || (scaleRef?.current && scaleRef.current > 1)) {
+        if (tracking) cancelDrag();
+        return;
+      }
       const currentY = e.touches[0].clientY;
       const dy = currentY - startY;
       const dx = e.touches[0].clientX - startX;
@@ -199,6 +227,7 @@ export function useSwipeDismiss({
 
     function onTouchEnd() {
       if (!tracking || animating) return;
+      if (scaleRef?.current && scaleRef.current > 1) { cancelDrag(); return; }
 
       const transformEl = dragTarget ?? wrapper;
       const match = transformEl.style.transform.match(/translateY\(([-.0-9]+)px\)/);
@@ -423,14 +452,18 @@ export function useSwipeDismiss({
       }
     }
 
+    const onTouchCancel = () => { if (tracking && !animating) cancelDrag(); };
     container.addEventListener("touchstart", onTouchStart, { passive: true });
     container.addEventListener("touchmove", onTouchMove, { passive: false });
     container.addEventListener("touchend", onTouchEnd, { passive: true });
+    container.addEventListener("touchcancel", onTouchCancel, { passive: true });
 
     return () => {
       container.removeEventListener("touchstart", onTouchStart);
       container.removeEventListener("touchmove", onTouchMove);
       container.removeEventListener("touchend", onTouchEnd);
+      container.removeEventListener("touchcancel", onTouchCancel);
+      if (tracking && !animating) cancelDrag();
     };
   }, [containerRef, wrapperRef, backdropRef, enabled]);
 }

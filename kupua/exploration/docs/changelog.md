@@ -24,6 +24,23 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 9 November 2026 - Simplifying mobile UX
+
+Unified phone detail and image inspection across portrait and landscape: the image
+remains the main surface, with controls toggled by tap and metadata in a movable
+drawer. Horizontal traversal carries the image and metadata together. A downward
+image swipe collapses an expanded drawer before a subsequent swipe returns to results;
+pinch and pan take precedence while zoomed.
+
+Browser detail can enter native fullscreen on opening and return to results on native
+exit; installed apps use their existing fullscreen window, and rejected browser
+fullscreen leaves detail usable. Initial image zoom remains 3x the fitted size, with
+continuous zoom extended to 9x without requesting another rendition.
+
+The mobile drawer test keeps its touch-scroll and metadata assertions using a central
+touch point; the queued-density wheel test waits for actual scrolling before checking
+that the stale frame cannot override it.
+
 ### 9 November 2026 - Reduce scrolling overhead and preserve mobile profiling tools
 
 Scrubber thumb and position tooltip now move with translateY from a fixed layout

@@ -601,7 +601,7 @@ Phantom capture cannot independently restore a hidden bookmark. See the
 - **Drag-select** (`createDragSelect` in `handleLongPressStart.ts`, wired by `hooks/useTouchSelection.ts` for Grid, Justified and Table): after a long-press, dragging selects the range origin→finger, Google Photos style; dragging back un-selects what this drag added. Starting on a selected image erases instead. Edges auto-scroll. Touched images are tracked by global position so buffer eviction mid-drag is harmless; on release, any never-loaded part of the range is completed by the shared range walk (add or remove, by anchor polarity).
 - **`hooks/usePullToRefresh.ts`** refreshes results (`lib/refresh-results.ts`) when pulled down at the top; disabled while a selection exists. Native browser pull-to-refresh is suppressed by `overscroll-behavior-y: none`.
 - **`hooks/useContentPullToDrag.ts`** lets a sheet's scrollable content hand a downward pull at its top over to the sheet drag, freezing content scroll during the drag.
-- **`hooks/usePinchZoom.ts`** owns fullscreen touch/mouse/keyboard zoom and pan. Scale gates traversal/swiping, resets on image change, and touch-to-mouse guards prevent duplicate actions. Space toggles zoom and `+`/`=`/`-`/`0` step it (1.5x) anchored at the mouse pointer when it is over the image, else the centre. Detailed gesture bindings belong in the keyboard guide and hook.
+- **`hooks/usePinchZoom.ts`** owns compact-detail and fullscreen touch/mouse/keyboard zoom and pan. Scale gates traversal/swiping, resets on image change, and touch-to-mouse guards prevent duplicate actions. Space toggles zoom and `+`/`=`/`-`/`0` step it (1.5x) anchored at the mouse pointer when it is over the image, else the centre. Detailed gesture bindings belong in the keyboard guide and hook.
 
 ---
 
@@ -920,8 +920,9 @@ owned by the shared layout/anchor path; the decorative animation never changes r
 ## Image Detail (`components/ImageDetail.tsx`)
 
 Owns the route-driven overlay while the list stays mounted. It composes metadata/usages,
-`NavStrip`, traversal, prefetch, swipe/dismiss and fullscreen-only zoom. Stable containers preserve
-fullscreen across traversal; return placement belongs to `useReturnFromDetail`, not this renderer.
+`NavStrip`, traversal, prefetch, swipe/dismiss and zoom in compact detail or desktop fullscreen.
+Stable containers preserve fullscreen across traversal; return placement belongs to
+`useReturnFromDetail`, not this renderer.
 
 Resident images win. A non-resident ID uses `getById(id, signal)` with image, overlay and failure
 owned by that ID; identity change or becoming resident aborts the read. Standalone enrichment
@@ -939,7 +940,10 @@ coordinates fullscreen controls. None of this implements expired-URL renewal.
 top-right enter/exit toggle inside the image area; circles fade in after a 100ms hover delay so
 passing the pointer over them does not flash them. The next strip starts below the corner button.
 In the compact shell, metadata moves into a non-modal `BottomSheet` card (no scrim). Expanding
-the card shrinks the image into the top quarter; tapping the image collapses the card.
+the card shrinks the image into the top quarter; tapping or swiping down on the image collapses
+the card before a subsequent downward swipe dismisses detail. Portrait and landscape use the
+same image-first view; tapping toggles controls and zoom hides them. Browser detail requests
+native fullscreen when possible, while installed apps use their existing window presentation.
 
 ## Crop Editor (`components/crop/`)
 

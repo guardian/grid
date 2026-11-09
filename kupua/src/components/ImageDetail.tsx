@@ -125,11 +125,13 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   //
   // Result: stack goes from [...prior] [detail@A] to [...prior] [bare-list] [detail@A].
   const hasSynthesizedRef = useRef(false);
+  const enteredViaSpaRef = useRef(false);
   useLayoutEffect(() => {
     if (hasSynthesizedRef.current) return;
     hasSynthesizedRef.current = true;
 
     if (consumeDetailEnteredViaSpaFlag()) {
+      enteredViaSpaRef.current = true;
       if (!history.state?._bareListSynthesized || !history.state?._detailEntryImageId) {
         history.replaceState({
           ...history.state,
@@ -174,6 +176,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
 
   // Wrapper around the entire detail view — animated during swipe-to-dismiss.
   const detailWrapperRef = useRef<HTMLDivElement>(null);
+  const mobileFullscreenRequestedRef = useRef(false);
   // Carousel strip — the inner element translated by swipe gestures.
   const stripRef = useRef<HTMLDivElement>(null);
   const imageSurfaceRef = useRef<HTMLDivElement>(null);
@@ -194,6 +197,8 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const mobileScrollRef = useRef<HTMLDivElement>(null);
   const isCompact = useIsCompact();
   const [cardExpanded, setCardExpanded] = useState(false);
+  const [chromeVisible, setChromeVisible] = useState(true);
+  const [drawerVisible, setDrawerVisible] = useState(false);
   const { isFullscreen, toggleFullscreen } = useFullscreen(containerRef);
   const { cursorHidden, navMouseEnter, navMouseLeave } = useCursorAutoHide(isFullscreen);
 
@@ -393,6 +398,42 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     history.back();
   }, []);
 
+  useLayoutEffect(() => {
+    const detail = detailWrapperRef.current;
+    const fullscreenTarget = document.documentElement;
+    const installed = window.matchMedia?.("(display-mode: standalone), (display-mode: fullscreen)").matches
+      || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    if (!isCompact || !enteredViaSpaRef.current || installed || !detail || !fullscreenTarget.requestFullscreen || document.fullscreenElement) return;
+
+    let active = false;
+    let exitTimer: ReturnType<typeof setTimeout> | undefined;
+    const onFullscreenChange = () => {
+      if (document.fullscreenElement === fullscreenTarget) {
+        active = true;
+        return;
+      }
+      if (!active) return;
+      active = false;
+      const entryKey = history.state?.kupuaKey;
+      const exitUrl = window.location.href;
+      exitTimer = setTimeout(() => {
+        if (detail.isConnected && !document.fullscreenElement && history.state?.kupuaKey === entryKey && window.location.href === exitUrl) closeDetail();
+      }, 100);
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    if (!mobileFullscreenRequestedRef.current) {
+      mobileFullscreenRequestedRef.current = true;
+      void fullscreenTarget.requestFullscreen().then(() => {
+        if (!detail.isConnected && document.fullscreenElement === fullscreenTarget) void document.exitFullscreen().catch(() => {});
+      }).catch(() => {});
+    }
+    return () => {
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+      if (exitTimer) clearTimeout(exitTimer);
+      if (document.fullscreenElement === fullscreenTarget) void document.exitFullscreen().catch(() => {});
+    };
+  }, [closeDetail, isCompact]);
+
   // Crop editor: its own history entry (Kahuna's crop is a page), so Back leaves it.
   // A deep link (legacy /images/:id/crop) has no entry below to go back to.
   const cropping = searchParams.cropping === "true";
@@ -422,12 +463,13 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
 
   // Keyboard shortcut: f = toggle fullscreen (via centralised shortcut system)
   // Alt+f works when focus is in an editable field.
-  useKeyboardShortcut("f", () => { if (!cropping) toggleFullscreen(); });
+  useKeyboardShortcut("f", () => { if (!cropping && !isCompact) toggleFullscreen(); });
 
   // Shared scaleRef — written by usePinchZoom, read by useSwipeCarousel
   // to suppress swipe when zoomed in. Created here to break the circular
   // dependency (swipe needs scaleRef, zoom needs lastSwipeTimeRef from swipe).
   const scaleRef = useRef(1);
+  const drawerGestureEnabledRef = useRef(true);
 
   // Swipe carousel: horizontal swipe with visual slide-in animation.
   // Compact detail shares gestures with metadata; fullscreen uses the image container.
@@ -435,7 +477,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   // the container DOM element exists (on reload, the loading spinner renders first).
   const { swipedRef, lastSwipeTimeRef } = useSwipeCarousel({
     containerRef,
-    commitKey: isCompact && !isFullscreen ? `${searchKey}:${imageId}` : undefined,
+    commitKey: isCompact ? `${searchKey}:${imageId}` : undefined,
     stripRef,
     onSwipeLeft: canGoNext ? goToNext : undefined,
     onSwipeRight: prevImage ? goToPrev : undefined,
@@ -443,22 +485,25 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     scaleRef,
   });
 
-  // Pinch-to-zoom (touch) + click/wheel/drag zoom (desktop). Fullscreen-only.
-  // Exposes scaleRef so carousel and dismiss can skip when zoomed.
-  // lastSwipeTimeRef: suppress zoom during post-swipe cooldown.
   const [isZoomed, setIsZoomed] = useState(false);
   usePinchZoom({
-    containerRef,
+    containerRef: isCompact ? imageSurfaceRef : containerRef,
     imageRef,
-    enabled: !!image && isFullscreen,
+    enabled: !!image && (isFullscreen || isCompact),
     lastSwipeTimeRef,
     scaleRef,
-    onScaleChange: setIsZoomed,
+    onScaleChange: zoomed => {
+      drawerGestureEnabledRef.current = !zoomed;
+      setIsZoomed(zoomed);
+      if (zoomed && isCompact) {
+        setChromeVisible(false);
+        setDrawerVisible(false);
+        setCardExpanded(false);
+      }
+    },
     onDoubleClick: toggleFullscreen,
   });
 
-  // Swipe-to-dismiss: pull down on the image to close detail view.
-  // Only on mobile, only outside fullscreen (tap exits fullscreen instead).
   const _pointerCoarse = useUiPrefsStore((s) => s._pointerCoarse);
   useSwipeDismiss({
     containerRef: imageSurfaceRef,
@@ -477,7 +522,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
         scrollFocusedIntoView();
       }
     },
-    enabled: !!image && _pointerCoarse && !isFullscreen,
+    enabled: !!image && _pointerCoarse && (!isFullscreen || isCompact) && (!isCompact || !cardExpanded),
     scaleRef,
     imageId,
   });
@@ -492,23 +537,31 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     containerRef,
     wrapperRef: containerRef, // fullscreen container IS the animated element
     onDismiss: toggleFullscreen,
-    enabled: !!image && _pointerCoarse && isFullscreen,
+    enabled: !!image && _pointerCoarse && isFullscreen && !isCompact,
     scaleRef,
     dragTargetRef: imageRef,
   });
 
-  // Tap-to-fullscreen handler for touch devices.
-  // On desktop: double-click toggles fullscreen (or closes detail).
-  // On mobile (non-fullscreen): single tap enters fullscreen instantly.
-  // In fullscreen: single tap exits after 300ms delay (to distinguish from
-  // double-tap-to-zoom). The delay on EXIT is acceptable — retreating feels
-  // natural with a slight pause. ENTERING fullscreen stays instant.
   const fullscreenTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleImageClick = useCallback(() => {
     if (swipedRef.current) return; // was a swipe, not a tap
     // Post-swipe cooldown — suppress accidental taps shortly after swiping (250ms)
     if (lastSwipeTimeRef.current && Date.now() - lastSwipeTimeRef.current < 250) return;
     if (!useUiPrefsStore.getState()._pointerCoarse) return; // desktop: ignore click, use dblclick
+    if (isCompact) {
+      if (fullscreenTapTimer.current) {
+        clearTimeout(fullscreenTapTimer.current);
+        fullscreenTapTimer.current = null;
+        return;
+      }
+      fullscreenTapTimer.current = setTimeout(() => {
+        fullscreenTapTimer.current = null;
+        if (scaleRef.current > 1) return;
+        setChromeVisible(visible => !visible);
+        setDrawerVisible(false);
+      }, DOUBLE_TAP_MS);
+      return;
+    }
     if (isFullscreen) {
       // In fullscreen: delay exit to allow double-tap-to-zoom.
       // If double-tap fires (zooms in), scaleRef.current > 1 when the
@@ -530,7 +583,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     } else {
       toggleFullscreen(); // enter fullscreen instantly
     }
-  }, [swipedRef, lastSwipeTimeRef, toggleFullscreen, isFullscreen, scaleRef]);
+  }, [swipedRef, lastSwipeTimeRef, toggleFullscreen, isFullscreen, isCompact, scaleRef]);
 
   // Reset carousel strip and zoom when imageId changes. The carousel's
   // commitStripReset handles the visual transition imperatively (no flash),
@@ -550,6 +603,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     }
     // Reset pinch-zoom state — new image starts at 1x
     scaleRef.current = 1;
+    drawerGestureEnabledRef.current = true;
     setIsZoomed(false);
     const img = imageRef.current;
     if (img) {
@@ -565,7 +619,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   // On zoom-out or image change, cancel the in-flight fetch. StableImg's
   // layoutEffect will revert to the standard-res URL on its next render.
   useEffect(() => {
-    if (!isZoomed || !isFullscreen || !image) return;
+    if (!isZoomed || (!isFullscreen && !isCompact) || !image) return;
     const zoomUrl = getZoomImageUrl(image);
     if (!zoomUrl) return;
     const img = imageRef.current;
@@ -584,7 +638,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       cancelled = true;
       loader.src = ""; // abort in-flight fetch
     };
-  }, [isZoomed, isFullscreen, image?.id]);
+  }, [isZoomed, isFullscreen, isCompact, image?.id]);
 
   // Navigation keyboard shortcuts (arrows, backspace) — these are NOT
   // single-character shortcuts, so they don't go through the shortcut
@@ -739,13 +793,13 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     void resetToHome(() => pushNavigateAsPopstate(navigate, { to: "/search", search: DEFAULT_SEARCH }),
       undefined, router.history);
   };
-  const pairedPages = isCompact && !isFullscreen;
+  const pairedPages = isCompact;
   const imageSurfaceClass = `absolute inset-x-0 top-0 flex items-center justify-center ${
     pairedPages
-      ? `${cardExpanded ? "h-[calc(25svh-44px)]" : "h-[calc(100%-64px)]"} transition-[height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`
+      ? cardExpanded ? "h-1/4" : "h-full"
       : "h-full"
-  }${isFullscreen ? " touch-none" : " touch-none wide:touch-auto bg-grid-bg"}`;
-  const imageClass = isFullscreen ? "w-full h-full object-contain select-none" : "max-w-full max-h-full object-contain select-none";
+  }${isFullscreen ? " touch-none" : " touch-none wide:touch-auto"} bg-black`;
+  const imageClass = isFullscreen || isCompact ? "w-full h-full object-contain select-none" : "max-w-full max-h-full object-contain select-none";
   const renderMetadata = (detailImage: Image, overlay?: EnrichmentFields) => <>
     <AccordionSection sectionId="detail-metadata" contentId={`detail-metadata-${detailImage.id}`} title="Details">
       <div className="p-3">
@@ -768,6 +822,10 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     header={detailImage.metadata?.title ?? detailImage.metadata?.description ?? detailImage.metadata?.credit ?? "Details"}
     expanded={cardExpanded}
     onExpandedChange={setCardExpanded}
+    visible={chromeVisible || drawerVisible || cardExpanded}
+    gestureEnabledRef={drawerGestureEnabledRef}
+    onRevealDrag={() => setDrawerVisible(true)}
+    overlay
     scrim={false}
   >
     {renderMetadata(detailImage, current && !imageFromResults ? standaloneEnrichment : undefined)}
@@ -797,13 +855,13 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   </div>;
 
   return (
-    <div ref={detailWrapperRef} className="flex flex-col flex-1 min-h-0 bg-grid-bg" data-detail-image-id={resolvedImage?.id}>
+    <div ref={detailWrapperRef} className={`relative flex flex-col flex-1 min-h-0 ${isCompact ? "bg-black" : "bg-grid-bg"}`} data-detail-image-id={resolvedImage?.id}>
       {cropping && <div className="fixed inset-0 z-50 bg-grid-bg" data-testid="crop-backdrop">
         {displayImage ? <Suspense fallback={cropLoading}><CropEditor image={displayImage} previewSrc={cropPreviewSrc} onClose={closeCrop} onHome={goHome} /></Suspense> : cropLoading}
       </div>}
       {/* Top bar — hidden in fullscreen */}
-      {!isFullscreen && (
-        <header inert={cropping} className="detail-toolbar @container/detail-toolbar relative z-30 flex items-center px-3 py-1.5 bg-grid-bg border-b border-grid-separator h-11 shrink-0">
+      {(!isFullscreen || isCompact) && (
+        <header inert={cropping || (isCompact && !chromeVisible)} aria-hidden={isCompact && !chromeVisible || undefined} style={isCompact ? { visibility: chromeVisible ? "visible" : "hidden", background: "linear-gradient(to bottom, rgba(0,0,0,0.88), rgba(0,0,0,0.72))" } : undefined} className={`detail-toolbar @container/detail-toolbar z-30 flex items-center px-3 py-1.5 h-11 shrink-0 ${isCompact ? "absolute inset-x-0 top-0 text-white" : "relative bg-grid-bg border-b border-grid-separator"}`}>
           <DetailNavigation destination="search" onBack={closeDetail} onHome={goHome} />
           <div className="w-px h-5 bg-grid-separator shrink-0" />
           {currentGlobalIndex >= 0 && (
@@ -919,7 +977,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
                     // Non-fullscreen desktop: dblclick closes detail.
                     // Mount guard: suppress stray dblclick from phantom-mode grid/table
                     // click leaking through (see mountTimeRef).
-                    isFullscreen ? undefined
+                    isFullscreen || isCompact ? undefined
                       : () => {
                           if (Date.now() - mountTimeRef.current < 500) return;
                           closeDetail();

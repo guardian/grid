@@ -203,6 +203,7 @@ export function useSwipeCarousel({
     resetRef.current = reset;
 
     function onTouchStart(e: TouchEvent) {
+      if (tracking && !animating && e.touches.length !== 1) strip.style.transform = "";
       // Always reset tracking state first — prevents stale flags from a
       // previous touch sequence from leaking into this sequence's
       // touchmove/touchend handlers.
@@ -227,9 +228,16 @@ export function useSwipeCarousel({
     }
 
     function onTouchMove(e: TouchEvent) {
-      if (animating || e.touches.length !== 1) return;
+      if (animating) return;
+      if (e.touches.length !== 1) {
+        if (tracking) strip.style.transform = "";
+        tracking = false;
+        decided = false;
+        return;
+      }
       // Guard: if zoomed in (pinch happened after touchstart), bail — let pinchZoom pan
       if (scaleRef?.current && scaleRef.current > 1) {
+        if (tracking) strip.style.transform = "";
         tracking = false;
         decided = false;
         return;
