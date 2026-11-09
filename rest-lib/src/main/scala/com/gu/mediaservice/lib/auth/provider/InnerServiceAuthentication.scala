@@ -81,7 +81,7 @@ trait InnerServiceAuthentication {
   ) {
     override def toString() = List(identity, uuid, timestamp, method, target).mkString(".")
 
-    lazy val signature = signer.sign(toString())
+    lazy val signature = signer.sign(toString)
 
     private def isTimestampRecent: Boolean =
       Try {
