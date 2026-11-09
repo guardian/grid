@@ -69,7 +69,6 @@ jobs:
         run: |
           sudo apt-get -y update
           sudo apt-get -y install graphicsmagick
-          sudo apt-get -y install graphicsmagick-imagemagick-compat
           sudo apt-get -y install exiftool
       - name: Setup Java
         uses: guardian/setup-scala@v2
