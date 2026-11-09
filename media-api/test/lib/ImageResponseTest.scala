@@ -68,24 +68,24 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
     }
 
     describe("legacy category field mapping") {
-      it("should map a legacy category's supplier field onto creator when replaced by PublisherPhotographer") {
-        PublisherPhotographer.legacyCategories should contain(CommissionedAgency.category)
+      it("should map a legacy category's supplier field onto creator when replaced by PublisherPhotography") {
+        PublisherPhotography.legacyCategories should contain(CommissionedAgency.category)
 
         val imageResponse = new ImageResponse(
-          mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PublisherPhotographer")),
+          mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PublisherPhotography")),
           null, null
         )
         val source = Json.obj("usageRights" -> Json.obj("category" -> CommissionedAgency.category, "supplier" -> "Corbis"))
         val result = source.transform(imageResponse.updateUsageRights(source)).get
 
-        (result \ "usageRights" \ "category").as[String] shouldBe PublisherPhotographer.category
+        (result \ "usageRights" \ "category").as[String] shouldBe PublisherPhotography.category
         (result \ "usageRights" \ "legacyCategory").as[String] shouldBe CommissionedAgency.category
         (result \ "usageRights" \ "creator").as[String] shouldBe "Corbis"
       }
 
-      it("should still map a legacy photographer field onto creator when replaced by PublisherPhotographer") {
+      it("should still map a legacy photographer field onto creator when replaced by PublisherPhotography") {
         val imageResponse = new ImageResponse(
-          mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PublisherPhotographer")),
+          mediaApiConfigWithApplicableUsageRights(List("com.gu.mediaservice.model.PublisherPhotography")),
           null, null
         )
         val source = Json.obj("usageRights" -> Json.obj("category" -> StaffPhotographer.category, "photographer" -> "Jane Doe"))
