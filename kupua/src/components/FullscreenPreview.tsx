@@ -292,7 +292,8 @@ export function FullscreenPreview() {
   usePinchZoom({
     containerRef,
     imageRef,
-    enabled: isActive,
+    imageKey: currentImage?.id,
+    enabled: isActive && !!imageUrl,
     scaleRef,
     onScaleChange: setIsZoomed,
     onDoubleClick: exitPreview,
@@ -447,12 +448,10 @@ export function FullscreenPreview() {
           exitPreview();
           break;
         case "ArrowLeft":
-          e.preventDefault();
-          if (scaleRef.current <= 1) goToPrev();
+          if (scaleRef.current <= 1) { e.preventDefault(); goToPrev(); }
           break;
         case "ArrowRight":
-          e.preventDefault();
-          if (scaleRef.current <= 1) goToNext();
+          if (scaleRef.current <= 1) { e.preventDefault(); goToNext(); }
           break;
       }
     };
@@ -467,7 +466,7 @@ export function FullscreenPreview() {
     "";
 
   // ── Hide cursor after 2s of inactivity (YouTube-style) ─────────
-  const { cursorHidden, navMouseEnter, navMouseLeave } = useCursorAutoHide(isActive);
+  const { cursorHidden, navMouseEnter, navMouseLeave, touchControlsVisible } = useCursorAutoHide(isActive, isActive ? containerRef : undefined);
 
   // The container div is always in the DOM but invisible when not active.
   // When active, the Fullscreen API makes it fill the screen — no CSS
@@ -503,12 +502,12 @@ export function FullscreenPreview() {
 
           {/* Navigation strips — hidden during animation and when cursor hidden */}
           {navReady && !cursorHidden && !isZoomed && prevImage && (
-            <NavStrip direction="prev" onClick={goToPrev} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} />
+            <NavStrip direction="prev" onClick={goToPrev} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} revealed={touchControlsVisible} />
           )}
           {navReady && !cursorHidden && !isZoomed && canGoNext && (
-            <NavStrip direction="next" onClick={goToNext} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} />
+            <NavStrip direction="next" onClick={goToNext} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} revealed={touchControlsVisible} />
           )}
-          {navReady && !cursorHidden && <FullscreenCornerButton isFullscreen onClick={exitPreview} />}
+          {navReady && !cursorHidden && <FullscreenCornerButton isFullscreen onClick={exitPreview} revealed={touchControlsVisible} />}
         </>
       )}
     </div>

@@ -177,6 +177,116 @@ test.beforeEach(async ({ page }) => {
   await clearSelection(page);
 });
 
+test("desktop touch keeps checkboxes and long-press selection together", async ({ page }) => {
+  await page.setViewportSize({ width: 1122, height: 856 });
+  await expect(page.locator("html")).toHaveAttribute("data-shell", "wide");
+  const checkbox = page.locator("[data-grid-cell]").first().locator("[data-tickbox]");
+  await expect(checkbox).toBeVisible();
+  await checkbox.tap();
+  expect(await getSelectionCount(page)).toBe(1);
+  await expect(page.getByRole("button", { name: "Clear selection", exact: true })).toBeVisible();
+  await clearSelection(page);
+  const point = await getFirstTouchableCellRect(page);
+  await beginLongPress(page, point.x, point.y);
+  await endPress(page, point.x, point.y);
+  expect(await getSelectionCount(page)).toBe(1);
+  await expect(page.getByRole("button", { name: /selected.*actions/ })).toHaveCount(0);
+});
+
+test("phone keeps Refine available after rotating to landscape", async ({ page }) => {
+  await page.setViewportSize({ width: 852, height: 393 });
+  await expect(page.locator("html")).toHaveAttribute("data-shell", "compact");
+  const toolbar = page.getByRole("toolbar", { name: "Search and filter controls" });
+  await expect(toolbar.getByRole("button", { name: "Filters and sort" })).toBeVisible();
+  await expect(toolbar.getByRole("checkbox")).toBeHidden();
+  await expect(page.locator("cql-input .Cql__TypeaheadPopoverContainer")).toHaveCSS("position", "fixed");
+  const session = await page.context().newCDPSession(page);
+  let active = false;
+  try {
+    for (const control of [toolbar.getByRole("link", { name: "Grid", exact: true }),
+      toolbar.getByRole("button", { name: "Filters and sort" }), toolbar.getByRole("button", { name: "Settings", exact: true })]) {
+      const background = () => control.evaluate(element => getComputedStyle(element).backgroundColor);
+      const before = await background();
+      const bounds = (await control.boundingBox())!;
+      await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [
+        { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2, id: 0 },
+      ] });
+      active = true;
+      await expect.poll(background).not.toBe(before);
+      await session.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+      active = false;
+      await expect.poll(background).toBe(before);
+    }
+  } finally {
+    if (active) await session.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+    await session.detach();
+  }
+  await page.goto("/search?nonFree=true&query=tennis%20city%3ALondon&orderBy=credit");
+  await toolbar.getByRole("button", { name: "Filters and sort" }).tap();
+  const refine = page.getByRole("dialog", { name: "Refine search" });
+  await expect(refine).toBeVisible();
+  await refine.getByRole("button", { name: "Reset", exact: true }).tap();
+  await expect.poll(() => {
+    const params = new URL(page.url()).searchParams;
+    return { query: params.get("query"), orderBy: params.get("orderBy") };
+  }).toEqual({ query: "tennis", orderBy: null });
+});
+
+test("holding the reveal button does not select or open a protected thumbnail", async ({ page }) => {
+  await page.route("**/src/lib/image-urls.ts*", route => route.fulfill({ contentType: "application/javascript", body: `
+    export const thumbnailsEnabled = true;
+    export const getThumbnailUrl = image => '/__detail_media/' + image.id + '.svg';
+    export const getFullImageUrl = getThumbnailUrl;
+    export const getZoomImageUrl = getThumbnailUrl;
+  ` }));
+  await page.reload();
+  await expect.poll(() => page.locator("[data-grid-cell]").count()).toBeGreaterThan(3);
+  await page.evaluate(() => {
+    const store = (window as any).__kupua_store__;
+    store.setState({ results: store.getState().results.map((image: any, index: number) => index < 2
+      ? { ...image, aliases: { ...image.aliases, adultContentWarning: true } } : image) });
+  });
+  const cell = page.locator("[data-grid-cell]").first();
+  const image = cell.locator("img").first();
+  const button = cell.getByRole("button", { name: "Hold to reveal image" });
+  await expect(button).toBeVisible();
+  await expect(cell.getByText("Hold to reveal", { exact: true })).toBeVisible();
+  await expect(image).toHaveCSS("filter", /blur/);
+  await button.locator("..").screenshot({ path: test.info().outputPath("reveal-warning.png") });
+  const bounds = (await button.boundingBox())!;
+  const session = await page.context().newCDPSession(page);
+  let active = false;
+  try {
+    await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [
+      { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2, id: 0 },
+    ] });
+    active = true;
+    await expect(image).toHaveCSS("filter", "none");
+    await page.waitForTimeout(650);
+    expect(await getSelectionCount(page)).toBe(0);
+    await expect(page.locator("[data-detail-image-id]")).toHaveCount(0);
+    await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    active = false;
+    await expect(image).toHaveCSS("filter", /blur/);
+  } finally {
+    if (active) await session.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+    await session.detach();
+  }
+  await page.evaluate(async () => {
+    const modulePath = "/src/stores/zoom-store.ts";
+    const { useZoomStore } = await import(modulePath);
+    const prefsPath = "/src/stores/ui-prefs-store.ts";
+    const { useUiPrefsStore } = await import(prefsPath);
+    const density = useUiPrefsStore.getState().density;
+    const state = useZoomStore.getState();
+    state.setOffset(density, state.ranges[density][0]);
+  });
+  await expect.poll(async () => (await cell.boundingBox())!.width).toBeLessThan(160);
+  await expect(cell.getByText("Hold to reveal", { exact: true })).toHaveCount(0);
+  await expect(button).toBeVisible();
+  await button.locator("..").screenshot({ path: test.info().outputPath("reveal-icon-only.png") });
+});
+
 test("installed phone moves controls above a full-width search without changing browser layout", async ({ page }) => {
   const toolbar = page.getByRole("toolbar", { name: "Search and filter controls" });
   const search = toolbar.getByRole("search");
@@ -205,6 +315,8 @@ test("installed phone moves controls above a full-width search without changing 
   await toolbar.getByRole("button", { name: "Settings", exact: true }).tap();
   await expect(page.getByRole("menu")).toBeVisible();
   await page.keyboard.press("Escape");
+  const suggestionTop = await page.locator("cql-input .Cql__TypeaheadPopoverContainer").evaluate(element => parseFloat(getComputedStyle(element).top));
+  expect(suggestionTop).toBeGreaterThanOrEqual(installedBox.y + installedBox.height);
   await toolbar.getByRole("button", { name: "Filters and sort" }).tap();
   await expect(page.getByRole("dialog", { name: "Refine search" })).toBeVisible();
   await page.getByRole("button", { name: "Close filters" }).tap();

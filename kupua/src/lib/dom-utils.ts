@@ -34,3 +34,15 @@ export function isNativeInputTarget(event: KeyboardEvent): boolean {
   const tag = target.tagName;
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 }
+
+const clearPressFeedback = (event: { currentTarget: HTMLElement }) => event.currentTarget.removeAttribute("data-pressed");
+
+export const pressFeedback = {
+  onPointerDown(event: { currentTarget: HTMLElement; button: number }) {
+    if (event.button === 0) event.currentTarget.setAttribute("data-pressed", "");
+  },
+  onPointerUp: clearPressFeedback,
+  onPointerCancel: clearPressFeedback,
+  onPointerLeave: clearPressFeedback,
+  onBlur: clearPressFeedback,
+};

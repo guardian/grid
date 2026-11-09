@@ -165,13 +165,15 @@ describe("traversal through duplicate-only extension", () => {
     vi.setSystemTime(Date.now() + 2100);
     const navigate = vi.fn();
     const origin = direction === "forward" ? initial.hits.at(-1)!.id : initial.hits[0].id;
-    const view = renderHook(() => useImageTraversal(origin, navigate));
+    const cancelled = vi.fn();
+    const view = renderHook(() => useImageTraversal(origin, navigate, undefined, cancelled));
     await act(async () => {
       if (direction === "forward") view.result.current.goToNext();
       else view.result.current.goToPrev();
     });
     expect(read).toHaveBeenCalledOnce();
     expect(navigate).not.toHaveBeenCalled();
+    expect(cancelled).toHaveBeenCalledOnce();
     expect(useSearchStore.getState().total).toBe(10_000);
     await act(async () => {
       if (retry) view.result.current.goToNext();

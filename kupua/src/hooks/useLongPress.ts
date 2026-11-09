@@ -207,8 +207,8 @@ export function useLongPress({
       // Only handle touch pointers (not mouse or stylus).
       if (e.pointerType !== "touch") return;
 
-      // Do not interfere with tickbox's own immediate click handler.
-      if (e.target instanceof Element && e.target.closest("[data-tickbox]")) {
+      // These controls own their touch gesture.
+      if (e.target instanceof Element && e.target.closest("[data-tickbox],[data-graphic-reveal]")) {
         return;
       }
 

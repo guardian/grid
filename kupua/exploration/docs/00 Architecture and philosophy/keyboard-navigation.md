@@ -37,6 +37,21 @@ cell). In table view, focus clearing is not yet implemented.
 | **End** | Scroll to bottom (seek if windowed) | Scroll to bottom + focus last image |
 | **Enter** | *(nothing)* | Open focused image detail |
 
+### Control Ownership
+
+Enter on a focused button, link or popup option belongs to that control, not to an older
+focused result. Space on a control does not zoom the image. Pointer presses on image
+Previous/Next and fullscreen controls do not retain button focus, so subsequent Space
+belongs to the image. Intentional keyboard focus on ordinary controls is preserved.
+
+Shortcut registrations consume keys only while enabled. Results zoom declines `+`, `=`,
+`-` and `0` during image viewing; image navigation declines Left/Right while zoomed so the
+pan handler can act, independently of listener order. The Sort popup focuses its
+selected option; arrows and Home/End move among enabled choices, Enter/Space activates,
+and Escape closes it and returns focus to the trigger. Tab leaving the popup closes it.
+Collapsed phone drawers keep only their peek control keyboard-accessible; collapsing
+focused content returns focus to that control.
+
 ### Justified spatial navigation
 
 Horizontal keys follow result order. Vertical movement chooses the nearest horizontal
@@ -79,17 +94,21 @@ inside them.
 | Key | Results | Image detail / fullscreen |
 |---|---|---|
 | `/` | Focus the search box | *(nothing)* |
-| `+` / `=` | Bigger thumbnails (one zoom level) | Zoom image in 1.5x at the pointer (fullscreen only) |
+| `+` / `=` | Bigger thumbnails (one zoom level) | Zoom image in 1.5x at the pointer (compact detail or fullscreen) |
 | `-` | Smaller thumbnails | Zoom image out; snaps back to fit near 1x |
 | `0` | Default zoom | Reset image zoom |
-| Space | — | Toggle image zoom at the pointer (fullscreen only) |
-| `f` | Fullscreen preview of focused image | Toggle fullscreen |
+| Space | — | Toggle image zoom at the pointer (compact detail or fullscreen) |
+| `f` | Fullscreen preview of focused image | Toggle image fullscreen on desktop |
 | `[` / `]` | Toggle left / right panel | — |
 
 Image zoom keys anchor at the mouse pointer when it is over the image, otherwise the centre.
 Results-zoom keys are inactive while detail or an image fullscreen is showing, so each key
 has one meaning at a time. Browser-window fullscreen uses the browser's own shortcut
 (⌃⌘F on macOS, F11 elsewhere), separately from `f` for image fullscreen.
+Detail zoom is inactive while the crop editor owns input or terminal media failure has
+removed its image. A newly displayed image starts at fit, including private pan and momentum.
+In desktop Crop fullscreen, holding Alt temporarily inverts the selected Hand/frame mode;
+the Hand button shows the effective mode without changing the persistent choice.
 
 ## Key Propagation from the Search Box
 

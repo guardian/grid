@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.hoisted(() => {
   window.matchMedia = vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })) as unknown as typeof window.matchMedia;
 });
+const shell = vi.hoisted(() => ({ compact: false }));
+vi.mock("@/hooks/useShell", () => ({ useIsCompact: () => shell.compact, isCompactNow: () => shell.compact }));
 vi.mock("@tanstack/react-router", () => ({ useSearch: () => ({}) }));
 vi.mock("@/hooks/useUrlSearchSync", () => ({ useUpdateSearchParams: () => vi.fn() }));
 vi.mock("date-fns", async (importOriginal) => {
@@ -21,6 +23,9 @@ import { snapshotStore } from "@/lib/history-snapshot";
 import { buildSearchKey } from "@/lib/image-offset-cache";
 import { useCollectionStore } from "@/stores/collection-store";
 import { usePanelStore } from "@/stores/panel-store";
+import { useUiPrefsStore } from "@/stores/ui-prefs-store";
+import { useSelectionStore } from "@/stores/selection-store";
+import { SelectionFab } from "./SelectionFab";
 
 const ticker = gridConfig.tickerDefinitions[0];
 const resultCount = () => screen.getAllByRole("status")[0].textContent;
@@ -29,16 +34,30 @@ const tickerBadge = () => screen.queryByRole("button", { name: new RegExp(ticker
 describe("StatusBar AI totals", () => {
   const initial = useSearchStore.getState();
   const initialHistory = window.history.state;
+  const initialPrefs = useUiPrefsStore.getState();
+  const initialSelection = useSelectionStore.getState();
 
   beforeEach(() => {
+    shell.compact = false;
     sessionStorage.clear();
     useSearchStore.setState({ _isInitialLoad: false, total: 200, aiPoolTotal: null, tickerCounts: null, newCount: 0 });
   });
   afterEach(() => {
     cleanup();
     useSearchStore.setState(initial, true);
+    useUiPrefsStore.setState(initialPrefs, true);
+    useSelectionStore.setState(initialSelection, true);
     snapshotStore.delete("ticker-reload");
     window.history.replaceState(initialHistory, "");
+  });
+
+  it.each([false, true])("keeps selection controls in their chosen model with touch input, compact=%s", compact => {
+    shell.compact = compact;
+    useUiPrefsStore.setState({ _pointerCoarse: true });
+    useSelectionStore.setState({ selectedIds: new Set(["selected-image"]) });
+    render(<><StatusBar /><SelectionFab /></>);
+    expect(screen.queryByRole("button", { name: "Clear selection" }) !== null).toBe(!compact);
+    expect(screen.queryByRole("button", { name: "Clear selection (1 selected)" }) !== null).toBe(compact);
   });
 
   it("reads 'Best k of N matches' for an AI result and plain matches otherwise", () => {

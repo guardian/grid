@@ -24,14 +24,17 @@ import { registerShortcut, type Shortcut } from "@/lib/keyboard-shortcuts";
  * Stack semantics: if two mounted components register the same key, the
  * most recently mounted one wins. Unmounting restores the previous handler.
  */
-export function useKeyboardShortcut(key: string, action: () => void): void {
+export function useKeyboardShortcut(key: string, action: () => void, enabled?: () => boolean): void {
   const actionRef = useRef(action);
   actionRef.current = action;
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
 
   useEffect(() => {
     const shortcut: Shortcut = {
       key,
       action: () => actionRef.current(),
+      enabled: () => enabledRef.current?.() ?? true,
     };
     return registerShortcut(shortcut);
   }, [key]);

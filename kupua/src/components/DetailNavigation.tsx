@@ -1,4 +1,5 @@
 import { HOME_HREF } from "@/lib/home-defaults";
+import { pressFeedback } from "@/lib/dom-utils";
 
 interface DetailNavigationProps {
   destination: "image" | "search";
@@ -10,9 +11,10 @@ export function DetailNavigation({ destination, onBack, onHome }: DetailNavigati
   return (
     <div className="detail-navigation flex items-center shrink-0 -ml-3">
       <a
+        {...pressFeedback}
         href={HOME_HREF}
         title={"Grid \u2014 clear all filters"}
-        className="detail-home shrink-0 w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors"
+        className="detail-home tap-feedback shrink-0 w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors"
         onClick={onHome ? (event) => { event.preventDefault(); onHome(); } : undefined}
       >
         <img src={`${import.meta.env.BASE_URL}images/grid-logo.svg`} alt="Grid" className="w-8 h-8" />

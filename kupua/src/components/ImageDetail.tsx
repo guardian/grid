@@ -68,7 +68,8 @@ import { BottomSheet } from "@/components/BottomSheet";
 import { DetailNavigation } from "@/components/DetailNavigation";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { imageFullscreenElement } from "@/lib/app-fullscreen";
-import { useUiPrefsStore, getEffectiveFocusMode } from "@/stores/ui-prefs-store";
+import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
+import { useTouchCapable } from "@/hooks/useShell";
 import { consumeTraceInteraction, traceInteraction } from "@/lib/perceived-trace";
 import type { Image } from "@/types/image";
 import type { EnrichmentFields } from "@/stores/enrichment-store";
@@ -108,6 +109,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
 
   // The fullscreen container ref — must be stable across imageId changes
   const containerRef = useRef<HTMLDivElement>(null);
+  const cancelSwipeRef = useRef<(() => void) | undefined>(undefined);
 
   // ── Deep-link synthesis ────────────────────────────────────────────
   //
@@ -200,7 +202,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const [chromeVisible, setChromeVisible] = useState(true);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const { isFullscreen, toggleFullscreen } = useFullscreen(containerRef);
-  const { cursorHidden, navMouseEnter, navMouseLeave } = useCursorAutoHide(isFullscreen);
+  const { cursorHidden, navMouseEnter, navMouseLeave, touchControlsVisible } = useCursorAutoHide(isFullscreen, isCompact ? undefined : containerRef);
 
   // Find the current image in search results (handles sparse array).
   // NOT memoized: findImageIndex is stable ([] deps, reads getState()
@@ -379,7 +381,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
 
   const {
     prevImage, nextImage, canGoNext, goToPrev, goToNext, currentGlobalIndex,
-  } = useImageTraversal(imageId, onNavigate, router.history);
+  } = useImageTraversal(imageId, onNavigate, router.history, () => cancelSwipeRef.current?.());
 
   // Close image detail via history.back(). All four close affordances
   // (← Back button, double-click, Backspace, swipe-to-dismiss) share this
@@ -475,7 +477,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   // Compact detail shares gestures with metadata; fullscreen uses the image container.
   // `enabled` toggles when the image loads — forces the effect to re-run after
   // the container DOM element exists (on reload, the loading spinner renders first).
-  const { swipedRef, lastSwipeTimeRef } = useSwipeCarousel({
+  const { swipedRef, lastSwipeTimeRef, cancelSwipe } = useSwipeCarousel({
     containerRef,
     commitKey: isCompact ? `${searchKey}:${imageId}` : undefined,
     stripRef,
@@ -484,12 +486,18 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     enabled: !!image,
     scaleRef,
   });
+  cancelSwipeRef.current = cancelSwipe;
 
+  const mediaOwner = useMemo(() => ({ imageId }), [imageId]);
+  const currentMediaOwnerRef = useRef(mediaOwner);
+  currentMediaOwnerRef.current = mediaOwner;
+  const [failedMediaOwner, setFailedMediaOwner] = useState<typeof mediaOwner | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
   usePinchZoom({
     containerRef: isCompact ? imageSurfaceRef : containerRef,
     imageRef,
-    enabled: !!image && (isFullscreen || isCompact),
+    imageKey: imageId,
+    enabled: !!image && failedMediaOwner !== mediaOwner && !cropping && (isFullscreen || isCompact),
     lastSwipeTimeRef,
     scaleRef,
     onScaleChange: zoomed => {
@@ -504,7 +512,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     onDoubleClick: toggleFullscreen,
   });
 
-  const _pointerCoarse = useUiPrefsStore((s) => s._pointerCoarse);
+  const touchCapable = useTouchCapable();
   useSwipeDismiss({
     containerRef: imageSurfaceRef,
     wrapperRef: detailWrapperRef,
@@ -522,24 +530,9 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
         scrollFocusedIntoView();
       }
     },
-    enabled: !!image && _pointerCoarse && (!isFullscreen || isCompact) && (!isCompact || !cardExpanded),
+    enabled: !!image && isCompact && !cardExpanded,
     scaleRef,
     imageId,
-  });
-
-  // Swipe-to-dismiss in fullscreen: pull down to exit fullscreen.
-  // Same gesture, different target: animates the fullscreen container itself
-  // (the wrapper is outside the fullscreen viewport). No hero animation,
-  // no backdrop — just slide-down + exit. Disabled when zoomed (scaleRef > 1).
-  // dragTargetRef = imageRef: the image moves visually while the container bg
-  // goes transparent (without this, movement is invisible — black on black).
-  useSwipeDismiss({
-    containerRef,
-    wrapperRef: containerRef, // fullscreen container IS the animated element
-    onDismiss: toggleFullscreen,
-    enabled: !!image && _pointerCoarse && isFullscreen && !isCompact,
-    scaleRef,
-    dragTargetRef: imageRef,
   });
 
   const fullscreenTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -547,43 +540,19 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     if (swipedRef.current) return; // was a swipe, not a tap
     // Post-swipe cooldown — suppress accidental taps shortly after swiping (250ms)
     if (lastSwipeTimeRef.current && Date.now() - lastSwipeTimeRef.current < 250) return;
-    if (!useUiPrefsStore.getState()._pointerCoarse) return; // desktop: ignore click, use dblclick
-    if (isCompact) {
-      if (fullscreenTapTimer.current) {
-        clearTimeout(fullscreenTapTimer.current);
-        fullscreenTapTimer.current = null;
-        return;
-      }
-      fullscreenTapTimer.current = setTimeout(() => {
-        fullscreenTapTimer.current = null;
-        if (scaleRef.current > 1) return;
-        setChromeVisible(visible => !visible);
-        setDrawerVisible(false);
-      }, DOUBLE_TAP_MS);
+    if (!isCompact) return;
+    if (fullscreenTapTimer.current) {
+      clearTimeout(fullscreenTapTimer.current);
+      fullscreenTapTimer.current = null;
       return;
     }
-    if (isFullscreen) {
-      // In fullscreen: delay exit to allow double-tap-to-zoom.
-      // If double-tap fires (zooms in), scaleRef.current > 1 when the
-      // timer executes, so the exit is suppressed — no coupling needed.
-      if (fullscreenTapTimer.current) {
-        // Second tap arrived while waiting — cancel the exit timer.
-        // Double-tap-to-zoom is handled by usePinchZoom via touch events.
-        clearTimeout(fullscreenTapTimer.current);
-        fullscreenTapTimer.current = null;
-        return;
-      }
-      fullscreenTapTimer.current = setTimeout(() => {
-        fullscreenTapTimer.current = null;
-        // Guard: if a double-tap zoom happened between scheduling and firing,
-        // don't exit fullscreen — the user zoomed in, not tapped to exit.
-        if (scaleRef.current > 1) return;
-        toggleFullscreen();
-      }, DOUBLE_TAP_MS);
-    } else {
-      toggleFullscreen(); // enter fullscreen instantly
-    }
-  }, [swipedRef, lastSwipeTimeRef, toggleFullscreen, isFullscreen, isCompact, scaleRef]);
+    fullscreenTapTimer.current = setTimeout(() => {
+      fullscreenTapTimer.current = null;
+      if (scaleRef.current > 1) return;
+      setChromeVisible(visible => !visible);
+      setDrawerVisible(false);
+    }, DOUBLE_TAP_MS);
+  }, [swipedRef, lastSwipeTimeRef, isCompact, scaleRef]);
 
   // Reset carousel strip and zoom when imageId changes. The carousel's
   // commitStripReset handles the visual transition imperatively (no flash),
@@ -661,12 +630,10 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
           closeDetail();
           break;
         case "ArrowLeft":
-          e.preventDefault();
-          if (scaleRef.current <= 1) goToPrev();
+          if (scaleRef.current <= 1) { e.preventDefault(); goToPrev(); }
           break;
         case "ArrowRight":
-          e.preventDefault();
-          if (scaleRef.current <= 1) goToNext();
+          if (scaleRef.current <= 1) { e.preventDefault(); goToNext(); }
           break;
         // Escape exits fullscreen — handled natively by the browser.
         // When not in fullscreen, Escape does nothing. Close image detail
@@ -766,12 +733,6 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     return getThumbnailUrl(nextImage);
   }, [nextImage?.id, prefetchGen]);
 
-  // Failed media and callbacks belong to this rendered image lifetime.
-  const mediaOwner = useMemo(() => ({ imageId }), [imageId]);
-  const currentMediaOwnerRef = useRef(mediaOwner);
-  currentMediaOwnerRef.current = mediaOwner;
-  const [failedMediaOwner, setFailedMediaOwner] = useState<typeof mediaOwner | null>(null);
-
   const imageUrl = failedMediaOwner === mediaOwner ? undefined : (fullUrl ?? thumbUrl);
   const displayedAsset = imageRef.current;
   const cropPreviewSrc = displayedAsset?.complete && displayedAsset.naturalWidth > 0 && thumbUrl
@@ -798,7 +759,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     pairedPages
       ? cardExpanded ? "h-1/4" : "h-full"
       : "h-full"
-  }${isFullscreen ? " touch-none" : " touch-none wide:touch-auto"} bg-black`;
+  }${isFullscreen ? " touch-none" : " touch-none wide:touch-auto"} ${isFullscreen || isCompact ? "bg-black" : "bg-grid-bg"}`;
   const imageClass = isFullscreen || isCompact ? "w-full h-full object-contain select-none" : "max-w-full max-h-full object-contain select-none";
   const renderMetadata = (detailImage: Image, overlay?: EnrichmentFields) => <>
     <AccordionSection sectionId="detail-metadata" contentId={`detail-metadata-${detailImage.id}`} title="Details">
@@ -931,11 +892,10 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
           {/* Carousel strip — three panels (prev | current | next).
               Translated by useSwipeCarousel during horizontal swipe.
               Prev/next are offset ±100% so only the current panel is visible at rest. */}
-          <div ref={stripRef} className={`absolute inset-0${_pointerCoarse ? " will-change-transform" : ""}`}>
+          <div ref={stripRef} className={`absolute inset-0${touchCapable ? " will-change-transform" : ""}`}>
             {/* Previous image (off-screen left) — used by swipe animation on mobile.
-                Gated on _pointerCoarse: desktop never swipes, so rendering off-screen
-                panels wastes 2 AVIF fetches + decodes per navigation. */}
-            {_pointerCoarse && prevImage && (prevImageUrl || pairedPages) && (
+                Only touch-capable devices need off-screen swipe panels. */}
+              {touchCapable && prevImage && (prevImageUrl || pairedPages) && (
               renderNeighbor(prevImage, prevImageUrl, "previous")
             )}
 
@@ -1010,7 +970,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
             </div>
 
             {/* Next image (off-screen right) — used by swipe animation on mobile. */}
-            {_pointerCoarse && nextImage && (nextImageUrl || pairedPages) && (
+            {touchCapable && nextImage && (nextImageUrl || pairedPages) && (
               renderNeighbor(nextImage, nextImageUrl, "next")
             )}
           </div>
@@ -1018,13 +978,13 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
           {/* Prev/next navigation strips — desktop only (mobile uses swipe).
               Positioned on top of the carousel strip. */}
           {!(isFullscreen && cursorHidden) && !isZoomed && prevImage && (
-            <NavStrip direction="prev" onClick={goToPrev} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} className="hidden wide:flex" />
+            <NavStrip direction="prev" onClick={goToPrev} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} className="hidden wide:flex" revealed={touchControlsVisible} />
           )}
           {!(isFullscreen && cursorHidden) && !isZoomed && canGoNext && (
-            <NavStrip direction="next" onClick={goToNext} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} className="hidden wide:flex" />
+            <NavStrip direction="next" onClick={goToNext} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} className="hidden wide:flex" revealed={touchControlsVisible} />
           )}
           {!(isFullscreen && cursorHidden) && (
-            <FullscreenCornerButton isFullscreen={isFullscreen} onClick={toggleFullscreen} className="hidden wide:flex" />
+            <FullscreenCornerButton isFullscreen={isFullscreen} onClick={toggleFullscreen} className="hidden wide:flex" revealed={touchControlsVisible} />
           )}
         </div>
 

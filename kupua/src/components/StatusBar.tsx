@@ -30,6 +30,7 @@ import type { TickerCountResult } from "@/dal";
 import { restoreArrivalState, snapshotStore } from "@/lib/history-snapshot";
 import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
 import { buildSearchKey } from "@/lib/image-offset-cache";
+import { useIsCompact } from "@/hooks/useShell";
 
 /**
  * Builds the native title tooltip for a ticker badge.
@@ -84,6 +85,7 @@ export const StatusBar = memo(function StatusBar() {
   const selectedCount = useSelectionStore((s) => s.selectedIds.size);
   const clearSelection = useSelectionStore((s) => s.clear);
   const isCoarsePointer = useUiPrefsStore((s) => s._pointerCoarse);
+  const isCompact = useIsCompact();
   const narrowCycle = useNarrow();
 
   // _isInitialLoad is true from store init until the first search completes.
@@ -244,9 +246,9 @@ export const StatusBar = memo(function StatusBar() {
 
       </div>
 
-      {/* Selection count + clear -- desktop (fine pointer) only.
-           On coarse pointer (mobile) the SelectionFab handles this. */}
-      {selectedCount > 0 && !isCoarsePointer && (
+       {/* Selection count + clear -- desktop model only.
+         In the compact shell the SelectionFab handles this. */}
+       {selectedCount > 0 && !isCompact && (
         <>
           <div className="w-px bg-grid-separator shrink-0" />
           <span role="status" aria-label={`${selectedCount.toLocaleString()} selected`} aria-live="polite" aria-atomic="true" className="flex items-center px-2 text-grid-accent text-sm whitespace-nowrap shrink-0">

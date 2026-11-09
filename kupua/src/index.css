@@ -260,6 +260,37 @@ body[data-drag-selecting] .selection-fab { opacity: 0; pointer-events: none; }
  */
 
 /* Hidden by default */
+.tap-feedback {
+  transition: background-color 120ms ease-out;
+}
+
+.tap-feedback:active,
+.tap-feedback[data-pressed] {
+  background-color: color-mix(in srgb, var(--color-grid-accent) 18%, var(--color-grid-hover));
+  transition-duration: 0ms;
+}
+
+[data-graphic-reveal] {
+  touch-action: none;
+  -webkit-touch-callout: none;
+}
+
+.graphic-preview[data-touch-reveal] .graphic-thumbnail {
+  filter: blur(16px);
+}
+
+.graphic-preview[data-touch-reveal] .graphic-warning {
+  opacity: 1;
+}
+
+.graphic-preview[data-revealed] .graphic-thumbnail {
+  filter: none;
+}
+
+.graphic-preview[data-revealed] .graphic-warning {
+  opacity: 0;
+}
+
 .tickbox {
   display: none;
 }
@@ -275,6 +306,12 @@ body[data-drag-selecting] .selection-fab { opacity: 0; pointer-events: none; }
 }
 
 /* Selection mode: always show */
+@media (any-pointer: coarse) {
+  :root[data-shell="wide"] .tickbox {
+    display: flex;
+  }
+}
+
 [data-selection-mode="true"] .tickbox {
   display: flex;
 }

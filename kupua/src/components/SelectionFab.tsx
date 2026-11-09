@@ -18,14 +18,13 @@
 
 import { useEffect, useState } from "react";
 import { useSelectionStore } from "@/stores/selection-store";
-import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import { usePanelStore } from "@/stores/panel-store";
-import { isCompactNow } from "@/hooks/useShell";
+import { useIsCompact } from "@/hooks/useShell";
 
 export function SelectionFab() {
   const selectedCount = useSelectionStore((s) => s.selectedIds.size);
   const clearSelection = useSelectionStore((s) => s.clear);
-  const isCoarsePointer = useUiPrefsStore((s) => s._pointerCoarse);
+  const isCompact = useIsCompact();
   const rightVisible = usePanelStore((s) => s.config.right.visible);
   const togglePanel = usePanelStore((s) => s.togglePanel);
   const [expanded, setExpanded] = useState(false);
@@ -34,10 +33,7 @@ export function SelectionFab() {
     if (selectedCount === 0) setExpanded(false);
   }, [selectedCount]);
 
-  if (!isCoarsePointer || selectedCount === 0) return null;
-
-  // Compact shell shows the selection card's peek strip along the bottom.
-  const liftForCard = isCompactNow();
+  if (!isCompact || selectedCount === 0) return null;
 
   const actions = [
     {
@@ -54,7 +50,7 @@ export function SelectionFab() {
       )}
       <div
         className="selection-fab fixed right-4 z-50 flex flex-col items-end gap-2 transition-opacity"
-        style={{ bottom: `calc(${liftForCard ? 80 : 24}px + env(safe-area-inset-bottom, 0px))` }}
+        style={{ bottom: "calc(80px + env(safe-area-inset-bottom, 0px))" }}
       >
         {expanded && (
           <div role="menu" className="flex flex-col items-end gap-2">

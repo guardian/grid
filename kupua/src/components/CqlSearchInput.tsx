@@ -10,7 +10,7 @@
  *   5. Feed it typeahead fields with resolvers
  */
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import {
   createCqlInput,
   Typeahead,
@@ -20,6 +20,7 @@ import { LazyTypeahead } from "@/lib/lazy-typeahead";
 import { useSearchStore } from "@/stores/search-store";
 import { buildTypeaheadFields, buildDynamicFieldFallback } from "@/lib/typeahead-fields";
 import { isMobile } from "@/lib/is-mobile";
+import { useIsCompact } from "@/hooks/useShell";
 import { isCqlChipDeleteEvent } from "@/lib/cql-chip-delete";
 import { beginTraceInteraction } from "@/lib/perceived-trace";
 import { deriveEffectiveQuery } from "@/lib/cql-effective-query";
@@ -125,6 +126,13 @@ export function CqlSearchInput({
 }: CqlSearchInputProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cqlInputRef = useRef<HTMLElement | null>(null);
+  const compact = useIsCompact();
+  useLayoutEffect(() => {
+    const el = cqlInputRef.current;
+    if (!el) return;
+    el.toggleAttribute("data-compact", compact);
+    if (compact) el.style.setProperty("--cql-popover-top", `${el.getBoundingClientRect().bottom + 4}px`);
+  }, [compact]);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const onHasContentRef = useRef(onHasContentChange);
@@ -313,18 +321,23 @@ export function CqlSearchInput({
     activeTypeahead = typeahead;
     typeahead.setEnabled(true);
     container.appendChild(el);
+    const syncPresentation = () => {
+      const compact = isMobile();
+      el.toggleAttribute("data-compact", compact);
+      if (compact) el.style.setProperty("--cql-popover-top", `${el.getBoundingClientRect().bottom + 4}px`);
+    };
+    syncPresentation();
+    const positionObserver = new ResizeObserver(syncPresentation);
+    positionObserver.observe(container.closest('[role="toolbar"]') ?? container);
 
     // Inject custom styles into the open shadow DOM for elements that
     // CQL doesn't expose via theme or ::part.
     if (el.shadowRoot) {
       const style = document.createElement("style");
       style.textContent = `.Cql__OptionCount { opacity: 0.7; margin-left: 1.5em; }
-        @media (max-width: 639px) {
-          /* Phones: suggestions span the screen under the search bar, never following the caret off-screen. */
-          .Cql__TypeaheadPopoverContainer {
-            position: fixed !important; top: 46px !important; left: 8px !important; right: 8px !important;
-            width: auto !important; max-width: none !important; transform: none !important;
-          }
+        :host([data-compact]) .Cql__TypeaheadPopoverContainer {
+          position: fixed !important; top: var(--cql-popover-top, 46px) !important; left: 8px !important; right: 8px !important;
+          width: auto !important; max-width: none !important; transform: none !important;
         }`;
       el.shadowRoot.appendChild(style);
     }
@@ -335,11 +348,12 @@ export function CqlSearchInput({
     const view = (el as HTMLElement & {
       editorView?: { dom: HTMLElement; focus(): void };
     }).editorView;
-    if (isMobile() && view) {
+    if (view) {
       let recentKeyAction = false;
       let keyActionTimer: ReturnType<typeof setTimeout> | undefined;
 
       view.dom.addEventListener("keydown", (e: KeyboardEvent) => {
+        if (!isMobile()) return;
         if (e.key === "Backspace" || e.key === "Delete") {
           recentKeyAction = true;
           clearTimeout(keyActionTimer);
@@ -350,7 +364,7 @@ export function CqlSearchInput({
       }, true);
 
       view.dom.addEventListener("focusout", (e: FocusEvent) => {
-        if (!recentKeyAction) return;
+        if (!isMobile() || !recentKeyAction) return;
         const related = e.relatedTarget as Node | null;
         // If focus moved to another element outside the editor, don't interfere
         if (related && !el.contains(related) && !el.shadowRoot?.contains(related)) {
@@ -369,6 +383,7 @@ export function CqlSearchInput({
     }
 
     return () => {
+      positionObserver.disconnect();
       typeahead.setEnabled(false);
       if (activeTypeahead === typeahead) activeTypeahead = undefined;
       cqlInputRef.current = null;

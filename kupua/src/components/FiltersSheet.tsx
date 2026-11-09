@@ -6,12 +6,13 @@ import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { SearchFilters } from "./SearchFilters";
 import { DateFilter } from "./DateFilter";
 import { RefineChips } from "./RefineChips";
+import type { UrlSearchParams } from "@/lib/search-params-schema";
 
 /** Refine: a bottom sheet with chips on touch phones; a plain dropdown under the bar on narrow desktop. */
 export function FiltersSheet({ onClose, fields, onFieldsChange, dropdown = false }: {
   onClose: () => void;
   fields: string;
-  onFieldsChange: (fields: string) => void;
+  onFieldsChange: (fields: string, filters?: Partial<UrlSearchParams>) => void;
   dropdown?: boolean;
 }) {
   const total = useSearchStore((s) => s.total);
@@ -64,11 +65,12 @@ export function FiltersSheet({ onClose, fields, onFieldsChange, dropdown = false
   useFocusTrap(dropdown ? dropdownRef : sheetRef, true);
 
   const reset = () => {
-    if (!dropdown) onFieldsChange("");
-    updateSearch({
+    const filters: Partial<UrlSearchParams> = {
       nonFree: "true", orderBy: undefined, dateField: undefined, since: undefined, until: undefined,
       takenSince: undefined, takenUntil: undefined, modifiedSince: undefined, modifiedUntil: undefined,
-    });
+    };
+    if (dropdown) updateSearch(filters);
+    else onFieldsChange("", filters);
   };
 
   if (dropdown) {

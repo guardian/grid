@@ -24,6 +24,44 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 9 November 2026 - Consistent phone and desktop interactions
+
+Made click mode, initial density, selection controls, crop features, search autofocus and
+suggestion placement follow the existing phone/desktop model. Landscape phones keep Refine;
+desktop touch retains desktop preferences and the themed detail surround. Touch capability
+separately enables shared finger traversal and adjacent swipe pages without changing prefetch
+policy or making installed presentation a third UI model.
+
+Added held thumbnail reveal with size-gated instructions and icon-only tiny tiles, without
+opening or selecting the image. Native hold suppression is isolated to the eye as a
+device-verification experiment; it does not request vibration or change selection long-press.
+Desktop touch first wakes hidden image controls without activating them; mouse hover remains
+available and touch compatibility mouse movement does not undo reveal. Home, Refine and
+Settings share immediate pressed feedback. Pull-dismiss remains phone-only; removed its
+unused fullscreen target branch.
+
+Gesture state now respects image/media lifetime and whole-contact cancellation. Interrupted
+near-fit pinches normalize without momentum, control activation stays outside image zoom,
+and abandoned boundary traversal releases the carousel. Snap-back animations share reset
+ownership. Collapsed drawer content is inert, focus returns to the peek control, and multitouch
+cancels handle dragging.
+
+Results zoom shortcuts decline keys while inactive, leaving `+`, `=`, `-`, `0` and Space to
+image zoom. Pointer-operated image controls do not retain button focus, and zoomed navigation
+leaves arrows to panning. Ordinary controls retain keyboard activation; toolbar Enter no
+longer opens a separately focused result. The real-page integration case exercises the
+actual dispatcher through navigation, zoomed pan and fullscreen transitions.
+
+Desktop Crop Alt temporarily inverts either selected Hand/frame mode, with matching Hand
+feedback. Release or blur restores the persistent choice without changing crop coordinates
+or resize/grip actions. Refine Reset commits query/filter changes atomically, and Sort
+supports keyboard selection.
+
+Browser fixtures target exposed scrubber track rather than its moving thumb and use the active
+phone image pane for pull-return coverage. Async publication controls retain their jobs through
+browser collection; strict browsing-cost fixtures isolate independently triggered arrival polls
+without relaxing ordinary request budgets.
+
 ### 9 November 2026 - Simplifying mobile UX
 
 Unified phone detail and image inspection across portrait and landscape: the image

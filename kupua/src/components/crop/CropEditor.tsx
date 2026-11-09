@@ -12,6 +12,7 @@ import { FullscreenCornerButton } from "@/components/NavStrip";
 import { ToastNotice } from "@/components/ToastContainer";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { useIsCompact } from "@/hooks/useShell";
+import { useCursorAutoHide } from "@/hooks/useCursorAutoHide";
 import { getFullImageUrl, getThumbnailUrl, getZoomImageUrl } from "@/lib/image-urls";
 import { getCropSettings, getCropSettingsRevision, subscribeCropSettings, SQUARE_KEY, type CropOption } from "@/lib/crop/crop-options";
 import { flushCropDraft, queueCropDraft, readCropDraft } from "@/lib/crop/crop-draft";
@@ -63,14 +64,17 @@ export function CropEditor({ image, previewSrc, onClose, onHome }: CropEditorPro
   const [selectionRevision, setSelectionRevision] = useState(0);
   const cropKey = choice.revision === revision && choice.imageId === image.id ? choice.key : initialType;
   const editorRef = useRef<HTMLDivElement>(null);
+  const imageViewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<CropCanvasHandle>(null);
   const cropActionRef = useRef<HTMLButtonElement>(null);
   const viewControlsRef = useRef<HTMLDivElement>(null);
   const [panMode, setPanMode] = useState(false);
+  const [altHeld, setAltHeld] = useState(false);
   const [panHint, setPanHint] = useState(false);
   const panHintSeen = useRef(false);
-  const [desktop, setDesktop] = useState(() => window.matchMedia?.("(hover: hover) and (pointer: fine)").matches ?? false);
+  const desktop = !isCompact;
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const { touchControlsVisible } = useCursorAutoHide(isFullscreen, isCompact ? undefined : imageViewportRef);
   const viewport = useCropViewport(isCompact && !isFullscreen, precisionOpen, editorRef);
   const keyboardOpen = precisionOpen && (viewport?.keyboardOpen ?? false);
   const fullscreenRef = useRef(false);
@@ -101,12 +105,6 @@ export function CropEditor({ image, previewSrc, onClose, onHome }: CropEditorPro
     precisionAnimation.current = null;
     precisionDrag.current = null;
   }, [precisionOpen]);
-  useEffect(() => {
-    const media = window.matchMedia?.("(hover: hover) and (pointer: fine)");
-    const change = () => setDesktop(media?.matches ?? false);
-    media?.addEventListener("change", change);
-    return () => media?.removeEventListener("change", change);
-  }, []);
   useEffect(() => {
     const change = () => {
       const active = document.fullscreenElement === editorRef.current;
@@ -164,6 +162,7 @@ export function CropEditor({ image, previewSrc, onClose, onHome }: CropEditorPro
   }, [mediaOwner, isCompact]);
   useEffect(() => {
     setPanMode(!isCompact && isFullscreen);
+    setAltHeld(false);
     setPanHint(false);
   }, [mediaOwner, isCompact, isFullscreen]);
   useEffect(() => {
@@ -438,6 +437,7 @@ export function CropEditor({ image, previewSrc, onClose, onHome }: CropEditorPro
       </span>
     </button>
   );
+  const effectivePanMode = panMode !== (desktop && isFullscreen && altHeld);
   const viewControls = (
     <div ref={viewControlsRef} className="w-22 shrink-0 flex items-center" role="group" aria-label="Image view">
       <button type="button" aria-label={zoomed ? "Fit image" : "Zoom in"} title={zoomed ? "Fit image" : "Zoom in"} className="size-11 shrink-0 flex items-center justify-center rounded text-grid-text-muted hover:bg-grid-hover cursor-pointer" onClick={() => { if (zoomed) canvasRef.current?.resetView(); else canvasRef.current?.zoomIn(); }}>
@@ -446,8 +446,8 @@ export function CropEditor({ image, previewSrc, onClose, onHome }: CropEditorPro
           {!zoomed && <path d="M10 7v6" />}
         </svg>
       </button>
-      {(zoomed || (desktop && isFullscreen)) && <button type="button" aria-label="Pan view" title="Pan view" aria-pressed={panMode} className="group size-11 shrink-0 flex items-center justify-center cursor-pointer" onClick={() => setPanMode(current => !current)}>
-        <span className={`size-8 flex items-center justify-center rounded ${panMode ? "bg-grid-accent text-white group-hover:bg-grid-accent-hover" : "text-grid-text-muted group-hover:bg-grid-hover"}`}><CropPanIcon className="size-5" /></span>
+      {(zoomed || (desktop && isFullscreen)) && <button type="button" aria-label="Pan view" title="Pan view" aria-pressed={effectivePanMode} className="group size-11 shrink-0 flex items-center justify-center cursor-pointer" onClick={() => setPanMode(current => !current)}>
+        <span className={`size-8 flex items-center justify-center rounded ${effectivePanMode ? "bg-grid-accent text-white group-hover:bg-grid-accent-hover" : "text-grid-text-muted group-hover:bg-grid-hover"}`}><CropPanIcon className="size-5" /></span>
       </button>}
     </div>
   );
@@ -532,16 +532,16 @@ export function CropEditor({ image, previewSrc, onClose, onHome }: CropEditorPro
           <div className="detail-settings shrink-0"><SettingsMenu /></div>
         </div>
       </header>
-      <div className={`relative flex-1 min-h-0 flex items-center justify-center overflow-hidden ${isFullscreen ? "px-10 pb-10 pt-[50px]" : isCompact ? "p-3" : "p-[26px]"}`}>
+      <div ref={imageViewportRef} className={`relative flex-1 min-h-0 flex items-center justify-center overflow-hidden ${isFullscreen ? "px-10 pb-10 pt-[50px]" : isCompact ? "p-3" : "p-[26px]"}`}>
         {desktop && isFullscreen && <div className="absolute top-[6px] left-1/2 -translate-x-1/2 z-30 rounded bg-black/80">{viewControls}</div>}
         {isFullscreen && <div className="absolute top-[6px] right-4 z-20 flex items-center gap-1 text-sm">{cropAction}</div>}
-        {desktop && !isFullscreen && <FullscreenCornerButton isFullscreen={false} onClick={toggleFullscreen} shortcut="Alt+f" />}
+        {desktop && !isFullscreen && <FullscreenCornerButton isFullscreen={false} onClick={toggleFullscreen} shortcut="Alt+f" revealed={touchControlsVisible} />}
         {!isCompact && maskControl}
         {!original || !src ? (
           <p className="text-grid-text-muted">This image cannot be cropped (no dimensions or preview).</p>
         ) : (
           <>
-            <CropCanvas ref={canvasRef} key={image.id} src={src} zoomSrc={zoomSrc} zoomEnabled={desktop && isFullscreen} touchEnabled={isCompact && !isFullscreen} panMode={panMode} onZoomChange={onZoomChange} alt={image.metadata?.title ?? ""} aspect={option.ratio} circle={circle} onChange={onSelection}
+            <CropCanvas ref={canvasRef} key={image.id} src={src} zoomSrc={zoomSrc} zoomEnabled={desktop && isFullscreen} touchEnabled={isCompact && !isFullscreen} panMode={panMode} onZoomChange={onZoomChange} onAltChange={setAltHeld} alt={image.metadata?.title ?? ""} aspect={option.ratio} circle={circle} onChange={onSelection}
               initialSelection={draft?.cropKey === cropKey ? { rect: draft.rect, size: draft.size } : undefined} />
             {mediaStatus !== "ready" && (
               <p role="status" className="absolute text-grid-text-muted">

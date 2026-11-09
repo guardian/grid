@@ -28,6 +28,7 @@ export interface Shortcut {
   key: string;
   /** Action to execute when the shortcut fires. */
   action: () => void;
+  enabled?: () => boolean;
   /**
    * Human-readable label for tooltips / UI display.
    * If omitted, defaults to the key character.
@@ -130,10 +131,12 @@ function handleKeyDown(e: KeyboardEvent): void {
   if (scope && !scope.has(key)) return;
   const stack = registry.get(key);
   if (!stack || stack.length === 0) return;
+  const shortcut = stack.find(entry => entry.enabled?.() ?? true);
+  if (!shortcut) return;
 
   e.preventDefault();
   // Fire the top-of-stack (most recently registered) shortcut
-  stack[0].action();
+  shortcut.action();
 }
 
 /**

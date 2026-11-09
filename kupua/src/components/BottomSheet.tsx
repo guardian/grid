@@ -37,7 +37,12 @@ export function BottomSheet({ header, children, expanded, onExpandedChange, onDi
   const touchOrigin = useRef<{ x: number; y: number } | null>(null);
   const lastTouchToggle = useRef(0);
   const contentRef = useRef<HTMLDivElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
   const [maxH, setMaxH] = useState(() => window.innerHeight * EXPANDED_VH / 100);
+
+  useLayoutEffect(() => {
+    if (!expanded && contentRef.current?.contains(document.activeElement)) toggleRef.current?.focus({ preventScroll: true });
+  }, [expanded]);
 
   useLayoutEffect(() => {
     if (contentRef.current) contentRef.current.scrollTop = 0;
@@ -63,6 +68,7 @@ export function BottomSheet({ header, children, expanded, onExpandedChange, onDi
   };
   const cancelDrag = () => {
     drag.current = null;
+    touchOrigin.current = null;
     if (ref.current) {
       ref.current.style.transition = SNAP_TRANSITION;
       ref.current.style.translate = `0 ${restOffset}px`;
@@ -106,10 +112,12 @@ export function BottomSheet({ header, children, expanded, onExpandedChange, onDi
     else onExpandedChange(wantExpanded);
   };
   const onTouchStart = (event: TouchEvent) => {
+    if (event.touches.length !== 1) { cancelDrag(); return; }
     touchOrigin.current = { x: event.touches[0].clientX, y: event.touches[0].clientY };
     startDrag(event.touches[0].clientY);
   };
   const onTouchMove = (event: TouchEvent) => {
+    if (event.touches.length !== 1) { cancelDrag(); return; }
     const origin = touchOrigin.current;
     if (origin && Math.abs(event.touches[0].clientX - origin.x) > 10
       && Math.abs(event.touches[0].clientX - origin.x) > Math.abs(event.touches[0].clientY - origin.y)) {
@@ -120,6 +128,7 @@ export function BottomSheet({ header, children, expanded, onExpandedChange, onDi
     moveDrag(event.touches[0].clientY, event.defaultPrevented);
   };
   const onTouchEnd = (event: TouchEvent) => {
+    if (event.touches.length !== 0) { cancelDrag(); return; }
     if (!touchOrigin.current) return;
     touchOrigin.current = null;
     endDrag(event.changedTouches[0].clientY);
@@ -216,6 +225,7 @@ export function BottomSheet({ header, children, expanded, onExpandedChange, onDi
           <span className="block w-10 h-1 rounded-full bg-grid-text-dim" />
         </div>
         <button
+          ref={toggleRef}
           type="button"
           aria-expanded={expanded}
           aria-label={expanded ? `Collapse ${label}` : `Expand ${label}`}
@@ -231,6 +241,8 @@ export function BottomSheet({ header, children, expanded, onExpandedChange, onDi
       </div>
       <div
         ref={contentRef}
+        inert={!expanded}
+        aria-hidden={!expanded || undefined}
         className={`flex-1 min-h-0 overflow-x-hidden overscroll-contain ${expanded ? "overflow-y-auto" : "overflow-hidden"}`}
         {...contentPull}
       >

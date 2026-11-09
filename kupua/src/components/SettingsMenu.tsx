@@ -15,6 +15,8 @@ import { isHostedBuild, KAHUNA_RETURN_PATH } from "@/lib/hosted-config";
 import { useZoomStore } from "@/stores/zoom-store";
 import { imageFullscreenElement } from "@/lib/app-fullscreen";
 import { readHomeView, writeHomeView, type HomeView } from "@/lib/home-view";
+import { useIsCompact } from "@/hooks/useShell";
+import { pressFeedback } from "@/lib/dom-utils";
 
 function ZoomRow() {
   const density = useUiPrefsStore((s) => s.density);
@@ -81,7 +83,7 @@ export function SettingsMenu({ inset = false, showViewControls = false }: { inse
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const pointerCoarse = useUiPrefsStore((s) => s._pointerCoarse);
+  const isCompact = useIsCompact();
   const effectiveMode = useEffectiveFocusMode();
   const setFocusMode = useUiPrefsStore((s) => s.setFocusMode);
   const blurGraphicImages = useUiPrefsStore((s) => s.blurGraphicImages);
@@ -145,11 +147,12 @@ export function SettingsMenu({ inset = false, showViewControls = false }: { inse
     }}>
       <button
         ref={buttonRef}
+        {...pressFeedback}
         onClick={toggle}
         aria-label="Settings"
         aria-expanded={open}
         aria-haspopup="menu"
-        className="w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors text-grid-text-muted hover:text-grid-text"
+        className="tap-feedback w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors text-grid-text-muted hover:text-grid-text"
         title="Settings"
       >
         {/* Material Design more_vert icon */}
@@ -182,9 +185,9 @@ export function SettingsMenu({ inset = false, showViewControls = false }: { inse
             role="menuitemradio"
             aria-checked={effectiveMode === "explicit"}
             onClick={() => handleModeChange("explicit")}
-            disabled={pointerCoarse}
+            disabled={isCompact}
             className={`w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 transition-colors ${
-              pointerCoarse
+              isCompact
                 ? "text-grid-text-dim cursor-not-allowed"
                 : effectiveMode === "explicit"
                   ? "text-grid-accent bg-grid-hover/20"
@@ -219,7 +222,7 @@ export function SettingsMenu({ inset = false, showViewControls = false }: { inse
               Click to open
               <span className="block text-xs text-grid-text-dim">
                 Single-click opens image (like Kahuna)
-                {pointerCoarse && " — always on for touch"}
+                {isCompact && " — always on for phones"}
               </span>
             </span>
           </button>

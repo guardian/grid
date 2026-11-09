@@ -521,6 +521,8 @@ export function useListNavigation(config: ListNavigationConfig): void {
           }
           break;
         case "Enter": {
+          if (e.defaultPrevented || (e.target instanceof Element &&
+            e.target.closest("button,a,summary,[role=button],[role=option],[role=menuitem]"))) break;
           // In phantom mode, Enter doesn't open detail (no visible focus to act on).
           if (!hasFocus) break;
           // Inputs opted in via data-grid-nav-input (AI search) want arrows/paging,

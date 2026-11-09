@@ -114,14 +114,17 @@ export function useImageTraversal(
   currentImageId: string | null,
   onNavigate: (image: Image, globalIndex: number) => void,
   history?: RouterHistory,
+  onCancelled?: () => void,
 ): ImageTraversalResult {
+  const onCancelledRef = useRef(onCancelled);
+  onCancelledRef.current = onCancelled;
   const historyRef = useRef(history);
   historyRef.current = history;
   const pendingRef = useRef<{
     imageId: string;
     direction: "forward" | "backward";
     isCurrent: () => boolean;
-    cancel: () => void;
+    cancel: (navigated?: boolean) => void;
   } | null>(null);
   // Track whether the user has navigated at least once. Proactive extend
   // only fires after a navigation — not on mount, which would cause infinite
@@ -225,7 +228,7 @@ export function useImageTraversal(
 
     if (targetImage) {
       // Target is now in the buffer — complete the navigation.
-      pending.cancel();
+      pending.cancel(true);
       onNavigateRef.current(targetImage, targetGlobalIdx);
 
       // Prefetch around the new position
@@ -240,18 +243,21 @@ export function useImageTraversal(
   // ── Navigate ───────────────────────────────────────────────────
   const navigate = useCallback((direction: "forward" | "backward") => {
     const imgId = currentImageIdRef.current;
-    if (!imgId) return;
+    if (!imgId) { onCancelledRef.current?.(); return; }
 
     hasNavigatedRef.current = true;
 
     const gIdx = globalIndexOf(imgId);
-    if (gIdx < 0) return;
+    if (gIdx < 0) { onCancelledRef.current?.(); return; }
 
     const state = useSearchStore.getState();
     const targetGlobalIdx = adjacentAvailableIndex(gIdx, direction === "forward" ? 1 : -1);
 
     // Boundary check
-    if (targetGlobalIdx < 0 || (targetGlobalIdx >= getDisplayEnd(state) && !canExtendForward(state))) return;
+    if (targetGlobalIdx < 0 || (targetGlobalIdx >= getDisplayEnd(state) && !canExtendForward(state))) {
+      onCancelledRef.current?.();
+      return;
+    }
 
     const targetImage = getImageAtGlobal(targetGlobalIdx);
 
@@ -290,11 +296,14 @@ export function useImageTraversal(
             }
             return currentScope === scope;
           },
-          cancel: () => {
+          cancel: (navigated = false) => {
             clearTimeout(recoveryTimer);
             unsubscribe();
             unsubscribeHistory();
-            if (pendingRef.current === pending) pendingRef.current = null;
+            if (pendingRef.current === pending) {
+              pendingRef.current = null;
+              if (!navigated) onCancelledRef.current?.();
+            }
           },
         };
         pendingRef.current = pending;

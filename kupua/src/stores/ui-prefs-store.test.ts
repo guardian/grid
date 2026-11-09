@@ -23,6 +23,24 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("independent per-tab density", () => {
+  it.each([
+    ["touchscreen desktop", false, "explicit", "grid"],
+    ["phone", true, "phantom", "justified"],
+  ] as const)("uses the %s model for click behavior and fresh density", async (_name, compact, focusMode, density) => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query.includes("max-width") ? compact : query === "(pointer: coarse)",
+      addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    }));
+    const { useUiPrefsStore, getEffectiveFocusMode } = await import("./ui-prefs-store");
+    const { isMobile } = await import("@/lib/is-mobile");
+    expect(getEffectiveFocusMode()).toBe(focusMode);
+    expect(isMobile()).toBe(compact);
+    expect(useUiPrefsStore.getState().focusMode).toBe("explicit");
+    expect(useUiPrefsStore.getState().density).toBe(density);
+    useUiPrefsStore.getState().setDensity("table");
+    expect(useUiPrefsStore.getState().density).toBe("table");
+  });
+
   it.each(["grid", "table"] as const)("reads stored %s synchronously before a view mounts", async (density) => {
     storage.setItem("kupua-density", density);
     const { useUiPrefsStore } = await import("./ui-prefs-store");

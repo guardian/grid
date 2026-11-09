@@ -1112,12 +1112,16 @@ describe("KUP-013 End producer and post-seek consumer", () => {
   }
 });
 describe("Enter key", () => {
-  it("opens the focused image from the grid but not from a grid-nav text input", async () => {
+  it("opens the focused image from the grid but not from a grid-nav text input or toolbar button", async () => {
     const fixture = await mountNavigation(false, "explicit");
     const input = document.createElement("input");
     input.setAttribute("data-grid-nav-input", "");
     fixture.container.appendChild(input);
     act(() => { fixture.dispatchKey("Enter", input); });
+    expect(fixture.onEnter).not.toHaveBeenCalled();
+    const button = document.createElement("button");
+    fixture.container.appendChild(button);
+    act(() => { fixture.dispatchKey("Enter", button); });
     expect(fixture.onEnter).not.toHaveBeenCalled();
     act(() => { fixture.dispatchKey("Enter"); });
     expect(fixture.onEnter).toHaveBeenCalledWith(fixture.origin);

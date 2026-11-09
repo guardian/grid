@@ -195,11 +195,11 @@ describe("useLongPress -- non-touch pointer is ignored", () => {
   });
 });
 
-describe("useLongPress -- tickbox guard", () => {
-  it("does not fire when pointerdown target has [data-tickbox]", () => {
+describe("useLongPress -- interactive control guard", () => {
+  it.each(["data-tickbox", "data-graphic-reveal"])("does not fire when pointerdown target has [%s]", attribute => {
     const container = createContainer();
     const tickbox = document.createElement("button");
-    tickbox.setAttribute("data-tickbox", "");
+    tickbox.setAttribute(attribute, "");
     container.appendChild(tickbox);
 
     const onStart = vi.fn();

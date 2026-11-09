@@ -53,12 +53,13 @@ The root wraps the route outlet in `ErrorBoundary` and mounts one `ToastContaine
 
 `ui-prefs-store` initializes the available density from sessionStorage before views mount. Every
 choice persists immediately and advances a density-intent counter, including same-value choices.
-Focus mode and graphic-image blur are localStorage preferences; coarse pointers force effective
-phantom mode without overwriting the saved choice. Callers use the effective-mode helpers.
+Focus mode and graphic-image blur are localStorage preferences; the compact phone model forces
+effective phantom mode without overwriting the saved desktop choice. Desktop touch keeps that
+choice. Callers use the effective-mode helpers.
 Column and panel stores separately persist table layout and panel settings in localStorage.
 Density is neither a URL search parameter nor a history-snapshot field.
 
-`defaultDensity()` is Justified on coarse pointers and Grid otherwise, unless the user has locked
+`defaultDensity()` is Justified in the compact model and Grid otherwise, unless the user has locked
 a Home view. `lib/home-view.ts` persists that lock (density plus Justified/Grid zoom offsets) in
 localStorage; fresh tabs and Home apply it, while per-tab sessionStorage choices still win
 within a tab. `stores/zoom-store.ts` owns per-tab results-zoom offsets (see Results Zoom).
@@ -595,13 +596,13 @@ Phantom capture cannot independently restore a hidden bookmark. See the
 
 ## Touch Gesture Hooks
 
-- **`hooks/useSwipeCarousel.ts`** owns touch traversal animation and velocity-aware commit. `commitStripReset` coordinates the media-node handoff with detail rendering.
-- **`hooks/useSwipeDismiss.ts`** owns pull-down dismissal outside fullscreen, sharing the detail-return target policy.
+- **`hooks/useSwipeCarousel.ts`** owns finger traversal animation and velocity-aware commit in both UI models. `commitStripReset` coordinates the media-node handoff with detail rendering. Committed and snap-back animations share cancellation ownership; unsuccessful pending traversal releases the waiting strip without changing the displayed image.
+- **`hooks/useSwipeDismiss.ts`** owns phone-only pull-down dismissal when unzoomed and the detail drawer is collapsed, sharing the detail-return target policy. Both swipe hooks invalidate the whole contact sequence on multitouch; lifting one finger cannot resume a cancelled swipe.
 - **`hooks/useLongPress.ts`** detects touch holds and suppresses context menus/synthetic clicks, including committed Android cancellation. It listens on the touch target itself (virtualization may detach it) and attaches its non-passive move listener only after the hold commits; multi-touch cancels. `handleLongPressStart.ts` translates the gesture into selection/range intent; tickboxes remain immediate.
 - **Drag-select** (`createDragSelect` in `handleLongPressStart.ts`, wired by `hooks/useTouchSelection.ts` for Grid, Justified and Table): after a long-press, dragging selects the range origin→finger, Google Photos style; dragging back un-selects what this drag added. Starting on a selected image erases instead. Edges auto-scroll. Touched images are tracked by global position so buffer eviction mid-drag is harmless; on release, any never-loaded part of the range is completed by the shared range walk (add or remove, by anchor polarity).
 - **`hooks/usePullToRefresh.ts`** refreshes results (`lib/refresh-results.ts`) when pulled down at the top; disabled while a selection exists. Native browser pull-to-refresh is suppressed by `overscroll-behavior-y: none`.
 - **`hooks/useContentPullToDrag.ts`** lets a sheet's scrollable content hand a downward pull at its top over to the sheet drag, freezing content scroll during the drag.
-- **`hooks/usePinchZoom.ts`** owns compact-detail and fullscreen touch/mouse/keyboard zoom and pan. Scale gates traversal/swiping, resets on image change, and touch-to-mouse guards prevent duplicate actions. Space toggles zoom and `+`/`=`/`-`/`0` step it (1.5x) anchored at the mouse pointer when it is over the image, else the centre. Detailed gesture bindings belong in the keyboard guide and hook.
+- **`hooks/usePinchZoom.ts`** owns compact-detail and fullscreen touch/mouse/keyboard zoom and pan. The displayed image key owns private scale, pan and momentum state; terminal media failure and cropping disable detail zoom. Movement and cancellation invalidate double-tap recognition, and a cancelled near-fit pinch returns to fit without momentum. Control touches and keyboard activation stay with their controls. Space toggles zoom and `+`/`=`/`-`/`0` step it (1.5x), anchored at the mouse pointer when it is over the image, else the centre. Detailed gesture bindings belong in the keyboard guide and hook.
 
 ---
 
@@ -685,9 +686,13 @@ cancelled on unmount. Clear and Home remain separate operations; Home resets the
 
 In the compact shell the CQL editor shows only the free-text part of the query
 (`splitFieldTerms` in `cql-query-edit.ts`); field terms live as chips in the Refine sheet and are
-merged back without duplicates. Clear keeps those chips. Below 760px (any shell) a filters
-button replaces the inline free-to-use, date and sort controls and opens `FiltersSheet`; its
-badge shows the chip count in the compact shell, otherwise a dot for non-default filters.
+merged back without duplicates. Clear keeps those chips. Compact always keeps the Refine button,
+including landscape; desktop replaces its inline free-to-use, date and sort controls with a
+filters dropdown below 760px. The badge shows the compact chip count, otherwise a dot for
+non-default filters. Phone Reset clears field chips and filter defaults in one discrete search
+commit while retaining free text and cancelling pending typing.
+Home, Refine and Settings share immediate local pointer-pressed feedback, cleared on
+release, cancellation, leaving the control or blur; it does not depend on delayed touch hover.
 
 ## AI Search Input (`components/AiSearchInput.tsx`)
 
@@ -704,15 +709,17 @@ Three-dot menu in SearchBar. The top row holds results zoom (− / level / +; th
 hidden in Table, and a full-screen toggle whose tooltip names the browser's own shortcut
 (⌃⌘F / F11). Below it, "Lock this view" saves the current density and zoom as the Home view.
 Then explicit/phantom focus and graphic-image blur (default on).
-Coarse-pointer detection disables explicit mode; only user preferences, not pointer detection,
-are persisted. Outside click or Escape closes the menu.
+The compact model disables explicit mode; desktop touch retains the saved desktop preference.
+Only user preferences, not input capability, are persisted. Outside click or Escape closes the menu.
 
 ## Search Filters (`components/SearchFilters.tsx`)
 
 Publishes free-only, date and primary-sort choices through URL search navigation. Sort choices
 come from the registry and obey the active AI context; table headers select the same single
-primary field, without a separate Shift multi-sort mode. The toolbar hides these controls below
-760px; `inSheet` renders them stacked inside `FiltersSheet`. It does not own query execution.
+primary field, without a separate Shift multi-sort mode. Desktop uses inline controls from
+760px; compact uses `inSheet` controls inside Refine. Sort options support keyboard focus,
+arrow/Home/End navigation, native activation and Escape with trigger-focus return. It does not
+own query execution.
 
 ## Date Filter (`components/DateFilter.tsx`)
 
@@ -726,8 +733,8 @@ The `inline` variant (inside `FiltersSheet`) applies changes immediately and has
 
 Displays search/count state and provides panel, density, selection-clear and new-arrival actions.
 Panel hover can prefetch aggregations when Filters is expanded. Accepting new arrivals clears
-selection before `reSearch`; density changes go to the preference store, not the URL. Coarse
-pointers use SelectionFab instead of the inline selection controls.
+selection before `reSearch`; density changes go to the preference store, not the URL. Compact
+uses SelectionFab; desktop keeps inline selection controls even with touch input.
 
 The bar is 38px tall on coarse pointers. Below 600px wide, tickers collapse to counts; below
 500px, a single density button cycles Justified → Grid → Table. The right-panel toggle is hidden
@@ -747,7 +754,9 @@ to SearchBar without erasing the richer editor state or field-like text inside q
 AST serialization preserves quoting;
 self-caused updates do not echo a stripped value back into the editor. External query revisions
 allow Clear/Home/history to replace it deliberately. `cql-chip-delete.ts` distinguishes chip
-deletion events. Autofocus is skipped for touch devices and an already-open detail overlay.
+deletion events. Autofocus is skipped in the compact model and an already-open detail overlay.
+The host's compact attribute selects phone suggestion placement below the measured input;
+the toolbar ResizeObserver also accounts for installed-app chrome and disconnects on teardown.
 Registration forwards to the current mounted owner; teardown disables its suggestion passes
 before destroying the editor. External value sync suppresses intermediate resolver admission,
 while self-caused edits retain the live AST and latest-prefix counts.
@@ -792,6 +801,12 @@ against its last committed geometry, then resolves the identity in the destinati
 combined resize/publication has one resize placement rather than a second maintenance shift.
 Buffer access and scroll placement remain in the shared hooks. Cells use `useEnrichedImage` for cost/usage/status display,
 `image-borders.ts` for provenance styling and `graphic-image-blur.ts` for the user-controlled blur.
+Graphic thumbnails retain mouse-hover reveal and offer a dedicated hold-to-reveal eye control.
+Reveal is thumbnail-local; release, cancellation, scroll or blur conceals it. The eye owns its
+gesture without selecting or opening the image. Desktop touch keeps visible tickboxes as well
+as long-press selection; compact selection controls remain governed by the phone model.
+Warning and hold instructions are size-gated; tiny tiles keep only the eye. Native hold
+suppression is scoped to that control, but suppression of OS haptics is not guaranteed.
 Date labels follow the primary sort. Metadata pills stop propagation so searching a value does
 not also select/open its image. Browsing, selection and middle-click preview use the shared owners.
 Detail entry reads query/sort params from the existing latest-params ref at invocation;
@@ -923,6 +938,7 @@ Owns the route-driven overlay while the list stays mounted. It composes metadata
 `NavStrip`, traversal, prefetch, swipe/dismiss and zoom in compact detail or desktop fullscreen.
 Stable containers preserve fullscreen across traversal; return placement belongs to
 `useReturnFromDetail`, not this renderer.
+Desktop detail uses the theme surround; compact detail and image fullscreen remain black.
 
 Resident images win. A non-resident ID uses `getById(id, signal)` with image, overlay and failure
 owned by that ID; identity change or becoming resident aborts the read. Standalone enrichment
@@ -936,9 +952,13 @@ and DOM element; one distinct thumbnail fallback is allowed. Terminal media fail
 metadata and navigation available. Zoom loads a higher-resolution rendition; `useCursorAutoHide`
 coordinates fullscreen controls. None of this implements expired-URL renewal.
 
-`NavStrip.tsx` supplies the hover-revealed prev/next strips and `FullscreenCornerButton`, a
-top-right enter/exit toggle inside the image area; circles fade in after a 100ms hover delay so
-passing the pointer over them does not flash them. The next strip starts below the corner button.
+`NavStrip.tsx` supplies prev/next strips and `FullscreenCornerButton`, a top-right enter/exit
+toggle inside the image area. Mouse hover reveals them after a short delay. On desktop touch,
+the first image/hidden-control tap reveals controls without activating an invisible button;
+a subsequent visible-control tap acts normally, with idle hiding through `useCursorAutoHide`.
+Compatibility mouse events from touch do not immediately undo that reveal. The next strip
+starts below the corner button. Adjacent swipe panels follow touch capability, independently
+of the UI model; pure-mouse machines avoid those extra panels. Prefetch policy is unchanged.
 In the compact shell, metadata moves into a non-modal `BottomSheet` card (no scrim). Expanding
 the card shrinks the image into the top quarter; tapping or swiping down on the image collapses
 the card before a subsequent downward swipe dismisses detail. Portrait and landscape use the
@@ -952,7 +972,10 @@ Kahuna-shaped request, never posts it; permission gating and backend writes are 
 `CropCanvas` owns one Cropper.js v2 instance per source/alt lifetime, tracks loading/absence,
 cancels callbacks/frames on teardown and preserves natural-pixel selection geometry on resize.
 Native image gestures are disabled; desktop fullscreen supplies controlled pan/zoom without
-changing crop coordinates. Rotation remains unavailable. Rendition coordinates map to
+changing crop coordinates. Alt temporarily inverts the selected Hand/frame mode in either
+direction; the Hand highlight reflects that effective mode and restores on release or blur.
+The persistent mode is unchanged, and grip/resize handles retain their crop-editing actions.
+Rotation remains unavailable. Rendition coordinates map to
 oriented-original pixels; mock submission requires a current, finite, positive, in-bounds selection. Image/source, ratio and
 legacy-settings changes invalidate prior selection/output until the canvas reports readiness.
 
@@ -1129,10 +1152,13 @@ presentation remains visible with `aria-busy`; this is not a guarantee of comple
 
 ## Compact Shell (`hooks/useShell.ts`, `components/BottomSheet.tsx`, `components/FiltersSheet.tsx`)
 
-The compact (phone) shell applies only when the viewport is at most 639px wide **and** the
-primary pointer is coarse; `useIsCompact()` and `html[data-shell]` expose it. A narrow desktop
-window keeps the desktop shell. The engine (buffer, scroll, focus, selection) is shared; only
-chrome differs. Design rationale is archived in the [compact shell design](../zz%20Archive/compact-shell-design.md).
+The compact (phone) model applies when the primary pointer is coarse and either viewport width
+or height is at most 639px; the height branch keeps landscape phones compact. `useIsCompact()`
+and `html[data-shell]` expose the choice. A narrow mouse desktop keeps the desktop model.
+`useTouchCapable()` separately admits shared finger gestures; it does not choose chrome, click
+mode, default density or feature availability. Installed/PWA presentation is not a third model.
+The engine (buffer, scroll, focus, selection) is shared. Design rationale is archived in the
+[compact shell design](../zz%20Archive/compact-shell-design.md).
 
 - **Panels.** `PanelLayout` renders the left panel as a `SideSheet` (scrim, swipe toward its edge
   to dismiss) and the right panel as a `BottomSheet` card shown only while a selection exists; it
@@ -1141,6 +1167,8 @@ chrome differs. Design rationale is archived in the [compact shell design](../zz
 - **`BottomSheet`** is a peek (64px) / expanded (75vh) card with drag, optional scrim and
   `useContentPullToDrag`. With a scrim it is modal: `useFocusTrap` moves focus to the outline-less
   container and keeps Tab inside, restoring focus on close (never to a text field).
+  Collapsed content is inert, while the peek toggle stays usable; collapse returns content focus
+  to that toggle. A second contact cancels handle dragging rather than collapsing or toggling.
 - **`FiltersSheet`** is the Refine surface. In the compact shell it is a bottom sheet with
   `RefineChips` (tap key to negate, tap value to edit, × to remove, "+ Add filter"), free-to-use,
   sort and inline dates, with Reset and "Show N results". On narrow desktop it is a dropdown

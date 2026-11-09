@@ -1472,8 +1472,9 @@ test.describe("Scroll stability", () => {
     expect(trackBox).not.toBeNull();
 
     // Dispatch all three clicks before the 200ms scroll-seek debounce can
-    // settle. The final 10% request must be the only committed generation.
-    const x = trackBox!.x + trackBox!.width / 2;
+    // settle, using the exposed track edge rather than the animated thumb.
+    // The final 10% request must be the only committed generation.
+    const x = trackBox!.x + 1;
     for (const ratio of [0.3, 0.7, 0.1]) {
       await kupua.page.mouse.click(x, trackBox!.y + ratio * trackBox!.height);
     }

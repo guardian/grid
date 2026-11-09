@@ -9,15 +9,15 @@
  * to highlight, double-click to open) or phantom focus (click to open
  * directly, no visible focus ring). See architecture doc §3.
  *
- * On devices with `pointer: coarse` (touch screens, no mouse), phantom mode
- * is forced regardless of the stored preference — explicit focus is
- * meaningless without a mouse and keyboard.
+ * The compact phone model uses phantom mode without changing the stored
+ * desktop preference.
  */
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { useSearchStore } from "@/stores/search-store";
 import { readHomeView } from "@/lib/home-view";
+import { isCompactNow, useIsCompact } from "@/hooks/useShell";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -32,12 +32,12 @@ export function writeDensityPreference(density: Density): void {
   try { sessionStorage.setItem(DENSITY_STORAGE_KEY, density); } catch {}
 }
 
-/** Locked Home view wins; else touch devices default to justified, desktop to grid. */
+/** Locked Home view wins; else compact phones default to justified, desktop to grid. */
 export function defaultDensity(): Density {
   const locked = readHomeView();
   if (locked) return locked.density;
   try {
-    return window.matchMedia?.("(pointer: coarse)").matches ? "justified" : "grid";
+    return isCompactNow() ? "justified" : "grid";
   } catch {
     return "grid";
   }
@@ -65,7 +65,7 @@ interface UiPrefsState {
   /**
    * Whether the primary pointer is coarse (touch device).
    * NOT persisted — detected at runtime via matchMedia.
-   * When true, effectiveFocusMode is always "phantom".
+  * Input capability only; the selected shell owns focus policy.
    */
   _pointerCoarse: boolean;
 
@@ -125,11 +125,13 @@ export const useUiPrefsStore = create<UiPrefsState>()(
 // ---------------------------------------------------------------------------
 
 /**
- * Hook: returns the effective focus mode (coarse pointer forces phantom).
+ * Hook: returns the effective focus mode (compact shell forces phantom).
  * Components should use this, not `focusMode` directly.
  */
 export function useEffectiveFocusMode(): FocusMode {
-  return useUiPrefsStore((s) => s._pointerCoarse ? "phantom" : s.focusMode);
+  const compact = useIsCompact();
+  const mode = useUiPrefsStore((s) => s.focusMode);
+  return compact ? "phantom" : mode;
 }
 
 /**
@@ -137,7 +139,7 @@ export function useEffectiveFocusMode(): FocusMode {
  */
 export function getEffectiveFocusMode(): FocusMode {
   const s = useUiPrefsStore.getState();
-  return s._pointerCoarse ? "phantom" : s.focusMode;
+  return isCompactNow() ? "phantom" : s.focusMode;
 }
 
 // ---------------------------------------------------------------------------

@@ -150,6 +150,78 @@ function GridThumbnail(props: Omit<ImgHTMLAttributes<HTMLImageElement>, "loading
   return <img {...props} ref={thumbnailRef} loading={loading} />;
 }
 
+function GraphicRevealButton() {
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [revealed, setRevealed] = useState(false);
+  useLayoutEffect(() => {
+    const button = buttonRef.current;
+    const surface = button?.parentElement;
+    const preventNativeHold = (event: TouchEvent) => event.preventDefault();
+    button?.addEventListener("touchstart", preventNativeHold, { passive: false });
+    surface?.toggleAttribute("data-revealed", revealed);
+    const conceal = () => setRevealed(false);
+    if (revealed) {
+      document.addEventListener("scroll", conceal, true);
+      document.addEventListener("visibilitychange", conceal);
+      window.addEventListener("blur", conceal);
+    }
+    return () => {
+      button?.removeEventListener("touchstart", preventNativeHold);
+      surface?.removeAttribute("data-revealed");
+      document.removeEventListener("scroll", conceal, true);
+      document.removeEventListener("visibilitychange", conceal);
+      window.removeEventListener("blur", conceal);
+    };
+  }, [revealed]);
+  const stopActivation = (event: React.SyntheticEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+  return <button
+    ref={buttonRef}
+    type="button"
+    data-graphic-reveal
+    aria-label="Hold to reveal image"
+    aria-description="Potentially graphic image"
+    aria-pressed={revealed}
+    title="Hold to reveal image"
+    className="absolute bottom-1 right-1 z-20 size-11 max-w-[calc(100%_-_8px)] max-h-[calc(100%_-_8px)] flex items-center justify-center rounded-full bg-black/70 text-white select-none cursor-pointer focus-visible:outline-2 focus-visible:outline-grid-accent"
+    onPointerDown={event => {
+      if (event.button !== 0) return;
+      stopActivation(event);
+      if (event.pointerType !== "mouse") event.currentTarget.parentElement?.setAttribute("data-touch-reveal", "");
+      event.currentTarget.setPointerCapture(event.pointerId);
+      setRevealed(true);
+    }}
+    onPointerUp={event => {
+      stopActivation(event);
+      setRevealed(false);
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    }}
+    onPointerCancel={() => setRevealed(false)}
+    onLostPointerCapture={() => setRevealed(false)}
+    onBlur={() => setRevealed(false)}
+    onKeyDown={event => {
+      if (event.key !== " " && event.key !== "Enter") return;
+      stopActivation(event);
+      setRevealed(true);
+    }}
+    onKeyUp={event => {
+      if (event.key !== " " && event.key !== "Enter") return;
+      stopActivation(event);
+      setRevealed(false);
+    }}
+    onClick={stopActivation}
+    onDoubleClick={stopActivation}
+    onContextMenu={stopActivation}
+  >
+    <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  </button>;
+}
+
 interface GridCellProps {
   image: Image | undefined;
   terminal?: boolean;
@@ -281,7 +353,10 @@ const GridCell = memo(function GridCell({
       {/* Thumbnail area — 190px block, flex-centred so img element hugs actual
            image content (border wraps the visible image, not the container). */}
       <div
-        className="relative overflow-hidden flex items-center justify-center group"
+        className={`relative overflow-hidden flex items-center justify-center group${isPotentiallyGraphic ? " graphic-preview" : ""}`}
+        onPointerEnter={isPotentiallyGraphic ? event => {
+          if (event.pointerType === "mouse") event.currentTarget.removeAttribute("data-touch-reveal");
+        } : undefined}
         style={{ height: imageOnlyHeight ?? thumbHeight }}
         title={descTooltip}
       >
@@ -290,7 +365,7 @@ const GridCell = memo(function GridCell({
             key={animationClass ? image.id : undefined}
             src={thumbUrl}
             alt={imageOnlyHeight !== undefined ? description : ""}
-            className={`${imageOnlyHeight !== undefined ? "w-full h-full object-contain text-transparent" : "max-w-full object-contain"} pointer-events-none${isPotentiallyGraphic ? " blur-lg group-hover:blur-none transition-[filter] duration-500" : ""}`}
+            className={`${imageOnlyHeight !== undefined ? "w-full h-full object-contain text-transparent" : "max-w-full object-contain"} pointer-events-none${isPotentiallyGraphic ? " graphic-thumbnail blur-lg group-hover:blur-none" : ""}`}
             style={imageOnlyHeight === undefined
               ? {
                   maxHeight: thumbHeight - 4,
@@ -319,14 +394,15 @@ const GridCell = memo(function GridCell({
         {/* Graphic image blur label — fades on hover (Kahuna behaviour: hover to reveal, re-blurs on leave) */}
         {isPotentiallyGraphic && (
           <div
-            className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 pointer-events-none z-10 group-hover:opacity-0 transition-opacity duration-500"
+            className="graphic-warning absolute inset-0 flex flex-col items-center justify-center pb-4 bg-black/30 pointer-events-none z-10 group-hover:opacity-0"
           >
-            <span className="text-white text-xs font-semibold text-center px-2">
+            {cellWidth >= 160 && (imageOnlyHeight ?? thumbHeight) >= 120 && <span className="text-white text-xs font-semibold text-center px-2">
               Potentially graphic
-            </span>
-            <span className="text-white/70 text-2xs mt-1">Hover to reveal</span>
+              <span className="block mt-1 text-[10px] font-normal text-white/80">Hold to reveal</span>
+            </span>}
           </div>
         )}
+        {isPotentiallyGraphic && <GraphicRevealButton key={image.id} />}
 
         {/* Icon row — bottom-right overlay (syndication, archiver, print/digital) */}
       </div>

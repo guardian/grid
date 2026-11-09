@@ -29,6 +29,7 @@ interface CropCanvasProps {
   touchEnabled?: boolean;
   panMode?: boolean;
   onZoomChange?: (zoomed: boolean) => void;
+  onAltChange?: (held: boolean) => void;
   alt: string;
   /** width / height; null for freeform. Changing it refits a maximal centred selection. */
   aspect: number | null;
@@ -62,7 +63,7 @@ interface Session extends CropViewport {
   last?: Rect;
 }
 
-export function CropCanvas({ ref, src, zoomSrc, zoomEnabled = false, touchEnabled = false, panMode = zoomEnabled, onZoomChange, alt, aspect, initialSelection, onChange, circle }: CropCanvasProps) {
+export function CropCanvas({ ref, src, zoomSrc, zoomEnabled = false, touchEnabled = false, panMode = zoomEnabled, onZoomChange, onAltChange, alt, aspect, initialSelection, onChange, circle }: CropCanvasProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef<Session | null>(null);
   const initialSelectionRef = useRef(initialSelection);
@@ -83,6 +84,8 @@ export function CropCanvas({ ref, src, zoomSrc, zoomEnabled = false, touchEnable
   onZoomChangeRef.current = onZoomChange;
   const panModeRef = useRef(panMode);
   panModeRef.current = panMode;
+  const onAltChangeRef = useRef(onAltChange);
+  onAltChangeRef.current = onAltChange;
 
   useImperativeHandle(ref, () => ({
     resetView() { sessionRef.current?.resetView(); },
@@ -378,7 +381,7 @@ export function CropCanvas({ ref, src, zoomSrc, zoomEnabled = false, touchEnable
     });
     session.selection.append(handle);
     setGrip(handle);
-    const unbind = bindCropViewport(host, session, () => panModeRef.current);
+    const unbind = bindCropViewport(host, session, () => panModeRef.current, held => onAltChangeRef.current?.(held));
     return () => { unbind(); handle.remove(); setGrip(null); session.resetView(); };
   }, [zoomEnabled, readyTick]);
 

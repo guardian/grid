@@ -481,6 +481,17 @@ test.describe("Crop editor dry run", () => {
     await page.keyboard.press("Alt+f");
     await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(true);
     await expect(editor.getByRole("button", { name: "Settings", exact: true })).toHaveCount(0);
+    const hand = editor.getByRole("button", { name: "Pan view", exact: true });
+    await expect(hand).toHaveAttribute("aria-pressed", "true");
+    await page.keyboard.down("Alt");
+    try { await expect(hand).toHaveAttribute("aria-pressed", "false"); }
+    finally { await page.keyboard.up("Alt"); }
+    await expect(hand).toHaveAttribute("aria-pressed", "true");
+    await hand.click();
+    await page.keyboard.down("Alt");
+    try { await expect(hand).toHaveAttribute("aria-pressed", "true"); }
+    finally { await page.keyboard.up("Alt"); }
+    await expect(hand).toHaveAttribute("aria-pressed", "false");
     await page.keyboard.press("Alt+f");
     await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(false);
     await expect(editor.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
@@ -1106,8 +1117,17 @@ test.describe("Sort dropdown", () => {
     const count = await options.count();
     expect(count).toBeGreaterThan(3);
 
-    // Select "Credit" (a different sort field)
-    await options.filter({ hasText: "Credit" }).click();
+    // Select "Credit" with the keyboard (a different sort field).
+    await expect(dropdown.locator('[aria-selected="true"]')).toBeFocused();
+    const indices = await options.evaluateAll(elements => ({
+      selected: elements.findIndex(element => element.getAttribute("aria-selected") === "true"),
+      credit: elements.findIndex(element => element.getAttribute("data-sort-key") === "credit"),
+    }));
+    for (let step = 0; step < (indices.credit - indices.selected + count) % count; step++) {
+      await kupua.page.keyboard.press("ArrowDown");
+    }
+    await expect(dropdown.locator('[data-sort-key="credit"]')).toBeFocused();
+    await kupua.page.keyboard.press("Enter");
 
     // Dropdown should close
     await expect(dropdown).not.toBeVisible();
@@ -2133,6 +2153,12 @@ async function openVisibleDetail(kupua: import("../shared/helpers").KupuaHelpers
 }
 
 test("results Settings stays scoped and image fullscreen aligns with Next", async ({ kupua, page }) => {
+  await page.route("**/src/lib/image-urls.ts*", route => route.fulfill({ contentType: "application/javascript", body: `
+    export const thumbnailsEnabled = false;
+    export const getFullImageUrl = () => 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    export const getThumbnailUrl = () => undefined;
+    export const getZoomImageUrl = () => undefined;
+  ` }));
   await kupua.startSearch("", "grid");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   const menu = page.getByRole("menu");
@@ -2162,6 +2188,55 @@ test("results Settings stays scoped and image fullscreen aligns with Next", asyn
       const cornerBox = (await corner.boundingBox())!;
       const nextBox = (await next.boundingBox())!;
       expect(Math.abs(cornerBox.x + cornerBox.width / 2 - nextBox.x - nextBox.width / 2)).toBeLessThan(0.5);
+      if (fullscreen) {
+        const image = detail.getByTestId("detail-image-container").locator('img[fetchpriority="high"]');
+        const transform = () => image.evaluate(element => element.style.transform);
+        for (const [key, scale] of [["+", "1.5"], ["=", "2.25"], ["-", "1.5"]]) {
+          await page.keyboard.press(key);
+          await expect.poll(transform).toContain(`scale3d(${scale},`);
+        }
+        await page.keyboard.press("0");
+        await expect.poll(transform).toBe("");
+        const original = await detail.getAttribute("data-detail-image-id");
+        const nextButton = detail.getByRole("button", { name: "Next image", exact: true });
+        await nextButton.click();
+        await expect(detail).not.toHaveAttribute("data-detail-image-id", original!);
+        const advanced = await detail.getAttribute("data-detail-image-id");
+        await expect(nextButton).not.toBeFocused();
+        await page.keyboard.press("Space");
+        await expect.poll(transform).toContain("scale3d(3,");
+        await expect(detail).toHaveAttribute("data-detail-image-id", advanced!);
+        const zoomed = await transform();
+        await page.keyboard.press("ArrowLeft");
+        await expect.poll(transform).not.toBe(zoomed);
+        const panned = await transform();
+        await page.keyboard.press("Home");
+        await expect.poll(transform).not.toBe(panned);
+        const topCorner = await transform();
+        await page.keyboard.press("End");
+        await expect.poll(transform).not.toBe(topCorner);
+        await expect(detail).toHaveAttribute("data-detail-image-id", advanced!);
+        await page.keyboard.press("0");
+        await expect.poll(transform).toBe("");
+        await detail.getByRole("button", { name: "Previous image", exact: true }).click();
+        await expect(detail).toHaveAttribute("data-detail-image-id", original!);
+        await page.keyboard.press("Space");
+        await expect.poll(transform).toContain("scale3d(3,");
+        await page.keyboard.press("Space");
+        await expect.poll(transform).toBe("");
+        await detail.getByRole("button", { name: "Exit full screen", exact: true }).click();
+        await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(false);
+        const enter = detail.getByRole("button", { name: "Full screen", exact: true });
+        await expect(enter).not.toBeFocused();
+        await enter.click();
+        await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(true);
+        await expect(detail.getByRole("button", { name: "Exit full screen", exact: true })).toBeVisible();
+        await expect(detail.getByRole("button", { name: "Exit full screen", exact: true })).not.toBeFocused();
+        await page.keyboard.press("=");
+        await expect.poll(transform).toContain("scale3d(1.5,");
+        await page.keyboard.press("0");
+        await expect.poll(transform).toBe("");
+      }
     }
   } finally {
     await page.evaluate(async () => { if (document.fullscreenElement) await document.exitFullscreen(); });
@@ -2338,6 +2413,8 @@ test.describe("Detail close during list restoration", () => {
 });
 
 test.describe("Reloaded detail gesture return", () => {
+  test.use({ viewport: { width: 393, height: 852 }, hasTouch: true });
+
   for (const view of ["grid", "table"] as const) {
     for (const outcome of ["cancel", "complete", "backspace", "traversed"] as const) {
       test(`${view} ${outcome}: preparation and final return share original entry`, async ({ kupua, page }) => {
@@ -2356,17 +2433,13 @@ test.describe("Reloaded detail gesture return", () => {
           return state && !state.loading && state.imagePositions.has(target)
             && document.querySelector(`[data-detail-image-id="${CSS.escape(target)}"]`);
         }, traversed);
-        await page.evaluate(async () => {
-          const path = "/src/stores/ui-prefs-store.ts";
-          (await import(path)).useUiPrefsStore.setState({ _pointerCoarse: true });
-        });
         if (outcome !== "traversed") await kupua.detailPrevAndWait();
         expect(await kupua.getDetailImageId()).toBe(outcome === "traversed" ? traversed : entry);
         const before = await kupua.getScrollTop();
         if (outcome === "backspace") await kupua.closeDetailViaBackspace();
         else {
           await page.evaluate(outcome => {
-            const container = document.querySelector('[data-detail-image-id] .touch-none');
+            const container = document.querySelector('[data-testid="detail-image-container"]');
             if (!container) throw new Error("Dismiss image surface absent");
             const dispatch = (type: string, vertical: number, timestamp: number) => {
               const event = new Event(type, { bubbles: true, cancelable: true });

@@ -1,11 +1,12 @@
 /**
- * isMobile — touch-primary device detection.
+ * isMobile — compact phone-model detection.
  *
  * Used to suppress autofocus behaviours that would summon the on-screen
- * keyboard and obscure half the UI. Matches the `(pointer: coarse)` check
- * used elsewhere (image-prefetch, image-urls, ui-prefs-store).
+ * keyboard and obscure half the UI. Uses the shared shell decision rather
+ * than changing desktop behavior merely because touch is available.
  */
+import { isCompactNow } from "@/hooks/useShell";
+
 export function isMobile(): boolean {
-  if (typeof window === "undefined" || !window.matchMedia) return false;
-  return window.matchMedia("(pointer: coarse)").matches;
+  return isCompactNow();
 }

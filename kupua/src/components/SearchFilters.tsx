@@ -48,7 +48,7 @@ function FilterControls({ inSheet = false }: { inSheet?: boolean }) {
   }, [params.nonFree, updateSearch]);
 
   return (
-    <div className={inSheet ? "flex flex-col items-start gap-5" : "hidden min-[760px]:flex items-center gap-3 shrink-0"}>
+    <div className={inSheet ? "flex flex-col items-start gap-5" : "hidden wide:min-[760px]:flex items-center gap-3 shrink-0"}>
       {/* Free to use only toggle */}
       <label className={`flex items-center gap-1.5 text-grid-text-muted cursor-pointer select-none whitespace-nowrap ${inSheet ? "text-sm gap-3" : "text-sm"}`}>
         <input
@@ -76,6 +76,7 @@ function SortControls({ inSheet = false }: { inSheet?: boolean }) {
   const updateSearch = useUpdateSearchParams();
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const focusedImageId = useSearchStore((s) => s.focusedImageId);
 
   const orderBy = params.orderBy ?? "-uploadTime";
@@ -107,6 +108,7 @@ function SortControls({ inSheet = false }: { inSheet?: boolean }) {
         updateSearch({ orderBy: `${prefix}${value}` });
       }
       setOpen(false);
+      triggerRef.current?.focus({ preventScroll: true });
     },
     [updateSearch, sortField, sortDesc, focusedImageId, hasAiChip]
   );
@@ -133,20 +135,39 @@ function SortControls({ inSheet = false }: { inSheet?: boolean }) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
-  // Close dropdown on Escape
   useEffect(() => {
     if (!open) return;
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    const options = Array.from(dropdownRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]:not(:disabled)') ?? []);
+    (options.find(option => option.getAttribute("aria-selected") === "true") ?? options[0])?.focus({ preventScroll: true });
   }, [open]);
 
   return (
-    <div ref={dropdownRef} className={`${inSheet ? "flex" : "hidden min-[760px]:flex"} items-center gap-0.5 shrink-0 relative`}>
+    <div ref={dropdownRef} className={`${inSheet ? "flex" : "hidden wide:min-[760px]:flex"} items-center gap-0.5 shrink-0 relative`}
+      onKeyDown={event => {
+        if (event.key === "Escape" && open) {
+          event.preventDefault();
+          event.stopPropagation();
+          setOpen(false);
+          triggerRef.current?.focus({ preventScroll: true });
+          return;
+        }
+        if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+        if (!open && event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (!open) { setOpen(true); return; }
+        const options = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="option"]:not(:disabled)'));
+        if (!options.length) return;
+        const index = options.indexOf(document.activeElement as HTMLButtonElement);
+        const next = event.key === "Home" ? 0 : event.key === "End" ? options.length - 1
+          : (index + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
+        options[next].focus({ preventScroll: true });
+      }}
+      onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false); }}
+    >
       {/* Sort field button */}
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(!open)}
         aria-haspopup="listbox"
@@ -197,14 +218,17 @@ function SortControls({ inSheet = false }: { inSheet?: boolean }) {
             const isPrimary = sortField === opt.value;
             const disabled = hasAiChip && !isAiSortOptionEnabled(opt.value);
             return (
-              <div
+              <button
                 key={opt.value}
+                type="button"
                 role="option"
+                tabIndex={isPrimary ? 0 : -1}
+                disabled={disabled}
                 aria-selected={isPrimary}
                 aria-disabled={disabled}
                 data-sort-key={opt.value}
                 onClick={disabled ? undefined : () => handleSelectField(opt.value)}
-                className={`popup-item ${disabled ? "opacity-45 cursor-not-allowed" : ""}`}
+                className={`popup-item text-left focus-visible:bg-grid-hover ${disabled ? "opacity-45 cursor-not-allowed" : ""}`}
               >
                 <span className="w-4 flex items-center justify-center text-grid-accent shrink-0">
                   {isPrimary && (
@@ -217,7 +241,7 @@ function SortControls({ inSheet = false }: { inSheet?: boolean }) {
                   )}
                 </span>
                 {opt.label}
-              </div>
+              </button>
             );
           })}
         </div>

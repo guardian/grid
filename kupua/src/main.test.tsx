@@ -10,6 +10,7 @@ vi.hoisted(() => {
     matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
   })));
   vi.stubGlobal("requestIdleCallback", vi.fn(() => 0));
+  vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   Object.defineProperty(document, "execCommand", { configurable: true, value: vi.fn(() => false) });
 });
 

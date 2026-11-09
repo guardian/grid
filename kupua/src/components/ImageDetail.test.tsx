@@ -24,6 +24,7 @@ import { resetImageFreshnessForTests } from "@/lib/image-read-freshness";
 import { useSelectionStore, _resetMetadataCache } from "@/stores/selection-store";
 
 vi.hoisted(() => {
+  vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   vi.stubGlobal("matchMedia", vi.fn(() => ({
     matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
   })));
@@ -39,8 +40,16 @@ const fixture = vi.hoisted(() => ({
   mediaProps: [] as ComponentProps<"img">[],
   composed: false,
   realDismiss: false,
+  realCursor: false,
+  realPinch: false,
+  realCarousel: false,
+  canGoNext: false,
+  cancelTraversal: () => {},
+  touchCapable: false,
+  nextImage: undefined as Image | undefined,
   compact: false,
   fullscreen: false,
+  toggleFullscreen: vi.fn(),
   spa: true,
   swiped: false,
   prepareScroll: vi.fn(),
@@ -67,20 +76,37 @@ vi.mock("@/hooks/useDataWindow", () => ({ getViewportAnchorId: () => null, useDa
     getImage: (index: number) => fixture.resident[index],
   };
 } }));
-vi.mock("@/hooks/useImageTraversal", () => ({ useImageTraversal: () => ({
-  prevImage: undefined, nextImage: undefined, currentGlobalIndex: -1,
+vi.mock("@/hooks/useImageTraversal", () => ({ useImageTraversal: (_imageId: string, _navigate: unknown, _history: unknown, onCancelled?: () => void) => {
+  fixture.cancelTraversal = onCancelled ?? (() => {});
+  return {
+  prevImage: undefined, nextImage: fixture.nextImage, currentGlobalIndex: -1,
+  canGoNext: fixture.canGoNext || !!fixture.nextImage,
   goToPrev: vi.fn(), goToNext: vi.fn(),
-}) }));
-vi.mock("@/hooks/useFullscreen", () => ({ useFullscreen: () => ({ isFullscreen: fixture.fullscreen, toggleFullscreen: vi.fn() }) }));
-vi.mock("@/hooks/useCursorAutoHide", () => ({ useCursorAutoHide: () => ({ cursorHidden: false }) }));
+}; } }));
+vi.mock("@/hooks/useFullscreen", () => ({ useFullscreen: () => ({ isFullscreen: fixture.fullscreen, toggleFullscreen: fixture.toggleFullscreen }) }));
+vi.mock("@/hooks/useCursorAutoHide", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/hooks/useCursorAutoHide")>();
+  return { useCursorAutoHide: (active: boolean, surface?: React.RefObject<HTMLElement | null>) =>
+    actual.useCursorAutoHide(fixture.realCursor && active, fixture.realCursor ? surface : undefined) };
+});
 vi.mock("@/hooks/useKeyboardShortcut", () => ({ useKeyboardShortcut: vi.fn() }));
-vi.mock("@/hooks/useSwipeCarousel", () => ({ useSwipeCarousel: () => ({ swipedRef: { current: fixture.swiped }, lastSwipeTimeRef: { current: 0 } }) }));
+vi.mock("@/hooks/useSwipeCarousel", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/hooks/useSwipeCarousel")>();
+  return { useSwipeCarousel: (options: Parameters<typeof actual.useSwipeCarousel>[0]) => {
+    const gesture = actual.useSwipeCarousel({ ...options, enabled: fixture.realCarousel && options.enabled });
+    return fixture.realCarousel ? gesture : { swipedRef: { current: fixture.swiped }, lastSwipeTimeRef: { current: 0 } };
+  } };
+});
 vi.mock("@/hooks/useSwipeDismiss", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/hooks/useSwipeDismiss")>();
   return { useSwipeDismiss: (options: Parameters<typeof actual.useSwipeDismiss>[0]) =>
     actual.useSwipeDismiss({ ...options, enabled: fixture.realDismiss && options.enabled }) };
 });
-vi.mock("@/hooks/usePinchZoom", () => ({ usePinchZoom: vi.fn() }));
+vi.mock("@/hooks/usePinchZoom", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/hooks/usePinchZoom")>();
+  return { usePinchZoom: (options: Parameters<typeof actual.usePinchZoom>[0]) =>
+    actual.usePinchZoom({ ...options, enabled: fixture.realPinch && options.enabled }) };
+});
 vi.mock("@/lib/image-urls", () => ({
   getFullImageUrl: (image: Image) => fixture.relativeMedia ? `/__detail_media/full/${image.id}.gif` : `data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7#${image.id}`,
   getThumbnailUrl: (image: Image) => fixture.relativeMedia ? `/__detail_media/thumb/${image.id}.gif` : undefined,
@@ -103,6 +129,8 @@ vi.mock("@/components/crop/CropEditor", () => ({ CropEditor: ({ onClose }: { onC
   <button onClick={onClose}>Cancel crop</button>
 ) }));
 vi.mock("@/components/PanelLayout", () => ({ AccordionSection: ({ children }: { children: ReactNode }) => <section>{children}</section>, useIsCompact: () => fixture.compact }));
+vi.mock("@/hooks/useShell", () => ({ useIsCompact: () => fixture.compact, isCompactNow: () => fixture.compact,
+  useTouchCapable: () => fixture.touchCapable }));
 vi.mock("@/lib/reset-to-home", () => ({ resetToHome: vi.fn() }));
 vi.mock("@/lib/orchestration/search", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/orchestration/search")>(),
@@ -117,6 +145,16 @@ vi.mock("@/lib/image-offset-cache", async (importOriginal) => ({
 
 function makeImage(imageId: string): Image {
   return { id: imageId, metadata: { title: `Title ${imageId}` }, usages: [] } as unknown as Image;
+}
+
+function imageTouch(element: Element, type: string, points: { clientX: number; clientY: number }[], timestamp: number,
+  remaining: { clientX: number; clientY: number }[] = []) {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperties(event, {
+    touches: { value: type === "touchend" || type === "touchcancel" ? remaining : points },
+    changedTouches: { value: points }, timeStamp: { value: timestamp },
+  });
+  fireEvent(element, event);
 }
 
 function found(imageId: string, enrichment?: EnrichmentFields): ImageByIdResult {
@@ -151,6 +189,9 @@ describe("KUP-004 standalone detail identity", () => {
     dataSource = new MockDataSource();
     useSearchStore.setState({ ...initialState, dataSource });
     fixture.resident = [];
+    fixture.nextImage = undefined;
+    fixture.touchCapable = false;
+    fixture.canGoNext = false;
     fixture.composed = false;
     fixture.realDismiss = false;
     fixture.spa = true;
@@ -159,6 +200,7 @@ describe("KUP-004 standalone detail identity", () => {
     fixture.cached.mockReset().mockReturnValue(null);
     fixture.markNavigation.mockClear();
     fixture.navigate.mockClear();
+    fixture.toggleFullscreen.mockClear();
     fixture.search = { nonFree: "true", orderBy: "-uploadTime" };
     transitions = [];
     history.replaceState({}, "", "/search");
@@ -169,6 +211,9 @@ describe("KUP-004 standalone detail identity", () => {
     useSearchStore.setState(initialState, true);
     useUiPrefsStore.setState(initialPrefs, true);
     fixture.compact = false;
+    fixture.realCursor = false;
+    fixture.realPinch = false;
+    fixture.realCarousel = false;
     fixture.fullscreen = false;
     fixture.swiped = false;
     vi.restoreAllMocks();
@@ -200,6 +245,91 @@ describe("KUP-004 standalone detail identity", () => {
     act(() => { vi.advanceTimersByTime(350); });
     expect(screen.queryByRole("region", { name: "Image details" })).toBeNull();
     expect(screen.getByAltText("Title A")).toBe(image);
+  });
+
+  it("does not enter fullscreen on an image tap in touch-enabled desktop detail", () => {
+    vi.useFakeTimers();
+    fixture.resident = [makeImage("A")];
+    useUiPrefsStore.setState({ _pointerCoarse: true });
+    render(<Detail imageId="A" />);
+    fireEvent.click(screen.getByAltText("Title A"));
+    act(() => { vi.advanceTimersByTime(350); });
+    expect(fixture.toggleFullscreen).not.toHaveBeenCalled();
+    expect(screen.getByTestId("metadata").closest("aside")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(screen.getByRole("menuitemradio", { name: /Click to focus/ }).getAttribute("disabled")).toBeNull();
+  });
+
+  it.each([
+    ["desktop", false, false, "bg-grid-bg"],
+    ["compact", true, false, "bg-black"],
+    ["fullscreen", false, true, "bg-black"],
+  ] as const)("uses the %s image background", (_mode, compact, fullscreen, background) => {
+    fixture.compact = compact;
+    fixture.fullscreen = fullscreen;
+    fixture.resident = [makeImage("A")];
+    render(<Detail imageId="A" />);
+    expect(screen.getByTestId("detail-image-container").classList.contains(background)).toBe(true);
+  });
+
+  it.each([false, true])("touch taps reveal desktop controls without activating hidden buttons, fullscreen=%s", fullscreen => {
+    vi.useFakeTimers();
+    fixture.realCursor = true;
+    fixture.fullscreen = fullscreen;
+    fixture.resident = [makeImage("A")];
+    const mounted = render(<Detail imageId="A" />);
+    const image = screen.getByAltText("Title A");
+    const label = fullscreen ? "Exit full screen" : "Full screen";
+    const touchClick = (target: Element) => {
+      const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "pointerType", { value: "touch" });
+      fireEvent.touchStart(target);
+      fireEvent.mouseMove(document);
+      fireEvent(target, event);
+    };
+    touchClick(screen.getByRole("button", { name: label }));
+    expect(fixture.toggleFullscreen).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: label }).firstElementChild?.classList.contains("opacity-100")).toBe(true);
+    touchClick(screen.getByRole("button", { name: label }));
+    expect(fixture.toggleFullscreen).toHaveBeenCalledOnce();
+    fixture.fullscreen = !fullscreen;
+    mounted.rerender(<Detail imageId="A" />);
+    const currentLabel = fixture.fullscreen ? "Exit full screen" : "Full screen";
+    expect(screen.getByRole("button", { name: currentLabel }).firstElementChild?.classList.contains("opacity-100")).toBe(true);
+    act(() => { vi.advanceTimersByTime(2100); });
+    if (fixture.fullscreen) expect(screen.queryByRole("button", { name: currentLabel })).toBeNull();
+    else expect(screen.getByRole("button", { name: currentLabel }).firstElementChild?.classList.contains("opacity-0")).toBe(true);
+    touchClick(image);
+    expect(screen.getByRole("button", { name: currentLabel }).firstElementChild?.classList.contains("opacity-100")).toBe(true);
+  });
+
+  it.each([false, true])("renders adjacent swipe previews by touch capability, touch=%s", touchCapable => {
+    fixture.touchCapable = touchCapable;
+    fixture.relativeMedia = true;
+    fixture.resident = [makeImage("A"), makeImage("B")];
+    fixture.nextImage = fixture.resident[1];
+    render(<Detail imageId="A" />);
+    expect(document.querySelector('[data-detail-page="next"] img') !== null).toBe(touchCapable);
+  });
+
+  it("does not dismiss desktop detail on a downward finger swipe", () => {
+    fixture.realDismiss = true;
+    fixture.resident = [makeImage("A")];
+    useUiPrefsStore.setState({ _pointerCoarse: true });
+    const back = vi.spyOn(history, "back").mockImplementation(() => {});
+    const clock = vi.spyOn(performance, "now");
+    render(<Detail imageId="A" />);
+    const surface = screen.getByTestId("detail-image-container");
+    for (const [type, vertical, timestamp] of [["touchstart", 100, 1000], ["touchmove", 300, 1100], ["touchend", 300, 1200]] as const) {
+      clock.mockReturnValue(timestamp);
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperties(event, {
+        touches: { value: type === "touchend" ? [] : [{ clientX: 100, clientY: vertical }] },
+        changedTouches: { value: [{ clientX: 100, clientY: vertical }] },
+      });
+      fireEvent(surface, event);
+    }
+    expect(back).not.toHaveBeenCalled();
   });
 
   it.each([false, true])("image swipe-up drags only the card with sheet snap rules (fullscreen=%s)", (fullscreen) => {
@@ -287,6 +417,111 @@ describe("KUP-004 standalone detail identity", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
   });
 
+  it("releases an abandoned boundary swipe so the current image can be dragged again", async () => {
+    fixture.compact = true;
+    fixture.realCarousel = true;
+    fixture.canGoNext = true;
+    fixture.resident = [makeImage("A")];
+    render(<Detail imageId="A" />);
+    const surface = screen.getByTestId("detail-image-container");
+    const strip = surface.parentElement!.parentElement!;
+    Object.defineProperty(strip.parentElement!, "offsetWidth", { value: 300 });
+    const completed = deferred<void>();
+    const animation = { finished: completed.promise, cancel: vi.fn() };
+    strip.animate = vi.fn(() => animation as unknown as Animation);
+    imageTouch(surface, "touchstart", [{ clientX: 250, clientY: 100 }], 1000);
+    imageTouch(surface, "touchmove", [{ clientX: 50, clientY: 100 }], 1500);
+    imageTouch(surface, "touchend", [{ clientX: 50, clientY: 100 }], 1600);
+    await act(async () => completed.resolve());
+    act(() => fixture.cancelTraversal());
+    expect(animation.cancel).toHaveBeenCalledOnce();
+    expect(screen.getByAltText("Title A").getAttribute("src")).toContain("#A");
+    imageTouch(surface, "touchstart", [{ clientX: 150, clientY: 100 }], 2000);
+    imageTouch(surface, "touchmove", [{ clientX: 130, clientY: 100 }], 2500);
+    expect(strip.style.transform).not.toBe("");
+    const spring = { finished: new Promise<void>(() => {}), cancel: vi.fn() };
+    strip.animate = vi.fn(() => spring as unknown as Animation);
+    imageTouch(surface, "touchend", [{ clientX: 130, clientY: 100 }], 2600);
+    imageTouch(surface, "touchstart", [{ clientX: 150, clientY: 100 }], 2700);
+    expect(spring.cancel).toHaveBeenCalledOnce();
+    imageTouch(surface, "touchcancel", [], 2800);
+  });
+
+  it.each(["sideways", "downward"])("does not resume a %s gesture after one finger leaves a pinch", direction => {
+    fixture.compact = true;
+    fixture.realCarousel = direction === "sideways";
+    fixture.realDismiss = direction === "downward";
+    fixture.resident = [makeImage("A")];
+    render(<Detail imageId="A" />);
+    const surface = screen.getByTestId("detail-image-container");
+    const target = direction === "sideways" ? surface.parentElement!.parentElement! : surface.closest("[data-detail-image-id]")!;
+    const point = (distance: number) => ({ clientX: 100 + (direction === "sideways" ? distance : 0),
+      clientY: 100 + (direction === "downward" ? distance : 0) });
+    const second = { clientX: 250, clientY: 250 };
+    imageTouch(surface, "touchstart", [point(0)], 1000);
+    imageTouch(surface, "touchmove", [point(20)], 1050);
+    expect((target as HTMLElement).style.transform).not.toBe("");
+    imageTouch(surface, "touchstart", [point(20), second], 1075);
+    imageTouch(surface, "touchend", [second], 1100, [point(20)]);
+    imageTouch(surface, "touchmove", [point(80)], 1150);
+    expect((target as HTMLElement).style.transform).toBe("");
+    imageTouch(surface, "touchend", [point(80)], 1200);
+    imageTouch(surface, "touchstart", [point(0)], 2000);
+    imageTouch(surface, "touchmove", [point(20)], 2050);
+    expect((target as HTMLElement).style.transform).not.toBe("");
+    imageTouch(surface, "touchcancel", [], 2100);
+  });
+
+  it("keeps button touches and keyboard activation out of image zoom", () => {
+    fixture.compact = true;
+    fixture.realPinch = true;
+    fixture.resident = [makeImage("A")];
+    render(<Detail imageId="A" />);
+    const toggle = screen.getByRole("button", { name: "Expand Image details" });
+    const image = screen.getByAltText("Title A");
+    const point = [{ clientX: 100, clientY: 100 }];
+    imageTouch(toggle, "touchstart", point, 1000);
+    imageTouch(toggle, "touchend", point, 1050);
+    imageTouch(toggle, "touchstart", point, 1100);
+    imageTouch(toggle, "touchend", point, 1150);
+    expect(image.style.transform).toBe("");
+    fireEvent.keyDown(toggle, { key: " " });
+    expect(image.style.transform).toBe("");
+  });
+
+  it("does not treat a cancelled image drag as a double-tap and normalizes a cancelled near-fit pinch", () => {
+    fixture.compact = true;
+    fixture.realPinch = true;
+    fixture.resident = [makeImage("A")];
+    render(<Detail imageId="A" />);
+    const surface = screen.getByTestId("detail-image-container");
+    const image = screen.getByAltText("Title A");
+    const origin = [{ clientX: 100, clientY: 100 }];
+    const moved = [{ clientX: 150, clientY: 100 }];
+    imageTouch(surface, "touchstart", origin, 1000);
+    imageTouch(surface, "touchmove", moved, 1050);
+    imageTouch(surface, "touchend", moved, 1100);
+    imageTouch(surface, "touchstart", moved, 1200);
+    imageTouch(surface, "touchend", moved, 1250);
+    expect(image.style.transform).toBe("");
+    imageTouch(surface, "touchstart", [{ clientX: 0, clientY: 100 }, { clientX: 100, clientY: 100 }], 2000);
+    imageTouch(surface, "touchmove", [{ clientX: 0, clientY: 100 }, { clientX: 102, clientY: 100 }], 2050);
+    imageTouch(surface, "touchcancel", [], 2100);
+    expect(image.style.transform).toBe("");
+  });
+
+  it("starts zoom from fit after the displayed image changes", () => {
+    fixture.fullscreen = true;
+    fixture.realPinch = true;
+    fixture.resident = [makeImage("A"), makeImage("B")];
+    const mounted = render(<Detail imageId="A" />);
+    fireEvent.keyDown(document.body, { key: " " });
+    expect(screen.getByAltText("Title A").style.transform).toContain("scale3d(3,");
+    mounted.rerender(<Detail imageId="B" />);
+    fireEvent.keyDown(document.body, { key: "+" });
+    expect(screen.getByAltText("Title B").style.transform).toContain("scale3d(1.5,");
+  });
+
   it("retains card focus while resetting incoming metadata scroll", () => {
     fixture.compact = true;
     fixture.resident = [makeImage("A"), makeImage("B")];
@@ -300,8 +535,13 @@ describe("KUP-004 standalone detail identity", () => {
     mounted.rerender(<Detail imageId="B" />);
     expect(document.activeElement).toBe(toggle);
     expect(content.scrollTop).toBe(0);
+    const action = document.createElement("button");
+    content.appendChild(action);
+    action.focus();
     fireEvent.click(toggle);
     expect(screen.getByRole("button", { name: "Expand Image details" })).toBe(toggle);
+    expect(content.hasAttribute("inert")).toBe(true);
+    expect(document.activeElement).toBe(toggle);
   });
 
   it.each([false, true])("keeps compact Settings usable after a swipe, fullscreen=%s", fullscreen => {
@@ -370,13 +610,14 @@ describe("KUP-004 standalone detail identity", () => {
     }
   });
 
-  it("a second finger cancels an owned content pull without collapsing the card", () => {
+  it.each(["content", "handle"])("a second finger cancels an owned %s pull without collapsing the card", surface => {
     fixture.compact = true;
     fixture.resident = [makeImage("A")];
     render(<Detail imageId="A" />);
     fireEvent.click(screen.getByRole("button", { name: "Expand Image details" }));
     const card = screen.getByRole("region", { name: "Image details" });
     const content = card.lastElementChild as HTMLElement;
+    const target = surface === "content" ? content : card.firstElementChild!;
     const rest = card.style.translate;
     const touch = (type: string, vertical: number, fingers = 1) => {
       const event = new Event(type, { bubbles: true, cancelable: true });
@@ -384,7 +625,7 @@ describe("KUP-004 standalone detail identity", () => {
         touches: { value: type === "touchend" ? [] : Array.from({ length: fingers }, (_, index) => ({ clientX: 100 + index * 20, clientY: vertical })) },
         changedTouches: { value: [{ clientX: 100, clientY: vertical }] },
       });
-      fireEvent(content, event);
+      fireEvent(target, event);
     };
     touch("touchstart", 100);
     touch("touchmove", 130);
@@ -454,8 +695,11 @@ describe("KUP-004 standalone detail identity", () => {
 
   it("terminates a relative thumbnail fallback after two media errors", () => {
     fixture.relativeMedia = true;
-    fixture.resident = [makeImage("A")];
-    render(<Detail imageId="A" />);
+    fixture.fullscreen = true;
+    fixture.realPinch = true;
+    fixture.nextImage = makeImage("B");
+    fixture.resident = [makeImage("A"), makeImage("B")];
+    const mounted = render(<Detail imageId="A" />);
     const image = screen.getByAltText("Title A") as HTMLImageElement;
     fireEvent.error(image);
     expect(image.getAttribute("src")).toBe("/__detail_media/thumb/A.gif");
@@ -463,6 +707,11 @@ describe("KUP-004 standalone detail identity", () => {
     fireEvent.error(image);
     expect(screen.getByText("Image preview not available")).toBeTruthy();
     expect(screen.queryByAltText("Title A")).toBeNull();
+    fireEvent.keyDown(document.body, { key: " " });
+    expect(image.style.transform).toBe("");
+    mounted.rerender(<Detail imageId="B" />);
+    fireEvent.keyDown(document.body, { key: "+" });
+    expect(screen.getByAltText("Title B").style.transform).toContain("scale3d(1.5,");
   });
 
   it("never publishes a previous image's failure in the next identity's layout commit", () => {
@@ -845,6 +1094,7 @@ describe("bounded detail return composition", () => {
     useUiPrefsStore.setState(initialPrefs, true);
     fixture.composed = false;
     fixture.realDismiss = false;
+    fixture.compact = false;
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     vi.useRealTimers();
@@ -945,6 +1195,7 @@ describe("bounded detail return composition", () => {
     vi.useFakeTimers();
     fixture.composed = false;
     fixture.realDismiss = true;
+    fixture.compact = true;
     fixture.resident = [makeImage("A"), makeImage("B")];
     useSearchStore.setState({ ...initialState, focusedImageId: "B", results: fixture.resident,
       imagePositions: new Map([["A", 0], ["B", 8]]) });

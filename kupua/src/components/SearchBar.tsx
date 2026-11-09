@@ -24,8 +24,9 @@ import { resetToHome } from "@/lib/reset-to-home";
 import { DEFAULT_SEARCH, HOME_HREF } from "@/lib/home-defaults";
 import { SettingsMenu } from "./SettingsMenu";
 import { useSelectionStore } from "@/stores/selection-store";
+import { pressFeedback } from "@/lib/dom-utils";
 import { beginTraceInteraction } from "@/lib/perceived-trace";
-import { hasCollectionFilter } from "@/lib/search-params-schema";
+import { hasCollectionFilter, type UrlSearchParams } from "@/lib/search-params-schema";
 import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
 
 export function SearchBar() {
@@ -110,13 +111,13 @@ export function SearchBar() {
   );
   // Refine edits are discrete commits: one history entry and one search, not a debounced typing session.
   const handleFieldsChange = useCallback(
-    (f: string) => {
+    (f: string, filters: Partial<UrlSearchParams> = {}) => {
       if (_debounceTimerId) clearTimeout(_debounceTimerId);
       setDebounceTimer(null);
       cqlDebounceRef.current = null;
       const query = joinFieldTerms(f, splitRef.current.text);
       beginTraceInteraction("search", { source: "refine" });
-      updateSearch({ query: query || undefined });
+      updateSearch({ ...filters, query: query || undefined });
     },
     [updateSearch],
   );
@@ -240,9 +241,10 @@ export function SearchBar() {
            search() before navigating. This prevents the table→grid flash:
            the density switch only happens after fresh page-1 data is ready. */}
       <a
+        {...pressFeedback}
         href={HOME_HREF}
         title="Grid — clear all filters"
-        className="results-home shrink-0 -ml-3 w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors"
+        className="results-home tap-feedback shrink-0 -ml-3 w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors"
         onClick={(e) => {
           e.preventDefault();
           const interactionId = beginTraceInteraction("home-logo");
@@ -315,7 +317,7 @@ export function SearchBar() {
 
 
       {/* Separator */}
-      <div className="hidden min-[760px]:block w-px h-5 bg-grid-separator shrink-0" />
+      <div className="hidden wide:min-[760px]:block w-px h-5 bg-grid-separator shrink-0" />
 
       {/* Narrow screens: filters + sort move behind this button (sheet on touch phones, dropdown on desktop) */}
       <button
@@ -325,8 +327,9 @@ export function SearchBar() {
           return !v;
         })}
         aria-label="Filters and sort"
+        {...pressFeedback}
         aria-expanded={filtersOpen}
-        className="results-filters min-[760px]:hidden relative shrink-0 w-10 h-10 -mr-1 flex items-center justify-center text-grid-text-muted"
+        className="results-filters tap-feedback wide:min-[760px]:hidden relative shrink-0 w-10 h-10 -mr-1 flex items-center justify-center text-grid-text-muted"
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z" />
@@ -343,7 +346,7 @@ export function SearchBar() {
       <SearchFilters />
 
       {/* Separator */}
-      <div className="hidden min-[760px]:block w-px h-5 bg-grid-separator shrink-0" />
+      <div className="hidden wide:min-[760px]:block w-px h-5 bg-grid-separator shrink-0" />
 
       {/* Sort controls — right-aligned, rendered by SearchFilters.SortControls */}
       <SearchFilters.Sort />

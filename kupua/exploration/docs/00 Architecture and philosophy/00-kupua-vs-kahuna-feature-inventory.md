@@ -422,7 +422,8 @@ Kupua's integrated phone browsing, swipe traversal and portrait inspection workf
 **Kupua:** on touch phones, uses a dedicated compact shell rather than a shrunken
 desktop interface ([compact shell](component-detail.md#compact-shell-hooksuseshellts-componentsbottomsheettsx-componentsfilterssheettsx)):
 
-- **Content first:** Justified is the default density; the search field shows only free
+- **Content first:** fresh phones default to Justified, subject to a saved per-tab choice
+  or locked Home view; the search field shows only free
   text, and a Refine sheet holds field terms as tappable chips (negate, edit, remove,
   add) alongside free-to-use, sort and dates, with a live "Show N results" count.
 - **Sheets instead of panels:** the Browse panel slides in over a scrim and swipes away;
@@ -443,14 +444,20 @@ desktop interface ([compact shell](component-detail.md#compact-shell-hooksuseshe
   to refresh.
 - **Touch selection:** long-press, drag-select and a floating selection menu make
   multi-image work possible without Shift or hover (§5.7).
-- **Phone-appropriate input:** touch uses Click-to-Open, not desktop focus and
+- **Phone-appropriate input:** phones use Click-to-Open, not desktop focus and
   double-click. Initial search autofocus is suppressed so the keyboard does not
   cover the results; chip deletion avoids unnecessarily dismissing it (§7.5).
+- **Graphic-image inspection:** a dedicated eye control reveals a blurred thumbnail
+  only while held; releasing, cancelling, scrolling or blurring conceals it without
+  opening or selecting the image. Mouse hover remains available on desktop.
 
 This is a substantially more usable mobile browsing/inspection workflow, not full
-desktop feature parity. The compact shell applies to narrow coarse-pointer viewports;
+desktop feature parity. The compact shell requires a coarse primary pointer and either
+viewport dimension at most 639px, keeping landscape phones in the same model;
 a narrow desktop window keeps the desktop shell, with free-to-use, date and sort
-collapsing into a dropdown below 760px.
+collapsing into a dropdown below 760px. A desktop touchscreen retains desktop click
+preferences, selection and crop controls; finger swipes and temporarily revealed image
+controls do not select a separate hybrid UI. Installed presentation is not a third model.
 
 <img src="../feature-assets/refine-sheet.png" width="320" alt="Phone Refine sheet: city and has chips with Add filter, free-to-use and sort, date field and presets, and a Show 226 results button.">
 

@@ -48,6 +48,7 @@ interface UsePinchZoomOptions {
   containerRef: RefObject<HTMLElement | null>;
   /** The <img> element — transform is applied here. */
   imageRef: RefObject<HTMLImageElement | null>;
+  imageKey?: string;
   /** When false, the effect is a no-op. */
   enabled?: boolean;
   /** Timestamp of last committed swipe — suppress zoom during cooldown. */
@@ -129,6 +130,7 @@ function clampTranslate(
 export function usePinchZoom({
   containerRef,
   imageRef,
+  imageKey,
   enabled = true,
   lastSwipeTimeRef,
   scaleRef: externalScaleRef,
@@ -173,6 +175,8 @@ export function usePinchZoom({
 
     // Track whether any movement happened — suppress double-tap after drag
     let moved = false;
+    let touchOrigin: { x: number; y: number } | null = null;
+    let controlTouch = false;
 
     // Velocity tracking for pan momentum (px/ms, EMA-smoothed)
     let panVx = 0;
@@ -233,13 +237,18 @@ export function usePinchZoom({
 
     function onTouchStart(e: TouchEvent) {
       lastTouchTime = Date.now();
+      controlTouch = e.target instanceof Element && !!e.target.closest("button,a,input,select,textarea,label,[role=button]");
+      touchOrigin = null;
+      if (controlTouch) { lastTapTime = 0; return; }
+      if (e.touches.length === 1) touchOrigin = { x: e.touches[0].clientX, y: e.touches[0].clientY };
       // Suppress zoom during post-swipe cooldown
       if (lastSwipeTimeRef?.current && Date.now() - lastSwipeTimeRef.current < SWIPE_ZOOM_COOLDOWN_MS) return;
       if (e.touches.length === 2) {
         // Start pinch
         isPinching = true;
         isPanning = false;
-        moved = false;
+        moved = true;
+        lastTapTime = 0;
         initialPinchDist = touchDistance(e.touches[0], e.touches[1]);
         pinchScaleStart = scale;
         pinchMidStart = touchMidpoint(e.touches[0], e.touches[1]);
@@ -271,6 +280,12 @@ export function usePinchZoom({
     }
 
     function onTouchMove(e: TouchEvent) {
+      if (controlTouch) return;
+      if (touchOrigin && e.touches.length === 1 &&
+        Math.hypot(e.touches[0].clientX - touchOrigin.x, e.touches[0].clientY - touchOrigin.y) > 6) {
+        moved = true;
+        lastTapTime = 0;
+      }
       if (isPinching && e.touches.length === 2) {
         moved = true;
         const dist = touchDistance(e.touches[0], e.touches[1]);
@@ -342,6 +357,7 @@ export function usePinchZoom({
     }
 
     function onTouchEnd(e: TouchEvent) {
+      if (controlTouch) return;
       if (isPinching) {
         // If one finger lifted but one remains, switch to pan —
         // UNLESS scale is near 1× (imprecise unpinch), in which case snap.
@@ -464,6 +480,17 @@ export function usePinchZoom({
           lastTapY = t.clientY;
         }
       }
+    }
+
+    function onTouchCancel() {
+      isPinching = false;
+      isPanning = false;
+      touchOrigin = null;
+      controlTouch = false;
+      moved = true;
+      lastTapTime = 0;
+      if (momentumRaf) { cancelAnimationFrame(momentumRaf); momentumRaf = 0; }
+      if (scale < SNAP_TO_1_THRESHOLD) resetZoom(true);
     }
 
     // ── Mouse handlers (desktop zoom) ────────────────────────────────
@@ -659,7 +686,7 @@ export function usePinchZoom({
 
     function onKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
+      if (e.defaultPrevented || target.closest("button,a,input,select,textarea,summary,[role=button]") || target.isContentEditable) return;
 
       // Space: toggle zoom at the mouse pointer (centre if the pointer is elsewhere)
       if (e.key === " ") {
@@ -768,6 +795,7 @@ export function usePinchZoom({
     container.addEventListener("touchstart", onTouchStart, { passive: true });
     container.addEventListener("touchmove", onTouchMove, { passive: false });
     container.addEventListener("touchend", onTouchEnd, { passive: true });
+    container.addEventListener("touchcancel", onTouchCancel, { passive: true });
 
     container.addEventListener("click", onClick);
     container.addEventListener("wheel", onWheel, { passive: false });
@@ -781,6 +809,7 @@ export function usePinchZoom({
       container.removeEventListener("touchstart", onTouchStart);
       container.removeEventListener("touchmove", onTouchMove);
       container.removeEventListener("touchend", onTouchEnd);
+      container.removeEventListener("touchcancel", onTouchCancel);
       container.removeEventListener("click", onClick);
       container.removeEventListener("wheel", onWheel);
       container.removeEventListener("mousedown", onMouseDown);
@@ -791,7 +820,7 @@ export function usePinchZoom({
       // Clean up transform if leaving
       resetZoom();
     };
-  }, [containerRef, imageRef, enabled]);
+  }, [containerRef, imageRef, enabled, imageKey]);
 
   return { scaleRef };
 }

@@ -133,16 +133,29 @@ presets remain selectable instead of leaving the editor with a hidden/unavailabl
 Cropper's native image gesture controls stay disabled; controlled resize and fullscreen pan/zoom
 temporarily enable transforms for projection. Selection coordinates remain precise and are
 rounded only at the original-pixel request boundary.
+Desktop fullscreen also offers momentary Alt inversion of the selected Hand/frame mode,
+with matching Hand feedback. Releasing Alt restores the chosen mode; resize handles and
+the frame grip retain their direct editing actions.
 
 ### Compact Phone Shell (31 October 2026)
 
-On narrow (≤639px) coarse-pointer viewports Kupua uses a phone shell: panels become sheets,
+When the primary pointer is coarse and either viewport dimension is at most 639px, Kupua
+uses a phone shell: panels become sheets,
 the right panel appears only as a selection card, image metadata moves into a peek card, the
 search field shows free text with field terms as editable chips in a Refine sheet, and a
-floating action button carries selection actions. Justified is the default density on touch.
+floating action button carries selection actions. Fresh phones default to Justified; a saved
+per-tab choice or locked Home view takes precedence. Landscape uses the same phone model.
 Kahuna has no phone layout. A narrow desktop window keeps the desktop shell; only the
 free-to-use/date/sort controls collapse behind a filters dropdown below 760px. Trade-off: two
-chrome paths to maintain, sharing one engine. See the [design](zz%20Archive/compact-shell-design.md).
+chrome paths to maintain, sharing one engine. Desktop touch keeps desktop click preferences
+and feature controls; touch capability admits shared finger gestures without choosing the UI.
+Installed/PWA presentation is not a third model. See the [design](zz%20Archive/compact-shell-design.md).
+
+Graphic thumbnails also offer a dedicated hold-to-reveal eye control instead of requiring
+hover or a global blur-preference change. Release, cancellation, scroll and blur conceal the
+thumbnail. The trade-off is an extra explicit control that does not compete with selection.
+Native hold suppression is isolated to the eye control as an experiment; OS vibration
+suppression remains device-dependent rather than an application guarantee.
 
 ### Results Zoom and Locked Home View
 
@@ -630,8 +643,8 @@ Full experiment data: `exploration/docs/zz Archive/traversal-perf-investigation.
 
 ### 20. Mobile autofocus suppression for the search input
 
-**What:** On touch-primary devices (`(pointer: coarse)`), kupua does not
-autofocus the CQL search input. Three sites are gated:
+**What:** In the compact phone model, Kupua does not autofocus the CQL search input.
+Desktop touch retains desktop autofocus behavior. Three sites share the model check:
 
 - `CqlSearchInput.tsx`: skips the `autofocus` attribute when mounting the
   custom element on mobile.

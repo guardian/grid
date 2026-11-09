@@ -5,8 +5,14 @@ export interface CropViewport {
   resetView(): void;
 }
 
-export function bindCropViewport(host: HTMLElement, viewport: CropViewport, isPanMode: () => boolean = () => true): () => void {
+export function bindCropViewport(host: HTMLElement, viewport: CropViewport, isPanMode: () => boolean = () => true,
+  onAltChange?: (held: boolean) => void): () => void {
   let alt = false;
+  const setAlt = (held: boolean) => {
+    if (alt === held) return;
+    alt = held;
+    onAltChange?.(held);
+  };
   let panning = false;
   let editing = false;
   let suppressClick = false;
@@ -48,18 +54,16 @@ export function bindCropViewport(host: HTMLElement, viewport: CropViewport, isPa
   const titles = handles.map(handle => handle.getAttribute("title"));
   const previousCursor = host.style.cursor;
   const cursor = () => {
-    const pan = isPanMode();
+    const pan = isPanMode() !== alt;
     host.style.cursor = panning ? "grabbing" : pan ? "grab" : "";
     handles.forEach(handle => {
-      handle.style.cursor = (alt || !pan) && !panning ? "move" : host.style.cursor;
-      handle.title = pan ? "Drag to pan; Alt+drag to move crop frame" : "Drag to move crop frame";
+      handle.style.cursor = !pan && !panning ? "move" : host.style.cursor;
+      handle.title = isPanMode() ? "Drag to pan; Alt+drag to move crop frame" : "Drag to move crop frame; Alt+drag to pan";
     });
   };
   cursor();
   const action = (event: Event) => event.composedPath()
     .find((node): node is Element => node instanceof Element && node.matches("cropper-handle"))?.getAttribute("action") ?? "";
-  const insideSelection = (event: Event) => event.composedPath()
-    .some(node => node instanceof Element && node.matches("cropper-selection"));
   const isGrip = (event: Event) => event.composedPath()
     .some(node => node instanceof Element && node.hasAttribute("data-crop-grip"));
   const stop = (event: Event) => { event.preventDefault(); event.stopImmediatePropagation(); };
@@ -75,7 +79,7 @@ export function bindCropViewport(host: HTMLElement, viewport: CropViewport, isPa
     else viewport.zoomAt(3, clientX, clientY);
   };
   const onKeyDown = (event: KeyboardEvent) => {
-    alt = event.altKey; cursor();
+    setAlt(event.altKey); cursor();
     if (isGrip(event)) {
       stopMomentum();
       if (event.key === " " || event.key === "Enter") stop(event);
@@ -110,16 +114,16 @@ export function bindCropViewport(host: HTMLElement, viewport: CropViewport, isPa
       }
     }
   };
-  const release = () => { stopMomentum(); alt = false; panning = false; editing = false; suppressClick = true; cursor(); };
+  const release = () => { stopMomentum(); setAlt(false); panning = false; editing = false; suppressClick = true; cursor(); };
   const onKeyUp = (event: KeyboardEvent) => {
-    alt = event.altKey; cursor();
+    setAlt(event.altKey); cursor();
   };
-  const onHover = (event: MouseEvent) => { hoverX = event.clientX; hoverY = event.clientY; alt = event.altKey; cursor(); };
+  const onHover = (event: MouseEvent) => { hoverX = event.clientX; hoverY = event.clientY; setAlt(event.altKey); cursor(); };
   const onPointerDown = (event: PointerEvent) => {
     if (event.pointerType !== "mouse" || event.button !== 0) return;
-    alt = event.altKey;
+    setAlt(event.altKey);
     host.focus({ preventScroll: true });
-    editing = !isPanMode() || isGrip(event) || action(event).endsWith("-resize") || (event.altKey && insideSelection(event));
+    editing = !(isPanMode() !== alt) || isGrip(event) || action(event).endsWith("-resize");
     suppressClick = editing;
     cursor();
     if (editing) return;

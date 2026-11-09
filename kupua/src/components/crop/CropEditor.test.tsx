@@ -19,17 +19,20 @@ vi.hoisted(() => {
 
 const fixture = vi.hoisted(() => ({ changes: [] as Array<(state: unknown) => void>, edits: [] as Rect[], sources: [] as string[], zoomEnabled: false, compact: false,
   onZoomChange: undefined as ((zoomed: boolean) => void) | undefined, resets: 0, panMode: false,
+  onAltChange: undefined as ((held: boolean) => void) | undefined,
   initialSelection: undefined as { rect: Rect | null; size: Size } | undefined,
   blocker: undefined as UseBlockerOpts | undefined }));
 vi.mock("@tanstack/react-router", () => ({ useBlocker: (options: UseBlockerOpts) => { fixture.blocker = options; } }));
-vi.mock("@/hooks/useShell", () => ({ useIsCompact: () => fixture.compact }));
-vi.mock("./CropCanvas", () => ({ CropCanvas: ({ onChange, ref, src, zoomEnabled, initialSelection, onZoomChange, panMode }: { src: string; zoomEnabled?: boolean; onChange: (state: unknown) => void;
+vi.mock("@/hooks/useShell", () => ({ useIsCompact: () => fixture.compact, isCompactNow: () => fixture.compact }));
+vi.mock("./CropCanvas", () => ({ CropCanvas: ({ onChange, ref, src, zoomEnabled, initialSelection, onZoomChange, panMode, onAltChange }: { src: string; zoomEnabled?: boolean; onChange: (state: unknown) => void;
   onZoomChange?: (zoomed: boolean) => void; panMode?: boolean;
+  onAltChange?: (held: boolean) => void;
   initialSelection?: { rect: Rect | null; size: Size };
   ref?: Ref<{ setSelection: (selection: Rect, coordinateSize: Size) => void; resetView: () => void }> }) => {
   fixture.zoomEnabled = !!zoomEnabled;
   fixture.onZoomChange = onZoomChange;
   fixture.panMode = !!panMode;
+  fixture.onAltChange = onAltChange;
   fixture.initialSelection = initialSelection;
   useImperativeHandle(ref, () => ({ setSelection: (selection, rendition) => {
     fixture.edits.push(selection);
@@ -562,6 +565,19 @@ it("keeps freeform on f and preserves crop coordinates when Alt+f or Escape chan
   expect(screen.getByTestId("canvas").parentElement?.className).toContain("pt-[50px]");
   expect(screen.getByRole("radio", { name: "square (1:1)", hidden: true }).getAttribute("aria-checked")).toBe("true");
   expect(fixture.zoomEnabled).toBe(true);
+  const hand = screen.getByRole("button", { name: "Pan view" });
+  expect(hand.getAttribute("aria-pressed")).toBe("true");
+  act(() => fixture.onAltChange?.(true));
+  expect(hand.getAttribute("aria-pressed")).toBe("false");
+  expect(fixture.panMode).toBe(true);
+  act(() => fixture.onAltChange?.(false));
+  expect(hand.getAttribute("aria-pressed")).toBe("true");
+  fireEvent.click(hand);
+  act(() => fixture.onAltChange?.(true));
+  expect(hand.getAttribute("aria-pressed")).toBe("true");
+  expect(fixture.panMode).toBe(false);
+  act(() => fixture.onAltChange?.(false));
+  expect(hand.getAttribute("aria-pressed")).toBe("false");
   expect(width.value).toBe("200");
   await act(async () => fireEvent.keyDown(document.body, { key: "Escape" }));
   expect(exit).toHaveBeenCalledOnce();
@@ -589,10 +605,11 @@ it("keeps freeform on f and preserves crop coordinates when Alt+f or Escape chan
   expect(screen.getByRole("radio", { name: "freeform" }).getAttribute("aria-checked")).toBe("true");
 });
 
-it("does not expose crop fullscreen on a coarse-pointer device", () => {
+it.each([false, true])("exposes crop fullscreen by model rather than hover capability, compact=%s", compact => {
+  fixture.compact = compact;
   vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
   render(<CropEditor image={image("A")} onClose={() => {}} />);
-  expect(screen.queryByRole("button", { name: "Full screen" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Full screen" }) !== null).toBe(!compact);
   expect(fixture.zoomEnabled).toBe(false);
 });
 

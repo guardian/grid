@@ -80,10 +80,10 @@ function SearchPage() {
   const resultsZoomActive = () => !showImageDetail && !imageFullscreenElement();
   const zoomIn = () => { if (resultsZoomActive()) useZoomStore.getState().step(density, 1); };
   const zoomOut = () => { if (resultsZoomActive()) useZoomStore.getState().step(density, -1); };
-  useKeyboardShortcut("=", zoomIn);
-  useKeyboardShortcut("+", zoomIn);
-  useKeyboardShortcut("-", zoomOut);
-  useKeyboardShortcut("0", () => { if (resultsZoomActive()) useZoomStore.getState().reset(density); });
+  useKeyboardShortcut("=", zoomIn, resultsZoomActive);
+  useKeyboardShortcut("+", zoomIn, resultsZoomActive);
+  useKeyboardShortcut("-", zoomOut, resultsZoomActive);
+  useKeyboardShortcut("0", () => { if (resultsZoomActive()) useZoomStore.getState().reset(density); }, resultsZoomActive);
   useKeyboardShortcut("/", () => {
     if (showImageDetail || imageFullscreenElement()) return;
     const input = document.querySelector("cql-input");

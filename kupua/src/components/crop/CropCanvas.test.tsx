@@ -525,7 +525,9 @@ it("reserves edges/corners and Alt-drag for crop edits, suppresses their clicks 
   let zoom = 1;
   const viewport = { getZoom: () => zoom, zoomAt: vi.fn((factor: number) => { zoom *= factor; }),
     resetView: vi.fn(() => { zoom = 1; }), panBy: vi.fn((dx: number, dy: number) => ({ dx, dy })) };
-  const unbind = bindCropViewport(host, viewport);
+  let panMode = true;
+  const altChanged = vi.fn();
+  const unbind = bindCropViewport(host, viewport, () => panMode, altChanged);
   const pointer = (type: string, target: Element, altKey = false, x = 100) => {
     const event = new MouseEvent(type, { bubbles: true, composed: true, cancelable: true, button: 0, clientX: x, clientY: 80, altKey });
     Object.defineProperty(event, "pointerType", { value: "mouse" });
@@ -551,6 +553,20 @@ it("reserves edges/corners and Alt-drag for crop edits, suppresses their clicks 
     expect(pointer("pointerdown", move, true)).toBe(false);
     pointer("pointerup", move, true);
     fireEvent.click(move);
+    panMode = false;
+    fireEvent.keyDown(window, { key: "Alt", altKey: true });
+    expect(pointer("pointerdown", move, true)).toBe(true);
+    expect(move.style.cursor).toBe("grabbing");
+    expect(altChanged).toHaveBeenLastCalledWith(true);
+    pointer("pointerup", move, true);
+    fireEvent.keyUp(window, { key: "Alt", altKey: false });
+    expect(altChanged).toHaveBeenLastCalledWith(false);
+    expect(pointer("pointerdown", move)).toBe(false);
+    pointer("pointerup", move);
+    panMode = true;
+    fireEvent.keyDown(window, { key: "Alt", altKey: true });
+    fireEvent.blur(window);
+    expect(altChanged).toHaveBeenLastCalledWith(false);
     expect(pointer("pointerdown", grip)).toBe(false);
     pointer("pointerup", grip);
     fireEvent.click(grip);

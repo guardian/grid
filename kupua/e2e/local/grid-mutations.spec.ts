@@ -16,6 +16,18 @@ type CommandWindow = typeof window & { commandFixture: typeof Commands; editorFi
   __kupua_store__: typeof useSearchStore; __kupua_selection_store__: typeof useSelectionStore };
 const fixturePlugin = labelEditorPlugin();
 
+async function runReadbackAction(page: Page, action: "holdReadbackSearch" | "releaseReadbackSearch") {
+  const handle = await page.evaluateHandle(action => {
+    const job = { complete: false, error: null as string | null, pending: Promise.resolve() };
+    job.pending = (window as CommandWindow).editorFixture[action]().then(
+      () => { job.complete = true; },
+      error => { job.error = String(error); },
+    );
+    return job;
+  }, action);
+  await waitForFixtureSetup(page, handle);
+}
+
 test.describe("Unit B isolated continuation", () => {
   let vite: Awaited<ReturnType<typeof createServer>>;
   let origin: string;
@@ -58,7 +70,15 @@ test.describe("Unit B isolated continuation", () => {
     await expect(region.locator('[data-cell-id="local-0"]')).toBeVisible();
     expect(await page.evaluate(() => (window as CommandWindow).editorFixture.simulateReadback(["local-0"], "unknown"))).toBe(true);
     await expect.poll(() => page.evaluate(() => (window as CommandWindow).editorFixture.readbackSnapshot().receipts[0]?.items[0].observation)).toBe("observed");
-    await page.evaluate(() => (window as CommandWindow).__kupua_store__.getState().seek(119));
+    const seek = await page.evaluateHandle(() => {
+      const job = { complete: false, error: null as string | null, pending: Promise.resolve() };
+      job.pending = (window as CommandWindow).__kupua_store__.getState().seek(119).then(
+        () => { job.complete = true; },
+        error => { job.error = String(error); },
+      );
+      return job;
+    });
+    await waitForFixtureSetup(page, seek);
     await expect(region.locator('[data-cell-id="local-119"]')).toBeVisible();
     expect(await page.evaluate(() => {
       const state = (window as CommandWindow).__kupua_store__.getState();
@@ -121,7 +141,7 @@ test.describe("Unit B isolated continuation", () => {
             } else if (action === "publication") {
               const id = `local-${60 + cycle}`;
               trace[trace.length - 1] += `:${id}`;
-              await page.evaluate(() => (window as CommandWindow).editorFixture.holdReadbackSearch());
+              await runReadbackAction(page, "holdReadbackSearch");
               await expect.poll(async () => (await counts(page)).held).toBe(1);
               const beforeReads = await counts(page);
               const before = await page.evaluateHandle(() => {
@@ -159,15 +179,7 @@ test.describe("Unit B isolated continuation", () => {
                 observerBudget(afterReads);
                 if (cycle === 0) expect(() => observerBudget({ ...afterReads, mgetReads: afterReads.mgetReads + 1 })).toThrow();
               } finally { await before.dispose(); }
-              const release = await page.evaluateHandle(() => {
-                const job = { complete: false, error: null as string | null, pending: Promise.resolve() };
-                job.pending = (window as CommandWindow).editorFixture.releaseReadbackSearch().then(
-                  () => { job.complete = true; },
-                  error => { job.error = String(error); },
-                );
-                return job;
-              });
-              await waitForFixtureSetup(page, release);
+              await runReadbackAction(page, "releaseReadbackSearch");
               await expect.poll(() => page.evaluate(() => (window as CommandWindow).__kupua_store__.getState().loading)).toBe(false);
               expect((await counts(page)).staleDelivered - beforeReads.staleDelivered).toBe(1);
               published.push(id);
@@ -306,7 +318,7 @@ test.describe("Unit B isolated continuation", () => {
     await expect(detail).toHaveAttribute("data-detail-image-id", "local-2");
     await expect(detail.getByTestId("detail-image-container").locator("img")).toBeVisible();
     await page.getByRole("button", { name: "Back to search", exact: true }).click();
-    await page.evaluate(() => (window as CommandWindow).editorFixture.holdReadbackSearch());
+    await runReadbackAction(page, "holdReadbackSearch");
     await expect.poll(async () => (await counts(page)).held).toBe(1);
     const tableButton = await getDensityChangeButton(page, "table");
     await tableButton!.click();
@@ -434,8 +446,18 @@ test.describe("Unit B isolated continuation", () => {
       await expect(last).toBeVisible();
       await page.evaluate(total => (window as CommandWindow).editorFixture.simulateContinuation(1, false, total), total);
       await expect.poll(() => page.evaluate(() => (window as CommandWindow).editorFixture.readbackSnapshot().receipts.at(-1)?.items[0].observation)).toBe("observed");
+      const pollSince = await page.evaluate(() => (window as CommandWindow).__kupua_store__.getState().newCountSince);
+      let arrivalPolls = 0;
+      await page.route("**/api/images/count", async route => {
+        if (pollSince && route.request().postDataJSON().since === pollSince) {
+          arrivalPolls++;
+          await route.fulfill({ json: { total: 0 } });
+        } else await route.fallback();
+      });
       const before = await counts(page);
       const retainedBox = (await last.boundingBox())!;
+      await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+      await expect.poll(() => arrivalPolls).toBeGreaterThan(0);
       if (total === 1000) {
         await last.locator('div[title^="Readback "]').dblclick();
         await expect(page.locator("[data-detail-image-id]")).toHaveAttribute("data-detail-image-id", `local-${total - 1}`);

@@ -16,7 +16,6 @@
  * first ~10px of movement. Mutually exclusive by axis.
  *
  * Only active on the image container (touch-action: none), mobile only.
- * Disabled in fullscreen (tap exits fullscreen instead).
  *
  * Same imperative pattern as useSwipeCarousel: direct DOM manipulation
  * via touch listeners, refs for mutable state, no React re-renders
@@ -61,11 +60,6 @@ interface UseSwipeDismissOptions {
   scaleRef?: RefObject<number>;
   /** Current image id — used for FLIP hero animation (fly-back to grid thumbnail). */
   imageId?: string;
-  /** If provided, this element is animated during drag instead of wrapperRef.
-   *  Used in fullscreen where the wrapper is the fullscreen element — moving it
-   *  is invisible (black-on-black). The container bg is cleared so the drag
-   *  target appears to float. */
-  dragTargetRef?: RefObject<HTMLElement | null>;
 }
 
 export function useSwipeDismiss({
@@ -77,7 +71,6 @@ export function useSwipeDismiss({
   enabled = true,
   scaleRef,
   imageId,
-  dragTargetRef,
 }: UseSwipeDismissOptions): void {
   const cbDismiss = useRef(onDismiss);
   cbDismiss.current = onDismiss;
@@ -92,7 +85,6 @@ export function useSwipeDismiss({
     const wrapper = wrapperRef.current!;
     if (!container || !wrapper) return;
     const backdrop = backdropRef?.current;
-    const dragTarget = dragTargetRef?.current; // fullscreen: animate image directly
 
     let startY = 0;
     let startX = 0;
@@ -102,6 +94,7 @@ export function useSwipeDismiss({
     let tracking = false;
     let decided = false;
     let animating = false;
+    let eligible = false;
     // Chrome elements — cached on drag start, used during drag + cleanup.
     let headerEl: HTMLElement | null = null;
     let asideEl: HTMLElement | null = null;
@@ -113,34 +106,30 @@ export function useSwipeDismiss({
     }
 
     function cancelDrag() {
+      eligible = false;
       tracking = false;
       decided = false;
-      if (dragTarget) {
-        dragTarget.style.transition = "";
-        if (!scaleRef?.current || scaleRef.current <= 1) dragTarget.style.transform = "";
-        dragTarget.style.opacity = "";
-        container.style.background = "";
-      } else {
-        wrapper.style.transition = "";
-        wrapper.style.transform = "";
-        wrapper.style.backgroundColor = "";
-        if (headerEl) { headerEl.style.transition = ""; headerEl.style.opacity = ""; }
-        if (asideEl) { asideEl.style.transition = ""; asideEl.style.opacity = ""; }
-        container.style.transition = "";
-        container.style.opacity = "";
-        container.style.backgroundColor = "";
-        if (scrollEl) scrollEl.style.overflow = "";
-      }
+      wrapper.style.transition = "";
+      wrapper.style.transform = "";
+      wrapper.style.backgroundColor = "";
+      if (headerEl) { headerEl.style.transition = ""; headerEl.style.opacity = ""; }
+      if (asideEl) { asideEl.style.transition = ""; asideEl.style.opacity = ""; }
+      container.style.transition = "";
+      container.style.opacity = "";
+      container.style.backgroundColor = "";
+      if (scrollEl) scrollEl.style.overflow = "";
       if (backdrop) { backdrop.style.transition = ""; backdrop.style.opacity = ""; }
     }
 
     function onTouchStart(e: TouchEvent) {
+      eligible = false;
       if (animating) return;
       if (e.touches.length !== 1 || (scaleRef?.current && scaleRef.current > 1)) {
         if (tracking) cancelDrag();
         return;
       }
       startX = e.touches[0].clientX;
+      eligible = true;
       startY = e.touches[0].clientY;
       lastY = startY;
       lastTime = e.timeStamp;
@@ -150,8 +139,9 @@ export function useSwipeDismiss({
     }
 
     function onTouchMove(e: TouchEvent) {
-      if (animating) return;
+      if (animating || !eligible) return;
       if (e.touches.length !== 1 || (scaleRef?.current && scaleRef.current > 1)) {
+        eligible = false;
         if (tracking) cancelDrag();
         return;
       }
@@ -194,43 +184,33 @@ export function useSwipeDismiss({
       // Animate wrapper: translate down + slight scale reduction
       const scale = Math.max(0.85, 1 - offset * SCALE_FACTOR);
 
-      if (dragTarget) {
-        // Fullscreen mode: animate just the image, not the wrapper/container.
-        // The wrapper IS the fullscreen element — its bg is UA `background: black`.
-        // Moving it is invisible (black-on-black). Instead, make the container
-        // transparent and move the image itself so it floats against the dark backdrop.
-        container.style.background = "transparent";
-        dragTarget.style.transform = `translateY(${offset}px) scale(${scale})`;
-        dragTarget.style.opacity = `${Math.max(0.3, 1 - progress * 0.4)}`;
-      } else {
-        wrapper.style.transform = `translateY(${offset}px) scale(${scale})`;
+      wrapper.style.transform = `translateY(${offset}px) scale(${scale})`;
 
-        // Chrome (header, metadata) fades faster than the image.
-        // We can't use wrapper opacity (multiplies children). Instead:
-        // - wrapper stays opacity 1
-        // - header + aside (metadata) fade at ~2× rate
-        // - image container stays mostly opaque (slight fade at end)
-        const chromeFade = `${Math.max(0, 1 - progress * 1.8)}`;
-        const imageFade = `${Math.max(0.3, 1 - progress * 0.4)}`;
-        if (headerEl) headerEl.style.opacity = chromeFade;
-        if (asideEl) asideEl.style.opacity = chromeFade;
-        container.style.opacity = imageFade;
-        // Hide wrapper bg, image-area bg, and scrollbar so only the image is visible
-        wrapper.style.backgroundColor = "transparent";
-        container.style.backgroundColor = "transparent";
-        if (scrollEl) scrollEl.style.overflow = "hidden";
-      }
+      // Chrome (header, metadata) fades faster than the image.
+      // We can't use wrapper opacity (multiplies children). Instead:
+      // - wrapper stays opacity 1
+      // - header + aside (metadata) fade at ~2× rate
+      // - image container stays mostly opaque (slight fade at end)
+      const chromeFade = `${Math.max(0, 1 - progress * 1.8)}`;
+      const imageFade = `${Math.max(0.3, 1 - progress * 0.4)}`;
+      if (headerEl) headerEl.style.opacity = chromeFade;
+      if (asideEl) asideEl.style.opacity = chromeFade;
+      container.style.opacity = imageFade;
+      // Hide wrapper bg, image-area bg, and scrollbar so only the image is visible
+      wrapper.style.backgroundColor = "transparent";
+      container.style.backgroundColor = "transparent";
+      if (scrollEl) scrollEl.style.overflow = "hidden";
 
       // Fade in grid/list behind
       setBackdropOpacity(`${progress}`);
     }
 
     function onTouchEnd() {
+      eligible = false;
       if (!tracking || animating) return;
       if (scaleRef?.current && scaleRef.current > 1) { cancelDrag(); return; }
 
-      const transformEl = dragTarget ?? wrapper;
-      const match = transformEl.style.transform.match(/translateY\(([-.0-9]+)px\)/);
+      const match = wrapper.style.transform.match(/translateY\(([-.0-9]+)px\)/);
       const offset = match ? parseFloat(match[1]) : 0;
       // Commit only when the user is still moving downward (or stopped).
       // If velocity is negative (returning upward), ALWAYS cancel — even if
@@ -335,33 +315,6 @@ export function useSwipeDismiss({
               backdrop.style.opacity = "";
             }
           }, HERO_ANIMATION_MS + 100);
-        } else if (dragTarget) {
-          // Fullscreen fallback: animate the drag target (image) down + fade
-          dragTarget.style.transition = transition;
-          dragTarget.style.transform = `translateY(${offset + 100}px) scale(0.85)`;
-          dragTarget.style.opacity = "0";
-
-          // Fullscreen dismiss: wait for the transition to finish BEFORE
-          // calling cbDismiss (= toggleFullscreen). Calling toggleFullscreen
-          // mid-transition exits the Fullscreen API, which interrupts the
-          // CSS transition — transitionend never fires and the inline
-          // `opacity:0; transform:translateY(...)` styles stick, leaving the
-          // image area visually empty after the dismiss. Unlike the
-          // non-fullscreen path, fullscreen dismiss does NOT change the URL
-          // or unmount anything, so there's no URL-stale concern from
-          // delaying cbDismiss.
-          dragTarget.addEventListener(
-            "transitionend",
-            () => {
-              animating = false;
-              dragTarget.style.transition = "";
-              dragTarget.style.transform = "";
-              dragTarget.style.opacity = "";
-              container.style.background = "";
-              cbDismiss.current();
-            },
-            { once: true },
-          );
         } else {
           // Fallback: generic slide-down fade (thumbnail not found or no image)
           wrapper.style.transition = transition;
@@ -390,24 +343,7 @@ export function useSwipeDismiss({
         }
       } else {
         // Spring back
-        if (dragTarget) {
-          // Fullscreen spring back: reset drag target
-          if (offset < 1) {
-            dragTarget.style.transform = "";
-            dragTarget.style.opacity = "";
-            container.style.background = "";
-          } else {
-            dragTarget.style.transition = transition;
-            dragTarget.style.transform = "";
-            dragTarget.style.opacity = "";
-            container.style.background = "";
-            dragTarget.addEventListener(
-              "transitionend",
-              () => { dragTarget.style.transition = ""; },
-              { once: true },
-            );
-          }
-        } else if (offset < 1) {
+        if (offset < 1) {
           wrapper.style.transform = "";
           if (headerEl) headerEl.style.opacity = "";
           if (asideEl) asideEl.style.opacity = "";
@@ -452,7 +388,7 @@ export function useSwipeDismiss({
       }
     }
 
-    const onTouchCancel = () => { if (tracking && !animating) cancelDrag(); };
+    const onTouchCancel = () => { eligible = false; if (tracking && !animating) cancelDrag(); };
     container.addEventListener("touchstart", onTouchStart, { passive: true });
     container.addEventListener("touchmove", onTouchMove, { passive: false });
     container.addEventListener("touchend", onTouchEnd, { passive: true });

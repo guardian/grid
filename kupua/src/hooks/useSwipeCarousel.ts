@@ -128,6 +128,7 @@ interface UseSwipeCarouselOptions {
 }
 
 interface UseSwipeCarouselReturn {
+  cancelSwipe: () => void;
   /** True if a swipe gesture was in progress during the last touch sequence.
    *  Check this in onClick handlers to suppress tap actions after swipe. */
   swipedRef: RefObject<boolean>;
@@ -179,6 +180,7 @@ export function useSwipeCarousel({
     let tracking = false; // true once we've committed to horizontal
     let decided = false;  // true once direction is determined
     let animating = false;
+    let eligible = false;
 
     // State for pending swipe animation — used by ResizeObserver and
     // cleanup to cancel in-flight animations. Declared here (above the
@@ -197,12 +199,15 @@ export function useSwipeCarousel({
       animating = false;
       tracking = false;
       decided = false;
+      eligible = false;
       strip.style.transition = "none";
       strip.style.transform = "";
     };
     resetRef.current = reset;
 
     function onTouchStart(e: TouchEvent) {
+      if (!animating && pendingAnimation) reset();
+      eligible = false;
       if (tracking && !animating && e.touches.length !== 1) strip.style.transform = "";
       // Always reset tracking state first — prevents stale flags from a
       // previous touch sequence from leaking into this sequence's
@@ -219,6 +224,7 @@ export function useSwipeCarousel({
         return;
       }
       if (scaleRef?.current && scaleRef.current > 1) return; // zoomed — let pinchZoom handle pan
+      eligible = true;
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
       lastX = startX;
@@ -228,8 +234,9 @@ export function useSwipeCarousel({
     }
 
     function onTouchMove(e: TouchEvent) {
-      if (animating) return;
+      if (animating || !eligible) return;
       if (e.touches.length !== 1) {
+        eligible = false;
         if (tracking) strip.style.transform = "";
         tracking = false;
         decided = false;
@@ -237,6 +244,7 @@ export function useSwipeCarousel({
       }
       // Guard: if zoomed in (pinch happened after touchstart), bail — let pinchZoom pan
       if (scaleRef?.current && scaleRef.current > 1) {
+        eligible = false;
         if (tracking) strip.style.transform = "";
         tracking = false;
         decided = false;
@@ -283,6 +291,7 @@ export function useSwipeCarousel({
     }
 
     function onTouchEnd() {
+      eligible = false;
       if (!tracking || animating) return;
 
       const w = container.offsetWidth;
@@ -371,21 +380,26 @@ export function useSwipeCarousel({
           strip.style.transition = "none";
           strip.style.transform = "";
 
-          strip.animate(
+          const animation = strip.animate(
             [
               { transform: `translateX(${offset}px)` },
               { transform: "translateX(0)" },
             ],
             { duration: ANIMATION_MS, easing: "ease-out" },
           );
+          pendingAnimation = animation;
+          animation.finished.then(() => {
+            if (pendingAnimation === animation) pendingAnimation = null;
+          }).catch(() => {});
         }
       }
     }
 
     const onTouchCancel = () => {
+      eligible = false;
       tracking = false;
       decided = false;
-      if (!animating) strip.style.transform = "";
+      if (!animating) reset();
     };
 
     container.addEventListener("touchstart", onTouchStart, { passive: true });
@@ -425,5 +439,5 @@ export function useSwipeCarousel({
     };
   }, [containerRef, stripRef, swipedRef, enabled]);
 
-  return { swipedRef, lastSwipeTimeRef };
+  return { swipedRef, lastSwipeTimeRef, cancelSwipe: () => resetRef.current?.() };
 }

@@ -3,6 +3,7 @@ import { useLayoutEffect, useSyncExternalStore } from "react";
 // Touch phones only: narrow desktop windows keep the desktop shell (cards make no sense with a mouse).
 const compactMql = typeof window !== "undefined" ? window.matchMedia?.("(max-width: 639px) and (pointer: coarse), (max-height: 639px) and (pointer: coarse)") : undefined;
 const installedMql = typeof window !== "undefined" ? window.matchMedia?.("(display-mode: standalone), (display-mode: fullscreen)") : undefined;
+const touchMql = typeof window !== "undefined" ? window.matchMedia?.("(any-pointer: coarse)") : undefined;
 
 function isCompactNow(): boolean {
   return compactMql?.matches ?? false;
@@ -11,6 +12,15 @@ function isCompactNow(): boolean {
 function subscribe(cb: () => void) {
   compactMql?.addEventListener("change", cb);
   return () => compactMql?.removeEventListener("change", cb);
+}
+
+function isTouchCapableNow(): boolean {
+  return touchMql?.matches === true || (typeof navigator !== "undefined" && navigator.maxTouchPoints > 0);
+}
+
+function subscribeTouch(cb: () => void) {
+  touchMql?.addEventListener("change", cb);
+  return () => touchMql?.removeEventListener("change", cb);
 }
 
 /** The `compact:` / `wide:` Tailwind variants key off this attribute. */
@@ -46,6 +56,10 @@ export function useAppCutout(enabled: boolean) {
 
 export function useIsCompact(): boolean {
   return useSyncExternalStore(subscribe, isCompactNow, () => false);
+}
+
+export function useTouchCapable(): boolean {
+  return useSyncExternalStore(subscribeTouch, isTouchCapableNow, () => false);
 }
 
 export { isCompactNow };
