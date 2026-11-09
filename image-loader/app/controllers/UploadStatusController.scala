@@ -3,6 +3,7 @@ package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth._
+import com.gu.mediaservice.lib.auth.Authentication.{InnerServicePrincipal, MachinePrincipal}
 import lib._
 import model.{StatusType, UploadStatus}
 import org.scanamo.{ConditionNotMet, ScanamoError}
@@ -31,7 +32,17 @@ class UploadStatusController(auth: Authentication,
       .recover{ case error => respondError(InternalServerError, "cannot-get", s"Cannot get upload status ${error}") }
   }
 
-  def updateUploadStatus(imageId: String) = (auth andThen authorisation.CommonActionFilters.authorisedForUpload).async(parse.json[UploadStatus]) { request =>
+  private val machineOnly = new ActionFilter[Authentication.Request] {
+    override protected def filter[A](request: Authentication.Request[A]): Future[Option[Result]] =
+      Future.successful(request.user match {
+        case MachinePrincipal(ApiAccessor(_, Internal), _) => None
+        case InnerServicePrincipal(_, _) => None
+        case _ => Some(respondError(Forbidden, "permission-denied", "Only internal services can update upload status"))
+      })
+    override protected def executionContext: ExecutionContext = ec
+  }
+
+  def updateUploadStatus(imageId: String) = (auth andThen machineOnly).async(parse.json[UploadStatus]) { request =>
     request.body match {
       case UploadStatus(StatusType.Failed, None) =>
         Future.successful(respondError(
