@@ -34,11 +34,20 @@ object ApiAccessor extends ArgoHelpers with GridLogging {
   }
 
   private def parseContentV2(content: String): Option[ApiAccessor] = {
-    Json.parse(content).validate[ApiKeyConfig].asOpt.map(config => {
-      val accessor = ApiAccessor(config.name, Tier.fromPermissions(config.permissions))
-      logger.info(apiKeyMarkers(accessor), s"Parsed API key config into accessor")
-      accessor
-    })
+    try {
+      val json = Json.parse(content)
+      json.validate[ApiKeyConfig] match {
+        case JsSuccess(config, _) =>
+          Some(ApiAccessor(config.name, Tier.fromPermissions(config.permissions)))
+        case JsError(errors) =>
+          logger.warn(s"Failed to parse API key config JSON: $errors")
+          None
+      }
+    } catch {
+      case e: Exception =>
+        logger.warn(s"Failed to parse API key config JSON: ${e.getMessage}")
+        None
+    }
   }
 
   private def parseContentV1(content: String): ApiAccessor = {

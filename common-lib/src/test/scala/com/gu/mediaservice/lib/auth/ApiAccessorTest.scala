@@ -27,13 +27,13 @@ class ApiAccessorTest extends AnyFunSpec {
 
     describe("v2 key format") {
       it("ApiAccessor should parse a key with a tier") {
-        val key = """{"name": "name", "permissions": ["permission1", "permission2"]}"""
+        val key = """{"name": "name", "permissions": ["permission1", "permission2"],  "schemaVersion": 1, "principalType": "developer", "expiresAt": "2027-02-01T00:00:00Z"}"""
         val apiAccessor = ApiAccessor(key)
         assert(apiAccessor.identity == "name")
         assert(apiAccessor.tier == PermissionTier(List("permission1", "permission2")))
       }
       it("ApiAccessor should parse a key with an empty permissions list") {
-        val key = """{"name": "name", "permissions": []}"""
+        val key = """{"name": "name", "permissions": [],  "schemaVersion": 1, "principalType": "developer", "expiresAt": "2027-02-01T00:00:00Z"}"""
         val apiAccessor = ApiAccessor(key)
         assert(apiAccessor.identity == "name")
         assert(apiAccessor.tier == PermissionTier(Nil))
