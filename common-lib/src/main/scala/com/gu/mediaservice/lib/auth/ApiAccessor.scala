@@ -2,6 +2,7 @@ package com.gu.mediaservice.lib.auth
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.config.Services
+import com.gu.mediaservice.lib.logging.GridLogging
 import play.api.libs.json.{JsError, JsSuccess, Json}
 import play.api.mvc.{RequestHeader, Result}
 
@@ -26,17 +27,21 @@ object Tier {
 
 case class ApiAccessor(identity: String, tier: Tier)
 
-object ApiAccessor extends ArgoHelpers {
+object ApiAccessor extends ArgoHelpers with GridLogging {{
   def apply(content: String): ApiAccessor = {
     parseContentV2(content) getOrElse
     parseContentV1(content)
   }
 
-  private def parseContentV2(content: String): Option[ApiAccessor] = {
-    Json.parse(content).validate[ApiKeyConfig].asOpt.map(config => ApiAccessor(config.name, Tier.fromPermissions(config.permissions)))
+  def parseContentV2(content: String): Option[ApiAccessor] = {
+    Json.parse(content).validate[ApiKeyConfig].asOpt.map(config => {
+      val accessor = ApiAccessor(config.name, Tier.fromPermissions(config.permissions))
+      logger.info(apiKeyMarkers(accessor), s"Parsed API key config into accessorr")
+      accessor
+    })
   }
 
-  private def parseContentV1(content: String): ApiAccessor = {
+  def parseContentV1(content: String): ApiAccessor = {
     val rows = content.split("\n")
     val name = rows.headOption.getOrElse("")
     val tier = rows.tail.headOption.map(Tier.fromString).getOrElse(Internal)
