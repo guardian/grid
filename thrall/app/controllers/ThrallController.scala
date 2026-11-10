@@ -4,7 +4,8 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import com.gu.mediaservice.GridClient
-import com.gu.mediaservice.lib.auth.{Authentication, BaseControllerWithLoginRedirects}
+import com.gu.mediaservice.lib.auth.Permissions.DeveloperAdmin
+import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, BaseControllerWithLoginRedirects}
 import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.elasticsearch.{NotRunning, Running}
@@ -30,6 +31,7 @@ class ThrallController(
   sendMigrationRequest: MigrationRequest => Future[Boolean],
   messageSender: ThrallMessageSender,
   actorSystem: ActorSystem,
+  authorisation: Authorisation,
   override val auth: Authentication,
   override val services: Services,
   override val controllerComponents: ControllerComponents,
@@ -37,6 +39,12 @@ class ThrallController(
 )(implicit val ec: ExecutionContext) extends BaseControllerWithLoginRedirects with GridLogging {
 
   private val numberFormatter: Long => String = java.text.NumberFormat.getIntegerInstance().format
+
+  private def withDeveloperAdminAsync(handler: Authentication.Request[AnyContent] => Future[play.api.mvc.Result]): Action[AnyContent] =
+    (auth andThen authorisation.actionFilterFor(DeveloperAdmin)).async(handler)
+
+  private def withDeveloperAdmin(handler: Authentication.Request[AnyContent] => play.api.mvc.Result): Action[AnyContent] =
+    withDeveloperAdminAsync(request => Future.successful(handler(request)))
 
   def index = withLoginRedirectAsync { implicit request =>
     val countDocsInIndex = OptionalFutureRunner.run(es.countImages) _
@@ -134,7 +142,7 @@ class ThrallController(
 
   implicit val pollingMaterializer: Materializer = Materializer.matFromSystem(actorSystem)
 
-  def startMigration = withLoginRedirectAsync { implicit request =>
+  def startMigration = withDeveloperAdminAsync { implicit request =>
 
     if(Form(single("start-confirmation" -> text)).bindFromRequest().get != "start"){
       Future.successful(BadRequest("you did not enter 'start' in the text box"))
@@ -175,7 +183,7 @@ class ThrallController(
     }
   }
 
-  def completeMigration(): Action[AnyContent] = withLoginRedirectAsync { implicit request =>
+  def completeMigration(): Action[AnyContent] = withDeveloperAdminAsync { implicit request =>
 
     if(Form(single("complete-confirmation" -> text)).bindFromRequest().get != "complete"){
       Future.successful(BadRequest("you did not enter 'complete' in the text box"))
@@ -206,7 +214,7 @@ class ThrallController(
     }
   }
 
-  private def adjustMigration(action: () => Unit) = withLoginRedirect {
+  private def adjustMigration(action: () => Unit) = withDeveloperAdmin { _ =>
     action()
     es.refreshAndRetrieveMigrationStatus()
     Redirect(routes.ThrallController.index)
@@ -216,7 +224,7 @@ class ThrallController(
   def previewMigrationCompletion = adjustMigration(es.previewMigrationCompletion _)
   def unPreviewMigrationCompletion = adjustMigration(es.unPreviewMigrationCompletion _)
 
-  def migrateSingleImage: Action[AnyContent] = withLoginRedirectAsync { implicit request =>
+  def migrateSingleImage: Action[AnyContent] = withDeveloperAdminAsync { implicit request =>
     val imageId = migrateSingleImageFormReader.bindFromRequest().get.id
 
     es.getImageVersion(imageId) flatMap {
@@ -231,7 +239,7 @@ class ThrallController(
     }
   }
 
-  def upsertFromProjectionSingleImage: Action[AnyContent] = withLoginRedirectAsync { implicit request =>
+  def upsertFromProjectionSingleImage: Action[AnyContent] = withDeveloperAdminAsync { implicit request =>
     val imageId = migrateSingleImageFormReader.bindFromRequest().get.id
 
     for {
@@ -248,7 +256,7 @@ class ThrallController(
     Ok(views.html.restoreFromReplica(s"${services.loaderBaseUri}/images/restore")) //FIXME figure out imageId bit
   }
 
-  def reattemptMigrationFailures(filter: String, page: Int): Action[AnyContent] = withLoginRedirectAsync { implicit request =>
+  def reattemptMigrationFailures(filter: String, page: Int): Action[AnyContent] = withDeveloperAdminAsync { implicit request =>
     Paging.withPaging(Some(page)) { paging =>
       es.migrationStatus match {
         case running: Running =>

@@ -37,7 +37,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context, new M
   val suggestionController = new SuggestionController(auth, elasticSearch, controllerComponents)
   val aggController = new AggregationController(auth, elasticSearch, controllerComponents)
   val usageController = new UsageController(auth, config, elasticSearch, usageQuota, controllerComponents)
-  val elasticSearchHealthCheck = new ElasticSearchHealthCheck(controllerComponents, elasticSearch)
+  val elasticSearchHealthCheck = new ElasticSearchHealthCheck(controllerComponents, auth, elasticSearch)
   val healthcheckController = new Management(controllerComponents, buildInfo)
   val configurationController = new ConfigurationController(controllerComponents)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
