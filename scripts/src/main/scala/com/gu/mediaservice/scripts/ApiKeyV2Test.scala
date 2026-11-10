@@ -7,7 +7,8 @@ import java.net.http.HttpRequest.BodyPublishers
 
 object ApiKeyV2Test extends App {
 
-  val GRIDKEY = sys.env.getOrElse("GRIDKEY", throw new RuntimeException("Must set a GRIDKEY env variable"))
+  val GRIDKEY_V1 = sys.env.getOrElse("GRIDKEY_V1", throw new RuntimeException("Must set a GRIDKEY_V1 env variable"))
+  val GRIDKEY_V2 = sys.env.getOrElse("GRIDKEY_V2", throw new RuntimeException("Must set a GRIDKEY_V2 env variable"))
   val STAGE = "TEST"
   val GRIDDOMAIN = if (STAGE == "PROD") "gutools.co.uk" else "test.dev-gutools.co.uk"
   val client: HttpClient = HttpClient.newHttpClient()
@@ -28,8 +29,17 @@ object ApiKeyV2Test extends App {
     client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString()).statusCode()
   }
 
-  val status = getImageMetadata("463459c6102fd15cffc371350f07127c1777f18b", GRIDKEY)
-  println(status)
-  val updateStatus = updateImageMetadata("463459c6102fd15cffc371350f07127c1777f18b", """{ "data": { "byline": "New Byline"}}""", GRIDKEY)
-  println(updateStatus)
+  def runWithKey(apiKey: String, version: String, imageId: String): Unit = {
+    println(s"READING IMAGE WITH API KEY $version")
+    val status = getImageMetadata(imageId, apiKey)
+    println(status)
+    println(s"UPDATING IMAGE WITH API KEY $version")
+    val updateStatus = updateImageMetadata(imageId, """{ "data": { "byline": "New Byline"}}""", apiKey)
+    println(updateStatus)
+  }
+
+  runWithKey(GRIDKEY_V1, "V1", "463459c6102fd15cffc371350f07127c1777f18b")
+  runWithKey(GRIDKEY_V2 , "V2", "5634ae1136f1a4ffd0deccdd2320d8ba4ff49c69")
+  println("DONE")
+
 }
