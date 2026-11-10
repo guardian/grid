@@ -45,9 +45,8 @@ object ApiAccessor extends ArgoHelpers {
 
   def hasAccess(apiKey: ApiAccessor, request: RequestHeader, services: Services): Boolean = apiKey.tier match {
     case Internal => true
-    // TODO - implement permissioned tiers
-    case PermissionTier(_) => true
     case ReadOnly => request.method == "GET"
     case Syndication => request.method == "GET" && request.host == services.apiHost && request.path.startsWith("/images")
+    case _ => true // Pass through for future permissioned tiers, which will be handled by the PermissionsAuthorisationProvider
   }
 }
