@@ -3,7 +3,6 @@ import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal}
 import com.gu.mediaservice.lib.auth.{ApiAccessor, KeyStore}
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.typesafe.scalalogging.StrictLogging
-import org.slf4j.Marker
 import play.api.Configuration
 import play.api.libs.typedmap.{TypedKey, TypedMap}
 import play.api.libs.ws.WSRequest
