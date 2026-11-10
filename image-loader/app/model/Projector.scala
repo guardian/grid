@@ -1,37 +1,35 @@
 package model
 
-import software.amazon.awssdk.core.ResponseInputStream
-import software.amazon.awssdk.services.s3.model.GetObjectResponse
-
-import java.io.{File, FileOutputStream}
-import com.gu.mediaservice.{GridClient, ImageDataMerger}
-import com.gu.mediaservice.lib.auth.Authentication
+import _root_.play.api.libs.ws.WSRequest
 import com.gu.mediaservice.lib.ImageIngestOperations.{fileKeyFromId, optimisedPngKeyFromId}
-import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-import com.gu.mediaservice.lib.aws.{Embedder, S3, S3Object}
+import com.gu.mediaservice.lib._
+import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.aws.{Embedder, S3}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.lib.net.URI
 import com.gu.mediaservice.model.{Image, MimeType, UploadInfo}
+import com.gu.mediaservice.{GridClient, ImageDataMerger}
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3}
 import lib.{DigestedFile, ImageLoaderConfig}
-import model.upload.UploadRequest
+import model.upload.{OptimiseOps, UploadRequest}
 import org.apache.commons.io.IOUtils
 import org.joda.time.{DateTime, DateTimeZone}
-import play.api.libs.ws.WSRequest
+import software.amazon.awssdk.core.ResponseInputStream
+import software.amazon.awssdk.services.s3.model.GetObjectResponse
 
-import java.time.Instant
-import scala.jdk.CollectionConverters._
+import java.io.{File, FileOutputStream}
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 
 object Projector {
 
   import Uploader.toImageUploadOpsCfg
 
-  def apply(config: ImageLoaderConfig, imageOps: ImageOperations, processor: ImageProcessor, auth: Authentication, maybeEmbedder: Option[Embedder])(implicit ec: ExecutionContext): Projector
-  = new Projector(toImageUploadOpsCfg(config), new S3(config), imageOps, processor, auth, maybeEmbedder)
+  def apply(config: ImageLoaderConfig, imageOps: ImageOperations, processor: ImageProcessor, auth: Authentication, maybeEmbedder: Option[Embedder], optimiseOps: OptimiseOps)(implicit ec: ExecutionContext): Projector
+  = new Projector(toImageUploadOpsCfg(config), new S3(config), imageOps, processor, auth, maybeEmbedder, optimiseOps)
 }
 
 case class S3FileExtractedMetadata(
@@ -42,7 +40,7 @@ case class S3FileExtractedMetadata(
 )
 
 object S3FileExtractedMetadata {
-  
+
   def apply(lastModified: DateTime, userMetadata: Map[String, String]): S3FileExtractedMetadata = {
     val fileUserMetadata = userMetadata.map { case (key, value) =>
       // Fix up the contents of the metadata.
@@ -80,9 +78,10 @@ class Projector(config: ImageUploadOpsCfg,
                 imageOps: ImageOperations,
                 processor: ImageProcessor,
                 auth: Authentication,
-                maybeEmbedder: Option[Embedder]) extends GridLogging {
+                maybeEmbedder: Option[Embedder],
+                optimiseOps: OptimiseOps) extends GridLogging {
 
-  private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor, s3, maybeEmbedder)
+  private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor, s3, maybeEmbedder, optimiseOps)
 
   def projectS3ImageById(imageId: String, tempFile: File, gridClient: GridClient, onBehalfOfFn: WSRequest => WSRequest)
                         (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {
@@ -156,9 +155,10 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
                                processor: ImageProcessor,
                                s3: S3,
                                maybeEmbedder: Option[Embedder],
+                               optimiseOps: OptimiseOps
 ) extends GridLogging {
 
-  import Uploader.{fromUploadRequestShared, toMetaMap}
+  import Uploader.fromUploadRequestShared
 
 
   def projectImageFromUploadRequest(uploadRequest: UploadRequest)
@@ -173,7 +173,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
       tryFetchOptimisedFile = fetchOptimisedFile
     )
 
-    fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, processor)
+    fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, processor, optimiseOps)
   }
 
   private def projectOriginalFileAsS3Model(storableOriginalImage: StorableOriginalImage) =

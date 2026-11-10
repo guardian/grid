@@ -1,4 +1,11 @@
-import { CqlBinary, CqlExpr, CqlField, CqlQuery, CqlStr } from "@guardian/cql";
+import {
+  CqlBinary,
+  CqlExpr,
+  CqlField,
+  CqlQuery,
+  CqlStr,
+  createParser
+} from "@guardian/cql";
 import {
   FilterType,
   StructuredQuery
@@ -11,6 +18,13 @@ export const cqlParserSettings = {
     "#": "label",
     "~": "collection"
   }
+};
+
+const parser = createParser(cqlParserSettings);
+
+export const structureCqlQueryString = (query: string): StructuredQuery => {
+  const { queryAst } = parser(query);
+  return queryAst ? structureCqlQuery(queryAst) : [];
 };
 
 export const structureCqlQuery = (query: CqlQuery): StructuredQuery => {

@@ -4,11 +4,11 @@ set -e
 function HELP {
 >&2 cat << EOF
 
-  Usage: ${0} -t ES-HOST [-s TEST] [-u ubuntu]
+  Usage: ${0} [-s TEST]
 
-  This script sets up an ssh tunnel from localhost port 9200 to the ElasticSearch provided on port 9200
-
-    -v            Verbose ssh output
+  This script sets up an SSM port-forwarding tunnel from localhost port 9200
+  to the ElasticSearch instance provided on port 9200. It blocks in the
+  foreground for the lifetime of the tunnel - stop it with ctrl-C.
 
     -h            Displays this help message. No further functions are
                   performed.
@@ -17,17 +17,11 @@ EOF
 exit 1
 }
 
-BACKGROUND="-f"
-VERBOSE=""
-
 # Process options
-while getopts u:s:t:hv FLAG; do
+while getopts s:h FLAG; do
   case $FLAG in
     h)  #show help
       HELP
-      ;;
-    v)
-      VERBOSE="-v"
       ;;
     s)
       STAGE=$OPTARG
@@ -40,11 +34,29 @@ if [ -z "${STAGE}" ]; then
   STAGE="TEST"
 fi
 
-echo "🛰 fetching connection details from ssm"
+echo "🛰 fetching newest elasticsearch instance id from AWS"
 
-SSM_COMMAND=$(ssm ssh --profile media-service -t elasticsearch-data,media-service,$STAGE --newest --ssm-tunnel --raw)
+INSTANCE_ID=$(aws ec2 describe-instances \
+  --filters \
+      "Name=tag:App,Values=elasticsearch-data" \
+      "Name=tag:Stack,Values=media-service" \
+      "Name=tag:Stage,Values=$STAGE" \
+      "Name=instance-state-name,Values=running" \
+  --query "Reservations[].Instances[] | sort_by(@, &LaunchTime)[-1].InstanceId" \
+  --output text \
+  --region eu-west-1 \
+  --profile media-service)
 
-echo "📠 ESTABLISHING CONNECTION"
+if [ -z "${INSTANCE_ID}" ] || [ "${INSTANCE_ID}" == "None" ]; then
+  echo "🚨 Could not find a running elasticsearch-data instance for stage ${STAGE}"
+  exit 1
+fi
 
-echo "$SSM_COMMAND"
-eval $SSM_COMMAND $VERBOSE -L 9200:localhost:9200 -N
+echo "📠 ESTABLISHING CONNECTION to ${INSTANCE_ID}"
+
+aws ssm start-session \
+  --document-name AWS-StartPortForwardingSessionToRemoteHost \
+  --parameters "{\"host\":[\"localhost\"],\"portNumber\":[\"9200\"],\"localPortNumber\":[\"9200\"]}" \
+  --target "$INSTANCE_ID" \
+  --region eu-west-1 \
+  --profile media-service

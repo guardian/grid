@@ -3,10 +3,16 @@ package lib.elasticsearch
 import java.net.URI
 import java.util.UUID
 
+import com.gu.mediaservice.lib.config.GridConfigResources
 import com.gu.mediaservice.model.leases.{AllowSyndicationLease, DenySyndicationLease, LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage.{UsageStatus => Status, _}
 import com.gu.mediaservice.model.{StaffPhotographer, _}
+import lib.MediaApiConfig
 import org.joda.time.DateTime
+import play.api.Configuration
+import play.api.inject.ApplicationLifecycle
+
+import scala.concurrent.Future
 
 trait Fixtures {
 
@@ -48,6 +54,18 @@ trait Fixtures {
     "capi.preview.url",
     "composer.domain"
   )
+
+  def buildMediaApiConfig(configOverrides: Map[String, Any] = Map.empty): MediaApiConfig = new MediaApiConfig(GridConfigResources(
+    Configuration.from(USED_CONFIGS_IN_TEST ++ configOverrides ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap),
+    null,
+    new ApplicationLifecycle {
+      override def addStopHook(hook: () => Future[_]): Unit = {}
+      override def stop(): Future[_] = Future.successful(())
+    }
+  ))
+
+  def mediaApiConfigWithApplicableUsageRights(applicable: List[String]): MediaApiConfig =
+    buildMediaApiConfig(Map("usageRights" -> Map("applicable" -> applicable)))
 
   def deletionData(deletedBy: String): SoftDeletedMetadata = SoftDeletedMetadata(
     deleteTime = DateTime.parse("2021-12-21T11:22:33Z"),

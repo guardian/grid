@@ -6,7 +6,7 @@ import com.gu.mediaservice.model.usage._
 import org.joda.time.{DateTime, Period}
 import play.api.libs.json.{JsArray, JsNumber, JsString, JsValue}
 
-import java.net.{URI, URL}
+import java.net.URI
 
 /**
   * This object contains a test image that is fully populated (i.e. all fields of a collection
@@ -57,7 +57,7 @@ object MappingTest {
     size = Some(12345L),
     mimeType = Some(Jpeg),
     dimensions = Some(Dimensions(1000, 2000)),
-    secureUrl = Some(new URL("http://host/filename.jpg")),
+    secureUrl = Some(URI.create("http://host/filename.jpg").toURL),
     orientationMetadata = Some(OrientationMetadata(exifOrientation = Some(6))),
     orientedDimensions = Some(Dimensions(2000, 1000)),
     orientation = Some("landscape")
@@ -81,7 +81,7 @@ object MappingTest {
       size = Some(1234L),
       mimeType = Some(Jpeg),
       dimensions = Some(Dimensions(500, 1000)),
-      secureUrl = Some(new URL("http://host/thumb.jpg")),
+      secureUrl = Some(URI.create("http://host/thumb.jpg").toURL),
       orientationMetadata = Some(OrientationMetadata(exifOrientation = Some(6))),
       orientedDimensions = Some(Dimensions(2000, 1000)),
       orientation = Some("landscape")
@@ -92,7 +92,7 @@ object MappingTest {
       size = Some(1245L),
       mimeType = Some(Png),
       dimensions = Some(Dimensions(1000, 2000)),
-      secureUrl = Some(new URL("http://host/filename.jpg")),
+      secureUrl = Some(URI.create("http://host/filename.jpg").toURL),
       orientationMetadata = Some(OrientationMetadata(exifOrientation = Some(6))),
       orientedDimensions = Some(Dimensions(2000, 1000)),
       orientation = Some("landscape")

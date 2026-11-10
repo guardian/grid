@@ -231,7 +231,44 @@
 
         <div ng-if="! ctrl.filtersOnlyAiSearch && ctrl.totalResults == 0"
              class="image-no-results">
-            <span>No matches, sorry! Try altering your search.</span>
+            <span ng-if="! ctrl.canOfferAiSearch">No matches, sorry! Try altering your search.</span>
+
+            <div ng-if="ctrl.canOfferAiSearch" class="ai-search-prompt">
+                <span>No results from text search</span>
+
+                <a ng-if="ctrl.aiSearchPreviewUnavailable"
+                   ui-sref="search.results(ctrl.aiSearchStateParams)"
+                   ng-click="ctrl.onAiSearchPreviewClick('fallbackLink')">
+                    <gr-icon-label gr-icon="search">Try AI search</gr-icon-label>
+                </a>
+
+                <!-- Preview of what AI search would return; the whole box links to it -->
+                <a class="ai-search-preview"
+                   ng-if="! ctrl.aiSearchPreviewUnavailable"
+                   ng-class="{'ai-search-preview--loading': ctrl.aiSearchPreviewLoading}"
+                   ui-sref="search.results(ctrl.aiSearchStateParams)"
+                   ng-click="ctrl.onAiSearchPreviewClick('preview')"
+                   aria-label="Click to see all AI search results">
+                    <span class="ai-search-preview__loading" ng-if="ctrl.aiSearchPreviewLoading">
+                        Looking for AI search results<span class="ai-search-preview__dots"><span>.</span><span>.</span><span>.</span></span>
+                    </span>
+                    <span class="ai-search-preview__heading" ng-if-start="! ctrl.aiSearchPreviewLoading">
+                        Here are the top results from AI search
+                    </span>
+                    <span class="ai-search-preview__row">
+                        <img class="ai-search-preview__thumb"
+                             ng-repeat="image in ctrl.aiSearchPreviewImages track by $index"
+                             ng-src="{{::image.data.thumbnail | assetFile}}"
+                             alt="{{::image.data.metadata.description}}" />
+                    </span>
+                    <!-- Gradient scrim over the thumbnails, as per .preview__fade -->
+                    <span class="ai-search-preview__footer" ng-if-end>
+                        <span class="ai-search-preview__cta">
+                            <gr-icon-label gr-icon="search">Click to see all AI search results</gr-icon-label>
+                        </span>
+                    </span>
+                </a>
+            </div>
         </div>
     </div>
 </div>

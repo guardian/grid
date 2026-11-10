@@ -34,6 +34,12 @@ class DomainMetadataSpecConfigTest extends AnyFreeSpec with Matchers {
               "label" -> "A.D",
               "type" -> "select",
               "options" -> List("Option 1", "Option 2")
+            ),
+            Map(
+              "name" -> "a.e",
+              "label" -> "A.E",
+              "type" -> "string",
+              "allowEditOptions" -> true
             )
           )
         ),
@@ -65,11 +71,12 @@ class DomainMetadataSpecConfigTest extends AnyFreeSpec with Matchers {
       specificationA.name shouldBe "a"
       specificationA.label shouldBe "A"
       specificationA.description shouldBe Some("Description of A")
-      specificationA.fields.length shouldBe 4
-      specificationA.fields.map(_.name) shouldBe List("a.a", "a.b", "a.c", "a.d")
-      specificationA.fields.map(_.label) shouldBe List("A.A", "A.B", "A.C", "A.D")
-      specificationA.fields.map(_.fieldType) shouldBe List("string", "datetime", "integer", "select")
+      specificationA.fields.length shouldBe 5
+      specificationA.fields.map(_.name) shouldBe List("a.a", "a.b", "a.c", "a.d", "a.e")
+      specificationA.fields.map(_.label) shouldBe List("A.A", "A.B", "A.C", "A.D", "A.E")
+      specificationA.fields.map(_.fieldType) shouldBe List("string", "datetime", "integer", "select", "string")
       specificationA.fields.find(_.options.nonEmpty).flatMap(_.options) shouldBe Some(List("Option 1", "Option 2"))
+      specificationA.fields.map(_.allowEditOptions) shouldBe List(false, false, false, false, true)
 
 
       domainMetadataSpecifications.lastOption.nonEmpty shouldBe true

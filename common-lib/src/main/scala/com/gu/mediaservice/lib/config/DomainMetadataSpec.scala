@@ -9,7 +9,10 @@ case class DomainMetadataField(
   name: String,
   label: String,
   fieldType: String,
-  options: Option[List[String]] = None
+  options: Option[List[String]] = None,
+  // When set on a string field, editing the field across a multi-image selection offers the
+  // same overwrite / add before / add after choices as the core metadata fields.
+  allowEditOptions: Boolean = false
 )
 
 object DomainMetadataField {
@@ -32,12 +35,14 @@ object DomainMetadataSpec {
         val description = if (config.hasPath("description")) Some(config.getString("description")) else None
         val fields = config.getConfigList("fields").asScala.map(config => {
           val fieldOptions = if (config.hasPath("options")) Some(config.getStringList("options").asScala.toList) else None
+          val allowEditOptions = config.hasPath("allowEditOptions") && config.getBoolean("allowEditOptions")
 
           DomainMetadataField(
             config.getString("name"),
             config.getString("label"),
             config.getString("type"),
-            fieldOptions
+            fieldOptions,
+            allowEditOptions
           )
         }).toSeq
 

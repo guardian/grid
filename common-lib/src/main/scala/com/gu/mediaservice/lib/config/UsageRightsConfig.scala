@@ -128,6 +128,7 @@ trait UsageRightsConfigProvider extends Provider {
   val contractedPhotographers: List[PublicationPhotographers]
   val contractIllustrators: List[PublicationPhotographers]
   val staffIllustrators: List[String]
+  val staffIllustratorsPublication: Option[String] = None
   val creativeCommonsLicense: List[String]
   val freeSuppliers: List[String]
   val suppliersCollectionExcl: Map[String, List[String]]
@@ -142,6 +143,17 @@ trait UsageRightsConfigProvider extends Provider {
   // this is lazy in order to ensure it is initialised after the values above are defined
   lazy val allPhotographers: List[PublicationPhotographers] = UsageRightsConfigProvider.flattenPublicationList(
     internalStaffPhotographers ++ externalStaffPhotographers ++ contractedPhotographers)
+
+  lazy val allIllustrators: List[PublicationPhotographers] = {
+    val staffIllustratorsAsPublicationPhotographers = staffIllustrators.map(PublicationPhotographer(_))
+    // staff illustrators join every contract illustrator publication, unless one publication is configured
+    val staffIllustratorsByPublication = contractIllustrators
+      .map(_.name)
+      .distinct
+      .filter(name => staffIllustratorsPublication.forall(_ == name))
+      .map(PublicationPhotographers(_, staffIllustratorsAsPublicationPhotographers))
+    UsageRightsConfigProvider.flattenPublicationList(contractIllustrators ++ staffIllustratorsByPublication)
+  }
 
   def getPhotographer(photographer: String, atTime: DateTime): Option[Photographer] = {
     caseInsensitiveLookup(staffPhotographers, photographer, atTime).map {
@@ -180,7 +192,7 @@ object UsageRightsConfigProvider {
 
   def flattenPublicationList(companies: List[PublicationPhotographers]): List[PublicationPhotographers] = companies
     .groupBy(_.name)
-    .map { case (group, companies) => PublicationPhotographers(group, companies.flatMap(company => company.photographers)) }
+    .map { case (group, companies) => PublicationPhotographers(group, companies.flatMap(company => company.photographers).distinct) }
     .toList
 }
 

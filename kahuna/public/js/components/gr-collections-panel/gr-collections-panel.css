@@ -14,7 +14,7 @@ gr-nodes, gr-node,
 
 .node__marker {
     position: absolute;
-    background: #444;
+    background: transparent;
     width: 5px;
     height: 34px;
     left: 0;
@@ -48,6 +48,11 @@ gr-nodes, gr-node,
     padding-left: 5px;
     padding-right: 5px;
     z-index: 2;
+}
+
+.node__action .gr-confirm-delete {
+    padding-top: 0;
+    padding-bottom: 0;
 }
 
 .node__add-child {

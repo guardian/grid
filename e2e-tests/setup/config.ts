@@ -4,10 +4,10 @@
  * rewrites the LocalStack/Elasticsearch endpoints so that they resolve via the
  * Testcontainers network aliases instead of the Guardian dev domains / localhost.
  */
-import * as fs from 'fs';
-import * as path from 'path';
-import { createRequire } from 'module';
-import JSON5 from 'json5';
+import * as fs from "fs";
+import * as path from "path";
+import { createRequire } from "module";
+import JSON5 from "json5";
 import {
   DOMAIN,
   EMAIL_DOMAIN,
@@ -18,16 +18,102 @@ import {
   REGION,
   REPO_ROOT,
   SERVICE_PORTS,
-} from './constants.ts';
+} from "./constants.ts";
 
 /** `service-config.js` is CommonJS and lives outside this package, so load it via require. */
 const require = createRequire(import.meta.url);
 
-const GENERATE_CONFIG_DIR = path.join(REPO_ROOT, 'dev', 'script', 'generate-config');
+const GENERATE_CONFIG_DIR = path.join(
+  REPO_ROOT,
+  "dev",
+  "script",
+  "generate-config",
+);
 
 const GRID_SERVICES = Object.keys(SERVICE_PORTS);
 
 type StackProps = Record<string, string>;
+
+/**
+ * Image types and a metadata template baked into the e2e Kahuna server so the
+ * metadata-editor scenarios exercise real server config end-to-end rather than a
+ * client-side stub. Applied at stack boot, so they are present for every scenario.
+ */
+export const E2E_IMAGE_TYPES = ["Photograph", "Illustration", "Composite"];
+
+export const E2E_METADATA_TEMPLATE = {
+  templateName: "E2E Agency",
+  fields: [
+    { name: "byline", value: "E2E Byline" },
+    { name: "credit", value: "E2E Agency" },
+  ],
+};
+
+/**
+ * A template that only sets usage rights, kept separate from `E2E_METADATA_TEMPLATE` so the
+ * upload page's metadata template scenarios don't also open a rights preview. Pay to use has
+ * no required properties, so the template's rights are complete: templates can't set the
+ * `supplier` that Agency requires (only `suppliers`), and the metadata editor would reject it.
+ */
+export const E2E_RIGHTS_TEMPLATE = {
+  templateName: "E2E Pay to use rights",
+  usageRights: {
+    category: "pay-to-use",
+    restrictions: "E2E template restriction",
+  },
+};
+
+/**
+ * media-api derives `usageInstructions` from an image's usageRights category via this map, so
+ * an image whose category is `agency` (see the AAP-credited fixture) shows this text.
+ */
+export const E2E_USAGE_INSTRUCTIONS = {
+  category: "agency",
+  text: "These images are supplied under agency terms; check the licence before use.",
+};
+
+/** Linked from the upload page for users without the upload_images permission. */
+export const E2E_UPLOAD_SUPPORT_EMAIL = `mailto:grid-e2e-upload-support@${EMAIL_DOMAIN}`;
+
+/** Render the e2e-only Kahuna settings as HOCON to append to the generated `kahuna.conf`. */
+function kahunaE2eConfig(): string {
+  const metadataFields = E2E_METADATA_TEMPLATE.fields
+    .map(
+      (f) =>
+        `      { name = "${f.name}", value = "${f.value}", resolveStrategy = "replace" }`,
+    )
+    .join("\n");
+
+  return [
+    // The e2e stack has no Bedrock access, so AI search requests would 500.
+    "ai.search.enabled = false",
+    `links.uploadImagesPermissionSupportEmail = "${E2E_UPLOAD_SUPPORT_EMAIL}"`,
+    `imageTypes = ${JSON.stringify(E2E_IMAGE_TYPES)}`,
+    "metadata.templates = [",
+    "  {",
+    `    templateName = "${E2E_METADATA_TEMPLATE.templateName}"`,
+    "    metadataFields = [",
+    metadataFields,
+    "    ]",
+    "  },",
+    "  {",
+    `    templateName = "${E2E_RIGHTS_TEMPLATE.templateName}"`,
+    `    usageRights = ${JSON.stringify(E2E_RIGHTS_TEMPLATE.usageRights)}`,
+    "  }",
+    "]",
+    "",
+  ].join("\n");
+}
+
+/** Render the e2e-only media-api settings as HOCON to append to the generated `media-api.conf`. */
+function mediaApiE2eConfig(): string {
+  return [
+    "usageInstructions {",
+    `  ${E2E_USAGE_INSTRUCTIONS.category} = "${E2E_USAGE_INSTRUCTIONS.text}"`,
+    "}",
+    "",
+  ].join("\n");
+}
 
 /**
  * Rewrite the Guardian dev endpoints baked in by `service-config.js` so that the
@@ -37,7 +123,7 @@ function rewriteEndpoints(conf: string): string {
   const localstackUrl = `http://${LOCALSTACK_ALIAS}:${LOCALSTACK_PORT}`;
   // Endpoints baked in by `service-config.js` that must be redirected to the container.
   const guardianLocalstackUrl = `https://${LOCALSTACK_ALIAS}.media.${DOMAIN}`;
-  const legacyLocalstackUrl = 'http://localhost:4576';
+  const legacyLocalstackUrl = "http://localhost:4576";
   const localLocalstackUrl = `http://localhost:${LOCALSTACK_PORT}`;
 
   const rewrittenConf = conf
@@ -58,10 +144,16 @@ function rewriteEndpoints(conf: string): string {
 /**
  * Generate all service config files into `configDir`.
  */
-export function generateServiceConfig(configDir: string, coreStackProps: StackProps): void {
-  const ServiceConfig = require(path.join(GENERATE_CONFIG_DIR, 'service-config.js'));
+export function generateServiceConfig(
+  configDir: string,
+  coreStackProps: StackProps,
+  authStackProps: StackProps,
+): void {
+  const ServiceConfig = require(
+    path.join(GENERATE_CONFIG_DIR, "service-config.js"),
+  );
   const defaultConfig = JSON5.parse(
-    fs.readFileSync(path.join(GENERATE_CONFIG_DIR, 'config.json5'), 'utf8'),
+    fs.readFileSync(path.join(GENERATE_CONFIG_DIR, "config.json5"), "utf8"),
   );
 
   const config = {
@@ -69,38 +161,60 @@ export function generateServiceConfig(configDir: string, coreStackProps: StackPr
     DOMAIN,
     EMAIL_DOMAIN,
     AWS_DEFAULT_REGION: REGION,
-    // NO_AUTHENTICATION makes `getCommonConfig` emit the Local authentication provider, so
-    // we don't need pan-domain / OIDC infrastructure. Authorisation is left as the real
-    // (S3-backed) provider, which reads `permissions.json` from the provisioned bucket.
-    NO_AUTHENTICATION: true,
     coreStackProps,
+    authStackProps,
     es6: {
       ...defaultConfig.es6,
       url: `http://${ELASTICSEARCH_ALIAS}:${ELASTICSEARCH_PORT}`,
     },
   };
 
-  const serviceConfigs: Record<string, string> = ServiceConfig.getCoreConfigs(config);
+  const serviceConfigs: Record<string, string> =
+    ServiceConfig.getCoreConfigs(config);
+  const localAuthConfig: string = ServiceConfig.getUseLocalAuthConfig(config);
+
+  // e2e-only config appended per service on top of the generated base config.
+  const extraConfig: Record<string, string> = {
+    kahuna: kahunaE2eConfig(),
+    "media-api": mediaApiE2eConfig(),
+  };
 
   fs.mkdirSync(configDir, { recursive: true });
 
   // Mark the stage as DEV so services load `~/.grid/<app>.conf` (see GridConfigLoader).
-  fs.writeFileSync(path.join(configDir, 'stage'), 'DEV');
+  fs.writeFileSync(path.join(configDir, "stage"), "DEV");
 
   // The staged apps run in Play prod mode, which requires an application secret (>= 256
   // bits). GridConfigLoader loads `common.conf` for every service, so set it once here
   // rather than injecting it as a JVM option in the container.
   fs.writeFileSync(
-    path.join(configDir, 'common.conf'),
-    'play.http.secret.key = "testcontainers-e2e-application-secret-0123456789"\n',
+    path.join(configDir, "common.conf"),
+    [
+      'play.http.secret.key = "testcontainers-e2e-application-secret-0123456789"',
+      "enforceUploadImagesPermission = true",
+      `usageRights.applicable = ${JSON.stringify([
+        "com.gu.mediaservice.model.NoRights",
+        "com.gu.mediaservice.model.PayToUse",
+        "com.gu.mediaservice.model.PRAndThirdParty",
+        "com.gu.mediaservice.model.Agency",
+        "com.gu.mediaservice.model.PublisherPhotography",
+        "com.gu.mediaservice.model.PublisherIllustration",
+      ])}`,
+      "",
+    ].join("\n"),
   );
 
   for (const service of GRID_SERVICES) {
     const conf = serviceConfigs[service];
     if (!conf) {
-      throw new Error(`service-config.js did not produce config for '${service}'`);
+      throw new Error(
+        `service-config.js did not produce config for '${service}'`,
+      );
     }
 
-    fs.writeFileSync(path.join(configDir, `${service}.conf`), rewriteEndpoints(conf));
+    const rewritten = rewriteEndpoints(`${conf}\n${localAuthConfig}`);
+    const extras = extraConfig[service];
+    const withExtras = extras ? `${rewritten}\n${extras}` : rewritten;
+    fs.writeFileSync(path.join(configDir, `${service}.conf`), withExtras);
   }
 }

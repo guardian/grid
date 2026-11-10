@@ -16,8 +16,8 @@ jobs:
       run:
         working-directory: e2e-tests
     steps:
-    - uses: actions/checkout@e8d4307400f9427dba7cb98e488d6ab85f1cec5f # v7.0.0
-    - uses: actions/setup-node@v6
+    - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v7.0.0
+    - uses: actions/setup-node@v7
       with:
         node-version: lts/*
         # Cache downloads for both the host-side e2e install and the Kahuna install
@@ -36,7 +36,7 @@ jobs:
     # build files, with a prefix restore-key so an unrelated build change only
     # fetches the delta rather than everything.
     - name: Cache sbt dependencies (ivy/coursier)
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: |
           ~/.cache/coursier/v1
@@ -57,7 +57,7 @@ jobs:
     # recompile, and the prefix restore-key seeds an incremental build from the
     # most recent cache when sources have changed.
     - name: Cache sbt compile output (incremental)
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: |
           **/target
@@ -69,7 +69,7 @@ jobs:
     # the resolved Playwright version in the lockfile, so a version bump busts it.
     - name: Cache Playwright browsers
       id: playwright-cache
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ~/.cache/ms-playwright
         key: ${{ runner.os }}-playwright-${{ hashFiles('e2e-tests/package-lock.json') }}
@@ -84,18 +84,18 @@ jobs:
       if: steps.playwright-cache.outputs.cache-hit != 'true'
       run: npx playwright install chromium
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@v4
     # Authenticate so buildx can pull (and, on main, push) the registry layer
     # cache. GITHUB_TOKEN is read-only on fork PRs, which is fine: those runs
     # only read the cache (see cache-to condition below).
     - name: Log in to GHCR
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     - name: Build CI image
-      uses: docker/build-push-action@v6
+      uses: docker/build-push-action@v7
       with:
         context: .
         file: e2e-tests/images/Dockerfile
@@ -110,9 +110,13 @@ jobs:
         cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main,mode=max' || '' }}
     - name: Run Playwright tests
       run: npm test
-    - uses: actions/upload-artifact@v4
+    - name: Upload e2e reports
+      uses: actions/upload-artifact@v7
       if: ${{ !cancelled() }}
       with:
-        name: playwright-report
-        path: e2e-tests/playwright-report/
-        retention-days: 30
+        name: e2e-report
+        path: |
+          e2e-tests/playwright-report/
+          e2e-tests/cucumber-report/
+        retention-days: 14
+        if-no-files-found: ignore

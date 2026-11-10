@@ -36,7 +36,7 @@ class UsageApi(
   implicit val ec: ExecutionContext
 ) extends BaseController with MessageSubjects with ArgoHelpers {
 
-  private val AuthenticatedAndAuthorisedToDelete = auth andThen authorisation.CommonActionFilters.authorisedForDeleteCropsOrUsages
+  private val AuthenticatedAndAuthorisedToDeleteCropsOrUsages = auth andThen authorisation.CommonActionFilters.authorisedForDeleteCropsOrUsages
 
   private def wrapUsage(usage: Usage): EntityResponse[Usage] = {
     EntityResponse(
@@ -283,7 +283,8 @@ class UsageApi(
     )
   }}
 
-  def updateUsageStatus(mediaId: String, usageId: String) = auth.async(parse.json) {req => {
+  def updateUsageStatus(mediaId: String, usageId: String) =
+    AuthenticatedAndAuthorisedToDeleteCropsOrUsages.async(parse.json) { req => {
     val request = (req.body \ "data").validate[UsageStatus]
     request.fold(
       e => Future.successful(
@@ -304,7 +305,7 @@ class UsageApi(
         logger.info(logMarker, "recording usage status  update")
 
         usageTable.queryByUsageId(usageId).map {
-          case Some(mediaUsage) =>
+          case Some(mediaUsage) if mediaUsage.mediaId == mediaId =>
             val updatedStatusMediaUsage = mediaUsage.copy(status = usageStatus)
             usageTable.update(updatedStatusMediaUsage)
             val usageNotice = UsageNotice(mediaId,
@@ -315,14 +316,14 @@ class UsageApi(
             )
             notifications.publish(updateMessage)
             Ok
-          case None =>
+          case _ =>
             NotFound
         }
       }
     )
   }}
 
-  def deleteSingleUsage(mediaId: String, usageId: String) = AuthenticatedAndAuthorisedToDelete.async { req =>
+  def deleteSingleUsage(mediaId: String, usageId: String) = AuthenticatedAndAuthorisedToDeleteCropsOrUsages.async { req =>
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "delete-usage",
       "requestId" -> RequestLoggingFilter.getRequestId(req),
@@ -342,7 +343,69 @@ class UsageApi(
 
   }
 
-  def deleteUsages(mediaId: String) = AuthenticatedAndAuthorisedToDelete.async { req =>
+  def deleteUsagesByIds(mediaId: String) = AuthenticatedAndAuthorisedToDeleteCropsOrUsages.async(parse.json) { req =>
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "delete-usages-by-ids",
+      "requestId" -> RequestLoggingFilter.getRequestId(req),
+      "image-id" -> mediaId,
+    )
+
+    (req.body \ "data").validate[DeleteUsagesByIdsRequest].fold(
+      errors => Future.successful(
+        respondError(
+          BadRequest,
+          errorKey = "delete-usages-by-ids-parse-failed",
+          errorMessage = JsError.toJson(errors).toString
+        )
+      ),
+      request => {
+        val usageIds = request.usageIds.map(_.trim).filter(_.nonEmpty).distinct
+
+        if (usageIds.isEmpty) {
+          Future.successful(
+            respondError(BadRequest, "delete-usages-by-ids-empty", "At least one usage ID is required")
+          )
+        } else {
+          Future.sequence(
+            usageIds.map(usageId => usageTable.queryByUsageId(usageId).map(usageId -> _))
+          ).map { resolvedUsages =>
+            val missingUsageIds = resolvedUsages.collect { case (usageId, None) => usageId }
+            val usagesForOtherMedia = resolvedUsages.collect {
+              case (usageId, Some(mediaUsage)) if mediaUsage.mediaId != mediaId => usageId
+            }
+
+            if (missingUsageIds.nonEmpty) {
+              respondError(
+                NotFound,
+                "usages-not-found",
+                s"No usages found for IDs: ${missingUsageIds.mkString(", ")}"
+              )
+            } else if (usagesForOtherMedia.nonEmpty) {
+              respondError(
+                BadRequest,
+                "usage-media-mismatch",
+                s"Usages do not belong to media $mediaId: ${usagesForOtherMedia.mkString(", ")}"
+              )
+            } else {
+              resolvedUsages.collect { case (usageId, Some(mediaUsage)) => (usageId, mediaUsage) }.foreach {
+                case (usageId, mediaUsage) =>
+                usageTable.deleteRecord(mediaUsage)
+                notifications.publish(
+                  UpdateMessage(subject = DeleteSingleUsage, id = Some(mediaId), usageId = Some(usageId))
+                )
+              }
+              Ok
+            }
+          }.recover { case error: Exception =>
+            logger.error(logMarker, "Failed to delete usages by ID", error)
+            respondError(InternalServerError, "delete-usages-by-ids-failed", error.getMessage)
+          }
+        }
+      }
+    )
+  }
+
+  def deleteUsages(mediaId: String) = AuthenticatedAndAuthorisedToDeleteCropsOrUsages.async { req =>
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "delete-usages",
       "requestId" -> RequestLoggingFilter.getRequestId(req),

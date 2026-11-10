@@ -39,18 +39,16 @@ const MyUploads: React.FC<MyUploadsWrapperProps> = ({ props }) => {
   }, [props.myUploads]);
 
   const handleCheckboxClick = () => {
-    setMyUploads(prevChkd => {
-      props.onChange(!prevChkd);
+    const next = !myUploads;
+    setMyUploads(next);
+    props.onChange(next);
 
-      //-- raise payable images event --
-      const event = new CustomEvent<PayableImagesEventDetail>('setPayableImages', {
-        detail: { showPaid: !prevChkd },
-        bubbles: true
-      });
-      window.dispatchEvent(event);
-
-      return !prevChkd;
+    //-- raise payable images event --
+    const event = new CustomEvent<PayableImagesEventDetail>('setPayableImages', {
+      detail: { showPaid: next },
+      bubbles: true
     });
+    window.dispatchEvent(event);
   };
 
   const handleKeyboard = (event:KeyboardEvent<HTMLDivElement>) => {
@@ -87,15 +85,15 @@ const MyUploads: React.FC<MyUploadsWrapperProps> = ({ props }) => {
   }, []);
 
   return (
-    <div className="my-uploads-container" tabIndex={0} aria-label={MY_UPLOADS} onKeyDown={handleKeyboard}>
-      <label className="custom-checkbox">
-        <input type="checkbox" checked={myUploads} onClick={handleCheckboxClick}/>
+    <div className="my-uploads-container" tabIndex={0} aria-label={MY_UPLOADS} onKeyDown={handleKeyboard} onClick={handleCheckboxClick}>
+      <span className="custom-checkbox">
+        <input type="checkbox" checked={myUploads} readOnly tabIndex={-1} aria-hidden="true"/>
         <div className="label-wrapper" >
           <span className="custom-span"></span>
           <span className="custom-label no-select">{MY_UPLOADS}</span>
           <span className="custom-label-short no-select">{MY_UPLOADS_SHORT}</span>
         </div>
-      </label>
+      </span>
     </div>
   );
 };

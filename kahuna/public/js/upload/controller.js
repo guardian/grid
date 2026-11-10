@@ -3,6 +3,7 @@ import './controller.css';
 import './prompt/prompt';
 import './recent/recent-uploads';
 import '../services/scroll-position';
+import {armedDefaultNonFreeFilter, DEFAULT_NON_FREE_FILTER_KEY} from '../util/default-non-free-filter';
 
 const toNonFreeString = (val) => (val === true || val === 'true') ? 'true' : 'false';
 
@@ -13,8 +14,8 @@ var upload = angular.module('kahuna.upload.controller', [
   'util.storage'
 ]);
 
-upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', 'scrollPosition', '$scope', 'storage',
-  function (uploadManager, mediaApi, scrollPosition, $scope, storage) {
+upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', 'scrollPosition', '$scope', '$rootScope', 'storage',
+  function (uploadManager, mediaApi, scrollPosition, $scope, $rootScope, storage) {
     var ctrl = this;
 
     const isOngoingUploadJobs = () => {
@@ -22,12 +23,14 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', 'scrollPosition', 
       const isOngoingUploads = flattenUploadsArray.some(jobItem => jobItem.status !== "uploaded");
       return isOngoingUploads;
     };
-    $scope.$on("$locationChangeStart", function(event, _, current) {
-      // handle route changes
-      if (current.indexOf("/upload") > -1) {
+    // ui-sref transitions destroy this scope before $locationChangeStart, so guard the state change.
+    const deregisterStateChangeStart = $rootScope.$on("$stateChangeStart", function(event, toState) {
+      // Starting an upload reloads this state; already-cancelled transitions are re-issued (e.g. search's deep-state redirect).
+      if (toState.name !== "upload" && !event.defaultPrevented) {
         ctrl.displayWarning(event);
       }
     });
+    $scope.$on("$destroy", deregisterStateChangeStart);
 
     window.onbeforeunload = function () {
       if (uploadManager.getJobs().size > 0 || isOngoingUploadJobs()) {
@@ -58,11 +61,8 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', 'scrollPosition', 
     ctrl.onLogoClick = () => {
       mediaApi.getSession().then(session => {
         const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
-        const defaultNonFreeFilter = {
-          isDefault: true,
-          isNonFree: toNonFreeString(showPaid)
-        };
-        storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
+        const defaultNonFreeFilter = armedDefaultNonFreeFilter(toNonFreeString(showPaid));
+        storage.setJs(DEFAULT_NON_FREE_FILTER_KEY, defaultNonFreeFilter, true);
         window.dispatchEvent(new CustomEvent("logoClick", {
           detail: {showPaid: defaultNonFreeFilter.isNonFree === 'true'},
           bubbles: true

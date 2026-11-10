@@ -1,26 +1,26 @@
 package model
 
-import java.io.File
-import java.net.URI
-import java.util.UUID
 import com.drew.imaging.ImageProcessingException
-import com.gu.mediaservice.lib.{StorableImage, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-import com.gu.mediaservice.lib.aws.{EmbedderMessage, S3Metadata, S3Object, S3ObjectMetadata, S3Ops}
+import com.gu.mediaservice.lib.aws.{S3Metadata, S3Object, S3ObjectMetadata}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
-import com.gu.mediaservice.lib.imaging.ImageOperations
+import com.gu.mediaservice.lib.imaging.{ImageOperations, MagickImageOperations}
 import com.gu.mediaservice.lib.logging.LogMarker
-import com.gu.mediaservice.model.{FileMetadata, Jpeg, MimeType, Png, Tiff, UploadInfo}
+import com.gu.mediaservice.lib.{StorableImage, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
+import com.gu.mediaservice.model._
+import lib.ImageLoaderConfig
 import lib.imaging.MimeTypeDetection
 import model.upload.{OptimiseWithPngQuant, UploadRequest}
 import org.joda.time.DateTime
+import org.mockito.Mockito.when
 import org.scalatest.Assertion
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import software.amazon.awssdk.services.s3vectors.model.PutVectorsResponse
 import test.lib.ResourceHelpers
 
-import java.nio.file.Path
+import java.io.File
+import java.net.URI
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -36,12 +36,15 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
     val tempDir = new File("/tmp")
     val mockConfig: ImageUploadOpsCfg = ImageUploadOpsCfg(tempDir, 256, 85d, List(Tiff), "img-bucket", "thumb-bucket")
 
+  private val imageLoaderConfig = mock[ImageLoaderConfig]
+  when(imageLoaderConfig.transcodedMimeTypes).thenReturn(mockConfig.transcodedMimeTypes)
+
   /**
     * @todo: I flailed about until I found a path that worked, but
     *        what arcane magic System.getProperty relies upon, and exactly
     *        _how_ it will break in CI, I do not know
     */
-  val imageOps: ImageOperations = new ImageOperations(System.getProperty("user.dir"))
+  val imageOps: ImageOperations = new MagickImageOperations(System.getProperty("user.dir"))
 
   private def imageUpload(
                    fileName: String,
@@ -87,7 +90,7 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
       storeOrProjectOriginalFile = mockDependencies.storeOrProjectOriginalFile,
       storeOrProjectThumbFile = mockDependencies.storeOrProjectThumbFile,
       storeOrProjectOptimisedFile = mockDependencies.storeOrProjectOptimisedImage,
-      optimiseOps = OptimiseWithPngQuant,
+      new OptimiseWithPngQuant(imageLoaderConfig),
       uploadRequest = uploadRequest,
       deps = mockDependencies,
       fileMetadata = FileMetadata(),

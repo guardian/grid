@@ -54,6 +54,13 @@ class AiQueryPartsTest extends AnyFunSpec with Matchers with ImageFields {
         parts.filterConditions should be(jpegFilter :: standardNegations)
       }
 
+      it("keeps deleted suppression when is:deleted appears as semantic text") {
+        val parts = validPartsFor("cats \"is:deleted\"")
+
+        parts.semanticQuery should be(Some("cats is:deleted"))
+        parts.filterConditions should contain(standardNegations.head)
+      }
+
       it("allows chips/filters combined with a similar image (pre-filter then image KNN)") {
         val parts = validPartsFor("similar:abc123 fileType:jpeg")
 

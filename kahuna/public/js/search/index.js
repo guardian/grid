@@ -30,6 +30,7 @@ import panelTemplate        from '../components/gr-info-panel/gr-info-panel.html
 import collectionsPanelTemplate from
     '../components/gr-collections-panel/gr-collections-panel.html';
 import {cropUtil} from '../util/crop';
+import {armedDefaultNonFreeFilter, DEFAULT_NON_FREE_FILTER_KEY} from '../util/default-non-free-filter';
 import { COLLECTION_SORT_VALUE } from '../components/gr-sort-control/gr-sort-control-config';
 
 const toNonFreeString = (val) => (val === true || val === 'true') ? 'true' : 'false';
@@ -111,11 +112,8 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
           ctrl.onLogoClick = () => {
             mediaApi.getSession().then(session => {
               const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
-              const defaultNonFreeFilter = {
-                isDefault: true,
-                isNonFree: toNonFreeString(showPaid)
-              };
-              storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
+              const defaultNonFreeFilter = armedDefaultNonFreeFilter(toNonFreeString(showPaid));
+              storage.setJs(DEFAULT_NON_FREE_FILTER_KEY, defaultNonFreeFilter, true);
               $state.go('search.results', {nonFree: defaultNonFreeFilter.isNonFree}).then(() => {
                 window.dispatchEvent(new CustomEvent("logoClick", {
                   detail: {showPaid: defaultNonFreeFilter.isNonFree === 'true'},
@@ -125,12 +123,6 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
               });
             });
           };
-
-          if ($state.current.name === 'search') {
-            mediaApi.getSession().then(session => {
-              storage.setJs('isNonFree', toNonFreeString(session.user.permissions.showPaid), true);
-            });
-          }
 
           ctrl.collectionsPanel = panels.collectionsPanel;
           ctrl.metadataPanel = panels.metadataPanel;
@@ -321,7 +313,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 // we just land on `/`. See [1].
 search.run(['$rootScope', '$state', '$stateParams', '$timeout', function($rootScope, $state, $stateParams, $timeout) {
   $rootScope.$on('$viewContentLoaded', (_, view) => {
-    if (view === 'results@search') {
+    if (view === 'results@search' && $stateParams.isDeepStateRedirect) {
       // using a timeout of 0 to schedule the task for execution ASAP, but outside the ongoing transition
       $timeout(() => {
         $state.go('search.results', {isDeepStateRedirect: false});

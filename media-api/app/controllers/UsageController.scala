@@ -58,10 +58,16 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
       "supplierId" -> id,
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
-    elasticSearch.quotaCountBySupplier(id, UsageStore.countPeriodInDays)
-      .map((s: SupplierQuotaCount) => respond(s))
-      .recover {
-        case e => respondError(InternalServerError, "unknown-error", e.toString)
+    // use structuredQuery for date ranges
+    request.getQueryString("q").map(Parser.runResult).getOrElse(Right(List.empty)) match {
+      case Left(error) =>
+        Future.successful(respondError(BadRequest, InvalidUriParams.errorKey, error))
+      case Right(structuredQuery) =>
+        elasticSearch.quotaCountBySupplier(id, structuredQuery)
+          .map((s: SupplierQuotaCount) => respond(s))
+          .recover {
+            case e => respondError(InternalServerError, "unknown-error", e.toString)
+          }
       }
   }
 
@@ -113,14 +119,13 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
       "supplierId" -> id,
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
-    val structuredQuery = request.getQueryString("q").map(Parser.run).getOrElse(List.empty)
     val searchParams = SearchParams(request)
 
     SearchParams.validate(searchParams) match {
       case Left(errors) =>
         Future.successful(respondError(BadRequest, InvalidUriParams.errorKey, errors.map(_.message).mkString(", ")))
       case Right(_) =>
-        elasticSearch.imageUsagesBySupplier(id, structuredQuery, searchParams.offset, searchParams.length)
+        elasticSearch.imageUsagesBySupplier(id, searchParams.structuredQuery, searchParams.offset, searchParams.length)
           .map { result =>
             respondCollection(result.images, Some(searchParams.offset.toLong), Some(result.total))
           }

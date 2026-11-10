@@ -10,6 +10,7 @@ import com.gu.mediaservice.lib.ImageIngestOperations.fileKeyFromId
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.OnBehalfOfPrincipal
+import com.gu.mediaservice.lib.auth.Permissions.UploadImages
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{S3Ops, SimpleSqsMessageConsumer, SqsHelpers}
 import com.gu.mediaservice.lib.formatting.printDateTime
@@ -18,8 +19,7 @@ import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations, ImageStorageProps}
 import com.gu.mediaservice.model.{UnsupportedMimeTypeException, UploadInfo}
 import org.scanamo.{ConditionNotMet, ScanamoError}
-import lib.FailureResponse.Response
-import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3, UserImageLoaderException}
+import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3}
 import lib.storage.{ImageLoaderStore, S3FileDoesNotExistException}
 import lib._
 import model.upload.UploadRequest
@@ -29,6 +29,7 @@ import play.api.data.Form
 import play.api.data.Forms._
 import play.api.inject.ApplicationLifecycle
 import play.api.libs.json.Json
+import play.api.libs.streams.Accumulator
 import play.api.mvc._
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
@@ -36,7 +37,6 @@ import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.{GetObjectRequest, HeadObjectRequest, NoSuchKeyException}
 
 import java.io.{File, FileOutputStream}
-import java.net.URI
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
@@ -63,6 +63,39 @@ class ImageLoaderController(auth: Authentication,
   extends BaseController with ArgoHelpers with SqsHelpers {
 
   private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForUpload
+
+  private def authenticatedDigestBodyParser(logMarker: LogMarker): BodyParser[DigestedFile] =
+    BodyParser("authenticated image upload") { request =>
+      auth.authenticationStatus(request, gracePeriodCountsAsAuthenticated = true) match {
+        case Left(result) =>
+          Accumulator.done(result.map(response => Left(response): Either[Result, DigestedFile]))
+        case Right(principal) if !authorisation.hasPermissionTo(UploadImages)(principal) =>
+          Accumulator.done(Future.successful(Left(authorisation.forbidden(UploadImages))))
+        case Right(_) =>
+          val tempFile = createTempFile("requestBody")(logMarker)
+          val parser = DigestBodyParser.create(tempFile)(ec)(request).mapFuture {
+            case Right(digestedFile) => Future.successful(Right(digestedFile))
+            case Left(result) => deleteTempFile(tempFile)(logMarker).map(_ => Left(result))
+          }
+          parser.recoverWith {
+            case error => cleanupTempFile(tempFile, logMarker)(Future.failed(error))
+          }
+      }
+    }
+
+  private def cleanupTempFile[A](file: File, logMarker: LogMarker)(result: Future[A]): Future[A] =
+    result.transformWith { completed =>
+      deleteTempFile(file)(logMarker).transform {
+        case Success(_) => completed
+        case Failure(cleanupError) =>
+          completed match {
+            case Success(_) => Failure(cleanupError)
+            case Failure(operationError) =>
+              operationError.addSuppressed(cleanupError)
+              Failure(operationError)
+          }
+      }
+    }
 
   private val activeProcessingMessage = new AtomicReference[Option[SQSMessage]](None)
 
@@ -122,8 +155,7 @@ class ImageLoaderController(auth: Authentication,
       Link("prepare", s"${config.rootUri}/prepare"),
       Link("uploadStatus", s"${config.rootUri}/uploadStatus/{id}"),
       Link("uploadStatuses", s"${config.rootUri}/uploadStatuses"),
-      Link("load", s"${config.rootUri}/images{?uploadedBy,identifiers,uploadTime,filename}"),
-      Link("import", s"${config.rootUri}/imports{?uri,uploadedBy,identifiers,uploadTime,filename}")
+      Link("load", s"${config.rootUri}/images{?uploadedBy,identifiers,uploadTime,filename}")
     )
     respond(indexData, indexLinks)
   }
@@ -163,7 +195,7 @@ class ImageLoaderController(auth: Authentication,
         val approximateReceiveCount = getApproximateReceiveCount(sqsMessage)
 
         if(config.maybeUploadLimitInBytes.exists(_ < s3IngestObject.contentLength)){
-          val errorMessage = s"File size exceeds the maximum allowed size (${config.maybeUploadLimitInBytes.get / 1_000_000}MB). Moving to fail bucket."
+          val errorMessage = s"File size exceeds the maximum allowed size (${config.maybeUploadLimitInBytes.get / 1_000_000}MB). Moving to fail bucket. (${s3IngestObject.key})"
           logger.warn(logMarker, errorMessage)
           store.moveObjectToFailedBucket(s3IngestObject.key)
           s3IngestObject.maybeMediaIdFromUiUpload foreach { imageId =>
@@ -176,7 +208,7 @@ class ImageLoaderController(auth: Authentication,
         }
         else if (approximateReceiveCount > 2) {
           metrics.abandonedMessagesFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
-          val errorMessage = s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket."
+          val errorMessage = s"File processing has been attempted $approximateReceiveCount times. Moving to fail bucket. (${s3IngestObject.key})"
           logger.warn(logMarker, errorMessage)
           store.moveObjectToFailedBucket(s3IngestObject.key)
           s3IngestObject.maybeMediaIdFromUiUpload foreach { imageId =>
@@ -193,11 +225,11 @@ class ImageLoaderController(auth: Authentication,
           } recover {
             case _: UnsupportedMimeTypeException =>
               metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
-              logger.info(logMarker, s"Unsupported mime type. Moving straight to fail bucket.")
+              logger.info(logMarker, s"Unsupported mime type. Moving straight to fail bucket. (${s3IngestObject.key})")
               store.moveObjectToFailedBucket(s3IngestObject.key)
             case t: Throwable =>
               metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
-              logger.error(logMarker, s"Failed to process file. Moving to fail bucket.", t)
+              logger.error(logMarker, s"Failed to process file. Moving to fail bucket. (${s3IngestObject.key})", t)
               store.moveObjectToFailedBucket(s3IngestObject.key)
           }
         }
@@ -283,12 +315,10 @@ class ImageLoaderController(auth: Authentication,
     )
     logger.info(initialContext, "loadImage request start")
 
-    // synchronous write to file
-    val tempFile = createTempFile("requestBody")(initialContext)
-    logger.info(initialContext, "body parsed")
-    val bodyParser = DigestBodyParser.create(tempFile)
+    val bodyParser = authenticatedDigestBodyParser(initialContext)
 
     AuthenticatedAndAuthorised.async(bodyParser) { req =>
+      logger.info(initialContext, "body parsed")
       val uploadedByToRecord = uploadedBy.getOrElse(Authentication.getIdentity(req.user))
 
       implicit val context: LogMarker =
@@ -311,9 +341,7 @@ class ImageLoaderController(auth: Authentication,
         _ <- uploadStatusTable.setStatus(record)
         result <- quarantineOrStoreImage(uploadRequest)
       } yield result
-      result.onComplete( _ => Try { deleteTempFile(tempFile) } )
-
-      result map { r =>
+      cleanupTempFile(req.body.file, context)(result).map { r =>
         val result = Accepted(r).as(ArgoMediaType)
         logger.info(context, "loadImage request end")
         result
@@ -343,8 +371,7 @@ class ImageLoaderController(auth: Authentication,
     )
     logger.info(initialContext, "enqueueDerivativeImage request start")
 
-    val tempFile = createTempFile("requestBody")(initialContext)
-    val bodyParser = DigestBodyParser.create(tempFile)
+    val bodyParser = authenticatedDigestBodyParser(initialContext)
 
     AuthenticatedAndAuthorised.async(bodyParser) { req =>
 
@@ -356,17 +383,18 @@ class ImageLoaderController(auth: Authentication,
         (s"${ImageStorageProps.identifierMetadataKeyPrefix}$k", v)
       }
 
-      store.queueS3Object(
+      val queued = store.queueS3Object(
         uploader = uploadedBy.getOrElse(Authentication.getIdentity(req.user)),
         filename = filename,
         s3Meta = s3UserMetaMap,
-        file =  tempFile
+        file = req.body.file
       ).map {_ =>
         val newMediaId: String = req.body.digest
 
         // return just the new media ID for now, though perhaps in future we could track these in the upload status table and provide the URI to the relevant entry
         Accepted(newMediaId)
       }
+      cleanupTempFile(req.body.file, initialContext)(queued)
     }
   }
 
@@ -403,56 +431,6 @@ class ImageLoaderController(auth: Authentication,
     }
   }
 
-  def importImage(
-                   uri: String,
-                   uploadedBy: Option[String],
-                   identifiers: Option[String],
-                   uploadTime: Option[String],
-                   filename: Option[String]
-                 ): Action[AnyContent] = {
-    AuthenticatedAndAuthorised.async { request =>
-      implicit val context: MarkerMap = MarkerMap(
-        "requestType" -> "import-image",
-        "key-tier" -> request.user.accessor.tier.toString,
-        "key-name" -> request.user.accessor.identity,
-        "requestId" -> RequestLoggingFilter.getRequestId(request)
-      )
-
-      logger.info(context, "importImage request start")
-
-      val tempFile = createTempFile("download")
-      val digestedFileFuture = for {
-        validUri <- Future { URI.create(uri) }
-        digestedFile <- downloader.download(validUri, tempFile)
-      } yield digestedFile
-
-      val uploadResultFuture = uploadDigestedFileToStore(
-          digestedFileFuture,
-          uploadedBy.getOrElse(Authentication.getIdentity(request.user)),
-          identifiers.map(Json.parse(_).as[Map[String, String]]).getOrElse(Map.empty),
-          uploadTime,
-          filename
-      )
-
-      // under all circumstances, remove the temp files
-      uploadResultFuture.onComplete { _ =>
-        Try { deleteTempFile(tempFile) }
-      }
-
-      // create a play result out of what has happened
-      resolveUploadAndUpdateStatus(uploadResultFuture,digestedFileFuture).transform {
-        // The upload request completed successfully and returned the uploadStatusUri for the image
-        case Success(Right(uploadStatusUri)) => Success(Accepted(uploadStatusUri.toJsObject).as(ArgoMediaType)) // NB This return code (202) is explicitly required by s3-watcher. Anything else (eg 200) will be logged as an error. DAMHIKIJKOK.
-        // The upload request completed by returning an anticipated error that has been mapped to a Response
-        case Success(Left(failureResponse)) => Success(FailureResponse.responseToResult(failureResponse))
-        // The download or upload failed with an unhandled non-fatal error
-        case Failure(NonFatal(e)) => Success(FailureResponse.responseToResult(FailureResponse.internalError(e)))
-        // Throw unhandled fatal exceptions.
-        case Failure(other) => Failure(other)
-      }
-    }
-  }
-
   private def uploadDigestedFileToStore (
     digestedFileFuture: Future[DigestedFile],
     uploadedBy: String,
@@ -479,45 +457,6 @@ class ImageLoaderController(auth: Authentication,
         logger.info(logMarker, "importImage request end")
         result
       }
-  }
-
-  private def resolveUploadAndUpdateStatus (
-   uploadResultFuture: Future[UploadStatusUri],
-   digestedFileFuture: Future[DigestedFile],
-  )(implicit logMarker:LogMarker):Future[Either[Response,UploadStatusUri]] = {
-    // combine the import result and digest file together into a single future
-    uploadResultFuture.transformWith { // note that we use transformWith instead of zip here as we are still interested in value of digestedFile even if the import fails
-      maybeImportResult =>
-        digestedFileFuture.map(digestedFile =>
-          digestedFile -> maybeImportResult
-        )
-    }.flatMap { case (digestedFile, triedStatusUri) =>
-      // convert any exception from the upload to a failure response, or pass the uploadStatusUri if successful
-      val failureResponseOrUploadStatusUri = triedStatusUri match {
-        case Failure(e: UnsupportedMimeTypeException) => Left(FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes))
-        case Failure(_: IllegalArgumentException) => Left(FailureResponse.invalidUri)
-        case Failure(e: UserImageLoaderException) => Left(FailureResponse.badUserInput(e))
-        case Failure(NonFatal(_)) => Left(FailureResponse.failedUriDownload)
-        case Failure(e) => throw e // this is a "fatal" error - let it be fatal
-        case Success(uploadStatusUri) => Right(uploadStatusUri)
-      }
-      // build a Failed StatusType from the failure response or Completed if successful
-      val status = failureResponseOrUploadStatusUri match {
-        case Left(Response(_, response)) => UploadStatus(StatusType.Failed, Some(s"${response.errorKey}: ${response.errorMessage}"))
-        case Right(_) => UploadStatus(StatusType.Completed, None)
-      }
-      // try to update uploadStatusTable, log the outcome
-      uploadStatusTable.updateStatus(digestedFile.digest, status).flatMap{ outcomeOfUpdateStatus => //FIXME use set status to avoid potential ConditionNotMet (when status table rows have expired/TTL)
-        outcomeOfUpdateStatus match {
-          case Left(_: ConditionNotMet) => logger.info(logMarker, s"no image upload status to update for image ${digestedFile.digest}")
-          case Left(error) => logger.error(logMarker, s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:$error")
-          case Right(_) => logger.info(logMarker, s"image upload status updated successfully, image-id: ${digestedFile.digest}")
-        }
-
-        // after status update completes or fails, return the failureResponseOrUploadStatusUri from the upload
-        Future.successful(failureResponseOrUploadStatusUri)
-      }
-    }
   }
 
   private def updateUploadStatusTable(
@@ -563,17 +502,18 @@ class ImageLoaderController(auth: Authentication,
   }
 
   lazy val replicaS3: S3Client = S3Ops.buildS3Client(config, maybeRegionOverride = Some(Region.US_WEST_1))
-  def doesObjectExist(bucket: String, key: String) = {
-    try {
-      replicaS3.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build())
-      true
-    } catch {
-      case _: NoSuchKeyException => false
-    }
-  }
 
   private case class RestoreFromReplicaForm(imageId: String)
   def restoreFromReplica: Action[AnyContent] = AuthenticatedAndAuthorised.async { implicit request =>
+
+    def doesReplicaExist(bucket: String, key: String) = {
+      try {
+        replicaS3.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build())
+        true
+      } catch {
+        case _: NoSuchKeyException => false
+      }
+    }
 
     val imageId = Form(
       mapping(
@@ -587,15 +527,15 @@ class ImageLoaderController(auth: Authentication,
       "requestId" -> RequestLoggingFilter.getRequestId(request)
     )
 
+    val s3Key = fileKeyFromId(imageId)
+
     Future {
       config.maybeImageReplicaBucket match {
         case _ if store.doesOriginalExist(imageId) =>
           Future.successful(Conflict("Image already exists in main bucket"))
         case None =>
           Future.successful(NotImplemented("No replica bucket configured"))
-        case Some(replicaBucket) if doesObjectExist(replicaBucket, fileKeyFromId(imageId)) =>
-          val s3Key = fileKeyFromId(imageId)
-
+        case Some(replicaBucket) if doesReplicaExist(replicaBucket, s3Key) =>
           logger.info(logMarker, s"Restoring image $imageId from replica bucket $replicaBucket (key: $s3Key)")
 
           val replicaObject = replicaS3.getObject(

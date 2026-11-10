@@ -14,6 +14,6 @@ However, there is additional complexity with tiff files which contain layered
 content.  Specifically, the layer files will explode as `xxx-n.jpg` or
 `xxx-n.png` where `n` is a numeric index.
 
-Our code looks for this special case (see `ImageOperations.checkForOutputFileChange`)
+Our code looks for this special case (see `MagickImageOperations.checkForOutputFileChange`)
 and simply moves the `-n` layer file to the expected location.
 

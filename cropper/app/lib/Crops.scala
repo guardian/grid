@@ -78,7 +78,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
             quality,
             config.tempDir,
             cropType)(cropLogMarker)
-          optimisedFile = imageOperations.optimiseImage(file, cropType)(cropLogMarker)
+          optimisedFile = imageOperations.optimiseCrop(file, cropType)(cropLogMarker)
           filename = outputFilename(apiImage, crop.specification.bounds, dimensions.width, cropType)
           sizing <- store.storeCropSizing(optimisedFile, filename, cropType, crop, dimensions)(cropLogMarker)
           _ <- delete(file)
@@ -117,7 +117,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     Stopwatch.async(s"making crop assets for ${apiImage.id} ${Crop.getCropId(source.bounds)}") {
       for {
         sourceFile <- tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
-        colourModel <- ImageOperations.identifyColourModel(sourceFile, mimeType)
+        colourModel <- imageOperations.identifyColourModel(sourceFile, mimeType)
         masterCrop <- createMasterCrop(apiImage, sourceFile, crop, cropType, colourModel, apiImage.source.orientationMetadata)
 
         outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions

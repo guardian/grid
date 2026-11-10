@@ -117,6 +117,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
       .flatMap(_.transform(addFromIndex(imageWrapper.fromIndex)))
       .flatMap(_.transform(updateCustomSpecialInstructions(source)))
       .flatMap(_.transform(updateCustomUsageRestrictions(source)))
+      .flatMap(_.transform(updateUsageRights(source)))
       .get
 
     val links: List[Link] = tier match {
@@ -173,6 +174,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
     val replaceLeasesUri = URI.create(s"${config.leasesUri}/leases/media/$id")
     val deleteLeasesUri = URI.create(s"${config.leasesUri}/leases/media/$id")
     val deleteUsagesUri = URI.create(s"${config.usageUri}/usages/media/$id")
+    val deleteUsagesByIdsUri = URI.create(s"${config.usageUri}/usages/media/$id/delete")
 
     val deleteAction = Action("delete", imageUri, "DELETE")
     val hardDeleteAction = Action("hard-delete", hardDeleteUri, "DELETE")
@@ -185,6 +187,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
     val replaceLeasesAction = Action("replace-leases", replaceLeasesUri, "PUT")
     val deleteLeasesAction = Action("delete-leases", deleteLeasesUri, "DELETE")
     val deleteUsagesAction = Action("delete-usages", deleteUsagesUri, "DELETE")
+    val deleteUsagesByIdsAction = Action("delete-usages-by-ids", deleteUsagesByIdsUri, "POST")
 
     List(
       deleteAction -> isDeletable,
@@ -195,6 +198,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
       replaceLeasesAction -> withWritePermission,
       deleteLeasesAction -> withWritePermission,
       deleteUsagesAction -> withDeleteCropsOrUsagePermission,
+      deleteUsagesByIdsAction -> withDeleteCropsOrUsagePermission,
       addCollectionAction -> true
     )
       .filter { case (action, active) => active }
@@ -283,6 +287,37 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
         case _ => __.json.update(__.read[JsObject])
       }
   }
+
+  private val legacyCategoryReplacements: Map[String, ReplacementUsageRightsSpec] =
+    config.applicableUsageRights.collect {
+      case spec: ReplacementUsageRightsSpec => spec
+    }.flatMap(spec => spec.legacyCategories.map(_ -> spec)).toMap
+
+  private[lib] def updateUsageRights(source: JsValue): Reads[JsObject] = {
+    val usageRights = source \ "usageRights"
+    val legacyCategoryWithReplacement = (usageRights \ "category").asOpt[String]
+      .flatMap(category => legacyCategoryReplacements.get(category).map(category -> _))
+
+    legacyCategoryWithReplacement match {
+      case Some((legacyCategory, replacement)) =>
+        def stringField(name: String) = (usageRights \ name).asOpt[String]
+
+        val categoryFields = Json.obj("category" -> replacement.category, "legacyCategory" -> legacyCategory)
+
+        val translatedFields = replacement match {
+          case PRAndThirdParty =>
+            Seq(stringField("supplier"), stringField("suppliers")).flatten.map(s => Json.obj("source" -> s))
+          case PublisherPhotography =>
+            Seq(stringField("photographer"), stringField("supplier")).flatten.map(s => Json.obj("creator" -> s))
+          case _ => Seq.empty
+        }
+
+        (__ \ "usageRights").json.update(__.read[JsObject]
+          .map(_ ++ (categoryFields +: translatedFields).reduce(_ ++ _)))
+      case None => __.json.update(__.read[JsObject])
+    }
+  }
+
 
   private def updateCustomUsageRestrictions(source: JsValue): Reads[JsObject] = {
     (source \ "usageRights" \ "category") match {

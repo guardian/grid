@@ -32,6 +32,7 @@ class RuntimeUsageRightsConfigTest extends AnyFreeSpec with Matchers {
           ),
           "contractIllustrators" -> List(
             Map("name" -> "Company B", "photographers" -> List("CC")),
+            Map("name" -> "Company D", "photographers" -> List("DD")),
           ),
           "staffIllustrators" -> List("S", "SS"),
           "creativeCommonsLicense" -> List("CC BY-4.0", "CC BY-SA-4.0", "CC BY-ND-4.0"),
@@ -100,7 +101,7 @@ class RuntimeUsageRightsConfigTest extends AnyFreeSpec with Matchers {
       conf.contractedPhotographers.length shouldBe 2
 
       conf.contractIllustrators.nonEmpty shouldBe true
-      conf.contractIllustrators.length shouldBe 1
+      conf.contractIllustrators.length shouldBe 2
 
       conf.staffIllustrators.nonEmpty shouldBe true
       conf.staffIllustrators.length shouldBe 2
@@ -127,6 +128,36 @@ class RuntimeUsageRightsConfigTest extends AnyFreeSpec with Matchers {
       allPhotographers.nonEmpty shouldBe true
       allPhotographers.length shouldBe 3
       allPhotographers.flatMap(_.photographers).length shouldBe 5
+    }
+
+    "should return all illustrators, with staffIllustrators added to every contractIllustrators publication by default" in {
+      val allIllustrators = conf.allIllustrators
+      allIllustrators.nonEmpty shouldBe true
+      allIllustrators.length shouldBe 2
+      allIllustrators.map(p => p.name -> p.photographers.map(_.name).toSet) should contain theSameElementsAs List(
+        "Company B" -> Set("CC", "S", "SS"),
+        "Company D" -> Set("DD", "S", "SS")
+      )
+    }
+
+    "should only add staffIllustrators to the configured publication when staffIllustratorsPublication is set" in {
+      val restrictedConf = new UsageRightsConfigProvider {
+        override def initialise(): Unit = {}
+        val externalStaffPhotographers: List[PublicationPhotographers] = Nil
+        val internalStaffPhotographers: List[PublicationPhotographers] = Nil
+        val contractedPhotographers: List[PublicationPhotographers] = Nil
+        val contractIllustrators: List[PublicationPhotographers] = conf.contractIllustrators
+        val staffIllustrators: List[String] = conf.staffIllustrators
+        val creativeCommonsLicense: List[String] = Nil
+        val freeSuppliers: List[String] = Nil
+        val suppliersCollectionExcl: Map[String, List[String]] = Map.empty
+        override val staffIllustratorsPublication: Option[String] = Some("Company B")
+      }
+
+      val allIllustrators = restrictedConf.allIllustrators
+      allIllustrators.length shouldBe 2
+      allIllustrators.find(_.name == "Company B").get.photographers.map(_.name) should contain theSameElementsAs List("CC", "S", "SS")
+      allIllustrators.find(_.name == "Company D").get.photographers.map(_.name) should contain theSameElementsAs List("DD")
     }
 
     "should return staff photographer" in {

@@ -6,8 +6,8 @@ import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.Request
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
-import lib.elasticsearch.{AggregateSearchParams, CompletionSuggestionResults, ElasticSearch}
-import play.api.mvc.{AnyContent, BaseController, ControllerComponents}
+import lib.elasticsearch.{AggregateSearchParams, AggregateSearchResults, CompletionSuggestionResults, ElasticSearch, InvalidUriParams}
+import play.api.mvc.{AnyContent, BaseController, ControllerComponents, Result}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -29,7 +29,7 @@ class SuggestionController(auth: Authentication, elasticSearch: ElasticSearch,
       "fieldName" -> field,
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
-    elasticSearch.metadataSearch(AggregateSearchParams(field, request)) map aggregateResponse
+    validatedAggregateSearch(AggregateSearchParams(field, request))(elasticSearch.metadataSearch)
   }
 
   def editsSearch(field: String, q: Option[String]) = auth.async { request =>
@@ -39,8 +39,18 @@ class SuggestionController(auth: Authentication, elasticSearch: ElasticSearch,
       "fieldName" -> field,
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
-    elasticSearch.editsSearch(AggregateSearchParams(field, request)) map aggregateResponse
+    validatedAggregateSearch(AggregateSearchParams(field, request))(elasticSearch.editsSearch)
   }
+
+  private def validatedAggregateSearch(params: AggregateSearchParams)(
+    search: AggregateSearchParams => Future[AggregateSearchResults]
+  ): Future[Result] =
+    AggregateSearchParams.validate(params) match {
+      case Left(error) =>
+        Future.successful(respondError(BadRequest, InvalidUriParams.errorKey, error.message))
+      case Right(validParams) =>
+        search(validParams).map(aggregateResponse)
+    }
 
   private def suggestion(field: String, query: Option[String], size: Option[Int]) = auth.async { implicit request =>
     query.flatMap(q => if (q.nonEmpty) Some(q) else None).map { q =>

@@ -1,5 +1,6 @@
 import play.sbt.PlayImport.PlayKeys._
 import sbt.Package.FixedTimestamp
+import sbtassembly.AssemblyPlugin.autoImport._
 
 import scala.sys.process._
 import scala.util.control.NonFatal
@@ -20,8 +21,10 @@ ThisBuild / packageOptions += FixedTimestamp(Package.keepTimestamps)
 ThisBuild / libraryDependencySchemes +=
   "org.scala-lang.modules" %% "scala-java8-compat" % VersionScheme.Always
 
-lazy val jacksonVersion = "2.21.4"
+lazy val jacksonVersion = "2.21.7"
 lazy val jacksonAnnotationsVersion = "2.21"
+lazy val guavaVersion = "33.7.2-jre"
+lazy val snappyJavaVersion = "1.1.10.9"
 lazy val jacksonOverrides = Seq(
   "com.fasterxml.jackson.core" % "jackson-core",
   "com.fasterxml.jackson.core" % "jackson-databind",
@@ -39,7 +42,7 @@ val commonSettings = Seq(
   description := "grid",
   organization := "com.gu",
   version := "0.1",
-  scalacOptions ++= Seq("-feature", "-deprecation", "-language:higherKinds", "-Xfatal-warnings", "-release:11"),
+  scalacOptions ++= Seq("-feature", "-deprecation", "-language:higherKinds", "-Xfatal-warnings", "-release:25"),
 
   // The Java SDK uses CBOR protocol
   // We use localstack in TEST. Kinesis in localstack uses kinesislite which requires CBOR to be disabled
@@ -54,14 +57,17 @@ val commonSettings = Seq(
     "org.mockito" % "mockito-core" % "2.18.0" % Test,
     "org.scalamock" %% "scalamock" % "5.1.0" % Test,
   ),
-  dependencyOverrides ++= jacksonOverrides,
+  dependencyOverrides ++= jacksonOverrides ++ Seq(
+    "com.google.guava" % "guava" % guavaVersion,
+    "org.xerial.snappy" % "snappy-java" % snappyJavaVersion,
+  ),
 
   Compile / doc / sources := Seq.empty,
   Compile / packageDoc / publishArtifact := false
 )
 
 //Common projects to all organizations
-lazy val commonProjects: Seq[sbt.ProjectReference] = Seq(commonLib, restLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi)
+lazy val commonProjects: Seq[sbt.ProjectReference] = Seq(commonLib, restLib, auth, collections, cropper, imageLoader, imageCachePurger, leases, thrall, kahuna, metadataEditor, usage, mediaApi)
 lazy val e2eServiceProjects: Seq[sbt.ProjectReference] = Seq(auth, collections, cropper, imageLoader, kahuna, leases, mediaApi, metadataEditor, thrall)
 lazy val e2eStage = taskKey[Seq[File]]("Stage the services required by the E2E test stack")
 
@@ -86,7 +92,7 @@ Global / concurrentRestrictions := Seq(
 val awsSdkVersion = "1.12.797"
 val awsSdkV2Version = "2.54.13"
 val elastic4sVersion = "8.19.1"
-val awsKclVersion = "3.4.3"
+val awsKclVersion = "3.5.3"
 val okHttpVersion = "3.12.1"
 
 val bbcBuildProcess: Boolean = System.getenv().asScala.get("BUILD_ORG").contains("bbc")
@@ -109,7 +115,7 @@ lazy val commonLib = project("common-lib").settings(
     "nl.gn0s1s" %% "elastic4s-core" % elastic4sVersion,
     "nl.gn0s1s" %% "elastic4s-client-esjava" % elastic4sVersion,
     "nl.gn0s1s" %% "elastic4s-domain" % elastic4sVersion,
-    "com.gu" %% "thrift-serializer" % "5.0.2",
+    "com.gu" %% "thrift-serializer" % "5.0.8",
     "org.scalaz" %% "scalaz-core" % "7.3.8",
     "org.im4java" % "im4java" % "1.4.0",
     "com.gu" % "kinesis-logback-appender" % "2.1.3",
@@ -131,6 +137,8 @@ lazy val commonLib = project("common-lib").settings(
     "software.amazon.awssdk" % "bedrockruntime" % awsSdkV2Version,
     "software.amazon.awssdk" % "s3vectors" % awsSdkV2Version,
     ws,
+    // A transient dependency added to evict vulnerable versions
+    "at.yawk.lz4" % "lz4-java" % "1.11.4",
     "org.testcontainers" % "elasticsearch" % "1.21.4" % Test,
   ),
   dependencyOverrides += "ch.qos.logback" % "logback-classic" % "1.2.13" % Test
@@ -151,12 +159,34 @@ lazy val collections = playProject("collections", 9010)
 
 lazy val cropper = playProject("cropper", 9006)
 
-lazy val imageLoader = playProject("image-loader", 9003).settings {
+lazy val imageLoader = playProject("image-loader", 9003).settings(
   libraryDependencies ++= Seq(
     "org.apache.tika" % "tika-core" % "3.2.3",
     "com.drewnoakes" % "metadata-extractor" % "2.19.0"
+  ),
+  Universal / mappings ++= Seq(
+    file("image-loader/cmyk.icc") -> "cmyk.icc",
+    file("image-loader/facebook-TINYsRGB_c2.icc") -> "facebook-TINYsRGB_c2.icc",
+    file("image-loader/grayscale.icc") -> "grayscale.icc",
+    file("image-loader/srgb.icc") -> "srgb.icc"
   )
-}
+)
+
+lazy val imageCachePurger = project("image-cache-purger").settings(
+  libraryDependencies ++= Seq(
+    "com.amazonaws" % "aws-lambda-java-core" % "1.4.0",
+    "com.amazonaws" % "aws-lambda-java-events" % "3.16.1",
+    "com.fasterxml.jackson.core" % "jackson-databind" % jacksonVersion,
+    "software.amazon.awssdk" % "secretsmanager" % awsSdkV2Version,
+  ),
+  assembly / assemblyJarName := "image-cache-purger.jar",
+  assembly / assemblyMergeStrategy := {
+    case PathList("META-INF", "versions", _, "module-info.class") => MergeStrategy.discard
+    case "META-INF/io.netty.versions.properties" => MergeStrategy.concat
+    case path => (assembly / assemblyMergeStrategy).value(path)
+  },
+  assembly / test := {},
+)
 
 lazy val kahuna = playProject("kahuna", 9005).settings(
   pipelineStages := Seq(digest, gzip)
@@ -257,7 +287,7 @@ def playProject(projectName: String, port: Int, path: Option[String] = None): Pr
     .dependsOn(restLib)
     .settings(commonSettings ++ buildInfo ++ Seq(
       playDefaultPort := port,
-      debianPackageDependencies := Seq("java11-runtime-headless"),
+      debianPackageDependencies := Seq("java25-runtime-headless"),
       Linux / maintainer := "Guardian Developers <dig.dev.software@theguardian.com>",
       Linux / packageSummary := description.value,
       packageDescription := description.value,

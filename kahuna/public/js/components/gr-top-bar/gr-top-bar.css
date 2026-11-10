@@ -4,6 +4,7 @@ gr-top-bar {
     position: relative;
     /* We do this as it should always be over `results-toolbar` */
     z-index: 30;
+    border-bottom: 1px solid #565656;
 }
 
 gr-top-bar-nav {
@@ -28,7 +29,6 @@ gr-top-bar-actions {
     font-family: "Open Sans", sans-serif;
     width: 100%;
     height: 50px;
-    border-bottom: 1px solid #565656;
     font-size: 1.4rem;
     display: flex;
     box-sizing: border-box;
@@ -43,6 +43,3 @@ gr-top-bar gr-icon-label {
     align-items: center;
 }
 
-gr-top-bar gr-icon-label gr-icon, gr-top-bar, .search__modifier-toggle gr-icon {
-    margin-right: 4px;
-}

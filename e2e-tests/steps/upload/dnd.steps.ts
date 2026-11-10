@@ -4,7 +4,7 @@ import { filesToUpload, gridHostedImageUrl, uploadPage } from './setup.ts';
 
 /** From kahuna/public/js/strings.json. */
 const DROPZONE_EXPLANATION =
-  'Drop files or GuardianWitness URLs here to upload them instantly to the Grid';
+  'Drop files here to upload them instantly to the Grid';
 
 When('I drag files over the upload page', async ({ page }) => {
   await dragOver(page, { files: filesToUpload });
@@ -36,13 +36,11 @@ When('I drop an image URL onto the page', async ({ page }) => {
   await drop(page, { uri: gridHostedImageUrl });
 });
 
-Then('the image at that URL should be loaded for upload', async ({ page }) => {
-  // A URL import names its job after the URL it came from.
-  await expect(uploadPage(page).job(gridHostedImageUrl)).toBeVisible();
+Then('the image at that URL should not be queued for upload', async ({ page }) => {
+  await expect(uploadPage(page).job(gridHostedImageUrl)).not.toBeVisible();
 });
 
 When('I drag an image that is already in the Grid over the page', async ({ page }) => {
-  // Advertise a URL too, so the Grid MIME type is the only reason the drag is rejected.
   await dragOver(page, {
     uri: 'https://media.local.dev-gutools.co.uk/images/example',
     types: [GRID_IMAGE_MIME_TYPE],

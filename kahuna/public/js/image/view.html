@@ -6,7 +6,10 @@
         </a>
     </gr-top-bar-nav>
 
-    <gr-top-bar-actions role="region" aria-label="User actions and secondary navigation">
+    <gr-top-bar-actions role="region"
+                        aria-label="User actions and secondary navigation"
+                        can-takedown="ctrl.canTakedown"
+                        image-id="ctrl.image.data.id">
 
         <a class="results-toolbar-item top-bar-item results-toolbar-item--right"
            ng-click="ctrl.shareImage()">

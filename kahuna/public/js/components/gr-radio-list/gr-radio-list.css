@@ -1,16 +1,14 @@
 gr-radio-list {
   display: flex;
+  border: 1px solid #777;
+}
+
+gr-radio-list > * + * {
+  border-left: 1px solid #777;
 }
 
 gr-radio-list > * {
   flex-grow: 1;
-  border: 1px solid #777;
-}
-
-/* remove a horrible double border */
-gr-radio-list > *:nth-child(2) {
-  border-left: none;
-  border-right: none;
 }
 
 gr-radio-list input[type="radio"] {

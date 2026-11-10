@@ -40,6 +40,9 @@ userActions.directive('uiUserActions', [function() {
         controllerAs: 'ctrl',
         bindToController: true,
         template: template,
-        scope: {} // ensure isolated scope
+        scope: {
+            canTakedown: '<',
+            imageId: '<'
+        }
     };
 }]);
