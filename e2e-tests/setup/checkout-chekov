@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+E2E_ROOT_DIR="${SCRIPT_DIR}/.."
+
+if ! command -v git >/dev/null 2>&1; then
+  echo "Git CLI is required to check out the guardian/chekov repository" >&2
+  exit 1
+fi
+
+CHEKOV_DIR="${E2E_ROOT_DIR}/target/chekov"
+if [[ -d "${CHEKOV_DIR}/.git" ]]; then
+  echo "Updating guardian/chekov checkout in ${CHEKOV_DIR}"
+  git -C "$CHEKOV_DIR" remote set-url origin https://github.com/guardian/chekov.git
+  git -C "$CHEKOV_DIR" pull --ff-only
+else
+  echo "Cloning guardian/chekov into ${CHEKOV_DIR}"
+  git clone --depth 1 https://github.com/guardian/chekov.git "$CHEKOV_DIR"
+fi

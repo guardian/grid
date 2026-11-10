@@ -16,8 +16,8 @@
     "features:test": "tsx --test feature-library/library.test.ts",
     "features:test:browser": "npm run features:build && tsx --test feature-library/app.test.ts",
     "features:typecheck": "tsc --project feature-library/tsconfig.json",
-    "test:ui": "bddgen && playwright test --ui-port 6080",
-    "test:log": "bddgen && DEBUG=testcontainers* playwright test --ui-port 6080"
+    "test:ui": "bddgen && ./setup/checkout-chekov && playwright test --ui-port 6080",
+    "test:log": "bddgen && ./setup/checkout-chekov && DEBUG=testcontainers* playwright test --ui-port 6080"
   },
   "engines": {
     "node": ">=22.12"
