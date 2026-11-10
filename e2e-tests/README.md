@@ -56,12 +56,33 @@ Useful commands:
 ```bash
 npm run test:headed     # run with a visible browser
 npm run test:video      # run and keep videos for all tests, including passing tests
-npm run test:report     # open the last HTML report
+npm run test:report     # open the last Playwright HTML report
 npm run test:ui         # open browser and test suite, run tests at your leisure
 ```
 
 Videos are saved under `test-results/` and attached to the HTML report. Playwright
 clears previous test results on the next run, so move recordings elsewhere to archive them.
+
+### Reports
+
+Every test run prints list output and generates a Playwright HTML report in
+`playwright-report/` and a Cucumber HTML report at `cucumber-report/index.html`.
+
+Traces and videos are captured on the first retry, and screenshots only on failure.
+Local runs have no retries by default; use `npm test -- --retries=1` to capture
+first-retry traces and videos, or `npm run test:video` to record all tests.
+
+Serve either report from this directory:
+
+```bash
+npm run test:report           # Playwright: http://localhost:9323
+npm run test:report:cucumber  # Cucumber: http://localhost:9324
+```
+
+CI also adds GitHub failure annotations. Both reports and their captured attachments
+are uploaded together as `e2e-report`, retained for 14 days after successful or failed
+runs, excluding cancelled runs. Failures before report generation may leave no reports
+to upload.
 
 ### Feature library
 
@@ -119,9 +140,6 @@ format and fails explicitly if a future format cannot be read.
 Exports include feature text and captured browser contents. Review recordings for
 sensitive data and use an appropriately restricted host before sharing them.
 
-Traces are captured `on-first-retry` (see [`playwright.config.ts`](playwright.config.ts)),
-so a failed test on CI leaves a trace you can open with `npx playwright show-trace`.
-
 ## Running the stack without the tests
 
 `npm run dev:e2e` boots exactly the same stack the tests use, prints the service URLs and
@@ -145,12 +163,12 @@ attach automatically and leave the stack running when they finish.
 If only some services are up (usually because the stack is still booting), the run stops
 straight away and names the ports it is waiting on.
 
-| Variable | Effect |
-| --- | --- |
+| Variable           | Effect                                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------------------- |
 | `GRID_RESEED=true` | Reload the Elasticsearch fixtures (and their image files in S3) and seeded collections into the reused stack. |
 
 **Watch out for stale provisioning.** A reused stack picks up Scala changes (the repo is
-bind-mounted and services run under `sbt run`), but *not* changes to anything applied at
+bind-mounted and services run under `sbt run`), but _not_ changes to anything applied at
 boot: generated service config, CloudFormation templates, bucket contents, OIDC users,
 permissions, Elasticsearch fixtures or seeded collections. After changing any of those, restart `dev:e2e`.
 
