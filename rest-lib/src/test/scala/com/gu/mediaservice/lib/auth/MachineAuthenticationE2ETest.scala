@@ -142,7 +142,33 @@ class MachineAuthenticationE2ETest extends AnyFunSuite with Matchers with Mockit
     status(result) shouldBe FORBIDDEN
   }
 
-  test("PermissionTier key with no permissions should be not authenticated for write access") {
+  test("PermissionTier key with Internal tier should be allowed read access") {
+    val fixture = new Fixture()
+    val request = FakeRequest("GET", "/read")
+      .withHeaders(ApiKeyAuthenticationProvider.apiKeyHeaderName -> "api-key-internal")
+
+    val result = fixture.testController.readEndpoint.apply(request)
+    status(result) shouldBe OK
+  }
+
+  test("PermissionTier key with Internal tier should be allowed write access") {
+    val fixture = new Fixture()
+    val request = FakeRequest("POST", "/write")
+      .withHeaders(ApiKeyAuthenticationProvider.apiKeyHeaderName -> "api-key-internal")
+
+    val result = fixture.testController.writeEndpoint.apply(request)
+    status(result) shouldBe OK
+  }
+  test("Invalid key should be not authenticated for read access") {
+    val fixture = new Fixture()
+    val request = FakeRequest("GET", "/read")
+      .withHeaders(ApiKeyAuthenticationProvider.apiKeyHeaderName -> "blah")
+
+    val result = fixture.testController.readEndpoint.apply(request)
+    status(result) shouldBe FORBIDDEN
+  }
+
+  test("Invalid key should be not authenticated for write access") {
     val fixture = new Fixture()
     val request = FakeRequest("POST", "/write")
       .withHeaders(ApiKeyAuthenticationProvider.apiKeyHeaderName -> "blah")
