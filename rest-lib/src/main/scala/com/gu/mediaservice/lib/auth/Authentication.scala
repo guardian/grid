@@ -120,11 +120,6 @@ object Authentication {
     override def toString: String = s"MachinePrincipal($accessor)"
   }
 
-  case class MachinePrincipalV2(apiAccessor: ApiAccessor) extends Principal {
-    override def accessor: ApiAccessor = ApiAccessor(identity = "machine-principal-v2", tier = NoTier)
-    override def attributes: TypedMap = TypedMap.empty
-  }
-
   /** A different Grid microservice (e.g. a call to media-api originating from thrall) */
   case class InnerServicePrincipal(identity: String, attributes: TypedMap = TypedMap.empty) extends Principal {
     def accessor: ApiAccessor = ApiAccessor(identity, tier = Internal)
