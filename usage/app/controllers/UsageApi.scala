@@ -129,7 +129,7 @@ class UsageApi(
       }
   }
 
-  def forMedia(mediaId: String) = auth.async { req =>
+  def forMedia(mediaId: String) = auth.allowInnerService.async { req =>
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "usages-for-media-id",
       "requestId" -> RequestLoggingFilter.getRequestId(req),
@@ -258,7 +258,7 @@ class UsageApi(
     )
   }}
 
-  def setChildUsages() = auth(parse.json) { req => {
+  def setChildUsages() = auth.allowInnerService(parse.json) { req => {
 
     val request = (req.body \ "data").validate[ChildUsageRequest]
     request.fold(

@@ -42,7 +42,7 @@ class InnerServiceStatusCheckController(
     }
   }
 
-  def whoAmI(depth: Int) = auth.async { request =>
+  def whoAmI(depth: Int) = auth.allowInnerService.async { request =>
     if (depth < 0 || depth > 2) { Future.successful(BadRequest("'depth' query param must be at least 0 and no more than 2"))}
     else request.user match {
       case principal: InnerServicePrincipal if depth > 0 =>
