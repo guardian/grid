@@ -27,21 +27,21 @@ object Tier {
 
 case class ApiAccessor(identity: String, tier: Tier)
 
-object ApiAccessor extends ArgoHelpers with GridLogging {{
+object ApiAccessor extends ArgoHelpers with GridLogging {
   def apply(content: String): ApiAccessor = {
     parseContentV2(content) getOrElse
     parseContentV1(content)
   }
 
-  def parseContentV2(content: String): Option[ApiAccessor] = {
+  private def parseContentV2(content: String): Option[ApiAccessor] = {
     Json.parse(content).validate[ApiKeyConfig].asOpt.map(config => {
       val accessor = ApiAccessor(config.name, Tier.fromPermissions(config.permissions))
-      logger.info(apiKeyMarkers(accessor), s"Parsed API key config into accessorr")
+      logger.info(apiKeyMarkers(accessor), s"Parsed API key config into accessor")
       accessor
     })
   }
 
-  def parseContentV1(content: String): ApiAccessor = {
+  private def parseContentV1(content: String): ApiAccessor = {
     val rows = content.split("\n")
     val name = rows.headOption.getOrElse("")
     val tier = rows.tail.headOption.map(Tier.fromString).getOrElse(Internal)
