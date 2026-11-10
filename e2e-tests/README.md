@@ -6,6 +6,14 @@ step definitions in [`steps/`](steps).
 
 ## Running the tests
 
+The e2e test commands and `npm run dev:e2e` run
+[`setup/checkout-chekov`](setup/checkout-chekov) before starting.
+It shallow-clones `guardian/chekov` into the ignored
+`target/chekov` directory on first use. On subsequent runs, it updates
+the checkout's `origin` to `guardian/chekov` and runs `git pull --ff-only`.
+Git and network access are required; a failed checkout or
+update stops the command before starting the stack or tests.
+
 ### 1. CI (production mode)
 
 This is what [`.github/workflows/playwright.yml`](../.github/workflows/playwright.yml) does,

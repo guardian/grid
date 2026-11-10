@@ -65,6 +65,11 @@ jobs:
         key: ${{ runner.os }}-sbt-build-${{ hashFiles('**/*.scala', '**/*.sbt', 'project/build.properties', 'project/plugins.sbt') }}
         restore-keys: |
           ${{ runner.os }}-sbt-build-
+    - name: Check out guardian/chekov
+      uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v7.0.0
+      with:
+        repository: guardian/chekov
+        path: e2e-tests/target/chekov
     # Cache the downloaded Playwright browser binaries. The cache key is tied to
     # the resolved Playwright version in the lockfile, so a version bump busts it.
     - name: Cache Playwright browsers
