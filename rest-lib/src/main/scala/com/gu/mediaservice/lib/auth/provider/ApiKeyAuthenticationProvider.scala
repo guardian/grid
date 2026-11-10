@@ -1,7 +1,9 @@
 package com.gu.mediaservice.lib.auth.provider
 import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal}
 import com.gu.mediaservice.lib.auth.{ApiAccessor, KeyStore}
+import com.gu.mediaservice.lib.logging.GridLogging
 import com.typesafe.scalalogging.StrictLogging
+import org.slf4j.Marker
 import play.api.Configuration
 import play.api.libs.typedmap.{TypedKey, TypedMap}
 import play.api.libs.ws.WSRequest
@@ -13,7 +15,7 @@ object ApiKeyAuthenticationProvider extends ApiKeyAuthentication {
   val ApiKeyHeader: TypedKey[(String, String)] = TypedKey[(String, String)]("ApiKeyHeader")
 }
 
-class ApiKeyAuthenticationProvider(configuration: Configuration, resources: AuthenticationProviderResources) extends MachineAuthenticationProvider with StrictLogging {
+class ApiKeyAuthenticationProvider(configuration: Configuration, resources: AuthenticationProviderResources) extends MachineAuthenticationProvider with StrictLogging with GridLogging{
   implicit val executionContext: ExecutionContext = resources.controllerComponents.executionContext
   private val enabled = configuration.getOptional[Boolean]("enabled").getOrElse(true)
   var keyStorePlaceholder: Option[KeyStore] = _
@@ -50,7 +52,7 @@ class ApiKeyAuthenticationProvider(configuration: Configuration, resources: Auth
               // valid api key which has access
               // store the header that was used in the attributes map of the principal for use in onBehalfOf calls
               val accessor = MachinePrincipal(apiKey, TypedMap(ApiKeyAuthenticationProvider.ApiKeyHeader -> (ApiKeyAuthenticationProvider.apiKeyHeaderName -> key)))
-              logger.info(s"Using api key with name ${apiKey.identity} and tier ${apiKey.tier}", apiKey)
+              logger.info(apiKeyMarkers(apiKey), s"Using api key with name ${apiKey.identity} and tier ${apiKey.tier}")
               Authenticated(accessor)
             } else {
               // valid api key which doesn't have access
