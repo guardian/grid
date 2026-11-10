@@ -1,6 +1,6 @@
 /**
  * media-api POST routes that only read (the body carries the query). The Vite Grid API write guard
- * admits exactly these without VITE_GRID_API_WRITES_ENABLED. Dependency-free: vite.config.ts imports it.
+ * admits exactly these independently of editing preference. Dependency-free: vite.config.ts imports it.
  */
 export const GRID_API_READ_VIA_POST = [
   "/images/search-after",

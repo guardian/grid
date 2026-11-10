@@ -155,6 +155,24 @@ operation; check current handlers and executed query if investigating a discrepa
 Compare canonical query before/after the real click. One panel's gesture does not
 establish the other's behaviour; retained selection/focus is a separate check.
 
+## Label Editing
+
+- The pill text searches; use its explicit Add, Apply or Remove control to edit.
+  Single-image and multi-image accessible names differ. Inspect the rendered name
+  after selection settles rather than reusing the single-image selector.
+- Scope an activity receipt by action, label and captured target set. Its Details
+  payload can be parsed in page memory even while collapsed; return outcome and
+  observation counts, never the raw payload or target identities. An older receipt
+  for the same label is not evidence that a new action completed.
+- Mark the request boundary immediately before submission. Selection hydration,
+  convergence and diagnostic reads can all use mget; a page-wide mget count does
+  not identify an operation's observation budget. Compare actual dispatches with
+  receipt targets and distinguish acknowledgement from canonical observation.
+- A diagnostic datasource read does not necessarily publish into the rendered
+  search or selection cache. Check canonical state, cached display and control
+  enablement separately. Do not use manual store publication to conceal a stale
+  UI, or replay a mutation merely because observation ended before visibility.
+
 ## Results and Selection
 
 Measure visible hit targets, not full row centres. A wide table row's centre can

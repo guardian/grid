@@ -37,9 +37,10 @@ reload does not require restarting local Grid. Grid's no-flags/`--use-TEST` choi
 selects backing services, not a different frontend bundle. Remote hosting serves the
 bundle packaged in the deployed artifact; pushing source alone does not update it.
 
-The hosted build's env file supplies build-time settings, **not the server's write
-enablement**. Kahuna supplies write settings at runtime. `/kupua/on`, building the
-bundle and choosing a TEST data source do not themselves enable editing.
+The hosted build's env file supplies build-time settings, not editing rollout policy.
+Kahuna supplies the initial API address and site settings, not editing gates or satellite
+addresses. `/kupua/on`, building the bundle and choosing a TEST data source do not
+themselves enable editing.
 
 ### Which script owns each flag?
 
@@ -63,15 +64,15 @@ services requires separate authorization; these examples do not grant it.
 ### Editing support by frontend
 
 This table describes implemented code support, **not enablement or live verification**.
-All supported editing remains one image and one label per submission, requires explicit
-rollout and valid service origins, and remains subject to image capabilities and server
+Supported label editing captures one label and up to 100 images per submission, requires
+the temporary startup preference and valid service discovery, and remains subject to image capabilities and server
 authorization. Thumbnail/full-image delivery does not change operation support.
 
 | Frontend path | Add label | Remove label | Enablement source |
 |---|---|---|---|
-| Vite with `./kupua/scripts/start.sh --use-media-api`, with or without `--canonical-media`; local Grid may use local or TEST backing data | Code-supported | Code-supported | Vite process environment |
-| Vite with `./kupua/scripts/start.sh --use-deployed-media-api`, with or without `--canonical-media` | Code-supported | Code-supported | Vite process environment; real cross-origin deployment remains unverified |
-| Kahuna-hosted `/kupua/on`, local Grid or deployed DEV/TEST | Code-supported | Code-supported | Kahuna server configuration |
+| Vite with `./kupua/scripts/start.sh --use-media-api`, with or without `--canonical-media`; local Grid may use local or TEST backing data | Code-supported | Code-supported | Saved origin-scoped startup preference |
+| Vite with `./kupua/scripts/start.sh --use-deployed-media-api`, with or without `--canonical-media` | Code-supported | Code-supported | Same preference; real cross-origin deployment remains unverified |
+| Kahuna-hosted `/kupua/on`, local Grid or deployed DEV/TEST | Code-supported | Code-supported | Same preference, no Kahuna editing configuration |
 | Direct-ES, including `./kupua/scripts/start.sh --use-TEST` alone | Unavailable | Unavailable | No editing enablement in this mode |
 
 Kahuna's current opt-in is limited to DEV/TEST and excludes iframe pickers; this table
@@ -80,58 +81,71 @@ with local Grid. Compiled-hosted fixtures and the actual Kahuna configuration pr
 have regression coverage; real Kahuna-hosted and shared TEST editing remain separate
 verification/authorization boundaries, not claims established by the local trial.
 
-### Where the write configuration lives
+### Editing preference and service discovery
 
-Kahuna's two rollout keys are `kupua.mutations.enabled` and
-`kupua.mutations.operations`. They are separate from the addresses of metadata-editor
-and auth, which come from Grid's existing service configuration.
+Settings > **Hi, Joshua**, with the Material Vaping Rooms icon, and Shift+F12 open one
+temporary **Allow editing** checkbox. **Apply and reload** saves `kupua-allow-editing`
+in localStorage and reloads. Missing, malformed or inaccessible storage is off. The
+preference is captured at startup, not rechecked as a live switch. Other same-origin
+tabs pick it up on their next reload; different frontend origins are independent.
+`/kupua/on` is a path, not another storage area. Changing backing data at an unchanged
+frontend origin retains the preference. Drafts and receipts survive SPA navigation,
+not reloads. No automatic replay or durable operation system is introduced.
 
-| Running frontend | Configuration source |
-|---|---|
-| Kupua Vite, started by `./kupua/scripts/start.sh` | Its process environment: `VITE_GRID_API_WRITES_ENABLED`, `VITE_GRID_API_OPERATIONS`, `VITE_GRID_METADATA_ORIGIN`, `VITE_GRID_AUTH_ORIGIN`. Use an explicit temporary invocation for trials, not persistent `.env` enablement. |
-| Kahuna-hosted Kupua, Grid started by `./dev/script/start.sh` without `--use-TEST` | `~/.grid/common.conf`, then `~/.grid/kahuna.conf`; later values override earlier ones. Kahuna's own file is the appropriate local place for its rollout settings. |
-| Kahuna-hosted Kupua, Grid started by `./dev/script/start.sh --use-TEST` | The same local files, then `/tmp/grid-config-TEST/kahuna.conf`, downloaded at startup from `s3://grid-conf/TEST/kahuna/kahuna.conf`. The downloaded file overrides matching local keys, not the entire local configuration. It is overwritten by subsequent TEST startup, so it is not a durable configuration source. |
-| Kahuna-hosted Kupua, deployed Grid | Installed server files in increasing precedence: `/etc/gu/grid-prod.properties`, `/etc/grid/common.conf`, `/etc/gu/kahuna.properties`, `/etc/grid/kahuna.conf`. Missing files are skipped; the properties files are legacy. These are runtime read locations, not a claim about every deployment's provisioning mechanism. |
+This is temporary, removable scaffolding. The eventual API-backed app has editing
+available according to server permissions and resource capabilities, with no rollout
+switch. Direct-ES remains read-only while retained. Former env, per-operation, bulk and
+Kahuna mutation gates are removed, not layered beneath this preference.
 
-The source of truth for file loading and precedence is
-[GridConfigLoader.scala](../../../../common-lib/src/main/scala/com/gu/mediaservice/lib/config/GridConfigLoader.scala).
-In local DEV mode, JVM/config-library overrides take precedence over those files;
-Grid's TEST launcher uses `extraConfigDir` to add the downloaded file. Hosted Kupua
-does not consume the Vite rollout environment variables.
+Media-api's existing root directory is read once per page and retained in memory,
+including failure. Its `edits` relation supplies metadata-editor's service origin;
+`session` supplies the exact auth `/session` URL. Reload picks up changed addresses.
+There is no per-edit rediscovery, polling, localStorage address cache or guessed host.
+Service discovery is not permission: every mutation still needs the captured image's
+own edits resource and exact advertised label resource, plus server authorization.
+Missing/invalid discovery leaves the dependent action unavailable, never selecting ES.
 
-**Missing effective rollout configuration means editing is off.** A missing enabled
-key defaults to false; a missing operations key defaults to an empty list. Both
-global enablement and the selected implemented operation are required. Malformed or
-unknown operation configuration fails closed; image capabilities and server
-authorization still apply.
+Hosted requests use validated discovered origins directly. Local Vite still requires
+fixed `VITE_GRID_METADATA_ORIGIN` and `VITE_GRID_AUTH_ORIGIN` proxy targets that match
+the directory. Those are routing settings, not rollout switches. Vite admits only
+supported exact method/path shapes, not arbitrary upstream URLs, and does not inspect
+browser preferences. Changing proxy configuration requires restarting Vite; this task
+does not change running configuration, restart Grid or activate shared-system editing.
 
-**Do not confuse a missing TEST key with effective absence.** If local Kahuna config
-enables editing and the downloaded TEST file omits those keys, the local settings
-remain effective when Grid is started with `--use-TEST`. Keep local enablement off
-outside an authorized local trial; do not rely on omission in TEST S3 to disable a
-local override. Check the effective configuration before any shared-system trial.
+The directory does not replace site settings. Kahuna still supplies initial media-api
+bootstrap, collections address, per-user paid-image default and allowlisted display/domain
+settings below. Future domain fields/templates/uploads can add the ordinary settings
+they actually need; service locations remain discoverable. No future settings or new
+backend config endpoint are front-loaded here.
 
-For local preparation, add this non-secret, disabled block to `~/.grid/kahuna.conf`
-without replacing its other settings:
+### Common batch and observation policy
 
-```hocon
-kupua.mutations {
-  enabled = false
-  operations = ["add-labels", "remove-label"]
-}
-```
+[batch-execution.ts](../../../src/lib/batch-execution.ts) owns **100 target images,
+three concurrent image-edit executions, at least 250 ms between starts and one waiting
+operation**. Labels are its first consumer; intent, command resources and label presence/
+absence postconditions stay label-specific. Later edit families reuse common scheduling
+instead of introducing another rollout flag or scheduler.
 
-Kahuna recognises both implemented names, individually or together; any unknown
-name fails the whole rollout closed. The disabled block prepares local configuration
-without enabling writes. Merely adding it does not authorize turning it on or changing
-TEST S3. Keep it disabled until an explicitly authorized trial, and account for the
-local-to-TEST fallback described above before switching Grid's backing services.
+Concurrency limits unfinished work when services are slow; pacing limits starts when
+responses are fast. These are distinct common constants, not dashboard controls. Three
+executions does not mean three separate operator batches or three HTTP requests/second:
+each execution includes prerequisite reads and a possible write. A 429 delays unsent
+starts by at least one second without replaying the uncertain write. The chosen values
+are prototype bounds, not measured capacity or protection against other clients/tabs.
 
-Server configuration is loaded when Grid constructs its application configuration;
-changing a file requires a server configuration reload/restart, followed by a browser
-reload. Changing Vite environment settings requires restarting Vite. Neither change
-is accomplished by rebuilding the hosted frontend bundle. Conversely, changing only
-the hosted frontend bundle needs a browser reload, not a Grid restart.
+Dispatch can start work for 120 seconds. Final canonical observation lasts up to ten
+seconds after dispatch settles, with a hard 130-second observation cap from activation.
+One group uses at most three mget attempts at least one second apart; after an early
+read, remaining attempts wait for dispatch to settle. All 100 images fit in one existing
+200-ID mget request per check, instead of individual polling loops. Early canonical
+partial bodies can publish while other work remains. The 1,000-ID freshness budget and
+at most one current standalone full-projection follow-up remain. Stop remaining affects
+only unsent commands; in-flight writes retain their eventual outcomes even after readback
+ends. Acknowledgement, uncertainty and canonical visibility remain distinct.
+
+These client policies do not establish safe shared capacity. GRID-019's table/GSI
+capacity decision and explicit authorization remain boundaries for general activation;
+no live capacity campaign or infrastructure repair is part of this work.
 
 ### Runtime payload
 
@@ -142,8 +156,6 @@ Kahuna injects `window.__KUPUA_CONFIG__` before any module runs
 |---|---|
 | `mediaApiUri` | Base for every media-api call; satellite services are discovered from its root links |
 | `collectionsUri` | Collections tree |
-| `metadataEditorUri`, `authUri` | Trusted origins for command resources and session reads |
-| `mutations` | Default-off `{ enabled, operations }` rollout; client and Kahuna admit only the implemented names `add-labels` and `remove-label` |
 | `showPaid` | Initial and Home search defaults (`nonFree`) |
 | `gridConfig` | Kahuna's client settings: staff organisation, field aliases, image types, download-as-usage, reaper, agency picks (ingredients, colour), ticker definitions, deny-syndication warning, graphic-image blurring |
 
@@ -154,17 +166,14 @@ API fetches send the user's session cookie (`credentials: "include"`); thumbnail
 follow the browser's separate image/CORS/cookie rules.
 
 Hosted builds pin hosted/API mode even if the invoking shell has laptop-mode flags.
-Kahuna reads `kupua.mutations.enabled` and `kupua.mutations.operations`; absent or
-invalid values admit no writes. These settings affect only the Kupua page, not
-ordinary Kahuna. Existing pages receive server config changes only after reload.
-The rollout gates are temporary; server authorization and named-resource validation
-are not. Explicit rollout connects the existing editor for one image and one label
-per submission; otherwise it remains disconnected. No shared-system enablement is
-approved. The selected local trial and current deployment limits belong to
+Kahuna no longer reads or injects Kupua editing rollout, metadata-editor or auth fields.
+Its ordinary editing, opt-in hosting, stage/iframe restrictions and existing CSP remain.
+The startup preference connects the existing editor; otherwise it remains disconnected.
+No shared-system enablement is approved. The selected local trial and deployment limits belong to
 [Step 5](../gradually-growing-teeth.kupua-edits-steps.md#step-5-give-one-label-operation-real-teeth).
 
 The shared [command boundary](../../../src/dal/grid-api/README.md#step-2-command-boundary)
-owns admission, emergency stop and explicit outcomes. Session expiry/account changes
+owns admission, authentication invalidation and explicit outcomes. Session expiry/account changes
 require a full reload after authentication; mutations are never automatically replayed.
 Built-page fixtures use synthetic origins, cookies and browser-policy responses, not
 the deployed ingress. Actual credentialed preflight, CSRF and login-return behavior

@@ -17,12 +17,13 @@ tests before making any claim; old branch commits are not the review boundary.
 ## Must disclose when included in the PR
 
 - **Kupua-only hosting configuration:** [KupuaPage](../../../kahuna/app/lib/KupuaPage.scala)
-  injects default-off mutation rollout plus metadata/auth origins only into the Kupua
-  page. Ordinary Kahuna configuration, server authorization and CSP/CORS/CSRF policy
-  are unchanged. Admission recognises only implemented label addition/removal; this
-  does not activate either operation. Explain invalid-setting rejection, effective
-  configuration precedence, existing-page reload requirements and fixture-only
-  hosted validation; do not describe frontend gates as server enforcement.
+  injects initial API/collections bootstrap, per-user paid-image default and allowlisted
+  site settings. Former Kupua-only editing rollout and metadata/auth injection are
+  removed; existing-root service discovery and one temporary startup client preference
+  replace those dependencies. Ordinary Kahuna editing, opt-in hosting, stage/iframe
+  boundaries, server authorization and CSP/CORS/CSRF policy remain unchanged. Explain
+  exact cleanup scope and fixture-only hosted validation; client preference and batch
+  bounds are neither server enforcement nor authorization to activate editing.
 - **Existing AI/API surface:** [MediaApi](../../../media-api/app/controllers/MediaApi.scala)
   adds conditional `ai-search` discovery and opt-in `aiQuery` ranking text to
   `GET /images`. Explain ranking-text versus filter-query meaning, response embedding

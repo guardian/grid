@@ -188,7 +188,7 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
           return;
         }
         const publicationPage = publication && ["/__publication", "/__readback", "/__continuation", "/search", "/"].includes(pathname ?? "");
-        const connectedPage = pathname === "/__connected";
+        const connectedPage = pathname === "/__connected" || (!publication && pathname === "/search");
         if (pathname !== "/__commands" && !publicationPage && !connectedPage) return next();
         response.setHeader("Content-Type", "text/html");
         if (publicationPage) {
@@ -207,7 +207,7 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
 if (process.argv.includes("--serve-readback")) {
   Object.assign(process.env, { VITEST: "true", VITE_USE_MEDIA_API: "true", VITE_HOSTED: "false",
     VITE_MEDIA_API_BASE_URL: "/api", VITE_MEDIA_DELIVERY: "canonical", VITE_COLLECTIONS_URL: "/fixture-collections",
-    VITE_GRID_API_WRITES_ENABLED: "false", VITE_GRID_METADATA_ORIGIN: "https://metadata.example.test" });
+    VITE_GRID_METADATA_ORIGIN: "https://metadata.example.test" });
   const { createServer } = await import("vite");
   const continuation = process.argv.includes("--continuation");
   const server = await createServer({ root, configFile: resolve(root, "vite.config.ts"),

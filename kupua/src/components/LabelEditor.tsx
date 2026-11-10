@@ -20,6 +20,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext }: {
   const key = labelTargetKey(context.targetIds);
   const value = useStore(store, state => state.drafts.get(key)?.value ?? "");
   const refusal = useStore(store, state => state.refusal);
+  const targetLimit = useStore(store, state => state.targetLimit);
   const [expanded, setExpanded] = useState(false);
   const [adding, setAdding] = useState(false);
   const [invalid, setInvalid] = useState(false);
@@ -78,7 +79,8 @@ export function LabelEditor({ context, values, onSearch, resolveContext }: {
     if (activeSuggestion >= 0) suggestionListRef.current?.children[activeSuggestion]?.scrollIntoView({ block: "nearest" });
   }, [activeSuggestion]);
   const counts = labelTargetCounts(context);
-  const disabled = import.meta.env.VITE_USE_MEDIA_API !== "true" || !counts.selected || Boolean(counts.ineligible || counts.unresolved || counts.unavailable);
+  const oversized = targetLimit !== undefined && counts.selected > targetLimit;
+  const disabled = import.meta.env.VITE_USE_MEDIA_API !== "true" || oversized || !counts.selected || Boolean(counts.ineligible || counts.unresolved || counts.unavailable);
   const chips = [...values].sort((first, second) => second.count - first.count);
   const act = (action: "add" | "remove", label: string) => {
     const current = resolveContext?.() ?? context;
@@ -139,7 +141,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext }: {
     }}>
       <div className="flex items-center gap-1.25">
       <input ref={inputRef} role="combobox" aria-label="Add label" aria-invalid={invalid || undefined} value={value}
-        placeholder={"label1, label2, label3\u2026"} required
+        placeholder={store.getState().executionMode === "connected" ? "New label" : "label1, label2, label3\u2026"} required
         aria-autocomplete="list" aria-expanded={suggestions.length > 0} aria-controls={suggestions.length ? suggestionsId : undefined}
         aria-busy={showSuggestions && currentSuggestions?.status === "pending"}
         aria-activedescendant={activeSuggestion >= 0 && suggestions[activeSuggestion] ? `${suggestionsId}-${activeSuggestion}` : undefined}
@@ -187,6 +189,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext }: {
       </div>}
     </form>}
     {counts.unavailable > 0 && <p role="status" className="text-xs text-grid-text-muted">{counts.unavailable} selected {counts.unavailable === 1 ? "image is" : "images are"} unavailable.</p>}
+    {oversized && <p role="status" className="text-xs text-grid-text-muted">Select at most {targetLimit} {targetLimit === 1 ? "image" : "images"} to edit labels.</p>}
     {refusal && <p role="status" className="text-xs text-grid-error">{store.getState().executionMode === "connected" ? "Change not sent" : "Simulation refused"}: {refusal}.</p>}
   </MetadataRow>;
 }
@@ -204,8 +207,8 @@ export function LabelOperationReceipts({ inline = false, hidden = false }: { inl
     receiptOrder.unshift(activeReceipt);
   }
   const unfinished = [...drafts.values()].some(draft => Boolean(draft.value.trim()))
-    || receipts.some(receipt => receipt.items.some(item => item.state === "submitted" || item.state === "unknown"
-      || (item.state === "accepted-awaiting-visibility" && item.observation !== "observed")));
+    || receipts.some(receipt => receipt.items.some(item => item.state === "queued" || item.state === "submitted" || item.state === "unknown"
+      || ((item.state === "accepted-awaiting-visibility" || item.state === "unchanged") && item.observation !== "observed")));
   useEffect(() => {
     if (inline || !unfinished) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
@@ -226,18 +229,37 @@ export function LabelOperationReceipts({ inline = false, hidden = false }: { inl
         </details>)}
         {receiptOrder.map(index => {
           const receipt = receipts[index];
+          const states = receipt.items.reduce<Record<string, number>>((counts, item) => { counts[item.state] = (counts[item.state] ?? 0) + 1; return counts; }, {});
+          const observed = receipt.items.filter(item => item.observation === "observed").length;
+          const queued = states.queued ?? 0;
+          const submitted = states.submitted ?? 0;
+          const previewLimit = receipt.mode === "connected" && !receipt.blocked ? receipt.items.length : 8;
           const data = JSON.stringify({ action: receipt.intent.action, label: receipt.intent.label.slice(0, 240),
-            ...receipt.counts, targets: receipt.intent.targetIds.slice(0, 8),
-            ...(receipt.intent.targetIds.length > 8 && { additionalTargets: receipt.intent.targetIds.length - 8 }),
+            ...receipt.counts, targets: receipt.intent.targetIds.slice(0, previewLimit),
+            ...(receipt.intent.targetIds.length > previewLimit && { additionalTargets: receipt.intent.targetIds.length - previewLimit }),
             ...(receipt.blocked && { blocked: receipt.blocked }),
-            outcomes: receipt.items.reduce<Record<string, number>>((counts, item) => { counts[item.state] = (counts[item.state] ?? 0) + 1; return counts; }, {}),
-            items: receipt.items.slice(0, 8),
+            outcomes: states,
+            items: receipt.items.slice(0, previewLimit),
           }, null, 2);
           return <div key={index}>
             <p className="text-xs mb-1" role="status">{receipt.mode === "disconnected" ? "Not sent - dry run"
               : receipt.mode === "connected" ? "Label change"
               : receipt.items.some(item => item.observation) ? "Simulated command - readback only" : "Simulated - no service calls"}</p>
-            <pre className="text-xs whitespace-pre-wrap wrap-anywhere">{data.slice(0, 1800)}{data.length > 1800 || receipt.intent.label.length > 240 ? "\n[Preview truncated]" : ""}</pre>
+            {receipt.mode === "connected" && <>
+              <p className="text-xs wrap-anywhere">{receipt.intent.action === "add" ? "Add" : "Remove"} "{receipt.intent.label}" - {receipt.items.length} {receipt.items.length === 1 ? "image" : "images"}</p>
+              {!receipt.blocked && <progress aria-label="Label operation progress" className="w-full h-1" max={receipt.items.length}
+                value={receipt.items.length - queued - submitted} />}
+              <p className="text-xs" role="status">{queued} queued, {submitted} in progress, {states["accepted-awaiting-visibility"] ?? 0} acknowledged, {observed} observed, {states.rejected ?? 0} rejected, {states.unknown ?? 0} unknown, {states.unchanged ? `${states.unchanged} unchanged, ` : ""}{states.stopped ?? 0} stopped.</p>
+              {queued > 0 && <button type="button" onClick={() => store.getState().stopRemaining(index)}
+                className="my-1 inline-flex min-h-6 pointer-coarse:min-h-11 items-center gap-1 rounded-sm border border-grid-border px-2 text-xs">
+                <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" fill="currentColor" /></svg>
+                Stop remaining
+              </button>}
+            </>}
+            <details open={receipt.mode !== "connected"} className="text-xs">
+              <summary className="cursor-pointer">Details</summary>
+              <pre className="whitespace-pre-wrap wrap-anywhere">{receipt.mode === "connected" ? data : data.slice(0, 1800)}{receipt.mode !== "connected" && data.length > 1800 || receipt.intent.label.length > 240 ? "\n[Preview truncated]" : ""}</pre>
+            </details>
           </div>;
         })}
       </div>

@@ -117,40 +117,50 @@ authorized work. The retirement above added no replacement adapter or write clie
 ## Step-2 command boundary
 
 [`grid-commands.ts`](../../lib/grid-commands.ts) is separate from the read DAL and
-is connected at startup only under explicit API-mode rollout. `executeGridCommand` accepts `add-labels` or `remove-label`, a captured
+is connected at startup only in API mode with the temporary saved editing preference. `executeGridCommand` accepts `add-labels` or `remove-label`, a captured
 image ID, its retained resource links, and a nonempty label list or one exact label. It requires the
 matching per-image `edits` link, reads that metadata resource, and posts `{ data:
-labels }` only to its advertised labels URI on the configured metadata origin.
+labels }` only to its advertised labels URI on the discovered metadata origin.
 Missing capabilities are never synthesized. These resources use concrete URIs,
 not URI templates; unrelated media-template handling remains unchanged.
 
 Step 5 adds single-image `remove-label`. The same prerequisite
 GET must return the labels collection and exactly one embedded `{ uri, data }` entry
-whose value equals the captured label. Its advertised URI must match the configured
+whose value equals the captured label. Its advertised URI must match the discovered
 metadata origin, captured image and server form-style label encoding; only that URI
 receives DELETE, without a body. Missing/foreign/mismatched resources block, never
 become a constructed target or an acknowledged no-op. Removal preserves whitespace
-in existing label identity; only new-label entry is trimmed. Unsafe dot path segments
-are blocked. The local guard admits this exact resource shape only under the separate
-`remove-label` opt-in plus the global gate. No image-delete endpoint is admitted.
+in existing label identity. A valid authoritative labels collection with an explicit
+list that already lacks the exact label instead returns `unchanged`, sending no
+mutation and not stopping the other captured targets. Missing or malformed list data
+is not absence. Canonical mget still checks the removal postcondition for unchanged
+targets; they are not counted as acknowledged writes. Only new-label entry is trimmed.
+Unsafe dot path segments
+are blocked. The local guard admits only these supported method/resource shapes;
+no image-delete endpoint is admitted.
 
-Both the global rollout boolean and the selected operation must be enabled. Missing,
-invalid or unknown configuration/commands, direct-ES mode and invalid origins dispatch
-nothing. Hosted settings come only from Kahuna's `mutations`, `metadataEditorUri`
-and `authUri` payload; laptop settings use explicit `VITE_GRID_API_WRITES_ENABLED`,
-`VITE_GRID_API_OPERATIONS`, `VITE_GRID_METADATA_ORIGIN` and `VITE_GRID_AUTH_ORIGIN`.
-Service addresses must be origins without credentials, query or fragments; hosted
-requires HTTPS, while local fixtures may use loopback HTTP. Local requests traverse
-the guarded `/grid-metadata` and `/grid-auth` proxies, never a dynamic target proxy.
+One temporary `kupua-allow-editing` localStorage preference is captured at startup.
+Only the exact saved value `true` enables it; missing, invalid or inaccessible storage
+is off. Settings > Hi, Joshua and Shift+F12 open its single-checkbox panel. Apply and
+reload saves and reloads; it is not a live switch or cross-tab cancellation mechanism.
+Other tabs read the shared origin's preference on their next reload. Different origins
+remain independent; changing a path or backing data at the same origin does not reset it.
+There are no env, hosted, per-command or bulk rollout flags. This removable startup
+brace is not permanent hosted policy: the eventual app relies on server permissions
+and resource capabilities, without an editing rollout switch. Direct-ES remains read-only.
 
-Admission is rechecked after prerequisite reads. `stopGridMutations()` blocks new
-submissions until reload; changing hosted rollout to disabled also blocks pending
-preparations. Neither can undo an already dispatched write. Server-side rollout
-configuration changes reach existing pages only on reload; there is no remote
-kill-switch polling. Temporary rollout switches may later be removed independently
-of named-operation validation and outcome handling.
+The existing shared directory read supplies root `edits` and exact `/session` links
+once per page, retaining success/failure until reload. The edits service origin is not
+an image capability. Missing/invalid relations block command execution. Service origins
+exclude credentials, query and fragments; hosted requires HTTPS, local fixtures may
+use loopback HTTP. Hosted calls use discovered addresses directly. Local calls use only
+fixed `/grid-metadata` and `/grid-auth` targets configured by `VITE_GRID_METADATA_ORIGIN`
+and `VITE_GRID_AUTH_ORIGIN`, which must match discovery. No arbitrary-target proxy,
+guessed satellite hostname, rediscovery polling or address storage is introduced.
+Authentication invalidation is rechecked after prerequisite reads; it cannot undo a
+dispatched write. No one-way rollout stop latch or live preference recheck is retained.
 
-Results are `blocked`, `acknowledged`, `rejected` or `unknown`. Credentialed command
+Results are `blocked`, `acknowledged`, `unchanged`, `rejected` or `unknown`. Credentialed command
 reads/writes refuse redirects and have a 15-second timeout. 401/419 invalidate the
 session and prevent later submissions; 403/422 reject the write. Other post-dispatch
 HTTP failures, including 400/5xx, and transport loss are conservatively unknown:
@@ -162,10 +172,11 @@ The separate [label operation owner](../../lib/label-operation.ts) consumes the
 exported command types and an injected executor. It captures one confirmed
 add/remove intent and all target IDs, distinguishing unavailable capabilities from
 explicit absence. Startup supplies the production executor and existing readback owner
-only when API mode, valid service origins and global/named rollout permit editing.
-Otherwise the editor remains disconnected. Connected addition and removal both require
-exactly one image; supplied-executor comma-separated input is refused before dispatch.
-Simulated multi-image addition remains fixture-only; removal is single-image in all execution modes.
+only when API mode and the startup preference permit editing. Otherwise the editor
+remains disconnected. Connected addition and removal share the common batch policy
+below without a separate bulk opt-in. Supplied-executor comma-separated input remains
+refused before dispatch. Unpaced simulated multi-add remains available to existing fixtures;
+connected fixtures select the same paced path as the application.
 Receipts distinguish submitted, accepted-awaiting-visibility,
 rejected, unknown and blocked/not-started; only matching explicit canonical evidence
 can establish observed state. [LabelEditor](../../components/LabelEditor.tsx) and
@@ -183,8 +194,10 @@ Direct-ES exposes no editor controls.
 
 Pending and uncertain attempts retain their receipts rather than replaying. A new
 explicit connected submission may follow rejection, pre-dispatch refusal or an
-acknowledged-and-observed result, permitting add/remove/add without treating an old
-receipt as a new command. Observation alone never clears an unknown command outcome.
+acknowledged result whose observation has ended, provided current authority is
+available. This permits add/remove/add and explicit recovery after an observation
+deadline without treating an old receipt as a new command. Pending observation
+still prevents repetition. Observation alone never clears an unknown command outcome.
 
 Removal observation requires the exact label to be absent from an explicit label list
 in a successfully returned authoritative image. Omitted images, missing label data,
@@ -203,8 +216,64 @@ dispatch/cookies/expiry, with synthetic CSP/CORS responses; deployed preflight,
 CSRF, cookie policy and login-return integration are not certified by those fixtures.
 An authorized operator-driven local Grid trial added and removed two labels separately,
 including Unicode and whitespace, with acknowledged/observed receipts and exact restoration
-of the original label set. Temporary rollout was disabled afterward. Kahuna's producer
-recognises both implemented operation names, while retaining default-off and fail-closed
-configuration. Real hosted/shared activation remains separately authorized and unverified;
-no backend authorization policy changed. The [hosted guide](../../../exploration/docs/00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md#where-the-write-configuration-lives)
-owns configuration locations, launcher distinctions and local-to-TEST precedence.
+of the original label set. Temporary rollout was disabled afterward. The former Kahuna
+mutation/address payload has since been removed; the client no longer consumes those settings.
+Real hosted/shared activation remains separately authorized and unverified; no backend
+authorization policy changed. The [hosted guide](../../../exploration/docs/00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md#editing-preference-and-service-discovery)
+owns startup preference, service discovery and retained bootstrap/site configuration.
+
+## Step-6 bounded label execution
+
+`BATCH_POLICY` in [batch-execution.ts](../../lib/batch-execution.ts) owns the common limits: **100 actual
+target IDs, three command executions in flight, at least 250 ms between starts, and
+one waiting operation** behind the active operation. The store counts complete selected
+membership before consulting target metadata; it neither truncates targets nor hydrates
+an oversized edit. Ordinary selection display hydration remains independent and unchanged.
+All targets must be eligible. IDs, label and command links are captured at submission;
+waiting work is rechecked before execution. A command execution includes prerequisite
+reads and its possible write, so this is not a four-HTTP-requests/second certificate.
+Waiting targets reserve space in the existing 1,000-ID freshness map so permission
+withdrawal received while waiting cannot be missed. Unchanged reservations are released
+on queue exit; newer authority/metadata evidence is retained. This issues no extra reads.
+
+The common queue serializes operations until commands and observation settle.
+Uncertain or still-submitted same-image commands retain their freshness conflict protection.
+A 429 delays unsent starts for at least one second; post-dispatch 429 remains unknown
+and is never replayed. Authentication expiry or a blocked preparation stops unsent commands.
+Existing transport timeouts remain in force.
+
+Dispatch may start work for at most **120 seconds** from activation; at that boundary
+remaining unsent items stop. Observation keeps **one group, the existing 200-ID admission
+cap, three grouped mget attempts at least one second apart, and at most ten seconds
+after dispatch settles, with a 130-second hard observation cap from activation**.
+Queue waiting does not start those clocks. One early read can verify and publish completed
+items while other targets wait; remaining attempts are reserved until dispatch settles.
+The final attempt waits until halfway from the preceding attempt to the remaining
+deadline, subject to the minimum interval, leaving time both for projection visibility
+and for its response. The attempt count and deadline are limits, not guarantees of visibility.
+All 100 IDs fit in one existing 200-ID mget request per attempt. Observation termination
+stops remaining unsent work; dispatched commands retain their eventual outcomes even
+after observation ends. Early canonical bodies can publish before the receipt's observation
+group settles. Newer browsing reads can supersede older evidence without being overwritten.
+Current standalone detail retains at most one full-projection follow-up. The document's
+1,000-touched-ID bound remains; stopped, never-started reservations are released without
+discarding newer permission or metadata evidence.
+
+Receipts expose progress and every bounded target outcome separately from observed state.
+Stop remaining affects only commands not yet started, including a waiting operation;
+it cannot undo a started command. Wholly unsent stopped work can be explicitly submitted
+again; no automatic retry or mixed-unknown replay is added. Selection membership and
+browsing geometry are unchanged by label publication.
+
+After observation ends, ordinary selection hydration can reread an affected cached
+image whose body or authority is stale. Current cache entries and active observation
+do not cause extra reads. The accepted response still passes freshness and capability
+checks; a revoked capability remains revoked. Single-selection metadata uses the
+recovered selected body when its resident search-buffer copy is stale. This is a read
+recovery path, not mutation replay, a background polling loop or a global search refresh.
+
+These are adjustable prototype limits, not measured capacity or server protection from
+a broken client, multiple tabs or other writers. Any future change must compose dispatch,
+readback and memory bounds rather than raising a target constant alone. GRID-019 covers both Edits and the Photoshoots GSI. A conservative
+operator trial requires separate explicit activation; general shared activation requires
+a capacity decision. No live/shared trial is performed by the Step-6 implementation.

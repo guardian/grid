@@ -6,8 +6,7 @@ import { GRID_API_READ_VIA_POST, isGridApiReadViaPost } from "./read-via-post";
 
 afterEach(() => vi.unstubAllEnvs());
 
-it("does not let the global rollout switch bypass the Vite operation guard", async () => {
-  vi.stubEnv("VITE_GRID_API_WRITES_ENABLED", "true");
+it("admits only supported Vite transport shapes without rollout flags", async () => {
   vi.stubEnv("VITE_GRID_METADATA_ORIGIN", "https://metadata.example.test");
   const { createServer } = await import("vite");
   // A middleware-only test must not invalidate a concurrently running app's optimizer cache.
@@ -33,23 +32,19 @@ it("does not let the global rollout switch bypass the Vite operation guard", asy
     expect(next).not.toHaveBeenCalled();
     const metadataGuard = server.middlewares.stack.find((entry) => entry.route === "/grid-metadata")?.handle as Connect.NextHandleFunction;
     expect(metadataGuard).toBeDefined();
-    vi.stubEnv("VITE_GRID_API_OPERATIONS", "add-labels");
     metadataGuard({ method: "POST", url: "/metadata/fixture/labels" } as never, response as never, next);
     expect(next).toHaveBeenCalledOnce();
     next.mockClear();
     for (const request of [
       { method: "DELETE", url: "/metadata/fixture/labels" },
-      { method: "DELETE", url: "/metadata/fixture/labels/news" },
       { method: "POST", url: "/metadata/fixture/labels/extra" },
       { method: "POST", url: "/images/count" },
     ]) metadataGuard(request as never, response as never, next);
     expect(next).not.toHaveBeenCalled();
-    vi.stubEnv("VITE_GRID_API_OPERATIONS", "remove-label");
     metadataGuard({ method: "DELETE", url: "/metadata/fixture/labels/news+%2F+%2B" } as never, response as never, next);
     expect(next).toHaveBeenCalledOnce();
     next.mockClear();
     for (const request of [
-      { method: "POST", url: "/metadata/fixture/labels" },
       { method: "DELETE", url: "/metadata/fixture" },
       { method: "DELETE", url: "/metadata/fixture/labels" },
       { method: "DELETE", url: "/metadata/fixture/labels/news/extra" },
@@ -58,7 +53,7 @@ it("does not let the global rollout switch bypass the Vite operation guard", asy
       { method: "DELETE", url: "/metadata/fixture/labels/%broken" },
     ]) metadataGuard(request as never, response as never, next);
     expect(next).not.toHaveBeenCalled();
-    vi.stubEnv("VITE_GRID_API_OPERATIONS", "");
+    vi.stubEnv("VITE_GRID_METADATA_ORIGIN", "");
     metadataGuard({ method: "POST", url: "/metadata/fixture/labels" } as never, response as never, next);
     expect(next).not.toHaveBeenCalled();
   } finally {

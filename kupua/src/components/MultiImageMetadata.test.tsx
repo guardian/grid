@@ -10,9 +10,9 @@ import { MultiImageMetadata } from "./MultiImageMetadata";
 import { ImageMetadata } from "./ImageMetadata";
 import { LabelEditorContext, LabelOperationReceipts } from "./LabelEditor";
 import { createLabelEditorStore } from "@/stores/label-editor-store";
-import type { GridCommandResult } from "@/lib/grid-commands";
+import type { GridCommandResult, LabelCommand } from "@/lib/grid-commands";
 import { acceptEnrichedImage, attachEnrichment, useEnrichmentStore } from "@/stores/enrichment-store";
-import { acceptObservedImages, admitLabelObservation, captureImageRead, resetImageFreshnessForTests, stampImageRead } from "@/lib/image-read-freshness";
+import { acceptImageOverlay, acceptObservedImages, admitLabelObservation, captureImageRead, recordImageAvailability, resetImageFreshnessForTests, stampImageRead } from "@/lib/image-read-freshness";
 
 const fixture = vi.hoisted(() => {
   vi.stubGlobal("matchMedia", vi.fn(() => ({
@@ -65,8 +65,131 @@ describe("multi-image cost summary", () => {
 });
 
 describe("disconnected label editing", () => {
+  it("bounds overlapping bulk submissions and lets a waiting operation be stopped", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    let release!: (result: GridCommandResult) => void;
+    const executor = vi.fn().mockImplementationOnce(() => new Promise<GridCommandResult>(resolve => { release = resolve; }))
+      .mockResolvedValue({ outcome: "rejected", status: 403, errorKey: "permission-denied" });
+    const store = createLabelEditorStore(executor, undefined, "connected");
+    const context = (imageId: string) => ({ targetIds: [imageId], targets: new Map([[imageId, {
+      resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${imageId}` }] },
+    }]]) });
+    try {
+      expect(store.getState().prepare("add", "first", context("first"))).toBe(true);
+      recordImageAvailability(["unavailable"], "unavailable");
+      expect(store.getState().prepare("add", "unavailable", context("unavailable"))).toBe(false);
+      expect(store.getState().prepare("add", "invalid", context("invalid/id"))).toBe(false);
+      expect(store.getState().prepare("add", "second", context("second"))).toBe(true);
+      expect(store.getState().prepare("add", "third", context("third"))).toBe(false);
+      expect(store.getState().refusal).toBe("busy");
+      expect(executor).toHaveBeenCalledTimes(1);
+      expect(store.getState().receipts[1].items[0].state).toBe("queued");
+      render(<LabelEditorContext value={store}><LabelOperationReceipts /></LabelEditorContext>);
+      expect(screen.getAllByRole("progressbar", { name: "Label operation progress" })).toHaveLength(2);
+      fireEvent.click(screen.getByRole("button", { name: "Stop remaining" }));
+      expect(store.getState().receipts[1].items[0].state).toBe("stopped");
+      await act(async () => { release({ outcome: "unknown" }); });
+      expect(executor).toHaveBeenCalledTimes(1);
+      expect(store.getState().receipts[0].items[0].state).toBe("unknown");
+      expect(store.getState().prepare("add", "second", context("second"))).toBe(true);
+      expect(store.getState().receipts).toHaveLength(3);
+    } finally { store.getState().dispose(); release?.({ outcome: "unknown" }); }
+  });
+
+  it("refuses oversized actual membership before consulting target metadata", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const executor = vi.fn();
+    const store = createLabelEditorStore(executor, undefined, "connected");
+    const targets = new Map();
+    const getTarget = vi.spyOn(targets, "get");
+    expect(store.getState().prepare("add", "news", {
+      targetIds: Array.from({ length: 5_001 }, (_, index) => `image-${index}`), targets,
+    })).toBe(false);
+    expect(store.getState().refusal).toBe("target-limit");
+    expect(getTarget).not.toHaveBeenCalled();
+    expect(executor).not.toHaveBeenCalled();
+    render(<LabelEditorContext value={store}><MultiImageMetadata images={images} total={101}
+      reconciledView={recomputeAll(images, RECONCILE_FIELDS)} labelEditing={{
+        targetIds: Array.from({ length: 101 }, (_, index) => `image-${index}`), targets,
+      }} /></LabelEditorContext>);
+    expect(screen.getByText("Select at most 100 images to edit labels.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add label" }).hasAttribute("disabled")).toBe(true);
+    store.getState().dispose();
+  });
+
+  it("shows every bounded connected target outcome, including failures beyond the old preview", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.useFakeTimers();
+    const executor = vi.fn(async (command: LabelCommand): Promise<GridCommandResult> => command.imageId === "image-8"
+      ? { outcome: "rejected", status: 403, errorKey: "ninth-rejection" } : { outcome: "acknowledged" });
+    const store = createLabelEditorStore(executor, undefined, "connected");
+    const ids = Array.from({ length: 9 }, (_, index) => `image-${index}`);
+    try {
+      store.getState().prepare("add", "news", { targetIds: ids, targets: new Map(ids.map(imageId => [imageId, {
+        resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${imageId}` }] },
+      }])) });
+      await vi.advanceTimersByTimeAsync(2_000);
+      render(<LabelEditorContext value={store}><LabelOperationReceipts /></LabelEditorContext>);
+      fireEvent.click(screen.getByText("Details", { selector: "summary" }));
+      expect(screen.getByText(/ninth-rejection/).textContent).toContain('"imageId": "image-8"');
+    } finally { store.getState().dispose(); vi.useRealTimers(); }
+  });
+
+  it("holds the next operation until grouped observation finishes, preserving pacing across handoff", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.useFakeTimers();
+    let release!: (images: Image[]) => void;
+    const executor = vi.fn().mockResolvedValueOnce({ outcome: "acknowledged" })
+      .mockResolvedValue({ outcome: "rejected", status: 403, errorKey: "permission-denied" });
+    const readImages = vi.fn(() => new Promise<Image[]>(resolve => { release = resolve; }));
+    const publishImages = vi.fn();
+    const store = createLabelEditorStore(executor, { readImages, publishImages }, "connected");
+    const context = (imageId: string) => ({ targetIds: [imageId], targets: new Map([[imageId, {
+      resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${imageId}` }] },
+    }]]) });
+    try {
+      store.getState().prepare("add", "news", context(images[0].id));
+      store.getState().prepare("add", "news", context(images[1].id));
+      await vi.advanceTimersByTimeAsync(100);
+      expect(executor).toHaveBeenCalledTimes(1);
+      release([{ ...images[0], userMetadata: { labels: ["news"] } }]);
+      await vi.advanceTimersByTimeAsync(149);
+      expect(publishImages).toHaveBeenCalledTimes(1);
+      expect(executor).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(executor).toHaveBeenCalledTimes(2);
+      expect(store.getState().receipts.map(receipt => receipt.items[0].state)).toEqual(["accepted-awaiting-visibility", "rejected"]);
+    } finally { store.getState().dispose(); release?.([]); vi.useRealTimers(); }
+  });
+
+  it("refuses a waiting target whose capability was withdrawn by a newer browsing read", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.useFakeTimers();
+    let release!: (images: Image[]) => void;
+    const executor = vi.fn().mockResolvedValue({ outcome: "acknowledged" });
+    const store = createLabelEditorStore(executor, {
+      readImages: () => new Promise<Image[]>(resolve => { release = resolve; }), publishImages: vi.fn(),
+    }, "connected");
+    const context = (imageId: string) => ({ targetIds: [imageId], targets: new Map([[imageId, {
+      resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${imageId}` }] },
+    }]]) });
+    try {
+      store.getState().prepare("add", "news", context(images[0].id));
+      store.getState().prepare("add", "news", context(images[1].id));
+      await vi.advanceTimersByTimeAsync(100);
+      const denied = { resource: { links: [] } };
+      stampImageRead(images[1], denied, captureImageRead(), "lean");
+      acceptImageOverlay(images[1].id, denied);
+      release([{ ...images[0], userMetadata: { labels: ["news"] } }]);
+      await vi.advanceTimersByTimeAsync(150);
+      expect(executor).toHaveBeenCalledTimes(1);
+      expect(store.getState().receipts[1].blocked).toBe("capabilities");
+    } finally { store.getState().dispose(); release?.([]); vi.useRealTimers(); }
+  });
+
   it("allows a new explicit connected add after observed add and removal without replaying pending or unknown commands", async () => {
     vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.useFakeTimers();
     const resource = { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/img-0" }] };
     const context = { targetIds: [images[0].id], targets: new Map([[images[0].id, { resource }]]) };
     let labels: string[] = [];
@@ -88,20 +211,48 @@ describe("disconnected label editing", () => {
       await act(async () => {
         store.getState().prepare("add", "again", context);
         store.getState().prepare("add", "again", context);
+        await vi.advanceTimersByTimeAsync(250);
       });
       expect(executor).toHaveBeenCalledTimes(1);
       expect(store.getState().receipts[0].items[0].observation).toBe("observed");
-      await act(async () => { store.getState().prepare("remove", "again", context); });
+      await act(async () => { store.getState().prepare("remove", "again", context); await vi.advanceTimersByTimeAsync(250); });
       expect(store.getState().receipts[1].items[0].observation).toBe("observed");
-      await act(async () => { store.getState().prepare("add", "again", context); });
+      await act(async () => { store.getState().prepare("add", "again", context); await vi.advanceTimersByTimeAsync(250); });
       expect(executor).toHaveBeenCalledTimes(3);
       expect(store.getState().receipts[2].items[0]).toMatchObject({ state: "unknown", observation: "observed" });
       await act(async () => { store.getState().prepare("add", "again", context); });
       expect(executor).toHaveBeenCalledTimes(3);
-    } finally { store.getState().dispose(); }
+    } finally { store.getState().dispose(); vi.useRealTimers(); }
   });
 
-  it("labels connected receipts truthfully and refuses multi-image execution", async () => {
+  it("admits a new explicit action after an acknowledged deadline and a fresh canonical read", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.useFakeTimers();
+    const resource = { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/img-0" }] };
+    const context = { targetIds: [images[0].id], targets: new Map([[images[0].id, { resource }]]) };
+    const executor = vi.fn().mockResolvedValue({ outcome: "acknowledged" });
+    const store = createLabelEditorStore(executor, { readImages: async () => [], publishImages: vi.fn() }, "connected");
+    try {
+      expect(store.getState().prepare("add", "again", context)).toBe(true);
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(store.getState().receipts[0].items[0]).toMatchObject({ state: "accepted-awaiting-visibility", observation: "deadline" });
+      expect(store.getState().prepare("add", "again", context)).toBe(false);
+      const currentResource = structuredClone(resource);
+      const current = { ...images[0], userMetadata: { labels: ["again"], lastModified: "2026-11-08T00:00:00Z" } };
+      attachEnrichment(current, { resource: currentResource });
+      stampImageRead(current, { resource: currentResource }, captureImageRead(), "lean");
+      expect(acceptEnrichedImage(current)).toBe(current);
+      expect(executor).toHaveBeenCalledTimes(1);
+      expect(store.getState().prepare("add", "again", {
+        targetIds: [current.id], targets: new Map([[current.id, { resource: currentResource }]]),
+      })).toBe(true);
+      await vi.advanceTimersByTimeAsync(250);
+      expect(executor).toHaveBeenCalledTimes(2);
+      expect(store.getState().receipts).toHaveLength(2);
+    } finally { store.getState().dispose(); vi.useRealTimers(); }
+  });
+
+  it("labels connected receipts truthfully and refuses oversized execution", async () => {
     vi.stubEnv("VITE_USE_MEDIA_API", "true");
     const executor = vi.fn().mockResolvedValue({ outcome: "rejected", status: 403, errorKey: "permission-denied" });
     const store = createLabelEditorStore(executor, undefined, "connected");
@@ -116,9 +267,10 @@ describe("disconnected label editing", () => {
     expect(screen.getByText("Label change", { exact: true })).toBeTruthy();
     expect(screen.queryByText(/Simulated/)).toBeNull();
     act(() => { store.getState().prepare("add", "another label", {
-      targetIds: images.map(image => image.id), targets: new Map(images.map(image => [image.id, { resource }])),
+      targetIds: Array.from({ length: 101 }, (_, index) => `image-${index}`), targets: new Map(),
     }); });
-    expect(store.getState().receipts[1]).toMatchObject({ blocked: "target-limit", items: [{ state: "not-started" }, { state: "not-started" }] });
+    expect(store.getState().refusal).toBe("target-limit");
+    expect(store.getState().receipts).toHaveLength(1);
     expect(executor).toHaveBeenCalledTimes(1);
   });
 
@@ -182,7 +334,6 @@ describe("disconnected label editing", () => {
 
   it("cancels unsent input on Escape and retains navigation drafts, using the owned overlay without service calls", () => {
     vi.stubEnv("VITE_USE_MEDIA_API", "true");
-    vi.stubEnv("VITE_GRID_API_WRITES_ENABLED", "true");
     const transport = vi.spyOn(globalThis, "fetch");
     const store = createLabelEditorStore();
     const overlay = { resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${images[0].id}` }] } };

@@ -99,6 +99,16 @@ workflow direction; that direction is not permission to implement the later Dele
 | Initial resource budget | One active single-label simulated observation group, at most 200 captured IDs; three mget attempts, at least one second apart, ten-second deadline starting immediately before first fake dispatch | Prototype proof bounds, not a write-capacity certificate or a production batch scheduler; disconnected comma-separated preparation is unchanged |
 | Freshness-fact lifetime | Document-lifetime metadata floors for at most 1,000 distinct touched IDs; refuse new simulation admission at capacity | No silent eviction of freshness protection; browsing stays usable, no compulsory reload |
 
+**Step-6 composition:** connected labels use at most 100 targets with one group,
+the existing 200-ID admission cap, three grouped attempts and 1,000 touched IDs.
+Unlike the simulated ten-second proof above, paced connected execution has a 120-second
+dispatch bound and up to ten seconds of final observation, capped at 130 seconds from
+activation. After an early read, remaining attempts wait for dispatch to settle. Waiting
+operations start no clocks until activated. Deadline expiry stops unsent work while
+dispatched writes retain their eventual outcomes. Early verified bodies publish without replaying commands. Unsent
+admission reservations are released without discarding newer read evidence. See the
+[current batch contract](../../src/dal/grid-api/README.md#step-6-bounded-label-execution).
+
 The numerical limits above are deliberately conservative initial defaults, not
 benchmarked optima. They bound new observation work, not selected membership,
 existing dry-run receipts or the whole application heap. The operation target limit

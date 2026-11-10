@@ -3,20 +3,15 @@
  * Kupua's page. Only hosted builds (VITE_HOSTED=true) read it; local modes never do.
  */
 
-import { parseMutationRollout } from "./grid-mutation-policy.ts";
-
 export interface HostedConfig {
   mediaApiUri?: string;
   collectionsUri?: string;
-  metadataEditorUri?: string;
-  authUri?: string;
-  mutations?: unknown;
   /** The user's `show_paid` permission; drives initial/Home defaults only. */
   showPaid?: unknown;
   gridConfig?: unknown;
 }
 
-type ServiceUriKey = "mediaApiUri" | "collectionsUri" | "metadataEditorUri" | "authUri";
+type ServiceUriKey = "mediaApiUri" | "collectionsUri";
 
 export interface HostedFieldAlias {
   elasticsearchPath: string;
@@ -84,10 +79,6 @@ export function hostedServiceUri(key: ServiceUriKey): string | undefined {
 function injected(): HostedConfig | undefined {
   if (!isHostedBuild() || typeof window === "undefined") return undefined;
   return window.__KUPUA_CONFIG__;
-}
-
-export function hostedMutationRollout() {
-  return parseMutationRollout(injected()?.mutations);
 }
 
 /** Undefined when absent or invalid: callers keep their compatibility default. */

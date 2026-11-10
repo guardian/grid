@@ -25,16 +25,18 @@ export function shouldEnableDirectBedrockProxy(useMediaApi: string | undefined, 
   return useMediaApi !== "true" && !isVitest;
 }
 
-export function gridServiceOrigin(service: "metadata" | "auth"): string | undefined {
-  const hosted = isHostedBuild();
-  const configured = hosted
-    ? hostedServiceUri(service === "metadata" ? "metadataEditorUri" : "authUri")
-    : service === "metadata" ? import.meta.env.VITE_GRID_METADATA_ORIGIN : import.meta.env.VITE_GRID_AUTH_ORIGIN;
-  return serviceOrigin(configured, !hosted);
+export function gridServiceOrigin(href: unknown, expectedPath = "/"): string | undefined {
+  if (expectedPath === "/") return serviceOrigin(href, !isHostedBuild());
+  if (typeof href !== "string") return undefined;
+  try {
+    const url = new URL(href);
+    return href === `${url.origin}${expectedPath}` ? serviceOrigin(url.origin, !isHostedBuild()) : undefined;
+  } catch { return undefined; }
 }
 
-export function gridServiceUrl(service: "metadata" | "auth", href: unknown, expectedPath: string): string | undefined {
-  const origin = gridServiceOrigin(service);
+export function gridServiceUrl(service: "metadata" | "auth", href: unknown, expectedPath: string, origin: string | undefined): string | undefined {
   if (!origin || href !== `${origin}${expectedPath}`) return undefined;
-  return isHostedBuild() ? href as string : `/grid-${service}${expectedPath}`;
+  if (isHostedBuild()) return href as string;
+  const configured = service === "metadata" ? import.meta.env.VITE_GRID_METADATA_ORIGIN : import.meta.env.VITE_GRID_AUTH_ORIGIN;
+  return serviceOrigin(configured, true) === origin ? `/grid-${service}${expectedPath}` : undefined;
 }

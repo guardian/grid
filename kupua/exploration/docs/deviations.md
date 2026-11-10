@@ -28,9 +28,12 @@ neither successful omission nor singleton 404 is deletion evidence.
 Kahuna's label controls write immediately. Kupua uses the familiar searchable value,
 remove and partial-value apply-to-all controls, but default-off gestures only prepare
 immutable intent and explicitly say the data was not sent. Opt-in API-mode editing
-connects one image and one label per submission; multi-image and comma-separated
-execution are refused before dispatch. Current labels are never optimistically changed. There is no additional
-confirmation, operation cancellation or undo workflow. Uncancelled input and receipts
+uses one saved startup preference, changed through Hi, Joshua > Apply and reload.
+The common Step-6 policy permits 100 images, three command executions, 250 ms between
+starts and one waiting operation, without per-operation or bulk rollout flags.
+Comma-separated execution remains refused. Current labels are
+never optimistically changed. Stop remaining cancels only never-started work, not dispatched
+commands; no undo or extra confirmation is introduced. Uncancelled input and receipts
 survive SPA navigation in memory, not reloads. Escape or Close explicitly cancels the
 unsent entry only; Enter prepares comma-separated additions. Direct-ES remains read-only.
 
@@ -61,13 +64,17 @@ UX is explicitly deferred; these safeguards are not a claim of desktop/mobile pa
 ### Bounded Label Readback (6 November 2026)
 
 Unlike Kahuna's per-image polling after writes, Kupua's connected and simulated label execution
-uses at most three grouped mget reads, one current standalone full follow-up and a
-ten-second observation deadline independent of held command outcomes. Exact returned
+uses at most three grouped mget reads and one current standalone full follow-up. Simulated
+observation retains its ten-second budget; connected work separates a 120-second dispatch
+period from up to ten seconds of final observation, under a 130-second hard observation
+cap. Exact returned
 labels establish observation, not a count query or a boolean fixture assertion.
 One group of up to 200 IDs is admitted for synthetic multi-image addition; connected
-editing is restricted to one image. Supplied-executor multi-label input is refused
+editing uses at most 100 of that budget without multiplying observers. One early read
+can publish verified items while dispatch is still queued; remaining attempts wait for
+dispatch to settle. Supplied-executor multi-label input is refused
 before dispatch, while disconnected comma-separated preparation is unchanged.
-Removal is limited to one image and uses exact label absence in returned authoritative
+Removal shares the same target policy and uses exact label absence in returned authoritative
 data, rather than equality with the whole write-response label list. Unrelated labels
 may change concurrently without blocking this postcondition. Missing data is not absence;
 matching state establishes neither causation nor a known command outcome.
@@ -81,6 +88,15 @@ uncertainty, not production write capacity, cross-tab freshness or exact rank re
 Editing remains disconnected unless explicitly enabled. The [A3 checkpoint](gradually-growing-teeth.step-4-publication-plan.md#a3-checkpoint)
 owns the simulated foundation; [Step 5](gradually-growing-teeth.kupua-edits-steps.md#step-5-give-one-label-operation-real-teeth)
 owns the connected scope and selected local-topology evidence.
+
+Step 6 deliberately does not copy Kahuna's independent 30-task batches. One common
+queue composes writes with observation; throttling delays only unsent work, never replays
+possibly accepted commands, and the deadline stops remaining unsent items truthfully.
+All outcomes in an admitted connected batch remain inspectable. This trades throughput
+for bounded prototype work. One shared policy keeps concurrency, pace, queue and lifetime
+bounds together; the [batch contract](../../src/dal/grid-api/README.md#step-6-bounded-label-execution)
+owns the precise limits. These controls do not protect shared infrastructure from other
+clients or substitute for server authorization/capacity decisions.
 
 ### Stable Display Coordinates During Simulated Editing
 
@@ -105,9 +121,12 @@ describe these lifetimes and presentation rules. Enabled one-image editing reuse
 
 ### Default-Off Commands and Explicit Reload (4 November 2026)
 
-Kupua's command transport accepts only named, enabled operations, currently label
-addition and single-label removal, with startup wiring only under explicit API-mode rollout.
-This temporary rollout gate is additional to server
+Kupua's command transport accepts only named, implemented label addition/removal operations,
+with startup wiring only under API mode and one temporary saved editing preference.
+The preference requires reload, not live switching, queue cancellation or cross-tab
+admission synchronization. It is intended to disappear once editing is established;
+server permissions and capabilities remain. Service addresses use the existing media-api
+directory once per page, not Kahuna mutation/address injection. This temporary gate is additional to server
 authentication/authorization and can later be removed without generalizing the
 transport. It does not change Kahuna's editing flows or repair backend policy gaps.
 

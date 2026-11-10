@@ -51,6 +51,10 @@ export async function serviceLink(rel: string): Promise<string | undefined> {
   return (await discovery.init()) ? discovery.getLink(rel) : undefined;
 }
 
+export async function getGridServiceOrigin(service: "metadata" | "auth"): Promise<string | undefined> {
+  return gridServiceOrigin(await serviceLink(service === "metadata" ? "edits" : "session"), service === "metadata" ? "/" : "/session");
+}
+
 export function getGridSessionPermissions(): Promise<GridSessionPermissions | null> {
   if (import.meta.env.VITE_USE_MEDIA_API !== "true" || sessionInvalidated) return Promise.resolve(null);
   return sessionPermissionsRead ??= readSessionPermissions();
@@ -58,9 +62,9 @@ export function getGridSessionPermissions(): Promise<GridSessionPermissions | nu
 
 async function readSessionPermissions(): Promise<GridSessionPermissions | null> {
   try {
-    if (!gridServiceOrigin("auth")) return null;
+    const origin = await getGridServiceOrigin("auth");
     const href = await serviceLink("session");
-    const url = gridServiceUrl("auth", href, "/session");
+    const url = gridServiceUrl("auth", href, "/session", origin);
     if (!url || sessionInvalidated) return null;
     const response = await fetch(url, { credentials: "include", redirect: "error", signal: AbortSignal.timeout(15_000) });
     if (response.status === 401 || response.status === 419) invalidateGridSession();

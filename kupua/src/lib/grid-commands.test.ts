@@ -8,43 +8,66 @@ const command = {
   resource: { links: [{ rel: "edits", href: `${metadataOrigin}/metadata/fixture` }] },
   labels: ["fixture label"],
 };
-const root = () => Response.json({ links: [{ rel: "session", href: `${authOrigin}/session` }] });
+const root = () => Response.json({ links: [{ rel: "edits", href: metadataOrigin }, { rel: "session", href: `${authOrigin}/session` }] });
 const session = () => Response.json({ data: { user: { permissions: {} } } });
 const edits = (uri = `${metadataOrigin}/metadata/fixture/labels`) => Response.json({ data: { labels: { uri, data: [] } } });
 
 beforeEach(() => {
   vi.resetModules();
   vi.stubEnv("VITE_USE_MEDIA_API", "true");
-  vi.stubEnv("VITE_GRID_API_WRITES_ENABLED", "true");
-  vi.stubEnv("VITE_GRID_API_OPERATIONS", "add-labels");
+  vi.stubGlobal("localStorage", { getItem: () => "true" });
   vi.stubEnv("VITE_GRID_METADATA_ORIGIN", metadataOrigin);
   vi.stubEnv("VITE_GRID_AUTH_ORIGIN", authOrigin);
 });
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("Grid command admission", () => {
-  it("connects the editor only with API mode, valid origins and an enabled named operation", async () => {
+  it("uses discovered hosted services without injected addresses or rollout flags", async () => {
+    vi.stubEnv("VITE_HOSTED", "true");
+    vi.stubEnv("VITE_GRID_METADATA_ORIGIN", "");
+    vi.stubEnv("VITE_GRID_AUTH_ORIGIN", "");
+    vi.stubGlobal("window", { __KUPUA_CONFIG__: { mediaApiUri: "https://api.example.test" } });
+    const transport = vi.fn().mockResolvedValueOnce(Response.json({ links: [
+      { rel: "edits", href: metadataOrigin }, { rel: "session", href: `${authOrigin}/session` },
+    ] })).mockResolvedValueOnce(session()).mockResolvedValueOnce(edits())
+      .mockResolvedValueOnce(new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", transport);
+    const { executeGridCommand } = await import("./grid-commands");
+    await expect(executeGridCommand(command)).resolves.toEqual({ outcome: "acknowledged" });
+    expect(transport.mock.calls.map(([url]) => url)).toEqual([
+      "https://api.example.test", `${authOrigin}/session`, `${metadataOrigin}/metadata/fixture`,
+      `${metadataOrigin}/metadata/fixture/labels`,
+    ]);
+  });
+
+  it("captures one saved preference at startup and applies changes only after reload", async () => {
+    let saved: string | null = "true";
+    vi.stubGlobal("localStorage", { getItem: () => saved, setItem: (_key: string, value: string) => { saved = value; } });
     const transport = vi.fn();
     vi.stubGlobal("fetch", transport);
     const { gridLabelEditingEnabled } = await import("./grid-commands");
+    const { saveEditingPreference } = await import("./editing-preference");
     expect(gridLabelEditingEnabled()).toBe(true);
-    vi.stubEnv("VITE_GRID_API_WRITES_ENABLED", "false");
-    expect(gridLabelEditingEnabled()).toBe(false);
-    vi.stubEnv("VITE_GRID_API_WRITES_ENABLED", "true");
-    vi.stubEnv("VITE_GRID_API_OPERATIONS", "unknown");
-    expect(gridLabelEditingEnabled()).toBe(false);
-    vi.stubEnv("VITE_GRID_API_OPERATIONS", "remove-label");
+    expect(saveEditingPreference(false)).toBe(true);
     expect(gridLabelEditingEnabled()).toBe(true);
-    vi.stubEnv("VITE_GRID_METADATA_ORIGIN", "");
-    expect(gridLabelEditingEnabled()).toBe(false);
-    vi.stubEnv("VITE_GRID_METADATA_ORIGIN", metadataOrigin);
-    vi.stubEnv("VITE_USE_MEDIA_API", "false");
-    expect(gridLabelEditingEnabled()).toBe(false);
+    vi.resetModules();
+    const reloaded = await import("./grid-commands");
+    expect(reloaded.gridLabelEditingEnabled()).toBe(false);
+    expect((await reloaded.executeGridCommand(command)).outcome).toBe("blocked");
     expect(transport).not.toHaveBeenCalled();
   });
 
+  it("reports an already absent label as unchanged without sending a mutation", async () => {
+    const transport = vi.fn().mockResolvedValueOnce(root()).mockResolvedValueOnce(session()).mockResolvedValueOnce(edits());
+    vi.stubGlobal("fetch", transport);
+    const { executeGridCommand } = await import("./grid-commands");
+    await expect(executeGridCommand({ operation: "remove-label", imageId: command.imageId,
+      resource: command.resource, label: "news" })).resolves.toEqual({ outcome: "unchanged" });
+    expect(transport).toHaveBeenCalledTimes(3);
+    expect(transport.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
+  });
+
   it("removes only the exact advertised label resource and refuses absent or mismatched capabilities", async () => {
-    vi.stubEnv("VITE_GRID_API_OPERATIONS", "remove-label");
     const label = "news / + % ? #";
     const uri = `${metadataOrigin}/metadata/fixture/labels/news+%2F+%2B+%25+%3F+%23`;
     const removal = { operation: "remove-label", imageId: command.imageId, resource: command.resource, label };
@@ -58,7 +81,7 @@ describe("Grid command admission", () => {
       method: "DELETE", credentials: "include", redirect: "error",
     }));
     expect(transport.mock.calls.at(-1)?.[1].body).toBeUndefined();
-    for (const data of [[], [{ data: label }], [{ uri, data: `${label} suffix` }],
+    for (const data of [[{ data: label }],
       [{ uri: uri.replace("/fixture/", "/other/"), data: label }], [{ uri: uri.replace(metadataOrigin, "https://other.example.test"), data: label }]]) {
       transport.mockResolvedValueOnce(response(data));
       await expect(executeGridCommand(removal)).resolves.toMatchObject({ outcome: "blocked" });
@@ -99,54 +122,48 @@ describe("Grid command admission", () => {
     }));
   });
 
-  it("dispatches nothing for disabled, unknown, malformed or direct-ES commands", async () => {
+  it("refuses malformed and direct-ES commands even with a saved enabled preference", async () => {
     const transport = vi.fn();
     vi.stubGlobal("fetch", transport);
     const { executeGridCommand } = await import("./grid-commands");
-    for (const invalid of [{ ...command, operation: "delete" }, { ...command, method: "DELETE" }, { ...command, labels: [] },
-      { ...command, resource: { links: [] } }, { ...command, imageId: "other" }]) {
-      expect((await executeGridCommand(invalid)).outcome).toBe("blocked");
+    for (const invalid of [{ ...command, operation: "delete" }, { ...command, method: "DELETE" }, { ...command, labels: [] }]) {
+      expect(await executeGridCommand(invalid)).toEqual({ outcome: "blocked", reason: "invalid-command" });
     }
-    vi.stubEnv("VITE_GRID_API_OPERATIONS", "unknown");
-    expect((await executeGridCommand(command)).outcome).toBe("blocked");
-    vi.stubEnv("VITE_GRID_API_OPERATIONS", "add-labels");
-    vi.stubEnv("VITE_GRID_AUTH_ORIGIN", "");
-    expect((await executeGridCommand(command)).outcome).toBe("blocked");
-    vi.stubEnv("VITE_GRID_AUTH_ORIGIN", authOrigin);
-    vi.stubEnv("VITE_GRID_API_WRITES_ENABLED", "false");
-    expect((await executeGridCommand(command)).outcome).toBe("blocked");
-    vi.stubEnv("VITE_GRID_API_WRITES_ENABLED", "true");
     vi.stubEnv("VITE_USE_MEDIA_API", "false");
-    expect((await executeGridCommand(command)).outcome).toBe("blocked");
+    expect(await executeGridCommand(command)).toEqual({ outcome: "blocked", reason: "disabled" });
     expect(transport).not.toHaveBeenCalled();
   });
 
-  it("uses hosted configuration only and rechecks rollout before dispatch", async () => {
-    vi.stubEnv("VITE_HOSTED", "true");
-    const config = {
-      mediaApiUri: "https://api.example.test", metadataEditorUri: metadataOrigin, authUri: authOrigin,
-      mutations: { enabled: true, operations: ["add-labels"] },
-    };
-    const host: { __KUPUA_CONFIG__?: typeof config } = {};
-    vi.stubGlobal("window", host);
+  it("defaults off when storage is absent or inaccessible", async () => {
+    const storage = vi.fn().mockReturnValue(null);
+    vi.stubGlobal("localStorage", { getItem: storage });
     const transport = vi.fn();
     vi.stubGlobal("fetch", transport);
     const { executeGridCommand } = await import("./grid-commands");
-    expect((await executeGridCommand(command)).outcome).toBe("blocked");
+    expect(await executeGridCommand(command)).toEqual({ outcome: "blocked", reason: "disabled" });
+    storage.mockImplementation(() => { throw new Error("Storage unavailable"); });
+    const { readEditingPreference } = await import("./editing-preference");
+    expect(readEditingPreference()).toBe(false);
     expect(transport).not.toHaveBeenCalled();
-    host.__KUPUA_CONFIG__ = config;
-    transport.mockResolvedValueOnce(root()).mockResolvedValueOnce(session()).mockImplementationOnce(async () => {
-      config.mutations.enabled = false;
-      return edits();
-    });
-    expect((await executeGridCommand(command)).outcome).toBe("blocked");
-    expect(transport.mock.calls.map(([url]) => url)).toEqual([
-      "https://api.example.test", `${authOrigin}/session`, `${metadataOrigin}/metadata/fixture`,
-    ]);
-    config.mutations.enabled = true;
-    transport.mockResolvedValueOnce(edits()).mockResolvedValueOnce(new Response(null, { status: 200 }));
-    expect((await executeGridCommand(command)).outcome).toBe("acknowledged");
-    expect(transport).toHaveBeenLastCalledWith(`${metadataOrigin}/metadata/fixture/labels`, expect.objectContaining({ method: "POST" }));
+  });
+
+  it("refuses unavailable directory services and mismatched local proxy targets", async () => {
+    for (const links of [[], [{ rel: "edits", href: "http://metadata.example.test" }],
+      [{ rel: "edits", href: metadataOrigin }, { rel: "session", href: `${authOrigin}/wrong` }]]) {
+      vi.resetModules();
+      const transport = vi.fn().mockResolvedValueOnce(Response.json({ links }));
+      vi.stubGlobal("fetch", transport);
+      const { executeGridCommand } = await import("./grid-commands");
+      expect((await executeGridCommand(command)).outcome).toBe("blocked");
+      expect(transport).toHaveBeenCalledOnce();
+    }
+    vi.resetModules();
+    vi.stubEnv("VITE_GRID_METADATA_ORIGIN", "https://other.example.test");
+    const transport = vi.fn().mockResolvedValueOnce(root());
+    vi.stubGlobal("fetch", transport);
+    const { executeGridCommand } = await import("./grid-commands");
+    expect(await executeGridCommand(command)).toEqual({ outcome: "blocked", reason: "invalid-command" });
+    expect(transport).toHaveBeenCalledOnce();
   });
 
   it("never follows a foreign labels resource or replays a lost write response", async () => {
@@ -162,10 +179,10 @@ describe("Grid command admission", () => {
   });
 
   it.each([
+    [429, { outcome: "unknown", status: 429 }],
     [503, { outcome: "unknown" }],
     [403, { outcome: "rejected", status: 403, errorKey: "permission-denied" }],
   ])("classifies HTTP %s without replaying the submitted write", async (status, expected) => {
-    vi.stubEnv("VITE_GRID_API_OPERATIONS", "remove-label");
     const transport = vi.fn().mockResolvedValueOnce(root()).mockResolvedValueOnce(session())
       .mockResolvedValueOnce(Response.json({ data: { labels: { uri: `${metadataOrigin}/metadata/fixture/labels`,
         data: [{ uri: `${metadataOrigin}/metadata/fixture/labels/news`, data: "news" }] } } }))
@@ -195,17 +212,4 @@ describe("Grid command admission", () => {
     await expect(getGridSessionPermissions()).resolves.toBeNull();
   });
 
-  it("honors the emergency stop while prerequisite reads are pending", async () => {
-    let release!: (value: Response) => void;
-    const transport = vi.fn().mockResolvedValueOnce(root()).mockResolvedValueOnce(session())
-      .mockImplementationOnce(() => new Promise<Response>((resolve) => { release = resolve; }));
-    vi.stubGlobal("fetch", transport);
-    const { executeGridCommand, stopGridMutations } = await import("./grid-commands");
-    const pending = executeGridCommand(command);
-    await vi.waitFor(() => expect(transport).toHaveBeenCalledTimes(3));
-    stopGridMutations();
-    release(edits());
-    expect((await pending).outcome).toBe("blocked");
-    expect(transport).toHaveBeenCalledTimes(3);
-  });
 });

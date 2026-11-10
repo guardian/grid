@@ -26,8 +26,9 @@ import { BUFFER_CAPACITY, SELECTION_PERSIST_DEBOUNCE_MS } from "@/constants/tuni
 import { RECONCILE_FIELDS } from "@/lib/field-registry";
 import { recomputeAll } from "@/lib/reconcile";
 import type { Image } from "@/types/image";
-import { createLabelOperation } from "@/lib/label-operation";
-import { resetImageFreshnessForTests } from "@/lib/image-read-freshness";
+import { createLabelOperation, labelTargetCounts } from "@/lib/label-operation";
+import { attachEnrichment } from "@/stores/enrichment-store";
+import { captureImageRead, isLabelAuthorityCurrent, resetImageFreshnessForTests, stampImageRead } from "@/lib/image-read-freshness";
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -502,6 +503,40 @@ describe("ensureMetadata", () => {
     // Second call should skip img-0.
     await useSelectionStore.getState().ensureMetadata(["img-0"]);
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])("reselects an expired label target through a fresh read, preserving revoked authority=%s", async revoked => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const [base] = await mock.getByIds(["img-0"]);
+    const resource = { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/img-0" }] };
+    const original = { ...base, userMetadata: { labels: [], lastModified: "2026-11-01T00:00:00Z" } };
+    attachEnrichment(original, { resource });
+    stampImageRead(original, { resource }, captureImageRead(), "lean");
+    const currentResource = revoked ? { links: [] } : structuredClone(resource);
+    const current = { ...base, userMetadata: { labels: ["news"], lastModified: "2026-11-08T00:00:00Z" } };
+    attachEnrichment(current, { resource: currentResource });
+    const reads = vi.spyOn(mock, "getByIds").mockResolvedValueOnce([original]).mockImplementationOnce(async () => {
+      stampImageRead(current, { resource: currentResource }, captureImageRead(), "lean");
+      return [current];
+    });
+    await useSelectionStore.getState().ensureMetadata([original.id]);
+    vi.useFakeTimers();
+    const executor = vi.fn().mockResolvedValue({ outcome: "acknowledged" });
+    const operation = createLabelOperation(executor, { readImages: async () => [], publishImages: vi.fn() }, "connected");
+    try {
+      await operation.confirm({ action: "add", label: "news", targetIds: [original.id] }, new Map([[original.id, { resource }]]));
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(operation.getSnapshot()?.items[0]).toMatchObject({ state: "accepted-awaiting-visibility", observation: "deadline" });
+      expect(isLabelAuthorityCurrent(original.id, resource)).toBe(false);
+      useSelectionStore.getState().clear();
+      useSelectionStore.getState().add([original.id]);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(reads).toHaveBeenCalledTimes(2);
+      expect(useSelectionStore.getState().metadataCache.get(original.id)).toBe(current);
+      expect(labelTargetCounts({ targetIds: [original.id], targets: new Map([[original.id, { resource: currentResource }]]) }))
+        .toMatchObject({ eligible: revoked ? 0 : 1, ineligible: revoked ? 1 : 0, unresolved: 0 });
+      expect(executor).toHaveBeenCalledTimes(1);
+    } finally { operation.cancelObservation(); vi.useRealTimers(); vi.unstubAllEnvs(); }
   });
 
   it("does not double-fetch IDs currently in-flight (pendingFetchIds guard)", async () => {

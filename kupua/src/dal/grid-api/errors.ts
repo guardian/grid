@@ -37,7 +37,7 @@ export class ArgoError extends Error {
 /**
  * Thrown when a non-GET request is blocked by the `gridApiWriteGuard()` Vite plugin.
  *
- * This is a developer-configuration issue (VITE_GRID_API_WRITES_ENABLED not set),
+ * This indicates an unsupported proxy method/path,
  * NOT a server-side permission denial. The body prefix `[grid-api-write-guard]`
  * distinguishes it from a media-api 403 (which has an Argo JSON body).
  *
@@ -46,7 +46,7 @@ export class ArgoError extends Error {
 export class WriteGuardBlockedError extends Error {
   constructor(body: string) {
     super(
-      `Write blocked by gridApiWriteGuard — set VITE_GRID_API_WRITES_ENABLED=true to allow writes. ` +
+      `Request blocked by gridApiWriteGuard: unsupported method/path. ` +
         `See infra-safeguards.md §8. Body: ${body}`,
     );
     this.name = "WriteGuardBlockedError";

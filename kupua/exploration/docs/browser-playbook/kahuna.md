@@ -32,6 +32,27 @@ that imperative calls preserve; do not compare different executed queries. Scope
 known witnesses in page memory; return counts/membership equality only. Discard a
 contrast whose positive control fails.
 
+## Authorised Local Label Comparisons
+
+Require explicit mutation scope and verified local services; the read-only guard above
+is not permission to edit. Use the ordinary UI for behavioural evidence.
+
+- Kahuna virtualizes and pages results. Before a Shift-range selection, traverse the
+	cohort and verify all intended resources have loaded; a total count alone does not
+	prove the range is available. Check actual selected membership/count before saving.
+- Open Show info panel before using its metadata controls. Hidden panel controls may
+	have nonzero rectangles yet fail hit testing; do not force-click them.
+- The label typeahead can consume Enter without submitting the form. Use the explicit
+	Save new label control and confirm dispatch before retrying an apparently idle action.
+- Exclude query, selection and typing setup from operation timing. Observe actual
+	requests and Angular batch events when available, but do not equate a batch-complete
+	event with universal success: verify exact writes and canonical postconditions.
+- Separate singleton reads before batch completion from later UI refresh requests.
+	Keep phase-specific response evidence: after a subsequent removal, the latest image
+	map cannot establish whether the earlier addition succeeded. Preserve identities and
+	payloads only in memory, return aggregate results, and restore fetch/XHR methods and
+	event subscriptions exactly in cleanup.
+
 ## Detail and Singleton Reads
 
 Visible image links can use `a[href^="/images/"]` filtered to contain an `img`.

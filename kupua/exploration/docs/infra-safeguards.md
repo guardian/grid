@@ -269,19 +269,19 @@ through the Vite proxy is the only reliable way to detect the connection target.
 ## 8. Grid API write protection — method guard at proxy boundary
 
 **Problem:** Grid services mutate shared data. Kupua must not accidentally submit
-an unfinished or unselected operation, including against TEST. Step 2 introduces
-the default-off label-add boundary; Step 5 adds named single-label removal and connects
-ordinary controls only under explicit API-mode rollout, valid origins and one-image scope.
+an unfinished or unsupported operation, including against TEST. The command boundary
+connects implemented label addition/removal only in API mode with one saved, default-off
+startup preference. Common batch policy admits at most 100 targets and three executions.
 
 **Topology boundary:** Vite protects only local `/api`, `/grid-metadata` and
 `/grid-auth` requests. Hosted and deployed-origin requests bypass it. Hosted Kupua
-uses the shared command boundary plus Kahuna's explicit rollout/origin payload;
+uses the shared command boundary, startup preference and validated discovered origins;
 these frontend gates prevent accidental app writes, not arbitrary authenticated
 requests. Server authorization remains mandatory. GET is not a general guarantee
 of no side effects: download and administrative GETs must not be used as probes.
 
 **Safeguard:** `/api` retains existing GET access and the exact read-POST exceptions
-below. `/grid-metadata` permits only `GET /metadata/:id` and, when explicitly enabled,
+below. `/grid-metadata` permits only `GET /metadata/:id` and supported
 `POST /metadata/:id/labels` for `add-labels` or `DELETE /metadata/:id/labels/:encodedLabel`
 for `remove-label`. Removal excludes empty, malformed and dot segments, query strings
 and extra path segments. `/grid-auth` permits only `GET /session`. Other requests
@@ -297,25 +297,24 @@ guard admits exactly those paths via `GRID_API_READ_VIA_POST`:
 `/images/aggregations` and `/images/mget`. Each is a read on the server side; add a path
 here only when its server handler performs no write.
 
-**Local rollout:** both `VITE_GRID_API_WRITES_ENABLED=true` and
-the selected operation in `VITE_GRID_API_OPERATIONS` (`add-labels` or `remove-label`)
-are required; the global flag alone admits no
-writes. Keep enablement explicit in the invocation, not persistent `.env` settings.
-`VITE_GRID_METADATA_ORIGIN` and `VITE_GRID_AUTH_ORIGIN` must name exact service origins,
-not paths or credential-bearing URLs. HTTPS is required except loopback HTTP fixtures.
-Do not derive them from an unvalidated discovered link. No shared-system invocation
-is authorized by documenting these settings.
+**Startup preference:** Settings > Hi, Joshua > Allow editing > Apply and reload
+persists one temporary origin-scoped preference. Only exact saved `true` enables it;
+missing/invalid/unavailable storage is off. It is sampled at page startup, not a live
+or cross-tab stop. Already dispatched writes are not undone by reload. Other tabs read
+the saved value on their next reload. No env, hosted, per-operation or bulk rollout
+gates remain; eventual hosted editing relies on server permissions/capabilities instead.
 
-**Hosted rollout:** Kahuna injects service origins and `mutations: { enabled,
-operations }` from `kupua.mutations.enabled` / `kupua.mutations.operations`. Absent,
-malformed or unknown operation configuration fails closed. Hosted builds ignore
-laptop rollout settings and pin hosted/API mode. Server config changes reach an
-existing page only on reload; `stopGridMutations()` is the in-page emergency stop.
-Kahuna admits only the implemented `add-labels` and `remove-label` names. The
-[hosted configuration guide](00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md#where-the-write-configuration-lives)
-owns file locations and precedence: local enabled settings can survive Grid's
-`--use-TEST` startup when its downloaded configuration omits those keys. Absence
-means absence from the effective merged configuration, not merely the TEST file.
+**Routing:** shared once-per-page root discovery supplies `edits` and `/session`.
+Their origins must exclude credentials, paths (except exact session path), query and
+fragments; HTTPS is required except loopback HTTP fixtures. Hosted builds pin API mode
+and use these origins directly. Local `VITE_GRID_METADATA_ORIGIN` and
+`VITE_GRID_AUTH_ORIGIN` are still fixed proxy targets and must match discovery. They
+are not editing flags. Vite admits exact supported transport shapes independently of
+the browser preference; it neither reads localStorage nor accepts a request-supplied
+target. Missing/invalid discovery blocks dependent commands. The
+[hosted guide](00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md#editing-preference-and-service-discovery)
+owns the distinction from retained bootstrap/site settings. No running environment,
+service restart, shared invocation or deployment is authorized by these descriptions.
 
 **Session/outcomes:** commands check a validated session snapshot but do not claim
 fresh authorization. 401/419 invalidate it and prevent subsequent dispatch until
@@ -357,10 +356,8 @@ explicit Kupua `--use-TEST`, and deployed-API startup retain their previous setu
 | `VITE_ES_INDEX` | `images` | `.env` | ES index or alias to query |
 | `VITE_ES_IS_LOCAL` | `true` | `.env` | Set to `false` when connecting to non-local ES (enables write protection) |
 | `VITE_MEDIA_API_BASE_URL` | `/api` | `start.sh` | Media-api request base; only deployed TEST mode sets the allowlisted absolute TEST origin |
-| `VITE_GRID_API_WRITES_ENABLED` | (unset) | Shell | Global command rollout gate; insufficient without selected operations |
-| `VITE_GRID_API_OPERATIONS` | (unset) | Shell | Comma-separated implemented operations: `add-labels`, `remove-label`; explicit trial authorization required |
-| `VITE_GRID_METADATA_ORIGIN` | (unset) | Shell | Trusted metadata-editor origin for local command routing |
-| `VITE_GRID_AUTH_ORIGIN` | (unset) | Shell | Trusted auth origin for local session routing |
+| `VITE_GRID_METADATA_ORIGIN` | (unset) | Shell | Fixed metadata-editor proxy target; must match root discovery, not an editing switch |
+| `VITE_GRID_AUTH_ORIGIN` | (unset) | Shell | Fixed auth proxy target; must match discovered session origin, not an editing switch |
 | `VITE_S3_PROXY_ENABLED` | `false` | `start.sh` | Set to `true` when S3 thumbnail proxy is running |
 | `VITE_IMGPROXY_ENABLED` | `false` | `start.sh` | Set to `true` when imgproxy container is running |
 | `VITE_IMAGE_BUCKET` | (none) | `start.sh` | S3 bucket for full-size images (for imgproxy URL generation) |

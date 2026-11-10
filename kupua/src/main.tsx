@@ -12,6 +12,7 @@ import { loadUsageRightsCatalogue } from "./lib/usage-rights-catalogue";
 import { useSearchStore } from "./stores/search-store";
 import { createLabelEditorStore, labelEditorStore } from "./stores/label-editor-store";
 import { LabelEditorContext } from "./components/LabelEditor";
+import { HiJoshuaProvider } from "./components/HiJoshua";
 import { executeGridCommand, gridLabelEditingEnabled } from "./lib/grid-commands";
 import { createLabelReadback } from "./lib/image-publication";
 import { checkBedrockHealth } from "./lib/bedrock-proxy-client";
@@ -76,11 +77,13 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
+    <HiJoshuaProvider>
     <LabelEditorContext value={gridLabelEditingEnabled()
       ? createLabelEditorStore(executeGridCommand, createLabelReadback(useSearchStore.getState().dataSource), "connected")
       : labelEditorStore}>
       <RouterProvider router={router} />
     </LabelEditorContext>
+    </HiJoshuaProvider>
   </StrictMode>
 );
 

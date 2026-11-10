@@ -57,8 +57,8 @@ one giant linear programme.
 
 1. **Fresh read is mitigation, not conflict prevention.** Whole-object metadata replacement
    can still race between GET and PUT. Never promise that it cannot overwrite another editor.
-2. **Six concurrent requests is not six requests per second.** About 300 targets and six
-   flights are starting ceilings, not a capacity certificate. Shared capacity, rate and
+2. **Concurrency is not requests per second.** The selected 100 targets and three
+   per-image executions are prototype ceilings, not a capacity certificate. Shared capacity, rate and
    multi-step actions also matter; [GRID-019](bug-backlog.md#grid-019) remains relevant.
 3. **The Vite guard does not protect hosted requests.** Hosted calls go straight to service
    origins. Current guard comments claiming a universal browser boundary are stale.
@@ -157,14 +157,15 @@ common facts needed by crop notices; it does not itself enable cropping.
 
 **Depends on:** step 1; explicit permission for any host/shared-service file changes.
 
-**Complete for the default-off, fixture-verified boundary, 4 November 2026.** One
+**Original default-off, fixture-verified boundary, 4 November 2026.** One
 named `add-labels` operation now uses the authoritative edits/labels resource,
 with default-off global/per-operation rollout, validated metadata/auth origins,
 local guarded proxies and Kahuna-injected hosted settings. No UI caller or live
 activation is present. [The API contract](../../src/dal/grid-api/README.md#step-2-command-boundary)
 owns exact outcomes, reload policy and fixture/deployment limits. The temporary
 rollout gates are intended to be removable once editing is verified, not a permanent
-configuration framework. The requirements below define the implemented boundary;
+configuration framework. **Step 6 supersedes those rollout/address dependencies with
+one startup-captured preference and existing-root discovery.** The requirements below describe the current boundary;
 steps 3/4 and actual shared-service writes remain separate authorization.
 
 Failing-first regressions, independent correctness/security, test-simplicity and
@@ -184,11 +185,12 @@ Start with metadata-editor and session routing; add other satellite routes with 
 not an unrestricted forwarding facility. Reuse Argo error parsing and URI-template support
 already available in the project. Never synthesize a write target from a missing capability.
 
-Local Vite routes inherit the existing guard and exact-path read-POST allowlist. A global
-write-enable switch alone is too broad: require the selected operation to be enabled too.
-Hosted calls need their own default-off rollout configuration consumed at the shared command
-boundary, with per-operation enablement and an emergency stop for new submissions. Missing
-or invalid write configuration must fail closed, unlike harmless display defaults.
+Local Vite routes retain exact supported methods/paths and the read-POST allowlist.
+One temporary saved startup preference controls editing in both frontends, requiring
+reload rather than live switching. Missing/invalid storage is off. Do not add per-feature,
+per-command or bulk rollout flags. Root edits/session discovery supplies validated service
+origins once per page; local fixed proxies must match. Hosted bootstrap/site settings
+remain separate. Eventual API-backed editing has no rollout switch, only proper permissions.
 
 This is **accidental-write prevention in Kupua**, not security against arbitrary browser
 requests. Existing service authentication/authorization must enforce access. If the operator
@@ -215,8 +217,8 @@ Never send credentials to an unvalidated discovered origin or log signed resourc
 [shared HTTP filters](../../../rest-lib/src/main/scala/com/gu/mediaservice/lib/play/GridComponents.scala),
 [safeguards](infra-safeguards.md#8-grid-api-write-protection--method-guard-at-proxy-boundary).
 
-**Done when:** fake local and hosted transports prove disabled/unknown actions dispatch nothing,
-only the selected enabled operation can dispatch, reads retain their exceptions, and expiry
+**Done when:** fake local and hosted transports prove default-off/unknown actions dispatch nothing,
+only implemented commands with exact capabilities can dispatch, reads retain their exceptions, and expiry
 stops pending/new submissions (step 2 introduces no queue). Verify a built hosted page,
 not just Vite middleware. `build:hosted` writes
 outside Kupua into Kahuna and therefore needs explicit scope permission. No shared writes yet.
@@ -547,18 +549,20 @@ The brief existing-label colour flash reported during the trial is a separate
 [KUP-050 follow-up](bug-backlog.md#kup-050), not a demonstrated persistence defect.
 
 **API-topology admission alignment:** implementing a named operation includes aligning
-the shared client, Vite guard and Kahuna configuration producer, with focused tests,
+the shared client and exact Vite transport guard, with focused tests,
 so supported API frontends do not require an additional code change merely to select
-that operation. This is part of the operation's integration, not something deferred
+that operation. Existing-root discovery supplies satellite addresses; do not add Kahuna
+editing flags or address fields for each feature. This is part of the operation's integration, not something deferred
 until Step 21. It must not enable editing by default, admit unimplemented names, extend
 hosting stages or add direct-ES editing. Live/configuration activation and deployment
 verification remain separately authorized; code support is not evidence of deployed
 cookie/CORS/CSRF or backend policy correctness.
 
-The authorized label follow-up aligns Kahuna's producer with `add-labels` and
-`remove-label`, preserving absent/disabled and invalid-setting refusal. Its existing
-Scala suite covers both names individually/together and rejects unknown mixtures;
-the compiled-hosted fixture already exercises ordinary add/remove controls. See the
+The original label follow-up aligned Kahuna's producer with both operation names.
+Step 6 removes that temporary producer policy and satellite-address injection after
+rewiring consumers to discovery. The existing Scala suite preserves bootstrap, opt-in,
+stage/iframe and CSP guarantees; compiled-hosted fixtures exercise add/remove without
+the removed fields. See the
 [hosted guide](00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md#editing-support-by-frontend)
 for the current support matrix, exact script flags and configuration locations.
 No real hosted/shared-system activation follows from this alignment.
@@ -568,8 +572,8 @@ No real hosted/shared-system activation follows from this alignment.
 **Depends on:** step 5; capacity decision before shared batch activation.
 
 Preserve current selection behavior: 5,000 bounds a server range walk and the metadata LRU,
-not all accumulated selected IDs. Start with an approximately **300-image write ceiling and
-at most six in-flight requests**, with smaller action-specific limits for expensive or
+not all accumulated selected IDs. The selected common policy is a **100-image write ceiling and
+at most three concurrent per-image executions**, with smaller action-specific limits for expensive or
 destructive work. Reject oversized actions before hydrating/submitting them; explain the
 limit, never silently truncate. Account for each item's multiple reads/writes, not just item count.
 Check the actual captured set size even when it exceeds the metadata cache. See
@@ -581,7 +585,7 @@ and serialization of conflicting changes to the same image. A per-tab limit cann
 the organisation from many tabs/users. Resolve GRID-019 with the infrastructure owner before
 general multi-user batching: table **and Photoshoots GSI**, observed capacity/alarms and a
 documented admitted rate. A smaller one-operator prototype exception needs explicit approval;
-300/six alone is not that approval or a guarantee against throttling.
+100/three alone is not that approval or a guarantee against throttling.
 
 Snapshot target IDs, retain partial results, allow stop-remaining, and retry only explicitly
 selected failed/unknown items after reconciling current state. Appending text, adding leases,
@@ -597,6 +601,233 @@ bounded mget and coalesced publication; keep browsing responsive during progress
 mixed permissions, stop-remaining, throttling and partial completion. Full relevant product
 gates pass. The cap/rate is explicit configuration, not an undocumented concurrency constant.
 No new backend batch endpoint or durable operation service is required.
+
+**Step-6 implementation checkpoint (10 November 2026):** one common policy/execution/queue
+owner admits 100 images, three concurrent image-edit executions, 250 ms between starts and
+one waiting operation. This replaces both the initial 20/two implementation and the earlier
+approximately-300/six plan direction. One temporary default-off saved preference is captured
+at startup in Vite and hosted builds. Hi, Joshua in Settings or Shift+F12 opens the panel;
+Apply and reload saves and reloads. No live switching, cross-tab admission synchronization,
+per-operation/bulk flags or numeric tuning UI is introduced. Root discovery supplies edits/
+session once per page, allowing removal of Kahuna's mutation and satellite-address injection.
+
+Addition and removal capture one label and all target IDs, reject oversized actions
+before edit hydration and preserve whole-target eligibility. The existing editor store
+serializes operations; receipts expose queued, in-progress, stopped and partial outcomes.
+Stop remaining never undoes started commands. A 429 delays unsent starts by one second,
+never retries a possibly accepted write, and remains unknown after dispatch.
+
+One group, the existing 200-ID admission cap, three grouped mget attempts at least one
+second apart and 1,000 touched IDs remain. Connected dispatch has a 120-second bound;
+final observation lasts up to ten seconds after dispatch settles, under a 130-second
+hard observation cap. After one early read, remaining attempts wait for dispatch.
+Waiting operations start clocks only on activation. Slow/throttled work can still finish
+with explicit unsent stopped items. Early partial readback and grouped canonical publication
+preserve selection and geometry. Stopped unsent reservations are released without rolling
+back newer read evidence. The [command contract](../../src/dal/grid-api/README.md#step-6-bounded-label-execution)
+owns the precise composition and adjustable policy location.
+
+Isolated ordinary local-proxy and compiled-hosted workflows exercise multi-image add/remove,
+overlap, stop/resubmit and navigation. Newer navigation reads may supersede an older
+observation while retaining the actual label. These fixtures are not live-system evidence.
+The operator's earlier hosted TEST trial is operator-reported Step-5 evidence, not an
+agent-observed bulk trial. No live flag, service or configuration has been changed.
+
+Acceptance requires independent correctness/resource and simplicity/test reviews of
+coherent batches and accumulated integration, plus the full unit, build, browser-type and
+E2E gates with retries disabled. Historical successful Step-6 checks do not certify a later
+policy change or authorize live bulk activation.
+
+**Operator clarification:** GRID-019 need not be repaired before a separately authorized,
+conservative operator trial. Its table/GSI risk remains relevant to general shared activation;
+client bounds are not server protection. No infrastructure repair or performance campaign
+is part of this implementation. KUP-050 remains separate.
+
+### Step-6 Local Testing Addendum (10 November 2026)
+
+**Scope:** repaired Kahuna-hosted Kupua, one foreground desktop browser and a local
+Grid with 606 uploaded images, Docker ES and LocalStack. Labels only, using the selected
+100-target ceiling, three executions, 250 ms start spacing and one waiter. These results
+complement existing Kahuna production experience and the automated fixtures; they are
+functional/local timing evidence, not an AWS capacity calibration or a new rollout gate.
+
+**What acknowledgement and readback mean:** a successful label acknowledgement follows
+the source write and event publication; it does not mean the change is already visible
+through media-api's search-backed mget. A 100-target action uses 100 prerequisite edits
+GETs and 100 individual writes, then at most three grouped observation reads. Later reads
+request only targets still needing observation. They do not save the change again or
+replay a mutation. Service discovery/session reads, normal browsing reads and explicit
+agent verification reads are separate from this operation budget.
+
+The original local exploration found an acknowledged target whose observation expired
+and whose stale selected metadata prevented further editing. The repair reserves the
+final read later in the existing window and permits deliberate fresh-state recovery
+after expiry, without relaxing authority or unknown-outcome guards. Local and compiled-hosted
+regressions cover expiry, reselection and a new explicit action. The original failed
+response bodies were not captured, so navigation was not established as its cause.
+
+**Stationary repaired-hosted timing baseline:** one 100-image add and one 100-image removal.
+Durations are browser round trips, not isolated DynamoDB or Kinesis timings.
+
+| Measurement | Add | Remove |
+| --- | ---: | ---: |
+| Prerequisite read, median | 18 ms | 21 ms |
+| Write acknowledgement, median | 36 ms | 38 ms |
+| Write acknowledgement, 95th percentile | 63 ms | 54 ms |
+| Source-read start to acknowledgement, median | 58 ms | 62 ms |
+| First write start to last acknowledgement | 24.8 s | 24.9 s |
+| All targets observed | About 30 s | About 30 s |
+| Maximum overlapping captured image executions | 1 | 1 |
+
+The approximately 25-second dispatch duration was principally the deliberate start
+spacing, not evidence of laptop saturation. Raising the three-execution ceiling alone
+would not have accelerated these particular runs. The immediate final reads saw 98 additions
+and 96 removals; the reads about five seconds later observed the remaining two/four.
+This bounds when visibility was checked, not the exact time each projection became visible.
+Both operations acknowledged and observed every target, with stable selection and sampled
+row geometry. Their 200 writes matched 200 publications and 200 processed backend records.
+
+**Kahuna comparison on the same local cohort:** the same 100 images were identified
+by an existing label, loaded and selected through Kahuna's normal UI, then given one
+new label and had it removed. Query/selection setup and a separate final verification
+read are excluded from action timing. Both clients used their unchanged default policies;
+this compares the same editing workload, not identical schedulers or request shapes.
+
+| Measurement | Kupua add | Kahuna add | Kupua remove | Kahuna remove |
+| --- | ---: | ---: | ---: | ---: |
+| Write acknowledgement, median | 36 ms | 569 ms | 38 ms | 548 ms |
+| Write acknowledgement, 95th percentile | 63 ms | 774 ms | 54 ms | 1,211 ms |
+| All 100 writes acknowledged | 24.8 s | 2.15 s | 24.9 s | 2.42 s |
+| All targets observed | About 30 s | 2.70 s | About 30 s | 2.94 s |
+| Maximum outstanding client writes | 1 | 30 | 1 | 30 |
+| Prerequisite edits GETs during action | 100 | 0 | 100 | 0 |
+| Observation requests before completion | 3 grouped mgets | 200 singleton GETs | 3 grouped mgets | 199 singleton GETs |
+
+Kahuna's writes use already-held label resource links; Kupua's current command contract
+first reads the authoritative edits resource. After batch completion Kahuna issued another
+100 image GETs for each action. Its pre-completion image reads peaked at ten outstanding,
+matching the shared polling queue; the later refresh burst peaked at 100. These are client
+requests outstanding, including possible browser/server queueing, not a measurement of
+simultaneously executing backend handlers. All captured image reads ended by 3.19 s for
+addition and 3.30 s for removal. Kupua's unrelated browsing traffic was not separately
+measured in its stationary baseline; do not present the named request counts as a complete
+all-traffic comparison.
+
+Both Kahuna actions dispatched exactly once to each captured target, returned 200 for all
+200 writes and reported 100 successful canonical results each. Per-phase captured response
+bodies confirmed the expected label sets; final canonical verification confirmed all
+original label sets restored. Backend logs matched 200 publications and 200 processed
+records with no dropped-message or document-parse failures. The timed capture contained no
+API/metadata 401 or 419, and this window had no Kahuna/auth-service warnings; metrics
+logger warnings were separate from operation outcomes. Temporary observers were removed.
+
+This is one sequential, warm-selection pair, not repeated or counterbalanced. Kahuna's
+cohort query and UI differ from Kupua's broader browsing query, and cache/renderer effects
+were not isolated. The large difference is nevertheless a real local UX result under
+these defaults: Kupua deliberately spaces starts, whereas Kahuna bursts work. Longer
+individual Kahuna request times coexist with much shorter total batch time. The comparison
+does not establish where those requests waited or extrapolate AWS capacity from a laptop.
+
+If shorter batch duration becomes the next objective, a small comparison of start spacing
+while retaining Kupua's execution ceiling is worth considering before increasing
+concurrency. Do not copy Kahuna's singleton polling or remove authoritative-resource checks
+merely to match its request count. No defaults were changed for this comparison; existing
+Kahuna production experience and infrastructure evidence remain relevant to future choices.
+
+**Start-spacing experiment (10 November 2026):** an operator-authorized reversible
+comparison used the same warm, selected 100-image cohort and one temporary label on
+the isolated local stack. A fresh 250 ms add/remove control preceded a 100 ms pair.
+Only start spacing changed; the target cap, three-execution ceiling, waiter, authority
+checks and observation limits stayed unchanged. Cohort and original-label digests
+matched across the hosted rebuild, and all original label sets were restored after
+each pair and verified again after reloading the restored bundle.
+
+| Measurement | 250 ms add | 100 ms add | 250 ms remove | 100 ms remove |
+| --- | ---: | ---: | ---: | ---: |
+| Prerequisite GET, median / p95 | 20 / 46 ms | 16 / 29 ms | 17 / 40 ms | 16 / 26 ms |
+| Write acknowledgement, median / p95 | 40 / 60 ms | 30 / 50 ms | 37 / 63 ms | 31 / 49 ms |
+| Image execution, median / p95 | 62 / 105 ms | 48 / 76 ms | 58 / 97 ms | 48 / 72 ms |
+| First-to-last write dispatch | 24.81 s | 10.02 s | 24.85 s | 10.00 s |
+| All 100 writes acknowledged | 24.98 s | 10.13 s | 24.96 s | 10.10 s |
+| All 100 targets observed | 30.01 s | 15.16 s | 30.01 s | 15.15 s |
+| Peak unfinished image executions | 1 | 3 | 1 | 2 |
+
+Every action issued exactly 100 authoritative prerequisite GETs, 100 unique target
+writes returning HTTP 200, and three grouped observation mgets. Each action also
+matched 100 successful metadata publications and 100 processed Thrall records;
+there were no publication failures or non-metrics consumer warnings. The broader
+window had no metadata-editor, Kahuna or auth warnings; existing CloudWatch and
+media-api metrics warnings remained separate. Additional image reads were captured
+separately (four/three for the control add/remove, two/two for the faster pair),
+including follow-up traffic; these are not additional grouped observation attempts
+or a claim of identical all-traffic boundaries.
+
+During the faster removal, 67 trusted wheel events and a Grid-to-Justified switch
+preserved all selected IDs; 61 wheel events occurred before final observation,
+including input within 300 ms of that point. Original label sets were restored.
+This is a functional browsing check, not measured frame timing or a no-jank claim.
+
+The faster pair reduced dispatch by roughly 15 seconds and complete observation
+by roughly half without worse median/p95 acknowledgement in this sample. Maximum
+write latency was 271 ms for the faster add versus 171 ms in its control; one
+sequential pair does not establish tail-latency equivalence. The faster final mgets
+started at approximately 0.12 s, 10.1 s and 15.1 s. The unchanged final observation
+schedule accounts for the roughly five seconds after last acknowledgement; this
+is not a measurement of five-second backend processing.
+
+The result supports considering 100 ms as a prototype default, not raising
+concurrency or copying Kahuna's polling. It is one warm, non-counterbalanced local
+pair per policy, not a shared-cloud capacity certificate. The experimental source
+and two timing-test adjustments were restored, all 3,722 units passed on both
+policies, and the original hosted bundle was rebuilt and verified. No permanent
+default was selected; no full E2E or performance campaign was run for this temporary
+experiment. Any adopted change still needs its normal regression gates.
+
+**Authentication limit:** the earlier expiry-related warning was not a rejected label write.
+Kahuna includes Pandular reauthentication configuration and an initial API-failure login
+redirect; Kupua does not inherit that client JavaScript merely because Kahuna hosts it.
+Kupua uses the shared login cookie and discovered session, invalidates editing after
+401/419, stops unsent work and requires reload after reauthentication/account change.
+It never automatically replays a mutation. Real expiry/login-return behavior, including
+deployment-specific cookies/CORS/CSRF, was not exercised by these successful local samples.
+The command policy is shared by local and hosted builds; that is not certification of
+every deployment's authentication integration.
+
+**Additional workflow checks:**
+
+| Case | Observed result |
+| --- | --- |
+| Browsing during a 100-image removal | Detail entry/return retained the running receipt and targets. During 58 native wheel actions and Grid-to-Justified switching, both publication points coincided with wheel input. Eight Grid and 16 Justified shared visible slots had zero measured unexpected position/size change after accounting for scrolling. |
+| Last modified sorting during a 100-image add | All targets acknowledged/observed; visible order, scroll position and 15 sampled slot positions remained stable. This checks retained browsing, not exact global ranks after editing. |
+| Removing the matching label under its active filter | All 100 targets acknowledged/observed, selected membership and visible order retained, with 25 sampled positions unchanged. An explicit reload then returned zero query matches while retaining the 100 selected IDs outside the query. |
+| Reload during a 100-target action | Reload caught four dispatched writes; all four acknowledged and appeared in canonical state. The remaining 96 were not sent, and no writes resumed in the new document during the bounded check. The exit warning appeared, selection survived and the page-memory receipt was cleared. This is not rollback or durable recovery. |
+
+Selection iteration order changed after a detail/history journey, but membership did not;
+the operation's captured targets remained fixed. The initial add used to prepare the
+moving-browsing case is not credited as concurrent-publication coverage. These are sampled
+functional geometry checks, not frame-timing, paint or sustained-scroll benchmarks.
+
+The additional workflow window contained 404 acknowledged writes, matching 404 metadata
+publications and 404 processed records, with no dropped-message or document-parse failures.
+Recurring local CloudWatch-metrics warnings and one expiry-related Kahuna authentication
+warning were recorded separately; no label write was rejected. This was not a deliberate
+authentication-failure test. Temporary observers/listeners were removed; no raw logs,
+credentials or image identities were retained in this document.
+
+**Interpretation and recommendations:** retain the target/concurrency limits and bounded
+grouped readback; these checks justify no concurrency increase or new tuning control.
+The start-spacing comparison above supports a separate decision on 100 ms, with
+250 ms restored until that decision. It supplements these correctness results and
+the existing Kahuna/infra evidence rather than replacing them.
+Corpus size alone is not a write-rate multiplier. Local latency, shared AWS capacity,
+concurrent editors and projection work remain distinct considerations.
+
+Live throttling, transport/authentication faults, multiple clients and mobile editing UX
+were not established by these checks. Existing isolated fixtures cover failure outcomes;
+any real fault exercise needs an agreed bounded mechanism. No per-image polling system,
+forced ES refresh, durable job service, automatic retry or wider editing family follows
+from this addendum. The [command contract](../../src/dal/grid-api/README.md#step-6-bounded-label-execution)
+continues to own the precise behavior and limits.
 
 ## 2. Add Feature Families Independently
 
@@ -811,7 +1042,7 @@ Use actual download endpoints for downloads, not raw secure assets: usage record
 intentional side effect. Keep preview/prefetch paths separate. Preserve names, original format,
 optimised choices, crop asset size choices and selected-image ZIP behavior.
 
-Give downloads their own admitted count/byte/concurrency limits rather than assuming 300 large
+Give downloads their own admitted count/byte/concurrency limits rather than assuming 100 large
 originals fit memory. Show partial download failures; clean up blobs and object URLs. A retry
 may record another usage; do not promise exactly-once accounting. Check session expiry and
 fresh links for long-lived tabs, without requiring a reload that loses editing work.
@@ -869,7 +1100,7 @@ automatically new UI actions just because they exist.
 
 Support photoshoot assignment/removal and the existing rights/syndication workflow exposed by
 the target deployment. A photoshoot change can affect rights of other images: preview that
-scope and do not apply the ordinary 300-target cap as though only those records can change.
+scope and do not apply the ordinary 100-target cap as though only those records can change.
 Separate setting rights/leases from actually publishing/sending to a syndication partner.
 
 For Photo Sales preserve configured availability, eligibility checks, confirmation and partner
@@ -1016,7 +1247,7 @@ write occurs on drag/preview. Required configured workflows have explicit implem
 dispositions. If a proprietary external integration cannot be exercised, name that acceptance
 gap and its owner; source inspection alone is not a replacement certificate.
 
-### Step 21. Accept Full Parity and Roll Out by Operation
+### Step 21. Accept Full Parity and Retire Temporary Rollout
 
 **Depends on:** all selected parity rows below, plus deployment-owner approval.
 
@@ -1026,9 +1257,11 @@ feature inventory. Include single/multi selection, detail/deep link, keyboard, c
 session expiry, stale capabilities, partial service absence and navigation during operations.
 Do not require every theoretical combination; use representative witnesses for distinct paths.
 
-Release through a small operator cohort, then an agreed user cohort, enabling one operation
-family at a time. Keep a default-off kill switch for new submissions and a usable read-only
-experience. Turning writes off is not rollback of accepted work. Monitor operation rejection,
+Coordinate release and any broader user cohort with deployment owners. Retire the temporary
+startup editing switch once accepted; the API-backed app offers implemented editing according
+to server permissions and resource capabilities, not a permanent flag for every operation
+family. Preserve usable read-only behavior when permission is absent. No client switch is
+rollback of accepted work. Monitor operation rejection,
 unknown/partial outcomes, convergence delay, shared throttling and dropped messages without
 logging private metadata, identities or credentials. Coordinate Grid deployment/PRs separately;
 finishing Kupua source is not proof those fixes are deployed.
@@ -1119,7 +1352,7 @@ can prepare GRID-011/012/009/013 fixes independently of the client UI.
 | KUP-045 | Lease-display acceptance in step 9; not a gate for labels. |
 | KUP-046 | Server wording in rights/notices work; not a blanket first-write blocker. |
 | KUP-047 | Live crop gate in step 13 after shared capabilities; current mock can stay usable. |
-| GRID-019 | General batch rollout gate; resolve table/GSI capacity or explicitly bound an operator-only exception. No "six flights makes it safe" claim. |
+| GRID-019 | General batch rollout gate; resolve table/GSI capacity or explicitly bound an operator-only exception. No "three flights makes it safe" claim. |
 | GRID-018 and missing drop alert | Upload reliability/operational work, step 15; does not block editing existing images. |
 | GRID-011 | Concurrent collection removal, step 12; add-only workflows can proceed. |
 | GRID-012 | Source acknowledgement for soft delete, step 17. HTTP acceptance currently precedes the owned handoff. |

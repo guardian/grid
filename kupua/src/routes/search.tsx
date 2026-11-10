@@ -364,7 +364,9 @@ function useFocusedOrSelectedImage() {
       const singleSelectedId = selectedCount === 1 ? [...selectedIds][0] : null;
       const resolvedId = singleSelectedId ?? (effectiveMode === "phantom" ? null : focusedImageId);
       if (resolvedId) {
-        image = bufferedImage(resolvedId) ?? (singleSelectedId ? metadataCache.get(singleSelectedId) ?? null : null);
+        const resident = bufferedImage(resolvedId);
+        image = resident && isImageMetadataCurrent(resident) ? resident
+          : (singleSelectedId ? metadataCache.get(singleSelectedId) ?? resident : resident);
       }
     }
     return { image, isMultiSelection: selectedCount > 1, metadataImages, usageImages, reconciledView, total: selectedCount };

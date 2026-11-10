@@ -69,6 +69,7 @@ export function isLabelAuthorityCurrent(id: string, resource: NonNullable<Enrich
   const fact = facts.get(id);
   if (!fact) return true;
   if (fact.availability) return false;
+  if (!fact.operation && !fact.authorityRead && !fact.hasFloor) return true;
   const stamp = evidence.get(resource);
   return Boolean(stamp && stamp.issued >= Math.max(fact.operation, fact.authorityRead)
     && (!fact.hasFloor || stamp.issued === fact.acceptedRead
@@ -94,6 +95,43 @@ export function fullProjectionMatches(full: Image, lean: Image): boolean {
 export function withholdImageAuthority(id: string): void {
   const fact = facts.get(id);
   if (fact) fact.authorityRead = ++sequence;
+}
+
+export function watchQueuedLabelTargets(ids: readonly string[]): (() => void) | undefined {
+  const missing = [...new Set(ids)].filter(id => !facts.has(id));
+  if (facts.size + missing.length > 1_000) return undefined;
+  const reservations = new Map<string, ImageFact>();
+  for (const id of missing) {
+    const fact: ImageFact = { operation: 0, command: "blocked", hasFloor: false, acceptedRead: 0, authorityRead: 0 };
+    facts.set(id, fact);
+    reservations.set(id, fact);
+  }
+  return () => {
+    for (const [id, fact] of reservations) {
+      if (facts.get(id) === fact && !fact.operation && !fact.hasFloor && !fact.authorityRead && !fact.availability) facts.delete(id);
+    }
+    reservations.clear();
+  };
+}
+
+export function captureUnsentLabelTargets(ids: readonly string[]) {
+  const previous = new Map(ids.map(id => {
+    const fact = facts.get(id);
+    return [id, fact && { operation: fact.operation, command: fact.command }] as const;
+  }));
+  return (operation: number, unsent: readonly string[]) => {
+    for (const id of unsent) {
+      const fact = facts.get(id);
+      if (fact?.operation !== operation || fact.command !== "submitted") continue;
+      const prior = previous.get(id);
+      if (!prior && !fact.hasFloor && !fact.authorityRead && !fact.availability) facts.delete(id);
+      else {
+        fact.operation = prior?.operation ?? 0;
+        fact.command = prior?.command ?? "blocked";
+      }
+    }
+    previous.clear();
+  };
 }
 
 export function admitLabelObservation(ids: readonly string[]): number | "busy" | "target-limit" | "freshness-capacity" | "conflict" {
@@ -140,6 +178,14 @@ export function isImageMetadataCurrent(image: Image, ...overlays: (EnrichmentFie
     const incoming = overlay && evidence.get(overlay);
     return incoming?.version !== undefined && stamp?.version !== undefined && incoming.version > stamp.version;
   });
+}
+
+export function needsImageRead(image: Image): boolean {
+  const fact = facts.get(image.id);
+  if (!fact || fact.availability || fact.operation === activeGroup
+    || (!fact.operation && !fact.authorityRead && !fact.hasFloor)) return false;
+  const stamp = evidence.get(image);
+  return !isImageMetadataCurrent(image) || !stamp || stamp.issued < Math.max(fact.operation, fact.authorityRead);
 }
 
 export function acceptImageRead(image: Image, current?: Image): Image | undefined {

@@ -24,6 +24,54 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 10 November 2026 - Bounded, paced multi-image label editing
+
+Added multi-image label addition/removal through the existing editor, command,
+receipt and publication owners. One common policy/execution/queue owner admits 100 images,
+three command executions in flight, starts spaced by 250 ms and one waiting operation.
+Whole-target admission counts selected IDs before edit metadata work and never truncates.
+
+Receipts distinguish queued, stopped, rejected, uncertain and acknowledged work from
+canonical observation, expose every admitted target outcome and retain navigation state.
+Stop remaining affects only never-started commands. Throttling delays unsent work without
+replaying uncertain writes. Cancellation releases unsent admission reservations while
+preserving newer authority and metadata evidence. Queue admission rejects invalid or
+unavailable targets before reserving work.
+Waiting targets retain newly received permission evidence inside the existing freshness
+budget, preventing a captured grant from surviving a withdrawal during the queue wait.
+
+Separated the bounded 120-second dispatch period from up to ten seconds of final
+observation, under a 130-second hard observation cap. Three grouped read attempts reserve
+work after dispatch rather than expiring a large batch before it can start. Early partial readback and grouped publication
+retain browsing geometry; newer navigation reads supersede older observation results.
+The local-proxy and compiled-hosted fixtures share an ordinary add/remove, overlap,
+stop/resubmit and navigation workflow with independent per-image projections.
+
+Replaced env, hosted, named-operation and bulk rollout settings with one temporary
+startup-captured preference, default off. Hi, Joshua opens from Settings or Shift+F12;
+Apply and reload persists the choice without live switching or editor reconstruction.
+One root panel owner avoids duplicate shortcuts across retained Settings menus. Existing
+server authorization, capability validation and authentication invalidation remain separate.
+Reused media-api's once-per-page edits/session directory for validated satellite addresses;
+local fixed proxy targets must match discovery. Kupua no longer needs Kahuna's mutation,
+metadata-editor or auth payload fields; ordinary bootstrap and site settings remain.
+
+Fixed partial-coverage removal: a valid authoritative label list that already lacks
+the captured label returns an explicit unchanged outcome without a DELETE, rather
+than blocking and stopping the rest of the batch. Receipts distinguish unchanged
+targets from acknowledged writes; both still use canonical absence observation.
+Common pill activation and batch scheduling remain unchanged, and missing/malformed
+resources continue to fail closed.
+
+Fixed recovery after acknowledged label changes outlive their observation attempts.
+The final bounded read now reserves time for later projection visibility instead of
+spending all attempts immediately after dispatch. Reselecting an affected stale cached
+image obtains fresh metadata and authority through existing hydration; a single-selection
+panel uses that recovered body rather than a stale resident copy. Fresh authority permits
+a new explicit action after terminal acknowledged observation, while pending and unknown
+writes remain protected from replay. Write limits, permission checks and memory bounds
+are unchanged.
+
 ### 9 November 2026 - Consistent phone and desktop interactions
 
 Made click mode, initial density, selection controls, crop features, search autofocus and

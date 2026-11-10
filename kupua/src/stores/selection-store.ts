@@ -39,7 +39,7 @@ import {
 } from "@/constants/tuning";
 import { addToast } from "@/stores/toast-store";
 import { setRetainedCursorAnchor } from "@/lib/image-offset-cache";
-import { captureImageRead, hasImageFence, protectsImageOmission } from "@/lib/image-read-freshness";
+import { captureImageRead, hasImageFence, needsImageRead, protectsImageOmission } from "@/lib/image-read-freshness";
 import { acceptEnrichedImage } from "@/stores/enrichment-store";
 
 // ---------------------------------------------------------------------------
@@ -432,7 +432,7 @@ export const useSelectionStore = create<SelectionState>()(
         const cachedIds: string[] = [];
         const uncachedIds: string[] = [];
         for (const id of newIds) {
-          if (metadataCache.has(id)) cachedIds.push(id);
+          if (metadataCache.has(id) && (!hasImageFence(id) || !needsImageRead(metadataCache.get(id)!))) cachedIds.push(id);
           else uncachedIds.push(id);
         }
 
@@ -528,10 +528,8 @@ export const useSelectionStore = create<SelectionState>()(
 
       async ensureMetadata(ids: string[]): Promise<void> {
         const { metadataCache, pendingFetchIds, dataSource } = get();
-        // Deduplicate: skip IDs already cached or currently fetching.
-        const needed = ids.filter(
-          (id) => !metadataCache.has(id) && !pendingFetchIds.has(id),
-        );
+        const needed = ids.filter(id => !pendingFetchIds.has(id)
+          && (!metadataCache.has(id) || hasImageFence(id) && needsImageRead(metadataCache.get(id)!)));
         if (needed.length === 0) return;
 
         // Mark as in-flight.

@@ -230,11 +230,24 @@ that setup. Neither changes the backing data of the already-running Grid API.
 datasource. Browser requests use relative `/api` URLs, so Vite supplies the local-domain cookie and
 enforces the Grid API write guard.
 
-Label editing is off by default. Explicit global/named rollout and valid metadata/auth
-origins connect ordinary controls for one image and one label per submission; direct-ES
-editing and batches remain disabled. See the [command contract](src/dal/grid-api/README.md#step-2-command-boundary)
-for settings and outcome handling. Do not persist trial enablement in `.env` files.
-The completed local trial does not authorize shared TEST/PROD activation.
+Label editing is off by default. Settings > **Hi, Joshua** (also Shift+F12) offers one
+temporary **Allow editing** preference; **Apply and reload** saves it in localStorage
+and reloads the page. It persists for that frontend origin, in Vite and hosted builds;
+other tabs pick it up on reload. Drafts and receipts remain page-memory-only. There are
+no per-operation or bulk rollout flags. Direct-ES stays read-only.
+
+Media-api's existing root directory supplies `edits` and `session` once per page load.
+Local Vite still needs fixed `VITE_GRID_METADATA_ORIGIN` and `VITE_GRID_AUTH_ORIGIN`
+proxy targets matching those discovered origins; these are routing, not editing switches.
+Hosted builds use the discovered addresses directly, without Kahuna editing configuration.
+Do not change actual running configuration or enable shared-system edits by implication.
+
+The common policy admits 100 images, three image-edit executions in flight, at least
+250 ms between starts and one waiting operation. One label is captured per submission.
+See the [batch contract](src/dal/grid-api/README.md#step-6-bounded-label-execution) for
+bounded dispatch/readback, truthful outcomes and activation limits. These are prototype
+bounds, not measured service capacity; the prior local trial does not authorize shared
+TEST/PROD activation.
 
 ### `--use-deployed-media-api` flag
 
