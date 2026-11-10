@@ -29,8 +29,7 @@ case class ApiAccessor(identity: String, tier: Tier)
 
 object ApiAccessor extends ArgoHelpers with GridLogging {
   def apply(content: String): ApiAccessor = {
-    parseContentV2(content) getOrElse
-    parseContentV1(content)
+    parseContentV2(content) getOrElse parseContentV1(content)
   }
 
   private def parseContentV2(content: String): Option[ApiAccessor] = {
