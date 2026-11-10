@@ -2,8 +2,6 @@ package lib
 
 import com.gu.mediaservice.lib.config.FieldAlias
 import play.api.libs.json.{JsObject, Json}
-import play.api.Configuration
-import scala.util.Try
 
 /** The allowlisted site settings Kupua receives; never raw configuration. */
 case class KupuaSiteSettings(
@@ -45,19 +43,6 @@ object KupuaPage {
   val IndexResource: String = "public/kupua/index.html"
 
   private val allowedStages = Set("DEV", "TEST")
-
-  def mutationConfig(configuration: Configuration, metadataEditorUri: String, authUri: String): JsObject = {
-    val rollout = Try {
-      val enabled = configuration.getOptional[Boolean]("kupua.mutations.enabled").getOrElse(false)
-      val operations = configuration.getOptional[Seq[String]]("kupua.mutations.operations").getOrElse(Seq.empty)
-      if (operations.forall(operation => operation == "add-labels" || operation == "remove-label")) (enabled, operations) else (false, Seq.empty[String])
-    }.getOrElse((false, Seq.empty[String]))
-    Json.obj(
-      "metadataEditorUri" -> metadataEditorUri,
-      "authUri" -> authUri,
-      "mutations" -> Json.obj("enabled" -> rollout._1, "operations" -> rollout._2)
-    )
-  }
 
   def isAllowedStage(stage: String): Boolean = allowedStages.contains(stage)
 
