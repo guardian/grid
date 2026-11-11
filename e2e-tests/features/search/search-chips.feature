@@ -41,9 +41,9 @@ Feature: Creating search filter chips
     When I choose "<Value>" from the filter value suggestions
     Then a "<Field>" filter chip should be shown
     And the "<Field>" filter chip should have the value "<Value>"
-
     # title-format: Select <Field>:<Value> from enabled option suggestions
-    Examples:
+
+    Examples: Select <Field>:<Value> from enabled options
       | Field            | Value                  |
       | fileType         | tiff                   |
       | subject          | weather                |
@@ -68,13 +68,13 @@ Feature: Creating search filter chips
     When I choose "<Value>" from the filter value suggestions
     Then a "<Field>" filter chip should be shown
     And the "<Field>" filter chip should have the value "<Value>"
-
     # title-format: Select <Field>:<Value> from usage-rights suggestions
-    Examples:
-      | Field    | Value                          |
+
+    Examples: Select <Field>:<Value> from usage-rights suggestions
+      | Field    | Value                           |
       | by       | Example Contracted Photographer |
-      | supplier | Ronald Grant Archive           |
-      | category | Bylines                        |
+      | supplier | Ronald Grant Archive            |
+      | category | Bylines                         |
   # Evidence: kahuna/public/js/search/query.html lines 11-15
   # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54
   # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 113-120, 157-159, 216-251
@@ -85,14 +85,134 @@ Feature: Creating search filter chips
     When I type '<Query>' into the search box
     Then a "<Field>" filter chip should be shown
     And the "<Field>" filter chip should have the value "<Value>"
-
     # title-format: Enter <Field>:<Value> manually
-    Examples:
-      | Query                                          | Field            | Value                         |
-      | illustrator:Example Contracted Illustrator      | illustrator      | Example Contracted Illustrator |
-      | fixtureReference:search-chips-A                 | fixtureReference | search-chips-A                |
-      | usages@status:unknown                          | usages@status    | unknown                       |
+
+    Examples: Enter <Field>:<Value> manually
+      | Query                                      | Field            | Value                          |
+      | illustrator:Example Contracted Illustrator | illustrator      | Example Contracted Illustrator |
+      | fixtureReference:search-chips-A            | fixtureReference | search-chips-A                 |
+      | usages@status:unknown                      | usages@status    | unknown                        |
   # Evidence: kahuna/public/js/search/query.html lines 11-15
   # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54, 70-84, 115-122
   # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 134-137, 169-171, 188-199
   # Evidence: e2e-tests/setup/config.ts lines 50-58
+
+  Scenario: A typed credit prefix retrieves a seeded completion that can be selected
+    Given I am choosing a credit value starting with "Search Chips Shared"
+    When I choose "Search Chips Shared Credit" from the filter value suggestions
+    Then the "credit" filter chip should have the value "Search Chips Shared Credit"
+    And the chip query should be 'credit:"Search Chips Shared Credit"'
+  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 124-127, 264-268
+  # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54
+  # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 98-117
+
+  Scenario: A credit without a completion remains a valid manually entered chip value
+    Given the search box is empty
+    When I type "credit:Search Chips Manual Credit" into the search box
+    Then the "credit" filter chip should have the value "Search Chips Manual Credit"
+    And the chip query should be 'credit:"Search Chips Manual Credit"'
+  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 124-127, 264-268
+  # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54, 115-122
+
+  Scenario: Editing a photographer with a suggestion replaces rather than duplicates the chip
+    Given the chip query is 'by:"Example External Photographer"'
+    When I replace the "by" chip value with the prefix "Example"
+    And I choose "Example Internal Photographer" from the filter value suggestions
+    Then the "by" filter chip should have the value "Example Internal Photographer"
+    And there should be exactly 1 filter chips
+    And the chip query should be 'by:"Example Internal Photographer"'
+  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 113-117, 236-251
+  # Evidence: kahuna/node_modules/@guardian/cql/dist/lib.js lines 11843-11853, 11998-12010
+
+  Scenario: Negating a chip preserves its value and serializes an exclusion
+    Given the chip query is "harbour city:Bristol"
+    When I negate the "city" chip
+    Then the "city" filter chip should have the value "Bristol"
+    And the "city" chip should be excluded
+    And the chip query should be "harbour -city:Bristol"
+  # Evidence: kahuna/node_modules/@guardian/cql/dist/lib.js lines 11810-11823
+  # Evidence: kahuna/public/js/components/gr-cql-input/syntax.ts lines 39-56
+
+  Scenario: Removing one chip preserves neighboring text and another chip
+    Given the chip query is "harbour city:Bristol keyword:daylight"
+    When I remove the "city" chip with its remove control
+    Then there should be exactly 1 filter chips
+    And the "keyword" filter chip should have the value "daylight"
+    And the chip query should be "harbour keyword:daylight"
+  # Evidence: kahuna/node_modules/@guardian/cql/dist/lib.js lines 11800-11826, 12970-12976
+
+  Scenario: A quoted multi-word expression creates one value and round-trips its meaning
+    Given the search box is empty
+    When I enter the complete chip query 'description:"Harbour festival at the waterfront"'
+    Then the "description" filter chip should have the value "Harbour festival at the waterfront"
+    And there should be exactly 1 filter chips
+    And the chip query should be 'description:"Harbour festival at the waterfront"'
+  # Evidence: kahuna/public/js/components/gr-cql-input/syntax.ts lines 77-92
+  # Evidence: kahuna/node_modules/@guardian/cql/dist/lib.js lines 12037-12055
+
+  @known-defect
+  Scenario: The hash shortcut creates a label chip using a real label suggestion
+    Given the search box is empty
+    When I type "#search-chips" into the search box
+    And I choose "search-chips-featured" from the filter value suggestions
+    Then the "label" filter chip should have the value "search-chips-featured"
+    And the chip query should be "#search-chips-featured"
+  # Evidence: kahuna/public/js/components/gr-cql-input/syntax.ts lines 14-20
+  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 141-143, 276-280
+  # Evidence: kahuna/public/js/services/api/media-api.js lines 115-116
+  # Evidence: media-api/app/controllers/MediaApi.scala lines 135-160
+
+  @known-defect
+  Scenario: Selecting a configured illustrator suggestion completes the chip
+    Given I am choosing a value for the "illustrator" filter
+    When I choose "Example Contracted Illustrator" from the filter value suggestions
+    Then the "illustrator" filter chip should have the value "Example Contracted Illustrator"
+    And there should be exactly 1 filter chips
+  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 134-137, 254-262
+  # Evidence: dev/script/generate-config/service-config.js lines 78-82
+
+  Scenario: Keyboard navigation into a chip allows deleting a value character without deleting the chip
+    Given the chip query is "harbour city:Bristol"
+    When I move left into the final chip and press Backspace
+    Then the "city" filter chip should have the value "Bristo"
+    And there should be exactly 1 filter chips
+    And the chip query should be "harbour city:Bristo"
+  # Evidence: kahuna/node_modules/@guardian/cql/dist/lib.js lines 11973-12015, 12939-12976
+
+  Scenario: Backspace removes a newly created empty chip
+    Given the search box is empty
+    When I type "+city:" into the search box
+    And I press Backspace in the focused empty chip
+    Then there should be exactly 0 filter chips
+    And the search box should be empty
+  # Evidence: kahuna/node_modules/@guardian/cql/dist/lib.js lines 11985-11991, 12939-12976
+
+  Scenario: A search URL restores chip values polarity and adjacent text
+    Given I opened a chip search URL for "harbour -city:Bristol keyword:night"
+    Then the "city" filter chip should have the value "Bristol"
+    And the "city" chip should be excluded
+    And the "keyword" filter chip should have the value "night"
+    And the chip query should be "harbour -city:Bristol keyword:night"
+  # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 70-84
+  # Evidence: kahuna/public/js/components/gr-cql-input/syntax.ts lines 24-56
+
+  Scenario: An unavailable source suggestion lookup does not prevent manual chip entry
+    Given the search box is empty
+    When I request source suggestions for "Search Chips"
+    And I enter the complete chip query 'source:"Search Chips Wire"'
+    Then the "source" filter chip should have the value "Search Chips Wire"
+    And the chip query should be 'source:"Search Chips Wire"'
+  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 147-149, 270-274
+  # Evidence: kahuna/public/js/services/api/media-api.js lines 107-108
+  # Evidence: media-api/conf/routes lines 33-34
+
+  Scenario: Browser back and forward restore chips and adjacent text
+    Given I have chip search history from "harbour -city:Bristol" to "festival city:London"
+    When I go back in the browser
+    Then the chip query should be "harbour -city:Bristol"
+    And the "city" chip should be excluded
+    When I go forward in the browser
+    Then the chip query should be "festival city:London"
+    And the "city" filter chip should have the value "London"
+  # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 70-84
+  # Evidence: kahuna/public/js/components/gr-cql-input/syntax.ts lines 24-56

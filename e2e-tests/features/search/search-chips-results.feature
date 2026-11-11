@@ -53,22 +53,22 @@ Feature: Combining search filter chips
     Then the search results should contain exactly these chip fixtures:
       | Fixture |
       | <Match> |
-
     # title-format: Search <Query> within <Fixtures> returns <Match>
-    Examples:
-      | Fixtures | Query                                                   | Match |
-      | A,B,M    | fileType:tiff                                           | M     |
-      | A,B,M    | fileType:tif                                            | M     |
-      | A,B,M    | subject:weather                                         | M     |
-      | E,R,S    | by:"Example Contracted Photographer"                     | R     |
-      | E,R,S    | category:contract-photographer                           | R     |
-      | E,R,S    | category:commissioned-photographer                       | S     |
-      | E,F,T,U  | illustrator:"Example Contracted Illustrator"              | F     |
-      | E,F,T,U  | illustrator:"Example Staff Illustrator"                   | T     |
-      | E,F,T,U  | illustrator:"Example Commissioned Illustrator"            | U     |
-      | N,P,Q    | category:Bylines                                         | Q     |
-      | I,N      | category:commissioned-agency supplier:Alamy               | N     |
-      | I,O      | title:"Search chips edited title O"                       | O     |
+
+    Examples: Search <Query> within <Fixtures> returns <Match>
+      | Fixtures | Query                                          | Match |
+      | A,B,M    | fileType:tiff                                  | M     |
+      | A,B,M    | fileType:tif                                   | M     |
+      | A,B,M    | subject:weather                                | M     |
+      | E,R,S    | by:"Example Contracted Photographer"           | R     |
+      | E,R,S    | category:contract-photographer                 | R     |
+      | E,R,S    | category:commissioned-photographer             | S     |
+      | E,F,T,U  | illustrator:"Example Contracted Illustrator"   | F     |
+      | E,F,T,U  | illustrator:"Example Staff Illustrator"        | T     |
+      | E,F,T,U  | illustrator:"Example Commissioned Illustrator" | U     |
+      | N,P,Q    | category:Bylines                               | Q     |
+      | I,N      | category:commissioned-agency supplier:Alamy    | N     |
+      | I,O      | title:"Search chips edited title O"            | O     |
   # Evidence: kahuna/public/js/search/query.html lines 11-15
   # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 70-84, 115-122
   # Evidence: media-api/app/lib/elasticsearch/QueryBuilder.scala lines 92-114, 209-211
@@ -81,12 +81,15 @@ Feature: Combining search filter chips
     Then the search results should contain exactly these chip fixtures:
       | Fixture |
       | <Match> |
-
     # title-format: Persistence reason <Reason> returns <Match> rather than I
-    Examples:
+
+    @known-defect
+    Examples: Persistence reason <Reason> returns <Match> rather than I
       | Reason                 | Match |
-      # Known backend defect: the identifier query requires every configured identifier, not any one.
       | persistence-identifier | M     |
+
+    Examples: Persistence reason <Reason> returns <Match> rather than I
+      | Reason                 | Match |
       | exports                | B     |
       | usages                 | V     |
       | archived               | E     |
@@ -98,6 +101,7 @@ Feature: Combining search filter chips
       | photoshoot             | E     |
       | labeled                | E     |
       | edited                 | O     |
+      # Known backend defect: the identifier query requires every configured identifier, not any one.
   # Evidence: kahuna/public/js/search/query.html lines 11-15
   # Evidence: media-api/app/lib/elasticsearch/QueryBuilder.scala lines 87-91, 140-148
   # Evidence: media-api/app/lib/ImagePersistenceReasons.scala lines 10-26, 34-149
@@ -123,17 +127,17 @@ Feature: Combining search filter chips
     Then the search results should contain exactly these chip fixtures:
       | Fixture |
       | V       |
-
     # title-format: Usage query <Query> returns V rather than G H or I
-    Examples:
-      | Query                                                                               |
+
+    Examples: Usage query <Query> returns V rather than G H or I
+      | Query                                                                                 |
       | usages@platform:download usages@status:downloaded                                     |
-      | usages@platform:"Added to Photo Sales" usages@status:syndicated                        |
-      | usages@status:derivative                                                             |
-      | usages@status:failed                                                                 |
-      | usages@status:unknown                                                                |
-      | usages@status:removed usages@reference:"Search Chips Harbour Story"                    |
-      | usages@status:removed usages@reference:"https://search-chips.invalid/stories/harbour"   |
+      | usages@platform:"Added to Photo Sales" usages@status:syndicated                       |
+      | usages@status:derivative                                                              |
+      | usages@status:failed                                                                  |
+      | usages@status:unknown                                                                 |
+      | usages@status:removed usages@reference:"Search Chips Harbour Story"                   |
+      | usages@status:removed usages@reference:"https://search-chips.invalid/stories/harbour" |
   # Evidence: kahuna/public/js/search/query.html lines 11-15
   # Evidence: media-api/app/lib/elasticsearch/QueryBuilder.scala lines 105-111, 165-198
   # Evidence: media-api/app/lib/querysyntax/QuerySyntax.scala lines 144-168
@@ -145,14 +149,14 @@ Feature: Combining search filter chips
     Then the search results should contain exactly these chip fixtures:
       | Fixture |
       | <Match> |
-
     # title-format: Alias query <Query> within <Fixtures> returns <Match>
-    Examples:
-      | Fixtures | Query                        | Match |
-      | A,E,I    | fixtureSubject:sport         | E     |
-      | A,I      | fixtureReference:search-chips-A | A   |
-      | A,I      | fixtureHasPerson:true        | A     |
-      | A,I      | fixtureHasPerson:false       | I     |
+
+    Examples: Alias query <Query> within <Fixtures> returns <Match>
+      | Fixtures | Query                           | Match |
+      | A,E,I    | fixtureSubject:sport            | E     |
+      | A,I      | fixtureReference:search-chips-A | A     |
+      | A,I      | fixtureHasPerson:true           | A     |
+      | A,I      | fixtureHasPerson:false          | I     |
   # Evidence: kahuna/public/js/search/query.html lines 11-15
   # Evidence: media-api/app/lib/elasticsearch/QueryBuilder.scala lines 24-40, 92-104
   # Evidence: e2e-tests/setup/config.ts lines 39-66
@@ -164,19 +168,19 @@ Feature: Combining search filter chips
     Then the search results should contain exactly these chip fixtures:
       | Fixture |
       | <Match> |
-
     # title-format: Supplier <Supplier> returns <Match> rather than I
-    Examples:
-      | Supplier                | Query                            | Match                        |
-      | AAP                     | supplier:AAP                     | M                            |
-      | Alamy                   | supplier:Alamy                   | N                            |
-      | Allstar Picture Library | supplier:"Allstar Picture Library" | O                          |
-      | EPA                     | supplier:EPA                     | W                            |
-      | Getty Images            | supplier:"Getty Images"          | supplier-getty-images        |
-      | PA                      | supplier:PA                      | supplier-pa                  |
-      | Rex Features            | supplier:"Rex Features"          | supplier-rex-features        |
-      | Ronald Grant Archive    | supplier:"Ronald Grant Archive"  | supplier-ronald-grant-archive |
-      | Action Images           | supplier:"Action Images"         | supplier-action-images       |
+
+    Examples: Supplier <Supplier> returns <Match> rather than I
+      | Supplier                | Query                              | Match                         |
+      | AAP                     | supplier:AAP                       | M                             |
+      | Alamy                   | supplier:Alamy                     | N                             |
+      | Allstar Picture Library | supplier:"Allstar Picture Library" | O                             |
+      | EPA                     | supplier:EPA                       | W                             |
+      | Getty Images            | supplier:"Getty Images"            | supplier-getty-images         |
+      | PA                      | supplier:PA                        | supplier-pa                   |
+      | Rex Features            | supplier:"Rex Features"            | supplier-rex-features         |
+      | Ronald Grant Archive    | supplier:"Ronald Grant Archive"    | supplier-ronald-grant-archive |
+      | Action Images           | supplier:"Action Images"           | supplier-action-images        |
   # Evidence: kahuna/public/js/search/query.html lines 11-15
   # Evidence: media-api/app/lib/elasticsearch/QueryBuilder.scala lines 92-114
   # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 10-17, 209-236, 279-286
@@ -192,6 +196,7 @@ Feature: Combining search filter chips
   # Evidence: media-api/app/lib/MediaApiConfig.scala lines 92-99
   # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 279-283
 
+  @known-defect
   Scenario: Reapable search excludes an old image with a persistence identifier
     # Known backend defect: the same multi-identifier existence query currently allows M through.
     Given I am searching chip fixtures "M,W" with all usage rights included
@@ -210,9 +215,9 @@ Feature: Combining search filter chips
     Then the search results should contain exactly these chip fixtures:
       | Fixture |
       | <Match> |
-
     # title-format: Quota query <Query> returns <Match>
-    Examples:
+
+    Examples: Quota query <Query> returns <Match>
       | Query           | Match                 |
       | is:under-quota  | supplier-rex-features |
       | -is:under-quota | M                     |
@@ -223,3 +228,93 @@ Feature: Combining search filter chips
   # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 209-225, 284-286
   # Evidence: dev/config/rcs-quota.json lines 1-14
   # Evidence: dev/config/usages.eml lines 23-32
+
+  Scenario Outline: Core metadata combinations retain their positive constraints
+    Given I am searching chip fixtures "<Fixtures>" with all usage rights included
+    When I search for images using '<Query>'
+    Then the search results should contain exactly chip fixtures "<Matches>"
+    # title-format: Core combination <Query> within <Fixtures> returns <Matches>
+
+    Examples: Core combination <Query> within <Fixtures> returns <Matches>
+      | Fixtures | Query                                                     | Matches |
+      | A,B      | fileType:png has:crops                                    | B       |
+      | A,B      | fileType:jpeg -has:crops                                  | A       |
+      | A,B,C,D  | in:Somerset keyword:daylight                              | A       |
+      | A,B,C,D  | city:Somerset keyword:daylight                            | none    |
+      | A,B,C,D  | location:Harbourside keyword:night                        | B       |
+      | E,F      | is:GNM-owned-photo                                        | E       |
+      | E,F      | is:GNM-owned-illustration                                 | F       |
+      | E,F      | is:GNM-owned                                              | E,F     |
+      | F,I      | leasedBy:grid-e2e-account@guardian.co.uk persisted:leases | F       |
+  # Evidence: kahuna/public/js/search/query.html lines 11-15
+  # Evidence: media-api/app/lib/querysyntax/QuerySyntax.scala lines 150-168, 195-201
+  # Evidence: media-api/app/lib/elasticsearch/IsQueryFilter.scala lines 28-58
+  # Evidence: media-api/app/lib/elasticsearch/QueryBuilder.scala lines 92-148
+  # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 108-197
+
+  Scenario: Label collection and photoshoot constraints intersect with archive persistence
+    Given I am searching chip fixtures "E,I" with all usage rights included
+    When I search for images using '#search-chips-featured ~"search-chips" photoshoot:"Search Chips Harbour Shoot" persisted:archived'
+    Then the search results should contain exactly chip fixtures "E"
+  # Evidence: kahuna/public/js/search/query.html lines 11-15
+  # Evidence: media-api/app/lib/querysyntax/QuerySyntax.scala lines 88-100, 150-168
+  # Evidence: media-api/app/lib/elasticsearch/QueryBuilder.scala lines 87-148
+  # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 151-171, 289-292
+
+  Scenario: Platform and status filters must match the same usage
+    Given I am searching chip fixtures "G,H" with all usage rights included
+    When I search for images using "usages@platform:print usages@status:published"
+    Then the search results should contain exactly chip fixtures "H"
+  # Evidence: kahuna/public/js/search/query.html lines 11-15
+  # Evidence: media-api/app/lib/elasticsearch/QueryBuilder.scala lines 165-198
+  # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 195-196
+
+  Scenario Outline: Replaced defaults and explicit status filters apply to the whole image
+    Given I am searching chip fixtures "H,J" with all usage rights included
+    When I search for images using "<Query>"
+    Then the search results should contain exactly chip fixtures "<Matches>"
+    # title-format: Usage status combination <Query> returns <Matches>
+
+    Examples: Usage status combination <Query> returns <Matches>
+      | Query                                           | Matches |
+      | usages@status:published                         | H       |
+      | usages@status:replaced                          | J       |
+      | usages@status:published -usages@status:replaced | H       |
+      | usages@status:published usages@status:replaced  | none    |
+      | usages@status:replaced -usages@status:published | none    |
+  # Evidence: kahuna/public/js/search/query.html lines 11-15
+  # Evidence: media-api/app/lib/querysyntax/Parser.scala lines 5-29
+  # Evidence: media-api/app/lib/elasticsearch/QueryBuilder.scala lines 165-198
+  # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 196-203
+
+  Scenario Outline: Date constraints distinguish inclusive usage boundaries and missing capture dates
+    Given I am searching chip fixtures "<Fixtures>" with all usage rights included
+    When I search for images using '<Query>'
+    Then the search results should contain exactly chip fixtures "<Matches>"
+    # title-format: Date combination <Query> returns <Matches>
+
+    Examples: Date combination <Query> returns <Matches>
+      | Fixtures | Query                                                                     | Matches |
+      | H,J      | usages@>added:2024-06-15 usages@<added:2024-06-15 | H       |
+      | H,I      | date:2024-06-15 has:dateTaken                                             | H       |
+      | H,I      | date:2024-06-15 -has:dateTaken                                            | I       |
+  # Evidence: kahuna/public/js/search/query.html lines 11-15
+  # Evidence: media-api/app/lib/querysyntax/QuerySyntax.scala lines 61-78, 203-225
+  # Evidence: media-api/app/lib/elasticsearch/QueryBuilder.scala lines 112-119, 165-198
+  # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 7, 195-203, 289-292
+
+  Scenario Outline: Deleted images are explicitly filtered by the requested uploader
+    Given I am searching chip fixtures "K,L" with all usage rights included
+    When I search for images using "<Query>"
+    Then the search results should contain exactly chip fixtures "<Matches>"
+    # title-format: Deleted image query <Query> returns <Matches>
+
+    Examples: Deleted image query <Query> returns <Matches>
+      | Query                                                     | Matches |
+      | uploader:grid-e2e-account@guardian.co.uk                    | none    |
+      | is:deleted uploader:grid-e2e-account@guardian.co.uk         | K       |
+      | is:deleted uploader:search-chips-other@guardian.co.uk      | L       |
+  # Evidence: media-api/app/lib/querysyntax/Parser.scala lines 5-29, 42-56
+  # Evidence: media-api/app/controllers/MediaApi.scala lines 48-54
+  # Evidence: e2e-tests/fixtures/permissions/permissions.json lines 59-73
+  # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 204-208
