@@ -6,18 +6,19 @@ Feature: Viewing an image's usages in the single image view
   Background:
     Given the application stack is running
     And I am signed in through pan-domain auth
-    And I have opened the single image view of an image
 
   # ---------------------------------------------------------------------------
   # Usages tab
   # ---------------------------------------------------------------------------
   Scenario: The Usages tab shows the number of usages
     Given the image has 3 usages
+    When I open the image
     Then the Usages tab is labelled "Usages (3)"
   # Evidence: kahuna/public/js/image/controller.js lines 201-205
 
   Scenario: The Usages tab is disabled when the image has no usages
     Given the image has no usages
+    When I open the image
     Then the Usages tab is labelled "Usages (None)"
     And the Usages tab is disabled
   # Evidence: kahuna/public/js/image/controller.js lines 201-205
@@ -25,13 +26,13 @@ Feature: Viewing an image's usages in the single image view
 
   Scenario: The Usages tab count updates when the image is updated
     Given the image has 3 usages
-    When the image is updated elsewhere in the application and now has 4 usages
+    When I open the image
+    And I download the image
     Then the Usages tab is labelled "Usages (4)"
   # Evidence: kahuna/public/js/image/controller.js lines 201-205, 323-329
 
   Rule: Usages are listed on the Usages tab
 
-    # The Usages tab is disabled until the image has usages, so each scenario selects it after choosing its image.
     # Evidence: kahuna/public/js/image/view.html lines 166, 173
     # Evidence: kahuna/public/js/image/controller.js lines 154-159
 
@@ -40,7 +41,7 @@ Feature: Viewing an image's usages in the single image view
       # -------------------------------------------------------------------------
     Scenario: Each usage status is shown as its own group
       Given the image has usages with more than one status
-      And I have selected the Usages tab
+      When I view the image's usages
       Then I see one usage group per status
       And each group is headed with the status name and the number of usages in it
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.html lines 3-5
@@ -50,7 +51,7 @@ Feature: Viewing an image's usages in the single image view
 
     Scenario Outline: Usage statuses are shown with friendly names
       Given the image has a usage with the "<status>" status
-      And I have selected the Usages tab
+      When I view the image's usages
       Then the usage group is headed "<label>"
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.html lines 4
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 61-76
@@ -67,13 +68,13 @@ Feature: Viewing an image's usages in the single image view
 
     Scenario: Usage groups are ordered by status
       Given the image has pending, published, unknown, removed, downloaded and replaced usages
-      And I have selected the Usages tab
+      When I view the image's usages
       Then the usage groups appear in the order pending, published, unknown, removed, downloaded, replaced
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 35, 42-45
 
     Scenario: Usages within a group are ordered newest first
       Given a usage group contains usages added on different dates
-      And I have selected the Usages tab
+      When I view the image's usages
       Then the usages are listed with the most recently added first
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 41
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 11
@@ -83,7 +84,7 @@ Feature: Viewing an image's usages in the single image view
    # -------------------------------------------------------------------------
     Scenario: A large group of usages starts collapsed when there are several groups
       Given the image has more than ten usages in a group alongside other groups
-      And I have selected the Usages tab
+      When I view the image's usages
       Then that usage group is collapsed
       And the group's toggle shows the "chevron_right" icon
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 127, 129-131
@@ -91,7 +92,7 @@ Feature: Viewing an image's usages in the single image view
 
     Scenario: A small group starts expanded when there are several groups
       Given the image has ten or fewer usages in a group alongside other groups
-      And I have selected the Usages tab
+      When I view the image's usages
       Then that usage group is expanded
       And the group's toggle shows the "expand_more" icon
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 127, 129-131
@@ -99,7 +100,7 @@ Feature: Viewing an image's usages in the single image view
 
     Scenario: A large group starts expanded when it is the only group
       Given the image has more than ten usages, all with the same status
-      And I have selected the Usages tab
+      When I view the image's usages
       Then that usage group is expanded
       And the group's toggle shows the "expand_more" icon
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 48-50, 127, 129-131
@@ -108,7 +109,7 @@ Feature: Viewing an image's usages in the single image view
     Scenario: A large group starts collapsed when Photo Sales hides the other groups
       Given the send to Photo Sales feature is enabled
       And the image has more than ten downloaded usages and one published usage
-      And I have selected the Usages tab
+      When I view the image's usages
       Then I only see the downloads usage group
       And that usage group is collapsed
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.html lines 3
@@ -116,8 +117,8 @@ Feature: Viewing an image's usages in the single image view
 
     Scenario: Toggling a group shows and hides its usages
       Given the image has a usage with the "published" status
-      And I have selected the Usages tab
-      And that usage group is expanded
+      When I view the image's usages
+      Then that usage group is expanded
       When I activate the "Hide published usages" toggle
       Then the group's usages are hidden
       And the group's toggle is named "Show published usages"
@@ -131,9 +132,9 @@ Feature: Viewing an image's usages in the single image view
 
     Scenario Outline: A group's toggle is named after its lower-cased heading
       Given the image has a usage with the "<status>" status
-      And I have selected the Usages tab
-      And that usage group is expanded
-      Then the group's toggle is named "<name>"
+      When I view the image's usages
+      Then that usage group is expanded
+      And the group's toggle is named "<name>"
     # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 5
     # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 61-76
 
@@ -146,21 +147,21 @@ Feature: Viewing an image's usages in the single image view
     # -------------------------------------------------------------------------
     Scenario: A front usage is titled with the front and who added it
       Given the image has a front usage on the "uk/sport" front added by "Jane Smith"
-      And I have selected the Usages tab
+      When I view the image's usages
       Then that usage is titled "uk/sport, Jane Smith"
     # Evidence: kahuna/public/js/services/image/usages.js lines 29-32, 39-41, 66-67
     # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 15
 
     Scenario: A download usage is titled with who downloaded it
       Given the image has a download usage downloaded by "Jane Smith"
-      And I have selected the Usages tab
+      When I view the image's usages
       Then that usage is titled "Jane Smith"
     # Evidence: kahuna/public/js/services/image/usages.js lines 34-37, 42-43, 66-67
     # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 15
 
     Scenario Outline: A print or digital usage is titled with its reference name
       Given a usage on the "<platform>" platform has a "<reference>" reference named "<name>"
-      And I have selected the Usages tab
+      When I view the image's usages
       Then that usage is titled "<name>"
     # Evidence: kahuna/public/js/services/image/usages.js lines 47-54, 66-67
     # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 15
@@ -172,7 +173,7 @@ Feature: Viewing an image's usages in the single image view
 
     Scenario Outline: A print or digital usage without a named reference has a fallback title
       Given a usage on the "<platform>" platform has no named "<reference>" reference
-      And I have selected the Usages tab
+      When I view the image's usages
       Then that usage is titled "No title found."
     # Evidence: kahuna/public/js/services/image/usages.js lines 47-54, 66-67
     # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 15
@@ -184,7 +185,7 @@ Feature: Viewing an image's usages in the single image view
 
     Scenario Outline: A <status> usage is described by its link to the child image, not a title
       Given a usage has the "<status>" status with child usage metadata
-      And I have selected the Usages tab
+      When I view the image's usages
       Then the usage shows "<text>" followed by a link to the child image and who added it
       And that usage has no title of its own
     # Evidence: kahuna/public/js/services/image/usages.js lines 44-45, 66-67
@@ -197,7 +198,7 @@ Feature: Viewing an image's usages in the single image view
 
     Scenario Outline: A usage shows an icon for its platform
       Given a usage was made on the "<platform>" platform
-      And I have selected the Usages tab
+      When I view the image's usages
       Then that usage shows the "<icon>" icon
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 12-13
 
@@ -208,7 +209,7 @@ Feature: Viewing an image's usages in the single image view
 
     Scenario: A recently added usage is highlighted
       Given a usage was added within the last seven days
-      And I have selected the Usages tab
+      When I view the image's usages
       Then that usage's icon is highlighted as a warning
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 12-13
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 141-145
@@ -216,14 +217,14 @@ Feature: Viewing an image's usages in the single image view
 
     Scenario: An older usage is not highlighted
       Given a usage was added more than seven days ago
-      And I have selected the Usages tab
+      When I view the image's usages
       Then that usage's icon is not highlighted
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 12-13
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 141-145
 
     Scenario: A usage shows a relative time with the exact date as a tooltip
       Given a usage has a date added
-      And I have selected the Usages tab
+      When I view the image's usages
       Then the usage shows the time since it was added
       And hovering the time reveals the exact date and time
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 25
@@ -231,7 +232,7 @@ Feature: Viewing an image's usages in the single image view
 
     Scenario: A usage links out to the places it was referenced
       Given a usage has a "frontend" reference and a "composer" reference
-      And I have selected the Usages tab
+      When I view the image's usages
       Then the usage shows a frontend icon linking to the frontend reference
       And a composer icon linking to the composer reference
       And each reference link opens in a new tab
@@ -239,7 +240,7 @@ Feature: Viewing an image's usages in the single image view
 
     Scenario: A reference without a URI is not linked
       Given a usage has a "frontend" reference with no URI
-      And I have selected the Usages tab
+      When I view the image's usages
       Then that usage shows no frontend reference link
     # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 28-32
 
@@ -249,7 +250,7 @@ Feature: Viewing an image's usages in the single image view
     Scenario: The Photo Sales panel is shown when the feature is enabled
       Given the send to Photo Sales feature is enabled
       And the image has a syndication usage with the "Capture" partner
-      And I have selected the Usages tab
+      When I view the image's usages
       Then I see the Photo Sales usage panel
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.html lines 2
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 56
@@ -258,14 +259,14 @@ Feature: Viewing an image's usages in the single image view
     Scenario: Only download, replaced and derivative usage groups are shown when Photo Sales is enabled
       Given the send to Photo Sales feature is enabled
       And the image has published, downloaded, replaced and derivative usages
-      And I have selected the Usages tab
+      When I view the image's usages
       Then I only see the downloaded, replaced and derivative usage groups
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.html lines 3
 
     Scenario: The Photo Sales panel is not shown when the feature is disabled
       Given the send to Photo Sales feature is disabled
       And the image has a syndication usage with the "Capture" partner
-      And I have selected the Usages tab
+      When I view the image's usages
       Then I do not see the Photo Sales usage panel
       And all of the image's usage groups are shown
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.html lines 2-3
@@ -274,7 +275,7 @@ Feature: Viewing an image's usages in the single image view
     Scenario: The Photo Sales panel lists images sent to Capture
       Given the send to Photo Sales feature is enabled
       And the image has a syndication usage with the "Capture" partner
-      And I have selected the Usages tab
+      When I view the image's usages
       Then the Photo Sales panel shows "Added to Photo Sales"
       And it shows who syndicated the image and the time since it was added
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 78-91
@@ -284,7 +285,7 @@ Feature: Viewing an image's usages in the single image view
     Scenario: The Photo Sales panel is empty when the image has not been sent to Capture
       Given the send to Photo Sales feature is enabled
       And the image has no Capture syndication usage
-      And I have selected the Usages tab
+      When I view the image's usages
       Then the Photo Sales panel shows no entries
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 78-91
       # Evidence: kahuna/public/js/components/gr-image-usage-photosales/gr-image-usage-photosales.tsx lines 33-41, 45
@@ -296,7 +297,7 @@ Feature: Viewing an image's usages in the single image view
     Scenario: A user with permission sees the delete all usages control
       Given I have delete usages permission
       And the image has at least one usage
-      And I have selected the Usages tab
+      When I view the image's usages
       Then I see the "Delete ALL usages" control
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.html lines 8-12
       # Evidence: kahuna/public/js/components/gr-delete-usages/gr-delete-usages.js lines 24, 28-34
@@ -305,7 +306,7 @@ Feature: Viewing an image's usages in the single image view
     Scenario: A user without permission does not see the delete all usages control
       Given I do not have delete usages permission
       And the image has at least one usage
-      And I have selected the Usages tab
+      When I view the image's usages
       Then I do not see the "Delete ALL usages" control
       # Evidence: kahuna/public/js/components/gr-delete-usages/gr-delete-usages.js lines 28-31
       # Evidence: kahuna/public/js/components/gr-delete-usages/gr-delete-usages.html lines 2
@@ -314,7 +315,7 @@ Feature: Viewing an image's usages in the single image view
       Given I have delete usages permission
       And the send to Photo Sales feature is enabled
       And the image has a syndication usage
-      And I have selected the Usages tab
+      When I view the image's usages
       Then I do not see the "Delete ALL usages" control
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.html lines 9
       # Evidence: kahuna/public/js/services/image/usages.js lines 95
@@ -324,7 +325,7 @@ Feature: Viewing an image's usages in the single image view
       Given I have delete usages permission
       And the send to Photo Sales feature is disabled
       And the image has a syndication usage
-      And I have selected the Usages tab
+      When I view the image's usages
       Then I see the "Delete ALL usages" control
     # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.html lines 8-12
     # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 52, 56
@@ -334,10 +335,8 @@ Feature: Viewing an image's usages in the single image view
     Scenario: Confirming deletion removes all usage information and reloads the image
       Given I have delete usages permission
       And the image has at least one usage
-      And I have selected the Usages tab
-      When I activate the "Delete ALL usages" control
-      And I activate the "Confirm delete" control
-      And I confirm by entering "DELETE"
+      When I view the image's usages
+      And I delete all usages, confirming with "DELETE"
       Then all usage information for the image is deleted
       And the single image view is reloaded
       # Evidence: kahuna/public/js/components/gr-delete-usages/gr-delete-usages.js lines 36-50
@@ -348,10 +347,8 @@ Feature: Viewing an image's usages in the single image view
     Scenario: Cancelling the delete confirmation leaves the usages untouched
       Given I have delete usages permission
       And the image has at least one usage
-      And I have selected the Usages tab
-      When I activate the "Delete ALL usages" control
-      And I activate the "Confirm delete" control
-      And I do not enter "DELETE" to confirm
+      When I view the image's usages
+      And I cancel deleting all usages
       Then no usage information is deleted
       # Evidence: kahuna/public/js/components/gr-delete-usages/gr-delete-usages.js lines 37-49
       # Evidence: kahuna/public/js/components/gr-confirm-delete/gr-confirm-delete.js lines 12-31
@@ -361,7 +358,7 @@ Feature: Viewing an image's usages in the single image view
     # -------------------------------------------------------------------------
     Scenario: The usages refresh when the image is updated
       Given the image has at least one usage
-      And I have selected the Usages tab
-      When the image usages change as a result of a user action, for example, downloading an image
-      Then the usages list refreshes to reflect the updated image
+      When I view the image's usages
+      And I download the image
+      Then the usages list includes my download
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 97-105

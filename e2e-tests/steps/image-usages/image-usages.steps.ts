@@ -37,19 +37,20 @@ interface SeedFixtures {
   testContext: { usages?: SeedUsage[]; usagesImageId?: string; usageGroup?: UsageStatus };
 }
 
-/** Seed and open an image with `usages`; `group` is the one "that usage group" means. */
-async function seedUsages(
-  { page, seedImage, testContext }: SeedFixtures,
-  usages: SeedUsage[],
-  group?: UsageStatus,
-): Promise<void> {
+/** Choose the usages the image will have; `group` is the one "that usage group" means. */
+function setUsages(testContext: SeedFixtures['testContext'], usages: SeedUsage[], group?: UsageStatus): void {
   const statuses = new Set(usages.map((u) => u.status));
   testContext.usages = usages;
   testContext.usageGroup = group ?? (statuses.size === 1 ? usages[0].status : undefined);
-  testContext.usagesImageId = await openImageWithUsages(page, seedImage, usages);
 }
 
-const stories = (count: number): SeedUsage[] =>
+/** Index a copy of an image with the chosen usages and open its single image view. */
+async function openImage({ page, seedImage, testContext }: SeedFixtures): Promise<void> {
+  expect(testContext.usages, "an earlier step chose the image's usages").toBeDefined();
+  testContext.usagesImageId = await openImageWithUsages(page, seedImage, testContext.usages!);
+}
+
+const storyUsages = (count: number): SeedUsage[] =>
   Array.from({ length: count }, (_, i) => digitalUsage(`Story ${i + 1}`));
 
 function theSeededUsage(usages: SeedUsage[] | undefined): SeedUsage {
@@ -67,66 +68,66 @@ const usagesControl = (page: Page, text: string) =>
 const DATE_ADDED_DAYS_AGO = 3;
 
 // ---------------------------------------------------------------------------
-// Seeding the opened image's usages
+// Choosing the image's usages
 // ---------------------------------------------------------------------------
 
-Given('the image has {int} usages', async ({ page, seedImage, testContext }, count: number) => {
-  await seedUsages({ page, seedImage, testContext }, stories(count));
+Given('the image has {int} usages', async ({ testContext }, count: number) => {
+  setUsages(testContext, storyUsages(count));
 });
 
-Given('the image has no usages', async ({ page, seedImage, testContext }) => {
-  await seedUsages({ page, seedImage, testContext }, []);
+Given('the image has no usages', async ({ testContext }) => {
+  setUsages(testContext, []);
 });
 
-Given('the image has at least one usage', async ({ page, seedImage, testContext }) => {
-  await seedUsages({ page, seedImage, testContext }, [digitalUsage('A published story')]);
+Given('the image has at least one usage', async ({ testContext }) => {
+  setUsages(testContext, [digitalUsage('A published story')]);
 });
 
-Given('the image has usages with more than one status', async ({ page, seedImage, testContext }) => {
+Given('the image has usages with more than one status', async ({ testContext }) => {
   const usages = (['published', 'pending', 'published', 'removed'] as const).map(usageWithStatus);
-  await seedUsages({ page, seedImage, testContext }, usages);
+  setUsages(testContext, usages);
 });
 
-Given('the image has a usage with the {string} status', async ({ page, seedImage, testContext }, status: string) => {
-  await seedUsages({ page, seedImage, testContext }, [usageWithStatus(status as UsageStatus)]);
+Given('the image has a usage with the {string} status', async ({ testContext }, status: string) => {
+  setUsages(testContext, [usageWithStatus(status as UsageStatus)]);
 });
 
 Given(
   'the image has pending, published, unknown, removed, downloaded and replaced usages',
-  async ({ page, seedImage, testContext }) => {
+  async ({ testContext }) => {
     // Seeded out of order, so the page has to sort them.
     const statuses = ['replaced', 'downloaded', 'removed', 'unknown', 'published', 'pending'] as const;
-    await seedUsages({ page, seedImage, testContext }, statuses.map(usageWithStatus));
+    setUsages(testContext, statuses.map(usageWithStatus));
   },
 );
 
-Given('a usage group contains usages added on different dates', async ({ page, seedImage, testContext }) => {
+Given('a usage group contains usages added on different dates', async ({ testContext }) => {
   const usages = [
     digitalUsage('Middle story', { dateAdded: daysAgo(5) }),
     digitalUsage('Oldest story', { dateAdded: daysAgo(10) }),
     digitalUsage('Newest story', { dateAdded: daysAgo(1) }),
   ];
-  await seedUsages({ page, seedImage, testContext }, usages);
+  setUsages(testContext, usages);
 });
 
 Given(
   'the image has a front usage on the {string} front added by {string}',
-  async ({ page, seedImage, testContext }, front: string, addedBy: string) => {
-    await seedUsages({ page, seedImage, testContext }, [frontUsage(front, addedBy)]);
+  async ({ testContext }, front: string, addedBy: string) => {
+    setUsages(testContext, [frontUsage(front, addedBy)]);
   },
 );
 
 Given(
   'the image has a download usage downloaded by {string}',
-  async ({ page, seedImage, testContext }, downloadedBy: string) => {
-    await seedUsages({ page, seedImage, testContext }, [downloadUsage(downloadedBy)]);
+  async ({ testContext }, downloadedBy: string) => {
+    setUsages(testContext, [downloadUsage(downloadedBy)]);
   },
 );
 
 Given(
   'a usage on the {string} platform has a {string} reference named {string}',
-  async ({ page, seedImage, testContext }, platform: string, reference: string, name: string) => {
-    await seedUsages({ page, seedImage, testContext }, [
+  async ({ testContext }, platform: string, reference: string, name: string) => {
+    setUsages(testContext, [
       usage({
         platform: platform as UsagePlatform,
         status: 'published',
@@ -138,8 +139,8 @@ Given(
 
 Given(
   'a usage on the {string} platform has no named {string} reference',
-  async ({ page, seedImage, testContext }, platform: string, reference: string) => {
-    await seedUsages({ page, seedImage, testContext }, [
+  async ({ testContext }, platform: string, reference: string) => {
+    setUsages(testContext, [
       usage({
         platform: platform as UsagePlatform,
         status: 'published',
@@ -151,39 +152,35 @@ Given(
 
 Given(
   'a usage has the {string} status with child usage metadata',
-  async ({ page, seedImage, testContext }, status: string) => {
-    await seedUsages({ page, seedImage, testContext }, [childUsage(status as 'derivative' | 'replaced')]);
+  async ({ testContext }, status: string) => {
+    setUsages(testContext, [childUsage(status as 'derivative' | 'replaced')]);
   },
 );
 
-Given('a usage was made on the {string} platform', async ({ page, seedImage, testContext }, platform: string) => {
-  await seedUsages({ page, seedImage, testContext }, [
-    usage({ platform: platform as UsagePlatform, status: 'published' }),
-  ]);
+Given('a usage was made on the {string} platform', async ({ testContext }, platform: string) => {
+  setUsages(testContext, [usage({ platform: platform as UsagePlatform, status: 'published' })]);
 });
 
-Given('a usage was added within the last seven days', async ({ page, seedImage, testContext }) => {
-  await seedUsages({ page, seedImage, testContext }, [digitalUsage('A recent story', { dateAdded: daysAgo(2) })]);
+Given('a usage was added within the last seven days', async ({ testContext }) => {
+  setUsages(testContext, [digitalUsage('A recent story', { dateAdded: daysAgo(2) })]);
 });
 
-Given('a usage was added more than seven days ago', async ({ page, seedImage, testContext }) => {
-  await seedUsages({ page, seedImage, testContext }, [digitalUsage('An older story', { dateAdded: daysAgo(30) })]);
+Given('a usage was added more than seven days ago', async ({ testContext }) => {
+  setUsages(testContext, [digitalUsage('An older story', { dateAdded: daysAgo(30) })]);
 });
 
-Given('a usage has a date added', async ({ page, seedImage, testContext }) => {
-  await seedUsages({ page, seedImage, testContext }, [
-    digitalUsage('A dated story', { dateAdded: daysAgo(DATE_ADDED_DAYS_AGO) }),
-  ]);
+Given('a usage has a date added', async ({ testContext }) => {
+  setUsages(testContext, [digitalUsage('A dated story', { dateAdded: daysAgo(DATE_ADDED_DAYS_AGO) })]);
 });
 
 Given(
   'a usage has a {string} reference and a {string} reference',
-  async ({ page, seedImage, testContext }, first: string, second: string) => {
+  async ({ testContext }, first: string, second: string) => {
     const references = [first, second].map((type) => ({
       type: type as UsageReferenceType,
       uri: `https://${type}.example.com/e2e-story`,
     }));
-    await seedUsages({ page, seedImage, testContext }, [
+    setUsages(testContext, [
       digitalUsage('A referenced story', { references: [{ ...references[0], name: 'A referenced story' }, references[1]] }),
     ]);
   },
@@ -191,8 +188,8 @@ Given(
 
 Given(
   'a usage has a {string} reference with no URI',
-  async ({ page, seedImage, testContext }, reference: string) => {
-    await seedUsages({ page, seedImage, testContext }, [
+  async ({ testContext }, reference: string) => {
+    setUsages(testContext, [
       digitalUsage('An unlinked story', { references: [{ type: reference as UsageReferenceType, name: 'An unlinked story' }] }),
     ]);
   },
@@ -201,52 +198,50 @@ Given(
 // Kahuna collapses a group of more than ten usages, unless it's the only group.
 Given(
   'the image has more than ten usages in a group alongside other groups',
-  async ({ page, seedImage, testContext }) => {
-    await seedUsages({ page, seedImage, testContext }, [...stories(11), usageWithStatus('pending')], 'published');
+  async ({ testContext }) => {
+    setUsages(testContext, [...storyUsages(11), usageWithStatus('pending')], 'published');
   },
 );
 
 Given(
   'the image has ten or fewer usages in a group alongside other groups',
-  async ({ page, seedImage, testContext }) => {
-    await seedUsages({ page, seedImage, testContext }, [...stories(10), usageWithStatus('pending')], 'published');
+  async ({ testContext }) => {
+    setUsages(testContext, [...storyUsages(10), usageWithStatus('pending')], 'published');
   },
 );
 
-Given('the image has more than ten usages, all with the same status', async ({ page, seedImage, testContext }) => {
-  await seedUsages({ page, seedImage, testContext }, stories(11));
+Given('the image has more than ten usages, all with the same status', async ({ testContext }) => {
+  setUsages(testContext, storyUsages(11));
 });
 
 Given(
   'the image has more than ten downloaded usages and one published usage',
-  async ({ page, seedImage, testContext }) => {
+  async ({ testContext }) => {
     const downloads = Array.from({ length: 11 }, (_, i) => downloadUsage(`downloader-${i + 1}@guardian.co.uk`));
-    await seedUsages({ page, seedImage, testContext }, [...downloads, usageWithStatus('published')], 'downloaded');
+    setUsages(testContext, [...downloads, usageWithStatus('published')], 'downloaded');
   },
 );
 
 Given(
   'the image has a syndication usage with the {string} partner',
-  async ({ page, seedImage, testContext }, partner: string) => {
-    await seedUsages({ page, seedImage, testContext }, [
-      syndicationUsage(partner, { dateAdded: daysAgo(DATE_ADDED_DAYS_AGO) }),
-    ]);
+  async ({ testContext }, partner: string) => {
+    setUsages(testContext, [syndicationUsage(partner, { dateAdded: daysAgo(DATE_ADDED_DAYS_AGO) })]);
   },
 );
 
-Given('the image has a syndication usage', async ({ page, seedImage, testContext }) => {
-  await seedUsages({ page, seedImage, testContext }, [syndicationUsage('e2e-partner')]);
+Given('the image has a syndication usage', async ({ testContext }) => {
+  setUsages(testContext, [syndicationUsage('e2e-partner')]);
 });
 
-Given('the image has no Capture syndication usage', async ({ page, seedImage, testContext }) => {
-  await seedUsages({ page, seedImage, testContext }, [syndicationUsage('e2e-partner')]);
+Given('the image has no Capture syndication usage', async ({ testContext }) => {
+  setUsages(testContext, [syndicationUsage('e2e-partner')]);
 });
 
 Given(
   'the image has published, downloaded, replaced and derivative usages',
-  async ({ page, seedImage, testContext }) => {
+  async ({ testContext }) => {
     const statuses = ['published', 'downloaded', 'replaced', 'derivative'] as const;
-    await seedUsages({ page, seedImage, testContext }, statuses.map(usageWithStatus));
+    setUsages(testContext, statuses.map(usageWithStatus));
   },
 );
 
@@ -256,18 +251,22 @@ Given('the send to Photo Sales feature is {word}', async ({ page }, state: strin
 });
 
 // ---------------------------------------------------------------------------
-// Permissions and the Usages tab
+// Permissions, and opening the image
 // ---------------------------------------------------------------------------
 
-Given('I have delete usages permission', async ({ page }) => {
-  await switchAccount(page, TEST_ACCOUNTS.fullAccess);
-});
+// The saved session is the full-access account, which can delete usages.
+Given('I have delete usages permission', async () => {});
 
 Given('I do not have delete usages permission', async ({ page }) => {
   await switchAccount(page, TEST_ACCOUNTS.restricted);
 });
 
-Given('I have selected the Usages tab', async ({ page }) => {
+When('I open the image', async ({ page, seedImage, testContext }) => {
+  await openImage({ page, seedImage, testContext });
+});
+
+When("I view the image's usages", async ({ page, seedImage, testContext }) => {
+  await openImage({ page, seedImage, testContext });
   // The tab stays disabled until Kahuna has counted the image's usages.
   await expect(usagesTabInput(page)).toBeEnabled();
   await usagesTab(page).click();
@@ -533,28 +532,7 @@ Then('I do not see the {string} control', async ({ page }, text: string) => {
   await expect(usagesControl(page, text)).toBeHidden();
 });
 
-When('I activate the {string} control', async ({ page, testContext }, text: string) => {
-  // A prompt holds the click open until it's answered, so hand both on to the step that answers it.
-  let onDialog!: (dialog: Dialog) => void;
-  const opened = new Promise<Dialog>((resolve) => {
-    onDialog = resolve;
-  });
-  page.once('dialog', onDialog);
-  const click = usagesControl(page, text).click();
-  const dialog = await Promise.race([opened, click.then(() => undefined)]);
-  if (dialog) {
-    testContext.prompt = { dialog, click };
-  } else {
-    page.off('dialog', onDialog);
-  }
-});
-
-When('I do not enter {string} to confirm', async ({ page, testContext }, confirmText: string) => {
-  const { prompt } = testContext;
-  expect(prompt, 'an earlier step opened a prompt').toBeDefined();
-  expect(prompt!.dialog.type()).toBe('prompt');
-  expect(prompt!.dialog.message()).toContain(`Enter ${confirmText} below to confirm`);
-
+When('I cancel deleting all usages', async ({ page, testContext }) => {
   const requests: string[] = [];
   testContext.deleteUsagesRequests = requests;
   page.on('request', (request) => {
@@ -562,8 +540,18 @@ When('I do not enter {string} to confirm', async ({ page, testContext }, confirm
       requests.push(request.url());
     }
   });
-  await prompt!.dialog.dismiss();
-  await prompt!.click;
+  let prompt: Dialog | undefined;
+  page.once('dialog', (dialog) => {
+    prompt = dialog;
+    return dialog.dismiss();
+  });
+
+  await usagesControl(page, 'Delete ALL usages').click();
+  // The click only finishes once the prompt it opens has been dismissed.
+  await usagesControl(page, 'Confirm delete').click();
+
+  expect(prompt?.type()).toBe('prompt');
+  expect(prompt?.message()).toContain('Enter DELETE below to confirm');
 });
 
 Then('no usage information is deleted', async ({ page, testContext }) => {
@@ -576,16 +564,12 @@ Then('no usage information is deleted', async ({ page, testContext }) => {
 // ---------------------------------------------------------------------------
 
 /**
- * Download the open image, then record its download usage (plus `extra`) as the usage service
- * and thrall would. Neither is in the stack; Kahuna polls the image until the usage appears.
+ * Download the open image, then record its download usage as the usage service and thrall
+ * would. Neither is in the stack; Kahuna polls the image until the usage appears.
  */
-async function downloadRecordingUsage(
-  page: Page,
-  testContext: SeedFixtures['testContext'],
-  extra: SeedUsage[] = [],
-): Promise<void> {
+When('I download the image', async ({ page, testContext }) => {
   const id = testContext.usagesImageId;
-  expect(id, 'an earlier step seeded the open image').toBeDefined();
+  expect(id, 'an earlier step opened the image').toBeDefined();
   const download = page.getByRole('link', { name: 'Download image' });
   // Kahuna only polls for the usage once it knows where to download from.
   await expect(download).toHaveAttribute('href', /\S/);
@@ -593,27 +577,11 @@ async function downloadRecordingUsage(
 
   // Kahuna waits for a download by the signed-in user, added after the click.
   const downloaded = downloadUsage(TEST_ACCOUNTS.fullAccess, { dateAdded: new Date().toISOString() });
-  testContext.usages = [...(testContext.usages ?? []), downloaded, ...extra];
+  testContext.usages = [...(testContext.usages ?? []), downloaded];
   await updateImageCopy(id!, { usages: storedUsages(testContext.usages, id!) });
-}
+});
 
-When(
-  'the image is updated elsewhere in the application and now has {int} usages',
-  async ({ page, testContext }, count: number) => {
-    const extra = count - (testContext.usages?.length ?? 0) - 1;
-    expect(extra, 'usages to add besides the download').toBeGreaterThanOrEqual(0);
-    await downloadRecordingUsage(page, testContext, stories(extra));
-  },
-);
-
-When(
-  'the image usages change as a result of a user action, for example, downloading an image',
-  async ({ page, testContext }) => {
-    await downloadRecordingUsage(page, testContext);
-  },
-);
-
-Then('the usages list refreshes to reflect the updated image', async ({ page, testContext }) => {
+Then('the usages list includes my download', async ({ page, testContext }) => {
   await expect(usageRecords(page)).toHaveCount(testContext.usages!.length);
   await expect(usageGroup(page, 'downloaded')).toContainText(TEST_ACCOUNTS.fullAccess);
 });

@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import type { APIResponse, Dialog, FileChooser, Locator, Response } from '@playwright/test';
+import type { APIResponse, FileChooser, Locator, Response } from '@playwright/test';
 import { test as base, createBdd } from 'playwright-bdd';
 import { DOMAIN } from '../setup/constants.ts';
 import type { ImageSource } from '../setup/image-fixtures.ts';
@@ -53,8 +53,6 @@ interface TestContext {
   usagesImageId?: string;
   /** The status of the group that "that usage group" steps refer to. */
   usageGroup?: UsageStatus;
-  /** A prompt a control opened, and the click that opened it, which only finishes once it's answered. */
-  prompt?: { dialog: Dialog; click: Promise<void> };
   /** URLs of the DELETE requests Kahuna sent to remove an image's usages. */
   deleteUsagesRequests?: string[];
 }
