@@ -6,7 +6,6 @@ import { updateImageCopy } from '../../setup/seed-image.ts';
 import { switchAccount } from '../utils/auth.ts';
 import { setTestClientConfig } from '../utils/test-config.ts';
 import {
-  ADDED_BY,
   childUsage,
   daysAgo,
   digitalUsage,
@@ -64,8 +63,6 @@ const theUsage = usageRecords;
 // Controls are found by visible text: the delete control's accessible name is "Delete image".
 const usagesControl = (page: Page, text: string) =>
   usagesPanel(page).getByRole('button').filter({ hasText: text });
-
-const DATE_ADDED_DAYS_AGO = 3;
 
 // ---------------------------------------------------------------------------
 // Choosing the image's usages
@@ -169,8 +166,8 @@ Given('a usage was added more than seven days ago', async ({ testContext }) => {
   setUsages(testContext, [digitalUsage('An older story', { dateAdded: daysAgo(30) })]);
 });
 
-Given('a usage has a date added', async ({ testContext }) => {
-  setUsages(testContext, [digitalUsage('A dated story', { dateAdded: daysAgo(DATE_ADDED_DAYS_AGO) })]);
+Given('a usage was added {int} days ago', async ({ testContext }, days: number) => {
+  setUsages(testContext, [digitalUsage('A dated story', { dateAdded: daysAgo(days) })]);
 });
 
 Given(
@@ -225,7 +222,16 @@ Given(
 Given(
   'the image has a syndication usage with the {string} partner',
   async ({ testContext }, partner: string) => {
-    setUsages(testContext, [syndicationUsage(partner, { dateAdded: daysAgo(DATE_ADDED_DAYS_AGO) })]);
+    setUsages(testContext, [syndicationUsage(partner)]);
+  },
+);
+
+Given(
+  'the image was syndicated to {string} by {string} {int} days ago',
+  async ({ testContext }, partnerName: string, syndicatedBy: string, days: number) => {
+    setUsages(testContext, [
+      syndicationUsage(partnerName, { dateAdded: daysAgo(days), syndicationUsageMetadata: { partnerName, syndicatedBy } }),
+    ]);
   },
 );
 
@@ -287,20 +293,12 @@ Then('the Usages tab is disabled', async ({ page }) => {
 // ---------------------------------------------------------------------------
 
 Then('I see one usage group per status', async ({ page, testContext }) => {
-  await expectGroupsFor(page, testContext.usages);
-});
-
-Then("all of the image's usage groups are shown", async ({ page, testContext }) => {
-  await expectGroupsFor(page, testContext.usages);
-});
-
-async function expectGroupsFor(page: Page, usages: SeedUsage[] | undefined) {
-  const statuses = new Set(usages?.map((u) => u.status));
+  const statuses = new Set(testContext.usages?.map((u) => u.status));
   await expect(usageGroupToggles(page)).toHaveCount(statuses.size);
   for (const status of statuses) {
     await expect.soft(usageGroup(page, status)).toHaveCount(1);
   }
-}
+});
 
 Then(
   'each group is headed with the status name and the number of usages in it',
@@ -331,12 +329,8 @@ Then('the usages are listed with the most recently added first', async ({ page, 
   );
 });
 
-Then('I only see the downloads usage group', async ({ page }) => {
-  await expect(usageGroupToggles(page)).toHaveText([groupHeading(statusHeading('downloaded'))]);
-});
-
-Then('I only see the downloaded, replaced and derivative usage groups', async ({ page }) => {
-  const statuses = ['downloaded', 'replaced', 'derivative'] as const;
+Then('I only see the {} usage group(s)', async ({ page }, list: string) => {
+  const statuses = list.split(/,\s*|\s+and\s+/) as UsageStatus[];
   await expect(usageGroupToggles(page)).toHaveCount(statuses.length);
   for (const status of statuses) {
     await expect.soft(usageGroup(page, status)).toHaveCount(1);
@@ -375,14 +369,6 @@ Then('that usage group is collapsed', async ({ page, testContext }) => {
   await expectGroupExpanded(page, testContext, false);
 });
 
-Then("the group's usages are shown again", async ({ page, testContext }) => {
-  await expectGroupExpanded(page, testContext, true);
-});
-
-Then("the group's usages are hidden", async ({ page, testContext }) => {
-  await expectGroupExpanded(page, testContext, false);
-});
-
 Then("the group's toggle shows the {string} icon", async ({ page, testContext }, icon: string) => {
   await expect(groupToggle(page, testContext).locator('gr-icon')).toHaveText(icon);
 });
@@ -412,11 +398,6 @@ Then('the Photo Sales panel shows {string}', async ({ page }, text: string) => {
   await expect(photoSalesPanel(page)).toContainText(text);
 });
 
-Then('it shows who syndicated the image and the time since it was added', async ({ page }) => {
-  await expect(photoSalesPanel(page)).toContainText(ADDED_BY);
-  await expect(photoSalesPanel(page)).toContainText(`${DATE_ADDED_DAYS_AGO} days ago`);
-});
-
 Then('the Photo Sales panel shows no entries', async ({ page }) => {
   await expect(photoSalesPanel(page)).toBeAttached();
   await expect(photoSalesPanel(page).getByRole('listitem')).toHaveCount(0);
@@ -426,29 +407,17 @@ Then('the Photo Sales panel shows no entries', async ({ page }) => {
 // Individual usage records
 // ---------------------------------------------------------------------------
 
-/** What Kahuna shows in place of a title for a usage that created another image. */
-const CHILD_USAGE_LABELS: Partial<Record<UsageStatus, string>> = {
-  derivative: 'Used to create',
-  replaced: 'Replaced with',
-};
-
 Then('that usage is titled {string}', async ({ page }, title: string) => {
   await expect(theUsage(page)).toContainText(title);
 });
 
-Then('that usage has no title of its own', async ({ page, testContext }) => {
-  const label = CHILD_USAGE_LABELS[theSeededUsage(testContext.usages).status];
-  expect(label, 'an earlier step seeded a derivative or replaced usage').toBeDefined();
-  // Nothing precedes the label, not even the fallback title. Regexes see the raw whitespace.
-  await expect(theUsage(page)).toHaveText(new RegExp(`^\\s*${escapeRegExp(label!)}\\s`));
-  await expect(theUsage(page)).not.toContainText('No title found.');
-});
-
 Then(
-  'the usage shows {string} followed by a link to the child image and who added it',
+  'instead of a title, the usage shows {string} followed by a link to the child image and who added it',
   async ({ page, testContext }, text: string) => {
     const { childMediaId, addedBy } = theSeededUsage(testContext.usages).childUsageMetadata!;
-    await expect(theUsage(page)).toContainText(`${text} ${childMediaId} (added by ${addedBy}).`);
+    // Anchored, so nothing precedes the text, not even the fallback title. Regexes see raw whitespace.
+    const words = [text, childMediaId, `(added by ${addedBy}).`].map(escapeRegExp).join('\\s+');
+    await expect(theUsage(page)).toHaveText(new RegExp(`^\\s*${words}`));
     await expect(theUsage(page).getByRole('link', { name: childMediaId, exact: true }))
       .toHaveAttribute('href', childMediaId);
   },
@@ -467,13 +436,11 @@ Then("that usage's icon is not highlighted", async ({ page }) => {
   await expect(theUsage(page).locator('gr-icon')).not.toHaveClass(/(^|\s)icon-warning(\s|$)/);
 });
 
-const timeSinceAdded = (page: Page) => theUsage(page).getByText(`${DATE_ADDED_DAYS_AGO} days ago`, { exact: true });
-
-Then('the usage shows the time since it was added', async ({ page }) => {
-  await expect(timeSinceAdded(page)).toBeVisible();
+Then('the usage shows it was added {string}', async ({ page }, timeSince: string) => {
+  await expect(theUsage(page).getByText(timeSince, { exact: true })).toBeVisible();
 });
 
-Then('hovering the time reveals the exact date and time', async ({ page, testContext }) => {
+Then('the time has a tooltip showing the exact date and time it was added', async ({ page, testContext }) => {
   // Kahuna formats with Angular's `date:'d MMM yyyy, HH:mm'`, in the browser's time zone.
   const exact = await page.evaluate((iso) => {
     const date = new Date(iso);
@@ -482,27 +449,18 @@ Then('hovering the time reveals the exact date and time', async ({ page, testCon
     return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}, ` +
       `${pad(date.getHours())}:${pad(date.getMinutes())}`;
   }, theSeededUsage(testContext.usages).dateAdded);
-  await timeSinceAdded(page).hover();
-  await expect(timeSinceAdded(page)).toHaveAttribute('title', exact);
+  await expect(theUsage(page).getByTitle(exact, { exact: true })).toBeVisible();
 });
-
-async function expectReferenceLink(page: Page, usages: SeedUsage[] | undefined, icon: string, type: string) {
-  const { uri } = theSeededUsage(usages).references.find((r) => r.type === type)!;
-  const link = theUsage(page).getByTitle(`Open in ${type}`, { exact: true });
-  await expect(link).toHaveAttribute('href', uri!);
-  await expect(link.locator(`gr-${icon}-icon`)).toBeVisible();
-}
 
 Then(
   'the usage shows a {word} icon linking to the {word} reference',
   async ({ page, testContext }, icon: string, type: string) => {
-    await expectReferenceLink(page, testContext.usages, icon, type);
+    const { uri } = theSeededUsage(testContext.usages).references.find((r) => r.type === type)!;
+    const link = theUsage(page).getByTitle(`Open in ${type}`, { exact: true });
+    await expect(link).toHaveAttribute('href', uri!);
+    await expect(link.locator(`gr-${icon}-icon`)).toBeVisible();
   },
 );
-
-Then('a {word} icon linking to the {word} reference', async ({ page, testContext }, icon: string, type: string) => {
-  await expectReferenceLink(page, testContext.usages, icon, type);
-});
 
 Then('each reference link opens in a new tab', async ({ page, testContext }) => {
   const links = theUsage(page).getByTitle(/^Open in /);
