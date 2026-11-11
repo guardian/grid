@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.{Internal, Tier}
 import com.gu.mediaservice.lib.aws.S3
 import com.gu.mediaservice.lib.collections.CollectionsManager
-import com.gu.mediaservice.lib.imgproxy.ImgProxyUrlBuilder
+import com.gu.mediaservice.lib.imgproxy.{ImgProxyUrlBuilder, SignedImgProxyUrl}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
@@ -12,7 +12,6 @@ import com.gu.mediaservice.model.usage._
 import lib.ImageResponse.extractAliasFieldValues
 import lib.elasticsearch.SourceWrapper
 import lib.usagerights.CostCalculator
-import org.joda.time.DateTime
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.utils.UriEncoding
@@ -62,7 +61,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
     withWritePermission: Boolean,
     withDeleteImagePermission: Boolean,
     withDeleteCropsOrUsagePermission: Boolean,
-    included: List[String] = List(), tier: Tier
+    included: List[String] = List(), tier: Tier,
+    withSignedOptimisedUrls: Boolean = false
   )(implicit logMarker: LogMarker): (JsValue, List[Link], List[Action]) = {
 
     val image = imageWrapper.instance
@@ -100,8 +100,12 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
     val isPersisted = persistenceReasons.nonEmpty
 
     val aliases = extractAliasFieldValues(config, imageWrapper)
-    // Signed imgproxy URLs can't be templated, so clients resolve one per size via the optimised links
-    val optimisedUrlsRequireResolution = config.useImgProxy && config.imgproxySigning.isDefined
+    val signedOptimisedUrls: Option[Seq[SignedImgProxyUrl]] = tier match {
+      // Matches kahuna, which shows the optimised PNG in preference to the source where there is one
+      case Internal if config.useImgProxy && withSignedOptimisedUrls =>
+        imgproxySignedUrls(image, if (pngUrl.isDefined) OptimisedPng else Source)
+      case _ => None
+    }
 
     val data = source.transform(addSecureSourceUrl(imageUrl))
       .flatMap(_.transform(wrapUserMetadata(id)))
@@ -118,10 +122,10 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
       .flatMap(_.transform(addSyndicationStatus(image)))
       .flatMap(_.transform(addAliases(aliases)))
       .flatMap(_.transform(addFromIndex(imageWrapper.fromIndex)))
-      .flatMap(_.transform(addOptimisedUrlsRequireResolution(optimisedUrlsRequireResolution)))
       .flatMap(_.transform(updateCustomSpecialInstructions(source)))
       .flatMap(_.transform(updateCustomUsageRestrictions(source)))
       .flatMap(_.transform(updateUsageRights(source)))
+      .map(json => signedOptimisedUrls.fold(json)(urls => json + ("signedOptimisedUrls" -> signedOptimisedUrlsJson(urls))))
       .get
 
     val links: List[Link] = tier match {
@@ -258,8 +262,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
   def addFromIndex(fromIndex: String): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj("fromIndex" -> fromIndex))
 
-  def addOptimisedUrlsRequireResolution(required: Boolean): Reads[JsObject] =
-    __.json.update(__.read[JsObject]).map(_ ++ Json.obj("optimisedUrlsRequireResolution" -> required))
+  private def signedOptimisedUrlsJson(urls: Seq[SignedImgProxyUrl]): JsArray =
+    JsArray(urls.map(u => Json.obj("w" -> u.width, "h" -> u.height, "url" -> u.url)))
 
   def addInvalidReasons(reasons: Map[String, String]): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj("invalidReasons" -> Json.toJson(reasons)))
@@ -272,41 +276,47 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
   private def orientationCorrectionRotation(image: Image): Int =
     -image.source.orientationMetadata.map(_.orientationCorrection()).getOrElse(0)
 
-  // imgproxy rotates a source to match its own EXIF orientation, but optimised PNGs are written with their metadata
-  // stripped, so they still need the source's orientation correction (clockwise) applied explicitly.
-  private def imgproxyRotation(image: Image, assetType: ImageFileType): Int =
-    (assetType, image.optimisedPng) match {
-      case (OptimisedPng, Some(_)) => image.source.orientationMetadata.map(_.orientationCorrection()).getOrElse(0)
-      case _ => 0
-    }
+  // imgproxy URLs turn off EXIF auto-rotation, so it shows images exactly as the cropper sees them: with the
+  // source's orientation correction (clockwise) applied, including to optimised PNGs, which have no EXIF of their own.
+  private def imgproxyRotation(image: Image): Int =
+    image.source.orientationMetadata.map(_.orientationCorrection()).getOrElse(0)
 
-  private def imgproxySourceUri(image: Image, assetType: ImageFileType, presignedUrl: => String): URI =
-    if (config.imgproxyUseS3Source) {
-      val asset = assetType match {
-        case OptimisedPng => image.optimisedPng.getOrElse(image.source)
-        case _ => image.source
-      }
-      ImgProxyUrlBuilder.s3SourceUri(config.imageBucket, asset.file)
-    } else {
-      new URI(presignedUrl)
+  // imgproxy reads images straight from S3 with its own IAM role
+  private def imgproxySourceUri(image: Image, assetType: ImageFileType): String = {
+    val asset = assetType match {
+      case OptimisedPng => image.optimisedPng.getOrElse(image.source)
+      case _ => image.source
     }
+    ImgProxyUrlBuilder.s3SourceUri(config.imageBucket, asset.file)
+  }
 
   private def imgproxyExpiry: Option[Long] =
-    config.imgproxySignedUrlTtlSeconds.map(ImgProxyUrlBuilder.roundedExpiry(DateTime.now.getMillis / 1000, _))
+    config.imgproxySignedUrlTtlSeconds.map(ImgProxyUrlBuilder.roundedExpiry(System.currentTimeMillis / 1000, _))
+
+  private def imgproxySignedUrls(image: Image, assetType: ImageFileType): Option[Seq[SignedImgProxyUrl]] =
+    config.imgproxySigning.map { signing =>
+      ImgProxyUrlBuilder.signedUrlsForSizes(
+        config.imgproxyUri,
+        imgproxySourceUri(image, assetType),
+        config.imgproxySignedSizes,
+        signing,
+        imgproxyRotation(image),
+        imgproxyExpiry
+      )
+    }
 
   /**
     * A single imgproxy URL for arbitrary dimensions, signed if signing is configured. With no quality, imgproxy
     * uses its per-format default (IMGPROXY_FORMAT_QUALITY).
     */
-  def imgproxyResizedUrl(image: Image, assetType: ImageFileType, presignedUrl: => String, width: Int, height: Int, quality: Option[Int]): String =
+  def imgproxyResizedUrl(image: Image, assetType: ImageFileType, width: Int, height: Int, quality: Option[Int]): String =
     ImgProxyUrlBuilder.fixedUri(
       config.imgproxyUri,
-      imgproxySourceUri(image, assetType, presignedUrl),
+      imgproxySourceUri(image, assetType),
       width,
       height,
       quality,
-      config.awsLocalEndpoint,
-      imgproxyRotation(image, assetType),
+      imgproxyRotation(image),
       config.imgproxySigning,
       config.imgproxySigning.flatMap(_ => imgproxyExpiry)
     )
@@ -315,14 +325,15 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
     if (config.useImgProxy) {
       config.imgproxySigning match {
         case Some(_) =>
-          // Signed URLs can't be templated, so clients resolve a URL for the dimensions they need via this endpoint
+          // Signed URLs can't be templated: kahuna uses `signedOptimisedUrls`, and other clients can be redirected
+          // to a URL for the dimensions they need via this endpoint
           val assetSegment = assetType match {
             case OptimisedPng => "optimisedPng"
             case _ => "optimised"
           }
           s"${config.rootUri}/images/$id/$assetSegment/resized{?w,h,q}"
         case None =>
-          ImgProxyUrlBuilder.templatedUri(config.imgproxyUri, imgproxySourceUri(image, assetType, secureUrl), imgproxyRotation(image, assetType), config.awsLocalEndpoint)
+          ImgProxyUrlBuilder.templatedUri(config.imgproxyUri, imgproxySourceUri(image, assetType), imgproxyRotation(image))
       }
     } else {
       val uri = new URI(secureUrl)
