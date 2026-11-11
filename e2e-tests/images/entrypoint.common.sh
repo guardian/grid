@@ -34,7 +34,7 @@ shutdown_children() {
 }
 
 # Trust the e2e CA (mounted via the config dir at /etc/grid/ca.crt) so service-to-service
-# HTTPS calls through the Caddy proxy succeed — e.g. the cropper fetching the source image
+# HTTPS calls through Chekov succeed — e.g. the cropper fetching the source image
 # from api.media.<domain> (Play WS) and downloading a presigned S3 URL from
 # localstack.media.<domain> (java.net.URL). Both use the JVM default trust store, so the CA
 # must be imported into cacerts; the OS store is updated too for native tooling.

@@ -4,11 +4,11 @@
  * Collections can only be chosen in the UI, not typed, so any scenario that adds an image
  * to one needs it to exist before Kahuna first loads (and memoises) the collection list.
  */
-import { API_KEY, SERVICE_PORTS } from './constants.ts';
+import { API_KEY, SERVICE_CONFIGS } from './constants.ts';
 
 export const E2E_COLLECTION = 'e2e-batch';
 
-const COLLECTIONS_URL = `http://localhost:${SERVICE_PORTS.collections}/collections`;
+const COLLECTIONS_URL = `http://localhost:${SERVICE_CONFIGS.collections.port}/collections`;
 
 /** Create the fixture collections at the root. Re-adding an existing one is a no-op. */
 export async function seedCollections(report: (message: string) => void): Promise<void> {

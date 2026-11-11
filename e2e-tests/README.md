@@ -6,13 +6,15 @@ step definitions in [`steps/`](steps).
 
 ## Running the tests
 
-The e2e test commands and `npm run dev:e2e` run
-[`setup/checkout-chekov`](setup/checkout-chekov) before starting.
-It shallow-clones `guardian/chekov` into the ignored
+Before starting the stack, run `./setup/checkout-chekov` and `mkcert -install`
+from this directory. The checkout helper shallow-clones `guardian/chekov` into the ignored
 `target/chekov` directory on first use. On subsequent runs, it updates
 the checkout's `origin` to `guardian/chekov` and runs `git pull --ff-only`.
 Git and network access are required; a failed checkout or
-update stops the command before starting the stack or tests.
+update stops the command before starting the stack or tests. `test:ui` and `test:log`
+also run the checkout helper automatically. CI checks out Chekov and installs the CA
+in its workflow. Set `CHEKOV_DIR` to use another checkout, or `CAROOT` to select another
+mkcert CA directory.
 
 ### 1. CI (production mode)
 
@@ -25,8 +27,10 @@ DOCKER_BUILDKIT=1 docker build --target ci -f e2e-tests/images/Dockerfile -t gri
 
 cd e2e-tests
 npm ci
+./setup/checkout-chekov
+mkcert -install
 npx playwright install --with-deps chromium
-npm test
+CI=true npm test
 ```
 
 `grid-e2e-ci` ([`images/Dockerfile`](images/Dockerfile)) bind-mounts the repo over
@@ -34,9 +38,25 @@ npm test
 the services with `sbt e2eStage` and runs the staged applications in production mode,
 so it exercises the same code paths as a deployed Grid. No source or compiled artefacts
 are baked into the image, so the build is quick and staging happens on first run.
-There is no dev-nginx in CI, so when `CI=true` `global-setup` also starts a bundled
-Caddy reverse proxy on `:443` that replays dev-nginx's subdomain routing for the
-`https://*.media.<domain>` browser origins.
+The stack builds and starts Chekov on ports `80` and `443` in both dev and CI.
+Chekov discovers each Grid service at its primary hostname from the port label and
+registers only additional hostnames as aliases (for example, `loader-projection.media`
+aliases `loader.media`). These names retain the existing browser origins under `<domain>`.
+Core-stack S3 buckets get `<bucket>.s3.<domain>` aliases of the LocalStack route.
+Image and crop URLs use these aliases, allowing LocalStack to select the bucket from
+the Host header without custom nginx configuration. External dev-nginx mode retains
+the existing `images.media` and `public.media` origins. Direct AWS traffic remains on LocalStack.
+Chekov uses the local mkcert CA; its public certificate is installed into the Grid
+container's JVM and OS trust stores. Only Chekov receives the CA private-key directory.
+The proxy also mounts the Docker socket for discovery, so run only a trusted checkout
+against a local development Docker daemon.
+
+Chekov joins only the stack's user-defined network, without network aliases. Grid's
+HTTPS service hostnames use `host-gateway` mappings to reach its published port 443.
+With Testcontainers 12.2, adding network aliases also attaches Chekov to Docker's
+default bridge, where it can discover Ryuk as a shared-network upstream whose name
+cannot resolve. Keep Ryuk enabled and keep Chekov off that bridge. The proxy smoke
+test asserts this network isolation; no Chekov source changes are needed.
 
 The harness applies both development CloudFormation templates to LocalStack, seeds Panda
 settings and permissions from [`fixtures/`](fixtures), and builds the local provider from
@@ -154,12 +174,27 @@ sensitive data and use an appropriately restricted host before sharing them.
 holds it open until you press Ctrl-C, which tears it all down.
 
 ```bash
-npm run dev:e2e                  # uses your local dev-nginx for the https://*.media.<domain> domains
-GRID_PROXY=true npm run dev:e2e  # no dev-nginx? start the bundled Caddy proxy on :443 instead
+npm run dev:e2e                   # starts Chekov for HTTPS routing
+GRID_PROXY=false npm run dev:e2e  # use an existing external dev-nginx instead
 ```
 
 The stack binds fixed host ports, so two stacks cannot run
 at once. Starting a second one fails immediately rather than timing out.
+
+Chekov diagnostics are available at `https://chekov.local.dev-gutools.co.uk`.
+The proxy, aliases and generated leaf certificates are recreated on each fresh stack
+and torn down with it. Its built image is retained for Docker layer caching.
+
+Validate the proxy independently of Scala and the application databases:
+
+```bash
+npm run test:proxy      # route metadata and bucket rewrite unit tests
+npm run validate:proxy  # real Chekov with temporary HTTP backends; needs Docker and mkcert
+```
+
+The smoke test checks every Grid alias, TLS hostname/CA verification, container-to-container
+DNS, S3 path/query preservation and nginx configuration, then removes its containers and
+network. It uses the same fixed ports as the stack, so stop the stack before running it.
 
 ### Running the tests against a stack you already started
 
