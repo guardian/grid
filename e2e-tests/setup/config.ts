@@ -17,7 +17,7 @@ import {
   LOCALSTACK_PORT,
   REGION,
   REPO_ROOT,
-  SERVICE_PORTS,
+  SERVICE_CONFIGS,
 } from "./constants.ts";
 
 /** `service-config.js` is CommonJS and lives outside this package, so load it via require. */
@@ -30,7 +30,7 @@ const GENERATE_CONFIG_DIR = path.join(
   "generate-config",
 );
 
-const GRID_SERVICES = Object.keys(SERVICE_PORTS);
+const GRID_SERVICES = Object.keys(SERVICE_CONFIGS);
 
 type StackProps = Record<string, string>;
 
@@ -119,14 +119,22 @@ function mediaApiE2eConfig(): string {
  * Rewrite the Guardian dev endpoints baked in by `service-config.js` so that the
  * app container reaches the infrastructure containers over the shared network.
  */
-function rewriteEndpoints(conf: string): string {
+function rewriteEndpoints(conf: string, coreStackProps: StackProps, useS3BucketHosts: boolean): string {
   const localstackUrl = `http://${LOCALSTACK_ALIAS}:${LOCALSTACK_PORT}`;
   // Endpoints baked in by `service-config.js` that must be redirected to the container.
   const guardianLocalstackUrl = `https://${LOCALSTACK_ALIAS}.media.${DOMAIN}`;
   const legacyLocalstackUrl = "http://localhost:4576";
   const localLocalstackUrl = `http://localhost:${LOCALSTACK_PORT}`;
 
-  const rewrittenConf = conf
+  const imageOrigins = useS3BucketHosts
+    ? conf
+      .split(`images.media.${DOMAIN}`)
+      .join(`${coreStackProps.ImageBucket}.s3.${DOMAIN}`)
+      .split(`public.media.${DOMAIN}`)
+      .join(`${coreStackProps.ImageOriginBucket}.s3.${DOMAIN}`)
+    : conf;
+
+  const rewrittenConf = imageOrigins
     .split(guardianLocalstackUrl)
     .join(localstackUrl)
     .split(legacyLocalstackUrl)
@@ -136,7 +144,7 @@ function rewriteEndpoints(conf: string): string {
 
   // The S3 client reaches LocalStack over the container network (localstack:4566), but
   // presigned URLs are handed to the browser, which can only reach LocalStack via the
-  // `localstack.media.<domain>` vanity domain (dev-nginx locally, the Caddy proxy in CI).
+  // `localstack.media.<domain>` vanity domain served by Chekov or external dev-nginx.
   // Sign against that host so the URLs resolve outside the container network.
   return `${rewrittenConf}\naws.local.presigningEndpoint="${guardianLocalstackUrl}"\n`;
 }
@@ -148,6 +156,7 @@ export function generateServiceConfig(
   configDir: string,
   coreStackProps: StackProps,
   authStackProps: StackProps,
+  useS3BucketHosts = true,
 ): void {
   const ServiceConfig = require(
     path.join(GENERATE_CONFIG_DIR, "service-config.js"),
@@ -212,7 +221,7 @@ export function generateServiceConfig(
       );
     }
 
-    const rewritten = rewriteEndpoints(`${conf}\n${localAuthConfig}`);
+    const rewritten = rewriteEndpoints(`${conf}\n${localAuthConfig}`, coreStackProps, useS3BucketHosts);
     const extras = extraConfig[service];
     const withExtras = extras ? `${rewritten}\n${extras}` : rewritten;
     fs.writeFileSync(path.join(configDir, `${service}.conf`), withExtras);
