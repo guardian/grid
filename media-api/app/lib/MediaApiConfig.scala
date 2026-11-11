@@ -2,7 +2,7 @@ package lib
 
 import com.gu.mediaservice.lib.config.{CommonConfigWithElastic, GridConfigResources}
 import com.gu.mediaservice.lib.elasticsearch.filters
-import com.gu.mediaservice.lib.imgproxy.ImgProxySigning
+import com.gu.mediaservice.lib.imgproxy.{ImgProxySigning, ImgProxyUrlBuilder}
 import com.sksamuel.elastic4s.ElasticApi.{matchPhraseQuery, should}
 import com.sksamuel.elastic4s.ElasticDsl.matchQuery
 import com.sksamuel.elastic4s.requests.searches.queries.Query
@@ -55,14 +55,19 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val imgopsUri: String = services.imgopsBaseUri
   val imgproxyUri: String = services.imgproxyBaseUri
   val useImgProxy: Boolean = boolean("images.imgproxy.enabled")
-  val imgproxySigning: Option[ImgProxySigning] = for {
-    key <- stringOpt("images.imgproxy.key")
-    salt <- stringOpt("images.imgproxy.salt")
-  } yield ImgProxySigning(key, salt)
-  // Pass imgproxy a stable s3://bucket/key source (fetched with imgproxy's own IAM role) instead of a
-  // pre-signed S3 URL, so imgproxy URLs are cacheable and don't leak credentials. Always pair this with
-  // signing (images.imgproxy.key/salt) - unsigned, anyone could read any object in the bucket via imgproxy.
-  val imgproxyUseS3Source: Boolean = boolean("images.imgproxy.s3Source.enabled")
+  // Optional. Unsigned, clients template their own imgproxy URLs, and anyone who knows an image's S3 key can
+  // fetch it from imgproxy - see docs/06-objects-of-interest/03-imgproxy.md for when that matters.
+  val imgproxySigning: Option[ImgProxySigning] =
+    ImgProxySigning.fromConfig(stringOpt("images.imgproxy.key"), stringOpt("images.imgproxy.salt"))
+  // Signed URLs can't be templated client-side, so we sign a URL per "WIDTHxHEIGHT" bounding box and clients
+  // pick the smallest that covers what they need: common screen sizes for the full-screen and crop views.
+  val imgproxySignedSizes: Seq[(Int, Int)] = {
+    val configured = configuration.getOptional[Seq[String]]("images.imgproxy.signedSizes")
+      .getOrElse(Seq("1920x1080", "2560x1440"))
+    ImgProxyUrlBuilder.sortSizes(configured.map(size => ImgProxyUrlBuilder.parseSize(size).getOrElse(
+      sys.error(s"Invalid images.imgproxy.signedSizes entry '$size', expected WIDTHxHEIGHT")
+    )))
+  }
   val imgproxySignedUrlTtlSeconds: Option[Long] =
     configuration.getOptional[FiniteDuration]("images.imgproxy.signedUrlTtl").map(_.toSeconds).filter(_ > 0)
   val usageUri: String = services.usageBaseUri
