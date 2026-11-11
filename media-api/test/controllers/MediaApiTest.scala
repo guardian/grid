@@ -1,6 +1,6 @@
 package controllers
 
-import com.gu.mediaservice.lib.auth.Authentication.Principal
+import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.Permissions.DeleteImage
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.auth.provider._
@@ -32,14 +32,24 @@ trait MediaApiTestSupport extends MockitoSugar {
     val components = Helpers.stubControllerComponents()
     val userProvider = mock[UserAuthenticationProvider]
     when(userProvider.loginLink).thenReturn(DisableLoginLink)
-    val innerProvider = mock[InnerServiceAuthenticationProvider]
-    when(innerProvider.authenticateRequest(any[RequestHeader])).thenAnswer { invocation =>
-      val request = invocation.getArgument[RequestHeader](0)
-      if (ApiAccessor.hasAccess(principal.accessor, request, config.services)) Authenticated(principal)
-      else NotAuthorised("Method not allowed for this tier")
+    when(userProvider.authenticateRequest(any[RequestHeader])).thenReturn(principal match {
+      case user: UserPrincipal => Authenticated(user)
+      case _ => NotAuthenticated
+    })
+    val apiProvider = mock[MachineAuthenticationProvider]
+    when(apiProvider.authenticateRequest(any[RequestHeader])).thenAnswer { invocation =>
+      principal match {
+        case machine: MachinePrincipal =>
+          val request = invocation.getArgument[RequestHeader](0)
+          if (ApiAccessor.hasAccess(machine.accessor, request, config.services)) Authenticated(machine)
+          else NotAuthorised("Method not allowed for this tier")
+        case _ => NotAuthenticated
+      }
     }
+    val innerProvider = mock[InnerServiceAuthenticationProvider]
+    when(innerProvider.authenticateRequest(any[RequestHeader])).thenReturn(NotAuthenticated)
     val auth = new Authentication(config, AuthenticationProviders(
-      userProvider, mock[MachineAuthenticationProvider], innerProvider
+      userProvider, apiProvider, innerProvider
     ), components.parsers.default, global)
     val permissionProvider = mock[AuthorisationProvider]
     when(permissionProvider.hasPermissionTo(DeleteImage, principal)).thenReturn(privileged)
