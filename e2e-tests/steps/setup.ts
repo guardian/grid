@@ -13,7 +13,7 @@ export const KAHUNA_APP_URL = `https://media.${DOMAIN}`;
  * Mutable per-scenario state shared between steps (e.g. the response captured in a
  * `When` step and asserted on in a `Then` step).
  */
-interface TestContext {
+export interface TestContext {
   response?: APIResponse;
   mediaApiResponse?: Promise<Response>;
   /** Messages from alerts and confirms, in the order the page raised them. */

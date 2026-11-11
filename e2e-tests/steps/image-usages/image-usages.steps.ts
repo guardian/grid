@@ -1,6 +1,6 @@
 import type { Dialog, Page } from '@playwright/test';
 import { Given, When, Then, expect } from '../setup.ts';
-import type { SeedImage } from '../setup.ts';
+import type { SeedImage, TestContext } from '../setup.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { updateImageCopy } from '../../setup/seed-image.ts';
 import { switchAccount } from '../utils/auth.ts';
@@ -28,16 +28,16 @@ import {
   usagesTabInput,
   usageWithStatus,
 } from './usages.ts';
-import type { SeedUsage, UsagePlatform, UsageReferenceType, UsageStatus } from './usages.ts';
+import type { ChildUsageStatus, SeedUsage, UsagePlatform, UsageReferenceType, UsageStatus } from './usages.ts';
 
 interface SeedFixtures {
   page: Page;
   seedImage: SeedImage;
-  testContext: { usages?: SeedUsage[]; usagesImageId?: string; usageGroup?: UsageStatus };
+  testContext: TestContext;
 }
 
 /** Choose the usages the image will have; `group` is the one "that usage group" means. */
-function setUsages(testContext: SeedFixtures['testContext'], usages: SeedUsage[], group?: UsageStatus): void {
+function setUsages(testContext: TestContext, usages: SeedUsage[], group?: UsageStatus): void {
   const statuses = new Set(usages.map((u) => u.status));
   testContext.usages = usages;
   testContext.usageGroup = group ?? (statuses.size === 1 ? usages[0].status : undefined);
@@ -56,9 +56,6 @@ function theSeededUsage(usages: SeedUsage[] | undefined): SeedUsage {
   expect(usages, 'an earlier step seeded exactly one usage').toHaveLength(1);
   return usages![0];
 }
-
-/** The only usage record shown; strict mode fails the step if there are more. */
-const theUsage = usageRecords;
 
 // Controls are found by visible text: the delete control's accessible name is "Delete image".
 const usagesControl = (page: Page, text: string) =>
@@ -85,8 +82,8 @@ Given('the image has usages with more than one status', async ({ testContext }) 
   setUsages(testContext, usages);
 });
 
-Given('the image has a usage with the {string} status', async ({ testContext }, status: string) => {
-  setUsages(testContext, [usageWithStatus(status as UsageStatus)]);
+Given('the image has a usage with the {usageStatus} status', async ({ testContext }, status: UsageStatus) => {
+  setUsages(testContext, [usageWithStatus(status)]);
 });
 
 Given(
@@ -122,40 +119,28 @@ Given(
 );
 
 Given(
-  'a usage on the {string} platform has a {string} reference named {string}',
-  async ({ testContext }, platform: string, reference: string, name: string) => {
-    setUsages(testContext, [
-      usage({
-        platform: platform as UsagePlatform,
-        status: 'published',
-        references: [{ type: reference as UsageReferenceType, name }],
-      }),
-    ]);
+  'a usage on the {usagePlatform} platform has a {usageReferenceType} reference named {string}',
+  async ({ testContext }, platform: UsagePlatform, type: UsageReferenceType, name: string) => {
+    setUsages(testContext, [usage({ platform, status: 'published', references: [{ type, name }] })]);
   },
 );
 
 Given(
-  'a usage on the {string} platform has no named {string} reference',
-  async ({ testContext }, platform: string, reference: string) => {
-    setUsages(testContext, [
-      usage({
-        platform: platform as UsagePlatform,
-        status: 'published',
-        references: [{ type: reference as UsageReferenceType }],
-      }),
-    ]);
+  'a usage on the {usagePlatform} platform has no named {usageReferenceType} reference',
+  async ({ testContext }, platform: UsagePlatform, type: UsageReferenceType) => {
+    setUsages(testContext, [usage({ platform, status: 'published', references: [{ type }] })]);
   },
 );
 
 Given(
-  'a usage has the {string} status with child usage metadata',
-  async ({ testContext }, status: string) => {
-    setUsages(testContext, [childUsage(status as 'derivative' | 'replaced')]);
+  'a usage has the {childUsageStatus} status with child usage metadata',
+  async ({ testContext }, status: ChildUsageStatus) => {
+    setUsages(testContext, [childUsage(status)]);
   },
 );
 
-Given('a usage was made on the {string} platform', async ({ testContext }, platform: string) => {
-  setUsages(testContext, [usage({ platform: platform as UsagePlatform, status: 'published' })]);
+Given('a usage was made on the {usagePlatform} platform', async ({ testContext }, platform: UsagePlatform) => {
+  setUsages(testContext, [usage({ platform, status: 'published' })]);
 });
 
 Given('a usage was added within the last seven days', async ({ testContext }) => {
@@ -171,10 +156,10 @@ Given('a usage was added {int} days ago', async ({ testContext }, days: number) 
 });
 
 Given(
-  'a usage has a {string} reference and a {string} reference',
-  async ({ testContext }, first: string, second: string) => {
+  'a usage has a {usageReferenceType} reference and a {usageReferenceType} reference',
+  async ({ testContext }, first: UsageReferenceType, second: UsageReferenceType) => {
     const references = [first, second].map((type) => ({
-      type: type as UsageReferenceType,
+      type,
       uri: `https://${type}.example.com/e2e-story`,
     }));
     setUsages(testContext, [
@@ -184,10 +169,10 @@ Given(
 );
 
 Given(
-  'a usage has a {string} reference with no URI',
-  async ({ testContext }, reference: string) => {
+  'a usage has a {usageReferenceType} reference with no URI',
+  async ({ testContext }, type: UsageReferenceType) => {
     setUsages(testContext, [
-      digitalUsage('An unlinked story', { references: [{ type: reference as UsageReferenceType, name: 'An unlinked story' }] }),
+      digitalUsage('An unlinked story', { references: [{ type, name: 'An unlinked story' }] }),
     ]);
   },
 );
@@ -251,9 +236,8 @@ Given(
   },
 );
 
-Given('the send to Photo Sales feature is {word}', async ({ page }, state: string) => {
-  expect(['enabled', 'disabled']).toContain(state);
-  await setTestClientConfig(page, { showSendToPhotoSales: state === 'enabled' });
+Given('the send to Photo Sales feature is {enabledOrDisabled}', async ({ page }, enabled: boolean) => {
+  await setTestClientConfig(page, { showSendToPhotoSales: enabled });
 });
 
 // ---------------------------------------------------------------------------
@@ -317,8 +301,7 @@ Then('the usage group is headed {string}', async ({ page }, heading: string) => 
   await expect(usageGroupToggles(page)).toHaveText([groupHeading(heading)]);
 });
 
-Then('the usage groups appear in the order {}', async ({ page }, order: string) => {
-  const statuses = order.split(/,\s*/) as UsageStatus[];
+Then('the usage groups appear in the order {usageStatuses}', async ({ page }, statuses: UsageStatus[]) => {
   await expect(usageGroupToggles(page)).toHaveText(statuses.map((status) => groupHeading(statusHeading(status))));
 });
 
@@ -329,8 +312,7 @@ Then('the usages are listed with the most recently added first', async ({ page, 
   );
 });
 
-Then('I only see the {} usage group(s)', async ({ page }, list: string) => {
-  const statuses = list.split(/,\s*|\s+and\s+/) as UsageStatus[];
+Then('I only see the {usageStatuses} usage group(s)', async ({ page }, statuses: UsageStatus[]) => {
   await expect(usageGroupToggles(page)).toHaveCount(statuses.length);
   for (const status of statuses) {
     await expect.soft(usageGroup(page, status)).toHaveCount(1);
@@ -347,7 +329,7 @@ function theGroup(page: Page, usages: SeedUsage[] | undefined, status: UsageStat
   return { group, size: usages!.filter((u) => u.status === status).length };
 }
 
-async function expectGroupExpanded(page: Page, testContext: SeedFixtures['testContext'], expanded: boolean) {
+async function expectGroupExpanded(page: Page, testContext: TestContext, expanded: boolean) {
   const { group, size } = theGroup(page, testContext.usages, testContext.usageGroup);
   // Collapsing hides a group's records rather than removing them.
   await expect(recordsIn(group)).toHaveCount(size);
@@ -358,7 +340,7 @@ async function expectGroupExpanded(page: Page, testContext: SeedFixtures['testCo
   }
 }
 
-const groupToggle = (page: Page, testContext: SeedFixtures['testContext']) =>
+const groupToggle = (page: Page, testContext: TestContext) =>
   theGroup(page, testContext.usages, testContext.usageGroup).group.getByRole('button');
 
 Then('that usage group is expanded', async ({ page, testContext }) => {
@@ -405,10 +387,11 @@ Then('the Photo Sales panel shows no entries', async ({ page }) => {
 
 // ---------------------------------------------------------------------------
 // Individual usage records
+// Each scenario here seeds one usage, so strict mode fails a step that finds more.
 // ---------------------------------------------------------------------------
 
 Then('that usage is titled {string}', async ({ page }, title: string) => {
-  await expect(theUsage(page)).toContainText(title);
+  await expect(usageRecords(page)).toContainText(title);
 });
 
 Then(
@@ -417,27 +400,27 @@ Then(
     const { childMediaId, addedBy } = theSeededUsage(testContext.usages).childUsageMetadata!;
     // Anchored, so nothing precedes the text, not even the fallback title. Regexes see raw whitespace.
     const words = [text, childMediaId, `(added by ${addedBy}).`].map(escapeRegExp).join('\\s+');
-    await expect(theUsage(page)).toHaveText(new RegExp(`^\\s*${words}`));
-    await expect(theUsage(page).getByRole('link', { name: childMediaId, exact: true }))
+    await expect(usageRecords(page)).toHaveText(new RegExp(`^\\s*${words}`));
+    await expect(usageRecords(page).getByRole('link', { name: childMediaId, exact: true }))
       .toHaveAttribute('href', childMediaId);
   },
 );
 
 Then('that usage shows the {string} icon', async ({ page }, icon: string) => {
-  await expect(theUsage(page).locator('gr-icon')).toHaveText(icon);
+  await expect(usageRecords(page).locator('gr-icon')).toHaveText(icon);
 });
 
 Then("that usage's icon is highlighted as a warning", async ({ page }) => {
-  await expect(theUsage(page).locator('gr-icon')).toHaveClass(/(^|\s)icon-warning(\s|$)/);
+  await expect(usageRecords(page).locator('gr-icon')).toContainClass('icon-warning');
 });
 
 Then("that usage's icon is not highlighted", async ({ page }) => {
-  await expect(theUsage(page).locator('gr-icon')).toBeVisible();
-  await expect(theUsage(page).locator('gr-icon')).not.toHaveClass(/(^|\s)icon-warning(\s|$)/);
+  await expect(usageRecords(page).locator('gr-icon')).toBeVisible();
+  await expect(usageRecords(page).locator('gr-icon')).not.toContainClass('icon-warning');
 });
 
 Then('the usage shows it was added {string}', async ({ page }, timeSince: string) => {
-  await expect(theUsage(page).getByText(timeSince, { exact: true })).toBeVisible();
+  await expect(usageRecords(page).getByText(timeSince, { exact: true })).toBeVisible();
 });
 
 Then('the time has a tooltip showing the exact date and time it was added', async ({ page, testContext }) => {
@@ -449,21 +432,21 @@ Then('the time has a tooltip showing the exact date and time it was added', asyn
     return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}, ` +
       `${pad(date.getHours())}:${pad(date.getMinutes())}`;
   }, theSeededUsage(testContext.usages).dateAdded);
-  await expect(theUsage(page).getByTitle(exact, { exact: true })).toBeVisible();
+  await expect(usageRecords(page).getByTitle(exact, { exact: true })).toBeVisible();
 });
 
 Then(
   'the usage shows a {word} icon linking to the {word} reference',
   async ({ page, testContext }, icon: string, type: string) => {
     const { uri } = theSeededUsage(testContext.usages).references.find((r) => r.type === type)!;
-    const link = theUsage(page).getByTitle(`Open in ${type}`, { exact: true });
+    const link = usageRecords(page).getByTitle(`Open in ${type}`, { exact: true });
     await expect(link).toHaveAttribute('href', uri!);
     await expect(link.locator(`gr-${icon}-icon`)).toBeVisible();
   },
 );
 
 Then('each reference link opens in a new tab', async ({ page, testContext }) => {
-  const links = theUsage(page).getByTitle(/^Open in /);
+  const links = usageRecords(page).getByTitle(/^Open in /);
   await expect(links).toHaveCount(theSeededUsage(testContext.usages).references.filter((r) => r.uri).length);
   for (const link of await links.all()) {
     await expect.soft(link).toHaveAttribute('target', '_blank');
@@ -472,8 +455,8 @@ Then('each reference link opens in a new tab', async ({ page, testContext }) => 
 });
 
 Then('that usage shows no {word} reference link', async ({ page }, type: string) => {
-  await expect(theUsage(page)).toBeVisible();
-  await expect(theUsage(page).getByTitle(`Open in ${type}`, { exact: true })).toHaveCount(0);
+  await expect(usageRecords(page)).toBeVisible();
+  await expect(usageRecords(page).getByTitle(`Open in ${type}`, { exact: true })).toHaveCount(0);
 });
 
 // ---------------------------------------------------------------------------
