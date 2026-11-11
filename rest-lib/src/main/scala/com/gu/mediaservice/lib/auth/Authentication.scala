@@ -49,27 +49,46 @@ class Authentication(config: CommonConfig,
       providers.userProvider.flushToken.fold(resultWhenAbsent)(_(requestHeader, resultWhenAbsent))
     }
 
-    // Authenticate request. Try with inner service authenticator first, then with API authenticator, and finally with user authenticator
-    providers.innerServiceProvider.authenticateRequest(requestHeader) match {
+    // Authenticate request. Try with API authenticator first, and then with user authenticator
+    providers.apiProvider.authenticateRequest(requestHeader) match {
       case Authenticated(authedUser) => Right(authedUser)
       case Invalid(message, throwable) => Left(unauthorised(message, throwable))
-      case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message")) // TODO: see if we can avoid repetition
+      case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message"))
       case NotAuthenticated =>
-        providers.apiProvider.authenticateRequest(requestHeader) match {
+        providers.userProvider.authenticateRequest(requestHeader) match {
+          case NotAuthenticated => Left(unauthorised("Not authenticated"))
+          case Expired(principal) => Left(expired(principal))
+          case GracePeriod(principal) if gracePeriodCountsAsAuthenticated => Right(principal)
+          case GracePeriod(principal) => Left(expired(principal))
           case Authenticated(authedUser) => Right(authedUser)
-          case Invalid(message, throwable) => Left(unauthorised(message, throwable))
+          case Invalid(message, throwable) => Left(unauthorised(message, throwable).map(flushToken))
           case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message"))
-          case NotAuthenticated =>
-            providers.userProvider.authenticateRequest(requestHeader) match {
-              case NotAuthenticated => Left(unauthorised("Not authenticated"))
-              case Expired(principal) => Left(expired(principal))
-              case GracePeriod(principal) if gracePeriodCountsAsAuthenticated => Right(principal)
-              case GracePeriod(principal) => Left(expired(principal))
-              case Authenticated(authedUser) => Right(authedUser)
-              case Invalid(message, throwable) => Left(unauthorised(message, throwable).map(flushToken))
-              case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message"))
-            }
         }
+    }
+  }
+
+  def allowInnerService: ActionBuilder[Authentication.Request, AnyContent] =
+    new ActionBuilder[Authentication.Request, AnyContent] {
+      override def parser: BodyParser[AnyContent] = Authentication.this.parser
+      override protected def executionContext: ExecutionContext = Authentication.this.executionContext
+
+      override def invokeBlock[A](
+        request: Request[A],
+        block: Authentication.Request[A] => Future[Result]
+      ): Future[Result] = Authentication.this.allowInnerService(request, block)
+    }
+
+  def allowInnerService[A](
+    request: Request[A],
+    nextBlock: Authentication.Request[A] => Future[Result]
+  ) = {
+    providers.innerServiceProvider.authenticateRequest(request) match {
+      case Authenticated(authedUser) =>
+        nextBlock(new AuthenticatedRequest(authedUser, request))
+          .map(_.addAttr(RequestLoggingFilter.requestPrincipal, authedUser))
+      case Invalid(message, throwable) => unauthorised(message, throwable)
+      case NotAuthorised(message) => forbidden(s"Principal not authorised: $message") // TODO: see if we can avoid repetition
+      case _ => invokeBlock(request, nextBlock)
     }
   }
 

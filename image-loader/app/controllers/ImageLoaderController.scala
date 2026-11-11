@@ -405,7 +405,7 @@ class ImageLoaderController(auth: Authentication,
       "requestType" -> "image-projection"
     )
     val tempFile = createTempFile(s"projection-$imageId")(initialContext)
-    auth.async { req =>
+    auth.allowInnerService.async { req =>
       implicit val context: LogMarker = initialContext ++ Map(
         "requestId" -> RequestLoggingFilter.getRequestId(req)
       )

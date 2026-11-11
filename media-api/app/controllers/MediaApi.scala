@@ -240,7 +240,7 @@ class MediaApi(
     }
   }
 
-  def diffProjection(id: String) = auth.async { request =>
+  def diffProjection(id: String) = auth.allowInnerService.async { request =>
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "diff-projection",
       "requestId" -> RequestLoggingFilter.getRequestId(request),
@@ -315,7 +315,7 @@ class MediaApi(
 
   }
 
-  def getSoftDeletedMetadata(id: String) = auth.async { request =>
+  def getSoftDeletedMetadata(id: String) = auth.allowInnerService.async { request =>
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "get-soft-deleted-metadata",
       "requestId" -> RequestLoggingFilter.getRequestId(request),

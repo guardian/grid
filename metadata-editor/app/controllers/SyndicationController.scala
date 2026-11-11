@@ -51,7 +51,7 @@ class SyndicationController(auth: Authentication,
     deletePhotoshootAndPublish(id).map(_ => Accepted)
   }
 
-  def getSyndication(id: String): Action[AnyContent] = auth.async {
+  def getSyndication(id: String): Action[AnyContent] = auth.allowInnerService.async {
     getSyndicationForImage(id)
       .map {
         case Some(rights) => respond(rights)
