@@ -30,9 +30,12 @@
     corsAllowedOrigins: [ 'integration-tests' ]
   },
 
-  // Hex key and salt that media-api signs imgproxy URLs with. Local dev only - they must match
-  // IMGPROXY_KEY and IMGPROXY_SALT on the imgproxy service in docker-compose.yml.
   imgproxy: {
+    // Set to true to resize images with the imgproxy container (see docs/06-objects-of-interest/03-imgproxy.md) instead of imgops
+    enabled: false,
+    // Hex key and salt that media-api signs imgproxy URLs with. Local dev only - they must match
+    // IMGPROXY_KEY and IMGPROXY_SALT on the imgproxy service in docker-compose.yml. To run unsigned, set both
+    // to '' here and start docker compose with IMGPROXY_KEY= IMGPROXY_SALT= (empty) in the environment.
     key: '52dd317a9689351c1af9c069677d8c0e7e5c061ab70c521fa6ec870f042f7bc0',
     salt: '24cb8c5df205cefd31e667da2cea1ed56ee45c8f3c54b0e81065ee84690c493b'
   },

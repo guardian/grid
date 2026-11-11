@@ -54,23 +54,23 @@ imageDownloadsService.factory('imageDownloadsService', ['imgops', '$http', funct
         const downloadUri$
             = Rx.Observable.fromPromise(imageResource.getLink("download"))
                                         .map((download) => download.href);
-        const lowRezUri$
-            = Rx.Observable.fromPromise(imgops.getLowResUri(imageResource));
+        // Never used by a download, and no longer signed as an imgproxy size
+        // const lowRezUri$
+        //     = Rx.Observable.fromPromise(imgops.getLowResUri(imageResource));
         const lowResDownloadUri$
             = Rx.Observable.fromPromise(imgops.getLowResDownloadUri(imageResource));
         const fullScreenUri$
             = Rx.Observable.fromPromise(imgops.getFullScreenUri(imageResource));
 
         return Rx.Observable.zip(
-            originalName$, secureUri$, lowRezUri$, fullScreenUri$, downloadUri$, lowResDownloadUri$,
+            originalName$, secureUri$, fullScreenUri$, downloadUri$, lowResDownloadUri$,
                 (originalName,
                  secureUri,
-                 lowRezUri,
                  fullScreenUri,
                  downloadUri,
                  lowResDownloadUri) => ({
                     filename: originalName,
-                    uris: {secureUri, lowRezUri, fullScreenUri, downloadUri, lowResDownloadUri}
+                    uris: {secureUri, fullScreenUri, downloadUri, lowResDownloadUri}
                 }));
     }
 
