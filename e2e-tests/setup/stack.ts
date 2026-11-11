@@ -48,6 +48,7 @@ import {
   SERVICE_PORTS,
 } from './constants.ts';
 import { generateServiceConfig } from './config.ts';
+import { DEBUG_LOG_PATH } from './debug-log.ts';
 import { generateTls } from './tls.ts';
 import type { GridTls } from './tls.ts';
 import { reportTo, runTasks } from './progress.ts';
@@ -724,6 +725,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
   } catch (error) {
     // Leave nothing running if we failed part-way through the boot.
     await stopStack(context);
+    console.error(`\nThe Grid stack failed to start. See the testcontainers log at ${DEBUG_LOG_PATH} for debug logs.\n`);
     throw error;
   }
 }

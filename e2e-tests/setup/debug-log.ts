@@ -11,7 +11,7 @@ import { format, stripVTControlCharacters } from 'util';
 import createDebug from 'debug';
 
 const DEBUG_LOG_DIR = path.join(import.meta.dirname, '..', 'logs');
-const DEBUG_LOG_PATH = path.join(DEBUG_LOG_DIR, 'testcontainers.log');
+export const DEBUG_LOG_PATH = path.join(DEBUG_LOG_DIR, 'testcontainers.log');
 const NAMESPACES = 'testcontainers*';
 
 const userNamespaces = process.env.DEBUG;

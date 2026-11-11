@@ -134,4 +134,5 @@ jobs:
       if: ${{ failure() && steps.testcontainers-log.outputs.artifact-url != '' }}
       env:
         ARTIFACT_URL: ${{ steps.testcontainers-log.outputs.artifact-url }}
-      run: echo "::error title=Testcontainers debug log::If the stack failed to start, see the testcontainers log for the cause: $ARTIFACT_URL"
+      run: |
+        echo "::error title=Testcontainers debug log::If the stack failed to start, see the testcontainers log for the cause: $ARTIFACT_URL"
