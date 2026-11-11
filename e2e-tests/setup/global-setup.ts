@@ -3,10 +3,12 @@
  * boots a fresh one (see `setup/stack.ts`), stashing it for `global-teardown.ts`
  * and exposing the Kahuna base URL via `GRID_BASE_URL`.
  */
+import { captureDebugLog } from './debug-log.ts';
 import { ensureStack } from './stack.ts';
 import { setEnvironment } from './state.ts';
 
 async function globalSetup(): Promise<void> {
+  captureDebugLog();
   const environment = await ensureStack();
   process.env.GRID_BASE_URL = environment.baseUrl;
   setEnvironment(environment);

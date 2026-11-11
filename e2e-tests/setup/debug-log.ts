@@ -1,0 +1,32 @@
+/**
+ * Writes Testcontainers' debug output to `logs/testcontainers.log` on every run.
+ *
+ * Testcontainers only records the Docker build stream, where build failures such as network
+ * errors are reported, when its debug logging is on; otherwise it throws an opaque
+ * "Failed to build image". CI uploads this file with the e2e-report artifact.
+ */
+import * as fs from 'fs';
+import * as path from 'path';
+import { format, stripVTControlCharacters } from 'util';
+import createDebug from 'debug';
+
+const DEBUG_LOG_DIR = path.join(import.meta.dirname, '..', 'logs');
+const DEBUG_LOG_PATH = path.join(DEBUG_LOG_DIR, 'testcontainers.log');
+
+export function captureDebugLog(): void {
+  const userNamespaces = process.env.DEBUG;
+
+  fs.mkdirSync(DEBUG_LOG_DIR, { recursive: true });
+  // Synchronous writes, so a crash mid-boot cannot drop the lines that explain it.
+  const fd = fs.openSync(DEBUG_LOG_PATH, 'w');
+
+  createDebug.enable([userNamespaces, 'testcontainers*'].filter(Boolean).join(','));
+  createDebug.log = (...args: unknown[]) => {
+    const line = `${format(...args)}\n`;
+    fs.writeSync(fd, stripVTControlCharacters(line));
+    // Preserve `DEBUG=... npm test` printing to the terminal.
+    if (userNamespaces) {
+      process.stderr.write(line);
+    }
+  };
+}
