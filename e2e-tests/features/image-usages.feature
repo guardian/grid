@@ -182,13 +182,18 @@ Feature: Viewing an image's usages in the single image view
         | print    | indesign  |
         | digital  | frontend  |
 
-    Scenario: A replaced or derivative usage has no title of its own
-      Given a usage has the "replaced" status with child usage metadata
+    Scenario Outline: A <status> usage is described by its link to the child image, not a title
+      Given a usage has the "<status>" status with child usage metadata
       And I have selected the Usages tab
-      Then that usage shows only the replacement link and who added it
-      And that usage does not show "No title found."
+      Then the usage shows "<text>" followed by a link to the child image and who added it
+      And that usage has no title of its own
     # Evidence: kahuna/public/js/services/image/usages.js lines 44-45, 66-67
     # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 15-22
+
+      Examples:
+        | status     | text           |
+        | derivative | Used to create |
+        | replaced   | Replaced with  |
 
     Scenario Outline: A usage shows an icon for its platform
       Given a usage was made on the "<platform>" platform
@@ -223,18 +228,6 @@ Feature: Viewing an image's usages in the single image view
       And hovering the time reveals the exact date and time
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 25
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 137-139
-
-    Scenario: A derivative usage links to the image it was used to create
-      Given a usage has the "derivative" status with child usage metadata
-      And I have selected the Usages tab
-      Then the usage shows "Used to create" followed by a link to the child image and who added it
-      # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 17-22
-
-    Scenario: A replaced usage links to the image that replaced it
-      Given a usage has the "replaced" status with child usage metadata
-      And I have selected the Usages tab
-      Then the usage shows "Replaced with" followed by a link to the child image and who added it
-      # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 17-22
 
     Scenario: A usage links out to the places it was referenced
       Given a usage has a "frontend" reference and a "composer" reference
