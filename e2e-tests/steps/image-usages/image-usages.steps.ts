@@ -1,9 +1,12 @@
-import type { Page } from '@playwright/test';
-import { Given, Then, expect } from '../setup.ts';
+import type { Dialog, Page } from '@playwright/test';
+import { Given, When, Then, expect } from '../setup.ts';
 import type { SeedImage } from '../setup.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
+import { updateImageCopy } from '../../setup/seed-image.ts';
 import { switchAccount } from '../utils/auth.ts';
+import { setTestClientConfig } from '../utils/test-config.ts';
 import {
+  ADDED_BY,
   childUsage,
   daysAgo,
   digitalUsage,
@@ -12,8 +15,13 @@ import {
   frontUsage,
   groupHeading,
   openImageWithUsages,
+  photoSalesPanel,
+  recordsIn,
   statusHeading,
+  storedUsages,
+  syndicationUsage,
   usage,
+  usageGroup,
   usageGroupToggles,
   usageRecords,
   usagesPanel,
@@ -26,13 +34,23 @@ import type { SeedUsage, UsagePlatform, UsageReferenceType, UsageStatus } from '
 interface SeedFixtures {
   page: Page;
   seedImage: SeedImage;
-  testContext: { usages?: SeedUsage[] };
+  testContext: { usages?: SeedUsage[]; usagesImageId?: string; usageGroup?: UsageStatus };
 }
 
-async function seedUsages({ page, seedImage, testContext }: SeedFixtures, usages: SeedUsage[]): Promise<void> {
+/** Seed and open an image with `usages`; `group` is the one "that usage group" means. */
+async function seedUsages(
+  { page, seedImage, testContext }: SeedFixtures,
+  usages: SeedUsage[],
+  group?: UsageStatus,
+): Promise<void> {
+  const statuses = new Set(usages.map((u) => u.status));
   testContext.usages = usages;
-  await openImageWithUsages(page, seedImage, usages);
+  testContext.usageGroup = group ?? (statuses.size === 1 ? usages[0].status : undefined);
+  testContext.usagesImageId = await openImageWithUsages(page, seedImage, usages);
 }
+
+const stories = (count: number): SeedUsage[] =>
+  Array.from({ length: count }, (_, i) => digitalUsage(`Story ${i + 1}`));
 
 function theSeededUsage(usages: SeedUsage[] | undefined): SeedUsage {
   expect(usages, 'an earlier step seeded exactly one usage').toHaveLength(1);
@@ -53,8 +71,7 @@ const DATE_ADDED_DAYS_AGO = 3;
 // ---------------------------------------------------------------------------
 
 Given('the image has {int} usages', async ({ page, seedImage, testContext }, count: number) => {
-  const usages = Array.from({ length: count }, (_, i) => digitalUsage(`Story ${i + 1}`));
-  await seedUsages({ page, seedImage, testContext }, usages);
+  await seedUsages({ page, seedImage, testContext }, stories(count));
 });
 
 Given('the image has no usages', async ({ page, seedImage, testContext }) => {
@@ -181,6 +198,63 @@ Given(
   },
 );
 
+// Kahuna collapses a group of more than ten usages, unless it's the only group.
+Given(
+  'the image has more than ten usages in a group alongside other groups',
+  async ({ page, seedImage, testContext }) => {
+    await seedUsages({ page, seedImage, testContext }, [...stories(11), usageWithStatus('pending')], 'published');
+  },
+);
+
+Given(
+  'the image has ten or fewer usages in a group alongside other groups',
+  async ({ page, seedImage, testContext }) => {
+    await seedUsages({ page, seedImage, testContext }, [...stories(10), usageWithStatus('pending')], 'published');
+  },
+);
+
+Given('the image has more than ten usages, all with the same status', async ({ page, seedImage, testContext }) => {
+  await seedUsages({ page, seedImage, testContext }, stories(11));
+});
+
+Given(
+  'the image has more than ten downloaded usages and one published usage',
+  async ({ page, seedImage, testContext }) => {
+    const downloads = Array.from({ length: 11 }, (_, i) => downloadUsage(`downloader-${i + 1}@guardian.co.uk`));
+    await seedUsages({ page, seedImage, testContext }, [...downloads, usageWithStatus('published')], 'downloaded');
+  },
+);
+
+Given(
+  'the image has a syndication usage with the {string} partner',
+  async ({ page, seedImage, testContext }, partner: string) => {
+    await seedUsages({ page, seedImage, testContext }, [
+      syndicationUsage(partner, { dateAdded: daysAgo(DATE_ADDED_DAYS_AGO) }),
+    ]);
+  },
+);
+
+Given('the image has a syndication usage', async ({ page, seedImage, testContext }) => {
+  await seedUsages({ page, seedImage, testContext }, [syndicationUsage('e2e-partner')]);
+});
+
+Given('the image has no Capture syndication usage', async ({ page, seedImage, testContext }) => {
+  await seedUsages({ page, seedImage, testContext }, [syndicationUsage('e2e-partner')]);
+});
+
+Given(
+  'the image has published, downloaded, replaced and derivative usages',
+  async ({ page, seedImage, testContext }) => {
+    const statuses = ['published', 'downloaded', 'replaced', 'derivative'] as const;
+    await seedUsages({ page, seedImage, testContext }, statuses.map(usageWithStatus));
+  },
+);
+
+Given('the send to Photo Sales feature is {word}', async ({ page }, state: string) => {
+  expect(['enabled', 'disabled']).toContain(state);
+  await setTestClientConfig(page, { showSendToPhotoSales: state === 'enabled' });
+});
+
 // ---------------------------------------------------------------------------
 // Permissions and the Usages tab
 // ---------------------------------------------------------------------------
@@ -214,9 +288,20 @@ Then('the Usages tab is disabled', async ({ page }) => {
 // ---------------------------------------------------------------------------
 
 Then('I see one usage group per status', async ({ page, testContext }) => {
-  const statuses = new Set(testContext.usages?.map((u) => u.status));
-  await expect(usageGroupToggles(page)).toHaveCount(statuses.size);
+  await expectGroupsFor(page, testContext.usages);
 });
+
+Then("all of the image's usage groups are shown", async ({ page, testContext }) => {
+  await expectGroupsFor(page, testContext.usages);
+});
+
+async function expectGroupsFor(page: Page, usages: SeedUsage[] | undefined) {
+  const statuses = new Set(usages?.map((u) => u.status));
+  await expect(usageGroupToggles(page)).toHaveCount(statuses.size);
+  for (const status of statuses) {
+    await expect.soft(usageGroup(page, status)).toHaveCount(1);
+  }
+}
 
 Then(
   'each group is headed with the status name and the number of usages in it',
@@ -245,6 +330,97 @@ Then('the usages are listed with the most recently added first', async ({ page, 
   await expect(usageRecords(page)).toHaveText(
     newestFirst.map((u) => new RegExp(escapeRegExp(u.references[0].name!))),
   );
+});
+
+Then('I only see the downloads usage group', async ({ page }) => {
+  await expect(usageGroupToggles(page)).toHaveText([groupHeading(statusHeading('downloaded'))]);
+});
+
+Then('I only see the downloaded, replaced and derivative usage groups', async ({ page }) => {
+  const statuses = ['downloaded', 'replaced', 'derivative'] as const;
+  await expect(usageGroupToggles(page)).toHaveCount(statuses.length);
+  for (const status of statuses) {
+    await expect.soft(usageGroup(page, status)).toHaveCount(1);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Collapsing and expanding a group
+// ---------------------------------------------------------------------------
+
+function theGroup(page: Page, usages: SeedUsage[] | undefined, status: UsageStatus | undefined) {
+  expect(status, 'an earlier step chose the usage group').toBeDefined();
+  const group = usageGroup(page, status!);
+  return { group, size: usages!.filter((u) => u.status === status).length };
+}
+
+async function expectGroupExpanded(page: Page, testContext: SeedFixtures['testContext'], expanded: boolean) {
+  const { group, size } = theGroup(page, testContext.usages, testContext.usageGroup);
+  // Collapsing hides a group's records rather than removing them.
+  await expect(recordsIn(group)).toHaveCount(size);
+  if (expanded) {
+    await expect(recordsIn(group).first()).toBeVisible();
+  } else {
+    await expect(recordsIn(group).first()).toBeHidden();
+  }
+}
+
+const groupToggle = (page: Page, testContext: SeedFixtures['testContext']) =>
+  theGroup(page, testContext.usages, testContext.usageGroup).group.getByRole('button');
+
+Then('that usage group is expanded', async ({ page, testContext }) => {
+  await expectGroupExpanded(page, testContext, true);
+});
+
+Then('that usage group is collapsed', async ({ page, testContext }) => {
+  await expectGroupExpanded(page, testContext, false);
+});
+
+Then("the group's usages are shown again", async ({ page, testContext }) => {
+  await expectGroupExpanded(page, testContext, true);
+});
+
+Then("the group's usages are hidden", async ({ page, testContext }) => {
+  await expectGroupExpanded(page, testContext, false);
+});
+
+Then("the group's toggle shows the {string} icon", async ({ page, testContext }, icon: string) => {
+  await expect(groupToggle(page, testContext).locator('gr-icon')).toHaveText(icon);
+});
+
+Then("the group's toggle is named {string}", async ({ page, testContext }, name: string) => {
+  await expect(groupToggle(page, testContext)).toHaveAccessibleName(name);
+});
+
+When('I activate the {string} toggle', async ({ page }, name: string) => {
+  await usagesPanel(page).getByRole('button', { name, exact: true }).click();
+});
+
+// ---------------------------------------------------------------------------
+// Photo Sales panel
+// ---------------------------------------------------------------------------
+
+Then('I see the Photo Sales usage panel', async ({ page }) => {
+  await expect(photoSalesPanel(page)).toBeVisible();
+});
+
+Then('I do not see the Photo Sales usage panel', async ({ page }) => {
+  await expect(usageRecords(page).first()).toBeVisible();
+  await expect(photoSalesPanel(page)).toHaveCount(0);
+});
+
+Then('the Photo Sales panel shows {string}', async ({ page }, text: string) => {
+  await expect(photoSalesPanel(page)).toContainText(text);
+});
+
+Then('it shows who syndicated the image and the time since it was added', async ({ page }) => {
+  await expect(photoSalesPanel(page)).toContainText(ADDED_BY);
+  await expect(photoSalesPanel(page)).toContainText(`${DATE_ADDED_DAYS_AGO} days ago`);
+});
+
+Then('the Photo Sales panel shows no entries', async ({ page }) => {
+  await expect(photoSalesPanel(page)).toBeAttached();
+  await expect(photoSalesPanel(page).getByRole('listitem')).toHaveCount(0);
 });
 
 // ---------------------------------------------------------------------------
@@ -351,6 +527,92 @@ Then('I see the {string} control', async ({ page }, text: string) => {
 });
 
 Then('I do not see the {string} control', async ({ page }, text: string) => {
-  await expect(usageRecords(page).first()).toBeVisible();
+  // Nothing else in the panel need be visible, e.g. when Photo Sales hides every group.
+  await expect(usagesPanel(page)).toBeAttached();
   await expect(usagesControl(page, text)).toBeHidden();
+});
+
+When('I activate the {string} control', async ({ page, testContext }, text: string) => {
+  // A prompt holds the click open until it's answered, so hand both on to the step that answers it.
+  let onDialog!: (dialog: Dialog) => void;
+  const opened = new Promise<Dialog>((resolve) => {
+    onDialog = resolve;
+  });
+  page.once('dialog', onDialog);
+  const click = usagesControl(page, text).click();
+  const dialog = await Promise.race([opened, click.then(() => undefined)]);
+  if (dialog) {
+    testContext.prompt = { dialog, click };
+  } else {
+    page.off('dialog', onDialog);
+  }
+});
+
+When('I do not enter {string} to confirm', async ({ page, testContext }, confirmText: string) => {
+  const { prompt } = testContext;
+  expect(prompt, 'an earlier step opened a prompt').toBeDefined();
+  expect(prompt!.dialog.type()).toBe('prompt');
+  expect(prompt!.dialog.message()).toContain(`Enter ${confirmText} below to confirm`);
+
+  const requests: string[] = [];
+  testContext.deleteUsagesRequests = requests;
+  page.on('request', (request) => {
+    if (request.method() === 'DELETE' && new URL(request.url()).pathname.startsWith('/usages/media/')) {
+      requests.push(request.url());
+    }
+  });
+  await prompt!.dialog.dismiss();
+  await prompt!.click;
+});
+
+Then('no usage information is deleted', async ({ page, testContext }) => {
+  await expect(usageRecords(page)).toHaveCount(testContext.usages!.length);
+  expect(testContext.deleteUsagesRequests).toEqual([]);
+});
+
+// ---------------------------------------------------------------------------
+// Live updates
+// ---------------------------------------------------------------------------
+
+/**
+ * Download the open image, then record its download usage (plus `extra`) as the usage service
+ * and thrall would. Neither is in the stack; Kahuna polls the image until the usage appears.
+ */
+async function downloadRecordingUsage(
+  page: Page,
+  testContext: SeedFixtures['testContext'],
+  extra: SeedUsage[] = [],
+): Promise<void> {
+  const id = testContext.usagesImageId;
+  expect(id, 'an earlier step seeded the open image').toBeDefined();
+  const download = page.getByRole('link', { name: 'Download image' });
+  // Kahuna only polls for the usage once it knows where to download from.
+  await expect(download).toHaveAttribute('href', /\S/);
+  await download.click();
+
+  // Kahuna waits for a download by the signed-in user, added after the click.
+  const downloaded = downloadUsage(TEST_ACCOUNTS.fullAccess, { dateAdded: new Date().toISOString() });
+  testContext.usages = [...(testContext.usages ?? []), downloaded, ...extra];
+  await updateImageCopy(id!, { usages: storedUsages(testContext.usages, id!) });
+}
+
+When(
+  'the image is updated elsewhere in the application and now has {int} usages',
+  async ({ page, testContext }, count: number) => {
+    const extra = count - (testContext.usages?.length ?? 0) - 1;
+    expect(extra, 'usages to add besides the download').toBeGreaterThanOrEqual(0);
+    await downloadRecordingUsage(page, testContext, stories(extra));
+  },
+);
+
+When(
+  'the image usages change as a result of a user action, for example, downloading an image',
+  async ({ page, testContext }) => {
+    await downloadRecordingUsage(page, testContext);
+  },
+);
+
+Then('the usages list refreshes to reflect the updated image', async ({ page, testContext }) => {
+  await expect(usageRecords(page)).toHaveCount(testContext.usages!.length);
+  await expect(usageGroup(page, 'downloaded')).toContainText(TEST_ACCOUNTS.fullAccess);
 });

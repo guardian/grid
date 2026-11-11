@@ -35,12 +35,13 @@ export interface SeedUsage {
   frontUsageMetadata?: { addedBy: string; front: string };
   downloadUsageMetadata?: { downloadedBy: string };
   childUsageMetadata?: { addedBy: string; childMediaId: string };
+  syndicationUsageMetadata?: { partnerName: string; syndicatedBy?: string };
 }
 
 type UsageFields = Pick<SeedUsage, 'platform' | 'status'> &
   Partial<Omit<SeedUsage, 'id' | 'lastModified' | 'platform' | 'status'>>;
 
-const ADDED_BY = 'e2e-user@guardian.co.uk';
+export const ADDED_BY = 'e2e-user@guardian.co.uk';
 
 export const daysAgo = (days: number): string => new Date(Date.now() - days * 86_400_000).toISOString();
 
@@ -57,8 +58,16 @@ export const digitalUsage = (name: string, fields: Partial<UsageFields> = {}): S
 export const frontUsage = (front: string, addedBy: string): SeedUsage =>
   usage({ platform: 'digital', status: 'unknown', frontUsageMetadata: { front, addedBy } });
 
-export const downloadUsage = (downloadedBy: string): SeedUsage =>
-  usage({ platform: 'download', status: 'downloaded', downloadUsageMetadata: { downloadedBy } });
+export const downloadUsage = (downloadedBy: string, fields: Partial<UsageFields> = {}): SeedUsage =>
+  usage({ platform: 'download', status: 'downloaded', downloadUsageMetadata: { downloadedBy }, ...fields });
+
+export const syndicationUsage = (partnerName: string, fields: Partial<UsageFields> = {}): SeedUsage =>
+  usage({
+    platform: 'syndication',
+    status: 'syndicated',
+    syndicationUsageMetadata: { partnerName, syndicatedBy: ADDED_BY },
+    ...fields,
+  });
 
 /** Kahuna expects every replaced usage to name the image that replaced it. */
 export const childUsage = (status: 'derivative' | 'replaced'): SeedUsage =>
@@ -95,11 +104,15 @@ export const statusHeading = (status: UsageStatus): string => STATUS_HEADINGS[st
 
 const SOURCE_IMAGE = findSeededImage('with no usage rights category', hasNoUsageRights)._source;
 
-/** Index a copy of a seeded image with `usages` and open its single image view. */
-export async function openImageWithUsages(page: Page, seedImage: SeedImage, usages: SeedUsage[]): Promise<void> {
-  const id = await seedImage(SOURCE_IMAGE, (mediaId) => ({ usages: usages.map((u) => ({ ...u, media: mediaId })) }));
+/** `usages` as stored on the image with id `media`. */
+export const storedUsages = (usages: SeedUsage[], media: string) => usages.map((u) => ({ ...u, media }));
+
+/** Index a copy of a seeded image with `usages`, open its single image view, and return its id. */
+export async function openImageWithUsages(page: Page, seedImage: SeedImage, usages: SeedUsage[]): Promise<string> {
+  const id = await seedImage(SOURCE_IMAGE, (mediaId) => ({ usages: storedUsages(usages, mediaId) }));
   await page.goto(`${KAHUNA_APP_URL}/images/${id}`);
   await expect(page.getByRole('complementary', { name: 'Image information' })).toBeVisible();
+  return id;
 }
 
 // The tab's radio input is hidden; its label is what the user sees and clicks.
@@ -111,7 +124,14 @@ export const usagesTabInput = (page: Page): Locator => page.locator('#tabs-usage
 export const usagesPanel = (page: Page): Locator => page.locator('gr-image-usage');
 export const usageGroupToggles = (page: Page): Locator =>
   usagesPanel(page).locator('gr-image-usage-list').getByRole('button');
-export const usageRecords = (page: Page): Locator => usagesPanel(page).locator('.gr-image-usage__record');
+export const recordsIn = (scope: Locator): Locator => scope.locator('.gr-image-usage__record');
+export const usageRecords = (page: Page): Locator => recordsIn(usagesPanel(page));
+
+/** The group of usages with `status`, found by its heading. */
+export const usageGroup = (page: Page, status: UsageStatus): Locator =>
+  usagesPanel(page).locator('gr-image-usage-list').filter({ hasText: groupHeading(statusHeading(status)) });
+
+export const photoSalesPanel = (page: Page): Locator => usagesPanel(page).locator('image-usage-photo-sales');
 
 export const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 

@@ -1,11 +1,11 @@
 import { expect } from '@playwright/test';
-import type { APIResponse, FileChooser, Locator, Response } from '@playwright/test';
+import type { APIResponse, Dialog, FileChooser, Locator, Response } from '@playwright/test';
 import { test as base, createBdd } from 'playwright-bdd';
 import { DOMAIN } from '../setup/constants.ts';
 import type { ImageSource } from '../setup/image-fixtures.ts';
 import { deleteImageCopies, indexImageCopy } from '../setup/seed-image.ts';
 import type { ImageOverrides } from '../setup/seed-image.ts';
-import type { SeedUsage } from './image-usages/usages.ts';
+import type { SeedUsage, UsageStatus } from './image-usages/usages.ts';
 
 export const KAHUNA_APP_URL = `https://media.${DOMAIN}`;
 
@@ -49,6 +49,14 @@ interface TestContext {
   seededImageIds: string[];
   /** The usages seeded on the image a scenario opened. */
   usages?: SeedUsage[];
+  /** The id of the image copy the usages were seeded on. */
+  usagesImageId?: string;
+  /** The status of the group that "that usage group" steps refer to. */
+  usageGroup?: UsageStatus;
+  /** A prompt a control opened, and the click that opened it, which only finishes once it's answered. */
+  prompt?: { dialog: Dialog; click: Promise<void> };
+  /** URLs of the DELETE requests Kahuna sent to remove an image's usages. */
+  deleteUsagesRequests?: string[];
 }
 
 /** Index a disposable copy of `source`, with `overrides` applied, and return its id. */
