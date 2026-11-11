@@ -6,6 +6,8 @@ import type { ImageSource } from '../setup/image-fixtures.ts';
 import { deleteImageCopies, indexImageCopy } from '../setup/seed-image.ts';
 import MCR from 'monocart-coverage-reports';
 import coverageOptions from '../setup/mcr.config';
+import type { ImageOverrides } from '../setup/seed-image.ts';
+import type { SeedUsage } from './image-usages/usages.ts';
 
 export const KAHUNA_APP_URL = `https://media.${DOMAIN}`;
 
@@ -47,10 +49,12 @@ interface TestContext {
   rightsProperties?: Record<string, string>;
   /** Ids of the image copies `seedImage` indexed, deleted by the `After` hook. */
   seededImageIds: string[];
+  /** The usages seeded on the image a scenario opened. */
+  usages?: SeedUsage[];
 }
 
 /** Index a disposable copy of `source`, with `overrides` applied, and return its id. */
-type SeedImage = (source: ImageSource, overrides?: Partial<ImageSource>) => Promise<string>;
+export type SeedImage = (source: ImageSource, overrides?: ImageOverrides) => Promise<string>;
 
 export interface TestImage {
   fileName: string;

@@ -11,13 +11,11 @@ Feature: Viewing an image's usages in the single image view
   # ---------------------------------------------------------------------------
   # Usages tab
   # ---------------------------------------------------------------------------
-  @todo
   Scenario: The Usages tab shows the number of usages
     Given the image has 3 usages
     Then the Usages tab is labelled "Usages (3)"
   # Evidence: kahuna/public/js/image/controller.js lines 201-205
 
-  @todo
   Scenario: The Usages tab is disabled when the image has no usages
     Given the image has no usages
     Then the Usages tab is labelled "Usages (None)"
@@ -32,7 +30,6 @@ Feature: Viewing an image's usages in the single image view
     Then the Usages tab is labelled "Usages (4)"
   # Evidence: kahuna/public/js/image/controller.js lines 201-205, 323-329
 
-  @todo
   Rule: Usages are listed on the Usages tab
 
     # The Usages tab is disabled until the image has usages, so each scenario selects it after choosing its image.
@@ -42,7 +39,6 @@ Feature: Viewing an image's usages in the single image view
       # -------------------------------------------------------------------------
       # Usage status groups
       # -------------------------------------------------------------------------
-    @todo
     Scenario: Each usage status is shown as its own group
       Given the image has usages with more than one status
       And I have selected the Usages tab
@@ -53,7 +49,6 @@ Feature: Viewing an image's usages in the single image view
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 39-50
       # Evidence: kahuna/public/js/services/image/usages.js lines 90-91
 
-    @todo
     Scenario Outline: Usage statuses are shown with friendly names
       Given the image has a usage with the "<status>" status
       And I have selected the Usages tab
@@ -71,14 +66,12 @@ Feature: Viewing an image's usages in the single image view
         | replaced   | replaced             |
         | derivative | derivative           |
 
-    @todo
     Scenario: Usage groups are ordered by status
       Given the image has pending, published, unknown, removed, downloaded and replaced usages
       And I have selected the Usages tab
       Then the usage groups appear in the order pending, published, unknown, removed, downloaded, replaced
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 35, 42-45
 
-    @todo
     Scenario: Usages within a group are ordered newest first
       Given a usage group contains usages added on different dates
       And I have selected the Usages tab
@@ -158,7 +151,6 @@ Feature: Viewing an image's usages in the single image view
         | unknown | Hide front usages               |
     # Individual usage records
     # -------------------------------------------------------------------------
-    @todo
     Scenario: A front usage is titled with the front and who added it
       Given the image has a front usage on the "uk/sport" front added by "Jane Smith"
       And I have selected the Usages tab
@@ -166,7 +158,6 @@ Feature: Viewing an image's usages in the single image view
     # Evidence: kahuna/public/js/services/image/usages.js lines 29-32, 39-41, 66-67
     # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 15
 
-    @todo
     Scenario: A download usage is titled with who downloaded it
       Given the image has a download usage downloaded by "Jane Smith"
       And I have selected the Usages tab
@@ -174,7 +165,6 @@ Feature: Viewing an image's usages in the single image view
     # Evidence: kahuna/public/js/services/image/usages.js lines 34-37, 42-43, 66-67
     # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 15
 
-    @todo
     Scenario Outline: A print or digital usage is titled with its reference name
       Given a usage on the "<platform>" platform has a "<reference>" reference named "<name>"
       And I have selected the Usages tab
@@ -187,7 +177,6 @@ Feature: Viewing an image's usages in the single image view
         | print    | indesign  | Main section, page 12      |
         | digital  | frontend  | Storm hits the south coast |
 
-    @todo
     Scenario Outline: A print or digital usage without a named reference has a fallback title
       Given a usage on the "<platform>" platform has no named "<reference>" reference
       And I have selected the Usages tab
@@ -200,7 +189,6 @@ Feature: Viewing an image's usages in the single image view
         | print    | indesign  |
         | digital  | frontend  |
 
-    @todo
     Scenario: A replaced or derivative usage has no title of its own
       Given a usage has the "replaced" status with child usage metadata
       And I have selected the Usages tab
@@ -209,7 +197,6 @@ Feature: Viewing an image's usages in the single image view
     # Evidence: kahuna/public/js/services/image/usages.js lines 44-45, 66-67
     # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 15-22
 
-    @todo
     Scenario Outline: A usage shows an icon for its platform
       Given a usage was made on the "<platform>" platform
       And I have selected the Usages tab
@@ -221,7 +208,6 @@ Feature: Viewing an image's usages in the single image view
         | print    | local_library |
         | digital  | phonelink     |
 
-    @todo
     Scenario: A recently added usage is highlighted
       Given a usage was added within the last seven days
       And I have selected the Usages tab
@@ -230,7 +216,6 @@ Feature: Viewing an image's usages in the single image view
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 141-145
       # Evidence: kahuna/public/js/services/image/usages.js lines 13, 113
 
-    @todo
     Scenario: An older usage is not highlighted
       Given a usage was added more than seven days ago
       And I have selected the Usages tab
@@ -238,7 +223,6 @@ Feature: Viewing an image's usages in the single image view
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 12-13
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 141-145
 
-    @todo
     Scenario: A usage shows a relative time with the exact date as a tooltip
       Given a usage has a date added
       And I have selected the Usages tab
@@ -247,21 +231,18 @@ Feature: Viewing an image's usages in the single image view
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 25
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 137-139
 
-    @todo
     Scenario: A derivative usage links to the image it was used to create
       Given a usage has the "derivative" status with child usage metadata
       And I have selected the Usages tab
       Then the usage shows "Used to create" followed by a link to the child image and who added it
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 17-22
 
-    @todo
     Scenario: A replaced usage links to the image that replaced it
       Given a usage has the "replaced" status with child usage metadata
       And I have selected the Usages tab
       Then the usage shows "Replaced with" followed by a link to the child image and who added it
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 17-22
 
-    @todo
     Scenario: A usage links out to the places it was referenced
       Given a usage has a "frontend" reference and a "composer" reference
       And I have selected the Usages tab
@@ -270,7 +251,6 @@ Feature: Viewing an image's usages in the single image view
       And each reference link opens in a new tab
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 28-34
 
-    @todo
     Scenario: A reference without a URI is not linked
       Given a usage has a "frontend" reference with no URI
       And I have selected the Usages tab
@@ -332,7 +312,6 @@ Feature: Viewing an image's usages in the single image view
     # Deleting all usages
     # The delete button's accessible name is "Delete image" (aria-label), not its visible text.
     # -------------------------------------------------------------------------
-    @todo
     Scenario: A user with permission sees the delete all usages control
       Given I have delete usages permission
       And the image has at least one usage
@@ -342,7 +321,6 @@ Feature: Viewing an image's usages in the single image view
       # Evidence: kahuna/public/js/components/gr-delete-usages/gr-delete-usages.js lines 24, 28-34
       # Evidence: kahuna/public/js/components/gr-delete-usages/gr-delete-usages.html lines 1-5
 
-    @todo
     Scenario: A user without permission does not see the delete all usages control
       Given I do not have delete usages permission
       And the image has at least one usage
@@ -372,6 +350,8 @@ Feature: Viewing an image's usages in the single image view
     # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.html lines 8-12
     # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 52, 56
     # Evidence: kahuna/public/js/components/gr-delete-usages/gr-delete-usages.js lines 28-34
+
+    @todo
     Scenario: Confirming deletion removes all usage information and reloads the image
       Given I have delete usages permission
       And the image has at least one usage
