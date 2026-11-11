@@ -88,7 +88,8 @@ whole run.
 CI also adds GitHub failure annotations. Both reports and their captured attachments are
 uploaded together as `e2e-report`, retained for 14 days after successful or failed runs,
 excluding cancelled runs. Failures before report generation may leave no reports to
-upload. Failed runs also upload the debug log as `testcontainers-log`.
+upload. Failed runs also upload the debug log as `testcontainers-log`, linked from an
+annotation on the job page.
 
 ### Feature library
 
