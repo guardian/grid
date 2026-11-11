@@ -41,6 +41,34 @@ type StackProps = Record<string, string>;
  */
 export const E2E_IMAGE_TYPES = ["Photograph", "Illustration", "Composite"];
 
+export const E2E_SEARCH_FIELD_ALIASES = [
+  {
+    alias: 'fixtureSubject',
+    label: 'Fixture subject',
+    elasticsearchPath: 'metadata.subjects',
+    displaySearchHint: true,
+    displayInAdditionalMetadata: false,
+    searchHintOptions: ['arts', 'news', 'sport'],
+  },
+  {
+    alias: 'fixtureReference',
+    label: 'Fixture reference',
+    elasticsearchPath: 'metadata.suppliersReference',
+    displaySearchHint: true,
+    displayInAdditionalMetadata: false,
+    searchHintOptions: [],
+  },
+  {
+    alias: 'fixtureHasPerson',
+    label: 'Fixture has person',
+    elasticsearchPath: 'metadata.peopleInImage',
+    displaySearchHint: true,
+    displayInAdditionalMetadata: false,
+    searchHintOptions: ['true', 'false'],
+    matchViaExistence: true,
+  },
+];
+
 export const E2E_METADATA_TEMPLATE = {
   templateName: "E2E Agency",
   fields: [
@@ -86,7 +114,9 @@ function kahunaE2eConfig(): string {
 
   return [
     // The e2e stack has no Bedrock access, so AI search requests would 500.
-    "ai.search.enabled = false",
+    'ai.search.enabled = false',
+    'useReaper = true',
+    'showSendToPhotoSales = true',
     `links.uploadImagesPermissionSupportEmail = "${E2E_UPLOAD_SUPPORT_EMAIL}"`,
     `imageTypes = ${JSON.stringify(E2E_IMAGE_TYPES)}`,
     "metadata.templates = [",
@@ -191,7 +221,11 @@ export function generateServiceConfig(
     path.join(configDir, "common.conf"),
     [
       'play.http.secret.key = "testcontainers-e2e-application-secret-0123456789"',
-      "enforceUploadImagesPermission = true",
+      'enforceUploadImagesPermission = true',
+      'image.record.download = true',
+      'persistence.identifier = "picdarUrn"',
+      'persistence.onlyTheseCollections = null',
+      `field.aliases = ${JSON.stringify(E2E_SEARCH_FIELD_ALIASES)}`,
       `usageRights.applicable = ${JSON.stringify([
         "com.gu.mediaservice.model.NoRights",
         "com.gu.mediaservice.model.PayToUse",

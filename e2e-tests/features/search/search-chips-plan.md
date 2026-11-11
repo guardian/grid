@@ -7,8 +7,10 @@ Use the current `@guardian/cql` input, not the legacy chips input or its retirin
 
 ## Scope and coverage strategy
 
-Catalogue every chip, but use **12 reusable images and approximately 26 browser
-scenarios** rather than testing the Cartesian product of fields and values.
+Catalogue every chip, but use **12 core images plus 16 supplemental images and
+approximately 26 browser scenarios** rather than testing the Cartesian product
+of fields and values. The supplemental records complete finite option coverage
+without changing the core result-combination contrasts.
 Suggestions are not validation lists: most chips also accept manually typed
 values. Dynamic values below describe the checked-in e2e configuration, not
 production.
@@ -190,9 +192,9 @@ lookup URL. `#` is shorthand for `label`, not an additional registered key.
 - The syntax help template provides frontend examples; reconcile these with the
   current CQL input before turning backend-only syntax into UI scenarios.
 
-## Twelve-image fixture proposal
+## Search-chip fixture matrix
 
-The 12 records are implemented in
+The 28 records (A-W plus five named supplier records) are implemented in
 [search-chips.ts](../../fixtures/elasticsearch/search-chips.ts) and appended after
 the captured images by the [shared loader](../../setup/image-fixtures.ts).
 The existing Elasticsearch and image-file seeders consume that combined list.
@@ -200,8 +202,8 @@ Existing records and their lookup order are preserved.
 
 The chip-value column uses the inventory's query keys rather than raw JSON field
 names. **Common** means all of the following values, with row-specific overrides
-replacing them; `{role}` is the uppercase image letter and `{role-lower}` its
-lowercase equivalent. Values are data, not necessarily ready-to-paste query
+replacing them; `{role}` is the image letter or named supplier role and
+`{role-lower}` its lowercase equivalent. Values are data, not necessarily ready-to-paste query
 syntax: quote multi-word values when searching.
 
 - `title` = `Search chips image {role}`; `description` = `Search chips fixture {role}`.
@@ -230,43 +232,74 @@ row. `in` searches the listed location values together.
 | B | Shared text, credit and location with A; different uploader, keyword and file type; has a crop | Exclusion, format and crop contrasts. | Common; `description` = `Harbour festival at the waterfront`; `credit` / `illustrator` = `Search Chips Shared Credit`; `city` = `Bristol`; `state` = `Somerset`; `country` = `United Kingdom`; `location` = `Harbourside`; `in` = those four location values; `keyword` = `harbour`, `night`; `subject` = `arts`; `category` = `agency`; `supplier` = `AP`; `uploader` = other user; `fileType` = `png`; `filename` = `search-chips-b.png`; `croppedBy` = current user; `persisted` = `exports`. |
 | C | Modern `pay-to-use` category; city and uploader differ from D | Category expansion and metadata filtering. | Common; `city` = `London`; `country` = `United Kingdom`; `in` = those two location values; `keyword` = `chargeable`; `category` = `pay-to-use`; no persistence reasons. |
 | D | Legacy `chargeable` category; contrasting city and uploader | Legacy category compatibility. | Common; `city` = `Cardiff`; `country` = `United Kingdom`; `in` = those two location values; `keyword` = `chargeable`; `category` = `chargeable`; `uploader` = other user; `date` = `2024-06-16T12:00:00.000Z`; no persistence reasons. |
-| E | Photographer ownership; label, collection, photoshoot and archive | Ownership and multiple persistence reasons. | Common; `by` = `Example Internal Photographer`; `subject` = `sport`; `category` = `staff-photographer`; `label` / `#` = `search-chips-featured`; `photoshoot` = `Search Chips Harbour Shoot`; `is` = `<org>-owned-photo`, `<org>-owned`; `persisted` = `photographer-category`, `archived`, `photoshoot`, `labeled`, plus `persisted-collection` if collection persistence config includes `search-chips`; additional backend `collection` / `~` = `search-chips`. |
-| F | Illustrator ownership; lease | Ownership contrast and lease persistence. | Common; `by` = `Example Contracted Illustrator`; `subject` = `arts`; `category` = `contract-illustrator`; `leasedBy` = current user; `is` = `<org>-owned-illustration`, `<org>-owned`; `persisted` = `illustrator-category`, `leases`. `illustrator` remains `Search Chips Agency`, not the usage-rights creator name. |
+| E | Photographer ownership; label, collection, photoshoot and archive | Ownership and multiple persistence reasons. | Common; `by` = `Example Internal Photographer`; `subject` = `sport`; `category` = `staff-photographer`; `label` / `#` = `search-chips-featured`; `photoshoot` = `Search Chips Harbour Shoot`; `is` = `<org>-owned-photo`, `<org>-owned`; `persisted` = `photographer-category`, `archived`, `photoshoot`, `labeled`, `persisted-collection`; additional backend `collection` / `~` = `search-chips`. |
+| F | Illustrator ownership; lease | Ownership contrast and lease persistence. | Common; `by` / `credit` / `illustrator` = `Example Contracted Illustrator`; `subject` = `arts`; `category` = `contract-illustrator`; `leasedBy` = current user; `is` = `<org>-owned-illustration`, `<org>-owned`; `persisted` = `illustrator-category`, `leases`. |
 | G | Separate usages: one print, another published; neither has both | Detect cross-usage matching semantics. | Common; usage 1: `usages@platform` = `print`, `usages@status` = `pending`, Print details, added = `2024-06-15T12:00:00.000Z`; usage 2: `usages@platform` = `digital`, `usages@status` = `published`, added = `2024-06-15T12:00:00.000Z`; `persisted` = `usages`. |
 | H | One usage that is both print and published | Contrast with G for combined usage filters. | Common; one usage: `usages@platform` = `print`, `usages@status` = `published`, Print details, added = `2024-06-15T12:00:00.000Z`; `persisted` = `usages`. |
 | I | Unknown rights; optional metadata and date taken absent; no persistence reasons | Missing-field and non-persisted baseline. | **No Common metadata defaults**: `title` = `Search chips image I`; `description` = `Missing optional metadata`; `uploader` = current user; `fileType` = `jpeg`; `filename` = `search-chips-i.jpg`; `date` = `2024-06-15T12:00:00.000Z`. All other ordinary chip fields absent/empty, including `dateTaken`; no persistence reasons. |
 | J | Both published and replaced usages | Status combinations and negation. | Common; usage 1: `usages@platform` = `digital`, `usages@status` = `published`, added = `2024-06-14T12:00:00.000Z`; usage 2: `usages@platform` = `digital`, `usages@status` = `replaced`, added = `2024-06-16T12:00:00.000Z`; `persisted` = `usages`. |
 | K | Deleted image belonging to the current uploader | Deleted visibility and ownership. | Common; `is` = `deleted`; no persistence reasons. |
 | L | Deleted image belonging to another uploader | Deleted visibility contrast. | Common; `uploader` = other user; `is` = `deleted`; no persistence reasons. |
+| M | TIFF, complete subject list, persisted identifier and over-quota supplier | Remaining format/subject options and identifier persistence. | Common; `fileType` = `tiff` (also searchable as `tif`); `filename` = `search-chips-m.tiff`; `subject` = all 19 inventory values; `category` = `agency`; `supplier` = `AAP`; `persisted` = `persistence-identifier`; `identifiers.picdarUrn` = `search-chips-persistence-m`; does not match `is:under-quota` once the seeded quota report is loaded. |
+| N | Legacy commissioned agency | Commissioned-agency persistence and category expansion. | Common; `category` = `commissioned-agency`; `supplier` = `Alamy`; `persisted` = `commissioned-agency`. |
+| O | Real title edit with original title retained | User-edit persistence. | Common; `title` = `Search chips edited title O`; `category` = `agency`; `supplier` = `Allstar Picture Library`; `persisted` = `edited`. Original title is `Search chips image O`. |
+| P | Modern PR/third-party rights | Remaining modern category option. | Common; `category` = `pr-and-third-party`; rights source = `Search Chips PR Office` (the `source` chip still searches Common metadata source); no persistence reasons. |
+| Q | Bylines rights | Remaining category option. | Common; `category` = `Bylines`; no persistence reasons. |
+| R | Contract photographer | Remaining configured photographer suggestion and category. | Common; `by` = `Example Contracted Photographer`; `category` = `contract-photographer`; `is` = `<org>-owned-photo`, `<org>-owned`; `persisted` = `photographer-category`. |
+| S | Commissioned photographer | Remaining photographer category. | Common; `category` = `commissioned-photographer`; `is` = `<org>-owned-photo`, `<org>-owned`; `persisted` = `photographer-category`. |
+| T | Staff illustrator | Remaining illustrator category and searchable creator name. | Common; `credit` / `illustrator` = `Example Staff Illustrator`; `category` = `staff-illustrator`; `is` = `<org>-owned-illustration`, `<org>-owned`; `persisted` = `illustrator-category`. |
+| U | Commissioned illustrator | Remaining illustrator category and searchable creator name. | Common; `credit` / `illustrator` = `Example Commissioned Illustrator`; `category` = `commissioned-illustrator`; `is` = `<org>-owned-illustration`, `<org>-owned`; `persisted` = `illustrator-category`. |
+| V | Remaining usage statuses/platforms and a named reference URL | Complete usage options and positive reference searches. | Common; usages (`usages@platform` / `usages@status`): `digital` / `removed`, `syndication` / `syndicated`, `download` / `downloaded`, `digital` / `derivative`, `digital` / `failed`, `digital` / `unknown`; every added timestamp = `2024-06-15T12:00:00.000Z`; the removed digital usage has `usages@reference` = `Search Chips Harbour Story` / `https://search-chips.invalid/stories/harbour`; `persisted` = `usages`. `Added to Photo Sales` searches the `syndication` platform. |
+| W | Old, non-persisted agency pick | Positive reapable and agency-pick predicates. | Common; `description` = `Search chips topshot agency pick`; `category` = `agency`; `supplier` = `EPA`; `date` = `2000-01-01T12:00:00.000Z`; `is` = `agency-pick`, `reapable` when the clock is at least 20 days after upload; no persistence reasons. |
+| supplier-getty-images | Remaining supplier option | Positive supplier search. | Common; `category` = `agency`; `supplier` = `Getty Images`; no persistence reasons. |
+| supplier-pa | Remaining supplier option | Positive supplier search. | Common; `category` = `agency`; `supplier` = `PA`; no persistence reasons. |
+| supplier-rex-features | Remaining multi-word supplier option | Positive supplier search and under-quota contrast. | Common; `category` = `agency`; `supplier` = `Rex Features`; matches `is:under-quota` with the seeded report; no persistence reasons. |
+| supplier-ronald-grant-archive | Remaining multi-word supplier option | Positive supplier search. | Common; `category` = `agency`; `supplier` = `Ronald Grant Archive`; no persistence reasons. |
+| supplier-action-images | Remaining multi-word supplier option | Positive supplier search. | Common; `category` = `agency`; `supplier` = `Action Images`; no persistence reasons. |
 
-### Inventory coverage and gaps
+### Inventory coverage
 
-This accounts for the inventory's 39 built-in keys, but populated fixture data
-does **not** prove that every field or value has been exercised by a scenario.
+All 39 built-in keys now have positive fixture data or a derived-predicate
+example. All enumerated inventory subjects, supplier options, categories,
+formats, configured photographer names and usage statuses/platforms are
+represented. This closes the identified **data** gaps; it does not claim that
+every field/value has already been exercised in browser scenarios.
 
-- All 36 ordinary field/value keys have a non-empty source somewhere **except
-  `usages@reference`**: every usage has an empty `references` array. Add a usage
-  reference name/URI before claiming positive coverage for that chip.
-- `illustrator` has searchable credit values, but no fixture has
-  `Example Contracted Illustrator` in `metadata.credit`. F's creator option is
-  therefore not a positive illustrator-name search fixture. `by` does have the
-  name, independently of usage-rights ownership.
-- `has` is a field-existence predicate, not stored metadata. Positive sources
-  include `crops` on B, `people` on A, `labels` on E, location fields on A-D and
-  `dateTaken` on every image except I. Use indexed-field semantics rather than
-  treating empty arrays/objects as populated values.
-- `is` and `persisted` are derived predicates. The table lists ownership,
-  deletion and persistence reasons supported by these records; `<org>` comes
-  from configuration, and the `persisted` chooser requires `useReaper`.
-  `under-quota`, `reapable` and conditional `agency-pick` require their runtime
-  quota/configuration/eligibility rules, not another metadata value on the image.
-- Persistence reasons not positively represented are `persistence-identifier`,
-  `commissioned-agency` and `edited`; `persisted-collection` is config-dependent.
-  Other inventory options (for example TIFF, additional subjects, suppliers and
-  usage statuses) are not exhaustive in this fixture set either.
-- Configured aliases and additional backend syntax are outside the 39 built-in
-  keys. Apart from E's collection, this table makes no positive coverage claim
-  for those, or for every arbitrary field accepted by `has` or dotted paths.
+| Previously identified gap | Fixture/configuration coverage |
+| --- | --- |
+| `usages@reference` | V supplies both a reference name and URI on one usage; I has no usages. |
+| Searchable illustrator name | F's `metadata.credit`, completion and usage-rights creator all contain `Example Contracted Illustrator`; T/U add staff/commissioned names. |
+| `has` existence contrasts | `crops`: B/I; `people`: A/I; `labels`: E/I; `city`: A/I; `dateTaken`: A/I; `usageRights`: A/I. Empty arrays/objects do not imply indexed field existence. |
+| Conditional `is` predicates | W has the configured `topshot` agency-pick term and is old enough for reaping under the current clock, with no persistence reasons. M is non-reapable because it has a persisted identifier. With the seeded quota report loaded, M/AAP is over quota (695/400), while supplier-rex-features is under quota (1383/1600). E/F cover ownership; K/L cover deletion. |
+| All 12 persistence reasons | M: `persistence-identifier`; B: `exports`; G/H/J/V: `usages`; E: `archived`, `photographer-category`, `persisted-collection`, `photoshoot`, `labeled`; F: `illustrator-category`, `leases`; N: `commissioned-agency`; O: `edited`; I: none. |
+| Remaining finite options | M: TIFF and every subject; N/P/Q/R/S/T/U: remaining categories; R: contracted photographer; V: remaining usage statuses and `download`/`syndication`; A/B/M/N/O/W and the five named supplier fixtures: all 11 suppliers. JPEG/PNG remain A/B; `jpg`/`tif` are query aliases for the existing JPEG/TIFF records. |
+| Configured alias with options | `fixtureSubject` maps to `metadata.subjects`, offering `arts`, `news`, `sport`; A/E/M provide those values. |
+| Configured manual-entry alias | `fixtureReference` maps to `metadata.suppliersReference`, has no option list, and matches values such as A's `search-chips-A`; I has no supplier reference. |
+| Configured existence alias | `fixtureHasPerson` maps to `metadata.peopleInImage`, offers `true`/`false` with `matchViaExistence`; A is positive and I is negative. |
+
+The [e2e config generator](../../setup/config.ts) enables `useReaper` and
+`showSendToPhotoSales`; download recording is enabled. All collections persist
+(`persistence.onlyTheseCollections = null`), and the persistence identifier is
+explicitly `picdarUrn`. Aliases are shared by Kahuna and media-api. Agency-pick
+ingredients and the quota seed are supplied by the existing dev configuration.
+These are chooser/query settings only: no reaper deletion process is started.
+Wait for the quota store to load before asserting quota contrasts, and control
+the clock when testing reaping thresholds or relative dates.
+
+Additional backend syntax is not a finite chip option list. E covers
+`collection`/`~`; the existing upload/date-taken fields support `uploaded` and
+`taken`; configured alias paths above provide dotted-field examples. Arbitrary
+strings, field paths, date expressions and all parser permutations cannot be
+exhaustively enumerated by a finite fixture set. `similar` requires the separate
+AI-search infrastructure, disabled in this e2e stack, and remains outside this
+chip plan rather than an unresolved metadata-fixture gap.
+
+Run the focused data/configuration regression checks with
+`node --test fixtures/elasticsearch/search-chips.test.ts` from the e2e package.
+They verify finite option coverage, reference/creator data, new persistence
+sources, alias settings and preservation of the original missing-field and
+usage contrasts. Live API/browser searches still need a running, restarted and
+reseeded stack; fixture checks do not replace those integration assertions.
 
 Scope searches with the supported `ids` parameter so unrelated seeded images
 cannot affect expected results. Do not add a shared label for isolation: a label
@@ -274,10 +307,15 @@ would itself change persistence behaviour, especially for I.
 
 ### Implemented values
 
-`SEARCH_CHIP_IMAGE_IDS` exports the A-L IDs, calculated as the SHA-1 of
+`SEARCH_CHIP_IMAGE_IDS` exports the A-W and five named supplier IDs, calculated as the SHA-1 of
 `search-chips-<role>`. Use these IDs with the `ids` search parameter rather than
 adding an isolation label. The current uploader is `TEST_ACCOUNTS.fullAccess`;
 the contrasting uploader is `search-chips-other@guardian.co.uk`.
+
+`SEARCH_CHIP_CORE_IMAGE_IDS` retains just A-L. The existing result-combination
+Given step uses that core scope so supplemental records do not change its
+expected matches. Scope supplemental cases with their explicit IDs from the
+full `SEARCH_CHIP_IMAGE_IDS` export.
 
 - A and B share `Harbour festival at the waterfront`, credit
   `Search Chips Shared Credit`, Bristol, Somerset, United Kingdom and sublocation
@@ -288,13 +326,16 @@ the contrasting uploader is `search-chips-other@guardian.co.uk`.
   `search-chips-featured`, collection `search-chips`, photoshoot
   `Search Chips Harbour Shoot` and archive status. The collection is also created
   by the [collection seeder](../../setup/seed-collections.ts).
-- F uses Example Contracted Illustrator and Example publication, with an
-  open-ended allow-use lease by the current user.
+- F uses Example Contracted Illustrator in both byline and credit, and Example
+  publication, with an open-ended allow-use lease by the current user.
 - G has print/pending and digital/published usages; H has print/published.
   J has digital/published and digital/replaced usages.
 - I has only title/description metadata, unknown rights, no edits, identifiers,
   crops, usages, leases or collections. K and L are soft-deleted records owned
   by the current and other uploader respectively.
+- M-W and the named supplier records provide the supplemental values listed in
+  the matrix. O retains its original title separately from its edited title;
+  W uploads on `2000-01-01T12:00:00.000Z` for the reaping-age contrast.
 
 The fixed timestamp is `2024-06-15T12:00:00.000Z`. A uploads one day before it;
 D uploads one day after it. J's usage dates also straddle it. All records except
@@ -302,10 +343,11 @@ I have date-taken metadata at that boundary. Credit completions match metadata;
 E's photoshoot completion is stored in `userMetadata.photoshoot.suggest`.
 
 The existing image-file seeder backs these records with the same placeholder
-JPEG as the captured records, including B's indexed PNG source. These fixtures
+JPEG as the captured records, including B's indexed PNG and M's indexed TIFF sources. These fixtures
 test indexed search metadata, not original file decoding or upload ingestion.
-Reseed a reused stack with `GRID_RESEED=true`, or restart `dev:e2e`, before
-running scenarios against the new data.
+Restart `dev:e2e` to regenerate the conditional-chip/alias configuration and
+reseed the data before running scenarios. `GRID_RESEED=true` refreshes fixtures
+on a reused stack, but a data-only reseed does not reload running service config.
 
 ## Scenario allocation
 
@@ -394,7 +436,7 @@ scenarios.
 
 ## Next steps
 
-The 12-image fixture set is already implemented. Use it for the following work;
+The 28-image fixture set is already implemented. Use it for the following work;
 there is no separate fixture or resolver-audit phase required before drafting
 the feature files.
 

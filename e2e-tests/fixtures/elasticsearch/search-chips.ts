@@ -8,8 +8,16 @@ const BOUNDARY = '2024-06-15T12:00:00.000Z';
 
 export const SEARCH_CHIP_COLLECTION = 'search-chips';
 
+const EXTRA_SUPPLIERS = ['Getty Images', 'PA', 'Rex Features', 'Ronald Grant Archive', 'Action Images'];
+const supplierRole = (supplier: string) => `supplier-${supplier.toLowerCase().replaceAll(' ', '-')}`;
+
 export const SEARCH_CHIP_IMAGE_IDS = Object.fromEntries(
-    'ABCDEFGHIJKL'.split('').map((role) => [role, createHash('sha1').update(`search-chips-${role}`).digest('hex')]),
+    [...'ABCDEFGHIJKLMNOPQRSTUVW', ...EXTRA_SUPPLIERS.map(supplierRole)]
+        .map((role) => [role, createHash('sha1').update(`search-chips-${role}`).digest('hex')]),
+);
+
+export const SEARCH_CHIP_CORE_IMAGE_IDS = Object.fromEntries(
+    [...'ABCDEFGHIJKL'].map((role) => [role, SEARCH_CHIP_IMAGE_IDS[role]]),
 );
 
 function usage(name: string, platform: string, status: string, dateAdded = BOUNDARY) {
@@ -162,7 +170,11 @@ export function searchChipImageFixtures(template: EsHit): EsHit[] {
             }],
         }),
         image('F', {
-            metadata: { byline: 'Example Contracted Illustrator', subjects: ['arts'] },
+            metadata: {
+                byline: 'Example Contracted Illustrator',
+                credit: 'Example Contracted Illustrator',
+                subjects: ['arts'],
+            },
             usageRights: {
                 category: 'contract-illustrator',
                 creator: 'Example Contracted Illustrator',
@@ -194,11 +206,91 @@ export function searchChipImageFixtures(template: EsHit): EsHit[] {
             uploadedBy: OTHER_USER,
             softDeletedMetadata: { deleteTime: BOUNDARY, deletedBy: OTHER_USER },
         }),
+        image('M', {
+            identifiers: { picdarUrn: 'search-chips-persistence-m' },
+            uploadInfo: { filename: 'search-chips-m.tiff' },
+            source: {
+                ...structuredClone(template._source.source as Record<string, unknown>),
+                file: `https://search-chips.invalid/originals/${SEARCH_CHIP_IMAGE_IDS.M}`,
+                mimeType: 'image/tiff',
+            },
+            metadata: {
+                subjects: [
+                    'arts', 'crime', 'disaster', 'finance', 'education', 'environment', 'health',
+                    'human', 'labour', 'lifestyle', 'nature', 'news', 'politics', 'religion',
+                    'science', 'social', 'sport', 'war', 'weather',
+                ],
+            },
+            usageRights: { category: 'agency', supplier: 'AAP' },
+        }),
+        image('N', { usageRights: { category: 'commissioned-agency', supplier: 'Alamy' } }),
+        image('O', {
+            metadata: { title: 'Search chips edited title O' },
+            usageRights: { category: 'agency', supplier: 'Allstar Picture Library' },
+            userMetadata: {
+                archived: false,
+                labels: [],
+                metadata: { title: 'Search chips edited title O' },
+                lastModified: BOUNDARY,
+            },
+        }),
+        image('P', { usageRights: { category: 'pr-and-third-party', source: 'Search Chips PR Office' } }),
+        image('Q', { usageRights: { category: 'Bylines' } }),
+        image('R', {
+            metadata: { byline: 'Example Contracted Photographer' },
+            usageRights: {
+                category: 'contract-photographer',
+                photographer: 'Example Contracted Photographer',
+                publication: 'Example publication',
+            },
+        }),
+        image('S', {
+            usageRights: {
+                category: 'commissioned-photographer',
+                photographer: 'Example External Photographer',
+                publication: 'Example publication',
+            },
+        }),
+        image('T', {
+            metadata: { credit: 'Example Staff Illustrator' },
+            usageRights: { category: 'staff-illustrator', creator: 'Example Staff Illustrator' },
+        }),
+        image('U', {
+            metadata: { credit: 'Example Commissioned Illustrator' },
+            usageRights: { category: 'commissioned-illustrator', creator: 'Example Commissioned Illustrator' },
+        }),
+        image('V', {
+            usages: [
+                {
+                    ...usage('v-removed', 'digital', 'removed'),
+                    references: [{
+                        type: 'frontend',
+                        name: 'Search Chips Harbour Story',
+                        uri: 'https://search-chips.invalid/stories/harbour',
+                    }],
+                },
+                usage('v-syndicated', 'syndication', 'syndicated'),
+                usage('v-downloaded', 'download', 'downloaded'),
+                usage('v-derivative', 'digital', 'derivative'),
+                usage('v-failed', 'digital', 'failed'),
+                usage('v-unknown', 'digital', 'unknown'),
+            ],
+        }),
+        image('W', {
+            metadata: { description: 'Search chips topshot agency pick' },
+            usageRights: { category: 'agency', supplier: 'EPA' },
+            uploadTime: '2000-01-01T12:00:00.000Z',
+        }),
+        ...EXTRA_SUPPLIERS.map((supplier) => image(supplierRole(supplier), {
+            usageRights: { category: 'agency', supplier },
+        })),
     ];
 
     const missingMetadata = fixtures.find((hit) => hit._id === SEARCH_CHIP_IMAGE_IDS.I)!;
     missingMetadata._source.metadata = { title: 'Search chips image I', description: 'Missing optional metadata' };
     missingMetadata._source.originalMetadata = structuredClone(missingMetadata._source.metadata);
     delete missingMetadata._source.suggestMetadataCredit;
+    const editedMetadata = fixtures.find((hit) => hit._id === SEARCH_CHIP_IMAGE_IDS.O)!;
+    (editedMetadata._source.originalMetadata as Record<string, unknown>).title = 'Search chips image O';
     return fixtures;
 }
