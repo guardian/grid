@@ -21,7 +21,6 @@ import { rootRoute } from "./__root";
 import { searchParamsSchema } from "@/lib/search-params-schema";
 import { SearchBar } from "@/components/SearchBar";
 import { StatusBar } from "@/components/StatusBar";
-import { SelectionFab } from "@/components/SelectionFab";
 import { ImageTable } from "@/components/ImageTable";
 import { ImageGrid } from "@/components/ImageGrid";
 import { JustifiedGrid } from "@/components/JustifiedGrid";
@@ -279,7 +278,6 @@ function SearchPage() {
             : `Synthetic fixture · ${RESIDENT_PREVIEW_LIMIT} images · not live data; search matching is simulated`}
         </div>}
         <StatusBar />
-        <SelectionFab />
         <PanelLayout
           leftPanel={
             <>

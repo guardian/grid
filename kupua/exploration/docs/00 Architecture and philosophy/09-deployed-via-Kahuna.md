@@ -170,6 +170,15 @@ Supported label editing captures one label and up to 100 images per submission, 
 the temporary startup preference and valid service discovery, and remains subject to image capabilities and server
 authorization. Thumbnail/full-image delivery does not change operation support.
 
+The actual API-mode single/multi metadata panels also expose the ordinary text/date,
+Location, People, Keywords, Photoshoot and collection-membership controls described in
+the [UI register](../gradually-growing-teeth.kupua-edits-steps.md#ordinary-metadata-ui-coverage).
+These new controls prepare explicit **Not sent** intents only; enabling the startup
+preference does not connect their saves. Their preparation is independent of that
+preference and is not a grant of mutation authority. Only Labels currently uses the
+existing connected command path. Archive/unarchive, configured-domain editors and
+other workflow families retain their separately selected roadmap work.
+
 | Frontend path | Add label | Remove label | Enablement source |
 |---|---|---|---|
 | Vite with `./kupua/scripts/start.sh --use-media-api`, with or without `--canonical-media`; local Grid may use local or TEST backing data | Code-supported | Code-supported | Saved origin-scoped startup preference |
@@ -315,7 +324,9 @@ follow the browser's separate image/CORS/cookie rules.
 Hosted builds pin hosted/API mode even if the invoking shell has laptop-mode flags.
 Kahuna no longer reads or injects Kupua editing rollout, metadata-editor or auth fields.
 Its ordinary editing, opt-in hosting, stage/iframe restrictions and existing CSP remain.
-The startup preference connects the existing editor; otherwise it remains disconnected.
+The startup preference connects existing Labels execution; otherwise Labels remains
+disconnected. The other new metadata/membership editors remain preparation-only in
+either preference state.
 No shared-system enablement is approved. The selected local trial and deployment limits belong to
 [Step 5](../gradually-growing-teeth.kupua-edits-steps.md#step-5-give-one-label-operation-real-teeth).
 

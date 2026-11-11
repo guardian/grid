@@ -33,6 +33,7 @@ interface ImageMetadata {
   keywords?: string[];
   subjects?: string[];
   specialInstructions?: string;
+  usageInstructions?: string;
   subLocation?: string;
   city?: string;
   state?: string;

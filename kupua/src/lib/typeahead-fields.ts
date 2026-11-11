@@ -1,5 +1,5 @@
 /**
- * Typeahead field resolvers for the CQL chip input.
+ * Field-value suggestion providers shared by CQL, Refine and metadata editors.
  *
  * Dynamic resolvers use `ImageDataSource.getAggregations()` — a terms
  * aggregation on the keyword field, scoped to the current search and ranked
@@ -46,9 +46,11 @@ export interface TypeaheadSuggestion {
 /** Suggestion handed to @guardian/cql, whose TextSuggestionOption requires the key to exist. */
 type LabelledSuggestion = Omit<TypeaheadSuggestion, "label"> & { label: string | undefined };
 
+export type TypeaheadResolver = ((value: string, signal?: AbortSignal) => Promise<TypeaheadSuggestion[]>) | string[];
+
 export interface TypeaheadFieldDef {
   fieldName: string;
-  resolver?: ((value: string, signal?: AbortSignal) => Promise<TypeaheadSuggestion[]>) | string[];
+  resolver?: TypeaheadResolver;
   /** If false, the field won't appear in key suggestions but its value
    *  resolver still fires when the user types the key manually.
    *  Defaults to true when omitted. */

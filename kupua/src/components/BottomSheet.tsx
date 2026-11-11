@@ -7,6 +7,13 @@ const PEEK_PX = 64;
 const EXPANDED_VH = 75;
 const SNAP_TRANSITION = "translate 0.28s cubic-bezier(0.22, 1, 0.36, 1)";
 
+function sheetViewport() {
+  const visual = window.visualViewport;
+  const height = visual?.height ?? window.innerHeight;
+  return { height: Math.max(PEEK_PX, height * EXPANDED_VH / 100),
+    bottom: Math.max(0, window.innerHeight - height - (visual?.offsetTop ?? 0)) };
+}
+
 interface BottomSheetProps {
   /** Shown in the always-visible peek strip next to the handle. */
   header: ReactNode;
@@ -25,20 +32,40 @@ interface BottomSheetProps {
   gestureEnabledRef?: RefObject<boolean>;
   onRevealDrag?: () => void;
   overlay?: boolean;
+  floating?: ReactNode;
 }
 
 /**
  * Compact-shell card: peeks from the bottom, expands to 75vh, swipe/tap to toggle.
  * Content scrolls only when expanded.
  */
-export function BottomSheet({ header, children, expanded, onExpandedChange, onDismiss, label, scrim = true, dragSurfaceRef, position = "fixed", contentKey, visible = true, gestureEnabledRef, onRevealDrag, overlay = false }: BottomSheetProps) {
+export function BottomSheet({ header, children, expanded, onExpandedChange, onDismiss, label, scrim = true, dragSurfaceRef, position = "fixed", contentKey, visible = true, gestureEnabledRef, onRevealDrag, overlay = false, floating }: BottomSheetProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const scrimRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ y: number; t: number; base: number } | null>(null);
   const touchOrigin = useRef<{ x: number; y: number } | null>(null);
   const lastTouchToggle = useRef(0);
   const contentRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
-  const [maxH, setMaxH] = useState(() => window.innerHeight * EXPANDED_VH / 100);
+  const [viewport, setViewport] = useState(sheetViewport);
+  const maxH = viewport.height;
+  const modal = visible && expanded && scrim;
+
+  useLayoutEffect(() => {
+    if (!modal || !ref.current) return;
+    const previous = new Map<HTMLElement, boolean>();
+    let branch: HTMLElement | null = ref.current;
+    while (branch?.parentElement && branch !== document.body) {
+      for (const sibling of branch.parentElement.children) {
+        if (sibling instanceof HTMLElement && sibling !== branch && sibling !== scrimRef.current) {
+          previous.set(sibling, sibling.inert);
+          sibling.inert = true;
+        }
+      }
+      branch = branch.parentElement;
+    }
+    return () => { for (const [element, inert] of previous) element.inert = inert; };
+  }, [modal]);
 
   useLayoutEffect(() => {
     if (!expanded && contentRef.current?.contains(document.activeElement)) toggleRef.current?.focus({ preventScroll: true });
@@ -49,10 +76,34 @@ export function BottomSheet({ header, children, expanded, onExpandedChange, onDi
   }, [contentKey]);
 
   useEffect(() => {
-    const onResize = () => setMaxH(window.innerHeight * EXPANDED_VH / 100);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    const visual = window.visualViewport;
+    const update = () => {
+      const next = sheetViewport();
+      setViewport(current => current.height === next.height && current.bottom === next.bottom ? current : next);
+    };
+    window.addEventListener("resize", update);
+    visual?.addEventListener("resize", update);
+    visual?.addEventListener("scroll", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      visual?.removeEventListener("resize", update);
+      visual?.removeEventListener("scroll", update);
+    };
   }, []);
+
+  useLayoutEffect(() => {
+    const active = document.activeElement;
+    const content = contentRef.current;
+    if (!expanded || !content || !content.contains(active) || !(active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement)) return;
+    const nested = active.closest<HTMLElement>("[data-own-scroll]");
+    const scroller = nested && content.contains(nested) ? nested : content;
+    const bounds = scroller.getBoundingClientRect();
+    const form = active.closest("form");
+    const target = form && form.getBoundingClientRect().height <= bounds.height - 16 ? form : active;
+    const box = target.getBoundingClientRect();
+    if (box.bottom > bounds.bottom - 8) scroller.scrollTop += box.bottom - bounds.bottom + 8;
+    else if (box.top < bounds.top + 8) scroller.scrollTop -= bounds.top + 8 - box.top;
+  }, [expanded, viewport]);
 
   const restOffset = expanded ? 0 : maxH - PEEK_PX;
 
@@ -191,12 +242,13 @@ export function BottomSheet({ header, children, expanded, onExpandedChange, onDi
   const contentPull = useContentPullToDrag(contentRef,
     { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: cancelDrag, isDragging: () => drag.current !== null }, expanded);
   // Modal only with a scrim; image detail's card leaves the image above interactive.
-  useFocusTrap(ref, expanded && scrim);
+  useFocusTrap(ref, modal);
 
   return (
     <>
     {expanded && scrim && (
       <div
+        ref={scrimRef}
         className="fixed inset-0 z-[39] bg-black/30 anim-scrim"
         data-testid="card-scrim"
         aria-hidden="true"
@@ -205,14 +257,18 @@ export function BottomSheet({ header, children, expanded, onExpandedChange, onDi
     )}
     <div
       ref={ref}
-      role="region"
+      role={modal ? "dialog" : "region"}
+      aria-modal={modal || undefined}
+      data-bottom-sheet
+      data-suggestion-scope
       tabIndex={-1}
       aria-label={label}
       aria-hidden={!visible || undefined}
       inert={!visible}
       className={`${position} inset-x-0 bottom-0 z-40 flex flex-col ${overlay && !expanded ? "bg-grid-bg/85" : "bg-grid-bg"} rounded-t-2xl border-t border-grid-separator shadow-[0_-8px_24px_rgba(0,0,0,0.45)] outline-none`}
-      style={{ height: maxH, translate: `0 ${restOffset}px`, visibility: visible ? "visible" : "hidden" }}
+      style={{ height: maxH, bottom: viewport.bottom, translate: `0 ${restOffset}px`, visibility: visible ? "visible" : "hidden" }}
     >
+      {floating}
       <div
         className="shrink-0 touch-none select-none"
         style={{ height: PEEK_PX }}

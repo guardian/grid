@@ -452,6 +452,21 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     showWhenEmpty: true,
   },
   {
+    id: "metadata_usageInstructions",
+    label: "Usage instructions",
+    group: "core",
+    accessor: (img) => img.metadata?.usageInstructions,
+    esSearchPath: "metadata.usageInstructions",
+    detailLayout: "stacked",
+    detailClickable: false,
+    detailGroup: "specialInstructions",
+    defaultWidth: 200,
+    defaultHidden: true,
+    fieldType: "text",
+    multiSelectBehaviour: "reconcile",
+    showWhenEmpty: false,
+  },
+  {
     id: "metadata_specialInstructions",
     label: "Special instructions",
     group: "core",
@@ -809,6 +824,19 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
   },
 
   // -- Keywords -------------------------------------------------------------
+  {
+    id: "photoshoot",
+    label: "Photoshoot",
+    group: "editorial",
+    accessor: (img) => img.userMetadata?.photoshoot?.title,
+    cqlKey: "photoshoot",
+    esSearchPath: "userMetadata.photoshoot.title",
+    defaultWidth: 180,
+    defaultHidden: true,
+    fieldType: "keyword",
+    multiSelectBehaviour: "reconcile",
+    showWhenEmpty: false,
+  },
   {
     id: "keywords",
     label: "Keywords",

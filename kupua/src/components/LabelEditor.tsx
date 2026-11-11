@@ -5,8 +5,10 @@ import { useSearchStore } from "@/stores/search-store";
 import { labelTargetCounts, type LabelEditContext } from "@/lib/label-operation";
 import { createLabelSuggestionProvider, type TypeaheadSuggestion } from "@/lib/typeahead-fields";
 import { containPillActivation, EditableSearchPill, PillActionButton } from "./SearchPill";
-import { MetadataRow } from "./metadata-primitives";
+import { MetadataBlock } from "./metadata-primitives";
 import { FieldDisclosure } from "./FieldDisclosure";
+import { SuggestionDropdown } from "./SuggestionDropdown";
+import { FieldAddButton } from "./FieldAddButton";
 
 export const LabelEditorContext = createContext<ReturnType<typeof createLabelEditorStore>>(labelEditorStore);
 
@@ -28,6 +30,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext }: {
   const [inputFocused, setInputFocused] = useState(false);
   const [dismissedOwner, setDismissedOwner] = useState<string | null>(null);
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
+  const [suggestionsVisible, setSuggestionsVisible] = useState(false);
   const [suggestionState, setSuggestionState] = useState<{
     owner: string;
     status: "pending" | "ready" | "unavailable";
@@ -38,7 +41,6 @@ export function LabelEditor({ context, values, onSearch, resolveContext }: {
   const headerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
-  const suggestionListRef = useRef<HTMLUListElement>(null);
   const replacementCaret = useRef<number | null>(null);
   const valuesId = useId();
   const suggestionsId = useId();
@@ -53,7 +55,10 @@ export function LabelEditor({ context, values, onSearch, resolveContext }: {
   const suggestions = showSuggestions ? currentSuggestions?.items ?? [] : [];
   useEffect(() => {
     if (!adding) return;
-    inputRef.current?.focus();
+    const input = inputRef.current;
+    input?.focus();
+    input?.setSelectionRange(value.length, value.length);
+    setCaret(value.length);
     return () => { addButtonRef.current?.focus(); };
   }, [adding]);
   useLayoutEffect(() => {
@@ -75,9 +80,6 @@ export function LabelEditor({ context, values, onSearch, resolveContext }: {
     }, 150);
     return () => { clearTimeout(timer); controller.abort(); };
   }, [showSuggestions, suggestLabels, prefix, suggestionOwner]);
-  useEffect(() => {
-    if (activeSuggestion >= 0) suggestionListRef.current?.children[activeSuggestion]?.scrollIntoView({ block: "nearest" });
-  }, [activeSuggestion]);
   const counts = labelTargetCounts(context);
   const oversized = targetLimit !== undefined && counts.selected > targetLimit;
   const disabled = import.meta.env.VITE_USE_MEDIA_API !== "true" || oversized || !counts.selected || Boolean(counts.ineligible || counts.unresolved || counts.unavailable);
@@ -116,20 +118,20 @@ export function LabelEditor({ context, values, onSearch, resolveContext }: {
     setActiveSuggestion(-1);
     inputRef.current?.focus();
   };
-  return <MetadataRow label="Labels" ref={headerRef} tabIndex={-1} fill>
-    <div className="flex items-start gap-1 pt-0.5">
+  return <MetadataBlock label="Labels" ref={headerRef} tabIndex={-1} action={
+    <span className={adding ? "invisible" : ""} aria-hidden={adding || undefined}>
+      <FieldAddButton ref={addButtonRef} iconOnly label="Add label" disabled={disabled || adding} onClick={() => setAdding(true)} />
+    </span>
+  }>
       <div id={valuesId} className="min-w-0 flex-1 flex flex-wrap items-start gap-1">
       {(expanded ? chips : chips.slice(0, 20)).map(chip => <EditableSearchPill key={chip.value} value={chip.value} cqlKey="label" accent
         count={chip.count} total={counts.selected} coverageKnown={!context.pending && counts.unresolved === 0 && counts.unavailable === 0} disabled={disabled} onSearch={onSearch}
         onAdd={() => act("add", chip.value)} onRemove={() => act("remove", chip.value)} />)}
       </div>
-      <span className={`shrink-0${adding ? " invisible" : ""}`} aria-hidden={adding || undefined}>
-        <PillActionButton ref={addButtonRef} action="add" compact label="Add label" disabled={disabled || adding} onClick={() => setAdding(true)} />
-      </span>
-    </div>
     <FieldDisclosure expanded={expanded} hasMore={chips.length > 20} controlsId={valuesId} anchorRef={headerRef}
       onExpand={() => setExpanded(true)} onCollapse={() => setExpanded(false)} />
     {adding && <form className="relative mt-1 max-w-full" onKeyDown={event => {
+      if (event.nativeEvent.isComposing) return;
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();
@@ -139,12 +141,12 @@ export function LabelEditor({ context, values, onSearch, resolveContext }: {
       event.preventDefault();
       commit();
     }}>
-      <div className="flex items-center gap-1.25">
+      <div className="flex flex-col gap-1.25">
       <input ref={inputRef} role="combobox" aria-label="Add label" aria-invalid={invalid || undefined} value={value}
         placeholder={store.getState().executionMode === "connected" ? "New label" : "label1, label2, label3\u2026"} required
-        aria-autocomplete="list" aria-expanded={suggestions.length > 0} aria-controls={suggestions.length ? suggestionsId : undefined}
+        aria-autocomplete="list" aria-expanded={suggestionsVisible} aria-controls={suggestionsVisible ? suggestionsId : undefined}
         aria-busy={showSuggestions && currentSuggestions?.status === "pending"}
-        aria-activedescendant={activeSuggestion >= 0 && suggestions[activeSuggestion] ? `${suggestionsId}-${activeSuggestion}` : undefined}
+        aria-activedescendant={suggestionsVisible && activeSuggestion >= 0 && suggestions[activeSuggestion] ? `${suggestionsId}-${activeSuggestion}` : undefined}
         onFocus={event => { setInputFocused(true); setCaret(event.currentTarget.selectionStart ?? value.length); setDismissedOwner(null); }}
         onBlur={() => setInputFocused(false)}
         onSelect={event => setCaret(event.currentTarget.selectionStart ?? value.length)}
@@ -156,7 +158,9 @@ export function LabelEditor({ context, values, onSearch, resolveContext }: {
         }}
         onKeyDown={event => {
           if (event.nativeEvent.isComposing) return;
-          if ((event.key === "ArrowDown" || event.key === "ArrowUp") && suggestions.length) {
+          if (event.key === "Escape" && suggestions.length) {
+            event.preventDefault(); event.stopPropagation(); setDismissedOwner(suggestionOwner); setActiveSuggestion(-1);
+          } else if ((event.key === "ArrowDown" || event.key === "ArrowUp") && suggestionsVisible && suggestions.length) {
             event.preventDefault();
             event.stopPropagation();
             const direction = event.key === "ArrowDown" ? 1 : -1;
@@ -165,33 +169,24 @@ export function LabelEditor({ context, values, onSearch, resolveContext }: {
           } else if (event.key === "Enter") {
             event.preventDefault();
             event.stopPropagation();
-            if (activeSuggestion >= 0 && suggestions[activeSuggestion]) selectSuggestion(suggestions[activeSuggestion]);
+            if (suggestionsVisible && activeSuggestion >= 0 && suggestions[activeSuggestion]) selectSuggestion(suggestions[activeSuggestion]);
             else commit();
           }
         }}
-        className="h-6 pointer-coarse:h-11 min-w-0 flex-1 rounded-sm border border-grid-border bg-[#444] px-1.25 py-0 text-xs text-grid-text placeholder:text-[#888] aria-invalid:border-grid-error focus:outline-2 focus:outline-grid-accent"
+        className="h-6 pointer-coarse:h-[var(--mobile-edit-control-size)] min-w-0 w-full rounded-sm border border-grid-border bg-[#444] px-1.25 py-0 text-xs text-grid-text placeholder:text-[#888] aria-invalid:border-grid-error focus:outline-2 focus:-outline-offset-2 focus:outline-grid-accent"
         autoComplete="off" />
+      <div className="flex justify-end gap-1.25">
       <PillActionButton action="cancel" label="Close label entry" title="Close" onClick={cancel} />
-      <PillActionButton action="confirm" label="Add label to images" title="Save new label" disabled={disabled} onClick={commit} />
+      <PillActionButton action="confirm" label="Add label to images" title="Save new label" disabled={disabled || !value.split(",").some(label => label.trim())} onClick={commit} />
       </div>
-      {suggestions.length > 0 && <div className="absolute inset-x-0 top-full z-20 mt-1 rounded-sm border border-grid-separator bg-grid-bg shadow-lg">
-        <ul ref={suggestionListRef} id={suggestionsId} role="listbox" aria-label="Label suggestions from the whole library" data-own-scroll
-          className="max-h-48 overflow-y-auto overscroll-contain">
-        {suggestions.map((suggestion, index) => <li key={suggestion.value} role="presentation">
-          <button type="button" role="option" id={`${suggestionsId}-${index}`} aria-selected={index === activeSuggestion} tabIndex={-1}
-            onPointerDown={event => event.preventDefault()} onClick={() => selectSuggestion(suggestion)}
-            className={`flex min-h-6 pointer-coarse:min-h-11 w-full cursor-pointer items-center justify-between gap-2 px-2 py-0.5 text-left text-xs hover:bg-grid-cell-hover ${index === activeSuggestion ? "bg-grid-cell-hover text-grid-text-bright" : "text-grid-text"}`}>
-            <span className="min-w-0 wrap-anywhere">{suggestion.label ?? suggestion.value}</span>
-            {suggestion.count !== undefined && <span className="shrink-0 tabular-nums text-grid-text-dim">{suggestion.count.toLocaleString()}</span>}
-          </button>
-        </li>)}
-        </ul>
-      </div>}
+      </div>
+      <SuggestionDropdown anchorRef={inputRef} items={suggestions} id={suggestionsId}
+        label="Label suggestions from the whole library" activeIndex={activeSuggestion} onSelect={selectSuggestion} onVisibilityChange={setSuggestionsVisible} />
     </form>}
     {counts.unavailable > 0 && <p role="status" className="text-xs text-grid-text-muted">{counts.unavailable} selected {counts.unavailable === 1 ? "image is" : "images are"} unavailable.</p>}
     {oversized && <p role="status" className="text-xs text-grid-text-muted">Select at most {targetLimit} {targetLimit === 1 ? "image" : "images"} to edit labels.</p>}
     {refusal && <p role="status" className="text-xs text-grid-error">{store.getState().executionMode === "connected" ? "Change not sent" : "Simulation refused"}: {refusal}.</p>}
-  </MetadataRow>;
+  </MetadataBlock>;
 }
 
 export function LabelOperationReceipts({ inline = false, hidden = false }: { inline?: boolean; hidden?: boolean } = {}) {

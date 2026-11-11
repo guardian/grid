@@ -39,6 +39,8 @@ contract after integrated validation and independent review. Live activation and
 the real Delete workflow remain separately gated.
 The 11 November update adds GRID-021's operator-observed local index loss during
 local/TEST mode switching; the intended developer-data lifetime awaits engineer confirmation.
+It also records KUP-051's missing Subjects editing workflow: the existing backend
+supports Subjects overrides through metadata-editor, Dynamo and indexed metadata refresh.
 Other dispositions have not been revalidated.
 Update this overview when a detailed disposition changes.
 
@@ -60,6 +62,8 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [KUP-048](#kup-048) | Table column sizing writes store state during React update | Reproduced warning with current and committed scrolling modules; unfixed | Independent table-state defect; does not require the scrolling repair |
 | [KUP-049](#kup-049) | Detail Settings click stalls during browser validation | One full-run timeout; click reached menu, cause unestablished | Full browser acceptance remains unresolved; relation to scrolling unproved |
 | [KUP-050](#kup-050) | Existing label pills briefly show partial-membership colour after submission | Operator-observed local add-label flash; final labels/readback correct, cause unestablished | Independent presentation follow-up; not a Step-5 persistence blocker |
+| [KUP-051](#kup-051) | Subjects editing is absent despite existing backend support | Source-verified UI/workflow gap; no live write trial | Independent editing follow-up; no backend schema extension identified |
+| [KUP-052](#kup-052) | Incidental keys reveal unwanted focus rings on pointer-used controls | Operator-observed; UX policy/options pending, no implementation | Independent app-wide interaction polish; preserve keyboard focus visibility |
 
 KUP-011 has no closure evidence from continuity work and remains separately scoped.
 
@@ -111,6 +115,7 @@ legacy-category expansion remains accepted lag.
 | [GRID-017](#grid-017) | Kahuna startup probes before the effective default scope settles | Open; recorded local browser evidence and source assessment | Independent frontend request efficiency; not a Kupua migration gate |
 | [GRID-018](#grid-018) | Upload dropped by a dynamic `fileMetadata` mapping conflict | Open; PROD log evidence (30 October) | Independent Grid ingest reliability; images invisible in search |
 | [GRID-019](#grid-019) | `Edits` DynamoDB table at a fixed 20 WCU, auto-scaling off | Open; operator-read PROD configuration | Independent capacity risk for any batch write (Kahuna, scripts, future Kupua) |
+| [GRID-020](#grid-020) | Metadata override replacement can lose a concurrent edit | Open; source-level contract limitation | Accepted single-operator prototype risk; no new UI gate |
 | [GRID-021](#grid-021) | Switching local Grid to TEST removes nonpersistent local ES data | Operator-observed; teardown/storage mechanism verified, intended behavior to confirm | Independent local-development issue; ask engineers, not a transport rollout gate |
 
 <details>
@@ -580,7 +585,7 @@ set -o pipefail; npm --prefix kupua run test:e2e -- --project=chromium density-c
 - **Trigger:** negative usage conditions are combined with other user exclusions or automatic replaced suppression. The 20 September direct-Kupua comparison worked for the single print exclusion; that is not proof that its deliberate multiple-negative grouping already matches the selected contract.
 - **Expected / actual:** every negative usage condition independently excludes an image if any usage matches it; positive conditions must still match the same usage record. Both the integrated upstream builder and direct-ES builder now follow that rule for supported syntax.
 - **Evidence / reproduction:** **20 September controlled live-data reproduction on Kahuna -> media-api GET -> TEST and Kupua -> local media-api D3 -> TEST:** a known positive witness survived platform and published-status exclusions. GET rendered one match; D3 also rendered the witness cell. [GET evidence](bug-reproduction-evidence.md#grid-001-kahuna-get), [D3 evidence](bug-reproduction-evidence.md#grid-001-and-grid-008-kupua-d3). [Grouping source](../../../media-api/app/lib/elasticsearch/QueryBuilder.scala#L120) and [P28 Q3][p28] support the proposed cause, not the deployed revision. The earlier direct-Kupua check was comparison only; not every usage field or production deployment was tested.
-- **Current status, 23 October:** [PR #4957](https://github.com/guardian/grid/pull/4957) is merged. API requests preserve original q and direct ES emits independent negative nested queries. Local fixture replays of both clients distinguish independent exclusions from grouped negatives and retain positive same-record controls. [Earlier evidence](grid-usage-search-investigation.md) describes the pre-merge characterization.
+- **Current status, 23 October:** [PR #4957](https://github.com/guardian/grid/pull/4957) is merged. API requests preserve original q and direct ES emits independent negative nested queries. Local fixture replays of both clients distinguish independent exclusions from grouped negatives and retain positive same-record controls. [Earlier evidence](01%20Research/grid-usage-search-investigation.md) describes the pre-merge characterization.
 - **Smallest test:** after merge, verify the accepted contract through actual mapper/D3 bodies, exact IDs and totals, then the affected positional consumers. Preserve positive correlation and intentionally replace grouped-negative expectations with independent image-level exclusions. The standalone Grid regressions do not establish this prototype join.
 - **Dependency / resolution:** preserve independent exclusion and positive same-record correlation in Grid's shared builder and callers. Kupua composition and parser compatibility are client responsibilities, tracked separately under KUP-011.
 - **Disposition: DONE (Grid repair).** PR #4957 supplies the merged exclusion rule, covered by local server regressions. The client paths are also aligned locally for supported syntax; their residual grammar differences do not reopen this Grid item. No deployed or universal grammar-parity claim follows.
@@ -669,7 +674,7 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Trigger:** supported quoted/case-varied positive intent, or ordinary literal text containing a special query substring.
 - **Expected / historical defect:** automatic defaults should follow actual parsed intent. Raw substring checks added contradictory exclusions or omitted intended defaults. API mode now forwards original q (absent becomes empty); direct mode derives intent from its parsed fields before grouping, without reparsing. Predicate-only ticker parsing remains default-free.
 - **Evidence / reproduction:** [direct defaults](../../src/dal/es-adapter.ts#L470), [mapper](../../src/dal/grid-api-search-adapter.ts#L115), [P28 Q2/Q4][p28], E047. **20 September synthetic direct-builder reproduction in Kupua:** non-sensitive replaced-intent and literal-text cases produced wrong predicates at a capturing transport boundary. [Evidence](bug-reproduction-evidence.md#kup-011). A later one-hit live D3 read found no replaced witness, leaving that comparison inconclusive; no deleted/visibility probe or mounted result claim.
-- **Current status, 23 October:** [PR #4957](https://github.com/guardian/grid/pull/4957) is merged. API mapper and direct-default repairs are implemented locally, with failing-first transport regressions and synthetic local-ES membership checks. Actual API bodies were replayed across search/window/rank/profile/keys/count/aggregation reads. [Earlier investigation](grid-usage-search-investigation.md) records pre-merge evidence, not the current contract.
+- **Current status, 23 October:** [PR #4957](https://github.com/guardian/grid/pull/4957) is merged. API mapper and direct-default repairs are implemented locally, with failing-first transport regressions and synthetic local-ES membership checks. Actual API bodies were replayed across search/window/rank/profile/keys/count/aggregation reads. [Earlier investigation](01%20Research/grid-usage-search-investigation.md) records pre-merge evidence, not the current contract.
 - **Remaining direct-to-ES divergence (operator accepted):** `@guardian/cql` treats single quotes as literal value characters, unlike media-api's parser. For example, `usages@status:'replaced'` differs from its double-quoted form in direct mode. Preserve the existing parser/editor grammar for now; [adapter regressions](../../src/dal/es-adapter.test.ts) pin this limitation. API forwarding is not a promise of whole-editor or whole-grammar parity, and direct malformed-input handling has not been aligned with the server's structured 422 rejection.
 - **Smallest test:** after the Grid merge, pair actual mapper bodies with the accepted D3 intent/membership/total contract, retaining separate authorization controls. The Grid-only tests are not execution credit for this composed prototype path; do not expand visibility-sensitive examples here.
 - **Dependency / resolution:** preserve shared admitted meaning across API first pages, continuations and positional reads. Grid's parser/admission, exclusion and field repairs are complete under GRID-001/002/008/015. This Kupua item owns the remaining direct-parser divergence; it does not reopen those Grid fixes or grant broader parser-work approval.
@@ -875,6 +880,86 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Disposition:** OPEN, separate presentation follow-up. No implementation repair
   attempted and no shared-system reproduction authorized by this record.
 
+#### KUP-051
+**Subjects can be displayed and searched but cannot be edited in Kupua**
+- **Observed gap (11 November):** Subjects renders searchable pills without the
+  add/remove/apply-to-all preparation controls offered for Keywords and People.
+  The operator requested this follow-up; it is not a claim of a Kahuna regression.
+  [The field registry](../../src/lib/field-registry.tsx#L724) retains Subjects, but
+  [the pill editor's field set](../../src/components/MetadataPillEditor.tsx#L10)
+  excludes it.
+- **Classification: KUP, not GRID.** The existing backend contract supports
+  Subjects overrides. [ImageMetadata](../../../common-lib/src/main/scala/com/gu/mediaservice/model/ImageMetadata.scala#L27)
+  includes `subjects: Option[List[String]]`, reads/writes its JSON representation
+  and retains it when merging overrides, including an explicitly empty list.
+  [metadata-editor's authorized handler](../../../metadata-editor/app/controllers/EditsController.scala#L155)
+  accepts that model and serializes the full metadata map; its special filtering
+  concerns configured domain metadata, not Subjects.
+- **Persistence and publication evidence:** [EditsStore](../../../metadata-editor/app/lib/EditsStore.scala#L6)
+  uses the shared [Dynamo map writer](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/aws/DynamoDB.scala#L152),
+  whose [JSON conversion](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/aws/DynamoDB.scala#L229)
+  supports string arrays as Dynamo lists without a Subjects exclusion.
+  [Thrall](../../../thrall/app/lib/kinesis/MessageProcessor.scala#L140) applies
+  the edits through [the metadata override operation](../../../thrall/app/lib/elasticsearch/ElasticSearch.scala#L242);
+  [effective-metadata refresh](../../../thrall/app/lib/elasticsearch/ElasticSearch.scala#L766)
+  overlays the full user metadata map onto original metadata without a field whitelist.
+- **Evidence limits:** source-verified capability, not an authenticated live
+  add/remove/clear round-trip or deployment certification. No write, backend
+  change or edit activation was performed for this entry. Kahuna not exposing an
+  editor does not imply missing persistence support.
+- **Follow-up:** add the operator-approved Subjects preparation/editor workflow
+  using existing owners; any save connection remains separately authorized.
+  Preserve unrelated metadata overrides, server authorization, explicit mode
+  safeguards and partial-selection semantics. A later authorized local trial
+  should confirm add/remove/empty-list readback through the normal write path;
+  existing [GRID-020](#grid-020) whole-override concurrency limits still apply.
+- **Disposition:** OPEN Kupua editing gap. No new backend schema requirement or
+  migration-wide gate identified; recording this item authorizes no implementation.
+
+#### KUP-052
+**Incidental keyboard input reveals focus rings after pointer interaction**
+- **Observed behavior (11 November):** after clicking/tapping controls, Escape,
+  Space, arrows and other keys can reveal a conspicuous focus outline, including
+  metadata pencils, density buttons and Settings. The operator wants this removed
+  without losing useful Tab/Shift+Tab navigation feedback. Screenshots establish
+  the complaint, not a complete browser/device behavior matrix.
+- **Source mechanism:** the [global CSS](../../src/index.css#L444) suppresses
+  `:focus:not(:focus-visible)`, leaving browser focus-visible heuristics in charge.
+  [Settings dismissal](../../src/components/SettingsMenu.tsx#L95),
+  [metadata-editor dismissal](../../src/components/MetadataTextEditor.tsx#L76) and
+  [focus-trap cleanup](../../src/hooks/useFocusTrap.ts#L24) restore DOM focus.
+  Restoring focus is useful and must not be confused with requiring a visible ring.
+  Selected/pressed state is also distinct: the active density and the keyboard's
+  current target can be different controls.
+- **Option A, CSS-only alternative indicator:** retain native focus-visible
+  behavior, but replace rings on selected button families with a sufficiently
+  distinguishable background/underline or other treatment. No input listener is
+  needed, but incidental keys can still reveal the replacement indicator. Existing
+  selected-state styling alone cannot identify an independently focused target;
+  an app-wide design needs control-family review, not one universal background rule.
+- **Option B, explicit visibility policy:** use a shared input/focus-navigation
+  policy to show indicators for Tab/Shift+Tab and actual arrow-driven menu navigation,
+  without letting typing, Space, Page Up or unrelated keys summon them. Whether
+  dismissal/activation should hide an existing indicator, even after keyboard
+  navigation, remains a UX decision. A small listener implementation can avoid
+  polling, per-keystroke React updates and layout reads; this is not a measured
+  performance result. Merely remembering pointer versus keyboard modality does
+  not resolve the operator's concern about rings after keyboard-origin dismissal.
+- **Option C, blanket suppression:** global outline/ring overrides are less work,
+  but without an alternative visible keyboard-focus indicator they remove target
+  feedback and fail WCAG 2.4.7 Focus Visible (AA). Do not misrepresent this as an
+  accessibility-neutral cleanup or use blur to discard keyboard position.
+- **Preservation and verification:** keep DOM focus restoration, Tab order,
+  keyboard menu navigation, text-entry feedback and image/selection indicators.
+  Compare pointer-open/dismiss, pointer-use followed by incidental keys, sequential
+  Tab/Shift+Tab and real menu focus movement. Include unselected and already-selected
+  controls so state is not mistaken for focus. Any final visual treatment needs UX
+  judgment and representative browser checks; no solution or global timing claim
+  has been approved by this entry.
+- **Disposition:** OPEN UX/interaction issue, recorded for operator/UX review.
+  No focus styling, listener or keyboard behavior was changed. This is not a
+  backend defect or a migration-wide gate.
+
 ## Grid
 
 ### Independent Backlog: Parked
@@ -920,7 +1005,7 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Component / responsibility:** Alamy cleanup script's read/operation boundary; human owner-to-confirm.
 - **Trigger:** one supplier reference has more than the default ten visible matching images.
 - **Expected / actual:** collect all intended matches or explicitly reject incomplete input before proceeding. The script ignores next/total and consumes one page; later matches would be omitted.
-- **Evidence / reproduction:** [read phase](../../../scripts/src/main/scala/com/gu/mediaservice/scripts/AlamyCleanUp.scala#L42), [P26 C2][p26]; conditional source inference only. [Read-phase pagination mock](bug-reproduction-evidence.md#non-browser-alternatives) remains unexecuted; no such live dataset or operational reproduction observed.
+- **Evidence / reproduction:** [P26 C2][p26] records the original `AlamyCleanUp.scala` read phase; that file is absent from the current checkout, so this is historical source evidence requiring revalidation of the current workflow, not a current-script certificate. [Read-phase pagination mock](bug-reproduction-evidence.md#non-browser-alternatives) remains unexecuted; no such live dataset or operational reproduction observed.
 - **Smallest test:** mock two nested-Argo pages (10+1) and assert full read or explicit incompleteness before any operation. Never run the operational mutation loop to reproduce this.
 - **Dependency / disposition:** parked independently and conditional on current use/cardinality. Owner-to-confirm must establish any enforced uniqueness invariant. Additive Kupua reads need not migrate this script or change shared GET page size.
 
@@ -946,7 +1031,7 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Trigger / expected / actual:** removal reads a membership list, another add/remove completes, then the first removal replaces the list from its stale read. Removing one path should retain independently completed changes to other paths; unconditional list `SET` can lose them.
 - **Evidence:** P33 section C1 (not included in its bug table), independently checked [read/filter/write](../../../collections/app/controllers/ImageCollectionsController.scala#L46) and [append versus replacement](../../../collections/app/store/ImageCollectionsStore.scala#L43). High-confidence source interleaving; [existing ES assertion](../../../thrall/test/lib/elasticsearch/ElasticSearchTest.scala#L217) tests replacement, not Dynamo concurrency.
 - **Smallest discriminator:** deferred remove read, complete an add of a different path, then release the removal and assert the addition survives; ordinary removal/control alongside it. Proposed, not run.
-- **Dependency / disposition:** OPEN, independent Grid-only lost-update defect, not the undecided tree-cascade policy and not a collection-wide transaction requirement. No change to current Kupua approximate counts or read migration.
+- **Dependency / disposition:** OPEN, independent Grid-only lost-update defect, not the undecided tree-cascade policy and not a collection-wide transaction requirement. No change to current Kupua approximate counts or read migration. On 10 November the operator accepted this existing concurrency limitation for prototype editing; it must not silently disable the commissioned UI. No server repair or live write follows from that acceptance.
 
 #### GRID-021
 **Switching Grid to TEST can discard the local Elasticsearch index without `--clean`**
@@ -956,6 +1041,14 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Evidence / reproduction:** operator reported the corpus missing after local/TEST switching and setup without `--clean` on 11 November. [TEST teardown](../../../dev/script/start.sh#L109), [ES Compose definition](../../../docker-compose.yml#L2), [setup cleanup versus ordinary startup](../../../dev/script/setup.sh#L47). Read-only Docker inspection confirmed no `/usr/share/elasticsearch/data` mount in Grid's replacement container and no image-declared data volume in ES 8.18.3. The teardown was introduced by `b985df7662` (14 October 2022); the later ES8 Compose change updated the image tag, not storage. This is not evidence that losing developer data was an explicit design decision, nor that every historical image behaved identically.
 - **Smallest check / engineer question:** in a disposable local fixture, distinguish container stop/start from removal/recreation and check whether a sentinel document survives. Should `--use-TEST` preserve local data, or is disposable local state intentional? Do not reproduce against a valued corpus or by connecting to shared TEST.
 - **Disposition:** open engineer question; no Grid launcher/storage changes commissioned. Persistence or lifecycle changes require separate approval and would prevent future loss, not recover an already removed writable layer. Original image objects/backups were not assessed. Not a Kupua migration or transport-commit gate.
+
+#### GRID-020
+**Metadata override replacement can lose a concurrent edit**
+- **Component / owner:** metadata-editor override replacement contract; human owner-to-confirm.
+- **Trigger / expected / actual:** two editors read the same override object, change different fields, then submit replacement objects. The later replacement can discard the other editor's field change. A fresh read immediately before saving reduces the window but cannot close it.
+- **Evidence:** [metadata read and setter](../../../metadata-editor/app/controllers/EditsController.scala#L146) accept and write the metadata object without a request-level version condition. The existing [Step 8 contract](gradually-growing-teeth.kupua-edits-steps.md#step-8-editable-metadata-including-configured-domain-fields) already records the residual GET/PUT race. Source-level limitation, not a newly observed incident or a claim that unrelated label operations share the same contract.
+- **Smallest discriminator:** isolated interleaved override reads and writes to different fields, asserting whether both survive. Proposed, not run; no live mutation.
+- **Dependency / disposition:** OPEN; the operator explicitly accepts this existing limitation for the single-operator prototype (10 November). Preserve fresh reads and same-client serialization on hookup, but do not claim concurrent-editor protection or make a new conflict API a blanket UI gate. Any server repair remains separately authorized.
 
 #### GRID-012
 **Soft-delete acknowledgement is detached from status persistence/publication**

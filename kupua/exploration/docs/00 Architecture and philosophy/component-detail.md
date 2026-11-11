@@ -670,7 +670,7 @@ Existing truncation/soft-cap feedback stays; the route owns the hook and passes 
 ## Selection UI
 
 - **`components/Tickbox.tsx`** — absolute-positioned overlay (grid) and inline variant in the table's 32px selection column. `hooks/useIsSelected.ts` subscribes per ID. CSS controls tickbox visibility through `[data-selection-mode="true"]` and selected-cell overlays through `:has(.tickbox[aria-checked="true"])`; this avoids per-cell mode props, not all React work on selection changes. Focus rings are suppressed in selection mode.
-- **`components/SelectionFab.tsx`** — coarse-pointer only: "▴ N | ×". The count opens a small menu (Details, which expands the compact selection card; Clear). The FAB lifts above the card's peek strip and hides during drag-select (`body[data-drag-selecting]`). StatusBar count/clear hidden on coarse pointer.
+- **`components/SelectionFab.tsx`** — compact shell only: "▴ N | ×". The count is an ordinary disclosure for the named Selection actions group (Details and Clear), not an ARIA menu. `PanelLayout` supplies the FAB through the selection sheet's floating slot so it follows the actual card transform. Actions open downward above an expanded card to fit short viewports; Escape and an already-open Details action return focus to the trigger. Drag-select hides it; desktop keeps inline selection controls even with touch input.
 
 ---
 
@@ -1033,7 +1033,9 @@ and selection precedence belong to the calling detail/panel owner, not this rend
 
 In API mode, the label row uses `LabelEditor` with the same owned enrichment. Shared
 `EditableSearchPill`/`PillActionButton` controls separate value search from addition,
-removal and apply-to-all; other fields remain read-only. The search panel supplies
+removal and apply-to-all. Ordinary scalar, Location, People, Keywords, Photoshoot
+and collection-membership editors prepare explicit Not sent intents only; they do
+not invoke the Labels executor or infer permission from a registered field. The search panel supplies
 current selected IDs and capabilities separately from its retained completed display,
 rechecking that ownership at the action boundary. Pending metadata blocks editing.
 Detail disables outgoing-image controls and supplies its requested-ID-owned overlay.
@@ -1044,25 +1046,24 @@ Editable pills retain the shared compact construction, with joined close and
 stacked-plus controls rather than separate button blocks. Icons use shared inline
 SVG paths in `SearchPill`, not an icon-library dependency. Editing colours follow
 Kahuna: full labels are blue/white and partial labels white/blue. Only the hovered
-enabled segment changes, using a blue-tinted background with darker blue text/icons
-for labels, or light grey with dark grey text/icons for neutral editing pills.
+enabled segment changes: full labels invert to white/dark blue and partial labels
+to dark blue/white; neutral pills use Keywords' dark fill and a lighter dark hover.
 This deliberately strengthens Kahuna's subtle hover feedback. Enabled action buttons
 use the hand cursor; disabled actions retain the unavailable cursor and do not highlight.
-Read-only pill colours are retained; their partial outline is inset so full and
+Read-only neutral metadata pills share that styling; partial outlines are inset so full and
 partial pills share the same height rather than adding a border to partial values.
 Action tooltips name the
 field, with remove-from-all based on known occurrences rather than selection size.
-Desktop pills retain their compact height; coarse-pointer actions retain 44px
-targets while mobile metadata-editing UX is explicitly deferred. These safeguards
-are not a finished mobile interaction model. Search modifier tooltips remain.
+Desktop pills retain their compact height; coarse-pointer metadata actions and
+scalar controls use the shared 36px token. Scalar reading labels/values stay side by
+side on phones, with aligned editable/read-only value columns; multiline and pill
+fields stack. Table/thumbnail geometry is unchanged. Search modifier tooltips remain.
 
-Label entry is hidden behind the shared action button's compact boxed-Plus variant.
-Its 16px desktop control sits flush right without a separate background block; an
-opt-in filling MetadataRow value area leaves other metadata rows unchanged. Pills
-align at the start rather than stretching. The Plus stays mounted and invisible in
-its fixed slot during entry. The entry field is 24px tall on desktop, with Kahuna's
-placeholder and grey Close then blue checkmark controls; coarse-pointer targets remain
-44px. Opening entry focuses its input. Escape and Close
+Label entry is hidden behind Add in the field heading: a boxed plus on desktop and
+a dashed circle on touch, with pills below. The Plus stays mounted and invisible in
+its fixed slot during entry. The full-width input is 24px tall on desktop and uses
+36px touch sizing, with grey Close and blue checkmark actions below. Opening entry
+focuses its input at the end. Escape and Close
 discard unsent input and close entry; Enter prepares deduplicated, trimmed comma-separated
 additions and closes on success. Focus returns to Plus. This is draft cancellation,
 not cancellation of recorded or in-flight operations.
@@ -1076,9 +1077,11 @@ search-store facet cache, so suggestions cover the accessible library rather tha
 the selected images. Scope remains explicit in provider parameters and the accessible
 listbox name; the dropdown shows values/counts without a visible scope heading.
 Query suggestions retain their existing current-search scope and own-field exclusion.
-The dropdown is absolutely positioned beneath the entry form and layered above
-following metadata; opening suggestions does not add height to document flow.
-Its bounded list scrolls independently, without new layout observers or measurements.
+`SuggestionDropdown` portals the list inside its owning sheet/dialog focus scope,
+tracks field width and visual-viewport bounds, and excludes the complete metadata
+field above its heading or below its actions. Resize/scroll update placement without
+adding document-flow height. Refine remains input-anchored. If no option fits,
+callers suppress expanded/active keyboard behavior as well as the list.
 
 Entry reads are debounced and cancelled on ownership changes, blur or close;
 obsolete responses cannot publish. Selection replaces the active comma token,
@@ -1092,20 +1095,38 @@ or catalogue change is part of this implementation.
 
 `label-editor-store` keeps target-set-bound input and immutable operation receipts in
 memory, independently of selection clearing or route unmounts. Root-mounted
-`LabelOperationReceipts` shows bounded, newest-first dry-run previews and retains
+`LabelOperationReceipts` shows bounded, newest-first receipt previews and retains
 the complete target set internally. Expanded compact selection sheets host the same
 receipt state inside their focus scope; the root display serves other states.
 Native pill/disclosure activation keys do not bubble into grid navigation. Pending
 cohorts retain searchable values without stale coverage fractions. Repeated gestures
 reopen their existing receipt and complete input preparation without resubmission.
-Unfinished input and in-flight/uncertain fake
-outcomes install a document-exit warning, not reload recovery. Normal actions are
-always disconnected; a fixture can inject addition execution and bounded canonical
-observation. Multi-label simulated input is refused before any dispatch, retaining the
-draft; disconnected comma-separated preparation is unchanged. Transport outcomes and
-observation remain separate, and observer disposal does not cancel or replay commands.
-No real command caller, permission fetch, extra confirmation or undo is introduced.
-Identical action/label/target-set gestures remain deduplicated.
+Unfinished input and in-flight/uncertain outcomes install a document-exit warning,
+not reload recovery. Labels connects to the existing bounded executor only with the
+startup-captured editing preference and authoritative admission; otherwise it prepares
+disconnected intent. Connected submissions accept one label, not comma-separated
+execution. Transport outcomes and observation remain separate; closing an observer
+does not cancel or replay a command. There is no extra confirmation or undo, and
+pending/unknown gestures remain protected from replay. The
+[command contract](../../../src/dal/grid-api/README.md#step-6-bounded-label-execution)
+owns scheduling, outcomes and readback rather than these presentation components.
+
+### Preparation-Only Field Owners
+
+| Owner | Responsibility |
+| --- | --- |
+| [MetadataTextEditor](../../../src/components/MetadataTextEditor.tsx) | Captures baseline/mixed state, keeps independent Description mode drafts, validates no-op/clear preparation and owns local-to-UTC/repeated-hour conversion. Pending data disables preparation without discarding target-keyed drafts. |
+| [MetadataDateInput](../../../src/components/MetadataDateInput.tsx) | Numeric groups, selection/navigation, fraction retention/reset and whole-second native picker. Multiple dates activates the groups or clears directly; incomplete input is invalid, not a clear. It does not own targets or persistence. |
+| [MetadataLocationEditor](../../../src/components/MetadataLocationEditor.tsx) | Four stacked components and sparse changed/explicit-clear values; untouched mixed components survive. Enter prepares from inputs without stealing native button activation. |
+| [MetadataPillEditor](../../../src/components/MetadataPillEditor.tsx) | People/Keywords/Collections add/remove/apply-to-all preparation, complete-target availability and duplicate guards; collection display labels stay distinct from canonical path identity. |
+| [MetadataSuggestionInput](../../../src/components/MetadataSuggestionInput.tsx) | Existing provider selection, caret/focus/dismissal, IME-aware keyboard behavior and fill-without-submit semantics. |
+| [useTypeaheadSuggestions](../../../src/hooks/useTypeaheadSuggestions.ts) | Metadata/Refine debounce, fixed-array matching, bounded dynamic results and abort/stale suppression. Provider matching/order is retained; CQL and Labels keep their separate lifetime owners over shared providers. |
+
+Shared field layout and Add/pill actions remain presentation helpers, not authorization
+or a generic command framework. [The roadmap's UI register](../gradually-growing-teeth.kupua-edits-steps.md#ordinary-metadata-ui-coverage)
+owns field coverage and remaining schema/save work; [UI decisions](../gradually-growing-teeth.editing-ui-decisions.md)
+owns selected interactions and deferred badge proposals. Source, Subjects, configured
+aliases without schema and system fields do not become writable by inference.
 
 ## Multi-Image Metadata (`components/MultiImageMetadata.tsx`)
 
@@ -1113,6 +1134,11 @@ Renders the supplied reconciled view according to registry `multiSelectBehaviour
 summaries from the supplied cached images and selected membership as the count denominator.
 `metadata-primitives.tsx` shares field layout/search helpers with single-image metadata;
 `MultiValue` summarizes disagreement and `MultiSearchPill` represents partial/full membership.
+
+The same scalar, composite and pill editors serve single and multi-image panels.
+Preparation requires the complete captured selection to be available, not merely the
+retained display subset; draft keys change with target identity. New preparation
+callbacks neither grant command authority nor optimistically publish canonical data.
 
 Chip fields create only the first 20 frequency-ordered pills until expanded through
 `FieldDisclosure`. Expansion is local and retained for the component lifetime; it neither
@@ -1165,8 +1191,12 @@ The engine (buffer, scroll, focus, selection) is shared. Design rationale is arc
   closes when the selection empties. A placeholder keeps the results at the same child index so
   crossing the breakpoint never remounts the list. Panel configuration is not rewritten.
 - **`BottomSheet`** is a peek (64px) / expanded (75vh) card with drag, optional scrim and
-  `useContentPullToDrag`. With a scrim it is modal: `useFocusTrap` moves focus to the outline-less
-  container and keeps Tab inside, restoring focus on close (never to a text field).
+  `useContentPullToDrag`. A visible expanded scrim-backed sheet exposes `dialog`/`aria-modal`,
+  temporarily inerts background branches and restores prior inert state on collapse/unmount.
+  `useFocusTrap` keeps Tab inside, restoring focus on close (never to a text field).
+  Image detail's scrim-free sheet stays a nonmodal region. Visual-viewport height/bottom
+  adjustment and focused-form scrolling keep editors reachable above the keyboard;
+  the optional floating slot moves with the actual card transform.
   Collapsed content is inert, while the peek toggle stays usable; collapse returns content focus
   to that toggle. A second contact cancels handle dragging rather than collapsing or toggling.
 - **`FiltersSheet`** is the Refine surface. In the compact shell it is a bottom sheet with

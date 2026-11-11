@@ -64,15 +64,41 @@ less-popular matches is an accepted prototype limitation, not a backend-change g
 Query-chip suggestions keep their existing search scope; both consumers share the
 provider so a later improvement can replace the shortlist implementation together.
 
-The joined editing controls follow Kahuna's placement, tooltip vocabulary and full/partial
-colours. Hover feedback is intentionally stronger: only the hovered enabled segment
-gets a blue tint with dark blue text/icons for labels, or light grey with dark grey
-text/icons for neutral editing pills. This makes partial-pill hover visible where
-Kahuna's white-on-white background barely changes. Remove, apply-to-all, boxed Plus
+The joined editing controls follow Kahuna's tooltip vocabulary and full/partial
+colours. Full labels invert the hovered segment to white with dark blue text/icons;
+partial labels invert to dark blue with white text/icons, rather than Kahuna's faint
+white-on-white feedback. Hover is restricted to fine hover-capable pointers. Field
+Add is a boxed plus on desktop and a dashed touch circle in the heading, with pills
+below rather than sharing the control row. Remove, apply-to-all, boxed Plus
 and confirmation icons use shared inline SVGs, matching Kupua's existing approach
-without an icon-library dependency. Coarse-pointer controls retain 44px
-targets instead of copying desktop-sized Kahuna targets. Mobile metadata-editing
-UX is explicitly deferred; these safeguards are not a claim of desktop/mobile parity.
+without an icon-library dependency. Expanded Step 7 uses 36px coarse-pointer
+editable-pill actions through one sizing token, with inset separators and stronger
+hover restricted to fine hover-capable pointers. Other controls retain their own
+sizing. Mobile presentation is integrated; new metadata/membership save operations
+remain disconnected, not a claim of complete desktop/mobile editing parity.
+
+The [selected editing UI](gradually-growing-teeth.editing-ui-decisions.md#4-mobile-editing-always-inline-pills)
+uses always-inline 36px pill actions, without a field-task entry or pill editing
+mode. The smaller targets preserve reading density at the cost of less touch
+margin than the previous 44px actions. The synthetic studies were retired after
+app integration; browser emulation is not real-phone usability approval. New app
+text/membership controls prepare Not sent intent while Labels retains its executor.
+
+### Ordinary Metadata Preparation (11 November 2026)
+
+New ordinary metadata controls prepare explicit Not sent intent rather than invoking
+Kahuna's saves. Existing Title retains Kupua's multiline editor to preserve its
+reviewed keyboard behavior, at the cost of more space than Kahuna's text input.
+Location prepares changed components only; untouched mixed components are not empty
+overrides, and each mixed component has a separate clear action. Date entry uses
+app-controlled numeric groups with a separate native whole-second calendar rather
+than relying on inconsistent native segmented typing. Original fractions survive
+unchanged/reverted input; other date/time changes zero them unless explicitly edited.
+Mixed dates activate the groups or clear directly. The existing conversion preserves
+the initial instant's local UTC offset when disambiguating a repeated hour, instead
+of blindly accepting JavaScript's earlier-fold choice. No backend timezone, conflict
+or save guarantee follows. The [UI register](gradually-growing-teeth.kupua-edits-steps.md#ordinary-metadata-ui-coverage)
+owns field/control coverage and the unavailable domain-schema boundary.
 
 ### Bounded Label Readback (6 November 2026)
 

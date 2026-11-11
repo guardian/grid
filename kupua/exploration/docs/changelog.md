@@ -24,6 +24,62 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 11 November 2026 - Integrated single and multi-image editing UI
+
+Integrated inline editors into the actual API-mode metadata panels, extending Step 7's
+presentation work into ordinary metadata, collection membership and Photoshoot controls
+from later steps. Title, Description, Special instructions, By, Credit, Copyright,
+Taken on, configured Image type, Location, People, Keywords, Photoshoot and Collections
+prepare explicit Not sent intents containing field, action, value and captured image IDs.
+Only existing Labels retain connected execution through their admission, queue, receipt,
+readback and publication owners. No new persistence, optimistic canonical updates or
+direct-ES editing is introduced; archive, configured-domain schemas, tree management and
+other workflow families remain separate work. Usage instructions remain read-only,
+distinct from editable user Special instructions.
+
+Always-inline pills separate search, remove and partial-coverage apply-to-all, with
+icon-only Add in the field heading. There is no field-task screen, sheet-wide editing
+mode or Save-all transaction. Shared controls use 36px touch sizing, inset separators
+and fine-pointer-only hover; non-Label pills share Keywords' neutral styling while
+Labels retain their full/partial colours. Labels entry uses full-width input with
+actions below. Scalar reading labels/values stay side by side on phones with aligned
+editable/read-only columns and right-edge pencils; multiline values and pills stack.
+Table/thumbnail geometry and thumbnail badge policy are unchanged.
+
+Text editors preserve captured baselines and target-keyed drafts while pending reads
+disable preparation. Description keeps independent Overwrite/Add before/Add after
+drafts. Blank Overwrite clears shared or mixed values; all-empty unchanged fields and
+empty additions remain no-ops. Field-specific italic mixed placeholders disappear on
+entry. Location uses four stacked components and sparse changes, with explicit trash
+for individual mixed components and no whole-Location Clear. Untouched mixed neighbors
+are preserved. Photoshoot compares and emits trimmed values.
+
+Taken on uses selectable numeric day/month/year/time/millisecond groups and a separate
+whole-second native calendar. Original fractions survive unchanged or reverted entry;
+other date/time changes reset them to zero and explicit fraction edits are retained.
+Multiple dates activates the numeric groups; trash can clear directly for all targets.
+Incomplete/invalid groups cannot become accidental clears. Pointer refocus cancels
+whole-date selection, and the existing local-to-UTC/repeated-hour offset owner and
+formatted readout remain. Calendar availability does not block manual entry; backend
+timezone retention and physical-phone/native-picker acceptance remain outside this work.
+
+Metadata, Labels and Refine share suggestion presentation inside the owning focus scope.
+Metadata popups exclude the entire editor heading/actions, follow field width and
+resize/scroll, and do not push following rows. Unusable lists cannot remain expanded
+or keyboard-selectable. Metadata and Refine share debounced loading and abort/stale
+suppression; dynamic provider matching/order passes through unchanged. CQL retains
+AST/publication lifetime and Labels target/comma-token lifetime over the shared
+providers. Selection fills metadata drafts rather than submitting; Refine commits
+search. Escape dismissal, IME handling and modified Enter retain their owning behavior.
+
+The shared card follows the visual viewport and keeps focused forms reachable. Selection
+actions dock to its actual transform and fit short landscape/keyboard viewports;
+disclosure dismissal preserves focus. Expanded scrim-backed selection sheets expose
+a modal dialog and temporarily inert the background, restoring prior state on exit;
+image-detail sheets remain nonmodal. Synthetic studies were retired after integration.
+Existing editor/provider/browser suites cover the composed workflows; they do not
+certify deployed authentication, shared capacity or every physical-phone interaction.
+
 ### 11 November 2026 - Local and TEST service transport for laptop API editing
 
 The authenticated directory read now selects metadata/auth transport independently

@@ -96,6 +96,7 @@ export interface ImageMetadata {
   suppliersReference?: string;
   source?: string;
   specialInstructions?: string;
+  usageInstructions?: string;
   keywords?: string[];
   subLocation?: string;
   city?: string;

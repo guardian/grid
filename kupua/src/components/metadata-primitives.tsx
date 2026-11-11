@@ -126,15 +126,17 @@ export interface MetadataRowProps {
   ref?: React.Ref<HTMLDivElement>;
   tabIndex?: number;
   fill?: boolean;
+  action?: React.ReactNode;
 }
 
-export function MetadataRow({ label, children, ref, tabIndex, fill }: MetadataRowProps) {
+export function MetadataRow({ label, children, ref, tabIndex, fill, action }: MetadataRowProps) {
   return (
-    <div ref={ref} tabIndex={tabIndex} className="flex gap-1 py-0.75 leading-snug">
-      <dt className="text-xs font-bold text-grid-text-dim shrink-0 w-[30%] wrap-anywhere">
-        {label}
+    <div ref={ref} tabIndex={tabIndex} data-metadata-field={action ? "" : undefined} data-suggestion-width={action ? "" : undefined}
+      className={`metadata-row flex gap-1 py-0.75 leading-snug${action ? " relative min-h-6 pointer-coarse:min-h-[var(--mobile-edit-control-size)]" : ""}`}>
+      <dt className={`text-xs font-bold text-grid-text-dim shrink-0 w-[30%] wrap-anywhere${action ? " flex min-h-6 self-start items-center justify-between gap-1 pointer-coarse:min-h-[var(--mobile-edit-control-size)]" : ""}`}>
+        {label}{action && <span className="absolute right-0 top-0.75">{action}</span>}
       </dt>
-      <dd className={`text-xs text-grid-text wrap-anywhere min-w-0${fill ? " flex-1" : ""}`}>
+      <dd className={`text-xs text-grid-text wrap-anywhere min-w-0${fill ? " flex-1" : ""}${action ? " self-center pr-7 pointer-coarse:pr-10" : ""}`}>
         {children}
       </dd>
     </div>
@@ -151,13 +153,16 @@ export function MetadataRow({ label, children, ref, tabIndex, fill }: MetadataRo
 export interface MetadataBlockProps {
   label: string;
   children: React.ReactNode;
+  action?: React.ReactNode;
+  ref?: React.Ref<HTMLDivElement>;
+  tabIndex?: number;
 }
 
-export function MetadataBlock({ label, children }: MetadataBlockProps) {
+export function MetadataBlock({ label, children, action, ref, tabIndex }: MetadataBlockProps) {
   return (
-    <div className="py-0.75 leading-snug">
-      <dt className="text-xs font-bold text-grid-text-dim pb-0.5 wrap-anywhere">
-        {label}
+    <div ref={ref} tabIndex={tabIndex} data-metadata-field={action ? "" : undefined} data-suggestion-width={action ? "" : undefined} className="py-0.75 leading-snug">
+      <dt className={`text-xs font-bold text-grid-text-dim pb-0.5 wrap-anywhere${action ? " flex items-center justify-between gap-1" : ""}`}>
+        {label}{action}
       </dt>
       <dd className="text-xs text-grid-text wrap-anywhere">
         {children}

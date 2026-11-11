@@ -1192,8 +1192,9 @@ async function exerciseLabelEditor(page: Page) {
   await page.route(suggestionsRoute, suggestionsHandler);
   try {
   await page.evaluate(() => (window as CommandWindow).editorFixture.mount());
-  const input = page.getByRole("combobox", { name: "Add label", exact: true });
-  const plus = page.getByRole("button", { name: "Add label", exact: true, includeHidden: true });
+  const editor = page.getByRole("region", { name: "Label editor fixture", exact: true });
+  const input = editor.getByRole("combobox", { name: "Add label", exact: true });
+  const plus = editor.getByRole("button", { name: "Add label", exact: true, includeHidden: true });
   await expect(input).toHaveCount(0);
   const plusBounds = await plus.evaluate(element => element.getBoundingClientRect().toJSON());
   await plus.click();
@@ -1202,9 +1203,9 @@ async function exerciseLabelEditor(page: Page) {
   expect(await plus.evaluate(element => element.getBoundingClientRect().toJSON())).toEqual(plusBounds);
   await expect(page.getByText("Target images", { exact: true })).toHaveCount(0);
   await expect(page.getByText(/selected:.*eligible/)).toHaveCount(0);
-  const pill = page.getByRole("button", { name: "news", exact: true });
-  const applyToAll = page.getByRole("button", { name: "Apply news to all selected images", exact: true });
-  const removeLabel = page.getByRole("button", { name: "Remove news from all selected images", exact: true });
+  const pill = editor.getByRole("button", { name: "news", exact: true });
+  const applyToAll = editor.getByRole("button", { name: "Apply news to all selected images", exact: true });
+  const removeLabel = editor.getByRole("button", { name: "Remove news from all selected images", exact: true });
   const geometry = await pill.evaluate(element => {
     const bounds = element.getBoundingClientRect();
     const group = element.closest("[data-editable-pill]") ?? element.parentElement!.parentElement!;
@@ -1214,8 +1215,8 @@ async function exerciseLabelEditor(page: Page) {
   });
   expect(geometry.height).toBeCloseTo(geometry.lineHeight, 0);
   expect(geometry.gaps).toEqual([0, 0]);
-  await expect(applyToAll).toHaveAttribute("title", "Apply label to all");
-  await expect(removeLabel).toHaveAttribute("title", "Remove label");
+  await expect(applyToAll).toHaveAttribute("title", "Apply label to all 2 images");
+  await expect(removeLabel).toHaveAttribute("title", "Remove label from 1 image");
   await expect(pill.locator("xpath=../..")).toHaveCSS("background-color", "rgb(255, 255, 255)");
   await expect(pill).toHaveCSS("color", "rgb(0, 173, 238)");
   await expect(applyToAll).toHaveCSS("color", "rgb(0, 173, 238)");
@@ -1223,27 +1224,27 @@ async function exerciseLabelEditor(page: Page) {
   await expect(applyToAll).toHaveCSS("cursor", "pointer");
   await expect(removeLabel).toHaveCSS("cursor", "pointer");
   await applyToAll.hover();
-  await expect(applyToAll).toHaveCSS("background-color", "rgb(179, 229, 252)");
-  await expect(applyToAll.locator("svg")).toHaveCSS("color", "rgb(0, 86, 137)");
+  await expect(applyToAll).toHaveCSS("background-color", "rgb(0, 86, 137)");
+  await expect(applyToAll.locator("svg")).toHaveCSS("color", "rgb(255, 255, 255)");
   await expect(pill).toHaveCSS("color", "rgb(0, 173, 238)");
   await removeLabel.hover();
-  await expect(removeLabel.locator("svg")).toHaveCSS("color", "rgb(0, 86, 137)");
+  await expect(removeLabel.locator("svg")).toHaveCSS("color", "rgb(255, 255, 255)");
   await page.mouse.move(0, 0);
   await page.getByRole("region", { name: "Label editor fixture" }).screenshot({ path: test.info().outputPath("pill-partial.png") });
   await page.evaluate(() => (window as CommandWindow).editorFixture.targets(["fixture"]));
   await expect(applyToAll).toHaveCount(0);
-  const removeFullLabel = page.getByRole("button", { name: "Remove news", exact: true });
-  await expect(removeFullLabel).toHaveAttribute("title", "Remove label");
+  const removeFullLabel = editor.getByRole("button", { name: "Remove news", exact: true });
+  await expect(removeFullLabel).toHaveAttribute("title", "Remove label from 1 image");
   await expect(pill.locator("xpath=../..")).toHaveCSS("background-color", "rgb(0, 173, 238)");
   expect((await pill.boundingBox())?.height).toBeCloseTo(geometry.height, 0);
   await expect(pill).toHaveCSS("color", "rgb(255, 255, 255)");
   await pill.hover();
-  await expect(pill).toHaveCSS("background-color", "rgb(179, 229, 252)");
+  await expect(pill).toHaveCSS("background-color", "rgb(255, 255, 255)");
   await expect(pill).toHaveCSS("color", "rgb(0, 86, 137)");
   await expect(removeFullLabel).toHaveCSS("color", "rgb(255, 255, 255)");
   await expect(pill.locator("xpath=../..")).toHaveCSS("background-color", "rgb(0, 173, 238)");
   await removeFullLabel.hover();
-  await expect(removeFullLabel).toHaveCSS("background-color", "rgb(179, 229, 252)");
+  await expect(removeFullLabel).toHaveCSS("background-color", "rgb(255, 255, 255)");
   await expect(removeFullLabel.locator("svg")).toHaveCSS("color", "rgb(0, 86, 137)");
   await expect(pill).toHaveCSS("color", "rgb(255, 255, 255)");
   await page.mouse.move(0, 0);
@@ -1764,7 +1765,7 @@ test("built hosted commands fail closed, use direct service origins and stop aft
   const appOrigin = "https://app.example.test";
   const metadataOrigin = "https://metadata.example.test";
   const authOrigin = "https://auth.example.test";
-  const config = { mediaApiUri: "https://api.example.test" };
+  const config = { mediaApiUri: "https://api.example.test", gridConfig: { imageTypes: ["Photograph", "Illustration"] } };
   const requests: Array<{ method: string; origin: string; path: string; cookie: string }> = [];
   let writeStatus = 200;
   let connected = false;
@@ -1853,10 +1854,68 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     expect((await execute()).outcome).toBe("blocked");
     expect(requests.filter((request) => request.origin === authOrigin || (request.origin === metadataOrigin && (request.method !== "GET" || request.path !== "/")))).toEqual([]);
     await page.evaluate(() => (window as CommandWindow).editorFixture.navigate("fixture"));
+    const pencilEdges: number[] = [];
+    for (const name of ["Title", "Description", "Special instructions", "By", "Credit", "Copyright", "Taken on", "Image type", "Location", "Photoshoot"]) {
+      const pencil = page.getByRole("button", { name: `Edit ${name}`, exact: true });
+      await expect(pencil).toBeEnabled();
+      pencilEdges.push((await pencil.boundingBox())!.x + (await pencil.boundingBox())!.width);
+    }
+    expect(Math.max(...pencilEdges) - Math.min(...pencilEdges)).toBeLessThan(1);
+    await page.getByRole("button", { name: "Edit Title", exact: true }).click();
+    const titleInput = page.getByRole("textbox", { name: "Title", exact: true });
+    expect(await titleInput.evaluate((input: HTMLTextAreaElement) => input.selectionStart === input.value.length && input.selectionEnd === input.value.length)).toBe(true);
+    await titleInput.fill("Prepared title only");
+    await titleInput.press("Control+Enter");
+    await expect(page.getByText("Not sent - Title change prepared for 1 image.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Cancel Title", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Edit Title", exact: true })).toBeFocused();
+    await page.getByRole("button", { name: "Edit Image type", exact: true }).click();
+    expect(await page.getByLabel("Image type", { exact: true }).evaluate(select => ["ArrowLeft", "ArrowRight"].map(key => {
+      const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+      select.dispatchEvent(event);
+      return event.defaultPrevented;
+    }))).toEqual([false, false]);
+    await page.getByRole("button", { name: "Cancel Image type", exact: true }).click();
+    await page.getByRole("button", { name: "Edit Taken on", exact: true }).click();
+    await expect(page.getByRole("group", { name: "Taken on", exact: true })).toBeVisible();
+    const day = page.getByRole("textbox", { name: "Day", exact: true });
+    await day.fill("11");
+    const month = page.getByRole("textbox", { name: "Month", exact: true });
+    await expect(month).toBeFocused();
+    await month.press("ArrowLeft");
+    await expect(day).toBeFocused();
+    for (const [name, value] of [["Month", "11"], ["Year", "2026"], ["Hours", "10"], ["Minutes", "20"], ["Seconds", "30"], ["Milliseconds", "456"]]) {
+      await page.getByRole("textbox", { name, exact: true }).fill(value);
+    }
+    await expect(page.getByRole("button", { name: "Choose date and time", exact: true })).toBeEnabled();
+    await page.getByRole("button", { name: "Commit Taken on", exact: true }).click();
+    await expect(page.getByText("Not sent - Taken on change prepared for 1 image.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Cancel Taken on", exact: true }).click();
+    const creditOptions = async (route: import("@playwright/test").Route) => route.fulfill({ json: {
+      fields: { "metadata.credit": { buckets: [{ key: "Reuters", count: 2 }] } }, isFilterCounts: {},
+    }, headers: { "Access-Control-Allow-Origin": appOrigin, "Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "content-type" } });
+    await page.route("**/images/aggregations", creditOptions);
+    try {
+      await page.getByRole("button", { name: "Edit Credit", exact: true }).click();
+      const credit = page.getByRole("combobox", { name: "Credit", exact: true });
+      expect(await credit.evaluate((input: HTMLInputElement) => input.selectionStart === input.value.length && input.selectionEnd === input.value.length)).toBe(true);
+      await credit.fill("Re");
+      const suggestions = page.getByRole("listbox", { name: "Suggestions for Credit", exact: true });
+      await expect(suggestions).toBeVisible();
+      expect((await suggestions.boundingBox())!.width).toBeGreaterThan((await credit.boundingBox())!.width + 20);
+      await credit.press("Escape");
+      await expect(credit).toBeVisible();
+      await expect(credit).toHaveValue("Re");
+      await expect(suggestions).toHaveCount(0);
+      await page.getByRole("button", { name: "Cancel Credit", exact: true }).click();
+    } finally { await page.unroute("**/images/aggregations", creditOptions); }
     const realInput = page.getByRole("combobox", { name: "Add label", exact: true }).filter({ visible: true });
     const realPlus = page.getByRole("button", { name: "Add label", exact: true });
     await realPlus.click();
     await expect(realInput).toBeVisible();
+    const entryBounds = (await realInput.boundingBox())!;
+    expect(await realInput.evaluate(input => Math.abs(input.getBoundingClientRect().width - input.closest("form")!.getBoundingClientRect().width))).toBeLessThan(1);
+    expect((await page.getByRole("button", { name: "Add label to images", exact: true }).boundingBox())!.y).toBeGreaterThanOrEqual(entryBounds.y + entryBounds.height);
     await realInput.fill("cold-detail");
     await realInput.press("Enter");
     await expect(page.getByText("Not sent - dry run", { exact: true })).toBeVisible();
@@ -1907,17 +1966,62 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     await touch.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
     await expect.poll(() => page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
     await page.evaluate(() => (window as CommandWindow).editorFixture.select(["fixture", "other"]));
-    const sheet = page.getByRole("region", { name: "Details", exact: true });
+    const sheet = page.getByRole("dialog", { name: "Details", exact: true });
+    const editCredit = sheet.getByRole("button", { name: "Edit Credit", exact: true });
+    await expect(editCredit).toBeVisible();
+    expect(await editCredit.evaluate(button => {
+      const label = button.closest("dt")!;
+      const labelBounds = label.getBoundingClientRect();
+      const valueBounds = label.nextElementSibling!.getBoundingClientRect();
+      const readOnlyValues = [...label.closest("dl")!.querySelectorAll(".metadata-row:not([data-metadata-field]) > dd")];
+      return labelBounds.right <= valueBounds.left
+        && Math.abs(labelBounds.top + labelBounds.height / 2 - valueBounds.top - valueBounds.height / 2) < 1
+        && readOnlyValues.length > 0
+        && readOnlyValues.every(value => Math.abs(value.getBoundingClientRect().left - valueBounds.left) < 1);
+    })).toBe(true);
+    await editCredit.click();
+    const credit = sheet.getByRole("combobox", { name: "Credit", exact: true });
+    await expect(credit).toHaveCSS("height", "36px");
+    const restoreViewport = await page.evaluateHandle(() => {
+      const viewport = window.visualViewport!;
+      const height = Object.getOwnPropertyDescriptor(viewport, "height");
+      const top = Object.getOwnPropertyDescriptor(viewport, "offsetTop");
+      Object.defineProperty(viewport, "height", { configurable: true, value: 360 });
+      Object.defineProperty(viewport, "offsetTop", { configurable: true, value: 0 });
+      viewport.dispatchEvent(new Event("resize"));
+      return () => {
+        if (height) Object.defineProperty(viewport, "height", height); else Reflect.deleteProperty(viewport, "height");
+        if (top) Object.defineProperty(viewport, "offsetTop", top); else Reflect.deleteProperty(viewport, "offsetTop");
+        viewport.dispatchEvent(new Event("resize"));
+      };
+    });
+    try {
+      await expect(sheet).toHaveCSS("height", "270px");
+      await expect(credit).toBeFocused();
+      const bounds = (await credit.boundingBox())!;
+      expect(bounds.y).toBeGreaterThanOrEqual(0);
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(360);
+    } finally {
+      await restoreViewport.evaluate(restore => restore());
+      await restoreViewport.dispose();
+    }
+    await sheet.getByRole("button", { name: "Cancel Credit", exact: true }).click();
     const remove = page.getByRole("button", { name: "Remove news from all selected images", exact: true });
-    await expect(remove).toHaveAttribute("title", "Remove label from all");
+    await expect(remove).toHaveAttribute("title", "Remove label from all 2 images");
     await remove.scrollIntoViewIfNeeded();
     const bounds = await remove.boundingBox();
-    expect(bounds?.height).toBeGreaterThanOrEqual(44);
+    expect(bounds?.height).toBeGreaterThanOrEqual(36);
     await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: bounds!.x + bounds!.width / 2, y: bounds!.y + bounds!.height / 2 }] });
     await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     const activity = sheet.getByRole("complementary", { name: "Label activity" });
     await expect(activity.getByText("Not sent - dry run", { exact: true })).toBeVisible();
     await expect(activity).toContainText('"action": "remove"');
+    await page.setViewportSize({ width: 844, height: 390 });
+    await touch.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
+    await expect(sheet).toHaveCSS("width", "480px");
+    await sheet.screenshot({ path: testInfo.outputPath("metadata-landscape.png") });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await touch.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
     await expect(activity).toContainText('"label": "news"');
     await expect(activity).toContainText('"fixture"');
     await expect(activity).toContainText('"other"');
@@ -1987,7 +2091,7 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     try {
       await compact.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
       await expect.poll(() => page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
-      const compactActivity = page.getByRole("region", { name: "Details", exact: true })
+      const compactActivity = page.getByRole("dialog", { name: "Details", exact: true })
         .getByRole("complementary", { name: "Label activity" });
       await compactActivity.scrollIntoViewIfNeeded();
       await expect(compactActivity).toBeInViewport();

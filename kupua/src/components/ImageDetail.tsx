@@ -620,6 +620,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       if (
         target.tagName === "INPUT" ||
         target.tagName === "TEXTAREA" ||
+        target.tagName === "SELECT" ||
         target.isContentEditable
       )
         return;

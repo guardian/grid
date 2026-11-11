@@ -16,8 +16,9 @@
  */
 
 import { ALT_CLICK } from "@/lib/keyboard-shortcuts";
+import type { ReactNode } from "react";
 
-const PILL_ACTION_ICONS = {
+export const PILL_ACTION_ICONS = {
   close: "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z",
   confirm: "M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z",
   add: "M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z",
@@ -55,8 +56,9 @@ export function PillActionButton({ action, label, title = label, attached = fals
   </button>;
 }
 
-export function EditableSearchPill({ value, cqlKey, onSearch, accent, count, total, coverageKnown = true, disabled, onAdd, onRemove }: {
+export function EditableSearchPill({ value, label, cqlKey, onSearch, accent, count, total, coverageKnown = true, disabled, onAdd, onRemove }: {
   value: string;
+  label?: ReactNode;
   cqlKey: string;
   onSearch: SearchPillProps["onSearch"];
   accent?: boolean;
@@ -70,19 +72,16 @@ export function EditableSearchPill({ value, cqlKey, onSearch, accent, count, tot
   const partial = !coverageKnown || count < total;
   const pillClass = partial
     ? `${PILL_BASE} bg-white ${accent ? "text-grid-accent" : "text-[#222]"}`
-    : `${PILL_BASE} ${accent ? "bg-grid-accent text-white" : "bg-[#222] text-[#aaa]"}`;
-  const hoverClass = accent
-    ? "[&_button:enabled:hover]:bg-[#b3e5fc] [&_button:enabled:hover]:text-grid-accent-dark"
-    : "[&_button:enabled:hover]:bg-grid-text-muted [&_button:enabled:hover]:text-[#222]";
-  return <span data-editable-pill className={`${pillClass} ${hoverClass} max-w-full p-0! items-stretch! pointer-coarse:min-h-11`} onKeyDown={containPillActivation}>
-    {partial && <PillActionButton action="apply-all" attached title={`Apply ${cqlKey} to all`}
+    : accent ? `${PILL_BASE} bg-grid-accent text-white` : PILL_DEFAULT;
+  return <span data-editable-pill data-accent={accent || undefined} data-coverage={partial ? "partial" : "all"} className={`${pillClass} max-w-full p-0! items-stretch! pointer-coarse:min-h-[var(--mobile-edit-control-size)]`} onKeyDown={containPillActivation}>
+    {partial && <PillActionButton action="apply-all" attached title={`Apply ${cqlKey} to all ${total} ${total === 1 ? "image" : "images"}`}
       label={`Apply ${value} to all selected images`} disabled={disabled} onClick={onAdd} />}
     <span className="min-w-0 flex [&>button]:rounded-none [&>button]:border-0 [&>button]:ring-0 [&>button]:bg-transparent [&>button]:text-inherit [&>button]:max-w-full [&>button]:text-left [&>button]:wrap-anywhere">
       {coverageKnown
-        ? <MultiSearchPill value={value} cqlKey={cqlKey} count={count} total={total} partial={count < total} accent={accent} onSearch={onSearch} />
-        : <SearchPill value={value} cqlKey={cqlKey} onSearch={onSearch} accent={accent} />}
+        ? <MultiSearchPill value={value} label={label} cqlKey={cqlKey} count={count} total={total} partial={count < total} accent={accent} onSearch={onSearch} />
+        : <SearchPill value={value} label={label} cqlKey={cqlKey} onSearch={onSearch} accent={accent} />}
     </span>
-    <PillActionButton action="remove" attached title={`Remove ${cqlKey}${coverageKnown && count > 1 ? " from all" : ""}`}
+    <PillActionButton action="remove" attached title={`Remove ${cqlKey} from ${coverageKnown ? `${count > 1 ? "all " : ""}${count}` : "selected"} ${coverageKnown && count === 1 ? "image" : "images"}`}
       label={`Remove ${value}${total > 1 ? " from all selected images" : ""}`} disabled={disabled} onClick={onRemove} />
   </span>;
 }
@@ -93,7 +92,7 @@ export function EditableSearchPill({ value, cqlKey, onSearch, accent, count, tot
 
 const PILL_BASE = "inline-flex items-center px-1.5 py-0 rounded-sm text-xs cursor-pointer transition-colors leading-snug";
 
-const PILL_DEFAULT = `${PILL_BASE} bg-grid-cell-hover/60 text-grid-text hover:bg-grid-accent/20 hover:text-grid-accent`;
+const PILL_DEFAULT = `${PILL_BASE} bg-[#222] text-[#aaa]`;
 
 const PILL_ACCENT = `${PILL_BASE} bg-grid-accent text-white hover:bg-grid-accent-light hover:text-white`;
 
@@ -112,7 +111,7 @@ interface SearchPillProps {
   /** CQL field key for search (e.g. "keyword", "person", "subject"). */
   cqlKey: string;
   /** Optional display label override. If set, shown instead of value. Value is still used for CQL search. */
-  label?: string;
+  label?: ReactNode;
   /** Callback fired on click -- receives cqlKey, value, and the event. */
   onSearch: (cqlKey: string, value: string, e: React.MouseEvent) => void;
   /** Accent variant (Guardian blue bg) — used for labels. */
@@ -123,12 +122,13 @@ export function SearchPill({ value, cqlKey, label, onSearch, accent }: SearchPil
   return (
     <button
       type="button"
+      data-search-pill data-accent={accent || undefined}
       className={accent
         ? PILL_ACCENT + " select-text"
         : PILL_DEFAULT + " select-text"
       }
       onClick={(e) => onSearch(cqlKey, value, e)}
-      title={`${label ?? value}\nShift+click to add, ${ALT_CLICK} to exclude`}
+      title={`${typeof label === "string" ? label : value}\nShift+click to add, ${ALT_CLICK} to exclude`}
     >
       {label ?? value}
     </button>
@@ -160,6 +160,7 @@ export function DataSearchPill({
     <span
       data-cql-key={cqlKey}
       data-cql-value={value}
+      data-search-pill data-accent={accent || undefined}
       className={accent
         ? PILL_ACCENT + " shrink-0"
         : PILL_DEFAULT + " shrink-0"
@@ -176,6 +177,7 @@ export function DataSearchPill({
 
 interface MultiSearchPillProps {
   value: string;
+  label?: ReactNode;
   cqlKey: string;
   /** Number of selected images that carry this chip value. */
   count: number;
@@ -195,6 +197,7 @@ interface MultiSearchPillProps {
  */
 export function MultiSearchPill({
   value,
+  label,
   cqlKey,
   count,
   total,
@@ -208,12 +211,13 @@ export function MultiSearchPill({
   return (
     <button
       type="button"
+      data-search-pill data-accent={accent || undefined}
       data-partial={partial ? "true" : undefined}
       className={cls + " select-text"}
       onClick={(e) => onSearch(cqlKey, value, e)}
       title={`${value} (${count.toLocaleString()}/${total.toLocaleString()})\nShift+click to add, ${ALT_CLICK} to exclude`}
     >
-      {value}
+      {label ?? value}
     </button>
   );
 }

@@ -29,6 +29,7 @@ import {
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { useSelectionStore } from "@/stores/selection-store";
 import { BottomSheet } from "./BottomSheet";
+import { SelectionFab } from "./SelectionFab";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -317,11 +318,13 @@ export function PanelLayout({ leftPanel, rightPanel, scrubber, children }: Panel
             label="Details"
             header="Selection details"
             expanded={rightVisible}
+            floating={<SelectionFab docked />}
             onExpandedChange={(next) => { if (next !== rightVisible) togglePanel("right"); }}
           >
             {rightPanel}
           </BottomSheet>
         )}
+        {!showCard && hasSelection && <SelectionFab />}
       </div>
     );
   }

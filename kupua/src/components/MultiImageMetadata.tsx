@@ -37,6 +37,10 @@ import { useCategoryLabel } from "@/lib/category-labels";
 import { attachedEnrichment, useEnrichmentStore } from "@/stores/enrichment-store";
 import { resolveImageOverlay } from "@/lib/image-read-freshness";
 import type { Cost } from "@/dal/grid-api/types";
+import { MetadataTextEditor, METADATA_EDIT_CONTROLS } from "./MetadataTextEditor";
+import { MetadataPillEditor, PILL_EDIT_FIELDS } from "./MetadataPillEditor";
+import { labelTargetKey } from "@/stores/label-editor-store";
+import { MetadataLocationEditor, LOCATION_COMPONENTS } from "./MetadataLocationEditor";
 
 
 // Pre-computed sections (stable reference -- RECONCILE_FIELDS is a module-level constant).
@@ -80,15 +84,16 @@ function renderLocationGroup(
   reconciledView: ReconciledView | null,
   onSearch: (cqlKey: string, v: string, e: React.MouseEvent) => void,
   total: number,
+  editing?: { targetIds: readonly string[]; available: boolean },
 ): React.ReactNode {
-  if (!reconciledView) return null;
+  if (!reconciledView && !(editing && import.meta.env.VITE_USE_MEDIA_API === "true")) return null;
 
   // Build one node per non-empty sub-field segment.
   const parts: React.ReactNode[] = [];
   let anyNonEmpty = false;
 
   for (const field of LOCATION_FIELDS) {
-    const rec = reconciledView.get(field.id);
+    const rec = reconciledView?.get(field.id);
     const kind = rec?.kind ?? "pending";
 
     if (kind === "all-empty") continue;
@@ -112,11 +117,7 @@ function renderLocationGroup(
     }
   }
 
-  if (!anyNonEmpty && parts.length === 0) return null;
-
-  return (
-    <MetadataRow key="__location__" label="Location">
-      <span>
+  const content = <span>
         {parts.map((part, i) => (
           <span key={i}>
             <span className="inline-flex max-w-full items-baseline">
@@ -126,7 +127,24 @@ function renderLocationGroup(
             {i < parts.length - 1 && " "}
           </span>
         ))}
-      </span>
+      </span>;
+  if (editing && import.meta.env.VITE_USE_MEDIA_API === "true") {
+    const fields = LOCATION_COMPONENTS.map(component => {
+      const rec = reconciledView?.get(component.fieldId);
+      return { ...component, value: rec?.kind === "all-same" && typeof rec.value === "string" ? rec.value : "", mixed: rec?.kind === "mixed" };
+    });
+    const ready = editing.available && LOCATION_COMPONENTS.every(component => {
+      const kind = reconciledView?.get(component.fieldId)?.kind;
+      return kind === "all-same" || kind === "mixed" || kind === "all-empty";
+    });
+    return <MetadataLocationEditor key={`location:${labelTargetKey(editing.targetIds)}`} fields={fields} targetIds={editing.targetIds} available={ready}>
+      {ready && parts.length ? content : <Dash />}
+    </MetadataLocationEditor>;
+  }
+  if (!anyNonEmpty && parts.length === 0) return null;
+  return (
+    <MetadataRow key="__location__" label="Location">
+      {content}
     </MetadataRow>
   );
 }
@@ -540,6 +558,11 @@ function RightsAndLeasesSection({ images, reconciledView, total }: MultiImageMet
 
 export function MultiImageMetadata({ images, reconciledView, total, labelEditing, resolveLabelEditing }: MultiImageMetadataProps) {
   const onSearch = useMetadataSearch();
+  const ids = labelEditing?.targetIds ?? images.map(image => image.id);
+  const targetKey = labelTargetKey(ids);
+  const loadedIds = new Set(images.map(image => image.id));
+  const complete = ids.length === total && ids.every(id => loadedIds.has(id)) && !labelEditing?.pending;
+  const collectionPaths = new Map(images.flatMap(image => image.collections?.flatMap(collection => collection.pathId ? [[collection.pathId, collection.path ?? collection.pathId.split("/")] as const] : []) ?? []));
   const [expandedFields, setExpandedFields] = useState<ReadonlySet<string>>(() => new Set());
   const toggleField = (id: string, expanded: boolean) => setExpandedFields((current) => {
     const next = new Set(current);
@@ -555,17 +578,34 @@ export function MultiImageMetadata({ images, reconciledView, total, labelEditing
         <RightsAndLeasesSection images={images} reconciledView={reconciledView} total={total} />
       {MULTI_SECTIONS.map((sectionFields, si) => (
         <MetadataSection key={si}>
-          {sectionFields.map((field) =>
+          {sectionFields.map((field) => {
+            if (field.visibleWhen?.() === false) return null;
+            const rec = reconciledView?.get(field.id);
+            if (PILL_EDIT_FIELDS.has(field.id) && import.meta.env.VITE_USE_MEDIA_API === "true") {
+              return <MetadataPillEditor key={`${field.id}:${targetKey}`} field={field} targetIds={ids} onSearch={onSearch}
+                available={complete && (rec?.kind === "chip-array" || rec?.kind === "all-empty")}
+                values={rec?.kind === "chip-array" ? rec.chips : []}
+                collectionPaths={field.id === "collections" ? collectionPaths : undefined} />;
+            }
+            if (METADATA_EDIT_CONTROLS.has(field.id) && import.meta.env.VITE_USE_MEDIA_API === "true") {
+              return <MetadataTextEditor key={`${field.id}:${targetKey}`} field={field} targetIds={ids}
+                available={complete && (rec?.kind === "all-same" || rec?.kind === "mixed" || rec?.kind === "all-empty")}
+                value={rec?.kind === "all-same" && typeof rec.value === "string" ? rec.value : ""} mixed={rec?.kind === "mixed"}>
+                {!complete ? <Dash /> : rec?.kind === "mixed" ? <MultiValue field={field} topValues={rec.topValues} total={total} />
+                  : rec?.kind === "all-same" ? renderScalarAllSame(field, rec.value, onSearch) : <Dash />}
+              </MetadataTextEditor>;
+            }
+            return (
             field.id === "labels" && labelEditing && import.meta.env.VITE_USE_MEDIA_API === "true"
               ? <LabelEditor key={field.id} context={labelEditing} resolveContext={resolveLabelEditing} onSearch={onSearch}
                   values={reconciledView?.get(field.id)?.kind === "chip-array"
                     ? (reconciledView.get(field.id) as Extract<FieldReconciliation, { kind: "chip-array" }>).chips : []} />
               : field.id === "__location__"
-              ? renderLocationGroup(reconciledView, onSearch, total)
+              ? renderLocationGroup(reconciledView, onSearch, total, { targetIds: ids, available: complete })
               : field.multiSelectBehaviour === "chip-array"
                 ? renderChipField(field, reconciledView?.get(field.id), onSearch, expandedFields.has(field.id), (expanded) => toggleField(field.id, expanded))
-                : renderField(field, reconciledView?.get(field.id), onSearch, total),
-          )}
+                : renderField(field, reconciledView?.get(field.id), onSearch, total));
+          })}
         </MetadataSection>
       ))}
       </dl>

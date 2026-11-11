@@ -302,17 +302,18 @@ shared-provider scope/order, comma-token replacement, overlay geometry, capabili
 guards and mutation restrictions. Synthetic fixtures are not live-system or deployed
 browser-policy certification; no performance campaign or live write was performed.
 
-**Mobile editing UX is explicitly deferred.** Current touch-target and focus-scope
-safeguards are retained, not accepted as the final mobile interaction model.
-Phone access to an API-backed or isolated synthetic preview and the general mobile
-metadata-editing interaction need separate design work. This does not enable editing
-in direct-ES mode or block desktop prototype closeout.
+**Historical Step-3 boundary:** mobile editing UX was deferred at this checkpoint.
+The separately selected Step-7 expansion subsequently integrated actual desktop/mobile
+metadata controls; see the [current implementation checkpoint](#current-implementation-checkpoint)
+and [UI decisions](gradually-growing-teeth.editing-ui-decisions.md). Physical-phone
+keyboard/native-picker acceptance remains distinct from browser emulation. Direct-ES
+editing remains unavailable.
 
 ### Step-3 Closeout and Deferred-Work Schedule
 
 | Work | When it is tackled | Boundary |
 | --- | --- | --- |
-| Mobile metadata-editing UX and phone preview access | Separately scheduled design work | Keep existing touch safeguards; do not claim the desktop pill model is a finished mobile design or enable direct-ES editing. |
+| Mobile metadata-editing UX and phone preview access | Subsequently implemented at the selected app-UI scope under Step 7 | Standalone studies are retired; physical-phone input acceptance and new save hookups are not implied. Direct-ES remains read-only. |
 | Improved suggestion discovery beyond the popularity shortlist | Separate proposal | Current entry reuses search suggestions; [Better suggestions](better-suggestions-aggregation-endpoint-enhancement.md) owns the longer-term plan. No backend or mapping change is required for this step. |
 | Removal command support and fake-executor lifecycle coverage | At the start of step 5, before connecting any live editing | Explicitly authorize the bounded transport extension; keep it default-off and verify the same editor/receipt path with fixtures first. The step-3 removal UI currently prepares intent only. |
 | Post-write publication and visibility | Step 4, after step-3 validation closes | Initially use simulated addition. Removal transport is not a new gate for beginning this work. |
@@ -835,9 +836,121 @@ For every following step: use the same disconnected-preview -> fake execution ->
 activation progression. A successful UI rehearsal is not backend validation; a 2xx response
 is not projected completion. Single-image activation can precede batch activation.
 
+### Current Implementation Checkpoint
+
+**11 November 2026: broader UI, not broader execution.** The operator selected a real
+single/multi-image editing surface rather than completing only Step 7's original
+family list. The result deliberately brings some later-step presentation forward;
+it neither completes Step 7 nor authorizes the remaining save paths.
+
+| Step / Family | Implemented Now | Still To Do |
+| --- | --- | --- |
+| 7: Labels, Archive, collection addition | Existing Labels execution preserved; shared desktop/mobile pills, entry and suggestions integrated. Collection addition prepares Not sent membership intent. | Archive/unarchive and connected collection addition; separately selected activation/acceptance. |
+| 8: Ordinary/configured metadata | Ordinary field controls in the register below, including mixed/clear semantics, Location and segmented dates; preparation only. | Fresh authoritative override merge, commands, outcomes/readback/publication and original/reset behavior; configured-domain schema/bootstrap and typed editors. |
+| 12: Collection removal/tree | Membership removal and partial apply-to-all controls prepare Not sent intent using canonical path IDs. | Connected removal under the accepted concurrency boundary; tree create/delete and populated-leaf decisions. |
+| 16: Photoshoots and syndication | Photoshoot title suggestion/clear preparation only, with its own field identity. | Assignment/removal execution and fan-out, syndication and Photo Sales workflows. |
+
+Other later-step families are unchanged by this batch. The
+[UI decisions](gradually-growing-teeth.editing-ui-decisions.md) own selected interactions
+and deferred badge ideas; the [Kahuna reference](gradually-growing-teeth.kahuna-editing-ui-reference.md)
+retains source/local observations useful for finishing the remaining families. Neither
+document authorizes a later command or live trial.
+
 ### Step 7. Finish Labels, Archive and Collection Addition
 
 **Depends on:** step 5; step 6 for batches.
+
+**Status: partial.** The selected app-UI expansion is implemented; Labels retains
+its existing execution. Archive/unarchive and connected collection addition are
+not implemented. Later-family UI listed above is not completion of those steps.
+
+**Expanded UI scope, 10 November 2026:** the operator selected integration in the
+actual app, not another desktop mock. Labels retain their existing connected or
+disconnected executor. The ordinary metadata fields in the register below and
+collection membership have inline controls that prepare explicitly **Not sent** intents;
+they do not write, optimistically alter canonical metadata or claim persistence.
+The UI boundary captures field, action, value and image IDs. Future hookup must
+reuse existing admission, execution, readback and publication ownership, not treat
+the presentation callback as authorization or transport.
+
+Shared controls include wrapping pills, delicate inset action separators, counted
+action tooltips, stronger hover limited to fine hover-capable pointers, unclipped
+input focus, icon-only field-header Add, overlay suggestions and 36px touch targets.
+Desktop uses the existing boxed plus; touch uses a dashed circle, with pill values
+below the heading. Suggestions follow available panel/card width, including resize.
+Metadata suggestions sit above the owning field or below its actions, rather than
+overlapping the editor footer; the viewport-limited list scrolls when space is short.
+Refine retains input-based placement. Editor resize and scrolling update the popup.
+Wider touch sheets are width-constrained and retain existing drag/scroll ownership.
+The shared card follows the keyboard's visual viewport temporarily; the selection
+floaty docks above its real top and moves with it, with actions kept onscreen.
+The mock's Read only switch is removed; the existing startup editing preference
+is unchanged. New prepared actions remain disconnected regardless of that preference.
+
+Description uses independent bottom-positioned mode drafts: mixed selections open
+blank with Overwrite selected; matching selections open prefilled without a visible
+Overwrite control, reserving its space. Add before/after can be toggled off to return
+to the shared text. Multiline Enter inserts a newline; Cmd/Ctrl+Enter prepares.
+All-empty unchanged fields cannot commit. Blank Overwrite clears populated/shared
+or mixed text without a separate Clear action; empty Add before/after remains a no-op.
+Mixed text overwrite editors use field-specific italic placeholders that disappear
+with input. Taken on uses explicit numeric segments and a separate native calendar;
+Image type has a named mixed choice.
+Pending reads disable preparation without discarding
+an open draft; incomplete selections cannot claim complete coverage.
+
+Phone scalar reading rows keep labels and values side by side, with pencils at the
+right edge. Open scalar forms can use full width. Multiline fields and pill blocks
+remain stacked. Read-only neutral metadata pills use the same touch height as editable
+Keywords without gaining edit actions; table and thumbnail sizing are unchanged.
+
+#### Ordinary Metadata UI Coverage
+
+**UI-only register, 11 November 2026.** This describes the API-mode panels, not
+connected save support, permission certification or a new command rollout. The
+[Kahuna inventory](gradually-growing-teeth.kahuna-editing-ui-reference.md#2-textual-metadata-empty-shared-and-mixed)
+remains the source reference; it is not Kupua's completion record.
+
+| Field | Current UI / Prepared Value |
+| --- | --- |
+| Title | Existing multiline editor; string. |
+| Description | Multiline, independent Overwrite/Add before/Add after drafts; string. |
+| Special instructions | Multiline user addition only; upstream Usage instructions remain a separate read-only value. |
+| By, Credit, Copyright | Text entry; Credit uses the existing suggestion provider, other fields stay plain textboxes without invented catalogs. |
+| Taken on | Numeric day/month/year/time/millisecond groups with auto-selection, digit-group navigation, whole-field clear and a separate whole-second native calendar. Existing fractions survive unchanged/reverted entry; changing other date/time groups resets them to zero, while manual fraction edits remain possible. Mixed dates initially show italic Multiple dates; activation reveals/focuses the groups, while trash clears directly for all targets. Incomplete input cannot clear. Existing ambiguous-hour offset handling and formatted readout remain; prepares ISO instant or explicit empty clear. |
+| Image type | Select from configured image types; hidden without a catalog. Mixed placeholder differs from an explicit Unknown/clear choice. |
+| Location | One four-component form. Intent contains only changed components. Trashcan actions explicitly mark individual mixed components for clearing; untouched mixed components are preserved. Italic `Multiple cities`-style placeholders denote differing values, without the parentheses used in comma-separated reading text. There is no whole-location Clear action. |
+| People, Keywords | Existing editable-pill presentation; named add/remove preparation. |
+| Photoshoot | Suggested text using the existing provider; trimmed no-op/clear semantics, separate `photoshoot` identity rather than `metadata.*`. |
+| Labels | Existing target-bound draft, admission, queue, execution and observation owners; not replaced with the new preparation-only path. |
+| Collections | Existing breadcrumb-pill membership preparation; no new tree management or transport. |
+
+Prefilled text/textarea entry puts the caret at the end. Desktop pencil positions
+share the field's far-right edge; date and grouped Location forms use full panel
+width while editing. Escape first dismisses an open suggestion list, then cancels
+the field; IME candidate dismissal does not cancel a label draft. Suggestions do
+not consume Cmd/Ctrl+Enter from the field's preparation handler. Native date errors
+remain visible and associated with their input.
+
+**Remaining configuration boundary:** configured-domain editors cannot be selected
+from opaque values or search aliases. Current hosted bootstrap does not supply the
+domain schema (type, options, labels and edit-mode opt-in); the local configuration
+has no specifications. Supplying that schema is separate scope, not permission to
+make arbitrary alias fields editable. Source, Byline title, supplier references,
+Subjects, file/system fields and Usage instructions remain read-only. Other workflow
+families retain their separately selected roadmap steps. Direct-ES remains read-only;
+its projection and safeguards are unchanged by this API-mode editor work.
+
+The scalar control catalog is in [MetadataTextEditor](../../src/components/MetadataTextEditor.tsx),
+the list catalog in [MetadataPillEditor](../../src/components/MetadataPillEditor.tsx),
+and composite preparation in [MetadataLocationEditor](../../src/components/MetadataLocationEditor.tsx).
+
+This does **not** complete archive/unarchive, connect new metadata or membership
+writes, implement collection-tree CRUD, or settle the final desktop/collection UX.
+The operator accepts existing single-operator prototype concurrency limits for
+future hookup: [GRID-011](bug-backlog.md#grid-011) and
+[GRID-020](bug-backlog.md#grid-020) remain recorded, not new blanket editing gates.
+No server repair, shared-environment mutation or broader rollout is authorized here.
 
 Complete label suggestions, add/remove and mixed-selection behavior. Add archive/unarchive as
 explicit target states, not a blind toggle across mixed values. Archive is persistence/reaper
@@ -853,12 +966,19 @@ identity and fresh capability information. Avoid duplicate additions on ambiguou
 
 **Done when:** each action works singly and at its approved batch cap, updates detail/selection
 and search display, and preserves the viewport under a matching label/archive/collection filter.
-Collection removal and tree deletion remain disabled until step 12. Archive overwrite is
+Connected collection removal and tree deletion remain deferred to step 12; the
+expanded UI may prepare not-sent membership intent. Archive overwrite is
 last-writer-wins, not a universal commutative-operation guarantee.
 
 ### Step 8. Editable Metadata, Including Configured Domain Fields
 
 **Depends on:** step 5; step 6 for batch fields; a documented concurrency choice.
+
+**Presentation brought forward, execution not implemented.** The ordinary-field UI
+register under Step 7 is complete at its stated preparation-only scope. The commands,
+fresh original/override reads and merges, reset behavior, publication and configured-domain
+schema/editors described below remain future work. Subjects editing is separately
+backlogged as KUP-051; its existing backend support does not imply a connected control.
 
 Implement fields exposed by the current Kahuna metadata editor, not merely the few visible by
 default in Kupua: title, description, special instructions, byline, credit, copyright,
@@ -971,6 +1091,11 @@ later in upload completion; do not implement a second template engine there.
 ### Step 12. Collection Removal and Tree Management
 
 **Depends on:** step 7; resolve GRID-011 before claiming safe concurrent membership removal.
+
+**Membership presentation only:** the current panel prepares Not sent removal and
+apply-to-all intent; no collection command or tree-management implementation follows
+from those controls. Preserve the accepted prototype concurrency choice recorded
+under Step 7 without claiming cross-client safety.
 
 Implement per-image and selected-image removal after a bounded server repair or explicitly
 approved prototype limitation. A client queue cannot prevent another user's concurrent add
@@ -1097,6 +1222,10 @@ automatically new UI actions just because they exist.
 ### Step 16. Photoshoots, Syndication Rights and Send to Photo Sales
 
 **Depends on:** steps 8-10 as applicable; source/event handoff decisions for GRID-009/013.
+
+**Photoshoot presentation only:** suggested title/clear input prepares Not sent intent.
+Assignment/removal execution, cross-image rights effects, syndication and external
+publication remain unimplemented by this UI batch.
 
 Support photoshoot assignment/removal and the existing rights/syndication workflow exposed by
 the target deployment. A photoshoot change can affect rights of other images: preview that
@@ -1312,7 +1441,10 @@ service, new bulk lane or migration work is implicitly selected here.
 
 ## 4. Parity Checklist and Dependency Map
 
-All rows are planned, not implemented by this document. "After" refers to this plan's step.
+This remains a target parity checklist, not a blanket completion claim. Partial UI
+implementation of rows 7, 8, 12 and 16 is recorded in the
+[current checkpoint](#current-implementation-checkpoint); the outstanding commands
+and acceptance stay with their steps. "After" refers to this plan's step.
 
 | Kahuna capability / acceptance family | After | Additional dependency or limit |
 | --- | --- | --- |

@@ -5,11 +5,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { RECONCILE_FIELDS } from "@/lib/field-registry";
 import { recomputeAll } from "@/lib/reconcile";
+import { gridConfig } from "@/lib/grid-config";
+import { LOCATION_COMPONENTS, MetadataLocationEditor } from "./MetadataLocationEditor";
 import type { Image } from "@/types/image";
 import { MultiImageMetadata } from "./MultiImageMetadata";
 import { ImageMetadata } from "./ImageMetadata";
-import { LabelEditorContext, LabelOperationReceipts } from "./LabelEditor";
-import { createLabelEditorStore } from "@/stores/label-editor-store";
+import { LabelEditor, LabelEditorContext, LabelOperationReceipts } from "./LabelEditor";
+import { createLabelEditorStore, labelTargetKey } from "@/stores/label-editor-store";
+import { MetadataTextEditor } from "./MetadataTextEditor";
+import * as typeahead from "@/lib/typeahead-fields";
 import type { GridCommandResult, LabelCommand } from "@/lib/grid-commands";
 import { acceptEnrichedImage, attachEnrichment, useEnrichmentStore } from "@/stores/enrichment-store";
 import { acceptImageOverlay, acceptObservedImages, admitLabelObservation, captureImageRead, recordImageAvailability, resetImageFreshnessForTests, stampImageRead } from "@/lib/image-read-freshness";
@@ -64,7 +68,374 @@ describe("multi-image cost summary", () => {
   });
 });
 
+describe("metadata field preparation", () => {
+  it("preserves the original offset when editing the repeated local hour", () => {
+    vi.stubEnv("TZ", "Europe/London");
+    expect(new Date("2026-10-25T01:31").getTimezoneOffset()).toBe(-60);
+    const prepare = vi.fn();
+    const field = RECONCILE_FIELDS.find(field => field.id === "metadata_dateTaken")!;
+    render(<dl><MetadataTextEditor field={field} targetIds={["first"]} value="2026-10-25T01:30:00Z" onPrepare={prepare}>Taken on</MetadataTextEditor></dl>);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Taken on" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Minutes" }), { target: { value: "31" } });
+    fireEvent.click(screen.getByRole("button", { name: "Commit Taken on" }));
+    expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ value: "2026-10-25T01:31:00.000Z" }));
+  });
+
+  it.each(["single", "multiple"])("keeps upstream usage instructions read-only in %s metadata", context => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const populated = images.map(image => ({ ...image, metadata: { ...image.metadata, usageInstructions: "Upstream restrictions", specialInstructions: "" } }));
+    render(context === "single" ? <ImageMetadata image={populated[0]} />
+      : <MultiImageMetadata images={populated} reconciledView={recomputeAll(populated, RECONCILE_FIELDS)} total={2} />);
+    expect(screen.queryByText("Upstream restrictions")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit Usage instructions" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Special instructions" }));
+    expect((screen.getByLabelText("Special instructions") as HTMLTextAreaElement).value).toBe("");
+    expect(screen.getByText("Upstream restrictions")).toBeTruthy();
+  });
+
+  it("places metadata suggestions outside the heading and action row in either direction", () => {
+    vi.spyOn(typeahead, "buildTypeaheadFields").mockReturnValue([{ fieldName: "credit", resolver: ["Reuters"] }]);
+    let editorBounds = new DOMRect(100, 80, 260, 160);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      if (this.hasAttribute("data-metadata-field")) return editorBounds;
+      if (this instanceof HTMLInputElement) return new DOMRect(180, editorBounds.top + 30, 150, 30);
+      return new DOMRect();
+    });
+    const field = RECONCILE_FIELDS.find(field => field.id === "metadata_credit")!;
+    render(<dl><MetadataTextEditor field={field} targetIds={["first"]} value="">Empty</MetadataTextEditor></dl>);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Credit" }));
+    const list = screen.getByRole("listbox", { name: "Suggestions for Credit" });
+    expect(Number.parseFloat(list.style.top)).toBe(editorBounds.bottom + 6);
+    expect(list.style.transform).toBe("");
+    editorBounds = new DOMRect(100, window.innerHeight - 140, 260, 120);
+    fireEvent(window, new Event("resize"));
+    expect(Number.parseFloat(list.style.top)).toBe(editorBounds.top - 6);
+    expect(list.style.transform).toBe("translateY(-100%)");
+    editorBounds = new DOMRect(100, -100, 260, window.innerHeight + 200);
+    fireEvent(window, new Event("resize"));
+    const input = screen.getByLabelText("Credit") as HTMLInputElement;
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(input.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(input.value).toBe("");
+    expect(input.getAttribute("aria-activedescendant")).toBeNull();
+  });
+
+  it("dismisses scalar suggestions before cancelling and leaves modified Enter to the editor", () => {
+    vi.spyOn(typeahead, "buildTypeaheadFields").mockReturnValue([{ fieldName: "credit", resolver: ["BBC", "Reuters"] }]);
+    const prepare = vi.fn();
+    const field = RECONCILE_FIELDS.find(field => field.id === "metadata_credit")!;
+    render(<dl><MetadataTextEditor field={field} targetIds={["first"]} value="Original credit" onPrepare={prepare}>Original credit</MetadataTextEditor></dl>);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Credit" }));
+    const input = screen.getByLabelText("Credit") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "R" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(screen.queryByLabelText("Credit")).not.toBeNull();
+    expect(input.value).toBe("R");
+    expect(screen.queryByRole("listbox")).toBeNull();
+    fireEvent.change(input, { target: { value: "Re" } });
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.keyDown(input, { key: "Enter", ctrlKey: true });
+    expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ fieldId: "metadata_credit", value: "Re" }));
+  });
+
+  it("normalizes Photoshoot before deciding whether a commit changes anything", () => {
+    const prepare = vi.fn();
+    const field = RECONCILE_FIELDS.find(field => field.id === "photoshoot")!;
+    render(<dl><MetadataTextEditor field={field} targetIds={["first"]} value="Assignment" onPrepare={prepare}>Assignment</MetadataTextEditor></dl>);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Photoshoot" }));
+    fireEvent.change(screen.getByLabelText("Photoshoot"), { target: { value: " Assignment " } });
+    expect(screen.getByRole("button", { name: "Commit Photoshoot" }).hasAttribute("disabled")).toBe(true);
+    fireEvent.change(screen.getByLabelText("Photoshoot"), { target: { value: " Another assignment " } });
+    fireEvent.click(screen.getByRole("button", { name: "Commit Photoshoot" }));
+    expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ fieldId: "photoshoot", value: "Another assignment" }));
+  });
+
+  it("distinguishes mixed image types from explicitly clearing their override", () => {
+    const types = [...gridConfig.imageTypes];
+    gridConfig.imageTypes.splice(0, gridConfig.imageTypes.length, "Photograph", "Illustration");
+    try {
+      const prepare = vi.fn();
+      const field = RECONCILE_FIELDS.find(field => field.id === "metadata_imageType")!;
+      render(<dl><MetadataTextEditor field={field} targetIds={["first", "second"]} value="" mixed onPrepare={prepare}>Multiple image types</MetadataTextEditor></dl>);
+      fireEvent.click(screen.getByRole("button", { name: "Edit Image type" }));
+      const input = screen.getByLabelText("Image type") as HTMLSelectElement;
+      expect(within(input).queryByRole("option", { name: "Multiple image types" })).not.toBeNull();
+      const unknown = within(input).getByRole("option", { name: "Unknown" }) as HTMLOptionElement;
+      fireEvent.change(input, { target: { value: unknown.value } });
+      expect(screen.getByRole("button", { name: "Commit Image type" }).hasAttribute("disabled")).toBe(false);
+      fireEvent.click(screen.getByRole("button", { name: "Commit Image type" }));
+      expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ fieldId: "metadata_imageType", value: "" }));
+    } finally { gridConfig.imageTypes.splice(0, gridConfig.imageTypes.length, ...types); }
+  });
+
+  it("keeps Location input while selected metadata is temporarily pending", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const selected = images.map((image, index) => ({ ...image, metadata: { ...image.metadata, city: index ? "Paris" : "London" } }));
+    const view = (pending: boolean) => <MultiImageMetadata images={selected} total={2}
+      reconciledView={pending ? null : recomputeAll(selected, RECONCILE_FIELDS)}
+      labelEditing={{ targetIds: selected.map(image => image.id), targets: new Map(), pending }} />;
+    const { rerender } = render(view(false));
+    fireEvent.click(screen.getByRole("button", { name: "Edit Location" }));
+    expect(screen.getByLabelText("Sublocation").getAttribute("placeholder")).toBe("or place");
+    expect(screen.getByLabelText("State").getAttribute("placeholder")).toBe("or region");
+    expect(screen.getByLabelText("City").getAttribute("placeholder")).toBe("Multiple cities");
+    fireEvent.change(screen.getByLabelText("City"), { target: { value: "Draft city" } });
+    rerender(view(true));
+    expect((screen.getByLabelText("City") as HTMLInputElement).value).toBe("Draft city");
+    expect(screen.getByRole("button", { name: "Commit Location" }).hasAttribute("disabled")).toBe(true);
+    rerender(view(false));
+    expect((screen.getByLabelText("City") as HTMLInputElement).value).toBe("Draft city");
+  });
+
+  it("prepares only changed Location components, preserving untouched shared and mixed values", () => {
+    const prepare = vi.fn();
+    const fields = LOCATION_COMPONENTS.map(field => ({ ...field, value: field.key === "subLocation" ? "Picture desk" : field.key === "country" ? "United Kingdom" : "", mixed: field.key === "city" || field.key === "state" }));
+    render(<dl><MetadataLocationEditor fields={fields} targetIds={["first", "second"]} available onPrepare={prepare}>Multiple cities</MetadataLocationEditor></dl>);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Location" }));
+    const first = screen.getByLabelText("Sublocation") as HTMLInputElement;
+    expect(first.selectionStart).toBe(first.value.length);
+    expect(screen.queryByRole("button", { name: "Clear Location" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Commit Location" }).hasAttribute("disabled")).toBe(true);
+    fireEvent.change(screen.getByLabelText("City"), { target: { value: "London" } });
+    fireEvent.keyDown(screen.getByLabelText("City"), { key: "Enter" });
+    expect(prepare).toHaveBeenCalledWith({ fieldId: "location", action: "overwrite", value: { city: "London" }, targetIds: ["first", "second"] });
+    expect(screen.getByRole("status").textContent).toContain("Not sent");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel Location" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit Location" }));
+    expect(screen.queryByRole("button", { name: "Clear City" })).not.toBeNull();
+    const clearCity = screen.getByRole("button", { name: "Clear City" });
+    prepare.mockClear();
+    expect(fireEvent.keyDown(clearCity, { key: "Enter" })).toBe(true);
+    expect(prepare).not.toHaveBeenCalled();
+    fireEvent.click(clearCity);
+    expect(screen.getByLabelText("City").getAttribute("placeholder")).toBeNull();
+    expect(screen.getByLabelText("State").getAttribute("placeholder")).toBe("Multiple states");
+    fireEvent.click(screen.getByRole("button", { name: "Commit Location" }));
+    expect(prepare).toHaveBeenLastCalledWith(expect.objectContaining({ fieldId: "location", value: { city: "" } }));
+  });
+
+  it("uses configured image types and date segments without changing the stored instant on entry", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const types = [...gridConfig.imageTypes];
+    gridConfig.imageTypes.splice(0, gridConfig.imageTypes.length, "Photograph", "Illustration");
+    try {
+      const dateTaken = "2026-11-10T11:22:33.123Z";
+      const populated = images.map(image => ({ ...image, metadata: { ...image.metadata, dateTaken, imageType: "Photograph" },
+        userMetadata: { ...image.userMetadata, photoshoot: { title: "Assignment" } } }));
+      render(<MultiImageMetadata images={populated} reconciledView={recomputeAll(populated, RECONCILE_FIELDS)} total={2} />);
+      fireEvent.click(screen.getByRole("button", { name: "Edit Image type" }));
+      expect((within(screen.getByLabelText("Image type")).getByRole("option", { name: "Photograph" }) as HTMLOptionElement).selected).toBe(true);
+      expect(screen.getByRole("button", { name: "Commit Image type" }).hasAttribute("disabled")).toBe(true);
+      fireEvent.click(screen.getByRole("button", { name: "Edit Taken on" }));
+      const input = screen.getByRole("group", { name: "Taken on" });
+      expect((screen.getByRole("textbox", { name: "Milliseconds" }) as HTMLInputElement).value).toBe("123");
+      expect(screen.getByRole("button", { name: "Commit Taken on" }).hasAttribute("disabled")).toBe(true);
+      fireEvent.change(screen.getByRole("textbox", { name: "Day" }), { target: { value: "32" } });
+      expect(input.getAttribute("aria-invalid")).toBe("true");
+      expect(screen.getByRole("alert").textContent).toContain("date and time");
+      fireEvent.click(screen.getByRole("button", { name: "Edit Photoshoot" }));
+      expect((screen.getByLabelText("Photoshoot") as HTMLInputElement).value).toBe("Assignment");
+      expect(screen.getByRole("button", { name: "Add person" })).toBeTruthy();
+    } finally { gridConfig.imageTypes.splice(0, gridConfig.imageTypes.length, ...types); }
+  });
+
+  it("prepares date changes at whole seconds, retains manual fractions and accepts a complete clear", () => {
+    const prepare = vi.fn();
+    const field = RECONCILE_FIELDS.find(field => field.id === "metadata_dateTaken")!;
+    const original = "2026-11-10T11:22:33.123Z";
+    render(<dl><MetadataTextEditor field={field} targetIds={["first"]} value={original} onPrepare={prepare}>10 Nov 2026 11:22</MetadataTextEditor></dl>);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Taken on" }));
+    const calendar = screen.getByLabelText("Taken on calendar") as HTMLInputElement;
+    expect(calendar.step).toBe("1");
+    expect(new Date(calendar.value).getMilliseconds()).toBe(0);
+    const expected = new Date(original);
+    expected.setDate(expected.getDate() + 1); expected.setMilliseconds(0);
+    fireEvent.change(screen.getByRole("textbox", { name: "Day" }), { target: { value: String(expected.getDate()) } });
+    expect((screen.getByRole("textbox", { name: "Milliseconds" }) as HTMLInputElement).value).toBe("000");
+    fireEvent.click(screen.getByRole("button", { name: "Commit Taken on" }));
+    expect(prepare).toHaveBeenLastCalledWith(expect.objectContaining({ value: expected.toISOString() }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Milliseconds" }), { target: { value: "456" } });
+    expected.setMilliseconds(456);
+    fireEvent.click(screen.getByRole("button", { name: "Commit Taken on" }));
+    expect(prepare).toHaveBeenLastCalledWith(expect.objectContaining({ value: expected.toISOString() }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Year" }), { target: { value: "2" } });
+    expect(screen.getByRole("button", { name: "Commit Taken on" }).hasAttribute("disabled")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Clear Taken on" }));
+    fireEvent.click(screen.getByRole("button", { name: "Commit Taken on" }));
+    expect(prepare).toHaveBeenLastCalledWith(expect.objectContaining({ value: "" }));
+    fireEvent.change(calendar, { target: { value: "2026-11-12T10:20:30" } });
+    expect((screen.getByRole("textbox", { name: "Milliseconds" }) as HTMLInputElement).value).toBe("000");
+    fireEvent.change(calendar, { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Commit Taken on" }));
+    expect(prepare).toHaveBeenLastCalledWith(expect.objectContaining({ value: "" }));
+    fireEvent.change(calendar, { target: { value: "2026-11-12T10:20:30" } });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Day" }), { key: "a", ctrlKey: true });
+    const minutes = screen.getByRole("textbox", { name: "Minutes" });
+    fireEvent.pointerDown(minutes);
+    fireEvent.focus(minutes);
+    fireEvent.keyDown(minutes, { key: "Backspace" });
+    expect((screen.getByRole("textbox", { name: "Year" }) as HTMLInputElement).value).toBe("2026");
+    fireEvent.keyDown(minutes, { key: "a", ctrlKey: true });
+    fireEvent.keyDown(minutes, { key: "Backspace" });
+    expect((screen.getByRole("textbox", { name: "Year" }) as HTMLInputElement).value).toBe("");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel Taken on" }));
+    expect(screen.getByText("10 Nov 2026 11:22")).toBeTruthy();
+  });
+
+  it("keeps mixed date segments through pending reads without treating partial input as clearing", () => {
+    const prepare = vi.fn();
+    const field = RECONCILE_FIELDS.find(field => field.id === "metadata_dateTaken")!;
+    const view = (available: boolean) => <dl><MetadataTextEditor field={field} targetIds={["first", "second"]} value="" mixed available={available} onPrepare={prepare}>Multiple dates</MetadataTextEditor></dl>;
+    const { rerender } = render(view(true));
+    fireEvent.click(screen.getByRole("button", { name: "Edit Taken on" }));
+    expect(screen.getByRole("group", { name: "Taken on" }).textContent).toContain("Multiple dates");
+    expect(screen.queryByRole("textbox", { name: "Day" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Clear Taken on" }));
+    expect(screen.getByRole("group", { name: "Taken on" }).textContent).not.toContain("Multiple dates");
+    fireEvent.click(screen.getByRole("button", { name: "Commit Taken on" }));
+    expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ value: "", targetIds: ["first", "second"] }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel Taken on" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit Taken on" }));
+    fireEvent.click(screen.getByRole("button", { name: "Multiple dates" }));
+    expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "Day" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Day" }), { target: { value: "1" } });
+    expect(screen.getByRole("group", { name: "Taken on" }).textContent).not.toContain("Multiple dates");
+    rerender(view(false));
+    expect((screen.getByRole("textbox", { name: "Day" }) as HTMLInputElement).value).toBe("1");
+    rerender(view(true));
+    expect(screen.getByRole("button", { name: "Commit Taken on" }).hasAttribute("disabled")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Clear Taken on" }));
+    fireEvent.click(screen.getByRole("button", { name: "Commit Taken on" }));
+    expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ value: "", targetIds: ["first", "second"] }));
+  });
+
+  it("offers ordinary editable text fields without making Source editable", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const populated = images.map(image => ({ ...image, metadata: { ...image.metadata,
+      byline: "Picture desk", specialInstructions: "Handle with care", copyright: "Picture desk", source: "Imported" } }));
+    render(<MultiImageMetadata images={populated} reconciledView={recomputeAll(populated, RECONCILE_FIELDS)} total={2} />);
+    for (const name of ["By", "Special instructions", "Copyright"]) {
+      fireEvent.click(screen.getByRole("button", { name: `Edit ${name}` }));
+      const input = screen.getByLabelText(name) as HTMLInputElement | HTMLTextAreaElement;
+      expect(input.getAttribute("role")).toBeNull();
+      expect(input.selectionStart).toBe(input.value.length);
+      expect(input.selectionEnd).toBe(input.value.length);
+      fireEvent.click(screen.getByRole("button", { name: `Cancel ${name}` }));
+    }
+    expect(screen.queryByRole("button", { name: "Edit Source" })).toBeNull();
+  });
+
+  it("keeps empty Title disabled but permits blank mixed Description overwrite, not empty additions", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const mixed = images.map((image, index) => ({ ...image, metadata: { ...image.metadata, title: "", description: `Description ${index}`, byline: `Byline ${index}` } }));
+    render(<MultiImageMetadata images={mixed} reconciledView={recomputeAll(mixed, RECONCILE_FIELDS)} total={2} />);
+    expect(screen.getByRole("button", { name: "Edit Title" }).closest("dt")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Title" }));
+    expect(screen.getByRole("button", { name: "Commit Title" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("textbox", { name: "Title" }).getAttribute("placeholder")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Edit By" }));
+    expect(screen.getByRole("textbox", { name: "By" }).getAttribute("placeholder")).toBe("Multiple bylines");
+    fireEvent.click(screen.getByRole("button", { name: "Edit Description" }));
+    expect((screen.getByRole("textbox", { name: "Description" }) as HTMLTextAreaElement).value).toBe("");
+    expect(screen.getByRole("textbox", { name: "Description" }).getAttribute("placeholder")).toBe("Multiple descriptions");
+    expect((screen.getByRole("radio", { name: "Overwrite" }) as HTMLInputElement).checked).toBe(true);
+    const commit = screen.getByRole("button", { name: "Commit Description" });
+    expect(commit.hasAttribute("disabled")).toBe(false);
+    expect(screen.queryByRole("button", { name: "Clear Description" })).toBeNull();
+    for (const name of ["Add before", "Add after"]) {
+      fireEvent.click(screen.getByRole("radio", { name }));
+      expect(commit.hasAttribute("disabled")).toBe(true);
+      expect(screen.getByRole("textbox", { name: "Description" }).getAttribute("placeholder")).toBeNull();
+    }
+    fireEvent.click(screen.getByRole("radio", { name: "Overwrite" }));
+    fireEvent.click(commit);
+    expect(screen.getByRole("status").textContent).toContain("Not sent");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel Description" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit Description" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Description" }), { target: { value: "New description" } });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Description" }), { key: "Enter" });
+    expect(screen.queryByRole("status")).toBeNull();
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Description" }), { key: "Enter", metaKey: true });
+    expect(screen.getByRole("status").textContent).toContain("Not sent");
+  });
+
+  it("prepares collection removal without changing canonical memberships", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const selected = images.map((image, index) => ({ ...image, collections: index ? [] : [{ pathId: "editorial/news", path: ["Editorial", "News"] }] }));
+    render(<MultiImageMetadata images={selected} reconciledView={recomputeAll(selected, RECONCILE_FIELDS)} total={2} />);
+    const row = fieldRow("Collections");
+    expect(within(row).getByRole("button", { name: "Add collection" }).closest("dt")).not.toBeNull();
+    expect(row.querySelector("dd")?.contains(within(row).getByRole("button", { name: "Remove editorial/news from all selected images" }))).toBe(true);
+    expect(within(row).getByText("Editorial")).toBeTruthy();
+    expect(within(row).getByText("News")).toBeTruthy();
+    fireEvent.click(within(row).getByRole("button", { name: "Remove editorial/news from all selected images" }));
+    expect(screen.getByRole("status").textContent).toContain("Not sent");
+    expect(selected[0].collections).toHaveLength(1);
+    expect(within(row).getByRole("button", { name: "Apply editorial/news to all selected images" }).title).toContain("all 2 images");
+    fireEvent.click(screen.getByRole("button", { name: "Add keyword" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "New keyword" }), { target: { value: "shared" } });
+    expect(screen.getByRole("button", { name: "Commit new keyword" }).hasAttribute("disabled")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel new keyword" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add keyword" }));
+  });
+
+  it("keeps Description mode drafts separate and permits clearing shared text without sending", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const shared = images.map(image => ({ ...image, metadata: { ...image.metadata, description: "Shared description" } }));
+    const renderView = (pending = false) => <MultiImageMetadata images={shared} reconciledView={recomputeAll(shared, RECONCILE_FIELDS)} total={2}
+      labelEditing={{ targetIds: shared.map(image => image.id), targets: new Map(), pending }} />;
+    const { rerender } = render(renderView());
+    fireEvent.click(screen.getByRole("button", { name: "Edit Description" }));
+    const input = screen.getByRole("textbox", { name: "Description" }) as HTMLTextAreaElement;
+    expect(input.value).toBe("Shared description");
+    expect(input.selectionStart).toBe(input.value.length);
+    expect(input.selectionEnd).toBe(input.value.length);
+    expect(screen.queryByRole("radio", { name: "Overwrite" })).toBeNull();
+    const commit = screen.getByRole("button", { name: "Commit Description" });
+    expect(commit.hasAttribute("disabled")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Add before" }));
+    expect(input.value).toBe("");
+    expect(commit.hasAttribute("disabled")).toBe(true);
+    fireEvent.change(input, { target: { value: "Prefix" } });
+    rerender(renderView(true));
+    expect((screen.getByRole("textbox", { name: "Description" }) as HTMLTextAreaElement).value).toBe("Prefix");
+    expect(commit.hasAttribute("disabled")).toBe(true);
+    rerender(renderView());
+    fireEvent.click(screen.getByRole("button", { name: "Add after" }));
+    expect(input.value).toBe("");
+    fireEvent.click(screen.getByRole("button", { name: "Add before" }));
+    expect(input.value).toBe("Prefix");
+    fireEvent.click(screen.getByRole("button", { name: "Add before" }));
+    expect(input.value).toBe("Shared description");
+    fireEvent.change(input, { target: { value: "" } });
+    expect(commit.hasAttribute("disabled")).toBe(false);
+    fireEvent.click(commit);
+    expect(screen.getByRole("status").textContent).toContain("Not sent");
+    expect(shared.every(image => image.metadata.description === "Shared description")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel Description" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Edit Description" }));
+  });
+});
+
 describe("disconnected label editing", () => {
+  it("does not cancel label input when Escape dismisses an IME candidate", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const store = createLabelEditorStore();
+    const targetIds = ["first"];
+    try {
+      render(<dl><LabelEditorContext value={store}><LabelEditor context={{ targetIds, targets: new Map([["first", {
+        resource: { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/first" }] },
+      }]]) }} values={[]} onSearch={vi.fn()} /></LabelEditorContext></dl>);
+      fireEvent.click(screen.getByRole("button", { name: "Add label" }));
+      const input = screen.getByRole("combobox", { name: "Add label" });
+      fireEvent.change(input, { target: { value: "IME draft" } });
+      fireEvent.keyDown(input, { key: "Escape", isComposing: true });
+      expect(store.getState().drafts.get(labelTargetKey(targetIds))?.value).toBe("IME draft");
+    } finally { store.getState().dispose(); }
+  });
+
   it("bounds overlapping bulk submissions and lets a waiting operation be stopped", async () => {
     vi.stubEnv("VITE_USE_MEDIA_API", "true");
     let release!: (result: GridCommandResult) => void;
@@ -114,6 +485,9 @@ describe("disconnected label editing", () => {
       }} /></LabelEditorContext>);
     expect(screen.getByText("Select at most 100 images to edit labels.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Add label" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Edit Title" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Add keyword" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Add collection" }).hasAttribute("disabled")).toBe(true);
     store.getState().dispose();
   });
 
@@ -480,7 +854,7 @@ describe("multi-image chip disclosure", () => {
     const pills = within(values).getAllByRole("button");
     expect(pills.map(button => button.textContent)).toEqual(["shared", ...partialKeywords]);
     expect(pills[0].hasAttribute("data-partial")).toBe(false);
-    expect(pills[0].className).toContain("bg-grid-cell-hover/60");
+    expect(pills[0].className).toContain("bg-[#222]");
     for (const pill of pills.slice(1)) {
       expect(pill.getAttribute("data-partial")).toBe("true");
       expect(pill.getAttribute("title")).toContain("1/2");

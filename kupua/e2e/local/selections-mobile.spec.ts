@@ -193,7 +193,7 @@ test("desktop touch keeps checkboxes and long-press selection together", async (
   await expect(page.getByRole("button", { name: /selected.*actions/ })).toHaveCount(0);
 });
 
-test("phone keeps Refine available after rotating to landscape", async ({ page }) => {
+test("phone keeps Refine and overlay suggestions available after rotating to landscape", async ({ page }) => {
   await page.setViewportSize({ width: 852, height: 393 });
   await expect(page.locator("html")).toHaveAttribute("data-shell", "compact");
   const toolbar = page.getByRole("toolbar", { name: "Search and filter controls" });
@@ -230,6 +230,22 @@ test("phone keeps Refine available after rotating to landscape", async ({ page }
     const params = new URL(page.url()).searchParams;
     return { query: params.get("query"), orderBy: params.get("orderBy") };
   }).toEqual({ query: "tennis", orderBy: null });
+  await refine.getByRole("button", { name: "Add filter", exact: true }).tap();
+  await refine.getByRole("button", { name: "usages@status", exact: true }).tap();
+  const input = refine.getByRole("combobox", { name: "Filter value" });
+  const followingControl = refine.getByRole("checkbox").first();
+  const beforeSuggestions = (await followingControl.boundingBox())!;
+  await input.fill("p");
+  const suggestions = refine.getByRole("listbox", { name: "Suggestions for usages@status" });
+  await expect(suggestions).toBeVisible();
+  await expect(suggestions.getByRole("option")).toHaveCount(2);
+  await expect(suggestions).toHaveCSS("position", "absolute");
+  expect((await followingControl.boundingBox())!.y).toBeCloseTo(beforeSuggestions.y, 1);
+  const popup = (await suggestions.boundingBox())!;
+  expect(popup.y).toBeGreaterThanOrEqual(0);
+  expect(popup.y + popup.height).toBeLessThanOrEqual(page.viewportSize()!.height + 1);
+  await suggestions.getByRole("option", { name: "pending", exact: true }).tap();
+  await expect.poll(() => new URL(page.url()).searchParams.get("query")).toContain("usages@status:pending");
 });
 
 test("holding the reveal button does not select or open a protected thumbnail", async ({ page }) => {
@@ -1461,12 +1477,36 @@ test("SelectionFab count expands actions; Details expands the card and scrim col
   await endPress(page, rect.x, rect.y);
 
   await expect(page.getByRole("button", { name: "Expand Details" })).toBeVisible();
+  const card = page.locator('[data-bottom-sheet][aria-label="Details"]');
+  const fab = page.locator(".selection-fab");
+  await card.evaluate(async card => { await Promise.all(card.getAnimations().map(animation => animation.finished.catch(() => {}))); });
+  const collapsedCard = (await card.boundingBox())!;
+  const collapsedFab = (await fab.boundingBox())!;
+  const gap = collapsedCard.y - collapsedFab.y - collapsedFab.height;
   await page.getByRole("button", { name: "1 selected — actions" }).click();
-  await page.getByRole("menuitem", { name: "Details" }).click();
-  await expect(page.getByRole("menuitem")).toHaveCount(0);
+  await page.getByRole("group", { name: "Selection actions" }).getByRole("button", { name: "Details", exact: true }).click();
+  await expect(page.getByRole("group", { name: "Selection actions" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Collapse Details" })).toBeVisible();
-
+  await expect(card).toHaveAttribute("role", "dialog");
+  await expect(card).toHaveAttribute("aria-modal", "true");
+  expect(await page.locator("[data-grid-cell]").first().evaluate(cell => !!cell.closest("[inert]"))).toBe(true);
+  await card.evaluate(async card => { await Promise.all(card.getAnimations().map(animation => animation.finished.catch(() => {}))); });
+  const expandedCard = (await card.boundingBox())!;
+  const expandedFab = (await fab.boundingBox())!;
+  expect(expandedCard.y - expandedFab.y - expandedFab.height).toBeCloseTo(gap, 0);
+  expect(expandedFab.y).toBeLessThan(collapsedFab.y - 100);
+  await page.setViewportSize({ width: 852, height: 393 });
+  await page.getByRole("button", { name: "1 selected — actions" }).click();
+  const actions = page.getByRole("group", { name: "Selection actions" });
+  const actionsBox = (await actions.boundingBox())!;
+  expect(actionsBox.y).toBeGreaterThanOrEqual(0);
+  expect(actionsBox.y + actionsBox.height).toBeLessThanOrEqual(393);
+  await actions.getByRole("button", { name: "Details", exact: true }).press("Enter");
+  await expect(page.getByRole("button", { name: "1 selected — actions" })).toBeFocused();
+  await expect(actions).toHaveCount(0);
   await page.getByTestId("card-scrim").click({ position: { x: 10, y: 10 } });
   await expect(page.getByRole("button", { name: "Expand Details" })).toBeVisible();
+  await expect(card).toHaveAttribute("role", "region");
+  expect(await page.locator("[data-grid-cell]").first().evaluate(cell => !!cell.closest("[inert]"))).toBe(false);
   expect(await getSelectionCount(page)).toBe(1);
 });

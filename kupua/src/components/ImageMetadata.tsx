@@ -54,6 +54,9 @@ import { gridConfig } from "@/lib/grid-config";
 import { useCategoryLabel } from "@/lib/category-labels";
 import { LabelEditor } from "./LabelEditor";
 import type { LabelEditContext } from "@/lib/label-operation";
+import { MetadataTextEditor, METADATA_EDIT_CONTROLS } from "./MetadataTextEditor";
+import { MetadataPillEditor, PILL_EDIT_FIELDS } from "./MetadataPillEditor";
+import { MetadataLocationEditor, LOCATION_COMPONENTS } from "./MetadataLocationEditor";
 
 
 const SECTIONS = groupFieldsIntoSections(DETAIL_PANEL_FIELDS);
@@ -410,6 +413,26 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
                 values={Array.isArray(raw) ? raw.map(value => ({ value: String(value), count: 1 })) : []} />;
             }
             const hasValue = Array.isArray(raw) ? raw.length > 0 : raw != null && raw !== "";
+
+            if (field.id === "location" && import.meta.env.VITE_USE_MEDIA_API === "true") {
+              return <MetadataLocationEditor key={`location:${image.id}`} targetIds={[image.id]}
+                available={!editingPending && !labelEditing?.pending && !enriched?.metadataStale}
+                fields={LOCATION_COMPONENTS.map(component => ({ ...component, value: image.metadata?.[component.key] ?? "", mixed: false }))}>
+                {hasValue ? <FieldValue field={field} image={image} onSearch={onSearch} /> : <Dash />}
+              </MetadataLocationEditor>;
+            }
+            if (PILL_EDIT_FIELDS.has(field.id) && import.meta.env.VITE_USE_MEDIA_API === "true") {
+              return <MetadataPillEditor key={`${field.id}:${image.id}`} field={field} targetIds={[image.id]} onSearch={onSearch}
+                available={!editingPending && !labelEditing?.pending && !enriched?.metadataStale}
+                values={Array.isArray(raw) ? raw.map(value => ({ value: String(value), count: 1 })) : []}
+                collectionPaths={field.id === "collections" ? new Map(image.collections?.flatMap(collection => collection.pathId ? [[collection.pathId, collection.path ?? collection.pathId.split("/")] as const] : [])) : undefined} />;
+            }
+            if (METADATA_EDIT_CONTROLS.has(field.id) && import.meta.env.VITE_USE_MEDIA_API === "true") {
+              return <MetadataTextEditor key={`${field.id}:${image.id}`} field={field} targetIds={[image.id]} value={typeof raw === "string" ? raw : ""}
+                available={!editingPending && !labelEditing?.pending && !enriched?.metadataStale}>
+                {hasValue ? <FieldValue field={field} image={image} onSearch={onSearch} /> : <Dash />}
+              </MetadataTextEditor>;
+            }
 
             if (!hasValue) {
               if (!field.showWhenEmpty) return null;

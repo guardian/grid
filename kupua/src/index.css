@@ -1,5 +1,83 @@
 @import "tailwindcss";
 
+:root { --mobile-edit-control-size: 36px; }
+
+[data-editable-pill] > button { position: relative; }
+[data-editable-pill] > button::after { content: ""; position: absolute; right: 0; top: 25%; bottom: 25%; width: 1px; background: currentColor; opacity: .18; pointer-events: none; }
+[data-editable-pill] > button:last-child::after { right: auto; left: 0; }
+[data-editable-pill] > span { overflow-wrap: anywhere; }
+@media (hover: hover) and (pointer: fine) {
+  .metadata-edit-tool:enabled:hover { background: #555; color: white; border-radius: 50%; }
+  [data-metadata-field] .metadata-pencil { opacity: 0; }
+  [data-metadata-field]:hover .metadata-pencil, [data-metadata-field] .metadata-pencil:focus-visible { opacity: 1; }
+  [data-search-pill]:not([data-accent]):hover, [data-editable-pill] button:enabled:hover { background: #333; color: #ccc; }
+  [data-search-pill][data-partial="true"]:not([data-accent]):hover { background: #555; color: white; }
+  [data-editable-pill][data-coverage="partial"] button:enabled:hover { background: #555; color: white; }
+  [data-editable-pill][data-accent] button:enabled:hover { background: white; color: var(--color-grid-accent-dark); }
+  [data-editable-pill][data-accent][data-coverage="partial"] button:enabled:hover { background: var(--color-grid-accent-dark); color: white; }
+}
+.metadata-add-tool { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; flex-shrink: 0; cursor: pointer; color: var(--color-grid-text); }
+.metadata-add-plus { display: none; }
+@media (hover: hover) and (pointer: fine) { .metadata-add-tool:enabled:hover { color: white; } }
+@media (pointer: coarse) {
+  .metadata-add-tool { width: var(--mobile-edit-control-size); height: var(--mobile-edit-control-size); border: 1px dashed var(--color-grid-border); border-radius: 50%; }
+  .metadata-add-tool .metadata-add-box { display: none; }
+  .metadata-add-plus { display: block; }
+}
+@media (pointer: coarse) {
+  [data-editable-pill] > button { width: var(--mobile-edit-control-size); }
+  button[data-search-pill]:not([data-accent]) { min-height: var(--mobile-edit-control-size); }
+}
+@media (pointer: coarse) and (min-width: 640px) {
+  [data-bottom-sheet] { left: auto; right: 12px; width: min(480px, calc(100% - 24px)); }
+}
+
+.metadata-edit-tool { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; flex-shrink: 0; cursor: pointer; }
+.metadata-edit-form { min-width: 0; padding: 3px; }
+.metadata-row > dt { min-width: 6em; }
+.metadata-row:has(> dd > .metadata-scalar-edit-form) > dd { padding-right: 0; }
+.metadata-edit-form > input, .metadata-edit-form > textarea, .metadata-edit-form > select { display: block; width: 100%; min-width: 0; border: 1px solid var(--color-grid-border); border-radius: 3px; background: #444; padding: 5px 7px; }
+.metadata-edit-form > input:focus, .metadata-edit-form > textarea:focus, .metadata-edit-form > select:focus { outline: 2px solid var(--color-grid-accent); outline-offset: -2px; }
+.metadata-edit-form > textarea { min-height: 96px; resize: vertical; }
+.metadata-edit-form > input::placeholder, .metadata-edit-form > textarea::placeholder, .metadata-edit-form > select[data-mixed] { font-style: italic; }
+.metadata-edit-form > select option { font-style: normal; }
+.metadata-date-entry { display: flex; align-items: stretch; gap: 6px; }
+.metadata-date-segments { position: relative; display: flex; flex: 1; align-items: center; min-width: 0; height: 36px; padding: 0 7px; border: 1px solid var(--color-grid-border); border-radius: 3px; background: #444; }
+.metadata-date-segments:focus-within { outline: 2px solid var(--color-grid-accent); outline-offset: -2px; }
+.metadata-date-part { display: inline-flex; align-items: center; min-width: 0; }
+.metadata-date-part input { width: 2.2ch; min-width: 0; height: 28px; padding: 0; border: 0; background: transparent; outline: 0; text-align: center; font-variant-numeric: tabular-nums; }
+.metadata-date-year input { width: 4.2ch; }
+.metadata-date-fraction input { width: 3.2ch; }
+.metadata-date-part input[data-selected] { background: var(--color-grid-accent-dark); color: white; }
+.metadata-date-separator { flex: 0 0 auto; color: var(--color-grid-text-dim); white-space: pre; }
+.metadata-date-year .metadata-date-separator { padding: 0 3px; }
+.metadata-date-placeholder { position: absolute; inset: 2px; display: flex; align-items: center; padding: 0 6px; border: 0; border-radius: 2px; background: #444; color: var(--color-grid-text-dim); font-style: italic; cursor: text; }
+.metadata-date-picker { position: relative; flex: 0 0 36px; }
+.metadata-date-calendar { width: 36px; height: 36px; border: 1px solid var(--color-grid-border); border-radius: 3px; }
+.metadata-date-picker-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; bottom: 0; right: 0; }
+.metadata-location-fields { display: grid; gap: 8px; }
+.metadata-location-row { display: grid; grid-template-columns: minmax(0, 34%) minmax(0, 1fr); align-items: center; gap: 6px; }
+.metadata-location-fields input { width: 100%; min-width: 0; border: 1px solid var(--color-grid-border); border-radius: 3px; background: #444; padding: 5px 7px; }
+.metadata-location-fields input[data-mixed]::placeholder { font-style: italic; }
+.metadata-location-fields input:focus { outline: 2px solid var(--color-grid-accent); outline-offset: -2px; }
+.metadata-edit-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 5px; }
+.metadata-edit-modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; border: 0; padding: 0; margin: 0; font-size: 11px; }
+.metadata-edit-modes label { position: relative; cursor: pointer; }
+.metadata-edit-modes input { position: absolute; opacity: 0; }
+.metadata-edit-modes label > span { display: flex; align-items: center; min-height: 24px; padding: 3px 5px; border-bottom: 2px solid transparent; }
+.metadata-edit-modes > button { cursor: pointer; min-height: 24px; padding: 3px 5px; border-bottom: 2px solid transparent; }
+.metadata-edit-modes > button[aria-pressed="true"] { border-color: var(--color-grid-accent); background: #515151; }
+.metadata-edit-modes input:checked + span { border-color: var(--color-grid-accent); background: #515151; }
+.metadata-edit-modes input:focus-visible + span { outline: 2px solid var(--color-grid-accent); outline-offset: -2px; }
+@media (pointer: coarse) {
+  .metadata-row:has(> dd > .metadata-scalar-edit-form) { flex-direction: column; }
+  .metadata-row:has(> dd > .metadata-scalar-edit-form) > dt, .metadata-row:has(> dd > .metadata-scalar-edit-form) > dd { width: 100%; align-self: stretch; }
+  .metadata-scalar-edit-form > input, .metadata-scalar-edit-form > select { height: var(--mobile-edit-control-size); }
+  .metadata-edit-tool { width: var(--mobile-edit-control-size); height: var(--mobile-edit-control-size); }
+  .metadata-edit-modes label > span { min-height: var(--mobile-edit-control-size); }
+  .metadata-edit-modes > button { min-height: var(--mobile-edit-control-size); }
+}
+
 /* Shell variants: data-shell is set by hooks/useShell.ts (narrow viewport or compact-layout pref). */
 @custom-variant compact (&:where([data-shell="compact"] *));
 @custom-variant wide (&:where([data-shell="wide"] *));

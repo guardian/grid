@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useSearchStore } from "@/stores/search-store";
-import { buildTypeaheadFields, type TypeaheadSuggestion } from "@/lib/typeahead-fields";
+import { buildTypeaheadFields, type TypeaheadResolver } from "@/lib/typeahead-fields";
 import { parseFieldChips, serializeFieldChips, type FieldChip } from "@/dal/adapters/elasticsearch/cql-query-edit";
+import { SuggestionDropdown } from "./SuggestionDropdown";
+import { FieldAddButton } from "./FieldAddButton";
+import { useTypeaheadSuggestions } from "@/hooks/useTypeaheadSuggestions";
 
 interface RefineChipsProps {
   /** Fields-only CQL (see splitFieldTerms). */
@@ -50,7 +53,7 @@ export function RefineChips({ fields, onFieldsChange }: RefineChipsProps) {
               key={d.fieldName}
               type="button"
               onClick={() => { setPicking(false); setEditing({ index: null, key: d.fieldName, negated: false }); }}
-              className="h-9 px-3 rounded-full border border-grid-border text-sm text-grid-text-bright"
+              className="h-[var(--mobile-edit-control-size)] px-3 rounded-full border border-grid-border text-sm text-grid-text-bright"
             >
               {d.fieldName}
             </button>
@@ -87,7 +90,7 @@ export function RefineChips({ fields, onFieldsChange }: RefineChipsProps) {
       {chips.map((chip, index) => (
         <span
           key={`${index}-${chip.key}-${chip.value}`}
-          className={`inline-flex items-center max-w-full h-9 rounded-full border text-sm overflow-hidden ${
+          className={`inline-flex items-center max-w-full h-[var(--mobile-edit-control-size)] rounded-full border text-sm overflow-hidden ${
             chip.negated ? "border-grid-error/70 bg-grid-error/10" : "border-grid-border bg-grid-cell"
           }`}
         >
@@ -116,13 +119,7 @@ export function RefineChips({ fields, onFieldsChange }: RefineChipsProps) {
           </button>
         </span>
       ))}
-      <button
-        type="button"
-        onClick={() => setPicking(true)}
-        className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-dashed border-grid-border text-sm text-grid-text-bright"
-      >
-        <span aria-hidden="true" className="text-base leading-none">+</span> Add filter
-      </button>
+      <FieldAddButton label="Add filter" onClick={() => setPicking(true)} />
     </div>
   );
 }
@@ -130,28 +127,19 @@ export function RefineChips({ fields, onFieldsChange }: RefineChipsProps) {
 function ValueEditor({ fieldKey, initial, resolver, onCancel, onDone }: {
   fieldKey: string;
   initial: string;
-  resolver?: ((value: string, signal?: AbortSignal) => Promise<TypeaheadSuggestion[]>) | string[];
+  resolver?: TypeaheadResolver;
   onCancel: () => void;
   onDone: (value: string) => void;
 }) {
   const [value, setValue] = useState(initial);
-  const [suggestions, setSuggestions] = useState<TypeaheadSuggestion[]>([]);
+  const suggestions = useTypeaheadSuggestions(resolver, value);
+  const [active, setActive] = useState(-1);
+  const [suggestionsVisible, setSuggestionsVisible] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const suggestionsId = useId();
   useEffect(() => { inputRef.current?.focus(); }, []);
 
-  useEffect(() => {
-    if (!resolver) return;
-    if (Array.isArray(resolver)) {
-      const lower = value.toLowerCase();
-      setSuggestions(resolver.filter((v) => v.toLowerCase().startsWith(lower)).map((v) => ({ value: v })));
-      return;
-    }
-    const controller = new AbortController();
-    const timer = setTimeout(() => {
-      resolver(value, controller.signal).then(setSuggestions, () => {});
-    }, 150);
-    return () => { clearTimeout(timer); controller.abort(); };
-  }, [value, resolver]);
+  useEffect(() => { setActive(-1); }, [suggestions]);
 
   return (
     <div className="flex flex-col gap-2">
@@ -165,13 +153,26 @@ function ValueEditor({ fieldKey, initial, resolver, onCancel, onDone }: {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
+            if (e.nativeEvent.isComposing) return;
             // Escape backs out of this edit only; the sheet's document listener would close Refine.
             if (e.key === "Escape") { e.preventDefault(); e.nativeEvent.stopPropagation(); onCancel(); }
+            else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && suggestionsVisible && suggestions.length) {
+              e.preventDefault(); e.stopPropagation();
+              const direction = e.key === "ArrowDown" ? 1 : -1;
+              setActive(index => index < 0 ? direction > 0 ? 0 : suggestions.length - 1 : (index + direction + suggestions.length) % suggestions.length);
+            } else if (e.key === "Enter" && suggestionsVisible && active >= 0 && suggestions[active]) {
+              e.preventDefault(); e.stopPropagation(); onDone(suggestions[active].value);
+            }
           }}
           enterKeyHint="done"
           type="search"
           name="refine-filter-value"
           aria-label="Filter value"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={suggestionsVisible}
+          aria-controls={suggestionsVisible ? suggestionsId : undefined}
+          aria-activedescendant={suggestionsVisible && active >= 0 && suggestions[active] ? `${suggestionsId}-${active}` : undefined}
           autoComplete="off"
           autoCorrect="off"
           autoCapitalize="none"
@@ -182,27 +183,8 @@ function ValueEditor({ fieldKey, initial, resolver, onCancel, onDone }: {
         />
         <button type="button" onClick={onCancel} className="shrink-0 h-10 px-2 text-sm text-grid-text-muted">Cancel</button>
       </form>
-      {suggestions.length > 0 && (
-        <ul
-          data-own-scroll
-          // Scrolling the suggestions dismisses the keyboard so the whole list is visible.
-          onTouchMove={() => inputRef.current?.blur()}
-          className="flex flex-col max-h-[55svh] overflow-y-auto overscroll-contain rounded-lg border border-grid-separator divide-y divide-grid-separator"
-        >
-          {suggestions.slice(0, 50).map((s) => (
-            <li key={s.value}>
-              <button
-                type="button"
-                onClick={() => onDone(s.value)}
-                className="w-full flex items-center justify-between gap-3 px-3 h-11 text-left text-sm text-grid-text-bright"
-              >
-                <span className="truncate">{s.label ?? s.value}</span>
-                {s.count != null && <span className="shrink-0 text-grid-text-dim tabular-nums">{s.count.toLocaleString()}</span>}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <SuggestionDropdown anchorRef={inputRef} items={suggestions} id={suggestionsId}
+        label={`Suggestions for ${fieldKey}`} activeIndex={active} onSelect={item => onDone(item.value)} onVisibilityChange={setSuggestionsVisible} />
     </div>
   );
 }

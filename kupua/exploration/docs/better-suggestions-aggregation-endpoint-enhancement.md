@@ -18,6 +18,16 @@ The proposed change reverses the selection order:
 
 The path is `CqlSearchInput` → `LazyTypeahead` → providers in `typeahead-fields.ts` → DAL → `ApiDataSource.getAggregations` → media-api.
 
+Metadata and Refine fields reuse those providers through
+[`useTypeaheadSuggestions`](../../src/hooks/useTypeaheadSuggestions.ts), which owns
+their debounce, bounded display list and cancellation/stale-result suppression.
+It prefix-filters fixed arrays only; dynamic provider results retain their matching,
+order, spelling and counts. A future contains matcher must not be narrowed again in
+this UI loader. Scope and matching remain provider/DAL responsibilities, not hook
+options. CQL retains its AST-aware request/publication lifetime in `LazyTypeahead`;
+Labels retains its target-bound comma-token lifetime. Neither needs to adopt the
+React field loader for backend improvements to reach its shared providers.
+
 - Data-derived providers apply a case-insensitive **prefix** filter locally. Their independent requests usually ask for 50 values. They may instead accept the search store's cached facet buckets, normally 10. Query scope is retained, with the field's own CQL clauses removed when fetching options to avoid self-filtering. The entered fragment is not sent as a bucket-name predicate.
 - This affects labels, credits, sources, suppliers, photoshoots, uploaders, crop authors, keywords and successful arbitrary-field aggregation suggestions. Fixed/configured choices are different: their vocabulary is not chosen by popularity. Collections search the loaded tree. Categories use the API catalogue when available, otherwise the shortlist approach.
 - `CqlSearchInput` wraps providers as function resolvers. `LazyTypeahead` controls request lifetime and publishes their returned value options without its own value reordering; its local prefix-priority sorting is for field keys. The installed CQL function-resolver path also returns the provider result directly. The shortage originates in Kupua's providers, not an assumed restriction imposed by CQL.
