@@ -52,10 +52,10 @@ When('I search for images using {string}', async ({ page }, query: string) => {
         url.searchParams.get('nonFree') === 'true');
 });
 
-Then('the search results should contain exactly these chip fixtures:', async ({ page }, table: DataTable) => {
-    const ids = table.hashes().map((row) => {
-        const id = SEARCH_CHIP_IMAGE_IDS[row.Fixture];
-        expect(id, `Unknown chip fixture: ${row.Fixture}`).toBeTruthy();
+async function expectChipFixtures(page: Page, roles: string[]) {
+    const ids = roles.map((role) => {
+        const id = SEARCH_CHIP_IMAGE_IDS[role];
+        expect(id, `Unknown chip fixture: ${role}`).toBeTruthy();
         return id;
     });
     await expect(page.locator('.image-results-count').getByText(`${ids.length} matches`, { exact: true })).toBeVisible();
@@ -66,4 +66,12 @@ Then('the search results should contain exactly these chip fixtures:', async ({ 
             has: page.locator(`[id^="id-${id}-result__select__checkbox--"]`),
         })).toBeVisible();
     }
+}
+
+Then('the search results should contain exactly these chip fixtures:', async ({ page }, table: DataTable) => {
+    await expectChipFixtures(page, table.hashes().map((row) => row.Fixture));
+});
+
+Then('the search results should contain exactly chip fixtures {string}', async ({ page }, roles: string) => {
+    await expectChipFixtures(page, roles === 'none' ? [] : roles.split(',').map((role) => role.trim()));
 });

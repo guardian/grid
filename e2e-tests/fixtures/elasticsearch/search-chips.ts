@@ -193,7 +193,7 @@ export function searchChipImageFixtures(template: EsHit): EsHit[] {
             },
         }),
         image('G', { usages: [usage('g-print', 'print', 'pending'), usage('g-digital', 'digital', 'published')] }),
-        image('H', { usages: [usage('h-print', 'print', 'published')] }),
+        image('H', { usages: [usage('h-print', 'print', 'published', '2024-06-15T00:00:00.000Z')] }),
         image('I'),
         image('J', {
             usages: [
