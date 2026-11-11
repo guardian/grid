@@ -198,20 +198,75 @@ the captured images by the [shared loader](../../setup/image-fixtures.ts).
 The existing Elasticsearch and image-file seeders consume that combined list.
 Existing records and their lookup order are preserved.
 
-| Image | Proposed distinguishing data | Main purpose |
-| --- | --- | --- |
-| A | Shared text, credit and location with B; distinct uploader, keyword and file type; no crop | Positive baseline and intersections. |
-| B | Shared text, credit and location with A; different uploader, keyword and file type; has a crop | Exclusion, format and crop contrasts. |
-| C | Modern `pay-to-use` category; city and uploader differ from D | Category expansion and metadata filtering. |
-| D | Legacy `chargeable` category; contrasting city and uploader | Legacy category compatibility. |
-| E | Photographer ownership; label, collection, photoshoot and archive | Ownership and multiple persistence reasons. |
-| F | Illustrator ownership; lease | Ownership contrast and lease persistence. |
-| G | Separate usages: one print, another published; neither has both | Detect cross-usage matching semantics. |
-| H | One usage that is both print and published | Contrast with G for combined usage filters. |
-| I | Unknown rights; optional metadata and date taken absent; no persistence reasons | Missing-field and non-persisted baseline. |
-| J | Both published and replaced usages | Status combinations and negation. |
-| K | Deleted image belonging to the current uploader | Deleted visibility and ownership. |
-| L | Deleted image belonging to another uploader | Deleted visibility contrast. |
+The chip-value column uses the inventory's query keys rather than raw JSON field
+names. **Common** means all of the following values, with row-specific overrides
+replacing them; `{role}` is the uppercase image letter and `{role-lower}` its
+lowercase equivalent. Values are data, not necessarily ready-to-paste query
+syntax: quote multi-word values when searching.
+
+- `title` = `Search chips image {role}`; `description` = `Search chips fixture {role}`.
+- `by` = `Example External Photographer`; `credit` = `Search Chips Agency`;
+  `illustrator` = `Search Chips Agency` (the chip also searches `metadata.credit`).
+- `copyright` = `Search Chips Copyright`; `source` = `Search Chips Wire`;
+  `suppliersReference` = `search-chips-{role}`;
+  `specialInstructions` = `Editorial use only`.
+- `keyword` = `search-chips-{role-lower}`; `subject` = `news`.
+- `uploader` = `grid-e2e-account@guardian.co.uk`; `fileType` = `jpeg`;
+  `filename` = `search-chips-{role-lower}.jpg`.
+- `date` (upload time) and `dateTaken` = `2024-06-15T12:00:00.000Z`.
+
+**Current user** means `grid-e2e-account@guardian.co.uk`; **other user** means
+`search-chips-other@guardian.co.uk`. **Print details** means
+`usages@publication` = `G` / `The Guardian`, `usages@section` = `CUL` / `Culture`,
+and `usages@orderedBy` = current user, all on the print usage only.
+`usages@>added` and `usages@<added` query the same `dateAdded` timestamp listed
+per usage below; they are lower/upper boundary operators, not separately stored
+values. Unlisted optional values are absent or empty, not inherited from another
+row. `in` searches the listed location values together.
+
+| Image | Proposed distinguishing data | Main purpose | All populated chip values (Common plus overrides/additions unless stated) |
+| --- | --- | --- | --- |
+| A | Shared text, credit and location with B; distinct uploader, keyword and file type; no crop | Positive baseline and intersections. | Common; `description` = `Harbour festival at the waterfront`; `credit` / `illustrator` = `Search Chips Shared Credit`; `city` = `Bristol`; `state` = `Somerset`; `country` = `United Kingdom`; `location` = `Harbourside`; `in` = those four location values; `keyword` = `harbour`, `daylight`; `subject` = `arts`; `person` = `Alex Example`; `category` = `agency`; `supplier` = `Reuters`; `date` = `2024-06-14T12:00:00.000Z`; no persistence reasons. |
+| B | Shared text, credit and location with A; different uploader, keyword and file type; has a crop | Exclusion, format and crop contrasts. | Common; `description` = `Harbour festival at the waterfront`; `credit` / `illustrator` = `Search Chips Shared Credit`; `city` = `Bristol`; `state` = `Somerset`; `country` = `United Kingdom`; `location` = `Harbourside`; `in` = those four location values; `keyword` = `harbour`, `night`; `subject` = `arts`; `category` = `agency`; `supplier` = `AP`; `uploader` = other user; `fileType` = `png`; `filename` = `search-chips-b.png`; `croppedBy` = current user; `persisted` = `exports`. |
+| C | Modern `pay-to-use` category; city and uploader differ from D | Category expansion and metadata filtering. | Common; `city` = `London`; `country` = `United Kingdom`; `in` = those two location values; `keyword` = `chargeable`; `category` = `pay-to-use`; no persistence reasons. |
+| D | Legacy `chargeable` category; contrasting city and uploader | Legacy category compatibility. | Common; `city` = `Cardiff`; `country` = `United Kingdom`; `in` = those two location values; `keyword` = `chargeable`; `category` = `chargeable`; `uploader` = other user; `date` = `2024-06-16T12:00:00.000Z`; no persistence reasons. |
+| E | Photographer ownership; label, collection, photoshoot and archive | Ownership and multiple persistence reasons. | Common; `by` = `Example Internal Photographer`; `subject` = `sport`; `category` = `staff-photographer`; `label` / `#` = `search-chips-featured`; `photoshoot` = `Search Chips Harbour Shoot`; `is` = `<org>-owned-photo`, `<org>-owned`; `persisted` = `photographer-category`, `archived`, `photoshoot`, `labeled`, plus `persisted-collection` if collection persistence config includes `search-chips`; additional backend `collection` / `~` = `search-chips`. |
+| F | Illustrator ownership; lease | Ownership contrast and lease persistence. | Common; `by` = `Example Contracted Illustrator`; `subject` = `arts`; `category` = `contract-illustrator`; `leasedBy` = current user; `is` = `<org>-owned-illustration`, `<org>-owned`; `persisted` = `illustrator-category`, `leases`. `illustrator` remains `Search Chips Agency`, not the usage-rights creator name. |
+| G | Separate usages: one print, another published; neither has both | Detect cross-usage matching semantics. | Common; usage 1: `usages@platform` = `print`, `usages@status` = `pending`, Print details, added = `2024-06-15T12:00:00.000Z`; usage 2: `usages@platform` = `digital`, `usages@status` = `published`, added = `2024-06-15T12:00:00.000Z`; `persisted` = `usages`. |
+| H | One usage that is both print and published | Contrast with G for combined usage filters. | Common; one usage: `usages@platform` = `print`, `usages@status` = `published`, Print details, added = `2024-06-15T12:00:00.000Z`; `persisted` = `usages`. |
+| I | Unknown rights; optional metadata and date taken absent; no persistence reasons | Missing-field and non-persisted baseline. | **No Common metadata defaults**: `title` = `Search chips image I`; `description` = `Missing optional metadata`; `uploader` = current user; `fileType` = `jpeg`; `filename` = `search-chips-i.jpg`; `date` = `2024-06-15T12:00:00.000Z`. All other ordinary chip fields absent/empty, including `dateTaken`; no persistence reasons. |
+| J | Both published and replaced usages | Status combinations and negation. | Common; usage 1: `usages@platform` = `digital`, `usages@status` = `published`, added = `2024-06-14T12:00:00.000Z`; usage 2: `usages@platform` = `digital`, `usages@status` = `replaced`, added = `2024-06-16T12:00:00.000Z`; `persisted` = `usages`. |
+| K | Deleted image belonging to the current uploader | Deleted visibility and ownership. | Common; `is` = `deleted`; no persistence reasons. |
+| L | Deleted image belonging to another uploader | Deleted visibility contrast. | Common; `uploader` = other user; `is` = `deleted`; no persistence reasons. |
+
+### Inventory coverage and gaps
+
+This accounts for the inventory's 39 built-in keys, but populated fixture data
+does **not** prove that every field or value has been exercised by a scenario.
+
+- All 36 ordinary field/value keys have a non-empty source somewhere **except
+  `usages@reference`**: every usage has an empty `references` array. Add a usage
+  reference name/URI before claiming positive coverage for that chip.
+- `illustrator` has searchable credit values, but no fixture has
+  `Example Contracted Illustrator` in `metadata.credit`. F's creator option is
+  therefore not a positive illustrator-name search fixture. `by` does have the
+  name, independently of usage-rights ownership.
+- `has` is a field-existence predicate, not stored metadata. Positive sources
+  include `crops` on B, `people` on A, `labels` on E, location fields on A-D and
+  `dateTaken` on every image except I. Use indexed-field semantics rather than
+  treating empty arrays/objects as populated values.
+- `is` and `persisted` are derived predicates. The table lists ownership,
+  deletion and persistence reasons supported by these records; `<org>` comes
+  from configuration, and the `persisted` chooser requires `useReaper`.
+  `under-quota`, `reapable` and conditional `agency-pick` require their runtime
+  quota/configuration/eligibility rules, not another metadata value on the image.
+- Persistence reasons not positively represented are `persistence-identifier`,
+  `commissioned-agency` and `edited`; `persisted-collection` is config-dependent.
+  Other inventory options (for example TIFF, additional subjects, suppliers and
+  usage statuses) are not exhaustive in this fixture set either.
+- Configured aliases and additional backend syntax are outside the 39 built-in
+  keys. Apart from E's collection, this table makes no positive coverage claim
+  for those, or for every arbitrary field accepted by `has` or dotted paths.
 
 Scope searches with the supported `ids` parameter so unrelated seeded images
 cannot affect expected results. Do not add a shared label for isolation: a label
