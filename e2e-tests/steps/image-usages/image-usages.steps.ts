@@ -427,21 +427,22 @@ Then('the Photo Sales panel shows no entries', async ({ page }) => {
 // Individual usage records
 // ---------------------------------------------------------------------------
 
+/** What Kahuna shows in place of a title for a usage that created another image. */
+const CHILD_USAGE_LABELS: Partial<Record<UsageStatus, string>> = {
+  derivative: 'Used to create',
+  replaced: 'Replaced with',
+};
+
 Then('that usage is titled {string}', async ({ page }, title: string) => {
   await expect(theUsage(page)).toContainText(title);
 });
 
-Then('that usage does not show {string}', async ({ page }, text: string) => {
-  await expect(theUsage(page)).toBeVisible();
-  await expect(theUsage(page)).not.toContainText(text);
-});
-
-Then('that usage shows only the replacement link and who added it', async ({ page, testContext }) => {
-  const { childMediaId, addedBy } = theSeededUsage(testContext.usages).childUsageMetadata!;
-  // Regex expectations see the template's raw whitespace.
-  await expect(theUsage(page)).toHaveText(
-    new RegExp(`^\\s*Replaced with\\s+${childMediaId}\\s+\\(added by ${escapeRegExp(addedBy)}\\)\\.`),
-  );
+Then('that usage has no title of its own', async ({ page, testContext }) => {
+  const label = CHILD_USAGE_LABELS[theSeededUsage(testContext.usages).status];
+  expect(label, 'an earlier step seeded a derivative or replaced usage').toBeDefined();
+  // Nothing precedes the label, not even the fallback title. Regexes see the raw whitespace.
+  await expect(theUsage(page)).toHaveText(new RegExp(`^\\s*${escapeRegExp(label!)}\\s`));
+  await expect(theUsage(page)).not.toContainText('No title found.');
 });
 
 Then(
