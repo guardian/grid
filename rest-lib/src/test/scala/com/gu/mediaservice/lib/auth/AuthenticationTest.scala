@@ -121,84 +121,113 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
       "X-Inner-Service-Signature" -> "signature"
     )
 
-    "should reject service credentials without endpoint opt-in" in {
-      val action = auth.async(_ => Future.successful(Results.Ok))
-      Helpers.call(action, serviceRequest).map { result =>
-        result.header.status shouldBe Status.UNAUTHORIZED
+    "allowInnerService" - {
+      "should reject service credentials without endpoint opt-in" in {
+        val action = auth.async(_ => Future.successful(Results.Ok))
+        Helpers.call(action, serviceRequest).map { result =>
+          result.header.status shouldBe Status.UNAUTHORIZED
+        }
       }
-    }
 
-    "should accept service credentials and log the principal when opted in" in {
-      val action = auth.allowInnerService.async { request =>
-        Future.successful(Results.Ok(request.user.accessor.identity))
+      "should accept service credentials and log the principal when opted in" in {
+        val action = auth.allowInnerService.async { request =>
+          Future.successful(Results.Ok(request.user.accessor.identity))
+        }
+        Helpers.call(action, serviceRequest).map { result =>
+          result.header.status shouldBe Status.OK
+          Helpers.contentAsString(Future.successful(result)) shouldBe "thrall"
+          result.attrs.get(RequestLoggingFilter.requestPrincipal).map(_.accessor.identity) shouldBe Some("thrall")
+        }
       }
-      Helpers.call(action, serviceRequest).map { result =>
-        result.header.status shouldBe Status.OK
-        Helpers.contentAsString(Future.successful(result)) shouldBe "thrall"
-        result.attrs.get(RequestLoggingFilter.requestPrincipal).map(_.accessor.identity) shouldBe Some("thrall")
-      }
-    }
 
-    "should preserve user and API authentication when opted in" in {
-      val action = auth.allowInnerService.async { request =>
-        Future.successful(Results.Ok(request.user.accessor.identity))
+      "should preserve user and API authentication when opted in" in {
+        val action = auth.allowInnerService.async { request =>
+          Future.successful(Results.Ok(request.user.accessor.identity))
+        }
+        for {
+          userResult <- Helpers.call(action, FakeRequest().withBody("").withCookies(makeCookie()))
+          apiResult <- Helpers.call(action, FakeRequest().withBody("").withHeaders(HEADER_NAME -> "key-client"))
+        } yield {
+          userResult.header.status shouldBe Status.OK
+          Helpers.contentAsString(Future.successful(userResult)) shouldBe "test@user"
+          apiResult.header.status shouldBe Status.OK
+          Helpers.contentAsString(Future.successful(apiResult)) shouldBe "key-client"
+        }
       }
-      for {
-        userResult <- Helpers.call(action, FakeRequest().withBody("").withCookies(makeCookie()))
-        apiResult <- Helpers.call(action, FakeRequest().withBody("").withHeaders(HEADER_NAME -> "key-client"))
-      } yield {
-        userResult.header.status shouldBe Status.OK
-        Helpers.contentAsString(Future.successful(userResult)) shouldBe "test@user"
-        apiResult.header.status shouldBe Status.OK
-        Helpers.contentAsString(Future.successful(apiResult)) shouldBe "key-client"
-      }
-    }
 
-    "should not run an opted-in handler without credentials" in {
-      val action = auth.allowInnerService.async(_ => fail("Unauthenticated handler ran"))
-      Helpers.call(action, FakeRequest().withBody("")).map { result =>
-        result.header.status shouldBe Status.UNAUTHORIZED
+      "should not run an opted-in handler without credentials" in {
+        val action = auth.allowInnerService.async(_ => fail("Unauthenticated handler ran"))
+        Helpers.call(action, FakeRequest().withBody("")).map { result =>
+          result.header.status shouldBe Status.UNAUTHORIZED
+        }
       }
-    }
 
-    "should reject invalid service signatures without falling back to user credentials" in {
-      val action = auth.allowInnerService.async(_ => fail("Invalid service signature reached handler"))
-      val request = serviceRequest.withCookies(makeCookie())
-        .withHeaders("X-Inner-Service-Signature" -> "invalid")
-      Helpers.call(action, request).map { result =>
-        result.header.status shouldBe Status.UNAUTHORIZED
+      "should reject invalid service signatures without falling back to user credentials" in {
+        val action = auth.allowInnerService.async(_ => fail("Invalid service signature reached handler"))
+        val request = serviceRequest.withCookies(makeCookie())
+          .withHeaders("X-Inner-Service-Signature" -> "invalid")
+        Helpers.call(action, request).map { result =>
+          result.header.status shouldBe Status.UNAUTHORIZED
+        }
       }
-    }
 
-    Seq("stale" -> -10000, "future" -> 10000).foreach { case (label, offset) =>
-      s"should reject $label service timestamps outside the clock-skew window" in {
-        val request = serviceRequest.withHeaders(
-          "X-Inner-Service-Timestamp" -> DateTime.now(DateTimeZone.UTC).plusMillis(offset).toString
-        )
+      "should bind signatures to raw request paths and methods" in {
+        val contentSigner = new CookieSigner {
+          override def sign(message: String, key: Array[Byte]): String = message
+          override def sign(message: String): String = message
+        }
+        val provider = new InnerServiceAuthenticationProvider(contentSigner, "tests")
+        WsTestClient.withClient { client =>
+          val path = "/images/a%2Fb?include=fileMetadata"
+          val signed = provider.signRequest(client.url(s"https://example.com$path").withMethod("GET"))
+          val headers = signed.headers.toSeq.flatMap { case (name, values) => values.map(name -> _) }
+
+          provider.authenticateRequest(FakeRequest("GET", path).withHeaders(headers: _*)) shouldBe a[Authenticated]
+          provider.authenticateRequest(
+            FakeRequest("GET", "/images/different?include=fileMetadata").withHeaders(headers: _*)
+          ) shouldBe Invalid("Invalid inner service signature")
+          provider.authenticateRequest(
+            FakeRequest("POST", path).withHeaders(headers: _*)
+          ) shouldBe Invalid("Invalid inner service signature")
+          provider.authenticateRequest(
+            FakeRequest("GET", "/images/%").withHeaders(headers: _*)
+          ) shouldBe Invalid("Invalid inner service signature")
+          provider.authenticateRequest(
+            FakeRequest("GET", path).withHeaders(headers.filterNot(_._1 == "X-Inner-Service-Identity"): _*)
+          ) shouldBe Invalid("Invalid inner service signature")
+        }
+      }
+
+      Seq("stale" -> -10000, "future" -> 10000).foreach { case (label, offset) =>
+        s"should reject $label service timestamps outside the clock-skew window" in {
+          val request = serviceRequest.withHeaders(
+            "X-Inner-Service-Timestamp" -> DateTime.now(DateTimeZone.UTC).plusMillis(offset).toString
+          )
+          testProviders.innerServiceProvider.authenticateRequest(request) shouldBe Invalid("Invalid inner service signature")
+        }
+      }
+
+      "should reject malformed service timestamps" in {
+        val request = serviceRequest.withHeaders("X-Inner-Service-Timestamp" -> "invalid")
         testProviders.innerServiceProvider.authenticateRequest(request) shouldBe Invalid("Invalid inner service signature")
       }
-    }
 
-    "should reject malformed service timestamps" in {
-      val request = serviceRequest.withHeaders("X-Inner-Service-Timestamp" -> "invalid")
-      testProviders.innerServiceProvider.authenticateRequest(request) shouldBe Invalid("Invalid inner service signature")
-    }
-
-    "should allow service timestamps slightly ahead of the receiver clock" in {
-      val request = serviceRequest.withHeaders(
-        "X-Inner-Service-Timestamp" -> DateTime.now(DateTimeZone.UTC).plusSeconds(1).toString
-      )
-      testProviders.innerServiceProvider.authenticateRequest(request) shouldBe a[Authenticated]
-    }
-
-    "should preserve the selected body parser for opted-in service requests" in {
-      val action = auth.allowInnerService.async(PlayBodyParsers().json) { request =>
-        Future.successful(Results.Ok(request.body))
+      "should allow service timestamps slightly ahead of the receiver clock" in {
+        val request = serviceRequest.withHeaders(
+          "X-Inner-Service-Timestamp" -> DateTime.now(DateTimeZone.UTC).plusSeconds(1).toString
+        )
+        testProviders.innerServiceProvider.authenticateRequest(request) shouldBe a[Authenticated]
       }
-      val payload = Json.obj("data" -> "child-usage")
-      Helpers.call(action, serviceRequest.withMethod("POST").withBody(payload)).map { result =>
-        result.header.status shouldBe Status.OK
-        Helpers.contentAsJson(Future.successful(result)) shouldBe payload
+
+      "should preserve the selected body parser for opted-in service requests" in {
+        val action = auth.allowInnerService.async(PlayBodyParsers().json) { request =>
+          Future.successful(Results.Ok(request.body))
+        }
+        val payload = Json.obj("data" -> "child-usage")
+        Helpers.call(action, serviceRequest.withMethod("POST").withBody(payload)).map { result =>
+          result.header.status shouldBe Status.OK
+          Helpers.contentAsJson(Future.successful(result)) shouldBe payload
+        }
       }
     }
 
@@ -325,30 +354,6 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
       new InnerServiceAuthenticationProvider(signer, serviceName = "tests")
     )
     val auth: Authentication = makeAuthenticationInstance(testProviders)
-
-    "match raw request paths and methods when signing and verifying" in {
-      val contentSigner = new CookieSigner {
-        override def sign(message: String, key: Array[Byte]): String = message
-        override def sign(message: String): String = message
-      }
-      val provider = new InnerServiceAuthenticationProvider(contentSigner, "tests")
-      WsTestClient.withClient { client =>
-        val path = "/images/a%2Fb?include=fileMetadata"
-        val signed = provider.signRequest(client.url(s"https://example.com$path").withMethod("GET"))
-        val headers = signed.headers.toSeq.flatMap { case (name, values) => values.map(name -> _) }
-
-        provider.authenticateRequest(FakeRequest("GET", path).withHeaders(headers: _*)) shouldBe a[Authenticated]
-        provider.authenticateRequest(
-          FakeRequest("GET", "/images/different?include=fileMetadata").withHeaders(headers: _*)
-        ) shouldBe Invalid("Invalid inner service signature")
-        provider.authenticateRequest(
-          FakeRequest("POST", path).withHeaders(headers: _*)
-        ) shouldBe Invalid("Invalid inner service signature")
-        provider.authenticateRequest(
-          FakeRequest("GET", path).withHeaders(headers.filterNot(_._1 == "X-Inner-Service-Identity"): _*)
-        ) shouldBe Invalid("Invalid inner service signature")
-      }
-    }
 
     "sign originating service requests without pre-existing authentication headers" in {
       WsTestClient.withClient { client =>
