@@ -8,15 +8,45 @@
  */
 import { randomBytes, randomUUID } from 'node:crypto';
 import type { Locator, Page } from '@playwright/test';
+import { defineParameterType } from 'playwright-bdd';
 import { KAHUNA_APP_URL, expect } from '../setup.ts';
 import type { SeedImage } from '../setup.ts';
 import { findSeededImage, hasNoUsageRights } from '../../setup/image-fixtures.ts';
 
-export type UsagePlatform = 'print' | 'digital' | 'syndication' | 'download' | 'derivative' | 'replaced';
-export type UsageStatus =
-  | 'pending' | 'published' | 'removed' | 'syndicated' | 'downloaded'
-  | 'derivative' | 'replaced' | 'failed' | 'unknown';
-export type UsageReferenceType = 'indesign' | 'frontend' | 'composer' | 'syndication' | 'front' | 'download' | 'grid';
+const USAGE_PLATFORMS = ['print', 'digital', 'syndication', 'download', 'derivative', 'replaced'] as const;
+const USAGE_STATUSES = [
+  'pending', 'published', 'removed', 'syndicated', 'downloaded', 'derivative', 'replaced', 'failed', 'unknown',
+] as const;
+const CHILD_USAGE_STATUSES = ['derivative', 'replaced'] as const;
+const USAGE_REFERENCE_TYPES = ['indesign', 'frontend', 'composer', 'syndication', 'front', 'download', 'grid'] as const;
+
+export type UsagePlatform = (typeof USAGE_PLATFORMS)[number];
+export type UsageStatus = (typeof USAGE_STATUSES)[number];
+export type ChildUsageStatus = (typeof CHILD_USAGE_STATUSES)[number];
+export type UsageReferenceType = (typeof USAGE_REFERENCE_TYPES)[number];
+
+// A value outside these lists leaves the step undefined, so bddgen reports the typo.
+const quotedOneOf = (values: readonly string[]) => new RegExp(`"(${values.join('|')})"`);
+defineParameterType({ name: 'usagePlatform', regexp: quotedOneOf(USAGE_PLATFORMS), transformer: (v) => v as UsagePlatform });
+defineParameterType({ name: 'usageStatus', regexp: quotedOneOf(USAGE_STATUSES), transformer: (v) => v as UsageStatus });
+defineParameterType({
+  name: 'childUsageStatus',
+  regexp: quotedOneOf(CHILD_USAGE_STATUSES),
+  transformer: (v) => v as ChildUsageStatus,
+});
+defineParameterType({
+  name: 'usageReferenceType',
+  regexp: quotedOneOf(USAGE_REFERENCE_TYPES),
+  transformer: (v) => v as UsageReferenceType,
+});
+// An unquoted list, e.g. `downloaded, replaced and derivative`.
+const anyStatus = `(?:${USAGE_STATUSES.join('|')})`;
+defineParameterType({
+  name: 'usageStatuses',
+  regexp: new RegExp(`${anyStatus}(?:(?:, | and )${anyStatus})*`),
+  transformer: (list) => list.split(/, | and /) as UsageStatus[],
+});
+defineParameterType({ name: 'enabledOrDisabled', regexp: /enabled|disabled/, transformer: (v) => v === 'enabled' });
 
 export interface UsageReference {
   type: UsageReferenceType;
@@ -70,7 +100,7 @@ export const syndicationUsage = (partnerName: string, fields: Partial<UsageField
   });
 
 /** Kahuna expects every replaced usage to name the image that replaced it. */
-export const childUsage = (status: 'derivative' | 'replaced'): SeedUsage =>
+export const childUsage = (status: ChildUsageStatus): SeedUsage =>
   usage({
     platform: status,
     status,
