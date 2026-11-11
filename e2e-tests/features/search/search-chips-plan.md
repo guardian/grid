@@ -7,10 +7,12 @@ Use the current `@guardian/cql` input, not the legacy chips input or its retirin
 
 ## Scope and coverage strategy
 
-Catalogue every chip, but use **12 core images plus 16 supplemental images and
-approximately 26 browser scenarios** rather than testing the Cartesian product
-of fields and values. The supplemental records complete finite option coverage
-without changing the core result-combination contrasts.
+Catalogue every chip using **12 core images plus 16 supplemental images** rather
+than testing the Cartesian product of fields and values. The expanded fixture
+coverage revises the original approximate 26-scenario budget: the checked-in
+feature files now generate **22 interaction cases and 52 result cases** (74
+browser cases, excluding shared authentication setup). The supplemental records
+complete finite option coverage without changing the core result contrasts.
 Suggestions are not validation lists: most chips also accept manually typed
 values. Dynamic values below describe the checked-in e2e configuration, not
 production.
@@ -18,8 +20,9 @@ production.
 The recovered discussion specifies the inventory, fixture matrix and a split of
 12 interaction scenarios plus 12 result combinations. Its saved response cuts
 off during the result-combination summary. The detailed allocation below is a
-proposed expansion of those groups; the remaining two scenario slots can be
-decided after drafting the first 24 scenarios and do not block that work.
+proposed expansion of those groups, not a record of implemented coverage.
+The implementation audit below separates those original slots from the added
+supplemental examples; remaining original scenarios still need drafting.
 
 ## Chip inventory
 
@@ -356,7 +359,81 @@ near-misses. A browser scenario should prove user-visible behaviour; exhaustive
 field aliases and parser permutations belong in parser tests. The numbered list
 is a proposed breakdown, not an assertion that the behaviours already work.
 
-The 12 interaction scenarios cover five representative value-resolution paths,
+### Implemented coverage audit
+
+The original feature files contained only three interaction scenarios (slots
+1-3) and three result scenarios (slots 13-15). All original result cases scoped
+searches to A-L, so none exercised the new supplemental fixture records.
+
+Both feature files now include the following additional runnable examples.
+Scenario outlines keep shared behavior readable; each example is an independent
+browser case with a stable descriptive title, not a loop inside one test.
+
+| Area | Added cases | Values and fixture coverage |
+| --- | --- | --- |
+| Local/configured suggestion selection | 13 | TIFF, weather, download/Photo Sales, removed status, the three new persistence reasons, reapable/agency-pick, subject alias, and both boolean existence-alias options. |
+| Usage-rights API suggestion selection | 3 | Contracted photographer, Ronald Grant Archive supplier, Bylines category. These call the real API rather than stubbing values. |
+| Manual chip entry | 3 | F's illustrator name, the free-entry supplier-reference alias, and the unsuggested `unknown` usage status. |
+| Supplemental metadata results | 12 | TIFF and `tif`, weather, R/S photographer values/categories, F/T/U illustrator credits, Q's category, N's commissioned category, O's edited title. |
+| Persistence results | 12 | Every persistence reason has a positive fixture and I as the non-persisted near-miss. |
+| Category expansion | 1 | Modern PR search includes P and legacy commissioned agency N, but not Q. |
+| Supplemental usage results | 7 | V's download and Photo Sales platforms, remaining statuses, and reference name/URI combined with removed status; G/H/I are near-misses. |
+| Configured alias results | 4 | Subject options, manual reference, and positive/negative existence semantics. |
+| Supplier results | 9 | Each newly represented supplier matches its own supplemental fixture rather than I. Multi-word values use quoted queries. |
+| Conditional predicates | 4 | Agency pick, reaping eligibility, and positive/negated under-quota searches. Quota cases wait for the real seeded report to load. |
+
+The selected-fixture Given step scopes supplemental cases by explicit role IDs
+and rejects unknown roles; the original Given step retains the A-L scope.
+Result assertions check both the exact total and the exact visible image IDs.
+Every supplemental record has a positive result case, but this does not mean
+every possible value or original interaction has been tested. In particular,
+illustrator-name entry does not verify the suspect illustrator suggestion
+resolver, and this expansion does not add mocks for known lookup concerns.
+
+#### Persistence defect exposed by the scenarios
+
+Two strict regression cases currently expose the same backend mismatch:
+`persisted:persistence-identifier` returns no match for M, and `is:reapable`
+incorrectly includes M alongside W. A live API probe confirms M has an indexed
+`identifiers.picdarUrn` and reports `persistence-identifier` in its response.
+However, [the persistence query](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/PersistedQueries.scala#L28)
+uses [the multi-field existence helper](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/filters.scala#L51),
+which ANDs all configured identifier fields, while the
+[response-side reason](../../../media-api/app/lib/ImagePersistenceReasons.scala#L35)
+accepts any one identifier. The tests retain the intended expectations and stay
+runnable; adding dummy identifiers to M would hide this application defect.
+
+#### Verification results
+
+`npx bddgen` resolves all 74 cases without undefined steps, and the changed
+step definitions pass a scoped TypeScript check. Live Playwright runs against
+freshly seeded stacks verified **72 passing chip cases** across a main run and
+a focused completion run. The two persistence regressions above were reproduced
+in the initial full run and with direct Elasticsearch/media-api probes; they
+are not marked `@todo` or weakened to accept the incorrect results.
+
+The main verification run excluded only those two already-confirmed failures:
+
+```sh
+npx playwright test search-chips --project=chromium --workers=1 --retries=1 \
+  --grep-invert 'Persistence reason persistence-identifier|Reapable search excludes'
+```
+
+That run encountered an authentication `ERR_NETWORK_CHANGED` which passed on
+retry, and was interrupted with seven interaction cases left to finish. The
+focused completion run passed all seven plus authentication:
+
+```sh
+npx playwright test search-chips.feature --project=chromium --workers=1 --retries=1 \
+  --grep 'fixtureHasPerson:false|usage-rights suggestions|manually'
+```
+
+Both runs tore down their owned stacks. The full chip suite is intentionally
+not reported as green while the two backend regressions remain unresolved.
+
+### Original scenario allocation
+
+The original 12 interaction slots cover five representative value-resolution paths,
 alongside shared chip interactions. This is not one browser test per chip:
 
 1. **Usage-rights API lookup**: configured creator/category/supplier values;
@@ -378,10 +455,13 @@ resolver's extraction/filtering logic; these browser scenarios exercise the
 representative paths and their integration with the chip input. The separate
 12 result-combination scenarios cover backend search semantics.
 
-### Interactions: 12 scenarios
+### Interactions: original 12 slots
 
-Feature file for slots 1-3: [search-chips.feature](./search-chips.feature).
-Step definitions for these slots: [search-chips.steps.ts](../../steps/search/search-chips.steps.ts).
+Slots 1-3 and the supplemental interaction examples are implemented in
+[search-chips.feature](./search-chips.feature), using
+[search-chips.steps.ts](../../steps/search/search-chips.steps.ts) and shared
+search steps. Slots 4-12 remain planned; supplemental value-entry cases do not
+implicitly complete editing, removal, negation, keyboard or history coverage.
 
 | Slot | Behaviour to capture | Unique behaviour covered |
 | --- | --- | --- |
@@ -402,10 +482,13 @@ Coordinate slots 10 and 11 with the parent plan's free-text-and-chips section to
 avoid duplicate coverage. Observe the actual CQL component behaviour before
 specifying editing, negation and keyboard expectations.
 
-### Result combinations: 12 scenarios
+### Result combinations: original 12 slots
 
-Feature file for slots 13-15: [search-chips-results.feature](./search-chips-results.feature).
-Step definitions for these slots: [search-chips-results.steps.ts](../../steps/search/search-chips-results.steps.ts).
+Slots 13-15 and the supplemental result examples are implemented in
+[search-chips-results.feature](./search-chips-results.feature), using
+[search-chips-results.steps.ts](../../steps/search/search-chips-results.steps.ts).
+Several supplemental cases exercise parts of slots 18-20, but the original
+combinations in slots 16-24 are not all implemented by those single-filter cases.
 
 | Slot | Representative combination | Fixture roles |
 | --- | --- | --- |
@@ -427,12 +510,12 @@ semantics, not an assumption that every usage constraint binds to one usage.
 Keep category expansion, ownership, persistence and visibility expectations
 explicit because they can introduce implicit filters.
 
-### Remaining two slots
+### Original remaining slots
 
-Slots **25 and 26** remain unallocated. After drafting the first 24 scenarios,
-decide whether conditional/configured chips or suggestion failure behaviour add
-distinct coverage. This decision does not block writing or running the defined
-scenarios.
+The original slots **25 and 26** were unallocated. Conditional/configured chips
+are now covered by the supplemental examples, so the original 26-case budget is
+superseded rather than silently treated as complete. Suggestion-failure behavior
+and the unfinished original slots remain separate follow-up work.
 
 ## Next steps
 
@@ -440,11 +523,13 @@ The 28-image fixture set is already implemented. Use it for the following work;
 there is no separate fixture or resolver-audit phase required before drafting
 the feature files.
 
-- [ ] Write evidence-annotated feature files for the 12 interaction scenarios,
+- [x] Add evidence-annotated supplemental interaction and result scenarios for
+  the expanded fixtures and enabled chip options, with runnable step definitions.
+- [ ] Complete the remaining original interaction slots 4-12,
   covering the five value-resolution paths and the unique behaviours above.
   Establish any uncertain keyboard/editing expectations from the current
   component while drafting the affected scenario.
-- [ ] Write feature files for the 12 result-combination scenarios. State the
+- [ ] Complete the remaining original result-combination slots 16-24. State the
   expected fixture matches and near-misses, scope searches with `ids`, and
   make cost, ownership, deleted/replaced defaults and date boundaries
   explicit where they affect the outcome.
