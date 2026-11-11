@@ -1,8 +1,8 @@
 # Deployed via Kahuna
 
 How Kupua runs when Kahuna serves it, and where every piece of server-owned data comes from.
-The implementation sections describe the current state. Laptop modes (direct-ES,
-local `--use-media-api`) are summarised at the end.
+The startup map below separates Grid's backend choices from Kupua's frontend and
+image-delivery choices. The implementation sections describe the current state.
 
 ## Data-mode policy
 
@@ -42,10 +42,58 @@ Kahuna supplies the initial API address and site settings, not editing gates or 
 addresses. `/kupua/on`, building the bundle and choosing a TEST data source do not
 themselves enable editing.
 
-### Which script owns each flag?
+### Startup decision map
 
 Commands below are written from the repository root. The two `start.sh` scripts are
 different programs; their identically named `--use-TEST` flags are not interchangeable.
+
+**Grid chooses the services and backing resources. Kupua chooses how the frontend
+connects and how images are delivered.** First choose a Grid mode if you need local
+Grid, then a frontend. These examples do not authorize shared-environment work.
+
+#### 1. Choose Grid's backend
+
+```mermaid
+flowchart TD
+  GridChoice{"Grid backend?"}
+  GridChoice -->|Local|GridLocal["./dev/script/start.sh"]
+  GridChoice -->|TEST|GridTest["./dev/script/start.sh --use-TEST"]
+  GridLocal --> AllLocal["All Grid services locally; local ES on 9200 and LocalStack"]
+  GridTest --> Mixed["Local auth, media-api and Kahuna; TEST ES and other satellites"]
+```
+
+**Data-loss warning:** Grid's TEST branch runs `docker compose down`. The current
+Grid ES container has no persistent data mount, so this can discard the local index
+without `--clean`; see [GRID-021](../bug-backlog.md#grid-021). The local branch stops
+matching TEST tunnel processes and starts Docker Compose. Neither branch repairs
+missing LocalStack resources: that belongs to
+[Grid setup](../../../../docs/01-setup/03-running-setup.md), which regenerates local
+configuration. Preserve custom settings before rerunning setup.
+
+#### 2. Choose Kupua's frontend
+
+```mermaid
+flowchart TD
+  Frontend{"Which frontend?"}
+  Frontend -->|Hosted|Hosted["Build hosted bundle; open Grid /kupua/on; no Vite"]
+  Frontend -->|Vite|Source{"Image data connection?"}
+  Source -->|Local API|LocalApi["--use-media-api --canonical-media"]
+  Source -->|Deployed TEST API|DeployedApi["--use-deployed-media-api --canonical-media"]
+  Source -->|Temporary direct ES|Direct{"Which ES? No editing"}
+  Direct -->|Local samples|SampleEs["No mode flags; Kupua ES on 9220"]
+  Direct -->|TEST|TestEs["--use-TEST; TEST ES tunnel"]
+  LocalApi --> ViteOnly["Uses the Grid backend above; no Kupua ES/tunnel/media-proxy setup"]
+  DeployedApi --> DeployedSetup["Bypasses local Grid for image data; legacy TEST startup setup still runs"]
+```
+
+The API examples above use **canonical media**: image URLs returned by media-api.
+Omitting `--canonical-media` selects legacy local delivery proxies and TEST setup.
+Explicitly adding Kupua's `--use-TEST` to the local-API canonical command also runs
+that TEST setup, but does not change Grid's backend. The deployed-API launcher still
+enters TEST startup discovery/setup even with canonical media; canonical does not
+universally mean "no tunnel".
+
+The diagrams show the simplest paths. The table includes the legacy variants:
 
 | Command | What it starts or selects | Effect on Kupua |
 |---|---|---|
@@ -55,11 +103,65 @@ different programs; their identically named `--use-TEST` flags are not interchan
 | `./kupua/scripts/start.sh --use-media-api` | Kupua's Vite server and legacy TEST discovery/setup for its media proxies | Reads the already-running local Grid API; the TEST setup does not reconfigure that Grid API. |
 | `./kupua/scripts/start.sh --use-media-api --canonical-media --use-TEST` | Kupua's Vite server with explicit TEST infrastructure setup retained | Still reads the already-running local Grid API; Grid independently chooses its backing data. |
 | `./kupua/scripts/start.sh --use-deployed-media-api --canonical-media` | Kupua's Vite server reading deployed TEST media-api directly, with returned media URLs | Does not use local Grid for image-data reads; omitting `--canonical-media` selects the existing local media proxies instead. |
+| `./kupua/scripts/start.sh --use-deployed-media-api` | Same deployed TEST API, with legacy TEST setup and local media proxies | Not the local-API path; live verification of this transport change is pending. |
+| `./kupua/scripts/start.sh` | Kupua's sample ES, normally port 9220, separate from Grid's local ES on 9200 | Temporary direct-ES path; no editing. |
 | `./kupua/scripts/start.sh --use-TEST` | Kupua's direct-Elasticsearch TEST mode | Not an API-mode editing topology; direct-ES editing is unavailable. |
 
 Source: [Grid launcher](../../../../dev/script/start.sh) and
 [Kupua launcher](../../../scripts/start.sh). Starting Grid against shared backing
 services requires separate authorization; these examples do not grant it.
+
+#### Every recognized start flag
+
+The mode choices above compose with the modifiers below. These are the flags the
+two start scripts recognize, not setup flags or every environment/config setting.
+
+| Grid flag (`./dev/script/start.sh`) | Meaning |
+|---|---|
+| `--use-TEST` | Stop local Compose services; open/reuse TEST ES tunnel; download TEST API/Kahuna config; run local auth/API/Kahuna only (`runMinimal`). Without it, use local dependencies and `runAll`. |
+| `--with-local-auth` | Skip the AWS credential precheck for an already configured local-auth setup. |
+| `--no-auth` | Also skips that precheck. The launcher does not itself disable auth or rewrite its provider; generated configuration owns that. |
+| `--debug` | Enable JVM debugging on port 5005. |
+| `--ship-logs` | Set `LOCAL_LOG_SHIPPING=true`. |
+
+Auth flags do not choose a data environment or grant TEST access. Grid's launcher
+does not validate unknown arguments or use a positional service name to choose apps;
+its mode chooses the [sbt service group](../../../../build.sbt#L82).
+
+| Kupua flag (`./kupua/scripts/start.sh`) | Meaning |
+|---|---|
+| `--use-media-api` | Use the already-running local API. Without canonical media, also enter legacy TEST startup setup. |
+| `--use-deployed-media-api` | Use deployed TEST media-api; also implies Kupua's TEST setup branch. |
+| `--use-TEST` | Enter TEST setup; without an API selector, use TEST ES directly. Does not reconfigure local Grid. |
+| `--canonical-media` | API modes only: use returned media URLs instead of local S3/imgproxy delivery. |
+| `--skip-es` | In default local direct-ES mode, skip ES startup/wait and sample-data checking. Does not skip the TEST setup branch. |
+| `--skip-data` | Skip local sample-data loading, not TEST discovery or other infrastructure setup. |
+| `--skip-install` | Skip dependency installation/checks, not infrastructure setup. |
+
+**Combination rules:** the two API selectors are mutually exclusive. Canonical
+media without an API selector is rejected. Local API without canonical media already
+implies TEST setup, so adding `--use-TEST` there is redundant; it is also redundant
+with deployed API. The local-API canonical fast path already omits ES/sample setup,
+so `--skip-es` and `--skip-data` add nothing there. Neither creates a no-tunnel
+deployed-API path. Unknown Kupua flags are rejected; `--media-api` and
+`--deployed-media-api` are not accepted spellings.
+
+#### Login and verification are separate choices
+
+Follow the [service transport rules](#local-test-and-hosted-service-transport): local
+metadata/auth use local proxies; exact allowlisted TEST origins use direct requests
+with TEST-scoped browser cookies. Hosted uses its discovered addresses directly.
+Changing data or media-delivery flags does not enable editing: Joshua's startup
+preference, image capabilities and server authorization still apply. New metadata
+controls remain preparation-only; connecting a different service needs its own checks.
+
+Operator checks observed successful local-API label addition with both all-local Grid
+and Grid's mixed TEST setup. The all-local retest after the direct-TEST change returned
+acknowledgement and canonical observation after corpus replenishment. These checks do
+not measure latency or establish every mutation workflow. Synthetic fixtures cover transport and cookie
+handling, not every deployment or capacity. **Deployed-media-api remains live-unverified
+for this transport change**, with or without canonical media; a commit is not evidence
+that it was exercised. Legacy setup combinations are source-described, not newly certified.
 
 ### Editing support by frontend
 
@@ -105,12 +207,57 @@ Service discovery is not permission: every mutation still needs the captured ima
 own edits resource and exact advertised label resource, plus server authorization.
 Missing/invalid discovery leaves the dependent action unavailable, never selecting ES.
 
-Hosted requests use validated discovered origins directly. Local Vite still requires
-fixed `VITE_GRID_METADATA_ORIGIN` and `VITE_GRID_AUTH_ORIGIN` proxy targets that match
-the directory. Those are routing settings, not rollout switches. Vite admits only
-supported exact method/path shapes, not arbitrary upstream URLs, and does not inspect
-browser preferences. Changing proxy configuration requires restarting Vite; this task
-does not change running configuration, restart Grid or activate shared-system editing.
+#### Local, TEST and hosted service transport
+
+The advertised address selects each service's transport independently. Kupua's API
+mode flag identifies media-api, not the location of every satellite or its backing
+Elasticsearch. In particular, local Grid started with `--use-TEST` can advertise TEST
+metadata-editor while auth remains local; guessing one shared domain suffix is wrong.
+
+| Frontend and advertised service | Metadata/auth transport |
+|---|---|
+| Vite; exact allowlisted local service origin | Fixed local Vite proxy. |
+| Vite; exact allowlisted TEST service origin | Direct credentialed browser request to TEST. |
+| Vite; explicitly configured custom service origin | Matching fixed custom Vite proxy. |
+| Hosted Kupua | Direct requests to validated discovered origins, unchanged by the laptop routing choice. |
+| Direct-ES mode | No editing; no satellite proxies registered. |
+
+The distinction matters for login cookies. A TEST-scoped cookie accompanies requests
+to TEST, not requests to a local-origin Vite proxy. Signing into TEST in the same
+browser does not make that cookie available to the local proxy. Direct TEST requests
+let the browser attach the appropriate cookie normally; Kupua neither copies cookies
+between environments nor acquires credentials for Vite. Local services retain local
+authentication and proxy transport.
+
+Direct requests also require the destination service to permit the frontend origin
+through CORS, including credentials and the required methods/headers. Grid's effective
+allowlist comes from `security.cors.allowedOrigins`; changing a local configuration
+does not change a deployed TEST service's policy. TEST metadata-editor already permits
+`https://kupua.media.local.dev-gutools.co.uk`: credentialed direct GET and POST/DELETE
+preflight checks establish that no additional CORS configuration is needed for this
+origin on that service. They do not establish mutation permission or successful writes,
+and must not be generalized to other services. Normal TEST login is still required.
+
+Service routing needs no unauthenticated startup directory request, ES lookup or SSH
+tunnel. Optional `VITE_GRID_METADATA_ORIGIN` and `VITE_GRID_AUTH_ORIGIN` remain explicit
+custom routing settings, not rollout switches. Known local/TEST destinations need no
+manual settings. Reloading the page picks up changed advertised addresses without
+restarting Vite; changing Vite's proxy configuration itself requires a restart.
+
+Vite admits only supported exact method/path shapes for proxied traffic, never an
+arbitrary request-supplied upstream URL. Direct TEST requests do not pass through
+Vite's guard: command/resource validation, redirect refusal and server authorization
+still apply. Transport selection is implemented in
+[proxy-target.ts](../../../src/dal/grid-api/proxy-target.ts); the
+[API contract](../../../src/dal/grid-api/README.md#step-2-command-boundary) owns the
+detailed validation and command outcomes.
+
+This command router currently covers metadata-editor and auth, not every Grid
+service. Collections has a separate credentialed read path, and cropper remains a
+dry-run editor that prepares but does not send its request. Connecting cropper saves,
+collection mutations, leases or other workflows requires that service's own validated
+resource/command path and authentication/CORS checks. Reuse the transport principle,
+not an unrestricted forwarding mechanism; this section does not enable those writes.
 
 The directory does not replace site settings. Kahuna still supplies initial media-api
 bootstrap, collections address, per-user paid-image default and allowlisted display/domain

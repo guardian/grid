@@ -307,9 +307,17 @@ gates remain; eventual hosted editing relies on server permissions/capabilities 
 **Routing:** shared once-per-page root discovery supplies `edits` and `/session`.
 Their origins must exclude credentials, paths (except exact session path), query and
 fragments; HTTPS is required except loopback HTTP fixtures. Hosted builds pin API mode
-and use these origins directly. Local `VITE_GRID_METADATA_ORIGIN` and
-`VITE_GRID_AUTH_ORIGIN` are still fixed proxy targets and must match discovery. They
-are not editing flags. Vite admits exact supported transport shapes independently of
+and use these origins directly. Laptop API-mode discovery independently chooses local
+metadata/auth proxies or direct exact-allowlisted TEST origins. Direct TEST requests
+use the browser's TEST-scoped cookie and require normal login/service CORS policy;
+they do not pass through Vite's method guard. Command/resource validation and server
+authorization remain mandatory. No cookie copying or arbitrary upstream proxy is
+introduced. Proxy names require a slash boundary,
+so lookalike prefixes cannot bypass method/path guards. Optional explicit
+`VITE_GRID_METADATA_ORIGIN` and `VITE_GRID_AUTH_ORIGIN` retain custom fixed targets
+that must match discovery; they are not editing flags. Direct-ES registers no satellite
+proxies. Vite performs no startup directory login, ES lookup or SSH setup for routing.
+Vite admits exact supported transport shapes independently of
 the browser preference; it neither reads localStorage nor accepts a request-supplied
 target. Missing/invalid discovery blocks dependent commands. The
 [hosted guide](00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md#editing-preference-and-service-discovery)
@@ -356,8 +364,8 @@ explicit Kupua `--use-TEST`, and deployed-API startup retain their previous setu
 | `VITE_ES_INDEX` | `images` | `.env` | ES index or alias to query |
 | `VITE_ES_IS_LOCAL` | `true` | `.env` | Set to `false` when connecting to non-local ES (enables write protection) |
 | `VITE_MEDIA_API_BASE_URL` | `/api` | `start.sh` | Media-api request base; only deployed TEST mode sets the allowlisted absolute TEST origin |
-| `VITE_GRID_METADATA_ORIGIN` | (unset) | Shell | Fixed metadata-editor proxy target; must match root discovery, not an editing switch |
-| `VITE_GRID_AUTH_ORIGIN` | (unset) | Shell | Fixed auth proxy target; must match discovered session origin, not an editing switch |
+| `VITE_GRID_METADATA_ORIGIN` | (unset) | Shell | Optional custom metadata-editor target beyond fixed local/TEST routes; must match root discovery |
+| `VITE_GRID_AUTH_ORIGIN` | (unset) | Shell | Optional custom auth target beyond fixed local/TEST routes; must match session discovery |
 | `VITE_S3_PROXY_ENABLED` | `false` | `start.sh` | Set to `true` when S3 thumbnail proxy is running |
 | `VITE_IMGPROXY_ENABLED` | `false` | `start.sh` | Set to `true` when imgproxy container is running |
 | `VITE_IMAGE_BUCKET` | (none) | `start.sh` | S3 bucket for full-size images (for imgproxy URL generation) |

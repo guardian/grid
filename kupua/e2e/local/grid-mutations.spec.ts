@@ -6,6 +6,7 @@ import { build, createServer } from "vite";
 import type * as Commands from "../../src/lib/grid-commands";
 import type { labelEditorFixture } from "../shared/label-editor-fixture";
 import { GRID_API_READ_VIA_POST } from "../../src/dal/grid-api/read-via-post";
+import { gridServiceProxyRoutes } from "../../src/lib/grid-mutation-policy";
 import { labelEditorPlugin, virtualEntry } from "../shared/label-editor-plugin";
 import { getDensityChangeButton } from "../shared/density-selection";
 import { waitForFixtureSetup } from "../shared/helpers";
@@ -1577,13 +1578,16 @@ async function applyEditingFromPanel(page: Page, allowed: boolean, shortcut = fa
   await page.waitForFunction(() => Boolean((window as CommandWindow).commandFixture));
 }
 
-test("local commands cross the guarded Vite proxy using the saved startup preference", async ({ page }, testInfo) => {
+for (const fixedRoutes of [false, true]) {
+test(`local commands use ${fixedRoutes ? "direct TEST metadata and proxied local auth" : "explicit guarded proxy targets"} and the saved startup preference`, async ({ page }, testInfo) => {
   const received: Array<{ method: string; path: string; body: string }> = [];
   let origin = "";
+  let metadataOrigin = "";
+  let authOrigin = "";
   const labelsById = new Map(["fixture", "other", "queued"].map(imageId => [imageId, ["fixture label"]]));
   let version = 0;
   const imageEntity = (imageId: string) => ({
-    uri: `${origin}/images/${imageId}`, links: [{ rel: "edits", href: `${origin}/metadata/${imageId}` }], actions: [],
+    uri: `${origin}/images/${imageId}`, links: [{ rel: "edits", href: `${metadataOrigin}/metadata/${imageId}` }], actions: [],
     data: { id: imageId, uploadTime: "2026-01-01T00:00:00Z", metadata: {},
       source: { dimensions: { width: 800, height: 600 } },
       userMetadata: { data: { lastModified: new Date(Date.UTC(2026, 10, 7) + version * 1000).toISOString(),
@@ -1598,7 +1602,7 @@ test("local commands cross the guarded Vite proxy using the saved startup prefer
     const imageId = request.url?.match(/^\/(?:metadata|images)\/(fixture|other|queued)(?:\/|$)/)?.[1];
     const labels = labelsById.get(imageId ?? "") ?? [];
     response.setHeader("Content-Type", "application/json");
-    if (request.url === "/") response.end(JSON.stringify({ links: [{ rel: "edits", href: origin }, { rel: "session", href: `${origin}/session` }] }));
+    if (request.url === "/") response.end(JSON.stringify({ links: [{ rel: "edits", href: metadataOrigin }, { rel: "session", href: `${authOrigin}/session` }] }));
     else if (request.url === "/session") response.end(JSON.stringify({ data: { user: { permissions: {} } } }));
     else if (request.url === "/images/search-after") response.end(JSON.stringify({ data: [imageEntity("fixture")], total: 1,
       sortValues: [[Date.UTC(2026, 0, 1), "fixture"]] }));
@@ -1607,8 +1611,8 @@ test("local commands cross the guarded Vite proxy using the saved startup prefer
       .filter(imageId => labelsById.has(imageId)).map(imageId => imageId === "fixture" && heldProjection ? heldProjection : imageEntity(imageId)) }));
     else if (imageId && request.url === `/images/${imageId}`) response.end(JSON.stringify(imageEntity(imageId)));
     else if (imageId && request.url === `/metadata/${imageId}` && request.method === "GET") {
-      response.end(JSON.stringify({ data: { labels: { uri: `${origin}/metadata/${imageId}/labels`,
-        data: labels.map(label => ({ uri: `${origin}/metadata/${imageId}/labels/${new URLSearchParams({ label }).toString().slice(6)}`, data: label })) } } }));
+      response.end(JSON.stringify({ data: { labels: { uri: `${metadataOrigin}/metadata/${imageId}/labels`,
+        data: labels.map(label => ({ uri: `${metadataOrigin}/metadata/${imageId}/labels/${new URLSearchParams({ label }).toString().slice(6)}`, data: label })) } } }));
     } else if (imageId && request.url === `/metadata/${imageId}/labels` && request.method === "POST") {
       labelsById.set(imageId, [...new Set([...labels, ...(JSON.parse(body).data as string[])])]);
       version++;
@@ -1625,9 +1629,21 @@ test("local commands cross the guarded Vite proxy using the saved startup prefer
   const address = upstream.address();
   if (!address || typeof address === "string") throw new Error("No fixture address");
   origin = `http://127.0.0.1:${address.port}`;
+  metadataOrigin = fixedRoutes ? "https://media-metadata.test.dev-gutools.co.uk" : origin;
+  authOrigin = fixedRoutes ? "https://media-auth.local.dev-gutools.co.uk" : origin;
+  const metadataPrefix = fixedRoutes ? "/grid-test-metadata" : "/grid-metadata";
+  const authPrefix = fixedRoutes ? "/grid-local-auth" : "/grid-auth";
+  const proxyPaths: string[] = [];
+  const directCredentials: boolean[] = [];
+  const recordProxyRequest = (request: import("@playwright/test").Request) => {
+    const url = new URL(request.url());
+    const path = url.pathname;
+    if (path.startsWith("/grid-")) proxyPaths.push(path);
+    else if (fixedRoutes && url.origin === metadataOrigin && request.method() !== "OPTIONS") proxyPaths.push(`direct-test${path}`);
+  };
   const env = {
     VITEST: "true", VITE_USE_MEDIA_API: "true", VITE_HOSTED: "false", VITE_MEDIA_API_BASE_URL: "/api",
-    VITE_GRID_METADATA_ORIGIN: origin, VITE_GRID_AUTH_ORIGIN: origin,
+    VITE_GRID_METADATA_ORIGIN: fixedRoutes ? "" : origin, VITE_GRID_AUTH_ORIGIN: fixedRoutes ? "" : origin,
   };
   const previous = Object.fromEntries(Object.keys(env).map((key) => [key, process.env[key]]));
   Object.assign(process.env, env);
@@ -1635,11 +1651,27 @@ test("local commands cross the guarded Vite proxy using the saved startup prefer
   try {
     vite = await createServer({
       configFile: resolve("vite.config.ts"), cacheDir: testInfo.outputPath("vite-cache"), plugins: [fixturePlugin],
-      server: { host: "127.0.0.1", port: 0, proxy: { "/api": { target: origin, secure: true } } },
+      server: { host: "127.0.0.1", port: 0, proxy: { "/api": { target: origin, secure: true },
+        ...Object.fromEntries(gridServiceProxyRoutes().map(route => [`^${route.prefix}/`, { target: origin }])) } },
     });
     await vite.listen();
     const localOrigin = vite.resolvedUrls!.local[0].replace(/\/$/, "");
-    await page.route("**/*", (route) => new URL(route.request().url()).origin === localOrigin ? route.continue() : route.abort());
+    if (fixedRoutes) await page.context().addCookies([{ name: "fixture-test-session", value: "synthetic",
+      domain: "media-metadata.test.dev-gutools.co.uk", path: "/", secure: true, sameSite: "None" }]);
+    await page.route("**/*", async route => {
+      const request = route.request();
+      const url = new URL(request.url());
+      if (url.origin === localOrigin) { await route.continue(); return; }
+      if (!fixedRoutes || url.origin !== metadataOrigin) { await route.abort(); return; }
+      const headers = { "Access-Control-Allow-Origin": localOrigin, "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", "Access-Control-Allow-Headers": "content-type" };
+      if (request.method() === "OPTIONS") { await route.fulfill({ status: 204, headers }); return; }
+      directCredentials.push((await request.allHeaders()).cookie?.includes("fixture-test-session=synthetic") === true);
+      const response = await fetch(`${origin}${url.pathname}`, { method: request.method(),
+        headers: { "Content-Type": "application/json" }, body: request.postData() ?? undefined,
+        redirect: "error", signal: AbortSignal.timeout(10_000) });
+      await route.fulfill({ status: response.status, body: await response.text(), contentType: "application/json", headers });
+    });
     await page.goto(`${localOrigin}/__commands`);
     await page.waitForFunction(() => Boolean((window as CommandWindow).commandFixture));
     await exerciseLabelEditor(page);
@@ -1648,24 +1680,29 @@ test("local commands cross the guarded Vite proxy using the saved startup prefer
     await page.waitForFunction(() => Boolean((window as CommandWindow).commandFixture));
     await exerciseObservedRemoval(page, "acknowledged");
     expect(received).toEqual([]);
-    expect((await page.evaluate(command => (window as CommandWindow).commandFixture.executeGridCommand(command), labelCommand(origin))).outcome).toBe("blocked");
+    expect((await page.evaluate(command => (window as CommandWindow).commandFixture.executeGridCommand(command), labelCommand(metadataOrigin))).outcome).toBe("blocked");
     await page.evaluate(() => localStorage.setItem("kupua-allow-editing", "true"));
     await discardOnNavigation(page, () => page.reload());
     await page.waitForFunction(() => Boolean((window as CommandWindow).commandFixture));
-    const result = await page.evaluate((command) => (window as CommandWindow).commandFixture.executeGridCommand(command), labelCommand(origin));
+    page.on("request", recordProxyRequest);
+    const result = await page.evaluate((command) => (window as CommandWindow).commandFixture.executeGridCommand(command), labelCommand(metadataOrigin));
     expect(result.outcome).toBe("acknowledged");
+    const metadataTransport = fixedRoutes ? "direct-test" : metadataPrefix;
+    expect(proxyPaths).toEqual([`${authPrefix}/session`, `${metadataTransport}/metadata/fixture`, `${metadataTransport}/metadata/fixture/labels`]);
+    if (fixedRoutes) expect(directCredentials).toEqual([true, true]);
     expect(received).toEqual([
       { method: "GET", path: "/", body: "" }, { method: "GET", path: "/session", body: "" },
       { method: "GET", path: "/metadata/fixture", body: "" },
       { method: "POST", path: "/metadata/fixture/labels", body: JSON.stringify({ data: ["fixture label"] }) },
     ]);
-    const refused = await page.evaluate(async () => Promise.all([
-      ["/grid-metadata/metadata/fixture/labels", "DELETE"],
-      ["/grid-metadata/metadata/fixture/labels/extra", "POST"],
-      ["/grid-auth/session", "POST"], ["/api/images/fixture", "DELETE"],
-    ].map(async ([path, method]) => (await fetch(path, { method })).status)));
-    expect(refused).toEqual([403, 403, 403, 403]);
-    const removal = { operation: "remove-label", imageId: "fixture", label: "fixture label", resource: labelCommand(origin).resource };
+    const refused = await page.evaluate(async ({ metadataPrefix, authPrefix }) => Promise.all([
+      [`${metadataPrefix}/metadata/fixture/labels`, "DELETE"],
+      [`${metadataPrefix}/metadata/fixture/labels/extra`, "POST"],
+      [`${authPrefix}/session`, "POST"], ["/api/images/fixture", "DELETE"],
+      [`${metadataPrefix}-unexpected/metadata/fixture/labels`, "POST"],
+    ].map(async ([path, method]) => (await fetch(path, { method })).status)), { metadataPrefix, authPrefix });
+    expect(refused).toEqual([403, 403, 403, 403, 404]);
+    const removal = { operation: "remove-label", imageId: "fixture", label: "fixture label", resource: labelCommand(metadataOrigin).resource };
     expect((await page.evaluate(command => (window as CommandWindow).commandFixture.executeGridCommand(command), removal)).outcome).toBe("acknowledged");
     expect(received.slice(4)).toEqual([{ method: "GET", path: "/metadata/fixture", body: "" },
       { method: "DELETE", path: "/metadata/fixture/labels/fixture+label", body: "" }]);
@@ -1679,27 +1716,31 @@ test("local commands cross the guarded Vite proxy using the saved startup prefer
       { method: "DELETE", path: "/metadata/fixture/labels/connected+fixture+label", body: "" },
     ]);
     expect(received.slice(beforeConnected).filter(request => request.path === "/images/mget")).toHaveLength(2);
-    const beforeBulk = received.length;
-    await exerciseBulkEditor(page);
-    expect(received.slice(beforeBulk).filter(request => request.path.startsWith("/metadata/") && request.method !== "GET")
-      .map(({ method, path }) => ({ method, path }))).toEqual([
-      { method: "POST", path: "/metadata/fixture/labels" }, { method: "POST", path: "/metadata/other/labels" },
-      { method: "POST", path: "/metadata/queued/labels" },
-      { method: "DELETE", path: "/metadata/fixture/labels/batch+fixture+label" }, { method: "DELETE", path: "/metadata/other/labels/batch+fixture+label" },
-      { method: "POST", path: "/metadata/other/labels" }, { method: "DELETE", path: "/metadata/other/labels/partial+fixture+label" },
-    ]);
-    await page.screenshot({ path: testInfo.outputPath("bulk-labels-local.png") });
-    const beforeRecovery = received.length;
-    await exerciseRecoveryEditor(page, hold => { heldProjection = hold ? imageEntity("fixture") : undefined; });
-    expect(received.slice(beforeRecovery).filter(request => request.method === "POST" && request.path.startsWith("/metadata/"))
-      .map(request => request.path)).toEqual(["/metadata/fixture/labels", "/metadata/other/labels", "/metadata/fixture/labels", "/metadata/other/labels"]);
+    if (!fixedRoutes) {
+      const beforeBulk = received.length;
+      await exerciseBulkEditor(page);
+      expect(received.slice(beforeBulk).filter(request => request.path.startsWith("/metadata/") && request.method !== "GET")
+        .map(({ method, path }) => ({ method, path }))).toEqual([
+        { method: "POST", path: "/metadata/fixture/labels" }, { method: "POST", path: "/metadata/other/labels" },
+        { method: "POST", path: "/metadata/queued/labels" },
+        { method: "DELETE", path: "/metadata/fixture/labels/batch+fixture+label" }, { method: "DELETE", path: "/metadata/other/labels/batch+fixture+label" },
+        { method: "POST", path: "/metadata/other/labels" }, { method: "DELETE", path: "/metadata/other/labels/partial+fixture+label" },
+      ]);
+      await page.screenshot({ path: testInfo.outputPath("bulk-labels-local.png") });
+      const beforeRecovery = received.length;
+      await exerciseRecoveryEditor(page, hold => { heldProjection = hold ? imageEntity("fixture") : undefined; });
+      expect(received.slice(beforeRecovery).filter(request => request.method === "POST" && request.path.startsWith("/metadata/"))
+        .map(request => request.path)).toEqual(["/metadata/fixture/labels", "/metadata/other/labels", "/metadata/fixture/labels", "/metadata/other/labels"]);
+    }
     await applyEditingFromPanel(page, false, true, testInfo.outputPath("hi-joshua-desktop.png"));
-    expect((await page.evaluate(command => (window as CommandWindow).commandFixture.executeGridCommand(command), labelCommand(origin))).outcome).toBe("blocked");
+    expect((await page.evaluate(command => (window as CommandWindow).commandFixture.executeGridCommand(command), labelCommand(metadataOrigin))).outcome).toBe("blocked");
     const writesBeforeReload = received.filter(request => ["POST", "DELETE"].includes(request.method) && request.path.startsWith("/metadata/")).length;
     await applyEditingFromPanel(page, true);
     expect(await page.evaluate(() => (window as CommandWindow).commandFixture.gridLabelEditingEnabled())).toBe(true);
     expect(received.filter(request => ["POST", "DELETE"].includes(request.method) && request.path.startsWith("/metadata/"))).toHaveLength(writesBeforeReload);
+    if (fixedRoutes) expect(directCredentials.every(Boolean)).toBe(true);
   } finally {
+    page.off("request", recordProxyRequest);
     await page.unrouteAll({ behavior: "wait" });
     await vite?.close();
     await new Promise<void>((done, reject) => upstream.close((error) => error ? reject(error) : done()));
@@ -1708,6 +1749,7 @@ test("local commands cross the guarded Vite proxy using the saved startup prefer
     }
   }
 });
+}
 
 test("built hosted commands fail closed, use direct service origins and stop after expiry", async ({ page, context }, testInfo) => {
   test.setTimeout(90_000);

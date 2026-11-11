@@ -6,7 +6,7 @@ import path from "path";
 import type { Plugin } from "vite";
 import { bedrockEmbedProxy } from "./scripts/bedrock-embed-proxy.mjs";
 import { isGridApiReadViaPost } from "./src/dal/grid-api/read-via-post.ts";
-import { isLabelAddRequest, isLabelRemovalRequest, serviceOrigin } from "./src/lib/grid-mutation-policy.ts";
+import { gridServiceProxyRoutes, isLabelAddRequest, isLabelRemovalRequest } from "./src/lib/grid-mutation-policy.ts";
 import {
   DEPLOYED_TEST_MEDIA_API_BASE_URL,
   shouldEnableDirectBedrockProxy,
@@ -65,19 +65,16 @@ function esProxyGuard(): Plugin {
  * Guards local proxy requests only. Hosted and deployed-origin requests
  * bypass Vite and require command-boundary admission plus server authorization.
  */
-const GRID_API_PROXY_PREFIXES = ["/api", "/grid-metadata", "/grid-auth"];
-
-function gridApiWriteGuard(): Plugin {
+function gridApiWriteGuard(routes: ReturnType<typeof gridServiceProxyRoutes>): Plugin {
   return {
     name: "grid-api-write-guard",
     configureServer(server) {
-      for (const prefix of GRID_API_PROXY_PREFIXES) {
+      for (const { prefix, service } of [{ prefix: "/api", service: "api" }, ...routes]) {
         server.middlewares.use(prefix, (req, res, next) => {
           const isReadViaPost = prefix === "/api" && isGridApiReadViaPost(req.method, req.url);
           const isRead = req.method === "GET" && (prefix === "/api"
-            || (prefix === "/grid-auth" ? req.url === "/session" : /^\/metadata\/[a-zA-Z0-9_-]+$/.test(req.url ?? "")));
-          const isSelectedWrite = prefix === "/grid-metadata"
-            && Boolean(serviceOrigin(process.env.VITE_GRID_METADATA_ORIGIN, true))
+            || (service === "auth" ? req.url === "/session" : /^\/metadata\/[a-zA-Z0-9_-]+$/.test(req.url ?? "")));
+          const isSelectedWrite = service === "metadata"
             && (isLabelAddRequest(req.method, req.url) || isLabelRemovalRequest(req.method, req.url));
           if (!isRead && !isReadViaPost && !isSelectedWrite) {
             res.writeHead(403, { "Content-Type": "text/plain" });
@@ -136,8 +133,8 @@ const directBedrockPlugins = shouldEnableDirectBedrockProxy(
   Boolean(process.env.VITEST),
 ) ? [bedrockEmbedProxy()] : [];
 
-const metadataOrigin = serviceOrigin(process.env.VITE_GRID_METADATA_ORIGIN, true);
-const authOrigin = serviceOrigin(process.env.VITE_GRID_AUTH_ORIGIN, true);
+const satelliteRoutes = process.env.VITE_USE_MEDIA_API === "true"
+  ? gridServiceProxyRoutes({ metadata: process.env.VITE_GRID_METADATA_ORIGIN, auth: process.env.VITE_GRID_AUTH_ORIGIN }) : [];
 
 return {
   ...(hosted && {
@@ -149,7 +146,7 @@ return {
     },
     build: { outDir: path.resolve(import.meta.dirname, "../kahuna/public/kupua"), emptyOutDir: true },
   }),
-  plugins: [react(), ...(mode === "test" && process.env.VITEST ? [] : [tailwindcss()]), esProxyGuard(), gridApiWriteGuard(), perfEnvironment(), ...directBedrockPlugins],
+  plugins: [react(), ...(mode === "test" && process.env.VITEST ? [] : [tailwindcss()]), esProxyGuard(), gridApiWriteGuard(satelliteRoutes), perfEnvironment(), ...directBedrockPlugins],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "./src"),
@@ -169,20 +166,11 @@ return {
       ignored: ["**/exploration/**", "**/e2e/**", "**/scripts/**", "**/playwright-report/**", "**/test-results/**"],
     },
     proxy: {
-      ...(metadataOrigin && {
-        "/grid-metadata": {
-          target: metadataOrigin, changeOrigin: true, followRedirects: false,
-          rewrite: (requestPath: string) => requestPath.replace(/^\/grid-metadata/, ""),
+      ...Object.fromEntries(satelliteRoutes.map(({ prefix, origin }) => [`^${prefix}/`, {
+          target: origin, changeOrigin: true, followRedirects: false,
+          rewrite: (requestPath: string) => requestPath.slice(prefix.length),
           headers: { Origin: "https://media.local.dev-gutools.co.uk" },
-        },
-      }),
-      ...(authOrigin && {
-        "/grid-auth": {
-          target: authOrigin, changeOrigin: true, followRedirects: false,
-          rewrite: (requestPath: string) => requestPath.replace(/^\/grid-auth/, ""),
-          headers: { Origin: "https://media.local.dev-gutools.co.uk" },
-        },
-      }),
+      }])),
       // Proxy ES requests to Elasticsearch.
       // Default: kupua's local docker ES on port 9220
       // Override: set KUPUA_ES_URL=http://localhost:9200 for TEST tunnel

@@ -17,7 +17,7 @@ synthetic direct-TEST reproduction and verification passed, but natural-workflow
 
 ## At a Glance
 
-**Current recorded status: 7 November 2026.** The tables below list open defects,
+**Current recorded status: 11 November 2026.** The tables below list open defects,
 approval/integration/review tasks or explicit residuals; completed bounded repairs and verification are listed separately.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
@@ -37,6 +37,8 @@ These are separate from the optional obsolete-read cancellation follow-up.
 The 7 November update closes KUP-043 for the operator-accepted Step-4 simulated
 contract after integrated validation and independent review. Live activation and
 the real Delete workflow remain separately gated.
+The 11 November update adds GRID-021's operator-observed local index loss during
+local/TEST mode switching; the intended developer-data lifetime awaits engineer confirmation.
 Other dispositions have not been revalidated.
 Update this overview when a detailed disposition changes.
 
@@ -109,6 +111,7 @@ legacy-category expansion remains accepted lag.
 | [GRID-017](#grid-017) | Kahuna startup probes before the effective default scope settles | Open; recorded local browser evidence and source assessment | Independent frontend request efficiency; not a Kupua migration gate |
 | [GRID-018](#grid-018) | Upload dropped by a dynamic `fileMetadata` mapping conflict | Open; PROD log evidence (30 October) | Independent Grid ingest reliability; images invisible in search |
 | [GRID-019](#grid-019) | `Edits` DynamoDB table at a fixed 20 WCU, auto-scaling off | Open; operator-read PROD configuration | Independent capacity risk for any batch write (Kahuna, scripts, future Kupua) |
+| [GRID-021](#grid-021) | Switching local Grid to TEST removes nonpersistent local ES data | Operator-observed; teardown/storage mechanism verified, intended behavior to confirm | Independent local-development issue; ask engineers, not a transport rollout gate |
 
 <details>
 <summary>Completed bounded repairs and verification: 45 IDs</summary>
@@ -944,6 +947,15 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Evidence:** P33 section C1 (not included in its bug table), independently checked [read/filter/write](../../../collections/app/controllers/ImageCollectionsController.scala#L46) and [append versus replacement](../../../collections/app/store/ImageCollectionsStore.scala#L43). High-confidence source interleaving; [existing ES assertion](../../../thrall/test/lib/elasticsearch/ElasticSearchTest.scala#L217) tests replacement, not Dynamo concurrency.
 - **Smallest discriminator:** deferred remove read, complete an add of a different path, then release the removal and assert the addition survives; ordinary removal/control alongside it. Proposed, not run.
 - **Dependency / disposition:** OPEN, independent Grid-only lost-update defect, not the undecided tree-cascade policy and not a collection-wide transaction requirement. No change to current Kupua approximate counts or read migration.
+
+#### GRID-021
+**Switching Grid to TEST can discard the local Elasticsearch index without `--clean`**
+- **Component / responsibility:** Grid's development launcher and root Docker Compose Elasticsearch storage; engineer ownership and intended behavior to confirm.
+- **Trigger:** populate local Grid, start Grid with `--use-TEST`, then return to local mode. The TEST branch removes the local Compose containers before using port 9200 for the TEST tunnel.
+- **Expected / actual:** switching the backing environment should not silently discard a reusable local corpus unless that lifetime is intentional and documented. The launcher uses `docker compose down`, while the ES service has no data mount; removing its container therefore removes the index in its writable layer. Ordinary setup without `--clean` does not itself request this teardown, but cannot restore an already removed index.
+- **Evidence / reproduction:** operator reported the corpus missing after local/TEST switching and setup without `--clean` on 11 November. [TEST teardown](../../../dev/script/start.sh#L109), [ES Compose definition](../../../docker-compose.yml#L2), [setup cleanup versus ordinary startup](../../../dev/script/setup.sh#L47). Read-only Docker inspection confirmed no `/usr/share/elasticsearch/data` mount in Grid's replacement container and no image-declared data volume in ES 8.18.3. The teardown was introduced by `b985df7662` (14 October 2022); the later ES8 Compose change updated the image tag, not storage. This is not evidence that losing developer data was an explicit design decision, nor that every historical image behaved identically.
+- **Smallest check / engineer question:** in a disposable local fixture, distinguish container stop/start from removal/recreation and check whether a sentinel document survives. Should `--use-TEST` preserve local data, or is disposable local state intentional? Do not reproduce against a valued corpus or by connecting to shared TEST.
+- **Disposition:** open engineer question; no Grid launcher/storage changes commissioned. Persistence or lifecycle changes require separate approval and would prevent future loss, not recover an already removed writable layer. Original image objects/backups were not assessed. Not a Kupua migration or transport-commit gate.
 
 #### GRID-012
 **Soft-delete acknowledgement is detached from status persistence/publication**

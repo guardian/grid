@@ -6,7 +6,27 @@ import { GRID_API_READ_VIA_POST, isGridApiReadViaPost } from "./read-via-post";
 
 afterEach(() => vi.unstubAllEnvs());
 
-it("admits only supported Vite transport shapes without rollout flags", async () => {
+it("routes advertised local and TEST satellites independently without manual targets", async () => {
+  vi.stubEnv("VITE_HOSTED", "false");
+  vi.stubEnv("VITE_GRID_METADATA_ORIGIN", "");
+  vi.stubEnv("VITE_GRID_AUTH_ORIGIN", "");
+  const { gridServiceUrl } = await import("./proxy-target");
+  for (const environment of ["local", "test"]) {
+    const metadata = `https://media-metadata.${environment}.dev-gutools.co.uk`;
+    const auth = `https://media-auth.${environment}.dev-gutools.co.uk`;
+    expect(gridServiceUrl("metadata", `${metadata}/metadata/fixture`, "/metadata/fixture", metadata))
+      .toBe(environment === "test" ? `${metadata}/metadata/fixture` : `/grid-local-metadata/metadata/fixture`);
+    expect(gridServiceUrl("auth", `${auth}/session`, "/session", auth))
+      .toBe(environment === "test" ? `${auth}/session` : `/grid-local-auth/session`);
+    expect(gridServiceUrl("metadata", `${auth}/metadata/fixture`, "/metadata/fixture", auth)).toBeUndefined();
+    expect(gridServiceUrl("metadata", `${metadata}/metadata/other`, "/metadata/fixture", metadata)).toBeUndefined();
+  }
+  const foreign = "https://unexpected.example.test";
+  expect(gridServiceUrl("metadata", `${foreign}/metadata/fixture`, "/metadata/fixture", foreign)).toBeUndefined();
+});
+
+it("admits only supported Vite transport shapes with startup-captured proxy targets", async () => {
+  vi.stubEnv("VITE_USE_MEDIA_API", "true");
   vi.stubEnv("VITE_GRID_METADATA_ORIGIN", "https://metadata.example.test");
   const { createServer } = await import("vite");
   // A middleware-only test must not invalidate a concurrently running app's optimizer cache.
@@ -55,7 +75,41 @@ it("admits only supported Vite transport shapes without rollout flags", async ()
     expect(next).not.toHaveBeenCalled();
     vi.stubEnv("VITE_GRID_METADATA_ORIGIN", "");
     metadataGuard({ method: "POST", url: "/metadata/fixture/labels" } as never, response as never, next);
-    expect(next).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledOnce();
+    for (const environment of ["local", "test"]) {
+      for (const service of ["metadata", "auth"]) {
+        const prefix = `/grid-${environment}-${service}`;
+        const proxy = server.config.server.proxy![`^${prefix}/`];
+        expect(proxy).toMatchObject({ target: `https://media-${service}.${environment}.dev-gutools.co.uk`, followRedirects: false });
+        const fixedGuard = server.middlewares.stack.find(entry => entry.route === prefix)?.handle as Connect.NextHandleFunction;
+        expect(fixedGuard).toBeDefined();
+        next.mockClear();
+        fixedGuard({ method: "GET", url: service === "auth" ? "/session" : "/metadata/fixture" } as never, response as never, next);
+        expect(next).toHaveBeenCalledOnce();
+        next.mockClear();
+        fixedGuard({ method: "POST", url: "/metadata/fixture/labels" } as never, response as never, next);
+        expect(next).toHaveBeenCalledTimes(service === "metadata" ? 1 : 0);
+        next.mockClear();
+        fixedGuard({ method: "DELETE", url: "/metadata/fixture" } as never, response as never, next);
+        fixedGuard({ method: "GET", url: "/session?target=https://unexpected.example.test" } as never, response as never, next);
+        expect(next).not.toHaveBeenCalled();
+      }
+    }
+  } finally {
+    await server.close();
+    await rm(cacheDir, { recursive: true, force: true });
+  }
+});
+
+it("does not register satellite proxies in direct-ES mode", async () => {
+  vi.stubEnv("VITE_USE_MEDIA_API", "false");
+  const { createServer } = await import("vite");
+  const cacheDir = await mkdtemp(resolve("node_modules/.vite-read-guard-"));
+  const server = await createServer({ configFile: "vite.config.ts", cacheDir,
+    optimizeDeps: { noDiscovery: true, include: [] }, server: { middlewareMode: true } });
+  try {
+    expect(Object.keys(server.config.server.proxy!).filter(prefix => prefix.includes("/grid-"))).toEqual([]);
+    expect(server.middlewares.stack.filter(entry => entry.route.startsWith("/grid-"))).toEqual([]);
   } finally {
     await server.close();
     await rm(cacheDir, { recursive: true, force: true });

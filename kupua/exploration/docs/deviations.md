@@ -12,6 +12,19 @@
 
 ## From Grid / Kahuna
 
+### Laptop Satellite Transport
+
+Hosted Kupua uses advertised service origins directly. Laptop API-mode Vite instead
+maps exact local metadata/auth origins to fixed proxies and exact allowlisted TEST
+origins to direct credentialed browser requests. This preserves TEST cookie scope
+without copying credentials or inferring a satellite environment from the API's location.
+Other deployments can supply explicit custom proxy targets. The trade-off is a Guardian
+destination allowlist and, for direct TEST calls, ordinary login and service CORS policy.
+Command/resource validation and server authorization remain; proxy method/path guards
+apply to proxied traffic. TLS and redirect refusal remain, and direct-ES registers no
+satellite proxies. The [runtime guide](00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md#local-test-and-hosted-service-transport)
+owns the mode matrix and authentication requirements.
+
 ### Retained Unavailable Slots
 
 Kahuna removes confirmed deletions from every result list. Kupua removes them locally

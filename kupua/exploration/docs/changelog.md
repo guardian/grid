@@ -24,6 +24,25 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 11 November 2026 - Local and TEST service transport for laptop API editing
+
+The authenticated directory read now selects metadata/auth transport independently
+without manual local/TEST service targets. Local services use fixed Vite proxies;
+exact allowlisted TEST origins use direct credentialed browser requests, preserving
+TEST-scoped login cookies that cannot accompany local proxy requests. Optional custom
+targets remain supported. Hosted direct routing is unchanged; no startup login, ES
+lookup, cookie copying or new authentication mechanism is introduced.
+
+Shared route definitions keep destination selection aligned. Exact command/resource
+validation, proxy method/path guards, slash-bounded proxy names, TLS and redirect
+refusal remain; direct calls still require service CORS policy and server authorization.
+Direct-ES registers no satellite proxies. Existing routing and command fixtures cover
+mixed-environment transport with synthetic TEST-scoped credentials and rejection of
+unsupported origins, methods, resource links and lookalike prefixes. The runtime guide
+separates Grid/Kupua startup flags, backing services and image delivery; GRID-021 records
+the discovered local-data-loss question without changing Grid's lifecycle behavior.
+This does not connect other workflows or claim deployed-media-api verification.
+
 ### 10 November 2026 - Bounded, paced multi-image label editing
 
 Added multi-image label addition/removal through the existing editor, command,

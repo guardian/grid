@@ -153,10 +153,20 @@ The existing shared directory read supplies root `edits` and exact `/session` li
 once per page, retaining success/failure until reload. The edits service origin is not
 an image capability. Missing/invalid relations block command execution. Service origins
 exclude credentials, query and fragments; hosted requires HTTPS, local fixtures may
-use loopback HTTP. Hosted calls use discovered addresses directly. Local calls use only
-fixed `/grid-metadata` and `/grid-auth` targets configured by `VITE_GRID_METADATA_ORIGIN`
-and `VITE_GRID_AUTH_ORIGIN`, which must match discovery. No arbitrary-target proxy,
-guessed satellite hostname, rediscovery polling or address storage is introduced.
+use loopback HTTP. Hosted calls use discovered addresses directly. Laptop calls to
+exact local metadata/auth origins use `/grid-local-metadata` and `/grid-local-auth`.
+Exact allowlisted TEST origins use direct credentialed browser requests: TEST cookies
+cannot accompany local-origin proxy requests. Normal TEST login and the service's
+CORS allowance for the frontend origin remain required; no cookies are copied or
+authentication rules bypassed. Metadata and auth select their transports independently;
+API location and ES backing do not imply a common satellite environment. No unauthenticated startup
+directory request is needed. Optional explicit `VITE_GRID_METADATA_ORIGIN` and
+`VITE_GRID_AUTH_ORIGIN` targets retain `/grid-metadata` and `/grid-auth` for custom
+setups and fixtures. Unknown origins without an explicit target remain blocked.
+No satellite proxies are registered in direct-ES mode. Exact proxy-name boundaries
+and method/path guards protect proxied traffic; direct calls retain command/resource
+validation and server authorization. TLS verification and redirect refusal remain.
+No arbitrary-target proxy, rediscovery polling or address storage is introduced.
 Authentication invalidation is rechecked after prerequisite reads; it cannot undo a
 dispatched write. No one-way rollout stop latch or live preference recheck is retained.
 

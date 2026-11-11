@@ -23,3 +23,18 @@ export function serviceOrigin(value: unknown, allowLocalHttp = false): string | 
     return undefined;
   }
 }
+
+export function gridServiceProxyRoutes(configured: { metadata?: string; auth?: string } = {}) {
+  const routes: { service: "metadata" | "auth"; prefix: string; origin: string }[] = [];
+  for (const environment of ["local", "test"]) {
+    for (const service of ["metadata", "auth"] as const) {
+      routes.push({ service, prefix: `/grid-${environment}-${service}`,
+        origin: `https://media-${service}.${environment}.dev-gutools.co.uk` });
+    }
+  }
+  for (const service of ["metadata", "auth"] as const) {
+    const origin = serviceOrigin(configured[service], true);
+    if (origin) routes.push({ service, prefix: `/grid-${service}`, origin });
+  }
+  return routes;
+}

@@ -237,8 +237,12 @@ other tabs pick it up on reload. Drafts and receipts remain page-memory-only. Th
 no per-operation or bulk rollout flags. Direct-ES stays read-only.
 
 Media-api's existing root directory supplies `edits` and `session` once per page load.
-Local Vite still needs fixed `VITE_GRID_METADATA_ORIGIN` and `VITE_GRID_AUTH_ORIGIN`
-proxy targets matching those discovered origins; these are routing, not editing switches.
+Laptop API mode selects local metadata/auth proxies or direct allowlisted TEST
+requests independently, preserving the browser's environment-specific login cookies.
+Known destinations need no manual targets. See the
+[startup map and transport guide](exploration/docs/00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md#startup-decision-map)
+for flags, cookie/CORS requirements and verification limits. Optional custom targets
+remain routing settings, not editing switches. Direct-ES stays read-only.
 Hosted builds use the discovered addresses directly, without Kahuna editing configuration.
 Do not change actual running configuration or enable shared-system edits by implication.
 
