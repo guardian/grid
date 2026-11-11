@@ -1,28 +1,25 @@
 # Search chips plan
 
-Chip types, available values, a reusable image fixture proposal and a bounded
-scenario strategy for the [search bar plan](./search-bar-plan.md).
+Chip inventory, implemented fixtures and executable coverage for the
+[search bar plan](./search-bar-plan.md).
 
 Use the current `@guardian/cql` input, not the legacy chips input or its retiring feature switch.
 
 ## Scope and coverage strategy
 
-Catalogue every chip using **12 core images plus 16 supplemental images** rather
-than testing the Cartesian product of fields and values. The expanded fixture
-coverage revises the original approximate 26-scenario budget: the checked-in
-feature files now generate **22 interaction cases and 52 result cases** (74
-browser cases, excluding shared authentication setup). The supplemental records
-complete finite option coverage without changing the core result contrasts.
+The suite uses **12 core images plus 16 supplemental images**, with
+**35 interaction cases and 74 result cases** (109 browser cases, excluding
+shared authentication setup). All planned behaviors have runnable scenarios and
+step definitions. Four cases expose confirmed application defects; implemented
+coverage is not the same as a fully passing application.
 Suggestions are not validation lists: most chips also accept manually typed
 values. Dynamic values below describe the checked-in e2e configuration, not
 production.
 
-The recovered discussion specifies the inventory, fixture matrix and a split of
-12 interaction scenarios plus 12 result combinations. Its saved response cuts
-off during the result-combination summary. The detailed allocation below is a
-proposed expansion of those groups, not a record of implemented coverage.
-The implementation audit below separates those original slots from the added
-supplemental examples; remaining original scenarios still need drafting.
+The suite samples distinct interaction and query semantics rather than the
+Cartesian product of all values. Exhaustive parser permutations, arbitrary
+metadata strings and every possible dotted field path belong in lower-level
+tests, not additional browser cases.
 
 ## Chip inventory
 
@@ -238,7 +235,7 @@ row. `in` searches the listed location values together.
 | E | Photographer ownership; label, collection, photoshoot and archive | Ownership and multiple persistence reasons. | Common; `by` = `Example Internal Photographer`; `subject` = `sport`; `category` = `staff-photographer`; `label` / `#` = `search-chips-featured`; `photoshoot` = `Search Chips Harbour Shoot`; `is` = `<org>-owned-photo`, `<org>-owned`; `persisted` = `photographer-category`, `archived`, `photoshoot`, `labeled`, `persisted-collection`; additional backend `collection` / `~` = `search-chips`. |
 | F | Illustrator ownership; lease | Ownership contrast and lease persistence. | Common; `by` / `credit` / `illustrator` = `Example Contracted Illustrator`; `subject` = `arts`; `category` = `contract-illustrator`; `leasedBy` = current user; `is` = `<org>-owned-illustration`, `<org>-owned`; `persisted` = `illustrator-category`, `leases`. |
 | G | Separate usages: one print, another published; neither has both | Detect cross-usage matching semantics. | Common; usage 1: `usages@platform` = `print`, `usages@status` = `pending`, Print details, added = `2024-06-15T12:00:00.000Z`; usage 2: `usages@platform` = `digital`, `usages@status` = `published`, added = `2024-06-15T12:00:00.000Z`; `persisted` = `usages`. |
-| H | One usage that is both print and published | Contrast with G for combined usage filters. | Common; one usage: `usages@platform` = `print`, `usages@status` = `published`, Print details, added = `2024-06-15T12:00:00.000Z`; `persisted` = `usages`. |
+| H | One usage that is both print and published | Contrast with G and inclusive calendar-date boundaries. | Common; one usage: `usages@platform` = `print`, `usages@status` = `published`, Print details, added = `2024-06-15T00:00:00.000Z`; `persisted` = `usages`. |
 | I | Unknown rights; optional metadata and date taken absent; no persistence reasons | Missing-field and non-persisted baseline. | **No Common metadata defaults**: `title` = `Search chips image I`; `description` = `Missing optional metadata`; `uploader` = current user; `fileType` = `jpeg`; `filename` = `search-chips-i.jpg`; `date` = `2024-06-15T12:00:00.000Z`. All other ordinary chip fields absent/empty, including `dateTaken`; no persistence reasons. |
 | J | Both published and replaced usages | Status combinations and negation. | Common; usage 1: `usages@platform` = `digital`, `usages@status` = `published`, added = `2024-06-14T12:00:00.000Z`; usage 2: `usages@platform` = `digital`, `usages@status` = `replaced`, added = `2024-06-16T12:00:00.000Z`; `persisted` = `usages`. |
 | K | Deleted image belonging to the current uploader | Deleted visibility and ownership. | Common; `is` = `deleted`; no persistence reasons. |
@@ -342,8 +339,11 @@ full `SEARCH_CHIP_IMAGE_IDS` export.
 
 The fixed timestamp is `2024-06-15T12:00:00.000Z`. A uploads one day before it;
 D uploads one day after it. J's usage dates also straddle it. All records except
-I have date-taken metadata at that boundary. Credit completions match metadata;
-E's photoshoot completion is stored in `userMetadata.photoshoot.suggest`.
+I have date-taken metadata at that boundary. H's usage is added at midnight on
+15 June so equal inclusive calendar-date constraints exercise the boundary
+without requiring unsupported timestamp-expression syntax. Credit completions
+match metadata; E's photoshoot completion is stored in
+`userMetadata.photoshoot.suggest`.
 
 The existing image-file seeder backs these records with the same placeholder
 JPEG as the captured records, including B's indexed PNG and M's indexed TIFF sources. These fixtures
@@ -352,202 +352,92 @@ Restart `dev:e2e` to regenerate the conditional-chip/alias configuration and
 reseed the data before running scenarios. `GRID_RESEED=true` refreshes fixtures
 on a reused stack, but a data-only reseed does not reload running service config.
 
-## Scenario allocation
+## Implemented coverage
 
-Use small, readable scenarios with explicit expected image IDs, including
-near-misses. A browser scenario should prove user-visible behaviour; exhaustive
-field aliases and parser permutations belong in parser tests. The numbered list
-is a proposed breakdown, not an assertion that the behaviours already work.
+All planned behaviors have evidence-annotated scenarios and executable steps.
+Each outline example is an independent browser test with a stable descriptive
+name. No scenario is left as `@todo` or awaiting step definitions.
 
-### Implemented coverage audit
+| Suite | Cases | Feature file | Step definitions |
+| --- | --- | --- | --- |
+| Interactions | 35 | [search-chips.feature](./search-chips.feature) | [search-chips.steps.ts](../../steps/search/search-chips.steps.ts), plus shared search steps |
+| Results | 74 | [search-chips-results.feature](./search-chips-results.feature) | [search-chips-results.steps.ts](../../steps/search/search-chips-results.steps.ts) |
 
-The original feature files contained only three interaction scenarios (slots
-1-3) and three result scenarios (slots 13-15). All original result cases scoped
-searches to A-L, so none exercised the new supplemental fixture records.
+### Interactions
 
-Both feature files now include the following additional runnable examples.
-Scenario outlines keep shared behavior readable; each example is an independent
-browser case with a stable descriptive title, not a loop inside one test.
+| Behavior | Coverage |
+| --- | --- |
+| Manual entry and field names | City, suggested field names, manual credit outside completions, free-entry alias and unsuggested usage status. |
+| Local/configured suggestions | Format, subject, conditional platforms and predicates, persistence reasons, option-list and existence aliases. |
+| Real API suggestions | Photographer, supplier, category, prefixed credit completion, label shortcut and illustrator; the last two expose defects. |
+| Editing | A photographer suggestion replaces an existing chip without duplicating it. |
+| Negation and removal | Polarity serializes correctly; removing one chip preserves neighboring text and another chip. |
+| Quoting | A complete quoted expression remains one multi-word chip value and round-trips correctly. |
+| Keyboard | Navigation into a chip permits character deletion; Backspace removes a newly typed empty chip. |
+| URL and history | URL hydration, browser back and forward restore values, polarity and adjacent text. |
+| Lookup failure | The real source lookup returns 404, after which a complete manual query still works. |
 
-| Area | Added cases | Values and fixture coverage |
+### Results
+
+| Behavior | Fixtures and expectations |
+| --- | --- |
+| Intersections and exclusions | A/B distinguish positive city/keyword intersections and excluded values. |
+| Category compatibility | C/D match modern pay-to-use expansion; N/P match PR expansion; Q and R-U cover other configured categories. |
+| Format and crops | A/B distinguish JPEG without a crop from PNG with a crop; M adds TIFF and `tif`. |
+| Location scope | A-D distinguish `in`, `city` and `location` with additional metadata and a zero-match near-miss. |
+| Ownership | E/F distinguish owned photographs, illustrations and aggregate ownership. |
+| Compound persistence | E intersects label, collection, photoshoot and archive persistence; F intersects lease owner and lease persistence; I is the near-miss. |
+| Same-usage matching | H matches print/published on one usage; G's separate usages do not satisfy the combination. |
+| Replaced defaults and negation | H/J distinguish default exclusion, explicit replacement searches, impossible combined statuses and image-wide nested negation. |
+| Date boundaries and missing fields | H's midnight usage matches equal inclusive calendar-date bounds; H/I contrast capture-date existence on the same upload date. |
+| Deleted visibility | K/L are hidden by default and match explicit deletion plus their respective uploader; this account has global delete permission. |
+| All persistence reasons | Every reason has a positive fixture and I as the non-persisted near-miss. |
+| Supplemental options | Every supplemental record has a positive result case, including creators, suppliers, subjects, statuses, platforms, reference name/URI and edited title. |
+| Aliases and conditional predicates | Option lists, manual references, true/false existence, agency picks, reaping and positive/negated quota searches. Quota cases wait for the real report. |
+
+Searches use explicit `ids` scopes and near-misses. The original scope retains
+A-L; the selected-fixture step accepts any known role. Assertions check both
+the exact total and visible image IDs, including zero matches. The real UI,
+lookup APIs and seeded search data are exercised without per-test API mocks.
+The shared CQL input is not redundantly tested across both layouts; AI
+similarity and unrelated controls remain in the parent search plan.
+
+## Known application defects
+
+Four strict regression cases carry `@known-defect`. This is a label, not a skip:
+the default suite still runs them. Their failures are not unfinished tests, and
+the fixtures are not padded to hide incorrect application behavior.
+
+| Defect | Failing cases | Evidence |
 | --- | --- | --- |
-| Local/configured suggestion selection | 13 | TIFF, weather, download/Photo Sales, removed status, the three new persistence reasons, reapable/agency-pick, subject alias, and both boolean existence-alias options. |
-| Usage-rights API suggestion selection | 3 | Contracted photographer, Ronald Grant Archive supplier, Bylines category. These call the real API rather than stubbing values. |
-| Manual chip entry | 3 | F's illustrator name, the free-entry supplier-reference alias, and the unsuggested `unknown` usage status. |
-| Supplemental metadata results | 12 | TIFF and `tif`, weather, R/S photographer values/categories, F/T/U illustrator credits, Q's category, N's commissioned category, O's edited title. |
-| Persistence results | 12 | Every persistence reason has a positive fixture and I as the non-persisted near-miss. |
-| Category expansion | 1 | Modern PR search includes P and legacy commissioned agency N, but not Q. |
-| Supplemental usage results | 7 | V's download and Photo Sales platforms, remaining statuses, and reference name/URI combined with removed status; G/H/I are near-misses. |
-| Configured alias results | 4 | Subject options, manual reference, and positive/negative existence semantics. |
-| Supplier results | 9 | Each newly represented supplier matches its own supplemental fixture rather than I. Multi-word values use quoted queries. |
-| Conditional predicates | 4 | Agency pick, reaping eligibility, and positive/negated under-quota searches. Quota cases wait for the real seeded report to load. |
+| Identifier persistence requires every identifier instead of any one | M fails `persisted:persistence-identifier` and incorrectly matches `is:reapable`. | [Persistence query](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/PersistedQueries.scala#L28) uses the [AND-based helper](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/filters.scala#L51), unlike the [response-side reason](../../../media-api/app/lib/ImagePersistenceReasons.scala#L35). Live API/Elasticsearch probes confirm this. |
+| Label suggestions follow a missing relation | The `#` shortcut creates the chip but cannot offer the seeded label. | [Frontend lookup](../../../kahuna/public/js/services/api/media-api.js#L115) requests `suggested-labels`, absent from the [advertised API links](../../../media-api/app/controllers/MediaApi.scala#L139). |
+| Illustrator suggestions omit the configured creator | The configured illustrator is searchable manually but absent from the chooser. | [Resolver](../../../kahuna/public/js/search/structured-query/query-suggestions.ts#L254), [configuration](../../../dev/script/generate-config/service-config.js#L78) and the real browser scenario. |
 
-The selected-fixture Given step scopes supplemental cases by explicit role IDs
-and rejects unknown roles; the original Given step retains the A-L scope.
-Result assertions check both the exact total and the exact visible image IDs.
-Every supplemental record has a positive result case, but this does not mean
-every possible value or original interaction has been tested. In particular,
-illustrator-name entry does not verify the suspect illustrator suggestion
-resolver, and this expansion does not add mocks for known lookup concerns.
+The source suggestion route is also absent. Its passing recovery scenario
+asserts the real 404 and verifies manual query entry; it does not mock a
+successful lookup or claim that source suggestions work.
 
-#### Persistence defect exposed by the scenarios
+## Validation
 
-Two strict regression cases currently expose the same backend mismatch:
-`persisted:persistence-identifier` returns no match for M, and `is:reapable`
-incorrectly includes M alongside W. A live API probe confirms M has an indexed
-`identifiers.picdarUrn` and reports `persistence-identifier` in its response.
-However, [the persistence query](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/PersistedQueries.scala#L28)
-uses [the multi-field existence helper](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/filters.scala#L51),
-which ANDs all configured identifier fields, while the
-[response-side reason](../../../media-api/app/lib/ImagePersistenceReasons.scala#L35)
-accepts any one identifier. The tests retain the intended expectations and stay
-runnable; adding dummy identifiers to M would hide this application defect.
-
-#### Verification results
-
-`npx bddgen` resolves all 74 cases without undefined steps, and the changed
-step definitions pass a scoped TypeScript check. Live Playwright runs against
-freshly seeded stacks verified **72 passing chip cases** across a main run and
-a focused completion run. The two persistence regressions above were reproduced
-in the initial full run and with direct Elasticsearch/media-api probes; they
-are not marked `@todo` or weakened to accept the incorrect results.
-
-The main verification run excluded only those two already-confirmed failures:
+From the e2e package, generate and run the complete suite:
 
 ```sh
-npx playwright test search-chips --project=chromium --workers=1 --retries=1 \
-  --grep-invert 'Persistence reason persistence-identifier|Reapable search excludes'
+node --test fixtures/elasticsearch/search-chips.test.ts
+npx bddgen
+npx playwright test search-chips --project=chromium --workers=1 --retries=1 --reporter=list
 ```
 
-That run encountered an authentication `ERR_NETWORK_CHANGED` which passed on
-retry, and was interrupted with seven interaction cases left to finish. The
-focused completion run passed all seven plus authentication:
+To isolate the confirmed defects or verify the remaining cases:
 
 ```sh
-npx playwright test search-chips.feature --project=chromium --workers=1 --retries=1 \
-  --grep 'fixtureHasPerson:false|usage-rights suggestions|manually'
+npx playwright test search-chips --grep @known-defect --project=chromium --workers=1 --reporter=list
+npx playwright test search-chips --grep-invert @known-defect --project=chromium --workers=1 --retries=1 --reporter=list
 ```
 
-Both runs tore down their owned stacks. The full chip suite is intentionally
-not reported as green while the two backend regressions remain unresolved.
-
-### Original scenario allocation
-
-The original 12 interaction slots cover five representative value-resolution paths,
-alongside shared chip interactions. This is not one browser test per chip:
-
-1. **Usage-rights API lookup**: configured creator/category/supplier values;
-  use `by` in slot 6.
-2. **Indexed-metadata API lookup**: values from seeded image metadata;
-  use `credit` in slot 4.
-3. **Label API lookup**: label suggestions and the `#` shortcut in slot 10.
-  The missing suggestion relation remains an implementation prerequisite.
-4. **Local/configured option lists**: representative list selection with
-  `fileType` in slot 3. Conditional lists and configured alias options share
-  this source family, but are not all exercised by that one scenario.
-5. **No-resolver manual entry**: a key such as `city` in slot 1. This is the
-  no-lookup fallback, not another API resolver.
-
-Key-name suggestions are a separate shared interaction, covered in slot 2.
-Slot 5 also checks that a field with suggestions still accepts a manually typed
-value outside the offered list. Resolver-level tests should cover each distinct
-resolver's extraction/filtering logic; these browser scenarios exercise the
-representative paths and their integration with the chip input. The separate
-12 result-combination scenarios cover backend search semantics.
-
-### Interactions: original 12 slots
-
-Slots 1-3 and the supplemental interaction examples are implemented in
-[search-chips.feature](./search-chips.feature), using
-[search-chips.steps.ts](../../steps/search/search-chips.steps.ts) and shared
-search steps. Slots 4-12 remain planned; supplemental value-entry cases do not
-implicitly complete editing, removal, negation, keyboard or history coverage.
-
-| Slot | Behaviour to capture | Unique behaviour covered |
-| --- | --- | --- |
-| 1 | Create a `city` chip by typing its field and value. | No-resolver path: a chip can be completed without any value suggestions. |
-| 2 | Select a suggested field name. | Key-name completion is distinct from value resolution and inserts the selected key. |
-| 3 | Select a static/configured value suggestion, using `fileType`. | Local option-list path: selecting an offered value completes the correct chip without a remote value lookup. |
-| 4 | Select a `credit` suggestion from seeded completion data. | Indexed-metadata API path: the typed prefix drives a lookup and the selected returned value becomes the chip value. |
-| 5 | Manually enter a valid `credit` value that is not offered as a suggestion. | Suggestions are not a validation whitelist; a suggested-value field still accepts manual input. |
-| 6 | Edit an existing `by` chip by selecting another suggested photographer, and update the search. | Usage-rights API path: configured creator options populate the chooser, and editing replaces the existing value rather than adding another chip. |
-| 7 | Negate a chip and verify its query representation. | Exclusion polarity survives serialisation and changes the query rather than becoming part of the value text. |
-| 8 | Remove one chip without removing neighbouring text or chips. | Targeted deletion preserves the surrounding query and removes only the intended filter. |
-| 9 | Enter a quoted value containing spaces. | A multi-word value remains one chip value and preserves its meaning when serialised. |
-| 10 | Create a label chip with `#` and select a label suggestion. | Label API path: shorthand resolves to the `label` key and uses its label-specific suggestion lookup. Verify the missing relation before implementation. |
-| 11 | Move between text and chips with the keyboard and establish Backspace behaviour. | Keyboard navigation crosses text/chip boundaries, with deletion behaviour distinct from explicit chip removal. |
-| 12 | Restore chips and adjacent text from the URL, including browser history navigation. | Query hydration and back/forward navigation reconstruct the same chip keys, values, polarity and neighbouring text. |
-
-Coordinate slots 10 and 11 with the parent plan's free-text-and-chips section to
-avoid duplicate coverage. Observe the actual CQL component behaviour before
-specifying editing, negation and keyboard expectations.
-
-### Result combinations: original 12 slots
-
-Slots 13-15 and the supplemental result examples are implemented in
-[search-chips-results.feature](./search-chips-results.feature), using
-[search-chips-results.steps.ts](../../steps/search/search-chips-results.steps.ts).
-Several supplemental cases exercise parts of slots 18-20, but the original
-combinations in slots 16-24 are not all implemented by those single-filter cases.
-
-| Slot | Representative combination | Fixture roles |
-| --- | --- | --- |
-| 13 | Intersect shared metadata with a distinguishing uploader or keyword. | A, B |
-| 14 | Exclude a value while retaining a positive metadata constraint. | A, B |
-| 15 | Match modern and legacy chargeable categories through category expansion. | C, D |
-| 16 | Combine file type and crop existence. | A, B |
-| 17 | Combine location filtering with another metadata field; contrast `in` and a specific location field. | A-D |
-| 18 | Distinguish photographer, illustrator and aggregate organisation ownership. | E, F |
-| 19 | Combine label, collection or photoshoot constraints with persistence reasons. | E, I |
-| 20 | Contrast lease persistence with no persistence reasons. | F, I |
-| 21 | Combine print platform and published status to expose same-usage versus cross-usage semantics. | G, H |
-| 22 | Combine or negate usage statuses when an image has both published and replaced usages. | J |
-| 23 | Exercise an inclusive date boundary and missing date-taken metadata. | Fixed-date records, I |
-| 24 | Contrast deleted images owned by the current and another uploader. | K, L |
-
-For slots 21 and 22, derive expected matches from the parser and actual query
-semantics, not an assumption that every usage constraint binds to one usage.
-Keep category expansion, ownership, persistence and visibility expectations
-explicit because they can introduce implicit filters.
-
-### Original remaining slots
-
-The original slots **25 and 26** were unallocated. Conditional/configured chips
-are now covered by the supplemental examples, so the original 26-case budget is
-superseded rather than silently treated as complete. Suggestion-failure behavior
-and the unfinished original slots remain separate follow-up work.
-
-## Next steps
-
-The 28-image fixture set is already implemented. Use it for the following work;
-there is no separate fixture or resolver-audit phase required before drafting
-the feature files.
-
-- [x] Add evidence-annotated supplemental interaction and result scenarios for
-  the expanded fixtures and enabled chip options, with runnable step definitions.
-- [ ] Complete the remaining original interaction slots 4-12,
-  covering the five value-resolution paths and the unique behaviours above.
-  Establish any uncertain keyboard/editing expectations from the current
-  component while drafting the affected scenario.
-- [ ] Complete the remaining original result-combination slots 16-24. State the
-  expected fixture matches and near-misses, scope searches with `ids`, and
-  make cost, ownership, deleted/replaced defaults and date boundaries
-  explicit where they affect the outcome.
-- [ ] Implement the step definitions for those feature files in the existing
-  search step directory. Reuse the shared search-box locators and fixture ID
-  helpers; exercise the real UI, lookup APIs and seeded search results.
-- [ ] Generate and run the matching BDD tests against a running stack. Check for
-  undefined steps with `npx bddgen`, then run the relevant generated search
-  specs with Playwright. Fix test/setup issues and report application defects
-  exposed by the scenarios.
-
-Investigate the noted illustrator/source/label lookup concerns when working on
-their scenarios; they are not prerequisites for unrelated coverage. Do not mock
-away a broken lookup to make an end-to-end scenario pass. Additional backend
-syntax and configured aliases only need further investigation if selected for
-a feature file, rather than as a blanket prerequisite.
-
-The chip input is shared by both search layouts. Avoid duplicating every
-combination across layouts; add layout-specific coverage only where controls
-change the query or available options. Keep AI search and unrelated filter
-controls in their own parts of the parent plan.
+Validation generated all 109 cases without undefined steps and passed the five
+fixture/configuration checks. The live non-defect run passed all 105 chip cases
+plus authentication, with one keyboard case passing on retry. After adding
+caret-position synchronization, that case passed five consecutive runs without
+retries. Every owned test stack was torn down. The complete suite is not green
+while the four confirmed application regressions remain unresolved.
