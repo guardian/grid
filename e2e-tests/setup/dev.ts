@@ -13,7 +13,7 @@ import {
   OIDC_ISSUER,
   SERVICE_PORTS,
 } from './constants.ts';
-import { captureDebugLog } from './debug-log.ts';
+import { captureDebugLog, stopContainerLogCapture } from './debug-log.ts';
 import { probeStack, startStack, stopStack } from './stack.ts';
 import type { GridEnvironment } from './state.ts';
 
@@ -80,6 +80,7 @@ async function dev(): Promise<void> {
 
   const startedAt = Date.now();
   environment = await startStack({ proxy: process.env.GRID_PROXY === 'true' });
+  stopContainerLogCapture();
   console.log(banner(Date.now() - startedAt));
 
   // Hold the process open indefinitely.
