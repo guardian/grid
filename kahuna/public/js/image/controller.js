@@ -76,7 +76,7 @@ image.controller('ImageCtrl', [
   'image',
   'mediaApi',
   'optimisedImageUri',
-  'lowResImageUri',
+  // 'lowResImageUri',
   'cropKey',
   'mediaCropper',
   'imageService',
@@ -100,7 +100,7 @@ image.controller('ImageCtrl', [
             image,
             mediaApi,
             optimisedImageUri,
-            lowResImageUri,
+            // lowResImageUri,
             cropKey,
             mediaCropper,
             imageService,
@@ -169,7 +169,7 @@ image.controller('ImageCtrl', [
     });
 
     ctrl.optimisedImageUri = optimisedImageUri;
-    ctrl.lowResImageUri = lowResImageUri;
+    // ctrl.lowResImageUri = lowResImageUri;
 
     ctrl.maybeReplacedByMediaIds = image.data.usages.data
       .filter(usage => usage.data.status === "replaced")

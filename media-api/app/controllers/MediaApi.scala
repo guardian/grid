@@ -609,14 +609,7 @@ class MediaApi(
 
     elasticSearch.getImageById(id) map {
       case Some(image) if isVisibleToAccessor(request.user, image) =>
-        val asset = assetType match {
-          case OptimisedPng => image.optimisedPng.getOrElse(image.source)
-          case _ => image.source
-        }
-        // Only pre-signed if imgproxy isn't reading from S3 directly
-        lazy val presignedUrl = s3Client.signUrl(config.imageBucket, asset.file, image, imageType = assetType)
-        val imgproxyUrl = imageResponse.imgproxyResizedUrl(image, assetType, presignedUrl, width, height, quality)
-        respond(Json.obj("url" -> imgproxyUrl))
+        Found(imageResponse.imgproxyResizedUrl(image, assetType, width, height, quality))
       case _ => ImageNotFound(id)
     }
   }
@@ -926,7 +919,9 @@ class MediaApi(
           deleteImagePermission,
           deleteCropsOrUsagePermission,
           include,
-          request.user.accessor.tier
+          request.user.accessor.tier,
+          // Search results don't need them: kahuna re-fetches the image for its image and crop views
+          withSignedOptimisedUrls = true
         )
 
         Some((source.instance, imageData, imageLinks, imageActions))
