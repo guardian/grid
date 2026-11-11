@@ -1,10 +1,10 @@
 import type { DataTable } from 'playwright-bdd';
-import { SEARCH_CHIP_IMAGE_IDS } from '../../fixtures/elasticsearch/search-chips.ts';
+import { SEARCH_CHIP_CORE_IMAGE_IDS, SEARCH_CHIP_IMAGE_IDS } from '../../fixtures/elasticsearch/search-chips.ts';
 import { Given, When, Then, KAHUNA_APP_URL, expect } from '../setup.ts';
 import { expectSearchBoxEmpty, isSearchRun, searchBoxEditable, searchBoxReady } from './search-box.ts';
 
 Given('I am searching only the chip fixtures with all usage rights included', async ({ page }) => {
-    const ids = Object.values(SEARCH_CHIP_IMAGE_IDS).join(',');
+    const ids = Object.values(SEARCH_CHIP_CORE_IMAGE_IDS).join(',');
     const params = new URLSearchParams({ ids, nonFree: 'true' });
     const searched = page.waitForResponse((response) => {
         const url = new URL(response.url());
