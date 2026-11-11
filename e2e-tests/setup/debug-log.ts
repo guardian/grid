@@ -3,7 +3,7 @@
  *
  * Testcontainers only records the Docker build stream, where build failures such as network
  * errors are reported, when its debug logging is on; otherwise it throws an opaque
- * "Failed to build image". CI uploads this file with the e2e-report artifact.
+ * "Failed to build image". CI uploads this file as the testcontainers-log artifact on failure.
  */
 import * as fs from 'fs';
 import * as path from 'path';

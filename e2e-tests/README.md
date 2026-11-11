@@ -85,10 +85,10 @@ fails to boot, for example with an opaque `Failed to build image`. Set
 `DEBUG=testcontainers*` to also print it to the terminal and keep container logs for the
 whole run.
 
-CI also adds GitHub failure annotations. Both reports, their captured attachments and
-`logs/` are uploaded together as `e2e-report`, retained for 14 days after successful or
-failed runs, excluding cancelled runs. Failures before report generation may leave no
-reports to upload, but the debug log is still included.
+CI also adds GitHub failure annotations. Both reports and their captured attachments are
+uploaded together as `e2e-report`, retained for 14 days after successful or failed runs,
+excluding cancelled runs. Failures before report generation may leave no reports to
+upload. Failed runs also upload the debug log as `testcontainers-log`.
 
 ### Feature library
 

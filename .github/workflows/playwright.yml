@@ -118,6 +118,13 @@ jobs:
         path: |
           e2e-tests/playwright-report/
           e2e-tests/cucumber-report/
-          e2e-tests/logs/
+        retention-days: 14
+        if-no-files-found: ignore
+    - name: Upload testcontainers log
+      uses: actions/upload-artifact@v7
+      if: ${{ failure() }}
+      with:
+        name: testcontainers-log
+        path: e2e-tests/logs/
         retention-days: 14
         if-no-files-found: ignore
