@@ -23,7 +23,6 @@ Feature: Viewing an image's usages in the single image view
   # Evidence: kahuna/public/js/image/controller.js lines 201-205
   # Evidence: kahuna/public/js/components/gr-radio-list/gr-radio-list.html lines 5
 
-  @todo
   Scenario: The Usages tab count updates when the image is updated
     Given the image has 3 usages
     When the image is updated elsewhere in the application and now has 4 usages
@@ -82,7 +81,6 @@ Feature: Viewing an image's usages in the single image view
    # -------------------------------------------------------------------------
    # Collapsing and expanding a group
    # -------------------------------------------------------------------------
-    @todo
     Scenario: A large group of usages starts collapsed when there are several groups
       Given the image has more than ten usages in a group alongside other groups
       And I have selected the Usages tab
@@ -91,7 +89,6 @@ Feature: Viewing an image's usages in the single image view
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 127, 129-131
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 6, 10
 
-    @todo
     Scenario: A small group starts expanded when there are several groups
       Given the image has ten or fewer usages in a group alongside other groups
       And I have selected the Usages tab
@@ -100,7 +97,6 @@ Feature: Viewing an image's usages in the single image view
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 127, 129-131
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 6, 10
 
-    @todo
     Scenario: A large group starts expanded when it is the only group
       Given the image has more than ten usages, all with the same status
       And I have selected the Usages tab
@@ -109,7 +105,6 @@ Feature: Viewing an image's usages in the single image view
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 48-50, 127, 129-131
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 6, 10
 
-    @todo
     Scenario: A large group starts collapsed when Photo Sales hides the other groups
       Given the send to Photo Sales feature is enabled
       And the image has more than ten downloaded usages and one published usage
@@ -119,7 +114,6 @@ Feature: Viewing an image's usages in the single image view
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.html lines 3
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 48-50, 127, 129-131
 
-    @todo
     Scenario: Toggling a group shows and hides its usages
       Given the image has a usage with the "published" status
       And I have selected the Usages tab
@@ -135,7 +129,6 @@ Feature: Viewing an image's usages in the single image view
     # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage-list.html lines 2-7, 10
     # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 133-135
 
-    @todo
     Scenario Outline: A group's toggle is named after its lower-cased heading
       Given the image has a usage with the "<status>" status
       And I have selected the Usages tab
@@ -260,7 +253,6 @@ Feature: Viewing an image's usages in the single image view
     # -------------------------------------------------------------------------
     # Photo Sales panel (showSendToPhotoSales feature switch)
     # -------------------------------------------------------------------------
-    @todo
     Scenario: The Photo Sales panel is shown when the feature is enabled
       Given the send to Photo Sales feature is enabled
       And the image has a syndication usage with the "Capture" partner
@@ -270,7 +262,6 @@ Feature: Viewing an image's usages in the single image view
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 56
       # Evidence: kahuna/public/js/components/gr-image-usage-photosales/gr-image-usage-photosales.tsx lines 45
 
-    @todo
     Scenario: Only download, replaced and derivative usage groups are shown when Photo Sales is enabled
       Given the send to Photo Sales feature is enabled
       And the image has published, downloaded, replaced and derivative usages
@@ -278,7 +269,6 @@ Feature: Viewing an image's usages in the single image view
       Then I only see the downloaded, replaced and derivative usage groups
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.html lines 3
 
-    @todo
     Scenario: The Photo Sales panel is not shown when the feature is disabled
       Given the send to Photo Sales feature is disabled
       And the image has a syndication usage with the "Capture" partner
@@ -288,7 +278,6 @@ Feature: Viewing an image's usages in the single image view
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.html lines 2-3
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 56
 
-    @todo
     Scenario: The Photo Sales panel lists images sent to Capture
       Given the send to Photo Sales feature is enabled
       And the image has a syndication usage with the "Capture" partner
@@ -299,7 +288,6 @@ Feature: Viewing an image's usages in the single image view
       # Evidence: kahuna/public/js/components/gr-image-usage-photosales/gr-image-usage-photosales.tsx lines 33-63
       # Evidence: kahuna/public/js/util/constants/sendToCapture-config.js lines 13
 
-    @todo
     Scenario: The Photo Sales panel is empty when the image has not been sent to Capture
       Given the send to Photo Sales feature is enabled
       And the image has no Capture syndication usage
@@ -329,7 +317,6 @@ Feature: Viewing an image's usages in the single image view
       # Evidence: kahuna/public/js/components/gr-delete-usages/gr-delete-usages.js lines 28-31
       # Evidence: kahuna/public/js/components/gr-delete-usages/gr-delete-usages.html lines 2
 
-    @todo
     Scenario: The delete control is hidden for syndicated images when Photo Sales is enabled
       Given I have delete usages permission
       And the send to Photo Sales feature is enabled
@@ -340,7 +327,6 @@ Feature: Viewing an image's usages in the single image view
       # Evidence: kahuna/public/js/services/image/usages.js lines 95
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 52
 
-    @todo
     Scenario: The delete control is shown for syndicated images when Photo Sales is disabled
       Given I have delete usages permission
       And the send to Photo Sales feature is disabled
@@ -366,7 +352,6 @@ Feature: Viewing an image's usages in the single image view
       # Evidence: kahuna/public/js/components/gr-confirm-delete/gr-confirm-delete.js lines 12-31
       # Evidence: kahuna/public/js/components/gr-image-usage/gr-image-usage.js lines 93-95
 
-    @todo
     Scenario: Cancelling the delete confirmation leaves the usages untouched
       Given I have delete usages permission
       And the image has at least one usage
@@ -381,7 +366,6 @@ Feature: Viewing an image's usages in the single image view
     # -------------------------------------------------------------------------
     # Live updates
     # -------------------------------------------------------------------------
-    @todo
     Scenario: The usages refresh when the image is updated
       Given the image has at least one usage
       And I have selected the Usages tab

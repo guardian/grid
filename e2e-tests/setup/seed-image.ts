@@ -56,6 +56,21 @@ export async function indexImageCopy(
   return id;
 }
 
+/** Replace top-level fields on an image copy, as thrall would. Readable once this resolves. */
+export async function updateImageCopy(id: string, fields: Partial<ImageSource>): Promise<void> {
+  const response = await fetch(
+    `http://localhost:${ELASTICSEARCH_PORT}/${IMAGES_ALIAS}/_update/${id}?refresh=wait_for`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ doc: fields }),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Updating image copy ${id} failed: HTTP ${response.status} ${await response.text()}`);
+  }
+}
+
 /**
  * Delete image copies and any edits the metadata editor stored for them. Only for ids from
  * `indexImageCopy`: the copies share their assets with the fixtures, so the Grid's own image
