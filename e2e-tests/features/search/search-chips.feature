@@ -35,3 +35,64 @@ Feature: Creating search filter chips
   # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 48, 130-132
   # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54
   # Evidence: kahuna/node_modules/@guardian/cql/dist/lib.js lines 11667-11685, 11843-11853, 13619-13636, 13649-13670
+
+  Scenario Outline: Selecting an enabled supplemental option completes the corresponding chip
+    Given I am choosing a value for the "<Field>" filter
+    When I choose "<Value>" from the filter value suggestions
+    Then a "<Field>" filter chip should be shown
+    And the "<Field>" filter chip should have the value "<Value>"
+
+    # title-format: Select <Field>:<Value> from enabled option suggestions
+    Examples:
+      | Field            | Value                  |
+      | fileType         | tiff                   |
+      | subject          | weather                |
+      | usages@platform  | download               |
+      | usages@platform  | Added to Photo Sales   |
+      | usages@status    | removed                |
+      | persisted        | persistence-identifier |
+      | persisted        | commissioned-agency    |
+      | persisted        | edited                 |
+      | is               | reapable               |
+      | is               | agency-pick            |
+      | fixtureSubject   | sport                  |
+      | fixtureHasPerson | true                   |
+      | fixtureHasPerson | false                  |
+  # Evidence: kahuna/public/js/search/query.html lines 11-15
+  # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54
+  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 26-91, 130-132, 153-155, 166-190, 288-305
+  # Evidence: e2e-tests/setup/config.ts lines 39-66, 96-97
+
+  Scenario Outline: Selecting a configured API value completes the corresponding chip
+    Given I am choosing a value for the "<Field>" filter
+    When I choose "<Value>" from the filter value suggestions
+    Then a "<Field>" filter chip should be shown
+    And the "<Field>" filter chip should have the value "<Value>"
+
+    # title-format: Select <Field>:<Value> from usage-rights suggestions
+    Examples:
+      | Field    | Value                          |
+      | by       | Example Contracted Photographer |
+      | supplier | Ronald Grant Archive           |
+      | category | Bylines                        |
+  # Evidence: kahuna/public/js/search/query.html lines 11-15
+  # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54
+  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 113-120, 157-159, 216-251
+  # Evidence: dev/script/generate-config/service-config.js lines 54-82
+
+  Scenario Outline: Manually entered supplemental values do not require choosing a suggestion
+    Given the search box is empty
+    When I type '<Query>' into the search box
+    Then a "<Field>" filter chip should be shown
+    And the "<Field>" filter chip should have the value "<Value>"
+
+    # title-format: Enter <Field>:<Value> manually
+    Examples:
+      | Query                                          | Field            | Value                         |
+      | illustrator:Example Contracted Illustrator      | illustrator      | Example Contracted Illustrator |
+      | fixtureReference:search-chips-A                 | fixtureReference | search-chips-A                |
+      | usages@status:unknown                          | usages@status    | unknown                       |
+  # Evidence: kahuna/public/js/search/query.html lines 11-15
+  # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54, 70-84, 115-122
+  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 134-137, 169-171, 188-199
+  # Evidence: e2e-tests/setup/config.ts lines 50-58
