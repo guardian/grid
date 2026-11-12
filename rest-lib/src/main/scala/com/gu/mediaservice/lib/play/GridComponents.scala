@@ -44,6 +44,8 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
       securityHeadersFilter,
       gzipFilter,
       new RequestLoggingFilter(materializer),
+      // After RequestLoggingFilter so the request id is available to tag transactions with.
+      new SentryTracingFilter(config.sentryConfig, materializer),
       new ConnectionBrokenFilter(materializer),
       new RequestMetricFilter(config, materializer, actorSystem, applicationLifecycle)
     )

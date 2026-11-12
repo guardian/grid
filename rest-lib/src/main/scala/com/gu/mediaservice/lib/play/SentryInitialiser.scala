@@ -25,6 +25,7 @@ object SentryInitialiser extends StrictLogging {
           options.setEnvironment(config.environment)
           options.setRelease(release)
           options.setAttachStacktrace(true)
+          options.setTracesSampleRate(config.tracesSampleRate)
           options.setServerName(appName)
           options.setTag("app", appName)
           options.setTag("stage", config.environment)
