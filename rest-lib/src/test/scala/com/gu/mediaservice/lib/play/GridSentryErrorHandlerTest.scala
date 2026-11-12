@@ -7,6 +7,7 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.funsuite.AnyFunSuiteLike
 import org.scalatest.matchers.should.Matchers
+import play.api.mvc.WrappedRequest
 import play.api.routing.{HandlerDef, Router}
 import play.api.test.FakeRequest
 import play.api.{Configuration, Environment, Mode}
@@ -80,9 +81,52 @@ class GridSentryErrorHandlerTest extends AnyFunSuiteLike with Matchers with Scal
     whenReady(handler(enabled).onServerError(request, boom))(_.header.status shouldBe 500)
   }
 
-  test("reports a failing exception without rethrowing, so the original error still reaches Play") {
+  test("reports nested application exceptions and preserves the server error response") {
     val nested = new RuntimeException("outer", new IllegalStateException("cause"))
     whenReady(handler(enabled).onServerError(FakeRequest(), nested))(_.header.status shouldBe 500)
+    captured.map(_.getThrowable) shouldBe Some(nested)
+  }
+
+  test("preserves Play's response when request metadata enrichment throws") {
+    var enrichmentAttempted = false
+    val request = new WrappedRequest(FakeRequest()) {
+      override lazy val host: String = {
+        enrichmentAttempted = true
+        throw new IllegalStateException("Cannot read request host")
+      }
+    }
+
+    whenReady(handler(disabled).onServerError(FakeRequest(), boom)) { expected =>
+      whenReady(handler(enabled).onServerError(request, boom)) { actual =>
+        actual.header shouldBe expected.header
+        actual.body.contentType shouldBe expected.body.contentType
+      }
+    }
+    enrichmentAttempted shouldBe true
+    captured shouldBe None
+  }
+
+  test("initialiser configures service, stage and release on captured errors") {
+    Sentry.close()
+    SentryInitialiser.init(enabled, appName = "media-api", release = "test-commit")
+    val options = Sentry.getCurrentScopes.getOptions
+    // Drop the event before transport so this test never sends it to Sentry.
+    options.setBeforeSend { (event, _) =>
+      captured = Some(event)
+      null
+    }
+
+    Sentry.isEnabled shouldBe true
+    options.isAttachStacktrace shouldBe true
+    options.isSendDefaultPii shouldBe false
+    whenReady(handler(enabled).onServerError(FakeRequest(), boom))(_.header.status shouldBe 500)
+
+    val event = captured.getOrElse(fail("No Sentry event was captured"))
+    event.getServerName shouldBe "media-api"
+    event.getTag("app") shouldBe "media-api"
+    event.getTag("stage") shouldBe "TEST"
+    event.getEnvironment shouldBe "TEST"
+    event.getRelease shouldBe "test-commit"
   }
 
   test("leaves client errors to Play, rather than reporting every 4xx as an exception") {
