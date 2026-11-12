@@ -87,6 +87,12 @@ sentry.run(['sentryConfig', (config) => {
         release: config.release,
         integrations: levels.length ? [Sentry.captureConsoleIntegration({ levels })] : []
     });
+    if (config.userId || config.userEmail) {
+        Sentry.setUser({
+            ...(config.userId ? { id: config.userId } : {}),
+            ...(config.userEmail ? { email: config.userEmail } : {})
+        });
+    }
     // Identifies the kahuna instance that served the page, not the user's session.
     Sentry.setContext('grid', { instanceId: window._clientConfig.sessionId });
 }]);

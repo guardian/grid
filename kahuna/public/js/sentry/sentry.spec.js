@@ -8,6 +8,7 @@ jest.mock('@sentry/browser', () => ({
     init: jest.fn(),
     captureException: jest.fn(),
     captureConsoleIntegration: jest.fn(() => ({ name: 'CaptureConsole' })),
+    setUser: jest.fn(),
     withScope: callback => callback({ addEventProcessor: jest.fn() }),
     setContext: jest.fn()
 }));
@@ -61,6 +62,21 @@ describe('Sentry browser reporting', () => {
         start('https://key@sentry.example.com/1', { consoleCaptureLevels: [] });
         expect(Sentry.captureConsoleIntegration).not.toHaveBeenCalled();
         expect(Sentry.init.mock.calls[0][0].integrations).toEqual([]);
+    });
+
+    it('sends no user identity when none is supplied by the server', () => {
+        start('https://key@sentry.example.com/1');
+        expect(Sentry.setUser).not.toHaveBeenCalled();
+    });
+
+    it('attaches only the server-supplied anonymous identifier', () => {
+        start('https://key@sentry.example.com/1', { userId: 'salted-id' });
+        expect(Sentry.setUser).toHaveBeenCalledWith({ id: 'salted-id' });
+    });
+
+    it('attaches email only when supplied by the server', () => {
+        start('https://key@sentry.example.com/1', { userEmail: 'someone@example.com' });
+        expect(Sentry.setUser).toHaveBeenCalledWith({ email: 'someone@example.com' });
     });
 
     it('preserves Angular exception handling and reports the cause as extra context', () => {

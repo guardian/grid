@@ -27,15 +27,26 @@ class KahunaController(
 
   override def services: Services = config.services
 
-  private def sentryClientConfig: String = {
+  /**
+   * Settings the browser SDK needs. The user identity is resolved here rather than in the browser so
+   * that this Sentry configuration includes email only when the configured user mode permits it.
+   */
+  private[controllers] def sentryClientConfig(maybeUser: Option[Principal]): String = {
     val sentry = config.sentryConfig
+
+    val identity = maybeUser.flatMap {
+      case user: Authentication.UserPrincipal => sentry.userIdentity(user.email, isPersonalData = true)
+      case principal => sentry.userIdentity(principal.accessor.identity, isPersonalData = false)
+    }
 
     Json.stringify(Json.obj(
       "enabled" -> sentry.enabled,
       "dsn" -> sentry.dsn,
       "environment" -> sentry.environment,
       "release" -> release,
-      "consoleCaptureLevels" -> sentry.consoleCaptureLevels
+      "consoleCaptureLevels" -> sentry.consoleCaptureLevels,
+      "userId" -> identity.flatMap(_.id),
+      "userEmail" -> identity.flatMap(_.email)
     ))
   }
 
@@ -95,7 +106,7 @@ class KahunaController(
       featureSwitchesJson,
       imageTypes,
       agencyPicksIngredients,
-      sentryClientConfig
+      sentryClientConfig(maybeUser)
     ))
   }
 

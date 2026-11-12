@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.play
 
-import com.gu.mediaservice.lib.config.SentryConfig
+import com.gu.mediaservice.lib.config.{SentryConfig, SentryUserMode}
 import io.sentry.{Sentry, SentryEvent}
 import io.sentry.transport.NoOpTransport
 import org.scalatest.BeforeAndAfterEach
@@ -36,7 +36,9 @@ class GridSentryErrorHandlerTest extends AnyFunSuiteLike with Matchers with Scal
   private def config(dsn: Option[String]) = SentryConfig(
     dsn = dsn,
     environment = "TEST",
-    consoleCaptureLevels = Seq("error")
+    consoleCaptureLevels = Seq("error"),
+    userMode = SentryUserMode.Anonymous,
+    userSalt = None
   )
 
   private def handler(sentryConfig: SentryConfig) = new GridSentryErrorHandler(
