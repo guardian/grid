@@ -18,6 +18,9 @@ const EDITS_TABLE = 'EditsTable';
 const documentUrl = (id: string) =>
   `http://localhost:${ELASTICSEARCH_PORT}/${IMAGES_ALIAS}/_doc/${id}`;
 
+/** Fields to replace on a copy, or a function of the copy's id that returns them. */
+export type ImageOverrides = Partial<ImageSource> | ((id: string) => Partial<ImageSource>);
+
 /**
  * Index a copy of `source` (e.g. a fixture from `findSeededImage`), with `overrides` replacing
  * top-level fields (e.g. `usageRights`), and return its id. Searchable once this resolves.
@@ -25,7 +28,7 @@ const documentUrl = (id: string) =>
  */
 export async function indexImageCopy(
   source: ImageSource,
-  overrides: Partial<ImageSource> = {},
+  overrides: ImageOverrides = {},
 ): Promise<string> {
   // Media ids are SHA-1 hex digests, so keep the copy's id the same shape.
   const id = randomBytes(20).toString('hex');
@@ -36,7 +39,7 @@ export async function indexImageCopy(
     collections: [],
     exports: [],
     usages: [],
-    ...structuredClone(overrides),
+    ...structuredClone(typeof overrides === 'function' ? overrides(id) : overrides),
   };
   // Edits belong to the metadata editor's record for this id, which starts out empty.
   delete image.userMetadata;
@@ -51,6 +54,21 @@ export async function indexImageCopy(
     throw new Error(`Indexing image copy ${id} failed: HTTP ${response.status} ${await response.text()}`);
   }
   return id;
+}
+
+/** Replace top-level fields on an image copy, as thrall would. Readable once this resolves. */
+export async function updateImageCopy(id: string, fields: Partial<ImageSource>): Promise<void> {
+  const response = await fetch(
+    `http://localhost:${ELASTICSEARCH_PORT}/${IMAGES_ALIAS}/_update/${id}?refresh=wait_for`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ doc: fields }),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Updating image copy ${id} failed: HTTP ${response.status} ${await response.text()}`);
+  }
 }
 
 /**
