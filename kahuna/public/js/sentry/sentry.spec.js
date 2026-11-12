@@ -15,9 +15,16 @@ jest.mock('@sentry/browser', () => ({
 describe('Sentry browser reporting', () => {
     let delegate;
 
-    function start(dsn) {
+    function start(dsn, overrides = {}) {
+        window._clientConfig.sentry = {
+            enabled: Boolean(dsn),
+            dsn,
+            environment: 'TEST',
+            release: 'test-release',
+            consoleCaptureLevels: ['error'],
+            ...overrides
+        };
         angular.module('sentryTestConfig', [])
-            .value('sentryDsn', dsn)
             .value('$exceptionHandler', delegate);
         return angular.injector(['ng', 'sentryTestConfig', 'sentry']);
     }
@@ -35,12 +42,25 @@ describe('Sentry browser reporting', () => {
 
     it('initialises console capture and attaches the serving instance', () => {
         start('https://key@sentry.example.com/1');
-        expect(Sentry.captureConsoleIntegration).toHaveBeenCalledWith({ levels: ['warn', 'error'] });
+        expect(Sentry.captureConsoleIntegration).toHaveBeenCalledWith({ levels: ['error'] });
         expect(Sentry.init).toHaveBeenCalledWith({
             dsn: 'https://key@sentry.example.com/1',
+            environment: 'TEST',
+            release: 'test-release',
             integrations: [{ name: 'CaptureConsole' }]
         });
         expect(Sentry.setContext).toHaveBeenCalledWith('grid', { instanceId: 'kahuna-instance' });
+    });
+
+    it('does not initialise when explicitly disabled even with a DSN', () => {
+        start('https://key@sentry.example.com/1', { enabled: false });
+        expect(Sentry.init).not.toHaveBeenCalled();
+    });
+
+    it('omits console capture when no levels are configured', () => {
+        start('https://key@sentry.example.com/1', { consoleCaptureLevels: [] });
+        expect(Sentry.captureConsoleIntegration).not.toHaveBeenCalled();
+        expect(Sentry.init.mock.calls[0][0].integrations).toEqual([]);
     });
 
     it('preserves Angular exception handling and reports the cause as extra context', () => {

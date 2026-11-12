@@ -36,12 +36,10 @@ import {tooltip} from './components/gr-tooltip/gr-tooltip';
 // TODO: move to an async config to remove deps on play
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
 var reauthLink = document.querySelector('link[rel="reauth-uri"]');
-var sentryDsnLink = document.querySelector('link[rel="sentry-dsn"]');
 var assetsRootLink = document.querySelector('link[rel="assets"]');
 
 var config = {
     mediaApiUri: apiLink.getAttribute('href'),
-    sentryDsn: sentryDsnLink && sentryDsnLink.getAttribute('href'),
     assetsRoot: assetsRootLink && assetsRootLink.getAttribute('href'),
 
     // Static config
