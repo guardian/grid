@@ -42,6 +42,7 @@ case class SentryConfig(
   dsn: Option[String],
   environment: String,
   tracesSampleRate: Double,
+  replayOnErrorSampleRate: Double,
   consoleCaptureLevels: Seq[String],
   userMode: SentryUserMode,
   userSalt: Option[String]
@@ -115,6 +116,7 @@ object SentryConfig extends StrictLogging {
       dsn = dsn,
       environment = stage,
       tracesSampleRate = sampleRate(configuration, "sentry.tracesSampleRate"),
+      replayOnErrorSampleRate = sampleRate(configuration, "sentry.replay.onErrorSampleRate"),
       consoleCaptureLevels = consoleCaptureLevels(configuration),
       userMode = userMode,
       userSalt = userSalt
