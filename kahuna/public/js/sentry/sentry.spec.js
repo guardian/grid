@@ -11,6 +11,7 @@ jest.mock('@sentry/browser', () => ({
     browserTracingIntegration: jest.fn(() => ({ name: 'BrowserTracing' })),
     replayIntegration: jest.fn(() => ({ name: 'Replay' })),
     setUser: jest.fn(),
+    withScope: callback => callback({ addEventProcessor: jest.fn() }),
     setContext: jest.fn()
 }));
 
@@ -140,5 +141,15 @@ describe('Sentry browser reporting', () => {
         handler(`Possibly unhandled rejection: ${JSON.stringify(httpError)}`);
         expect(delegate).toHaveBeenCalledTimes(3);
         expect(Sentry.captureException).not.toHaveBeenCalled();
+    });
+
+    it('still delegates to Angular if exception capture throws', () => {
+        const handler = start('https://key@sentry.example.com/1').get('$exceptionHandler');
+        const error = new Error('test');
+        const captureFailure = new Error('capture failed');
+        Sentry.captureException.mockImplementationOnce(() => { throw captureFailure; });
+
+        expect(() => handler(error, 'controller')).toThrow(captureFailure);
+        expect(delegate).toHaveBeenCalledWith(error, 'controller');
     });
 });
