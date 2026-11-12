@@ -11,7 +11,6 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 import play.api.libs.json.Json
-import rx.lang.scala.Observable
 import software.amazon.awssdk.core.pagination.sync.SdkIterable
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable
 import software.amazon.awssdk.enhanced.dynamodb.document.EnhancedDocument
@@ -21,7 +20,7 @@ import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, UpdateIte
 
 import java.util.Collections
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Promise}
+import scala.concurrent.Await
 import scala.jdk.CollectionConverters._
 
 class UsageTableTest extends AnyFunSuite with Matchers with MockitoSugar {
@@ -50,25 +49,6 @@ class UsageTableTest extends AnyFunSuite with Matchers with MockitoSugar {
       override lazy val table: DynamoDbTable[EnhancedDocument] = enhancedTable
     }
 
-  private def awaitSingle[A](observable: Observable[A]): A = {
-    val result = Promise[A]()
-    observable.subscribe(
-      value => result.trySuccess(value),
-      error => result.tryFailure(error)
-    )
-    Await.result(result.future, 5.seconds)
-  }
-
-  private def awaitFailure[A](observable: Observable[A]): Throwable = {
-    val result = Promise[Throwable]()
-    observable.subscribe(
-      (_: A) => (),
-      error => result.trySuccess(error),
-      () => ()
-    )
-    Await.result(result.future, 5.seconds)
-  }
-
   test("matchUsageGroup performs a strongly consistent query and preserves the log marker") {
     val enhancedTable = mock[DynamoDbTable[EnhancedDocument]]
     val queryResult = mock[PageIterable[EnhancedDocument]]
@@ -78,8 +58,10 @@ class UsageTableTest extends AnyFunSuite with Matchers with MockitoSugar {
     when(items.iterator()).thenReturn(Collections.emptyIterator[EnhancedDocument]())
 
     val group = UsageGroup(Set.empty, "group-1", DateTime.parse("2026-11-01T12:00:00Z"))
-    val result = awaitSingle(usageTable(mock[DynamoDbClient], enhancedTable)
-      .matchUsageGroup(WithLogMarker(logMarker, group)))
+    val result = Await.result(
+      usageTable(mock[DynamoDbClient], enhancedTable).matchUsageGroup(WithLogMarker(logMarker, group)),
+      5.seconds
+    )
 
     result.value shouldBe empty
     result.logMarker shouldBe logMarker
@@ -138,9 +120,9 @@ class UsageTableTest extends AnyFunSuite with Matchers with MockitoSugar {
     )
 
     val table = usageTable(dbClient, enhancedTable)
-    awaitSingle(table.create(mediaUsage))
-    awaitSingle(table.update(mediaUsage))
-    awaitSingle(table.markAsRemoved(mediaUsage))
+    Await.result(table.create(mediaUsage), 5.seconds)
+    Await.result(table.update(mediaUsage), 5.seconds)
+    Await.result(table.markAsRemoved(mediaUsage), 5.seconds)
 
     val request = ArgumentCaptor.forClass(classOf[UpdateItemRequest])
     verify(dbClient, org.mockito.Mockito.times(3)).updateItem(request.capture())
@@ -160,6 +142,8 @@ class UsageTableTest extends AnyFunSuite with Matchers with MockitoSugar {
     when(enhancedTable.tableName()).thenReturn("usage-records")
     when(dbClient.updateItem(any[UpdateItemRequest])).thenThrow(failure)
 
-    awaitFailure(usageTable(dbClient, enhancedTable).create(mediaUsage)) shouldBe failure
+    intercept[IllegalStateException] {
+      Await.result(usageTable(dbClient, enhancedTable).create(mediaUsage), 5.seconds)
+    } shouldBe failure
   }
 }
