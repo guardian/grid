@@ -33,12 +33,33 @@ describe('Sentry source-map uploads', () => {
         expect(config.plugins).toEqual([]);
     });
 
-    it('fails explicitly when a token is supplied without complete upload configuration', () => {
+    it('lists all missing upload settings when only a token is supplied', () => {
         process.env.SENTRY_AUTH_TOKEN = 'test-token';
-        expect(() => require('../../../webpack.config.prod')).toThrow('SENTRY_AUTH_TOKEN is set');
+        expect(() => require('../../../webpack.config.prod')).toThrow(
+            'SENTRY_AUTH_TOKEN is set but required upload settings are missing: ' +
+            'SENTRY_ORG, SENTRY_PROJECT, BUILD_VCS_NUMBER, so source maps could not be uploaded.'
+        );
     });
 
-    it('uses the build release and deletes maps after upload', () => {
+    it.each(['SENTRY_ORG', 'SENTRY_PROJECT', 'BUILD_VCS_NUMBER'])(
+        'identifies %s as the only missing setting without exposing configured values',
+        missing => {
+            Object.assign(process.env, {
+                SENTRY_AUTH_TOKEN: 'test-token',
+                SENTRY_ORG: 'test-org',
+                SENTRY_PROJECT: 'test-project',
+                BUILD_VCS_NUMBER: 'test-release'
+            });
+            delete process.env[missing];
+
+            expect(() => require('../../../webpack.config.prod')).toThrow(
+                `SENTRY_AUTH_TOKEN is set but required upload settings are missing: ${missing}, ` +
+                'so source maps could not be uploaded.'
+            );
+        }
+    );
+
+    it('configures the build release and post-upload map deletion', () => {
         Object.assign(process.env, {
             SENTRY_AUTH_TOKEN: 'test-token',
             SENTRY_ORG: 'test-org',
