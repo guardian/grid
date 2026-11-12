@@ -4,13 +4,14 @@ import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
 import com.gu.mediaservice.model.usage.{MediaUsage, UsageNotice}
 import model._
 import org.apache.pekko.Done
+import org.apache.pekko.stream.Materializer
 import play.api.libs.json._
 import rx.lang.scala.subjects.PublishSubject
 import rx.lang.scala.{Observable, Subscriber, Subscription}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 case class ResetException() extends Exception
 
@@ -19,8 +20,9 @@ class UsageRecorder(
   usageTable: UsageTable,
   usageNotice: UsageNotifier,
   usageNotifier: UsageNotifier,
-  usageGroupStream: UsageGroupStream
-) extends GridLogging {
+  usageGroupStream: UsageGroupStream,
+  notificationDelay: FiniteDuration = 5.seconds
+)(implicit materializer: Materializer) extends GridLogging {
 
   private val usageGroupSubject = PublishSubject[WithLogMarker[UsageGroup]]()
   val combinedObservable: Observable[WithLogMarker[UsageGroup]] = usageGroupSubject
@@ -133,7 +135,7 @@ class UsageRecorder(
 
   private def getNotificationStream(dbUpdateStream: Observable[WithLogMarker[Set[String]]]): Observable[WithLogMarker[UsageNotice]] = {
     dbUpdateStream
-      .delay(5.seconds) // give DynamoDB write a greater chance of reaching eventual consistency, before reading
+      .delay(notificationDelay) // give DynamoDB write a greater chance of reaching eventual consistency, before reading
       .flatMap{ mediaIdsImplicatedInDBUpdatesWithContext =>
         implicit val logMarker: LogMarker = mediaIdsImplicatedInDBUpdatesWithContext.logMarker
         logger.info(logMarker, s"Building ${mediaIdsImplicatedInDBUpdatesWithContext.value.size} usage notices")
