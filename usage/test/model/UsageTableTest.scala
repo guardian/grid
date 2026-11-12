@@ -71,6 +71,47 @@ class UsageTableTest extends AnyFunSuite with Matchers with MockitoSugar {
     request.getValue.consistentRead() shouldBe java.lang.Boolean.TRUE
   }
 
+  test("matchUsageGroup transforms returned table documents into media usages") {
+    val expected = mediaUsage
+    val document = EnhancedDocument.fromAttributeValueMap(Map(
+      "usage_id" -> AttributeValue.builder().s(expected.usageId.toString).build(),
+      "grouping" -> AttributeValue.builder().s(expected.grouping).build(),
+      "media_id" -> AttributeValue.builder().s(expected.mediaId).build(),
+      "usage_type" -> AttributeValue.builder().s(expected.usageType.toString).build(),
+      "media_type" -> AttributeValue.builder().s(expected.mediaType).build(),
+      "usage_status" -> AttributeValue.builder().s(expected.status.toString).build(),
+      "last_modified" -> AttributeValue.builder().n(expected.lastModified.getMillis.toString).build()
+    ).asJava)
+    val enhancedTable = mock[DynamoDbTable[EnhancedDocument]]
+    val queryResult = mock[PageIterable[EnhancedDocument]]
+    val items = mock[SdkIterable[EnhancedDocument]]
+    when(enhancedTable.query(any[QueryEnhancedRequest])).thenReturn(queryResult)
+    when(queryResult.items()).thenReturn(items)
+    when(items.iterator()).thenReturn(Collections.singletonList(document).iterator())
+
+    val group = UsageGroup(Set.empty, expected.grouping, expected.lastModified)
+    val result = Await.result(
+      usageTable(mock[DynamoDbClient], enhancedTable).matchUsageGroup(WithLogMarker(logMarker, group)),
+      5.seconds
+    )
+
+    result.value shouldBe Set(expected)
+  }
+
+  test("matchUsageGroup propagates DynamoDB query failures") {
+    val enhancedTable = mock[DynamoDbTable[EnhancedDocument]]
+    val failure = new IllegalStateException("DynamoDB unavailable")
+    when(enhancedTable.query(any[QueryEnhancedRequest])).thenThrow(failure)
+
+    intercept[IllegalStateException] {
+      Await.result(
+        usageTable(mock[DynamoDbClient], enhancedTable)
+          .matchUsageGroup(WithLogMarker(logMarker, UsageGroup(Set.empty, "group-1", DateTime.now()))),
+        5.seconds
+      )
+    } shouldBe failure
+  }
+
   test("create, update, and markAsRemoved issue the corresponding update expressions") {
     val dbClient = mock[DynamoDbClient]
     val enhancedTable = mock[DynamoDbTable[EnhancedDocument]]
