@@ -277,13 +277,27 @@ describe("KUP-004 standalone detail identity", () => {
     expect(screen.getByRole("button", { name: "Full frame options" }).getAttribute("aria-expanded")).toBe("false");
   });
 
-  it("lets the detail floaty close an expanded metadata card", () => {
+  it("keeps detail Actions inside the header and closes them when the card toggles", () => {
     fixture.compact = true;
-    fixture.resident = [makeImage("A")];
+    fixture.touchCapable = true;
+    fixture.resident = [makeImage("A"), makeImage("B")];
+    fixture.nextImage = fixture.resident[1];
     render(<Detail imageId="A" />);
-    fireEvent.click(screen.getByRole("button", { name: "Expand Image details" }));
-    fireEvent.click(screen.getByRole("button", { name: "Image actions" }));
-    fireEvent.click(screen.getByRole("button", { name: "Close details" }));
+    const trigger = screen.getByRole("button", { name: "Image actions" });
+    const header = screen.getByRole("button", { name: "Expand Image details" });
+    expect(screen.queryByRole("button", { name: "Full frame options" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Cannot crop" }).hasAttribute("disabled")).toBe(true);
+    expect(header.textContent).toBe("Title A");
+    expect(header.parentElement?.contains(trigger)).toBe(true);
+    expect(document.querySelector('[data-detail-page="next"][inert] button[aria-label="Image actions"]')).not.toBeNull();
+    fireEvent.click(trigger);
+    expect(screen.queryByRole("button", { name: "Details" })).toBeNull();
+    fireEvent.click(header);
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(trigger);
+    expect(screen.queryByRole("button", { name: "Close details" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Collapse Image details" }));
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
     expect(screen.getByRole("button", { name: "Expand Image details" })).toBeTruthy();
   });
 
@@ -294,11 +308,24 @@ describe("KUP-004 standalone detail identity", () => {
     useUiPrefsStore.setState({ _pointerCoarse: true });
     render(<Detail imageId="A" />);
     const image = screen.getByAltText("Title A");
-    expect(screen.getByRole("region", { name: "Image details" })).toBeTruthy();
+    const card = screen.getByRole("region", { name: "Image details" });
+    const toolbar = screen.getByRole("banner");
+    expect(card.classList.contains("chrome-fade")).toBe(true);
+    expect(toolbar.classList.contains("chrome-fade")).toBe(true);
     fireEvent.click(image);
     act(() => { vi.advanceTimersByTime(350); });
     expect(screen.queryByRole("region", { name: "Image details" })).toBeNull();
+    for (const chrome of [card, toolbar]) {
+      expect(chrome.getAttribute("data-visible")).toBe("false");
+      expect(chrome.getAttribute("aria-hidden")).toBe("true");
+      expect(chrome.hasAttribute("inert")).toBe(true);
+      expect(chrome.style.visibility).toBe("");
+    }
     expect(screen.getByAltText("Title A")).toBe(image);
+    fireEvent.click(image);
+    act(() => { vi.advanceTimersByTime(350); });
+    expect(screen.getByRole("region", { name: "Image details" })).toBe(card);
+    expect(toolbar.getAttribute("data-visible")).toBe("true");
   });
 
   it("does not enter fullscreen on an image tap in touch-enabled desktop detail", () => {

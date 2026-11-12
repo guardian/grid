@@ -19,6 +19,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useState,
 } from "react";
 import {
   usePanelStore,
@@ -272,7 +273,9 @@ export function PanelLayout({ leftPanel, rightPanel, scrubber, children }: Panel
   useKeyboardShortcut("]", () => togglePanel("right"));
 
   const isCompact = useIsCompact();
-  const hasSelection = useSelectionStore((s) => s.selectedIds.size > 0);
+  const selectedCount = useSelectionStore((s) => s.selectedIds.size);
+  const hasSelection = selectedCount > 0;
+  const [actionsCloseSignal, setActionsCloseSignal] = useState(0);
 
   // Compact: the expanded card belongs to the selection; clearing it (×, Home) closes it.
   // Transition-only, so resizing across the breakpoint never rewrites the saved panel config.
@@ -316,10 +319,11 @@ export function PanelLayout({ leftPanel, rightPanel, scrubber, children }: Panel
         {showCard && (
           <BottomSheet
             label="Details"
-            header="Selection details"
+            header={`${selectedCount.toLocaleString()} selected`}
             scrim={false}
             expanded={rightVisible}
-            floating={<SelectionFab docked />}
+            headerActions={<SelectionFab docked detailsExpanded={rightVisible} closeSignal={actionsCloseSignal} />}
+            onDragStart={() => setActionsCloseSignal(value => value + 1)}
             onExpandedChange={(next) => { if (next !== rightVisible) togglePanel("right"); }}
           >
             {rightPanel}

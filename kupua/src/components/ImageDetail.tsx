@@ -204,6 +204,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const mobileScrollRef = useRef<HTMLDivElement>(null);
   const isCompact = useIsCompact();
   const [cardExpanded, setCardExpanded] = useState(false);
+  const [actionsCloseSignal, setActionsCloseSignal] = useState(0);
   const [chromeVisible, setChromeVisible] = useState(true);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const { isFullscreen, toggleFullscreen } = useFullscreen(containerRef);
@@ -818,7 +819,10 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     onRevealDrag={() => setDrawerVisible(true)}
     overlay
     scrim={false}
-    floating={current && <SelectionFab docked context={actionContext} detailsExpanded={cardExpanded} onDetails={() => setCardExpanded(value => !value)} />}
+    headerActions={<SelectionFab docked context={current ? actionContext : {
+      api: actionContext.api, archive: null, targets: [{ id: detailImage.id, image: detailImage }],
+    }} detailsExpanded={cardExpanded} closeSignal={actionsCloseSignal} />}
+    onDragStart={current ? () => setActionsCloseSignal(value => value + 1) : undefined}
   >
     {renderMetadata(detailImage, current && !imageFromResults ? standaloneEnrichment : undefined)}
   </BottomSheet>;
@@ -853,7 +857,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       </div>}
       {/* Top bar — hidden in fullscreen */}
       {(!isFullscreen || isCompact) && (
-        <header inert={cropping || (isCompact && !chromeVisible)} aria-hidden={isCompact && !chromeVisible || undefined} style={isCompact ? { visibility: chromeVisible ? "visible" : "hidden", background: "linear-gradient(to bottom, rgba(0,0,0,0.88), rgba(0,0,0,0.72))" } : undefined} className={`detail-toolbar @container/detail-toolbar z-30 flex items-center px-3 py-1.5 h-11 shrink-0 ${isCompact ? "absolute inset-x-0 top-0 text-white" : "relative bg-grid-bg border-b border-grid-separator"}`}>
+        <header inert={cropping || (isCompact && !chromeVisible)} aria-hidden={isCompact && !chromeVisible || undefined} data-visible={isCompact ? chromeVisible : undefined} style={isCompact ? { background: "linear-gradient(to bottom, rgba(0,0,0,0.88), rgba(0,0,0,0.72))" } : undefined} className={`detail-toolbar @container/detail-toolbar z-30 flex items-center px-3 py-1.5 h-11 shrink-0 ${isCompact ? "chrome-fade absolute inset-x-0 top-0 text-white" : "relative bg-grid-bg border-b border-grid-separator"}`}>
           <DetailNavigation destination="search" onBack={closeDetail} onHome={goHome} />
           <div className="w-px h-5 bg-grid-separator shrink-0" />
           {currentGlobalIndex >= 0 && (
@@ -885,7 +889,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
                   {canCrop ? <>Crop<span className="hidden @min-[640px]/detail-toolbar:inline"> image</span></> : "Cannot crop"}
                 </span>
               </button>
-              <FullFrameOptions context={actionContext} />
+              {!isCompact && <FullFrameOptions context={actionContext} />}
               </div>
               <div aria-hidden="true" className="w-px h-5 bg-grid-separator shrink-0" />
             </>

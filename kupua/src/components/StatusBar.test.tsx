@@ -190,11 +190,53 @@ describe("StatusBar AI totals", () => {
     expect(useImageActionStore.getState().prepared.at(-1)?.targetIds).toEqual(["second"]);
   });
 
+  it("keeps action taps separate from card dragging in the compact header", () => {
+    shell.compact = true;
+    useSelectionStore.setState({ selectedIds: new Set(["selected-image"]) });
+    const panels = usePanelStore.getState().config;
+    usePanelStore.setState({ config: { ...panels, right: { ...panels.right, visible: false } } });
+    const clock = vi.spyOn(performance, "now");
+    try {
+      render(<PanelLayout rightPanel={<button>Metadata control</button>}><button>Result control</button></PanelLayout>);
+      const card = screen.getByRole("region", { name: "Details" });
+      const trigger = screen.getByRole("button", { name: "1 selected — actions" });
+      const touch = (type: string, vertical: number, time: number) => {
+        clock.mockReturnValue(time);
+        fireEvent[type as "touchStart" | "touchMove" | "touchEnd"](trigger, {
+          touches: type === "touchEnd" ? [] : [{ clientX: 200, clientY: vertical }],
+          changedTouches: [{ clientX: 200, clientY: vertical }],
+        });
+      };
+      touch("touchStart", 500, 1000);
+      touch("touchEnd", 500, 1100);
+      fireEvent.click(trigger);
+      expect(trigger.getAttribute("aria-expanded")).toBe("true");
+      expect(screen.getByRole("button", { name: "Expand Details" })).toBeTruthy();
+      const peek = card.style.translate;
+      touch("touchStart", 500, 2000);
+      touch("touchMove", 480, 2100);
+      expect(card.style.translate).not.toBe(peek);
+      expect(screen.queryByRole("group", { name: "Selection actions" })).toBeNull();
+      touch("touchMove", 100, 2500);
+      touch("touchEnd", 100, 5000);
+      fireEvent.click(trigger, { detail: 1 });
+      expect(screen.getByRole("button", { name: "Collapse Details" })).toBeTruthy();
+      expect(trigger.getAttribute("aria-expanded")).toBe("false");
+      expect(trigger.closest("button button")).toBeNull();
+      expect(card.contains(trigger)).toBe(true);
+      expect(screen.queryByRole("button", { name: "Close details" })).toBeNull();
+    } finally {
+      clock.mockRestore();
+      usePanelStore.setState({ config: panels });
+    }
+  });
+
   it("expands the compact floaty to expose the same five image actions", () => {
     shell.compact = true;
     useSelectionStore.setState({ selectedIds: new Set(["selected-image"]) });
     render(<SelectionFab />);
-    expect(screen.queryByText("Deselect")).toBeNull();
+    expect(screen.getByText("Deselect")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "1 selected — actions" }).textContent).toBe("");
     fireEvent.click(screen.getByRole("button", { name: "1 selected — actions" }));
     const actions = screen.getByRole("group", { name: "Image actions" });
     expect([...actions.querySelectorAll("button")].map(button => button.getAttribute("aria-label"))).toEqual([
@@ -206,30 +248,27 @@ describe("StatusBar AI totals", () => {
     expect(within(screen.getByRole("button", { name: "Clear selection (1 selected)" })).getByText("Deselect")).toBeTruthy();
   });
 
-  it("reverses the chevron at the top and lets Details close the expanded selection card", () => {
+  it("closes Actions when the header toggles the card and opens below the expanded header", () => {
     shell.compact = true;
     useSelectionStore.setState({ selectedIds: new Set(["selected-image"]) });
     const panels = usePanelStore.getState().config;
     usePanelStore.setState({ config: { ...panels, right: { ...panels.right, visible: false } } });
     try {
-      render(<SelectionFab docked />);
+      render(<PanelLayout rightPanel={<button>Metadata control</button>}><button>Result control</button></PanelLayout>);
       const trigger = screen.getByRole("button", { name: "1 selected — actions" });
-      expect(trigger.querySelector("svg")!.classList.contains("rotate-180")).toBe(false);
       fireEvent.click(trigger);
-      const openIcon = screen.getByRole("button", { name: "Details" }).querySelector("svg path")!.getAttribute("d");
-      fireEvent.click(screen.getByRole("button", { name: "Details" }));
+      expect(screen.queryByRole("button", { name: "Details" })).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Expand Details" }));
       expect(usePanelStore.getState().config.right.visible).toBe(true);
-      expect(trigger.querySelector("svg")!.classList.contains("rotate-180")).toBe(true);
+      expect(trigger.getAttribute("aria-expanded")).toBe("false");
       fireEvent.click(trigger);
-      expect(screen.getByRole("button", { name: "Close details" }).querySelector("svg path")!.getAttribute("d")).not.toBe(openIcon);
-      fireEvent.click(screen.getByRole("button", { name: "Close details" }));
+      fireEvent.click(screen.getByRole("button", { name: "Collapse Details" }));
       expect(usePanelStore.getState().config.right.visible).toBe(false);
-      expect(trigger.querySelector("svg")!.classList.contains("rotate-180")).toBe(false);
-      expect(document.activeElement).toBe(trigger);
+      expect(trigger.getAttribute("aria-expanded")).toBe("false");
     } finally { usePanelStore.setState({ config: panels }); }
   });
 
-  it("centres the collapsed separator and preserves the Deselect hit area when expanded", () => {
+  it("preserves header width and the Deselect hit area when expanded", () => {
     shell.compact = true;
     useSelectionStore.setState({ selectedIds: new Set(["selected-image"]) });
     render(<SelectionFab />);
@@ -238,10 +277,12 @@ describe("StatusBar AI totals", () => {
     const strip = trigger.parentElement!;
     const collapsedWidth = Number.parseFloat(strip.style.width);
     const clearWidth = Number.parseFloat(clear.style.width);
-    expect(clearWidth * 2 + 1).toBe(collapsedWidth);
+    expect(collapsedWidth).toBe(112);
+    expect(clearWidth).toBeGreaterThanOrEqual(44);
     fireEvent.click(trigger);
+    expect(screen.getByRole("group", { name: "Selection actions" }).style.width).toContain("136px");
     expect(Number.parseFloat(clear.style.width)).toBe(clearWidth);
-    expect(Number.parseFloat(strip.style.width)).toBeGreaterThanOrEqual(collapsedWidth);
+    expect(Number.parseFloat(strip.style.width)).toBe(collapsedWidth);
   });
 
   it("keeps the expanded selection card nonmodal and lets an outside tap reach the page", () => {
@@ -252,7 +293,7 @@ describe("StatusBar AI totals", () => {
     const activate = vi.fn();
     try {
       render(<PanelLayout rightPanel={<button>Metadata control</button>}><button onClick={activate}>Result control</button></PanelLayout>);
-      expect(screen.getByRole("region", { name: "Details" })).toBeTruthy();
+      expect(screen.getByRole("region", { name: "Details" }).classList.contains("chrome-fade")).toBe(true);
       expect(screen.queryByTestId("card-scrim")).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: "1 selected — actions" }));
       const popup = screen.getByRole("group", { name: "Selection actions" });

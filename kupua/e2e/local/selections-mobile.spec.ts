@@ -656,8 +656,7 @@ test("mobile detail remains usable when browser fullscreen is rejected", async (
   await expect(detail).toBeVisible();
 });
 
-test.describe("detail metadata gestures", () => {
-  async function swipe(page: Page, target: Locator, dx: number, dy = 0, duringDrag?: () => Promise<void>, cancel = false, startYFraction?: number) {
+async function swipe(page: Page, target: Locator, dx: number, dy = 0, duringDrag?: () => Promise<void>, cancel = false, startYFraction?: number) {
     await target.scrollIntoViewIfNeeded();
     const bounds = await target.boundingBox();
     if (!bounds) throw new Error("Swipe target is not visible");
@@ -683,8 +682,9 @@ test.describe("detail metadata gestures", () => {
         await session.detach();
       }
     }
-  }
+}
 
+test.describe("detail metadata gestures", () => {
   test.beforeEach(async ({ page }) => {
     await page.evaluate(() => {
       const store = (window as any).__kupua_store__;
@@ -695,6 +695,51 @@ test.describe("detail metadata gestures", () => {
     const point = await getFirstTouchableCellRect(page);
     await page.touchscreen.tap(point.x, point.y);
     await expect(page.getByRole("region", { name: "Image details", exact: true })).toBeVisible();
+  });
+
+  test("integrated Actions distinguish native taps from card drags", async ({ page }) => {
+    const card = page.getByRole("region", { name: "Image details", exact: true });
+    const title = card.getByRole("button", { name: "Expand Image details", exact: true });
+    const trigger = card.getByRole("button", { name: "Image actions", exact: true });
+    const options = page.getByRole("group", { name: "Image action options", exact: true });
+    const initial = (await card.boundingBox())!;
+    const control = (await trigger.boundingBox())!;
+    expect(control.y).toBeGreaterThanOrEqual(initial.y);
+    expect(control.y + control.height).toBeLessThanOrEqual(initial.y + 64);
+    expect(page.viewportSize()!.height - control.y - control.height).toBeCloseTo(8, 0);
+    const titleBounds = (await title.boundingBox())!;
+    expect(titleBounds.y + titleBounds.height / 2).toBeCloseTo(control.y + control.height / 2, 0);
+    await expect(title).toHaveText("Swipe image 0");
+    await swipe(page, trigger, 0, 3, async () => {
+      await expect(trigger).toHaveAttribute("aria-expanded", "false");
+      expect((await card.boundingBox())!.y).toBeCloseTo(initial.y, 0);
+    });
+    await expect(options).toBeVisible();
+    await options.evaluate(async element => { await Promise.all(element.getAnimations().map(animation => animation.finished.catch(() => {}))); });
+    expect((await options.boundingBox())!.width).toBe(136);
+    await expect(card.locator(".selection-fab-glass")).toHaveCSS("background-color", "rgba(98, 98, 98, 0.85)");
+    await expect(card.locator(".selection-fab-glass")).toHaveCSS("background-image", "none");
+    await expect(card.locator(".selection-fab-glass")).toHaveCSS("backdrop-filter", "none");
+    await expect(options.getByRole("button", { name: "Details", exact: true })).toHaveCount(0);
+    await page.screenshot({ path: test.info().outputPath("detail-header-actions-peek.png"), animations: "disabled" });
+    await swipe(page, trigger, 0, -280, async () => {
+      await expect(options).toHaveCount(0);
+      expect((await card.boundingBox())!.y).toBeLessThan(initial.y - 200);
+    });
+    await expect(card.getByRole("button", { name: "Collapse Image details", exact: true })).toBeVisible();
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await trigger.tap();
+    await expect(options).toBeVisible();
+    await expect(options.getByRole("button", { name: "Close details", exact: true })).toHaveCount(0);
+    const triggerBox = (await trigger.boundingBox())!;
+    expect((await options.boundingBox())!.y).toBeGreaterThanOrEqual(triggerBox.y + triggerBox.height - 1);
+    await page.screenshot({ path: test.info().outputPath("detail-header-actions-expanded.png"), animations: "disabled" });
+    await options.getByRole("button", { name: "Share with URL", exact: true }).tap();
+    await expect(options).toHaveCount(0);
+    await expect(page.getByText("Not sent - Share with URL", { exact: true })).toHaveCount(1);
+    await expect(card.getByRole("button", { name: "Collapse Image details", exact: true })).toBeVisible();
+    await card.getByRole("button", { name: "Collapse Image details", exact: true }).tap();
+    await expect(title).toBeVisible();
   });
 
   test("browser detail enters fullscreen and native exit returns to results", async ({ page }) => {
@@ -1471,7 +1516,7 @@ test("SelectionFab appears at bottom-right and clears selection on tap", async (
   await expect(fab).not.toBeVisible();
 });
 
-test("SelectionFab preserves its split hit areas and leaves the page interactive", async ({ page }) => {
+test("integrated selection Actions preserve their hit areas and leave the page interactive", async ({ page }) => {
   const rect = await getFirstTouchableCellRect(page);
   await beginLongPress(page, rect.x, rect.y);
   await endPress(page, rect.x, rect.y);
@@ -1482,16 +1527,33 @@ test("SelectionFab preserves its split hit areas and leaves the page interactive
   await card.evaluate(async card => { await Promise.all(card.getAnimations().map(animation => animation.finished.catch(() => {}))); });
   const collapsedCard = (await card.boundingBox())!;
   const collapsedFab = (await fab.boundingBox())!;
-  const gap = collapsedCard.y - collapsedFab.y - collapsedFab.height;
+  expect(collapsedFab.width).toBe(112);
+  expect(page.viewportSize()!.height - collapsedFab.y - collapsedFab.height).toBeCloseTo(8, 0);
+  expect(collapsedFab.y).toBeGreaterThanOrEqual(collapsedCard.y);
+  expect(collapsedFab.y + collapsedFab.height).toBeLessThanOrEqual(collapsedCard.y + 64);
   const clear = page.getByRole("button", { name: "Clear selection (1 selected)", exact: true });
   const collapsedClear = (await clear.boundingBox())!;
-  expect(collapsedClear.width * 2 + 1).toBeCloseTo(collapsedFab.width, 0);
+  await expect(clear).toHaveText("Deselect");
+  expect(collapsedClear.width).toBeGreaterThanOrEqual(44);
   await page.getByRole("button", { name: "1 selected — actions" }).click();
   await fab.evaluate(async element => { await Promise.all(element.getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {}))); });
+  expect((await page.getByRole("group", { name: "Selection actions" }).boundingBox())!.width).toBe(136);
   const expandedClear = (await clear.boundingBox())!;
   expect(expandedClear.x).toBeCloseTo(collapsedClear.x, 0);
   expect(expandedClear.width).toBeCloseTo(collapsedClear.width, 0);
-  await page.getByRole("group", { name: "Selection actions" }).getByRole("button", { name: "Details", exact: true }).click();
+  expect(await clear.evaluate(button => {
+    const bounds = button.getBoundingClientRect();
+    return [...button.children].every(child => {
+      const content = child.getBoundingClientRect();
+      return content.left >= bounds.left && content.right <= bounds.right;
+    });
+  })).toBe(true);
+  await page.setViewportSize({ width: 320, height: 852 });
+  await expect(page.getByRole("button", { name: "Expand Details" })).toHaveText("1 selected");
+  expect(await fab.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await page.screenshot({ path: test.info().outputPath("selection-header-actions-peek.png"), animations: "disabled" });
+  await page.setViewportSize({ width: 393, height: 852 });
+  await page.getByRole("button", { name: "Expand Details", exact: true }).click();
   await expect(page.getByRole("group", { name: "Selection actions" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Collapse Details" })).toBeVisible();
   await expect(card).toHaveAttribute("role", "region");
@@ -1501,7 +1563,7 @@ test("SelectionFab preserves its split hit areas and leaves the page interactive
   await card.evaluate(async card => { await Promise.all(card.getAnimations().map(animation => animation.finished.catch(() => {}))); });
   const expandedCard = (await card.boundingBox())!;
   const expandedFab = (await fab.boundingBox())!;
-  expect(expandedCard.y - expandedFab.y - expandedFab.height).toBeCloseTo(gap, 0);
+  expect(expandedFab.y - expandedCard.y).toBeCloseTo(collapsedFab.y - collapsedCard.y, 0);
   expect(expandedFab.y).toBeLessThan(collapsedFab.y - 100);
   await page.setViewportSize({ width: 852, height: 393 });
   await page.getByRole("button", { name: "1 selected — actions" }).click();
@@ -1509,8 +1571,8 @@ test("SelectionFab preserves its split hit areas and leaves the page interactive
   const actionsBox = (await actions.boundingBox())!;
   expect(actionsBox.y).toBeGreaterThanOrEqual(0);
   expect(actionsBox.y + actionsBox.height).toBeLessThanOrEqual(393);
-  await actions.getByRole("button", { name: "Close details", exact: true }).press("Enter");
-  await expect(page.getByRole("button", { name: "1 selected — actions" })).toBeFocused();
+  await page.screenshot({ path: test.info().outputPath("selection-header-actions-landscape.png"), animations: "disabled" });
+  await page.getByRole("button", { name: "Collapse Details", exact: true }).press("Enter");
   await expect(actions).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Expand Details" })).toBeVisible();
   await expect(card).toHaveAttribute("role", "region");
@@ -1523,4 +1585,19 @@ test("SelectionFab preserves its split hit areas and leaves the page interactive
   await expect.poll(() => getSelectionCount(page)).toBe(0);
   await expect(card).toHaveCount(0);
   await expect(actions).toHaveCount(0);
+});
+
+test("dragging Deselect moves the selection card without clearing images", async ({ page }) => {
+  const rect = await getFirstTouchableCellRect(page);
+  await beginLongPress(page, rect.x, rect.y);
+  await endPress(page, rect.x, rect.y);
+  const clear = page.getByRole("button", { name: "Clear selection (1 selected)", exact: true });
+  await swipe(page, clear, 0, -280);
+  await expect(page.getByRole("button", { name: "Collapse Details", exact: true })).toBeVisible();
+  expect(await getSelectionCount(page)).toBe(1);
+  await swipe(page, clear, 0, 280);
+  await expect(page.getByRole("button", { name: "Expand Details", exact: true })).toBeVisible();
+  expect(await getSelectionCount(page)).toBe(1);
+  await clear.tap();
+  await expect.poll(() => getSelectionCount(page)).toBe(0);
 });

@@ -24,6 +24,22 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 12 November 2026 - Integrated mobile action headers
+
+Moved mobile and phone-PWA Actions into the selection and image-detail drawer headers,
+removing the extra floating layer while preserving the image-title preview. Selection uses
+an ellipsis beside always-visible Deselect. Both contexts have 136px menus, continuous
+S-curve outlines, the existing grey at 85% opacity, a slightly lighter shadow and 8px
+bottom clearance. Removed the redundant Details/Close details menu row and the mobile
+full-frame Crop dropdown; the main Crop control and desktop presentation remain unchanged.
+
+Header controls distinguish taps from card dragging, including Deselect and long-held
+drag releases. Deliberate card drags or header toggles close Actions; popup scrolling,
+outside interactions, focus return and inert neighbouring image cards retain their owners.
+Mobile detail chrome fades with image taps, selection cards fade in, and hidden controls
+stop accepting input immediately. Reduced-motion preferences disable the fades. These
+remain disconnected Not sent previews; action targeting and execution boundaries are unchanged.
+
 ### 12 November 2026 - Backend-owned collections service and count cache
 
 Vite API-mode collection trees now follow media-api's advertised collections service
