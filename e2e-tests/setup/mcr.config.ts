@@ -4,7 +4,9 @@ export default {
     name: 'Playwright Browser Coverage',
     outputDir: './coverage-reports',
     reports: ['v8', 'console-summary', 'lcovonly'],
-    outputFilter: (entry: { sourcePath: string }) => /(^|[/\\])public[/\\]js[/\\]/.test(entry.sourcePath),
+    outputFilter: (entry: { sourcePath: string }) =>
+        /(^|[/\\])public[/\\]js[/\\]/.test(entry.sourcePath) &&
+        !/\.(?:html?|css)(?:[?#]|$)/i.test(entry.sourcePath),
     sourceMapResolver: async (url: string, defaultResolver: (url: string) => Promise<unknown>) => {
         const { pathname } = new URL(url);
         if (pathname.startsWith('/assets/dist/') && pathname.endsWith('.map')) {
