@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import type { Plugin } from "vite";
+import { loadTestSiteSettings, siteSettingsPlugin } from "./scripts/test-site-settings.ts";
 import { bedrockEmbedProxy } from "./scripts/bedrock-embed-proxy.mjs";
 import { isGridApiReadViaPost } from "./src/dal/grid-api/read-via-post.ts";
 import { gridServiceProxyRoutes, isLabelAddRequest, isLabelRemovalRequest } from "./src/lib/grid-mutation-policy.ts";
@@ -119,7 +120,7 @@ function perfEnvironment(): Plugin {
  */
 const HOSTED_MODE = "hosted";
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(async ({ mode, command }) => {
 const hosted = mode === HOSTED_MODE;
 
 // Load .env.local into process.env so proxy targets can read it.
@@ -127,6 +128,14 @@ const hosted = mode === HOSTED_MODE;
 // Gated: vitest re-uses this config and the side-effect leaks real env vars into tests.
 if (!process.env.VITEST && !hosted) {
   Object.assign(process.env, loadEnv("development", process.cwd(), ""));
+}
+
+const siteSettingsPlugins: Plugin[] = [];
+if (!hosted && !process.env.VITEST && command === "serve"
+  && process.env.KUPUA_LOAD_SITE_SETTINGS === "true" && process.env.VITE_USE_MEDIA_API === "true") {
+  console.log("[config] Loading TEST S3 site settings...");
+  siteSettingsPlugins.push(siteSettingsPlugin(await loadTestSiteSettings()));
+  console.log("[config] TEST S3 site settings loaded");
 }
 
 const directBedrockPlugins = shouldEnableDirectBedrockProxy(
@@ -147,7 +156,7 @@ return {
     },
     build: { outDir: path.resolve(import.meta.dirname, "../kahuna/public/kupua"), emptyOutDir: true },
   }),
-  plugins: [react(), ...(mode === "test" && process.env.VITEST ? [] : [tailwindcss()]), esProxyGuard(), gridApiWriteGuard(satelliteRoutes), perfEnvironment(), ...directBedrockPlugins],
+  plugins: [...siteSettingsPlugins, react(), ...(mode === "test" && process.env.VITEST ? [] : [tailwindcss()]), esProxyGuard(), gridApiWriteGuard(satelliteRoutes), perfEnvironment(), ...directBedrockPlugins],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "./src"),

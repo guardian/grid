@@ -233,6 +233,7 @@ if [ "$USE_MEDIA_API" = true ] && [ "$CANONICAL_MEDIA" = true ] && [ "$USE_TEST"
   echo -e "${cyan}      → Thumbnails: ON (URLs returned by media-api)${plain}"
   echo -e "${cyan}      → Full images: ON (imgops links returned by media-api)${plain}"
   echo
+  export KUPUA_LOAD_SITE_SETTINGS="true"
   exec npm run dev
 fi
 
@@ -752,6 +753,11 @@ print('')
   fi
   echo
   cd "$KUPUA_DIR"
+  if [ "$USE_MEDIA_API" = true ] || [ "$USE_DEPLOYED_MEDIA_API" = true ]; then
+    export KUPUA_LOAD_SITE_SETTINGS="true"
+  else
+    unset KUPUA_LOAD_SITE_SETTINGS
+  fi
   exec npm run dev
 
 fi

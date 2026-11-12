@@ -404,11 +404,73 @@ images as DOM tiles; it requires no origin-clean pixel access, CORS change or me
 | Image border colours per category | Display only; no server source |
 | Local cost and validity rules ([lib/cost/](../../../src/lib/cost/)), category label table, `grid-config.ts` defaults | Used only when a server value is missing |
 
-## Laptop modes
+## Configuration by mode
 
-The explicitly selected laptop direct-ES mode computes image policy and query inputs
-locally from Elasticsearch documents: cost, validity,
-`is:` filters, free-to-use, category expansion and sort aliases mirror Grid's Scala code and can
-lag it. It does not support `matchViaExistence` aliases. Local `--use-media-api` mode uses the same server sources as deployed mode through Vite
-proxies, with `grid-config.ts` defaults in place of Kahuna's settings and local imgproxy for
-full images unless `--canonical-media` is set.
+Vite API modes started through Kupua's launcher load TEST site settings from S3.
+Hosted injection and temporary direct-ES modes stay unchanged. Direct-ES retains
+[hardcoded defaults](../../../src/lib/grid-config.ts): eight field aliases and an empty
+image-type vocabulary. Direct `npm run dev` does not enable the launcher-only S3 loader;
+API fixtures can inject synthetic settings without AWS. The operator verified live
+local-API acquisition and Image Type display; deployed-API acquisition has not been
+separately exercised. Synthetic tests cover the parser, SDK and Vite integration.
+
+| Kupua mode | Image data | Site settings source | Direction |
+|---|---|---|---|
+| Vite, no API selector or TEST flag (temporary direct-ES) | Local sample ES | Hardcoded defaults | Unchanged; eventual removal |
+| Vite, `--use-TEST` alone (temporary direct-ES) | Direct TEST ES | Hardcoded defaults | Unchanged; eventual removal |
+| Vite, `--use-media-api`; Grid without `--use-TEST` | Local API / local ES | TEST S3 settings | Shared loader |
+| Vite, `--use-media-api`; Grid with `--use-TEST` | Local API / TEST ES | Same TEST S3 settings | Shared loader |
+| Vite, `--use-deployed-media-api` | Deployed TEST API | Same TEST S3 settings | No hosted KupuaPage dependency |
+| Hosted by local Kahuna; Grid without `--use-TEST` | Local API / local ES | Effective local Kahuna settings, injected | Unchanged |
+| Hosted by local Kahuna; Grid with `--use-TEST` | Local API / TEST ES | Local settings plus downloaded TEST Kahuna overrides, injected | Unchanged |
+| Hosted by deployed DEV/TEST Kahuna | Deployment's API | Deployment's effective Kahuna settings, injected | Unchanged |
+| Future hosted replacement, including PROD when authorized | Deployment's API | PROD opt-in is not enabled | Server injection; no developer AWS credentials |
+
+### Vite S3 loader
+
+The launcher enables loading on every invocation with either API selector, before
+application modules initialize, including the local-API canonical fast path.
+`--canonical-media`, `--use-TEST` and skip modifiers must not select a different settings
+source or bypass loading in API mode. Vite prints `[config] Loading TEST S3 site settings...`
+and `[config] TEST S3 site settings loaded`, without config contents or credentials.
+Fetch once per Vite startup; restart to refresh. Acquisition or validation failure stops
+startup with a sanitized error, not silently substituted mock settings.
+
+The [Node loader](../../../scripts/test-site-settings.ts) uses `AWS_PROFILE` (default
+`media-service`) for two fixed GetObject reads in `eu-west-1`, independently of thumbnail
+proxies, ES discovery and tunnels. It reads `s3://grid-conf/TEST/common.conf`, then
+`s3://grid-conf/TEST/kahuna/kahuna.conf`, with a 15-second request timeout, no SDK retries
+and a 1 MiB limit per object. Strict in-memory HOCON parsing merges common then Kahuna;
+includes and transform resolution are explicitly blocked and environment lookup is
+disabled; strict mode alone is not the executable-transform guard. It projects the
+complete existing hosted `gridConfig` contract: organisation,
+aliases, image types, download-as-usage, reaper, agency-pick rules/colour, tickers,
+deny-syndication warning/text and default graphic-image blurring. Both acquisition paths
+use [shared settings validation](../../../src/lib/site-settings.ts), with equivalent
+ticker derivation. Only validated settings are injected before application modules run;
+consumers do not depend on acquisition. Raw config and credentials stay out of browser
+responses, logs and generated files. Service addresses, user permissions and editing gates
+are not imported from S3. Changes to the stored files' syntax or read permissions can fail
+startup and require operator investigation; no raw parser excerpts are logged.
+
+This deliberately means **TEST frontend settings for every Vite API run**, not exact
+introspection of the selected server. S3 contents can differ from a running process's
+loaded snapshot. Usage Rights names, search aliases and replacement mappings remain on
+the existing metadata-editor catalogue path; image policy/capabilities remain API-owned.
+Do not front-load future domain/template settings or add backend endpoints for this loader.
+
+### Local Grid configuration remains separate
+
+[Setup](../../../../dev/script/setup.sh) generates local configs; it has no TEST branch.
+The [Grid launcher](../../../../dev/script/start.sh) with `--use-TEST` downloads only the
+media-api and Kahuna service configs, not the deployed common config. Setup can overwrite
+or remove `~/.grid/common.conf`. The operator must therefore continue restoring the needed
+`field.aliases` and `imageTypes` settings after setup, for Grid both with and without
+`--use-TEST` unless higher-priority config supplies them. Aliases configure API search/value
+extraction as well as Kahuna's display catalogue; image types supply Kahuna's vocabulary.
+Loading settings into Vite does not configure Grid or repair that setup gap.
+
+Temporary direct-ES mode still computes policy/query inputs locally and can lag Grid; it
+does not support `matchViaExistence` aliases. In API modes, media delivery remains independent:
+canonical uses returned URLs; legacy delivery uses local proxies. Neither changes the
+site-settings source above.

@@ -136,6 +136,18 @@ describe("grid config from the hosted page", () => {
     expect(blur.isImagePotentiallyGraphic({ metadata: { description: "graphic content" } } as never)).toBe(false);
   });
 
+  it("uses supplied Vite site settings without accepting hosted service addresses or permissions", async () => {
+    vi.resetModules();
+    vi.stubEnv("VITE_HOSTED", "false");
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    window.__KUPUA_CONFIG__ = { gridConfig: siteSettings, mediaApiUri: "https://ignored.example.test", showPaid: true };
+    const { gridConfig } = await import("./grid-config");
+    expect(gridConfig.fieldAliases).toEqual([alias]);
+    expect(gridConfig.imageTypes).toEqual(["Handout"]);
+    expect(hostedServiceUri("mediaApiUri")).toBeUndefined();
+    expect(hostedShowPaid()).toBeUndefined();
+  });
+
   it("keeps local defaults for an old payload", async () => {
     const { gridConfig, blur } = await loadWith({ mediaApiUri: "https://api.media.example.test" });
     expect(gridConfig.staffPhotographerOrganisation).toBe("GNM");

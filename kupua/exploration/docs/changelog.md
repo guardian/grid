@@ -24,6 +24,26 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 12 November 2026 - Shared site settings and Vite S3 loading
+
+Vite API launcher paths now acquire TEST common and Kahuna site settings from S3
+before application modules initialize, independently of media delivery. Bounded
+GetObject reads use the developer's AWS profile; strict in-memory HOCON parsing
+disables includes, executable extensions and environment lookup. Startup reports
+loading/success and rejects failures without exposing raw configuration or credentials.
+
+Hosted and Vite settings share one allowlisted validator, including nested alias and
+ticker projection. Application consumers no longer depend on the acquisition source;
+hosted service addresses and per-user defaults remain hosted-only. Direct-ES stays
+unchanged. The owning guide records the intentional TEST-settings policy, local Grid
+common-config maintenance and the outstanding live S3 verification boundary.
+
+Cold review repairs explicitly block parser transform resolution: strict mode alone
+does not prevent primitive-value transforms from executing. A harmless execution probe
+replaces the ineffective array-transform fixture. Alias projection now applies Grid's
+optional-field defaults and filters empty suggestion values; the agency-pick colour
+fallback matches the server rather than the legacy browser default.
+
 ### 12 November 2026 - Integrated mobile action headers
 
 Moved mobile and phone-PWA Actions into the selection and image-detail drawer headers,

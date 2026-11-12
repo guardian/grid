@@ -1,28 +1,26 @@
 /**
- * Grid config. Hosted builds take Kahuna's injected site settings (hosted-config.ts);
- * every other mode, and any missing/invalid setting, keeps these local defaults
- * derived from exploration/mock/grid-config.conf.
+ * Grid config consumes validated startup settings independently of their source.
+ * Direct-ES and missing optional hosted fields retain the local defaults below.
  */
 
-import { hostedGridConfig, type HostedFieldAlias, type HostedTickerDefinition } from "./hosted-config";
+import { siteSettings, type SiteFieldAlias, type SiteTickerDefinition } from "./site-settings";
 
-type FieldAlias = HostedFieldAlias;
+type FieldAlias = SiteFieldAlias;
 
 /**
  * A single ticker definition — drives filter aggregations in countWithTickers
  * and badge rendering in StatusBar + Filters panel.
  */
-export type TickerDefinition = HostedTickerDefinition;
+export type TickerDefinition = SiteTickerDefinition;
 
-// Kahuna's hosted page supplies these before any module evaluates; local modes get {}.
-const hosted = hostedGridConfig();
+const settings = siteSettings();
 
 export const gridConfig = {
   /**
    * The organisation name used for `is:<org>-owned` style queries.
    * From `staffPhotographerOrganisation` in Grid config (default "GNM").
    */
-  staffPhotographerOrganisation: hosted.staffPhotographerOrganisation ?? "GNM",
+  staffPhotographerOrganisation: settings.staffPhotographerOrganisation ?? "GNM",
 
   /**
    * Categories that qualify an image for the syndication "review" queue.
@@ -52,16 +50,16 @@ export const gridConfig = {
    * Mirrors Kahuna's `_clientConfig.showDenySyndicationWarning`.
    * Set to true by default — operators can override once runtime config is wired.
    */
-  showDenySyndicationWarning: hosted.showDenySyndicationWarning ?? true,
+  showDenySyndicationWarning: settings.showDenySyndicationWarning ?? true,
 
   /**
    * Text shown in the deny-syndication warning banner.
    * Mirrors Kahuna's `_clientConfig.denySyndicationTextHeader`.
    */
-  denySyndicationTextHeader: hosted.denySyndicationTextHeader ?? "This image has been denied for syndication.",
+  denySyndicationTextHeader: settings.denySyndicationTextHeader ?? "This image has been denied for syndication.",
 
   /** Kahuna's `defaultShouldBlurGraphicImages`; no user preference UI yet. */
-  defaultShouldBlurGraphicImages: hosted.defaultShouldBlurGraphicImages ?? true,
+  defaultShouldBlurGraphicImages: settings.defaultShouldBlurGraphicImages ?? true,
 
 
   /**
@@ -71,13 +69,13 @@ export const gridConfig = {
    * Download usage rows are always shown in the UI if the data is present in ES,
    * regardless of this flag.
    */
-  "image.record.download": hosted.recordDownloadAsUsage ?? false,
+  "image.record.download": settings.recordDownloadAsUsage ?? false,
 
   /** Whether the reaper feature is enabled */
-  useReaper: hosted.useReaper ?? false,
+  useReaper: settings.useReaper ?? false,
 
   /** Whether agency pick filtering is available */
-  hasAgencyPicks: hosted.hasAgencyPicks ?? true,
+  hasAgencyPicks: settings.hasAgencyPicks ?? true,
 
   /**
    * Agency picks detection — mirrors `agencyPicks.ingredients` in Grid config.
@@ -86,8 +84,8 @@ export const gridConfig = {
    * Used by `is:agency-pick` in cql.ts (filter aggregation + typeahead).
    * Source: agencyPicsConfigFragment.conf (redacted copy stored separately).
    */
-  agencyPicksColour: hosted.agencyPicksColour ?? "#7d006880",
-  agencyPicksIngredients: hosted.agencyPicksIngredients ?? {
+  agencyPicksColour: settings.agencyPicksColour ?? "#7d006880",
+  agencyPicksIngredients: settings.agencyPicksIngredients ?? {
     "metadata.description": [
       "topshot",          // Getty
       "topshots",         // Getty
@@ -119,7 +117,7 @@ export const gridConfig = {
    * Mirrors the aggregationsNameToSearchClauseMap built in ElasticSearch.scala.
    * Gated by the same feature flags as the underlying `is:` queries.
    */
-  tickerDefinitions: hosted.tickerDefinitions ?? [
+  tickerDefinitions: settings.tickerDefinitions ?? [
     {
       name: "GNM-owned",
       searchClause: "is:GNM-owned",
@@ -140,10 +138,10 @@ export const gridConfig = {
    * When non-empty, the imageType field is visible in the metadata panel.
    * Mirrors `imageTypes` from Guardian config (Kahuna parity — decided 2026-05-02).
    */
-  imageTypes: hosted.imageTypes ?? [] as string[],
+  imageTypes: settings.imageTypes ?? [] as string[],
 
   /** Field aliases from config — drives additional search fields + typeahead */
-  fieldAliases: hosted.fieldAliases ?? [
+  fieldAliases: settings.fieldAliases ?? [
     {
       elasticsearchPath: "fileMetadata.iptc.Edit Status",
       alias: "editStatus",
