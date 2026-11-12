@@ -6,68 +6,90 @@ import model._
 import org.apache.pekko.Done
 import org.apache.pekko.actor.Scheduler
 import org.apache.pekko.pattern.after
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Sink
+import org.apache.pekko.stream.{Attributes, DelayOverflowStrategy, Materializer}
+import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink}
 import play.api.libs.json.JsObject
 
-import scala.concurrent.{ExecutionContext, Future}
+import java.util.concurrent.Executors
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
 import scala.concurrent.duration._
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 class UsageRecorder(
   usageMetrics: UsageMetrics,
   usageTable: UsageTable,
   usageNotifier: UsageNotifier,
   usageGroupStream: UsageGroupStream,
-  scheduler: Scheduler
+  scheduler: Scheduler,
+  notificationDelay: FiniteDuration = 5.seconds
 )(implicit materializer: Materializer, executionContext: ExecutionContext) extends GridLogging {
 
   private case class MatchedUsageGroup(logMarker: LogMarker, usageGroup: UsageGroup, dbUsages: Set[MediaUsage])
+  private case class PendingNotifications(logMarker: LogMarker, mediaIds: Set[String])
+
+  private val notificationExecutionContext: ExecutionContextExecutorService =
+    ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(4))
 
   private var maybeCompletion: Option[Future[Done]] = None
+  private var maybeStop: Option[Future[Done]] = None
 
   def start(): Unit = {
     if (maybeCompletion.isEmpty) {
-      maybeCompletion = Some(
-        usageGroupStream.source
-          .mapAsync(8)(processUsageGroup)
-          .mapConcat(_.toList)
-          .runWith(Sink.foreach(markers => logger.debug(markers, "Sent Usage Notification")))
-      )
+      val (queue, completion) = usageGroupStream.source
+        .mapAsync(8)(matchAndUpdate)
+        .mapConcat(_.toList)
+        .via(
+          Flow[PendingNotifications]
+            .delay(notificationDelay, DelayOverflowStrategy.backpressure)
+            .withAttributes(Attributes.inputBuffer(initial = 128, max = 128))
+        )
+        .mapAsync(8)(notifyPending)
+        .mapConcat(_.toList)
+        .toMat(Sink.foreach(markers => logger.debug(markers, "Sent Usage Notification")))(Keep.both)
+        .run()
+
+      usageGroupStream.attachQueue(queue)
+      maybeCompletion = Some(completion)
     }
   }
 
-  def stop(): Future[Done] = {
-    usageGroupStream.complete()
-    maybeCompletion.getOrElse(Future.successful(Done))
+  def stop(): Future[Done] = synchronized {
+    maybeStop.getOrElse {
+      val stopped = maybeCompletion match {
+        case Some(completion) => usageGroupStream.complete().flatMap(_ => completion)
+        case None => Future.successful(Done)
+      }
+      val result = stopped.andThen { case _ => notificationExecutionContext.shutdown() }
+      maybeStop = Some(result)
+      result
+    }
   }
 
-  private def processUsageGroup(usageGroupWithContext: WithLogMarker[UsageGroup]): Future[Seq[LogMarker]] = {
+  private def matchAndUpdate(usageGroupWithContext: WithLogMarker[UsageGroup]): Future[Option[PendingNotifications]] = {
     val WithLogMarker(logMarker, usageGroup) = usageGroupWithContext
 
-    for {
-      matchedUsageGroup <- matchDb(usageGroupWithContext)
-      mediaIds <- getUpdates(matchedUsageGroup)
-      notices <- after(5.seconds, scheduler) {
-        Future.traverse(mediaIds.toSeq)(id => notifyWithRetries(id, logMarker))
+    matchDb(usageGroupWithContext)
+      .flatMap(getUpdates)
+      .map { mediaIds =>
+        Option.when(mediaIds.nonEmpty)(PendingNotifications(logMarker, mediaIds))
       }
-    } yield notices
-  }.recover { case error =>
-    val WithLogMarker(logMarker, usageGroup) = usageGroupWithContext
-    logger.error(logMarker ++ Map("usageGroup" -> usageGroup.grouping), "UsageRecorder encountered an error.", error)
-    usageMetrics.incrementErrors
-    Seq.empty
+      .recover { case error =>
+        logger.error(logMarker ++ Map("usageGroup" -> usageGroup.grouping), "UsageRecorder encountered an error.", error)
+        usageMetrics.incrementErrors
+        None
+      }
   }
 
   private def matchDb(usageGroupWithContext: WithLogMarker[UsageGroup]): Future[MatchedUsageGroup] = {
     val WithLogMarker(logMarker, usageGroup) = usageGroupWithContext
 
-    retrying(usageTable.matchUsageGroup(usageGroupWithContext), maxRetries = 5) { (retriesSoFar, error) =>
+    retrying(usageTable.matchUsageGroup(usageGroupWithContext), maxAttempts = 5) { (attempt, error) =>
       logger.error(
-        logMarker ++ Map("retry" -> retriesSoFar),
-        s"Encountered an error trying to match usage group (${usageGroup.grouping}) retry $retriesSoFar of 5",
+        logMarker ++ Map("retry" -> attempt),
+        s"Encountered an error trying to match usage group (${usageGroup.grouping}) retry $attempt of 5",
         error
       )
+      usageMetrics.incrementErrors
     }.map { dbUsagesWithContext =>
       logger.info(dbUsagesWithContext.logMarker, s"Built MatchedUsageGroup for ${usageGroup.grouping}")
       MatchedUsageGroup(dbUsagesWithContext.logMarker, usageGroup, dbUsagesWithContext.value)
@@ -89,14 +111,26 @@ class UsageRecorder(
     dbUsages.foreach(mediaUsage => logger.info(logMarker, s"Seen DB Usage for ${mediaUsage.mediaId}"))
     usageGroup.usages.foreach(mediaUsage => logger.info(logMarker, s"Seen Stream Usage for ${mediaUsage.mediaId}"))
 
-    def performAndLogDBOperation(mediaUsage: MediaUsage, opName: String)(operation: => Future[JsObject]): Future[JsObject] =
-      operation.map { result =>
-        logger.info(
-          logMarker,
-          s"'$opName' DB Operation for ${mediaUsage.grouping} - on mediaID: ${mediaUsage.mediaId} with result: $result"
-        )
-        usageMetrics.incrementUpdated
-        result
+    def performAndLogDBOperation(
+      mediaUsage: MediaUsage,
+      operationName: String
+    )(operation: => Future[JsObject]): Future[(String, Boolean)] =
+      Try(operation).fold(Future.failed, identity).transform {
+        case Success(result) =>
+          logger.info(
+            logMarker,
+            s"'$operationName' DB Operation for ${mediaUsage.grouping} - on mediaID: ${mediaUsage.mediaId} with result: $result"
+          )
+          usageMetrics.incrementUpdated
+          Success(mediaUsage.mediaId -> true)
+        case Failure(error) =>
+          logger.error(
+            logMarker,
+            s"'$operationName' DB Operation failed for ${mediaUsage.grouping} - on mediaID: ${mediaUsage.mediaId}",
+            error
+          )
+          usageMetrics.incrementErrors
+          Success(mediaUsage.mediaId -> false)
       }
 
     val markAsRemovedOps = dbUsageKeys.diff(streamUsageKeys)
@@ -115,38 +149,48 @@ class UsageRecorder(
       .toSeq
       .map(mediaUsage => performAndLogDBOperation(mediaUsage, "update")(usageTable.update(mediaUsage)))
 
-    val mediaIdsImplicatedInDBUpdates =
+    val implicatedMediaIds =
       (usageGroup.usages ++ dbUsages)
         .filter(_.isGridLikeId)
         .map(_.mediaId)
 
-    Future.sequence(markAsRemovedOps ++ updateOps ++ createOps).map { _ =>
-      logger.info(logMarker, s"Emitting ${mediaIdsImplicatedInDBUpdates.size} media IDs for notification")
-      mediaIdsImplicatedInDBUpdates
+    Future.sequence(markAsRemovedOps ++ updateOps ++ createOps).map { results =>
+      val failedMediaIds = results.collect { case (mediaId, false) => mediaId }.toSet
+      val mediaIdsToNotify = implicatedMediaIds -- failedMediaIds
+      logger.info(logMarker, s"Emitting ${mediaIdsToNotify.size} media IDs for notification")
+      mediaIdsToNotify
     }
   }
 
-  private def notifyWithRetries(mediaId: String, logMarker: LogMarker): Future[LogMarker] = {
-    val maxRetries = 5
+  private def notifyPending(pending: PendingNotifications): Future[Seq[LogMarker]] =
+    Future.traverse(pending.mediaIds.toSeq)(mediaId => notifyWithRetries(mediaId, pending.logMarker)).map(_.flatten)
+
+  private def notifyWithRetries(mediaId: String, logMarker: LogMarker): Future[Option[LogMarker]] =
     retrying(
       usageNotifier.build(mediaId)(logMarker).flatMap { notice =>
-        Future(usageNotifier.send(WithLogMarker(logMarker, notice)))
+        Future(usageNotifier.send(WithLogMarker(logMarker, notice)))(notificationExecutionContext)
       },
-      maxRetries
-    ) { (retriesSoFar, error) =>
-      logger.error(MarkerMap("retry" -> retriesSoFar), "UsageRecorder encountered an error.", error)
-      if (retriesSoFar < maxRetries) usageMetrics.incrementErrors
+      maxAttempts = 5
+    ) { (attempt, error) =>
+      logger.error(MarkerMap("retry" -> attempt), s"Usage notification retry $attempt of 5 failed.", error)
+      usageMetrics.incrementErrors
+    }.map(Some(_)).recover { case error =>
+      logger.error(logMarker ++ Map("image-id" -> mediaId), "Failed to send usage notification after 5 attempts.", error)
+      usageMetrics.incrementErrors
+      None
     }
-  }
 
-  private def retrying[A](operation: => Future[A], maxRetries: Int)(onFailure: (Int, Throwable) => Unit): Future[A] = {
-    def attempt(retriesSoFar: Int): Future[A] =
+  private def retrying[A](operation: => Future[A], maxAttempts: Int)(onRetry: (Int, Throwable) => Unit): Future[A] = {
+    def attempt(attemptNumber: Int): Future[A] =
       Try(operation).fold(Future.failed, identity).recoverWith { case error =>
-        onFailure(retriesSoFar, error)
-        if (retriesSoFar < maxRetries) attempt(retriesSoFar + 1)
-        else Future.failed(error)
+        if (attemptNumber >= maxAttempts) Future.failed(error)
+        else {
+          onRetry(attemptNumber, error)
+          val backoff = (100L << (attemptNumber - 1)).millis
+          after(backoff, scheduler)(attempt(attemptNumber + 1))
+        }
       }
 
-    attempt(0)
+    attempt(1)
   }
 }

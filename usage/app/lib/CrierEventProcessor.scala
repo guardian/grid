@@ -18,9 +18,11 @@ import software.amazon.kinesis.processor.ShardRecordProcessor
 
 import java.util.UUID
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration.Duration
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
+import scala.util.control.NonFatal
 
 trait ContentContainer extends GridLogging {
   val content: Content
@@ -76,31 +78,35 @@ abstract class CrierEventProcessor(
   implicit val codec: ThriftStructCodec[Event] = Event
 
   val contentApiClient: UsageContentApiClient
-  private var recordProcessing: Future[Unit] = Future.successful(())
 
   override def initialize(initializationInput: InitializationInput): Unit = {
     logger.debug(s"Initialized an event processor for shard ${initializationInput.shardId}")
   }
 
-  override def processRecords(processRecordsInput: ProcessRecordsInput): Unit = synchronized {
-    recordProcessing = recordProcessing.flatMap(_ => processBatch(processRecordsInput))
-    recordProcessing.failed.foreach(error => logger.error("Failed to process crier records", error))
-  }
-
-  private def processBatch(processRecordsInput: ProcessRecordsInput): Future[Unit] = {
+  override def processRecords(processRecordsInput: ProcessRecordsInput): Unit = {
     val records = processRecordsInput.records
-    val processing = records.asScala.toSeq.map { record =>
-      ThriftDeserializer.deserialize(record.data) match {
-        case Success(event) => processEvent(event)
-        case Failure(error) =>
-          logger.error("Failed to deserialize crier event", error)
-          Future.successful(Done)
+
+    if (records.isEmpty) return
+
+    val processing = records.asScala.foldLeft(Future.successful[Done](Done)) { (previous, record) =>
+      previous.flatMap { _ =>
+        ThriftDeserializer.deserialize(record.data) match {
+          case Success(event) => processEvent(event)
+          case Failure(error) =>
+            logger.error("Failed to deserialize crier event", error)
+            Future.successful(Done)
+        }
       }
     }
 
     val lastRecord = records.asScala.last
-    Future.sequence(processing).map { _ =>
+    try {
+      Await.result(processing, Duration.Inf)
       processRecordsInput.checkpointer.checkpoint(lastRecord.sequenceNumber(), lastRecord.subSequenceNumber())
+    } catch {
+      case NonFatal(error) =>
+        logger.error("Failed to process crier records; batch will not be checkpointed", error)
+        throw error
     }
   }
 
