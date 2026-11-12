@@ -1,14 +1,15 @@
 package lib
 
-import com.gu.mediaservice.lib.logging.MarkerMap
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model.usage._
 import model.{UsageGroup, UsageTable}
 import org.joda.time.DateTime
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{timeout, verify, when}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import play.api.libs.json.Json
+import play.api.libs.json.{JsArray, Json}
 
 import scala.concurrent.Future
 
@@ -24,6 +25,9 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
     val usageMetrics = mock[UsageMetrics]
     val usageNotifier = mock[UsageNotifier]
 
+    when(usageNotifier.build(any[String])(any[LogMarker]))
+      .thenReturn(Future.successful(UsageNotice("", JsArray())))
+    when(usageNotifier.send(any[WithLogMarker[UsageNotice]])).thenReturn(logMarker)
     when(usageTable.matchUsageGroup(WithLogMarker(logMarker, crierGroup)))
       .thenReturn(Future.successful(WithLogMarker(logMarker, Set.empty)))
     when(usageTable.matchUsageGroup(WithLogMarker(logMarker, apiGroup)))
