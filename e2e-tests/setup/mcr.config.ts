@@ -3,10 +3,14 @@ import { basename } from 'node:path';
 export default {
     name: 'Playwright Browser Coverage',
     outputDir: './coverage-reports',
-    reports: ['v8', 'console-summary', 'lcovonly'],
+    reports: [
+        ['v8', { metrics: ['branches', 'functions', 'lines'] }],
+        ['console-summary', { metrics: ['branches', 'functions', 'lines'] }],
+        'lcovonly'
+    ],
     outputFilter: (entry: { sourcePath: string }) =>
         /(^|[/\\])public[/\\]js[/\\]/.test(entry.sourcePath) &&
-        !/\.(?:html?|css)(?:[?#]|$)/i.test(entry.sourcePath),
+        !/\.(?:html?|css(?:-[^/\\?#]*)?)(?:[?#]|$)/i.test(entry.sourcePath),
     sourceMapResolver: async (url: string, defaultResolver: (url: string) => Promise<unknown>) => {
         const { pathname } = new URL(url);
         if (pathname.startsWith('/assets/dist/') && pathname.endsWith('.map')) {
