@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { Given, When, Then, KAHUNA_APP_URL, expect } from '../setup.ts';
 import { cqlInput, expectSearchBoxEmpty, recordSearches, searchBoxEditable, searchBoxReady } from './search-box.ts';
+import { setTestClientConfig } from '../utils/test-config.ts';
 
 function chip(page: Page, key: string): Locator {
     return cqlInput(page)
@@ -16,6 +17,16 @@ async function enterChipQuery(page: Page, query: string) {
     await searchBoxEditable(page).fill(query);
     await expect(page).toHaveURL((url) => url.searchParams.get('query') === query);
     await searchBoxEditable(page).press('Escape');
+}
+
+async function chooseIndexedValue(page: Page, key: 'credit' | 'photoshoot' | 'source', prefix: string) {
+    await searchBoxEditable(page).pressSequentially(`+${key}:`);
+    const lookup = page.waitForResponse((response) => {
+        const url = new URL(response.url());
+        return url.pathname === `/suggest/metadata/${key}` && url.searchParams.get('q') === prefix;
+    });
+    await chipValue(page, key).fill(prefix);
+    expect((await lookup).status()).toBe(200);
 }
 
 Given('I am choosing a filter field with the partial name {string}', async ({ page }, partialName: string) => {
@@ -46,6 +57,14 @@ Then('the {string} filter chip should be waiting for a value', async ({ page }, 
     await expect(chipValue(page, key)).toHaveText('');
 });
 
+Then('the filter suggestions should include {string}', async ({ page }, suggestion: string) => {
+    await expect(cqlInput(page).locator('.Cql__TypeaheadPopover').getByText(suggestion, { exact: true })).toBeVisible();
+});
+
+Then('the filter suggestions should not include {string}', async ({ page }, suggestion: string) => {
+    await expect(cqlInput(page).locator('.Cql__TypeaheadPopover').getByText(suggestion, { exact: true })).toHaveCount(0);
+});
+
 Given('the chip query is {string}', async ({ page, testContext }, query: string) => {
     recordSearches(page, testContext);
     await enterChipQuery(page, query);
@@ -53,13 +72,26 @@ Given('the chip query is {string}', async ({ page, testContext }, query: string)
 
 Given('I am choosing a credit value starting with {string}', async ({ page, testContext }, prefix: string) => {
     recordSearches(page, testContext);
-    await searchBoxEditable(page).pressSequentially('+credit:');
-    const lookup = page.waitForResponse((response) => {
-        const url = new URL(response.url());
-        return url.pathname === '/suggest/metadata/credit' && url.searchParams.get('q') === prefix;
+    await chooseIndexedValue(page, 'credit', prefix);
+});
+
+Given('I am choosing a photoshoot value starting with {string}', async ({ page }, prefix: string) => {
+    await chooseIndexedValue(page, 'photoshoot', prefix);
+});
+
+Given('I am choosing a source value starting with {string}', async ({ page }, prefix: string) => {
+    await chooseIndexedValue(page, 'source', prefix);
+});
+
+Given('optional search suggestion features are disabled', async ({ page }) => {
+    await setTestClientConfig(page, {
+        useReaper: false,
+        agencyPicksIngredients: null,
+        recordDownloadAsUsage: false,
+        showSendToPhotoSales: false,
     });
-    await chipValue(page, 'credit').fill(prefix);
-    expect((await lookup).status()).toBe(200);
+    await searchBoxReady(page);
+    await expectSearchBoxEmpty(page);
 });
 
 Given('I opened a chip search URL for {string}', async ({ page, testContext }, query: string) => {
@@ -118,6 +150,11 @@ When('I press Backspace in the focused empty chip', async ({ page }) => {
 Then('the chip query should be {string}', async ({ page }, query: string) => {
     await expect(page).toHaveURL((url) => url.searchParams.get('query') === query);
     await expect(cqlInput(page)).toHaveAttribute('value', query);
+});
+
+Then('the chip query should be {string} with editor form {string}', async ({ page }, query: string, editorQuery: string) => {
+    await expect(page).toHaveURL((url) => url.searchParams.get('query') === query);
+    await expect(cqlInput(page)).toHaveAttribute('value', editorQuery);
 });
 
 Then('there should be exactly {int} filter chips', async ({ page }, count: number) => {
