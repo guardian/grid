@@ -725,7 +725,8 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
   } catch (error) {
     // Leave nothing running if we failed part-way through the boot.
     await stopStack(context);
-    console.error(`\nThe Grid stack failed to start. See the testcontainers log at ${DEBUG_LOG_PATH} for debug logs.\n`);
+    const logLocation = process.env.CI ? 'in the \'show testcontainers debug log\' step (it\'s also downloadable from the job summary)' : `at ${DEBUG_LOG_PATH}`;
+    console.error(`\nThe Grid stack failed to start. See the testcontainers log ${logLocation} for debug logs.\n`);
     throw error;
   }
 }
