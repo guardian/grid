@@ -55,8 +55,8 @@ jobs:
           # Unset for forked pull requests, which cannot read secrets; source-map upload is
           # skipped in that case. See kahuna/webpack.config.prod.js.
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
           # Shared with the SBT step below so the browser and server report the same release.
           BUILD_VCS_NUMBER: ${{ github.sha }}
         run: |
