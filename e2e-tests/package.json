@@ -8,7 +8,7 @@
     "dev:e2e": "node --experimental-strip-types --disable-warning=ExperimentalWarning setup/dev.ts",
     "test": "bddgen && playwright test",
     "test:headed": "bddgen && playwright test --headed",
-    "test:video": "bddgen && GRID_RECORD_VIDEO=true playwright test",
+    "test:video": "bddgen && GRID_RECORD_VIDEO=true GRID_DISABLE_COVERAGE=true playwright test",
     "test:report": "playwright show-report --host 0.0.0.0",
     "test:report:cucumber": "playwright show-report cucumber-report --host 0.0.0.0 --port 9324",
     "features:build": "npm run features:typecheck && tsx feature-library/build.ts",

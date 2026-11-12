@@ -7,9 +7,11 @@ import MCR from 'monocart-coverage-reports';
 import coverageOptions from './mcr.config';
 
 async function globalTeardown(): Promise<void> {
-  const results = await MCR(coverageOptions).generate();
-  if (!results || !results.files.length) {
-    throw new Error('No browser coverage generated: check fixtures and source scope');
+  if (process.env.GRID_DISABLE_COVERAGE !== 'true') {
+    const results = await MCR(coverageOptions).generate();
+    if (!results || !results.files.length) {
+      throw new Error('No browser coverage generated: check fixtures and source scope');
+    }
   }
   await stopStack(getEnvironment());
 }
