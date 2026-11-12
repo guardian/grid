@@ -90,8 +90,10 @@ class UsageTableTest extends AnyFunSuite with Matchers with MockitoSugar {
     when(items.iterator()).thenReturn(Collections.singletonList(document).iterator())
 
     val group = UsageGroup(Set.empty, expected.grouping, expected.lastModified)
-    val result = awaitSingle(usageTable(mock[DynamoDbClient], enhancedTable)
-      .matchUsageGroup(WithLogMarker(logMarker, group)))
+    val result = Await.result(
+      usageTable(mock[DynamoDbClient], enhancedTable).matchUsageGroup(WithLogMarker(logMarker, group)),
+      5.seconds
+    )
 
     result.value shouldBe Set(expected)
   }
@@ -101,8 +103,13 @@ class UsageTableTest extends AnyFunSuite with Matchers with MockitoSugar {
     val failure = new IllegalStateException("DynamoDB unavailable")
     when(enhancedTable.query(any[QueryEnhancedRequest])).thenThrow(failure)
 
-    awaitFailure(usageTable(mock[DynamoDbClient], enhancedTable)
-      .matchUsageGroup(WithLogMarker(logMarker, UsageGroup(Set.empty, "group-1", DateTime.now())))) shouldBe failure
+    intercept[IllegalStateException] {
+      Await.result(
+        usageTable(mock[DynamoDbClient], enhancedTable)
+          .matchUsageGroup(WithLogMarker(logMarker, UsageGroup(Set.empty, "group-1", DateTime.now()))),
+        5.seconds
+      )
+    } shouldBe failure
   }
 
   test("create, update, and markAsRemoved issue the corresponding update expressions") {
