@@ -47,6 +47,7 @@ class SentryTracingFilterTest extends AnyFunSuiteLike with Matchers with ScalaFu
     dsn = dsn,
     environment = "TEST",
     tracesSampleRate = tracesSampleRate,
+    replayOnErrorSampleRate = 0,
     consoleCaptureLevels = Seq("error"),
     userMode = SentryUserMode.Anonymous,
     userSalt = None

@@ -9,6 +9,7 @@ jest.mock('@sentry/browser', () => ({
     captureException: jest.fn(),
     captureConsoleIntegration: jest.fn(() => ({ name: 'CaptureConsole' })),
     browserTracingIntegration: jest.fn(() => ({ name: 'BrowserTracing' })),
+    replayIntegration: jest.fn(() => ({ name: 'Replay' })),
     setUser: jest.fn(),
     withScope: callback => callback({ addEventProcessor: jest.fn() }),
     setContext: jest.fn()
@@ -25,6 +26,7 @@ describe('Sentry browser reporting', () => {
             release: 'test-release',
             consoleCaptureLevels: ['error'],
             tracesSampleRate: 0,
+            replayOnErrorSampleRate: 0,
             ...overrides
         };
         angular.module('sentryTestConfig', [])
@@ -52,6 +54,8 @@ describe('Sentry browser reporting', () => {
             release: 'test-release',
             tracesSampleRate: 0,
             tracePropagationTargets: [],
+            replaysSessionSampleRate: 0,
+            replaysOnErrorSampleRate: 0,
             integrations: [{ name: 'CaptureConsole' }]
         });
         expect(Sentry.setContext).toHaveBeenCalledWith('grid', { instanceId: 'kahuna-instance' });
@@ -86,6 +90,25 @@ describe('Sentry browser reporting', () => {
             tracesSampleRate: 0.25,
             tracePropagationTargets,
             integrations: [{ name: 'CaptureConsole' }, { name: 'BrowserTracing' }]
+        });
+    });
+
+    it('does not install replay by default and never enables continuous recording', () => {
+        start('https://key@sentry.example.com/1');
+        expect(Sentry.replayIntegration).not.toHaveBeenCalled();
+        expect(Sentry.init.mock.calls[0][0].replaysSessionSampleRate).toBe(0);
+    });
+
+    it('installs error-triggered replay only with mandatory masking and media blocking', () => {
+        start('https://key@sentry.example.com/1', { replayOnErrorSampleRate: 0.1 });
+        expect(Sentry.replayIntegration).toHaveBeenCalledWith({
+            maskAllText: true,
+            blockAllMedia: true
+        });
+        expect(Sentry.init.mock.calls[0][0]).toMatchObject({
+            replaysSessionSampleRate: 0,
+            replaysOnErrorSampleRate: 0.1,
+            integrations: [{ name: 'CaptureConsole' }, { name: 'Replay' }]
         });
     });
 

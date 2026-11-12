@@ -42,6 +42,7 @@ instance that served the page, not an individual user or browser session.
 | `sentry.user.mode` | `anonymous` | Browser user identity: a salted identifier, or `email` when explicitly approved. |
 | `sentry.user.salt` | unset | Secret HMAC salt; without it anonymous mode sends no personal user identifier. Never commit or expose this salt to the browser. |
 | `sentry.tracesSampleRate` | `0` | Fraction of browser/server transactions sampled, from 0 to 1 inclusive. Zero disables tracing; invalid/non-finite values fail startup. |
+| `sentry.replay.onErrorSampleRate` | `0` | Fraction of browser sessions sent as replay after an error, from 0 to 1 inclusive. Zero omits the replay integration. |
 
 Events include the Grid stage as their environment and the build commit as their release.
 Kahuna derives its CSP connection allowance from the configured DSN. Configure the DSN in your
@@ -74,6 +75,11 @@ created before filters run, so Play's outer error handler can link exceptions to
 even though filters pass modified request copies downstream. Transactions finish on successful
 responses, failed futures and synchronous downstream exceptions; Play still handles error responses.
 If a deployment restricts CORS request headers, allow `sentry-trace` and `baggage`.
+
+Replay is separately opt-in and error-triggered only: continuous session sampling is always zero.
+Text masking and media blocking are mandatory because Grid displays unpublished imagery and personal
+data. Before enabling replay, obtain data-protection approval and inspect output with representative
+screens to confirm sensitive content is not included.
 
 ### Common configuration
 

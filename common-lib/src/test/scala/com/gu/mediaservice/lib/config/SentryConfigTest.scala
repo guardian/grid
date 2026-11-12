@@ -69,6 +69,15 @@ class SentryConfigTest extends AnyFunSuiteLike with Matchers {
     deployed("sentry.tracesSampleRate" -> 1).tracesSampleRate shouldBe 1d
   }
 
+  test("defaults replay to off and accepts only finite sample rates from 0 to 1") {
+    deployed().replayOnErrorSampleRate shouldBe 0d
+    deployed("sentry.replay.onErrorSampleRate" -> 0).replayOnErrorSampleRate shouldBe 0d
+    deployed("sentry.replay.onErrorSampleRate" -> 1).replayOnErrorSampleRate shouldBe 1d
+    a[RuntimeException] should be thrownBy deployed("sentry.replay.onErrorSampleRate" -> -0.1)
+    a[RuntimeException] should be thrownBy deployed("sentry.replay.onErrorSampleRate" -> 2)
+    a[RuntimeException] should be thrownBy deployed("sentry.replay.onErrorSampleRate" -> Double.NaN)
+  }
+
   test("captures only console errors by default") {
     deployed().consoleCaptureLevels shouldBe Seq("error")
   }

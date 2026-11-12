@@ -38,6 +38,7 @@ class GridSentryErrorHandlerTest extends AnyFunSuiteLike with Matchers with Scal
     dsn = dsn,
     environment = "TEST",
     tracesSampleRate = 0,
+    replayOnErrorSampleRate = 0,
     consoleCaptureLevels = Seq("error"),
     userMode = SentryUserMode.Anonymous,
     userSalt = None

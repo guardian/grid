@@ -55,6 +55,36 @@ sentry.factory('sentryConfig', [function() {
     return (window._clientConfig && window._clientConfig.sentry) || { enabled: false };
 }]);
 
+/**
+ * Builds the integration list from server-supplied config, so tracing and replay are absent
+ * entirely unless they have been deliberately switched on.
+ *
+ * @param {object} config
+ * @returns {Array}
+ */
+function integrationsFor(config) {
+    const integrations = [];
+
+    const consoleLevels = config.consoleCaptureLevels || [];
+    if (consoleLevels.length > 0) {
+        integrations.push(Sentry.captureConsoleIntegration({ levels: consoleLevels }));
+    }
+
+    if (config.tracesSampleRate > 0) {
+        integrations.push(Sentry.browserTracingIntegration());
+    }
+
+    // Grid's DOM contains unpublished imagery and photographer PII, so masking is not optional here.
+    if (config.replayOnErrorSampleRate > 0) {
+        integrations.push(Sentry.replayIntegration({
+            maskAllText: true,
+            blockAllMedia: true
+        }));
+    }
+
+    return integrations;
+}
+
 // TODO: Alternatively could investigate angular-raven
 sentry.config(['$provide', function ($provide) {
     $provide.decorator('$exceptionHandler', ['$delegate', function ($delegate) {
@@ -75,37 +105,31 @@ sentry.config(['$provide', function ($provide) {
     }]);
 }]);
 
-function integrationsFor(config) {
-    const integrations = [];
-    const levels = config.consoleCaptureLevels || [];
-    if (levels.length > 0) {
-        integrations.push(Sentry.captureConsoleIntegration({ levels }));
-    }
-    if (config.tracesSampleRate > 0) {
-        integrations.push(Sentry.browserTracingIntegration());
-    }
-    return integrations;
-}
-
-sentry.run(['sentryConfig', (config) => {
-    if (!config.enabled || !config.dsn) {
+sentry.run(['sentryConfig', (sentryConfig) => {
+    if (!sentryConfig.enabled || !sentryConfig.dsn) {
         return;
     }
 
     Sentry.init({
-        dsn: config.dsn,
-        environment: config.environment,
-        release: config.release,
-        integrations: integrationsFor(config),
-        tracesSampleRate: config.tracesSampleRate,
-        tracePropagationTargets: config.tracePropagationTargets || []
+        dsn: sentryConfig.dsn,
+        environment: sentryConfig.environment,
+        release: sentryConfig.release,
+        integrations: integrationsFor(sentryConfig),
+        tracesSampleRate: sentryConfig.tracesSampleRate,
+        tracePropagationTargets: sentryConfig.tracePropagationTargets || [],
+        // Error-triggered only: Grid sessions are never continuously recorded.
+        replaysSessionSampleRate: 0,
+        replaysOnErrorSampleRate: sentryConfig.replayOnErrorSampleRate
     });
-    if (config.userId || config.userEmail) {
+
+    // Identity is resolved server-side, so the browser only receives what the configured user mode permits.
+    if (sentryConfig.userId || sentryConfig.userEmail) {
         Sentry.setUser({
-            ...(config.userId ? { id: config.userId } : {}),
-            ...(config.userEmail ? { email: config.userEmail } : {})
+            ...(sentryConfig.userId ? { id: sentryConfig.userId } : {}),
+            ...(sentryConfig.userEmail ? { email: sentryConfig.userEmail } : {})
         });
     }
+
     // Identifies the kahuna instance that served the page, not the user's session.
     Sentry.setContext('grid', { instanceId: window._clientConfig.sessionId });
 }]);
