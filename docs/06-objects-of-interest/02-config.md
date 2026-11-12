@@ -37,6 +37,8 @@ instance that served the page, not an individual user or browser session.
 | `sentry.dsn` | unset | Enables reporting; absent or unusable values disable it. |
 | `sentry.localOptIn` | `false` | Required to allow reporting in DEV, even with a DSN. |
 | `sentry.console.levels` | `["error"]` | Browser console events to capture; `[]` disables console capture. Previously both warnings and errors were captured. |
+| `sentry.user.mode` | `anonymous` | Browser user identity: a salted identifier, or `email` when explicitly approved. |
+| `sentry.user.salt` | unset | Secret HMAC salt; without it anonymous mode sends no personal user identifier. Never commit or expose this salt to the browser. |
 
 Events include the Grid stage as their environment and the build commit as their release.
 Kahuna derives its CSP connection allowance from the configured DSN. Configure the DSN in your
@@ -52,6 +54,11 @@ All services extending `GridComponents` also report uncaught Play server excepti
 configuration. Events carry service (`app`), stage, release and request ID tags. Request metadata is
 limited to method, route/URL and User-Agent; cookies, request bodies and other headers are not attached.
 Client errors remain with Play, and a reporting failure must not change the HTTP response.
+
+Browser identity is resolved on the server. Anonymous mode sends a stable salted identifier, not
+the user's email; rotating the salt breaks correlation. Machine identities are sent as service IDs.
+Email mode sends personal data to Sentry and requires data-protection approval before enabling.
+These identity controls do not add authenticated user identity to server error events.
 
 ### Common configuration
 
