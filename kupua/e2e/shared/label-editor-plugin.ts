@@ -175,10 +175,9 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
           response.end(await readFile(resolve(root, "../e2e-tests/fixtures/images", pathname!.split("/").at(-1)!)));
           return;
         }
-        if (publication && request.method === "GET" && ["/api", "/api/", "/api/usage/quotas", "/fixture-collections/collections"].includes(pathname ?? "")) {
+        if (publication && request.method === "GET" && ["/api", "/api/", "/api/usage/quotas"].includes(pathname ?? "")) {
           response.setHeader("Content-Type", "application/json");
-          response.end(JSON.stringify(pathname === "/fixture-collections/collections"
-            ? { data: { basename: "root", children: [] } } : { data: {}, links: [] }));
+          response.end(JSON.stringify({ data: {}, links: [] }));
           return;
         }
         if (publication && /^\/(es|api|bedrock|grid-metadata|grid-auth)(\/|$)/.test(pathname ?? "")) {
@@ -206,7 +205,7 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
 
 if (process.argv.includes("--serve-readback")) {
   Object.assign(process.env, { VITEST: "true", VITE_USE_MEDIA_API: "true", VITE_HOSTED: "false",
-    VITE_MEDIA_API_BASE_URL: "/api", VITE_MEDIA_DELIVERY: "canonical", VITE_COLLECTIONS_URL: "/fixture-collections",
+    VITE_MEDIA_API_BASE_URL: "/api", VITE_MEDIA_DELIVERY: "canonical",
     VITE_GRID_METADATA_ORIGIN: "https://metadata.example.test" });
   const { createServer } = await import("vite");
   const continuation = process.argv.includes("--continuation");

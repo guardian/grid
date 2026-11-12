@@ -1,7 +1,7 @@
 /**
  * CollectionTree e2e tests.
  *
- * Mocks the /grid-collections/collections endpoint so tests run
+ * Mocks the local collections service endpoint so tests run
  * independently of the collections service. The ES aggregation for counts
  * runs against the local Docker ES — if no collection data exists there,
  * counts will be 0, which is fine (tree renders without counts).
@@ -94,9 +94,6 @@ const TEST_TREE_FIXTURE = {
 
 test.describe("CollectionTree — with mock service", () => {
   test.beforeEach(async ({ page }) => {
-    // Match the collections service fetch regardless of VITE_COLLECTIONS_URL
-    // (may be localhost:9010 in dev or a real TEST URL via .env.local).
-    // fetchCollectionTree always appends "/collections" to the base.
     await page.route(
       (url: URL) => url.pathname === "/collections",
       (route) => route.fulfill({

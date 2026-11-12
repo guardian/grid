@@ -34,7 +34,7 @@ export function gridServiceOrigin(href: unknown, expectedPath = "/"): string | u
   } catch { return undefined; }
 }
 
-export function gridServiceUrl(service: "metadata" | "auth", href: unknown, expectedPath: string, origin: string | undefined): string | undefined {
+export function gridServiceUrl(service: "metadata" | "auth" | "collections", href: unknown, expectedPath: string, origin: string | undefined): string | undefined {
   if (!origin || href !== `${origin}${expectedPath}`) return undefined;
   if (isHostedBuild()) return href as string;
   const route = gridServiceProxyRoutes({ metadata: import.meta.env.VITE_GRID_METADATA_ORIGIN,

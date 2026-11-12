@@ -1,13 +1,13 @@
 /**
  * Collection store — manages the collection tree and per-node image counts.
  *
- * Loads the tree once at boot from the collections service (URL from
- * `VITE_COLLECTIONS_URL`, credentials included for panda auth): colours and
- * suggestions need it.
+ * Loads the tree once at boot from the collections service advertised by
+ * media-api or configured by Kahuna. Local direct-ES uses localhost:9010;
+ * direct-TEST has no collection tree. Colours and suggestions need the tree.
  *
  * Counts load lazily, only when the Collections section is shown (or
  * hover-prefetched), in the "Free to use only" checkbox's scope. Each scope is
- * fetched at most once per tab session: the whole-index aggregation is not
+ * cached per service for the tab session: the whole-index aggregation is not
  * repeated per reload or toggle. Subtree counts sum own + all descendants.
  *
  * Graceful-absence: if the tree fetch fails, status = 'absent' and the
@@ -21,6 +21,8 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { ImageDataSource } from "@/dal";
 import { hostedServiceUri, isHostedBuild } from "@/lib/hosted-config";
+import { serviceLink } from "@/lib/grid-api-instance";
+import { gridServiceUrl } from "@/dal/grid-api/proxy-target";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -66,6 +68,7 @@ interface CollectionStoreState {
    * A missing scope means not fetched yet (or the last fetch failed).
    */
   countsByScope: Partial<Record<CollectionCountScope, Record<string, number>>>;
+  countServiceUri: string | null;
   status: CollectionStatus;
 
   /** Load the collection tree. Called once at app boot. */
@@ -125,54 +128,69 @@ export function buildSubtreeCounts(
 // Store
 // ---------------------------------------------------------------------------
 
-const countsInFlight = new Map<CollectionCountScope, Promise<void>>();
+const countsInFlight = new Map<string, Promise<void>>();
 
 export const useCollectionStore = create<CollectionStoreState>()(
   persist(
-    (set, get) => ({
-      tree: null,
-      countsByScope: {},
-      status: "idle" as CollectionStatus,
+    (set, get) => {
+      const selectService = async () => {
+        const serviceUri = await collectionServiceUri();
+        if (get().countServiceUri !== serviceUri) {
+          set({ countServiceUri: serviceUri, countsByScope: {} });
+        }
+        return serviceUri;
+      };
+      return {
+        tree: null,
+        countsByScope: {},
+        countServiceUri: null,
+        status: "idle" as CollectionStatus,
 
-      loadCollections: async () => {
-        // Don't reload if already loaded or loading
-        const { status } = get();
-        if (status === "loading" || status === "ready") return;
+        loadCollections: async () => {
+          // Don't reload if already loaded or loading
+          const { status } = get();
+          if (status === "loading" || status === "ready") return;
 
-        set({ status: "loading" });
-        const tree = await fetchCollectionTree();
-        set(tree ? { tree, status: "ready" } : { tree: null, status: "absent" });
-      },
+          set({ status: "loading" });
+          const serviceUri = await selectService();
+          const tree = serviceUri ? await fetchCollectionTree(serviceUri) : null;
+          set(tree ? { tree, status: "ready" } : { tree: null, status: "absent" });
+        },
 
-      loadCounts: (dataSource, scope) => {
-        if (get().countsByScope[scope]) return Promise.resolve();
-        const pending = countsInFlight.get(scope);
-        if (pending) return pending;
-        const request = (async () => {
-          try {
-            const result = await dataSource.getAggregations(
-              scope === "all" ? { nonFree: "true" } : {},
-              [{ field: "collections.pathId", size: 6000 }],
-            );
-            const buckets = result.fields["collections.pathId"]?.buckets ?? [];
-            const counts = Object.fromEntries(buildSubtreeCounts(new Map(buckets.map((b) => [b.key, b.count]))));
-            set((state) => ({ countsByScope: { ...state.countsByScope, [scope]: counts } }));
-          } catch {
-            // Optional data: the tree stays usable without counts.
-          } finally {
-            countsInFlight.delete(scope);
-          }
-        })();
-        countsInFlight.set(scope, request);
-        return request;
-      },
-    }),
+        loadCounts: async (dataSource, scope) => {
+          const serviceUri = await selectService();
+          if (!serviceUri || get().countsByScope[scope]) return;
+          const key = `${serviceUri}/${scope}`;
+          const pending = countsInFlight.get(key);
+          if (pending) return pending;
+          const request = (async () => {
+            try {
+              const result = await dataSource.getAggregations(
+                scope === "all" ? { nonFree: "true" } : {},
+                [{ field: "collections.pathId", size: 6000 }],
+              );
+              const buckets = result.fields["collections.pathId"]?.buckets ?? [];
+              const counts = Object.fromEntries(buildSubtreeCounts(new Map(buckets.map((b) => [b.key, b.count]))));
+              if (get().countServiceUri === serviceUri) {
+                set((state) => ({ countsByScope: { ...state.countsByScope, [scope]: counts } }));
+              }
+            } catch {
+              // Optional data: the tree stays usable without counts.
+            } finally {
+              countsInFlight.delete(key);
+            }
+          })();
+          countsInFlight.set(key, request);
+          return request;
+        },
+      };
+    },
     {
       name: "kupua-collection-store",
       storage: createJSONStorage(() => sessionStorage),
       // The tree is refetched per load (status resets to 'idle'); counts are
       // kept for the tab session to avoid repeating the whole-index aggregation.
-      partialize: (s) => ({ tree: s.tree, countsByScope: s.countsByScope }),
+      partialize: (s) => ({ tree: s.tree, countsByScope: s.countsByScope, countServiceUri: s.countServiceUri }),
     },
   ),
 );
@@ -187,19 +205,39 @@ interface CollectionsApiResponse {
   actions: unknown[];
 }
 
+async function collectionServiceUri(): Promise<string | null> {
+  try {
+    const hosted = isHostedBuild();
+    const api = import.meta.env.VITE_USE_MEDIA_API === "true";
+    const configured = hosted
+      ? hostedServiceUri("collectionsUri")
+      : api
+        ? await serviceLink("collections")
+        : import.meta.env.VITE_ES_IS_LOCAL === "false" ? undefined : "http://localhost:9010";
+    if (!configured) return null;
+    if (api && !hosted) {
+      const uri = new URL(configured);
+      if (uri.protocol !== "https:" || uri.username || uri.password || uri.search || uri.hash) return null;
+    }
+    return configured.replace(/\/$/, "");
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Fetch the collection tree from the collections service.
  * Returns null on any error (network, non-2xx, unexpected shape).
  */
-async function fetchCollectionTree(): Promise<CollectionNode | null> {
+async function fetchCollectionTree(base: string): Promise<CollectionNode | null> {
   try {
-    // Hosted builds use only Kahuna's injected address, never a laptop default.
-    const configured = isHostedBuild()
-      ? hostedServiceUri("collectionsUri")
-      : import.meta.env.VITE_COLLECTIONS_URL ?? "http://localhost:9010";
-    if (!configured) return null;
-    const base = configured.replace(/\/$/, "");
-    const res = await fetch(`${base}/collections`, { credentials: "include" });
+    const hosted = isHostedBuild();
+    const api = import.meta.env.VITE_USE_MEDIA_API === "true";
+    const url = api && !hosted && base === "https://media-collections.local.dev-gutools.co.uk"
+      ? gridServiceUrl("collections", `${base}/collections`, "/collections", base)
+      : `${base}/collections`;
+    if (!url) return null;
+    const res = await fetch(url, { credentials: "include" });
     if (!res.ok) return null;
     const json: CollectionsApiResponse = await res.json();
     // The API returns { data: { basename: "root", children: [...CollectionNode] } }.

@@ -53,12 +53,18 @@ afterAll(() => {
 });
 
 it("U6z initializes API ownership before imports, including main's collection load and default selection hydration", async () => {
+  sessionStorage.setItem("kupua-collection-store", JSON.stringify({ state: {
+    countsByScope: { all: {}, free: { stale: 99 } },
+  }, version: 0 }));
   const calls: Array<{ path: string; body?: Record<string, unknown> }> = [];
   vi.stubGlobal("fetch", vi.fn(async (input: string, init?: RequestInit) => {
     const path = new URL(input, "http://localhost").pathname;
     const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : undefined;
     calls.push({ path, body });
-    if (path === "/collections") return Response.json({ data: { basename: "root", children: [] } });
+    if (path === "/api") return Response.json({ links: [
+      { rel: "collections", href: "https://media-collections.local.dev-gutools.co.uk" },
+    ] });
+    if (path === "/grid-local-collections/collections") return Response.json({ data: { basename: "root", children: [] } });
     if (path === "/api/images/aggregations") return Response.json({
       fields: { "collections.pathId": { buckets: [{ key: "fixture/child", count: 3 }] } }, isFilterCounts: {},
     });
@@ -89,6 +95,8 @@ it("U6z initializes API ownership before imports, including main's collection lo
   await vi.waitFor(() => expect(useCollectionStore.getState().status).toBe("ready"));
   expect(useCollectionStore.getState().tree?.data.basename).toBe("root");
   expect(useCollectionStore.getState().countsByScope).toEqual({});
+  expect(JSON.parse(sessionStorage.getItem("kupua-collection-store")!).state.countServiceUri)
+    .toBe("https://media-collections.local.dev-gutools.co.uk");
   expect(calls.filter(({ path }) => path === "/api/images/aggregations")).toEqual([]);
 
   await useCollectionStore.getState().loadCounts(source, "free");
@@ -170,7 +178,7 @@ it.each(["refused", "unavailable", "incomplete", "empty"])("U6z keeps the collec
   vi.stubGlobal("fetch", vi.fn(async (input: string) => {
     const path = new URL(input, "http://localhost").pathname;
     paths.push(path);
-    if (path === "/collections") return Response.json({ data: { basename: "fixture-tree", children: [] } });
+    if (path === "/grid-local-collections/collections") return Response.json({ data: { basename: "fixture-tree", children: [] } });
     expect(path).toBe("/api/images/aggregations");
     if (outcome === "unavailable") throw new TypeError("synthetic transport unavailable");
     if (outcome === "empty") return Response.json({ fields: {}, isFilterCounts: {} });
@@ -183,5 +191,5 @@ it.each(["refused", "unavailable", "incomplete", "empty"])("U6z keeps the collec
   expect(useCollectionStore.getState().status).toBe("ready");
   expect(useCollectionStore.getState().tree?.data.basename).toBe("fixture-tree");
   expect(useCollectionStore.getState().countsByScope.all ?? {}).toEqual({});
-  expect(paths.sort()).toEqual(["/api/images/aggregations", "/collections"]);
+  expect(paths.sort()).toEqual(["/api/images/aggregations", "/grid-local-collections/collections"]);
 });

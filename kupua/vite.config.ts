@@ -73,7 +73,8 @@ function gridApiWriteGuard(routes: ReturnType<typeof gridServiceProxyRoutes>): P
         server.middlewares.use(prefix, (req, res, next) => {
           const isReadViaPost = prefix === "/api" && isGridApiReadViaPost(req.method, req.url);
           const isRead = req.method === "GET" && (prefix === "/api"
-            || (service === "auth" ? req.url === "/session" : /^\/metadata\/[a-zA-Z0-9_-]+$/.test(req.url ?? "")));
+            || (service === "auth" ? req.url === "/session"
+              : service === "collections" ? req.url === "/collections" : /^\/metadata\/[a-zA-Z0-9_-]+$/.test(req.url ?? "")));
           const isSelectedWrite = service === "metadata"
             && (isLabelAddRequest(req.method, req.url) || isLabelRemovalRequest(req.method, req.url));
           if (!isRead && !isReadViaPost && !isSelectedWrite) {

@@ -33,7 +33,7 @@ test.describe("Unit B isolated continuation", () => {
   let vite: Awaited<ReturnType<typeof createServer>>;
   let origin: string;
   const env = { VITEST: "true", VITE_USE_MEDIA_API: "true", VITE_HOSTED: "false", VITE_MEDIA_API_BASE_URL: "/api",
-    VITE_MEDIA_DELIVERY: "canonical", VITE_COLLECTIONS_URL: "/fixture-collections",
+    VITE_MEDIA_DELIVERY: "canonical",
     VITE_GRID_METADATA_ORIGIN: "https://metadata.example.test" };
   let previous: Record<string, string | undefined>;
   const counts = (page: Page) => page.evaluate(async () => (await fetch("/__readback-control")).json()) as Promise<{
@@ -658,7 +658,7 @@ test.describe("Unit B isolated continuation", () => {
 
 test("A3 canonical readback survives a released stale API page across all densities", async ({ page }, testInfo) => {
   const env = { VITEST: "true", VITE_USE_MEDIA_API: "true", VITE_HOSTED: "false", VITE_MEDIA_API_BASE_URL: "/api",
-    VITE_MEDIA_DELIVERY: "canonical", VITE_COLLECTIONS_URL: "/fixture-collections" };
+    VITE_MEDIA_DELIVERY: "canonical" };
   const previous = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]));
   Object.assign(process.env, env);
   const vite = await createServer({ configFile: resolve("vite.config.ts"), cacheDir: testInfo.outputPath("vite-cache"),
@@ -763,9 +763,6 @@ async function isolatePublicationFixture(page: Page, origin: string) {
   const escaped: string[] = [];
   await page.route("**/*", route => {
     const url = new URL(route.request().url());
-    if (url.origin === origin && url.pathname === "/fixture-collections/collections" && route.request().method() === "GET") {
-      return route.fulfill({ json: { data: { basename: "root", children: [] } } });
-    }
     if (url.origin === origin && ["/api", "/api/", "/api/usage/quotas"].includes(url.pathname) && route.request().method() === "GET") {
       return route.fulfill({ json: { data: {}, links: [] } });
     }
@@ -778,7 +775,7 @@ async function isolatePublicationFixture(page: Page, origin: string) {
 
 test("buffer publication uses the normal API app without fixture transforms", async ({ page }, testInfo) => {
   const env = { VITEST: "true", VITE_USE_MEDIA_API: "true", VITE_HOSTED: "false", VITE_MEDIA_API_BASE_URL: "/api",
-    VITE_MEDIA_DELIVERY: "canonical", VITE_COLLECTIONS_URL: "/fixture-collections" };
+    VITE_MEDIA_DELIVERY: "canonical" };
   const previous = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]));
   Object.assign(process.env, env);
   const vite = await createServer({ configFile: resolve("vite.config.ts"), cacheDir: testInfo.outputPath("vite-cache"),
@@ -819,7 +816,6 @@ test("buffer publication uses the normal API app without fixture transforms", as
         if (request.method() === "GET") {
           if (path === "/__trial-media.jpg") return route.fulfill({ contentType: "image/jpeg", body: media });
           if (["/api", "/api/", "/api/usage/quotas"].includes(path)) return route.fulfill({ json: { data: {}, links: [] } });
-          if (path === "/fixture-collections/collections") return route.fulfill({ json: { data: { basename: "root", children: [] } } });
           if (!/^\/(es|api|bedrock|grid-metadata|grid-auth)(\/|$)/.test(path)) return route.continue();
         }
       }
@@ -862,8 +858,7 @@ test.describe("buffer publication", () => {
   let vite: Awaited<ReturnType<typeof createServer>>;
   let origin: string;
   const env = { VITEST: "true", VITE_USE_MEDIA_API: "true", VITE_HOSTED: "false", VITE_MEDIA_API_BASE_URL: "/api",
-    VITE_GRID_METADATA_ORIGIN: "https://metadata.example.test", VITE_MEDIA_DELIVERY: "canonical",
-    VITE_COLLECTIONS_URL: "/fixture-collections" };
+    VITE_GRID_METADATA_ORIGIN: "https://metadata.example.test", VITE_MEDIA_DELIVERY: "canonical" };
   let previous: Record<string, string | undefined>;
 
   test.beforeAll(async ({}, testInfo) => {

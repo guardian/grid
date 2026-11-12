@@ -262,7 +262,15 @@ still apply. Transport selection is implemented in
 detailed validation and command outcomes.
 
 This command router currently covers metadata-editor and auth, not every Grid
-service. Collections has a separate credentialed read path, and cropper remains a
+service. Collections has a separate credentialed read path: Vite API mode follows
+media-api's advertised `collections` link, while hosted builds retain Kahuna's injected
+address. Neither uses a laptop collections override or falls back to another service
+when discovery fails. Local direct-ES uses localhost:9010; direct-TEST has no tree.
+Collection-count caching remains per tab and rights scope, but resets when the resolved
+Collections service address changes. Unchanged addresses retain cached empty and
+nonempty results; replacing an index behind the same addresses is not detected. See
+the [Collections guide](06-collections.md#4-store-shape-collection-storets) for cache
+identity, request coordination and a targeted development reset. Cropper remains a
 dry-run editor that prepares but does not send its request. Connecting cropper saves,
 collection mutations, leases or other workflows requires that service's own validated
 resource/command path and authentication/CORS checks. Reuse the transport principle,

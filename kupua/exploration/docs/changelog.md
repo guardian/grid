@@ -24,6 +24,28 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 12 November 2026 - Backend-owned collections service and count cache
+
+Vite API-mode collection trees now follow media-api's advertised collections service
+through shared discovery instead of an independent laptop URL. Missing or invalid
+discovery leaves the optional tree unavailable without selecting another environment.
+Hosted builds retain Kahuna's injected address; local direct-ES keeps localhost:9010
+and direct-TEST does not borrow a local tree. Removed obsolete fixture overrides and
+updated the current setup guidance.
+
+Vite routes the exact local Collections service through a fixed GET-only proxy,
+avoiding local CORS rejection while preserving direct credentialed requests for
+TEST and other advertised HTTPS services. Hosted and direct-ES tree routing remain
+unchanged.
+
+Collection counts now retain their resolved service address alongside the per-scope
+tab cache. Address changes and older unidentified caches discard both scopes;
+unchanged addresses preserve successful empty and nonempty results without extra
+discovery requests or periodic refresh. Count admission resolves the address before
+using cached values, independently of tree completion, and late responses from a
+different service cannot overwrite current counts. Replacing data behind unchanged
+addresses remains outside this lightweight invalidation rule.
+
 ### 12 November 2026 - Disconnected selection and detail actions
 
 Added shared Share URL, full-frame, Download, Delete and Library controls to desktop

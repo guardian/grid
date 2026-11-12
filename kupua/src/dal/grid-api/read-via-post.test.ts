@@ -77,14 +77,20 @@ it("admits only supported Vite transport shapes with startup-captured proxy targ
     metadataGuard({ method: "POST", url: "/metadata/fixture/labels" } as never, response as never, next);
     expect(next).toHaveBeenCalledOnce();
     for (const environment of ["local", "test"]) {
-      for (const service of ["metadata", "auth"]) {
+      for (const service of ["metadata", "auth", "collections"]) {
         const prefix = `/grid-${environment}-${service}`;
         const proxy = server.config.server.proxy![`^${prefix}/`];
-        expect(proxy).toMatchObject({ target: `https://media-${service}.${environment}.dev-gutools.co.uk`, followRedirects: false });
+        if (environment === "test" && service === "collections") {
+          expect(proxy).toBeUndefined();
+          expect(server.middlewares.stack.some(entry => entry.route === prefix)).toBe(false);
+          continue;
+        }
+        expect(proxy).toMatchObject({ target: `https://media-${service}.${environment}.dev-gutools.co.uk`, followRedirects: false,
+          headers: { Origin: "https://media.local.dev-gutools.co.uk" } });
         const fixedGuard = server.middlewares.stack.find(entry => entry.route === prefix)?.handle as Connect.NextHandleFunction;
         expect(fixedGuard).toBeDefined();
         next.mockClear();
-        fixedGuard({ method: "GET", url: service === "auth" ? "/session" : "/metadata/fixture" } as never, response as never, next);
+        fixedGuard({ method: "GET", url: service === "auth" ? "/session" : service === "collections" ? "/collections" : "/metadata/fixture" } as never, response as never, next);
         expect(next).toHaveBeenCalledOnce();
         next.mockClear();
         fixedGuard({ method: "POST", url: "/metadata/fixture/labels" } as never, response as never, next);
@@ -92,6 +98,11 @@ it("admits only supported Vite transport shapes with startup-captured proxy targ
         next.mockClear();
         fixedGuard({ method: "DELETE", url: "/metadata/fixture" } as never, response as never, next);
         fixedGuard({ method: "GET", url: "/session?target=https://unexpected.example.test" } as never, response as never, next);
+        if (service === "collections") {
+          fixedGuard({ method: "DELETE", url: "/collections" } as never, response as never, next);
+          fixedGuard({ method: "POST", url: "/collections" } as never, response as never, next);
+          fixedGuard({ method: "GET", url: "/collections/other" } as never, response as never, next);
+        }
         expect(next).not.toHaveBeenCalled();
       }
     }

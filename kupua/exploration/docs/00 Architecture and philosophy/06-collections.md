@@ -26,17 +26,22 @@ auto-switching the sort to `-dateAddedToCollection`. Read-only in Phase 2.
    only state representation. URL round-trip is automatic; pasting
    `?query=collection:sport/football` into a fresh tab works.
 
-2. **Tree source = collections service** (`VITE_COLLECTIONS_URL`). Returns a
-   pre-nested tree; no client-side tree builder needed. Direct fetch with
-   `credentials: "include"` (panda auth). No Vite proxy — CORS allowlisted
-   server-side.
+2. **Tree source = the backend's collections service.** Vite API mode uses the
+  media-api root's `collections` link through shared discovery. Hosted builds
+  retain Kahuna's injected `collectionsUri`. There is no laptop URL override
+  or fallback when discovery fails. Local direct-ES uses `http://localhost:9010`;
+  direct-TEST leaves the tree unavailable. The service returns a pre-nested tree;
+  no client-side tree builder is needed. Requests include credentials. Vite uses a
+  fixed, GET-only proxy for the exact local Collections origin; other advertised
+  HTTPS addresses remain direct requests with destination-owned CORS and cookies.
 
 3. **Counts = whole-library ES agg in the checkbox's scope.** Terms agg on
    `collections.pathId` (size 6000, covers PROD's 5,350+ unique values), not scoped
    to the current search. Scope follows "Free to use only": `nonFree=true` counts
    all images, otherwise free-only. Fetched lazily when Collections is shown (left
    panel open and section expanded) or hover-prefetched from Browse, at most once
-   per scope per tab session (KUP-037). The tree alone loads at boot.
+   per scope for the current service per tab session (KUP-037). The tree alone
+   loads at boot; resolving its address does not fetch counts.
 
 4. **Subtree counts via pathId-splitting** (not tree walk). Splits each pathId on
    `/` to generate ancestor prefixes — mirrors ES's `hierarchyAnalyzer`
@@ -55,9 +60,9 @@ auto-switching the sort to `-dateAddedToCollection`. Read-only in Phase 2.
    land in the null zone. The scrubber tooltip, ticks, and null-zone boundary all
    work via the standard distribution infrastructure.
 
-7. **Graceful absence.** Tree fetch failure → `status: 'absent'` → Collections
-   section hidden entirely. Not an error condition. Ensures kupua works without
-   port 9010 tunneled or without network access to the collections service.
+7. **Graceful absence.** Missing discovery or tree fetch failure → `status: 'absent'`
+  → Collections section hidden entirely. This optional-data failure does not select
+  a different environment or prevent image browsing.
 
 8. **Exclusive filtering.** Only one collection filter active at a time (Kahuna
    parity). Clicking a new node replaces any existing `collection:` term.
@@ -113,6 +118,7 @@ auto-switching the sort to `-dateAddedToCollection`. Read-only in Phase 2.
 interface CollectionStoreState {
   tree: CollectionNode | null;
   countsByScope: Partial<Record<"all" | "free", Record<string, number>>>; // pathId → subtree count
+  countServiceUri: string | null;            // resolved service, before any Vite proxy rewrite
   status: "idle" | "loading" | "ready" | "absent";
   loadCollections(): Promise<void>;           // tree only
   loadCounts(dataSource, scope): Promise<void>; // cached/in-flight scopes are no-ops
@@ -120,8 +126,34 @@ interface CollectionStoreState {
 ```
 
 Persisted to `sessionStorage` (survives reload, not cross-tab). Status resets to
-`"idle"` on reload so the tree refetches; counts persist per scope for the tab
-session (accepted staleness). A failed count fetch is not cached.
+`"idle"` on reload so the tree refetches; counts persist per rights scope together
+with the resolved Collections service address, normalized without a trailing slash.
+Changing that address clears both scopes. Older caches without an address are
+discarded once. An unchanged address preserves cached counts, including successful
+empty results, across reloads and toggles. A failed count fetch is not cached.
+
+Tree loading and lazy count loading resolve the same existing service configuration
+before accepting cached counts. API discovery still shares the single root request;
+there is no extra discovery request, polling or expiry timer. In-flight counts are
+deduplicated by service and scope; an old service's late result cannot replace the
+current service's counts. Hosted mode uses Kahuna's injected address for this identity.
+
+The service address is an environment marker, not an index identity. Replacing data
+behind unchanged addresses can still leave stale counts. During development, reset
+only this tab's counts in its browser console, then reload:
+
+```javascript
+const key = "kupua-collection-store";
+const saved = JSON.parse(sessionStorage.getItem(key));
+if (saved?.state) {
+  saved.state.countsByScope = {};
+  sessionStorage.setItem(key, JSON.stringify(saved));
+  location.reload();
+}
+```
+
+Browser **Empty Cache and Reload** does not clear `sessionStorage`. Normal PROD and
+TEST hostnames have separate browser storage even though the storage key is identical.
 
 **Boot:** `useCollectionStore.getState().loadCollections()` in `main.tsx`
 (fire-and-forget, same pattern as `fetchQuotas()`).

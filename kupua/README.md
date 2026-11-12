@@ -191,7 +191,9 @@ Then run `dev-nginx setup-app dev/nginx-mappings.yml.template` from the Grid roo
 `dev/script/setup.sh`) to apply it. Kupua will then also be available at
 `https://kupua.media.local.dev-gutools.co.uk`.
 
-**Authentication:** Visit `https://media.test.dev-gutools.co.uk` to get the cookie needed for eg. Collections tree.
+**Collections and authentication:** API-mode collections follow media-api's advertised
+`collections` service, not a separate laptop env override. Authenticate against the
+service environment selected by Grid; all-local Grid does not require TEST collections.
 
 **Grid chooses its backing services independently of Kupua.** Start Grid in the mode
 you need; Kupua's local API mode neither restarts nor reconfigures it. For example,
