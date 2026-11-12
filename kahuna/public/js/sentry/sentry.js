@@ -51,8 +51,8 @@ function isHttpError(obj) {
     anyHttpErrorProps.every(key => objKeys.indexOf(key) !== -1);
 }
 
-sentry.factory('sentryEnabled', ['sentryDsn', function(sentryDsn) {
-    return angular.isString(sentryDsn);
+sentry.factory('sentryConfig', [function() {
+    return (window._clientConfig && window._clientConfig.sentry) || { enabled: false };
 }]);
 
 // TODO: Alternatively could investigate angular-raven
@@ -70,16 +70,18 @@ sentry.config(['$provide', function ($provide) {
     }]);
 }]);
 
-sentry.run(['sentryEnabled', 'sentryDsn',
-            (sentryEnabled, sentryDsn) => {
-    if (sentryEnabled) {
-      Sentry.init({dsn: sentryDsn,
-        integrations: [
-          Sentry.captureConsoleIntegration({
-            levels: ['warn', 'error']
-          })
-        ]});
-      // Identifies the kahuna instance that served the page, not the user's session.
-      Sentry.setContext('grid', { instanceId: window._clientConfig.sessionId });
+sentry.run(['sentryConfig', (config) => {
+    if (!config.enabled || !config.dsn) {
+        return;
     }
+
+    const levels = config.consoleCaptureLevels || [];
+    Sentry.init({
+        dsn: config.dsn,
+        environment: config.environment,
+        release: config.release,
+        integrations: levels.length ? [Sentry.captureConsoleIntegration({ levels })] : []
+    });
+    // Identifies the kahuna instance that served the page, not the user's session.
+    Sentry.setContext('grid', { instanceId: window._clientConfig.sessionId });
 }]);

@@ -27,10 +27,20 @@ Service-specific configs. These will override all other config files.
 
 ### Sentry
 
-Kahuna uses the Sentry browser SDK to report JavaScript exceptions and console warnings/errors when
+Kahuna uses the Sentry browser SDK to report JavaScript exceptions and console errors when
 `sentry.dsn` is configured. AngularJS exceptions retain the normal Angular handler; failed HTTP requests
 are excluded from exception reporting. The `grid.instanceId` event context identifies the Kahuna
 instance that served the page, not an individual user or browser session.
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `sentry.dsn` | unset | Enables reporting; absent or unusable values disable it. |
+| `sentry.localOptIn` | `false` | Required to allow reporting in DEV, even with a DSN. |
+| `sentry.console.levels` | `["error"]` | Browser console events to capture; `[]` disables console capture. Previously both warnings and errors were captured. |
+
+Events include the Grid stage as their environment and the build commit as their release.
+Kahuna derives its CSP connection allowance from the configured DSN. Configure the DSN in your
+deployment configuration, not in the repository.
 
 ### Common configuration
 

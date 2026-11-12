@@ -17,7 +17,8 @@ class KahunaController(
   authentication: Authentication,
   val config: KahunaConfig,
   override val controllerComponents: ControllerComponents,
-  authorisation: Authorisation
+  authorisation: Authorisation,
+  release: String
 )(
   implicit val ec: ExecutionContext
 ) extends BaseControllerWithLoginRedirects with ArgoHelpers {
@@ -25,6 +26,18 @@ class KahunaController(
   override def auth: Authentication = authentication
 
   override def services: Services = config.services
+
+  private def sentryClientConfig: String = {
+    val sentry = config.sentryConfig
+
+    Json.stringify(Json.obj(
+      "enabled" -> sentry.enabled,
+      "dsn" -> sentry.dsn,
+      "environment" -> sentry.environment,
+      "release" -> release,
+      "consoleCaptureLevels" -> sentry.consoleCaptureLevels
+    ))
+  }
 
   def index(ignored: String) = withOptionalLoginRedirect { request =>
 
@@ -81,7 +94,8 @@ class KahunaController(
       config,
       featureSwitchesJson,
       imageTypes,
-      agencyPicksIngredients
+      agencyPicksIngredients,
+      sentryClientConfig
     ))
   }
 
