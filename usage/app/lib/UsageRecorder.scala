@@ -32,7 +32,7 @@ class UsageRecorder(
 
   def matchDb(usageGroupWithContext: WithLogMarker[UsageGroup]): Observable[WithLogMarker[MatchedUsageGroup]] = {
     val WithLogMarker(logMarker, usageGroup) = usageGroupWithContext
-    Observable.from(usageTable.matchUsageGroup(usageGroupWithContext))
+    Observable.defer(Observable.from(usageTable.matchUsageGroup(usageGroupWithContext)))
       .retry((retriesSoFar, error) => {
         val maxRetries = 5
         logger.error(
@@ -134,7 +134,9 @@ class UsageRecorder(
       .flatMap{ mediaIdsImplicatedInDBUpdatesWithContext =>
         implicit val logMarker: LogMarker = mediaIdsImplicatedInDBUpdatesWithContext.logMarker
         logger.info(logMarker, s"Building ${mediaIdsImplicatedInDBUpdatesWithContext.value.size} usage notices")
-        Observable.from(mediaIdsImplicatedInDBUpdatesWithContext.value.map(id => Observable.from(usageNotice.build(id))))
+        Observable.from(mediaIdsImplicatedInDBUpdatesWithContext.value.map(id =>
+          Observable.defer(Observable.from(usageNotice.build(id)))
+        ))
           .flatten[UsageNotice]
           .map(WithLogMarker(_))
       }
