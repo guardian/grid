@@ -6,7 +6,7 @@ import type { CoverageReportOptions } from 'monocart-coverage-reports';
 
 const coverageOptions = {
     name: 'Playwright Browser Coverage',
-    outputDir: './coverage-reports',
+    outputDir: process.env.GRID_COVERAGE_DIR ?? './coverage-reports',
     reports: [
         ['v8', { metrics: ['branches', 'functions', 'lines'] }],
         ['console-summary', { metrics: ['branches', 'functions', 'lines'] }],
