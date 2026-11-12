@@ -41,6 +41,7 @@ instance that served the page, not an individual user or browser session.
 | `sentry.console.levels` | `["error"]` | Browser console events to capture; `[]` disables console capture. Previously both warnings and errors were captured. |
 | `sentry.user.mode` | `anonymous` | Browser user identity: a salted identifier, or `email` when explicitly approved. |
 | `sentry.user.salt` | unset | Secret HMAC salt; without it anonymous mode sends no personal user identifier. Never commit or expose this salt to the browser. |
+| `sentry.tracesSampleRate` | `0` | Fraction of browser/server transactions sampled, from 0 to 1 inclusive. Zero disables tracing; invalid/non-finite values fail startup. |
 
 Events include the Grid stage as their environment and the build commit as their release.
 Kahuna derives its CSP connection allowance from the configured DSN. Configure the DSN in your
@@ -64,6 +65,15 @@ secret HMAC salt can reproduce identifiers from candidate email addresses. Rotat
 correlation. Machine identities are sent as service IDs.
 Email mode sends personal data to Sentry and requires data-protection approval before enabling.
 These identity controls do not add authenticated user identity to server error events.
+
+Tracing is opt-in. The browser propagates traces only to configured internal service URIs. Services
+continue incoming `sentry-trace`/`baggage` headers and use method/route patterns as transaction names,
+excluding management endpoints, assets and unrouted requests. Request attributes carry transactions
+across asynchronous processing rather than thread-local scopes. A shared request-local holder is
+created before filters run, so Play's outer error handler can link exceptions to the transaction
+even though filters pass modified request copies downstream. Transactions finish on successful
+responses, failed futures and synchronous downstream exceptions; Play still handles error responses.
+If a deployment restricts CORS request headers, allow `sentry-trace` and `baggage`.
 
 ### Common configuration
 

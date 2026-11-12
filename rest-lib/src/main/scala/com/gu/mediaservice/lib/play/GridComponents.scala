@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.logging.LogConfig
 import com.gu.mediaservice.lib.management.{BuildInfo, Management}
 import play.api.ApplicationLoader.Context
 import play.api.BuiltInComponentsFromContext
-import play.api.http.HttpErrorHandler
+import play.api.http.{DefaultHttpRequestHandler, HttpErrorHandler, HttpRequestHandler}
 import play.api.libs.ws.ahc.AhcWSComponents
 import play.api.mvc.EssentialFilter
 import play.filters.HttpFiltersComponents
@@ -36,6 +36,14 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
   final override lazy val httpErrorHandler: HttpErrorHandler =
     new GridSentryErrorHandler(environment, configuration, devContext.map(_.sourceMapper), Some(router), config.sentryConfig)
 
+  final override lazy val httpRequestHandler: HttpRequestHandler = {
+    val defaultHandler = new DefaultHttpRequestHandler(
+      webCommands, devContext, () => router, httpErrorHandler, httpConfiguration, httpFilters
+    )
+    if (config.sentryConfig.tracingEnabled) new SentryHttpRequestHandler(defaultHandler)
+    else defaultHandler
+  }
+
   final override def httpFilters: Seq[EssentialFilter] = {
     sentryInitialised
     Seq(
@@ -44,6 +52,8 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
       securityHeadersFilter,
       gzipFilter,
       new RequestLoggingFilter(materializer),
+      // After RequestLoggingFilter so the request id is available to tag transactions with.
+      new SentryTracingFilter(config.sentryConfig, materializer),
       new ConnectionBrokenFilter(materializer),
       new RequestMetricFilter(config, materializer, actorSystem, applicationLifecycle)
     )

@@ -8,6 +8,7 @@ jest.mock('@sentry/browser', () => ({
     init: jest.fn(),
     captureException: jest.fn(),
     captureConsoleIntegration: jest.fn(() => ({ name: 'CaptureConsole' })),
+    browserTracingIntegration: jest.fn(() => ({ name: 'BrowserTracing' })),
     setUser: jest.fn(),
     withScope: callback => callback({ addEventProcessor: jest.fn() }),
     setContext: jest.fn()
@@ -23,6 +24,7 @@ describe('Sentry browser reporting', () => {
             environment: 'TEST',
             release: 'test-release',
             consoleCaptureLevels: ['error'],
+            tracesSampleRate: 0,
             ...overrides
         };
         angular.module('sentryTestConfig', [])
@@ -48,6 +50,8 @@ describe('Sentry browser reporting', () => {
             dsn: 'https://key@sentry.example.com/1',
             environment: 'TEST',
             release: 'test-release',
+            tracesSampleRate: 0,
+            tracePropagationTargets: [],
             integrations: [{ name: 'CaptureConsole' }]
         });
         expect(Sentry.setContext).toHaveBeenCalledWith('grid', { instanceId: 'kahuna-instance' });
@@ -67,6 +71,22 @@ describe('Sentry browser reporting', () => {
     it('sends no user identity when none is supplied by the server', () => {
         start('https://key@sentry.example.com/1');
         expect(Sentry.setUser).not.toHaveBeenCalled();
+    });
+
+    it('does not install tracing when the sample rate is zero', () => {
+        start('https://key@sentry.example.com/1');
+        expect(Sentry.browserTracingIntegration).not.toHaveBeenCalled();
+    });
+
+    it('installs tracing with the configured rate and propagation targets', () => {
+        const tracePropagationTargets = ['https://api.example.com'];
+        start('https://key@sentry.example.com/1', { tracesSampleRate: 0.25, tracePropagationTargets });
+        expect(Sentry.browserTracingIntegration).toHaveBeenCalledTimes(1);
+        expect(Sentry.init.mock.calls[0][0]).toMatchObject({
+            tracesSampleRate: 0.25,
+            tracePropagationTargets,
+            integrations: [{ name: 'CaptureConsole' }, { name: 'BrowserTracing' }]
+        });
     });
 
     it('attaches only the server-supplied anonymous identifier', () => {

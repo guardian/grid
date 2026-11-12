@@ -42,6 +42,12 @@ class GridSentryErrorHandler(
 
         RequestLoggingFilter.requestIdFor(request).foreach(event.setTag("request_id", _))
 
+        // Links the error to its request transaction where tracing is on. Read from the request
+        // attribute rather than Sentry's scope, which is not reliable across async boundaries.
+        SentryTracingFilter.transactionFor(request).foreach { transaction =>
+          event.getContexts.setTrace(transaction.getSpanContext)
+        }
+
         Sentry.captureEvent(event, new Hint())
       } catch {
         case NonFatal(e) => logger.warn("Failed to report an error to Sentry", e)

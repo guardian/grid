@@ -75,17 +75,30 @@ sentry.config(['$provide', function ($provide) {
     }]);
 }]);
 
+function integrationsFor(config) {
+    const integrations = [];
+    const levels = config.consoleCaptureLevels || [];
+    if (levels.length > 0) {
+        integrations.push(Sentry.captureConsoleIntegration({ levels }));
+    }
+    if (config.tracesSampleRate > 0) {
+        integrations.push(Sentry.browserTracingIntegration());
+    }
+    return integrations;
+}
+
 sentry.run(['sentryConfig', (config) => {
     if (!config.enabled || !config.dsn) {
         return;
     }
 
-    const levels = config.consoleCaptureLevels || [];
     Sentry.init({
         dsn: config.dsn,
         environment: config.environment,
         release: config.release,
-        integrations: levels.length ? [Sentry.captureConsoleIntegration({ levels })] : []
+        integrations: integrationsFor(config),
+        tracesSampleRate: config.tracesSampleRate,
+        tracePropagationTargets: config.tracePropagationTargets || []
     });
     if (config.userId || config.userEmail) {
         Sentry.setUser({

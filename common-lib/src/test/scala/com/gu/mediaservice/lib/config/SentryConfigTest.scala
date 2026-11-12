@@ -46,6 +46,29 @@ class SentryConfigTest extends AnyFunSuiteLike with Matchers {
     dev("sentry.dsn" -> dsn, "sentry.localOptIn" -> true).environment shouldBe "DEV"
   }
 
+  test("defaults tracing to off") {
+    val c = deployed("sentry.dsn" -> dsn)
+    c.tracesSampleRate shouldBe 0d
+    c.tracingEnabled shouldBe false
+  }
+
+  test("reports tracing as enabled only when a DSN and a non-zero sample rate are both present") {
+    deployed("sentry.tracesSampleRate" -> 0.5).tracingEnabled shouldBe false
+    deployed("sentry.dsn" -> dsn, "sentry.tracesSampleRate" -> 0.5).tracingEnabled shouldBe true
+  }
+
+  test("rejects sample rates outside 0 to 1") {
+    a[RuntimeException] should be thrownBy deployed("sentry.tracesSampleRate" -> 1.5)
+    a[RuntimeException] should be thrownBy deployed("sentry.tracesSampleRate" -> -0.1)
+    a[RuntimeException] should be thrownBy deployed("sentry.tracesSampleRate" -> Double.NaN)
+    a[RuntimeException] should be thrownBy deployed("sentry.tracesSampleRate" -> Double.PositiveInfinity)
+  }
+
+  test("accepts the boundary sample rates") {
+    deployed("sentry.tracesSampleRate" -> 0).tracesSampleRate shouldBe 0d
+    deployed("sentry.tracesSampleRate" -> 1).tracesSampleRate shouldBe 1d
+  }
+
   test("captures only console errors by default") {
     deployed().consoleCaptureLevels shouldBe Seq("error")
   }

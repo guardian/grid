@@ -21,6 +21,7 @@ class GridSentryErrorHandlerTest extends AnyFunSuiteLike with Matchers with Scal
     captured = None
     Sentry.init { options =>
       options.setDsn("https://key@sentry.example.com/1")
+      options.setTracesSampleRate(1d)
       options.setTransportFactory((_, _) => NoOpTransport.getInstance())
       options.setBeforeSend { (event, _) =>
         captured = Some(event)
@@ -36,6 +37,7 @@ class GridSentryErrorHandlerTest extends AnyFunSuiteLike with Matchers with Scal
   private def config(dsn: Option[String]) = SentryConfig(
     dsn = dsn,
     environment = "TEST",
+    tracesSampleRate = 0,
     consoleCaptureLevels = Seq("error"),
     userMode = SentryUserMode.Anonymous,
     userSalt = None
