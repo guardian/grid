@@ -3,9 +3,10 @@ package lib
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
 import com.gu.mediaservice.model.usage.{MediaUsage, UsageNotice}
 import model._
+import org.apache.pekko.Done
 import play.api.libs.json._
 import rx.lang.scala.subjects.PublishSubject
-import rx.lang.scala.{Observable, Subject, Subscriber, Subscription}
+import rx.lang.scala.{Observable, Subscriber, Subscription}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -17,14 +18,16 @@ class UsageRecorder(
   usageMetrics: UsageMetrics,
   usageTable: UsageTable,
   usageNotice: UsageNotifier,
-  usageNotifier: UsageNotifier
+  usageNotifier: UsageNotifier,
+  usageGroupStream: UsageGroupStream
 ) extends GridLogging {
 
-  val usageApiSubject: Subject[WithLogMarker[UsageGroup]] = PublishSubject[WithLogMarker[UsageGroup]]()
-  val combinedObservable: Observable[WithLogMarker[UsageGroup]] = CrierUsageStream.observable.merge(usageApiSubject)
+  private val usageGroupSubject = PublishSubject[WithLogMarker[UsageGroup]]()
+  val combinedObservable: Observable[WithLogMarker[UsageGroup]] = usageGroupSubject
 
   val subscriber: Subscriber[LogMarker] = Subscriber((markers: LogMarker) => logger.debug(markers, s"Sent Usage Notification"))
   var maybeSubscription: Option[Subscription] = None
+  private var maybeIngressCompletion: Option[Future[Done]] = None
 
   val dbMatchStream: Observable[WithLogMarker[MatchedUsageGroup]] = combinedObservable.flatMap(matchDb)
 
@@ -141,12 +144,15 @@ class UsageRecorder(
   }
 
   def start(): Unit = {
-    // Eval subscription to start stream
     maybeSubscription = Some(finalObservable.subscribe(subscriber))
+    maybeIngressCompletion = Some(usageGroupStream.runForeach(usageGroupSubject.onNext))
   }
 
-  def stop(): Unit = {
-    maybeSubscription.foreach(_.unsubscribe())
+  def stop(): Future[Done] = {
+    usageGroupStream.complete()
+    maybeIngressCompletion
+      .getOrElse(Future.successful(Done))
+      .andThen { case _ => maybeSubscription.foreach(_.unsubscribe()) }
   }
 
 }

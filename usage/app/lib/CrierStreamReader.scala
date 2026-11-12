@@ -27,6 +27,7 @@ private case class ConfigsBuilderWithStreamName(configsBuilder: ConfigsBuilder, 
 class CrierStreamReader(
   config: UsageConfig,
   usageGroupOps: UsageGroupOps,
+  usageGroupStream: UsageGroupStream,
   executionContext: ExecutionContext
 ) extends GridLogging {
 
@@ -97,12 +98,12 @@ class CrierStreamReader(
 
   private val LiveEventProcessorFactory = new ShardRecordProcessorFactory {
     override def shardRecordProcessor(): ShardRecordProcessor =
-      new CrierLiveEventProcessor(config, usageGroupOps)
+      new CrierLiveEventProcessor(config, usageGroupOps, usageGroupStream)
   }
 
   private val PreviewEventProcessorFactory = new ShardRecordProcessorFactory {
     override def shardRecordProcessor(): ShardRecordProcessor =
-      new CrierPreviewEventProcessor(config, usageGroupOps)
+      new CrierPreviewEventProcessor(config, usageGroupOps, usageGroupStream)
   }
 
   private lazy val liveConfig = config.liveKinesisReaderConfig

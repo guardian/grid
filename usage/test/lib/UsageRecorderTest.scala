@@ -3,6 +3,8 @@ package lib
 import com.gu.mediaservice.lib.logging.MarkerMap
 import com.gu.mediaservice.model.usage._
 import model.{UsageGroup, UsageTable}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.SystemMaterializer
 import org.joda.time.DateTime
 import org.mockito.Mockito.{timeout, verify, when}
 import org.scalatest.funsuite.AnyFunSuite
@@ -10,11 +12,15 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 import play.api.libs.json.Json
 
-import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
 
-  test("the recorder consumes usage groups from both crier and api ingress") {
+  test("the recorder consumes usage groups from the shared Pekko ingress") {
+    val actorSystem = ActorSystem("usage-recorder-test")
+    implicit val materializer = SystemMaterializer(actorSystem).materializer
+    implicit val executionContext = actorSystem.dispatcher
     implicit val logMarker: MarkerMap = MarkerMap("test" -> "usage-recorder")
     val crierUsage = mediaUsage("media-crier")
     val apiUsage = mediaUsage("media-api")
@@ -31,17 +37,36 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
     when(usageTable.create(crierUsage)).thenReturn(Future.successful(Json.obj()))
     when(usageTable.create(apiUsage)).thenReturn(Future.successful(Json.obj()))
 
-    val recorder = new UsageRecorder(usageMetrics, usageTable, usageNotifier, usageNotifier)
+    val usageGroupStream = new UsageGroupStream
+    val recorder = new UsageRecorder(usageMetrics, usageTable, usageNotifier, usageNotifier, usageGroupStream)
     recorder.start()
 
     try {
-      CrierUsageStream.observable.onNext(WithLogMarker(logMarker, crierGroup))
-      recorder.usageApiSubject.onNext(WithLogMarker(logMarker, apiGroup))
+      Await.result(usageGroupStream.publish(WithLogMarker(logMarker, crierGroup)), 5.seconds)
+      Await.result(usageGroupStream.publish(WithLogMarker(logMarker, apiGroup)), 5.seconds)
 
       verify(usageTable, timeout(5000)).create(crierUsage)
       verify(usageTable, timeout(5000)).create(apiUsage)
     } finally {
-      recorder.stop()
+      Await.result(recorder.stop(), 5.seconds)
+      Await.result(actorSystem.terminate(), 5.seconds)
+    }
+  }
+
+  test("the shared ingress rejects offers after it is completed") {
+    val actorSystem = ActorSystem("usage-group-stream-test")
+    implicit val materializer = SystemMaterializer(actorSystem).materializer
+    implicit val executionContext = actorSystem.dispatcher
+    val usageGroupStream = new UsageGroupStream
+    val group = UsageGroup(Set.empty, "group-closed", DateTime.now())
+
+    try {
+      usageGroupStream.complete()
+      intercept[Exception] {
+        Await.result(usageGroupStream.publish(WithLogMarker(MarkerMap("test" -> "closed"), group)), 5.seconds)
+      }
+    } finally {
+      Await.result(actorSystem.terminate(), 5.seconds)
     }
   }
 
