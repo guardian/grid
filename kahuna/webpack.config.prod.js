@@ -12,10 +12,16 @@ const sentryProject = process.env.SENTRY_PROJECT;
 // Must match the server's BuildInfo.gitCommitId, or Sentry cannot match events to these maps.
 const release = process.env.BUILD_VCS_NUMBER;
 
-if (sentryAuthToken && !(sentryOrg && sentryProject && release)) {
+const missingUploadSettings = Object.entries({
+  SENTRY_ORG: sentryOrg,
+  SENTRY_PROJECT: sentryProject,
+  BUILD_VCS_NUMBER: release
+}).filter(([, value]) => !value).map(([name]) => name);
+
+if (sentryAuthToken && missingUploadSettings.length > 0) {
   // Failing loudly beats shipping a release whose stack traces are silently unsymbolicated.
   throw new Error(
-    'SENTRY_AUTH_TOKEN is set but SENTRY_ORG, SENTRY_PROJECT or BUILD_VCS_NUMBER is missing, ' +
+    `SENTRY_AUTH_TOKEN is set but required upload settings are missing: ${missingUploadSettings.join(', ')}, ` +
     'so source maps could not be uploaded.'
   );
 }
