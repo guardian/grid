@@ -18,7 +18,7 @@ function launch(flags: string[]) {
   writeFileSync(shellEnvironment, "clear() { :; }\nsleep() { :; }\n");
   stub("node", "printf 'v22.14.0\\n'");
   stub("lsof", "exit 1");
-  stub("npm", 'printf "npm %s\\n" "$*" >> "$CALLS"\nprintf "ENV:%s|%s|%s|%s|%s\\n" "$VITE_USE_MEDIA_API" "$VITE_MEDIA_API_BASE_URL" "$VITE_MEDIA_DELIVERY" "$VITE_S3_PROXY_ENABLED" "$VITE_IMGPROXY_ENABLED"');
+  stub("npm", 'printf "npm %s\\n" "$*" >> "$CALLS"\nprintf "ENV:%s|%s|%s|%s|%s|%s\\n" "$VITE_USE_MEDIA_API" "$VITE_MEDIA_API_BASE_URL" "$VITE_MEDIA_DELIVERY" "$VITE_S3_PROXY_ENABLED" "$VITE_IMGPROXY_ENABLED" "$KUPUA_LOAD_SITE_SETTINGS"');
   for (const command of ["docker", "docker-compose", "aws", "curl", "ssh", "ssm", "ps", "touch"]) {
     stub(command, `printf '${command} %s\\n' "$*" >> "$CALLS"\nexit 80`);
   }
@@ -31,15 +31,18 @@ function launch(flags: string[]) {
 }
 
 describe("Kupua launcher data modes", () => {
-  it("starts local API canonical delivery without TEST infrastructure", () => {
-    const result = launch(["--use-media-api", "--canonical-media"]);
+  it.each([
+    { selector: "--use-media-api", base: "/api", label: "local media-api" },
+    { selector: "--use-deployed-media-api", base: "https://api.media.test.dev-gutools.co.uk", label: "deployed TEST API" },
+  ])("starts $label canonical delivery without TEST infrastructure", ({ selector, base, label }) => {
+    const result = launch([selector, "--canonical-media"]);
     expect(result.error).toBeUndefined();
     expect(result.status, result.stdout + result.stderr).toBe(0);
     expect(result.calls).toEqual(["npm run dev"]);
-    expect(result.stdout).toContain("ENV:true|/api|canonical|false|false");
+    expect(result.stdout).toContain(`ENV:true|${base}|canonical|false|false|true`);
     expect(result.stdout).toContain("GREETINGS PROFESSOR FALKEN.");
     expect(result.stdout).toContain("SHALL WE PLAY A GAME?");
-    expect(result.stdout).toContain("Starting Kupua (local media-api)");
+    expect(result.stdout).toContain(`Starting Kupua (${label})`);
     expect(result.stdout).toContain("[1/2] Skipping dependency check (--skip-install)");
     expect(result.stdout).toContain("[2/2] Starting Vite dev server");
     expect(result.stdout).toContain("Thumbnails: ON (URLs returned by media-api)");
@@ -49,12 +52,22 @@ describe("Kupua launcher data modes", () => {
 
   it.each([
     ["--use-media-api"],
-    ["--use-media-api", "--use-TEST", "--canonical-media"],
-    ["--use-deployed-media-api", "--canonical-media"],
+    ["--use-deployed-media-api"],
   ])("retains existing infrastructure setup for %j", (...flags) => {
     const result = launch(flags);
     expect(result.status).not.toBe(0);
     expect(result.calls).toEqual(["docker info"]);
     expect(result.stdout).toContain("Docker is not running");
+  });
+
+  it.each([
+    ["--use-media-api", "--use-TEST"],
+    ["--use-TEST", "--use-deployed-media-api", "--canonical-media"],
+  ])("rejects conflicting API and direct-ES flags before side effects: %j", (...flags) => {
+    const result = launch(flags);
+    expect(result.status).not.toBe(0);
+    expect(result.calls).toEqual([]);
+    expect(result.stdout).toContain("--use-TEST cannot be combined with an API selector");
+    expect(result.stdout).toContain("Grid's own --use-TEST");
   });
 });

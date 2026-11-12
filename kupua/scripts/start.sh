@@ -25,10 +25,10 @@
 #   --use-media-api Routes image reads through the already-running local media-api.
 #                   Grid independently chooses its own local or TEST backing services.
 #                   Without --canonical-media, retains TEST setup for Kupua's media proxies.
-#                   With --canonical-media, skips that setup unless --use-TEST is explicit.
+#                   With --canonical-media, skips that setup. Cannot combine with --use-TEST.
 #   --use-deployed-media-api
-#                   Routes all image reads through media-api deployed in TEST. Retains the TEST
-#                   ES tunnel only for local image-delivery setup. Implies --use-TEST.
+#                   Routes all image reads through media-api deployed in TEST. Without canonical
+#                   media, retains TEST ES discovery for local image-delivery setup.
 #   --canonical-media
 #                   With --use-media-api or --use-deployed-media-api only: thumbnails and full
 #                   images use the URLs/imgops links media-api returns instead of the local S3
@@ -121,7 +121,7 @@ for arg in "$@"; do
   case "$arg" in
     --use-TEST)     USE_TEST=true ;;
     --use-media-api) USE_MEDIA_API=true ;;
-    --use-deployed-media-api) USE_DEPLOYED_MEDIA_API=true; USE_TEST=true ;;
+    --use-deployed-media-api) USE_DEPLOYED_MEDIA_API=true ;;
     --canonical-media) CANONICAL_MEDIA=true ;;
     --skip-es)      SKIP_ES=true ;;
     --skip-data)    SKIP_DATA=true ;;
@@ -139,13 +139,20 @@ if [ "$USE_MEDIA_API" = true ] && [ "$USE_DEPLOYED_MEDIA_API" = true ]; then
   exit 1
 fi
 
+if [ "$USE_TEST" = true ] && { [ "$USE_MEDIA_API" = true ] || [ "$USE_DEPLOYED_MEDIA_API" = true ]; }; then
+  echo -e "${red}ERROR: --use-TEST cannot be combined with an API selector.${plain}"
+  echo "  Kupua's --use-TEST selects direct Elasticsearch, not the API's backing data."
+  echo "  Grid's own --use-TEST controls the local API's backing data."
+  exit 1
+fi
+
 if [ "$CANONICAL_MEDIA" = true ] && [ "$USE_MEDIA_API" = false ] && [ "$USE_DEPLOYED_MEDIA_API" = false ]; then
   echo -e "${red}ERROR: --canonical-media requires --use-media-api or --use-deployed-media-api.${plain}"
   echo "  Direct Elasticsearch modes have no media URLs returned by media-api."
   exit 1
 fi
 
-if [ "$USE_MEDIA_API" = true ] && [ "$CANONICAL_MEDIA" = false ]; then
+if [ "$CANONICAL_MEDIA" = false ] && { [ "$USE_MEDIA_API" = true ] || [ "$USE_DEPLOYED_MEDIA_API" = true ]; }; then
   USE_TEST=true
 fi
 
@@ -192,8 +199,14 @@ if [ "$NODE_OK" = false ]; then
   exit 1
 fi
 
-if [ "$USE_MEDIA_API" = true ] && [ "$CANONICAL_MEDIA" = true ] && [ "$USE_TEST" = false ]; then
+if [ "$CANONICAL_MEDIA" = true ]; then
   export VITE_USE_MEDIA_API="true"
+  if [ "$USE_DEPLOYED_MEDIA_API" = true ]; then
+    API_LABEL="deployed TEST API"
+    export VITE_MEDIA_API_BASE_URL="https://api.media.test.dev-gutools.co.uk"
+  else
+    API_LABEL="local media-api"
+  fi
   export VITE_S3_PROXY_ENABLED="false"
   export VITE_IMGPROXY_ENABLED="false"
   export VITE_ES_IS_LOCAL="false"
@@ -205,11 +218,15 @@ if [ "$USE_MEDIA_API" = true ] && [ "$CANONICAL_MEDIA" = true ] && [ "$USE_TEST"
   fi
   wopr_intro
   echo -e "${cyan}╔══════════════════════════════════════╗${plain}"
-  echo -e "${cyan}║  Starting Kupua (local media-api)    ║${plain}"
+  printf "${cyan}║ %-36s ║${plain}\n" "Starting Kupua (${API_LABEL})"
   echo -e "${cyan}╚══════════════════════════════════════╝${plain}"
   echo
-  echo -e "${cyan}  Using the already-running local Grid API.${plain}"
-  echo -e "${yellow}  Grid's own configuration selects its backing data.${plain}"
+  if [ "$USE_DEPLOYED_MEDIA_API" = true ]; then
+    echo -e "${cyan}  Using deployed TEST media-api directly.${plain}"
+  else
+    echo -e "${cyan}  Using the already-running local Grid API.${plain}"
+    echo -e "${yellow}  Grid's own configuration selects its backing data.${plain}"
+  fi
   echo
   cd "$KUPUA_DIR"
   if [ "$SKIP_INSTALL" = false ]; then
@@ -229,7 +246,12 @@ if [ "$USE_MEDIA_API" = true ] && [ "$CANONICAL_MEDIA" = true ] && [ "$USE_TEST"
   echo -e "${yellow}[2/2] Starting Vite dev server...${plain}"
   echo -e "${cyan}      → http://localhost:3000${plain}"
   echo -e "${cyan}      → https://kupua.media.local.dev-gutools.co.uk${plain}"
-  echo -e "${cyan}      → media-api: LOCAL (all image reads via /api)${plain}"
+  if [ "$USE_DEPLOYED_MEDIA_API" = true ]; then
+    echo -e "${cyan}      → media-api: DEPLOYED TEST (direct credentialed browser reads)${plain}"
+  else
+    echo -e "${cyan}      → media-api: LOCAL (all image reads via /api)${plain}"
+  fi
+  echo -e "${cyan}      → Site settings: TEST S3 (loaded at startup)${plain}"
   echo -e "${cyan}      → Thumbnails: ON (URLs returned by media-api)${plain}"
   echo -e "${cyan}      → Full images: ON (imgops links returned by media-api)${plain}"
   echo
@@ -342,8 +364,14 @@ if [ "$USE_TEST" = true ]; then
   fi
   echo -e "${cyan}╚══════════════════════════════════════╝${plain}"
   echo
-  echo -e "${yellow}  ⚠  Connecting to real TEST Elasticsearch cluster.${plain}"
-  echo -e "${yellow}     Write protection is enabled (read-only queries only).${plain}"
+  if [ "$USE_MEDIA_API" = true ] || [ "$USE_DEPLOYED_MEDIA_API" = true ]; then
+    echo -e "${yellow}  Preparing legacy TEST media delivery.${plain}"
+    echo -e "${yellow}  TEST ES is used for bucket discovery, not application image reads.${plain}"
+    echo -e "${yellow}  ES discovery is read-only; this does not govern API editing.${plain}"
+  else
+    echo -e "${yellow}  ⚠  Connecting to real TEST Elasticsearch cluster.${plain}"
+    echo -e "${yellow}     Write protection is enabled (read-only queries only).${plain}"
+  fi
   echo -e "${yellow}     See kupua/exploration/docs/infra-safeguards.md${plain}"
   echo
 
@@ -371,7 +399,7 @@ if [ "$USE_TEST" = true ]; then
 
   # Stop kupua's local docker ES if running — port 9200 needed for tunnel
   if (docker stats --no-stream &> /dev/null); then
-    echo -e "${yellow}[1/3] Stopping local docker ES (port 9220)...${plain}"
+    echo -e "${yellow}[1/6] Stopping local docker ES (port 9220)...${plain}"
     cd "$KUPUA_DIR"
     dc down 2>/dev/null || true
   fi
@@ -382,10 +410,10 @@ if [ "$USE_TEST" = true ]; then
     # Tunnel process exists — but it may be stale (e.g. remote end died,
     # credentials expired). Probe ES to check it actually works.
     if curl -sf --connect-timeout 3 "http://localhost:9200/_cluster/health" > /dev/null 2>&1; then
-      echo -e "${green}[1/3] Re-using existing SSH tunnel to TEST ES (port 9200) ✓${plain}"
+      echo -e "${green}[1/6] Re-using existing SSH tunnel to TEST ES (port 9200) ✓${plain}"
       NEED_NEW_TUNNEL=false
     else
-      echo -e "${yellow}[1/3] Existing SSH tunnel is stale — killing and re-establishing...${plain}"
+      echo -e "${yellow}[1/6] Existing SSH tunnel is stale — killing and re-establishing...${plain}"
       # shellcheck disable=SC2046
       kill $(echo "$EXISTING_TUNNELS" | awk '{print $2}') 2>/dev/null || true
       # Wait for port 9200 to be fully released (TIME_WAIT can linger)
@@ -398,7 +426,7 @@ if [ "$USE_TEST" = true ]; then
   fi
 
   if [ "$NEED_NEW_TUNNEL" = true ]; then
-    echo -e "${yellow}[1/3] Establishing SSH tunnel to TEST ES (port 9200)...${plain}"
+    echo -e "${yellow}[1/6] Establishing SSH tunnel to TEST ES (port 9200)...${plain}"
 
     # Check AWS credentials (same pattern as Grid's hasCredentials())
     STATUS=$(aws sts get-caller-identity --profile media-service 2>&1 || true)
@@ -505,7 +533,7 @@ if [ "$USE_TEST" = true ]; then
   echo
 
   # --- 2. Discover the index alias ---
-  echo -e "${yellow}[2/3] Discovering TEST ES index...${plain}"
+  echo -e "${yellow}[2/6] Discovering TEST ES index...${plain}"
   # SSM tunnels route through AWS Session Manager — the SSH process
   # backgrounds immediately (-f) but the SSM proxy can take 3-10s to
   # fully negotiate. Retry with back-off instead of a single check.
@@ -723,19 +751,23 @@ print('')
   fi
   echo
 
-  echo -e "${yellow}Starting Vite dev server (TEST mode)...${plain}"
+  echo -e "${yellow}Starting Vite dev server...${plain}"
   echo -e "${cyan}      → http://localhost:3000${plain}"
-  echo -e "${yellow}      → ES: ${KUPUA_ES_URL} / index: ${VITE_ES_INDEX}${plain}"
-  echo -e "${yellow}      → Write protection: ON${plain}"
+  if [ "$USE_MEDIA_API" = true ] || [ "$USE_DEPLOYED_MEDIA_API" = true ]; then
+    echo -e "${yellow}      → TEST ES: startup media discovery only (read-only)${plain}"
+    echo -e "${cyan}      → Site settings: TEST S3 (loaded at startup)${plain}"
+  else
+    echo -e "${yellow}      → ES: ${KUPUA_ES_URL} / index: ${VITE_ES_INDEX}${plain}"
+    echo -e "${yellow}      → Write protection: ON${plain}"
+  fi
   if [ "$USE_DEPLOYED_MEDIA_API" = true ]; then
     export VITE_USE_MEDIA_API="true"
     export VITE_MEDIA_API_BASE_URL="https://api.media.test.dev-gutools.co.uk"
     echo -e "${cyan}      → media-api: DEPLOYED TEST (direct credentialed browser reads)${plain}"
-    echo -e "${yellow}      → TEST ES tunnel: startup bucket discovery only${plain}"
   elif [ "$USE_MEDIA_API" = true ]; then
     export VITE_USE_MEDIA_API="true"
     echo -e "${cyan}      → media-api: LOCAL (all image reads via /api)${plain}"
-    echo -e "${cyan}        Requires media-api running: ./dev/script/start.sh media-api${plain}"
+    echo -e "${cyan}        Requires the already-running local Grid API.${plain}"
   fi
   if [ "$CANONICAL_MEDIA" = true ]; then
     echo -e "${cyan}      → Thumbnails: ON (URLs returned by media-api)${plain}"

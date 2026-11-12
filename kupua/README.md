@@ -225,8 +225,10 @@ an empty Grid needs no startup image or bucket sample. Existing services and tun
 are left alone. The unused direct-ES transport remains write-protected.
 
 Without `--canonical-media`, `--use-media-api` retains its legacy TEST tunnel/index/bucket
-setup for Kupua's S3/imgproxy delivery. Explicitly adding Kupua's `--use-TEST` also retains
-that setup. Neither changes the backing data of the already-running Grid API.
+setup for Kupua's S3/imgproxy delivery; that legacy delivery assumes TEST images.
+For an all-local Grid corpus, restart with `--canonical-media` to use Grid's returned
+media URLs. API selectors cannot be combined with Kupua's `--use-TEST`; only Grid's own
+launcher selects the backing data of the already-running local API.
 
 `ApiDataSource` owns the API path; it has no Elasticsearch fallback and API mode constructs no ES
 datasource. Browser requests use relative `/api` URLs, so Vite supplies the local-domain cookie and
@@ -283,9 +285,10 @@ signed S3), full images from the imgops `optimisedPng`/`optimised` link template
 ```
 
 The imgops links embed signed source URLs that expire after roughly 15-25 minutes; reload to
-recover. Local API canonical startup skips the legacy TEST setup described above; the
-deployed-API launcher retains its existing setup in this bounded change. Without the
-flag every mode keeps its existing delivery. Hosted Kupua will always use returned URLs; see
+recover. Both API canonical paths skip Kupua's ES/tunnel/media-proxy setup.
+TEST S3 site-settings loading still
+runs automatically. Without the flag every mode keeps its existing delivery. Hosted Kupua
+uses returned URLs; see
 [Deployed via Kahuna](exploration/docs/00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md).
 
 ### Hosted build (Kupua served by Kahuna)

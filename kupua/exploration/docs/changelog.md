@@ -24,6 +24,20 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 12 November 2026 - Deployed canonical startup skips legacy infrastructure
+
+Deployed media-api with canonical media now shares the lightweight API startup path:
+no Docker checks or shutdown, ES discovery, tunnel, thumbnail proxy or imgproxy setup.
+TEST S3 site settings still load before Vite serves the application. Both API selectors
+now reject an explicit Kupua `--use-TEST` before side effects: Grid's own launcher, not
+that direct-ES flag, chooses the local API's backing data. Proxy delivery remains the
+default and retains its legacy TEST infrastructure; canonical media must still be explicit.
+
+Canonical banners identify the selected API. Legacy progress uses consistent six-step
+numbering and distinguishes ES media discovery from direct-ES image reads, without
+implying that read-only ES safeguards disable API editing. Updated the startup guide
+and existing mocked launcher regressions without invoking real infrastructure.
+
 ### 12 November 2026 - Shared site settings and Vite S3 loading
 
 Vite API launcher paths now acquire TEST common and Kahuna site settings from S3

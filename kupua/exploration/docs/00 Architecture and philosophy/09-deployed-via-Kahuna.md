@@ -83,15 +83,16 @@ flowchart TD
   Direct -->|Local samples|SampleEs["No mode flags; Kupua ES on 9220"]
   Direct -->|TEST|TestEs["--use-TEST; TEST ES tunnel"]
   LocalApi --> ViteOnly["Uses the Grid backend above; no Kupua ES/tunnel/media-proxy setup"]
-  DeployedApi --> DeployedSetup["Bypasses local Grid for image data; legacy TEST startup setup still runs"]
+  DeployedApi --> DeployedSetup["Bypasses local Grid; no Kupua ES/tunnel/media-proxy setup"]
 ```
 
 The API examples above use **canonical media**: image URLs returned by media-api.
 Omitting `--canonical-media` selects legacy local delivery proxies and TEST setup.
-Explicitly adding Kupua's `--use-TEST` to the local-API canonical command also runs
-that TEST setup, but does not change Grid's backend. The deployed-API launcher still
-enters TEST startup discovery/setup even with canonical media; canonical does not
-universally mean "no tunnel".
+Kupua's `--use-TEST` cannot be combined with either API selector; Grid's own launcher
+independently chooses the local API's backend. Both API modes with canonical media
+skip Docker, ES discovery, tunnels and media proxies. Both canonical API paths still
+load TEST site settings from S3 before Vite serves the application.
+Legacy API proxy delivery assumes TEST images; use canonical media for an all-local corpus.
 
 The diagrams show the simplest paths. The table includes the legacy variants:
 
@@ -101,8 +102,7 @@ The diagrams show the simplest paths. The table includes the legacy variants:
 | `./dev/script/start.sh --use-TEST` | Local Grid services configured against TEST backing services; downloads media-api and Kahuna TEST configuration | Kahuna still serves the locally built Kupua bundle, but its API/data and effective server settings come from this Grid setup. |
 | `./kupua/scripts/start.sh --use-media-api --canonical-media` | Kupua's Vite server, reading the already-running local Grid API and its returned media URLs | Does not select or change Grid's backing data and skips Kupua ES/tunnel/media-proxy setup. |
 | `./kupua/scripts/start.sh --use-media-api` | Kupua's Vite server and legacy TEST discovery/setup for its media proxies | Reads the already-running local Grid API; the TEST setup does not reconfigure that Grid API. |
-| `./kupua/scripts/start.sh --use-media-api --canonical-media --use-TEST` | Kupua's Vite server with explicit TEST infrastructure setup retained | Still reads the already-running local Grid API; Grid independently chooses its backing data. |
-| `./kupua/scripts/start.sh --use-deployed-media-api --canonical-media` | Kupua's Vite server reading deployed TEST media-api directly, with returned media URLs | Does not use local Grid for image-data reads; omitting `--canonical-media` selects the existing local media proxies instead. |
+| `./kupua/scripts/start.sh --use-deployed-media-api --canonical-media` | Kupua's Vite server reading deployed TEST media-api directly, with returned media URLs and TEST S3 settings | No local Grid, Docker, ES discovery, tunnel or media proxy setup; omitting `--canonical-media` retains legacy setup. |
 | `./kupua/scripts/start.sh --use-deployed-media-api` | Same deployed TEST API, with legacy TEST setup and local media proxies | Not the local-API path; live verification of this transport change is pending. |
 | `./kupua/scripts/start.sh` | Kupua's sample ES, normally port 9220, separate from Grid's local ES on 9200 | Temporary direct-ES path; no editing. |
 | `./kupua/scripts/start.sh --use-TEST` | Kupua's direct-Elasticsearch TEST mode | Not an API-mode editing topology; direct-ES editing is unavailable. |
@@ -131,19 +131,19 @@ its mode chooses the [sbt service group](../../../../build.sbt#L82).
 | Kupua flag (`./kupua/scripts/start.sh`) | Meaning |
 |---|---|
 | `--use-media-api` | Use the already-running local API. Without canonical media, also enter legacy TEST startup setup. |
-| `--use-deployed-media-api` | Use deployed TEST media-api; also implies Kupua's TEST setup branch. |
-| `--use-TEST` | Enter TEST setup; without an API selector, use TEST ES directly. Does not reconfigure local Grid. |
+| `--use-deployed-media-api` | Use deployed TEST media-api; legacy TEST setup only without canonical media. |
+| `--use-TEST` | Select temporary direct-TEST ES mode; cannot combine with an API selector. Does not reconfigure local Grid. |
 | `--canonical-media` | API modes only: use returned media URLs instead of local S3/imgproxy delivery. |
 | `--skip-es` | In default local direct-ES mode, skip ES startup/wait and sample-data checking. Does not skip the TEST setup branch. |
 | `--skip-data` | Skip local sample-data loading, not TEST discovery or other infrastructure setup. |
 | `--skip-install` | Skip dependency installation/checks, not infrastructure setup. |
 
 **Combination rules:** the two API selectors are mutually exclusive. Canonical
-media without an API selector is rejected. Local API without canonical media already
-implies TEST setup, so adding `--use-TEST` there is redundant; it is also redundant
-with deployed API. The local-API canonical fast path already omits ES/sample setup,
-so `--skip-es` and `--skip-data` add nothing there. Neither creates a no-tunnel
-deployed-API path. Unknown Kupua flags are rejected; `--media-api` and
+media without an API selector is rejected. Explicit `--use-TEST` with either API selector
+is rejected before side effects. API modes without canonical media retain legacy TEST
+media setup internally, without changing the selected image-data API. Canonical API paths omit ES/sample setup,
+so `--skip-es` and `--skip-data` add nothing there. Use canonical media, not those skip
+flags, to avoid deployed-API tunnel setup. Unknown Kupua flags are rejected; `--media-api` and
 `--deployed-media-api` are not accepted spellings.
 
 #### Login and verification are separate choices
