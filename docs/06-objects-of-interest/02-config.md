@@ -58,8 +58,10 @@ configuration. Events carry service (`app`), stage, release and request ID tags.
 limited to method, route/URL and User-Agent; cookies, request bodies and other headers are not attached.
 Client errors remain with Play, and a reporting failure must not change the HTTP response.
 
-Browser identity is resolved on the server. Anonymous mode sends a stable salted identifier, not
-the user's email; rotating the salt breaks correlation. Machine identities are sent as service IDs.
+Browser identity is resolved on the server. The `anonymous` mode sends a stable pseudonymous
+identifier, not the user's email. Events remain linkable to the same user, and anyone holding the
+secret HMAC salt can reproduce identifiers from candidate email addresses. Rotating the salt breaks
+correlation. Machine identities are sent as service IDs.
 Email mode sends personal data to Sentry and requires data-protection approval before enabling.
 These identity controls do not add authenticated user identity to server error events.
 

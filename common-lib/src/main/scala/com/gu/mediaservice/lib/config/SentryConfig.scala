@@ -17,12 +17,12 @@ sealed abstract class SentryUserMode(val name: String)
 
 object SentryUserMode {
 
-  /** A salted, non-reversible identifier. Distinguishes one user from many without telling Sentry who they are. */
+  /** A stable pseudonymous identifier. Events remain linkable; holders of the secret can reproduce it. */
   case object Anonymous extends SentryUserMode("anonymous")
 
   /**
-   * The user's email address. This sends staff personal data to Sentry, which for Grid is a US-region
-   * third party. Enabling it is a data-protection decision requiring sign-off, not a routine config change.
+   * The user's email address. Sending staff personal data to the configured Sentry destination
+   * requires data-protection sign-off, not just a routine config change.
    */
   case object Email extends SentryUserMode("email")
 

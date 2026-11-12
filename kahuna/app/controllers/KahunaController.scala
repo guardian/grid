@@ -29,9 +29,9 @@ class KahunaController(
 
   /**
    * Settings the browser SDK needs. The user identity is resolved here rather than in the browser so
-   * that an email only ever reaches the page when the configured user mode permits it.
+   * that this Sentry configuration includes email only when the configured user mode permits it.
    */
-  private def sentryClientConfig(maybeUser: Option[Principal]): String = {
+  private[controllers] def sentryClientConfig(maybeUser: Option[Principal]): String = {
     val sentry = config.sentryConfig
 
     val identity = maybeUser.flatMap {
