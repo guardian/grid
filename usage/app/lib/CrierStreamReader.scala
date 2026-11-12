@@ -19,7 +19,9 @@ import software.amazon.kinesis.retrieval.polling.PollingConfig
 import java.net.InetAddress
 import java.util.UUID
 import scala.annotation.nowarn
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.FutureConverters._
+import scala.util.Try
 
 // it's annoyingly hard to get the streamName out of the configsBuilder once built, so pass them around together
 private case class ConfigsBuilderWithStreamName(configsBuilder: ConfigsBuilder, streamName: String)
@@ -114,20 +116,34 @@ class CrierStreamReader(
   private lazy val liveScheduler = liveConfig.map(kinesisClientLibScheduler)
   private lazy val previewScheduler = previewConfig.map(kinesisClientLibScheduler)
 
+  private val startedSchedulers = scala.collection.mutable.ListBuffer.empty[Scheduler]
+  private var maybeShutdown: Option[Future[Unit]] = None
+
+  private def startScheduler(scheduler: Try[Scheduler], name: String): Unit =
+    scheduler.fold(
+      error => logger.error(s"No '$name' thread to start", error),
+      scheduler => {
+        executionContext.execute(scheduler)
+        startedSchedulers.synchronized { startedSchedulers += scheduler }
+        logger.info(s"Starting $name")
+      }
+    )
+
   def start(): Unit = {
     logger.info("Trying to start Crier Stream Readers")
 
-    liveScheduler
-      .map(executionContext.execute)
-      .fold(
-        e => logger.error("No 'Crier Live Stream reader' thread to start", e),
-        _ => logger.info("Starting Crier Live Stream reader")
-      )
-    previewScheduler
-      .map(executionContext.execute)
-      .fold(
-        e => logger.error("No 'Crier Preview Stream reader' thread to start", e),
-        _ => logger.info("Starting Crier Preview Stream reader")
-      )
+    startScheduler(liveScheduler, "Crier Live Stream reader")
+    startScheduler(previewScheduler, "Crier Preview Stream reader")
+  }
+
+  def stop(): Future[Unit] = synchronized {
+    implicit val ec: ExecutionContext = executionContext
+    maybeShutdown.getOrElse {
+      val shutdown = startedSchedulers.synchronized {
+        Future.sequence(startedSchedulers.toList.map(_.startGracefulShutdown().asScala))
+      }.map(_ => ())
+      maybeShutdown = Some(shutdown)
+      shutdown
+    }
   }
 }
