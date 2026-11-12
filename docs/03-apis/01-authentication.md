@@ -8,9 +8,9 @@ Services can call other Grid services, typically reusing the credentials of the 
 - `X-Inner-Service-Identity`: contains the name of the originating service, e.g. `thrall` and  possibly names of other services the request has gone via (see `onBehalfOf` section below)
 - `X-Inner-Service-UUID`: contains a unique identifier for the request
 - `X-Inner-Service-Timestamp`
-- `X-Inner-Service-Signature`: contains a checksum of the above 3 headers, encrypted using the Play secret (which is already shared between the services),
+- `X-Inner-Service-Signature`: contains a checksum of the above 3 headers, the HTTP method, and the raw request path, signed using the Play secret (which is already shared between the services),
 
-which are then verified and interpreted as an `InnerServicePrincipal` on endpoints that opt in via `auth.allowInnerService`. Other authenticated endpoints accept only user or API credentials.
+which are then verified (along with checking the timestamp is within 3 seconds of current UTC time) and interpreted as an `InnerServicePrincipal` on endpoints that opt in via `auth.allowInnerService`. Other authenticated endpoints accept only user or API credentials.
 
 ## Panda Auth
 This is typically used for client-server authentication.

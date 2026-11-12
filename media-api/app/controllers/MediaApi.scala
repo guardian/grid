@@ -607,6 +607,7 @@ class MediaApi(
       Future.successful(())
     } else {
       val baseRequest = ws.url(uri)
+        .withMethod("POST")
         .withHttpHeaders(Authentication.originalServiceHeaderName -> config.appName,
           HttpHeaders.ORIGIN -> config.rootUri,
           HttpHeaders.CONTENT_TYPE -> ContentType.APPLICATION_JSON.getMimeType)

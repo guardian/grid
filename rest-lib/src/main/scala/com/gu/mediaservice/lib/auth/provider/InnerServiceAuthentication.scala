@@ -1,13 +1,17 @@
 package com.gu.mediaservice.lib.auth.provider
 
 import com.gu.mediaservice.lib.auth.Authentication.InnerServicePrincipal
-import org.joda.time.{DateTime, DateTimeZone}
+import com.gu.mediaservice.lib.auth.provider.InnerServiceAuthentication.innerServiceIdentityHeaderName
+import com.gu.mediaservice.lib.auth.provider.InnerServiceAuthentication.innerServiceUUIDHeaderName
+import com.gu.mediaservice.lib.auth.provider.InnerServiceAuthentication.innerServiceTimestampHeaderName
+import org.joda.time.{DateTime, DateTimeZone, Duration}
 import play.api.libs.crypto.CookieSigner
 import play.api.libs.typedmap.{TypedKey, TypedMap}
 import play.api.libs.ws.WSRequest
 import play.api.mvc.RequestHeader
 
 import java.util.UUID
+import scala.util.Try
 
 object InnerServiceAuthentication {
   val innerServiceIdentityHeaderName = "X-Inner-Service-Identity"
@@ -27,39 +31,72 @@ trait InnerServiceAuthentication {
 
   val serviceName: String
 
-  private def generateSignature(headers: Map[String, Seq[String]]): String = {
-    signer.sign(
-      List(
-        headers(innerServiceIdentityHeaderName),
-        headers(innerServiceUUIDHeaderName),
-        headers(innerServiceTimestampHeaderName)
-      ).mkString(".")
-    )
-  }
-
   def signRequest(wsRequest: WSRequest, identityPrefix: String = ""): WSRequest = {
-    val requestToBeSigned = wsRequest.addHttpHeaders(
-      innerServiceIdentityHeaderName -> (identityPrefix + serviceName),
-      innerServiceUUIDHeaderName -> UUID.randomUUID().toString,
-      innerServiceTimestampHeaderName -> DateTime.now(DateTimeZone.UTC).toString
+    val signingData = SigningData(
+      identity = identityPrefix + serviceName,
+      uuid = UUID.randomUUID().toString,
+      timestamp = DateTime.now(DateTimeZone.UTC).toString,
+      method = wsRequest.method,
+      target = wsRequest.uri.getRawPath()
     )
-    requestToBeSigned.addHttpHeaders(
-      innerServiceSignatureHeaderName -> generateSignature(requestToBeSigned.headers)
+    wsRequest.addHttpHeaders(
+      innerServiceIdentityHeaderName -> signingData.identity,
+      innerServiceUUIDHeaderName -> signingData.uuid,
+      innerServiceTimestampHeaderName -> signingData.timestamp,
+      innerServiceSignatureHeaderName -> signingData.signature
     )
   }
 
   def verifyRequest(request: RequestHeader)(signatureFromHeader: String) = {
-    val signature = generateSignature(request.headers.toMap)
-    if (signature == signatureFromHeader)
-      Right(InnerServicePrincipal(
-        identity = request.headers(innerServiceIdentityHeaderName),
-        attributes = TypedMap.empty + (
-          uuidKey -> request.headers(innerServiceUUIDHeaderName),
-          timestampKey -> request.headers(innerServiceTimestampHeaderName),
-          signatureKey -> signature
+
+    val signingData = SigningData.from(request)
+
+    signingData match {
+      case Some(d) if d.validate(signatureFromHeader) =>
+        Right(
+          InnerServicePrincipal(
+            identity = request.headers(innerServiceIdentityHeaderName),
+            attributes = TypedMap.empty + (
+              uuidKey -> request.headers(innerServiceUUIDHeaderName),
+              timestampKey -> d.timestamp,
+              signatureKey -> d.signature
+            )
+          )
         )
-    ))
-    else
-      Left("Invalid inner service signature")
+      case _ =>
+        Left("Invalid inner service signature")
+    }
+  }
+
+  private case class SigningData(
+    identity: String,
+    uuid: String,
+    timestamp: String,
+    method: String,
+    target: String
+  ) {
+    override def toString() = List(identity, uuid, timestamp, method, target).mkString(".")
+
+    lazy val signature = signer.sign(toString)
+
+    private def isTimestampRecent: Boolean =
+      Try {
+        val time = DateTime.parse(timestamp)
+        val difference = new Duration(time, DateTime.now(DateTimeZone.UTC)).getMillis
+        difference > -3000 && difference < 3000
+      }.getOrElse(false)
+
+    def validate(candidateSignature: String) = candidateSignature == signature && isTimestampRecent
+  }
+
+  private object SigningData {
+    def from(requestHeader: RequestHeader) =
+      for {
+        identity <- requestHeader.headers.get(innerServiceIdentityHeaderName)
+        uuid <- requestHeader.headers.get(innerServiceUUIDHeaderName)
+        timestamp <- requestHeader.headers.get(innerServiceTimestampHeaderName)
+        target <- Try(java.net.URI.create(requestHeader.uri).getRawPath).toOption
+        method = requestHeader.method
+      } yield SigningData(identity, uuid, timestamp, method, target)
   }
 }

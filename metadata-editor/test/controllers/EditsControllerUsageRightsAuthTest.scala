@@ -46,6 +46,7 @@ class EditsControllerUsageRightsAuthTest extends AnyFunSpec with Matchers with M
     private val response = mock[WSResponse]
     when(ws.url(anyString())).thenReturn(request)
     when(request.withQueryStringParameters(any[(String, String)]())).thenReturn(request)
+    when(request.withMethod("GET")).thenReturn(request)
     when(request.get()).thenReturn(Future.successful(response))
     uploadedBy match {
       case Some(email) =>
