@@ -47,7 +47,6 @@ class UsageRecorderRetryTest extends AnyFunSuite with Matchers with MockitoSugar
       Await.result(actorSystem.terminate(), 5.seconds)
     }
   }
-
   test("a usage group match stops retrying after five attempts") {
     val actorSystem = ActorSystem("usage-recorder-retry-limit-test")
     implicit val materializer = SystemMaterializer(actorSystem).materializer
