@@ -79,6 +79,11 @@ deployments:
     actions:
       - deploy
 
+  imgproxy:
+    template: autoscaling
+    actions:
+      - deploy
+
   app-ami-update:
     type: ami-cloudformation-parameter
     parameters:
