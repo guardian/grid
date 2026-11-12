@@ -29,15 +29,12 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
 
   implicit val ec: ExecutionContext = executionContext
 
-  // Before any filter or error handler can report. `buildInfo` is a subclass val, so this must be
-  // lazy to avoid reading it during this constructor.
+  // `httpFilters` is evaluated after component construction, when the subclass `buildInfo` val is ready.
   private lazy val sentryInitialised: Unit =
     SentryInitialiser.init(config.sentryConfig, config.appName, buildInfo.gitCommitId)
 
-  final override lazy val httpErrorHandler: HttpErrorHandler = {
-    sentryInitialised
+  final override lazy val httpErrorHandler: HttpErrorHandler =
     new GridSentryErrorHandler(environment, configuration, devContext.map(_.sourceMapper), Some(router), config.sentryConfig)
-  }
 
   final override def httpFilters: Seq[EssentialFilter] = {
     sentryInitialised
