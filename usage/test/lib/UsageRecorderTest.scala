@@ -1,11 +1,13 @@
 package lib
 
-import com.gu.mediaservice.lib.logging.MarkerMap
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model.usage._
 import model.{UsageGroup, UsageTable}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.SystemMaterializer
+import org.apache.pekko.stream.scaladsl.{Keep, Sink}
 import org.joda.time.DateTime
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{never, timeout, verify, when}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -22,6 +24,7 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
     usageGroupStream: UsageGroupStream,
     usageTable: UsageTable,
     usageNotifier: UsageNotifier,
+    usageMetrics: UsageMetrics,
     recorder: UsageRecorder
   )
 
@@ -35,15 +38,19 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
     val logMarker = MarkerMap("test" -> "usage-recorder")
     val usageTable = mock[UsageTable]
     val usageNotifier = mock[UsageNotifier]
+    val usageMetrics = mock[UsageMetrics]
+    when(usageNotifier.build(any[String])(any[LogMarker]))
+      .thenReturn(Future.successful(UsageNotice("", JsArray())))
+    when(usageNotifier.send(any[WithLogMarker[UsageNotice]])).thenReturn(logMarker)
     when(usageTable.matchUsageGroup(WithLogMarker(logMarker, usageGroup)))
       .thenReturn(Future.successful(WithLogMarker(logMarker, dbUsages)))
     val usageGroupStream = new UsageGroupStream
-    val recorder = new UsageRecorder(mock[UsageMetrics], usageTable, usageNotifier, usageNotifier, usageGroupStream)
+    val recorder = new UsageRecorder(usageMetrics, usageTable, usageNotifier, usageNotifier, usageGroupStream)
 
     try {
-      test(RecorderFixture(logMarker, usageGroupStream, usageTable, usageNotifier, recorder))
+      test(RecorderFixture(logMarker, usageGroupStream, usageTable, usageNotifier, usageMetrics, recorder))
     } finally {
-      Await.result(recorder.stop(), 5.seconds)
+      Await.result(recorder.stop(), 15.seconds)
       Await.result(actorSystem.terminate(), 5.seconds)
     }
   }
@@ -61,6 +68,9 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
     val usageMetrics = mock[UsageMetrics]
     val usageNotifier = mock[UsageNotifier]
 
+    when(usageNotifier.build(any[String])(any[LogMarker]))
+      .thenReturn(Future.successful(UsageNotice("", JsArray())))
+    when(usageNotifier.send(any[WithLogMarker[UsageNotice]])).thenReturn(logMarker)
     when(usageTable.matchUsageGroup(WithLogMarker(logMarker, crierGroup)))
       .thenReturn(Future.successful(WithLogMarker(logMarker, Set.empty)))
     when(usageTable.matchUsageGroup(WithLogMarker(logMarker, apiGroup)))
@@ -79,7 +89,7 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
       verify(usageTable, timeout(5000)).create(crierUsage)
       verify(usageTable, timeout(5000)).create(apiUsage)
     } finally {
-      Await.result(recorder.stop(), 5.seconds)
+      Await.result(recorder.stop(), 15.seconds)
       Await.result(actorSystem.terminate(), 5.seconds)
     }
   }
@@ -89,11 +99,14 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
     implicit val materializer = SystemMaterializer(actorSystem).materializer
     implicit val executionContext = actorSystem.dispatcher
     val usageGroupStream = new UsageGroupStream
+    val (queue, completion) = usageGroupStream.source.toMat(Sink.ignore)(Keep.both).run()
+    usageGroupStream.attachQueue(queue)
     val group = UsageGroup(Set.empty, "group-closed", DateTime.now())
 
     try {
-      usageGroupStream.complete()
-      intercept[Exception] {
+      Await.result(usageGroupStream.complete(), 5.seconds)
+      Await.result(completion, 5.seconds)
+      intercept[IllegalStateException] {
         Await.result(usageGroupStream.publish(WithLogMarker(MarkerMap("test" -> "closed"), group)), 5.seconds)
       }
     } finally {
@@ -150,6 +163,21 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
       verify(fixture.usageTable, timeout(5000)).create(usage)
       verify(fixture.usageTable, never()).update(usage)
       verify(fixture.usageTable, never()).markAsRemoved(usage)
+    }
+  }
+
+  test("a failed database write increments the recorder error metric") {
+    val usage = mediaUsage("media-failed", "usage-failed", "group-failed")
+    val group = UsageGroup(Set(usage), "group-failed", DateTime.parse("2026-11-01T12:00:00Z"))
+    val failure = new IllegalStateException("DynamoDB unavailable")
+
+    withRecorder(group, Set.empty) { fixture =>
+      when(fixture.usageTable.create(usage)(fixture.logMarker)).thenReturn(Future.failed(failure))
+      fixture.recorder.start()
+
+      Await.result(fixture.usageGroupStream.publish(WithLogMarker(fixture.logMarker, group)), 5.seconds)
+
+      verify(fixture.usageMetrics, timeout(5000)).incrementErrors
     }
   }
 

@@ -20,19 +20,20 @@ class UsageComponents(context: Context) extends GridComponents(context, new Usag
   val usageTable = new UsageTable(config)
   val usageMetrics = new UsageMetrics(config, actorSystem, applicationLifecycle)
   val usageNotifier = new UsageNotifier(config, usageTable)
-  val usageGroupStream = new UsageGroupStream()(materializer, executionContext)
+  val usageGroupStream = new UsageGroupStream()(executionContext)
   val usageRecorder = new UsageRecorder(usageMetrics, usageTable, usageNotifier, usageNotifier, usageGroupStream)
   val notifications = new Notifications(config)
 
   usageRecorder.start()
 
-  if(!config.apiOnly) {
-    val crierReader = new CrierStreamReader(config, usageGroupOps, usageGroupStream, executionContext)
-    crierReader.start()
-  }
+  val crierReader = if (!config.apiOnly) {
+    val reader = new CrierStreamReader(config, usageGroupOps, usageGroupStream, executionContext)
+    reader.start()
+    Some(reader)
+  } else None
 
   context.lifecycle.addStopHook(() => {
-    usageRecorder.stop().map(_ => ())
+    crierReader.map(_.stop()).getOrElse(Future.successful(())).flatMap(_ => usageRecorder.stop()).map(_ => ())
   })
 
   val controller = new UsageApi(auth, authorisation, usageTable, usageGroupOps, notifications, config, usageGroupStream, liveContentApi, controllerComponents, playBodyParsers)

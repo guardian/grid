@@ -4,12 +4,14 @@ import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
 import com.gu.mediaservice.model.usage.{MediaUsage, UsageNotice}
 import model._
 import org.apache.pekko.Done
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Keep, Sink}
 import play.api.libs.json._
 import rx.lang.scala.subjects.PublishSubject
-import rx.lang.scala.{Observable, Subscriber, Subscription}
+import rx.lang.scala.{Observable, Subject, Subscription}
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{Future, Promise}
 import scala.concurrent.duration.DurationInt
 
 case class ResetException() extends Exception
@@ -20,14 +22,14 @@ class UsageRecorder(
   usageNotice: UsageNotifier,
   usageNotifier: UsageNotifier,
   usageGroupStream: UsageGroupStream
-) extends GridLogging {
+)(implicit materializer: Materializer) extends GridLogging {
 
-  private val usageGroupSubject = PublishSubject[WithLogMarker[UsageGroup]]()
+  private val usageGroupSubject: Subject[WithLogMarker[UsageGroup]] = PublishSubject[WithLogMarker[UsageGroup]]()
   val combinedObservable: Observable[WithLogMarker[UsageGroup]] = usageGroupSubject
 
-  val subscriber: Subscriber[LogMarker] = Subscriber((markers: LogMarker) => logger.debug(markers, s"Sent Usage Notification"))
   var maybeSubscription: Option[Subscription] = None
   private var maybeIngressCompletion: Option[Future[Done]] = None
+  private val processingCompletion = Promise[Done]()
 
   val dbMatchStream: Observable[WithLogMarker[MatchedUsageGroup]] = combinedObservable.flatMap(matchDb)
 
@@ -35,7 +37,7 @@ class UsageRecorder(
 
   def matchDb(usageGroupWithContext: WithLogMarker[UsageGroup]): Observable[WithLogMarker[MatchedUsageGroup]] = {
     val WithLogMarker(logMarker, usageGroup) = usageGroupWithContext
-    Observable.from(usageTable.matchUsageGroup(usageGroupWithContext))
+    Observable.defer(Observable.from(usageTable.matchUsageGroup(usageGroupWithContext)))
       .retry((retriesSoFar, error) => {
         val maxRetries = 5
         logger.error(
@@ -137,22 +139,37 @@ class UsageRecorder(
       .flatMap{ mediaIdsImplicatedInDBUpdatesWithContext =>
         implicit val logMarker: LogMarker = mediaIdsImplicatedInDBUpdatesWithContext.logMarker
         logger.info(logMarker, s"Building ${mediaIdsImplicatedInDBUpdatesWithContext.value.size} usage notices")
-        Observable.from(mediaIdsImplicatedInDBUpdatesWithContext.value.map(id => Observable.from(usageNotice.build(id))))
+        Observable.from(mediaIdsImplicatedInDBUpdatesWithContext.value.map(id =>
+          Observable.defer(Observable.from(usageNotice.build(id)))
+        ))
           .flatten[UsageNotice]
           .map(WithLogMarker(_))
       }
   }
 
   def start(): Unit = {
-    maybeSubscription = Some(finalObservable.subscribe(subscriber))
-    maybeIngressCompletion = Some(usageGroupStream.runForeach(usageGroupSubject.onNext))
+    maybeSubscription = Some(finalObservable.subscribe(
+      markers => logger.debug(markers, "Sent Usage Notification"),
+      error => processingCompletion.tryFailure(error),
+      () => processingCompletion.trySuccess(Done)
+    ))
+    val (queue, ingressCompletion) = usageGroupStream.source
+      .toMat(Sink.foreach(usageGroupSubject.onNext))(Keep.both)
+      .run()
+    usageGroupStream.attachQueue(queue)
+    maybeIngressCompletion = Some(ingressCompletion)
   }
 
   def stop(): Future[Done] = {
-    usageGroupStream.complete()
-    maybeIngressCompletion
-      .getOrElse(Future.successful(Done))
-      .andThen { case _ => maybeSubscription.foreach(_.unsubscribe()) }
+    maybeIngressCompletion match {
+      case None => usageGroupStream.complete()
+      case Some(ingressCompletion) =>
+        usageGroupStream.complete()
+          .flatMap(_ => ingressCompletion)
+          .map(_ => usageGroupSubject.onCompleted())
+          .flatMap(_ => processingCompletion.future)
+          .andThen { case _ => maybeSubscription.foreach(_.unsubscribe()) }
+    }
   }
 
 }
