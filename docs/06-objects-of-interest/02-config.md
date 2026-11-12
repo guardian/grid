@@ -48,6 +48,11 @@ The same build identifier must be used by SBT so runtime events match the upload
 deleted after upload before packaging. Without a token (including fork builds), upload is skipped;
 hidden maps are still generated locally. A token with incomplete upload configuration fails the build.
 
+All services extending `GridComponents` also report uncaught Play server exceptions with the same
+configuration. Events carry service (`app`), stage, release and request ID tags. Request metadata is
+limited to method, route/URL and User-Agent; cookies, request bodies and other headers are not attached.
+Client errors remain with Play, and a reporting failure must not change the HTTP response.
+
 ### Common configuration
 
 <table>
