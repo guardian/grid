@@ -1,6 +1,5 @@
 import angular from 'angular';
 import * as Sentry from '@sentry/browser';
-import { CaptureConsole } from '@sentry/integrations';
 
 
 export var sentry = angular.module('sentry', []);
@@ -65,22 +64,22 @@ sentry.config(['$provide', function ($provide) {
             // Don't send failed HTTP requests as that's mostly just
             // noise we already get in other logs
             if (!isHttpError(exception)) {
-                Sentry.captureException(exception, cause);
+                Sentry.captureException(exception, cause ? { captureContext: { extra: { cause } } } : undefined);
             }
         };
     }]);
 }]);
 
-sentry.run(['$rootScope', 'sentryEnabled', 'sentryDsn',
-            ($rootScope, sentryEnabled, sentryDsn) => {
+sentry.run(['sentryEnabled', 'sentryDsn',
+            (sentryEnabled, sentryDsn) => {
     if (sentryEnabled) {
       Sentry.init({dsn: sentryDsn,
         integrations: [
-          new CaptureConsole({
+          Sentry.captureConsoleIntegration({
             levels: ['warn', 'error']
           })
         ]});
-      // Ensures user data is blank
-      Sentry.setContext('session_id', window._clientConfig.sessionId);
+      // Identifies the kahuna instance that served the page, not the user's session.
+      Sentry.setContext('grid', { instanceId: window._clientConfig.sessionId });
     }
 }]);

@@ -25,6 +25,13 @@ Service-specific configs. These will override all other config files.
 
 ## Config documentation
 
+### Sentry
+
+Kahuna uses the Sentry browser SDK to report JavaScript exceptions and console warnings/errors when
+`sentry.dsn` is configured. AngularJS exceptions retain the normal Angular handler; failed HTTP requests
+are excluded from exception reporting. The `grid.instanceId` event context identifies the Kahuna
+instance that served the page, not an individual user or browser session.
+
 ### Common configuration
 
 <table>
