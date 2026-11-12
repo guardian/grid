@@ -1,8 +1,8 @@
 import type { BrowserContext, Route } from '@playwright/test';
 import { GenericContainer, Wait } from 'testcontainers';
-import { API_KEY, DOMAIN, MEDIA_API_PORT, SERVICE_PORTS } from './constants.ts';
-import { loadImageFixtures } from './image-fixtures.ts';
-import { SEARCH_CHIP_IMAGE_IDS } from '../fixtures/elasticsearch/search-chips.ts';
+import { API_KEY, DOMAIN, MEDIA_API_PORT, SERVICE_PORTS } from '../../setup/constants.ts';
+import { loadImageFixtures } from '../../setup/image-fixtures.ts';
+import { SEARCH_CHIP_IMAGE_IDS } from '../elasticsearch/search-chips.ts';
 
 const API_ORIGIN = `https://api.media.${DOMAIN}`;
 const EDITS_ORIGIN = `https://media-metadata.${DOMAIN}`;
