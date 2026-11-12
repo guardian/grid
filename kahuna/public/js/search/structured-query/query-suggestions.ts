@@ -57,19 +57,19 @@ if (window._clientConfig.useReaper === true) {
 
 const persistedSearch = window._clientConfig.useReaper === true
   ? [
-      "persistence-identifier",
-      "exports",
-      "usages",
-      "archived",
-      "photographer-category",
-      "illustrator-category",
-      "commissioned-agency",
-      "leases",
-      "persisted-collection",
-      "photoshoot",
-      "labeled",
-      "edited"
-    ]
+    "persistence-identifier",
+    "exports",
+    "usages",
+    "archived",
+    "photographer-category",
+    "illustrator-category",
+    "commissioned-agency",
+    "leases",
+    "persisted-collection",
+    "photoshoot",
+    "labeled",
+    "edited"
+  ]
   : undefined;
 
 if (window._clientConfig.agencyPicksIngredients) {
@@ -184,7 +184,7 @@ querySuggestions.factory("querySuggestions", [
           fieldName,
           resolver: staticAliasOptions
             ? (value: string) =>
-                prefixFilter(value)(suggestFieldAliasOptions(fieldName))
+              prefixFilter(value)(suggestFieldAliasOptions(fieldName))
             : undefined
         };
       })

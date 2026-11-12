@@ -4,6 +4,7 @@ import { test as base, createBdd } from 'playwright-bdd';
 import { DOMAIN } from '../setup/constants.ts';
 import type { ImageSource } from '../setup/image-fixtures.ts';
 import { deleteImageCopies, indexImageCopy } from '../setup/seed-image.ts';
+import { startSuggestionWireMock } from '../setup/suggestion-wiremock.ts';
 import MCR from 'monocart-coverage-reports';
 import coverageOptions from '../setup/mcr.config';
 
@@ -63,7 +64,7 @@ export interface TestImage {
  * domain (required for the services' CORS origins to match). API-level `request` tests
  * use `baseURL` from the Playwright config, which points at Kahuna's fixed host port.
  */
-export const test = base.extend<{ testContext: TestContext; seedImage: SeedImage }>({
+export const test = base.extend<{ testContext: TestContext; seedImage: SeedImage; coverage: void; suggestionWireMock: void }>({
   page: async ({ page }, use) => {
     await use(page);
     if (page.video() && !page.isClosed()) {
@@ -80,6 +81,23 @@ export const test = base.extend<{ testContext: TestContext; seedImage: SeedImage
       return id;
     });
   },
+  suggestionWireMock: [async ({ context }, use, testInfo) => {
+    if (!testInfo.tags.includes('@wiremock')) {
+      await use();
+      return;
+    }
+    const mock = await startSuggestionWireMock();
+    try {
+      const unroute = await mock.intercept(context);
+      try {
+        await use();
+      } finally {
+        await unroute();
+      }
+    } finally {
+      await mock.stop();
+    }
+  }, { auto: true }],
   coverage: [async ({ page, browserName }, use) => {
     if (browserName !== 'chromium') {
       throw new Error('Native JS/CSS coverage requires Chromium');

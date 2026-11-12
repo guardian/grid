@@ -63,6 +63,7 @@ Feature: Creating search filter chips
   # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 26-91, 130-132, 153-155, 166-190, 288-305
   # Evidence: e2e-tests/setup/config.ts lines 39-66, 96-97
 
+  @wiremock
   Scenario Outline: Selecting a configured API value completes the corresponding chip
     Given I am choosing a value for the "<Field>" filter
     When I choose "<Value>" from the filter value suggestions
@@ -106,6 +107,42 @@ Feature: Creating search filter chips
   # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54
   # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 98-117
 
+  Scenario: A typed photoshoot prefix retrieves a seeded completion that can be selected
+    Given I am choosing a photoshoot value starting with "Search Chips Harbour"
+    When I choose "Search Chips Harbour Shoot" from the filter value suggestions
+    Then the "photoshoot" filter chip should have the value "Search Chips Harbour Shoot"
+    And the chip query should be 'photoshoot:"Search Chips Harbour Shoot"'
+  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 169-175, 266-270
+  # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54
+  # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 151-171
+
+  Scenario: Disabling optional search features removes the persisted field
+    Given optional search suggestion features are disabled
+    When I type "+per" into the search box
+    Then the filter suggestions should include "person"
+    And the filter suggestions should not include "persisted"
+  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 54-72, 164-168
+  # Evidence: kahuna/app/views/main.scala.html lines 103
+
+  Scenario: Disabling optional search features removes conditional is suggestions
+    Given optional search suggestion features are disabled
+    When I type "+is:" into the search box
+    Then the filter suggestions should include "deleted"
+    And the filter suggestions should not include "reapable"
+    And the filter suggestions should not include "agency-pick"
+  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 46-77
+  # Evidence: kahuna/app/views/main.scala.html lines 103
+
+  Scenario: Disabling optional usage features retains only print and digital suggestions
+    Given optional search suggestion features are disabled
+    When I type "+usages@platform:" into the search box
+    Then the filter suggestions should include "print"
+    And the filter suggestions should include "digital"
+    And the filter suggestions should not include "download"
+    And the filter suggestions should not include "Added to Photo Sales"
+  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 277-288
+  # Evidence: kahuna/app/views/main.scala.html lines 103
+
   Scenario: A credit without a completion remains a valid manually entered chip value
     Given the search box is empty
     When I type "credit:Search Chips Manual Credit" into the search box
@@ -114,6 +151,7 @@ Feature: Creating search filter chips
   # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 124-127, 264-268
   # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54, 115-122
 
+  @wiremock
   Scenario: Editing a photographer with a suggestion replaces rather than duplicates the chip
     Given the chip query is 'by:"Example External Photographer"'
     When I replace the "by" chip value with the prefix "Example"
@@ -150,19 +188,19 @@ Feature: Creating search filter chips
   # Evidence: kahuna/public/js/components/gr-cql-input/syntax.ts lines 77-92
   # Evidence: kahuna/node_modules/@guardian/cql/dist/lib.js lines 12037-12055
 
-  @known-defect
-  Scenario: The hash shortcut creates a label chip using a real label suggestion
+  @wiremock
+  Scenario: The hash shortcut creates a label chip using a WireMock label suggestion
     Given the search box is empty
     When I type "#search-chips" into the search box
     And I choose "search-chips-featured" from the filter value suggestions
     Then the "label" filter chip should have the value "search-chips-featured"
-    And the chip query should be "#search-chips-featured"
+    And the chip query should be "#search-chips-featured" with editor form "label:search-chips-featured"
   # Evidence: kahuna/public/js/components/gr-cql-input/syntax.ts lines 14-20
   # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 141-143, 276-280
   # Evidence: kahuna/public/js/services/api/media-api.js lines 115-116
   # Evidence: media-api/app/controllers/MediaApi.scala lines 135-160
 
-  @known-defect
+  @wiremock
   Scenario: Selecting a configured illustrator suggestion completes the chip
     Given I am choosing a value for the "illustrator" filter
     When I choose "Example Contracted Illustrator" from the filter value suggestions
@@ -170,6 +208,16 @@ Feature: Creating search filter chips
     And there should be exactly 1 filter chips
   # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 134-137, 254-262
   # Evidence: dev/script/generate-config/service-config.js lines 78-82
+
+  @wiremock
+  Scenario: A typed source prefix retrieves a WireMock suggestion that can be selected
+    Given I am choosing a source value starting with "Search Chips"
+    When I choose "Search Chips Wire" from the filter value suggestions
+    Then the "source" filter chip should have the value "Search Chips Wire"
+    And the chip query should be 'source:"Search Chips Wire"'
+  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 146-149, 260-264
+  # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 55
+  # Evidence: e2e-tests/setup/suggestion-wiremock.ts lines 25-105
 
   Scenario: Keyboard navigation into a chip allows deleting a value character without deleting the chip
     Given the chip query is "harbour city:Bristol"
