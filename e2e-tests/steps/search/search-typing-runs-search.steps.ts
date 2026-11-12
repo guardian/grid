@@ -1,16 +1,17 @@
 import { Then, When, expect } from '../setup.ts';
-import { recordSearches, searchBoxEditable } from './search-box.ts';
+import { editSearchBox, recordSearches } from './search-box.ts';
 
 // Kahuna waits 500 ms after the last change before searching; allow time for the request to go out.
 const SEARCH_SETTLE_MS = 1_500;
 
 When('I type {string} and quickly delete it again', async ({ page, testContext }, text: string) => {
     recordSearches(page, testContext);
-    const editable = searchBoxEditable(page);
-    await editable.pressSequentially(text);
-    for (let i = 0; i < text.length; i++) {
-        await editable.press('Backspace');
-    }
+    await editSearchBox(page, async (keyboard) => {
+        await keyboard.type(text);
+        for (let i = 0; i < text.length; i++) {
+            await keyboard.press('Backspace');
+        }
+    });
 });
 
 Then('the page address should have the query {string}', async ({ page }, query: string) => {
