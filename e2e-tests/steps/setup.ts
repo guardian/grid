@@ -4,7 +4,7 @@ import { test as base, createBdd } from 'playwright-bdd';
 import { DOMAIN } from '../setup/constants.ts';
 import type { ImageSource } from '../setup/image-fixtures.ts';
 import { deleteImageCopies, indexImageCopy } from '../setup/seed-image.ts';
-import { startSuggestionWireMock } from '../setup/suggestion-wiremock.ts';
+import { startSuggestionWireMock } from '../fixtures/suggestions/suggestion-wiremock.ts';
 import MCR from 'monocart-coverage-reports';
 import coverageOptions from '../setup/mcr.config';
 

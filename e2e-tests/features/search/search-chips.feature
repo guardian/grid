@@ -217,7 +217,7 @@ Feature: Creating search filter chips
     And the chip query should be 'source:"Search Chips Wire"'
   # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 146-149, 260-264
   # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 55
-  # Evidence: e2e-tests/setup/suggestion-wiremock.ts lines 25-105
+  # Evidence: e2e-tests/fixtures/suggestions/suggestion-wiremock.ts lines 25-105
 
   Scenario: Keyboard navigation into a chip allows deleting a value character without deleting the chip
     Given the chip query is "harbour city:Bristol"
