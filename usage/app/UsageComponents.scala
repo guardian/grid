@@ -21,7 +21,13 @@ class UsageComponents(context: Context) extends GridComponents(context, new Usag
   val usageMetrics = new UsageMetrics(config, actorSystem, applicationLifecycle)
   val usageNotifier = new UsageNotifier(config, usageTable)
   val usageGroupStream = new UsageGroupStream()(materializer, executionContext)
-  val usageRecorder = new UsageRecorder(usageMetrics, usageTable, usageNotifier, usageNotifier, usageGroupStream)
+  val usageRecorder = new UsageRecorder(
+    usageMetrics,
+    usageTable,
+    usageNotifier,
+    usageGroupStream,
+    actorSystem.scheduler
+  )
   val notifications = new Notifications(config)
 
   usageRecorder.start()

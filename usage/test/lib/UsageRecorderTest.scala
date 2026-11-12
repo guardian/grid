@@ -1,11 +1,12 @@
 package lib
 
-import com.gu.mediaservice.lib.logging.MarkerMap
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model.usage._
 import model.{UsageGroup, UsageTable}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.SystemMaterializer
 import org.joda.time.DateTime
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{never, timeout, verify, when}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -35,15 +36,24 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
     val logMarker = MarkerMap("test" -> "usage-recorder")
     val usageTable = mock[UsageTable]
     val usageNotifier = mock[UsageNotifier]
+    when(usageNotifier.build(any[String])(any[LogMarker]))
+      .thenReturn(Future.successful(UsageNotice("", JsArray())))
+    when(usageNotifier.send(any[WithLogMarker[UsageNotice]])).thenReturn(logMarker)
     when(usageTable.matchUsageGroup(WithLogMarker(logMarker, usageGroup)))
       .thenReturn(Future.successful(WithLogMarker(logMarker, dbUsages)))
     val usageGroupStream = new UsageGroupStream
-    val recorder = new UsageRecorder(mock[UsageMetrics], usageTable, usageNotifier, usageNotifier, usageGroupStream)
+    val recorder = new UsageRecorder(
+      mock[UsageMetrics],
+      usageTable,
+      usageNotifier,
+      usageGroupStream,
+      actorSystem.scheduler
+    )
 
     try {
       test(RecorderFixture(logMarker, usageGroupStream, usageTable, usageNotifier, recorder))
     } finally {
-      Await.result(recorder.stop(), 5.seconds)
+      Await.result(recorder.stop(), 15.seconds)
       Await.result(actorSystem.terminate(), 5.seconds)
     }
   }
@@ -61,6 +71,9 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
     val usageMetrics = mock[UsageMetrics]
     val usageNotifier = mock[UsageNotifier]
 
+    when(usageNotifier.build(any[String])(any[LogMarker]))
+      .thenReturn(Future.successful(UsageNotice("", JsArray())))
+    when(usageNotifier.send(any[WithLogMarker[UsageNotice]])).thenReturn(logMarker)
     when(usageTable.matchUsageGroup(WithLogMarker(logMarker, crierGroup)))
       .thenReturn(Future.successful(WithLogMarker(logMarker, Set.empty)))
     when(usageTable.matchUsageGroup(WithLogMarker(logMarker, apiGroup)))
@@ -69,7 +82,13 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
     when(usageTable.create(apiUsage)).thenReturn(Future.successful(Json.obj()))
 
     val usageGroupStream = new UsageGroupStream
-    val recorder = new UsageRecorder(usageMetrics, usageTable, usageNotifier, usageNotifier, usageGroupStream)
+    val recorder = new UsageRecorder(
+      usageMetrics,
+      usageTable,
+      usageNotifier,
+      usageGroupStream,
+      actorSystem.scheduler
+    )
     recorder.start()
 
     try {
@@ -79,7 +98,7 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
       verify(usageTable, timeout(5000)).create(crierUsage)
       verify(usageTable, timeout(5000)).create(apiUsage)
     } finally {
-      Await.result(recorder.stop(), 5.seconds)
+      Await.result(recorder.stop(), 15.seconds)
       Await.result(actorSystem.terminate(), 5.seconds)
     }
   }

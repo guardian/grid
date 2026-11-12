@@ -2,13 +2,14 @@ package lib
 
 import model.UsageGroup
 import org.apache.pekko.Done
+import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class UsageGroupStream(implicit materializer: Materializer, executionContext: ExecutionContext) {
-  private val (queue, source) =
+  private val (queue, usageGroups) =
     Source.queue[WithLogMarker[UsageGroup]](128, OverflowStrategy.backpressure).preMaterialize()
 
   def publish(usageGroup: WithLogMarker[UsageGroup]): Future[Done] =
@@ -21,8 +22,7 @@ class UsageGroupStream(implicit materializer: Materializer, executionContext: Ex
       case QueueOfferResult.Failure(error) => Future.failed(error)
     }
 
-  def runForeach(onUsageGroup: WithLogMarker[UsageGroup] => Unit): Future[Done] =
-    source.runForeach(onUsageGroup)
+  def source: Source[WithLogMarker[UsageGroup], NotUsed] = usageGroups
 
   def complete(): Unit = queue.complete()
 }

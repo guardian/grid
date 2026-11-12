@@ -1,158 +1,152 @@
 package lib
 
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
-import com.gu.mediaservice.model.usage.{MediaUsage, UsageNotice}
+import com.gu.mediaservice.model.usage.MediaUsage
 import model._
 import org.apache.pekko.Done
-import play.api.libs.json._
-import rx.lang.scala.subjects.PublishSubject
-import rx.lang.scala.{Observable, Subscriber, Subscription}
+import org.apache.pekko.actor.Scheduler
+import org.apache.pekko.pattern.after
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Sink
+import play.api.libs.json.JsObject
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
-import scala.concurrent.duration.DurationInt
-
-case class ResetException() extends Exception
+import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
+import scala.util.Try
 
 class UsageRecorder(
   usageMetrics: UsageMetrics,
   usageTable: UsageTable,
-  usageNotice: UsageNotifier,
   usageNotifier: UsageNotifier,
-  usageGroupStream: UsageGroupStream
-) extends GridLogging {
+  usageGroupStream: UsageGroupStream,
+  scheduler: Scheduler
+)(implicit materializer: Materializer, executionContext: ExecutionContext) extends GridLogging {
 
-  private val usageGroupSubject = PublishSubject[WithLogMarker[UsageGroup]]()
-  val combinedObservable: Observable[WithLogMarker[UsageGroup]] = usageGroupSubject
+  private case class MatchedUsageGroup(logMarker: LogMarker, usageGroup: UsageGroup, dbUsages: Set[MediaUsage])
 
-  val subscriber: Subscriber[LogMarker] = Subscriber((markers: LogMarker) => logger.debug(markers, s"Sent Usage Notification"))
-  var maybeSubscription: Option[Subscription] = None
-  private var maybeIngressCompletion: Option[Future[Done]] = None
-
-  val dbMatchStream: Observable[WithLogMarker[MatchedUsageGroup]] = combinedObservable.flatMap(matchDb)
-
-  case class MatchedUsageGroup(usageGroup: UsageGroup, dbUsages: Set[MediaUsage])
-
-  def matchDb(usageGroupWithContext: WithLogMarker[UsageGroup]): Observable[WithLogMarker[MatchedUsageGroup]] = {
-    val WithLogMarker(logMarker, usageGroup) = usageGroupWithContext
-    Observable.from(usageTable.matchUsageGroup(usageGroupWithContext))
-      .retry((retriesSoFar, error) => {
-        val maxRetries = 5
-        logger.error(
-          logMarker ++ Map("retry" -> retriesSoFar),
-          s"Encountered an error trying to match usage group (${usageGroup.grouping}) retry $retriesSoFar of $maxRetries",
-          error
-        )
-
-        retriesSoFar < maxRetries
-      })
-      .map{dbUsagesWithContext =>
-        implicit val logMarker: LogMarker = dbUsagesWithContext.logMarker
-        logger.info(dbUsagesWithContext.logMarker, s"Built MatchedUsageGroup for ${usageGroup.grouping}")
-        WithLogMarker(MatchedUsageGroup(usageGroup, dbUsagesWithContext.value))
-      }
-  }
-
-  val dbUpdateStream: Observable[WithLogMarker[Set[String]]] = getUpdatesStream(dbMatchStream)
-
-  val notificationStream: Observable[WithLogMarker[UsageNotice]] = getNotificationStream(dbUpdateStream)
-
-  val notifiedStream: Observable[LogMarker] = notificationStream.map(usageNotifier.send)
-
-  val finalObservable: Observable[LogMarker] = notifiedStream.retry((retriesSoFar, error) => {
-    val maxRetries = 5
-    logger.error(MarkerMap("retry" -> retriesSoFar), "UsageRecorder encountered an error.", error)
-    usageMetrics.incrementErrors
-
-    retriesSoFar < maxRetries
-  })
-
-  private def getUpdatesStream(dbMatchStream:  Observable[WithLogMarker[MatchedUsageGroup]]): Observable[WithLogMarker[Set[String]]] = {
-    dbMatchStream.flatMap(matchedUsageGroupWithContext => {
-      implicit val logMarker: LogMarker = matchedUsageGroupWithContext.logMarker
-      val matchedUsageGroup = matchedUsageGroupWithContext.value
-
-      val usageGroup = matchedUsageGroup.usageGroup
-      val dbUsages = usageGroup.maybeStatus.fold(
-        matchedUsageGroup.dbUsages
-      )(
-        status => matchedUsageGroup.dbUsages.filter(dbUsage => dbUsage.status == status && !dbUsage.isRemoved)
-      )
-      val dbUsageMap = dbUsages.map(_.entry).toMap
-      val dbUsageKeys = dbUsageMap.keySet
-
-      val streamUsageMap = usageGroup.usages.map(_.entry).toMap
-      val streamUsageKeys = streamUsageMap.keySet
-
-      dbUsages.foreach(mediaUsage => {
-        logger.info(logMarker, s"Seen DB Usage for ${mediaUsage.mediaId}")
-      })
-      usageGroup.usages.foreach(mediaUsage => {
-        logger.info(logMarker, s"Seen Stream Usage for ${mediaUsage.mediaId}")
-      })
-
-      def performAndLogDBOperation(func: MediaUsage => Future[JsObject], opName: String)(mediaUsage: MediaUsage) = {
-        val resultObservable = Observable.from(func(mediaUsage))
-        resultObservable.foreach(result => {
-          logger.info(
-            logMarker,
-            s"'$opName' DB Operation for ${mediaUsage.grouping} - on mediaID: ${mediaUsage.mediaId} with result: $result"
-          )
-          usageMetrics.incrementUpdated
-        })
-        resultObservable
-      }
-
-      val markAsRemovedOps = dbUsageKeys.diff(streamUsageKeys)
-        .flatMap(dbUsageMap.get)
-        .map(performAndLogDBOperation(usageTable.markAsRemoved, "markAsRemoved"))
-
-      val createOps = (if(usageGroup.isReindex) streamUsageKeys else streamUsageKeys.diff(dbUsageKeys))
-        .flatMap(streamUsageMap.get)
-        .map(performAndLogDBOperation(usageTable.create, "create"))
-
-      val updateOps = (if (usageGroup.isReindex) Set() else streamUsageKeys.intersect(dbUsageKeys))
-        .flatMap(streamUsageMap.get)
-        .diff(dbUsages) // to avoid updating to the same data that's already in the DB
-        .map(performAndLogDBOperation(usageTable.update, "update"))
-
-      val mediaIdsImplicatedInDBUpdates =
-        (usageGroup.usages ++ dbUsages)
-          .filter(_.isGridLikeId)
-          .map(_.mediaId)
-
-      Observable.from(markAsRemovedOps ++ updateOps ++ createOps)
-        .flatten[JsObject]
-        .toSeq // observable emits exactly once, when all ops complete and have been emitted, or immediately if there are 0 ops
-        .map(_ => {
-          logger.info(logMarker, s"Emitting ${mediaIdsImplicatedInDBUpdates.size} media IDs for notification")
-          WithLogMarker(mediaIdsImplicatedInDBUpdates)
-        })
-    })
-  }
-
-  private def getNotificationStream(dbUpdateStream: Observable[WithLogMarker[Set[String]]]): Observable[WithLogMarker[UsageNotice]] = {
-    dbUpdateStream
-      .delay(5.seconds) // give DynamoDB write a greater chance of reaching eventual consistency, before reading
-      .flatMap{ mediaIdsImplicatedInDBUpdatesWithContext =>
-        implicit val logMarker: LogMarker = mediaIdsImplicatedInDBUpdatesWithContext.logMarker
-        logger.info(logMarker, s"Building ${mediaIdsImplicatedInDBUpdatesWithContext.value.size} usage notices")
-        Observable.from(mediaIdsImplicatedInDBUpdatesWithContext.value.map(id => Observable.from(usageNotice.build(id))))
-          .flatten[UsageNotice]
-          .map(WithLogMarker(_))
-      }
-  }
+  private var maybeCompletion: Option[Future[Done]] = None
 
   def start(): Unit = {
-    maybeSubscription = Some(finalObservable.subscribe(subscriber))
-    maybeIngressCompletion = Some(usageGroupStream.runForeach(usageGroupSubject.onNext))
+    if (maybeCompletion.isEmpty) {
+      maybeCompletion = Some(
+        usageGroupStream.source
+          .mapAsync(8)(processUsageGroup)
+          .mapConcat(_.toList)
+          .runWith(Sink.foreach(markers => logger.debug(markers, "Sent Usage Notification")))
+      )
+    }
   }
 
   def stop(): Future[Done] = {
     usageGroupStream.complete()
-    maybeIngressCompletion
-      .getOrElse(Future.successful(Done))
-      .andThen { case _ => maybeSubscription.foreach(_.unsubscribe()) }
+    maybeCompletion.getOrElse(Future.successful(Done))
   }
 
+  private def processUsageGroup(usageGroupWithContext: WithLogMarker[UsageGroup]): Future[Seq[LogMarker]] = {
+    val WithLogMarker(logMarker, usageGroup) = usageGroupWithContext
+
+    for {
+      matchedUsageGroup <- matchDb(usageGroupWithContext)
+      mediaIds <- getUpdates(matchedUsageGroup)
+      notices <- after(5.seconds, scheduler) {
+        Future.traverse(mediaIds.toSeq)(id => notifyWithRetries(id, logMarker))
+      }
+    } yield notices
+  }.recover { case error =>
+    val WithLogMarker(logMarker, usageGroup) = usageGroupWithContext
+    logger.error(logMarker ++ Map("usageGroup" -> usageGroup.grouping), "UsageRecorder encountered an error.", error)
+    usageMetrics.incrementErrors
+    Seq.empty
+  }
+
+  private def matchDb(usageGroupWithContext: WithLogMarker[UsageGroup]): Future[MatchedUsageGroup] = {
+    val WithLogMarker(logMarker, usageGroup) = usageGroupWithContext
+
+    retrying(usageTable.matchUsageGroup(usageGroupWithContext), maxRetries = 5) { (retriesSoFar, error) =>
+      logger.error(
+        logMarker ++ Map("retry" -> retriesSoFar),
+        s"Encountered an error trying to match usage group (${usageGroup.grouping}) retry $retriesSoFar of 5",
+        error
+      )
+    }.map { dbUsagesWithContext =>
+      logger.info(dbUsagesWithContext.logMarker, s"Built MatchedUsageGroup for ${usageGroup.grouping}")
+      MatchedUsageGroup(dbUsagesWithContext.logMarker, usageGroup, dbUsagesWithContext.value)
+    }
+  }
+
+  private def getUpdates(matchedUsageGroup: MatchedUsageGroup): Future[Set[String]] = {
+    implicit val logMarker: LogMarker = matchedUsageGroup.logMarker
+
+    val usageGroup = matchedUsageGroup.usageGroup
+    val dbUsages = usageGroup.maybeStatus.fold(matchedUsageGroup.dbUsages) { status =>
+      matchedUsageGroup.dbUsages.filter(dbUsage => dbUsage.status == status && !dbUsage.isRemoved)
+    }
+    val dbUsageMap = dbUsages.map(_.entry).toMap
+    val dbUsageKeys = dbUsageMap.keySet
+    val streamUsageMap = usageGroup.usages.map(_.entry).toMap
+    val streamUsageKeys = streamUsageMap.keySet
+
+    dbUsages.foreach(mediaUsage => logger.info(logMarker, s"Seen DB Usage for ${mediaUsage.mediaId}"))
+    usageGroup.usages.foreach(mediaUsage => logger.info(logMarker, s"Seen Stream Usage for ${mediaUsage.mediaId}"))
+
+    def performAndLogDBOperation(mediaUsage: MediaUsage, opName: String)(operation: => Future[JsObject]): Future[JsObject] =
+      operation.map { result =>
+        logger.info(
+          logMarker,
+          s"'$opName' DB Operation for ${mediaUsage.grouping} - on mediaID: ${mediaUsage.mediaId} with result: $result"
+        )
+        usageMetrics.incrementUpdated
+        result
+      }
+
+    val markAsRemovedOps = dbUsageKeys.diff(streamUsageKeys)
+      .flatMap(dbUsageMap.get)
+      .toSeq
+      .map(mediaUsage => performAndLogDBOperation(mediaUsage, "markAsRemoved")(usageTable.markAsRemoved(mediaUsage)))
+
+    val createOps = (if (usageGroup.isReindex) streamUsageKeys else streamUsageKeys.diff(dbUsageKeys))
+      .flatMap(streamUsageMap.get)
+      .toSeq
+      .map(mediaUsage => performAndLogDBOperation(mediaUsage, "create")(usageTable.create(mediaUsage)))
+
+    val updateOps = (if (usageGroup.isReindex) Set.empty else streamUsageKeys.intersect(dbUsageKeys))
+      .flatMap(streamUsageMap.get)
+      .diff(dbUsages)
+      .toSeq
+      .map(mediaUsage => performAndLogDBOperation(mediaUsage, "update")(usageTable.update(mediaUsage)))
+
+    val mediaIdsImplicatedInDBUpdates =
+      (usageGroup.usages ++ dbUsages)
+        .filter(_.isGridLikeId)
+        .map(_.mediaId)
+
+    Future.sequence(markAsRemovedOps ++ updateOps ++ createOps).map { _ =>
+      logger.info(logMarker, s"Emitting ${mediaIdsImplicatedInDBUpdates.size} media IDs for notification")
+      mediaIdsImplicatedInDBUpdates
+    }
+  }
+
+  private def notifyWithRetries(mediaId: String, logMarker: LogMarker): Future[LogMarker] = {
+    val maxRetries = 5
+    retrying(
+      usageNotifier.build(mediaId)(logMarker).flatMap { notice =>
+        Future(usageNotifier.send(WithLogMarker(logMarker, notice)))
+      },
+      maxRetries
+    ) { (retriesSoFar, error) =>
+      logger.error(MarkerMap("retry" -> retriesSoFar), "UsageRecorder encountered an error.", error)
+      if (retriesSoFar < maxRetries) usageMetrics.incrementErrors
+    }
+  }
+
+  private def retrying[A](operation: => Future[A], maxRetries: Int)(onFailure: (Int, Throwable) => Unit): Future[A] = {
+    def attempt(retriesSoFar: Int): Future[A] =
+      Try(operation).fold(Future.failed, identity).recoverWith { case error =>
+        onFailure(retriesSoFar, error)
+        if (retriesSoFar < maxRetries) attempt(retriesSoFar + 1)
+        else Future.failed(error)
+      }
+
+    attempt(0)
+  }
 }
