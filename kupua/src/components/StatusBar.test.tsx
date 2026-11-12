@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.hoisted(() => {
@@ -26,6 +26,10 @@ import { usePanelStore } from "@/stores/panel-store";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import { useSelectionStore } from "@/stores/selection-store";
 import { SelectionFab } from "./SelectionFab";
+import { PanelLayout } from "./PanelLayout";
+import { FullFrameOptions, ImageActions } from "./ImageActions";
+import { LabelOperationReceipts } from "./LabelEditor";
+import { useImageActionStore } from "@/stores/image-action-store";
 
 const ticker = gridConfig.tickerDefinitions[0];
 const resultCount = () => screen.getAllByRole("status")[0].textContent;
@@ -44,6 +48,7 @@ describe("StatusBar AI totals", () => {
   });
   afterEach(() => {
     cleanup();
+    useImageActionStore.setState({ prepared: [] });
     useSearchStore.setState(initial, true);
     useUiPrefsStore.setState(initialPrefs, true);
     useSelectionStore.setState(initialSelection, true);
@@ -56,7 +61,7 @@ describe("StatusBar AI totals", () => {
     useUiPrefsStore.setState({ _pointerCoarse: true });
     useSelectionStore.setState({ selectedIds: new Set(["selected-image"]) });
     render(<><StatusBar /><SelectionFab /></>);
-    expect(screen.queryByRole("button", { name: "Clear selection" }) !== null).toBe(!compact);
+    expect(screen.queryByRole("button", { name: "Deselect" }) !== null).toBe(!compact);
     expect(screen.queryByRole("button", { name: "Clear selection (1 selected)" }) !== null).toBe(compact);
   });
 
@@ -69,6 +74,256 @@ describe("StatusBar AI totals", () => {
     useSearchStore.setState({ aiPoolTotal: null, total: 13_260 });
     render(<StatusBar />);
     expect(resultCount()).toBe("13,260\u00a0matches");
+  });
+
+  it("offers the five image actions only for an explicit desktop selection", () => {
+    const view = render(<StatusBar />);
+    expect(screen.queryByRole("group", { name: "Image actions" })).toBeNull();
+    act(() => useSelectionStore.setState({ selectedIds: new Set(["selected-image"]) }));
+    const actions = screen.getByRole("group", { name: "Image actions" });
+    expect([...actions.querySelectorAll("button")].map(button => button.getAttribute("aria-label"))).toEqual([
+      "Share with URL", "Crop full frame", "Download", "Delete", "Add to Library",
+    ]);
+    expect(screen.getByRole("button", { name: "Deselect" })).toBeTruthy();
+    const counter = screen.getByRole("status", { name: "1 selected" });
+    const followingButtons = [...counter.parentElement!.querySelectorAll("button")]
+      .filter(button => Boolean(counter.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING));
+    expect(followingButtons[0]).toBe(screen.getByRole("button", { name: "Deselect" }));
+    view.unmount();
+  });
+
+  it("keeps pending action styling steady while blocking preparation immediately", () => {
+    const view = render(<ImageActions actions={["delete"]} context={{ targets: [{ id: "pending", pending: true }], api: true, archive: true }} />);
+    const button = screen.getByRole("button", { name: "Delete" }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute("aria-busy")).toBe("true");
+    expect(button.style.opacity).toBe("0.4");
+    fireEvent.click(button);
+    expect(useImageActionStore.getState().prepared).toEqual([]);
+    view.rerender(<ImageActions actions={["delete"]} context={{ targets: [{ id: "pending", pending: false }], api: true, archive: true }} />);
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute("aria-busy")).toBeNull();
+    expect(button.style.opacity).toBe("");
+  });
+
+  it("does not brighten disabled Full frame while newly selected metadata is pending", () => {
+    const target = (id: string, full = true) => ({ id, image: { id, uploadTime: "", uploadedBy: "", metadata: {},
+      source: { mimeType: "image/jpeg", dimensions: { width: 1200, height: 800 } },
+      exports: full ? [{ specification: { type: "full" } }] : [] },
+      overlay: { resource: { uri: `https://api.example.test/images/${id}`, links: [{ rel: "crops", href: `https://crop.example.test/crops/${id}` }] } } });
+    const existing = target("existing");
+    const view = render(<ImageActions actions={["full-frame"]} context={{ targets: [existing], api: true, archive: true }} />);
+    const button = screen.getByRole("button", { name: "Crop full frame" }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    view.rerender(<ImageActions actions={["full-frame"]} context={{ targets: [existing, { id: "new", pending: true }], api: true, archive: true }} />);
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute("aria-busy")).toBe("true");
+    expect(button.style.opacity).toBe("0.4");
+    fireEvent.click(button);
+    expect(useImageActionStore.getState().prepared).toEqual([]);
+    view.rerender(<ImageActions actions={["full-frame"]} context={{ targets: [existing, target("new", false)], api: true, archive: true }} />);
+    expect(button.disabled).toBe(false);
+    expect(button.getAttribute("aria-busy")).toBeNull();
+    expect(button.style.opacity).toBe("");
+  });
+
+  it("captures a disconnected Share in the existing activity panel", () => {
+    useSelectionStore.setState({ selectedIds: new Set(["share-first", "share-second"]) });
+    render(<><StatusBar /><LabelOperationReceipts /></>);
+    fireEvent.click(screen.getByRole("button", { name: "Share with URL" }));
+    expect(screen.getByText("Not sent - Share with URL")).toBeTruthy();
+    act(() => useSelectionStore.setState({ selectedIds: new Set(["later-selection"]) }));
+    expect(screen.getByText(/"share-first"/)).toBeTruthy();
+    expect(screen.getByText(/"share-second"/)).toBeTruthy();
+    const dismiss = screen.getByRole("button", { name: "Dismiss Share with URL preview" });
+    dismiss.focus();
+    fireEvent.click(dismiss);
+    expect(screen.queryByText("Not sent - Share with URL")).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Share with URL" }));
+  });
+
+  it("falls back to the toolbar when a preview's return control is now disabled", () => {
+    const target = { id: "first", image: { id: "first", uploadTime: "", uploadedBy: "", metadata: {},
+      source: { mimeType: "image/jpeg", dimensions: { width: 1200, height: 800 } } },
+      overlay: { actions: [{ name: "delete", href: "https://api.example.test/images/first", method: "DELETE" as const }] } };
+    const content = (pending: boolean) => <><header role="toolbar"><a href="/search">Grid</a></header>
+      <ImageActions actions={["delete"]} context={{ targets: [{ ...target, pending }], api: true, archive: true }} /><LabelOperationReceipts /></>;
+    const view = render(content(false));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm delete 1 image" }));
+    view.rerender(content(true));
+    const fallback = screen.getByRole("link", { name: "Grid" });
+    const rects = vi.spyOn(fallback, "getClientRects").mockReturnValue([new DOMRect(0, 0, 44, 44)] as unknown as DOMRectList);
+    try {
+      const dismiss = screen.getByRole("button", { name: "Dismiss Delete preview" });
+      dismiss.focus();
+      fireEvent.click(dismiss);
+      expect(document.activeElement).toBe(fallback);
+    } finally { rects.mockRestore(); }
+  });
+
+  it("retains open activity details when another disconnected preview is prepared", () => {
+    useSelectionStore.setState({ selectedIds: new Set(["share-first"]) });
+    render(<><StatusBar /><LabelOperationReceipts /></>);
+    const share = screen.getByRole("button", { name: "Share with URL" });
+    fireEvent.click(share);
+    const activity = screen.getByRole("complementary", { name: "Image activity" });
+    const details = within(activity).getByText("Details").closest("details")!;
+    details.open = true;
+    fireEvent.click(share);
+    expect(details.isConnected).toBe(true);
+    expect(details.open).toBe(true);
+  });
+
+  it("requires a second Delete activation and disarms when the detail target changes", () => {
+    const target = (id: string) => ({ id, image: { id, uploadTime: "", uploadedBy: "", metadata: {},
+      source: { mimeType: "image/jpeg", dimensions: { width: 1200, height: 800 } } },
+      overlay: { actions: [{ name: "delete", href: `https://api.example.test/images/${id}`, method: "DELETE" as const }] } });
+    const view = render(<ImageActions actions={["delete"]} context={{ targets: [target("first")], api: true, archive: true }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(screen.getByRole("button", { name: "Confirm delete 1 image" })).toBeTruthy();
+    view.rerender(<ImageActions actions={["delete"]} context={{ targets: [target("second")], api: true, archive: true }} />);
+    expect(screen.queryByRole("button", { name: "Confirm delete 1 image" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Delete" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm delete 1 image" }));
+    expect(useImageActionStore.getState().prepared.at(-1)?.targetIds).toEqual(["second"]);
+  });
+
+  it("expands the compact floaty to expose the same five image actions", () => {
+    shell.compact = true;
+    useSelectionStore.setState({ selectedIds: new Set(["selected-image"]) });
+    render(<SelectionFab />);
+    expect(screen.queryByText("Deselect")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "1 selected — actions" }));
+    const actions = screen.getByRole("group", { name: "Image actions" });
+    expect([...actions.querySelectorAll("button")].map(button => button.getAttribute("aria-label"))).toEqual([
+      "Share with URL", "Crop full frame", "Download", "Delete", "Add to Library",
+    ]);
+    const popup = screen.getByRole("group", { name: "Selection actions" });
+    expect(within(popup).queryByRole("button", { name: "Clear selection" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Clear selection (1 selected)" })).toBeTruthy();
+    expect(within(screen.getByRole("button", { name: "Clear selection (1 selected)" })).getByText("Deselect")).toBeTruthy();
+  });
+
+  it("reverses the chevron at the top and lets Details close the expanded selection card", () => {
+    shell.compact = true;
+    useSelectionStore.setState({ selectedIds: new Set(["selected-image"]) });
+    const panels = usePanelStore.getState().config;
+    usePanelStore.setState({ config: { ...panels, right: { ...panels.right, visible: false } } });
+    try {
+      render(<SelectionFab docked />);
+      const trigger = screen.getByRole("button", { name: "1 selected — actions" });
+      expect(trigger.querySelector("svg")!.classList.contains("rotate-180")).toBe(false);
+      fireEvent.click(trigger);
+      const openIcon = screen.getByRole("button", { name: "Details" }).querySelector("svg path")!.getAttribute("d");
+      fireEvent.click(screen.getByRole("button", { name: "Details" }));
+      expect(usePanelStore.getState().config.right.visible).toBe(true);
+      expect(trigger.querySelector("svg")!.classList.contains("rotate-180")).toBe(true);
+      fireEvent.click(trigger);
+      expect(screen.getByRole("button", { name: "Close details" }).querySelector("svg path")!.getAttribute("d")).not.toBe(openIcon);
+      fireEvent.click(screen.getByRole("button", { name: "Close details" }));
+      expect(usePanelStore.getState().config.right.visible).toBe(false);
+      expect(trigger.querySelector("svg")!.classList.contains("rotate-180")).toBe(false);
+      expect(document.activeElement).toBe(trigger);
+    } finally { usePanelStore.setState({ config: panels }); }
+  });
+
+  it("centres the collapsed separator and preserves the Deselect hit area when expanded", () => {
+    shell.compact = true;
+    useSelectionStore.setState({ selectedIds: new Set(["selected-image"]) });
+    render(<SelectionFab />);
+    const trigger = screen.getByRole("button", { name: "1 selected — actions" });
+    const clear = screen.getByRole("button", { name: "Clear selection (1 selected)" });
+    const strip = trigger.parentElement!;
+    const collapsedWidth = Number.parseFloat(strip.style.width);
+    const clearWidth = Number.parseFloat(clear.style.width);
+    expect(clearWidth * 2 + 1).toBe(collapsedWidth);
+    fireEvent.click(trigger);
+    expect(Number.parseFloat(clear.style.width)).toBe(clearWidth);
+    expect(Number.parseFloat(strip.style.width)).toBeGreaterThanOrEqual(collapsedWidth);
+  });
+
+  it("keeps the expanded selection card nonmodal and lets an outside tap reach the page", () => {
+    shell.compact = true;
+    useSelectionStore.setState({ selectedIds: new Set(["selected-image"]) });
+    const panels = usePanelStore.getState().config;
+    usePanelStore.setState({ config: { ...panels, right: { ...panels.right, visible: true } } });
+    const activate = vi.fn();
+    try {
+      render(<PanelLayout rightPanel={<button>Metadata control</button>}><button onClick={activate}>Result control</button></PanelLayout>);
+      expect(screen.getByRole("region", { name: "Details" })).toBeTruthy();
+      expect(screen.queryByTestId("card-scrim")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "1 selected — actions" }));
+      const popup = screen.getByRole("group", { name: "Selection actions" });
+      const last = [...popup.querySelectorAll<HTMLButtonElement>("button:not([disabled])")].at(-1)!;
+      last.focus();
+      expect(fireEvent.keyDown(last, { key: "Tab" })).toBe(true);
+      const behind = screen.getByRole("button", { name: "Result control" });
+      expect(fireEvent.pointerDown(behind)).toBe(true);
+      fireEvent.click(behind);
+      expect(activate).toHaveBeenCalledOnce();
+      expect(screen.queryByRole("group", { name: "Selection actions" })).toBeNull();
+      act(() => behind.focus());
+      expect(document.activeElement).toBe(behind);
+    } finally { usePanelStore.setState({ config: panels }); }
+  });
+
+  it("fits action options above a trigger when the visual viewport has no room below", () => {
+    const original = Object.getOwnPropertyDescriptor(window, "visualViewport");
+    const bounds = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      return this.getAttribute("aria-label") === "Full frame options" ? new DOMRect(270, 80, 32, 32) : new DOMRect(110, 112, 192, 140);
+    });
+    Object.defineProperty(window, "visualViewport", { configurable: true, value: { width: 320, height: 120, offsetTop: 0, offsetLeft: 0,
+      addEventListener: vi.fn(), removeEventListener: vi.fn() } });
+    try {
+      render(<FullFrameOptions context={{ targets: [{ id: "first" }], api: true, archive: true }} />);
+      fireEvent.click(screen.getByRole("button", { name: "Full frame options" }));
+      const popup = screen.getByRole("group", { name: "Image actions" }).parentElement!;
+      expect(popup.textContent).toBe("Crop full frame");
+      expect(popup.className).toContain("bottom-full");
+      expect(Number.parseFloat(popup.style.maxHeight)).toBeLessThanOrEqual(72);
+    } finally {
+      bounds.mockRestore();
+      if (original) Object.defineProperty(window, "visualViewport", original);
+      else Reflect.deleteProperty(window, "visualViewport");
+    }
+  });
+
+  it("repositions an open floaty while its owning card is still moving", async () => {
+    shell.compact = true;
+    useSelectionStore.setState({ selectedIds: new Set(["selected-image"]) });
+    const panels = usePanelStore.getState().config;
+    usePanelStore.setState({ config: { ...panels, right: { ...panels.right, visible: false } } });
+    const viewport = Object.getOwnPropertyDescriptor(window, "visualViewport");
+    let top = 330;
+    let moving = true;
+    const bounds = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      return this.getAttribute("aria-label") === "1 selected — actions" ? new DOMRect(220, top, 82, 44) : new DOMRect(160, top, 176, 262);
+    });
+    Object.defineProperty(window, "visualViewport", { configurable: true, value: { width: 393, height: 400, offsetTop: 0, offsetLeft: 0,
+      addEventListener: vi.fn(), removeEventListener: vi.fn() } });
+    vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
+    try {
+      render(<PanelLayout rightPanel={<button>Metadata control</button>}><button>Result control</button></PanelLayout>);
+      const card = screen.getByRole("region", { name: "Details" });
+      card.getAnimations = () => [{ playState: moving ? "running" : "finished", pending: false }] as Animation[];
+      const trigger = screen.getByRole("button", { name: "1 selected — actions" });
+      fireEvent.click(trigger);
+      const floaty = trigger.closest(".selection-fab")!;
+      expect(floaty.getAttribute("data-side")).toBe("above");
+      top = 60;
+      await act(async () => { vi.advanceTimersByTime(32); });
+      expect(floaty.getAttribute("data-side")).toBe("below");
+      moving = false;
+      await act(async () => { vi.advanceTimersByTime(32); });
+    } finally {
+      cleanup();
+      vi.useRealTimers();
+      bounds.mockRestore();
+      if (viewport) Object.defineProperty(window, "visualViewport", viewport); else Reflect.deleteProperty(window, "visualViewport");
+      usePanelStore.setState({ config: panels });
+    }
   });
 
   it("does not claim a best-of pool for an empty AI result", () => {

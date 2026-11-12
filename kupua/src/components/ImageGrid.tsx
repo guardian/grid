@@ -102,25 +102,7 @@ function buildDescriptionTooltip(image: Image): string {
   return `${desc}\n      By: ${by}\nCredit: ${credit}`;
 }
 
-/** Convert raw persisted reason keys to human-readable past-participle phrases (Kahuna parity). */
-const PERSIST_REASON_LABELS: Record<string, string> = {
-  exports: "cropped",
-  usages: "used",
-  "persistence-identifier": "from Picdar",
-  "photographer-category": "categorised as photographer",
-  "illustrator-category": "categorised as illustrator",
-  "commissioned-agency": "categorised as agency commissioned",
-  "persisted-collection": "added to a persisted collection",
-  photoshoot: "added to a photoshoot",
-  leases: "leased",
-};
-
-function humanisePersistedReasons(reasons: string[]): string {
-  const labels = reasons.map((r) => PERSIST_REASON_LABELS[r] ?? r);
-  if (labels.length === 0) return "";
-  if (labels.length === 1) return labels[0];
-  return labels.slice(0, -1).join(", ") + " and " + labels[labels.length - 1];
-}
+import { humanisePersistedReasons } from "@/lib/image-persistence";
 
 // ---------------------------------------------------------------------------
 // Image borders — thick border on thumbnail for categorised images.

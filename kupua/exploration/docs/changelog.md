@@ -24,6 +24,27 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 12 November 2026 - Disconnected selection and detail actions
+
+Added shared Share URL, full-frame, Download, Delete and Library controls to desktop
+search/detail and the compact floaty. They capture immutable Not sent previews only;
+existing connected Labels keeps its execution, queue and publication owners. A shared
+activity shell keeps Label progress ahead of the latest 20 dismissible previews without
+remounting existing controls or disclosures. Download capability
+retention adds no file requests or usage recording.
+
+The compact action surface unfolds as one translucent blue column joined to its count
+strip, with stable Deselect hit areas, card-aware panel icons and viewport-aware placement.
+Selection cards are nonmodal and outside taps reach the page. Desktop controls share
+aligned heights, contextual separators and responsive labels. Pending reads block action
+preparation without opacity flashing. Unavailable Crop entry and its shortcut are disabled;
+the narrow full-frame dropdown omits inline batch explanations. Real execution and
+scrollable-search deletion compaction remain separate activation work.
+
+Existing read-order evidence selects current available crop bodies/capabilities instead of
+older selected metadata. Deferred Crop entry is bound to its image, route and valid session;
+popup placement follows the card's finite motion without a permanent positioning loop.
+
 ### 11 November 2026 - Integrated single and multi-image editing UI
 
 Integrated inline editors into the actual API-mode metadata panels, extending Step 7's

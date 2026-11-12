@@ -27,6 +27,7 @@ let activeGroup: number | undefined;
 let orderingRevision = 0;
 
 export function captureImageRead(): number { return ++sequence; }
+export function getImageReadSequence(value: object | undefined): number { return value ? evidence.get(value)?.issued ?? 0 : 0; }
 export function hasImageFences(): boolean { return facts.size > 0; }
 export function hasImageFence(id: string): boolean { return facts.has(id); }
 export function getOrderingRevision(): number { return orderingRevision; }

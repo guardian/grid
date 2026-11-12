@@ -1,6 +1,6 @@
 # Editing UI Decisions and Deferred Badge Design
 
-**Implemented UI decisions, updated 11 November 2026.** The operator selected always-inline
+**Implemented UI decisions, updated 12 November 2026.** The operator selected always-inline
 pills, rejecting the extra field-task entry as unfamiliar and too tap-heavy for
 browsing. Expanded [Step 7](gradually-growing-teeth.kupua-edits-steps.md#step-7-finish-labels-archive-and-collection-addition)
 now includes the actual single/multi metadata UI: connected Labels are preserved;
@@ -167,15 +167,20 @@ Final desktop/collection UX remains open for operator discussion.
 
 - **One sheet/focus owner.** Existing focus traps are independent document listeners,
   not a general modal stack. Keep suggestion overlays inside their owning sheet or
-  dialog; do not stack another editing modal over it. Expanded scrim-backed selection
-  sheets expose a modal dialog and inert the background until collapse; image detail's
-  nonmodal sheet remains a region.
+  dialog; do not stack another editing modal over it. Selection and image-detail cards
+  are nonmodal regions: neither inerts the page. The expanding floaty also has no blocking
+  backdrop or document-level focus trap. Outside pointer input closes its options without
+  consuming the tap; Tab may leave and close it.
 - **Keyboard is part of the layout.** Focused input, suggestions, submission and
   cancellation must stay reachable in the visual viewport. BottomSheet now owns
   temporary viewport height/bottom adjustment and focused-form scrolling.
 - **The floaty follows the card.** Selection actions dock above the selection card
-  and share its transform. Expanded-card actions open downward to fit landscape and
-  keyboard-reduced viewports rather than covering fields with a fixed count pill.
+  and share its transform. Its joined, single-column blue expansion retains the closed
+  floaty's translucency and opens above/below according to actual visual-viewport space.
+  Placement follows an in-progress card transition and stops when it settles or closes.
+  The closed separator is centred; the Deselect hit area stays fixed as expansion grows
+  leftward. Deselect text appears only while expanded. Details toggles the card, using
+  Bottom Panel Open/Close icons; the chevron reflects its position and opening direction.
 - **Do not reuse long press.** Results already use it for selection/paint/range behavior.
   A hidden long-press edit menu would conflict with that model and discoverability.
 - **Scroll ownership matters.** Suggestion/value lists must not become sheet-dismiss
@@ -196,6 +201,28 @@ Sources: [focus trap](../../src/hooks/useFocusTrap.ts#L6),
 [content pull ownership](../../src/hooks/useContentPullToDrag.ts#L10),
 [current panel targets](../../src/routes/search.tsx#L375),
 [label admission](../../src/components/LabelEditor.tsx#L83).
+
+### Search and Detail Actions
+
+Share URL, Full frame, Download, Delete and Library share one action presentation and
+captured-target contract across search and detail. Desktop uses full label, short label
+and icon-only states with narrow overflow; search separators fill the bar and detail
+separators are inset. Deselect stays immediately after the search selection count.
+The main Crop control is disabled Cannot crop when unavailable; its C shortcut shares
+the guard. The compact full-frame chevron has a Crop full frame tooltip, with no inline
+single-image skip explanation in its dropdown. Delete uses a red second activation tied
+to the current targets, with cancellation/expiry rather than an extra confirmation dialog.
+Crop rechecks ownership after leaving image fullscreen; navigation, withdrawn capability
+or an invalidated API session cancels the pending entry instead of opening the wrong image.
+
+Pending reads block preparation immediately. Only the last settled opacity is retained
+to avoid flashing; permission/data updates are not delayed or substituted. All five new
+actions remain Not sent previews, including Share. Dismissible previews share the existing
+activity panel shell with Labels; connected Label progress retains priority. The latest
+20 disconnected previews have stable identities, so adding/dismissing them does not remount
+Label controls or reset native disclosures; dismissal returns focus to a usable control. The
+[plan checkpoint](gradually-growing-teeth.kupua-edits-steps.md#action-hookup-boundary)
+owns remaining command and deletion-compaction work.
 
 ## 6. Remaining Design Limits
 

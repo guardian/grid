@@ -670,7 +670,7 @@ Existing truncation/soft-cap feedback stays; the route owns the hook and passes 
 ## Selection UI
 
 - **`components/Tickbox.tsx`** — absolute-positioned overlay (grid) and inline variant in the table's 32px selection column. `hooks/useIsSelected.ts` subscribes per ID. CSS controls tickbox visibility through `[data-selection-mode="true"]` and selected-cell overlays through `:has(.tickbox[aria-checked="true"])`; this avoids per-cell mode props, not all React work on selection changes. Focus rings are suppressed in selection mode.
-- **`components/SelectionFab.tsx`** — compact shell only: "▴ N | ×". The count is an ordinary disclosure for the named Selection actions group (Details and Clear), not an ARIA menu. `PanelLayout` supplies the FAB through the selection sheet's floating slot so it follows the actual card transform. Actions open downward above an expanded card to fit short viewports; Escape and an already-open Details action return focus to the trigger. Drag-select hides it; desktop keeps inline selection controls even with touch input.
+- **`components/SelectionFab.tsx`** — compact-shell disclosure for shared image actions and a Details/Close details toggle, not an ARIA menu. Its single-column translucent blue expansion joins the count strip; the centred collapsed separator and fixed Deselect hit area preserve tap targets. `PanelLayout` and image detail supply it through the card's floating slot. Viewport-aware placement and chevrons follow the card. Outside taps pass through, and Tab may leave: neither floaty nor selection card makes the page modal. Desktop retains inline selection controls.
 
 ---
 
@@ -736,9 +736,18 @@ Panel hover can prefetch aggregations when Filters is expanded. Accepting new ar
 selection before `reSearch`; density changes go to the preference store, not the URL. Compact
 uses SelectionFab; desktop keeps inline selection controls even with touch input.
 
-The bar is 38px tall on coarse pointers. Below 600px wide, tickers collapse to counts; below
+The bar is 36px tall, retaining 38px on coarse pointers. Below 600px wide, tickers collapse to counts; below
 500px, a single density button cycles Justified → Grid → Table. The right-panel toggle is hidden
 in the compact shell, where the right panel appears only as the selection card.
+
+`ImageActions` shares Share URL, Full frame, Download, Delete and Library controls with
+image detail and the floaty. `image-actions.ts` evaluates operation-specific readiness
+and captures immutable Not sent previews; `image-action-store.ts` owns only their
+dismissible latest-20 ledger, not execution. `ImageActivityFrame` preserves stable activity
+DOM/disclosures and shares panel chrome
+with existing Label receipts. Pending actions remain blocked while retaining only settled
+visual opacity. Full-frame skip counts, Library state and unavailable Crop entry are
+described in the [editing checkpoint](../gradually-growing-teeth.kupua-edits-steps.md#action-hookup-boundary).
 
 AI results display the loaded count with a separate pool total when available; pool metadata is
 not paired with the pre-settlement cached count. Ticker badges use `gridConfig.tickerDefinitions`,
@@ -1194,7 +1203,7 @@ The engine (buffer, scroll, focus, selection) is shared. Design rationale is arc
   `useContentPullToDrag`. A visible expanded scrim-backed sheet exposes `dialog`/`aria-modal`,
   temporarily inerts background branches and restores prior inert state on collapse/unmount.
   `useFocusTrap` keeps Tab inside, restoring focus on close (never to a text field).
-  Image detail's scrim-free sheet stays a nonmodal region. Visual-viewport height/bottom
+  Current selection and image-detail cards are scrim-free nonmodal regions. Visual-viewport height/bottom
   adjustment and focused-form scrolling keep editors reachable above the keyboard;
   the optional floating slot moves with the actual card transform.
   Collapsed content is inert, while the peek toggle stays usable; collapse returns content focus

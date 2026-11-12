@@ -843,18 +843,72 @@ single/multi-image editing surface rather than completing only Step 7's original
 family list. The result deliberately brings some later-step presentation forward;
 it neither completes Step 7 nor authorizes the remaining save paths.
 
+**12 November 2026: action UI brought forward, not execution.** Search selections and
+image detail now expose Share with URL, Crop full frame, Download, Delete and Library.
+All five capture immutable **Not sent** previews in the existing activity surface,
+including Share: no clipboard write, file transfer, export creation, deletion or archive
+change occurs. The startup editing preference does not connect these new actions.
+Existing connected Labels is unchanged. Photo Sales and More like this remain outside
+this batch. This advances presentation from steps 13, 14, 17 and 20 without completing
+their operation implementations or authorizing activation.
+
 | Step / Family | Implemented Now | Still To Do |
 | --- | --- | --- |
-| 7: Labels, Archive, collection addition | Existing Labels execution preserved; shared desktop/mobile pills, entry and suggestions integrated. Collection addition prepares Not sent membership intent. | Archive/unarchive and connected collection addition; separately selected activation/acceptance. |
+| 7: Labels, Archive, collection addition | Existing Labels execution preserved; shared desktop/mobile pills, entry and suggestions integrated. Collection membership and Library actions prepare Not sent intent. | Archive/unarchive and connected collection addition; separately selected activation/acceptance. |
 | 8: Ordinary/configured metadata | Ordinary field controls in the register below, including mixed/clear semantics, Location and segmented dates; preparation only. | Fresh authoritative override merge, commands, outcomes/readback/publication and original/reset behavior; configured-domain schema/bootstrap and typed editors. |
 | 12: Collection removal/tree | Membership removal and partial apply-to-all controls prepare Not sent intent using canonical path IDs. | Connected removal under the accepted concurrency boundary; tree create/delete and populated-leaf decisions. |
+| 13: Full frame / Crop entry | Full-frame preview excludes existing full frames and known ineligible images, preserving captured selection and skip reasons. Normal detail Crop entry shows disabled Cannot crop when unavailable, including its shortcut. | Cropper discovery/submission, notices, export identity/readback and result presentation. |
+| 14: Download | Advertised download relation retained; single/selection action prepares Not sent intent. | File delivery, names, ZIP generation, resource limits, failures and usage publication. |
 | 16: Photoshoots and syndication | Photoshoot title suggestion/clear preparation only, with its own field identity. | Assignment/removal execution and fan-out, syndication and Photo Sales workflows. |
+| 17: Delete | Target-bound red second-activation confirmation prepares Not sent intent. | Command lifecycle, authoritative confirmation, search gap closure and detail-to-search position preservation. |
+| 20: Share with URL | Captured-ID link preparation only. | Clipboard delivery and feedback; other editorial/embedding contracts remain unchanged. |
 
-Other later-step families are unchanged by this batch. The
+Other later-step families are unchanged by these UI batches. The
 [UI decisions](gradually-growing-teeth.editing-ui-decisions.md) own selected interactions
 and deferred badge ideas; the [Kahuna reference](gradually-growing-teeth.kahuna-editing-ui-reference.md)
 retains source/local observations useful for finishing the remaining families. Neither
 document authorizes a later command or live trial.
+
+#### Action Hookup Boundary
+
+The UI is complete at its disconnected scope, not "99% connected". Share still needs
+clipboard handling; Download needs actual file/ZIP work; Full frame, Delete and Library
+need their real command, outcome, observation and publication paths. Connect and accept
+them individually in a separately selected testing session. Existing bounded Labels
+execution is a working precedent, not permission to send other operation names through it.
+
+`image-actions.ts` owns eligibility and captured preview descriptions;
+`image-action-store.ts` is a dismissible in-memory ledger of the latest 20 previews,
+not a queue or executor. Stable preview identities preserve existing activity disclosures
+and Label UI when the ledger changes; disconnected previews do not limit Label receipts.
+`ImageActions` supplies shared controls and `ImageActivityFrame` supplies the existing
+activity panel shell. Label drafts, execution and receipts retain their existing owners.
+Reuse the applicable target, pacing, outcome and publication mechanics when connecting a
+second family; do not create one store/operation per metadata field or independent queues
+for each button. Request construction and successful-observation predicates remain
+operation-specific. Prepared HTTP-shaped descriptions are not a validated transport.
+
+Search actions use explicit selected IDs, not the focused image or retained panel content;
+detail actions use the current requested image, independently of an old search selection.
+Available selected/resident bodies and capability overlays are resolved using existing
+read-order evidence, rather than blindly preferring older selection-cache data. Deferred
+Crop entry loses ownership on navigation, capability withdrawal or API-session invalidation.
+Pending information blocks preparation immediately without delaying arriving data.
+Full frame reports skipped existing/ineligible targets rather than rejecting an otherwise
+usable selection; unknown crop information is not evidence that a full frame is absent.
+Library changes only explicit archive flags, preserving server-owned retention reasons.
+
+**Deletion activation blocker:** confirmed deliberate deletions must disappear and close
+gaps on the search page, not remain as confusing deleted slots. Detail deletion returns
+to search with a nearby surviving image as the position anchor. Failed/uncertain targets
+remain selected. The existing complete-set/viewport-fit compaction exception is not the
+scrollable/indexed implementation of this requirement; finish that separately before
+activating Delete. No optimistic disappearance or simulated successful deletion is added
+to the ordinary app by this preview UI.
+
+The full local unit, build, browser-type and E2E gates passed with E2E retries disabled.
+These are disconnected/local-fixture checks, not live-command, deployed-authentication,
+physical-phone keyboard or performance certification.
 
 ### Step 7. Finish Labels, Archive and Collection Addition
 
@@ -1123,6 +1177,10 @@ accepted subtree-count approximation. Rename/move belongs to step 22, not hidden
 **Depends on:** steps 1-5 and KUP-047; step 6 only for batch full-frame export.
 **Can move earlier:** does not require the metadata/rights editors themselves.
 
+**UI checkpoint:** full-frame action preparation and normal detail Crop-entry gating are
+implemented as described above. Submission, crop notices and saved-export presentation
+remain unimplemented; an already-open/deep-linked read-only crop is not a live save path.
+
 Wire server cost/restriction notices and crop eligibility through the common enriched image,
 including standalone detail and fullscreen. Recommend retaining read-only framing when saving
 is unavailable, but obtain that UX decision explicitly. Complete KUP-047 before live creation.
@@ -1158,6 +1216,10 @@ not require a general background URL-renewal service before unrelated editing ca
 ### Step 14. Original, Optimised and Crop Downloads, Including ZIP
 
 **Depends on:** steps 1-5; step 13 for crop-result UI. Ordinary downloads can move earlier.
+
+**UI checkpoint:** Download currently prepares Not sent intent only. Initial hookup follows
+Kahuna's basic single-file/multi-image ZIP workflow, not a new rendition-choice UI. No
+download endpoint has been invoked merely to rehearse the control.
 
 Retain authoritative download links, configured restrictions and crop-download settings.
 Downloadability is not image/crop validity: Grid's download checks do not include the same
@@ -1254,6 +1316,10 @@ and review [GRID-014](bug-backlog.md#grid-014) if relying on rights-filtered GET
 ### Step 17. Soft Delete and Restore
 
 **Depends on:** steps 4-6; a slice-local GRID-012 repair and GRID-010 decision.
+
+**UI checkpoint:** Delete confirmation prepares Not sent intent only. The operator selected
+search gap closure and detail-to-search return around a surviving neighbour; see the
+activation blocker above. Restore and real deletion are not enabled by the control.
 
 **Interaction design before implementation/activation:** use the
 [contextual deletion policy](gradually-growing-teeth.step-4-publication-plan.md#56-unavailable-and-deleted-entries).

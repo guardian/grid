@@ -7,8 +7,8 @@
  *   - New images ticker (polls ES every 10s; click to refresh)
  *   - Right-panel toggle button + independent density controls (right edge)
  *
- * Styled to match Grid's `results-toolbar`:
- *   - 28px height, dark background, border bottom
+ * Styled after Grid's `results-toolbar`:
+ *   - 36px height (38px on coarse pointers), dark background, border bottom
  *   - Ticker: accent-blue filled rectangle with white text
  */
 
@@ -31,6 +31,7 @@ import { restoreArrivalState, snapshotStore } from "@/lib/history-snapshot";
 import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
 import { buildSearchKey } from "@/lib/image-offset-cache";
 import { useIsCompact } from "@/hooks/useShell";
+import { ImageActions } from "./ImageActions";
 
 /**
  * Builds the native title tooltip for a ticker badge.
@@ -152,7 +153,7 @@ export const StatusBar = memo(function StatusBar() {
 
   return (
     <div
-      className="@container flex items-stretch gap-0 h-7 pointer-coarse:h-[38px] bg-grid-bg border-b border-grid-separator text-sm text-grid-text-muted shrink-0 select-none relative"
+      className="@container flex items-stretch gap-0 h-9 pointer-coarse:h-[38px] bg-grid-bg border-b border-grid-separator text-sm text-grid-text-muted shrink-0 select-none relative"
       data-coarse-pointer={isCoarsePointer ? "true" : undefined}
       data-selection-mode={selectedCount > 0 ? "true" : undefined}
     >
@@ -259,15 +260,17 @@ export const StatusBar = memo(function StatusBar() {
             type="button"
             className="flex items-center gap-1 px-2 h-full hover:bg-grid-hover transition-colors cursor-pointer text-grid-text-muted hover:text-grid-text shrink-0 text-sm"
             onClick={clearSelection}
-            title="Clear selection"
-            aria-label="Clear selection"
+            title="Deselect"
+            aria-label="Deselect"
           >
             {/* Material Icons "clear" */}
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
             </svg>
-            <span className="hidden @[600px]:inline">Clear selection</span>
+            <span className="hidden @[600px]:inline">Deselect</span>
           </button>
+          <div className="w-px bg-grid-separator shrink-0" />
+          <ImageActions />
         </>
       )}
 

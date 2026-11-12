@@ -317,6 +317,7 @@ export function PanelLayout({ leftPanel, rightPanel, scrubber, children }: Panel
           <BottomSheet
             label="Details"
             header="Selection details"
+            scrim={false}
             expanded={rightVisible}
             floating={<SelectionFab docked />}
             onExpandedChange={(next) => { if (next !== rightVisible) togglePanel("right"); }}

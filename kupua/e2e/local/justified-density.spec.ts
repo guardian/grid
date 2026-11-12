@@ -254,7 +254,7 @@ test("spatial arrows, selection and true edges remain usable", async ({ kupua, p
   await switchDensity(page, "grid");
   await switchDensity(page, "justified");
   expect(await page.evaluate(() => (window as any).__kupua_selection_store__.getState().selectedIds.size)).toBe(1);
-  await page.getByRole("button", { name: "Clear selection", exact: true }).click();
+  await page.getByRole("button", { name: "Deselect", exact: true }).click();
   await page.keyboard.press("End");
   await expect.poll(() => page.evaluate(() => (window as any).__kupua_store__.getState().focusedImageId)).toBe("img-95");
   await page.keyboard.press("Home");

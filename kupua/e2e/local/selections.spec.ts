@@ -225,7 +225,7 @@ test.describe("Grid — click to enter/exit selection mode", () => {
     ).toBeLessThan(0.05);
 
     const scrollBeforeClear = await kupua.getScrollTop();
-    await kupua.page.locator('button[aria-label="Clear selection"]').click();
+    await kupua.page.locator('button[aria-label="Deselect"]').click();
     await kupua.page.evaluate(() => new Promise<void>((resolve) => {
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
     }));
@@ -997,7 +997,7 @@ test.describe("S4 -- multi-image Details panel", () => {
     ).toBeVisible({ timeout: 5000 });
 
     // Clear
-    await kupua.page.locator('button[aria-label="Clear selection"]').click();
+    await kupua.page.locator('button[aria-label="Deselect"]').click();
     expect(await getSelectionCount(kupua.page)).toBe(0);
 
     // Status bar gone (selection cleared)

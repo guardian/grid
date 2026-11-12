@@ -894,7 +894,7 @@ test.describe("Panel toggles", () => {
       }
 
       const scrollBeforeClear = await kupua.getScrollTop();
-      await kupua.page.getByRole("button", { name: "Clear selection", exact: true }).click();
+      await kupua.page.getByRole("button", { name: "Deselect", exact: true }).click();
       expect(await kupua.getFocusedImageId()).toBe(expectedFocus);
       expect(await kupua.getScrollTop()).toBe(scrollBeforeClear);
     });

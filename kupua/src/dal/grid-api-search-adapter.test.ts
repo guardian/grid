@@ -128,6 +128,13 @@ function makeCanonicalImage(overrides: Partial<ImageData> = {}): ImageData {
 // ---------------------------------------------------------------------------
 
 describe("extractEnrichment", () => {
+  it("retains advertised download capabilities without retaining unrelated links", () => {
+    const download = { rel: "download", href: "https://api.example.test/images/abc123/download" };
+    const [, overlay] = extractEnrichment({ data: { id: "abc123" }, links: [download,
+      { rel: "unrelated", href: "https://example.test/" }] })!;
+    expect(overlay.resource?.links).toEqual([download]);
+  });
+
   it("returns null when entity has no data", () => {
     expect(extractEnrichment({})).toBeNull();
   });

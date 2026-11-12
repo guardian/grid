@@ -762,7 +762,7 @@ test("selection, narrow reflow, phantom paging and empty queries remain usable",
     const p = await placement(page, id);
     return p.y >= 0 && p.y < p.viewport;
   }).toBe(true);
-  await page.getByRole("button", { name: "Clear selection", exact: true }).click();
+  await page.getByRole("button", { name: "Deselect", exact: true }).click();
   await page.evaluate(async () => {
     const path = "/src/stores/ui-prefs-store.ts";
     (await import(path)).useUiPrefsStore.getState().setFocusMode("phantom");

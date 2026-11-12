@@ -209,6 +209,14 @@ chrome paths to maintain, sharing one engine. Desktop touch keeps desktop click 
 and feature controls; touch capability admits shared finger gestures without choosing the UI.
 Installed/PWA presentation is not a third model. See the [design](zz%20Archive/compact-shell-design.md).
 
+Selection and image-detail cards are nonmodal: users can keep operating the page and
+selection while inspecting metadata. The joined blue action floaty dismisses on outside
+input without consuming the tap, rather than stacking a blocking menu over the card.
+The trade-off is changing selection during inspection; actions capture current explicit
+targets and pending information cannot grant eligibility. New action controls remain
+disconnected; the [editing decisions](gradually-growing-teeth.editing-ui-decisions.md#search-and-detail-actions)
+own presentation and the plan owns later activation.
+
 Graphic thumbnails also offer a dedicated hold-to-reveal eye control instead of requiring
 hover or a global blur-preference change. Release, cancellation, scroll and blur conceal the
 thumbnail. The trade-off is an extra explicit control that does not compete with selection.

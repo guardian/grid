@@ -184,7 +184,7 @@ test("desktop touch keeps checkboxes and long-press selection together", async (
   await expect(checkbox).toBeVisible();
   await checkbox.tap();
   expect(await getSelectionCount(page)).toBe(1);
-  await expect(page.getByRole("button", { name: "Clear selection", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Deselect", exact: true })).toBeVisible();
   await clearSelection(page);
   const point = await getFirstTouchableCellRect(page);
   await beginLongPress(page, point.x, point.y);
@@ -1176,7 +1176,7 @@ test.describe("detail metadata gestures", () => {
           const bounds = page.getBoundingClientRect();
           if (Math.min(bounds.right, innerWidth) - Math.max(bounds.left, 0) < 32) continue;
           const image = page.querySelector<HTMLImageElement>("img");
-          const title = page.querySelector('[aria-label="Image details"] button[aria-expanded]');
+          const title = page.querySelector('button[aria-label="Expand Image details"], button[aria-label="Collapse Image details"]');
           if (probe.mismatches.length < 10 && image && new URL(image.currentSrc || image.src).pathname !== `/__detail_media/${page.dataset.detailPageId}.svg`) probe.mismatches.push("image identity");
           if (probe.mismatches.length < 10 && title?.textContent !== titles.get(page.dataset.detailPageId)) probe.mismatches.push("metadata identity");
         }
@@ -1471,7 +1471,7 @@ test("SelectionFab appears at bottom-right and clears selection on tap", async (
   await expect(fab).not.toBeVisible();
 });
 
-test("SelectionFab count expands actions; Details expands the card and scrim collapses it", async ({ page }) => {
+test("SelectionFab preserves its split hit areas and leaves the page interactive", async ({ page }) => {
   const rect = await getFirstTouchableCellRect(page);
   await beginLongPress(page, rect.x, rect.y);
   await endPress(page, rect.x, rect.y);
@@ -1483,13 +1483,21 @@ test("SelectionFab count expands actions; Details expands the card and scrim col
   const collapsedCard = (await card.boundingBox())!;
   const collapsedFab = (await fab.boundingBox())!;
   const gap = collapsedCard.y - collapsedFab.y - collapsedFab.height;
+  const clear = page.getByRole("button", { name: "Clear selection (1 selected)", exact: true });
+  const collapsedClear = (await clear.boundingBox())!;
+  expect(collapsedClear.width * 2 + 1).toBeCloseTo(collapsedFab.width, 0);
   await page.getByRole("button", { name: "1 selected — actions" }).click();
+  await fab.evaluate(async element => { await Promise.all(element.getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {}))); });
+  const expandedClear = (await clear.boundingBox())!;
+  expect(expandedClear.x).toBeCloseTo(collapsedClear.x, 0);
+  expect(expandedClear.width).toBeCloseTo(collapsedClear.width, 0);
   await page.getByRole("group", { name: "Selection actions" }).getByRole("button", { name: "Details", exact: true }).click();
   await expect(page.getByRole("group", { name: "Selection actions" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Collapse Details" })).toBeVisible();
-  await expect(card).toHaveAttribute("role", "dialog");
-  await expect(card).toHaveAttribute("aria-modal", "true");
-  expect(await page.locator("[data-grid-cell]").first().evaluate(cell => !!cell.closest("[inert]"))).toBe(true);
+  await expect(card).toHaveAttribute("role", "region");
+  await expect(card).not.toHaveAttribute("aria-modal", "true");
+  await expect(page.getByTestId("card-scrim")).toHaveCount(0);
+  expect(await page.locator("[data-grid-cell]").first().evaluate(cell => !!cell.closest("[inert]"))).toBe(false);
   await card.evaluate(async card => { await Promise.all(card.getAnimations().map(animation => animation.finished.catch(() => {}))); });
   const expandedCard = (await card.boundingBox())!;
   const expandedFab = (await fab.boundingBox())!;
@@ -1501,12 +1509,18 @@ test("SelectionFab count expands actions; Details expands the card and scrim col
   const actionsBox = (await actions.boundingBox())!;
   expect(actionsBox.y).toBeGreaterThanOrEqual(0);
   expect(actionsBox.y + actionsBox.height).toBeLessThanOrEqual(393);
-  await actions.getByRole("button", { name: "Details", exact: true }).press("Enter");
+  await actions.getByRole("button", { name: "Close details", exact: true }).press("Enter");
   await expect(page.getByRole("button", { name: "1 selected — actions" })).toBeFocused();
   await expect(actions).toHaveCount(0);
-  await page.getByTestId("card-scrim").click({ position: { x: 10, y: 10 } });
   await expect(page.getByRole("button", { name: "Expand Details" })).toBeVisible();
   await expect(card).toHaveAttribute("role", "region");
-  expect(await page.locator("[data-grid-cell]").first().evaluate(cell => !!cell.closest("[inert]"))).toBe(false);
-  expect(await getSelectionCount(page)).toBe(1);
+  await page.setViewportSize({ width: 393, height: 852 });
+  await page.getByRole("button", { name: "Expand Details" }).click();
+  await expect(page.getByRole("button", { name: "Collapse Details" })).toBeVisible();
+  await card.evaluate(async element => { await Promise.all(element.getAnimations().map(animation => animation.finished.catch(() => {}))); });
+  await page.getByRole("button", { name: "1 selected — actions" }).click();
+  await page.getByRole("button", { name: "Deselect image", exact: true }).click();
+  await expect.poll(() => getSelectionCount(page)).toBe(0);
+  await expect(card).toHaveCount(0);
+  await expect(actions).toHaveCount(0);
 });

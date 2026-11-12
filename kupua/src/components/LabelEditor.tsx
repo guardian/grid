@@ -9,6 +9,7 @@ import { MetadataBlock } from "./metadata-primitives";
 import { FieldDisclosure } from "./FieldDisclosure";
 import { SuggestionDropdown } from "./SuggestionDropdown";
 import { FieldAddButton } from "./FieldAddButton";
+import { ImageActivityFrame } from "./ImageActivityFrame";
 
 export const LabelEditorContext = createContext<ReturnType<typeof createLabelEditorStore>>(labelEditorStore);
 
@@ -210,12 +211,8 @@ export function LabelOperationReceipts({ inline = false, hidden = false }: { inl
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [unfinished, inline]);
-  if (hidden || (!receipts.length && !drafts.size)) return null;
-  return <aside aria-label="Label activity" onKeyDown={containPillActivation}
-    className={`${inline ? "m-3" : "fixed bottom-4 left-4 z-[120] w-80 max-w-[calc(100vw-2rem)]"} rounded bg-black/90 text-white shadow-lg`}>
-    <details open={receipts.length > 0} key={activityRevision}>
-      <summary tabIndex={0} className="px-3 py-2 cursor-pointer text-xs">Label activity ({receipts.length})</summary>
-      <div className="max-h-[30dvh] overflow-auto overscroll-contain px-3 pb-3 space-y-3">
+  return <ImageActivityFrame inline={inline} hidden={hidden} labelCount={receipts.length} draftCount={drafts.size} revision={activityRevision}>
+      <div className="space-y-3">
         {repeated && <p role="status" className="text-xs">Operation already recorded.</p>}
         {[...drafts.values()].map(draft => <details className="text-xs wrap-anywhere" key={labelTargetKey(draft.targetIds)}>
           <summary tabIndex={0} className="cursor-pointer">Unfinished input ({draft.targetIds.length} {draft.targetIds.length === 1 ? "image" : "images"})</summary>
@@ -258,6 +255,5 @@ export function LabelOperationReceipts({ inline = false, hidden = false }: { inl
           </div>;
         })}
       </div>
-    </details>
-  </aside>;
+  </ImageActivityFrame>;
 }

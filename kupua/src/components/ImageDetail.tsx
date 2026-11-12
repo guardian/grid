@@ -40,7 +40,7 @@
  *   (so back always returns to the table, not through every viewed image).
  */
 
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useNavigate, useRouter, useSearch } from "@tanstack/react-router";
 import { getSearchGeneration, useSearchStore } from "@/stores/search-store";
 import { useDataWindow } from "@/hooks/useDataWindow";
@@ -78,6 +78,11 @@ import { captureImageRead, ensureImageRead, hasImageFence, protectsImageOmission
 import { ownStandalonePublication } from "@/lib/image-publication";
 import { getImageAvailability, unavailableImage } from "@/lib/image-read-freshness";
 import { useSelectionStore } from "@/stores/selection-store";
+import { useEnrichedImage } from "@/hooks/useEnrichedImage";
+import { ImageActions, FullFrameOptions } from "./ImageActions";
+import { SelectionFab } from "./SelectionFab";
+import type { ImageActionContext } from "@/lib/image-actions";
+import { isGridSessionInvalidated, subscribeGridSessionInvalidation } from "@/lib/grid-api-instance";
 
 const CropEditor = lazy(() => import("@/components/crop/CropEditor").then((m) => ({ default: m.CropEditor })));
 
@@ -341,6 +346,16 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const resolvedImage = imageFromResults ?? standaloneImage;
   const availability = resolvedImage?.__availability;
   const image = availability ? null : resolvedImage;
+  const actionImage = useEnrichedImage(image ?? undefined, standaloneEnrichment);
+  const sessionInvalidated = useSyncExternalStore(subscribeGridSessionInvalidation, isGridSessionInvalidated, () => false);
+  const canCrop = Boolean(image && image.id === imageId && !image.softDeletedMetadata && actionImage?.valid
+    && !actionImage.metadataStale && (import.meta.env.VITE_USE_MEDIA_API !== "true"
+      || !sessionInvalidated && actionImage.resource?.links.some(link => link.rel === "crops")));
+  const cropOwner = useRef({ imageId, canCrop });
+  useLayoutEffect(() => {
+    cropOwner.current = { imageId, canCrop };
+    return () => { cropOwner.current = { imageId, canCrop: false }; };
+  }, [imageId, canCrop]);
 
   // Emit open-detail store-ready the first time `image` is available for a
   // given imageId. Pairs with the owned interaction from ImageGrid.enterDetail. Declared up
@@ -440,14 +455,21 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   // A deep link (legacy /images/:id/crop) has no entry below to go back to.
   const cropping = searchParams.cropping === "true";
   const openCrop = useCallback(() => {
-    const enter = () => pushNavigate(navigate, {
-      to: "/search",
-      search: (prev: Record<string, unknown>) => ({ ...prev, cropping: "true" }),
-      state: { ...history.state, _cropOriginKupuaKey: history.state?.kupuaKey },
-    });
+    if (!canCrop || import.meta.env.VITE_USE_MEDIA_API === "true" && isGridSessionInvalidated()) return;
+    const originLocation = window.location.href;
+    const originKey = history.state?.kupuaKey;
+    const enter = () => {
+      if (!cropOwner.current.canCrop || cropOwner.current.imageId !== imageId || window.location.href !== originLocation
+        || history.state?.kupuaKey !== originKey || import.meta.env.VITE_USE_MEDIA_API === "true" && isGridSessionInvalidated()) return;
+      pushNavigate(navigate, {
+        to: "/search",
+        search: (prev: Record<string, unknown>) => ({ ...prev, cropping: "true" }),
+        state: { ...history.state, _cropOriginKupuaKey: history.state?.kupuaKey },
+      });
+    };
     if (imageFullscreenElement()) void document.exitFullscreen().then(enter).catch(() => {});
     else enter();
-  }, [navigate]);
+  }, [navigate, canCrop, imageId]);
   const closeCrop = useCallback(() => {
     if (history.state?._cropOriginKupuaKey) {
       markUserInitiatedNavigation();
@@ -616,7 +638,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     if (cropping) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      if (detailWrapperRef.current?.querySelector('[role="menu"]')) return;
+      if (detailWrapperRef.current?.querySelector('[role="menu"], [data-image-action-popup]')) return;
       if (
         target.tagName === "INPUT" ||
         target.tagName === "TEXTAREA" ||
@@ -751,6 +773,13 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   }, [imageId, image]);
 
   const displayImage = image;
+  const actionContext: ImageActionContext = {
+    api: import.meta.env.VITE_USE_MEDIA_API === "true", archive: null,
+    targets: [{ id: imageId, image: displayImage?.id === imageId ? displayImage : undefined,
+      overlay: displayImage?.id === imageId && actionImage ? { resource: actionImage.resource,
+        actions: actionImage.actions, persisted: actionImage.persisted, valid: actionImage.valid } : undefined,
+      pending: displayImage?.id !== imageId || actionImage?.metadataStale }],
+  };
   const goHome = () => {
     void resetToHome(() => pushNavigateAsPopstate(navigate, { to: "/search", search: DEFAULT_SEARCH }),
       undefined, router.history);
@@ -789,6 +818,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     onRevealDrag={() => setDrawerVisible(true)}
     overlay
     scrim={false}
+    floating={current && <SelectionFab docked context={actionContext} detailsExpanded={cardExpanded} onDetails={() => setCardExpanded(value => !value)} />}
   >
     {renderMetadata(detailImage, current && !imageFromResults ? standaloneEnrichment : undefined)}
   </BottomSheet>;
@@ -836,22 +866,27 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
 
           <span className="flex-1" />
 
+          {!isCompact && displayImage && <ImageActions context={actionContext} presentation="detail" actions={["share", "download", "delete", "library"]} />}
           {displayImage && (
             <>
               <div className="w-px h-5 bg-grid-separator shrink-0" />
+              <div className="detail-crop-actions contents wide:inline-flex wide:shrink-0 wide:self-center wide:h-11">
               <button
                 onClick={openCrop}
-                aria-label="Crop image"
-                title="Crop image [c]"
-                className="detail-crop shrink-0 min-w-11 h-11 inline-flex items-center justify-center gap-1.5 px-3 text-sm text-grid-text-muted hover:bg-grid-hover hover:text-grid-text transition-colors cursor-pointer"
+                disabled={!canCrop}
+                aria-label={canCrop ? "Crop image" : "Cannot crop"}
+                title={canCrop ? "Crop image [c]" : "Cannot crop"}
+                className="detail-crop shrink-0 min-w-11 h-11 inline-flex items-center justify-center gap-1.5 px-3 text-sm text-grid-text-muted enabled:hover:bg-grid-hover enabled:hover:text-grid-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
               >
                 <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
                   <path d="M6 2v16h16M2 6h16v16" />
                 </svg>
                 <span className="hidden @min-[360px]/detail-toolbar:inline whitespace-nowrap">
-                  Crop<span className="hidden @min-[640px]/detail-toolbar:inline"> image</span>
+                  {canCrop ? <>Crop<span className="hidden @min-[640px]/detail-toolbar:inline"> image</span></> : "Cannot crop"}
                 </span>
               </button>
+              <FullFrameOptions context={actionContext} />
+              </div>
               <div aria-hidden="true" className="w-px h-5 bg-grid-separator shrink-0" />
             </>
           )}

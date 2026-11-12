@@ -106,7 +106,7 @@ export function extractEnrichment(entity: { uri?: string; data?: unknown; action
     actions: entity.actions as EnrichmentFields["actions"],
     resource: {
       uri: entity.uri,
-      links: entity.links?.filter((link) => link.rel === "edits" || link.rel === "crops") ?? [],
+      links: entity.links?.filter((link) => link.rel === "edits" || link.rel === "crops" || link.rel === "download") ?? [],
     },
     syndicationStatus: d.syndicationStatus as EnrichmentFields["syndicationStatus"],
     usages: usages as EnrichmentFields["usages"],

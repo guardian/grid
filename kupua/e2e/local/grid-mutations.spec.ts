@@ -64,6 +64,75 @@ test.describe("Unit B isolated continuation", () => {
     await page.unrouteAll({ behavior: "wait" });
   });
 
+  test("disconnected image actions share selection targets and fit desktop and mobile", async ({ page }) => {
+    await page.route(`${origin}/api`, route => route.fulfill({ json: { data: {}, links: [
+      { rel: "archive", href: "https://metadata.example.test/metadata/{id}/archived" },
+    ] } }));
+    await page.route(/\/api\/images\/(?:mget|search-after|window)$/, async route => {
+      const response = await route.fetch();
+      const body = await response.json();
+      for (const entity of body.data) {
+        const imageId = entity.data.id;
+        entity.actions = [{ name: "delete", method: "DELETE", href: `${origin}/api/images/${imageId}` }];
+        entity.links.push({ rel: "crops", href: `${origin}/crops/${imageId}` },
+          { rel: "download", href: `${origin}/api/images/${imageId}/download` });
+        entity.data.persisted = { value: false, reasons: [] };
+        entity.data.exports = imageId === "local-1" ? [{ specification: { type: "full" } }] : [];
+      }
+      await route.fulfill({ response, json: body });
+    });
+    await page.setViewportSize({ width: 1720, height: 960 });
+    await page.goto(`${origin}/__readback?density=grid`);
+    await page.evaluate(() => (window as CommandWindow).editorFixture.select(["local-0", "local-1"]));
+    const actions = page.getByRole("group", { name: "Image actions", exact: true });
+    await expect(actions.getByRole("button", { name: "Add to Library", exact: true })).toBeEnabled();
+    await actions.getByRole("button", { name: "Share with URL", exact: true }).click();
+    await actions.getByRole("button", { name: "Crop full frame", exact: true }).click();
+    const activity = page.getByRole("complementary", { name: "Image activity", exact: true });
+    await expect(activity).toContainText("1 prepared; 1 skipped");
+    await expect(activity).toContainText("Already has a full frame");
+    await actions.getByRole("button", { name: "Download", exact: true }).click();
+    await actions.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect(actions.getByRole("button", { name: "Confirm delete 2 images", exact: true })).toHaveClass(/bg-grid-error/);
+    await actions.getByRole("button", { name: "Confirm delete 2 images", exact: true }).click();
+    await actions.getByRole("button", { name: "Add to Library", exact: true }).click();
+    await expect(activity.getByText(/^Not sent -/)).toHaveCount(5);
+    expect(await page.evaluate(() => [...(window as CommandWindow).__kupua_selection_store__.getState().selectedIds])).toEqual(["local-0", "local-1"]);
+    await page.setViewportSize({ width: 320, height: 852 });
+    await page.getByRole("button", { name: "More image actions", exact: true }).click();
+    const overflow = page.locator("[data-image-action-popup]");
+    const overflowBox = (await overflow.boundingBox())!;
+    expect(overflowBox.x).toBeGreaterThanOrEqual(0);
+    expect(overflowBox.x + overflowBox.width).toBeLessThanOrEqual(320);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: "More image actions", exact: true })).toBeFocused();
+
+    const touch = await page.context().newCDPSession(page);
+    try {
+      await page.setViewportSize({ width: 393, height: 852 });
+      await touch.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 2 });
+      await page.reload();
+      await expect(page.locator("html")).toHaveAttribute("data-shell", "compact");
+      await page.evaluate(() => (window as CommandWindow).editorFixture.select(["local-0", "local-1"]));
+      for (const viewport of [{ width: 393, height: 852 }, { width: 852, height: 393 }]) {
+        await page.setViewportSize(viewport);
+        await touch.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 2 });
+        await page.getByRole("button", { name: "2 selected — actions", exact: true }).click();
+        const popup = page.getByRole("group", { name: "Selection actions", exact: true });
+        const box = (await popup.boundingBox())!;
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.y).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+        expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+        await popup.getByRole("button", { name: "Share with URL", exact: true }).click();
+        await expect(popup).toHaveCount(0);
+        await expect(page.getByRole("button", { name: "2 selected — actions", exact: true })).toBeFocused();
+      }
+    } finally { await touch.detach(); }
+    expect((await counts(page)).fakeDispatches).toBe(0);
+    expect((await counts(page)).unexpected).toEqual([]);
+  });
+
   test("Unit D End reacquires a tail window and Home recovers observed bodies", async ({ page }) => {
     await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 120 } });
     await page.goto(`${origin}/__readback?density=grid`);
@@ -226,6 +295,7 @@ test.describe("Unit B isolated continuation", () => {
   }
 
   test("Unit C T3 removes explicit deletion from five images fitting the viewport", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 760 });
     await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 5 } });
     await page.goto(`${origin}/__continuation?density=grid`);
     const region = page.getByRole("region", { name: "Image results grid", exact: true });
@@ -1537,7 +1607,7 @@ async function exerciseRecoveryEditor(page: Page, holdProjection: (hold: boolean
       .map((item: { observation: string }) => item.observation), { timeout: 12_000 }).toEqual(["deadline", "observed"]);
     await expect(page.getByRole("button", { name: "Add label", exact: true })).toBeDisabled();
     holdProjection(false);
-    await page.getByRole("button", { name: "Clear selection", exact: true }).click();
+    await page.getByRole("button", { name: "Deselect", exact: true }).click();
     const cell = page.getByRole("region", { name: "Image results grid", exact: true }).locator('[data-cell-id="fixture"]');
     await cell.hover();
     await cell.getByRole("button", { name: "Select image", exact: true }).click();
@@ -1966,7 +2036,7 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     await touch.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
     await expect.poll(() => page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
     await page.evaluate(() => (window as CommandWindow).editorFixture.select(["fixture", "other"]));
-    const sheet = page.getByRole("dialog", { name: "Details", exact: true });
+    const sheet = page.getByRole("region", { name: "Details", exact: true });
     const editCredit = sheet.getByRole("button", { name: "Edit Credit", exact: true });
     await expect(editCredit).toBeVisible();
     expect(await editCredit.evaluate(button => {
@@ -2091,7 +2161,7 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     try {
       await compact.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
       await expect.poll(() => page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
-      const compactActivity = page.getByRole("dialog", { name: "Details", exact: true })
+      const compactActivity = page.getByRole("region", { name: "Details", exact: true })
         .getByRole("complementary", { name: "Label activity" });
       await compactActivity.scrollIntoViewIfNeeded();
       await expect(compactActivity).toBeInViewport();

@@ -20,10 +20,18 @@ export type GridSessionPermissions = z.infer<typeof sessionPermissionsSchema>;
 
 let sessionPermissionsRead: Promise<GridSessionPermissions | null> | undefined;
 let sessionInvalidated = false;
+const sessionInvalidationListeners = new Set<() => void>();
 
 export function invalidateGridSession(): void {
+  if (sessionInvalidated) return;
   sessionInvalidated = true;
   sessionPermissionsRead = Promise.resolve(null);
+  for (const listener of sessionInvalidationListeners) listener();
+}
+
+export function subscribeGridSessionInvalidation(listener: () => void): () => void {
+  sessionInvalidationListeners.add(listener);
+  return () => { sessionInvalidationListeners.delete(listener); };
 }
 
 export function isGridSessionInvalidated(): boolean {

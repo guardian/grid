@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Image } from "@/types/image";
 import type { AiSearchResult, ImageByIdResult, SearchParams, SortValues } from "@/dal/types";
-import type { EnrichmentFields } from "@/stores/enrichment-store";
+import { attachEnrichment, type EnrichmentFields } from "@/stores/enrichment-store";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { ApiDataSource } from "@/dal/api-data-source";
 import { useSearchStore } from "@/stores/search-store";
@@ -23,6 +23,7 @@ import { createLabelOperation } from "@/lib/label-operation";
 import { createLabelReadback, publishUnavailableImages } from "@/lib/image-publication";
 import { resetImageFreshnessForTests } from "@/lib/image-read-freshness";
 import { useSelectionStore, _resetMetadataCache } from "@/stores/selection-store";
+import { useImageActionStore } from "@/stores/image-action-store";
 
 vi.hoisted(() => {
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
@@ -54,6 +55,9 @@ const fixture = vi.hoisted(() => ({
   spa: true,
   swiped: false,
   prepareScroll: vi.fn(),
+  cropShortcut: () => {},
+  sessionInvalidated: false,
+  sessionListeners: new Set<() => void>(),
   traverse: (_imageId: string) => {},
 }));
 
@@ -90,7 +94,17 @@ vi.mock("@/hooks/useCursorAutoHide", async (importOriginal) => {
   return { useCursorAutoHide: (active: boolean, surface?: React.RefObject<HTMLElement | null>) =>
     actual.useCursorAutoHide(fixture.realCursor && active, fixture.realCursor ? surface : undefined) };
 });
-vi.mock("@/hooks/useKeyboardShortcut", () => ({ useKeyboardShortcut: vi.fn() }));
+vi.mock("@/hooks/useKeyboardShortcut", () => ({ useKeyboardShortcut: vi.fn((key: string, run: () => void) => {
+  if (key === "c") fixture.cropShortcut = run;
+}) }));
+vi.mock("@/lib/grid-api-instance", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/grid-api-instance")>(),
+  isGridSessionInvalidated: () => fixture.sessionInvalidated,
+  subscribeGridSessionInvalidation: (listener: () => void) => {
+    fixture.sessionListeners.add(listener);
+    return () => { fixture.sessionListeners.delete(listener); };
+  },
+}));
 vi.mock("@/hooks/useSwipeCarousel", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/hooks/useSwipeCarousel")>();
   return { useSwipeCarousel: (options: Parameters<typeof actual.useSwipeCarousel>[0]) => {
@@ -148,6 +162,13 @@ function makeImage(imageId: string): Image {
   return { id: imageId, metadata: { title: `Title ${imageId}` }, usages: [] } as unknown as Image;
 }
 
+function makeCroppableImage(imageId: string): Image {
+  const image = makeImage(imageId);
+  attachEnrichment(image, { valid: true, invalidReasons: {}, resource: { uri: `https://api.example.test/images/${imageId}`,
+    links: [{ rel: "crops", href: `https://crop.example.test/crops/${imageId}` }] } });
+  return image;
+}
+
 function imageTouch(element: Element, type: string, points: { clientX: number; clientY: number }[], timestamp: number,
   remaining: { clientX: number; clientY: number }[] = []) {
   const event = new Event(type, { bubbles: true, cancelable: true });
@@ -202,6 +223,7 @@ describe("KUP-004 standalone detail identity", () => {
     fixture.markNavigation.mockClear();
     fixture.navigate.mockClear();
     fixture.toggleFullscreen.mockClear();
+    fixture.sessionInvalidated = false;
     fixture.search = { nonFree: "true", orderBy: "-uploadTime" };
     transitions = [];
     history.replaceState({}, "", "/search");
@@ -209,6 +231,7 @@ describe("KUP-004 standalone detail identity", () => {
 
   afterEach(() => {
     cleanup();
+    useImageActionStore.setState({ prepared: [] });
     useSearchStore.setState(initialState, true);
     useUiPrefsStore.setState(initialPrefs, true);
     fixture.compact = false;
@@ -232,6 +255,36 @@ describe("KUP-004 standalone detail identity", () => {
     expect(push).not.toHaveBeenCalled();
     expect(history.state._bareListSynthesized).toBe(true);
     expect(history.state._detailEntryImageId).toBe("A");
+  });
+
+  it("prepares detail actions for the open image rather than the search selection", () => {
+    fixture.resident = [makeImage("A")];
+    useSelectionStore.setState({ selectedIds: new Set(["unrelated-selection"]) });
+    render(<Detail imageId="A" />);
+    fireEvent.click(screen.getByRole("button", { name: "Share with URL" }));
+    expect(useImageActionStore.getState().prepared.at(-1)?.targetIds).toEqual(["A"]);
+    expect(screen.getByRole("group", { name: "Image actions" }).getAttribute("data-surface")).toBe("detail");
+    expect(screen.getByRole("button", { name: "Full frame options" }).getAttribute("title")).toBe("Crop full frame");
+  });
+
+  it("keeps detail navigation behind an owned action popup and closes it on target change", () => {
+    fixture.resident = [makeImage("A"), makeImage("B")];
+    const view = render(<Detail imageId="A" />);
+    fireEvent.click(screen.getByRole("button", { name: "Full frame options" }));
+    expect(fireEvent.keyDown(document, { key: "Backspace" })).toBe(true);
+    expect(screen.getByRole("button", { name: "Full frame options" }).getAttribute("aria-expanded")).toBe("true");
+    view.rerender(<Detail imageId="B" />);
+    expect(screen.getByRole("button", { name: "Full frame options" }).getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("lets the detail floaty close an expanded metadata card", () => {
+    fixture.compact = true;
+    fixture.resident = [makeImage("A")];
+    render(<Detail imageId="A" />);
+    fireEvent.click(screen.getByRole("button", { name: "Expand Image details" }));
+    fireEvent.click(screen.getByRole("button", { name: "Image actions" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close details" }));
+    expect(screen.getByRole("button", { name: "Expand Image details" })).toBeTruthy();
   });
 
   it("hides mobile detail controls on an image tap without leaving detail", () => {
@@ -639,7 +692,7 @@ describe("KUP-004 standalone detail identity", () => {
     fireEvent.click(screen.getByRole("button", { name: "Expand Image details" }));
     const card = screen.getByRole("region", { name: "Image details" });
     const content = card.lastElementChild as HTMLElement;
-    const target = surface === "content" ? content : card.firstElementChild!;
+    const target = surface === "content" ? content : screen.getByRole("button", { name: "Collapse Image details" }).parentElement!;
     const rest = card.style.translate;
     const touch = (type: string, vertical: number, fingers = 1) => {
       const event = new Event(type, { bubbles: true, cancelable: true });
@@ -660,8 +713,56 @@ describe("KUP-004 standalone detail identity", () => {
     expect(screen.getByRole("button", { name: "Collapse Image details" }).getAttribute("aria-expanded")).toBe("true");
   });
 
+  it("disables Cannot crop and refuses the Crop shortcut for an ineligible image", () => {
+    const image = makeImage("A");
+    attachEnrichment(image, { valid: false, invalidReasons: { no_rights: "No rights to use this image" }, resource: { links: [] } });
+    fixture.resident = [image];
+    render(<Detail imageId="A" />);
+    const button = screen.getByRole("button", { name: "Cannot crop" }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    fireEvent.click(button);
+    act(() => fixture.cropShortcut());
+    expect(fixture.navigate).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("crop-backdrop")).toBeNull();
+  });
+
+  it("withdraws Crop entry and its shortcut when the session is invalidated", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    try {
+      fixture.resident = [makeCroppableImage("A")];
+      render(<Detail imageId="A" />);
+      expect((screen.getByRole("button", { name: "Crop image" }) as HTMLButtonElement).disabled).toBe(false);
+      act(() => { fixture.sessionInvalidated = true; fixture.sessionListeners.forEach(listener => listener()); });
+      expect((screen.getByRole("button", { name: "Cannot crop" }) as HTMLButtonElement).disabled).toBe(true);
+      act(() => fixture.cropShortcut());
+      expect(fixture.navigate).not.toHaveBeenCalled();
+    } finally { vi.unstubAllEnvs(); }
+  });
+
+  it.each(["target", "capability"] as const)("cancels deferred Crop when its %s changes during fullscreen exit", async change => {
+    fixture.resident = [makeCroppableImage("A"), makeCroppableImage("B")];
+    const pending = deferred<void>();
+    const overlays = useEnrichmentStore.getState();
+    Object.defineProperty(document, "exitFullscreen", { configurable: true, value: vi.fn(() => pending.promise) });
+    Object.defineProperty(document, "fullscreenElement", { configurable: true, value: document.body });
+    try {
+      const view = render(<Detail imageId="A" />);
+      fireEvent.click(screen.getByRole("button", { name: "Crop image" }));
+      expect(fixture.navigate).not.toHaveBeenCalled();
+      if (change === "target") view.rerender(<Detail imageId="B" />);
+      else act(() => useEnrichmentStore.setState({ data: new Map([["A", { valid: false, resource: { links: [] } }]]) }));
+      await act(async () => pending.resolve());
+      expect(fixture.navigate).not.toHaveBeenCalled();
+      expect(screen.queryByTestId("crop-backdrop")).toBeNull();
+    } finally {
+      useEnrichmentStore.setState(overlays, true);
+      Reflect.deleteProperty(document, "exitFullscreen");
+      Reflect.deleteProperty(document, "fullscreenElement");
+    }
+  });
+
   it("pushes a unique crop entry while preserving its detail and list origins", () => {
-    fixture.resident = [makeImage("A")];
+    fixture.resident = [makeCroppableImage("A")];
     history.replaceState({ kupuaKey: "detail", _detailOriginKupuaKey: "list",
       _detailEntryImageId: "A" }, "", "/search?image=A");
     render(<Detail imageId="A" />);
@@ -696,7 +797,7 @@ describe("KUP-004 standalone detail identity", () => {
   });
 
   it("preserves app fullscreen and waits for image fullscreen exit before opening Crop", async () => {
-    fixture.resident = [makeImage("A")];
+    fixture.resident = [makeCroppableImage("A")];
     const pending = deferred<void>();
     const exit = vi.fn(() => pending.promise);
     Object.defineProperty(document, "exitFullscreen", { configurable: true, value: exit });

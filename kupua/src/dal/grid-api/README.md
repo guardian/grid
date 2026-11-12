@@ -44,8 +44,8 @@ Standalone detail is `ImageDetail → ApiDataSource.getById → apiGetImage`, re
 not the shared enrichment store. Obsolete requests are cancelled; resident-image
 traversal makes no singleton request. No `include=fileMetadata` is added.
 
-Enrichment retains `resource: { uri?, links }` alongside existing actions. Only the
-image's `edits` and `crops` relations are retained here; media links keep their existing
+Enrichment retains `resource: { uri?, links }` alongside existing actions. The
+image's `edits`, `crops` and `download` relations are retained here; media links keep their existing
 path. An API entity with no such links has an empty list, while absent API enrichment
 has no resource descriptor. Replacements do not merge in older capabilities. The
 same requested-ID-bound standalone and attached-selection ownership applies.
@@ -55,6 +55,11 @@ must obtain its required nested controls from the authoritative resource; no gen
 raw-envelope cache is introduced. An optional singleton URI is never manufactured from
 `ui:image`. The `crops` relation is a list, not the crop-creation endpoint. Capability
 absence is not permission to construct a write URL, and capabilities do not enable writes.
+
+The selection/detail action UI prepares disconnected Share, full-frame, Download, Delete
+and Library descriptions only. Retaining a download link neither fetches its file nor
+records usage. These descriptions do not extend `executeGridCommand`, its supported
+operation names, or the existing proxy guards; Labels remains the only connected family.
 
 ## Discovery and transport
 
