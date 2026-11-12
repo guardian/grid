@@ -50,7 +50,9 @@ class UsageApi(
   }
 
   private def publishUsageGroups(groups: Seq[WithLogMarker[UsageGroup]])(implicit logMarker: LogMarker): Future[Result] =
-    Future.sequence(groups.map(usageGroupStream.publish)).map(_ => Accepted).recover { case error =>
+    groups.foldLeft(Future.successful(())) { (previous, usageGroup) =>
+      previous.flatMap(_ => usageGroupStream.publish(usageGroup).map(_ => ()))
+    }.map(_ => Accepted).recover { case error =>
       logger.error(logMarker, "Failed to enqueue usage groups", error)
       respondError(InternalServerError, "usage-group-publish-failed", error.getMessage)
     }
