@@ -47,6 +47,7 @@
     "@babel/eslint-parser": "7.16.5",
     "@babel/preset-env": "7.28.0",
     "@jest/globals": "30.5.2",
+    "@sentry/webpack-plugin": "5.4.0",
     "@types/angular": "1.8.9",
     "@types/react": "17.0.38",
     "@types/react-dom": "17.0.11",

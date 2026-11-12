@@ -42,6 +42,12 @@ Events include the Grid stage as their environment and the build commit as their
 Kahuna derives its CSP connection allowance from the configured DSN. Configure the DSN in your
 deployment configuration, not in the repository.
 
+Production browser builds generate hidden source maps. CI uploads them when `SENTRY_AUTH_TOKEN`,
+`SENTRY_ORG` and `SENTRY_PROJECT` are supplied, using `BUILD_VCS_NUMBER` as the release identifier.
+The same build identifier must be used by SBT so runtime events match the uploaded maps. Maps are
+deleted after upload before packaging. Without a token (including fork builds), upload is skipped;
+hidden maps are still generated locally. A token with incomplete upload configuration fails the build.
+
 ### Common configuration
 
 <table>
