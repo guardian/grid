@@ -8,23 +8,21 @@ import com.gu.mediaservice.syntax.MessageSubjects
 import model.UsageTable
 import org.joda.time.DateTime
 import play.api.libs.json._
-import rx.lang.scala.Observable
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 class UsageNotifier(config: UsageConfig, usageTable: UsageTable)
   extends ThrallMessageSender(config.thrallKinesisLowPriorityStreamConfig) with GridLogging with MessageSubjects {
 
-  def build(mediaID: String)(implicit logMarker: LogMarker): Observable[UsageNotice] = {
+  def build(mediaID: String)(implicit logMarker: LogMarker): Future[UsageNotice] = {
     implicit val logMarkerWithId: LogMarker = logMarker + ("image-id" -> mediaID)
     logger.info(logMarkerWithId, s"Building usage notice for $mediaID")
 
-    Observable.from(
-      usageTable.queryByImageId(mediaID)(logMarkerWithId).map((dbUsages: List[MediaUsage]) =>
-        UsageNotice(
-          mediaID,
-          Json.toJson(dbUsages.map(UsageBuilder.build)).as[JsArray]
-        )
+    usageTable.queryByImageId(mediaID)(logMarkerWithId).map((dbUsages: List[MediaUsage]) =>
+      UsageNotice(
+        mediaID,
+        Json.toJson(dbUsages.map(UsageBuilder.build)).as[JsArray]
       )
     )
   }
