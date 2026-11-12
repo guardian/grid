@@ -69,8 +69,11 @@ These identity controls do not add authenticated user identity to server error e
 Tracing is opt-in. The browser propagates traces only to configured internal service URIs. Services
 continue incoming `sentry-trace`/`baggage` headers and use method/route patterns as transaction names,
 excluding management endpoints, assets and unrouted requests. Request attributes carry transactions
-across asynchronous processing rather than thread-local scopes. Server exceptions link to their
-request transaction. If a deployment restricts CORS request headers, allow `sentry-trace` and `baggage`.
+across asynchronous processing rather than thread-local scopes. A shared request-local holder is
+created before filters run, so Play's outer error handler can link exceptions to the transaction
+even though filters pass modified request copies downstream. Transactions finish on successful
+responses, failed futures and synchronous downstream exceptions; Play still handles error responses.
+If a deployment restricts CORS request headers, allow `sentry-trace` and `baggage`.
 
 ### Common configuration
 

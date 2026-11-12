@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.play
 
 import com.gu.mediaservice.lib.config.{SentryConfig, SentryUserMode}
-import io.sentry.{ITransaction, Sentry, SpanStatus}
+import io.sentry.{ITransaction, Sentry, SentryEvent, SpanStatus}
 import io.sentry.transport.NoOpTransport
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
@@ -9,9 +9,13 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.funsuite.AnyFunSuiteLike
 import org.scalatest.matchers.should.Matchers
-import play.api.mvc.{RequestHeader, Result, Results}
+import play.api.{Configuration, Environment, Mode}
+import play.api.http.{DefaultHttpRequestHandler, HttpConfiguration}
+import play.api.libs.streams.Accumulator
+import play.api.mvc.{EssentialAction, Handler, RequestHeader, Result, Results}
 import play.api.routing.{HandlerDef, Router}
 import play.api.test.FakeRequest
+import play.core.WebCommands
 
 import scala.concurrent.{Future, Promise}
 
@@ -162,24 +166,93 @@ class SentryTracingFilterTest extends AnyFunSuiteLike with Matchers with ScalaFu
     transaction.getStatus shouldBe SpanStatus.INTERNAL_ERROR
   }
 
+  test("finishes a transaction when downstream throws before returning a future") {
+    val filter = new SentryTracingFilter(tracing, mat)
+    var seen: Option[ITransaction] = None
+    val error = new IllegalStateException("synchronous test failure")
+
+    val thrown = intercept[IllegalStateException] {
+      filter.apply { rh =>
+        seen = SentryTracingFilter.transactionFor(rh)
+        throw error
+      }(routed(FakeRequest(), "/images/:id"))
+    }
+
+    thrown shouldBe error
+    val transaction = seen.getOrElse(fail("No transaction attached"))
+    transaction.isFinished shouldBe true
+    transaction.getStatus shouldBe SpanStatus.INTERNAL_ERROR
+  }
+
+  Seq("failed future", "synchronous exception").foreach { failureMode =>
+    test(s"links a filtered action's $failureMode using the outer request retained by Play's server") {
+      @volatile var captured: Vector[SentryEvent] = Vector.empty
+      Sentry.getCurrentScopes.getOptions.setBeforeSend { (event, _) =>
+        captured = captured :+ event
+        null
+      }
+      val errorHandler = new GridSentryErrorHandler(
+        Environment.simple(mode = Mode.Prod), Configuration.empty, None, None, tracing
+      )
+      val error = new IllegalStateException("action failed")
+      var seen: Option[ITransaction] = None
+      val action = EssentialAction { request =>
+        seen = SentryTracingFilter.transactionFor(request)
+        if (failureMode == "synchronous exception") throw error
+        else Accumulator.done(Future.failed[Result](error))
+      }
+      val router = Router.from {
+        case _ => Handler.Stage.modifyRequest(routed(_, "/images/:id"), action)
+      }
+      val requestHandler = new SentryHttpRequestHandler(new DefaultHttpRequestHandler(
+        org.mockito.Mockito.mock(classOf[WebCommands]), None, () => router, errorHandler, HttpConfiguration(),
+        Seq(new SentryTracingFilter(tracing, mat))
+      ))
+      val (serverRequest, handler) = requestHandler.handlerForRequest(FakeRequest("GET", "/images/private-id"))
+      val filteredAction = handler match {
+        case essentialAction: EssentialAction => essentialAction
+        case other => fail(s"Expected an EssentialAction, got $other")
+      }
+
+      // The server retains this request for recovery, not the copy passed down by a filter.
+      val result = Future(filteredAction(serverRequest)).flatMap(_.run()).recoverWith {
+        case failure => errorHandler.onServerError(serverRequest, failure)
+      }
+
+      whenReady(result)(_.header.status shouldBe 500)
+      val transaction = seen.getOrElse(fail("No transaction attached"))
+      transaction.isFinished shouldBe true
+      transaction.getStatus shouldBe SpanStatus.INTERNAL_ERROR
+      captured.size shouldBe 1
+      val event = captured.head
+      event.getThrowable shouldBe error
+      event.getContexts.getTrace.getTraceId shouldBe transaction.getSpanContext.getTraceId
+      event.getContexts.getTrace.getSpanId shouldBe transaction.getSpanContext.getSpanId
+    }
+  }
+
   test("keeps overlapping asynchronous requests on separate transactions") {
     val filter = new SentryTracingFilter(tracing, mat)
     val firstResponse = Promise[Result]()
     var first: Option[ITransaction] = None
     var second: Option[ITransaction] = None
+    val firstRequest = SentryTracingFilter.withTransactionContext(routed(FakeRequest(), "/first"))
+    val secondRequest = SentryTracingFilter.withTransactionContext(routed(FakeRequest(), "/second"))
 
     val pending = filter.apply { rh =>
       first = SentryTracingFilter.transactionFor(rh)
       firstResponse.future
-    }(routed(FakeRequest(), "/first"))
+    }(firstRequest)
     val completed = filter.apply { rh =>
       second = SentryTracingFilter.transactionFor(rh)
       ok(rh)
-    }(routed(FakeRequest(), "/second"))
+    }(secondRequest)
 
     whenReady(completed)(_.header.status shouldBe 200)
     val firstTransaction = first.getOrElse(fail("No first transaction"))
     val secondTransaction = second.getOrElse(fail("No second transaction"))
+    SentryTracingFilter.transactionFor(firstRequest) shouldBe first
+    SentryTracingFilter.transactionFor(secondRequest) shouldBe second
     firstTransaction.getSpanContext.getTraceId should not be secondTransaction.getSpanContext.getTraceId
     firstTransaction.isFinished shouldBe false
     secondTransaction.isFinished shouldBe true

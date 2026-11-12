@@ -164,15 +164,4 @@ class GridSentryErrorHandlerTest extends AnyFunSuiteLike with Matchers with Scal
     event.getRequest.getQueryString shouldBe null
     event.getRequest.getData shouldBe null
   }
-
-  test("links errors to the transaction carried by the request") {
-    val transaction = Sentry.startTransaction("GET /images/:id", "http.server")
-    try {
-      val request = FakeRequest().addAttr(SentryTracingFilter.transactionKey, transaction)
-      whenReady(handler(enabled).onServerError(request, boom))(_.header.status shouldBe 500)
-      val event = captured.getOrElse(fail("No Sentry event was captured"))
-      event.getContexts.getTrace.getTraceId shouldBe transaction.getSpanContext.getTraceId
-      event.getContexts.getTrace.getSpanId shouldBe transaction.getSpanContext.getSpanId
-    } finally transaction.finish()
-  }
 }

@@ -9,6 +9,7 @@ import play.api.libs.typedmap.TypedKey
 import play.api.mvc.{Filter, RequestHeader, Result}
 import play.api.routing.Router
 
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
@@ -20,12 +21,17 @@ object SentryTracingFilter {
    * Sentry's thread-local scope: a `Future` continuation can run on any thread, and a bound scope
    * would leak between requests or attach a span to the wrong one.
    */
-  val transactionKey: TypedKey[io.sentry.ITransaction] = TypedKey[io.sentry.ITransaction]("sentry-transaction")
+  private val transactionKey = TypedKey[AtomicReference[Option[io.sentry.ITransaction]]]("sentry-transaction")
 
   private val excludedPathPrefixes = Seq("/management/", "/assets/")
 
+  // Play retains the pre-filter request for error handling. Copies must share the same holder.
+  private[play] def withTransactionContext(request: RequestHeader): RequestHeader =
+    if (request.attrs.contains(transactionKey)) request
+    else request.addAttr(transactionKey, new AtomicReference[Option[io.sentry.ITransaction]](None))
+
   def transactionFor(request: RequestHeader): Option[io.sentry.ITransaction] =
-    request.attrs.get(transactionKey)
+    request.attrs.get(transactionKey).flatMap(_.get())
 }
 
 class SentryTracingFilter(config: SentryConfig, override val mat: Materializer)(implicit ec: ExecutionContext)
@@ -38,7 +44,13 @@ class SentryTracingFilter(config: SentryConfig, override val mat: Materializer)(
     else startTransaction(request) match {
       case None => next(request)
       case Some(transaction) =>
-        val traced = next(request.addAttr(transactionKey, transaction))
+        val tracedRequest = withTransactionContext(request)
+        tracedRequest.attrs(transactionKey).set(Some(transaction))
+        val traced = try next(tracedRequest) catch {
+          case NonFatal(error) =>
+            finish(transaction, SpanStatus.INTERNAL_ERROR, None)
+            throw error
+        }
 
         traced.transform {
           case Success(result) =>
@@ -78,7 +90,7 @@ class SentryTracingFilter(config: SentryConfig, override val mat: Materializer)(
         context.setTransactionNameSource(TransactionNameSource.ROUTE)
 
         val options = new TransactionOptions()
-        // Deliberately not bound to scope; see `transactionKey`.
+        // Deliberately not bound to scope; see `transactionFor`.
         options.setBindToScope(false)
 
         val transaction = Sentry.startTransaction(context, options)
@@ -86,12 +98,12 @@ class SentryTracingFilter(config: SentryConfig, override val mat: Materializer)(
         transaction.setData("http.route", pattern)
         RequestLoggingFilter.requestIdFor(request).foreach(transaction.setTag("request_id", _))
         transaction
-      }.recover {
-        // Never let tracing interfere with serving the request.
-        case NonFatal(e) =>
+      } match {
+        case Success(transaction) => Some(transaction)
+        case Failure(e) =>
           logger.warn("Could not start Sentry transaction", e)
-          null
-      }.toOption.filter(_ != null)
+          None
+      }
     }
 
   private def finish(transaction: io.sentry.ITransaction, status: SpanStatus, httpStatus: Option[Int]): Unit =

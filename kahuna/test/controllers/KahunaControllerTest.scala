@@ -2,7 +2,7 @@ package controllers
 
 import com.gu.mediaservice.lib.auth.Authentication.{InnerServicePrincipal, Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation}
-import com.gu.mediaservice.lib.config.{SentryConfig, SentryUserMode}
+import com.gu.mediaservice.lib.config.{SentryConfig, SentryUserMode, ServiceHosts, Services}
 import lib.KahunaConfig
 import org.mockito.Mockito.when
 import org.scalatest.funsuite.AnyFunSuite
@@ -28,6 +28,7 @@ class KahunaControllerTest extends AnyFunSuite with Matchers with MockitoSugar {
   private def clientConfig(sentry: SentryConfig, principal: Option[Principal] = Some(user)): JsObject = {
     val config = mock[KahunaConfig]
     when(config.sentryConfig).thenReturn(sentry)
+    when(config.services).thenReturn(new Services("example.com", ServiceHosts.guardianPrefixes, Set.empty))
     val controller = new KahunaController(
       authentication = mock[Authentication],
       config = config,
