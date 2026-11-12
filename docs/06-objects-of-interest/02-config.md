@@ -48,7 +48,8 @@ Production browser builds generate hidden source maps. CI uploads them when `SEN
 `SENTRY_ORG` and `SENTRY_PROJECT` are supplied, using `BUILD_VCS_NUMBER` as the release identifier.
 The same build identifier must be used by SBT so runtime events match the uploaded maps. Maps are
 deleted after upload before packaging. Without a token (including fork builds), upload is skipped;
-hidden maps are still generated locally. A token with incomplete upload configuration fails the build.
+hidden maps are still generated locally. A token with incomplete upload configuration fails the build
+and lists the missing setting names without logging their values.
 
 ### Common configuration
 
