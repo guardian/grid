@@ -4,6 +4,8 @@ import { test as base, createBdd } from 'playwright-bdd';
 import { DOMAIN } from '../setup/constants.ts';
 import type { ImageSource } from '../setup/image-fixtures.ts';
 import { deleteImageCopies, indexImageCopy } from '../setup/seed-image.ts';
+import MCR from 'monocart-coverage-reports';
+import coverageOptions from '../setup/mcr.config';
 
 export const KAHUNA_APP_URL = `https://media.${DOMAIN}`;
 
@@ -78,6 +80,33 @@ export const test = base.extend<{ testContext: TestContext; seedImage: SeedImage
       return id;
     });
   },
+  coverage: [async ({ page, browserName }, use) => {
+    if (browserName !== 'chromium') {
+      throw new Error('Native JS/CSS coverage requires Chromium');
+    }
+
+    // Start before beforeEach/test navigation executes application code.
+    await Promise.all([
+      page.coverage.startJSCoverage({
+        resetOnNavigation: false
+      }),
+      page.coverage.startCSSCoverage({
+        resetOnNavigation: false
+      })
+    ]);
+    try {
+      await use();
+    } finally {
+      // Persist data before Playwright closes the page, even if an assertion fails.
+      const [js, css] = await Promise.all([
+        page.coverage.stopJSCoverage(),
+        page.coverage.stopCSSCoverage()
+      ]);
+      await MCR(coverageOptions).add([...js, ...css]);
+    }
+  }, {
+    auto: true
+  }]
 });
 
 export const { Given, When, Then, Before, After } = createBdd(test);
