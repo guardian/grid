@@ -103,6 +103,10 @@ deployments:
           BuiltBy: amigo
           AmigoStage: PROD
           Recipe: grid-imgops-jammy
+        ImgProxyAmiId:
+          BuiltBy: amigo
+          AmigoStage: PROD
+          Recipe: investigations-discourse-arm
 
   elasticsearch-ami-update:
     type: ami-cloudformation-parameter
