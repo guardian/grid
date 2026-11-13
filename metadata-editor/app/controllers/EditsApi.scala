@@ -79,7 +79,8 @@ case class CategoryResponse(
   properties: List[UsageRightsProperty] = List(),
   leases: Seq[UsageRightsLease] = Seq(),
   usageRestrictions: Option[String],
-  usageSpecialInstructions: Option[String]
+  usageSpecialInstructions: Option[String],
+  legacyCategories: List[String] = List()
 )
 object CategoryResponse {
   // I'd like to have an override of the `apply`, but who knows how you do that
@@ -98,8 +99,15 @@ object CategoryResponse {
       properties = UsageRightsProperty.getPropertiesForSpec(u, config.usageRightsConfig),
       leases = UsageRightsLease.getLeasesForSpec(u, config.usageRightsLeases),
       usageRestrictions = config.customUsageRestrictions.get(u.category),
-      usageSpecialInstructions = config.customSpecialInstructions.get(u.category)
+      usageSpecialInstructions = config.customSpecialInstructions.get(u.category),
+      legacyCategories = legacyCategoriesOf(u)
   )
+
+  /** Stored values a replacement category also matches in search, so clients can count it. */
+  def legacyCategoriesOf(u: UsageRightsSpec): List[String] = u match {
+    case replacement: ReplacementUsageRightsSpec => replacement.legacyCategories
+    case _ => List()
+  }
 
   implicit val categoryResponseWrites: Writes[CategoryResponse] = Json.writes[CategoryResponse]
 
