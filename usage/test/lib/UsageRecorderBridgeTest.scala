@@ -9,11 +9,11 @@ import org.mockito.Mockito.{times, verify, when}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+import play.api.libs.json.JsObject
 import play.api.libs.json.Json
-import rx.lang.scala.Observable
 
 import java.util.concurrent.atomic.AtomicInteger
-import scala.concurrent.{Await, Promise}
+import scala.concurrent.{Await, Future, Promise}
 import scala.concurrent.duration._
 
 class UsageRecorderBridgeTest extends AnyFunSuite with Matchers with MockitoSugar {
@@ -43,14 +43,12 @@ class UsageRecorderBridgeTest extends AnyFunSuite with Matchers with MockitoSuga
     val expectedMatch = WithLogMarker(logMarker, matchedUsages)
     val attempts = new AtomicInteger()
     val usageTable = mock[UsageTable]
-    val matchResults: Observable[WithLogMarker[Set[MediaUsage]]] =
-      UsageEffectTestSupport.failureThenSuccess[Observable, WithLogMarker[Set[MediaUsage]]](
+    when(usageTable.matchUsageGroup(usageGroupWithContext)).thenAnswer(_ =>
+      UsageEffectTestSupport.failureThenSuccess[Future, WithLogMarker[Set[MediaUsage]]](
         new IllegalStateException("temporary DynamoDB failure"),
         expectedMatch,
         attempts
       )
-    when(usageTable.matchUsageGroup(usageGroupWithContext)).thenReturn(
-      matchResults
     )
     val recorder = new UsageRecorder(mock[UsageMetrics], usageTable, mock[UsageNotifier], mock[UsageNotifier])
 
@@ -71,13 +69,13 @@ class UsageRecorderBridgeTest extends AnyFunSuite with Matchers with MockitoSuga
     val notice = UsageNotice("media-1", Json.arr())
 
     when(usageTable.matchUsageGroup(usageGroupWithContext))
-      .thenReturn(UsageEffectTestSupport.successful[Observable, WithLogMarker[Set[MediaUsage]]](
+      .thenReturn(UsageEffectTestSupport.successful[Future, WithLogMarker[Set[MediaUsage]]](
         WithLogMarker(logMarker, Set.empty[MediaUsage])
       ))
     when(usageTable.create(mediaUsage)(logMarker))
-      .thenReturn(UsageEffectTestSupport.successful[Observable, play.api.libs.json.JsObject](Json.obj("written" -> true)))
+      .thenReturn(UsageEffectTestSupport.successful[Future, JsObject](Json.obj("written" -> true)))
     when(usageNotice.build(any[String])(any[LogMarker]))
-      .thenReturn(UsageEffectTestSupport.successful[Observable, UsageNotice](notice))
+      .thenReturn(UsageEffectTestSupport.successful[Future, UsageNotice](notice))
 
     val recorder = new UsageRecorder(usageMetrics, usageTable, usageNotice, mock[UsageNotifier])
     val result = Promise[WithLogMarker[UsageNotice]]()
