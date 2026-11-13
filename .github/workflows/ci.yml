@@ -66,7 +66,17 @@ jobs:
       - name: SBT
         env:
           USE_DOCKER_FOR_TESTS: false # i.e. don't initialise the DockerContainer within tests, instead rely on the ones defined in the 'services' section of this file
-        run: sbt clean compile scripts/compile Test/compile test Debian/packageBin  "project image-cache-purger" assembly
+        run: |
+          set -o pipefail
+          sbt -Dsbt.log.noformat=true clean compile scripts/compile Test/compile test Debian/packageBin "project image-cache-purger" assembly "show media-api / Runtime / fullClasspath" | tee "$RUNNER_TEMP/grid-sbt-build.log"
+      - name: Verify im4java checksum
+        run: |
+          mapfile -t jars < <(sed -nE 's|^\[info\] \* Attributed\((/.*\/im4java-[^/]+\.jar)\)$|\1|p' "$RUNNER_TEMP/grid-sbt-build.log")
+          if [[ ${#jars[@]} -ne 1 || ${jars[0]} != */org/im4java/im4java/1.4.0/im4java-1.4.0.jar ]]; then
+            echo "Expected exactly one org.im4java:im4java:1.4.0 JAR in the media-api runtime classpath; found: ${jars[*]:-none}" >&2
+            exit 1
+          fi
+          bash .github/scripts/verify-im4java-checksum.sh "${jars[0]}"
       - name: Image Counter Lambda
         working-directory: ./image-counter-lambda
         run: |
