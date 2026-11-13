@@ -17,7 +17,8 @@ class KahunaController(
   authentication: Authentication,
   val config: KahunaConfig,
   override val controllerComponents: ControllerComponents,
-  authorisation: Authorisation
+  authorisation: Authorisation,
+  release: String
 )(
   implicit val ec: ExecutionContext
 ) extends BaseControllerWithLoginRedirects with ArgoHelpers {
@@ -25,6 +26,32 @@ class KahunaController(
   override def auth: Authentication = authentication
 
   override def services: Services = config.services
+
+  /**
+   * Settings the browser SDK needs. The user identity is resolved here rather than in the browser so
+   * that an email only ever reaches the page when the configured user mode permits it.
+   */
+  private def sentryClientConfig(maybeUser: Option[Principal]): String = {
+    val sentry = config.sentryConfig
+
+    val identity = maybeUser.flatMap {
+      case user: Authentication.UserPrincipal => sentry.userIdentity(user.email, isPersonalData = true)
+      case principal => sentry.userIdentity(principal.accessor.identity, isPersonalData = false)
+    }
+
+    Json.stringify(Json.obj(
+      "enabled" -> sentry.enabled,
+      "dsn" -> sentry.dsn,
+      "environment" -> sentry.environment,
+      "release" -> release,
+      "tracesSampleRate" -> sentry.tracesSampleRate,
+      "replayOnErrorSampleRate" -> sentry.replayOnErrorSampleRate,
+      "consoleCaptureLevels" -> sentry.consoleCaptureLevels,
+      "tracePropagationTargets" -> config.services.allInternalUris,
+      "userId" -> identity.flatMap(_.id),
+      "userEmail" -> identity.flatMap(_.email)
+    ))
+  }
 
   def index(ignored: String) = withOptionalLoginRedirect { request =>
 
@@ -81,7 +108,8 @@ class KahunaController(
       config,
       featureSwitchesJson,
       imageTypes,
-      agencyPicksIngredients
+      agencyPicksIngredients,
+      sentryClientConfig(maybeUser)
     ))
   }
 

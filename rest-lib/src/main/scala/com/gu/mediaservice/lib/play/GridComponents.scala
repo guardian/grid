@@ -7,6 +7,7 @@ import com.gu.mediaservice.lib.logging.LogConfig
 import com.gu.mediaservice.lib.management.{BuildInfo, Management}
 import play.api.ApplicationLoader.Context
 import play.api.BuiltInComponentsFromContext
+import play.api.http.HttpErrorHandler
 import play.api.libs.ws.ahc.AhcWSComponents
 import play.api.mvc.EssentialFilter
 import play.filters.HttpFiltersComponents
@@ -28,15 +29,27 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
 
   implicit val ec: ExecutionContext = executionContext
 
-  final override def httpFilters: Seq[EssentialFilter] = Seq(
-    corsFilter,
-    csrfFilter,
-    securityHeadersFilter,
-    gzipFilter,
-    new RequestLoggingFilter(materializer),
-    new ConnectionBrokenFilter(materializer),
-    new RequestMetricFilter(config, materializer, actorSystem, applicationLifecycle)
-  )
+  // `httpFilters` is evaluated after component construction, when the subclass `buildInfo` val is ready.
+  private lazy val sentryInitialised: Unit =
+    SentryInitialiser.init(config.sentryConfig, config.appName, buildInfo.gitCommitId)
+
+  final override lazy val httpErrorHandler: HttpErrorHandler =
+    new GridSentryErrorHandler(environment, configuration, devContext.map(_.sourceMapper), Some(router), config.sentryConfig)
+
+  final override def httpFilters: Seq[EssentialFilter] = {
+    sentryInitialised
+    Seq(
+      corsFilter,
+      csrfFilter,
+      securityHeadersFilter,
+      gzipFilter,
+      new RequestLoggingFilter(materializer),
+      // After RequestLoggingFilter so the request id is available to tag transactions with.
+      new SentryTracingFilter(config.sentryConfig, materializer),
+      new ConnectionBrokenFilter(materializer),
+      new RequestMetricFilter(config, materializer, actorSystem, applicationLifecycle)
+    )
+  }
 
   final override lazy val corsConfig: CORSConfig = CORSConfig.fromConfiguration(context.initialConfiguration).copy(
     allowedOrigins = Origins.Matching(config.services.corsAllowedDomains)
