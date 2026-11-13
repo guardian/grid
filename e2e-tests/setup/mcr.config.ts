@@ -1,8 +1,9 @@
 import { basename } from 'node:path';
+import type { CoverageReportOptions } from 'monocart-coverage-reports';
 
 export default {
     name: 'Playwright Browser Coverage',
-    outputDir: './coverage-reports',
+    outputDir: process.env.GRID_COVERAGE_DIR ?? './coverage-reports',
     reports: [
         ['v8', { metrics: ['branches', 'functions', 'lines'] }],
         ['console-summary', { metrics: ['branches', 'functions', 'lines'] }],
@@ -24,4 +25,4 @@ export default {
     },
     // Workers share the cache; only global setup may clear it.
     cleanCache: false
-};
+} satisfies CoverageReportOptions;
