@@ -485,6 +485,118 @@ visible. Lifetime research establishes that constraint, not an implementation re
 <a id="active-pressure-campaign"></a>
 ## Campaign Evidence That Changes the Plan
 
+### 13 November Imgops Checkpoint
+
+**Verdict:** retain this as a current-app baseline on imgops, not a clean U2
+before/after experiment or an imgproxy measurement. Several ordinary
+response paths improved, but full-image readiness and forward stress thumbnail
+exposure are adverse. Good frame cadence does not make missing pictures usable.
+
+The complete **U2-proto full; experimental imgproxy; changed app baseline** campaign
+(`c431760a-0d03-4a54-a23e-106e61a62167`, completed 13 November, 20:48 UTC) contains
+34 rendering, 15 short-response, 8 long-journey and 21 density records, each with
+four observations. All four members agree on source `236322712`, dirty app-source
+fingerprint `28ebd794cbfdaba5`; none is missing or short. Canonical evidence is in
+the [manifest](../../e2e-perf/results/campaign-log.json),
+[rendering](../../e2e-perf/results/audit-log.json),
+[responsiveness](../../e2e-perf/results/perceived-log.json) and
+[density](../../e2e-perf/results/density-log.json) histories.
+
+**Delivery correction:** the operator subsequently confirmed that this campaign
+used the existing imgops delivery, not experimental imgproxy. The recorded label
+above is mistaken and remains unchanged as historical provenance. None of these
+results measures imgproxy or establishes a delivery-backend switch.
+
+The nearest full reference is the 9 November checkpoint below. Recorded topology,
+canonical delivery, Chromium version, macOS, 1720x960 viewport/screen, DPR2, headed
+mode, one worker, no CPU throttle and corpus cutoff match. App source and dirty
+fingerprints differ; substantial changes intervene. The generic canonical-delivery
+label alone does not identify the image processor; the correction above supplies
+the operator's delivery context. The cutoff does not freeze membership, returned URLs, processing
+bounds, image bytes or caches. Four observations do not establish population tails
+or statistical significance. Rendering records without explicit scenario revisions
+remain raw diagnostic context, not newly qualified comparisons.
+
+#### Full Images and User-Visible Response
+
+These are campaign medians, **9 November -> 13 November**, not pooled image latencies.
+
+| Boundary | 9 November | 13 November |
+| --- | --- | --- |
+| P13c standalone detail: metadata ready | 294ms | 245ms |
+| P13c standalone detail: full image decoded/stable | 1643ms | 2462ms |
+| P14a normal traversal: final image loaded | 425ms | 435ms |
+| P14b fast forward: final image loaded | 2693ms | 5134ms |
+| P14c fast backward: final image loaded | 2397ms | 5057ms |
+| P14d rapid forward: final image loaded | 5834ms | 10160ms |
+| JA2 detail: first visible loaded/stable frame | 9729ms | 10491ms |
+| PP11 deep browser Back: settled | 1317ms | 1500ms |
+
+P13c and every P14 landing complete 4/4, without censored final-image outcomes.
+Rapid-forward landings individually take 8265-13225ms; this is not one unlucky
+sample. Fast-forward ranges 3734-7196ms and fast-backward 4602-5508ms. JA2 store
+readiness is only 108ms while its first-visible clock is 10491ms; the four-sample
+upper summary reaches 15402ms. JA2 was already very slow previously, so this is
+not an entirely new problem. The campaign provides no imgproxy attribution.
+
+P14's `landingNetworkMs` ends at a matched Resource Timing response end relative
+to the final commit, not at an isolated server-processing or transfer duration.
+Its `landingCacheHit` comes from zero transfer size, which can also reflect timing
+restrictions. Neither field identifies a cache hit or image-processing CPU as the cause.
+P14 loaded readiness is not compositor-paint certification. P13c's four returned
+media resources were not exact warmed-URL reuses; that does not prove cold CDN data.
+
+Search response is not generally worse: PP3 sort-around-focus settles 1304->1179ms,
+PP4 direction change 1315->1046ms, PP7 click seek 1427->1222ms, PP8 warm search
+1554->1318ms, and density switches 229/241/245->203/213/213ms. Deep Back above
+and JB3 exclusion (685->843ms) are counterexamples. These are observed endpoint
+changes, not attribution to one frontend or backend change.
+
+#### Scrolling and Recovery
+
+At ordinary forward 200 results/s, count-based pending-visible ratios change from
+about 22->77% Grid, 36->52% Justified and 62->81% Table, with achieved progress near
+199/201/195 results/s. Corresponding frame-p95 medians remain about 18/25/33ms.
+Grid's pending thumbnail area rises 13->47% of viewport area and Justified's
+33->50%; measured missing-data placeholder area remains zero. Completed late-phase
+image-request mean durations increase 59->140ms Grid and 94->129ms Justified,
+while corresponding data-request means improve 572->482ms and 567->472ms.
+Completed-only request times exclude cancelled and pending work.
+
+Stopped forward media recovery is 49->296ms Grid, 62->243ms Justified and
+88->287ms Table; data readiness remains 8-22ms. All current endpoints complete
+4/4 with stable cohorts and no stopped media failures. Backward recovery after
+reversal remains about 22-29ms and revisits recent content; it is not cold delivery.
+Constrained 100 results/s still leaves about 86-94% of slots pending; 200 results/s
+reaches 100% in every density. Current constrained stopped media recovery is
+1788/2625/1436ms Grid/Justified/Table, all complete. The prior Justified aggregate
+is unavailable because one cohort changed; do not invent its comparison latency.
+
+All current load journeys have complete refill coverage and no recorded request
+capture overflows/missing clocks. No captured density HTTP-error or stopped-media
+failure count is positive. Cancellations remain substantial and are not HTTP
+errors or proof of reduced upstream work. Frame results are mixed rather than a
+general collapse: backward Table stress p95 improves 45.7->34.1ms, while raw P8
+Table-scroll median per-run maximum worsens 108->142ms. Hitches remain.
+
+Retained Justified backward displacement increases about 680->1440px; reversal
+about 0.13->720px. This is an adverse diagnostic, with existing geometry/lifetime
+research below, not proof of a new U2 bug. Raw rectangles include sizing, arrival
+animation and origin movement; canonical paint capture remains unavailable.
+
+#### Consequences
+
+This full campaign exercises existing Grid/Table/Justified, mainly seek-mode
+density workflows, not the dev-only measured form. Its U2 relevance is shared-path
+regression evidence; the separate indexed measured-form comparison remains distinct.
+Do not declare universal U2 or delivery performance acceptance. Do not rerun the
+same full campaign merely for reassurance. A separately commissioned diagnostic
+should split final-current-image admission, request start/headers/body, load/decode
+and stable presentation on the current imgops path. A future imgproxy comparison
+requires both deliveries on the same app source, identities, rendition bounds and
+explicit cache conditions if feasible. Record
+changed URLs/dimensions/bytes rather than assuming canonical means equivalent media.
+
 ### 9 November Local-API Checkpoint
 
 **Verdict:** retain the phone optimizations, but do not call this a general desktop

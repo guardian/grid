@@ -61,6 +61,7 @@ import { resetToHome } from "@/lib/reset-to-home";
 import { useReturnFromDetail } from "./useReturnFromDetail";
 import { registerScrollGeometry, getScrollGeometry, getLayoutGeometry, getFixedRowCount, type FixedRowGeometry } from "@/lib/scroll-geometry-ref";
 import { scrollFocusedIntoView } from "@/lib/orchestration/search";
+import { buildMeasuredLayout } from "@/lib/windowed-measured-layout";
 
 let routeParams: UrlSearchParams = { nonFree: "true" };
 let routeLocation: { search: UrlSearchParams; state: unknown } | undefined;
@@ -3285,6 +3286,65 @@ function windowFixture(heightAdjustment = 0, origin = 200): ScrollGeometry {
 }
 
 describe("P3 window geometry publication", () => {
+  it("preserves the image anchor when its natural form is taller than the viewport", () => {
+    const results = Array.from({ length: 100 }, (_, index) => ({ id: `image-${index + 200}` }) as Image);
+    useSearchStore.setState({ results, total: 70000, bufferOffset: 200, focusedImageId: "image-210",
+      imagePositions: new Map(results.map((image, index) => [image.id, index + 200])) });
+    const source = mountDensity(table);
+    frame(); frame();
+    source.container.scrollTop = 156;
+    source.unmount();
+    const layout = buildMeasuredLayout(results, 1120,
+      { indexed: false, bufferOffset: 200, total: 70000, searchKey: "fixture" },
+      { estimatedHeight: 320, estimate: () => 320, measurements: new Map([["image-210", 900]]) });
+    const view = mountDensity({ layout: { ...layout,
+      getItemRow: index => ({ ...layout.getItemRow(index), anchorHeight: 180 }) },
+      window: layout.window, headerOffset: 0, preserveScrollLeftOnSort: false });
+    frame(); frame();
+    expect(view.container.scrollTop).toBe(3000);
+  });
+
+  it("reports the visible global items inside an estimated indexed span", () => {
+    const results = Array.from({ length: 100 }, (_, index) => ({ id: `image-${index + 5000}` }) as Image);
+    useSearchStore.setState({ results, total: 65000, bufferOffset: 5000, focusedImageId: null,
+      imagePositions: new Map(results.map((image, index) => [image.id, index + 5000])) });
+    const layout = buildMeasuredLayout(results, 1120,
+      { indexed: true, bufferOffset: 5000, total: 65000, searchKey: "fixture" },
+      { estimatedHeight: 320, estimate: () => 320, measurements: new Map() });
+    const view = mountDensity({ layout, window: layout.window, headerOffset: 0, preserveScrollLeftOnSort: false });
+    frame(); frame();
+    view.virtualizer.range = { startIndex: 0, endIndex: 0 };
+    view.container.scrollTop = 32000;
+    act(() => { view.container.dispatchEvent(new Event("scroll")); });
+    expect(view.reportVisibleRange).toHaveBeenLastCalledWith(100, 101, false,
+      expect.objectContaining({ scrollTop: 32000 }), true, true);
+  });
+
+  it("lets a visible measured cell grow down while retaining an internal field point", () => {
+    const results = Array.from({ length: 100 }, (_, index) => ({ id: `image-${index + 200}` }) as Image);
+    useSearchStore.setState({ results, total: 70000, bufferOffset: 200, focusedImageId: null,
+      imagePositions: new Map(results.map((image, index) => [image.id, index + 200])) });
+    const build = (measurements: Map<string, number>) => buildMeasuredLayout(results, 1120,
+      { indexed: false, bufferOffset: 200, total: 70000, searchKey: "fixture" },
+      { estimatedHeight: 320, estimate: () => 320, measurements });
+    const old = build(new Map());
+    const view = mountDensity({ layout: old, window: old.window, headerOffset: 0, preserveScrollLeftOnSort: false });
+    frame(); frame();
+    view.container.scrollTop = 3200;
+    anchor.viewportId = "image-211";
+    const next = build(new Map([["image-210", 500]]));
+    view.changeGeometry({ layout: next, window: { ...next.window,
+      correctionAnchor: { id: "image-210", beforeOffset: 100, afterOffset: 100 } },
+      headerOffset: 0, preserveScrollLeftOnSort: false });
+    expect(view.container.scrollTop).toBe(3200);
+    expect(next.getItemRow(11).top - old.getItemRow(11).top).toBe(180);
+    const hiddenField = build(new Map([["image-210", 400]]));
+    view.changeGeometry({ layout: hiddenField, window: { ...hiddenField.window,
+      correctionAnchor: { id: "image-210", beforeOffset: 220, afterOffset: 120 } },
+      headerOffset: 0, preserveScrollLeftOnSort: false });
+    expect(view.container.scrollTop).toBe(3100);
+  });
+
   it("retains density intent through fractional window eviction without reconstructing row tops", () => {
     const results = Array.from({ length: 100 }, (_, index) => ({ id: `image-${index + 200}` }) as Image);
     useSearchStore.setState({ results, total: 70000, focusedImageId: null,

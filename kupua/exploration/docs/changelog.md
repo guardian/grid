@@ -24,6 +24,40 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 13 November 2026 - DOM-measured density prototype
+
+Added a dev-only natural-height stand-in that shares ImageGrid's browsing lifecycle,
+selection and navigation. Bounded measured geometry represents unloaded indexed
+results with estimated head/tail spans, keeping height correction proportional to
+the loaded window while retaining the full scrollbar and destination-seek contract.
+Sparse fake drafts survive row disposal and density changes; no metadata commands
+or Upload workflow are introduced.
+
+One measurement owner publishes into the existing pre-paint compensation effect.
+Committed old geometry retains evicted heights, input capture handles native caret
+scrolling and expires on newer browsing, and observation reattachment avoids
+ResizeObserver delivery loops. Stable row keys preserve active editors across
+maintenance. Placement distinguishes the image footprint from tall form content;
+interior reading positions survive reflow and density round trips. Spatial arrows
+target logical items rather than unloaded spans, and page navigation traverses a
+tall form before advancing focus. Field reflow capture reuses the shared selection,
+eligible-focus and viewport precedence instead of electing an independent target.
+
+Added an operator-run indexed comparison with Justified. The long perceived
+journey now opens the image-specific Details accordion and Additional metadata
+disclosure before measuring its colour-model search click. A shared browser helper
+replaces the obsolete native-button selector and fixed content ID, prepares both
+disclosures and scopes the target to the current image. The existing local metadata
+history journey covers persisted-closed Details and visibility of an additional
+search field without weakening search or Back assertions. Measurement boundaries
+and application behavior are unchanged.
+
+The bulk-label browser journey also asserts that observation remains pending
+before releasing its held readback, distinguishing a request hold that lost control
+from a later supersession failure without weakening expected receipt outcomes.
+The reported receipt and mobile module-fetch intermittents were not reproduced;
+no product repair is claimed.
+
 ### 13 November 2026 - Strict media-api read bodies
 
 The shared body decoder of Kupua's POST image reads now types every field instead

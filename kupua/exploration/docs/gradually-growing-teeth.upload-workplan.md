@@ -110,7 +110,7 @@ No application tests or performance campaigns were run to prepare this plan.
 | Justified reuses ImageGrid's lifecycle, but its geometry is derived from image dimensions. | [JustifiedGrid](../../src/components/JustifiedGrid.tsx), [ImageGrid](../../src/components/ImageGrid.tsx#L826). DOM-measured forms add a different height-change problem. Existing virtualizer adjustment is deliberately disabled for Justified. |
 | Browsing consumers are coupled to `/search` and singleton state. | [search route](../../src/routes/search.tsx), [useScrollEffects](../../src/hooks/useScrollEffects.ts#L212), [ImageGrid](../../src/components/ImageGrid.tsx#L527), [ImageDetail](../../src/components/ImageDetail.tsx#L108), [URL sync](../../src/hooks/useUrlSearchSync.ts#L88). A separate route needs explicit admission/navigation adaptation, not two active engines sharing these globals. |
 | Ordinary field drafts are component-local. | [MetadataTextEditor](../../src/components/MetadataTextEditor.tsx#L86). Unmounting an edited virtual row can lose work unless draft ownership changes. Labels already has a different operation owner. |
-| Batch reads need no new server collection object. | [POST read builder](../../src/dal/grid-api-search-adapter.ts#L132), [mget client](../../src/dal/grid-api-search-adapter.ts#L192), [server body parser](../../../media-api/app/lib/elasticsearch/ElasticSearchModel.scala#L550). Sorted reads carry comma-separated IDs in JSON; mget takes an array. Both use existing image authorization. |
+| Batch reads need no new server collection object. | [POST read builder](../../src/dal/grid-api-search-adapter.ts#L132), [mget client](../../src/dal/grid-api-search-adapter.ts#L192), [server body parser](../../../media-api/app/lib/elasticsearch/ElasticSearchModel.scala#L550). Ordered reads and mget carry ID arrays in JSON. The existing URL-level search parameter remains comma-separated and is converted at the POST boundary. Both use existing image authorization. |
 | mget and sorted pages return at most 200 images per request; a sorted scope may contain more IDs. | [server limits](../../../media-api/app/lib/elasticsearch/ElasticSearchModel.scala#L387), [page validation](../../../media-api/app/lib/elasticsearch/ElasticSearchModel.scala#L827), [client chunking](../../src/constants/tuning.ts#L320). Do not serialize hundreds of IDs into the browser URL. |
 | The upload-status list is not historical image membership. | [status record](../../../image-loader/app/model/UploadStatus.scala#L5), [status store](../../../image-loader/app/lib/UploadStatusTable.scala#L48). Rows are image-keyed and expiring; user lookup scans the table. It has neither submission IDs nor durable batch boundaries. |
 | Recent uploads currently searches by the authenticated user's identity; Kupua's session helper intentionally returns only permission flags. | [recent-uploads.js](../../../kahuna/public/js/upload/recent/recent-uploads.js#L22), [grid-api-instance.ts](../../src/lib/grid-api-instance.ts#L16). Provide a narrowly owned identity read for this query, without logging/persisting identity or conflating status history with recent library images. |
@@ -255,13 +255,19 @@ Update one line when a unit's state changes; this is not a session diary.
 | Unit | State |
 | --- | --- |
 | UB8 | done 13 November (`9f1a0f86e`, `7ecb32f36`) |
-| B9/B10 | done locally 13 November; uncommitted pending operator review |
-| U2-proto | approved prerequisite, not started |
+| B9/B10 | done 13 November (`32b9519be`; documentation `236322712`) |
+| U2-proto | complete and committed as a bounded proof of approach 13 November; all U2 witnesses and fresh full E2E pass; indexed comparison and full operator campaign recorded; broader media-readiness findings and historical E2E intermittents remain separate follow-ups, not claimed fixes or universal performance certification |
 | U0a, U0b, U1-U8 | not started |
 
-**Early milestone:** U3 + U4 with editing through existing image detail gives
-real uploads end to end before the form density exists. Say so in closeouts.
-Most remaining effort sits in the editing roadmap steps U5-U7 depend on.
+**Next unit to select:** U0a's parity and transport/configuration research, then
+U0b's operator interaction study. Neither starts automatically from this status.
+
+**Early milestone:** U3 + U4 (which also requires U1) gives real ingestion through
+processing to canonical images and existing browsing/detail before the form density
+exists. Only already-connected editing operations are usable at that point. This
+is not editorial completion or Upload parity: required metadata, rights, templates
+and other required operations remain dependencies in U5-U7. Say so in closeouts.
+Most remaining effort sits in the editing roadmap steps those units depend on.
 
 ### UB8. Ordered-Read `ids` as a JSON Array (do first)
 
@@ -270,9 +276,9 @@ Replace the POST ordered-read `ids` string with an optional array of nonempty
 strings, matching mget. Absent = unrestricted; a wrong shape = 400 and an empty
 list or empty ID = 422 (status split refined by B10).
 Client, server, Scala tests, recorded POST bodies and the label-editor fixture
-change together; no CSV compatibility layer; legacy GET unchanged. Do not widen
-to other optional fields (they share the `asOpt` fail-open shape deliberately
-left alone). Details: [B8](#unmerged-endpoints-review-now).
+changed together; no CSV compatibility layer; legacy GET unchanged. UB8 left the
+other optional fields alone; the separately selected B9/B10 work subsequently
+addressed their shared body parsing. Details: [B8](#unmerged-endpoints-review-now).
 
 ### U2-proto. Variable-Height Density Prototype (prerequisite)
 
@@ -293,6 +299,112 @@ all three tiers. Settle before U1/U2:
 
 Outcome is a decision record plus reusable layout code, or a named blocker.
 Throwaway UI is acceptable; geometry/ownership code should be keepable.
+
+#### Prototype Decision Record (13 November 2026)
+
+**Keep the bounded geometry and measurement owner; keep the UI dev-only.**
+`window.__kupua_measured__.enable()` substitutes the stand-in for the Justified
+slot; `enable(false)` restores Justified. `field("extra", false)` or
+`field("note", false)` changes the fake global field set. No Upload, real metadata
+commands, new route, datasource, dependency or global history policy was added.
+
+| Question | Decision and evidence |
+| --- | --- |
+| Q1: ownership | [useMeasuredLayout](../../src/hooks/useMeasuredLayout.ts) owns DOM measurement and internal-field capture; [useScrollEffects](../../src/hooks/useScrollEffects.ts) remains the compensation writer. TanStack size adjustment and native anchoring are disabled, as for Justified, to avoid competing scroll writers. Old committed geometry supplies just-evicted heights. An input capture expires after its measurement opportunity and yields to newer browsing. Stable identity keys and a bounded active-editor range keep focus through publication. The [maintenance witness](../../e2e/local/justified-windowed.spec.ts) covers prepend, eviction, pixels, draft and input focus in indexed/seek projects. |
+| Q2: pre-paint | Initial reads occur in a layout effect; ResizeObserver publishes through `flushSync`, then the shared layout effect corrects placement. Observation is suspended during observer delivery to avoid observing reused nodes mid-delivery; new nodes are still measured synchronously, with observation alone reattached next frame. Observer callbacks use committed state. [Browser witnesses](../../e2e/shared/browse-density.ts) assert stable sampled-frame coordinates from density arrival and during offscreen correction, field changes, reflow, visible growth and shrink; they also reject observer errors. This is Chromium frame-coordinate evidence, not compositor-video or mobile timing certification. |
+| Q3: estimates | The stand-in uses its image-derived thumbnail height plus a cheap field-count allowance; exact wrapping comes only from DOM measurement. [Measured geometry](../../src/lib/windowed-measured-layout.ts) retains measured heights only for loaded identities. Its `prepareSeek` builds destination geometry and delegates headroom/end policy to `prepareDestinationSeek`; the store's existing variable branch stays unchanged. [Pure tests](../../src/lib/windowed-measured-layout.test.ts) cover pruning, old eviction geometry, empty destinations and sub-row seek preparation; browser journeys cover distant landing and return. |
+| Q4: indexed tier | One estimated head span, loaded rows and one estimated tail span cover the native extent. Logical item lookup, visible-range reporting and keyboard spatial geometry remain separate from those virtual rows. The [real-TanStack unit witness](../../src/lib/windowed-measured-layout.test.ts) visits **1,002 rows** for correction at both 12k and 65k totals with a 1,000-image window. No result-sized geometry array or whole-result read is introduced. Indexed boundary arrows use item geometry, not the entire unloaded span. |
+| Q5: drafts | [MeasuredGrid](../../src/components/MeasuredGrid.tsx) owns sparse draft intent outside disposable cells and the measurement cache. The shared browser journey types a value, performs three exact-pixel Grid/Table/stand-in cycles, leaves and re-enters a distant window, and hides/restores the input without losing it. Tall-form interiors survive panel/density round trips; a disappearing active field hands placement to the next retained field or image. The resident case also checks a 390px coarse-pointer compact shell without horizontal overflow. |
+| Q6: performance | The operator ran the [indexed comparison](../../e2e-perf/research/density-app-research.spec.ts) four times on 13 November; all passed. The stand-in had lower p95 and worst sampled frame intervals in every pair, while achieving the requested scrolling speed. The measured representation remained bounded to 302 virtual rows for 300 loaded records. This supports the approach for this workload, not equal-throughput, capacity-window, real-media or real-metadata performance parity. Results and limits are below; no agent-run perf campaign was used. |
+
+Directly copying Justified invalidation was rejected before implementation:
+installed TanStack core 3.17.11 made 12,000/65,000 estimate calls after `measure()`
+at those result totals, and 11,799/64,799 after correcting item 200. The operator
+then authorized the bounded adapter. These counts are complexity evidence, not
+observed frame-time harm in Justified. Existing canonical history was checked:
+the latest two inspected campaigns (7/9 November) cover existing densities in
+seek mode; they do not answer DOM-measured indexed correction cost.
+
+Two independent GPT-6.1 Sol reviews found four S2 issues: span-targeted arrows,
+tall-form interior clamping, stale input capture, and tall-form PageDown. All
+received failing-first witnesses and local repairs in the existing navigation and
+browser suites. The selection/focus disagreement gap also reproduced a 120px
+shift and was repaired by reusing `chooseReflowAnchor` against committed geometry.
+No existing assertion was weakened. Geometry remains independent
+of the fake fields; per-image measurements do not prevent future grouped rows,
+compact forms or layout-keyed field/zoom changes. Those controls are not built.
+
+**Operator comparison results (13 November).** Four paired repetitions at
+65,000 results and 1720x960, alternating density order, scrolling at 1200px/s for
+four seconds. Source: the operator's `kupua-u2-frames.txt` log, eight JSON records.
+
+| Metric | Justified | Measured stand-in |
+| --- | --- | --- |
+| Median of four run-level frame-p95 values | 25.25ms | 20.4ms |
+| Largest observed interval across the four runs | 66.3ms | 54.4ms |
+| Median achieved speed | 1202.1px/s | 1199.8px/s |
+| Loaded records at each run's end | 500 | 300 |
+| Virtual rows at each run's end | 6793 | 302 |
+
+Stand-in measurement records numbered 31-43, all within its loaded window. Paired
+p95 differences favored it by 3.0-7.9ms. These are scroll-step intervals sampled
+by the rAF-driven driver, not isolated layout CPU time or compositor captures.
+The densities process different numbers of images at equal pixel speed, and the
+windows were not at the 1,000-image capacity. Synthetic media excludes real delivery
+costs; fake fields do not establish real-editor cost. Occasional long intervals
+remain, so this is not a claim of hitch-free scrolling. No further identical run
+is needed to answer this bounded comparison.
+
+Reproduction command, already run by the operator (isolated local fixtures;
+port 3041 free; normal Kupua need not be running):
+
+```sh
+set -o pipefail; npm --prefix kupua run test:perf-research -- --grep="U2 measured comparison" --repeat-each=4 --headed 2>&1 | tee "$TMPDIR/kupua-u2-frames.txt"
+```
+
+The habitual jank and perceived surfaces separately check existing workflows for
+regressions. Choose their backend/delivery flags after confirming the running
+normal app's mode, per the [performance guide](../../e2e-perf/README.md). These are
+templates, not ready-to-paste commands for an arbitrarily configured app:
+
+```sh
+set -o pipefail; npm --prefix kupua run test:perf -- --runs 3 --label "U2-proto jank" 2>&1 | tee "$TMPDIR/kupua-test-output.txt"
+set -o pipefail; npm --prefix kupua run test:perf -- --perceived-only --runs 4 --label "U2-proto perceived" 2>&1 | tee "$TMPDIR/kupua-test-output.txt"
+```
+
+Inspect frame tails, achieved demand and usable-content readiness together.
+The habitual suites check existing workflows; the isolated comparison above is
+the stand-in measurement. The dedicated comparison closes the prototype's bounded
+frame-cost question within its stated limits; it adds no canonical-history entry.
+Real-editor performance and broader media-readiness acceptance belong to their
+selected implementation or investigation, not an indefinite U2-proto prerequisite.
+
+The operator subsequently completed all four habitual suites with four repetitions
+(`c431760a-0d03-4a54-a23e-106e61a62167`). The
+[full assessment](scroll-horizons-thumbs-and-blocking.md#13-november-imgops-checkpoint)
+compares the 9 November checkpoint, preserves substantial app-change and uncontrolled
+media/cache caveats, and separates improved response paths from slower full-image
+readiness and forward thumbnail exposure. The operator corrected the delivery context:
+this used existing imgops, not imgproxy; the mistaken campaign label remains historical
+provenance. This is a current-app baseline, not an isolated U2 or image-processor
+comparison or universal acceptance. These suites do not activate
+the measured form; its indexed comparison above remains separate evidence.
+
+Validation: **3,846 units across 114 files**, build, `typecheck:e2e` and
+`typecheck:perf` pass on the retained source. The latest full local E2E run with
+retries disabled passed **596/596**, including all **nine U2 cases**. The earlier
+**594/596** run failed hosted label-receipt ordering and a mobile fixture
+module fetch; both had passed unchanged in isolation. The subsequent investigation
+passed both owning specs (75 cases) and the fresh full suite without a product fix.
+A new receipt assertion checks that observation is still pending before releasing
+the held readback. No existing expectation was weakened. R7/R8 retain the earlier
+intermittent observations without claiming they were root-caused or repaired.
+The phone witness uses
+startup touch emulation, with coarse-pointer/compact-shell/no-overflow assertions
+and a reviewed screenshot. The operator ran the comparisons above; the agent ran
+no perf workload. The prototype and retained evidence are committed with this
+decision record; nothing was pushed. This closes the proof, not the real form
+density or Upload.
 
 ### U0. Parity and Interaction Baseline
 
@@ -637,9 +749,9 @@ source observations, not claims of measured production impact.
 
 | ID | Evidence and constraint | Pre-merge decision and checks |
 | --- | --- | --- |
-| B8 | [SearchParamsBody](../../../media-api/app/lib/elasticsearch/ElasticSearchModel.scala#L550) reads `ids` with `asOpt[String]`; an array or other wrong type becomes an absent ID constraint. mget intentionally uses an array, while the current ordered-read adapter correctly sends a string. | **Done 13 November (UB8).** Resolve the new POST contract before merge: distinguish omitted scope, explicitly empty membership and malformed input so an intended batch cannot silently become an unscoped read. Consider aligning JSON ID representation with mget now rather than preserving the current string shape by default. Use focused parser/controller/query witnesses and update affected POST callers/fixtures together; preserve legacy GET query-string behaviour and authorization. This is a targeted amendment candidate, not approval to change backend files in this planning task. |
-| B9 | Every other shared body field was also read with `asOpt`: a wrong type (for example `free: "true"`, `reverse: "true"`) silently became absent, unparseable dates were dropped, unknown syndication/usage statuses threw (500) and a non-object body read as empty. | **Done locally 13 November.** All shared fields are typed in one parser; null reads as absent except `ids`; list fields are JSON arrays; `pitId`/`reverse`/`seekToEnd` are type-checked centrally; the body must be an object. Unknown fields are still ignored by design. Legacy GET unchanged. |
-| B10 | Malformed bodies answered 400 on endpoint-specific fields but 422 on shared ones. | **Done locally 13 November.** Wrong JSON type or shape: 400 `invalid-params`, as Grid's other services and mget's shape check. Well-typed but unacceptable value (date, status, empty ID list, vector weight, CQL): 422 `invalid-uri-parameters`. |
+| B8 | Previously, [SearchParamsBody](../../../media-api/app/lib/elasticsearch/ElasticSearchModel.scala#L550) read `ids` with `asOpt[String]`; a wrong type became an absent ID constraint. Client and server consistently used a string, unlike mget's array. | **Done 13 November (UB8: `9f1a0f86e`, `7ecb32f36`).** Ordered-read POST `ids` is now an optional array of nonempty strings. Omission is unrestricted by ID; malformed shape/type is 400 and an empty array or empty ID is 422 (B10's final status split). Client, server, recorded bodies and fixtures changed together without a CSV compatibility layer. Legacy GET and authorization remain unchanged. |
+| B9 | Every other shared body field was also read with `asOpt`: a wrong type (for example `free: "true"`, `reverse: "true"`) silently became absent, unparseable dates were dropped, unknown syndication/usage statuses threw (500) and a non-object body read as empty. | **Done 13 November (`32b9519be`; documentation `236322712`).** All shared fields are typed in one parser; null reads as absent except `ids`; list fields are JSON arrays; `pitId`/`reverse`/`seekToEnd` are type-checked centrally; the body must be an object. Unknown fields are still ignored by design. Legacy GET unchanged. |
+| B10 | Malformed bodies answered 400 on endpoint-specific fields but 422 on shared ones. | **Done 13 November (`32b9519be`; documentation `236322712`).** Wrong JSON type or shape: 400 `invalid-params`, as Grid's other services and mget's shape check. Well-typed but unacceptable value (date, status, empty ID list, vector weight, CQL): 422 `invalid-uri-parameters`. |
 | B11 | [Sort clause reading](../../../media-api/app/lib/elasticsearch/sorts.scala#L40) keeps only `order`, `missing`, `mode` and `nested.path`; other nested or sort-object options, including wrongly typed ones, are silently discarded (B9 cold review, S3). The [final D3 review](zz%20Archive/media-api-work/phase-3-d3-searchafter-code-review-final.md#L162) deliberately left this as silent truncation, judging a 422 over-engineering for a path Kupua cannot produce. Its malformed sort shapes also answer 422, not B10's 400. Unrelated to the removed user [secondary sorts](zz%20Archive/scroll-and-position-preservation-testing-4.2.1-obscure-sorting-decision.md), which concerned a second semantic field, not sort-object options. | Open, low priority. B9 adopted refusal over silent ignoring for body fields; applying the same rule here would reverse that D3 decision and needs an explicit operator choice. Kupua's recorded sort clauses use only the four supported keys, so refusal would not affect it. If done, align malformed sort shapes with B10's 400. |
 | B12 | Endpoint-specific nulls are inconsistent with B9's shared rule: `sortValues: null` and `sort: null` are refused where omission is accepted (B9 cold review, S3). | Open. Either read endpoint nulls as absent or state that the null rule covers shared fields only. Not a Kupua regression. |
 
@@ -647,7 +759,7 @@ Further entries belong here only when a concrete Upload need reaches the new
 endpoint boundary. A change's proximity to that code does not make an unrelated
 legacy redesign small or necessary.
 
-**B8 provenance and recommended amendment (not implemented):** the
+**B8 provenance and implemented amendment:** the
 [original D3 workplan](zz%20Archive/media-api-work/phase-3-d3-searchafter-workplan.md#L204)
 explicitly mirrored `SearchParams.apply(request)` parsing. The
 [final D3 review](zz%20Archive/media-api-work/phase-3-d3-searchafter-code-review-final.md#L209)
@@ -655,37 +767,37 @@ verified that client and server both used comma-separated strings and correctly
 called that consistency "not a bug." This explains the existing format; do not
 describe B8 as an accidental client/server mismatch.
 
-There is still a reasonable pre-merge improvement: the
+The pre-merge amendment was justified by the
 [active build plan](03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md#L8)
-permits reshaping, the
+permitting reshaping, the
 [POST rationale](03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/media-api-90-conventions.md#L884)
-favours native structured JSON, and the
+favouring native structured JSON, and the
 [mget contract](03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md#L717)
-already uses an ID array. The operator confirms Kupua is the sole current caller
-of these new endpoints. Recommend an optional array of nonempty strings for the
-ordered-read POST `ids` field, changing client and server together without a CSV
-compatibility layer. Legacy GET URLs and internal search parameters need not
-change representation; convert at the POST transport boundary.
+already using an ID array. The operator confirmed Kupua as the sole current caller
+of these new endpoints. UB8 changed ordered-read POST `ids` to an optional array
+of nonempty strings, changing client and server together without a CSV compatibility
+layer. Legacy GET URLs and internal search parameters retain their representation;
+conversion occurs at the POST transport boundary.
 
-For a bounded amendment, recommend omission retaining its unrestricted-by-ID
-meaning, and present empty arrays or malformed values receiving the ordered-read
-boundary's 422 response. This follows mget's nonempty-input convention; it does
-not change mget's existing validation/status codes or introduce a 200-ID scope
-limit into ordered reads. Never silently omit a supplied empty constraint during
-conversion. Known-empty client batches can remain empty without issuing a read.
+The implemented boundary retains omission's unrestricted-by-ID meaning. Present
+empty arrays or empty IDs receive 422; malformed shapes or types receive 400 under
+B10's final contract. This preserves mget's nonempty-input convention without
+introducing a 200-ID scope limit into ordered reads or silently omitting a supplied
+empty constraint. U1 must still admit known-empty client batches without issuing
+an unscoped read; the wire correction alone does not implement that context boundary.
 
 The [parked empty-string finding](03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md#L1488)
 and [existing integration assertion](../../../media-api/test/lib/elasticsearch/ElasticSearchTest.scala#L2529)
-record `ids: ""` failing closed in Elasticsearch, not widening. Replace that
-failure expectation with intentional validation and retain a meaningful unscoped
-control. Separately prove malformed types cannot erase the ID restriction.
-Update actual mapper-recorded POST bodies and Scala replay, including the
-[browser fixture parsing string IDs](../../e2e/shared/label-editor-plugin.ts#L32),
-and preserve repaired known-empty AI membership handling. The
+recorded `ids: ""` failing closed in Elasticsearch, not widening. UB8 replaced that
+failure expectation with intentional validation and retained an unscoped control
+and malformed-type witnesses. Actual mapper-recorded POST bodies, Scala replay and
+the [browser fixture](../../e2e/shared/label-editor-plugin.ts#L32) changed together,
+preserving repaired known-empty AI membership handling. The
 [D3 validation disposition](03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/d3-search-after-01-readiness-findings.md#L35)
-cautions against broad hardening: do not expand this amendment to other optional
-fields, authentication, sorting, PIT or legacy GET behaviour. These are planning
-recommendations, not backend implementation approval.
+cautions against broad hardening. UB8 stayed scoped to ID representation; B9/B10's
+shared parsing changes were separately selected and completed. Neither completion
+authorizes further authentication, sorting, PIT or legacy GET changes. B11/B12
+remain explicit decisions, not automatic Upload prerequisites or backend approval.
 
 ### Existing Backend: Deferred by Default
 
@@ -708,6 +820,12 @@ recommendations, not backend implementation approval.
 | R3 | [Service discovery comments](../../src/dal/grid-api/service-discovery.ts) still describe old hybrid/proxy/graceful-absence assumptions, while the [current API contract](../../src/dal/grid-api/README.md) says otherwise. | Correct stale comments when touching that boundary; do not change working transport policy to match obsolete commentary or use this as a broad documentation-cleanup task. |
 | R4 | Composed tests each build their own media-api stand-in that maps request bodies back to `SearchParams` ([search-store-api-mode](../../src/stores/search-store-api-mode.test.ts#L66), [ImageDetail](../../src/components/ImageDetail.test.tsx#L1712)); UB8's wire change had to be repeated in each. | Extract one shared test stand-in before U1/U4 add more. Test-only; no production change. |
 | R5 | Recorded mapper bodies replayed in Scala caught UB8's shape change immediately. | Discipline, not code: every new or reshaped POST field gets a mapper-recorded body and Scala replay, never a hand-written body. |
+| R6 | Justified's total-row invalidation and [indexed estimated-block construction](../../src/lib/windowed-justified-layout.ts) scale with result extent. U2-proto's deterministic dependency probe established this, not measured frame-time harm. | **Resolved for measured forms** by [bounded spans](../../src/lib/windowed-measured-layout.ts) after operator approval. Reducing Justified's indexed relayout work could help, but changing its packing/navigation representation is higher-risk work. Pursue only if a profile attributes material cost to that construction; the unequal-throughput U2 comparison is not that evidence. No automatic Justified rewrite. |
+| R7 | [exerciseBulkEditor](../../e2e/local/grid-mutations.spec.ts#L1707) expected `[superseded, observed]` but received `[observed, observed]`, first locally and later compiled-hosted. The isolated tracked-source control failed earlier at [exerciseObservedEditor](../../e2e/local/grid-mutations.spec.ts#L1569), not the same assertion. The selected follow-up passed both command cases, both owning specs (75 cases) and a fresh full suite (596 cases), without retries or a product fix. | Retain as an unexplained intermittent, not a currently reproduced defect or claimed repair. A new assertion verifies observation is pending before releasing the held request; it does not weaken the expected receipt pair. If this recurs, distinguish an ineffective request hold from publication/read ordering using that invariant. No inheritance or U2 causality is established. |
+| R8 | An earlier full run's mobile double-tap case failed during [module interception](../../e2e/local/selections-mobile.spec.ts#L39) with `route.fetch: read ECONNRESET`; app startup then lacked its store. It subsequently passed unchanged in isolation, the selected two-spec investigation and the fresh 596-case full run, all without retries. | Retain as an unexplained fixture/server transport intermittent; investigate module-request lifetime if it recurs. The latest full gate is green, but no causal repair is claimed. This is not evidence of a gesture regression or permission to add retries, weaken readiness assertions, or alter product transport behavior. |
+| R9 | The prototype deliberately reuses [ImageGrid's lifecycle](../../src/components/ImageGrid.tsx#L528), but `justified` now also means measured cells, with explicit exclusions in [zoom subscription](../../src/components/ImageGrid.tsx#L649) and [gesture setup](../../src/components/ImageGrid.tsx#L940), plus form-specific rendering branches. Shared browsing ownership and thumbnail-specific policies still live in one component. | Before U2 adds real form rendering, separate only the necessary layout/cell/gesture policies from the existing browsing host. Benefit: new form behavior need not inherit or bypass thumbnail-only behavior, without copying the lifecycle. Moderate-to-high regression risk across density, selection, navigation and media admission; retain their witnesses. Coordinate with R1's route adapter, but do not create a new engine/store factory or refactor unrelated Grid rendering now. |
+| R10 | [Measured geometry](../../src/lib/windowed-measured-layout.ts#L53) maps items to bounded virtual rows, while its [spatial interface](../../src/lib/windowed-measured-layout.ts#L77) uses logical item rows. Both return `LayoutRow` with a numeric `index`; [navigation's `virtualizerCount`](../../src/hooks/useListNavigation.ts#L71) is also named/documented as a row count although callers supply the logical item extent. Confusing these domains caused the indexed boundary-arrow defect fixed in U2-proto. | Before grouped/side-by-side forms or another geometry consumer, name and document logical items, spatial rows and virtual rows explicitly at the adapter boundary; use distinguishing types where they prevent this demonstrated mismatch. Benefit: fewer accidental whole-span scroll targets and count errors. Moderate cross-consumer cost; preserve the boundary-arrow and tall-page witnesses. No universal coordinate-branding project or change to history/anchor policy. |
+| R11 | The [research transforms](../../e2e-perf/research/density-app-research.spec.ts#L222) require literal import text, and [row/cell-key transforms](../../e2e-perf/research/density-app-research.spec.ts#L235) require exact source substrings and occurrence counts. U2 integration had to preserve those source shapes even though they are not application behavior. | When those experiments are next maintained, replace the relevant fragile text rewrites with a test-only AST transform or an existing explicit hook. Benefit: behavior-preserving production edits need not preserve incidental spelling/import layout for research. Moderate validation cost and risk of changing what an experiment measures; retain fail-closed checks and controlled variants. No new hot-path instrumentation, dependency or wholesale research-framework rewrite merely for this prototype. |
 
 ## 9. Completion Report
 

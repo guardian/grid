@@ -1702,6 +1702,7 @@ async function exerciseBulkEditor(page: Page) {
     await expect(page.locator("[data-detail-image-id]")).toHaveAttribute("data-detail-image-id", "fixture");
     await expect.poll(() => page.evaluate(() => (window as CommandWindow).editorFixture
       .publicationSnapshot("fixture").residentLabels)).toContain("batch fixture label");
+    await expect(receipt("batch fixture label")).toContainText('"observation": "pending"');
     release();
     await expect.poll(async () => JSON.parse((await receipt("batch fixture label").textContent())!).items
       .map((item: { observation: string }) => item.observation)).toEqual(["superseded", "observed"]);

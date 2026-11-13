@@ -15,6 +15,57 @@ import * as densityDrivers from "../density-browser";
 import type { ImageBox, JustifiedLayout } from "../../src/lib/justified-layout";
 import type { LayoutRow } from "../../src/lib/scroll-geometry-ref";
 
+test("U2 measured comparison with Justified in the indexed tier", async ({ context }, info) => {
+  await installB2AcceptanceRoutes(context, true);
+  const page = await context.newPage();
+  try {
+    await page.goto("/search?nonFree=true");
+    await page.waitForFunction(() => Boolean((window as any).__kupua_store__));
+    await page.evaluate(async () => {
+      const path = "/src/dal/mock-data-source.ts";
+      const { MockDataSource } = await import(path);
+      const store = (window as any).__kupua_store__;
+      store.setState({ dataSource: new MockDataSource(65000) });
+      await store.getState().search();
+      await document.fonts.ready;
+    });
+    const order = info.repeatEachIndex % 2 ? ["measured", "justified"] as const : ["justified", "measured"] as const;
+    for (const density of order) {
+      await page.evaluate(enabled => (window as any).__kupua_measured__.enable(enabled), density === "measured");
+      await expect(page.getByRole("region", { name: `Image results ${density}`, exact: true })).toBeVisible();
+      await page.evaluate(async () => { await (window as any).__kupua_store__.getState().seek(30000); });
+      await waitForDensityMaintenanceCooldown(page);
+      await page.waitForFunction(density => {
+        const region = document.querySelector(`[aria-label="Image results ${density}"]`)!;
+        const bounds = region.getBoundingClientRect();
+        const images = Array.from(region.querySelectorAll<HTMLImageElement>("[data-image-id] img"))
+          .filter(image => { const rect = image.getBoundingClientRect(); return rect.bottom > bounds.top && rect.top < bounds.bottom; });
+        return images.length > 0 && images.every(image => image.complete && image.naturalWidth > 0);
+      }, density);
+      const motion = await scrollAtSpeed(page, density, 1200, 4000, { captureSteps: true, measureBounds: true });
+      const steps = motion.steps!;
+      const intervals = steps.slice(1).map((step, index) => step.at - steps[index].at).sort((first, second) => first - second);
+      expect(intervals.length).toBeGreaterThan(30);
+      expect(motion.physicalClampMs).toBe(0);
+      const geometry = await page.evaluate(async () => {
+        const path = "/src/lib/scroll-geometry-ref.ts";
+        const layout = (await import(path)).getLayoutGeometry().layout;
+        const state = (window as any).__kupua_store__.getState();
+        return { rows: layout.rowCount, measured: layout.measurements?.size ?? null, loaded: state.results.length };
+      });
+      if (density === "measured") {
+        expect(geometry.rows).toBeLessThanOrEqual(geometry.loaded + 2);
+        expect(geometry.measured).toBeLessThanOrEqual(geometry.loaded);
+      }
+      console.log(JSON.stringify({ fixture: "U2-indexed-density-comparison", density, repetition: info.repeatEachIndex + 1,
+        total: 65000, viewport: page.viewportSize(), geometry, frames: intervals.length,
+        frameP95Ms: intervals[Math.ceil(intervals.length * 0.95) - 1], worstFrameMs: intervals.at(-1),
+        achievedPxPerSecond: motion.drivenDistancePx / motion.drivenDurationMs * 1000,
+        workload: "1200px/s for 4s; unequal image throughput; local synthetic media, not delivery parity" }));
+    }
+  } finally { await page.close(); }
+});
+
 function retainKnownBoundaryRows(packed: JustifiedLayout, start: number, count: number, width: number,
   dimensions: ReadonlyMap<number, { id: string; ratio: number }>,
   pack: (ratios: number[], width: number, balanced: boolean) => JustifiedLayout): JustifiedLayout {

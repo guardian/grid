@@ -1,9 +1,113 @@
 import type { Page } from "@playwright/test";
 import { test, expect, type KupuaHelpers } from "../shared/helpers";
-import { unfocusedDensityRoundTrips } from "../shared/browse-density";
+import { measuredDensityJourney, unfocusedDensityRoundTrips } from "../shared/browse-density";
 import { waitForDensityRow } from "../shared/density-selection";
 
 type Density = "grid" | "table" | "justified";
+
+async function measuredEditor(kupua: KupuaHelpers, page: Page, tall: boolean) {
+  await kupua.startSearch();
+  const generation = await page.evaluate(() => (window as any).__kupua_getDensityRestoreGeneration__());
+  await page.evaluate(() => (window as any).__kupua_measured__.enable());
+  await page.waitForFunction(generation => (window as any).__kupua_getDensityRestoreGeneration__() > generation, generation);
+  const id = await page.evaluate(tall => {
+    const store = (window as any).__kupua_store__;
+    const id = store.getState().results[5].id;
+    store.getState().setFocusedImageId(id);
+    (window as any).__kupua_measured__.draft(id, tall ? "Natural field content. ".repeat(350) : "x");
+    return id as string;
+  }, tall);
+  const region = page.getByRole("region", { name: "Image results measured", exact: true });
+  const cell = region.locator(`[data-image-id="${id}"]`);
+  await expect(cell.getByRole("textbox", { name: "Prototype note" })).toHaveValue(tall ? "Natural field content. ".repeat(350) : "x");
+  await page.evaluate(async ({ id, tall }) => {
+    const path = "/src/lib/scroll-geometry-ref.ts";
+    const geometry = (await import(path)).getLayoutGeometry();
+    const region = document.querySelector<HTMLElement>('[aria-label="Image results measured"]')!;
+    region.scrollTop = geometry.layout.getItemRow(geometry.window.findItemIndex(id)).top + (tall ? 260 : -100);
+    region.dispatchEvent(new Event("scroll"));
+    await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  }, { id, tall });
+  return { region, cell, id };
+}
+
+test("U2 measured review preserves a tall-form reading position through panels and density", async ({ kupua, page }) => {
+  const { cell } = await measuredEditor(kupua, page, true);
+  const field = cell.locator('[data-measured-field="note"]');
+  const top = () => field.evaluate(element => element.getBoundingClientRect().top - element.closest('[role="region"]')!.getBoundingClientRect().top);
+  const before = await top();
+  expect(before).toBeLessThan(0);
+  for (const name of ["Show Details panel", "Hide Details panel"]) {
+    await page.getByRole("button", { name, exact: true }).click();
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    expect(await top()).toBe(before);
+  }
+  for (const name of ["Table view", "Justified view"]) {
+    const generation = await page.evaluate(() => (window as any).__kupua_getDensityRestoreGeneration__());
+    await page.getByRole("button", { name, exact: true }).click();
+    await page.waitForFunction(generation => (window as any).__kupua_getDensityRestoreGeneration__() > generation, generation);
+  }
+  expect(await top()).toBe(before);
+});
+
+test("U2 measured review retires unchanged-input placement before later browsing", async ({ kupua, page }) => {
+  const { region, cell } = await measuredEditor(kupua, page, false);
+  const input = cell.getByRole("textbox", { name: "Prototype note" });
+  await input.fill("xy");
+  const scroll = await region.evaluate(element => element.scrollTop);
+  await region.hover();
+  await page.mouse.wheel(0, 30);
+  await expect.poll(() => region.evaluate(element => element.scrollTop)).toBe(scroll + 30);
+  const top = () => cell.evaluate(element => element.getBoundingClientRect().top - element.closest('[role="region"]')!.getBoundingClientRect().top);
+  const before = await top();
+  await input.evaluate(element => { element.style.paddingBottom = "40px"; });
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  expect(await top()).toBe(before);
+});
+
+test("U2 measured review respects selection over an older focus during reflow", async ({ kupua, page }) => {
+  const { cell, id } = await measuredEditor(kupua, page, false);
+  await page.evaluate(async id => {
+    const store = (window as any).__kupua_store__;
+    const older = store.getState().results[4].id;
+    (window as any).__kupua_measured__.draft(older, "Neighbour wrapping text. ".repeat(100));
+    store.getState().setFocusedImageId(older);
+    (window as any).__kupua_selection_store__.setState({ selectedIds: new Set([id]), anchorId: id });
+    await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    const path = "/src/lib/scroll-geometry-ref.ts";
+    const geometry = (await import(path)).getLayoutGeometry();
+    const region = document.querySelector<HTMLElement>('[aria-label="Image results measured"]')!;
+    region.scrollTop = geometry.layout.getItemRow(geometry.window.findItemIndex(id)).top - 200;
+    region.dispatchEvent(new Event("scroll"));
+  }, id);
+  const top = () => cell.evaluate(element => element.getBoundingClientRect().top - element.closest('[role="region"]')!.getBoundingClientRect().top);
+  const before = await top();
+  for (const name of ["Show Details panel", "Hide Details panel"]) {
+    await page.getByRole("button", { name, exact: true }).click();
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    expect(await top()).toBe(before);
+  }
+});
+
+test("U2 measured resident density preserves natural geometry and drafts", async ({ kupua }) => {
+  await measuredDensityJourney(kupua);
+});
+
+test.describe("U2 measured phone", () => {
+  test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
+  test("natural fields fit the compact single-column shell", async ({ kupua, page }, info) => {
+    await kupua.startSearch();
+    await page.evaluate(() => (window as any).__kupua_measured__.enable());
+    const region = page.getByRole("region", { name: "Image results measured", exact: true });
+    await expect(region).toBeVisible();
+    expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
+    await expect(page.locator('html[data-shell="compact"]')).toHaveCount(1);
+    expect(await region.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await expect(region.locator("[data-measured-cell]").first()).toBeAttached();
+    await region.getByRole("textbox", { name: "Prototype note" }).first().fill("Phone draft with natural wrapping. ".repeat(6));
+    await page.screenshot({ path: info.outputPath("measured-mobile.png") });
+  });
+});
 
 async function switchDensity(page: Page, density: Density, imageId?: string) {
   const current = await page.evaluate(() => document.querySelector('[aria-label^="Image results "]')?.getAttribute("aria-label")?.split(" ").at(-1));

@@ -25,6 +25,8 @@ import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import { useListNavigation } from "./useListNavigation";
 import { useDataWindow } from "./useDataWindow";
 import { clearDensityFocusRatio, useScrollEffects } from "./useScrollEffects";
+import { buildMeasuredLayout } from "@/lib/windowed-measured-layout";
+import type { ScrollGeometry } from "./useScrollEffects";
 
 const routeParams = { nonFree: "true" };
 const initialSearch = useSearchStore.getState();
@@ -60,7 +62,7 @@ afterEach(() => {
   useUiPrefsStore.setState(initialPreferences, true);
 });
 
-async function mountNavigation(windowed: boolean, mode: "explicit" | "selection" | "phantom" | "none", total = windowed ? 12000 : 300, orderBy = "-uploadTime", spatial = false, columns = 1) {
+async function mountNavigation(windowed: boolean, mode: "explicit" | "selection" | "phantom" | "none", total = windowed ? 12000 : 300, orderBy = "-uploadTime", spatial = false, columns = 1, measured = false) {
   const source = new MockDataSource(total, orderBy === "-uploadTime" ? undefined : [{ field: "lastModified", ratio: 1 }]);
   const params = { nonFree: "true", orderBy, length: windowed ? 200 : total };
   const firstPage = await source.searchAfter(params, null, null);
@@ -87,6 +89,10 @@ async function mountNavigation(windowed: boolean, mode: "explicit" | "selection"
     clientWidth: { value: 1000 },
     scrollHeight: { get: () => {
       const state = useSearchStore.getState();
+      if (measured && "layout" in geometry) {
+        const row = geometry.layout.getItemRow((isTwoTierFromTotal(state.total) ? state.total : state.results.length) - 1);
+        return row.top + row.height;
+      }
       return getFixedRowCount({ columns, rowHeight: 32, itemOffset: isTwoTierFromTotal(state.total) ? 0 : state.bufferOffset },
         isTwoTierFromTotal(state.total) ? state.total : state.results.length) * 32;
     } },
@@ -108,7 +114,7 @@ async function mountNavigation(windowed: boolean, mode: "explicit" | "selection"
   const irregular = { getRow, getItemRow: (index: number) => getRow(Math.floor(index / 2)),
     rowAtOffset: (offset: number) => getRow(Math.max(0, Math.floor(offset / 300) * 2 + (offset % 300 >= 100 ? 1 : 0))),
     neighbour: (index: number, row: number) => Math.max(0, row) * 2 + index % 2 };
-  let geometry = spatial ? { layout: irregular, spatial: irregular, headerOffset: 0, preserveScrollLeftOnSort: false,
+  let geometry: ScrollGeometry = spatial ? { layout: irregular, spatial: irregular, headerOffset: 0, preserveScrollLeftOnSort: false,
     window: { width: 1000, getItemId: () => undefined, findItemIndex: () => undefined,
       rowAtOffset: irregular.rowAtOffset, prepareSeek: () => { throw new Error("Unused fixture operation"); } } }
     : { rowHeight: 32, columns, itemOffset: 0, headerOffset: 0, preserveScrollLeftOnSort: true };
@@ -128,14 +134,21 @@ async function mountNavigation(windowed: boolean, mode: "explicit" | "selection"
     const state = useSearchStore();
     const twoTier = isTwoTierFromTotal(state.total);
     const virtualizerCount = twoTier ? state.total : state.results.length;
-    if (!spatial) geometry = { rowHeight: 32, columns, itemOffset: twoTier ? 0 : state.bufferOffset,
+    const measuredLayout = measured ? buildMeasuredLayout(state.results, 1000,
+      { indexed: twoTier, total: state.total, bufferOffset: state.bufferOffset, searchKey: "navigation" },
+      { estimatedHeight: 320, estimate: () => 320, anchorHeight: () => 180,
+        measurements: new Map([[state.results[2]!.id, 1500]]) }) : undefined;
+    if (measuredLayout) geometry = { layout: measuredLayout, spatial: measuredLayout.spatial, window: measuredLayout.window,
+      headerOffset: 0, preserveScrollLeftOnSort: false };
+    else if (!spatial) geometry = { rowHeight: 32, columns, itemOffset: twoTier ? 0 : state.bufferOffset,
       headerOffset: 0, preserveScrollLeftOnSort: true };
     virtualizer.options.count = virtualizerCount;
     useScrollEffects({ virtualizer, parentRef, geometry, reportVisibleRange, resultsLength: state.results.length,
       total: state.total, bufferOffset: state.bufferOffset, loadMore, focusedImageId: state.focusedImageId,
       findImageIndex, twoTier });
     useListNavigation({ virtualizer, scrollRef: parentRef,
-      ...(spatial ? { spatial: irregular } : { columnsPerRow: columns, rowHeight: 32, itemOffset: twoTier ? 0 : state.bufferOffset }), headerHeight: 0,
+      ...(measuredLayout ? { spatial: measuredLayout.spatial } : spatial ? { spatial: irregular }
+        : { columnsPerRow: columns, rowHeight: 32, itemOffset: twoTier ? 0 : state.bufferOffset }), headerHeight: 0,
       focusedImageId: state.focusedImageId, setFocusedImageId: state.setFocusedImageId, virtualizerCount,
       getImage: (index) => {
         const current = useSearchStore.getState();
@@ -171,6 +184,30 @@ async function mountNavigation(windowed: boolean, mode: "explicit" | "selection"
     },
   };
 }
+
+it("measured indexed arrows target the unloaded neighbour rather than its whole span", async () => {
+  const fixture = await mountNavigation(true, "explicit", 12000, "-uploadTime", false, 1, true);
+  const results = useSearchStore.getState().results;
+  act(() => useSearchStore.setState({ bufferOffset: 5000,
+    imagePositions: new Map(results.map((image, index) => [image!.id, index + 5000])) }));
+  fixture.container.scrollTop = 5000 * 320;
+  act(() => fixture.dispatchKey("ArrowUp"));
+  expect(fixture.container.scrollTop).toBe(4999 * 320);
+});
+
+it("measured focused paging traverses a tall form before advancing to the next image", async () => {
+  const fixture = await mountNavigation(false, "explicit", 300, "-uploadTime", false, 1, true);
+  const results = useSearchStore.getState().results;
+  act(() => useSearchStore.getState().setFocusedImageId(results[2]!.id));
+  fixture.container.scrollTop = 640;
+  act(() => fixture.dispatchKey("PageDown"));
+  expect(fixture.container.scrollTop).toBe(1240);
+  expect(useSearchStore.getState().focusedImageId).toBe(results[2]!.id);
+  act(() => fixture.dispatchKey("PageDown"));
+  expect(fixture.container.scrollTop).toBe(1840);
+  act(() => fixture.dispatchKey("PageDown"));
+  expect(useSearchStore.getState().focusedImageId).toBe(results[3]!.id);
+});
 
 it("skips unavailable arrow and page targets without seeking or opening their media", async () => {
   const fixture = await mountNavigation(false, "explicit");

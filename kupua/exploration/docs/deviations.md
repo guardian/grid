@@ -997,6 +997,23 @@ assumption for when permissions are wired up.
 
 ## From library defaults / conventions
 
+### DOM-Measured Density Windows
+
+The dev-only form stand-in gives TanStack Virtual at most the loaded image window
+plus two estimated unloaded spans, rather than one virtual row per indexed result.
+Natural cell heights and internal-field points come from one measurement owner;
+TanStack and browser automatic size compensation are disabled in favor of the
+shared pre-paint scroll owner. Initial DOM reads and correction are synchronous;
+only observation reattachment is deferred after an observer delivery.
+
+This keeps correction work proportional to the window. The trade-off is approximate
+unloaded extent and a distinction between virtual span indices and logical image
+positions: reporting and spatial navigation must use item geometry. A focused
+loaded editor is included in the virtual range through compensation renders.
+Tall-form interior placement is retained separately from thumbnail visibility
+clamping; ordinary density and history policies are unchanged. See the
+[U2-proto decision](gradually-growing-teeth.upload-workplan.md#prototype-decision-record-13-november-2026).
+
 ### Registry-Rendered Table Body Cells (25 October 2026)
 
 Table headers and the bounded row model still use TanStack, but body cells render

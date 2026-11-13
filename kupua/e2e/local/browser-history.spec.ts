@@ -1735,6 +1735,11 @@ test.describe("Browser back/forward — density toggle", () => {
 
 test.describe("Browser back/forward — metadata click-to-search", () => {
   test("metadata search pushes once; Back restores the exact rendered detail image", async ({ kupua }) => {
+    await kupua.page.addInitScript(() => {
+      localStorage.setItem("kupua-panel-config", JSON.stringify({
+        state: { config: { sections: { "detail-metadata": false } } }, version: 0,
+      }));
+    });
     // Local mode builds no media URLs; serve an identity-tagged pixel so the detail can decode.
     await kupua.page.route("**/src/lib/image-urls.ts", (route) => route.fulfill({
       contentType: "application/javascript",
@@ -1755,12 +1760,10 @@ test.describe("Browser back/forward — metadata click-to-search", () => {
     }, imageId);
     expect(credit).toBeTruthy();
 
-    const detailMetadataBtn = kupua.page.locator(
-      'button[aria-controls="section-detail-metadata"][aria-expanded="false"]',
-    );
-    if (await detailMetadataBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await detailMetadataBtn.click();
-    }
+    const detailMetadata = await kupua.revealAdditionalDetailMetadata(imageId);
+    const additionalField = detailMetadata.getByRole("region", { name: "Additional metadata", exact: true })
+      .locator("button[data-cql-key]").first();
+    await expect(additionalField).toBeVisible();
     const metadataLink = kupua.page.locator(
       `dl button[data-cql-key="credit"][data-cql-value="${credit}"]`,
     );

@@ -406,7 +406,7 @@ export async function analyzeIdentityFrames(page: Page, frames: { data: string; 
 }
 
 /** Fixed pixels/second, not pixels/frame; browser buffering may limit achieved speed. */
-export async function scrollAtSpeed(page: Page, density: Density, speed: number, duration: number,
+export async function scrollAtSpeed(page: Page, density: Density | "measured", speed: number, duration: number,
   options: { measureBounds?: boolean; maxDistancePx?: number; captureSteps?: boolean } = {}) {
   if (options.maxDistancePx !== undefined && (!Number.isFinite(options.maxDistancePx) || options.maxDistancePx <= 0)) {
     throw new Error("Scroll distance endpoint must be finite and positive");

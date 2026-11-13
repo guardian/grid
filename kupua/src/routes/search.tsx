@@ -24,6 +24,7 @@ import { StatusBar } from "@/components/StatusBar";
 import { ImageTable } from "@/components/ImageTable";
 import { ImageGrid } from "@/components/ImageGrid";
 import { JustifiedGrid } from "@/components/JustifiedGrid";
+import { MeasuredGrid, useMeasuredPrototype } from "@/components/MeasuredGrid";
 import { RESIDENT_PREVIEW_ENABLED, SAMPLED_PREVIEW_ENABLED, RESIDENT_PREVIEW_LIMIT } from "@/lib/resident-preview";
 import { ImageDetail } from "@/components/ImageDetail";
 import { PanelLayout, AccordionSection } from "@/components/PanelLayout";
@@ -67,6 +68,7 @@ export const searchRoute = createRoute({
 function SearchPage() {
   const { image } = useSearch({ from: "/search" });
   const density = useUiPrefsStore((state) => state.density);
+  const measuredPrototype = useMeasuredPrototype(state => import.meta.env.DEV && state.enabled);
   const collectionStatus = useCollectionStore((s) => s.status);
   // Mount range-selection handler once at the route level — passed to
   // ImageGrid and ImageTable so shift-click range works in both views.
@@ -304,7 +306,7 @@ function SearchPage() {
           }
           scrubber={scrubberElement}
         >
-          {density === "justified" ? <JustifiedGrid handleRange={handleRange} />
+          {density === "justified" ? measuredPrototype ? <MeasuredGrid handleRange={handleRange} /> : <JustifiedGrid handleRange={handleRange} />
             : isGrid ? <ImageGrid handleRange={handleRange} /> : <ImageTable handleRange={handleRange} />}
         </PanelLayout>
       </div>

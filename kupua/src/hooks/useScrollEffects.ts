@@ -63,6 +63,7 @@ function toVirtualizerIdx(globalIdx: number, bufferOffset: number, isTwoTier: bo
 interface DensityFocusState {
   target: { id: string; globalIndex: number };
   placement: { kind: "ratio"; ratio: number } | { kind: "centre" };
+  interior?: boolean;
   searchGeneration: number;
   publication: { seek: number; sort: number; reset: number };
   mode: { kind: "settled"; focusIntent: number; edge: "none" | "start" | "end" }
@@ -187,6 +188,7 @@ export interface UseScrollEffectsConfig {
    * for the sticky header.  When absent, falls back to scrollToIndex.
    */
   scrollRowToCenter?: (rowIdx: number) => void;
+  onScrollIntent?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -221,6 +223,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   // mount-only effects always see the latest version.
   const scrollRowToCenterRef = useRef(scrollRowToCenter);
   scrollRowToCenterRef.current = scrollRowToCenter;
+  const scrollIntentRef = useRef(config.onScrollIntent);
+  scrollIntentRef.current = config.onScrollIntent;
 
   // -------------------------------------------------------------------------
   // 1. Register scroll container for Scrubber (mount/unmount)
@@ -358,7 +362,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   const beforeLayout = committedLayout.current;
   const beforeScroll = parentRef.current?.scrollTop ?? 0;
   const layoutAnchor = beforeLayout.geometry !== geometry && "layout" in geometry && geometry.window
-    ? retainedDensityPlacement(beforeLayout.geometry, beforeScroll)?.saved.target.id ?? getViewportAnchorId() : null;
+    ? geometry.window.correctionAnchor?.id ?? retainedDensityPlacement(beforeLayout.geometry, beforeScroll)?.saved.target.id ?? getViewportAnchorId() : null;
   useLayoutEffect(() => {
     committedLayout.current = layoutPublication;
     const old = beforeLayout.geometry;
@@ -373,7 +377,9 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const electedNext = layoutAnchor ? geometry.window.findItemIndex(layoutAnchor) : undefined;
     if (anchorIndex !== undefined && electedNext !== undefined) {
       const nextRowTop = getItemLayoutRow(geometry, electedNext).top;
-      el.scrollTop = beforeScroll + nextRowTop - row.top;
+      const point = geometry.window.correctionAnchor;
+      el.scrollTop = point?.viewportOffset !== undefined ? nextRowTop + point.afterOffset - point.viewportOffset
+        : beforeScroll + nextRowTop - row.top + (point ? point.afterOffset - point.beforeOffset : 0);
       recordDensityCompensation(beforeScroll, layoutAnchor!, row.top, nextRowTop);
       return;
     }
@@ -402,8 +408,9 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const range = virtualizerRef.current.range;
     if (range) {
       const geo = geometryRef.current;
-      const firstRow = getLayoutRow(geo, range.startIndex);
-      const lastRow = getLayoutRow(geo, range.endIndex);
+      const visible = "layout" in geo ? geo.window?.visibleRows?.(el.scrollTop, el.clientHeight) : undefined;
+      const firstRow = visible?.first ?? getLayoutRow(geo, range.startIndex);
+      const lastRow = visible?.last ?? getLayoutRow(geo, range.endIndex);
       const viewportBottom = el.scrollTop + el.clientHeight;
       const rangeStartMatchesViewport = el.clientHeight > 0 &&
         firstRow.top <= el.scrollTop + 1 && firstRow.top + firstRow.height > el.scrollTop - 1;
@@ -437,6 +444,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const el = parentRef.current;
     if (!el) return;
     const markInput = () => {
+      scrollIntentRef.current?.();
       scrollInputRef.current = { search: getSearchGeneration(), seek: useSearchStore.getState()._seekGeneration };
     };
     const captureInput = () => { densityPlacementRef.current = null; markInput(); };
@@ -898,7 +906,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       // Restore the focused item at the same viewport ratio — "Never Lost".
       const headerOffset = includesHeader ? geo.headerOffset : 0;
       const rowTop = row.top + headerOffset;
-      const target = placeRow(rowTop, row.height, savedRatio * el.clientHeight, headerOffset, el.clientHeight, Infinity);
+      const target = placeRow(rowTop, row.anchorHeight ?? row.height, savedRatio * el.clientHeight, headerOffset, el.clientHeight, Infinity);
       const clamped = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, target));
       virtualizer.scrollToOffset(clamped);
       if (
@@ -958,9 +966,11 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const edge = (indexed || state.bufferOffset === 0) && el.scrollTop === 0 ? "start"
       : (indexed || state.bufferOffset + state.results.length >= getDisplayEnd(state)) && maxScroll > 0 &&
         maxScroll - el.scrollTop < GRID_ROW_HEIGHT ? "end" : "none";
-    const rowTop = getItemLayoutRow(geo, index).top;
+    const row = getItemLayoutRow(geo, index);
+    const rowTop = row.top;
     return { target, placement: placement === "centre" ? { kind: "centre" }
       : { kind: "ratio", ratio: (rowTop + geo.headerOffset - el.scrollTop) / el.clientHeight },
+      interior: row.anchorHeight !== undefined && rowTop + row.anchorHeight < el.scrollTop && rowTop + row.height > el.scrollTop,
       searchGeneration: getSearchGeneration(),
       publication: { seek: state._seekGeneration, sort: state.sortAroundFocusGeneration, reset: state._scrollReset.gen },
       mode: navigation ? { kind: "departure", navigationSignal: navigation.signal }
@@ -1001,7 +1011,9 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       virtualizerRef.current.scrollToIndex(virtualizerRef.current.options.count - 1, { align: "end" });
     } else {
       el.scrollTop = saved.mode.kind === "settled" && start && saved.mode.edge === "start" ? 0
-        : placeRow(row.top + geo.headerOffset, row.height, saved.placement.ratio * el.clientHeight, geo.headerOffset,
+        : saved.interior && row.anchorHeight !== undefined && row.height > -saved.placement.ratio * el.clientHeight
+          ? row.top + geo.headerOffset - saved.placement.ratio * el.clientHeight
+        : placeRow(row.top + geo.headerOffset, row.anchorHeight ?? row.height, saved.placement.ratio * el.clientHeight, geo.headerOffset,
           el.clientHeight, el.scrollHeight);
     }
     densityPlacementRef.current = saved.mode.kind === "settled" && saved.placement.kind === "ratio"

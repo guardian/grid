@@ -725,21 +725,9 @@ test.describe("Journey Tests", () => {
     }
 
     // ── JA3: metadata click on detail panel ───────────────────────────────
-    // The "Details" accordion in the image detail overlay may be collapsed if
-    // kupua-panel-config in localStorage was saved with detail-metadata:false
-    // (e.g. from a prior dev session). Expand it before looking for buttons.
-    // aria-controls is set by AccordionSection and uniquely identifies the
-    // section regardless of other "Details"-labelled elements on the page.
-    const detailMetadataBtn = kupua.page.locator(
-      'button[aria-controls="section-detail-metadata"][aria-expanded="false"]'
-    );
-    if (await detailMetadataBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await detailMetadataBtn.click();
-      await kupua.page.waitForTimeout(200);
-    }
-
+    const detailMetadata = await kupua.revealAdditionalDetailMetadata(IMG_SCROLL);
     const targetQuery = "colourModel:RGB";
-    const colourModelButton = kupua.page.locator(
+    const colourModelButton = detailMetadata.locator(
       'dl button[data-cql-key="colourModel"][data-cql-value="RGB"]',
     );
     await expect(colourModelButton).toHaveCount(1);

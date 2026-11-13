@@ -185,6 +185,21 @@ export function useListNavigation(config: ListNavigationConfig): void {
   const configRef = useRef(config);
   configRef.current = config;
 
+  const scrollItemIntoView = useCallback((index: number) => {
+    const current = configRef.current;
+    const element = current.scrollRef.current;
+    if (!current.spatial || !element) {
+      current.virtualizer.scrollToIndex(current.flatIndexToRow(index), { align: "auto" });
+      return;
+    }
+    const row = current.spatial.getItemRow(index);
+    const bottom = row.top + (row.anchorHeight ?? row.height) + current.headerHeight;
+    const target = row.top < element.scrollTop ? row.top
+      : bottom > element.scrollTop + element.clientHeight ? bottom - element.clientHeight : element.scrollTop;
+    element.scrollTop = Math.max(0, Math.min(element.scrollHeight - element.clientHeight, target));
+    element.dispatchEvent(new Event("scroll"));
+  }, []);
+
   // -------------------------------------------------------------------------
   // scrollByRows — scroll-only mode (no focus changes)
   // -------------------------------------------------------------------------
@@ -286,8 +301,6 @@ export function useListNavigation(config: ListNavigationConfig): void {
       findImageIndex,
       getImage,
       setFocusedImageId,
-      virtualizer,
-      flatIndexToRow,
       resultsLength,
       total,
       loadMore,
@@ -331,13 +344,13 @@ export function useListNavigation(config: ListNavigationConfig): void {
     }
 
     // Scroll to the row containing this index
-    virtualizer.scrollToIndex(flatIndexToRow(nextIdx), { align: "auto" });
+    scrollItemIntoView(nextIdx);
 
     // Load more when approaching the end
     if (count - nextIdx <= 5 && (configRef.current.bufferOffset + resultsLength < total || hasOrderingUncertainty())) {
       loadMore();
     }
-  }, [recoverFocus]);
+  }, [recoverFocus, scrollItemIntoView]);
 
   // -------------------------------------------------------------------------
   // pageFocus — move focus by one page (only called when focus exists)
@@ -353,6 +366,12 @@ export function useListNavigation(config: ListNavigationConfig): void {
       if (config.virtualizerCount === 0) return;
       const row = config.spatial.getItemRow(current);
       const height = el.clientHeight - config.headerHeight;
+      if (row.height > height) {
+        const within = direction === "down" ? el.scrollTop + height < row.top + row.height : el.scrollTop > row.top;
+        if (within) scrollByPage(direction);
+        else moveFocus(config.spatial.neighbour(current, row.index + (direction === "down" ? 1 : -1)) - current);
+        return;
+      }
       const destination = config.spatial.rowAtOffset(row.top + (direction === "down" ? height : -height));
       if (destination) moveFocus(config.spatial.neighbour(current, destination.index) - current);
       return;
@@ -425,7 +444,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
     if (direction === "down" && count - targetIdx <= 5 && (configRef.current.bufferOffset + resultsLength < total || hasOrderingUncertainty())) {
       loadMore();
     }
-  }, [moveFocus, recoverFocus]);
+  }, [moveFocus, recoverFocus, scrollByPage]);
 
   const moveFocusByRow = useCallback((delta: number) => {
     const config = configRef.current;

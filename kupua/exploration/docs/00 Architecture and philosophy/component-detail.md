@@ -909,6 +909,23 @@ capture/reflow ownership, not column arithmetic; results zoom (below) steps each
 [seek policy and costs](03-scroll-architecture.md#destination-seek-preparation), and
 [Justified feature comparison](00-kupua-vs-kahuna-feature-inventory.md#42-whole-image-justified-rows).
 
+## Measured Density Prototype (`components/MeasuredGrid.tsx`)
+
+The dev switch substitutes a natural-height stand-in for the Justified slot without
+adding a route or persisted density. ImageGrid retains its interaction and browsing
+lifecycle; `useMeasuredLayout` owns mounted-cell observation and loaded-window-only
+measurements. Sparse fake drafts live outside rows. `windowed-measured-layout` uses
+individual loaded rows and estimated head/tail spans, with logical item coordinates
+for navigation and visible reporting. The existing scroll-effect owner compensates
+old/new identity geometry, including internal-field points and input captures.
+
+Measurement callbacks are published after commit. Layout effects handle initial
+measurement; observer corrections flush synchronously before paint. Observation,
+not correction, is reattached next frame after observer delivery. Image anchor height
+is distinct from full natural height, and density handoffs can retain an interior
+form position. The [U2-proto decision](../gradually-growing-teeth.upload-workplan.md#prototype-decision-record-13-november-2026)
+owns proof limits, dev controls and the operator-only performance comparison.
+
 ## Results Zoom (`lib/results-zoom.ts`, `stores/zoom-store.ts`)
 
 Zoom is an integer offset from each density's default level; offset 0 is always the classic

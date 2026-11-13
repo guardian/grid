@@ -1,7 +1,11 @@
 import type { Page } from "@playwright/test";
 import { test, expect, type KupuaHelpers } from "../shared/helpers";
 import { getDensityChangeButton, waitForDensityRow, type Density } from "../shared/density-selection";
-import { unfocusedDensityRoundTrips } from "../shared/browse-density";
+import { measuredDensityJourney, unfocusedDensityRoundTrips } from "../shared/browse-density";
+
+test("U2 measured windowed density preserves natural geometry and drafts", async ({ kupua }) => {
+  await measuredDensityJourney(kupua);
+});
 
 const region = (page: Page) => page.getByRole("region", { name: "Image results justified", exact: true });
 
@@ -644,10 +648,19 @@ test("append repacks a visible temporary tail while preserving the elected viewp
   } finally { await page.evaluate(() => (window as any).__justifiedTail?.cleanup()); }
 });
 
-test("delayed window maintenance retains the visible image without double compensation", async ({ kupua, page }, info) => {
+for (const view of ["justified", "measured"] as const) {
+test(`${view === "measured" ? "U2 measured" : "Justified"} delayed window maintenance retains the visible image without double compensation`, async ({ kupua, page }, info) => {
   await start(kupua, page, info.project.name);
   await seek(page, 0.4);
+  if (view === "measured") {
+    await page.evaluate(() => (window as any).__kupua_measured__.enable());
+    await expect(page.getByRole("region", { name: "Image results measured", exact: true })).toBeVisible();
+  }
   await kupua.waitForExtendReady();
+  await expect.poll(() => page.evaluate(async () => {
+    const path = "/src/stores/search-store.ts";
+    return (await import(path)).getWindowMaintenanceDelay();
+  })).toBe(0);
   await page.evaluate(async () => {
     const store = (window as any).__kupua_store__;
     for (let page = 0; page < 4; page++) await store.getState().extendForward();
@@ -655,13 +668,20 @@ test("delayed window maintenance retains the visible image without double compen
     if (s.results.length !== 1000) throw new Error("Fixture did not reach buffer capacity");
     const path = "/src/lib/scroll-geometry-ref.ts";
     const g = (await import(path)).getLayoutGeometry();
-    const index = g.layout.indexed ? s.bufferOffset + 500 : 500;
-    document.querySelector('[aria-label="Image results justified"]')!.scrollTop = g.layout.getItemRow(index).top - 200;
+    const index = g.window.findItemIndex(s.results[500].id);
+    document.querySelector('[aria-label^="Image results "]')!.scrollTop = g.layout.getItemRow(index).top - 200;
   });
   // Arrangement can trigger automatic maintenance; hold the next request, not an already-started one.
   await settled(page);
   await kupua.waitForExtendReady();
-  const id = await focus(kupua, page);
+  const id = view === "justified" ? await focus(kupua, page) : await page.evaluate(() => {
+    const id = (window as any).__kupua_getViewportAnchorId__();
+    if (!id) throw new Error("Missing measured maintenance anchor");
+    (window as any).__kupua_store__.getState().setFocusedImageId(id);
+    return id as string;
+  });
+  const input = page.locator(`[data-image-id="${id}"]`).getByRole("textbox", { name: "Prototype note" });
+  if (view === "measured") await input.fill("Editing during window maintenance");
   await page.evaluate(async () => {
     const path = "/src/dal/es-config.ts";
     if (!(await import(path)).IS_LOCAL_ES) throw new Error("Local-only fixture");
@@ -690,6 +710,10 @@ test("delayed window maintenance retains the visible image without double compen
     await expect.poll(async () => Math.abs((await placement(page, id))!.y - before.y)).toBeLessThan(1);
     await expect.poll(async () => Math.abs((await placement(page, id))!.x - before.x)).toBeLessThan(1);
     expect(await page.evaluate(() => (window as any).__justifiedHold.calls)).toBe(1);
+    await expect.poll(() => page.evaluate(async () => {
+      const path = "/src/stores/search-store.ts";
+      return (await import(path)).getWindowMaintenanceDelay();
+    })).toBe(0);
     const eviction = await page.evaluate(() => (window as any).__kupua_store__.getState()._forwardEvictGeneration);
     await page.evaluate(() => (window as any).__kupua_store__.getState().extendForward());
     await settled(page);
@@ -704,10 +728,23 @@ test("delayed window maintenance retains the visible image without double compen
     expect(state.length).toBeLessThanOrEqual(1000);
     expect(state.unique).toBe(state.length);
     expect(state.positions).toBe(true);
+    if (view === "measured") {
+      await expect(input).toHaveValue("Editing during window maintenance");
+      await expect(input).toBeFocused();
+      const bounds = await page.evaluate(async () => {
+        const path = "/src/lib/scroll-geometry-ref.ts";
+        const layout = (await import(path)).getLayoutGeometry().layout;
+        const length = (window as any).__kupua_store__.getState().results.length;
+        return { rows: layout.rowCount, measured: layout.measurements.size, length };
+      });
+      expect(bounds.rows).toBeLessThanOrEqual(bounds.length + 2);
+      expect(bounds.measured).toBeLessThanOrEqual(bounds.length);
+    }
   } finally {
     await page.evaluate(() => { (window as any).__justifiedHold?.cleanup(); delete (window as any).__justifiedWork; });
   }
 });
+}
 
 test("pending native seek survives density switches and uses destination identity", async ({ kupua, page }, info) => {
   await start(kupua, page, info.project.name);

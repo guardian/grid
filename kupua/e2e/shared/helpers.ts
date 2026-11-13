@@ -1056,6 +1056,26 @@ export class KupuaHelpers {
     return (await this.page.locator('[aria-label="Image results table"]').count()) > 0;
   }
 
+  async revealAdditionalDetailMetadata(imageId: string) {
+    const contentId = `detail-metadata-${imageId}`;
+    const detailsToggle = this.page.getByRole("button", { name: "Details", exact: true })
+      .and(this.page.locator(`[aria-controls="${contentId}"]`));
+    await expect(detailsToggle).toBeVisible();
+    if (await detailsToggle.getAttribute("aria-expanded") === "false") {
+      await detailsToggle.click();
+    }
+    await expect(detailsToggle).toHaveAttribute("aria-expanded", "true");
+    const metadata = this.page.locator(`[id="${contentId}"]`);
+    const additional = metadata.getByRole("region", { name: "Additional metadata", exact: true });
+    const additionalToggle = additional.getByRole("button", { name: /^(Show|Hide) additional metadata$/ });
+    await expect(additionalToggle).toBeVisible();
+    if (await additionalToggle.getAttribute("aria-expanded") === "false") {
+      await additionalToggle.click();
+    }
+    await expect(additionalToggle).toHaveAttribute("aria-expanded", "true");
+    return metadata;
+  }
+
   // -------------------------------------------------------------------------
   // Focus mode pinning
   // -------------------------------------------------------------------------

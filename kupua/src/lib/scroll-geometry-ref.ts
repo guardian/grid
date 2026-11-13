@@ -16,6 +16,8 @@ export interface WindowGeometry {
   getItemId: (index: number) => string | undefined;
   findItemIndex: (id: string) => number | undefined;
   rowAtOffset: (offset: number) => LayoutRow | undefined;
+  visibleRows?: (top: number, viewportHeight: number) => { first: LayoutRow | undefined; last: LayoutRow | undefined };
+  correctionAnchor?: { id: string; beforeOffset: number; afterOffset: number; viewportOffset?: number };
   prepareSeek: (input: WindowSeekInput) => { scrollTargetIndex: number; seekSubRowOffset: number };
 }
 
@@ -37,6 +39,7 @@ export interface LayoutRow {
   index: number;
   top: number;
   height: number;
+  anchorHeight?: number;
   firstItemIndex: number;
   lastItemIndex: number;
 }
