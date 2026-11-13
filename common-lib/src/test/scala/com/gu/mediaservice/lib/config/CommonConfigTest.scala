@@ -26,4 +26,19 @@ class CommonConfigTest extends AnyFunSuiteLike with MockitoSugar {
     commonConf.getStringSet("setAsActualArray") shouldBe Set("a", "b", "c")
   }
 
+  test("imgproxy defaults to a path on imgops, including an overridden imgops base URI") {
+    val defaults = new Services("test.dev-gutools.co.uk", ServiceHosts.guardianPrefixes, Set.empty)
+    defaults.imgproxyBaseUri shouldBe "https://media-imgops.test.dev-gutools.co.uk/imgproxy"
+
+    val overridden = new Services("example.com", ServiceHosts.guardianPrefixes, Set.empty,
+      imgopsBaseUriOverride = Some("https://images.example.com/"))
+    overridden.imgproxyBaseUri shouldBe "https://images.example.com/imgproxy"
+  }
+
+  test("an explicit imgproxy base URI preserves dedicated-host deployments") {
+    val services = new Services("example.com", ServiceHosts.guardianPrefixes, Set.empty,
+      imgproxyBaseUriOverride = Some("https://imgproxy.example.com"))
+    services.imgproxyBaseUri shouldBe "https://imgproxy.example.com"
+  }
+
 }
