@@ -1251,6 +1251,12 @@ absence block the action. No live download used as a supposedly read-only probe.
 
 **Depends on:** steps 1-5; steps 8/10/11 for corresponding completion editors/templates.
 
+The [Upload workplan](gradually-growing-teeth.upload-workplan.md) owns the detailed
+proposed sequence, reusable-density/local-batch contract, source-backed parity checklist
+and deferred opportunities. Confirm current user-facing import capabilities there
+before treating the broader list below as an implementation requirement. Neither
+document supplies implementation or live-write approval.
+
 Port file picker, drag/drop, URL import and recent-uploads/job UI. Carry upload permission,
 size limits, required metadata and configured upload topology in the hosted allowlist. Kahuna
 supports both service upload and prepare -> signed bucket PUT -> queued-status update -> status

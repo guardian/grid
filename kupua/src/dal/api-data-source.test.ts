@@ -747,7 +747,7 @@ describe("ApiDataSource aggregations", () => {
     expect(calls).toHaveLength(1);
     expect(calls[0].body).toMatchObject({
       orderBy: "-uploadTime",
-      ids: "a,b",
+      ids: ["a", "b"],
       fields: [
         { field: "metadata.credit", size: 10 },
         { field: "fileMetadata.iptc.Edit Status", size: 10 },

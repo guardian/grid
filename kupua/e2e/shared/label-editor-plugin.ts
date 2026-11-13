@@ -29,7 +29,7 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
     ? (matchingPrefix ?? 0) + [...projections.keys()].filter(id => Number(id.slice(6)) >= (matchingPrefix ?? 0)).length
     : logicalTotal - (excludesLabel(body) ? projections.size : 0);
   const pageOrdinals = (body: Record<string, unknown>) => {
-    if (typeof body.ids === "string") return body.ids.split(",").filter(known).map(id => Number(id.slice(6)))
+    if (Array.isArray(body.ids)) return (body.ids as string[]).filter(known).map(id => Number(id.slice(6)))
       .filter(ordinal => matches(ordinal, body)).sort((first, second) => first - second);
     const cursor = body.sortValues as (number | string | null)[] | undefined;
     const reverse = Boolean(body.reverse);

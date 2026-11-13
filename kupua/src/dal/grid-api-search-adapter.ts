@@ -143,7 +143,7 @@ export function buildReadBody(params: SearchParams): Record<string, unknown> {
   if (params.modifiedSince) body.modifiedSince = params.modifiedSince;
   if (params.modifiedUntil) body.modifiedUntil = params.modifiedUntil;
   if (params.uploadedBy) body.uploadedBy = params.uploadedBy;
-  if (params.ids) body.ids = params.ids;
+  if (params.ids) body.ids = params.ids.split(",").map((id) => id.trim());
   // payType is disabled in Kahuna (the UI control is commented out; live cost
   // filter is the single nonFree/free boolean). Not sent — see deviations.md.
   if (params.syndicationStatus) body.syndicationStatus = params.syndicationStatus;
@@ -340,7 +340,9 @@ function aiSearchQuery(params: SearchParams): URLSearchParams {
     aiQuery: params.aiQuery ?? "",
     length: String(AI_RESULT_LIMIT),
   });
-  for (const [name, value] of Object.entries(filters)) query.set(name, String(value));
+  for (const [name, value] of Object.entries(filters)) {
+    query.set(name, Array.isArray(value) ? value.join(",") : String(value));
+  }
   const vecWeight = canonicalVecWeight(params.vecWeight);
   if (vecWeight !== undefined) query.set("vecWeight", vecWeight);
   return query;

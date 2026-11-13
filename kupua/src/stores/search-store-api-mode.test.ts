@@ -66,7 +66,7 @@ function toParams(body: Body): SearchParams {
   return {
     orderBy: body.orderBy as string | undefined,
     nonFree: body.free ? undefined : "true",
-    ids: body.ids as string | undefined,
+    ids: (body.ids as string[] | undefined)?.join(","),
     length: body.length as number | undefined,
   };
 }
@@ -1584,7 +1584,7 @@ describe("API mode: finding and restoring an image", () => {
     await waitFor(() => state().focusedImageId === "img-70000" && !state().loading, "focus");
 
     expect(state().imagePositions.get("img-70000")).toBe(70_000);
-    expect(bodiesFor("/images/search-after").some((b) => b.ids === "img-70000")).toBe(true);
+    expect(bodiesFor("/images/search-after").some((b) => (b.ids as string[] | undefined)?.join() === "img-70000")).toBe(true);
     expect(paths()).toContain("/images/rank");
     await expectCoherentBuffer();
   });
@@ -1668,7 +1668,7 @@ describe("API mode: failures", () => {
         ? failedRead(kind, "rank")
         : { rank: await corpus.countBefore(toParams(body), body.sortValues as SortValues) },
       "/images/search-after": async (body) => {
-        const isTarget = body.ids === "img-5000";
+        const isTarget = (body.ids as string[] | undefined)?.join(",") === "img-5000";
         if ((stage === "target" && isTarget)
           || (stage === "forward" && !isTarget && !body.reverse)
           || (stage === "backward" && !isTarget && body.reverse)) {
@@ -2012,7 +2012,7 @@ describe("U9-B media-api AI search", () => {
     await state().extendForward();
     await state().extendBackward();
     await state().fetchAggregations("force");
-    expect(bodiesFor("/images/aggregations")[0].ids).toBe("img-0,img-1");
+    expect(bodiesFor("/images/aggregations")[0].ids).toEqual(["img-0", "img-1"]);
     expect((await source.getById("img-0"))?.enrichment?.cost).toBe("pay");
     _resetMetadataCache();
     useSelectionStore.setState({ dataSource: source, selectedIds: new Set(["img-0"]), anchorId: "img-0" });

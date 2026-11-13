@@ -1710,7 +1710,7 @@ describe("bounded detail return composition", () => {
         const body = init?.body ? JSON.parse(init.body as string) as Record<string, unknown> : {};
         requests.push({ path, body });
         const params: SearchParams = { orderBy: body.orderBy as string | undefined,
-          ids: body.ids as string | undefined, length: body.length as number | undefined,
+          ids: (body.ids as string[] | undefined)?.join(","), length: body.length as number | undefined,
           offset: body.offset as number | undefined };
         if (path === `/api/images/${targetId}`) return Response.json({ data: target.hits[0] });
         if (path === "/api/images/rank") return Response.json({ rank: await corpus.countBefore(params, body.sortValues as SortValues) });
@@ -1747,7 +1747,7 @@ describe("bounded detail return composition", () => {
       await act(async () => pending.resolve());
       flushFrames();
       expect(useSearchStore.getState().loading).toBe(false);
-      expect(requests.filter(request => request.body.ids === targetId)).toHaveLength(1);
+      expect(requests.filter(request => (request.body.ids as string[] | undefined)?.join(",") === targetId)).toHaveLength(1);
       expect(requests.some(request => !request.path.startsWith("/api/"))).toBe(false);
       if (outcome === "success") {
         expect(useSearchStore.getState().focusedImageId).toBe(targetId);

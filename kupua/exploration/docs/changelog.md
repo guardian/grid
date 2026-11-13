@@ -24,6 +24,16 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 13 November 2026 - Ordered-read `ids` as a JSON array
+
+Kupua's POST image reads (search-after, window, rank, sort-profile, keys, count,
+aggregations) now send `ids` as an array of strings, matching mget. media-api
+refuses an empty array, empty or non-string elements and any other type with 422;
+an absent field remains unrestricted. Previously a non-string value was silently
+read as no ID restriction, and an empty string failed in Elasticsearch with 500.
+Kupua's URL-level `ids` stays comma-separated and is converted at the POST body
+boundary; the AI GET request and legacy `GET /images` keep the comma form.
+
 ### 13 November 2026 - Separate mobile search drafts from Refine filters
 
 Mobile search edits retain the Refine filters present at the start of editing,
