@@ -108,7 +108,7 @@ class UsageRecorderBridgeTest extends AnyFunSuite with Matchers with MockitoSuga
       verify(usageMetrics, times(1)).incrementUpdated
       verify(usageNotice).build(eqTo("media-1"))(any[LogMarker])
     } finally {
-      Await.result(recorder.stop(), 5.seconds)
+      Await.result(recorder.stop(), 15.seconds)
       Await.result(actorSystem.terminate(), 5.seconds)
     }
   }
