@@ -193,6 +193,84 @@ test("desktop touch keeps checkboxes and long-press selection together", async (
   await expect(page.getByRole("button", { name: /selected.*actions/ })).toHaveCount(0);
 });
 
+test("phone typing does not accumulate partial Refine filters", async ({ page }) => {
+  await expect(page.locator("html")).toHaveAttribute("data-shell", "compact");
+  const editor = page.locator("cql-input [contenteditable=true]").first();
+  await editor.click();
+  await editor.pressSequentially("+has:crops", { delay: 450 });
+  await expect.poll(() => new URL(page.url()).searchParams.get("query")).toMatch(/^\+?has:crops$/);
+  await editor.press("Backspace");
+  await expect.poll(() => new URL(page.url()).searchParams.get("query")).toMatch(/^\+?has:crop$/);
+  await editor.pressSequentially("s");
+  await page.getByRole("button", { name: "Filters and sort" }).tap();
+  const refine = page.getByRole("dialog", { name: "Refine search" });
+  await expect(refine).toBeVisible();
+  await expect(refine.getByRole("button", { name: /^Remove / })).toHaveCount(1);
+  await expect(refine.getByRole("button", { name: "Remove has:crops", exact: true })).toBeVisible();
+  await expect.poll(() => new URL(page.url()).searchParams.get("query")).toMatch(/^\+?has:crops$/);
+});
+
+test("phone preserves existing Refine filters when replacing or clearing its draft", async ({ page }) => {
+  await page.goto("/search?nonFree=true&query=credit%3AGetty");
+  const editor = page.locator("cql-input [contenteditable=true]").first();
+  await editor.fill("tennis has:c");
+  await expect.poll(() => new URL(page.url()).searchParams.get("query")).toBe("credit:Getty has:c tennis");
+  await editor.fill("football has:crops");
+  await expect.poll(() => new URL(page.url()).searchParams.get("query")).toBe("credit:Getty has:crops football");
+  await editor.fill("");
+  await expect.poll(() => new URL(page.url()).searchParams.get("query")).toBe("credit:Getty");
+  await editor.fill("has:crops");
+  await expect.poll(() => new URL(page.url()).searchParams.get("query")).toBe("credit:Getty has:crops");
+  await page.getByRole("button", { name: "Clear search", exact: true }).tap();
+  await expect.poll(() => new URL(page.url()).searchParams.get("query")).toBe("credit:Getty");
+  await editor.click();
+  await editor.pressSequentially("+has:crops");
+  await page.getByRole("button", { name: "Filters and sort" }).tap();
+  const refine = page.getByRole("dialog", { name: "Refine search" });
+  await expect(refine.getByRole("button", { name: /^Remove / })).toHaveCount(2);
+  await expect(refine.getByRole("button", { name: "Remove credit:Getty", exact: true })).toBeVisible();
+  await expect(refine.getByRole("button", { name: "Remove has:crops", exact: true })).toBeVisible();
+});
+
+test("phone keeps an unfinished field available after leaving the searchbox", async ({ page }) => {
+  const editor = page.locator("cql-input [contenteditable=true]").first();
+  await editor.click();
+  await editor.pressSequentially("+credit:");
+  await page.getByRole("button", { name: "Settings", exact: true }).tap();
+  await expect(editor).toContainText("credit");
+  expect(new URL(page.url()).searchParams.get("query")).toBeNull();
+  await page.getByRole("button", { name: "Settings", exact: true }).tap();
+  await editor.click();
+  await editor.press("End");
+  await editor.pressSequentially("Getty");
+  await expect.poll(() => new URL(page.url()).searchParams.get("query")).toBe("credit:Getty");
+});
+
+test("phone discards an unfinished draft's filter baseline after Home", async ({ page }) => {
+  await page.goto("/search?nonFree=true&query=credit%3AGetty");
+  const editor = page.locator("cql-input [contenteditable=true]").first();
+  await editor.click();
+  await editor.pressSequentially("+by:");
+  await page.getByRole("link", { name: "Grid", exact: true }).tap();
+  await expect.poll(() => new URL(page.url()).searchParams.get("query")).toBeNull();
+  await editor.fill("football");
+  await expect.poll(() => new URL(page.url()).searchParams.get("query")).toBe("football");
+});
+
+test("phone does not retain removed Refine filters in an unfinished draft", async ({ page }) => {
+  const editor = page.locator("cql-input [contenteditable=true]").first();
+  await editor.fill("has:crops by:");
+  await expect.poll(() => new URL(page.url()).searchParams.get("query")).toBe("has:crops");
+  await page.getByRole("button", { name: "Filters and sort" }).tap();
+  const refine = page.getByRole("dialog", { name: "Refine search" });
+  await refine.getByRole("button", { name: "Remove has:crops", exact: true }).tap();
+  await expect.poll(() => new URL(page.url()).searchParams.get("query")).toBeNull();
+  await expect(editor).not.toContainText("crops");
+  await page.keyboard.press("Escape");
+  await editor.fill("by:Getty");
+  await expect.poll(() => new URL(page.url()).searchParams.get("query")).toBe("by:Getty");
+});
+
 test("phone keeps Refine and overlay suggestions available after rotating to landscape", async ({ page }) => {
   await page.setViewportSize({ width: 852, height: 393 });
   await expect(page.locator("html")).toHaveAttribute("data-shell", "compact");

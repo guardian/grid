@@ -112,6 +112,7 @@ interface CqlSearchInputProps {
   value: string;
   externalRevision?: number;
   onChange: (queryStr: string) => void;
+  onDraftChange?: (queryStr: string) => void;
   /** Called whenever the editor content changes — true if there's any content */
   onHasContentChange?: (hasContent: boolean) => void;
   placeholder?: string;
@@ -121,6 +122,7 @@ export function CqlSearchInput({
   value,
   externalRevision = 0,
   onChange,
+  onDraftChange,
   onHasContentChange,
   placeholder = "Search for images… (type + for advanced search)",
 }: CqlSearchInputProps) {
@@ -135,6 +137,8 @@ export function CqlSearchInput({
   }, [compact]);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const onDraftChangeRef = useRef(onDraftChange);
+  onDraftChangeRef.current = onDraftChange;
   const onHasContentRef = useRef(onHasContentChange);
   onHasContentRef.current = onHasContentChange;
 
@@ -261,6 +265,7 @@ export function CqlSearchInput({
         // meaningless fragments that reset results to 0.
         // Matches kahuna's renderQuery `.filter(item => item.value)`.
         const effective = deriveEffectiveQuery(queryStr);
+        onDraftChangeRef.current?.(queryStr);
 
         if (effective !== lastEffectiveQueryRef.current) {
           lastEffectiveQueryRef.current = effective;

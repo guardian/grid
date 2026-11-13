@@ -93,25 +93,49 @@ export function SearchBar() {
   const split = useMemo(() => splitFieldTerms(urlQuery), [urlQuery]);
   const splitRef = useRef(split);
   splitRef.current = split;
+  const compactEditRef = useRef<{
+    fields: string; query: string; incomplete: boolean; key: string | undefined; generation: number;
+  } | null>(null);
+  const clearButtonRef = useRef<HTMLButtonElement>(null);
+  const getCompactEdit = useCallback(() => {
+    const key = getCurrentKupuaKey();
+    const generation = getCqlInputGeneration();
+    if (!compactEditRef.current || compactEditRef.current.key !== key || compactEditRef.current.generation !== generation) {
+      compactEditRef.current = { fields: splitRef.current.fields, query: urlQuery, incomplete: false, key, generation };
+    }
+    return compactEditRef.current;
+  }, [urlQuery]);
+  const [compactHandoff, setCompactHandoff] = useState<string | null>(null);
+  const cqlCommitRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    if (compactHandoff === null || compactHandoff !== urlQuery) return;
+    setCompactHandoff(null);
+    if (!compactEditRef.current) setExternalInputRevision((revision) => revision + 1);
+  }, [compactHandoff, urlQuery]);
   const handleBarChange = useCallback(
     (q: string) => {
       if (!isCompact) return handleQueryChangeRef.current(q);
-      // Chips typed in the bar stay there until blur; merge without duplicating ones already committed.
+      const edit = getCompactEdit();
       const typed = splitFieldTerms(q);
       const seen = new Set<string>();
-      const chips = parseFieldChips(joinFieldTerms(splitRef.current.fields, typed.fields)).filter((chip) => {
+      const chips = parseFieldChips(joinFieldTerms(edit.fields, typed.fields)).filter((chip) => {
         const key = `${chip.negated}|${chip.key.toLowerCase()}|${chip.value}`;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
       });
-      handleQueryChangeRef.current(joinFieldTerms(serializeFieldChips(chips), typed.text));
+      edit.query = joinFieldTerms(serializeFieldChips(chips), typed.text);
+      handleQueryChangeRef.current(edit.query);
+      edit.key = typingEntryRef.current?.key ?? getCurrentKupuaKey();
     },
-    [isCompact],
+    [isCompact, getCompactEdit],
   );
   // Refine edits are discrete commits: one history entry and one search, not a debounced typing session.
   const handleFieldsChange = useCallback(
     (f: string, filters: Partial<UrlSearchParams> = {}) => {
+      compactEditRef.current = null;
+      setCompactHandoff(null);
+      setExternalInputRevision((revision) => revision + 1);
       if (_debounceTimerId) clearTimeout(_debounceTimerId);
       setDebounceTimer(null);
       cqlDebounceRef.current = null;
@@ -167,9 +191,11 @@ export function SearchBar() {
       const owner = beginTypingSession();
 
       if (_debounceTimerId) clearTimeout(_debounceTimerId);
-      const timer = setTimeout(() => {
+      const commit = () => {
         if (_debounceTimerId !== timer || cqlDebounceRef.current !== timer) return;
+        clearTimeout(timer);
         cqlDebounceRef.current = null;
+        cqlCommitRef.current = null;
         setDebounceTimer(null);
         if (owner.key !== getCurrentKupuaKey() || owner.generation !== getCqlInputGeneration()) return;
 
@@ -185,7 +211,9 @@ export function SearchBar() {
         const cqlPart = meaningful ? queryStr : "";
         beginTraceInteraction("search", { source: "debounced-input" });
         updateSearch({ query: cqlPart || undefined }, { replace: true });
-      }, 300);
+      };
+      const timer = setTimeout(commit, 300);
+      cqlCommitRef.current = commit;
       cqlDebounceRef.current = timer;
       setDebounceTimer(timer);
     },
@@ -213,15 +241,17 @@ export function SearchBar() {
   );
 
   const handleClear = useCallback(() => {
+    const keep = isCompact ? getCompactEdit().fields : "";
+    compactEditRef.current = null;
+    setCompactHandoff(null);
     // Force CqlSearchInput/AiSearchInput to remount so partial/ghost chip
     // state living only in ProseMirror's internal document is fully wiped.
     resetCqlInputComponents();
     if (aiDebounceRef.current) { clearTimeout(aiDebounceRef.current); aiDebounceRef.current = null; }
     setHasEditorContent(false);
     // Compact: × clears the typed text; chips are managed (and reset) in Refine.
-    const keep = isCompact ? splitRef.current.fields : "";
     updateSearch({ query: keep || undefined, aiQuery: undefined });
-  }, [updateSearch, isCompact]);
+  }, [updateSearch, isCompact, getCompactEdit]);
 
   // Show clear button only when there's CQL content (not just AI).
   // When only AI is active, the AI widget has its own ✕.
@@ -284,9 +314,17 @@ export function SearchBar() {
         </svg>
         <div
           className="flex-1 min-w-0 overflow-hidden"
-          onBlur={isCompact ? () => {
-            // Chips typed into the bar move to Refine once editing ends.
-            setTimeout(() => setExternalInputRevision((r) => r + 1), 400);
+          onFocus={isCompact ? () => {
+            getCompactEdit();
+            setCompactHandoff(null);
+          } : undefined}
+          onBlur={isCompact ? (event) => {
+            if (event.currentTarget.contains(event.relatedTarget) || event.relatedTarget === clearButtonRef.current) return;
+            const edit = compactEditRef.current;
+            if (!edit || edit.incomplete) return;
+            compactEditRef.current = null;
+            cqlCommitRef.current?.();
+            setCompactHandoff(edit.query.replace(/[+\-:\s]+/g, "") ? edit.query : "");
           } : undefined}
         >
           <CqlSearchInput
@@ -294,6 +332,11 @@ export function SearchBar() {
             value={isCompact ? split.text : urlQuery}
             externalRevision={externalInputRevision}
             onChange={handleBarChange}
+            onDraftChange={isCompact ? (query) => {
+              if (compactEditRef.current) {
+                compactEditRef.current.incomplete = parseFieldChips(splitFieldTerms(query).fields).some((chip) => !chip.value);
+              }
+            } : undefined}
             onHasContentChange={setHasEditorContent}
             placeholder={isCompact ? "Search for images…" : undefined}
           />
@@ -306,6 +349,7 @@ export function SearchBar() {
           collectionDisabled={hasCollectionFilter(urlQuery)}
         />
         <button
+          ref={clearButtonRef}
           onClick={handleClear}
           aria-label="Clear search"
           className={`shrink-0 text-grid-text-muted hover:text-grid-text text-sm px-1.5 py-0.5 rounded hover:bg-grid-hover transition-colors ${showClear ? "" : "invisible"}`}

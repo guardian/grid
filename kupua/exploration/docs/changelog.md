@@ -24,6 +24,21 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 13 November 2026 - Separate mobile search drafts from Refine filters
+
+Mobile search edits retain the Refine filters present at the start of editing,
+rather than merging successive debounced field fragments back into the query.
+Leaving the editor flushes its pending search and transfers completed fields
+after the matching URL update, without a fixed handoff delay. Unfinished field
+expressions remain editable across ordinary blur.
+
+Editing ownership follows the typing history entry and editor generation so
+Home and navigation cannot revive an abandoned filter baseline. Clear discards
+the active draft while retaining its pre-existing Refine filters; explicit
+Refine changes replace stale editor content so removed filters cannot return.
+Regression coverage exercises paced typing, deletion, immediate handoff,
+existing-filter preservation, unfinished-field continuation and reset/removal.
+
 ### 13 November 2026 - Kahuna-aligned metadata, crop browsing and responsive actions
 
 Aligned single/selection metadata ordering, known-empty and mixed wording, viewer visibility
