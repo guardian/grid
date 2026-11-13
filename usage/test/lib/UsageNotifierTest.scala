@@ -10,10 +10,9 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 import play.api.libs.json.{JsArray, Json}
-import rx.lang.scala.Observable
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future, Promise}
+import scala.concurrent.{Await, Future}
 
 class UsageNotifierTest extends AnyFunSuite with Matchers with MockitoSugar {
 
@@ -35,32 +34,13 @@ class UsageNotifierTest extends AnyFunSuite with Matchers with MockitoSugar {
     lastModified = DateTime.parse("2026-11-01T12:00:00Z")
   )
 
-  private def awaitSingle[A](observable: Observable[A]): A = {
-    val result = Promise[A]()
-    observable.subscribe(
-      value => result.trySuccess(value),
-      error => result.tryFailure(error)
-    )
-    Await.result(result.future, 5.seconds)
-  }
-
-  private def awaitFailure[A](observable: Observable[A]): Throwable = {
-    val result = Promise[Throwable]()
-    observable.subscribe(
-      (_: A) => (),
-      error => result.trySuccess(error),
-      () => ()
-    )
-    Await.result(result.future, 5.seconds)
-  }
-
   test("build maps image usages to a notice and adds the image id to the log marker") {
     val table = mock[UsageTable]
     val expectedMarker = logMarker + ("image-id" -> "media-1")
     when(table.queryByImageId("media-1")(expectedMarker)).thenReturn(Future.successful(List(mediaUsage)))
     val notifier = new UsageNotifier(mock[UsageConfig], table)
 
-    val notice = awaitSingle(notifier.build("media-1"))
+    val notice = Await.result(notifier.build("media-1"), 5.seconds)
 
     notice.mediaId shouldBe "media-1"
     notice.usageJson shouldBe Json.toJson(List(UsageBuilder.build(mediaUsage))).as[JsArray]
@@ -73,6 +53,8 @@ class UsageNotifierTest extends AnyFunSuite with Matchers with MockitoSugar {
     when(table.queryByImageId("media-1")(expectedMarker)).thenReturn(Future.failed(failure))
     val notifier = new UsageNotifier(mock[UsageConfig], table)
 
-    awaitFailure(notifier.build("media-1")) shouldBe failure
+    intercept[IllegalStateException] {
+      Await.result(notifier.build("media-1"), 5.seconds)
+    } shouldBe failure
   }
 }

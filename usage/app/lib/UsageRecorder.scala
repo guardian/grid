@@ -7,6 +7,8 @@ import play.api.libs.json._
 import rx.lang.scala.subjects.PublishSubject
 import rx.lang.scala.{Observable, Subject, Subscriber, Subscription}
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 
 case class ResetException() extends Exception
@@ -30,7 +32,7 @@ class UsageRecorder(
 
   def matchDb(usageGroupWithContext: WithLogMarker[UsageGroup]): Observable[WithLogMarker[MatchedUsageGroup]] = {
     val WithLogMarker(logMarker, usageGroup) = usageGroupWithContext
-    usageTable.matchUsageGroup(usageGroupWithContext)
+    Observable.defer(Observable.from(usageTable.matchUsageGroup(usageGroupWithContext)))
       .retry((retriesSoFar, error) => {
         val maxRetries = 5
         logger.error(
@@ -86,8 +88,8 @@ class UsageRecorder(
         logger.info(logMarker, s"Seen Stream Usage for ${mediaUsage.mediaId}")
       })
 
-      def performAndLogDBOperation(func: MediaUsage => Observable[JsObject], opName: String)(mediaUsage: MediaUsage) = {
-        val resultObservable = func(mediaUsage)
+      def performAndLogDBOperation(func: MediaUsage => Future[JsObject], opName: String)(mediaUsage: MediaUsage) = {
+        val resultObservable = Observable.from(func(mediaUsage))
         resultObservable.foreach(result => {
           logger.info(
             logMarker,
@@ -132,7 +134,11 @@ class UsageRecorder(
       .flatMap{ mediaIdsImplicatedInDBUpdatesWithContext =>
         implicit val logMarker: LogMarker = mediaIdsImplicatedInDBUpdatesWithContext.logMarker
         logger.info(logMarker, s"Building ${mediaIdsImplicatedInDBUpdatesWithContext.value.size} usage notices")
-        Observable.from(mediaIdsImplicatedInDBUpdatesWithContext.value.map(usageNotice.build)).flatten[UsageNotice].map(WithLogMarker(_))
+        Observable.from(mediaIdsImplicatedInDBUpdatesWithContext.value.map(id =>
+          Observable.defer(Observable.from(usageNotice.build(id)))
+        ))
+          .flatten[UsageNotice]
+          .map(WithLogMarker(_))
       }
   }
 

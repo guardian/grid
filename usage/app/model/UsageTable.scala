@@ -7,7 +7,6 @@ import com.gu.mediaservice.lib.usage.ItemToMediaUsage
 import com.gu.mediaservice.model.usage.{MediaUsage, PendingUsageStatus, PublishedUsageStatus, UsageTableFullKey}
 import lib.{BadInputException, UsageConfig, WithLogMarker}
 import play.api.libs.json._
-import rx.lang.scala.Observable
 import software.amazon.awssdk.enhanced.dynamodb.document.EnhancedDocument
 import software.amazon.awssdk.enhanced.dynamodb.model.{DeleteItemEnhancedRequest, QueryConditional, QueryEnhancedRequest, UpdateItemEnhancedRequest}
 import software.amazon.awssdk.enhanced.dynamodb.{AttributeConverterProvider, AttributeValueType, DynamoDbEnhancedClient, Key, TableMetadata, TableSchema}
@@ -102,43 +101,41 @@ class UsageTable(config: UsageConfig) extends GridLogging {
       }
   }.toList
 
-  def matchUsageGroup(usageGroupWithContext: WithLogMarker[UsageGroup]): Observable[WithLogMarker[Set[MediaUsage]]] = {
+  def matchUsageGroup(usageGroupWithContext: WithLogMarker[UsageGroup]): Future[WithLogMarker[Set[MediaUsage]]] = Future {
     implicit val logMarker: LogMarker = usageGroupWithContext.logMarker
     val usageGroup = usageGroupWithContext.value
 
     logger.info(logMarker, s"Trying to match UsageGroup: ${usageGroup.grouping}")
 
-    Observable.from(Future {
-      val grouping = usageGroup.grouping
+    val grouping = usageGroup.grouping
 
-      logger.info(logMarker, s"Querying table for $grouping")
-      val key = Key.builder()
-        .partitionValue(grouping)
+    logger.info(logMarker, s"Querying table for $grouping")
+    val key = Key.builder()
+      .partitionValue(grouping)
+      .build()
+    val request =
+      QueryEnhancedRequest.builder()
+        .queryConditional(QueryConditional.keyEqualTo(key))
+        .consistentRead(true)
         .build()
-      val request =
-        QueryEnhancedRequest.builder()
-          .queryConditional(QueryConditional.keyEqualTo(key))
-          .consistentRead(true)
-          .build()
-      val queryResult = table.query(request)
+    val queryResult = table.query(request)
 
-      val usages = queryResult.items().asScala
-        .map(ItemToMediaUsage.transform)
-        .toSet
+    val usages = queryResult.items().asScala
+      .map(ItemToMediaUsage.transform)
+      .toSet
 
-      logger.info(logMarker, s"Built matched UsageGroup ${usageGroup.grouping} (${usages.size})")
+    logger.info(logMarker, s"Built matched UsageGroup ${usageGroup.grouping} (${usages.size})")
 
-      WithLogMarker(usages)
-    })
+    WithLogMarker(usages)
   }
 
-  def create(mediaUsage: MediaUsage)(implicit logMarker: LogMarker): Observable[JsObject] =
+  def create(mediaUsage: MediaUsage)(implicit logMarker: LogMarker): Future[JsObject] =
     upsertFromRecord(UsageRecord.buildCreateRecord(mediaUsage))
 
-  def update(mediaUsage: MediaUsage)(implicit logMarker: LogMarker): Observable[JsObject] =
+  def update(mediaUsage: MediaUsage)(implicit logMarker: LogMarker): Future[JsObject] =
     upsertFromRecord(UsageRecord.buildUpdateRecord(mediaUsage))
 
-  def markAsRemoved(mediaUsage: MediaUsage)(implicit logMarker: LogMarker): Observable[JsObject] =
+  def markAsRemoved(mediaUsage: MediaUsage)(implicit logMarker: LogMarker): Future[JsObject] =
     upsertFromRecord(UsageRecord.buildMarkAsRemovedRecord(mediaUsage))
 
   def deleteRecord(mediaUsage: MediaUsage)(implicit logMarker: LogMarker): EnhancedDocument = {
@@ -152,7 +149,7 @@ class UsageTable(config: UsageConfig) extends GridLogging {
     table.deleteItem(DeleteItemEnhancedRequest.builder().key(key).build())
   }
 
-  def upsertFromRecord(record: UsageRecord)(implicit logMarker: LogMarker): Observable[JsObject] = Observable.from(Future {
+  def upsertFromRecord(record: UsageRecord)(implicit logMarker: LogMarker): Future[JsObject] = Future {
       val key = Map(
         hashKeyName -> AttributeValue.builder().s(record.hashKey).build(),
         rangeKeyName -> AttributeValue.builder().s(record.rangeKey).build()
@@ -169,12 +166,10 @@ class UsageTable(config: UsageConfig) extends GridLogging {
 
       client.updateItem(request)
 
-  })
-  .onErrorResumeNext(e => {
+  }.recoverWith { case e =>
     logger.error(logMarker, s"Dynamo update fail for $record!", e)
-    Observable.error(e)
-  })
-  .map(updateResponse => {
+    Future.failed(e)
+  }.map(updateResponse => {
     val doc = EnhancedDocument.fromAttributeValueMap(updateResponse.attributes())
     jsonWithNullAsEmptyString(Json.parse(doc.toJson)).as[JsObject]
   })
