@@ -4,10 +4,9 @@ import * as path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { GenericContainer, Wait } from 'testcontainers';
 import type { StartedNetwork, StartedTestContainer } from 'testcontainers';
-import { DOMAIN, IMGOPS_PORT, REPO_ROOT, SERVICE_CONFIGS } from './constants.ts';
+import { DOMAIN, IMGOPS_PORT, SERVICE_CONFIGS } from './constants.ts';
 
-export const CHEKOV_CONTEXT = path.resolve(process.env.CHEKOV_DIR ?? path.join(REPO_ROOT, 'e2e-tests/target/chekov'));
-export const CHEKOV_IMAGE = 'grid-e2e-chekov';
+export const CHEKOV_IMAGE = 'ghcr.io/guardian/chekov/nginx:sha-4841ed355fb10451dc697ef164a59fba01f7dfbc';
 
 export const CHEKOV_ALIASES = [
   ...Object.values(SERVICE_CONFIGS).flatMap(({ primaryHostname, additionalHostnames }) =>
@@ -50,9 +49,6 @@ export function s3BucketHosts(coreStackProps: Record<string, string>): string[] 
 }
 
 export function prepareChekov(configDir: string): string {
-  if (!fs.existsSync(path.join(CHEKOV_CONTEXT, 'Dockerfile'))) {
-    throw new Error(`Chekov checkout missing at ${CHEKOV_CONTEXT}. Run e2e-tests/setup/checkout-chekov first.`);
-  }
   const caRoot = process.env.CAROOT ?? execFileSync('mkcert', ['-CAROOT'], { encoding: 'utf8' }).trim();
   for (const file of ['rootCA.pem', 'rootCA-key.pem']) {
     if (!fs.existsSync(path.join(caRoot, file))) {
@@ -67,8 +63,7 @@ export async function startChekov(
   network: StartedNetwork,
   caRoot: string,
 ): Promise<StartedTestContainer> {
-  const image = await GenericContainer.fromDockerfile(CHEKOV_CONTEXT).build(CHEKOV_IMAGE, { deleteOnExit: false });
-  return image
+  return new GenericContainer(CHEKOV_IMAGE)
     .withName('grid-chekov-nginx')
     .withNetwork(network)
     .withExtraHosts([{ host: 'host.docker.internal', ipAddress: 'host-gateway' }])
