@@ -254,7 +254,8 @@ Update one line when a unit's state changes; this is not a session diary.
 
 | Unit | State |
 | --- | --- |
-| UB8 | done locally 13 November; uncommitted pending operator review |
+| UB8 | done 13 November (`9f1a0f86e`, `7ecb32f36`) |
+| B9/B10 | done locally 13 November; uncommitted pending operator review |
 | U2-proto | approved prerequisite, not started |
 | U0a, U0b, U1-U8 | not started |
 
@@ -266,7 +267,8 @@ Most remaining effort sits in the editing roadmap steps U5-U7 depend on.
 
 Operator-approved standalone unit; touches `media-api/` with that explicit scope.
 Replace the POST ordered-read `ids` string with an optional array of nonempty
-strings, matching mget. Absent = unrestricted; present empty or malformed = 422.
+strings, matching mget. Absent = unrestricted; a wrong shape = 400 and an empty
+list or empty ID = 422 (status split refined by B10).
 Client, server, Scala tests, recorded POST bodies and the label-editor fixture
 change together; no CSV compatibility layer; legacy GET unchanged. Do not widen
 to other optional fields (they share the `asOpt` fail-open shape deliberately
@@ -608,9 +610,8 @@ Recording opportunities is allowed; opportunistic scope expansion is not.
    source reference, observed constraint, proposed benefit, cost/risk and when it
    would become worth doing. Separate verified facts from hypotheses. No general
    codebase audit, numeric finding quota or speculative performance claim.
-4. Keep the register below short: prefer updating/merging an existing entry;
-   retain at most eight backend and three refactoring entries. Additional findings
-   belong in an existing owning issue only if genuinely distinct and worth review.
+4. Record every concrete finding; there is no entry cap. Prefer updating/merging
+   an existing entry over a near-duplicate.
    Remove or correct refuted claims rather than leaving contradictory findings.
 5. A security/data-loss blocker or an observed failure of the selected capability
    is not merely a deferred opportunity: stop and explain the concrete blocker.
@@ -636,7 +637,11 @@ source observations, not claims of measured production impact.
 
 | ID | Evidence and constraint | Pre-merge decision and checks |
 | --- | --- | --- |
-| B8 | [SearchParamsBody](../../../media-api/app/lib/elasticsearch/ElasticSearchModel.scala#L550) reads `ids` with `asOpt[String]`; an array or other wrong type becomes an absent ID constraint. mget intentionally uses an array, while the current ordered-read adapter correctly sends a string. | **Approved 13 November as UB8** for consistency with mget; not on Upload's critical path (filename order uses mget). Resolve the new POST contract before merge: distinguish omitted scope, explicitly empty membership and malformed input so an intended batch cannot silently become an unscoped read. Consider aligning JSON ID representation with mget now rather than preserving the current string shape by default. Use focused parser/controller/query witnesses and update affected POST callers/fixtures together; preserve legacy GET query-string behaviour and authorization. This is a targeted amendment candidate, not approval to change backend files in this planning task. |
+| B8 | [SearchParamsBody](../../../media-api/app/lib/elasticsearch/ElasticSearchModel.scala#L550) reads `ids` with `asOpt[String]`; an array or other wrong type becomes an absent ID constraint. mget intentionally uses an array, while the current ordered-read adapter correctly sends a string. | **Done 13 November (UB8).** Resolve the new POST contract before merge: distinguish omitted scope, explicitly empty membership and malformed input so an intended batch cannot silently become an unscoped read. Consider aligning JSON ID representation with mget now rather than preserving the current string shape by default. Use focused parser/controller/query witnesses and update affected POST callers/fixtures together; preserve legacy GET query-string behaviour and authorization. This is a targeted amendment candidate, not approval to change backend files in this planning task. |
+| B9 | Every other shared body field was also read with `asOpt`: a wrong type (for example `free: "true"`, `reverse: "true"`) silently became absent, unparseable dates were dropped, unknown syndication/usage statuses threw (500) and a non-object body read as empty. | **Done locally 13 November.** All shared fields are typed in one parser; null reads as absent except `ids`; list fields are JSON arrays; `pitId`/`reverse`/`seekToEnd` are type-checked centrally; the body must be an object. Unknown fields are still ignored by design. Legacy GET unchanged. |
+| B10 | Malformed bodies answered 400 on endpoint-specific fields but 422 on shared ones. | **Done locally 13 November.** Wrong JSON type or shape: 400 `invalid-params`, as Grid's other services and mget's shape check. Well-typed but unacceptable value (date, status, empty ID list, vector weight, CQL): 422 `invalid-uri-parameters`. |
+| B11 | [Sort clause reading](../../../media-api/app/lib/elasticsearch/sorts.scala#L40) keeps only `order`, `missing`, `mode` and `nested.path`; other nested or sort-object options, including wrongly typed ones, are silently discarded (B9 cold review, S3). The [final D3 review](zz%20Archive/media-api-work/phase-3-d3-searchafter-code-review-final.md#L162) deliberately left this as silent truncation, judging a 422 over-engineering for a path Kupua cannot produce. Its malformed sort shapes also answer 422, not B10's 400. Unrelated to the removed user [secondary sorts](zz%20Archive/scroll-and-position-preservation-testing-4.2.1-obscure-sorting-decision.md), which concerned a second semantic field, not sort-object options. | Open, low priority. B9 adopted refusal over silent ignoring for body fields; applying the same rule here would reverse that D3 decision and needs an explicit operator choice. Kupua's recorded sort clauses use only the four supported keys, so refusal would not affect it. If done, align malformed sort shapes with B10's 400. |
+| B12 | Endpoint-specific nulls are inconsistent with B9's shared rule: `sortValues: null` and `sort: null` are refused where omission is accepted (B9 cold review, S3). | Open. Either read endpoint nulls as absent or state that the null rule covers shared fields only. Not a Kupua regression. |
 
 Further entries belong here only when a concrete Upload need reaches the new
 endpoint boundary. A change's proximity to that code does not make an unrelated
@@ -698,9 +703,11 @@ recommendations, not backend implementation approval.
 
 | ID | Evidence and opportunity | Boundary |
 | --- | --- | --- |
-| R1 | [ImageGrid](../../src/components/ImageGrid.tsx#L519), [ImageDetail](../../src/components/ImageDetail.tsx#L108) and [useScrollEffects](../../src/hooks/useScrollEffects.ts#L212) know `/search` directly. | U1 must remove the coupling needed for a second context. Any wider router/store architecture cleanup remains deferred; no universal workspace framework. |
+| R1 | [ImageGrid](../../src/components/ImageGrid.tsx#L519), [ImageDetail](../../src/components/ImageDetail.tsx#L108) and [useScrollEffects](../../src/hooks/useScrollEffects.ts#L212) know `/search` directly. The ID restriction also lives in URL-level `SearchParams.ids` as a comma string, where `ids=""` is dropped as unrestricted ([buildReadBody](../../src/dal/grid-api-search-adapter.ts#L146)). | U1 must remove the coupling needed for a second context, including a typed ID scope handed to the data source (never serialized into the URL) that distinguishes absent from known-empty. Any wider router/store architecture cleanup remains deferred; no universal workspace framework. |
 | R2 | [MetadataTextEditor](../../src/components/MetadataTextEditor.tsx#L86) combines draft state, intent preparation and rendering; single/multi/form consumers need some common behaviour. | U2/U5 may extract the necessary controlled field/draft boundary. Do not rewrite all metadata presentation or unify unlike command families just for symmetry. |
 | R3 | [Service discovery comments](../../src/dal/grid-api/service-discovery.ts) still describe old hybrid/proxy/graceful-absence assumptions, while the [current API contract](../../src/dal/grid-api/README.md) says otherwise. | Correct stale comments when touching that boundary; do not change working transport policy to match obsolete commentary or use this as a broad documentation-cleanup task. |
+| R4 | Composed tests each build their own media-api stand-in that maps request bodies back to `SearchParams` ([search-store-api-mode](../../src/stores/search-store-api-mode.test.ts#L66), [ImageDetail](../../src/components/ImageDetail.test.tsx#L1712)); UB8's wire change had to be repeated in each. | Extract one shared test stand-in before U1/U4 add more. Test-only; no production change. |
+| R5 | Recorded mapper bodies replayed in Scala caught UB8's shape change immediately. | Discipline, not code: every new or reshaped POST field gets a mapper-recorded body and Scala replay, never a hand-written body. |
 
 ## 9. Completion Report
 

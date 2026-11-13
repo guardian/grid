@@ -44,10 +44,13 @@ tests before making any claim; old branch commits are not the review boundary.
   unchanged legacy GET absent-q behaviour is not a promise of whole-path parity.
   Kupua's mapper forwards original q, explicitly using empty q when absent; do not
   describe that client contract as changing legacy GET's omitted-q behaviour.
-  The body field `ids` is an array of nonempty strings (as mget); absent means no ID
-  restriction, while empty arrays, empty/non-string elements and other types return
-  422, so a malformed scope can never widen to the whole library. Legacy GET keeps
-  its comma-separated `ids` parameter; there is no comma-string compatibility in POST.
+  The shared body decoder is strict: the body must be an object, every field has a JSON
+  type, and `null` reads as absent except `ids`. A wrong type answers 400
+  `invalid-params`; a well-typed but unacceptable value (date, status, empty ID list,
+  vector weight, invalid q) answers 422. `ids` and list filters are string arrays (as
+  mget); absent `ids` means no ID restriction, so a malformed scope can never widen to
+  the whole library. Unknown fields are ignored. Legacy GET keeps its comma-separated
+  query parameters; there is no comma-string compatibility in POST.
 - **New read contracts and cost:** for the included [POST routes](../../../media-api/conf/routes),
   state access controls, input/work bounds, response omissions, incomplete-execution
   handling and PIT lifetime where applicable. Explain extra Elasticsearch work and

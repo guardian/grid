@@ -24,6 +24,18 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 13 November 2026 - Strict media-api read bodies
+
+The shared body decoder of Kupua's POST image reads now types every field instead
+of silently ignoring a wrong value. A wrong JSON type, a non-object body or a
+null/non-array `ids` answers 400; a well-typed but unacceptable value (unparseable
+date or duration, unknown syndication or usage status, empty ID list or empty ID,
+out-of-range vector weight, invalid query) answers 422. This refines the previous
+entry: malformed `ids` shapes are 400, empty lists or IDs remain 422. Previously
+`free: "true"` dropped the free filter, `reverse: "true"` read as false and unknown
+statuses failed with 500. List filters are JSON arrays. Kupua already sent valid
+types, so no client change was needed; legacy `GET /images` is unchanged.
+
 ### 13 November 2026 - Ordered-read `ids` as a JSON array
 
 Kupua's POST image reads (search-after, window, rank, sort-profile, keys, count,
