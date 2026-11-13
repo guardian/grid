@@ -11,9 +11,13 @@ import model.upload.OptimiseWithPngQuant
 import model.{Projector, QuarantineUploader, Uploader}
 import play.api.ApplicationLoader.Context
 import router.Routes
+import scala.concurrent.ExecutionContext
+import java.util.concurrent.Executors
 
 class ImageLoaderComponents(context: Context) extends GridComponents(context, new ImageLoaderConfig(_)) with GridLogging {
   final override val buildInfo = utils.buildinfo.BuildInfo
+  override implicit val ec: ExecutionContext =
+    ExecutionContext.fromExecutor(Executors.newVirtualThreadPerTaskExecutor());
 
   private val imageProcessor = config.imageProcessor(applicationLifecycle)
   logger.info(s"Loaded ${imageProcessor.processors.size} image processors:")
