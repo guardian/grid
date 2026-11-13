@@ -41,7 +41,7 @@ Media-api:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `images.imgproxy.enabled` | `false` | Use imgproxy instead of imgops for display images |
+| `images.imgproxy.enabled` | forced `true` on this testing branch | Configuration is ignored; deploy the normal branch to return to imgops |
 | `images.imgproxy.baseUri` | `<imgops base URI>/imgproxy` | imgproxy's public URL; override for a dedicated host |
 | `images.imgproxy.key`, `images.imgproxy.salt` | unset | Hex-encoded signing key and salt; set both to sign URLs. Must match imgproxy's `IMGPROXY_KEY` and `IMGPROXY_SALT` |
 | `images.imgproxy.signedUrlTtl` | unset | Signed only: how long signed URLs are valid for, e.g. `"10 minutes"` (see [Expiry](#expiry)) |
