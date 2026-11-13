@@ -32,6 +32,7 @@ function getCommonConfig(config) {
   const useLocalPermissions = !isNoAuthorisation && Boolean(config.coreStackProps.PermissionsBucket);
 
   return `domain.root="${config.DOMAIN}"
+        |images.imgproxy.baseUri="https://media-imgproxy.${config.DOMAIN}"
         |content.web.baseUrl="https://notused.example.com"
         |authentication.providers.machine.config.authKeyStoreBucket="${config.coreStackProps.KeyBucket}"
         |aws.local.endpoint="https://localstack.media.${config.DOMAIN}"
@@ -223,6 +224,7 @@ function getMediaApiConfig(config) {
         |}
         |metrics.request.enabled=false
         |syndication.review.useRuntimeFieldsFix=true
+        |images.imgproxy.enabled=true
         |capi.preview.url="previewurl"
         |capi.preview.role="previewrole"
         |capi.maxRetries=3

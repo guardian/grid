@@ -79,6 +79,11 @@ deployments:
     actions:
       - deploy
 
+  imgproxy:
+    template: autoscaling
+    actions:
+      - deploy
+
   app-ami-update:
     type: ami-cloudformation-parameter
     parameters:
@@ -98,6 +103,10 @@ deployments:
           BuiltBy: amigo
           AmigoStage: PROD
           Recipe: grid-imgops-jammy
+        ImgProxyAmiId:
+          BuiltBy: amigo
+          AmigoStage: PROD
+          Recipe: media-docker-arm
 
   elasticsearch-ami-update:
     type: ami-cloudformation-parameter

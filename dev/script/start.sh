@@ -35,6 +35,10 @@ for arg in "$@"; do
     USE_TEST=true
     shift
   fi
+  if [ "$arg" == "--use-imgproxy" ]; then
+    USE_IMGPROXY=true
+    shift
+  fi
 done
 
 isInstalled() {
@@ -143,6 +147,10 @@ startPlayApps() {
   pushd "$ROOT_DIR"
   if [ "$IS_DEBUG" == true ] ; then
     SBT_OPTS="-jvm-debug 5005"
+  fi
+  if [[ $USE_IMGPROXY == true ]]; then
+    echo "Using imgproxy instead of imgops for image resizing"
+    SBT_OPTS="$SBT_OPTS -J-Dimages.imgproxy.enabled=true"
   fi
   if [[ $USE_TEST == true ]]; then
 

@@ -43,9 +43,10 @@ image.config(['$stateProvider',
             }],
 
             optimisedImageUri: ['image', 'imgops',
-                                (image, imgops) => imgops.getFullScreenUri(image)],
-            lowResImageUri: ['image', 'imgops',
-                             (image, imgops) => imgops.getLowResUri(image)]
+                                (image, imgops) => imgops.getFullScreenUri(image)]
+            // Never rendered, and no longer signed as an imgproxy size
+            // lowResImageUri: ['image', 'imgops',
+            //                  (image, imgops) => imgops.getLowResUri(image)]
         }
     });
 
