@@ -2,10 +2,11 @@ package lib.elasticsearch
 
 import com.gu.mediaservice.lib.auth.Authentication.{Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.Internal
+import com.gu.mediaservice.model.usage.PublishedUsageStatus
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import lib.querysyntax.Parser
-import play.api.libs.json.Json
+import play.api.libs.json.{JsNull, Json}
 import play.api.mvc.{AnyContentAsEmpty, Security}
 import play.api.test.FakeRequest
 
@@ -33,8 +34,18 @@ class SearchParamsTest extends AnyFunSpec with Matchers {
     Seq("cats\tdogs", "is:deleted\t").foreach { query =>
       it(s"returns a decoding failure rather than throwing for ${query.replace("\t", "<tab>")}") {
         Parser.runResult(query).isLeft shouldBe true
-        SearchParamsBody.fromJson(Json.obj("q" -> query), Internal) shouldBe Left("Invalid query syntax")
+        SearchParamsBody.fromJson(Json.obj("q" -> query), Internal) shouldBe Left(UnacceptableBody("Invalid query syntax"))
       }
+    }
+
+    it("reads list fields as arrays and null fields as absent") {
+      val params = SearchParamsBody.fromJson(Json.obj(
+        "labels" -> Json.arr("a", "b"), "usageStatus" -> Json.arr("published"), "free" -> JsNull, "since" -> JsNull
+      ), Internal).toOption.get
+      params.labels shouldBe List("a", "b")
+      params.usageStatus shouldBe List(PublishedUsageStatus)
+      params.free shouldBe None
+      params.since shouldBe None
     }
   }
 

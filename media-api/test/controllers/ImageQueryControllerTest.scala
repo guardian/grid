@@ -64,6 +64,56 @@ class ImageQueryControllerTest extends AnyFunSpec with Matchers with ScalaFuture
         }
       }
     }
+
+    val malformed: Seq[(String, JsValue, String)] = Seq(
+      ("a string free flag", Json.obj("free" -> "true"), "free"),
+      ("a string countAll", Json.obj("countAll" -> "true"), "countAll"),
+      ("a string reverse", Json.obj("reverse" -> "true"), "reverse"),
+      ("a numeric q", Json.obj("q" -> 5), "q"),
+      ("a numeric date", Json.obj("since" -> 5), "since"),
+      ("a numeric pitId", Json.obj("pitId" -> 5), "pitId"),
+      ("a string offset", Json.obj("offset" -> "4"), "offset"),
+      ("a fractional length", Json.obj("length" -> 1.5), "length"),
+      ("comma-separated labels", Json.obj("labels" -> "a,b"), "labels"),
+      ("comma-separated ids", Json.obj("ids" -> "a,b"), "ids"),
+      ("a non-string id", Json.obj("ids" -> Json.arr("a", 7)), "ids"),
+      ("null ids", Json.obj("ids" -> JsNull), "ids"),
+      ("an array body", Json.arr(Json.obj("free" -> true)), "object"),
+    )
+    val unacceptable: Seq[(String, JsValue, String)] = Seq(
+      ("an unparseable date", Json.obj("until" -> "not a date"), "until"),
+      ("an infinite duration", Json.obj("since" -> "Inf"), "since"),
+      ("an unknown syndication status", Json.obj("syndicationStatus" -> "maybe"), "syndicationStatus"),
+      ("an unknown usage status", Json.obj("usageStatus" -> Json.arr("maybe")), "usageStatus"),
+      ("an out-of-range vector weight", Json.obj("vecWeight" -> 2), "vecWeight"),
+      ("no ids", Json.obj("ids" -> Json.arr()), "ids"),
+      ("an empty id", Json.obj("ids" -> Json.arr("")), "ids"),
+    )
+
+    endpoints.foreach { case (path, action) =>
+      def refusal(body: JsValue): (Int, String, String) = {
+        val search = mock[ElasticSearch]
+        val controller = imageQueryControllerFor(ordinaryUser, search, mock[ImageResponse])
+        val result = action(controller).apply(FakeRequest("POST", s"/images/$path").withBody(body)).futureValue
+        verifyNoInteractions(search)
+        val json = jsonOf(result)
+        (result.header.status, (json \ "errorKey").as[String], (json \ "errorMessage").as[String])
+      }
+      malformed.foreach { case (name, body, mentioned) =>
+        it(s"refuses $name on /images/$path with 400 rather than ignoring it") {
+          val (status, key, message) = refusal(body)
+          (status, key) shouldBe (400, "invalid-params")
+          message should include(mentioned)
+        }
+      }
+      unacceptable.foreach { case (name, body, mentioned) =>
+        it(s"refuses $name on /images/$path with 422 rather than ignoring it") {
+          val (status, key, message) = refusal(body)
+          (status, key) shouldBe (422, "invalid-uri-parameters")
+          message should include(mentioned)
+        }
+      }
+    }
   }
 
   describe("D3 deleted search authorization") {

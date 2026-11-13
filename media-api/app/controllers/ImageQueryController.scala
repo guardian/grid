@@ -230,7 +230,10 @@ class ImageQueryController(
     SearchParamsBody.fromJson(request.body, request.user.accessor.tier)
       .map(restrictDeletedSearch(request.user))
       .fold(
-        err => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey, err)),
+        {
+          case MalformedBody(message)    => Future.successful(InvalidParamsResponse(message))
+          case UnacceptableBody(message) => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey, message))
+        },
         searchParams => SearchParams.validate(searchParams).fold(
           errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey, errors.map(_.message).mkString("; "))),
           read

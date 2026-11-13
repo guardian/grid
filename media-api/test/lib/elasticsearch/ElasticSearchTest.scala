@@ -1274,7 +1274,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
             .withBody(base ++ Json.obj("sort" -> sortClause, "q" -> query))), deleted.map(_.id).toSet)
         }
         val ordinary = imageQueryControllerFor(uploader, ES, writer)
-        Seq(Json.obj(), Json.obj("q" -> JsNull), Json.obj("q" -> 42), Json.obj("q" -> ""),
+        Seq(Json.obj(), Json.obj("q" -> JsNull), Json.obj("q" -> ""),
           Json.obj("q" -> "-is:deleted"), Json.obj("q" -> "-is:deletedx"),
           Json.obj("q" -> "-description:\"is:deleted\"")).foreach { query =>
           assertPage(ordinary.searchAfterImages().apply(FakeRequest("POST", "/images/search-after")
@@ -2531,10 +2531,10 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         withImages(aggFixtures) { _ =>
           val request = fields("metadata.credit" -> 10) ++ Json.obj("isFilters" -> Json.arr("under-quota"))
           val controller = imageQueryControllerFor(uploader, ES, writer, privileged = true)
-          Seq(Json.arr(), Json.arr(""), Json.arr("a", 7), JsString(""), JsString("a,b"), JsNull).foreach { ids =>
+          Seq(Json.arr() -> 422, Json.arr("") -> 422, Json.arr("a", 7) -> 400, JsString("") -> 400, JsString("a,b") -> 400, JsNull -> 400).foreach { case (ids, expected) =>
             val result = controller.searchAfterImages().apply(FakeRequest("POST", "/images/search-after")
               .withBody(Json.obj("ids" -> ids, "sort" -> newestFirst)))
-            whenReady(result, timeout, interval)(r => withClue(ids)(r.header.status shouldBe 422))
+            whenReady(result, timeout, interval)(r => withClue(ids)(r.header.status shouldBe expected))
           }
           aggregate(request ++ Json.obj("ids" -> Json.arr()))._1 shouldBe 422
 
@@ -3636,10 +3636,6 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       Seq(
         "absent" -> Json.obj(),
         "null" -> Json.obj("q" -> JsNull),
-        "number" -> Json.obj("q" -> 123),
-        "boolean" -> Json.obj("q" -> true),
-        "array" -> Json.obj("q" -> Json.arr("is:deleted")),
-        "object" -> Json.obj("q" -> Json.obj("query" -> "is:deleted")),
       ).foreach { case (queryType, body) =>
         it(s"applies default hiding when q is $queryType") {
           val parsed = SearchParamsBody.fromJson(body, Internal).toOption.get
@@ -3650,8 +3646,19 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         }
       }
 
+      Seq(
+        "number" -> Json.obj("q" -> 123),
+        "boolean" -> Json.obj("q" -> true),
+        "array" -> Json.obj("q" -> Json.arr("is:deleted")),
+        "object" -> Json.obj("q" -> Json.obj("query" -> "is:deleted")),
+      ).foreach { case (queryType, body) =>
+        it(s"refuses a q that is a $queryType rather than reading it as absent") {
+          SearchParamsBody.fromJson(body, Internal) shouldBe Left(MalformedBody("q must be a string when present"))
+        }
+      }
+
       it("rejects malformed q instead of silently applying only defaults") {
-        SearchParamsBody.fromJson(Json.obj("q" -> "fixture\tterm"), Internal) shouldBe Left("Invalid query syntax")
+        SearchParamsBody.fromJson(Json.obj("q" -> "fixture\tterm"), Internal) shouldBe Left(UnacceptableBody("Invalid query syntax"))
       }
 
       Seq("-is:deletedx", "-description:\"is:deleted\"", "\"usages@status:replaced\"").foreach { query =>

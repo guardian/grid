@@ -7,7 +7,7 @@ import com.gu.mediaservice.model.usage.UsageStatus
 import com.gu.mediaservice.model.{Image, PrintUsageFilters, SyndicationStatus}
 import lib.querysyntax.{AnyField, Condition, IsField, IsValue, Match, Negation, NegationNested, Parser, Phrase, SimilarField, SimilarValue, Words}
 import org.joda.time.DateTime
-import play.api.libs.json.{JsArray, JsBoolean, JsDefined, JsNull, JsNumber, JsObject, JsString, JsUndefined, JsValue, Json, OWrites}
+import play.api.libs.json.{JsArray, JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue, Json, OWrites}
 import play.api.mvc.{AnyContent, Request}
 import scalaz.syntax.std.list._
 
@@ -546,69 +546,130 @@ object SortProfileParamsBody {
       pitId        = (body \ "pitId").asOpt[String],
     )
 }
-// Parses a POST /images/search-after request body into SearchParams.
+// A wrong JSON type is malformed (400); a well-typed value the read cannot honour is unacceptable (422).
+sealed trait BodyRejection { def message: String }
+case class MalformedBody(message: String) extends BodyRejection
+case class UnacceptableBody(message: String) extends BodyRejection
+
+// Parses the shared fields of every POST image-read body into SearchParams.
 object SearchParamsBody {
-  def fromJson(body: JsValue, tier: Tier): Either[String, SearchParams] = {
-    def str(key: String):  Option[String]  = (body \ key).asOpt[String]
-    def bool(key: String): Option[Boolean] = (body \ key).asOpt[Boolean]
-    def strs(key: String): List[String]    = str(key).toList.flatMap(SearchParams.commasToList)
+  private type Field[T] = Either[BodyRejection, Option[T]]
 
-    // inline readOrderBy — private in SearchParams object, duplicated here
-    val orderBy = str("orderBy").map { ob =>
-      if (ob == "oldest") "uploadTime"
-      else if (ob == "newest") "-uploadTime"
-      else ob
+  // Null reads as absent, as in the endpoint-specific parsers; a present value is never ignored.
+  private def field[T](body: JsValue, key: String, expected: String)(read: PartialFunction[JsValue, T]): Field[T] =
+    (body \ key).toOption.filter(_ != JsNull) match {
+      case None        => Right(None)
+      case Some(value) => read.lift(value).map(Some(_)).toRight(MalformedBody(s"$key must be $expected when present"))
     }
 
-    val idScope: Either[String, Option[List[String]]] = body \ "ids" match {
-      case _: JsUndefined => Right(None)
-      case JsDefined(JsArray(values)) if values.nonEmpty && values.forall(_.asOpt[String].exists(_.nonEmpty)) =>
-        Right(Some(values.map(_.as[String]).toList))
-      case _ => Left("ids must be a non-empty array of non-empty strings")
+  private def str(body: JsValue, key: String): Field[String] = field(body, key, "a string") { case JsString(text) => text }
+  private def bool(body: JsValue, key: String): Field[Boolean] = field(body, key, "a boolean") { case JsBoolean(flag) => flag }
+  private def int(body: JsValue, key: String): Field[Int] =
+    field(body, key, "an integer") { case JsNumber(number) if number.isValidInt => number.toInt }
+  private def strs(body: JsValue, key: String): Field[List[String]] =
+    field(body, key, "an array of strings") { case JsArray(values) if values.forall(_.isInstanceOf[JsString]) =>
+      values.collect { case JsString(text) => text }.toList
     }
 
-    val query = str("q")
-    for {
-      ids <- idScope
-      structuredQuery <- Parser.runResult(query.getOrElse(""))
-    } yield
-      SearchParams(
-        query             = query,
-        structuredQuery   = structuredQuery,
-        ids               = ids,
-        offset            = (body \ "offset").asOpt[Int].getOrElse(0),
-        length            = (body \ "length").asOpt[Int].getOrElse(10),
-        orderBy           = orderBy,
-        since             = str("since").flatMap(parseDateFromQuery),
-        until             = str("until").flatMap(parseDateFromQuery),
-        modifiedSince     = str("modifiedSince").flatMap(parseDateFromQuery),
-        modifiedUntil     = str("modifiedUntil").flatMap(parseDateFromQuery),
-        takenSince        = str("takenSince").flatMap(parseDateFromQuery),
-        takenUntil        = str("takenUntil").flatMap(parseDateFromQuery),
-        archived          = bool("archived"),
-        hasExports        = bool("hasExports"),
-        hasIdentifier     = str("hasIdentifier"),
-        missingIdentifier = str("missingIdentifier"),
-        valid             = bool("valid"),
-        free              = bool("free"),
-        payType           = None, // not sent by kupua (disabled in Kahuna; live cost filter is nonFree/free boolean)
-        hasRightsCategory = bool("hasRightsCategory"),
-        hasRightsAcquired = bool("hasRightsAcquired"),
-        uploadedBy        = str("uploadedBy"),
-        labels            = strs("labels"),
-        hasMetadata       = strs("hasMetadata"),
-        persisted         = bool("persisted"),
-        usageStatus       = strs("usageStatus").map(UsageStatus(_)),
-        usagePlatform     = strs("usagePlatform"),
-        tier              = tier,
-        syndicationStatus = str("syndicationStatus").flatMap(SearchParams.parseSyndicationStatus),
-        countAll          = bool("countAll"),
-        printUsageFilters = None,
-        shouldFlagGraphicImages = false,
-        useAISearch       = None,
-        vecWeight         = str("vecWeight").flatMap(SearchParams.parseBoundedDoubleFromQuery),
-      )
+  private def accepted[A, B](value: Field[A], message: A => String)(convert: A => Option[B]): Field[B] =
+    value.flatMap {
+      case None    => Right(None)
+      case Some(a) => convert(a).map(Some(_)).toRight(UnacceptableBody(message(a)))
+    }
+
+  private def date(body: JsValue, key: String): Field[DateTime] =
+    accepted(str(body, key), (text: String) => s"$key is not a date or duration: $text")(text => Try(parseDateFromQuery(text)).toOption.flatten)
+
+  // Unlike other fields, a null or empty ID list is refused: reading it as absent would widen the scope.
+  private def ids(body: JsValue): Field[List[String]] = (body \ "ids").toOption match {
+    case None => Right(None)
+    case Some(JsArray(values)) if values.forall(_.isInstanceOf[JsString]) =>
+      val list = values.collect { case JsString(id) => id }.toList
+      if (list.isEmpty || list.exists(_.isEmpty)) Left(UnacceptableBody("ids must hold at least one ID and no empty IDs"))
+      else Right(Some(list))
+    case Some(_) => Left(MalformedBody("ids must be an array of strings when present"))
   }
+
+  def fromJson(body: JsValue, tier: Tier): Either[BodyRejection, SearchParams] =
+    for {
+      _                 <- Either.cond(body.isInstanceOf[JsObject], (), MalformedBody("the request body must be a JSON object"))
+      // Cursor fields belong to individual endpoints but are type-checked here so no endpoint can ignore one.
+      _                 <- str(body, "pitId")
+      _                 <- bool(body, "reverse")
+      _                 <- bool(body, "seekToEnd")
+      query             <- str(body, "q")
+      structuredQuery   <- Parser.runResult(query.getOrElse("")).left.map(UnacceptableBody)
+      ids               <- ids(body)
+      offset            <- int(body, "offset")
+      length            <- int(body, "length")
+      orderBy           <- str(body, "orderBy")
+      since             <- date(body, "since")
+      until             <- date(body, "until")
+      modifiedSince     <- date(body, "modifiedSince")
+      modifiedUntil     <- date(body, "modifiedUntil")
+      takenSince        <- date(body, "takenSince")
+      takenUntil        <- date(body, "takenUntil")
+      archived          <- bool(body, "archived")
+      hasExports        <- bool(body, "hasExports")
+      hasIdentifier     <- str(body, "hasIdentifier")
+      missingIdentifier <- str(body, "missingIdentifier")
+      valid             <- bool(body, "valid")
+      free              <- bool(body, "free")
+      hasRightsCategory <- bool(body, "hasRightsCategory")
+      hasRightsAcquired <- bool(body, "hasRightsAcquired")
+      uploadedBy        <- str(body, "uploadedBy")
+      labels            <- strs(body, "labels")
+      hasMetadata       <- strs(body, "hasMetadata")
+      persisted         <- bool(body, "persisted")
+      usageStatus       <- accepted(strs(body, "usageStatus"), (s: List[String]) => s"usageStatus holds an unknown status: ${s.mkString(",")}")(
+        statuses => Try(statuses.map(UsageStatus(_))).toOption)
+      usagePlatform     <- strs(body, "usagePlatform")
+      syndicationStatus <- accepted(str(body, "syndicationStatus"), (s: String) => s"unknown syndicationStatus: $s")(
+        status => Try(SyndicationStatus(status)).toOption)
+      countAll          <- bool(body, "countAll")
+      vecWeight         <- accepted(field(body, "vecWeight", "a number") { case JsNumber(number) => number.toDouble },
+        (weight: Double) => s"vecWeight must be between 0 and 1: $weight")(weight => Some(weight).filter(w => w >= 0.0 && w <= 1.0))
+    } yield SearchParams(
+      query             = query,
+      structuredQuery   = structuredQuery,
+      ids               = ids,
+      offset            = offset.getOrElse(0),
+      length            = length.getOrElse(10),
+      // inline readOrderBy — private in SearchParams object, duplicated here
+      orderBy           = orderBy.map {
+        case "oldest" => "uploadTime"
+        case "newest" => "-uploadTime"
+        case other    => other
+      },
+      since             = since,
+      until             = until,
+      modifiedSince     = modifiedSince,
+      modifiedUntil     = modifiedUntil,
+      takenSince        = takenSince,
+      takenUntil        = takenUntil,
+      archived          = archived,
+      hasExports        = hasExports,
+      hasIdentifier     = hasIdentifier,
+      missingIdentifier = missingIdentifier,
+      valid             = valid,
+      free              = free,
+      payType           = None, // not sent by kupua (disabled in Kahuna; live cost filter is nonFree/free boolean)
+      hasRightsCategory = hasRightsCategory,
+      hasRightsAcquired = hasRightsAcquired,
+      uploadedBy        = uploadedBy,
+      labels            = labels.getOrElse(Nil),
+      hasMetadata       = hasMetadata.getOrElse(Nil),
+      persisted         = persisted,
+      usageStatus       = usageStatus.getOrElse(Nil),
+      usagePlatform     = usagePlatform.getOrElse(Nil),
+      tier              = tier,
+      syndicationStatus = syndicationStatus,
+      countAll          = countAll,
+      printUsageFilters = None,
+      shouldFlagGraphicImages = false,
+      useAISearch       = None,
+      vecWeight         = vecWeight,
+    )
 }
 
 case class CompletionSuggestionResult(key: String, score: Float)
