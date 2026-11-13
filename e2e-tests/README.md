@@ -6,15 +6,11 @@ step definitions in [`steps/`](steps).
 
 ## Running the tests
 
-Before starting the stack, run `./setup/checkout-chekov` and `mkcert -install`
-from this directory. The checkout helper shallow-clones `guardian/chekov` into the ignored
-`target/chekov` directory on first use. On subsequent runs, it updates
-the checkout's `origin` to `guardian/chekov` and runs `git pull --ff-only`.
-Git and network access are required; a failed checkout or
-update stops the command before starting the stack or tests. `test:ui` and `test:log`
-also run the checkout helper automatically. CI checks out Chekov and installs the CA
-in its workflow. Set `CHEKOV_DIR` to use another checkout, or `CAROOT` to select another
-mkcert CA directory.
+Before starting the stack, run `mkcert -install`. Testcontainers pulls the published
+Chekov image `ghcr.io/guardian/chekov/nginx:<tag>`
+from GHCR when it is not already cached locally; no Chekov checkout or image build is
+required. Network access to GHCR is required for the initial pull. CI installs the CA
+in its workflow. Set `CAROOT` to select another mkcert CA directory.
 
 ### 1. CI (production mode)
 
@@ -27,7 +23,6 @@ DOCKER_BUILDKIT=1 docker build --target ci -f e2e-tests/images/Dockerfile -t gri
 
 cd e2e-tests
 npm ci
-./setup/checkout-chekov
 mkcert -install
 npx playwright install --with-deps chromium
 CI=true npm test
@@ -38,7 +33,7 @@ CI=true npm test
 the services with `sbt e2eStage` and runs the staged applications in production mode,
 so it exercises the same code paths as a deployed Grid. No source or compiled artefacts
 are baked into the image, so the build is quick and staging happens on first run.
-The stack builds and starts Chekov on ports `80` and `443` in both dev and CI.
+The stack starts the published Chekov image on ports `80` and `443` in both dev and CI.
 Chekov discovers each Grid service at its primary hostname from the port label and
 registers only additional hostnames as aliases (for example, `loader-projection.media`
 aliases `loader.media`). These names retain the existing browser origins under `<domain>`.
@@ -48,7 +43,7 @@ the Host header without custom nginx configuration. External dev-nginx mode reta
 the existing `images.media` and `public.media` origins. Direct AWS traffic remains on LocalStack.
 Chekov uses the local mkcert CA; its public certificate is installed into the Grid
 container's JVM and OS trust stores. Only Chekov receives the CA private-key directory.
-The proxy also mounts the Docker socket for discovery, so run only a trusted checkout
+The proxy also mounts the Docker socket for discovery, so run only a trusted image
 against a local development Docker daemon.
 
 Chekov joins only the stack's user-defined network, without network aliases. Grid's
